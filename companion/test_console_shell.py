@@ -87,6 +87,7 @@ def served(app_server_in_process, monkeypatch):
     one session cookie per caller."""
     server = app_server_in_process
     seeded = seed_matrix_fleet(server.state_dir)
+    server.frame_prefix = "/devices/%s" % seeded.owner_device
     monkeypatch.setattr(
         routes, "ROUTES", tuple(_console_get(p) for p in CONSOLE_PAGES) + routes.ROUTES)
     cookies = {}
@@ -147,6 +148,7 @@ def test_the_group_lists_only_the_pages_that_exist(
         app_server_in_process, monkeypatch):
     server = app_server_in_process
     seeded = seed_matrix_fleet(server.state_dir)
+    server.frame_prefix = "/devices/%s" % seeded.owner_device
     conn = fleet_db.connect(server.state_dir)
     try:
         fleet_sessions.create_session(
@@ -186,12 +188,17 @@ def test_the_console_bar_has_fleet_users_audit_and_more(served):
 
 def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
     server, cookies = served
-    _status, page = _get(server, cookies["admin"], "/")
+    # The administrator owns no frame, so the personal pages are opened on
+    # the owner's frame by its id.
+    prefix = server.frame_prefix
+    _status, page = _get(server, cookies["admin"], prefix + "/")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/", "/display", "/flights", "/health"]
+    assert _hrefs(cells) == [
+        prefix + "/", prefix + "/display", prefix + "/flights", prefix + "/health"]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet) == ["/airlines", "/device", "/account", "/fleet"]
+    assert _hrefs(sheet) == [
+        prefix + "/airlines", prefix + "/device", "/account", "/fleet"]
     assert "Admin<" not in page and "Administration" not in _sidebar(page)
 
 
@@ -200,7 +207,7 @@ def test_the_switch_is_in_the_header_for_an_admin_and_absent_for_a_user(served):
     _status, console = _get(server, cookies["admin"], "/fleet")
     header = console[console.index('<header class="site-header"'):console.index("</header>")]
     assert re.search(r'class="space-switch space-switch--header" href="/"', header)
-    _status, mine = _get(server, cookies["admin"], "/")
+    _status, mine = _get(server, cookies["admin"], server.frame_prefix + "/")
     header = mine[mine.index('<header class="site-header"'):mine.index("</header>")]
     assert re.search(r'href="/fleet"[^>]*>Console<', header)
     _status, account = _get(server, cookies["owner"], "/account")

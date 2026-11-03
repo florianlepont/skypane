@@ -43,7 +43,7 @@ def app(make_app_server):
     app = start_fleet_app(make_app_server, seed_extra=_seed_each)
     # The first request creates fleet.db's SQLite sidecars; snapshots follow it.
     get(app, "/devices/%s/display" % app.fleet.dev_a.id)
-    get(app, "/display")
+    get(app, "/devices/%s/display" % app.fleet.live.id)
     return app
 
 
@@ -93,7 +93,8 @@ def test_live_illustration_upload_writes_only_the_root(app):
     before = snapshot_all(app.server, fleet)
     status, headers = _post_upload(app, "/illustration/air-france.png")
     assert status == 303
-    assert headers["Location"].startswith("/airlines?flash=")
+    # The un-prefixed POST acts on the served frame; the redirect names it by id.
+    assert headers["Location"].startswith(_prefix(fleet.live) + "/airlines?flash=")
     assert os.path.exists(
         illustrations.override_path_for_key("air-france", app.server.state_dir))
     _others_unchanged(app, fleet.live, before)
@@ -132,7 +133,7 @@ def test_live_manual_resolve_writes_only_the_root(app):
     status, headers, _ = post(
         app, "/airlines/resolve", {"prefix": "XQZ", "airline_name": RESOLVED_NAME})
     assert status == 303
-    assert headers["Location"].startswith("/airlines?")
+    assert headers["Location"].startswith(_prefix(fleet.live) + "/airlines?")
     assert "XQZ" in manual_resolutions.load_manual_resolutions(app.server.state_dir)
     _others_unchanged(app, fleet.live, before)
 
@@ -284,13 +285,14 @@ def test_calendar_connect_writes_only_that_devices_link(in_process_fleet):
     assert calendar_rules.configured_calendar_url(fleet.live.state_dir) == "https://old.example/x.ics"
 
 
-def test_calendar_connect_for_the_live_frame_stays_unprefixed(in_process_fleet):
+def test_calendar_connect_for_the_live_frame_returns_under_its_fleet_id(in_process_fleet):
     harness = in_process_fleet
     fleet = harness.fleet
     dev_a_before = snapshot(fleet.dev_a.state_dir)
     status, headers = harness.connect(fleet.live, [])
     assert status == 303
-    assert headers["Location"].startswith("/display?flash=calendar_connect_ok")
+    assert headers["Location"].startswith(
+        "/devices/%s/display?flash=calendar_connect_ok" % fleet.live.id)
     assert calendar_rules.configured_calendar_url(fleet.live.state_dir) == CALENDAR_URL
     assert snapshot(fleet.dev_a.state_dir) == dev_a_before
 

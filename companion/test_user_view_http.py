@@ -175,8 +175,15 @@ def test_the_unprefixed_frame_routes_are_admin_only(rig, template):
 
 
 @pytest.mark.parametrize("path", ["/", "/display", "/flights", "/health", "/airlines"])
-def test_an_admin_reaches_the_unprefixed_pages(rig, path):
-    assert rig.get(path, "admin")[0] == 200
+def test_an_admin_moves_from_the_personal_pages_to_their_own_frame(rig, path):
+    status, headers, _body = rig.get(path, "admin")
+    if path == "/health":
+        assert status == 200
+        return
+    assert status == 303
+    location = headers["Location"]
+    assert re.fullmatch(r"/devices/d_[0-9a-f]{8}" + re.escape(path), location)
+    assert rig.get(location, "admin")[0] == 200
 
 
 @pytest.mark.parametrize("path", ["/device", "/update", "/runway-image/06-24.png"])

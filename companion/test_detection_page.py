@@ -428,11 +428,15 @@ def test_scoped_anonymous_goes_to_sign_in(rig):
     assert status == 303 and headers["Location"].startswith("/login")
 
 
-def test_scoped_unprefixed_form_is_admin_only(rig):
+def test_scoped_unprefixed_form_follows_the_frame_rule(rig):
     status, headers, _body = rig.get("owner", "/detection")
     assert status == 303
     assert headers["Location"] == rig.scope() + "/detection"
-    assert rig.get("admin", "/detection")[0] == 200
+    # The administrator owns no frame here, so the account page; any frame is
+    # still open by its id.
+    status, headers, _body = rig.get("admin", "/detection")
+    assert (status, headers["Location"]) == (303, "/account")
+    assert rig.get("admin", rig.scope() + "/detection")[0] == 200
 
 
 def test_other_users_device_404_on_get_and_post_and_nothing_is_written(rig):

@@ -137,17 +137,26 @@ def test_resolve_on_the_collection_sends_an_administrator_to_the_editor(rig):
     status, headers, _b = rig.get("admin", frame + "/airlines?resolve=XYZ")
     assert status == 303
     assert headers["Location"] == frame + "/airlines/manage?resolve=XYZ"
+    # Without a prefix the administrator is first moved to their own frame's
+    # page, which then moves on to the editor.
+    live = rig.prefix(rig.seed.live_id)
     status, headers, _b = rig.get("admin", "/airlines?resolve=XYZ")
-    assert status == 303
-    assert headers["Location"] == "/airlines/manage?resolve=XYZ"
+    assert (status, headers["Location"]) == (303, live + "/airlines?resolve=XYZ")
+    status, headers, _b = rig.get("admin", headers["Location"])
+    assert (status, headers["Location"]) == (303, live + "/airlines/manage?resolve=XYZ")
 
 
 def test_the_resolve_value_is_re_encoded_never_echoed(rig):
     raw = "A B&next=//evil.example/"
+    live = rig.prefix(rig.seed.live_id)
     status, headers, _b = rig.get(
         "admin", "/airlines?resolve=" + urllib.parse.quote(raw, safe=""))
     assert status == 303
-    assert headers["Location"] == "/airlines/manage?" + urllib.parse.urlencode(
+    assert headers["Location"] == live + "/airlines?" + urllib.parse.urlencode(
+        {"resolve": raw})
+    status, headers, _b = rig.get("admin", headers["Location"])
+    assert status == 303
+    assert headers["Location"] == live + "/airlines/manage?" + urllib.parse.urlencode(
         {"resolve": raw})
     assert "&next=" not in headers["Location"]
 

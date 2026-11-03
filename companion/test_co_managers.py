@@ -373,7 +373,8 @@ def test_the_unprefixed_add_is_admin_only(rig):
         assert status == 404
     status, headers, _b = rig.post(
         "admin", cards.ADD_ROUTE, {"email": INVITEE}, prefixed=False)
-    assert status == 303 and headers["Location"] == "/?flash=%s" % cards.FLASH_ADDED
+    assert status == 303 and headers["Location"] == "/devices/%s/?flash=%s" % (
+        rig.seed.live_id, cards.FLASH_ADDED)
     live = rig.db(lambda c: [r["user_id"] for r in fleet_db.list_co_managers(
         c, rig.seed.live_id)])
     assert live == [rig.invitee_id]

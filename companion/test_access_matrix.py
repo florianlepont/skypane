@@ -486,7 +486,11 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
 
     status, headers, body = rig.request(method, path, cookie)
 
-    if expected == "allow":
+    if expected == "allow" and _admin_moves_to_account(key, name):
+        assert status == 303
+        assert headers["Location"] == matrix_rows_landing.ADMIN_FRAMELESS_TARGET
+        assert stubbed.calls == []
+    elif expected == "allow":
         assert status == 200 and body == REACHED_BODY
         assert stubbed.calls == [(method, path)]
     elif expected == "login":
@@ -502,6 +506,14 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
         assert status == 404
         assert body == _unknown_path_404(rig, cookie)
         assert stubbed.calls == []
+
+
+def _admin_moves_to_account(key, name):
+    """An administrator with no frame of their own is sent from the personal
+    pages to the account page; the matrix administrator owns none."""
+    return (
+        name == "admin" and key[0] == "GET"
+        and key[1] in matrix_rows_landing.FRAME_PAGE_REDIRECTS)
 
 
 def _moves_to_own_frame(key, name):
@@ -842,11 +854,11 @@ def test_a_legacy_session_is_refused_whatever_the_retired_flag_says(
 
 def test_a_demoted_admin_loses_admin_pages_without_signing_in_again(rig, stubbed):
     uid, cookie = _user_with_session(rig, "demoted@example.test", role="admin")
-    assert rig.request("GET", "/", cookie)[0] == 200
+    assert rig.request("GET", "/health", cookie)[0] == 200
     conn = rig.conn()
     try:
         conn.execute("UPDATE users SET role = 'user' WHERE id = ?", (uid,))
     finally:
         conn.close()
-    assert rig.request("GET", "/", cookie)[0] == 404
+    assert rig.request("GET", "/health", cookie)[0] == 404
     assert rig.request("GET", "/account", cookie)[0] == 200

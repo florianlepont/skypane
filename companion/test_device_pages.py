@@ -112,7 +112,7 @@ def test_flights_pages_show_only_their_own_device(two_devices):
     app = two_devices
     flights_a = _page(app, app.fleet.dev_a, "flights")
     flights_b = _page(app, app.fleet.dev_b, "flights")
-    live = get(app, "/flights")[2]
+    live = _page(app, app.fleet.live, "flights")
     assert CALLSIGN_A in flights_a
     assert CALLSIGN_B not in flights_a and CALLSIGN_LIVE not in flights_a
     assert CALLSIGN_B in flights_b
@@ -247,14 +247,14 @@ def test_home_shows_each_devices_own_picture(two_devices):
     app = two_devices
     home_a = _page(app, app.fleet.dev_a, "")
     home_b = _page(app, app.fleet.dev_b, "")
-    live = get(app, "/")[2]
+    live = _page(app, app.fleet.live, "")
     prefix_a = "/devices/%s" % app.fleet.dev_a.id
     prefix_b = "/devices/%s" % app.fleet.dev_b.id
     assert "%s/gallery/%s" % (prefix_a, GALLERY_A) in home_a
     assert GALLERY_B not in home_a and GALLERY_LIVE not in home_a
     assert "%s/gallery/%s" % (prefix_b, GALLERY_B) in home_b
     assert GALLERY_A not in home_b and GALLERY_LIVE not in home_b
-    assert 'src="/gallery/%s"' % GALLERY_LIVE in live
+    assert 'src="/devices/%s/gallery/%s"' % (app.fleet.live.id, GALLERY_LIVE) in live
     assert GALLERY_A not in live and GALLERY_B not in live
 
 
@@ -298,8 +298,9 @@ def test_home_links_and_switches_stay_inside_the_device(two_devices):
     assert 'name="return_to" value="/"' in page
 
 
-def test_live_home_links_stay_unprefixed(two_devices):
+def test_live_home_links_use_the_live_frames_own_prefix(two_devices):
     app = two_devices
-    page = get(app, "/")[2]
+    page = _page(app, app.fleet.live, "")
+    prefix = "/devices/%s/" % app.fleet.live.id
     links = [h for h in _hrefs(page) if h.endswith(("/flights", "/health"))]
-    assert links and all(h.startswith("/") and not h.startswith("/devices/") for h in links)
+    assert links and all(h.startswith(prefix) for h in links)

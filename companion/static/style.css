@@ -1785,6 +1785,35 @@ details.frame-switcher[open] > .frame-switcher__summary::before {
   }
 }
 
+/* The strip an administrator sees on a personal page of someone else's frame:
+ * who owns it and the way back to Fleet. Wraps rather than overflows. */
+.frame-notice {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-md);
+  min-height: 44px;
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-secondary);
+  color: var(--color-text);
+  border-radius: var(--radius-card);
+  font-size: var(--font-label-size);
+  overflow-wrap: anywhere;
+}
+
+.frame-notice__text {
+  min-width: 0;
+}
+
+.frame-notice__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: var(--font-label-size);
+}
+
 .refresh-pill {
   display: inline-flex;
   align-items: center;

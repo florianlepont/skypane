@@ -384,7 +384,12 @@ def test_cancel_in_carried_state_returns_to_stored_value(new_context, make_app_s
     _wait_for_bar(page)
     with page.expect_navigation():
         page.click("[data-dirty-cancel]")
-    if page.url.split("#")[0] != server.base_url() + "/detection":
+    # The administrator's own frame is addressed by its id, so the plain page
+    # is that frame's /detection.
+    plain = page.url.split("#")[0].split("?")[0]
+    if not re.fullmatch(
+            re.escape(server.base_url()) + r"/devices/d_[0-9a-f]{8}/detection", plain) \
+            or "?" in page.url.split("#")[0]:
         raise AssertionError("Cancel landed on %s" % page.url)
     if not page.is_checked("#detection-mode-position"):
         page.click(MODE_POSITION_LABEL)

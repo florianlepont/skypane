@@ -109,7 +109,16 @@ def test_row_menus_follow_the_frame_state(fleet):
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     rows = _rows(page)
     owned = rows[seed.owned_id]
-    assert "Open frame" in owned and "/devices/%s/" % seed.owned_id in owned
+    prefix = "/devices/%s" % seed.owned_id
+    assert "Open frame" not in owned
+    labels = re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', owned)
+    assert labels == [
+        "Health", "Device", "Open personal view", "Manage access", "Reassign", "Retire"]
+    assert 'href="%s/health"' % prefix in owned
+    assert 'href="%s/device"' % prefix in owned
+    assert 'href="%s/"' % prefix in owned
+    # The name links to the frame's Health page.
+    assert re.search(r'<a class="entity-row__title" href="%s/health">' % prefix, owned)
     assert 'href="#dlg-access-%s"' % _slug(seed.owned_id) in owned
     assert 'href="#dlg-reassign-%s"' % _slug(seed.owned_id) in owned
     assert 'href="#dlg-retire-%s"' % _slug(seed.owned_id) in owned
@@ -117,6 +126,8 @@ def test_row_menus_follow_the_frame_state(fleet):
     live = rows[seed.live_id]
     assert 'href="#dlg-reassign-%s"' % _slug(seed.live_id) in live
     assert "dlg-retire" not in live
+    assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', live)[:3] == [
+        "Health", "Device", "Open personal view"]
     assert "row-menu" not in rows["New frame"]
     retired = rows["Attic"]
     assert 'href="#dlg-reactivate-%s"' % _slug(seed.retired_id) in retired

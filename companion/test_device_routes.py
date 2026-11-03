@@ -169,7 +169,7 @@ def _seed_crawl_rows(fleet):
 def crawl_app(module_app_server_factory):
     from companion.test_device_helpers import get, start_fleet_app
     app = start_fleet_app(module_app_server_factory, seed_extra=_seed_crawl_rows)
-    get(app, "/display")
+    get(app, "/devices/%s/display" % app.fleet.live.id)
     return app
 
 
@@ -288,8 +288,19 @@ class TestPrefixCrawl:
         assert any(page.startswith("/airlines/manage?resolve=") for page in CRAWL_PAGES)
 
     @pytest.mark.parametrize("page", CRAWL_PAGES)
-    def test_a_single_device_fleet_never_mentions_a_device_prefix(self, single_device_app, page):
+    def test_a_single_device_fleet_addresses_its_frame_by_its_own_id(
+            self, single_device_app, page):
         from companion.test_device_helpers import get
-        status, _headers, body = get(single_device_app, page)
+        from server import fleet_db
+        conn = fleet_db.connect_readonly(single_device_app.server.state_dir)
+        try:
+            frame = str(fleet_db.list_devices(conn)[0]["id"])
+        finally:
+            conn.close()
+        status, _headers, body = get(single_device_app, "/devices/%s%s" % (frame, page))
         assert status == 200, page
-        assert "/devices/" not in body, page
+        # Every frame address on the page names that one frame.
+        assert set(re.findall(r"/devices/([^/\"'?#]+)", body)) == {frame}, page
+        # The Console pages for the served frame still resolve without a prefix.
+        if page.split("?")[0] in ("/device", "/health", "/airlines/manage"):
+            assert get(single_device_app, page)[0] == 200, page

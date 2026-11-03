@@ -146,7 +146,7 @@ def test_an_admin_display_without_any_location_has_no_picker(rig):
 
 def test_the_live_frame_page_of_an_admin_shows_the_picker(rig):
     rig.add_location("Platform Place")
-    status, body = rig.get("/display", "admin")
+    status, body = rig.get("/devices/%s/display" % rig.fleet.live, "admin")
     assert status == 200 and PICKER_ID in body
 
 

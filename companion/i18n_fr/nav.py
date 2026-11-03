@@ -43,6 +43,10 @@ MESSAGES = {
     "nav.switch_to_my_views": "Passer à vos propres vues",
     "nav.switch_to_console": "Passer à la console d’administration",
 
+    # The strip an administrator sees on a personal page of someone else's frame.
+    "nav.frame_notice_viewing": "Cadre de %s en consultation",
+    "nav.frame_notice_back": "Retour à la flotte",
+
     "nav.language": "Langue",
     "nav.theme": "Thème",
 

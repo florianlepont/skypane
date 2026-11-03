@@ -77,8 +77,8 @@ def test_device_pages_render_for_a_known_device(fleet_app, route):
 
 
 def test_live_frame_pages_still_read_the_root(fleet_app):
-    server, _fleet, cookie = fleet_app
-    status, _, page = _get(server, "/flights", cookie)
+    server, fleet, cookie = fleet_app
+    status, _, page = _get(server, "/devices/%s/flights" % fleet.live.id, cookie)
     assert status == 200
     assert CALLSIGN_LIVE in page
     assert CALLSIGN_A not in page and CALLSIGN_B not in page
@@ -143,8 +143,10 @@ def test_legacy_redirects_keep_the_device_prefix(fleet_app, legacy, target):
     status, headers, _ = http_request(server.base_url() + prefix + legacy, cookie=cookie)
     assert status == 303
     assert headers.get("Location") == prefix + target
+    # Without a prefix the legacy path acts on the served frame, which a
+    # fleet row addresses by its own id.
     status, headers, _ = http_request(server.base_url() + legacy, cookie=cookie)
-    assert headers.get("Location") == target
+    assert headers.get("Location") == "/devices/%s%s" % (fleet.live.id, target)
 
 
 def test_history_scope_is_opened_on_the_device_directory(fleet_app):

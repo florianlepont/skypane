@@ -154,16 +154,27 @@ class TestPathHelpers:
         assert device_scope.target_path("/health", other) == "/devices/%s/health" % other.id
         assert device_scope.target_path(
             "/devices/d_1a2b3c4d/health", other) == "/devices/%s/health" % other.id
-        assert device_scope.target_path("/devices/d_1a2b3c4d/health", live) == "/health"
+        assert device_scope.target_path(
+            "/devices/d_1a2b3c4d/health", live) == "/devices/%s/health" % live.id
+        synthetic = device_scope.Device(
+            device_scope.LIVE_ID, "x", "legacy", "", state_dir, True)
+        assert device_scope.target_path(
+            "/devices/d_1a2b3c4d/health", synthetic) == "/health"
 
     def test_scoped_without_scope_is_identity(self):
         assert device_scope.scoped("/health") == "/health"
         assert device_scope.current_prefix() == ""
 
-    def test_scoped_for_live_frame_is_identity(self, fleet):
+    def test_scoped_for_the_live_frame_uses_its_fleet_id(self, fleet):
         state_dir, _ = fleet
         live = device_scope.live_device(state_dir)
         device_scope.set_request_scope(live, [live])
+        assert device_scope.scoped("/health") == "/devices/%s/health" % live.id
+
+    def test_scoped_for_a_live_frame_without_a_fleet_row_is_identity(self, tmp_path):
+        synthetic = device_scope.live_device(str(tmp_path))
+        assert synthetic.id == device_scope.LIVE_ID
+        device_scope.set_request_scope(synthetic, [synthetic])
         assert device_scope.scoped("/health") == "/health"
 
     def test_scoped_with_a_device(self, fleet):

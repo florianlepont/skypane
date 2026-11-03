@@ -173,13 +173,29 @@ def load_devices_for(root, principal):
     return _devices_from_rows(root, visible, False)
 
 
+def personal_frames_for(root, principal):
+    """The frames `principal` owns or co-manages (any role), built from fleet
+    rows only: no synthetic live fallback, and an administrator's other frames
+    are not included. Empty for no principal or one without a user id."""
+    if principal is None or principal.user_id is None:
+        return []
+    shared = _co_managed_ids(root, principal.user_id)
+    mine = [
+        row for row in _fleet_rows(root)
+        if _owner_of(row) == principal.user_id or str(row["id"]) in shared]
+    return _devices_from_rows(root, mine, False)
+
+
+def has_fleet_rows(root):
+    """True when a migrated fleet.db holds at least one device row."""
+    return bool(_fleet_rows(root))
+
+
 def default_frame_for(root, principal):
-    """The frame a signed-in user lands on: the first of the frames they own
-    or co-manage by name (case-insensitive) then id, or None for a user with
-    no frame and for any other principal. Built from fleet data only."""
-    if principal is None or principal.role != access.USER:
-        return None
-    frames = load_devices_for(root, principal)
+    """The frame a signed-in user or administrator lands on: the first of the
+    frames they own or co-manage by name (case-insensitive) then id, or None
+    when they have none. Built from fleet data only."""
+    frames = personal_frames_for(root, principal)
     if not frames:
         return None
     return min(frames, key=lambda d: (d.name.casefold(), d.id))
@@ -332,6 +348,22 @@ def _owner_emails(root, user_ids):
         conn.close()
 
 
+def foreign_frame_owner_email():
+    """The owner's email when this request's administrator is viewing a frame
+    they neither own nor co-manage, else None (a user, a frame of their own, a
+    frame with no owner or no scope). Only an administrator ever gets it."""
+    device, _devices, viewer_id, root = _SCOPE_CTX.get()
+    principal = prefs.current_principal()
+    if device is None or viewer_id is None or principal is None \
+            or principal[1] != access.ADMIN or root is None:
+        return None
+    owner = device.owner_user_id
+    if owner is None or owner == viewer_id \
+            or device.id in _co_managed_ids(root, viewer_id):
+        return None
+    return _owner_emails(root, [owner]).get(owner)
+
+
 def _switcher_devices(device, devices, viewer_id, root):
     """The scope's devices the switcher lists, and the co-managed ids. A user's
     scope is already their own frames. An administrator's scope is every frame,
@@ -365,12 +397,10 @@ def switcher_entries():
 
 
 def _unprefixed(device):
-    """True when `device` is addressed without a /devices/<id> prefix. The
-    un-prefixed form acts on the live frame and is admin-only, so a user
-    always gets the prefixed form with the frame's real id."""
-    if not device.is_live:
-        return False
-    return not _is_user_view() or device.id == LIVE_ID
+    """True when `device` is addressed without a /devices/<id> prefix: only
+    the synthetic live entry that has no fleet row. Every device with a fleet
+    row is addressed by its id, for every principal."""
+    return device.id == LIVE_ID
 
 
 def selector_value(device):

@@ -88,7 +88,7 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
         finally:
             conn.close()
         assert device is not None and device["owner_user_id"] == seed.owner_id
-        assert page.locator("a.entity-row__title[href='/devices/%s/']" % device["id"]).count() == 1
+        assert page.locator("a.entity-row__title[href='/devices/%s/health']" % device["id"]).count() == 1
     finally:
         context.close()
 
