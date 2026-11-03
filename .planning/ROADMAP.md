@@ -98,13 +98,13 @@ Plans:
 
 ### Phase 47.1: Wake-energy instrumentation and awake-time reduction (INSERTED)
 
-**Goal**: The owner can see what every wake of the frame costs and why, can rely on a reproducible per-wake energy model with its uncertainty, and the awake time of a wake is cut without changing what the frame shows or any safety override.
+**Goal**: The owner can see what every wake of the frame costs and why, can rely on a reproducible per-wake energy model with its uncertainty, and the energy of a redraw wake is cut without changing what the frame shows or any safety override.
 **Depends on**: Phase 47 (its two-cadence finding on the old 3000 mAh pack: the standing draw is at most about 1 mA, the cost of a wake is not constant, 0.5 to 2 mAh)
 **Requirements**: WAKE-01, WAKE-02, WAKE-03, WAKE-04
 **Success Criteria** (what must be TRUE):
   1. Every wake reports how long the frame was awake and what it did (boot, Wi-Fi connection and attempts, download, whether the screen was redrawn, total awake time), the server stores it next to the battery reading, and the read-only export returns it.
   2. A committed, tested tool fits the per-wake energy of a wake without redraw, of a wake with redraw, and the standing draw from the stored history and the voltage trend, and prints the result with its uncertainty and the assumptions it rests on (rated capacity, discharge curve); no figure is presented as a current measurement.
-  3. The awake time of a wake without redraw is reduced by a stated, measured amount against the baseline recorded before the change, with the image shown, the hash-skip behaviour, quiet hours, display-off and battery-critical overrides unchanged.
+  3. The energy of a wake that redraws the screen is reduced by a stated, measured amount against the baseline recorded before the change (shorter image download, shorter panel wait, or another lever the measured breakdown supports), with the image shown, the hash-skip behaviour, quiet hours, display-off and battery-critical overrides unchanged.
   4. The model is checked on the new pack: its discharge curve is derived from the calibrated per-wake cost, and the predicted autonomy at the chosen interval is stated with its range.
 **Plans**: TBD (run /gsd-plan-phase 47.1)
 

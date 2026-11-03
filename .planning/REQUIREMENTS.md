@@ -36,7 +36,7 @@
 
 - [ ] **WAKE-01**: Every wake of the frame reports how long it was awake and what it did (boot, Wi-Fi connection and attempts, download, whether the screen was redrawn, total awake time), the server stores it with the battery reading, and the read-only export returns it.
 - [ ] **WAKE-02**: A reproducible, tested tool fits the energy of a wake without redraw, of a wake with redraw, and the standing draw from the stored history and the voltage trend, and prints the result with its uncertainty and its assumptions; it never presents a figure as a current measurement.
-- [ ] **WAKE-03**: The awake time of a wake without redraw is reduced by a measured amount against a baseline recorded before the change, without changing the image shown, the hash-skip behaviour, quiet hours, display-off or battery-critical overrides.
+- [ ] **WAKE-03**: The energy of a wake that redraws the screen, the dominant cost, is reduced by a measured amount against a baseline recorded before the change, through a shorter redraw wake (image download, panel wait) and any other measured lever, without changing what the frame shows when the image changes, the hash-skip behaviour, quiet hours, display-off or battery-critical overrides.
 - [ ] **WAKE-04**: The model is checked on the replacement pack: the pack's discharge curve is derived from the calibrated per-wake cost and the predicted autonomy at the chosen interval is stated with its range.
 
 ## Future Requirements
