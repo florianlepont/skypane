@@ -13,6 +13,8 @@
  * depended on — see firmware/main/nvs_schema.h. */
 #pragma once
 
+#include <stdint.h>
+
 #include "esp_err.h"
 
 /* Bring up the Wi-Fi/netif/event-loop platform. Idempotent — safe to
@@ -26,6 +28,11 @@ esp_err_t fp_wifi_platform_init(void);
  * FP_ERR_CONFIG (api_client.h) without any radio activity if the
  * provisioned credentials are missing or invalid. */
 esp_err_t fp_wifi_connect(int timeout_ms);
+
+/* Association attempts made by the most recent fp_wifi_connect(): the first
+ * attempt plus each retry, at most 4. 0 when no join has been started this
+ * boot. Read-only; it changes nothing about the retry behaviour. */
+uint32_t fp_wifi_attempts(void);
 
 /* 0 if unknown (not connected, or no AP info available). */
 int fp_wifi_rssi(void);

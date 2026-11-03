@@ -74,6 +74,11 @@ for test_src in "${SCRIPT_DIR}"/test_*.c; do
     run_suite "${name}" "${test_src}" "${impl_src}" ${extra}
 done
 
+echo "== check_panel_diff =="
+if ! sh "${SCRIPT_DIR}/check_panel_diff.sh"; then
+    FAIL=1
+fi
+
 if [ "${COUNT}" -eq 0 ]; then
     echo "== summary: no test_*.c suites found =="
     FAIL=1

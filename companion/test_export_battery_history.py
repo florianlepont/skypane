@@ -19,7 +19,11 @@ from server import history_db
 
 PATH = "/api/export/battery-history"
 TOKEN_ENV = "SKYPANE_EXPORT_TOKEN"
-KEYS = ["ts", "battery_mv", "fw_version", "boot_reason", "rssi"]
+WAKE_KEYS = [
+    "wake_seq", "boot_ms", "wifi_ms", "wifi_attempts", "prev_seq",
+    "prev_awake_ms", "prev_request_ms", "prev_download_ms", "prev_draw_ms",
+    "prev_spi_ms", "prev_tls_ms", "prev_redraw", "prev_outcome"]
+KEYS = ["ts", "battery_mv", "fw_version", "boot_reason", "rssi"] + WAKE_KEYS
 UNKNOWN_PATH = "/no-such-page-anywhere"
 
 
@@ -407,3 +411,52 @@ def test_more_rows_than_the_cap_is_a_413_never_a_truncation(
         server, _since_query(base - timedelta(hours=1)), _bearer(token))
     assert status == 200
     assert len(_lines(body)) == 5
+
+
+def test_new_keys_are_null_for_old_rows_and_filled_for_wake_rows(make_app_server, token):
+    base = _now() - timedelta(hours=2)
+
+    def seed(state_dir):
+        conn = history_db.connect(state_dir)
+        try:
+            history_db.record_device_health(conn, _stamp(base), 4000, "1.0", "timer", "-60")
+            history_db.record_device_health(
+                conn, _stamp(base + timedelta(minutes=5)), 3990, "1.1", "timer", "-61",
+                wake_stats={"wake_seq": 9, "prev_outcome": "ok", "prev_awake_ms": 1500})
+        finally:
+            conn.close()
+
+    server = make_app_server(seed=seed, env_overrides={TOKEN_ENV: token})
+    status, _h, body = _get(
+        server, _since_query(base - timedelta(hours=1)), _bearer(token))
+    assert status == 200
+    old, new = _lines(body)
+    assert all(old[k] is None for k in WAKE_KEYS)
+    assert (new["wake_seq"], new["prev_outcome"], new["prev_awake_ms"]) == (9, "ok", 1500)
+    assert new["boot_ms"] is None
+
+
+def test_an_unmigrated_database_still_exports_the_old_values(make_app_server, token):
+    base = _now() - timedelta(hours=2)
+
+    def seed(state_dir):
+        import sqlite3
+        raw = sqlite3.connect(os.path.join(state_dir, "history.db"))
+        raw.execute(
+            "CREATE TABLE device_health (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, "
+            "battery_mv INTEGER, fw_version TEXT, boot_reason TEXT, rssi TEXT, "
+            "UNIQUE(ts, battery_mv))")
+        raw.execute(
+            "INSERT INTO device_health (ts, battery_mv, fw_version, boot_reason, rssi) "
+            "VALUES (?, 4000, '1.0', 'timer', '-60')", (_stamp(base),))
+        raw.commit()
+        raw.close()
+
+    server = make_app_server(seed=seed, env_overrides={TOKEN_ENV: token})
+    status, _h, body = _get(
+        server, _since_query(base - timedelta(hours=1)), _bearer(token))
+    assert status == 200
+    (item,) = _lines(body)
+    assert list(item) == KEYS
+    assert (item["ts"], item["battery_mv"], item["rssi"]) == (_stamp(base), 4000, "-60")
+    assert all(item[k] is None for k in WAKE_KEYS)

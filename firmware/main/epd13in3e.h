@@ -20,3 +20,4 @@
 esp_err_t epd_init(void);                   /* bus + GPIO + panel registers */
 esp_err_t epd_blit(const uint8_t *buf);     /* EPD_BYTES; DTM+PON+DRF+POF  */
 void epd_sleep(void);                       /* panel deep sleep, power off */
+uint32_t epd_spi_ms(void);                  /* last blit's SPI transfer, ms */

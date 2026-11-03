@@ -195,3 +195,67 @@ def test_shrunk_file_still_resets_offset_to_zero(tmp_path):
         assert second == 1, (
             "a rotated (shrunk) file must reset the offset to 0 and re-ingest from the start, got %d rows" % second
         )
+
+
+# --- X-Wake-Stats ingestion --------------------------------------------------
+
+_WAKE_VALUE = (
+    "v=1;seq=812;bt=420;wf=1900;att=1;p_seq=811;p_aw=1480;p_rq=310;"
+    "p_dl=0;p_dr=0;p_sp=0;p_tls=650;p_rd=0;p_out=ok")
+
+
+def _ingest_rows(tmp_path, headers_list):
+    state_dir = str(tmp_path)
+    log_path = os.path.join(state_dir, "caddy-access.log")
+    with open(log_path, "w", encoding="utf-8") as fh:
+        for i, headers in enumerate(headers_list):
+            fh.write(_caddy_log_line(
+                "/device/v1/display", f"2026-09-02T10:0{i}:00Z", headers) + "\n")
+    with history_db.open_db(state_dir) as conn:
+        ingest_caddy_battery_log(conn, log_path)
+        return [dict(r) for r in conn.execute(
+            "SELECT * FROM device_health ORDER BY ts")]
+
+
+def test_valid_wake_stats_header_is_stored_with_the_wake_columns(tmp_path):
+    rows = _ingest_rows(tmp_path, [
+        {"X-Battery-Mv": ["3700"], "X-Wake-Stats": [_WAKE_VALUE]}])
+    assert rows[0]["battery_mv"] == 3700
+    assert rows[0]["wake_seq"] == 812
+    assert rows[0]["wifi_ms"] == 1900
+    assert rows[0]["prev_seq"] == 811
+    assert rows[0]["prev_awake_ms"] == 1480
+    assert rows[0]["prev_outcome"] == "ok"
+
+
+def test_malformed_wake_stats_keeps_the_battery_row_with_null_wake_columns(tmp_path):
+    rows = _ingest_rows(tmp_path, [
+        {"X-Battery-Mv": ["3700"], "X-Fw-Version": ["1.2.3"],
+         "X-Wake-Stats": ["v=1;seq=1;bogus=2"]}])
+    assert rows[0]["battery_mv"] == 3700
+    assert rows[0]["fw_version"] == "1.2.3"
+    for column in history_db.WAKE_COLUMNS:
+        assert rows[0][column] is None
+
+
+def test_line_without_the_header_stores_null_wake_columns(tmp_path):
+    rows = _ingest_rows(tmp_path, [{"X-Battery-Mv": ["3700"]}])
+    assert rows[0]["battery_mv"] == 3700
+    assert all(rows[0][c] is None for c in history_db.WAKE_COLUMNS)
+
+
+def test_wake_after_an_ota_has_no_prev_block_and_a_seq_gap_is_accepted(tmp_path):
+    rows = _ingest_rows(tmp_path, [
+        {"X-Battery-Mv": ["3700"], "X-Wake-Stats": [_WAKE_VALUE]},
+        {"X-Battery-Mv": ["3690"],
+         "X-Wake-Stats": ["v=1;seq=830;bt=400;wf=1500;att=1"]}])
+    assert [r["wake_seq"] for r in rows] == [812, 830]
+    assert rows[1]["prev_seq"] is None
+    assert rows[1]["prev_awake_ms"] is None
+    assert rows[1]["prev_outcome"] is None
+
+
+def test_headers_outside_the_allowlist_never_reach_the_database(tmp_path):
+    rows = _ingest_rows(tmp_path, [
+        {"X-Battery-Mv": ["3700"], "Authorization": ["Bearer secret-token-value"]}])
+    assert "secret-token-value" not in json.dumps(rows)

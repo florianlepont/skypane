@@ -23,6 +23,7 @@
 #include "esp_err.h"
 
 #include "validate.h"
+#include "wake_telemetry.h"
 
 /* 1200*1600 pixels, two nibble-packed pixels per byte — PROTOCOL.md §1. */
 #define FP_IMAGE_BYTES 960000u
@@ -100,6 +101,14 @@ void fp_api_release(void);
  * rejected poll. A result reported via X-Ota-Result is cleared only
  * once this call returns ESP_OK. */
 esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out);
+
+/* Values of the current wake for the X-Wake-Stats header on the display
+ * request. Until this is called no such header is sent. */
+void fp_api_set_wake_current(const fp_wake_current_t *cur);
+
+/* Time of the first TLS connect of this wake, kept after fp_api_release()
+ * resets its own counter; 0 when no connect was timed. */
+uint32_t fp_api_first_connect_ms(void);
 
 /* Stream image_url into buf (FP_IMAGE_BYTES). Returns ESP_OK only when
  * the response is exactly FP_IMAGE_BYTES long AND its SHA-256 matches

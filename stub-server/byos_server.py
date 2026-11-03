@@ -86,6 +86,7 @@ from server import (
     history_db, image_container, pairing_code, pairing_image, state_store,
 )
 from server.panel_format import HEIGHT, WIDTH
+from server.wake_stats import parse_wake_stats
 
 IMAGE_BYTES = 960000
 # X-Battery-Mv bounds: PROTOCOL.md §2 reserves 0 as the "unknown" sentinel,
@@ -1102,7 +1103,9 @@ def _parse_rssi_header(raw):
 
 def _record_device_health(device_state_dir, headers, battery_mv):
     """Best-effort device_health row in a non-live device's own history
-    database. A failure never changes the poll's response.
+    database. A failure never changes the poll's response. An absent or
+    malformed X-Wake-Stats header stores NULL wake columns; the header is
+    stored, never logged.
     """
     boot_reason = headers.get("X-Boot-Reason")
     if not isinstance(boot_reason, str) or not _FW_VERSION_HEADER_RE.match(boot_reason):
@@ -1114,7 +1117,8 @@ def _record_device_health(device_state_dir, headers, battery_mv):
                 battery_mv=battery_mv,
                 fw_version=parse_fw_version_header(headers.get("X-Fw-Version")),
                 boot_reason=boot_reason,
-                rssi=_parse_rssi_header(headers.get("X-Rssi")))
+                rssi=_parse_rssi_header(headers.get("X-Rssi")),
+                wake_stats=parse_wake_stats(headers.get("X-Wake-Stats")))
     except (OSError, sqlite3.Error):
         pass
 

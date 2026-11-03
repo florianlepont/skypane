@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Battery and Companion!
-status: phase_complete
-stopped_at: "Phase 46 plans 46-01..46-03 executed (2026-10-12): battery-model tool, POL-03 delivery tests and BATTERY-MODEL.md with committed model JSON. Owner decisions recorded 2026-10-12 (interval 300 s while waiting for a replacement pack; replace the pack) and a six-month autonomy target added to Phase 47 as VAL-03. The owner ordered the Soldered 333290 pack on 2026-10-22 and started a 900 s test on 2026-10-23 (result due about 2026-10-28). Phase 46 verification (2026-10-23): human_needed. Awaiting the owner for 46-04: choose the wake interval, decide the battery pack, apply the interval on the live Device page."
-last_updated: "2026-10-04T12:00:00.000Z"
-last_activity: "2026-10-12 — Phase 45 plans 45-03 and 45-04 closed on the owner-supplied run 2 export"
+status: executing
+stopped_at: Completed 47.1-07-PLAN.md
+last_updated: "2026-11-03T18:56:51.620Z"
+last_activity: 2026-11-03
 progress:
-  total_phases: 4
-  completed_phases: 1
-  total_plans: 12
-  completed_plans: 12
-  percent: 25
+  total_phases: 6
+  completed_phases: 3
+  total_plans: 35
+  completed_plans: 31
+  percent: 50
 ---
 
 > **Structural repair, 2026-09-13.** This file carried TWO YAML frontmatter
@@ -32,13 +32,13 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 06.6.4.1
 current_phase_name: companion-page-by-page-ia-consolidation-full-page-by-page-vi
-status: Executing Phase 42
+status: Ready to execute
 stopped_at: "Phase 06.6.4.1 CLOSED at 9/9 plans, on branch claude/06.6.4.1-closing-validation (rebased onto PR #44's tip 4a31a62, unpushed). Its dangling closing plan (06.6.4.1-09) had Task 1's automated gates re-verified for real twice — once against this branch's own base (92bc660), again after PR #44 (Phases 8-11: panel theme rework, band themes, scheduled quiet hours, web-configurable wake interval) merged mid-checkpoint from a separate line of work — both times 16/16 harnesses green, 92% coverage. Task 2, the blocking 28-item developer checklist (D-23/D-24/D-25), returned its verdict: PASS on all 28 items, no fails, no marginals, including the two twice-deferred items with no escape hatch — a real assistive-technology pass and a live production walkthrough (https://config-92-222-92-167.nip.io) — each confirmed by a direct question rather than accepted on the strength of an initial blanket approval alone. Two real drift findings were disclosed to the developer rather than silently absorbed: History's retired 'Now showing' section (D-18/D-19, superseded by quick task 260903-c4o) and Settings' two new Phase 10/11 sections (Quiet hours, Wake interval) not covered by the original checklist text. No open phase remains after 06.6.4.1 — Phase 11 (the highest-numbered phase) is also complete per PR #44, and no Phase 12 exists yet in ROADMAP.md. Next: push this branch, open a PR, and ask the developer what's next once it's merged."
 last_updated: "2026-09-04T15:20:00.000Z"
 last_activity: 2026-09-04
 last_activity_desc: Phase 21 complete: Frame strip + nav reminder + Home with three tiles, one Frame colours view, calendar in one tile, compact Flights table, simple mode and Health pause button removed, artwork upload restored in the resolve flow; verification 10/10, review fixes landed, FR/EN sweep clean
 progress:
-  [████████░░] 75%
+  [█████████░] 89%
   completed_phases: 22
   total_plans: 119
   completed_plans: 118
@@ -52,14 +52,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-30)
 
 **Core value:** Glancing at the frame tells you, in real time, whether you'll make the next RER — while also being a satisfying ambient piece on the wall.
-**Current focus:** Phase 45 — Controlled Second Discharge Study (Phase 44 complete)
+**Current focus:** Phase 47.1 — wake-energy-instrumentation-and-awake-time-reduction
 
 ## Current Position
 
-Phase: 44 of 47 (Companion Walkthrough and Focused Bilingual Polish) — COMPLETE (12/12 plans, 2026-10-04; CMP-01..CMP-04 closed). The owner validated the deployed companion themselves and confirmed it on 2026-10-04; the original 44-VALIDATION checklist predates later redesigns, so that statement, not per-item evidence, is the record. Open decisions in 44-WALKTHROUGH.md stay open.
-Plan: Phase 47, plans 47-01..47-03 complete (2026-10-23); 47-04..47-06 wait on the owner (900 s export about 2026-10-28, final interval, pack arrival)
-Status: Phase 47 in progress; Phase 46 verified (passed, 2026-10-23)
-Last activity: 2026-10-04 — Phase 44 closed on the owner's validation of the deployed companion
+Phase: 47.1 (wake-energy-instrumentation-and-awake-time-reduction) — EXECUTING
+Plan: 8 of 9
+Status: Ready to execute
+Last activity: 2026-11-03
 Phase 45: 45-01 and 45-02 complete; Run 2 Protocol CONFIRMED by the owner 2026-10-05 (cadence 60 s, ceiling 21 days, D-07/D-09/D-10) together with the reference-interval rule for the continuity gates (D-11: mean poll-to-poll gap of the first 48 h, gaps above 3x excluded, whole seconds, frozen in the params file and committed before any continuity verdict; thresholds unchanged). Implemented on branch claude/phase-45-reference-interval (not merged): optional `reference_interval_s` in `logtools.py run-report` and the `logtools.py reference-interval` helper, with synthetic-data tests. The owner also accepted two comparability limitations (post-Phase-34 firmware vs run one; unknown refresh share), recorded in the Protocol for Phase 46 (D-12). 45-03 (physical discharge, owner action, including the 48 h freeze step) is IN PROGRESS and paused at its long-wait checkpoint: the owner reports the pack was disconnected at 16h08 Paris time on 2026-10-05 (recorded as 2026-10-05T14:08:00Z) at 60 s; the start values and their provenance are in the `## Run 2 Start Record` and `hardware/logs/battery-run2-params.json`. The owner reported the cadence check from server history ("les écarts sont bons, environ 70 s"; approximate, exact time and output not captured). Not captured: the exact protocol-confirmation time (`protocol_confirmed_utc` stays null). Quiet hours (enabled 23:30-06:00) were disabled for the study and must be restored with the 300 s interval at the end. The 48 h reference-interval freeze was done on 2026-10-08 from the owner's own helper run: `reference_interval_s` = 70 (unrounded mean 69.980 s over the first 48 h), recorded with its source note and the export sha256 in the params file and in `## Run 2 Start Record`; the export file stays on the owner's machine, uncommitted. The value is frozen and is not edited afterwards; no `run-report` has been run and no run data is in the repo. The run is still in progress; 45-03 stays paused at its long-wait checkpoint until the run ends (not complete). Next owner action: nothing until the run ends; then restore the 300 s interval and quiet hours 23:30-06:00, inspect the pack before recharging, and export the full history. 45-04 not started (blocked on 45-03). Phase 45 stays in progress; no run measurement, end value or result exists.
 
 Phase 45 update (2026-10-12): 45-03 and 45-04 are complete. The pack ran from 2026-10-05T14:08Z; the owner stopped it on 2026-10-12 at the BATTERY EMPTY park (last reading 3296 mV, not 0 %), restored 300 s and quiet hours 23:30-06:00, found the pack normal and exported the full history (hardware/logs/battery-run2-export.jsonl, 6194 rows). `run-report` (reference interval 70 s) gives continuity FAIL (coverage 0.946, largest gap 5.97 intervals; diagnosed, thresholds not retuned), voltage validity PASS, baseline PASS; the boot witness is not computable. Results are in `## Run 2 Results` and hardware/logs/battery-run2-report.json. Phase 45 was verified on 2026-10-12 (status passed; the owner confirmed the owner-reported facts and accepted the park end as the recorded end reason); Phase 46 (two-run analysis) is next and must compare like windows.
@@ -553,6 +553,11 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 | Phase 42 P14 | ~90min | 2 tasks | 11 files |
 | Phase 42 P15 | 120min | 3 tasks | 11 files |
 | Phase 42 P16 | 5h | 3 tasks | 44 files |
+| Phase 47.1 P02 | 5min | 3 tasks | 12 files |
+| Phase 47.1 P04 | 25min | 2 tasks | 4 files |
+| Phase 47.1 P05 | 20min | 2 tasks | 7 files |
+| Phase 47.1 P06 | 30min | 3 tasks | 10 files |
+| Phase 47.1 P07 | short | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -601,6 +606,7 @@ Progress: [██████████] 95% (54/57 plans) — hand-corrected 
 - Phase 30 added (2026-09-21): Aspect rebuilt — one tile, three rows, one palette, the calendar absorbed (CFG-85, CFG-86); a `/gsd-sketch` round (accordion vs. segments) precedes planning; depends on Phase 29 so Display is not reworked twice.
 - Ops note (2026-09-21), not a phase: the companion's address `config-<ip>.nip.io` is to be replaced by a real domain the developer will buy (companion only; the device hostname stays on nip.io to avoid re-provisioning the frame). Recipe already in `deploy/Caddyfile`'s header: A record → VPS IP, the second site block's address, `SKYPANE_COMPANION_PUBLIC_HOST` in the env, `systemctl reload caddy`.
 - Phase 44 reordered: Companion walkthrough and focused bilingual polish moved ahead of the battery study by developer decision.
+- Phase 47.1 inserted after Phase 47: Wake-energy instrumentation and awake-time reduction (measured per-wake cost, model, then cut the awake time)
 
 ### Decisions
 
@@ -1367,8 +1373,8 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-10-04T12:00:00.000Z
-Stopped at: Phase 44 complete; Phase 45 next
+Last session: 2026-11-03T18:56:51.550Z
+Stopped at: Completed 47.1-07-PLAN.md
 
 Resume file: 
 
