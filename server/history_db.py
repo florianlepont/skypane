@@ -188,7 +188,10 @@ def _add_missing_wake_columns(conn):
         if column in present:
             continue
         try:
-            conn.execute(f"ALTER TABLE device_health ADD COLUMN {column} {sql_type}")
+            # Identifiers cannot be bound parameters; both come from the
+            # fixed `_WAKE_COLUMN_TYPES` table, never from input.
+            conn.execute(
+                "ALTER TABLE device_health ADD COLUMN " + column + " " + sql_type)
         except sqlite3.OperationalError as exc:
             if "duplicate column name" not in str(exc):
                 raise
