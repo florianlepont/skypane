@@ -33,6 +33,14 @@ from companion.settings.form import (
     _field_error_attrs, _field_error_html)
 from server import airports, detection
 
+# The scripts and the extra stylesheet this page alone loads, beyond the
+# shared ones: the form guard, the airport filter, then the map library and
+# the glue that drives it.
+PAGE_SCRIPTS = (
+    layout.DIRTY_STATE_SCRIPT_SRC, layout.LIST_FILTER_SCRIPT_SRC,
+    layout.LEAFLET_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC)
+PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
+
 PAGE_TITLE = i18n.msg("nav.detection", "Location and detection")
 PAGE_PURPOSE = i18n.msg(
     "detection.page_purpose",
@@ -63,6 +71,25 @@ MAP_PRIVACY = i18n.msg(
     "you look at. Your frame’s saved position stays on SkyPane.")
 REPORT_PROBLEM = i18n.msg("detection.report_problem", "Report a map problem")
 COPYRIGHT_LINK = i18n.msg("detection.copyright_link", "OpenStreetMap copyright")
+
+ATTRIBUTION = i18n.msg("detection.attribution", "© OpenStreetMap contributors")
+PIN_PLACED = i18n.msg("detection.pin_placed", "Pin placed at %s, %s")
+TILES_FAILED = i18n.msg(
+    "detection.tiles_failed",
+    "The map pictures could not load. The pin and the coordinates still work.")
+ZOOM_IN = i18n.msg("detection.zoom_in", "Zoom in")
+ZOOM_OUT = i18n.msg("detection.zoom_out", "Zoom out")
+
+# The words the map script shows, handed over as `data-t-<name>` attributes on
+# the map container so the script itself holds no language. The script
+# substitutes `%s` and `%d` in order.
+_MAP_STRINGS = (
+    ("attribution", ATTRIBUTION),
+    ("pin-placed", PIN_PLACED),
+    ("tiles-failed", TILES_FAILED),
+    ("zoom-in", ZOOM_IN),
+    ("zoom-out", ZOOM_OUT),
+)
 
 EMPTY_HEADING = i18n.msg("detection.empty_heading", "No place chosen yet")
 EMPTY_BODY = i18n.msg(
@@ -305,6 +332,12 @@ def _form_html(view):
         layout.csrf_field(), dp.ACTION_FIELD, dp.ACTION_SAVE_PLACE)
 
 
+def _map_strings_attrs():
+    return " ".join(
+        'data-t-%s="%s"' % (name, escape_html(i18n.t(message)))
+        for name, message in _MAP_STRINGS)
+
+
 def _map_attrs(view):
     has_pin = bool(view.latitude and view.longitude)
     if not has_pin:
@@ -315,12 +348,12 @@ def _map_attrs(view):
         zoom = PLACE_ZOOM
     return (
         'data-lat="%s" data-lon="%s" data-zoom="%d" data-mode="%s" '
-        'data-airport="%s" data-radius-km="%s"'
+        'data-airport="%s" data-radius-km="%s" %s'
     ) % (
         escape_html(view.latitude if has_pin else ""),
         escape_html(view.longitude if has_pin else ""), zoom, escape_html(view.mode),
         escape_html(view.airport.icao if view.airport is not None else ""),
-        escape_html(view.radius))
+        escape_html(view.radius), _map_strings_attrs())
 
 
 def _search_form_html():
@@ -362,6 +395,7 @@ def place_card_html(view):
         "%s"
         '<button type="button" class="place-locate detection-search js-gate" '
         'id="place-locate">%s%s</button>'
+        '<p id="place-notice" class="place-map__notice text-label" hidden></p>'
         '<div id="place-map" class="place-map js-gate" role="group" tabindex="0" '
         'aria-label="%s" %s></div>'
         '<p id="place-status" class="place-status text-label" role="status" '

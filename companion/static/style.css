@@ -27,6 +27,7 @@
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
  *   - the logo mark's flick (.logo-accent)
+ *   - the map's pin and area circle (.place-pin, .place-circle)
  * Border is structural only (dividers, table lines, card edges)
  * and never substitutes for accent or status colour.
  *
@@ -5435,11 +5436,118 @@ button.detection-search:hover {
   margin-bottom: var(--space-md);
 }
 
+/* The map. Leaflet's own stylesheet comes first on this page; the rules
+ * below only size it and put its parts on the tokens. Tiles are shown as
+ * served in both themes (no filter, no inversion). */
 .place-map {
   width: 100%;
   max-width: 100%;
+  height: min(60vh, 26rem);
   min-height: 17.5rem;
   box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--font-label-size);
+  overflow: hidden;
+}
+
+.js .place-map[hidden] {
+  display: none;
+}
+
+/* A map that did not start leaves the plain form: nothing script-only shows. */
+html:not(.map-ready) .place-card--map .place-search,
+html:not(.map-ready) .place-card--map .place-locate {
+  display: none;
+}
+
+.place-map__notice {
+  margin: 0 0 var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  color: var(--color-text);
+}
+
+.place-map__notice[hidden] {
+  display: none;
+}
+
+.place-map.place-map .leaflet-bar a,
+.place-map.place-map .leaflet-bar a:hover {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  box-sizing: border-box;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border-bottom-color: var(--color-border);
+  font-size: var(--font-heading-size);
+}
+
+.place-map .leaflet-bar {
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.place-map .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+}
+
+.place-map .leaflet-control-attribution a {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.place-map.leaflet-container:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The pin: the sprite glyph in the accent colour, tip at the bottom of its
+ * 44 px hit box. */
+.place-pin {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-accent);
+}
+
+.place-pin__glyph {
+  width: 36px;
+  height: 36px;
+}
+
+.place-circle {
+  stroke: var(--color-accent);
+  stroke-width: 2px;
+  fill: var(--color-accent);
+  fill-opacity: 0.12;
+}
+
+/* An airport dot: a 12 px mark inside a 44 px invisible hit box. */
+.place-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+}
+
+.place-dot__mark {
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--color-dominant);
+  background: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
 .place-status {
@@ -5571,6 +5679,7 @@ button.detection-search:hover {
   }
 
   .place-map {
+    height: min(70vh, 40rem);
     min-height: 24rem;
   }
 }

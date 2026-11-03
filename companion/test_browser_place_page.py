@@ -16,8 +16,9 @@ from companion import auth
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow,
     _login, _no_js_page, _set_ui_theme)
-from companion_app_server import TEST_ADMIN_EMAIL, session_cookie_for_state_dir
-from server import airports, device_config, device_dirs, fleet_db, hardware
+from place_map_support import (
+    HIT_PROBE as _HIT_PROBE, MIN_PX, SETTLED as _SETTLED, Hosts, seed as _seed, stored as _stored)
+from server import airports
 
 pytestmark = pytest.mark.browser
 
@@ -25,58 +26,16 @@ HOSTS = ("https://tile.openstreetmap.org/**", "https://nominatim.openstreetmap.o
 CDG = "LFPG"
 CDG_RUNWAY = "08L/26R"
 SAVE = "button.dirty-bar__save"
-MIN_PX = 44
 
 CARDS = (
     ".place-card--status", ".place-card--map", ".place-card--airports",
     ".place-card--follow", "#details")
-
-# Whether the page is at rest and a known control owns its own centre.
-_SETTLED = (
-    "() => {"
-    " if (document.getAnimations().some((a) => a.playState === 'running')) return false;"
-    " const e = document.querySelector('#airport-filter');"
-    " e.scrollIntoView({block: 'center'});"
-    " const r = e.getBoundingClientRect();"
-    " return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === e; }")
-
-# For each selector, the first matching element is scrolled to the middle and measured; a control
-# fails when it is smaller than the floor or something else owns its centre.
-_HIT_PROBE = (
-    "args => args.selectors.map((sel) => {"
-    " const el = document.querySelector(sel);"
-    " if (!el) return [sel, 'missing'];"
-    " el.scrollIntoView({block: 'center'});"
-    " const r = el.getBoundingClientRect();"
-    " if (r.width < args.min || r.height < args.min) {"
-    "   return [sel, 'size ' + r.width.toFixed(1) + 'x' + r.height.toFixed(1)]; }"
-    " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
-    " if (!hit || !(el === hit || el.contains(hit) || hit.contains(el))) {"
-    "   return [sel, 'covered by ' + (hit ? hit.tagName + '.' + hit.className : 'nothing')]; }"
-    " return null; }).filter(Boolean)")
 
 _BOX_PROBE = (
     "sels => Object.fromEntries(sels.map((sel) => {"
     " const r = document.querySelector(sel).getBoundingClientRect();"
     " return [sel, {top: r.top + window.scrollY, bottom: r.bottom + window.scrollY,"
     " left: r.left, right: r.right, width: r.width}]; }))")
-
-
-def _seed(state_dir):
-    session_cookie_for_state_dir(state_dir)
-    conn = fleet_db.connect(state_dir)
-    try:
-        owner = fleet_db.get_user_by_email(conn, TEST_ADMIN_EMAIL)["id"]
-        fleet_db.meta_set(conn, fleet_db.META_MIGRATED, "1")
-        fleet_db.add_device(
-            conn, "aa:bb:cc:00:00:04", "d" * 64, hardware.LEGACY_KEY, owner,
-            name="Live frame", state_path=device_dirs.LIVE_STATE_PATH)
-    finally:
-        conn.close()
-
-
-def _stored(server):
-    return device_config.load_device_config(server.state_dir).get("detection")
 
 
 def _settle(page, scripts_on=True):
@@ -95,12 +54,15 @@ def _settle(page, scripts_on=True):
 
 def _open(new_context, server, viewport, lang="en", theme=None):
     context = new_context(viewport=viewport)
+    Hosts(context)
     context.add_cookies([
         {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
     page.goto(server.base_url() + "/detection?airport=" + _largest_airport().icao)
     page.locator("main").wait_for(state="visible")
+    page.wait_for_function(
+        "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
     if theme is not None:
         _set_ui_theme(page, theme)
     _settle(page)
@@ -163,6 +125,11 @@ def _assert_layout(page, width, scripts_on):
     failure = _assert_no_page_overflow(page, "/detection", width)
     if failure:
         raise AssertionError(failure)
+    if scripts_on:
+        # With the map running the coordinates card starts closed; open it to measure its fields.
+        page.click("#details > summary")
+        page.wait_for_function("() => document.getElementById('details').open", timeout=5000)
+        page.wait_for_function(_SETTLED, timeout=10000)
     failures = page.evaluate(
         _HIT_PROBE, {"selectors": _hit_selectors(scripts_on), "min": MIN_PX - SUBPIXEL})
     if failures:

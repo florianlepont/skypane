@@ -96,6 +96,12 @@ MESSAGES = {
         "Lieu",
     "detection.no_script_map":
         "La carte demande JavaScript et une connexion. Vous pouvez quand même choisir un lieu avec la liste d’aéroports ou en saisissant des coordonnées.",
+    "detection.attribution": "© contributeurs d’OpenStreetMap",
+    "detection.pin_placed": "Repère placé à %s, %s",
+    "detection.tiles_failed":
+        "Les images de la carte n’ont pas pu se charger. Le repère et les coordonnées fonctionnent toujours.",
+    "detection.zoom_in": "Zoomer",
+    "detection.zoom_out": "Dézoomer",
     "detection.map_label":
         "Carte. Utilisez les flèches pour déplacer, plus et moins pour zoomer.",
     "detection.search_label":

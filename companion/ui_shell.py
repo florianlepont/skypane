@@ -44,6 +44,8 @@ from companion.ui_base import (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    LEAFLET_SCRIPT_SRC,
+    PLACE_MAP_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -148,6 +150,8 @@ SHELL_SCRIPT_ORDER = (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    LEAFLET_SCRIPT_SRC,
+    PLACE_MAP_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
@@ -273,6 +277,7 @@ PAGE_SHELL_TEMPLATE = (
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
+    "{extra_styles}"
     "{favicon_link}\n"
     "</head>\n"
     "<body{body_attrs}>\n"
@@ -487,7 +492,7 @@ def _device_scoped_title(title, active):
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
-        refresh_token=None, console_page=False):
+        refresh_token=None, console_page=False, styles=()):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -506,6 +511,10 @@ def page_shell(
     fixed relative order, each at most once, however many times it appears
     across the two sets. A src not present in SHELL_SCRIPT_ORDER raises
     ValueError - failing fast on a typo rather than silently emitting nothing.
+
+    `styles` is this page's own extra stylesheet hrefs (the map page's library
+    stylesheet), linked after the shared one in the order given; the shared
+    stylesheet is always the one fixed link before them.
 
     `refresh_token` (default `None`) renders as REFRESH_TOKEN_ATTR on
     `<body>`, escaped, only when given - the four refresh pages'
@@ -568,6 +577,9 @@ def page_shell(
         "title": escape_html(_device_scoped_title(title, active)),
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,
+        "extra_styles": "".join(
+            '<link rel="stylesheet" href="%s">\n' % escape_html(href)
+            for href in styles),
         # Decorative: the adjacent site-title text stays the accessible name.
         "brand_inner_sidebar": brand_inner_sidebar,
         "brand_inner_header": brand_inner_header,

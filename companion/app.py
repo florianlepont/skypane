@@ -294,10 +294,7 @@ _PAGE_SCRIPTS = {
         layout.QUICK_SWITCH_SCRIPT_SRC,
         layout.VALUE_CONTROLS_SCRIPT_SRC,
     ),
-    detection_page.DETECTION_ROUTE: (
-        layout.DIRTY_STATE_SCRIPT_SRC,
-        layout.LIST_FILTER_SCRIPT_SRC,
-    ),
+    detection_page.DETECTION_ROUTE: place_page.PAGE_SCRIPTS,
     layout.FLIGHTS_ROUTE: (
         layout.FRESHNESS_SCRIPT_SRC,
         layout.LIST_FILTER_SCRIPT_SRC,
@@ -944,6 +941,7 @@ class Handler(
             ui_theme=ctx.ui_theme, flash=flash_html,
             health_alert=ctx.health_severity, device_config=ctx.device_config,
             scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token,
+            styles=place_page.PAGE_STYLES if route == detection_page.DETECTION_ROUTE else (),
             console_page=route in _CONSOLE_FRAME_ROUTES)
 
     def _render_tab(self, route, render, device, policy=DEFAULT_PAGE_POLICY):
