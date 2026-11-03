@@ -1,0 +1,29 @@
+# Phase 61 — owner validation on the deployed companion (plan 61-13)
+
+Deployed: PR #287 merged 2026-11-03, CI green, production deploy green.
+Verdict so far: first pass by the owner, as administrator, FR (screenshot of
+the frame switcher). Not approved yet: issues below.
+
+## Issues raised (priority proposed by the assistant, to confirm)
+
+Small, fixable in this phase:
+- V1 "Mes vues" is unclear as a label for the personal space.
+- V2 The Console / My views switch is not visible enough.
+- V3 "All frames (Fleet)" must not appear in the frame switcher: an admin's
+  personal view must not differ from any user's; only the Console/personal
+  switch differs.
+- V4 "Flights" should be named "Flight history" ("Historique des vols").
+- V5 Health and Device should be tabs reachable only from the admin Console.
+
+Larger redesigns (new design work, owner decision on scope):
+- V6 The frame switcher is a drop-down; the owner expected something nicer.
+- V7 "Location and detection" should have its own tab with a much more
+  modern, polished UI (a map was suggested). The owner does not see why
+  saved locations exist: they would just state the place each time.
+- V8 Quiet hours and their settings should leave the Display page and
+  appear as a modal opened by clicking the schedule on Home.
+- V9 Display becomes a "Personalisation" tab with much more room to manage
+  the displays clearly.
+- V10 "Airlines" becomes a more gamified page of airlines observed; users
+  must not be able to edit pictures or airline information: those options
+  only for the administrator through a dedicated view.
