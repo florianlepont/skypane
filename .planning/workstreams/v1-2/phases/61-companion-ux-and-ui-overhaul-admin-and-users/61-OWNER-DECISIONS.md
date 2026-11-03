@@ -58,6 +58,7 @@ Source: the "Open for owner validation (revision 2)" list at the end of `61-UI-S
 | R2-16 | Locations POST routes | Kept with no UI (expand-only) | default applies | 61-17 |  |
 | R2-17 | Name this airline link in Flight history | UI-SPEC 1.1 says no personal page shows it to anyone, 12.2 says an administrator sees it; default follows 1.1 and R1 (no link for anyone) | default applies | 61-22 and 61-31 | raised by the planner |
 | R2-18 | A live frame with a fleet row is addressed by /devices/<id>/ for everyone | Applies | default applies | 61-19 | raised by the planner |
+| R2-19 | A co-manager may save the frame's place | A co-manager of a frame may save its place through `save_place` | default applies | 61-20 | The earlier saved-location rule (a co-manager never writes a location) is superseded because the position is now part of the frame's own detection setting. |
 
 ## Audit items brought into scope
 

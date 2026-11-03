@@ -110,6 +110,10 @@ MESSAGES = {
     "detection.location_saved_flash":
         "Lieu enregistré — vous pouvez maintenant le choisir ci-dessus.",
 
+    "detection.place_saved_flash":
+        "Lieu enregistré — La détection suit désormais {place}.",
+    "detection.place_fallback_name": "le lieu choisi",
+
     "detection.error_location_missing": "Choisissez un lieu.",
     "detection.error_location_unavailable":
         "Ce lieu n’est pas disponible. Choisissez-en un dans la liste.",

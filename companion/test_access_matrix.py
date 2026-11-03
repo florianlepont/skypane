@@ -39,6 +39,7 @@ import matrix_rows_landing
 import matrix_rows_lifecycle
 import matrix_rows_locations
 import matrix_rows_pairing
+import matrix_rows_place
 import matrix_rows_users
 from server import fleet_db, fleet_sessions
 
@@ -175,7 +176,7 @@ SAMPLE_MIDDLE = {
 for _rows in (
         matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
         matrix_rows_locations, matrix_rows_co_managers,
-        matrix_rows_landing, matrix_rows_admin_frame):
+        matrix_rows_landing, matrix_rows_admin_frame, matrix_rows_place):
     ROUTE_POLICY.update(_rows.ROWS)
     SAMPLE_MIDDLE.update(_rows.SAMPLES)
 
@@ -293,7 +294,7 @@ def test_the_console_row_modules_are_merged_into_the_matrix():
     for module in (
             matrix_rows_pairing, matrix_rows_lifecycle, matrix_rows_users,
             matrix_rows_locations, matrix_rows_co_managers,
-            matrix_rows_landing, matrix_rows_admin_frame):
+            matrix_rows_landing, matrix_rows_admin_frame, matrix_rows_place):
         for key, kind in module.ROWS.items():
             assert ROUTE_POLICY[key] == kind
         for template, middle in module.SAMPLES.items():

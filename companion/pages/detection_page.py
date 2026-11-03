@@ -35,6 +35,7 @@ FORM_ID = "detection-form"
 ACTION_FIELD = "action"
 ACTION_SAVE_DETECTION = "save_detection"
 ACTION_SAVE_LOCATION = "save_location"
+ACTION_SAVE_PLACE = "save_place"
 LOCATION_FORM_ID = "location-form"
 DEFAULT_RADIUS_KM = 9
 MODE_RUNWAY = detection.RUNWAY_MODE
@@ -47,6 +48,7 @@ SEARCH_RESULT_LIMIT = airports.DEFAULT_SEARCH_LIMIT
 
 FLASH_DETECTION_SAVED = "detection_saved"
 FLASH_LOCATION_SAVED = "location_saved"
+FLASH_PLACE_SAVED = "place_saved"
 
 # What the page needs to know about the locations it may show: `rows` are
 # the subject's own locations as dicts (id, name, latitude, longitude,
@@ -79,6 +81,10 @@ FLASH_DETECTION_SAVED_TEXT = i18n.msg(
 FLASH_LOCATION_SAVED_TEXT = i18n.msg(
     "detection.location_saved_flash",
     "Location saved — you can now choose it above.")
+FLASH_PLACE_SAVED_TEXT = i18n.msg(
+    "detection.place_saved_flash",
+    "Location saved — Detection now follows {place}.")
+PLACE_FALLBACK_NAME = i18n.msg("detection.place_fallback_name", "the chosen place")
 
 MODE_TITLE = i18n.msg("detection.detection_mode", "Detection mode")
 MODE_RUNWAY_LABEL = i18n.msg("detection.airport_and_runway", "Airport and runway")
@@ -803,6 +809,23 @@ def dirty_bar_html(carried_href=None):
         escape_html(i18n.t(config_page.CANCEL_BUTTON_TEXT)))
 
 
+_PLACE_ERROR_FIELDS = (
+    ("place_label", "place-label"), ("latitude", "place-latitude"),
+    ("longitude", "place-longitude"), ("timezone", "place-timezone"))
+
+
+def place_errors_html(view, errors):
+    """The messages of a refused place save for the fields this page has no
+    control for yet (pin, label, time zone, and the radius when the position
+    panel shows no radius field), so a refusal is never silent."""
+    if view.submitted is None or view.submitted.get("action") != ACTION_SAVE_PLACE:
+        return ""
+    fields = list(_PLACE_ERROR_FIELDS)
+    if not view.locations:
+        fields.append(("radius_km", "place-radius"))
+    return "".join(_field_error_html(errors, field, anchor) for field, anchor in fields)
+
+
 def render(ctx, query=None, errors=None, submitted=None, location_name=None, locations=None):
     """The Detection page body.
 
@@ -823,6 +846,7 @@ def render(ctx, query=None, errors=None, submitted=None, location_name=None, loc
         layout.page_header(i18n.t(PAGE_TITLE), i18n.t(PAGE_PURPOSE))
         + back
         + fail_safe_toast_html(view)
+        + place_errors_html(view, errors)
         + summary_card_html(view)
         + '<div class="detection-modes" %s="%s">%s%s%s</div>' % (
             DIRTY_SECTION_ATTR, escape_html(i18n.t(PAGE_TITLE)),

@@ -4,14 +4,17 @@ The route's access policy has already decided that the caller owns the
 device (or is an admin) before this runs. Everything posted is untrusted:
 only a fixed set of fields is read, each is stripped of control characters
 and length-capped, and every value is validated on the server for the
-posted mode only. A rejected post re-renders the page at 200 with the exact
-inline errors and writes nothing; a write only ever targets the device the
+posted mode only. A rejected post re-renders the page with the exact inline
+errors (status 400 for save_place, 200 for the older actions) and writes
+nothing; a write only ever targets the device the
 dispatcher bound to the request.
 
 Locations belong to the device's owner. A signed-in user acts on their own
 locations; an admin acts on the owner's (or their own for a device without
 an owner), so the list, the select and the form always share one subject.
-A co-manager picks from the owner's locations but never writes one.
+A co-manager picks from the owner's locations but never writes a saved
+location; save_place writes the frame's own position, which is part of the
+frame's detection setting, so a co-manager may use it.
 """
 import collections
 import math
@@ -21,13 +24,13 @@ from urllib.parse import quote
 
 from companion import access, device_scope, flash
 from companion.pages import detection_page
-from companion.settings import quiet_hours
-from server import detection, fleet_db
+from companion.settings import form_post, quiet_hours
+from server import airports, detection, device_config, fleet_db
 
 # Posted fields the handler reads; anything else is dropped.
 FORM_FIELDS = (
     "action", "mode", "airport", "runway", "location_id", "radius_km",
-    "location_name", "latitude", "longitude", "timezone")
+    "location_name", "latitude", "longitude", "timezone", "place_label")
 FIELD_CAP = 64
 NAME_MAX = 60
 
@@ -186,10 +189,10 @@ def _redirect_with(handler, flash_key):
     return handler.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
 
-def _rerender(handler, ctx, scope, errors, form):
+def _rerender(handler, ctx, scope, errors, form, status=200):
     body = detection_page.render(ctx, errors=errors, submitted=form, locations=scope)
     return handler.send_html(
-        200, handler._page_shell_for(detection_page.DETECTION_ROUTE, body, ctx))
+        status, handler._page_shell_for(detection_page.DETECTION_ROUTE, body, ctx))
 
 
 def _store_detection(ctx, device, subject, form):
@@ -297,6 +300,120 @@ def _save_location(handler, ctx, device, subject, scope, form):
             {"location_form": detection_page.ERROR_LOCATION_UNAVAILABLE}, form)
     return _redirect_with(handler, flash.FLASH_KEY_LOCATION_SAVED)
 
+# A place is one frame's own position plus what it follows. The mode, airport
+# and runway are validated as the detection form does; the pin is range-checked
+# here and, for the area mode, held to the coarse France box.
+PLACE_LABEL_FALLBACK = "Frame position"
+
+
+def _pin_errors(form, errors, required):
+    """The posted (latitude, longitude), or None when no pin was posted (or
+    one was refused, with the message noted in `errors`)."""
+    raw_lat, raw_lon = form.get("latitude", ""), form.get("longitude", "")
+    if not required and not raw_lat and not raw_lon:
+        return None
+    lat, lon = parse_coordinate(raw_lat), parse_coordinate(raw_lon)
+    if lat is None:
+        errors["latitude"] = detection_page.ERROR_NUMBER
+    if lon is None:
+        errors["longitude"] = detection_page.ERROR_NUMBER
+    if lat is None or lon is None:
+        return None
+    if required and not detection.inside_france(lat, lon):
+        errors["latitude"] = detection_page.ERROR_LOCATION_OUTSIDE
+        return None
+    if not (-90.0 <= lat <= 90.0 and -180.0 <= lon <= 180.0):
+        errors["latitude"] = detection_page.ERROR_NUMBER
+        return None
+    return lat, lon
+
+
+def _place_runway(form, errors):
+    """(lat, lon, default label) of a runway-mode place: the moved pin if one
+    was posted, else the airport's own coordinates."""
+    errors.update(_runway_errors(form))
+    pin = _pin_errors(form, errors, False)
+    airport = airports.find_airport(form.get("airport"))
+    if errors or airport is None:
+        return None, None, None
+    lat, lon = pin if pin is not None else (airport.lat, airport.lon)
+    return lat, lon, airport.name
+
+
+def _place_position(form, errors):
+    pin = _pin_errors(form, errors, True)
+    radius = form.get("radius_km", "")
+    try:
+        if not _RADIUS_RE.match(radius):
+            raise ValueError("radius")
+        detection.validate_radius_km(int(radius))
+    except ValueError:
+        errors["radius_km"] = detection_page.ERROR_RADIUS
+    if pin is None or errors:
+        return None, None, None
+    return pin[0], pin[1], None
+
+
+def parse_place(form, current_zone):
+    """(place, errors) for a save_place post. `place` is None when anything
+    is refused; `errors` maps field -> message."""
+    errors = {}
+    mode = form.get("mode")
+    if mode == detection_page.MODE_RUNWAY:
+        lat, lon, default_label = _place_runway(form, errors)
+    elif mode == detection_page.MODE_POSITION:
+        lat, lon, default_label = _place_position(form, errors)
+    else:
+        return None, {"mode": detection_page.ERROR_MODE}
+    label = form.get("place_label", "").strip()
+    if len(label) > NAME_MAX:
+        errors["place_label"] = detection_page.ERROR_NAME
+    zone = form_post.resolve_timezone(form, errors, current_zone)
+    if errors or zone is form_post.FAILED:
+        return None, errors
+    place = {
+        "mode": mode, "airport": form.get("airport"), "runway": form.get("runway"),
+        "radius_km": form.get("radius_km"), "lat": lat, "lon": lon,
+        "label": label or default_label or PLACE_LABEL_FALLBACK,
+        "forwarded_zone": zone["timezone"]}
+    return place, {}
+
+
+def _store_place(ctx, device, subject, place):
+    """Write the position row, then the detection setting, then a changed time
+    zone. A failed later write puts the previous location link back; the
+    failure is raised (OSError, sqlite3.Error, PermissionError, ValueError)."""
+    row_zone = place["forwarded_zone"] or ctx.device_config["timezone"]
+    before = fleet_db.get_device(subject.conn, device.id)
+    previous = None if before is None else before["location_id"]
+    fleet_db.save_frame_position(
+        subject.conn, device.id, place["label"], place["lat"], place["lon"],
+        row_zone, subject.actor_id, subject.is_admin)
+    try:
+        if place["mode"] == detection_page.MODE_RUNWAY:
+            detection.apply_runway_selection(
+                ctx.state_dir, place["airport"], place["runway"])
+        else:
+            detection.apply_position_selection(
+                ctx.state_dir, int(place["radius_km"]))
+        if place["forwarded_zone"] is not None:
+            device_config.save_device_config(
+                ctx.state_dir, timezone=place["forwarded_zone"])
+    except (OSError, ValueError):
+        _restore_location(subject.conn, device.id, previous)
+        raise
+
+
+def _save_place(handler, ctx, device, subject, scope, form):
+    place, errors = parse_place(form, ctx.device_config["timezone"])
+    if errors:
+        return _rerender(handler, ctx, scope, errors, form, status=400)
+    try:
+        _store_place(ctx, device, subject, place)
+    except (OSError, ValueError, PermissionError, sqlite3.Error):
+        return _redirect_with(handler, flash.FLASH_KEY_SAVE_FAILED)
+    return _redirect_with(handler, flash.FLASH_KEY_PLACE_SAVED)
+
 
 def handle_post(handler, device):
     """Validate and store, then 303 back to the page; or re-render at 200
@@ -310,6 +427,8 @@ def handle_post(handler, device):
         return _redirect_with(handler, flash.FLASH_KEY_SAVE_FAILED)
     if form.get("action") == detection_page.ACTION_SAVE_LOCATION:
         return _save_location(handler, ctx, device, subject, scope, form)
+    if form.get("action") == detection_page.ACTION_SAVE_PLACE:
+        return _save_place(handler, ctx, device, subject, scope, form)
     errors = validate(form, scope.rows)
     if not errors:
         try:
