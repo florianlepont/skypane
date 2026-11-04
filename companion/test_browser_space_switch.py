@@ -35,7 +35,8 @@ def _visible_switch(page):
     owns its own centre and no animation runs (a view transition after
     navigation can still be running)."""
     page.wait_for_function(
-        "() => { const all = [...document.querySelectorAll('.space-switch__segment')]"
+        "() => { if (document.readyState !== 'complete') return false;"
+        " const all = [...document.querySelectorAll('.space-switch__segment')]"
         ".filter(n => n.getClientRects().length > 0); if (!all.length) return false;"
         " if (document.getAnimations().some((x) => x.playState === 'running' && x.effect.getComputedTiming().iterations !== Infinity)) return false;"
         " return all.every((a) => { const b = a.getBoundingClientRect();"
