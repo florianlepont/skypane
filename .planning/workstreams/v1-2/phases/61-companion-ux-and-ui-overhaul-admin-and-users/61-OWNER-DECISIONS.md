@@ -13,7 +13,7 @@ row below starts as "default applies".
 
 ## Open items (14)
 
-The second list, "Revision 2 open items (16)", follows below.
+The second list, "Revision 2 open items (20)", follows below.
 
 | # | Item | Spec default | Status | Depending plan | Notes |
 |---|------|--------------|--------|----------------|-------|
@@ -32,33 +32,33 @@ The second list, "Revision 2 open items (16)", follows below.
 | 13 | Landing frame for a multi-frame user | First by name | default applies | 61-05 | |
 | 14 | Manage access reopens after each add/remove | Reopens via `?access=<id>` | default applies | 61-07 | |
 
-## Revision 2 open items (16)
+## Revision 2 open items (20)
 
 
-Source: the "Open for owner validation (revision 2)" list at the end of `61-UI-SPEC.md`, plus R2-17 and R2-18 raised by the planner. The rule above applies unchanged.
+Source: the "Open for owner validation (revision 2)" list at the end of `61-UI-SPEC.md`, plus R2-17 to R2-19 raised by the planner. The rule above applies unchanged.
 
 
 | # | Item | Spec default | Status | Depending plan | Notes |
 |---|------|--------------|--------|----------------|-------|
-| R2-1 | Name of the personal space (V1) | EN "My frame", FR "Mon cadre" | default applies | 61-21 |  |
-| R2-2 | Space switch form (V2) | Two segments always visible, full-width strip under the header on phone, top of the sidebar on desktop, current segment accent-filled | default applies | 61-22 |  |
-| R2-3 | Frame switcher form (V6) | Frame chip opening a card sheet (bottom sheet on phone, centred dialog on desktop); one frame renders nothing | default applies | 61-23 |  |
-| R2-4 | Pin interaction (V7/D19) | Tap or click drops a draggable pin; the map pans freely | default applies | 61-26 |  |
-| R2-5 | Where the frame's own position is stored (D20) | A private `locations` row per frame, created on the first map save, copy-on-write when an old row is shared (no schema change) | default applies | 61-18 |  |
-| R2-6 | Leaflet version (D18) | Leaflet 1.9.4 | default applies | 61-24 |  |
-| R2-7 | Tile provider | Public OpenStreetMap tile server under its usage policy; Nominatim for search (submit only, 1 request per second) | default applies | 61-24 |  |
-| R2-8 | Search scope | `countrycodes=fr`; the free-pin box check stays metropolitan France and Corsica, a catalogue airport is accepted anywhere | default applies | 61-20 and 61-26 |  |
-| R2-9 | Administrator without any frame of their own | Personal Home shows the same empty state as a user; the served frame is reached from Fleet ("Open personal view") and the Console | default applies | 61-19 |  |
+| R2-1 | Name of the personal space (V1) | EN "My frame", FR "Mon cadre" | applied (default) | 61-21 | Plan 61-21: "My frame" / "Mon cadre" in the switch and the navigation. |
+| R2-2 | Space switch form (V2) | Two segments always visible, full-width strip under the header on phone, top of the sidebar on desktop, current segment accent-filled | applied (default) | 61-22 | Plan 61-22: two always-visible segments, a strip under the phone header, the top of the sidebar. |
+| R2-3 | Frame switcher form (V6) | Frame chip opening a card sheet (bottom sheet on phone, centred dialog on desktop); one frame renders nothing | applied (default) | 61-23 | Plan 61-23: a frame chip and a card sheet; nothing renders with fewer than two frames. |
+| R2-4 | Pin interaction (V7/D19) | Tap or click drops a draggable pin; the map pans freely | applied (default) | 61-26 | Plan 61-26: a tap or click drops a draggable pin. |
+| R2-5 | Where the frame's own position is stored (D20) | A private `locations` row per frame, created on the first map save, copy-on-write when an old row is shared (no schema change) | applied (default) | 61-18 | Plans 61-18 and 61-20: a private row per frame, copy-on-write; no schema change. |
+| R2-6 | Leaflet version (D18) | Leaflet 1.9.4 | applied (default) | 61-24 | Plan 61-24: Leaflet 1.9.4, accepted only after its SHA-256 matched the pinned values. |
+| R2-7 | Tile provider | Public OpenStreetMap tile server under its usage policy; Nominatim for search (submit only, 1 request per second) | applied (default) | 61-24 | Plans 61-24 and 61-26: the public tile server and Nominatim on submit only; both requests carry the page origin as Referer. |
+| R2-8 | Search scope | `countrycodes=fr`; the free-pin box check stays metropolitan France and Corsica, a catalogue airport is accepted anywhere | applied (default) | 61-20 and 61-26 | Plans 61-20 and 61-26. |
+| R2-9 | Administrator without any frame of their own | Personal Home shows the same empty state as a user; the served frame is reached from Fleet ("Open personal view") and the Console | applied with a note | 61-19 | Plan 61-19: an administrator with no frame of their own is sent to Account like a user; the served frame is reached from Fleet ("Open personal view"). |
 | R2-10 | Health for users (D14 superseded by D16) | No Health entry or link for a user or for the administrator's personal space; Console only | owner answered (D21) | 61-17, 61-19 and 61-34 | A user has no Health page, the status dot on Home is enough, and when the dot is amber (warn state) a notification on Home gives more information and offers to contact an administrator by a mailto link addressed to the administrator's email, with no server-side sending (D21, D22). Plan 61-34 builds the notification; plan 61-17 only removes the Health link. |
-| R2-11 | Console frame pages | Health, Device and Airline editor show one frame at a time with a frame chip listing every frame; Fleet's name link goes to Health | default applies | 61-19 and 61-23 |  |
-| R2-12 | Airline collection rarity and badges (V10) | Regular (10 or more sightings), Occasional (3-9), Rare (1-2) from this frame's own history; five badges (1, 5, 10, 25, 50 airlines); dimmed not-yet-seen cards; no points or streaks | default applies | 61-30 |  |
-| R2-13 | Airline collection name and place | "Airline collection" / "Collection de compagnies", personal space, read-only for everyone including administrators | default applies | 61-30 |  |
-| R2-14 | Quiet-hours write path (V8) | New `POST /quick/quiet-hours/window` writing only the three quiet-hours keys | default applies | 61-27 |  |
-| R2-15 | Personalisation phone-bar label | "Style" / "Style" in the bar, "Personalisation" / "Personnalisation" everywhere else | default applies | 61-21 |  |
-| R2-16 | Locations POST routes | Kept with no UI (expand-only) | default applies | 61-17 |  |
-| R2-17 | Name this airline link in Flight history | UI-SPEC 1.1 says no personal page shows it to anyone, 12.2 says an administrator sees it; default follows 1.1 and R1 (no link for anyone) | default applies | 61-22 and 61-31 | raised by the planner |
-| R2-18 | A live frame with a fleet row is addressed by /devices/<id>/ for everyone | Applies | default applies | 61-19 | raised by the planner |
-| R2-19 | A co-manager may save the frame's place | A co-manager of a frame may save its place through `save_place` | default applies | 61-20 | The earlier saved-location rule (a co-manager never writes a location) is superseded because the position is now part of the frame's own detection setting. |
+| R2-11 | Console frame pages | Health, Device and Airline editor show one frame at a time with a frame chip listing every frame; Fleet's name link goes to Health | applied (default) | 61-19 and 61-23 | Plans 61-19, 61-21 and 61-23. |
+| R2-12 | Airline collection rarity and badges (V10) | Regular (10 or more sightings), Occasional (3-9), Rare (1-2) from this frame's own history; five badges (1, 5, 10, 25, 50 airlines); dimmed not-yet-seen cards; no points or streaks | applied (default) | 61-30 | Plan 61-30; counts are per flight (a pass stored twice counts once). |
+| R2-13 | Airline collection name and place | "Airline collection" / "Collection de compagnies", personal space, read-only for everyone including administrators | applied (default) | 61-30 | Plan 61-30. |
+| R2-14 | Quiet-hours write path (V8) | New `POST /quick/quiet-hours/window` writing only the three quiet-hours keys | applied (default) | 61-27 | Plan 61-27. |
+| R2-15 | Personalisation phone-bar label | "Style" / "Style" in the bar, "Personalisation" / "Personnalisation" everywhere else | applied (default) | 61-21 | Plan 61-21: "Style" on the phone bar, "Personalisation" elsewhere. |
+| R2-16 | Locations POST routes | Kept with no UI (expand-only) | applied (default) | 61-17 | Plan 61-17: the POST routes stay, no UI. |
+| R2-17 | Name this airline link in Flight history | UI-SPEC 1.1 says no personal page shows it to anyone, 12.2 says an administrator sees it; default follows 1.1 and R1 (no link for anyone) | owner to confirm | 61-22 and 61-31 | Raised by the planner. Applied on the default by plans 61-22 and 61-31: no personal page shows the link to anyone, administrators included. |
+| R2-18 | A live frame with a fleet row is addressed by /devices/<id>/ for everyone | Applies | owner to confirm | 61-19 | Raised by the planner. Applied on the default by plan 61-19. |
+| R2-19 | A co-manager may save the frame's place | A co-manager of a frame may save its place through `save_place` | owner to confirm | 61-20 | The earlier saved-location rule (a co-manager never writes a location) is superseded because the position is now part of the frame's own detection setting. Applied on the default by plan 61-20 (a co-manager may save the frame's place). |
 | R2-20 | Who may change the wake interval and where Refresh sits | Administrators only, in the Console Device page | owner answered (D23): administrators only | 61-28 | The wake interval stays in the Console Device page, feeds the fleet-wide request budget and is not on Personalisation. One access decision point (`screens.WAKE_INTERVAL_PLACEMENT`, set to the administrator-only value) keeps a later change to one line. |
 
 ## Audit items brought into scope
