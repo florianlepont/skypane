@@ -1,7 +1,7 @@
 """Real-browser checks of the Airline editor (/airlines/manage, administrator only): it opens in the
 Console chrome with the frame chip at 360 and 1280 px, in English and French, in both themes, with
 no sideways scroll and every control at least 44 px and owning its centre. It is reached from the
-Console (More then Airline editor on a phone, the sidebar link on desktop). Deleting a manual
+Console (the Airlines bar cell on a phone, the sidebar link on desktop). Deleting a manual
 resolution confirms in a dialog whose safe dismiss "Keep resolution" takes the focus, Tab stays
 inside, Escape closes it and returns the focus to the Delete link, and Delete resolution removes the
 row; with scripts blocked the hash link shows the dialog and the POST works. Renaming an airline
@@ -97,20 +97,18 @@ def test_the_editor_is_a_console_page_with_the_frame_strip_and_usable_controls(
         context.close()
 
 
-def test_the_editor_is_reached_from_the_console_more_sheet_on_a_phone(new_context, server):
+def test_the_editor_is_reached_from_the_console_bar_on_a_phone(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, path="/fleet", ready="main h1")
     try:
         taps = 0
-        page.locator(".tab-bar__more > summary").click()
-        taps += 1
-        link = page.locator(".tab-bar__more-panel a", has_text="Airline editor")
+        link = page.locator('.tab-bar > a[href$="/airlines/manage"]')
         link.wait_for(state="visible")
         with page.expect_navigation():
             link.click()
         taps += 1
         page.wait_for_url("**/airlines/manage")
         assert page.locator("h1.page-title").inner_text() == "Airline editor"
-        assert taps == 2
+        assert taps == 1
     finally:
         context.close()
 
@@ -209,9 +207,7 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, path="/fleet", ready="main h1")
     try:
         taps = 0
-        page.locator(".tab-bar__more > summary").click()
-        taps += 1
-        link = page.locator(".tab-bar__more-panel a", has_text="Airline editor")
+        link = page.locator('.tab-bar > a[href$="/airlines/manage"]')
         link.wait_for(state="visible")
         with page.expect_navigation():
             link.click()
@@ -233,6 +229,6 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
         print("STEP-COUNT A8 phone %d" % taps)
-        assert taps == 5
+        assert taps == 4
     finally:
         context.close()

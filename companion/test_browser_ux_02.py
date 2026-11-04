@@ -308,7 +308,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
         page.goto(base_url + "/update")
         page.wait_for_load_state("networkidle")
         assert page.locator(".dashboard-sidebar .nav-status").count() == 0
-        assert page.locator('.sidebar-nav a[href="/update"][aria-current="page"]').count() == 1
+        assert page.locator('.sidebar-nav a[href="/fleet"][aria-current="page"]').count() == 1
     finally:
         context.close()
 
@@ -323,9 +323,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
         page.click("#site-nav-toggle")
         page.wait_for_timeout(400)
         assert page.locator("#mobile-nav .nav-status").count() == 0
-        page.locator(".tab-bar__more > .tab-bar__link").click()
-        current = page.locator(
-            '.tab-bar__more-panel a[href="/update"][aria-current="page"]')
+        current = page.locator('.tab-bar a[href="/fleet"][aria-current="page"]')
         current.wait_for(state="visible")
         assert current.count() == 1
     finally:

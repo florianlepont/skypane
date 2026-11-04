@@ -83,7 +83,7 @@ Measured paths (360 x 844):
 - S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.
 - S2 and U2 several: the tile of the other frame (one page change; the strip replaced the chip and card sheet, D30).
 - A7: the frame name in a Fleet row is a link to that frame's Console Health.
-- A8: More, Airline editor, the airline row, type the new name, Save name (5 on a phone). On desktop the sidebar link replaces More and the editor link, so the path is one tap shorter; the desktop figure is not measured in this file (the phone rule governs).
+- A8: the Airline editor bar cell, the airline row, type the new name, Save name (4 on a phone). On desktop the sidebar link replaces More and the editor link, so the path is one tap shorter; the desktop figure is not measured in this file (the phone rule governs).
 - V1: phone, More then Airline collection. Desktop is the sidebar link, measured at 1280 px outside the phone rule.
 
 ## Honest notes
