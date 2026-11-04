@@ -138,3 +138,7 @@ Larger redesigns (new design work, owner decision on scope):
   it should be shown at the top of the window or in the navigation, in a more
   graphical way, with the frame represented (for example a small picture of
   the frame) rather than a plain control.
+- D30 (owner) The frame switcher follows mockup F2: a strip of frame tiles
+  (small frame picture, name, status dot, last-seen word) with the active
+  frame outlined and an "Add a screen" tile, instead of the dropdown.
+  Mockups: scratchpad/sketches (f2, f2d; alternative f1 not chosen).
