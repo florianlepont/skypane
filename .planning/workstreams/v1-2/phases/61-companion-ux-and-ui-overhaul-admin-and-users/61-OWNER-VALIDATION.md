@@ -131,3 +131,6 @@ Larger redesigns (new design work, owner decision on scope):
   several frames) in the deployed companion. To clarify: which account and
   how many frames he has, so we know whether the switcher is hidden by
   design (one frame) or missing.
+- W16 resolved: the owner tested the multi-frame management with an account
+  that has several frames; nothing missing (the switcher is hidden by design
+  with a single frame).
