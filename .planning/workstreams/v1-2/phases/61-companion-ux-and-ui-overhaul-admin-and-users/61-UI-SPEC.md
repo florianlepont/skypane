@@ -333,29 +333,32 @@ only if another page still uses them.
 - No Health dot in the personal sidebar. The Console Health link shows the severity dot of the frame
   in scope.
 
-### 1.5 Frame picker (V3, V6): personal pages and Console frame pages
+### 1.5 Frame picker (V3, V6, D30): personal pages and Console frame pages
 
-SUPERSEDED: revision 1 was a native `<details>` drop-down with link rows, a "My frames" footer and,
-for an administrator, an "All frames (Fleet)" row. The owner asked for something nicer (V6) and the
-Fleet entry is removed (V3).
+SUPERSEDED: revision 1 was a native `<details>` drop-down; revision 2 a frame chip opening a card sheet.
+The owner chose mockup F2 (D30, W17): a strip of frame tiles replaces both. The Fleet entry stays
+removed (V3).
 
 Rendered at the top of every device-scoped page, above the page title, **only when the request
 scope holds two or more frames**. One frame: nothing is rendered, nothing to choose (unchanged).
 
-- **Trigger (the frame chip):** a 48px-high button-like link card, full width on phone, `max-width:
-  24rem` on desktop: status dot (12px), frame name (16px semibold, wraps, never ellipsis), optional
-  second line 14px muted ("Shared · owner email" for a co-managed frame), and a chevron-down glyph.
-  Accessible name "Switch frame, current: {name}" (existing key). It is an `<a href="#dlg-frames"
-  data-modal-open>`: without script the hash link shows the sheet (the shared modal no-JS pattern).
-- **Sheet (`dialog.modal.frame-sheet`, shared modal component of section 2):** bottom sheet below
-  700px, centred dialog above. Title "Choose a frame" / "Choisir un cadre". Body: one **frame card**
-  per frame in a single column (two columns at >=700px), each a link (the whole card is the tap
-  target, min 64px high): dot, name (16px semibold), second line 14px muted (hardware label for an
-  owned frame, "Shared by {owner email}" for a co-managed one). The current frame's card has a
-  2px accent ring, a check glyph and the visually hidden word "current", plus `aria-current="true"`.
-  Cards go to the **same page** of the other frame (`device_scope.target_path(page, device)`), so the
-  user stays on Home, Flight history, Personalisation and so on.
-- Sheet footer: one text link "Manage my frames" to `/account#account-frames`; dismiss control "Close".
+- **Strip (`ul.frame-tiles`, aria-label "Your frames" / "Vos cadres"):** one **frame tile** per frame,
+  each a plain link (no script, no dialog), 132px wide, at least 44px in both axes. A tile shows a
+  small frame picture drawn in CSS (dark bezel, white screen, 44x58px), the frame name (semibold,
+  wraps), the status dot in its top-right corner (the single `frame_status` resolver) and the dot's
+  last-seen word under the name: "Seen 2m ago" / "Vu il y a 2 min", or "Not seen yet" / "Pas encore
+  vu" for a frame that never checked in. A third muted line carries "Shared by {owner email}" for a
+  co-managed frame and the owner email on a frame the viewer does not own (never on their own).
+- **Active tile:** `aria-current="true"`, outlined 2px in the accent colour with a faint accent wash.
+- **Add a screen tile:** the last item, dashed border, "+" glyph and "Add a screen" / "Ajouter un
+  écran" in the accent colour, linking to the existing pairing flow (`/fleet?pair=1`, the Fleet page
+  with its pairing dialog open). Shown only to an administrator, the only role that may pair a frame;
+  hidden for everyone else.
+- **Layout:** below 700px the strip is a horizontal scroller (one row, `overflow-x: auto`, snap);
+  from 700px it wraps. Both themes, EN and FR, no page-level horizontal overflow at 360px.
+- Tiles go to the **same page** of the other frame (`device_scope.target_path(page, device)`), always
+  under the `/devices/<id>` prefix (never the unprefixed live frame for a user), so the user stays on
+  Home, Flight history, Personalisation and so on.
 - **List content, personal pages:** the frames the viewer owns or co-manages. For an administrator
   this is the same rule as for a user (V0/V3): no "All frames", no Fleet link anywhere in the personal
   space (excluding `.space-switch` and `.frame-notice`, administrator only). If an administrator opens a frame that belongs to someone else (Fleet row "Open personal
@@ -363,14 +366,13 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
   page title: "Viewing {owner email}'s frame" with a link "Back to Fleet"; the picker then lists the
   viewer's own frames plus that one frame (flagged with the owner email).
 - **List content, Console frame pages (Health, Device, Airline editor):** every frame of the
-  platform (administrator only), problems first then by name, each card also showing the owner
-  email as its second line; this is the legitimate place for the all-frames list. The trigger is the
-  same chip; the sheet title is the same. With one frame in the fleet nothing is rendered.
-- Behaviour: focus rules, Esc, return focus and backdrop-click rules are the shared modal's
-  (section 2); a backdrop click closes it (no inputs).
-- Strings (EN / FR): "Choose a frame" / "Choisir un cadre"; "Manage my frames" / "Gérer mes cadres";
-  "Current" (hidden) / "Actuel"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet"
-  / "Retour à la flotte" (existing). Removed: "All frames (Fleet)" / "Tous les cadres (Flotte)".
+  platform (administrator only), problems first then by name, each tile also showing the owner
+  email as its last line; this is the legitimate place for the all-frames list. The strip is the
+  same. With one frame in the fleet nothing is rendered.
+- Strings (EN / FR): "Your frames" / "Vos cadres"; "Seen %s" / "Vu %s"; "Add a screen" / "Ajouter un
+  écran"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la
+  flotte" (existing). Removed with the sheet: "Choose a frame", "Manage my frames", "Current", the
+  chip's "Switch frame, current: %s", and (earlier) "All frames (Fleet)".
 - The old `?device=` GET redirect stays (old bookmarks).
 
 ### 1.6 Route map (every old route to its place; no broken bookmark; default-deny unchanged)
@@ -492,7 +494,7 @@ Behaviour (testable):
 | 7 | Leave this frame | "Leave frame" button (Account, co-managed frames) | none (sentence) | Leave this frame (destructive) | `/co-managers/leave` |
 | 8 (proposed, open item 4) | Manage user | "Manage user" button (Users row) | Role select, Save role; Access section (Disable/Enable); Sign-in section (Unlink identity) | per section | `/users/<id>/{role,disable,enable,unlink}` |
 | 9 (revision 2) | Quiet hours | schedule row on Home (section 10) | Use quiet hours, Start, End, presets | Save quiet hours (primary) | `/quick/quiet-hours/window` (new) |
-| 10 (revision 2) | Choose a frame (sheet, no form) | frame chip (section 1.5) | none, one link card per frame | none | GET links |
+| 10 (D30) | Choose a frame (tile strip, no form, no dialog) | frame strip (section 1.5) | none, one link tile per frame | none | GET links |
 | 11 (revision 2) | Airline details (sheet, read-only, no form) | an airline card (section 12.1) | none | none | none |
 | 12 (revision 2) | Remove special look (confirm) | "Remove" on a special-look row (Personalisation) | none (sentence) | Remove special look (destructive; dismiss "Keep special look") | the existing rules remove route |
 | 13 (revision 2) | Delete manual resolution (confirm) | "Delete" on a manual resolution (Airline editor) | none (sentence) | Delete resolution (destructive; dismiss "Keep resolution") | `/airlines/manual-resolutions/<p>/delete` |
@@ -700,8 +702,8 @@ tracking beyond the fields it already owns. The Device page no longer repeats th
 
 | Element | EN | FR |
 |---------|----|----|
-| Switcher summary aria | Switch frame, current: %s | Changer de cadre, actuel : %s |
-| Switcher footer (SUPERSEDED (revision 2): "All frames (Fleet)" removed; footer is the single link "Manage my frames") | Manage my frames | Gérer mes cadres |
+| Frame strip aria (SUPERSEDED: the chip's "Switch frame, current: %s") | Your frames | Vos cadres |
+| Add tile (D30; replaces the sheet footer "Manage my frames") | Add a screen | Ajouter un écran |
 | Shared mark | Shared · %s | Partagé · %s |
 | My frames heading | My frames | Mes cadres |
 | Shared line | Shared by %s | Partagé par %s |
@@ -1238,7 +1240,7 @@ Rule unchanged: one tap, one typed or chosen value, or one needed scroll; start 
 | L3 | Set the place from a city or address | n/a | 6 | Location tab, type, Search places, tap the result, Save (plus choosing the radius or runway only if the default does not fit) |
 | L4 | Set the place by dropping a pin | n/a | 3 | Location tab, tap the map, Save |
 | S1 | Switch to the Console (administrator) | 1 (link) | 1 | one tap on the visible segment, from any page |
-| S2 | Switch frame (several frames) | 1 (open the switcher) | 2 | tap the frame chip, tap the frame card (the list is the same one tap away; the card view costs one more tap than the old drop-down list, accepted for the larger targets) |
+| S2 | Switch frame (several frames) | 1 (open the switcher) | 1 | tap the other frame's tile (D30: the strip is always visible, so no opening tap) |
 | A7 | Read one frame's health (administrator) | measure | 1 | Fleet row name link (Console Health) |
 | A8 | Change an airline's name or picture | measure (Airlines tab) | at least 5 on phone | More, Airline editor, open the airline, change, save (4 on desktop, where the sidebar link replaces More plus the link; state the measured number in the plan test) |
 | V1 | See how many airlines my frame has spotted | 1 (Airlines tab, a gallery) | 2 on phone (1 on desktop) | phone: More, Airline collection; desktop: one sidebar link; the headline count is the first element |

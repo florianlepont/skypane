@@ -11,11 +11,11 @@ for the quick-switch failure toast; nothing here imports a page module.
 """
 from types import SimpleNamespace
 
+import companion.access as access
 import companion.device_scope as device_scope
 import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
-import companion.ui_modal as ui_modal
 from companion.ui_base import (
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
@@ -70,8 +70,7 @@ from companion.ui_nav import (
     user_brand_href,
 )
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
-from companion.ui_time import relative_copy_attrs
-from server import hardware
+from companion.ui_time import relative_age_text, relative_copy_attrs
 
 # The pre-authentication document's <title> — the one inline i18n.t()
 # literal this module used to carry, hoisted to a module-level Message.
@@ -309,21 +308,19 @@ PAGE_SHELL_TEMPLATE = (
 _SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
 
 
-# The frame chip and card sheet: shown above the page title of every
-# device-scoped page once the request scope lists two or more frames.
-_SWITCHER_ARIA_TEXT = i18n.msg(
-    "nav.frame_switcher_aria", "Switch frame, current: %s")
+# The frame strip: shown above the page title of every device-scoped page once
+# the request scope lists two or more frames. One whole-tile link per frame,
+# plus an Add a screen tile for an administrator.
+_STRIP_ARIA_TEXT = i18n.msg("nav.frame_strip_aria", "Your frames")
+_TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
+_TILE_ADD_TEXT = i18n.msg("nav.frame_tile_add", "Add a screen")
 _SWITCHER_SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
-_SWITCHER_MY_FRAMES_TEXT = i18n.msg("nav.frame_switcher_my_frames", "Manage my frames")
-_SWITCHER_TITLE_TEXT = i18n.msg("nav.frame_switcher_title", "Choose a frame")
-_SWITCHER_CURRENT_TEXT = i18n.msg("nav.frame_switcher_current", "Current")
-_CLOSE_TEXT = i18n.msg("common.close", "Close")
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 
-FRAME_CHIP_CLASS = "frame-chip"
-FRAME_SHEET_ID = "dlg-frames"
-FRAME_SHEET_CLASS = "frame-sheet"
-FRAME_CARD_CLASS = "frame-card"
+FRAME_TILES_CLASS = "frame-tiles"
+FRAME_TILE_CLASS = "frame-tile"
+# The existing pairing flow: the Fleet page with its pairing dialog open.
+_ADD_FRAME_HREF = "/fleet?pair=1"
 
 # The strip shown to an administrator on a personal page of a frame they
 # neither own nor co-manage.
@@ -363,41 +360,59 @@ def _switcher_status_row(device, now):
         battery_percent=percent)
 
 
-def _hardware_label(device):
-    profile = hardware.REGISTRY.get(device.hardware_type)
-    return profile.label if profile is not None else device.hardware_type
-
-
-def _card_note(entry):
-    """The muted second line of a card: who shared the frame, the owner of a
-    frame the viewer does not own, else the frame's hardware."""
+def _tile_note(entry):
+    """The muted last line of a tile: who shared the frame, or the owner of a
+    frame the viewer does not own; "" for a frame of their own."""
     if entry.owner_email is None:
-        return _hardware_label(entry.device)
+        return ""
     if entry.co_managed:
         return i18n.t(_SWITCHER_SHARED_BY_TEXT) % entry.owner_email
     return entry.owner_email
 
 
-def _frame_card_html(entry, page, current, now):
+def _seen_text(row, now):
+    """The last-seen word under a tile's name: "Seen 2m ago", or "Not seen
+    yet" for a frame that never checked in."""
+    if row.last_seen is None:
+        return i18n.t(frame_status.WORD_NOT_SEEN)
+    return i18n.t(_TILE_SEEN_TEXT) % relative_age_text(now - row.last_seen)
+
+
+def _frame_tile_html(entry, page, current, now):
     device = entry.device
-    is_current = device.id == current.id
-    cls = FRAME_CARD_CLASS
-    marker = (
-        icon_html("icon-check", size=20)
-        + '<span class="visually-hidden">%s</span>' % escape_html(
-            i18n.t(_SWITCHER_CURRENT_TEXT))) if is_current else ""
+    row = _switcher_status_row(device, now)
+    note = _tile_note(entry)
     return (
-        '<li><a class="%(cls)s" href="%(href)s"%(current)s>%(dot)s'
-        '<span class="%(cls)s__text"><span class="%(cls)s__name">%(name)s</span>'
-        '<span class="%(cls)s__note">%(note)s</span></span>%(marker)s</a></li>') % {
-            "cls": cls,
+        '<li><a class="%(cls)s" href="%(href)s"%(current)s>'
+        '<span class="%(cls)s__dot">%(dot)s</span>'
+        '<span class="%(cls)s__pic" aria-hidden="true"><i></i></span>'
+        '<span class="%(cls)s__name">%(name)s</span>'
+        '<span class="%(cls)s__seen">%(seen)s</span>%(note)s</a></li>') % {
+            "cls": FRAME_TILE_CLASS,
             "href": escape_html(device_scope.target_path(page, device)),
-            "current": ' aria-current="true"' if is_current else "",
-            "dot": frame_status.status_dot_html(_switcher_status_row(device, now)),
+            "current": ' aria-current="true"' if device.id == current.id else "",
+            "dot": frame_status.status_dot_html(row),
             "name": escape_html(_device_display_name(device)),
-            "note": escape_html(_card_note(entry)),
-            "marker": marker,
+            "seen": escape_html(_seen_text(row, now)),
+            "note": (
+                '<span class="%s__note">%s</span>' % (FRAME_TILE_CLASS, escape_html(note))
+                if note else ""),
         }
+
+
+def _add_tile_html():
+    return (
+        '<li><a class="%(cls)s %(cls)s--add" href="%(href)s">'
+        '<span class="%(cls)s__plus" aria-hidden="true">+</span>'
+        '<span>%(label)s</span></a></li>') % {
+            "cls": FRAME_TILE_CLASS, "href": _ADD_FRAME_HREF,
+            "label": escape_html(i18n.t(_TILE_ADD_TEXT))}
+
+
+def _may_add_frame():
+    """Only an administrator pairs a frame, from the Fleet page."""
+    principal = prefs.current_principal()
+    return principal is not None and principal[1] == access.ADMIN
 
 
 def _severity_rank(row):
@@ -413,11 +428,6 @@ def _console_ordered(entries, now):
         _device_display_name(e.device).casefold(), e.device.id))
 
 
-def _sheet_footer_html():
-    return '<p class="frame-sheet__footer"><a href="%s">%s</a></p>' % (
-        _MY_FRAMES_HREF, escape_html(i18n.t(_SWITCHER_MY_FRAMES_TEXT)))
-
-
 def _sheet_entries(active, now):
     """The cards' entries: every frame on a Console page, else the personal
     list."""
@@ -427,12 +437,12 @@ def _sheet_entries(active, now):
 
 
 def frame_switcher_html(active):
-    """The frame chip and its card sheet, or "" when they would be useless or
-    out of place: fewer than two frames listed, a global page (Update) or no
-    request scope. The chip is a hash link to a shared modal, so it works
-    without script. The cards are built from the request scope's own frame
-    list, never from request text, and never carry a MAC, token or secret: a
-    Device has none."""
+    """The frame tile strip, or "" when it would be useless or out of place:
+    fewer than two frames listed, a global page (Update) or no request scope.
+    Tiles are plain links to the same page of each frame under its own
+    /devices/<id> prefix, so the strip works without script. They are built
+    from the request scope's own frame list, never from request text, and never
+    carry a MAC, token or secret: a Device has none."""
     page = _device_page_path(active)
     current = device_scope.current_device()
     if page is None or current is None:
@@ -441,21 +451,11 @@ def frame_switcher_html(active):
     entries = _sheet_entries(active, now)
     if len(entries) < 2:
         return ""
-    name = _device_display_name(current)
-    chip = ui_modal.trigger_html(
-        FRAME_SHEET_ID,
-        frame_status.status_dot_html(_switcher_status_row(current, now))
-        + '<span class="%s__name">%s</span>' % (FRAME_CHIP_CLASS, escape_html(name))
-        + icon_html("icon-chevron-down", size=20),
-        FRAME_CHIP_CLASS, i18n.t(_SWITCHER_ARIA_TEXT) % name)
-    cards = "".join(_frame_card_html(e, page, current, now) for e in entries)
-    sheet = ui_modal.sections_dialog_html(
-        FRAME_SHEET_ID, i18n.t(_SWITCHER_TITLE_TEXT), None,
-        '<ul class="%s__list">%s</ul>%s' % (
-            FRAME_SHEET_CLASS, cards, _sheet_footer_html()),
-        i18n.t(_CLOSE_TEXT), device_scope.target_path(page, current),
-        extra_class=FRAME_SHEET_CLASS)
-    return chip + "\n" + sheet
+    tiles = "".join(_frame_tile_html(e, page, current, now) for e in entries)
+    if _may_add_frame():
+        tiles += _add_tile_html()
+    return '<ul class="%s" aria-label="%s">%s</ul>' % (
+        FRAME_TILES_CLASS, escape_html(i18n.t(_STRIP_ARIA_TEXT)), tiles)
 
 
 def frame_notice_html(active, console_page=False):

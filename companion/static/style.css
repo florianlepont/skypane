@@ -21,8 +21,9 @@
  *     the checked runway/look cards and look dot, the editing look frame)
  *   - the current segment of the space switch
  *     (.space-switch__segment--current)
- *   - the current frame's card ring and check in the frame sheet
- *     (.frame-card[aria-current])
+ *   - the current frame's tile outline in the frame tile strip
+ *     (.frame-tile[aria-current]) and the Add a screen tile's text
+ *     and dashed border (.frame-tile--add)
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
@@ -1765,119 +1766,111 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   display: none;
 }
 
-/* The frame chip above the page title (two or more frames) and its card
- * sheet. The chip is a hash link to a shared modal: a 48px card showing the
- * current frame with a chevron. The sheet lists one whole-card link per frame
- * in one column, two from 700px. Accent only marks the current frame's ring,
- * check and the footer link. */
-a.frame-chip {
+/* The frame tile strip above the page title (two or more frames). One
+ * whole-tile link per frame: a CSS-drawn frame (dark bezel, white screen), the
+ * name, the status dot and the last-seen word. Accent only marks the current
+ * tile's outline and the Add a screen tile. Below 700px the strip scrolls
+ * sideways; from 700px it wraps. */
+.frame-tiles {
   box-sizing: border-box;
   display: flex;
-  align-items: center;
   gap: var(--space-sm);
-  width: 100%;
-  max-width: none;
-  min-height: 48px;
   margin: 0 0 var(--space-md);
-  padding: 0 var(--space-md);
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  text-decoration: none;
-}
-
-a.frame-chip:hover {
-  background: var(--color-control-wash);
-}
-
-.frame-chip__name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
-}
-
-a.frame-chip .icon {
-  flex: none;
-}
-
-.frame-sheet__list {
-  display: grid;
-  gap: var(--space-sm);
-  margin: 0;
-  padding: 0;
+  padding: 4px;
   list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
 }
 
-.frame-card {
-  box-sizing: border-box;
+.frame-tiles > li {
   display: flex;
+  flex: none;
+  width: 132px;
+  scroll-snap-align: start;
+}
+
+.frame-tile {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-sm);
-  min-height: 64px;
-  padding: var(--space-sm) var(--space-md);
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-sm);
   background: var(--color-dominant);
   color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+  text-align: center;
   text-decoration: none;
 }
 
-.frame-card:hover {
+.frame-tile:hover {
   background: var(--color-control-wash);
 }
 
-.frame-card[aria-current="true"] {
+.frame-tile[aria-current="true"] {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-dominant));
 }
 
-.frame-card[aria-current="true"] .icon {
+.frame-tile__dot {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+}
+
+.frame-tile__pic {
+  display: block;
+  box-sizing: border-box;
   flex: none;
-  margin-left: auto;
-  color: var(--color-accent);
+  width: 44px;
+  height: 58px;
+  padding: 3px;
+  background: var(--color-frame-bezel);
+  border: 1px solid var(--color-frame-bezel-hi);
+  border-radius: 5px;
 }
 
-.frame-card__text {
-  display: grid;
-  flex: 1 1 auto;
-  min-width: 0;
+.frame-tile__pic i {
+  display: block;
+  height: 100%;
+  background: var(--color-image-backdrop);
+  border-radius: 1px;
 }
 
-.frame-card__name {
+.frame-tile__name {
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.frame-card__note {
+.frame-tile__seen,
+.frame-tile__note {
   font-size: var(--font-label-size);
   overflow-wrap: anywhere;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.frame-sheet__footer {
-  margin: var(--space-md) 0 0;
+.frame-tile--add {
+  justify-content: center;
+  background: transparent;
+  border-style: dashed;
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
 }
 
-.frame-sheet__footer a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--color-accent);
+.frame-tile__plus {
+  font-size: 24px;
+  line-height: 1;
 }
 
 @media (min-width: 700px) {
-  a.frame-chip {
-    max-width: 24rem;
-  }
-
-  .frame-sheet__list {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  dialog.frame-sheet {
-    width: min(640px, calc(100% - 48px));
+  .frame-tiles {
+    flex-wrap: wrap;
+    overflow-x: visible;
   }
 }
 

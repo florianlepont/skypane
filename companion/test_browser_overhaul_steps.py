@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 3, "U4c": 3, "L1": 5, "L2": 5, "L3": 6, "L4": 4,
-    "S1": 1, "S2": 2, "A7": 1, "A8": 5, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 1, "S2": 1, "A7": 1, "A8": 5, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -304,7 +304,7 @@ def test_u1_sign_in_ends_on_home(world, new_context):
 def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
-        assert page.locator("a.frame-chip").count() == 0
+        assert page.locator("ul.frame-tiles").count() == 0
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
         assert page.locator("main h1").inner_text().strip() == "Home"
         _report("U2-one", steps, 0)
@@ -313,38 +313,35 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
 
 
 def _open_the_other_frame(steps, page):
-    """The frame chip, then the card of the frame not shown; waits for the new page."""
-    steps.tap(page.locator("a.frame-chip"), "frame chip")
-    page.wait_for_function(
-        "() => document.querySelector('dialog.frame-sheet').open")
-    panel = page.locator("dialog.frame-sheet")
-    assert panel.locator("a", has_text="Kitchen").count() >= 1
-    assert panel.locator("a", has_text="Attic office").count() >= 1
+    """The tile of the frame not shown; waits for the new page."""
+    strip = page.locator("ul.frame-tiles")
+    assert strip.locator("a", has_text="Kitchen").count() >= 1
+    assert strip.locator("a", has_text="Attic office").count() >= 1
     before = page.url
-    was = page.locator("a.frame-chip").get_attribute("aria-label")
-    steps.tap(panel.locator("a.frame-card:not([aria-current])"), "frame card")
+    was = strip.locator("a[aria-current='true']").get_attribute("href")
+    steps.tap(strip.locator("a.frame-tile:not([aria-current]):not(.frame-tile--add)"), "frame tile")
     page.wait_for_function("(was) => location.href !== was", arg=before)
     page.wait_for_function("() => document.readyState === 'complete'")
-    assert page.locator("a.frame-chip").get_attribute("aria-label") != was
+    assert page.locator("ul.frame-tiles a[aria-current='true']").get_attribute("href") != was
 
 
-def test_u2_my_frames_with_several_frames_take_the_chip_and_a_card(world, new_context):
-    """The sheet lists every frame after one tap; reaching another frame is a second."""
+def test_u2_my_frames_with_several_frames_take_one_tile(world, new_context):
+    """The strip lists every frame on the page; reaching another frame is one tap."""
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
         _open_the_other_frame(steps, page)
-        _report("U2-several", steps, 2)
+        _report("U2-several", steps, 1)
     finally:
         context.close()
 
 
-def test_s2_switching_frame_takes_the_chip_then_a_card(world, new_context):
+def test_s2_switching_frame_takes_one_tile_tap(world, new_context):
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
         _open_the_other_frame(steps, page)
-        _report_measured("S2", steps, 2)
+        _report_measured("S2", steps, 1)
     finally:
         context.close()
 

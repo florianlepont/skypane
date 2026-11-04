@@ -3,7 +3,7 @@
 Every reworked page (Fleet, Users, Audit log, Releases, Account, Home,
 Location and detection, Personalisation, Airline collection, and the Console
 Health, Device and Airline editor pages) and every dialog it opens (the Fleet
-dialogs, the frame sheet, the quiet-hours dialog, the two confirm dialogs for a
+dialogs, the quiet-hours dialog, the two confirm dialogs for a
 special look and a manual resolution) is loaded at 360 and 1280px, in English
 and French, in both themes. Each load is checked for sideways overflow, 44px
 hit targets, list and navigation structure, monospace, empty states and the
@@ -147,7 +147,7 @@ _PERSONAL_BODY = """
 # Airline and airport names are catalogue data, spelled the same in both languages.
 _VISIBLE_TEXT = """
 () => {
-  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airline-row__name';
+  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airline-row__name, .frame-tile__name';
   const out = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -236,7 +236,6 @@ CASES = (
     _case("admin", "/airlines/manage", "{resolution_dialog}", "delete-resolution-dialog"),
     _case("admin", "/", "dlg-quiet-hours", "admin-quiet-hours-dialog"),
     _case("owner", "/devices/{owned}/", None, "user-home"),
-    _case("owner", "/devices/{owned}/", "dlg-frames", "frame-sheet"),
     _case("owner", "/devices/{owned}/", "dlg-quiet-hours", "quiet-hours-dialog"),
     _case("owner", "/devices/{owned}/display", None, "user-display"),
     _case("owner", "/devices/{owned}/detection", None, "user-location"),
@@ -630,11 +629,11 @@ def test_the_home_notification_has_a_french_translation(
 
 # What a person can find on a page, set apart from the data of the frame: headings, the
 # navigation entries (outside the space switch), and the names of the controls. The frame
-# chip and its sheet name frames, which differ with the person, and are left out.
+# strip names frames, which differ with the person, and are left out.
 _PAGE_SHAPE = """
 () => {
   const skip = '.space-strip, .space-switch, .mobile-nav__link--space, .frame-notice,'
-    + ' .frame-chip, .frame-sheet, script, style, template';
+    + ' .frame-tiles, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);
   return {

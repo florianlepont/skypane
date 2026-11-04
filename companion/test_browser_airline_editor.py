@@ -79,18 +79,18 @@ def _settle(page, selector):
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_editor_is_a_console_page_with_the_frame_chip_and_usable_controls(
+def test_the_editor_is_a_console_page_with_the_frame_strip_and_usable_controls(
         new_context, server, name, viewport, lang):
     context, page = _open(new_context, server, viewport, lang)
     try:
         title = "Airline editor" if lang == "en" else "Éditeur de compagnies"
         assert page.locator("h1.page-title").inner_text() == title
         assert page.locator('a.space-switch__segment--current[href="/fleet"]').count() >= 1
-        assert page.locator("a.frame-chip").first.is_visible()
+        assert page.locator("ul.frame-tiles").first.is_visible()
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "editor", viewport["width"])
-            for selector in (".airline-row", DELETE_LINK, "a.frame-chip"):
+            for selector in (".airline-row", DELETE_LINK, "a.frame-tile[aria-current='true']"):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "editor %s %s" % (name, lang))
     finally:

@@ -128,10 +128,10 @@ MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 
 # The fixed accessible name for the hamburger toggle button; state is
 # communicated entirely through aria-expanded, so this must not vary by
-# state. Renamed from "Open menu": the panel no longer holds a menu of
-# pages — the bottom tab bar owns destinations now, and what remains is
-# the state reminder plus language, theme and Sign out.
-NAV_TOGGLE_LABEL = i18n.msg("nav.account_and_preferences", "Account and preferences")
+# state. The panel holds Sign out only (destinations live in the bottom tab
+# bar, language and theme on the Account page), so it is named for the
+# account it acts on rather than for preferences.
+NAV_TOGGLE_LABEL = i18n.msg("nav.account_menu", "Account menu")
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
 # rather than imported: companion/pages/__init__.py's boundary forbids

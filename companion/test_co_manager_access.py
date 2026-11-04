@@ -125,7 +125,7 @@ def test_the_shared_frame_is_in_the_co_manager_frame_sheet(rig):
     assert 'href="%s/display"' % rig.prefix(own) in body
     assert 'href="%s/display"' % rig.prefix(rig.seed.live_id) not in body
     shared = parse_html(body).select_one(
-        'a.frame-card[href="%s/display"] .frame-card__note' % rig.prefix(rig.device))
+        'a.frame-tile[href="%s/display"] .frame-tile__note' % rig.prefix(rig.device))
     assert shared is not None and shared.text().strip().startswith("Shared by ")
 
 

@@ -555,7 +555,7 @@ def test_user_home_layout_has_the_frame_chip_first_and_no_battery_tile(
         assert page.locator(".home-battery").count() == 0
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
-            """() => ['a.frame-chip', 'h1', '.home-state', '.home-current-frame',
+            """() => ['ul.frame-tiles', 'h1', '.home-state', '.home-current-frame',
                       '.home-section[aria-labelledby="home-flights"]']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
         assert tops[0] < tops[1] < tops[2] < tops[3]

@@ -63,12 +63,12 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 | L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 6 | n/a | yes (the target is met with a scroll to the result) |
 | L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 4 | n/a | NO, one over target |
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
-| S2 | Switch frame (frame chip, then a frame card) | 1 (drop-down, then a row) | 2 | 2 | n/a | yes |
+| S2 | Switch frame (one tile tap, D30) | 1 (drop-down, then a row) | 2 | 1 | n/a | yes |
 | A7 | Fleet frame name to the Console Health | not measured, new flow | 1 | 1 | n/a | yes |
 | A8 | Rename an airline in the Airline editor, from the Console (More, Airline editor, the airline, the name, Save name) | not measured, new flow | at least 5 on a phone | 5 on a phone | n/a | yes (desktop is one fewer, see notes) |
 | V1 | Airline collection, phone (More, Airline collection) | not measured, new flow | 2 | 2 | n/a | yes |
 | V1 | Airline collection, desktop (sidebar link) | not measured, new flow | 1 | 1 | n/a | yes |
-| U2 several | Reach another frame (frame chip, then a frame card) | 1 (open the drop-down) | 1 in the first round, 2 after the card sheet | 2 | +1 | accepted by revision 2: the one extra tap |
+| U2 several | Reach another frame (one tile tap, D30) | 1 (open the drop-down) | 1 in the first round, 2 after the card sheet | 1 | 0 | the tile strip (D30) removed the card sheet's extra tap |
 
 Measured paths (360 x 844):
 
@@ -80,7 +80,7 @@ Measured paths (360 x 844):
 - L3: Location tab, type the query, tap Search places, scroll to the result, tap it, Save.
 - L4: Location tab, scroll to the map (it starts below the fold), tap it, Save.
 - S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.
-- S2 and U2 several: the frame chip, then the card of the other frame (one page change).
+- S2 and U2 several: the tile of the other frame (one page change; the strip replaced the chip and card sheet, D30).
 - A7: the frame name in a Fleet row is a link to that frame's Console Health.
 - A8: More, Airline editor, the airline row, type the new name, Save name (5 on a phone). On desktop the sidebar link replaces More and the editor link, so the path is one tap shorter; the desktop figure is not measured in this file (the phone rule governs).
 - V1: phone, More then Airline collection. Desktop is the sidebar link, measured at 1280 px outside the phone rule.
@@ -98,7 +98,7 @@ Measured paths (360 x 844):
 - **A6 stays at 2** (More, Audit log), one over the 1-tap target the first round set. The
   Console bar cannot hold Audit log next to Fleet, Users, Health, Device and More; this
   equals the pre-redesign count of 2 and was noted by plan 61-21.
-- **U2 with several frames is 2**, not 1, since the frame drop-down became a card sheet
+- **U2 with several frames is 1 again** (D30: the tile strip replaced the card sheet). Before D30 it was 2, since the frame drop-down became a card sheet
   (revision 2 accepts the extra tap): the sheet lists every frame after one tap, and
   reaching another frame is the card tap.
 - A8's phone figure is the bare minimum for the editor path; the desktop number is

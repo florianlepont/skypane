@@ -200,7 +200,7 @@ def _seed_single_rows(state_dir):
 
 def _inside_switcher(node):
     while node is not None:
-        if "frame-sheet" in node.attrs.get("class", ""):
+        if "frame-tiles" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False
