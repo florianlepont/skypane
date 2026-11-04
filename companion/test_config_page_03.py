@@ -1165,18 +1165,23 @@ def test_aspect_card_full_shape_checklist():
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
-    card = root.select_one("div.look-card")
-    assert card.select_one("h2").attrs.get("id") == config_page.ASPECT_HEADING_ID
-    frames = card.select("div.look-frame")
+    card = root.select_one("div.personalisation")
+    look_card = card.select_one("section#personalisation-look")
+    assert look_card.select_one("h2").attrs.get("id") == "personalisation-look-title"
+    frames = look_card.select("div.look-frame")
     assert [frame.attrs.get("data-look-usage") for frame in frames] == ["departures", "arrivals"]
     for frame in frames:
-        assert frame.select_one("details.look-edit table.look-table")
         assert frame.select_one("img.look-frame__image")
+    # Departures is chosen by the radio cards; Arrivals keeps its no-script table.
+    assert frames[0].select_one("div.look-pick__grid")
+    assert frames[1].select_one("details.look-edit table.look-table")
     special = card.select_one("div.special-looks")
-    assert special.select_one("li.special-row--calendar").attrs.get("data-look-usage") == "calendar"
+    assert card.select_one(
+        "section#personalisation-calendar li.special-row--calendar").attrs.get(
+        "data-look-usage") == "calendar"
     add_form = special.select_one("details.special-add form")
     assert add_form.attrs.get("action") == config_page.RULES_ADD_ROUTE
-    sheet = card.select_one("div.look-sheet")
+    sheet = look_card.select_one("div.look-sheet")
     assert "hidden" in sheet.attrs
     assert sheet.attrs.get("role") == "dialog" and sheet.attrs.get("aria-modal") == "true"
     assert root.select_one("#" + sheet.attrs["aria-labelledby"])
@@ -1198,7 +1203,7 @@ def test_rules_row_renders_inside_aspect_after_form():
     }, scope=config_page.SCOPE_DISPLAY)
     form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
     form_end = rendered.index("</form>", form_start)
-    aspect_pos = rendered.index('class="page-section aspect-card')
+    aspect_pos = rendered.index('class="page-section personalisation-card"')
     rules_start, rules_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
     assert form_end < aspect_pos < rules_start, (
         "expected </form> < the look card < the rules, got positions %d/%d/%d"

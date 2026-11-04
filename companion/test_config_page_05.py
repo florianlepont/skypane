@@ -442,8 +442,11 @@ def test_display_scope_has_three_radiogroups_device_has_none():
     assert display_count >= 1, (
         "expected at least one role=\"radiogroup\" occurrence on the Display scope, got %d"
         % display_count)
-    assert display_rendered.count('<caption class="visually-hidden">') == 4, (
-        "expected each of the four look tables to carry its own caption")
+    assert display_rendered.count('<caption class="visually-hidden">') == 3, (
+        "expected each of the three look tables (Arrivals, Calendar, new special look) to carry "
+        "its own caption")
+    assert display_rendered.count('class="look-pick__grid" role="radiogroup"') == 1, (
+        "expected the departures look to be one labelled radiogroup of radio cards")
     device_count = device_rendered.count('role="radiogroup"')
     assert device_count == 0, (
         "expected no role=\"radiogroup\" occurrence on the Device scope, got %d" % device_count)
@@ -506,17 +509,19 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 # ======================================================================
 
 @pytest.mark.parametrize(
-    ("lang", "what_appears", "card_title", "special_looks"),
+    ("lang", "titles", "page_title", "on_this_page"),
     [
-        ("en", "What appears", "How your frame looks", "Special looks"),
-        ("fr", "Ce qui s’affiche", "L’allure de votre cadre", "Allures spéciales"),
+        ("en", ("Look", "Special looks", "Calendar", "Screen"), "Personalisation", "On this page"),
+        ("fr", ("Allure", "Allures spéciales", "Calendrier", "Écran"), "Personnalisation",
+         "Sur cette page"),
     ],
 )
-def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
-        lang, what_appears, card_title, special_looks):
-    """the served Display page starts with one look card: the Departures and Arrivals pictures,
-    then the Special looks list (calendar row before the per-flight rules), and keeps its native
-    settings form while omitting the retired screen/status framing in both languages"""
+def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
+        lang, titles, page_title, on_this_page):
+    """the served Display page is titled Personalisation, starts with an On this page list and
+    then four cards in order (Look, Special looks, Calendar, Screen), the pictures and the
+    rules and calendar row inside their own cards, keeps its native settings form and omits the
+    retired screen/status framing in both languages"""
     prefs.set_request_prefs(lang=lang)
     try:
         rendered = config_page.render(
@@ -529,31 +534,31 @@ def test_display_uses_one_bilingual_appearance_flow_without_duplicate_framing(
     finally:
         prefs.set_request_prefs(lang="en")
 
-    appearance_section = '<section id="%s" class="display-appearance" aria-labelledby="%s">' % (
-        config_page.DISPLAY_LOOK_SECTION_ID, config_page.ASPECT_HEADING_ID)
-    card_heading = '<h2 class="text-heading" id="%s">%s</h2>' % (
-        config_page.ASPECT_HEADING_ID, escape_html(card_title))
-    assert appearance_section in rendered and card_heading in rendered
-    assert rendered.index(appearance_section) < rendered.index(card_heading)
-    assert what_appears not in rendered
+    assert '<h1 class="page-title">%s</h1>' % page_title in rendered
+    assert 'aria-label="%s"' % on_this_page in rendered
+    headings = [
+        rendered.index('id="personalisation-%s-title">%s</h2>' % (slug, escape_html(title)))
+        for slug, title in zip(("look", "special-looks", "calendar", "screen"), titles)]
+    assert headings == sorted(headings)
+    assert rendered.index('aria-label="%s"' % on_this_page) < headings[0]
     positions = [
         rendered.index('data-look-usage="%s"' % usage)
         for usage in (
             config_page.COLOUR_USAGE_DEPARTURES,
             config_page.COLOUR_USAGE_ARRIVALS,
-            config_page.COLOUR_USAGE_CALENDAR,
             config_page.COLOUR_USAGE_RULES,
+            config_page.COLOUR_USAGE_CALENDAR,
         )
     ]
     assert positions == sorted(positions)
-    assert rendered.index(escape_html(special_looks)) < positions[2]
+    assert headings[1] < positions[2] < headings[2] < positions[3]
     assert 'class="page-header__screen' not in rendered
     assert 'class="page-header__purpose' not in rendered
     assert 'class="frame-strip' not in rendered
     assert '<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID in rendered
     for field_name in ("theme", "theme_arriving", "calendar_theme_id"):
         assert 'name="%s"' % field_name in rendered
-        assert 'name="%s"' % field_name in rendered and 'form="%s"' % config_page.SETTINGS_FORM_ID in rendered
+        assert 'form="%s"' % config_page.SETTINGS_FORM_ID in rendered
 
 
 def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
@@ -580,7 +585,9 @@ def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
     rendered = config_page.render(
         {"device_config": {"theme": "blue"}},
         scope=config_page.SCOPE_DISPLAY)
-    sources = re.findall(r'<label class="look-(?:cell|option)[^"]*" data-preview-src="([^"]*)"', rendered)
+    sources = re.findall(
+        r'<label class="(?:look-(?:cell|option)|runway-card look-pick__card)[^"]*"[^>]*?'
+        r' ?data-preview-src="([^"]*)"', rendered)
     real = [src for src in sources if src]
     assert len(real) >= 4 * len(device_config.THEME_IDS), len(real)
     for src in real:
@@ -622,15 +629,18 @@ def test_look_card_has_no_caption_or_sample_flight_pill(tmp_path):
 # --- the compact chip grid, the swatch legend and the palette grids ----
 
 def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatch_legend():
-    """Display renders exactly four look tables (departures, arrivals, calendar, a new special
-    look), each with one radio per registered theme and its gap notes listed after the table,
-    never inside it"""
+    """Display renders exactly three look tables (arrivals, calendar, a new special look), each
+    with one radio per registered theme and its gap notes listed after the table, never inside
+    it, plus the departures look as one grid of radio cards with one card per registered theme"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
     blocks = root.find_all("div", cls="look-table-block")
-    assert len(blocks) == 4
+    assert len(blocks) == 3
+    grid = root.find("div", cls="look-pick__grid")
+    assert sorted(
+        node.attrs["value"] for node in grid.find_all("input")) == sorted(device_config.THEME_IDS)
     for block in blocks:
         values = [
             node.attrs["value"] for node in block.find_all("input")

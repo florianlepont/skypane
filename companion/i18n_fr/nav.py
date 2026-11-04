@@ -22,7 +22,6 @@ only carries each id's French translation.
 
 MESSAGES = {
     "nav.home": "Accueil",
-    "nav.display": "Affichage",
     "nav.airlines": "Compagnies",
     "nav.flight_history": "Historique des vols",
     "nav.flights_short": "Vols",

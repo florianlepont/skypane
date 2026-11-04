@@ -197,11 +197,12 @@ def test_display_page_carries_no_scheduled_input():
 
 def test_display_carries_no_schedule_card_or_quick_action_markup():
     """the Display page has no Quiet hours card (Home's dialog replaces it) and no
-    quick-action markup in its place"""
+    quiet-hours switch in its place; its only instant switch is the Screen one"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     assert 'id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID not in rendered
     assert config_page.QUIET_HOURS_SECTION_HEADING not in rendered
-    assert "quick-action" not in rendered
+    assert "/quick/quiet-hours" not in rendered
+    assert "/quick/display" in rendered
 
 
 def test_handle_post_same_field_set_after_restructure_saves_the_same_config(tmp_path):
@@ -299,7 +300,8 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     assert 'name="tracked_runway"' not in display, "expected no runway field on the Display page"
     assert 'name="tracked_runway"' not in device, "expected no runway field on the Device page"
     assert 'name="quiet_hours_enabled"' not in device, "expected no quiet-hours group on the Device page"
-    assert display.count('<h1 class="page-title">Display</h1>') == 1, "expected the Display page title"
+    assert display.count('<h1 class="page-title">Personalisation</h1>') == 1, (
+        "expected the Personalisation page title")
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
     rules_row_marker = 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES
     assert rules_row_marker in display, "expected the rules row, inside the Aspect card, on the Display page (D-11)"

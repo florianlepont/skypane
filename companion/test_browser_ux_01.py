@@ -640,7 +640,7 @@ def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context,
 
 
 def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, server):
-    """At 390px selecting a cell of the departures look table answers — the cell's border-colour
+    """At 390px selecting a radio card of the departures look grid answers — the cell's border-colour
     changes to the accent, an inset accent ring (box-shadow) appears, and its wash changes —
     while its own layout box, the table's own box, and every cell's position inside it are
     plain-equal before and after, so a selected cell can never be a different size from its
@@ -665,24 +665,20 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         _login(page, server.base_url())
         page.goto(server.base_url() + "/display")
         page.wait_for_load_state("networkidle")
-        # The table is the no-script control; open its disclosure directly, since with scripts
-        # its summary opens the look sheet instead.
-        page.eval_on_selector(
-            '[data-look-usage="departures"] details.look-edit', "d => { d.open = true; }")
 
         probe = (
             "() => {"
             "const row = document.querySelector("
-            "'[data-look-usage=\"departures\"] details.look-edit');"
-            "if (!row) return {error: 'no departures table'};"
-            "const chips = [...row.querySelectorAll('label.look-cell')]"
+            "'[data-look-usage=\"departures\"] .look-pick__grid');"
+            "if (!row) return {error: 'no departures look grid'};"
+            "const chips = [...row.querySelectorAll('label.look-pick__card')]"
             ".filter(c => c.querySelector('input[type=radio]'));"
             "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
             "const target = chips.find("
             "c => !c.querySelector('input[type=radio]').checked);"
             "if (!target) return {error: 'every chip is already checked'};"
-            "const grid = target.closest('.look-table');"
-            "if (!grid) return {error: 'no .look-table'};"
+            "const grid = target.closest('.look-pick__grid');"
+            "if (!grid) return {error: 'no .look-pick__grid'};"
             "const read = e => { const s = getComputedStyle(e);"
             "const ns = s;"
             "return {w: e.offsetWidth, h: e.offsetHeight,"
@@ -703,8 +699,8 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         value = before["value"]
         _click_control(
             page,
-            '[data-look-usage="departures"] details.look-edit '
-            'label.look-cell input[type=radio][value="%s"]' % value)
+            '[data-look-usage="departures"] .look-pick__grid '
+            'label.look-pick__card input[type=radio][value="%s"]' % value)
         # No transition to wait out any more (see the comment above) - a
         # short settle for the change event/repaint is still cheap
         # insurance.

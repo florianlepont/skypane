@@ -411,7 +411,7 @@ def _no_format_artefact(body_text):
 
 _FRENCH_PAGE_CASES = (
     ("/", "Accueil", "Home"),
-    ("/display", "Affichage", "Display"),
+    ("/display", "Personnalisation", "Display"),
     ("/device", "Appareil", "Device"),
     ("/flights", "Vols", "Flights"),
     ("/airlines", "Compagnies", "Airlines"),

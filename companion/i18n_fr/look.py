@@ -20,6 +20,7 @@ MESSAGES = {
     "look.arrivals_look": "Allure des arrivées",
     "look.calendar_flights_look": "Allure des vols du calendrier",
     "look.change": "Modifier",
+    "look.customise_look": "Personnaliser le style",
     "look.change_the_look": "Modifier l’allure : %s",
     "look.preview_alt": "Aperçu : %s, %s",
     "look.reset": "Rétablir",

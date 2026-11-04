@@ -12,6 +12,7 @@ from companion import wake
 from server import device_config
 from server.plane import calendar_rules
 
+from companion.pages import personalisation_cards
 from companion.settings import form_post
 
 # Every settings-group module's names, re-exported here (explicit,
@@ -256,7 +257,7 @@ RETURN_TO_FIELD_NAME = "return_to"
 # msg() is idempotent on a repeat (id, English) pair, and a settings
 # page module may not import a page-independent shell module's private
 # constants, so the id is redeclared here rather than imported.
-DISPLAY_PAGE_TITLE = i18n.msg("nav.display", "Display")
+DISPLAY_PAGE_TITLE = i18n.msg("nav.personalisation", "Personalisation")
 DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
 
 # Display has one appearance flow. The base sources come first; flight
@@ -558,6 +559,7 @@ def _render_display_scope(
     header = layout.page_header(
         i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.refresh_marker_html(ctx.now))
     frame_strip_section_html = ""
+    aspect_section_html = ""
     if screens.GROUP_THEME in groups:
         # Resolved once here and shared: the calendar row falls back to
         # the departures look for its "same as departures" picture, the
@@ -569,18 +571,8 @@ def _render_display_scope(
             calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
             errors=errors, submitted=submitted, state_dir=ctx.state_dir,
             sheet_open=bool(ctx.calendar_sheet), sheet_error=ctx.calendar_sheet_error)
-        # The section's own opening tag is formatted on its own: the card
-        # carries literal "%s" alt-text templates for the picker script.
-        aspect_section_html = (
-            '<section id="%s" class="display-appearance" aria-labelledby="%s">' % (
-                escape_html(DISPLAY_LOOK_SECTION_ID), escape_html(ASPECT_HEADING_ID))
-            + look_card_html(
-                values["theme_id"], values["theme_arriving"],
-                special_looks_html(ctx, calendar_row_html), "",
-                errors=errors, submitted=submitted)
-            + "</section>")
-    else:
-        aspect_section_html = ""
+        aspect_section_html = personalisation_cards.page_html(
+            ctx, values, calendar_row_html, calendar_status, errors, submitted)
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
@@ -792,6 +784,16 @@ def _resolve_quiet_hours(form, scope, errors, times):
     return form_post.resolve_quiet_hours_enabled(form, errors)
 
 
+def _resolve_timezone(form, scope, errors, current):
+    """The time zone from `form`. Personalisation has no time zone control
+    (the Location and detection page owns it): a Display post still refuses
+    an invalid zone, but never writes one."""
+    resolved = form_post.resolve_timezone(form, errors, current)
+    if scope == SCOPE_DISPLAY and resolved is not form_post.FAILED:
+        return {}
+    return resolved
+
+
 def handle_post(form, ctx, errors=None):
     """Validate the submitted settings state against `device_config`'s
     own registries and validators, then persist all fields in one
@@ -840,8 +842,8 @@ def handle_post(form, ctx, errors=None):
         lambda: _resolve_quiet_hours(form, scope, errors, times=False),
         lambda: form_post.resolve_wake_interval(form, errors),
         lambda: form_post.resolve_display(form, errors),
-        lambda: form_post.resolve_timezone(
-            form, errors, (ctx.device_config or {}).get(
+        lambda: _resolve_timezone(
+            form, scope, errors, (ctx.device_config or {}).get(
                 "timezone", device_config.DEFAULT_TIMEZONE)),
     )
     save_kwargs = {}

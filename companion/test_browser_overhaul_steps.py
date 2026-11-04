@@ -23,7 +23,7 @@ pytestmark = pytest.mark.browser
 # so a setting costs four actions (five for a look), above the design target
 # of three.
 MEASURED_U4 = 3
-MEASURED_U4_LOOK = 5
+MEASURED_U4_LOOK = 3
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -357,18 +357,15 @@ def test_u4_change_a_setting(world, new_context):
         context.close()
 
 
-def test_u4_changing_the_look_goes_through_the_sheet(world, new_context):
-    """The look picker is a sheet: Display tab, Change, a choice, Done, Save."""
+def test_u4_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
+    """Personalisation tab, tap a look, Save."""
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Display tab")
+        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
         page.wait_for_url("**/display")
-        steps.tap(page.locator("summary.look-edit__summary:visible").first, "Change the look")
-        sheet = page.locator("[data-look-sheet]")
-        sheet.wait_for(state="visible")
-        steps.tap(sheet.locator(
-            ".look-dot:has(input[data-look-axis=colour][value=green])"), "colour")
-        steps.tap(sheet.locator("[data-look-done]"), "Done")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        steps.tap(page.locator(
+            ".look-pick__card:has(input:not(:checked))").first, "a look")
         page.locator("[data-static-save-fallback]").wait_for(state="visible")
         _save_and_reload(steps, page)
         _report("U4-look", steps, MEASURED_U4_LOOK)

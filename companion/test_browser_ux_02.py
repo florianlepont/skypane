@@ -150,8 +150,8 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
         page.wait_for_load_state("networkidle")
         target = page.evaluate(
             "() => { const row = document.querySelector("
-            "'[data-look-usage=\"departures\"] details.look-edit');"
-            "const cell = [...row.querySelectorAll('label.look-cell')].find("
+            "'[data-look-usage=\"departures\"] .look-pick__grid');"
+            "const cell = [...row.querySelectorAll('label.look-pick__card')].find("
             "c => c.getAttribute('data-preview-src')"
             " && !c.querySelector('input[type=radio]').checked);"
             "return cell ? {value: cell.querySelector('input[type=radio]').value,"
@@ -160,8 +160,8 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
             raise AssertionError("found no unchecked departures table cell to select")
         _click_control(
             page,
-            '[data-look-usage="departures"] details.look-edit '
-            'label.look-cell input[type=radio][value="%s"]' % target["value"])
+            '[data-look-usage="departures"] .look-pick__grid '
+            'label.look-pick__card input[type=radio][value="%s"]' % target["value"])
         page.wait_for_function(
             "src => { const i = document.querySelector("
             "'[data-look-usage=\"departures\"] img.look-frame__image');"
@@ -189,11 +189,11 @@ def test_images_hold_their_place_before_they_arrive(new_context, server):
     # on a fast machine and proves nothing.
     surfaces = (
         ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100, ()),
-        # 150: at 360px each of the two pictures is about 140px wide, so a 3:4 box is ~190px
-        # tall - measured, not assumed.
+        # 140: at 360px the departures picture sits beside its read-back and is about 110px
+        # wide, so its 3:4 box is ~147px tall - measured, not assumed.
         ("/display", '[data-look-usage="departures"] .look-frame__picture',
          '[data-look-usage="departures"] .look-frame__image',
-         "**/frame-preview/**", 150, ()),
+         "**/frame-preview/**", 140, ()),
     )
     for width in (VIEWPORT_MIN_SUPPORTED["width"], VIEWPORT_DESKTOP["width"]):
         for route_path, box_sel, img_sel, url_glob, floor, openers in surfaces:

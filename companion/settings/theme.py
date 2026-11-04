@@ -20,7 +20,8 @@ from server import device_config
 
 from companion.settings import look
 from companion.settings.form import (
-    DIRTY_SECTION_ATTR, _field_error_html, _submitted_or_current)
+    CURRENT_BADGE_ATTR, CURRENT_BADGE_LABEL, DIRTY_SECTION_ATTR, SELECTED_LABEL, SETTINGS_FORM_ID,
+    _field_error_html, _submitted_or_current)
 
 
 THEME_PREVIEW_ROUTE_PREFIX = theme_preview.THEME_PREVIEW_ROUTE_PREFIX
@@ -254,3 +255,112 @@ def look_card_html(
     )
     return card_html + after_card_html
 
+
+
+LOOK_CUSTOMISE_LABEL = i18n.msg("look.customise_look", "Customise look")
+LOOK_GROUP_LABEL = i18n.msg("look.look", "Look")
+
+
+def look_radio_card_html(theme_id, checked, saved, usage_label):
+    """One look as a radio card: the look's small live picture, its name and,
+    on the selected one, a check. The radio belongs to the settings form and
+    posts the same theme id the look sheet writes. `saved` marks the look
+    stored now, which keeps a quiet marker once another card is picked."""
+    sentence = look.look_sentence(theme_id)
+    preview = theme_preview.frame_preview_src(
+        theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
+        theme_preview.FRAME_PREVIEW_SIZE_SMALL)
+    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    # The big picture this look shows once selected.
+    picture = theme_preview.frame_preview_src(
+        theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
+        theme_preview.FRAME_PREVIEW_SIZE_LARGE)
+    badge = (
+        ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
+        if saved else "")
+    return (
+        '<label class="runway-card look-pick__card%s"%s data-preview-src="%s">'
+        '<input type="radio" name="%s" value="%s" class="visually-hidden" form="%s"%s>'
+        '<img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
+        'loading="lazy" decoding="async">'
+        '<span class="runway-card__number look-pick__name">%s</span>'
+        '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
+        "</label>"
+    ) % (
+        " runway-card--selected" if saved else "", badge, escape_html(picture),
+        escape_html(LOOK_FIELDS[COLOUR_USAGE_DEPARTURES]), escape_html(theme_id),
+        escape_html(SETTINGS_FORM_ID), " checked" if checked else "",
+        escape_html(preview), width, height,
+        escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
+        escape_html(sentence), layout.icon_html("icon-check"),
+        escape_html(i18n.t(SELECTED_LABEL)))
+
+
+def look_radio_cards_html(effective_id, saved_id, usage_label):
+    """The grid of radio cards, one per look the frame's hardware can show,
+    in registry order."""
+    cards = "".join(
+        look_radio_card_html(theme_id, theme_id == effective_id, theme_id == saved_id, usage_label)
+        for theme_id in look.offered_theme_ids())
+    return '<div class="look-pick__grid" role="radiogroup" aria-label="%s">%s</div>' % (
+        escape_html(i18n.t(LOOK_GROUP_LABEL)), cards)
+
+
+def look_pick_html(current_theme_id, submitted, errors):
+    """The Look card's main block: the large live picture of the departures
+    look, its read-back with the "Customise look" opener, and the radio cards
+    that choose it. Everything sits in one look target, so the look sheet and
+    the live picture follow a card exactly as they follow the sheet."""
+    departures_id = departures_safe_theme_id(current_theme_id, submitted)
+    effective_id = _submitted_or_current(submitted, "theme", current_theme_id)
+    state = theme_preview.FRAME_PREVIEW_STATE_DEPARTING
+    size = theme_preview.FRAME_PREVIEW_SIZE_LARGE
+    field_name = LOOK_FIELDS[COLOUR_USAGE_DEPARTURES]
+    usage_label = i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES])
+    sentence = look.look_sentence(departures_id)
+    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[size]
+    return (
+        '<div class="look-frame look-pick"%s>'
+        '<div class="look-frame__anchor" data-look-anchor>'
+        '<div class="look-frame__picture">'
+        '<img class="look-frame__image" data-look-image src="%s" width="%d" height="%d" '
+        'alt="%s" data-look-alt-template="%s">'
+        '<button type="button" class="look-frame__open" data-look-open hidden '
+        'aria-haspopup="dialog" aria-label="%s"></button>'
+        "</div></div>"
+        '<div class="look-frame__meta">'
+        '<p class="look-frame__caption"><span class="look-frame__name">%s</span>'
+        '<span class="look-frame__sentence" data-look-sentence>%s</span></p>'
+        '<button type="button" class="look-edit__summary look-pick__customise" '
+        'data-look-open hidden aria-haspopup="dialog">%s<span>%s</span></button>'
+        "</div>%s%s"
+        "</div>"
+    ) % (
+        look_target_attrs(
+            COLOUR_USAGE_DEPARTURES, field_name, state, size, False,
+            title=i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_DEPARTURES])),
+        escape_html(theme_preview.frame_preview_src(departures_id, state, size)), width, height,
+        escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
+        escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),
+        escape_html(i18n.t(LOOK_CUSTOMISE_LABEL)),
+        escape_html(usage_label), escape_html(sentence),
+        layout.icon_html("icon-pencil"), escape_html(i18n.t(LOOK_CUSTOMISE_LABEL)),
+        look_radio_cards_html(
+            effective_id if effective_id in device_config.THEMES else None,
+            current_theme_id, usage_label),
+        _field_error_html(errors, field_name, field_name.replace("_", "-")))
+
+
+def look_card_body_html(current_theme_id, current_theme_arriving, errors=None, submitted=None):
+    """What the Look card holds: the departures block with its radio cards,
+    the Arrivals picture with its own "Change" control, and the one shared
+    look sheet."""
+    departures_id = departures_safe_theme_id(current_theme_id, submitted)
+    effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
+    arrivals_html = look_frame_html(
+        COLOUR_USAGE_ARRIVALS, effective_arriving, departures_id, errors,
+        theme_preview.FRAME_PREVIEW_STATE_ARRIVING)
+    return (
+        look_pick_html(current_theme_id, submitted, errors)
+        + '<div class="look-pick__arrivals">%s</div>' % arrivals_html
+        + look_sheet_html())

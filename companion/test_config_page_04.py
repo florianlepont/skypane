@@ -407,25 +407,15 @@ def test_calendar_disconnect_checkbox_never_appears_in_calendar_connection():
             "checkbox at all (D-08 retires it)" % ((configured, drift),))
 
 
-def test_look_supersection_carries_exactly_one_dirty_section_named_aspect():
-    """Display's Look supersection carries exactly ONE data-dirty-section card (named 'Aspect'),
-    in both the connected and not-connected states - down from the two ('Aspect'/'Calendar') it
-    carried before the calendar's connection block folded into the Aspect card's own Calendar
-    row"""
+def test_personalisation_carries_one_dirty_section_per_card_in_page_order():
+    """Personalisation carries exactly four data-dirty-section cards, named Look, Special looks,
+    Calendar and Screen in that order, in both the connected and not-connected states"""
     for configured in (False, True):
         ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        look_start = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
-        look_end = cp.aspect_section_end(rendered, look_start)
-        look_segment = rendered[look_start:look_end]
-        count = look_segment.count(config_page.DIRTY_SECTION_ATTR + "=")
-        assert count == 1, (
-            "configured=%r: expected exactly one data-dirty-section card under Look, got %d" % (configured, count))
-        expected_attr = '%s="%s"' % (
-            config_page.DIRTY_SECTION_ATTR, escape_html(i18n.t(config_page.ASPECT_HEADING)))
-        assert expected_attr in look_segment, (
-            "configured=%r: expected the one Look card's dirty-section attribute to name the Aspect heading"
-            % (configured,))
+        names = re.findall(r'%s="([^"]*)"' % config_page.DIRTY_SECTION_ATTR, rendered)
+        assert names == ["Look", "Special looks", "Calendar", "Screen"], (
+            "configured=%r: got %r" % (configured, names))
 
 
 def test_calendar_connection_never_nests_a_form_inside_another_in_either_state():

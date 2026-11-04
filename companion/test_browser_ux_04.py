@@ -144,9 +144,9 @@ def _clear_stored_artwork(server):
 
 
 def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, make_app_server):
-    """With scripts blocked, in both languages, at 360px: each of the four looks (departures,
-    arrivals, calendar flights, a new special look) carries its own native <details> with a
-    <summary>; every registry theme's radio (theme/theme_arriving/calendar_theme_id/
+    """With scripts blocked, in both languages, at 360px: each of the three looks that keep a
+    table (arrivals, calendar flights, a new special look) carries its own native <details>
+    with a <summary>, the departures look being the grid of radio cards; every registry theme's radio (theme/theme_arriving/calendar_theme_id/
     rule_theme_id) is present in the DOM at full registry size whether or not its disclosure is
     open; a real pointer click on the calendar row's own <summary> opens its table; and a
     selection made inside it reaches disk, read back via device_config.load_device_config(),
@@ -167,9 +167,9 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
             page.goto(base_url + "/display")
 
             disclosures = page.query_selector_all("details.look-edit, details.special-add")
-            if len(disclosures) != 4:
+            if len(disclosures) != 3:
                 raise AssertionError(
-                    "lang=%s: expected 4 look disclosures, found %d" % (lang, len(disclosures)))
+                    "lang=%s: expected 3 look disclosures, found %d" % (lang, len(disclosures)))
             for disclosure in disclosures:
                 if disclosure.query_selector("summary") is None:
                     raise AssertionError(
@@ -230,8 +230,8 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
 
 def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, server):
     """The Touch Targets floor, measured (never declared) in each control's own container,
-    in both UI themes, at the 360px contract floor: the departures table's first and last
-    cell, its "Change" <summary>, the arrivals table's leading "Same as departures" option, the
+    in both UI themes, at the 360px contract floor: the departures look's first and last radio
+    card, its "Customise look" button, the arrivals table's leading "Same as departures" option, the
     picture openers and the "Add a special look" <summary> all clear 44px; no table scrolls
     horizontally, the page itself never overflows sideways, and a swatch paints visibly
     distinct from its own cell surface in both themes.
@@ -250,18 +250,18 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             theme_record = {}
-            cells = '[data-look-usage="departures"] label.look-cell'
+            cells = '[data-look-usage="departures"] label.look-pick__card'
             if page.eval_on_selector_all(cells, "els => els.length") < 2:
                 raise AssertionError("theme=%s: expected the departures table's cells" % theme)
             theme_record["cell_first"] = _assert_hit_target(
-                page, '[data-look-usage="departures"] tbody tr:first-child td:first-of-type label',
-                "theme=%s: the FIRST cell of the departures table" % theme)
+                page, '[data-look-usage="departures"] .look-pick__grid > label:first-child',
+                "theme=%s: the FIRST radio card of the departures look" % theme)
             theme_record["cell_last"] = _assert_hit_target(
-                page, '[data-look-usage="departures"] tbody tr:last-child td:last-of-type label',
-                "theme=%s: the LAST cell of the departures table" % theme)
+                page, '[data-look-usage="departures"] .look-pick__grid > label:last-child',
+                "theme=%s: the LAST radio card of the departures look" % theme)
             theme_record["summary"] = _assert_hit_target(
-                page, '[data-look-usage="departures"] summary.look-edit__summary',
-                "theme=%s: the departures look's own <summary>" % theme)
+                page, '[data-look-usage="departures"] button.look-pick__customise',
+                "theme=%s: the departures look's Customise look button" % theme)
             theme_record["leading_option"] = _assert_hit_target(
                 page, '[data-look-usage="arrivals"] label.look-option:has(input[value=""])',
                 "theme=%s: the arrivals \"Same as departures\" option" % theme)
@@ -285,18 +285,14 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
             if msg:
                 raise AssertionError(msg)
 
-            # Deliberately the "black" cell: a white swatch on a white card surface is a real,
-            # correct product fact, never the "invisible swatch" defect this clause catches.
+            # The black card's own preview picture must paint a real box, never collapse.
             paint = page.eval_on_selector(
-                '[data-look-usage="departures"] label.look-cell:has(input[value="black"])',
-                "el => { var rects = el.querySelectorAll('svg.look-swatch rect');"
-                " var cell = getComputedStyle(el);"
-                " return {swatch: getComputedStyle(rects[rects.length - 1]).fill,"
-                " cellSurface: cell.backgroundColor}; }")
-            if paint["swatch"] == paint["cellSurface"]:
+                '[data-look-usage="departures"] label.look-pick__card:has(input[value="black"]) img',
+                "el => { var r = el.getBoundingClientRect();"
+                " return {width: r.width, height: r.height}; }")
+            if paint["width"] < 60 or paint["height"] < 80:
                 raise AssertionError(
-                    "theme=%s: the 'black' cell's swatch paints IDENTICALLY to its own cell "
-                    "surface (%r)" % (theme, paint["swatch"]))
+                    "theme=%s: the 'black' card's preview collapsed to %r" % (theme, paint))
             theme_record["paint"] = paint
             recorded[theme] = theme_record
     finally:
@@ -666,8 +662,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     named cards; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
-    should assert away. The Display appearance card sits inside its own labelled section: it is
-    the nested card-title tier by design and is excluded from the cardinality set structurally. Both themes exercised via
+    should assert away. Display's four Personalisation cards are ordinary settings cards and join
+    the set. Both themes exercised via
     _set_ui_theme(), at the 360px floor.
     """
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -697,12 +693,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                     entries.append(entry)
                     by_page[route].append(entry)
 
-        # Clause (a): Device has settings-card titles to compare. Display's only card is the
-        # nested appearance card (the Quiet hours card left for Home's dialog), so its side
-        # of the comparison is the nested one checked below.
+        # Clause (a): both pages have settings-card titles to compare.
         for route, side in by_page.items():
-            if route == "/display":
-                continue
             if not side:
                 raise AssertionError(
                     "expected at least one settings-card title on %s, got NONE - a "
@@ -721,12 +713,14 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "than structural position would pick up supersection intro headings too, "
                 "which is exactly the 27-06-shaped mistake this check exists to avoid"
                 % (sorted(allowed_device_texts), sorted(unexpected)))
-        # The only nested settings card is the Display appearance card, in the nested
-        # card-title voice.
-        if set(nested_titles) != {config_page.ASPECT_HEADING}:
+        # Display contributes exactly the four Personalisation cards, in the same voice.
+        display_texts = {e["text"] for e in by_page["/display"]}
+        if display_texts != {"Look", "Special looks", "Calendar", "Screen"}:
             raise AssertionError(
-                "expected the Display appearance card to be the only nested settings card, "
-                "got %r" % (sorted(set(nested_titles)),))
+                "expected the four Personalisation card titles on /display, got %r"
+                % (sorted(display_texts),))
+        if nested_titles:
+            raise AssertionError("expected no nested settings card, got %r" % (nested_titles,))
 
         # The combined set's own cardinality is 1.
         triples = sorted({e["triple"] for e in entries})
