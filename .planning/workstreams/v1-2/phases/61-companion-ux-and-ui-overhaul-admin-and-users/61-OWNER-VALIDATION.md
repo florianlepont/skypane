@@ -127,3 +127,7 @@ Larger redesigns (new design work, owner decision on scope):
   secondary navigation (Look, Special looks, Calendar, Screen), one page per
   entry, the look picker (preview, colour, background, diagonal band) as the
   main view of Look. Mockups: scratchpad/sketches (p1, p1d).
+- W16 (owner) He cannot see the multi-frame management (switching between
+  several frames) in the deployed companion. To clarify: which account and
+  how many frames he has, so we know whether the switcher is hidden by
+  design (one frame) or missing.
