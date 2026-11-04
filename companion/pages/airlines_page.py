@@ -22,7 +22,8 @@ import companion.i18n as i18n
 from companion.layout import csrf_field, escape_html
 import companion.layout as layout
 import companion.page_context as page_context
-from companion.pages import airline_sheet
+from companion.pages import airline_resolutions, airline_sheet
+from companion.ui_base import AIRLINE_EDITOR_LABEL
 from server.plane import illustrations
 # manual_resolutions, enrich and state_store import this page module in
 # neither direction, so importing them here creates no cycle.
@@ -35,10 +36,6 @@ import server.state_store as state_store
 # reverse import would cycle); pinned by a cross-module equality check
 # in companion/test_status_pages.py.
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
-
-# Owned by companion/i18n_fr/nav.py, not airlines.py — the same id the
-# nav tab label uses.
-_NAV_AIRLINES_TEXT = i18n.msg("nav.airlines", "Airlines")
 
 # Stable identifier of the airline-level type section (the airline's
 # primary picture); the other sections use their fleet-variant shape as
@@ -1480,12 +1477,14 @@ def render(ctx):
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
     return (
-        layout.page_header(i18n.t(_NAV_AIRLINES_TEXT))
+        layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html
         + _gallery_grid_html(
             pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now,
             sheets_by_name=sheets_by_name)
         + gap_strip_html
+        + airline_resolutions.section_html(
+            [(row[0], row[1]) for row in manual_rows], device_scope.scoped(MANAGE_ROUTE))
         + lightbox_html
         + resolve_html
         + sheet_fallback_html

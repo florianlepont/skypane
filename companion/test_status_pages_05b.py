@@ -339,9 +339,9 @@ def test_health_catalog_every_key_and_value_is_a_nonempty_str():
 
 
 def test_airlines_page_opens_with_shared_page_header(tmp_path):
-    """Airlines opens with the shared layout.page_header() component, not a bare <h1>"""
+    """The Airline editor opens with the shared layout.page_header() component, not a bare <h1>"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
-    assert '<h1 class="page-title">Airlines</h1>' in rendered
+    assert '<h1 class="page-title">Airline editor</h1>' in rendered
     assert '<h1 class="text-heading">' not in rendered
 
 

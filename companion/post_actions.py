@@ -378,7 +378,7 @@ class SettingsActionsMixin:
             % (back, quote(prefix, safe=""), quote(flash_key)))
 
     def _rename_redirect(self, flash_key, sheet_key=None):
-        """Back to /airlines with `flash_key`; a refusal reopens the sheet."""
+        """Back to the Airline editor with `flash_key`; a refusal reopens the sheet."""
         query = "flash=%s" % quote(flash_key)
         if sheet_key:
             query = "%s=%s&%s" % (airline_sheet.SHEET_QUERY_PARAM, quote(sheet_key, safe=""), query)

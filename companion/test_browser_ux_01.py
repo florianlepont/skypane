@@ -174,7 +174,7 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
 def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context, server):
     """At 390px the Airlines list renders one row per line, every row the same width as the
     list and the same 76px height (a two-line name never makes one taller), and the whole page
-    stays under a height ceiling that moves deliberately when the airline count changes."""
+    stays under a height ceiling that moves deliberately when the airline count or the manual resolutions list changes."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
@@ -193,8 +193,8 @@ def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context,
         if len({row["top"] for row in rows}) != len(rows):
             raise AssertionError("expected exactly one row per line at 390px")
         height = page.evaluate("document.documentElement.scrollHeight")
-        if height > 3900:
-            raise AssertionError("expected the list page under 3900px, measured %r" % (height,))
+        if height > 4100:
+            raise AssertionError("expected the list page under 4100px, measured %r" % (height,))
     finally:
         context.close()
 

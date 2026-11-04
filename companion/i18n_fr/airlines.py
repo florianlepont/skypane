@@ -70,6 +70,19 @@ MESSAGES = {
         "L’illustration reste.",
     "airlines.delete_manual_name": "Supprimer mon nom",
 
+    # --- The manual resolutions list and its delete confirmation -----
+    "airlines.manual_resolutions": "Résolutions manuelles",
+    "airlines.manual_resolutions_caption":
+        "Noms que vous avez donnés à des préfixes non identifiés.",
+    "airlines.delete_resolution_link": "Supprimer",
+    "airlines.delete_resolution_aria": "Supprimer la résolution %s",
+    "airlines.delete_this_resolution": "Supprimer cette résolution\u00a0?",
+    "airlines.delete_resolution_body":
+        "%s ne nommera plus les vols de ce préfixe, qui redeviennent non "
+        "identifiés. L’illustration reste.",
+    "airlines.delete_resolution": "Supprimer la résolution",
+    "airlines.keep_resolution": "Garder la résolution",
+
     # --- The replace/upload forms' shared copy ------------------------
     "airlines.replace_this_illustration": "Remplacer cette illustration",
     "airlines.upload": "Envoyer",
