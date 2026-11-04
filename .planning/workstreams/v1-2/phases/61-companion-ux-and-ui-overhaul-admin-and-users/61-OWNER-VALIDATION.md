@@ -110,3 +110,11 @@ Larger redesigns (new design work, owner decision on scope):
   navigation, with a dedicated page per item (Look, Special looks, Calendar,
   Screen). The Look view should show the look picker sheet (colour, background,
   diagonal band) as the main view instead of showing every possible panel.
+- W11 (owner) The airline collection sort control is poorly integrated: the
+  "50 airlines" pill, text filter, sort select and a clipped "Apply" button
+  do not read as one control bar.
+- W12 (owner) Rarity colours: rare airlines and aircraft should stand out
+  through colour in the collection (and wherever they are listed).
+- W13 (owner) The Account page "Preferences" card is under-designed: two
+  full-width segmented bars (FR/EN and Auto/Light/Dark) with no labels or
+  hierarchy, stretched across the desktop width.
