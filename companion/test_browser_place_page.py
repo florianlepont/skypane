@@ -27,15 +27,15 @@ CDG = "LFPG"
 CDG_RUNWAY = "08L/26R"
 SAVE = "button.dirty-bar__save"
 
-CARDS = (
-    ".place-card--status", ".place-card--map", ".place-card--airports",
-    ".place-card--follow", "#details")
+AREA_MODE = "label.place-mode:has(#place-mode-area)"
+AIRPORT_MODE = "label.place-mode:has(#place-mode-runway)"
+PARTS = (".place-stage", ".place-float", ".place-panel", "#place-map")
 
 _BOX_PROBE = (
     "sels => Object.fromEntries(sels.map((sel) => {"
     " const r = document.querySelector(sel).getBoundingClientRect();"
     " return [sel, {top: r.top + window.scrollY, bottom: r.bottom + window.scrollY,"
-    " left: r.left, right: r.right, width: r.width}]; }))")
+    " left: r.left, right: r.right, width: r.width, height: r.height}]; }))")
 
 
 def _settle(page, scripts_on=True):
@@ -111,68 +111,92 @@ def test_no_script_save_with_both_external_hosts_aborted(new_context, make_app_s
         raise AssertionError("disk holds %r" % (_stored(server),))
 
 
-def _hit_selectors(scripts_on):
-    selectors = [
-        "#airport-filter", "#airport-filter-submit", "a.place-airport__link",
-        "label.runway-card", "#place-radius", "#place-lat", "#place-lon", "#place-label",
-        "#place-timezone", "#details > summary", ".place-about > summary"]
-    if scripts_on:
-        selectors += ["#place-search", "form.place-search button", "#place-locate"]
-    return selectors
+def _choose_mode(page, label, control):
+    page.click(label)
+    if not page.is_checked("#" + control):
+        raise AssertionError("%s was not chosen" % control)
+
+
+def _probe(page, selectors, width):
+    failures = page.evaluate(_HIT_PROBE, {"selectors": selectors, "min": MIN_PX - SUBPIXEL})
+    if failures:
+        raise AssertionError("controls too small or covered at %dpx: %r" % (width, failures))
 
 
 def _assert_layout(page, width, scripts_on):
     failure = _assert_no_page_overflow(page, "/detection", width)
     if failure:
         raise AssertionError(failure)
+    # Airport mode: the mode switch, the airport filter (the list shows while the filter has
+    # focus), the runway cards, the credits and the coordinates summary.
+    _choose_mode(page, AIRPORT_MODE, "place-mode-runway")
     if scripts_on:
-        # With the map running the coordinates card starts closed; open it to measure its fields.
-        page.click("#details > summary")
-        page.wait_for_function("() => document.getElementById('details').open", timeout=5000)
-        page.wait_for_function(_SETTLED, timeout=10000)
-    failures = page.evaluate(
-        _HIT_PROBE, {"selectors": _hit_selectors(scripts_on), "min": MIN_PX - SUBPIXEL})
-    if failures:
-        raise AssertionError("controls too small or covered at %dpx: %r" % (width, failures))
-    # Every runway and mode card, not only the first.
+        page.click(".place-more > summary")
+        page.wait_for_function("() => document.querySelector('.place-more').open", timeout=5000)
+    page.focus("#airport-filter")
+    selectors = [
+        "label.place-mode", "#airport-filter", "#airport-filter-submit", "a.place-airport__link",
+        "label.runway-card", "#details > summary", ".place-about > summary"]
+    if scripts_on:
+        selectors += ["#place-search", "form.place-search button", "#place-locate"]
+    _probe(page, selectors, width)
     sizes = page.evaluate(
-        "() => [...document.querySelectorAll('label.runway-card, a.place-airport__link')]"
-        ".map((e) => { const r = e.getBoundingClientRect(); return [r.width, r.height]; })")
+        "() => [...document.querySelectorAll('label.place-mode, label.runway-card,"
+        " a.place-airport__link')].map((e) => { const r = e.getBoundingClientRect();"
+        " return [r.width, r.height]; })")
     small = [s for s in sizes if s[0] < MIN_PX - SUBPIXEL or s[1] < MIN_PX - SUBPIXEL]
     if small:
         raise AssertionError("cards under 44 px at %dpx: %r" % (width, small[:3]))
-    boxes = page.evaluate(_BOX_PROBE, list(CARDS))
-    if width < 960:
-        _assert_single_column(boxes, width)
+    # My position mode: the radius and, with the coordinates opened, the place fields.
+    _choose_mode(page, AREA_MODE, "place-mode-area")
+    if scripts_on:
+        page.click("#details > summary")
+        page.wait_for_function("() => document.getElementById('details').open", timeout=5000)
+    _probe(page, ["#place-radius", "#place-lat", "#place-lon", "#place-label", "#place-timezone"],
+           width)
+    boxes = page.evaluate(_BOX_PROBE, list(PARTS))
+    if not scripts_on:
+        _assert_plain_column(boxes, width)
+    elif width < 960:
+        _assert_sheet(boxes, width)
     else:
-        _assert_two_columns(boxes)
+        _assert_card(boxes)
 
 
-def _assert_single_column(boxes, width):
-    tops = [boxes[sel]["top"] for sel in CARDS]
-    if tops != sorted(tops):
-        raise AssertionError("cards are out of order on a phone: %r" % tops)
-    lefts = {round(boxes[sel]["left"]) for sel in CARDS}
-    if len(lefts) != 1:
-        raise AssertionError("the phone is not one column: lefts %r" % lefts)
-    if max(boxes[sel]["right"] for sel in CARDS) > width + SUBPIXEL:
-        raise AssertionError("a card leaves the viewport at %dpx" % width)
+def _assert_plain_column(boxes, width):
+    float_box, panel = boxes[".place-float"], boxes[".place-panel"]
+    if float_box["bottom"] > panel["top"] + SUBPIXEL:
+        raise AssertionError("the panel is not below the mode switch: %r" % boxes)
+    if round(float_box["left"]) != round(panel["left"]) or panel["right"] > width + SUBPIXEL:
+        raise AssertionError("the plain form is not one column inside the viewport: %r" % boxes)
 
 
-def _assert_two_columns(boxes):
-    status, place = boxes[CARDS[0]], boxes[CARDS[1]]
-    left_column = [boxes[sel] for sel in (CARDS[0], CARDS[2], CARDS[3], CARDS[4])]
-    if len({round(b["left"]) for b in left_column}) != 1:
-        raise AssertionError("the left column cards do not share a left edge")
-    if abs(status["width"] - 384) > 2:
-        raise AssertionError("the left column is %.1f px wide, expected 24rem" % status["width"])
-    if place["left"] < status["right"] - SUBPIXEL:
-        raise AssertionError("the place card is not in the right column")
-    if abs(place["top"] - status["top"]) > 2:
-        raise AssertionError("the place card does not start level with the status card")
-    tops = [b["top"] for b in left_column]
-    if tops != sorted(tops):
-        raise AssertionError("the left column is out of order: %r" % tops)
+def _assert_sheet(boxes, width):
+    stage, float_box, panel, map_box = (boxes[sel] for sel in PARTS)
+    if abs(map_box["width"] - stage["width"]) > 2 or abs(map_box["height"] - stage["height"]) > 2:
+        raise AssertionError("the map does not fill the stage: %r" % boxes)
+    if float_box["top"] < stage["top"] - SUBPIXEL or float_box["bottom"] > panel["top"] + SUBPIXEL:
+        raise AssertionError("the controls do not float above the sheet: %r" % boxes)
+    if abs(panel["bottom"] - stage["bottom"]) > 2 or abs(panel["width"] - stage["width"]) > 2:
+        raise AssertionError("the sheet is not docked at the foot of the map: %r" % boxes)
+    if panel["height"] > stage["height"] * 0.5:
+        raise AssertionError("the sheet covers more than half of the map: %r" % boxes)
+    if stage["right"] > width + SUBPIXEL:
+        raise AssertionError("the map leaves the viewport at %dpx" % width)
+
+
+def _assert_card(boxes):
+    stage, float_box, panel, map_box = (boxes[sel] for sel in PARTS)
+    if abs(map_box["width"] - stage["width"]) > 2 or abs(map_box["height"] - stage["height"]) > 2:
+        raise AssertionError("the map does not fill the stage: %r" % boxes)
+    if abs(panel["width"] - 384) > 2 or abs(float_box["width"] - 384) > 2:
+        raise AssertionError("the card is %.1f px wide, expected 24rem" % panel["width"])
+    if round(panel["left"]) != round(float_box["left"]) or panel["left"] > stage["left"] + 32:
+        raise AssertionError("the card is not at the left of the map: %r" % boxes)
+    if float_box["bottom"] > panel["top"] + SUBPIXEL:
+        raise AssertionError("the mode switch is not at the top of the card: %r" % boxes)
+    if map_box["right"] - panel["right"] < 300:
+        raise AssertionError("the card leaves too little of the map: %r" % boxes)
 
 
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)

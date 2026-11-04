@@ -17,7 +17,7 @@ from companion.test_browser_ux_helpers import (
     _login, _set_ui_theme)
 from server import airports
 from place_map_support import (
-    HIT_PROBE as _HIT_PROBE, MIN_PX, SETTLED as _SETTLED, Hosts, saved_place, seed as _seed,
+    CLEAR_BOX, HIT_PROBE as _HIT_PROBE, MIN_PX, SETTLED as _SETTLED, Hosts, saved_place, seed as _seed,
     stored as _stored)
 
 pytestmark = pytest.mark.browser
@@ -78,7 +78,8 @@ def _map_box(page):
 
 
 def _tap_map(page, fx, fy):
-    box = _map_box(page)
+    """Clicks at the given fractions of the part of the map nothing floats over."""
+    box = page.evaluate(CLEAR_BOX)
     x, y = box["x"] + box["width"] * fx, box["y"] + box["height"] * fy
     page.mouse.click(x, y)
     return x, y
@@ -220,9 +221,11 @@ def _assert_controls(page, width):
     failure = _assert_no_page_overflow(page, "/detection", width)
     if failure:
         raise AssertionError(failure)
+    page.click(".place-more > summary")
+    page.wait_for_function("() => document.querySelector('.place-more').open", timeout=5000)
     selectors = [
         MAP + " .leaflet-control-zoom-in", MAP + " .leaflet-control-zoom-out",
-        "label.place-mode", ".place-about > summary", "#details > summary"]
+        "label.place-mode", ".place-about > summary", "#details > summary", "#place-locate"]
     failures = page.evaluate(_HIT_PROBE, {"selectors": selectors, "min": MIN_PX - SUBPIXEL})
     if failures:
         raise AssertionError("controls too small or covered at %dpx: %r" % (width, failures))
@@ -269,8 +272,8 @@ def test_with_the_tile_host_down_the_notice_shows_and_the_pin_still_saves(
         text = page.inner_text("#place-notice")
         if text != "The map pictures could not load. The pin and the coordinates still work.":
             raise AssertionError("the notice reads %r" % text)
-        if not page.locator("#place-notice").evaluate("el => el.closest('.place-card') !== null"):
-            raise AssertionError("the notice is outside the card")
+        if not page.locator("#place-notice").evaluate("el => el.closest('.place-panel') !== null"):
+            raise AssertionError("the notice is outside the panel")
         x, y = _tap_map(page, 0.45, 0.5)
         _wait_pin(page, x, y)
         place = _save_area_place(server, page)
@@ -564,19 +567,27 @@ def test_airport_dots_appear_when_zoomed_in_and_choosing_one_follows_its_link(
         for _ in range(3):
             page.click(MAP + " .leaflet-control-zoom-out")
             page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
-        page.wait_for_function(
-            "() => !!document.querySelector('#place-map .place-dot__mark[data-icao=LFPB]')",
-            timeout=10000)
-        dot = page.locator(MAP + " .place-dot:has(.place-dot__mark[data-icao='LFPB'])")
+        # A dot in the part of the map the card leaves clear.
+        clear_dot = (
+            "() => { const card = document.querySelector('.place-panel').getBoundingClientRect();"
+            " const own = document.querySelector('input[name=airport][form]').value;"
+            " const hit = [...document.querySelectorAll('#place-map .place-dot__mark')].find((d) => {"
+            "   const r = d.getBoundingClientRect(); return d.dataset.icao !== own"
+            "   && r.left > card.right + 30 && r.right < window.innerWidth - 80"
+            "   && r.top > 60 && r.bottom < window.innerHeight - 80; });"
+            " return hit ? hit.dataset.icao : null; }")
+        page.wait_for_function(clear_dot, timeout=10000)
+        icao = page.evaluate(clear_dot)
+        dot = page.locator(MAP + " .place-dot:has(.place-dot__mark[data-icao='%s'])" % icao)
         box = dot.bounding_box()
         if box["width"] < MIN_PX - SUBPIXEL or box["height"] < MIN_PX - SUBPIXEL:
             raise AssertionError("a dot hit box is %r" % box)
         with page.expect_navigation():
             dot.click()
         page.wait_for_function(READY, timeout=15000)
-        if "airport=LFPB" not in page.url or not page.is_checked("#place-mode-runway"):
+        if "airport=%s" % icao not in page.url or not page.is_checked("#place-mode-runway"):
             raise AssertionError("choosing the dot landed on %s" % page.url)
-        lfpb = airports.find_airport("LFPB")
+        lfpb = airports.find_airport(icao)
         if abs(float(page.input_value("#place-lat")) - lfpb.lat) > 0.0002:
             raise AssertionError("the pin is not on the chosen airport")
     finally:

@@ -169,12 +169,12 @@ def test_summary_position_setting_with_a_location(rig):
 
 def test_mode_card_is_a_radiogroup_with_the_saved_mode_checked(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    assert 'role="radiogroup" aria-labelledby="follow-heading"' in page
+    assert 'role="radiogroup" aria-label="What the frame follows"' in page
     assert re.search(r'id="place-mode-runway" value="runway"[^>]*checked', page)
     assert not re.search(r'value="position"[^>]*checked', page)
     _s, _h, other = rig.get("owner", rig.scope() + "/detection?mode=position")
     assert re.search(r'id="place-mode-area" value="position"[^>]*checked', other)
-    modes = other.split("runway-row place-modes")[1].split("</div>")[0]
+    modes = other.split("place-modes")[1].split("</div>")[0]
     assert not re.search(r'value="runway"[^>]*checked', modes)
     assert rig.config_bytes(rig.owner_dir()) is None
 

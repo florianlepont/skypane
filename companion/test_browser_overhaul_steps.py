@@ -18,7 +18,7 @@ import pytest
 import fleet_console_support as fx
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED
-from place_map_support import Hosts
+from place_map_support import CLEAR_BOX, Hosts
 from server import fleet_db, hardware
 
 pytestmark = pytest.mark.browser
@@ -28,7 +28,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 5, "L2": 5, "L3": 6, "L4": 4,
+    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
     "S1": 1, "S2": 1, "A7": 1, "A8": 5, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -59,17 +59,18 @@ class Steps:
         self._add("tap", what)
         locator.click()
 
-    def tap_point(self, locator, fx, fy, what):
-        """Taps a point of a large element (the map). A scroll is counted only when the point
+    def tap_point(self, locator, fx, fy, what, clear=None):
+        """Taps a point of a large element (the map), by default of the whole element, or of
+        `clear`, the part of it nothing floats over. A scroll is counted only when the point
         itself lies outside the viewport."""
         locator.wait_for(state="visible")
-        box = locator.bounding_box()
+        box = clear or locator.bounding_box()
         y = box["y"] + box["height"] * fy
         if y < 0 or y > self.page.evaluate("window.innerHeight"):
             self.count += 1
             self.log.append("scroll to " + what)
             locator.scroll_into_view_if_needed()
-            box = locator.bounding_box()
+            box = clear and self.page.evaluate(CLEAR_BOX) or locator.bounding_box()
             y = box["y"] + box["height"] * fy
         self._add("tap", what)
         self.page.mouse.click(box["x"] + box["width"] * fx, y)
@@ -500,7 +501,8 @@ def test_l4_tap_the_map(world, new_context):
     context, page, steps, _ = _open_location(world, new_context)
     try:
         page.wait_for_function(MAP_TILES, timeout=15000)
-        steps.tap_point(page.locator("#place-map"), 0.5, 0.55, "the map")
+        steps.tap_point(
+            page.locator("#place-map"), 0.5, 0.55, "the map", clear=page.evaluate(CLEAR_BOX))
         page.wait_for_function(
             "() => document.getElementById('place-lat').value !== ''", timeout=10000)
         _save_place(steps, page)

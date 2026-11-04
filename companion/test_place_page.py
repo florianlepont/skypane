@@ -152,8 +152,9 @@ def _save_place(rig, name="Home", lat=48.8566, lon=2.3522):
 
 def test_the_cards_come_in_the_specified_order(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    marks = ["place-status-heading", 'id="place-heading"', 'id="airports-heading"',
-             'id="follow-heading"', 'id="details"', 'data-dirty-bar']
+    marks = ['id="place-map"', 'id="place-mode-runway"', 'id="place-search"',
+             'id="airports-heading"', 'id="place-radius"', 'id="details"',
+             "place-status-heading", 'data-dirty-bar']
     positions = [page.index(mark) for mark in marks]
     assert positions == sorted(positions)
     assert "<title>Location and detection" in page
@@ -164,8 +165,8 @@ def test_the_page_is_titled_and_labelled_in_french(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection", lang="fr")
     text = _text(page)
     assert "<title>Lieu et détection" in page
-    for needle in ("Aéroports français", "Filtrer les aéroports", "Une piste",
-                   "La zone autour du repère", "Piste à suivre", "Rayon (km)",
+    for needle in ("Aéroports français", "Filtrer les aéroports", "Aéroport",
+                   "Ma position", "Piste à suivre", "Rayon (km)",
                    "Coordonnées et fuseau horaire", "Nom du lieu", "Fuseau horaire",
                    "Enregistrer le lieu", "Aucun lieu choisi", "À propos de cette carte",
                    "Rechercher une ville ou une adresse", "Utiliser ma position"):

@@ -836,7 +836,31 @@ airports) are kept and re-presented.
 **Visual anchor:** the map is the largest element and the first thing the eye reads; the accent pin on
 it is the only accent mark above the fold apart from the active tab and, for an administrator, the accent-filled current segment of the space switch.
 
-### 9.1 Page structure (top to bottom on phone; two columns at >=960px)
+### 9.0 Revision 3 (D28): the page is sketch V1; 9.1 and the card-by-card wording below it are history
+
+The map fills the page. Without scripts the page is the plain column described in 9.8.
+
+- **Stage** (`.place-stage`, with the map running only): the map is its backdrop (`#place-map`, absolute, fills it). Phone: height
+  `max(27rem, 100dvh - 17.5rem)`, the page title is visually hidden (the map and the sheet carry the page), the flash banner stays in the
+  flow above. From 960px: a 24rem card at the left of the map, height `max(34rem, 100dvh - 17rem)`, the page title and purpose above the stage.
+- **Floating controls** (`.place-float`): the mode switch (segmented radios "Airport" / "My position", FR "Aéroport" / "Ma position",
+  ids `place-mode-runway` / `place-mode-area`, 44px segments) and the search ("City or address" placeholder, Search places button, results
+  list below it). The privacy line (what is sent to Nominatim) floats under the field while it has focus and gives way to the results; it never
+  moves the layout. The "Use my position" control is a 48px round button on the map (icon, accessible name kept).
+- **Panel** (`.place-panel`): a bottom sheet on a phone (at most 46% of the stage, scrolls inside), the rest of the left card on desktop, with
+  the same content. Airport mode: the airport filter (the list of French airports shows while the field has focus or after a submitted
+  filter), the chosen airport and its runway cards. My-position mode: "Detection around this point" with the radius (number field and a
+  pointer-only range). The nearest-airport offer, the map notice and the polite status line sit under it.
+- **Derived outputs:** latitude, longitude and time zone are one small read-only line ("48.7262 · 2.3652 · Europe/Paris") that is the summary of
+  the `#details` disclosure; opening it shows the editable fields (the Quiet hours note still links to `#details`). The saved setting summary
+  and the map credits sit in a closed disclosure ("Saved setting and map credits").
+- **Recentring:** every pin the script places (search result, my position, airport, mode change, typed coordinates, the first view) is
+  centred in the part of the map no panel covers: right of the card on desktop, between the floating controls and the sheet on a phone.
+- The map's zoom control is at the top right; the OpenStreetMap credit is at the bottom right on desktop and at the top left, under the
+  controls, on a phone (the bottom of the map is under the sheet). The Save bar is the existing dirty bar.
+- Tokens only (no colour literals), both themes, 360px and 1280px, every control at least 44px.
+
+### 9.1 Page structure (revision 1/2, history; top to bottom on phone; two columns at >=960px)
 
 1. **Status card** (compact): the saved setting in one sentence (existing `detection_summary`
    sentence, e.g. "Following runway 07/25 at Paris-Orly (LFPO)") and, under it, the saved place label
@@ -1244,7 +1268,7 @@ Rule unchanged: one tap, one typed or chosen value, or one needed scroll; start 
 | U4a | Change quiet-hours start (user, administrator) | 4 (measured) | 3 | tap the schedule on Home, choose the start time, Save quiet hours (was: Display, scroll, value, Save) |
 | U4b | Change a look | 5 (measured) | 3 | Personalisation tab, tap a look, Save (was: Display, Change, colour, Done, Save) |
 | U4c | Change the refresh interval | measure | 3 | Personalisation tab, choose, Save |
-| L1 | Follow an airport's runway | n/a (new flow) | 4 | Location tab, type in the airport filter, tap the airport, Save |
+| L1 | Follow an airport's runway | n/a (new flow) | 4 | Location tab, type in the airport filter, tap the airport, Save (revision 3: measured 4, the filter is the first control of the sheet) |
 | L2 | Set the place with my position | n/a | 4 | Location tab, Use my position, (allow in the browser prompt counts one), Save |
 | L3 | Set the place from a city or address | n/a | 6 | Location tab, type, Search places, tap the result, Save (plus choosing the radius or runway only if the default does not fit) |
 | L4 | Set the place by dropping a pin | n/a | 3 | Location tab, tap the map, Save |

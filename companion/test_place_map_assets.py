@@ -89,11 +89,11 @@ def test_the_pin_glyph_is_in_the_sprite_and_the_whitelist(server):
     assert doc.select("symbol#icon-pin")
 
 
-def test_the_notice_container_is_in_the_card_and_starts_hidden(server):
+def test_the_notice_container_is_in_the_panel_and_starts_hidden(server):
     doc = _page(server, "/detection")
     notice = doc.select("#place-notice")[0]
     assert "hidden" in notice.attrs
-    assert doc.select(".place-card--map #place-notice")
+    assert doc.select(".place-panel #place-notice")
 
 
 def test_the_container_carries_the_search_limits_and_the_position_words(server):
@@ -116,5 +116,5 @@ def test_the_position_words_are_french_on_the_french_page(server):
 def test_the_search_form_limits_the_typed_text_to_the_script_limit(server):
     doc = _page(server, "/detection")
     assert doc.select("#place-search")[0].attrs["maxlength"] == "120"
-    assert doc.select(".place-card--map #place-results")
-    assert doc.select(".place-card--map #place-nearest")
+    assert doc.select(".place-float #place-results")
+    assert doc.select(".place-panel #place-nearest")

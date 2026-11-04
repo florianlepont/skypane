@@ -236,7 +236,9 @@
           break;
         }
       }
-      if (dirty) {
+      // Several wrappers may share one label (a section split across the
+      // page): it is named once.
+      if (dirty && labels.indexOf(wrapper.getAttribute("data-dirty-section")) < 0) {
         labels.push(wrapper.getAttribute("data-dirty-section"));
       }
     }

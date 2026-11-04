@@ -544,15 +544,15 @@ def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server)
         raise AssertionError("expected the leave-guard to disarm on a SECOND Annuler too")
 
 
-def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context, server):
-    """On the Detection page at 390px the three runway cards of the follower airport report
-    one shared left edge and equal widths and heights within 1px at a border total of exactly
-    2.0 each, stack top to bottom without overlap, and each still clears 44x44, with the
-    transform neutralised for the read and exactly one card proven to carry the selection
-    scale.
+def test_three_runway_cards_share_equal_columns_in_the_sheet_at_390px(new_context, server):
+    """On the Detection page at 390px the three runway cards of the follower airport sit in the
+    bottom sheet in rows of equal columns: equal widths within 1px (and equal heights within a
+    row) at a border total of exactly 2.0 each, no overlap, inside the sheet, and each still
+    clears 44x44, with the transform neutralised for the read and exactly one card proven to
+    carry the selection scale.
     """
-    # The cards sit in a one-column grid below 600px. Only a real layout engine can see a
-    # card that fails to take the full row or overlaps its neighbour.
+    # The cards sit in an auto-fit grid inside the sheet. Only a real layout engine can see a
+    # card that overflows the sheet or overlaps its neighbour.
     context = new_context(viewport=VIEWPORT_PHONE)
     Hosts(context)
     try:
@@ -592,18 +592,27 @@ def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context,
                 "transform genuinely exists"
                 % ([b["live"] for b in boxes],))
 
-        lefts = [b["left"] for b in boxes]
-        if max(lefts) - min(lefts) > 0.5:
-            raise AssertionError(
-                "expected all three cards in ONE column (equal left edges), got %r" % (lefts,))
-        ordered = sorted(boxes, key=lambda b: b["top"])
-        for above, below in zip(ordered, ordered[1:]):
-            if below["top"] < above["top"] + above["h"] - 0.5:
-                raise AssertionError(
-                    "expected stacked cards that do not overlap, got %r" % (ordered,))
-        heights = [b["h"] for b in boxes]
-        if max(heights) - min(heights) > 0.5:
-            raise AssertionError("expected three equal card heights, got %r" % (heights,))
+        panel = page.evaluate(
+            "() => { const r = document.querySelector('.place-panel').getBoundingClientRect();"
+            " return {left: r.left, right: r.right}; }")
+        for b in boxes:
+            if b["left"] < panel["left"] - 0.5 or b["left"] + b["w"] > panel["right"] + 0.5:
+                raise AssertionError("a runway card leaves the sheet: %r in %r" % (b, panel))
+        for index, first in enumerate(boxes):
+            for second in boxes[index + 1:]:
+                apart = (
+                    second["left"] >= first["left"] + first["w"] - 0.5
+                    or first["left"] >= second["left"] + second["w"] - 0.5
+                    or second["top"] >= first["top"] + first["h"] - 0.5
+                    or first["top"] >= second["top"] + second["h"] - 0.5)
+                if not apart:
+                    raise AssertionError("runway cards overlap: %r" % (boxes,))
+        rows = {}
+        for b in boxes:
+            rows.setdefault(round(b["top"]), []).append(b["h"])
+        for heights in rows.values():
+            if max(heights) - min(heights) > 0.5:
+                raise AssertionError("expected equal card heights within a row, got %r" % (rows,))
 
         # "Equal within 1px" is asserted on the cards' border-excluded widths, which is what
         # "equal columns" actually means, and on their outer widths too: every selected-state

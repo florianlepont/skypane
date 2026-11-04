@@ -58,10 +58,10 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 | U4a | Quiet-hours start from Home (tap the schedule, the start time, Save) | 4 (old U4) | 3 | 3 | -1 | yes |
 | U4b | Change the look (Personalisation tab, tap a look, Save) | 5 (old U4 look) | 3 | 3 | -2 | yes |
 | U4c | Administrator changes the refresh interval (Console Device tab, the interval, Save) | not measured, new flow | 3 | 3 | n/a | yes |
-| L1 | Pick an airport from the list (Location tab, type in the filter, tap the airport, Save) | not measured, new flow | 4 | 5 | n/a | NO, one over target |
-| L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 5 | n/a | NO, one over target |
-| L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 6 | n/a | yes (the target is met with a scroll to the result) |
-| L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 4 | n/a | NO, one over target |
+| L1 | Pick an airport from the list (Location tab, type in the filter, tap the airport, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
+| L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
+| L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 5 (was 6 before plan 61-41) | n/a | yes |
+| L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 3 (was 4 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
 | S2 | Switch frame (one tile tap, D30) | 1 (drop-down, then a row) | 2 | 1 | n/a | yes |
 | A7 | Fleet frame name to the Console Health | not measured, new flow | 1 | 1 | n/a | yes |
@@ -75,10 +75,10 @@ Measured paths (360 x 844):
 - U4a: tap the schedule link on Home (opens the Quiet hours dialog), type the start time, Save.
 - U4b: Personalisation tab, tap a look card, Save.
 - U4c: Device tab in the Console bar, type the interval in the number field, Save.
-- L1: Location tab, scroll to the airport filter (it sits below the first screen), type "Lyon", tap the airport (it opens the same page for that airport), Save.
-- L2: Location tab, the permission prompt (one counted step), scroll to Use my position (it starts at the fold), tap it, Save.
-- L3: Location tab, type the query, tap Search places, scroll to the result, tap it, Save.
-- L4: Location tab, scroll to the map (it starts below the fold), tap it, Save.
+- L1: Location tab, type "Lyon" in the airport filter (the first control of the sheet), tap the airport (it opens the same page for that airport), Save.
+- L2: Location tab, the permission prompt (one counted step), tap the round Use my position button on the map, Save.
+- L3: Location tab, type the query, tap Search places, tap the result (no scroll), Save.
+- L4: Location tab, tap the part of the map the floating controls and the sheet leave clear, Save.
 - S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.
 - S2 and U2 several: the tile of the other frame (one page change; the strip replaced the chip and card sheet, D30).
 - A7: the frame name in a Fleet row is a link to that frame's Console Health.
@@ -87,14 +87,12 @@ Measured paths (360 x 844):
 
 ## Honest notes
 
-- **Targets missed (three, all on the Location page, on a phone):** L1 (5
-  against 4), L2 (5 against 4) and L4 (4 against 3). The cause is the same in
-  all three: on a 360 x 844 phone the Location page puts the status card and the
-  place search first; the airport filter starts about 640 px below the fold,
-  the Use my position button at the fold edge and the map just below the fold
-  (the map box starts at y = 903). Each needs the counted scroll. Nothing was
-  changed in the product to hit a number. L3 reaches its target of 6 only
-  because the search field is on the first screen.
+- **Location page targets are all met since plan 61-41** (the page was rebuilt as sketch V1, D28): L1 4, L2 4,
+  L3 5 (against 6) and L4 3. Before it, L1 was 5, L2 5, L3 6 and L4 4: the old page put the status card and the
+  search first and the airport filter, the locate button and the map started at or below the fold, so each needed a
+  counted scroll. Now the map fills the first screen, the airport filter is the first control of the bottom sheet
+  and the locate button floats on the map. L4 taps the part of the map the floating controls and the sheet leave
+  clear (the point a person can actually reach); nothing was changed to hit a number.
 - **A6 stays at 2** (More, Audit log), one over the 1-tap target the first round set. The
   Console bar cannot hold Audit log next to Fleet, Users, Health, Device and More; this
   equals the pre-redesign count of 2 and was noted by plan 61-21.

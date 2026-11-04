@@ -170,7 +170,9 @@ def test_native_validation_never_blocks_a_save_with_the_other_modes_fields_inval
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     base_url = server.base_url()
     with _no_js_page(new_context, base_url, "/detection", viewport=VIEWPORT_MIN_SUPPORTED) as page:
+        page.click(MODE_AREA_LABEL)
         page.fill("#place-radius", "99")
+        page.click(MODE_RUNWAY_LABEL)
         page.click("label.runway-card:has(input[value='%s'])" % OTHER_CDG_RUNWAY)
         response = _submit(page, SAVE)
         if response.status != 200 or _inline_errors(page):
@@ -330,6 +332,8 @@ def _carry_radius_through_a_filter(page):
     airport."""
     page.click(MODE_AREA_LABEL)
     page.fill("#place-radius", "12")
+    # The airport list belongs to the Airport mode.
+    page.click(MODE_RUNWAY_LABEL)
     page.fill("#airport-filter", SEARCH)
     with page.expect_navigation():
         page.click(SEARCH_BUTTON)
@@ -395,6 +399,7 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
     """After a page-local navigation and a trip back, an unsaved edit is guarded again."""
     server = make_app_server(seed=_seed(SAVED_POSITION), fake_providers=True)
     page, dialogs = _open(new_context, server)
+    page.click(MODE_RUNWAY_LABEL)
     page.fill("#airport-filter", SEARCH)
     with page.expect_navigation():
         page.click(SEARCH_BUTTON)

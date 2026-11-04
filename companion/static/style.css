@@ -5440,28 +5440,51 @@ button.detection-search:hover {
   box-shadow: none;
 }
 
-/* Location and detection page. A single column on a phone, in the order the
- * markup has; from 960px the place card takes the right column and the other
- * cards stack in a 24rem left column. Cards reuse the nested card voice. */
+/* Location and detection page. Without the map script it is one column in
+ * the order the markup has: the mode switch, the panel (the runway choice or
+ * the radius, the airport list, the fields). With the map running
+ * (html.map-ready) the map fills the stage; the mode switch and the search
+ * float on it and the panel is a bottom sheet on a phone and a card at the
+ * left of the map from 960px, in both cases the part of the map the script
+ * keeps clear when it centres a place. */
 .place-page {
-  display: grid;
-  gap: var(--space-md);
   margin-bottom: var(--space-lg);
 }
 
-.place-page > *,
-.place-page__rest > * {
+.place-stage {
+  display: grid;
+  gap: var(--space-md);
+  --place-float-h: 8.5rem;
+}
+
+.place-stage > * {
   min-width: 0;
 }
 
-.place-page__rest {
+.place-float {
   display: grid;
-  gap: var(--space-md);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
   align-content: start;
 }
 
-.place-page .place-card {
-  margin-bottom: 0;
+.place-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.place-panel > * {
+  margin: 0;
+  min-width: 0;
+}
+
+.place-search__row button {
+  white-space: nowrap;
 }
 
 .place-line {
@@ -5472,18 +5495,54 @@ button.detection-search:hover {
 /* The fallback explanation stays until place-map.js reports the map is
  * running; a failed script therefore falls back as well. */
 .place-fallback {
-  margin: 0 0 var(--space-md);
+  margin: 0;
 }
 
 .map-ready .place-fallback {
   display: none;
 }
 
+/* The mode switch: two segments in one track. */
+.place-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.place-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.place-mode:has(input:checked) {
+  background: var(--color-dominant);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-card);
+}
+
+.place-mode:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .place-search {
   --js-gate-display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
 }
 
 .place-search__row {
@@ -5504,7 +5563,182 @@ button.detection-search:hover {
   --js-gate-display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+}
+
+/* The chosen mode decides which block the panel shows. */
+.place-stage:has(#place-mode-area:checked) .place-panel__runway,
+.place-stage:not(:has(#place-mode-area:checked)) .place-panel__area {
+  display: none;
+}
+
+.place-panel .detection-runways {
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+}
+
+.place-panel .runway-card {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.place-panel .runway-card .banner__pill {
+  display: block;
+  width: fit-content;
+  margin-top: var(--space-xs);
+}
+
+.place-panel__follow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.place-derived {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.place-more > summary {
+  font-weight: var(--weight-semibold);
+}
+
+.place-saved .text-heading {
+  margin: var(--space-sm) 0;
+}
+
+/* The map is running: it fills the stage and everything else floats on it. */
+.map-ready .place-stage {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  height: max(27rem, calc(100dvh - 17.5rem));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--color-secondary);
+}
+
+.map-ready .place-map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.map-ready .place-float {
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  padding: var(--space-sm);
+  pointer-events: none;
+}
+
+.map-ready .place-float > * {
+  pointer-events: auto;
+}
+
+.map-ready .place-modes {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-search__row {
+  padding: var(--space-xs);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-search label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The privacy line floats under the search field while it is in use, out of
+ * the flow so nothing moves when the field loses focus; it gives way to the
+ * results. */
+.map-ready .place-search {
+  position: relative;
+}
+
+.map-ready .place-search .section-caption {
+  display: none;
+}
+
+.map-ready .place-search:focus-within .section-caption {
+  display: block;
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-float:has(.place-results:not([hidden])) .place-search .section-caption {
+  display: none;
+}
+
+.map-ready .place-results {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.map-ready .place-panel {
+  grid-row: 3;
+  position: relative;
+  z-index: 2;
+  max-height: calc(max(27rem, 100dvh - 17.5rem) * 0.46);
+  overflow-y: auto;
+  border-width: 1px 0 0;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* On a phone the title is the page's heading for assistive technology only:
+ * the map and the sheet carry the page. The flash banner stays in the flow. */
+@media (max-width: 959.98px) {
+  .map-ready .page-header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .map-ready .place-locate {
+    position: absolute;
+    z-index: 2;
+    right: var(--space-sm);
+    top: calc(var(--place-float-h) + 7rem);
+  }
+
+  .place-page:has(~ .dirty-bar:not([hidden])) .place-panel {
+    padding-bottom: 8.5rem;
+  }
+}
+
+/* The airport list shows while its filter field is in use, and after a
+ * submitted filter. */
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-airports,
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-filter-hint,
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-results-count,
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-subtitle {
+  display: none;
 }
 
 /* The map. Leaflet's own stylesheet comes first on this page; the rules
@@ -5529,13 +5763,13 @@ button.detection-search:hover {
 }
 
 /* A map that did not start leaves the plain form: nothing script-only shows. */
-html:not(.map-ready) .place-card--map .place-search,
-html:not(.map-ready) .place-card--map .place-locate {
+html:not(.map-ready) .place-search,
+html:not(.map-ready) .place-locate {
   display: none;
 }
 
 .place-map__notice {
-  margin: 0 0 var(--space-sm);
+  margin: 0;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
@@ -5750,20 +5984,8 @@ button.place-result:hover {
   content: " · " attr(data-current-label);
 }
 
-.place-modes {
-  margin-bottom: var(--space-md);
-}
-
-.place-mode {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  padding-right: var(--space-2xl);
-  overflow-wrap: anywhere;
-}
-
 .place-subtitle {
-  margin: var(--space-md) 0 var(--space-sm);
+  margin: 0;
   font-family: var(--font-ui);
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
@@ -5782,6 +6004,29 @@ button.place-result:hover {
   margin-top: var(--space-md);
 }
 
+.place-panel__area .place-radius {
+  margin-top: 0;
+}
+
+.place-radius__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.place-radius__row input[type="number"] {
+  flex: 0 0 6rem;
+  width: 6rem;
+}
+
+.place-radius__range {
+  --js-gate-display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  accent-color: var(--color-accent);
+}
+
 .place-radius .section-caption,
 .place-fields .section-caption {
   margin: 0;
@@ -5795,36 +6040,82 @@ button.place-result:hover {
 }
 
 .place-details > summary {
-  font-weight: var(--weight-semibold);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.map-ready .place-details:not([open]) .place-derived {
+  text-decoration: none;
+}
+
+/* The locate button is a round button on the map. */
+.map-ready .place-locate {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-accent);
+}
+
+.map-ready .place-locate__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 959.98px) {
+  .map-ready .place-map .leaflet-top {
+    top: var(--place-float-h);
+  }
 }
 
 @media (min-width: 960px) {
-  .place-page {
+  .map-ready .place-stage {
     grid-template-columns: 24rem minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    gap: var(--space-lg);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: max(34rem, calc(100dvh - 17rem));
+    padding: var(--space-md);
   }
 
-  .place-card--status {
-    align-self: start;
+  .map-ready .place-float {
+    grid-column: 1;
+    grid-row: 1;
+    padding: var(--space-md) var(--space-md) 0;
+    background: var(--color-dominant);
+    border: 1px solid var(--color-border);
+    border-bottom: 0;
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+    box-shadow: var(--shadow-card-hover);
+    pointer-events: auto;
   }
 
-  .place-page__rest {
+  .map-ready .place-modes,
+  .map-ready .place-search__row {
+    box-shadow: none;
+  }
+
+  .map-ready .place-panel {
     grid-column: 1;
     grid-row: 2;
-    align-self: start;
-    gap: var(--space-lg);
+    max-height: none;
+    border-width: 0 1px 1px;
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
   }
 
-  .place-card--map {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: start;
-  }
-
-  .place-map {
-    height: min(70vh, 40rem);
-    min-height: 24rem;
+  .map-ready .place-locate {
+    position: absolute;
+    z-index: 2;
+    right: var(--space-lg);
+    bottom: calc(var(--space-lg) + var(--space-xl));
   }
 }
 
