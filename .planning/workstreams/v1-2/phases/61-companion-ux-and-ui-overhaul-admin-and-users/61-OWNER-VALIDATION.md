@@ -176,3 +176,6 @@ Larger redesigns (new design work, owner decision on scope):
   Callsign prefixes are shown read-only in the table. The row "..." menu is
   reduced to "Reset to the original name" and "Enlarge the artwork". The
   per-table toggle of E2 is dropped. Mockup: scratchpad/sketches e3.
+- W21 (owner, screenshot) The Console / "My frame" space switch is broken in
+  the desktop sidebar: the "My frame" label overflows its segment and the
+  active segment is wider than the pill. The labels must fit.
