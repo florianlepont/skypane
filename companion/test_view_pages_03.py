@@ -188,7 +188,7 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
 
 def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
     """a normal Airlines render carries no Editing badge and no per-row Replace control
-    anywhere — while every airline row trigger (the row itself and its hidden per-type twins)
+    anywhere — while every airline row trigger (its "Enlarge the artwork" menu item)
     still carries the SAME full data-view-panel-* vocabulary, its size derived from the
     module's own _VIEW_PANEL_*_ATTR constants rather than a hardcoded number"""
     rendered = airlines_page.render({})
@@ -199,10 +199,8 @@ def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
         "expected zero per-card Replace controls anywhere — the affordance moved into the "
         "dialog (CFG-81)")
 
-    triggers = re.findall(
-        r'<(?:button type="button"|a href="[^"]*") class="airline-row(?:__type-trigger)?" .*?</(?:button|a)>',
-        rendered, re.S)
-    assert len(triggers) >= 2, "expected the airline list to render triggers to count vocabulary against"
+    triggers = re.findall(r'<a [^>]*data-view-panel-src=[^>]*>', rendered)
+    assert len(triggers) >= 2, "expected the airline table to render triggers to count vocabulary against"
 
     attr_names = {
         getattr(airlines_page, name) for name in dir(airlines_page)

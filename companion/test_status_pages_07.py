@@ -1076,8 +1076,13 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             assert body_text.count(' action=""') == 3, (
                 "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete forms) in "
                 "the real /airlines HTTP response body, got %d" % body_text.count(' action=""'))
-            assert body_text.count('<input type="file"') == 2, (
-                "expected <input type=\"file\" exactly twice (replace form, resolve-upload form) "
+            # Two in the shared dialog (replace form, resolve-upload form) plus one
+            # click-to-replace upload per airline row and per aircraft-type sub-row.
+            upload_forms = sum(
+                1 + len(shapes) for _name, shapes in illustrations.target_variants_by_airline())
+            assert body_text.count('<form class="airlines-art"') == upload_forms
+            assert body_text.count('<input type="file"') == 2 + upload_forms, (
+                "expected <input type=\"file\" for the dialog's two forms and each row upload "
                 "in the real /airlines HTTP response body, got %d" % body_text.count('<input type="file"'))
 
         elif path == "/flights":

@@ -60,6 +60,8 @@ class AirlineEntry:
     # `(aircraft type code, rarity)` in the same order as `types`; the
     # rarity is that of the type across every sighting the frame stored.
     type_rarities: tuple = ()
+    # `(aircraft type code, sightings of this airline)`, most seen first.
+    type_counts: tuple = ()
 
     @property
     def seen(self):
@@ -131,6 +133,13 @@ def _ranked_types(rows):
     return tuple(name for name, _count in counts.most_common())
 
 
+def _ranked_type_counts(rows):
+    counts = collections.Counter(
+        str(row["aircraft_type"]).strip().upper()
+        for row in rows if row.get("aircraft_type") and str(row["aircraft_type"]).strip())
+    return tuple(counts.most_common())
+
+
 def _recent_callsigns(rows):
     seen = []
     for row in rows:
@@ -169,7 +178,8 @@ def _entry(slug, name, picture_key, curated, rows, now, type_counts):
         last_day=history_db.paris_day_or_none(last_ts),
         types=types, callsigns=_recent_callsigns(rows),
         rarity=rarity_for(len(rows)), is_new=_is_new(first_ts, now),
-        type_rarities=tuple((code, rarity_for(type_counts[code])) for code in types))
+        type_rarities=tuple((code, rarity_for(type_counts[code])) for code in types),
+        type_counts=_ranked_type_counts(rows))
 
 
 def _summary(spotted, total):

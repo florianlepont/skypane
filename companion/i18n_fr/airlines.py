@@ -14,6 +14,29 @@ non-breaking space (U+00A0) before ":" ";" "?" "!".
 """
 
 MESSAGES = {
+    # --- Editor table ------------------------------------------------
+    "airlines.table_caption": "Compagnies",
+    "airlines.col_airline": "Compagnie",
+    "airlines.col_prefixes": "Préfixes",
+    "airlines.col_artwork": "Illustration",
+    "airlines.col_views": "Vues",
+    "airlines.col_last_seen": "Dernière vue",
+    "airlines.name_aria": "Nom de la compagnie : %s",
+    "airlines.table_save_name": "Enregistrer",
+    "airlines.art_aria": "Remplacer l’illustration de %s",
+    "airlines.table_upload": "Téléverser",
+    "airlines.table_replace": "Remplacer",
+    "airlines.uses_airline_artwork": "Utilise celle de la compagnie",
+    "airlines.expand_types_aria": "Types d’appareil vus pour %s",
+    "airlines.row_menu_aria": "Actions pour %s",
+    "airlines.reset_original_name": "Revenir au nom d’origine",
+    "airlines.enlarge_artwork": "Agrandir l’illustration",
+    "airlines.name_it": "Nommer",
+    "airlines.name_it_aria": "Nommer le préfixe non identifié %s",
+    "airlines.unidentified_label": "Non identifiée",
+    "airlines.views_one": "1 vue",
+    "airlines.views_many": "%d vues",
+    "airlines.table_not_seen": "Pas encore vue",
     # --- Page header, gallery, cards --------------------------------
     "airlines.aircraft_type": "Type d’appareil",
     "airlines.all_types": "Tous types",
@@ -26,9 +49,10 @@ MESSAGES = {
         "intégré « %s » l’emporte.",
 
     # --- The "Unidentified airlines" gap strip and its cards --------
-    "airlines.unidentified_airlines": "Compagnies non identifiées",
-    "airlines.tap_a_callsign_below_to_name_its_airline":
-        "Touchez un indicatif ci-dessous pour nommer sa compagnie.",
+    "airlines.table_purpose":
+        "Renommez sur place, cliquez l’illustration pour la remplacer, dépliez pour les appareils.",
+    "airlines.gap_caption":
+        "Indicatifs non identifiés en premier : cliquez Nommer pour choisir une compagnie.",
     "airlines.resolve_prefix_example_callsign":
         "Identifier le préfixe %s — exemple d’indicatif %s",
     "airlines.other_unresolved_prefixes": "%d autres préfixes non résolus — ",
@@ -105,11 +129,6 @@ MESSAGES = {
 
     # --- The airline sheet (an airline row) ---------------------------
     "airlines.edit_airline": "Modifier %s",
-    "airlines.save_name": "Enregistrer le nom",
-    "airlines.callsign_prefixes": "Préfixes d’indicatif",
-    "airlines.reset_to_skypane_s_name": "Rétablir le nom de SkyPane",
-    "airlines.skypane_s_own_name_for_this_airline":
-        "Le nom de SkyPane pour cette compagnie est « %s ».",
 
     # --- The Airline collection page ----------------------------------
     "airlines.collection_purpose": "Toutes les compagnies que votre cadre a repérées.",

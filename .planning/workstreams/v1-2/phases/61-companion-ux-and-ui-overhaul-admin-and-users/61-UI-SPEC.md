@@ -149,6 +149,25 @@ rare actions that exist as routes (Unlink identity, shown for users who have sig
 stay: the signed-in administrator and the last active administrator show the guard sentence instead of
 the select and a locked switch.
 
+Console Airlines editor (D33, revision 3, mockup E3): one `<table class="airlines-table">` with one
+`<tbody>` per airline. Columns: Airline (the name is a text field saved in place through the rename
+route: with script on change, so Enter or leaving the field; without script a small Save button),
+Prefixes (read-only text), Artwork (the thumbnail is the label of a file input that posts to the
+illustration upload route on change; without script an Upload button), Views, Last seen (from the
+frame's own stored sightings) and a "..." menu (native `<details class="row-menu">`, Escape closes) holding only "Reset to the original
+name" (the rename reset, or the manual name's delete for an owner-named airline; shown when there is
+something to reset) and "Enlarge the artwork" (the shared lightbox; a plain link to the picture without
+script). A native `<details>` chevron at the start of the row expands one sub-row per aircraft type
+seen (type code and model name, views): a type that has an artwork slot of its own in the curated
+list (an aircraft variant) offers Replace to that type's upload address, every other type says "Uses
+the airline's artwork"; curated variants never seen are listed too (0 views). Unidentified prefixes
+are highlighted rows at the top with a "Name it" link into the existing resolve flow (dialog with
+script, in-page section without); an owner-named airline still without artwork keeps the link into the
+add-artwork step. From 70rem (1120px) it is a table; below, every airline is a card (the sub-rows
+stay stacked inside it). Targets are 44px; the filter field keeps its place above the table. The old
+airline sheet dialog (name, reset, type tabs) and the `?sheet=` in-page sheet are removed; `?sheet=<key>`
+now only puts the focus in that row's name field after a refused name.
+
 Layout widths: content column unchanged. Lists (fleet, my frames) are a single column,
 `max-width: 56rem` inside the page card at >=960px. No horizontal scrolling anywhere at 360px
 (page and every card: `scrollWidth <= clientWidth`).

@@ -16,8 +16,6 @@
  *   - current location / selection (.sidebar-link--active,
  *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
  *     .site-nav-toggle[aria-expanded="true"], the active theme option,
- *     the shown aircraft type of an airline sheet
- *     (a.airline-sheet__type[aria-current]),
  *     the checked runway/look cards and look dot, the editing look frame)
  *   - the current Personalisation section link and the chosen
  *     Departures/Arrivals tab (.personalisation-nav__link[aria-current],
@@ -4084,29 +4082,6 @@ details[open] > summary::before {
   }
 }
 
-/* The airline list: one row per airline, every row the same fixed height
- * whatever its name or number of aircraft types, so the page reads as
- * one even column (two from 960px). */
-.airline-list {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-sm);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-@media (min-width: 960px) {
-  .airline-list {
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: var(--space-md);
-  }
-}
-
-.airline-list + .page-section {
-  margin-top: var(--space-lg);
-}
-
 /* Hairline-at-rest, shadow-on-hover — do not restore a resting shadow. */
 .airline-card {
   background: var(--color-dominant);
@@ -4160,105 +4135,6 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* One airline row: picture, name over aircraft types, chevron. A fixed
- * height (not min-height) is the whole point: two lines of name and one of
- * types fit inside it, a longer name is clamped, so no row is ever taller
- * than another. The row is the trigger itself (an anchor or a button), so
- * it clears the 44px floor by a wide margin. */
-.airline-row {
-  display: grid;
-  grid-template-columns: 116px minmax(0, 1fr) 20px;
-  align-items: center;
-  gap: var(--space-sm) var(--space-md);
-  box-sizing: border-box;
-  width: 100%;
-  height: 76px;
-  min-height: 0;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-/* (0,2,0) so the global button:hover/:active wash and press-scale never
- * repaint a row that is a <button>, and a hovered row reveals the
- * card-hover shadow exactly as .airline-card does. */
-.airline-row:hover,
-.airline-row:focus-visible {
-  background: var(--color-dominant);
-  border-color: transparent;
-  box-shadow: var(--shadow-card-hover);
-  transform: none;
-}
-
-.airline-row:active {
-  transform: none;
-}
-
-.airline-row__art {
-  display: block;
-  min-width: 0;
-}
-
-.airline-row__art .airline-card__placeholder {
-  width: 100%;
-  margin: 0;
-}
-
-.airline-row__image {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 450 / 132;
-  object-fit: contain;
-}
-
-.airline-row__text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-/* Emphasis role; at most two lines, the full name stays in the title
- * attribute and in the sheet. */
-.airline-row__name {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.25;
-}
-
-/* Every aircraft type on one line, in the label voice. */
-.airline-row__types {
-  height: 16px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  line-height: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.airline-row__chevron {
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 /* Interactive battery-trend chart hit targets and readout line. */
@@ -5194,111 +5070,6 @@ a.airline-card {
   display: block;
   padding-top: var(--space-md);
   min-width: 0;
-}
-
-/* The airline sheet (an Airlines row): the name field and, for a renamed
- * airline, the reset form, below the picture and the upload zone. The
- * :not([hidden]) form lets panel-lookup.js hide the whole section, or
- * just the reset form, for a card that has no name to edit or reset. The
- * prefix chips reuse .airline-card__chip; they are display only, so they
- * are not touch targets. */
-.airline-sheet:not([hidden]) {
-  display: block;
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-  min-width: 0;
-}
-
-.airline-sheet__name input[type="text"] {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* The sheet's own buttons meet the 44px floor directly, at every width,
- * rather than taking the 30px/36px compact button geometry. */
-.airline-sheet__name button,
-.airline-sheet__reset button {
-  margin-top: var(--space-sm);
-  min-height: 44px;
-}
-
-/* The sheet's one title: the airline's name with its callsign prefixes as
- * quiet chips beside it. Nothing here is a touch target. */
-.airline-sheet__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 var(--space-sm);
-}
-
-.airline-sheet__head > h2 {
-  margin: 0 0 var(--space-sm);
-}
-
-.airline-sheet__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin: 0 0 var(--space-sm);
-  padding: 0;
-  list-style: none;
-}
-
-.airline-sheet__chips:empty {
-  display: none;
-}
-
-/* The aircraft-type switcher: a link per type (a plain label when there
- * is only one), the shown one marked in the selection idiom. Each link is
- * its own 44px target. */
-.airline-sheet__types:not([hidden]) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin: var(--space-sm) 0;
-}
-
-.airline-sheet__type {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-a.airline-sheet__type {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  box-sizing: border-box;
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-a.airline-sheet__type[aria-current="true"] {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
-}
-
-.airline-sheet__reset:not([hidden]) {
-  display: block;
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.airline-sheet__reset p {
-  margin: 0;
 }
 
 .lightbox__replace-zone:not([hidden]),
@@ -10454,4 +10225,314 @@ button.row-menu__item--destructive:hover {
   .users-cell--menu {
     position: static;
   }
+}
+
+/* Airlines editor table ------------------------------------------------
+ * One <tbody> per airline: its row and, behind the native chevron, a
+ * sub-row per aircraft type. Below 70rem every row is a card. */
+.airlines-table,
+.airlines-table tbody {
+  display: block;
+}
+
+.airlines-table thead {
+  display: none;
+}
+
+.airline-group {
+  margin-bottom: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.airline-group[hidden] {
+  display: none;
+}
+
+.airline-group--gap {
+  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+  border-color: var(--color-status-warn);
+}
+
+.airlines-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  grid-template-areas:
+    "name name menu"
+    "prefixes views views"
+    "art seen seen";
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
+}
+
+.airlines-subrow {
+  display: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name views"
+    "art art";
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
+  border-top: 1px dashed var(--color-border);
+  background: var(--color-secondary);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+.airline-group:has(details.airlines-expand[open]) .airlines-subrow {
+  display: grid;
+}
+
+.airlines-cell {
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.airlines-cell--name { grid-area: name; }
+
+.airlines-namebox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.airlines-cell--prefixes {
+  grid-area: prefixes;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--art { grid-area: art; }
+
+.airlines-cell--views {
+  grid-area: views;
+  justify-self: end;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--seen {
+  grid-area: seen;
+  justify-self: end;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.airlines-cell--menu { grid-area: menu; justify-self: end; }
+
+.airlines-cell--type {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  padding-left: calc(44px + var(--space-xs));
+}
+
+
+.airlines-expand {
+  flex: none;
+  width: 44px;
+}
+
+.airlines-expand--none {
+  display: block;
+  height: 44px;
+}
+
+.airlines-expand > summary {
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+}
+
+.airlines-expand > summary::before {
+  margin-right: 0;
+}
+
+.airlines-name {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.airlines-name--fixed {
+  display: block;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.airlines-name input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  font-weight: var(--weight-semibold);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.airlines-name input[type="text"]:hover,
+.airlines-name input[type="text"]:focus {
+  background: var(--color-dominant);
+  border-color: var(--color-border);
+}
+
+.airlines-art {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.airlines-thumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--space-xs);
+  background: var(--color-secondary);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.airlines-thumb:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.airlines-thumb .airline-card__placeholder {
+  width: 88px;
+  margin: 0;
+}
+
+.airlines-thumb__image {
+  display: block;
+  width: 88px;
+  height: auto;
+  aspect-ratio: 450 / 132;
+  object-fit: contain;
+}
+
+.airlines-art__replace {
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-uses {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-name__save,
+.airlines-art__upload {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-label-size);
+}
+
+.airlines-menu__form {
+  margin: 0;
+}
+
+.airlines-cell--action {
+  align-self: center;
+}
+
+a.airlines-name-it {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  box-sizing: border-box;
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+@media (min-width: 70rem) {
+  .airlines-table {
+    display: table;
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--color-dominant);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  .airlines-table thead {
+    display: table-header-group;
+  }
+
+  .airlines-table tbody {
+    display: table-row-group;
+  }
+
+  .airline-group {
+    margin: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .airline-group--gap {
+    background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+  }
+
+  .airlines-row {
+    display: table-row;
+    padding: 0;
+  }
+
+  .airlines-subrow {
+    padding: 0;
+    background: var(--color-secondary);
+    border: 0;
+  }
+
+  .airline-group:has(details.airlines-expand[open]) .airlines-subrow {
+    display: table-row;
+  }
+
+  .airlines-cell {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .airlines-cell--views,
+  .airlines-cell--seen,
+  .airlines-cell--menu {
+    justify-self: auto;
+  }
+
+  .airlines-col {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--font-label-size);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .airlines-col--name { width: 32%; }
+  .airlines-col--prefixes { width: 14%; }
+  .airlines-col--art { width: 22%; }
+  .airlines-col--views { width: 11%; }
+  .airlines-col--menu { width: 64px; }
 }

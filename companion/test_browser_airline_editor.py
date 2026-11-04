@@ -24,8 +24,7 @@ VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 DELETE_LINK = ".manual-resolution-row a.special-row__remove"
 ROW = ".manual-resolution-row"
 DIALOG = "dialog.modal[open]"
-FRANCE_PENCIL = '.airline-row[data-view-panel-sheet-key="air-france"]'
-NAME_INPUT = '#panel-lookup-dialog .airline-sheet input[name="airline_name"]'
+FRANCE_NAME = '.airlines-name input[name="airline_name"][value="Air France"]'
 
 _SETTLED = (
     "() => document.readyState === 'complete'"
@@ -54,7 +53,7 @@ def server(module_app_server_factory):
 
 
 def _open(new_context, server, viewport, lang="en", path="/airlines/manage",
-          ready=".airline-row", **context_args):
+          ready=".airlines-row", **context_args):
     context = new_context(viewport=viewport, **context_args)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
@@ -90,7 +89,7 @@ def test_the_editor_is_a_console_page_with_the_frame_strip_and_usable_controls(
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "editor", viewport["width"])
-            for selector in (".airline-row", DELETE_LINK, "a.frame-tile[aria-current='true']"):
+            for selector in (FRANCE_NAME, DELETE_LINK, "a.frame-tile[aria-current='true']"):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "editor %s %s" % (name, lang))
     finally:
@@ -213,22 +212,19 @@ def test_renaming_an_airline_through_the_editor_works_end_to_end(new_context, ma
             link.click()
         taps += 1
         page.wait_for_url("**/airlines/manage")
-        _settle(page, FRANCE_PENCIL)
-        page.locator(FRANCE_PENCIL).click()
-        taps += 1
-        field = page.locator(NAME_INPUT)
-        field.wait_for(state="visible")
+        _settle(page, FRANCE_NAME)
+        field = page.locator(FRANCE_NAME)
         field.click()
         taps += 1
         field.fill("Skyline Air")
         with page.expect_navigation():
-            page.locator("#panel-lookup-dialog .airline-sheet__name button").click()
+            field.press("Enter")
         taps += 1
         page.wait_for_function(
             "() => document.body.innerText.includes('Airline name saved')", timeout=15000)
         page.wait_for_function(_SETTLED, timeout=15000)
-        assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
+        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
         print("STEP-COUNT A8 phone %d" % taps)
-        assert taps == 4
+        assert taps == 3
     finally:
         context.close()

@@ -57,8 +57,8 @@ RULE = ("prefix", "TVF")
 _TARGETS = """
 (scopes) => {
   const sel = 'a[href], button, summary, select, textarea, ' +
-    'input:not([type=hidden]):not([type=radio]):not([type=checkbox]), ' +
-    'label:has(> input[type=radio]), label:has(> input[type=checkbox])';
+    'input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), ' +
+    'label:has(> input[type=radio]), label:has(> input[type=checkbox]), label:has(> input[type=file])';
   const bad = [];
   const inDialog = scopes.some((s) => s.startsWith('dialog'));
   const found = new Set();
@@ -148,7 +148,7 @@ _PERSONAL_BODY = """
 # Airline and airport names are catalogue data, spelled the same in both languages.
 _VISIBLE_TEXT = """
 () => {
-  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airline-row__name, .frame-tile__name';
+  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-tile__name';
   const out = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {

@@ -1442,22 +1442,17 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
         context.close()
 
 
-# Airlines: the aircraft types of a row and the sheet's type switcher.
+# Airlines: the aircraft types of a row, behind its chevron.
 
 TYPES_CARD = "Transavia France"
+TYPES_GROUP = 'tbody.airline-group:has(input[value="%s"])' % TYPES_CARD
 
 
-def _types_card(page):
-    return page.locator(".airline-list__item").filter(
-        has=page.locator(".airline-row__name", has_text=TYPES_CARD))
-
-
-def test_a_row_lists_its_types_and_the_sheet_switches_between_them(new_context, server):
-    """At 1280, 390 and 360 px in English and French, a two-type airline is one fixed-height row
-    whose line names the airframe of its own picture first (B737, never "Any aircraft"/"Tout
-    appareil") then A320; opening it shows one 44px tab per type, a tab retargets the picture and
-    the upload address and keeps its add/replace wording, the drop frame carries its hint, and
-    nothing overflows horizontally."""
+def test_a_row_expands_to_its_types_and_each_type_has_its_own_replace(new_context, server):
+    """At 1280, 390 and 360 px in English and French, a two-type airline is one row whose
+    chevron expands one sub-row per aircraft type (the A320, never "Any aircraft"/"Tout
+    appareil"), the sub-row's artwork uploads to that type's own address, the chevron and the
+    artwork are 44px targets and nothing overflows horizontally."""
     for lang, forbidden in (("en", "Any aircraft"), ("fr", "Tout appareil")):
         for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
             where = "%s at %dpx" % (lang, viewport["width"])
@@ -1468,64 +1463,48 @@ def test_a_row_lists_its_types_and_the_sheet_switches_between_them(new_context, 
                 page = context.new_page()
                 _login(page, server.base_url())
                 page.goto(server.base_url() + "/airlines/manage")
-                row = _types_card(page).locator(".airline-row")
-                row.wait_for(state="visible")
-                types_line = _types_card(page).locator(".airline-row__types").text_content()
-                if types_line != "B737 · A320":
-                    raise AssertionError("unexpected types line %r (%s)" % (types_line, where))
+                chevron = TYPES_GROUP + " .airlines-expand > summary"
+                page.locator(chevron).wait_for(state="visible")
+                page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
                 if forbidden in page.content():
                     raise AssertionError("%r is back on the page (%s)" % (forbidden, where))
-                if round(row.bounding_box()["height"]) != 76:
-                    raise AssertionError("expected the fixed 76px row (%s): %r" % (
-                        where, row.bounding_box()))
-                _assert_hit_target(page, ".airline-row", "airline row " + where)
+                _assert_hit_target(page, chevron, "chevron " + where)
+                page.locator(chevron).click()
+                subrow = page.locator(TYPES_GROUP + " .airlines-subrow")
+                subrow.first.wait_for(state="visible")
+                if subrow.all_inner_texts() == [] or not subrow.first.locator("th").inner_text().startswith("A320"):
+                    raise AssertionError("unexpected types %r (%s)" % (subrow.all_inner_texts(), where))
+                action = subrow.first.locator("form.airlines-art").get_attribute("action")
+                if action != "/illustration/transavia-france-a320.png":
+                    raise AssertionError("the A320 row targets %r (%s)" % (action, where))
+                _assert_hit_target(page, TYPES_GROUP + " .airlines-subrow .airlines-thumb",
+                                   "sub-row artwork " + where)
                 problem = _assert_no_page_overflow(page, "airlines " + where)
                 if problem:
                     raise AssertionError(problem)
-
-                row.click()
-                dialog = page.locator("#panel-lookup-dialog")
-                dialog.wait_for(state="visible")
-                # The dialog scales in; measure sizes once it has settled.
-                page.wait_for_function(
-                    "() => getComputedStyle(document.getElementById('panel-lookup-dialog'))"
-                    ".transform === 'none'")
-                tabs = dialog.locator("a.airline-sheet__type")
-                if tabs.all_text_contents() != ["B737", "A320"]:
-                    raise AssertionError("unexpected tabs %r (%s)" % (tabs.all_text_contents(), where))
-                for index in (0, 1):
-                    box = tabs.nth(index).bounding_box()
-                    if box["height"] < 44 or box["width"] < 44:
-                        raise AssertionError("tab %d is %r, under 44px (%s)" % (index, box, where))
-                tabs.nth(1).click()
-                action = dialog.locator("form.lightbox__replace").get_attribute("action")
-                if action != "/illustration/transavia-france-a320.png":
-                    raise AssertionError("the A320 tab targets %r (%s)" % (action, where))
-                if page.locator("#panel-lookup-dialog .upload-drop__preview figcaption").first \
-                        .text_content().strip() == "":
-                    raise AssertionError("expected the drop frame to carry its hint (%s)" % where)
-                if "how it will be framed" in dialog.text_content():
-                    raise AssertionError("framing sentence still present (%s)" % where)
             finally:
                 context.close()
 
 
 def test_every_type_stays_listed_and_reachable_without_scripts(new_context, server):
-    """With scripts blocked a multi-type row still lists every type as text, is a real link to
-    its in-page sheet, and a row for a single-type airline names its one aircraft, all inside
-    the narrowest supported viewport without overflow."""
+    """With scripts blocked the chevron still expands a multi-type row to its types as text,
+    a single-type airline expands to its one seen type using the airline's artwork, all inside the narrowest supported viewport without
+    overflow."""
     with _no_js_page(new_context, server.base_url(), "/airlines/manage",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
-        card = _types_card(page)
-        if card.locator(".airline-row__types").text_content() != "B737 · A320":
-            raise AssertionError("expected both Transavia types as text")
-        href = card.locator("a.airline-row").get_attribute("href")
-        if href != "/airlines/manage?sheet=transavia-france#airline-sheet":
-            raise AssertionError("expected a link to the in-page sheet, got %r" % (href,))
-        single = page.locator(".airline-list__item").filter(
-            has=page.locator(".airline-row__name", has_text="Air France")).first
-        if single.locator(".airline-row__types").text_content() != "A320":
-            raise AssertionError("expected a single-type airline to name its aircraft")
+        chevron = TYPES_GROUP + " .airlines-expand > summary"
+        page.locator(chevron).wait_for(state="visible")
+        page.locator(chevron).click()
+        page.locator(TYPES_GROUP + " .airlines-subrow").first.wait_for(state="visible")
+        if not page.locator(TYPES_GROUP + " .airlines-subrow th").first.inner_text().startswith("A320"):
+            raise AssertionError("expected the Transavia A320 as text")
+        single = page.locator('tbody.airline-group:has(input[value="Air France"])')
+        single.locator(".airlines-expand > summary").click()
+        row = single.locator(".airlines-subrow")
+        row.first.wait_for(state="visible")
+        if row.count() != 1 or "Uses the airline’s artwork" not in row.first.inner_text():
+            raise AssertionError("expected one seen type using the airline's artwork, got %r"
+                                 % row.all_inner_texts())
         problem = _assert_no_page_overflow(page, "airlines without scripts")
         if problem:
             raise AssertionError(problem)
@@ -1542,7 +1521,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
-        page.locator('a.airline-row[data-view-panel-resolve-prefix="%s"]'
+        page.locator('a.airlines-thumb[data-view-panel-resolve-prefix="%s"]'
                      % ARTWORK_PREFIX).click()
         dialog = page.locator("#panel-lookup-dialog")
         delete_form = dialog.locator("form.lightbox__delete")

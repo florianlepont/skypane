@@ -85,7 +85,6 @@ _LIGHTBOX_AIRLINES_ONLY_TOKENS = (
     airlines_page._VIEW_PANEL_RENAMED_ATTR,
     airlines_page._VIEW_PANEL_SHEET_KEY_ATTR,
     airlines_page._VIEW_PANEL_AIRLINE_TYPES_ATTR,
-    airlines_page.SHEET_CLASS,
     airlines_page.LIGHTBOX_HEADING_CLASS,
     airlines_page.LIGHTBOX_MANUAL_NOTE_CLASS,
     airlines_page.LIGHTBOX_RESOLVE_NAME_CLASS,
@@ -807,8 +806,8 @@ def test_airlines_render_empty_ctx_still_contains_gallery_grid():
     """airlines_page.render({}) with a literal empty dict still succeeds and its output still
     contains the gallery grid (ctx.get("state_dir") tolerance)"""
     rendered = airlines_page.render({})
-    assert 'class="airline-list"' in rendered, (
-        "expected render({}) to still contain the .airline-list gallery container")
+    assert 'class="airlines-table"' in rendered, (
+        "expected render({}) to still contain the .airlines-table editor table")
 
 
 # ======================================================================
@@ -818,30 +817,28 @@ def test_airlines_render_empty_ctx_still_contains_gallery_grid():
 # ======================================================================
 
 
-def test_airlines_gap_strip_renders_after_the_gallery_with_heading_and_no_grid_placeholder(tmp_path):
-    """a render with an eligible gap emits the "Unidentified airlines" strip with its exact
-    heading and sentence after the filter bar and the gallery grid, and the airline
-    list holds no gap card"""
+def test_airlines_gap_rows_render_first_in_the_table_with_a_name_it_link(tmp_path):
+    """a render with an eligible gap emits the unidentified prefix as a highlighted row at the
+    top of the table, before every airline's rows and after the filter bar, with its "Name it"
+    link and the explanatory sentence"""
     vp.seed_unresolved_prefixes(tmp_path, {
         "XYZ": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
     })
     rendered = airlines_page.render({"state_dir": str(tmp_path)})
-    assert airlines_page.GAP_STRIP_HEADING in rendered
-    assert airlines_page.GAP_STRIP_BODY in rendered
-    strip_index = rendered.index(airlines_page.GAP_STRIP_HEADING)
+    assert airlines_page.GAP_CAPTION in rendered
+    gap_index = rendered.index('class="airline-group airline-group--gap"')
     filter_bar_index = rendered.index('class="filter-bar')
-    gallery_index = rendered.index('class="airline-list"')
-    assert strip_index > filter_bar_index, "expected the gap strip to render after the filter bar (CFG-82, 29-02-PLAN.md)"
-    assert strip_index > gallery_index, "expected the gap strip to render after the gallery grid (CFG-82, 29-02-PLAN.md)"
-    assert "airline-card__placeholder" not in rendered[:strip_index], (
-        "expected the curated artwork grid to hold no gap card placeholder")
+    first_airline_index = rendered.index('<tbody class="airline-group" ')
+    assert gap_index > filter_bar_index, "expected the gap row after the filter bar"
+    assert gap_index < first_airline_index, "expected the gap row before every airline's rows"
+    assert ">Name it</a>" in rendered
 
 
-def test_airlines_gap_strip_absent_with_no_gaps(tmp_path):
-    """a render with no eligible gaps emits no "Unidentified airlines" strip and no empty
-    section"""
+def test_airlines_gap_rows_absent_with_no_gaps(tmp_path):
+    """a render with no eligible gaps emits no unidentified row and no gap sentence"""
     rendered = airlines_page.render({"state_dir": str(tmp_path)})
-    assert airlines_page.GAP_STRIP_HEADING not in rendered
+    assert "airline-group--gap" not in rendered
+    assert airlines_page.GAP_CAPTION not in rendered
     assert '<section class="page-section">' not in rendered
 
 
@@ -851,10 +848,10 @@ def test_airlines_gap_strip_absent_with_no_gaps(tmp_path):
 # ======================================================================
 
 
-def test_airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_then_lightbox(tmp_path):
-    """on a render with both an eligible gap and at least one curated gallery card, the page's
-    own sections chain title < filter bar < gallery grid < "Unidentified airlines" strip < the
-    lightbox dialog, each literal occurring exactly once"""
+def test_airlines_section_order_is_title_then_filter_then_table_then_lightbox(tmp_path):
+    """on a render with both an eligible gap and at least one curated airline, the page's own
+    sections chain title < filter bar < table (unidentified rows first) < the lightbox dialog,
+    each literal occurring exactly once"""
     vp.seed_unresolved_prefixes(tmp_path, {
         "XYZ": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
     })
@@ -863,8 +860,8 @@ def test_airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_
     literals = (
         ("title", '<h1 class="page-title"'),
         ("filter", 'class="filter-bar"'),
-        ("gallery", 'class="airline-list"'),
-        ("gapstrip", airlines_page.GAP_STRIP_HEADING),
+        ("table", '<table class="airlines-table"'),
+        ("gaprow", 'class="airline-group airline-group--gap"'),
         ("lightbox", '<dialog class="lightbox'),
     )
     indices = {}
@@ -873,7 +870,7 @@ def test_airlines_section_order_is_title_then_filter_then_gallery_then_gapstrip_
         assert occurrences == 1, "expected exactly one occurrence of %r (the %s section), found %d" % (literal, name, occurrences)
         indices[name] = rendered.index(literal)
 
-    order = ["title", "filter", "gallery", "gapstrip", "lightbox"]
+    order = ["title", "filter", "table", "gaprow", "lightbox"]
     for earlier, later in zip(order, order[1:]):
         assert indices[earlier] < indices[later], (
             "expected %s before %s, but got indices %r (CFG-82, 29-02-PLAN.md)" % (earlier, later, indices))
@@ -1040,8 +1037,8 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     # The needle names the CURRENT French translation via the module's
     # own MESSAGES lookup (by stable id), never a hand-typed literal
     # that would silently go stale on the next edit.
-    for needle in (">Éditeur de compagnies<", "Compagnies non identifiées",
-                   i18n_fr_airlines.MESSAGES[airlines_page.GAP_STRIP_BODY.msg_id]):
+    for needle in (">Éditeur de compagnies<", ">Nommer</a>",
+                   i18n_fr_airlines.MESSAGES[airlines_page.GAP_CAPTION.msg_id]):
         assert needle in rendered_fr, "expected the French %r in the French Airlines render" % (needle,)
     for needle in ("Identifier un vol non reconnu", "Nom de la compagnie",
                    "Enregistrer le nom de la compagnie"):
@@ -1050,8 +1047,8 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
         "expected the seeded example callsign to stay untranslated data")
 
     rendered_en = airlines_page.render({"state_dir": str(tmp_path)})
-    for needle in ('<h1 class="page-title">Airline editor</h1>', airlines_page.GAP_STRIP_HEADING,
-                   airlines_page.GAP_STRIP_BODY):
+    for needle in ('<h1 class="page-title">Airline editor</h1>', ">Name it</a>",
+                   airlines_page.GAP_CAPTION):
         assert needle in rendered_en, "expected the English %r in the default-language Airlines render" % (needle,)
 
 

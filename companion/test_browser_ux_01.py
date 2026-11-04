@@ -171,30 +171,32 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
             raise AssertionError("expected the link to serve the archived PNG, got %r" % (response,))
 
 
-def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context, server):
-    """At 390px the Airlines list renders one row per line, every row the same width as the
-    list and the same 76px height (a two-line name never makes one taller), and the whole page
-    stays under a height ceiling that moves deliberately when the airline count or the manual resolutions list changes."""
+def test_airlines_table_renders_one_full_width_card_per_airline_at_390px(new_context, server):
+    """At 390px the Airlines editor renders one card per airline, every card the same width as
+    the list and one per line (two-line names never make the grid ragged), and the whole page
+    stays under a height ceiling that moves deliberately when the airline count or the manual
+    resolutions list changes."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
-        page.locator(".airline-list .airline-row").first.wait_for(state="visible")
+        page.locator("tbody.airline-group .airlines-row").first.wait_for(state="visible")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         rows = page.eval_on_selector_all(
-            ".airline-list .airline-row",
+            "tbody.airline-group:not(.airline-group--gap)",
             "els => els.map(el => { const r = el.getBoundingClientRect();"
             " return {top: Math.round(r.y), width: r.width, height: r.height}; })")
         if len(rows) < 36:
-            raise AssertionError("expected one row per curated airline, got %d" % len(rows))
+            raise AssertionError("expected one card per curated airline, got %d" % len(rows))
         for row in rows:
-            if abs(row["width"] - rows[0]["width"]) > 1 or row["height"] != 76:
-                raise AssertionError("expected equal 76px-tall full-width rows, got %r" % (row,))
+            if abs(row["width"] - rows[0]["width"]) > 1:
+                raise AssertionError("expected equal full-width cards, got %r" % (row,))
         if len({row["top"] for row in rows}) != len(rows):
-            raise AssertionError("expected exactly one row per line at 390px")
+            raise AssertionError("expected exactly one card per line at 390px")
         height = page.evaluate("document.documentElement.scrollHeight")
-        if height > 4100:
-            raise AssertionError("expected the list page under 4100px, measured %r" % (height,))
+        if height > 8200:
+            raise AssertionError("expected the list page under 8200px, measured %r" % (height,))
     finally:
         context.close()
 

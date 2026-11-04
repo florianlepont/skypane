@@ -66,7 +66,7 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
 | S2 | Switch frame (one tile tap, D30) | 1 (drop-down, then a row) | 2 | 1 | n/a | yes |
 | A7 | A frame's health from Fleet (its tile; the State block) | not measured, new flow | 1 | 1 | n/a | yes: a frame's health is the State block of its Fleet view; one tap on its tile (0 when it is already selected) |
-| A8 | Rename an airline in the Airline editor, from the Console (Airline editor bar cell, the airline, the name, Save name) | not measured, new flow | at least 4 on a phone | 4 on a phone | n/a | yes (desktop is one fewer, see notes) |
+| A8 | Rename an airline in the Airline editor, from the Console (Airline editor bar cell, type the name in its row, Enter; the field saves on change, plan 61-44) | 4 (bar cell, the airline, the name, Save name) | at least 3 on a phone | 3 on a phone | -1 | yes (desktop is one fewer, see notes) |
 | V1 | Airline collection, phone (More, Airline collection) | not measured, new flow | 2 | 2 | n/a | yes |
 | V1 | Airline collection, desktop (sidebar link) | not measured, new flow | 1 | 1 | n/a | yes |
 | U2 several | Reach another frame (one tile tap, D30) | 1 (open the drop-down) | 1 in the first round, 2 after the card sheet | 1 | 0 | the tile strip (D30) removed the card sheet's extra tap |
@@ -83,7 +83,7 @@ Measured paths (360 x 844):
 - S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.
 - S2 and U2 several: the tile of the other frame (one page change; the strip replaced the chip and card sheet, D30).
 - A7: the frame's tile on Fleet selects it; its State block is the health view (measured 1 when another frame is selected on landing).
-- A8: the Airline editor bar cell, the airline row, type the new name, Save name (4 on a phone). On desktop the sidebar link replaces More and the editor link, so the path is one tap shorter; the desktop figure is not measured in this file (the phone rule governs).
+- A8: the Airline editor bar cell, type the new name in the airline's own row, Enter (3 on a phone; the name field saves on change, so the airline tap and the Save name tap are gone, plan 61-44). On desktop the sidebar link replaces More and the editor link, so the path is one tap shorter; the desktop figure is not measured in this file (the phone rule governs).
 - V1: phone, More then Airline collection. Desktop is the sidebar link, measured at 1280 px outside the phone rule.
 
 ## Honest notes
@@ -128,3 +128,10 @@ pending/retired frames sit in a collapsed "Other frames" block, so A4, A5 and A7
 on a phone. Their counts include one tile tap because the frame landed on first (the served Orly frame
 in the test fleet) is not Kitchen: measured A4 retire 4, A4 reassign 5, A5 5, A7 1, A1 0, A3 4. With the
 frame already selected each is one lower. All stay within their targets; A7 measured 1 (target 2).
+
+## Plan 61-44 (Airlines editor as a table)
+
+The editor's name field is in the row, so renaming no longer opens the airline sheet: A8 went from 4 to 3
+on a phone (bar cell, type, Enter). Replacing an artwork is the thumbnail itself (choose the file; with a
+script the form sends it at once): one tap and the file choice, where the sheet needed the row, the type
+and the upload. Reaching an aircraft type's artwork costs one chevron tap. No editor flow got longer.

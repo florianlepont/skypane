@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 1, "S2": 1, "A7": 1, "A8": 4, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 1, "S2": 1, "A7": 1, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -585,16 +585,16 @@ def test_a8_rename_an_airline_in_the_editor(world, new_context):
         steps.tap(page.locator(".tab-bar a[href$='/airlines/manage']"), "Airline editor")
         page.wait_for_url("**/airlines/manage")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        steps.tap(page.locator('.airline-row[data-view-panel-sheet-key="air-france"]'), "the airline")
-        name = page.locator('#panel-lookup-dialog .airline-sheet input[name="airline_name"]')
+        name = page.locator('.airlines-name input[name="airline_name"][value="Air France"]')
         steps.type_value(name, "Skyline Air", "airline name")
         with page.expect_navigation():
-            steps.tap(page.locator("#panel-lookup-dialog .airline-sheet__name button"), "Save name")
+            steps._add("press", "Enter (saves the name)")
+            name.press("Enter")
         page.wait_for_function(
             "() => document.readyState === 'complete' && document.body.innerText.includes("
             "'Airline name saved')", timeout=15000)
-        assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
-        _report_measured("A8", steps, 4)
+        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
+        _report_measured("A8", steps, 3)
     finally:
         context.close()
 
