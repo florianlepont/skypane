@@ -166,10 +166,10 @@ def test_a_crafted_location_id_assigns_nothing_to_a_frame_without_one(rig):
 def test_a_save_without_the_field_leaves_the_location_alone(rig):
     mine = rig.add_location("Alpha Place", rig.fleet.a_id)
     rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (mine, rig.fleet.a1))
-    status, _headers, _ = rig.save_display(rig.fleet.a1, "a", quiet_hours_start="21:30")
+    status, _headers, _ = rig.save_display(rig.fleet.a1, "a", theme="black")
     assert status == 303
     assert rig.location_of(rig.fleet.a1) == mine
-    assert rig.config(rig.fleet.a1)["quiet_hours_start"] == "21:30"
+    assert rig.config(rig.fleet.a1)["theme"] == "black"
 
 
 def test_a_user_still_cannot_post_to_a_frame_they_do_not_own(rig):

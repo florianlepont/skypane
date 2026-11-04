@@ -333,30 +333,15 @@ def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server
             % (on_disk()["theme"],))
 
     # 2. The Runway card and the Location and detection card are gone: the Location page owns
-    # the runway and the place, and Display only points to it from the Quiet hours note.
+    # the runway and the place, and Display carries no pointer to it.
     if page.locator('input[name="tracked_runway"]').count():
         raise AssertionError("Display still renders a tracked_runway control")
     if page.locator(".detection-card").count():
         raise AssertionError("Display still renders the Location and detection card")
-    link = page.locator('.quiet-timezone-note a[href$="/detection#details"]')
-    if link.count() != 1:
-        raise AssertionError("expected one Location page link on Display, got %d" % link.count())
-
-    # The Frame strip is now the only on/off control for the screen, so this settings page no
-    # longer renders a display_enabled checkbox; the remaining two field kinds below (radio,
-    # time input) still prove the cross-DOM form= delegation this check exists for.
-
-    # `.fill()` dispatches `input` only, never `change`, so `_commit_field()` fires the real
-    # `change` a blur would, the commit the bar's document-level listener is waiting for.
-    quiet_sel = 'input[name="quiet_hours_start"]'
-    page.fill(quiet_sel, "22:15")
-    _commit_field(page, quiet_sel)
-    _wait_for_bar(page)
-    _save_via_bar(page)
-    if str(on_disk()["quiet_hours_start"]) != "22:15":
-        raise AssertionError(
-            "expected the quiet-hours time field's committed value to reach "
-            "disk, got %r" % (on_disk()["quiet_hours_start"],))
+    # The Quiet hours card left Display as well (Home's dialog owns the schedule), so Display
+    # has neither the time fields nor the note that pointed from them to the Location page.
+    if page.locator('input[name="quiet_hours_start"], .quiet-timezone-note').count():
+        raise AssertionError("Display still renders quiet-hours controls")
 
 
 def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_server):

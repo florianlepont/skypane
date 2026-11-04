@@ -113,7 +113,7 @@ def _highlighted(page):
 
 
 def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
-    """A Display page with a typed-but-uncommitted edit issues zero requests when the same
+    """A Display page with an unsaved edit (a different theme picked) issues zero requests when the same
     trigger that fetched on the clean page fires — counted as requests, not inferred from the
     DOM, since a page that fetched and then declined to swap is a different and worse
     behaviour — against a control proving the clean page does fetch.
@@ -134,10 +134,10 @@ def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
                 "control: a clean Display page issued no request at all (%d), so "
                 "the dirty-form assertion below would measure nothing"
                 % (clean_requests,))
-        quiet_sel = 'input[name="quiet_hours_start"]'
-        page.eval_on_selector(quiet_sel, "el => el.focus()")
-        page.keyboard.press("ControlOrMeta+A")
-        page.keyboard.type("03:33")
+        current = device_config.load_device_config(server.tmpdir)["theme"]
+        other = next(t for t in device_config.THEME_IDS if t != current)
+        page.eval_on_selector(
+            'input[name="theme"][value="%s"]' % other, "el => el.checked = true")
         uncommitted = page.evaluate(
             "() => !!(window.SkyPaneDirtyState "
             "&& window.SkyPaneDirtyState.hasUncommittedEdits())")

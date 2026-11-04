@@ -292,11 +292,14 @@ def test_no_js_floor_holds_on_display_and_device_after_the_checkbox_removal(tmp_
     # hours schedule — the one control the Display page leaves for this
     # setting.
     ctx = {"state_dir": str(tmp_path)}
-    flash_key = config_page.handle_post(
-        {"scope": "display", "quiet_hours_start": "22:15", "quiet_hours_end": "06:45"}, ctx)
+    flash_key = config_page.handle_post({"scope": "display", "theme": "black"}, ctx)
     assert flash_key == config_page.FLASH_SAVED
     on_disk = device_config.load_device_config(str(tmp_path))
-    assert on_disk["quiet_hours_start"] == "22:15" and on_disk["quiet_hours_end"] == "06:45"
+    assert on_disk["theme"] == "black"
+    # Display has no quiet-hours control: crafted fields change nothing there.
+    config_page.handle_post(
+        {"scope": "display", "quiet_hours_start": "22:15", "quiet_hours_end": "06:45"}, ctx)
+    assert device_config.load_device_config(str(tmp_path)) == on_disk
 
 
 def test_handle_post_display_enabled_three_shapes(tmp_path):

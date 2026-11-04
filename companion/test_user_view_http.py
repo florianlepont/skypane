@@ -282,9 +282,10 @@ def _strip_frame_prefix(path):
     return re.sub(r"\A/devices/d_[0-9a-f]{8}", "", path) or "/"
 
 
-def test_a_crafted_settings_post_changes_quiet_hours_and_no_admin_only_key(rig):
+def test_a_crafted_settings_post_changes_no_quiet_hours_and_no_admin_only_key(rig):
     before = _admin_only_values(rig, rig.fleet.a1)
     assert before == SEEDED_ADMIN_ONLY
+    config_before = device_config.load_device_config(device_dir(rig.state_dir, rig.fleet.a1))
     status, headers, _body = rig.request(
         "POST", "/devices/%s/settings" % rig.fleet.a1, "a",
         data=_form(
@@ -294,8 +295,8 @@ def test_a_crafted_settings_post_changes_quiet_hours_and_no_admin_only_key(rig):
     assert status == 303
     assert headers["Location"].startswith("/devices/%s/" % rig.fleet.a1)
     config = device_config.load_device_config(device_dir(rig.state_dir, rig.fleet.a1))
-    assert (config["quiet_hours_start"], config["quiet_hours_end"]) == ("21:30", "06:15")
-    assert config["quiet_hours_enabled"] is True
+    for key in ("quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end", "timezone"):
+        assert config[key] == config_before[key], key
     assert _admin_only_values(rig, rig.fleet.a1) == before
 
 
@@ -322,7 +323,7 @@ def test_a_crafted_post_cannot_use_the_unprefixed_live_frame_form(rig):
 def test_user_display_has_no_runway_wake_interval_or_led_control(rig):
     admin_only_fields = ("tracked_runway", "wake_interval_s", "led_enabled")
     user_display = rig.page("/devices/%s/display" % rig.fleet.a1, "a")
-    assert 'name="quiet_hours_start"' in user_display
+    assert 'name="quiet_hours_start"' not in user_display
     for field in admin_only_fields:
         assert 'name="%s"' % field not in user_display
     assert "/quick/led" not in user_display

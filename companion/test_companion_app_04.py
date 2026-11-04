@@ -23,6 +23,7 @@ import urllib.parse
 
 import pytest
 
+import companion.i18n as i18n
 import companion.layout as layout
 from companion.pages import config_page
 from companion_app_server import (
@@ -389,8 +390,8 @@ def test_settings_post_redirects_to_display_with_flash(make_app_server):
 
 
 def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_nothing(make_app_server):
-    """a POST /settings with a valid theme change and an empty quiet_hours_start returns 200,
-    shows the newly-picked theme still selected, shows the quiet-hours field error, carries no
+    """a POST /settings with a valid theme change and an unknown calendar look returns 200,
+    shows the newly-picked theme still selected, shows the field error, carries no
     flash banner, and persists nothing on disk"""
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
@@ -400,7 +401,7 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
         data=urllib.parse.urlencode({
             "scope": "display", "return_to": "/display",
             "theme": "black", "tracked_runway": before["tracked_runway"],
-            "quiet_hours_start": "",
+            "calendar_theme_id": "no-such-look",
         }).encode())
     assert status == 200, "expected a 200 re-render on a rejected save, got %d" % status
     assert not headers.get("Location"), (
@@ -409,8 +410,8 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
     assert 'name="theme" value="black"' in body_text and "checked" in body_text.split(
         'name="theme" value="black"', 1)[1].split(">", 1)[0], (
         "expected the just-picked theme (black) to render checked - nothing discarded")
-    assert config_page.ERROR_QUIET_HOURS_TIME_SHAPE in body_text, (
-        "expected the quiet_hours_start field-level error message in the response body")
+    assert i18n.t(config_page.ERROR_INVALID_CHOICE) in body_text, (
+        "expected the field-level error message in the response body")
     assert "toast-region--flash" not in body_text, (
         "expected no top-of-page flash toast on a field-level rejection (D-07)")
     after = device_config.load_device_config(server.state_dir)
@@ -751,8 +752,8 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
     _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
     display_text = display_body.decode("utf-8", errors="replace")
     device_text = device_body.decode("utf-8", errors="replace")
-    assert 'name="theme"' in display_text and 'name="quiet_hours_start"' in display_text, (
-        "expected the Display page to carry the theme and quiet-hours schedule groups")
+    assert 'name="theme"' in display_text and 'name="quiet_hours_start"' not in display_text, (
+        "expected the Display page to carry the theme group and no quiet-hours control")
     assert 'name="quiet_hours_enabled"' not in display_text and 'name="display_enabled"' not in display_text, (
         "expected no quiet_hours_enabled/display_enabled checkbox on the Display page")
     assert 'name="tracked_runway"' not in display_text and "detection-card" not in display_text, (

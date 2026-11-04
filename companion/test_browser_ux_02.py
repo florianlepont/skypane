@@ -683,14 +683,15 @@ def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
             " band: !!document.querySelector('.day-band'),"
             " scrollWidth: document.documentElement.scrollWidth"
             "})")
-        # The facts region the refresh loop swaps stays in the page but is empty for everyone
-        # (no battery tile, no attention bar on the personal Home), so it has no box.
+        # The facts region the refresh loop swaps holds nothing but the amber or red
+        # notification (no battery tile, no attention bar on the personal Home).
         assert hierarchy["current"] < hierarchy["flights"], (
             "expected current frame -> recent flights at %dpx/%s, got %r"
             % (width, lang, hierarchy))
         assert page.locator(".home-facts").count() == 1
-        assert page.locator(".home-facts").inner_text().strip() == "", (
+        assert page.locator(".home-facts > :not(.home-notice)").count() == 0, (
             "the personal Home shows no battery or attention content at %dpx/%s" % (width, lang))
+        assert page.locator(".home-facts .home-action, .home-facts .home-battery").count() == 0
         assert not hierarchy["strip"] and not hierarchy["tiles"] and not hierarchy["band"], (
             "retired Home diagnostics returned at %dpx/%s: %r" % (width, lang, hierarchy))
         assert hierarchy["scrollWidth"] <= width, (

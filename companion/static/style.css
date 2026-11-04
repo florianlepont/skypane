@@ -5898,6 +5898,19 @@ button.place-result:hover {
   margin-bottom: 0;
 }
 
+/* The amber or red notification: the explanation is the toast title, the
+ * known figures and the tip stack under it, each on its own line. */
+.home-notice__line {
+  display: block;
+  margin-top: var(--space-xs);
+  color: color-mix(in srgb, var(--color-toast-fg) 76%, transparent);
+}
+
+.home-notice__tip {
+  display: block;
+  margin-top: var(--space-xs);
+}
+
 /* The status header at the top of Home: one hero card in three zones, the
  * frame's state, the battery dial and a recessed panel holding the two
  * switches. Mobile first: the zones stack, separated by hairlines. The

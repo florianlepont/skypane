@@ -27,6 +27,7 @@ import companion.page_context as page_context
 import companion.ui_modal as ui_modal
 import companion.user_view as user_view
 import companion.wake as wake
+from companion.pages import home_notice
 from companion.layout import escape_html
 from companion.settings import quiet_hours
 from server import device_config, history_db
@@ -651,20 +652,20 @@ def _status_dot_html(status):
          else " home-state__dot--pulse", word, word)
 
 
-def _frame_state_html(ctx):
+def _frame_state_html(ctx, summary, status):
     """The status header: a "Frame state" label, the current state as a
     short title beside one haloed dot whose colour and word come from the
     shared frame-status resolver (plus a sentence for a held state), the
     next update (with its cadence info); then, for an administrator, the
     battery dial; then the screen and quiet-hours switches. The dot's tone also tints the card; a
-    resting dot stays still, every other one pulses a soft halo. Everything
-    comes from the page context."""
+    resting dot stays still, every other one pulses a soft halo. `summary`
+    is `_frame_state_summary(ctx)` and `status` the resolver's verdict on
+    it, both read once by render()."""
     cfg = ctx.device_config or {}
-    (_tone, title, detail), next_triple, base_interval_s = _frame_state_summary(ctx)
+    (_tone, title, detail), next_triple, base_interval_s = summary
     next_iso, interval_s, hold_reason = next_triple
     next_html, _long_overdue = _next_update_html(
         next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
-    status = frame_status.frame_status(_status_row(ctx, next_triple))
     tone = status.dot_state
     detail_html = (
         '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
@@ -716,6 +717,21 @@ def _action_needed_html(ctx):
         role="", docked=True, extra_class="home-action")
 
 
+def _notice_html(ctx, status):
+    """The amber or red notification, from the very status the dot shows;
+    "" for any other status. Its figures are the ones the state card reads."""
+    if not home_notice.applies(status):
+        return ""
+    device = ctx.device
+    facts = SimpleNamespace(
+        frame_name=getattr(device, "name", None) or "",
+        percent=0 if ctx.battery_critical is True else _battery_percent(ctx),
+        charging=_charging_likely(ctx), last_seen=ctx.last_checkin_ts or None,
+        now=ctx.now)
+    contact = home_notice.contact_for_state_dir(ctx.root_state_dir or ctx.state_dir)
+    return home_notice.notification_html(facts, status, contact)
+
+
 def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
     """The Quiet hours dialog, rendered open when a save was refused. It is
     a sibling of the swapped regions below, never inside one, so a
@@ -752,9 +768,15 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     # without a visible freshness line.
     header = layout.page_header(
         i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
+    summary = _frame_state_summary(ctx)
+    status = frame_status.frame_status(_status_row(ctx, summary[1]))
+    notice = _notice_html(ctx, status)
     return (
         header
-        + _frame_state_html(ctx)
+        + _frame_state_html(ctx, summary, status)
+        + '<div class="home-facts">'
+        + (notice or ("" if user_view.is_personal_view() else _action_needed_html(ctx)))
+        + "</div>"
         + '<div class="home-columns home-picture-row home-signal-grid">'
         + '<section class="page-section home-section home-current-frame" '
         'aria-labelledby="home-current-frame">'
@@ -763,9 +785,6 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
         + _current_picture_html(ctx, current_flight_row)
         + '</section>'
         + _recent_flights_html(rows, now, ctx.state_dir)
-        + "</div>"
-        + '<div class="home-facts">'
-        + ("" if user_view.is_personal_view() else _action_needed_html(ctx))
         + "</div>"
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
     )

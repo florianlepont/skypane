@@ -187,53 +187,41 @@ def test_display_render_carries_no_form_nested_inside_a_form():
     assert depth == 0, "expected every <form> to be closed, got an unbalanced depth of %d" % depth
 
 
-def test_two_scheduled_inputs_carry_form_settings_form():
-    """the two remaining scheduled inputs (quiet_hours_start, quiet_hours_end) carry
-    form="settings-form" via the SETTINGS_FORM_ID constant, and neither display_enabled
-    nor quiet_hours_enabled renders on the Display page any more"""
+def test_display_page_carries_no_scheduled_input():
+    """the Display page renders no quiet-hours time input, no switch and no display_enabled
+    input: the schedule is edited in Home's dialog"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    for needle in (
-            '<input type="time" name="quiet_hours_start" value="22:00" required'
-            ' lang="en" form="settings-form"',
-            '<input type="time" name="quiet_hours_end" value="06:00" required'
-            ' lang="en" form="settings-form"'):
-        assert needle in rendered, "expected %r in the rendered Display page" % (needle,)
-    assert 'name="display_enabled"' not in rendered and 'name="quiet_hours_enabled"' not in rendered, (
-        "expected no display_enabled/quiet_hours_enabled input on the Display page")
+    for name in ("quiet_hours_start", "quiet_hours_end", "display_enabled", "quiet_hours_enabled"):
+        assert 'name="%s"' % name not in rendered, "expected no %s input on the Display page" % name
 
 
-def test_schedule_cards_carry_no_quick_action_markup():
-    """the Quiet hours card carries no quick-action markup any more - its switch moved into the
-    shared Frame strip; the Screen on/off card this check used to also cover is
-    retired outright"""
+def test_display_carries_no_schedule_card_or_quick_action_markup():
+    """the Display page has no Quiet hours card (Home's dialog replaces it) and no
+    quick-action markup in its place"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
-    for heading in (config_page.QUIET_HOURS_SECTION_HEADING,):
-        start = rendered.index(
-            '<h2 class="text-heading" id="%s">%s</h2>'
-            % (config_page.QUIET_HOURS_GROUP_HEADING_ID, heading))
-        next_heading = rendered.find('<h2 class="text-heading"', start + 1)
-        segment = rendered[start:next_heading] if next_heading != -1 else rendered[start:]
-        assert "quick-action" not in segment, "expected the %r card to carry no quick-action markup" % (heading,)
+    assert 'id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID not in rendered
+    assert config_page.QUIET_HOURS_SECTION_HEADING not in rendered
+    assert "quick-action" not in rendered
 
 
 def test_handle_post_same_field_set_after_restructure_saves_the_same_config(tmp_path):
     """a POST through handle_post() with the same field set as before the instant-switch
     restructure still produces the same saved config"""
     tmp = str(tmp_path)
+    before = device_config.load_device_config(tmp)
     key = config_page.handle_post(
         {
             "scope": "display", "theme": "black", "display_enabled": "on",
-            "quiet_hours_enabled": "on", "quiet_hours_start": "23:00",
-            "quiet_hours_end": "07:00",
+            "quiet_hours_enabled": "on", "quiet_hours_start": "21:15",
+            "quiet_hours_end": "05:45",
         },
         {"state_dir": tmp})
     assert key == config_page.FLASH_SAVED, "expected FLASH_SAVED, got %r" % (key,)
     cfg = device_config.load_device_config(tmp)
-    assert (
-        cfg["theme"] == "black" and cfg["display_enabled"] is True
-        and cfg["quiet_hours_enabled"] is True
-        and cfg["quiet_hours_start"] == "23:00" and cfg["quiet_hours_end"] == "07:00"
-    ), "expected the same field set to persist identically, got %r" % (cfg,)
+    assert cfg["theme"] == "black" and cfg["display_enabled"] is True
+    # Display has no quiet-hours control, so crafted quiet-hours fields change nothing.
+    for key_name in ("quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end", "timezone"):
+        assert cfg[key_name] == before[key_name], key_name
 
 
 _TASK3_I18N_CTX = {

@@ -14,7 +14,7 @@ import pytest
 
 import fleet_console_support as fx
 from companion import auth
-from companion.test_browser_ux_helpers import VIEWPORT_MIN_SUPPORTED, _commit_field
+from companion.test_browser_ux_helpers import VIEWPORT_MIN_SUPPORTED
 from server import fleet_db, hardware
 
 pytestmark = pytest.mark.browser
@@ -22,7 +22,7 @@ pytestmark = pytest.mark.browser
 # Display keeps its settings below the first screen (a scroll) or in a sheet,
 # so a setting costs four actions (five for a look), above the design target
 # of three.
-MEASURED_U4 = 4
+MEASURED_U4 = 3
 MEASURED_U4_LOOK = 5
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -331,25 +331,23 @@ def _save_and_reload(steps, page):
 
 
 def test_u4_change_a_setting(world, new_context):
-    """Move the quiet-hours start: Display tab, a scroll to the field, the
-    value, Save.
+    """Move the quiet-hours start from Home: tap the schedule, type the start, Save.
 
-    The design target is 3 (Display tab, change, Save). The field sits under
-    the first screen, so the measured count is 4; the assertion pins that
-    measurement and the shortfall is recorded in the step-count record.
+    Three actions: the schedule link opens the Quiet hours dialog, the start is typed,
+    and Save posts it.
     """
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Display tab")
-        page.wait_for_url("**/display")
-        selector = 'input[name="quiet_hours_start"]'
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        steps.tap(page.locator("a.home-switch__window"), "schedule")
+        page.wait_for_function(
+            "() => document.querySelector('dialog#dlg-quiet-hours').open", timeout=10000)
+        selector = "#quiet-window-start"
         target = "05:00" if page.input_value(selector) != "05:00" else "06:00"
         steps.type_value(page.locator(selector), target, "quiet hours start")
-        _commit_field(page, selector)
-        page.locator("[data-static-save-fallback]").wait_for(state="visible")
-        _save_and_reload(steps, page)
+        steps.tap(page.locator("dialog#dlg-quiet-hours button[type=submit]"), "Save")
         page.wait_for_function(
-            "([sel, v]) => document.querySelector(sel).value === v", arg=[selector, target])
+            "() => location.search.includes('quiet_window_saved')", timeout=10000)
         _report("U4", steps, MEASURED_U4)
     finally:
         context.close()

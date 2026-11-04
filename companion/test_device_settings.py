@@ -191,8 +191,8 @@ def test_the_time_zone_select_is_on_the_location_page_only(app):
     _status, _, display = get(app, _prefix(app.fleet.dev_a) + "/display")
     assert 'name="timezone"' not in display and 'id="quiet-hours-timezone"' not in display
     assert "Quiet hours follow this time zone." not in display
-    quiet = display[display.index('data-dirty-section="Quiet hours"'):]
-    assert 'href="%s/detection#details"' % _prefix(app.fleet.dev_a) in quiet
+    assert 'data-dirty-section="Quiet hours"' not in display
+    assert 'name="quiet_hours_start"' not in display
     page = _location_page(app)
     assert page.count('name="timezone"') == 1
     assert re.search(r'<label for="place-timezone">Time zone</label>', page)
@@ -223,8 +223,6 @@ def test_a_valid_timezone_is_saved_for_that_device_only(app):
     assert snapshot(app.server.state_dir) == live
     assert '<option value="America/Martinique" selected>' in _timezone_select(
         _location_page(app))
-    _status, _, page = get(app, _prefix(fleet.dev_a) + "/display")
-    assert "22:15" in page and "Martinique time" in page
 
 
 def test_paris_or_omitted_never_adds_the_key(app):
@@ -285,14 +283,20 @@ def test_an_unlisted_stored_zone_is_one_extra_last_option_and_can_be_resaved(app
 
 
 def test_the_readout_keeps_its_form_for_paris_and_adds_a_zone_clause_otherwise(app):
-    fleet = app.fleet
-    _status, _, paris = get(app, _prefix(fleet.dev_a) + "/display")
+    from companion import prefs
+    from companion.pages import config_page
+    paris = config_page.quiet_hours_group("22:15", "06:45")
     readout = re.search(r'<p class="time-value quiet-dial__readout".*?</p>', paris, re.S).group(0)
     assert "time</p>" not in readout
-    device_config.save_device_config(fleet.dev_a.state_dir, timezone="America/Martinique")
-    _status, _, english = get(app, _prefix(fleet.dev_a) + "/display")
-    assert re.search(r"</span> · Martinique time</p>", english)
-    french = _french(app, _prefix(fleet.dev_a) + "/display")
+    zoned = config_page.quiet_hours_group(
+        "22:15", "06:45", current_timezone="America/Martinique")
+    assert re.search(r"</span> · Martinique time</p>", zoned)
+    prefs.set_request_prefs(lang="fr")
+    try:
+        french = config_page.quiet_hours_group(
+            "22:15", "06:45", current_timezone="America/Martinique")
+    finally:
+        prefs.set_request_prefs(lang="en")
     assert " · heure de Martinique</p>" in french
 
 

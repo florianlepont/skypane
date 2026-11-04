@@ -138,7 +138,8 @@ def test_display_serves_none_of_the_moved_controls(rig, who):
     assert status == 200
     _assert_display_has_no_place_controls(page)
     assert "Charles de Gaulle" not in _text(page)
-    assert 'id="quiet-hours-group-heading"' in page
+    assert 'id="quiet-hours-group-heading"' not in page
+    assert 'name="quiet_hours_start"' not in page
 
 
 def test_display_serves_none_of_the_moved_controls_in_french(rig):
@@ -149,10 +150,11 @@ def test_display_serves_none_of_the_moved_controls_in_french(rig):
     assert "Lieu et détection</h2>" not in page and "Avions à moins de" not in _text(page)
 
 
-def test_the_look_card_is_followed_directly_by_quiet_hours(rig):
+def test_the_look_card_is_the_last_card_and_quiet_hours_are_not_on_display(rig):
     _status, page = rig.get("owner", rig.scope() + "/display")
-    look_end = page.index("</section>", page.index('id="display-look"'))
-    assert look_end < page.index('id="quiet-hours-group-heading"')
+    assert 'id="display-look"' in page
+    assert 'id="quiet-hours-group-heading"' not in page
+    assert 'data-dirty-section="Quiet hours"' not in page
 
 
 def test_the_location_page_holds_what_display_lost(rig):

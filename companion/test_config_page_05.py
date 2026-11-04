@@ -113,7 +113,7 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 3, "device": 2}
+_FLOOR_MIN_MEASURED = {"display": 2, "device": 2}
 _FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
 
 
@@ -742,10 +742,10 @@ _TASK2_BASE_CTX = {
 def test_each_time_input_carries_the_site_language_and_a_visible_24h_sibling():
     """each <input type="time"> carries the site language and a visible sibling showing the
     normalised 24h value (never a placeholder, never a title), in both languages"""
-    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+    rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_ALL)
     for name, value in (("quiet_hours_start", "22:00"), ("quiet_hours_end", "06:00")):
         needle = '<input type="time" name="%s" value="%s"' % (name, value)
-        assert needle in rendered, "expected %r in the rendered Display page" % (needle,)
+        assert needle in rendered, "expected %r in the rendered legacy all-scope page" % (needle,)
         idx = rendered.index(needle)
         tail = rendered[idx:idx + 400]
         assert 'lang="en"' in tail, "%s must carry the site language as lang= (B14)" % name
@@ -758,7 +758,7 @@ def test_each_time_input_carries_the_site_language_and_a_visible_24h_sibling():
 
     prefs.set_request_prefs(lang="fr")
     try:
-        fr_rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
+        fr_rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_ALL)
     finally:
         prefs.set_request_prefs(lang="en")
     assert 'lang="fr"' in fr_rendered, "expected a French render to set lang=\"fr\" on its time inputs"

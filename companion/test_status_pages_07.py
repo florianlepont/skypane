@@ -711,8 +711,8 @@ def test_quiet_schedule_link_is_on_neither_home_nor_display(tmp_path):
     assert not _QUIET_SCHEDULE_LINK_RE.search(rendered_display)
     assert rendered_home.count('frame-strip__schedule-link') == 0
     assert rendered_display.count('frame-strip__schedule-link') == 0
-    assert 'name="quiet_hours_start"' in rendered_display, (
-        "expected the Display page to carry the Quiet hours schedule control")
+    assert 'name="quiet_hours_start"' not in rendered_display, (
+        "expected the Display page to carry no Quiet hours control")
 
 
 # --- The Frame strip's two switches

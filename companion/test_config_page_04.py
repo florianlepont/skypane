@@ -508,18 +508,17 @@ def test_calendar_disconnect_form_is_not_inside_settings_form_on_display_scope()
         "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag")
 
 
-def test_calendar_connect_form_appears_before_the_quiet_hours_card_on_display_scope():
+def test_calendar_connect_form_renders_inside_the_calendar_row_and_display_has_no_quiet_hours_card():
     """on the Display scope, the calendar connect/replace form's own <form> opening tag renders
-    inside the Calendar row and strictly before the Quiet hours card"""
+    inside the Calendar row, and no Quiet hours card follows it"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     calendar_row_index = rendered.index('data-look-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
     connect_form_index = rendered.index(
         '<form class="calendar-sheet__form" method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
-    quiet_hours_index = rendered.index('id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID)
-    assert calendar_row_index < connect_form_index < quiet_hours_index, (
-        "expected Calendar row < connect form < Quiet hours card, got %d, %d, %d"
-        % (calendar_row_index, connect_form_index, quiet_hours_index))
+    assert 'id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID not in rendered
+    assert calendar_row_index < connect_form_index, (
+        "expected Calendar row < connect form, got %d, %d" % (calendar_row_index, connect_form_index))
 
 
 def test_calendar_disconnect_form_absent_when_not_configured_or_on_device_scope():

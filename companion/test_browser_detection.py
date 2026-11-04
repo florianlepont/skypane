@@ -415,10 +415,9 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
 # A user's Display page no longer holds the place; the Location and detection page does.
 
 USER_VIEWPORTS = (VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP)
-NOTE_LINK = ".quiet-timezone-note a"
+NOTE_LINK = "dialog#dlg-quiet-hours .quiet-timezone-note a"
 # Words an ordinary user's page must never carry.
 ADMIN_WORDS = re.compile(r"\b(Admin\w*|Console|Fleet|Releases?|Device)\b", re.IGNORECASE)
-NOTE_TEXT = {"en": "Location and detection", "fr": "Lieu et détection"}
 
 
 class DisplayRig(UserRig):
@@ -462,7 +461,7 @@ def drig(app_server_in_process):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("viewport", USER_VIEWPORTS)
-def test_a_user_display_has_no_place_controls_and_one_link_to_the_location_page(
+def test_a_user_display_has_no_place_controls_and_no_quiet_hours_note(
         new_context, drig, lang, theme, viewport):
     context, page = _open_as(
         new_context, drig, "owner", path=drig.display, lang=lang, theme=theme,
@@ -476,11 +475,10 @@ def test_a_user_display_has_no_place_controls_and_one_link_to_the_location_page(
                 "select[name=timezone]"):
             if page.locator(selector).count():
                 raise AssertionError("Display still renders %s" % selector)
-        link = page.locator(NOTE_LINK)
-        if link.count() != 1 or link.inner_text() != NOTE_TEXT[lang]:
-            raise AssertionError("expected one note link to the Location page")
-        if not link.get_attribute("href").endswith("/detection#details"):
-            raise AssertionError("the note links to %s" % link.get_attribute("href"))
+        if page.locator(NOTE_LINK).count():
+            raise AssertionError("Display still renders the quiet-hours note")
+        if page.locator("input[name=quiet_hours_start]").count():
+            raise AssertionError("Display still renders a quiet-hours control")
         visible = page.locator("main").inner_text()
         if lang == "en" and ADMIN_WORDS.search(visible):
             raise AssertionError("user page carries %r" % ADMIN_WORDS.search(visible).group(0))
@@ -489,9 +487,13 @@ def test_a_user_display_has_no_place_controls_and_one_link_to_the_location_page(
 
 
 def test_the_note_link_opens_the_location_page(new_context, drig):
-    context, page = _open_as(new_context, drig, "owner", path=drig.display)
+    context, page = _open_as(new_context, drig, "owner", path=drig.path)
     Hosts(context)
     try:
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        page.locator("a.home-switch__window").click()
+        page.wait_for_function(
+            "() => document.querySelector('dialog#dlg-quiet-hours').open", timeout=10000)
         with page.expect_navigation():
             page.locator(NOTE_LINK).click()
         if not page.url.endswith("/detection#details"):

@@ -423,17 +423,6 @@ CALENDAR_SHEET_ID = "calendar-sheet"
 DETECTION_ROUTE = "/detection"
 
 
-def _display_groups_html(builders, groups):
-    """Display scope's independent Quiet hours card.
-
-    The card carries its own heading. It is a sibling of the settings form
-    and keeps its fields associated with it via `form=`.
-    """
-    return (
-        builders[screens.GROUP_QUIET_HOURS]()
-        if screens.GROUP_QUIET_HOURS in groups else "")
-
-
 def _device_groups_html(builders, groups):
     """Device shows only the controls that change the frame's behaviour.
 
@@ -592,14 +581,13 @@ def _render_display_scope(
             + "</section>")
     else:
         aspect_section_html = ""
-    display_on_html = _display_groups_html(builders, groups)
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
         "groups_html": "",
         "aspect_section_html": aspect_section_html,
         "display_watches_supersection_html": "",
-        "display_on_supersection_html": display_on_html,
+        "display_on_supersection_html": "",
     }
 
 
@@ -793,6 +781,17 @@ def submitted_calendar_signal(form):
     return CALENDAR_URL_SIGNAL_SET
 
 
+def _resolve_quiet_hours(form, scope, errors, times):
+    """The quiet-hours window or switch from `form`. Display has no
+    quiet-hours control (Home's dialog owns them), so a Display post
+    leaves them unchanged whatever fields it carries."""
+    if scope == SCOPE_DISPLAY:
+        return {}
+    if times:
+        return form_post.resolve_quiet_hours_times(form, errors)
+    return form_post.resolve_quiet_hours_enabled(form, errors)
+
+
 def handle_post(form, ctx, errors=None):
     """Validate the submitted settings state against `device_config`'s
     own registries and validators, then persist all fields in one
@@ -836,9 +835,9 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_calendar_url(calendar_signal, submitted_calendar_url, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
-        lambda: form_post.resolve_quiet_hours_times(form, errors),
+        lambda: _resolve_quiet_hours(form, scope, errors, times=True),
         lambda: form_post.resolve_led(form, errors),
-        lambda: form_post.resolve_quiet_hours_enabled(form, errors),
+        lambda: _resolve_quiet_hours(form, scope, errors, times=False),
         lambda: form_post.resolve_wake_interval(form, errors),
         lambda: form_post.resolve_display(form, errors),
         lambda: form_post.resolve_timezone(

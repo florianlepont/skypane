@@ -1314,10 +1314,10 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # Minimums re-derived by RUNNING this exact selector against a real
     # render of each route.
     per_route_min = {
-        layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 3, layout.FLIGHTS_ROUTE: 0,
+        layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 2, layout.FLIGHTS_ROUTE: 0,
         layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
     }
-    site_total_min = 16
+    site_total_min = 14
 
     skip_counts = {"en": 0, "fr": 0}
     site_total_captions = 0

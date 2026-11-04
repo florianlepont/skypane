@@ -86,4 +86,42 @@ MESSAGES = {
     "home.device_no_image_body":
         "La première image apparaîtra après une vérification ou le premier "
         "réveil du cadre.",
+
+    "home.notice_explain_not_seen":
+        "Votre cadre n’a pas encore contacté SkyPane.",
+    "home.notice_explain_overdue":
+        "Votre cadre ne s’est pas manifesté à l’heure attendue. Il est peut-être "
+        "à court de batterie ou hors de portée du Wi-Fi.",
+    "home.notice_explain_low_battery":
+        "La batterie de votre cadre est faible. Rechargez-le bientôt pour qu’il "
+        "continue à se mettre à jour.",
+    "home.notice_explain_no_contact":
+        "Votre cadre n’est plus en contact avec le serveur.",
+    "home.notice_line_battery": "Batterie du cadre à %d %%",
+    "home.notice_line_charging":
+        "Les mesures de la batterie laissent penser que le cadre est peut-être "
+        "en charge.",
+    "home.notice_line_last_check_in": "Dernière connexion du cadre : %s",
+    "home.notice_line_last_contact": "Dernier contact : %s",
+    "home.notice_line_cannot_tell":
+        "SkyPane ne peut pas distinguer un problème de Wi-Fi, d’internet ou de "
+        "serveur.",
+    "home.notice_tip_low_battery": "Rechargez le cadre ou branchez-le.",
+    "home.notice_tip_overdue":
+        "Attendez le prochain cycle. Si le cadre est en heures calmes, il se "
+        "repose volontairement.",
+    "home.notice_tip_not_seen":
+        "Vérifiez que le cadre est alimenté, puis attendez un cycle.",
+    "home.notice_tip_no_contact":
+        "Vérifiez que le cadre est alimenté et que votre Wi-Fi ou votre box "
+        "internet fonctionne.",
+    "home.notice_help_lead":
+        "Si cela ne se rétablit pas, un administrateur peut vous aider.",
+    "home.notice_help_plain":
+        "Demandez de l’aide à un administrateur de cette installation SkyPane.",
+    "home.notice_contact_label": "Contacter un administrateur",
+    "home.notice_mail_subject": "SkyPane : aide pour le cadre %s (%s)",
+    "home.notice_mail_body":
+        "Bonjour,\n\nMon cadre %s affiche l’état %s dans SkyPane.\n%s\nPouvez-vous "
+        "regarder ?\n",
 }
