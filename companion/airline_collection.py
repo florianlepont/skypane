@@ -1,0 +1,188 @@
+"""Read model of the Airline collection: which airlines the frame has seen.
+
+Everything comes from the frame's own `runway_events` plus the curated
+airline list; nothing is stored. The function only reads (SELECT only) and
+creates no table.
+
+A pass stored twice (the poll loop writes a second event when the
+corroboration flag flips) is folded into one sighting with the same rule
+Home and Flights use, so "seen n times" counts flights, not stored rows.
+"""
+import collections
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
+
+from companion import flight_card
+from companion.pages import airline_sheet
+from server import history_db
+from server.plane import illustrations
+from server.plane.render import text as render_text
+
+# Sightings needed for each rarity level; below OCCASIONAL_MIN is Rare.
+REGULAR_MIN = 10
+OCCASIONAL_MIN = 3
+# Spotted-airline counts that earn a collection badge.
+BADGE_THRESHOLDS = (1, 5, 10, 25, 50)
+# An airline whose first sighting is this recent carries the New pill.
+NEW_WINDOW_DAYS = 7
+# Recent callsigns kept per airline, newest first.
+RECENT_CALLSIGNS = 5
+
+RARITY_REGULAR = "regular"
+RARITY_OCCASIONAL = "occasional"
+RARITY_RARE = "rare"
+# Not seen yet: no rarity.
+RARITY_NONE = ""
+
+_SELECT_EVENTS = (
+    "SELECT id, ts, hex, callsign, aircraft_type, confirmed_state, origin, "
+    "destination, airline FROM runway_events ORDER BY ts DESC, id DESC")
+
+
+@dataclass(frozen=True)
+class AirlineEntry:
+    """One card: a curated airline, or an uncurated one the frame saw."""
+    slug: str
+    name: str
+    picture_key: str
+    curated: bool
+    times_seen: int = 0
+    first_ts: str = ""
+    last_ts: str = ""
+    first_day: object = None
+    last_day: object = None
+    types: tuple = ()
+    callsigns: tuple = ()
+    rarity: str = RARITY_NONE
+    is_new: bool = False
+
+    @property
+    def seen(self):
+        return self.times_seen > 0
+
+
+@dataclass(frozen=True)
+class CollectionSummary:
+    spotted: int = 0
+    total: int = 0
+    earned: tuple = field(default_factory=tuple)
+    next_goal: object = None
+
+
+def rarity_for(times_seen):
+    """The rarity level of an airline sighted `times_seen` times."""
+    if times_seen >= REGULAR_MIN:
+        return RARITY_REGULAR
+    if times_seen >= OCCASIONAL_MIN:
+        return RARITY_OCCASIONAL
+    if times_seen >= 1:
+        return RARITY_RARE
+    return RARITY_NONE
+
+
+def _curated_index(overrides):
+    """`(order, aliases)`: curated airlines in list order as
+    `(key, display name, picture key)`, and a map from every key a flight
+    may carry (the curated name, or the owner's rename) to its curated key."""
+    order = []
+    aliases = {}
+    for builtin, _shapes in illustrations.target_variants_by_airline():
+        key = illustrations.normalise_airline_key(builtin)
+        if not key or key in aliases:
+            continue
+        sheet = airline_sheet.card_sheet(builtin, overrides or {})
+        shown = sheet["name"] if sheet else builtin
+        picture_key = illustrations.normalise_airline_key(shown) or key
+        order.append((key, render_text.display_airline_name(shown), picture_key))
+        aliases[key] = key
+        aliases[picture_key] = key
+    return order, aliases
+
+
+def _sightings(conn):
+    """Stored events newest first with repeated passes folded away."""
+    rows = [dict(row) for row in conn.execute(_SELECT_EVENTS).fetchall()]
+    return flight_card.fold_repeated_passes(rows)
+
+
+def _group(rows, aliases):
+    """`{slug: [row, ...]}` (newest first) for rows carrying an airline name."""
+    groups = collections.OrderedDict()
+    for row in rows:
+        airline = row.get("airline")
+        if not isinstance(airline, str) or not airline.strip():
+            continue
+        key = illustrations.normalise_airline_key(airline.strip())
+        if not key:
+            continue
+        groups.setdefault(aliases.get(key, key), []).append(row)
+    return groups
+
+
+def _ranked_types(rows):
+    counts = collections.Counter(
+        str(row["aircraft_type"]).strip().upper()
+        for row in rows if row.get("aircraft_type") and str(row["aircraft_type"]).strip())
+    return tuple(name for name, _count in counts.most_common())
+
+
+def _recent_callsigns(rows):
+    seen = []
+    for row in rows:
+        callsign = (row.get("callsign") or "").strip()
+        if callsign and callsign not in seen:
+            seen.append(callsign)
+        if len(seen) >= RECENT_CALLSIGNS:
+            break
+    return tuple(seen)
+
+
+def _is_new(first_ts, now):
+    first = history_db.instant_or_none(first_ts)
+    if first is None:
+        return False
+    return now - first <= timedelta(days=NEW_WINDOW_DAYS)
+
+
+def _entry(slug, name, picture_key, curated, rows, now):
+    if not rows:
+        return AirlineEntry(slug, name, picture_key, curated)
+    first_ts = rows[-1]["ts"]
+    last_ts = rows[0]["ts"]
+    return AirlineEntry(
+        slug, name, picture_key, curated,
+        times_seen=len(rows), first_ts=first_ts, last_ts=last_ts,
+        first_day=history_db.paris_day_or_none(first_ts),
+        last_day=history_db.paris_day_or_none(last_ts),
+        types=_ranked_types(rows), callsigns=_recent_callsigns(rows),
+        rarity=rarity_for(len(rows)), is_new=_is_new(first_ts, now))
+
+
+def _summary(spotted, total):
+    earned = tuple(n for n in BADGE_THRESHOLDS if spotted >= n)
+    goals = [n for n in BADGE_THRESHOLDS if spotted < n]
+    return CollectionSummary(spotted, total, earned, goals[0] if goals else None)
+
+
+def _utc_now(now):
+    parsed = history_db.instant_or_none(now) if now else None
+    return parsed or datetime.now(timezone.utc)
+
+
+def airline_collection(conn, now, overrides=None):
+    """`(entries, summary)`: one entry per curated airline in list order,
+    then one per uncurated airline the frame saw (most recently seen first).
+    `now` is a UTC ISO-8601 string. `overrides` is the owner's rename
+    registry, so a renamed curated airline keeps its card and its history.
+    """
+    instant = _utc_now(now)
+    order, aliases = _curated_index(overrides)
+    groups = _group(_sightings(conn), aliases)
+    entries = [
+        _entry(key, name, picture_key, True, groups.pop(key, []), instant)
+        for key, name, picture_key in order]
+    for slug, rows in groups.items():
+        name = render_text.display_airline_name(rows[0]["airline"].strip())
+        entries.append(_entry(slug, name, slug, False, rows, instant))
+    spotted = sum(1 for entry in entries if entry.seen)
+    return entries, _summary(spotted, len(order))
