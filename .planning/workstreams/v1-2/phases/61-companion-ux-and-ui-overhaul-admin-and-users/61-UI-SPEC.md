@@ -1090,12 +1090,14 @@ SUPERSEDED: revision 1 and plan 61-16 kept "Quiet hours" as a card on Display (s
 SUPERSEDED: revision 1's "Display" page (all settings in one long form with a bottom-sheet look editor, Quiet hours, Location and detection and the time zone). It was measured
 at 4 actions for a quiet-hours change and 5 for a look (`61-STEP-COUNTS.md`).
 
+**Revision (batch 3, D29/W10).** The page is a segmented section navigation over one view at a time (mockup P1). The "On this page" list, the all-in-one page and the Look radio-card grid described below are replaced as written in the "Batch 3 structure" block that follows the table; the card contents, strings and rules that the block does not mention stay.
+
 Page title **"Personalisation" / "Personnalisation"**; path `/display`; sidebar and More use the full word, the phone bar uses "Style" / "Style". Same page for administrator and user. It holds only
 what changes how the frame looks and what it shows; place and schedule live elsewhere (sections 9 and 10).
 
-**Visual anchor:** the Look card's large selected look, then its accent "selected" ring.
+**Visual anchor:** the Look view's large live picture, then the picker card under it.
 
-**Structure.** A short "On this page" list (`<nav aria-label="On this page">`, a 2-column grid of 44px text links on phone, a sticky left rail of 14rem at >=960px; plain
+**Structure (superseded by the Batch 3 structure block below).** A short "On this page" list (`<nav aria-label="On this page">`, a 2-column grid of 44px text links on phone, a sticky left rail of 14rem at >=960px; plain
 in-page anchors, not a second tab row) then one card per section, in this order, each card = title (16px sans semibold), one muted line stating the **current value**, the controls:
 
 | # | Card | Contents | Notes |
@@ -1106,15 +1108,22 @@ in-page anchors, not a second tab row) then one card per section, in this order,
 | 4 | **Refresh** | wake interval (existing control) with the current value and a plain sentence on battery effect (existing copy) | |
 | 5 | **Screen** | the "when it is on" settings that remain (display on/off); the diagnostic LED is a Device (Console) setting and does not appear here | quiet hours: not here (section 10) |
 
+**Batch 3 structure (D29/W10, mockups P1 and P1d).**
+
+- **Section navigation.** `<nav class="personalisation-nav" aria-label="Personalisation sections" / "Sections de personnalisation">`: a pill bar of four plain links with a 20px icon and a label (palette Look, star Special looks, calendar Calendar, screen Screen), min-height 44px, `--color-secondary` track, the current link `aria-current="page"` on a `--color-dominant` pill with accent text. At 360px the bar scrolls sideways inside itself (the page never does) and the current link is scrolled into view. With a script the pill is a thumb that slides from the link of the page just left to the current one (`.is-sliding`, `--motion-fast`); under `prefers-reduced-motion` it is placed with no movement; without a script the current link carries the pill itself.
+- **One view per address.** Look `/display` (unchanged), Special looks `/display/special-looks`, Calendar `/display/calendar`, Screen `/display/screen`. All are the Display tab (same nav highlight, scripts and freshness), the same access rule (owner of the frame, or admin acting on it) and the same `POST /settings`; each view's hidden `return_to` is its own address, a rejected save redraws the view holding the refused field, and the rule and calendar POST routes return to their own view. Saving from a view submits only that view's fields (an absent field leaves the stored value unchanged).
+- **Look view.** Departures / Arrivals tabs (a segmented pair, script-only), the live frame picture of the chosen tab with its read-back on the right (7.5rem picture beside it on a phone, 15rem on desktop), then one picker card: COLOUR dots, BACKGROUND and DIAGONAL STRIPE segments (disabled combinations struck through with the reason line), "Same as departures" on the Arrivals tab, Reset (restores the saved look of that tab) and Save (accent, submits the settings form; the dirty bar stays). The picker is the look sheet in its inline form: no dialog, scrim or focus trap. Without a script the tabs and picker are absent and the Look view shows what it always did: the radio look cards, the Arrivals picture and its "Change" radio table.
+- **Special looks and Calendar views** keep their card (title, current-value line, controls); the look sheet stays a dialog there (a bottom sheet on a phone) and a calendar look that follows departures resolves the saved departures look. **Screen view** is the one switch card.
+
 - "What it watches" content that moved to Location and detection (place, airport, runway, radius, time zone) is removed from this page. If a remaining "what it watches" control (for example the
   filters in `DISPLAY_WATCHES_HEADING`) is not a place setting it stays in card 5 under its own title.
 - The dirty-state save bar names each changed section ("Look", "Special looks", "Calendar", "Refresh", "Screen"). Saving never touches the place, the time zone or quiet hours (assertion R21/R23).
 - Empty states: Special looks "No special looks yet" / "Aucun look spécial pour l'instant" with "Create one when a particular airline or plane should look different." / "Créez-en un quand une compagnie ou un avion précis doit avoir un autre look."; Calendar "No calendar connected" / "Aucun calendrier connecté".
-- Widths: single column at 360px; at >=960px the left rail plus a content column (cards `max-width: 56rem`), the Look grid uses the room.
+- Widths: single column at 360px; the content column is `max-width: 56rem` at every width (the navigation is a bar above it, not a rail).
 - 44px targets everywhere, both themes, no horizontal overflow at 360px.
 - Step counts: change the look = Personalisation tab, tap a look, Save = 3 (target met, was 5).
 
-Strings (EN / FR): "Personalisation" / "Personnalisation"; "On this page" / "Sur cette page"; "Look" / "Look"; "Special looks" / "Looks spéciaux" (existing); "Calendar" / "Calendrier"; "Refresh" / "Actualisation";
+Strings (EN / FR): "Personalisation" / "Personnalisation"; "Personalisation sections" / "Sections de personnalisation" (nav label); "Save" / "Enregistrer" and "Departures or arrivals" / "Départs ou arrivées" (picker); "Look" / "Look"; "Special looks" / "Looks spéciaux" (existing); "Calendar" / "Calendrier"; "Refresh" / "Actualisation";
 "Screen" / "Écran"; "Customise look" / "Personnaliser le style"; "Selected" (hidden) / "Sélectionné"; current-value lines: "Current: %s" / "Actuel : %s".
 
 ---
@@ -1270,7 +1279,7 @@ R18. Failure modes: with the tile host aborted, the tile-failure notice appears 
 R19 (D20, live frame). No Locations UI exists; for a frame with an existing `location_id` and untouched detection the poll loop's `detection.spec_for` result and zone key are byte-identical before and after this revision; the first map save creates a private row, a repeat save updates it in place, a row shared by two frames is not modified (a new row is made); the locations table and `devices.location_id` column still exist (schema test).
 R20 (V8). Quiet hours controls and the time zone select are absent from `/display`; the Home schedule row opens `dlg-quiet-hours` (focus lands on Start time, Esc closes and returns focus to the row), saving posts to `/quick/quiet-hours/window`, writes only the three quiet-hours keys, and the Home sentence updates.
 R21. Saving Personalisation does not change quiet hours, time zone, place or detection; saving the quiet-hours dialog or the place does not change any look, rule, calendar or interval; the old Display POST with the quiet-hours fields absent leaves them unchanged.
-R22 (V9). `/display` is titled "Personalisation"/"Personnalisation", has the five cards in the order of section 11, the Look cards are radio cards (selecting a look then Save persists it), and no card holds a place, a runway or quiet-hours control.
+R22 (V9, batch 3). `/display` is titled "Personalisation"/"Personnalisation" with the four-link section navigation of section 11 (Look, Special looks, Calendar, Screen, each a plain link to its own address, the current one `aria-current`); the Look view's picker (choosing in it, then Save) persists a look, and no view holds a place, a runway or quiet-hours control.
 R23. Step counts U4a=3 and U4b=3, L1=4, L2=4, L4=3, S1=1, A7=1 are measured by the step test and recorded in `61-STEP-COUNTS.md`; where a target is missed the file says so (same honesty rule as before).
 R24 (V10). `/airlines` for a user, an owner and an administrator is the Airline collection: progress headline, badge shelf, filter chips, sort, and cards; it contains no `<input type="file">`, no form that posts to an `/airlines/...` route, no rename or resolve control.
 R25. The read model counts from `runway_events` only: with a seeded history (known airlines with counts 1, 3 and 12) the cards show Rare, Occasional, Regular, the right "Seen n times", first and last dates, the "New" pill within 7 days, and the progress count equals the number of airlines with at least one event; with no events the empty state shows and every card is "Not seen yet"; badges earned = the thresholds reached.

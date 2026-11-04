@@ -55,7 +55,7 @@ def _open_display(new_context, server, viewport, lang="en", scheme=None):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/display")
+    page.goto(server.base_url() + "/display/calendar")
     page.locator(OPENER).wait_for(state="visible")
     return context, page
 
@@ -277,7 +277,7 @@ def test_with_scripts_blocked_manage_is_a_link_to_an_in_page_sheet_that_replaces
     a refused replace comes back to it with the error, a good one replaces, and Disconnect goes
     through the server's own confirmation page"""
     _connect_old(server)
-    with _no_js_login_and_goto(new_context, server, "/display") as page:
+    with _no_js_login_and_goto(new_context, server, "/display/calendar") as page:
         _click_centred(page, OPENER)
         page.wait_for_url("**calendar=manage**")
         page.wait_for_load_state("load")
@@ -297,7 +297,7 @@ def test_with_scripts_blocked_manage_is_a_link_to_an_in_page_sheet_that_replaces
             _dom_click(page, REPLACE)
             page.wait_for_url("**flash=calendar_connect_ok")
         assert calendar_rules.configured_calendar_url(server.state_dir) == NEW_URL
-        page.goto(server.base_url() + "/display?calendar=manage")
+        page.goto(server.base_url() + "/display/calendar?calendar=manage")
         _dom_click(page, DISCONNECT)
         # The click navigates to the server's confirmation page; wait for it instead of reading
         # the previous page's heading while the navigation is still in flight.

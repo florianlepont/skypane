@@ -401,7 +401,7 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
         data=urllib.parse.urlencode({
             "scope": "display", "return_to": "/display",
             "theme": "black", "tracked_runway": before["tracked_runway"],
-            "calendar_theme_id": "no-such-look",
+            "theme_arriving": "no-such-look",
         }).encode())
     assert status == 200, "expected a 200 re-render on a rejected save, got %d" % status
     assert not headers.get("Location"), (
@@ -749,8 +749,10 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
     scope/return_to fields; Refresh now lives on Device only."""
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
+    _s, _h, special_body = http_request(base + "/display/special-looks", cookie=session_cookie)
     _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
     display_text = display_body.decode("utf-8", errors="replace")
+    special_text = special_body.decode("utf-8", errors="replace")
     device_text = device_body.decode("utf-8", errors="replace")
     assert 'name="theme"' in display_text and 'name="quiet_hours_start"' not in display_text, (
         "expected the Display page to carry the theme group and no quiet-hours control")
@@ -780,8 +782,8 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
     rules_panel_marker = 'data-look-usage="rules"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")
-    assert rules_panel_marker in display_text, (
-        "expected the Display page to carry the rules editor (moved from Device, 20-07/D-10)")
+    assert rules_panel_marker in special_text, (
+        "expected the Special looks page to carry the rules editor (moved from Device, 20-07/D-10)")
     assert "Manual refresh" not in display_text, (
         "expected the Display page NOT to carry Manual refresh")
 

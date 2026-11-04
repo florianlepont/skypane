@@ -193,7 +193,7 @@ def test_rule_add_writes_only_that_devices_rules(app):
         app, _prefix(fleet.dev_a) + "/settings/rules/add",
         {"rule_kind": "callsign", "rule_key": "ZZN1234", "rule_theme_id": "black"})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/display?flash=")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/display/special-looks?flash=")
     assert "ZZN1234" in colour_rules.load_colour_rules(fleet.dev_a.state_dir)["callsign"]
     _others_unchanged(app, fleet.dev_a, before)
 
@@ -204,7 +204,7 @@ def test_rule_delete_changes_only_that_devices_rules(app):
     status, headers, _ = post(
         app, _prefix(fleet.dev_a) + "/settings/rules/callsign/ZZR9999/delete")
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/display")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/display/special-looks")
     assert "ZZR9999" not in colour_rules.load_colour_rules(fleet.dev_a.state_dir)["callsign"]
     assert "ZZR9999" in colour_rules.load_colour_rules(fleet.dev_b.state_dir)["callsign"]
     _others_unchanged(app, fleet.dev_a, before)
@@ -227,7 +227,7 @@ def test_calendar_disconnect_clears_only_that_devices_link(app):
     status, headers, _ = post(
         app, _prefix(fleet.dev_a) + "/settings/calendar/disconnect", {"confirm": "yes"})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/display?flash=")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/display/calendar?flash=")
     assert not calendar_rules.calendar_is_configured(fleet.dev_a.state_dir)
     assert calendar_rules.calendar_is_configured(fleet.dev_b.state_dir)
     _others_unchanged(app, fleet.dev_a, before)
@@ -275,7 +275,7 @@ def test_calendar_connect_writes_only_that_devices_link(in_process_fleet):
     calls = []
     status, headers = harness.connect(fleet.dev_a, calls)
     assert status == 303
-    assert headers["Location"].startswith("/devices/%s/display?flash=calendar_connect_ok" % fleet.dev_a.id)
+    assert headers["Location"].startswith("/devices/%s/display/calendar?flash=calendar_connect_ok" % fleet.dev_a.id)
     assert calendar_rules.configured_calendar_url(fleet.dev_a.state_dir) == CALENDAR_URL
     assert len(calls) == 1
     assert len(calendar_rules.load_calendar_registry(fleet.dev_a.state_dir)["entries"]) == 1
@@ -292,7 +292,7 @@ def test_calendar_connect_for_the_live_frame_returns_under_its_fleet_id(in_proce
     status, headers = harness.connect(fleet.live, [])
     assert status == 303
     assert headers["Location"].startswith(
-        "/devices/%s/display?flash=calendar_connect_ok" % fleet.live.id)
+        "/devices/%s/display/calendar?flash=calendar_connect_ok" % fleet.live.id)
     assert calendar_rules.configured_calendar_url(fleet.live.state_dir) == CALENDAR_URL
     assert snapshot(fleet.dev_a.state_dir) == dev_a_before
 
@@ -321,7 +321,7 @@ def test_calendar_connect_defers_when_its_own_device_is_polling(in_process_fleet
     finally:
         own.release()
     assert status == 303
-    assert headers["Location"].startswith("/devices/%s/display?flash=" % fleet.dev_a.id)
+    assert headers["Location"].startswith("/devices/%s/display/calendar?flash=" % fleet.dev_a.id)
     assert "calendar_sync_deferred" in headers["Location"]
     assert calls == []
     assert calendar_rules.configured_calendar_url(fleet.dev_a.state_dir) == "https://old.example/x.ics"

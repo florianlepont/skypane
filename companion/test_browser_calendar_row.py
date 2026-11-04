@@ -115,7 +115,7 @@ def test_choose_calendar_sits_with_the_text_row(
     page = context.new_page()
     try:
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/display")
+        page.goto(server.base_url() + "/display/calendar")
         page.locator(BUTTON).wait_for(state="visible")
         assert page.locator(ROW).get_attribute("data-calendar-state") == state
         for theme in _in_both_themes(page):
@@ -131,11 +131,11 @@ def test_with_scripts_blocked_the_button_is_still_a_link_on_the_right(new_contex
     """no script: the same row layout, and the button stays the plain link to the open sheet"""
     _connect(server, [("AF1234", "CDG", "ORY", 2)])
     for viewport in (VIEWPORT_PHONE, VIEWPORT_DESKTOP):
-        with _no_js_page(new_context, server.base_url(), "/display", viewport=viewport,
+        with _no_js_page(new_context, server.base_url(), "/display/calendar", viewport=viewport,
                          reduced_motion="reduce") as page:
             page.wait_for_load_state("load")
             page.locator(BUTTON).wait_for(state="visible")
-            assert page.locator(BUTTON).get_attribute("href") == "/display?calendar=manage#calendar-sheet"
+            assert page.locator(BUTTON).get_attribute("href") == "/display/calendar?calendar=manage#calendar-sheet"
             _assert_inline(_measure(page), "no-js %d" % viewport["width"], phone=viewport["width"] < 960)
 
 
@@ -154,7 +154,7 @@ def test_an_icloud_row_is_as_short_as_its_tile_and_two_text_lines(
     page = context.new_page()
     try:
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/display")
+        page.goto(server.base_url() + "/display/calendar")
         page.locator(BUTTON).wait_for(state="visible")
         assert page.locator(".calendar-status__title b").inner_text() == "iCloud"
         m = _measure(page)

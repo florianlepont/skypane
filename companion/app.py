@@ -1164,13 +1164,15 @@ class Handler(
         back = device_scope.scoped(back_route)
         if errors:
             scope = config_page.submitted_scope(form)
-            body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
+            body = config_page.render(
+                ctx, scope=scope, errors=errors, submitted=form,
+                view=config_page.error_view(errors, back_route))
             toast_html = None
             if "timezone" in errors:
                 toast_html = flash.flash_toast_html(
                     FLASH_KEY_SAVE_FAILED, i18n.t(config_page.TIMEZONE_INVALID_TOAST), back)
             return self.send_html(200, self._page_shell_for(
-                back_route, body, ctx, flash_html=toast_html))
+                config_page.shell_route(back_route), body, ctx, flash_html=toast_html))
         if flash_key != FLASH_KEY_SAVED:
             return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
@@ -1221,7 +1223,7 @@ class Handler(
         since each switch lives on a different subset of pages.
         """
         if allowed_return_to is None:
-            allowed_return_to = (layout.HOME_ROUTE, layout.DISPLAY_ROUTE)
+            allowed_return_to = (layout.HOME_ROUTE,) + config_page.PERSONALISATION_ROUTES
         if fallback_return_to is None:
             fallback_return_to = layout.DISPLAY_ROUTE
         form = self.read_form()

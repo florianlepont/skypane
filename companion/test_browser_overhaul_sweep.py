@@ -129,7 +129,8 @@ _STRUCTURE = """
 """
 
 PERSONAL_PAGES = ("/", "/flights", "/detection", "/display", "/airlines")
-PERSONAL_ADMIN_PATHS = PERSONAL_PAGES
+PERSONAL_ADMIN_PATHS = PERSONAL_PAGES + (
+    "/display/special-looks", "/display/calendar", "/display/screen")
 
 # The visible text of the page with the space switch and the foreign-frame
 # notice set aside: the two things an administrator's personal page may add.
@@ -225,6 +226,9 @@ CASES = (
     _case("admin", "/account", None, "admin-account"),
     _case("admin", "/", None, "admin-home"),
     _case("admin", "/display", None, "admin-display"),
+    _case("admin", "/display/special-looks", None, "admin-display-special-looks"),
+    _case("admin", "/display/calendar", None, "admin-display-calendar"),
+    _case("admin", "/display/screen", None, "admin-display-screen"),
     _case("admin", "/device", None, "admin-device"),
     _case("admin", "/health", None, "admin-health"),
     _case("admin", "/flights", None, "admin-flight-history"),
@@ -232,7 +236,7 @@ CASES = (
     _case("admin", "/detection", None, "admin-location"),
     _case("admin", "/airlines", None, "admin-collection"),
     _case("admin", "/airlines/manage", None, "admin-airline-editor"),
-    _case("admin", "/display", "{rule_dialog}", "remove-special-look-dialog"),
+    _case("admin", "/display/special-looks", "{rule_dialog}", "remove-special-look-dialog"),
     _case("admin", "/airlines/manage", "{resolution_dialog}", "delete-resolution-dialog"),
     _case("admin", "/", "dlg-quiet-hours", "admin-quiet-hours-dialog"),
     _case("owner", "/devices/{owned}/", None, "user-home"),

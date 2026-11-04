@@ -396,8 +396,8 @@ def test_calendar_secret_never_reaches_served_http_bytes(make_app_server):
     response body"""
     server = make_app_server(seed=_seed_calendar)
     session_cookie = login(server)
-    status, _headers, body = get(server, companion_app.DISPLAY_ROUTE, cookie=session_cookie)
-    assert status == 200, "expected 200 on the authenticated Display page, got %d" % status
+    status, _headers, body = get(server, "/display/calendar", cookie=session_cookie)
+    assert status == 200, "expected 200 on the authenticated Calendar page, got %d" % status
     body_text = body.decode("utf-8", errors="replace")
     assert 'data-calendar-state="pending"' in body_text, (
         "expected the 'saved, not read yet' state (no sync recorded yet)")
@@ -509,17 +509,17 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 # ======================================================================
 
 @pytest.mark.parametrize(
-    ("lang", "titles", "page_title", "on_this_page"),
+    ("lang", "titles", "page_title", "nav_label"),
     [
-        ("en", ("Look", "Special looks", "Calendar", "Screen"), "Personalisation", "On this page"),
+        ("en", ("Look", "Special looks", "Calendar", "Screen"), "Personalisation", "Personalisation sections"),
         ("fr", ("Allure", "Allures spéciales", "Calendrier", "Écran"), "Personnalisation",
-         "Sur cette page"),
+         "Sections de personnalisation"),
     ],
 )
 def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
-        lang, titles, page_title, on_this_page):
-    """the served Display page is titled Personalisation, starts with an On this page list and
-    then four cards in order (Look, Special looks, Calendar, Screen), the pictures and the
+        lang, titles, page_title, nav_label):
+    """the whole Display render (every view at once) is titled Personalisation, starts with the
+    section navigation and then four views in order (Look, Special looks, Calendar, Screen), the pictures and the
     rules and calendar row inside their own cards, keeps its native settings form and omits the
     retired screen/status framing in both languages"""
     prefs.set_request_prefs(lang=lang)
@@ -535,12 +535,12 @@ def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
         prefs.set_request_prefs(lang="en")
 
     assert '<h1 class="page-title">%s</h1>' % page_title in rendered
-    assert 'aria-label="%s"' % on_this_page in rendered
+    assert 'aria-label="%s"' % nav_label in rendered
     headings = [
         rendered.index('id="personalisation-%s-title">%s</h2>' % (slug, escape_html(title)))
         for slug, title in zip(("look", "special-looks", "calendar", "screen"), titles)]
     assert headings == sorted(headings)
-    assert rendered.index('aria-label="%s"' % on_this_page) < headings[0]
+    assert rendered.index('aria-label="%s"' % nav_label) < headings[0]
     positions = [
         rendered.index('data-look-usage="%s"' % usage)
         for usage in (

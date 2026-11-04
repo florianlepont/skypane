@@ -975,7 +975,10 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
     # Each route's own floor is its page-specific disclosure count plus the one shared
     # `<details class="tab-bar__more">` every authenticated page renders. /flights carries no
     # disclosure of its own: its rows expose a direct picture action instead.
-    pages = (("/", 1), ("/display", 3),
+    # Personalisation is four views: the Look view (the arrivals "Change" table), Special looks
+    # (the add disclosure) and Calendar (its look's "Change" table), each with the shared tab bar one.
+    pages = (("/", 1), ("/display", 2), ("/display/special-looks", 2),
+             ("/display/calendar", 2),
              ("/flights", 1),
              ("/airlines", 1), ("/health", 4), ("/device", 1))
     base_url = server.base_url()

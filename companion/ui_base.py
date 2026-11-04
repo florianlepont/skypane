@@ -47,6 +47,10 @@ _MONTH_ABBR_FR = ("janv.", "févr.", "mars", "avr.", "mai", "juin",
 # label) consumer keeps working unchanged.
 HOME_ROUTE = "/"
 DISPLAY_ROUTE = "/display"
+# Personalisation's other views; the Look view keeps DISPLAY_ROUTE itself.
+DISPLAY_SPECIAL_LOOKS_ROUTE = DISPLAY_ROUTE + "/special-looks"
+DISPLAY_CALENDAR_ROUTE = DISPLAY_ROUTE + "/calendar"
+DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
 FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"
 HEALTH_ROUTE = "/health"
@@ -597,6 +601,12 @@ ICON_IDS = ICON_IDS + (
     "icon-plus",
 )
 
+# Personalisation's section navigation: a palette (Look) and a calendar.
+ICON_IDS = ICON_IDS + (
+    "icon-palette",
+    "icon-calendar",
+)
+
 # Three stacked dots, for a row's actions menu button.
 ICON_IDS = ICON_IDS + (
     "icon-more-vertical",
@@ -850,6 +860,15 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
+    "</symbol>"
+    '<symbol id="icon-palette" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 2.5a7.5 7.5 0 1 0 0 15c1.1 0 1.7-.8 1.4-1.7-.3-.9.2-1.8 1.2-1.8H15a2.5 2.5 0 0 0 2.5-2.5C17.5 6.1 14.2 2.5 10 2.5z"/>'
+    '<path d="M6.5 9.5h.01M9 6.5h.01M12.5 7h.01"/>'
+    "</symbol>"
+    '<symbol id="icon-calendar" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="3" y="4.5" width="14" height="12.5" rx="2"/><path d="M3 8.5h14M7 2.8v3.4M13 2.8v3.4"/>'
     "</symbol>"
     '<symbol id="icon-more-vertical" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '

@@ -483,8 +483,8 @@ def test_rules_add_and_delete_forms_sit_outside_settings_form(make_app_server):
     add_result = colour_rules.add_rule(server.state_dir, "callsign", "AFR9001", "white")
     assert add_result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (add_result,)
 
-    status, _headers, body = http_request(base + "/display", cookie=session)
-    assert status == 200, "expected 200 GET /display, got %d" % status
+    status, _headers, body = http_request(base + "/display/special-looks", cookie=session)
+    assert status == 200, "expected 200 GET /display/special-looks, got %d" % status
     page = body.decode("utf-8")
 
     add_form_marker = 'action="%s"' % config_page.RULES_ADD_ROUTE
@@ -655,14 +655,14 @@ def test_rules_page_context_reads_fresh_per_request(make_app_server):
     base = server.base_url()
     session = login(server)
 
-    status, _headers, body = http_request(base + "/display", cookie=session)
+    status, _headers, body = http_request(base + "/display/special-looks", cookie=session)
     assert status == 200, "expected 200, got %d" % status
     assert b"FRESHRD1" not in body, "expected the rule to be absent before it is written"
 
     add_result = colour_rules.add_rule(server.state_dir, "callsign", "FRESHRD1", "white")
     assert add_result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (add_result,)
 
-    status, _headers, body = http_request(base + "/display", cookie=session)
+    status, _headers, body = http_request(base + "/display/special-looks", cookie=session)
     assert status == 200, "expected 200, got %d" % status
     assert b"FRESHRD1" in body, (
         "expected page_context() to read the rules registry fresh per request, not through the "
@@ -794,7 +794,9 @@ def test_calendar_sync_failure_never_leaks_the_url(app_server_in_process):
             cah.fake_public_hostname(hostname):
         status, headers, redirect_body = http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=urllib.parse.urlencode({
+                "calendar_url": url, "return_to": "/display/calendar"}).encode(),
+            cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     for needle in needles:
@@ -1291,7 +1293,11 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # The Airline editor kept the captions the retired gallery page had, so it is
     # measured with the six routes.
     from companion.pages import airlines_page
-    measured_routes = site_routes + (airlines_page.MANAGE_ROUTE,)
+    # Personalisation's other three views are measured too: the Look view is the
+    # picker alone, so its captions live on the cards of the other views.
+    measured_routes = site_routes + (
+        airlines_page.MANAGE_ROUTE, layout.DISPLAY_SPECIAL_LOOKS_ROUTE,
+        layout.DISPLAY_CALENDAR_ROUTE, layout.DISPLAY_SCREEN_ROUTE)
 
     # --- fetch every route x language over the real server ---
     exempt_by_lang = {
@@ -1319,9 +1325,10 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # Minimums re-derived by RUNNING this exact selector against a real
     # render of each route.
     per_route_min = {
-        layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 2, layout.FLIGHTS_ROUTE: 0,
+        layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 0, layout.FLIGHTS_ROUTE: 0,
         layout.AIRLINES_ROUTE: 0, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
-        airlines_page.MANAGE_ROUTE: 2,
+        airlines_page.MANAGE_ROUTE: 2, layout.DISPLAY_SPECIAL_LOOKS_ROUTE: 1,
+        layout.DISPLAY_CALENDAR_ROUTE: 1, layout.DISPLAY_SCREEN_ROUTE: 0,
     }
     site_total_min = 14
 

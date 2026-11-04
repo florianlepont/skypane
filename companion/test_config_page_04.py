@@ -478,9 +478,9 @@ def test_calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
     )
     assert expected_form in rendered, (
         "expected the confirm page's form to post to the same route with the confirm field pre-set")
-    # Calendar moved from Device to Display, so the cancel link
-    # points back to the page the disconnect action itself lives on.
-    assert 'href="%s"' % layout.DISPLAY_ROUTE in rendered, "expected a cancel link back to the Display page"
+    # The cancel link points back to the Calendar view the disconnect action itself lives on.
+    assert 'href="%s"' % layout.DISPLAY_CALENDAR_ROUTE in rendered, (
+        "expected a cancel link back to the Calendar page")
     assert "<fieldset" not in rendered and "<legend" not in rendered, (
         "expected no <fieldset>/<legend> on the confirm page")
 

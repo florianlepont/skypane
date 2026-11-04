@@ -193,7 +193,7 @@ def test_the_page_carries_one_button_and_no_disclosure_in_the_connection_block()
         row = doc.select_one(".calendar-status")
         opener = row.select_one("a[data-calendar-open]")
         assert opener.text().strip() == label
-        assert opener.attrs["href"] == "/display?calendar=manage#calendar-sheet"
+        assert opener.attrs["href"] == "/display/calendar?calendar=manage#calendar-sheet"
         li = doc.select_one("#calendar-row")
         assert not row.select("details") and not sheet_details(li), (
             "no disclosure toggle in the connection block")
@@ -358,7 +358,7 @@ def test_a_failed_replace_leaves_the_old_link_and_flights_untouched(app_server_i
         server, session, _NEW_URL, cah.make_calendar_transport(raise_exc=ConnectionError("boom")))
     assert status == 303
     location = headers["Location"]
-    assert location.startswith("/display?")
+    assert location.startswith("/display/calendar?")
     assert "flash=calendar_connect_failed" in location
     assert "calendar=manage" in location and "calendar_error=unreachable" in location
     assert location.endswith("#calendar-sheet")
@@ -398,7 +398,7 @@ def test_connecting_a_first_calendar_with_zero_flights_succeeds_and_reads_as_zer
         server, session, _NEW_URL,
         cah.make_calendar_transport(body=b"BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n"))
     assert status == 303 and "flash=calendar_connect_ok" in headers["Location"]
-    status2, _h, page = http_request(server.base_url() + "/display", cookie=session)
+    status2, _h, page = http_request(server.base_url() + "/display/calendar", cookie=session)
     assert 'data-calendar-state="zero"' in page.decode()
 
 

@@ -17,6 +17,9 @@ PREFIX = "/devices/" + DEVICE_ID
 EXPECTED_DEVICE_SCOPED = {
     ("GET", "/"),
     ("GET", "/display"),
+    ("GET", "/display/special-looks"),
+    ("GET", "/display/calendar"),
+    ("GET", "/display/screen"),
     ("GET", "/detection"),
     ("GET", "/device"),
     ("GET", "/flights"),
@@ -70,7 +73,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 33
+        assert len(EXPECTED_DEVICE_SCOPED) == 36
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))

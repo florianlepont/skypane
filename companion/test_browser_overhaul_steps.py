@@ -390,14 +390,15 @@ def test_u4a_change_the_quiet_hours_start(world, new_context):
 
 
 def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
-    """Personalisation tab, tap a look, Save."""
+    """Personalisation tab, tap a colour in the picker, Save."""
     context, page, steps = _owner(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
         page.wait_for_url("**/display")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
         steps.tap(page.locator(
-            ".look-pick__card:has(input:not(:checked))").first, "a look")
+            "[data-look-sheet][data-look-inline] .look-dot:has(input:not(:checked))").first, "a look")
         page.locator("[data-static-save-fallback]").wait_for(state="visible")
         _save_and_reload(steps, page)
         _report_measured("U4b", steps, 3)

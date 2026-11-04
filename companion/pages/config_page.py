@@ -316,13 +316,43 @@ def submitted_scope(form):
     return value if value in SCOPES else SCOPE_ALL
 
 
+# The four Personalisation addresses (Look keeps /display) and the page
+# route a response on any of them is wrapped as.
+PERSONALISATION_ROUTES = tuple(personalisation_cards.VIEW_ROUTES.values())
+
+
+def shell_route(route):
+    """The tab route a page at `route` is wrapped as: every Personalisation
+    view is the Display tab."""
+    return layout.DISPLAY_ROUTE if route in PERSONALISATION_ROUTES else route
+
+
+# The view each saved look field lives on, so a rejected save is redrawn where
+# its error can be seen.
+_FIELD_VIEWS = {
+    "theme": personalisation_cards.VIEW_LOOK,
+    "theme_arriving": personalisation_cards.VIEW_LOOK,
+    "calendar_theme_id": personalisation_cards.VIEW_CALENDAR,
+    "calendar_url": personalisation_cards.VIEW_CALENDAR,
+}
+
+
+def error_view(errors, return_route):
+    """The Personalisation view a rejected save is redrawn on: the one holding
+    the first refused field, else the one the form came from."""
+    for field in errors:
+        if field in _FIELD_VIEWS:
+            return _FIELD_VIEWS[field]
+    return personalisation_cards.view_for_route(return_route)
+
+
 def submitted_return_route(form):
     """Where a settings POST redirects back to: the page it came from,
     validated byte-for-byte against the two scoped page routes, else
     the Display page. Never a raw form value.
     """
     value = form.get(RETURN_TO_FIELD_NAME)
-    if value in (layout.DISPLAY_ROUTE, layout.DEVICE_ROUTE):
+    if value in PERSONALISATION_ROUTES or value == layout.DEVICE_ROUTE:
         return value
     return layout.DISPLAY_ROUTE
 
@@ -540,7 +570,7 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock):
 
 
 def _render_display_scope(
-        ctx, groups, builders, errors, submitted, values, calendar_status):
+        ctx, groups, builders, errors, submitted, values, calendar_status, view):
     """Display scope's own header, hidden scope fields, appearance flow,
     and scheduling cards. `groups_html` stays empty: every saved
     control here cross-submits from outside the physical form via
@@ -571,10 +601,12 @@ def _render_display_scope(
             errors=errors, submitted=submitted, state_dir=ctx.state_dir,
             sheet_open=bool(ctx.calendar_sheet), sheet_error=ctx.calendar_sheet_error)
         aspect_section_html = personalisation_cards.page_html(
-            ctx, values, calendar_row_html, calendar_status, errors, submitted)
+            ctx, values, calendar_row_html, calendar_status, errors, submitted, view)
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
-        "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
+        "hidden_html": _scope_fields_html(
+            SCOPE_DISPLAY, personalisation_cards.VIEW_ROUTES.get(
+                view, layout.DISPLAY_ROUTE)),
         "groups_html": "",
         "aspect_section_html": aspect_section_html,
         "display_watches_supersection_html": "",
@@ -682,10 +714,14 @@ def _settings_page_html(pieces, quick_led_html, dirty_strings):
     )
 
 
-def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
+def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, view=None):
     """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) —
     a short orchestrator over the per-scope/per-group assembly helpers
     above.
+
+    `view` is the Personalisation view (Look, Special looks, Calendar or
+    Screen) the Display scope renders; None renders all four (no route
+    serves that).
 
     `errors`/`submitted` are passed together only by a rejected save,
     threaded into each group builder so a field can repopulate itself.
@@ -717,7 +753,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
 
     if scope == SCOPE_DISPLAY:
         pieces = _render_display_scope(
-            ctx, groups, builders, errors, submitted, values, calendar_status)
+            ctx, groups, builders, errors, submitted, values, calendar_status, view)
     elif scope == SCOPE_DEVICE:
         pieces = _render_device_scope(groups, builders)
     else:

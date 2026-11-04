@@ -24,6 +24,8 @@ MESSAGES = {
     "look.change_the_look": "Modifier l’allure : %s",
     "look.preview_alt": "Aperçu : %s, %s",
     "look.reset": "Rétablir",
+    "look.save": "Enregistrer",
+    "look.departures_or_arrivals": "Départs ou arrivées",
     "look.done": "Terminé",
     "look.close": "Fermer",
 

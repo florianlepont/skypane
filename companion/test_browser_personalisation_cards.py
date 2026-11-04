@@ -1,4 +1,5 @@
-"""Real-browser checks of the Special looks and Calendar cards of Personalisation (/display): at 360
+"""Real-browser checks of the Special looks and Calendar views of Personalisation (/display/special-looks
+and /display/calendar): at 360
 and 1280 px, in English and French, in both themes, nothing overflows sideways and each Remove
 link, "New special look" summary and "Choose calendar" button is at least 44x44 and owns its centre.
 The Remove dialog opens from its row with the focus on "Keep special look", keeps Tab inside, closes
@@ -59,7 +60,7 @@ def _open(new_context, base_url, viewport, lang="en", theme="light"):
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
     page = context.new_page()
     _login(page, base_url)
-    page.goto(base_url + layout.DISPLAY_ROUTE)
+    page.goto(base_url + layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
     page.wait_for_function(_SETTLED, timeout=15000)
     page.locator(REMOVE).wait_for(state="visible")
     _set_ui_theme(page, theme)
@@ -94,9 +95,7 @@ def test_the_cards_do_not_overflow_and_their_controls_are_44px(
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
     try:
         assert not _assert_no_page_overflow(page, "cards", viewport["width"])
-        for selector in (
-                REMOVE, "#personalisation-special-looks summary.special-add__summary",
-                "#personalisation-calendar a.calendar-manage"):
+        for selector in (REMOVE, "#personalisation-special-looks summary.special-add__summary"):
             _wait_owns_centre(page, selector)
             box = page.locator(selector).first.bounding_box()
             assert box["width"] >= 44 - 0.5 and box["height"] >= 44 - 0.5, (selector, box)
@@ -105,6 +104,15 @@ def test_the_cards_do_not_overflow_and_their_controls_are_44px(
         card = page.locator("#personalisation-special-looks").bounding_box()
         assert remove["x"] >= card["x"] - 0.5 and remove["x"] + remove["width"] <= (
             card["x"] + card["width"] + 0.5)
+        page.goto(server.base_url() + layout.DISPLAY_CALENDAR_ROUTE)
+        page.wait_for_function(_SETTLED, timeout=15000)
+        assert not _assert_no_page_overflow(page, "calendar", viewport["width"])
+        selector = "#personalisation-calendar a.calendar-manage"
+        page.locator(selector).wait_for(state="visible")
+        _wait_owns_centre(page, selector)
+        box = page.locator(selector).first.bounding_box()
+        assert box["width"] >= 44 - 0.5 and box["height"] >= 44 - 0.5, (selector, box)
+        assert page.locator(selector).first.evaluate(_OWNS_CENTRE), selector
         assert page.locator(
             "#personalisation-calendar .calendar-status__lead").inner_text().startswith(
             "Flights in your calendar" if lang == "en" else "Vols de votre calendrier")
@@ -182,7 +190,7 @@ def test_without_scripts_the_hash_link_shows_the_dialog_and_its_post_removes_the
         new_context, make_app_server):
     server = make_app_server(seed=_seed)
     before = _rule_count(server)
-    with _no_js_page(new_context, server.base_url(), layout.DISPLAY_ROUTE,
+    with _no_js_page(new_context, server.base_url(), layout.DISPLAY_SPECIAL_LOOKS_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         page.wait_for_load_state("load")
         page.locator(REMOVE).wait_for(state="visible")

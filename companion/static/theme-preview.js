@@ -29,6 +29,54 @@
 (function () {
   "use strict";
 
+  // --- The section navigation -------------------------------------------
+  // A thumb behind the current link. Each view is its own page, so the
+  // thumb starts under the link of the page that was left (kept in
+  // sessionStorage) and slides to the current one, unless the visitor
+  // prefers reduced motion. The bar scrolls sideways on a phone: the
+  // current link is brought into view.
+  var nav = document.querySelector("[data-pers-nav]");
+  var NAV_KEY = "skypane-pers-nav";
+  if (nav) {
+    var thumb = nav.querySelector("[data-pers-thumb]");
+    var navLinks = nav.querySelectorAll("[data-pers-view]");
+    var currentLink = nav.querySelector("[aria-current]");
+    var cl;
+    var fromLink = null;
+    var previous = null;
+    try {
+      previous = window.sessionStorage.getItem(NAV_KEY);
+    } catch (err) {
+      previous = null;
+    }
+    for (cl = 0; cl < navLinks.length; cl++) {
+      if (navLinks[cl].getAttribute("data-pers-view") === previous) {
+        fromLink = navLinks[cl];
+      }
+    }
+    var placeThumb = function (link) {
+      thumb.style.width = link.offsetWidth + "px";
+      thumb.style.transform = "translateX(" + link.offsetLeft + "px)";
+    };
+    if (thumb && currentLink) {
+      nav.className += " is-enhanced";
+      var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      placeThumb(fromLink && !calm ? fromLink : currentLink);
+      if (fromLink && fromLink !== currentLink && !calm) {
+        // Read the layout so the start position is painted first.
+        thumb.getBoundingClientRect();
+        thumb.className += " is-sliding";
+        placeThumb(currentLink);
+      }
+      nav.scrollLeft = currentLink.offsetLeft - (nav.clientWidth - currentLink.offsetWidth) / 2;
+      try {
+        window.sessionStorage.setItem(NAV_KEY, currentLink.getAttribute("data-pers-view"));
+      } catch (err) {
+        // The slide start is only a nicety.
+      }
+    }
+  }
+
   var sheet = document.querySelector("[data-look-sheet]");
   if (!sheet) {
     return;
@@ -40,6 +88,8 @@
     return;
   }
   var scrim = document.querySelector("[data-look-scrim]");
+  // The Look page's picker sits in the page: no dialog, no focus trap.
+  var inline = sheet.hasAttribute("data-look-inline");
   var targets = document.querySelectorAll("[data-look-target]");
   var THEME_TOKEN = "__THEME__";
   var SENTENCE_TOKEN = "__LOOK__";
@@ -110,7 +160,12 @@
     }
     var follows = target.getAttribute("data-look-follows");
     var other = follows ? targetFor(follows) : null;
-    return other ? effectiveTheme(other) : null;
+    if (other) {
+      return effectiveTheme(other);
+    }
+    // A page without a departures look carries the saved one.
+    var carried = target.getAttribute("data-look-follows-theme");
+    return carried && model.axes[carried] ? carried : null;
   }
 
   function renderTarget(target) {
@@ -324,6 +379,9 @@
       return;
     }
     var follows = current.getAttribute("data-look-follows");
+    if (inline) {
+      sameRow.hidden = !follows;
+    }
     var following = !!follows && checkedValue(current) === "";
     same.setAttribute("aria-checked", following ? "true" : "false");
     setAxesDisabled(following);
@@ -331,7 +389,7 @@
   }
 
   function closeSheet(restoreFocus) {
-    if (!current) {
+    if (!current || inline) {
       return;
     }
     sheet.hidden = true;
@@ -390,11 +448,27 @@
   });
 
   sheet.querySelector("[data-look-reset]").addEventListener("click", function () {
-    if (current && initialValue !== null) {
+    if (inline && current) {
+      var saved = savedValues[current.getAttribute("data-look-usage")];
+      if (saved !== undefined && saved !== null) {
+        setValue(current, saved);
+      }
+      syncSheet();
+    } else if (current && initialValue !== null) {
       setValue(current, initialValue);
       syncSheet();
     }
   });
+  // The picker's Save is the save bar's Save: the form keeps one submit control.
+  var inlineSave = sheet.querySelector("[data-look-save]");
+  if (inlineSave) {
+    inlineSave.addEventListener("click", function () {
+      var barSave = document.querySelector("[data-static-save-fallback]");
+      if (barSave) {
+        barSave.click();
+      }
+    });
+  }
   sheet.querySelector("[data-look-done]").addEventListener("click", function () {
     closeSheet(true);
   });
@@ -402,6 +476,9 @@
     closeSheet(true);
   });
   sheet.addEventListener("keydown", function (evt) {
+    if (inline) {
+      return;
+    }
     if (evt.key === "Escape") {
       evt.preventDefault();
       closeSheet(true);
@@ -414,7 +491,7 @@
   // sheet; preventing the summary's default keeps its table closed.
   document.addEventListener("click", function (evt) {
     var trigger = ancestorWith(evt.target, "data-look-open", null);
-    if (!trigger) {
+    if (!trigger || inline) {
       return;
     }
     var target = ancestorWith(trigger, "data-look-target", null);
@@ -521,7 +598,7 @@
   // Focus that leaves an open dialog (a click elsewhere, an assistive
   // technology jump) is brought back into it.
   document.addEventListener("focusin", function (evt) {
-    if (current && !sheet.contains(evt.target)) {
+    if (current && !inline && !sheet.contains(evt.target)) {
       var list = focusables(sheet);
       if (list.length) {
         list[0].focus();
@@ -541,8 +618,40 @@
 
   var openers = document.querySelectorAll("button[data-look-open]");
   var o;
-  for (o = 0; o < openers.length; o++) {
+  for (o = 0; !inline && o < openers.length; o++) {
     openers[o].hidden = false;
+  }
+
+  // --- The Look page: Departures/Arrivals tabs over the inline picker ---
+
+  var savedValues = {};
+  var tabs = document.querySelectorAll("[data-look-tab]");
+  var panels = document.querySelectorAll("[data-look-panel]");
+
+  function showTab(usage) {
+    var i;
+    for (i = 0; i < tabs.length; i++) {
+      tabs[i].setAttribute(
+        "aria-pressed", tabs[i].getAttribute("data-look-tab") === usage ? "true" : "false");
+    }
+    for (i = 0; i < panels.length; i++) {
+      panels[i].hidden = panels[i].getAttribute("data-look-panel") !== usage;
+    }
+    current = targetFor(usage);
+    syncSheet();
+  }
+
+  if (inline) {
+    var t;
+    for (t = 0; t < targets.length; t++) {
+      savedValues[targets[t].getAttribute("data-look-usage")] = checkedValue(targets[t]);
+    }
+    for (t = 0; t < tabs.length; t++) {
+      tabs[t].addEventListener("click", function (evt) {
+        showTab(evt.currentTarget.getAttribute("data-look-tab"));
+      });
+    }
+    showTab("departures");
   }
 
   window.SkyPaneLivePreview = {
