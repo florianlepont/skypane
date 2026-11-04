@@ -662,7 +662,9 @@ def _frame_state_html(ctx, summary, status):
     is `_frame_state_summary(ctx)` and `status` the resolver's verdict on
     it, both read once by render()."""
     cfg = ctx.device_config or {}
-    (_tone, title, detail), next_triple, base_interval_s = summary
+    (_tone, _screen_title, detail), next_triple, base_interval_s = summary
+    # The big title is the dot's own word, so title, dot and notification agree.
+    title = i18n.t(status.word)
     next_iso, interval_s, hold_reason = next_triple
     next_html, _long_overdue = _next_update_html(
         next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
@@ -773,10 +775,10 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     notice = _notice_html(ctx, status)
     return (
         header
-        + _frame_state_html(ctx, summary, status)
         + '<div class="home-facts">'
         + (notice or ("" if user_view.is_personal_view() else _action_needed_html(ctx)))
         + "</div>"
+        + _frame_state_html(ctx, summary, status)
         + '<div class="home-columns home-picture-row home-signal-grid">'
         + '<section class="page-section home-section home-current-frame" '
         'aria-labelledby="home-current-frame">'

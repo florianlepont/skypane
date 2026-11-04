@@ -577,6 +577,11 @@ def test_the_home_notification_holds_the_layout_rules(
         overflow = _assert_no_page_overflow(page, where, viewport["width"])
         if overflow:
             problems.append(overflow)
+        tops = page.evaluate(
+            "(n) => ['h1.page-title', n, '.home-state'].map("
+            "(s) => document.querySelector(s).getBoundingClientRect().top)", NOTICE)
+        if not tops[0] < tops[1] < tops[2]:
+            problems.append("order is not title, notification, state card: %r" % (tops,))
         fit = page.evaluate(_NOTICE_FITS, NOTICE)
         if fit["page"] > 0 or fit["clipped"]:
             problems.append("notification overflows or clips text: %r" % (fit,))

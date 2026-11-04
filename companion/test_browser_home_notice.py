@@ -111,6 +111,18 @@ def _geometry(page, selector):
     }""")
 
 
+def _assert_order(page, where):
+    """Title, then the notification, then the state card, top to bottom."""
+    tops = page.evaluate(
+        "() => ['h1.page-title', '%s', '.home-state'].map("
+        "(s) => document.querySelector(s).getBoundingClientRect().top)" % NOTICE)
+    assert tops[0] < tops[1] < tops[2], (where, tops)
+    title_word, dot_word = page.evaluate(
+        "() => [document.querySelector('.home-state__title').textContent.trim(),"
+        " document.querySelector('.home-state__dot').getAttribute('aria-label')]")
+    assert title_word == dot_word, (where, title_word, dot_word)
+
+
 def _assert_notice_fits(page, where):
     seen = page.evaluate(_OVERFLOW)
     assert seen["page"] <= 0, (where, seen)
@@ -138,6 +150,7 @@ def test_notification_fits_and_the_link_is_a_44px_target_after_the_tip(
         where = "%s/%s/%s/%s/%s" % (state, who, viewport_name, lang, scheme)
         _wait_at_rest(page, LINK)
         _assert_notice_fits(page, where)
+        _assert_order(page, where)
         link = _geometry(page, LINK)
         assert link["height"] >= MIN_PX and link["width"] >= MIN_PX, where
         tip = _geometry(page, TIP)

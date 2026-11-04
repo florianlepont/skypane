@@ -37,7 +37,9 @@ def server(module_app_server_factory):
 
 
 def _wait_at_rest(page, selector):
-    """Wait for the finished load, the finite animations and `selector` owning its centre."""
+    """Wait for the finished load, the finite animations and `selector` owning its centre. The element is first scrolled into view: a notification above the state
+    card can push it below the fold on a phone."""
+    page.eval_on_selector(selector, "el => el.scrollIntoView({block: 'center'})")
     page.wait_for_function(
         """sel => {
           if (document.readyState !== 'complete' || !(%s)) return false;

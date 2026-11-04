@@ -675,6 +675,8 @@ its headline and the existing next-update line (SUPERSEDED (revision 2): the "Se
 (3) the current-frame picture; (4) recent flights. Removed for everyone: the Co-managers card (D5), the
 persistent "Something needs attention" bar for users. For a user the quiet-hours and screen
 switches keep their current place on the status card (they are settings the user owns, D9). SUPERSEDED (revision 2): the status card's "See Health" link is removed for everyone (Health is Console only, D16/D14), and the quiet-hours row text opens the quiet-hours dialog (section 10).
+Home state card title: the big title is the same word as the status dot (frame_status words, e.g. Up to date / Resting / Low battery / Overdue / Not seen yet / No contact; FR À jour / Au repos / Batterie faible / En retard / Pas encore vu / Sans contact), never the screen wording; the screen on/off information stays on the Screen switch row, so title, dot and notification never disagree. Home notification (amber or red dot): directly under the page title, above the state card, per owner decision after validation; it keeps its content, its mailto link and its escaping, and stays in the `.home-facts` freshness swap region, which now precedes the state card.
+
 The Home status card of an empty frame (no image yet) shows the existing compact empty state, not
 a blank card.
 

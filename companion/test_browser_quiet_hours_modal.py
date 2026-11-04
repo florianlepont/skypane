@@ -84,7 +84,10 @@ def _open_home(new_context, base_url, lang="en", viewport=VIEWPORT_DESKTOP, inst
 
 
 def _wait_at_rest(page, selector):
-    """Wait until the finite animations ended and `selector` owns its own centre."""
+    """Wait until the finite animations ended and `selector` owns its own centre.
+    The element is first scrolled into view: a notification above the state card
+    can push it below the fold on a phone."""
+    page.eval_on_selector(selector, "el => el.scrollIntoView({block: 'center'})")
     page.wait_for_function(
         """sel => {
           if (!(%s)) return false;

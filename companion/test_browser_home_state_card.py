@@ -144,7 +144,8 @@ def test_status_header_layout_targets_and_keyboard(
         assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
         assert page.locator(SCREEN_BUTTON).get_attribute("aria-checked") == "false"
         headline = page.locator(".home-state__headline").inner_text()
-        assert headline.strip() == ("Screen off" if lang == "en" else "Écran éteint")
+        dot_word = page.get_attribute(".home-state__dot", "aria-label")
+        assert headline.strip() == dot_word
         detail = page.locator(".home-state__detail").inner_text()
         assert detail.strip() == ("The frame stays blank" if lang == "en" else "Le cadre reste vide")
     finally:
@@ -463,6 +464,8 @@ def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
         page.wait_for_function(
             "() => !document.querySelector('#dlg-quiet-hours').open"
             " && document.activeElement.matches('.home-switch__window')", timeout=10000)
+        page.eval_on_selector(
+            "#home-switch-quiet-label", "el => el.scrollIntoView({block: 'center'})")
         label = page.locator("#home-switch-quiet-label").bounding_box()
         page.mouse.click(label["x"] + 4, label["y"] + 4)
         page.locator(QUIET_BUTTON + '[aria-checked="true"]').wait_for()
