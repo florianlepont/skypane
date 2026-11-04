@@ -282,7 +282,13 @@
       "div.health-anomaly",
       "section.health-source-fault",
       ".page-header__freshness",
-      'a[href$="/health"]'
+      'a[href$="/fleet"]'
+    ],
+    "fleet": [
+      ".health-row__summary",
+      "div.health-anomaly",
+      "section.health-source-fault",
+      'a[href$="/fleet"]'
     ],
     "flights": [
       ".page-header__freshness",

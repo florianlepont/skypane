@@ -186,7 +186,7 @@ def build_view(state_dir, principal=None, **state):
 def _page_body(h, query, state):
     view = build_view(h.args.state_dir, principal=h._safe_principal(), **state)
     return (
-        console_fleet_view.page_html(h, query, view.access)
+        console_fleet_view.page_html(h, query, view)
         + fleet_page.render(view))
 
 
@@ -197,6 +197,7 @@ def _render(h, status=200, query=None, **state):
         lambda: _page_body(h, query or {}, state),
         fleet_page.FLEET_PURPOSE, status=status,
         action_html=fleet_page.header_action_html,
+        page_flash=console_fleet_view.query_flash_html(h, query or {}),
         scripts=console_fleet_view.page_scripts(
             (query or {}).get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]))
 

@@ -1,5 +1,5 @@
 """Real-browser flow of an administrator opening someone else's frame from
-Fleet: row menu, Open personal view, the Viewing-owner strip, the personal
+Fleet: the detail header's actions menu, Open personal view, the Viewing-owner strip, the personal
 pages keeping the frame's address, and Back to Fleet. At 360 and 1280 px, in
 English and French, light and dark, with 44px hit areas and no sideways
 overflow."""
@@ -44,14 +44,14 @@ def _open_fleet(new_context, server, viewport, lang, scheme):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet")
+    page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
     page.locator("main").wait_for(state="visible")
     _set_ui_theme(page, scheme)
     return context, page, seed
 
 
 def _open_personal_view(page, server, seed, words, viewport):
-    row = page.locator("li.entity-row", has_text="Kitchen")
+    row = page.locator(".fleet-detail-head")
     row.locator(".row-menu__toggle").click()
     item = row.locator(".row-menu__item", has_text=words["personal"])
     page.wait_for_function(

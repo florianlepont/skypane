@@ -324,13 +324,17 @@ def test_freshness_script_refreshes_its_own_page_and_the_health_page_has_no_nav_
     status, _headers, script = get(seeded, "/static/freshness.js")
     assert status == 200
     assert "fetch(window.location.href" in script
-    assert 'a[href$="/health"]' in script
+    assert 'a[href$="/fleet"]' in script
     selector = 'a[href$="/health"]'
     prefix = _prefix(seeded.fleet.dev_a)
     root = parse_html(_page(seeded, prefix + "/health"))
     assert not any(
         node.attrs.get("href", "").endswith("/health")
         for node in root.select_one("nav.sidebar-nav").find_all("a")), selector
+    # The swapped nav link is the Fleet entry, the one that carries the dot.
+    assert any(
+        node.attrs.get("href", "").endswith("/fleet")
+        for node in root.select_one("nav.sidebar-nav").find_all("a"))
 
 
 def test_step_b_trigger_addresses_stay_in_the_device_and_return_stays_plain(tmp_path):

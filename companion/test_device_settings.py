@@ -120,7 +120,9 @@ def test_settings_return_to_the_same_devices_page_is_kept(app):
     prefix = _prefix(app.fleet.dev_a)
     form = dict(QUIET, return_to=prefix + "/device")
     _status, headers, _ = post(app, prefix + "/settings", form)
-    assert headers["Location"].startswith(prefix + "/device?flash=")
+    # The device form returns to the Fleet view of the same frame.
+    assert headers["Location"].startswith(
+        "/fleet?frame=%s&flash=" % app.fleet.dev_a.id)
 
 
 def test_invalid_input_rerenders_the_device_page_and_writes_nothing(app):

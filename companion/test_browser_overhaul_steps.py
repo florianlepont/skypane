@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 1, "S2": 1, "A7": 2, "A8": 4, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 1, "S2": 1, "A7": 1, "A8": 4, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -165,18 +165,38 @@ def _report_measured(task, steps, target):
     assert steps.count == MEASURED[task], (task, steps.count, MEASURED[task], steps.log)
 
 
+def _select_frame(steps, page, name):
+    """Makes `name` the selected frame: nothing to do when its tile is already
+    the current one, else one tap on its tile (a plain link)."""
+    tile = page.locator("ul.frame-tiles a.frame-tile", has_text=name).first
+    tile.wait_for(state="visible")
+    if tile.get_attribute("aria-current") == "true":
+        return
+    steps.tap(tile, "tile of " + name)
+    page.wait_for_function(
+        "(n) => [...document.querySelectorAll('ul.frame-tiles a[aria-current=true]')]"
+        ".some(a => a.textContent.includes(n))", arg=name)
+    page.wait_for_function("() => document.readyState === 'complete'")
+
+
 def _row_menu(steps, page, name, item):
-    row = page.locator("li.entity-row", has=page.locator("text=%s" % name)).first
-    steps.tap(row.locator("summary.row-menu__toggle"), "row menu of " + name)
-    steps.tap(row.locator("a.row-menu__item", has_text=item), item)
+    """The frame's actions menu in its detail header (the frame is selected
+    first when it is not)."""
+    _select_frame(steps, page, name)
+    header = page.locator(".fleet-detail-head")
+    steps.tap(header.locator("summary.row-menu__toggle"), "actions menu of " + name)
+    steps.tap(header.locator("a.row-menu__item", has_text=item), item)
 
 
 def test_a1_fleet_state_is_readable_on_landing(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        dots = page.locator("li.entity-row [role=img][aria-label]")
-        assert dots.count() >= 3
-        assert page.locator("li.entity-row .dot").count() >= 3
+        # Every live frame is a tile with its status dot; the pending and
+        # retired frames wait in the collapsed Other frames block.
+        dots = page.locator("ul.frame-tiles a.frame-tile [role=img][aria-label]")
+        assert dots.count() >= 2
+        assert page.locator("ul.frame-tiles a.frame-tile .dot").count() >= 2
+        assert page.locator("details.fleet-other").get_attribute("open") is None
         assert page.locator("table").count() == 0
         _report("A1", steps, 0)
     finally:
@@ -261,7 +281,7 @@ def test_a5_add_a_co_manager(world, new_context):
         steps.tap(page.locator(
             '#dlg-access-%s form[action$="/co-managers/add"] button' % slug),
             "Add co-manager")
-        page.wait_for_url("**/fleet?access=*")
+        page.wait_for_url("**/fleet?frame=*")
         conn = fleet_db.connect(world.state_dir)
         try:
             members = [r["email"] for r in conn.execute(
@@ -545,13 +565,15 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
         context.close()
 
 
-def test_a7_the_fleet_name_opens_the_console_health(world, new_context):
+def test_a7_a_frames_health_is_its_fleet_view(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        row = page.locator("li.entity-row", has=page.locator("text=Kitchen")).first
-        steps.tap(row.locator("a[href$='/health']").first, "frame name")
-        page.wait_for_url("**/health")
-        assert page.locator("main h1").inner_text().strip() == "Health"
+        # The frame's health is the State block of its Fleet view: one tap on
+        # its tile when it is not the selected frame already.
+        _select_frame(steps, page, "Kitchen")
+        state = page.locator("section.fleet-block", has=page.locator("h3", has_text="State"))
+        state.wait_for(state="visible")
+        assert page.locator(".fleet-detail-head h2").inner_text().strip() == "Kitchen"
         _report_measured("A7", steps, 2)
     finally:
         context.close()

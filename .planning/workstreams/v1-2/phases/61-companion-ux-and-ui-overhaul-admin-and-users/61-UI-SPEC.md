@@ -1432,3 +1432,25 @@ platform part (source fault, anomaly banner, flight data, ADS-B sources agreemen
 identification, backups, unresolved-airline registry). The frame list with its row menus stays
 below for pending and retired frames and the reassign, retire and re-activate dialogs.
 Strings: `admin_fleet.system_*`, `admin_fleet.block_*`, `nav.airlines_short`.
+
+## Revision 3 note, part 2 (plan 61-45, finishing the Console Fleet merge)
+
+- The frame list is gone as a list. Every live frame is a strip tile; the selected frame has a detail
+  header above its four blocks: its name, its owner line and an actions "..." menu (Open personal view,
+  Manage access, Reassign, Retire; the served frame cannot be retired). Pending and retired frames sit in
+  a collapsed "Other frames (n)" block under the page (pending rows have no menu, retired rows offer
+  Re-activate). The reassign, retire, re-activate and Manage access dialogs are unchanged and open from
+  these menus; the dismiss link of a frame dialog returns to `/fleet?frame=<id>`.
+- Results come back to the frame: the settings save (Device form) and the update install/cancel redirect (303)
+  to `/fleet?frame=<id>[&flash=<key>]`, an inline co-manager change to `/fleet?frame=<id>` (the list's
+  dialog is not reopened; `?access=<id>` still opens it and still selects the frame). The Fleet page shows
+  the `?flash=` result as a toast resolved for the selected frame. An update action on a hardware type with
+  no frame still lands on its own Update page (`/update?type=...`), which stays served for that case.
+- The strip tile's status dot uses the same signals as the frame's Home (overdue, screen off, battery
+  empty), so one frame has one status word everywhere.
+- The Fleet page refreshes in place with `freshness.js` (page key `fleet`: health rows, anomaly and
+  source-fault regions and the Fleet navigation link with its severity dot); every tick is a full 200
+  (no token).
+- Still open: the old `/health`, `/device` and `/update` GET pages answer instead of redirecting (see the
+  61-45 summary); the State block shows the last detection, not the current flight (the Health snapshot has
+  no current flight).

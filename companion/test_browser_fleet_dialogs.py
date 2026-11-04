@@ -37,27 +37,34 @@ def _seed(server):
 
 
 def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", scheme="light"):
+    """The Fleet page with the Kitchen frame selected (its detail header
+    carries the actions menu)."""
     seed = _seed(server)
     context = new_context(viewport=viewport, color_scheme=scheme)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet")
+    page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
     page.locator("main").wait_for(state="visible")
     _set_ui_theme(page, scheme)
     return context, page, seed
 
 
+_HEADER = ".fleet-detail-head"
+
+
 def _row(page, name):
-    return page.locator("li.entity-row", has=page.locator("text=%s" % name)).first
+    return page.locator("details.fleet-other li.entity-row", has=page.locator(
+        "text=%s" % name)).first
 
 
-def _open_menu_item(page, name, label):
-    """Two actions: the row's menu button, then the named item."""
-    row = _row(page, name)
-    row.locator("summary.row-menu__toggle").click()
-    row.locator("a.row-menu__item", has_text=label).click()
+def _open_menu_item(page, label, scope=_HEADER):
+    """Two actions: the actions menu button of `scope` (the selected frame's
+    header, or a row of the Other frames block), then the named item."""
+    holder = page.locator(scope).first
+    holder.locator("summary.row-menu__toggle").click()
+    holder.locator("a.row-menu__item", has_text=label).click()
 
 
 def _device(server, device_id):
@@ -88,7 +95,7 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
         finally:
             conn.close()
         assert device is not None and device["owner_user_id"] == seed.owner_id
-        assert page.locator("a.entity-row__title[href='/devices/%s/health']" % device["id"]).count() == 1
+        assert page.locator("a.frame-tile[href='/fleet?frame=%s']" % device["id"]).count() == 1
     finally:
         context.close()
 
@@ -134,13 +141,13 @@ def test_retire_in_three_actions_with_focus_on_the_dismiss_control(
     context, page, seed = _open(new_context, server)
     try:
         dialog = page.locator("#dlg-retire-%s" % _slug(seed.owned_id))
-        _open_menu_item(page, "Kitchen", "Retire")  # 1, 2
+        _open_menu_item(page, "Retire")  # 1, 2
         assert dialog.evaluate("d => d.open")
         assert page.evaluate(_ACTIVE) == "Keep frame"
         dialog.locator("button[type=submit]").click()  # 3
         page.wait_for_url("**/fleet")
         assert _device(server, seed.owned_id) is None
-        assert page.locator("details.fleet-retired > summary").inner_text().endswith("(2)")
+        assert page.locator("details.fleet-other > summary").inner_text().endswith("(3)")
     finally:
         context.close()
 
@@ -151,7 +158,7 @@ def test_escape_closes_a_confirm_and_returns_focus_to_the_row_menu_button(
     context, page, seed = _open(new_context, server)
     try:
         dialog = page.locator("#dlg-retire-%s" % _slug(seed.owned_id))
-        _open_menu_item(page, "Kitchen", "Retire")
+        _open_menu_item(page, "Retire")
         page.keyboard.press("Escape")
         assert not dialog.evaluate("d => d.open")
         # Focus goes back to the menu button when the dialog's close event
@@ -192,7 +199,7 @@ def test_keep_current_owner_dismisses_without_changing_anything(
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        _open_menu_item(page, "Kitchen", "Reassign")
+        _open_menu_item(page, "Reassign")
         dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
         assert dialog.evaluate("d => d.open")
         dialog.locator("a.modal__dismiss").click()
@@ -206,7 +213,7 @@ def test_reassign_in_four_actions(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        _open_menu_item(page, "Kitchen", "Reassign")  # 1, 2
+        _open_menu_item(page, "Reassign")  # 1, 2
         dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
         dialog.locator("select").select_option(label=fx.ADMIN_EMAIL + " (admin)")  # 3
         dialog.locator("button[type=submit]").click()  # 4
@@ -216,18 +223,18 @@ def test_reassign_in_four_actions(new_context, app_server_in_process):
         context.close()
 
 
-def test_reactivate_from_the_retired_group(new_context, app_server_in_process):
+def test_reactivate_from_the_other_frames_block(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        page.locator("details.fleet-retired > summary").click()
-        _open_menu_item(page, "Attic", "Re-activate")
+        page.locator("details.fleet-other > summary").click()
+        _open_menu_item(page, "Re-activate", "details.fleet-other li.entity-row:has-text('Attic')")
         dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
         assert dialog.evaluate("d => d.open")
         assert page.evaluate(_ACTIVE) == "Keep retired"
         dialog.locator("button[type=submit]").click()
         page.wait_for_url("**/fleet")
-        assert page.locator("details.fleet-retired").count() == 0
+        assert "Attic" not in page.locator("details.fleet-other").text_content()
     finally:
         context.close()
 
@@ -258,19 +265,15 @@ def test_the_no_script_dismiss_link_returns_to_the_page_and_retire_posts(
         new_context, app_server_in_process):
     server = app_server_in_process
     seed = _seed(server)
-    with _no_js_page(new_context, server.base_url(), "/fleet",
+    with _no_js_page(new_context, server.base_url(), "/fleet?frame=" + seed.owned_id,
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         dialog_id = "#dlg-retire-%s" % _slug(seed.owned_id)
-        row = _row(page, "Kitchen")
-        row.locator("summary.row-menu__toggle").click()
-        row.locator("a.row-menu__item", has_text="Retire").click()
+        _open_menu_item(page, "Retire")
         assert page.locator(dialog_id).is_visible()
         page.locator(dialog_id + " a.modal__dismiss").click()
         assert not page.locator(dialog_id).is_visible()
         assert _device(server, seed.owned_id) is not None
-        row = _row(page, "Kitchen")
-        row.locator("summary.row-menu__toggle").click()
-        row.locator("a.row-menu__item", has_text="Retire").click()
+        _open_menu_item(page, "Retire")
         page.locator(dialog_id + " button[type=submit]").click()
         page.wait_for_url("**/fleet")
         assert _device(server, seed.owned_id) is None
@@ -298,10 +301,9 @@ def test_dialogs_fit_and_every_control_is_44px(
             if opener:
                 page.locator(opener).click()
             else:
-                row = page.locator("li.entity-row", has=page.locator("text=Kitchen")).first
-                row.locator("summary.row-menu__toggle").click()
-                href = "#" + dialog_id
-                row.locator("a.row-menu__item[href='%s']" % href).click()
+                header = page.locator(_HEADER)
+                header.locator("summary.row-menu__toggle").click()
+                header.locator("a.row-menu__item[href='#%s']" % dialog_id).click()
             dialog = page.locator("#" + dialog_id)
             assert dialog.evaluate("d => d.open"), where
             fit = dialog.evaluate(_FIT)

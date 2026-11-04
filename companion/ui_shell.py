@@ -347,17 +347,25 @@ def _device_display_name(device):
 
 
 def _switcher_status_row(device, now):
-    """The status inputs the shared dot resolver reads, for one frame."""
-    from companion import battery
+    """The status inputs the shared dot resolver reads, for one frame: the
+    same signals the frame's Home page derives (late, screen off, battery
+    empty), so one frame shows one status word everywhere."""
+    # Imported on use: console_pairing loads the Console view modules.
+    import datetime
+    from companion import battery, console_pairing
     from server import state_store
     millivolts = state_store.load_battery_state(device.state_dir)
-    percent = None if millivolts is None else battery.battery_percent(millivolts)
+    state, screen_off, critical = console_pairing.frame_signals(
+        device, datetime.datetime.fromtimestamp(
+            now, datetime.timezone.utc).isoformat(timespec="seconds"))
+    percent = 0 if critical else (
+        None if millivolts is None else battery.battery_percent(millivolts))
     status = device_scope.device_status(device, now)
     return SimpleNamespace(
         kind=frame_status.KIND_LIVE,
         offline=status == device_scope.STATUS_OFFLINE,
         last_seen=device_scope.last_check_in_epoch(device.state_dir),
-        battery_percent=percent)
+        battery_percent=percent, state=state, screen_off=screen_off)
 
 
 def tile_note(entry):

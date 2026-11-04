@@ -322,10 +322,12 @@ def rig(tmp_path):
     server.stop()
 
 
-def test_fleet_offers_manage_access_in_the_row_menu_with_a_dialog_per_frame(rig):
-    tree, _body = rig.fleet()
+def test_fleet_offers_manage_access_in_the_detail_menu_with_a_dialog_per_frame(rig):
+    tree, _body = rig.fleet(query="?frame=" + rig.seed.owned_id)
     dialog_id = "dlg-access-%s" % rig.seed.owned_id.replace("_", "-")
-    items = [a for a in tree.select("details.row-menu a") if a.attrs["href"] == "#" + dialog_id]
+    items = [
+        a for a in tree.select("div.fleet-detail-head details.row-menu a")
+        if a.attrs["href"] == "#" + dialog_id]
     assert [a.text() for a in items] == ["Manage access"]
     dialog = tree.select_one("dialog#" + dialog_id)
     emails = [n.text() for n in dialog.select("span.co-manager__email")]
@@ -397,11 +399,11 @@ def test_a_role_change_keeps_the_co_manager_row(rig):
         assert CO_EMAIL in co_rows()
 
 
-def test_adding_with_a_fleet_return_goes_back_with_the_dialog_reopened(rig):
+def test_adding_with_a_fleet_return_goes_back_to_the_frame_with_the_dialog_closed(rig):
     status, headers, _body = rig.post(
         "admin", card.ADD_ROUTE, {"email": INVITED_EMAIL, "return_to": "/fleet"})
     assert status == 303
-    assert headers["Location"] == "/fleet?access=" + rig.seed.owned_id
+    assert headers["Location"] == "/fleet?frame=" + rig.seed.owned_id
     assert "sp_flash=" in headers["Set-Cookie"]
     cookie = rig.cookies["admin"] + "; " + headers["Set-Cookie"].split(";")[0]
     status, _headers, body = http_request(
@@ -409,18 +411,22 @@ def test_adding_with_a_fleet_return_goes_back_with_the_dialog_reopened(rig):
     text = html.unescape(body.decode("utf-8"))
     assert status == 200
     assert "Co-manager added" in text
-    dialog = parse_html(body.decode("utf-8")).select_one("dialog[open]")
-    assert INVITED_EMAIL in [n.text() for n in dialog.select("span.co-manager__email")]
+    tree = parse_html(body.decode("utf-8"))
+    assert tree.select("dialog[open]") == []
+    inline = tree.select_one("section.fleet-block .co-manager__email")
+    assert inline is not None
+    assert INVITED_EMAIL in [
+        n.text() for n in tree.select("section.fleet-block span.co-manager__email")]
 
 
 def test_a_refused_add_and_a_removal_return_to_fleet_too(rig):
     _s, headers, _b = rig.post(
         "admin", card.ADD_ROUTE, {"email": "nobody@example.test", "return_to": "/fleet"})
-    assert headers["Location"] == "/fleet?access=" + rig.seed.owned_id
+    assert headers["Location"] == "/fleet?frame=" + rig.seed.owned_id
     assert "nobody@example.test" not in str(headers)
     _s, headers, _b = rig.post(
         "admin", card.REMOVE_ROUTE, {"user_id": str(rig.co_id), "return_to": "/fleet"})
-    assert headers["Location"] == "/fleet?access=" + rig.seed.owned_id
+    assert headers["Location"] == "/fleet?frame=" + rig.seed.owned_id
     assert rig.dialog().select("span.co-manager__email")[-1].text() == fx.OWNER_EMAIL
 
 
@@ -482,7 +488,7 @@ def _check_in(rig, frame_id, age_hours):
 
 def _fleet_word(rig, name):
     tree, _body = rig.fleet()
-    row = [r for r in tree.select("li.entity-row") if name in r.text()][0]
+    row = [r for r in tree.select("a.frame-tile") if name in r.text()][0]
     return row.select_one('[role="img"]').attrs["aria-label"]
 
 

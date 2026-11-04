@@ -420,6 +420,9 @@ REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
 REFRESH_PAGE_HEALTH = nav_slug(HEALTH_ROUTE)
 REFRESH_PAGE_FLIGHTS = nav_slug(FLIGHTS_ROUTE)
+# The Console Fleet page refreshes its health rows and the Fleet navigation
+# dot in place; it carries no freshness token (every tick is a full 200).
+REFRESH_PAGE_FLEET = nav_slug(console_routes.FLEET_ROUTE)
 
 # The two cross-file literals the new-row highlight is built on,
 # duplicated into freshness.js rather than imported, and pinned equal by
@@ -500,7 +503,13 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "div." + HEALTH_ANOMALY_CLASS,
         "section." + HEALTH_SOURCE_FAULT_CLASS,
         ".page-header__freshness",
-        'a[href$="/health"]',
+        'a[href$="/fleet"]',
+    ),
+    REFRESH_PAGE_FLEET: (
+        ".health-row__summary",
+        "div." + HEALTH_ANOMALY_CLASS,
+        "section." + HEALTH_SOURCE_FAULT_CLASS,
+        'a[href$="/fleet"]',
     ),
     REFRESH_PAGE_FLIGHTS: (
         ".page-header__freshness",

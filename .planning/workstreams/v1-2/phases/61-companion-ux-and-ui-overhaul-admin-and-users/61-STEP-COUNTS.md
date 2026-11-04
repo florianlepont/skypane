@@ -35,9 +35,9 @@ the L2 test (the test context grants it in advance).
 | A1 | Read fleet state | 2 | 0 | 0 | -2 | yes |
 | A2 | Invite a user | ~5 | 4 | 4 | -1 | yes |
 | A3 | Pair a frame | ~6 | 4 | 4 | -2 | yes |
-| A4 | Retire | ~4 | 3 | 4 | 0 | NO, one over target: the frame list now sits below the Fleet blocks, so a phone user scrolls to the row menu first (plan 61-42) |
-| A4 | Reassign | ~4 | 4 | 5 | +1 | NO, one over target, same scroll to the list (plan 61-42) |
-| A5 | Add a co-manager | ~5 | 4 | 5 | 0 | NO, one over target, same scroll to the list; the Access block of the selected frame offers the same forms inline with no menu (plan 61-42) |
+| A4 | Retire | ~4 | 3 | 4 | 0 | yes after plan 61-45: no scroll; the actions menu is in the detail header. The 4th step is the tile tap, needed only when the frame is not the one selected on landing |
+| A4 | Reassign | ~4 | 4 | 5 | +1 | yes after plan 61-45 (tile tap, menu, Reassign, new owner, confirm; no scroll) |
+| A5 | Add a co-manager | ~5 | 4 | 5 | 0 | yes after plan 61-45 (tile tap, menu, Manage access, person, Add; no scroll); the Access block of the selected frame also offers the forms inline |
 | A6 | Read the audit log | 2 | 1 | 1 | -1 | yes (Audit is a Console bar cell since plan 61-42) |
 | U1 | Sign in | ~4, ends on Account | 4, ends on Home | 4, ends on Home | 0 (lands on the right page) | yes |
 | U2 | See my frames, one frame | 1 (wrong page) | 0 | 0 | -1 | yes |
@@ -65,7 +65,7 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 | L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 3 (was 4 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
 | S2 | Switch frame (one tile tap, D30) | 1 (drop-down, then a row) | 2 | 1 | n/a | yes |
-| A7 | Fleet frame name to the Console Health | not measured, new flow | 1 | 2 | n/a | NO, one over target (scroll to the list below the blocks, plan 61-42) |
+| A7 | A frame's health from Fleet (its tile; the State block) | not measured, new flow | 1 | 1 | n/a | yes: a frame's health is the State block of its Fleet view; one tap on its tile (0 when it is already selected) |
 | A8 | Rename an airline in the Airline editor, from the Console (Airline editor bar cell, the airline, the name, Save name) | not measured, new flow | at least 4 on a phone | 4 on a phone | n/a | yes (desktop is one fewer, see notes) |
 | V1 | Airline collection, phone (More, Airline collection) | not measured, new flow | 2 | 2 | n/a | yes |
 | V1 | Airline collection, desktop (sidebar link) | not measured, new flow | 1 | 1 | n/a | yes |
@@ -82,7 +82,7 @@ Measured paths (360 x 844):
 - L4: Location tab, tap the part of the map the floating controls and the sheet leave clear, Save.
 - S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.
 - S2 and U2 several: the tile of the other frame (one page change; the strip replaced the chip and card sheet, D30).
-- A7: the frame name in a Fleet row is a link to that frame's Console Health.
+- A7: the frame's tile on Fleet selects it; its State block is the health view (measured 1 when another frame is selected on landing).
 - A8: the Airline editor bar cell, the airline row, type the new name, Save name (4 on a phone). On desktop the sidebar link replaces More and the editor link, so the path is one tap shorter; the desktop figure is not measured in this file (the phone rule governs).
 - V1: phone, More then Airline collection. Desktop is the sidebar link, measured at 1280 px outside the phone rule.
 
@@ -120,3 +120,11 @@ Settings block of the Fleet view (U4c has no navigation tap). The frame list wit
 row menus (reassign, retire, re-activate, Manage access) stays under the blocks, so A4,
 A5 and A7 each gain one scroll on a phone: an open item for the owner (move the frame
 actions into the detail header, or place the list above the blocks).
+
+## Plan 61-45 (finishing the Fleet merge)
+
+The frame list is replaced by the strip tiles and a detail header with the actions menu, and
+pending/retired frames sit in a collapsed "Other frames" block, so A4, A5 and A7 no longer scroll
+on a phone. Their counts include one tile tap because the frame landed on first (the served Orly frame
+in the test fleet) is not Kitchen: measured A4 retire 4, A4 reassign 5, A5 5, A7 1, A1 0, A3 4. With the
+frame already selected each is one lower. All stay within their targets; A7 measured 1 (target 2).

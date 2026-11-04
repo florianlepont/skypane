@@ -107,3 +107,38 @@ def test_french_block_headings(fleet):
         server, cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME,
         "/fleet?frame=%s" % seed.owned_id)
     assert _blocks(page) == ["État", "Appareil et version", "Réglages", "Accès"]
+
+
+def test_the_fleet_page_refreshes_its_nav_dot_and_health_rows_in_place(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
+    assert 'data-refresh-page="fleet"' in page
+    assert '/static/freshness.js' in page
+    _status, _headers, script = fx.get(server, cookie, "/static/freshness.js")
+    assert '"fleet": [' in script and 'a[href$="/fleet"]' in script
+    # The swapped nav link exists, and the tile links do not end in /fleet.
+    assert 'href="/fleet"' in page
+    assert all(not href.endswith("/fleet") for href, _attrs in _tiles(page))
+
+
+def test_a_flash_key_in_the_query_shows_its_toast_for_the_selected_frame(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(
+        server, cookie, "/fleet?frame=%s&flash=saved" % seed.owned_id)
+    assert 'toast' in page and "Saved" in page
+    _status, _headers, quiet = fx.get(
+        server, cookie, "/fleet?frame=%s&flash=not-a-key" % seed.owned_id)
+    assert "Saved" not in quiet
+
+
+def test_the_settings_save_returns_to_the_frames_fleet_view(fleet):
+    from companion_app_server import http_request, with_csrf
+    server, seed, cookie = fleet
+    status, headers, _body = http_request(
+        server.base_url() + "/devices/%s/settings" % seed.owned_id, method="POST",
+        data=with_csrf(cookie, {"scope": "device", "return_to": "/device",
+                                "quiet_hours_enabled": "on", "quiet_hours_start": "22:00",
+                                "quiet_hours_end": "06:00"}),
+        cookie=cookie, extra_headers={"Origin": server.base_url()})
+    assert status == 303
+    assert headers["Location"].startswith("/fleet?frame=%s&flash=" % seed.owned_id)

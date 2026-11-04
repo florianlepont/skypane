@@ -31,7 +31,9 @@ def page_scripts(system=False):
     value controls, plus the Health registry table's copy, filter and lookup
     helpers on the System view only."""
     from companion import ui_base
-    base = (ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.VALUE_CONTROLS_SCRIPT_SRC)
+    base = (
+        ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.FRESHNESS_SCRIPT_SRC,
+        ui_base.VALUE_CONTROLS_SCRIPT_SRC)
     if not system:
         return base
     return (
@@ -135,9 +137,10 @@ def _access_html(device, access_views):
         view, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE)
 
 
-def frame_html(ctx, device, access_views):
-    """The four blocks of one frame. `ctx` is the page context built for
-    `device`, whose state directory the History reads must be scoped to."""
+def frame_html(ctx, device, access_views, header_html=""):
+    """The selected frame's header and four blocks. `ctx` is the page context
+    built for `device`, whose state directory the History reads must be scoped
+    to."""
     from companion.pages import config_page, health_page, update_page
     with history_db.connection_scope(device.state_dir):
         blocks = (
@@ -150,7 +153,7 @@ def frame_html(ctx, device, access_views):
                 _SETTINGS_HEADING,
                 config_page.render(ctx, scope=config_page.SCOPE_DEVICE, embedded=True))
             + _block(_ACCESS_HEADING, _access_html(device, access_views)))
-    return '<div class="fleet-blocks">%s</div>' % blocks
+    return header_html + '<div class="fleet-blocks">%s</div>' % blocks
 
 
 def system_html(ctx):
@@ -163,9 +166,10 @@ def system_html(ctx):
         " fleet-block--wide")
 
 
-def page_html(h, query, access_views):
+def page_html(h, query, view):
     """The strip and the selected view. Sets the request scope to the
     selected frame (the embedded forms post to its own /devices/<id> routes)."""
+    from companion.pages import fleet_page
     root = h.args.state_dir
     principal = h._safe_principal()
     devices = device_scope.load_devices_for(root, principal)
@@ -179,4 +183,19 @@ def page_html(h, query, access_views):
         return strip + system_html(h.page_context(device_scope.live_device(root)))
     if selected is None:
         return strip + '<p class="text-label">%s</p>' % _t(_ADD_FIRST)
-    return strip + frame_html(h.page_context(selected), selected, access_views)
+    return strip + frame_html(
+        h.page_context(selected), selected, view.access,
+        fleet_page.detail_header_html(view, selected.id))
+
+
+def query_flash_html(h, query):
+    """The toast of a `?flash=` result for the selected frame (the settings
+    save and update install redirect here with one), or None. The text is
+    resolved with the selected frame's own context."""
+    from companion import flash
+    devices = device_scope.load_devices_for(h.args.state_dir, h._safe_principal())
+    selected, _is_system = selection(query, devices)
+    if selected is None or not query.get("flash"):
+        return None
+    ctx = h.page_context(selected)
+    return flash.flash_toast_html(ctx.flash_key, ctx.flash, h.path)

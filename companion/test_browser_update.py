@@ -300,7 +300,7 @@ def test_js_confirm_accept_lands_on_server_confirm_page_then_schedules(
             'form[action="%s"] button[type="submit"]' % update_page.INSTALL_ROUTE
         ).click()
         page.wait_for_load_state("networkidle")
-        assert page.url == base_url + layout.UPDATE_ROUTE
+        assert page.url == base_url + "/fleet?frame=live"
         registry = fr.load_registry(server.state_dir)
         assert registry["schedule"]["state"] == "scheduled"
         assert registry["schedule"]["version"] == _AVAILABLE_VERSION
@@ -340,7 +340,7 @@ def test_no_js_install_goes_straight_to_confirm_page_and_completes(
         assert fr.load_registry(server.state_dir)["schedule"] is None
 
         _click_install_form_no_js(page)
-        assert page.url == base_url + layout.UPDATE_ROUTE
+        assert page.url == base_url + "/fleet?frame=live"
         registry = fr.load_registry(server.state_dir)
         assert registry["schedule"]["state"] == "scheduled"
         assert registry["schedule"]["version"] == _AVAILABLE_VERSION

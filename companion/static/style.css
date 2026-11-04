@@ -9438,9 +9438,27 @@ a.page-header__action:hover {
   margin: var(--space-xs) 0 0;
 }
 
-/* The collapsed group of retired frames under the fleet list. */
-details.fleet-retired {
+/* The collapsed block of pending and retired frames under the selected frame. */
+details.fleet-other {
   margin-top: var(--space-md);
+}
+
+/* The selected frame's header: its name and owner, and its actions menu. */
+.fleet-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-md);
+}
+
+.fleet-detail-head__text {
+  min-width: 0;
+}
+
+.fleet-detail-head__text > * {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* The "Manage user" button of a Users row: a 44px bordered text link. */

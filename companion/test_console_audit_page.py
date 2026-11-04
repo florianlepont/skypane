@@ -284,9 +284,9 @@ def test_install_and_cancel_write_audit_rows(release_server):
     cookie = login(server)
     status, headers, _ = _post(
         server, update_page.INSTALL_ROUTE, cookie, {"version": _OLDER, "confirm": "yes"})
-    assert status == 303 and headers["Location"] == "/update"
+    assert status == 303 and headers["Location"] == "/fleet?frame=live"
     status, headers, _ = _post(server, update_page.CANCEL_ROUTE, cookie)
-    assert status == 303 and headers["Location"] == "/update"
+    assert status == 303 and headers["Location"] == "/fleet?frame=live"
     rows = fx.audit_rows(server.state_dir)
     install = [r for r in rows if r["action"] == "release.install"]
     cancel = [r for r in rows if r["action"] == "release.cancel"]
@@ -304,7 +304,7 @@ def test_a_refused_install_is_audited_as_failed(release_server):
     cookie = login(server)
     status, headers, _ = _post(
         server, update_page.INSTALL_ROUTE, cookie, {"version": "fw-v9.9.9", "confirm": "yes"})
-    assert status == 303 and headers["Location"].startswith("/update?flash=")
+    assert status == 303 and headers["Location"].startswith("/fleet?frame=live&flash=")
     rows = [r for r in fx.audit_rows(server.state_dir) if r["action"] == "release.install"]
     assert [r["outcome"] for r in rows] == ["failed"]
 

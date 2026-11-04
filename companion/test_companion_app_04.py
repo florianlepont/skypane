@@ -722,8 +722,8 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
         base + "/settings", method="POST", cookie=session_cookie,
         data=urllib.parse.urlencode({
             "scope": "device", "return_to": "/device", "tracked_runway": "06-24"}).encode())
-    assert status == 303 and headers.get("Location") == "/device?flash=saved", (
-        "expected a 303 to /device?flash=saved, got %d/%r" % (status, headers.get("Location")))
+    assert status == 303 and headers.get("Location") == "/fleet?frame=live&flash=saved", (
+        "expected a 303 to the Fleet view of the served frame with flash=saved, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
     assert on_disk["tracked_runway"] == runway_before, (
         "expected the Device-page save to ignore a posted tracked_runway, got %r"

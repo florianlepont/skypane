@@ -35,16 +35,12 @@ PAIR_QUERY_FLAG = "pair"
 ADD_DIALOG_ID = "dlg-add-frame"
 
 _FRAMES_TEXT = i18n.msg("admin_fleet.frames", "Frames")
-_COUNT_MANY = i18n.msg("admin_fleet.n_frames", "%d frames")
-_COUNT_ONE = i18n.msg("admin_fleet.one_frame", "1 frame")
-_ATTENTION_MANY = i18n.msg("admin_fleet.n_need_attention", "%d need attention")
-_ATTENTION_ONE = i18n.msg("admin_fleet.one_needs_attention", "1 needs attention")
 _UNNAMED_FRAME = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")
 _NEW_FRAME = i18n.msg("admin_fleet.new_frame", "New frame")
 _WAITING_FOR_PAIRING = i18n.msg("admin_fleet.waiting_for_pairing", "Waiting for pairing")
 _FORMERLY = i18n.msg("admin_fleet.formerly_owner", "Formerly %s")
 _UNASSIGNED = i18n.msg("admin_fleet.unassigned", "Unassigned")
-_RETIRED_GROUP = i18n.msg("admin_fleet.retired_frames_n", "Retired frames (%d)")
+_OTHER_FRAMES = i18n.msg("admin_fleet.other_frames_n", "Other frames (%d)")
 _ROW_MENU_ARIA = i18n.msg("admin_fleet.actions_for_frame", "Actions for %s")
 _EMPTY_HEADING = i18n.msg("admin_fleet.no_frames_yet", "No frames yet")
 _EMPTY_BODY = i18n.msg(
@@ -52,8 +48,6 @@ _EMPTY_BODY = i18n.msg(
     "Switch a frame on. When its pairing code appears on its screen, choose "
     "Add a frame.")
 
-_ACTION_HEALTH = i18n.msg("admin_fleet.menu_health", "Health")
-_ACTION_DEVICE = i18n.msg("admin_fleet.menu_device", "Device")
 _ACTION_PERSONAL_VIEW = i18n.msg(
     "admin_fleet.open_personal_view", "Open personal view")
 _ACTION_REASSIGN = i18n.msg("admin_fleet.reassign", "Reassign")
@@ -229,20 +223,16 @@ def _owner_line(row):
 
 
 def _menu_items(row, manages_access=False):
-    """The row menu's (label, target, destructive) items by state: active
-    frames offer their Health and Device pages, the personal view, manage
-    access (when offered), reassign and retire (the served frame cannot be
-    retired); retired frames re-activate; pending frames have no menu. Every
-    address is built from the frame id."""
+    """The actions menu's (label, target, destructive) items by state: an
+    active frame offers the personal view, manage access (when offered),
+    reassign and retire (the served frame cannot be retired); a retired frame
+    re-activates; a pending frame has no menu. Every address is built from
+    the frame id."""
     if row.kind == KIND_RETIRED:
         return [(i18n.t(_ACTION_REACTIVATE), _slug("dlg-reactivate", row.frame_id), True)]
     if row.kind != KIND_LIVE:
         return []
-    prefix = "/devices/%s" % row.frame_id
-    items = [
-        (i18n.t(_ACTION_HEALTH), prefix + "/health", False),
-        (i18n.t(_ACTION_DEVICE), prefix + "/device", False),
-        (i18n.t(_ACTION_PERSONAL_VIEW), prefix + "/", False)]
+    items = [(i18n.t(_ACTION_PERSONAL_VIEW), "/devices/%s/" % row.frame_id, False)]
     if manages_access:
         items.append((
             i18n.t(co_managers_card.MENU_LABEL),
@@ -256,45 +246,47 @@ def _menu_items(row, manages_access=False):
     return items
 
 
-def _row_html(row, access_ids=frozenset()):
-    name = _display_name(row)
+def _actions_menu(row, access_ids):
     items = _menu_items(row, row.frame_id in access_ids)
-    menu = (
-        ui_entity_list.row_menu_html(i18n.t(_ROW_MENU_ARIA) % name, items)
+    return (
+        ui_entity_list.row_menu_html(i18n.t(_ROW_MENU_ARIA) % _display_name(row), items)
         if items else "")
-    href = "/devices/%s/health" % row.frame_id if row.kind == KIND_LIVE else None
+
+
+def _row_html(row, access_ids=frozenset()):
     return ui_entity_list.entity_row_html(
-        frame_status.status_dot_html(row), name, _owner_line(row), "", menu, href)
+        frame_status.status_dot_html(row), _display_name(row), _owner_line(row), "",
+        _actions_menu(row, access_ids), None)
 
 
-def _count_text(rows):
-    shown = [row for row in rows if row.kind != KIND_RETIRED]
-    text = i18n.t(_COUNT_ONE) if len(shown) == 1 else i18n.t(_COUNT_MANY) % len(shown)
-    attention = sum(1 for row in shown if _problem_rank(row) < 2)
-    if attention:
-        text += " · " + (
-            i18n.t(_ATTENTION_ONE) if attention == 1
-            else i18n.t(_ATTENTION_MANY) % attention)
-    return text
+def detail_header_html(view, frame_id):
+    """The selected frame's detail header: its name, owner line and the
+    actions menu (personal view, manage access, reassign, retire). Empty when
+    `frame_id` is not a live row of `view`."""
+    row = next(
+        (r for r in view.rows if r.kind == KIND_LIVE and r.frame_id == frame_id), None)
+    if row is None:
+        return ""
+    return (
+        '<div class="fleet-detail-head"><div class="fleet-detail-head__text">'
+        '<h2 class="text-heading">%s</h2><p class="text-label">%s</p></div>%s</div>' % (
+            _esc(_display_name(row)), _esc(_owner_line(row)),
+            _actions_menu(row, frozenset(key for key, _view in view.access))))
 
 
-def _list_html(rows, access_ids=frozenset()):
-    active = [row for row in rows if row.kind != KIND_RETIRED]
-    retired = [row for row in rows if row.kind == KIND_RETIRED]
-    if active:
-        main = ui_entity_list.entity_list_html(
-            "".join(_row_html(row, access_ids) for row in active),
-            ui_entity_list.count_line_html(_count_text(rows)))
-    else:
-        main = _ui().empty_state(
-            i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY), compact=True)
-    if not retired:
-        return main
-    return main + (
-        '<details class="fleet-retired"><summary>%s</summary>%s</details>' % (
-            _esc(i18n.t(_RETIRED_GROUP) % len(retired)),
+def _other_frames_html(rows):
+    """The pending and retired frames in a collapsed block; empty without
+    any."""
+    others = [row for row in rows if row.kind != KIND_LIVE]
+    if not others:
+        return ""
+    pending = [row for row in others if row.kind == KIND_PENDING]
+    ordered = pending + [row for row in others if row.kind == KIND_RETIRED]
+    return (
+        '<details class="fleet-other"><summary>%s</summary>%s</details>' % (
+            _esc(i18n.t(_OTHER_FRAMES) % len(ordered)),
             ui_entity_list.entity_list_html(
-                "".join(_row_html(row, access_ids) for row in retired))))
+                "".join(_row_html(row) for row in ordered))))
 
 
 def _owner_options(view, placeholder=True):
@@ -347,7 +339,9 @@ def _frame_dialog(
         dialog_id, title % _display_name(row),
         _routes().FRAME_ACTION_PREFIX + row.frame_id + suffix, _ui().csrf_field(),
         '<p class="text-body">%s</p>%s' % (_esc(sentence), body_extra),
-        i18n.t(submit), i18n.t(dismiss), _routes().FLEET_ROUTE,
+        i18n.t(submit), i18n.t(dismiss),
+        _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s" % (
+            _routes().FLEET_ROUTE, row.frame_id),
         subtitle="%s · %s" % (row.hardware, row.mono_id), **flags)
 
 
@@ -421,10 +415,15 @@ def unnamed_text():
 
 
 def render(view):
-    """The Fleet page body (the shell supplies the header and nav)."""
-    section = '<section class="page-section" aria-label="%s">%s</section>' % (
-        _t(_FRAMES_TEXT), _list_html(
-            view.rows, frozenset(key for key, _view in view.access)))
+    """The Fleet page's frame-independent part: the Other frames block (pending
+    and retired frames) and every dialog the menus open."""
+    others = _other_frames_html(view.rows)
+    if not others and not any(row.kind == KIND_LIVE for row in view.rows):
+        others = _ui().empty_state(
+            i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY), compact=True)
+    section = (
+        '<section class="page-section" aria-label="%s">%s</section>' % (
+            _t(_FRAMES_TEXT), others) if others else "")
     dialogs = _add_dialog(view) + "".join(
         _row_dialogs(row, view) for row in view.rows)
     return _register_errors_html(view) + section + dialogs

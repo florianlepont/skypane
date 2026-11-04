@@ -60,27 +60,33 @@ def _text(markup):
     return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", markup)).strip()
 
 
-def test_an_admin_sees_one_row_per_frame_without_table_or_detail_columns(fleet):
+def _header(page):
+    """The selected frame's detail header markup, or None."""
+    match = re.search(r'<div class="fleet-detail-head">.*?</details></div>', page, re.S)
+    return match.group(0) if match else None
+
+
+def test_the_frame_list_is_the_strip_and_the_other_frames_block(fleet):
     server, seed, cookie = fleet
-    status, _headers, page = fx.get(server, cookie, "/fleet")
+    status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
     assert status == 200
     assert "<table" not in page and "<th" not in page
+    for frame_id in (seed.owned_id, seed.live_id):
+        assert 'href="/fleet?frame=%s"' % frame_id in page
+    # Live frames are strip tiles, not list rows; the list holds the others.
     rows = _rows(page)
-    assert list(rows) == [seed.owned_id, seed.live_id, "New frame", "Attic"]
-    owned = rows[seed.owned_id]
-    assert "Kitchen" in _text(owned) and fx.OWNER_EMAIL in _text(owned)
-    assert owned.count('class="dot ') == 1
-    listed = "".join(_list_html(page))
-    for word in ("Firmware", "Battery", "Hardware", "XIAO ePaper", "Last seen", "Never"):
-        assert word not in listed, word
-    assert seed.owned_id not in _text(owned)
+    assert list(rows) == ["New frame", "Attic"]
+    header = _header(page)
+    assert "Kitchen" in _text(header) and fx.OWNER_EMAIL in _text(header)
+    assert seed.owned_id not in _text(header)
     pending = rows["New frame"]
     assert "Waiting for pairing" in pending and "<details" not in pending
     assert fx.MAC_PENDING not in page
     retired = rows["Attic"]
     assert "Formerly %s" % fx.OWNER_EMAIL in retired and "/devices/" not in retired
-    assert "2 frames" not in page and "3 frames" in page
-    assert "Retired frames (1)" in page
+    other = re.search(r'<details class="fleet-other">.*?</details>', page, re.S).group(0)
+    assert "Other frames (2)" in other and "dot--hollow" in other
+    assert "Retired frames" not in page and "need attention" not in page
 
 
 def test_the_page_header_carries_the_add_trigger_and_no_register_form(fleet):
@@ -96,63 +102,65 @@ def test_the_page_header_carries_the_add_trigger_and_no_register_form(fleet):
 
 def test_one_status_dot_per_row_with_the_shared_vocabulary(fleet):
     server, seed, cookie = fleet
-    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    _status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
     rows = _rows(page)
-    assert 'aria-label="Not seen yet"' in rows[seed.owned_id]
+    assert 'aria-label="Not seen yet"' in page
     assert 'aria-label="Waiting for pairing"' in rows["New frame"]
     assert "dot--hollow" in rows["New frame"] and "dot--hollow" in rows["Attic"]
     assert 'aria-label="Retired"' in rows["Attic"]
 
 
-def test_row_menus_follow_the_frame_state(fleet):
+def test_actions_menus_follow_the_frame_state(fleet):
     server, seed, cookie = fleet
-    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    _status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
     rows = _rows(page)
-    owned = rows[seed.owned_id]
+    owned = _header(page)
     prefix = "/devices/%s" % seed.owned_id
     assert "Open frame" not in owned
     labels = re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', owned)
-    assert labels == [
-        "Health", "Device", "Open personal view", "Manage access", "Reassign", "Retire"]
-    assert 'href="%s/health"' % prefix in owned
-    assert 'href="%s/device"' % prefix in owned
+    assert labels == ["Open personal view", "Manage access", "Reassign", "Retire"]
     assert 'href="%s/"' % prefix in owned
-    # The name links to the frame's Health page.
-    assert re.search(r'<a class="entity-row__title" href="%s/health">' % prefix, owned)
+    # Health and Device are blocks of the page, no menu entries.
+    assert "/health" not in owned and '/device"' not in owned
     assert 'href="#dlg-access-%s"' % _slug(seed.owned_id) in owned
     assert 'href="#dlg-reassign-%s"' % _slug(seed.owned_id) in owned
     assert 'href="#dlg-retire-%s"' % _slug(seed.owned_id) in owned
     assert 'aria-label="Actions for Kitchen"' in owned
-    live = rows[seed.live_id]
+    _status, _headers, live_page = fx.get(server, cookie, "/fleet?frame=%s" % seed.live_id)
+    live = _header(live_page)
     assert 'href="#dlg-reassign-%s"' % _slug(seed.live_id) in live
     assert "dlg-retire" not in live
-    assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', live)[:3] == [
-        "Health", "Device", "Open personal view"]
+    assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', live)[:1] == [
+        "Open personal view"]
     assert "row-menu" not in rows["New frame"]
     retired = rows["Attic"]
     assert 'href="#dlg-reactivate-%s"' % _slug(seed.retired_id) in retired
     assert "dlg-retire" not in retired and "dlg-reassign" not in retired
     assert _dialog(page, "dlg-retire-%s" % _slug(seed.live_id)) is None
+    assert "{owner_email}" not in page
 
 
 def test_dialogs_post_to_the_unchanged_routes_with_csrf(fleet):
     server, seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     prefix = console_routes.FRAME_ACTION_PREFIX
+    # A live frame's dialogs dismiss back to that frame's view.
     cases = (
-        ("dlg-add-frame", "/fleet/pair"),
+        ("dlg-add-frame", "/fleet/pair", "/fleet"),
         ("dlg-retire-" + _slug(seed.owned_id),
-         prefix + seed.owned_id + console_routes.FRAME_RETIRE_SUFFIX),
+         prefix + seed.owned_id + console_routes.FRAME_RETIRE_SUFFIX,
+         "/fleet?frame=" + seed.owned_id),
         ("dlg-reassign-" + _slug(seed.owned_id),
-         prefix + seed.owned_id + console_routes.FRAME_REASSIGN_SUFFIX),
+         prefix + seed.owned_id + console_routes.FRAME_REASSIGN_SUFFIX,
+         "/fleet?frame=" + seed.owned_id),
         ("dlg-reactivate-" + _slug(seed.retired_id),
-         prefix + seed.retired_id + console_routes.FRAME_REACTIVATE_SUFFIX))
-    for dialog_id, action in cases:
+         prefix + seed.retired_id + console_routes.FRAME_REACTIVATE_SUFFIX, "/fleet"))
+    for dialog_id, action, dismiss in cases:
         dialog = _dialog(page, dialog_id)
         assert dialog is not None, dialog_id
         assert 'action="%s"' % action in dialog and 'name="csrf_token"' in dialog
         assert ' open' not in dialog.split(">", 1)[0]
-        assert 'href="/fleet" data-modal-close' in dialog
+        assert 'href="%s" data-modal-close' % dismiss in dialog
     retire = _dialog(page, "dlg-retire-" + _slug(seed.owned_id))
     assert "Retire \u201cKitchen\u201d?" in retire and "Keep frame" in retire
     assert "calendar-disconnect-btn" in retire and "Retire frame" in retire
@@ -187,13 +195,6 @@ def test_ordering_puts_problems_first_then_others_by_name_then_pending(fleet):
     ]
     ordered = [row.frame_id for row in fleet_page.sort_rows(rows)]
     assert ordered == ["d_d", "d_g", "d_c", "d_b", "d_a", "p_e", "p_f"]
-
-
-def test_the_count_line_names_how_many_frames_need_attention(fleet):
-    server, _seed, cookie = fleet
-    _status, _headers, page = fx.get(server, cookie, "/fleet")
-    count = re.search(r'entity-count[^>]*>([^<]*)<', page).group(1)
-    assert count == "3 frames \u00b7 2 need attention"
 
 
 def test_the_markup_carries_no_secret_material(fleet):
@@ -277,12 +278,13 @@ def test_a_user_gets_the_unknown_path_404_and_anonymous_the_sign_in_redirect(fle
 
 
 def test_french_rendering_uses_the_console_terms(fleet):
-    server, _seed, cookie = fleet
+    server, seed, cookie = fleet
     _status, _headers, page = fx.get(
-        server, cookie, "/fleet", headers={"Accept-Language": "fr"})
+        server, cookie, "/fleet?frame=%s" % seed.owned_id,
+        headers={"Accept-Language": "fr"})
     for term in ("Flotte", "Ajouter un cadre", "Retiré", "Associer le cadre",
                  "En attente d\u2019association", "Retour \u00e0 la flotte",
-                 "Cadres retir\u00e9s (1)", "Garder le cadre", "Laisser retiré",
+                 "Autres cadres (2)", "Garder le cadre", "Laisser retiré",
                  "Garder le propriétaire actuel", "Actions pour Kitchen",
                  "Anciennement", "Nouveau cadre"):
         assert term in page, term
