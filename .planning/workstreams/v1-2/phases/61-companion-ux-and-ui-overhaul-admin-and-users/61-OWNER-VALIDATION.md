@@ -123,3 +123,7 @@ Larger redesigns (new design work, owner decision on scope):
   belong on the Account page preferences only.
 - W15 (owner) The Account navigation icon (a robot) does not read as an
   account icon; it looks more like preferences. Use a person icon.
+- D29 (owner) Personalisation follows mockup P1: a styled, animated
+  secondary navigation (Look, Special looks, Calendar, Screen), one page per
+  entry, the look picker (preview, colour, background, diagonal band) as the
+  main view of Look. Mockups: scratchpad/sketches (p1, p1d).
