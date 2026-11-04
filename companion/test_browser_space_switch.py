@@ -3,6 +3,7 @@ page and on a personal page for an administrator at 360 and 1280 px in English
 and French, light and dark; both segments 44px high and hit-testable, the
 current one marked by aria-current and a different fill; no wrapping and no
 horizontal overflow; one tap moves between the spaces; a user never sees it."""
+import time
 import pytest
 
 from nav_spaces_support import (
@@ -48,6 +49,21 @@ def _visible_switch(page):
 
 
 def _check_switch(page, lang, current_label, where):
+    """Assert the switch's resting state, retrying while the browser settles
+    (a page change can leave a transition running for a moment); the last
+    failure is raised if it never settles."""
+    deadline = time.monotonic() + 10
+    while True:
+        try:
+            _assert_switch(page, lang, current_label, where)
+            return
+        except AssertionError:
+            if time.monotonic() > deadline:
+                raise
+            page.wait_for_timeout(200)
+
+
+def _assert_switch(page, lang, current_label, where):
     segments = _visible_switch(page)
     assert [seg["text"] for seg in segments] == list(_LABELS[lang]), (where, segments)
     for seg in segments:
