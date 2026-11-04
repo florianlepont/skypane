@@ -189,6 +189,38 @@ def test_a_sheet_per_card_is_read_only_and_reached_by_a_hash_link(rig):
     assert 'class="mono"' in regular
 
 
+def test_rare_airlines_and_aircraft_carry_a_tier_class_and_a_word(rig):
+    rig.seed_history()
+    body = rig.page()
+    assert "collection-card--rare" in _card_for(body, RARE_NAME)
+    assert "rarity-pill--rare" in _card_for(body, RARE_NAME)
+    assert "collection-card--occasional" in _card_for(body, OCCASIONAL_NAME)
+    assert "collection-card--regular" in _card_for(body, REGULAR_NAME)
+    legend = _text(re.search(r'<ul class="rarity-legend".*?</ul>', body, flags=re.S).group(0))
+    for word in ("Regular", "Occasional", "Rare", "10 or more sightings", "3 to 9 sightings",
+                 "Fewer than 3 sightings"):
+        assert word in legend
+    sheets = re.findall(r'<dialog class="modal collection-sheet".*?</dialog>', body, flags=re.S)
+    types = " ".join(re.findall(r'<span class="type-chip type-chip--[a-z]+">.*?</span>(?: </span>)?', "".join(sheets)))
+    assert re.search(r'type-chip--rare">A320 <span class="type-chip__tag">Rare</span>', types)
+    assert re.search(r'type-chip--occasional">737-800 <span class="type-chip__tag">Occasional</span>', types)
+    assert re.search(r'type-chip--regular">A321neo</span>', types)
+
+
+def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
+    rig.seed_history()
+    body = _main(rig.page())
+    form = re.search(r'<form class="filter-bar collection-controls".*?</form>', body, flags=re.S).group(0)
+    assert form.count("<form") == 1
+    for part in ('name="q"', '<select name="sort" data-autosubmit>', 'name="show"',
+                 'collection-controls__apply', 'data-filter-count'):
+        assert part in form
+    assert "Airlines: %d" % (len(CURATED) + 1) in form
+    assert "Airlines: 1<" in _main(rig.page(query="?q=zed"))
+    fr = _main(rig.page(lang="fr", query="?q=zed"))
+    assert "Compagnies\u00a0: 1<" in fr and "Moins de 3 passages" in fr
+
+
 def test_filter_chips_sort_and_text_are_applied_by_the_server(rig):
     rig.seed_history()
     spotted = _cards(rig.page(query="?show=spotted"))

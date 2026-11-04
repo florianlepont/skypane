@@ -345,7 +345,7 @@ _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
     r"Actions|Style|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
-    r"Air France|easyJet|Transavia|Ryanair|Confirmed|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
+    r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
 
 
 def _looks_english(text):

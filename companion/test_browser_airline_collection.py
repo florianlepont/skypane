@@ -131,11 +131,13 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
         assert columns == (2 if viewport["width"] < 700 else 4)
         for selector in (
                 SEEN_CARD, UNSEEN_CARD, ".filter-chip", ".collection-sort select",
-                "#collection-filter", ".collection-controls__apply"):
+                "#collection-filter"):
             _wait_owns_centre(page, selector)
             box = page.locator(selector).first.bounding_box()
             assert box["height"] >= 44 - 0.5 and box["width"] >= 44 - 0.5, (selector, box)
             assert page.locator(selector).first.evaluate(_OWNS_CENTRE), selector
+        assert not page.locator(".collection-controls__apply").is_visible()
+        _assert_bar_is_one_unclipped_unit(page, viewport["width"])
         for pill in page.locator(".collection-badge").all():
             assert pill.bounding_box()["height"] >= 44 - 0.5
         assert page.locator(".collection-badge--earned").count() == 1
@@ -145,6 +147,27 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
         assert page.locator(".collection-progress__bar").bounding_box()["height"] >= 12 - 0.5
     finally:
         context.close()
+
+
+def _assert_bar_is_one_unclipped_unit(page, width):
+    """Every control of the bar sits inside the form and inside the viewport, the count has no
+    border or fill, and the sort shares the field's row."""
+    geometry = page.evaluate(
+        "() => { const form = document.querySelector('.collection-controls').getBoundingClientRect();"
+        " const box = sel => document.querySelector(sel).getBoundingClientRect();"
+        " const count = getComputedStyle(document.querySelector('.collection-controls__count'));"
+        " return {form: [form.left, form.right],"
+        " parts: ['#collection-filter', '.collection-sort select', '.filter-bar__chips']"
+        ".map(sel => [box(sel).left, box(sel).right, box(sel).top]),"
+        " countBorder: count.borderTopWidth, countBg: count.backgroundColor,"
+        " countText: document.querySelector('.collection-controls__count').textContent}; }")
+    for left, right, _top in geometry["parts"]:
+        assert left >= geometry["form"][0] - 0.5 and right <= geometry["form"][1] + 0.5, geometry
+        assert left >= -0.5 and right <= width + 0.5, geometry
+    assert geometry["countBorder"] == "0px" and geometry["countBg"] == "rgba(0, 0, 0, 0)", geometry
+    assert re.search(r"\d+", geometry["countText"]), geometry
+    if width >= 700:
+        assert abs(geometry["parts"][0][2] - geometry["parts"][1][2]) < 24, geometry
 
 
 def test_the_headline_is_the_first_thing_under_the_page_header(new_context, make_app_server):
@@ -220,6 +243,9 @@ def test_chips_sort_and_the_field_work_through_apply_without_script(
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator(CARD).count() > TOTAL_SPOTTED
+        apply_box = page.locator(".collection-controls__apply").bounding_box()
+        assert apply_box["height"] >= 44 - 0.5 and apply_box["width"] >= 44 - 0.5
+        assert apply_box["x"] + apply_box["width"] <= VIEWPORT_MIN_SUPPORTED["width"] + 0.5
         page.locator("label.filter-chip", has_text="Spotted").click()
         with page.expect_navigation():
             page.locator(".collection-controls__apply").click()
@@ -238,6 +264,59 @@ def test_chips_sort_and_the_field_work_through_apply_without_script(
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator(".collection-card__name").all_inner_texts() == ["Iberia Airlines"]
         assert "q=iberia" in page.url and "sort=az" in page.url and "show=spotted" in page.url
+
+
+def test_the_sort_and_the_chips_apply_on_change_with_script(new_context, make_app_server):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
+    try:
+        page.locator(".collection-sort select").select_option("az")
+        page.wait_for_url("**sort=az**", timeout=10000)
+        page.wait_for_function(_SETTLED, timeout=15000)
+        names = page.locator(".collection-card__name").all_inner_texts()
+        assert names == sorted(names, key=str.casefold)
+        assert page.locator(".collection-sort select").input_value() == "az"
+        page.locator("label.filter-chip", has_text="Spotted").click()
+        page.wait_for_url("**show=spotted**", timeout=10000)
+        page.wait_for_function(_SETTLED, timeout=15000)
+        assert page.locator(CARD).count() == TOTAL_SPOTTED
+        assert "sort=az" in page.url
+        page.wait_for_function(
+            "() => document.querySelector('.collection-controls__count').textContent.includes('3')",
+            timeout=10000)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_word(
+        new_context, make_app_server, theme):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, theme=theme)
+    try:
+        probe = (
+            "sel => { const el = document.querySelector(sel); const s = getComputedStyle(el);"
+            " let bg = el.closest('.collection-card') || document.body;"
+            " return {text: el.textContent.trim(), color: s.color,"
+            " border: s.borderTopColor, bg: getComputedStyle(document.body).backgroundColor}; }")
+        rare = page.evaluate(probe, ".collection-card--rare .rarity-pill--rare")
+        occasional = page.evaluate(probe, ".collection-card--occasional .rarity-pill--occasional")
+        regular = page.evaluate(probe, ".collection-card--regular .rarity-pill")
+        assert rare["text"] == "Rare" and occasional["text"] == "Occasional"
+        assert len({rare["color"], occasional["color"], regular["color"]}) == 3
+        for pill in (rare, occasional):
+            assert pill["color"] == pill["border"]
+            assert _contrast(pill["color"], pill["bg"]) >= 4.5, (theme, pill)
+        legend = page.locator(".rarity-legend").inner_text()
+        for word in ("Regular", "Occasional", "Rare", "10 or more sightings", "3 to 9 sightings",
+                     "Fewer than 3 sightings"):
+            assert word in legend
+        page.locator(SEEN_CARD).first.click()
+        page.wait_for_function(
+            "() => !!document.querySelector('dialog[open] .type-chip')", timeout=10000)
+        assert page.locator("dialog[open] .type-chip").count() >= 1
+    finally:
+        context.close()
 
 
 def test_a_card_opens_its_sheet_through_the_hash_link_without_script(

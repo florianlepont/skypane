@@ -212,6 +212,20 @@
 
   input.addEventListener("input", applyFilter);
 
+  // A control marked [data-autosubmit] sends its GET form as soon as it
+  // changes (the collection's sort and show chips); without a script the
+  // form's own button does the same.
+  var autoControls = document.querySelectorAll("[data-autosubmit]");
+  function submitOwnForm(event) {
+    var form = event.target.form;
+    if (form) {
+      form.submit();
+    }
+  }
+  for (var ai = 0; ai < autoControls.length; ai++) {
+    autoControls[ai].addEventListener("change", submitOwnForm);
+  }
+
   for (var ci = 0; ci < chipInputs.length; ci++) {
     chipInputs[ci].addEventListener("change", applyFilter);
   }
