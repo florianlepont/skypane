@@ -97,7 +97,9 @@ def test_plain_render_carries_the_precedence_sentence_and_no_how_it_works_disclo
         rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[calendar_start:calendar_end]
     assert "How it works" not in calendar_segment
-    assert "<details" not in calendar_segment.split('class="calendar-status"', 1)[1], (
+    connection = calendar_segment.split('class="calendar-status"', 1)[1].split(
+        'class="special-row__main"', 1)[0]
+    assert "<details" not in connection, (
         "expected no disclosure toggle in the Calendar connection block")
     assert "It only colours a flight already on screen." not in rendered
     assert "The most specific match wins." not in rendered

@@ -70,7 +70,7 @@ MESSAGES = {
         "La plus précise l’emporte : calendrier, puis vol, avion, compagnie. "
         "Ajouter une clé déjà présente remplace son allure.",
     "look.calendar": "Calendrier",
-    "look.flights_in_your_calendar": "Vols de votre calendrier",
+    "look.flights_in_your_calendar": "Allure des vols du calendrier",
     "look.new_special_look": "Nouvelle allure spéciale",
     "look.look": "Allure",
     "look.matching_flights_will_look_like_this":

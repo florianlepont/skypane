@@ -35,10 +35,8 @@ MESSAGES = {
     "calendar_group.saved_link_ignored_it_was_readable_by_others":
         "Lien enregistré ignoré — il était lisible par d’autres sur le "
         "serveur. Collez-le à nouveau pour le stocker en sûreté.",
-    "calendar_group.no_calendar": "Aucun calendrier",
     "calendar_group.colour_the_flights_from_your_calendar_on_screen":
         "Colorez à l’écran les vols de votre calendrier.",
-    "calendar_group.manage": "Gérer",
     "calendar_group.connect": "Connecter",
     "calendar_group.replace": "Remplacer",
     "calendar_group.checking": "Vérification…",

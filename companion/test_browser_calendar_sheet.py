@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Real-browser checks of the calendar "Manage" sheet on the Display page: it opens as a modal from
+"""Real-browser checks of the calendar "Choose calendar" sheet on the Display page: it opens as a modal from
 the status row's one button at 390 and 1280 px in both languages and both themes with usable
 controls (>= 44 px targets, 16 px field) and no overflow; focus does NOT land on the URL field on
 a plain open but DOES on a refused replace; a replace round-trips through the real route and a
@@ -75,7 +75,7 @@ def _is_modal(page):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_manage_opens_a_usable_modal_sheet_in_both_themes(new_context, server, viewport, lang):
-    """Manage opens the sheet as a modal showing only the masked host, with a 16 px field,
+    """Choose calendar opens the sheet as a modal showing only the masked host, with a 16 px field,
     44 px controls, the dialog inside the viewport and nothing overflowing - light and dark; the
     full link is nowhere in the page"""
     _connect_old(server)
@@ -273,7 +273,7 @@ def _no_js_login_and_goto(new_context, server, route):
 
 def test_with_scripts_blocked_manage_is_a_link_to_an_in_page_sheet_that_replaces_and_disconnects(
         new_context, server):
-    """no script: Manage navigates to ?calendar=manage and the open dialog is an in-page card;
+    """no script: Choose calendar navigates to ?calendar=manage and the open dialog is an in-page card;
     a refused replace comes back to it with the error, a good one replaces, and Disconnect goes
     through the server's own confirmation page"""
     _connect_old(server)

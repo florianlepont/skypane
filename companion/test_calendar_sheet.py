@@ -88,12 +88,25 @@ def _row(rendered):
 
 @pytest.mark.parametrize("name", sorted(_STATES))
 def test_every_state_renders_its_pill_dot_and_detail(name):
-    """each state shows its verdict in words, a dot that is never green unless the state is a
-    healthy connection, and its one-line detail"""
+    """each state shows the status line (on or off, with the calendar's name when on), its
+    verdict in words, a dot that is never green unless the state is a healthy connection, and its
+    one-line detail; with nothing connected the detail is the compact empty state's body"""
     overrides, dot, pill, detail_fragment = _STATES[name]
     rendered = config_page.render(_ctx(**overrides), scope=config_page.SCOPE_DISPLAY)
     doc, row = _row(rendered)
     assert row.attrs.get("data-calendar-state") == _STATE_KEY.get(name, name)
+    assert len(doc.select(".calendar-status")) == 1
+    lead = row.select_one(".calendar-status__lead").text().strip()
+    if name == "none":
+        assert lead == "Flights in your calendar: off"
+        assert not row.select(".calendar-status__pill") and not row.select(".calendar-status__detail")
+        empty = doc.select_one("#calendar-row .empty-state--compact")
+        assert empty.select_one(".empty-state__heading").text() == "No calendar connected"
+        assert empty.select_one(".empty-state__body").text() == detail_fragment
+        return
+    assert not doc.select("#calendar-row .empty-state")
+    assert lead == ("Flights in your calendar: off" if name == "ignored"
+                    else "Flights in your calendar: on,"), (name, lead)
     assert row.select_one(".calendar-status__pill").text().strip() == pill
     dot_classes = row.select_one(".calendar-status__pill .dot").attrs.get("class", "").split()
     assert dot in dot_classes, (name, dot_classes)
@@ -103,7 +116,6 @@ def test_every_state_renders_its_pill_dot_and_detail(name):
     assert detail_fragment in detail, (name, detail)
     if name == "unknown":
         assert detail == "", "an unparseable read time has no detail to show"
-    assert len(doc.select(".calendar-status")) == 1
 
 
 def test_stale_threshold_is_four_fetch_intervals_and_the_boundary_is_exact():
@@ -144,11 +156,19 @@ def test_states_render_in_french_with_the_state_words(name):
         rendered = config_page.render(_ctx(**overrides), scope=config_page.SCOPE_DISPLAY)
     finally:
         prefs.set_request_prefs(lang="en")
-    _doc, row = _row(rendered)
-    assert row.select_one(".calendar-status__pill").text().strip() == expected[0]
-    detail = row.select_one(".calendar-status__detail").text().strip()
+    doc, row = _row(rendered)
+    lead = row.select_one(".calendar-status__lead").text().strip()
+    assert lead == ("Vols de votre calendrier : désactivés" if name in ("none", "ignored")
+                    else "Vols de votre calendrier : activés,"), lead
+    if name == "none":
+        detail = doc.select_one("#calendar-row .empty-state__body").text().strip()
+        assert doc.select_one("#calendar-row .empty-state__heading").text() == "Aucun calendrier connecté"
+    else:
+        assert row.select_one(".calendar-status__pill").text().strip() == expected[0]
+        detail = row.select_one(".calendar-status__detail").text().strip()
     assert expected[1] in detail, detail
-    for english in ("Connected", "flights in", "Manage", "Out of date"):
+    assert row.select_one("a[data-calendar-open]").text().strip() == "Choisir un calendrier"
+    for english in ("Connected", "flights in", "Manage", "Out of date", "Choose calendar"):
         assert english not in row.text()
 
 
@@ -165,9 +185,9 @@ def test_the_calendar_row_meta_no_longer_repeats_the_verdict():
 
 
 def test_the_page_carries_one_button_and_no_disclosure_in_the_connection_block():
-    """the page's connection block is a single Manage (or Connect) link opening the sheet:
+    """the page's connection block is a single "Choose calendar" link opening the sheet:
     no <details>, no inline URL field, no Disconnect button outside the sheet"""
-    for name, label in (("ok", "Manage"), ("none", "Connect")):
+    for name, label in (("ok", "Choose calendar"), ("none", "Choose calendar")):
         rendered = config_page.render(_ctx(**_STATES[name][0]), scope=config_page.SCOPE_DISPLAY)
         doc = parse_html(rendered)
         row = doc.select_one(".calendar-status")

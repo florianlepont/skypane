@@ -7129,6 +7129,18 @@ a.calendar-disconnect-btn:focus-visible {
   white-space: nowrap;
 }
 
+/* The status line leads the Calendar row; the look of its flights follows
+ * under a hairline. */
+.special-row--calendar > .calendar-status + .special-row__main {
+  margin-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-sm);
+}
+
+.special-row--calendar > .empty-state--compact {
+  margin-bottom: var(--space-xs);
+}
+
 .calendar-status__pill .dot {
   width: 8px;
   height: 8px;
@@ -7162,6 +7174,22 @@ a.calendar-manage {
 
 a.calendar-manage:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+/* "Choose calendar" is too wide to sit beside the text on a phone: the button
+ * takes the row's full width under the text instead. */
+@media (max-width: 699.98px) {
+  .calendar-status {
+    flex-wrap: wrap;
+  }
+
+  .calendar-status__main {
+    flex: 1 1 0;
+  }
+
+  a.calendar-manage {
+    flex: 1 1 100%;
+  }
 }
 
 /* The section's one primary action while nothing is connected. */
