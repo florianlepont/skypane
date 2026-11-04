@@ -1,10 +1,10 @@
 # Phase 61 — step counts, before and after
 
 Source of the "after" column: `companion/test_browser_overhaul_steps.py`,
-run on 2026-11-03 in Chromium with the fake identity provider
+last run on 2026-11-04 in Chromium with the fake identity provider
 (`-s` output lines `STEP-COUNT <task> <n>`). Source of the "before" column:
 `61-WALKTHROUGH.md` (the owner's measured counts). Targets: `61-UI-SPEC.md`
-section 7.
+section 7 (the earlier rows) and section 14 (the revision 2 rows).
 
 ## Counting rule
 
@@ -17,7 +17,18 @@ sign-in task counts its whole path: open the link, tap Sign in, the provider
 screen (counted as one step; the fake provider approves on its own, a real
 form would be one submit), and the landing page.
 
-## Results
+## How the counts are asserted
+
+Each test prints `STEP-COUNT <task> <n> (target <t>)`. The revision 2 tests
+(U4a, U4b, U4c, L1 to L4, S1, S2, A7, A8, V1) assert the exact measured value, so a gain and a
+regression both fail them, and the printed line says ` MISSED` when the count is over the
+design target. The first-round tests (A1 to A6, U1 to U3, U2 several) assert at or below
+the value they carry (A6 carries 2, one over its design target of 1). Taps on a
+map point count one, plus one scroll when the point is below the fold. The
+position permission prompt of the browser is modelled as one counted step by
+the L2 test (the test context grants it in advance).
+
+## Results, first round (plans 61-01 to 61-16)
 
 | # | Task | Before | Target | After (measured) | Delta | Met |
 |---|------|--------|--------|------------------|-------|-----|
@@ -27,38 +38,77 @@ form would be one submit), and the landing page.
 | A4 | Retire | ~4 | 3 | 3 | -1 | yes |
 | A4 | Reassign | ~4 | 4 | 4 | 0 | yes (equal) |
 | A5 | Add a co-manager | ~5 | 4 | 4 | -1 | yes |
-| A6 | Read the audit log | 2 | 1 | 1 | -1 | yes |
+| A6 | Read the audit log | 2 | 1 | 2 | 0 | NO, one over the 1-tap target (see notes) |
 | U1 | Sign in | ~4, ends on Account | 4, ends on Home | 4, ends on Home | 0 (lands on the right page) | yes |
 | U2 | See my frames, one frame | 1 (wrong page) | 0 | 0 | -1 | yes |
-| U2 | See my frames, several frames | 1 (wrong page) | 1 | 1 (open the switcher) | 0 (right page, the list is one tap away) | yes |
 | U3 | Understand a frame's state | ~3 | 0 | 0 (the dot on Home) | -3 | yes |
-| U4 | Change a setting (quiet-hours start) | ~4 | 3 | 4 | 0 | NO, one over target |
-| U4 | Change a setting (look, through the sheet) | ~4 | 3 | 5 | +1 | NO, two over target |
 
-Measured paths:
+Superseded rows (kept for the record, replaced by the revision 2 rows below):
 
-- A2: Users tab, Invite a user, email, Invite user (role defaults to User).
-- A3: Add a frame, pairing code, owner, Pair frame.
-- A4 retire: row menu, Retire, confirm. Reassign: row menu, Reassign, new owner, confirm.
-- A5: row menu, Manage access, person, Add co-manager.
-- A6: Audit tab (one chip row only, no section row). Since plan 61-21 the Console bar is Fleet, Users, Health, Device, More (UI-SPEC 1.3), so the path is More, Audit log: 2 taps (equal to the pre-redesign count, one over the earlier 1-tap target).
-- U2 several: the frame switcher summary; the panel lists every frame.
-- U4 quiet hours: Display tab, scroll to the field, value, Save.
-- U4 look: Display tab, Change, a colour, Done, Save.
+| # | Task | Value when measured | Replaced by |
+|---|------|---------------------|-------------|
+| U4 | Change a setting (quiet-hours start), through the Display tab | 4 (target 3, missed) | U4a |
+| U4 | Change a setting (look, through the sheet) | 5 (target 3, missed) | U4b |
+| U2 | Several frames, the frame switcher | 1 (open the drop-down) | U2 several, below |
+
+## Results, revision 2 (plans 61-17 to 61-34)
+
+| # | Task | Before | Target | After (measured) | Delta | Met |
+|---|------|--------|--------|------------------|-------|-----|
+| U4a | Quiet-hours start from Home (tap the schedule, the start time, Save) | 4 (old U4) | 3 | 3 | -1 | yes |
+| U4b | Change the look (Personalisation tab, tap a look, Save) | 5 (old U4 look) | 3 | 3 | -2 | yes |
+| U4c | Administrator changes the refresh interval (Console Device tab, the interval, Save) | not measured, new flow | 3 | 3 | n/a | yes |
+| L1 | Pick an airport from the list (Location tab, type in the filter, tap the airport, Save) | not measured, new flow | 4 | 5 | n/a | NO, one over target |
+| L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 5 | n/a | NO, one over target |
+| L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 6 | n/a | yes (the target is met with a scroll to the result) |
+| L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 4 | n/a | NO, one over target |
+| S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
+| S2 | Switch frame (frame chip, then a frame card) | 1 (drop-down, then a row) | 2 | 2 | n/a | yes |
+| A7 | Fleet frame name to the Console Health | not measured, new flow | 1 | 1 | n/a | yes |
+| A8 | Rename an airline in the Airline editor, from the Console (More, Airline editor, the airline, the name, Save name) | not measured, new flow | at least 5 on a phone | 5 on a phone | n/a | yes (desktop is one fewer, see notes) |
+| V1 | Airline collection, phone (More, Airline collection) | not measured, new flow | 2 | 2 | n/a | yes |
+| V1 | Airline collection, desktop (sidebar link) | not measured, new flow | 1 | 1 | n/a | yes |
+| U2 several | Reach another frame (frame chip, then a frame card) | 1 (open the drop-down) | 1 in the first round, 2 after the card sheet | 2 | +1 | accepted by revision 2: the one extra tap |
+
+Measured paths (360 x 844):
+
+- U4a: tap the schedule link on Home (opens the Quiet hours dialog), type the start time, Save.
+- U4b: Personalisation tab, tap a look card, Save.
+- U4c: Device tab in the Console bar, type the interval in the number field, Save.
+- L1: Location tab, scroll to the airport filter (it sits below the first screen), type "Lyon", tap the airport (it opens the same page for that airport), Save.
+- L2: Location tab, the permission prompt (one counted step), scroll to Use my position (it starts at the fold), tap it, Save.
+- L3: Location tab, type the query, tap Search places, scroll to the result, tap it, Save.
+- L4: Location tab, scroll to the map (it starts below the fold), tap it, Save.
+- S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.
+- S2 and U2 several: the frame chip, then the card of the other frame (one page change).
+- A7: the frame name in a Fleet row is a link to that frame's Console Health.
+- A8: More, Airline editor, the airline row, type the new name, Save name (5 on a phone). On desktop the sidebar link replaces More and the editor link, so the path is one tap shorter; the desktop figure is not measured in this file (the phone rule governs).
+- V1: phone, More then Airline collection. Desktop is the sidebar link, measured at 1280 px outside the phone rule.
 
 ## Honest notes
 
-- Tasks whose count did not improve: A4 reassign (equal to its before value and
-  to its target), U1 (same count; the gain is that it now ends on Home), U2 with
-  several frames (same count; the gain is that the landing page is the frame),
-  U4 (no gain).
-- **U4 misses its target.** The design target assumed a setting is one change
-  away from the Display tab. On the Display page the first screen holds the
-  look cards (their editor is a sheet) and "Location and detection" and
-  "Quiet hours" sit below it, so the scroll adds one step and the look sheet
-  adds two. The test pins the measured values (4 and 5), not the target of 3.
-  Page length on Display was out of this phase's page list; it is recorded as
-  an owner-decision item in `61-TRACEABILITY.md`.
-- A1, U2 (one frame) and U3 are zero-action tasks: the test asserts what is
-  visible on the landing page (status dots with accessible names, no frame
-  switcher, the Home dot) instead of a count above zero.
+- **Targets missed (three, all on the Location page, on a phone):** L1 (5
+  against 4), L2 (5 against 4) and L4 (4 against 3). The cause is the same in
+  all three: on a 360 x 844 phone the Location page puts the status card and the
+  place search first; the airport filter starts about 640 px below the fold,
+  the Use my position button at the fold edge and the map just below the fold
+  (the map box starts at y = 903). Each needs the counted scroll. Nothing was
+  changed in the product to hit a number. L3 reaches its target of 6 only
+  because the search field is on the first screen.
+- **A6 stays at 2** (More, Audit log), one over the 1-tap target the first round set. The
+  Console bar cannot hold Audit log next to Fleet, Users, Health, Device and More; this
+  equals the pre-redesign count of 2 and was noted by plan 61-21.
+- **U2 with several frames is 2**, not 1, since the frame drop-down became a card sheet
+  (revision 2 accepts the extra tap): the sheet lists every frame after one tap, and
+  reaching another frame is the card tap.
+- A8's phone figure is the bare minimum for the editor path; the desktop number is
+  not asserted here.
+- L2 models the browser's one-time permission prompt as one step. The test context grants
+  the permission in advance, so no prompt is driven; a person who has already granted it
+  pays one step less.
+- Tasks whose count did not improve: A4 reassign (equal), U1 (the gain is that it ends on
+  Home), A6 (equal to before, over the target), U2 several (one more than before, accepted).
+- A1, U2 (one frame) and U3 are zero-action tasks: the test asserts what is visible on the
+  landing page (status dots with accessible names, no frame switcher, the Home dot) instead
+  of a count above zero.
+- Not measured: the other personal pages' own tasks, and the desktop counts other than V1.

@@ -3580,7 +3580,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   .filter-bar--chips .filter-chip__box {
     flex-direction: row-reverse;
     gap: var(--space-sm);
-    min-height: 42px;
+    min-height: 44px;
     padding: 0 var(--space-md);
   }
 
