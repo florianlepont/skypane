@@ -6385,8 +6385,12 @@ button.place-result:hover {
    * without moving the line. */
   position: relative;
   z-index: 1;
-  display: inline-block;
-  padding: 13px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 6px;
   margin: -13px -6px;
   white-space: nowrap;
   color: inherit;
@@ -6399,6 +6403,36 @@ button.place-result:hover {
 .home-switch__window:hover {
   color: var(--color-text);
   text-decoration-color: currentColor;
+}
+
+/* The chevron marks the window as openable; it carries no underline. */
+.home-switch__chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* Quiet hours dialog: the two time fields share a row on a wide dialog,
+ * stack on a phone, and the preset row keeps its bottom gap off the
+ * sentence below it. */
+.modal .quiet-times-row {
+  gap: var(--space-md);
+}
+
+.modal .quiet-preset-row {
+  margin-bottom: 0;
+}
+
+.modal .quiet-timezone-note {
+  margin: 0;
+}
+
+/* The link inside the sentence keeps its place in the line; its padding and
+ * the matching negative margin give a 44px target without moving the text. */
+.modal .quiet-timezone-note a {
+  display: inline-block;
+  padding: 13px 4px;
+  margin: -13px -4px;
 }
 
 .home-switch__detail .home-switch__state {

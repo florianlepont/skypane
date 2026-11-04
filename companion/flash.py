@@ -17,6 +17,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 from companion import device_scope, frame_state, i18n, layout, routes, wake
 from companion.pages import (
     airlines_page, co_managers_card, config_page, detection_page, update_page)
+from server import device_config
 from server.plane import calendar_rules, colour_rules
 
 # The flash-key string literals below are defined exactly once, in
@@ -79,6 +80,8 @@ FLASH_KEY_DISPLAY_ON = "display_on"
 FLASH_KEY_DISPLAY_OFF = "display_off"
 FLASH_KEY_QUIET_ON = "quiet_on"
 FLASH_KEY_QUIET_OFF = "quiet_off"
+# The Quiet hours dialog's own save: names the stored window.
+FLASH_KEY_QUIET_WINDOW_SAVED = "quiet_window_saved"
 FLASH_KEY_QUICK_FAILED = "quick_failed"
 # The LED switch's own two outcomes, worded like the Quiet-hours pair
 # rather than the Screen pair — the LED, like quiet hours, takes effect
@@ -111,6 +114,9 @@ FLASH_MESSAGES = {
     FLASH_KEY_QUIET_OFF: i18n.msg(
         "common.quiet_hours_turned_off_applies_the_next_time",
         "Quiet hours turned off — applies the next time the frame wakes up."),
+    FLASH_KEY_QUIET_WINDOW_SAVED: i18n.msg(
+        "common.quiet_hours_saved_the_screen_will_rest_from_to",
+        "Quiet hours saved — The screen will rest from {start} to {end}."),
     FLASH_KEY_WELCOME: i18n.msg(
         "common.welcome_to_skypane_this_is_your_frame_s_home",
         "Welcome to SkyPane — You are signed in. This is your frame's Home; "
@@ -378,6 +384,7 @@ FLASH_TONES = {
     FLASH_KEY_DISPLAY_OFF: _PENDING,
     FLASH_KEY_QUIET_ON: _PENDING,
     FLASH_KEY_QUIET_OFF: _PENDING,
+    FLASH_KEY_QUIET_WINDOW_SAVED: _PENDING,
     FLASH_KEY_LED_ON: _PENDING,
     FLASH_KEY_LED_OFF: _PENDING,
     FLASH_KEY_QUICK_FAILED: _ERROR,
@@ -504,6 +511,12 @@ def resolve_flash_text(
     if flash_key == FLASH_KEY_CALENDAR_CONNECT_OK:
         count = len(calendar_rules.load_calendar_registry(state_dir)["entries"])
         return template.format(n=count)
+    if flash_key == FLASH_KEY_QUIET_WINDOW_SAVED:
+        # The stored window, read from the config this render loaded.
+        cfg = device_cfg or {}
+        return template.format(
+            start=cfg.get("quiet_hours_start") or device_config.DEFAULT_QUIET_HOURS_START,
+            end=cfg.get("quiet_hours_end") or device_config.DEFAULT_QUIET_HOURS_END)
     if flash_key == FLASH_KEY_PLACE_SAVED:
         return template.format(
             place=place_name or i18n.t(detection_page.PLACE_FALLBACK_NAME))

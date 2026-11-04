@@ -63,6 +63,11 @@ MESSAGES = {
         "il ne se rafraîchit donc pas en continu.",
     "home.switches": "Commandes du cadre",
     "home.edit_quiet_hours": "Modifier les heures calmes (%s)",
+    "home.use_quiet_hours": "Utiliser les heures calmes",
+    "home.save_quiet_hours": "Enregistrer les heures calmes",
+    "home.quiet_hours_zone_sentence":
+        "L’écran est au repos pendant ces heures, dans le fuseau {zone}. "
+        "Changez le fuseau dans {card}.",
     "home.battery_label": "Batterie",
     "home.battery_aria": "Batterie à environ %s",
     "home.battery_low": "Faible",

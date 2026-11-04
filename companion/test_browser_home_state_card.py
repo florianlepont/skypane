@@ -439,10 +439,10 @@ def test_dark_theme_unchecked_switch_thumb_stands_out_from_its_track(new_context
 
 
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-2]], ids=["1280", "390"])
-def test_quiet_hours_window_link_opens_the_display_section_without_toggling(
+def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
         new_context, make_app_server, viewport_name, viewport):
-    """the quiet-hours window is a keyboard-focusable link with a 44px target; clicking it lands
-    on Display with the Quiet hours heading in view and leaves the switch untouched, while a tap
+    """the quiet-hours window is a keyboard-focusable link with a 44px target; activating it with
+    the keyboard opens the Quiet hours dialog and leaves the switch untouched, while a tap
     elsewhere on the row still flips the switch"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", viewport)
@@ -451,18 +451,18 @@ def test_quiet_hours_window_link_opens_the_display_section_without_toggling(
         box = link.bounding_box()
         assert box["height"] >= 44, box
         link.focus()
+        page.wait_for_function(
+            "() => document.activeElement && document.activeElement.matches('.home-switch__window')")
         assert _has_visible_focus_indicator(page, ".home-switch__window")
-        link.click()
-        page.wait_for_url("**/display#quiet-hours-group-heading")
-        heading = page.locator("#quiet-hours-group-heading")
-        heading.wait_for(state="visible")
-        top = heading.bounding_box()["y"]
-        # The jump aligns the heading with the top edge, but layout positions are
-        # fractional while the scroll offset is a whole pixel, so a heading that
-        # is in view can sit a fraction of a pixel above the edge.
-        assert -1 < top < viewport["height"], top
+        page.keyboard.press("Enter")
+        page.wait_for_function(
+            "() => document.querySelector('#dlg-quiet-hours').open"
+            " && document.activeElement.id === 'quiet-window-start'", timeout=10000)
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False
-        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('#dlg-quiet-hours').open"
+            " && document.activeElement.matches('.home-switch__window')", timeout=10000)
         label = page.locator("#home-switch-quiet-label").bounding_box()
         page.mouse.click(label["x"] + 4, label["y"] + 4)
         page.locator(QUIET_BUTTON + '[aria-checked="true"]').wait_for()

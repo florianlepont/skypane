@@ -70,6 +70,7 @@ HISTORY_LEGACY_ROUTE = "/history"
 PREVIEW_PAGE_ROUTE = "/preview"
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
+QUICK_QUIET_HOURS_WINDOW_ROUTE = "/quick/quiet-hours/window"
 QUICK_LED_ROUTE = "/quick/led"
 THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
@@ -230,6 +231,10 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(QUICK_QUIET_HOURS_ROUTE),
         lambda h, m: h._handle_quick_toggle(m.device, "quiet_hours_enabled"), OWNER_DEVICE),
+    # The Quiet hours dialog on Home: writes the three quiet-hours keys only.
+    Route(
+        "POST", Exact(QUICK_QUIET_HOURS_WINDOW_ROUTE),
+        lambda h, m: h._handle_quiet_hours_window_post(m.device), OWNER_DEVICE, csrf=True),
     # Session-checked POST only, no CSRF token - SameSite=Strict is the
     # only control here. return_to whitelist: /device is the LED
     # switch's only page, so it is both the sole allowed value and the
@@ -311,6 +316,7 @@ _ACTION_KEYS = (
     ("POST", Exact(DETECTION_ROUTE)),
     ("POST", Exact(QUICK_DISPLAY_ROUTE)),
     ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
+    ("POST", Exact(QUICK_QUIET_HOURS_WINDOW_ROUTE)),
     ("POST", Exact(QUICK_LED_ROUTE)),
     ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
     ("POST", Exact(airlines_page.RENAME_ROUTE)),
@@ -327,7 +333,7 @@ _ACTION_KEYS = (
     ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
 )
 
-# The routes that act on a single device: 15 GET and 17 POST.
+# The routes that act on a single device: 15 GET and 18 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
 # Form field carrying the per-session anti-forgery token.

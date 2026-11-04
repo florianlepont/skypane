@@ -24,9 +24,11 @@ import companion.health_signals as health_signals
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
+import companion.ui_modal as ui_modal
 import companion.user_view as user_view
 import companion.wake as wake
 from companion.layout import escape_html
+from companion.settings import quiet_hours
 from server import device_config, history_db
 from server.plane import illustrations, name_overrides
 # The same presentation-only airline alias Flights applies via
@@ -100,6 +102,7 @@ NO_READING_TEXT = i18n.msg("home.no_reading_yet", "No reading yet")
 FRAME_STATE_HEADING = i18n.msg("home.frame_state", "Frame state")
 QUICK_DISPLAY_ACTION = "/quick/display"
 QUICK_QUIET_HOURS_ACTION = "/quick/quiet-hours"
+QUICK_QUIET_HOURS_WINDOW_ACTION = "/quick/quiet-hours/window"
 # Each state is a short title, set in the display face, plus for the
 # held states a plain sentence under it saying what the frame does.
 STATE_SCREEN_ON_TEXT = i18n.msg("home.state_screen_on", "Screen on")
@@ -128,6 +131,10 @@ CADENCE_INFO_ID = "home-cadence-info"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
     "home.edit_quiet_hours", "Edit quiet hours (%s)")
+CLOSE_LABEL = i18n.msg("common.close", "Close")
+# Literal, like the quick-action paths above: a page module cannot import
+# its sibling that owns the route.
+DETECTION_PATH = "/detection"
 DEFAULT_QUIET_START = "23:00"
 DEFAULT_QUIET_END = "07:00"
 
@@ -512,14 +519,14 @@ def _switches_html(cfg):
     screen_on = cfg.get("display_enabled") is not False
     quiet_on = cfg.get("quiet_hours_enabled") is True
     # A link beside the switch's label, outside its <button>: the window
-    # opens the Quiet hours section on Display. The accessible name repeats
-    # the visible window so it is never out of step with it.
+    # opens the Quiet hours dialog. The accessible name repeats the visible
+    # window so it is never out of step with it.
     window_text = _quiet_window_text(cfg)
-    window = (
-        ' · <a class="home-switch__window time-value" href="%s#%s" aria-label="%s">%s</a>'
-        % (device_scope.scoped(layout.DISPLAY_ROUTE), layout._FRAME_QUIET_SCHEDULE_TARGET_ID,
-           escape_html(i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text),
-           escape_html(window_text)))
+    window = " · " + ui_modal.trigger_html(
+        quiet_hours.QUIET_DIALOG_ID,
+        escape_html(window_text) + layout.icon_html("icon-chevron-right", 16, "home-switch__chevron"),
+        extra_class="home-switch__window time-value",
+        aria_label=i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text)
     return (
         '<div class="home-state__switches" role="group" aria-label="%s">%s%s</div>'
     ) % (
@@ -709,12 +716,29 @@ def _action_needed_html(ctx):
         role="", docked=True, extra_class="home-action")
 
 
-def render(ctx):
+def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
+    """The Quiet hours dialog, rendered open when a save was refused. It is
+    a sibling of the swapped regions below, never inside one, so a
+    background refresh cannot discard an open dialog or a half-typed time.
+    Start time takes the initial focus although the switch comes first."""
+    cfg = ctx.device_config or {}
+    return ui_modal.dialog_html(
+        quiet_hours.QUIET_DIALOG_ID, i18n.t(STATE_QUIET_TEXT),
+        device_scope.scoped(QUICK_QUIET_HOURS_WINDOW_ACTION, "POST"), layout.csrf_field(),
+        quiet_hours.quiet_hours_dialog_body_html(
+            cfg, device_scope.scoped(DETECTION_PATH) + "#details", errors, submitted),
+        i18n.t(quiet_hours.QUIET_DIALOG_SAVE_LABEL), i18n.t(CLOSE_LABEL),
+        device_scope.scoped(layout.HOME_ROUTE), open_=bool(errors),
+        focus_id=quiet_hours.QUIET_DIALOG_START_ID)
+
+
+def render(ctx, quiet_errors=None, quiet_submitted=None):
     """Render Home: the status header (state, next update, battery and the
     two switches) first, then the generated picture and its flight line,
     with the recent flights beside it on desktop and after it on a phone.
     An actionable shared health state adds the attention row; daily
-    activity belongs to Health.
+    activity belongs to Health. `quiet_errors`/`quiet_submitted` re-render
+    the Quiet hours dialog open after a refused save.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -743,4 +767,5 @@ def render(ctx):
         + '<div class="home-facts">'
         + ("" if user_view.is_personal_view() else _action_needed_html(ctx))
         + "</div>"
+        + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
     )

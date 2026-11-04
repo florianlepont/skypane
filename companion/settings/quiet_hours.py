@@ -550,6 +550,30 @@ def timezone_note_html(card_href):
     return '<p class="text-label quiet-timezone-note">%s</p>' % sentence
 
 
+def quiet_preset_row_html():
+    """The three preset buttons as a segmented control with no selected
+    state: they are momentary actions that write into the two time fields
+    (and, for "Always on", clear the enabled checkbox), not a persistent
+    choice. Inert with no script."""
+    return (
+        '<div class="%s">'
+        '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
+        '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
+        '<button type="button" %s data-preset-enabled="0">%s</button>'
+        "</div>"
+    ) % (
+        QUIET_PRESET_ROW_CLASS,
+        QUIET_HOURS_PRESET_ATTR,
+        escape_html(QUIET_HOURS_PRESET_NIGHT_START), escape_html(QUIET_HOURS_PRESET_NIGHT_END),
+        escape_html(i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL)),
+        QUIET_HOURS_PRESET_ATTR,
+        escape_html(QUIET_HOURS_PRESET_WORKDAY_START), escape_html(QUIET_HOURS_PRESET_WORKDAY_END),
+        escape_html(i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL)),
+        QUIET_HOURS_PRESET_ATTR,
+        escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
+    )
+
+
 def quiet_hours_group(
         current_start, current_end, errors=None, submitted=None,
         current_timezone=device_config.DEFAULT_TIMEZONE, zone_card_href=None):
@@ -580,26 +604,7 @@ def quiet_hours_group(
         errors, "quiet_hours_end", "quiet-hours-end", hint_id=QUIET_HOURS_SECTION_CAPTION_ID)
     end_error_html = _field_error_html(errors, "quiet_hours_end", "quiet-hours-end")
 
-    # The preset row is a segmented control with no selected state:
-    # these buttons are momentary actions that write into the time
-    # fields, not a persistent choice.
-    preset_row_html = (
-        '<div class="%s">'
-        '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
-        '<button type="button" %s data-preset-start="%s" data-preset-end="%s">%s</button>'
-        '<button type="button" %s data-preset-enabled="0">%s</button>'
-        "</div>"
-    ) % (
-        QUIET_PRESET_ROW_CLASS,
-        QUIET_HOURS_PRESET_ATTR,
-        escape_html(QUIET_HOURS_PRESET_NIGHT_START), escape_html(QUIET_HOURS_PRESET_NIGHT_END),
-        escape_html(i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL)),
-        QUIET_HOURS_PRESET_ATTR,
-        escape_html(QUIET_HOURS_PRESET_WORKDAY_START), escape_html(QUIET_HOURS_PRESET_WORKDAY_END),
-        escape_html(i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL)),
-        QUIET_HOURS_PRESET_ATTR,
-        escape_html(i18n.t(QUIET_HOURS_PRESET_ALWAYS_ON_LABEL)),
-    )
+    preset_row_html = quiet_preset_row_html()
 
     # `<html lang>` already carries the site's language, but a native
     # time control formats itself from the browser's own locale, not
@@ -661,3 +666,76 @@ def quiet_hours_group(
         timezone_note_html(zone_card_href) if zone_card_href
         else timezone_field_html(current_timezone, errors),
     )
+
+
+# The Quiet hours dialog opened from Home's schedule row. Its form posts
+# only these three fields; the time zone is read-only here and changed on
+# the Location and detection page.
+QUIET_DIALOG_ID = "dlg-quiet-hours"
+QUIET_DIALOG_START_ID = "quiet-window-start"
+QUIET_DIALOG_END_ID = "quiet-window-end"
+QUIET_DIALOG_ENABLED_ID = "quiet-window-enabled"
+QUIET_DIALOG_TIME_STEP_S = 300
+QUIET_DIALOG_ENABLED_LABEL = i18n.msg("home.use_quiet_hours", "Use quiet hours")
+QUIET_DIALOG_SAVE_LABEL = i18n.msg("home.save_quiet_hours", "Save quiet hours")
+QUIET_DIALOG_ZONE_SENTENCE = i18n.msg(
+    "home.quiet_hours_zone_sentence",
+    "The screen rests during these hours, in the time zone {zone}. "
+    "Change the time zone in {card}.")
+
+
+def _dialog_enabled(submitted, current_enabled):
+    """Whether the dialog's checkbox renders checked: the posted choice on a
+    re-render after a refusal (an unchecked box posts nothing), else the
+    stored flag."""
+    if submitted is None:
+        return current_enabled
+    return submitted.get("quiet_hours_enabled") == "on"
+
+
+def _dialog_time_field_html(label, name, control_id, value, errors):
+    """One labelled 44px time input with its error paragraph below."""
+    return (
+        '<div class="modal__field"><label for="%s">%s</label>'
+        '<input type="time" id="%s" name="%s" value="%s" step="%d" required lang="%s"%s>%s</div>'
+    ) % (
+        control_id, escape_html(i18n.t(label)), control_id, name, escape_html(value),
+        QUIET_DIALOG_TIME_STEP_S, escape_html(prefs.current_lang()),
+        _field_error_attrs(errors, name, control_id),
+        _field_error_html(errors, name, control_id))
+
+
+def quiet_hours_dialog_body_html(cfg, detection_href, errors=None, submitted=None):
+    """The fields of the Quiet hours dialog: the "Use quiet hours" checkbox,
+    Start and End, the three presets and the time-zone sentence with its
+    link. `cfg` is the stored device config; `submitted` (the posted form)
+    repopulates the fields after a refusal, escaped, and `errors` maps a
+    field name to its message."""
+    start = _submitted_or_current(
+        submitted, "quiet_hours_start", cfg.get("quiet_hours_start") or device_config.DEFAULT_QUIET_HOURS_START)
+    end = _submitted_or_current(
+        submitted, "quiet_hours_end", cfg.get("quiet_hours_end") or device_config.DEFAULT_QUIET_HOURS_END)
+    enabled = _dialog_enabled(submitted, cfg.get("quiet_hours_enabled") is True)
+    zone = device_config.normalise_timezone(cfg.get("timezone"))
+    link = '<a class="text-link" href="%s">%s</a>' % (
+        escape_html(detection_href), escape_html(i18n.t(TIMEZONE_NOTE_CARD)))
+    sentence = escape_html(i18n.t(QUIET_DIALOG_ZONE_SENTENCE)).replace(
+        "{zone}", escape_html(timezone_label_text(zone))).replace("{card}", link)
+    return (
+        '<div class="modal__field"><label class="settings-checkbox" for="%s">'
+        '<input type="checkbox" id="%s" name="quiet_hours_enabled" value="on"%s%s> %s</label>%s</div>'
+        '<div class="%s">%s%s</div>'
+        '%s'
+        '<p class="text-label quiet-timezone-note">%s</p>'
+    ) % (
+        QUIET_DIALOG_ENABLED_ID, QUIET_DIALOG_ENABLED_ID, " checked" if enabled else "",
+        _field_error_attrs(errors, "quiet_hours_enabled", QUIET_DIALOG_ENABLED_ID),
+        escape_html(i18n.t(QUIET_DIALOG_ENABLED_LABEL)),
+        _field_error_html(errors, "quiet_hours_enabled", QUIET_DIALOG_ENABLED_ID),
+        QUIET_TIMES_ROW_CLASS,
+        _dialog_time_field_html(
+            QUIET_HOURS_START_FIELD_LABEL, "quiet_hours_start", QUIET_DIALOG_START_ID, start, errors),
+        _dialog_time_field_html(
+            QUIET_HOURS_END_FIELD_LABEL, "quiet_hours_end", QUIET_DIALOG_END_ID, end, errors),
+        quiet_preset_row_html(),
+        sentence)

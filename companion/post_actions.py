@@ -43,6 +43,8 @@ from companion.flash import (
     FLASH_KEY_MANUAL_REGISTRY_FULL,
     FLASH_KEY_MANUAL_RESOLVED,
     FLASH_KEY_MANUAL_SAVE_FAILED,
+    FLASH_KEY_QUICK_FAILED,
+    FLASH_KEY_QUIET_WINDOW_SAVED,
     FLASH_KEY_RENAME_FULL,
     FLASH_KEY_RENAME_TAKEN,
     FLASH_KEY_RENAME_RESET,
@@ -58,9 +60,10 @@ from companion.flash import (
     FLASH_KEY_RULE_SAVE_FAILED,
 )
 from companion import resolve_dialog
-from companion.pages import airline_sheet, airlines_page, config_page
+from companion.pages import airline_sheet, airlines_page, config_page, home_page
+from companion.settings import form_post
 from companion.pages.airlines_page import unresolved_row_for_prefix
-from server import atomic_io
+from server import atomic_io, device_config
 from server.plane import (
     calendar_rules, colour_rules, enrich, illustrations, manual_resolutions, name_overrides,
 )
@@ -193,6 +196,32 @@ def parse_single_uploaded_file(content_type, body):
         return payload
     except Exception:
         return None
+
+
+# The only fields the Quiet hours dialog posts; each echoed value is capped
+# so a hostile body cannot inflate the re-rendered page.
+_QUIET_WINDOW_FIELDS = ("quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end")
+_QUIET_WINDOW_ECHO_CAP = 16
+
+
+def _quiet_window_from_form(form):
+    """(errors, keywords): the field errors that refuse the posted quiet
+    window, or the three device-config keywords to write. Both times are
+    required here (the shared resolvers treat an absent time as
+    unchanged); an unchecked box posts nothing, which means off."""
+    errors = {}
+    times = form_post.resolve_quiet_hours_times(form, errors)
+    enabled = form_post.resolve_quiet_hours_enabled(form, errors)
+    for name in ("quiet_hours_start", "quiet_hours_end"):
+        if form.get(name) is None:
+            errors.setdefault(name, form_post.ERROR_QUIET_HOURS_TIME_SHAPE)
+    if errors:
+        return errors, None
+    return None, {
+        "quiet_hours_enabled": enabled["quiet_hours_enabled"] is True,
+        "quiet_hours_start": times["quiet_hours_start"],
+        "quiet_hours_end": times["quiet_hours_end"],
+    }
 
 
 class SettingsActionsMixin:
@@ -570,3 +599,24 @@ class SettingsActionsMixin:
                 FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)
         return self._calendar_sheet_redirect(
             FLASH_KEY_CALENDAR_CONNECT_FAILED, config_page.CALENDAR_ERROR_UNREACHABLE)
+
+    def _handle_quiet_hours_window_post(self, device):
+        """POST /quick/quiet-hours/window: the Home dialog's save. Only the
+        three quiet-hours keys are passed to `save_device_config`, so every
+        other setting stays as stored. A refused value re-renders Home with
+        the dialog open and writes nothing."""
+        form = self.read_form()
+        errors, window = _quiet_window_from_form(form)
+        home = device_scope.scoped(layout.HOME_ROUTE)
+        if errors:
+            ctx = self.page_context(device)
+            echoed = {
+                name: (form.get(name) or "")[:_QUIET_WINDOW_ECHO_CAP]
+                for name in _QUIET_WINDOW_FIELDS if name in form}
+            body = home_page.render(ctx, quiet_errors=errors, quiet_submitted=echoed)
+            return self.send_html(400, self._page_shell_for(layout.HOME_ROUTE, body, ctx))
+        try:
+            device_config.save_device_config(device.state_dir, **window)
+        except (ValueError, OSError):
+            return self.redirect("%s?flash=%s" % (home, quote(FLASH_KEY_QUICK_FAILED)))
+        return self.redirect("%s?flash=%s" % (home, quote(FLASH_KEY_QUIET_WINDOW_SAVED)))

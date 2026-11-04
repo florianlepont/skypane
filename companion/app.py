@@ -277,6 +277,7 @@ _CONSOLE_FRAME_ROUTES = frozenset((
 # what a freshly-seeded, empty state happens to render.
 _PAGE_SCRIPTS = {
     layout.HOME_ROUTE: (
+        layout.DIRTY_STATE_SCRIPT_SRC,
         layout.FRESHNESS_SCRIPT_SRC,
         layout.QUICK_SWITCH_SCRIPT_SRC,
     ),

@@ -695,7 +695,8 @@ def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
             "retired Home diagnostics returned at %dpx/%s: %r" % (width, lang, hierarchy))
         assert hierarchy["scrollWidth"] <= width, (
             "Direction B Home scrolls horizontally at %dpx/%s: %r" % (width, lang, hierarchy))
-        for action in page.locator("main a").all():
+        # The Quiet hours dialog's links are inside a closed dialog and cannot take focus.
+        for action in page.locator("main a:visible").all():
             action.focus()
             focused = action.evaluate(
                 "el => document.activeElement === el && "

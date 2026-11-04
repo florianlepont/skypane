@@ -1,6 +1,10 @@
-"""Access-matrix rows for the place save. No route is added (POST /detection is
-already an owner-device route); `ROWS` and `SAMPLES` stay empty so the module
-merges like the others.
+"""Access-matrix rows for the place save and the quiet-hours window save.
+
+The place save adds no route (POST /detection is already an owner-device
+route). The quiet-hours dialog posts to its own route, which has a row in
+`ROWS`: owner, co-manager and administrator of the frame are accepted, a
+stranger gets the unknown-path 404 and an anonymous caller is sent to
+sign-in.
 
 `ACTION` is the form action that saves a frame's own place. `EXPECTED_STATUS`
 is what each kind of caller gets when it posts a valid place for the owner's
@@ -9,7 +13,9 @@ frame: the owner, a co-manager of that frame and an administrator are accepted
 sign-in (303 to /login).
 """
 
-ROWS = {}
+ROWS = {
+    ("POST", "/quick/quiet-hours/window"): "owner-device",
+}
 SAMPLES = {}
 
 ACTION = "save_place"

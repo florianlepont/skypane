@@ -150,6 +150,7 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.DETECTION_ROUTE,
     companion_app.QUICK_DISPLAY_ROUTE,
     companion_app.QUICK_QUIET_HOURS_ROUTE,
+    "/quick/quiet-hours/window",
     companion_app.QUICK_LED_ROUTE,
     companion_app.THEME_ROUTE,
     companion_app.LANG_ROUTE,
