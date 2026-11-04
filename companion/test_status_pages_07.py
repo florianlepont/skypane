@@ -1001,7 +1001,8 @@ def test_both_tabs_ok_end_to_end(make_app_server):
     session_cookie = login(server)
 
     for path, heading in (
-            ("/health", "Health"), ("/airlines", "Airlines"),
+            ("/health", "Health"), ("/airlines", "Airline collection"),
+            ("/airlines/manage", "Airlines"),
             # /history added so the served-HTML twin of the render-level
             # History guard above runs against a real running service,
             # not only an in-process render() call.
@@ -1049,7 +1050,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
                 "expected the desc-class cells to fall after the Resolution-statistics heading in "
                 "the real /health HTTP response body")
 
-        elif path == "/airlines":
+        elif path == "/airlines/manage":
             body_text = body.decode("utf-8", errors="replace")
             retired_token = "airline-card__" + "replace"
             assert retired_token not in body_text, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"

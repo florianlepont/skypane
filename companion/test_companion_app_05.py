@@ -400,7 +400,7 @@ def test_manual_resolve_post_rejection_mapping_and_d03_branch(make_app_server):
 
 def test_manual_resolution_delete_route_full_contract(make_app_server):
     """POST /airlines/manual-resolutions/{prefix}/delete removes the registry entry, leaves the
-    override PNG on disk and redirects to /airlines with no flash; a second identical
+    override PNG on disk and redirects to /airlines/manage with no flash; a second identical
     POST is a no-op that also redirects without an error flash; a malformed prefix 404s without
     touching the registry"""
     server = make_app_server(fake_providers=True)
@@ -420,7 +420,7 @@ def test_manual_resolution_delete_route_full_contract(make_app_server):
         base + "/airlines/manual-resolutions/DEL/delete", method="POST", data=with_csrf(session), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
-    assert location == "/airlines", "expected a redirect to /airlines with no flash, got %r" % location
+    assert location == "/airlines/manage", "expected a redirect to /airlines/manage with no flash, got %r" % location
     registry = manual_resolutions.load_manual_resolutions(server.state_dir)
     assert "DEL" not in registry, "expected the DEL entry to be removed from the registry"
     assert os.path.isfile(override_path), "expected the override file to survive the delete (D-08)"
@@ -430,7 +430,7 @@ def test_manual_resolution_delete_route_full_contract(make_app_server):
     assert status == 303, (
         "expected a second, identical delete POST to also redirect (idempotent), got %d" % status)
     location = headers.get("Location", "")
-    assert location == "/airlines", (
+    assert location == "/airlines/manage", (
         "expected the same no-flash redirect on a second delete of an already-absent prefix, "
         "got %r" % location)
 
@@ -1288,6 +1288,11 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
         "test_browser_ux_helpers.VIEW_TRANSITION_ROUTES membership %r"
         % (sorted(site_routes), sorted(browser_ux_helpers.VIEW_TRANSITION_ROUTES)))
 
+    # The Airline editor kept the captions the retired gallery page had, so it is
+    # measured with the six routes.
+    from companion.pages import airlines_page
+    measured_routes = site_routes + (airlines_page.MANAGE_ROUTE,)
+
     # --- fetch every route x language over the real server ---
     exempt_by_lang = {
         lang: {
@@ -1299,7 +1304,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     apply_timing_templates = (frame_state.DELAY_DUE, frame_state.DELAY_HELD, frame_state.DELAY_UNKNOWN)
 
     rendered_by = {}
-    for route in site_routes:
+    for route in measured_routes:
         for lang in ("en", "fr"):
             cookie_header = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
             status, _headers, body = http_request(base + route, cookie=cookie_header)
@@ -1315,14 +1320,15 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # render of each route.
     per_route_min = {
         layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 2, layout.FLIGHTS_ROUTE: 0,
-        layout.AIRLINES_ROUTE: 2, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
+        layout.AIRLINES_ROUTE: 0, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
+        airlines_page.MANAGE_ROUTE: 2,
     }
     site_total_min = 14
 
     skip_counts = {"en": 0, "fr": 0}
     site_total_captions = 0
     outside_matches = []
-    for route in site_routes:
+    for route in measured_routes:
         for lang in ("en", "fr"):
             rendered = rendered_by[(route, lang)]
             captions = _measured_section_captions(rendered)

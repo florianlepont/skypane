@@ -397,13 +397,13 @@ def test_hex_only_row_promotes_hex_to_primary(tmp_path):
 def test_history_has_no_resolve_link_machinery_and_health_keeps_its_own():
     """the Flight history page no longer carries a resolve link template, text or prefix
     helper (naming an airline is Console work), while the Health page's own resolve link
-    template is still built from airlines_page.AIRLINES_ROUTE and RESOLVE_QUERY_PARAM"""
+    template is still built from airlines_page.MANAGE_ROUTE and RESOLVE_QUERY_PARAM"""
     for name in ("RESOLVE_LINK_HREF_TEMPLATE", "RESOLVE_LINK_TEXT", "UNRESOLVED_LINK_CLASS",
                  "UNRESOLVED_LINK_HREF", "resolve_prefix_for_callsign"):
         assert not hasattr(history_page, name), name
     from companion.pages import health_page
 
-    expected = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+    expected = "%s?%s=%%s" % (airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
     assert health_page.RESOLVE_LINK_HREF_TEMPLATE == expected
 
 

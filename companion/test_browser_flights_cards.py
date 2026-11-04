@@ -442,7 +442,7 @@ def test_airlines_search_pill_has_no_chips_and_both_clears_work(new_context, ser
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/airlines")
+        page.goto(server.base_url() + "/airlines/manage")
         page.locator("[data-filter-input]").wait_for(state="visible")
         if page.locator(".filter-chip").count():
             raise AssertionError("expected no chips on the Airlines filter bar")

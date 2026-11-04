@@ -179,7 +179,7 @@ def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context,
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/airlines")
+        page.goto(server.base_url() + "/airlines/manage")
         page.locator(".airline-list .airline-row").first.wait_for(state="visible")
         rows = page.eval_on_selector_all(
             ".airline-list .airline-row",
@@ -208,7 +208,7 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/airlines")
+        page.goto(server.base_url() + "/airlines/manage")
         field = page.locator("[data-filter-input]")
         count = page.locator("[data-filter-count]").first
         field.wait_for(state="visible")
@@ -286,7 +286,7 @@ def test_the_no_js_floor_holds_for_health(new_context, server):
         # `:visible` matters: the card list and the table are both in the DOM at every width
         # (the toggle between them is CSS-only), so the reachable one is whichever the
         # viewport actually shows.
-        resolve = page.locator('a[href^="/airlines?resolve="]:visible').first
+        resolve = page.locator('a[href^="/airlines/manage?resolve="]:visible').first
         if resolve.count() == 0:
             raise AssertionError(
                 "expected the per-row Resolve action to be reachable with scripts "

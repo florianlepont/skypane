@@ -64,7 +64,7 @@ def server(module_app_server_factory):
 ARTWORK_PREFIX = "NEW"
 ARTWORK_NAME = "Totally Novel Airline"
 ARTWORK_KEY = manual_resolutions.illustration_key_for_name(ARTWORK_NAME)
-ARTWORK_ROUTE = "/airlines?resolve=" + ARTWORK_PREFIX
+ARTWORK_ROUTE = "/airlines/manage?resolve=" + ARTWORK_PREFIX
 ARTWORK_SERVE = "/illustration/%s.png" % ARTWORK_KEY
 FALLBACK_ZONE = "[data-resolve-fallback] [data-upload-drop]"
 # The dialog's Replace form renders unconditionally, so #panel-lookup-dialog carries both
@@ -1427,7 +1427,7 @@ def test_a_row_lists_its_types_and_the_sheet_switches_between_them(new_context, 
                     "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
                 page = context.new_page()
                 _login(page, server.base_url())
-                page.goto(server.base_url() + "/airlines")
+                page.goto(server.base_url() + "/airlines/manage")
                 row = _types_card(page).locator(".airline-row")
                 row.wait_for(state="visible")
                 types_line = _types_card(page).locator(".airline-row__types").text_content()
@@ -1474,13 +1474,13 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
     """With scripts blocked a multi-type row still lists every type as text, is a real link to
     its in-page sheet, and a row for a single-type airline names its one aircraft, all inside
     the narrowest supported viewport without overflow."""
-    with _no_js_page(new_context, server.base_url(), "/airlines",
+    with _no_js_page(new_context, server.base_url(), "/airlines/manage",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         card = _types_card(page)
         if card.locator(".airline-row__types").text_content() != "B737 · A320":
             raise AssertionError("expected both Transavia types as text")
         href = card.locator("a.airline-row").get_attribute("href")
-        if href != "/airlines?sheet=transavia-france#airline-sheet":
+        if href != "/airlines/manage?sheet=transavia-france#airline-sheet":
             raise AssertionError("expected a link to the in-page sheet, got %r" % (href,))
         single = page.locator(".airline-list__item").filter(
             has=page.locator(".airline-row__name", has_text="Air France")).first
@@ -1501,7 +1501,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/airlines")
+        page.goto(server.base_url() + "/airlines/manage")
         page.locator('a.airline-row[data-view-panel-resolve-prefix="%s"]'
                      % ARTWORK_PREFIX).click()
         dialog = page.locator("#panel-lookup-dialog")
@@ -1517,7 +1517,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
             button.click()
         if manual_resolutions.load_manual_resolutions(server.tmpdir).get(ARTWORK_PREFIX):
             raise AssertionError("the manual entry was not removed")
-        if not page.url.rstrip("/").endswith("/airlines"):
+        if not page.url.rstrip("/").endswith("/airlines/manage"):
             raise AssertionError("expected to land on the gallery, got %r" % page.url)
     finally:
         context.close()

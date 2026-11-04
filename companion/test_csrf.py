@@ -235,8 +235,8 @@ def _form_tokens(page_html, action_fragment):
 @pytest.mark.parametrize("page,action", (
     ("/display", RULE_DELETE),
     ("/display", config_page.CALENDAR_DISCONNECT_ROUTE),
-    ("/airlines", airlines_page.RENAME_RESET_ROUTE),
-    ("/airlines", airlines_page.LIGHTBOX_DELETE_CLASS),
+    ("/airlines/manage", airlines_page.RENAME_RESET_ROUTE),
+    ("/airlines/manage", airlines_page.LIGHTBOX_DELETE_CLASS),
 ))
 def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
     cookie = login(live)

@@ -26,7 +26,7 @@ SAVE = DIALOG + ' .lightbox__actions button[type="submit"]'
 CLOSE = DIALOG + " [data-view-panel-close]"
 UPLOAD_ZONE = DIALOG + " .resolve-upload-zone"
 VISIBLE_LINK = 'a[data-view-panel-resolve-prefix="%s"]:not([hidden]):visible'
-ROW_LINKS = 'a[href="/airlines?resolve=%s"]:not([hidden])'
+ROW_LINKS = 'a[href="/airlines/manage?resolve=%s"]:not([hidden])'
 FOCUSED_ID = "() => document.activeElement.id"
 SEEN = "2026-01-01T10:00:00+00:00"
 REGISTRY = {

@@ -382,7 +382,7 @@ class SettingsActionsMixin:
         query = "flash=%s" % quote(flash_key)
         if sheet_key:
             query = "%s=%s&%s" % (airline_sheet.SHEET_QUERY_PARAM, quote(sheet_key, safe=""), query)
-        return self._scoped_redirect("%s?%s" % (airlines_page.AIRLINES_ROUTE, query))
+        return self._scoped_redirect("%s?%s" % (airlines_page.MANAGE_ROUTE, query))
 
     def _handle_airline_rename_post(self, device):
         """POST /airlines/rename — set the owner's name for a built-in
@@ -452,8 +452,8 @@ class SettingsActionsMixin:
         if not deleted and existed:
             return self._scoped_redirect(
                 "%s?flash=%s"
-                % (airlines_page.AIRLINES_ROUTE, quote(FLASH_KEY_MANUAL_DELETE_FAILED)))
-        return self._scoped_redirect(airlines_page.AIRLINES_ROUTE)
+                % (airlines_page.MANAGE_ROUTE, quote(FLASH_KEY_MANUAL_DELETE_FAILED)))
+        return self._scoped_redirect(airlines_page.MANAGE_ROUTE)
 
     def _handle_rule_add_post(self, device):
         """POST /settings/rules/add: the colour-rules editor's immediate

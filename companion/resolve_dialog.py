@@ -17,7 +17,7 @@ from server.plane import enrich, illustrations, manual_resolutions
 
 # Where a finished resolve flow lands. The value travels as a hidden form field (name step) or a
 # query parameter (artwork step) and is only ever looked up in `_RETURN_ROUTES`; a value outside
-# it means Airlines, so no request can choose its own redirect target.
+# it means the Airline editor, so no request can choose its own redirect target.
 RETURN_FIELD = "return"
 RETURN_HEALTH = "health"
 _RETURN_ROUTES = {RETURN_HEALTH: layout.HEALTH_ROUTE}
@@ -36,14 +36,14 @@ _TRIGGER_VOCABULARY = (
 
 def return_route(value):
     """The page a resolve flow returns to: the route `value` names in the fixed allow-list,
-    otherwise Airlines. Never echoes `value`."""
+    otherwise the Airline editor. Never echoes `value`."""
     if isinstance(value, str) and value in _RETURN_ROUTES:
         return _RETURN_ROUTES[value]
-    return ap.AIRLINES_ROUTE
+    return ap.MANAGE_ROUTE
 
 
 def _return_query(return_target):
-    """`return=<target>` for an upload action, or `""` when the target is Airlines."""
+    """`return=<target>` for an upload action, or `""` when the target is the Airline editor."""
     return "%s=%s" % (RETURN_FIELD, return_target) if return_target in _RETURN_ROUTES else ""
 
 
@@ -108,7 +108,7 @@ def step_b_trigger_html(state_dir, prefix_raw, return_target):
         RETURN_ATTR: escape_html(return_target),
     })
     return '<a hidden href="%s?%s=%s" %saria-label="%s">%s</a>' % (
-        device_scope.scoped(ap.AIRLINES_ROUTE), ap.RESOLVE_QUERY_PARAM, escape_html(prefix),
+        device_scope.scoped(ap.MANAGE_ROUTE), ap.RESOLVE_QUERY_PARAM, escape_html(prefix),
         attrs, heading,
         escape_html(name))
 

@@ -1280,7 +1280,7 @@ _NO_JS_CONTROL_REGISTRY = (
         "field": "image",
         "form": airlines_page.MANUAL_UPLOAD_FORM_ID + "-dialog",
         "form_assoc": "enclosing",
-        "page_route": "/airlines",
+        "page_route": "/airlines/manage",
         "render": lambda: airlines_page._resolve_upload_form_html("", "-dialog"),
     },
 )

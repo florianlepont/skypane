@@ -61,7 +61,7 @@ _ADD_EXISTING_BUTTONS = (
     " chip.href = '/'; chip.innerHTML ="
     "  '<span class=\"filter-chip__box\"><span class=\"filter-chip__text\">x</span></span>';"
     " document.querySelector('main').appendChild(chip); }")
-REFERENCE_PATHS = ("/", "/display", "/health", "/flights", "/airlines", "/update", "/account")
+REFERENCE_PATHS = ("/", "/display", "/health", "/flights", "/airlines", "/airlines/manage", "/update", "/account")
 def _no_sideways_scroll(page):
     return page.evaluate(
         "document.documentElement.scrollWidth <= document.documentElement.clientWidth")

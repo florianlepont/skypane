@@ -190,6 +190,8 @@ def test_plain_strings_are_refused():
 # translation. Keyed by the stable message id.
 _UNCHANGED_IN_FRENCH = frozenset({
     "display.aspect",
+    # "Rare" is spelled identically in French.
+    "airlines.collection_rarity_rare",
     # Place names spelled identically in French.
     "display.timezone_opt_martinique", "display.timezone_opt_guadeloupe",
     "display.timezone_opt_mayotte",
@@ -414,7 +416,7 @@ _FRENCH_PAGE_CASES = (
     ("/display", "Personnalisation", "Display"),
     ("/device", "Appareil", "Device"),
     ("/flights", "Vols", "Flights"),
-    ("/airlines", "Compagnies", "Airlines"),
+    ("/airlines", "Collection de compagnies", "Airline collection"),
     ("/health", "État", "Health"),
 )
 

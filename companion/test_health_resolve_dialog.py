@@ -27,7 +27,7 @@ def _seed(state_dir):
 
 
 def _resolve_links(page, prefix):
-    pattern = r'<a href="/airlines\?resolve=%s" [^>]*>' % prefix
+    pattern = r'<a href="/airlines/manage\?resolve=%s" [^>]*>' % prefix
     return re.findall(pattern, page)
 
 
@@ -64,8 +64,8 @@ def test_every_resolve_row_is_a_trigger_with_the_full_vocabulary_and_keeps_its_l
     page for a visitor without script"""
     server, session = served
     health = _get(server, session, "/health")
-    airlines = _get(server, session, "/airlines")
-    gap = re.search(r'<a class="airline-card" href="/airlines\?resolve=QXA"[^>]*>', airlines).group(0)
+    airlines = _get(server, session, "/airlines/manage")
+    gap = re.search(r'<a class="airline-card" href="/airlines/manage\?resolve=QXA"[^>]*>', airlines).group(0)
     gap_attrs = _panel_attrs(gap)
     for prefix in REGISTRY:
         links = _resolve_links(health, prefix)
@@ -95,7 +95,7 @@ def test_the_dialog_is_on_health_once_with_a_return_field_and_not_on_airlines(se
     assert '<input type="hidden" name="return" value="">' in health
     assert 'action="/airlines/resolve"' in health
     assert '<script src="%s" defer>' % layout.PANEL_LOOKUP_SCRIPT_SRC in health
-    airlines = _get(server, session, "/airlines")
+    airlines = _get(server, session, "/airlines/manage")
     assert 'name="return"' not in airlines
 
 
@@ -107,9 +107,9 @@ def test_the_dialog_is_absent_when_the_table_is_empty(make_app_server):
 
 
 @pytest.mark.parametrize("value, route", [
-    ("health", "/health"), ("airlines", "/airlines"), ("", "/airlines"), (None, "/airlines"),
-    ("Health", "/airlines"), ("/health", "/airlines"), ("//evil.example", "/airlines"),
-    ("https://evil.example/", "/airlines"), ("health\r\nX: y", "/airlines"), (["health"], "/airlines"),
+    ("health", "/health"), ("airlines", "/airlines/manage"), ("", "/airlines/manage"), (None, "/airlines/manage"),
+    ("Health", "/airlines/manage"), ("/health", "/airlines/manage"), ("//evil.example", "/airlines/manage"),
+    ("https://evil.example/", "/airlines/manage"), ("health\r\nX: y", "/airlines/manage"), (["health"], "/airlines/manage"),
 ])
 def test_the_return_target_is_an_allow_list(value, route):
     """only the name 'health' reaches Health; every other value, however shaped, means Airlines"""
@@ -128,7 +128,7 @@ def test_naming_from_health_without_artwork_returns_to_health_for_step_b(served)
     assert query == {"resolve": ["QXA"], "flash": ["manual_resolved"]}
     page = _get(server, session, "/health?resolve=QXA&flash=manual_resolved")
     assert not _resolve_links(page, "QXA") and _resolve_links(page, "QXB")
-    step_b = re.search(r'<a hidden href="/airlines\?resolve=QXA" [^>]*>', page).group(0)
+    step_b = re.search(r'<a hidden href="/airlines/manage\?resolve=QXA" [^>]*>', page).group(0)
     attrs = _panel_attrs(step_b)
     assert attrs["data-view-panel-mode"] == "needs-artwork"
     assert attrs["data-view-panel-return"] == "health"
@@ -159,9 +159,9 @@ def test_any_other_return_value_keeps_the_airlines_redirects(served, return_valu
     fields = {} if return_value is None else {"return": return_value}
     _, headers, _ = _post(
         server, session, "/airlines/resolve", prefix="QXA", airline_name="Totally Novel Airline", **fields)
-    assert _location(headers) == ("/airlines", {"resolve": ["QXA"], "flash": ["manual_resolved"]})
+    assert _location(headers) == ("/airlines/manage", {"resolve": ["QXA"], "flash": ["manual_resolved"]})
     _, headers, _ = _post(server, session, "/airlines/resolve", prefix="NOPE", airline_name="X", **fields)
-    assert _location(headers) == ("/airlines", {"flash": ["manual_prefix_stale"]})
+    assert _location(headers) == ("/airlines/manage", {"flash": ["manual_prefix_stale"]})
 
 
 @pytest.mark.parametrize("name, flash", [
@@ -210,7 +210,7 @@ def test_an_upload_started_from_health_returns_to_health(served):
     Health when it says so and on Airlines otherwise"""
     server, session = served
     multipart = "multipart/form-data; boundary=zz"
-    for suffix, route in (("?return=health", "/health"), ("?return=evil", "/airlines"), ("", "/airlines")):
+    for suffix, route in (("?return=health", "/health"), ("?return=evil", "/airlines/manage"), ("", "/airlines/manage")):
         status, headers, _ = http_request(
             server.base_url() + "/illustration/air-france.png" + suffix, method="POST",
             cookie=session, data=b"x", content_type=multipart)

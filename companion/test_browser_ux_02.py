@@ -38,7 +38,7 @@ def server(module_app_server_factory):
 @pytest.mark.parametrize(
     "route,trigger_sel", [
         ("/history", "[data-view-panel-src]"),
-        ("/airlines", "[data-view-panel-src]"),
+        ("/airlines/manage", "[data-view-panel-src]"),
     ], ids=["history", "airlines"])
 def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, route, trigger_sel):
     """Both <dialog>s fade and zoom in — measured mid-flight, two frames after the trigger, on

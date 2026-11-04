@@ -918,13 +918,13 @@ def test_airlines_no_chrome_gate_survives_the_reorder(tmp_path):
 
 def test_airlines_resolve_panel_back_link_names_and_targets_airlines(tmp_path):
     """the resolve panel's back link renders exactly once, named "← Back to Airlines" and
-    targeting airlines_page.AIRLINES_ROUTE, superseding the Copy Deck's "Back to Health" text"""
+    targeting airlines_page.MANAGE_ROUTE, superseding the Copy Deck's "Back to Health" text"""
     rendered = airlines_page.render({"state_dir": str(tmp_path), "resolve_prefix": "XYZ"})
     matches = re.findall(
         r'<a class="text-label" href="([^"]*)">%s</a>' % re.escape(airlines_page.RESOLVE_BACK_LINK_TEXT),
         rendered)
     assert len(matches) == 1, "expected exactly one resolve-panel back link, found %d" % (len(matches),)
-    assert matches[0] == airlines_page.AIRLINES_ROUTE
+    assert matches[0] == airlines_page.MANAGE_ROUTE
 
 
 # ======================================================================

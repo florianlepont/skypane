@@ -51,11 +51,11 @@ def test_a_builtin_row_carries_the_sheet_vocabulary_and_links_to_the_no_script_s
     assert _attr(row, airline_sheet.AIRLINE_PREFIXES_ATTR) == "TFV TVF"
     assert _attr(row, airline_sheet.RENAMED_ATTR) == ""
     assert _attr(row, airline_sheet.TYPES_ATTR) == "*transavia-france:B737|transavia-france-a320:A320"
-    assert 'href="/airlines?sheet=transavia-france#airline-sheet" class="airline-row"' in row
+    assert 'href="/airlines/manage?sheet=transavia-france#airline-sheet" class="airline-row"' in row
     twin = card[card.index('class="airline-row__type-trigger"'):]
-    assert 'href="/airlines?sheet=transavia-france-a320#airline-sheet"' in card
+    assert 'href="/airlines/manage?sheet=transavia-france-a320#airline-sheet"' in card
     assert _attr(twin, airline_sheet.TYPES_ATTR) == "transavia-france:B737|*transavia-france-a320:A320"
-    assert " hidden " in card[card.index('<a href="/airlines?sheet=transavia-france-a320'):][:140]
+    assert " hidden " in card[card.index('<a href="/airlines/manage?sheet=transavia-france-a320'):][:140]
     assert "Renamed" not in card and "Renommée" not in card
 
 
@@ -76,7 +76,7 @@ def test_every_trigger_on_the_page_carries_all_six_sheet_attributes(tmp_path):
     assert _attr(novel, airline_sheet.AIRLINE_ATTR) == ""
     assert _attr(novel, airline_sheet.TYPES_ATTR) == "*totally-novel-airline:All types"
     assert 'class="airline-row"' in novel and "<a " in novel
-    gap = re.search(r'<a class="airline-card" href="/airlines\?resolve=XYZ"[^>]*>', rendered).group(0)
+    gap = re.search(r'<a class="airline-card" href="/airlines/manage\?resolve=XYZ"[^>]*>', rendered).group(0)
     assert _attr(gap, airline_sheet.AIRLINE_ATTR) == ""
 
 
@@ -161,7 +161,7 @@ def test_rename_post_stores_every_prefix_and_carries_the_artwork(make_app_server
     session = login(server)
     status, headers, _ = _post(
         server, session, "/airlines/rename", airline="Transavia France", airline_name="  Transavia ")
-    assert status == 303 and urllib.parse.urlsplit(headers["Location"]).path == "/airlines"
+    assert status == 303 and urllib.parse.urlsplit(headers["Location"]).path == "/airlines/manage"
     assert _flash(headers)["flash"] == [airline_sheet.FLASH_RENAMED]
     stored = name_overrides.load_name_overrides(server.state_dir)
     assert {p: e["airline_name"] for p, e in stored.items()} == {"TFV": "Transavia", "TVF": "Transavia"}
@@ -175,7 +175,7 @@ def test_rename_post_stores_every_prefix_and_carries_the_artwork(make_app_server
         server.base_url() + "/illustration/transavia-a320.png", method="POST", cookie=session,
         data=b"x", content_type="multipart/form-data; boundary=zz")
     assert status != 404
-    page = http_request(server.base_url() + "/airlines", cookie=session)[2].decode()
+    page = http_request(server.base_url() + "/airlines/manage", cookie=session)[2].decode()
     assert _attr(_card(page, "Transavia"), airline_sheet.RENAMED_ATTR) == "active"
 
 
@@ -254,7 +254,7 @@ def test_rename_to_the_builtin_name_and_reset_both_remove_the_override(make_app_
         status, headers, _ = _post(server, session, "/airlines/rename/reset", airline="Air France")
         assert status == 303 and _flash(headers)["flash"] == [airline_sheet.FLASH_RENAME_RESET]
     assert name_overrides.load_name_overrides(server.state_dir) == {}
-    page = http_request(server.base_url() + "/airlines", cookie=session)[2].decode()
+    page = http_request(server.base_url() + "/airlines/manage", cookie=session)[2].decode()
     assert _attr(_card(page, "Air France"), airline_sheet.RENAMED_ATTR) == ""
     assert http_request(server.base_url() + "/illustration/air-france.png", cookie=session)[0] == 200
     status, headers, _ = _post(server, session, "/airlines/rename/reset", airline="Nobody Air")

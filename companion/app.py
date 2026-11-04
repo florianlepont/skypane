@@ -309,7 +309,6 @@ _PAGE_SCRIPTS = {
     ),
     layout.AIRLINES_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
-        layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     airlines_page.MANAGE_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
@@ -978,27 +977,6 @@ class Handler(
                 etag=quoted_etag)
         body = render(ctx)
         return self.send_html(200, self._page_shell_for(route, body, ctx), policy=policy)
-
-    def _render_airlines_collection(self, device):
-        """GET /airlines. An administrator asking to resolve a prefix is sent
-        to the editing page of the same frame; the target is the fixed manage
-        path plus the re-encoded prefix, never the raw query. For anyone else
-        the parameter is ignored.
-        """
-        principal = self._safe_principal()
-        is_admin = principal is not None and principal.role == access.ADMIN
-        if is_admin:
-            query = parse_qs(urlsplit(self.path).query)
-            prefix = query.get(airlines_page.RESOLVE_QUERY_PARAM, [None])[0]
-            if prefix:
-                target = device_scope.scoped(airlines_page.MANAGE_ROUTE)
-                return self.redirect("%s?%s" % (target, urlencode(
-                    {airlines_page.RESOLVE_QUERY_PARAM: prefix})))
-
-        def render(ctx):
-            ctx.resolve_prefix = None
-            return airlines_page.render(ctx)
-        return self._render_tab(layout.AIRLINES_ROUTE, render, device)
 
     def _console_page(
             self, route, title_msg, body_html, purpose_msg=None, status=200,

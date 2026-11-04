@@ -9125,3 +9125,253 @@ button.look-pick__customise {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
+
+/* Airline collection: a read-only progress card, a badge shelf, one GET
+ * form of filters and a grid of picture cards. The dimming of a card that
+ * has not been seen applies to the picture only, never to its text. */
+.collection-progress__headline {
+  margin: 0 0 var(--space-sm);
+  font-family: inherit;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.5;
+}
+
+.collection-progress__bar {
+  display: block;
+  width: 100%;
+  height: 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-secondary);
+  overflow: hidden;
+}
+
+.collection-progress__bar::-webkit-progress-bar {
+  background: var(--color-secondary);
+}
+
+.collection-progress__bar::-webkit-progress-value {
+  background: var(--color-text);
+  border-radius: 999px;
+}
+
+.collection-progress__bar::-moz-progress-bar {
+  background: var(--color-text);
+  border-radius: 999px;
+}
+
+.collection-progress__goal {
+  margin: var(--space-sm) 0 var(--space-md);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.collection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: 999px;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.collection-badge--earned {
+  background: var(--color-dominant);
+  border: 2px solid var(--color-text);
+  color: var(--color-text);
+}
+
+.collection-badge--locked {
+  background: transparent;
+  border: 2px dashed color-mix(in srgb, var(--color-text) 50%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-controls {
+  align-items: stretch;
+}
+
+.collection-controls .filter-bar__chips {
+  display: flex;
+  flex-basis: 340px;
+}
+
+.collection-controls .filter-bar__search {
+  flex: 1 1 220px;
+}
+
+/* A long label ("Not yet seen") wraps inside its segment instead of
+ * being cut short. */
+.collection-controls .filter-chip__text {
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+
+.collection-sort select {
+  min-height: 48px;
+}
+
+.collection-controls__apply {
+  min-height: 48px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  list-style: none;
+}
+
+.collection-item {
+  min-width: 0;
+}
+
+.collection-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  height: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: var(--space-sm);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.collection-card:hover,
+.collection-card:focus-visible {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-text);
+}
+
+.collection-card__art {
+  display: block;
+}
+
+.collection-card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.collection-card__blank {
+  margin-bottom: 0;
+}
+
+.collection-card--unseen .collection-card__art {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.collection-card__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.collection-card__seen {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.rarity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  color: var(--color-text);
+}
+
+.rarity-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.rarity-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text);
+}
+
+.collection-sheet__art {
+  margin-bottom: var(--space-md);
+}
+
+.collection-sheet__art .collection-card__image {
+  max-width: 100%;
+}
+
+.collection-facts {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.collection-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.collection-facts dt {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.collection-sheet__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (min-width: 700px) {
+  .collection-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .collection-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}

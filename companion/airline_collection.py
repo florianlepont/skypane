@@ -169,15 +169,16 @@ def _utc_now(now):
     return parsed or datetime.now(timezone.utc)
 
 
-def airline_collection(conn, now, overrides=None):
-    """`(entries, summary)`: one entry per curated airline in list order,
+def collection_from_events(events, now, overrides=None):
+    """`(entries, summary)` from `events` (stored rows newest first, repeated
+    passes already folded): one entry per curated airline in list order,
     then one per uncurated airline the frame saw (most recently seen first).
     `now` is a UTC ISO-8601 string. `overrides` is the owner's rename
     registry, so a renamed curated airline keeps its card and its history.
     """
     instant = _utc_now(now)
     order, aliases = _curated_index(overrides)
-    groups = _group(_sightings(conn), aliases)
+    groups = _group(events, aliases)
     entries = [
         _entry(key, name, picture_key, True, groups.pop(key, []), instant)
         for key, name, picture_key in order]
@@ -186,3 +187,8 @@ def airline_collection(conn, now, overrides=None):
         entries.append(_entry(slug, name, slug, False, rows, instant))
     spotted = sum(1 for entry in entries if entry.seen)
     return entries, _summary(spotted, len(order))
+
+
+def airline_collection(conn, now, overrides=None):
+    """`collection_from_events` over the connection's `runway_events`."""
+    return collection_from_events(_sightings(conn), now, overrides)
