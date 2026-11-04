@@ -118,3 +118,8 @@ Larger redesigns (new design work, owner decision on scope):
 - W13 (owner) The Account page "Preferences" card is under-designed: two
   full-width segmented bars (FR/EN and Auto/Light/Dark) with no labels or
   hierarchy, stretched across the desktop width.
+- W14 (owner) The language (FR/EN) and theme (Auto/Light/Dark) switches in
+  the navigation sidebar should be removed from the navigation bar; they
+  belong on the Account page preferences only.
+- W15 (owner) The Account navigation icon (a robot) does not read as an
+  account icon; it looks more like preferences. Use a person icon.
