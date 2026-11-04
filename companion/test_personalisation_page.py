@@ -260,3 +260,36 @@ def test_saving_quiet_hours_or_the_place_changes_no_look_rule_calendar_or_interv
     for key in watched:
         assert after.get(key) == before.get(key), key
 
+
+
+FORBIDDEN_CONTROL_NAMES = (
+    "timezone", "runway", "tracked_runway", "latitude", "longitude", "location_id", "airport",
+    "quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end", "wake_interval_s",
+    "led_enabled", "detection")
+FORBIDDEN_WORDS = {
+    "en": ("Time zone", "Runway", "Quiet hours", "Refresh", "Latitude", "Airport"),
+    "fr": ("Fuseau horaire", "Piste", "Heures calmes", "Actualisation", "Latitude", "Aéroport"),
+}
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("who", ["owner", "admin"])
+def test_personalisation_holds_no_place_runway_time_zone_or_quiet_hours_control(rig, who, lang):
+    """the page offers the look as radio inputs and holds no form control or card named for the
+    place, the runway, the time zone, the quiet hours or the refresh interval, in either language;
+    its four cards are Look, Special looks, Calendar, Screen"""
+    root = parse_html(_display(rig, who, lang=lang))
+    names = {
+        c.attrs["name"] for tag in ("input", "select", "textarea") for c in root.select(tag)
+        if "name" in c.attrs}
+    assert not names & set(FORBIDDEN_CONTROL_NAMES), names & set(FORBIDDEN_CONTROL_NAMES)
+    radios = root.select('#personalisation-look input[type="radio"][name="theme"]')
+    assert len(radios) == len(device_config.THEME_IDS)
+    cards = root.select("section.personalisation-card")
+    assert [c.attrs["id"] for c in cards] == [
+        "personalisation-look", "personalisation-special-looks", "personalisation-calendar",
+        "personalisation-screen"]
+    titles = [c.select_one("h2").text() for c in cards]
+    for word in FORBIDDEN_WORDS[lang]:
+        assert word not in titles, (word, titles)
+        assert not [label for label in root.select("label") if label.text().strip() == word]
