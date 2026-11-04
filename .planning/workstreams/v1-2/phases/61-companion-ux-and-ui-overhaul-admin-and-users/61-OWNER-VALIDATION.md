@@ -142,3 +142,10 @@ Larger redesigns (new design work, owner decision on scope):
   (small frame picture, name, status dot, last-seen word) with the active
   frame outlined and an "Add a screen" tile, instead of the dropdown.
   Mockups: scratchpad/sketches (f2, f2d; alternative f1 not chosen).
+- W18 (owner, Console) The Fleet, Status, Version and Device tabs could be
+  merged into one single view. He asks for sketches.
+- W19 (owner, Console) The Users view could be a table and drop the manage
+  modal (screenshot of the "Manage user" modal: role, access, sign-in).
+  He asks for sketches.
+- W20 (owner, Console) The airline editor could also be improved by laying
+  everything out as a table. He asks for sketches.
