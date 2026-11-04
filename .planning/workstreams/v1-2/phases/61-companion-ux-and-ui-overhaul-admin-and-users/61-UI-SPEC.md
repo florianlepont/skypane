@@ -261,7 +261,7 @@ A **two-segment control** showing both spaces at once, current one filled:
   `--radius-card` track on `--color-secondary`, hairline `--color-border`). Two equal segments
   (about 150px each at 360px), icon 20px + label 16px semibold. It scrolls with the page (not
   sticky); it is also the first row of the **More** sheet so it stays one tap away.
-- **Desktop (>=960px):** the same control, full sidebar width, first element under the wordmark.
+- **Desktop (>=960px):** the same control, full sidebar width (segments of equal width; the sidebar copy drops the space glyph, keeps the check and the label at 13px, and a label that still cannot fit is ellipsised inside its own segment), first element under the wordmark.
   Below it the existing 12px label-voice eyebrow ("Administration") shows in Console only.
 - **Current segment:** filled with `--color-accent` and white (dark theme: the dark accent with
   `--color-canvas` text; the contrast gate must pass), `aria-current="page"`. The other segment is
@@ -312,9 +312,10 @@ only if another page still uses them.
 | Console | Fleet | Users | Health | Device | More |
 
 - **Personal More sheet:** (admin only: the space switch first), Airline collection, Account,
-  language, theme, Sign out. It is identical for a user except the space switch row.
-- **Console More sheet:** the space switch, Airline editor, Audit log, Releases, Account, language,
-  theme, Sign out.
+  Sign out (no language or theme switch; they live on Account only, W14). It is identical for a user
+  except the space switch row.
+- **Console More sheet:** the space switch, Airline editor, Audit log, Releases, Account,
+  Sign out.
 - Health severity dot: on the Console Health cell only, and only when the frame in scope is warn or
   error. The personal bar has no Health cell and no severity dot (the Home dot carries it).
 - Labels never wrap or clip; the longest FR labels are checked at 360px (R6). SUPERSEDED: revision 1
@@ -326,7 +327,7 @@ only if another page still uses them.
 ### 1.4 Desktop sidebars (>=960px, existing `.sidebar-nav`)
 
 - **Personal (admin and user, identical):** [admin: space switch], Home, Flight history, Location
-  and detection, Personalisation, Airline collection; footer: Account, language, theme, Sign out.
+  and detection, Personalisation, Airline collection; footer: Account, Sign out (language and theme are on the Account page only, W14).
 - **Console:** space switch; eyebrow "Administration"; Fleet, Users; group "Frame tools": Health,
   Device, Airline editor; Audit log, Releases; footer: Account.
 - No Health dot in the personal sidebar. The Console Health link shows the severity dot of the frame
@@ -681,7 +682,7 @@ The Home status card of an empty frame (no image yet) shows the existing compact
 a blank card.
 
 **Account (user).** Title "Account"/"Compte". Card order: **My frames**, Identity, Preferences,
-Sign out. `id="account-frames"`. `ul.entity-list`, one row per frame the user owns or co-manages:
+Sign out. **Preferences** (W13) is two labelled rows, **Language** / FR "Langue" and **Theme** / FR "Thème", each with a one-line 13px muted hint and a segmented control sized to its content (never stretched to the card; 44px targets; text above the control below 640px, beside it from 640px). The Account navigation icon is a person glyph (`icon-person`) in every navigation (W15). `id="account-frames"`. `ul.entity-list`, one row per frame the user owns or co-manages:
 dot, name link to the frame Home (16px semibold), line 2 (14px muted) hardware label for an owned
 frame or "Shared by {owner email}" for a co-managed one, and one 44px action: **"Manage access"**
 (dialog 6) on frames the user owns, **"Leave frame"** (dialog 7) on shared frames. No battery, no last

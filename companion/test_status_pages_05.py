@@ -488,21 +488,17 @@ def test_login_shell_html_lang_follows_prefs():
     assert '<html lang="en"' in en_rendered
 
 
-def test_shell_has_two_ordered_theme_forms_each_with_aria_label():
-    """a rendered shell contains exactly two aria-labelled theme-form forms per footer copy,
-    actions /ui-lang, /ui-theme in that document order, and zero /ui-mode forms"""
+def test_shell_has_no_theme_or_language_form_and_account_has_both_in_order():
+    """the shell carries no /ui-lang, /ui-theme or /ui-mode form; the Account page carries
+    exactly one aria-labelled form for each, language first"""
     rendered = layout.page_shell(title="Health", active="health", body="", ui_theme="auto")
-    actions_in_order = re.findall(
-        r'<form class="theme-form" method="post" action="([^"]+)" aria-label="[^"]+"', rendered)
-    assert actions_in_order.count("/ui-lang") == 2, (
-        "expected exactly 2 /ui-lang forms (sidebar + mobile), got %r"
-        % (actions_in_order.count("/ui-lang"),))
-    assert actions_in_order.count("/ui-theme") == 2
-    # The simple-mode switch is deleted — zero /ui-mode forms anywhere
-    # in a rendered shell.
-    assert actions_in_order.count("/ui-mode") == 0
-    assert actions_in_order[:2] == ["/ui-lang", "/ui-theme"], (
-        "expected the first footer's forms in order lang/theme, got %r" % (actions_in_order[:2],))
+    for action in ("/ui-lang", "/ui-theme", "/ui-mode"):
+        assert 'action="%s"' % action not in rendered
+    from companion.pages import account_page
+    page = account_page.render(account_page.Identity("a@b.example", account_page.ROLE_USER))
+    actions = re.findall(
+        r'<form class="theme-form" method="post" action="([^"]+)" aria-label="[^"]+"', page)
+    assert actions == ["/ui-lang", "/ui-theme"]
 
 
 def test_french_shell_nav_reads_the_locked_french_labels():

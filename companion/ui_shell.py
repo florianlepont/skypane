@@ -59,11 +59,9 @@ from companion.ui_nav import (
     CONSOLE_SPACE,
     PERSONAL_SPACE,
     TAB_BAR_BODY_CLASS,
-    _lang_form_html,
     _logout_form_html,
     _mobile_nav_html,
     _tab_bar_html,
-    _theme_form_html,
     is_admin_principal,
     is_user_principal,
     current_space,
@@ -530,23 +528,18 @@ def page_shell(
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
     sidebar_html = sidebar_nav(
         active, health_alert=health_alert, device_config=device_config)
-    theme_form_html = _theme_form_html(resolved_theme)
-    lang_form_html = _lang_form_html(resolved_lang)
     mobile_nav_html = _mobile_nav_html(
-        active, theme_form_html, health_alert=health_alert,
-        lang_form_html=lang_form_html, device_config=device_config)
+        active, health_alert=health_alert, device_config=device_config)
     tab_bar_html = _tab_bar_html(
         active, health_alert=health_alert, device_config=device_config)
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
     flash_html = flash or ""
     banner_html = banner or ""
     body, flash_html = _splice_flash(body, flash_html)
-    # The sidebar's theme picker and Sign out control, grouped in one footer
-    # region. Order: language, theme, Sign out — this and _mobile_nav_html()'s
-    # own footer_html must change together.
+    # The sidebar's footer holds only Sign out; language and theme are set on
+    # the Account page.
     sidebar_footer_html = (
-        '<div class="sidebar-footer">%s%s%s</div>'
-        % (lang_form_html, theme_form_html, _logout_form_html()))
+        '<div class="sidebar-footer">%s</div>' % _logout_form_html())
     skip_link_html = (
         '<a class="skip-link" href="#%s">%s</a>'
         % (SKIP_LINK_TARGET_ID, escape_html(i18n.t(_SKIP_LINK_TEXT))))

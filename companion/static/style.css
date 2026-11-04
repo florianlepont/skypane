@@ -671,7 +671,7 @@ a:hover {
  * the sidebar copy is the first element of the sidebar. */
 .space-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-xs);
   padding: var(--space-sm);
   background: var(--color-secondary);
@@ -687,6 +687,7 @@ a:hover {
   min-height: 44px;
   min-width: 0;
   padding: 0 var(--space-sm);
+  overflow: hidden;
   background: var(--color-dominant);
   color: var(--color-text);
   font-size: var(--font-label-size);
@@ -694,6 +695,36 @@ a:hover {
   text-decoration: none;
   white-space: nowrap;
   border-radius: var(--radius-control);
+}
+
+/* Glyphs keep their size; only the label gives way, with an ellipsis,
+ * when a segment is narrower than its content. */
+.space-switch__segment > svg {
+  flex: none;
+}
+
+.space-switch__segment > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The sidebar's segments are too narrow for check, space glyph and label
+ * together: the space glyph gives way there, the check (the non-colour cue
+ * for the current space) and the label stay. */
+.dashboard-sidebar .space-switch__segment {
+  padding: 0 2px;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.dashboard-sidebar .space-switch__check {
+  width: 14px;
+  height: 14px;
+}
+
+.dashboard-sidebar .space-switch__segment > svg:not(.space-switch__check) {
+  display: none;
 }
 
 .space-switch__segment:hover {
@@ -1085,14 +1116,71 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 44px;
 }
 
+/* Preferences: one labelled row per setting. The segmented control is
+ * sized to its labels (never stretched); on a narrow screen the text sits
+ * above it, from 640px beside it. */
+.pref-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pref-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.pref-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.pref-row:last-child {
+  padding-bottom: 0;
+}
+
+.pref-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pref-row__label {
+  font-weight: var(--weight-semibold);
+}
+
+.pref-row__hint {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.pref-row .theme-form {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.pref-row .theme-form .theme-option {
+  flex: 0 1 auto;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+@media (min-width: 640px) {
+  .pref-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+  }
+}
+
 .account-sign-out button,
 .sidebar-footer .logout-form button {
   min-height: 44px;
-}
-
-/* The sidebar footer's language and theme segments are 44px targets too. */
-.sidebar-footer .theme-form .theme-option {
-  height: 44px;
 }
 
 .theme-form .theme-option--active {

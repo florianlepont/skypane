@@ -1,5 +1,4 @@
-"""Real-browser checks of the theme and language segmented switches in the sidebar and the
-mobile menu: in both languages and from 320px up to the desktop sidebar, no segment's label
+"""Real-browser checks of the theme and language segmented switches on the Account page: in both languages and from 320px up to desktop, no segment's label
 overflows its own box and neighbouring labels never intersect. A deliberately oversized label
 is clipped inside its own segment, so a future longer translation cannot collide either."""
 import pytest
@@ -42,13 +41,9 @@ def _open(new_context, base_url, lang, width, scheme):
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
     page = context.new_page()
     _login(page, base_url)
-    page.goto(base_url + "/")
-    toggle = page.locator('[aria-controls="mobile-nav"]').first
-    if toggle.count() and toggle.is_visible():
-        toggle.click()
-        page.locator(".mobile-nav--open .theme-form").first.wait_for(state="visible")
-    else:
-        page.locator(".dashboard-sidebar .theme-form").first.wait_for(state="visible")
+    page.goto(base_url + "/account")
+    page.wait_for_function("document.readyState === 'complete'")
+    page.locator(".pref-row .theme-form").first.wait_for(state="visible")
     return context, page
 
 
@@ -113,3 +108,52 @@ def test_the_auto_segment_keeps_an_explicit_accessible_name(new_context, server)
             assert button.get_attribute("aria-label") == name
         finally:
             context.close()
+
+
+def _pref_rows(page):
+    return page.evaluate("""() => [...document.querySelectorAll('.pref-row')].map(row => {
+        const form = row.querySelector('.theme-form').getBoundingClientRect();
+        const card = row.closest('section').getBoundingClientRect();
+        return {label: row.querySelector('.pref-row__label').textContent,
+                formWidth: form.width, cardWidth: card.width, formLeft: form.left,
+                cardLeft: card.left, cardRight: card.right, formRight: form.right,
+                buttons: [...row.querySelectorAll('.theme-option')].map(
+                    b => b.getBoundingClientRect().height)};
+    })""")
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("width", (360, 1280))
+def test_account_preferences_are_labelled_rows_with_compact_controls(
+        new_context, server, width, scheme):
+    """Language and Theme are two labelled rows; each segmented control keeps its content
+    width (not the card width) on desktop, stays inside the card at 360px and has 44px targets"""
+    context, page = _open(new_context, server.base_url(), "en", width, scheme)
+    try:
+        rows = _pref_rows(page)
+        assert [r["label"] for r in rows] == ["Language", "Theme"]
+        for row in rows:
+            assert row["formLeft"] >= row["cardLeft"] - 1 and row["formRight"] <= row["cardRight"] + 1
+            assert all(height >= 44 for height in row["buttons"]), row
+            if width >= 1280:
+                assert row["formWidth"] < row["cardWidth"] / 2, row
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("width", (360, 1280))
+def test_navigation_carries_no_language_or_theme_switch(new_context, server, width):
+    """neither the sidebar nor the phone bar and its panel hold a language or theme form, and
+    the Account entry shows the person glyph"""
+    context = new_context(viewport={"width": width, "height": 800})
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/")
+        page.wait_for_function("document.readyState === 'complete'")
+        assert page.locator('form[action="/ui-theme"], form[action="/ui-lang"]').count() == 0
+        icons = page.evaluate("""() => [...document.querySelectorAll(
+            'a[href$="/account"] use')].map(u => u.getAttribute('href'))""")
+        assert icons and set(icons) == {"#icon-person"}, icons
+    finally:
+        context.close()

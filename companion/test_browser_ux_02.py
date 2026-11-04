@@ -336,7 +336,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_theme_choices_fit_and_submit_from_narrow_preferences(
         new_context, server, lang, viewport):
-    """Every theme choice remains visible and keyboard-operable at phone widths."""
+    """Every theme choice on the Account page stays visible and keyboard-operable at phone widths."""
     context = new_context(viewport=viewport)
     try:
         page = context.new_page()
@@ -344,10 +344,9 @@ def test_theme_choices_fit_and_submit_from_narrow_preferences(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + "/display")
+        page.goto(base_url + "/account")
         page.wait_for_load_state("networkidle")
-        page.click("#site-nav-toggle")
-        form = page.locator('#mobile-nav form[action="/ui-theme"]')
+        form = page.locator('.pref-row form[action="/ui-theme"]')
         form.wait_for(state="visible")
         form_box = form.bounding_box()
         assert form_box is not None

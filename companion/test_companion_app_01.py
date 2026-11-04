@@ -427,8 +427,8 @@ def test_card_status_class_whitelist_and_empty_fallback():
 
 def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
     """page_shell() wraps header+sidebar+main in .dashboard-shell with both nav landmarks
-    (sidebar + tab bar, and exactly one when there is no tab bar) and both theme-form copies
-    present"""
+    (sidebar + tab bar, and exactly one when there is no tab bar) and no theme or language
+    form anywhere in the navigation"""
     rendered = layout.page_shell(title="Health", active="health", body="<p>b</p>")
     for needle in (
         '<div class="dashboard-shell">',
@@ -455,7 +455,8 @@ def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
         "a page with no device config renders no tab bar, so it must expose exactly one "
         "navigation landmark - never an empty second one")
     assert rendered.count('id="%s"' % layout.MOBILE_NAV_ID) == 1, "expected exactly one dropdown panel"
-    assert rendered.count('action="/ui-theme"') == 2, "expected both theme-form copies posting to /ui-theme"
+    assert 'action="/ui-theme"' not in rendered, "the theme switch lives on the Account page only"
+    assert 'action="/ui-lang"' not in rendered, "the language switch lives on the Account page only"
 
 
 def test_page_shell_skip_link_target_is_focusable():
@@ -480,7 +481,7 @@ def test_page_shell_escapes_hostile_body():
 
 
 def test_icon_sprite_integrity():
-    """layout.ICON_IDS has exactly forty-seven unique members, each a symbol id in
+    """layout.ICON_IDS has exactly forty-eight unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
     # The whitelist grew from ten to fourteen members
     # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
@@ -496,13 +497,13 @@ def test_icon_sprite_integrity():
     # then to 41 (icon-bolt, the estimated "probably charging" pill), then
     # to 42 (icon-more-vertical, a row's actions menu button), then to 46
     # (icon-shield, icon-locate, icon-star and icon-chevron-down, the two
-    # navigation spaces' glyphs), then to 47 (icon-pin, the map's pin).
-    assert len(layout.ICON_IDS) == 47
-    assert len(set(layout.ICON_IDS)) == 47, "expected ICON_IDS to have no duplicates"
+    # navigation spaces' glyphs), then to 47 (icon-pin, the map's pin), then to 48 (icon-person, the Account glyph).
+    assert len(layout.ICON_IDS) == 48
+    assert len(set(layout.ICON_IDS)) == 48, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 47
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 48
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -537,7 +538,7 @@ def test_stat_tile_backcompat_and_icon_slot():
 
 
 def test_page_shell_emits_sprite_once_no_inline_styles():
-    """page_shell() emits exactly one sprite (one <defs, forty-seven <symbol) before
+    """page_shell() emits exactly one sprite (one <defs, forty-eight <symbol) before
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
@@ -545,7 +546,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
     # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
     # 34 -> 36 (icon-pencil, icon-plus).
-    assert doc.count("<symbol") == 47
+    assert doc.count("<symbol") == 48
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"

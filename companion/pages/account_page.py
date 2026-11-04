@@ -21,6 +21,12 @@ _ROLE_TEXT = i18n.msg("account.role", "Role")
 _ROLE_USER_TEXT = i18n.msg("account.user", "User")
 _ROLE_ADMIN_TEXT = i18n.msg("account.administrator", "Administrator")
 _PREFERENCES_TEXT = i18n.msg("account.preferences", "Preferences")
+_LANGUAGE_TEXT = i18n.msg("account.language", "Language")
+_LANGUAGE_HINT = i18n.msg(
+    "account.language_hint", "The language of the companion pages.")
+_THEME_TEXT = i18n.msg("account.theme", "Theme")
+_THEME_HINT = i18n.msg(
+    "account.theme_hint", "Light, dark, or follow the system.")
 _MY_FRAMES_TEXT = i18n.msg("account.my_frames", "My frames")
 _NO_FRAMES_HEADING = i18n.msg(
     "account.your_frames_will_appear_here", "Your frames will appear here")
@@ -77,6 +83,17 @@ def _card(heading_id, heading, inner_html):
         '<section class="page-section page-section--nested" '
         'aria-labelledby="%s"><h2 class="text-heading" id="%s">%s</h2>%s</section>'
         % (heading_id, heading_id, layout.escape_html(i18n.t(heading)), inner_html))
+
+
+def _preference_row(label, hint, control_html):
+    """One labelled preference: its name and a one-line hint beside a
+    segmented control sized to its content."""
+    return (
+        '<div class="pref-row"><div class="pref-row__text">'
+        '<span class="pref-row__label">%s</span>'
+        '<span class="pref-row__hint">%s</span></div>%s</div>'
+    ) % (layout.escape_html(i18n.t(label)), layout.escape_html(i18n.t(hint)),
+         control_html)
 
 
 def _pair_html(label, value):
@@ -153,8 +170,13 @@ def render(identity, ui_theme="auto", frames=(), open_access=""):
             _pair_html(_ROLE_TEXT, i18n.t(_role_text(identity)))))
     resolved_theme = ui_theme if ui_theme in layout.UI_THEME_CHOICES else "auto"
     preferences_html = (
-        layout._lang_form_html(prefs.current_lang())
-        + layout._theme_form_html(resolved_theme))
+        '<div class="pref-rows">%s%s</div>' % (
+            _preference_row(
+                _LANGUAGE_TEXT, _LANGUAGE_HINT,
+                layout._lang_form_html(prefs.current_lang())),
+            _preference_row(
+                _THEME_TEXT, _THEME_HINT,
+                layout._theme_form_html(resolved_theme))))
     sign_out_html = (
         '<form method="post" action="/logout" class="logout-form account-sign-out">'
         '<button type="submit">%s</button></form>'

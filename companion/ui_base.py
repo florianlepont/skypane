@@ -526,6 +526,7 @@ ICON_IDS = ICON_IDS + (
     "icon-copy",
     "icon-refresh",
     "icon-search",
+    "icon-person",
 )
 
 # One more icon, for the Airlines lightbox replace zone's upload glyph.
@@ -780,6 +781,11 @@ ICON_DEFS_HTML = (
     'stroke-linejoin="round">'
     '<path d="M16 10a6 6 0 1 1-2-4.5"/>'
     '<path d="M16 2.5v4h-4"/>'
+    "</symbol>"
+    '<symbol id="icon-person" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="6.5" r="3.2"/>'
+    '<path d="M3.5 17.5c0-3.4 2.9-5.6 6.5-5.6s6.5 2.2 6.5 5.6"/>'
     "</symbol>"
     '<symbol id="icon-search" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '

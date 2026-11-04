@@ -95,7 +95,7 @@ _SWITCH_TO_PERSONAL_TEXT = i18n.msg(
     "nav.switch_to_personal", "Switch to your own frame pages")
 _SWITCH_TO_CONSOLE_TEXT = i18n.msg(
     "nav.switch_to_console", "Switch to the administration console")
-_ACCOUNT_ICON_ID = "icon-gear"
+_ACCOUNT_ICON_ID = "icon-person"
 _CONSOLE_ICON_IDS = {
     "fleet": "icon-device",
     "users": "icon-corroboration",
@@ -706,11 +706,9 @@ def _logout_form_html():
     ) % escape_html(i18n.t(_SIGN_OUT_TEXT))
 
 
-def _mobile_nav_html(
-        active, theme_form_html, health_alert=None, lang_form_html="",
-        device_config=None):
-    """The hamburger toggle and its <960px preferences panel: language/theme
-    switches and Sign out. Destination links live in _tab_bar_html() instead, so
+def _mobile_nav_html(active, health_alert=None, device_config=None):
+    """The hamburger toggle and its <960px panel: Sign out only (language and
+    theme live on the Account page). Destination links live in _tab_bar_html() instead, so
     this panel carries no navigation landmark of its own.
 
     The panel pushes content down in-flow (flex-basis: 100%) rather than
@@ -726,10 +724,8 @@ def _mobile_nav_html(
     ) % (
         NAV_TOGGLE_ID, escape_html(i18n.t(NAV_TOGGLE_LABEL)), MOBILE_NAV_ID,
         icon_html("icon-gear", size=24))
-    # Footer order: language, theme, Sign out.
     footer_html = (
-        '<div class="mobile-nav__footer">%s%s%s</div>'
-        % (lang_form_html, theme_form_html, _logout_form_html()))
+        '<div class="mobile-nav__footer">%s</div>' % _logout_form_html())
     # The document carries exactly two "Primary navigation" landmarks (sidebar,
     # tab bar); the 960px CSS breakpoint exposes exactly one to the accessibility
     # tree at a time.

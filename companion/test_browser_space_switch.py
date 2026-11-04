@@ -142,3 +142,52 @@ def test_a_user_never_sees_the_switch(
         assert page.locator(".space-strip").count() == 0
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("name,viewport", _VIEWPORTS)
+@pytest.mark.parametrize("space", ["console", "personal"])
+def test_segments_share_the_pill_and_hold_their_labels(
+        new_context, app_server_in_process, space, name, viewport, lang, scheme):
+    """Each visible segment has the same width, its label box lies inside the segment and the
+    pill, and nothing is clipped (scrollWidth <= clientWidth for the label)"""
+    path = "/fleet" if space == "console" else _own_frame_home
+    context, page = _admin_page(
+        new_context, app_server_in_process, path, viewport, lang, scheme)
+    try:
+        _visible_switch(page)
+        deadline = time.monotonic() + 10
+        while True:
+            data = page.evaluate("""() => {
+                const nav = [...document.querySelectorAll('.space-switch')]
+                    .find(n => n.getClientRects().length > 0);
+                const pill = nav.getBoundingClientRect();
+                return [...nav.querySelectorAll('.space-switch__segment')].map(a => {
+                    const seg = a.getBoundingClientRect();
+                    const label = a.querySelector('span');
+                    const r = document.createRange(); r.selectNodeContents(label);
+                    const t = r.getBoundingClientRect();
+                    const l = label.getBoundingClientRect();
+                    return {w: seg.width, segL: seg.left, segR: seg.right,
+                            pillL: pill.left, pillR: pill.right, textL: t.left,
+                            textR: t.right, labelL: l.left, labelR: l.right,
+                            scroll: label.scrollWidth, client: label.clientWidth,
+                            text: label.textContent};
+                });
+            }""")
+            try:
+                first, second = data
+                assert abs(first["w"] - second["w"]) <= 1, data
+                for seg in data:
+                    assert seg["segL"] >= seg["pillL"] - 0.5 and seg["segR"] <= seg["pillR"] + 0.5, seg
+                    assert seg["textL"] >= seg["segL"] - 0.5 and seg["textR"] <= seg["segR"] + 0.5, seg
+                    assert seg["labelL"] >= seg["segL"] - 0.5 and seg["labelR"] <= seg["segR"] + 0.5, seg
+                    assert seg["scroll"] <= seg["client"], seg
+                return
+            except AssertionError:
+                if time.monotonic() > deadline:
+                    raise
+                page.wait_for_timeout(200)
+    finally:
+        context.close()
