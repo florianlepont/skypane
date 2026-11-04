@@ -117,8 +117,10 @@ def test_display_setting_saves_and_reports_a_keyboard_focusable_control(
     try:
         if page.locator('input[name="tracked_runway"]').count():
             raise AssertionError("%s: Display still renders the removed runway control" % lang)
-        if page.locator('.detection-card a[href$="/detection"]').count() != 1:
-            raise AssertionError("%s: Display offers no single link to the Detection page" % lang)
+        if page.locator(".detection-card").count():
+            raise AssertionError("%s: Display still renders the Location and detection card" % lang)
+        if page.locator('.quiet-timezone-note a[href$="/detection#details"]').count() != 1:
+            raise AssertionError("%s: Display offers no single link to the Location page" % lang)
         selector = 'input[name="quiet_hours_start"]'
         page.locator(selector).focus()
         if not page.evaluate("sel => document.activeElement === document.querySelector(sel)", selector):

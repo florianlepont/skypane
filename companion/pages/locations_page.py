@@ -69,12 +69,6 @@ ERROR_LONGITUDE = i18n.msg(
     "Enter a longitude between -180 and 180.")
 ERROR_TIMEZONE = i18n.msg("admin_locations.choose_a_time_zone", "Choose a time zone.")
 
-_PICKER_LABEL = i18n.msg("admin_locations.location", "Location")
-_PICKER_NONE_OPTION = i18n.msg("admin_locations.no_location", "No location")
-_PICKER_NONE_CHOSEN = i18n.msg("admin_locations.no_location_chosen", "No location chosen.")
-_PICKER_ASSIGNED = i18n.msg(
-    "admin_locations.assigned_by_an_administrator", "Assigned by an administrator")
-
 
 class LocationRow(NamedTuple):
     """One location as the list shows it. `owner` is the owner's email, or
@@ -333,38 +327,3 @@ def _new_card(view):
 def render(view):
     """The Locations page body (the shell supplies the header)."""
     return _list_card(view) + _new_card(view)
-
-
-def picker_html(options, selected_id, form_id, section_attr):
-    """The per-frame Location fields for the Display page's Location and
-    detection card (the card owns the heading).
-
-    `options` is a sequence of (location_id, name) the viewer may choose and
-    `selected_id` the frame's current location id or None. The select submits
-    through the settings form `form_id`. A current location the viewer may not
-    choose (assigned by an administrator) stays selected under a generic label,
-    so saving the page unchanged never clears it and its name is not shown.
-    With nothing to choose and nothing assigned the select is replaced by a
-    note (no page lists or adds locations any more).
-    """
-    label = _t(_PICKER_LABEL)
-    known = {location_id for location_id, _name in options}
-    foreign = selected_id is not None and selected_id not in known
-    if not options and not foreign:
-        return (
-            '<div class="detection-card__location" %s="%s">'
-            '<p class="text-label">%s</p></div>' % (
-                section_attr, label, _t(_PICKER_NONE_CHOSEN)))
-    items = ['<option value=""%s>%s</option>' % (
-        "" if selected_id is not None else " selected", _t(_PICKER_NONE_OPTION))]
-    if foreign:
-        items.append('<option value="%d" selected>%s</option>' % (
-            selected_id, _t(_PICKER_ASSIGNED)))
-    for location_id, name in options:
-        items.append('<option value="%d"%s>%s</option>' % (
-            location_id, " selected" if location_id == selected_id else "", _esc(name)))
-    return (
-        '<div class="detection-card__location" %s="%s">'
-        '<p><label for="location-picker">%s</label>'
-        '<select id="location-picker" name="%s" form="%s">%s</select></p></div>' % (
-            section_attr, label, label, LOCATION_FIELD, _esc(form_id), "".join(items)))

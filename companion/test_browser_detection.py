@@ -12,7 +12,7 @@ import re
 
 import pytest
 
-from co_manager_browser_support import MIN_TAP_PX, SUBPIXEL
+from co_manager_browser_support import SUBPIXEL
 from co_manager_browser_support import Rig as UserRig
 from co_manager_browser_support import _open as _open_as
 from place_map_support import Hosts
@@ -21,8 +21,7 @@ from companion_app_server import TEST_ADMIN_EMAIL, session_cookie_for_state_dir
 from server import airports, device_config, device_dirs, fleet_db, hardware
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
-    _assert_no_page_overflow, _bar_text, _guard_armed, _login, _no_js_page, _save_via_bar,
-    _wait_for_bar, _wait_for_bar_hidden,
+    _assert_no_page_overflow, _bar_text, _guard_armed, _login, _no_js_page, _wait_for_bar, _wait_for_bar_hidden,
 )
 
 pytestmark = pytest.mark.browser
@@ -413,20 +412,13 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
         raise AssertionError("a later real leave raised no prompt: %r" % dialogs)
 
 
-# A user's Display page: the merged Location and detection card.
+# A user's Display page no longer holds the place; the Location and detection page does.
 
 USER_VIEWPORTS = (VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP)
-CARD = "section.detection-card"
+NOTE_LINK = ".quiet-timezone-note a"
 # Words an ordinary user's page must never carry.
 ADMIN_WORDS = re.compile(r"\b(Admin\w*|Console|Fleet|Releases?|Device)\b", re.IGNORECASE)
-SUMMARY_SENTENCE = {
-    "en": "Runway 07/25 at Paris-Orly Airport (ORY)",
-    "fr": "Piste 07/25 à Paris-Orly Airport (ORY)",
-}
-CARD_TITLE = {"en": "Location and detection", "fr": "Lieu et détection"}
-CHANGE_LINK = {
-    "en": "Change airport, runway or position",
-    "fr": "Changer d\u2019aéroport, de piste ou de position"}
+NOTE_TEXT = {"en": "Location and detection", "fr": "Lieu et détection"}
 
 
 class DisplayRig(UserRig):
@@ -435,6 +427,7 @@ class DisplayRig(UserRig):
     def __init__(self, server):
         super().__init__(server)
         self.display = "%sdisplay" % self.path
+        self.detection = "%sdetection" % self.path
         conn = fleet_db.connect(self.state_dir)
         try:
             self.home_id = fleet_db.add_location(
@@ -453,33 +446,23 @@ class DisplayRig(UserRig):
         finally:
             conn.close()
 
+    def stored_place(self):
+        conn = fleet_db.connect(self.state_dir)
+        try:
+            return fleet_db.frame_position(conn, self.seed.owned_id)
+        finally:
+            conn.close()
+
 
 @pytest.fixture
 def drig(app_server_in_process):
     return DisplayRig(app_server_in_process)
 
 
-def test_a_user_changes_the_location_in_three_steps(new_context, drig):
-    """Personalisation tab, change the location, Save: the choice is stored."""
-    context, page = _open_as(new_context, drig, "owner")
-    try:
-        page.get_by_role(
-            "link", name=re.compile(r"^(Personalisation|Style)$")).first.click()  # step 1
-        page.wait_for_url("**/display")
-        page.select_option("#location-picker", label="Office")  # step 2
-        _save_via_bar(page)  # step 3
-        if drig.stored_location() != drig.office_id:
-            raise AssertionError("location not stored: %r" % drig.stored_location())
-        if page.locator("#location-picker").input_value() != str(drig.office_id):
-            raise AssertionError("the saved location is not shown after the redirect")
-    finally:
-        context.close()
-
-
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("viewport", USER_VIEWPORTS)
-def test_the_merged_card_shows_sentence_location_and_link_within_the_page(
+def test_a_user_display_has_no_place_controls_and_one_link_to_the_location_page(
         new_context, drig, lang, theme, viewport):
     context, page = _open_as(
         new_context, drig, "owner", path=drig.display, lang=lang, theme=theme,
@@ -488,29 +471,16 @@ def test_the_merged_card_shows_sentence_location_and_link_within_the_page(
         failure = _assert_no_page_overflow(page, "user display", viewport["width"])
         if failure:
             raise AssertionError(failure)
-        card = page.locator(CARD)
-        if card.count() != 1:
-            raise AssertionError("expected one merged card, found %d" % card.count())
-        parts = [
-            card.locator("h2").inner_text(),
-            card.locator("p.section-caption").first.inner_text(),
-            card.locator("a.detection-link").inner_text()]
-        if parts != [CARD_TITLE[lang], SUMMARY_SENTENCE[lang], CHANGE_LINK[lang]]:
-            raise AssertionError("unexpected card text: %r" % parts)
-        order = card.evaluate(
-            "c => ['h2', 'p.section-caption', 'select#location-picker', 'a.detection-link']"
-            ".map(s => c.querySelector(s).getBoundingClientRect().top)")
-        if order != sorted(order):
-            raise AssertionError("card parts are out of order: %r" % order)
-        if page.locator("section.detection-card").count() != 1 or page.locator(
-                "h2", has_text="Détection" if lang == "fr" else "Detection").count() != 1:
-            raise AssertionError("the Detection card is not merged into one")
-        for selector in ("select#location-picker", "a.detection-link"):
-            box = card.locator(selector).bounding_box()
-            if box["height"] < MIN_TAP_PX - SUBPIXEL:
-                raise AssertionError("%s is %.1f px tall" % (selector, box["height"]))
-            if box["x"] < -SUBPIXEL or box["x"] + box["width"] > viewport["width"] + SUBPIXEL:
-                raise AssertionError("%s leaves the viewport" % selector)
+        for selector in (
+                "section.detection-card", "#location-picker", "select[name=location_id]",
+                "select[name=timezone]"):
+            if page.locator(selector).count():
+                raise AssertionError("Display still renders %s" % selector)
+        link = page.locator(NOTE_LINK)
+        if link.count() != 1 or link.inner_text() != NOTE_TEXT[lang]:
+            raise AssertionError("expected one note link to the Location page")
+        if not link.get_attribute("href").endswith("/detection#details"):
+            raise AssertionError("the note links to %s" % link.get_attribute("href"))
         visible = page.locator("main").inner_text()
         if lang == "en" and ADMIN_WORDS.search(visible):
             raise AssertionError("user page carries %r" % ADMIN_WORDS.search(visible).group(0))
@@ -518,26 +488,31 @@ def test_the_merged_card_shows_sentence_location_and_link_within_the_page(
         context.close()
 
 
-def test_the_change_link_opens_the_detection_page(new_context, drig):
+def test_the_note_link_opens_the_location_page(new_context, drig):
     context, page = _open_as(new_context, drig, "owner", path=drig.display)
     Hosts(context)
     try:
         with page.expect_navigation():
-            page.locator(CARD).get_by_role("link", name=CHANGE_LINK["en"]).click()
-        if not page.url.endswith("/detection"):
+            page.locator(NOTE_LINK).click()
+        if not page.url.endswith("/detection#details"):
             raise AssertionError("landed on %s" % page.url)
     finally:
         context.close()
 
 
-def test_a_user_changes_the_location_with_scripts_blocked(new_context, drig):
+def test_a_user_changes_the_place_on_the_location_page_with_scripts_blocked(new_context, drig):
     context, page = _open_as(
-        new_context, drig, "owner", path=drig.display, java_script_enabled=False)
+        new_context, drig, "owner", path=drig.detection, java_script_enabled=False)
     try:
-        page.select_option("#location-picker", label="Office")
-        with page.expect_navigation():
-            page.click("[%s]" % "data-static-save-fallback")
-        if drig.stored_location() != drig.office_id:
-            raise AssertionError("location not stored: %r" % drig.stored_location())
+        page.click(MODE_AREA_LABEL)
+        page.fill("#place-lat", "43.2965")
+        page.fill("#place-lon", "5.3698")
+        page.fill("#place-label", "Marseille")
+        page.fill("#place-radius", "14")
+        _submit(page, SAVE)
+        place = drig.stored_place()
+        if place is None or (place["name"], place["latitude"], place["longitude"]) != (
+                "Marseille", 43.2965, 5.3698):
+            raise AssertionError("the position row is %r" % (place,))
     finally:
         context.close()

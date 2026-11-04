@@ -51,12 +51,10 @@ QUIET_HOURS_PRESET_ATTR = "data-quiet-preset"
 # key and the label shown for it. A stored key outside this list (a
 # hand-edited file) is shown as one extra last option so a save never
 # silently changes it.
-TIMEZONE_FIELD_NAME = "timezone"
-TIMEZONE_FIELD_ID = "quiet-hours-timezone"
-TIMEZONE_HELPER_ID = "quiet-hours-timezone-hint"
 TIMEZONE_LABEL = i18n.msg("display.timezone_label", "Time zone")
-TIMEZONE_HELPER = i18n.msg(
-    "display.timezone_helper", "Quiet hours follow this time zone.")
+# Where the frame's time zone is chosen (the details card of the Location
+# and detection page).
+DETECTION_DETAILS_HREF = "/detection#details"
 # The Quiet hours card's pointer to the card that holds the Time zone
 # field; `{card}` is the link to that card.
 TIMEZONE_NOTE = i18n.msg(
@@ -119,44 +117,6 @@ def timezone_readout_clause(key):
     if key == device_config.DEFAULT_TIMEZONE:
         return ""
     return " · " + i18n.t(TIMEZONE_READOUT_CLAUSE).format(zone=timezone_label_text(key))
-
-
-def timezone_field_html(current_timezone, errors=None, dirty_section=False):
-    """The Time zone label, native select and helper line. The select
-    submits with the settings form, and always shows the stored zone: a
-    rejected value is never echoed back (a select can only submit a
-    listed key, so an invalid one is a stale or tampered form).
-
-    `dirty_section` makes the field its own save-bar section ("Time
-    zone"); inside the Quiet hours card it counts with that card instead.
-    """
-    keys = [key for key, _label in CURATED_TIMEZONES]
-    if current_timezone not in keys:
-        keys.append(current_timezone)
-    options = []
-    for key in keys:
-        offset = timezone_offset_text(key)
-        text = "%s (%s)" % (timezone_label_text(key), offset) if offset else timezone_label_text(key)
-        options.append('<option value="%s"%s>%s</option>' % (
-            escape_html(key), " selected" if key == current_timezone else "",
-            escape_html(text)))
-    error_attrs = _field_error_attrs(
-        errors, TIMEZONE_FIELD_NAME, TIMEZONE_FIELD_ID, hint_id=TIMEZONE_HELPER_ID)
-    return (
-        '<div class="quiet-timezone"%s>'
-        '<label for="%s">%s</label>'
-        '<select id="%s" name="%s" form="%s"%s>%s</select>'
-        '<p class="text-label quiet-timezone__helper" id="%s">%s</p>%s'
-        "</div>"
-    ) % (
-        ' %s="%s"' % (DIRTY_SECTION_ATTR, escape_html(i18n.t(TIMEZONE_LABEL)))
-        if dirty_section else "",
-        TIMEZONE_FIELD_ID, escape_html(i18n.t(TIMEZONE_LABEL)),
-        TIMEZONE_FIELD_ID, TIMEZONE_FIELD_NAME, SETTINGS_FORM_ID, error_attrs,
-        "".join(options),
-        TIMEZONE_HELPER_ID, escape_html(i18n.t(TIMEZONE_HELPER)),
-        _field_error_html(errors, TIMEZONE_FIELD_NAME, TIMEZONE_FIELD_ID),
-    )
 
 
 # The quiet window always runs forward from start, through midnight if
@@ -576,7 +536,8 @@ def quiet_preset_row_html():
 
 def quiet_hours_group(
         current_start, current_end, errors=None, submitted=None,
-        current_timezone=device_config.DEFAULT_TIMEZONE, zone_card_href=None):
+        current_timezone=device_config.DEFAULT_TIMEZONE,
+        zone_card_href=DETECTION_DETAILS_HREF):
     """The Quiet hours settings card: a sibling of the settings form,
     never a literal descendant; both time inputs submit via `form=`.
 
@@ -588,9 +549,9 @@ def quiet_hours_group(
     controls; the server-side HH:MM gate in `handle_post()` is the real
     validation.
 
-    The Time zone field closes the card, unless `zone_card_href` is given:
-    the field then lives in the card that link points to, and this card
-    only says its hours follow that zone.
+    The card has no time zone field: it closes with a sentence saying its
+    hours follow the frame's time zone, linking to `zone_card_href` where
+    that zone is chosen.
     """
     # The group's single hint links to both time inputs (there is no
     # separate per-field hint for Start vs End).
@@ -663,8 +624,7 @@ def quiet_hours_group(
         _normalised_time_html(effective_end),
         end_error_html,
         dial_html, readout_html,
-        timezone_note_html(zone_card_href) if zone_card_href
-        else timezone_field_html(current_timezone, errors),
+        timezone_note_html(zone_card_href),
     )
 
 

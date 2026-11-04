@@ -2119,29 +2119,6 @@ button:disabled {
   text-align: center;
 }
 
-.quiet-timezone {
-  margin-top: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.quiet-timezone select {
-  max-width: 100%;
-}
-
-/* The helper line shares .section-caption's muted voice without using that
- * class: the card keeps exactly one section caption. */
-.quiet-timezone__helper {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  margin: 0;
-}
-
-.quiet-timezone .field-error {
-  margin: 0;
-}
-
 .quiet-times-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -6429,7 +6406,7 @@ button.place-result:hover {
 
 /* The link inside the sentence keeps its place in the line; its padding and
  * the matching negative margin give a 44px target without moving the text. */
-.modal .quiet-timezone-note a {
+.quiet-timezone-note a {
   display: inline-block;
   padding: 13px 4px;
   margin: -13px -4px;
@@ -8890,12 +8867,6 @@ a.entity-row__button:hover {
 .modal__section-title,
 .modal__section > p {
   margin: 0;
-}
-
-/* The Time zone field inside the Location and detection card sits below the
- * Location fields, like a sibling field. */
-.detection-card .quiet-timezone {
-  margin-top: var(--space-md);
 }
 
 .quiet-timezone-note {

@@ -332,13 +332,15 @@ def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server
             "expected the theme chip's committed value to reach disk, got %r"
             % (on_disk()["theme"],))
 
-    # 2. The Runway card is gone: Display only links to the Detection page, which owns the
-    # runway choice, so there is no runway field here to commit.
+    # 2. The Runway card and the Location and detection card are gone: the Location page owns
+    # the runway and the place, and Display only points to it from the Quiet hours note.
     if page.locator('input[name="tracked_runway"]').count():
         raise AssertionError("Display still renders a tracked_runway control")
-    link = page.locator('.detection-card a[href$="/detection"]')
+    if page.locator(".detection-card").count():
+        raise AssertionError("Display still renders the Location and detection card")
+    link = page.locator('.quiet-timezone-note a[href$="/detection#details"]')
     if link.count() != 1:
-        raise AssertionError("expected one Detection card link on Display, got %d" % link.count())
+        raise AssertionError("expected one Location page link on Display, got %d" % link.count())
 
     # The Frame strip is now the only on/off control for the screen, so this settings page no
     # longer renders a display_enabled checkbox; the remaining two field kinds below (radio,

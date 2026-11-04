@@ -745,8 +745,10 @@
     wireSearchAndLocate();
 
     // Scripts and the library are up: the fields tuck away, the form stays
-    // the way to type a place. A refused save keeps its card open.
-    if (detailsEl && !detailsEl.querySelector("[aria-invalid='true']")) {
+    // the way to type a place. A refused save keeps its card open, and so
+    // does a link to the card itself (the Quiet hours note points here).
+    if (detailsEl && !detailsEl.querySelector("[aria-invalid='true']")
+        && window.location.hash !== "#" + detailsEl.id) {
       detailsEl.open = false;
     }
     document.documentElement.className += " " + READY_CLASS;

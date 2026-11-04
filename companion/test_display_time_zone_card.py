@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Served Display markup: the Time zone select lives in the Location and detection card, the Quiet
-hours card points to it, and the field keeps its name, form association and dirty section."""
+"""Served Display markup: there is no Time zone select; the Quiet hours card keeps its controls and
+says its hours follow the time zone, linking to the Location and detection page's details card."""
 import re
 
 import pytest
@@ -19,33 +19,33 @@ def _prefix(device):
     return "/devices/%s" % device.id
 
 
-def _cards(page):
-    start = page.index('id="location-detection"')
-    end = page.index("</section>", start)
-    return page[start:end], page[end:]
+def _quiet_card(page):
+    return page[page.index('data-dirty-section="Quiet hours"'):]
 
 
-def test_the_select_is_in_the_merged_card_only(app):
-    _status, _, page = get(app, _prefix(app.fleet.dev_a) + "/display")
-    card, rest = _cards(page)
-    assert page.count('name="timezone"') == 1
-    assert 'name="timezone"' in card
-    assert 'form="settings-form"' in card[card.index('name="timezone"') - 80:]
-    assert re.search(r'data-dirty-section="Time zone"[^>]*><label for="quiet-hours-timezone">', card)
-    assert card.index("location-picker") < card.index('name="timezone"')
-    assert card.index('name="timezone"') < card.index("detection-link")
-    quiet = rest[rest.index('data-dirty-section="Quiet hours"'):]
-    assert 'name="timezone"' not in quiet
-    assert 'href="#location-detection">Location and detection</a>' in quiet
+def test_display_has_no_time_zone_select_and_links_to_the_details_card(app):
+    prefix = _prefix(app.fleet.dev_a)
+    _status, _, page = get(app, prefix + "/display")
+    assert 'name="timezone"' not in page and 'id="quiet-hours-timezone"' not in page
+    assert "Time zone" not in re.findall(r'data-dirty-section="([^"]*)"', page)
+    quiet = _quiet_card(page)
+    assert 'name="quiet_hours_start"' in quiet and 'name="quiet_hours_end"' in quiet
+    assert 'href="%s/detection#details">Location and detection</a>' % prefix in quiet
     assert "Quiet hours follow the time zone set in" in quiet
 
 
-def test_french_note_and_dirty_section(app):
+def test_the_location_page_carries_the_time_zone_select(app):
+    _status, _, page = get(app, _prefix(app.fleet.dev_a) + "/detection")
+    assert page.count('name="timezone"') == 1
+    assert 'id="details"' in page
+
+
+def test_french_note(app):
+    prefix = _prefix(app.fleet.dev_a)
     cookie = "%s; %s=fr" % (app.cookie, auth.UI_LANG_COOKIE_NAME)
-    status, _, body = http_request(
-        app.server.base_url() + _prefix(app.fleet.dev_a) + "/display", cookie=cookie)
+    status, _, body = http_request(app.server.base_url() + prefix + "/display", cookie=cookie)
     assert status == 200
     page = body.decode("utf-8")
-    assert 'data-dirty-section="Fuseau horaire"' in page
+    assert 'name="timezone"' not in page
     assert "Les heures calmes suivent le fuseau horaire choisi dans" in page
-    assert 'href="#location-detection">Lieu et détection</a>' in page
+    assert 'href="%s/detection#details">Lieu et détection</a>' % prefix in page

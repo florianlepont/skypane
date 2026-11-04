@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-"""French strings for the Locations page, its result toasts and the Display
-location picker. The source-side Message for each id is declared in
+"""French strings for the Locations page and its result toasts. The
+source-side Message for each id is declared in
 companion/pages/locations_page.py and companion/console_locations.py; this
 module only carries the French.
 """
@@ -44,10 +44,6 @@ MESSAGES = {
     "admin_locations.enter_a_longitude_between_180_and_180":
         "Saisissez une longitude entre -180 et 180.",
     "admin_locations.choose_a_time_zone": "Choisissez un fuseau horaire.",
-    "admin_locations.location": "Lieu",
-    "admin_locations.no_location": "Aucun lieu",
-    "admin_locations.no_location_chosen": "Aucun lieu choisi.",
-    "admin_locations.assigned_by_an_administrator": "Attribué par un administrateur",
     "admin_locations.flash_location_added": "Lieu ajouté",
     "admin_locations.flash_location_added_detail":
         "{name} peut maintenant être choisi pour un cadre.",

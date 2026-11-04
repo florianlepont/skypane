@@ -1,7 +1,8 @@
-"""The Location and detection card on the Display page (the saved-setting
-sentence, the Location fields and the change link), its absence from the
-Device page, the removed Runway card, and the history pages' tolerance of the
-new runway ids, over a real in-process server.
+"""The Display page holds none of the Location and detection controls (no
+card, no location picker, no time zone select), the Location and detection
+page carries them, the Device page and the removed Runway card stay absent,
+saving Display never changes the stored place, zone or detection, and the
+history pages tolerate the newer runway ids, over a real in-process server.
 """
 import html
 import json
@@ -18,7 +19,6 @@ from companion_app_server import (
 from server import device_config, fleet_db, history_db
 
 PARIS = "Europe/Paris"
-LINK_TEXT = "Change airport, runway or position"
 HOSTILE_ID = '"><script>alert(1)</script>'
 
 
@@ -87,16 +87,6 @@ def _text(markup):
     return html.unescape(re.sub(r"<[^>]+>", " ", stripped))
 
 
-def _card(markup):
-    """The Location and detection card's own markup: the one section on the page."""
-    match = re.search(
-        r'<section class="theme-status theme-status--nested detection-card".*?</section>',
-        markup, flags=re.S)
-    assert match is not None, "no Location and detection card on the page"
-    assert markup.count('detection-card"') == 1
-    return match.group(0)
-
-
 def _dirty_sections(markup):
     return re.findall(r'data-dirty-section="([^"]*)"', markup)
 
@@ -104,6 +94,18 @@ def _dirty_sections(markup):
 def _save_lfpg(rig):
     device_config.save_device_config(
         rig.owner_dir(), detection={"mode": "runway", "airport": "LFPG", "runway": "08L/26R"})
+
+
+def _position_row(rig):
+    conn = fleet_db.connect(rig.state_dir)
+    try:
+        row = conn.execute(
+            "SELECT d.location_id, l.latitude, l.longitude FROM devices d "
+            "LEFT JOIN locations l ON l.id = d.location_id WHERE d.id = ?",
+            (rig.fleet.owner_device,)).fetchone()
+        return tuple(row)
+    finally:
+        conn.close()
 
 
 def _save_position(rig, radius="9"):
@@ -118,57 +120,47 @@ def _save_position(rig, radius="9"):
 # --- Display ----------------------------------------------------------------
 
 
-def test_display_card_legacy_orly_for_an_admin_links_under_the_frame_id(rig):
-    live = rig.scope()
-    status, page = rig.get("admin", live + "/display")
-    assert status == 200
-    card = _card(page)
-    assert '<h2 class="text-heading" id="location-detection-heading">Location and detection</h2>' in card
-    assert "Runway 07/25 at Paris-Orly Airport (ORY)" in _text(card)
-    assert re.search(r'<a [^>]*href="%s/detection"[^>]*>%s</a>' % (live, LINK_TEXT), card)
+def _assert_display_has_no_place_controls(page):
+    assert "detection-card" not in page
+    assert 'id="location-detection' not in page
+    assert "Location and detection</h2>" not in page
+    assert not re.search(r"<select\b[^>]*name=\"(location_id|timezone)\"", page)
+    assert 'id="location-picker"' not in page and 'id="quiet-hours-timezone"' not in page
+    assert "Change airport, runway or position" not in page
+    assert not {"Location", "Time zone"} & set(_dirty_sections(page))
 
 
-def test_display_card_catalogue_runway_links_to_the_device_scoped_page(rig):
+@pytest.mark.parametrize("who", ["owner", "admin"])
+def test_display_serves_none_of_the_moved_controls(rig, who):
     _save_lfpg(rig)
-    status, page = rig.get("owner", rig.scope() + "/display")
+    rig.add_location("Home", 48.8566, 2.3522)
+    status, page = rig.get(who, rig.scope() + "/display")
     assert status == 200
-    card = _card(page)
-    assert "Runway 08L/26R at Charles de Gaulle International Airport (CDG)" in _text(card)
-    assert 'href="%s/detection"' % rig.scope() in card
+    _assert_display_has_no_place_controls(page)
+    assert "Charles de Gaulle" not in _text(page)
+    assert 'id="quiet-hours-group-heading"' in page
 
 
-def test_display_card_position_names_the_location_and_radius(rig):
-    _save_position(rig, "12")
-    _status, page = rig.get("owner", rig.scope() + "/display")
-    assert "Aircraft within 12 km of Home" in _text(_card(page))
-
-
-def test_display_card_escapes_a_hostile_location_name(rig):
-    home = rig.add_location("<script>alert(1)</script>", 48.8566, 2.3522)
-    rig.post("owner", rig.scope() + "/detection", {
-        "action": "save_detection", "mode": "position",
-        "location_id": str(home), "radius_km": "9"})
-    _status, page = rig.get("admin", rig.scope() + "/display")
-    assert "<script>alert(1)" not in page
-    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in _card(page)
-
-
-def test_display_card_takes_the_slot_of_the_runway_card(rig):
-    _status, page = rig.get("owner", rig.scope() + "/display")
-    card_at = page.index('detection-card"')
-    assert page.index('id="display-look"') < card_at
-    assert card_at < page.index('id="quiet-hours-group-heading"')
-    assert page.index("</section>", page.index('id="display-look"')) < card_at
-
-
-def test_display_card_french_uses_translated_strings_and_no_nautical_miles(rig):
+def test_display_serves_none_of_the_moved_controls_in_french(rig):
     _save_position(rig)
-    _status, page = rig.get("owner", rig.scope() + "/display", lang="fr")
-    card = _card(page)
-    assert '<h2 class="text-heading" id="location-detection-heading">Lieu et détection</h2>' in card
-    assert "Changer d’aéroport, de piste ou de position" in card
-    assert "Avions à moins de 9 km de Home" in _text(card)
-    assert not re.search(r"\bnm\b", _text(page), flags=re.I)
+    status, page = rig.get("owner", rig.scope() + "/display", lang="fr")
+    assert status == 200
+    _assert_display_has_no_place_controls(page)
+    assert "Lieu et détection</h2>" not in page and "Avions à moins de" not in _text(page)
+
+
+def test_the_look_card_is_followed_directly_by_quiet_hours(rig):
+    _status, page = rig.get("owner", rig.scope() + "/display")
+    look_end = page.index("</section>", page.index('id="display-look"'))
+    assert look_end < page.index('id="quiet-hours-group-heading"')
+
+
+def test_the_location_page_holds_what_display_lost(rig):
+    _save_lfpg(rig)
+    status, page = rig.get("owner", rig.scope() + "/detection")
+    assert status == 200
+    assert 'id="place-map"' in page and 'name="timezone"' in page
+    assert "Runway 08L/26R at Charles de Gaulle International Airport (CDG)" in _text(page)
 
 
 # --- Device -----------------------------------------------------------------
@@ -191,32 +183,6 @@ def test_device_page_stays_admin_only(rig):
         status, page = rig.get(who, rig.scope() + "/device")
         assert status == 404
         assert "detection-card" not in page
-
-
-# --- Only the location fields are form controls -----------------------------
-
-
-def test_the_card_holds_the_location_fields_and_no_detection_field(rig):
-    home = rig.add_location("Home", 48.8566, 2.3522)
-    rig.post("owner", rig.scope() + "/settings", {
-        "scope": "display", "return_to": "/display", "location_id": str(home)})
-    _status, page = rig.get("owner", rig.scope() + "/display")
-    card = _card(page)
-    assert re.findall(r"<select\b[^>]*name=\"([^\"]*)\"", card) == ["location_id", "timezone"]
-    assert "<textarea" not in card and "<button" not in card
-    assert re.findall(r"<input\b[^>]*name=\"([^\"]*)\"", card) == []
-    assert _dirty_sections(card) == ["Location", "Time zone"]
-    assert 'name="tracked_runway"' not in page
-    assert "Runway" not in _dirty_sections(page)
-    assert 'id="runway-group-heading"' not in page and "runway-card" not in page
-
-
-def test_the_sentence_comes_first_then_the_location_then_the_link(rig):
-    rig.add_location("Home", 48.8566, 2.3522)
-    _status, page = rig.get("owner", rig.scope() + "/display")
-    card = _card(page)
-    sentence = card.index("Runway 07/25 at Paris-Orly Airport (ORY)")
-    assert sentence < card.index("<select") < card.index(LINK_TEXT)
 
 
 # --- No field, no dirty section, no runway post ----------------------------
@@ -258,16 +224,47 @@ def test_display_save_keeps_a_position_setting_byte_for_byte(rig):
     assert after["detection"] == before["detection"] == {"mode": "position", "radius_km": 9}
 
 
-# --- Fail-safe ---------------------------------------------------------------
+# --- Saving Display leaves the place alone -----------------------------------
 
 
-def test_failsafe_sentence(rig):
-    device_config.save_device_config(
-        rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
-    _status, page = rig.get("admin", rig.scope() + "/display")
-    text = _text(_card(page))
-    assert "Runway 07/25 at Paris-Orly Airport (ORY)" in text
-    assert "Aircraft within" not in text
+def test_display_save_leaves_zone_place_and_detection_unchanged(rig):
+    home = _save_position(rig)
+    device_config.save_device_config(rig.owner_dir(), timezone="America/Martinique")
+    before = rig.config(rig.owner_dir())
+    position_before = _position_row(rig)
+    status, _response, _body = rig.post("owner", rig.scope() + "/settings", {
+        "scope": "display", "return_to": "/display", "theme": "black"})
+    assert status == 303
+    after = rig.config(rig.owner_dir())
+    assert after["theme"] == "black"
+    assert after["timezone"] == before["timezone"] == "America/Martinique"
+    assert after["detection"] == before["detection"]
+    assert _position_row(rig) == position_before
+    assert position_before[0] == home
+
+
+def test_a_crafted_location_id_on_display_does_not_move_the_position(rig):
+    home = _save_position(rig)
+    other = rig.add_location("Elsewhere", 43.0, 5.0)
+    position_before = _position_row(rig)
+    for who in ("owner", "admin"):
+        status, _response, _body = rig.post(who, rig.scope() + "/settings", {
+            "scope": "display", "return_to": "/display", "theme": "black",
+            "location_id": str(other)})
+        assert status == 303
+        assert _position_row(rig) == position_before
+    assert position_before[0] == home
+
+
+def test_an_invalid_zone_from_a_legacy_client_is_still_refused(rig):
+    _save_position(rig)
+    before = rig.config(rig.owner_dir())
+    status, _response, body = rig.post("owner", rig.scope() + "/settings", {
+        "scope": "display", "return_to": "/display", "theme": "black",
+        "timezone": "Mars/Olympus_Mons"})
+    assert status == 200
+    assert "Time zone not saved" in html.unescape(body)
+    assert rig.config(rig.owner_dir()) == before
 
 
 # --- History -----------------------------------------------------------------

@@ -1177,7 +1177,7 @@ class Handler(
             self.read_form(), None if principal is None else principal.role)
         ctx = self.page_context(device)
         errors = {}
-        flash_key = config_page.handle_post(form, ctx, errors=errors, handler=self)
+        flash_key = config_page.handle_post(form, ctx, errors=errors)
         # The return field is matched without this device's own prefix;
         # any other prefix is not a whitelisted route and falls back.
         back_route = config_page.submitted_return_route({
@@ -1186,9 +1186,7 @@ class Handler(
         back = device_scope.scoped(back_route)
         if errors:
             scope = config_page.submitted_scope(form)
-            body = config_page.render(
-                ctx, scope=scope, errors=errors, submitted=form,
-                location_name=self._detection_card_location(device, ctx))
+            body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
             toast_html = None
             if "timezone" in errors:
                 toast_html = flash.flash_toast_html(
@@ -1221,11 +1219,6 @@ class Handler(
         """The frame's own position GET /detection shows for `device`, or
         None when it has none."""
         return detection_actions.frame_place(self, device)
-
-    def _detection_card_location(self, device, ctx):
-        """The usable location name the Display and Device Detection cards
-        describe a position setting with, or None."""
-        return detection_actions.card_location_name(self, device, ctx.device_config)
 
     def _handle_detection_post(self, device):
         """POST /detection for `device`: the dispatcher already applied the

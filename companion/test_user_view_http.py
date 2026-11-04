@@ -328,7 +328,7 @@ def test_user_display_has_no_runway_wake_interval_or_led_control(rig):
     assert "/quick/led" not in user_display
     admin_display = rig.page("/devices/%s/display" % rig.fleet.a1, "admin")
     assert 'name="tracked_runway"' not in admin_display
-    assert "detection-card" in admin_display
+    assert "detection-card" not in admin_display
     admin_device = rig.page("/devices/%s/device" % rig.fleet.a1, "admin")
     assert 'name="wake_interval_s"' in admin_device
     assert "/quick/led" in admin_device

@@ -755,8 +755,10 @@ def test_display_and_device_pages_split_the_groups(app04_server, session_cookie)
         "expected the Display page to carry the theme and quiet-hours schedule groups")
     assert 'name="quiet_hours_enabled"' not in display_text and 'name="display_enabled"' not in display_text, (
         "expected no quiet_hours_enabled/display_enabled checkbox on the Display page")
-    assert 'name="tracked_runway"' not in display_text and "detection-card" in display_text, (
-        "expected the Display page to carry no runway field and the read-only Detection card")
+    assert 'name="tracked_runway"' not in display_text and "detection-card" not in display_text, (
+        "expected the Display page to carry no runway field and no Detection card")
+    assert 'name="timezone"' not in display_text and 'name="location_id"' not in display_text, (
+        "expected the Display page to carry no time zone or location field")
     assert 'name="led_enabled"' not in display_text, (
         "expected the Display page NOT to carry the LED group")
     assert 'name="tracked_runway"' not in device_text, (

@@ -749,7 +749,7 @@ def _settings_card_title_probe(page):
         "  var s = getComputedStyle(h);"
         "  return {text: h.textContent, fontSize: s.fontSize,"
         "          fontWeight: s.fontWeight, fontFamily: s.fontFamily,"
-        "          underSectionHeading: !!h.closest('.display-appearance, .detection-card')};"
+        "          underSectionHeading: !!h.closest('.display-appearance')};"
         "})", _SETTINGS_CARD_TITLE_SELECTOR)
 
 
@@ -762,9 +762,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     named cards; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
-    should assert away. The Display appearance card sits inside its own labelled section and
-    the Location and detection card is its own nested card: both are the nested
-    card-title tier by design and are excluded from the cardinality set structurally. Both themes exercised via
+    should assert away. The Display appearance card sits inside its own labelled section: it is
+    the nested card-title tier by design and is excluded from the cardinality set structurally. Both themes exercised via
     _set_ui_theme(), at the 360px floor.
     """
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -814,12 +813,12 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "than structural position would pick up supersection intro headings too, "
                 "which is exactly the 27-06-shaped mistake this check exists to avoid"
                 % (sorted(allowed_device_texts), sorted(unexpected)))
-        # The nested settings cards are the Display appearance card and the Location and
-        # detection card, both in the nested card-title voice.
-        if set(nested_titles) != {config_page.ASPECT_HEADING, config_page.DETECTION_CARD_TITLE}:
+        # The only nested settings card is the Display appearance card, in the nested
+        # card-title voice.
+        if set(nested_titles) != {config_page.ASPECT_HEADING}:
             raise AssertionError(
-                "expected the Display appearance and Location and detection cards to be the "
-                "only nested settings cards, got %r" % (sorted(set(nested_titles)),))
+                "expected the Display appearance card to be the only nested settings card, "
+                "got %r" % (sorted(set(nested_titles)),))
 
         # The combined set's own cardinality is 1.
         triples = sorted({e["triple"] for e in entries})
