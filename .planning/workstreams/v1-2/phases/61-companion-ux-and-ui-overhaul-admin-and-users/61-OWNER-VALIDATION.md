@@ -149,3 +149,7 @@ Larger redesigns (new design work, owner decision on scope):
   He asks for sketches.
 - W20 (owner, Console) The airline editor could also be improved by laying
   everything out as a table. He asks for sketches.
+- W18 refined (owner) Neither C1 (expandable table) nor C2 (table + side
+  panel) fits. Reuse the graphical frame selector (tile strip, D30) in the
+  Console: clicking a frame tile opens one detailed view with its state,
+  settings, version and device. Mockup C3 (scratchpad/sketches c3, c3t).
