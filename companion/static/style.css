@@ -8134,16 +8134,23 @@ button.look-sheet__done:hover {
   flex-wrap: wrap;
 }
 
-button.special-row__remove {
+a.special-row__remove {
+  display: inline-flex;
   flex: none;
-  height: 44px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
   border-color: var(--color-border);
   background: transparent;
-  box-shadow: none;
   color: var(--color-text);
 }
 
-button.special-row__remove:hover {
+a.special-row__remove:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
@@ -8940,6 +8947,37 @@ a.entity-row__button:hover {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* In the card, "New special look" is the section's one primary action. */
+.personalisation-card .special-add:not([open]) > .special-add__summary {
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  gap: var(--space-sm);
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.personalisation-card .special-add:not([open]) > .special-add__summary:hover {
+  background: var(--color-accent-hover);
+}
+
+.personalisation-card .special-add:not([open]) .special-add__plus {
+  width: auto;
+  height: auto;
+  border: 0;
+}
+
+.personalisation-card .special-row--add,
+.personalisation-card .special-row--add:last-child {
+  border: 0;
+  padding-top: var(--space-md);
+}
+
+.personalisation-card .special-looks .empty-state--compact {
+  margin-bottom: var(--space-sm);
 }
 
 .personalisation-switch {

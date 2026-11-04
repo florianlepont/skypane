@@ -1316,9 +1316,10 @@ def test_rules_no_select_and_three_named_radios_one_checked():
     assert 'value="%s"' % colour_rules.RULE_KIND_CALLSIGN in checked_inputs[0]
 
 
-def test_rules_row_carries_pill_badge_and_confirmed_remove_form(tmp_path):
+def test_rules_row_carries_pill_badge_and_confirmed_remove_dialog(tmp_path):
     """a rendered rule row carries a kind tag with the plain-language word, a mini render of its
-    look, its look read back, and a data-confirm Remove form"""
+    look, its look read back, and a Remove link opening a confirm dialog whose form posts to the
+    delete route and whose dismiss control is the named safe choice"""
     result = colour_rules.add_rule(
         str(tmp_path), "callsign", "AFR1234", "green_light", now="2026-01-01T00:00:00+00:00")
     assert result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (result,)
@@ -1332,9 +1333,13 @@ def test_rules_row_carries_pill_badge_and_confirmed_remove_form(tmp_path):
     assert row.select_one("img.special-row__image").attrs["src"].startswith(
         config_page.FRAME_PREVIEW_ROUTE_PREFIX + "green_light.png?")
     assert row.select_one("p.rule-row__theme").text() == look.look_sentence("green_light")
-    form = row.select_one("form")
-    assert "data-confirm" in form.attrs
-    assert form.select_one("button").text() == config_page.RULE_REMOVE_BUTTON_TEXT
+    trigger = row.select_one("a[data-modal-open]")
+    assert trigger.text() == config_page.RULE_REMOVE_BUTTON_TEXT
+    dialog = row.select_one("dialog.modal")
+    assert trigger.attrs["href"] == "#" + dialog.attrs["id"]
+    form = dialog.select_one("form")
+    assert form.attrs["action"] == "/settings/rules/callsign/AFR1234/delete"
+    assert "data-confirm" not in form.attrs
 
 
 def test_rules_empty_state_carries_no_heading_element():

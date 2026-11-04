@@ -3,9 +3,13 @@ look card's "Special looks" list (rows, per-row delete, and the "Add a
 special look" form with recent suggestions). Built here so `companion.settings.theme` stays
 independent of this module — see that module's own docstring for why.
 """
+import hashlib
+
 from companion import device_scope, i18n
 from companion import theme_preview
 import companion.layout as layout
+from companion import ui_components
+from companion import ui_modal
 from companion.layout import csrf_field, escape_html
 from server import device_config, history_db
 from server.plane import colour_rules, enrich, name_overrides
@@ -35,8 +39,13 @@ SPECIAL_LOOKS_ORDER = i18n.msg(
     "look.most_specific_wins",
     "Most specific wins: calendar, then flight, aircraft, airline. "
     "Adding a key already in the list replaces its look.")
-ADD_SPECIAL_LOOK_LABEL = i18n.msg("look.add_a_special_look", "Add a special look")
 NEW_SPECIAL_LOOK_HEADING = i18n.msg("look.new_special_look", "New special look")
+ADD_SPECIAL_LOOK_LABEL = NEW_SPECIAL_LOOK_HEADING
+SPECIAL_LOOKS_EMPTY_HEADING = i18n.msg(
+    "display.special_looks_none", "No special looks yet")
+SPECIAL_LOOKS_EMPTY_BODY = i18n.msg(
+    "display.special_looks_empty_hint",
+    "Create one when a particular airline or plane should look different.")
 RULE_PREVIEW_TEXT = i18n.msg(
     "look.matching_flights_will_look_like_this",
     "Matching flights will look like this, unless a more specific look applies.")
@@ -81,7 +90,15 @@ RULE_SUGGESTIONS_LABEL = i18n.msg("rules.recent", "Recent:")
 # aria-labelledby targets for the two radiogroups the add form carries.
 RULE_KIND_HEADING_ID = "rule-kind-heading"
 RULE_THEME_HEADING_ID = "rule-theme-heading"
-RULE_REMOVE_CONFIRM_QUESTION = i18n.msg("rules.remove_this_rule", "Remove this rule?")
+RULE_REMOVE_DIALOG_TITLE = i18n.msg(
+    "rules.remove_this_special_look", "Remove this special look?")
+RULE_REMOVE_DIALOG_BODY = i18n.msg(
+    "rules.remove_special_look_body",
+    "%s goes back to your normal look. You can add the special look again at any time.")
+RULE_REMOVE_SUBMIT_TEXT = i18n.msg("rules.remove_special_look", "Remove special look")
+RULE_REMOVE_DISMISS_TEXT = i18n.msg("rules.keep_special_look", "Keep special look")
+RULE_REMOVE_ARIA = i18n.msg("rules.remove_rule_aria", "Remove the special look for %s")
+SPECIAL_LOOKS_ANCHOR = "personalisation-special-looks"
 # Recent suggestions offered per kind, newest first.
 RULE_SUGGESTIONS_PER_KIND = 5
 
@@ -279,36 +296,50 @@ def _rule_title_html(kind, value):
     return "%s %s" % (escape_html(name), key_html) if name else key_html
 
 
+def _rule_remove_dialog_id(kind, value):
+    """The remove dialog's id: a lowercase slug of the kind and a short hash of
+    the value, so no stored text ever reaches an id or a fragment."""
+    digest = hashlib.sha256(value.encode("utf-8")).hexdigest()[:10]
+    return ui_modal.validated_slug("remove-look-%s-%s" % (kind, digest))
+
+
+def _rule_remove_html(kind, value):
+    """The row's Remove link and its confirm dialog. The dialog posts to the
+    delete route with the page's token; its dismiss control is the safe
+    default and takes the initial focus."""
+    dialog_id = _rule_remove_dialog_id(kind, value)
+    subject = "%s %s" % (_rule_kind_label_text(kind), value)
+    trigger = ui_modal.trigger_html(
+        dialog_id, escape_html(i18n.t(RULE_REMOVE_BUTTON_TEXT)),
+        "special-row__remove calendar-disconnect-btn",
+        i18n.t(RULE_REMOVE_ARIA) % subject)
+    dialog = ui_modal.dialog_html(
+        dialog_id, i18n.t(RULE_REMOVE_DIALOG_TITLE), _rule_delete_action(kind, value),
+        csrf_field(), "<p>%s</p>" % escape_html(i18n.t(RULE_REMOVE_DIALOG_BODY) % subject),
+        i18n.t(RULE_REMOVE_SUBMIT_TEXT), i18n.t(RULE_REMOVE_DISMISS_TEXT),
+        device_scope.scoped(layout.DISPLAY_ROUTE) + "#" + SPECIAL_LOOKS_ANCHOR,
+        destructive=True, confirm_only=True)
+    return trigger, dialog
+
+
 def _rule_row_html(kind, value, theme_id):
     """One `<li class="special-row rule-row">`: a mini render of the
-    rule's look, its kind tag, key and read-back, and a Remove form.
-
-    The Remove form's `data-confirm` is a misclick guard only: deleting
-    a rule is immediately reversible (re-adding the same key restores
-    it), and the server-side handler requires no confirm value.
+    rule's look, its kind tag, key and read-back, and a Remove link that
+    opens the confirm dialog (a hash link, so it works without script).
     """
-    delete_form = (
-        '<form method="post" action="%s" data-confirm="%s">%s'
-        '<button type="submit" class="special-row__remove">%s</button>'
-        "</form>"
-    ) % (
-        _rule_delete_action(kind, value),
-        escape_html(i18n.t(RULE_REMOVE_CONFIRM_QUESTION)),
-        csrf_field(),
-        escape_html(i18n.t(RULE_REMOVE_BUTTON_TEXT)),
-    )
+    trigger, dialog = _rule_remove_html(kind, value)
     return (
         '<li class="special-row rule-row"><div class="special-row__main">%s'
         '<div class="special-row__text">'
         '<p class="special-row__title"><span class="special-row__tag rule-row__kind">%s</span>%s</p>'
         '<p class="special-row__meta rule-row__theme">%s</p></div>'
-        "%s</div></li>"
+        "%s</div>%s</li>"
     ) % (
         special_mini_html(theme_id),
         escape_html(_rule_kind_label_text(kind)),
         _rule_title_html(kind, value),
         escape_html(look.look_sentence(theme_id)),
-        delete_form,
+        trigger, dialog,
     )
 
 
@@ -320,7 +351,9 @@ def _rule_list_html(rows):
     """
     return "".join(
         _rule_row_html(kind, value, theme_id)
-        for kind, value, theme_id, _created_at in rows)
+        for kind, value, theme_id, _created_at in rows
+        if kind in colour_rules.RULE_KINDS
+        and colour_rules.normalise_rule_value(kind, value) == value)
 
 
 def special_looks_html(ctx, calendar_row_html):
@@ -341,15 +374,18 @@ def special_looks_html(ctx, calendar_row_html):
     ) % (
         layout.icon_html("icon-plus"), escape_html(i18n.t(ADD_SPECIAL_LOOK_LABEL)),
         _rule_add_form_html(suggestions_html=_rule_suggestion_chips_html(ctx.state_dir)))
+    rows_html = _rule_list_html(colour_rules.rule_rows(registry))
+    empty_html = "" if rows_html else ui_components.empty_state(
+        i18n.t(SPECIAL_LOOKS_EMPTY_HEADING), i18n.t(SPECIAL_LOOKS_EMPTY_BODY), compact=True)
     return (
         '<div class="special-looks">'
         '<h3 class="special-looks__title">%s</h3>'
         '<p class="text-label section-caption">%s</p>'
-        '<ul class="special-list">%s%s%s</ul>'
+        '%s<ul class="special-list">%s%s%s</ul>'
         '<p class="text-label special-looks__order">%s</p>'
         "</div>"
     ) % (
         escape_html(i18n.t(SPECIAL_LOOKS_HEADING)), escape_html(i18n.t(RULES_SECTION_CAPTION)),
-        calendar_row_html, _rule_list_html(colour_rules.rule_rows(registry)), add_html,
+        empty_html, calendar_row_html, rows_html, add_html,
         escape_html(i18n.t(SPECIAL_LOOKS_ORDER)),
     )

@@ -122,6 +122,8 @@ MESSAGES = {
     "display.on_this_page": "Sur cette page",
     "display.current_value": "Actuel\u00a0: %s",
     "display.special_looks_none": "Aucun look spécial pour l’instant",
+    "display.special_looks_empty_hint":
+        "Créez-en un quand une compagnie ou un avion précis doit avoir un autre look.",
     "display.special_looks_one": "1 look spécial",
     "display.special_looks_many": "%d looks spéciaux",
     "display.calendar_connected": "Connecté",

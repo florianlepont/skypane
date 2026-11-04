@@ -169,9 +169,9 @@ def test_the_sheet_is_a_hidden_labelled_dialog_with_script_only_controls():
 
 @pytest.mark.parametrize("lang, words", [
     ("en", ("Look", "Special looks", "Plain paper", "Stripe on soft",
-            "Add a special look", "Change", "Customise look", "Calendar", "Screen")),
+            "New special look", "Change", "Customise look", "Calendar", "Screen")),
     ("fr", ("Allure", "Allures spéciales", "Papier uni",
-            "Bande sur fond clair", "Ajouter une allure spéciale", "Modifier",
+            "Bande sur fond clair", "Nouvelle allure spéciale", "Modifier",
             "Personnaliser le style", "Calendrier", "Écran")),
 ])
 def test_the_look_card_speaks_the_page_language(lang, words):

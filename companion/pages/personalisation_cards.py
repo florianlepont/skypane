@@ -15,7 +15,8 @@ from server.plane import colour_rules
 
 from companion.settings import look
 from companion.settings.form import DIRTY_SECTION_ATTR
-from companion.settings.rules import SPECIAL_LOOKS_HEADING, special_looks_html
+from companion.settings.rules import (
+    SPECIAL_LOOKS_EMPTY_HEADING, SPECIAL_LOOKS_HEADING, special_looks_html)
 from companion.settings.theme import look_card_body_html
 
 PAGE_ID = "personalisation"
@@ -26,7 +27,7 @@ LOOK_TITLE = i18n.msg("look.look", "Look")
 CALENDAR_TITLE = i18n.msg("look.calendar", "Calendar")
 SCREEN_TITLE = i18n.msg("health.screen", "Screen")
 
-SPECIAL_LOOKS_NONE = i18n.msg("display.special_looks_none", "No special looks yet")
+SPECIAL_LOOKS_NONE = SPECIAL_LOOKS_EMPTY_HEADING
 SPECIAL_LOOKS_ONE = i18n.msg("display.special_looks_one", "1 special look")
 SPECIAL_LOOKS_MANY = i18n.msg("display.special_looks_many", "%d special looks")
 CALENDAR_CONNECTED = i18n.msg("display.calendar_connected", "Connected")
