@@ -6487,11 +6487,137 @@ button.place-result:hover {
  * stack on a phone, and the preset row keeps its bottom gap off the
  * sentence below it. */
 .modal .quiet-times-row {
-  gap: var(--space-md);
+  gap: var(--space-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .modal .quiet-preset-row {
   margin-bottom: 0;
+}
+
+.quiet-intro {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* With a script the preset cards drive the enable checkbox, so its own row
+ * leaves the layout (display:none also takes it out of the tab order);
+ * without one the checkbox is the visible control and the cards are hidden
+ * by their .js-gate wrapper. */
+.js .quiet-enabled-field {
+  display: none;
+}
+
+.quiet-cards {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.modal .quiet-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
+  box-sizing: border-box;
+  text-align: left;
+  font-size: var(--font-body-size);
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.modal .quiet-card[aria-pressed="true"] {
+  border: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.quiet-card__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+}
+
+.quiet-card[aria-pressed="true"] .quiet-card__icon {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.quiet-card__text {
+  display: grid;
+  min-width: 0;
+}
+
+.quiet-card__title {
+  font-weight: var(--weight-semibold);
+}
+
+.quiet-card__detail {
+  font-size: var(--font-label-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.quiet-card__check {
+  display: none;
+  margin-left: auto;
+  color: var(--color-accent);
+}
+
+.quiet-card[aria-pressed="true"] .quiet-card__check {
+  display: inline-flex;
+}
+
+.quiet-custom {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-md);
+}
+
+.quiet-custom__label {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.quiet-time-field {
+  min-width: 0;
+}
+
+.quiet-tile {
+  display: block;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-secondary);
+  border-radius: 14px;
+}
+
+.quiet-tile__label {
+  display: block;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.modal .quiet-tile input[type="time"] {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 1.75rem;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 
 .modal .quiet-timezone-note {

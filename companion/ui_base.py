@@ -575,6 +575,13 @@ ICON_IDS = ICON_IDS + (
     "icon-bolt",
 )
 
+# The Quiet hours dialog's preset cards: a sun for the day window and an
+# infinity loop for "always active" (the moon is icon-moon).
+ICON_IDS = ICON_IDS + (
+    "icon-sun",
+    "icon-infinity",
+)
+
 # One more icon, for the Update nav destination: a two-arrow cycle
 # glyph, distinct from icon-refresh (reserved for the copy-button/
 # manual-refresh family). Appended, not merged, for the same reason
@@ -760,6 +767,17 @@ ICON_DEFS_HTML = (
     '<path d="M10 2.5v2.4M10 15.1v2.4M17.5 10h-2.4M4.9 10H2.5'
     'M15.3 4.7l-1.7 1.7M6.4 13.6l-1.7 1.7M15.3 15.3l-1.7-1.7'
     'M6.4 6.4L4.7 4.7"/>'
+    "</symbol>"
+    '<symbol id="icon-sun" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="3.2"/>'
+    '<path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4'
+    'M15.3 15.3l-1.4-1.4M6.1 6.1L4.7 4.7"/>'
+    "</symbol>"
+    '<symbol id="icon-infinity" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 10c-1.6-2.4-2.9-3-4.2-3a3 3 0 0 0 0 6c1.3 0 2.6-.6 4.2-3z'
+    'm0 0c1.6 2.4 2.9 3 4.2 3a3 3 0 0 0 0-6c-1.3 0-2.6.6-4.2 3z"/>'
     "</symbol>"
     '<symbol id="icon-bolt" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'

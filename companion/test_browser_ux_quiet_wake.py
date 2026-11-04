@@ -35,7 +35,7 @@ DIALOG = "dialog#dlg-quiet-hours"
 START = "#quiet-window-start"
 END = "#quiet-window-end"
 SAVE = DIALOG + " button[type=submit]"
-PRESETS = DIALOG + " .quiet-preset-row button"
+PRESETS = DIALOG + " .quiet-cards button"
 MIN_PX = 43.5
 
 # Finite animations only: the live pulse never ends and must not hold the test.

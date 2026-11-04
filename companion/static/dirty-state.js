@@ -51,12 +51,65 @@
       if (end !== null && target.elements["quiet_hours_end"]) {
         target.elements["quiet_hours_end"].value = end;
       }
+      // A window preset turns quiet hours on (picking Night after Always
+      // active must not save "off"); Always active turns them off.
       if (enabledAttr !== null && target.elements["quiet_hours_enabled"]) {
         target.elements["quiet_hours_enabled"].checked = enabledAttr !== "0";
+      } else if (start !== null && target.elements["quiet_hours_enabled"]) {
+        target.elements["quiet_hours_enabled"].checked = true;
       }
+      syncPresetCards(target);
       notifyDirty();
     });
   }
+
+  // The Quiet hours dialog's preset cards carry their selection in
+  // aria-pressed: a window card is selected when quiet hours are on with
+  // exactly its hours, "Always active" when they are off. Re-evaluated
+  // after a card tap and whenever a field of the form changes.
+  function syncPresetCards(target) {
+    var cards = target.querySelectorAll("[data-quiet-card]");
+    var enabledField = target.elements["quiet_hours_enabled"];
+    var startField = target.elements["quiet_hours_start"];
+    var endField = target.elements["quiet_hours_end"];
+    var i;
+    var card;
+    var on;
+    var pressed;
+    if (!cards.length || !enabledField || !startField || !endField) {
+      return;
+    }
+    on = enabledField.checked;
+    for (i = 0; i < cards.length; i++) {
+      card = cards[i];
+      if (card.getAttribute("data-preset-enabled") !== null) {
+        pressed = !on;
+      } else {
+        pressed = on &&
+          startField.value === card.getAttribute("data-preset-start") &&
+          endField.value === card.getAttribute("data-preset-end");
+      }
+      card.setAttribute("aria-pressed", pressed ? "true" : "false");
+    }
+  }
+
+  (function () {
+    var cards = document.querySelectorAll("[data-quiet-card]");
+    var i;
+    var cardForm;
+    var handler;
+    for (i = 0; i < cards.length; i++) {
+      cardForm = cards[i].form;
+      if (cardForm && !cardForm.hasAttribute("data-quiet-synced")) {
+        cardForm.setAttribute("data-quiet-synced", "");
+        handler = (function (f) {
+          return function () { syncPresetCards(f); };
+        })(cardForm);
+        cardForm.addEventListener("input", handler);
+        cardForm.addEventListener("change", handler);
+      }
+    }
+  })();
 
   // Reuses updateBar()/countDifferences() rather than dispatching a
   // synthetic change event. Only calls updateBar() once the bar is
