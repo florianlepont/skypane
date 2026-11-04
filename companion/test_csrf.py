@@ -235,8 +235,8 @@ def _form_tokens(page_html, action_fragment):
 @pytest.mark.parametrize("page,action", (
     ("/display", RULE_DELETE),
     ("/display", config_page.CALENDAR_DISCONNECT_ROUTE),
-    ("/airlines", airlines_page.RENAME_RESET_ROUTE),
-    ("/airlines", airlines_page.LIGHTBOX_DELETE_CLASS),
+    ("/airlines/manage", airlines_page.RENAME_RESET_ROUTE),
+    ("/airlines/manage", airlines_page.LIGHTBOX_DELETE_CLASS),
 ))
 def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
     cookie = login(live)
@@ -268,6 +268,8 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     co_manager_posts = {
         ("POST", routes.Exact(path)) for path in (
             "/co-managers/add", "/co-managers/remove", "/co-managers/leave")}
+    quiet_window_post = {("POST", routes.Exact(routes.QUICK_QUIET_HOURS_WINDOW_ROUTE))}
     assert len(routes.CSRF_ROUTE_KEYS) == 7
-    assert flagged == set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts
+    assert flagged == (
+        set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post)
     assert all(method == "POST" for method, _matcher in console_posts)

@@ -3,15 +3,16 @@ calendar controls, rendered and validated against
 `server.device_config`'s own registries, plus the per-flight
 colour-rules editor.
 """
-from companion import detection_summary, device_scope, i18n
+from companion import device_scope, i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 from companion import screens, user_view
 from companion import wake
-from server import detection, device_config
+from server import device_config
 from server.plane import calendar_rules
 
+from companion.pages import personalisation_cards
 from companion.settings import form_post
 
 # Every settings-group module's names, re-exported here (explicit,
@@ -105,7 +106,6 @@ from companion.settings.quiet_hours import (
     quiet_dial_readout_html as quiet_dial_readout_html,
     quiet_dial_svg as quiet_dial_svg,
     quiet_hours_group as quiet_hours_group,
-    timezone_field_html as timezone_field_html,
     quiet_window_minute_of_day as quiet_window_minute_of_day,
     quiet_window_span as quiet_window_span)
 from companion.settings.calendar import (
@@ -122,9 +122,8 @@ from companion.settings.calendar import (
     CALENDAR_DISCONNECT_FORM_ID as CALENDAR_DISCONNECT_FORM_ID,
     CALENDAR_DISCONNECT_ROUTE as CALENDAR_DISCONNECT_ROUTE,
     CALENDAR_HOW_IT_WORKS_BODY as CALENDAR_HOW_IT_WORKS_BODY,
-    CALENDAR_MANAGE_TEXT as CALENDAR_MANAGE_TEXT,
+    CALENDAR_CHOOSE_TEXT as CALENDAR_CHOOSE_TEXT,
     CALENDAR_NONE_LEAD as CALENDAR_NONE_LEAD,
-    CALENDAR_NONE_TITLE as CALENDAR_NONE_TITLE,
     CALENDAR_REPLACE_BUTTON_TEXT as CALENDAR_REPLACE_BUTTON_TEXT,
     CALENDAR_STALE_AFTER_S as CALENDAR_STALE_AFTER_S,
     CALENDAR_STATUS_CONNECTED_VERDICT as CALENDAR_STATUS_CONNECTED_VERDICT,
@@ -153,7 +152,7 @@ from companion.settings.rules import (
     RULE_KIND_LABELS as RULE_KIND_LABELS,
     RULE_KIND_TITLES as RULE_KIND_TITLES,
     RULE_REMOVE_BUTTON_TEXT as RULE_REMOVE_BUTTON_TEXT,
-    RULE_REMOVE_CONFIRM_QUESTION as RULE_REMOVE_CONFIRM_QUESTION,
+    RULE_REMOVE_DIALOG_TITLE as RULE_REMOVE_DIALOG_TITLE,
     RULE_SUGGESTIONS_LABEL as RULE_SUGGESTIONS_LABEL,
     RULE_THEME_HEADING_ID as RULE_THEME_HEADING_ID,
     RULE_VALUE_FIELD_LABEL as RULE_VALUE_FIELD_LABEL,
@@ -257,7 +256,7 @@ RETURN_TO_FIELD_NAME = "return_to"
 # msg() is idempotent on a repeat (id, English) pair, and a settings
 # page module may not import a page-independent shell module's private
 # constants, so the id is redeclared here rather than imported.
-DISPLAY_PAGE_TITLE = i18n.msg("nav.display", "Display")
+DISPLAY_PAGE_TITLE = i18n.msg("nav.personalisation", "Personalisation")
 DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
 
 # Display has one appearance flow. The base sources come first; flight
@@ -421,64 +420,7 @@ CALENDAR_ERROR_UNREACHABLE = "unreachable"
 CALENDAR_SHEET_ID = "calendar-sheet"
 
 
-DETECTION_CARD_TITLE = i18n.msg(
-    "display.location_and_detection_title", "Location and detection")
-DETECTION_CARD_LINK = i18n.msg(
-    "display.detection_card_link", "Change airport, runway or position")
 DETECTION_ROUTE = "/detection"
-DETECTION_CARD_HEADING_ID = "location-detection-heading"
-# The Location and detection card's own id: the Quiet hours card links here.
-DETECTION_CARD_ID = "location-detection"
-
-
-def detection_card_html(
-        ctx, location_name=None, location_html="", timezone_html=""):
-    """The Location and detection card on Display: the sentence for the
-    saved detection setting, the frame's Location fields (`location_html`)
-    and Time zone field (`timezone_html`), both already built, and a link
-    to the device-scoped detection page.
-
-    The detection part has no field and no dirty-section attribute; the
-    location and time zone fields each carry their own, so the save bar
-    names a changed zone as "Time zone". `location_name` is the device's usable location, if it
-    has one; a position setting without it reads as the default runway, as
-    the frame itself behaves.
-    """
-    selection = detection.current_selection(ctx.device_config)
-    sentence = detection_summary.summary_values(selection, location_name)[0]
-    return (
-        '<section class="theme-status theme-status--nested detection-card" '
-        'id="%s" aria-labelledby="%s">'
-        '<h2 class="text-heading" id="%s">%s</h2>'
-        '<p class="text-label section-caption">%s</p>%s%s'
-        '<a class="text-link detection-link" href="%s">%s</a>'
-        "</section>"
-    ) % (
-        DETECTION_CARD_ID, DETECTION_CARD_HEADING_ID, DETECTION_CARD_HEADING_ID,
-        escape_html(i18n.t(DETECTION_CARD_TITLE)), escape_html(sentence), location_html,
-        timezone_html, escape_html(device_scope.scoped(DETECTION_ROUTE)),
-        escape_html(i18n.t(DETECTION_CARD_LINK)))
-
-
-def _display_groups_html(builders, groups, detection_html):
-    """Display scope's Location and detection card and independent Quiet
-    hours card.
-
-    The cards carry their own headings, so the former supersection
-    headings repeated the same information. Quiet hours is a sibling of
-    the settings form and keeps its fields associated with it via `form=`.
-    """
-    quiet_hours_html = (
-        builders[screens.GROUP_QUIET_HOURS]()
-        if screens.GROUP_QUIET_HOURS in groups else "")
-    return detection_html, quiet_hours_html
-
-
-def _location_picker_html(ctx):
-    """The frame's Location fields for the Location and detection card."""
-    # Imported on use: the console route modules import the page modules.
-    from companion import console_locations
-    return console_locations.display_picker_html(ctx)
 
 
 def _device_groups_html(builders, groups):
@@ -572,7 +514,7 @@ def _dirty_bar_strings():
     }
 
 
-def _group_builders(ctx, values, errors, submitted, next_wake_clock, zone_in_card=False):
+def _group_builders(ctx, values, errors, submitted, next_wake_clock):
     """The lazy, scope-independent per-group builder table render()'s
     scope branches read from. screens.GROUP_THEME/GROUP_CALENDAR have
     no entry here: their own renderer (the look card, built by the
@@ -587,7 +529,7 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock, zone_in_car
             values["quiet_start"], values["quiet_end"],
             errors=errors, submitted=submitted,
             current_timezone=values["timezone"],
-            zone_card_href="#" + DETECTION_CARD_ID if zone_in_card else None),
+            zone_card_href=device_scope.scoped(DETECTION_ROUTE) + "#details"),
         # Read inside the lambda so it costs nothing unless this group
         # is actually in scope.
         screens.GROUP_WAKE_INTERVAL: lambda: wake_interval_group(
@@ -598,7 +540,7 @@ def _group_builders(ctx, values, errors, submitted, next_wake_clock, zone_in_car
 
 
 def _render_display_scope(
-        ctx, groups, builders, errors, submitted, values, calendar_status, detection_html):
+        ctx, groups, builders, errors, submitted, values, calendar_status):
     """Display scope's own header, hidden scope fields, appearance flow,
     and scheduling cards. `groups_html` stays empty: every saved
     control here cross-submits from outside the physical form via
@@ -616,6 +558,7 @@ def _render_display_scope(
     header = layout.page_header(
         i18n.t(DISPLAY_PAGE_TITLE), freshness_html=layout.refresh_marker_html(ctx.now))
     frame_strip_section_html = ""
+    aspect_section_html = ""
     if screens.GROUP_THEME in groups:
         # Resolved once here and shared: the calendar row falls back to
         # the departures look for its "same as departures" picture, the
@@ -627,26 +570,15 @@ def _render_display_scope(
             calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
             errors=errors, submitted=submitted, state_dir=ctx.state_dir,
             sheet_open=bool(ctx.calendar_sheet), sheet_error=ctx.calendar_sheet_error)
-        # The section's own opening tag is formatted on its own: the card
-        # carries literal "%s" alt-text templates for the picker script.
-        aspect_section_html = (
-            '<section id="%s" class="display-appearance" aria-labelledby="%s">' % (
-                escape_html(DISPLAY_LOOK_SECTION_ID), escape_html(ASPECT_HEADING_ID))
-            + look_card_html(
-                values["theme_id"], values["theme_arriving"],
-                special_looks_html(ctx, calendar_row_html), "",
-                errors=errors, submitted=submitted)
-            + "</section>")
-    else:
-        aspect_section_html = ""
-    display_watches_html, display_on_html = _display_groups_html(builders, groups, detection_html)
+        aspect_section_html = personalisation_cards.page_html(
+            ctx, values, calendar_row_html, calendar_status, errors, submitted)
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(SCOPE_DISPLAY, layout.DISPLAY_ROUTE),
         "groups_html": "",
         "aspect_section_html": aspect_section_html,
-        "display_watches_supersection_html": display_watches_html,
-        "display_on_supersection_html": display_on_html,
+        "display_watches_supersection_html": "",
+        "display_on_supersection_html": "",
     }
 
 
@@ -750,7 +682,7 @@ def _settings_page_html(pieces, quick_led_html, dirty_strings):
     )
 
 
-def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None):
+def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None):
     """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) —
     a short orchestrator over the per-scope/per-group assembly helpers
     above.
@@ -761,9 +693,6 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None
     ordinary load) and an actual dict mean different things to
     `_submitted_checkbox_checked()` — collapsing them would render
     every checkbox unchecked on every ordinary load.
-
-    `location_name` is the device's usable detection location, if it has
-    one; only the Location and detection card on Display reads it.
     """
     ctx = page_context.coerce(ctx)
     if errors is None:
@@ -780,9 +709,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None
         scope = SCOPE_DISPLAY
     groups = scope_groups(scope, screen_id)
 
-    builders = _group_builders(
-        ctx, values, errors, submitted, next_wake_clock,
-        zone_in_card=scope == SCOPE_DISPLAY)
+    builders = _group_builders(ctx, values, errors, submitted, next_wake_clock)
     # Rendered after </form> closes so it never nests inside the settings
     # form: quick_led_html is the LED switch's own instant-toggle form.
     quick_led_html = (
@@ -790,12 +717,7 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, location_name=None
 
     if scope == SCOPE_DISPLAY:
         pieces = _render_display_scope(
-            ctx, groups, builders, errors, submitted, values, calendar_status,
-            detection_card_html(
-                ctx, location_name,
-                _location_picker_html(ctx) if screens.GROUP_QUIET_HOURS in groups else "",
-                timezone_field_html(values["timezone"], errors, dirty_section=True)
-                if screens.GROUP_QUIET_HOURS in groups else ""))
+            ctx, groups, builders, errors, submitted, values, calendar_status)
     elif scope == SCOPE_DEVICE:
         pieces = _render_device_scope(groups, builders)
     else:
@@ -850,7 +772,28 @@ def submitted_calendar_signal(form):
     return CALENDAR_URL_SIGNAL_SET
 
 
-def handle_post(form, ctx, errors=None, handler=None):
+def _resolve_quiet_hours(form, scope, errors, times):
+    """The quiet-hours window or switch from `form`. Display has no
+    quiet-hours control (Home's dialog owns them), so a Display post
+    leaves them unchanged whatever fields it carries."""
+    if scope == SCOPE_DISPLAY:
+        return {}
+    if times:
+        return form_post.resolve_quiet_hours_times(form, errors)
+    return form_post.resolve_quiet_hours_enabled(form, errors)
+
+
+def _resolve_timezone(form, scope, errors, current):
+    """The time zone from `form`. Personalisation has no time zone control
+    (the Location and detection page owns it): a Display post still refuses
+    an invalid zone, but never writes one."""
+    resolved = form_post.resolve_timezone(form, errors, current)
+    if scope == SCOPE_DISPLAY and resolved is not form_post.FAILED:
+        return {}
+    return resolved
+
+
+def handle_post(form, ctx, errors=None):
     """Validate the submitted settings state against `device_config`'s
     own registries and validators, then persist all fields in one
     `save_device_config()` call. Rejection is all-or-nothing: a crafted
@@ -893,13 +836,13 @@ def handle_post(form, ctx, errors=None, handler=None):
         lambda: form_post.resolve_calendar_url(calendar_signal, submitted_calendar_url, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
-        lambda: form_post.resolve_quiet_hours_times(form, errors),
+        lambda: _resolve_quiet_hours(form, scope, errors, times=True),
         lambda: form_post.resolve_led(form, errors),
-        lambda: form_post.resolve_quiet_hours_enabled(form, errors),
+        lambda: _resolve_quiet_hours(form, scope, errors, times=False),
         lambda: form_post.resolve_wake_interval(form, errors),
         lambda: form_post.resolve_display(form, errors),
-        lambda: form_post.resolve_timezone(
-            form, errors, (ctx.device_config or {}).get(
+        lambda: _resolve_timezone(
+            form, scope, errors, (ctx.device_config or {}).get(
                 "timezone", device_config.DEFAULT_TIMEZONE)),
     )
     save_kwargs = {}
@@ -909,24 +852,9 @@ def handle_post(form, ctx, errors=None, handler=None):
             return FLASH_SAVE_FAILED
         save_kwargs.update(step_result)
 
-    replaced_location = []
-    if handler is not None and screens.GROUP_QUIET_HOURS in in_scope:
-        # The picker sits with the time zone: applied only when the page
-        # that carries it was the one submitted, and before any file write
-        # so a refused assignment leaves everything unchanged.
-        from companion import console_locations
-        if not console_locations.apply_device_location(
-                form, ctx, handler, replaced_location):
-            return FLASH_SAVE_FAILED
-
     try:
         device_config.save_device_config(state_dir, **save_kwargs)
     except (ValueError, OSError):
-        # A location assigned above is put back so a failed save never
-        # leaves one half of the form applied.
-        if replaced_location:
-            from companion import console_locations
-            console_locations.undo_device_location(ctx, handler, replaced_location[0])
         return FLASH_SAVE_FAILED
 
     if calendar_signal == CALENDAR_URL_SIGNAL_CLEAR:

@@ -78,19 +78,20 @@ def test_user_display_keeps_everyday_controls_and_drops_admin_ones(tmp_path, lan
     prefs.set_request_prefs(lang=lang)
     _as("user")
     user_html = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    assert "quiet_hours_start" in user_html
+    assert "quiet_hours_start" not in user_html
     assert 'name="calendar_url"' in user_html
-    assert 'name="timezone"' in user_html
+    assert 'name="timezone"' not in user_html
+    assert 'name="location_id"' not in user_html
     assert 'name="theme' in user_html
     assert 'name="%s"' % "tracked_runway" not in user_html
-    assert "detection-card" in user_html
+    assert "detection-card" not in user_html
     for field in user_view.ADMIN_ONLY_SETTING_FIELDS:
         assert 'name="%s"' % field not in user_html
 
     _as("admin")
     admin_html = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     assert 'name="tracked_runway"' not in admin_html
-    assert "detection-card" in admin_html
+    assert "detection-card" not in admin_html
 
 
 def test_user_cannot_render_device_scope(tmp_path):
@@ -167,10 +168,12 @@ def test_user_home_attention_ignores_pipeline_state():
     ctx = page_context.coerce({"health_state": {
         "device_state": "ok", "pipeline_state": "error", "battery_state": "ok"}})
     _as("admin")
-    assert home_page._needs_attention(ctx) is True
+    assert home_page._needs_attention(ctx) is False
     _as("user")
     assert home_page._needs_attention(ctx) is False
     ctx.health_state["battery_state"] = "warn"
+    assert home_page._needs_attention(ctx) is True
+    _as("admin")
     assert home_page._needs_attention(ctx) is True
 
 

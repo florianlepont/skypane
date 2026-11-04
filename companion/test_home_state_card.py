@@ -454,15 +454,17 @@ def test_switch_pills_keep_the_native_switch_semantics(tmp_path):
 
 
 def test_served_home_page_carries_no_inline_style(make_app_server):
-    """the Home page served to a signed-in reader, battery dial included, has no style
-    attribute anywhere: the CSP forbids inline styles"""
+    """the Home page served to a signed-in reader has no style attribute anywhere (the CSP
+    forbids inline styles), and a signed-in reader's Home carries no battery dial: the battery
+    lives on the Console Health and Device pages"""
     def seed(state_dir):
         _seed_battery(state_dir, 3700)
     server = make_app_server(seed=seed, fake_providers=True)
     cookie = login(server)
     status, _headers, page = http_request(server.base_url() + "/", cookie=cookie)
     html = page.decode("utf-8")
-    assert status == 200 and 'class="%s"' % draw.DRAWING_ARC_VALUE_CLASS in html
+    assert status == 200 and 'class="%s"' % draw.DRAWING_ARC_VALUE_CLASS not in html
+    assert "home-battery" not in html
     assert not re.search(r"<[^>]+\sstyle=", html)
 
 
@@ -470,17 +472,19 @@ def test_served_home_page_carries_no_inline_style(make_app_server):
     ("en", "Edit quiet hours (23:00 – 07:00)"),
     ("fr", "Modifier les heures calmes (23:00 – 07:00)"),
 ])
-def test_quiet_hours_window_is_a_link_to_the_display_section_outside_the_switch(
+def test_quiet_hours_window_is_a_link_to_the_dialog_outside_the_switch(
         tmp_path, lang, name):
-    """the window beside the Quiet hours label links to the Quiet hours section on Display with
-    an accessible name that repeats the visible window; the link sits in the pill row but
-    outside the switch's <button>, which stays the single role="switch" control"""
+    """the window beside the Quiet hours label is a hash link that opens the Quiet hours dialog,
+    with an accessible name that repeats the visible window and a chevron marking it openable;
+    the link sits in the pill row but outside the switch's <button>, which stays the single
+    role="switch" control"""
     card = _render(tmp_path, lang=lang, cfg={"quiet_hours_enabled": True})
-    link = re.search(r'<a class="home-switch__window[^"]*" href="([^"]+)" aria-label="([^"]+)">'
-                     r"(.*?)</a>", card)
+    link = re.search(r'<a href="([^"]+)" class="home-switch__window[^"]*" aria-label="([^"]+)" '
+                     r"data-modal-open>(.*?)</a>", card)
     assert link is not None, "no quiet hours window link"
-    assert link.group(1) == "/display#quiet-hours-group-heading"
-    assert link.group(2) == name and link.group(3) == "23:00 – 07:00"
+    assert link.group(1) == "#dlg-quiet-hours"
+    assert link.group(2) == name
+    assert link.group(3).startswith("23:00 – 07:00") and "icon-chevron-right" in link.group(3)
     row = re.search(r'<div class="home-switch home-switch--(?:on|off)">'
                     r'(?:(?!<div class="home-switch ).)*?home-switch__window.*?</form></div>',
                     card, re.S).group(0)

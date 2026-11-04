@@ -62,7 +62,7 @@ def _checked(page, field):
 
 
 def test_picture_opens_the_sheet_and_choices_swap_the_picture_live(new_context, make_app_server):
-    """clicking the departures picture opens the sheet as a visible, labelled dialog beside the
+    """clicking the departures picture opens the sheet as a visible, labelled dialog under the
     picture with the saved look's three choices checked; choosing Blue checks the band_blue_field
     radio, swaps the picture's src to that theme's full-frame preview, rewrites the read-back,
     raises the dirty bar, and the image really loads"""
@@ -79,7 +79,7 @@ def test_picture_opens_the_sheet_and_choices_swap_the_picture_live(new_context, 
             assert page.is_checked('%s input[data-look-axis="%s"][value="%s"]' % (SHEET, axis, value))
         picture = page.locator(DEPARTURES + " .look-frame__picture").bounding_box()
         box = sheet.bounding_box()
-        assert box["x"] >= picture["x"] + picture["width"], "expected the sheet beside the picture"
+        assert box["y"] >= picture["y"] + picture["height"], "expected the sheet under the picture"
 
         page.click(_axis("colour", "blue"))
         assert _checked(page, "theme") == "band_blue_field"
@@ -135,13 +135,12 @@ def test_sheet_traps_focus_closes_on_escape_and_returns_focus(new_context, make_
     server = make_app_server(seed=_seed)
     context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
-        opener = DEPARTURES + " summary.look-edit__summary"
+        opener = DEPARTURES + " button.look-pick__customise"
         page.focus(opener)
         page.keyboard.press("Enter")
         page.locator(SHEET).wait_for(state="visible")
         inside = "() => document.querySelector('%s').contains(document.activeElement)" % SHEET
         assert page.evaluate(inside)
-        assert not page.locator(DEPARTURES + " details.look-edit").evaluate("d => d.open")
         for _ in range(12):
             page.keyboard.press("Tab")
             assert page.evaluate(inside), "Tab left the dialog"
@@ -260,8 +259,9 @@ def test_on_phones_the_sheet_is_a_bottom_sheet_and_nothing_overflows(new_context
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_server, lang):
-    """at 1280px the two pictures sit side by side with the special looks beside them, the page
-    does not scroll sideways, and every look opener is at least 44px in both directions"""
+    """at 1280px the Look card holds the departures picture above the arrivals one with the
+    special looks card below them, the page does not scroll sideways, and every look opener is
+    at least 44px in both directions"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP, lang=lang)
     try:
@@ -270,8 +270,11 @@ def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_s
         departures = page.locator(DEPARTURES).bounding_box()
         arrivals = page.locator(ARRIVALS).bounding_box()
         special = page.locator(".special-looks").bounding_box()
-        assert departures["x"] + departures["width"] <= arrivals["x"] <= special["x"]
-        for selector in ("button.look-frame__open", "summary.look-edit__summary", ".special-add__summary"):
+        assert departures["y"] + departures["height"] <= arrivals["y"]
+        assert arrivals["y"] + arrivals["height"] <= special["y"]
+        for selector in (
+                "button.look-frame__open", "summary.look-edit__summary",
+                "button.look-pick__customise", ".special-add__summary"):
             for handle in page.locator(selector).all():
                 box = handle.bounding_box()
                 assert box["height"] >= 44 and box["width"] >= 44, (selector, box)

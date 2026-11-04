@@ -42,30 +42,25 @@ CARD_COLUMNS_MIN = 840
 CARD_SIDE_BY_SIDE_MIN = 520
 
 
-def _zone_geometry(page):
-    return page.evaluate(
+def _assert_zone_arrangement(page, label):
+    """the status zone and the switches stay inside the card and never overlap: beside each
+    other when the card is wide, stacked when it is narrow (the personal Home has no battery
+    zone)"""
+    geometry = page.evaluate(
         """() => {
             const r = s => document.querySelector(s).getBoundingClientRect();
-            return {status: r('.home-state__status'), battery: r('.home-battery'),
-                    switches: r('.home-state__switches'), panel: r('.home-state')};
+            return {status: r('.home-state__status'), switches: r('.home-state__switches'),
+                    panel: r('.home-state')};
         }""")
+    status, switches, panel = geometry["status"], geometry["switches"], geometry["panel"]
+    for zone in (status, switches):
+        assert panel["left"] - 1 <= zone["left"] and zone["right"] <= panel["right"] + 1, label
+    beside = status["right"] <= switches["left"] + 1
+    above = status["bottom"] <= switches["top"] + 1
+    assert beside or above, label
+    assert not page.locator(".home-battery").count(), label
 
 
-def _assert_zone_arrangement(geometry, label):
-    """Columns, two rows or a stack, chosen by the card's measured width."""
-    status, battery, switches = geometry["status"], geometry["battery"], geometry["switches"]
-    width = geometry["panel"]["width"]
-    if width >= CARD_COLUMNS_MIN:
-        assert status["right"] <= battery["left"] + 1 and battery["right"] <= switches["left"] + 1, label
-    elif width >= CARD_SIDE_BY_SIDE_MIN:
-        assert status["right"] <= battery["left"] + 1, label
-        assert max(status["bottom"], battery["bottom"]) <= switches["top"] + 1, label
-    else:
-        assert status["bottom"] <= battery["top"] + 1, label
-        assert battery["bottom"] <= switches["top"] + 1, label
-    for zone in (status, battery, switches):
-        assert geometry["panel"]["left"] - 1 <= zone["left"], label
-        assert zone["right"] <= geometry["panel"]["right"] + 1, label
 SCREEN_BUTTON = 'form[action="/quick/display"] button[role="switch"]'
 QUIET_BUTTON = 'form[action="/quick/quiet-hours"] button[role="switch"]'
 # The same switches under a frame prefix (a user's Home lives at /devices/<id>/).
@@ -121,7 +116,7 @@ def test_status_header_layout_targets_and_keyboard(
                 return {header: r('.home-state'), row: r('.home-picture-row'), title: r('h1')};
             }""")
         assert geometry["title"]["bottom"] <= geometry["header"]["top"] < geometry["row"]["top"]
-        _assert_zone_arrangement(_zone_geometry(page), viewport_name)
+        _assert_zone_arrangement(page, viewport_name)
         for selector in (SCREEN_BUTTON, QUIET_BUTTON):
             box = page.locator(selector).bounding_box()
             assert box is not None
@@ -187,26 +182,24 @@ def test_clicking_the_row_toggles_the_switch(new_context, make_app_server):
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_battery_block_has_an_accessible_name_in_both_themes(new_context, make_app_server, scheme):
-    """the seeded battery reading renders as one named image whose label starts with "Battery
-    about", its dial is drawn, and its text stays readable (not transparent) in the light and
-    dark scheme"""
+def test_battery_is_read_on_health_not_on_the_personal_home(new_context, make_app_server, scheme):
+    """an administrator's personal Home carries no battery block; the seeded reading is read on
+    the Console Health page's Battery row instead, with its value readable (not transparent) in
+    the light and dark scheme"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme=scheme)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + layout.HOME_ROUTE)
-        block = page.locator('.home-battery[role="img"]')
-        block.wait_for(state="visible")
-        assert (block.get_attribute("aria-label") or "").startswith("Battery about")
-        dial = block.locator("svg")
-        assert dial.is_visible()
-        assert dial.locator("circle.drawing-arc-track").count() == 1
-        assert page.locator('.home-battery [role="img"], .home-battery [aria-label]').count() == 0
-        value_color = block.locator(".home-battery__value").evaluate(
-            "el => getComputedStyle(el).color")
-        assert value_color != "rgba(0, 0, 0, 0)"
+        page.locator(".home-state").wait_for(state="visible")
+        assert page.locator(".home-battery").count() == 0
+        page.goto(server.base_url() + layout.HEALTH_ROUTE)
+        row = page.locator('details.health-row[id$="battery"]')
+        row.wait_for(state="visible")
+        assert "battery" in row.inner_text().lower()
+        value = row.locator(".health-row__value").first
+        assert value.evaluate("el => getComputedStyle(el).color") != "rgba(0, 0, 0, 0)"
     finally:
         context.close()
 
@@ -248,12 +241,12 @@ def _seed_checkin(minutes_ago, battery_mv):
     (16, 3700, "Update overdue · expected at", True),
     (30, 3381, "Update overdue · expected at", True),
 ])
-def test_late_states_and_battery_fit_every_viewport(
+def test_late_states_fit_every_viewport_without_a_battery_block(
         new_context, make_app_server, scheme, viewport_name, viewport,
         minutes_ago, battery_mv, wording, amber):
     """on time, late and long overdue each read their own wording; only the on-time one keeps
     the green dot, a late or long overdue frame turns the dot amber, and none of them links to a
-    Health page; the battery figure and dial are large, the zones
+    Health page; the personal Home carries no battery block for an administrator, the zones
     arrange for the card's width, and nothing overflows"""
     server = make_app_server(seed=_seed_checkin(minutes_ago, battery_mv), fake_providers=True)
     context = new_context(viewport=viewport, color_scheme=scheme)
@@ -267,11 +260,7 @@ def test_late_states_and_battery_fit_every_viewport(
         assert page.locator('.home-state a[href$="/health"]').count() == 0
         if amber:
             assert "home-state--warn" in page.locator(".home-state").get_attribute("class")
-        figure = page.locator(".home-battery__value").evaluate(
-            "el => parseFloat(getComputedStyle(el).fontSize)")
-        dial = page.locator(".home-battery > svg").bounding_box()
-        assert figure >= 28 and dial["width"] >= 120 and dial["height"] >= 120
-        _assert_zone_arrangement(_zone_geometry(page), "%s/%s" % (viewport_name, minutes_ago))
+        _assert_zone_arrangement(page, "%s/%s" % (viewport_name, minutes_ago))
         overflow = _assert_no_page_overflow(
             page, "home/%s/%s/%s" % (scheme, viewport_name, minutes_ago), viewport["width"])
         assert not overflow, overflow
@@ -450,10 +439,10 @@ def test_dark_theme_unchecked_switch_thumb_stands_out_from_its_track(new_context
 
 
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-2]], ids=["1280", "390"])
-def test_quiet_hours_window_link_opens_the_display_section_without_toggling(
+def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
         new_context, make_app_server, viewport_name, viewport):
-    """the quiet-hours window is a keyboard-focusable link with a 44px target; clicking it lands
-    on Display with the Quiet hours heading in view and leaves the switch untouched, while a tap
+    """the quiet-hours window is a keyboard-focusable link with a 44px target; activating it with
+    the keyboard opens the Quiet hours dialog and leaves the switch untouched, while a tap
     elsewhere on the row still flips the switch"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", viewport)
@@ -462,18 +451,18 @@ def test_quiet_hours_window_link_opens_the_display_section_without_toggling(
         box = link.bounding_box()
         assert box["height"] >= 44, box
         link.focus()
+        page.wait_for_function(
+            "() => document.activeElement && document.activeElement.matches('.home-switch__window')")
         assert _has_visible_focus_indicator(page, ".home-switch__window")
-        link.click()
-        page.wait_for_url("**/display#quiet-hours-group-heading")
-        heading = page.locator("#quiet-hours-group-heading")
-        heading.wait_for(state="visible")
-        top = heading.bounding_box()["y"]
-        # The jump aligns the heading with the top edge, but layout positions are
-        # fractional while the scroll offset is a whole pixel, so a heading that
-        # is in view can sit a fraction of a pixel above the edge.
-        assert -1 < top < viewport["height"], top
+        page.keyboard.press("Enter")
+        page.wait_for_function(
+            "() => document.querySelector('#dlg-quiet-hours').open"
+            " && document.activeElement.id === 'quiet-window-start'", timeout=10000)
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False
-        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('#dlg-quiet-hours').open"
+            " && document.activeElement.matches('.home-switch__window')", timeout=10000)
         label = page.locator("#home-switch-quiet-label").bounding_box()
         page.mouse.click(label["x"] + 4, label["y"] + 4)
         page.locator(QUIET_BUTTON + '[aria-checked="true"]').wait_for()
@@ -550,9 +539,9 @@ def test_user_home_dot_names_the_state_and_links_to_no_health_page(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-1]], ids=["1280", "360"])
-def test_user_home_layout_has_the_switcher_first_and_no_battery_tile(
+def test_user_home_layout_has_the_frame_chip_first_and_no_battery_tile(
         new_context, make_app_server, viewport_name, viewport, scheme, lang):
-    """a user with two frames sees the switcher above the title, the status card, the picture
+    """a user with two frames sees the frame chip above the title, the status card, the picture
     and the recent flights in that order; there is no battery tile and no attention bar; the
     switches keep 44px targets and nothing overflows"""
     seed = _seed_user_fleet("silent")
@@ -563,7 +552,7 @@ def test_user_home_layout_has_the_switcher_first_and_no_battery_tile(
         assert page.locator(".home-battery").count() == 0
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
-            """() => ['details.frame-switcher', 'h1', '.home-state', '.home-current-frame',
+            """() => ['a.frame-chip', 'h1', '.home-state', '.home-current-frame',
                       '.home-section[aria-labelledby="home-flights"]']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
         assert tops[0] < tops[1] < tops[2] < tops[3]
@@ -573,24 +562,8 @@ def test_user_home_layout_has_the_switcher_first_and_no_battery_tile(
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["x"] + box["width"] <= viewport["width"]
         assert page.locator('.home-state a[href$="/health"]').count() == 0
-        _assert_zone_arrangement_without_battery(page)
+        _assert_zone_arrangement(page, "user-home")
         assert not _assert_no_page_overflow(
             page, "user-home/%s/%s/%s" % (scheme, viewport_name, lang), viewport["width"])
     finally:
         context.close()
-
-
-def _assert_zone_arrangement_without_battery(page):
-    """the status zone and the switches stay inside the card and never overlap"""
-    geometry = page.evaluate(
-        """() => {
-            const r = s => document.querySelector(s).getBoundingClientRect();
-            return {status: r('.home-state__status'), switches: r('.home-state__switches'),
-                    panel: r('.home-state')};
-        }""")
-    status, switches, panel = geometry["status"], geometry["switches"], geometry["panel"]
-    for zone in (status, switches):
-        assert panel["left"] - 1 <= zone["left"] and zone["right"] <= panel["right"] + 1
-    beside = status["right"] <= switches["left"] + 1
-    above = status["bottom"] <= switches["top"] + 1
-    assert beside or above

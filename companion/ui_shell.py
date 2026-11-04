@@ -15,6 +15,7 @@ import companion.device_scope as device_scope
 import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
+import companion.ui_modal as ui_modal
 from companion.ui_base import (
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
@@ -43,6 +44,8 @@ from companion.ui_base import (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    LEAFLET_SCRIPT_SRC,
+    PLACE_MAP_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -53,6 +56,8 @@ from companion.ui_nav import (
     REFRESH_RECONNECTING_ATTR,
     REFRESH_RECONNECTING_TEXT,
     REFRESH_TOKEN_ATTR,
+    CONSOLE_SPACE,
+    PERSONAL_SPACE,
     TAB_BAR_BODY_CLASS,
     _lang_form_html,
     _logout_form_html,
@@ -61,12 +66,14 @@ from companion.ui_nav import (
     _theme_form_html,
     is_admin_principal,
     is_user_principal,
+    current_space,
     sidebar_nav,
     space_switch_html,
     user_brand_href,
 )
 from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
 from companion.ui_time import relative_copy_attrs
+from server import hardware
 
 # The pre-authentication document's <title> — the one inline i18n.t()
 # literal this module used to carry, hoisted to a module-level Message.
@@ -143,6 +150,8 @@ SHELL_SCRIPT_ORDER = (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    LEAFLET_SCRIPT_SRC,
+    PLACE_MAP_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
@@ -268,6 +277,7 @@ PAGE_SHELL_TEMPLATE = (
     '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
+    "{extra_styles}"
     "{favicon_link}\n"
     "</head>\n"
     "<body{body_attrs}>\n"
@@ -276,14 +286,14 @@ PAGE_SHELL_TEMPLATE = (
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
     '<span class="brand">{brand_inner_sidebar}</span>\n'
-    "{sidebar}\n"
+    "{sidebar_switch}{sidebar}\n"
     "{sidebar_footer}\n"
     "</aside>\n"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
-    "{space_switch}"
     "{mobile_nav}\n"
     "</header>\n"
+    "{space_strip}"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
     "{frame_switcher}{flash}\n{banner}\n{body}\n"
     "</main>\n"
@@ -301,17 +311,21 @@ PAGE_SHELL_TEMPLATE = (
 _SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
 
 
-# The frame switcher: shown above the page title of every device-scoped page
-# once the request scope lists two or more frames.
+# The frame chip and card sheet: shown above the page title of every
+# device-scoped page once the request scope lists two or more frames.
 _SWITCHER_ARIA_TEXT = i18n.msg(
     "nav.frame_switcher_aria", "Switch frame, current: %s")
-_SWITCHER_SHARED_TEXT = i18n.msg("nav.frame_switcher_shared", "Shared \u00b7 %s")
-_SWITCHER_MY_FRAMES_TEXT = i18n.msg("nav.frame_switcher_my_frames", "My frames")
-_SWITCHER_ALL_FRAMES_TEXT = i18n.msg(
-    "nav.frame_switcher_all_frames", "All frames (Fleet)")
+_SWITCHER_SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
+_SWITCHER_MY_FRAMES_TEXT = i18n.msg("nav.frame_switcher_my_frames", "Manage my frames")
+_SWITCHER_TITLE_TEXT = i18n.msg("nav.frame_switcher_title", "Choose a frame")
+_SWITCHER_CURRENT_TEXT = i18n.msg("nav.frame_switcher_current", "Current")
+_CLOSE_TEXT = i18n.msg("common.close", "Close")
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 
-FRAME_SWITCHER_CLASS = "frame-switcher"
+FRAME_CHIP_CLASS = "frame-chip"
+FRAME_SHEET_ID = "dlg-frames"
+FRAME_SHEET_CLASS = "frame-sheet"
+FRAME_CARD_CLASS = "frame-card"
 
 # The strip shown to an administrator on a personal page of a frame they
 # neither own nor co-manage.
@@ -351,69 +365,99 @@ def _switcher_status_row(device, now):
         battery_percent=percent)
 
 
-def _switcher_note(entry):
-    """The muted second line of a row, or "" when there is none."""
+def _hardware_label(device):
+    profile = hardware.REGISTRY.get(device.hardware_type)
+    return profile.label if profile is not None else device.hardware_type
+
+
+def _card_note(entry):
+    """The muted second line of a card: who shared the frame, the owner of a
+    frame the viewer does not own, else the frame's hardware."""
     if entry.owner_email is None:
-        return ""
+        return _hardware_label(entry.device)
     if entry.co_managed:
-        return escape_html(i18n.t(_SWITCHER_SHARED_TEXT) % entry.owner_email)
-    return escape_html(entry.owner_email)
+        return i18n.t(_SWITCHER_SHARED_BY_TEXT) % entry.owner_email
+    return entry.owner_email
 
 
-def _switcher_row_html(entry, page, current, now):
+def _frame_card_html(entry, page, current, now):
     device = entry.device
-    note = _switcher_note(entry)
-    current_attr = ' aria-current="true"' if device.id == current.id else ""
+    is_current = device.id == current.id
+    cls = FRAME_CARD_CLASS
+    marker = (
+        icon_html("icon-check", size=20)
+        + '<span class="visually-hidden">%s</span>' % escape_html(
+            i18n.t(_SWITCHER_CURRENT_TEXT))) if is_current else ""
     return (
-        '<li><a class="%(cls)s__row" href="%(href)s"%(current)s>%(dot)s'
+        '<li><a class="%(cls)s" href="%(href)s"%(current)s>%(dot)s'
         '<span class="%(cls)s__text"><span class="%(cls)s__name">%(name)s</span>'
-        '%(note)s</span></a></li>') % {
-            "cls": FRAME_SWITCHER_CLASS,
+        '<span class="%(cls)s__note">%(note)s</span></span>%(marker)s</a></li>') % {
+            "cls": cls,
             "href": escape_html(device_scope.target_path(page, device)),
-            "current": current_attr,
+            "current": ' aria-current="true"' if is_current else "",
             "dot": frame_status.status_dot_html(_switcher_status_row(device, now)),
             "name": escape_html(_device_display_name(device)),
-            "note": ('<span class="%s__note">%s</span>' % (FRAME_SWITCHER_CLASS, note))
-            if note else "",
+            "note": escape_html(_card_note(entry)),
+            "marker": marker,
         }
 
 
-def _switcher_footer_html():
-    links = ['<a href="%s">%s</a>' % (
-        _MY_FRAMES_HREF, escape_html(i18n.t(_SWITCHER_MY_FRAMES_TEXT)))]
-    if is_admin_principal():
-        links.append('<a href="%s">%s</a>' % (
-            _FLEET_HREF, escape_html(i18n.t(_SWITCHER_ALL_FRAMES_TEXT))))
-    return '<div class="%s__footer">%s</div>' % (FRAME_SWITCHER_CLASS, "".join(links))
+def _severity_rank(row):
+    state = frame_status.frame_status(row).dot_state
+    return {frame_status.STATUS_ERROR: 0, frame_status.STATUS_WARN: 1}.get(state, 2)
+
+
+def _console_ordered(entries, now):
+    """Console cards: problems first (error, then warn, then the rest), each
+    group by name."""
+    return sorted(entries, key=lambda e: (
+        _severity_rank(_switcher_status_row(e.device, now)),
+        _device_display_name(e.device).casefold(), e.device.id))
+
+
+def _sheet_footer_html():
+    return '<p class="frame-sheet__footer"><a href="%s">%s</a></p>' % (
+        _MY_FRAMES_HREF, escape_html(i18n.t(_SWITCHER_MY_FRAMES_TEXT)))
+
+
+def _sheet_entries(active, now):
+    """The cards' entries: every frame on a Console page, else the personal
+    list."""
+    if current_space(active) == CONSOLE_SPACE:
+        return _console_ordered(device_scope.console_frame_entries(), now)
+    return device_scope.switcher_entries()
 
 
 def frame_switcher_html(active):
-    """The frame switcher, or "" when it would be useless or out of place: fewer
-    than two frames listed, a global page (Update) or no request scope. A native
-    `<details>` of same-page links, so it works without script. The links are
-    built from the request scope's own frame list, never from request text, and
-    never carry a MAC, token or secret: a Device has none."""
+    """The frame chip and its card sheet, or "" when they would be useless or
+    out of place: fewer than two frames listed, a global page (Update) or no
+    request scope. The chip is a hash link to a shared modal, so it works
+    without script. The cards are built from the request scope's own frame
+    list, never from request text, and never carry a MAC, token or secret: a
+    Device has none."""
     page = _device_page_path(active)
     current = device_scope.current_device()
-    entries = device_scope.switcher_entries()
-    if page is None or current is None or len(entries) < 2:
+    if page is None or current is None:
         return ""
     now = device_scope.now_epoch()
-    cls = FRAME_SWITCHER_CLASS
-    name = escape_html(_device_display_name(current))
-    return (
-        '<details class="%(cls)s"><summary class="%(cls)s__summary" '
-        'aria-label="%(aria)s">%(dot)s<span class="%(cls)s__name">%(name)s</span>'
-        '</summary><div class="%(cls)s__panel"><ul class="%(cls)s__list">%(rows)s</ul>'
-        '%(footer)s</div></details>\n') % {
-            "cls": cls,
-            "aria": escape_html(i18n.t(_SWITCHER_ARIA_TEXT) % _device_display_name(current)),
-            "dot": frame_status.status_dot_html(_switcher_status_row(current, now)),
-            "name": name,
-            "rows": "".join(
-                _switcher_row_html(entry, page, current, now) for entry in entries),
-            "footer": _switcher_footer_html(),
-        }
+    entries = _sheet_entries(active, now)
+    if len(entries) < 2:
+        return ""
+    name = _device_display_name(current)
+    chip = ui_modal.trigger_html(
+        FRAME_SHEET_ID,
+        frame_status.status_dot_html(_switcher_status_row(current, now))
+        + '<span class="%s__name">%s</span>' % (FRAME_CHIP_CLASS, escape_html(name))
+        + icon_html("icon-chevron-down", size=20),
+        FRAME_CHIP_CLASS, i18n.t(_SWITCHER_ARIA_TEXT) % name)
+    cards = "".join(_frame_card_html(e, page, current, now) for e in entries)
+    sheet = ui_modal.sections_dialog_html(
+        FRAME_SHEET_ID, i18n.t(_SWITCHER_TITLE_TEXT), None,
+        '<ul class="%s__list">%s</ul>%s' % (
+            FRAME_SHEET_CLASS, cards, _sheet_footer_html()),
+        i18n.t(_CLOSE_TEXT), device_scope.target_path(page, current),
+        extra_class=FRAME_SHEET_CLASS)
+    return chip + "\n" + sheet
 
 
 def frame_notice_html(active, console_page=False):
@@ -448,7 +492,7 @@ def _device_scoped_title(title, active):
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
-        refresh_token=None, console_page=False):
+        refresh_token=None, console_page=False, styles=()):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -467,6 +511,10 @@ def page_shell(
     fixed relative order, each at most once, however many times it appears
     across the two sets. A src not present in SHELL_SCRIPT_ORDER raises
     ValueError - failing fast on a typo rather than silently emitting nothing.
+
+    `styles` is this page's own extra stylesheet hrefs (the map page's library
+    stylesheet), linked after the shared one in the order given; the shared
+    stylesheet is always the one fixed link before them.
 
     `refresh_token` (default `None`) renders as REFRESH_TOKEN_ATTR on
     `<body>`, escaped, only when given - the four refresh pages'
@@ -510,19 +558,28 @@ def page_shell(
     brand_inner_header = (
         '{brand_mark}<span class="site-title">{site_title}</span>'
     ).format(brand_mark=brand_mark_html, site_title=escaped_site_title)
-    if is_user_principal():
-        # The wordmark leads to the frame's Home when the user can open it,
-        # else to Account.
+    if is_user_principal() or (
+            is_admin_principal() and current_space(active) == PERSONAL_SPACE):
+        # The wordmark leads to the frame's Home when the viewer can open it,
+        # else to Account; an administrator's personal pages match a user's.
         brand_link = (
             '<a class="brand__link" href="%s">%%s</a>' % escape_html(user_brand_href()))
         brand_inner_sidebar = brand_link % brand_inner_sidebar
         brand_inner_header = brand_link % brand_inner_header
+    # The same switch twice: a strip under the header below 960px and the top
+    # of the sidebar from 960px; the media query hides the unused copy.
+    space_strip_html = space_switch_html(active)
+    if space_strip_html:
+        space_strip_html = '<div class="space-strip">%s</div>\n' % space_strip_html
     return PAGE_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
         "title": escape_html(_device_scoped_title(title, active)),
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,
+        "extra_styles": "".join(
+            '<link rel="stylesheet" href="%s">\n' % escape_html(href)
+            for href in styles),
         # Decorative: the adjacent site-title text stays the accessible name.
         "brand_inner_sidebar": brand_inner_sidebar,
         "brand_inner_header": brand_inner_header,
@@ -531,7 +588,8 @@ def page_shell(
         "icon_defs": ICON_DEFS_HTML,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
-        "space_switch": space_switch_html(active, "header"),
+        "sidebar_switch": space_switch_html(active),
+        "space_strip": space_strip_html,
         "mobile_nav": mobile_nav_html,
         "main_id": SKIP_LINK_TARGET_ID,
         "frame_switcher": (

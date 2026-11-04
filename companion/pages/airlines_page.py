@@ -22,7 +22,8 @@ import companion.i18n as i18n
 from companion.layout import csrf_field, escape_html
 import companion.layout as layout
 import companion.page_context as page_context
-from companion.pages import airline_sheet
+from companion.pages import airline_resolutions, airline_sheet
+from companion.ui_base import AIRLINE_EDITOR_LABEL
 from server.plane import illustrations
 # manual_resolutions, enrich and state_store import this page module in
 # neither direction, so importing them here creates no cycle.
@@ -35,10 +36,6 @@ import server.state_store as state_store
 # reverse import would cycle); pinned by a cross-module equality check
 # in companion/test_status_pages.py.
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
-
-# Owned by companion/i18n_fr/nav.py, not airlines.py — the same id the
-# nav tab label uses.
-_NAV_AIRLINES_TEXT = i18n.msg("nav.airlines", "Airlines")
 
 # Stable identifier of the airline-level type section (the airline's
 # primary picture); the other sections use their fleet-variant shape as
@@ -227,6 +224,8 @@ FLASH_MANUAL_NAME_UNUSABLE = "manual_name_unusable"
 RESOLVE_ROUTE = "/airlines/resolve"
 MANUAL_DELETE_ROUTE_PREFIX = "/airlines/manual-resolutions/"
 MANUAL_DELETE_ROUTE_SUFFIX = "/delete"
+# The read-only Airline collection; every link of this editing page uses
+# MANAGE_ROUTE.
 AIRLINES_ROUTE = "/airlines"
 # The administrator's editing page for the same frame (Console).
 MANAGE_ROUTE = "/airlines/manage"
@@ -569,7 +568,7 @@ def _airline_card_zoom_html(caption_text, mode, image_html, busted_image_url, im
 
     if resolve_prefix_value:
         opening_tag = '<a href="%s?%s=%s" class="%s" ' % (
-            device_scope.scoped(AIRLINES_ROUTE), RESOLVE_QUERY_PARAM, resolve_prefix_value,
+            device_scope.scoped(MANAGE_ROUTE), RESOLVE_QUERY_PARAM, resolve_prefix_value,
             css_class)
         closing_tag = "</a>"
     elif sheet_href:
@@ -677,7 +676,7 @@ def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_htm
         manual_note_value, first_seen_value, last_seen_value, count_value,
         aria_label=aria_label, css_class=css_class, sheet_values=sheet_values,
         sheet_href=(
-            device_scope.scoped(airline_sheet.sheet_href(AIRLINES_ROUTE, type_key))
+            device_scope.scoped(airline_sheet.sheet_href(MANAGE_ROUTE, type_key))
             if sheet is not None and not resolve_prefix_value else ""),
         extra_attrs=extra_attrs)
 
@@ -863,7 +862,7 @@ def _gap_card_html(index, row, now=None):
         '<p class="airline-card__name mono">%s</p>'
         "</a>"
     ) % (
-        device_scope.scoped(AIRLINES_ROUTE), RESOLVE_QUERY_PARAM, escaped_prefix,
+        device_scope.scoped(MANAGE_ROUTE), RESOLVE_QUERY_PARAM, escaped_prefix,
         _VIEW_PANEL_SRC_ATTR,
         _VIEW_PANEL_CAPTION_ATTR, escaped_callsign,
         _VIEW_PANEL_HEADING_ATTR, i18n.t(RESOLVE_HEADING),
@@ -1248,7 +1247,7 @@ def _resolve_section_html(ctx):
     state_dir = ctx.state_dir
     now = ctx.now
     back_link = '<a class="text-label" href="%s">%s</a>' % (
-        device_scope.scoped(AIRLINES_ROUTE), i18n.t(RESOLVE_BACK_LINK_TEXT))
+        device_scope.scoped(MANAGE_ROUTE), i18n.t(RESOLVE_BACK_LINK_TEXT))
 
     row = unresolved_row_for_prefix(state_dir, prefix_raw)
     if row is not None:
@@ -1302,7 +1301,7 @@ def _resolve_section_html(ctx):
         upload_action = _illustration_url(key, "POST")
         upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
-            device_scope.scoped(AIRLINES_ROUTE), i18n.t(STEP_B_SKIP_TEXT))
+            device_scope.scoped(MANAGE_ROUTE), i18n.t(STEP_B_SKIP_TEXT))
         return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
             back_link, heading, caption, context_html, upload_zone, skip_link, delete_form)
 
@@ -1342,7 +1341,7 @@ def _sheet_section_html(ctx, sheets_by_name, pairs):
             continue
         values = airline_sheet.attr_values(sheet, sheet_key)
         back_link = '<a class="text-label" href="%s">%s</a>' % (
-            device_scope.scoped(AIRLINES_ROUTE), i18n.t(RESOLVE_BACK_LINK_TEXT))
+            device_scope.scoped(MANAGE_ROUTE), i18n.t(RESOLVE_BACK_LINK_TEXT))
         head = airline_sheet.head_html(
             '<h2 class="text-heading">%s</h2>' % escape_html(sheet["name"]),
             values[2])
@@ -1355,7 +1354,7 @@ def _sheet_section_html(ctx, sheets_by_name, pairs):
             else '<span class="airline-card__placeholder" aria-hidden="true"></span>')
         types_nav = airline_sheet.types_nav_html(
             types, sheet_key,
-            lambda key: device_scope.scoped(airline_sheet.sheet_href(AIRLINES_ROUTE, key)),
+            lambda key: device_scope.scoped(airline_sheet.sheet_href(MANAGE_ROUTE, key)),
             i18n.t(TYPE_LABEL_TEXT))
         focus_name = ctx.flash_key in airline_sheet.NAME_REFUSAL_FLASHES
         upload = _resolve_upload_form_html(
@@ -1478,12 +1477,14 @@ def render(ctx):
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
     return (
-        layout.page_header(i18n.t(_NAV_AIRLINES_TEXT))
+        layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html
         + _gallery_grid_html(
             pairs, state_dir, manual_info_by_name=manual_info_by_name, now=now,
             sheets_by_name=sheets_by_name)
         + gap_strip_html
+        + airline_resolutions.section_html(
+            [(row[0], row[1]) for row in manual_rows], device_scope.scoped(MANAGE_ROUTE))
         + lightbox_html
         + resolve_html
         + sheet_fallback_html

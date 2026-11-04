@@ -1,26 +1,34 @@
-#!/usr/bin/env python3
-"""Browser checks for the Time zone select in the Location and detection card on Display: it sits
-in that card, a change raises the save bar naming "Time zone", Save persists it through the settings
-form, and the form saves with scripts blocked.
+"""Browser checks for Display after the time zone, the place and the quiet hours moved away:
+Display has no location card, no location picker, no time zone select and no quiet-hours control,
+the Quiet hours dialog on Home carries the note that links to the details card of the Location
+page, the pages do not overflow and every control is a 44 px target. Measured at 360 and 1280 px, in English and French, in both
+themes. Boxes are read only once the page has finished loading, its finite animations have ended
+and its controls own their centres (a cross-document view transition otherwise answers the root).
 """
 import pytest
+from place_map_support import Hosts
 
 from companion import auth
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED,
-    _assert_hit_target, _assert_no_page_overflow, _bar_text, _login, _persist_without_js,
-    _save_via_bar, _set_ui_theme, _wait_for_bar, seed_state_dir,
+    _assert_hit_target, _assert_no_page_overflow, _login, _set_ui_theme,
+    seed_state_dir,
 )
-from server import device_config
 
 pytestmark = pytest.mark.browser
 
-SELECT = "#quiet-hours-timezone"
-CARD = "#location-detection"
-ZONE = "America/Martinique"
-ZONE_LABEL = {"en": "Time zone", "fr": "Fuseau horaire"}
+WINDOW_LINK = "a.home-switch__window"
+DIALOG = "dialog#dlg-quiet-hours"
+NOTE_LINK = DIALOG + " .quiet-timezone-note a"
+QUIET_FIELDS = ("#quiet-window-start", "#quiet-window-end")
 VIEWPORTS = [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP]
 VIEWPORT_IDS = ["360", "1280"]
+LINK_TEXT = {"en": "Location and detection", "fr": "Lieu et détection"}
+
+# Finite animations only: the live pulse never ends and must not hold the test.
+_ANIMATIONS_DONE = (
+    "document.getAnimations().every((a) => a.effect && "
+    "a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')")
 
 
 @pytest.fixture(scope="module")
@@ -28,77 +36,98 @@ def server(module_app_server_factory):
     return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
 
 
-def _open(new_context, server, viewport, lang, theme=None):
+def _wait_at_rest(page, selector):
+    """Wait for the finished load, the finite animations and `selector` owning its centre."""
+    page.wait_for_function(
+        """sel => {
+          if (document.readyState !== 'complete' || !(%s)) return false;
+          const e = document.querySelector(sel);
+          if (!e) return false;
+          const r = e.getBoundingClientRect();
+          const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return !!hit && (hit === e || e.contains(hit));
+        }""" % _ANIMATIONS_DONE, arg=selector, timeout=10000)
+
+
+def _open(new_context, server, viewport, lang, theme=None, path="/display", ready="main"):
     context = new_context(viewport=viewport)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+    Hosts(context)
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/display")
-    page.wait_for_selector(SELECT)
+    page.goto(server.base_url() + path)
+    page.wait_for_selector(ready)
     if theme:
         _set_ui_theme(page, theme)
+    page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+    return context, page
+
+
+def _open_home_dialog(new_context, server, viewport, lang, theme=None):
+    context, page = _open(
+        new_context, server, viewport, lang, theme, path="/", ready=WINDOW_LINK)
+    _wait_at_rest(page, WINDOW_LINK)
+    page.click(WINDOW_LINK)
+    page.wait_for_function(
+        "() => document.querySelector('%s').open" % DIALOG, timeout=10000)
+    page.locator(NOTE_LINK).scroll_into_view_if_needed()
+    _wait_at_rest(page, NOTE_LINK)
     return context, page
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("viewport", VIEWPORTS, ids=VIEWPORT_IDS)
-def test_the_select_sits_in_the_merged_card_and_a_change_names_the_section(
+def test_display_has_none_of_the_moved_controls_and_no_quiet_hours(
         new_context, server, viewport, theme, lang):
-    """The select is inside the Location and detection card, none is left in Quiet hours, a changed
-    zone raises the bar naming "Time zone" and the select is a 44 px target without overflow."""
     context, page = _open(new_context, server, viewport, lang, theme)
     try:
-        assert page.locator("select[name=timezone]").count() == 1
-        assert page.locator(CARD + " " + SELECT).count() == 1
-        quiet = page.locator('[data-dirty-section] #quiet-hours-group-heading').locator(
-            "xpath=ancestor::*[@data-dirty-section][1]")
-        assert quiet.locator("select[name=timezone]").count() == 0
-        note = quiet.locator("a[href='#location-detection']")
-        assert note.count() == 1
-        page.wait_for_function(
-            "() => { var s = document.querySelector('%s');"
-            " return !!s.closest('[data-dirty-section]'); }" % SELECT)
-        wrapper = page.locator(CARD + " [data-dirty-section]:has(%s)" % SELECT)
-        assert wrapper.get_attribute("data-dirty-section") == ZONE_LABEL[lang]
-        _assert_hit_target(page, SELECT, "time zone select")
+        assert page.locator("section.detection-card").count() == 0
+        assert page.locator("select[name=location_id]").count() == 0
+        assert page.locator("select[name=timezone]").count() == 0
+        assert page.locator("#location-detection-heading").count() == 0
+        assert page.locator(NOTE_LINK).count() == 0
+        for selector in ("input[name=quiet_hours_start]", "input[name=quiet_hours_end]"):
+            assert page.locator(selector).count() == 0
         assert _assert_no_page_overflow(page, "Display", viewport["width"]) == ""
+    finally:
+        context.close()
 
-        page.select_option(SELECT, ZONE)
-        _wait_for_bar(page)
-        assert ZONE_LABEL[lang].lower() in _bar_text(page).lower()
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
+@pytest.mark.parametrize("viewport", VIEWPORTS, ids=VIEWPORT_IDS)
+def test_the_home_dialog_note_is_a_44px_link_to_the_location_page(
+        new_context, server, viewport, theme, lang):
+    context, page = _open_home_dialog(new_context, server, viewport, lang, theme)
+    try:
+        assert page.locator(NOTE_LINK).count() == 1
+        assert page.locator(NOTE_LINK).inner_text() == LINK_TEXT[lang]
+        assert page.locator(NOTE_LINK).get_attribute("href").endswith("/detection#details")
+        for selector in (NOTE_LINK,) + QUIET_FIELDS:
+            _assert_hit_target(page, selector, "Home dialog")
+        assert _assert_no_page_overflow(page, "Home", viewport["width"]) == ""
     finally:
         context.close()
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", VIEWPORTS, ids=VIEWPORT_IDS)
-def test_save_persists_the_time_zone_through_the_settings_form(
-        new_context, make_app_server, viewport, lang):
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-    context, page = _open(new_context, server, viewport, lang)
+def test_the_note_leads_to_the_open_details_card_of_the_location_page(
+        new_context, server, viewport, lang):
+    context, page = _open_home_dialog(new_context, server, viewport, lang)
     try:
-        page.select_option(SELECT, ZONE)
-        _wait_for_bar(page)
-        _save_via_bar(page)
-        assert device_config.load_device_config(server.tmpdir)["timezone"] == ZONE
-        page.wait_for_selector(SELECT)
-        assert page.locator(SELECT).input_value() == ZONE
+        page.click(NOTE_LINK)
+        page.wait_for_function(
+            "() => location.pathname === '/detection' && location.hash === '#details'"
+            " && document.readyState === 'complete'"
+            " && document.documentElement.classList.contains('map-ready')",
+            timeout=15000)
+        page.wait_for_function(
+            "() => { const d = document.getElementById('details');"
+            " const s = document.querySelector('#details select[name=timezone]');"
+            " return !!d && d.open && !!s && s.getBoundingClientRect().height > 0; }",
+            timeout=10000)
     finally:
         context.close()
-
-
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_time_zone_saves_with_scripts_blocked(new_context, make_app_server, lang):
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
-
-    def read_back():
-        return device_config.load_device_config(server.tmpdir).get(
-            "timezone", device_config.DEFAULT_TIMEZONE)
-
-    result = _persist_without_js(
-        new_context, server.base_url(), "/display", "timezone", ZONE, read_back,
-        viewport=VIEWPORT_MIN_SUPPORTED,
-        cookies=[{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
-    assert result["stored"] == ZONE

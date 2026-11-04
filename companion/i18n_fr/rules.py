@@ -26,6 +26,11 @@ MESSAGES = {
     "rules.airline": "Compagnie",
 
     "rules.remove": "Retirer",
-    "rules.remove_this_rule": "Retirer cette règle ?",
+    "rules.remove_this_special_look": "Supprimer ce look spécial ?",
+    "rules.remove_special_look_body":
+        "%s retrouve votre look habituel. Vous pouvez rajouter le look spécial à tout moment.",
+    "rules.remove_special_look": "Supprimer le look spécial",
+    "rules.keep_special_look": "Garder le look spécial",
+    "rules.remove_rule_aria": "Supprimer le look spécial pour %s",
     "rules.recent": "Récents :",
 }

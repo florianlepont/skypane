@@ -147,6 +147,8 @@ _LIVE_PAIRS = (
     ("light", "accent on primary surface / active nav", "--color-accent", "--color-dominant"),
     ("light", "accent on secondary/sidebar surface", "--color-accent", "--color-secondary"),
     ("light", "primary-button label on accent fill", "--color-on-accent", "--color-accent"),
+    ("light", "space switch current segment", "--color-on-accent", "--color-accent"),
+    ("dark", "space switch current segment", "--color-on-accent", "--color-accent"),
     ("light", "body text on canvas", "--color-text", "--color-canvas"),
     ("light", "body text on card surface", "--color-text", "--color-dominant"),
     ("dark", "accent text/link on canvas", "--color-accent", "--color-canvas"),

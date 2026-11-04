@@ -918,13 +918,13 @@ def test_airlines_no_chrome_gate_survives_the_reorder(tmp_path):
 
 def test_airlines_resolve_panel_back_link_names_and_targets_airlines(tmp_path):
     """the resolve panel's back link renders exactly once, named "← Back to Airlines" and
-    targeting airlines_page.AIRLINES_ROUTE, superseding the Copy Deck's "Back to Health" text"""
+    targeting airlines_page.MANAGE_ROUTE, superseding the Copy Deck's "Back to Health" text"""
     rendered = airlines_page.render({"state_dir": str(tmp_path), "resolve_prefix": "XYZ"})
     matches = re.findall(
         r'<a class="text-label" href="([^"]*)">%s</a>' % re.escape(airlines_page.RESOLVE_BACK_LINK_TEXT),
         rendered)
     assert len(matches) == 1, "expected exactly one resolve-panel back link, found %d" % (len(matches),)
-    assert matches[0] == airlines_page.AIRLINES_ROUTE
+    assert matches[0] == airlines_page.MANAGE_ROUTE
 
 
 # ======================================================================
@@ -1013,7 +1013,7 @@ def test_airlines_french_render_translates_headings_not_data():
         rendered = airlines_page.render({})
     finally:
         prefs.set_request_prefs(lang="en")
-    for needle in (">Compagnies<", "Filtrer par compagnie ou indicatif", "Illustration de la compagnie"):
+    for needle in (">Éditeur de compagnies<", "Filtrer par compagnie ou indicatif", "Illustration de la compagnie"):
         assert needle in rendered, "expected the French %r in a French Airlines render" % (needle,)
     assert "Air France" in rendered, "expected the seeded/curated airline name 'Air France' to stay untranslated data"
 
@@ -1040,7 +1040,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     # The needle names the CURRENT French translation via the module's
     # own MESSAGES lookup (by stable id), never a hand-typed literal
     # that would silently go stale on the next edit.
-    for needle in (">Compagnies<", "Compagnies non identifiées",
+    for needle in (">Éditeur de compagnies<", "Compagnies non identifiées",
                    i18n_fr_airlines.MESSAGES[airlines_page.GAP_STRIP_BODY.msg_id]):
         assert needle in rendered_fr, "expected the French %r in the French Airlines render" % (needle,)
     for needle in ("Identifier un vol non reconnu", "Nom de la compagnie",
@@ -1050,7 +1050,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
         "expected the seeded example callsign to stay untranslated data")
 
     rendered_en = airlines_page.render({"state_dir": str(tmp_path)})
-    for needle in ('<h1 class="page-title">Airlines</h1>', airlines_page.GAP_STRIP_HEADING,
+    for needle in ('<h1 class="page-title">Airline editor</h1>', airlines_page.GAP_STRIP_HEADING,
                    airlines_page.GAP_STRIP_BODY):
         assert needle in rendered_en, "expected the English %r in the default-language Airlines render" % (needle,)
 

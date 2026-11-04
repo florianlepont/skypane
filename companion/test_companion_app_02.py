@@ -965,14 +965,14 @@ def test_flash_manual_keys_complete_and_byte_identical(tmp_path):
     interpolated_keys = (
         app_module.FLASH_KEY_RULE_REPLACED,
         app_module.FLASH_KEY_CALENDAR_CONNECTED, app_module.FLASH_KEY_CALENDAR_CONNECT_OK,
-        app_module.FLASH_KEY_SAVED, "place_saved")
+        app_module.FLASH_KEY_SAVED, "place_saved", "quiet_window_saved")
     for key, text in app_module.FLASH_MESSAGES.items():
         if key in interpolated_keys:
             continue
         assert "%" not in text and "{" not in text, (
             "expected no runtime interpolation in FLASH_MESSAGES[%r], got %r (flash copy "
             "is fixed, never interpolated, except rule_replaced, "
-            "calendar_connected, calendar_connect_ok, place_saved and saved keys)" % (key, text))
+            "calendar_connected, calendar_connect_ok, place_saved, quiet_window_saved and saved keys)" % (key, text))
 
 
 def test_page_context_supplies_resolve_prefix_and_manual_resolutions(tmp_path):

@@ -82,7 +82,7 @@ def test_illustration_upload_writes_only_that_devices_override(app):
     before = snapshot_all(app.server, fleet)
     status, headers = _post_upload(app, _prefix(fleet.dev_a) + "/illustration/air-france.png")
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines?flash=")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?flash=")
     assert os.path.exists(
         illustrations.override_path_for_key("air-france", fleet.dev_a.state_dir))
     _others_unchanged(app, fleet.dev_a, before)
@@ -94,7 +94,7 @@ def test_live_illustration_upload_writes_only_the_root(app):
     status, headers = _post_upload(app, "/illustration/air-france.png")
     assert status == 303
     # The un-prefixed POST acts on the served frame; the redirect names it by id.
-    assert headers["Location"].startswith(_prefix(fleet.live) + "/airlines?flash=")
+    assert headers["Location"].startswith(_prefix(fleet.live) + "/airlines/manage?flash=")
     assert os.path.exists(
         illustrations.override_path_for_key("air-france", app.server.state_dir))
     _others_unchanged(app, fleet.live, before)
@@ -122,7 +122,7 @@ def test_manual_resolve_writes_only_that_devices_registry(app):
         app, _prefix(fleet.dev_a) + "/airlines/resolve",
         {"prefix": "XQZ", "airline_name": RESOLVED_NAME})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines?")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?")
     assert "XQZ" in manual_resolutions.load_manual_resolutions(fleet.dev_a.state_dir)
     _others_unchanged(app, fleet.dev_a, before)
 
@@ -133,7 +133,7 @@ def test_live_manual_resolve_writes_only_the_root(app):
     status, headers, _ = post(
         app, "/airlines/resolve", {"prefix": "XQZ", "airline_name": RESOLVED_NAME})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.live) + "/airlines?")
+    assert headers["Location"].startswith(_prefix(fleet.live) + "/airlines/manage?")
     assert "XQZ" in manual_resolutions.load_manual_resolutions(app.server.state_dir)
     _others_unchanged(app, fleet.live, before)
 
@@ -154,7 +154,7 @@ def test_airline_rename_writes_only_that_devices_overrides(app):
         app, _prefix(fleet.dev_a) + "/airlines/rename",
         {"airline": BUILT_IN_AIRLINE, "airline_name": "Renamed Air"})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines?flash=")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?flash=")
     assert "AFR" in name_overrides.load_name_overrides(fleet.dev_a.state_dir)
     _others_unchanged(app, fleet.dev_a, before)
 
@@ -167,7 +167,7 @@ def test_airline_rename_reset_changes_only_that_devices_overrides(app):
     status, headers, _ = post(
         app, _prefix(fleet.dev_a) + "/airlines/rename/reset", {"airline": BUILT_IN_AIRLINE})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines?flash=")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?flash=")
     assert "AFR" not in name_overrides.load_name_overrides(fleet.dev_a.state_dir)
     _others_unchanged(app, fleet.dev_a, before)
 
@@ -178,7 +178,7 @@ def test_manual_resolution_delete_changes_only_that_devices_registry(app):
     status, headers, _ = post(
         app, _prefix(fleet.dev_a) + "/airlines/manual-resolutions/ABC/delete")
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines")
+    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage")
     assert "ABC" not in manual_resolutions.load_manual_resolutions(fleet.dev_a.state_dir)
     assert "ABC" in manual_resolutions.load_manual_resolutions(fleet.dev_b.state_dir)
     _others_unchanged(app, fleet.dev_a, before)

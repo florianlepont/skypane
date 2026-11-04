@@ -113,8 +113,8 @@ def test_the_sheet_model_names_every_cell_and_every_gap_in_the_page_language(lan
 @pytest.mark.parametrize("field", ["theme", "theme_arriving", "calendar_theme_id"])
 def test_served_page_offers_every_theme_through_native_radios_without_scripts(server, cookie, field):
     """the served Display page offers all 18 theme ids for each look as native radios that post
-    through the settings form, inside a <details> a scripts-blocked browser can open, with the
-    saved look checked"""
+    through the settings form: the departures look as radio cards, the others inside a <details>
+    a scripts-blocked browser can open"""
     status, _headers, body = get(server, "/display", cookie=cookie)
     assert status == 200
     root = parse_html(body.decode("utf-8"))
@@ -125,6 +125,11 @@ def test_served_page_offers_every_theme_through_native_radios_without_scripts(se
     for node in radios:
         assert node.attrs.get("form") == config_page.SETTINGS_FORM_ID
         ancestor = node.parent
+        if field == "theme":
+            while ancestor is not None and "look-pick__grid" not in ancestor.attrs.get("class", ""):
+                ancestor = ancestor.parent
+            assert ancestor is not None and ancestor.attrs.get("role") == "radiogroup"
+            continue
         while ancestor is not None and ancestor.tag != "details":
             ancestor = ancestor.parent
         assert ancestor is not None and "look-edit" in ancestor.attrs.get("class", "")
@@ -135,7 +140,7 @@ def test_the_look_card_carries_no_style_attribute_and_no_inline_script(server, c
     inline script: colours are SVG presentation attributes only"""
     _status, _headers, body = get(server, "/display", cookie=cookie)
     root = parse_html(body.decode("utf-8"))
-    card = root.select_one("div.look-card")
+    card = root.select_one("div.personalisation")
     for node in [card] + card.find_all():
         assert "style" not in node.attrs, node
         assert node.tag != "script"
@@ -163,15 +168,16 @@ def test_the_sheet_is_a_hidden_labelled_dialog_with_script_only_controls():
 
 
 @pytest.mark.parametrize("lang, words", [
-    ("en", ("How your frame looks", "Special looks", "Plain paper", "Stripe on soft",
-            "Add a special look", "Change")),
-    ("fr", ("L’allure de votre cadre", "Allures spéciales", "Papier uni",
-            "Bande sur fond clair", "Ajouter une allure spéciale", "Modifier")),
+    ("en", ("Look", "Special looks", "Plain paper", "Stripe on soft",
+            "New special look", "Change", "Customise look", "Calendar", "Screen")),
+    ("fr", ("Allure", "Allures spéciales", "Papier uni",
+            "Bande sur fond clair", "Nouvelle allure spéciale", "Modifier",
+            "Personnaliser le style", "Calendrier", "Écran")),
 ])
 def test_the_look_card_speaks_the_page_language(lang, words):
     """every visible look-card word renders in the page language"""
     rendered = _render(lang)
-    text = parse_html(rendered).select_one("div.look-card").text()
+    text = parse_html(rendered).select_one("div.personalisation").text()
     for word in words:
         assert word in text, (lang, word)
 

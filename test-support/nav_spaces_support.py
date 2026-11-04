@@ -1,0 +1,76 @@
+"""Shared browser helpers for the navigation tests: signed-in administrator and
+user pages in a chosen viewport, language and theme, and the equal-cells check
+of the phone tab bar."""
+import fleet_console_support as fx
+from locations_page_support import open_locations_page
+from companion import auth
+from companion.test_browser_ux_helpers import _assert_no_page_overflow, _login, _set_ui_theme
+
+MIN_TAP_PX = 44
+
+_CELLS = (
+    "() => [...document.querySelectorAll('.tab-bar > a, .tab-bar > details')]"
+    ".map(e => { const b = e.getBoundingClientRect();"
+    " return {w: b.width, h: b.height, r: b.right}; })")
+_LABELS = (
+    "() => [...document.querySelectorAll('.tab-bar__label')]"
+    ".map(e => ({text: e.textContent, sw: e.scrollWidth, cw: e.clientWidth,"
+    " lines: new Set([...(() => { const r = document.createRange();"
+    " r.selectNodeContents(e); return [...r.getClientRects()]; })()]"
+    ".map(x => Math.round(x.top))).size}))")
+
+
+def context_for(new_context, server, viewport, lang="en", scheme="light"):
+    context = new_context(viewport=viewport, color_scheme=scheme)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+    return context
+
+
+def admin_page(new_context, server, path, viewport, lang="en", scheme="light"):
+    seed = fx.seed_fleet(server.state_dir)
+    if callable(path):
+        path = path(seed)
+    context = context_for(new_context, server, viewport, lang, scheme)
+    page = context.new_page()
+    _login(page, server.base_url())
+    if path == "/locations":
+        open_locations_page(page, server.base_url())
+    else:
+        page.goto(server.base_url() + path)
+    page.locator("main").wait_for(state="visible")
+    _set_ui_theme(page, scheme)
+    return context, page
+
+
+def user_page(new_context, server, viewport, lang="en", scheme="light"):
+    seed = fx.seed_fleet(server.state_dir)
+    name, value = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL).split("=", 1)
+    context = context_for(new_context, server, viewport, lang, scheme)
+    context.add_cookies([{
+        "name": name, "value": value, "url": server.base_url(), "httpOnly": True,
+        "sameSite": "Strict"}])
+    page = context.new_page()
+    page.goto("%s/devices/%s/" % (server.base_url(), seed.owned_id))
+    page.locator("main").wait_for(state="visible")
+    return context, page
+
+
+def assert_bar(page, expected_cells, where):
+    cells = page.evaluate(_CELLS)
+    assert len(cells) == expected_cells, (where, cells)
+    widths = [cell["w"] for cell in cells]
+    assert max(widths) - min(widths) <= 1, (where, widths)
+    for cell in cells:
+        assert cell["h"] >= MIN_TAP_PX and cell["w"] >= MIN_TAP_PX, (where, cells)
+        assert cell["r"] <= page.viewport_size["width"] + 0.5, (where, cells)
+    for label in page.evaluate(_LABELS):
+        assert label["sw"] <= label["cw"], (where, label)
+        assert label["lines"] <= 1, (where, label)
+    assert not _assert_no_page_overflow(page, where, page.viewport_size["width"])
+
+
+def own_frame_home(seed):
+    return "/devices/%s/" % seed.owned_id
+
+

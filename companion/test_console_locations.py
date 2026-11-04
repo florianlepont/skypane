@@ -568,20 +568,18 @@ def _save_display(server, cookie, device_id, location_id):
         "scope": "display", "return_to": "/display", "location_id": str(location_id)})
 
 
-def test_a_co_manager_display_picker_lists_the_owners_locations_and_saves_one(rig):
+def test_a_co_manager_display_offers_no_picker_and_assigns_nothing(rig):
     server, seed, cookie = _co_manager_rig(rig)
     mine = _add(server.state_dir, "Co Place", seed.user_id)
     theirs = _add(server.state_dir, "Owner Place", seed.owner_id)
     _s, _h, page = fx.get(server, cookie, "/devices/%s/display" % seed.owned_id)
-    assert "Owner Place" in page and "Co Place" not in page
-    status, _h, _b = _save_display(server, cookie, seed.owned_id, theirs)
-    assert status == 303
-    assert _sql(server.state_dir, "SELECT location_id FROM devices WHERE id = ?",
-                (seed.owned_id,)) == [(theirs,)]
-    status, _h, _b = _save_display(server, cookie, seed.owned_id, mine)
-    assert status != 500
-    assert _sql(server.state_dir, "SELECT location_id FROM devices WHERE id = ?",
-                (seed.owned_id,)) == [(theirs,)]
+    assert "Owner Place" not in page and "Co Place" not in page
+    assert 'name="location_id"' not in page
+    for target in (theirs, mine):
+        status, _h, _b = _save_display(server, cookie, seed.owned_id, target)
+        assert status == 303
+        assert _sql(server.state_dir, "SELECT location_id FROM devices WHERE id = ?",
+                    (seed.owned_id,)) == [(None,)]
 
 
 @pytest.mark.parametrize("action", ["edit", "delete"])

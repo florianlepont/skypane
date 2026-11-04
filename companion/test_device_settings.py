@@ -170,9 +170,14 @@ def _config_bytes(device):
 
 
 def _timezone_select(page):
-    found = re.search(r'<select id="quiet-hours-timezone".*?</select>', page, re.S)
+    """The time zone select of the Location and detection page."""
+    found = re.search(r'<select id="place-timezone".*?</select>', page, re.S)
     assert found, "the time zone select is missing"
     return found.group(0)
+
+
+def _location_page(app, device=None):
+    return get(app, _prefix(device or app.fleet.dev_a) + "/detection")[2]
 
 
 def _french(app, path):
@@ -182,25 +187,19 @@ def _french(app, path):
     return body.decode("utf-8")
 
 
-def test_timezone_field_markup_and_card_order(app):
-    _status, _, page = get(app, _prefix(app.fleet.dev_a) + "/display")
-    start = page.index('id="location-detection"')
-    card = page[start:page.index("</section>", start)]
-    positions = [card.index(marker) for marker in (
-        'id="location-picker"', 'name="timezone"', "detection-link")]
-    assert positions == sorted(positions)
-    select = _timezone_select(page)
-    assert 'form="settings-form"' in select
-    assert re.search(r'<label for="quiet-hours-timezone">Time zone</label>', card)
-    assert "Quiet hours follow this time zone." in card
+def test_the_time_zone_select_is_on_the_location_page_only(app):
+    _status, _, display = get(app, _prefix(app.fleet.dev_a) + "/display")
+    assert 'name="timezone"' not in display and 'id="quiet-hours-timezone"' not in display
+    assert "Quiet hours follow this time zone." not in display
+    assert 'data-dirty-section="Quiet hours"' not in display
+    assert 'name="quiet_hours_start"' not in display
+    page = _location_page(app)
     assert page.count('name="timezone"') == 1
-    quiet = page[page.index('data-dirty-section="Quiet hours"'):]
-    assert 'name="timezone"' not in quiet
-    assert 'href="#location-detection"' in quiet
+    assert re.search(r'<label for="place-timezone">Time zone</label>', page)
 
 
 def test_timezone_options_are_curated_with_offsets_and_paris_selected(app):
-    _status, _, page = get(app, _prefix(app.fleet.dev_a) + "/display")
+    page = _location_page(app)
     options = re.findall(r'<option value="([^"]+)"( selected)?>([^<]*)</option>', _timezone_select(page))
     assert [key for key, _sel, _text in options] == [
         "Europe/Paris", "America/Martinique", "America/Guadeloupe", "America/Cayenne",
@@ -222,9 +221,8 @@ def test_a_valid_timezone_is_saved_for_that_device_only(app):
     assert b'"timezone": "America/Martinique"' in _config_bytes(fleet.dev_a)
     assert snapshot(fleet.dev_b.state_dir) == dev_b
     assert snapshot(app.server.state_dir) == live
-    _status, _, page = get(app, _prefix(fleet.dev_a) + "/display")
-    assert '<option value="America/Martinique" selected>' in _timezone_select(page)
-    assert "22:15" in page and "Martinique time" in page
+    assert '<option value="America/Martinique" selected>' in _timezone_select(
+        _location_page(app))
 
 
 def test_paris_or_omitted_never_adds_the_key(app):
@@ -262,14 +260,11 @@ def test_an_invalid_timezone_rejects_the_whole_post_atomically(app, bad):
     assert snapshot_all(app.server, fleet) == before
     assert _config_bytes(fleet.dev_a) == config_before
     assert _config(fleet.dev_a)["quiet_hours_start"] != "22:15"
-    select = _timezone_select(page)
-    assert '<option value="America/Martinique" selected>' in select
-    assert 'aria-invalid="true"' in select
-    assert 'aria-describedby="quiet-hours-timezone-hint quiet-hours-timezone-error"' in select
-    assert re.search(
-        r'<p class="field-error text-label" id="quiet-hours-timezone-error" role="alert">'
-        r"Pick a time zone from the list\.</p>", page)
+    assert "Time zone not saved" in page
     assert "Nothing in this save was applied." in page
+    assert 'name="timezone"' not in page
+    assert '<option value="America/Martinique" selected>' in _timezone_select(
+        _location_page(app))
     assert 'role="alert"' in page[page.index("toast-region"):]
     assert bad == "" or bad not in page.replace("&lt;", "")
 
@@ -277,8 +272,7 @@ def test_an_invalid_timezone_rejects_the_whole_post_atomically(app, bad):
 def test_an_unlisted_stored_zone_is_one_extra_last_option_and_can_be_resaved(app):
     fleet = app.fleet
     device_config.save_device_config(fleet.dev_a.state_dir, timezone="Asia/Tokyo")
-    _status, _, page = get(app, _prefix(fleet.dev_a) + "/display")
-    options = re.findall(r'<option value="([^"]+)"( selected)?>', _timezone_select(page))
+    options = re.findall(r'<option value="([^"]+)"( selected)?>', _timezone_select(_location_page(app)))
     assert options[-1] == ("Asia/Tokyo", " selected")
     assert len(options) == 11
     status, _, _ = post(
@@ -289,21 +283,26 @@ def test_an_unlisted_stored_zone_is_one_extra_last_option_and_can_be_resaved(app
 
 
 def test_the_readout_keeps_its_form_for_paris_and_adds_a_zone_clause_otherwise(app):
-    fleet = app.fleet
-    _status, _, paris = get(app, _prefix(fleet.dev_a) + "/display")
+    from companion import prefs
+    from companion.pages import config_page
+    paris = config_page.quiet_hours_group("22:15", "06:45")
     readout = re.search(r'<p class="time-value quiet-dial__readout".*?</p>', paris, re.S).group(0)
     assert "time</p>" not in readout
-    device_config.save_device_config(fleet.dev_a.state_dir, timezone="America/Martinique")
-    _status, _, english = get(app, _prefix(fleet.dev_a) + "/display")
-    assert re.search(r"</span> · Martinique time</p>", english)
-    french = _french(app, _prefix(fleet.dev_a) + "/display")
+    zoned = config_page.quiet_hours_group(
+        "22:15", "06:45", current_timezone="America/Martinique")
+    assert re.search(r"</span> · Martinique time</p>", zoned)
+    prefs.set_request_prefs(lang="fr")
+    try:
+        french = config_page.quiet_hours_group(
+            "22:15", "06:45", current_timezone="America/Martinique")
+    finally:
+        prefs.set_request_prefs(lang="en")
     assert " · heure de Martinique</p>" in french
 
 
 def test_every_timezone_string_renders_in_french(app):
-    page = _french(app, _prefix(app.fleet.dev_a) + "/display")
+    page = _french(app, _prefix(app.fleet.dev_a) + "/detection")
     assert "Fuseau horaire" in page
-    assert "Les heures calmes suivent ce fuseau horaire." in page
     assert "Métropole (Paris)" in page and "Nouvelle-Calédonie" in page
     cookie = "%s; %s=fr" % (app.cookie, auth.UI_LANG_COOKIE_NAME)
     import urllib.parse
@@ -313,5 +312,5 @@ def test_every_timezone_string_renders_in_french(app):
         data=data, cookie=cookie)
     text = body.decode("utf-8")
     assert status == 200
-    assert "Choisissez un fuseau horaire dans la liste." in text
+    assert "Fuseau horaire non enregistré" in text
     assert "Rien n’a été appliqué." in text

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Real-browser checks of the calendar status row's layout on the Display page: at every width the
-"Manage" (or "Connect") button sits on the right of the same row as the text, vertically centred,
-and never makes the row taller than its tile plus two text lines. Covers 360/390 px phones and the
-1280 px desktop (where the special-looks column is narrow), English and French, light and dark,
-and every state the row can show; also with scripts blocked, where the button is a plain link.
+"""Real-browser checks of the calendar status row's layout on the Display page: on a desktop the
+"Choose calendar" button sits on the right of the same row as the text, vertically centred, and
+never makes the row taller than its tile plus two text lines; on a phone it takes the row's full
+width under the text. Covers 360/390 px phones and the 1280 px desktop, English and French, light
+and dark, and every state the row can show; also with scripts blocked, where the button is a
+plain link.
 """
 from datetime import datetime
 
@@ -71,7 +72,7 @@ def _measure(page):
       const line = e => parseFloat(getComputedStyle(e).lineHeight) ||
         1.4 * parseFloat(getComputedStyle(e).fontSize);
       const title = row.querySelector('.calendar-status__title');
-      const detail = row.querySelector('.calendar-status__detail');
+      const detail = row.querySelector('.calendar-status__detail') || title;
       return {row: r(row), text: r(text), btn: r(btn), tile: r(tile),
               lines: Math.round(r(text).h / line(detail)),
               textH: r(text).h, rowPadTop: parseFloat(getComputedStyle(row).paddingTop),
@@ -81,29 +82,33 @@ def _measure(page):
 
 def _assert_inline(m, where, phone):
     row, text, btn, tile = m["row"], m["text"], m["btn"], m["tile"]
-    assert btn["x"] >= text["r"] - 0.5, (where, "button is not to the right of the text", m)
-    assert btn["r"] <= row["r"] + 0.5 and btn["x"] >= row["x"], (where, "button leaves the row", m)
-    # Vertically inside the row and centred on the tile/text content band.
+    assert btn["r"] <= row["r"] + 0.5 and btn["x"] >= row["x"] - 0.5, (where, "button leaves the row", m)
     assert btn["y"] >= row["y"] - 0.5 and btn["b"] <= row["b"] + 0.5, (where, m)
+    if phone:
+        # Too wide to sit beside the text: the button spans the row under it.
+        assert btn["y"] >= text["b"] - 0.5, (where, "button is not under the text", m)
+        assert btn["w"] >= row["w"] - 8 - 1, (where, "button is not the row's full width", m)
+        assert btn["h"] >= 44 - 0.5, (where, "touch target", m)
+        return
+    assert btn["x"] >= text["r"] - 0.5, (where, "button is not to the right of the text", m)
+    # Vertically centred on the tile/text content band.
     content_mid = row["y"] + m["rowPadTop"] + (row["h"] - m["rowPadTop"]) / 2
     assert abs((btn["y"] + btn["h"] / 2) - content_mid) <= 1.5, (where, "not centred", m)
     # No second line for the button: the row is only as tall as its tallest item (+ its padding).
     tallest = max(tile["h"], text["h"], btn["h"])
     assert row["h"] <= tallest + m["rowPadTop"] + 1, (where, "row taller than its content", m)
     assert btn["y"] < text["b"] - 1 or btn["h"] >= text["h"] - 1, (where, m)
-    if phone:
-        assert btn["h"] >= 44 - 0.5 and btn["w"] >= 44, (where, "touch target", m)
 
 
 @pytest.mark.parametrize("state", STATES)
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["360", "390", "1280"])
-def test_manage_sits_on_the_right_of_the_same_row(
+def test_choose_calendar_sits_with_the_text_row(
         new_context, server, monkeypatch, viewport, lang, state):
-    """the button is right of the text, centred, inside the row, the row is no taller than its
-    content (no second line), nothing overflows and the phone target is >= 44 px - every state,
-    both languages, both themes"""
+    """on a desktop the button is right of the text, centred, inside the row and the row is no
+    taller than its content; on a phone it spans the row under the text with a >= 44 px target;
+    nothing overflows - every state, both languages, both themes"""
     _arrange(server, state, monkeypatch)
     context = new_context(viewport=viewport)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
@@ -141,8 +146,8 @@ ICLOUD_URL = "https://p12-caldav.icloud.com/published/2/ICLOUDSECRET"
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_an_icloud_row_is_as_short_as_its_tile_and_two_text_lines(
         new_context, server, viewport, lang):
-    """the real-world row (provider name, pill, detail) is a one-line title plus a detail of at
-    most two lines, with the button beside it rather than under it"""
+    """the real-world row (provider name, pill, detail) keeps its detail to at most two lines on a
+    desktop; on a phone the button sits under the text, which then has the row's width"""
     _connect(server, [("AF1234", "CDG", "ORY", 2)], url=ICLOUD_URL, host="p12-caldav.icloud.com")
     context = new_context(viewport=viewport)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
@@ -157,5 +162,7 @@ def test_an_icloud_row_is_as_short_as_its_tile_and_two_text_lines(
         detail = page.locator(".calendar-status__detail").evaluate(
             "e => e.getBoundingClientRect().height / parseFloat(getComputedStyle(e).lineHeight)")
         assert detail <= 2.05, ("detail wraps past two lines", detail, m)
+        lead = page.locator(".calendar-status__lead").inner_text()
+        assert lead.startswith("Flights in your calendar" if lang == "en" else "Vols de votre calendrier")
     finally:
         context.close()

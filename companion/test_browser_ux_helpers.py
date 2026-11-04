@@ -1389,7 +1389,7 @@ def _display_page_height(make_context, base_url, viewport):
             # The theme-radio guard below still holds unchanged: the departures palette
             # renders exactly `len(device_config.THEME_IDS)` radios named `theme`, the same
             # count the retired chip grid always rendered.
-            {"headingId": config_page.ASPECT_HEADING_ID})
+            {"headingId": "personalisation-look-title"})
     finally:
         context.close()
     if seen["clientWidth"] != viewport["width"]:
@@ -1400,7 +1400,7 @@ def _display_page_height(make_context, base_url, viewport):
             % (viewport["width"], seen["clientWidth"]))
     if not seen["heading"]:
         raise AssertionError(
-            "_display_page_height: the document at %dpx carries no Aspect "
+            "_display_page_height: the document at %dpx carries no Look "
             "heading — this is not the authenticated Display page "
             "(a missing session redirects to the login card, which renders "
             "perfectly and is a quarter of the height)" % (viewport["width"],))

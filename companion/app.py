@@ -32,7 +32,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
-    login_page, page_context, post_actions, preview_images, prefs, request_body, routes, sign_in,
+    login_page, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -41,6 +41,7 @@ from companion.pages import (  # noqa: E402
     airlines_page,  # noqa: F401
     config_page,
     detection_page,
+    place_page,
     health_page,
     update_page,
 )
@@ -82,15 +83,15 @@ MAX_ILLUSTRATION_UPLOAD_BYTES = post_actions.MAX_ILLUSTRATION_UPLOAD_BYTES
 # check.
 REQUEST_SOCKET_TIMEOUT_S = 30
 
-# The Content-Security-Policy sent on every response. No 'unsafe-inline'
-# on script-src (no inline <script> anywhere); style-src allows
-# 'unsafe-inline' solely for theme-swatch `style="background:..."`
-# attributes sourced from the fixed THEMES registry, never user input.
-CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; img-src 'self' data:; "
-    "style-src 'self' 'unsafe-inline'; script-src 'self'; "
-    "form-action 'self'; frame-ancestors 'none'"
-)
+# The default Content-Security-Policy, sent on every response except the
+# location page's.
+CONTENT_SECURITY_POLICY = page_policy.CONTENT_SECURITY_POLICY
+# The response policies live in companion/page_policy.py so the route table
+# and the detection POST handler can name the map policy without importing
+# this module.
+PagePolicy = page_policy.PagePolicy
+DEFAULT_PAGE_POLICY = page_policy.DEFAULT_PAGE_POLICY
+MAP_PAGE_POLICY = page_policy.MAP_PAGE_POLICY
 # The same environment variable deploy/skypane-byos.service passes to
 # byos_server.py as --sleep, via the identical EnvironmentFile=. Not
 # imported from companion/auth.py: unrelated lifecycles.
@@ -258,7 +259,7 @@ _PAGE_TITLES = dict(layout.NAV_TABS)
 # A child page is reached from a tab rather than being one: it has its own
 # title, and the tab it hangs under stays the active nav item.
 _CHILD_PAGE_TITLES = {
-    detection_page.DETECTION_ROUTE: detection_page.PAGE_TITLE,
+    detection_page.DETECTION_ROUTE: place_page.PAGE_TITLE,
     airlines_page.MANAGE_ROUTE: console_routes.AIRLINE_EDITOR_LABEL,
 }
 # The frame pages that belong to the Console: they show no foreign-frame strip.
@@ -276,6 +277,7 @@ _CONSOLE_FRAME_ROUTES = frozenset((
 # what a freshly-seeded, empty state happens to render.
 _PAGE_SCRIPTS = {
     layout.HOME_ROUTE: (
+        layout.DIRTY_STATE_SCRIPT_SRC,
         layout.FRESHNESS_SCRIPT_SRC,
         layout.QUICK_SWITCH_SCRIPT_SRC,
     ),
@@ -293,9 +295,7 @@ _PAGE_SCRIPTS = {
         layout.QUICK_SWITCH_SCRIPT_SRC,
         layout.VALUE_CONTROLS_SCRIPT_SRC,
     ),
-    detection_page.DETECTION_ROUTE: (
-        layout.DIRTY_STATE_SCRIPT_SRC,
-    ),
+    detection_page.DETECTION_ROUTE: place_page.PAGE_SCRIPTS,
     layout.FLIGHTS_ROUTE: (
         layout.FRESHNESS_SCRIPT_SRC,
         layout.LIST_FILTER_SCRIPT_SRC,
@@ -309,7 +309,6 @@ _PAGE_SCRIPTS = {
     ),
     layout.AIRLINES_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
-        layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     airlines_page.MANAGE_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
@@ -447,7 +446,7 @@ class Handler(
 
     # --- response helpers -------------------------------------------
 
-    def _send_hardening_headers(self):
+    def _send_hardening_headers(self, policy=DEFAULT_PAGE_POLICY):
         """Baseline hardening headers for every response: this is an
         authenticated admin panel on the public internet, so a missing
         X-Frame-Options/CSP enables clickjacking and a missing
@@ -456,15 +455,18 @@ class Handler(
         self.send_header("X-Content-Type-Options", "nosniff")
         self.send_header("X-Frame-Options", "DENY")
         self.send_header("Referrer-Policy", "same-origin")
-        self.send_header("Content-Security-Policy", CONTENT_SECURITY_POLICY)
+        self.send_header("Content-Security-Policy", policy.content_security_policy)
+        self.send_header("Permissions-Policy", policy.permissions_policy)
 
-    def send_html(self, code, html_str, etag=None, set_cookies=()):
+    def send_html(self, code, html_str, etag=None, set_cookies=(),
+                  policy=DEFAULT_PAGE_POLICY):
         """`etag` (default `None`) is a change TOKEN, never a cache
         freshness signal - it rides alongside `Cache-Control: no-store`
         below, always, so it can only ever be used for the freshness
         tick's own conditional GET (`_render_tab()`), never to let a
         shared cache or the back button replay a stale page. Each entry
-        of `set_cookies` becomes its own Set-Cookie header.
+        of `set_cookies` becomes its own Set-Cookie header. `policy` is chosen
+        by the calling page handler, never derived from the request.
         """
         body = html_str.encode("utf-8")
         self.send_response(code)
@@ -478,7 +480,7 @@ class Handler(
             self.send_header("ETag", etag)
         for cookie in set_cookies:
             self.send_header("Set-Cookie", cookie)
-        self._send_hardening_headers()
+        self._send_hardening_headers(policy)
         self.end_headers()
         self.wfile.write(body)
 
@@ -939,9 +941,10 @@ class Handler(
             ui_theme=ctx.ui_theme, flash=flash_html,
             health_alert=ctx.health_severity, device_config=ctx.device_config,
             scripts=_PAGE_SCRIPTS[route], refresh_token=refresh_token,
+            styles=place_page.PAGE_STYLES if route == detection_page.DETECTION_ROUTE else (),
             console_page=route in _CONSOLE_FRAME_ROUTES)
 
-    def _render_tab(self, route, render, device):
+    def _render_tab(self, route, render, device, policy=DEFAULT_PAGE_POLICY):
         """Render one authenticated tab: `render(ctx) -> body markup`
         (a page module's render(), or a lambda binding a scope onto
         config_page.render()) wrapped in layout.page_shell(), so the six
@@ -973,28 +976,7 @@ class Handler(
                 200, self._page_shell_for(route, body, ctx, refresh_token=token),
                 etag=quoted_etag)
         body = render(ctx)
-        return self.send_html(200, self._page_shell_for(route, body, ctx))
-
-    def _render_airlines_collection(self, device):
-        """GET /airlines. An administrator asking to resolve a prefix is sent
-        to the editing page of the same frame; the target is the fixed manage
-        path plus the re-encoded prefix, never the raw query. For anyone else
-        the parameter is ignored.
-        """
-        principal = self._safe_principal()
-        is_admin = principal is not None and principal.role == access.ADMIN
-        if is_admin:
-            query = parse_qs(urlsplit(self.path).query)
-            prefix = query.get(airlines_page.RESOLVE_QUERY_PARAM, [None])[0]
-            if prefix:
-                target = device_scope.scoped(airlines_page.MANAGE_ROUTE)
-                return self.redirect("%s?%s" % (target, urlencode(
-                    {airlines_page.RESOLVE_QUERY_PARAM: prefix})))
-
-        def render(ctx):
-            ctx.resolve_prefix = None
-            return airlines_page.render(ctx)
-        return self._render_tab(layout.AIRLINES_ROUTE, render, device)
+        return self.send_html(200, self._page_shell_for(route, body, ctx), policy=policy)
 
     def _console_page(
             self, route, title_msg, body_html, purpose_msg=None, status=200,
@@ -1173,7 +1155,7 @@ class Handler(
             self.read_form(), None if principal is None else principal.role)
         ctx = self.page_context(device)
         errors = {}
-        flash_key = config_page.handle_post(form, ctx, errors=errors, handler=self)
+        flash_key = config_page.handle_post(form, ctx, errors=errors)
         # The return field is matched without this device's own prefix;
         # any other prefix is not a whitelisted route and falls back.
         back_route = config_page.submitted_return_route({
@@ -1182,9 +1164,7 @@ class Handler(
         back = device_scope.scoped(back_route)
         if errors:
             scope = config_page.submitted_scope(form)
-            body = config_page.render(
-                ctx, scope=scope, errors=errors, submitted=form,
-                location_name=self._detection_card_location(device, ctx))
+            body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
             toast_html = None
             if "timezone" in errors:
                 toast_html = flash.flash_toast_html(
@@ -1213,15 +1193,10 @@ class Handler(
             return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_CONNECTED)
         return self._settings_saved_redirect(back, FLASH_KEY_CALENDAR_SYNC_FAILED)
 
-    def _detection_locations(self, device):
-        """The locations GET /detection may list for `device`: its owner's,
-        or the signed-in user's own."""
-        return detection_actions.location_scope(self, device)
-
-    def _detection_card_location(self, device, ctx):
-        """The usable location name the Display and Device Detection cards
-        describe a position setting with, or None."""
-        return detection_actions.card_location_name(self, device, ctx.device_config)
+    def _detection_place(self, device):
+        """The frame's own position GET /detection shows for `device`, or
+        None when it has none."""
+        return detection_actions.frame_place(self, device)
 
     def _handle_detection_post(self, device):
         """POST /detection for `device`: the dispatcher already applied the

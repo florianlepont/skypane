@@ -1,8 +1,8 @@
-"""Real-browser checks of the estimated "Probably charging" pill: on Home's battery dial and
-in Health's Battery row it is visible, stays on one line inside its container and the page at
+"""Real-browser checks of the estimated "Probably charging" pill: in Health's Battery row it
+is visible and the personal Home never shows it; it stays on one line inside its container and the page at
 360, 390 and 1280 px in both languages and both themes, and takes nothing from the controls
-around it; with a discharging battery it is absent; and the freshness loop removes it without
-a reload once the clock alone makes the reading stale."""
+around it; with a discharging battery it is absent; and a new on-battery reading removes it on
+the next load."""
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -29,7 +29,6 @@ VIEWPORTS = (
     ("360", VIEWPORT_MIN_SUPPORTED),
 )
 WORDS = {"en": "Probably charging", "fr": "Probablement en charge"}
-HOME_PILL = ".home-battery .charging-pill"
 HEALTH_PILL = "#health-row-battery > summary .charging-pill"
 # An hourly cadence keeps the readings fresh for two hours, so the shared,
 # read-only server below never outlives its fixture however slow the run.
@@ -111,27 +110,20 @@ def _assert_pill_fits(page, pill_selector, box_selector, where):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_home_pill_is_visible_and_fits_in_both_themes(
+def test_home_shows_no_pill_and_no_battery_block_in_both_themes(
         new_context, charging_server, lang, viewport_name, viewport):
-    """on Home the pill is visible with the hedged wording, on one line, inside the battery
-    dial's block, with no page overflow and no overlap with the dial's reading, in light and dark"""
+    """the personal Home never shows the charging pill nor a battery block, even while the
+    battery is charging (the pill lives on Console Health), and does not overflow, in light
+    and dark"""
     context, page = _open(new_context, charging_server, layout.HOME_ROUTE, lang, viewport)
     try:
+        page.locator(".home-state").wait_for(state="visible")
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             where = "Home %s %s %s" % (lang, viewport_name, theme)
-            page.locator(HOME_PILL).wait_for(state="visible")
-            assert page.locator(HOME_PILL).inner_text().strip() == WORDS[lang], where
-            _assert_pill_fits(page, HOME_PILL, ".home-battery", where)
-            geometry = page.evaluate(
-                """() => {
-                    const r = s => document.querySelector(s).getBoundingClientRect();
-                    return {pill: r('.home-battery .charging-pill'),
-                            reading: r('.home-battery__reading'),
-                            svg: r('.home-battery > svg')};
-                }""")
-            assert geometry["svg"]["bottom"] <= geometry["pill"]["top"] + 1, (
-                "%s: the pill overlaps the arc" % where)
+            assert page.locator(".charging-pill").count() == 0, where
+            assert page.locator(".home-battery").count() == 0, where
+            assert WORDS[lang] not in page.locator("body").inner_text(), where
             assert _assert_no_page_overflow(page, where) == ""
     finally:
         context.close()
@@ -157,12 +149,14 @@ def test_health_pill_is_visible_and_fits_in_both_themes(
 
 
 def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_server):
-    """Home's two switches keep their 44px targets and the Battery row's summary stays one
-    tappable disclosure, with the pill present, at the narrowest supported width"""
+    """Home's two switches keep their 44px targets (with no pill on Home) and the Battery row's
+    summary stays one tappable disclosure, with the pill present, at the narrowest supported
+    width"""
     context, page = _open(
         new_context, charging_server, layout.HOME_ROUTE, "fr", VIEWPORT_MIN_SUPPORTED)
     try:
-        page.locator(HOME_PILL).wait_for(state="visible")
+        page.locator(".home-state").wait_for(state="visible")
+        assert page.locator(".charging-pill").count() == 0
         for selector in ('form[action="/quick/display"] button[role="switch"]',
                          'form[action="/quick/quiet-hours"] button[role="switch"]'):
             box = page.locator(selector).bounding_box()
@@ -191,40 +185,37 @@ def test_a_discharging_battery_shows_no_pill(new_context, discharging_server):
 
 
 def test_the_pill_is_inside_a_region_the_freshness_loop_swaps(new_context, charging_server):
-    """on both pages the pill sits inside one of the regions the page's refresh loop replaces
-    in place, so it appears and disappears with its data and needs no reload"""
-    expected = {
-        layout.HOME_ROUTE: (HOME_PILL, layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_HOME]),
-        layout.HEALTH_ROUTE: (HEALTH_PILL, layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_HEALTH]),
-    }
-    for route, (pill_selector, swap_selectors) in expected.items():
-        context, page = _open(new_context, charging_server, route, "en", VIEWPORT_PHONE)
-        try:
-            page.locator(pill_selector).first.wait_for(state="visible")
-            inside = page.evaluate(
-                """([pillSel, regionSels]) => {
-                    const pill = document.querySelector(pillSel);
-                    return regionSels.some(sel => pill.closest(sel) !== null);
-                }""", [pill_selector, list(swap_selectors)])
-            assert inside, route
-        finally:
-            context.close()
-
-
-def test_a_new_reading_removes_the_pill_through_the_refresh_loop(new_context, make_app_server):
-    """with Home open, an on-battery reading (an 84 mV step down, the real unplug) arrives and
-    the next refresh tick drops the pill from the page without a navigation"""
-    server = make_app_server(seed=_seed_charging, fake_providers=True)
-    context, page = _open(new_context, server, layout.HOME_ROUTE, "en", VIEWPORT_PHONE)
+    """on Health the pill sits inside one of the regions the page's refresh loop replaces in
+    place, so it appears and disappears with its data and needs no reload"""
+    swap_selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_HEALTH]
+    context, page = _open(new_context, charging_server, layout.HEALTH_ROUTE, "en", VIEWPORT_PHONE)
     try:
-        page.locator(HOME_PILL).wait_for(state="visible")
-        page.evaluate("window.__stayed = true")
+        page.locator(HEALTH_PILL).first.wait_for(state="visible")
+        inside = page.evaluate(
+            """([pillSel, regionSels]) => {
+                const pill = document.querySelector(pillSel);
+                return regionSels.some(sel => pill.closest(sel) !== null);
+            }""", [HEALTH_PILL, list(swap_selectors)])
+        assert inside
+    finally:
+        context.close()
+
+
+def test_a_new_reading_removes_the_pill_on_the_next_load(new_context, make_app_server):
+    """with Health open, an on-battery reading (an 84 mV step down, the real unplug) arrives and
+    the next load of the page no longer shows the pill (Health has no live refresh marker, so
+    the personal Home that used to swap it in place is the only loop that ever did)"""
+    server = make_app_server(seed=_seed_charging, fake_providers=True)
+    context, page = _open(new_context, server, layout.HEALTH_ROUTE, "en", VIEWPORT_PHONE)
+    try:
+        page.locator(HEALTH_PILL).wait_for(state="visible")
         with history_db.open_db(server.state_dir) as conn:
             history_db.record_device_health(
                 conn, datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 battery_mv=3700 + 12 * 11 - 84, fw_version="1.0.0", boot_reason="wake",
                 rssi="-60")
-        page.locator(HOME_PILL).wait_for(state="detached", timeout=90000)
-        assert page.evaluate("window.__stayed === true"), "the page reloaded instead of swapping"
+        page.reload()
+        page.locator('details.health-row[id$="battery"]').wait_for(state="visible")
+        assert page.locator(".charging-pill").count() == 0
     finally:
         context.close()

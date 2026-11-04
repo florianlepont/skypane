@@ -202,6 +202,14 @@ CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
 # shell because any page can hold a dialog, a menu or a switcher.
 MODAL_SCRIPT_SRC = "/static/modal.js"
 
+# Must equal companion/static_files.py's LEAFLET_SCRIPT_ROUTE and
+# PLACE_MAP_SCRIPT_ROUTE. The vendored map library and the first-party glue
+# that drives it; only the Location and detection page loads them, the
+# library first. LEAFLET_STYLE_HREF is that page's extra stylesheet.
+LEAFLET_SCRIPT_SRC = "/static/vendor/leaflet/leaflet.js"
+PLACE_MAP_SCRIPT_SRC = "/static/place-map.js"
+LEAFLET_STYLE_HREF = "/static/vendor/leaflet/leaflet.css"
+
 # The registration seam value-controls.js reads, defined here so a page
 # module never types the attribute name (a harness asserts the served
 # script body names each one). A control opts in entirely by attribute.
@@ -601,6 +609,12 @@ ICON_IDS = ICON_IDS + (
     "icon-info",
 )
 
+# The map's pin: a teardrop with a hole, its tip at the bottom centre of the
+# glyph. Place-map.js draws it as the draggable marker.
+ICON_IDS = ICON_IDS + (
+    "icon-pin",
+)
+
 # Two more, for the Flights phone card: a framed-picture glyph for its
 # icon-only "View picture" link, and a filled side-view plane that sits
 # on the card's route track.
@@ -888,6 +902,12 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-chevron-down" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M5 8l5 5 5-5"/>'
+    "</symbol>"
+    '<symbol id="icon-pin" viewBox="0 0 20 20" fill="currentColor" '
+    'stroke="none">'
+    '<path fill-rule="evenodd" d="M10 1.2a6.3 6.3 0 0 0-6.3 6.3c0 4.3 5.1 9.6 5.8 '
+    '10.3a.7.7 0 0 0 1 0c.7-.7 5.8-6 5.8-10.3A6.3 6.3 0 0 0 10 1.2zm0 3.6a2.7 2.7 '
+    '0 1 1 0 5.4 2.7 2.7 0 0 1 0-5.4z"/>'
     "</symbol>"
     '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"

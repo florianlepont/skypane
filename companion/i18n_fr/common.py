@@ -71,6 +71,8 @@ MESSAGES = {
     "common.quiet_hours_turned_off_applies_the_next_time":
         "Heures calmes désactivées — s’applique au prochain réveil du "
         "cadre.",
+    "common.quiet_hours_saved_the_screen_will_rest_from_to":
+        "Heures calmes enregistrées — L’écran sera au repos de {start} à {end}.",
     # The Diagnostic LED's own two outcomes, worded on the quiet-hours
     # pair above rather than the screen pair — the LED takes effect on
     # the frame's next wake rather than within about five minutes.

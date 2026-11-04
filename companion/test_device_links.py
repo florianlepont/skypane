@@ -50,7 +50,7 @@ def _actions(body):
 
 def _inside_frame_switcher(node):
     while node is not None:
-        if "frame-switcher" in node.attrs.get("class", ""):
+        if "frame-sheet" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False
@@ -202,12 +202,15 @@ def seeded(module_app_server_factory):
 
 def _local_urls(body):
     """Every local URL attribute value on the page, including the dialog's
-    data-view-panel-* address attributes. The space switch leads to a
+    data-view-panel-* address attributes. The frame sheet is left out (its
+    job is to link to other frames). The space switch leads to a
     destination the server resolves (the administrator's own frame), so it is
     not a frame-scoped address."""
     urls = []
     for node in parse_html(body).find_all():
         if any(name in str(node.attrs.get("class", "")) for name in SPACE_SWITCH_CLASSES):
+            continue
+        if _inside_frame_switcher(node):
             continue
         for name, value in node.attrs.items():
             if (name in _URL_ATTRS or name.startswith("data-view-panel-")) \
@@ -232,7 +235,7 @@ def _assert_no_escape(body, prefix):
 
 
 @pytest.mark.parametrize("page", (
-    "/airlines", "/airlines/manage", "/airlines/manage?resolve=XQZ",
+    "/airlines/manage", "/airlines/manage?resolve=XQZ",
     "/airlines/manage?resolve=ABC"))
 def test_airlines_page_keeps_every_scoped_link_under_the_prefix(seeded, page):
     prefix = _prefix(seeded.fleet.dev_a)
@@ -243,9 +246,18 @@ def test_airlines_page_keeps_every_scoped_link_under_the_prefix(seeded, page):
     assert any(url.startswith(prefix + "/airlines/resolve") for url in urls)
 
 
-def test_airlines_page_carries_manual_delete_and_upload_actions(seeded):
+def test_the_collection_keeps_every_scoped_link_under_the_prefix(seeded):
     prefix = _prefix(seeded.fleet.dev_a)
     body = _page(seeded, prefix + "/airlines")
+    _assert_no_escape(body, prefix)
+    urls = _local_urls(body)
+    assert any(url.startswith(prefix + "/airlines") for url in urls)
+    assert not any(url.startswith(prefix + "/airlines/") for url in urls)
+
+
+def test_airlines_page_carries_manual_delete_and_upload_actions(seeded):
+    prefix = _prefix(seeded.fleet.dev_a)
+    body = _page(seeded, prefix + "/airlines/manage")
     urls = _local_urls(body)
     assert any(
         url.startswith(prefix + "/airlines/manual-resolutions/") for url in urls)
@@ -258,13 +270,13 @@ def test_resolve_fallback_back_link_stays_in_the_device(seeded):
     body = _page(seeded, prefix + "/airlines/manage?resolve=ABC")
     fallback = parse_html(body).select_one("[data-resolve-fallback]")
     hrefs = [node.attrs.get("href") for node in fallback.find_all("a")]
-    assert prefix + "/airlines" in hrefs
-    assert "/airlines" not in hrefs
+    assert prefix + "/airlines/manage" in hrefs
+    assert "/airlines/manage" not in hrefs
 
 
 def test_resolve_dialog_forms_stay_in_the_device(seeded):
     prefix = _prefix(seeded.fleet.dev_a)
-    body = _page(seeded, prefix + "/airlines")
+    body = _page(seeded, prefix + "/airlines/manage")
     assert prefix + "/airlines/resolve" in _actions(body)
     assert "/airlines/resolve" not in _actions(body)
     assert prefix + "/airlines/rename" in _actions(body)
@@ -333,7 +345,7 @@ def test_step_b_trigger_addresses_stay_in_the_device_and_return_stays_plain(tmp_
     finally:
         device_scope.set_request_scope(None, ())
     trigger = parse_html(html).select_one("a[hidden]")
-    assert trigger.attrs["href"].startswith("/devices/d_0123abcd/airlines?resolve=")
+    assert trigger.attrs["href"].startswith("/devices/d_0123abcd/airlines/manage?resolve=")
     assert trigger.attrs["data-view-panel-upload-action"].startswith(
         "/devices/d_0123abcd/illustration/")
     assert "return=health" in trigger.attrs["data-view-panel-upload-action"]

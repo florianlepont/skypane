@@ -14,9 +14,6 @@
   "use strict";
 
   var form = document.querySelector("form[data-dirty-form]");
-  if (!form) {
-    return;
-  }
 
   var bar = document.querySelector("[data-dirty-bar]");
   var countEl = document.querySelector("[data-dirty-count]");
@@ -25,7 +22,9 @@
   // Quiet hours presets: fills the two time inputs and the enable
   // checkbox client-side, then marks the form dirty via notifyDirty().
   // Placed before the bar guard below so presets keep working even on
-  // a page whose save bar failed to initialise.
+  // a page whose save bar failed to initialise. A preset inside its own
+  // form (the Quiet hours dialog on Home) fills that form's fields; this
+  // part also runs on a page that has no dirty-tracked form.
   (function () {
     var buttons = document.querySelectorAll("[data-quiet-preset]");
     if (!buttons.length) {
@@ -39,17 +38,21 @@
 
   function attachPresetClickHandler(button) {
     button.addEventListener("click", function () {
+      var target = button.form || form;
+      if (!target) {
+        return;
+      }
       var start = button.getAttribute("data-preset-start");
       var end = button.getAttribute("data-preset-end");
       var enabledAttr = button.getAttribute("data-preset-enabled");
-      if (start !== null && form.elements["quiet_hours_start"]) {
-        form.elements["quiet_hours_start"].value = start;
+      if (start !== null && target.elements["quiet_hours_start"]) {
+        target.elements["quiet_hours_start"].value = start;
       }
-      if (end !== null && form.elements["quiet_hours_end"]) {
-        form.elements["quiet_hours_end"].value = end;
+      if (end !== null && target.elements["quiet_hours_end"]) {
+        target.elements["quiet_hours_end"].value = end;
       }
-      if (enabledAttr !== null && form.elements["quiet_hours_enabled"]) {
-        form.elements["quiet_hours_enabled"].checked = enabledAttr !== "0";
+      if (enabledAttr !== null && target.elements["quiet_hours_enabled"]) {
+        target.elements["quiet_hours_enabled"].checked = enabledAttr !== "0";
       }
       notifyDirty();
     });
@@ -60,12 +63,12 @@
   // confirmed present, so a missing bar degrades to "fields still fill
   // in, no dirty count shown" rather than throwing.
   function notifyDirty() {
-    if (bar && countEl) {
+    if (form && bar && countEl) {
       updateBar();
     }
   }
 
-  if (!bar || !countEl) {
+  if (!form || !bar || !countEl) {
     return;
   }
 

@@ -1,12 +1,11 @@
 """The Home page: answers whether the frame is alive, what it is
 showing, and what it has shown recently.
 
-Opens with one status header (one dot for the frame state, next update,
-for an administrator the battery, and the two native-POST switches for
-screen and quiet hours), then the current picture beside the recent
+Opens with one status header (one dot for the frame state, next update
+and the two native-POST switches for screen and quiet hours), then the current picture beside the recent
 flights. The dot is the shared frame-status dot; Home links to no Health
-page (Health is an administrator's Console page), and a plain user sees
-neither the battery tile nor the attention bar. A recent-flight row gets a
+page (Health is an administrator's Console page), and neither a user nor an
+administrator sees the battery tile or the attention bar here. A recent-flight row gets a
 thumbnail only when a real illustration file resolves for that
 airline, since a recognised name with no artwork file would otherwise
 404 as a broken image. The recent-flight rows and the current
@@ -25,9 +24,12 @@ import companion.health_signals as health_signals
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
+import companion.ui_modal as ui_modal
 import companion.user_view as user_view
 import companion.wake as wake
+from companion.pages import home_notice
 from companion.layout import escape_html
+from companion.settings import quiet_hours
 from server import device_config, history_db
 from server.plane import illustrations, name_overrides
 # The same presentation-only airline alias Flights applies via
@@ -101,6 +103,7 @@ NO_READING_TEXT = i18n.msg("home.no_reading_yet", "No reading yet")
 FRAME_STATE_HEADING = i18n.msg("home.frame_state", "Frame state")
 QUICK_DISPLAY_ACTION = "/quick/display"
 QUICK_QUIET_HOURS_ACTION = "/quick/quiet-hours"
+QUICK_QUIET_HOURS_WINDOW_ACTION = "/quick/quiet-hours/window"
 # Each state is a short title, set in the display face, plus for the
 # held states a plain sentence under it saying what the frame does.
 STATE_SCREEN_ON_TEXT = i18n.msg("home.state_screen_on", "Screen on")
@@ -129,6 +132,10 @@ CADENCE_INFO_ID = "home-cadence-info"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
     "home.edit_quiet_hours", "Edit quiet hours (%s)")
+CLOSE_LABEL = i18n.msg("common.close", "Close")
+# Literal, like the quick-action paths above: a page module cannot import
+# its sibling that owns the route.
+DETECTION_PATH = "/detection"
 DEFAULT_QUIET_START = "23:00"
 DEFAULT_QUIET_END = "07:00"
 
@@ -513,14 +520,14 @@ def _switches_html(cfg):
     screen_on = cfg.get("display_enabled") is not False
     quiet_on = cfg.get("quiet_hours_enabled") is True
     # A link beside the switch's label, outside its <button>: the window
-    # opens the Quiet hours section on Display. The accessible name repeats
-    # the visible window so it is never out of step with it.
+    # opens the Quiet hours dialog. The accessible name repeats the visible
+    # window so it is never out of step with it.
     window_text = _quiet_window_text(cfg)
-    window = (
-        ' · <a class="home-switch__window time-value" href="%s#%s" aria-label="%s">%s</a>'
-        % (device_scope.scoped(layout.DISPLAY_ROUTE), layout._FRAME_QUIET_SCHEDULE_TARGET_ID,
-           escape_html(i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text),
-           escape_html(window_text)))
+    window = " · " + ui_modal.trigger_html(
+        quiet_hours.QUIET_DIALOG_ID,
+        escape_html(window_text) + layout.icon_html("icon-chevron-right", 16, "home-switch__chevron"),
+        extra_class="home-switch__window time-value",
+        aria_label=i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text)
     return (
         '<div class="home-state__switches" role="group" aria-label="%s">%s%s</div>'
     ) % (
@@ -645,24 +652,24 @@ def _status_dot_html(status):
          else " home-state__dot--pulse", word, word)
 
 
-def _frame_state_html(ctx):
+def _frame_state_html(ctx, summary, status):
     """The status header: a "Frame state" label, the current state as a
     short title beside one haloed dot whose colour and word come from the
     shared frame-status resolver (plus a sentence for a held state), the
     next update (with its cadence info); then, for an administrator, the
     battery dial; then the screen and quiet-hours switches. The dot's tone also tints the card; a
-    resting dot stays still, every other one pulses a soft halo. Everything
-    comes from the page context."""
+    resting dot stays still, every other one pulses a soft halo. `summary`
+    is `_frame_state_summary(ctx)` and `status` the resolver's verdict on
+    it, both read once by render()."""
     cfg = ctx.device_config or {}
-    (_tone, title, detail), next_triple, base_interval_s = _frame_state_summary(ctx)
+    (_tone, title, detail), next_triple, base_interval_s = summary
     next_iso, interval_s, hold_reason = next_triple
     next_html, _long_overdue = _next_update_html(
         next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
-    status = frame_status.frame_status(_status_row(ctx, next_triple))
     tone = status.dot_state
     detail_html = (
         '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
-    user = user_view.is_user_view()
+    user = user_view.is_personal_view()
     return (
         '<section class="home-state home-state--%s%s" aria-labelledby="home-frame-state">'
         '<div class="home-state__body"><div class="home-state__status">'
@@ -680,7 +687,7 @@ def _frame_state_html(ctx):
 def _attention_states():
     """The health states the attention row reads: a user's row follows
     the frame's own signals only, never the flight-data pipeline."""
-    if user_view.is_user_view():
+    if user_view.is_personal_view():
         return ("device_state", "battery_state")
     return ("device_state", "pipeline_state", "battery_state")
 
@@ -710,12 +717,44 @@ def _action_needed_html(ctx):
         role="", docked=True, extra_class="home-action")
 
 
-def render(ctx):
+def _notice_html(ctx, status):
+    """The amber or red notification, from the very status the dot shows;
+    "" for any other status. Its figures are the ones the state card reads."""
+    if not home_notice.applies(status):
+        return ""
+    device = ctx.device
+    facts = SimpleNamespace(
+        frame_name=getattr(device, "name", None) or "",
+        percent=0 if ctx.battery_critical is True else _battery_percent(ctx),
+        charging=_charging_likely(ctx), last_seen=ctx.last_checkin_ts or None,
+        now=ctx.now)
+    contact = home_notice.contact_for_state_dir(ctx.root_state_dir or ctx.state_dir)
+    return home_notice.notification_html(facts, status, contact)
+
+
+def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
+    """The Quiet hours dialog, rendered open when a save was refused. It is
+    a sibling of the swapped regions below, never inside one, so a
+    background refresh cannot discard an open dialog or a half-typed time.
+    Start time takes the initial focus although the switch comes first."""
+    cfg = ctx.device_config or {}
+    return ui_modal.dialog_html(
+        quiet_hours.QUIET_DIALOG_ID, i18n.t(STATE_QUIET_TEXT),
+        device_scope.scoped(QUICK_QUIET_HOURS_WINDOW_ACTION, "POST"), layout.csrf_field(),
+        quiet_hours.quiet_hours_dialog_body_html(
+            cfg, device_scope.scoped(DETECTION_PATH) + "#details", errors, submitted),
+        i18n.t(quiet_hours.QUIET_DIALOG_SAVE_LABEL), i18n.t(CLOSE_LABEL),
+        device_scope.scoped(layout.HOME_ROUTE), open_=bool(errors),
+        focus_id=quiet_hours.QUIET_DIALOG_START_ID)
+
+
+def render(ctx, quiet_errors=None, quiet_submitted=None):
     """Render Home: the status header (state, next update, battery and the
     two switches) first, then the generated picture and its flight line,
     with the recent flights beside it on desktop and after it on a phone.
     An actionable shared health state adds the attention row; daily
-    activity belongs to Health.
+    activity belongs to Health. `quiet_errors`/`quiet_submitted` re-render
+    the Quiet hours dialog open after a refused save.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -729,9 +768,15 @@ def render(ctx):
     # without a visible freshness line.
     header = layout.page_header(
         i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
+    summary = _frame_state_summary(ctx)
+    status = frame_status.frame_status(_status_row(ctx, summary[1]))
+    notice = _notice_html(ctx, status)
     return (
         header
-        + _frame_state_html(ctx)
+        + _frame_state_html(ctx, summary, status)
+        + '<div class="home-facts">'
+        + (notice or ("" if user_view.is_personal_view() else _action_needed_html(ctx)))
+        + "</div>"
         + '<div class="home-columns home-picture-row home-signal-grid">'
         + '<section class="page-section home-section home-current-frame" '
         'aria-labelledby="home-current-frame">'
@@ -741,7 +786,5 @@ def render(ctx):
         + '</section>'
         + _recent_flights_html(rows, now, ctx.state_dir)
         + "</div>"
-        + '<div class="home-facts">'
-        + ("" if user_view.is_user_view() else _action_needed_html(ctx))
-        + "</div>"
+        + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
     )

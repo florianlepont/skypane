@@ -486,7 +486,7 @@ def test_gap_block_threshold_sort_cap_and_overflow(tmp_path):
 
 def test_gap_card_markup_shape_and_attribute_vocabulary():
     """_gap_card_html() renders the whole card as a real <a
-    class="airline-card" href="/airlines?resolve={prefix}"> trigger with
+    class="airline-card" href="/airlines/manage?resolve={prefix}"> trigger with
     zero <img> tags and no nested .airline-card__zoom button, carrying
     every data-view-panel-* attribute UI-SPEC's Gap-card markup shape
     names, non-empty where that snippet shows a value"""
@@ -497,7 +497,7 @@ def test_gap_card_markup_shape_and_attribute_vocabulary():
     assert card_html.startswith('<a class="airline-card"')
     assert card_html.rstrip().endswith("</a>")
     expected_href = 'href="%s?%s=XYZ"' % (
-        airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+        airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
     assert expected_href in card_html
     required_attr_values = {
         airlines_page._VIEW_PANEL_SRC_ATTR: "",
@@ -607,7 +607,7 @@ def test_airline_row_html_active_manual_states_render_expected_attributes_and_no
     tmp = str(tmp_path)
     card_art = airlines_page._airline_row_html(0, "Air France", [], tmp, ("ZZZ", False, False))
     expected_open = '<a href="%s?%s=ZZZ" class="airline-row"' % (
-        airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+        airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
     assert expected_open in card_art
     assert 'data-view-panel-mode="art"' in card_art
     assert 'data-view-panel-manual="active"' in card_art
@@ -995,10 +995,10 @@ def test_manual_section_seed_helper_end_to_end(tmp_path):
 
 def test_health_resolve_link_template_matches_airlines_route_constants():
     """health_page.RESOLVE_LINK_HREF_TEMPLATE equals the template derived
-    from airlines_page.AIRLINES_ROUTE and airlines_page.RESOLVE_QUERY_PARAM
+    from airlines_page.MANAGE_ROUTE and airlines_page.RESOLVE_QUERY_PARAM
     - the cross-module equality check airlines_page.py's own comment
     already claims exists"""
-    expected_template = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+    expected_template = "%s?%s=%%s" % (airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
     assert health_page.RESOLVE_LINK_HREF_TEMPLATE == expected_template
 
 

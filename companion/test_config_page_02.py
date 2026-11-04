@@ -1882,3 +1882,21 @@ def test_handle_post_wake_interval_rejection_paths_byte_identical(tmp_path, bad_
     assert before == after, (
         "expected device_config.json to stay byte-identical after rejecting "
         "wake_interval_s=%r" % (bad_value,))
+
+
+def test_a_display_save_changes_no_quiet_hours_zone_place_or_detection_key(tmp_path):
+    """saving Display, with or without crafted quiet-hours fields, changes only the look: every
+    quiet-hours, zone, place and detection key of the stored config is identical afterwards"""
+    tmp = str(tmp_path)
+    device_config.save_device_config(
+        tmp, quiet_hours_enabled=True, quiet_hours_start="21:00", quiet_hours_end="05:00",
+        timezone="America/Martinique", tracked_runway="06-24")
+    before = device_config.load_device_config(tmp)
+    for form in (
+            {"scope": "display", "theme": "black"},
+            {"scope": "display", "theme": "white", "quiet_hours_enabled": "on",
+             "quiet_hours_start": "10:00", "quiet_hours_end": "11:00"}):
+        assert config_page.handle_post(form, {"state_dir": tmp}) == config_page.FLASH_SAVED
+        after = device_config.load_device_config(tmp)
+        changed = {key for key in set(before) | set(after) if before.get(key) != after.get(key)}
+        assert changed <= {"theme"}, changed

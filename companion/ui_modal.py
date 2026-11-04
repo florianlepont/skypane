@@ -69,10 +69,28 @@ def _autofocus_first_control(body_html):
     return body_html[:chosen.start()] + tag + body_html[chosen.end():], True
 
 
+def _autofocus_named_control(body_html, focus_id):
+    """`body_html` with ` autofocus` added to the control whose id is
+    `focus_id`, unless a control is marked invalid: the invalid one takes
+    the focus then, so a refused value is announced first. Returns
+    (html, found); `found` is False when no such control exists."""
+    controls = [m for m in _CONTROL_RE.finditer(body_html)
+                if not _HIDDEN_RE.search(m.group(0))]
+    named = next((m for m in controls
+                  if 'id="%s"' % focus_id in m.group(0)), None)
+    if named is None:
+        return body_html, False
+    chosen = next((m for m in controls if _INVALID_RE.search(m.group(0))), named)
+    tag = chosen.group(0)
+    if "autofocus" not in tag:
+        tag = tag[:-1].rstrip("/").rstrip() + " autofocus>"
+    return body_html[:chosen.start()] + tag + body_html[chosen.end():], True
+
+
 def dialog_html(
         dialog_id, title, form_action, csrf_html, body_html, submit_label,
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
-        open_=False, subtitle=None):
+        open_=False, subtitle=None, focus_id=None):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -81,6 +99,10 @@ def dialog_html(
     action; any other dialog focuses its invalid or first field, or the
     submit button when it has no field. `open_` renders the `open`
     attribute for a refused submission re-rendered with its errors.
+    `focus_id` names the control (by its `id`) that takes the initial focus
+    instead of the first one, for a dialog whose first control is a switch;
+    an invalid control still wins, and a name that matches nothing is a
+    ValueError.
     """
     slug = validated_slug(dialog_id)
     title_id = slug + "-title"
@@ -89,7 +111,12 @@ def dialog_html(
     if confirm_only:
         dismiss_focus = " autofocus"
     else:
-        body_html, found = _autofocus_first_control(body_html)
+        if focus_id is None:
+            body_html, found = _autofocus_first_control(body_html)
+        else:
+            body_html, found = _autofocus_named_control(body_html, focus_id)
+            if not found:
+                raise ValueError("ui_modal: no control with id %r in the body" % (focus_id,))
         if not found:
             submit_focus = " autofocus"
     submit_class = ' class="calendar-disconnect-btn"' if destructive else ""
@@ -133,7 +160,7 @@ def dialog_html(
 
 def sections_dialog_html(
         dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href,
-        open_=False):
+        open_=False, extra_class=""):
     """A modal dialog whose body is several independent forms.
 
     Unlike `dialog_html` it wraps no form of its own: `sections_html` holds
@@ -141,8 +168,10 @@ def sections_dialog_html(
     dialog only offers a dismiss link. The first visible control takes the
     initial focus, or the dismiss link when the sections have none. `open_`
     renders the `open` attribute for a dialog reopened after a change.
+    `extra_class` adds one slug class to the dialog for page-specific styling.
     """
     slug = validated_slug(dialog_id)
+    classes = "modal " + validated_slug(extra_class) if extra_class else "modal"
     title_id = slug + "-title"
     sections_html, found = _autofocus_first_control(sections_html)
     dismiss_focus = "" if found else " autofocus"
@@ -151,7 +180,7 @@ def sections_dialog_html(
         if subtitle else "")
     href = escape_html(dismiss_href)
     return (
-        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s"%(open)s>'
+        '<dialog class="%(classes)s" id="%(id)s" aria-labelledby="%(title_id)s"%(open)s>'
         '<header class="modal__head"><div>'
         '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
         '%(subtitle)s</div>'
@@ -162,6 +191,7 @@ def sections_dialog_html(
         '<a class="modal__dismiss" href="%(href)s" data-modal-close%(focus)s>%(dismiss)s</a>'
         '</div></dialog>\n'
     ) % {
+        "classes": classes,
         "id": slug,
         "title_id": title_id,
         "open": " open" if open_ else "",

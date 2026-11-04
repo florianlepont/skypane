@@ -48,7 +48,7 @@ def _rgb(css_colour):
 @pytest.mark.parametrize("viewport,container", SURFACES)
 def test_the_lockup_fits_and_the_mark_paints_in_the_theme_colours(
         new_context, server, viewport, container):
-    """the mark has a real box beside the text, nothing overflows, the title keeps its own height,
+    """the mark has a real box beside the text, nothing overflows, the lockup is exactly its 44px link,
     and the mark is drawn in the theme's text colour plus the accent in light and in dark"""
     context = new_context(viewport=viewport)
     try:
@@ -65,8 +65,9 @@ def test_the_lockup_fits_and_the_mark_paints_in_the_theme_colours(
             brand_box = page.locator(brand).bounding_box()
             assert mark_box["width"] > 0 and mark_box["height"] > 0, mark_box
             assert mark_box["x"] + mark_box["width"] <= title_box["x"] + 0.5, "mark sits left of the text"
-            assert abs(brand_box["height"] - title_box["height"]) <= 1, (
-                "the lockup must be exactly as tall as the bare title was", brand_box, title_box)
+            # The lockup is the one link to Home: exactly its 44px tap target, never taller.
+            assert abs(brand_box["height"] - max(title_box["height"], 44)) <= 1, (
+                "the lockup must be exactly its 44px link", brand_box, title_box)
             assert brand_box["x"] >= 0 and brand_box["x"] + brand_box["width"] <= viewport["width"]
             assert _assert_no_page_overflow(page, "brand lockup (%s)" % theme["theme"]) == ""
             colours = page.locator(brand + " .logo-mark").evaluate(
@@ -85,9 +86,10 @@ def test_the_lockup_fits_and_the_mark_paints_in_the_theme_colours(
 
 
 @pytest.mark.parametrize("viewport,container", SURFACES)
-def test_the_brand_is_not_interactive_and_the_chrome_keeps_its_hit_targets(
+def test_the_brand_is_one_decorative_link_home_and_the_chrome_keeps_its_hit_targets(
         new_context, server, viewport, container):
-    """the lockup is plain text plus a decorative mark: no link, no tab stop, an unchanged
+    """on a personal page the lockup is plain text plus a decorative mark inside the one link to
+    the frame's Home (the same for an administrator and a user): no button, an unchanged
     accessible name, while the phone app bar's menu button beside it keeps its 44 px floor"""
     context = new_context(viewport=viewport)
     try:
@@ -97,7 +99,9 @@ def test_the_brand_is_not_interactive_and_the_chrome_keeps_its_hit_targets(
         page.wait_for_load_state("load")
         brand = container + " .brand"
         page.locator(brand).wait_for(state="visible")
-        assert page.locator(brand + " a, " + brand + " button").count() == 0
+        assert page.locator(brand + " button").count() == 0
+        assert page.locator(brand + " a").count() == 1
+        assert page.locator(brand + " a.brand__link").count() == 1
         assert page.locator(brand + " svg").get_attribute("aria-hidden") == "true"
         assert page.locator(brand).inner_text().strip() == "SkyPane"
         if viewport is VIEWPORT_PHONE:

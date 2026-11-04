@@ -38,7 +38,7 @@ def server(module_app_server_factory):
 @pytest.mark.parametrize(
     "route,trigger_sel", [
         ("/history", "[data-view-panel-src]"),
-        ("/airlines", "[data-view-panel-src]"),
+        ("/airlines/manage", "[data-view-panel-src]"),
     ], ids=["history", "airlines"])
 def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, route, trigger_sel):
     """Both <dialog>s fade and zoom in — measured mid-flight, two frames after the trigger, on
@@ -150,8 +150,8 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
         page.wait_for_load_state("networkidle")
         target = page.evaluate(
             "() => { const row = document.querySelector("
-            "'[data-look-usage=\"departures\"] details.look-edit');"
-            "const cell = [...row.querySelectorAll('label.look-cell')].find("
+            "'[data-look-usage=\"departures\"] .look-pick__grid');"
+            "const cell = [...row.querySelectorAll('label.look-pick__card')].find("
             "c => c.getAttribute('data-preview-src')"
             " && !c.querySelector('input[type=radio]').checked);"
             "return cell ? {value: cell.querySelector('input[type=radio]').value,"
@@ -160,8 +160,8 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
             raise AssertionError("found no unchecked departures table cell to select")
         _click_control(
             page,
-            '[data-look-usage="departures"] details.look-edit '
-            'label.look-cell input[type=radio][value="%s"]' % target["value"])
+            '[data-look-usage="departures"] .look-pick__grid '
+            'label.look-pick__card input[type=radio][value="%s"]' % target["value"])
         page.wait_for_function(
             "src => { const i = document.querySelector("
             "'[data-look-usage=\"departures\"] img.look-frame__image');"
@@ -189,11 +189,11 @@ def test_images_hold_their_place_before_they_arrive(new_context, server):
     # on a fast machine and proves nothing.
     surfaces = (
         ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100, ()),
-        # 150: at 360px each of the two pictures is about 140px wide, so a 3:4 box is ~190px
-        # tall - measured, not assumed.
+        # 140: at 360px the departures picture sits beside its read-back and is about 110px
+        # wide, so its 3:4 box is ~147px tall - measured, not assumed.
         ("/display", '[data-look-usage="departures"] .look-frame__picture',
          '[data-look-usage="departures"] .look-frame__image',
-         "**/frame-preview/**", 150, ()),
+         "**/frame-preview/**", 140, ()),
     )
     for width in (VIEWPORT_MIN_SUPPORTED["width"], VIEWPORT_DESKTOP["width"]):
         for route_path, box_sel, img_sel, url_glob, floor, openers in surfaces:
@@ -661,8 +661,8 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
 @pytest.mark.parametrize("width", [360, 390, 1280])
 def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
         new_context, server, width, lang):
-    """The approved Direction B sequence is current frame, recent flights, then compact
-    facts at every supported delivery width.  Retired healthy dashboard blocks and the day
+    """The approved Direction B sequence is current frame, then recent flights (the facts
+    region stays empty on the personal Home) at every supported delivery width.  Retired healthy dashboard blocks and the day
     band never return, and every retained Home link can receive a visible keyboard focus."""
     context = new_context(viewport={"width": width, "height": 844})
     try:
@@ -683,14 +683,21 @@ def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
             " band: !!document.querySelector('.day-band'),"
             " scrollWidth: document.documentElement.scrollWidth"
             "})")
-        assert hierarchy["current"] < hierarchy["flights"] < hierarchy["facts"], (
-            "expected current frame -> recent flights -> compact facts at %dpx/%s, got %r"
+        # The facts region the refresh loop swaps holds nothing but the amber or red
+        # notification (no battery tile, no attention bar on the personal Home).
+        assert hierarchy["current"] < hierarchy["flights"], (
+            "expected current frame -> recent flights at %dpx/%s, got %r"
             % (width, lang, hierarchy))
+        assert page.locator(".home-facts").count() == 1
+        assert page.locator(".home-facts > :not(.home-notice)").count() == 0, (
+            "the personal Home shows no battery or attention content at %dpx/%s" % (width, lang))
+        assert page.locator(".home-facts .home-action, .home-facts .home-battery").count() == 0
         assert not hierarchy["strip"] and not hierarchy["tiles"] and not hierarchy["band"], (
             "retired Home diagnostics returned at %dpx/%s: %r" % (width, lang, hierarchy))
         assert hierarchy["scrollWidth"] <= width, (
             "Direction B Home scrolls horizontally at %dpx/%s: %r" % (width, lang, hierarchy))
-        for action in page.locator("main a").all():
+        # The Quiet hours dialog's links are inside a closed dialog and cannot take focus.
+        for action in page.locator("main a:visible").all():
             action.focus()
             focused = action.evaluate(
                 "el => document.activeElement === el && "

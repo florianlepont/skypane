@@ -95,6 +95,28 @@ def test_an_invalid_field_takes_focus_over_the_first_one():
     assert "open" in doc.select_one("dialog").attrs
 
 
+def test_focus_id_names_the_control_that_takes_the_initial_focus():
+    doc = _dialog(focus_id="r")
+    assert "autofocus" in doc.select_one("#r").attrs
+    assert "autofocus" not in doc.select_one("#e").attrs
+    assert "autofocus" not in doc.select_one('button[type="submit"]').attrs
+    assert len([n for n in doc.select("*") if "autofocus" in n.attrs]) == 1
+
+
+def test_an_invalid_field_still_wins_over_focus_id():
+    body = (
+        '<input id="a" name="a"><input id="b" name="b">'
+        '<input id="c" name="c" aria-invalid="true" aria-describedby="c-err">')
+    doc = _dialog(body_html=body, open_=True, focus_id="a")
+    assert "autofocus" in doc.select_one("#c").attrs
+    assert "autofocus" not in doc.select_one("#a").attrs
+
+
+def test_a_focus_id_that_matches_no_control_is_refused():
+    with pytest.raises(ValueError):
+        _dialog(focus_id="nope")
+
+
 def test_a_dialog_without_fields_focuses_the_submit_button():
     doc = _dialog(body_html="<p>Hello</p>")
     assert "autofocus" in doc.select_one('button[type="submit"]').attrs
@@ -137,8 +159,7 @@ def test_modal_js_is_served_and_listed_in_the_shell_scripts(app_server_in_proces
     assert all("src" in node.attrs for node in doc.select("script")), "no inline script"
     source = served_asset(server, layout.MODAL_SCRIPT_SRC)
     code = strip_js_comments_and_strings(source)
-    for token in ("showModal", "close", "data-modal-open", "data-modal-close", "row-menu",
-                  "frame-switcher"):
+    for token in ("showModal", "close", "data-modal-open", "data-modal-close", "row-menu"):
         assert token in source, token
     for token in ("eval(", "innerHTML", "outerHTML", "insertAdjacentHTML", "document.write",
                   "fetch(", "XMLHttpRequest", "=>", "`"):

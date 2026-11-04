@@ -10,6 +10,8 @@ server, so no xdist worker sees another test's leftover on-disk state.
 """
 import pytest
 
+from place_map_support import Hosts
+
 from companion import auth
 from server import device_config
 from companion.test_browser_ux_helpers import (
@@ -172,12 +174,12 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
 def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context, server):
     """At 390px the Airlines list renders one row per line, every row the same width as the
     list and the same 76px height (a two-line name never makes one taller), and the whole page
-    stays under a height ceiling that moves deliberately when the airline count changes."""
+    stays under a height ceiling that moves deliberately when the airline count or the manual resolutions list changes."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/airlines")
+        page.goto(server.base_url() + "/airlines/manage")
         page.locator(".airline-list .airline-row").first.wait_for(state="visible")
         rows = page.eval_on_selector_all(
             ".airline-list .airline-row",
@@ -191,8 +193,8 @@ def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context,
         if len({row["top"] for row in rows}) != len(rows):
             raise AssertionError("expected exactly one row per line at 390px")
         height = page.evaluate("document.documentElement.scrollHeight")
-        if height > 3900:
-            raise AssertionError("expected the list page under 3900px, measured %r" % (height,))
+        if height > 4100:
+            raise AssertionError("expected the list page under 4100px, measured %r" % (height,))
     finally:
         context.close()
 
@@ -206,7 +208,7 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/airlines")
+        page.goto(server.base_url() + "/airlines/manage")
         field = page.locator("[data-filter-input]")
         count = page.locator("[data-filter-count]").first
         field.wait_for(state="visible")
@@ -284,7 +286,7 @@ def test_the_no_js_floor_holds_for_health(new_context, server):
         # `:visible` matters: the card list and the table are both in the DOM at every width
         # (the toggle between them is CSS-only), so the reachable one is whichever the
         # viewport actually shows.
-        resolve = page.locator('a[href^="/airlines?resolve="]:visible').first
+        resolve = page.locator('a[href^="/airlines/manage?resolve="]:visible').first
         if resolve.count() == 0:
             raise AssertionError(
                 "expected the per-row Resolve action to be reachable with scripts "
@@ -330,29 +332,16 @@ def test_display_reveal_and_persist_across_all_field_kinds(page, make_app_server
             "expected the theme chip's committed value to reach disk, got %r"
             % (on_disk()["theme"],))
 
-    # 2. The Runway card is gone: Display only links to the Detection page, which owns the
-    # runway choice, so there is no runway field here to commit.
+    # 2. The Runway card and the Location and detection card are gone: the Location page owns
+    # the runway and the place, and Display carries no pointer to it.
     if page.locator('input[name="tracked_runway"]').count():
         raise AssertionError("Display still renders a tracked_runway control")
-    link = page.locator('.detection-card a[href$="/detection"]')
-    if link.count() != 1:
-        raise AssertionError("expected one Detection card link on Display, got %d" % link.count())
-
-    # The Frame strip is now the only on/off control for the screen, so this settings page no
-    # longer renders a display_enabled checkbox; the remaining two field kinds below (radio,
-    # time input) still prove the cross-DOM form= delegation this check exists for.
-
-    # `.fill()` dispatches `input` only, never `change`, so `_commit_field()` fires the real
-    # `change` a blur would, the commit the bar's document-level listener is waiting for.
-    quiet_sel = 'input[name="quiet_hours_start"]'
-    page.fill(quiet_sel, "22:15")
-    _commit_field(page, quiet_sel)
-    _wait_for_bar(page)
-    _save_via_bar(page)
-    if str(on_disk()["quiet_hours_start"]) != "22:15":
-        raise AssertionError(
-            "expected the quiet-hours time field's committed value to reach "
-            "disk, got %r" % (on_disk()["quiet_hours_start"],))
+    if page.locator(".detection-card").count():
+        raise AssertionError("Display still renders the Location and detection card")
+    # The Quiet hours card left Display as well (Home's dialog owns the schedule), so Display
+    # has neither the time fields nor the note that pointed from them to the Location page.
+    if page.locator('input[name="quiet_hours_start"], .quiet-timezone-note').count():
+        raise AssertionError("Display still renders quiet-hours controls")
 
 
 def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_server):
@@ -565,6 +554,7 @@ def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context,
     # The cards sit in a one-column grid below 600px. Only a real layout engine can see a
     # card that fails to take the full row or overlaps its neighbour.
     context = new_context(viewport=VIEWPORT_PHONE)
+    Hosts(context)
     try:
         page = context.new_page()
         _login(page, server.base_url())
@@ -650,7 +640,7 @@ def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context,
 
 
 def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, server):
-    """At 390px selecting a cell of the departures look table answers — the cell's border-colour
+    """At 390px selecting a radio card of the departures look grid answers — the cell's border-colour
     changes to the accent, an inset accent ring (box-shadow) appears, and its wash changes —
     while its own layout box, the table's own box, and every cell's position inside it are
     plain-equal before and after, so a selected cell can never be a different size from its
@@ -675,24 +665,20 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         _login(page, server.base_url())
         page.goto(server.base_url() + "/display")
         page.wait_for_load_state("networkidle")
-        # The table is the no-script control; open its disclosure directly, since with scripts
-        # its summary opens the look sheet instead.
-        page.eval_on_selector(
-            '[data-look-usage="departures"] details.look-edit', "d => { d.open = true; }")
 
         probe = (
             "() => {"
             "const row = document.querySelector("
-            "'[data-look-usage=\"departures\"] details.look-edit');"
-            "if (!row) return {error: 'no departures table'};"
-            "const chips = [...row.querySelectorAll('label.look-cell')]"
+            "'[data-look-usage=\"departures\"] .look-pick__grid');"
+            "if (!row) return {error: 'no departures look grid'};"
+            "const chips = [...row.querySelectorAll('label.look-pick__card')]"
             ".filter(c => c.querySelector('input[type=radio]'));"
             "if (chips.length < 2) return {error: 'chips: ' + chips.length};"
             "const target = chips.find("
             "c => !c.querySelector('input[type=radio]').checked);"
             "if (!target) return {error: 'every chip is already checked'};"
-            "const grid = target.closest('.look-table');"
-            "if (!grid) return {error: 'no .look-table'};"
+            "const grid = target.closest('.look-pick__grid');"
+            "if (!grid) return {error: 'no .look-pick__grid'};"
             "const read = e => { const s = getComputedStyle(e);"
             "const ns = s;"
             "return {w: e.offsetWidth, h: e.offsetHeight,"
@@ -713,8 +699,8 @@ def test_selecting_a_theme_chip_answers_and_moves_no_layout_box(new_context, ser
         value = before["value"]
         _click_control(
             page,
-            '[data-look-usage="departures"] details.look-edit '
-            'label.look-cell input[type=radio][value="%s"]' % value)
+            '[data-look-usage="departures"] .look-pick__grid '
+            'label.look-pick__card input[type=radio][value="%s"]' % value)
         # No transition to wait out any more (see the comment above) - a
         # short settle for the change event/repaint is still cheap
         # insurance.

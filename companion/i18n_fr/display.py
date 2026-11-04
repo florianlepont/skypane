@@ -70,10 +70,8 @@ MESSAGES = {
     "display.sample_panel_rendered_in_the_theme":
         "Sample panel rendered in the %s theme",
 
-    # --- Detection card ------------------------------------------------
+    # --- Quiet hours card pointer to the Location and detection page ----
     "display.location_and_detection_title": "Lieu et détection",
-    "display.detection_card_link":
-        "Changer d’aéroport, de piste ou de position",
 
     # --- Calendar row's connection block --------------------------------
     # The confirmation-page strings below (with a question mark, or
@@ -121,6 +119,18 @@ MESSAGES = {
     "display.night": "Nuit",
     "display.day": "Journée",
     "display.always_on": "Toujours actif",
+    "display.on_this_page": "Sur cette page",
+    "display.current_value": "Actuel\u00a0: %s",
+    "display.special_looks_none": "Aucun look spécial pour l’instant",
+    "display.special_looks_empty_hint":
+        "Créez-en un quand une compagnie ou un avion précis doit avoir un autre look.",
+    "display.special_looks_one": "1 look spécial",
+    "display.special_looks_many": "%d looks spéciaux",
+    "display.calendar_connected": "Connecté",
+    "display.calendar_not_connected": "Aucun calendrier connecté",
+    "display.choose_calendar": "Choisir un calendrier",
+    "display.calendar_flights_on": "Vols de votre calendrier : activés",
+    "display.calendar_flights_off": "Vols de votre calendrier : désactivés",
     "display.on": "Allumé",
     "display.off": "Éteint",
     "display.on_to": "Allumé — %s à %s",
@@ -198,7 +208,6 @@ MESSAGES = {
 
     # --- Time zone field and its readout clause ----------------------
     "display.timezone_label": "Fuseau horaire",
-    "display.timezone_helper": "Les heures calmes suivent ce fuseau horaire.",
     "display.quiet_hours_zone_note":
         "Les heures calmes suivent le fuseau horaire choisi dans {card}.",
     "display.timezone_invalid": "Choisissez un fuseau horaire dans la liste.",

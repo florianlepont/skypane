@@ -22,6 +22,8 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
+from place_map_support import Hosts
+
 from companion import auth, layout
 from companion.pages import config_page
 from server import airports, device_config, history_db, state_store
@@ -111,7 +113,7 @@ def _highlighted(page):
 
 
 def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
-    """A Display page with a typed-but-uncommitted edit issues zero requests when the same
+    """A Display page with an unsaved edit (a different theme picked) issues zero requests when the same
     trigger that fetched on the clean page fires — counted as requests, not inferred from the
     DOM, since a page that fetched and then declined to swap is a different and worse
     behaviour — against a control proving the clean page does fetch.
@@ -132,10 +134,10 @@ def test_a_dirty_settings_form_stands_the_whole_cycle_down(new_context, server):
                 "control: a clean Display page issued no request at all (%d), so "
                 "the dirty-form assertion below would measure nothing"
                 % (clean_requests,))
-        quiet_sel = 'input[name="quiet_hours_start"]'
-        page.eval_on_selector(quiet_sel, "el => el.focus()")
-        page.keyboard.press("ControlOrMeta+A")
-        page.keyboard.type("03:33")
+        current = device_config.load_device_config(server.tmpdir)["theme"]
+        other = next(t for t in device_config.THEME_IDS if t != current)
+        page.eval_on_selector(
+            'input[name="theme"][value="%s"]' % other, "el => el.checked = true")
         uncommitted = page.evaluate(
             "() => !!(window.SkyPaneDirtyState "
             "&& window.SkyPaneDirtyState.hasUncommittedEdits())")
@@ -607,12 +609,15 @@ def test_the_map_is_gone_and_the_detection_runway_cards_meet_their_floor(new_con
     airport = "LFPO"
     expected = len(airports.find_airport(airport).runways)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    Hosts(context)
     try:
         page = context.new_page()
         _login(page, base_url)
         page.goto(base_url + "/display")
-        for selector in (".runway-map", ".runway-card", ".runway-card__image",
-                         'input[name="tracked_runway"]'):
+        # The look radio cards reuse the runway card's selection styling and carry
+        # the look-pick__card class; no runway card is anything else.
+        for selector in (".runway-map", ".runway-card:not(.look-pick__card)",
+                         ".runway-card__image", 'input[name="tracked_runway"]'):
             found = page.locator(selector).count()
             if found != 0:
                 raise AssertionError(
@@ -823,7 +828,7 @@ def test_keying_the_palette_moves_the_preview(new_context, server):
         page.wait_for_load_state("networkidle")
         checked = 'input[name="theme"]:checked'
         checked_value = page.eval_on_selector(checked, "el => el.value")
-        page.focus('[data-look-usage="departures"] summary.look-edit__summary')
+        page.focus('[data-look-usage="departures"] button.look-pick__customise')
         page.keyboard.press("Enter")
         page.locator("[data-look-sheet]").wait_for(state="visible")
         page.keyboard.press("ArrowRight")
@@ -878,7 +883,7 @@ def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, se
         before = state()
         page.hover('[data-look-usage="arrivals"] button.look-frame__open')
         page.hover('[data-look-usage="departures"] button.look-frame__open')
-        page.focus('[data-look-usage="departures"] summary.look-edit__summary')
+        page.focus('[data-look-usage="departures"] button.look-pick__customise')
         page.keyboard.press("Enter")
         page.locator("[data-look-sheet]").wait_for(state="visible")
         for _ in range(6):
@@ -1019,7 +1024,7 @@ def _lang_cookie(base_url, lang):
 
 
 def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
-    """Every theme's swatch in the departures table is drawn from its own metadata: a light
+    """Every theme's swatch in the Arrivals look table is drawn from its own metadata: a light
     (dithered) theme paints its ink translucent over paper where its solid sibling paints it
     opaque in the same colour, and a band theme paints a band the plain fields lack.
     """
@@ -1033,7 +1038,7 @@ def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
         painted = page.evaluate(
             "() => { var out = {};"
             " document.querySelectorAll("
-            "'[data-look-usage=\"departures\"] .look-table-block label').forEach(function (cell) {"
+            "'[data-look-usage=\"arrivals\"] .look-table-block label').forEach(function (cell) {"
             "  var svg = cell.querySelector('svg.look-swatch');"
             "  if (!svg) return;"
             "  var rects = svg.querySelectorAll('rect');"
@@ -1109,7 +1114,7 @@ def test_the_live_preview_is_contained_keyed_focusable_and_saves(
 
         selector = 'input[name="theme"]'
         start = page.eval_on_selector(selector + ":checked", "el => el.value")
-        page.focus('[data-look-usage="departures"] summary.look-edit__summary')
+        page.focus('[data-look-usage="departures"] button.look-pick__customise')
         page.keyboard.press("Enter")
         page.locator("[data-look-sheet]").wait_for(state="visible")
         page.keyboard.press("ArrowRight")

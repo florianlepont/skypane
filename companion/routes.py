@@ -33,10 +33,10 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    co_managers, console_routes, device_scope, layout, route_types, static_files,
-    theme_preview)
+    co_managers, console_routes, device_scope, layout, page_policy, route_types,
+    static_files, theme_preview)
 from companion.pages import (
-    airlines_page, co_managers_card, config_page, detection_page, health_page,
+    airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, health_page, place_page,
     history_page, home_page, update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
@@ -70,6 +70,7 @@ HISTORY_LEGACY_ROUTE = "/history"
 PREVIEW_PAGE_ROUTE = "/preview"
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
+QUICK_QUIET_HOURS_WINDOW_ROUTE = "/quick/quiet-hours/window"
 QUICK_LED_ROUTE = "/quick/led"
 THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
@@ -143,19 +144,17 @@ _GET_ROUTES = (
             "GET", Exact(DISPLAY_ROUTE),
             lambda h, m: h._render_tab(
                 DISPLAY_ROUTE,
-                lambda ctx: config_page.render(
-                    ctx, scope=config_page.SCOPE_DISPLAY,
-                    location_name=h._detection_card_location(m.device, ctx)),
+                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY),
                 m.device),
             OWNER_DEVICE),
         Route(
             "GET", Exact(DETECTION_ROUTE),
             lambda h, m: h._render_tab(
                 DETECTION_ROUTE,
-                lambda ctx: detection_page.render(
+                lambda ctx: place_page.render(
                     ctx, query=detection_page.parse_query(m.query),
-                    locations=h._detection_locations(m.device)),
-                m.device),
+                    place=h._detection_place(m.device)),
+                m.device, policy=page_policy.MAP_PAGE_POLICY),
             OWNER_DEVICE),
         Route(
             "GET", Exact(DEVICE_ROUTE),
@@ -172,7 +171,7 @@ _GET_ROUTES = (
             lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), ADMIN_DEVICE),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
-            lambda h, m: h._render_airlines_collection(m.device), OWNER_DEVICE),
+            lambda h, m: airline_collection_page.get(h, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(MANAGE_ROUTE),
             lambda h, m: h._render_tab(MANAGE_ROUTE, airlines_page.render, m.device), ADMIN_DEVICE),
@@ -230,6 +229,10 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(QUICK_QUIET_HOURS_ROUTE),
         lambda h, m: h._handle_quick_toggle(m.device, "quiet_hours_enabled"), OWNER_DEVICE),
+    # The Quiet hours dialog on Home: writes the three quiet-hours keys only.
+    Route(
+        "POST", Exact(QUICK_QUIET_HOURS_WINDOW_ROUTE),
+        lambda h, m: h._handle_quiet_hours_window_post(m.device), OWNER_DEVICE, csrf=True),
     # Session-checked POST only, no CSRF token - SameSite=Strict is the
     # only control here. return_to whitelist: /device is the LED
     # switch's only page, so it is both the sole allowed value and the
@@ -311,6 +314,7 @@ _ACTION_KEYS = (
     ("POST", Exact(DETECTION_ROUTE)),
     ("POST", Exact(QUICK_DISPLAY_ROUTE)),
     ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
+    ("POST", Exact(QUICK_QUIET_HOURS_WINDOW_ROUTE)),
     ("POST", Exact(QUICK_LED_ROUTE)),
     ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
     ("POST", Exact(airlines_page.RENAME_ROUTE)),
@@ -327,7 +331,7 @@ _ACTION_KEYS = (
     ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
 )
 
-# The routes that act on a single device: 15 GET and 17 POST.
+# The routes that act on a single device: 15 GET and 18 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
 # Form field carrying the per-session anti-forgery token.

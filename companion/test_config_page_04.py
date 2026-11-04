@@ -97,7 +97,9 @@ def test_plain_render_carries_the_precedence_sentence_and_no_how_it_works_disclo
         rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[calendar_start:calendar_end]
     assert "How it works" not in calendar_segment
-    assert "<details" not in calendar_segment.split('class="calendar-status"', 1)[1], (
+    connection = calendar_segment.split('class="calendar-status"', 1)[1].split(
+        'class="special-row__main"', 1)[0]
+    assert "<details" not in connection, (
         "expected no disclosure toggle in the Calendar connection block")
     assert "It only colours a flight already on screen." not in rendered
     assert "The most specific match wins." not in rendered
@@ -117,7 +119,7 @@ def test_rules_section_carries_no_dirty_section_attr():
 
 
 def test_rules_french_render_shows_french_row_label_and_button():
-    """a French Display render of the special looks shows 'Allures spéciales', the 'Ajouter une
+    """a French Display render of the special looks shows 'Allures spéciales', the 'Nouvelle
     allure spéciale' action and the 'Ajouter l’allure' submit button"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
@@ -128,7 +130,7 @@ def test_rules_french_render_shows_french_row_label_and_button():
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     finally:
         prefs.set_request_prefs(lang="en")
-    for text in ("Allures spéciales", "Ajouter une allure spéciale", "Ajouter l’allure"):
+    for text in ("Allures spéciales", "Nouvelle allure spéciale", "Ajouter l’allure"):
         assert escape_html(text) in rendered, "expected the French %r" % (text,)
 
 
@@ -407,25 +409,15 @@ def test_calendar_disconnect_checkbox_never_appears_in_calendar_connection():
             "checkbox at all (D-08 retires it)" % ((configured, drift),))
 
 
-def test_look_supersection_carries_exactly_one_dirty_section_named_aspect():
-    """Display's Look supersection carries exactly ONE data-dirty-section card (named 'Aspect'),
-    in both the connected and not-connected states - down from the two ('Aspect'/'Calendar') it
-    carried before the calendar's connection block folded into the Aspect card's own Calendar
-    row"""
+def test_personalisation_carries_one_dirty_section_per_card_in_page_order():
+    """Personalisation carries exactly four data-dirty-section cards, named Look, Special looks,
+    Calendar and Screen in that order, in both the connected and not-connected states"""
     for configured in (False, True):
         ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-        look_start = rendered.index('id="%s"' % config_page.DISPLAY_LOOK_SECTION_ID)
-        look_end = cp.aspect_section_end(rendered, look_start)
-        look_segment = rendered[look_start:look_end]
-        count = look_segment.count(config_page.DIRTY_SECTION_ATTR + "=")
-        assert count == 1, (
-            "configured=%r: expected exactly one data-dirty-section card under Look, got %d" % (configured, count))
-        expected_attr = '%s="%s"' % (
-            config_page.DIRTY_SECTION_ATTR, escape_html(i18n.t(config_page.ASPECT_HEADING)))
-        assert expected_attr in look_segment, (
-            "configured=%r: expected the one Look card's dirty-section attribute to name the Aspect heading"
-            % (configured,))
+        names = re.findall(r'%s="([^"]*)"' % config_page.DIRTY_SECTION_ATTR, rendered)
+        assert names == ["Look", "Special looks", "Calendar", "Screen"], (
+            "configured=%r: got %r" % (configured, names))
 
 
 def test_calendar_connection_never_nests_a_form_inside_another_in_either_state():
@@ -508,18 +500,17 @@ def test_calendar_disconnect_form_is_not_inside_settings_form_on_display_scope()
         "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag")
 
 
-def test_calendar_connect_form_appears_before_the_quiet_hours_card_on_display_scope():
+def test_calendar_connect_form_renders_inside_the_calendar_row_and_display_has_no_quiet_hours_card():
     """on the Display scope, the calendar connect/replace form's own <form> opening tag renders
-    inside the Calendar row and strictly before the Quiet hours card"""
+    inside the Calendar row, and no Quiet hours card follows it"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     calendar_row_index = rendered.index('data-look-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
     connect_form_index = rendered.index(
         '<form class="calendar-sheet__form" method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
-    quiet_hours_index = rendered.index('id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID)
-    assert calendar_row_index < connect_form_index < quiet_hours_index, (
-        "expected Calendar row < connect form < Quiet hours card, got %d, %d, %d"
-        % (calendar_row_index, connect_form_index, quiet_hours_index))
+    assert 'id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID not in rendered
+    assert calendar_row_index < connect_form_index, (
+        "expected Calendar row < connect form, got %d, %d" % (calendar_row_index, connect_form_index))
 
 
 def test_calendar_disconnect_form_absent_when_not_configured_or_on_device_scope():

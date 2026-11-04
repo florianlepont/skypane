@@ -20,6 +20,7 @@ MESSAGES = {
     "look.arrivals_look": "Allure des arrivées",
     "look.calendar_flights_look": "Allure des vols du calendrier",
     "look.change": "Modifier",
+    "look.customise_look": "Personnaliser le style",
     "look.change_the_look": "Modifier l’allure : %s",
     "look.preview_alt": "Aperçu : %s, %s",
     "look.reset": "Rétablir",
@@ -69,8 +70,7 @@ MESSAGES = {
         "La plus précise l’emporte : calendrier, puis vol, avion, compagnie. "
         "Ajouter une clé déjà présente remplace son allure.",
     "look.calendar": "Calendrier",
-    "look.flights_in_your_calendar": "Vols de votre calendrier",
-    "look.add_a_special_look": "Ajouter une allure spéciale",
+    "look.flights_in_your_calendar": "Allure des vols du calendrier",
     "look.new_special_look": "Nouvelle allure spéciale",
     "look.look": "Allure",
     "look.matching_flights_will_look_like_this":

@@ -63,7 +63,7 @@ def _open(new_context, server, viewport, lang="en", **context_args):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/airlines")
+    page.goto(server.base_url() + "/airlines/manage")
     page.locator(".airline-row").first.wait_for(state="visible")
     return context, page
 

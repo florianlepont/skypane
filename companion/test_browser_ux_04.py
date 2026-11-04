@@ -32,9 +32,9 @@ from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
     _assert_hit_target, _assert_js_gate, _assert_no_page_overflow,
     _assert_surfaces_agree, _await_upload_zone, _bar_text, _click_control,
-    _commit_field, _drop_files, _handle_sel, _in_both_themes, _login,
+    _drop_files, _in_both_themes, _login,
     _no_js_page, _persist_without_js, _POINTER_RECORDER_ARM,
-    _POINTER_RECORDER_READ, _quiet_arc_minutes, _save_via_bar,
+    _POINTER_RECORDER_READ, _save_via_bar,
     _SUBMIT_PROBE, _set_ui_theme, _upload_without_js, _upload_zone_state,
     _wait_for_bar, _wait_for_bar_hidden, seed_state_dir,
 )
@@ -64,7 +64,7 @@ def server(module_app_server_factory):
 ARTWORK_PREFIX = "NEW"
 ARTWORK_NAME = "Totally Novel Airline"
 ARTWORK_KEY = manual_resolutions.illustration_key_for_name(ARTWORK_NAME)
-ARTWORK_ROUTE = "/airlines?resolve=" + ARTWORK_PREFIX
+ARTWORK_ROUTE = "/airlines/manage?resolve=" + ARTWORK_PREFIX
 ARTWORK_SERVE = "/illustration/%s.png" % ARTWORK_KEY
 FALLBACK_ZONE = "[data-resolve-fallback] [data-upload-drop]"
 # The dialog's Replace form renders unconditionally, so #panel-lookup-dialog carries both
@@ -144,9 +144,9 @@ def _clear_stored_artwork(server):
 
 
 def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, make_app_server):
-    """With scripts blocked, in both languages, at 360px: each of the four looks (departures,
-    arrivals, calendar flights, a new special look) carries its own native <details> with a
-    <summary>; every registry theme's radio (theme/theme_arriving/calendar_theme_id/
+    """With scripts blocked, in both languages, at 360px: each of the three looks that keep a
+    table (arrivals, calendar flights, a new special look) carries its own native <details>
+    with a <summary>, the departures look being the grid of radio cards; every registry theme's radio (theme/theme_arriving/calendar_theme_id/
     rule_theme_id) is present in the DOM at full registry size whether or not its disclosure is
     open; a real pointer click on the calendar row's own <summary> opens its table; and a
     selection made inside it reaches disk, read back via device_config.load_device_config(),
@@ -167,9 +167,9 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
             page.goto(base_url + "/display")
 
             disclosures = page.query_selector_all("details.look-edit, details.special-add")
-            if len(disclosures) != 4:
+            if len(disclosures) != 3:
                 raise AssertionError(
-                    "lang=%s: expected 4 look disclosures, found %d" % (lang, len(disclosures)))
+                    "lang=%s: expected 3 look disclosures, found %d" % (lang, len(disclosures)))
             for disclosure in disclosures:
                 if disclosure.query_selector("summary") is None:
                     raise AssertionError(
@@ -230,8 +230,8 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
 
 def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, server):
     """The Touch Targets floor, measured (never declared) in each control's own container,
-    in both UI themes, at the 360px contract floor: the departures table's first and last
-    cell, its "Change" <summary>, the arrivals table's leading "Same as departures" option, the
+    in both UI themes, at the 360px contract floor: the departures look's first and last radio
+    card, its "Customise look" button, the arrivals table's leading "Same as departures" option, the
     picture openers and the "Add a special look" <summary> all clear 44px; no table scrolls
     horizontally, the page itself never overflows sideways, and a swatch paints visibly
     distinct from its own cell surface in both themes.
@@ -250,18 +250,18 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             theme_record = {}
-            cells = '[data-look-usage="departures"] label.look-cell'
+            cells = '[data-look-usage="departures"] label.look-pick__card'
             if page.eval_on_selector_all(cells, "els => els.length") < 2:
                 raise AssertionError("theme=%s: expected the departures table's cells" % theme)
             theme_record["cell_first"] = _assert_hit_target(
-                page, '[data-look-usage="departures"] tbody tr:first-child td:first-of-type label',
-                "theme=%s: the FIRST cell of the departures table" % theme)
+                page, '[data-look-usage="departures"] .look-pick__grid > label:first-child',
+                "theme=%s: the FIRST radio card of the departures look" % theme)
             theme_record["cell_last"] = _assert_hit_target(
-                page, '[data-look-usage="departures"] tbody tr:last-child td:last-of-type label',
-                "theme=%s: the LAST cell of the departures table" % theme)
+                page, '[data-look-usage="departures"] .look-pick__grid > label:last-child',
+                "theme=%s: the LAST radio card of the departures look" % theme)
             theme_record["summary"] = _assert_hit_target(
-                page, '[data-look-usage="departures"] summary.look-edit__summary',
-                "theme=%s: the departures look's own <summary>" % theme)
+                page, '[data-look-usage="departures"] button.look-pick__customise',
+                "theme=%s: the departures look's Customise look button" % theme)
             theme_record["leading_option"] = _assert_hit_target(
                 page, '[data-look-usage="arrivals"] label.look-option:has(input[value=""])',
                 "theme=%s: the arrivals \"Same as departures\" option" % theme)
@@ -285,18 +285,14 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
             if msg:
                 raise AssertionError(msg)
 
-            # Deliberately the "black" cell: a white swatch on a white card surface is a real,
-            # correct product fact, never the "invisible swatch" defect this clause catches.
+            # The black card's own preview picture must paint a real box, never collapse.
             paint = page.eval_on_selector(
-                '[data-look-usage="departures"] label.look-cell:has(input[value="black"])',
-                "el => { var rects = el.querySelectorAll('svg.look-swatch rect');"
-                " var cell = getComputedStyle(el);"
-                " return {swatch: getComputedStyle(rects[rects.length - 1]).fill,"
-                " cellSurface: cell.backgroundColor}; }")
-            if paint["swatch"] == paint["cellSurface"]:
+                '[data-look-usage="departures"] label.look-pick__card:has(input[value="black"]) img',
+                "el => { var r = el.getBoundingClientRect();"
+                " return {width: r.width, height: r.height}; }")
+            if paint["width"] < 60 or paint["height"] < 80:
                 raise AssertionError(
-                    "theme=%s: the 'black' cell's swatch paints IDENTICALLY to its own cell "
-                    "surface (%r)" % (theme, paint["swatch"]))
+                    "theme=%s: the 'black' card's preview collapsed to %r" % (theme, paint))
             theme_record["paint"] = paint
             recorded[theme] = theme_record
     finally:
@@ -506,11 +502,8 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
     """The bar's own [data-dirty-count] names which section(s) actually changed, built from
     the bar's own data-dirty-* attributes plus each section wrapper's own label, never
     hardcoded English/French: a single changed Frame colours field reads exactly that wrapper's own
-    label plus the changed-suffix, and a second, different-section change (Quiet hours)
-    reads the two-item join with the theme section before Quiet hours in both click orders — the
-    reversed-order pass is what proves document order rather than click order, since
-    dirtySectionLabels() walks the document and the theme wrapper precedes Quiet hours'
-    on Display regardless of which the visitor touches first; run in both site languages.
+    label plus the changed-suffix, run in both site languages. Display now holds one section
+    (the schedule is edited in Home's dialog), so the two-item join has no second section here.
     """
     base_url = server.base_url()
     for lang in ("en", "fr"):
@@ -522,23 +515,11 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/display")
 
-            def wait_for_bar_text(expected, timeout=5000):
-                page.wait_for_function(
-                    "args => {"
-                    " var el = document.querySelector('[data-dirty-count]');"
-                    " return !!el && el.textContent === args.expected;}",
-                    arg={"expected": expected}, timeout=timeout)
-
             theme_sel = 'input[name="theme"]'
             current_theme = page.eval_on_selector(
                 "%s:checked" % theme_sel, "el => el.value")
             target_theme = next(
                 r for r in device_config.THEME_IDS if r != current_theme)
-
-            current_quiet_start = page.input_value(
-                'input[name="quiet_hours_start"]')
-            target_quiet_start = (
-                "05:00" if current_quiet_start != "05:00" else "06:00")
 
             # Built from the bar's own data-dirty-* words and each section wrapper's own
             # label, never a hardcoded English/French literal, so this check works unchanged
@@ -547,19 +528,11 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
                 theme_sel,
                 "el => el.closest('[data-dirty-section]')"
                 ".getAttribute('data-dirty-section')")
-            quiet_label = page.eval_on_selector(
-                'input[name="quiet_hours_start"]',
-                "el => el.closest('[data-dirty-section]')"
-                ".getAttribute('data-dirty-section')")
             changed_suffix = page.eval_on_selector(
                 "[data-dirty-bar]",
                 "el => el.getAttribute('data-dirty-changed-suffix')")
-            and_word = page.eval_on_selector(
-                "[data-dirty-bar]", "el => el.getAttribute('data-dirty-and')")
 
             expected_one = theme_label + changed_suffix
-            expected_two = (
-                theme_label + and_word + quiet_label + changed_suffix)
 
             # Phase A: one changed field (the theme). The bar names only it.
             _click_control(
@@ -570,39 +543,18 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
                 raise AssertionError(
                     "lang=%s: expected [data-dirty-count] to read %r for a single "
                     "changed field (the theme), got %r" % (lang, expected_one, actual_one))
-
-            # Phase B: also change a Quiet hours field. The bar names both, the theme before
-            # Quiet hours — document order.
-            page.fill(
-                'input[name="quiet_hours_start"]', target_quiet_start)
-            _commit_field(page, 'input[name="quiet_hours_start"]')
-            wait_for_bar_text(expected_two)
-
-            # Fresh load, reversed click order: Quiet hours first, the theme second.
-            # dirtySectionLabels() walks the document, so the bar must still read the theme
-            # section before Quiet hours.
-            page.goto(base_url + "/display")
-            page.fill(
-                'input[name="quiet_hours_start"]', target_quiet_start)
-            _commit_field(page, 'input[name="quiet_hours_start"]')
-            _wait_for_bar(page)
-            _click_control(
-                page, '%s[value="%s"]' % (theme_sel, target_theme))
-            wait_for_bar_text(expected_two)
         finally:
             context.close()
 
 
-def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_dom(
+def test_cancel_restores_the_field_and_the_preview_from_the_resulting_dom(
         new_context, server):
     """A real Annuler click restores every surface, read off the resulting DOM: the theme
     chip's checked state is back to the original, the live preview <img>'s resolved src is
     back to the originally-selected theme's own (never the discarded one), proving
     window.SkyPaneLivePreview.refresh() actually ran since form.reset() fires no change
-    event, and the quiet-hours dial's decoded arc and its handles' aria-valuenow are back to
-    the pre-edit window, proving the deferred repaint of value-controls.js's repaintAll()
-    landed. Both edits are confirmed to have actually moved both surfaces before Cancel is
-    ever clicked, and every post-Cancel read waits for the deferred tick rather than reading
+    event. The edit is confirmed to have actually moved the preview before Cancel is ever
+    clicked, and every post-Cancel read waits for the deferred tick rather than reading
     synchronously after the click. Asserting that refresh()/repaintAll() was called is
     explicitly not acceptable and this check never does; it observes only the DOM.
     """
@@ -613,14 +565,6 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
         _login(page, base_url)
         page.goto(base_url + "/display")
 
-        def handle_values():
-            return (
-                int(page.get_attribute(
-                    _handle_sel("quiet_hours_start"), "aria-valuenow")),
-                int(page.get_attribute(
-                    _handle_sel("quiet_hours_end"), "aria-valuenow")),
-            )
-
         def preview_src():
             return page.eval_on_selector(
                 THEME_PREVIEW_SEL, "el => el.getAttribute('src')")
@@ -629,8 +573,6 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
         original_theme = page.eval_on_selector(
             'input[name="theme"]:checked', "el => el.value")
         original_preview_src = preview_src()
-        original_arc = _quiet_arc_minutes(page, "before the edit")
-        original_handles = handle_values()
 
         target_theme = next(
             t for t in device_config.THEME_IDS if t != original_theme)
@@ -638,12 +580,8 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
             'input[name="theme"][value="%s"]' % target_theme,
             "el => el.parentNode.getAttribute('data-preview-src')")
 
-        current_start = page.input_value(
-            'input[name="quiet_hours_start"]')
-        target_start = "05:00" if current_start != "05:00" else "06:00"
-
-        # Edit: a different theme via a look-table radio, and a different quiet-hours window.
-        # Confirm both surfaces actually moved before Cancel — a no-op edit would make every
+        # Edit: a different theme via a look-table radio.
+        # Confirm the preview actually moved before Cancel — a no-op edit would make every
         # assertion below vacuous.
         _click_control(
             page, 'input[name="theme"][value="%s"]' % target_theme)
@@ -652,17 +590,6 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
             "args => { var img = document.querySelector(args.sel);"
             " return !!img && img.getAttribute('src') === args.expected; }",
             arg={"sel": THEME_PREVIEW_SEL, "expected": target_preview_src})
-
-        page.fill('input[name="quiet_hours_start"]', target_start)
-        _commit_field(page, 'input[name="quiet_hours_start"]')
-
-        moved_arc = _quiet_arc_minutes(page, "after the edit, before Cancel")
-        moved_handles = handle_values()
-        if moved_arc == original_arc or moved_handles == original_handles:
-            raise AssertionError(
-                "the quiet-hours edit did not move the dial before Cancel: arc %r -> %r, "
-                "handles %r -> %r - a no-op edit proves nothing about Cancel"
-                % (original_arc, moved_arc, original_handles, moved_handles))
 
         # Cancel: a real click on the native type="reset" button, exercising both the native
         # reset and the scripted enhancement at once.
@@ -699,33 +626,6 @@ def test_cancel_restores_the_field_the_preview_and_the_dial_from_the_resulting_d
                 "expected the live preview's src to be back to the originally-selected "
                 "theme's own %r after Annuler (proving window.SkyPaneLivePreview.refresh() "
                 "actually ran), it still reads %r" % (original_preview_src, preview_src()))
-
-        # The quiet-hours dial's decoded arc and its handles' aria-valuenow are back to the
-        # pre-edit window.
-        try:
-            page.wait_for_function(
-                "args => {"
-                " var s = document.querySelector(args.sSel);"
-                " var e = document.querySelector(args.eSel);"
-                " return !!s && !!e"
-                "   && s.getAttribute('aria-valuenow') === String(args.s)"
-                "   && e.getAttribute('aria-valuenow') === String(args.e); }",
-                arg={
-                    "sSel": _handle_sel("quiet_hours_start"),
-                    "eSel": _handle_sel("quiet_hours_end"),
-                    "s": original_handles[0], "e": original_handles[1]},
-                timeout=3000)
-        except Exception:
-            raise AssertionError(
-                "expected the quiet-hours handles' aria-valuenow to be back to %r after "
-                "Annuler (28-08's deferred repaint of value-controls.js's repaintAll()), "
-                "still read %r" % (original_handles, handle_values()))
-        restored_arc = _quiet_arc_minutes(
-            page, "after Annuler, once the deferred tick has run")
-        if restored_arc != original_arc:
-            raise AssertionError(
-                "expected the quiet-hours dial's decoded arc to be back to %r after "
-                "Annuler, got %r" % (original_arc, restored_arc))
     finally:
         context.close()
 
@@ -749,7 +649,7 @@ def _settings_card_title_probe(page):
         "  var s = getComputedStyle(h);"
         "  return {text: h.textContent, fontSize: s.fontSize,"
         "          fontWeight: s.fontWeight, fontFamily: s.fontFamily,"
-        "          underSectionHeading: !!h.closest('.display-appearance, .detection-card')};"
+        "          underSectionHeading: !!h.closest('.display-appearance')};"
         "})", _SETTINGS_CARD_TITLE_SELECTOR)
 
 
@@ -762,9 +662,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
     named cards; the failure message names the offending page, the offending title's text and both
     triples. Supersection intro headings (.section-intro > h2) are excluded structurally,
     deliberately: a different, generically-worded tier, not an inconsistency this check
-    should assert away. The Display appearance card sits inside its own labelled section and
-    the Location and detection card is its own nested card: both are the nested
-    card-title tier by design and are excluded from the cardinality set structurally. Both themes exercised via
+    should assert away. Display's four Personalisation cards are ordinary settings cards and join
+    the set. Both themes exercised via
     _set_ui_theme(), at the 360px floor.
     """
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -794,7 +693,7 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                     entries.append(entry)
                     by_page[route].append(entry)
 
-        # Clause (a): BOTH sides non-empty, naming the empty one.
+        # Clause (a): both pages have settings-card titles to compare.
         for route, side in by_page.items():
             if not side:
                 raise AssertionError(
@@ -814,12 +713,14 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "than structural position would pick up supersection intro headings too, "
                 "which is exactly the 27-06-shaped mistake this check exists to avoid"
                 % (sorted(allowed_device_texts), sorted(unexpected)))
-        # The nested settings cards are the Display appearance card and the Location and
-        # detection card, both in the nested card-title voice.
-        if set(nested_titles) != {config_page.ASPECT_HEADING, config_page.DETECTION_CARD_TITLE}:
+        # Display contributes exactly the four Personalisation cards, in the same voice.
+        display_texts = {e["text"] for e in by_page["/display"]}
+        if display_texts != {"Look", "Special looks", "Calendar", "Screen"}:
             raise AssertionError(
-                "expected the Display appearance and Location and detection cards to be the "
-                "only nested settings cards, got %r" % (sorted(set(nested_titles)),))
+                "expected the four Personalisation card titles on /display, got %r"
+                % (sorted(display_texts),))
+        if nested_titles:
+            raise AssertionError("expected no nested settings card, got %r" % (nested_titles,))
 
         # The combined set's own cardinality is 1.
         triples = sorted({e["triple"] for e in entries})
@@ -1501,58 +1402,6 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
         context.close()
 
 
-# Quiet hours: native fields and presets are the primary controls, the ring is secondary.
-
-def test_quiet_hours_fields_and_presets_lead_the_ring_and_save(new_context, make_app_server):
-    """The presets and both native time fields sit above the ring at every supported width,
-    the Night preset writes the fields, and a keyboard-edited time saves to disk.
-    """
-    from companion import auth
-    from companion.test_browser_ux_helpers import (
-        VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_no_page_overflow,
-        _login, _save_via_bar, _wait_for_bar, seed_state_dir)
-    from server import device_config
-    for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
-        for lang in ("en", "fr"):
-            server = make_app_server(seed=seed_state_dir, fake_providers=True)
-            base_url = server.base_url()
-            context = new_context(viewport=viewport)
-            try:
-                context.add_cookies([{
-                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-                page = context.new_page()
-                _login(page, base_url)
-                page.goto(base_url + "/display")
-                page.wait_for_load_state("networkidle")
-                tops = page.evaluate(
-                    "() => { function top(s) {"
-                    " return document.querySelector(s).getBoundingClientRect().top; }"
-                    " return {preset: top('.quiet-preset-row'),"
-                    " start: top('input[name=quiet_hours_start]'),"
-                    " end: top('input[name=quiet_hours_end]'),"
-                    " dial: top('.quiet-dial-summary')}; }")
-                if not (tops["preset"] < tops["start"] < tops["dial"]
-                        and tops["end"] < tops["dial"]):
-                    raise AssertionError(
-                        "%s: presets and fields must lead the ring: %r"
-                        % (viewport["width"], tops))
-                problem = _assert_no_page_overflow(page, "quiet hours")
-                if problem:
-                    raise AssertionError(problem)
-                page.click("[data-quiet-preset][data-preset-start='08:00']")
-                if page.input_value("input[name=quiet_hours_start]") != "08:00":
-                    raise AssertionError("the Day preset did not write the start field")
-                page.focus("input[name=quiet_hours_end]")
-                page.fill("input[name=quiet_hours_end]", "19:30")
-                _wait_for_bar(page)
-                _save_via_bar(page)
-                cfg = device_config.load_device_config(server.tmpdir)
-                if (cfg["quiet_hours_start"], cfg["quiet_hours_end"]) != ("08:00", "19:30"):
-                    raise AssertionError("quiet hours did not persist: %r" % (cfg,))
-            finally:
-                context.close()
-
-
 # Airlines: the aircraft types of a row and the sheet's type switcher.
 
 TYPES_CARD = "Transavia France"
@@ -1578,7 +1427,7 @@ def test_a_row_lists_its_types_and_the_sheet_switches_between_them(new_context, 
                     "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
                 page = context.new_page()
                 _login(page, server.base_url())
-                page.goto(server.base_url() + "/airlines")
+                page.goto(server.base_url() + "/airlines/manage")
                 row = _types_card(page).locator(".airline-row")
                 row.wait_for(state="visible")
                 types_line = _types_card(page).locator(".airline-row__types").text_content()
@@ -1625,13 +1474,13 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
     """With scripts blocked a multi-type row still lists every type as text, is a real link to
     its in-page sheet, and a row for a single-type airline names its one aircraft, all inside
     the narrowest supported viewport without overflow."""
-    with _no_js_page(new_context, server.base_url(), "/airlines",
+    with _no_js_page(new_context, server.base_url(), "/airlines/manage",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         card = _types_card(page)
         if card.locator(".airline-row__types").text_content() != "B737 · A320":
             raise AssertionError("expected both Transavia types as text")
         href = card.locator("a.airline-row").get_attribute("href")
-        if href != "/airlines?sheet=transavia-france#airline-sheet":
+        if href != "/airlines/manage?sheet=transavia-france#airline-sheet":
             raise AssertionError("expected a link to the in-page sheet, got %r" % (href,))
         single = page.locator(".airline-list__item").filter(
             has=page.locator(".airline-row__name", has_text="Air France")).first
@@ -1652,7 +1501,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/airlines")
+        page.goto(server.base_url() + "/airlines/manage")
         page.locator('a.airline-row[data-view-panel-resolve-prefix="%s"]'
                      % ARTWORK_PREFIX).click()
         dialog = page.locator("#panel-lookup-dialog")
@@ -1668,7 +1517,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
             button.click()
         if manual_resolutions.load_manual_resolutions(server.tmpdir).get(ARTWORK_PREFIX):
             raise AssertionError("the manual entry was not removed")
-        if not page.url.rstrip("/").endswith("/airlines"):
+        if not page.url.rstrip("/").endswith("/airlines/manage"):
             raise AssertionError("expected to land on the gallery, got %r" % page.url)
     finally:
         context.close()

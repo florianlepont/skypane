@@ -22,8 +22,8 @@ import re
 import sqlite3
 from urllib.parse import quote
 
-from companion import access, device_scope, flash
-from companion.pages import detection_page
+from companion import access, device_scope, flash, page_policy
+from companion.pages import detection_page, place_page
 from companion.settings import form_post, quiet_hours
 from server import airports, detection, device_config, fleet_db
 
@@ -114,15 +114,6 @@ def location_scope(handler, device):
         return detection_page.LocationScope()
 
 
-def card_location_name(handler, device, device_cfg):
-    """The device's usable location name for the Detection card on Display
-    and Device; None unless the saved setting follows a position, so a
-    runway device never reads fleet.db for it."""
-    if detection.current_selection(device_cfg)["mode"] != detection.POSITION_MODE:
-        return None
-    return location_scope(handler, device).device_location_name
-
-
 def _runway_errors(form):
     """Field -> message for a runway-mode post; empty when it is valid."""
     airport = form.get("airport", "")
@@ -189,10 +180,30 @@ def _redirect_with(handler, flash_key):
     return handler.redirect("%s?flash=%s" % (back, quote(flash_key)))
 
 
-def _rerender(handler, ctx, scope, errors, form, status=200):
-    body = detection_page.render(ctx, errors=errors, submitted=form, locations=scope)
+def frame_place(handler, device):
+    """The device's own position row for the page, or None when it has none,
+    cannot be read, or belongs to someone the viewer may not see named."""
+    try:
+        subject = subject_for(handler, device)
+        place = fleet_db.frame_position(subject.conn, device.id)
+        if place is None:
+            return None
+        located = fleet_db.get_location(subject.conn, place["id"])
+        if located is None or not _may_see_location(subject, located):
+            return None
+        return place
+    except sqlite3.Error:
+        return None
+
+
+def _rerender(handler, ctx, device, errors, form, status=200):
+    """Render the page again with the refusal beside its fields. Every
+    refused post, whatever its action, sends the map page policy."""
+    body = place_page.render(
+        ctx, errors=errors, submitted=form, place=frame_place(handler, device))
     return handler.send_html(
-        status, handler._page_shell_for(detection_page.DETECTION_ROUTE, body, ctx))
+        status, handler._page_shell_for(detection_page.DETECTION_ROUTE, body, ctx),
+        policy=page_policy.MAP_PAGE_POLICY)
 
 
 def _store_detection(ctx, device, subject, form):
@@ -285,18 +296,18 @@ def _write_location(subject, form, name, lat, lon):
 def _save_location(handler, ctx, device, subject, scope, form):
     if subject.subject_id is None or not subject.may_write:
         return _rerender(
-            handler, ctx, scope,
+            handler, ctx, device,
             {"location_form": detection_page.ERROR_LOCATION_UNAVAILABLE}, form)
     errors, name, lat, lon = _location_errors(form, scope.rows)
     if errors:
-        return _rerender(handler, ctx, scope, errors, form)
+        return _rerender(handler, ctx, device, errors, form)
     try:
         written = _write_location(subject, form, name, lat, lon)
     except (sqlite3.Error, ValueError):
         return _redirect_with(handler, flash.FLASH_KEY_SAVE_FAILED)
     if not written:
         return _rerender(
-            handler, ctx, scope,
+            handler, ctx, device,
             {"location_form": detection_page.ERROR_LOCATION_UNAVAILABLE}, form)
     return _redirect_with(handler, flash.FLASH_KEY_LOCATION_SAVED)
 
@@ -404,10 +415,10 @@ def _store_place(ctx, device, subject, place):
         raise
 
 
-def _save_place(handler, ctx, device, subject, scope, form):
+def _save_place(handler, ctx, device, subject, form):
     place, errors = parse_place(form, ctx.device_config["timezone"])
     if errors:
-        return _rerender(handler, ctx, scope, errors, form, status=400)
+        return _rerender(handler, ctx, device, errors, form, status=400)
     try:
         _store_place(ctx, device, subject, place)
     except (OSError, ValueError, PermissionError, sqlite3.Error):
@@ -428,7 +439,7 @@ def handle_post(handler, device):
     if form.get("action") == detection_page.ACTION_SAVE_LOCATION:
         return _save_location(handler, ctx, device, subject, scope, form)
     if form.get("action") == detection_page.ACTION_SAVE_PLACE:
-        return _save_place(handler, ctx, device, subject, scope, form)
+        return _save_place(handler, ctx, device, subject, form)
     errors = validate(form, scope.rows)
     if not errors:
         try:
@@ -436,5 +447,5 @@ def handle_post(handler, device):
         except (OSError, sqlite3.Error):
             return _redirect_with(handler, flash.FLASH_KEY_SAVE_FAILED)
     if errors:
-        return _rerender(handler, ctx, scope, errors, form)
+        return _rerender(handler, ctx, device, errors, form)
     return _redirect_with(handler, flash.FLASH_KEY_DETECTION_SAVED)

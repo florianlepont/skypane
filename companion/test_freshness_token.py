@@ -472,22 +472,22 @@ def test_the_charging_verdict_ends_by_the_clock_alone(tmp_path):
     assert verdict(now + timedelta(seconds=2 * 300 + 70)) is False
 
 
-def test_the_charging_pill_going_stale_changes_the_home_and_health_tokens(
+def test_the_charging_pill_going_stale_changes_the_health_token_and_home_shows_none(
         app_server_in_process, monkeypatch):
-    """a page showing the pill gets a new token when the clock alone makes the reading stale,
-    so the freshness loop removes the pill without a new reading or a reload"""
+    """the Health page shows the pill and gets a new token when the clock alone makes the
+    reading stale, so the freshness loop removes the pill without a new reading or a reload;
+    the personal Home never shows the pill at all"""
     server = app_server_in_process
     session = login(server)
     now = _seed_charging_ramp(server.state_dir)
-    before = {route: _token(server, route, session)
-              for route in (layout.HOME_ROUTE, layout.HEALTH_ROUTE)}
-    assert "charging-pill" in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
+    before = _token(server, layout.HEALTH_ROUTE, session)
+    assert "charging-pill" in _get(server, layout.HEALTH_ROUTE, session)[2].decode("utf-8")
+    assert "charging-pill" not in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
 
     later = (now + timedelta(seconds=2 * 300 + 120)).isoformat(timespec="seconds")
     monkeypatch.setattr(history_db, "utc_now_iso", lambda: later)
-    for route, token in before.items():
-        assert _token(server, route, session) != token, route
-    assert "charging-pill" not in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
+    assert _token(server, layout.HEALTH_ROUTE, session) != before
+    assert "charging-pill" not in _get(server, layout.HEALTH_ROUTE, session)[2].decode("utf-8")
 
 
 def test_pipeline_run_meta_advance_changes_health_and_home_tokens(app_server_in_process):

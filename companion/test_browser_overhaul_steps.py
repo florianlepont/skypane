@@ -1,12 +1,15 @@
-"""Step counts of the ten walkthrough tasks, measured in a real browser.
+"""Step counts of the walkthrough tasks, measured in a real browser.
 
 Each task is driven through a counter that adds one for every tap, every typed
 or chosen value and every scroll an action needs to reach its target (a
 target below the fold counts one scroll). Counting starts on the page sign-in
 lands on; the sign-in task itself counts its whole path. Every task signs in
 through the fake identity provider as the person the task is about, on a
-360px phone, and each measured count is asserted at or below the target the
-design set for it. The counts are printed as `STEP-COUNT <task> <n>` lines.
+360px phone, and each measured count is asserted equal to the value measured
+for it (so a regression and an unnoticed gain both fail). The counts are
+printed as `STEP-COUNT <task> <n> (target <t>)` lines; a task over its target
+is reported there and in the step-count record, never hidden by raising the
+target. The map, the tile host and the place search are answered by the test.
 """
 import re
 
@@ -14,16 +17,19 @@ import pytest
 
 import fleet_console_support as fx
 from companion import auth
-from companion.test_browser_ux_helpers import VIEWPORT_MIN_SUPPORTED, _commit_field
+from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED
+from place_map_support import Hosts
 from server import fleet_db, hardware
 
 pytestmark = pytest.mark.browser
 
-# Display keeps its settings below the first screen (a scroll) or in a sheet,
-# so a setting costs four actions (five for a look), above the design target
-# of three.
-MEASURED_U4 = 4
-MEASURED_U4_LOOK = 5
+MAP_READY = "() => document.documentElement.classList.contains('map-ready')"
+MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
+
+# Measured counts, asserted exactly. Targets are in the design record.
+MEASURED = {
+    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 5, "L2": 5, "L3": 6, "L4": 4,
+    "S1": 1, "S2": 2, "A7": 1, "A8": 5, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -52,6 +58,21 @@ class Steps:
         self._reach(locator, what)
         self._add("tap", what)
         locator.click()
+
+    def tap_point(self, locator, fx, fy, what):
+        """Taps a point of a large element (the map). A scroll is counted only when the point
+        itself lies outside the viewport."""
+        locator.wait_for(state="visible")
+        box = locator.bounding_box()
+        y = box["y"] + box["height"] * fy
+        if y < 0 or y > self.page.evaluate("window.innerHeight"):
+            self.count += 1
+            self.log.append("scroll to " + what)
+            locator.scroll_into_view_if_needed()
+            box = locator.bounding_box()
+            y = box["y"] + box["height"] * fy
+        self._add("tap", what)
+        self.page.mouse.click(box["x"] + box["width"] * fx, y)
 
     def type_value(self, locator, value, what):
         self._reach(locator, what)
@@ -133,6 +154,14 @@ def _report(task, steps, target):
     print("STEP-COUNT %s %d (target %d): %s" % (
         task, steps.count, target, "; ".join(steps.log) or "no action"))
     assert steps.count <= target, (task, steps.count, target, steps.log)
+
+
+def _report_measured(task, steps, target):
+    """Prints the count and asserts it equals the measured value for `task`."""
+    print("STEP-COUNT %s %d (target %d)%s: %s" % (
+        task, steps.count, target, "" if steps.count <= target else " MISSED",
+        "; ".join(steps.log) or "no action"))
+    assert steps.count == MEASURED[task], (task, steps.count, MEASURED[task], steps.log)
 
 
 def _row_menu(steps, page, name, item):
@@ -275,7 +304,7 @@ def test_u1_sign_in_ends_on_home(world, new_context):
 def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
-        assert page.locator("details.frame-switcher").count() == 0
+        assert page.locator("a.frame-chip").count() == 0
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
         assert page.locator("main h1").inner_text().strip() == "Home"
         _report("U2-one", steps, 0)
@@ -283,15 +312,39 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
         context.close()
 
 
-def test_u2_my_frames_with_several_frames_take_one_tap(world, new_context):
+def _open_the_other_frame(steps, page):
+    """The frame chip, then the card of the frame not shown; waits for the new page."""
+    steps.tap(page.locator("a.frame-chip"), "frame chip")
+    page.wait_for_function(
+        "() => document.querySelector('dialog.frame-sheet').open")
+    panel = page.locator("dialog.frame-sheet")
+    assert panel.locator("a", has_text="Kitchen").count() >= 1
+    assert panel.locator("a", has_text="Attic office").count() >= 1
+    before = page.url
+    was = page.locator("a.frame-chip").get_attribute("aria-label")
+    steps.tap(panel.locator("a.frame-card:not([aria-current])"), "frame card")
+    page.wait_for_function("(was) => location.href !== was", arg=before)
+    page.wait_for_function("() => document.readyState === 'complete'")
+    assert page.locator("a.frame-chip").get_attribute("aria-label") != was
+
+
+def test_u2_my_frames_with_several_frames_take_the_chip_and_a_card(world, new_context):
+    """The sheet lists every frame after one tap; reaching another frame is a second."""
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator("details.frame-switcher > summary"), "frame switcher")
-        panel = page.locator("details.frame-switcher")
-        assert panel.locator("a", has_text="Kitchen").count() >= 1
-        assert panel.locator("a", has_text="Attic office").count() >= 1
-        _report("U2-several", steps, 1)
+        _open_the_other_frame(steps, page)
+        _report("U2-several", steps, 2)
+    finally:
+        context.close()
+
+
+def test_s2_switching_frame_takes_the_chip_then_a_card(world, new_context):
+    world.add_second_frame()
+    context, page, steps = _owner(world, new_context)
+    try:
+        _open_the_other_frame(steps, page)
+        _report_measured("S2", steps, 2)
     finally:
         context.close()
 
@@ -312,45 +365,243 @@ def _save_and_reload(steps, page):
     page.wait_for_url("**/display*")
 
 
-def test_u4_change_a_setting(world, new_context):
-    """Move the quiet-hours start: Display tab, a scroll to the field, the
-    value, Save.
+def test_u4a_change_the_quiet_hours_start(world, new_context):
+    """Move the quiet-hours start from Home: tap the schedule, type the start, Save.
 
-    The design target is 3 (Display tab, change, Save). The field sits under
-    the first screen, so the measured count is 4; the assertion pins that
-    measurement and the shortfall is recorded in the step-count record.
+    Three actions: the schedule link opens the Quiet hours dialog, the start is typed,
+    and Save posts it.
     """
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Display tab")
-        page.wait_for_url("**/display")
-        selector = 'input[name="quiet_hours_start"]'
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        steps.tap(page.locator("a.home-switch__window"), "schedule")
+        page.wait_for_function(
+            "() => document.querySelector('dialog#dlg-quiet-hours').open", timeout=10000)
+        selector = "#quiet-window-start"
         target = "05:00" if page.input_value(selector) != "05:00" else "06:00"
         steps.type_value(page.locator(selector), target, "quiet hours start")
-        _commit_field(page, selector)
-        page.locator("[data-static-save-fallback]").wait_for(state="visible")
-        _save_and_reload(steps, page)
+        with page.expect_navigation():
+            steps.tap(page.locator("dialog#dlg-quiet-hours button[type=submit]"), "Save")
         page.wait_for_function(
-            "([sel, v]) => document.querySelector(sel).value === v", arg=[selector, target])
-        _report("U4", steps, MEASURED_U4)
+            "t => document.readyState === 'complete'"
+            " && !document.querySelector('dialog#dlg-quiet-hours').open"
+            " && document.querySelector('#quiet-window-start').value === t",
+            arg=target, timeout=10000)
+        _report_measured("U4a", steps, 3)
     finally:
         context.close()
 
 
-def test_u4_changing_the_look_goes_through_the_sheet(world, new_context):
-    """The look picker is a sheet: Display tab, Change, a choice, Done, Save."""
+def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
+    """Personalisation tab, tap a look, Save."""
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Display tab")
+        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
         page.wait_for_url("**/display")
-        steps.tap(page.locator("summary.look-edit__summary:visible").first, "Change the look")
-        sheet = page.locator("[data-look-sheet]")
-        sheet.wait_for(state="visible")
-        steps.tap(sheet.locator(
-            ".look-dot:has(input[data-look-axis=colour][value=green])"), "colour")
-        steps.tap(sheet.locator("[data-look-done]"), "Done")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        steps.tap(page.locator(
+            ".look-pick__card:has(input:not(:checked))").first, "a look")
         page.locator("[data-static-save-fallback]").wait_for(state="visible")
         _save_and_reload(steps, page)
-        _report("U4-look", steps, MEASURED_U4_LOOK)
+        _report_measured("U4b", steps, 3)
     finally:
         context.close()
+
+
+def _grant_position(context, latitude=48.8534, longitude=2.3488):
+    context.grant_permissions(["geolocation"], origin=None)
+    context.set_geolocation({"latitude": latitude, "longitude": longitude, "accuracy": 25})
+
+
+def _frame_place(world):
+    conn = fleet_db.connect(world.state_dir)
+    try:
+        return fleet_db.frame_position(conn, world.seed.owned_id)
+    finally:
+        conn.close()
+
+
+def _open_location(world, new_context):
+    """The owner on the landing Home with the map hosts answered by the test; the Location tab
+    is the first counted action and the page is waited for until its map is ready."""
+    context, page, steps = _owner(world, new_context)
+    hosts = Hosts(context)
+    steps.tap(page.locator(".tab-bar a[href$='/detection']"), "Location tab")
+    page.wait_for_url("**/detection*")
+    page.wait_for_function(MAP_READY, timeout=15000)
+    page.wait_for_function(
+        "() => document.readyState === 'complete' && document.getAnimations().every("
+        "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)",
+        timeout=10000)
+    return context, page, steps, hosts
+
+
+def _save_place(steps, page):
+    with page.expect_navigation():
+        steps.tap(page.locator("button.dirty-bar__save"), "Save")
+    page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+
+
+def test_l1_pick_an_airport_from_the_list(world, new_context):
+    context, page, steps, _ = _open_location(world, new_context)
+    try:
+        steps.type_value(page.locator("#airport-filter"), "Lyon", "airport filter")
+        link = page.locator("a.place-airport__link[data-icao=LFLL]")
+        page.wait_for_function(
+            "() => { const e = document.querySelector('a.place-airport__link[data-icao=LFLL]');"
+            " return !!e && e.checkVisibility(); }", timeout=10000)
+        with page.expect_navigation():
+            steps.tap(link, "the airport")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        _save_place(steps, page)
+        place = _frame_place(world)
+        assert place is not None and abs(place["latitude"] - 45.7) < 0.5, place
+        _report_measured("L1", steps, 4)
+    finally:
+        context.close()
+
+
+def test_l2_use_my_position(world, new_context):
+    context, page, steps, _ = _open_location(world, new_context)
+    try:
+        _grant_position(context)
+        # The permission prompt is one decision the person takes; the context grants it.
+        steps.count += 1
+        steps.log.append("grant the position permission")
+        steps.tap(page.locator("#place-locate"), "Use my position")
+        page.wait_for_function(
+            "() => document.getElementById('place-lat').value !== ''", timeout=10000)
+        _save_place(steps, page)
+        place = _frame_place(world)
+        assert place is not None and abs(place["latitude"] - 48.8534) < 0.01, place
+        _report_measured("L2", steps, 4)
+    finally:
+        context.close()
+
+
+def test_l3_search_for_a_place(world, new_context):
+    context, page, steps, hosts = _open_location(world, new_context)
+    try:
+        steps.type_value(page.locator("#place-search"), "Rivoli", "place search")
+        steps.tap(page.locator("form.place-search button"), "Search places")
+        result = page.locator("#place-results .place-result").first
+        result.wait_for(state="visible", timeout=10000)
+        steps.tap(result, "the result")
+        page.wait_for_function(
+            "() => document.getElementById('place-lat').value !== ''", timeout=10000)
+        _save_place(steps, page)
+        place = _frame_place(world)
+        assert place is not None and abs(place["latitude"] - 48.8606) < 0.01, place
+        assert len(hosts.search_requests) == 1
+        _report_measured("L3", steps, 6)
+    finally:
+        context.close()
+
+
+def test_l4_tap_the_map(world, new_context):
+    context, page, steps, _ = _open_location(world, new_context)
+    try:
+        page.wait_for_function(MAP_TILES, timeout=15000)
+        steps.tap_point(page.locator("#place-map"), 0.5, 0.55, "the map")
+        page.wait_for_function(
+            "() => document.getElementById('place-lat').value !== ''", timeout=10000)
+        _save_place(steps, page)
+        assert _frame_place(world) is not None
+        _report_measured("L4", steps, 3)
+    finally:
+        context.close()
+
+
+def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
+    context, page, steps = _admin(world, new_context)
+    try:
+        steps.tap(page.locator(".tab-bar a[href$='/device']"), "Device tab")
+        page.wait_for_url("**/device")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        field = page.locator("input[type=number][name=wake_interval_s]")
+        target = "1500" if field.input_value() != "1500" else "1200"
+        steps.type_value(field, target, "refresh interval")
+        with page.expect_navigation():
+            steps.tap(page.locator("button.dirty-bar__save"), "Save")
+        page.wait_for_function(
+            "t => document.readyState === 'complete' && document.querySelector("
+            "'input[type=number][name=wake_interval_s]').value === t", arg=target, timeout=10000)
+        _report_measured("U4c", steps, 3)
+    finally:
+        context.close()
+
+
+def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
+    context, page, steps = _admin(world, new_context)
+    try:
+        steps.tap(page.locator(".space-strip a:has-text('My frame')"), "My frame")
+        page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
+        assert page.locator("main h1").inner_text().strip() == "Home"
+        back = Steps(page)
+        back.tap(page.locator(".space-strip a:has-text('Console')"), "Console")
+        page.wait_for_url("**/fleet")
+        assert back.count == 1
+        _report_measured("S1", steps, 1)
+    finally:
+        context.close()
+
+
+def test_a7_the_fleet_name_opens_the_console_health(world, new_context):
+    context, page, steps = _admin(world, new_context)
+    try:
+        row = page.locator("li.entity-row", has=page.locator("text=Kitchen")).first
+        steps.tap(row.locator("a[href$='/health']").first, "frame name")
+        page.wait_for_url("**/health")
+        assert page.locator("main h1").inner_text().strip() == "Health"
+        _report_measured("A7", steps, 1)
+    finally:
+        context.close()
+
+
+def test_a8_rename_an_airline_in_the_editor(world, new_context):
+    context, page, steps = _admin(world, new_context)
+    try:
+        steps.tap(page.locator(".tab-bar__more > summary"), "More")
+        steps.tap(page.locator(".tab-bar__more-panel a", has_text="Airline editor"), "Airline editor")
+        page.wait_for_url("**/airlines/manage")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        steps.tap(page.locator('.airline-row[data-view-panel-sheet-key="air-france"]'), "the airline")
+        name = page.locator('#panel-lookup-dialog .airline-sheet input[name="airline_name"]')
+        steps.type_value(name, "Skyline Air", "airline name")
+        with page.expect_navigation():
+            steps.tap(page.locator("#panel-lookup-dialog .airline-sheet__name button"), "Save name")
+        page.wait_for_function(
+            "() => document.readyState === 'complete' && document.body.innerText.includes("
+            "'Airline name saved')", timeout=15000)
+        assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
+        _report_measured("A8", steps, 5)
+    finally:
+        context.close()
+
+
+def test_v1_airline_collection_phone_and_desktop(world, new_context):
+    context, page, steps = _owner(world, new_context)
+    try:
+        steps.tap(page.locator(".tab-bar__more > summary"), "More")
+        steps.tap(page.locator(".tab-bar__more-panel a", has_text="Airline collection"),
+                  "Airline collection")
+        page.wait_for_url("**/airlines")
+        assert page.locator("main h1").inner_text().strip() == "Airline collection"
+        _report_measured("V1-phone", steps, 2)
+    finally:
+        context.close()
+    # Desktop is outside the phone counting rule; the sidebar link is the whole path.
+    desktop = new_context(viewport=VIEWPORT_DESKTOP)
+    desktop.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": world.base}])
+    try:
+        page = desktop.new_page()
+        world.sign_in(page, fx.OWNER_EMAIL, "auth0|owner")
+        page.wait_for_url(re.compile(".*/devices/[^/]+/(\\?flash=welcome\\w*)?$"))
+        wide = Steps(page)
+        wide.tap(page.locator(".dashboard-sidebar a", has_text="Airline collection"),
+                 "sidebar link")
+        page.wait_for_url("**/airlines")
+        _report_measured("V1-desktop", wide, 1)
+    finally:
+        desktop.close()

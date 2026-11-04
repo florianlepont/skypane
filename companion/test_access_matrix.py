@@ -108,6 +108,7 @@ DEVICE_SCOPED = frozenset(
         "/frame-preview/{}.png")]
     + [("POST", path) for path in (
         "/settings", "/detection", "/quick/display", "/quick/quiet-hours",
+        "/quick/quiet-hours/window",
         "/quick/led", "/airlines/resolve", "/airlines/rename",
         "/airlines/rename/reset", "/airlines/manual-resolutions/{}/delete",
         "/illustration/{}.png", "/settings/rules/add",

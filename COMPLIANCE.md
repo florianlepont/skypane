@@ -8,12 +8,14 @@ It uses the same per-source shape `server/assets/fonts/VENDOR.md` and
 source, upstream link, the date the terms were checked, what the terms
 require, and a verdict.
 
-Seven sources are covered, not the three originally scoped by D-14 —
+Ten sources are covered, not the three originally scoped by D-14 —
 `server/plane/enrich.py` reaches a fourth aggregator in production
 (adsbdb.com) that predates this document, `server/plane/detect.py` gained
 a fifth (adsb.lol, 2026-08-27) as a second default ADS-B source, the
 OurAirports catalogue joined as build-time data (never fetched at run
-time), and leaving any of them out would make this document incomplete.
+time), the location page's map reaches three more from the browser (the
+Leaflet library and the OpenStreetMap tile and search services), and leaving
+any of them out would make this document incomplete.
 
 Every behavioural claim below (request cadence, caching, what is and is
 not republished) is grounded in the file that implements it, named
@@ -251,6 +253,97 @@ document.
   not applicable.
 - **Status:** not used, no open item.
 
+## OpenStreetMap tile server
+
+- **Used in shipped code:** the headers are in place; the map code that
+  requests tiles is completed by the map page plan. Tiles are requested
+  **by the visitor's browser**, from the Location and detection page only.
+  `companion/page_policy.py` names `https://tile.openstreetmap.org` in the
+  `img-src` of that page's Content-Security-Policy and in no other response
+  (`companion/test_page_policy_headers.py` checks every route). The server
+  never fetches a tile and keeps none.
+- **Upstream:** https://operations.osmfoundation.org/policies/tiles/ (tile
+  usage policy), https://www.openstreetmap.org/copyright (attribution).
+- **Terms checked:** 2026-11-03 (fetched the live policy page).
+- **What the terms require:** the exact URL
+  `https://tile.openstreetmap.org/{z}/{x}/{y}.png`; visible attribution
+  "© OpenStreetMap contributors" on the map, not hidden behind a toggle; a
+  valid HTTP Referer from web pages and no restrictive Referrer-Policy that
+  prevents it; browser caching honoured, no `no-cache` request headers; no
+  bulk download, prefetching or offline use; no more than the tiles the
+  visitor is viewing. Availability is best effort, with no SLA, and access may
+  be withdrawn without notice. No key or account exists.
+- **What this repository does:** the page's CSP allows only the one tile host
+  as an image source and `script-src` stays `'self'`. The map code in
+  `companion/static/place-map.js` (map plan) must use the exact URL, set the
+  tile layer's referrer policy to send the origin as Referer, create no
+  prefetch or offline feature, and show the attribution. No other page,
+  script or stylesheet requests this host. The tile URL is meant to live in
+  one constant so another provider can replace it.
+- **Difference from the plan's spec:** the live policy forbids a Referrer-Policy
+  that stops the Referer being sent. The companion's global `Referrer-Policy`
+  stays `same-origin` (unchanged) and the map code must override it for the
+  tile requests only, via the tile layer option.
+- **Privacy:** viewing the map asks OpenStreetMap's servers for pictures of the
+  area; the saved position stays on SkyPane.
+- **Verdict:** compatible when used as designed (interactive viewing, one page,
+  no prefetch). Open item: the map plan implements the behaviour above.
+- **Status:** headers met; behaviour pending the map plan.
+
+## Nominatim
+
+- **Used in shipped code:** the headers are in place; the search code is
+  completed by the map page plan. Searches are sent **by the visitor's
+  browser**, from the Location and detection page only.
+  `companion/page_policy.py` names `https://nominatim.openstreetmap.org` in
+  the `connect-src` of that page's policy and in no other response. The
+  server never calls Nominatim.
+- **Upstream:** https://operations.osmfoundation.org/policies/nominatim/
+- **Terms checked:** 2026-11-03 (fetched the live policy page).
+- **What the terms require:** at most 1 request per second; a valid HTTP
+  Referer or an identifying User-Agent (a browser sends its own User-Agent, so
+  the Referer is the identification); visible attribution; use only when
+  directly triggered by the end user; no auto-complete search, no systematic
+  or periodic queries, no scraping of details pages; results cached on the
+  client where practical; the service must be switchable without a software
+  update; no personal data submitted.
+- **What this repository does:** the search code in
+  `companion/static/place-map.js` (map plan) must search only on an explicit
+  submit, never while typing, keep at least one second between requests, and
+  send the origin as Referer on that request, because the global
+  `Referrer-Policy: same-origin` would otherwise send none to another origin.
+  Results are used once to place a pin and are not stored by SkyPane.
+- **Difference from the plan's spec:** the policy asks that the service can be
+  switched without a software update; the search host is a constant in the
+  page code and in the CSP, so switching it is a SkyPane release, which is
+  acceptable at this scale and noted here.
+- **Privacy:** only the typed search text and the visitor's browser details
+  go to OpenStreetMap; the saved position stays on SkyPane.
+- **Verdict:** compatible when used as designed (user-triggered, rate-limited,
+  no auto-complete). Open item: the map plan implements the behaviour above.
+- **Status:** headers met; behaviour pending the map plan.
+
+## Leaflet
+
+- **Used in shipped code:** yes, as a vendored, unmodified library served by
+  SkyPane itself from `companion/static/vendor/leaflet/` (`leaflet.js`,
+  `leaflet.css`, `LICENSE`), linked by the Location and detection page only.
+  There is no CDN, no key and no package manager at runtime.
+- **Upstream:** https://leafletjs.com, https://github.com/Leaflet/Leaflet
+  (npm tarball `leaflet@1.9.4`).
+- **Terms checked:** 2026-11-03 against the `LICENSE` file in the tarball:
+  BSD-2-Clause.
+- **What the terms require:** keep the copyright notice and licence text with
+  redistributed source and binary forms. No attribution on screen is needed
+  for the library (the map shows OpenStreetMap attribution instead).
+- **What this repository does:** `companion/static/vendor/leaflet/LICENSE`
+  ships the licence text byte for byte; `VENDOR.md` there records the source,
+  sizes, SHA-256 values, a scan for dynamic-code and network primitives, and
+  the upgrade procedure. `companion/test_vendored_leaflet.py` checks the served
+  hashes and the scan. The library is credited on the credits page.
+- **Verdict:** compatible; vendored and hash-pinned.
+- **Status:** requirement met; no open item.
+
 ---
 
 ## Runtime behaviour vs. the aggregators' constraints
@@ -340,6 +433,10 @@ is relaxed.
 | OurAirports | Yes, build-time only | Confirmed (public domain) | None |
 | PRIM / Île-de-France Mobilités | No | Not applicable (unused in v1) | Revisit at v2 planning, when RER-01/02/03 are picked back up |
 | AeroDataBox | No | Not applicable (unused) | None |
+| OpenStreetMap tile server | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements Referer, attribution and no-prefetch behaviour |
+| Nominatim | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements user-triggered, rate-limited search with Referer |
+| Leaflet | Yes, vendored | Confirmed (BSD-2-Clause) | None |
 
-No row above is marked open. PRIM's "revisit at v2 planning" note is a
+The two OpenStreetMap rows name behaviour that the map page plan completes in
+`companion/static/place-map.js`; nothing else is open. PRIM's "revisit at v2 planning" note is a
 forward-looking reminder, not an outstanding item.

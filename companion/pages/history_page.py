@@ -13,7 +13,6 @@ matching `data_table()`'s CSS classes and escaping every cell through
 """
 import re
 import sqlite3
-import urllib.parse
 from datetime import datetime, timezone
 
 import companion.device_scope as device_scope
@@ -24,7 +23,7 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
 from server import history_db
-from server.plane import manual_resolutions, name_overrides
+from server.plane import name_overrides
 from server.plane import render as panel_render
 
 # history is kept forever; this is a display limit for readability,
@@ -187,14 +186,6 @@ LIGHTBOX_CAPTION_TEMPLATE = i18n.msg("flights.picture_from", "Picture from %s")
 _VIEW_PANEL_SRC_ATTR = "data-view-panel-src"
 _VIEW_PANEL_CAPTION_ATTR = "data-view-panel-caption"
 _VIEW_PANEL_CLOSE_ATTR = "data-view-panel-close"
-
-# One hop to act: the resolve link goes straight to the Airlines
-# resolve view for this row's prefix. Route and query-parameter names
-# are duplicated, not imported (page modules cannot import each other),
-# pinned by test_view_pages.py's cross-module guard.
-RESOLVE_LINK_HREF_TEMPLATE = "/airlines?resolve=%s"
-RESOLVE_LINK_TEXT = i18n.msg("flights.name_this_airline", "Name this airline")
-UNRESOLVED_LINK_CLASS = "text-label cell-unresolved-link"
 
 # Shared with home_page.py's own DAY_BAND_HEADING — "Today" is owned by
 # companion/i18n_fr/flights.py, not home.py.
@@ -520,50 +511,6 @@ def _filter_kind_attr(row):
     return state if state in _FILTER_KINDS else ""
 
 
-def resolve_prefix_for_callsign(callsign):
-    """The 3-letter ICAO prefix `callsign` would be filed under in the
-    unresolved-prefix registry, or `None` (never raising). Uses the same
-    normalisation `airlines_page.unresolved_row_for_prefix()` applies at
-    the resolve view's own boundary, so a prefix this produces is
-    exactly a prefix that view accepts. A bare three-character callsign
-    yields `None`: the registry writer requires at least four characters
-    before it ever records a prefix.
-    """
-    if not isinstance(callsign, str):
-        return None
-    normalised = callsign.strip().upper()
-    if len(normalised) < 4:
-        return None
-    return manual_resolutions.normalise_prefix(normalised[:3])
-
-
-def _resolve_link_html(prefix):
-    """A one-hop link from a flight whose airline could not be named
-    straight to the Airlines resolve view for that flight's prefix,
-    used by both the desktop cell and the phone card. `prefix` is
-    URL-quoted for the query string and then escaped for the attribute,
-    both at this single point of interpolation; the resolve view
-    re-validates the prefix on arrival regardless.
-    """
-    href = device_scope.scoped(
-        RESOLVE_LINK_HREF_TEMPLATE % urllib.parse.quote(prefix, safe=""))
-    return '<a class="%s" href="%s">%s</a>' % (
-        escape_html(UNRESOLVED_LINK_CLASS),
-        escape_html(href), escape_html(i18n.t(RESOLVE_LINK_TEXT)))
-
-
-def _row_resolve_link_html(row):
-    """`_resolve_link_html()` for a row whose airline could not be
-    resolved, or "" for a resolved airline or one whose callsign yields
-    no usable prefix. Both the desktop cell and the phone card call
-    this, so the two can never disagree about whether it's present.
-    """
-    if row["airline_label"] != AIRLINE_FALLBACK_TEXT:
-        return ""
-    prefix = resolve_prefix_for_callsign(row["callsign"])
-    return _resolve_link_html(prefix) if prefix else ""
-
-
 def paris_day(raw_ts):
     """The Europe/Paris calendar date a stored timestamp falls on, or
     `None` (never raising) for a falsy or unparseable value.
@@ -601,18 +548,13 @@ def _flight_cell_html(row):
     """The desktop Flight column's cell: `_merged_cell()`'s primary slot
     carries the callsign (mono); the secondary slot carries "{airline} ·
     {aircraft type}" as one plain string, so the rendered cell reads
-    "AFR1234 · Air France · A320". The resolve link is appended after,
-    only when this row's airline could not be resolved (the mobile card
-    keeps its own identical copy of this logic).
+    "AFR1234 · Air France · A320". An unresolved airline reads as plain
+    unidentified wording, with no link, for every viewer.
     """
     is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
     airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
     secondary = "%s · %s" % (airline_display, row["aircraft_type_label"])
-    html = _merged_cell(row["callsign"], secondary)
-    resolve_link = _row_resolve_link_html(row)
-    if resolve_link:
-        html = html[:-len("</td>")] + resolve_link + "</td>"
-    return html
+    return _merged_cell(row["callsign"], secondary)
 
 
 def _filter_bar_html(rows):
@@ -762,8 +704,7 @@ def _card_identity_html(row):
     """The card header's left column: the callsign in the identifier
     voice, then the airline. A row with no callsign promotes its hex
     with the NO_CALLSIGN_NOTE_TEXT note, so the slot is never blank. An
-    unresolved airline reads "Airline unknown" and carries the resolve
-    link under it.
+    unresolved airline reads "Airline unknown", with no link.
     """
     if row["callsign"]:
         ident = escape_html(row["callsign"])
@@ -777,9 +718,6 @@ def _card_identity_html(row):
         airline_html = (
             '<span class="history-card__airline history-card__airline--unknown">%s</span>'
             % escape_html(i18n.t(AIRLINE_FALLBACK_TEXT)))
-        resolve_link = _row_resolve_link_html(row)
-        if resolve_link:
-            airline_html += '<span class="history-card__resolve">%s</span>' % resolve_link
     else:
         airline_html = '<span class="history-card__airline">%s</span>' % escape_html(
             row["airline_label"])

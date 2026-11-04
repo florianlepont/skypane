@@ -48,25 +48,23 @@ def aspect_section_end(rendered, after=0):
 
 def aspect_usage_row_bounds(rendered, usage):
     """The `[start, end)` slice of `rendered` covering exactly one look on
-    the look card: Departures and Arrivals are the two framed pictures,
-    Calendar flights the first Special looks row, and the rules the rest
-    of the Special looks list (rule rows plus the "Add a special look"
-    form) up to the end of the Aspect section.
+    the Personalisation page: Departures and Arrivals are the two framed
+    pictures of the Look card, the rules are the Special looks card (rule
+    rows plus the "Add a special look" form), and Calendar flights is the
+    calendar row of the Calendar card, which follows the Special looks card.
     """
     if usage == config_page.COLOUR_USAGE_RULES:
-        start = rendered.index(
-            '<li class="special-row', rendered.index('data-look-usage="calendar"'))
+        start = rendered.index('class="special-looks"')
+        return start, rendered.index('id="personalisation-calendar"', start)
+    if usage == config_page.COLOUR_USAGE_CALENDAR:
+        start = rendered.index('<li class="special-row special-row--calendar"')
         return start, aspect_section_end(rendered, start)
     start = rendered.rindex("<", 0, rendered.index('data-look-usage="%s"' % usage))
     following = {
         config_page.COLOUR_USAGE_DEPARTURES: 'data-look-usage="arrivals"',
         config_page.COLOUR_USAGE_ARRIVALS: 'class="special-looks"',
     }
-    if usage in following:
-        end = rendered.index(following[usage], start)
-    else:
-        end = rendered.index('<li class="special-row', start + 1)
-    return start, end
+    return start, rendered.index(following[usage], start)
 
 
 def rules_row_segment(rendered):

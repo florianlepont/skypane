@@ -232,7 +232,7 @@ _REGISTRY_HEADERS = (
 # representations (_registry_row_html()'s <td> and
 # _registry_cards_html()'s .data-card__action block) build their anchor
 # from these same constants, so href/aria-label/text can't drift apart.
-RESOLVE_LINK_HREF_TEMPLATE = "/airlines?resolve=%s"
+RESOLVE_LINK_HREF_TEMPLATE = "/airlines/manage?resolve=%s"
 RESOLVE_LINK_ARIA_TEMPLATE = i18n.msg("health.resolve_prefix", "Resolve prefix %s")
 RESOLVE_LINK_TEXT = i18n.msg("health.resolve", "Resolve")
 RESOLVE_CARD_LINK_TEXT = i18n.msg("health.resolve_this_prefix", "Resolve this prefix")

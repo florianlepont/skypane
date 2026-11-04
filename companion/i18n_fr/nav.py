@@ -22,8 +22,6 @@ only carries each id's French translation.
 
 MESSAGES = {
     "nav.home": "Accueil",
-    "nav.display": "Affichage",
-    "nav.airlines": "Compagnies",
     "nav.flight_history": "Historique des vols",
     "nav.flights_short": "Vols",
     "nav.detection": "Lieu et détection",
@@ -47,6 +45,7 @@ MESSAGES = {
     "nav.audit_short": "Audit",
     "nav.my_frame": "Mon cadre",
     "nav.console": "Console",
+    "nav.space": "Espace",
     "nav.switch_to_personal": "Passer aux pages de votre cadre",
     "nav.switch_to_console": "Passer à la console d’administration",
 
@@ -71,9 +70,9 @@ MESSAGES = {
 
     # The frame switcher above the page title (two or more frames).
     "nav.frame_switcher_aria": "Changer de cadre, actuel : %s",
-    "nav.frame_switcher_shared": "Partagé · %s",
-    "nav.frame_switcher_my_frames": "Mes cadres",
-    "nav.frame_switcher_all_frames": "Tous les cadres (Flotte)",
+    "nav.frame_switcher_my_frames": "Gérer mes cadres",
+    "nav.frame_switcher_title": "Choisir un cadre",
+    "nav.frame_switcher_current": "Actuel",
     "nav.device_default_name": "Cadre d’Orly",
     "nav.skip_to_content": "Aller au contenu",
 }

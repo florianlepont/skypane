@@ -70,6 +70,19 @@ MESSAGES = {
         "L’illustration reste.",
     "airlines.delete_manual_name": "Supprimer mon nom",
 
+    # --- The manual resolutions list and its delete confirmation -----
+    "airlines.manual_resolutions": "Résolutions manuelles",
+    "airlines.manual_resolutions_caption":
+        "Noms que vous avez donnés à des préfixes non identifiés.",
+    "airlines.delete_resolution_link": "Supprimer",
+    "airlines.delete_resolution_aria": "Supprimer la résolution %s",
+    "airlines.delete_this_resolution": "Supprimer cette résolution\u00a0?",
+    "airlines.delete_resolution_body":
+        "%s ne nommera plus les vols de ce préfixe, qui redeviennent non "
+        "identifiés. L’illustration reste.",
+    "airlines.delete_resolution": "Supprimer la résolution",
+    "airlines.keep_resolution": "Garder la résolution",
+
     # --- The replace/upload forms' shared copy ------------------------
     "airlines.replace_this_illustration": "Remplacer cette illustration",
     "airlines.upload": "Envoyer",
@@ -97,4 +110,48 @@ MESSAGES = {
     "airlines.reset_to_skypane_s_name": "Rétablir le nom de SkyPane",
     "airlines.skypane_s_own_name_for_this_airline":
         "Le nom de SkyPane pour cette compagnie est « %s ».",
+
+    # --- The Airline collection page ----------------------------------
+    "airlines.collection_purpose": "Toutes les compagnies que votre cadre a repérées.",
+    "airlines.collection_progress": "%d compagnies sur %d repérées",
+    "airlines.collection_next_goal": "Encore %d pour le badge %d compagnies",
+    "airlines.collection_next_goal_first":
+        "Repérez une compagnie pour obtenir le badge Première observation",
+    "airlines.collection_complete": "Vous avez repéré toutes les compagnies de la liste.",
+    "airlines.collection_all_badges": "Vous avez obtenu tous les badges.",
+    "airlines.collection_badges": "Badges de la collection",
+    "airlines.collection_badge_first": "Première observation",
+    "airlines.collection_badge_count": "%d compagnies",
+    "airlines.collection_badge_earned": "Obtenu",
+    "airlines.collection_badge_locked": "Verrouillé : repérez %d compagnies",
+    "airlines.collection_badge_locked_first": "Verrouillé : repérez une compagnie",
+    "airlines.collection_show": "Afficher",
+    "airlines.collection_show_all": "Toutes",
+    "airlines.collection_show_spotted": "Repérées",
+    "airlines.collection_show_unseen": "Pas encore vues",
+    "airlines.collection_sort_by": "Trier par",
+    "airlines.collection_sort_most": "Les plus vues",
+    "airlines.collection_sort_latest": "Les plus récentes",
+    "airlines.collection_sort_az": "A à Z",
+    "airlines.collection_filter_label": "Filtrer les compagnies",
+    "airlines.collection_apply": "Appliquer",
+    "airlines.collection_seen_many": "Vue %d fois",
+    "airlines.collection_seen_once": "Vue une fois",
+    "airlines.collection_not_seen": "Pas encore vue",
+    "airlines.collection_new": "Nouveau",
+    "airlines.collection_rarity_regular": "Habituelle",
+    "airlines.collection_rarity_occasional": "Occasionnelle",
+    "airlines.collection_rarity_rare": "Rare",
+    "airlines.collection_rarity_sentence":
+        "La rareté dépend du nombre de fois où votre cadre a vu une compagnie.",
+    "airlines.collection_fact_times": "Nombre de passages",
+    "airlines.collection_fact_first": "Première observation",
+    "airlines.collection_fact_last": "Dernière observation",
+    "airlines.collection_fact_types": "Types d’appareil observés",
+    "airlines.collection_fact_rarity": "Rareté",
+    "airlines.collection_fact_callsigns": "Indicatifs récents",
+    "airlines.collection_empty_heading": "Votre collection commence avec le premier avion",
+    "airlines.collection_empty_body":
+        "Les compagnies apparaissent ici dès que votre cadre les voit.",
+    "airlines.collection_no_match_body": "Essayez un autre filtre ou un nom plus court.",
 }

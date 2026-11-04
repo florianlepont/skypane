@@ -1062,7 +1062,7 @@ def test_airlines_dialog_forms_render_unconditionally_over_real_http(make_app_se
         airlines_page.RESOLVE_UPLOAD_ZONE_CLASS,
     )
     for query in ("", "?edit=1"):
-        status, _headers, body = get(server, "/airlines" + query, cookie=session_cookie)
+        status, _headers, body = get(server, "/airlines/manage" + query, cookie=session_cookie)
         assert status == 200, "expected 200 for /airlines%s, got %d" % (query, status)
         body_text = body.decode("utf-8", "replace")
         for token in unconditional_tokens:

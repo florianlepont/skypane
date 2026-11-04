@@ -53,3 +53,33 @@ def test_credits_page_shows_the_ourairports_description(app_server_in_process):
             extra_headers={"Accept-Language": lang})
         assert status == 200
         assert expected in body.decode("utf-8")
+
+
+MAP_SOURCES = ("Leaflet", "OpenStreetMap tile server", "Nominatim")
+POLICY_PHRASES = (
+    "1 request per second", "Referer", "attribution", "prefetch",
+    "auto-complete", "stays on SkyPane")
+
+
+def test_the_map_sources_are_credited_and_have_compliance_sections():
+    names = [s["name"] for s in credits_page.load_credits()]
+    for name in MAP_SOURCES:
+        assert name in names
+    text = _compliance_text()
+    for name in MAP_SOURCES:
+        assert "## " + name in text
+    for phrase in POLICY_PHRASES:
+        assert phrase in text
+
+
+def test_the_credits_page_names_the_map_sources_in_both_languages(app_server_in_process):
+    from companion_app_server import http_request
+    for lang in ("en", "fr"):
+        status, _headers, body = http_request(
+            app_server_in_process.url("/credits"),
+            extra_headers={"Accept-Language": lang})
+        page = body.decode("utf-8")
+        assert status == 200
+        for name in MAP_SOURCES:
+            assert name in page
+        assert "ODbL" in page and "BSD-2-Clause" in page

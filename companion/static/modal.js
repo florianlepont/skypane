@@ -17,6 +17,9 @@
   "use strict";
 
   var opener = null;
+  // The opener's hash target, kept so the link can be found again when a
+  // background refresh replaced the opener while the dialog was open.
+  var openerHref = "";
   var HOLD_SELECTOR = "input:not([type=hidden]), select, textarea";
 
   function closestTag(node, tag) {
@@ -65,7 +68,12 @@
   // (after a reload there is no opener).
   function returnFocus() {
     var target = opener;
+    var href = openerHref;
     opener = null;
+    openerHref = "";
+    if (target && !document.body.contains(target) && href) {
+      target = document.querySelector('a[data-modal-open][href="' + href + '"]');
+    }
     if (target && document.body.contains(target)) {
       var menu = closestTag(target, "details");
       if (menu && !menu.open) {
@@ -109,7 +117,7 @@
 
   function shutDetails(except) {
     var open = document.querySelectorAll(
-      "details.row-menu[open], details.frame-switcher[open]");
+      "details.row-menu[open]");
     for (var i = 0; i < open.length; i += 1) {
       if (open[i] !== except) {
         open[i].removeAttribute("open");
@@ -128,6 +136,7 @@
     }
     evt.preventDefault();
     opener = link;
+    openerHref = link.getAttribute("href") || "";
     var menu = closestTag(link, "details");
     if (menu) {
       menu.removeAttribute("open");
@@ -184,7 +193,7 @@
       return;
     }
     var open = document.querySelectorAll(
-      "details.row-menu[open], details.frame-switcher[open]");
+      "details.row-menu[open]");
     if (open.length === 0) {
       return;
     }

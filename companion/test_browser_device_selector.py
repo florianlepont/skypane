@@ -1,7 +1,7 @@
-"""Real-browser checks of the frame switcher: a user with two frames switches
-frame from Display and stays on Display, a one-frame user sees no switcher,
-the panel fits at 360px and 1280px in both languages and colour schemes with
-44px targets, and it works with scripts blocked."""
+"""Real-browser checks of the frame chip and card sheet: a user with two frames
+switches frame from Display and stays on Display, a one-frame user sees no
+chip, the sheet fits at 360px and 1280px in both languages and colour schemes
+with 44px targets, and it works with scripts blocked."""
 import os
 from types import SimpleNamespace
 
@@ -17,10 +17,12 @@ from server import device_dirs, fleet_db, hardware
 
 pytestmark = pytest.mark.browser
 
-SWITCHER = "details.frame-switcher"
-SUMMARY = "details.frame-switcher > summary"
-ROWS = "details.frame-switcher a.frame-switcher__row"
+CHIP = "a.frame-chip"
+SHEET = "dialog.frame-sheet"
+ROWS = "dialog.frame-sheet a.frame-card"
 HIT_FLOOR = 44
+CHIP_HEIGHT = 48
+CARD_HEIGHT = 64
 MULTI_EMAIL = "multi@example.test"
 SINGLE_EMAIL = "single@example.test"
 
@@ -74,20 +76,30 @@ def _open(new_context, app, email, route, lang="en", **context_args):
     return context, page
 
 
+def _wait_sheet_open(page):
+    page.wait_for_function("() => document.querySelector('dialog.frame-sheet').open")
+    # The sheet enters with a short animation; a box measured while it runs is
+    # a fraction of a pixel short of its resting size.
+    page.wait_for_function(
+        "() => document.getAnimations().every((a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+
+
 def test_a_user_switches_frame_from_display_and_stays_on_display(new_context, fleet_app):
-    """opening the switcher on Display and choosing the other frame lands on that frame's
+    """opening the sheet on Display and choosing the other frame's card lands on that frame's
     Display, where the other frame is now the current one"""
     first, second = fleet_app.multi.ids
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
         viewport=VIEWPORT_DESKTOP)
     try:
-        page.locator(SUMMARY).click()
+        page.locator(CHIP).click()
+        _wait_sheet_open(page)
         assert page.locator(ROWS).count() == 2
         with page.expect_navigation():
             page.locator('%s[href="/devices/%s/display"]' % (ROWS, second)).click()
         assert page.url.endswith("/devices/%s/display" % second)
-        page.locator(SUMMARY).click()
+        page.locator(CHIP).click()
+        _wait_sheet_open(page)
         current = page.locator('%s[aria-current="true"]' % ROWS)
         assert current.count() == 1
         assert current.get_attribute("href") == "/devices/%s/display" % second
@@ -95,14 +107,15 @@ def test_a_user_switches_frame_from_display_and_stays_on_display(new_context, fl
         context.close()
 
 
-def test_a_single_frame_user_sees_no_switcher(new_context, fleet_app):
-    """with one frame the page carries no switcher at all"""
+def test_a_single_frame_user_sees_no_chip(new_context, fleet_app):
+    """with one frame the page carries no chip and no sheet at all"""
     (solo,) = fleet_app.single.ids
     context, page = _open(
         new_context, fleet_app, SINGLE_EMAIL, "/devices/%s/display" % solo,
         viewport=VIEWPORT_DESKTOP)
     try:
-        assert page.locator(SWITCHER).count() == 0
+        assert page.locator(CHIP).count() == 0
+        assert page.locator(SHEET).count() == 0
     finally:
         context.close()
 
@@ -111,24 +124,28 @@ def test_a_single_frame_user_sees_no_switcher(new_context, fleet_app):
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
                          ids=["360", "1280"])
-def test_open_panel_fits_with_44px_targets(new_context, fleet_app, viewport, scheme, lang):
-    """the closed and the open switcher have no horizontal overflow, the panel stays inside
-    the viewport, and the summary, every row and the footer link are at least 44px high"""
+def test_open_sheet_fits_with_44px_targets(new_context, fleet_app, viewport, scheme, lang):
+    """the closed and the open sheet have no horizontal overflow, the sheet stays inside the
+    viewport, the chip is 48px high, every card is at least 64px high and the close control
+    and the footer link are at least 44px"""
     first = fleet_app.multi.ids[0]
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first, lang=lang,
         viewport=viewport, color_scheme=scheme)
     try:
-        assert not _assert_no_page_overflow(page, "switcher/closed", viewport["width"])
-        assert _hit_area(page, SUMMARY)["visual"][1] >= HIT_FLOOR
-        page.locator(SUMMARY).click()
-        panel = page.locator(".frame-switcher__panel").bounding_box()
-        assert panel["x"] >= 0 and panel["x"] + panel["width"] <= viewport["width"]
+        assert not _assert_no_page_overflow(page, "chip/closed", viewport["width"])
+        assert _hit_area(page, CHIP)["visual"][1] >= CHIP_HEIGHT
+        page.locator(CHIP).click()
+        _wait_sheet_open(page)
+        box = page.locator(SHEET).bounding_box()
+        assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
         for index in range(page.locator(ROWS).count()):
-            assert page.locator(ROWS).nth(index).bounding_box()["height"] >= HIT_FLOOR
-        for footer in page.locator(".frame-switcher__footer a").all():
-            assert footer.bounding_box()["height"] >= HIT_FLOOR
-        assert not _assert_no_page_overflow(page, "switcher/open", viewport["width"])
+            assert page.locator(ROWS).nth(index).bounding_box()["height"] >= CARD_HEIGHT
+        close = page.locator(SHEET + " a.modal__close").bounding_box()
+        assert close["width"] >= HIT_FLOOR and close["height"] >= HIT_FLOOR
+        assert page.locator(SHEET + " .frame-sheet__footer a").bounding_box()[
+            "height"] >= HIT_FLOOR
+        assert not _assert_no_page_overflow(page, "chip/open", viewport["width"])
     finally:
         context.close()
 
@@ -136,17 +153,18 @@ def test_open_panel_fits_with_44px_targets(new_context, fleet_app, viewport, sch
 @pytest.mark.parametrize("lang,word,aria", [
     ("en", "Not seen yet", "Switch frame, current: Alpha"),
     ("fr", "Pas encore vu", "Changer de cadre, actuel\u00a0: Alpha")])
-def test_rows_carry_the_dot_word_and_the_summary_its_name(
+def test_cards_carry_the_dot_word_and_the_chip_its_name(
         new_context, fleet_app, lang, word, aria):
-    """the summary's accessible name names the current frame and every row has exactly one
-    dot with its status word, in the page language (a never-seen frame reads Not seen yet)"""
+    """the chip's accessible name names the current frame and every card has exactly one dot
+    with its status word, in the page language (a never-seen frame reads Not seen yet)"""
     first = fleet_app.multi.ids[0]
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first, lang=lang,
         viewport=VIEWPORT_DESKTOP)
     try:
-        assert page.locator(SUMMARY).get_attribute("aria-label") == aria
-        page.locator(SUMMARY).click()
+        assert page.locator(CHIP).get_attribute("aria-label") == aria
+        page.locator(CHIP).click()
+        _wait_sheet_open(page)
         dots = page.locator(ROWS + " [role='img']")
         assert dots.count() == 2
         labels = [dots.nth(i).get_attribute("aria-label") for i in range(2)]
@@ -155,35 +173,19 @@ def test_rows_carry_the_dot_word_and_the_summary_its_name(
         context.close()
 
 
-def test_escape_and_an_outside_tap_close_the_panel(new_context, fleet_app):
-    """with scripts running, Escape and a tap outside both close an open panel"""
-    first = fleet_app.multi.ids[0]
-    context, page = _open(
-        new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
-        viewport=VIEWPORT_DESKTOP)
-    try:
-        page.locator(SUMMARY).click()
-        assert page.locator(SWITCHER).get_attribute("open") is not None
-        page.keyboard.press("Escape")
-        assert page.locator(SWITCHER).get_attribute("open") is None
-        page.locator(SUMMARY).click()
-        page.locator("h1").click()
-        assert page.locator(SWITCHER).get_attribute("open") is None
-    finally:
-        context.close()
-
-
-def test_scripts_blocked_the_switcher_still_navigates(new_context, fleet_app):
-    """without script the details opens natively and the link goes to the same page of the
+def test_scripts_blocked_the_sheet_still_navigates(new_context, fleet_app):
+    """without script the hash link shows the sheet and a card goes to the same page of the
     other frame"""
     first, second = fleet_app.multi.ids
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/flights" % first,
         viewport=VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
     try:
-        page.locator(SUMMARY).click()
+        page.locator(CHIP).click()
+        card = page.locator('%s[href="/devices/%s/flights"]' % (ROWS, second))
+        card.wait_for(state="visible")
         with page.expect_navigation():
-            page.locator('%s[href="/devices/%s/flights"]' % (ROWS, second)).click()
+            card.click()
         assert page.url.endswith("/devices/%s/flights" % second)
     finally:
         context.close()

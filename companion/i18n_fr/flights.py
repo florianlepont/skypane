@@ -54,7 +54,6 @@ MESSAGES = {
     # --- The unresolved-airline link -------------------------------------
     # Links straight to the Airlines resolve view for this flight's own
     # prefix, naming the action it performs.
-    "flights.name_this_airline": "Nommer cette compagnie",
     "flights.airline_unknown": "Compagnie inconnue",
     "flights.route_unavailable": "Trajet indisponible",
 

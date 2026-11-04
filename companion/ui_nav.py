@@ -157,6 +157,14 @@ def _console_entries(active):
     return entries
 
 
+_SPACE_NAV_LABEL = i18n.msg("nav.space", "Space")
+_SPACE_SEGMENTS = (
+    (CONSOLE_SPACE, console_routes.ADMIN_TAB_ROUTE, _CONSOLE_LABEL, _SWITCH_TO_CONSOLE_TEXT, "icon-shield"),
+    (PERSONAL_SPACE, HOME_ROUTE, _PERSONAL_LABEL, _SWITCH_TO_PERSONAL_TEXT,
+     "icon-device"),
+)
+
+
 def _switch_target(space):
     """(href, label, aria-label) of the link leading out of `space`, or None
     when the destination page does not exist."""
@@ -167,19 +175,35 @@ def _switch_target(space):
     return None
 
 
-def space_switch_html(active, variant="header"):
-    """The admin-only link between the two spaces, or "" for every other
-    caller. `variant` is "header" (phone) or "sidebar" (desktop); the label
-    names the destination."""
-    if not is_admin_principal():
+def _space_segment_html(space, href, label, aria, icon_id, current):
+    """One segment of the space switch: a plain GET link with the space
+    glyph and, on the current one, a check glyph and aria-current."""
+    css = "space-switch__segment"
+    attrs = ""
+    check = ""
+    if current:
+        css += " space-switch__segment--current"
+        attrs = ' aria-current="page"'
+        check = icon_html("icon-check", extra_class="space-switch__check")
+    return '<a class="%s" href="%s" aria-label="%s"%s>%s%s<span>%s</span></a>' % (
+        css, escape_html(href), escape_html(i18n.t(aria)), attrs, check,
+        icon_html(icon_id), escape_html(i18n.t(label)))
+
+
+def space_switch_html(active):
+    """The admin-only two-segment switch between the Console and the
+    administrator's own frame pages, or "" for every other caller. Both
+    segments are fixed-destination GET links; the current space only decides
+    which one is marked current."""
+    if not is_admin_principal() or not console_routes.available_nav_entries():
         return ""
-    target = _switch_target(current_space(active))
-    if target is None:
-        return ""
-    href, label, aria = target
-    return '<a class="space-switch space-switch--%s" href="%s" aria-label="%s">%s</a>' % (
-        variant, escape_html(href), escape_html(i18n.t(aria)),
-        escape_html(i18n.t(label)))
+    space = current_space(active)
+    segments = "".join(
+        _space_segment_html(
+            name, href, label, aria, icon_id, name == space)
+        for name, href, label, aria, icon_id in _SPACE_SEGMENTS)
+    return '<nav class="space-switch" aria-label="%s">%s</nav>' % (
+        escape_html(i18n.t(_SPACE_NAV_LABEL)), segments)
 
 
 def _switch_entry(space):
@@ -332,7 +356,7 @@ def sidebar_nav(active, health_alert=None, device_config=None):
     `device_config` remains accepted because page_shell() provides one shared
     rendering context to both navigation variants.
     """
-    parts = [space_switch_html(active, "sidebar")]
+    parts = []
     if current_space(active) == CONSOLE_SPACE:
         parts += _console_sidebar_parts(active, health_alert)
     else:

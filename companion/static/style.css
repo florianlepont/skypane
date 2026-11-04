@@ -19,10 +19,15 @@
  *     the shown aircraft type of an airline sheet
  *     (a.airline-sheet__type[aria-current]),
  *     the checked runway/look cards and look dot, the editing look frame)
+ *   - the current segment of the space switch
+ *     (.space-switch__segment--current)
+ *   - the current frame's card ring and check in the frame sheet
+ *     (.frame-card[aria-current])
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
  *   - the logo mark's flick (.logo-accent)
+ *   - the map's pin and area circle (.place-pin, .place-circle)
  * Border is structural only (dividers, table lines, card edges)
  * and never substitutes for accent or status colour.
  *
@@ -659,40 +664,51 @@ a:hover {
   border-color: var(--color-accent);
 }
 
-/* The admin-only link between the Console and the personal space. In the phone
- * header it sits between the wordmark and the gear, and the gear then
- * stops pushing itself right; the narrower gap keeps the header on one
- * line at 360px. */
+/* The admin-only two-segment switch between the Console and the personal
+ * space. The track is 60px high (8px padding around two 44px segments);
+ * the current segment is filled, carries a check glyph and aria-current, so
+ * it never relies on colour alone. The phone strip scrolls with the page;
+ * the sidebar copy is the first element of the sidebar. */
 .space-switch {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  color: var(--color-accent);
-  text-decoration: none;
-  white-space: nowrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
 }
 
-.space-switch:hover {
+.space-switch__segment {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  min-width: 0;
+  padding: 0 var(--space-sm);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+  border-radius: var(--radius-control);
+}
+
+.space-switch__segment:hover {
   color: var(--color-accent-hover);
 }
 
-.site-header .space-switch {
-  margin-left: auto;
+.space-switch__segment--current,
+.space-switch__segment--current:hover {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
 }
 
-.site-header .space-switch + .site-nav-toggle {
-  margin-left: 0;
-}
-
-.site-header:has(.space-switch) {
-  column-gap: var(--space-sm);
-}
-
-.space-switch--sidebar {
-  padding: 0 var(--space-sm);
+.space-strip {
+  padding: 0 var(--space-md);
+  margin-bottom: var(--space-md);
 }
 
 /* flex-basis: 100% (not position: absolute) forces this onto its own
@@ -1661,127 +1677,119 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   display: none;
 }
 
-/* Frame switcher above the page title (two or more frames). A native
- * details: the summary shows the current frame, the panel lists one
- * same-page link per frame. Quiet chrome on the card surface; accent only
- * marks the current frame and the footer links. */
-details.frame-switcher {
-  position: relative;
-  max-width: 20rem;
-  margin: 0 0 var(--space-md);
-}
-
-.frame-switcher__summary {
+/* The frame chip above the page title (two or more frames) and its card
+ * sheet. The chip is a hash link to a shared modal: a 48px card showing the
+ * current frame with a chevron. The sheet lists one whole-card link per frame
+ * in one column, two from 700px. Accent only marks the current frame's ring,
+ * check and the footer link. */
+a.frame-chip {
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
   gap: var(--space-sm);
-  min-height: 44px;
+  width: 100%;
+  max-width: none;
+  min-height: 48px;
+  margin: 0 0 var(--space-md);
   padding: 0 var(--space-md);
   background: var(--color-dominant);
   color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  list-style: none;
+  text-decoration: none;
 }
 
-.frame-switcher__summary::-webkit-details-marker {
-  display: none;
+a.frame-chip:hover {
+  background: var(--color-control-wash);
 }
 
-/* The shared summary chevron moves to the trailing edge and points down
- * (up when open). */
-.frame-switcher__summary::before {
-  order: 3;
-  margin: 0 0 0 auto;
-  transform: rotate(45deg);
-}
-
-details.frame-switcher[open] > .frame-switcher__summary::before {
-  transform: rotate(-135deg);
-}
-
-.frame-switcher__name {
+.frame-chip__name {
+  flex: 1 1 auto;
   min-width: 0;
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.frame-switcher__panel {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  box-sizing: border-box;
-  margin-top: var(--space-xs);
-  padding: var(--space-xs) 0;
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-pop);
+a.frame-chip .icon {
+  flex: none;
 }
 
-.frame-switcher__list {
+.frame-sheet__list {
+  display: grid;
+  gap: var(--space-sm);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.frame-switcher__row {
+.frame-card {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  min-height: 44px;
-  padding: var(--space-xs) var(--space-md);
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
   color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   text-decoration: none;
 }
 
-.frame-switcher__row:hover {
+.frame-card:hover {
   background: var(--color-control-wash);
 }
 
-.frame-switcher__row[aria-current="true"] {
+.frame-card[aria-current="true"] {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent);
+}
+
+.frame-card[aria-current="true"] .icon {
+  flex: none;
+  margin-left: auto;
   color: var(--color-accent);
 }
 
-.frame-switcher__text {
+.frame-card__text {
   display: grid;
+  flex: 1 1 auto;
   min-width: 0;
 }
 
-.frame-switcher__row .frame-switcher__name {
-  font-weight: var(--weight-regular);
-}
-
-.frame-switcher__row[aria-current="true"] .frame-switcher__name {
+.frame-card__name {
   font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
 }
 
-.frame-switcher__note {
+.frame-card__note {
   font-size: var(--font-label-size);
   overflow-wrap: anywhere;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.frame-switcher__footer {
-  display: flex;
-  flex-direction: column;
-  margin-top: var(--space-xs);
-  border-top: 1px solid var(--color-border);
+.frame-sheet__footer {
+  margin: var(--space-md) 0 0;
 }
 
-.frame-switcher__footer a {
-  display: flex;
+.frame-sheet__footer a {
+  display: inline-flex;
   align-items: center;
   min-height: 44px;
-  padding: 0 var(--space-md);
   color: var(--color-accent);
 }
 
-@media (max-width: 959px) {
-  details.frame-switcher {
-    max-width: none;
+@media (min-width: 700px) {
+  a.frame-chip {
+    max-width: 24rem;
+  }
+
+  .frame-sheet__list {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  dialog.frame-sheet {
+    width: min(640px, calc(100% - 48px));
   }
 }
 
@@ -2111,29 +2119,6 @@ button:disabled {
   text-align: center;
 }
 
-.quiet-timezone {
-  margin-top: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-}
-
-.quiet-timezone select {
-  max-width: 100%;
-}
-
-/* The helper line shares .section-caption's muted voice without using that
- * class: the card keeps exactly one section caption. */
-.quiet-timezone__helper {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  margin: 0;
-}
-
-.quiet-timezone .field-error {
-  margin: 0;
-}
-
 .quiet-times-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2346,20 +2331,6 @@ button:disabled {
     text-decoration: line-through;
     cursor: not-allowed;
   }
-
-  /* Detection page: the checked mode decides which panel shows. The
-   * server may also mark the inactive panel [hidden] after a round trip;
-   * the checked panel's display: block wins over that attribute so a
-   * client-side mode change still reveals it. */
-  .detection-modes:has(#detection-mode-position:checked) .detection-panel--runway,
-  .detection-modes:has(#detection-mode-runway:checked) .detection-panel--position {
-    display: none;
-  }
-
-  .detection-modes:has(#detection-mode-runway:checked) .detection-panel--runway,
-  .detection-modes:has(#detection-mode-position:checked) .detection-panel--position {
-    display: block;
-  }
 }
 
 /* Detection page. Summary of the saved setting: a label-voice caption over
@@ -2410,61 +2381,6 @@ button:disabled {
   min-height: 44px;
 }
 
-/* Airport search results: each row is one full-width link. */
-.detection-results {
-  list-style: none;
-  margin: 0 0 var(--space-md);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.detection-result {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  min-height: 48px;
-  padding: var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.detection-result:hover {
-  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
-}
-
-.detection-result:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.detection-result__text {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-.detection-result__name {
-  display: block;
-  font-weight: var(--weight-semibold);
-}
-
-.detection-result__codes {
-  display: block;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* The saved airport carries the same quiet "current" label the runway
- * cards use. */
-.detection-result__codes[data-current-label]::after {
-  content: " · " attr(data-current-label);
-}
-
 /* Runway cards: the .runway-row flex row becomes a grid here, since an
  * airport can list many runways and flex would crush them on a phone. */
 .detection-runways {
@@ -2482,17 +2398,6 @@ button:disabled {
 .detection-runways .runway-card__detail {
   display: block;
   font-variant-numeric: tabular-nums;
-}
-
-/* Mode choice: the two segment labels are long, so they wrap and grow
- * instead of clipping (the same approach as the hardware-type chooser). */
-.detection-modes .theme-form input[type="radio"] + label {
-  height: auto;
-  min-height: 44px;
-  padding: var(--space-xs) var(--space-sm);
-  white-space: normal;
-  text-align: center;
-  overflow-wrap: anywhere;
 }
 
 /* summary's own idiom reused verbatim: a centred flex row with a 44px
@@ -3006,10 +2911,6 @@ table.data-table--registry .cell-inline-sep {
   margin: 0 var(--space-xs);
 }
 
-.cell-unresolved-link {
-  margin-left: var(--space-sm);
-}
-
 /* .history-cards ~ .data-table-wrap (a sibling combinator) scopes this
  * toggle to History's own pair only — Airlines/Health also reuse
  * .data-table-wrap but never render a sibling .history-cards. */
@@ -3112,14 +3013,6 @@ table.data-table--registry .cell-inline-sep {
 
 .history-card__airline--unknown {
   font-style: italic;
-}
-
-.history-card__resolve {
-  display: block;
-}
-
-.history-card__resolve .cell-unresolved-link {
-  margin-left: 0;
 }
 
 /* An icon-only link with a real 44px box, not a padded glyph. */
@@ -3687,7 +3580,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   .filter-bar--chips .filter-chip__box {
     flex-direction: row-reverse;
     gap: var(--space-sm);
-    min-height: 42px;
+    min-height: 44px;
     padding: 0 var(--space-md);
   }
 
@@ -4872,7 +4765,8 @@ a.airline-card {
     border-top: 1px solid var(--color-border);
   }
 
-  .site-header {
+  .site-header,
+  .space-strip {
     display: none;
   }
 
@@ -5452,39 +5346,392 @@ button.detection-search:hover {
   box-shadow: none;
 }
 
-/* The location form is a native disclosure holding its own POST form: a
- * stack of labelled fields at the settings forms' 28rem measure, with the
- * Save button at the 44px touch floor. */
-.detection-location-form form {
+/* Location and detection page. A single column on a phone, in the order the
+ * markup has; from 960px the place card takes the right column and the other
+ * cards stack in a 24rem left column. Cards reuse the nested card voice. */
+.place-page {
+  display: grid;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.place-page > *,
+.place-page__rest > * {
+  min-width: 0;
+}
+
+.place-page__rest {
+  display: grid;
+  gap: var(--space-md);
+  align-content: start;
+}
+
+.place-page .place-card {
+  margin-bottom: 0;
+}
+
+.place-line {
+  margin: var(--space-sm) 0 0;
+  overflow-wrap: anywhere;
+}
+
+/* The fallback explanation stays until place-map.js reports the map is
+ * running; a failed script therefore falls back as well. */
+.place-fallback {
+  margin: 0 0 var(--space-md);
+}
+
+.map-ready .place-fallback {
+  display: none;
+}
+
+.place-search {
+  --js-gate-display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.place-search__row {
+  display: flex;
+  gap: var(--space-sm);
+}
+
+.place-search__row input[type="search"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.place-search .section-caption {
+  margin: 0;
+}
+
+.place-locate {
+  --js-gate-display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+/* The map. Leaflet's own stylesheet comes first on this page; the rules
+ * below only size it and put its parts on the tokens. Tiles are shown as
+ * served in both themes (no filter, no inversion). */
+.place-map {
+  width: 100%;
+  max-width: 100%;
+  height: min(60vh, 26rem);
+  min-height: 17.5rem;
+  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  font-family: var(--font-ui);
+  font-size: var(--font-label-size);
+  overflow: hidden;
+}
+
+.js .place-map[hidden] {
+  display: none;
+}
+
+/* A map that did not start leaves the plain form: nothing script-only shows. */
+html:not(.map-ready) .place-card--map .place-search,
+html:not(.map-ready) .place-card--map .place-locate {
+  display: none;
+}
+
+.place-map__notice {
+  margin: 0 0 var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  color: var(--color-text);
+}
+
+.place-map__notice[hidden] {
+  display: none;
+}
+
+.place-map.place-map .leaflet-bar a,
+.place-map.place-map .leaflet-bar a:hover {
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  box-sizing: border-box;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border-bottom-color: var(--color-border);
+  font-size: var(--font-heading-size);
+}
+
+.place-map .leaflet-bar {
+  border: 1px solid var(--color-border);
+  box-shadow: none;
+}
+
+.place-map .leaflet-control-attribution {
+  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+}
+
+.place-map .leaflet-control-attribution a {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+
+.place-map.leaflet-container:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The pin: the sprite glyph in the accent colour, tip at the bottom of its
+ * 44 px hit box. */
+.place-pin {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-accent);
+}
+
+.place-pin__glyph {
+  width: 36px;
+  height: 36px;
+}
+
+.place-circle {
+  stroke: var(--color-accent);
+  stroke-width: 2px;
+  fill: var(--color-accent);
+  fill-opacity: 0.12;
+}
+
+/* An airport dot: a 12 px mark inside a 44 px invisible hit box. */
+.place-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+}
+
+.place-dot__mark {
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--color-dominant);
+  background: color-mix(in srgb, var(--color-text) 60%, transparent);
+}
+
+.place-status {
+  margin: var(--space-sm) 0 0;
+}
+
+.js .place-locate[hidden],
+.place-results[hidden],
+.place-nearest[hidden] {
+  display: none;
+}
+
+.place-results {
+  margin-bottom: var(--space-md);
+}
+
+.place-results__note {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.place-results__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.place-results__list li + li {
+  border-top: 1px solid var(--color-border);
+}
+
+button.place-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-xs);
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-body-size);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--color-text);
+  text-align: left;
+}
+
+button.place-result:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
+  box-shadow: none;
+}
+
+.place-result__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-result__rest {
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.place-nearest {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.place-nearest__text {
+  margin: 0;
+}
+
+.place-about {
+  margin-top: var(--space-sm);
+}
+
+.place-about .section-caption {
+  margin: 0 0 var(--space-sm);
+}
+
+/* The airport list scrolls inside its card; each row is one link. */
+.place-airports {
+  list-style: none;
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  max-height: 24rem;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.place-airport + .place-airport {
+  border-top: 1px solid var(--color-border);
+}
+
+.place-airport__link {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.place-airport__link:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
+}
+
+.place-airport__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-airport__meta {
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.place-airport__meta[data-current-label]::after {
+  content: " · " attr(data-current-label);
+}
+
+.place-modes {
+  margin-bottom: var(--space-md);
+}
+
+.place-mode {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding-right: var(--space-2xl);
+  overflow-wrap: anywhere;
+}
+
+.place-subtitle {
+  margin: var(--space-md) 0 var(--space-sm);
+  font-family: var(--font-ui);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.place-chosen__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-radius,
+.place-fields {
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  max-width: 28rem;
   margin-top: var(--space-md);
 }
 
-.detection-location-form input[type="text"],
-.detection-location-form select {
+.place-radius .section-caption,
+.place-fields .section-caption {
+  margin: 0;
+}
+
+.place-fields input,
+.place-fields select {
   width: 100%;
+  max-width: 28rem;
+  box-sizing: border-box;
 }
 
-button.detection-location-save {
-  min-height: 44px;
-  align-self: flex-start;
-}
-
-.detection-locations {
-  list-style: none;
-  margin: 0 0 var(--space-md);
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-}
-
-.detection-locations__name {
-  display: block;
+.place-details > summary {
   font-weight: var(--weight-semibold);
+}
+
+@media (min-width: 960px) {
+  .place-page {
+    grid-template-columns: 24rem minmax(0, 1fr);
+    grid-template-rows: auto 1fr;
+    gap: var(--space-lg);
+  }
+
+  .place-card--status {
+    align-self: start;
+  }
+
+  .place-page__rest {
+    grid-column: 1;
+    grid-row: 2;
+    align-self: start;
+    gap: var(--space-lg);
+  }
+
+  .place-card--map {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: start;
+  }
+
+  .place-map {
+    height: min(70vh, 40rem);
+    min-height: 24rem;
+  }
 }
 
 .rule-add-form {
@@ -5649,6 +5896,19 @@ button.detection-location-save {
 
 .home-facts > .toast--docked {
   margin-bottom: 0;
+}
+
+/* The amber or red notification: the explanation is the toast title, the
+ * known figures and the tip stack under it, each on its own line. */
+.home-notice__line {
+  display: block;
+  margin-top: var(--space-xs);
+  color: color-mix(in srgb, var(--color-toast-fg) 76%, transparent);
+}
+
+.home-notice__tip {
+  display: block;
+  margin-top: var(--space-xs);
 }
 
 /* The status header at the top of Home: one hero card in three zones, the
@@ -6115,8 +6375,12 @@ button.detection-location-save {
    * without moving the line. */
   position: relative;
   z-index: 1;
-  display: inline-block;
-  padding: 13px 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 6px;
   margin: -13px -6px;
   white-space: nowrap;
   color: inherit;
@@ -6129,6 +6393,36 @@ button.detection-location-save {
 .home-switch__window:hover {
   color: var(--color-text);
   text-decoration-color: currentColor;
+}
+
+/* The chevron marks the window as openable; it carries no underline. */
+.home-switch__chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* Quiet hours dialog: the two time fields share a row on a wide dialog,
+ * stack on a phone, and the preset row keeps its bottom gap off the
+ * sentence below it. */
+.modal .quiet-times-row {
+  gap: var(--space-md);
+}
+
+.modal .quiet-preset-row {
+  margin-bottom: 0;
+}
+
+.modal .quiet-timezone-note {
+  margin: 0;
+}
+
+/* The link inside the sentence keeps its place in the line; its padding and
+ * the matching negative margin give a 44px target without moving the text. */
+.quiet-timezone-note a {
+  display: inline-block;
+  padding: 13px 4px;
+  margin: -13px -4px;
 }
 
 .home-switch__detail .home-switch__state {
@@ -6835,6 +7129,18 @@ a.calendar-disconnect-btn:focus-visible {
   white-space: nowrap;
 }
 
+/* The status line leads the Calendar row; the look of its flights follows
+ * under a hairline. */
+.special-row--calendar > .calendar-status + .special-row__main {
+  margin-top: var(--space-sm);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-sm);
+}
+
+.special-row--calendar > .empty-state--compact {
+  margin-bottom: var(--space-xs);
+}
+
 .calendar-status__pill .dot {
   width: 8px;
   height: 8px;
@@ -6868,6 +7174,22 @@ a.calendar-manage {
 
 a.calendar-manage:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+/* "Choose calendar" is too wide to sit beside the text on a phone: the button
+ * takes the row's full width under the text instead. */
+@media (max-width: 699.98px) {
+  .calendar-status {
+    flex-wrap: wrap;
+  }
+
+  .calendar-status__main {
+    flex: 1 1 0;
+  }
+
+  a.calendar-manage {
+    flex: 1 1 100%;
+  }
 }
 
 /* The section's one primary action while nothing is connected. */
@@ -7840,16 +8162,23 @@ button.look-sheet__done:hover {
   flex-wrap: wrap;
 }
 
-button.special-row__remove {
+a.special-row__remove {
+  display: inline-flex;
   flex: none;
-  height: 44px;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
   border-color: var(--color-border);
   background: transparent;
-  box-shadow: none;
   color: var(--color-text);
 }
 
-button.special-row__remove:hover {
+a.special-row__remove:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
@@ -8588,12 +8917,461 @@ a.entity-row__button:hover {
   margin: 0;
 }
 
-/* The Time zone field inside the Location and detection card sits below the
- * Location fields, like a sibling field. */
-.detection-card .quiet-timezone {
+.quiet-timezone-note {
+  margin: var(--space-md) 0 0;
+}
+
+/* Personalisation ------------------------------------------------------
+ * An "On this page" list (two columns on a phone, a sticky rail from
+ * 960px) and four cards. The Look card is a grid of radio cards. */
+
+.personalisation {
+  display: block;
+}
+
+.personalisation__nav {
+  margin-bottom: var(--space-lg);
+}
+
+.personalisation__nav-title {
+  margin: 0 0 var(--space-xs);
+}
+
+.personalisation__links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.personalisation__link {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+
+.personalisation__cards {
+  min-width: 0;
+  max-width: 56rem;
+}
+
+.personalisation-card {
+  scroll-margin-top: var(--space-lg);
+}
+
+.personalisation-card__current {
+  margin: 0 0 var(--space-md);
+}
+
+/* The card title already names the Special looks list. */
+.personalisation-card .special-looks__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* In the card, "New special look" is the section's one primary action. */
+.personalisation-card .special-add:not([open]) > .special-add__summary {
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  gap: var(--space-sm);
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.personalisation-card .special-add:not([open]) > .special-add__summary:hover {
+  background: var(--color-accent-hover);
+}
+
+.personalisation-card .special-add:not([open]) .special-add__plus {
+  width: auto;
+  height: auto;
+  border: 0;
+}
+
+.personalisation-card .special-row--add,
+.personalisation-card .special-row--add:last-child {
+  border: 0;
+  padding-top: var(--space-md);
+}
+
+.personalisation-card .special-looks .empty-state--compact {
+  margin-bottom: var(--space-sm);
+}
+
+.personalisation-switch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.personalisation-switch .personalisation-card__current {
+  margin: 0;
+}
+
+.look-pick__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
   margin-top: var(--space-md);
 }
 
-.quiet-timezone-note {
-  margin: var(--space-md) 0 0;
+.look-pick__card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+}
+
+.look-pick__preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  border-radius: 4px;
+  background: var(--color-image-backdrop);
+}
+
+.look-pick__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.look-pick__arrivals {
+  margin-top: var(--space-lg);
+}
+
+button.look-pick__customise {
+  height: auto;
+  max-width: 100%;
+  padding-block: 6px;
+  white-space: normal;
+  text-align: left;
+}
+
+/* On a phone the large picture is smaller and its read-back sits beside it,
+ * so the first row of looks is on the first screen. */
+@media (max-width: 699.98px) {
+  .look-pick {
+    display: grid;
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+    gap: var(--space-md);
+    align-items: flex-start;
+  }
+
+  .look-pick > .look-frame__anchor {
+    max-width: 7.5rem;
+  }
+
+  .look-pick > .look-frame__meta {
+    margin-top: 0;
+    max-width: none;
+  }
+
+  .look-pick > .look-pick__grid,
+  .look-pick > .field-error {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 700px) {
+  .look-pick__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Inside a card the look sheet opens under the picture it changes. */
+  .personalisation-card .look-sheet {
+    top: 100%;
+    right: auto;
+    left: 0;
+    margin-top: var(--space-sm);
+  }
+}
+
+@media (min-width: 960px) {
+  .personalisation {
+    display: grid;
+    grid-template-columns: 14rem minmax(0, 56rem);
+    gap: var(--space-lg);
+  }
+
+  .personalisation__nav {
+    align-self: start;
+    position: sticky;
+    top: var(--space-lg);
+    margin-bottom: 0;
+  }
+
+  .personalisation__links {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .look-pick__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Airline collection: a read-only progress card, a badge shelf, one GET
+ * form of filters and a grid of picture cards. The dimming of a card that
+ * has not been seen applies to the picture only, never to its text. */
+.collection-progress__headline {
+  margin: 0 0 var(--space-sm);
+  font-family: inherit;
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.5;
+}
+
+.collection-progress__bar {
+  display: block;
+  width: 100%;
+  height: 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-secondary);
+  overflow: hidden;
+}
+
+.collection-progress__bar::-webkit-progress-bar {
+  background: var(--color-secondary);
+}
+
+.collection-progress__bar::-webkit-progress-value {
+  background: var(--color-text);
+  border-radius: 999px;
+}
+
+.collection-progress__bar::-moz-progress-bar {
+  background: var(--color-text);
+  border-radius: 999px;
+}
+
+.collection-progress__goal {
+  margin: var(--space-sm) 0 var(--space-md);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.collection-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: 999px;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.collection-badge--earned {
+  background: var(--color-dominant);
+  border: 2px solid var(--color-text);
+  color: var(--color-text);
+}
+
+.collection-badge--locked {
+  background: transparent;
+  border: 2px dashed color-mix(in srgb, var(--color-text) 50%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-controls {
+  align-items: stretch;
+}
+
+.collection-controls .filter-bar__chips {
+  display: flex;
+  flex-basis: 340px;
+}
+
+.collection-controls .filter-bar__search {
+  flex: 1 1 220px;
+}
+
+/* A long label ("Not yet seen") wraps inside its segment instead of
+ * being cut short. */
+.collection-controls .filter-chip__text {
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+
+.collection-sort select {
+  min-height: 48px;
+}
+
+.collection-controls__apply {
+  min-height: 48px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  list-style: none;
+}
+
+.collection-item {
+  min-width: 0;
+}
+
+.collection-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  height: 100%;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: var(--space-sm);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.collection-card:hover,
+.collection-card:focus-visible {
+  border-color: transparent;
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-text);
+}
+
+.collection-card__art {
+  display: block;
+}
+
+.collection-card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.collection-card__blank {
+  margin-bottom: 0;
+}
+
+.collection-card--unseen .collection-card__art {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.collection-card__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.collection-card__seen {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-card__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.rarity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.04em;
+  color: var(--color-text);
+}
+
+.rarity-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.rarity-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text);
+}
+
+.collection-sheet__art {
+  margin-bottom: var(--space-md);
+}
+
+.collection-sheet__art .collection-card__image {
+  max-width: 100%;
+}
+
+.collection-facts {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.collection-facts > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.collection-facts dt {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.collection-sheet__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (min-width: 700px) {
+  .collection-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .collection-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }

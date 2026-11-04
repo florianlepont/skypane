@@ -1,9 +1,8 @@
-"""The per-frame Location picker on the Display page: what each role may
-choose, the checked assignment through the Display save, the refusals for a
-foreign location or frame, audit rows and the reset on reassignment. Every
-place here is an obviously generic fake."""
-import json
-import re
+"""The Display page no longer carries a location picker and its save never
+assigns a place: the controls are absent for every role, a crafted
+`location_id` posted to the settings form moves nothing and writes no audit
+row, and the frame's place stays reachable on the Location and detection
+page. Every place here is an obviously generic fake."""
 import urllib.parse
 
 import pytest
@@ -15,7 +14,6 @@ from provisioned_fleet import (
     ADMIN_EMAIL, USER_A_EMAIL, USER_B_EMAIL, device_dir, provision_fleet)
 from server import device_config, fleet_db
 
-PICKER_ID = 'id="location-picker"'
 
 
 class Rig:
@@ -90,172 +88,94 @@ def rig(tmp_path):
     built.server.stop()
 
 
-def _options(body):
-    select = re.search(r'<select id="location-picker".*?</select>', body, re.S)
-    assert select, "no location select"
-    return re.findall(r'<option value="([^"]*)"( selected)?>([^<]*)</option>', select.group(0))
+def _assert_no_picker(page):
+    assert 'id="location-picker"' not in page
+    assert 'name="location_id"' not in page
+    assert "No location chosen." not in page
 
 
 # --- markup -----------------------------------------------------------------------
 
 
-def test_a_user_picker_lists_only_their_own_locations_with_the_current_one_selected(rig):
-    mine = rig.add_location("Alpha Place", rig.fleet.a_id)
-    other_mine = rig.add_location("Beta Place", rig.fleet.a_id)
-    rig.add_location("Neighbour Place", rig.fleet.b_id)
-    rig.add_location("Platform Place")
-    rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (other_mine, rig.fleet.a1))
-    body = rig.display(rig.fleet.a1, "a")
-    assert _options(body) == [
-        ("", "", "No location"), (str(mine), "", "Alpha Place"),
-        (str(other_mine), " selected", "Beta Place")]
-    assert "Neighbour Place" not in body and "Platform Place" not in body
-    assert 'href="/locations"' not in body
-
-
-def test_the_select_is_part_of_the_settings_form(rig):
+@pytest.mark.parametrize("who", ["a", "admin"])
+def test_display_serves_no_picker_even_with_locations_to_choose_from(rig, who):
     rig.add_location("Alpha Place", rig.fleet.a_id)
-    body = rig.display(rig.fleet.a1, "a")
-    form_id = re.search(r'<form class="config-form" id="([^"]+)"', body).group(1)
-    select = re.search(r'<select id="location-picker"[^>]*>', body).group(0)
-    assert 'form="%s"' % form_id in select and 'name="location_id"' in select
-
-
-def test_with_no_location_a_user_sees_a_note_and_no_link(rig):
-    body = rig.display(rig.fleet.a1, "a")
-    assert PICKER_ID not in body
-    assert "No location chosen." in body
-    assert 'href="/locations"' not in body
-
-
-def test_an_admin_picker_lists_the_frame_owners_and_ownerless_locations(rig):
-    ids = [
-        rig.add_location("Alpha Place", rig.fleet.a_id),
-        rig.add_location("Platform Place")]
-    rig.add_location("Neighbour Place", rig.fleet.b_id)
-    body = rig.display(rig.fleet.a1, "admin")
-    assert [option[0] for option in _options(body)] == [""] + [str(i) for i in ids]
-    assert "Neighbour Place" not in body
-
-
-def test_an_admin_display_without_any_location_has_no_picker(rig):
-    body = rig.display(rig.fleet.a1, "admin")
-    assert PICKER_ID not in body and "No location chosen." not in body
-    assert "Manage locations" not in body
-
-
-def test_the_live_frame_page_of_an_admin_shows_the_picker(rig):
     rig.add_location("Platform Place")
-    status, body = rig.get("/devices/%s/display" % rig.fleet.live, "admin")
-    assert status == 200 and PICKER_ID in body
+    page = rig.display(rig.fleet.a1, who)
+    _assert_no_picker(page)
+    assert "Alpha Place" not in page and "Platform Place" not in page
 
 
-def test_a_location_an_admin_assigned_to_a_user_frame_is_kept_and_not_named(rig):
+def test_display_serves_no_picker_for_the_live_frame_of_an_admin(rig):
+    rig.add_location("Platform Place")
+    status, page = rig.get("/devices/%s/display" % rig.fleet.live, "admin")
+    assert status == 200
+    _assert_no_picker(page)
+
+
+def test_display_names_no_location_a_frame_already_has(rig):
     foreign = rig.add_location("Secret Neighbour Place", rig.fleet.b_id)
-    rig.add_location("Alpha Place", rig.fleet.a_id)
     rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (foreign, rig.fleet.a1))
-    body = rig.display(rig.fleet.a1, "a")
-    assert "Secret Neighbour Place" not in body
-    assert (str(foreign), " selected", "Assigned by an administrator") in _options(body)
-    status, _headers, _body = rig.save_display(
-        rig.fleet.a1, "a", location_id=str(foreign), quiet_hours_start="21:30")
-    assert status == 303
-    assert rig.location_of(rig.fleet.a1) == foreign
-    assert rig.audit() == []
+    page = rig.display(rig.fleet.a1, "a")
+    _assert_no_picker(page)
+    assert "Secret Neighbour Place" not in page
 
 
-def test_the_picker_is_in_french(rig):
+def test_display_in_french_has_no_picker_either(rig):
     rig.add_location("Alpha Place", rig.fleet.a_id)
-    body = rig.display(rig.fleet.a1, "a", headers={"Accept-Language": "fr"})
-    assert "Aucun lieu" in body and "Gérer les lieux" not in body
+    page = rig.display(rig.fleet.a1, "a", headers={"Accept-Language": "fr"})
+    assert 'id="location-picker"' not in page and "Aucun lieu" not in page
 
 
-def test_the_picker_with_no_location_is_in_french(rig):
-    body = rig.display(rig.fleet.a1, "a", headers={"Accept-Language": "fr"})
-    assert "Aucun lieu choisi." in body and "Ajouter un lieu" not in body
+def test_the_location_page_is_where_the_place_is_chosen(rig):
+    status, page = rig.get("/devices/%s/detection" % rig.fleet.a1, "a")
+    assert status == 200
+    assert 'id="place-map"' in page and 'name="place_label"' in page
+    assert 'name="location_id"' not in page
 
 
 # --- saving -----------------------------------------------------------------------
 
 
-def test_saving_a_location_the_user_owns_assigns_it_and_empty_clears_it(rig):
+def test_a_crafted_location_id_on_the_display_form_moves_nothing(rig):
     mine = rig.add_location("Alpha Place", rig.fleet.a_id)
-    status, headers, _ = rig.save_display(rig.fleet.a1, "a", location_id=str(mine))
-    assert status == 303
-    assert headers["Location"].startswith("/devices/%s/" % rig.fleet.a1)
-    assert "flash=saved" in headers["Location"]
-    assert rig.location_of(rig.fleet.a1) == mine
-    status, _headers, _ = rig.save_display(rig.fleet.a1, "a", location_id="")
-    assert status == 303
-    assert rig.location_of(rig.fleet.a1) is None
+    neighbour = rig.add_location("Neighbour Place", rig.fleet.b_id)
+    platform = rig.add_location("Platform Place")
+    rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (mine, rig.fleet.a1))
+    for who in ("a", "admin"):
+        for crafted in (str(neighbour), str(platform), "", "999999", "abc", "-1"):
+            status, headers, _ = rig.save_display(
+                rig.fleet.a1, who, location_id=crafted, quiet_hours_start="01:02")
+            assert status == 303, (who, crafted)
+            assert "flash=saved" in headers["Location"], (who, crafted)
+            assert rig.location_of(rig.fleet.a1) == mine, (who, crafted)
+    assert rig.audit() == []
+
+
+def test_a_crafted_location_id_assigns_nothing_to_a_frame_without_one(rig):
+    mine = rig.add_location("Alpha Place", rig.fleet.a_id)
+    platform = rig.add_location("Platform Place")
+    for target in (mine, platform):
+        status, _headers, _ = rig.save_display(
+            rig.fleet.a1, "admin", location_id=str(target))
+        assert status == 303
+        assert rig.location_of(rig.fleet.a1) is None
+    assert rig.audit() == []
 
 
 def test_a_save_without_the_field_leaves_the_location_alone(rig):
     mine = rig.add_location("Alpha Place", rig.fleet.a_id)
     rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (mine, rig.fleet.a1))
-    status, _headers, _ = rig.save_display(rig.fleet.a1, "a", quiet_hours_start="21:30")
+    status, _headers, _ = rig.save_display(rig.fleet.a1, "a", theme="black")
     assert status == 303
     assert rig.location_of(rig.fleet.a1) == mine
+    assert rig.config(rig.fleet.a1)["theme"] == "black"
 
 
-def test_the_assignment_is_audited_and_changes_nothing_else_in_the_config(rig):
-    mine = rig.add_location("Alpha Place", rig.fleet.a_id)
-    before = rig.config(rig.fleet.a1)
-    assert rig.save_display(rig.fleet.a1, "a", location_id=str(mine))[0] == 303
-    assert rig.config(rig.fleet.a1) == before
-    audit = rig.audit()
-    assert len(audit) == 1
-    assert audit[0]["target_type"] == "device" and audit[0]["target_id"] == rig.fleet.a1
-    assert audit[0]["outcome"] == "ok"
-    assert json.loads(audit[0]["detail"]) == {"location_id": mine}
-
-
-def test_an_unchanged_value_writes_no_audit_row(rig):
-    mine = rig.add_location("Alpha Place", rig.fleet.a_id)
-    rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (mine, rig.fleet.a1))
-    assert rig.save_display(rig.fleet.a1, "a", location_id=str(mine))[0] == 303
-    assert rig.audit() == []
-
-
-def test_a_refused_assignment_changes_nothing_and_shows_the_save_failed_toast(rig):
-    mine = rig.add_location("Alpha Place", rig.fleet.a_id)
-    neighbour = rig.add_location("Neighbour Place", rig.fleet.b_id)
-    platform = rig.add_location("Platform Place")
-    rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (mine, rig.fleet.a1))
-    config_before = rig.config(rig.fleet.a1)
-    for crafted in (str(neighbour), str(platform), "999999", "abc", "-1", "1e3"):
-        status, headers, _ = rig.save_display(
-            rig.fleet.a1, "a", location_id=crafted, quiet_hours_start="01:02")
-        assert status == 303, crafted
-        assert "flash=save_failed" in headers["Location"], crafted
-        assert rig.location_of(rig.fleet.a1) == mine, crafted
-    assert rig.config(rig.fleet.a1) == config_before
-    denied = [row for row in rig.audit() if row["outcome"] == "denied"]
-    assert len(denied) == 6
-
-
-def test_a_failed_config_save_puts_the_location_back(rig, monkeypatch):
-    mine = rig.add_location("Alpha Place", rig.fleet.a_id)
-    config_before = rig.config(rig.fleet.a1)
-
-    def refuse(*_args, **_kwargs):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(device_config, "save_device_config", refuse)
-    status, headers, _ = rig.save_display(
-        rig.fleet.a1, "a", location_id=str(mine), quiet_hours_start="01:02")
-    assert status == 303 and "flash=save_failed" in headers["Location"]
-    assert rig.location_of(rig.fleet.a1) is None
-    assert rig.config(rig.fleet.a1) == config_before
-    assert [row["outcome"] for row in rig.audit()] == ["ok", "failed"]
-    assert json.loads(rig.audit()[-1]["detail"]) == {
-        "location_id": None, "reason": "settings_save_failed"}
-
-
-def test_a_user_cannot_assign_a_location_to_a_frame_they_do_not_own(rig):
+def test_a_user_still_cannot_post_to_a_frame_they_do_not_own(rig):
     mine = rig.add_location("Alpha Place", rig.fleet.a_id)
     before = rig.config(rig.fleet.b1)
-    status, headers, body = rig.save_display(rig.fleet.b1, "a", location_id=str(mine))
+    status, _headers, body = rig.save_display(rig.fleet.b1, "a", location_id=str(mine))
     assert status == 404
     unknown = http_request(
         rig.server.url("/no-such-page-anywhere"), cookie=rig.cookies["a"])
@@ -264,7 +184,7 @@ def test_a_user_cannot_assign_a_location_to_a_frame_they_do_not_own(rig):
     assert rig.config(rig.fleet.b1) == before
 
 
-def test_the_live_frame_form_is_refused_for_a_user(rig):
+def test_the_live_frame_form_is_still_refused_for_a_user(rig):
     mine = rig.add_location("Alpha Place", rig.fleet.a_id)
     status, _headers, _body = http_request(
         rig.server.url("/settings"), method="POST",
@@ -275,37 +195,11 @@ def test_the_live_frame_form_is_refused_for_a_user(rig):
     assert rig.location_of(rig.fleet.live) is None
 
 
-def test_an_admin_may_assign_the_owners_and_ownerless_locations_but_not_a_neighbours(rig):
-    own = rig.add_location("Alpha Place", rig.fleet.a_id)
-    platform = rig.add_location("Platform Place")
-    neighbour = rig.add_location("Neighbour Place", rig.fleet.b_id)
-    for target in (own, platform):
-        status, headers, _ = rig.save_display(rig.fleet.a1, "admin", location_id=str(target))
-        assert status == 303 and "flash=saved" in headers["Location"]
-        assert rig.location_of(rig.fleet.a1) == target
-    status, headers, _ = rig.save_display(rig.fleet.a1, "admin", location_id=str(neighbour))
-    assert "flash=save_failed" in headers["Location"]
-    assert rig.location_of(rig.fleet.a1) == platform
-    status, headers, _ = rig.save_display(rig.fleet.a1, "admin", location_id="999999")
-    assert "flash=save_failed" in headers["Location"]
-    assert rig.location_of(rig.fleet.a1) == platform
-
-
-def test_the_picker_field_is_ignored_on_the_device_scope(rig):
-    platform = rig.add_location("Platform Place")
-    status, _headers, _ = rig.save_display(
-        rig.fleet.a1, "admin", scope="device", return_to="/device",
-        location_id=str(platform))
-    assert status == 303
-    assert rig.location_of(rig.fleet.a1) is None
-
-
 # --- reassignment -------------------------------------------------------------------
 
 
 def test_after_a_reassignment_the_new_owner_starts_with_no_location(rig):
     old = rig.add_location("Alpha Place", rig.fleet.a_id)
-    rig.add_location("Beta Place", rig.fleet.b_id)
     rig.sql("UPDATE devices SET location_id = ? WHERE id = ?", (old, rig.fleet.a1))
     cookie = rig.cookies["admin"]
     status, _headers, _body = http_request(
@@ -313,9 +207,7 @@ def test_after_a_reassignment_the_new_owner_starts_with_no_location(rig):
         data=with_csrf(cookie, {"owner_user_id": str(rig.fleet.b_id)}), cookie=cookie)
     assert status == 303
     assert rig.location_of(rig.fleet.a1) is None
-    body = rig.display(rig.fleet.a1, "b")
-    assert "Alpha Place" not in body
-    assert [name for _value, _selected, name in _options(body)] == ["No location", "Beta Place"]
-    status, headers, _ = rig.save_display(rig.fleet.a1, "b", location_id=str(old))
-    assert status == 303 and "flash=save_failed" in headers["Location"]
+    assert "Alpha Place" not in rig.display(rig.fleet.a1, "b")
+    status, _headers, _ = rig.save_display(rig.fleet.a1, "b", location_id=str(old))
+    assert status == 303
     assert rig.location_of(rig.fleet.a1) is None

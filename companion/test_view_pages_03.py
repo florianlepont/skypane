@@ -285,10 +285,9 @@ def test_unresolved_link_absent_for_resolved_airline(tmp_path):
             "did not expect the retired two-hop Health link in the %s" % label)
 
 
-def test_unresolved_link_present_once_each_for_unresolved_airline(tmp_path):
-    """a formatted row whose airline is unresolved produces exactly one ONE-HOP resolve anchor
-    in the desktop Flight cell and exactly one on the phone card, both naming the prefix
-    derived from that row's own callsign"""
+def test_an_unresolved_airline_offers_no_naming_link_for_anyone(tmp_path):
+    """a formatted row whose airline is unresolved shows the plain unidentified wording in the
+    desktop Flight cell and on the phone card, and neither carries a link to name it"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "lku01", "callsign": "LINKUNR"},
     ])
@@ -297,16 +296,12 @@ def test_unresolved_link_present_once_each_for_unresolved_airline(tmp_path):
     li_block = _row_block(rendered, "li", 0)
     assert tr_block is not None and li_block is not None, (
         "could not locate row block for an unresolved-airline row")
-    href_attr = 'href="%s"' % (history_page.RESOLVE_LINK_HREF_TEMPLATE % "LIN")
     for label, block in (("desktop cell", tr_block), ("mobile card", li_block)):
-        assert block.count(href_attr) == 1, (
-            "expected exactly one one-hop resolve link (%s) in the %s, found %d"
-            % (href_attr, label, block.count(href_attr)))
-        assert history_page.RESOLVE_LINK_TEXT in block
+        assert history_page.AIRLINE_FALLBACK_TEXT in block
+        assert "?resolve=" not in block, "unexpected resolve link in the %s" % label
+        assert "Name this airline" not in block
         assert "/health" not in block, (
-            "expected the retired two-hop Health route to be gone from the %s" % label)
-    assert history_page.resolve_prefix_for_callsign("LINKUNR") == "LIN", (
-        "expected the prefix to be derived from the callsign itself")
+            "expected the retired two-hop Health link to be gone from the %s" % label)
 
 
 def test_unresolved_link_keyed_on_airline_not_route(tmp_path):
@@ -330,18 +325,12 @@ def test_unresolved_link_keyed_on_airline_not_route(tmp_path):
     assert "?resolve=" not in li_block, "did not expect a resolve link on the phone card either"
 
 
-def test_airline_fallback_distinct_from_route_fallback(tmp_path, served_css):
+def test_airline_fallback_distinct_from_route_fallback(tmp_path):
     """a no-airline row renders AIRLINE_FALLBACK_TEXT and ROUTE_FALLBACK_TEXT as two distinct
-    strings in two distinct columns, and the unresolved-link's spacing class is styled in
-    style.css and present in the rendered anchor"""
+    strings in two distinct columns, with no link beside the airline fallback"""
     from server.plane import render as panel_render
 
     assert history_page.AIRLINE_FALLBACK_TEXT != panel_render.ROUTE_FALLBACK_TEXT
-    spacing_class = re.compile(
-        r"\.%s(?![-\w])" % re.escape(history_page.UNRESOLVED_LINK_CLASS.split()[-1]))
-    assert any(spacing_class.search(selector)
-               for rule in css_rules(served_css) for selector in rule.selectors), (
-        "expected UNRESOLVED_LINK_CLASS's spacing class to be styled in style.css")
 
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "af01", "callsign": "AIRFB1"},
@@ -357,8 +346,10 @@ def test_airline_fallback_distinct_from_route_fallback(tmp_path, served_css):
         assert block.count(panel_render.ROUTE_FALLBACK_TEXT) == 1, (
             "expected ROUTE_FALLBACK_TEXT exactly once (Route column only) in the %s row, "
             "found %d" % (label, block.count(panel_render.ROUTE_FALLBACK_TEXT)))
-        assert 'class="%s"' % history_page.UNRESOLVED_LINK_CLASS in block, (
-            "expected the unresolved-link's class attribute in the %s row" % label)
+        assert "<a " not in block.split(history_page.AIRLINE_FALLBACK_TEXT, 1)[1].split(
+            panel_render.ROUTE_FALLBACK_TEXT, 1)[0], (
+            "expected no link between the airline fallback and the route fallback in the %s row"
+            % label)
 
 
 def test_hex_only_row_promotes_hex_to_primary(tmp_path):
@@ -403,26 +394,17 @@ def test_hex_only_row_promotes_hex_to_primary(tmp_path):
         "did not expect the no-callsign note on a row with a callsign")
 
 
-def test_resolve_link_template_matches_the_airlines_resolve_view():
-    """history_page.RESOLVE_LINK_HREF_TEMPLATE is built from airlines_page.AIRLINES_ROUTE and
-    RESOLVE_QUERY_PARAM (never a re-typed literal), the retired two-hop Health constant is
-    gone, and resolve_prefix_for_callsign() derives a prefix only for a callsign the
-    registry writer's own shape gate would accept"""
-    from server.plane import manual_resolutions
+def test_history_has_no_resolve_link_machinery_and_health_keeps_its_own():
+    """the Flight history page no longer carries a resolve link template, text or prefix
+    helper (naming an airline is Console work), while the Health page's own resolve link
+    template is still built from airlines_page.MANAGE_ROUTE and RESOLVE_QUERY_PARAM"""
+    for name in ("RESOLVE_LINK_HREF_TEMPLATE", "RESOLVE_LINK_TEXT", "UNRESOLVED_LINK_CLASS",
+                 "UNRESOLVED_LINK_HREF", "resolve_prefix_for_callsign"):
+        assert not hasattr(history_page, name), name
+    from companion.pages import health_page
 
-    expected = "%s?%s=%%s" % (airlines_page.AIRLINES_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
-    assert history_page.RESOLVE_LINK_HREF_TEMPLATE == expected
-    assert not hasattr(history_page, "UNRESOLVED_LINK_HREF"), (
-        "expected the retired two-hop Health link constant to be gone")
-    for callsign, expected_prefix in (
-            ("AFR1234", "AFR"), ("tvf16vb ", "TVF"), ("ZZP9", "ZZP"),
-            ("ZZP", None), ("", None), (None, None), ("12A345", None)):
-        got = history_page.resolve_prefix_for_callsign(callsign)
-        assert got == expected_prefix, (
-            "expected resolve_prefix_for_callsign(%r) -> %r, got %r"
-            % (callsign, expected_prefix, got))
-    assert manual_resolutions.normalise_prefix("AFR") == "AFR", (
-        "expected the shared prefix normaliser to accept a derived prefix")
+    expected = "%s?%s=%%s" % (airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
+    assert health_page.RESOLVE_LINK_HREF_TEMPLATE == expected
 
 
 def test_day_separators_group_rows_by_europe_paris_calendar_day(tmp_path):
@@ -569,9 +551,9 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
             "load, so replacing it leaves the filter permanently dead" % (selector,))
 
 
-def test_the_phone_card_is_a_boarding_pass_with_resolve_and_picture_actions(tmp_path):
+def test_the_phone_card_is_a_boarding_pass_with_a_picture_action(tmp_path):
     """the phone card reads head (identity + picture action), route line, then stub (artwork +
-    time), carries the one-hop resolve link only for an unnamed airline, and has no
+    time), carries no naming link for any airline, and has no
     disclosure, summary or copy control"""
     from PIL import Image
 
@@ -598,14 +580,13 @@ def test_the_phone_card_is_a_boarding_pass_with_resolve_and_picture_actions(tmp_
     assert head.select_one("a.history-card__picture[data-view-panel-src]") is not None
     assert li.select_one(".history-card__stub img.history-card__art") is not None
     assert li.select_one(".history-card__stub .history-card__when") is not None
-    assert history_page.RESOLVE_LINK_TEXT not in li.text(), (
-        "did not expect a resolve link for a named airline")
+    assert not [a for a in li.select("a") if "resolve=" in a.attrs.get("href", "")]
 
     unresolved = vp.row_block(rendered, "li", 1)
     assert unresolved is not None, "could not locate the unresolved-airline card"
     identity = unresolved.select_one(".history-card__head .history-card__id")
     assert identity.select_one(".history-card__airline--unknown").text() == "Airline unknown"
-    assert identity.select_one(".history-card__resolve a").text() == history_page.RESOLVE_LINK_TEXT
+    assert not identity.select("a")
     assert unresolved.select("a[data-view-panel-src]")
 
 

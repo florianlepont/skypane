@@ -14,6 +14,7 @@ disconnect confirmation.
 from urllib.parse import urlsplit
 
 from companion import device_scope, i18n
+from companion import ui_components
 import companion.layout as layout
 from companion.layout import csrf_field, escape_html
 import companion.page_context as page_context
@@ -79,11 +80,15 @@ CALENDAR_STATUS_PERMISSION_UNSAFE = i18n.msg(
     "Saved link ignored — it was readable by others on the server. "
     "Paste it again to store it safely.")
 
-CALENDAR_NONE_TITLE = i18n.msg("calendar_group.no_calendar", "No calendar")
 CALENDAR_NONE_LEAD = i18n.msg(
     "calendar_group.colour_the_flights_from_your_calendar_on_screen",
     "Colour the flights from your calendar on screen.")
-CALENDAR_MANAGE_TEXT = i18n.msg("calendar_group.manage", "Manage")
+CALENDAR_CHOOSE_TEXT = i18n.msg("display.choose_calendar", "Choose calendar")
+CALENDAR_FLIGHTS_ON_TEXT = i18n.msg(
+    "display.calendar_flights_on", "Flights in your calendar: on")
+CALENDAR_FLIGHTS_OFF_TEXT = i18n.msg(
+    "display.calendar_flights_off", "Flights in your calendar: off")
+CALENDAR_EMPTY_HEADING = i18n.msg("display.calendar_not_connected", "No calendar connected")
 CALENDAR_CONNECT_BUTTON_TEXT = i18n.msg("calendar_group.connect", "Connect")
 CALENDAR_REPLACE_BUTTON_TEXT = i18n.msg("calendar_group.replace", "Replace")
 CALENDAR_CHECKING_TEXT = i18n.msg("calendar_group.checking", "Checking…")
@@ -305,30 +310,40 @@ def _display_fragment_href(fragment):
     return device_scope.scoped("%s#%s" % (layout.DISPLAY_ROUTE, fragment))
 
 
-def _status_row_html(state, title, detail_html):
-    """The page's whole calendar connection UI: tile, provider, status
-    pill, one-line detail and one button. The pill carries the verdict in
-    words (never the dot's colour alone)."""
+def _status_title_html(state, title):
+    """The one status line: whether the calendar's flights are shown, then
+    the calendar's name when one is connected, then the verdict pill for any
+    state that is not simply on or off."""
     pill_text, tone = _STATE_PILLS[state]
     dot_class = layout._STATUS_DOT_CLASSES.get(tone, layout._DEFAULT_STATUS_DOT_CLASS)
-    connecting = state == "none"
-    button_class = "calendar-manage" + (" calendar-manage--primary" if connecting else "")
-    button_text = CALENDAR_CONNECT_BUTTON_TEXT if connecting else CALENDAR_MANAGE_TEXT
-    tile_class = "calendar-status__tile" + (" calendar-status__tile--empty" if connecting else "")
+    is_on = state not in ("none", "ignored")
+    lead = i18n.t(CALENDAR_FLIGHTS_ON_TEXT if is_on else CALENDAR_FLIGHTS_OFF_TEXT)
+    name_html = " <b>%s</b>" % escape_html(title) if is_on else ""
+    pill_html = "" if state == "none" else (
+        '<span class="banner__pill calendar-status__pill"><span class="dot %s" '
+        'aria-hidden="true"></span>%s</span>') % (dot_class, escape_html(i18n.t(pill_text)))
+    return '<p class="calendar-status__title"><span class="calendar-status__lead">%s%s</span>%s%s</p>' % (
+        escape_html(lead), "," if is_on else "", name_html, pill_html)
+
+
+def _status_row_html(state, title, detail_html):
+    """The page's whole calendar connection UI: tile, the status line, one
+    detail line and the one "Choose calendar" button opening the sheet. The
+    pill carries the verdict in words (never the dot's colour alone). With
+    nothing connected the detail is the empty state's body instead."""
+    not_connected = state == "none"
+    button_class = "calendar-manage" + (" calendar-manage--primary" if not_connected else "")
+    tile_class = "calendar-status__tile" + (" calendar-status__tile--empty" if not_connected else "")
+    detail = "" if not_connected else '<p class="calendar-status__detail">%s</p>' % detail_html
     return (
         '<div class="calendar-status" data-calendar-state="%s">'
         '<span class="%s">%s</span>'
-        '<div class="calendar-status__main">'
-        '<p class="calendar-status__title"><b>%s</b>'
-        '<span class="banner__pill calendar-status__pill"><span class="dot %s" aria-hidden="true">'
-        "</span>%s</span></p>"
-        '<p class="calendar-status__detail">%s</p></div>'
+        '<div class="calendar-status__main">%s%s</div>'
         '<a class="%s" href="%s" data-calendar-open aria-haspopup="dialog">%s</a>'
         "</div>"
     ) % (
-        state, tile_class, _CALENDAR_ICON_SVG, escape_html(title), dot_class,
-        escape_html(i18n.t(pill_text)), detail_html, button_class, escape_html(_sheet_href()),
-        escape_html(i18n.t(button_text)))
+        state, tile_class, _CALENDAR_ICON_SVG, _status_title_html(state, title), detail,
+        button_class, escape_html(_sheet_href()), escape_html(i18n.t(CALENDAR_CHOOSE_TEXT)))
 
 
 def _url_form_html(connected, error_message):
@@ -453,17 +468,18 @@ def _calendar_connection_html(
     masked_url = _masked_calendar_url(secret_url)
     state = calendar_state(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count)
-    if state == "none":
-        title = i18n.t(CALENDAR_NONE_TITLE)
-    else:
-        title = provider or masked_url or i18n.t(CALENDAR_LINK_LABEL)
+    title = provider or masked_url or i18n.t(CALENDAR_LINK_LABEL)
     error_message = (errors or {}).get("calendar_url")
     if not error_message:
         error_message = {
             "invalid": CALENDAR_ERROR_INVALID, "unreachable": CALENDAR_ERROR_UNREACHABLE,
         }.get(sheet_error)
+    empty_html = ui_components.empty_state(
+        i18n.t(CALENDAR_EMPTY_HEADING), i18n.t(CALENDAR_NONE_LEAD), compact=True
+    ) if state == "none" else ""
     return (
-        _status_row_html(state, title, _status_detail_html(
+        empty_html
+        + _status_row_html(state, title, _status_detail_html(
             state, last_synced_at, now, entry_count))
         + _sheet_html(
             configured, drift, provider, masked_url,
@@ -503,7 +519,7 @@ def calendar_disconnect_confirm_page(ctx):
 
 
 CALENDAR_TAG = i18n.msg("look.calendar", "Calendar")
-CALENDAR_ROW_TITLE = i18n.msg("look.flights_in_your_calendar", "Flights in your calendar")
+CALENDAR_ROW_TITLE = i18n.msg("look.flights_in_your_calendar", "Look of calendar flights")
 
 
 def special_mini_html(theme_id, opener_label=None):
@@ -533,9 +549,9 @@ def calendar_special_row_html(
         last_synced_at, last_attempt_at, now, entry_count,
         errors=None, submitted=None, state_dir=None, sheet_open=False, sheet_error=None):
     """The calendar row of the Special looks list: a mini render of the
-    look calendar flights get, its read-back, the "Change" control (the
-    colour x style table, with "Same as departures" first), and below it
-    the one-line connection status with its Manage sheet. Returns the
+    look calendar flights get, its read-back and the "Change" control (the
+    colour x style table, with "Same as departures" first), preceded by the
+    one-line connection status with its "Choose calendar" sheet. Returns the
     row's HTML; the connection verdict lives in that status line only,
     never repeated in the row's meta.
     """
@@ -560,21 +576,22 @@ def calendar_special_row_html(
         sheet_open=sheet_open, sheet_error=sheet_error)
     row_html = (
         '<li class="special-row special-row--calendar" id="calendar-row" data-look-anchor%s>'
+        "%s"
         '<div class="special-row__main">%s'
         '<div class="special-row__text">'
         '<p class="special-row__title"><span class="special-row__tag">%s</span>%s</p>'
         '<p class="special-row__meta"><span data-look-sentence>%s</span></p>'
-        "</div>%s</div>%s%s"
+        "</div>%s</div>%s"
         "</li>"
     ) % (
         look_target_attrs(
             COLOUR_USAGE_CALENDAR, "calendar_theme_id", theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
             small, True, title=i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR])),
+        connection_html,
         special_mini_html(picture_id, opener_label=i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
         escape_html(i18n.t(CALENDAR_TAG)), escape_html(i18n.t(CALENDAR_ROW_TITLE)),
         escape_html(sentence),
         look_edit_html(COLOUR_USAGE_CALENDAR, table_html, icon_only=True),
         _field_error_html(errors, "calendar_theme_id", "calendar-theme"),
-        connection_html,
     )
     return row_html

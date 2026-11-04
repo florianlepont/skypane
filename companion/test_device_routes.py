@@ -34,6 +34,7 @@ EXPECTED_DEVICE_SCOPED = {
     ("POST", "/detection"),
     ("POST", "/quick/display"),
     ("POST", "/quick/quiet-hours"),
+    ("POST", "/quick/quiet-hours/window"),
     ("POST", "/quick/led"),
     ("POST", "/airlines/resolve"),
     ("POST", "/airlines/rename"),
@@ -69,7 +70,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 32
+        assert len(EXPECTED_DEVICE_SCOPED) == 33
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))
@@ -199,7 +200,7 @@ def _seed_single_rows(state_dir):
 
 def _inside_switcher(node):
     while node is not None:
-        if "frame-switcher" in node.attrs.get("class", ""):
+        if "frame-sheet" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False

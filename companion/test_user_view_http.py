@@ -211,7 +211,7 @@ def test_a_user_who_owns_the_live_frame_is_served_under_its_real_id(live_rig):
         assert 'value="live"' not in body
 
 
-def test_the_switcher_lists_only_the_users_own_frames(rig):
+def test_the_frame_sheet_lists_only_the_users_own_frames(rig):
     body = rig.page("/devices/%s/display" % rig.fleet.a1, "a")
     for own in (rig.fleet.a1, rig.fleet.a2):
         assert 'href="/devices/%s/display"' % own in body
@@ -282,9 +282,10 @@ def _strip_frame_prefix(path):
     return re.sub(r"\A/devices/d_[0-9a-f]{8}", "", path) or "/"
 
 
-def test_a_crafted_settings_post_changes_quiet_hours_and_no_admin_only_key(rig):
+def test_a_crafted_settings_post_changes_no_quiet_hours_and_no_admin_only_key(rig):
     before = _admin_only_values(rig, rig.fleet.a1)
     assert before == SEEDED_ADMIN_ONLY
+    config_before = device_config.load_device_config(device_dir(rig.state_dir, rig.fleet.a1))
     status, headers, _body = rig.request(
         "POST", "/devices/%s/settings" % rig.fleet.a1, "a",
         data=_form(
@@ -294,8 +295,8 @@ def test_a_crafted_settings_post_changes_quiet_hours_and_no_admin_only_key(rig):
     assert status == 303
     assert headers["Location"].startswith("/devices/%s/" % rig.fleet.a1)
     config = device_config.load_device_config(device_dir(rig.state_dir, rig.fleet.a1))
-    assert (config["quiet_hours_start"], config["quiet_hours_end"]) == ("21:30", "06:15")
-    assert config["quiet_hours_enabled"] is True
+    for key in ("quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end", "timezone"):
+        assert config[key] == config_before[key], key
     assert _admin_only_values(rig, rig.fleet.a1) == before
 
 
@@ -322,13 +323,13 @@ def test_a_crafted_post_cannot_use_the_unprefixed_live_frame_form(rig):
 def test_user_display_has_no_runway_wake_interval_or_led_control(rig):
     admin_only_fields = ("tracked_runway", "wake_interval_s", "led_enabled")
     user_display = rig.page("/devices/%s/display" % rig.fleet.a1, "a")
-    assert 'name="quiet_hours_start"' in user_display
+    assert 'name="quiet_hours_start"' not in user_display
     for field in admin_only_fields:
         assert 'name="%s"' % field not in user_display
     assert "/quick/led" not in user_display
     admin_display = rig.page("/devices/%s/display" % rig.fleet.a1, "admin")
     assert 'name="tracked_runway"' not in admin_display
-    assert "detection-card" in admin_display
+    assert "detection-card" not in admin_display
     admin_device = rig.page("/devices/%s/device" % rig.fleet.a1, "admin")
     assert 'name="wake_interval_s"' in admin_device
     assert "/quick/led" in admin_device
@@ -341,10 +342,10 @@ def test_user_home_has_no_led_switch_and_no_refresh_trigger(rig):
     assert "/quick/display" in home and "/quick/quiet-hours" in home
 
 
-def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
-    """a user's Home reads the frame state from one dot with its word, in the order switcher,
-    status card, picture, recent flights; the battery tile and the attention bar belong to the
-    administrator's Home only"""
+def test_home_has_one_dot_and_no_battery_tile_or_attention_bar_for_either_role(rig):
+    """a user's and an administrator's Home read the frame state from one dot with its word, in
+    the order frame chip, status card, picture, recent flights; neither shows the battery tile or
+    the attention bar (the battery lives on the Console Health page)"""
     mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
     path = "/devices/%s/" % rig.fleet.a1
     user_home = rig.page(path, "a")
@@ -353,11 +354,16 @@ def test_user_home_has_one_dot_and_no_battery_tile_or_attention_bar(rig):
     assert len(root.select(".home-state__dot")) == 1
     assert root.select_one(".home-state__dot").attrs["aria-label"]
     assert not root.select(".home-battery") and not root.select(".home-action")
-    assert user_home.index("frame-switcher") < user_home.index("home-state ")
+    assert user_home.index("frame-chip") < user_home.index("home-state ")
     assert user_home.index("home-state ") < user_home.index("home-current-frame")
     assert user_home.index("home-current-frame") < user_home.index("home-flights")
     assert user_home.index("home-state ") < user_home.index("home-flights")
-    assert parse_html(admin_home).select(".home-battery")
+    admin_root = parse_html(admin_home)
+    assert not admin_root.select(".home-battery") and not admin_root.select(".home-action")
+    assert len(admin_root.select(".home-state__dot")) == 1
+    # The battery is read on the administrator's Console Health page instead.
+    admin_health = rig.page("/devices/%s/health" % rig.fleet.a1, "admin")
+    assert "Battery" in admin_health
 
 
 def test_health_is_the_administrators_alone_and_keeps_its_platform_rows(rig):
@@ -493,3 +499,41 @@ def test_the_provisioned_config_file_stays_valid_json_after_a_user_save(rig):
     path = os.path.join(device_dir(rig.state_dir, rig.fleet.a1), "device_config.json")
     with open(path) as fh:
         assert isinstance(json.load(fh), dict)
+
+
+# --- who may change the wake interval ------------------------------------------
+
+def _settings_post(rig, who, **fields):
+    return rig.request(
+        "POST", "/devices/%s/settings" % rig.fleet.a1, who, data=_form(**fields))
+
+
+@pytest.mark.parametrize("scope", ["display", "device", "all"])
+def test_a_users_posted_wake_interval_is_dropped_whatever_the_scope(rig, scope):
+    before = _admin_only_values(rig, rig.fleet.a1)
+    status, _headers, _body = _settings_post(
+        rig, "a", wake_interval_s="600", scope=scope, theme="black")
+    assert status == 303
+    assert _admin_only_values(rig, rig.fleet.a1) == before
+
+
+def test_an_administrator_changes_the_wake_interval_on_the_device_page_within_bounds(rig):
+    status, _headers, _body = _settings_post(
+        rig, "admin", wake_interval_s="1200", scope="device",
+        return_to="/device")
+    assert status == 303
+    assert _admin_only_values(rig, rig.fleet.a1)["wake_interval_s"] == 1200
+    below = str(device_config.WAKE_INTERVAL_MIN_S - 1)
+    status, _headers, body = _settings_post(
+        rig, "admin", wake_interval_s=below, scope="device", return_to="/device")
+    assert status == 200
+    assert _admin_only_values(rig, rig.fleet.a1)["wake_interval_s"] == 1200
+
+
+def test_no_refresh_card_on_personalisation_for_either_role_and_device_keeps_it(rig):
+    for who in ("a", "admin"):
+        display = rig.page("/devices/%s/display" % rig.fleet.a1, who)
+        assert 'name="wake_interval_s"' not in display, who
+        assert "wake-interval" not in display, who
+    assert 'name="wake_interval_s"' in rig.page(
+        "/devices/%s/device" % rig.fleet.a1, "admin")

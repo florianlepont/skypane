@@ -34,7 +34,7 @@ def _open_airlines(new_context, server, viewport, lang="en"):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/airlines")
+    page.goto(server.base_url() + "/airlines/manage")
     page.locator(FRANCE_PENCIL).wait_for(state="visible")
     return context, page
 
@@ -51,7 +51,7 @@ def _click_centred(page, selector):
 def _open_in_page_sheet(page):
     """Scripts blocked: follow the France pencil to the in-page sheet and let the page settle."""
     _click_centred(page, FRANCE_PENCIL)
-    page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
+    page.wait_for_url("**/airlines/manage?sheet=air-france#airline-sheet")
     page.wait_for_load_state("load")
 
 
@@ -136,10 +136,10 @@ def test_the_type_switcher_retargets_picture_and_upload_in_place(new_context, se
 
 
 def test_the_sheet_url_opens_the_dialog_and_hides_the_page_copy(new_context, server):
-    """/airlines?sheet=air-france opens the dialog on load; the no-script copy is hidden then"""
+    """/airlines/manage?sheet=air-france opens the dialog on load; the no-script copy is hidden then"""
     context, page = _open_airlines(new_context, server, VIEWPORT_PHONE)
     try:
-        page.goto(server.base_url() + "/airlines?sheet=air-france")
+        page.goto(server.base_url() + "/airlines/manage?sheet=air-france")
         page.locator(DIALOG + "[open]").wait_for()
         assert page.locator("[data-sheet-fallback]").is_hidden()
         assert page.locator(NAME_INPUT).input_value() == "Air France"
@@ -157,7 +157,7 @@ def test_rename_and_reset_round_trip_through_the_sheet(new_context, make_app_ser
         page.locator(DIALOG + "[open]").wait_for()
         page.fill(NAME_INPUT, "Skyline Air")
         page.click(SHEET + " .airline-sheet__name button")
-        page.wait_for_url("**/airlines?flash=airline_renamed")
+        page.wait_for_url("**/airlines/manage?flash=airline_renamed")
         assert page.locator(".toast").first.is_visible()
         tile = page.locator(".airline-list__item", has=page.locator('.airline-row__name:text-is("Skyline Air")'))
         assert tile.locator(".airline-card__chip").count() == 0, "a rename shows no chip on the row"
@@ -168,7 +168,7 @@ def test_rename_and_reset_round_trip_through_the_sheet(new_context, make_app_ser
         assert page.locator(SHEET + " .airline-sheet__reset").is_visible()
         assert "Air France" in page.locator(SHEET + " .airline-sheet__reset p").inner_text()
         page.click(SHEET + " .airline-sheet__reset button")
-        page.wait_for_url("**/airlines?flash=airline_rename_reset")
+        page.wait_for_url("**/airlines/manage?flash=airline_rename_reset")
         assert page.locator('.airline-row__name:text-is("Air France")').count() == 1
         assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 0
     finally:
@@ -200,7 +200,7 @@ def test_without_scripts_the_row_is_a_link_to_an_in_page_sheet(new_context, make
     with the same fields (title, prefixes, picture, type, upload, name), saving redirects back
     with the confirmation and the row is renamed"""
     server = make_app_server(fake_providers=True)
-    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE, reduced_motion="reduce") as page:
+    with _no_js_page(new_context, server.base_url(), "/airlines/manage", viewport=VIEWPORT_PHONE, reduced_motion="reduce") as page:
         _open_in_page_sheet(page)
         fallback = page.locator("[data-sheet-fallback]")
         assert fallback.is_visible()
@@ -214,12 +214,12 @@ def test_without_scripts_the_row_is_a_link_to_an_in_page_sheet(new_context, make
         assert fallback.locator('form[action="/illustration/air-france.png"]').count() == 1
         fallback.locator('input[name="airline_name"]').fill("Skyline Air")
         _click_centred(page, SAVE_NAME_IN_PAGE)
-        page.wait_for_url("**/airlines?flash=airline_renamed")
+        page.wait_for_url("**/airlines/manage?flash=airline_renamed")
         assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
         _click_centred(page, '.airline-row[data-view-panel-sheet-key="skyline-air"]')
         page.wait_for_url("**sheet=skyline-air**")
         _click_centred(page, "[data-sheet-fallback] form.airline-sheet__reset button")
-        page.wait_for_url("**/airlines?flash=airline_rename_reset")
+        page.wait_for_url("**/airlines/manage?flash=airline_rename_reset")
         assert page.locator('.airline-row__name:text-is("Air France")').count() == 1
 
 
@@ -227,12 +227,12 @@ def test_without_scripts_the_type_links_switch_the_in_page_sheet(new_context, ma
     """with scripts blocked a multi-type airline's in-page sheet offers one real link per type;
     following one shows that type's picture and upload address, marked as the shown type"""
     server = make_app_server(fake_providers=True)
-    with _no_js_page(new_context, server.base_url(), "/airlines?sheet=transavia-france#airline-sheet",
+    with _no_js_page(new_context, server.base_url(), "/airlines/manage?sheet=transavia-france#airline-sheet",
                      viewport=VIEWPORT_PHONE, reduced_motion="reduce") as page:
         fallback = page.locator("[data-sheet-fallback]")
         assert fallback.locator("a.airline-sheet__type").all_text_contents() == ["B737", "A320"]
         _click_centred(page, '[data-sheet-fallback] a.airline-sheet__type:text-is("A320")')
-        page.wait_for_url("**/airlines?sheet=transavia-france-a320#airline-sheet")
+        page.wait_for_url("**/airlines/manage?sheet=transavia-france-a320#airline-sheet")
         page.wait_for_load_state("load")
         assert fallback.locator('a.airline-sheet__type[aria-current="true"]').inner_text() == "A320"
         assert fallback.locator("img.lightbox__image").get_attribute("src").startswith(
@@ -252,7 +252,7 @@ def test_opening_the_sheet_leaves_focus_off_the_name_field(new_context, server, 
             if how == "pencil":
                 page.locator(FRANCE_PENCIL).click()
             else:
-                page.goto(server.base_url() + "/airlines?sheet=air-france")
+                page.goto(server.base_url() + "/airlines/manage?sheet=air-france")
             page.locator(DIALOG + "[open]").wait_for()
             assert page.evaluate(FOCUSED) == "lightbox__heading", (how, page.evaluate(FOCUSED))
             assert page.locator(DIALOG + " .lightbox__heading").inner_text().strip()
@@ -294,14 +294,14 @@ def test_without_scripts_the_anchor_jump_leaves_save_clear_of_the_tab_bar(
     the Save button inside the viewport and above the fixed tab bar, whatever the phone height"""
     server = make_app_server(fake_providers=True)
     viewport = {"width": VIEWPORT_PHONE["width"], "height": height}
-    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=viewport, reduced_motion="reduce") as page:
+    with _no_js_page(new_context, server.base_url(), "/airlines/manage", viewport=viewport, reduced_motion="reduce") as page:
         page.locator(FRANCE_PENCIL).evaluate("e => e.click()")
-        page.wait_for_url("**/airlines?sheet=air-france#airline-sheet")
+        page.wait_for_url("**/airlines/manage?sheet=air-france#airline-sheet")
         page.wait_for_load_state("load")
         for stage in ("pencil", "refused"):
             if stage == "refused":
                 page.goto(server.base_url()
-                          + "/airlines?sheet=air-france&flash=airline_rename_taken#airline-sheet")
+                          + "/airlines/manage?sheet=air-france&flash=airline_rename_taken#airline-sheet")
                 page.wait_for_load_state("load")
             save = page.locator(SAVE_NAME_IN_PAGE).bounding_box()
             bar = page.locator(".tab-bar").bounding_box()
@@ -313,7 +313,7 @@ def test_a_taken_name_without_scripts_focuses_the_in_page_name_field(new_context
     """with scripts blocked the refusal reopens the in-page sheet with the name field focused,
     while the plain pencil link leaves it unfocused"""
     server = make_app_server(fake_providers=True)
-    with _no_js_page(new_context, server.base_url(), "/airlines", viewport=VIEWPORT_PHONE, reduced_motion="reduce") as page:
+    with _no_js_page(new_context, server.base_url(), "/airlines/manage", viewport=VIEWPORT_PHONE, reduced_motion="reduce") as page:
         _open_in_page_sheet(page)
         field = page.locator('[data-sheet-fallback] input[name="airline_name"]')
         assert page.evaluate(FOCUSED) != "airline-sheet-name-edit"
@@ -333,7 +333,7 @@ def test_the_resolve_dialog_still_focuses_its_name_field(new_context, make_app_s
                     "last_seen": "2026-01-01T00:00:00+00:00", "example_callsign": "XYZ123"}}}))
     context, page = _open_airlines(new_context, server, VIEWPORT_PHONE)
     try:
-        page.locator('a.airline-card[href="/airlines?resolve=XYZ"]').click()
+        page.locator('a.airline-card[href="/airlines/manage?resolve=XYZ"]').click()
         page.locator(DIALOG + "[open]").wait_for()
         assert page.evaluate(FOCUSED) == "manual-airline-name-dialog"
         page.keyboard.press("Escape")
