@@ -153,3 +153,10 @@ Larger redesigns (new design work, owner decision on scope):
   panel) fits. Reuse the graphical frame selector (tile strip, D30) in the
   Console: clicking a frame tile opens one detailed view with its state,
   settings, version and device. Mockup C3 (scratchpad/sketches c3, c3t).
+- D31 (owner) Console Fleet = mockup C3 with full content: the tile strip of
+  frames plus a last "System" tile. A frame's detail view holds four complete
+  blocks: State (connection, battery, last detection, current flight),
+  Device and version (model, version history, scheduled update), Settings
+  (wake interval and other device settings), Access. System-wide information
+  (ADS-B sources, backups, server anomalies) lives in the System tile. The
+  separate Status, Version and Device Console tabs go away.
