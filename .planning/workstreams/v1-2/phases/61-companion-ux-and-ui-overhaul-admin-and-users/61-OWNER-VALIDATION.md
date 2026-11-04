@@ -134,3 +134,7 @@ Larger redesigns (new design work, owner decision on scope):
 - W16 resolved: the owner tested the multi-frame management with an account
   that has several frames; nothing missing (the switcher is hidden by design
   with a single frame).
+- W17 (owner, assumed to be the frame switcher, to confirm) Still not great:
+  it should be shown at the top of the window or in the navigation, in a more
+  graphical way, with the frame represented (for example a small picture of
+  the frame) rather than a plain control.
