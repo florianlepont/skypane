@@ -98,3 +98,10 @@ Larger redesigns (new design work, owner decision on scope):
   a context panel (runway cards in airport mode; radius control in position
   mode), coordinates and time zone derived and shown only as a small
   read-only line; the no-script fallback form stays.
+- D28 (owner) The Location and detection page follows sketch V1: the map
+  fills the page; a mode switch (Airport / My position) and a search float
+  on it. Phone: bottom sheet (runway cards in Airport mode; radius control
+  in My-position mode). Desktop: a floating card at the left of the map with
+  the same content. Coordinates and time zone are derived outputs shown as
+  a small read-only line. The map recentres on the part not covered by the
+  card. Sketches: scratchpad/sketches (v1-tel, v1b-tel, v1d, v1d2).
