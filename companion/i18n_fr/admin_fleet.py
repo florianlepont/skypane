@@ -93,4 +93,16 @@ MESSAGES = {
         "Allumez-le. Il affichera un code d’association dans les 5 minutes.",
     "admin_fleet.flash_frame_duplicate":
         "Un cadre avec cette adresse est déjà enregistré.",
+    "admin_fleet.system_tile": "Système",
+    "admin_fleet.system_tile_detail": "Sources et sauvegardes",
+    "admin_fleet.system_heading": "Système",
+    "admin_fleet.block_state": "État",
+    "admin_fleet.block_device_version": "Appareil et version",
+    "admin_fleet.block_settings": "Réglages",
+    "admin_fleet.block_access": "Accès",
+    "admin_fleet.block_model": "Modèle",
+    "admin_fleet.system_unavailable":
+        "Aucune information système n’est disponible pour l’instant.",
+    "admin_fleet.add_screen_first":
+        "Ajoutez un écran pour voir son état et ses réglages.",
 }

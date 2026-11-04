@@ -16,7 +16,6 @@ import os
 import re
 from datetime import datetime, timedelta, timezone
 
-import companion.auth as auth
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
@@ -719,17 +718,13 @@ def test_frame_tools_group_lists_health_device_update_in_order():
     assert group_routes == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE]
 
 
-def test_console_frame_tools_group_holds_health_device_editor_and_releases_stands_apart():
-    """the Console sidebar's Frame tools group holds Health, Device, then the Airline editor;
-    Releases is its own destination outside the group, and the personal sidebar offers none
-    of them"""
+def test_console_sidebar_holds_fleet_users_editor_and_audit_and_no_per_frame_entries():
+    """the Console sidebar lists Fleet, Users, the Airline editor and Audit log: Health, Device
+    and Releases are folded into the Fleet view, and the personal sidebar offers none of them"""
     markup = layout.sidebar_nav("fleet")
-    group_start = markup.index('class="nav-group nav-group--frame-tools"')
-    group = markup[group_start:markup.index("</div>", group_start)]
-    hrefs = re.findall(r'<a class="[^"]*" href="([^"]+)"', group)
-    assert hrefs == [layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, "/airlines/manage"]
-    assert ('href="%s"' % layout.UPDATE_ROUTE) in markup
-    assert ('href="%s"' % layout.UPDATE_ROUTE) not in group
+    hrefs = re.findall(r'<a class="[^"]*" href="([^"]+)"', markup)
+    assert hrefs == ["/fleet", "/users", "/airlines/manage", "/audit", layout.ACCOUNT_ROUTE]
+    assert "nav-group--frame-tools" not in markup
     personal = layout.sidebar_nav("flights")
     for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, layout.UPDATE_ROUTE):
         assert ('href="%s"' % route) not in personal
@@ -737,8 +732,8 @@ def test_console_frame_tools_group_holds_health_device_editor_and_releases_stand
 
 def test_tab_bar_more_sheets_list_the_overflow_destinations():
     """the personal More sheet holds the airline collection and Account, the Console More sheet
-    holds the airline editor, Audit log, Releases and Account, and each bar keeps its four
-    destination cells"""
+    holds only Account (the space switch aside), and each bar keeps its four destination
+    cells"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     doc = layout.page_shell(
         title="T", active="flights", body="<p>b</p>", device_config=device_cfg)
@@ -758,33 +753,29 @@ def test_tab_bar_more_sheets_list_the_overflow_destinations():
     console_bar = console_bar[:console_bar.index("</nav>")]
     console_sheet = console_bar[console_bar.index('<div class="tab-bar__more-panel">'):]
     assert re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', console_sheet) == [
-        "/airlines/manage", "/audit", layout.UPDATE_ROUTE, layout.ACCOUNT_ROUTE]
+        layout.ACCOUNT_ROUTE]
     assert re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', console_bar) == [
-        "/fleet", "/users", layout.HEALTH_ROUTE, layout.DEVICE_ROUTE]
+        "/fleet", "/users", "/airlines/manage", "/audit"]
 
 
-def test_update_link_carries_active_state_only_on_the_update_page():
-    """the Update link carries the active class and aria-current only when active="update",
-    in both the sidebar and the tab bar's More sheet, and only there"""
+def test_update_page_marks_fleet_as_the_current_destination_and_has_no_update_link():
+    """with active="update" the Console navigation has no Update link and Fleet carries the
+    active class and aria-current, in both the sidebar and the tab bar"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     doc = layout.page_shell(
         title="Update", active="update", body="<p>b</p>", device_config=device_cfg)
     sidebar_start = doc.index('<nav class="sidebar-nav"')
     sidebar = doc[sidebar_start:doc.index("</nav>", sidebar_start)]
-    update_tag_start = sidebar.index('href="%s"' % layout.UPDATE_ROUTE)
-    tag_start = sidebar.rfind("<a", 0, update_tag_start)
-    tag_end = sidebar.index(">", update_tag_start)
-    update_tag = sidebar[tag_start:tag_end]
-    assert "sidebar-link--active" in update_tag
-    assert 'aria-current="page"' in update_tag
+    assert 'href="%s"' % layout.UPDATE_ROUTE not in sidebar
+    fleet_start = sidebar.index('href="/fleet"')
+    fleet_tag = sidebar[sidebar.rfind("<a", 0, fleet_start):sidebar.index(">", fleet_start)]
+    assert "sidebar-link--active" in fleet_tag
+    assert 'aria-current="page"' in fleet_tag
     assert sidebar.count("sidebar-link--active") == 1
 
     bar_start = doc.index('<nav class="tab-bar"')
     bar = doc[bar_start:doc.index("</nav>", bar_start)]
-    summary_start = bar.index("<summary")
-    summary_tag = bar[summary_start:bar.index(">", summary_start)]
-    assert "tab-bar__link--active" in summary_tag, (
-        "expected the More summary to wear the active pill on the Update page")
+    assert 'href="%s"' % layout.UPDATE_ROUTE not in bar
     assert bar.count('aria-current="page"') == 1
 
 
@@ -799,9 +790,8 @@ def test_header_dropdown_preferences_panel_gains_no_update_link():
     assert "mobile-nav__link" not in panel
 
 
-def test_french_nav_label_reads_versions():
-    """under lang="fr" the Console's Update destination reads "Versions", never the English
-    "Releases", in both the sidebar and the tab bar's More sheet"""
+def test_french_fleet_view_names_its_blocks_in_french():
+    """under lang="fr" the Console sidebar and the shell carry no English release label"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     try:
         prefs.set_request_prefs(lang="fr")
@@ -809,41 +799,22 @@ def test_french_nav_label_reads_versions():
             title="T", active="update", body="", device_config=device_cfg)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert doc.count(">Versions<") == 2
     assert ">Releases<" not in doc
+    assert ">Versions<" not in doc
 
 
-def test_icon_sprite_has_icon_nav_update_symbol_and_the_link_uses_it():
-    """the served icon sprite carries <symbol id="icon-nav-update"> and the Update link's <svg>
-    references it via <use href="#icon-nav-update">"""
-    doc = layout.page_shell(
-        title="T", active="update", body="<p>b</p>",
-        device_config={"display_enabled": True, "quiet_hours_enabled": False})
-    assert '<symbol id="icon-nav-update"' in doc
-    sidebar_start = doc.index('<nav class="sidebar-nav"')
-    sidebar = doc[sidebar_start:doc.index("</nav>", sidebar_start)]
-    update_link_start = sidebar.rfind("<a", 0, sidebar.index('href="%s"' % layout.UPDATE_ROUTE))
-    update_link_end = sidebar.index("</a>", update_link_start)
-    update_link = sidebar[update_link_start:update_link_end]
-    assert 'href="#icon-nav-update"' in update_link
-
-
-def test_update_route_is_a_console_entry_end_to_end(module_app_server_factory):
-    """a real GET /update served by a real companion/app.py shows Releases in the Console
-    sidebar (Versions in French), and the personal /flights page shows no Update link"""
+def test_update_route_stays_served_and_is_no_console_entry_end_to_end(
+        module_app_server_factory):
+    """a real GET /update still answers, marks Fleet current and shows no Releases entry in the
+    Console sidebar; the personal /flights page shows no Update link either"""
     server = module_app_server_factory()
     cookie = login(server)
     status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
-    sidebar = text[text.index('<nav class="sidebar-nav"'):]
-    assert 'href="%s"' % layout.UPDATE_ROUTE in sidebar
-    assert ">Releases<" in sidebar
-
-    fr_cookie = cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME
-    status, _headers, fr_body = get(server, layout.UPDATE_ROUTE, cookie=fr_cookie)
-    assert status == 200
-    assert ">Versions<" in fr_body.decode("utf-8")
+    sidebar = text[text.index('<nav class="sidebar-nav"'):text.index("</nav>")]
+    assert 'href="%s"' % layout.UPDATE_ROUTE not in sidebar
+    assert ">Releases<" not in sidebar
 
     status, _headers, flights = get(server, layout.FLIGHTS_ROUTE, cookie=cookie)
     assert status == 200

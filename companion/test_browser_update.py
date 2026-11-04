@@ -427,9 +427,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
 
         links = page.locator(_MORE_SHEET_LINK_SELECTOR)
         count = links.count()
-        assert count == 5, (
-            "expected exactly 5 links (My frame, Airline editor, Audit log, Releases, "
-            "Account) in "
+        assert count == 2, (
+            "expected exactly 2 links (My frame, Account) in "
             "the More sheet at %dpx/%s, got %d" % (viewport["width"], lang, count))
 
         heights = []
@@ -465,9 +464,10 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         assert header_dropdown.locator('a[href="%s"]' % layout.UPDATE_ROUTE).count() == 0
         assert header_dropdown.locator(".nav-status").count() == 0
         assert page.locator(".dashboard-sidebar .nav-status").count() == 0
+        # The Update page has no navigation entry: Fleet is the current cell.
         assert page.locator(
-            '%s[href="%s"][aria-current="page"]'
-            % (_MORE_SHEET_LINK_SELECTOR, layout.UPDATE_ROUTE)).count() == 1
+            '%s[href="%s"]' % (_MORE_SHEET_LINK_SELECTOR, layout.UPDATE_ROUTE)).count() == 0
+        assert page.locator('nav.tab-bar a[href="/fleet"][aria-current="page"]').count() == 1
 
         print(
             "D-02 mobile-fit: %dpx/%s More-sheet link heights=%r (floor 44px)"
@@ -785,23 +785,24 @@ def test_in_flight_states_fit_and_offer_only_what_the_server_would_accept(
 
 
 def test_desktop_sidebar_frame_tools_group_fits_with_no_overlap(new_context, server):
-    """At 1280px, the Console sidebar's Frame tools group renders three links (Health,
-    Device, Airline editor), stacked with no overlap.
+    """At 1280px, the Console sidebar has no Frame tools group (Health, Device and
+    Releases are in the Fleet view) and its five links (Fleet, Users, Airline editor,
+    Audit log, Account) stack with no overlap.
     """
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + layout.HEALTH_ROUTE)
-        group = page.locator(".nav-group--frame-tools")
-        links = group.locator("a.sidebar-link")
+        assert page.locator(".nav-group--frame-tools").count() == 0
+        links = page.locator(".sidebar-nav a.sidebar-link")
         count = links.count()
-        assert count == 3, "expected exactly 3 sidebar Frame tools links, got %d" % (count,)
+        assert count == 5, "expected exactly 5 Console sidebar links, got %d" % (count,)
         boxes = [links.nth(i).bounding_box() for i in range(count)]
         for index in range(count - 1):
             upper, lower = boxes[index], boxes[index + 1]
             assert upper["y"] + upper["height"] <= lower["y"] + 0.5, (
-                "expected sidebar Frame tools links to stack without overlap, "
+                "expected sidebar links to stack without overlap, "
                 "got %r then %r" % (upper, lower))
     finally:
         context.close()

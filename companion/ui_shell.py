@@ -311,7 +311,7 @@ _SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
 # The frame strip: shown above the page title of every device-scoped page once
 # the request scope lists two or more frames. One whole-tile link per frame,
 # plus an Add a screen tile for an administrator.
-_STRIP_ARIA_TEXT = i18n.msg("nav.frame_strip_aria", "Your frames")
+STRIP_ARIA_TEXT = i18n.msg("nav.frame_strip_aria", "Your frames")
 _TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
 _TILE_ADD_TEXT = i18n.msg("nav.frame_tile_add", "Add a screen")
 _SWITCHER_SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
@@ -360,7 +360,7 @@ def _switcher_status_row(device, now):
         battery_percent=percent)
 
 
-def _tile_note(entry):
+def tile_note(entry):
     """The muted last line of a tile: who shared the frame, or the owner of a
     frame the viewer does not own; "" for a frame of their own."""
     if entry.owner_email is None:
@@ -379,9 +379,16 @@ def _seen_text(row, now):
 
 
 def _frame_tile_html(entry, page, current, now):
-    device = entry.device
+    return frame_tile_html(
+        entry.device, device_scope.target_path(page, entry.device),
+        entry.device.id == current.id, now, tile_note(entry))
+
+
+def frame_tile_html(device, href, is_current, now, note=""):
+    """One whole-tile frame link: the frame's picture, name, status dot and
+    last-seen word, outlined when `is_current`. `href` is built by the caller
+    from a fixed path and a validated frame id."""
     row = _switcher_status_row(device, now)
-    note = _tile_note(entry)
     return (
         '<li><a class="%(cls)s" href="%(href)s"%(current)s>'
         '<span class="%(cls)s__dot">%(dot)s</span>'
@@ -389,8 +396,8 @@ def _frame_tile_html(entry, page, current, now):
         '<span class="%(cls)s__name">%(name)s</span>'
         '<span class="%(cls)s__seen">%(seen)s</span>%(note)s</a></li>') % {
             "cls": FRAME_TILE_CLASS,
-            "href": escape_html(device_scope.target_path(page, device)),
-            "current": ' aria-current="true"' if device.id == current.id else "",
+            "href": escape_html(href),
+            "current": ' aria-current="true"' if is_current else "",
             "dot": frame_status.status_dot_html(row),
             "name": escape_html(_device_display_name(device)),
             "seen": escape_html(_seen_text(row, now)),
@@ -400,7 +407,7 @@ def _frame_tile_html(entry, page, current, now):
         }
 
 
-def _add_tile_html():
+def add_tile_html():
     return (
         '<li><a class="%(cls)s %(cls)s--add" href="%(href)s">'
         '<span class="%(cls)s__plus" aria-hidden="true">+</span>'
@@ -420,7 +427,7 @@ def _severity_rank(row):
     return {frame_status.STATUS_ERROR: 0, frame_status.STATUS_WARN: 1}.get(state, 2)
 
 
-def _console_ordered(entries, now):
+def console_ordered(entries, now):
     """Console cards: problems first (error, then warn, then the rest), each
     group by name."""
     return sorted(entries, key=lambda e: (
@@ -432,7 +439,7 @@ def _sheet_entries(active, now):
     """The cards' entries: every frame on a Console page, else the personal
     list."""
     if current_space(active) == CONSOLE_SPACE:
-        return _console_ordered(device_scope.console_frame_entries(), now)
+        return console_ordered(device_scope.console_frame_entries(), now)
     return device_scope.switcher_entries()
 
 
@@ -453,9 +460,9 @@ def frame_switcher_html(active):
         return ""
     tiles = "".join(_frame_tile_html(e, page, current, now) for e in entries)
     if _may_add_frame():
-        tiles += _add_tile_html()
+        tiles += add_tile_html()
     return '<ul class="%s" aria-label="%s">%s</ul>' % (
-        FRAME_TILES_CLASS, escape_html(i18n.t(_STRIP_ARIA_TEXT)), tiles)
+        FRAME_TILES_CLASS, escape_html(i18n.t(STRIP_ARIA_TEXT)), tiles)
 
 
 def frame_notice_html(active, console_page=False):

@@ -95,18 +95,18 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
         "expected the personal navigation to carry no Health dot")
 
     side = on[on.index("sidebar-nav"):on.index("</aside>")]
-    side_href_index = side.index('href="/health"')
+    side_href_index = side.index('href="/fleet"')
     side_dot_index = side.index(layout.NAV_NOTIFICATION_CLASS)
     side_anchor_close_index = side.index("</a>", side_href_index)
     assert side_href_index < side_dot_index < side_anchor_close_index, (
-        "expected the dot to sit inside the Health sidebar link")
+        "expected the dot to sit inside the Fleet sidebar link")
 
     bar_start = on.index('<nav class="tab-bar"')
     bar = on[bar_start:on.index("</nav>", bar_start)]
-    health_start = bar.index('href="/health"')
+    health_start = bar.index('href="/fleet"')
     health_end = bar.index("</a>", health_start)
     assert layout.NAV_NOTIFICATION_CLASS in bar[health_start:health_end], (
-        "expected the dot inside the tab bar's Health cell")
+        "expected the dot inside the tab bar's Fleet cell")
     assert bar.count(layout.NAV_NOTIFICATION_CLASS) == 1, (
         "expected one dot in the bar, none on More or any other cell")
     summary_start = bar.index("<summary")
@@ -263,8 +263,7 @@ def test_dropdown_survives_with_javascript_disabled():
         title="T", active="fleet", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     console_bar = console_doc[console_doc.index('<nav class="tab-bar"'):]
-    for route in ("/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
-                  "/update", "/account"):
+    for route in ("/fleet", "/users", "/airlines/manage", "/audit", "/account"):
         assert ('href="%s"' % route) in console_bar, (
             "missing Console tab-bar href for %r with JavaScript disabled" % route)
     # A bare `hidden` attribute only — `aria-hidden` on the tab glyphs is

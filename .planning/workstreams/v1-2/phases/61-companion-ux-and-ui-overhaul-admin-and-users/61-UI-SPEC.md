@@ -1402,3 +1402,24 @@ R2-16. **Locations POST routes.** Default: kept with no UI (expand-only). Altern
 - [ ] Dimension 6 Registry Safety: PASS
 
 **Approval:** pending (revision 2 must be re-checked: the revision 1 sign-off no longer stands)
+
+
+## Revision 3 note (plan 61-42, owner decisions W18 refined, D31, D30)
+
+The Console has no Status, Version or Device entries. Console navigation: Fleet (carries the
+Health severity dot), Users, Airline editor, Audit log, footer Account; the phone bar cells are
+Fleet, Users, Airlines, Audit with the space switch and Account in More. The pages `/health`,
+`/device` and `/update` still answer (their forms post and redirect there) and mark Fleet as the
+current destination.
+
+Fleet (`/fleet`): the D30 tile strip of every frame (picture, name, status dot, last-seen word,
+the selected one outlined), an "Add a screen" tile (the pairing flow) and a last "System" tile.
+A tile is a plain link to `/fleet?frame=<id>` or `/fleet?view=system`. The selected frame opens
+four blocks, two columns from 1000px and stacked on a phone: State (health connection, battery
+and last-detection rows), Device and version (model plus the Update page content), Settings (the
+Device page form, same POST route and validation, wake interval for administrators), Access
+(owner and co-managers, the Manage access forms inline). The System view holds the Health page's
+platform part (source fault, anomaly banner, flight data, ADS-B sources agreement,
+identification, backups, unresolved-airline registry). The frame list with its row menus stays
+below for pending and retired frames and the reassign, retire and re-activate dialogs.
+Strings: `admin_fleet.system_*`, `admin_fleet.block_*`, `nav.airlines_short`.

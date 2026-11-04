@@ -19,7 +19,6 @@ from companion.ui_base import (
     DETECTION_ROUTE,
     DISPLAY_ROUTE,
     FLIGHTS_ROUTE,
-    FRAME_TOOLS_LABEL,
     HEALTH_ALERT_SUFFIX_TEXT,
     HEALTH_ANOMALY_CLASS,
     HEALTH_SOURCE_FAULT_CLASS,
@@ -89,6 +88,8 @@ CONSOLE_SPACE = "console"
 PERSONAL_SPACE = "personal"
 
 _AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
+_AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Airlines")
+_CONSOLE_BAR_LABELS = {"editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL}
 _PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
 _SWITCH_TO_PERSONAL_TEXT = i18n.msg(
@@ -108,6 +109,9 @@ _CONSOLE_ICON_IDS = {
 # The Console destinations that act on one frame: their hrefs carry the
 # frame in view.
 _CONSOLE_FRAME_KEYS = frozenset(("health", "device", "editor"))
+# Health, Device and Releases no longer have navigation entries: their
+# content lives in the Fleet view, so their pages mark Fleet as current.
+_FLEET_FOLDED_SLUGS = frozenset(("health", "device", "update"))
 _CONSOLE_SLUGS = frozenset(
     nav_slug(path) for _key, path, _label in console_routes.CONSOLE_NAV_ENTRIES)
 
@@ -152,8 +156,9 @@ def _console_entries(active):
     for key, path, label in console_routes.available_nav_entries():
         slug = nav_slug(path)
         href = device_scope.scoped(path) if key in _CONSOLE_FRAME_KEYS else path
+        is_active = slug == active or (key == "fleet" and active in _FLEET_FOLDED_SLUGS)
         entries[key] = _Entry(
-            href, label, slug, _CONSOLE_ICON_IDS.get(key, ""), slug == active)
+            href, label, slug, _CONSOLE_ICON_IDS.get(key, ""), is_active)
     return entries
 
 
@@ -319,15 +324,11 @@ def _console_sidebar_parts(active, health_alert):
     def links(*keys):
         return [
             _sidebar_link_html(
-                entries[key], _health_dot(health_alert) if key == "health" else "")
+                entries[key], _health_dot(health_alert) if key == "fleet" else "")
             for key in keys if key in entries]
 
     parts = [_group_html(links("fleet", "users"), eyebrow, " nav-group--console")]
-    tools = links("health", "device", "editor")
-    if tools:
-        parts.append(_group_html(
-            tools, escape_html(i18n.t(FRAME_TOOLS_LABEL)), " nav-group--frame-tools"))
-    parts.append(_group_html(links("audit", "releases")))
+    parts.append(_group_html(links("editor", "audit")))
     parts.append(_group_html([_sidebar_link_html(_account_entry(active))]))
     return parts
 
@@ -538,19 +539,19 @@ def _tab_bar_sheet_link(entry):
 
 
 def _console_bar(active, health_alert):
-    """(cells, sheet entries) of the Console bar: Fleet, Users, Health
-    (carrying the severity dot) and Device, with the space switch, the
-    airline editor, Audit, Releases and Account in More."""
+    """(cells, sheet entries) of the Console bar: Fleet (carrying the severity
+    dot), Users, the airline editor and Audit, with the space switch and
+    Account in More."""
     entries = _console_entries(active)
     cells = [
         _tab_bar_cell_link(
-            entries[key], extra_html=_health_dot(health_alert) if key == "health" else "")
-        for key in ("fleet", "users", "health", "device") if key in entries]
+            entries[key], _CONSOLE_BAR_LABELS.get(key),
+            extra_html=_health_dot(health_alert) if key == "fleet" else "")
+        for key in ("fleet", "users", "editor", "audit") if key in entries]
     sheet = []
     switch = _switch_entry(CONSOLE_SPACE)
     if switch is not None:
         sheet.append(switch)
-    sheet += [entries[key] for key in ("editor", "audit", "releases") if key in entries]
     sheet.append(_account_entry(active))
     return cells, sheet
 

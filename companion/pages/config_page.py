@@ -714,7 +714,8 @@ def _settings_page_html(pieces, quick_led_html, dirty_strings):
     )
 
 
-def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, view=None):
+def render(
+        ctx, scope=SCOPE_ALL, errors=None, submitted=None, view=None, embedded=False):
     """Render one settings page (SCOPE_ALL/SCOPE_DISPLAY/SCOPE_DEVICE) —
     a short orchestrator over the per-scope/per-group assembly helpers
     above.
@@ -759,6 +760,9 @@ def render(ctx, scope=SCOPE_ALL, errors=None, submitted=None, view=None):
     else:
         pieces = _render_all_scope(groups, builders)
 
+    if embedded:
+        # The Console Fleet view supplies its own block heading.
+        pieces["header"] = ""
     return _settings_page_html(pieces, quick_led_html, dirty_strings)
 
 

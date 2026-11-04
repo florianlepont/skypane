@@ -1887,6 +1887,61 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   }
 }
 
+/* The System tile of the Console Fleet strip: a round badge instead of the
+ * frame picture. */
+.frame-tile__pic--system {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.frame-tile__pic--system i {
+  border-radius: 50%;
+}
+
+/* The blocks of the selected frame (or the System view): stacked on a phone,
+ * two columns of block cards from 1000px. The embedded page content brings its
+ * own cards and forms; a block only frames them. */
+.fleet-blocks {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  margin: 0 0 var(--space-lg);
+}
+
+.fleet-block {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.fleet-block > .text-heading {
+  margin: 0 0 var(--space-sm);
+}
+
+.fleet-block__fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-sm);
+}
+
+@media (min-width: 1000px) {
+  .fleet-blocks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: flex-start;
+  }
+
+  .fleet-block--wide {
+    grid-column: 1 / -1;
+  }
+}
+
 /* The strip an administrator sees on a personal page of someone else's frame:
  * who owns it and the way back to Fleet. Wraps rather than overflows. */
 .frame-notice {

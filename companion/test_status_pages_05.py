@@ -504,7 +504,7 @@ def test_shell_has_no_theme_or_language_form_and_account_has_both_in_order():
 def test_french_shell_nav_reads_the_locked_french_labels():
     """under lang='fr' the personal nav reads Accueil/Historique des vols/Lieu et détection/
     Personnalisation/Collection de compagnies and the Console nav reads Flotte/Utilisateurs/
-    Outils du cadre/État/Appareil/Éditeur de compagnies"""
+    Éditeur de compagnies"""
     try:
         prefs.set_request_prefs(lang="fr")
         personal = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
@@ -514,25 +514,27 @@ def test_french_shell_nav_reads_the_locked_french_labels():
     for label in ("Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
                   "Collection de compagnies"):
         assert label in personal, "expected the French nav label %r in the personal shell" % (label,)
-    for label in ("Flotte", "Utilisateurs", "Outils du cadre", "État", "Appareil",
-                  "Éditeur de compagnies"):
+    for label in ("Flotte", "Utilisateurs", "Éditeur de compagnies"):
         assert label in console, "expected the French nav label %r in the Console shell" % (label,)
 
 
-def test_frame_tools_group_renders_in_both_console_nav_copies():
-    """the Console's Frame tools group (Health, Device, Airline editor) and the nav status dot
-    always render, in both the sidebar and the bottom tab bar, on a plain request"""
+def test_console_nav_copies_carry_the_airline_editor_and_the_status_dot_on_fleet():
+    """the Console's sidebar and bottom tab bar both link the Airline editor, carry no Frame
+    tools group or Health and Device entries, and show the nav status dot on Fleet"""
     rendered = layout.page_shell(
         title="Fleet", active="fleet", body="", ui_theme="auto", health_alert="warn",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     sidebar = rendered[rendered.index('<nav class="sidebar-nav"'):rendered.index("</aside>")]
-    assert str(layout.FRAME_TOOLS_LABEL) in sidebar
+    assert str(layout.FRAME_TOOLS_LABEL) not in sidebar
     bar_start = rendered.index('<nav class="tab-bar"')
     bar = rendered[bar_start:rendered.index("</nav>", bar_start)]
     for route in (layout.HEALTH_ROUTE, layout.DEVICE_ROUTE):
-        assert ('href="%s"' % route) in sidebar, "expected a %s href in the sidebar copy" % route
-        assert ('href="%s"' % route) in bar, "expected a %s href in the tab bar copy" % route
-    assert layout.NAV_NOTIFICATION_CLASS in rendered
+        assert ('href="%s"' % route) not in sidebar
+        assert ('href="%s"' % route) not in bar
+    assert 'href="%s"' % layout.AIRLINE_EDITOR_ROUTE in sidebar
+    assert 'href="%s"' % layout.AIRLINE_EDITOR_ROUTE in bar
+    fleet = sidebar[sidebar.index('href="/fleet"'):]
+    assert layout.NAV_NOTIFICATION_CLASS in fleet[:fleet.index("</a>")]
 
 
 # ==========================================================================

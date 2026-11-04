@@ -1082,18 +1082,16 @@ def _registry_block_html(registry_rows, now):
             _registry_section(registry_rows, now)))
 
 
-def render(ctx):
-    ctx = page_context.coerce(ctx)
+def _page_parts(ctx):
+    """Everything the Health page and the Console Fleet blocks are built
+    from, computed once per request: the frame's connection status, the
+    health state, the banner markup and the rows of both groups. None for a
+    frame that never checked in."""
     state_dir = ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
     status = _device_status(ctx, now)
     if status == device_scope.STATUS_NEVER_SEEN:
-        return (
-            '<div class="status-page">'
-            + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
-            + layout.empty_state(
-                i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
-            + "</div>")
+        return None
 
     # Reuse the state build_page_context() already computed, rather than
     # re-deriving it. Falls back to a fresh compute for a direct caller.
@@ -1104,8 +1102,9 @@ def render(ctx):
     anomalies = state["anomalies"]
     banner_html = (
         _anomaly_banner_html(severity, anomalies) if severity != "ok" else "")
-    if status == device_scope.STATUS_OFFLINE:
-        banner_html = _device_unreachable_html(ctx, now) + banner_html
+    unreachable_html = (
+        _device_unreachable_html(ctx, now) if status == device_scope.STATUS_OFFLINE
+        else "")
 
     # Registry (filesystem/JSON) and stats (SQLite) stay independent
     # reads. Reuses state["registry_rows"] when already computed.
@@ -1122,27 +1121,72 @@ def render(ctx):
     screen_rows = (
         _connection_row(state, now)
         + _battery_row(state, ctx.battery_critical, ctx.device))
-    server_group_html = ""
-    registry_html = ""
-    source_fault_html = ""
-    dialog_html = ""
+    parts = {
+        "now": now, "state": state, "banner_html": banner_html,
+        "unreachable_html": unreachable_html, "screen_rows": screen_rows,
+        "server_group_html": "", "registry_html": "", "source_fault_html": "",
+        "dialog_html": ""}
     if user_view.platform_visible():
-        server_group_html = _server_group_html(state, stats, registry_rows, now)
-        registry_html = _registry_block_html(registry_rows, now)
-        source_fault_html = _source_fault_block(state["source_fault_raw"])
-        dialog_html = _resolve_dialog_html(ctx, registry_rows)
+        parts["server_group_html"] = _server_group_html(state, stats, registry_rows, now)
+        parts["registry_html"] = _registry_block_html(registry_rows, now)
+        parts["source_fault_html"] = _source_fault_block(state["source_fault_raw"])
+        parts["dialog_html"] = _resolve_dialog_html(ctx, registry_rows)
+    return parts
+
+
+def _never_seen_html():
+    return layout.empty_state(
+        i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
+
+
+def render(ctx):
+    ctx = page_context.coerce(ctx)
+    parts = _page_parts(ctx)
+    if parts is None:
+        return (
+            '<div class="status-page">'
+            + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
+            + _never_seen_html()
+            + "</div>")
     rows_card_html = health_rows.card_html(
         health_rows.group_html(
-            SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), screen_rows)
-        + server_group_html)
-
+            SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), parts["screen_rows"])
+        + parts["server_group_html"])
     return (
         '<div class="status-page">'
         + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
-        + source_fault_html
-        + banner_html
+        + parts["source_fault_html"]
+        + parts["unreachable_html"] + parts["banner_html"]
         + rows_card_html
-        + registry_html
-        + dialog_html
+        + parts["registry_html"]
+        + parts["dialog_html"]
         + "</div>"
     )
+
+
+def frame_state_html(ctx):
+    """The State block of one frame on the Console Fleet view: the
+    unreachable notice, its connection and battery rows and its last
+    detection, built from the same snapshot as the Health page. A frame that
+    never checked in gets the Health page's empty state."""
+    ctx = page_context.coerce(ctx)
+    parts = _page_parts(ctx)
+    if parts is None:
+        return _never_seen_html()
+    rows = parts["screen_rows"] + _flight_data_row(parts["state"], parts["now"])
+    return parts["unreachable_html"] + health_rows.card_html(rows)
+
+
+def system_html(ctx):
+    """The System view of the Console Fleet page: the platform-wide
+    information of the Health page (source fault, anomaly banner, flight data,
+    ADS-B sources, identification, backups and the unresolved-airline
+    registry)."""
+    ctx = page_context.coerce(ctx)
+    parts = _page_parts(ctx)
+    if parts is None or not parts["server_group_html"]:
+        return ""
+    return (
+        parts["source_fault_html"] + parts["banner_html"]
+        + health_rows.card_html(parts["server_group_html"])
+        + parts["registry_html"] + parts["dialog_html"])

@@ -682,7 +682,8 @@ def compute_next_wake_text(ctx):
     return text, state == frame_state.STATE_HELD
 
 
-def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None):
+def update_page(
+        ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False):
     """The page body: `layout.page_header()`, then the rollback warning
     (when the last outcome was a rollback), the call-to-action card
     (running version and its install time, or the newer release to
@@ -694,7 +695,8 @@ def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None):
     selects the quiet-hours wording for that sentence. `type_choice` (a
     `TypeChoice`) adds the type chooser when it is shown and the hidden
     type field to every action form when needed; None renders the
-    single-type page, byte for byte.
+    single-type page, byte for byte. `embedded` drops the page header (the
+    Console Fleet view supplies its own block heading).
     """
     ctx = page_context.coerce(ctx)
     releases = _owner_releases(view)
@@ -705,7 +707,7 @@ def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None):
         if type_choice.chooser:
             chooser_html = _type_chooser_html(type_choice)
     return (
-        layout.page_header(i18n.t(_NAV_UPDATE_TEXT))
+        ("" if embedded else layout.page_header(i18n.t(_NAV_UPDATE_TEXT)))
         + chooser_html
         + _rollback_banner_html(view)
         + _cta_card_html(ctx, view, releases, next_wake_text, wake_held)
@@ -713,7 +715,7 @@ def update_page(ctx, view, next_wake_text, wake_held=False, type_choice=None):
     )
 
 
-def render(ctx, requested_type=None):
+def render(ctx, requested_type=None, embedded=False):
     """companion/routes.py's GET /update entry point: loads the registry
     and device report fresh from `ctx.state_dir`, derives the next-wake
     clock text via `compute_next_wake_text()`, and renders `update_page()`.
@@ -728,4 +730,4 @@ def render(ctx, requested_type=None):
     registry = firmware_registry.load_registry(state_dir, choice.selected)
     view = firmware_registry.update_view(registry, device_report, now)
     next_wake_text, wake_held = compute_next_wake_text(ctx)
-    return update_page(ctx, view, next_wake_text, wake_held, choice)
+    return update_page(ctx, view, next_wake_text, wake_held, choice, embedded)

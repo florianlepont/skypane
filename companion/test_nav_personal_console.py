@@ -25,14 +25,11 @@ PERSONAL_SIDEBAR_EN = [
 PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
     "Collection de compagnies", "Compte"]
-CONSOLE_BAR_EN = ["Fleet", "Users", "Health", "Device"]
-CONSOLE_BAR_FR = ["Flotte", "Utilisateurs", "État", "Appareil"]
-CONSOLE_SIDEBAR_EN = [
-    "Fleet", "Users", "Health", "Device", "Airline editor", "Audit log", "Releases",
-    "Account"]
+CONSOLE_BAR_EN = ["Fleet", "Users", "Airlines", "Audit"]
+CONSOLE_BAR_FR = ["Flotte", "Utilisateurs", "Compagnies", "Audit"]
+CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Airline editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [
-    "Flotte", "Utilisateurs", "État", "Appareil", "Éditeur de compagnies",
-    "Journal d’audit", "Versions", "Compte"]
+    "Flotte", "Utilisateurs", "Éditeur de compagnies", "Journal d’audit", "Compte"]
 
 
 @pytest.fixture
@@ -148,11 +145,9 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
     cells, sheet, _bar = _bar_parts(page)
     assert [text for _href, text in cells] == bar_labels
     assert [href for href, _text in _unscoped(cells)] == [
-        "/fleet", "/users", "/health", "/device"]
-    assert [href for href, _text in _unscoped(sheet)] == [
-        "/", "/airlines/manage", "/audit", "/update", "/account"]
-    assert [text for _href, text in sheet][1:] == [
-        sidebar_labels[4], sidebar_labels[5], sidebar_labels[6], sidebar_labels[7]]
+        "/fleet", "/users", "/airlines/manage", "/audit"]
+    assert [href for href, _text in _unscoped(sheet)] == ["/", "/account"]
+    assert [text for _href, text in sheet][1:] == [sidebar_labels[4]]
 
     sidebar = _sidebar_anchors(page)
     assert [text for _href, text in sidebar] == sidebar_labels
@@ -165,7 +160,7 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
         status, markup = _get(server, cookies["admin"], path)
         assert status == 200, path
         sidebar = _nav(markup, '<nav class="sidebar-nav"')
-        assert "Administration" in sidebar and "Frame tools" in sidebar
+        assert "Administration" in sidebar and "Frame tools" not in sidebar
         aside = markup[markup.index("<aside"):markup.index("</aside>")]
         assert 'class="space-switch__segment" href="/"' in aside
         assert ">My frame<" in aside
@@ -173,14 +168,13 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
             text: href for href, text in _anchors(sidebar)
             if re.sub(r"^/devices/[^/]+", "", href) in (
                 "/health", "/device", "/airlines/manage")}
-        assert len(tools) == 3
+        # Health and Device are folded into the Fleet view; only the editor stays.
+        assert list(tools) == ["Airline editor"]
         expected_prefix = server.frame_prefix if path.startswith("/devices/") else ""
         assert all(href.startswith(expected_prefix + "/") for href in tools.values())
-        assert all(
-            href.startswith(server.frame_prefix + "/") for href in tools.values()
-        ) == path.startswith("/devices/")
         active = re.findall(r'sidebar-link--active" href="([^"]+)"', sidebar)
-        assert [re.sub(r"^/devices/[^/]+", "", href) for href in active] == [page]
+        expected_active = page if page == "/airlines/manage" else "/fleet"
+        assert [re.sub(r"^/devices/[^/]+", "", href) for href in active] == [expected_active]
 
 
 def test_the_airline_editor_and_health_are_not_reachable_from_a_user_navigation(served):

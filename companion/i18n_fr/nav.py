@@ -43,6 +43,7 @@ MESSAGES = {
     # The Console bar's short label for the Audit log page, and the space
     # switch between the Console and the administrator's own views.
     "nav.audit_short": "Audit",
+    "nav.airlines_short": "Compagnies",
     "nav.my_frame": "Mon cadre",
     "nav.console": "Console",
     "nav.space": "Espace",

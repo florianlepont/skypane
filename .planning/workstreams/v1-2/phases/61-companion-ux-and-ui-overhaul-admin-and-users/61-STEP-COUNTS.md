@@ -35,10 +35,10 @@ the L2 test (the test context grants it in advance).
 | A1 | Read fleet state | 2 | 0 | 0 | -2 | yes |
 | A2 | Invite a user | ~5 | 4 | 4 | -1 | yes |
 | A3 | Pair a frame | ~6 | 4 | 4 | -2 | yes |
-| A4 | Retire | ~4 | 3 | 3 | -1 | yes |
-| A4 | Reassign | ~4 | 4 | 4 | 0 | yes (equal) |
-| A5 | Add a co-manager | ~5 | 4 | 4 | -1 | yes |
-| A6 | Read the audit log | 2 | 1 | 2 | 0 | NO, one over the 1-tap target (see notes) |
+| A4 | Retire | ~4 | 3 | 4 | 0 | NO, one over target: the frame list now sits below the Fleet blocks, so a phone user scrolls to the row menu first (plan 61-42) |
+| A4 | Reassign | ~4 | 4 | 5 | +1 | NO, one over target, same scroll to the list (plan 61-42) |
+| A5 | Add a co-manager | ~5 | 4 | 5 | 0 | NO, one over target, same scroll to the list; the Access block of the selected frame offers the same forms inline with no menu (plan 61-42) |
+| A6 | Read the audit log | 2 | 1 | 1 | -1 | yes (Audit is a Console bar cell since plan 61-42) |
 | U1 | Sign in | ~4, ends on Account | 4, ends on Home | 4, ends on Home | 0 (lands on the right page) | yes |
 | U2 | See my frames, one frame | 1 (wrong page) | 0 | 0 | -1 | yes |
 | U3 | Understand a frame's state | ~3 | 0 | 0 (the dot on Home) | -3 | yes |
@@ -57,15 +57,15 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 |---|------|--------|--------|------------------|-------|-----|
 | U4a | Quiet-hours start from Home (tap the schedule, the start time, Save) | 4 (old U4) | 3 | 3 | -1 | yes |
 | U4b | Change the look (Personalisation tab, tap a look, Save) | 5 (old U4 look) | 3 | 3 | -2 | yes |
-| U4c | Administrator changes the refresh interval (Console Device tab, the interval, Save) | not measured, new flow | 3 | 3 | n/a | yes |
+| U4c | Administrator changes the refresh interval (Settings block of the Fleet view: scroll, the interval, Save) | not measured, new flow | 3 | 3 | n/a | yes |
 | L1 | Pick an airport from the list (Location tab, type in the filter, tap the airport, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 5 (was 6 before plan 61-41) | n/a | yes |
 | L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 3 (was 4 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
 | S2 | Switch frame (one tile tap, D30) | 1 (drop-down, then a row) | 2 | 1 | n/a | yes |
-| A7 | Fleet frame name to the Console Health | not measured, new flow | 1 | 1 | n/a | yes |
-| A8 | Rename an airline in the Airline editor, from the Console (More, Airline editor, the airline, the name, Save name) | not measured, new flow | at least 5 on a phone | 5 on a phone | n/a | yes (desktop is one fewer, see notes) |
+| A7 | Fleet frame name to the Console Health | not measured, new flow | 1 | 2 | n/a | NO, one over target (scroll to the list below the blocks, plan 61-42) |
+| A8 | Rename an airline in the Airline editor, from the Console (Airline editor bar cell, the airline, the name, Save name) | not measured, new flow | at least 4 on a phone | 4 on a phone | n/a | yes (desktop is one fewer, see notes) |
 | V1 | Airline collection, phone (More, Airline collection) | not measured, new flow | 2 | 2 | n/a | yes |
 | V1 | Airline collection, desktop (sidebar link) | not measured, new flow | 1 | 1 | n/a | yes |
 | U2 several | Reach another frame (one tile tap, D30) | 1 (open the drop-down) | 1 in the first round, 2 after the card sheet | 1 | 0 | the tile strip (D30) removed the card sheet's extra tap |
@@ -110,3 +110,12 @@ Measured paths (360 x 844):
   landing page (status dots with accessible names, no frame switcher, the Home dot) instead
   of a count above zero.
 - Not measured: the other personal pages' own tasks, and the desktop counts other than V1.
+
+## Plan 61-42 (Console Fleet merges Fleet, Status, Version, Device)
+
+The Console bar cells are Fleet, Users, Airline editor and Audit (More holds the
+space switch and Account), so A6 and A8 lose the More tap. The wake interval is in the
+Settings block of the Fleet view (U4c has no navigation tap). The frame list with the
+row menus (reassign, retire, re-activate, Manage access) stays under the blocks, so A4,
+A5 and A7 each gain one scroll on a phone: an open item for the owner (move the frame
+actions into the detail header, or place the list above the blocks).

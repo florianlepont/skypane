@@ -16,8 +16,8 @@ import re
 import sqlite3
 
 from companion import (
-    audit, co_managers, console_flash, device_scope, frame_state, i18n, route_types,
-    throttle, wake)
+    audit, co_managers, console_fleet_view, console_flash, device_scope, frame_state, i18n,
+    route_types, throttle, wake)
 from companion.pages import co_managers_card, fleet_page
 from server import device_config, device_dirs, fleet_db, fleet_ops, hardware, state_store
 
@@ -183,21 +183,29 @@ def build_view(state_dir, principal=None, **state):
         now=now, access=_access_views(state_dir, principal), **state)
 
 
-def _render(h, status=200, **state):
+def _page_body(h, query, state):
+    view = build_view(h.args.state_dir, principal=h._safe_principal(), **state)
+    return (
+        console_fleet_view.page_html(h, query, view.access)
+        + fleet_page.render(view))
+
+
+def _render(h, status=200, query=None, **state):
     from companion import console_routes
     return h._console_page(
         console_routes.FLEET_ROUTE, None,
-        lambda: fleet_page.render(build_view(
-            h.args.state_dir, principal=h._safe_principal(), **state)),
+        lambda: _page_body(h, query or {}, state),
         fleet_page.FLEET_PURPOSE, status=status,
-        action_html=fleet_page.header_action_html)
+        action_html=fleet_page.header_action_html,
+        scripts=console_fleet_view.page_scripts(
+            (query or {}).get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]))
 
 
 def handle_fleet_get(h, m):
     from urllib.parse import parse_qs, urlsplit
     query = parse_qs(urlsplit(h.path).query)
     return _render(
-        h, open_add_dialog=query.get(fleet_page.PAIR_QUERY_FLAG) == ["1"],
+        h, query=query, open_add_dialog=query.get(fleet_page.PAIR_QUERY_FLAG) == ["1"],
         open_access=(query.get(co_managers_card.ACCESS_QUERY) or [""])[0])
 
 

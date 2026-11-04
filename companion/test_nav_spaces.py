@@ -59,15 +59,14 @@ def test_admin_console_sidebar_follows_the_spec():
     sidebar = layout.sidebar_nav("users", health_alert="error", device_config={})
     prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        "/fleet", "/users", prefix + "/health", prefix + "/device",
-        prefix + "/airlines/manage", "/audit", "/update", "/account"]
+        "/fleet", "/users", prefix + "/airlines/manage", "/audit", "/account"]
     assert "space-switch" not in sidebar and ">Administration<" in sidebar
-    assert ">Frame tools<" in sidebar and "Advanced" not in sidebar
+    assert ">Frame tools<" not in sidebar and "Advanced" not in sidebar
     assert sidebar.count("sidebar-link--active") == 1
     assert 'href="/users" aria-current="page"' in sidebar
     assert sidebar.count("nav-notification") == 1
-    health = sidebar[sidebar.index('href="%s/health"' % prefix):]
-    assert "nav-notification" in health[:health.index("</a>")]
+    fleet = sidebar[sidebar.index('href="/fleet"'):]
+    assert "nav-notification" in fleet[:fleet.index("</a>")]
 
 
 def test_admin_bars_follow_the_spec():
@@ -75,13 +74,13 @@ def test_admin_bars_follow_the_spec():
     prefix = "/devices/abc123"
     console = ui_nav._tab_bar_html("fleet", health_alert="warn", device_config={"a": 1})
     cells = console.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == ["/fleet", "/users", prefix + "/health", prefix + "/device"]
-    assert "Audit log" in console and "Admin<" not in console
+    assert _hrefs(cells) == [
+        "/fleet", "/users", prefix + "/airlines/manage", "/audit"]
+    assert "Audit" in console and "Admin<" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'href="([^"]+)"', sheet) == [
-        "/", prefix + "/airlines/manage", "/audit", "/update", "/account"]
-    health_cell = cells[cells.index('href="%s/health"' % prefix):]
-    assert "nav-notification" in health_cell[:health_cell.index("</a>")]
+    assert re.findall(r'href="([^"]+)"', sheet) == ["/", "/account"]
+    fleet_cell = cells[cells.index('href="/fleet"'):]
+    assert "nav-notification" in fleet_cell[:fleet_cell.index("</a>")]
     summary = console[console.index("<summary"):console.index("</summary>")]
     assert "nav-notification" not in summary
 

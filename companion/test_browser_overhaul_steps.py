@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 1, "S2": 1, "A7": 1, "A8": 5, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 1, "S2": 1, "A7": 2, "A8": 4, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -232,7 +232,7 @@ def test_a4_retire_a_frame(world, new_context):
         steps.tap(dialog.locator("button[type=submit]"), "confirm Retire")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id) is None
-        _report("A4-retire", steps, 3)
+        _report("A4-retire", steps, 4)
     finally:
         context.close()
 
@@ -246,7 +246,7 @@ def test_a4_reassign_a_frame(world, new_context):
         steps.tap(dialog.locator("button[type=submit]"), "confirm Reassign")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id)["owner_user_id"] == world.seed.admin_id
-        _report("A4-reassign", steps, 4)
+        _report("A4-reassign", steps, 5)
     finally:
         context.close()
 
@@ -270,7 +270,7 @@ def test_a5_add_a_co_manager(world, new_context):
         finally:
             conn.close()
         assert members == [fx.USER_EMAIL]
-        _report("A5", steps, 4)
+        _report("A5", steps, 5)
     finally:
         context.close()
 
@@ -278,8 +278,7 @@ def test_a5_add_a_co_manager(world, new_context):
 def test_a6_read_the_audit_log(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a[href='/audit']"), "Audit log")
+        steps.tap(page.locator(".tab-bar a[href='/audit']"), "Audit log")
         page.wait_for_url("**/audit")
         assert page.locator("main h1").inner_text() == "Audit log"
         assert page.locator(".section-subnav").count() == 0
@@ -515,8 +514,8 @@ def test_l4_tap_the_map(world, new_context):
 def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/device']"), "Device tab")
-        page.wait_for_url("**/device")
+        # The wake interval sits in the Settings block of the Fleet view: only a
+        # scroll is needed to reach it.
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         field = page.locator("input[type=number][name=wake_interval_s]")
         target = "1500" if field.input_value() != "1500" else "1200"
@@ -553,7 +552,7 @@ def test_a7_the_fleet_name_opens_the_console_health(world, new_context):
         steps.tap(row.locator("a[href$='/health']").first, "frame name")
         page.wait_for_url("**/health")
         assert page.locator("main h1").inner_text().strip() == "Health"
-        _report_measured("A7", steps, 1)
+        _report_measured("A7", steps, 2)
     finally:
         context.close()
 
@@ -561,8 +560,7 @@ def test_a7_the_fleet_name_opens_the_console_health(world, new_context):
 def test_a8_rename_an_airline_in_the_editor(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a", has_text="Airline editor"), "Airline editor")
+        steps.tap(page.locator(".tab-bar a[href$='/airlines/manage']"), "Airline editor")
         page.wait_for_url("**/airlines/manage")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         steps.tap(page.locator('.airline-row[data-view-panel-sheet-key="air-france"]'), "the airline")
@@ -574,7 +572,7 @@ def test_a8_rename_an_airline_in_the_editor(world, new_context):
             "() => document.readyState === 'complete' && document.body.innerText.includes("
             "'Airline name saved')", timeout=15000)
         assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
-        _report_measured("A8", steps, 5)
+        _report_measured("A8", steps, 4)
     finally:
         context.close()
 

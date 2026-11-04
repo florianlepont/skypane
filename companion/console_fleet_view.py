@@ -1,0 +1,182 @@
+"""The Console Fleet page's frame selector and the views it opens.
+
+A strip of tiles lists every frame (picture, name, status dot, last-seen
+word), an "Add a screen" tile that opens the pairing flow and a last "System"
+tile. A tile is a plain link to `/fleet?frame=<id>` (or `/fleet?view=system`),
+so the selection needs no script. The selected frame opens four blocks: State,
+Device and version, Settings and Access. Each block reuses the content of the
+page that used to hold it (Health, Update, Device, Manage access) with the
+same forms and POST routes. The System view holds the platform-wide part of
+the Health page.
+
+Selection is read from the query only to pick one of the frames the request
+scope already lists; a value matching none falls back to the first frame, so
+no request text reaches a path, a query or a filesystem call.
+"""
+from companion import device_scope, i18n
+from companion.pages import co_managers_card
+from companion.ui_base import escape_html
+from server import hardware, history_db
+
+FRAME_QUERY = "frame"
+VIEW_QUERY = "view"
+VIEW_SYSTEM = "system"
+SYSTEM_HREF = "/fleet?%s=%s" % (VIEW_QUERY, VIEW_SYSTEM)
+FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
+
+
+
+def page_scripts(system=False):
+    """The scripts the embedded blocks need: the settings form's dirty bar and
+    value controls, plus the Health registry table's copy, filter and lookup
+    helpers on the System view only."""
+    from companion import ui_base
+    base = (ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.VALUE_CONTROLS_SCRIPT_SRC)
+    if not system:
+        return base
+    return (
+        ui_base.COPY_BUTTON_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC,
+        ui_base.PANEL_LOOKUP_SCRIPT_SRC) + base
+
+
+def _shell():
+    # Imported on use: companion.ui_shell loads while the console routes are
+    # still importing this module.
+    from companion import ui_shell
+    return ui_shell
+
+
+_SYSTEM_TEXT = i18n.msg("admin_fleet.system_tile", "System")
+_SYSTEM_SEEN_TEXT = i18n.msg("admin_fleet.system_tile_detail", "Sources and backups")
+_SYSTEM_HEADING = i18n.msg("admin_fleet.system_heading", "System")
+_STATE_HEADING = i18n.msg("admin_fleet.block_state", "State")
+_DEVICE_HEADING = i18n.msg("admin_fleet.block_device_version", "Device and version")
+_SETTINGS_HEADING = i18n.msg("admin_fleet.block_settings", "Settings")
+_ACCESS_HEADING = i18n.msg("admin_fleet.block_access", "Access")
+_MODEL_LABEL = i18n.msg("admin_fleet.block_model", "Model")
+_SYSTEM_EMPTY = i18n.msg(
+    "admin_fleet.system_unavailable",
+    "No system information is available yet.")
+_ADD_FIRST = i18n.msg(
+    "admin_fleet.add_screen_first", "Add a screen to see its state and settings.")
+
+_ID_PREFIX_INLINE = "access-inline"
+
+
+def _esc(value):
+    return escape_html(value)
+
+
+def _t(message):
+    return _esc(i18n.t(message))
+
+
+def selection(query, devices):
+    """(selected device or None, is the System view) for a parsed query. The
+    System view is chosen only by the exact `view=system`; a frame is chosen
+    only when its id is one of `devices`; otherwise the first frame."""
+    if query.get(VIEW_QUERY) == [VIEW_SYSTEM]:
+        return None, True
+    wanted = (query.get(FRAME_QUERY) or query.get("access") or [""])[0]
+    for device in devices:
+        if device.id == wanted:
+            return device, False
+    return (devices[0] if devices else None), False
+
+
+def _system_tile_html(is_current):
+    return (
+        '<li><a class="%(cls)s %(cls)s--system" href="%(href)s"%(cur)s>'
+        '<span class="%(cls)s__pic %(cls)s__pic--system" aria-hidden="true"><i></i></span>'
+        '<span class="%(cls)s__name">%(name)s</span>'
+        '<span class="%(cls)s__seen">%(seen)s</span></a></li>') % {
+            "cls": _shell().FRAME_TILE_CLASS, "href": SYSTEM_HREF,
+            "cur": ' aria-current="true"' if is_current else "",
+            "name": _t(_SYSTEM_TEXT), "seen": _t(_SYSTEM_SEEN_TEXT)}
+
+
+def strip_html(entries, selected, is_system):
+    """The tile strip: one tile per entry (a `device_scope.SwitcherEntry`),
+    the Add a screen tile and the System tile."""
+    ui_shell = _shell()
+    now = device_scope.now_epoch()
+    tiles = "".join(
+        ui_shell.frame_tile_html(
+            entry.device, FRAME_HREF_PREFIX + entry.device.id,
+            selected is not None and entry.device.id == selected.id, now,
+            ui_shell.tile_note(entry))
+        for entry in ui_shell.console_ordered(entries, now))
+    tiles += ui_shell.add_tile_html() + _system_tile_html(is_system)
+    return '<ul class="%s" aria-label="%s">%s</ul>' % (
+        ui_shell.FRAME_TILES_CLASS, _t(ui_shell.STRIP_ARIA_TEXT), tiles)
+
+
+def _block(heading_msg, body_html, extra_class=""):
+    if not body_html:
+        return ""
+    return (
+        '<section class="fleet-block%s"><h3 class="text-heading">%s</h3>%s</section>' % (
+            extra_class, _t(heading_msg), body_html))
+
+
+def _model_html(device):
+    profile = hardware.REGISTRY.get(device.hardware_type)
+    label = profile.label if profile is not None else device.hardware_type
+    return (
+        '<p class="fleet-block__fact"><span class="text-label">%s</span>'
+        '<span>%s</span></p>' % (_t(_MODEL_LABEL), _esc(label)))
+
+
+def _access_html(device, access_views):
+    view = dict(access_views).get(device.id)
+    if view is None:
+        return ""
+    return co_managers_card.access_section_html(
+        view, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE)
+
+
+def frame_html(ctx, device, access_views):
+    """The four blocks of one frame. `ctx` is the page context built for
+    `device`, whose state directory the History reads must be scoped to."""
+    from companion.pages import config_page, health_page, update_page
+    with history_db.connection_scope(device.state_dir):
+        blocks = (
+            _block(_STATE_HEADING, health_page.frame_state_html(ctx))
+            + _block(
+                _DEVICE_HEADING,
+                _model_html(device) + update_page.render(
+                    ctx, device.hardware_type, embedded=True))
+            + _block(
+                _SETTINGS_HEADING,
+                config_page.render(ctx, scope=config_page.SCOPE_DEVICE, embedded=True))
+            + _block(_ACCESS_HEADING, _access_html(device, access_views)))
+    return '<div class="fleet-blocks">%s</div>' % blocks
+
+
+def system_html(ctx):
+    """The System view for `ctx` (the live frame's context)."""
+    from companion.pages import health_page
+    with history_db.connection_scope(ctx.state_dir):
+        body = health_page.system_html(ctx)
+    return '<div class="fleet-blocks fleet-blocks--system">%s</div>' % _block(
+        _SYSTEM_HEADING, body or '<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY),
+        " fleet-block--wide")
+
+
+def page_html(h, query, access_views):
+    """The strip and the selected view. Sets the request scope to the
+    selected frame (the embedded forms post to its own /devices/<id> routes)."""
+    root = h.args.state_dir
+    principal = h._safe_principal()
+    devices = device_scope.load_devices_for(root, principal)
+    selected, is_system = selection(query, devices)
+    scope_device = selected or (devices[0] if devices else None)
+    device_scope.set_request_scope(
+        scope_device, devices, getattr(principal, "user_id", None), root)
+    entries = device_scope.console_frame_entries()
+    strip = strip_html(entries, selected, is_system)
+    if is_system:
+        return strip + system_html(h.page_context(device_scope.live_device(root)))
+    if selected is None:
+        return strip + '<p class="text-label">%s</p>' % _t(_ADD_FIRST)
+    return strip + frame_html(h.page_context(selected), selected, access_views)

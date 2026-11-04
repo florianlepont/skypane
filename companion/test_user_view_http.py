@@ -393,7 +393,7 @@ def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
     assert "/device" not in personal and "/health" not in personal
     console = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/health" % own, "admin"))]
     assert "/fleet" in console
-    assert "/device" in console
+    assert "/device" not in console
 
 
 def test_a_user_quick_toggle_changes_their_frame_and_returns_to_it(rig):
