@@ -164,3 +164,9 @@ Larger redesigns (new design work, owner decision on scope):
   role editable in the row and saved at once, an Active switch, a "..." menu
   for rare actions (unlink identity, resend invitation, delete); phone shows
   cards. Mockups: scratchpad/sketches (u1, u1t).
+- D33 (owner) Console Airlines editor = mockup E1 (table, name editable in
+  place, artwork thumbnails, prefixes, views, unidentified airlines on top).
+  A toggle lets the table manage several aircraft types per airline (one
+  artwork per type) or a single artwork per airline. The row "..." menu holds
+  the rare actions: edit callsign prefixes, reset to SkyPane's name, delete
+  my name, open the artwork full size.

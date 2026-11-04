@@ -15,6 +15,7 @@ history guard) and is committed on its own.
 | 61-40 | Airline collection: sort/filter bar integrated (auto-submit select, no clipped Apply button, no-script fallback keeps a button), rarity colours on rare airlines and aircraft | W11, W12 |
 | 61-42 | Console Fleet: tile strip + frame detail view + System tile, replaces Fleet, Status, Version, Device tabs | D31, W18 |
 | 61-43 | Console Users as table (U1), manage modal removed | D32, W19 |
+| 61-44 | Console Airlines editor as table (E1) with per-type toggle | D33, W20 |
 | 61-41 | Location page rebuilt as sketch V1 (full-screen map, mode switch, bottom sheet / floating left card, derived coordinates and time zone, no-script form kept) | D28 |
 
 Constraints: unchanged from earlier plans (phase-47 files and `hardware/`
