@@ -140,7 +140,16 @@ Exceptions (all already present in the stylesheet, none new in kind):
   grab handle, `max-height: 88vh`, bottom padding adds `env(safe-area-inset-bottom)`.
 - Status dot is 12px (`.dot`) in lists and 14px (`.home-state__dot`) on Home, as today.
 
-Layout widths: content column unchanged. Lists (fleet, users, my frames) are a single column,
+Console Users (D32, revision 3, mockup U1): the Manage user modal is gone. From 1100px the page is a
+table (User with avatar initial and email, Role select, Frames, Last sign-in, Active switch, "..." menu);
+below 70rem each user is a card with the same controls. The role select saves as soon as it changes
+(`data-autosubmit`, a normal form submit; without script a small "Save role" button shows), the Active
+switch posts disable or enable, and the "..." menu (native `<details class="row-menu">`, Escape closes) holds only the
+rare actions that exist as routes (Unlink identity, shown for users who have signed in). The guards
+stay: the signed-in administrator and the last active administrator show the guard sentence instead of
+the select and a locked switch.
+
+Layout widths: content column unchanged. Lists (fleet, my frames) are a single column,
 `max-width: 56rem` inside the page card at >=960px. No horizontal scrolling anywhere at 360px
 (page and every card: `scrollWidth <= clientWidth`).
 
@@ -198,10 +207,10 @@ Accent is never used for: status dots, the row menu button, close buttons, secon
 pills.
 
 Destructive actions (red): Retire frame, Re-activate frame (it erases data), Reassign frame for a
-frame that is not the served frame (it erases data), Disable user, Unlink identity, Leave this frame, Remove co-manager, the special-look "Remove" (Personalisation) and the manual-resolution
+frame that is not the served frame (it erases data), Unlink identity, Leave this frame, Remove co-manager, the special-look "Remove" (Personalisation) and the manual-resolution
 delete (Airline editor). Each confirms in a dialog with a named dismiss label, like the other destructive dialogs ("Keep special look" / "Garder le look spécial";
 "Keep resolution" / "Garder la résolution"; initial focus on the dismiss control).
-Reassign of the served frame, Save role, Add co-manager, Pair frame, Invite user are non-destructive.
+Reassign of the served frame, Save role (the role select saves on change), the Active switch (disable and enable, no confirmation, as before), Add co-manager, Pair frame, Invite user are non-destructive.
 
 Dark theme: the modal, sheet handle and scrim use `--color-dominant`, `--color-border`,
 `--color-scrim`; dots keep the dark-theme status values. The contrast gates in

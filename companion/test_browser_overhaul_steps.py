@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 1, "S2": 1, "A7": 2, "A8": 4, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 1, "S2": 1, "A7": 2, "A8": 4, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -573,6 +573,30 @@ def test_a8_rename_an_airline_in_the_editor(world, new_context):
             "'Airline name saved')", timeout=15000)
         assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
         _report_measured("A8", steps, 4)
+    finally:
+        context.close()
+
+
+def test_a9_change_a_users_role_in_the_users_table(world, new_context):
+    context, page, steps = _admin(world, new_context)
+    try:
+        steps.tap(page.locator(".tab-bar a[href='/users']"), "Users tab")
+        page.wait_for_url("**/users")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        select = page.locator("#user-%d select[name=role]" % world.seed.owner_id)
+        steps.choose(select, "Administrator", "role")
+        conn = fleet_db.connect(world.state_dir)
+        try:
+            for _ in range(100):
+                row = conn.execute(
+                    "SELECT role FROM users WHERE id = ?", (world.seed.owner_id,)).fetchone()
+                if row["role"] == "admin":
+                    break
+                page.wait_for_timeout(50)
+        finally:
+            conn.close()
+        assert row["role"] == "admin"
+        _report_measured("A9", steps, 2)
     finally:
         context.close()
 

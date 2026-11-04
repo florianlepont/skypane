@@ -57,6 +57,7 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 |---|------|--------|--------|------------------|-------|-----|
 | U4a | Quiet-hours start from Home (tap the schedule, the start time, Save) | 4 (old U4) | 3 | 3 | -1 | yes |
 | U4b | Change the look (Personalisation tab, tap a look, Save) | 5 (old U4 look) | 3 | 3 | -2 | yes |
+| A9 | Administrator changes a user's role (Users tab, choose the role in the row; the select saves at once, plan 61-43) | 4 (Users tab, Manage user, choose, Save role) | 2 | 2 | -2 | yes |
 | U4c | Administrator changes the refresh interval (Settings block of the Fleet view: scroll, the interval, Save) | not measured, new flow | 3 | 3 | n/a | yes |
 | L1 | Pick an airport from the list (Location tab, type in the filter, tap the airport, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |

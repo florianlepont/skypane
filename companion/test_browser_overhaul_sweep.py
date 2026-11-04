@@ -219,7 +219,6 @@ CASES = (
     _case("admin", "/fleet", "dlg-access-{slug}", "fleet-access-dialog"),
     _case("admin", "/users", None, "users"),
     _case("admin", "/users", "dlg-invite-user", "users-invite-dialog"),
-    _case("admin", "/users", "dlg-user-{owner_user}", "users-manage-dialog"),
     _case("admin", "/locations", None, "locations"),
     _case("admin", "/audit", None, "audit"),
     _case("admin", "/update", None, "releases"),
@@ -309,7 +308,7 @@ def test_reworked_pages_hold_the_layout_rules(
             problems.append(overflow)
         report = page.evaluate(_STRUCTURE, {
             "phone": viewport["width"] < 960,
-            "list": path in ("/fleet", "/users")})
+            "list": path == "/fleet"})
         problems.extend(report["bad"])
         problems.extend(page.evaluate(_TARGETS, _target_scopes(dialog, viewport)))
         if persona != "admin":

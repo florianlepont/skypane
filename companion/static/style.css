@@ -9465,24 +9465,6 @@ a.entity-row__button:hover {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 
-/* One independent form inside a multi-section dialog. */
-.modal__section {
-  display: grid;
-  gap: var(--space-sm);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.modal__section:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.modal__section-title,
-.modal__section > p {
-  margin: 0;
-}
-
 .quiet-timezone-note {
   margin: var(--space-md) 0 0;
 }
@@ -10206,5 +10188,252 @@ button.look-sheet__save:hover {
 @media (min-width: 1280px) {
   .collection-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* Users table ----------------------------------------------------------
+ * One <table> of users. Below 70rem every row is a card: avatar and
+ * email with the "..." menu on top, the role select and the Active switch
+ * under it, frames and last sign-in at the bottom. */
+.users-table,
+.users-table tbody {
+  display: block;
+}
+
+.users-table thead {
+  display: none;
+}
+
+.users-table .users-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "user user"
+    "role active"
+    "frames seen";
+  position: relative;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.users-cell {
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.users-cell--user {
+  grid-area: user;
+  padding-right: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.users-cell--role { grid-area: role; }
+.users-cell--active { grid-area: active; justify-self: end; }
+.users-cell--menu {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-sm);
+}
+
+.users-cell--frames {
+  grid-area: frames;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-cell--seen {
+  grid-area: seen;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.users-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.users-email {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.users-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.users-pills:empty {
+  display: none;
+}
+
+.users-role-form,
+.users-active-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.users-role-form select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.users-role-fixed {
+  display: block;
+  font-weight: var(--weight-semibold);
+}
+
+.users-guard {
+  display: block;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-table button.users-role-save {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-label-size);
+}
+
+.users-table button.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.users-menu__form {
+  margin: 0;
+}
+
+/* A submit button used as a menu entry: undo the primary-button look. */
+button.row-menu__item {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+}
+
+button.row-menu__item:hover {
+  background: var(--color-control-wash);
+  box-shadow: none;
+}
+
+button.row-menu__item--destructive,
+button.row-menu__item--destructive:hover {
+  color: var(--color-status-error);
+}
+
+.users-note {
+  margin: var(--space-md) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (min-width: 70rem) {
+  .users-table {
+    display: table;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--color-dominant);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  .users-table thead {
+    display: table-header-group;
+  }
+
+  .users-table tbody {
+    display: table-row-group;
+  }
+
+  .users-table .users-row {
+    display: table-row;
+    position: static;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .users-cell {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .users-col {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--font-label-size);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .users-table tbody .users-row:last-child .users-cell {
+    border-bottom: 0;
+  }
+
+  .users-cell--user {
+    display: table-cell;
+    padding-right: var(--space-md);
+  }
+
+  .users-col--user {
+    width: 34%;
+  }
+
+  .users-avatar {
+    display: inline-grid;
+    margin-right: var(--space-sm);
+  }
+
+  .users-who {
+    display: inline-flex;
+    vertical-align: middle;
+    max-width: calc(100% - 48px);
+  }
+
+  .users-cell--active .users-active-label {
+    display: none;
+  }
+
+  .users-cell--menu {
+    position: static;
   }
 }

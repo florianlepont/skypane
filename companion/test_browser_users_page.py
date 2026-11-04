@@ -1,8 +1,8 @@
-"""Real-browser flows of the Users page: invite in a few actions, a duplicate
-email refused with the dialog reopened, change a role, disable then enable,
-unlink an identity, the guard sentences, focus handling, the no-script hash
-links, and dialog and list geometry at 360 and 1280px in both languages and
-both themes."""
+"""Real-browser flows of the Users table: invite in a few actions, a duplicate
+email refused with the dialog reopened, a role that saves as soon as it
+changes, the Active switch, unlink from the "..." menu, the guard sentences,
+keyboard use of the menu, the no-script controls, and table and card geometry
+at 360 and 1280px in both languages and both themes."""
 import pytest
 
 import fleet_console_support as fx
@@ -21,6 +21,34 @@ _ACTIVE_IN = (
     "d => d.contains(document.activeElement)"
     " || document.activeElement === document.body")
 _FIT = "d => ({sw: d.scrollWidth, cw: d.clientWidth})"
+_OWNS_CENTRE = (
+    "s => { const e = document.querySelector(s); if (!e) return false;"
+    " const r = e.getBoundingClientRect();"
+    " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
+    " return hit === e || e.contains(hit); }")
+
+
+def _settled(page, selector="a.page-header__action"):
+    """Wait out the page-change transition: the document is complete and a
+    known control owns its own centre."""
+    page.wait_for_function("() => document.readyState === 'complete'")
+    page.wait_for_function(_OWNS_CENTRE, arg=selector, timeout=10000)
+
+
+def _body_text(page):
+    return page.locator("body").inner_text()
+
+
+def _row(page, email):
+    return page.locator("tr.users-row", has_text=email)
+
+
+def _wait_db(page, server, user_id, index, value):
+    for _ in range(100):
+        if _user(server, user_id)[index] == value:
+            return
+        page.wait_for_timeout(50)
+    raise AssertionError("user %d column %d never became %r" % (user_id, index, value))
 
 
 def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", scheme="light"):
@@ -51,17 +79,6 @@ def _user(server, user_id):
         server, "SELECT role, disabled, iss FROM users WHERE id = ?", (user_id,))[0]
 
 
-def _manage(page, user_id):
-    page.locator("a.entity-row__button[href='#dlg-user-%d']" % user_id).click()
-    dialog = page.locator("#dlg-user-%d" % user_id)
-    assert dialog.evaluate("d => d.open")
-    return dialog
-
-
-def _body_text(page):
-    return page.locator("body").inner_text()
-
-
 def test_invite_in_three_actions_with_role_defaulting_to_user(
         new_context, app_server_in_process):
     server = app_server_in_process
@@ -78,7 +95,7 @@ def test_invite_in_three_actions_with_role_defaulting_to_user(
         row = _sql(server, "SELECT role, iss FROM users WHERE email = ?",
                    ("new.person@example.test",))[0]
         assert row == ("user", None)
-        assert page.locator("li.entity-row", has_text="new.person@example.test").locator(
+        assert _row(page, "new.person@example.test").locator(
             ".banner__pill", has_text="Invited").count() == 1
     finally:
         context.close()
@@ -101,99 +118,113 @@ def test_a_duplicate_email_reopens_the_dialog_with_a_field_error(
         context.close()
 
 
-def test_change_a_role_from_the_manage_dialog(new_context, app_server_in_process):
+def test_change_a_role_saves_as_soon_as_the_select_changes(
+        new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        dialog = _manage(page, seed.owner_id)  # 1
-        dialog.locator("select[name=role]").select_option("admin")  # 2
-        dialog.get_by_role("button", name="Save role").click()  # 3
+        _settled(page)
+        row = _row(page, fx.OWNER_EMAIL)
+        assert row.locator(".users-role-save").count() == 0
+        row.locator("select[name=role]").select_option("admin")  # 1
+        _wait_db(page, server, seed.owner_id, 0, "admin")
         page.wait_for_url("**/users")
-        assert _user(server, seed.owner_id)[0] == "admin"
-        assert "Administrator · 0 frames" in page.locator(
-            "li.entity-row", has_text=fx.OWNER_EMAIL).inner_text()
+        _settled(page)
+        assert _row(page, fx.OWNER_EMAIL).locator("select").input_value() == "admin"
+        assert "Role saved" in page.locator('[role="status"]').first.inner_text()
     finally:
         context.close()
 
 
-def test_disable_then_enable_a_user(new_context, app_server_in_process):
+def test_the_active_switch_deactivates_then_reactivates_a_user(
+        new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        dialog = _manage(page, seed.owner_id)
-        dialog.get_by_role("button", name="Disable user").click()
-        page.wait_for_url("**/users")
-        assert _user(server, seed.owner_id)[1] == 1
-        assert page.locator("li.entity-row", has_text=fx.OWNER_EMAIL).locator(
+        _settled(page)
+        switch = "#user-%d button[role=switch]" % seed.owner_id
+        assert page.locator(switch).get_attribute("aria-checked") == "true"
+        page.locator(switch).click()
+        _wait_db(page, server, seed.owner_id, 1, 1)
+        _settled(page)
+        assert page.locator(switch).get_attribute("aria-checked") == "false"
+        assert _row(page, fx.OWNER_EMAIL).locator(
             ".banner__pill", has_text="Disabled").count() == 1
-        dialog = _manage(page, seed.owner_id)
-        assert dialog.get_by_role("button", name="Disable user").count() == 0
-        dialog.get_by_role("button", name="Enable user").click()
-        page.wait_for_url("**/users")
-        assert _user(server, seed.owner_id)[1] == 0
+        page.locator(switch).click()
+        _wait_db(page, server, seed.owner_id, 1, 0)
+        _settled(page)
+        assert page.locator(switch).get_attribute("aria-checked") == "true"
     finally:
         context.close()
 
 
-def test_unlink_an_identity_only_when_one_is_linked(new_context, app_server_in_process):
+def test_unlink_an_identity_from_the_overflow_menu_only_when_one_is_linked(
+        new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
         _sql(server, "UPDATE users SET iss = 'https://t.example.test/', sub = 's' "
                      "WHERE id = ?", (seed.owner_id,))
         page.reload()
-        never = _manage(page, seed.user_id)
-        assert never.get_by_role("button", name="Unlink identity").count() == 0
-        never.locator("a.modal__dismiss").click()
-        dialog = _manage(page, seed.owner_id)
-        dialog.get_by_role("button", name="Unlink identity").click()
-        page.wait_for_url("**/users")
-        assert _user(server, seed.owner_id)[2] is None
+        _settled(page)
+        assert _row(page, fx.USER_EMAIL).locator("details.row-menu").count() == 0
+        row = _row(page, fx.OWNER_EMAIL)
+        row.locator("summary").click()
+        item = row.get_by_role("button", name="Unlink identity")
+        item.wait_for(state="visible")
+        item.click()
+        _wait_db(page, server, seed.owner_id, 2, None)
     finally:
         context.close()
 
 
-def test_guard_sentences_replace_the_controls_for_self_and_the_last_admin(
+def test_the_overflow_menu_works_from_the_keyboard(new_context, app_server_in_process):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server)
+    try:
+        _sql(server, "UPDATE users SET iss = 'https://t.example.test/', sub = 's' "
+                     "WHERE id = ?", (seed.owner_id,))
+        page.reload()
+        _settled(page)
+        summary = _row(page, fx.OWNER_EMAIL).locator("summary")
+        summary.focus()
+        page.keyboard.press("Enter")
+        page.wait_for_function(
+            "() => !!document.querySelector('details.row-menu[open]')")
+        page.keyboard.press("Tab")
+        page.wait_for_function(
+            "() => document.activeElement.classList.contains('row-menu__item')")
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('details.row-menu[open]')"
+            " && document.activeElement.tagName === 'SUMMARY'")
+    finally:
+        context.close()
+
+
+def test_guard_sentences_replace_the_role_select_and_lock_the_switch(
         new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        own = _manage(page, seed.admin_id)
+        _settled(page)
+        own = _row(page, fx.ADMIN_EMAIL)
         assert "This is you." in own.inner_text()
-        assert own.get_by_role("button", name="Disable user").count() == 0
-        assert own.get_by_role("button", name="Save role").count() == 0
+        assert own.locator("select").count() == 0
+        assert own.locator("button[role=switch]").is_disabled()
         assert "The last active administrator" not in own.inner_text()
-        own.locator("a.modal__dismiss").click()
         _sql(server, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.admin2_id,))
         page.reload()
-        own = _manage(page, seed.admin_id)
+        _settled(page)
+        own = _row(page, fx.ADMIN_EMAIL)
         assert "The last active administrator cannot be changed." in own.inner_text()
-        assert own.get_by_role("button", name="Disable user").count() == 0
+        assert _row(page, fx.SECOND_ADMIN_EMAIL).locator(
+            "button[role=switch]").get_attribute("aria-checked") == "false"
     finally:
         context.close()
 
 
-def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_opener(
-        new_context, app_server_in_process):
-    server = app_server_in_process
-    context, page, seed = _open(new_context, server)
-    try:
-        button = "a.entity-row__button[href='#dlg-user-%d']" % seed.owner_id
-        _manage(page, seed.owner_id)
-        handle = page.locator("#dlg-user-%d" % seed.owner_id).element_handle()
-        for _ in range(12):
-            page.keyboard.press("Tab")
-            assert page.evaluate(_ACTIVE_IN, handle)
-        page.keyboard.press("Escape")
-        assert not page.locator("#dlg-user-%d" % seed.owner_id).evaluate("d => d.open")
-        assert page.evaluate(
-            "s => document.activeElement === document.querySelector(s)", button)
-    finally:
-        context.close()
-
-
-def test_invite_and_manage_work_through_hash_links_without_script(
-        new_context, app_server_in_process):
+def test_invite_and_row_controls_work_without_script(new_context, app_server_in_process):
     server = app_server_in_process
     seed = fx.seed_users(server.state_dir)
     with _no_js_page(new_context, server.base_url(), "/users",
@@ -205,51 +236,55 @@ def test_invite_and_manage_work_through_hash_links_without_script(
         page.locator(INVITE + " button[type=submit]").click()
         page.wait_for_url("**/users")
         assert _sql(server, "SELECT COUNT(*) FROM users WHERE email = 'nojs@example.test'") == [(1,)]
-        page.locator("a.entity-row__button[href='#dlg-user-%d']" % seed.owner_id).click()
-        dialog = page.locator("#dlg-user-%d" % seed.owner_id)
-        assert dialog.is_visible()
-        dialog.get_by_role("button", name="Disable user").click()
+        row = _row(page, fx.OWNER_EMAIL)
+        row.locator("select[name=role]").select_option("admin")
+        row.locator(".users-role-save").click()
+        _wait_db(page, server, seed.owner_id, 0, "admin")
         page.wait_for_url("**/users")
-        assert _user(server, seed.owner_id)[1] == 1
+        _row(page, fx.OWNER_EMAIL).locator("button[role=switch]").click()
+        _wait_db(page, server, seed.owner_id, 1, 1)
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-def test_list_and_dialogs_fit_and_every_control_is_44px(
+def test_table_and_cards_fit_and_every_control_is_44px(
         new_context, app_server_in_process, viewport, lang, scheme):
     server = app_server_in_process
     context, page, seed = _open(new_context, server, viewport, lang, scheme)
     _sql(server, "UPDATE users SET email = ? WHERE email = ?", (LONG_EMAIL, fx.USER_EMAIL))
+    _sql(server, "UPDATE users SET iss = 'https://t.example.test/', sub = 's' "
+                 "WHERE id = ?", (seed.owner_id,))
     page.reload()
     where = "users/%d/%s/%s" % (viewport["width"], lang, scheme)
     try:
+        _settled(page)
         assert not _assert_no_page_overflow(page, where, viewport["width"])
-        title = page.locator("li.entity-row", has_text=LONG_EMAIL).locator(
-            ".entity-row__title")
-        assert title.evaluate("e => getComputedStyle(e).fontFamily").lower().count("mono") == 0
-        assert title.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
-        assert page.locator("li.entity-row", has_text=LONG_EMAIL).evaluate(
-            "e => e.scrollWidth <= e.clientWidth + 1")
-        for opener, dialog_id, controls in (
-                ("a.page-header__action", "dlg-invite-user", (
-                    "#invite-email", "#invite-role", "button[type=submit]",
-                    "a.modal__dismiss", "a.modal__close")),
-                ("a.entity-row__button[href='#dlg-user-%d']" % seed.owner_id,
-                 "dlg-user-%d" % seed.owner_id, (
-                     "select", "button[type=submit]", "a.modal__dismiss",
-                     "a.modal__close"))):
-            _assert_hit_target(page, opener, where)
-            page.locator(opener).click()
-            dialog = page.locator("#" + dialog_id)
-            assert dialog.evaluate("d => d.open"), where
-            fit = dialog.evaluate(_FIT)
-            assert fit["sw"] <= fit["cw"], (where, dialog_id, fit)
-            assert not _assert_no_page_overflow(page, where, viewport["width"])
-            for control in controls:
-                _assert_hit_target(page, "#%s %s" % (dialog_id, control), where)
-            page.keyboard.press("Escape")
-            assert not dialog.evaluate("d => d.open")
+        email = _row(page, LONG_EMAIL).locator(".users-email")
+        assert email.evaluate("e => getComputedStyle(e).fontFamily").lower().count("mono") == 0
+        assert email.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+        assert _row(page, LONG_EMAIL).evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+        wide = viewport["width"] >= 1120
+        assert page.locator("thead").is_visible() == wide
+        owner = "#user-%d" % seed.owner_id
+        for control in (
+                "a.page-header__action", owner + " select",
+                owner + " button[role=switch]", owner + " summary"):
+            _assert_hit_target(page, control, where)
+        page.locator(owner + " summary").click()
+        _assert_hit_target(page, owner + " .row-menu__item", where)
+        assert not _assert_no_page_overflow(page, where, viewport["width"])
+        page.keyboard.press("Escape")
+        page.locator("a.page-header__action").click()
+        dialog = page.locator(INVITE)
+        assert dialog.evaluate("d => d.open"), where
+        fit = dialog.evaluate(_FIT)
+        assert fit["sw"] <= fit["cw"], (where, fit)
+        for control in ("#invite-email", "#invite-role", "button[type=submit]",
+                        "a.modal__dismiss", "a.modal__close"):
+            _assert_hit_target(page, "%s %s" % (INVITE, control), where)
+        page.keyboard.press("Escape")
+        assert not dialog.evaluate("d => d.open")
     finally:
         context.close()
