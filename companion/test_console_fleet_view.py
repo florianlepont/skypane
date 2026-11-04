@@ -1,0 +1,144 @@
+"""The Console Fleet view: the tile strip of every frame with its Add a screen
+and System tiles, the four blocks of the selected frame (State, Device and
+version, Settings, Access) and the System view, plus the navigation that no
+longer lists Status, Version or Device."""
+import re
+
+import pytest
+
+import fleet_console_support as fx
+from companion import auth, prefs
+from companion.pages import co_managers_card
+
+
+@pytest.fixture(autouse=True)
+def _english():
+    prefs.set_request_prefs(lang="en")
+    yield
+
+
+@pytest.fixture
+def fleet(app_server_in_process):
+    server = app_server_in_process
+    seed = fx.seed_fleet(server.state_dir)
+    return server, seed, fx.admin_cookie(server.state_dir)
+
+
+def _strip(page):
+    return re.search(r'<ul class="frame-tiles".*?</ul>', page, re.S).group(0)
+
+
+def _tiles(page):
+    return re.findall(r'<a class="frame-tile[^"]*" href="([^"]+)"([^>]*)>', _strip(page))
+
+
+def _blocks(page):
+    return re.findall(r'<section class="fleet-block[^"]*"><h3 class="text-heading">([^<]*)<', page)
+
+
+def test_the_strip_lists_every_frame_then_add_and_system_tiles(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    hrefs = [href for href, _attrs in _tiles(page)]
+    assert "/fleet?frame=%s" % seed.owned_id in hrefs
+    assert "/fleet?frame=%s" % seed.live_id in hrefs
+    assert hrefs[-2:] == ["/fleet?pair=1", "/fleet?view=system"]
+    assert page.count('aria-current="true"') == 1
+
+
+def test_a_tile_selects_its_frame_and_outlines_it(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(
+        server, cookie, "/fleet?frame=%s" % seed.owned_id)
+    current = [href for href, attrs in _tiles(page) if 'aria-current="true"' in attrs]
+    assert current == ["/fleet?frame=%s" % seed.owned_id]
+
+
+def test_the_selected_frame_shows_its_four_blocks_in_order(fleet):
+    server, seed, cookie = fleet
+    status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
+    assert status == 200
+    assert _blocks(page) == ["State", "Device and version", "Settings", "Access"]
+    # The settings form posts to the frame's own route; the wake interval is there.
+    assert 'action="/devices/%s/settings"' % seed.owned_id in page
+    assert "name=\"wake_interval_s\"" in page
+    # The Access block carries the co-manager forms, not a dialog trigger.
+    assert 'action="/devices/%s%s"' % (seed.owned_id, co_managers_card.ADD_ROUTE) in page
+
+
+def test_an_unknown_frame_value_falls_back_to_the_first_frame(fleet):
+    server, _seed, cookie = fleet
+    status, _headers, page = fx.get(server, cookie, "/fleet?frame=nope%22%3E")
+    assert status == 200
+    assert "nope" not in page
+    assert _blocks(page)[:1] == ["State"]
+
+
+def test_the_system_tile_opens_the_platform_wide_view(fleet):
+    server, _seed, cookie = fleet
+    status, _headers, page = fx.get(server, cookie, "/fleet?view=system")
+    assert status == 200
+    assert _blocks(page) == ["System"]
+    assert [a for _h, a in _tiles(page) if 'aria-current="true"' in a]
+    assert "Backup" in page or "backup" in page
+
+
+def test_the_console_navigation_no_longer_lists_status_version_or_device(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet")
+    sidebar = page[page.index('<nav class="sidebar-nav"'):]
+    sidebar = sidebar[:sidebar.index("</nav>")]
+    hrefs = re.findall(r'href="([^"]+)"', sidebar)
+    for gone in ("/health", "/device", "/update"):
+        assert not [h for h in hrefs if h.endswith(gone)], gone
+    assert "/fleet" in hrefs and "/users" in hrefs
+
+
+@pytest.mark.parametrize("path", ["/health", "/device", "/update"])
+def test_the_old_pages_keep_working(fleet, path):
+    server, _seed, cookie = fleet
+    status, _headers, _page = fx.get(server, cookie, path)
+    assert status == 200
+
+
+def test_french_block_headings(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(
+        server, cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME,
+        "/fleet?frame=%s" % seed.owned_id)
+    assert _blocks(page) == ["État", "Appareil et version", "Réglages", "Accès"]
+
+
+def test_the_fleet_page_refreshes_its_nav_dot_and_health_rows_in_place(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
+    assert 'data-refresh-page="fleet"' in page
+    assert '/static/freshness.js' in page
+    _status, _headers, script = fx.get(server, cookie, "/static/freshness.js")
+    assert '"fleet": [' in script and 'a[href$="/fleet"]' in script
+    # The swapped nav link exists, and the tile links do not end in /fleet.
+    assert 'href="/fleet"' in page
+    assert all(not href.endswith("/fleet") for href, _attrs in _tiles(page))
+
+
+def test_a_flash_key_in_the_query_shows_its_toast_for_the_selected_frame(fleet):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(
+        server, cookie, "/fleet?frame=%s&flash=saved" % seed.owned_id)
+    assert 'toast' in page and "Saved" in page
+    _status, _headers, quiet = fx.get(
+        server, cookie, "/fleet?frame=%s&flash=not-a-key" % seed.owned_id)
+    assert "Saved" not in quiet
+
+
+def test_the_settings_save_returns_to_the_frames_fleet_view(fleet):
+    from companion_app_server import http_request, with_csrf
+    server, seed, cookie = fleet
+    status, headers, _body = http_request(
+        server.base_url() + "/devices/%s/settings" % seed.owned_id, method="POST",
+        data=with_csrf(cookie, {"scope": "device", "return_to": "/device",
+                                "quiet_hours_enabled": "on", "quiet_hours_start": "22:00",
+                                "quiet_hours_end": "06:00"}),
+        cookie=cookie, extra_headers={"Origin": server.base_url()})
+    assert status == 303
+    assert headers["Location"].startswith("/fleet?frame=%s&flash=" % seed.owned_id)

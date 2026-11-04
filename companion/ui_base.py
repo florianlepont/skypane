@@ -47,6 +47,10 @@ _MONTH_ABBR_FR = ("janv.", "févr.", "mars", "avr.", "mai", "juin",
 # label) consumer keeps working unchanged.
 HOME_ROUTE = "/"
 DISPLAY_ROUTE = "/display"
+# Personalisation's other views; the Look view keeps DISPLAY_ROUTE itself.
+DISPLAY_SPECIAL_LOOKS_ROUTE = DISPLAY_ROUTE + "/special-looks"
+DISPLAY_CALENDAR_ROUTE = DISPLAY_ROUTE + "/calendar"
+DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
 FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"
 HEALTH_ROUTE = "/health"
@@ -128,10 +132,10 @@ MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
 
 # The fixed accessible name for the hamburger toggle button; state is
 # communicated entirely through aria-expanded, so this must not vary by
-# state. Renamed from "Open menu": the panel no longer holds a menu of
-# pages — the bottom tab bar owns destinations now, and what remains is
-# the state reminder plus language, theme and Sign out.
-NAV_TOGGLE_LABEL = i18n.msg("nav.account_and_preferences", "Account and preferences")
+# state. The panel holds Sign out only (destinations live in the bottom tab
+# bar, language and theme on the Account page), so it is named for the
+# account it acts on rather than for preferences.
+NAV_TOGGLE_LABEL = i18n.msg("nav.account_menu", "Account menu")
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
 # rather than imported: companion/pages/__init__.py's boundary forbids
@@ -526,6 +530,7 @@ ICON_IDS = ICON_IDS + (
     "icon-copy",
     "icon-refresh",
     "icon-search",
+    "icon-person",
 )
 
 # One more icon, for the Airlines lightbox replace zone's upload glyph.
@@ -574,6 +579,13 @@ ICON_IDS = ICON_IDS + (
     "icon-bolt",
 )
 
+# The Quiet hours dialog's preset cards: a sun for the day window and an
+# infinity loop for "always active" (the moon is icon-moon).
+ICON_IDS = ICON_IDS + (
+    "icon-sun",
+    "icon-infinity",
+)
+
 # One more icon, for the Update nav destination: a two-arrow cycle
 # glyph, distinct from icon-refresh (reserved for the copy-button/
 # manual-refresh family). Appended, not merged, for the same reason
@@ -587,6 +599,12 @@ ICON_IDS = ICON_IDS + (
 ICON_IDS = ICON_IDS + (
     "icon-pencil",
     "icon-plus",
+)
+
+# Personalisation's section navigation: a palette (Look) and a calendar.
+ICON_IDS = ICON_IDS + (
+    "icon-palette",
+    "icon-calendar",
 )
 
 # Three stacked dots, for a row's actions menu button.
@@ -760,6 +778,17 @@ ICON_DEFS_HTML = (
     'M15.3 4.7l-1.7 1.7M6.4 13.6l-1.7 1.7M15.3 15.3l-1.7-1.7'
     'M6.4 6.4L4.7 4.7"/>'
     "</symbol>"
+    '<symbol id="icon-sun" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="3.2"/>'
+    '<path d="M10 2.5v2M10 15.5v2M17.5 10h-2M4.5 10h-2M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4'
+    'M15.3 15.3l-1.4-1.4M6.1 6.1L4.7 4.7"/>'
+    "</symbol>"
+    '<symbol id="icon-infinity" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 10c-1.6-2.4-2.9-3-4.2-3a3 3 0 0 0 0 6c1.3 0 2.6-.6 4.2-3z'
+    'm0 0c1.6 2.4 2.9 3 4.2 3a3 3 0 0 0 0-6c-1.3 0-2.6.6-4.2 3z"/>'
+    "</symbol>"
     '<symbol id="icon-bolt" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M11 2L4.5 11H10l-1 7L15.5 9H10z"/>'
@@ -780,6 +809,11 @@ ICON_DEFS_HTML = (
     'stroke-linejoin="round">'
     '<path d="M16 10a6 6 0 1 1-2-4.5"/>'
     '<path d="M16 2.5v4h-4"/>'
+    "</symbol>"
+    '<symbol id="icon-person" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="6.5" r="3.2"/>'
+    '<path d="M3.5 17.5c0-3.4 2.9-5.6 6.5-5.6s6.5 2.2 6.5 5.6"/>'
     "</symbol>"
     '<symbol id="icon-search" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.5" stroke-linecap="round" '
@@ -826,6 +860,15 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-pencil" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M13.5 3.5l3 3L7 16H4v-3z"/><path d="M11.5 5.5l3 3"/>'
+    "</symbol>"
+    '<symbol id="icon-palette" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M10 2.5a7.5 7.5 0 1 0 0 15c1.1 0 1.7-.8 1.4-1.7-.3-.9.2-1.8 1.2-1.8H15a2.5 2.5 0 0 0 2.5-2.5C17.5 6.1 14.2 2.5 10 2.5z"/>'
+    '<path d="M6.5 9.5h.01M9 6.5h.01M12.5 7h.01"/>'
+    "</symbol>"
+    '<symbol id="icon-calendar" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<rect x="3" y="4.5" width="14" height="12.5" rx="2"/><path d="M3 8.5h14M7 2.8v3.4M13 2.8v3.4"/>'
     "</symbol>"
     '<symbol id="icon-more-vertical" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="2.2" stroke-linecap="round" '

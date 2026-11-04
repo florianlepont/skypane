@@ -79,6 +79,11 @@
   var statusEl = byId("place-status");
   var noticeEl = byId("place-notice");
   var detailsEl = byId("details");
+  var derivedEl = byId("place-derived");
+  var zoneField = byId("place-timezone");
+  var rangeField = byId("place-radius-range");
+  var panelEl = document.querySelector(".place-panel");
+  var DESKTOP_QUERY = "(min-width: 960px)";
 
   function text(key) {
     return mapEl.getAttribute("data-t-" + key) || "";
@@ -190,19 +195,65 @@
   var tilesLoaded = false;
   var tileErrors = 0;
 
+  function isDesktop() {
+    return !!(window.matchMedia && window.matchMedia(DESKTOP_QUERY).matches);
+  }
+
+  // The parts of the map the panel and the floating controls cover: on a wide
+  // screen the card's width at the left, on a phone the sheet's height at the
+  // bottom and the floating controls' height at the top.
+  function coveredBy() {
+    var none = { left: 0, top: 0, bottom: 0 };
+    if (!panelEl || !map) {
+      return none;
+    }
+    var mapBox = mapEl.getBoundingClientRect();
+    var box = panelEl.getBoundingClientRect();
+    if (isDesktop()) {
+      return { left: Math.max(0, box.right - mapBox.left), top: 0, bottom: 0 };
+    }
+    var top = 0;
+    var search = searchForm || document.querySelector(".place-search");
+    if (search) {
+      top = Math.max(0, search.getBoundingClientRect().bottom - mapBox.top);
+    }
+    return { left: 0, top: top, bottom: Math.max(0, mapBox.bottom - box.top) };
+  }
+
+  // The map centre that puts `point` in the middle of the uncovered part.
+  function visibleCentre(point, zoom) {
+    var covered = coveredBy();
+    var shift = L.point(covered.left / 2, (covered.top - covered.bottom) / 2);
+    return map.unproject(map.project(point, zoom).subtract(shift), zoom);
+  }
+
+  function centreOn(point, zoom, animate) {
+    var z = zoom || map.getZoom();
+    map.setView(visibleCentre(point, z), z, { animate: !!animate });
+  }
+
   function buildMap() {
     map = L.map(mapEl, {
       zoomControl: false,
-      attributionControl: true,
+      attributionControl: false,
       maxZoom: MAX_ZOOM,
       center: hasStartPin ? [startLat, startLon] : FRANCE_CENTRE,
       zoom: hasStartPin ? startZoom : 5
     });
+    if (hasStartPin) {
+      centreOn(L.latLng(startLat, startLon), startZoom, false);
+    }
     L.control.zoom({
+      position: "topright",
       zoomInTitle: text("zoom-in"),
       zoomOutTitle: text("zoom-out")
     }).addTo(map);
-    map.attributionControl.setPrefix(false);
+    // The bottom of the map is under the sheet on a phone, so the credit
+    // sits at the top left there.
+    L.control.attribution({
+      position: isDesktop() ? "bottomright" : "topleft",
+      prefix: false
+    }).addTo(map);
     var tiles = L.tileLayer(TILE_URL, {
       maxZoom: MAX_ZOOM,
       attribution: '<a href="' + COPYRIGHT_URL + '" target="_blank" ' +
@@ -280,6 +331,33 @@
     syncing = false;
   }
 
+  // The read-only line under the panel: coordinates and time zone.
+  function updateDerived() {
+    if (!derivedEl) {
+      return;
+    }
+    var lat = latField ? parseNumber(latField.value) : null;
+    var lon = lonField ? parseNumber(lonField.value) : null;
+    if (lat === null || lon === null) {
+      derivedEl.textContent = derivedEl.getAttribute("data-empty") || "";
+      return;
+    }
+    var parts = [roundCoord(lat).toFixed(COORD_DECIMALS), roundCoord(lon).toFixed(COORD_DECIMALS)];
+    if (zoneField && zoneField.value) {
+      parts.push(zoneField.value);
+    }
+    derivedEl.textContent = parts.join(" \u00b7 ");
+  }
+
+  function syncRange() {
+    if (rangeField && radiusField) {
+      var km = parseNumber(radiusField.value);
+      if (km !== null) {
+        rangeField.value = String(clamp(km, RADIUS_MIN_KM, RADIUS_MAX_KM));
+      }
+    }
+  }
+
   function announce(latlng) {
     setStatus(format(
       text("pin-placed"), roundCoord(latlng.lat).toFixed(COORD_DECIMALS),
@@ -291,6 +369,7 @@
     if (!fromFields) {
       writeFields(latlng);
     }
+    updateDerived();
     announce(latlng);
     pinMoved(latlng);
   }
@@ -319,9 +398,9 @@
       pin.setLatLng(point);
     }
     if (opts.zoom) {
-      map.setView(point, opts.zoom, { animate: !!opts.animate });
+      centreOn(point, opts.zoom, opts.animate);
     } else if (opts.pan) {
-      map.panTo(point);
+      centreOn(point, map.getZoom(), true);
     }
     afterPinMoved(point, !!opts.fromFields);
   }
@@ -710,6 +789,10 @@
   // --- Start ------------------------------------------------------------------
 
   function start() {
+    // The ready class comes first: the stylesheet lays the map out as the
+    // page's backdrop, and the library measures it when it is built. A
+    // failure below removes the class again.
+    document.documentElement.className += " " + READY_CLASS;
     buildMap();
     dotLayer = L.layerGroup().addTo(map);
     map.on("click", function (event) {
@@ -733,25 +816,47 @@
     if (radiusField) {
       radiusField.addEventListener("input", drawCircle);
       radiusField.addEventListener("change", drawCircle);
+      radiusField.addEventListener("input", syncRange);
+      radiusField.addEventListener("change", syncRange);
     }
+    if (rangeField && radiusField) {
+      syncRange();
+      rangeField.addEventListener("input", function () {
+        radiusField.value = rangeField.value;
+        fire(radiusField, "input");
+      });
+    }
+    if (zoneField) {
+      zoneField.addEventListener("change", updateDerived);
+    }
+    updateDerived();
     document.addEventListener("change", function (event) {
       if (event.target && event.target.name === "mode") {
         drawCircle();
         if (pin) {
           pinMoved(pin.getLatLng());
+          // The panel changed height: keep the pin in the clear part.
+          centreOn(pin.getLatLng(), map.getZoom(), true);
         }
       }
     });
     wireSearchAndLocate();
 
-    // Scripts and the library are up: the fields tuck away, the form stays
-    // the way to type a place. A refused save keeps its card open, and so
-    // does a link to the card itself (the Quiet hours note points here).
+    // Scripts and the library are up: the fields tuck away behind the
+    // read-only line, the form stays the way to type a place. A refused save
+    // keeps them open, and so does a link to them (the Quiet hours note
+    // points here).
     if (detailsEl && !detailsEl.querySelector("[aria-invalid='true']")
         && window.location.hash !== "#" + detailsEl.id) {
       detailsEl.open = false;
     }
-    document.documentElement.className += " " + READY_CLASS;
+    var moreEl = document.querySelector(".place-more");
+    if (moreEl) {
+      moreEl.open = false;
+    }
+    if (pin) {
+      centreOn(pin.getLatLng(), map.getZoom(), false);
+    }
   }
 
   try {

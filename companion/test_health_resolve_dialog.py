@@ -60,12 +60,12 @@ def served(make_app_server):
 
 def test_every_resolve_row_is_a_trigger_with_the_full_vocabulary_and_keeps_its_link(served):
     """each prefix's table link and its phone-card link carries the whole data-view-panel-*
-    vocabulary of an Airlines gap card plus the return target, and still points at the Airlines
+    vocabulary of an Airlines "Name it" link plus the return target, and still points at the Airlines
     page for a visitor without script"""
     server, session = served
     health = _get(server, session, "/health")
     airlines = _get(server, session, "/airlines/manage")
-    gap = re.search(r'<a class="airline-card" href="/airlines/manage\?resolve=QXA"[^>]*>', airlines).group(0)
+    gap = re.search(r'<a class="airlines-name-it" href="/airlines/manage\?resolve=QXA"[^>]*>', airlines).group(0)
     gap_attrs = _panel_attrs(gap)
     for prefix in REGISTRY:
         links = _resolve_links(health, prefix)

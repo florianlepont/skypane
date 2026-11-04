@@ -74,6 +74,10 @@ MESSAGES = {
     "account.user": "Utilisateur",
     "account.administrator": "Administrateur",
     "account.preferences": "Préférences",
+    "account.language": "Langue",
+    "account.language_hint": "La langue des pages du compagnon.",
+    "account.theme": "Thème",
+    "account.theme_hint": "Clair, sombre, ou selon le système.",
     "account.my_frames": "Mes cadres",
     "account.your_frames_will_appear_here": "Vos cadres apparaîtront ici",
     "account.once_an_administrator_pairs_a_frame":

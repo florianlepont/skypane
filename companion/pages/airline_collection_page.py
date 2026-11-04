@@ -57,6 +57,8 @@ SORT_LATEST = i18n.msg("airlines.collection_sort_latest", "Latest")
 SORT_AZ = i18n.msg("airlines.collection_sort_az", "A to Z")
 FILTER_LABEL = i18n.msg("airlines.collection_filter_label", "Filter airlines")
 APPLY_TEXT = i18n.msg("airlines.collection_apply", "Apply")
+COUNT_TEXT = i18n.msg("airlines.collection_count", "Airlines: %d")
+COUNT_TEMPLATE = i18n.msg("airlines.collection_count_template", "Airlines: #")
 
 SEEN_MANY = i18n.msg("airlines.collection_seen_many", "Seen %d times")
 SEEN_ONCE = i18n.msg("airlines.collection_seen_once", "Seen once")
@@ -69,6 +71,16 @@ RARITY_LABELS = {
 }
 RARITY_DOTS = {
     collection.RARITY_REGULAR: 3, collection.RARITY_OCCASIONAL: 2, collection.RARITY_RARE: 1}
+# The legend's range text per tier, built from the one threshold table.
+RARITY_RANGES = (
+    (collection.RARITY_RARE, i18n.msg(
+        "airlines.collection_range_rare", "Fewer than %d sightings")),
+    (collection.RARITY_OCCASIONAL, i18n.msg(
+        "airlines.collection_range_occasional", "%d to %d sightings")),
+    (collection.RARITY_REGULAR, i18n.msg(
+        "airlines.collection_range_regular", "%d or more sightings")),
+)
+LEGEND_LABEL = i18n.msg("airlines.collection_legend", "Rarity of airlines and aircraft")
 RARITY_SENTENCE = i18n.msg(
     "airlines.collection_rarity_sentence",
     "Rarity depends on how often your frame has seen an airline.")
@@ -183,8 +195,27 @@ def _picture_html(entry, state_dir):
 def _rarity_pill_html(rarity):
     dots = '<i class="rarity-dot"></i>' * RARITY_DOTS[rarity]
     return (
-        '<span class="rarity-pill"><span class="rarity-dots" aria-hidden="true">%s</span>'
-        '<span>%s</span></span>') % (dots, escape_html(i18n.t(RARITY_LABELS[rarity])))
+        '<span class="rarity-pill rarity-pill--%s"><span class="rarity-dots" aria-hidden="true">%s</span>'
+        '<span>%s</span></span>') % (rarity, dots, escape_html(i18n.t(RARITY_LABELS[rarity])))
+
+
+def _range_text(rarity, template):
+    if rarity == collection.RARITY_RARE:
+        return i18n.t(template) % collection.OCCASIONAL_MIN
+    if rarity == collection.RARITY_OCCASIONAL:
+        return i18n.t(template) % (collection.OCCASIONAL_MIN, collection.REGULAR_MIN - 1)
+    return i18n.t(template) % collection.REGULAR_MIN
+
+
+def _legend_html():
+    """Every tier with its dots, its name and its sighting range: the same
+    words the cards carry, so colour is never the only signal."""
+    tiers = "".join(
+        '<li class="rarity-legend__tier">%s<span class="text-label">%s</span></li>' % (
+            _rarity_pill_html(rarity), escape_html(_range_text(rarity, template)))
+        for rarity, template in reversed(RARITY_RANGES))
+    return '<ul class="rarity-legend" aria-label="%s">%s</ul>' % (
+        escape_html(i18n.t(LEGEND_LABEL)), tiers)
 
 
 def _seen_text(times):
@@ -192,7 +223,8 @@ def _seen_text(times):
 
 
 def _card_html(entry, state_dir):
-    classes = "collection-card" + ("" if entry.seen else " collection-card--unseen")
+    classes = "collection-card" + (
+        " collection-card--" + entry.rarity if entry.seen else " collection-card--unseen")
     if entry.seen:
         pills = _rarity_pill_html(entry.rarity)
         if entry.is_new:
@@ -221,21 +253,24 @@ def _date_text(day):
     return "%d %s %d" % (day.day, layout.month_abbr(day.month), day.year)
 
 
-def _type_labels(types):
-    labels = []
-    for code in types:
-        label = panel_render._TYPE_DISPLAY_LABELS.get(code, code)
-        if label not in labels:
-            labels.append(label)
-    return labels
-
-
 def _fact_html(label, value_html):
     return '<div><dt>%s</dt><dd>%s</dd></div>' % (escape_html(i18n.t(label)), value_html)
 
 
+def _types_html(entry):
+    """Each aircraft type, tagged with its rarity in words when it is not a
+    regular sight."""
+    chips = []
+    for code, rarity in entry.type_rarities:
+        label = escape_html(panel_render._TYPE_DISPLAY_LABELS.get(code, code))
+        tag = ""
+        if rarity in (collection.RARITY_RARE, collection.RARITY_OCCASIONAL):
+            tag = ' <span class="type-chip__tag">%s</span>' % escape_html(i18n.t(RARITY_LABELS[rarity]))
+        chips.append('<span class="type-chip type-chip--%s">%s%s</span>' % (rarity, label, tag))
+    return '<span class="type-chips">%s</span>' % "".join(chips)
+
+
 def _facts_html(entry, now):
-    rarity = i18n.t(RARITY_LABELS[entry.rarity])
     callsigns = " ".join(
         '<span class="mono">%s</span>' % escape_html(c) for c in entry.callsigns)
     rows = [
@@ -246,9 +281,8 @@ def _facts_html(entry, now):
             layout.relative_time_html(entry.last_ts, now))),
     ]
     if entry.types:
-        rows.append(_fact_html(
-            FACT_TYPES, escape_html(", ".join(_type_labels(entry.types)))))
-    rows.append(_fact_html(FACT_RARITY, escape_html(rarity)))
+        rows.append(_fact_html(FACT_TYPES, _types_html(entry)))
+    rows.append(_fact_html(FACT_RARITY, _rarity_pill_html(entry.rarity)))
     if callsigns:
         rows.append(_fact_html(FACT_CALLSIGNS, callsigns))
     return '<dl class="collection-facts">%s</dl>' % "".join(rows)
@@ -313,7 +347,7 @@ def _chips_html(view, entries):
     for value, label in SHOW_VALUES:
         chips.append(
             '<label class="filter-chip"><input type="radio" class="visually-hidden" '
-            'name="%s" value="%s"%s><span class="filter-chip__box">'
+            'name="%s" value="%s"%s data-autosubmit><span class="filter-chip__box">'
             '<span class="filter-chip__count">%d</span>'
             '<span class="filter-chip__text">%s</span></span></label>' % (
                 SHOW_PARAM, value, " checked" if value == view.show else "",
@@ -328,8 +362,8 @@ def _sort_html(view):
             value, " selected" if value == view.sort else "", escape_html(i18n.t(label)))
         for value, label in SORT_VALUES)
     return (
-        '<label class="collection-sort"><span class="visually-hidden">%s</span>'
-        '<select name="%s">%s</select></label>'
+        '<label class="collection-sort"><span class="collection-sort__label">%s</span>'
+        '<select name="%s" data-autosubmit>%s</select></label>'
     ) % (escape_html(i18n.t(SORT_LABEL)), SORT_PARAM, options)
 
 
@@ -343,13 +377,25 @@ def _search_html(view):
          QUERY_MAX_CHARS, label)
 
 
-def _controls_html(view, entries):
+def _count_html(shown):
     return (
-        '<form class="filter-bar collection-controls" method="get" action="%s">%s%s%s'
-        '<button type="submit" class="collection-controls__apply">%s</button></form>'
+        '<p class="collection-controls__count text-label" role="status" data-filter-count '
+        'data-filter-count-template="%s">%s</p>'
+    ) % (escape_html(i18n.t(COUNT_TEMPLATE)), escape_html(i18n.t(COUNT_TEXT) % shown))
+
+
+def _controls_html(view, entries, shown):
+    """One bar: the filter field and the sort on the first row, the show
+    chips, the count and (without a script) the Apply button on the second.
+    With a script the sort and the chips submit on change."""
+    return (
+        '<form class="filter-bar collection-controls" method="get" action="%s">'
+        '<div class="collection-controls__row">%s%s</div>'
+        '<div class="collection-controls__row">%s%s'
+        '<button type="submit" class="collection-controls__apply">%s</button></div></form>'
     ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
-         _chips_html(view, entries), _search_html(view), _sort_html(view),
-         escape_html(i18n.t(APPLY_TEXT)))
+         _search_html(view), _sort_html(view), _chips_html(view, entries),
+         _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
 
 
 def _entries_for(ctx, now):
@@ -375,7 +421,8 @@ def render(ctx, query_string=""):
     if summary.spotted == 0:
         parts.append(layout.empty_state(
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
-    parts.append(_controls_html(view, entries))
+    parts.append(_controls_html(view, entries, len(shown)))
+    parts.append(_legend_html())
     if shown:
         parts.append('<ul class="collection-grid" id="%s">%s</ul>' % (GRID_ID, "".join(
             _card_html(entry, ctx.state_dir) for entry in shown)))

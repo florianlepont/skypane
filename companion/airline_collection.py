@@ -19,6 +19,8 @@ from server.plane import illustrations
 from server.plane.render import text as render_text
 
 # Sightings needed for each rarity level; below OCCASIONAL_MIN is Rare.
+# The one threshold table: airlines and aircraft types both use it, and the
+# page legend prints these numbers.
 REGULAR_MIN = 10
 OCCASIONAL_MIN = 3
 # Spotted-airline counts that earn a collection badge.
@@ -55,6 +57,11 @@ class AirlineEntry:
     callsigns: tuple = ()
     rarity: str = RARITY_NONE
     is_new: bool = False
+    # `(aircraft type code, rarity)` in the same order as `types`; the
+    # rarity is that of the type across every sighting the frame stored.
+    type_rarities: tuple = ()
+    # `(aircraft type code, sightings of this airline)`, most seen first.
+    type_counts: tuple = ()
 
     @property
     def seen(self):
@@ -126,6 +133,13 @@ def _ranked_types(rows):
     return tuple(name for name, _count in counts.most_common())
 
 
+def _ranked_type_counts(rows):
+    counts = collections.Counter(
+        str(row["aircraft_type"]).strip().upper()
+        for row in rows if row.get("aircraft_type") and str(row["aircraft_type"]).strip())
+    return tuple(counts.most_common())
+
+
 def _recent_callsigns(rows):
     seen = []
     for row in rows:
@@ -144,18 +158,28 @@ def _is_new(first_ts, now):
     return now - first <= timedelta(days=NEW_WINDOW_DAYS)
 
 
-def _entry(slug, name, picture_key, curated, rows, now):
+def _type_counts(events):
+    """`{type code: sightings}` over every stored sighting."""
+    return collections.Counter(
+        str(row["aircraft_type"]).strip().upper()
+        for row in events if row.get("aircraft_type") and str(row["aircraft_type"]).strip())
+
+
+def _entry(slug, name, picture_key, curated, rows, now, type_counts):
     if not rows:
         return AirlineEntry(slug, name, picture_key, curated)
     first_ts = rows[-1]["ts"]
     last_ts = rows[0]["ts"]
+    types = _ranked_types(rows)
     return AirlineEntry(
         slug, name, picture_key, curated,
         times_seen=len(rows), first_ts=first_ts, last_ts=last_ts,
         first_day=history_db.paris_day_or_none(first_ts),
         last_day=history_db.paris_day_or_none(last_ts),
-        types=_ranked_types(rows), callsigns=_recent_callsigns(rows),
-        rarity=rarity_for(len(rows)), is_new=_is_new(first_ts, now))
+        types=types, callsigns=_recent_callsigns(rows),
+        rarity=rarity_for(len(rows)), is_new=_is_new(first_ts, now),
+        type_rarities=tuple((code, rarity_for(type_counts[code])) for code in types),
+        type_counts=_ranked_type_counts(rows))
 
 
 def _summary(spotted, total):
@@ -179,12 +203,13 @@ def collection_from_events(events, now, overrides=None):
     instant = _utc_now(now)
     order, aliases = _curated_index(overrides)
     groups = _group(events, aliases)
+    type_counts = _type_counts(events)
     entries = [
-        _entry(key, name, picture_key, True, groups.pop(key, []), instant)
+        _entry(key, name, picture_key, True, groups.pop(key, []), instant, type_counts)
         for key, name, picture_key in order]
     for slug, rows in groups.items():
         name = render_text.display_airline_name(rows[0]["airline"].strip())
-        entries.append(_entry(slug, name, slug, False, rows, instant))
+        entries.append(_entry(slug, name, slug, False, rows, instant, type_counts))
     spotted = sum(1 for entry in entries if entry.seen)
     return entries, _summary(spotted, len(order))
 

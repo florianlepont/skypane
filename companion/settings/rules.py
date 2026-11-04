@@ -317,7 +317,7 @@ def _rule_remove_html(kind, value):
         dialog_id, i18n.t(RULE_REMOVE_DIALOG_TITLE), _rule_delete_action(kind, value),
         csrf_field(), "<p>%s</p>" % escape_html(i18n.t(RULE_REMOVE_DIALOG_BODY) % subject),
         i18n.t(RULE_REMOVE_SUBMIT_TEXT), i18n.t(RULE_REMOVE_DISMISS_TEXT),
-        device_scope.scoped(layout.DISPLAY_ROUTE) + "#" + SPECIAL_LOOKS_ANCHOR,
+        device_scope.scoped(layout.DISPLAY_SPECIAL_LOOKS_ROUTE) + "#" + SPECIAL_LOOKS_ANCHOR,
         destructive=True, confirm_only=True)
     return trigger, dialog
 

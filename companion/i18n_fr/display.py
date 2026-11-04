@@ -119,7 +119,7 @@ MESSAGES = {
     "display.night": "Nuit",
     "display.day": "Journée",
     "display.always_on": "Toujours actif",
-    "display.on_this_page": "Sur cette page",
+    "display.personalisation_sections": "Sections de personnalisation",
     "display.current_value": "Actuel\u00a0: %s",
     "display.special_looks_none": "Aucun look spécial pour l’instant",
     "display.special_looks_empty_hint":

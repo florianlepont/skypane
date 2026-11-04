@@ -43,6 +43,7 @@ MESSAGES = {
     # The Console bar's short label for the Audit log page, and the space
     # switch between the Console and the administrator's own views.
     "nav.audit_short": "Audit",
+    "nav.airlines_short": "Compagnies",
     "nav.my_frame": "Mon cadre",
     "nav.console": "Console",
     "nav.space": "Espace",
@@ -58,7 +59,7 @@ MESSAGES = {
 
     # The hamburger toggle's accessible name, describing what the
     # panel holds, and the nav Health dot's hidden suffix.
-    "nav.account_and_preferences": "Compte et préférences",
+    "nav.account_menu": "Menu du compte",
     "nav.attention_needed": " — attention requise",
 
     "nav.primary_navigation": "Navigation principale",
@@ -68,11 +69,10 @@ MESSAGES = {
     "nav.light": "Clair",
     "nav.dark": "Sombre",
 
-    # The frame switcher above the page title (two or more frames).
-    "nav.frame_switcher_aria": "Changer de cadre, actuel : %s",
-    "nav.frame_switcher_my_frames": "Gérer mes cadres",
-    "nav.frame_switcher_title": "Choisir un cadre",
-    "nav.frame_switcher_current": "Actuel",
+    # The frame tile strip above the page title (two or more frames).
+    "nav.frame_strip_aria": "Vos cadres",
+    "nav.frame_tile_seen": "Vu %s",
+    "nav.frame_tile_add": "Ajouter un écran",
     "nav.device_default_name": "Cadre d’Orly",
     "nav.skip_to_content": "Aller au contenu",
 }

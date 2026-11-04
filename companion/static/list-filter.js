@@ -4,8 +4,9 @@
  * One generic client-side filter, reused by Flights, Airlines and
  * Health's unresolved-prefix list. No
  * build step, ES5-safe subset. Inert on a page with no
- * [data-filter-input]. Served by companion/app.py's
- * LIST_FILTER_SCRIPT_ROUTE. No network call, timer, or persistent
+ * [data-filter-input], except that a [data-autosubmit] control still
+ * submits its form on change (the Users page's role select). Served by
+ * companion/app.py's LIST_FILTER_SCRIPT_ROUTE. No network call, timer, or persistent
  * state: only DOM attributes/text. The count text uses the
  * [data-filter-count] element's own server-rendered, translated
  * template. Flights joined freshness.js's refresh loop, so the count
@@ -15,6 +16,20 @@
  */
 (function () {
   "use strict";
+
+  // A control marked [data-autosubmit] sends its form as soon as it
+  // changes (the collection's sort and show chips, the Users role select); without a script the
+  // form's own button does the same.
+  var autoControls = document.querySelectorAll("[data-autosubmit]");
+  function submitOwnForm(event) {
+    var form = event.target.form;
+    if (form) {
+      form.submit();
+    }
+  }
+  for (var ai = 0; ai < autoControls.length; ai++) {
+    autoControls[ai].addEventListener("change", submitOwnForm);
+  }
 
   var input = document.querySelector("[data-filter-input]");
   if (!input) {

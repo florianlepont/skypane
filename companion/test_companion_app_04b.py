@@ -235,7 +235,7 @@ def test_ui_lang_cookie_beats_accept_language(app04b_server, session_cookie):
 def test_the_nav_toggle_wears_the_gear_and_opens_the_same_panel(app04b_server, session_cookie):
     """#site-nav-toggle renders icon-gear (never icon-hamburger), its aria-label is
     NAV_TOGGLE_LABEL translated through i18n's real per-request path in both EN and FR, and the
-    panel it opens still holds the language/theme switches and Sign out with zero
+    panel it opens still holds Sign out with zero
     page-navigation links"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     toggle_start = doc.index('id="%s"' % layout.NAV_TOGGLE_ID)
@@ -269,11 +269,8 @@ def test_the_nav_toggle_wears_the_gear_and_opens_the_same_panel(app04b_server, s
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
     panel = doc[panel_start:doc.index("</header>")]
-    for needle, name in (
-            ('action="/ui-lang"', "the language switch"),
-            ('action="/ui-theme"', "the theme switch"),
-            ('action="/logout"', "Sign out")):
-        assert needle in panel, "expected %s inside the dropdown" % name
+    assert 'action="/logout"' in panel, "expected Sign out inside the dropdown"
+    assert 'action="/ui-lang"' not in panel and 'action="/ui-theme"' not in panel
     assert "<a href" not in panel, (
         "expected zero page-navigation <a href> links in the dropdown, found one")
 

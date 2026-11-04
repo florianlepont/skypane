@@ -88,8 +88,8 @@ def test_invited_admin_lands_on_the_fleet_page_with_the_console_nav(rig, new_con
     page.wait_for_url(_landing_url(base, "/fleet"))
     hrefs = page.eval_on_selector_all(
         ".dashboard-sidebar a", "els => els.map(e => e.getAttribute('href'))")
-    assert "/users" in hrefs and "/audit" in hrefs and "/update" in hrefs
-    assert any(href.endswith("/health") for href in hrefs)
+    assert "/users" in hrefs and "/audit" in hrefs and "/fleet" in hrefs
+    assert not any(href.endswith(("/health", "/update", "/device")) for href in hrefs)
     assert len(_session_cookie(context)) == 1
 
 

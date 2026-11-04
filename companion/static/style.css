@@ -12,17 +12,19 @@
  *     input and filter-chip box, the sparkline hit target, the look
  *     frame/open button) and the native accent-color of input/select
  *   - primary actions (button[type="submit"], a.calendar-manage--primary,
- *     button.look-sheet__done, the skip link)
+ *     button.look-sheet__done, button.look-sheet__save, the skip link)
  *   - current location / selection (.sidebar-link--active,
  *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
  *     .site-nav-toggle[aria-expanded="true"], the active theme option,
- *     the shown aircraft type of an airline sheet
- *     (a.airline-sheet__type[aria-current]),
  *     the checked runway/look cards and look dot, the editing look frame)
+ *   - the current Personalisation section link and the chosen
+ *     Departures/Arrivals tab (.personalisation-nav__link[aria-current],
+ *     button.look-tabs__tab[aria-pressed="true"])
  *   - the current segment of the space switch
  *     (.space-switch__segment--current)
- *   - the current frame's card ring and check in the frame sheet
- *     (.frame-card[aria-current])
+ *   - the current frame's tile outline in the frame tile strip
+ *     (.frame-tile[aria-current]) and the Add a screen tile's text
+ *     and dashed border (.frame-tile--add)
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
@@ -146,6 +148,10 @@
   /* The switch thumb: white on light surfaces, a light grey on dark ones
    * so an unchecked thumb stays visible on its dark track. */
   --color-switch-thumb: #FFFFFF;
+  /* Rarity inks for airlines and aircraft: each is text-safe (4.5:1 or
+   * better) on the card and page surfaces of its theme. */
+  --color-rarity-occasional: #0F766E;
+  --color-rarity-rare: #6D28D9;
   /* The Display page's framed pictures: a wooden-dark bezel and the
    * lifted shadow of a popover over the page. */
   --color-frame-bezel: #2A2622;
@@ -188,6 +194,8 @@
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
     --color-switch-thumb: #E6E9EE;
+    --color-rarity-occasional: #5EEAD4;
+    --color-rarity-rare: #C4B5FD;
     --color-frame-bezel: #050608;
     --color-frame-bezel-hi: #2B2F36;
     --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
@@ -217,6 +225,8 @@ html[data-ui-theme="light"] {
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
   --color-switch-thumb: #FFFFFF;
+  --color-rarity-occasional: #0F766E;
+  --color-rarity-rare: #6D28D9;
   --color-frame-bezel: #2A2622;
   --color-frame-bezel-hi: #4A433C;
   --shadow-pop: 0 18px 48px rgba(18, 21, 27, 0.18), 0 4px 12px rgba(18, 21, 27, 0.08);
@@ -245,6 +255,8 @@ html[data-ui-theme="dark"] {
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
   --color-switch-thumb: #E6E9EE;
+  --color-rarity-occasional: #5EEAD4;
+  --color-rarity-rare: #C4B5FD;
   --color-frame-bezel: #050608;
   --color-frame-bezel-hi: #2B2F36;
   --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
@@ -671,7 +683,7 @@ a:hover {
  * the sidebar copy is the first element of the sidebar. */
 .space-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: var(--space-xs);
   padding: var(--space-sm);
   background: var(--color-secondary);
@@ -687,6 +699,7 @@ a:hover {
   min-height: 44px;
   min-width: 0;
   padding: 0 var(--space-sm);
+  overflow: hidden;
   background: var(--color-dominant);
   color: var(--color-text);
   font-size: var(--font-label-size);
@@ -694,6 +707,36 @@ a:hover {
   text-decoration: none;
   white-space: nowrap;
   border-radius: var(--radius-control);
+}
+
+/* Glyphs keep their size; only the label gives way, with an ellipsis,
+ * when a segment is narrower than its content. */
+.space-switch__segment > svg {
+  flex: none;
+}
+
+.space-switch__segment > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The sidebar's segments are too narrow for check, space glyph and label
+ * together: the space glyph gives way there, the check (the non-colour cue
+ * for the current space) and the label stay. */
+.dashboard-sidebar .space-switch__segment {
+  padding: 0 2px;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.dashboard-sidebar .space-switch__check {
+  width: 14px;
+  height: 14px;
+}
+
+.dashboard-sidebar .space-switch__segment > svg:not(.space-switch__check) {
+  display: none;
 }
 
 .space-switch__segment:hover {
@@ -1085,14 +1128,71 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 44px;
 }
 
+/* Preferences: one labelled row per setting. The segmented control is
+ * sized to its labels (never stretched); on a narrow screen the text sits
+ * above it, from 640px beside it. */
+.pref-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.pref-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-md) 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.pref-row:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.pref-row:last-child {
+  padding-bottom: 0;
+}
+
+.pref-row__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.pref-row__label {
+  font-weight: var(--weight-semibold);
+}
+
+.pref-row__hint {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.pref-row .theme-form {
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+
+.pref-row .theme-form .theme-option {
+  flex: 0 1 auto;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+@media (min-width: 640px) {
+  .pref-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-lg);
+  }
+}
+
 .account-sign-out button,
 .sidebar-footer .logout-form button {
   min-height: 44px;
-}
-
-/* The sidebar footer's language and theme segments are 44px targets too. */
-.sidebar-footer .theme-form .theme-option {
-  height: 44px;
 }
 
 .theme-form .theme-option--active {
@@ -1677,119 +1777,166 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   display: none;
 }
 
-/* The frame chip above the page title (two or more frames) and its card
- * sheet. The chip is a hash link to a shared modal: a 48px card showing the
- * current frame with a chevron. The sheet lists one whole-card link per frame
- * in one column, two from 700px. Accent only marks the current frame's ring,
- * check and the footer link. */
-a.frame-chip {
+/* The frame tile strip above the page title (two or more frames). One
+ * whole-tile link per frame: a CSS-drawn frame (dark bezel, white screen), the
+ * name, the status dot and the last-seen word. Accent only marks the current
+ * tile's outline and the Add a screen tile. Below 700px the strip scrolls
+ * sideways; from 700px it wraps. */
+.frame-tiles {
   box-sizing: border-box;
   display: flex;
-  align-items: center;
   gap: var(--space-sm);
-  width: 100%;
-  max-width: none;
-  min-height: 48px;
   margin: 0 0 var(--space-md);
-  padding: 0 var(--space-md);
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  text-decoration: none;
-}
-
-a.frame-chip:hover {
-  background: var(--color-control-wash);
-}
-
-.frame-chip__name {
-  flex: 1 1 auto;
-  min-width: 0;
-  font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
-}
-
-a.frame-chip .icon {
-  flex: none;
-}
-
-.frame-sheet__list {
-  display: grid;
-  gap: var(--space-sm);
-  margin: 0;
-  padding: 0;
+  padding: 4px;
   list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
 }
 
-.frame-card {
-  box-sizing: border-box;
+.frame-tiles > li {
   display: flex;
+  flex: none;
+  width: 132px;
+  scroll-snap-align: start;
+}
+
+.frame-tile {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--space-sm);
-  min-height: 64px;
-  padding: var(--space-sm) var(--space-md);
+  gap: 6px;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--space-sm);
   background: var(--color-dominant);
   color: var(--color-text);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+  text-align: center;
   text-decoration: none;
 }
 
-.frame-card:hover {
+.frame-tile:hover {
   background: var(--color-control-wash);
 }
 
-.frame-card[aria-current="true"] {
+.frame-tile[aria-current="true"] {
   border-color: var(--color-accent);
   box-shadow: 0 0 0 1px var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-dominant));
 }
 
-.frame-card[aria-current="true"] .icon {
+.frame-tile__dot {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+}
+
+.frame-tile__pic {
+  display: block;
+  box-sizing: border-box;
   flex: none;
-  margin-left: auto;
-  color: var(--color-accent);
+  width: 44px;
+  height: 58px;
+  padding: 3px;
+  background: var(--color-frame-bezel);
+  border: 1px solid var(--color-frame-bezel-hi);
+  border-radius: 5px;
 }
 
-.frame-card__text {
-  display: grid;
-  flex: 1 1 auto;
-  min-width: 0;
+.frame-tile__pic i {
+  display: block;
+  height: 100%;
+  background: var(--color-image-backdrop);
+  border-radius: 1px;
 }
 
-.frame-card__name {
+.frame-tile__name {
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.frame-card__note {
+.frame-tile__seen,
+.frame-tile__note {
   font-size: var(--font-label-size);
   overflow-wrap: anywhere;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.frame-sheet__footer {
-  margin: var(--space-md) 0 0;
+.frame-tile--add {
+  justify-content: center;
+  background: transparent;
+  border-style: dashed;
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
 }
 
-.frame-sheet__footer a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--color-accent);
+.frame-tile__plus {
+  font-size: 24px;
+  line-height: 1;
 }
 
 @media (min-width: 700px) {
-  a.frame-chip {
-    max-width: 24rem;
+  .frame-tiles {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+/* The System tile of the Console Fleet strip: a round badge instead of the
+ * frame picture. */
+.frame-tile__pic--system {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.frame-tile__pic--system i {
+  border-radius: 50%;
+}
+
+/* The blocks of the selected frame (or the System view): stacked on a phone,
+ * two columns of block cards from 1000px. The embedded page content brings its
+ * own cards and forms; a block only frames them. */
+.fleet-blocks {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md);
+  margin: 0 0 var(--space-lg);
+}
+
+.fleet-block {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.fleet-block > .text-heading {
+  margin: 0 0 var(--space-sm);
+}
+
+.fleet-block__fact {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-sm);
+}
+
+@media (min-width: 1000px) {
+  .fleet-blocks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: flex-start;
   }
 
-  .frame-sheet__list {
-    grid-template-columns: 1fr 1fr;
-  }
-
-  dialog.frame-sheet {
-    width: min(640px, calc(100% - 48px));
+  .fleet-block--wide {
+    grid-column: 1 / -1;
   }
 }
 
@@ -3935,29 +4082,6 @@ details[open] > summary::before {
   }
 }
 
-/* The airline list: one row per airline, every row the same fixed height
- * whatever its name or number of aircraft types, so the page reads as
- * one even column (two from 960px). */
-.airline-list {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-sm);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-@media (min-width: 960px) {
-  .airline-list {
-    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-    gap: var(--space-md);
-  }
-}
-
-.airline-list + .page-section {
-  margin-top: var(--space-lg);
-}
-
 /* Hairline-at-rest, shadow-on-hover — do not restore a resting shadow. */
 .airline-card {
   background: var(--color-dominant);
@@ -4011,105 +4135,6 @@ a.airline-card {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* One airline row: picture, name over aircraft types, chevron. A fixed
- * height (not min-height) is the whole point: two lines of name and one of
- * types fit inside it, a longer name is clamped, so no row is ever taller
- * than another. The row is the trigger itself (an anchor or a button), so
- * it clears the 44px floor by a wide margin. */
-.airline-row {
-  display: grid;
-  grid-template-columns: 116px minmax(0, 1fr) 20px;
-  align-items: center;
-  gap: var(--space-sm) var(--space-md);
-  box-sizing: border-box;
-  width: 100%;
-  height: 76px;
-  min-height: 0;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  color: inherit;
-  font: inherit;
-  text-align: start;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-/* (0,2,0) so the global button:hover/:active wash and press-scale never
- * repaint a row that is a <button>, and a hovered row reveals the
- * card-hover shadow exactly as .airline-card does. */
-.airline-row:hover,
-.airline-row:focus-visible {
-  background: var(--color-dominant);
-  border-color: transparent;
-  box-shadow: var(--shadow-card-hover);
-  transform: none;
-}
-
-.airline-row:active {
-  transform: none;
-}
-
-.airline-row__art {
-  display: block;
-  min-width: 0;
-}
-
-.airline-row__art .airline-card__placeholder {
-  width: 100%;
-  margin: 0;
-}
-
-.airline-row__image {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 450 / 132;
-  object-fit: contain;
-}
-
-.airline-row__text {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 2px;
-  min-width: 0;
-}
-
-/* Emphasis role; at most two lines, the full name stays in the title
- * attribute and in the sheet. */
-.airline-row__name {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.25;
-}
-
-/* Every aircraft type on one line, in the label voice. */
-.airline-row__types {
-  height: 16px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  line-height: 16px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.airline-row__chevron {
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 /* Interactive battery-trend chart hit targets and readout line. */
@@ -5047,111 +5072,6 @@ a.airline-card {
   min-width: 0;
 }
 
-/* The airline sheet (an Airlines row): the name field and, for a renamed
- * airline, the reset form, below the picture and the upload zone. The
- * :not([hidden]) form lets panel-lookup.js hide the whole section, or
- * just the reset form, for a card that has no name to edit or reset. The
- * prefix chips reuse .airline-card__chip; they are display only, so they
- * are not touch targets. */
-.airline-sheet:not([hidden]) {
-  display: block;
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-  min-width: 0;
-}
-
-.airline-sheet__name input[type="text"] {
-  width: 100%;
-  box-sizing: border-box;
-}
-
-/* The sheet's own buttons meet the 44px floor directly, at every width,
- * rather than taking the 30px/36px compact button geometry. */
-.airline-sheet__name button,
-.airline-sheet__reset button {
-  margin-top: var(--space-sm);
-  min-height: 44px;
-}
-
-/* The sheet's one title: the airline's name with its callsign prefixes as
- * quiet chips beside it. Nothing here is a touch target. */
-.airline-sheet__head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0 var(--space-sm);
-}
-
-.airline-sheet__head > h2 {
-  margin: 0 0 var(--space-sm);
-}
-
-.airline-sheet__chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin: 0 0 var(--space-sm);
-  padding: 0;
-  list-style: none;
-}
-
-.airline-sheet__chips:empty {
-  display: none;
-}
-
-/* The aircraft-type switcher: a link per type (a plain label when there
- * is only one), the shown one marked in the selection idiom. Each link is
- * its own 44px target. */
-.airline-sheet__types:not([hidden]) {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
-  margin: var(--space-sm) 0;
-}
-
-.airline-sheet__type {
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  line-height: 1;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-a.airline-sheet__type {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  box-sizing: border-box;
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-a.airline-sheet__type[aria-current="true"] {
-  border-color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
-}
-
-.airline-sheet__reset:not([hidden]) {
-  display: block;
-  margin-top: var(--space-md);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.airline-sheet__reset p {
-  margin: 0;
-}
-
 .lightbox__replace-zone:not([hidden]),
 .resolve-upload-zone:not([hidden]) {
   display: flex;
@@ -5346,28 +5266,51 @@ button.detection-search:hover {
   box-shadow: none;
 }
 
-/* Location and detection page. A single column on a phone, in the order the
- * markup has; from 960px the place card takes the right column and the other
- * cards stack in a 24rem left column. Cards reuse the nested card voice. */
+/* Location and detection page. Without the map script it is one column in
+ * the order the markup has: the mode switch, the panel (the runway choice or
+ * the radius, the airport list, the fields). With the map running
+ * (html.map-ready) the map fills the stage; the mode switch and the search
+ * float on it and the panel is a bottom sheet on a phone and a card at the
+ * left of the map from 960px, in both cases the part of the map the script
+ * keeps clear when it centres a place. */
 .place-page {
-  display: grid;
-  gap: var(--space-md);
   margin-bottom: var(--space-lg);
 }
 
-.place-page > *,
-.place-page__rest > * {
+.place-stage {
+  display: grid;
+  gap: var(--space-md);
+  --place-float-h: 8.5rem;
+}
+
+.place-stage > * {
   min-width: 0;
 }
 
-.place-page__rest {
+.place-float {
   display: grid;
-  gap: var(--space-md);
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
   align-content: start;
 }
 
-.place-page .place-card {
-  margin-bottom: 0;
+.place-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.place-panel > * {
+  margin: 0;
+  min-width: 0;
+}
+
+.place-search__row button {
+  white-space: nowrap;
 }
 
 .place-line {
@@ -5378,18 +5321,54 @@ button.detection-search:hover {
 /* The fallback explanation stays until place-map.js reports the map is
  * running; a failed script therefore falls back as well. */
 .place-fallback {
-  margin: 0 0 var(--space-md);
+  margin: 0;
 }
 
 .map-ready .place-fallback {
   display: none;
 }
 
+/* The mode switch: two segments in one track. */
+.place-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-xs);
+  padding: var(--space-xs);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.place-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.place-mode:has(input:checked) {
+  background: var(--color-dominant);
+  color: var(--color-accent);
+  box-shadow: var(--shadow-card);
+}
+
+.place-mode:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 .place-search {
   --js-gate-display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
 }
 
 .place-search__row {
@@ -5410,7 +5389,182 @@ button.detection-search:hover {
   --js-gate-display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
-  margin-bottom: var(--space-md);
+}
+
+/* The chosen mode decides which block the panel shows. */
+.place-stage:has(#place-mode-area:checked) .place-panel__runway,
+.place-stage:not(:has(#place-mode-area:checked)) .place-panel__area {
+  display: none;
+}
+
+.place-panel .detection-runways {
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+}
+
+.place-panel .runway-card {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.place-panel .runway-card .banner__pill {
+  display: block;
+  width: fit-content;
+  margin-top: var(--space-xs);
+}
+
+.place-panel__follow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.place-derived {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.place-more > summary {
+  font-weight: var(--weight-semibold);
+}
+
+.place-saved .text-heading {
+  margin: var(--space-sm) 0;
+}
+
+/* The map is running: it fills the stage and everything else floats on it. */
+.map-ready .place-stage {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 0;
+  height: max(27rem, calc(100dvh - 17.5rem));
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+  background: var(--color-secondary);
+}
+
+.map-ready .place-map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.map-ready .place-float {
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  padding: var(--space-sm);
+  pointer-events: none;
+}
+
+.map-ready .place-float > * {
+  pointer-events: auto;
+}
+
+.map-ready .place-modes {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-search__row {
+  padding: var(--space-xs);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-search label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The privacy line floats under the search field while it is in use, out of
+ * the flow so nothing moves when the field loses focus; it gives way to the
+ * results. */
+.map-ready .place-search {
+  position: relative;
+}
+
+.map-ready .place-search .section-caption {
+  display: none;
+}
+
+.map-ready .place-search:focus-within .section-caption {
+  display: block;
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-float:has(.place-results:not([hidden])) .place-search .section-caption {
+  display: none;
+}
+
+.map-ready .place-results {
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.map-ready .place-panel {
+  grid-row: 3;
+  position: relative;
+  z-index: 2;
+  max-height: calc(max(27rem, 100dvh - 17.5rem) * 0.46);
+  overflow-y: auto;
+  border-width: 1px 0 0;
+  border-radius: var(--radius-card) var(--radius-card) 0 0;
+  box-shadow: var(--shadow-card-hover);
+}
+
+/* On a phone the title is the page's heading for assistive technology only:
+ * the map and the sheet carry the page. The flash banner stays in the flow. */
+@media (max-width: 959.98px) {
+  .map-ready .page-header {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .map-ready .place-locate {
+    position: absolute;
+    z-index: 2;
+    right: var(--space-sm);
+    top: calc(var(--place-float-h) + 7rem);
+  }
+
+  .place-page:has(~ .dirty-bar:not([hidden])) .place-panel {
+    padding-bottom: 8.5rem;
+  }
+}
+
+/* The airport list shows while its filter field is in use, and after a
+ * submitted filter. */
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-airports,
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-filter-hint,
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-results-count,
+.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-subtitle {
+  display: none;
 }
 
 /* The map. Leaflet's own stylesheet comes first on this page; the rules
@@ -5435,13 +5589,13 @@ button.detection-search:hover {
 }
 
 /* A map that did not start leaves the plain form: nothing script-only shows. */
-html:not(.map-ready) .place-card--map .place-search,
-html:not(.map-ready) .place-card--map .place-locate {
+html:not(.map-ready) .place-search,
+html:not(.map-ready) .place-locate {
   display: none;
 }
 
 .place-map__notice {
-  margin: 0 0 var(--space-sm);
+  margin: 0;
   padding: var(--space-sm) var(--space-md);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
@@ -5656,20 +5810,8 @@ button.place-result:hover {
   content: " · " attr(data-current-label);
 }
 
-.place-modes {
-  margin-bottom: var(--space-md);
-}
-
-.place-mode {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  padding-right: var(--space-2xl);
-  overflow-wrap: anywhere;
-}
-
 .place-subtitle {
-  margin: var(--space-md) 0 var(--space-sm);
+  margin: 0;
   font-family: var(--font-ui);
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
@@ -5688,6 +5830,29 @@ button.place-result:hover {
   margin-top: var(--space-md);
 }
 
+.place-panel__area .place-radius {
+  margin-top: 0;
+}
+
+.place-radius__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.place-radius__row input[type="number"] {
+  flex: 0 0 6rem;
+  width: 6rem;
+}
+
+.place-radius__range {
+  --js-gate-display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 44px;
+  accent-color: var(--color-accent);
+}
+
 .place-radius .section-caption,
 .place-fields .section-caption {
   margin: 0;
@@ -5701,36 +5866,82 @@ button.place-result:hover {
 }
 
 .place-details > summary {
-  font-weight: var(--weight-semibold);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+.map-ready .place-details:not([open]) .place-derived {
+  text-decoration: none;
+}
+
+/* The locate button is a round button on the map. */
+.map-ready .place-locate {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-accent);
+}
+
+.map-ready .place-locate__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (max-width: 959.98px) {
+  .map-ready .place-map .leaflet-top {
+    top: var(--place-float-h);
+  }
 }
 
 @media (min-width: 960px) {
-  .place-page {
+  .map-ready .place-stage {
     grid-template-columns: 24rem minmax(0, 1fr);
-    grid-template-rows: auto 1fr;
-    gap: var(--space-lg);
+    grid-template-rows: auto minmax(0, 1fr);
+    height: max(34rem, calc(100dvh - 17rem));
+    padding: var(--space-md);
   }
 
-  .place-card--status {
-    align-self: start;
+  .map-ready .place-float {
+    grid-column: 1;
+    grid-row: 1;
+    padding: var(--space-md) var(--space-md) 0;
+    background: var(--color-dominant);
+    border: 1px solid var(--color-border);
+    border-bottom: 0;
+    border-radius: var(--radius-card) var(--radius-card) 0 0;
+    box-shadow: var(--shadow-card-hover);
+    pointer-events: auto;
   }
 
-  .place-page__rest {
+  .map-ready .place-modes,
+  .map-ready .place-search__row {
+    box-shadow: none;
+  }
+
+  .map-ready .place-panel {
     grid-column: 1;
     grid-row: 2;
-    align-self: start;
-    gap: var(--space-lg);
+    max-height: none;
+    border-width: 0 1px 1px;
+    border-radius: 0 0 var(--radius-card) var(--radius-card);
   }
 
-  .place-card--map {
-    grid-column: 2;
-    grid-row: 1 / span 2;
-    align-self: start;
-  }
-
-  .place-map {
-    height: min(70vh, 40rem);
-    min-height: 24rem;
+  .map-ready .place-locate {
+    position: absolute;
+    z-index: 2;
+    right: var(--space-lg);
+    bottom: calc(var(--space-lg) + var(--space-xl));
   }
 }
 
@@ -6406,11 +6617,137 @@ button.place-result:hover {
  * stack on a phone, and the preset row keeps its bottom gap off the
  * sentence below it. */
 .modal .quiet-times-row {
-  gap: var(--space-md);
+  gap: var(--space-sm);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .modal .quiet-preset-row {
   margin-bottom: 0;
+}
+
+.quiet-intro {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* With a script the preset cards drive the enable checkbox, so its own row
+ * leaves the layout (display:none also takes it out of the tab order);
+ * without one the checkbox is the visible control and the cards are hidden
+ * by their .js-gate wrapper. */
+.js .quiet-enabled-field {
+  display: none;
+}
+
+.quiet-cards {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.modal .quiet-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
+  box-sizing: border-box;
+  text-align: left;
+  font-size: var(--font-body-size);
+  color: var(--color-text);
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.modal .quiet-card[aria-pressed="true"] {
+  border: 2px solid var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+.quiet-card__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-secondary);
+}
+
+.quiet-card[aria-pressed="true"] .quiet-card__icon {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.quiet-card__text {
+  display: grid;
+  min-width: 0;
+}
+
+.quiet-card__title {
+  font-weight: var(--weight-semibold);
+}
+
+.quiet-card__detail {
+  font-size: var(--font-label-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.quiet-card__check {
+  display: none;
+  margin-left: auto;
+  color: var(--color-accent);
+}
+
+.quiet-card[aria-pressed="true"] .quiet-card__check {
+  display: inline-flex;
+}
+
+.quiet-custom {
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-md);
+}
+
+.quiet-custom__label {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.quiet-time-field {
+  min-width: 0;
+}
+
+.quiet-tile {
+  display: block;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-secondary);
+  border-radius: 14px;
+}
+
+.quiet-tile__label {
+  display: block;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.modal .quiet-tile input[type="time"] {
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 1.75rem;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
 }
 
 .modal .quiet-timezone-note {
@@ -8872,9 +9209,27 @@ a.page-header__action:hover {
   margin: var(--space-xs) 0 0;
 }
 
-/* The collapsed group of retired frames under the fleet list. */
-details.fleet-retired {
+/* The collapsed block of pending and retired frames under the selected frame. */
+details.fleet-other {
   margin-top: var(--space-md);
+}
+
+/* The selected frame's header: its name and owner, and its actions menu. */
+.fleet-detail-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin: 0 0 var(--space-md);
+}
+
+.fleet-detail-head__text {
+  min-width: 0;
+}
+
+.fleet-detail-head__text > * {
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* The "Manage user" button of a Users row: a 44px bordered text link. */
@@ -8899,61 +9254,98 @@ a.entity-row__button:hover {
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
 }
 
-/* One independent form inside a multi-section dialog. */
-.modal__section {
-  display: grid;
-  gap: var(--space-sm);
-  padding-top: var(--space-md);
-  border-top: 1px solid var(--color-border);
-}
-
-.modal__section:first-child {
-  padding-top: 0;
-  border-top: 0;
-}
-
-.modal__section-title,
-.modal__section > p {
-  margin: 0;
-}
-
 .quiet-timezone-note {
   margin: var(--space-md) 0 0;
 }
 
 /* Personalisation ------------------------------------------------------
- * An "On this page" list (two columns on a phone, a sticky rail from
- * 960px) and four cards. The Look card is a grid of radio cards. */
+ * A segmented section navigation (Look, Special looks, Calendar, Screen:
+ * plain links, one view each) over the current view. The Look view is the
+ * look picker: tabs, the frame's picture and the three choices. */
 
 .personalisation {
   display: block;
 }
 
-.personalisation__nav {
-  margin-bottom: var(--space-lg);
-}
-
-.personalisation__nav-title {
-  margin: 0 0 var(--space-xs);
-}
-
-.personalisation__links {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-xs) var(--space-sm);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.personalisation__link {
+/* The pill bar scrolls sideways on a phone rather than wrapping. A script
+ * (theme-preview.js) adds .is-enhanced and slides the thumb under the
+ * current link; without one the current link carries the highlight. */
+.personalisation-nav {
+  position: relative;
   display: flex;
-  align-items: center;
-  min-height: 44px;
-  overflow-wrap: anywhere;
+  gap: var(--space-xs);
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-xs);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  scrollbar-width: none;
 }
 
-.personalisation__cards {
+.personalisation-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.personalisation-nav__thumb {
+  display: none;
+}
+
+.personalisation-nav__link {
+  position: relative;
+  z-index: 1;
+  scroll-snap-align: center;
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-control);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.personalisation-nav__link svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+
+.personalisation-nav__link:hover {
+  color: var(--color-text);
+}
+
+.personalisation-nav__link[aria-current="page"] {
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+  color: var(--color-accent);
+}
+
+.personalisation-nav.is-enhanced .personalisation-nav__thumb {
+  position: absolute;
+  top: var(--space-xs);
+  bottom: var(--space-xs);
+  left: 0;
+  display: block;
+  width: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+}
+
+.personalisation-nav.is-enhanced .personalisation-nav__thumb.is-sliding {
+  transition: transform var(--motion-fast) ease, width var(--motion-fast) ease;
+}
+
+.personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] {
+  background: transparent;
+  box-shadow: none;
+}
+
+.personalisation__view {
   min-width: 0;
   max-width: 56rem;
 }
@@ -9062,9 +9454,118 @@ button.look-pick__customise {
   text-align: left;
 }
 
+/* The Look view ------------------------------------------------------- */
+
+.look-tabs {
+  --js-gate-display: inline-flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-md);
+  padding: var(--space-xs);
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+}
+
+button.look-tabs__tab {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-weight: var(--weight-semibold);
+}
+
+button.look-tabs__tab:hover {
+  background: transparent;
+  color: var(--color-text);
+}
+
+button.look-tabs__tab[aria-pressed="true"] {
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card);
+  color: var(--color-accent);
+}
+
+.look-picker {
+  --js-gate-display: block;
+  max-width: 35rem;
+  margin-top: var(--space-md);
+}
+
+/* With a script the picker below replaces the look cards, the "Change"
+ * table and the "Customise" button; without one they are the way in. */
+.js .look-view .look-pick__grid,
+.js .look-view .look-edit,
+.js .look-view .look-pick__customise {
+  display: none;
+}
+
+.js .look-view .look-panel > .look-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+.js .look-view .look-panel > .look-frame > .look-frame__meta,
+.js .look-view .look-pick > .look-frame__meta {
+  margin-top: 0;
+}
+
+.js .look-view .look-panel > .look-frame > .field-error {
+  grid-column: 1 / -1;
+}
+
+.look-panel[hidden] {
+  display: none;
+}
+
+.look-sheet__head[hidden],
+button.look-sheet__done[hidden] {
+  display: none;
+}
+
+/* The inline picker is the sheet without its dialog behaviour. */
+.look-sheet[data-look-inline] {
+  position: static;
+  z-index: auto;
+  width: auto;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: var(--space-md) 20px;
+  overflow: visible;
+  border-radius: var(--radius-card);
+  box-shadow: none;
+}
+
+.look-sheet[data-look-inline]::before {
+  display: none;
+}
+
+.look-sheet[data-look-inline] .look-sheet__foot button {
+  min-height: 48px;
+}
+
+button.look-sheet__save {
+  border-color: transparent;
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
+}
+
+button.look-sheet__save:hover {
+  background: var(--color-accent-hover);
+}
+
 /* On a phone the large picture is smaller and its read-back sits beside it,
  * so the first row of looks is on the first screen. */
 @media (max-width: 699.98px) {
+  .js .look-view .look-panel > .look-frame {
+    grid-template-columns: 7.5rem minmax(0, 1fr);
+  }
+
   .look-pick {
     display: grid;
     grid-template-columns: 7.5rem minmax(0, 1fr);
@@ -9088,6 +9589,14 @@ button.look-pick__customise {
 }
 
 @media (min-width: 700px) {
+  /* The add dialog opens over its own card, never beside it. */
+  .personalisation-card .special-add.is-enhanced[open] > .special-add__panel {
+    top: auto;
+    right: auto;
+    bottom: calc(100% - 64px);
+    left: 0;
+  }
+
   .look-pick__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -9098,25 +9607,6 @@ button.look-pick__customise {
     right: auto;
     left: 0;
     margin-top: var(--space-sm);
-  }
-}
-
-@media (min-width: 960px) {
-  .personalisation {
-    display: grid;
-    grid-template-columns: 14rem minmax(0, 56rem);
-    gap: var(--space-lg);
-  }
-
-  .personalisation__nav {
-    align-self: start;
-    position: sticky;
-    top: var(--space-lg);
-    margin-bottom: 0;
-  }
-
-  .personalisation__links {
-    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -9197,21 +9687,35 @@ button.look-pick__customise {
 
 .collection-badge--locked {
   background: transparent;
-  border: 2px dashed color-mix(in srgb, var(--color-text) 50%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 35%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* One control bar: row one is the filter field and the sort, row two the
+ * show chips, the plain count and (no script only) the Apply button. Every
+ * control is at least 44px tall and the rows wrap on a phone. */
 .collection-controls {
+  flex-direction: column;
   align-items: stretch;
+  gap: var(--space-sm);
 }
 
-.collection-controls .filter-bar__chips {
+.collection-controls__row {
   display: flex;
-  flex-basis: 340px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .collection-controls .filter-bar__search {
   flex: 1 1 220px;
+  max-width: none;
+}
+
+.collection-controls .filter-bar__chips {
+  display: flex;
+  flex: 1 1 300px;
+  max-width: 460px;
 }
 
 /* A long label ("Not yet seen") wraps inside its segment instead of
@@ -9223,15 +9727,57 @@ button.look-pick__customise {
   line-height: 1.2;
 }
 
+.collection-sort {
+  display: flex;
+  flex: 0 1 220px;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.collection-sort__label {
+  flex: none;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
 
 .collection-sort select {
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 48px;
+}
+
+/* A plain count, no pill and no border. */
+.collection-controls__count {
+  margin: 0 0 0 auto;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-controls__apply {
   min-height: 48px;
   padding: 0 var(--space-md);
   font-size: var(--font-body-size);
+}
+
+/* With a script the sort and the chips submit on change. */
+.js .collection-controls__apply {
+  display: none;
+}
+
+.rarity-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-md);
+  margin: 0 0 var(--space-md);
+  padding: 0;
+  list-style: none;
+}
+
+.rarity-legend__tier {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .collection-grid {
@@ -9317,6 +9863,64 @@ button.look-pick__customise {
   color: var(--color-text);
 }
 
+.rarity-pill--occasional {
+  color: var(--color-rarity-occasional);
+  border-color: var(--color-rarity-occasional);
+  background: color-mix(in srgb, var(--color-rarity-occasional) 10%, var(--color-dominant));
+}
+
+.rarity-pill--rare {
+  color: var(--color-rarity-rare);
+  border-color: var(--color-rarity-rare);
+  background: color-mix(in srgb, var(--color-rarity-rare) 10%, var(--color-dominant));
+}
+
+.rarity-pill--occasional .rarity-dot {
+  background: var(--color-rarity-occasional);
+}
+
+.rarity-pill--rare .rarity-dot {
+  background: var(--color-rarity-rare);
+}
+
+.collection-card--occasional {
+  border-top: 3px solid var(--color-rarity-occasional);
+}
+
+.collection-card--rare {
+  border-top: 3px solid var(--color-rarity-rare);
+}
+
+.type-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+}
+
+.type-chip__tag {
+  font-size: 12px;
+  font-weight: var(--weight-semibold);
+}
+
+.type-chip--occasional {
+  color: var(--color-rarity-occasional);
+  border-color: var(--color-rarity-occasional);
+}
+
+.type-chip--rare {
+  color: var(--color-rarity-rare);
+  border-color: var(--color-rarity-rare);
+}
+
 .rarity-dots {
   display: inline-flex;
   gap: 3px;
@@ -9374,4 +9978,561 @@ button.look-pick__customise {
   .collection-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+}
+
+/* Users table ----------------------------------------------------------
+ * One <table> of users. Below 70rem every row is a card: avatar and
+ * email with the "..." menu on top, the role select and the Active switch
+ * under it, frames and last sign-in at the bottom. */
+.users-table,
+.users-table tbody {
+  display: block;
+}
+
+.users-table thead {
+  display: none;
+}
+
+.users-table .users-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "user user"
+    "role active"
+    "frames seen";
+  position: relative;
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.users-cell {
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.users-cell--user {
+  grid-area: user;
+  padding-right: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.users-cell--role { grid-area: role; }
+.users-cell--active { grid-area: active; justify-self: end; }
+.users-cell--menu {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-sm);
+}
+
+.users-cell--frames {
+  grid-area: frames;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-cell--seen {
+  grid-area: seen;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-avatar {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+
+.users-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.users-email {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.users-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.users-pills:empty {
+  display: none;
+}
+
+.users-role-form,
+.users-active-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.users-role-form select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.users-role-fixed {
+  display: block;
+  font-weight: var(--weight-semibold);
+}
+
+.users-guard {
+  display: block;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.users-table button.users-role-save {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-label-size);
+}
+
+.users-table button.switch:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.users-menu__form {
+  margin: 0;
+}
+
+/* A submit button used as a menu entry: undo the primary-button look. */
+button.row-menu__item {
+  width: 100%;
+  box-sizing: border-box;
+  justify-content: flex-start;
+  background: none;
+  border: 0;
+  box-shadow: none;
+  font: inherit;
+  text-align: left;
+  color: var(--color-text);
+}
+
+button.row-menu__item:hover {
+  background: var(--color-control-wash);
+  box-shadow: none;
+}
+
+button.row-menu__item--destructive,
+button.row-menu__item--destructive:hover {
+  color: var(--color-status-error);
+}
+
+.users-note {
+  margin: var(--space-md) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (min-width: 70rem) {
+  .users-table {
+    display: table;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--color-dominant);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  .users-table thead {
+    display: table-header-group;
+  }
+
+  .users-table tbody {
+    display: table-row-group;
+  }
+
+  .users-table .users-row {
+    display: table-row;
+    position: static;
+    margin: 0;
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .users-cell {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .users-col {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--font-label-size);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .users-table tbody .users-row:last-child .users-cell {
+    border-bottom: 0;
+  }
+
+  .users-cell--user {
+    display: table-cell;
+    padding-right: var(--space-md);
+  }
+
+  .users-col--user {
+    width: 34%;
+  }
+
+  .users-avatar {
+    display: inline-grid;
+    margin-right: var(--space-sm);
+  }
+
+  .users-who {
+    display: inline-flex;
+    vertical-align: middle;
+    max-width: calc(100% - 48px);
+  }
+
+  .users-cell--active .users-active-label {
+    display: none;
+  }
+
+  .users-cell--menu {
+    position: static;
+  }
+}
+
+/* Airlines editor table ------------------------------------------------
+ * One <tbody> per airline: its row and, behind the native chevron, a
+ * sub-row per aircraft type. Below 70rem every row is a card. */
+.airlines-table,
+.airlines-table tbody {
+  display: block;
+}
+
+.airlines-table thead {
+  display: none;
+}
+
+.airline-group {
+  margin-bottom: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.airline-group[hidden] {
+  display: none;
+}
+
+.airline-group--gap {
+  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+  border-color: var(--color-status-warn);
+}
+
+.airlines-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  grid-template-areas:
+    "name name menu"
+    "prefixes views views"
+    "art seen seen";
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
+}
+
+.airlines-subrow {
+  display: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "name views"
+    "art art";
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
+  border-top: 1px dashed var(--color-border);
+  background: var(--color-secondary);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+.airline-group:has(details.airlines-expand[open]) .airlines-subrow {
+  display: grid;
+}
+
+.airlines-cell {
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.airlines-cell--name { grid-area: name; }
+
+.airlines-namebox {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.airlines-cell--prefixes {
+  grid-area: prefixes;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--art { grid-area: art; }
+
+.airlines-cell--views {
+  grid-area: views;
+  justify-self: end;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--seen {
+  grid-area: seen;
+  justify-self: end;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.airlines-cell--menu { grid-area: menu; justify-self: end; }
+
+.airlines-cell--type {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  padding-left: calc(44px + var(--space-xs));
+}
+
+
+.airlines-expand {
+  flex: none;
+  width: 44px;
+}
+
+.airlines-expand--none {
+  display: block;
+  height: 44px;
+}
+
+.airlines-expand > summary {
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+}
+
+.airlines-expand > summary::before {
+  margin-right: 0;
+}
+
+.airlines-name {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.airlines-name--fixed {
+  display: block;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.airlines-name input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  font-weight: var(--weight-semibold);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.airlines-name input[type="text"]:hover,
+.airlines-name input[type="text"]:focus {
+  background: var(--color-dominant);
+  border-color: var(--color-border);
+}
+
+.airlines-art {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.airlines-thumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--space-xs);
+  background: var(--color-secondary);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.airlines-thumb:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.airlines-thumb .airline-card__placeholder {
+  width: 88px;
+  margin: 0;
+}
+
+.airlines-thumb__image {
+  display: block;
+  width: 88px;
+  height: auto;
+  aspect-ratio: 450 / 132;
+  object-fit: contain;
+}
+
+.airlines-art__replace {
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-uses {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-name__save,
+.airlines-art__upload {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-label-size);
+}
+
+.airlines-menu__form {
+  margin: 0;
+}
+
+.airlines-cell--action {
+  align-self: center;
+}
+
+a.airlines-name-it {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  box-sizing: border-box;
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+@media (min-width: 70rem) {
+  .airlines-table {
+    display: table;
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--color-dominant);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  .airlines-table thead {
+    display: table-header-group;
+  }
+
+  .airlines-table tbody {
+    display: table-row-group;
+  }
+
+  .airline-group {
+    margin: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .airline-group--gap {
+    background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+  }
+
+  .airlines-row {
+    display: table-row;
+    padding: 0;
+  }
+
+  .airlines-subrow {
+    padding: 0;
+    background: var(--color-secondary);
+    border: 0;
+  }
+
+  .airline-group:has(details.airlines-expand[open]) .airlines-subrow {
+    display: table-row;
+  }
+
+  .airlines-cell {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .airlines-cell--views,
+  .airlines-cell--seen,
+  .airlines-cell--menu {
+    justify-self: auto;
+  }
+
+  .airlines-col {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+    font-size: var(--font-label-size);
+    font-weight: var(--weight-semibold);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    text-align: left;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .airlines-col--name { width: 32%; }
+  .airlines-col--prefixes { width: 14%; }
+  .airlines-col--art { width: 22%; }
+  .airlines-col--views { width: 11%; }
+  .airlines-col--menu { width: 64px; }
 }

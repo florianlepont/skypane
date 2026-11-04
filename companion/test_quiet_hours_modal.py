@@ -121,16 +121,38 @@ def test_home_serves_the_same_dialog_for_every_role(rig, who):
     assert dialog.select_one("#dlg-quiet-hours-title").text() == "Quiet hours"
 
 
-def test_the_presets_are_three_buttons_that_fill_both_fields(rig):
+def test_the_presets_are_three_cards_that_fill_both_fields(rig):
     _status, body = rig.get("owner")
-    presets = _dialog(body).select("button[data-quiet-preset]")
-    assert [b.text() for b in presets] == ["Night", "Day", "Always on"]
+    presets = _dialog(body).select(".quiet-cards button[data-quiet-preset]")
+    assert [b.select_one(".quiet-card__title").text() for b in presets] == [
+        "Night", "Day", "Always active"]
+    assert [b.select_one(".quiet-card__detail").text() for b in presets] == [
+        "23:00 \u2013 07:00", "08:00 \u2013 18:00", "Never rests"]
     assert (presets[0].attrs["data-preset-start"], presets[0].attrs["data-preset-end"]) == (
         "23:00", "07:00")
     assert (presets[1].attrs["data-preset-start"], presets[1].attrs["data-preset-end"]) == (
         "08:00", "18:00")
     assert presets[2].attrs["data-preset-enabled"] == "0"
     assert all(b.attrs["type"] == "button" for b in presets)
+    # The cards sit in the script-only gate; without a script the checkbox is the control.
+    assert _dialog(body).select_one(".js-gate .quiet-cards") is not None
+
+
+def test_the_card_matching_the_stored_window_is_pressed(rig):
+    _status, body = rig.get("owner")
+    # The rig stores 22:00-06:30 with quiet hours on: no window card matches.
+    states = [b.attrs["aria-pressed"] for b in _dialog(body).select(".quiet-cards button")]
+    assert states == ["false", "false", "false"]
+
+
+def test_the_start_and_end_fields_are_tiles_with_their_labels(rig):
+    _status, body = rig.get("owner")
+    tiles = _dialog(body).select("label.quiet-tile")
+    assert [t.select_one(".quiet-tile__label").text() for t in tiles] == ["Start", "End"]
+    assert [t.select_one("input").attrs["id"] for t in tiles] == [
+        "quiet-window-start", "quiet-window-end"]
+    assert _dialog(body).select_one(".quiet-custom__label").text() == "Or choose your hours"
+    assert _dialog(body).select_one(".quiet-intro").text() == "When should the screen rest?"
 
 
 def test_start_time_takes_the_initial_focus_and_nothing_else_does(rig):
@@ -143,9 +165,7 @@ def test_start_time_takes_the_initial_focus_and_nothing_else_does(rig):
 def test_the_helper_names_the_zone_and_links_to_the_place_page(rig):
     _status, body = rig.get("owner")
     note = _dialog(body).select_one(".quiet-timezone-note")
-    assert note.text() == (
-        "The screen rests during these hours, in the time zone Martinique. "
-        "Change the time zone in Location and detection.")
+    assert note.text() == "Time zone: Martinique. Change it in Location and detection."
     assert note.select_one("a").attrs["href"] == "%s/detection#details" % rig.scope()
 
 
@@ -155,8 +175,11 @@ def test_the_dialog_is_french_in_french(rig):
     assert dialog.select_one("#dlg-quiet-hours-title").text() == "Heures calmes"
     assert dialog.select_one('button[type="submit"]').text() == "Enregistrer les heures calmes"
     assert "Utiliser les heures calmes" in dialog.select_one("label.settings-checkbox").text()
-    assert "Changez le fuseau dans Lieu et détection." in dialog.select_one(
-        ".quiet-timezone-note").text()
+    assert dialog.select_one(".quiet-timezone-note").text() == (
+        "Fuseau : Martinique. Changer dans Lieu et détection.")
+    assert [b.select_one(".quiet-card__title").text() for b in dialog.select(".quiet-cards button")
+            ] == ["Nuit", "Journée", "Toujours actif"]
+    assert dialog.select_one(".quiet-custom__label").text() == "Ou choisir ses heures"
 
 
 def test_the_dialog_sits_outside_every_region_a_refresh_swaps(rig):

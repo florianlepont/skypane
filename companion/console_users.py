@@ -16,7 +16,7 @@ import datetime
 import re
 import sqlite3
 
-from companion import audit, console_flash, i18n, route_types
+from companion import audit, console_flash, i18n, route_types, ui_base
 from companion.pages import users_page
 from server import fleet_db, fleet_sessions
 
@@ -146,7 +146,8 @@ def _render(h, status=200, **invite_state):
         console_routes.USERS_ROUTE, None,
         lambda: users_page.render(_view(h, **invite_state)),
         users_page.USERS_PURPOSE, status=status,
-        action_html=users_page.header_action_html)
+        action_html=users_page.header_action_html,
+        scripts=(ui_base.LIST_FILTER_SCRIPT_SRC,))
 
 
 def handle_users_get(h, m):

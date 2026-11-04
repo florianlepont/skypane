@@ -58,6 +58,8 @@ LOOK_PREVIEW_ALT_TEMPLATE = i18n.msg("look.preview_alt", "Preview: %s, %s")
 LOOK_RESET_LABEL = i18n.msg("look.reset", "Reset")
 LOOK_DONE_LABEL = i18n.msg("look.done", "Done")
 LOOK_CLOSE_LABEL = i18n.msg("look.close", "Close")
+LOOK_SAVE_LABEL = i18n.msg("look.save", "Save")
+LOOK_TABS_LABEL = i18n.msg("look.departures_or_arrivals", "Departures or arrivals")
 
 # The "Same as departures" option Arrivals and Calendar flights carry,
 # submitting the empty string: the clear signal handle_post() maps to
@@ -84,10 +86,13 @@ def departures_safe_theme_id(current_theme_id, submitted):
         else device_config.DEFAULT_THEME_ID)
 
 
-def look_target_attrs(usage, field_name, state, size, follows_departures, title=None):
+def look_target_attrs(
+        usage, field_name, state, size, follows_departures, title=None, departures_id=None):
     """The data attributes the picker script reads off one look target:
     which radio group it owns, the preview URL pattern, and (for
     Arrivals/Calendar) that an empty value means "same as departures".
+    `departures_id` is the departures theme, for a page that holds no
+    departures look of its own for the script to follow.
     """
     template = theme_preview.frame_preview_src(PREVIEW_THEME_TOKEN, state, size)
     attrs = (
@@ -99,6 +104,8 @@ def look_target_attrs(usage, field_name, state, size, follows_departures, title=
     if follows_departures:
         attrs += ' data-look-follows="%s" data-look-same-label="%s"' % (
             COLOUR_USAGE_DEPARTURES, escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)))
+        if departures_id is not None:
+            attrs += ' data-look-follows-theme="%s"' % escape_html(departures_id)
     return attrs
 
 
@@ -187,18 +194,29 @@ def look_frame_html(usage, effective_value, departures_id, errors, state):
     )
 
 
-def look_sheet_html():
+def look_sheet_html(inline=False):
     """The one look sheet the script moves next to whichever picture
     opened it (a bottom sheet on phones). `hidden` until a script shows
     it, so a scripts-blocked page never renders an inert dialog. Its
     radios belong to no form and are never submitted: the script copies
     each choice into the opened look's own theme radio.
+
+    `inline` is the Look page's picker: the same three choices sitting in
+    the page (no dialog, no title, no Done), with a Save button that
+    presses the save bar's own Save (the form keeps its one submit
+    control). Its wrapper is script-only: without a
+    script the page offers the native radio tables instead.
     """
+    inline_attrs = " data-look-inline" if inline else " hidden"
+    role = "" if inline else ' role="dialog" aria-modal="true" aria-labelledby="%s"' % LOOK_SHEET_TITLE_ID
+    save = (
+        '<button type="button" class="look-sheet__save" data-look-save>%s</button>' % (
+            escape_html(i18n.t(LOOK_SAVE_LABEL)))
+        if inline else "")
     return (
         '<div class="look-scrim" data-look-scrim hidden></div>'
-        '<div class="look-sheet" id="%s" role="dialog" aria-modal="true" aria-labelledby="%s" '
-        'data-look-sheet data-look-model="%s" hidden>'
-        '<div class="look-sheet__head">'
+        '<div class="look-sheet" id="%s"%s data-look-sheet data-look-model="%s"%s>'
+        '<div class="look-sheet__head"%s>'
         '<h3 class="look-sheet__title" id="%s" data-look-sheet-title></h3>'
         '<button type="button" class="look-sheet__close" data-look-close aria-label="%s">%s</button>'
         "</div>"
@@ -210,16 +228,18 @@ def look_sheet_html():
         "%s"
         '<div class="look-sheet__foot">'
         '<button type="button" class="look-sheet__reset" data-look-reset>%s</button>'
-        '<button type="button" class="look-sheet__done" data-look-done>%s</button>'
+        '<button type="button" class="look-sheet__done" data-look-done%s>%s</button>%s'
         "</div>"
         "</div>"
     ) % (
-        LOOK_SHEET_ID, LOOK_SHEET_TITLE_ID, escape_html(look.look_model_json()),
+        LOOK_SHEET_ID, role, escape_html(look.look_model_json()), inline_attrs,
+        " hidden" if inline else "",
         LOOK_SHEET_TITLE_ID,
         escape_html(i18n.t(LOOK_CLOSE_LABEL)), layout.icon_html("icon-close"),
         escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)),
         look.axes_html("look"),
-        escape_html(i18n.t(LOOK_RESET_LABEL)), escape_html(i18n.t(LOOK_DONE_LABEL)),
+        escape_html(i18n.t(LOOK_RESET_LABEL)), " hidden" if inline else "",
+        escape_html(i18n.t(LOOK_DONE_LABEL)), save,
     )
 
 
@@ -352,15 +372,32 @@ def look_pick_html(current_theme_id, submitted, errors):
 
 
 def look_card_body_html(current_theme_id, current_theme_arriving, errors=None, submitted=None):
-    """What the Look card holds: the departures block with its radio cards,
-    the Arrivals picture with its own "Change" control, and the one shared
-    look sheet."""
+    """What the Look page holds. With a script: the Departures/Arrivals
+    tabs, the live picture of the chosen one and the inline picker (colour,
+    background, diagonal band, Reset, Save). Without one: both pictures,
+    each with its native radio table, exactly as before. Both pictures and
+    their radios are in the markup either way, so the saved fields and the
+    form are the same.
+    """
     departures_id = departures_safe_theme_id(current_theme_id, submitted)
     effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
     arrivals_html = look_frame_html(
         COLOUR_USAGE_ARRIVALS, effective_arriving, departures_id, errors,
         theme_preview.FRAME_PREVIEW_STATE_ARRIVING)
+    tabs = "".join(
+        '<button type="button" class="look-tabs__tab" data-look-tab="%s" aria-pressed="%s">%s</button>' % (
+            usage, "true" if usage == COLOUR_USAGE_DEPARTURES else "false",
+            escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[usage])))
+        for usage in (COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS))
     return (
-        look_pick_html(current_theme_id, submitted, errors)
-        + '<div class="look-pick__arrivals">%s</div>' % arrivals_html
-        + look_sheet_html())
+        '<div class="look-view">'
+        '<div class="look-tabs js-gate" role="group" aria-label="%s">%s</div>'
+        '<div class="look-panel" data-look-panel="%s">%s</div>'
+        '<div class="look-panel look-pick__arrivals" data-look-panel="%s">%s</div>'
+        '<div class="look-picker js-gate">%s</div>'
+        "</div>"
+    ) % (
+        escape_html(i18n.t(LOOK_TABS_LABEL)), tabs,
+        COLOUR_USAGE_DEPARTURES, look_pick_html(current_theme_id, submitted, errors),
+        COLOUR_USAGE_ARRIVALS, arrivals_html,
+        look_sheet_html(inline=True))

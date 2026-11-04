@@ -475,7 +475,7 @@ class SettingsActionsMixin:
 
         if result == colour_rules.ADD_OK_NEW:
             return self._scoped_redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
+                "%s?flash=%s" % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(FLASH_KEY_RULE_ADDED)))
         if result == colour_rules.ADD_OK_REPLACED:
             # Both segments are already known-valid at this point (that is
             # exactly why add_rule() returned ADD_OK_REPLACED rather than
@@ -486,7 +486,7 @@ class SettingsActionsMixin:
                 normalised_kind, submitted_key)
             return self._scoped_redirect(
                 "%s?flash=%s&rule=%s"
-                % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
+                % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
                    quote(normalised_value, safe="")))
         if result == colour_rules.ADD_REJECTED_KEY:
             flash_key = FLASH_KEY_RULE_KEY_INVALID
@@ -497,7 +497,7 @@ class SettingsActionsMixin:
             # unrecognised result all reuse the generic save-failed key —
             # a result must never fall through to no flash at all.
             flash_key = FLASH_KEY_RULE_SAVE_FAILED
-        return self._scoped_redirect("%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(flash_key)))
+        return self._scoped_redirect("%s?flash=%s" % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(flash_key)))
 
     def _handle_rule_delete(self, device, kind, value):
         """POST /settings/rules/{kind}/{value}/delete. `kind` and
@@ -519,11 +519,11 @@ class SettingsActionsMixin:
         deleted = colour_rules.delete_rule(state_dir, normalised_kind, normalised_value)
         if deleted:
             return self._scoped_redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
+                "%s?flash=%s" % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(FLASH_KEY_RULE_DELETED)))
         if existed:
             return self._scoped_redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
-        return self._scoped_redirect(layout.DISPLAY_ROUTE)
+                "%s?flash=%s" % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(FLASH_KEY_RULE_DELETE_FAILED)))
+        return self._scoped_redirect(layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
 
     def _handle_calendar_disconnect_post(self, device):
         """POST /settings/calendar/disconnect. Two-step confirmation,
@@ -542,9 +542,9 @@ class SettingsActionsMixin:
         if calendar_rules.save_calendar_url(
                 state_dir, calendar_rules.CLEAR_CALENDAR_URL):
             return self._scoped_redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
+                "%s?flash=%s" % (layout.DISPLAY_CALENDAR_ROUTE, quote(FLASH_KEY_CALENDAR_DISCONNECTED)))
         return self._scoped_redirect(
-            "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
+            "%s?flash=%s" % (layout.DISPLAY_CALENDAR_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
     def _calendar_sheet_redirect(self, flash_key, error=None):
         """Back to Display with the calendar sheet reopened (the script
@@ -557,7 +557,7 @@ class SettingsActionsMixin:
         if error:
             query += "&%s=%s" % (config_page.CALENDAR_ERROR_PARAM, quote(error))
         return self._scoped_redirect("%s?%s#%s" % (
-            layout.DISPLAY_ROUTE, query, config_page.CALENDAR_SHEET_ID))
+            layout.DISPLAY_CALENDAR_ROUTE, query, config_page.CALENDAR_SHEET_ID))
 
     def _handle_calendar_connect_post(self, device):
         """POST /settings/calendar/connect: the calendar sheet's own
@@ -582,7 +582,7 @@ class SettingsActionsMixin:
         # flight means the link is not fetched now.
         if not poll_lock.acquire(blocking=False):
             return self._scoped_redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+                "%s?flash=%s" % (layout.DISPLAY_CALENDAR_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
         try:
             result_code = calendar_rules.connect_calendar_url(
                 device.state_dir, form.get("calendar_url") or "", poll_cycle.now_s())
@@ -590,10 +590,10 @@ class SettingsActionsMixin:
             poll_lock.release()
         if result_code == calendar_rules.FETCH_OK:
             return self._scoped_redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
+                "%s?flash=%s" % (layout.DISPLAY_CALENDAR_ROUTE, quote(FLASH_KEY_CALENDAR_CONNECT_OK)))
         if result_code == calendar_rules.FETCH_SAVED_UNREAD:
             return self._scoped_redirect(
-                "%s?flash=%s" % (layout.DISPLAY_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
+                "%s?flash=%s" % (layout.DISPLAY_CALENDAR_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_DEFERRED)))
         if result_code == calendar_rules.FETCH_REJECTED_URL:
             return self._calendar_sheet_redirect(
                 FLASH_KEY_CALENDAR_CONNECT_INVALID, config_page.CALENDAR_ERROR_INVALID)

@@ -36,7 +36,7 @@ def test_console_bar_has_five_equal_cells_at_360(
         assert page.locator(".section-subnav").count() == 0
         page.locator(".tab-bar__more > summary").click()
         sheet = page.locator(".tab-bar__more-panel a")
-        assert sheet.count() == 5
+        assert sheet.count() == 2
         for index in range(sheet.count()):
             assert sheet.nth(index).bounding_box()["height"] >= MIN_TAP_PX
     finally:
@@ -112,8 +112,7 @@ _SIDEBAR_LINKS = (
     " return {text: c.textContent.trim(), h: e.getBoundingClientRect().height}; })")
 
 CONSOLE_SIDEBAR_LABELS = [
-    "Fleet", "Users", "Health", "Device", "Airline editor", "Audit log", "Releases",
-    "Account"]
+    "Fleet", "Users", "Airline editor", "Audit log", "Account"]
 PERSONAL_SIDEBAR_LABELS = [
     "Home", "Flight history", "Location and detection", "Personalisation",
     "Airline collection", "Account"]

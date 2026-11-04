@@ -215,13 +215,13 @@ def _add_form(device_id, return_to, field_html, submit_html):
             _return_field(return_to), field_html, submit_html))
 
 
-def _field_ids(device_id):
-    slug = dialog_id("co-manager", device_id)
+def _field_ids(device_id, prefix="co-manager"):
+    slug = dialog_id(prefix, device_id)
     return slug + "-email", slug + "-person", slug + "-email-help"
 
 
-def _typed_field_html(device_id):
-    input_id, _person_id, help_id = _field_ids(device_id)
+def _typed_field_html(device_id, prefix="co-manager"):
+    input_id, _person_id, help_id = _field_ids(device_id, prefix)
     return (
         '<p><label for="%s">%s</label>'
         '<input type="email" id="%s" name="%s" autocomplete="off" '
@@ -232,8 +232,8 @@ def _typed_field_html(device_id):
             _MAX_EMAIL_CHARS, help_id, help_id, _t(_HELPER_EMAIL)))
 
 
-def _select_field_html(device_id, candidates):
-    _input_id, person_id, _help_id = _field_ids(device_id)
+def _select_field_html(device_id, candidates, prefix="co-manager"):
+    _input_id, person_id, _help_id = _field_ids(device_id, prefix)
     options = '<option value="">%s</option>' % _t(_CHOOSE_PERSON) + "".join(
         '<option value="%s">%s</option>' % (_esc(email), _esc(email))
         for email in candidates)
@@ -243,25 +243,23 @@ def _select_field_html(device_id, candidates):
             person_id, _t(_LABEL_PERSON), person_id, FIELD_EMAIL, options))
 
 
-def _add_html(view, device_id, return_to):
+def _add_html(view, device_id, return_to, prefix="co-manager"):
     """The Add control: a typed address for an owner, a choice of the eligible
     invited people for an administrator (never decided by the list being
     empty)."""
     if view.is_admin_viewer and not view.candidates:
         return '<p class="text-label section-caption">%s</p>' % _t(_NO_CANDIDATES)
     field = (
-        _select_field_html(device_id, view.candidates) if view.is_admin_viewer
-        else _typed_field_html(device_id))
+        _select_field_html(device_id, view.candidates, prefix) if view.is_admin_viewer
+        else _typed_field_html(device_id, prefix))
     submit = '<button type="submit">%s</button>' % _t(_ADD_BUTTON)
     return _add_form(device_id, return_to, field, submit)
 
 
-def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=False):
-    """The Manage access dialog of one frame: the owner, the co-managers with
-    a Remove form each, and the Add form. `return_to` is a whitelisted host
-    page path (see `safe_return_to`); the forms send it back so the dialog
-    reopens there after a change. `open_` renders it open."""
-    from companion import ui_modal
+def access_section_html(view, device_id, return_to, id_prefix="co-manager"):
+    """The access content of one frame: the owner, the co-managers with a
+    Remove form each, and the Add form. Shown inside the Manage access
+    dialog and inline in the Console Fleet frame view."""
     parts = [
         '<section class="page-section">'
         '<h3 class="text-heading">%s</h3>'
@@ -270,11 +268,21 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
         _list_html(view, device_id, return_to)]
     if not view.members:
         parts.append(_empty_html(view))
-    parts.append(_add_html(view, device_id, return_to))
+    parts.append(_add_html(view, device_id, return_to, id_prefix))
     parts.append("</section>")
+    return "".join(parts)
+
+
+def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=False):
+    """The Manage access dialog of one frame: the owner, the co-managers with
+    a Remove form each, and the Add form. `return_to` is a whitelisted host
+    page path (see `safe_return_to`); the forms send it back so the dialog
+    reopens there after a change. `open_` renders it open."""
+    from companion import ui_modal
     return ui_modal.sections_dialog_html(
         access_dialog_id(device_id), i18n.t(_DIALOG_TITLE), frame_name,
-        "".join(parts), i18n.t(_DONE), return_to, open_=open_)
+        access_section_html(view, device_id, return_to), i18n.t(_DONE), return_to,
+        open_=open_)
 
 
 def leave_dialog_html(device_id, frame_name, return_to=RETURN_ACCOUNT):

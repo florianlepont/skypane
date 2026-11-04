@@ -9,7 +9,7 @@ import zoneinfo
 
 from companion import i18n
 from companion import draw
-from companion.layout import escape_html
+from companion.layout import escape_html, icon_html
 import companion.layout as layout
 from companion import prefs
 from server import device_config
@@ -638,10 +638,14 @@ QUIET_DIALOG_ENABLED_ID = "quiet-window-enabled"
 QUIET_DIALOG_TIME_STEP_S = 300
 QUIET_DIALOG_ENABLED_LABEL = i18n.msg("home.use_quiet_hours", "Use quiet hours")
 QUIET_DIALOG_SAVE_LABEL = i18n.msg("home.save_quiet_hours", "Save quiet hours")
+QUIET_DIALOG_INTRO = i18n.msg("home.quiet_intro", "When should the screen rest?")
+QUIET_DIALOG_CARDS_LABEL = i18n.msg("home.quiet_presets_label", "Quiet hours presets")
+QUIET_DIALOG_ALWAYS_LABEL = i18n.msg("home.quiet_always_active", "Always active")
+QUIET_DIALOG_ALWAYS_DETAIL = i18n.msg("home.quiet_never_rests", "Never rests")
+QUIET_DIALOG_CUSTOM_LABEL = i18n.msg("home.quiet_or_choose", "Or choose your hours")
 QUIET_DIALOG_ZONE_SENTENCE = i18n.msg(
     "home.quiet_hours_zone_sentence",
-    "The screen rests during these hours, in the time zone {zone}. "
-    "Change the time zone in {card}.")
+    "Time zone: {zone}. Change it in {card}.")
 
 
 def _dialog_enabled(submitted, current_enabled):
@@ -654,10 +658,13 @@ def _dialog_enabled(submitted, current_enabled):
 
 
 def _dialog_time_field_html(label, name, control_id, value, errors):
-    """One labelled 44px time input with its error paragraph below."""
+    """One time tile: a small caps label over a large 44px+ time input, the
+    whole tile being the label so a tap anywhere focuses the input, with
+    its error paragraph below."""
     return (
-        '<div class="modal__field"><label for="%s">%s</label>'
-        '<input type="time" id="%s" name="%s" value="%s" step="%d" required lang="%s"%s>%s</div>'
+        '<div class="quiet-time-field"><label class="quiet-tile" for="%s">'
+        '<span class="quiet-tile__label">%s</span>'
+        '<input type="time" id="%s" name="%s" value="%s" step="%d" required lang="%s"%s></label>%s</div>'
     ) % (
         control_id, escape_html(i18n.t(label)), control_id, name, escape_html(value),
         QUIET_DIALOG_TIME_STEP_S, escape_html(prefs.current_lang()),
@@ -665,9 +672,49 @@ def _dialog_time_field_html(label, name, control_id, value, errors):
         _field_error_html(errors, name, control_id))
 
 
+def _dialog_card_html(icon_id, title, detail, pressed, attrs):
+    """One preset card: a round icon, the name with its hours, and a check
+    shown on the selected card. A `type="button"` the script fills the
+    fields from; `aria-pressed` carries the selection."""
+    return (
+        '<button type="button" class="quiet-card" %s data-quiet-card aria-pressed="%s"%s>'
+        '<span class="quiet-card__icon">%s</span>'
+        '<span class="quiet-card__text"><span class="quiet-card__title">%s</span>'
+        '<span class="quiet-card__detail">%s</span></span>'
+        '<span class="quiet-card__check">%s</span></button>'
+    ) % (
+        QUIET_HOURS_PRESET_ATTR, "true" if pressed else "false", attrs,
+        icon_html(icon_id, size=20), escape_html(title), escape_html(detail),
+        icon_html("icon-check", size=16))
+
+
+def _dialog_cards_html(start, end, enabled):
+    """The three preset cards (Night, Day, Always active). A window preset
+    is selected when quiet hours are on with exactly its hours, "Always
+    active" when they are off; dirty-state.js keeps this in step."""
+    night = (QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)
+    day = (QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)
+    window_attrs = ' data-preset-start="%s" data-preset-end="%s"'
+    return (
+        '<div class="quiet-cards" role="group" aria-label="%s">%s%s%s</div>'
+    ) % (
+        escape_html(i18n.t(QUIET_DIALOG_CARDS_LABEL)),
+        _dialog_card_html(
+            "icon-moon", i18n.t(QUIET_HOURS_PRESET_NIGHT_LABEL), "%s \u2013 %s" % night,
+            enabled and (start, end) == night, window_attrs % night),
+        _dialog_card_html(
+            "icon-sun", i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL), "%s \u2013 %s" % day,
+            enabled and (start, end) == day, window_attrs % day),
+        _dialog_card_html(
+            "icon-infinity", i18n.t(QUIET_DIALOG_ALWAYS_LABEL),
+            i18n.t(QUIET_DIALOG_ALWAYS_DETAIL), not enabled, ' data-preset-enabled="0"'))
+
+
 def quiet_hours_dialog_body_html(cfg, detection_href, errors=None, submitted=None):
-    """The fields of the Quiet hours dialog: the "Use quiet hours" checkbox,
-    Start and End, the three presets and the time-zone sentence with its
+    """The fields of the Quiet hours dialog: the preset cards, the "Use
+    quiet hours" checkbox (the field the cards drive; with a script it is
+    hidden, without one it is the visible control and the cards are
+    hidden), the Start and End tiles and the time-zone sentence with its
     link. `cfg` is the stored device config; `submitted` (the posted form)
     repopulates the fields after a refusal, escaped, and `errors` maps a
     field name to its message."""
@@ -682,20 +729,24 @@ def quiet_hours_dialog_body_html(cfg, detection_href, errors=None, submitted=Non
     sentence = escape_html(i18n.t(QUIET_DIALOG_ZONE_SENTENCE)).replace(
         "{zone}", escape_html(timezone_label_text(zone))).replace("{card}", link)
     return (
-        '<div class="modal__field"><label class="settings-checkbox" for="%s">'
+        '<p class="text-label quiet-intro">%s</p>'
+        '<div class="js-gate">%s</div>'
+        '<div class="modal__field quiet-enabled-field"><label class="settings-checkbox" for="%s">'
         '<input type="checkbox" id="%s" name="quiet_hours_enabled" value="on"%s%s> %s</label>%s</div>'
-        '<div class="%s">%s%s</div>'
-        '%s'
+        '<div class="quiet-custom"><p class="quiet-custom__label">%s</p>'
+        '<div class="%s">%s%s</div></div>'
         '<p class="text-label quiet-timezone-note">%s</p>'
     ) % (
+        escape_html(i18n.t(QUIET_DIALOG_INTRO)),
+        _dialog_cards_html(start, end, enabled),
         QUIET_DIALOG_ENABLED_ID, QUIET_DIALOG_ENABLED_ID, " checked" if enabled else "",
         _field_error_attrs(errors, "quiet_hours_enabled", QUIET_DIALOG_ENABLED_ID),
         escape_html(i18n.t(QUIET_DIALOG_ENABLED_LABEL)),
         _field_error_html(errors, "quiet_hours_enabled", QUIET_DIALOG_ENABLED_ID),
+        escape_html(i18n.t(QUIET_DIALOG_CUSTOM_LABEL)),
         QUIET_TIMES_ROW_CLASS,
         _dialog_time_field_html(
             QUIET_HOURS_START_FIELD_LABEL, "quiet_hours_start", QUIET_DIALOG_START_ID, start, errors),
         _dialog_time_field_html(
             QUIET_HOURS_END_FIELD_LABEL, "quiet_hours_end", QUIET_DIALOG_END_ID, end, errors),
-        quiet_preset_row_html(),
         sentence)

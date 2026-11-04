@@ -85,8 +85,11 @@ def test_desktop_has_no_chip_row_and_shows_the_administration_group(
         assert group.locator(".nav-group__label").is_visible()
         for path in (console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE):
             assert group.locator('a[href="%s"]' % path).is_visible(), path
-        for path in (*PAGES, "/update"):
+        for path in PAGES:
             assert page.locator('.sidebar-nav a[href="%s"]' % path).is_visible(), path
+        # Health, Device and Releases are folded into the Fleet view.
+        for path in ("/health", "/device", "/update"):
+            assert page.locator('.sidebar-nav a[href$="%s"]' % path).count() == 0, path
         current = page.locator('.sidebar-nav a[aria-current="page"]')
         assert current.get_attribute("href") == "/fleet"
     finally:

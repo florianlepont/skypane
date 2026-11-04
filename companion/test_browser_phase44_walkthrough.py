@@ -95,7 +95,11 @@ def test_authenticated_route_matrix_has_primary_content_and_no_page_overflow(
             raise AssertionError("%s/%s: route rendered no primary heading" % (route_name, lang))
         active_routes = page.locator('a[aria-current="page"]').evaluate_all(
             "els => els.map(el => el.getAttribute('href'))")
-        if route not in active_routes:
+        # Health, Device and Update live inside the Fleet view, so their
+        # pages mark the Fleet entry current.
+        expected_active = (
+            "/fleet" if route_name in ("health", "device", "update") else route)
+        if expected_active not in active_routes:
             raise AssertionError("%s/%s: navigation exposes no active route" % (route_name, lang))
         overflow = _assert_no_page_overflow(
             page, "%s/%s/%s" % (route_name, lang, viewport_name), viewport["width"])

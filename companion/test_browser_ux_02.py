@@ -308,7 +308,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
         page.goto(base_url + "/update")
         page.wait_for_load_state("networkidle")
         assert page.locator(".dashboard-sidebar .nav-status").count() == 0
-        assert page.locator('.sidebar-nav a[href="/update"][aria-current="page"]').count() == 1
+        assert page.locator('.sidebar-nav a[href="/fleet"][aria-current="page"]').count() == 1
     finally:
         context.close()
 
@@ -323,9 +323,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
         page.click("#site-nav-toggle")
         page.wait_for_timeout(400)
         assert page.locator("#mobile-nav .nav-status").count() == 0
-        page.locator(".tab-bar__more > .tab-bar__link").click()
-        current = page.locator(
-            '.tab-bar__more-panel a[href="/update"][aria-current="page"]')
+        current = page.locator('.tab-bar a[href="/fleet"][aria-current="page"]')
         current.wait_for(state="visible")
         assert current.count() == 1
     finally:
@@ -336,7 +334,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_theme_choices_fit_and_submit_from_narrow_preferences(
         new_context, server, lang, viewport):
-    """Every theme choice remains visible and keyboard-operable at phone widths."""
+    """Every theme choice on the Account page stays visible and keyboard-operable at phone widths."""
     context = new_context(viewport=viewport)
     try:
         page = context.new_page()
@@ -344,10 +342,9 @@ def test_theme_choices_fit_and_submit_from_narrow_preferences(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + "/display")
+        page.goto(base_url + "/account")
         page.wait_for_load_state("networkidle")
-        page.click("#site-nav-toggle")
-        form = page.locator('#mobile-nav form[action="/ui-theme"]')
+        form = page.locator('.pref-row form[action="/ui-theme"]')
         form.wait_for(state="visible")
         form_box = form.bounding_box()
         assert form_box is not None
@@ -976,7 +973,10 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
     # Each route's own floor is its page-specific disclosure count plus the one shared
     # `<details class="tab-bar__more">` every authenticated page renders. /flights carries no
     # disclosure of its own: its rows expose a direct picture action instead.
-    pages = (("/", 1), ("/display", 3),
+    # Personalisation is four views: the Look view (the arrivals "Change" table), Special looks
+    # (the add disclosure) and Calendar (its look's "Change" table), each with the shared tab bar one.
+    pages = (("/", 1), ("/display", 2), ("/display/special-looks", 2),
+             ("/display/calendar", 2),
              ("/flights", 1),
              ("/airlines", 1), ("/health", 4), ("/device", 1))
     base_url = server.base_url()

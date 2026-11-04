@@ -37,7 +37,7 @@ from companion import (
     static_files, theme_preview)
 from companion.pages import (
     airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, health_page, place_page,
-    history_page, home_page, update_page)
+    history_page, home_page, personalisation_cards, update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
 # DOTALL keep a newline from slipping into the id or the remainder.
@@ -117,6 +117,22 @@ def _static_get_routes():
     )
 
 
+def _personalisation_get_routes():
+    """One GET Route per Personalisation view (Look keeps the page's own
+    address). Every view is wrapped as the Display tab."""
+    def route_for(view_route):
+        view = personalisation_cards.view_for_route(view_route)
+        return Route(
+            "GET", Exact(view_route),
+            lambda h, m: h._render_tab(
+                DISPLAY_ROUTE,
+                lambda ctx: config_page.render(
+                    ctx, scope=config_page.SCOPE_DISPLAY, view=view),
+                m.device),
+            OWNER_DEVICE)
+    return tuple(route_for(r) for r in config_page.PERSONALISATION_ROUTES)
+
+
 # GET routes, in companion/app.py's pre-table _dispatch_get() branch
 # order: the login page, the 17 static assets, the six live tabs, the
 # three legacy fixed redirects, then the four prefix-matched image
@@ -140,13 +156,9 @@ _GET_ROUTES = (
             "GET", Exact(HOME_ROUTE),
             lambda h, m: h._render_tab(HOME_ROUTE, home_page.render, m.device),
             OWNER_DEVICE),
-        Route(
-            "GET", Exact(DISPLAY_ROUTE),
-            lambda h, m: h._render_tab(
-                DISPLAY_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DISPLAY),
-                m.device),
-            OWNER_DEVICE),
+    )
+    + _personalisation_get_routes()
+    + (
         Route(
             "GET", Exact(DETECTION_ROUTE),
             lambda h, m: h._render_tab(
@@ -294,6 +306,9 @@ _POST_ROUTES = (
 _PAGE_AND_IMAGE_KEYS = (
     ("GET", Exact(HOME_ROUTE)),
     ("GET", Exact(DISPLAY_ROUTE)),
+    ("GET", Exact(personalisation_cards.VIEW_ROUTES["special-looks"])),
+    ("GET", Exact(personalisation_cards.VIEW_ROUTES["calendar"])),
+    ("GET", Exact(personalisation_cards.VIEW_ROUTES["screen"])),
     ("GET", Exact(DETECTION_ROUTE)),
     ("GET", Exact(DEVICE_ROUTE)),
     ("GET", Exact(FLIGHTS_ROUTE)),
@@ -331,7 +346,7 @@ _ACTION_KEYS = (
     ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
 )
 
-# The routes that act on a single device: 15 GET and 18 POST.
+# The routes that act on a single device: 18 GET and 18 POST.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
 # Form field carrying the per-session anti-forgery token.

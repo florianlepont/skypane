@@ -1181,10 +1181,10 @@ def test_aspect_card_full_shape_checklist():
         "data-look-usage") == "calendar"
     add_form = special.select_one("details.special-add form")
     assert add_form.attrs.get("action") == config_page.RULES_ADD_ROUTE
+    # The whole-page render carries the Look view's inline picker: in the page, not a dialog.
     sheet = look_card.select_one("div.look-sheet")
-    assert "hidden" in sheet.attrs
-    assert sheet.attrs.get("role") == "dialog" and sheet.attrs.get("aria-modal") == "true"
-    assert root.select_one("#" + sheet.attrs["aria-labelledby"])
+    assert "data-look-inline" in sheet.attrs and "hidden" not in sheet.attrs
+    assert "role" not in sheet.attrs
     for token in cp.ASPECT_RETIRED_MARKUP_TOKENS + ("usage-row", "theme-chip", "palette-chip"):
         assert token not in rendered, "expected the retired %r markup to be gone" % (token,)
 

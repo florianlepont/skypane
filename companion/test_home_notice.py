@@ -87,6 +87,39 @@ def _render_key(state_dir, key, lang="en", name="Orly window"):
                    device=_frame(state_dir, name) if key == "no_contact" else None)
 
 
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("key", ["not_seen", "overdue", "low_battery", "no_contact"])
+def test_notification_sits_under_the_title_and_above_the_state_card(tmp_path, key, lang):
+    _users(tmp_path, (ADMIN_EMAIL, "admin", False))
+    last, _ = _seed(tmp_path, key)
+    rendered = _render(tmp_path, lang, last=last,
+                       device=_frame(tmp_path) if key == "no_contact" else None)
+    title = rendered.index('<h1 class="page-title">')
+    facts = rendered.index('<div class="home-facts">')
+    notice = rendered.index("home-notice")
+    card = rendered.index('aria-labelledby="home-frame-state"')
+    assert title < facts < notice < card
+    assert rendered.index("</div>", notice) < card
+
+
+@pytest.mark.parametrize("lang,words", [
+    ("en", {"not_seen": "Not seen yet", "overdue": "Overdue", "low_battery": "Low battery",
+            "no_contact": "No contact"}),
+    ("fr", {"not_seen": "Pas encore vu", "overdue": "En retard", "low_battery": "Batterie faible",
+            "no_contact": "Sans contact"})])
+def test_card_title_dot_and_notification_agree(tmp_path, lang, words):
+    for key, word in words.items():
+        state_dir = tmp_path / key
+        state_dir.mkdir()
+        _users(state_dir, (ADMIN_EMAIL, "admin", False))
+        last, _ = _seed(state_dir, key)
+        rendered = _render(state_dir, lang, last=last,
+                           device=_frame(state_dir) if key == "no_contact" else None)
+        assert '<span class="home-state__title">%s</span>' % word in rendered, key
+        assert 'role="img" aria-label="%s" title="%s"' % (word, word) in rendered, key
+        assert len(parse_html(rendered).select(".home-notice")) == 1, key
+
+
 @pytest.mark.parametrize("key,tone", [
     ("not_seen", "warning"), ("overdue", "warning"), ("low_battery", "warning"),
     ("no_contact", "error")])

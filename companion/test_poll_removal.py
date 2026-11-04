@@ -51,9 +51,12 @@ def test_rule_and_settings_forms_carry_the_device_prefix(fleet_app):
     status, _, page = get(fleet_app, prefix + "/display")
     assert status == 200
     assert 'id="settings-form" data-dirty-form method="post" action="%s/settings"' % prefix in page
-    assert 'action="%s/settings/rules/add"' % prefix in page
+    _status, _, rules = get(fleet_app, prefix + "/display/special-looks")
+    assert 'action="%s/settings/rules/add"' % prefix in rules
     live_prefix = _prefix(fleet_app.fleet.live)
     _status, _, live = get(fleet_app, live_prefix + "/display")
     assert 'id="settings-form" data-dirty-form method="post" action="%s/settings"' % live_prefix in live
-    assert 'action="%s/settings/rules/add"' % live_prefix in live
+    _status, _, live_rules = get(fleet_app, live_prefix + "/display/special-looks")
+    assert 'action="%s/settings/rules/add"' % live_prefix in live_rules
+    live = live + live_rules
     assert 'action="%s/' % prefix not in live

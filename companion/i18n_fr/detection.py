@@ -148,12 +148,18 @@ MESSAGES = {
         "Aéroports français",
     "detection.filter_airports":
         "Filtrer les aéroports",
-    "detection.follow_title":
-        "À suivre",
+    "detection.search_placeholder":
+        "Ville ou adresse",
     "detection.mode_runway":
-        "Une piste",
+        "Aéroport",
     "detection.mode_area":
-        "La zone autour du repère",
+        "Ma position",
+    "detection.mode_switch_label":
+        "Ce que le cadre suit",
+    "detection.more_title":
+        "Réglage enregistré et crédits de la carte",
+    "detection.area_heading":
+        "Détection autour de ce point",
     "detection.runway_label":
         "Piste à suivre",
     "detection.pick_airport":

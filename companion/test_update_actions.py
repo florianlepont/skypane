@@ -26,6 +26,9 @@ from server import atomic_io
 from server import firmware_registry as fr
 from skypane_fw_image import build_image
 
+# Where an install or cancel result lands: the served frame's Fleet view.
+_FLEET_LIVE = "/fleet?frame=live"
+
 _NOW = "2026-09-28T12:00:00+00:00"
 
 # Three published releases: fw-v1.0.0 (at the floor), fw-v1.1.0, and
@@ -144,7 +147,7 @@ def test_install_confirm_yes_schedules_and_get_shows_scheduled(server, cookie):
         server, update_page.INSTALL_ROUTE, cookie,
         {"version": _DOWNGRADE_VERSION, "confirm": "yes"})
     assert status == 303
-    assert headers.get("Location") == layout.UPDATE_ROUTE
+    assert headers.get("Location") == _FLEET_LIVE
     registry = fr.load_registry(server.state_dir)
     assert registry["schedule"]["state"] == "scheduled"
     assert registry["schedule"]["version"] == _DOWNGRADE_VERSION
@@ -187,7 +190,7 @@ def test_install_confirm_yes_unknown_version_flashes_failure(server, cookie, ver
     status, headers, _body = _post(
         server, update_page.INSTALL_ROUTE, cookie, {"version": version, "confirm": "yes"})
     assert status == 303
-    assert headers.get("Location", "").startswith(layout.UPDATE_ROUTE + "?flash=")
+    assert headers.get("Location", "").startswith(_FLEET_LIVE + "&flash=")
     assert fr.load_registry(server.state_dir)["schedule"] == before
 
 
@@ -198,7 +201,7 @@ def test_install_confirm_yes_below_floor_flashes_failure(server, cookie):
         server, update_page.INSTALL_ROUTE, cookie,
         {"version": _FLOOR_VERSION, "confirm": "yes"})
     assert status == 303
-    assert headers.get("Location", "").startswith(layout.UPDATE_ROUTE + "?flash=")
+    assert headers.get("Location", "").startswith(_FLEET_LIVE + "&flash=")
     assert fr.load_registry(server.state_dir)["schedule"] == before
 
 
@@ -208,7 +211,7 @@ def test_install_confirm_yes_same_as_running_flashes_failure(server, cookie):
         server, update_page.INSTALL_ROUTE, cookie,
         {"version": _RUNNING_VERSION, "confirm": "yes"})
     assert status == 303
-    assert headers.get("Location", "").startswith(layout.UPDATE_ROUTE + "?flash=")
+    assert headers.get("Location", "").startswith(_FLEET_LIVE + "&flash=")
     assert fr.load_registry(server.state_dir)["schedule"] == before
 
 
@@ -230,7 +233,7 @@ def test_install_confirm_yes_while_busy_flashes_failure_original_schedule_unchan
         {"version": _FLOOR_VERSION, "confirm": "yes"})
     assert status == 303
     location = headers.get("Location", "")
-    assert location.startswith(layout.UPDATE_ROUTE + "?flash=")
+    assert location.startswith(_FLEET_LIVE + "&flash=")
     assert urllib.parse.unquote(location.split("flash=", 1)[1]) == update_page.FLASH_UPDATE_BUSY, (
         "expected the busy-specific flash key, not the generic schedule-failed one")
     registry = fr.load_registry(server.state_dir)
@@ -252,8 +255,8 @@ def test_install_implausible_version_treated_as_unknown_never_echoed(server, coo
     assert hostile not in body.decode("utf-8", errors="replace")
     location = headers.get("Location", "")
     assert hostile not in location
-    assert location == "%s?flash=%s" % (
-        layout.UPDATE_ROUTE, urllib.parse.quote(update_page.FLASH_UPDATE_SCHEDULE_FAILED))
+    assert location == "%s&flash=%s" % (
+        _FLEET_LIVE, urllib.parse.quote(update_page.FLASH_UPDATE_SCHEDULE_FAILED))
     assert fr.load_registry(server.state_dir)["schedule"] == before
 
     # Follow the redirect: neither the raw value nor its escaped form may
@@ -277,14 +280,14 @@ def test_cancel_with_no_offered_event_redirects_and_clears_schedule(server, cook
         {"version": _DOWNGRADE_VERSION, "confirm": "yes"})
     status, headers, _body = _post(server, update_page.CANCEL_ROUTE, cookie)
     assert status == 303
-    assert headers.get("Location") == layout.UPDATE_ROUTE
+    assert headers.get("Location") == _FLEET_LIVE
     assert fr.load_registry(server.state_dir)["schedule"] is None
 
 
 def test_cancel_with_nothing_scheduled_is_a_no_op_redirect(server, cookie):
     status, headers, _body = _post(server, update_page.CANCEL_ROUTE, cookie)
     assert status == 303
-    assert headers.get("Location") == layout.UPDATE_ROUTE
+    assert headers.get("Location") == _FLEET_LIVE
     assert fr.load_registry(server.state_dir)["schedule"] is None
 
 
@@ -297,7 +300,7 @@ def test_cancel_after_offered_event_flashes_failure_schedule_unchanged(server, c
 
     status, headers, _body = _post(server, update_page.CANCEL_ROUTE, cookie)
     assert status == 303
-    assert headers.get("Location", "").startswith(layout.UPDATE_ROUTE + "?flash=")
+    assert headers.get("Location", "").startswith(_FLEET_LIVE + "&flash=")
     registry = fr.load_registry(server.state_dir)
     assert registry["schedule"]["id"] == schedule_id
     assert registry["schedule"]["state"] == "scheduled"
@@ -500,7 +503,9 @@ def test_install_in_the_other_type_leaves_the_legacy_schedule_alone(
         two_type_server, update_page.INSTALL_ROUTE, two_type_cookie,
         {"version": _OTHER_ROLLBACK, "hardware_type": _OTHER, "confirm": "yes"})
     assert status == 303
+    # No frame of the other type exists, so its own Update page answers.
     assert "type=" + _OTHER in headers["Location"]
+    assert headers["Location"].startswith(layout.UPDATE_ROUTE)
     state_dir = two_type_server.state_dir
     assert fr.load_registry(state_dir, _OTHER)["schedule"]["version"] == _OTHER_ROLLBACK
     assert fr.load_registry(state_dir)["schedule"] is None

@@ -71,3 +71,111 @@ Larger redesigns (new design work, owner decision on scope):
   act on (charge the frame, check the Wi-Fi, ...). The frame cannot report
   the cause of a lost connection (frozen phase-47 protocol): Wi-Fi,
   internet and server-down all read "no contact".
+
+## Validation of the deployed round 2 (2026-11-04), owner feedback
+- W6 The status notification sat in the middle of Home. Decision D26a:
+  it goes at the very top of Home, under the page title, before the state
+  card (in progress, task 61-35).
+- W6b Home state card: an orange dot beside the title "Écran allumé" while the
+  frame never contacted SkyPane contradicted itself. Decision D26b (answer
+  A): the card title shows the same word as the status dot.
+- W8 The quiet-hours dialog works but is not pretty. Sketches A (dial), B
+  (strip with − and +), C (preset cards) were shown. Decision D27: option C,
+  three preset cards (Night, Day, Always active) with their hours, and the
+  two big Start/End tiles below ("Or choose your hours"). To build in the
+  next batch of corrections.
+- Further feedback is being collected by the owner; batch the fixes.
+- W9 "Location and detection" page (owner words, FR summary):
+  - The main entry point is the mode: airport mode or "my position" mode.
+  - The current "settings" card is hard to read and its purpose is unclear.
+  - Coordinates and time zone are useless as inputs: they are outputs of the
+    chosen place or airport.
+  - Everything could be merged onto the map: click an airport, then pick the
+    runway, and the page is in airport mode; give an address or use my
+    position, then pick the detection radius, and the page is in "my
+    position" mode.
+  Direction (to sketch and confirm): a map-centred page with a mode switch,
+  a context panel (runway cards in airport mode; radius control in position
+  mode), coordinates and time zone derived and shown only as a small
+  read-only line; the no-script fallback form stays.
+- D28 (owner) The Location and detection page follows sketch V1: the map
+  fills the page; a mode switch (Airport / My position) and a search float
+  on it. Phone: bottom sheet (runway cards in Airport mode; radius control
+  in My-position mode). Desktop: a floating card at the left of the map with
+  the same content. Coordinates and time zone are derived outputs shown as
+  a small read-only line. The map recentres on the part not covered by the
+  card. Sketches: scratchpad/sketches (v1-tel, v1b-tel, v1d, v1d2).
+- W10 Personalisation page (owner words, FR summary): the "On this page"
+  list is a plain list of links; he wants a more styled, animated second
+  navigation, with a dedicated page per item (Look, Special looks, Calendar,
+  Screen). The Look view should show the look picker sheet (colour, background,
+  diagonal band) as the main view instead of showing every possible panel.
+- W11 (owner) The airline collection sort control is poorly integrated: the
+  "50 airlines" pill, text filter, sort select and a clipped "Apply" button
+  do not read as one control bar.
+- W12 (owner) Rarity colours: rare airlines and aircraft should stand out
+  through colour in the collection (and wherever they are listed).
+- W13 (owner) The Account page "Preferences" card is under-designed: two
+  full-width segmented bars (FR/EN and Auto/Light/Dark) with no labels or
+  hierarchy, stretched across the desktop width.
+- W14 (owner) The language (FR/EN) and theme (Auto/Light/Dark) switches in
+  the navigation sidebar should be removed from the navigation bar; they
+  belong on the Account page preferences only.
+- W15 (owner) The Account navigation icon (a robot) does not read as an
+  account icon; it looks more like preferences. Use a person icon.
+- D29 (owner) Personalisation follows mockup P1: a styled, animated
+  secondary navigation (Look, Special looks, Calendar, Screen), one page per
+  entry, the look picker (preview, colour, background, diagonal band) as the
+  main view of Look. Mockups: scratchpad/sketches (p1, p1d).
+- W16 (owner) He cannot see the multi-frame management (switching between
+  several frames) in the deployed companion. To clarify: which account and
+  how many frames he has, so we know whether the switcher is hidden by
+  design (one frame) or missing.
+- W16 resolved: the owner tested the multi-frame management with an account
+  that has several frames; nothing missing (the switcher is hidden by design
+  with a single frame).
+- W17 (owner, assumed to be the frame switcher, to confirm) Still not great:
+  it should be shown at the top of the window or in the navigation, in a more
+  graphical way, with the frame represented (for example a small picture of
+  the frame) rather than a plain control.
+- D30 (owner) The frame switcher follows mockup F2: a strip of frame tiles
+  (small frame picture, name, status dot, last-seen word) with the active
+  frame outlined and an "Add a screen" tile, instead of the dropdown.
+  Mockups: scratchpad/sketches (f2, f2d; alternative f1 not chosen).
+- W18 (owner, Console) The Fleet, Status, Version and Device tabs could be
+  merged into one single view. He asks for sketches.
+- W19 (owner, Console) The Users view could be a table and drop the manage
+  modal (screenshot of the "Manage user" modal: role, access, sign-in).
+  He asks for sketches.
+- W20 (owner, Console) The airline editor could also be improved by laying
+  everything out as a table. He asks for sketches.
+- W18 refined (owner) Neither C1 (expandable table) nor C2 (table + side
+  panel) fits. Reuse the graphical frame selector (tile strip, D30) in the
+  Console: clicking a frame tile opens one detailed view with its state,
+  settings, version and device. Mockup C3 (scratchpad/sketches c3, c3t).
+- D31 (owner) Console Fleet = mockup C3 with full content: the tile strip of
+  frames plus a last "System" tile. A frame's detail view holds four complete
+  blocks: State (connection, battery, last detection, current flight),
+  Device and version (model, version history, scheduled update), Settings
+  (wake interval and other device settings), Access. System-wide information
+  (ADS-B sources, backups, server anomalies) lives in the System tile. The
+  separate Status, Version and Device Console tabs go away.
+- D32 (owner) Console Users = mockup U1: a table without the manage modal;
+  role editable in the row and saved at once, an Active switch, a "..." menu
+  for rare actions (unlink identity, resend invitation, delete); phone shows
+  cards. Mockups: scratchpad/sketches (u1, u1t).
+- D33 (owner) Console Airlines editor = mockup E1 (table, name editable in
+  place, artwork thumbnails, prefixes, views, unidentified airlines on top).
+  A toggle lets the table manage several aircraft types per airline (one
+  artwork per type) or a single artwork per airline. The row "..." menu holds
+  the rare actions: edit callsign prefixes, reset to SkyPane's name, delete
+  my name, open the artwork full size.
+- D33 refined (owner) Airlines editor = mockup E3: each airline row has an
+  expand chevron; expanded, one sub-row per aircraft type seen (aircraft
+  info, views, its own artwork to replace, or "uses the airline's artwork").
+  Callsign prefixes are shown read-only in the table. The row "..." menu is
+  reduced to "Reset to the original name" and "Enlarge the artwork". The
+  per-table toggle of E2 is dropped. Mockup: scratchpad/sketches e3.
+- W21 (owner, screenshot) The Console / "My frame" space switch is broken in
+  the desktop sidebar: the "My frame" label overflows its segment and the
+  active segment is wider than the pill. The labels must fit.

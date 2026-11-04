@@ -32,6 +32,8 @@ START = "#quiet-window-start"
 END = "#quiet-window-end"
 ENABLED = "#quiet-window-enabled"
 SAVE = DIALOG + " button[type=submit]"
+CARDS = DIALOG + " .quiet-cards button"
+PRESSED = CARDS + "[aria-pressed=true]"
 MIN_PX = 43.5
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 
@@ -84,7 +86,10 @@ def _open_home(new_context, base_url, lang="en", viewport=VIEWPORT_DESKTOP, inst
 
 
 def _wait_at_rest(page, selector):
-    """Wait until the finite animations ended and `selector` owns its own centre."""
+    """Wait until the finite animations ended and `selector` owns its own centre.
+    The element is first scrolled into view: a notification above the state card
+    can push it below the fold on a phone."""
+    page.eval_on_selector(selector, "el => el.scrollIntoView({block: 'center'})")
     page.wait_for_function(
         """sel => {
           if (!(%s)) return false;
@@ -171,9 +176,9 @@ def test_dialog_and_row_fit_and_every_control_is_44px_in_both_themes(
     context, page = _open_home(new_context, server.base_url(), lang, viewport)
     try:
         selectors = [
-            DIALOG + " a.modal__close", DIALOG + " label.settings-checkbox", START, END,
-            ".quiet-preset-row button:nth-child(1)", ".quiet-preset-row button:nth-child(2)",
-            ".quiet-preset-row button:nth-child(3)", DIALOG + " .quiet-timezone-note a",
+            DIALOG + " a.modal__close", START, END, DIALOG + " label.quiet-tile",
+            CARDS + ":nth-child(1)", CARDS + ":nth-child(2)",
+            CARDS + ":nth-child(3)", DIALOG + " .quiet-timezone-note a",
             SAVE, DIALOG + " a.modal__dismiss"]
         for _theme in _in_both_themes(page):
             _wait_at_rest(page, LINK)
@@ -196,26 +201,91 @@ def test_dialog_and_row_fit_and_every_control_is_44px_in_both_themes(
 # --- presets and saving -------------------------------------------------------
 
 
-def test_presets_fill_both_fields_and_always_on_clears_the_switch(new_context, make_app_server):
+def _wait_pressed(page, expected_index):
+    """Wait until exactly the card at `expected_index` (or none for None) is selected."""
+    page.wait_for_function(
+        """arg => { const cards = Array.from(document.querySelectorAll(arg[0]));
+          const on = cards.map((c, i) => c.getAttribute('aria-pressed') === 'true' ? i : -1)
+            .filter((i) => i >= 0);
+          return arg[1] < 0 ? on.length === 0 : (on.length === 1 && on[0] === arg[1]); }""",
+        arg=[CARDS, -1 if expected_index is None else expected_index], timeout=5000)
+
+
+def test_preset_cards_fill_both_fields_and_always_active_clears_the_switch(
+        new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url())
     try:
         _open_dialog(page)
-        buttons = page.locator(".quiet-preset-row button")
+        buttons = page.locator(CARDS)
         assert buttons.count() == 3
+        _wait_pressed(page, 0)                      # the stored 23:00-07:00 is Night
         buttons.nth(1).click()
         _wait_value(page, START, "08:00")
         _wait_value(page, END, "18:00")
+        _wait_pressed(page, 1)
         buttons.nth(0).click()
         _wait_value(page, START, "23:00")
         _wait_value(page, END, "07:00")
         assert page.is_checked(ENABLED)
+        _wait_pressed(page, 0)
         buttons.nth(2).click()
         page.wait_for_function(
             "() => !document.querySelector('%s').checked" % ENABLED, timeout=5000)
+        _wait_pressed(page, 2)
+        # Choosing a window again after Always active turns quiet hours back on.
+        buttons.nth(0).click()
+        page.wait_for_function(
+            "() => document.querySelector('%s').checked" % ENABLED, timeout=5000)
+        _wait_pressed(page, 0)
+        # Editing a tile by hand to hours no card holds selects no window card.
+        buttons.nth(0).click()
+        page.fill(START, "21:15")
+        _wait_pressed(page, None)
         # The presets are buttons, not submits: nothing was posted.
         assert "flash" not in page.url
         assert _config(server)["quiet_hours_start"] == "23:00"
+    finally:
+        context.close()
+
+
+def test_the_preset_cards_and_tiles_follow_the_sketch_in_both_themes(
+        new_context, make_app_server):
+    """The selected card has the accent border and a check; the tiles are filled blocks with a
+    large time; the enable checkbox row is out of the layout with a script."""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_MIN_SUPPORTED)
+    try:
+        for _theme in _in_both_themes(page):
+            _open_dialog(page)
+            look = page.evaluate(
+                """arg => { const on = document.querySelector(arg[0]);
+                  const off = document.querySelectorAll(arg[1])[1];
+                  const root = getComputedStyle(document.documentElement);
+                  const accent = document.createElement('i');
+                  accent.style.color = root.getPropertyValue('--color-accent');
+                  document.body.appendChild(accent);
+                  const accentRgb = getComputedStyle(accent).color; accent.remove();
+                  const check = on.querySelector('.quiet-card__check');
+                  const time = document.querySelector(arg[2]);
+                  const tile = time.closest('.quiet-tile');
+                  const enabled = document.querySelector(arg[3]);
+                  return {border: getComputedStyle(on).borderTopColor, accent: accentRgb,
+                    checkShown: getComputedStyle(check).display !== 'none',
+                    offCheckShown: getComputedStyle(
+                      off.querySelector('.quiet-card__check')).display !== 'none',
+                    timeSize: parseFloat(getComputedStyle(time).fontSize),
+                    tileFill: getComputedStyle(tile).backgroundColor,
+                    enabledHidden: enabled.getClientRects().length === 0};
+                }""", [PRESSED, CARDS, START, ENABLED])
+            assert look["border"] == look["accent"], look
+            assert look["checkShown"] and not look["offCheckShown"], look
+            assert look["timeSize"] >= 24, look
+            assert look["tileFill"] != "rgba(0, 0, 0, 0)", look
+            assert look["enabledHidden"], look
+            page.keyboard.press("Escape")
+            page.wait_for_function(
+                "() => !document.querySelector('%s').open" % DIALOG, timeout=10000)
     finally:
         context.close()
 
@@ -248,12 +318,14 @@ def test_saving_in_three_taps_changes_only_the_three_keys_and_home_follows(
         context.close()
 
 
-def test_turning_the_switch_off_and_saving_stores_off(new_context, make_app_server):
+def test_choosing_always_active_and_saving_stores_off(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url())
     try:
         _open_dialog(page)
-        page.uncheck(ENABLED)
+        page.locator(CARDS).nth(2).click()                  # "Always active"
+        page.wait_for_function(
+            "() => !document.querySelector('%s').checked" % ENABLED, timeout=5000)
         with page.expect_navigation():
             page.click(SAVE)
         assert _config(server)["quiet_hours_enabled"] is False
@@ -350,6 +422,8 @@ def test_with_scripts_blocked_the_hash_link_shows_the_form_and_the_submit_posts(
                      reduced_motion="reduce") as page:
         page.click(LINK)
         page.wait_for_selector(DIALOG + ":target", state="visible", timeout=10000)
+        # Without a script the inert cards are hidden and the checkbox is the visible control.
+        assert page.is_visible(ENABLED) and not page.is_visible(CARDS + ":nth-child(1)")
         page.fill(END, "06:30")
         with page.expect_navigation():
             page.click(SAVE)

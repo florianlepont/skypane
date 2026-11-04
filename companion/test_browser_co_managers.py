@@ -1,6 +1,6 @@
 """Real-browser checks of the Manage access dialog on Fleet and the Account
 "Shared by" line: the four-action add flow, dialog geometry and tap targets at
-360 and 1280px in both languages and themes, the dialog reopening after each
+360 and 1280px in both languages and themes, the page returning to the frame after each
 change, the same forms through plain hash links with scripts blocked, and
 Home carrying no co-management."""
 import pytest
@@ -75,16 +75,17 @@ def frig(app_server_in_process):
 
 def _open_fleet(new_context, rig, who="admin", lang="en", theme=None,
                 viewport=VIEWPORT_MIN_SUPPORTED, query="", **context_kwargs):
+    query = query or "?frame=" + rig.seed.owned_id
     return _open(
         new_context, rig, who, path="/fleet" + query, lang=lang, theme=theme,
         viewport=viewport, **context_kwargs)
 
 
 def _open_dialog(page, rig):
-    """Two actions: the frame's row menu, then its Manage access item."""
-    row = page.locator("li.entity-row", has_text="Kitchen")
-    row.locator("summary.row-menu__toggle").click()
-    row.locator("a.row-menu__item", has_text=_MANAGE_LABEL[page.evaluate(
+    """Two actions: the selected frame's actions menu, then its Manage access item."""
+    header = page.locator(".fleet-detail-head")
+    header.locator("summary.row-menu__toggle").click()
+    header.locator("a.row-menu__item", has_text=_MANAGE_LABEL[page.evaluate(
         "document.documentElement.lang")]).click()
     page.locator(rig.dialog + "[open]").wait_for(state="visible")
 
@@ -99,27 +100,30 @@ def test_an_admin_adds_a_co_manager_in_four_actions_and_the_dialog_reopens(
         _open_dialog(page, frig)  # actions 1 and 2
         page.select_option(frig.person, label=INVITED)  # 3
         page.locator(frig.dialog + ' form[action$="/co-managers/add"] button').click()  # 4
-        page.wait_for_url("**/fleet?access=*")
-        page.locator(frig.dialog + "[open]").wait_for(state="visible")
-        assert INVITED in frig.members()
-        assert page.locator(
-            frig.dialog + " li.data-card", has_text=INVITED).count() == 1
+        page.wait_for_url("**/fleet?frame=*")
         toast = page.locator(CONSOLE_TOAST).first
         toast.wait_for(state="visible")
         assert "Co-manager added" in toast.inner_text()
+        # The result shows in the frame's Access block; the dialog stays closed.
+        assert INVITED in frig.members()
+        assert not page.locator(frig.dialog).evaluate("d => d.open")
+        assert page.locator(
+            "section.fleet-block li.data-card", has_text=INVITED).count() == 1
     finally:
         context.close()
 
 
 def test_removing_works_and_done_closes_the_dialog(new_context, frig):
+    # The dialog closes with the change; reopened, Done closes it again.
     context, page = _open_fleet(new_context, frig)
     try:
         _open_dialog(page, frig)
-        page.get_by_role(
+        page.locator(frig.dialog).get_by_role(
             "button", name="Remove %s from this frame" % LONG_CO).click()
-        page.wait_for_url("**/fleet?access=*")
-        page.locator(frig.dialog + "[open]").wait_for(state="visible")
+        page.wait_for_url("**/fleet?frame=*")
         assert frig.members() == []
+        assert page.locator("section.fleet-block li.data-card", has_text=LONG_CO).count() == 0
+        _open_dialog(page, frig)
         assert page.locator(frig.dialog + " li.data-card", has_text=LONG_CO).count() == 0
         page.locator(frig.dialog + " a.modal__dismiss").click()
         assert not page.locator(frig.dialog).evaluate("d => d.open")
@@ -127,7 +131,7 @@ def test_removing_works_and_done_closes_the_dialog(new_context, frig):
         context.close()
 
 
-def test_a_refused_add_reopens_the_dialog_with_the_error_toast(new_context, frig):
+def test_a_refused_add_returns_to_the_frame_with_the_error_toast(new_context, frig):
     context, page = _open_fleet(new_context, frig, who="admin", query="?access=" + frig.seed.owned_id)
     try:
         page.locator(frig.dialog + "[open]").wait_for(state="visible")
@@ -139,8 +143,8 @@ def test_a_refused_add_reopens_the_dialog_with_the_error_toast(new_context, frig
             " o.textContent = 'x'; s.appendChild(o); s.value = %r; }"
             % (UNKNOWN, UNKNOWN), frig.person)
         page.locator(frig.dialog + ' form[action$="/co-managers/add"] button').click()
-        page.wait_for_url("**/fleet?access=*")
-        page.locator(frig.dialog + "[open]").wait_for(state="visible")
+        page.wait_for_url("**/fleet?frame=*")
+        assert not page.locator(frig.dialog).evaluate("d => d.open")
         assert "can't be added" in page.locator(CONSOLE_TOAST).first.inner_text()
         assert UNKNOWN not in page.url
         assert UNKNOWN not in frig.members()
@@ -186,16 +190,14 @@ def test_the_dialog_works_through_hash_links_with_scripts_blocked(
         new_context, frig):
     context, page = _open_fleet(new_context, frig, java_script_enabled=False)
     try:
-        page.locator("li.entity-row", has_text="Kitchen").locator(
-            "summary.row-menu__toggle").click()
+        page.locator(".fleet-detail-head summary.row-menu__toggle").click()
         page.locator(
             'a.row-menu__item[href="%s"]' % ("#dlg-access-" + frig.slug)).click()
         assert page.locator(frig.dialog).is_visible()
         page.select_option(frig.person, label=INVITED)
         page.locator(frig.dialog + ' form[action$="/co-managers/add"] button').click()
-        page.wait_for_url("**/fleet?access=*")
+        page.wait_for_url("**/fleet?frame=*")
         assert INVITED in frig.members()
-        assert page.locator(frig.dialog).is_visible()
         assert _no_sideways_scroll(page)
     finally:
         context.close()

@@ -1,19 +1,20 @@
-"""The Users page body: every user as one list row (email, role and frame
-count, status pills and a "Manage user" button) plus the dialogs the header
-button and the row buttons open.
+"""The Users page body: every user as one table row (email, a role select that
+saves on change, frame count, last sign-in, an Active switch and a "..." menu
+of rare actions; a card on a phone) plus the invite dialog the header button
+opens.
 
 Pure markup: it takes a `UsersView` and reads nothing else. A row carries
 display facts only; the issuer and subject of a linked identity, session
 tokens and hashes never reach this module (`has_identity` is a boolean).
-The guard states are sentences inside the Manage user dialog, shown in place
-of the role and disable controls of the signed-in administrator and of the
-last active administrator.
+The guard states are sentences shown in place of the role select, with the
+Active switch locked, for the signed-in administrator and for the last active
+administrator.
 """
 import datetime
 from typing import NamedTuple
 
-from companion import i18n, ui_entity_list, ui_modal
-from companion.ui_base import escape_html
+from companion import i18n, ui_entity_list, ui_modal, ui_time
+from companion.ui_base import escape_html, icon_html
 
 USERS_PURPOSE = i18n.msg(
     "admin_users.who_can_sign_in_and_what_they_can_do",
@@ -47,27 +48,20 @@ _LAST_ADMIN = i18n.msg(
     "admin_users.the_last_active_administrator_cannot_be_changed",
     "The last active administrator cannot be changed.")
 
-_MANAGE_BUTTON = i18n.msg("admin_users.manage_user", "Manage user")
-_MANAGE_ARIA = i18n.msg("admin_users.manage_user_aria", "Manage %s")
-_MANAGE_TITLE = i18n.msg("admin_users.manage_user_title", "Manage user")
-_MANAGE_CLOSE = i18n.msg("admin_users.manage_user_close", "Close")
-_SECTION_ROLE = i18n.msg("admin_users.section_role", "Role")
-_SECTION_ACCESS = i18n.msg("admin_users.section_access", "Access")
-_SECTION_SIGN_IN = i18n.msg("admin_users.section_sign_in", "Sign-in")
+_COL_USER = i18n.msg("admin_users.col_user", "User")
+_COL_FRAMES = i18n.msg("admin_users.col_frames", "Frames")
+_COL_LAST_SIGN_IN = i18n.msg("admin_users.col_last_sign_in", "Last sign-in")
+_COL_ACTIVE = i18n.msg("admin_users.col_active", "Active")
+_NEVER_SIGNED_IN = i18n.msg("admin_users.never_signed_in", "Never signed in")
+_ROLE_OF_ARIA = i18n.msg("admin_users.role_of_aria", "Role of %s")
+_ACTIVE_ARIA = i18n.msg("admin_users.active_aria", "Active: %s")
+_MORE_ARIA = i18n.msg("admin_users.more_actions_aria", "More actions for %s")
 _SAVE_ROLE = i18n.msg("admin_users.save_role", "Save role")
-_DISABLE_BUTTON = i18n.msg("admin_users.disable_user", "Disable user")
-_DISABLE_SENTENCE = i18n.msg(
-    "admin_users.they_are_signed_out_immediately_and_cannot_sign_in",
-    "They are signed out immediately and cannot sign in.")
-_ENABLE_BUTTON = i18n.msg("admin_users.enable_user", "Enable user")
-_ENABLE_SENTENCE = i18n.msg(
-    "admin_users.they_can_sign_in_again_with_their_invited_address",
-    "They can sign in again with their invited address.")
 _UNLINK_BUTTON = i18n.msg("admin_users.unlink_identity", "Unlink identity")
-_UNLINK_SENTENCE = i18n.msg(
-    "admin_users.they_will_need_to_sign_in_again_and_their_identity_will_be",
-    "They will need to sign in again and their identity will be re-linked on "
-    "next sign-in.")
+_TABLE_NOTE = i18n.msg(
+    "admin_users.table_note",
+    "The role is saved as soon as it changes. Deactivating signs the person "
+    "out immediately.")
 
 _INVITE_BUTTON = i18n.msg("admin_users.invite_a_user_button", "+ Invite a user")
 _INVITE_TITLE = i18n.msg("admin_users.invite_a_user", "Invite a user")
@@ -158,33 +152,124 @@ def _frames_text(count):
     return i18n.t(_FRAMES_ONE) if count == 1 else i18n.t(_FRAMES_MANY) % count
 
 
-def _second_line(row):
-    parts = [role_name(row.role), _frames_text(row.frame_count)]
-    if row.is_self:
-        parts.append(i18n.t(_YOU))
-    return " · ".join(parts)
-
-
-def _manage_dialog_id(row):
-    return "dlg-user-%d" % row.user_id
-
-
-def _row_html(row):
-    button = ui_modal.trigger_html(
-        _manage_dialog_id(row), _t(_MANAGE_BUTTON), "entity-row__button",
-        aria_label=i18n.t(_MANAGE_ARIA) % row.email)
-    return ui_entity_list.entity_row_html(
-        "", row.email, _second_line(row), _pills_html(row), button)
-
-
 def _count_text(count):
     return i18n.t(_COUNT_ONE) if count == 1 else i18n.t(_COUNT_MANY) % count
 
 
-def _list_html(view):
-    return ui_entity_list.entity_list_html(
-        "".join(_row_html(row) for row in view.rows),
-        ui_entity_list.count_line_html(_count_text(len(view.rows))))
+def _initial(email):
+    return _esc(email[:1].upper())
+
+
+def _last_sign_in_html(row, now):
+    if row.last_seen is None:
+        return _t(_NEVER_SIGNED_IN)
+    seen = datetime.datetime.fromtimestamp(row.last_seen, datetime.timezone.utc)
+    return ui_time.relative_time_html(
+        seen.isoformat(), now.isoformat(), fallback=i18n.t(_NEVER_SIGNED_IN))
+
+
+def _action_path(row, suffix):
+    return "%s%d%s" % (_routes().USER_ACTION_PREFIX, row.user_id, suffix)
+
+
+def _post_form(row, suffix, css, inner_html):
+    return (
+        '<form method="post" action="%s" class="%s">%s%s</form>' % (
+            _esc(_action_path(row, suffix)), css, _ui().csrf_field(), inner_html))
+
+
+def _guard_html(row):
+    notes = ""
+    if row.is_self:
+        notes += '<span class="users-guard text-label">%s</span>' % _t(_THIS_IS_YOU)
+    if row.is_last_admin:
+        notes += '<span class="users-guard text-label">%s</span>' % _t(_LAST_ADMIN)
+    return notes
+
+
+def _role_cell(row):
+    """The role select that saves on change (a Save button shows only
+    without script), or the plain role and the guard sentences for the
+    signed-in administrator and the last active administrator."""
+    guard = _guard_html(row)
+    if guard:
+        return '<span class="users-role-fixed">%s</span>%s' % (
+            _esc(role_name(row.role)), guard)
+    select_id = "role-%d" % row.user_id
+    controls = (
+        '<label class="visually-hidden" for="%s">%s</label>'
+        '<select id="%s" name="%s" data-autosubmit>%s</select>'
+        '<noscript><button type="submit" class="users-role-save">%s</button></noscript>' % (
+            select_id, _esc(i18n.t(_ROLE_OF_ARIA) % row.email), select_id, ROLE_FIELD,
+            _role_options(row.role), _t(_SAVE_ROLE)))
+    return _post_form(row, _routes().USER_ROLE_SUFFIX, "users-role-form", controls)
+
+
+def _active_cell(row):
+    """The Active switch: on posts to disable, off posts to enable. It is
+    shown disabled where the server refuses the change anyway."""
+    active = not row.disabled
+    locked = active and (row.is_self or row.is_last_admin)
+    button = (
+        '<button type="submit" class="switch" role="switch" aria-checked="%s" '
+        'aria-label="%s"%s><span class="switch__track" aria-hidden="true">'
+        '<span class="switch__thumb"></span></span></button>' % (
+            "true" if active else "false", _esc(i18n.t(_ACTIVE_ARIA) % row.email),
+            " disabled" if locked else ""))
+    label = '<span class="users-active-label text-label" aria-hidden="true">%s</span>' % (
+        _t(_COL_ACTIVE))
+    suffix = _routes().USER_DISABLE_SUFFIX if active else _routes().USER_ENABLE_SUFFIX
+    return _post_form(row, suffix, "users-active-form", label + button)
+
+
+def _menu_cell(row):
+    """The "..." menu: only the rare actions, today the identity unlink of a
+    user who has signed in."""
+    if not row.has_identity:
+        return ""
+    unlink = _post_form(
+        row, _routes().USER_UNLINK_SUFFIX, "users-menu__form",
+        '<button type="submit" class="row-menu__item row-menu__item--destructive">'
+        '%s</button>' % _t(_UNLINK_BUTTON))
+    return (
+        '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">'
+        '%s</summary><div class="row-menu__panel">%s</div></details>' % (
+            _esc(i18n.t(_MORE_ARIA) % row.email), icon_html("icon-more-vertical", size=20),
+            unlink))
+
+
+def _row_html(row, now):
+    you = _pill(_t(_YOU)) if row.is_self else ""
+    return (
+        '<tr class="users-row" id="user-%d">'
+        '<th scope="row" class="users-cell users-cell--user">'
+        '<span class="users-avatar" aria-hidden="true">%s</span>'
+        '<span class="users-who"><span class="users-email">%s</span>'
+        '<span class="users-pills">%s%s</span></span></th>'
+        '<td class="users-cell users-cell--role">%s</td>'
+        '<td class="users-cell users-cell--frames">%s</td>'
+        '<td class="users-cell users-cell--seen">%s</td>'
+        '<td class="users-cell users-cell--active">%s</td>'
+        '<td class="users-cell users-cell--menu">%s</td></tr>' % (
+            row.user_id, _initial(row.email), _esc(row.email), you, _pills_html(row),
+            _role_cell(row), _esc(_frames_text(row.frame_count)),
+            _last_sign_in_html(row, now), _active_cell(row), _menu_cell(row)))
+
+
+def _table_html(view):
+    head = "".join(
+        '<th scope="col" class="users-col users-col--%s">%s</th>' % (name, _t(label))
+        for name, label in (
+            ("user", _COL_USER), ("role", _COL_ROLE), ("frames", _COL_FRAMES),
+            ("seen", _COL_LAST_SIGN_IN), ("active", _COL_ACTIVE)))
+    return (
+        '%s<table class="users-table"><caption class="visually-hidden">%s</caption>'
+        '<thead><tr>%s<td class="users-col users-col--menu"></td></tr></thead>'
+        '<tbody>%s</tbody></table><p class="users-note text-label">%s</p>' % (
+            ui_entity_list.count_line_html(_count_text(len(view.rows))),
+            _t(_USERS_TEXT), head,
+            "".join(_row_html(row, view.now) for row in view.rows), _t(_TABLE_NOTE)))
+
 
 
 def _role_options(selected):
@@ -222,79 +307,6 @@ def _invite_dialog(view):
         _ui().csrf_field(), body, i18n.t(_INVITE_SUBMIT), i18n.t(_BACK_TO_USERS),
         _routes().USERS_ROUTE, open_=view.open_invite_dialog)
 
-
-def _action_path(row, suffix):
-    return "%s%d%s" % (_routes().USER_ACTION_PREFIX, row.user_id, suffix)
-
-
-def _section_html(row, suffix, heading, inner_html, button=None, destructive=False):
-    """One Manage user section: its own form posting to one user route, with
-    the heading, a body and (when the action is allowed) the submit."""
-    submit = ""
-    if button is not None:
-        css = ' class="calendar-disconnect-btn"' if destructive else ""
-        submit = '<button type="submit"%s>%s</button>' % (css, _t(button))
-    return (
-        '<form method="post" action="%s" class="modal__section">%s'
-        '<h3 class="text-heading modal__section-title">%s</h3>%s%s</form>' % (
-            _esc(_action_path(row, suffix)), _ui().csrf_field(), _t(heading),
-            inner_html, submit))
-
-
-def _guard_html(row):
-    notes = ""
-    if row.is_self:
-        notes += '<p class="text-body">%s</p>' % _t(_THIS_IS_YOU)
-    if row.is_last_admin:
-        notes += '<p class="text-body">%s</p>' % _t(_LAST_ADMIN)
-    return notes
-
-
-def _role_section(row):
-    guard = _guard_html(row)
-    if guard:
-        return _section_html(
-            row, _routes().USER_ROLE_SUFFIX, _SECTION_ROLE, guard)
-    select_id = "role-%d" % row.user_id
-    select = (
-        '<label class="visually-hidden" for="%s">%s</label>'
-        '<select id="%s" name="%s">%s</select>' % (
-            select_id, _t(_COL_ROLE), select_id, ROLE_FIELD, _role_options(row.role)))
-    return _section_html(
-        row, _routes().USER_ROLE_SUFFIX, _SECTION_ROLE, select, _SAVE_ROLE)
-
-
-def _access_section(row):
-    if row.disabled:
-        return _section_html(
-            row, _routes().USER_ENABLE_SUFFIX, _SECTION_ACCESS,
-            '<p class="text-body">%s</p>' % _t(_ENABLE_SENTENCE), _ENABLE_BUTTON)
-    guard = _guard_html(row)
-    if guard:
-        return _section_html(
-            row, _routes().USER_DISABLE_SUFFIX, _SECTION_ACCESS, guard)
-    return _section_html(
-        row, _routes().USER_DISABLE_SUFFIX, _SECTION_ACCESS,
-        '<p class="text-body">%s</p>' % _t(_DISABLE_SENTENCE), _DISABLE_BUTTON,
-        destructive=True)
-
-
-def _sign_in_section(row):
-    if not row.has_identity:
-        return ""
-    return _section_html(
-        row, _routes().USER_UNLINK_SUFFIX, _SECTION_SIGN_IN,
-        '<p class="text-body">%s</p>' % _t(_UNLINK_SENTENCE), _UNLINK_BUTTON,
-        destructive=True)
-
-
-def _manage_dialog(row):
-    sections = _role_section(row) + _access_section(row) + _sign_in_section(row)
-    return ui_modal.sections_dialog_html(
-        _manage_dialog_id(row), i18n.t(_MANAGE_TITLE), row.email, sections,
-        i18n.t(_MANAGE_CLOSE), _routes().USERS_ROUTE)
-
-
 def header_action_html():
     """The page header's "+ Invite a user" trigger (opens the invite dialog)."""
     return '<div class="page-header__actions">%s</div>' % ui_modal.trigger_html(
@@ -305,5 +317,5 @@ def render(view):
     """The Users page body (the shell supplies the header and nav)."""
     return (
         '<section class="page-section" aria-label="%s">%s</section>' % (
-            _t(_USERS_TEXT), _list_html(view))
-        + _invite_dialog(view) + "".join(_manage_dialog(row) for row in view.rows))
+            _t(_USERS_TEXT), _table_html(view))
+        + _invite_dialog(view))

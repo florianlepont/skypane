@@ -66,10 +66,10 @@ def _checked(card, action):
 
 
 def test_screen_on_state_wording_and_both_switches(tmp_path):
-    """the default state reads "Screen on", names the next update as a countdown with no clock
+    """the default state reads "Up to date" (the dot's word), names the next update as a countdown with no clock
     and offers two native POST switches that are checked, each posting the opposite state"""
     card = _render(tmp_path, cfg={"quiet_hours_enabled": True})
-    assert "Screen on" in card
+    assert '<span class="home-state__title">Up to date</span>' in card
     line = re.search(r'<p class="home-state__next">.*?</p>', card, re.S).group(0)
     assert "Next update <time" in line and "data-relative-countdown" in line
     assert "≈" not in line and "time-value" not in line
@@ -96,10 +96,11 @@ def test_switches_are_named_and_described_for_assistive_tech(tmp_path):
 
 
 def test_screen_off_state_flips_the_screen_switch(tmp_path):
-    """display_enabled=false reads "Screen off", the screen switch is unchecked and posts
+    """display_enabled=false reads "Resting" (the dot's word), the screen switch is unchecked and posts
     state=on; the cadence sentence quotes the screen-off interval, not the configured one"""
     card = _render(tmp_path, cfg={"display_enabled": False})
-    assert "Screen off" in card and "Screen on" not in card
+    assert '<span class="home-state__title">Resting</span>' in card
+    assert "Screen on" not in card
     assert _checked(card, "/quick/display") == "false"
     assert 'name="state" value="on"' in _form(card, "/quick/display")
     off_minutes = device_config.DISPLAY_OFF_SLEEP_S // 60
@@ -107,19 +108,20 @@ def test_screen_off_state_flips_the_screen_switch(tmp_path):
 
 
 def test_quiet_hours_state_names_the_end_time_and_the_window(tmp_path):
-    """inside the quiet window the title reads "Quiet hours" with "rests until HH:MM" under it
-    and the switch is checked; with the schedule disabled the same clock reads "Screen on", the
+    """inside the quiet window the title reads "Resting" with "rests until HH:MM" under it
+    and the switch is checked; with the schedule disabled the same clock reads "Up to date", the
     switch is unchecked and the window stays visible beside it"""
     window = {"quiet_hours_enabled": True, "quiet_hours_start": "00:00", "quiet_hours_end": "23:59"}
     card = _render(tmp_path, cfg=window)
-    assert '<span class="home-state__title">Quiet hours</span>' in card
+    assert '<span class="home-state__title">Resting</span>' in card
     assert '<p class="home-state__detail">The screen rests until 23:59</p>' in card
     assert 'class="home-state home-state--off"' in card
     assert _checked(card, "/quick/quiet-hours") == "true"
     assert "00:00 – 23:59" in card
     window["quiet_hours_enabled"] = False
     card = _render(tmp_path, cfg=window)
-    assert "Screen on" in card and "rests until" not in card
+    assert '<span class="home-state__title">Up to date</span>' in card
+    assert "rests until" not in card
     assert _checked(card, "/quick/quiet-hours") == "false"
     assert "00:00 – 23:59" in card
     assert 'name="state" value="on"' in _form(card, "/quick/quiet-hours")
@@ -129,7 +131,8 @@ def test_battery_empty_hold_outranks_the_display_switch(tmp_path):
     """a battery-critical hold beats display_enabled=false in both the state wording and the
     cadence sentence, exactly as wake.effective_wake_interval_s() orders them"""
     card = _render(tmp_path, cfg={"display_enabled": False}, battery_critical=True)
-    assert "Battery very low" in card and "Screen off" not in card
+    assert '<span class="home-state__title">Low battery</span>' in card
+    assert "Screen off" not in card
     hold = wake.effective_wake_interval_s({"display_enabled": False}, battery_critical=True)
     assert hold == device_config.BATTERY_CRITICAL_SLEEP_S
     assert "about every %d h" % (hold // 3600) in card or "about every %d min" % (hold // 60) in card
@@ -147,7 +150,7 @@ def test_french_status_header(tmp_path):
     """the header reads in French: hidden heading, state, next update, info tooltip, switch
     labels and state words"""
     card = _render(tmp_path, lang="fr", cfg={"quiet_hours_enabled": True})
-    for text in ("État du cadre", "Écran allumé", "Prochaine mise à jour <time",
+    for text in ("État du cadre", '<span class="home-state__title">À jour</span>', "Prochaine mise à jour <time",
                  "il se réveille environ toutes les 15 min",
                  "il ne se rafraîchit donc pas en continu", "À propos des mises à jour",
                  "Heures calmes", "Écran",
@@ -405,14 +408,14 @@ def test_battery_dial_colour_follows_the_level_thresholds(tmp_path, mv, health, 
 
 
 @pytest.mark.parametrize("lang,title,detail,cfg,critical", [
-    ("en", "Screen off", "The frame stays blank", {"display_enabled": False}, False),
-    ("fr", "Écran éteint", "Le cadre reste vide", {"display_enabled": False}, False),
-    ("en", "Battery very low", "The frame is resting until it is recharged", {}, True),
-    ("fr", "Batterie très faible", "Le cadre se repose jusqu’à sa recharge", {}, True),
+    ("en", "Resting", "The frame stays blank", {"display_enabled": False}, False),
+    ("fr", "Au repos", "Le cadre reste vide", {"display_enabled": False}, False),
+    ("en", "Low battery", "The frame is resting until it is recharged", {}, True),
+    ("fr", "Batterie faible", "Le cadre se repose jusqu’à sa recharge", {}, True),
 ])
 def test_held_states_read_a_short_title_and_a_sentence(tmp_path, lang, title, detail, cfg,
                                                        critical):
-    """a held state shows a short title beside the dot and a sentence under it, and tints the
+    """a held state shows the dot's own word as the title beside the dot and a sentence under it, and tints the
     card neutral (screen off) or amber (battery hold); "Screen on" has no sentence"""
     card = _render(tmp_path, lang=lang, cfg=cfg, battery_critical=critical)
     assert '<span class="home-state__title">%s</span>' % title in card

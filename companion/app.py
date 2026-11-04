@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, freshness, i18n, illustration_normalize, layout,
+    access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout,
     login_page, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
@@ -980,7 +980,7 @@ class Handler(
 
     def _console_page(
             self, route, title_msg, body_html, purpose_msg=None, status=200,
-            action_html=None):
+            action_html=None, scripts=(), page_flash=None):
         """Render one admin console page: the page header (the title falls
         back to the console registry when `title_msg` is None), then
         `body_html`, inside the shell with the console route's own nav slug
@@ -1002,12 +1002,13 @@ class Handler(
         title = i18n.t(title_msg or console_routes.CONSOLE_TITLES[route])
         purpose = i18n.t(purpose_msg) if purpose_msg else None
         flash_html, clear_cookie = console_flash.take_flash(self.headers.get("Cookie"))
-        flash_html = flash_html or self._welcome_flash_html()
+        flash_html = flash_html or page_flash or self._welcome_flash_html()
         body = layout.page_header(title, purpose, action_html=action_html) + body_html
         page = layout.page_shell(
             title=title, active=layout.nav_slug(route), body=body,
             ui_theme=ctx.ui_theme, flash=flash_html or None,
-            health_alert=ctx.health_severity, device_config=ctx.device_config)
+            health_alert=ctx.health_severity, device_config=ctx.device_config,
+            scripts=scripts)
         return self.send_html(
             status, page, set_cookies=(clear_cookie,) if clear_cookie else ())
 
@@ -1161,18 +1162,21 @@ class Handler(
         back_route = config_page.submitted_return_route({
             config_page.RETURN_TO_FIELD_NAME:
                 device_scope.strip_current_prefix(form.get(config_page.RETURN_TO_FIELD_NAME))})
-        back = device_scope.scoped(back_route)
+        back = fleet_moves.settings_target(
+            device_scope.scoped(back_route), back_route, device)
         if errors:
             scope = config_page.submitted_scope(form)
-            body = config_page.render(ctx, scope=scope, errors=errors, submitted=form)
+            body = config_page.render(
+                ctx, scope=scope, errors=errors, submitted=form,
+                view=config_page.error_view(errors, back_route))
             toast_html = None
             if "timezone" in errors:
                 toast_html = flash.flash_toast_html(
                     FLASH_KEY_SAVE_FAILED, i18n.t(config_page.TIMEZONE_INVALID_TOAST), back)
             return self.send_html(200, self._page_shell_for(
-                back_route, body, ctx, flash_html=toast_html))
+                config_page.shell_route(back_route), body, ctx, flash_html=toast_html))
         if flash_key != FLASH_KEY_SAVED:
-            return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
+            return self.redirect(fleet_moves.with_flash(back, flash_key))
 
         calendar_signal = config_page.submitted_calendar_signal(form)
         if calendar_signal == config_page.CALENDAR_URL_SIGNAL_CLEAR:
@@ -1208,7 +1212,7 @@ class Handler(
         after the write already landed; `flash_key` names the
         calendar-sync outcome only, never whether the save succeeded.
         """
-        return self.redirect("%s?flash=%s" % (back, quote(flash_key)))
+        return self.redirect(fleet_moves.with_flash(back, flash_key))
 
     def _handle_quick_toggle(
             self, device, field, allowed_return_to=None, fallback_return_to=None):
@@ -1221,7 +1225,7 @@ class Handler(
         since each switch lives on a different subset of pages.
         """
         if allowed_return_to is None:
-            allowed_return_to = (layout.HOME_ROUTE, layout.DISPLAY_ROUTE)
+            allowed_return_to = (layout.HOME_ROUTE,) + config_page.PERSONALISATION_ROUTES
         if fallback_return_to is None:
             fallback_return_to = layout.DISPLAY_ROUTE
         form = self.read_form()
@@ -1350,7 +1354,7 @@ class Handler(
             self, "release.install", "release", hardware_type,
             "ok" if result == "scheduled" else "failed", {"version": version})
         if result == "scheduled":
-            return self.redirect(update_page.page_route(hardware_type))
+            return self.redirect(self._update_flash_url(None, hardware_type))
         if result == "busy":
             # An install is already running -- the generic
             # schedule-failed copy tells the operator to retry, which
@@ -1359,14 +1363,13 @@ class Handler(
         return self.redirect(
             self._update_flash_url(FLASH_KEY_UPDATE_SCHEDULE_FAILED, hardware_type))
 
-    def _update_flash_url(self, flash_key, hardware_type=hardware.LEGACY_KEY):
-        """The Update page URL carrying `flash_key`, and the hardware type
-        when it is not the legacy one (so the flash shows on the page the
-        action came from)."""
-        url = "%s?flash=%s" % (UPDATE_ROUTE, quote(flash_key))
-        if hardware_type != hardware.LEGACY_KEY:
-            url += "&%s=%s" % (update_page.TYPE_QUERY_PARAM, quote(hardware_type))
-        return url
+    def _update_flash_url(self, flash_key=None, hardware_type=hardware.LEGACY_KEY):
+        """The Fleet view of a frame of `hardware_type` (the one the action
+        came from), carrying `flash_key` when given. A type with no frame has
+        no Fleet view: its own Update page answers instead."""
+        frame = fleet_moves.frame_for_type(self, hardware_type)
+        url = fleet_moves.frame_url(frame) if frame else update_page.page_route(hardware_type)
+        return fleet_moves.with_flash(url, flash_key) if flash_key else url
 
     def _requested_update_type(self):
         """The raw `type` query value of the current request, or None."""
@@ -1393,7 +1396,7 @@ class Handler(
             self, "release.cancel", "release", hardware_type,
             "ok" if result in ("cancelled", "none") else "failed")
         if result in ("cancelled", "none"):
-            return self.redirect(update_page.page_route(hardware_type))
+            return self.redirect(self._update_flash_url(None, hardware_type))
         return self.redirect(
             self._update_flash_url(FLASH_KEY_UPDATE_CANCEL_FAILED, hardware_type))
 

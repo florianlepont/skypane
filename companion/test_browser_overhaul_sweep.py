@@ -3,7 +3,7 @@
 Every reworked page (Fleet, Users, Audit log, Releases, Account, Home,
 Location and detection, Personalisation, Airline collection, and the Console
 Health, Device and Airline editor pages) and every dialog it opens (the Fleet
-dialogs, the frame sheet, the quiet-hours dialog, the two confirm dialogs for a
+dialogs, the quiet-hours dialog, the two confirm dialogs for a
 special look and a manual resolution) is loaded at 360 and 1280px, in English
 and French, in both themes. Each load is checked for sideways overflow, 44px
 hit targets, list and navigation structure, monospace, empty states and the
@@ -57,8 +57,8 @@ RULE = ("prefix", "TVF")
 _TARGETS = """
 (scopes) => {
   const sel = 'a[href], button, summary, select, textarea, ' +
-    'input:not([type=hidden]):not([type=radio]):not([type=checkbox]), ' +
-    'label:has(> input[type=radio]), label:has(> input[type=checkbox])';
+    'input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file]), ' +
+    'label:has(> input[type=radio]), label:has(> input[type=checkbox]), label:has(> input[type=file])';
   const bad = [];
   const inDialog = scopes.some((s) => s.startsWith('dialog'));
   const found = new Set();
@@ -102,7 +102,7 @@ _STRUCTURE = """
     q('.tab-bar__label').forEach((l) => {
       if (l.scrollWidth > l.clientWidth) bad.push('clipped bar label ' + l.textContent); });
   } else if (bars.length) bad.push('tab bar visible on desktop');
-  if (args.list && q('main table').length) bad.push('table in a list page');
+  if (args.list && q('main table:not(.fleet-blocks table)').length) bad.push('table in a list page');
   q('li.entity-row, li.place-airport, li.collection-item, .rule-row, .manual-resolution-row').forEach((row) => {
     if (row.querySelectorAll('.entity-row__dot .dot, .entity-row__dot [role=img]').length > 1) bad.push('two dots in a row');
     row.querySelectorAll('.entity-row__dot [role=img]').forEach((d) => {
@@ -129,7 +129,8 @@ _STRUCTURE = """
 """
 
 PERSONAL_PAGES = ("/", "/flights", "/detection", "/display", "/airlines")
-PERSONAL_ADMIN_PATHS = PERSONAL_PAGES
+PERSONAL_ADMIN_PATHS = PERSONAL_PAGES + (
+    "/display/special-looks", "/display/calendar", "/display/screen")
 
 # The visible text of the page with the space switch and the foreign-frame
 # notice set aside: the two things an administrator's personal page may add.
@@ -147,7 +148,7 @@ _PERSONAL_BODY = """
 # Airline and airport names are catalogue data, spelled the same in both languages.
 _VISIBLE_TEXT = """
 () => {
-  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airline-row__name';
+  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-tile__name';
   const out = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -218,13 +219,15 @@ CASES = (
     _case("admin", "/fleet", "dlg-access-{slug}", "fleet-access-dialog"),
     _case("admin", "/users", None, "users"),
     _case("admin", "/users", "dlg-invite-user", "users-invite-dialog"),
-    _case("admin", "/users", "dlg-user-{owner_user}", "users-manage-dialog"),
     _case("admin", "/locations", None, "locations"),
     _case("admin", "/audit", None, "audit"),
     _case("admin", "/update", None, "releases"),
     _case("admin", "/account", None, "admin-account"),
     _case("admin", "/", None, "admin-home"),
     _case("admin", "/display", None, "admin-display"),
+    _case("admin", "/display/special-looks", None, "admin-display-special-looks"),
+    _case("admin", "/display/calendar", None, "admin-display-calendar"),
+    _case("admin", "/display/screen", None, "admin-display-screen"),
     _case("admin", "/device", None, "admin-device"),
     _case("admin", "/health", None, "admin-health"),
     _case("admin", "/flights", None, "admin-flight-history"),
@@ -232,11 +235,10 @@ CASES = (
     _case("admin", "/detection", None, "admin-location"),
     _case("admin", "/airlines", None, "admin-collection"),
     _case("admin", "/airlines/manage", None, "admin-airline-editor"),
-    _case("admin", "/display", "{rule_dialog}", "remove-special-look-dialog"),
+    _case("admin", "/display/special-looks", "{rule_dialog}", "remove-special-look-dialog"),
     _case("admin", "/airlines/manage", "{resolution_dialog}", "delete-resolution-dialog"),
     _case("admin", "/", "dlg-quiet-hours", "admin-quiet-hours-dialog"),
     _case("owner", "/devices/{owned}/", None, "user-home"),
-    _case("owner", "/devices/{owned}/", "dlg-frames", "frame-sheet"),
     _case("owner", "/devices/{owned}/", "dlg-quiet-hours", "quiet-hours-dialog"),
     _case("owner", "/devices/{owned}/display", None, "user-display"),
     _case("owner", "/devices/{owned}/detection", None, "user-location"),
@@ -306,7 +308,7 @@ def test_reworked_pages_hold_the_layout_rules(
             problems.append(overflow)
         report = page.evaluate(_STRUCTURE, {
             "phone": viewport["width"] < 960,
-            "list": path in ("/fleet", "/users")})
+            "list": path == "/fleet"})
         problems.extend(report["bad"])
         problems.extend(page.evaluate(_TARGETS, _target_scopes(dialog, viewport)))
         if persona != "admin":
@@ -342,7 +344,7 @@ _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
     r"Actions|Style|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
-    r"Air France|easyJet|Transavia|Ryanair|Confirmed|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
+    r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
 
 
 def _looks_english(text):
@@ -577,6 +579,11 @@ def test_the_home_notification_holds_the_layout_rules(
         overflow = _assert_no_page_overflow(page, where, viewport["width"])
         if overflow:
             problems.append(overflow)
+        tops = page.evaluate(
+            "(n) => ['h1.page-title', n, '.home-state'].map("
+            "(s) => document.querySelector(s).getBoundingClientRect().top)", NOTICE)
+        if not tops[0] < tops[1] < tops[2]:
+            problems.append("order is not title, notification, state card: %r" % (tops,))
         fit = page.evaluate(_NOTICE_FITS, NOTICE)
         if fit["page"] > 0 or fit["clipped"]:
             problems.append("notification overflows or clips text: %r" % (fit,))
@@ -625,11 +632,11 @@ def test_the_home_notification_has_a_french_translation(
 
 # What a person can find on a page, set apart from the data of the frame: headings, the
 # navigation entries (outside the space switch), and the names of the controls. The frame
-# chip and its sheet name frames, which differ with the person, and are left out.
+# strip names frames, which differ with the person, and are left out.
 _PAGE_SHAPE = """
 () => {
   const skip = '.space-strip, .space-switch, .mobile-nav__link--space, .frame-notice,'
-    + ' .frame-chip, .frame-sheet, script, style, template';
+    + ' .frame-tiles, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);
   return {

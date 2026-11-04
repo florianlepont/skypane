@@ -302,12 +302,12 @@ def _status_detail_html(state, last_synced_at, now, entry_count):
 def _sheet_href(fragment=SHEET_ID):
     """The no-script address of the sheet (the page with the sheet open)."""
     return device_scope.scoped(
-        "%s?%s=%s#%s" % (layout.DISPLAY_ROUTE, SHEET_PARAM, SHEET_MANAGE, fragment))
+        "%s?%s=%s#%s" % (layout.DISPLAY_CALENDAR_ROUTE, SHEET_PARAM, SHEET_MANAGE, fragment))
 
 
 def _display_fragment_href(fragment):
     """The Display page's own fragment link, under the current device's prefix."""
-    return device_scope.scoped("%s#%s" % (layout.DISPLAY_ROUTE, fragment))
+    return device_scope.scoped("%s#%s" % (layout.DISPLAY_CALENDAR_ROUTE, fragment))
 
 
 def _status_title_html(state, title):
@@ -513,7 +513,7 @@ def calendar_disconnect_confirm_page(ctx):
         device_scope.scoped(CALENDAR_DISCONNECT_ROUTE, "POST"),
         CALENDAR_DISCONNECT_CONFIRM_FIELD, escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE),
         csrf_field(), escape_html(i18n.t(CALENDAR_DISCONNECT_CONFIRM_BUTTON_TEXT)),
-        device_scope.scoped(layout.DISPLAY_ROUTE),
+        device_scope.scoped(layout.DISPLAY_CALENDAR_ROUTE),
         escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
     )
 
@@ -586,7 +586,8 @@ def calendar_special_row_html(
     ) % (
         look_target_attrs(
             COLOUR_USAGE_CALENDAR, "calendar_theme_id", theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
-            small, True, title=i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR])),
+            small, True, title=i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR]),
+            departures_id=departures_safe_id),
         connection_html,
         special_mini_html(picture_id, opener_label=i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
         escape_html(i18n.t(CALENDAR_TAG)), escape_html(i18n.t(CALENDAR_ROW_TITLE)),

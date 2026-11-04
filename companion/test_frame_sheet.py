@@ -1,6 +1,5 @@
-"""The frame chip and card sheet markup: the chip, the shared-modal sheet, the
-card contents and the two list rules (personal pages and Console frame pages),
-in English and French. Rendered in-process over a seeded fleet.
+"""The frame tile strip markup: the strip, the tile contents and the two list
+rules (personal pages and Console frame pages), in English and French. Rendered in-process over a seeded fleet.
 """
 import pytest
 
@@ -46,53 +45,63 @@ def _enter(state_dir, role, user_id, email, current_id):
     return current
 
 
+def _frame_tiles(root):
+    """The frame tiles of the strip, without the Add a screen tile."""
+    return [
+        a for a in root.select("ul.frame-tiles a.frame-tile")
+        if "frame-tile--add" not in a.attrs.get("class", "")]
+
+
 def _cards(html):
-    return parse_html(html).select("dialog.frame-sheet a.frame-card")
+    return _frame_tiles(parse_html(html))
 
 
-def test_the_chip_opens_the_sheet_through_the_hash_link(fleet):
-    state_dir, seeded = fleet
-    _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
-    current = _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
-    root = parse_html(ui_shell.frame_switcher_html("display"))
-    chip = root.select_one("a.frame-chip")
-    assert chip.attrs["href"] == "#dlg-frames"
-    assert "data-modal-open" in chip.attrs
-    assert chip.attrs["aria-label"] == "Switch frame, current: %s" % current.name
-    sheet = root.select_one("dialog.modal.frame-sheet#dlg-frames")
-    assert sheet.select_one(".modal__title").text().strip() == "Choose a frame"
-    assert sheet.select_one("a.modal__dismiss").text().strip() == "Close"
-
-
-def test_the_sheet_is_french_in_french(fleet):
+def test_the_strip_is_a_labelled_list_of_plain_links(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
+    html = ui_shell.frame_switcher_html("display")
+    root = parse_html(html)
+    strip = root.select_one("ul.frame-tiles")
+    assert strip.attrs["aria-label"] == "Your frames"
+    for tag in ("dialog", "form", "select", "button", "script"):
+        assert not root.select(tag)
+    assert all(
+        a.attrs["href"].startswith("/devices/")
+        for a in strip.select("a.frame-tile"))
+
+
+def test_the_strip_is_french_in_french(fleet):
+    state_dir, seeded = fleet
+    _add_device(state_dir, seeded.admin_id, 0x11, "Desk")
+    _enter(state_dir, "admin", seeded.admin_id, ADMIN_EMAIL, next(
+        d.id for d in device_scope.load_devices(state_dir)
+        if d.owner_user_id == seeded.admin_id))
+    _add_device(state_dir, seeded.admin_id, 0x12, "Desk 2")
+    _enter(state_dir, "admin", seeded.admin_id, ADMIN_EMAIL, next(
+        d.id for d in device_scope.load_devices(state_dir)
+        if d.owner_user_id == seeded.admin_id))
     prefs.set_request_prefs(lang="fr")
     try:
         root = parse_html(ui_shell.frame_switcher_html("display"))
     finally:
         prefs.set_request_prefs(lang="en")
-    assert root.select_one(".modal__title").text().strip() == "Choisir un cadre"
-    assert root.select_one(".frame-sheet__footer a").text().strip() == "Gérer mes cadres"
-    hidden = [n.text().strip() for n in root.select(".frame-card[aria-current] .visually-hidden")]
-    assert "Actuel" in hidden
-    assert root.select_one("a.frame-chip").attrs["aria-label"].startswith("Changer de cadre")
+    assert root.select_one("ul.frame-tiles").attrs["aria-label"] == "Vos cadres"
+    assert root.select_one("a.frame-tile--add").text().strip().endswith("Ajouter un écran")
+    seen = [n.text().strip() for n in root.select(".frame-tile__seen")]
+    assert seen and all(word == "Pas encore vu" for word in seen)
 
 
-def test_the_current_card_carries_the_marks_and_the_owned_card_the_hardware(fleet):
+def test_the_current_tile_carries_aria_current_and_the_other_does_not(fleet):
     state_dir, seeded = fleet
     second = _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
-    cards = _cards(ui_shell.frame_switcher_html("flights"))
-    current = [c for c in cards if c.attrs.get("aria-current") == "true"]
+    tiles = _cards(ui_shell.frame_switcher_html("flights"))
+    current = [c for c in tiles if c.attrs.get("aria-current") == "true"]
     assert [c.attrs["href"] for c in current] == ["/devices/%s/flights" % seeded.owner_device]
-    assert "Current" in [n.text().strip() for n in current[0].select(".visually-hidden")]
-    assert current[0].select_one("svg")
-    other = next(c for c in cards if c.attrs["href"] == "/devices/%s/flights" % second)
-    assert "Current" not in other.text()
-    label = hardware.REGISTRY[hardware.LEGACY_KEY].label
-    assert other.select_one(".frame-card__note").text().strip() == label
+    other = next(c for c in tiles if c.attrs["href"] == "/devices/%s/flights" % second)
+    assert "aria-current" not in other.attrs
+    assert not other.select(".frame-tile__note")
 
 
 def test_a_user_never_receives_another_users_email(fleet):
@@ -133,7 +142,9 @@ def test_console_pages_list_every_frame_with_the_owner_email(fleet, active):
     assert hrefs >= {
         "/devices/%s%s" % (seeded.owner_device, page),
         "/devices/%s%s" % (seeded.other_device, page)}
-    notes = {c.attrs["href"]: c.select_one(".frame-card__note").text().strip() for c in cards}
+    notes = {
+        c.attrs["href"]: c.select_one(".frame-tile__note").text().strip()
+        for c in cards if c.select(".frame-tile__note")}
     assert notes["/devices/%s%s" % (seeded.owner_device, page)] == OWNER_EMAIL
     assert notes["/devices/%s%s" % (seeded.other_device, page)] == OTHER_EMAIL
 

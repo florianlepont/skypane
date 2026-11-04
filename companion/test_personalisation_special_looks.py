@@ -17,7 +17,7 @@ DELETE_PATH = "/settings/rules/%s/%s/delete"
 def _display(server, session, lang=None):
     headers = {"Accept-Language": lang} if lang else None
     status, _headers, body = http_request(
-        server.base_url() + "/display", cookie=session, extra_headers=headers)
+        server.base_url() + "/display/special-looks", cookie=session, extra_headers=headers)
     assert status == 200
     return body.decode("utf-8")
 

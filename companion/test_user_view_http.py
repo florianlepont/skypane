@@ -354,7 +354,7 @@ def test_home_has_one_dot_and_no_battery_tile_or_attention_bar_for_either_role(r
     assert len(root.select(".home-state__dot")) == 1
     assert root.select_one(".home-state__dot").attrs["aria-label"]
     assert not root.select(".home-battery") and not root.select(".home-action")
-    assert user_home.index("frame-chip") < user_home.index("home-state ")
+    assert user_home.index("frame-tiles") < user_home.index("home-state ")
     assert user_home.index("home-state ") < user_home.index("home-current-frame")
     assert user_home.index("home-current-frame") < user_home.index("home-flights")
     assert user_home.index("home-state ") < user_home.index("home-flights")
@@ -393,7 +393,7 @@ def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
     assert "/device" not in personal and "/health" not in personal
     console = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/health" % own, "admin"))]
     assert "/fleet" in console
-    assert "/device" in console
+    assert "/device" not in console
 
 
 def test_a_user_quick_toggle_changes_their_frame_and_returns_to_it(rig):

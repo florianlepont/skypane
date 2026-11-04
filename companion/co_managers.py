@@ -64,16 +64,17 @@ def _redirect_home(h, flash_key):
 
 
 def _redirect_back(h, device, flash_key):
-    """Back to where the form came from: the whitelisted host page with the
-    Manage access dialog reopened, else the frame's Home as before. Fleet
-    shows the result as its console toast, Account through `?flash=`."""
+    """Back to where the form came from: the whitelisted host page, with the
+    Manage access dialog reopened (Account) or the frame selected (Fleet),
+    else the frame's Home as before. Fleet shows the result as its console toast, Account through `?flash=`."""
     return_to = card.safe_return_to(h.read_form().get(card.FIELD_RETURN_TO))
     if return_to is None:
         return _redirect_home(h, flash_key)
     access_query = "%s=%s" % (card.ACCESS_QUERY, urllib.parse.quote(device.id, safe=""))
     if return_to == card.RETURN_FLEET:
+        # Fleet selects the frame; its Access block shows the result inline.
         return h.redirect(
-            "%s?%s" % (return_to, access_query),
+            "%s?frame=%s" % (return_to, urllib.parse.quote(device.id, safe="")),
             set_cookie=console_flash.queue_flash(flash_key))
     return h.redirect("%s?%s&flash=%s" % (return_to, access_query, flash_key))
 

@@ -722,11 +722,11 @@ def test_the_theme_still_saves_with_scripts_blocked(new_context, make_app_server
                 % (lang, before, result["restored"]))
 
     n_themes = len(device_config.THEME_IDS)
-    with _no_js_page(new_context, base_url, "/display",
-                     viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        for field, usage, state, expected in (
-                ("theme", "departures", "open", n_themes),
-                ("calendar_theme_id", "calendar", "closed", n_themes + 1)):
+    for route, field, usage, state, expected in (
+            ("/display", "theme", "departures", "open", n_themes),
+            ("/display/calendar", "calendar_theme_id", "calendar", "closed", n_themes + 1)):
+        with _no_js_page(new_context, base_url, route,
+                         viewport=VIEWPORT_MIN_SUPPORTED) as page:
             count = page.eval_on_selector_all(
                 'input[name="%s"]' % field, "els => els.length")
             if count != expected:
@@ -814,8 +814,8 @@ def test_arrivals_still_saves_with_scripts_blocked(new_context, make_app_server)
 # carousel was rebuilt into.
 
 def test_keying_the_palette_moves_the_preview(new_context, server):
-    """Arrow-keying the look sheet's colour radiogroup (no click at all, the sheet itself opened
-    from the keyboard) moves the departures look to a real theme of the next colour, and the
+    """Arrow-keying the inline picker's colour radiogroup (no click at all, focus put on it from
+    the keyboard) moves the departures look to a real theme of the next colour, and the
     departures picture follows it through theme-preview.js's own delegated change listener,
     settled on that theme's own preview and fully opaque.
     """
@@ -828,11 +828,12 @@ def test_keying_the_palette_moves_the_preview(new_context, server):
         page.wait_for_load_state("networkidle")
         checked = 'input[name="theme"]:checked'
         checked_value = page.eval_on_selector(checked, "el => el.value")
-        page.focus('[data-look-usage="departures"] button.look-pick__customise')
-        page.keyboard.press("Enter")
-        page.locator("[data-look-sheet]").wait_for(state="visible")
+        page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
+        page.focus('[data-look-sheet] input[data-look-axis="colour"]:checked')
         page.keyboard.press("ArrowRight")
-        page.wait_for_timeout(200)
+        page.wait_for_function(
+            "a => document.querySelector(a.sel).value !== a.was",
+            arg={"sel": checked, "was": checked_value}, timeout=5000)
         new_value = page.eval_on_selector(checked, "el => el.value")
         if new_value == checked_value:
             raise AssertionError(
@@ -881,16 +882,13 @@ def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, se
             }
 
         before = state()
-        page.hover('[data-look-usage="arrivals"] button.look-frame__open')
-        page.hover('[data-look-usage="departures"] button.look-frame__open')
-        page.focus('[data-look-usage="departures"] button.look-pick__customise')
-        page.keyboard.press("Enter")
-        page.locator("[data-look-sheet]").wait_for(state="visible")
+        page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
+        page.hover('[data-look-tab="arrivals"]')
+        page.hover('[data-look-usage="departures"] .look-frame__picture')
+        page.focus('[data-look-sheet] input[data-look-axis="colour"]:checked')
         for _ in range(6):
             page.keyboard.press("Tab")
         page.hover('[data-look-sheet] .look-dot:has(input[value="green"])')
-        page.keyboard.press("Escape")
-        page.locator("[data-look-sheet]").wait_for(state="hidden")
         after = state()
         if after != before:
             raise AssertionError(
@@ -954,7 +952,7 @@ _TICKER_SITES = (
     ("flights", "/flights",
      'table.data-table--flights tr[data-filter-group="0"] time[data-relative]',
      _seed_flights_ticker),
-    ("display-calendar", "/display",
+    ("display-calendar", "/display/calendar",
      '[data-look-usage="calendar"] time[data-relative]',
      _seed_calendar_ticker),
     ("health-registry", "/health",
@@ -1078,8 +1076,8 @@ def test_swatches_tell_solid_light_and_band_themes_apart(new_context, server):
 def test_the_live_preview_is_contained_keyed_focusable_and_saves(
         new_context, make_app_server, label, viewport, lang):
     """At 1280, 390 and 360 px in both languages the departures picture sits whole inside its
-    frame and the page, the look sheet opened from the keyboard moves the look with the arrow
-    keys behind a visible focus ring, and the native save lands on the persisted theme with the
+    frame and the page, the inline look picker moves the look with the arrow keys behind a
+    visible focus ring, and the native save lands on the persisted theme with the
     saved confirmation.
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
@@ -1114,20 +1112,22 @@ def test_the_live_preview_is_contained_keyed_focusable_and_saves(
 
         selector = 'input[name="theme"]'
         start = page.eval_on_selector(selector + ":checked", "el => el.value")
-        page.focus('[data-look-usage="departures"] button.look-pick__customise')
-        page.keyboard.press("Enter")
-        page.locator("[data-look-sheet]").wait_for(state="visible")
+        page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
+        page.focus('[data-look-sheet] input[data-look-axis="colour"]:checked')
         page.keyboard.press("ArrowRight")
-        moved = page.eval_on_selector(selector + ":checked", "el => el.value")
-        if moved == start:
+        try:
+            page.wait_for_function(
+                "s => document.querySelector('input[name=\"theme\"]:checked').value !== s",
+                arg=start, timeout=5000)
+        except Exception:
             raise AssertionError("%s: arrow keys did not move the look" % label)
+        moved = page.eval_on_selector(selector + ":checked", "el => el.value")
         ring = page.evaluate(
             "() => { var dot = document.activeElement.closest('.look-dot');"
             " var cs = getComputedStyle(dot);"
             " return cs.outlineStyle + '|' + cs.outlineWidth; }")
         if ring.startswith("none|") or ring.endswith("|0px"):
             raise AssertionError("%s: the focused colour shows no focus ring: %r" % (label, ring))
-        page.keyboard.press("Escape")
         _save_via_bar(page, timeout=30000)
         stored = device_config.load_device_config(server.tmpdir)["theme"]
         if stored != moved:

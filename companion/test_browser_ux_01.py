@@ -171,30 +171,32 @@ def test_flights_picture_link_works_without_scripts(new_context, server):
             raise AssertionError("expected the link to serve the archived PNG, got %r" % (response,))
 
 
-def test_airlines_list_renders_one_full_width_row_per_line_at_390px(new_context, server):
-    """At 390px the Airlines list renders one row per line, every row the same width as the
-    list and the same 76px height (a two-line name never makes one taller), and the whole page
-    stays under a height ceiling that moves deliberately when the airline count or the manual resolutions list changes."""
+def test_airlines_table_renders_one_full_width_card_per_airline_at_390px(new_context, server):
+    """At 390px the Airlines editor renders one card per airline, every card the same width as
+    the list and one per line (two-line names never make the grid ragged), and the whole page
+    stays under a height ceiling that moves deliberately when the airline count or the manual
+    resolutions list changes."""
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
-        page.locator(".airline-list .airline-row").first.wait_for(state="visible")
+        page.locator("tbody.airline-group .airlines-row").first.wait_for(state="visible")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         rows = page.eval_on_selector_all(
-            ".airline-list .airline-row",
+            "tbody.airline-group:not(.airline-group--gap)",
             "els => els.map(el => { const r = el.getBoundingClientRect();"
             " return {top: Math.round(r.y), width: r.width, height: r.height}; })")
         if len(rows) < 36:
-            raise AssertionError("expected one row per curated airline, got %d" % len(rows))
+            raise AssertionError("expected one card per curated airline, got %d" % len(rows))
         for row in rows:
-            if abs(row["width"] - rows[0]["width"]) > 1 or row["height"] != 76:
-                raise AssertionError("expected equal 76px-tall full-width rows, got %r" % (row,))
+            if abs(row["width"] - rows[0]["width"]) > 1:
+                raise AssertionError("expected equal full-width cards, got %r" % (row,))
         if len({row["top"] for row in rows}) != len(rows):
-            raise AssertionError("expected exactly one row per line at 390px")
+            raise AssertionError("expected exactly one card per line at 390px")
         height = page.evaluate("document.documentElement.scrollHeight")
-        if height > 4100:
-            raise AssertionError("expected the list page under 4100px, measured %r" % (height,))
+        if height > 8200:
+            raise AssertionError("expected the list page under 8200px, measured %r" % (height,))
     finally:
         context.close()
 
@@ -544,15 +546,15 @@ def test_the_leave_guard_re_arms_after_a_new_edit_following_cancel(page, server)
         raise AssertionError("expected the leave-guard to disarm on a SECOND Annuler too")
 
 
-def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context, server):
-    """On the Detection page at 390px the three runway cards of the follower airport report
-    one shared left edge and equal widths and heights within 1px at a border total of exactly
-    2.0 each, stack top to bottom without overlap, and each still clears 44x44, with the
-    transform neutralised for the read and exactly one card proven to carry the selection
-    scale.
+def test_three_runway_cards_share_equal_columns_in_the_sheet_at_390px(new_context, server):
+    """On the Detection page at 390px the three runway cards of the follower airport sit in the
+    bottom sheet in rows of equal columns: equal widths within 1px (and equal heights within a
+    row) at a border total of exactly 2.0 each, no overlap, inside the sheet, and each still
+    clears 44x44, with the transform neutralised for the read and exactly one card proven to
+    carry the selection scale.
     """
-    # The cards sit in a one-column grid below 600px. Only a real layout engine can see a
-    # card that fails to take the full row or overlaps its neighbour.
+    # The cards sit in an auto-fit grid inside the sheet. Only a real layout engine can see a
+    # card that overflows the sheet or overlaps its neighbour.
     context = new_context(viewport=VIEWPORT_PHONE)
     Hosts(context)
     try:
@@ -592,18 +594,27 @@ def test_three_runway_cards_stack_in_one_full_width_column_at_390px(new_context,
                 "transform genuinely exists"
                 % ([b["live"] for b in boxes],))
 
-        lefts = [b["left"] for b in boxes]
-        if max(lefts) - min(lefts) > 0.5:
-            raise AssertionError(
-                "expected all three cards in ONE column (equal left edges), got %r" % (lefts,))
-        ordered = sorted(boxes, key=lambda b: b["top"])
-        for above, below in zip(ordered, ordered[1:]):
-            if below["top"] < above["top"] + above["h"] - 0.5:
-                raise AssertionError(
-                    "expected stacked cards that do not overlap, got %r" % (ordered,))
-        heights = [b["h"] for b in boxes]
-        if max(heights) - min(heights) > 0.5:
-            raise AssertionError("expected three equal card heights, got %r" % (heights,))
+        panel = page.evaluate(
+            "() => { const r = document.querySelector('.place-panel').getBoundingClientRect();"
+            " return {left: r.left, right: r.right}; }")
+        for b in boxes:
+            if b["left"] < panel["left"] - 0.5 or b["left"] + b["w"] > panel["right"] + 0.5:
+                raise AssertionError("a runway card leaves the sheet: %r in %r" % (b, panel))
+        for index, first in enumerate(boxes):
+            for second in boxes[index + 1:]:
+                apart = (
+                    second["left"] >= first["left"] + first["w"] - 0.5
+                    or first["left"] >= second["left"] + second["w"] - 0.5
+                    or second["top"] >= first["top"] + first["h"] - 0.5
+                    or first["top"] >= second["top"] + second["h"] - 0.5)
+                if not apart:
+                    raise AssertionError("runway cards overlap: %r" % (boxes,))
+        rows = {}
+        for b in boxes:
+            rows.setdefault(round(b["top"]), []).append(b["h"])
+        for heights in rows.values():
+            if max(heights) - min(heights) > 0.5:
+                raise AssertionError("expected equal card heights within a row, got %r" % (rows,))
 
         # "Equal within 1px" is asserted on the cards' border-excluded widths, which is what
         # "equal columns" actually means, and on their outer widths too: every selected-state

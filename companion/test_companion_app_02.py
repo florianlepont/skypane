@@ -95,18 +95,18 @@ def test_health_nav_notification_dot_appears_in_sidebar_and_tab_bar(served_css):
         "expected the personal navigation to carry no Health dot")
 
     side = on[on.index("sidebar-nav"):on.index("</aside>")]
-    side_href_index = side.index('href="/health"')
+    side_href_index = side.index('href="/fleet"')
     side_dot_index = side.index(layout.NAV_NOTIFICATION_CLASS)
     side_anchor_close_index = side.index("</a>", side_href_index)
     assert side_href_index < side_dot_index < side_anchor_close_index, (
-        "expected the dot to sit inside the Health sidebar link")
+        "expected the dot to sit inside the Fleet sidebar link")
 
     bar_start = on.index('<nav class="tab-bar"')
     bar = on[bar_start:on.index("</nav>", bar_start)]
-    health_start = bar.index('href="/health"')
+    health_start = bar.index('href="/fleet"')
     health_end = bar.index("</a>", health_start)
     assert layout.NAV_NOTIFICATION_CLASS in bar[health_start:health_end], (
-        "expected the dot inside the tab bar's Health cell")
+        "expected the dot inside the tab bar's Fleet cell")
     assert bar.count(layout.NAV_NOTIFICATION_CLASS) == 1, (
         "expected one dot in the bar, none on More or any other cell")
     summary_start = bar.index("<summary")
@@ -196,7 +196,7 @@ def test_toggle_aria_contract_and_fixed_label():
 
 
 def test_dropdown_contents_and_order():
-    """the dropdown panel holds the language and theme switches and Sign out, in that order, no
+    """the dropdown panel holds Sign out only (no language or theme switch), no
     screen/quiet-hours state reminder — and zero destination links"""
     doc = layout.page_shell(
         title="T", active="home", body="<p>b</p>",
@@ -209,19 +209,10 @@ def test_dropdown_contents_and_order():
         assert ('href="%s"' % route) not in panel, (
             "expected zero destination links in the dropdown, found %r" % route)
     assert "mobile-nav__link" not in panel, "expected zero dropdown destination links"
-    order = []
-    for needle, name in (
-            ('action="/ui-lang"', "the language switch"),
-            ('action="/ui-theme"', "the theme switch"),
-            ('action="/logout"', "Sign out")):
-        index = panel.find(needle)
-        assert index != -1, "expected %s inside the dropdown" % name
-        order.append((index, name))
+    assert 'action="/ui-lang"' not in panel and 'action="/ui-theme"' not in panel
+    assert 'action="/logout"' in panel, "expected Sign out inside the dropdown"
     assert 'class="nav-status' not in panel, (
         "expected the retired screen/quiet-hours state reminder to stay out of the dropdown")
-    assert order == sorted(order), (
-        "expected language, theme and Sign out, in that order; got %r"
-        % (order,))
     assert panel.count('class="mobile-nav__footer"') == 1, (
         "expected exactly one footer region in the dropdown")
 
@@ -272,8 +263,7 @@ def test_dropdown_survives_with_javascript_disabled():
         title="T", active="fleet", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     console_bar = console_doc[console_doc.index('<nav class="tab-bar"'):]
-    for route in ("/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit",
-                  "/update", "/account"):
+    for route in ("/fleet", "/users", "/airlines/manage", "/audit", "/account"):
         assert ('href="%s"' % route) in console_bar, (
             "missing Console tab-bar href for %r with JavaScript disabled" % route)
     # A bare `hidden` attribute only — `aria-hidden` on the tab glyphs is

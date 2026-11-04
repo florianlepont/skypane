@@ -51,25 +51,19 @@ def _user(state_dir, user_id):
 
 
 def _row_html(body, user_id):
-    """The list row whose Manage user button opens this user's dialog."""
-    for match in re.finditer(r'<li class="entity-row.*?</li>', body, re.S):
-        if 'href="#dlg-user-%d"' % user_id in match.group(0):
+    """The table row holding this user's role form (its select id)."""
+    for match in re.finditer(r'<tr class="users-row"[^>]*>.*?</tr>', body, re.S):
+        if 'for="role-%d"' % user_id in match.group(0) or (
+                "/users/%d/" % user_id in match.group(0)):
             return match.group(0)
-    raise AssertionError("no list row for user %d" % user_id)
+    raise AssertionError("no table row for user %d" % user_id)
 
 
-def _dialog_html(body, user_id):
-    match = re.search(
-        r'<dialog class="modal" id="dlg-user-%d".*?</dialog>' % user_id, body, re.S)
-    assert match, "no Manage user dialog for user %d" % user_id
-    return match.group(0)
-
-
-def _dialog_forms(body, user_id):
-    """action -> inner html of every form in the user's dialog."""
+def _row_forms(body, user_id):
+    """action -> inner html of every form in the user's row."""
     return dict(re.findall(
         r'<form method="post" action="([^"]+)"[^>]*>(.*?)</form>',
-        _dialog_html(body, user_id), re.S))
+        _row_html(body, user_id), re.S))
 
 
 def _act(server, cookie, user_id, action, **form):
@@ -90,7 +84,7 @@ def _audit(state_dir, action):
 # --- page ---------------------------------------------------------------------
 
 
-def test_the_page_lists_every_user_as_a_row_with_role_frames_and_pills(rig):
+def test_the_page_lists_every_user_as_a_table_row_with_role_frames_and_pills(rig):
     server, seed, cookie = rig
     _link(server.state_dir, seed.admin_id, seed.admin2_id, seed.owner_id)
     _sql(server.state_dir, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.owner_id,))
@@ -98,18 +92,34 @@ def test_the_page_lists_every_user_as_a_row_with_role_frames_and_pills(rig):
     assert status == 200
     for email in (fx.ADMIN_EMAIL, fx.OWNER_EMAIL, fx.SECOND_ADMIN_EMAIL, fx.USER_EMAIL):
         assert email in body
-    assert body.count('<li class="entity-row') == 4
-    assert "<table" not in body and "data-card" not in body
+    assert body.count('<tr class="users-row"') == 4
+    assert "entity-row" not in body and "dlg-user-" not in body and "Manage" not in body
+    for heading in ("User", "Role", "Frames", "Last sign-in", "Active"):
+        assert ">%s</th>" % heading in body
     assert "4 users" in body
-    assert "Administrator · 0 frames" in _row_html(body, seed.admin2_id)
+    assert 'value="admin" selected' in _row_html(body, seed.admin2_id)
+    assert "0 frames" in _row_html(body, seed.admin2_id)
     assert "Disabled" in _row_html(body, seed.owner_id)
     assert "Invited" not in _row_html(body, seed.admin2_id)
     assert "Invited" in _row_html(body, seed.user_id)
+    assert "Never signed in" in _row_html(body, seed.user_id)
     assert "Disabled" not in _row_html(body, seed.user_id)
     own = _row_html(body, seed.admin_id)
-    assert "Administrator · 0 frames · You" in own and "Invited" not in own
-    assert "Manage %s" % fx.USER_EMAIL in _row_html(body, seed.user_id)
-    assert ">Manage user<" in _row_html(body, seed.user_id)
+    assert ">You<" in own and "Invited" not in own
+    assert "Active: %s" % fx.USER_EMAIL in _row_html(body, seed.user_id)
+
+
+def test_the_last_sign_in_is_a_relative_time_for_a_user_who_signed_in(rig):
+    server, seed, cookie = rig
+    _link(server.state_dir, seed.owner_id)
+    _sql(server.state_dir,
+         "INSERT INTO sessions (id_hash, user_id, principal, created_at, last_seen_at, "
+         "expires_at) VALUES ('h', ?, 'user', strftime('%s','now') - 9000, "
+         "strftime('%s','now') - 7200, strftime('%s','now') + 9000)", (seed.owner_id,))
+    body = fx.get(server, cookie, "/users")[2]
+    owner = _row_html(body, seed.owner_id)
+    assert "data-relative" in owner and "2h ago" in owner
+    assert "Never signed in" not in owner
 
 
 def test_a_signed_in_user_never_shows_invited_and_a_never_signed_in_one_does(rig):
@@ -145,50 +155,54 @@ def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
     body = fx.get(server, cookie, "/users")[2]
     assert hostile not in body and "&lt;img src=x" in body
     css = fx.get(server, cookie, "/static/style.css")[2]
-    rule = re.search(r"\.entity-row__title \{[^}]*\}", css).group(0)
+    rule = re.search(r"\.users-email \{[^}]*\}", css).group(0)
     assert "monospace" not in rule and "overflow-wrap: anywhere" in rule
 
 
-def test_own_dialog_shows_the_guard_in_place_of_the_role_and_disable_controls(rig):
+def test_own_row_shows_the_guard_in_place_of_the_role_select_and_locks_the_switch(rig):
     server, seed, cookie = rig
     _link(server.state_dir, seed.admin_id, seed.admin2_id)
     body = fx.get(server, cookie, "/users")[2]
-    own = _dialog_html(body, seed.admin_id)
-    assert "This is you." in own and "Save role" not in own
-    assert "Disable user" not in own and "<select" not in own
+    own = _row_html(body, seed.admin_id)
+    assert "This is you." in own and "<select" not in own and "Save role" not in own
+    assert 'role="switch" aria-checked="true"' in own and " disabled>" in own
     assert "The last active administrator cannot be changed." not in body
-    other = _dialog_html(body, seed.admin2_id)
+    other = _row_html(body, seed.admin2_id)
     assert "This is you." not in other
-    assert "Save role" in other and "Disable user" in other
+    assert "<select" in other and " disabled>" not in other
+    assert "/users/%d/disable" % seed.admin2_id in _row_forms(body, seed.admin2_id)
 
 
-def test_the_only_active_admin_dialog_shows_the_last_administrator_sentence(rig):
+def test_the_only_active_admin_row_shows_the_last_administrator_sentence(rig):
     server, seed, cookie = rig
     _sql(server.state_dir, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.admin2_id,))
     body = fx.get(server, cookie, "/users")[2]
-    own = _dialog_html(body, seed.admin_id)
+    own = _row_html(body, seed.admin_id)
     assert "The last active administrator cannot be changed." in own
-    assert "Save role" not in own and "Disable user" not in own
-    assert "/users/%d/enable" % seed.admin2_id in _dialog_forms(body, seed.admin2_id)
+    assert "<select" not in own and " disabled>" in own
+    off = _row_forms(body, seed.admin2_id)
+    assert "/users/%d/enable" % seed.admin2_id in off
+    assert 'aria-checked="false"' in _row_html(body, seed.admin2_id)
 
 
-def test_dialog_sections_follow_the_user_state(rig):
+def test_row_controls_follow_the_user_state(rig):
     server, seed, cookie = rig
     _link(server.state_dir, seed.admin_id, seed.owner_id)
     _sql(server.state_dir, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.user_id,))
     body = fx.get(server, cookie, "/users")[2]
-    linked = _dialog_forms(body, seed.owner_id)
+    linked = _row_forms(body, seed.owner_id)
     assert set(linked) == {"/users/%d/%s" % (seed.owner_id, a)
                            for a in ("role", "disable", "unlink")}
-    never = _dialog_forms(body, seed.admin2_id)
+    row = _row_html(body, seed.owner_id)
+    assert 'data-autosubmit' in row and "<noscript><button" in row
+    assert row.count('class="row-menu"') == 1 and ">Unlink identity<" in row
+    never = _row_forms(body, seed.admin2_id)
     assert not any(action.endswith("/unlink") for action in never)
+    assert "row-menu" not in _row_html(body, seed.admin2_id)
     assert any(action.endswith("/disable") for action in never)
-    disabled = _dialog_forms(body, seed.user_id)
+    disabled = _row_forms(body, seed.user_id)
     assert any(action.endswith("/enable") for action in disabled)
     assert not any(action.endswith("/disable") for action in disabled)
-    html = _dialog_html(body, seed.owner_id)
-    assert ">Manage user</h2>" in html and ">Close</a>" in html
-    assert html.count("calendar-disconnect-btn") == 2
 
 
 def test_every_action_form_has_csrf_and_the_right_path_and_no_script_confirm(rig):
@@ -199,13 +213,13 @@ def test_every_action_form_has_csrf_and_the_right_path_and_no_script_confirm(rig
         form for form in re.findall(
             r'<form method="post" action="([^"]+)"[^>]*>(.*?)</form>', body, re.S)
         if form[0].startswith("/users")]
-    assert len(forms) >= 6
+    assert len(forms) >= 9
     for action, inner in forms:
         assert 'name="csrf_token"' in inner, action
         assert re.match(r"^/users(/invite|/\d+/(role|disable|enable|unlink))$", action)
     assert "/users/%d/role" % seed.owner_id in body
-    assert "<details" not in body.split('class="entity-list"')[1].split("</ul>")[0]
-    assert "confirm(" not in body
+    table = body.split("<table")[1].split("</table>")[0]
+    assert table.count("<details") == 2 and "confirm(" not in body
 
 
 def test_page_never_shows_identity_or_session_values(rig):
@@ -243,8 +257,11 @@ def test_french_page_uses_the_catalogue(rig):
     assert status == 200
     from companion import i18n_fr
     assert "Inviter" in body and "+ Inviter un utilisateur" in body
-    assert "Gérer l’utilisateur" in body and "Retour aux utilisateurs" in body
-    assert "Administrateur · 0 cadre" in body and "Vous" in body
+    assert "Retour aux utilisateurs" in body and "Gérer" not in body
+    for heading in ("Utilisateur", "Rôle", "Cadres", "Dernière connexion", "Actif"):
+        assert ">%s</th>" % heading in body
+    assert "0 cadre" in body and "Vous" in body and "Jamais connecté" in body
+    assert "Le rôle s’enregistre dès qu’on le change." in body
     assert i18n_fr.BY_ID["admin_users.invite_user"] == "Inviter"
 
 

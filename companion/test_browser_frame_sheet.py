@@ -1,7 +1,7 @@
-"""Real-browser proof of the frame chip and card sheet: keyboard behaviour, the
-page kept across frames, the no-script hash path, geometry at 360 and 1280 px
-in both languages and themes, and the personal and Console lists of an
-administrator."""
+"""Real-browser proof of the frame tile strip for an administrator: the page
+kept across frames, the Add a screen tile and the pairing flow it opens, the
+strip scrolling sideways on a phone and wrapping on a desktop, geometry at 360
+and 1280 px in both languages and themes, and the personal and Console lists."""
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_two_device_fleet import OWNER_EMAIL
@@ -13,18 +13,27 @@ from companion.test_device_helpers import start_fleet_app
 
 pytestmark = pytest.mark.browser
 
-CHIP = "a.frame-chip"
-SHEET = "dialog.frame-sheet"
-CARDS = "dialog.frame-sheet a.frame-card"
-CARD_FLOOR = 64
-CLOSE_FLOOR = 44
+STRIP = "ul.frame-tiles"
+TILES = "ul.frame-tiles a.frame-tile:not(.frame-tile--add)"
+ADD = "ul.frame-tiles a.frame-tile--add"
+TILE_FLOOR = 44
+
+_READY = """() => {
+  if (document.readyState !== 'complete') return false;
+  if (!document.getAnimations().every((a) => a.playState !== 'running'
+      || a.effect.getComputedTiming().iterations === Infinity)) return false;
+  const tile = document.querySelector('ul.frame-tiles a.frame-tile');
+  const box = tile.getBoundingClientRect();
+  const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+  return !!hit && tile.contains(hit);
+}"""
 
 
 @pytest.fixture(scope="module")
 def app(module_app_server_factory):
     holder = start_fleet_app(module_app_server_factory)
     # The fleet's owner is an administrator who owns every frame, so the
-    # personal sheet lists all of them.
+    # personal strip lists all of them.
     holder.cookie = session_cookie_for_state_dir(holder.server.state_dir, OWNER_EMAIL)
     return holder
 
@@ -39,81 +48,84 @@ def _open(new_context, app, path, lang="en", **context_args):
     page = context.new_page()
     page.goto(base + path)
     page.locator("main").wait_for(state="visible")
-    page.locator(CHIP).wait_for(state="visible")
+    page.locator(STRIP).wait_for(state="visible")
+    if context_args.get("java_script_enabled", True):
+        page.wait_for_function(_READY)
     return context, page
-
-
-def _wait_open(page):
-    page.wait_for_function("() => document.querySelector('dialog.frame-sheet').open")
-
-
-def _wait_closed(page):
-    page.wait_for_function("() => !document.querySelector('dialog.frame-sheet').open")
 
 
 def _live_path(app, route):
     return "/devices/%s%s" % (app.fleet.live.id, route)
 
 
-def test_tab_stays_inside_the_sheet_and_escape_returns_focus_to_the_chip(new_context, app):
-    """the sheet opens with focus inside it, Tab never leaves it, Escape closes it and focus
-    returns to the chip"""
-    context, page = _open(
-        new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_DESKTOP)
-    try:
-        page.locator(CHIP).click()
-        _wait_open(page)
-        page.wait_for_function(
-            "() => document.querySelector('dialog.frame-sheet').contains(document.activeElement)")
-        for _ in range(12):
-            page.keyboard.press("Tab")
-            # The rest of the page is inert: focus is in the sheet, or on the
-            # body while it wraps round, never on page content.
-            page.wait_for_function(
-                "() => { const a = document.activeElement;"
-                " return a === document.body || a === document.documentElement"
-                " || document.querySelector('dialog.frame-sheet').contains(a); }")
-        page.keyboard.press("Escape")
-        _wait_closed(page)
-        page.wait_for_function(
-            "() => document.activeElement === document.querySelector('a.frame-chip')")
-    finally:
-        context.close()
-
-
 @pytest.mark.parametrize("route", ["/display", "/flights", "/"])
-def test_choosing_a_card_keeps_the_page_for_the_other_frame(new_context, app, route):
-    """on Personalisation, Flight history and Home the other frame's card goes to the same
-    page of that frame, and the current card carries aria-current"""
+def test_choosing_a_tile_keeps_the_page_for_the_other_frame(new_context, app, route):
+    """on Personalisation, Flight history and Home the other frame's tile goes to the same
+    page of that frame, and the current tile carries aria-current"""
     other = app.fleet.dev_a.id
     context, page = _open(
         new_context, app, _live_path(app, route), viewport=VIEWPORT_DESKTOP)
     try:
-        page.locator(CHIP).click()
-        _wait_open(page)
-        current = page.locator('%s[aria-current="true"]' % CARDS)
+        current = page.locator('%s[aria-current="true"]' % TILES)
         assert current.count() == 1
         assert current.get_attribute("href") == _live_path(app, route)
         with page.expect_navigation():
-            page.locator('%s[href="/devices/%s%s"]' % (CARDS, other, route)).click()
+            page.locator('%s[href="/devices/%s%s"]' % (TILES, other, route)).click()
         assert page.url.split("?")[0].endswith("/devices/%s%s" % (other, route))
-        page.locator(CHIP).wait_for(state="visible")
+        page.locator(STRIP).wait_for(state="visible")
     finally:
         context.close()
 
 
-def test_no_script_hash_link_shows_the_sheet_and_a_card_navigates(new_context, app):
-    other = app.fleet.dev_a.id
+def test_the_add_tile_is_last_and_opens_the_pairing_flow(new_context, app):
+    """an administrator's strip ends with a dashed Add a screen tile that leads to the Fleet
+    pairing dialog"""
     context, page = _open(
-        new_context, app, _live_path(app, "/flights"), viewport=VIEWPORT_MIN_SUPPORTED,
-        java_script_enabled=False)
+        new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_DESKTOP)
     try:
-        page.locator(CHIP).click()
-        card = page.locator('%s[href="/devices/%s/flights"]' % (CARDS, other))
-        card.wait_for(state="visible")
+        last = page.locator("ul.frame-tiles > li").last.locator("a")
+        assert last.get_attribute("class").split() == ["frame-tile", "frame-tile--add"]
+        assert last.inner_text().strip().endswith("Add a screen")
+        assert page.locator(ADD).evaluate(
+            "(el) => getComputedStyle(el).borderTopStyle") == "dashed"
         with page.expect_navigation():
-            card.click()
-        assert page.url.endswith("/devices/%s/flights" % other)
+            page.locator(ADD).click()
+        assert page.url.endswith("/fleet?pair=1")
+        page.wait_for_function(
+            "() => document.querySelector('dialog#dlg-add-frame').open")
+    finally:
+        context.close()
+
+
+def test_the_strip_scrolls_sideways_on_a_phone(new_context, app):
+    """at 360px the strip is a horizontal scroller that keeps tiles on one row and the page
+    itself does not scroll sideways"""
+    context, page = _open(
+        new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_MIN_SUPPORTED)
+    try:
+        metrics = page.locator(STRIP).evaluate(
+            """(el) => ({overflowX: getComputedStyle(el).overflowX,
+                         wrap: getComputedStyle(el).flexWrap,
+                         scroll: el.scrollWidth, client: el.clientWidth})""")
+        assert metrics["overflowX"] == "auto" and metrics["wrap"] == "nowrap"
+        assert metrics["scroll"] > metrics["client"]
+        tops = {round(page.locator("ul.frame-tiles a").nth(i).bounding_box()["y"])
+                for i in range(page.locator("ul.frame-tiles a").count())}
+        assert len(tops) == 1
+        assert not _assert_no_page_overflow(page, "strip/phone", VIEWPORT_MIN_SUPPORTED["width"])
+    finally:
+        context.close()
+
+
+def test_the_strip_wraps_on_a_desktop(new_context, app):
+    context, page = _open(
+        new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_DESKTOP)
+    try:
+        metrics = page.locator(STRIP).evaluate(
+            """(el) => ({wrap: getComputedStyle(el).flexWrap,
+                         scroll: el.scrollWidth, client: el.clientWidth})""")
+        assert metrics["wrap"] == "wrap"
+        assert metrics["scroll"] <= metrics["client"]
     finally:
         context.close()
 
@@ -123,59 +135,44 @@ def test_no_script_hash_link_shows_the_sheet_and_a_card_navigates(new_context, a
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
                          ids=["360", "1280"])
 def test_geometry_and_no_overflow(new_context, app, viewport, scheme, lang):
-    """cards are at least 64px high, the close control at least 44x44, and neither the page
-    nor the sheet overflows horizontally; below 700px the sheet is a bottom sheet"""
+    """every tile, the Add tile included, is at least 44px high and wide, tiles show a
+    picture, and the page does not overflow horizontally"""
     context, page = _open(
         new_context, app, _live_path(app, "/display"), lang=lang, viewport=viewport,
         color_scheme=scheme)
     try:
-        chip = page.locator(CHIP).bounding_box()
-        assert chip["height"] >= 48
-        if viewport["width"] >= 700:
-            assert chip["width"] <= 24 * 16 + 1
-        page.locator(CHIP).click()
-        _wait_open(page)
-        for index in range(page.locator(CARDS).count()):
-            assert page.locator(CARDS).nth(index).bounding_box()["height"] >= CARD_FLOOR
-        close = page.locator(SHEET + " a.modal__close").bounding_box()
-        assert close["width"] >= CLOSE_FLOOR and close["height"] >= CLOSE_FLOOR
-        box = page.locator(SHEET).bounding_box()
-        assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
-        if viewport["width"] < 700:
-            assert box["y"] + box["height"] >= viewport["height"] - 1
-        scroll = page.evaluate(
-            "() => { const d = document.querySelector('dialog.frame-sheet');"
-            " return d.scrollWidth - d.clientWidth; }")
-        assert scroll <= 0
-        assert not _assert_no_page_overflow(page, "sheet/%s/%s" % (scheme, lang), viewport["width"])
+        for selector in (TILES, ADD):
+            for index in range(page.locator(selector).count()):
+                box = page.locator(selector).nth(index).bounding_box()
+                assert box["height"] >= TILE_FLOOR and box["width"] >= TILE_FLOOR
+        pic = page.locator(TILES + " .frame-tile__pic").first.bounding_box()
+        assert pic["width"] > 0 and pic["height"] > pic["width"]
+        label = "Ajouter un écran" if lang == "fr" else "Add a screen"
+        assert page.locator(ADD).inner_text().strip().endswith(label)
+        assert not _assert_no_page_overflow(page, "strip/%s/%s" % (scheme, lang), viewport["width"])
     finally:
         context.close()
 
 
-def test_the_personal_sheet_of_an_administrator_has_no_fleet_entry(new_context, app):
+def test_the_personal_strip_of_an_administrator_has_no_fleet_entry(new_context, app):
     context, page = _open(
         new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_DESKTOP)
     try:
-        page.locator(CHIP).click()
-        _wait_open(page)
-        assert page.locator(SHEET + ' a[href="/fleet"]').count() == 0
-        assert page.locator(SHEET).get_by_text("All frames").count() == 0
-        assert page.locator(SHEET + ' a[href="/account#account-frames"]').count() == 1
+        assert page.locator(STRIP + ' a[href="/fleet"]').count() == 0
+        assert page.locator(STRIP).get_by_text("All frames").count() == 0
     finally:
         context.close()
 
 
-def test_a_console_sheet_lists_every_frame_with_the_owner_email(new_context, app):
+def test_a_console_strip_lists_every_frame_with_the_owner_email(new_context, app):
     context, page = _open(
         new_context, app, _live_path(app, "/health"), viewport=VIEWPORT_DESKTOP)
     try:
-        page.locator(CHIP).click()
-        _wait_open(page)
         fleet = app.fleet
         for device in (fleet.live, fleet.dev_a, fleet.dev_b, fleet.landscape):
             assert page.locator(
-                '%s[href="/devices/%s/health"]' % (CARDS, device.id)).count() == 1
-        notes = page.locator(CARDS + " .frame-card__note").all_inner_texts()
+                '%s[href="/devices/%s/health"]' % (TILES, device.id)).count() == 1
+        notes = page.locator(TILES + " .frame-tile__note").all_inner_texts()
         assert notes and all("@" in note for note in notes)
     finally:
         context.close()

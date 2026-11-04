@@ -150,12 +150,15 @@ def test_display_serves_none_of_the_moved_controls_in_french(rig):
     assert "Lieu et détection</h2>" not in page and "Avions à moins de" not in _text(page)
 
 
-def test_the_four_cards_are_all_there_and_quiet_hours_are_not_on_display(rig):
-    _status, page = rig.get("owner", rig.scope() + "/display")
-    positions = [
-        page.index('id="personalisation-%s"' % slug)
-        for slug in ("look", "special-looks", "calendar", "screen")]
-    assert positions == sorted(positions)
+def test_the_four_views_are_all_there_and_quiet_hours_are_not_on_display(rig):
+    page = ""
+    for slug, path in (
+            ("look", "/display"), ("special-looks", "/display/special-looks"),
+            ("calendar", "/display/calendar"), ("screen", "/display/screen")):
+        _status, view = rig.get("owner", rig.scope() + path)
+        assert 'id="personalisation-%s"' % slug in view
+        assert 'href="%s"' % (rig.scope() + path) in view
+        page += view
     assert 'id="quiet-hours-group-heading"' not in page
     assert 'data-dirty-section="Quiet hours"' not in page
 

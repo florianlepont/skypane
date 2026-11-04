@@ -115,7 +115,8 @@ def test_served_page_offers_every_theme_through_native_radios_without_scripts(se
     """the served Display page offers all 18 theme ids for each look as native radios that post
     through the settings form: the departures look as radio cards, the others inside a <details>
     a scripts-blocked browser can open"""
-    status, _headers, body = get(server, "/display", cookie=cookie)
+    page = "/display/calendar" if field == "calendar_theme_id" else "/display"
+    status, _headers, body = get(server, page, cookie=cookie)
     assert status == 200
     root = parse_html(body.decode("utf-8"))
     radios = [
@@ -147,13 +148,18 @@ def test_the_look_card_carries_no_style_attribute_and_no_inline_script(server, c
         assert not any(name.startswith("on") for name in node.attrs), node
 
 
-def test_the_sheet_is_a_hidden_labelled_dialog_with_script_only_controls():
-    """the look sheet ships hidden, as a modal dialog labelled by its own title, and none of its
-    controls belongs to a form or posts anything; its "same as departures" control is a switch
-    button, never a checkbox"""
-    root = parse_html(_render())
+def _view(view):
+    return config_page.render(_DISPLAY_CTX, scope=config_page.SCOPE_DISPLAY, view=view)
+
+
+@pytest.mark.parametrize("view", ["special-looks", "calendar"])
+def test_the_sheet_is_a_hidden_labelled_dialog_with_script_only_controls(view):
+    """on the views whose openers use it, the look sheet ships hidden, as a modal dialog labelled
+    by its own title, and none of its controls belongs to a form or posts anything; its "same as
+    departures" control is a switch button, never a checkbox"""
+    root = parse_html(_view(view))
     sheet = root.select_one("div.look-sheet")
-    assert "hidden" in sheet.attrs
+    assert "hidden" in sheet.attrs and "data-look-inline" not in sheet.attrs
     assert sheet.attrs["role"] == "dialog" and sheet.attrs["aria-modal"] == "true"
     assert root.select_one("#" + sheet.attrs["aria-labelledby"])
     for node in sheet.find_all("input"):
@@ -165,6 +171,37 @@ def test_the_sheet_is_a_hidden_labelled_dialog_with_script_only_controls():
     assert [node.attrs["value"] for node in stripes] == list(look.STRIPES)
     why = sheet.select_one("p.look-axis__why")
     assert why.attrs.get("aria-live") == "polite"
+
+
+def test_the_calendar_look_carries_the_saved_departures_look_it_follows():
+    """the Calendar view holds no departures look, so its "same as departures" look names the
+    saved departures theme itself for the script to resolve"""
+    root = parse_html(_view("calendar"))
+    row = root.select_one('[data-look-usage="calendar"]')
+    assert row.attrs["data-look-follows"] == "departures"
+    assert row.attrs["data-look-follows-theme"] == "band_red_field"
+    assert not root.select('[data-look-usage="departures"]')
+
+
+def test_the_look_view_carries_the_picker_in_the_page_with_a_save_button():
+    """the Look view's sheet is the inline picker: in the page (not hidden, not a dialog), inside a
+    script-only wrapper, its choices posting nothing, with Reset and a Save that presses the
+    save bar's own Save, and the tabs that switch it between Departures and Arrivals"""
+    root = parse_html(_view("look"))
+    sheet = root.select_one("div.look-sheet")
+    assert "data-look-inline" in sheet.attrs
+    assert "hidden" not in sheet.attrs and "role" not in sheet.attrs
+    assert "js-gate" in sheet.parent.attrs["class"]
+    for node in sheet.find_all("input"):
+        assert "form" not in node.attrs and node.attrs["name"].startswith("look_")
+    save = sheet.select_one("button.look-sheet__save")
+    assert save.attrs["type"] == "button" and "form" not in save.attrs and "data-look-save" in save.attrs
+    assert sheet.select_one("button.look-sheet__reset") is not None
+    assert [b.text() for b in root.select("button[data-look-tab]")] == ["Departures", "Arrivals"]
+    assert [p.attrs["data-look-panel"] for p in root.select("[data-look-panel]")] == [
+        "departures", "arrivals"]
+    assert [node.attrs["value"] for node in sheet.find_all("input")
+            if node.attrs.get("data-look-axis") == "stripe"] == list(look.STRIPES)
 
 
 @pytest.mark.parametrize("lang, words", [
@@ -224,9 +261,11 @@ def test_each_theme_saves_through_the_existing_form_post(make_app_server, theme_
     saved = device_config.load_device_config(server.state_dir)
     assert (saved["theme"], saved["theme_arriving"], saved["calendar_theme_id"]) == (
         theme_id, theme_id, theme_id)
-    _s, _h, body = get(server, "/display", cookie=session)
-    root = parse_html(body.decode("utf-8"))
-    for field in ("theme", "theme_arriving", "calendar_theme_id"):
+    for field, page in (
+            ("theme", "/display"), ("theme_arriving", "/display"),
+            ("calendar_theme_id", "/display/calendar")):
+        _s, _h, body = get(server, page, cookie=session)
+        root = parse_html(body.decode("utf-8"))
         checked = [
             node.attrs["value"] for node in root.find_all("input")
             if node.attrs.get("name") == field and "checked" in node.attrs]
@@ -272,7 +311,7 @@ def test_a_special_look_posts_through_the_rules_route_with_its_theme(make_app_se
     assert status == 303 and "flash=rule_added" in headers.get("Location", ""), headers
     rows = colour_rules.rule_rows(colour_rules.load_colour_rules(server.state_dir))
     assert [row[:3] for row in rows] == [(colour_rules.RULE_KIND_PREFIX, "VLG", "band_blue_light")]
-    _s, _h, body = get(server, "/display", cookie=session)
+    _s, _h, body = get(server, "/display/special-looks", cookie=session)
     row = parse_html(body.decode("utf-8")).select_one("li.rule-row")
     assert "VLG" in row.text() and "Blue, soft stripe" in row.text()
 

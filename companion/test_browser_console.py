@@ -108,7 +108,10 @@ def test_console_pages_fit_a_phone_and_collapse_tables(
         new_context, app_server_in_process, path, VIEWPORT_MIN_SUPPORTED)
     try:
         assert _no_sideways_scroll(page)
-        assert not page.locator("main table:visible").count()
+        # A table element may stay in the DOM as cards (display other than
+        # table); none may lay out as a wide table on a phone.
+        assert not page.locator("main table:visible").evaluate_all(
+            "els => els.filter(e => getComputedStyle(e).display === 'table').length")
         page.set_viewport_size(VIEWPORT_DESKTOP)
         assert _no_sideways_scroll(page)
     finally:
@@ -164,7 +167,7 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
             assert _height(page, selector) >= MIN_TAP_PX, selector
         page.goto(server.base_url() + "/users")
         assert _height(page, "a.page-header__action") >= MIN_TAP_PX
-        assert _height(page, "li.entity-row a.entity-row__button") >= MIN_TAP_PX
+        assert _height(page, "tr.users-row select") >= MIN_TAP_PX
         page.locator("a.page-header__action").click()
         for selector in (
                 "#invite-email", "#invite-role", 'form[action="/users/invite"] button'):

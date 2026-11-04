@@ -16,7 +16,7 @@ import server.state_store as state_store
 _URL_ATTRS = ("href", "action", "src")
 LIVE_PAGES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
 PERSONAL_NAV_ROUTES = ("/", "/flights", "/detection", "/display", "/airlines")
-CONSOLE_FRAME_NAV_ROUTES = ("/health", "/device", "/airlines/manage")
+CONSOLE_FRAME_NAV_ROUTES = ("/airlines/manage",)
 SPACE_SWITCH_CLASSES = ("space-switch", "mobile-nav__link--space")
 
 
@@ -50,7 +50,7 @@ def _actions(body):
 
 def _inside_frame_switcher(node):
     while node is not None:
-        if "frame-sheet" in node.attrs.get("class", ""):
+        if "frame-tiles" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False
@@ -100,7 +100,7 @@ def test_global_links_are_never_prefixed(app):
     body = _page(app, prefix + "/health")
     for container in ("nav.sidebar-nav", "nav.tab-bar"):
         hrefs = _hrefs(body, within=container)
-        for route in ("/account", "/fleet", "/users", "/audit", "/update"):
+        for route in ("/account", "/fleet", "/users", "/audit"):
             assert route in hrefs, (container, route)
             assert prefix + route not in hrefs, (container, route)
 
@@ -112,7 +112,9 @@ def test_active_nav_state_resolves_from_the_unprefixed_route(app):
         node.attrs["href"] for node in
         parse_html(body).select_one("nav.sidebar-nav").find_all("a")
         if node.attrs.get("aria-current") == "page"]
-    assert current == [prefix + "/health"]
+    # Health, Device and Update live in the Fleet view: their pages mark Fleet
+    # (a global link, never prefixed) as the current destination.
+    assert current == ["/fleet"]
 
 
 def test_quick_switch_forms_post_under_the_prefix_with_unprefixed_return_to(app):
@@ -285,13 +287,13 @@ def test_resolve_dialog_forms_stay_in_the_device(seeded):
 
 def test_calendar_sheet_actions_and_close_links_stay_in_the_device(seeded):
     prefix = _prefix(seeded.fleet.dev_a)
-    body = _page(seeded, prefix + "/display?sheet=manage")
+    body = _page(seeded, prefix + "/display/calendar?sheet=manage")
     sheet = parse_html(body).select_one("dialog[data-calendar-sheet]")
     actions = [node.attrs.get("action") for node in sheet.find_all("form")]
     assert prefix + "/settings/calendar/connect" in actions
     assert prefix + "/settings/calendar/disconnect" in actions
     for link in sheet.find_all("a"):
-        assert link.attrs["href"].startswith(prefix + "/display#"), link.attrs
+        assert link.attrs["href"].startswith(prefix + "/display/calendar#"), link.attrs
 
 
 def test_frame_preview_urls_resolve_under_the_prefix(seeded):
@@ -318,17 +320,21 @@ def test_live_airlines_and_display_pages_stay_under_the_live_prefix(seeded):
     assert get(seeded, "/airlines/manage?resolve=ABC")[0] == 200
 
 
-def test_freshness_script_refreshes_its_own_page_and_finds_the_prefixed_health_link(seeded):
+def test_freshness_script_refreshes_its_own_page_and_the_health_page_has_no_nav_link(seeded):
     status, _headers, script = get(seeded, "/static/freshness.js")
     assert status == 200
     assert "fetch(window.location.href" in script
-    assert 'a[href$="/health"]' in script
+    assert 'a[href$="/fleet"]' in script
     selector = 'a[href$="/health"]'
     prefix = _prefix(seeded.fleet.dev_a)
     root = parse_html(_page(seeded, prefix + "/health"))
-    assert any(
+    assert not any(
         node.attrs.get("href", "").endswith("/health")
         for node in root.select_one("nav.sidebar-nav").find_all("a")), selector
+    # The swapped nav link is the Fleet entry, the one that carries the dot.
+    assert any(
+        node.attrs.get("href", "").endswith("/fleet")
+        for node in root.select_one("nav.sidebar-nav").find_all("a"))
 
 
 def test_step_b_trigger_addresses_stay_in_the_device_and_return_stays_plain(tmp_path):

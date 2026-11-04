@@ -437,11 +437,11 @@ def test_resolve_context_hidden_guard_present_after_base_rule(css_text):
     assert guard_decls.get("display") == "none", "expected .resolve-context[hidden] to hide by display: none"
 
 
-def test_nav_toggle_label_now_describes_the_preferences_panel():
-    """the hamburger toggle's accessible name describes the preferences panel it now opens
-    ("Account and preferences" / "Compte et préférences"), and the retired "Open menu"
+def test_nav_toggle_label_names_the_account_menu_it_opens():
+    """the hamburger toggle's accessible name names the account menu it opens (it holds
+    Sign out only: "Account menu" / "Menu du compte"), and the retired "Open menu"
     translation is deleted rather than orphaned"""
-    assert layout.NAV_TOGGLE_LABEL == "Account and preferences", (
+    assert layout.NAV_TOGGLE_LABEL == "Account menu", (
         "expected the toggle to name what the panel now holds, got %r" % (layout.NAV_TOGGLE_LABEL,))
     assert layout.i18n.t_lang(layout.NAV_TOGGLE_LABEL, "fr") != layout.NAV_TOGGLE_LABEL, (
         "expected a French entry for the renamed toggle label")
@@ -458,7 +458,7 @@ def test_nav_toggle_label_now_describes_the_preferences_panel():
             device_config=_NAV_STATUS_DEVICE_CFG)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert 'aria-label="Compte et préférences"' in rendered, "expected the French toggle name on a French request"
+    assert 'aria-label="Menu du compte"' in rendered, "expected the French toggle name on a French request"
 
 
 def test_save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives(css_text):
@@ -1076,8 +1076,13 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             assert body_text.count(' action=""') == 3, (
                 "expected ' action=\"\"' exactly 3 times (replace/resolve-upload/delete forms) in "
                 "the real /airlines HTTP response body, got %d" % body_text.count(' action=""'))
-            assert body_text.count('<input type="file"') == 2, (
-                "expected <input type=\"file\" exactly twice (replace form, resolve-upload form) "
+            # Two in the shared dialog (replace form, resolve-upload form) plus one
+            # click-to-replace upload per airline row and per aircraft-type sub-row.
+            upload_forms = sum(
+                1 + len(shapes) for _name, shapes in illustrations.target_variants_by_airline())
+            assert body_text.count('<form class="airlines-art"') == upload_forms
+            assert body_text.count('<input type="file"') == 2 + upload_forms, (
+                "expected <input type=\"file\" for the dialog's two forms and each row upload "
                 "in the real /airlines HTTP response body, got %d" % body_text.count('<input type="file"'))
 
         elif path == "/flights":

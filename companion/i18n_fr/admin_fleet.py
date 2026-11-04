@@ -8,11 +8,9 @@ only carries the French.
 MESSAGES = {
     "admin_fleet.every_frame_on_the_platform_who_owns_it_and_whether_it":
         "Tous les cadres de la plateforme\u00a0: à qui ils sont et s’ils sont à jour.",
-    "admin_fleet.n_need_attention": "%d demandent de l’attention",
-    "admin_fleet.one_needs_attention": "1 demande de l’attention",
     "admin_fleet.new_frame": "Nouveau cadre",
     "admin_fleet.formerly_owner": "Anciennement %s",
-    "admin_fleet.retired_frames_n": "Cadres retirés (%d)",
+    "admin_fleet.other_frames_n": "Autres cadres (%d)",
     "admin_fleet.actions_for_frame": "Actions pour %s",
     "admin_fleet.switch_a_frame_on_when_its_pairing_code_appears_choose_add":
         "Allumez un cadre. Quand son code d’association s’affiche à l’écran, "
@@ -32,14 +30,10 @@ MESSAGES = {
         "Aucun cadre n’affiche de code pour l’instant. Allumez le cadre\u00a0; son "
         "code s’affiche à l’écran.",
     "admin_fleet.frames": "Cadres",
-    "admin_fleet.n_frames": "%d cadres",
-    "admin_fleet.one_frame": "1 cadre",
     "admin_fleet.unnamed_frame": "Cadre sans nom",
     "admin_fleet.waiting_for_pairing": "En attente d’association",
     "admin_fleet.unassigned": "Non attribué",
     "admin_fleet.no_frames_yet": "Aucun cadre pour l’instant",
-    "admin_fleet.menu_health": "État",
-    "admin_fleet.menu_device": "Appareil",
     "admin_fleet.open_personal_view": "Ouvrir la vue personnelle",
     "admin_fleet.reassign": "Réattribuer",
     "admin_fleet.retire": "Retirer",
@@ -93,4 +87,16 @@ MESSAGES = {
         "Allumez-le. Il affichera un code d’association dans les 5 minutes.",
     "admin_fleet.flash_frame_duplicate":
         "Un cadre avec cette adresse est déjà enregistré.",
+    "admin_fleet.system_tile": "Système",
+    "admin_fleet.system_tile_detail": "Sources et sauvegardes",
+    "admin_fleet.system_heading": "Système",
+    "admin_fleet.block_state": "État",
+    "admin_fleet.block_device_version": "Appareil et version",
+    "admin_fleet.block_settings": "Réglages",
+    "admin_fleet.block_access": "Accès",
+    "admin_fleet.block_model": "Modèle",
+    "admin_fleet.system_unavailable":
+        "Aucune information système n’est disponible pour l’instant.",
+    "admin_fleet.add_screen_first":
+        "Ajoutez un écran pour voir son état et ses réglages.",
 }

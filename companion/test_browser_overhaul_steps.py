@@ -18,7 +18,7 @@ import pytest
 import fleet_console_support as fx
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED
-from place_map_support import Hosts
+from place_map_support import CLEAR_BOX, Hosts
 from server import fleet_db, hardware
 
 pytestmark = pytest.mark.browser
@@ -28,8 +28,8 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 5, "L2": 5, "L3": 6, "L4": 4,
-    "S1": 1, "S2": 2, "A7": 1, "A8": 5, "V1-phone": 2, "V1-desktop": 1}
+    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
+    "S1": 1, "S2": 1, "A7": 1, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -59,17 +59,18 @@ class Steps:
         self._add("tap", what)
         locator.click()
 
-    def tap_point(self, locator, fx, fy, what):
-        """Taps a point of a large element (the map). A scroll is counted only when the point
+    def tap_point(self, locator, fx, fy, what, clear=None):
+        """Taps a point of a large element (the map), by default of the whole element, or of
+        `clear`, the part of it nothing floats over. A scroll is counted only when the point
         itself lies outside the viewport."""
         locator.wait_for(state="visible")
-        box = locator.bounding_box()
+        box = clear or locator.bounding_box()
         y = box["y"] + box["height"] * fy
         if y < 0 or y > self.page.evaluate("window.innerHeight"):
             self.count += 1
             self.log.append("scroll to " + what)
             locator.scroll_into_view_if_needed()
-            box = locator.bounding_box()
+            box = clear and self.page.evaluate(CLEAR_BOX) or locator.bounding_box()
             y = box["y"] + box["height"] * fy
         self._add("tap", what)
         self.page.mouse.click(box["x"] + box["width"] * fx, y)
@@ -164,18 +165,38 @@ def _report_measured(task, steps, target):
     assert steps.count == MEASURED[task], (task, steps.count, MEASURED[task], steps.log)
 
 
+def _select_frame(steps, page, name):
+    """Makes `name` the selected frame: nothing to do when its tile is already
+    the current one, else one tap on its tile (a plain link)."""
+    tile = page.locator("ul.frame-tiles a.frame-tile", has_text=name).first
+    tile.wait_for(state="visible")
+    if tile.get_attribute("aria-current") == "true":
+        return
+    steps.tap(tile, "tile of " + name)
+    page.wait_for_function(
+        "(n) => [...document.querySelectorAll('ul.frame-tiles a[aria-current=true]')]"
+        ".some(a => a.textContent.includes(n))", arg=name)
+    page.wait_for_function("() => document.readyState === 'complete'")
+
+
 def _row_menu(steps, page, name, item):
-    row = page.locator("li.entity-row", has=page.locator("text=%s" % name)).first
-    steps.tap(row.locator("summary.row-menu__toggle"), "row menu of " + name)
-    steps.tap(row.locator("a.row-menu__item", has_text=item), item)
+    """The frame's actions menu in its detail header (the frame is selected
+    first when it is not)."""
+    _select_frame(steps, page, name)
+    header = page.locator(".fleet-detail-head")
+    steps.tap(header.locator("summary.row-menu__toggle"), "actions menu of " + name)
+    steps.tap(header.locator("a.row-menu__item", has_text=item), item)
 
 
 def test_a1_fleet_state_is_readable_on_landing(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        dots = page.locator("li.entity-row [role=img][aria-label]")
-        assert dots.count() >= 3
-        assert page.locator("li.entity-row .dot").count() >= 3
+        # Every live frame is a tile with its status dot; the pending and
+        # retired frames wait in the collapsed Other frames block.
+        dots = page.locator("ul.frame-tiles a.frame-tile [role=img][aria-label]")
+        assert dots.count() >= 2
+        assert page.locator("ul.frame-tiles a.frame-tile .dot").count() >= 2
+        assert page.locator("details.fleet-other").get_attribute("open") is None
         assert page.locator("table").count() == 0
         _report("A1", steps, 0)
     finally:
@@ -231,7 +252,7 @@ def test_a4_retire_a_frame(world, new_context):
         steps.tap(dialog.locator("button[type=submit]"), "confirm Retire")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id) is None
-        _report("A4-retire", steps, 3)
+        _report("A4-retire", steps, 4)
     finally:
         context.close()
 
@@ -245,7 +266,7 @@ def test_a4_reassign_a_frame(world, new_context):
         steps.tap(dialog.locator("button[type=submit]"), "confirm Reassign")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id)["owner_user_id"] == world.seed.admin_id
-        _report("A4-reassign", steps, 4)
+        _report("A4-reassign", steps, 5)
     finally:
         context.close()
 
@@ -260,7 +281,7 @@ def test_a5_add_a_co_manager(world, new_context):
         steps.tap(page.locator(
             '#dlg-access-%s form[action$="/co-managers/add"] button' % slug),
             "Add co-manager")
-        page.wait_for_url("**/fleet?access=*")
+        page.wait_for_url("**/fleet?frame=*")
         conn = fleet_db.connect(world.state_dir)
         try:
             members = [r["email"] for r in conn.execute(
@@ -269,7 +290,7 @@ def test_a5_add_a_co_manager(world, new_context):
         finally:
             conn.close()
         assert members == [fx.USER_EMAIL]
-        _report("A5", steps, 4)
+        _report("A5", steps, 5)
     finally:
         context.close()
 
@@ -277,8 +298,7 @@ def test_a5_add_a_co_manager(world, new_context):
 def test_a6_read_the_audit_log(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a[href='/audit']"), "Audit log")
+        steps.tap(page.locator(".tab-bar a[href='/audit']"), "Audit log")
         page.wait_for_url("**/audit")
         assert page.locator("main h1").inner_text() == "Audit log"
         assert page.locator(".section-subnav").count() == 0
@@ -304,7 +324,7 @@ def test_u1_sign_in_ends_on_home(world, new_context):
 def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
-        assert page.locator("a.frame-chip").count() == 0
+        assert page.locator("ul.frame-tiles").count() == 0
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
         assert page.locator("main h1").inner_text().strip() == "Home"
         _report("U2-one", steps, 0)
@@ -313,38 +333,35 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
 
 
 def _open_the_other_frame(steps, page):
-    """The frame chip, then the card of the frame not shown; waits for the new page."""
-    steps.tap(page.locator("a.frame-chip"), "frame chip")
-    page.wait_for_function(
-        "() => document.querySelector('dialog.frame-sheet').open")
-    panel = page.locator("dialog.frame-sheet")
-    assert panel.locator("a", has_text="Kitchen").count() >= 1
-    assert panel.locator("a", has_text="Attic office").count() >= 1
+    """The tile of the frame not shown; waits for the new page."""
+    strip = page.locator("ul.frame-tiles")
+    assert strip.locator("a", has_text="Kitchen").count() >= 1
+    assert strip.locator("a", has_text="Attic office").count() >= 1
     before = page.url
-    was = page.locator("a.frame-chip").get_attribute("aria-label")
-    steps.tap(panel.locator("a.frame-card:not([aria-current])"), "frame card")
+    was = strip.locator("a[aria-current='true']").get_attribute("href")
+    steps.tap(strip.locator("a.frame-tile:not([aria-current]):not(.frame-tile--add)"), "frame tile")
     page.wait_for_function("(was) => location.href !== was", arg=before)
     page.wait_for_function("() => document.readyState === 'complete'")
-    assert page.locator("a.frame-chip").get_attribute("aria-label") != was
+    assert page.locator("ul.frame-tiles a[aria-current='true']").get_attribute("href") != was
 
 
-def test_u2_my_frames_with_several_frames_take_the_chip_and_a_card(world, new_context):
-    """The sheet lists every frame after one tap; reaching another frame is a second."""
+def test_u2_my_frames_with_several_frames_take_one_tile(world, new_context):
+    """The strip lists every frame on the page; reaching another frame is one tap."""
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
         _open_the_other_frame(steps, page)
-        _report("U2-several", steps, 2)
+        _report("U2-several", steps, 1)
     finally:
         context.close()
 
 
-def test_s2_switching_frame_takes_the_chip_then_a_card(world, new_context):
+def test_s2_switching_frame_takes_one_tile_tap(world, new_context):
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
         _open_the_other_frame(steps, page)
-        _report_measured("S2", steps, 2)
+        _report_measured("S2", steps, 1)
     finally:
         context.close()
 
@@ -393,14 +410,15 @@ def test_u4a_change_the_quiet_hours_start(world, new_context):
 
 
 def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
-    """Personalisation tab, tap a look, Save."""
+    """Personalisation tab, tap a colour in the picker, Save."""
     context, page, steps = _owner(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
         page.wait_for_url("**/display")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
         steps.tap(page.locator(
-            ".look-pick__card:has(input:not(:checked))").first, "a look")
+            "[data-look-sheet][data-look-inline] .look-dot:has(input:not(:checked))").first, "a look")
         page.locator("[data-static-save-fallback]").wait_for(state="visible")
         _save_and_reload(steps, page)
         _report_measured("U4b", steps, 3)
@@ -502,7 +520,8 @@ def test_l4_tap_the_map(world, new_context):
     context, page, steps, _ = _open_location(world, new_context)
     try:
         page.wait_for_function(MAP_TILES, timeout=15000)
-        steps.tap_point(page.locator("#place-map"), 0.5, 0.55, "the map")
+        steps.tap_point(
+            page.locator("#place-map"), 0.5, 0.55, "the map", clear=page.evaluate(CLEAR_BOX))
         page.wait_for_function(
             "() => document.getElementById('place-lat').value !== ''", timeout=10000)
         _save_place(steps, page)
@@ -515,8 +534,8 @@ def test_l4_tap_the_map(world, new_context):
 def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/device']"), "Device tab")
-        page.wait_for_url("**/device")
+        # The wake interval sits in the Settings block of the Fleet view: only a
+        # scroll is needed to reach it.
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         field = page.locator("input[type=number][name=wake_interval_s]")
         target = "1500" if field.input_value() != "1500" else "1200"
@@ -546,14 +565,16 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
         context.close()
 
 
-def test_a7_the_fleet_name_opens_the_console_health(world, new_context):
+def test_a7_a_frames_health_is_its_fleet_view(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        row = page.locator("li.entity-row", has=page.locator("text=Kitchen")).first
-        steps.tap(row.locator("a[href$='/health']").first, "frame name")
-        page.wait_for_url("**/health")
-        assert page.locator("main h1").inner_text().strip() == "Health"
-        _report_measured("A7", steps, 1)
+        # The frame's health is the State block of its Fleet view: one tap on
+        # its tile when it is not the selected frame already.
+        _select_frame(steps, page, "Kitchen")
+        state = page.locator("section.fleet-block", has=page.locator("h3", has_text="State"))
+        state.wait_for(state="visible")
+        assert page.locator(".fleet-detail-head h2").inner_text().strip() == "Kitchen"
+        _report_measured("A7", steps, 2)
     finally:
         context.close()
 
@@ -561,20 +582,43 @@ def test_a7_the_fleet_name_opens_the_console_health(world, new_context):
 def test_a8_rename_an_airline_in_the_editor(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a", has_text="Airline editor"), "Airline editor")
+        steps.tap(page.locator(".tab-bar a[href$='/airlines/manage']"), "Airline editor")
         page.wait_for_url("**/airlines/manage")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        steps.tap(page.locator('.airline-row[data-view-panel-sheet-key="air-france"]'), "the airline")
-        name = page.locator('#panel-lookup-dialog .airline-sheet input[name="airline_name"]')
+        name = page.locator('.airlines-name input[name="airline_name"][value="Air France"]')
         steps.type_value(name, "Skyline Air", "airline name")
         with page.expect_navigation():
-            steps.tap(page.locator("#panel-lookup-dialog .airline-sheet__name button"), "Save name")
+            steps._add("press", "Enter (saves the name)")
+            name.press("Enter")
         page.wait_for_function(
             "() => document.readyState === 'complete' && document.body.innerText.includes("
             "'Airline name saved')", timeout=15000)
-        assert page.locator('.airline-row__name:text-is("Skyline Air")').count() == 1
-        _report_measured("A8", steps, 5)
+        assert page.locator('.airlines-name input[value="Skyline Air"]').count() == 1
+        _report_measured("A8", steps, 3)
+    finally:
+        context.close()
+
+
+def test_a9_change_a_users_role_in_the_users_table(world, new_context):
+    context, page, steps = _admin(world, new_context)
+    try:
+        steps.tap(page.locator(".tab-bar a[href='/users']"), "Users tab")
+        page.wait_for_url("**/users")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        select = page.locator("#user-%d select[name=role]" % world.seed.owner_id)
+        steps.choose(select, "Administrator", "role")
+        conn = fleet_db.connect(world.state_dir)
+        try:
+            for _ in range(100):
+                row = conn.execute(
+                    "SELECT role FROM users WHERE id = ?", (world.seed.owner_id,)).fetchone()
+                if row["role"] == "admin":
+                    break
+                page.wait_for_timeout(50)
+        finally:
+            conn.close()
+        assert row["role"] == "admin"
+        _report_measured("A9", steps, 2)
     finally:
         context.close()
 

@@ -65,9 +65,12 @@ MESSAGES = {
     "home.edit_quiet_hours": "Modifier les heures calmes (%s)",
     "home.use_quiet_hours": "Utiliser les heures calmes",
     "home.save_quiet_hours": "Enregistrer les heures calmes",
-    "home.quiet_hours_zone_sentence":
-        "L’écran est au repos pendant ces heures, dans le fuseau {zone}. "
-        "Changez le fuseau dans {card}.",
+    "home.quiet_hours_zone_sentence": "Fuseau\u00a0: {zone}. Changer dans {card}.",
+    "home.quiet_intro": "Quand l’écran doit-il se reposer\u00a0?",
+    "home.quiet_presets_label": "Préréglages des heures calmes",
+    "home.quiet_always_active": "Toujours actif",
+    "home.quiet_never_rests": "Jamais de repos",
+    "home.quiet_or_choose": "Ou choisir ses heures",
     "home.battery_label": "Batterie",
     "home.battery_aria": "Batterie à environ %s",
     "home.battery_low": "Faible",

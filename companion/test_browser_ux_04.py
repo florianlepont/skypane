@@ -166,29 +166,38 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/display")
 
-            disclosures = page.query_selector_all("details.look-edit, details.special-add")
+            # The looks live on three views: Look (departures cards, arrivals table), Special
+            # looks (the add form) and Calendar (its own table).
+            disclosures = []
+            counts = {}
+            for route in ("/display", "/display/special-looks", "/display/calendar"):
+                page.goto(base_url + route)
+                for disclosure in page.query_selector_all("details.look-edit, details.special-add"):
+                    if disclosure.query_selector("summary") is None:
+                        raise AssertionError(
+                            "lang=%s: a look disclosure carries no <summary>" % (lang,))
+                    if disclosure.get_attribute("open") is not None:
+                        raise AssertionError(
+                            "lang=%s: expected every look closed at load" % (lang,))
+                    disclosures.append(disclosure)
+                for field in ("theme", "theme_arriving", "calendar_theme_id", "rule_theme_id"):
+                    counts[field] = counts.get(field, 0) + page.eval_on_selector_all(
+                        'input[name="%s"]' % field, "els => els.length")
             if len(disclosures) != 3:
                 raise AssertionError(
                     "lang=%s: expected 3 look disclosures, found %d" % (lang, len(disclosures)))
-            for disclosure in disclosures:
-                if disclosure.query_selector("summary") is None:
-                    raise AssertionError(
-                        "lang=%s: a look disclosure carries no <summary>" % (lang,))
-                if disclosure.get_attribute("open") is not None:
-                    raise AssertionError("lang=%s: expected every look closed at load" % (lang,))
 
             for field, expected in (
                     ("theme", n_themes),
                     ("theme_arriving", n_themes + 1),
                     ("calendar_theme_id", n_themes + 1),
                     ("rule_theme_id", n_themes)):
-                count = page.eval_on_selector_all(
-                    'input[name="%s"]' % field, "els => els.length")
-                if count != expected:
+                if counts[field] != expected:
                     raise AssertionError(
                         "lang=%s: expected %d radios named %r in the DOM whether or not its "
-                        "disclosure is open, found %d" % (lang, expected, field, count))
+                        "disclosure is open, found %d" % (lang, expected, field, counts[field]))
 
+            page.goto(base_url + "/display/calendar")
             calendar = page.query_selector('[data-look-usage="calendar"] details.look-edit')
             # Centred first: left to itself the scroll can park the summary under the
             # fixed bottom tab bar, which then swallows the click.
@@ -228,50 +237,50 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 % (before, restored))
 
 
+def _assert_floor_without_scripts(page, selector, where):
+    """The 44px floor and the centre hit-test, measured with synchronous reads only (the shared
+    hit-area helper awaits animation frames, which a scripts-blocked page never delivers)."""
+    handle = page.locator(selector).first
+    handle.evaluate("el => el.scrollIntoView({block: 'center'})")
+    box = handle.bounding_box()
+    if box is None or box["width"] < 44 - 0.5 or box["height"] < 44 - 0.5:
+        raise AssertionError("%s: %r measures %r, under the 44px floor" % (where, selector, box))
+    owns = handle.evaluate(
+        "el => { const r = el.getBoundingClientRect();"
+        " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
+        " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
+    if not owns:
+        raise AssertionError("%s: %r does not own its own centre" % (where, selector))
+
+
 def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, server):
     """The Touch Targets floor, measured (never declared) in each control's own container,
-    in both UI themes, at the 360px contract floor: the departures look's first and last radio
-    card, its "Customise look" button, the arrivals table's leading "Same as departures" option, the
-    picture openers and the "Add a special look" <summary> all clear 44px; no table scrolls
-    horizontally, the page itself never overflows sideways, and a swatch paints visibly
-    distinct from its own cell surface in both themes.
+    in both UI themes, at the 360px contract floor. With scripts blocked: the departures look's
+    first and last radio card, the arrivals table's leading "Same as departures" option and the
+    "Add a special look" <summary> all clear 44px, no table scrolls horizontally, the page never
+    overflows sideways and a card's preview paints a real box. With scripts: the Departures and
+    Arrivals tabs, the first and last colour dot, every background and stripe option, Reset and
+    Save clear 44px and the page never overflows sideways.
     """
     base_url = server.base_url()
-    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
-    try:
-        page = context.new_page()
-        _login(page, base_url)
-        page.goto(base_url + "/display")
-        # With scripts the "Change" summaries open the look sheet; the tables they hold are the
-        # no-script controls, opened here directly so they can be measured.
+    with _no_js_page(new_context, base_url, "/display", viewport=VIEWPORT_MIN_SUPPORTED) as page:
+        # Without a script the "Change" summaries open their table in place, closed by default;
+        # opened here directly so the tables can be measured.
         page.eval_on_selector_all("details.look-edit", "ds => ds.forEach(d => { d.open = true; })")
-
-        recorded = {}
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
-            theme_record = {}
             cells = '[data-look-usage="departures"] label.look-pick__card'
             if page.eval_on_selector_all(cells, "els => els.length") < 2:
                 raise AssertionError("theme=%s: expected the departures table's cells" % theme)
-            theme_record["cell_first"] = _assert_hit_target(
+            _assert_floor_without_scripts(
                 page, '[data-look-usage="departures"] .look-pick__grid > label:first-child',
                 "theme=%s: the FIRST radio card of the departures look" % theme)
-            theme_record["cell_last"] = _assert_hit_target(
+            _assert_floor_without_scripts(
                 page, '[data-look-usage="departures"] .look-pick__grid > label:last-child',
                 "theme=%s: the LAST radio card of the departures look" % theme)
-            theme_record["summary"] = _assert_hit_target(
-                page, '[data-look-usage="departures"] button.look-pick__customise',
-                "theme=%s: the departures look's Customise look button" % theme)
-            theme_record["leading_option"] = _assert_hit_target(
+            _assert_floor_without_scripts(
                 page, '[data-look-usage="arrivals"] label.look-option:has(input[value=""])',
                 "theme=%s: the arrivals \"Same as departures\" option" % theme)
-            theme_record["opener"] = _assert_hit_target(
-                page, '[data-look-usage="arrivals"] button.look-frame__open',
-                "theme=%s: the arrivals picture's opener" % theme)
-            theme_record["add_summary"] = _assert_hit_target(
-                page, ".special-add__summary",
-                "theme=%s: the \"Add a special look\" <summary>" % theme)
-
             scrolling = page.eval_on_selector_all(
                 ".look-table__scroll",
                 "els => els.filter(e => e.getClientRects().length"
@@ -280,11 +289,10 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
                 raise AssertionError(
                     "theme=%s: %d look table(s) scroll horizontally at 360px" % (theme, scrolling))
             msg = _assert_no_page_overflow(
-                page, "the look card on /display (theme=%s)" % theme,
+                page, "the look view on /display (theme=%s)" % theme,
                 VIEWPORT_MIN_SUPPORTED["width"])
             if msg:
                 raise AssertionError(msg)
-
             # The black card's own preview picture must paint a real box, never collapse.
             paint = page.eval_on_selector(
                 '[data-look-usage="departures"] label.look-pick__card:has(input[value="black"]) img',
@@ -293,8 +301,36 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
             if paint["width"] < 60 or paint["height"] < 80:
                 raise AssertionError(
                     "theme=%s: the 'black' card's preview collapsed to %r" % (theme, paint))
-            theme_record["paint"] = paint
-            recorded[theme] = theme_record
+        page.goto(base_url + "/display/special-looks")
+        for theme in UI_THEMES_EXPLICIT:
+            _set_ui_theme(page, theme)
+            _assert_floor_without_scripts(
+                page, ".special-add__summary",
+                "theme=%s: the \"Add a special look\" <summary>" % theme)
+
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    try:
+        page = context.new_page()
+        _login(page, base_url)
+        page.goto(base_url + "/display")
+        page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
+        picker = "[data-look-sheet][data-look-inline] "
+        for theme in UI_THEMES_EXPLICIT:
+            _set_ui_theme(page, theme)
+            for selector, what in (
+                    ('[data-look-tab="departures"]', "the Departures tab"),
+                    ('[data-look-tab="arrivals"]', "the Arrivals tab"),
+                    (picker + ".look-dot:first-of-type", "the first colour dot"),
+                    (picker + ".look-dot:last-of-type", "the last colour dot"),
+                    (picker + ".look-seg__option", "a background or stripe option"),
+                    (picker + ".look-sheet__reset", "Reset"),
+                    (picker + ".look-sheet__save", "Save")):
+                _assert_hit_target(page, selector, "theme=%s: %s" % (theme, what))
+            msg = _assert_no_page_overflow(
+                page, "the look picker on /display (theme=%s)" % theme,
+                VIEWPORT_MIN_SUPPORTED["width"])
+            if msg:
+                raise AssertionError(msg)
     finally:
         context.close()
 
@@ -678,9 +714,12 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         nested_titles = []
         by_page = {"/display": [], "/device": []}
         for theme in UI_THEMES_EXPLICIT:
-            for route in ("/display", "/device"):
+            # Personalisation's cards are on its Special looks, Calendar and Screen views.
+            for route in (
+                    "/display/special-looks", "/display/calendar", "/display/screen", "/device"):
                 page.goto(base_url + route)
                 _set_ui_theme(page, theme)
+                key = "/device" if route == "/device" else "/display"
                 for title in _settings_card_title_probe(page):
                     if title["underSectionHeading"]:
                         nested_titles.append(title["text"])
@@ -688,10 +727,10 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                     triple = (
                         title["fontSize"], title["fontWeight"], title["fontFamily"])
                     entry = {
-                        "page": route, "theme": theme,
+                        "page": key, "theme": theme,
                         "text": title["text"], "triple": triple}
                     entries.append(entry)
-                    by_page[route].append(entry)
+                    by_page[key].append(entry)
 
         # Clause (a): both pages have settings-card titles to compare.
         for route, side in by_page.items():
@@ -713,11 +752,12 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "than structural position would pick up supersection intro headings too, "
                 "which is exactly the 27-06-shaped mistake this check exists to avoid"
                 % (sorted(allowed_device_texts), sorted(unexpected)))
-        # Display contributes exactly the four Personalisation cards, in the same voice.
+        # Display contributes exactly the three Personalisation cards, in the same voice (the
+        # Look view is the picker itself and has no card title).
         display_texts = {e["text"] for e in by_page["/display"]}
-        if display_texts != {"Look", "Special looks", "Calendar", "Screen"}:
+        if display_texts != {"Special looks", "Calendar", "Screen"}:
             raise AssertionError(
-                "expected the four Personalisation card titles on /display, got %r"
+                "expected the three Personalisation card titles on its card views, got %r"
                 % (sorted(display_texts),))
         if nested_titles:
             raise AssertionError("expected no nested settings card, got %r" % (nested_titles,))
@@ -1402,22 +1442,17 @@ def test_the_artwork_drop_zone_is_operable_from_the_keyboard_alone(
         context.close()
 
 
-# Airlines: the aircraft types of a row and the sheet's type switcher.
+# Airlines: the aircraft types of a row, behind its chevron.
 
 TYPES_CARD = "Transavia France"
+TYPES_GROUP = 'tbody.airline-group:has(input[value="%s"])' % TYPES_CARD
 
 
-def _types_card(page):
-    return page.locator(".airline-list__item").filter(
-        has=page.locator(".airline-row__name", has_text=TYPES_CARD))
-
-
-def test_a_row_lists_its_types_and_the_sheet_switches_between_them(new_context, server):
-    """At 1280, 390 and 360 px in English and French, a two-type airline is one fixed-height row
-    whose line names the airframe of its own picture first (B737, never "Any aircraft"/"Tout
-    appareil") then A320; opening it shows one 44px tab per type, a tab retargets the picture and
-    the upload address and keeps its add/replace wording, the drop frame carries its hint, and
-    nothing overflows horizontally."""
+def test_a_row_expands_to_its_types_and_each_type_has_its_own_replace(new_context, server):
+    """At 1280, 390 and 360 px in English and French, a two-type airline is one row whose
+    chevron expands one sub-row per aircraft type (the A320, never "Any aircraft"/"Tout
+    appareil"), the sub-row's artwork uploads to that type's own address, the chevron and the
+    artwork are 44px targets and nothing overflows horizontally."""
     for lang, forbidden in (("en", "Any aircraft"), ("fr", "Tout appareil")):
         for viewport in (VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED):
             where = "%s at %dpx" % (lang, viewport["width"])
@@ -1428,64 +1463,48 @@ def test_a_row_lists_its_types_and_the_sheet_switches_between_them(new_context, 
                 page = context.new_page()
                 _login(page, server.base_url())
                 page.goto(server.base_url() + "/airlines/manage")
-                row = _types_card(page).locator(".airline-row")
-                row.wait_for(state="visible")
-                types_line = _types_card(page).locator(".airline-row__types").text_content()
-                if types_line != "B737 · A320":
-                    raise AssertionError("unexpected types line %r (%s)" % (types_line, where))
+                chevron = TYPES_GROUP + " .airlines-expand > summary"
+                page.locator(chevron).wait_for(state="visible")
+                page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
                 if forbidden in page.content():
                     raise AssertionError("%r is back on the page (%s)" % (forbidden, where))
-                if round(row.bounding_box()["height"]) != 76:
-                    raise AssertionError("expected the fixed 76px row (%s): %r" % (
-                        where, row.bounding_box()))
-                _assert_hit_target(page, ".airline-row", "airline row " + where)
+                _assert_hit_target(page, chevron, "chevron " + where)
+                page.locator(chevron).click()
+                subrow = page.locator(TYPES_GROUP + " .airlines-subrow")
+                subrow.first.wait_for(state="visible")
+                if subrow.all_inner_texts() == [] or not subrow.first.locator("th").inner_text().startswith("A320"):
+                    raise AssertionError("unexpected types %r (%s)" % (subrow.all_inner_texts(), where))
+                action = subrow.first.locator("form.airlines-art").get_attribute("action")
+                if action != "/illustration/transavia-france-a320.png":
+                    raise AssertionError("the A320 row targets %r (%s)" % (action, where))
+                _assert_hit_target(page, TYPES_GROUP + " .airlines-subrow .airlines-thumb",
+                                   "sub-row artwork " + where)
                 problem = _assert_no_page_overflow(page, "airlines " + where)
                 if problem:
                     raise AssertionError(problem)
-
-                row.click()
-                dialog = page.locator("#panel-lookup-dialog")
-                dialog.wait_for(state="visible")
-                # The dialog scales in; measure sizes once it has settled.
-                page.wait_for_function(
-                    "() => getComputedStyle(document.getElementById('panel-lookup-dialog'))"
-                    ".transform === 'none'")
-                tabs = dialog.locator("a.airline-sheet__type")
-                if tabs.all_text_contents() != ["B737", "A320"]:
-                    raise AssertionError("unexpected tabs %r (%s)" % (tabs.all_text_contents(), where))
-                for index in (0, 1):
-                    box = tabs.nth(index).bounding_box()
-                    if box["height"] < 44 or box["width"] < 44:
-                        raise AssertionError("tab %d is %r, under 44px (%s)" % (index, box, where))
-                tabs.nth(1).click()
-                action = dialog.locator("form.lightbox__replace").get_attribute("action")
-                if action != "/illustration/transavia-france-a320.png":
-                    raise AssertionError("the A320 tab targets %r (%s)" % (action, where))
-                if page.locator("#panel-lookup-dialog .upload-drop__preview figcaption").first \
-                        .text_content().strip() == "":
-                    raise AssertionError("expected the drop frame to carry its hint (%s)" % where)
-                if "how it will be framed" in dialog.text_content():
-                    raise AssertionError("framing sentence still present (%s)" % where)
             finally:
                 context.close()
 
 
 def test_every_type_stays_listed_and_reachable_without_scripts(new_context, server):
-    """With scripts blocked a multi-type row still lists every type as text, is a real link to
-    its in-page sheet, and a row for a single-type airline names its one aircraft, all inside
-    the narrowest supported viewport without overflow."""
+    """With scripts blocked the chevron still expands a multi-type row to its types as text,
+    a single-type airline expands to its one seen type using the airline's artwork, all inside the narrowest supported viewport without
+    overflow."""
     with _no_js_page(new_context, server.base_url(), "/airlines/manage",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
-        card = _types_card(page)
-        if card.locator(".airline-row__types").text_content() != "B737 · A320":
-            raise AssertionError("expected both Transavia types as text")
-        href = card.locator("a.airline-row").get_attribute("href")
-        if href != "/airlines/manage?sheet=transavia-france#airline-sheet":
-            raise AssertionError("expected a link to the in-page sheet, got %r" % (href,))
-        single = page.locator(".airline-list__item").filter(
-            has=page.locator(".airline-row__name", has_text="Air France")).first
-        if single.locator(".airline-row__types").text_content() != "A320":
-            raise AssertionError("expected a single-type airline to name its aircraft")
+        chevron = TYPES_GROUP + " .airlines-expand > summary"
+        page.locator(chevron).wait_for(state="visible")
+        page.locator(chevron).click()
+        page.locator(TYPES_GROUP + " .airlines-subrow").first.wait_for(state="visible")
+        if not page.locator(TYPES_GROUP + " .airlines-subrow th").first.inner_text().startswith("A320"):
+            raise AssertionError("expected the Transavia A320 as text")
+        single = page.locator('tbody.airline-group:has(input[value="Air France"])')
+        single.locator(".airlines-expand > summary").click()
+        row = single.locator(".airlines-subrow")
+        row.first.wait_for(state="visible")
+        if row.count() != 1 or "Uses the airline’s artwork" not in row.first.inner_text():
+            raise AssertionError("expected one seen type using the airline's artwork, got %r"
+                                 % row.all_inner_texts())
         problem = _assert_no_page_overflow(page, "airlines without scripts")
         if problem:
             raise AssertionError(problem)
@@ -1502,7 +1521,7 @@ def test_deleting_a_manual_name_states_its_outcome_and_removes_the_entry(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/airlines/manage")
-        page.locator('a.airline-row[data-view-panel-resolve-prefix="%s"]'
+        page.locator('a.airlines-thumb[data-view-panel-resolve-prefix="%s"]'
                      % ARTWORK_PREFIX).click()
         dialog = page.locator("#panel-lookup-dialog")
         delete_form = dialog.locator("form.lightbox__delete")

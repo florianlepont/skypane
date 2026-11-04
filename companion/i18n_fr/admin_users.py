@@ -20,16 +20,7 @@ MESSAGES = {
     "admin_users.the_last_active_administrator_cannot_be_changed":
         "Le dernier administrateur actif ne peut pas être modifié.",
     "admin_users.save_role": "Enregistrer le rôle",
-    "admin_users.disable_user": "Désactiver l’utilisateur",
-    "admin_users.they_are_signed_out_immediately_and_cannot_sign_in":
-        "Ils sont déconnectés immédiatement et ne peuvent plus se connecter.",
-    "admin_users.enable_user": "Activer l’utilisateur",
-    "admin_users.they_can_sign_in_again_with_their_invited_address":
-        "Cette personne peut de nouveau se connecter avec l’adresse invitée.",
     "admin_users.unlink_identity": "Dissocier l’identité",
-    "admin_users.they_will_need_to_sign_in_again_and_their_identity_will_be":
-        "Cette personne devra se reconnecter et son identité sera associée de "
-        "nouveau à la prochaine connexion.",
     "admin_users.invite_a_user": "Inviter un utilisateur",
     "admin_users.they_sign_in_with_this_email_through_auth0_skypane_does":
         "Ils se connectent avec cette adresse via Auth0. SkyPane ne leur envoie "
@@ -40,13 +31,6 @@ MESSAGES = {
     "admin_users.n_frames": "%d cadres",
     "admin_users.one_frame": "1 cadre",
     "admin_users.you": "Vous",
-    "admin_users.manage_user": "Gérer l’utilisateur",
-    "admin_users.manage_user_aria": "Gérer %s",
-    "admin_users.manage_user_title": "Gérer l’utilisateur",
-    "admin_users.manage_user_close": "Fermer",
-    "admin_users.section_role": "Rôle",
-    "admin_users.section_access": "Accès",
-    "admin_users.section_sign_in": "Connexion",
     "admin_users.enter_a_valid_email_address": "Saisissez une adresse e-mail valide.",
     "admin_users.that_email_is_already_invited": "Cet e-mail est déjà invité.",
     "admin_users.choose_a_role": "Choisissez un rôle.",
@@ -78,4 +62,15 @@ MESSAGES = {
     "admin_users.flash_choose_a_role": "Choisissez un rôle",
     "admin_users.flash_choose_a_role_detail":
         "Le rôle doit être Utilisateur ou Administrateur. Rien n’a été changé.",
+    "admin_users.col_user": "Utilisateur",
+    "admin_users.col_frames": "Cadres",
+    "admin_users.col_last_sign_in": "Dernière connexion",
+    "admin_users.col_active": "Actif",
+    "admin_users.never_signed_in": "Jamais connecté",
+    "admin_users.role_of_aria": "Rôle de %s",
+    "admin_users.active_aria": "Actif\u00a0: %s",
+    "admin_users.more_actions_aria": "Autres actions pour %s",
+    "admin_users.table_note":
+        "Le rôle s’enregistre dès qu’on le change. Désactiver déconnecte la "
+        "personne immédiatement.",
 }

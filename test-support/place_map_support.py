@@ -87,6 +87,16 @@ class Hosts:
 
 MIN_PX = 44
 
+# The part of the map the floating controls and the panel leave clear: right of the card on a wide
+# screen, between the floating controls and the sheet on a phone.
+CLEAR_BOX = (
+    "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
+    " const p = document.querySelector('.place-panel').getBoundingClientRect();"
+    " if (window.matchMedia('(min-width: 960px)').matches) {"
+    "   return {x: p.right, y: m.top, width: m.right - p.right, height: m.height}; }"
+    " const f = document.querySelector('.place-search').getBoundingClientRect();"
+    " return {x: m.left, y: f.bottom, width: m.width, height: p.top - f.bottom}; }")
+
 # Whether the page is at rest and a known control owns its own centre.
 SETTLED = (
     "() => {"
