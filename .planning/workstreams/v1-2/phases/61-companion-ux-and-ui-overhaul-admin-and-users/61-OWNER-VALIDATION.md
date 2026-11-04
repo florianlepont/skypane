@@ -160,3 +160,7 @@ Larger redesigns (new design work, owner decision on scope):
   (wake interval and other device settings), Access. System-wide information
   (ADS-B sources, backups, server anomalies) lives in the System tile. The
   separate Status, Version and Device Console tabs go away.
+- D32 (owner) Console Users = mockup U1: a table without the manage modal;
+  role editable in the row and saved at once, an Active switch, a "..." menu
+  for rare actions (unlink identity, resend invitation, delete); phone shows
+  cards. Mockups: scratchpad/sketches (u1, u1t).
