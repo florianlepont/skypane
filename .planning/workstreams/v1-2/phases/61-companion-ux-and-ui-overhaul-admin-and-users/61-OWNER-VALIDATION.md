@@ -170,3 +170,9 @@ Larger redesigns (new design work, owner decision on scope):
   artwork per type) or a single artwork per airline. The row "..." menu holds
   the rare actions: edit callsign prefixes, reset to SkyPane's name, delete
   my name, open the artwork full size.
+- D33 refined (owner) Airlines editor = mockup E3: each airline row has an
+  expand chevron; expanded, one sub-row per aircraft type seen (aircraft
+  info, views, its own artwork to replace, or "uses the airline's artwork").
+  Callsign prefixes are shown read-only in the table. The row "..." menu is
+  reduced to "Reset to the original name" and "Enlarge the artwork". The
+  per-table toggle of E2 is dropped. Mockup: scratchpad/sketches e3.
