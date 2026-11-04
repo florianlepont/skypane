@@ -188,3 +188,16 @@ def test_flight_history_keeps_the_unidentified_wording_without_a_link(parity):
         markup = _get(parity, who, "/flights")
         assert "Airline unknown" in markup
         assert "?resolve=" not in markup
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("who", ["user", "admin"])
+def test_the_airline_collection_is_read_only_and_counts_the_same_history(parity, who, lang):
+    markup = _get(parity, who, "/airlines", lang)
+    main = re.search(r"<main\b.*?</main>", markup, flags=re.S).group(0)
+    assert 'type="file"' not in main
+    assert not re.search(r"<form\b[^>]*method=\"post\"", main, flags=re.I)
+    assert not re.search(r"(?:action|href)=\"[^\"]*/airlines/", main)
+    assert not re.search(r"(?:rename|resolve|delete|replace)", main.lower().replace("unresolved", ""))
+    assert ("Seen once" if lang == "en" else "Vue une fois") in main
+    assert ("1 of " if lang == "en" else "1 compagnies sur ") in main
