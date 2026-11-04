@@ -345,9 +345,13 @@ def test_u4_change_a_setting(world, new_context):
         selector = "#quiet-window-start"
         target = "05:00" if page.input_value(selector) != "05:00" else "06:00"
         steps.type_value(page.locator(selector), target, "quiet hours start")
-        steps.tap(page.locator("dialog#dlg-quiet-hours button[type=submit]"), "Save")
+        with page.expect_navigation():
+            steps.tap(page.locator("dialog#dlg-quiet-hours button[type=submit]"), "Save")
         page.wait_for_function(
-            "() => location.search.includes('quiet_window_saved')", timeout=10000)
+            "t => document.readyState === 'complete'"
+            " && !document.querySelector('dialog#dlg-quiet-hours').open"
+            " && document.querySelector('#quiet-window-start').value === t",
+            arg=target, timeout=10000)
         _report("U4", steps, MEASURED_U4)
     finally:
         context.close()
