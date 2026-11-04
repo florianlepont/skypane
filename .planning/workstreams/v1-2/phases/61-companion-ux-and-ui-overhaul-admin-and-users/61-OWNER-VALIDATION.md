@@ -71,3 +71,17 @@ Larger redesigns (new design work, owner decision on scope):
   act on (charge the frame, check the Wi-Fi, ...). The frame cannot report
   the cause of a lost connection (frozen phase-47 protocol): Wi-Fi,
   internet and server-down all read "no contact".
+
+## Validation of the deployed round 2 (2026-11-04), owner feedback
+- W6 The status notification sat in the middle of Home. Decision D26a:
+  it goes at the very top of Home, under the page title, before the state
+  card (in progress, task 61-35).
+- W6b Home state card: an orange dot beside the title "Écran allumé" while the
+  frame never contacted SkyPane contradicted itself. Decision D26b (answer
+  A): the card title shows the same word as the status dot.
+- W8 The quiet-hours dialog works but is not pretty. Sketches A (dial), B
+  (strip with − and +), C (preset cards) were shown. Decision D27: option C,
+  three preset cards (Night, Day, Always active) with their hours, and the
+  two big Start/End tiles below ("Or choose your hours"). To build in the
+  next batch of corrections.
+- Further feedback is being collected by the owner; batch the fixes.
