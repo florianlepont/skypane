@@ -12,18 +12,30 @@ the local users row (`prefs.current_principal()`), never from a request
 value. With no principal set (unit tests, pre-sign-in pages) nothing is
 reduced.
 """
-from companion import access, health_signals, prefs
+from companion import access, health_signals, prefs, screens
 from companion.settings import wake_interval
 
-# Form fields only an admin may change: the wake interval, the
-# diagnostic LED and the tracked runway.
-ADMIN_ONLY_SETTING_FIELDS = (
-    wake_interval.WAKE_INTERVAL_FIELD_NAME,
-    "led_enabled",
-    "tracked_runway",
-)
 
-_USER_HIDDEN_FIELD_SET = frozenset(ADMIN_ONLY_SETTING_FIELDS)
+def can_change_wake_interval(role):
+    """Whether `role` may change the wake interval, as decided by
+    `screens.WAKE_INTERVAL_PLACEMENT`: administrators only for the Device
+    placement, every role for the Display placement. A role of None (no
+    principal, a bare render) is not reduced."""
+    if screens.WAKE_INTERVAL_PLACEMENT == screens.DISPLAY_ALL:
+        return True
+    return role != access.USER
+
+
+# Form fields only an admin may change whatever the wake-interval placement.
+_ALWAYS_HIDDEN_FIELDS = ("led_enabled", "tracked_runway")
+
+# Every form field a user may not change: the diagnostic LED, the tracked
+# runway and, unless the placement opens it to everyone, the wake interval.
+ADMIN_ONLY_SETTING_FIELDS = (
+    ((wake_interval.WAKE_INTERVAL_FIELD_NAME,)
+     if not can_change_wake_interval(access.USER) else ())
+    + _ALWAYS_HIDDEN_FIELDS
+)
 
 
 def _role():
@@ -63,8 +75,10 @@ def sanitise_settings_form(form, role):
     cleaned = dict(form)
     if role != access.USER:
         return cleaned
-    for name in _USER_HIDDEN_FIELD_SET:
+    for name in _ALWAYS_HIDDEN_FIELDS:
         cleaned.pop(name, None)
+    if not can_change_wake_interval(role):
+        cleaned.pop(wake_interval.WAKE_INTERVAL_FIELD_NAME, None)
     cleaned[config_page.SCOPE_FIELD_NAME] = config_page.SCOPE_DISPLAY
     return cleaned
 

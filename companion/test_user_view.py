@@ -91,3 +91,30 @@ def test_frame_only_severity_keeps_check_in_and_battery():
     assert user_view.frame_only_severity("error", "ok", "ok", False) == "error"
     assert user_view.frame_only_severity("ok", "ok", "warn", False) == "warn"
     assert len(user_view.frame_only_anomalies("warn", "ok", "warn", False)) == 2
+
+
+def test_only_administrators_may_change_the_wake_interval():
+    assert user_view.can_change_wake_interval(access.ADMIN) is True
+    assert user_view.can_change_wake_interval(access.USER) is False
+    assert user_view.can_change_wake_interval(None) is True
+
+
+def test_the_placement_alone_decides_the_wake_interval_groups(monkeypatch):
+    from companion import screens
+    assert screens.GROUP_WAKE_INTERVAL in screens.ADVANCED_GROUPS
+    assert screens.GROUP_WAKE_INTERVAL not in screens.EVERYDAY_GROUPS
+    monkeypatch.setattr(screens, "WAKE_INTERVAL_PLACEMENT", screens.DISPLAY_ALL)
+    assert user_view.can_change_wake_interval(access.USER) is True
+    cleaned = user_view.sanitise_settings_form(
+        {"wake_interval_s": "600", "led_enabled": "on"}, access.USER)
+    assert cleaned["wake_interval_s"] == "600"
+    assert "led_enabled" not in cleaned
+
+
+def test_a_users_wake_interval_is_dropped_and_the_led_always():
+    assert "wake_interval_s" in user_view.ADMIN_ONLY_SETTING_FIELDS
+    assert "led_enabled" in user_view.ADMIN_ONLY_SETTING_FIELDS
+    cleaned = user_view.sanitise_settings_form(
+        {"wake_interval_s": "600", "scope": "device"}, access.USER)
+    assert "wake_interval_s" not in cleaned
+    assert cleaned["scope"] == config_page.SCOPE_DISPLAY

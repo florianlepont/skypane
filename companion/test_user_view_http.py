@@ -499,3 +499,41 @@ def test_the_provisioned_config_file_stays_valid_json_after_a_user_save(rig):
     path = os.path.join(device_dir(rig.state_dir, rig.fleet.a1), "device_config.json")
     with open(path) as fh:
         assert isinstance(json.load(fh), dict)
+
+
+# --- who may change the wake interval ------------------------------------------
+
+def _settings_post(rig, who, **fields):
+    return rig.request(
+        "POST", "/devices/%s/settings" % rig.fleet.a1, who, data=_form(**fields))
+
+
+@pytest.mark.parametrize("scope", ["display", "device", "all"])
+def test_a_users_posted_wake_interval_is_dropped_whatever_the_scope(rig, scope):
+    before = _admin_only_values(rig, rig.fleet.a1)
+    status, _headers, _body = _settings_post(
+        rig, "a", wake_interval_s="600", scope=scope, theme="black")
+    assert status == 303
+    assert _admin_only_values(rig, rig.fleet.a1) == before
+
+
+def test_an_administrator_changes_the_wake_interval_on_the_device_page_within_bounds(rig):
+    status, _headers, _body = _settings_post(
+        rig, "admin", wake_interval_s="1200", scope="device",
+        return_to="/device")
+    assert status == 303
+    assert _admin_only_values(rig, rig.fleet.a1)["wake_interval_s"] == 1200
+    below = str(device_config.WAKE_INTERVAL_MIN_S - 1)
+    status, _headers, body = _settings_post(
+        rig, "admin", wake_interval_s=below, scope="device", return_to="/device")
+    assert status == 200
+    assert _admin_only_values(rig, rig.fleet.a1)["wake_interval_s"] == 1200
+
+
+def test_no_refresh_card_on_personalisation_for_either_role_and_device_keeps_it(rig):
+    for who in ("a", "admin"):
+        display = rig.page("/devices/%s/display" % rig.fleet.a1, who)
+        assert 'name="wake_interval_s"' not in display, who
+        assert "wake-interval" not in display, who
+    assert 'name="wake_interval_s"' in rig.page(
+        "/devices/%s/device" % rig.fleet.a1, "admin")
