@@ -105,3 +105,8 @@ Larger redesigns (new design work, owner decision on scope):
   the same content. Coordinates and time zone are derived outputs shown as
   a small read-only line. The map recentres on the part not covered by the
   card. Sketches: scratchpad/sketches (v1-tel, v1b-tel, v1d, v1d2).
+- W10 Personalisation page (owner words, FR summary): the "On this page"
+  list is a plain list of links; he wants a more styled, animated second
+  navigation, with a dedicated page per item (Look, Special looks, Calendar,
+  Screen). The Look view should show the look picker sheet (colour, background,
+  diagonal band) as the main view instead of showing every possible panel.
