@@ -85,3 +85,16 @@ Larger redesigns (new design work, owner decision on scope):
   two big Start/End tiles below ("Or choose your hours"). To build in the
   next batch of corrections.
 - Further feedback is being collected by the owner; batch the fixes.
+- W9 "Location and detection" page (owner words, FR summary):
+  - The main entry point is the mode: airport mode or "my position" mode.
+  - The current "settings" card is hard to read and its purpose is unclear.
+  - Coordinates and time zone are useless as inputs: they are outputs of the
+    chosen place or airport.
+  - Everything could be merged onto the map: click an airport, then pick the
+    runway, and the page is in airport mode; give an address or use my
+    position, then pick the detection radius, and the page is in "my
+    position" mode.
+  Direction (to sketch and confirm): a map-centred page with a mode switch,
+  a context panel (runway cards in airport mode; radius control in position
+  mode), coordinates and time zone derived and shown only as a small
+  read-only line; the no-script fallback form stays.
