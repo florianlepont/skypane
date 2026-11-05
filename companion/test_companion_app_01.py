@@ -359,17 +359,11 @@ def test_sidebar_and_tab_bar_render_exactly_six_links_one_active_each():
     assert bar_link_count == 6
     assert bar.count("tab-bar__link--active") == 1
 
-    # And the dropdown now holds ZERO destination links - this is the
-    # ~420px page shove X9 measured, removed.
-    panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
-    panel = doc[panel_start:doc.index("</header>")]
-    assert panel.count('<a class="mobile-nav__link') == 0, (
-        "expected the dropdown panel to hold no destination links at all")
-    assert "mobile-nav__nav" not in panel, (
-        "expected the dropdown's own navigation landmark to be removed, not emptied")
+    # The header holds no destination links at all.
+    header = doc[doc.index("<header"):doc.index("</header>")]
+    assert header.count("<a class=\"mobile-nav__link") == 0
     for route in PERSONAL_ROUTES:
-        assert ('href="%s"' % route) not in panel, (
-            "expected no destination href (%r) left in the dropdown panel" % route)
+        assert ('href="%s"' % route) not in header.replace('class="brand__link" href="/"', "")
 
 
 def test_eye_glyph_survives_nav_shrink():
@@ -437,7 +431,7 @@ def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
     ):
         assert needle in rendered, "expected %r in the rendered shell" % needle
     # 06.6.1-05: two nav landmarks now exist - sidebar_nav() and the
-    # hamburger dropdown's _mobile_nav_html() - deliberately sharing the
+    # tab bar - deliberately sharing the
     # same "Primary navigation" aria-label; CSS alone decides which is
     # visible at a given width, so both are always in the DOM.
     #
@@ -454,7 +448,7 @@ def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
     assert rendered.count('aria-label="Primary navigation"') == 1, (
         "a page with no device config renders no tab bar, so it must expose exactly one "
         "navigation landmark - never an empty second one")
-    assert rendered.count('id="%s"' % layout.MOBILE_NAV_ID) == 1, "expected exactly one dropdown panel"
+    assert "mobile-nav\"" not in rendered, "the header dropdown panel is gone"
     assert 'action="/ui-theme"' not in rendered, "the theme switch lives on the Account page only"
     assert 'action="/ui-lang"' not in rendered, "the language switch lives on the Account page only"
 
@@ -481,7 +475,7 @@ def test_page_shell_escapes_hostile_body():
 
 
 def test_icon_sprite_integrity():
-    """layout.ICON_IDS has exactly forty-eight unique members, each a symbol id in
+    """layout.ICON_IDS has exactly fifty-one unique members, each a symbol id in
     ICON_DEFS_HTML and vice versa"""
     # The whitelist grew from ten to fourteen members
     # (icon-check/icon-copy/icon-refresh/icon-search), then to fifteen
@@ -499,13 +493,14 @@ def test_icon_sprite_integrity():
     # (icon-shield, icon-locate, icon-star and icon-chevron-down, the two
     # navigation spaces' glyphs), then to 47 (icon-pin, the map's pin), then to 48 (icon-person, the Account glyph), then to 50 (icon-sun and
     # icon-infinity, the Quiet hours dialog's preset cards), then to 52 (icon-palette
-    # and icon-calendar, Personalisation's section navigation).
-    assert len(layout.ICON_IDS) == 52
-    assert len(set(layout.ICON_IDS)) == 52, "expected ICON_IDS to have no duplicates"
+    # and icon-calendar, Personalisation's section navigation), then back to 51
+    # (icon-gear removed with the header toggle it drew).
+    assert len(layout.ICON_IDS) == 51
+    assert len(set(layout.ICON_IDS)) == 51, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 52
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 51
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -540,7 +535,7 @@ def test_stat_tile_backcompat_and_icon_slot():
 
 
 def test_page_shell_emits_sprite_once_no_inline_styles():
-    """page_shell() emits exactly one sprite (one <defs, forty-eight <symbol) before
+    """page_shell() emits exactly one sprite (one <defs, fifty-one <symbol) before
     dashboard-shell, no inline styles"""
     doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     assert doc.count("<defs") == 1
@@ -548,7 +543,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
     # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
     # 34 -> 36 (icon-pencil, icon-plus).
-    assert doc.count("<symbol") == 52
+    assert doc.count("<symbol") == 51
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"

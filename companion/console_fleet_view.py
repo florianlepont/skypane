@@ -109,8 +109,14 @@ def strip_html(entries, selected, is_system):
             ui_shell.tile_note(entry))
         for entry in ui_shell.console_ordered(entries, now))
     tiles += ui_shell.add_tile_html() + _system_tile_html(is_system)
-    return '<ul class="%s" aria-label="%s">%s</ul>' % (
-        ui_shell.FRAME_TILES_CLASS, _t(ui_shell.STRIP_ARIA_TEXT), tiles)
+    if is_system:
+        active_name = i18n.t(_SYSTEM_TEXT)
+    else:
+        active_name = ui_shell.device_display_name(selected) if selected else ""
+    return ui_shell.strip_fold_html(
+        '<ul class="%s" aria-label="%s">%s</ul>' % (
+            ui_shell.FRAME_TILES_CLASS, _t(ui_shell.STRIP_ARIA_TEXT), tiles),
+        active_name)
 
 
 def _block(heading_msg, body_html, extra_class=""):

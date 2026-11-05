@@ -38,7 +38,7 @@ the L2 test (the test context grants it in advance).
 | A4 | Retire | ~4 | 3 | 4 | 0 | yes after plan 61-45: no scroll; the actions menu is in the detail header. The 4th step is the tile tap, needed only when the frame is not the one selected on landing |
 | A4 | Reassign | ~4 | 4 | 5 | +1 | yes after plan 61-45 (tile tap, menu, Reassign, new owner, confirm; no scroll) |
 | A5 | Add a co-manager | ~5 | 4 | 5 | 0 | yes after plan 61-45 (tile tap, menu, Manage access, person, Add; no scroll); the Access block of the selected frame also offers the forms inline |
-| A6 | Read the audit log | 2 | 1 | 1 | -1 | yes (Audit is a Console bar cell since plan 61-42) |
+| A6 | Read the audit log | 2 | 1 | 2 | 0 | no (Audit moved back into More by plan 61-46, the bar now leads with the space switch) |
 | U1 | Sign in | ~4, ends on Account | 4, ends on Home | 4, ends on Home | 0 (lands on the right page) | yes |
 | U2 | See my frames, one frame | 1 (wrong page) | 0 | 0 | -1 | yes |
 | U3 | Understand a frame's state | ~3 | 0 | 0 (the dot on Home) | -3 | yes |
@@ -135,3 +135,11 @@ The editor's name field is in the row, so renaming no longer opens the airline s
 on a phone (bar cell, type, Enter). Replacing an artwork is the thumbnail itself (choose the file; with a
 script the form sends it at once): one tap and the file choice, where the sheet needed the row, the type
 and the upload. Reaching an aircraft type's artwork costs one chevron tap. No editor flow got longer.
+
+## Plan 61-46 (phone chrome)
+
+The tab bar leads with the administrator's Console / My frame switch (S1 stays 1: the cell is a plain link, now in
+the bar instead of a strip under the header). A 6th cell does not fit the longest French label ("Compagnies",
+"Utilisateurs") at 360 px, so the Console bar moved Audit log into More: A6 is 2 again (More, Audit log), as before
+plan 61-42. The personal bar keeps its four destinations beside the switch (six cells). Nothing else changed: the
+frame strip's collapse is optional and open by default, so no task gained a tap.

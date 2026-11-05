@@ -20,7 +20,7 @@ from server.plane import calendar_rules
 
 # Selector -> the one script whose own guard clause is keyed on it.
 HOOKS = (
-    ("#site-nav-toggle", layout.NAV_DROPDOWN_SCRIPT_SRC),
+    ("details.frame-fold", layout.NAV_DROPDOWN_SCRIPT_SRC),
     ("form[data-dirty-form]", layout.DIRTY_STATE_SCRIPT_SRC),
     ("[data-filter-input]", layout.LIST_FILTER_SCRIPT_SRC),
     ("[data-copy-value]", layout.COPY_BUTTON_SCRIPT_SRC),

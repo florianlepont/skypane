@@ -96,8 +96,10 @@ _STRUCTURE = """
   if (args.phone) {
     if (bars.length !== 1) bad.push('tab bars: ' + bars.length);
     const cells = q('.tab-bar > a, .tab-bar > details').map((e) => e.getBoundingClientRect());
-    const widths = cells.map((c) => c.width);
-    if (cells.length && Math.max(...widths) - Math.min(...widths) > 1) bad.push('unequal cells ' + widths);
+    // The leading space switch cell has its own fixed width; the destination cells are equal.
+    const widths = q('.tab-bar > a:not(.tab-bar__link--switch), .tab-bar > details')
+      .map((e) => e.getBoundingClientRect().width);
+    if (widths.length && Math.max(...widths) - Math.min(...widths) > 1) bad.push('unequal cells ' + widths);
     if (cells.some((c) => c.width < 44 || c.height < 44)) bad.push('bar cell under 44px');
     q('.tab-bar__label').forEach((l) => {
       if (l.scrollWidth > l.clientWidth) bad.push('clipped bar label ' + l.textContent); });
@@ -136,7 +138,7 @@ PERSONAL_ADMIN_PATHS = PERSONAL_PAGES + (
 # notice set aside: the two things an administrator's personal page may add.
 _PERSONAL_BODY = """
 () => {
-  const hidden = [...document.querySelectorAll('.space-switch, .space-strip, .frame-notice')];
+  const hidden = [...document.querySelectorAll('.space-switch, .tab-bar__link--switch, .frame-notice')];
   const was = hidden.map((e) => e.style.display);
   hidden.forEach((e) => { e.style.display = 'none'; });
   const text = document.body.innerText;
@@ -635,7 +637,7 @@ def test_the_home_notification_has_a_french_translation(
 # strip names frames, which differ with the person, and are left out.
 _PAGE_SHAPE = """
 () => {
-  const skip = '.space-strip, .space-switch, .mobile-nav__link--space, .frame-notice,'
+  const skip = '.tab-bar__link--switch, .space-switch, .frame-notice,'
     + ' .frame-tiles, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);

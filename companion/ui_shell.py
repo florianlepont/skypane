@@ -60,7 +60,6 @@ from companion.ui_nav import (
     PERSONAL_SPACE,
     TAB_BAR_BODY_CLASS,
     _logout_form_html,
-    _mobile_nav_html,
     _tab_bar_html,
     is_admin_principal,
     is_user_principal,
@@ -105,7 +104,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     """Minimal HTML5 document for the pre-authentication login page.
 
     Deliberately separate from page_shell() rather than a parameterized branch:
-    page_shell() always renders the full authenticated sidebar/mobile-nav/
+    page_shell() always renders the full authenticated sidebar/tab-bar/
     footer, which would visually imply the whole site's nav is usable before
     signing in. Shares page_shell()'s outer document structure (doctype, head,
     FAVICON_LINK_HTML) but the body holds only the login card: no icon sprite,
@@ -288,9 +287,7 @@ PAGE_SHELL_TEMPLATE = (
     "</aside>\n"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
-    "{mobile_nav}\n"
     "</header>\n"
-    "{space_strip}"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
     "{frame_switcher}{flash}\n{banner}\n{body}\n"
     "</main>\n"
@@ -340,7 +337,7 @@ def _device_page_path(active):
     return None
 
 
-def _device_display_name(device):
+def device_display_name(device):
     if device.is_live and device.name == device_scope.LIVE_NAME:
         return i18n.t(_DEVICE_DEFAULT_NAME_TEXT)
     return device.name
@@ -407,12 +404,24 @@ def frame_tile_html(device, href, is_current, now, note=""):
             "href": escape_html(href),
             "current": ' aria-current="true"' if is_current else "",
             "dot": frame_status.status_dot_html(row),
-            "name": escape_html(_device_display_name(device)),
+            "name": escape_html(device_display_name(device)),
             "seen": escape_html(_seen_text(row, now)),
             "note": (
                 '<span class="%s__note">%s</span>' % (FRAME_TILE_CLASS, escape_html(note))
                 if note else ""),
         }
+
+
+def strip_fold_html(tiles_html, active_name):
+    """Wrap the tile `<ul>` in a native disclosure. From 700px the summary is
+    hidden and the strip shows as before; on a phone the summary row (the
+    active frame's name and a chevron) opens and closes it. Always rendered
+    open: with no script the strip is simply visible, and nav-dropdown.js
+    restores a collapsed choice on a phone."""
+    return (
+        '<details class="frame-fold" open>'
+        '<summary class="frame-fold__summary"><span class="frame-fold__name">%s</span></summary>'
+        '%s</details>') % (escape_html(active_name), tiles_html)
 
 
 def add_tile_html():
@@ -440,7 +449,7 @@ def console_ordered(entries, now):
     group by name."""
     return sorted(entries, key=lambda e: (
         _severity_rank(_switcher_status_row(e.device, now)),
-        _device_display_name(e.device).casefold(), e.device.id))
+        device_display_name(e.device).casefold(), e.device.id))
 
 
 def _sheet_entries(active, now):
@@ -469,8 +478,10 @@ def frame_switcher_html(active):
     tiles = "".join(_frame_tile_html(e, page, current, now) for e in entries)
     if _may_add_frame():
         tiles += add_tile_html()
-    return '<ul class="%s" aria-label="%s">%s</ul>' % (
-        FRAME_TILES_CLASS, escape_html(i18n.t(STRIP_ARIA_TEXT)), tiles)
+    return strip_fold_html(
+        '<ul class="%s" aria-label="%s">%s</ul>' % (
+            FRAME_TILES_CLASS, escape_html(i18n.t(STRIP_ARIA_TEXT)), tiles),
+        device_display_name(current))
 
 
 def frame_notice_html(active, console_page=False):
@@ -513,10 +524,10 @@ def page_shell(
     dynamic parts.
 
     `health_alert` is `None`/`"ok"` (no dot) or `"warn"`/`"error"` (a dot),
-    threaded to sidebar_nav() and _mobile_nav_html(); a caller with no request
+    threaded to sidebar_nav() and _tab_bar_html(); a caller with no request
     context (login, 404, preview-image errors) draws no dot. `lang` defaults to
     `None`, resolved through prefs.current_lang(). `device_config` defaults to
-    `None`, the same no-context degrade, threaded to both nav renderers for
+    `None`, the same no-context degrade, threaded to the nav renderers for
     their shared request context.
 
     `scripts` is this page's own extra `*_SCRIPT_SRC` constants, on top of
@@ -542,8 +553,6 @@ def page_shell(
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
     resolved_lang = lang if lang in prefs.LANG_CHOICES else prefs.current_lang()
     sidebar_html = sidebar_nav(
-        active, health_alert=health_alert, device_config=device_config)
-    mobile_nav_html = _mobile_nav_html(
         active, health_alert=health_alert, device_config=device_config)
     tab_bar_html = _tab_bar_html(
         active, health_alert=health_alert, device_config=device_config)
@@ -574,11 +583,6 @@ def page_shell(
             '<a class="brand__link" href="%s">%%s</a>' % escape_html(user_brand_href()))
         brand_inner_sidebar = brand_link % brand_inner_sidebar
         brand_inner_header = brand_link % brand_inner_header
-    # The same switch twice: a strip under the header below 960px and the top
-    # of the sidebar from 960px; the media query hides the unused copy.
-    space_strip_html = space_switch_html(active)
-    if space_strip_html:
-        space_strip_html = '<div class="space-strip">%s</div>\n' % space_strip_html
     return PAGE_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
@@ -597,8 +601,6 @@ def page_shell(
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
         "sidebar_switch": space_switch_html(active),
-        "space_strip": space_strip_html,
-        "mobile_nav": mobile_nav_html,
         "main_id": SKIP_LINK_TARGET_ID,
         "frame_switcher": (
             frame_notice_html(active, console_page) + frame_switcher_html(active)),

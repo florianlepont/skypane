@@ -223,9 +223,9 @@ def test_new_login_surfaces_render_the_approved_french():
 
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "a5605fd231abf6a1e8cf954ecb059ecce31f897a46f665d2adf014bf23504e68",
-        "nf2": "a5605fd231abf6a1e8cf954ecb059ecce31f897a46f665d2adf014bf23504e68",
-        "forb": "7deba6f043f195f06b78fc6b4ac221e3cd29495809c39d8ba2504bdb10fa9c2d",
+        "nf": "faa02a0d3a9d9cd6a6a5a47ec08ce27622b76f605c2a3173885058194812ea60",
+        "nf2": "faa02a0d3a9d9cd6a6a5a47ec08ce27622b76f605c2a3173885058194812ea60",
+        "forb": "55d52ce785cc20b1aacbdc0a749b0b716951d8fe4ae7c8622671da9c99263c76",
     },
 }
 
@@ -315,10 +315,10 @@ def test_user_principal_shell_has_only_the_account_link_and_no_tab_bar():
     assert not doc.select(".nav-notification")
     assert not doc.select("nav.tab-bar")
     assert "has-tab-bar" not in doc.select_one("body").attrs.get("class", "")
-    panel = doc.select_one("div.mobile-nav")
-    assert not panel.select("form[action=\"/ui-lang\"]")
-    assert not panel.select("form[action=\"/ui-theme\"]")
-    assert panel.select_one("form[action=\"/logout\"]") is not None
+    header = doc.select_one("header.site-header")
+    assert not header.select("form")
+    assert not header.select("button")
+    assert not doc.select("div.mobile-nav")
     assert doc.select(".brand__link")
     for brand in doc.select(".brand__link"):
         assert brand.attrs["href"] == "/account"
@@ -341,7 +341,7 @@ def test_unrecognised_principal_clears_to_default():
 
 
 _SHELL_BASELINE_DIGEST = (
-    "5de68dd5c3264535b8fe227bf0fafbd1ea8cf921e96860f28b6d8ac684011ba5")
+    "9bfabe64ec6ee8b04c0921b835ccb81af85d2f5029cddcdca7951a870da54467")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

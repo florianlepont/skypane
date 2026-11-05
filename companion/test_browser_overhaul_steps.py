@@ -298,7 +298,8 @@ def test_a5_add_a_co_manager(world, new_context):
 def test_a6_read_the_audit_log(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href='/audit']"), "Audit log")
+        steps.tap(page.locator(".tab-bar__more > summary"), "More")
+        steps.tap(page.locator(".tab-bar__more-panel a[href='/audit']"), "Audit log")
         page.wait_for_url("**/audit")
         assert page.locator("main h1").inner_text() == "Audit log"
         assert page.locator(".section-subnav").count() == 0
@@ -553,11 +554,11 @@ def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
 def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".space-strip a:has-text('My frame')"), "My frame")
+        steps.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('My frame')"), "My frame")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
         assert page.locator("main h1").inner_text().strip() == "Home"
         back = Steps(page)
-        back.tap(page.locator(".space-strip a:has-text('Console')"), "Console")
+        back.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('Console')"), "Console")
         page.wait_for_url("**/fleet")
         assert back.count == 1
         _report_measured("S1", steps, 1)

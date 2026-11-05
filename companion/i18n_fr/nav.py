@@ -10,9 +10,9 @@ never a straight quote), and a non-breaking space (U+00A0) before
 ":" ";" "?" "!".
 
 Also carries the one nav-landmark accessible name shared by
-companion/ui_nav.py's sidebar_nav()/_mobile_nav_html(), and the
+companion/ui_nav.py's sidebar_nav()/_tab_bar_html(), and the
 theme-picker's three segment labels — grouped here because the
-theme picker sits in this same sidebar/mobile-nav footer region.
+theme picker sits in this same sidebar footer region.
 
 Every entry is migrated onto a stable message id: the source-side
 Message is declared where the English constant already lives
@@ -57,9 +57,7 @@ MESSAGES = {
     "nav.language": "Langue",
     "nav.theme": "Thème",
 
-    # The hamburger toggle's accessible name, describing what the
-    # panel holds, and the nav Health dot's hidden suffix.
-    "nav.account_menu": "Menu du compte",
+    # The nav Health dot's hidden suffix.
     "nav.attention_needed": " — attention requise",
 
     "nav.primary_navigation": "Navigation principale",

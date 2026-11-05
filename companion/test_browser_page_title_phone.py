@@ -22,10 +22,7 @@ def _title_state(page):
             const all = document.querySelectorAll('h1');
             const h1 = all[0];
             const box = h1.getBoundingClientRect();
-            // An administrator's space strip sits between the app bar and the content.
-            const strip = document.querySelector('.space-strip');
-            const bar = (strip && strip.getClientRects().length > 0 ? strip
-                : document.querySelector('.site-header')).getBoundingClientRect();
+            const bar = document.querySelector('.site-header').getBoundingClientRect();
             const style = getComputedStyle(h1);
             return {count: all.length, text: h1.textContent.trim(),
                     width: box.width, height: box.height, clip: style.clipPath,

@@ -246,10 +246,8 @@ def _install_submit(page):
 
 
 # A DOM `.click()` inside page.evaluate(), never Playwright's own
-# pointer-based click: at 390px the header's expanded no-JS fallback nav
-# (companion/static/nav-dropdown.js normally collapses it) pushes page
-# content down far enough that the Install button's real screen position
-# sits under the fixed tab bar, which a pointer-based click correctly
+# pointer-based click: at 390px the Install button's real screen position
+# can sit under the fixed tab bar, which a pointer-based click correctly
 # refuses to punch through. companion/test_browser_ux_helpers.py's own
 # _SUBMIT_PROBE uses the identical technique for every other no-JS form
 # submission in this test suite -- page.evaluate() runs via CDP, not as
@@ -460,9 +458,9 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
             "tab-bar cells' at %dpx/%s, got %r vs %r"
             % (viewport["width"], lang, summary_box["height"], other_cell_box["height"]))
 
-        header_dropdown = page.locator("#%s" % layout.MOBILE_NAV_ID)
-        assert header_dropdown.locator('a[href="%s"]' % layout.UPDATE_ROUTE).count() == 0
-        assert header_dropdown.locator(".nav-status").count() == 0
+        header = page.locator("header.site-header")
+        assert header.locator('a[href="%s"]' % layout.UPDATE_ROUTE).count() == 0
+        assert header.locator(".nav-status").count() == 0
         assert page.locator(".dashboard-sidebar .nav-status").count() == 0
         # The Update page has no navigation entry: Fleet is the current cell.
         assert page.locator(

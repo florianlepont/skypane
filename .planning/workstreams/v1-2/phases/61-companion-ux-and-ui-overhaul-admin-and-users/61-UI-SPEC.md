@@ -332,18 +332,29 @@ SUPERSEDED keys: `nav.my_views` ("My views"/"Mes vues"), the "Advanced"/"Avancé
 the "Switch to your own views" aria strings are removed from the shell; keep the catalogue entries
 only if another page still uses them.
 
+**Round 4 revision (plan 61-46, W38, W39, W22): the phone switch is a tab-bar cell.** On a phone (<960px) the
+big strip under the header and the switch row in the More sheet are removed. For an administrator the tab bar's
+**first cell** is the space switch: a plain GET link (same fixed destinations as the segments: `/fleet` or `/`)
+that names the space it leads to (icon + short label: "Console" in My frame, "My frame" / "Mon cadre" in Console).
+It is a fixed 64px cell (56px high, 44px target met), set apart by a 1px accent outline on its pill with a faint
+accent wash, accent text and a 1px `--color-border` divider after it. The two-segment control stays in the desktop
+sidebar only. The phone header is a slim logo-only bar (min-height 52px, `--color-secondary`): the gear button and
+its panel are gone (Sign out stays on the Account page, as on the desktop sidebar footer).
+
 ### 1.3 Phone tab bars (bottom, existing `.tab-bar`, 5 cells, equal-share flex, 44px+ targets, 56px high)
 
 | Space | Cell 1 | Cell 2 | Cell 3 | Cell 4 | Cell 5 |
 |-------|--------|--------|--------|--------|--------|
-| Personal (admin **and** user, identical) | Home | History | Location | Style | More |
-| Console | Fleet | Users | Health | Device | More |
+| Personal (admin **and** user, identical) | [admin: switch to Console] Home | History | Location | Style | More |
+| Console | [switch to My frame] Fleet | Users | Airline editor | More |
 
 - **Personal More sheet:** (admin only: the space switch first), Airline collection, Account,
   Sign out (no language or theme switch; they live on Account only, W14). It is identical for a user
   except the space switch row.
-- **Console More sheet:** the space switch, Airline editor, Audit log, Releases, Account,
-  Sign out.
+- **Console More sheet (round 4):** Audit log, Account. The Console bar is the space switch cell, Fleet, Users,
+  Airline editor and More: a sixth equal cell does not fit the longest FR labels ("Compagnies", "Utilisateurs") at 360px,
+  so Audit log moved into More. The personal bar keeps Home, History, Location and Style beside the switch (six cells for
+  an administrator, five for a user); the More sheet no longer holds a space switch row.
 - Health severity dot: on the Console Health cell only, and only when the frame in scope is warn or
   error. The personal bar has no Health cell and no severity dot (the Home dot carries it).
 - Labels never wrap or clip; the longest FR labels are checked at 360px (R6). SUPERSEDED: revision 1
@@ -377,6 +388,16 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
   last-seen word under the name: "Seen 2m ago" / "Vu il y a 2 min", or "Not seen yet" / "Pas encore
   vu" for a frame that never checked in. A third muted line carries "Shared by {owner email}" for a
   co-managed frame and the owner email on a frame the viewer does not own (never on their own).
+- **Phone (<700px, round 4, W23):** the strip sits in a collapsible, marked-off surface (`details.frame-fold`,
+  open by default; the summary row, at least 44px high, shows the active frame's name with a chevron and opens
+  or closes the tiles). With script the choice is remembered in `localStorage` (`skypane.frameStrip`, inside
+  try/catch); without script the strip is simply open. The surface uses `--color-secondary`, a hairline
+  `--color-border`, an inset shadow and a soft top gradient, all from tokens, in both themes. Tiles are 84px wide
+  and show only the small picture (32x42px) and the name on one line (ellipsis) with the status dot in the corner;
+  the last-seen word and the owner note are hidden. From 700px the summary is hidden, the script keeps the strip
+  open and the tiles keep the look above. The Console Fleet strip (frames, Add a screen, System) uses the same
+  fold and compact tiles; its summary names the selected frame or "System". The Fleet strip is always open by
+  default (it also carries the System and Add tiles), even with a single frame.
 - **Active tile:** `aria-current="true"`, outlined 2px in the accent colour with a faint accent wash.
 - **Add a screen tile:** the last item, dashed border, "+" glyph and "Add a screen" / "Ajouter un
   écran" in the accent colour, linking to the existing pairing flow (`/fleet?pair=1`, the Fleet page

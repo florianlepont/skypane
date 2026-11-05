@@ -17,7 +17,7 @@ _URL_ATTRS = ("href", "action", "src")
 LIVE_PAGES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
 PERSONAL_NAV_ROUTES = ("/", "/flights", "/detection", "/display", "/airlines")
 CONSOLE_FRAME_NAV_ROUTES = ("/airlines/manage",)
-SPACE_SWITCH_CLASSES = ("space-switch", "mobile-nav__link--space")
+SPACE_SWITCH_CLASSES = ("space-switch", "tab-bar__link--switch")
 
 
 @pytest.fixture(scope="module")

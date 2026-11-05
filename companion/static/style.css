@@ -15,7 +15,7 @@
  *     button.look-sheet__done, button.look-sheet__save, the skip link)
  *   - current location / selection (.sidebar-link--active,
  *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
- *     .site-nav-toggle[aria-expanded="true"], the active theme option,
+ *     the tab bar's space switch cell, the active theme option,
  *     the checked runway/look cards and look dot, the editing look frame)
  *   - the current Personalisation section link and the chosen
  *     Departures/Arrivals tab (.personalisation-nav__link[aria-current],
@@ -637,43 +637,15 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-/* .mobile-nav relies on this rule's flex-wrap to drop onto its own
- * full-width row in normal document flow (never position: absolute,
- * which would only ever overlay) — that is what lets its max-height
- * transition push page content down instead of covering it. */
+/* The phone app bar: a slim strip holding the logo only. The desktop
+ * layout hides it (the sidebar carries the brand there). */
 .site-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-lg);
-  padding: var(--space-lg);
+  min-height: 52px;
+  padding: var(--space-xs) var(--space-md);
   background: var(--color-secondary);
-  margin-bottom: var(--space-md);
-}
-
-/* Not type="submit", so the accent-fill rule never reaches it — if a
- * later change makes it a submit button, this rule would lose, the
- * same trap .theme-form .theme-option documents. State is styled off
- * aria-expanded, not a duplicate class, so it cannot drift from the
- * announced state. */
-.site-nav-toggle {
-  margin-left: auto;
-  min-height: 44px;
-  min-width: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
-}
-
-.site-nav-toggle[aria-expanded="true"] {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
+  margin-bottom: var(--space-sm);
 }
 
 /* The admin-only two-segment switch between the Console and the personal
@@ -749,47 +721,7 @@ a:hover {
   color: var(--color-on-accent);
 }
 
-.space-strip {
-  padding: 0 var(--space-md);
-  margin-bottom: var(--space-md);
-}
-
-/* flex-basis: 100% (not position: absolute) forces this onto its own
- * full-width row while staying in normal flow. The clipping half
- * (max-height/overflow/transition) lives in the .js .mobile-nav rule
- * below — without .js ever present, this base rule alone renders the
- * panel fully visible in document flow. The two rules must never be
- * edited independently. */
-.mobile-nav {
-  flex-basis: 100%;
-  background: var(--color-secondary);
-  box-shadow: var(--shadow-card-hover);
-  border-bottom-left-radius: var(--radius-card);
-  border-bottom-right-radius: var(--radius-card);
-}
-
-/* max-height (not display/height: auto) is used because neither of
- * those can be transitioned; overflow: hidden makes the collapsed
- * state actually hide its contents. Scoped under .js so clipping only
- * ever applies once script has proven it is running. */
-.js .mobile-nav {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .22s ease;
-}
-
-/* 320px is measured, not guessed: with the state reminder, language/
- * theme switches and Sign out, French content measures 165px at 390px
- * — the cap is rounded up from that with room for a longer footer. */
-.js .mobile-nav--open {
-  max-height: 320px;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .js .mobile-nav {
-    transition: none;
-  }
-
   /* The global override would leave a 0.01ms loop running; the halo is
    * switched off instead, so reduced motion shows no animation at all. */
   .home-state__dot.home-state__dot--pulse::after {
@@ -1025,14 +957,6 @@ a:hover {
  * replace the active tint the moment the pointer crossed it. */
 .mobile-nav__link:not(.mobile-nav__link--active):hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-}
-
-.mobile-nav__footer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
-  border-top: 1px solid var(--color-border);
 }
 
 .nav-notification {
@@ -1319,8 +1243,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 /* Phones: the title sits close under the app bar. The gap from the bar to
- * the title is the bar's bottom margin (--space-md, set on .site-header)
- * plus this top padding (--space-md): 32px in total instead of the 64px
+ * the title is the bar's bottom margin (--space-sm, set on .site-header)
+ * plus this top padding (--space-md): 24px in total instead of the 64px
  * the desktop-sized values gave. The breakpoint is the one that shows the
  * app bar and the tab bar. */
 @media (max-width: 959.98px) {
@@ -1882,6 +1806,91 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .frame-tiles {
     flex-wrap: wrap;
     overflow-x: visible;
+  }
+}
+
+/* The collapsible wrapper of the strip. From 700px it adds nothing: the
+ * summary row is hidden and the strip looks as above. On a phone it is a
+ * marked-off surface (secondary background, hairline border, inset shadow and
+ * a soft gradient, all from tokens) whose summary row names the active frame
+ * and opens or closes the tiles, which shrink to the picture and the name. */
+@media (min-width: 700px) {
+  .frame-fold__summary {
+    display: none;
+  }
+}
+
+@media (max-width: 699.98px) {
+  .frame-fold {
+    margin: 0 0 var(--space-md);
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--color-text) 5%, transparent),
+        transparent var(--space-lg)),
+      var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-text) 12%, transparent);
+  }
+
+  .frame-fold__summary {
+    padding: 0 var(--space-md);
+    color: var(--color-text);
+    font-weight: var(--weight-semibold);
+  }
+
+  .frame-fold__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .frame-fold .frame-tiles {
+    margin: 0;
+    padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  }
+
+  .frame-fold .frame-tiles > li {
+    width: 84px;
+  }
+
+  .frame-fold .frame-tile {
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+  }
+
+  .frame-fold .frame-tile__pic {
+    width: 32px;
+    height: 42px;
+    padding: 2px;
+  }
+
+  .frame-fold .frame-tile__pic--system {
+    width: 32px;
+    height: 32px;
+  }
+
+  .frame-fold .frame-tile__dot {
+    top: var(--space-xs);
+    right: var(--space-xs);
+  }
+
+  .frame-fold .frame-tile__name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-label-size);
+  }
+
+  .frame-fold .frame-tile__seen,
+  .frame-fold .frame-tile__note {
+    display: none;
+  }
+
+  .frame-fold .frame-tile--add {
+    min-height: 44px;
   }
 }
 
@@ -4790,8 +4799,7 @@ a.airline-card {
     border-top: 1px solid var(--color-border);
   }
 
-  .site-header,
-  .space-strip {
+  .site-header {
     display: none;
   }
 
@@ -7844,6 +7852,26 @@ button.calendar-danger--solid {
 
   .tab-bar__link--active .tab-bar__pill {
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  /* The administrator's space switch, first cell of the bar: set apart from
+   * the destinations by an accent outline on its pill and a thin divider
+   * after it. It names the space it leads to, never the current one. */
+  .tab-bar__link--switch {
+    flex: 0 0 64px;
+    margin-right: var(--space-xs);
+    border-right: 1px solid var(--color-border);
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__link--switch .tab-bar__pill {
+    border: 1px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  .tab-bar__link--switch:not(.tab-bar__link--active):hover .tab-bar__pill {
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
   }
 
   /* :not(.tab-bar__link--active) avoids a same-specificity, later-source

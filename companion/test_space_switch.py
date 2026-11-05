@@ -66,9 +66,8 @@ def test_an_administrator_sees_both_segments_and_the_current_one_is_marked(
     status, markup = _get(served, path_of(served), "admin")
     assert status == 200
     switches = _switches(markup)
-    # The phone strip and the sidebar copy.
-    assert len(switches) == 2
-    assert switches[0] == switches[1]
+    # The sidebar copy only: a phone gets the tab bar's leading cell instead.
+    assert len(switches) == 1
     assert 'aria-label="Space"' in switches[0]
     segments = _segments(switches[0])
     assert [_label(inner) for _c, _h, _a, _x, inner in segments] == ["Console", "My frame"]
@@ -90,11 +89,15 @@ def test_the_switch_labels_and_names_are_french_in_french(served):
     assert segments[1][2] == "Passer aux pages de votre cadre"
 
 
-def test_the_strip_sits_between_the_header_and_the_page_content(served):
+def test_the_phone_switch_is_the_first_tab_bar_cell_and_the_sidebar_keeps_its_own(served):
     _status, markup = _get(served, "/fleet", "admin")
-    header_end = markup.index("</header>")
-    strip = markup.index('<div class="space-strip">')
-    assert header_end < strip < markup.index("<main")
+    assert "space-strip" not in markup
+    header = markup[markup.index("<header"):markup.index("</header>")]
+    assert "space-switch" not in header
+    bar = markup[markup.index('<nav class="tab-bar"'):]
+    first_cell = bar[bar.index("<a "):bar.index("</a>")]
+    assert "tab-bar__link--switch" in first_cell and 'href="/"' in first_cell
+    assert ">Mon cadre<" in first_cell or ">My frame<" in first_cell
     sidebar = markup[markup.index("<aside"):markup.index("</aside>")]
     assert sidebar.index('class="space-switch"') < sidebar.index('class="sidebar-nav"')
 
@@ -113,7 +116,7 @@ def test_a_user_and_a_signed_out_page_never_get_the_switch(served):
     for lang in ("en", "fr"):
         _status, markup = _get(served, "/login", None, lang)
         assert "space-switch" not in markup
-        assert "space-strip" not in markup
+        assert "tab-bar__link--switch" not in markup
 
 
 def test_a_user_cannot_open_the_console_the_switch_points_to(served):
