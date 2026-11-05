@@ -294,3 +294,11 @@ Larger redesigns (new design work, owner decision on scope):
   position" button at the bottom right; discreet "i" for map credits; no
   coordinates/time-zone line, no saved-settings disclosure. Mockups:
   scratchpad/sketches (l1, l2, l3). Plan 61-50.
+- D37 (owner) The companion takes visual direction A, "sky and motion": a
+  sky gradient background that follows the time of day (dawn, day, dusk,
+  night), frosted-glass cards, a personal greeting title, a small plane that
+  follows a trail under the Home title when a flight is detected, pulsing
+  status dot, progress bars and badges that fill in, staggered card
+  entrance, bigger serif titles. Owner wants a bolder, more modern, more
+  animated look. Mockups: scratchpad/sketches (a1 day, a2 night; the
+  editorial option C was not chosen). Motion respects reduced-motion.

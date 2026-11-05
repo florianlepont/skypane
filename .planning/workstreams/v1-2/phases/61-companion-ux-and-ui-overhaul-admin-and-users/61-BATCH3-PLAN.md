@@ -35,3 +35,11 @@ each plan runs the full suite once after its last code change.
 | 61-49 | Airline collection header simplified (sketch w1), badges tile smaller on phone, detail modal fits a phone screen | W28, W29, W46 |
 | 61-50 | Location page: usable on phone, bigger desktop map, one search field above the panel (IATA or address), my-position button fixed, no coordinates/time-zone line, no saved-settings disclosure, discreet "i" map credit, centred segments everywhere | W25, W40-W45 |
 | 61-51 | Console: no explanatory subtitles or helper captions, Users invite as a button/modal at the start or end of the list (no title overlap), Airlines editor global list (no frame strip), tap image to enlarge, change image in the "..." menu, filters scroll sideways | W33-W37 |
+
+## Batch 5 (visual direction A, "sky and motion", D37)
+
+| Plan | Scope |
+|------|-------|
+| 61-52 | Foundations: sky gradient background tokens (dawn/day/dusk/night, Light theme follows local time of day, Dark theme is always night, Auto follows the system), frosted-glass card surface tokens with a solid fallback and guaranteed contrast, bigger serif titles, motion tokens and a single reduced-motion rule |
+| 61-53 | Home: personal greeting title, plane on a trail when a flight is detected, pulsing dot, filling progress bar and badges, staggered card entrance |
+| 61-54 | Other pages polish with the same language (flights, collection, location sheet, personalisation, account, Console), view-transition timing, final contrast and performance pass |
