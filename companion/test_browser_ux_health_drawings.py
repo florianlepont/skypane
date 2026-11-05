@@ -257,9 +257,17 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
             CHART_SWATCH)
         # The chart sits in a card-less wrapper inside a row, so the surface it is composited
         # over is the rows card's own.
+        # The card is translucent glass: its surface is its fill composited over the sky
+        # behind it (measured on the middle stop).
         card = page.evaluate(
-            "() => getComputedStyle(document.querySelector("
-            "'.health-rows')).backgroundColor")
+            "() => { const html = getComputedStyle(document.documentElement);"
+            " const fill = getComputedStyle(document.querySelector('.health-rows'))"
+            ".backgroundColor.match(/[\\d.]+/g).map(Number);"
+            " const alpha = fill.length > 3 ? fill[3] : 1;"
+            " const sky = html.getPropertyValue('--sky-mid').trim();"
+            " const mixed = [0, 1, 2].map(i => Math.round(alpha * fill[i]"
+            " + (1 - alpha) * parseInt(sky.substr(1 + 2 * i, 2), 16)));"
+            " return 'rgb(' + mixed.join(', ') + ')'; }")
         for name, paint, prop in (
                 ("area", area, "fill"), ("line", line, "stroke"),
                 ("mark", mark, "fill"), ("threshold", threshold, "fill")):

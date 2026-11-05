@@ -336,15 +336,16 @@ UI_THEMES_EXPLICIT = tuple(
 # Set an explicit theme, sample the paint it produces, and leave the page on the requested one.
 # Every read goes through getComputedStyle, a forced style flush that resolves every pending
 # recalculation before answering, so the read itself is the wait — no sleep or timeout needed.
-# `document.body` is the witness because style.css's `body` rule is where both inverting tokens
-# are actually spent, so this reads real paint rather than a custom property's declared text.
+# `document.body` is the witness for the text colour and `<html>` for the canvas colour (the
+# body is transparent so the sky shows through; the canvas colour is the html floor under it),
+# so this reads real paint rather than a custom property's declared text.
 _THEME_PROBE = (
     "args => {"
     "  const html = document.documentElement;"
     "  const sampled = {};"
     "  const read = () => {"
     "    const s = getComputedStyle(document.body);"
-    "    return {canvas: s.backgroundColor, text: s.color,"
+    "    return {canvas: getComputedStyle(html).backgroundColor, text: s.color,"
     "            attr: html.getAttribute('data-ui-theme')};"
     "  };"
     "  args.themes.forEach(t => {"

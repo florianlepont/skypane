@@ -226,7 +226,7 @@ def test_tear_line_notches_follow_the_page_colour(new_context, server):
                 "() => { const stub = document.querySelector('.history-card__stub');"
                 " return [getComputedStyle(stub, '::before').backgroundColor,"
                 "         getComputedStyle(stub, '::after').backgroundColor,"
-                "         getComputedStyle(document.body).backgroundColor]; }")
+                "         getComputedStyle(document.documentElement).backgroundColor]; }")
             if paint[0] != paint[2] or paint[1] != paint[2]:
                 raise AssertionError(
                     "expected both notches in the canvas colour (%s), got %r" % (theme["theme"], paint))

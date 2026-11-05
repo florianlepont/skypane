@@ -92,7 +92,7 @@ def test_the_phone_fold_is_a_marked_surface_with_the_active_name(new_context, ap
         fold = page.locator(FOLD).evaluate(
             """(el) => { const s = getComputedStyle(el);
                 const bg = getComputedStyle(document.querySelector('main')).backgroundColor;
-                const body = getComputedStyle(document.body).backgroundColor;
+                const body = getComputedStyle(document.documentElement).backgroundColor;
                 return {bg: s.backgroundColor, shadow: s.boxShadow, image: s.backgroundImage,
                         border: s.borderTopWidth, page: body}; }""")
         assert fold["bg"] != fold["page"], fold

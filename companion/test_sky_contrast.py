@@ -1,0 +1,196 @@
+"""The sky-and-motion language on the SERVED stylesheet: every text colour stays readable
+against the worst case of every sky (dawn, day, dusk, night in the Light theme, the deep night
+sky in the Dark theme) both directly on the page and through the frosted-glass surfaces, the
+glass has a solid fallback outside its @supports block, and the single reduced-motion rule
+covers the entrance animation's duration and delay."""
+import re
+
+import pytest
+
+from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
+from companion_app_server import served_stylesheet
+from companion_markup import css_rules, custom_properties
+
+_DARK_AT_RULE = ("@media (prefers-color-scheme: dark)",)
+_SKY_STOPS = ("--sky-top", "--sky-mid", "--sky-bottom")
+_RGBA_RE = re.compile(
+    r"rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)")
+_INKS = ("--color-text", "--color-accent")
+_RARITY_INKS = ("--color-rarity-occasional", "--color-rarity-rare")
+
+
+@pytest.fixture(scope="module")
+def served_css(module_app_server_factory):
+    return served_stylesheet(module_app_server_factory())
+
+
+def _hex(rgb):
+    return "#%02X%02X%02X" % tuple(round(channel) for channel in rgb)
+
+
+def _channels(hex_colour):
+    stripped = hex_colour.lstrip("#")
+    return tuple(int(stripped[i:i + 2], 16) for i in (0, 2, 4))
+
+
+def _over(glass, backdrop_hex):
+    """The opaque colour of an rgba() token painted over an opaque backdrop."""
+    match = _RGBA_RE.fullmatch(glass.strip())
+    assert match, "expected an rgba() glass token, got %r" % (glass,)
+    red, green, blue, alpha = (float(group) for group in match.groups())
+    back = _channels(backdrop_hex)
+    return _hex(tuple(alpha * fg + (1 - alpha) * bg
+                      for fg, bg in zip((red, green, blue), back)))
+
+
+def _themes(served_css):
+    """(label, tokens): the cascade each sky actually produces, resolved the way the browser
+    does (sky variants override the light :root; Dark owns its night sky)."""
+    light = custom_properties(served_css, ":root")
+    dark_auto = dict(light, **custom_properties(served_css, ":root", at_rules=_DARK_AT_RULE))
+    dark_explicit = dict(light, **custom_properties(served_css, 'html[data-ui-theme="dark"]'))
+    skies = [("light-day", light)]
+    for sky in ("dawn", "dusk", "night"):
+        sky_tokens = custom_properties(served_css, 'html[data-sky="%s"]' % sky)
+        skies.append(("light-" + sky, dict(light, **sky_tokens)))
+    skies.append(("dark-auto", dark_auto))
+    skies.append(("dark-explicit", dark_explicit))
+    return skies
+
+
+def test_every_sky_declares_its_three_stops(served_css):
+    for label, tokens in _themes(served_css):
+        for stop in _SKY_STOPS:
+            assert re.fullmatch(r"#[0-9A-Fa-f]{6}", tokens.get(stop, "")), (
+                "%s declares no hex %s" % (label, stop))
+
+
+def test_dark_themes_are_always_the_night_sky(served_css):
+    """explicit Dark and Auto on a dark system resolve to the same deep night stops whatever
+    html[data-sky] says, because their blocks come later / are more specific"""
+    by_label = dict(_themes(served_css))
+    for stop in _SKY_STOPS:
+        assert by_label["dark-auto"][stop] == by_label["dark-explicit"][stop]
+        assert by_label["dark-auto"][stop] != by_label["light-day"][stop]
+    auto_override = custom_properties(
+        served_css, 'html[data-sky][data-ui-theme="auto"]', at_rules=_DARK_AT_RULE)
+    for stop in _SKY_STOPS:
+        assert auto_override[stop] == by_label["dark-auto"][stop], (
+            "Auto + dark system must override a daytime data-sky with the night sky")
+
+
+def test_the_four_light_skies_differ(served_css):
+    tops = {label: tokens["--sky-top"] for label, tokens in _themes(served_css)
+            if label.startswith("light-")}
+    assert len(set(tops.values())) == 4, tops
+
+
+def _surfaces(tokens, stop_hex):
+    """Every surface a text colour can sit on for this sky stop: the bare sky, the card glass,
+    and the bar glass painted over it."""
+    return (
+        ("sky", stop_hex),
+        ("glass", _over(tokens["--glass-bg"], stop_hex)),
+        ("glass bar", _over(tokens["--glass-bar-bg"], stop_hex)),
+    )
+
+
+def test_text_and_accent_stay_readable_over_every_sky_and_glass(served_css):
+    failures = []
+    for label, tokens in _themes(served_css):
+        for stop in _SKY_STOPS:
+            for surface, background in _surfaces(tokens, tokens[stop]):
+                for ink in _INKS:
+                    ratio = contrast_ratio(tokens[ink], background)
+                    if ratio < WCAG_AA_NORMAL_TEXT:
+                        failures.append("%s %s: %s on %s %s = %.2f"
+                                        % (label, stop, ink, surface, background, ratio))
+    assert not failures, failures
+
+
+def test_rarity_inks_stay_readable_on_glass_over_every_sky(served_css):
+    failures = []
+    for label, tokens in _themes(served_css):
+        for stop in _SKY_STOPS:
+            for surface, background in _surfaces(tokens, tokens[stop])[1:]:
+                for ink in _RARITY_INKS:
+                    ratio = contrast_ratio(tokens[ink], background)
+                    if ratio < WCAG_AA_NORMAL_TEXT:
+                        failures.append("%s %s: %s on %s = %.2f"
+                                        % (label, stop, ink, surface, ratio))
+    assert not failures, failures
+
+
+def _supports_rules(served_css):
+    return [rule for rule in css_rules(served_css)
+            if len(rule.at_rules) == 1 and rule.at_rules[0].startswith("@supports")
+            and "backdrop-filter" in rule.at_rules[0]]
+
+
+def test_glass_applies_only_inside_supports_and_keeps_a_solid_base(served_css):
+    """every glass selector paints a translucent --glass-* fill only inside the backdrop-filter
+    @supports block, and its own base rule (outside the @supports block, in a width @media where the bars live) keeps a solid fill token, so a
+    browser without backdrop-filter shows the solid surface"""
+    rules = _supports_rules(served_css)
+    assert rules, "the glass block is missing"
+    for rule in rules:
+        assert "backdrop-filter" in rule.at_rules[0]
+    base_backgrounds = {}
+    for rule in css_rules(served_css):
+        if any(at_rule.startswith("@supports") for at_rule in rule.at_rules):
+            continue
+        for prop, value in rule.declarations:
+            if prop == "background":
+                for selector in rule.selectors:
+                    base_backgrounds.setdefault(selector, set()).add(value)
+    glass_selectors = []
+    for rule in rules:
+        background = dict(rule.declarations).get("background")
+        assert background in ("var(--glass-bg)", "var(--glass-bar-bg)"), rule.selectors
+        for selector in rule.selectors:
+            glass_selectors.append(selector)
+            assert base_backgrounds.get(selector, set()) & {
+                "var(--color-dominant)", "var(--color-secondary)"}, (
+                "%s has no solid base fill outside @supports: %r"
+                % (selector, base_backgrounds.get(selector)))
+    for selector in (".dashboard-sidebar", ".tab-bar", ".site-header", ".page-section",
+                     ".home-state", "dialog.modal"):
+        assert selector in glass_selectors, selector
+    blurred = [rule for rule in rules if "backdrop-filter" in dict(rule.declarations)]
+    assert 0 < sum(len(rule.selectors) for rule in blurred) <= 10, (
+        "backdrop-filter must stay on a bounded number of large surfaces")
+    assert not [rule for rule in css_rules(served_css) if not rule.at_rules
+                and "backdrop-filter" in dict(rule.declarations)]
+
+
+def test_sky_is_a_fixed_pseudo_element_not_background_attachment(served_css):
+    declarations = {}
+    for rule in css_rules(served_css):
+        if rule.selectors == ("html::before",) and not rule.at_rules:
+            declarations.update(dict(rule.declarations))
+    assert declarations["position"] == "fixed"
+    assert "var(--sky-top)" in declarations["background"]
+    assert declarations["pointer-events"] == "none"
+    assert not [rule for rule in css_rules(served_css)
+                if dict(rule.declarations).get("background-attachment") == "fixed"]
+
+
+def test_one_reduced_motion_rule_zeroes_duration_and_delay_of_every_animation(served_css):
+    reduce_rules = [rule for rule in css_rules(served_css)
+                    if rule.at_rules == ("@media (prefers-reduced-motion: reduce)",)
+                    and "*" in rule.selectors]
+    assert len(reduce_rules) == 1
+    declared = dict(reduce_rules[0].declarations)
+    assert declared["animation-duration"] == "0.01ms !important"
+    assert declared["animation-delay"] == "0s !important"
+    assert declared["transition-duration"] == "0.01ms !important"
+
+
+def test_the_entrance_never_fills_forwards(served_css):
+    """fill-mode backwards only: once the entrance ends the element is back in its plain layout
+    state and holds no stacking context that could trap a dropdown"""
+    for rule in css_rules(served_css):
+        for prop, value in rule.declarations:
+            if prop == "animation" and "skypane-reveal" in value:
+                assert "backwards" in value and "forwards" not in value and "both" not in value
+                assert "infinite" not in value
