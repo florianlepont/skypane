@@ -36,13 +36,13 @@ def test_post_origin_ok_allows_neither_header():
 
 def test_post_origin_ok_allows_matching_origin_and_host():
     assert auth.post_origin_ok(
-        {"Origin": "https://skypane.algernon.ovh", "Host": "skypane.algernon.ovh"}
+        {"Origin": "https://skypane.algernon.is", "Host": "skypane.algernon.is"}
     ) is True
 
 
 def test_post_origin_ok_allows_matching_origin_default_https_port():
     assert auth.post_origin_ok(
-        {"Origin": "https://skypane.algernon.ovh:443", "Host": "skypane.algernon.ovh"}
+        {"Origin": "https://skypane.algernon.is:443", "Host": "skypane.algernon.is"}
     ) is True
 
 
@@ -54,13 +54,13 @@ def test_post_origin_ok_allows_matching_loopback_origin_with_port():
 
 def test_post_origin_ok_rejects_mismatched_origin():
     assert auth.post_origin_ok(
-        {"Origin": EVIL_ORIGIN, "Host": "skypane.algernon.ovh"}
+        {"Origin": EVIL_ORIGIN, "Host": "skypane.algernon.is"}
     ) is False
 
 
 def test_post_origin_ok_rejects_null_origin():
     assert auth.post_origin_ok(
-        {"Origin": "null", "Host": "skypane.algernon.ovh"}
+        {"Origin": "null", "Host": "skypane.algernon.is"}
     ) is False
 
 
@@ -75,8 +75,8 @@ def test_post_origin_ok_rejects_same_site_fetch_metadata():
 def test_post_origin_ok_allows_same_origin_fetch_metadata_with_matching_origin():
     assert auth.post_origin_ok({
         "Sec-Fetch-Site": "same-origin",
-        "Origin": "https://skypane.algernon.ovh",
-        "Host": "skypane.algernon.ovh",
+        "Origin": "https://skypane.algernon.is",
+        "Host": "skypane.algernon.is",
     }) is True
 
 
@@ -85,7 +85,7 @@ def test_post_origin_ok_allows_none_fetch_metadata():
 
 
 def test_post_origin_ok_rejects_origin_with_missing_host():
-    assert auth.post_origin_ok({"Origin": "https://skypane.algernon.ovh"}) is False
+    assert auth.post_origin_ok({"Origin": "https://skypane.algernon.is"}) is False
 
 
 # --- Section 2: HTTP integration, real companion/app.py subprocess ------
