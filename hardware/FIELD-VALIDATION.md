@@ -151,6 +151,27 @@ Consequences, arithmetic by Claude, rated capacities, no self-discharge or agein
 
 VAL-03 stays `open`. This is a second measurement on the old pack with a rough curve and 64 hours at 3600 s; the figure at 3600 s will tighten with more days of data and has not been measured on the new pack at all. The multimeter route stays optional.
 
+### Quiet hours differ between the studies (added 2026-11-05)
+
+Label: arithmetic by Claude on the committed exports and logs, rated capacity, rough. The owner raised the point; the data below checks it.
+
+| Study | Wake interval | Quiet hours | Evidence |
+|---|---|---|---|
+| Run one | 300 s | off | `hardware/logs/battery-run-server.log`: 3252 readings, every Paris hour populated, no gap above 3000 s |
+| Run two | 60 s | off | documented in `hardware/BATTERY-RUN.md`; `battery-run2-export.jsonl` has check-ins in every hour |
+| Old-pack test | 900 s, then 3600 s | on (23:30 to 06:00 Paris) | `oldpack-test-export-2026-11-03.jsonl`: a gap of about 5.7 to 7.4 h every night from 2026-10-23 |
+
+Effect on the figures. The average currents (8.63 mA at 900 s, 0.99 mA at 3600 s) are unchanged: they come from the voltage fall over elapsed time, nights included, and the tool takes its end points from daytime polls only. The cost of a wake changes, because it must be computed on the wakes that happened, not on elapsed time divided by the interval. The wake counts come from the export rows, so a wake that never reached the server is not counted.
+
+| Per-wake cost (mAh) | Elapsed time / interval | Wakes counted in the export |
+|---|---|---|
+| Test at 900 s (49.5 h window: 198 expected wakes, 157 counted) | about 2.16 | about 2.72 |
+| Test at 3600 s (73.3 h window: 73 expected wakes, 68 counted) | about 0.99 | about 1.07 |
+| Run one (300 s, quiet hours off) | about 1.0 | about 1.0 |
+| Run two (60 s, quiet hours off) | about 0.49 | about 0.49 |
+
+Reading. The higher counted-wake cost at 900 s widens the gap with run one and run two instead of narrowing it, so quiet hours do not explain why the cost of a wake is not constant. Limits: the 49.5 h window used for the counts is not the 40.5 h edge-median window of the tool; the currents are rough; the runs do not share a firmware (run one predates the Phase 34 work). The daytime-only mean at 900 s is higher than 8.63 mA because about 6.5 h of each day are spent asleep; it is not computed here.
+
 ### Caveats
 
 - The discharge curve and the 3000 mAh are ratings, not measurements, and the top of the curve is its least reliable part.
