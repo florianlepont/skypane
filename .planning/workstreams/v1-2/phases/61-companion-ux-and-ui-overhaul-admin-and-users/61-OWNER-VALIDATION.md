@@ -245,3 +245,6 @@ Larger redesigns (new design work, owner decision on scope):
   the "More" menu and remove the big switch at the top of the page. Instead,
   the first button of the tab bar is a Console / My frame button, set apart
   from the others, that switches from one to the other.
+- W39 (owner) In general, the phone header is too tall. Make it compact
+  (with W22 removing the gear button and the Sign out panel, and W38 moving
+  the space switch into the tab bar, the header can shrink to a slim bar).
