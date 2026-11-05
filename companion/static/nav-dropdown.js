@@ -30,6 +30,27 @@
   }
   document.documentElement.setAttribute("data-sky", sky);
 
+  // Home's greeting line carries the four wordings; the one for the local
+  // hour (morning 05-12, afternoon 12-17, evening 17-21, else night)
+  // replaces the neutral server text. The line's box is reserved by the
+  // stylesheet, so the swap never moves the title.
+  var greeting = document.querySelector("[data-greeting]");
+  var greetingText = greeting && greeting.querySelector("[data-greeting-text]");
+  if (greetingText) {
+    var band = "night";
+    if (hour >= 5 && hour < 12) {
+      band = "morning";
+    } else if (hour >= 12 && hour < 17) {
+      band = "afternoon";
+    } else if (hour >= 17 && hour < 21) {
+      band = "evening";
+    }
+    var wording = greeting.getAttribute("data-greeting-" + band);
+    if (wording) {
+      greetingText.textContent = wording;
+    }
+  }
+
   var fold = document.querySelector("details.frame-fold");
   if (!fold || !window.matchMedia) {
     return;

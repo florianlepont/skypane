@@ -280,6 +280,8 @@ def _open(new_context, server, persona, path, dialog, viewport, lang, scheme):
     if dialog:
         page.locator("dialog[open]").wait_for(state="visible")
     _set_ui_theme(page, scheme)
+    # The sections enter with a finite animation: hit-test only once it has ended.
+    page.wait_for_function(FINITE_ANIMATIONS_DONE, timeout=10000)
     return context, page
 
 

@@ -512,6 +512,10 @@ def _open_user_home(new_context, server, fleet, lang="en", **context_args):
     page = context.new_page()
     page.goto(base + "/devices/%s/" % fleet.a1)
     page.locator(".home-state").wait_for(state="visible")
+    # The cards enter with a finite animation; measure only once it has ended.
+    page.wait_for_function(
+        "() => document.readyState === 'complete' && document.getAnimations().every("
+        "a => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
     return context, page
 
 

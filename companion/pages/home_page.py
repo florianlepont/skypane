@@ -27,7 +27,7 @@ import companion.page_context as page_context
 import companion.ui_modal as ui_modal
 import companion.user_view as user_view
 import companion.wake as wake
-from companion.pages import home_notice
+from companion.pages import home_greeting, home_notice
 from companion.layout import escape_html
 from companion.settings import quiet_hours
 from server import device_config, history_db
@@ -673,7 +673,7 @@ def _frame_state_html(ctx, summary, status):
         '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
     user = user_view.is_personal_view()
     return (
-        '<section class="home-state home-state--%s%s" aria-labelledby="home-frame-state">'
+        '<section class="home-state home-state--%s%s reveal" aria-labelledby="home-frame-state">'
         '<div class="home-state__body"><div class="home-state__status">'
         '<h2 class="home-state__eyebrow" id="home-frame-state">%s%s</h2>'
         '<p class="home-state__headline">%s<span class="home-state__title">%s</span></p>'
@@ -769,7 +769,9 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     # The silent marker keeps Home on freshness.js's background refresh
     # without a visible freshness line.
     header = layout.page_header(
-        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
+        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now),
+        trail_html=(home_greeting.greeting_html()
+                    + home_greeting.trail_html(bool(current_flight_row))))
     summary = _frame_state_summary(ctx)
     status = frame_status.frame_status(_status_row(ctx, summary[1]))
     notice = _notice_html(ctx, status)

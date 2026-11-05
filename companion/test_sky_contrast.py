@@ -194,3 +194,16 @@ def test_the_entrance_never_fills_forwards(served_css):
             if prop == "animation" and "skypane-reveal" in value:
                 assert "backwards" in value and "forwards" not in value and "both" not in value
                 assert "infinite" not in value
+
+
+def test_tab_bar_labels_stay_readable_over_any_content_scrolling_beneath(served_css):
+    """page content scrolls under the bars, so the bar glass must keep the label ink at 4.5:1
+    over the worst content there can be (white picture, black picture) and over every sky"""
+    failures = []
+    for label, tokens in _themes(served_css):
+        for backdrop in ("#FFFFFF", "#000000", tokens["--sky-top"], tokens["--sky-bottom"]):
+            bar = _over(tokens["--glass-bar-bg"], backdrop)
+            ratio = contrast_ratio(tokens["--color-text"], bar)
+            if ratio < WCAG_AA_NORMAL_TEXT:
+                failures.append("%s over %s: %.2f" % (label, backdrop, ratio))
+    assert not failures, failures

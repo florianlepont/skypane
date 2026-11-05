@@ -143,7 +143,8 @@ def test_cards_enter_in_a_short_stagger_and_end_in_their_layout_state(
     assert len(motion) >= 2
     assert {item["name"] for item in motion} == {"skypane-reveal"}
     assert {item["duration"] for item in motion} == {"0.4s"}
-    assert motion[0]["delay"] == "0s" and motion[1]["delay"] == "0.06s"
+    # Home's state card (not a page section) enters first, so its sections start one step in.
+    assert [item["delay"] for item in motion[:2]] == ["0.06s", "0.12s"]
     page.wait_for_timeout(1200)
     settled = page.evaluate(
         """() => Array.from(document.querySelectorAll('.dashboard-main .page-section')).map(el => {

@@ -127,6 +127,9 @@
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
   --motion-dot-pulse: 3.2s;
+  /* Home's plane flies in once along its trail; only that animation spends
+   * this duration. */
+  --motion-flight: 1.2s;
 
   /* Frosted glass: theme-independent geometry. The blur is only applied
    * inside an @supports block at the end of this file; outside it every
@@ -145,9 +148,11 @@
   --sky-bottom: #F4F1EA;
   /* Translucent surfaces painted over the sky: cards and panels, and the
    * bars (sidebar, tab bar, phone header). The composite over the worst
-   * sky stop is what the contrast tests measure. */
+   * sky stop is what the contrast tests measure. The bars are nearly opaque
+   * because page content scrolls beneath them: whatever passes behind a bar
+   * (a white picture, a dark card) must not wash out its labels. */
   --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-bar-bg: rgba(255, 255, 255, 0.72);
+  --glass-bar-bg: rgba(255, 255, 255, 0.94);
   --glass-border: rgba(255, 255, 255, 0.7);
   --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
   --color-canvas: #F7F4EF;
@@ -209,7 +214,7 @@
     --sky-mid: #18203F;
     --sky-bottom: #2C2540;
     --glass-bg: rgba(255, 255, 255, 0.08);
-    --glass-bar-bg: rgba(255, 255, 255, 0.07);
+    --glass-bar-bg: rgba(16, 21, 48, 0.9);
     --glass-border: rgba(255, 255, 255, 0.16);
     --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
     --color-canvas: #0C0F14;
@@ -250,7 +255,7 @@ html[data-ui-theme="light"] {
   --sky-mid: #E3EDF5;
   --sky-bottom: #F4F1EA;
   --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-bar-bg: rgba(255, 255, 255, 0.72);
+  --glass-bar-bg: rgba(255, 255, 255, 0.94);
   --glass-border: rgba(255, 255, 255, 0.7);
   --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
   --color-canvas: #F7F4EF;
@@ -320,7 +325,7 @@ html[data-ui-theme="dark"] {
   --sky-mid: #18203F;
   --sky-bottom: #2C2540;
   --glass-bg: rgba(255, 255, 255, 0.08);
-  --glass-bar-bg: rgba(255, 255, 255, 0.07);
+  --glass-bar-bg: rgba(16, 21, 48, 0.9);
   --glass-border: rgba(255, 255, 255, 0.16);
   --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
   --color-canvas: #0C0F14;
@@ -6700,7 +6705,8 @@ button.place-result:hover {
   background: var(--home-tone);
   box-shadow:
     0 0 0 5px color-mix(in srgb, var(--home-tone) 20%, transparent),
-    0 0 18px 4px color-mix(in srgb, var(--home-tone) 30%, transparent);
+    0 0 18px 4px color-mix(in srgb, var(--home-tone) 30%, transparent),
+    0 0 34px 10px color-mix(in srgb, var(--home-tone) 14%, transparent);
 }
 
 /* The halo: a ring of the dot's own tone that expands and fades, drawn on
@@ -8309,8 +8315,8 @@ button.calendar-danger--solid {
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 64px;
-    margin-right: var(--space-xs);
+    flex: 0 0 68px;
+    margin-right: 0;
     border-right: 1px solid var(--color-border);
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
@@ -11433,4 +11439,106 @@ a.airlines-name-it {
     -webkit-backdrop-filter: blur(var(--glass-blur));
     backdrop-filter: blur(var(--glass-blur));
   }
+}
+
+/* Home: personal greeting, plane on a trail, glow ring, card entrance.
+ * Appended last: equal-specificity rules here win over the base rules. */
+
+/* The greeting line above the title. Its box is reserved whether or not
+ * the script has swapped the wording (one line, two when the frame name
+ * follows), so the title never moves. */
+.home-greeting {
+  margin: 0 0 var(--space-xs);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(var(--font-body-size) * 1.4);
+  font-family: var(--font-serif);
+  font-size: var(--font-body-size);
+  line-height: 1.4;
+  color: var(--color-accent);
+}
+
+.home-greeting--framed {
+  min-height: calc(var(--font-body-size) * 2.8);
+}
+
+.home-greeting__frame {
+  font-family: var(--font-ui);
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The plane's trail under the title: a dotted curve and a small plane at
+ * its end. The box keeps the viewBox's 320x56 ratio, so it reserves its
+ * height before it paints. */
+.home-trail {
+  margin: 0 0 var(--space-sm);
+  max-width: 320px;
+}
+
+.home-trail__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 320 / 56;
+  overflow: visible;
+}
+
+.home-trail__path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 45%, transparent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 0.5 7;
+}
+
+.home-trail__plane {
+  fill: var(--color-accent);
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: skypane-plane-fly var(--motion-flight) var(--ease-out) backwards;
+}
+
+/* Along the trail, the plane's own offsets from its resting point; the
+ * resting state is the plain layout state (fill-mode backwards only). */
+@keyframes skypane-plane-fly {
+  from {
+    opacity: 0;
+    transform: translate(-292px, 32px) rotate(6deg);
+  }
+
+  15% {
+    opacity: 1;
+  }
+
+  35% {
+    transform: translate(-235px, 26px) rotate(-8deg);
+  }
+
+  60% {
+    transform: translate(-172px, 14px) rotate(-18deg);
+  }
+
+  80% {
+    transform: translate(-96px, 3px) rotate(-14deg);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The cards come in one after the other: the state card, the current
+ * frame, then the recent flights. */
+.home-state.reveal {
+  --reveal-index: 0;
+}
+
+.dashboard-main .home-columns .page-section:nth-child(1) {
+  --reveal-index: 1;
+}
+
+.dashboard-main .home-columns .page-section:nth-child(2) {
+  --reveal-index: 2;
 }

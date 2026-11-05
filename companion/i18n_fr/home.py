@@ -17,6 +17,12 @@ never a straight quote), and a non-breaking space (U+00A0) before
 """
 
 MESSAGES = {
+    "home.greeting_default": "Bonjour",
+    "home.greeting_morning": "Bonjour",
+    "home.greeting_afternoon": "Bon après-midi",
+    "home.greeting_evening": "Bonsoir",
+    "home.greeting_night": "Bonne nuit",
+
     "home.current_frame": "Dernière image envoyée au cadre",
 
     "home.the_picture_currently_on_the_frame":

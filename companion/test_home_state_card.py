@@ -115,7 +115,7 @@ def test_quiet_hours_state_names_the_end_time_and_the_window(tmp_path):
     card = _render(tmp_path, cfg=window)
     assert '<span class="home-state__title">Resting</span>' in card
     assert '<p class="home-state__detail">The screen rests until 23:59</p>' in card
-    assert 'class="home-state home-state--off"' in card
+    assert 'class="home-state home-state--off reveal"' in card
     assert _checked(card, "/quick/quiet-hours") == "true"
     assert "00:00 – 23:59" in card
     window["quiet_hours_enabled"] = False
@@ -279,7 +279,7 @@ def test_long_overdue_turns_the_dot_amber_and_links_nowhere(tmp_path, lang, link
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=90)).isoformat())
     assert "dot--warn" in card and "dot--ok" not in card
     assert "/health" not in card and link not in card
-    assert 'class="home-state home-state--warn"' in card and "#icon-warning" in card
+    assert 'class="home-state home-state--warn reveal"' in card and "#icon-warning" in card
 
 
 def test_overdue_date_appears_only_when_not_today(tmp_path):
@@ -420,10 +420,10 @@ def test_held_states_read_a_short_title_and_a_sentence(tmp_path, lang, title, de
     card = _render(tmp_path, lang=lang, cfg=cfg, battery_critical=critical)
     assert '<span class="home-state__title">%s</span>' % title in card
     assert '<p class="home-state__detail">%s</p>' % detail in card
-    assert 'class="home-state home-state--%s"' % ("warn" if critical else "off") in card
+    assert 'class="home-state home-state--%s reveal"' % ("warn" if critical else "off") in card
     assert ("dot--warn" in card) == critical and ("dot--off" in card) == (not critical)
     plain = _render(tmp_path)
-    assert "home-state__detail" not in plain and 'class="home-state home-state--ok"' in plain
+    assert "home-state__detail" not in plain and 'class="home-state home-state--ok reveal"' in plain
 
 
 def test_the_header_label_is_a_visible_heading_and_the_next_line_has_an_icon(tmp_path):
