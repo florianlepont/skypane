@@ -462,19 +462,17 @@ def _save_place(steps, page):
 
 
 def test_l1_pick_an_airport_from_the_list(world, new_context):
-    context, page, steps, _ = _open_location(world, new_context)
+    context, page, steps, hosts = _open_location(world, new_context)
     try:
-        steps.type_value(page.locator("#airport-filter"), "Lyon", "airport filter")
-        link = page.locator("a.place-airport__link[data-icao=LFLL]")
-        page.wait_for_function(
-            "() => { const e = document.querySelector('a.place-airport__link[data-icao=LFLL]');"
-            " return !!e && e.checkVisibility(); }", timeout=10000)
+        # The one search field takes the airport's code; submitting it opens that airport's page.
+        steps.type_value(page.locator("#place-search"), "LYS", "search field")
         with page.expect_navigation():
-            steps.tap(link, "the airport")
+            steps.tap(page.locator("form.place-search button"), "Search")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         _save_place(steps, page)
         place = _frame_place(world)
         assert place is not None and abs(place["latitude"] - 45.7) < 0.5, place
+        assert not hosts.search_requests
         _report_measured("L1", steps, 4)
     finally:
         context.close()

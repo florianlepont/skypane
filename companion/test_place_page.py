@@ -152,9 +152,9 @@ def _save_place(rig, name="Home", lat=48.8566, lon=2.3522):
 
 def test_the_cards_come_in_the_specified_order(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    marks = ['id="place-map"', 'id="place-mode-runway"', 'id="place-search"',
+    marks = ['id="place-map"', 'id="place-search"', 'id="place-mode-runway"',
              'id="airports-heading"', 'id="place-radius"', 'id="details"',
-             "place-status-heading", 'data-dirty-bar']
+             'data-dirty-bar', 'id="place-info"', 'id="place-locate"']
     positions = [page.index(mark) for mark in marks]
     assert positions == sorted(positions)
     assert "<title>Location and detection" in page
@@ -168,20 +168,22 @@ def test_the_page_is_titled_and_labelled_in_french(rig):
     for needle in ("Aéroports français", "Filtrer les aéroports", "Aéroport",
                    "Ma position", "Piste à suivre", "Rayon (km)",
                    "Coordonnées et fuseau horaire", "Nom du lieu", "Fuseau horaire",
-                   "Enregistrer le lieu", "Aucun lieu choisi", "À propos de cette carte",
-                   "Rechercher une ville ou une adresse", "Utiliser ma position"):
+                   "Enregistrer le lieu",
+                   "Rechercher un aéroport ou une adresse", "Utiliser ma position",
+                   "Retour à la carte", "contributeurs d’OpenStreetMap"):
         assert needle in text, needle
+    assert 'aria-label="À propos de cette carte"' in page
 
 
-def test_the_empty_state_and_the_saved_place_line(rig):
-    _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    text = _text(page)
-    assert "No place chosen yet" in text
-    assert "Pick an airport, search a place or tap the map, then save." in text
+def test_the_summary_line_and_the_saved_settings_disclosure_are_gone(rig):
     _save_place(rig, "Home", 48.856614, 2.352222)
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    assert "Home · 48.8566, 2.3522" in _text(page)
-    assert "No place chosen yet" not in _text(page)
+    text = _text(page)
+    for gone in ("place-derived", "place-saved", "place-more", "Saved setting",
+                 "Home · 48.8566, 2.3522", "No place chosen yet"):
+        assert gone not in page and gone not in text, gone
+    assert 'name="place_label"' in page and 'value="Home"' in page
+    assert 'name="latitude"' in page and 'value="48.8566"' in page
 
 
 def test_every_catalogue_airport_is_an_anchor_sorted_by_municipality(rig):

@@ -150,9 +150,9 @@ def test_position_save_summary_and_frame_text(rig):
     _post_detection(rig, "owner", _position_form(home, "9"))
     _status, page = rig.get("owner", rig.scope() + "/detection")
     text = _text(page)
-    assert "Aircraft within 9 km of Home" in text
-    assert "NEARBY · 9 KM" in text
-    assert "Watching Within 9 km" in text
+    assert 'name="place_label"' in page and 'value="Home"' in page
+    assert re.search(r'id="place-radius" name="radius_km"[^>]*value="9"', page)
+    assert "detection-summary" not in page
     assert "No usable location" not in text
 
 
@@ -177,7 +177,8 @@ def _link_place(rig, name, lat, lon):
 def test_the_page_shows_the_stored_place_rounded_to_four_decimals(rig):
     _link_place(rig, "Home", 48.856614, 2.352222)
     _status, page = rig.get("owner", rig.scope() + "/detection")
-    assert "Home · 48.8566, 2.3522" in _text(page)
+    assert "Home · 48.8566, 2.3522" not in _text(page)
+    assert 'name="place_label"' in page and 'value="Home"' in page
     assert re.search(r'<input type="number" id="place-radius" name="radius_km"[^>]*'
                      r'min="2" max="28" step="1"[^>]*value="9"', page)
     assert 'id="place-lat" name="latitude" form="detection-form" step="0.0001" ' \
@@ -189,15 +190,15 @@ def test_a_stored_place_outside_france_is_listed_and_the_setting_falls_back(rig)
     device_config.save_device_config(
         rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
     _status, page = rig.get("owner", rig.scope() + "/detection")
-    assert "London · 51.5000, -0.1200" in _text(page)
+    assert 'value="London"' in page and 'value="51.5000"' in page
     assert "No usable location" in _text(page)
 
 
 def test_without_a_place_the_empty_state_shows_and_the_radius_stays_postable(rig):
     _status, page = rig.get("owner", rig.scope() + "/detection")
     text = _text(page)
-    assert "No place chosen yet" in text
-    assert "Pick an airport, search a place or tap the map, then save." in text
+    assert "No place chosen yet" not in text
+    assert 'data-lat="" data-lon=""' in page
     assert 'name="radius_km"' in page and "<select id=\"detection-location\"" not in page
 
 
@@ -439,7 +440,7 @@ def test_a_foreign_stored_location_name_is_not_served_to_the_device_owner(rig):
         _s, page = rig.get("owner", rig.scope() + path)
         assert "Secret Foreign Place" not in page
     _s, page = rig.get("admin", rig.scope() + "/detection")
-    assert "Secret Foreign Place" in _text(page)
+    assert "Secret Foreign Place" in page
 
 
 # --- fail-safe toast ----------------------------------------------------------------
@@ -457,7 +458,7 @@ def test_failsafe_toast_when_the_saved_location_leaves_the_box(rig):
     text = _text(page)
     assert "No usable location" in text
     assert "toast--docked" in page
-    assert "Runway 07/25 at Paris-Orly Airport (ORY)" in text
+    assert "Paris-Orly Airport" in text
 
 
 # --- text rules ---------------------------------------------------------------------
@@ -477,11 +478,10 @@ def test_position_page_in_french(rig):
     _post_detection(rig, "owner", _position_form(home, "9"))
     _s, page = rig.get("owner", rig.scope() + "/detection", lang="fr")
     text = _text(page)
-    assert "Avions à moins de 9 km de Home" in text
+    assert 'value="Home"' in page
     assert "Rayon (km)" in text
     assert "Vos lieux" not in text
     assert "Enregistrer le lieu" in text
-    assert "NEARBY · 9 KM" in text
 
 
 def test_position_save_leaves_the_location_unchanged_when_the_config_write_fails(

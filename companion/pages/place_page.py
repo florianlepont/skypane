@@ -1,34 +1,38 @@
 """The Location and detection page: where the frame is and what it follows.
 
-With the map running the map fills the page. A mode switch (Airport / My
-position) and the place search float on it, and one panel carries the rest:
-a bottom sheet on a phone, a card at the left of the map from 960px. The
-panel shows the runway choice (with the French airport list behind one
-filter field) in Airport mode and the detection radius in My-position mode;
-the coordinates and the time zone are one small read-only line that opens the
-editable fields. The whole page is server-rendered and complete without
-scripts and without any external network: choosing an airport is a GET
-navigation (`?airport=`, `?q=`), the coordinates, label and time zone are
-plain fields, and one native POST form stores them with `action=save_place`.
+With the map running the map fills the page. One search field floats at its
+top (an airport code or name picks that airport, anything else is looked up
+as an address), and one panel carries the rest: a bottom sheet on a phone,
+a card at the left of the map from 960px. The mode switch (Airport / My
+position) is chips under the search on a phone and the top of the card on a
+wide screen; the panel shows the runway choice in Airport mode and the
+detection radius in My-position mode, with Cancel and Save inside it. A round
+button locates the visitor and a small "i" opens the map credits. The whole
+page is server-rendered and complete without scripts and without any external
+network: choosing an airport is a GET navigation (`?airport=`, `?q=`), the
+coordinates, label and time zone are plain fields in the details block, and
+one native POST form stores them with `action=save_place`.
 
 Data contract for the map script (companion/static/place-map.js):
 `div#place-map.place-map` carries `data-lat`, `data-lon` (empty when there is
 no place), `data-zoom`, `data-mode`, `data-airport` and `data-radius-km`; each
-airport row is an anchor with `data-icao`, `data-lat`, `data-lon` and
-`data-name`; the controls keep the ids `place-lat`, `place-lon`,
+airport row is an anchor with `data-icao`, `data-iata`, `data-lat`, `data-lon`
+and `data-name`; the controls keep the ids `place-lat`, `place-lon`,
 `place-label`, `place-radius`, `place-timezone`, `place-mode-runway` and
-`place-mode-area`, `place-derived` is the read-only line and `place-status`
-is the polite status line. `.place-panel` is the part of the map the script
-keeps clear when it centres a place. The script adds `map-ready` to the page
-element once the map runs; until then the fallback explanation shows and the
-details are open.
+`place-mode-area`; `place-status` is the polite status line and
+`place-message` the visible message of the locate button. `.place-sheet` is
+the part of the map the script keeps clear when it centres a place. The
+script adds `map-ready` to the page element once the map runs; until then the
+fallback explanation shows and the details are open. With the map running the
+details block is reached only through the `#details` link (the Quiet hours
+note points there).
 """
 import unicodedata
 from urllib.parse import urlencode
 
 from companion import device_scope, i18n, layout, page_context, prefs
 from companion.detection_summary import (
-    LEGACY_PILL, LEGACY_PILL_NUMBER, display_id_for, is_fail_safe, summary_values)
+    LEGACY_PILL, LEGACY_PILL_NUMBER, display_id_for, is_fail_safe)
 from companion.layout import escape_html
 from companion.pages import detection_page as dp
 from companion.settings import quiet_hours
@@ -58,12 +62,13 @@ NO_SCRIPT_MAP = i18n.msg(
     "with the airport list or by typing coordinates.")
 MAP_LABEL = i18n.msg(
     "detection.map_label", "Map. Use arrow keys to move, plus and minus to zoom.")
-SEARCH_LABEL = i18n.msg("detection.search_label", "Search a city or address")
-SEARCH_PLACEHOLDER = i18n.msg("detection.search_placeholder", "City or address")
+SEARCH_LABEL = i18n.msg("detection.search_label", "Search an airport or an address")
+SEARCH_PLACEHOLDER = i18n.msg("detection.search_placeholder", "Airport (ORY) or address")
 SEARCH_BUTTON = i18n.msg("detection.search_button", "Search places")
 SEARCH_HELP = i18n.msg(
     "detection.search_help",
-    "What you type is sent to OpenStreetMap’s search service (Nominatim).")
+    "An airport code or name picks that airport. Anything else is sent to "
+    "OpenStreetMap’s search service (Nominatim).")
 LOCATE_BUTTON = i18n.msg("detection.locate", "Use my position")
 ABOUT_MAP = i18n.msg("detection.about_map", "About this map")
 MAP_CREDITS = i18n.msg(
@@ -86,10 +91,10 @@ ZOOM_IN = i18n.msg("detection.zoom_in", "Zoom in")
 ZOOM_OUT = i18n.msg("detection.zoom_out", "Zoom out")
 SEARCH_NONE = i18n.msg(
     "detection.search_none",
-    "No place found in France. Try another spelling, tap the map or pick an airport.")
+    "No place found in France. Try another spelling, tap the map or type an airport code.")
 SEARCH_FAILED = i18n.msg(
     "detection.search_failed",
-    "Search is not available right now. Tap the map, pick an airport or enter coordinates.")
+    "Search is not available right now. Tap the map or type an airport code.")
 SEARCH_SHORT = i18n.msg(
     "detection.search_short", "Type at least 3 characters to search.")
 RESULTS_LABEL = i18n.msg("detection.results_label", "Search results")
@@ -135,10 +140,6 @@ _MAP_STRINGS = (
     ("follow", FOLLOW_AIRPORT),
 )
 
-EMPTY_HEADING = i18n.msg("detection.empty_heading", "No place chosen yet")
-EMPTY_BODY = i18n.msg(
-    "detection.empty_body", "Pick an airport, search a place or tap the map, then save.")
-
 AIRPORTS_TITLE = i18n.msg("detection.airports_title", "French airports")
 FILTER_LABEL = i18n.msg("detection.filter_airports", "Filter airports")
 FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
@@ -146,7 +147,6 @@ FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
 MODE_RUNWAY_CARD = i18n.msg("detection.mode_runway", "Airport")
 MODE_AREA_CARD = i18n.msg("detection.mode_area", "My position")
 MODE_SWITCH_LABEL = i18n.msg("detection.mode_switch_label", "What the frame follows")
-MORE_TITLE = i18n.msg("detection.more_title", "Saved setting and map credits")
 AREA_HEADING = i18n.msg("detection.area_heading", "Detection around this point")
 RUNWAY_LABEL = i18n.msg("detection.runway_label", "Runway to follow")
 PICK_AIRPORT_NOTE = i18n.msg(
@@ -158,7 +158,7 @@ RADIUS_HELP = i18n.msg(
     "Planes near this spot are shown. 9 km is a good start.")
 
 DETAILS_TITLE = i18n.msg("detection.details_title", "Coordinates and time zone")
-DERIVED_SEPARATOR = " · "
+DETAILS_CLOSE = i18n.msg("detection.details_close", "Back to the map")
 PLACE_LABEL_FIELD = i18n.msg("detection.label_field", "Place label")
 SECTION_PLACE = i18n.msg("detection.section_place", "Place")
 
@@ -335,41 +335,6 @@ def fail_safe_toast_html(view):
         title, detail, tone=layout.TOAST_TONE_WARNING, role="status", docked=True)
 
 
-def _summary_html(view):
-    value, detail, pill, tag, empty = summary_values(view.selection, view.location_name)
-    return (
-        '<dl class="detection-summary">'
-        "<div><dt>%s</dt><dd>%s %s"
-        '<span class="detection-summary__detail text-label section-caption">%s</span></dd></div>'
-        '<div><dt>%s</dt><dd><code class="detection-tag" lang="en">%s</code></dd></div>'
-        '<div><dt>%s</dt><dd><code class="detection-tag" lang="en">%s</code></dd></div>'
-        "</dl>"
-    ) % (
-        escape_html(i18n.t(dp.SUMMARY_FOLLOWING)), escape_html(value), pill,
-        escape_html(detail),
-        escape_html(i18n.t(dp.SUMMARY_TAG)), escape_html(tag),
-        escape_html(i18n.t(dp.SUMMARY_EMPTY)), escape_html(empty))
-
-
-def _place_line_html(view):
-    place = view.place
-    if place is None:
-        return layout.empty_state(
-            i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True)
-    return '<p class="place-line text-label section-caption">%s · %s, %s</p>' % (
-        escape_html(place["name"]), escape_html(_coord(place["latitude"])),
-        escape_html(_coord(place["longitude"])))
-
-
-def status_card_html(view):
-    return (
-        '<section class="place-saved" aria-labelledby="place-status-heading">'
-        '<h2 class="text-heading" id="place-status-heading">%s</h2>%s%s</section>'
-    ) % (
-        escape_html(i18n.t(dp.SUMMARY_TITLE)), _summary_html(view),
-        _place_line_html(view))
-
-
 def _form_html(view):
     """The POST form. It holds no visible control: every field reaches it
     through its `form` attribute, so the cards can sit anywhere."""
@@ -418,34 +383,52 @@ def _search_form_html():
         '<input type="search" id="place-search" autocomplete="off" '
         'autocapitalize="off" spellcheck="false" enterkeyhint="search" maxlength="%d" '
         'placeholder="%s" aria-describedby="place-search-help">'
-        '<button type="submit" class="detection-search">%s</button></div>'
+        '<button type="submit" class="detection-search place-search__go">%s'
+        '<span class="visually-hidden">%s</span></button></div>'
         '<p id="place-search-help" class="text-label section-caption">%s</p></form>'
     ) % (
         escape_html(i18n.t(PLACE_TITLE)), escape_html(_href()),
-        escape_html(i18n.t(SEARCH_LABEL)), SEARCH_MAX_CHARS,
-        escape_html(i18n.t(SEARCH_PLACEHOLDER)), escape_html(i18n.t(SEARCH_BUTTON)), escape_html(i18n.t(SEARCH_HELP)))
+        escape_html(i18n.t(SEARCH_LABEL)), SEARCH_MAX_CHARS, escape_html(i18n.t(SEARCH_PLACEHOLDER)),
+        layout.icon_html("icon-search", 20), escape_html(i18n.t(SEARCH_BUTTON)),
+        escape_html(i18n.t(SEARCH_HELP)))
 
 
-def _about_map_html():
+def _credits_html():
+    """The "i" button on the map and the popover it opens: the required
+    OpenStreetMap attribution, the data and search credits, the privacy line
+    and the two OpenStreetMap links. Script-only, like the map."""
     return (
-        '<details class="place-about"><summary>%s</summary>'
+        '<div class="place-info js-gate">'
+        '<button type="button" class="place-info__button" id="place-info" '
+        'aria-expanded="false" aria-controls="place-credits" aria-label="%s">%s</button>'
+        '<div id="place-credits" class="place-credits" role="region" aria-label="%s" hidden>'
+        '<p class="place-credits__attribution"><a class="text-link" href="%s" '
+        'target="_blank" rel="noopener noreferrer">%s</a></p>'
         '<p class="text-label section-caption">%s</p>'
         '<p class="text-label section-caption">%s</p>'
         '<p class="text-label section-caption">'
-        '<a class="text-link detection-link" href="%s" rel="noopener noreferrer">%s</a> · '
-        '<a class="text-link detection-link" href="%s" rel="noopener noreferrer">%s</a></p>'
-        "</details>"
+        '<a class="text-link detection-link" href="%s" target="_blank" '
+        'rel="noopener noreferrer">%s</a> · '
+        '<a class="text-link detection-link" href="%s" target="_blank" '
+        'rel="noopener noreferrer">%s</a></p></div></div>'
     ) % (
-        escape_html(i18n.t(ABOUT_MAP)), escape_html(i18n.t(MAP_CREDITS)),
+        escape_html(i18n.t(ABOUT_MAP)), layout.icon_html("icon-info", 20),
+        escape_html(i18n.t(ABOUT_MAP)), OSM_COPYRIGHT_URL,
+        escape_html(i18n.t(ATTRIBUTION)), escape_html(i18n.t(MAP_CREDITS)),
         escape_html(i18n.t(MAP_PRIVACY)), OSM_COPYRIGHT_URL,
         escape_html(i18n.t(COPYRIGHT_LINK)), OSM_FIX_URL,
         escape_html(i18n.t(REPORT_PROBLEM)))
 
 
 def _locate_html():
+    """The round locate button and the message it reports in (visible, so a
+    refusal is never silent)."""
     return (
+        '<div class="place-tools">'
+        '<p id="place-message" class="place-message text-label" role="status" '
+        'aria-live="polite" hidden></p>'
         '<button type="button" class="place-locate detection-search js-gate" '
-        'id="place-locate">%s<span class="place-locate__label">%s</span></button>'
+        'id="place-locate">%s<span class="place-locate__label">%s</span></button></div>'
     ) % (layout.icon_html("icon-locate", 20), escape_html(i18n.t(LOCATE_BUTTON)))
 
 
@@ -467,15 +450,14 @@ def _mode_switch_html(view):
         _field_error_html(view.errors, "mode", "place-mode"))
 
 
-def _float_html(view):
-    """What floats on the map: the mode switch, the place search and its
-    results. Without a map the search stays hidden and only the switch shows."""
+def _float_html():
+    """What floats at the top of the map: the one search field and its
+    results."""
     return (
-        '<div class="place-float">%s%s'
+        '<div class="place-float">%s'
         '<div id="place-results" class="place-results" aria-live="polite" '
         'aria-label="%s" hidden></div></div>'
-    ) % (
-        _mode_switch_html(view), _search_form_html(), escape_html(i18n.t(RESULTS_LABEL)))
+    ) % (_search_form_html(), escape_html(i18n.t(RESULTS_LABEL)))
 
 
 def _airport_row_html(view, airport):
@@ -489,12 +471,12 @@ def _airport_row_html(view, airport):
     return (
         '<li class="place-airport" data-filter-text="%s">'
         '<a class="place-airport__link" href="%s#airport-runways" data-detection-nav data-icao="%s" '
-        'data-lat="%s" data-lon="%s" data-name="%s">'
+        'data-iata="%s" data-lat="%s" data-lon="%s" data-name="%s">'
         '<span class="place-airport__name">%s</span>'
         '<span class="place-airport__meta text-label"%s>%s</span></a></li>'
     ) % (
         escape_html(haystack), escape_html(href), escape_html(airport.icao),
-        _coord(airport.lat), _coord(airport.lon), escape_html(airport.name),
+        escape_html(airport.iata), _coord(airport.lat), _coord(airport.lon), escape_html(airport.name),
         escape_html(airport.name), current, escape_html(dp.airport_codes(airport)))
 
 
@@ -640,7 +622,7 @@ def _runway_group_html(view):
         '<div class="runway-row detection-runways" role="radiogroup" '
         'aria-labelledby="runway-group-heading">%s</div>%s'
         '<input type="hidden" name="airport" value="%s" form="%s">'
-        '<p class="text-label section-caption">%s</p>'
+        '<p class="place-hint text-label section-caption">%s</p>'
     ) % (
         escape_html(airport.name), escape_html(dp.airport_codes(airport)),
         escape_html(i18n.t(RUNWAY_LABEL)), cards,
@@ -727,14 +709,10 @@ def _timezone_field_html(view):
         _field_error_html(view.errors, "timezone", "place-timezone"))
 
 
-def _derived_text(view):
-    """The one read-only line: coordinates and time zone, empty without a pin."""
-    if not (view.latitude and view.longitude):
-        return ""
-    return DERIVED_SEPARATOR.join((view.latitude, view.longitude, view.timezone))
-
-
 def details_card_html(view):
+    """The editable coordinates, label and time zone. Open and in the flow
+    without scripts; with the map running it is a card over the map that
+    shows only when the `#details` link targets it."""
     place_section = (
         '<div class="place-fields" %s="%s">%s%s%s</div>'
     ) % (
@@ -749,28 +727,27 @@ def details_card_html(view):
     zone_section = '<div class="place-fields" %s="%s">%s</div>' % (
         DIRTY_SECTION_ATTR, escape_html(i18n.t(quiet_hours.TIMEZONE_LABEL)),
         _timezone_field_html(view))
-    title = escape_html(i18n.t(DETAILS_TITLE))
-    derived = _derived_text(view)
     return (
         '<details id="details" class="place-details" open>'
-        '<summary><span class="place-details__title visually-hidden">%s</span>'
-        '<span id="place-derived" class="place-derived text-label" data-empty="%s">%s'
-        "</span></summary>%s%s</details>"
-    ) % (title, title, escape_html(derived) if derived else title, place_section, zone_section)
-
-
-def _more_html(view):
-    """The saved setting and the map credits, tucked away while the map runs."""
-    return (
-        '<details class="place-more" open><summary>%s</summary>%s%s</details>'
-    ) % (escape_html(i18n.t(MORE_TITLE)), status_card_html(view), _about_map_html())
+        "<summary>%s</summary>%s%s"
+        '<a class="place-details__close text-link js-gate" href="#place-map">%s</a>'
+        "</details>"
+    ) % (
+        escape_html(i18n.t(DETAILS_TITLE)), place_section, zone_section,
+        escape_html(i18n.t(DETAILS_CLOSE)))
 
 
 def _panel_html(view):
-    """The sheet (phone) or left card (desktop): title, the block of the
-    chosen mode, the status lines, the derived line and the details."""
+    """The overlay that carries everything but the map and the search: the
+    card (mode switch, then the sheet with the block of the chosen mode, the
+    details and Save), the credits button and the locate button. On a phone
+    the mode switch is chips under the search and the sheet sits at the
+    bottom; from 960px the switch and the sheet form one card at the left."""
+    plain_href = device_scope.scoped(dp.DETECTION_ROUTE)
     return (
         '<div class="place-panel">'
+        '<div class="place-card">%s'
+        '<div class="place-sheet">'
         '<div class="place-panel__follow" %s="%s">'
         '<div class="place-panel__runway">%s%s</div>%s</div>'
         '<div id="place-nearest" class="place-nearest" hidden>'
@@ -779,11 +756,16 @@ def _panel_html(view):
         '<p id="place-notice" class="place-map__notice text-label" hidden></p>'
         '<p id="place-status" class="place-status text-label" role="status" '
         'aria-live="polite"></p>'
-        '<p class="place-fallback text-label section-caption">%s</p>%s%s</div>'
+        '<p class="place-fallback text-label section-caption">%s</p>%s%s'
+        "</div></div>%s%s</div>"
     ) % (
+        _mode_switch_html(view),
         DIRTY_SECTION_ATTR, escape_html(i18n.t(dp.SECTION_DETECTION)),
         airports_card_html(view), _runway_group_html(view), _area_block_html(view),
-        escape_html(i18n.t(NO_SCRIPT_MAP)), details_card_html(view), _more_html(view))
+        escape_html(i18n.t(NO_SCRIPT_MAP)), details_card_html(view),
+        dp.dirty_bar_html(
+            plain_href if view.carried_dirty else None, i18n.t(dp.SAVE_LOCATION)),
+        _credits_html(), _locate_html())
 
 
 def render(ctx, query=None, errors=None, submitted=None, place=None):
@@ -795,14 +777,11 @@ def render(ctx, query=None, errors=None, submitted=None, place=None):
     """
     ctx = page_context.coerce(ctx)
     view = _View(ctx, query, errors, submitted, place)
-    plain_href = device_scope.scoped(dp.DETECTION_ROUTE)
     return (
         layout.page_header(i18n.t(PAGE_TITLE), i18n.t(PAGE_PURPOSE))
         + fail_safe_toast_html(view)
         + _stray_errors_html(view)
         + _form_html(view)
-        + '<div class="place-page"><div class="place-stage">%s%s%s%s</div></div>' % (
-            _map_html(view), _float_html(view), _locate_html(), _panel_html(view))
-        + dp.dirty_bar_html(
-            plain_href if view.carried_dirty else None, i18n.t(dp.SAVE_LOCATION))
+        + '<div class="place-page"><div class="place-stage">%s%s%s</div></div>' % (
+            _map_html(view), _float_html(), _panel_html(view))
     )

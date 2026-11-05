@@ -3605,10 +3605,12 @@ a.calendar-disconnect-btn.flight-picture-link {
   box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
+/* min-content keeps a label whole: a segment grows to its text instead of
+ * clipping it, which would push the visible text off the segment's centre. */
 .filter-chip {
   position: relative;
   flex: 1 1 0;
-  min-width: 0;
+  min-width: min-content;
   cursor: pointer;
 }
 
@@ -5274,12 +5276,13 @@ button.detection-search:hover {
 }
 
 /* Location and detection page. Without the map script it is one column in
- * the order the markup has: the mode switch, the panel (the runway choice or
- * the radius, the airport list, the fields). With the map running
- * (html.map-ready) the map fills the stage; the mode switch and the search
- * float on it and the panel is a bottom sheet on a phone and a card at the
- * left of the map from 960px, in both cases the part of the map the script
- * keeps clear when it centres a place. */
+ * the order the markup has: the panel (the mode switch, the runway choice or
+ * the radius, the airport list, the fields, Save). With the map running
+ * (html.map-ready) the map fills the page and everything else floats on it:
+ * the one search field at the top, then on a phone the mode chips and a
+ * compact bottom sheet, from 960px a card at the left holding the mode
+ * switch and the sheet. The part of the map the script keeps clear when it
+ * centres a place is the sheet (the card on a wide screen). */
 .place-page {
   margin-bottom: var(--space-lg);
 }
@@ -5287,21 +5290,19 @@ button.detection-search:hover {
 .place-stage {
   display: grid;
   gap: var(--space-md);
-  --place-float-h: 8.5rem;
 }
 
 .place-stage > * {
   min-width: 0;
 }
 
-.place-float {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-sm);
-  align-content: start;
+.place-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
-.place-panel {
+.place-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -5311,18 +5312,20 @@ button.detection-search:hover {
   border-radius: var(--radius-card);
 }
 
-.place-panel > * {
+.place-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.place-sheet > *,
+.place-card > * {
   margin: 0;
   min-width: 0;
 }
 
 .place-search__row button {
   white-space: nowrap;
-}
-
-.place-line {
-  margin: var(--space-sm) 0 0;
-  overflow-wrap: anywhere;
 }
 
 /* The fallback explanation stays until place-map.js reports the map is
@@ -5335,7 +5338,7 @@ button.detection-search:hover {
   display: none;
 }
 
-/* The mode switch: two segments in one track. */
+/* The mode switch: two segments in one track, each label centred. */
 .place-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5356,9 +5359,15 @@ button.detection-search:hover {
   color: var(--color-text);
   font-family: var(--font-ui);
   font-weight: var(--weight-semibold);
+  line-height: 1.2;
   text-align: center;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+
+.place-mode__text {
+  display: block;
+  text-align: center;
 }
 
 .place-mode:has(input:checked) {
@@ -5380,6 +5389,7 @@ button.detection-search:hover {
 
 .place-search__row {
   display: flex;
+  align-items: center;
   gap: var(--space-sm);
 }
 
@@ -5398,56 +5408,61 @@ button.detection-search:hover {
   gap: var(--space-sm);
 }
 
-/* The chosen mode decides which block the panel shows. */
+/* The chosen mode decides which block the sheet shows. */
 .place-stage:has(#place-mode-area:checked) .place-panel__runway,
 .place-stage:not(:has(#place-mode-area:checked)) .place-panel__area {
   display: none;
 }
 
-.place-panel .detection-runways {
-  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+/* The runway cards sit three to a row, as compact as the sheet needs. */
+.place-sheet .detection-runways {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
 }
 
-.place-panel .runway-card {
-  padding: var(--space-sm) var(--space-md);
+.place-sheet .runway-card {
+  padding: var(--space-sm);
+  text-align: center;
 }
 
-.place-panel .runway-card .banner__pill {
+.place-sheet .runway-card .runway-card__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.place-sheet .runway-card .banner__pill {
   display: block;
   width: fit-content;
-  margin-top: var(--space-xs);
+  margin: var(--space-xs) auto 0;
 }
 
 .place-panel__follow {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
-.place-derived {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-}
-
-.place-more > summary {
-  font-weight: var(--weight-semibold);
-}
-
-.place-saved .text-heading {
-  margin: var(--space-sm) 0;
+.place-details__close {
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-sm);
 }
 
 /* The map is running: it fills the stage and everything else floats on it. */
+.map-ready .place-page {
+  margin: 0;
+}
+
 .map-ready .place-stage {
   position: relative;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0;
-  height: max(27rem, calc(100dvh - 17.5rem));
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  display: block;
+  flex: 1 1 auto;
+  min-height: 24rem;
   overflow: hidden;
   background: var(--color-secondary);
+  --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  --place-search-bottom: calc(var(--place-gutter) + 54px);
 }
 
 .map-ready .place-map {
@@ -5461,28 +5476,41 @@ button.detection-search:hover {
   border-radius: 0;
 }
 
+/* The one search field floats at the top of the map. Its label is for
+ * assistive technology only. */
 .map-ready .place-float {
-  grid-row: 1;
-  position: relative;
-  z-index: 2;
-  padding: var(--space-sm);
-  pointer-events: none;
-}
-
-.map-ready .place-float > * {
-  pointer-events: auto;
-}
-
-.map-ready .place-modes {
-  box-shadow: var(--shadow-card-hover);
+  position: absolute;
+  z-index: 3;
+  top: var(--place-gutter);
+  left: var(--place-gutter);
+  right: var(--place-gutter);
 }
 
 .map-ready .place-search__row {
-  padding: var(--space-xs);
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-search__row input[type="search"] {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.map-ready .place-search__go {
+  flex: none;
+  width: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-ready .place-search__go .icon {
+  display: block;
 }
 
 .map-ready .place-search label {
@@ -5505,6 +5533,10 @@ button.detection-search:hover {
   display: none;
 }
 
+.map-ready .place-results:has(.place-results__note) {
+  pointer-events: none;
+}
+
 .map-ready .place-search:focus-within .section-caption {
   display: block;
   position: absolute;
@@ -5523,55 +5555,435 @@ button.detection-search:hover {
   display: none;
 }
 
+/* On a phone the chips sit under the search field: a list of results starts
+ * below them. A one-line note lets taps through. */
 .map-ready .place-results {
+  margin: calc(44px + var(--space-md)) 0 0;
+  max-height: 40dvh;
+  overflow-y: auto;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-}
-
-.map-ready .place-panel {
-  grid-row: 3;
-  position: relative;
-  z-index: 2;
-  max-height: calc(max(27rem, 100dvh - 17.5rem) * 0.46);
-  overflow-y: auto;
-  border-width: 1px 0 0;
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
   box-shadow: var(--shadow-card-hover);
 }
 
-/* On a phone the title is the page's heading for assistive technology only:
- * the map and the sheet carry the page. The flash banner stays in the flow. */
+/* The overlay carries the card, the credits button and the locate button
+ * above the map. It lets taps through; its parts take them. */
+.map-ready .place-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding-top: calc(var(--place-search-bottom) + var(--space-sm));
+  pointer-events: none;
+}
+
+.map-ready .place-panel > *,
+.map-ready .place-card > * {
+  pointer-events: auto;
+}
+
+.map-ready .place-card {
+  display: contents;
+}
+
+/* The mode chips: two pills under the search field on a phone. */
+.map-ready .place-modes {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  display: flex;
+  gap: var(--space-sm);
+  margin-left: var(--place-gutter);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.map-ready .place-mode {
+  padding: 0 var(--space-md);
+  border-radius: 22px;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-mode:has(input:checked) {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.map-ready .place-info {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  display: block;
+  margin-right: var(--place-gutter);
+}
+
+.map-ready .place-info__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+
+.map-ready .place-info__button .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.map-ready .place-credits {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: min(20rem, calc(100vw - 2 * var(--place-gutter)));
+  box-sizing: border-box;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+
+.map-ready .place-credits[hidden] {
+  display: none;
+}
+
+.map-ready .place-credits p {
+  margin: 0;
+}
+
+.map-ready .place-credits a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.map-ready .place-credits__attribution {
+  font-weight: var(--weight-semibold);
+}
+
+.map-ready .place-tools {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin: 0 var(--place-gutter) var(--place-gutter) var(--place-gutter);
+  pointer-events: none;
+}
+
+.map-ready .place-message {
+  max-width: 16rem;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-text);
+  pointer-events: auto;
+}
+
+.map-ready .place-message[hidden] {
+  display: none;
+}
+
+/* The sheet: a compact bottom sheet that never covers more than about 40% of
+ * the viewport; it scrolls inside when it must. */
+.map-ready .place-sheet {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  box-sizing: border-box;
+  max-height: 40dvh;
+  overflow-y: auto;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--shadow-card-hover);
+  pointer-events: auto;
+}
+
+.map-ready .place-hint,
+.map-ready .place-picker,
+.map-ready .place-radius > .section-caption,
+.map-ready .place-sheet .place-radius label,
+.map-ready .place-panel__area .place-subtitle {
+  display: none;
+}
+
+.map-ready .place-sheet .place-chosen p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.map-ready .place-sheet .place-chosen__name {
+  font-family: var(--font-serif);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-regular);
+}
+
+/* Save and Cancel live in the sheet; the count line is for assistive
+ * technology only. */
+.map-ready .place-sheet .dirty-bar {
+  position: sticky;
+  bottom: 0;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: var(--space-md);
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: var(--space-sm) 0 0;
+  background: var(--color-dominant);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: auto;
+}
+
+.map-ready .place-sheet .dirty-bar[hidden] {
+  display: none;
+}
+
+.map-ready .place-sheet .dirty-bar [data-dirty-count] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.map-ready .place-sheet .dirty-bar button {
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+}
+
+.map-ready .place-sheet .dirty-bar__cancel {
+  background: none;
+  border-color: transparent;
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+/* The page title is the page's heading for assistive technology only: the
+ * map carries the page. The flash banner stays in the flow. */
+.map-ready .page-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The details (coordinates, label, time zone) are a card over the map,
+ * shown when the Quiet hours link targets them or a save was refused. */
+.map-ready .place-details {
+  display: none;
+}
+
+.map-ready .place-details:target,
+.map-ready .place-details:has([aria-invalid="true"]) {
+  display: block;
+  position: absolute;
+  z-index: 5;
+  top: var(--place-gutter);
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  max-height: calc(100% - 40dvh - 2 * var(--place-gutter));
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+}
+
+.map-ready .place-details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: var(--weight-semibold);
+  list-style: none;
+  pointer-events: none;
+}
+
+.map-ready .place-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.map-ready .place-details__close {
+  display: inline-flex;
+}
+
+/* The page fills the area between the app bar and the tab bar on a phone,
+ * the whole content area from 960px. The page's own padding goes. */
+.map-ready .page-content:has(.place-stage) {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  height: calc(100dvh - 52px - 57px - env(safe-area-inset-bottom, 0px));
+  padding: 0;
+}
+
+.map-ready .page-content:has(.place-stage) > * {
+  flex: none;
+}
+
+.map-ready .page-content:has(.place-stage) > .place-page {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.map-ready .site-header:has(~ .page-content .place-stage) {
+  margin-bottom: 0;
+}
+
+/* No zoom buttons on a phone (pinch zooms); the keyboard and the wide screen
+ * have them. */
 @media (max-width: 959.98px) {
-  .map-ready .page-header {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .map-ready .place-locate {
-    position: absolute;
-    z-index: 2;
-    right: var(--space-sm);
-    top: calc(var(--place-float-h) + 7rem);
-  }
-
-  .place-page:has(~ .dirty-bar:not([hidden])) .place-panel {
-    padding-bottom: 8.5rem;
+  .map-ready .place-map .leaflet-control-zoom {
+    display: none;
   }
 }
 
-/* The airport list shows while its filter field is in use, and after a
- * submitted filter. */
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-airports,
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-filter-hint,
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-results-count,
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-subtitle {
-  display: none;
+@media (min-width: 960px) {
+  /* The shell's column gap is taken back so the map meets the sidebar. */
+  .map-ready .page-content:has(.place-stage) {
+    width: calc(100% + var(--space-xl));
+    height: 100dvh;
+    margin: 0 0 0 calc(-1 * var(--space-xl));
+  }
+
+  .map-ready .place-stage {
+    min-height: 34rem;
+    --place-card-w: 360px;
+    --place-search-bottom: calc(var(--space-md) + 54px);
+  }
+
+  .map-ready .place-float {
+    right: auto;
+    top: var(--space-md);
+    left: var(--space-md);
+    width: var(--place-card-w);
+  }
+
+  .map-ready .place-panel {
+    grid-template-columns: calc(var(--place-card-w) + 2 * var(--space-md)) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  /* The mode switch and the sheet are one card at the left. */
+  .map-ready .place-card {
+    display: flex;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 1;
+    gap: var(--space-md);
+    box-sizing: border-box;
+    margin: 0 var(--space-md);
+    max-height: calc(100dvh - var(--place-search-bottom) - 2 * var(--space-md));
+    overflow-y: auto;
+    pointer-events: auto;
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .map-ready .place-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    justify-self: stretch;
+    margin: 0;
+    padding: var(--space-xs);
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  .map-ready .place-mode {
+    border-radius: var(--radius-control);
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .map-ready .place-mode:has(input:checked) {
+    border-radius: var(--radius-control);
+    background: var(--color-dominant);
+    color: var(--color-accent);
+    box-shadow: var(--shadow-card);
+  }
+
+  .map-ready .place-sheet {
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .map-ready .place-sheet .dirty-bar {
+    justify-content: flex-start;
+  }
+
+  .map-ready .place-info {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+    margin: 0 var(--space-md) var(--space-sm) 0;
+  }
+
+  .map-ready .place-credits {
+    top: auto;
+    bottom: calc(100% + var(--space-sm));
+  }
+
+  .map-ready .place-tools {
+    grid-column: 2;
+    grid-row: 4;
+    margin: 0 var(--space-md) var(--space-md) 0;
+  }
+
+  .map-ready .place-details:target,
+  .map-ready .place-details:has([aria-invalid="true"]) {
+    left: calc(var(--place-card-w) + 3 * var(--space-md));
+    right: auto;
+    width: min(28rem, calc(100% - var(--place-card-w) - 4 * var(--space-md)));
+    top: var(--space-md);
+    max-height: calc(100% - 2 * var(--space-md));
+  }
+
+  .map-ready .place-results {
+    margin-top: var(--space-xs);
+  }
 }
 
 /* The map. Leaflet's own stylesheet comes first on this page; the rules
@@ -5597,7 +6009,9 @@ button.detection-search:hover {
 
 /* A map that did not start leaves the plain form: nothing script-only shows. */
 html:not(.map-ready) .place-search,
-html:not(.map-ready) .place-locate {
+html:not(.map-ready) .place-info,
+html:not(.map-ready) .place-tools,
+html:not(.map-ready) .place-details__close {
   display: none;
 }
 
@@ -5629,17 +6043,6 @@ html:not(.map-ready) .place-locate {
 .place-map .leaflet-bar {
   border: 1px solid var(--color-border);
   box-shadow: none;
-}
-
-.place-map .leaflet-control-attribution {
-  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
-  color: var(--color-text);
-  font-size: var(--font-label-size);
-}
-
-.place-map .leaflet-control-attribution a {
-  color: var(--color-text);
-  text-decoration: underline;
 }
 
 .place-map.leaflet-container:focus-visible {
@@ -5765,14 +6168,6 @@ button.place-result:hover {
   margin: 0;
 }
 
-.place-about {
-  margin-top: var(--space-sm);
-}
-
-.place-about .section-caption {
-  margin: 0 0 var(--space-sm);
-}
-
 /* The airport list scrolls inside its card; each row is one link. */
 .place-airports {
   list-style: none;
@@ -5878,10 +6273,6 @@ button.place-result:hover {
   align-items: center;
 }
 
-.map-ready .place-details:not([open]) .place-derived {
-  text-decoration: none;
-}
-
 /* The locate button is a round button on the map. */
 .map-ready .place-locate {
   width: 48px;
@@ -5894,6 +6285,7 @@ button.place-result:hover {
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-card-hover);
   color: var(--color-accent);
+  pointer-events: auto;
 }
 
 .map-ready .place-locate__label {
@@ -5903,53 +6295,6 @@ button.place-result:hover {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-@media (max-width: 959.98px) {
-  .map-ready .place-map .leaflet-top {
-    top: var(--place-float-h);
-  }
-}
-
-@media (min-width: 960px) {
-  .map-ready .place-stage {
-    grid-template-columns: 24rem minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    height: max(34rem, calc(100dvh - 17rem));
-    padding: var(--space-md);
-  }
-
-  .map-ready .place-float {
-    grid-column: 1;
-    grid-row: 1;
-    padding: var(--space-md) var(--space-md) 0;
-    background: var(--color-dominant);
-    border: 1px solid var(--color-border);
-    border-bottom: 0;
-    border-radius: var(--radius-card) var(--radius-card) 0 0;
-    box-shadow: var(--shadow-card-hover);
-    pointer-events: auto;
-  }
-
-  .map-ready .place-modes,
-  .map-ready .place-search__row {
-    box-shadow: none;
-  }
-
-  .map-ready .place-panel {
-    grid-column: 1;
-    grid-row: 2;
-    max-height: none;
-    border-width: 0 1px 1px;
-    border-radius: 0 0 var(--radius-card) var(--radius-card);
-  }
-
-  .map-ready .place-locate {
-    position: absolute;
-    z-index: 2;
-    right: var(--space-lg);
-    bottom: calc(var(--space-lg) + var(--space-xl));
-  }
 }
 
 .rule-add-form {

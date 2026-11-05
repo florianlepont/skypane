@@ -59,8 +59,8 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 | U4b | Change the look (Personalisation tab, tap a look, Save) | 5 (old U4 look) | 3 | 3 | -2 | yes |
 | A9 | Administrator changes a user's role (Users tab, choose the role in the row; the select saves at once, plan 61-43) | 4 (Users tab, Manage user, choose, Save role) | 2 | 2 | -2 | yes |
 | U4c | Administrator changes the refresh interval (Settings block of the Fleet view: scroll, the interval, Save) | not measured, new flow | 3 | 3 | n/a | yes |
-| L1 | Pick an airport from the list (Location tab, type in the filter, tap the airport, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
-| L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
+| L1 | Pick an airport (Location tab, type its code in the search field, tap Search, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41; unchanged by plan 61-50) | n/a | yes (rebuilt Location page) |
+| L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41; unchanged by plan 61-50) | n/a | yes (rebuilt Location page) |
 | L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 5 (was 6 before plan 61-41) | n/a | yes |
 | L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 3 (was 4 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
@@ -76,8 +76,8 @@ Measured paths (360 x 844):
 - U4a: tap the schedule link on Home (opens the Quiet hours dialog), type the start time, Save.
 - U4b: Personalisation tab, tap a look card, Save (plan 61-48: the Departures and Arrivals views are one tap apart in the single tab bar; before it Arrivals was a tab inside the Look view, also one tap; the count is unchanged).
 - U4c: Device tab in the Console bar, type the interval in the number field, Save.
-- L1: Location tab, type "Lyon" in the airport filter (the first control of the sheet), tap the airport (it opens the same page for that airport), Save.
-- L2: Location tab, the permission prompt (one counted step), tap the round Use my position button on the map, Save.
+- L1: Location tab, type the airport's code ("LYS") in the one search field at the top of the map, tap Search (an airport code or name is answered from the page's own list: it opens the same page for that airport, no request to the search service), Save (plan 61-50: before it, the airport filter then the airport link; the count is unchanged).
+- L2: Location tab, the permission prompt (one counted step), tap the round Use my position button on the map (it now also switches to My position mode, plan 61-50), Save.
 - L3: Location tab, type the query, tap Search places, tap the result (no scroll), Save.
 - L4: Location tab, tap the part of the map the floating controls and the sheet leave clear, Save.
 - S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.

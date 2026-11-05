@@ -168,7 +168,9 @@ def test_the_location_page_holds_what_display_lost(rig):
     status, page = rig.get("owner", rig.scope() + "/detection")
     assert status == 200
     assert 'id="place-map"' in page and 'name="timezone"' in page
-    assert "Runway 08L/26R at Charles de Gaulle International Airport (CDG)" in _text(page)
+    assert "Charles de Gaulle International Airport" in _text(page)
+    checked = re.search(r'<input type="radio" name="runway" value="08L/26R"[^>]*checked', page)
+    assert checked
 
 
 # --- Device -----------------------------------------------------------------

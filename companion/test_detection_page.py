@@ -114,47 +114,47 @@ def _save_lfpg(rig, runway="08L/26R"):
 # --- summary --------------------------------------------------------------
 
 
-def test_summary_default_orly_legacy_values(rig):
+def test_default_orly_page_values(rig):
     status, _h, page = rig.get("owner", rig.scope() + "/detection")
     assert status == 200
     text = _visible_text(page)
-    assert "Runway 07/25 at Paris-Orly Airport (ORY)" in text
+    assert "Paris-Orly" in text and "LFPO · ORY · Paris" in text
     assert "Runway 3" in text
-    assert '<code class="detection-tag" lang="en">ORY · RWY 3</code>' in page
-    assert '<code class="detection-tag" lang="en">Watching Runway 3</code>' in page
+    assert "detection-summary" not in page and "Saved setting" not in text
 
 
 @pytest.mark.parametrize("legacy,designator,tag,pill", [
     ("06-24", "06/24", "ORY · RWY 06/24", "Runway 4"),
     ("02-20", "02/20", "ORY · RWY 02/20", "Runway 2"),
 ])
-def test_summary_other_legacy_orly_runways(rig, legacy, designator, tag, pill):
+def test_other_legacy_orly_runways_check_their_card(rig, legacy, designator, tag, pill):
     device_config.save_device_config(rig.owner_dir(), tracked_runway=legacy)
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    assert "Runway %s at Paris-Orly Airport (ORY)" % designator in _visible_text(page)
-    assert tag in page and pill in page
+    checked = [c for c in _cards(page) if " checked" in c]
+    assert len(checked) == 1 and 'value="%s"' % designator in checked[0]
+    assert pill in checked[0]
 
 
-def test_summary_catalogue_runway_has_catalogue_tag_and_no_pill(rig):
+def test_catalogue_runway_is_checked_and_has_no_pill(rig):
     _save_lfpg(rig)
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
     text = _visible_text(page)
-    assert "Runway 08L/26R at Charles de Gaulle International Airport (CDG)" in text
-    assert "CDG · 08L/26R" in page
-    assert "Watching Runway 08L/26R" in page
+    assert "Charles de Gaulle International Airport" in text and "LFPG · CDG ·" in text
+    checked = [c for c in _cards(page) if " checked" in c]
+    assert len(checked) == 1 and 'value="08L/26R"' in checked[0]
     assert "banner__pill" not in page
 
 
-def test_summary_position_setting_without_a_location_keeps_the_orly_values(rig):
+def test_position_setting_without_a_location_shows_the_warning_and_the_orly_runways(rig):
     device_config.save_device_config(
         rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
     assert "No usable location" in _visible_text(page)
     assert "toast--docked" in page
-    assert "ORY · RWY 3" in page
+    assert "LFPO · ORY · Paris" in _visible_text(page)
 
 
-def test_summary_position_setting_with_a_location(rig):
+def test_position_setting_with_a_location_fills_the_place_fields(rig):
     from companion.pages import place_page
     device_config.save_device_config(
         rig.owner_dir(), detection={"mode": "position", "radius_km": 9})
@@ -162,8 +162,8 @@ def test_summary_position_setting_with_a_location(rig):
     place = {"id": 1, "name": "Home", "latitude": 48.8566, "longitude": 2.3522,
              "timezone": "Europe/Paris", "shared": False}
     markup = place_page.render(ctx, place=place)
-    assert "Aircraft within 9 km of Home" in _visible_text(markup)
-    assert "NEARBY · 9 KM" in markup and "Watching Within 9 km" in markup
+    assert 'id="place-label" name="place_label"' in markup and 'value="Home"' in markup
+    assert 'value="48.8566"' in markup and 'value="9"' in markup
     assert "toast--docked" not in markup
 
 
@@ -299,7 +299,7 @@ def test_runway_cards_for_orly_carry_the_legacy_pills(rig):
     text = _visible_text(page)
     for pill in ("Runway 3", "Runway 4", "Runway 2"):
         assert pill in text
-    assert "ORY · RWY 3" in text
+    assert "LFPO · ORY · Paris" in text
 
 
 @pytest.mark.parametrize("code", ["ZZZZ", "..%2Fx", "lfpg", "LFPG%20"])
@@ -494,9 +494,9 @@ def test_french_page_uses_the_catalogue_strings(rig):
     text = _visible_text(page)
     assert "Lieu et détection" in text
     assert "Rechercher des aéroports" in text
-    assert "Réglage actuel" in text
+    assert "Rechercher un aéroport ou une adresse" in text
     assert "Aéroports français" in text
-    assert "ORY · RWY 3" in page
+    assert "LFPO · ORY · Paris" in page
     assert re.search(r"\d+ aéroports? trouvés?", text)
 
 
@@ -668,4 +668,4 @@ def test_a_co_manager_sees_the_current_location_name_of_the_owner(rig):
     device_config.save_device_config(
         rig.owner_dir(), detection={"mode": "position", "radius_km": 10})
     _s, _h, body = rig.get("co", rig.scope() + "/detection")
-    assert "Owner Town" in _visible_text(body)
+    assert 'name="place_label"' in body and 'value="Owner Town"' in body

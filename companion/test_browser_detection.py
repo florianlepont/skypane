@@ -15,7 +15,7 @@ import pytest
 from co_manager_browser_support import SUBPIXEL
 from co_manager_browser_support import Rig as UserRig
 from co_manager_browser_support import _open as _open_as
-from place_map_support import Hosts
+from place_map_support import Hosts, open_details
 from companion import auth
 from companion_app_server import TEST_ADMIN_EMAIL, session_cookie_for_state_dir
 from server import airports, device_config, device_dirs, fleet_db, hardware
@@ -319,7 +319,7 @@ def test_editing_a_coordinate_names_the_place_section(new_context, make_app_serv
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     page, _dialogs = _open(new_context, server, lang=lang)
     _wait_for_bar_hidden(page)
-    page.click("#details > summary")
+    open_details(page)
     page.fill("#place-lat", "43.1")
     _wait_for_bar(page)
     suffix = page.get_attribute("[data-dirty-bar]", "data-dirty-changed-suffix")
@@ -334,11 +334,10 @@ def _carry_radius_through_a_filter(page):
     page.fill("#place-radius", "12")
     # The airport list belongs to the Airport mode.
     page.click(MODE_RUNWAY_LABEL)
-    page.fill("#airport-filter", SEARCH)
+    # The one search field answers an airport code by opening that airport's page.
+    page.fill("#place-search", SEARCH)
     with page.expect_navigation():
-        page.click(SEARCH_BUTTON)
-    with page.expect_navigation():
-        page.locator("a.place-airport__link[data-icao=%s]" % CDG).click()
+        page.click("form.place-search button")
 
 
 def test_filter_and_pick_do_not_raise_leave_guard_and_keep_radius(new_context, make_app_server):
@@ -400,9 +399,9 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
     server = make_app_server(seed=_seed(SAVED_POSITION), fake_providers=True)
     page, dialogs = _open(new_context, server)
     page.click(MODE_RUNWAY_LABEL)
-    page.fill("#airport-filter", SEARCH)
+    page.fill("#place-search", SEARCH)
     with page.expect_navigation():
-        page.click(SEARCH_BUTTON)
+        page.click("form.place-search button")
     page.go_back()
     page.wait_for_load_state()
     page.click(MODE_RUNWAY_LABEL)

@@ -88,20 +88,32 @@ class Hosts:
 MIN_PX = 44
 
 # The part of the map the floating controls and the panel leave clear: right of the card on a wide
-# screen, between the floating controls and the sheet on a phone.
+# screen, between the mode chips and the sheet on a phone.
 CLEAR_BOX = (
     "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
-    " const p = document.querySelector('.place-panel').getBoundingClientRect();"
     " if (window.matchMedia('(min-width: 960px)').matches) {"
-    "   return {x: p.right, y: m.top, width: m.right - p.right, height: m.height}; }"
-    " const f = document.querySelector('.place-search').getBoundingClientRect();"
-    " return {x: m.left, y: f.bottom, width: m.width, height: p.top - f.bottom}; }")
+    "   const c = document.querySelector('.place-card').getBoundingClientRect();"
+    "   return {x: c.right, y: m.top, width: m.right - c.right, height: m.height}; }"
+    " const top = Math.max(document.querySelector('.place-search').getBoundingClientRect().bottom,"
+    "   document.querySelector('.place-modes').getBoundingClientRect().bottom);"
+    " const s = document.querySelector('.place-sheet').getBoundingClientRect();"
+    " return {x: m.left, y: top, width: m.width, height: s.top - top}; }")
 
-# Whether the page is at rest and a known control owns its own centre.
+# Whether the details card of the Location page (coordinates, label, time zone) shows: with the map
+# running it is a card over the map that the `#details` link brings up.
+DETAILS_SHOWN = (
+    "() => { const d = document.getElementById('details');"
+    " return d.open && getComputedStyle(d).display !== 'none'"
+    " && d.getBoundingClientRect().height > 0; }")
+
+# Whether the page is at rest and a known control owns its own centre: the search field with the
+# map running, the airport filter of the plain form without it.
 SETTLED = (
     "() => {"
     " if (document.getAnimations().some((a) => a.playState === 'running')) return false;"
-    " const e = document.querySelector('#airport-filter');"
+    " const e = ['#place-search', '#airport-filter'].map((s) => document.querySelector(s))"
+    "   .find((el) => el && el.getBoundingClientRect().width > 0);"
+    " if (!e) return false;"
     " e.scrollIntoView({block: 'center'});"
     " const r = e.getBoundingClientRect();"
     " return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === e; }")
@@ -149,3 +161,9 @@ def saved_place(server):
         return fleet_db.frame_position(conn, device)
     finally:
         conn.close()
+
+
+def open_details(page):
+    """Brings the details card up the way the Quiet hours note does: by its `#details` target."""
+    page.evaluate("() => { window.location.hash = 'details'; }")
+    page.wait_for_function(DETAILS_SHOWN, timeout=5000)

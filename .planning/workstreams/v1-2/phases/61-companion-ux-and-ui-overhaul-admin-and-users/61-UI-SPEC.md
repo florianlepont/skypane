@@ -892,7 +892,7 @@ airports) are kept and re-presented.
 **Visual anchor:** the map is the largest element and the first thing the eye reads; the accent pin on
 it is the only accent mark above the fold apart from the active tab and, for an administrator, the accent-filled current segment of the space switch.
 
-### 9.0 Revision 3 (D28): the page is sketch V1; 9.1 and the card-by-card wording below it are history
+### 9.0 Revision 3 (D28): the page is sketch V1; 9.1 and the card-by-card wording below it are history (9.0b below supersedes parts of this)
 
 The map fills the page. Without scripts the page is the plain column described in 9.8.
 
@@ -915,6 +915,45 @@ The map fills the page. Without scripts the page is the plain column described i
 - The map's zoom control is at the top right; the OpenStreetMap credit is at the bottom right on desktop and at the top left, under the
   controls, on a phone (the bottom of the map is under the sheet). The Save bar is the existing dirty bar.
 - Tokens only (no colour literals), both themes, 360px and 1280px, every control at least 44px.
+
+### 9.0b Revision 4 (D36, plan 61-50): mockups L1 (phone, Airport), L2 (phone, My position), L3 (desktop); supersedes 9.0 where they differ
+
+The map is the page. Owner feedback W25 (unusable on a phone), W40 (bigger map), W41 (centred segment labels), W42 (one search field),
+W43 (locate button bug), W44 (no coordinates line), W45 (no saved-settings disclosure, discreet map credit).
+
+- **Stage** (`.place-stage`, map running): fills the page content area. Phone: edge to edge, from the slim app bar to the tab bar (the page
+  content is a flex column of `100dvh - 52px - 57px - safe-area`; a docked warning above the map takes its height off the map, never off the
+  screen), no page scroll, no horizontal overflow, verified at 360x640, 360x844, 390x844. Desktop (>=960px): the whole content area, full
+  viewport height, meeting the sidebar. The page title is visually hidden at both sizes.
+- **One search field** (`.place-search`, `#place-search`, placeholder "Airport (ORY) or address" / "Aéroport (ORY) ou adresse"): floats at
+  the top of the map (12px from the edges on a phone, 360px wide above-left on desktop, separate from the card). Enter or its round search
+  button submits. Text equal to an airport's ICAO code, IATA code or whole name (case, accents and spaces folded) opens that airport's page
+  (`?airport=`, the existing GET flow; no request leaves). Anything else is an address: the existing Nominatim-on-submit flow (one request
+  per submit, lock, cache). A result list starts under the mode chips on a phone; a one-line note never blocks a tap and goes after 8 s.
+  The airport filter field and list exist only in the no-script page (the list's anchors stay in the page as the map's airport data).
+- **Mode** (radios `place-mode-runway` / `place-mode-area`, FR "Aéroport" / "Ma position"): two pill chips under the search field on a
+  phone; the two-segment switch at the top of the card on desktop. Every label is centred in its segment (text box measured against the
+  segment box within 1 px).
+- **Sheet** (`.place-sheet`): phone, a compact bottom sheet, never more than 40dvh (scrolls inside; Cancel and Save stick to its foot):
+  airport name and codes, "Runway to follow", the runway cards three to a row (surface and tag hint hidden), Cancel and Save (the dirty bar,
+  now inside the sheet; it shows once something changed). My position: the radius (number field plus a pointer-only range) and Save. The
+  map recentres on the part the sheet and the floating controls leave clear, and again only when the sheet changes height under the pin.
+  Desktop: the sheet is the body of the 360px card (`.place-card`) under the mode switch, at the left of the map.
+- **Locate button** (`#place-locate`, 48px round, bottom right on the map, above the sheet on a phone): requests the position with the page's
+  permission policy (`geolocation=(self)`), on success switches to My position, places the pin, draws the circle and recentres; on refusal,
+  error or timeout (10 s, plus a 3 s guard) a short message shows in a pill beside the button (`#place-message`, also in the polite status
+  line). Hidden without scripts or without `navigator.geolocation`.
+- **Credits**: no strip over the map. A round 44px "i" button (`#place-info`: top right under the search on a phone, above the locate
+  button on desktop) opens a popover with "© OpenStreetMap contributors" (link to the copyright page), the ODbL / tile / Nominatim credits,
+  the privacy line and the copyright and "report a map problem" links; Escape or a tap outside closes it. See COMPLIANCE.md.
+- **Removed from the page:** the coordinates-and-time-zone summary line and the "Saved setting and map credits" disclosure. Latitude,
+  longitude, label and time zone are still derived, posted and stored. Without scripts they are the open `#details` block in the plain
+  column. With the map running `#details` is a card over the map that shows only when the URL targets it (`#details`, the Quiet hours note's
+  link) or a refused save has an error in it; "Back to the map" closes it.
+- **Segmented controls app-wide (W41):** the filter chips (Departures / Arrivals counts) were clipping long labels ("DEPARTU...") so the
+  visible text sat off centre; `.filter-chip` now has `min-width: min-content` so a segment grows to its label. A browser test measures the
+  label box against the segment box on the flights, airlines, Personalisation and account pages at 360 and 1280px in both languages.
+- Tokens only, both themes, every control at least 44px.
 
 ### 9.1 Page structure (revision 1/2, history; top to bottom on phone; two columns at >=960px)
 
