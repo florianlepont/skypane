@@ -138,50 +138,98 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
             assert page.locator(selector).first.evaluate(_OWNS_CENTRE), selector
         assert not page.locator(".collection-controls__apply").is_visible()
         _assert_bar_is_one_unclipped_unit(page, viewport["width"])
-        for pill in page.locator(".collection-badge").all():
-            assert pill.bounding_box()["height"] >= 44 - 0.5
+        _wait_owns_centre(page, ".collection-legend > summary")
+        legend_box = page.locator(".collection-legend > summary").bounding_box()
+        assert legend_box["height"] >= 44 - 0.5 and legend_box["width"] >= 44 - 0.5
+        for badge in page.locator(".collection-badge").all():
+            box = badge.bounding_box()
+            assert 24 <= box["width"] <= 36 and abs(box["width"] - box["height"]) < 1
+            assert badge.get_attribute("title") and badge.locator(".visually-hidden").inner_text()
         assert page.locator(".collection-badge--earned").count() == 1
         assert page.locator(".collection-badge--locked").count() == 4
         assert page.locator(".collection-badge--locked .visually-hidden").first.inner_text(
         ).startswith("Locked" if lang == "en" else "Verrouillé")
-        assert page.locator(".collection-progress__bar").bounding_box()["height"] >= 12 - 0.5
+        assert 3 <= page.locator(".collection-progress__bar").bounding_box()["height"] <= 8
+        _assert_segments_are_centred(page)
     finally:
         context.close()
 
 
+def _assert_segments_are_centred(page):
+    """Every segment's label and count sit centred in their segment (the owner dislikes
+    off-centre labels)."""
+    offsets = page.evaluate(
+        "() => Array.from(document.querySelectorAll('.filter-chip__box')).map(box => {"
+        " const r = box.getBoundingClientRect(); const range = document.createRange();"
+        " range.selectNodeContents(box); const t = range.getBoundingClientRect();"
+        " return {left: t.left - r.left, right: r.right - t.right,"
+        " align: getComputedStyle(box).justifyContent}; })")
+    assert offsets
+    for offset in offsets:
+        assert offset["align"] == "center" and abs(offset["left"] - offset["right"]) <= 2, offsets
+
+
 def _assert_bar_is_one_unclipped_unit(page, width):
-    """Every control of the bar sits inside the form and inside the viewport, the count has no
-    border or fill, and the sort shares the field's row."""
+    """Every control of the bar sits inside the form and inside the viewport, the legend button
+    ends the row, and on a wide screen the field, the segments and the sort share one row."""
     geometry = page.evaluate(
         "() => { const form = document.querySelector('.collection-controls').getBoundingClientRect();"
         " const box = sel => document.querySelector(sel).getBoundingClientRect();"
-        " const count = getComputedStyle(document.querySelector('.collection-controls__count'));"
         " return {form: [form.left, form.right],"
-        " parts: ['#collection-filter', '.collection-sort select', '.filter-bar__chips']"
+        " parts: ['#collection-filter', '.collection-sort select', '.filter-bar__chips',"
+        " '.collection-legend > summary']"
         ".map(sel => [box(sel).left, box(sel).right, box(sel).top]),"
-        " countBorder: count.borderTopWidth, countBg: count.backgroundColor,"
-        " countText: document.querySelector('.collection-controls__count').textContent}; }")
+        " visibleCount: !!document.querySelector('.collection-controls__count')}; }")
     for left, right, _top in geometry["parts"]:
         assert left >= geometry["form"][0] - 0.5 and right <= geometry["form"][1] + 0.5, geometry
         assert left >= -0.5 and right <= width + 0.5, geometry
-    assert geometry["countBorder"] == "0px" and geometry["countBg"] == "rgba(0, 0, 0, 0)", geometry
-    assert re.search(r"\d+", geometry["countText"]), geometry
+    assert not geometry["visibleCount"], geometry
     if width >= 700:
-        assert abs(geometry["parts"][0][2] - geometry["parts"][1][2]) < 24, geometry
+        tops = [part[2] for part in geometry["parts"]]
+        assert max(tops) - min(tops) < 24, geometry
 
 
-def test_the_headline_is_the_first_thing_under_the_page_header(new_context, make_app_server):
+def test_the_progress_line_sits_in_the_one_line_header(new_context, make_app_server):
     server = make_app_server(seed=_seed)
-    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
-        first = page.evaluate(
-            "() => { const header = document.querySelector('main .page-header');"
-            " let el = header.nextElementSibling;"
-            " while (el && el.classList.contains('flash-slot')) el = el.nextElementSibling;"
-            " return el.querySelector('.collection-progress__headline')"
-            " ? el.querySelector('.collection-progress__headline').textContent : null; }")
-        assert first is not None and first.startswith("%d of " % TOTAL_SPOTTED)
-        assert first.endswith(" airlines spotted")
+        geometry = page.evaluate(
+            "() => { const box = sel => document.querySelector(sel).getBoundingClientRect();"
+            " return {title: box('.page-title'), line: box('.collection-progress__headline'),"
+            " bar: box('.collection-progress__bar'), badges: box('.collection-badges'),"
+            " text: document.querySelector('.collection-progress__headline').textContent,"
+            " head: box('main .page-header')}; }")
+        assert geometry["text"].startswith("%d airlines spotted \u00b7 " % TOTAL_SPOTTED)
+        assert geometry["text"].endswith(" badge")
+        assert geometry["line"]["top"] > geometry["bar"]["top"]
+        assert geometry["line"]["top"] < geometry["title"]["bottom"] + 40
+        assert geometry["badges"]["left"] > geometry["bar"]["left"]
+        assert abs(geometry["badges"]["top"] - geometry["title"]["top"]) < 40
+        assert geometry["head"]["height"] < 90, geometry
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_phone_header_takes_no_more_than_a_third_of_the_screen(
+        new_context, make_app_server, lang):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, lang=lang)
+    try:
+        geometry = page.evaluate(
+            "() => { const box = sel => document.querySelector(sel).getBoundingClientRect();"
+            " const head = box('main .page-header'); const bar = box('.collection-controls');"
+            " const chips = document.querySelector('.filter-bar__chips');"
+            " return {head: head.height, headBottom: head.bottom, bar: bar,"
+            " title: box('.page-title'), badges: box('.collection-badges'),"
+            " chipsScroll: chips.scrollWidth, chipsBox: chips.getBoundingClientRect().height,"
+            " chips: Array.from(document.querySelectorAll('.filter-chip'))"
+            ".map(c => c.getBoundingClientRect().top)}; }")
+        assert geometry["head"] <= 740 / 3, geometry
+        assert geometry["badges"]["top"] >= geometry["title"]["bottom"] - 0.5
+        assert max(geometry["chips"]) - min(geometry["chips"]) < 2, geometry
+        assert geometry["title"]["height"] < 40, geometry
+        assert geometry["chipsBox"] < 64, geometry
     finally:
         context.close()
 
@@ -282,7 +330,7 @@ def test_the_sort_and_the_chips_apply_on_change_with_script(new_context, make_ap
         assert page.locator(CARD).count() == TOTAL_SPOTTED
         assert "sort=az" in page.url
         page.wait_for_function(
-            "() => document.querySelector('.collection-controls__count').textContent.includes('3')",
+            "() => document.querySelector('[data-filter-count]').textContent.includes('3')",
             timeout=10000)
     finally:
         context.close()
@@ -307,10 +355,16 @@ def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_wo
         for pill in (rare, occasional):
             assert pill["color"] == pill["border"]
             assert _contrast(pill["color"], pill["bg"]) >= 4.5, (theme, pill)
+        assert not page.locator(".rarity-legend").is_visible()
+        page.locator(".collection-legend > summary").click()
+        page.locator(".rarity-legend").wait_for(state="visible")
         legend = page.locator(".rarity-legend").inner_text()
         for word in ("Regular", "Occasional", "Rare", "10 or more sightings", "3 to 9 sightings",
                      "Fewer than 3 sightings"):
             assert word in legend
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('.collection-legend').open", timeout=10000)
         page.locator(SEEN_CARD).first.click()
         page.wait_for_function(
             "() => !!document.querySelector('dialog[open] .type-chip')", timeout=10000)
@@ -378,5 +432,43 @@ def test_the_collection_is_two_taps_from_home_on_a_phone_and_one_on_desktop(
             page.locator("nav.sidebar-nav a", has_text="Airline collection").click()
         page.wait_for_url("**/airlines")
         assert page.locator(".collection-progress__headline").is_visible()
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_the_detail_sheet_fits_the_screen_with_its_head_and_close_in_reach(
+        new_context, make_app_server, label, viewport, lang):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), viewport, lang=lang)
+    try:
+        page.locator(SEEN_CARD).first.click()
+        page.wait_for_function(
+            "() => { const d = document.querySelector('dialog.collection-sheet[open]');"
+            " return !!d && d.contains(document.activeElement) && d.getBoundingClientRect().height > 0"
+            " && document.getAnimations().every(a => a.playState !== 'running'); }", timeout=10000)
+        geometry = page.evaluate(
+            "() => { const d = document.querySelector('dialog.collection-sheet[open]');"
+            " const box = sel => d.querySelector(sel).getBoundingClientRect();"
+            " const r = d.getBoundingClientRect();"
+            " const facts = Array.from(d.querySelectorAll('.collection-facts > div'))"
+            ".filter(f => !f.classList.contains('collection-facts__wide'))"
+            ".map(f => f.getBoundingClientRect().top);"
+            " return {dialog: [r.top, r.bottom], vh: window.innerHeight,"
+            " head: box('.modal__head'), close: box('.modal__close'), dismiss: box('.modal__dismiss'),"
+            " art: box('.collection-sheet__art .collection-card__image'),"
+            " body: [d.querySelector('.modal__body').scrollHeight,"
+            " d.querySelector('.modal__body').clientHeight], facts: facts}; }")
+        assert geometry["dialog"][0] >= -0.5 and geometry["dialog"][1] <= geometry["vh"] + 0.5, geometry
+        assert geometry["dialog"][1] - geometry["dialog"][0] <= geometry["vh"] * 0.85 + 1, geometry
+        for part in ("head", "close", "dismiss"):
+            box = geometry[part]
+            assert box["top"] >= geometry["dialog"][0] - 0.5, (part, geometry)
+            assert box["bottom"] <= geometry["dialog"][1] + 0.5, (part, geometry)
+        assert geometry["close"]["height"] >= 44 - 0.5 and geometry["dismiss"]["height"] >= 44 - 0.5
+        assert len(set(round(top) for top in geometry["facts"])) <= len(geometry["facts"]) / 2 + 1, geometry
+        if viewport["width"] < 700:
+            assert geometry["art"]["height"] <= 80, geometry
     finally:
         context.close()

@@ -9803,24 +9803,49 @@ button.look-sheet__save:hover {
   }
 }
 
-/* Airline collection: a read-only progress card, a badge shelf, one GET
- * form of filters and a grid of picture cards. The dimming of a card that
- * has not been seen applies to the picture only, never to its text. */
+/* Airline collection: a one-line header (title, a thin progress bar with
+ * one short sentence, small round badge icons), one control bar and a grid
+ * of picture cards. The dimming of a card that has not been seen applies
+ * to the picture only, never to its text. */
+.page-header:has(> .collection-head__status) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.page-header:has(> .collection-head__status) .page-title {
+  margin: 0;
+}
+
+.collection-head__status {
+  display: flex;
+  flex: 1 1 360px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.collection-progress {
+  flex: 1 1 auto;
+  max-width: 360px;
+  min-width: 0;
+}
+
 .collection-progress__headline {
-  margin: 0 0 var(--space-sm);
-  font-family: inherit;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.5;
+  margin: var(--space-xs) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-progress__bar {
   display: block;
   width: 100%;
-  height: 12px;
+  height: 6px;
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: 999px;
   background: var(--color-secondary);
   overflow: hidden;
@@ -9831,95 +9856,107 @@ button.look-sheet__save:hover {
 }
 
 .collection-progress__bar::-webkit-progress-value {
-  background: var(--color-text);
+  background: var(--color-accent);
   border-radius: 999px;
 }
 
 .collection-progress__bar::-moz-progress-bar {
-  background: var(--color-text);
+  background: var(--color-accent);
   border-radius: 999px;
-}
-
-.collection-progress__goal {
-  margin: var(--space-sm) 0 var(--space-md);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-badges {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+  flex: none;
+  gap: var(--space-xs);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .collection-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  border-radius: 999px;
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
 }
 
 .collection-badge--earned {
-  background: var(--color-dominant);
-  border: 2px solid var(--color-text);
-  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-dominant));
+  color: var(--color-accent);
 }
 
 .collection-badge--locked {
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--color-text) 35%, transparent);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--color-text) 40%, transparent);
+  box-sizing: border-box;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
-/* One control bar: row one is the filter field and the sort, row two the
- * show chips, the plain count and (no script only) the Apply button. Every
- * control is at least 44px tall and the rows wrap on a phone. */
+/* One control bar: the filter field, the segmented show filter, the sort
+ * and the legend button on one row where they fit, wrapping cleanly on a
+ * phone. Every control is at least 44px tall. */
 .collection-controls {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-sm);
-}
-
-.collection-controls__row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .collection-controls .filter-bar__search {
-  flex: 1 1 220px;
-  max-width: none;
+  flex: 1 1 150px;
+  min-width: 150px;
+  max-width: 340px;
 }
 
 .collection-controls .filter-bar__chips {
   display: flex;
-  flex: 1 1 300px;
-  max-width: 460px;
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
 }
 
-/* A long label ("Not yet seen") wraps inside its segment instead of
- * being cut short. */
-.collection-controls .filter-chip__text {
-  white-space: normal;
+.collection-controls .filter-chip {
+  flex: 1 0 auto;
+  scroll-snap-align: start;
+}
+
+/* Label and count side by side, centred in the segment. */
+.collection-controls .filter-chip__box {
+  flex-direction: row-reverse;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
   text-align: center;
-  overflow-wrap: anywhere;
-  line-height: 1.2;
+}
+
+.collection-controls .filter-chip__text {
+  overflow: visible;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--font-label-size);
+  white-space: nowrap;
+}
+
+.collection-controls .filter-chip__count {
+  font-size: var(--font-label-size);
 }
 
 .collection-sort {
   display: flex;
-  flex: 0 1 220px;
+  flex: 0 1 auto;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 var(--space-xs) 0 var(--space-sm);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
 }
 
 .collection-sort__label {
@@ -9931,13 +9968,9 @@ button.look-sheet__save:hover {
 .collection-sort select {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 48px;
-}
-
-/* A plain count, no pill and no border. */
-.collection-controls__count {
-  margin: 0 0 0 auto;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  min-height: 44px;
+  border: 0;
+  background-color: transparent;
 }
 
 .collection-controls__apply {
@@ -9951,11 +9984,19 @@ button.look-sheet__save:hover {
   display: none;
 }
 
+.collection-legend .row-menu__toggle {
+  border: 1px solid var(--color-border);
+}
+
+.collection-legend__panel {
+  width: max-content;
+  padding: var(--space-sm) var(--space-md);
+}
+
 .rarity-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-md);
-  margin: 0 0 var(--space-md);
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -9964,7 +10005,43 @@ button.look-sheet__save:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-xs) var(--space-sm);
+}
+
+@media (max-width: 699.98px) {
+  .page-header:has(> .collection-head__status) .page-title {
+    font-size: 1.625rem;
+  }
+
+  .collection-head__status {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-xs);
+  }
+
+  .collection-progress {
+    max-width: none;
+  }
+
+  /* The badge icons scroll sideways rather than wrapping. */
+  .collection-badges {
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .collection-controls .filter-bar__search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .collection-controls .filter-bar__chips {
+    flex: 1 1 100%;
+  }
+
+  .collection-sort {
+    flex: 1 1 0;
+  }
 }
 
 .collection-grid {
@@ -10121,23 +10198,61 @@ button.look-sheet__save:hover {
   background: var(--color-text);
 }
 
+/* The detail sheet fits the viewport: the head with its close button and
+ * the Close foot stay in place and only the body scrolls. */
+dialog.collection-sheet[open],
+.collection-sheet:target:not(.is-modal) {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow: hidden;
+}
+
+.collection-sheet .modal__head {
+  flex: none;
+}
+
+.collection-sheet .modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.collection-sheet .modal__actions {
+  flex: none;
+  margin-top: var(--space-sm);
+}
+
 .collection-sheet__art {
-  margin-bottom: var(--space-md);
+  display: flex;
+  justify-content: center;
 }
 
 .collection-sheet__art .collection-card__image {
+  width: auto;
   max-width: 100%;
+  max-height: 160px;
 }
 
 .collection-facts {
   display: grid;
-  gap: var(--space-sm);
-  margin: 0 0 var(--space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
 }
 
 .collection-facts > div {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  min-width: 0;
+}
+
+.collection-facts > .collection-facts__wide {
+  grid-column: 1 / -1;
 }
 
 .collection-facts dt {
@@ -10148,6 +10263,12 @@ button.look-sheet__save:hover {
 .collection-facts dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 699.98px) {
+  .collection-sheet__art .collection-card__image {
+    max-height: 72px;
+  }
 }
 
 .collection-sheet__note {

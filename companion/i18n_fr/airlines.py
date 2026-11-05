@@ -131,9 +131,9 @@ MESSAGES = {
     "airlines.edit_airline": "Modifier %s",
 
     # --- The Airline collection page ----------------------------------
-    "airlines.collection_purpose": "Toutes les compagnies que votre cadre a repérées.",
     "airlines.collection_progress": "%d compagnies sur %d repérées",
-    "airlines.collection_next_goal": "Encore %d pour le badge %d compagnies",
+    "airlines.collection_status": "%d compagnies repérées",
+    "airlines.collection_next_goal": "encore %d pour le badge %d",
     "airlines.collection_next_goal_first":
         "Repérez une compagnie pour obtenir le badge Première observation",
     "airlines.collection_complete": "Vous avez repéré toutes les compagnies de la liste.",
