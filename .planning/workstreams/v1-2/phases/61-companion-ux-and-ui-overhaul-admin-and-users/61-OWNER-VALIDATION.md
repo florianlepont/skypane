@@ -248,3 +248,20 @@ Larger redesigns (new design work, owner decision on scope):
 - W39 (owner) In general, the phone header is too tall. Make it compact
   (with W22 removing the gear button and the Sign out panel, and W38 moving
   the space switch into the tab bar, the header can shrink to a slim bar).
+
+### Round 4, Location page on desktop (2026-11-05)
+
+- W40 (owner) The map on desktop could be even bigger.
+- W41 (owner) Filter and switch buttons are often not centred (the
+  Departures / Arrivals count tabs, the Airport / My position switch: label
+  alignment inside the segments is off). Centre them everywhere.
+- W42 (owner) Search should be a single field that accepts both an IATA
+  code and a normal address, placed above and separate from the rest of the
+  panel. The two fields today (place search and airport filter) are
+  confusing.
+- W43 (owner) Bug: tapping the round "my position" button at the bottom
+  right of the map does nothing.
+- W44 (owner) Coordinates and time zone line is useless: remove it from the
+  page (they stay derived and stored).
+- W45 (owner) "Saved settings" disclosure is useless: remove it. The map
+  credit and "about this map" text become a discreet "i" icon on the map.
