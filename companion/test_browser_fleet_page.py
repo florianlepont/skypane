@@ -7,6 +7,7 @@ script."""
 import pytest
 
 import fleet_console_support as fx
+from frame_menu_support import open_menu
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_hit_target,
@@ -78,7 +79,9 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
             if lang == "en":
                 assert row["label"] in _EN_WORDS, (where, row)
         assert page.locator("details.fleet-other li.entity-row").count() == 2
-        _assert_hit_target(page, "a.frame-tile--add", where)
+        _assert_hit_target(page, "summary.frame-menu__button", where)
+        open_menu(page)
+        _assert_hit_target(page, "a.frame-row--add", where)
         assert page.locator(".page-header a.page-header__action").count() == 0
         assert page.locator(
             "main h1").evaluate("e => !getComputedStyle(e).fontFamily.includes('mono')")

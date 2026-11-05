@@ -142,10 +142,11 @@ _PHONE_BARS = """
 () => {
   const pad = (sel) => { const e = document.querySelector(sel);
     return e ? getComputedStyle(e) : null; };
-  const header = pad('.site-header'), bar = pad('.tab-bar'), content = pad('.page-content');
+  const header = pad('.site-header'), content = pad('.page-content');
+  const barBox = document.querySelector('.tab-bar').getBoundingClientRect();
   return {
     headerTop: parseFloat(header.paddingTop), headerLeft: parseFloat(header.paddingLeft),
-    barBottom: parseFloat(bar.paddingBottom), barRight: parseFloat(bar.paddingRight),
+    barBottom: window.innerHeight - barBox.bottom, barRight: window.innerWidth - barBox.right,
     contentLeft: parseFloat(content.paddingLeft), contentRight: parseFloat(content.paddingRight),
     resolved: getComputedStyle(document.documentElement).getPropertyValue('--safe-bottom').trim(),
   };
@@ -162,14 +163,15 @@ def test_fixed_bars_and_header_follow_the_safe_area_tokens(new_context, server):
     context, page = _open_page(new_context, server, "/", PHONE)
     try:
         before = page.evaluate(_PHONE_BARS)
-        assert before["barBottom"] == 0 and before["headerTop"] == 4
+        assert before["barBottom"] == 12 and before["headerTop"] == 4
         page.add_style_tag(content=_FORCED_INSETS)
         page.wait_for_function(
-            "() => getComputedStyle(document.querySelector('.tab-bar')).paddingBottom === '34px'")
+            "() => window.innerHeight - document.querySelector('.tab-bar')"
+            ".getBoundingClientRect().bottom === 12 + 34")
         after = page.evaluate(_PHONE_BARS)
         assert after["headerTop"] == 4 + 47
         assert after["headerLeft"] == 40 and after["barRight"] == 40
-        assert after["barBottom"] == 34
+        assert after["barBottom"] == 12 + 34
         assert after["contentLeft"] == 40 and after["contentRight"] == 40
         top = page.evaluate("() => document.querySelector('.site-header').getBoundingClientRect().height")
         assert top >= 52 + 47

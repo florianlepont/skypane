@@ -488,7 +488,7 @@ def _check_in(rig, frame_id, age_hours):
 
 def _fleet_word(rig, name):
     tree, _body = rig.fleet()
-    row = [r for r in tree.select("a.frame-tile") if name in r.text()][0]
+    row = [r for r in tree.select("a.frame-row") if name in r.text()][0]
     return row.select_one('[role="img"]').attrs["aria-label"]
 
 

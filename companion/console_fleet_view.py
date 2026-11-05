@@ -1,8 +1,10 @@
 """The Console Fleet page's frame selector and the views it opens.
 
-A strip of tiles lists every frame (picture, name, status dot, last-seen
-word), a "System" tile and a last "Add a frame" tile that opens the pairing dialog. A tile is a plain link to `/fleet?frame=<id>` (or `/fleet?view=system`),
-so the selection needs no script. The selected frame opens four blocks: State,
+The frame button in the top bar opens a popover that lists every frame
+(picture, name, status dot, last-seen word), a "System" row and a last
+"Add a frame" row that opens the pairing dialog. A row is a plain link to
+`/fleet?frame=<id>` (or `/fleet?view=system`), so the selection needs no
+script. The selected frame opens four blocks: State,
 Device and version, Settings and Access. Each block reuses the content of the
 page that used to hold it (Health, Update, Device, Manage access) with the
 same forms and POST routes. The System view holds the platform-wide part of
@@ -38,13 +40,6 @@ def page_scripts(system=False):
     return (
         ui_base.COPY_BUTTON_SCRIPT_SRC, ui_base.LIST_FILTER_SCRIPT_SRC,
         ui_base.PANEL_LOOKUP_SCRIPT_SRC) + base
-
-
-def _shell():
-    # Imported on use: companion.ui_shell loads while the console routes are
-    # still importing this module.
-    from companion import ui_shell
-    return ui_shell
 
 
 _SYSTEM_TEXT = i18n.msg("admin_fleet.system_tile", "System")
@@ -85,39 +80,17 @@ def selection(query, devices):
     return (devices[0] if devices else None), False
 
 
-def _system_tile_html(is_current):
-    return (
-        '<li><a class="%(cls)s %(cls)s--system" href="%(href)s"%(cur)s>'
-        '<span class="%(cls)s__pic %(cls)s__pic--system" aria-hidden="true"><i></i></span>'
-        '<span class="%(cls)s__name">%(name)s</span>'
-        '<span class="%(cls)s__seen">%(seen)s</span></a></li>') % {
-            "cls": _shell().FRAME_TILE_CLASS, "href": SYSTEM_HREF,
-            "cur": ' aria-current="true"' if is_current else "",
-            "name": _t(_SYSTEM_TEXT), "seen": _t(_SYSTEM_SEEN_TEXT)}
-
-
-def strip_html(entries, selected, is_system):
-    """The tile strip: one tile per entry (a `device_scope.SwitcherEntry`),
-    the System tile and a last Add a frame tile."""
-    ui_shell = _shell()
-    now = device_scope.now_epoch()
-    tiles = "".join(
-        ui_shell.frame_tile_html(
-            entry.device, FRAME_HREF_PREFIX + entry.device.id,
-            selected is not None and entry.device.id == selected.id, now,
-            ui_shell.tile_note(entry))
-        for entry in ui_shell.console_ordered(entries, now))
+def frame_menu_html(entries, selected, is_system):
+    """The frame button of the Fleet page: every frame, "System" and a last
+    "Add a frame" row that opens the pairing dialog. Each row is a plain link
+    to `/fleet?frame=<id>` (or `/fleet?view=system`), so the selection needs no
+    script."""
+    from companion import frame_menu
     from companion.pages import fleet_page
-    tiles += _system_tile_html(is_system) + ui_shell.add_tile_html(
-        dialog_id=fleet_page.ADD_DIALOG_ID)
-    if is_system:
-        active_name = i18n.t(_SYSTEM_TEXT)
-    else:
-        active_name = ui_shell.device_display_name(selected) if selected else ""
-    return ui_shell.strip_fold_html(
-        '<ul class="%s" aria-label="%s">%s</ul>' % (
-            ui_shell.FRAME_TILES_CLASS, _t(ui_shell.STRIP_ARIA_TEXT), tiles),
-        active_name)
+    return frame_menu.console_menu_html(
+        entries, selected, is_system,
+        (SYSTEM_HREF, _t(_SYSTEM_TEXT), _t(_SYSTEM_SEEN_TEXT)),
+        fleet_page.ADD_DIALOG_ID, lambda device: FRAME_HREF_PREFIX + device.id)
 
 
 def _block(heading_msg, body_html, extra_class=""):
@@ -174,7 +147,7 @@ def system_html(ctx):
 
 
 def page_html(h, query, view):
-    """The strip and the selected view. Sets the request scope to the
+    """The selected view (the frame button goes to the top bar). Sets the request scope to the
     selected frame (the embedded forms post to its own /devices/<id> routes)."""
     from companion.pages import fleet_page
     root = h.args.state_dir
@@ -185,12 +158,13 @@ def page_html(h, query, view):
     device_scope.set_request_scope(
         scope_device, devices, getattr(principal, "user_id", None), root)
     entries = device_scope.console_frame_entries()
-    strip = strip_html(entries, selected, is_system)
+    from companion import frame_menu
+    frame_menu.stash_console_menu(frame_menu_html(entries, selected, is_system))
     if is_system:
-        return strip + system_html(h.page_context(device_scope.live_device(root)))
+        return system_html(h.page_context(device_scope.live_device(root)))
     if selected is None:
-        return strip + '<p class="text-label">%s</p>' % _t(_ADD_FIRST)
-    return strip + frame_html(
+        return '<p class="text-label">%s</p>' % _t(_ADD_FIRST)
+    return frame_html(
         h.page_context(selected), selected, view.access,
         fleet_page.detail_header_html(view, selected.id))
 

@@ -21,9 +21,9 @@
  *     (.personalisation-nav__link[aria-current])
  *   - the current segment of the space switch
  *     (.space-switch__segment--current)
- *   - the current frame's tile outline in the frame tile strip
- *     (.frame-tile[aria-current]) and the Add a screen tile's text
- *     and dashed border (.frame-tile--add)
+ *   - the check of the current frame row in the frame popover
+ *     (.frame-row__check) and the Add a frame row's plus
+ *     (.frame-row--add)
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
@@ -46,6 +46,12 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
+
+  /* The floating tab bar: its height and the gap to the screen edge; the
+   * page clears bar + gap + the home-indicator inset. */
+  --tab-bar-h: 68px;
+  --tab-bar-gap: 12px;
+  --tab-bar-pad: 2px;
 
   /* Spacing scale, multiples of 4. */
   --space-xs: 4px;
@@ -172,6 +178,12 @@
   --glass-solid: #FFFFFF;
   --glass-hairline: rgba(23, 25, 31, 0.1);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
+  --bar-bg: rgba(255, 255, 255, 0.66);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
+  --bar-border: rgba(255, 255, 255, 0.7);
+  --bar-pill-bg: rgba(255, 255, 255, 0.92);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
   --color-secondary: #E9EEF5;
@@ -234,6 +246,12 @@
     --glass-solid: #1C222D;
     --glass-hairline: rgba(255, 255, 255, 0.1);
     --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
+    --bar-bg: rgba(20, 24, 34, 0.86);
+    --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+    --bar-border: rgba(255, 255, 255, 0.16);
+    --bar-pill-bg: rgba(255, 255, 255, 0.18);
+    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+    --pop-bg: rgba(28, 34, 45, 0.92);
     --color-canvas: #161A24;
     --color-dominant: #151922;
     --color-secondary: #1C222D;
@@ -277,6 +295,12 @@ html[data-ui-theme="light"] {
   --glass-solid: #FFFFFF;
   --glass-hairline: rgba(23, 25, 31, 0.1);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
+  --bar-bg: rgba(255, 255, 255, 0.66);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
+  --bar-border: rgba(255, 255, 255, 0.7);
+  --bar-pill-bg: rgba(255, 255, 255, 0.92);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
   --color-secondary: #E9EEF5;
@@ -316,6 +340,12 @@ html[data-ui-theme="dark"] {
   --glass-solid: #1C222D;
   --glass-hairline: rgba(255, 255, 255, 0.1);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
+  --bar-bg: rgba(20, 24, 34, 0.86);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+  --bar-border: rgba(255, 255, 255, 0.16);
+  --bar-pill-bg: rgba(255, 255, 255, 0.18);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  --pop-bg: rgba(28, 34, 45, 0.92);
   --color-canvas: #161A24;
   --color-dominant: #151922;
   --color-secondary: #1C222D;
@@ -726,16 +756,21 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-/* The phone app bar: a slim strip holding the logo only. The desktop
- * layout hides it (the sidebar carries the brand there). */
+/* The phone app bar: the logo on the left, the frame button on the right,
+ * transparent over the page background (no bar, so Safari tints nothing),
+ * padded below the status bar. The desktop layout shows only the frame
+ * button of it (the sidebar carries the brand there). */
 .site-header {
+  position: relative;
+  z-index: 15;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
   min-height: calc(52px + var(--safe-top));
   padding: calc(var(--space-xs) + var(--safe-top)) max(var(--space-md), var(--safe-right)) var(--space-xs) max(var(--space-md), var(--safe-left));
-  background: var(--color-secondary);
+  background: transparent;
   margin-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
 }
 
 /* The admin-only two-segment switch between the Console and the personal
@@ -1297,8 +1332,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 .sidebar-link--active {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-on-accent);
+  background: var(--color-accent);
   border-radius: var(--radius-control);
   font-weight: var(--weight-semibold);
 }
@@ -1319,7 +1354,10 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   color: var(--color-text);
 }
 
-.sidebar-link--active:hover,
+.sidebar-link--active:hover {
+  color: var(--color-on-accent);
+}
+
 .mobile-nav__link--active:hover {
   color: var(--color-accent);
 }
@@ -1756,7 +1794,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 
   .has-tab-bar .toast-region--flash,
   .has-tab-bar .toast-region--live {
-    bottom: calc(56px + var(--safe-bottom) + var(--space-sm));
+    bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
   }
 
   .toast-region--flash .toast,
@@ -1793,204 +1831,196 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   display: none;
 }
 
-/* The frame tile strip above the page title (two or more frames). One
- * whole-tile link per frame: a CSS-drawn frame (dark bezel, white screen), the
- * name, the status dot and the last-seen word. Accent only marks the current
- * tile's outline and the Add a screen tile. Below 700px the strip scrolls
- * sideways; from 700px it wraps. */
-.frame-tiles {
-  box-sizing: border-box;
-  display: flex;
-  gap: var(--space-sm);
-  margin: 0 0 var(--space-md);
-  padding: 4px;
-  list-style: none;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-}
-
-.frame-tiles > li {
-  display: flex;
-  flex: none;
-  width: 132px;
-  scroll-snap-align: start;
-}
-
-.frame-tile {
-  box-sizing: border-box;
+/* The frame button and its popover. The button sits in the top bar; the
+ * popover is a list of 52px rows hanging under it, out of flow, so opening
+ * it moves nothing. A row is a whole-row link. */
+.frame-menu {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.frame-menu__button {
+  box-sizing: border-box;
+  max-width: 100%;
   min-height: 44px;
-  padding: var(--space-sm);
-  background: var(--color-dominant);
+  gap: var(--space-sm);
+  padding: 0 var(--space-md) 0 var(--space-sm);
+  background: var(--glass-solid);
   color: var(--color-text);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  list-style: none;
+}
+
+.frame-menu__button::before,
+.frame-menu__button::marker {
+  content: none;
+}
+
+.frame-menu__button::-webkit-details-marker {
+  display: none;
+}
+
+.frame-menu__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame-menu__dot {
+  display: inline-flex;
+  flex: none;
+}
+
+.frame-menu__dot:empty {
+  display: none;
+}
+
+.frame-menu__chevron {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .15s ease;
+}
+
+.frame-menu[open] > .frame-menu__button .frame-menu__chevron {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.frame-menu__panel {
+  box-sizing: border-box;
+  position: absolute;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  z-index: 25;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: var(--space-sm);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  text-align: center;
+  box-shadow: var(--shadow-card-hover);
+  transform-origin: top right;
+  animation: skypane-soft-in var(--motion-fast) var(--ease-out) backwards;
+}
+
+.frame-menu__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.frame-menu__tail {
+  margin-top: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.frame-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 52px;
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--color-text);
+  border-radius: var(--radius-control);
   text-decoration: none;
 }
 
-.frame-tile:hover {
-  background: var(--color-control-wash);
+.frame-row:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
 }
 
-.frame-tile[aria-current="true"] {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-dominant));
+.frame-row[aria-current="true"] {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
-.frame-tile__dot {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-}
-
-.frame-tile__pic {
+.frame-row__pic {
   display: block;
   box-sizing: border-box;
   flex: none;
-  width: 44px;
-  height: 58px;
-  padding: 3px;
+  width: 28px;
+  height: 38px;
+  padding: 2px;
   background: var(--color-frame-bezel);
   border: 1px solid var(--color-frame-bezel-hi);
   border-radius: var(--radius-control);
 }
 
-.frame-tile__pic i {
+.frame-row__pic i {
   display: block;
   height: 100%;
   background: var(--color-image-backdrop);
-  border-radius: var(--radius-control);
+  border-radius: 2px;
 }
 
-.frame-tile__name {
-  font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
-}
-
-.frame-tile__seen,
-.frame-tile__note {
-  font-size: var(--font-label-size);
-  overflow-wrap: anywhere;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.frame-tile--add {
+.frame-row__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
   justify-content: center;
-  background: transparent;
-  border-style: dashed;
-  color: var(--color-accent);
-  font-weight: var(--weight-semibold);
-}
-
-.frame-tile__plus {
-  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-chip);
+  font-size: var(--font-body-size);
   line-height: 1;
 }
 
-@media (min-width: 700px) {
-  .frame-tiles {
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
-}
-
-/* The collapsible wrapper of the strip. From 700px it adds nothing: the
- * summary row is hidden and the strip looks as above. On a phone it is a
- * marked-off surface (secondary background, hairline border, inset shadow and
- * a soft gradient, all from tokens) whose summary row names the active frame
- * and opens or closes the tiles, which shrink to the picture and the name. */
-@media (min-width: 700px) {
-  .frame-fold__summary {
-    display: none;
-  }
-}
-
-@media (max-width: 699.98px) {
-  .frame-fold {
-    margin: 0 0 var(--space-md);
-    background: var(--color-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-card);
-  }
-
-  .frame-fold__summary {
-    padding: 0 var(--space-md);
-    color: var(--color-text);
-    font-weight: var(--weight-semibold);
-  }
-
-  .frame-fold__name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .frame-fold .frame-tiles {
-    margin: 0;
-    padding: var(--space-xs) var(--space-sm) var(--space-sm);
-  }
-
-  .frame-fold .frame-tiles > li {
-    width: 84px;
-  }
-
-  .frame-fold .frame-tile {
-    gap: var(--space-xs);
-    padding: var(--space-xs);
-  }
-
-  .frame-fold .frame-tile__pic {
-    width: 32px;
-    height: 42px;
-    padding: 2px;
-  }
-
-  .frame-fold .frame-tile__pic--system {
-    width: 32px;
-    height: 32px;
-  }
-
-  .frame-fold .frame-tile__dot {
-    top: var(--space-xs);
-    right: var(--space-xs);
-  }
-
-  .frame-fold .frame-tile__name {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--font-label-size);
-  }
-
-  .frame-fold .frame-tile__seen,
-  .frame-fold .frame-tile__note {
-    display: none;
-  }
-
-  .frame-fold .frame-tile--add {
-    min-height: 44px;
-  }
-}
-
-/* The System tile of the Console Fleet strip: a round badge instead of the
- * frame picture. */
-.frame-tile__pic--system {
-  width: 44px;
-  height: 44px;
+.frame-row__icon i {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
   border-radius: 50%;
 }
 
-.frame-tile__pic--system i {
-  border-radius: 50%;
+.frame-row__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.frame-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+}
+
+.frame-row__seen,
+.frame-row__note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+
+.frame-row__dot {
+  display: inline-flex;
+  flex: none;
+}
+
+.frame-row__check {
+  flex: none;
+  width: 6px;
+  height: 11px;
+  margin: 0 var(--space-xs) 3px var(--space-xs);
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
 }
 
 /* The blocks of the selected frame (or the System view): stacked on a phone,
@@ -2518,7 +2548,7 @@ button:disabled {
    * page that renders the bar without the tab bar. */
   .has-tab-bar .page-content:has(.dirty-bar) {
     padding-bottom: calc(
-      var(--space-2xl) + 176px + var(--safe-bottom));
+      var(--space-2xl) + 134px + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
   /* The Display look card's live selection states. */
@@ -4853,11 +4883,50 @@ a.airline-card {
     border-top: 1px solid var(--color-border);
   }
 
+  /* The app bar holds only the frame button here, laid over the top right of
+   * the content column, level with the page title. */
   .site-header {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  .site-header:not(:has(.frame-menu)) {
     display: none;
   }
 
+  .site-header > .brand {
+    display: none;
+  }
+
+  .site-header .frame-menu {
+    position: absolute;
+    top: var(--space-2xl);
+    right: max(var(--space-3xl), calc((100% - 1440px) / 2 + var(--space-3xl)));
+    max-width: 11rem;
+  }
+
+  /* The map fills the content area under the button: its top-right controls
+   * hang below it. */
+  .site-header:has(.frame-menu) ~ .dashboard-main .leaflet-top.leaflet-right {
+    margin-top: calc(var(--space-2xl) + 44px);
+  }
+
+  /* The title row keeps clear of the button: its header (title beside any
+   * badges) or a bare title. */
+  .site-header:has(.frame-menu) ~ .dashboard-main .page-header,
+  .site-header:has(.frame-menu) ~ .dashboard-main > .page-title {
+    padding-right: 12rem;
+  }
+
   .dashboard-main {
+    grid-column: 2;
+    grid-row: 1;
     min-width: 0;
     width: 100%;
     max-width: min(1440px, 100%);
@@ -5903,7 +5972,7 @@ button.detection-search:hover {
   display: flex;
   flex-direction: column;
   max-width: none;
-  height: calc(100dvh - 52px - 57px - var(--safe-bottom));
+  height: calc(100dvh - 52px - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom));
   padding: 0;
 }
 
@@ -7315,7 +7384,7 @@ input[name="radius_km"] {
     position: fixed;
     left: max(var(--space-md), var(--safe-left));
     right: max(var(--space-md), var(--safe-right));
-    bottom: calc(var(--space-md) + 56px + var(--safe-bottom));
+    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
     margin: 0;
     z-index: 30;
     flex-wrap: wrap;
@@ -7846,18 +7915,20 @@ button.calendar-danger--solid {
    * row's fixed height; the safe-area inset is added as extra padding
    * underneath, not folded into the 56px. */
   .tab-bar {
+    box-sizing: border-box;
     display: flex;
+    align-items: center;
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    left: max(var(--tab-bar-gap), var(--safe-left));
+    right: max(var(--tab-bar-gap), var(--safe-right));
+    bottom: calc(var(--tab-bar-gap) + var(--safe-bottom));
+    height: var(--tab-bar-h);
     z-index: 20;
-    padding-bottom: var(--safe-bottom);
-    padding-left: var(--safe-left);
-    padding-right: var(--safe-right);
-    background: var(--color-secondary);
-    border-top: 1px solid var(--color-border);
-    box-shadow: var(--shadow-card-hover);
+    padding: 0 var(--tab-bar-pad);
+    background-color: var(--glass-solid);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--bar-shadow);
   }
 
   /* Each of the five flex: 1 1 0 cells takes an equal share of the bar
@@ -7886,8 +7957,8 @@ button.calendar-danger--solid {
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
-    margin: var(--space-xs) calc(var(--space-xs) / 2);
-    border-radius: var(--radius-control);
+    margin: var(--space-xs) 0;
+    border-radius: var(--radius-pill);
     transition: background-color .15s ease, color .15s ease;
   }
 
@@ -7910,7 +7981,8 @@ button.calendar-danger--solid {
   }
 
   .tab-bar__link--active .tab-bar__pill {
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    background: var(--bar-pill-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
   }
 
   /* The administrator's space switch, first cell of the bar: set apart from
@@ -7918,15 +7990,13 @@ button.calendar-danger--solid {
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
     flex: 0 0 68px;
-    margin-right: 0;
-    border-right: 1px solid var(--color-border);
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__link--switch .tab-bar__pill {
     border: 1px solid var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    background: transparent;
   }
 
   .tab-bar__link--switch:not(.tab-bar__link--active):hover .tab-bar__pill {
@@ -7993,7 +8063,7 @@ button.calendar-danger--solid {
    * TAB_BAR_BODY_CLASS), present only when the bar actually rendered. */
   .has-tab-bar .page-content {
     padding-bottom: calc(
-      var(--space-2xl) + 56px + var(--safe-bottom));
+      var(--space-lg) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
 }
@@ -9886,7 +9956,7 @@ button.look-sheet__save:hover {
 
 .collection-head__status {
   display: flex;
-  flex: 1 1 360px;
+  flex: 1 1 300px;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-md);
@@ -11047,7 +11117,6 @@ a.airlines-name-it {
   .stat-tile,
   .airline-card,
   .collection-card,
-  .frame-tile,
   .place-card,
   .users-table,
   .toast--docked,
@@ -11062,7 +11131,6 @@ a.airlines-name-it {
    * ring, so an unselected one must stay shadow-free; the segmented tracks
    * and the other inset controls take the fill and edge without a lift. */
   .runway-card,
-  .frame-fold,
   .space-switch,
   .filter-bar__chips,
   .personalisation-nav,
@@ -11084,9 +11152,34 @@ a.airlines-name-it {
   .row-menu__panel,
   .info-tip__bubble,
   .dashboard-sidebar,
-  .site-header,
-  .tab-bar,
   .dirty-bar {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  /* The floating tab bar is its own, stronger glass: a darker tinted fill in
+   * Dark so light labels hold over a white picture scrolling beneath. */
+  .tab-bar {
+    background-color: var(--bar-bg);
+    background-image: var(--bar-sheen);
+    border-color: var(--bar-border);
+    -webkit-backdrop-filter: blur(26px) saturate(200%);
+    backdrop-filter: blur(26px) saturate(200%);
+  }
+
+  /* The popover of the frame button. */
+  .frame-menu__panel {
+    background: var(--pop-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  .frame-menu__button {
     background: var(--glass-bg);
     border-color: var(--glass-border);
     box-shadow: var(--shadow-glass);
@@ -11105,7 +11198,6 @@ a.airlines-name-it {
 }
 
 /* The glass rule above outranks the cards' own hover shadow: give it back. */
-.frame-tile:is(:hover),
 .collection-card:is(:hover),
 .airline-card:is(:hover) {
   box-shadow: var(--shadow-card-hover);
@@ -11220,21 +11312,6 @@ a.airlines-name-it {
     opacity: 1;
     transform: none;
   }
-}
-
-/* A thin accent bar settles beside the current sidebar item; it is a
- * pseudo-element, so the link's own box and hit area never change. */
-.sidebar-link--active::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: var(--radius-control);
-  background: var(--color-accent);
-  pointer-events: none;
-  animation: skypane-soft-in var(--motion-enter) var(--ease-out) backwards;
 }
 
 .tab-bar__link--active .tab-bar__pill {

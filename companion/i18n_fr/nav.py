@@ -67,10 +67,11 @@ MESSAGES = {
     "nav.light": "Clair",
     "nav.dark": "Sombre",
 
-    # The frame tile strip above the page title (two or more frames).
+    # The frame button in the top bar and its popover.
     "nav.frame_strip_aria": "Vos cadres",
     "nav.frame_tile_seen": "Vu %s",
     "nav.frame_tile_add": "Ajouter un cadre",
+    "nav.frame_button": "Choisir un cadre",
     "nav.device_default_name": "Cadre d’Orly",
     "nav.skip_to_content": "Aller au contenu",
 }

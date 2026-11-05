@@ -204,7 +204,6 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation"),
         ((".dashboard-main > .empty-state",), "animation"),
         ((".dashboard-main > .data-table-wrap",), "animation"),
-        ((".sidebar-link--active::after",), "animation"),
         ((".tab-bar__link--active .tab-bar__pill",), "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [

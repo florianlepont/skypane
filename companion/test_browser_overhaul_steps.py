@@ -16,6 +16,7 @@ import re
 import pytest
 
 import fleet_console_support as fx
+from frame_menu_support import ADD, BUTTON, FRAMES
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED
 from place_map_support import CLEAR_BOX, Hosts
@@ -29,7 +30,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 1, "S2": 1, "A7": 1, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -166,16 +167,20 @@ def _report_measured(task, steps, target):
 
 
 def _select_frame(steps, page, name):
-    """Makes `name` the selected frame: nothing to do when its tile is already
-    the current one, else one tap on its tile (a plain link)."""
-    tile = page.locator("ul.frame-tiles a.frame-tile", has_text=name).first
-    tile.wait_for(state="visible")
-    if tile.get_attribute("aria-current") == "true":
+    """Makes `name` the selected frame: nothing to do when the frame button
+    already names it, else two taps: the button, then the frame's row (a
+    plain link)."""
+    button = page.locator(BUTTON)
+    button.wait_for(state="visible")
+    if name in button.inner_text():
         return
-    steps.tap(tile, "tile of " + name)
+    steps.tap(button, "frame button")
+    row = page.locator(FRAMES, has_text=name).first
+    row.wait_for(state="visible")
+    steps.tap(row, "row of " + name)
     page.wait_for_function(
-        "(n) => [...document.querySelectorAll('ul.frame-tiles a[aria-current=true]')]"
-        ".some(a => a.textContent.includes(n))", arg=name)
+        "(n) => document.querySelector('details.frame-menu > summary').textContent"
+        ".includes(n)", arg=name)
     page.wait_for_function("() => document.readyState === 'complete'")
 
 
@@ -191,11 +196,13 @@ def _row_menu(steps, page, name, item):
 def test_a1_fleet_state_is_readable_on_landing(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        # Every live frame is a tile with its status dot; the pending and
-        # retired frames wait in the collapsed Other frames block.
-        dots = page.locator("ul.frame-tiles a.frame-tile [role=img][aria-label]")
+        # Every live frame is a popover row with its status dot (and the button
+        # shows the selected one's); the pending and retired frames wait in the
+        # collapsed Other frames block.
+        assert page.locator(BUTTON + " [role=img][aria-label]").count() == 1
+        dots = page.locator(FRAMES + " [role=img][aria-label]")
         assert dots.count() >= 2
-        assert page.locator("ul.frame-tiles a.frame-tile .dot").count() >= 2
+        assert page.locator(FRAMES + " .dot").count() >= 2
         assert page.locator("details.fleet-other").get_attribute("open") is None
         assert page.locator("table").count() == 0
         _report("A1", steps, 0)
@@ -228,7 +235,8 @@ def test_a2_invite_a_user(world, new_context):
 def test_a3_pair_a_frame(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator("a.frame-tile--add"), "Add a frame")
+        steps.tap(page.locator(BUTTON), "frame button")
+        steps.tap(page.locator(ADD), "Add a frame")
         steps.type_value(page.locator("#pair-code"), fx.FAKE_CODE, "pairing code")
         steps.choose(page.locator("#pair-owner"), fx.OWNER_EMAIL, "owner")
         steps.tap(page.locator("#dlg-add-frame button[type=submit]"), "Pair frame")
@@ -239,7 +247,7 @@ def test_a3_pair_a_frame(world, new_context):
         finally:
             conn.close()
         assert device is not None and device["owner_user_id"] == world.seed.owner_id
-        _report("A3", steps, 4)
+        _report("A3", steps, 5)
     finally:
         context.close()
 
@@ -252,7 +260,7 @@ def test_a4_retire_a_frame(world, new_context):
         steps.tap(dialog.locator("button[type=submit]"), "confirm Retire")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id) is None
-        _report("A4-retire", steps, 4)
+        _report("A4-retire", steps, 5)
     finally:
         context.close()
 
@@ -266,7 +274,7 @@ def test_a4_reassign_a_frame(world, new_context):
         steps.tap(dialog.locator("button[type=submit]"), "confirm Reassign")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id)["owner_user_id"] == world.seed.admin_id
-        _report("A4-reassign", steps, 5)
+        _report("A4-reassign", steps, 6)
     finally:
         context.close()
 
@@ -290,7 +298,7 @@ def test_a5_add_a_co_manager(world, new_context):
         finally:
             conn.close()
         assert members == [fx.USER_EMAIL]
-        _report("A5", steps, 5)
+        _report("A5", steps, 6)
     finally:
         context.close()
 
@@ -325,7 +333,7 @@ def test_u1_sign_in_ends_on_home(world, new_context):
 def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
-        assert page.locator("ul.frame-tiles").count() == 0
+        assert page.locator(FRAMES).count() == 1
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
         assert page.locator("main h1").inner_text().strip() == "Home"
         _report("U2-one", steps, 0)
@@ -334,35 +342,37 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
 
 
 def _open_the_other_frame(steps, page):
-    """The tile of the frame not shown; waits for the new page."""
-    strip = page.locator("ul.frame-tiles")
-    assert strip.locator("a", has_text="Kitchen").count() >= 1
-    assert strip.locator("a", has_text="Attic office").count() >= 1
+    """The row of the frame not shown, through the frame button; waits for the new page."""
+    button = page.locator(BUTTON)
+    button.wait_for(state="visible")
     before = page.url
-    was = strip.locator("a[aria-current='true']").get_attribute("href")
-    steps.tap(strip.locator("a.frame-tile:not([aria-current]):not(.frame-tile--add)"), "frame tile")
+    was = button.inner_text()
+    steps.tap(button, "frame button")
+    assert page.locator(FRAMES, has_text="Kitchen").count() >= 1
+    assert page.locator(FRAMES, has_text="Attic office").count() >= 1
+    steps.tap(page.locator(FRAMES + ":not([aria-current])"), "frame row")
     page.wait_for_function("(was) => location.href !== was", arg=before)
     page.wait_for_function("() => document.readyState === 'complete'")
-    assert page.locator("ul.frame-tiles a[aria-current='true']").get_attribute("href") != was
+    assert page.locator(BUTTON).inner_text() != was
 
 
-def test_u2_my_frames_with_several_frames_take_one_tile(world, new_context):
-    """The strip lists every frame on the page; reaching another frame is one tap."""
+def test_u2_my_frames_with_several_frames_take_two_taps(world, new_context):
+    """The popover lists every frame on the page; reaching another frame is the button, then a row."""
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
         _open_the_other_frame(steps, page)
-        _report("U2-several", steps, 1)
+        _report("U2-several", steps, 2)
     finally:
         context.close()
 
 
-def test_s2_switching_frame_takes_one_tile_tap(world, new_context):
+def test_s2_switching_frame_takes_the_button_then_a_row(world, new_context):
     world.add_second_frame()
     context, page, steps = _owner(world, new_context)
     try:
         _open_the_other_frame(steps, page)
-        _report_measured("S2", steps, 1)
+        _report_measured("S2", steps, 2)
     finally:
         context.close()
 
@@ -568,7 +578,7 @@ def test_a7_a_frames_health_is_its_fleet_view(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
         # The frame's health is the State block of its Fleet view: one tap on
-        # its tile when it is not the selected frame already.
+        # button and its row when it is not the selected frame already.
         _select_frame(steps, page, "Kitchen")
         state = page.locator("section.fleet-block", has=page.locator("h3", has_text="State"))
         state.wait_for(state="visible")

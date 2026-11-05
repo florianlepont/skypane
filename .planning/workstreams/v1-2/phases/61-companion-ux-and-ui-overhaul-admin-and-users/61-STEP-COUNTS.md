@@ -64,7 +64,7 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 | L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 5 (was 6 before plan 61-41) | n/a | yes |
 | L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 3 (was 4 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
-| S2 | Switch frame (one tile tap, D30) | 1 (drop-down, then a row) | 2 | 1 | n/a | yes |
+| S2 | Switch frame (frame button, then a row, plan 61-57) | 1 (drop-down, then a row) | 2 | 2 | n/a | yes |
 | A7 | A frame's health from Fleet (its tile; the State block) | not measured, new flow | 1 | 1 | n/a | yes: a frame's health is the State block of its Fleet view; one tap on its tile (0 when it is already selected) |
 | A8 | Rename an airline in the Airline editor, from the Console (Airline editor bar cell, type the name in its row, Enter; the field saves on change, plan 61-44) | 4 (bar cell, the airline, the name, Save name) | at least 3 on a phone | 3 on a phone | -1 | yes (desktop is one fewer, see notes) |
 | V1 | Airline collection, phone (More, Airline collection) | not measured, new flow | 2 | 2 | n/a | yes |
@@ -147,3 +147,7 @@ frame strip's collapse is optional and open by default, so no task gained a tap.
 ## Plan 61-51 (quiet Console pages, global Airlines editor)
 
 Changing an artwork moved from the thumbnail (tap, choose the file) to the row's menu (open "...", "Change artwork", choose the file): one tap more, no flow in the measured set (A8 stays 3, a rename). Enlarging an artwork is now one tap on the thumbnail (it was two: "..." then "Enlarge the artwork"). Inviting a user is unchanged (A2 stays 4). No measured count moved.
+
+## Plan 61-57 (frame button and popover)
+
+Choosing a frame is two taps now: the frame button at the top right, then the frame's row (the strip was one tile tap). Measured on 360 x 844 after the change: S2 2 (was 1), U2 several 2 (was 1), A7 2 (was 1), A3 pair a frame 5 (the button, the Add a frame row, the code, the owner, Pair), A4 retire 5, A4 reassign 6 and A5 6 when the frame is not the one selected on landing (each counts the button and the row where it counted one tile tap; one fewer when it is already selected). A1 stays 0 and U2 with one frame stays 0 (the button names the frame, no action). The targets of the revision 2 rows were 2 or more for S2, so S2 and A7 stay within them; A3, A4 and A5 are over their first-round targets by the one extra tap and are accepted: the popover keeps the top of every page free of the strip (the audit's heaviest block above the title).

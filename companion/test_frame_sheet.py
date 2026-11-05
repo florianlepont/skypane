@@ -5,7 +5,7 @@ import pytest
 
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
-from companion import access, device_scope, prefs, ui_shell
+from companion import access, device_scope, frame_menu, prefs
 from companion_markup import parse_html
 from server import fleet_db, hardware
 
@@ -48,8 +48,8 @@ def _enter(state_dir, role, user_id, email, current_id):
 def _frame_tiles(root):
     """The frame tiles of the strip, without the Add a frame tile."""
     return [
-        a for a in root.select("ul.frame-tiles a.frame-tile")
-        if "frame-tile--add" not in a.attrs.get("class", "")]
+        a for a in root.select("ul.frame-menu__list a.frame-row")
+        if "frame-row--add" not in a.attrs.get("class", "")]
 
 
 def _cards(html):
@@ -60,17 +60,17 @@ def test_the_strip_is_a_labelled_list_of_plain_links(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     root = parse_html(html)
-    strip = root.select_one("ul.frame-tiles")
+    strip = root.select_one("ul.frame-menu__list")
     assert strip.attrs["aria-label"] == "Your frames"
     for tag in ("dialog", "form", "select", "button", "script"):
         assert not root.select(tag)
-    add = strip.select("a.frame-tile--add")
+    add = strip.select("a.frame-row--add")
     assert [a.attrs["href"] for a in add] == ["/pair-frame"]
     assert all(
         a.attrs["href"].startswith("/devices/")
-        for a in strip.select("a.frame-tile") if a not in add)
+        for a in strip.select("a.frame-row") if a not in add)
 
 
 def test_the_strip_is_french_in_french(fleet):
@@ -85,12 +85,12 @@ def test_the_strip_is_french_in_french(fleet):
         if d.owner_user_id == seeded.admin_id))
     prefs.set_request_prefs(lang="fr")
     try:
-        root = parse_html(ui_shell.frame_switcher_html("display"))
+        root = parse_html(frame_menu.personal_menu_html("display"))
     finally:
         prefs.set_request_prefs(lang="en")
-    assert root.select_one("ul.frame-tiles").attrs["aria-label"] == "Vos cadres"
-    assert root.select_one("a.frame-tile--add").text().strip().endswith("Ajouter un cadre")
-    seen = [n.text().strip() for n in root.select(".frame-tile__seen")]
+    assert root.select_one("ul.frame-menu__list").attrs["aria-label"] == "Vos cadres"
+    assert root.select_one("a.frame-row--add").text().strip().endswith("Ajouter un cadre")
+    seen = [n.text().strip() for n in root.select(".frame-row__seen")]
     assert seen and all(word == "Pas encore vu" for word in seen)
 
 
@@ -98,19 +98,19 @@ def test_the_current_tile_carries_aria_current_and_the_other_does_not(fleet):
     state_dir, seeded = fleet
     second = _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
-    tiles = _cards(ui_shell.frame_switcher_html("flights"))
+    tiles = _cards(frame_menu.personal_menu_html("flights"))
     current = [c for c in tiles if c.attrs.get("aria-current") == "true"]
     assert [c.attrs["href"] for c in current] == ["/devices/%s/flights" % seeded.owner_device]
     other = next(c for c in tiles if c.attrs["href"] == "/devices/%s/flights" % second)
     assert "aria-current" not in other.attrs
-    assert not other.select(".frame-tile__note")
+    assert not other.select(".frame-row__note")
 
 
 def test_a_user_never_receives_another_users_email(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, "user", seeded.owner_id, OWNER_EMAIL, seeded.owner_device)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     assert OTHER_EMAIL not in html and ADMIN_EMAIL not in html
 
 
@@ -122,7 +122,7 @@ def test_hostile_names_and_emails_are_escaped(fleet):
         state_dir, "admin", seeded.admin_id, ADMIN_EMAIL,
         next(d.id for d in device_scope.load_devices(state_dir)
              if d.owner_user_id == seeded.admin_id))
-    html = ui_shell.frame_switcher_html("health")
+    html = frame_menu.personal_menu_html("health")
     assert "<script>alert" not in html
     assert "&lt;script&gt;" in html
 
@@ -131,7 +131,7 @@ def _console_html(state_dir, seeded, active):
     _enter(
         state_dir, "admin", seeded.admin_id, ADMIN_EMAIL,
         device_scope.load_devices(state_dir)[0].id)
-    return ui_shell.frame_switcher_html(active)
+    return frame_menu.personal_menu_html(active)
 
 
 def test_the_airline_editor_is_one_global_list_without_a_frame_strip(fleet):
@@ -150,8 +150,8 @@ def test_console_pages_list_every_frame_with_the_owner_email(fleet, active):
         "/devices/%s%s" % (seeded.owner_device, page),
         "/devices/%s%s" % (seeded.other_device, page)}
     notes = {
-        c.attrs["href"]: c.select_one(".frame-tile__note").text().strip()
-        for c in cards if c.select(".frame-tile__note")}
+        c.attrs["href"]: c.select_one(".frame-row__note").text().strip()
+        for c in cards if c.select(".frame-row__note")}
     assert notes["/devices/%s%s" % (seeded.owner_device, page)] == OWNER_EMAIL
     assert notes["/devices/%s%s" % (seeded.other_device, page)] == OTHER_EMAIL
 
@@ -172,6 +172,6 @@ def test_the_personal_page_of_an_administrator_has_no_console_list(fleet):
     _add_device(state_dir, seeded.admin_id, 0x13, "Mine too")
     mine = [d for d in device_scope.load_devices(state_dir) if d.owner_user_id == seeded.admin_id]
     _enter(state_dir, "admin", seeded.admin_id, ADMIN_EMAIL, mine[0].id)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     assert OWNER_EMAIL not in html and OTHER_EMAIL not in html
     assert len(_cards(html)) == 2

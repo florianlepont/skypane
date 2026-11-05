@@ -15,6 +15,8 @@ _SKY_STOPS = ("--sky-top", "--sky-mid", "--sky-bottom")
 _RGBA_RE = re.compile(
     r"rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)")
 _INKS = ("--color-text", "--color-accent")
+# The glass fill, the floating tab bar's own fill and the popover's.
+_SUPPORTS_FILLS = ("var(--glass-bg)", "var(--bar-bg)", "var(--pop-bg)")
 _RARITY_INKS = ("--color-rarity-occasional", "--color-rarity-rare")
 
 
@@ -155,20 +157,21 @@ def test_glass_applies_only_inside_supports_and_keeps_a_solid_base(served_css):
         if any(at_rule.startswith("@supports") for at_rule in rule.at_rules):
             continue
         for prop, value in rule.declarations:
-            if prop == "background":
+            if prop in ("background", "background-color"):
                 for selector in rule.selectors:
                     base_backgrounds.setdefault(selector, set()).add(value)
     glass_selectors = []
     for rule in rules:
-        background = dict(rule.declarations).get("background")
-        assert background == "var(--glass-bg)", rule.selectors
+        declared = dict(rule.declarations)
+        background = declared.get("background") or declared.get("background-color")
+        assert background in _SUPPORTS_FILLS, (rule.selectors, background)
         for selector in rule.selectors:
             glass_selectors.append(selector)
             assert base_backgrounds.get(selector, set()) & {
                 "var(--color-dominant)", "var(--color-secondary)", "var(--glass-solid)"}, (
                 "%s has no solid base fill outside @supports: %r"
                 % (selector, base_backgrounds.get(selector)))
-    for selector in (".dashboard-sidebar", ".tab-bar", ".site-header", ".page-section",
+    for selector in (".dashboard-sidebar", ".tab-bar", ".frame-menu__panel", ".page-section",
                      ".group", "dialog.modal"):
         assert selector in glass_selectors, selector
     blurred = [rule for rule in rules if "backdrop-filter" in dict(rule.declarations)]
@@ -228,18 +231,44 @@ def test_the_entrance_never_fills_forwards(served_css):
                 assert "infinite" not in value
 
 
+def _bar_over(tokens, backdrop):
+    """The opaque colour of the floating tab bar's fill, topped by the brightest stop of its
+    sheen, over an opaque backdrop: the lightest the bar ever gets, the worst case for light ink."""
+    fill = _over(tokens["--bar-bg"], backdrop)
+    sheen = _RGBA_RE.search(tokens["--bar-sheen"]).group(0)
+    return _over(sheen, fill)
+
+
 def test_tab_bar_labels_stay_readable_over_any_content_scrolling_beneath(served_css):
-    """page content scrolls under the bars, so the one glass tier must keep the label ink at
-    4.5:1 over the worst content there can be and over every sky. Light: a white or a black
-    picture. Dark: a black picture and the two sky ends (a dark theme page holds no white
-    surface wider than a bar cell except the white-backed frame picture, which the blur averages
-    with the dark page around it)"""
+    """page content scrolls under the floating bar, so its own fill must keep the label ink and
+    the active pill's ink at 4.5:1 over a pure white and a pure black backdrop (a white frame
+    picture, a black one) and over both ends of the sky, in every theme cascade"""
     failures = []
     for label, tokens in _themes(served_css):
-        worst = ("#000000",) if label.startswith("dark") else ("#FFFFFF", "#000000")
-        for backdrop in worst + (tokens["--sky-top"], tokens["--sky-bottom"]):
-            bar = _over(tokens["--glass-bg"], backdrop)
+        for backdrop in ("#FFFFFF", "#000000", tokens["--sky-top"], tokens["--sky-bottom"]):
+            bar = _bar_over(tokens, backdrop)
             ratio = contrast_ratio(tokens["--color-text"], bar)
             if ratio < WCAG_AA_NORMAL_TEXT:
-                failures.append("%s over %s: %.2f" % (label, backdrop, ratio))
+                failures.append("%s label over %s: %.2f" % (label, backdrop, ratio))
+            pill = _over(tokens["--bar-pill-bg"], bar)
+            ratio = contrast_ratio(tokens["--color-accent"], pill)
+            if ratio < WCAG_AA_NORMAL_TEXT:
+                failures.append("%s active label over %s: %.2f" % (label, backdrop, ratio))
     assert not failures, failures
+
+
+def test_the_tab_bar_is_a_floating_stronger_glass_pill(served_css):
+    declared = {}
+    for rule in css_rules(served_css):
+        if ".tab-bar" in rule.selectors and any(
+                at.startswith("@media (max-width: 959.98px)") for at in rule.at_rules):
+            declared.update(dict(rule.declarations))
+    assert declared["position"] == "fixed" and declared["height"] == "var(--tab-bar-h)"
+    assert declared["bottom"] == "calc(var(--tab-bar-gap) + var(--safe-bottom))"
+    assert declared["border-radius"] == "var(--radius-pill)"
+    blurred = [dict(rule.declarations) for rule in css_rules(served_css)
+               if ".tab-bar" in rule.selectors and "backdrop-filter" in dict(rule.declarations)]
+    assert blurred and blurred[0]["backdrop-filter"] == "blur(26px) saturate(200%)"
+    assert blurred[0]["-webkit-backdrop-filter"] == "blur(26px) saturate(200%)"
+    root = custom_properties(served_css, ":root")
+    assert root["--tab-bar-h"] == "68px" and root["--tab-bar-gap"] == "12px"

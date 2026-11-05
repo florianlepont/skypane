@@ -100,7 +100,7 @@ def test_without_script_the_greeting_is_the_neutral_default(new_context, fleet_a
 
 def test_the_frame_name_is_a_second_line_for_several_frames(new_context, fleet_app):
     page = _fleet_page(new_context, fleet_app, _live(fleet_app), hour=9)
-    name = page.locator(".frame-fold__name").inner_text()
+    name = page.locator(".frame-menu__name").inner_text()
     assert page.locator(".home-greeting__frame").inner_text() == name
     box = page.evaluate(_BOXES)["greeting"]
     line = page.evaluate("() => parseFloat(getComputedStyle("
@@ -243,9 +243,9 @@ def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, vie
         assert read["first"] >= 68 - 0.5, (where, read)
         parts = [float(p) for p in read["bar"][read["bar"].index("(") + 1:-1].split(",")]
         alpha = parts[3] if len(parts) == 4 else 1.0
-        # The bar is the one glass tier (white 0.09 in Dark): over a pure white backdrop no
-        # light ink can read, so Dark is measured over black, the page's dark ground.
-        for backdrop in ((255, 0) if theme["theme"] == "light" else (0,)):
+        # The floating bar has its own fill per theme: legible over a white and a black
+        # backdrop (a picture scrolling beneath it) in both.
+        for backdrop in (255, 0):
             bar = "#%02X%02X%02X" % tuple(round(alpha * c + (1 - alpha) * backdrop)
                                           for c in parts[:3])
             for ink in read["inks"]:

@@ -1,5 +1,5 @@
-"""The frame tile strip in the personal space: which frames it lists for a
-user and for an administrator, the same-page links, the Add a frame tile and
+"""The frame button and popover in the personal space: which frames it lists for a
+user and for an administrator, the same-page links, the Add a frame row and
 the escaping of names and owner emails. Rendered in-process over a
 seeded fleet.
 """
@@ -7,7 +7,7 @@ import pytest
 
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
-from companion import access, device_scope, prefs, ui_shell
+from companion import access, device_scope, frame_menu, prefs
 from companion_markup import parse_html
 from server import fleet_db, hardware
 
@@ -56,25 +56,38 @@ def _enter(state_dir, principal, current_id):
 def _frame_tiles(root):
     """The frame tiles of the strip, without the Add a frame tile."""
     return [
-        a for a in root.select("ul.frame-tiles a.frame-tile")
-        if "frame-tile--add" not in a.attrs.get("class", "")]
+        a for a in root.select("ul.frame-menu__list a.frame-row")
+        if "frame-row--add" not in a.attrs.get("class", "")]
 
 
 def _rows(html):
     return _frame_tiles(parse_html(html))
 
 
-def test_one_frame_renders_nothing(fleet):
+def test_one_frame_still_shows_the_button_with_only_the_add_row(fleet):
     state_dir, seeded = fleet
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    assert ui_shell.frame_switcher_html("display") == ""
+    html = frame_menu.personal_menu_html("display")
+    root = parse_html(html)
+    assert root.select_one("details.frame-menu > summary.frame-menu__button") is not None
+    assert len(_rows(html)) == 1
+    assert [a.attrs["href"] for a in root.select("a.frame-row--add")] == ["/pair-frame"]
+
+
+def test_no_signed_in_person_and_one_frame_renders_nothing(fleet):
+    state_dir, seeded = fleet
+    principal = _principal(seeded, "owner")
+    devices = device_scope.load_devices_for(state_dir, principal)
+    device_scope.set_request_scope(devices[0], devices, principal.user_id, state_dir)
+    prefs.set_request_principal(None)
+    assert frame_menu.personal_menu_html("display") == ""
 
 
 def test_two_frames_list_both_with_the_current_one_marked(fleet):
     state_dir, seeded = fleet
     second = _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    rows = _rows(ui_shell.frame_switcher_html("display"))
+    rows = _rows(frame_menu.personal_menu_html("display"))
     assert len(rows) == 2
     assert {r.attrs["href"] for r in rows} == {
         "/devices/%s/display" % seeded.owner_device, "/devices/%s/display" % second}
@@ -88,12 +101,12 @@ def test_the_link_keeps_the_page(fleet):
     second = _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
     for page, slug in (("flights", "/flights"), ("health", "/health")):
-        hrefs = {r.attrs["href"] for r in _rows(ui_shell.frame_switcher_html(page))}
+        hrefs = {r.attrs["href"] for r in _rows(frame_menu.personal_menu_html(page))}
         assert "/devices/%s%s" % (second, slug) in hrefs
 
 
 def _add_tile(html):
-    found = parse_html(html).select("a.frame-tile--add")
+    found = parse_html(html).select("a.frame-row--add")
     return found[0] if found else None
 
 
@@ -101,29 +114,31 @@ def test_a_user_gets_an_add_tile_to_their_own_page_and_no_fleet_link(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     add = _add_tile(html)
     assert add.attrs["href"] == "/pair-frame"
     assert add.text().strip().endswith("Add a frame")
     assert "/fleet" not in html and "Add a screen" not in html and "Add a frame" in html
-    assert parse_html(html).select("ul.frame-tiles > li")[-1].select_one(
-        "a.frame-tile--add") is not None
+    assert parse_html(html).select("ul.frame-menu__list > li")[-1].select_one(
+        "a.frame-row--add") is not None
     assert "/account#account-frames" not in html
 
 
-def test_an_administrator_gets_the_add_tile_leading_to_the_pairing_flow(fleet):
+def test_an_administrator_gets_the_same_add_row_in_the_personal_space_and_the_pairing_flow_in_the_console(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.admin_id, 0x12, "Mine")
     _add_device(state_dir, seeded.admin_id, 0x13, "Mine too")
     mine = [d for d in device_scope.load_devices(state_dir) if d.owner_user_id == seeded.admin_id]
     _enter(state_dir, _principal(seeded, "admin"), mine[0].id)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     add = _add_tile(html)
-    assert add.attrs["href"] == "/fleet?pair=1"
+    assert add.attrs["href"] == "/pair-frame"
     assert add.text().strip().endswith("Add a frame")
     assert "All frames" not in html
-    items = parse_html(html).select("ul.frame-tiles > li")
-    assert items[-1].select_one("a.frame-tile--add") is not None
+    console = frame_menu.personal_menu_html("health")
+    assert _add_tile(console).attrs["href"] == "/fleet?pair=1"
+    items = parse_html(html).select("ul.frame-menu__list > li")
+    assert items[-1].select_one("a.frame-row--add") is not None
 
 
 def test_an_administrators_list_is_their_own_frames_plus_the_one_viewed(fleet):
@@ -132,26 +147,28 @@ def test_an_administrators_list_is_their_own_frames_plus_the_one_viewed(fleet):
     mine_b = _add_device(state_dir, seeded.admin_id, 0x13, "Mine too")
     admin = _principal(seeded, "admin")
     _enter(state_dir, admin, mine_a)
-    ids = {r.attrs["href"] for r in _rows(ui_shell.frame_switcher_html("display"))}
+    ids = {r.attrs["href"] for r in _rows(frame_menu.personal_menu_html("display"))}
     assert ids == {"/devices/%s/display" % mine_a, "/devices/%s/display" % mine_b}
     html = _enter_foreign_and_render(state_dir, seeded, admin)
     rows = _rows(html)
     assert len(rows) == 3
     note = parse_html(html).select_one(
-        'a[href="/devices/%s/display"] .frame-tile__note' % seeded.owner_device)
+        'a[href="/devices/%s/display"] .frame-row__note' % seeded.owner_device)
     assert note.text().strip() == OWNER_EMAIL
     assert "/devices/%s/display" % seeded.other_device not in html
 
 
 def _enter_foreign_and_render(state_dir, seeded, admin):
     _enter(state_dir, admin, seeded.owner_device)
-    return ui_shell.frame_switcher_html("display")
+    return frame_menu.personal_menu_html("display")
 
 
-def test_an_administrator_with_one_frame_and_no_other_sees_no_switcher(fleet):
+def test_an_administrator_viewing_one_frame_sees_it_and_the_add_row(fleet):
     state_dir, seeded = fleet
     _enter(state_dir, _principal(seeded, "admin"), seeded.owner_device)
-    assert ui_shell.frame_switcher_html("display") == ""
+    html = frame_menu.personal_menu_html("display")
+    assert len(_rows(html)) == 1
+    assert _add_tile(html).attrs["href"] == "/pair-frame"
 
 
 def test_a_co_managed_frame_is_marked_shared_with_its_owner(fleet):
@@ -162,12 +179,12 @@ def test_a_co_managed_frame_is_marked_shared_with_its_owner(fleet):
     finally:
         conn.close()
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     note = parse_html(html).select_one(
-        'a[href="/devices/%s/display"] .frame-tile__note' % seeded.other_device)
+        'a[href="/devices/%s/display"] .frame-row__note' % seeded.other_device)
     assert note is not None and note.text().strip() == "Shared by " + OTHER_EMAIL
     owned = parse_html(html).select(
-        'a[href="/devices/%s/display"] .frame-tile__note' % seeded.owner_device)
+        'a[href="/devices/%s/display"] .frame-row__note' % seeded.owner_device)
     assert not owned
 
 
@@ -175,7 +192,7 @@ def test_names_are_escaped(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, '<img src=x onerror="y">')
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     assert "<img" not in html
     assert "&lt;img" in html
 
@@ -184,15 +201,15 @@ def test_a_global_page_has_no_switcher(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    assert ui_shell.frame_switcher_html("update") == ""
+    assert frame_menu.personal_menu_html("update") == ""
 
 
 def test_each_tile_is_a_picture_a_name_a_dot_and_a_last_seen_word(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
-    for tile in _rows(ui_shell.frame_switcher_html("display")):
-        assert tile.select_one(".frame-tile__pic i") is not None
-        assert tile.select_one(".frame-tile__name").text().strip()
-        assert tile.select_one('.frame-tile__dot [role="img"]') is not None
-        assert tile.select_one(".frame-tile__seen").text().strip() == "Not seen yet"
+    for tile in _rows(frame_menu.personal_menu_html("display")):
+        assert tile.select_one(".frame-row__pic i") is not None
+        assert tile.select_one(".frame-row__name").text().strip()
+        assert tile.select_one('.frame-row__dot [role="img"]') is not None
+        assert tile.select_one(".frame-row__seen").text().strip() == "Not seen yet"

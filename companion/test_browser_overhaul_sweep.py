@@ -151,7 +151,7 @@ _PERSONAL_BODY = """
 # Airline and airport names are catalogue data, spelled the same in both languages.
 _VISIBLE_TEXT = """
 () => {
-  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-tile__name';
+  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-row__name, .frame-menu__name';
   const out = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -641,7 +641,7 @@ def test_the_home_notification_has_a_french_translation(
 _PAGE_SHAPE = """
 () => {
   const skip = '.tab-bar__link--switch, .space-switch, .frame-notice,'
-    + ' .frame-tiles, script, style, template';
+    + ' .frame-menu, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);
   return {

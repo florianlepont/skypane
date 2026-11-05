@@ -1356,12 +1356,10 @@ _TAB_BAR_MEDIA = ("@media (max-width: 959.98px)",)
 
 
 def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
-    """the tab bar is display:none until the 959.98px boundary, then fixed
-    to the viewport bottom at 56px plus the safe-area inset on the nav
-    surface with a top hairline, the resting overlay shadow and NO border
-    radius (it is edge-anchored); its cells are `flex: 1 1 0`; its active
-    state reuses the app's one 12%-accent-wash pill idiom byte-for-byte
-    with a :not()-scoped hover placed after it; its label is 11px regular
+    """the tab bar is display:none until the 959.98px boundary, then a floating pill: fixed
+    inset by the gap from the sides and above the safe-area inset, 68px high, with the pill
+    radius and its own glass shadow; its cells are `flex: 1 1 0`; its active
+    state is the inner glass pill with a :not()-scoped hover placed after it; its label is 11px regular
     with no label voice; and .has-tab-bar clears the bar at the page foot
    """
     rules = css_rules(css_text)
@@ -1374,26 +1372,29 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
     fixed_decls = declarations_for(css_text, ".tab-bar", at_rules=_TAB_BAR_MEDIA)
     assert fixed_decls.get("display") == "flex"
     for prop, expected in (
-            ("position", "fixed"), ("left", "0"), ("right", "0"), ("bottom", "0"),
+            ("position", "fixed"),
+            ("left", "max(var(--tab-bar-gap), var(--safe-left))"),
+            ("right", "max(var(--tab-bar-gap), var(--safe-right))"),
+            ("bottom", "calc(var(--tab-bar-gap) + var(--safe-bottom))"),
+            ("height", "var(--tab-bar-h)"),
             ("z-index", "20"),
-            ("padding-bottom", "var(--safe-bottom)"),
-            ("background", "var(--color-secondary)"),
-            ("border-top", "1px solid var(--color-border)"),
-            ("box-shadow", "var(--shadow-card-hover)")):
+            ("background-color", "var(--glass-solid)"),
+            ("border", "1px solid var(--color-border)"),
+            ("border-radius", "var(--radius-pill)"),
+            ("box-shadow", "var(--bar-shadow)")):
         assert fixed_decls.get(prop) == expected, (prop, fixed_decls)
-    assert "border-radius" not in fixed_decls
 
     link_decls = declarations_for(css_text, ".tab-bar__link", at_rules=_TAB_BAR_MEDIA)
     assert link_decls.get("flex") == "1 1 0"
     assert link_decls.get("height") == "56px"
     assert link_decls.get("color") == "var(--color-text)"
 
-    wash = "color-mix(in srgb, var(--color-accent) 12%, transparent)"
     sidebar_active_decls = declarations_for(css_text, ".sidebar-link--active")
-    assert sidebar_active_decls.get("background") == wash
+    assert sidebar_active_decls.get("background") == "var(--color-accent)"
+    assert sidebar_active_decls.get("color") == "var(--color-on-accent)"
     active_pill_decls = declarations_for(
         css_text, ".tab-bar__link--active .tab-bar__pill", at_rules=_TAB_BAR_MEDIA)
-    assert active_pill_decls.get("background") == wash
+    assert active_pill_decls.get("background") == "var(--bar-pill-bg)"
     active_text_decls = declarations_for(css_text, ".tab-bar__link--active", at_rules=_TAB_BAR_MEDIA)
     assert active_text_decls.get("color") == "var(--color-accent)"
     assert active_text_decls.get("font-weight") == "var(--weight-semibold)"
@@ -1417,7 +1418,7 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
 
     clearance_decls = declarations_for(css_text, ".has-tab-bar .page-content", at_rules=_TAB_BAR_MEDIA)
     padding_bottom = clearance_decls.get("padding-bottom", "")
-    for needle in ("56px", "var(--safe-bottom)"):
+    for needle in ("var(--tab-bar-h)", "var(--tab-bar-gap)", "var(--safe-bottom)"):
         assert needle in padding_bottom
     assert layout.TAB_BAR_BODY_CLASS == "has-tab-bar"
 

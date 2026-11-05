@@ -25,11 +25,11 @@ def fleet(app_server_in_process):
 
 
 def _strip(page):
-    return re.search(r'<ul class="frame-tiles".*?</ul>', page, re.S).group(0)
+    return re.search(r'<ul class="frame-menu__list".*?</ul>', page, re.S).group(0)
 
 
 def _tiles(page):
-    return re.findall(r'<a class="frame-tile[^"]*" href="([^"]+)"([^>]*)>', _strip(page))
+    return re.findall(r'<a class="frame-row[^"]*" href="([^"]+)"([^>]*)>', _strip(page))
 
 
 def _blocks(page):

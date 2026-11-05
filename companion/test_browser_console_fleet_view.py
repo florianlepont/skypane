@@ -1,10 +1,11 @@
-"""Real-browser checks of the Console Fleet view: the tile strip selects a frame
-with a plain link, the four blocks sit in two columns on desktop and stack on a
-phone, nothing overflows at 360 and 1280px in either theme and language, and
-every tile is a 44px target."""
+"""Real-browser checks of the Console Fleet view: the frame button's popover selects a frame
+with a plain link, lists System and Add a frame and the owner of other people's frames, the
+four blocks sit in two columns on desktop and stack on a phone, nothing overflows at 360 and
+1280px in either theme and language, and every row is a 52px target."""
 import pytest
 
 import fleet_console_support as fx
+from frame_menu_support import ADD, BUTTON, FRAMES, SYSTEM, open_menu
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _login,
@@ -18,7 +19,7 @@ _BLOCKS = (
     " return {title: s.querySelector('h3').textContent, x: b.left, y: b.top,"
     "  w: b.width, right: b.right}; })")
 _TILES = (
-    "() => [...document.querySelectorAll('a.frame-tile')].map(a => {"
+    "() => [...document.querySelectorAll('a.frame-row')].map(a => {"
     " const b = a.getBoundingClientRect(); return {w: b.width, h: b.height,"
     "  href: a.getAttribute('href')}; })")
 _SETTLED = "() => document.readyState === 'complete'"
@@ -61,28 +62,53 @@ def test_the_blocks_lay_out_and_nothing_overflows(
             assert second["y"] > first["y"], (where, blocks)
         for block in blocks:
             assert block["right"] <= viewport["width"] + 0.5, (where, block)
-        for tile in page.evaluate(_TILES):
-            assert tile["w"] >= 44 and tile["h"] >= 44, (where, tile)
+        open_menu(page)
+        rows = page.evaluate(_TILES)
+        assert len(rows) >= 4, where
+        for row in rows:
+            assert row["w"] >= 44 and row["h"] >= 52, (where, row)
+        assert page.locator(SYSTEM).count() == 1 and page.locator(ADD).count() == 1
+        assert page.locator(ADD).get_attribute("href") == "#dlg-add-frame"
     finally:
         context.close()
 
 
-def test_a_tile_is_a_plain_link_that_selects_the_frame(
+def test_a_row_is_a_plain_link_that_selects_the_frame(
         new_context, app_server_in_process):
     context, page, seed = _open(
         new_context, app_server_in_process, VIEWPORT_DESKTOP, "en", "light")
     try:
-        target = "a.frame-tile[href='/fleet?frame=%s']" % seed.owned_id
+        open_menu(page)
+        target = "a.frame-row[href='/fleet?frame=%s']" % seed.owned_id
         page.locator(target).click()
         page.wait_for_url("**/fleet?frame=%s" % seed.owned_id)
         page.wait_for_function(_SETTLED, timeout=15000)
+        open_menu(page)
         page.wait_for_function(
             "(sel) => document.querySelector(sel).getAttribute('aria-current') === 'true'",
             arg=target)
+        assert page.locator(FRAMES + '[aria-current="true"]').count() == 1
         assert page.locator("section.fleet-block").count() == 4
-        page.locator("a.frame-tile--system").click()
+        page.locator(SYSTEM).click()
         page.wait_for_url("**/fleet?view=system")
         page.wait_for_function(_SETTLED, timeout=15000)
         assert page.locator("section.fleet-block").count() == 1
+        assert page.locator(BUTTON + " .frame-menu__name").inner_text() == "System"
+        open_menu(page)
+        assert page.locator(SYSTEM + '[aria-current="true"]').count() == 1
+        assert page.locator(FRAMES + '[aria-current="true"]').count() == 0
+    finally:
+        context.close()
+
+
+def test_the_console_popover_names_other_peoples_frames_by_owner(
+        new_context, app_server_in_process):
+    context, page, seed = _open(
+        new_context, app_server_in_process, VIEWPORT_DESKTOP, "en", "light")
+    try:
+        open_menu(page)
+        notes = page.locator(FRAMES + " .frame-row__note").all_inner_texts()
+        assert notes and all("@" in note for note in notes)
+        assert page.locator(BUTTON + " .frame-menu__name").inner_text()
     finally:
         context.close()

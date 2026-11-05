@@ -10,7 +10,7 @@ import pytest
 
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
-from companion import access, app, device_dispatch, device_scope, prefs, ui_shell
+from companion import access, app, device_dispatch, device_scope, frame_menu, prefs
 from companion_app_server import http_request
 from server import device_dirs, fleet_db, fleet_sessions, hardware
 
@@ -206,7 +206,7 @@ def test_the_switcher_links_never_use_the_unprefixed_live_frame_for_a_user(fleet
     devices = device_scope.load_devices_for(state_dir, _principal(seeded, "owner"))
     live = next(d for d in devices if d.is_live)
     _enter("user", devices, live)
-    html = ui_shell.frame_switcher_html("display")
+    html = frame_menu.personal_menu_html("display")
     assert 'href="/devices/%s/display"' % live_id in html
     assert 'href="/display"' not in html
     assert 'value="live"' not in html

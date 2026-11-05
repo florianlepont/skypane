@@ -372,57 +372,57 @@ its panel are gone (Sign out stays on the Account page, as on the desktop sideba
 - No Health dot in the personal sidebar. The Console Health link shows the severity dot of the frame
   in scope.
 
-### 1.5 Frame picker (V3, V6, D30): personal pages and Console frame pages
+### 1.5 Frame picker (V3, V6, D30, D39, D40): personal pages and Console frame pages
 
-SUPERSEDED: revision 1 was a native `<details>` drop-down; revision 2 a frame chip opening a card sheet.
-The owner chose mockup F2 (D30, W17): a strip of frame tiles replaces both. The Fleet entry stays
-removed (V3).
+SUPERSEDED history: revision 1 was a native `<details>` drop-down; revision 2 a frame chip opening a card
+sheet; revision 3 (D30) a strip of frame tiles with a phone fold. Plan 61-57 (D39, D40) replaces the strip
+and its fold (`ul.frame-tiles`, `details.frame-fold`, the `skypane.frameStrip` memory) with a frame button
+and a popover. The Fleet entry stays removed (V3).
 
-Rendered at the top of every device-scoped page, above the page title, **only when the request
-scope holds two or more frames**. One frame: nothing is rendered, nothing to choose (unchanged).
+**The frame button (`details.frame-menu > summary.frame-menu__button`).** In the top bar of every
+device-scoped page and of the Console Fleet page: on a phone the right side of the app bar (the brand on the
+left), on a desktop the top right of the content column, level with the page title (the title keeps clear of
+it). A glass pill at least 44px high showing the status dot of the frame in view (the single `frame_status`
+resolver), its name (one line, ellipsis) and a chevron; `aria-haspopup="true"`, and with script
+`aria-expanded` follows the popover. Shown when the person has two or more accessible frames or may add a
+frame (everyone, 61-47): a user with one frame still sees it, because it carries "Add a frame". Not shown on
+global pages (Update, the airline editor) or with no signed-in person and one frame.
 
-- **Strip (`ul.frame-tiles`, aria-label "Your frames" / "Vos cadres"):** one **frame tile** per frame,
-  each a plain link (no script, no dialog), 132px wide, at least 44px in both axes. A tile shows a
-  small frame picture drawn in CSS (dark bezel, white screen, 44x58px), the frame name (semibold,
-  wraps), the status dot in its top-right corner (the single `frame_status` resolver) and the dot's
-  last-seen word under the name: "Seen 2m ago" / "Vu il y a 2 min", or "Not seen yet" / "Pas encore
-  vu" for a frame that never checked in. A third muted line carries "Shared by {owner email}" for a
-  co-managed frame and the owner email on a frame the viewer does not own (never on their own).
-- **Phone (<700px, round 4, W23):** the strip sits in a collapsible, marked-off surface (`details.frame-fold`,
-  open by default; the summary row, at least 44px high, shows the active frame's name with a chevron and opens
-  or closes the tiles). With script the choice is remembered in `localStorage` (`skypane.frameStrip`, inside
-  try/catch); without script the strip is simply open. The surface uses `--color-secondary`, a hairline
-  `--color-border`, an inset shadow and a soft top gradient, all from tokens, in both themes. Tiles are 84px wide
-  and show only the small picture (32x42px) and the name on one line (ellipsis) with the status dot in the corner;
-  the last-seen word and the owner note are hidden. From 700px the summary is hidden, the script keeps the strip
-  open and the tiles keep the look above. The Console Fleet strip (frames, System, Add a frame) uses the same
-  fold and compact tiles; its summary names the selected frame or "System". The Fleet strip is always open by
-  default (it also carries the System and Add tiles), even with a single frame.
-- **Active tile:** `aria-current="true"`, outlined 2px in the accent colour with a faint accent wash.
-- **Add a frame tile (plan 61-47, D34, W33):** the last item, dashed border, "+" glyph and "Add a frame" /
-  "Ajouter un cadre" in the accent colour. Shown to every signed-in person. For a user (and for an
-  administrator on a personal page) it leads to their own Add a frame page (`/pair-frame`); on the Console
-  Fleet strip it opens the Fleet pairing dialog on the page (hash link, works without script) and is the
-  ONLY entry to that dialog (the "+ Add a frame" button next to the Fleet title is gone).
-- **Layout:** below 700px the strip is a horizontal scroller (one row, `overflow-x: auto`, snap);
-  from 700px it wraps. Both themes, EN and FR, no page-level horizontal overflow at 360px.
-- Tiles go to the **same page** of the other frame (`device_scope.target_path(page, device)`), always
-  under the `/devices/<id>` prefix (never the unprefixed live frame for a user), so the user stays on
-  Home, Flight history, Personalisation and so on.
-- **List content, personal pages:** the frames the viewer owns or co-manages. For an administrator
-  this is the same rule as for a user (V0/V3): no "All frames", no Fleet link anywhere in the personal
-  space (excluding `.space-switch` and `.frame-notice`, administrator only). If an administrator opens a frame that belongs to someone else (Fleet row "Open personal
-  view"), a `.frame-notice` strip (14px, `--color-secondary`, 44px high, wraps) is shown above the
-  page title: "Viewing {owner email}'s frame" with a link "Back to Fleet"; the picker then lists the
-  viewer's own frames plus that one frame (flagged with the owner email).
-- **List content, Console frame pages (Health, Device, Airline editor):** every frame of the
-  platform (administrator only), problems first then by name, each tile also showing the owner
-  email as its last line; this is the legitimate place for the all-frames list. The strip is the
-  same. With one frame in the fleet nothing is rendered.
-- Strings (EN / FR): "Your frames" / "Vos cadres"; "Seen %s" / "Vu %s"; "Add a frame" / "Ajouter un
-  cadre"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la
-  flotte" (existing). Removed with the sheet: "Choose a frame", "Manage my frames", "Current", the
-  chip's "Switch frame, current: %s", and (earlier) "All frames (Fleet)".
+**The popover (`.frame-menu__panel`).** A glass panel hung under the button (out of flow, so opening it
+moves nothing): 300px wide, at most `calc(100vw - 24px)`, right edge on the button's right edge, on a phone
+as on a desktop (the anchored form is reliable down to 360px, so no bottom sheet). One list
+(`ul.frame-menu__list`, aria-label "Your frames" / "Vos cadres") of rows, each at least 52px high and a plain
+link (no script, no dialog): the CSS-drawn frame picture (28x38px), the name (semibold, ellipsis), the
+last-seen word ("Seen 2m ago" / "Vu il y a 2 min", "Not seen yet" / "Pas encore vu"), the owner line
+("Shared by {email}" for a co-managed frame, the owner email on a frame the viewer does not own, never on
+their own), the status dot and, on the frame in view, a check (`aria-current="true"` and a tinted row).
+Under a separator: on the Console only a "System" row (round badge, "Sources and backups"; `aria-current`
+on the System view), then an "Add a frame" / "Ajouter un cadre" row (graphite icon chip with a plus): for a
+user and for an administrator on a personal page it leads to `/pair-frame` or `/fleet?pair=1`; on the Fleet
+page it opens the pairing dialog (hash link, works without script) and is the ONLY entry to that dialog.
+The entrance is the existing finite `skypane-soft-in` (scale and opacity, `--motion-fast`), zeroed by the
+single reduced-motion rule.
+
+**Behaviour.** A native `<details>`: opens, closes and every row navigates with no script. modal.js adds
+Escape (focus returns to the button), an outside tap closes, the dialog opener of the Add row closes the
+popover and focus returns to the button when the dialog closes, and `aria-expanded`. Tab walks the rows.
+
+- Rows go to the **same page** of the other frame (`device_scope.target_path(page, device)`), always under
+  the `/devices/<id>` prefix (never the unprefixed live frame for a user), so the user stays on Home, Flight
+  history, Personalisation and so on. On the Fleet page they are `/fleet?frame=<id>` and `/fleet?view=system`
+  and the page content follows (State, Device and version, Settings, Access, or the System view).
+- **List content, personal pages:** the frames the viewer owns or co-manages. For an administrator this is
+  the same rule as for a user (V0/V3): no "All frames", no Fleet link anywhere in the personal space
+  (excluding `.space-switch` and `.frame-notice`, administrator only). If an administrator opens a frame that
+  belongs to someone else (Fleet row "Open personal view"), a `.frame-notice` strip is shown above the page
+  title ("Viewing {owner email}'s frame", link "Back to Fleet"); the popover then lists the viewer's own
+  frames plus that one frame (flagged with the owner email).
+- **List content, Console frame pages (Health, Device) and the Fleet page:** every frame of the platform
+  (administrator only), problems first then by name, each row also showing the owner email; the Console adds
+  the System row.
+- Strings (EN / FR): "Your frames" / "Vos cadres"; "Choose a frame" / "Choisir un cadre" (the button's
+  hint); "Seen %s" / "Vu %s"; "Add a frame" / "Ajouter un cadre"; "System" / "Système"; "Viewing %s's frame" /
+  "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la flotte".
 - The old `?device=` GET redirect stays (old bookmarks).
 
 ### 1.6 Route map (every old route to its place; no broken bookmark; default-deny unchanged)
@@ -545,7 +545,7 @@ Behaviour (testable):
 | 7 | Leave this frame | "Leave frame" button (Account, co-managed frames) | none (sentence) | Leave this frame (destructive) | `/co-managers/leave` |
 | 8 (proposed, open item 4) | Manage user | "Manage user" button (Users row) | Role select, Save role; Access section (Disable/Enable); Sign-in section (Unlink identity) | per section | `/users/<id>/{role,disable,enable,unlink}` |
 | 9 (revision 2) | Quiet hours | schedule row on Home (section 10) | Use quiet hours, Start, End, presets | Save quiet hours (primary) | `/quick/quiet-hours/window` (new) |
-| 10 (D30) | Choose a frame (tile strip, no form, no dialog) | frame strip (section 1.5) | none, one link tile per frame | none | GET links |
+| 10 (D30, D39) | Choose a frame (popover, no form, no dialog) | frame button (section 1.5) | none, one link row per frame | none | GET links |
 | 11 (revision 2) | Airline details (sheet, read-only, no form) | an airline card (section 12.1) | none | none | none |
 | 12 (revision 2) | Remove special look (confirm) | "Remove" on a special-look row (Personalisation) | none (sentence) | Remove special look (destructive; dismiss "Keep special look") | the existing rules remove route |
 | 13 (revision 2) | Delete manual resolution (confirm) | "Delete" on a manual resolution (Airline editor) | none (sentence) | Delete resolution (destructive; dismiss "Keep resolution") | `/airlines/manual-resolutions/<p>/delete` |
@@ -1612,3 +1612,10 @@ One glass tier and four reusable components, all in the shared stylesheet plus `
 
 - Home: the hero (current picture beside the state word and the next update; the battery dial for an administrator), a Recent flights group (one row per flight linking to Flights, plus a "See all flights" row; the empty state when there is no flight), a Frame group (Screen and Quiet hours switch rows; the quiet window still opens the dialog). With no picture yet, "Current frame" is one panel group holding the empty state. Two or three groups replace the former four or five cards.
 - Console Fleet State: the health rows keep their native `<details>` and use the row metrics: from a 420px container the name and verdict stack in one column beside the value, which wraps and never takes more than half the row, so a long verdict and a long value cannot overlap.
+
+## Navigation chrome (plan 61-57, owner decisions D39, D40)
+
+- **Floating tab bar (below 960px).** A pill, not a full-width strip: 12px side margins (`--tab-bar-gap`, plus the left and right safe areas), `bottom: calc(12px + var(--safe-bottom))`, 68px high (`--tab-bar-h`), `--radius-pill`, its own stronger glass: `backdrop-filter: blur(26px) saturate(200%)` (and the `-webkit-` form) inside the glass `@supports` block, a translucent fill (`--bar-bg`: white 0.66 in Light, `rgba(20, 24, 34, 0.86)` in Dark, so light labels hold 4.5:1 over a white picture scrolling beneath), a subtle gradient sheen (`--bar-sheen`), a 1px light `--bar-border`, an inset top specular highlight and a soft long shadow (`--bar-shadow`). Without backdrop-filter the bar keeps the solid `--glass-solid`. The active item is an inner pill (`--bar-pill-bg`: white 0.92 in Light, white 0.18 in Dark) with the graphite (ivory in Dark) label; the administrator's Console / My frame switch stays the first cell, 68px wide and outlined in the accent. Page content clears it (bar + gap + safe area added to the page's bottom padding; the save bar, toasts and the map stage use the same tokens). Hide on scroll was considered and not shipped: a bar that slides off-screen breaks tap targets for assistive and automated pointer input for little gain; the bar never moves.
+- **Phone app bar.** Transparent over the page background (no fill, no border, no blur, so Safari tints nothing), padded below the status bar by `--safe-top`, brand left and the frame button right.
+- **Desktop sidebar.** The floating glass panel of the one glass tier; the current item is a solid graphite pill (ivory in Dark) with the on-accent label; the accent bar beside it is gone.
+- Tests: `test_browser_tab_bar_float.py` (geometry, forced `--safe-bottom`, last content above the bar at the end of the page, ink over white and black in both themes, app bar, reduced motion, no script), `test_sky_contrast.py` (fill over white, black and both sky ends in every theme cascade), `test_browser_frame_menu.py` (popover at 360, 390 and 1440 in EN and FR, both themes).
