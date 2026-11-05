@@ -302,3 +302,9 @@ Larger redesigns (new design work, owner decision on scope):
   entrance, bigger serif titles. Owner wants a bolder, more modern, more
   animated look. Mockups: scratchpad/sketches (a1 day, a2 night; the
   editorial option C was not chosen). Motion respects reduced-motion.
+- D38 (owner) Go with style A as drawn. The mockups are a visual direction
+  only: they do not show the latest companion structure (slim phone header,
+  first tab-bar space-switch button, collapsible frame strip, notification
+  under the title, one-level Personalisation tabs, Location sheet, etc.).
+  The style is applied to the real current pages and keeps all their
+  content, controls and rules; nothing is redrawn from the mockups.

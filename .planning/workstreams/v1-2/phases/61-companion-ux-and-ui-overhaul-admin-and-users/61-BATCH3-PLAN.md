@@ -43,3 +43,8 @@ each plan runs the full suite once after its last code change.
 | 61-52 | Foundations: sky gradient background tokens (dawn/day/dusk/night, Light theme follows local time of day, Dark theme is always night, Auto follows the system), frosted-glass card surface tokens with a solid fallback and guaranteed contrast, bigger serif titles, motion tokens and a single reduced-motion rule |
 | 61-53 | Home: personal greeting title, plane on a trail when a flight is detected, pulsing dot, filling progress bar and badges, staggered card entrance |
 | 61-54 | Other pages polish with the same language (flights, collection, location sheet, personalisation, account, Console), view-transition timing, final contrast and performance pass |
+
+Batch 5 rule (D38): the style is applied to the real, current pages. The
+sketches are a direction only (colours, glass surfaces, gradients, motion,
+type scale); no content, control, route or rule of the current pages is
+dropped or redrawn from a sketch.
