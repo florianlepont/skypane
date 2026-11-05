@@ -48,3 +48,14 @@ Batch 5 rule (D38): the style is applied to the real, current pages. The
 sketches are a direction only (colours, glass surfaces, gradients, motion,
 type scale); no content, control, route or rule of the current pages is
 dropped or redrawn from a sketch.
+
+## Batch 6 (refined direction, D39)
+
+| Plan | Scope |
+|------|-------|
+| 61-55 | Tokens and safe areas: viewport-fit=cover, theme-color per scheme, canvas colour, svh/dvh; one pale sky (Light) and ink (Dark), no time-of-day skies and no sky flash; graphite/ivory accent tokens; system sans only; one type scale; three radii |
+| 61-56 | Surfaces and components: one glass tier, grouped-list component, hero block, section label, remove legacy beige opaque surfaces and tracked uppercase labels, fix Fleet State card overlap and the dark notice slab |
+| 61-57 | Navigation chrome: Liquid Glass floating tab bar and phone header, desktop sidebar, frame button top right with popover (sheet on phone) replacing the tile strip and its fold, also in Console |
+| 61-58 | User pages migrated to the new components: Home (hero + groups), Flights, Account, Location, Personalisation, Airline collection |
+| 61-59 | Console pages: Fleet detail groups, Users table, Airlines editor, Audit; dialogs and empty states; login |
+| 61-60 | Final pass: contrast, performance, consistency audit with screenshots, test hardening |
