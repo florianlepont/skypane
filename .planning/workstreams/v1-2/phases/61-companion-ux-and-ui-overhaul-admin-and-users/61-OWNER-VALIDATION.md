@@ -207,3 +207,7 @@ Larger redesigns (new design work, owner decision on scope):
 - W30 (owner) On the Account page, "My frames" deserve a graphic preview of
   the frame.
 - W31 (owner) Console feedback to come.
+- W32 (owner) He cannot see where a new user adds a new frame by themselves.
+  Finding: pairing (/fleet/pair, "Add a screen") is Console-only and
+  administrator-only; a plain user has no way to pair a frame. Product
+  question open: should a user be able to add their own frame?
