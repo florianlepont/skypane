@@ -179,3 +179,31 @@ Larger redesigns (new design work, owner decision on scope):
 - W21 (owner, screenshot) The Console / "My frame" space switch is broken in
   the desktop sidebar: the "My frame" label overflows its segment and the
   active segment is wider than the pill. The labels must fit.
+
+## Round 4: validation of the deployed batch 3 on iPhone (2026-11-05)
+
+- W22 (owner) On phone, the header gear button and the "Sign out" panel
+  below it must disappear (Sign out stays on the Account page).
+- W23 (owner) On phone, the frame tile strip must be smaller: only the
+  picture and the name (no text underneath). The strip should open and
+  close, and be more visually marked (a darker or lighter background for
+  texture).
+- W24 (owner) The Home notification text "Your frame has not contacted
+  SkyPane yet. Check the frame is powered, then wait one cycle. If it does
+  not recover, an administrator can help you." is too long.
+- W25 (owner) The Location page is unusable on phone (small map strip, the
+  floating cards cover it, the airport filter field renders empty, the sheet
+  is cut).
+- W26 (owner) Special looks texts are too long ("Current: no special look
+  yet", the section intro, the empty state with its explanation). The
+  preview should be bigger with the interface laid over it; the preview in
+  the "New special look" sheet is ridiculously small.
+- W27 (owner) "Screen on" has no place on the Personalisation Screen view,
+  it is already on Home.
+- W28 (owner) The aircraft/airline detail modal is too tall for a phone
+  screen (the Close button is cut off).
+- W29 (owner) The badges tile on the airline collection page is too big on
+  phone.
+- W30 (owner) On the Account page, "My frames" deserve a graphic preview of
+  the frame.
+- W31 (owner) Console feedback to come.
