@@ -163,7 +163,7 @@ def test_the_first_link_carries_one_welcome_and_the_next_sign_in_none(auth0_rig)
     assert _target(first.body) == "/account?flash=welcome_account"
     page = _page(rig, "/account?flash=welcome_account", first.session_cookie)
     assert page.count(_WELCOME) == 1
-    assert "Your frame will appear here once an administrator pairs it." in page
+    assert "Add your frame with the code shown on its screen." in page
     second = login_via_auth0(rig.server, rig.fake, sub="auth0|w")
     assert second.status == 200
     assert _target(second.body) == "/account"

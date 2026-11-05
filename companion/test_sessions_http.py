@@ -132,7 +132,7 @@ def test_a_user_role_session_gets_the_unknown_path_404_on_admin_routes(app_serve
     server = app_server_in_process
     cookie, _user_id = _seed_user_session(server.state_dir, role="user")
     unknown = http_request(server.url("/no-such-page"), cookie=cookie)
-    for path in ("/health", "/airlines"):
+    for path in ("/health", "/airlines/manage"):
         status, _headers, body = http_request(server.url(path), cookie=cookie)
         assert status == 404
         assert body == unknown[2]

@@ -9,7 +9,7 @@ dot.
 from typing import NamedTuple
 
 from companion import frame_status, i18n, layout, prefs, ui_entity_list, ui_modal
-from companion.pages import co_managers_card
+from companion.pages import co_managers_card, pair_frame_page
 
 ACCOUNT_TITLE = i18n.msg("account.account", "Account")
 ACCOUNT_PURPOSE = i18n.msg(
@@ -28,12 +28,6 @@ _THEME_TEXT = i18n.msg("account.theme", "Theme")
 _THEME_HINT = i18n.msg(
     "account.theme_hint", "Light, dark, or follow the system.")
 _MY_FRAMES_TEXT = i18n.msg("account.my_frames", "My frames")
-_NO_FRAMES_HEADING = i18n.msg(
-    "account.your_frames_will_appear_here", "Your frames will appear here")
-_NO_FRAMES_BODY = i18n.msg(
-    "account.once_an_administrator_pairs_a_frame",
-    "Once an administrator pairs a frame to your account, you land on its "
-    "Home after you sign in.")
 UNNAMED_FRAME_TEXT = i18n.msg("account.unnamed_frame", "Unnamed frame")
 _SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
 _LEAVE_FRAME_TEXT = i18n.msg("account.leave_frame", "Leave frame")
@@ -151,12 +145,13 @@ def _frames_card(frames, open_access):
     """The My frames card: the empty state with no frames, else one row per
     frame ordered by name, followed by the row dialogs."""
     if not frames:
-        return _card("account-frames", _MY_FRAMES_TEXT, layout.empty_state(
-            i18n.t(_NO_FRAMES_HEADING), i18n.t(_NO_FRAMES_BODY), compact=True))
+        return _card(
+            "account-frames", _MY_FRAMES_TEXT, pair_frame_page.empty_state_html())
     rows = sorted(frames, key=lambda frame: (frame.name.casefold(), frame.href))
     return _card(
         "account-frames", _MY_FRAMES_TEXT,
         ui_entity_list.entity_list_html("".join(_frame_row_html(f) for f in rows))
+        + '<p class="pair-actions">%s</p>' % pair_frame_page.secondary_link_html()
         + "".join(_frame_dialog_html(f, open_access) for f in rows))
 
 

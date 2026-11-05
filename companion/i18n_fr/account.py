@@ -79,10 +79,6 @@ MESSAGES = {
     "account.theme": "Thème",
     "account.theme_hint": "Clair, sombre, ou selon le système.",
     "account.my_frames": "Mes cadres",
-    "account.your_frames_will_appear_here": "Vos cadres apparaîtront ici",
-    "account.once_an_administrator_pairs_a_frame":
-        "Dès qu’un administrateur appaire un cadre à votre compte, vous "
-        "arrivez sur son accueil après la connexion.",
     "account.unnamed_frame": "Cadre sans nom",
     "account.shared_by": "Partagé par %s",
     "account.leave_frame": "Quitter le cadre",

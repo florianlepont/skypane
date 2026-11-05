@@ -147,10 +147,10 @@ def test_a_user_is_moved_from_an_unprefixed_page_to_their_frame(landing_rig, pag
 
 
 @pytest.mark.parametrize("page", FRAME_PAGE_REDIRECTS)
-def test_a_user_without_a_frame_keeps_the_404(landing_rig, page):
-    status, _h, _b = http_request(
+def test_a_user_without_a_frame_is_sent_to_the_account_page(landing_rig, page):
+    status, headers, _b = http_request(
         landing_rig.server.url(page), cookie=landing_rig.cookies["none"])
-    assert status == 404
+    assert (status, headers["Location"]) == (303, "/account")
 
 
 def test_another_users_frame_path_stays_404(landing_rig):

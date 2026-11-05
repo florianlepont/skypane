@@ -78,14 +78,11 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
             if lang == "en":
                 assert row["label"] in _EN_WORDS, (where, row)
         assert page.locator("details.fleet-other li.entity-row").count() == 2
-        _assert_hit_target(page, "a.page-header__action", where)
+        _assert_hit_target(page, "a.frame-tile--add", where)
+        assert page.locator(".page-header a.page-header__action").count() == 0
         assert page.locator(
             "main h1").evaluate("e => !getComputedStyle(e).fontFamily.includes('mono')")
         header = page.locator(".page-header")
-        action = page.locator("a.page-header__action").bounding_box()
-        title = page.locator(".page-header h1").bounding_box()
-        assert abs((action["y"] + action["height"] / 2)
-                   - (title["y"] + title["height"] / 2)) < 30, where
         assert header.bounding_box()["height"] < 220, where
     finally:
         context.close()

@@ -395,14 +395,15 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
   `--color-border`, an inset shadow and a soft top gradient, all from tokens, in both themes. Tiles are 84px wide
   and show only the small picture (32x42px) and the name on one line (ellipsis) with the status dot in the corner;
   the last-seen word and the owner note are hidden. From 700px the summary is hidden, the script keeps the strip
-  open and the tiles keep the look above. The Console Fleet strip (frames, Add a screen, System) uses the same
+  open and the tiles keep the look above. The Console Fleet strip (frames, System, Add a frame) uses the same
   fold and compact tiles; its summary names the selected frame or "System". The Fleet strip is always open by
   default (it also carries the System and Add tiles), even with a single frame.
 - **Active tile:** `aria-current="true"`, outlined 2px in the accent colour with a faint accent wash.
-- **Add a screen tile:** the last item, dashed border, "+" glyph and "Add a screen" / "Ajouter un
-  écran" in the accent colour, linking to the existing pairing flow (`/fleet?pair=1`, the Fleet page
-  with its pairing dialog open). Shown only to an administrator, the only role that may pair a frame;
-  hidden for everyone else.
+- **Add a frame tile (plan 61-47, D34, W33):** the last item, dashed border, "+" glyph and "Add a frame" /
+  "Ajouter un cadre" in the accent colour. Shown to every signed-in person. For a user (and for an
+  administrator on a personal page) it leads to their own Add a frame page (`/pair-frame`); on the Console
+  Fleet strip it opens the Fleet pairing dialog on the page (hash link, works without script) and is the
+  ONLY entry to that dialog (the "+ Add a frame" button next to the Fleet title is gone).
 - **Layout:** below 700px the strip is a horizontal scroller (one row, `overflow-x: auto`, snap);
   from 700px it wraps. Both themes, EN and FR, no page-level horizontal overflow at 360px.
 - Tiles go to the **same page** of the other frame (`device_scope.target_path(page, device)`), always
@@ -418,8 +419,8 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
   platform (administrator only), problems first then by name, each tile also showing the owner
   email as its last line; this is the legitimate place for the all-frames list. The strip is the
   same. With one frame in the fleet nothing is rendered.
-- Strings (EN / FR): "Your frames" / "Vos cadres"; "Seen %s" / "Vu %s"; "Add a screen" / "Ajouter un
-  écran"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la
+- Strings (EN / FR): "Your frames" / "Vos cadres"; "Seen %s" / "Vu %s"; "Add a frame" / "Ajouter un
+  cadre"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la
   flotte" (existing). Removed with the sheet: "Choose a frame", "Manage my frames", "Current", the
   chip's "Switch frame, current: %s", and (earlier) "All frames (Fleet)".
 - The old `?device=` GET redirect stays (old bookmarks).
@@ -431,6 +432,7 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
 | `/login`, `/login/auth0`, `/callback`, `/logout`, `/credits` | GET/POST | as today | unchanged; `/login` while signed in redirects to the role's landing |
 | `/fleet` | GET | ADMIN_ONLY | Console "Fleet" (admin landing); name link and row menu change (3.2) |
 | `/fleet/pair`, `/fleet/register`, `/fleet/frames/<id>/{retire,reactivate,reassign}` | POST | ADMIN_ONLY, csrf | unchanged; forms in dialogs on `/fleet`; `/fleet/register` has no UI |
+| `/pair-frame` | GET, POST | SIGNED_IN, csrf on POST | plan 61-47 (D34): a signed-in person adds their own frame with the code shown on it; the owner is always the signer (no owner field); same code validation, identical refusal and both throttles as `/fleet/pair`; success 303 to `/devices/<id>/?flash=frame_paired`; an un-prefixed frame page for a user with no frame is a 303 to `/account` |
 | `/users`, `/users/invite`, `/users/<id>/{role,disable,enable,unlink}` | GET/POST | ADMIN_ONLY | unchanged (Console "Users") |
 | `/locations` | GET | ADMIN_ONLY | **303 to `/fleet`** (D20: no Locations page; a user still gets 404) |
 | `/locations/add`, `/locations/<id>/{edit,delete}` | POST | ADMIN_ONLY, csrf | routes and tests kept, **no UI** (expand-only, like `/fleet/register`; the owner may ask for their removal in a later cleanup) |
@@ -535,7 +537,7 @@ Behaviour (testable):
 | # | Dialog | Opened from | Fields | Submit (kind) | Existing POST |
 |---|--------|-------------|--------|---------------|---------------|
 | 1 | Invite a user | "+ Invite a user" (Users header) | Email (type=email, required, max 254), Role (User default / Administrator) | Invite user (primary) | `/users/invite` |
-| 2 | Add a frame | "+ Add a frame" (Fleet header) | Pairing code (mono, XXXX-XXXX, max 12, autocapitalize), Owner (select, "Choose an owner") | Pair frame (primary) | `/fleet/pair` |
+| 2 | Add a frame | the Add a frame tile of the Fleet strip (W33) | Pairing code (mono, XXXX-XXXX, max 12, autocapitalize), Owner (select, "Choose an owner") | Pair frame (primary) | `/fleet/pair` |
 | 3 | Retire | row menu (active rows that are not the served frame) | none (sentence) | Retire frame (destructive) | `/fleet/frames/<id>/retire` |
 | 4 | Reassign | row menu (active rows) | New owner (select, required) | Reassign frame (destructive when the frame is not the served frame, else primary) | `/fleet/frames/<id>/reassign` |
 | 5 | Re-activate | row menu (retired rows) | none (sentence) | Re-activate frame (destructive) | `/fleet/frames/<id>/reactivate` |
@@ -621,8 +623,7 @@ Glossary (two senses of "live" are kept apart): **active** = a frame row that is
 ## 3. Fleet list and users list
 
 Visual anchor (what draws the eye first): on Fleet, the first row whose dot is red or amber (rows
-are ordered problems first) and, beside the title, the accent "+ Add a frame"; with no problem the
-count line and the accent button. On Users, the accent "+ Invite a user" button, then the first
+are ordered problems first); with no problem the count line and the last strip tile "Add a frame". On Users, the accent "+ Invite a user" button, then the first
 email in 16px semibold; the "Invited"/"Disabled" pills are the only other emphasis.
 
 ### 3.1 Status dot vocabulary (D2 and D8, one shared function)
@@ -651,8 +652,8 @@ and `frame_state.STATE_*`.
 
 ### 3.2 Fleet list (Console, `/fleet`)
 
-Page header: title "Fleet" (FR "Flotte"), purpose line, right-aligned primary "+ Add a frame"
-(`.page-header__actions`; the title and button fit one 312px row at 360px in EN and FR).
+Page header: title "Fleet" (FR "Flotte") and purpose line; no header button (W33: "Add a frame" lives only in the
+frame strip's last tile).
 Then one card holding: count line (12px label voice) "6 frames · 1 needs attention", then the list.
 
 Markup: one `ul.entity-list` (replaces the duplicated cards + `<table>` markup; no table, no
@@ -694,7 +695,6 @@ render inside the Manage dialog, so they can no longer truncate in a row.
 | Element | EN | FR |
 |---------|----|----|
 | Fleet title / purpose | Fleet / Every frame on the platform: who owns it and whether it is up to date. | Flotte / Tous les cadres de la plateforme : à qui ils sont et s'ils sont à jour. |
-| Add button | + Add a frame | + Ajouter un cadre |
 | Count | %d frames / 1 frame | %d cadres / 1 cadre |
 | Attention suffix | · %d need attention / · 1 needs attention | · %d demandent de l'attention / · 1 demande de l'attention |
 | Row menu aria | Actions for %s | Actions pour %s |
@@ -737,9 +737,16 @@ Sign out. **Preferences** (W13) is two labelled rows, **Language** / FR "Langue"
 dot, name link to the frame Home (16px semibold), line 2 (14px muted) hardware label for an owned
 frame or "Shared by {owner email}" for a co-managed one, and one 44px action: **"Manage access"**
 (dialog 6) on frames the user owns, **"Leave frame"** (dialog 7) on shared frames. No battery, no last
-contact (D8). Empty state: heading "Your frames will appear here" / FR "Vos cadres apparaîtront ici";
-body "Once an administrator pairs a frame to your account, you land on its Home after you sign in."
-/ FR "Dès qu'un administrateur appaire un cadre à votre compte, vous arrivez sur son accueil après la connexion."
+contact (D8). Under the list a 44px secondary link "Add a frame" / FR "Ajouter un cadre" (`a.pair-link`,
+`/pair-frame`). Empty state (first sign-in with no frame, D34; this card is where a frame-less user lands):
+heading "Your frames will appear here" / FR "Vos cadres apparaîtront ici"; one-line hint "The pairing code is
+shown on your frame's screen." / FR "Le code d'association s'affiche sur l'écran de votre cadre."; one
+primary 44px link "Add your frame" / FR "Ajouter votre cadre" (`a.pair-link--primary`).
+**Add a frame page (`/pair-frame`):** title "Add a frame", purpose "Enter the code shown on your frame's
+screen. The frame will be yours.", one Pairing code field (mono, XXXX-XXXX, max 12, 44px), the validity
+help, primary "Add frame" / FR "Ajouter le cadre" and a Cancel link back to Account; a plain form that
+works without script, a refusal shows the same docked "Code not recognised" toast and field error as the
+Fleet dialog, a lockout the "Too many attempts" toast (429).
 The Identity card keeps long emails wrapping (existing rule).
 
 **Display (user, D9). SUPERSEDED (revision 2): the merged card and the time zone move to the Location and detection tab (section 9); the rest of the page becomes "Personalisation" (section 11); Quiet hours moves to a Home dialog (section 10). Revision 1 text follows for history.** All display settings stay. The Location picker (with time zone) and the
@@ -752,7 +759,7 @@ tracking beyond the fields it already owns. The Device page no longer repeats th
 | Element | EN | FR |
 |---------|----|----|
 | Frame strip aria (SUPERSEDED: the chip's "Switch frame, current: %s") | Your frames | Vos cadres |
-| Add tile (D30; replaces the sheet footer "Manage my frames") | Add a screen | Ajouter un écran |
+| Add tile (D30; replaces the sheet footer "Manage my frames") | Add a frame | Ajouter un cadre |
 | Shared mark | Shared · %s | Partagé · %s |
 | My frames heading | My frames | Mes cadres |
 | Shared line | Shared by %s | Partagé par %s |
@@ -1462,7 +1469,7 @@ Fleet, Users, Airlines, Audit with the space switch and Account in More. The pag
 current destination.
 
 Fleet (`/fleet`): the D30 tile strip of every frame (picture, name, status dot, last-seen word,
-the selected one outlined), an "Add a screen" tile (the pairing flow) and a last "System" tile.
+the selected one outlined), a "System" tile and a last "Add a frame" tile (the pairing dialog).
 A tile is a plain link to `/fleet?frame=<id>` or `/fleet?view=system`. The selected frame opens
 four blocks, two columns from 1000px and stacked on a phone: State (health connection, battery
 and last-detection rows), Device and version (model plus the Update page content), Settings (the

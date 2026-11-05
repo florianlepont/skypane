@@ -307,17 +307,19 @@ _SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
 
 # The frame strip: shown above the page title of every device-scoped page once
 # the request scope lists two or more frames. One whole-tile link per frame,
-# plus an Add a screen tile for an administrator.
+# plus an Add a frame tile for every signed-in person.
 STRIP_ARIA_TEXT = i18n.msg("nav.frame_strip_aria", "Your frames")
 _TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
-_TILE_ADD_TEXT = i18n.msg("nav.frame_tile_add", "Add a screen")
+_TILE_ADD_TEXT = i18n.msg("nav.frame_tile_add", "Add a frame")
 _SWITCHER_SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
 
 FRAME_TILES_CLASS = "frame-tiles"
 FRAME_TILE_CLASS = "frame-tile"
-# The existing pairing flow: the Fleet page with its pairing dialog open.
-_ADD_FRAME_HREF = "/fleet?pair=1"
+# Where the Add a frame tile leads: an administrator's pairing dialog on the
+# Fleet page, anyone else's own Add a frame page.
+_ADMIN_ADD_FRAME_HREF = "/fleet?pair=1"
+_USER_ADD_FRAME_HREF = "/pair-frame"
 
 # The strip shown to an administrator on a personal page of a frame they
 # neither own nor co-manage.
@@ -424,19 +426,34 @@ def strip_fold_html(tiles_html, active_name):
         '%s</details>') % (escape_html(active_name), tiles_html)
 
 
-def add_tile_html():
+def add_tile_html(admin=True, dialog_id=None):
+    """The Add a frame tile. With `dialog_id` it opens that dialog on the
+    page (the Fleet page's pairing dialog; the hash link works without
+    script); otherwise it leads to the administrator's Fleet pairing dialog
+    or to everyone else's own Add a frame page."""
+    if dialog_id is not None:
+        from companion import ui_modal
+        href = "#" + ui_modal.validated_slug(dialog_id)
+        opener = " data-modal-open"
+    else:
+        href = _ADMIN_ADD_FRAME_HREF if admin else _USER_ADD_FRAME_HREF
+        opener = ""
     return (
-        '<li><a class="%(cls)s %(cls)s--add" href="%(href)s">'
+        '<li><a class="%(cls)s %(cls)s--add" href="%(href)s"%(opener)s>'
         '<span class="%(cls)s__plus" aria-hidden="true">+</span>'
         '<span>%(label)s</span></a></li>') % {
-            "cls": FRAME_TILE_CLASS, "href": _ADD_FRAME_HREF,
+            "cls": FRAME_TILE_CLASS, "href": href, "opener": opener,
             "label": escape_html(i18n.t(_TILE_ADD_TEXT))}
 
 
-def _may_add_frame():
-    """Only an administrator pairs a frame, from the Fleet page."""
+def _add_frame_tile():
+    """The Add a frame tile for the signed-in person, or "": an
+    administrator pairs from the Fleet page, everyone else from their own
+    Add a frame page."""
     principal = prefs.current_principal()
-    return principal is not None and principal[1] == access.ADMIN
+    if principal is None:
+        return ""
+    return add_tile_html(admin=principal[1] == access.ADMIN)
 
 
 def _severity_rank(row):
@@ -476,8 +493,7 @@ def frame_switcher_html(active):
     if len(entries) < 2:
         return ""
     tiles = "".join(_frame_tile_html(e, page, current, now) for e in entries)
-    if _may_add_frame():
-        tiles += add_tile_html()
+    tiles += _add_frame_tile()
     return strip_fold_html(
         '<ul class="%s" aria-label="%s">%s</ul>' % (
             FRAME_TILES_CLASS, escape_html(i18n.t(STRIP_ARIA_TEXT)), tiles),

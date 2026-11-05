@@ -1107,9 +1107,9 @@ class Handler(
         page under their default frame, with the query kept. An administrator
         with no frame of their own goes to the account page once the fleet has
         rows; on an install with no fleet rows the page is served as before.
-        None for any other request, and for a user with no frame. The target
-        is built from the frame id, the matched route path and a re-encoded
-        query, never from request text.
+        None for any other request; a user with no frame goes to the account
+        page. The target is built from the frame id, the matched route path
+        and a re-encoded query, never from request text.
         """
         if method != "GET" or not route.device_scoped \
                 or route_match.device_id is not None:
@@ -1124,7 +1124,7 @@ class Handler(
         frame = self._default_frame(principal)
         if frame is None:
             if principal.role != access.ADMIN:
-                return None
+                return sign_in.ACCOUNT_ROUTE
             try:
                 fleet = device_scope.has_fleet_rows(self.args.state_dir)
             except _STORE_ERRORS:

@@ -268,12 +268,14 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     assert frames.select_one(".empty-state__heading").text() == (
         "Your frames will appear here")
     assert frames.select_one(".empty-state__body").text() == (
-        "Once an administrator pairs a frame to your account, you land on its "
-        "Home after you sign in.")
+        "The pairing code is shown on your frame's screen.")
+    add = frames.select("a")
+    assert [(a.text(), a.attrs["href"]) for a in add] == [
+        ("Add your frame", "/pair-frame")]
     logout = doc.select_one("form[action=\"/logout\"]")
     assert logout.attrs["method"] == "post"
     assert logout.select_one("button").text() == "Sign out"
-    assert not doc.select("a")
+    assert [a.attrs["href"] for a in doc.select("a")] == ["/pair-frame"]
 
 
 def test_account_page_role_labels_and_escaping():
@@ -294,6 +296,7 @@ def test_account_page_renders_in_french():
     assert [c.select_one("h2").text() for c in doc.select("section.page-section")] == [
         "Mes cadres", "Identité", "Préférences"]
     assert "Vos cadres apparaîtront ici" in doc.text()
+    assert "Ajouter votre cadre" in doc.text()
     assert "Utilisateur" in doc.text()
 
 

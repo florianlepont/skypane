@@ -3,7 +3,8 @@
 
 `FRAME_PAGE_REDIRECTS` are the un-prefixed frame pages a user or an
 administrator is moved from to the same page under their default frame (303);
-a user without a frame gets the unknown-path 404 and an administrator without
+a user without a frame goes to the account page (where adding a frame
+is offered) and an administrator without
 a frame goes to `ADMIN_FRAMELESS_TARGET` once the fleet has rows. `SIGNED_IN_LOGIN_ROLES` are the principals sent from /login to their
 role landing.
 """

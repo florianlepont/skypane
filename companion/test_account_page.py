@@ -123,13 +123,20 @@ def _admin_post_paths():
     return paths
 
 
+FRAME_PAGES_FOR_FRAMELESS = ("/", "/display", "/flights", "/airlines", "/detection")
+
+
 def test_every_admin_get_is_the_same_404_as_an_unknown_path(server, user_cookie):
     reference = _get(server, "/no-such-page-at-all", user_cookie)
     assert reference[0] == 404
     paths = _admin_get_paths()
     assert "/health" in paths and "/" in paths
     for path in paths:
-        status, _headers, body = _get(server, path, user_cookie)
+        status, headers, body = _get(server, path, user_cookie)
+        if path in FRAME_PAGES_FOR_FRAMELESS:
+            # A user with no frame is sent to the page that offers to add one.
+            assert (status, headers["Location"]) == (303, "/account"), path
+            continue
         assert (status, body) == (reference[0], reference[2]), path
 
 
@@ -196,7 +203,8 @@ def _hrefs(body):
 
 def _is_allowed_user_target(target):
     return (
-        target in ("/account", "/locations", "/logout", "/ui-theme", "/ui-lang")
+        target in (
+            "/account", "/locations", "/logout", "/pair-frame", "/ui-theme", "/ui-lang")
         or target.startswith("/static/")
         or target == "/favicon.ico"
         or target.startswith("#"))
@@ -274,7 +282,9 @@ def test_my_frames_is_the_first_card_and_an_empty_account_shows_the_empty_state(
     assert card.attrs["aria-labelledby"] == "account-frames"
     assert card.select_one("h2").text() == "My frames"
     assert card.select_one(".empty-state__heading").text() == "Your frames will appear here"
-    assert "you land on its Home after you sign in" in card.text()
+    assert "The pairing code is shown on your frame's screen." in card.text()
+    assert [(a.text(), a.attrs["href"]) for a in card.select("a")] == [
+        ("Add your frame", "/pair-frame")]
     assert [s.select_one("h2").text() for s in _sections(body)] == [
         "My frames", "Identity", "Preferences"]
 

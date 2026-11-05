@@ -228,7 +228,7 @@ def test_a2_invite_a_user(world, new_context):
 def test_a3_pair_a_frame(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator("a.page-header__action"), "Add a frame")
+        steps.tap(page.locator("a.frame-tile--add"), "Add a frame")
         steps.type_value(page.locator("#pair-code"), fx.FAKE_CODE, "pairing code")
         steps.choose(page.locator("#pair-owner"), fx.OWNER_EMAIL, "owner")
         steps.tap(page.locator("#dlg-add-frame button[type=submit]"), "Pair frame")

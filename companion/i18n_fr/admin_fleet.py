@@ -20,7 +20,6 @@ MESSAGES = {
     "admin_fleet.retire_frame_title": "Retirer «\u00a0%s\u00a0»\u00a0?",
     "admin_fleet.reassign_frame_title": "Réattribuer «\u00a0%s\u00a0»",
     "admin_fleet.re_activate_frame_title": "Réactiver «\u00a0%s\u00a0»\u00a0?",
-    "admin_fleet.add_a_frame_button": "+ Ajouter un cadre",
     "admin_fleet.add_a_frame": "Ajouter un cadre",
     "admin_fleet.back_to_fleet": "Retour à la flotte",
     "admin_fleet.the_code_stays_valid_for_about_35_minutes":
@@ -98,5 +97,5 @@ MESSAGES = {
     "admin_fleet.system_unavailable":
         "Aucune information système n’est disponible pour l’instant.",
     "admin_fleet.add_screen_first":
-        "Ajoutez un écran pour voir son état et ses réglages.",
+        "Ajoutez un cadre pour voir son état et ses réglages.",
 }

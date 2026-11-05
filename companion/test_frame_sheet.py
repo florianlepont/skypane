@@ -46,7 +46,7 @@ def _enter(state_dir, role, user_id, email, current_id):
 
 
 def _frame_tiles(root):
-    """The frame tiles of the strip, without the Add a screen tile."""
+    """The frame tiles of the strip, without the Add a frame tile."""
     return [
         a for a in root.select("ul.frame-tiles a.frame-tile")
         if "frame-tile--add" not in a.attrs.get("class", "")]
@@ -66,9 +66,11 @@ def test_the_strip_is_a_labelled_list_of_plain_links(fleet):
     assert strip.attrs["aria-label"] == "Your frames"
     for tag in ("dialog", "form", "select", "button", "script"):
         assert not root.select(tag)
+    add = strip.select("a.frame-tile--add")
+    assert [a.attrs["href"] for a in add] == ["/pair-frame"]
     assert all(
         a.attrs["href"].startswith("/devices/")
-        for a in strip.select("a.frame-tile"))
+        for a in strip.select("a.frame-tile") if a not in add)
 
 
 def test_the_strip_is_french_in_french(fleet):
@@ -87,7 +89,7 @@ def test_the_strip_is_french_in_french(fleet):
     finally:
         prefs.set_request_prefs(lang="en")
     assert root.select_one("ul.frame-tiles").attrs["aria-label"] == "Vos cadres"
-    assert root.select_one("a.frame-tile--add").text().strip().endswith("Ajouter un écran")
+    assert root.select_one("a.frame-tile--add").text().strip().endswith("Ajouter un cadre")
     seen = [n.text().strip() for n in root.select(".frame-tile__seen")]
     assert seen and all(word == "Pas encore vu" for word in seen)
 

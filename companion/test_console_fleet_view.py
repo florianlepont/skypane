@@ -1,4 +1,4 @@
-"""The Console Fleet view: the tile strip of every frame with its Add a screen
+"""The Console Fleet view: the tile strip of every frame with its Add a frame
 and System tiles, the four blocks of the selected frame (State, Device and
 version, Settings, Access) and the System view, plus the navigation that no
 longer lists Status, Version or Device."""
@@ -36,13 +36,13 @@ def _blocks(page):
     return re.findall(r'<section class="fleet-block[^"]*"><h3 class="text-heading">([^<]*)<', page)
 
 
-def test_the_strip_lists_every_frame_then_add_and_system_tiles(fleet):
+def test_the_strip_lists_every_frame_then_system_and_add_tiles(fleet):
     server, seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     hrefs = [href for href, _attrs in _tiles(page)]
     assert "/fleet?frame=%s" % seed.owned_id in hrefs
     assert "/fleet?frame=%s" % seed.live_id in hrefs
-    assert hrefs[-2:] == ["/fleet?pair=1", "/fleet?view=system"]
+    assert hrefs[-2:] == ["/fleet?view=system", "#dlg-add-frame"]
     assert page.count('aria-current="true"') == 1
 
 

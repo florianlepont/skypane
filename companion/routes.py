@@ -33,7 +33,7 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    co_managers, console_routes, device_scope, layout, page_policy, route_types,
+    co_managers, console_routes, device_scope, user_pairing, layout, page_policy, route_types,
     static_files, theme_preview)
 from companion.pages import (
     airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, health_page, place_page,
@@ -369,7 +369,7 @@ ROUTES = tuple(
     route._replace(
         device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS,
         csrf=route.csrf or (route.method, route.matcher) in CSRF_ROUTE_KEYS)
-    for route in _GET_ROUTES + _POST_ROUTES + console_routes.ROUTES
+    for route in _GET_ROUTES + _POST_ROUTES + user_pairing.ROUTES + console_routes.ROUTES
 )
 
 

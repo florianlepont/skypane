@@ -322,6 +322,10 @@
    "location": null,
    "status": 200
   },
+  "GET /pair-frame": {
+   "location": "/login",
+   "status": 303
+  },
   "GET /preview": {
    "location": "/login",
    "status": 303
@@ -487,6 +491,10 @@
    "status": 404
   },
   "POST /logout": {
+   "location": "/login",
+   "status": 303
+  },
+  "POST /pair-frame": {
    "location": "/login",
    "status": 303
   },

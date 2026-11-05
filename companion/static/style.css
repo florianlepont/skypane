@@ -9232,6 +9232,70 @@ a.page-header__action:hover {
   background: var(--color-accent-hover);
 }
 
+/* Add a frame: the link under the frame list and in the empty state, and the
+ * page that takes the pairing code. */
+.pair-actions {
+  margin: var(--space-md) 0 0;
+}
+
+a.pair-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+a.pair-link--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  color: var(--color-on-accent);
+}
+
+a.pair-link--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.pair-form {
+  display: grid;
+  gap: var(--space-md);
+  max-width: 28rem;
+}
+
+.pair-form input {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.pair-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.pair-form__actions button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+a.pair-form__cancel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--color-accent);
+}
+
 /* A labelled control inside a dialog, with its help or error text below. */
 .modal__field > p {
   margin: var(--space-xs) 0 0;

@@ -159,9 +159,9 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
     server = app_server_in_process
     context, page = _admin_page(new_context, server, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
-        assert _height(page, "a.page-header__action") >= MIN_TAP_PX
+        assert _height(page, "a.frame-tile--add") >= MIN_TAP_PX
         assert _height(page, "li.entity-row .row-menu__toggle") >= MIN_TAP_PX
-        page.locator("a.page-header__action").click()
+        page.locator("a.frame-tile--add").click()
         for selector in (
                 "#pair-code", "#pair-owner", 'form[action="/fleet/pair"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
@@ -246,7 +246,7 @@ def test_pair_form_posts_and_redirects_with_scripts_blocked(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet")
-        page.click("a.page-header__action")
+        page.click("a.frame-tile--add")
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(seed.user_id))
         page.click('form[action="/fleet/pair"] button')
@@ -405,7 +405,7 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
         while wrong == code:
             wrong = pairing_code.generate_code()
         page.goto(server.base_url() + "/fleet")
-        page.click("a.page-header__action")
+        page.click("a.frame-tile--add")
         page.fill("#pair-code", wrong)
         page.click('form[action="/fleet/pair"] button')
         first_text = _refusal_text(page)
@@ -415,13 +415,13 @@ def test_pairing_flow_in_the_browser(new_context, app_server_in_process, monkeyp
         other = pairing_code.generate_code()
         while other in (code, wrong):
             other = pairing_code.generate_code()
-        page.click("a.page-header__action")
+        page.click("a.frame-tile--add")
         page.fill("#pair-code", other)
         page.click('form[action="/fleet/pair"] button')
         assert _strip_codes(first_text, wrong) == _strip_codes(_refusal_text(page), other)
 
         page.goto(server.base_url() + "/fleet")
-        page.click("a.page-header__action")
+        page.click("a.frame-tile--add")
         page.fill("#pair-code", code)
         page.select_option("#pair-owner", str(_owner_id(server.state_dir)))
         page.click('form[action="/fleet/pair"] button')

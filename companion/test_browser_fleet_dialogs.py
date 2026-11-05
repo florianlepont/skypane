@@ -79,7 +79,7 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        page.locator("a.page-header__action").click()  # 1
+        page.locator("a.frame-tile--add").click()  # 1
         dialog = page.locator(ADD)
         assert dialog.evaluate("d => d.open")
         page.keyboard.type(fx.FAKE_CODE)  # 2: focus starts on the code field
@@ -105,7 +105,7 @@ def test_a_wrong_code_reopens_the_dialog_with_the_typed_value(
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
     try:
-        page.locator("a.page-header__action").click()
+        page.locator("a.frame-tile--add").click()
         page.fill("#pair-code", "kkkk-2222")
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
         page.locator(ADD + " button[type=submit]").click()
@@ -125,7 +125,7 @@ def test_missing_owner_reopens_the_dialog_with_a_field_error(
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
     try:
-        page.locator("a.page-header__action").click()
+        page.locator("a.frame-tile--add").click()
         page.fill("#pair-code", fx.FAKE_CODE)
         page.locator(ADD + " button[type=submit]").click()
         page.locator(ADD + ".is-modal[open]").wait_for(state="visible")
@@ -176,7 +176,7 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
     try:
-        trigger = page.locator("a.page-header__action")
+        trigger = page.locator("a.frame-tile--add")
         trigger.click()
         handle = page.locator(ADD).element_handle()
         for _ in range(12):
@@ -188,7 +188,7 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
         page.keyboard.press("Escape")
         assert not page.locator(ADD).evaluate("d => d.open")
         page.wait_for_function(
-            "() => document.activeElement.classList.contains('page-header__action')",
+            "() => document.activeElement.classList.contains('frame-tile--add')",
             timeout=5000)
     finally:
         context.close()
@@ -246,7 +246,7 @@ def test_the_add_dialog_pairs_through_the_hash_link_without_script(
     with _no_js_page(new_context, server.base_url(), "/fleet",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         assert not page.locator(ADD).is_visible()
-        page.locator("a.page-header__action").click()
+        page.locator("a.frame-tile--add").click()
         dialog = page.locator(ADD)
         assert dialog.is_visible()
         page.fill("#pair-code", fx.FAKE_CODE)
@@ -290,7 +290,7 @@ def test_dialogs_fit_and_every_control_is_44px(
     where = "dialogs/%d/%s/%s" % (viewport["width"], lang, scheme)
     try:
         for opener, dialog_id, controls in (
-                ("a.page-header__action", "dlg-add-frame", (
+                ("a.frame-tile--add", "dlg-add-frame", (
                     "#pair-code", "#pair-owner", "button[type=submit]",
                     "a.modal__dismiss", "a.modal__close")),
                 (None, "dlg-reassign-%s" % _slug(seed.owned_id), (

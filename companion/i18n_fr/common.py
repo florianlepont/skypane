@@ -88,8 +88,8 @@ MESSAGES = {
         "Bienvenue sur SkyPane — Vous êtes connecté. Voici l’accueil de "
         "votre cadre. Son point indique s’il est à jour.",
     "common.welcome_to_skypane_your_frame_will_appear_here":
-        "Bienvenue sur SkyPane — Vous êtes connecté. Votre cadre "
-        "apparaîtra ici dès qu’un administrateur l’aura appairé.",
+        "Bienvenue sur SkyPane — Vous êtes connecté. Ajoutez votre cadre "
+        "avec le code affiché sur son écran.",
     "common.welcome_to_skypane_you_are_signed_in":
         "Bienvenue sur SkyPane — Vous êtes connecté.",
     "common.saved": "Enregistré — %s",

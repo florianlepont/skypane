@@ -234,7 +234,7 @@ def test_first_sign_in_shows_one_welcome_and_the_second_none(rig, new_context):
     page.wait_for_url(_landing_url(base, "/account"))
     page.get_by_text(_WELCOME).wait_for()
     assert page.get_by_text(_WELCOME).count() == 1
-    assert "Your frame will appear here" in page.locator(".toast").inner_text()
+    assert "Add your frame with the code shown on its screen" in page.locator(".toast").inner_text()
     page.click(".account-sign-out button")
     page.wait_for_url(base + "/login")
     _sign_in(page, rig, INVITED_USER, "auth0|user-1")

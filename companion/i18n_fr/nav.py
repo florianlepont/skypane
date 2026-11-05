@@ -70,7 +70,7 @@ MESSAGES = {
     # The frame tile strip above the page title (two or more frames).
     "nav.frame_strip_aria": "Vos cadres",
     "nav.frame_tile_seen": "Vu %s",
-    "nav.frame_tile_add": "Ajouter un écran",
+    "nav.frame_tile_add": "Ajouter un cadre",
     "nav.device_default_name": "Cadre d’Orly",
     "nav.skip_to_content": "Aller au contenu",
 }
