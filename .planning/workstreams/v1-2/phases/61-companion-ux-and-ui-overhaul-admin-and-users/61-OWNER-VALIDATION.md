@@ -211,3 +211,12 @@ Larger redesigns (new design work, owner decision on scope):
   Finding: pairing (/fleet/pair, "Add a screen") is Console-only and
   administrator-only; a plain user has no way to pair a frame. Product
   question open: should a user be able to add their own frame?
+- D34 (owner) A user can add their own frame by pairing it with the code
+  shown on the frame. The "Add a screen" entry is available to every user:
+  on the Account page and as the last tile of the frame strip. A user with
+  zero frames is offered to add one from the very first sign-in (an empty
+  Home state whose main action is "Add your frame"). The new frame is owned
+  by that user. Needs: access matrix row for users on the pairing routes,
+  ownership assigned to the pairing user, audit entry, abuse limits (same
+  code validation and rate limiting as today), tests with the fake frame
+  protocol only.
