@@ -275,3 +275,8 @@ Larger redesigns (new design work, owner decision on scope):
   Arrivals tabs). Merge them into one main tab bar: Departures, Arrivals,
   Special looks, Calendar. (Open: where the Screen view goes, since his list
   names four entries and does not mention Screen.) Joins plan 61-48.
+- W48 (owner, screenshot of the Look view on desktop) The screen is not
+  optimised: the preview sits on top and the settings card fills the width
+  below, leaving a large empty area at the right. On desktop put the preview
+  on the left and the settings on the right (two columns, both visible
+  without scrolling). Phone keeps the stacked layout. Joins plan 61-48.
