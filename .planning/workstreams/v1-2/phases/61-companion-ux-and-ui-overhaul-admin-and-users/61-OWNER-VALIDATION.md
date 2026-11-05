@@ -265,3 +265,8 @@ Larger redesigns (new design work, owner decision on scope):
   page (they stay derived and stored).
 - W45 (owner) "Saved settings" disclosure is useless: remove it. The map
   credit and "about this map" text become a discreet "i" icon on the map.
+- W46 (owner, screenshot of the airline collection header on desktop) The
+  header is heavy and cluttered: a large progress card with five badge
+  pills, then a filter field, a sort select, a three-way count segment, a
+  repeated "Airlines: 40" count and a rarity legend line, all stacked.
+  Simplify.
