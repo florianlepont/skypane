@@ -41,7 +41,7 @@ _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 # toast's two dwells (how long a success/info toast and a pending toast
 # stay), which are waits, not movement speeds. Each may only drive its
 # own armed toast timer hairline.
-_MOTION_TOKENS = ("--motion-fast", "--motion-slow")
+_MOTION_TOKENS = ("--motion-fast", "--motion-slow", "--motion-enter", "--motion-stagger")
 _MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
 _MOTION_EXCEPTION_SELECTORS = {
@@ -181,8 +181,8 @@ def _spenders(served_css, token):
 
 
 def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
-    """the served :root declares exactly --motion-fast, --motion-slow and the documented
-    exceptions (the two toast dwells and the status dot pulse); each exception is spent by
+    """the served :root declares exactly --motion-fast, --motion-slow, the card entrance's
+    --motion-enter/--motion-stagger and the documented exceptions (the two toast dwells and the status dot pulse); each exception is spent by
     exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
     animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a
     transition, so none can become a general-purpose motion speed"""
@@ -192,6 +192,16 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         _MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS + (_DOT_PULSE_TOKEN,)), (
         "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
+    # The card entrance's two tokens: --motion-enter is the animation's duration and
+    # --motion-stagger only ever scales the per-sibling delay, both on the entrance rule.
+    entrance = [
+        (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-enter")]
+    assert entrance == [((".reveal", ".dashboard-main .page-section"), "animation")], (
+        "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
+    stagger = [
+        (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
+    assert stagger == [((".reveal", ".dashboard-main .page-section"), "animation-delay")], (
+        "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     expected = [
         (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
         for token in _MOTION_EXCEPTION_TOKENS

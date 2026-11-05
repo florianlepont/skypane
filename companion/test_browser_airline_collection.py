@@ -74,7 +74,7 @@ def _wait_theme_painted(page):
     page.wait_for_function(
         "() => { const s = getComputedStyle(document.querySelector('a.collection-card'));"
         " const key = s.backgroundColor + '|' + s.color + '|' +"
-        " getComputedStyle(document.body).backgroundColor;"
+        " getComputedStyle(document.documentElement).backgroundColor;"
         " const same = window.__paintKey === key; window.__paintKey = key;"
         " return same && document.getAnimations().length === 0; }", timeout=10000)
 
@@ -97,6 +97,8 @@ def _channels(css):
     """(r, g, b, alpha) of a computed colour in rgb() or color(srgb ...) form."""
     numbers = [float(n) for n in re.findall(r"[-\d.]+", css.split("/")[0])]
     alpha = float(css.split("/")[1].strip(" )")) if "/" in css else 1.0
+    if css.startswith("rgba(") and len(numbers) == 4:
+        alpha = numbers[3]
     if css.startswith("color(srgb"):
         numbers = [n * 255 for n in numbers[:3]]
     return numbers[0], numbers[1], numbers[2], alpha
@@ -271,14 +273,22 @@ def test_a_dimmed_card_keeps_the_text_of_a_seen_card(new_context, make_app_serve
             " return {name: cs(card.querySelector('.collection-card__name')).color,"
             " seen: cs(card.querySelector('.collection-card__seen')).color,"
             " background: cs(card).backgroundColor, cardOpacity: cs(card).opacity,"
+            " sky: cs(document.documentElement).getPropertyValue('--sky-mid').trim(),"
             " pictureOpacity: cs(picture).opacity, pictureFilter: cs(picture).filter}; }")
         seen = page.evaluate(probe, SEEN_CARD)
         unseen = page.evaluate(probe, UNSEEN_CARD)
         assert unseen["cardOpacity"] == "1" and seen["pictureOpacity"] == "1"
         assert unseen["pictureOpacity"] == "0.45" and "grayscale(1)" in unseen["pictureFilter"]
         assert unseen["name"] == seen["name"] and unseen["seen"] == seen["seen"]
+        # The card is translucent glass: its text sits on the card fill composited over the
+        # sky behind it (measured on the middle stop).
+        card_red, card_green, card_blue, card_alpha = _channels(unseen["background"])
+        sky = unseen["sky"]
+        surface = "rgb(%s)" % ", ".join(
+            str(round(card_alpha * fg + (1 - card_alpha) * int(sky[i:i + 2], 16)))
+            for fg, i in zip((card_red, card_green, card_blue), (1, 3, 5)))
         for colour in (unseen["name"], unseen["seen"]):
-            assert _contrast(colour, unseen["background"]) >= 4.5, (theme, colour, unseen)
+            assert _contrast(colour, surface) >= 4.5, (theme, colour, unseen, surface)
         assert "Not seen yet" in page.locator(UNSEEN_CARD).first.inner_text()
     finally:
         context.close()
@@ -346,7 +356,7 @@ def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_wo
             "sel => { const el = document.querySelector(sel); const s = getComputedStyle(el);"
             " let bg = el.closest('.collection-card') || document.body;"
             " return {text: el.textContent.trim(), color: s.color,"
-            " border: s.borderTopColor, bg: getComputedStyle(document.body).backgroundColor}; }")
+            " border: s.borderTopColor, bg: getComputedStyle(document.documentElement).backgroundColor}; }")
         rare = page.evaluate(probe, ".collection-card--rare .rarity-pill--rare")
         occasional = page.evaluate(probe, ".collection-card--occasional .rarity-pill--occasional")
         regular = page.evaluate(probe, ".collection-card--regular .rarity-pill")

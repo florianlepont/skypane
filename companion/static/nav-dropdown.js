@@ -15,6 +15,21 @@
   // unresolved, whatever the page holds.
   document.documentElement.className += " js";
 
+  // The sky behind the page follows the viewer's local hour: 05-08 dawn,
+  // 08-17 day, 17-21 dusk, otherwise night. The stylesheet reads
+  // html[data-sky] for the Light theme only; Dark is always the night sky.
+  // Without this script the default sky is "day".
+  var hour = new Date().getHours();
+  var sky = "night";
+  if (hour >= 5 && hour < 8) {
+    sky = "dawn";
+  } else if (hour >= 8 && hour < 17) {
+    sky = "day";
+  } else if (hour >= 17 && hour < 21) {
+    sky = "dusk";
+  }
+  document.documentElement.setAttribute("data-sky", sky);
+
   var fold = document.querySelector("details.frame-fold");
   if (!fold || !window.matchMedia) {
     return;

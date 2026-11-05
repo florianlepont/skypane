@@ -52,7 +52,9 @@
   --font-label-size: 14px;
   --font-body-size: 16px;
   --font-heading-size: 22px;
-  --font-page-title-size: 32px;
+  /* The page title scales with the viewport: 30-34px on a phone, 44-48px
+   * from the desktop breakpoint (see the @media block below :root). */
+  --font-page-title-size: clamp(1.875rem, 1.55rem + 1.4vw, 2.125rem);
   --weight-regular: 400;
   --weight-semibold: 600;
 
@@ -64,7 +66,7 @@
    * intended faces instead of always falling through to Georgia. */
   --font-serif: "Iowan Old Style", Charter, "Palatino Linotype", Georgia, "Book Antiqua", serif;
 
-  --radius-card: 10px;
+  --radius-card: 20px;
   --radius-control: 8px;
 
   /* Theme-independent colour tokens: every one of these held the exact
@@ -115,12 +117,39 @@
    * (.home-state__dot--pulse::after) may spend it; reduced motion turns
    * that animation off outright. Never reuse it for anything else. */
   --motion-fast: 180ms;
+  /* The sky-and-motion language's two further durations: the entrance
+   * of a card (.reveal and the page sections) and the delay step between
+   * siblings. Both are finite, short, and never block interaction. */
+  --motion-enter: 400ms;
+  --motion-stagger: 60ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
   --motion-dot-pulse: 3.2s;
 
+  /* Frosted glass: theme-independent geometry. The blur is only applied
+   * inside an @supports block at the end of this file; outside it every
+   * surface keeps its solid --color-dominant/--color-secondary fill. */
+  --glass-blur: 16px;
+  --radius-glass: 22px;
+
   /* Light mode (default) */
+  /* The sky behind the page: three stops of a vertical gradient painted by
+   * a fixed pseudo-element on <html>. Light mode shows the sky of the
+   * viewer's local time of day (html[data-sky], set by static/sky.js;
+   * "day" without script). Every stop keeps text and accent readable
+   * (companion/test_sky_contrast.py). */
+  --sky-top: #D5E7F6;
+  --sky-mid: #E3EDF5;
+  --sky-bottom: #F4F1EA;
+  /* Translucent surfaces painted over the sky: cards and panels, and the
+   * bars (sidebar, tab bar, phone header). The composite over the worst
+   * sky stop is what the contrast tests measure. */
+  --glass-bg: rgba(255, 255, 255, 0.66);
+  --glass-bar-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
   --color-canvas: #F7F4EF;
   --color-dominant: #FFFFFF;
   --color-secondary: #EEE8DE;
@@ -176,6 +205,13 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
+    --sky-top: #0B1026;
+    --sky-mid: #18203F;
+    --sky-bottom: #2C2540;
+    --glass-bg: rgba(255, 255, 255, 0.08);
+    --glass-bar-bg: rgba(255, 255, 255, 0.07);
+    --glass-border: rgba(255, 255, 255, 0.16);
+    --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
     --color-canvas: #0C0F14;
     --color-dominant: #151922;
     --color-secondary: #1C222D;
@@ -210,6 +246,13 @@
 
 /* Explicit theme overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
+  --sky-top: #D5E7F6;
+  --sky-mid: #E3EDF5;
+  --sky-bottom: #F4F1EA;
+  --glass-bg: rgba(255, 255, 255, 0.66);
+  --glass-bar-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
   --color-canvas: #F7F4EF;
   --color-dominant: #FFFFFF;
   --color-secondary: #EEE8DE;
@@ -239,7 +282,47 @@ html[data-ui-theme="light"] {
   color-scheme: light;
 }
 
+/* Light mode's four skies, chosen by html[data-sky] (static/sky.js, from the
+ * viewer's local hour). They sit after the explicit light block and before
+ * the explicit dark block on purpose: equal specificity, so the later block
+ * wins, and an explicit Dark theme always shows the night sky. Auto with a
+ * dark system is handled by the media block directly below. */
+html[data-sky="dawn"] {
+  --sky-top: #FCDFC6;
+  --sky-mid: #F8E4D0;
+  --sky-bottom: #F1ECE8;
+}
+
+html[data-sky="dusk"] {
+  --sky-top: #F7DFDB;
+  --sky-mid: #EDE1EA;
+  --sky-bottom: #EFE8EF;
+}
+
+html[data-sky="night"] {
+  --sky-top: #E1E4F3;
+  --sky-mid: #E6E8F4;
+  --sky-bottom: #EBE9F0;
+}
+
+/* Auto theme on a dark system: always the deep night sky, whatever the
+ * hour. More specific than the html[data-sky] blocks above. */
+@media (prefers-color-scheme: dark) {
+  html[data-sky][data-ui-theme="auto"] {
+    --sky-top: #0B1026;
+    --sky-mid: #18203F;
+    --sky-bottom: #2C2540;
+  }
+}
+
 html[data-ui-theme="dark"] {
+  --sky-top: #0B1026;
+  --sky-mid: #18203F;
+  --sky-bottom: #2C2540;
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-bar-bg: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
   --color-canvas: #0C0F14;
   --color-dominant: #151922;
   --color-secondary: #1C222D;
@@ -275,6 +358,7 @@ html[data-ui-theme="dark"] {
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
     scroll-behavior: auto !important;
   }
 }
@@ -434,13 +518,31 @@ html[data-ui-theme="dark"] {
   box-sizing: border-box;
 }
 
+/* The sky: a vertical gradient painted by a fixed, non-interactive
+ * pseudo-element behind everything (never background-attachment: fixed,
+ * which iOS Safari ignores). html keeps the opaque canvas colour as the
+ * floor under it. The pseudo-element takes no space, so it can cause
+ * neither layout shift nor horizontal scroll. */
+html {
+  background: var(--color-canvas);
+}
+
+html::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+}
+
 body {
   margin: 0;
   font-family: var(--font-ui);
   font-size: var(--font-body-size);
   font-weight: var(--weight-regular);
   line-height: 1.5;
-  background: var(--color-canvas);
+  background: transparent;
   color: var(--color-text);
   /* No matter what layout quirk exists deep in the tree, the document
    * itself can never scroll horizontally once this is set (measured
@@ -542,8 +644,8 @@ h3 {
   font-family: var(--font-serif);
   font-size: var(--font-page-title-size);
   font-weight: var(--weight-semibold);
-  line-height: 1.15;
-  letter-spacing: -0.015em;
+  line-height: 1.08;
+  letter-spacing: -0.02em;
   margin: 0 0 var(--space-xs);
 }
 
@@ -645,6 +747,7 @@ a:hover {
   padding: var(--space-xs) var(--space-md);
   background: var(--color-secondary);
   margin-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--color-border);
 }
 
 /* The admin-only two-segment switch between the Console and the personal
@@ -1648,7 +1751,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 @media (scripting: enabled) and (min-width: 960px) {
   .toast-region--flash,
   .toast-region--live {
-    left: calc(240px + var(--space-xl));
+    left: calc(240px + var(--space-md) + var(--space-xl));
   }
 }
 
@@ -2111,6 +2214,7 @@ button[type="submit"]:hover {
   background: var(--color-accent-hover);
   border-color: transparent;
   box-shadow: var(--shadow-control-hover);
+  transform: translateY(-1px);
 }
 
 /* Excludes .value-control__handle: that class is positioned via
@@ -2291,7 +2395,7 @@ button:disabled {
   position: relative;
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   box-shadow: none;
   padding: var(--space-md);
   flex: 1 1 0;
@@ -3863,7 +3967,7 @@ details[open] > summary::before {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-top: 3px solid var(--color-accent);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   box-shadow: none;
   transition: box-shadow .15s, transform .15s;
 }
@@ -3982,7 +4086,7 @@ details[open] > summary::before {
   padding: var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   box-shadow: none;
   min-width: 0;
   margin-bottom: var(--space-2xl);
@@ -4025,7 +4129,7 @@ details[open] > summary::before {
   margin-bottom: var(--space-lg);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   box-shadow: none;
 }
 
@@ -4096,7 +4200,7 @@ details[open] > summary::before {
 .airline-card {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   box-shadow: none;
   padding: var(--space-sm);
 }
@@ -4519,7 +4623,7 @@ a.airline-card {
 .health-rows {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   margin-bottom: var(--space-lg);
 }
 
@@ -4771,7 +4875,7 @@ a.airline-card {
 @media (min-width: 960px) {
   .dashboard-shell {
     display: grid;
-    grid-template-columns: 240px minmax(0, 1fr);
+    grid-template-columns: calc(240px + var(--space-md)) minmax(0, 1fr);
     column-gap: var(--space-xl);
     align-items: start;
   }
@@ -4783,12 +4887,15 @@ a.airline-card {
     display: flex;
     flex-direction: column;
     gap: var(--space-lg);
-    min-height: 100vh;
+    min-height: calc(100vh - var(--space-md) * 2);
+    margin: var(--space-md) 0 var(--space-md) var(--space-md);
     padding: var(--space-lg) var(--space-md);
     background: var(--color-secondary);
-    border-right: 1px solid var(--color-border);
+    border: 1px solid var(--color-border);
+    border-radius: calc(var(--radius-glass) + 4px);
+    box-shadow: var(--shadow-glass);
     position: sticky;
-    top: 0;
+    top: var(--space-md);
   }
 
   .sidebar-footer {
@@ -4815,7 +4922,7 @@ a.airline-card {
   .dirty-bar {
     position: fixed;
     bottom: var(--space-lg);
-    left: calc(240px + var(--space-xl) + var(--space-md));
+    left: calc(240px + var(--space-md) + var(--space-xl) + var(--space-md));
     right: var(--space-md);
     width: fit-content;
     max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
@@ -4895,7 +5002,7 @@ a.airline-card {
   /* Hairline-at-rest, shadow-on-hover — deliberate, not an oversight:
    * every other card in this file follows the same contract. */
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   box-shadow: none;
   padding: var(--space-xl);
 }
@@ -10418,7 +10525,7 @@ button.look-sheet__save:hover {
   padding: var(--space-sm);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-card);
   color: var(--color-text);
   text-decoration: none;
 }
@@ -11214,4 +11321,116 @@ a.airlines-name-it {
   .airlines-col--art { width: 22%; }
   .airlines-col--views { width: 11%; }
   .airlines-col--menu { width: 64px; }
+}
+
+/* ------------------------------------------------------------------
+ * Sky and motion language (appended last on purpose: equal-specificity
+ * rules here win over the base rules above).
+ * ------------------------------------------------------------------ */
+
+/* From the desktop breakpoint the page title grows to 44-48px. */
+@media (min-width: 960px) {
+  :root {
+    --font-page-title-size: clamp(2.75rem, 2.2rem + 1.6vw, 3rem);
+  }
+}
+
+/* The entrance of a card: opacity and a short rise, finite, painted by
+ * the animation only (fill-mode backwards, never forwards), so once it
+ * ends the element is back in its plain layout state and creates no
+ * stacking context that could trap a dropdown. Siblings stagger through
+ * --reveal-index. The global reduced-motion rule above zeroes duration and
+ * delay for every animation. */
+@keyframes skypane-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal,
+.dashboard-main .page-section {
+  animation: skypane-reveal var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+.reveal:nth-child(2),
+.dashboard-main .page-section:nth-child(2) {
+  --reveal-index: 1;
+}
+
+.reveal:nth-child(3),
+.dashboard-main .page-section:nth-child(3) {
+  --reveal-index: 2;
+}
+
+.reveal:nth-child(4),
+.dashboard-main .page-section:nth-child(4) {
+  --reveal-index: 3;
+}
+
+.reveal:nth-child(5),
+.dashboard-main .page-section:nth-child(5) {
+  --reveal-index: 4;
+}
+
+.reveal:nth-child(n + 6),
+.dashboard-main .page-section:nth-child(n + 6) {
+  --reveal-index: 5;
+}
+
+/* Frosted glass. Without backdrop-filter support none of this applies and
+ * every surface keeps the solid fill its own rule declares (--color-dominant
+ * for cards, --color-secondary for the bars). With it, surfaces become
+ * translucent over the sky and the overlay surfaces (bars, sheets, dialogs,
+ * the login card, Home's state card) also blur what passes behind them.
+ * The blur is kept to those few surfaces on purpose; the repeated cards are
+ * translucent only. No border-radius here: --radius-card carries it. */
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .page-section,
+  .fleet-block,
+  .battery-trend-section,
+  .health-rows,
+  .airline-group,
+  .stat-tile,
+  .airline-card,
+  .collection-card,
+  .frame-tile {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-glass);
+  }
+
+  /* The look picker's cards signal selection with their own box-shadow
+   * ring, so an unselected one must stay shadow-free. */
+  .runway-card {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+  }
+
+  .home-state,
+  .login-card,
+  .look-sheet,
+  .calendar-sheet,
+  dialog.modal {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+  }
+
+  .dashboard-sidebar,
+  .site-header,
+  .tab-bar {
+    background: var(--glass-bar-bg);
+    border-color: var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+  }
 }
