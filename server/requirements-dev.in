@@ -19,7 +19,7 @@ playwright==1.64.1
 # parallelises across worker processes, pytest-cov bridges pytest to
 # coverage.py above, and pytest-socket is the non-loopback network guard
 # every test runs under.
-pytest==9.1.1
+pytest==9.2.0
 pytest-xdist==3.8.0
 pytest-cov==7.1.0
 pytest-socket==0.8.1
