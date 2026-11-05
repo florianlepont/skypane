@@ -59,7 +59,6 @@ LOOK_RESET_LABEL = i18n.msg("look.reset", "Reset")
 LOOK_DONE_LABEL = i18n.msg("look.done", "Done")
 LOOK_CLOSE_LABEL = i18n.msg("look.close", "Close")
 LOOK_SAVE_LABEL = i18n.msg("look.save", "Save")
-LOOK_TABS_LABEL = i18n.msg("look.departures_or_arrivals", "Departures or arrivals")
 
 # The "Same as departures" option Arrivals and Calendar flights carry,
 # submitting the empty string: the clear signal handle_post() maps to
@@ -371,33 +370,34 @@ def look_pick_html(current_theme_id, submitted, errors):
         _field_error_html(errors, field_name, field_name.replace("_", "-")))
 
 
-def look_card_body_html(current_theme_id, current_theme_arriving, errors=None, submitted=None):
-    """What the Look page holds. With a script: the Departures/Arrivals
-    tabs, the live picture of the chosen one and the inline picker (colour,
-    background, diagonal band, Reset, Save). Without one: both pictures,
-    each with its native radio table, exactly as before. Both pictures and
-    their radios are in the markup either way, so the saved fields and the
-    form are the same.
+def look_card_body_html(
+        current_theme_id, current_theme_arriving, errors=None, submitted=None, usage=None):
+    """What a look view holds. With a script: the live picture of the chosen
+    type and the inline picker (colour, background, diagonal band, Reset,
+    Save). Without one: the picture and native radio table of the chosen
+    type, exactly as before. `usage` (departures or arrivals) names the type
+    shown; None shows both. The other type's picture and radios stay in the
+    markup, hidden, so the form posts the same fields and the picker can
+    resolve "Same as departures".
     """
     departures_id = departures_safe_theme_id(current_theme_id, submitted)
     effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
     arrivals_html = look_frame_html(
         COLOUR_USAGE_ARRIVALS, effective_arriving, departures_id, errors,
         theme_preview.FRAME_PREVIEW_STATE_ARRIVING)
-    tabs = "".join(
-        '<button type="button" class="look-tabs__tab" data-look-tab="%s" aria-pressed="%s">%s</button>' % (
-            usage, "true" if usage == COLOUR_USAGE_DEPARTURES else "false",
-            escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[usage])))
-        for usage in (COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS))
+    hidden = {name: " hidden" if usage not in (None, name) else ""
+              for name in (COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS)}
     return (
-        '<div class="look-view">'
-        '<div class="look-tabs js-gate" role="group" aria-label="%s">%s</div>'
-        '<div class="look-panel" data-look-panel="%s">%s</div>'
-        '<div class="look-panel look-pick__arrivals" data-look-panel="%s">%s</div>'
+        '<div class="look-view" data-look-initial="%s">'
+        '<div class="look-stage">'
+        '<div class="look-panel" data-look-panel="%s"%s>%s</div>'
+        '<div class="look-panel look-pick__arrivals" data-look-panel="%s"%s>%s</div>'
+        "</div>"
         '<div class="look-picker js-gate">%s</div>'
         "</div>"
     ) % (
-        escape_html(i18n.t(LOOK_TABS_LABEL)), tabs,
-        COLOUR_USAGE_DEPARTURES, look_pick_html(current_theme_id, submitted, errors),
-        COLOUR_USAGE_ARRIVALS, arrivals_html,
+        usage or COLOUR_USAGE_DEPARTURES,
+        COLOUR_USAGE_DEPARTURES, hidden[COLOUR_USAGE_DEPARTURES],
+        look_pick_html(current_theme_id, submitted, errors),
+        COLOUR_USAGE_ARRIVALS, hidden[COLOUR_USAGE_ARRIVALS], arrivals_html,
         look_sheet_html(inline=True))

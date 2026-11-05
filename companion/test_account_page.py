@@ -304,7 +304,10 @@ def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_acce
     assert sorted(hrefs) == sorted([
         "/devices/%s/" % seeded.owner_device, "/devices/%s/" % second])
     attic = rows[names.index("Attic")]
-    assert attic.select_one('.entity-row__dot [role="img"]') is not None
+    assert attic.select_one('.entity-row__pills .account-frame__status [role="img"]') is not None
+    assert attic.select_one(".entity-row__dot .account-frame__pic i") is not None
+    last_seen_word = attic.select_one(".account-frame__status").text().split("Up to date")[-1]
+    assert last_seen_word.startswith("Seen ") or "Not seen yet" in last_seen_word
     assert attic.select_one(".entity-row__meta").text() == (
         hardware.REGISTRY[hardware.LEGACY_KEY].label)
     (action,) = attic.select("a[data-modal-open]")

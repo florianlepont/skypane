@@ -84,6 +84,7 @@ _NOT_FOUND_PATH = "/this-page-does-not-exist"
 PAGE_REQUESTS = (
     (companion_app.HOME_ROUTE, "GET", True, None),
     (companion_app.DISPLAY_ROUTE, "GET", True, None),
+    (companion_app.DISPLAY_ROUTE + "/arrivals", "GET", True, None),
     (companion_app.DISPLAY_ROUTE + "/special-looks", "GET", True, None),
     (companion_app.DISPLAY_ROUTE + "/calendar", "GET", True, None),
     (companion_app.DISPLAY_ROUTE + "/screen", "GET", True, None),
@@ -124,6 +125,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.VALUE_CONTROLS_SCRIPT_ROUTE,
     companion_app.HOME_ROUTE,
     companion_app.DISPLAY_ROUTE,
+    companion_app.DISPLAY_ROUTE + "/arrivals",
     companion_app.DISPLAY_ROUTE + "/special-looks",
     companion_app.DISPLAY_ROUTE + "/calendar",
     companion_app.DISPLAY_ROUTE + "/screen",

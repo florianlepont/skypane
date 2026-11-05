@@ -1293,11 +1293,11 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # The Airline editor kept the captions the retired gallery page had, so it is
     # measured with the six routes.
     from companion.pages import airlines_page
-    # Personalisation's other three views are measured too: the Look view is the
+    # Personalisation's other views are measured too: the look views are the
     # picker alone, so its captions live on the cards of the other views.
     measured_routes = site_routes + (
         airlines_page.MANAGE_ROUTE, layout.DISPLAY_SPECIAL_LOOKS_ROUTE,
-        layout.DISPLAY_CALENDAR_ROUTE, layout.DISPLAY_SCREEN_ROUTE)
+        layout.DISPLAY_CALENDAR_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE)
 
     # --- fetch every route x language over the real server ---
     exempt_by_lang = {
@@ -1328,7 +1328,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
         layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 0, layout.FLIGHTS_ROUTE: 0,
         layout.AIRLINES_ROUTE: 0, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
         airlines_page.MANAGE_ROUTE: 2, layout.DISPLAY_SPECIAL_LOOKS_ROUTE: 1,
-        layout.DISPLAY_CALENDAR_ROUTE: 1, layout.DISPLAY_SCREEN_ROUTE: 0,
+        layout.DISPLAY_CALENDAR_ROUTE: 1, layout.DISPLAY_ARRIVALS_ROUTE: 0,
     }
     site_total_min = 14
 

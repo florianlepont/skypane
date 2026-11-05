@@ -160,7 +160,14 @@ def test_the_card_and_its_dialog_fit_and_meet_the_tap_targets(
         assert action.bounding_box()["height"] >= MIN_TAP_PX - SUBPIXEL
         assert action.bounding_box()["width"] >= MIN_TAP_PX - SUBPIXEL
         assert row.locator("a.entity-row__title").bounding_box()["height"] > 0
-        assert row.locator('.entity-row__dot [role="img"]').count() == 1
+        assert row.locator('.account-frame__status [role="img"]').count() == 1
+        picture = row.locator(".account-frame__pic").bounding_box()
+        name_box = row.locator("a.entity-row__title").bounding_box()
+        assert picture["width"] >= 40 and picture["height"] >= 50
+        assert picture["x"] + picture["width"] <= name_box["x"] + SUBPIXEL
+        assert row.locator(".account-frame__status").inner_text().count("ago") <= 1
+        assert "Seen" in row.locator(".account-frame__status").inner_text() or (
+            "Not seen" in row.locator(".account-frame__status").inner_text()) or lang == "fr"
         card_box = page.locator('[aria-labelledby="account-frames"]').bounding_box()
         assert card_box["x"] >= -SUBPIXEL
         assert card_box["x"] + card_box["width"] <= viewport["width"] + SUBPIXEL

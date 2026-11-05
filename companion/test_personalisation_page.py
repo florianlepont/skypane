@@ -1,8 +1,8 @@
 """The Personalisation page over a real in-process server: the title, the
-section navigation and its four views (Look at /display, then
-/display/special-looks, /display/calendar and /display/screen, one view each)
+one navigation and its four views (Departures at /display, then
+/display/arrivals, /display/special-looks and /display/calendar, one view each)
 for an administrator and a user, the Look radio cards and their save, the
-Screen switch, the absence of any Refresh card and of a user's wake interval, and
+retired Screen address, the absence of any Refresh card and of a user's wake interval, and
 isolation: saving Personalisation never touches the place, the time zone,
 the quiet hours or the detection setting, and saving those never touches the
 look, the rules, the calendar look or the wake interval.
@@ -96,8 +96,9 @@ def _position_row(rig):
     finally:
         conn.close()
 
-SECTIONS = ("Look", "Special looks", "Calendar", "Screen")
-FR_TITLES = ("Allure", "Allures spéciales", "Calendrier", "Écran")
+SECTIONS = ("Departures", "Arrivals", "Special looks", "Calendar")
+SECTION_TITLES = ("Look", "Look", "Special looks", "Calendar")
+FR_TITLES = ("Départs", "Arrivées", "Allures spéciales", "Calendrier")
 SEEDED = {
     "quiet_hours_enabled": True, "quiet_hours_start": "21:00", "quiet_hours_end": "05:00",
     "timezone": "America/Martinique", "wake_interval_s": 900, "theme": "band_red_field",
@@ -111,14 +112,14 @@ def _seed(rig):
 
 
 VIEW_PATHS = {
-    "look": "/display", "special-looks": "/display/special-looks",
-    "calendar": "/display/calendar", "screen": "/display/screen"}
+    "departures": "/display", "arrivals": "/display/arrivals",
+    "special-looks": "/display/special-looks", "calendar": "/display/calendar"}
 VIEW_IDS = {
-    "look": "personalisation-look", "special-looks": "personalisation-special-looks",
-    "calendar": "personalisation-calendar", "screen": "personalisation-screen"}
+    "departures": "personalisation-look", "arrivals": "personalisation-look",
+    "special-looks": "personalisation-special-looks", "calendar": "personalisation-calendar"}
 
 
-def _display(rig, who="owner", lang=None, view="look"):
+def _display(rig, who="owner", lang=None, view="departures"):
     status, body = rig.get(who, rig.scope() + VIEW_PATHS[view], lang=lang)
     assert status == 200
     return body
@@ -143,9 +144,6 @@ def _stored(rig):
 def test_the_title_the_nav_and_each_view_come_in_order(rig, who):
     _seed(rig)
     expected_links = [rig.scope() + VIEW_PATHS[v] for v in VIEW_PATHS]
-    currents = {
-        "special-looks": "Current: No special looks yet",
-        "calendar": "Current: No calendar connected"}
     for position, view in enumerate(VIEW_PATHS):
         root = parse_html(_display(rig, who, view=view))
         assert root.select_one("h1.page-title").text() == "Personalisation"
@@ -158,15 +156,9 @@ def test_the_title_the_nav_and_each_view_come_in_order(rig, who):
         assert [i for i, a in enumerate(links) if a.attrs.get("aria-current") == "page"] == [position]
         sections = root.select("div.personalisation__view > section")
         assert [c.attrs["id"] for c in sections] == [VIEW_IDS[view]]
-        assert [c.attrs["data-dirty-section"] for c in sections] == [SECTIONS[position]]
-        assert sections[0].select_one("h2").text() == SECTIONS[position]
-        if view in currents:
-            assert sections[0].select_one(".personalisation-card__current").text() == currents[view]
-    screen = parse_html(_display(rig, who, view="screen")).select_one("#personalisation-screen")
-    shown = [
-        span.text() for span in screen.select(".personalisation-card__current span")
-        if "hidden" not in span.attrs]
-    assert shown == ["Current: On"]
+        assert [c.attrs["data-dirty-section"] for c in sections] == [SECTION_TITLES[position]]
+        assert sections[0].select_one("h2").text() == SECTION_TITLES[position]
+        assert not sections[0].select(".personalisation-card__current")
 
 
 def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(rig):
@@ -174,7 +166,8 @@ def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(ri
     root = parse_html(_display(rig))
     assert "Red, stripe on soft" in root.select_one(".look-pick .look-frame__sentence").text()
     assert root.select_one("[data-look-sheet][data-look-inline]") is not None
-    assert [b.text() for b in root.select("button[data-look-tab]")] == ["Departures", "Arrivals"]
+    assert not root.select("button[data-look-tab]")
+    assert root.select_one("[data-look-initial]").attrs["data-look-initial"] == "departures"
     assert not root.select("section.personalisation-card")
     assert not root.select("[data-special-add]")
     assert not root.select('input[name="calendar_theme_id"]')
@@ -182,8 +175,8 @@ def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(ri
 
 def test_the_page_speaks_french(rig):
     expected = {
-        "look": "Allure", "special-looks": "Allures spéciales", "calendar": "Calendrier",
-        "screen": "Écran"}
+        "departures": "Allure", "arrivals": "Allure", "special-looks": "Allures spéciales",
+        "calendar": "Calendrier"}
     for view, title in expected.items():
         page = _display(rig, lang="fr", view=view)
         root = parse_html(page)
@@ -193,7 +186,6 @@ def test_the_page_speaks_french(rig):
         assert [a.text() for a in nav.select("a")] == list(FR_TITLES)
         assert root.select_one("div.personalisation__view h2").text() == title
     assert "Personnaliser le style" in _text(_display(rig, lang="fr"))
-    assert "Actuel\u00a0: Allumé" in html.unescape(_display(rig, lang="fr", view="screen"))
 
 
 def test_the_look_cards_are_native_radios_with_a_preview_and_a_selected_word(rig):
@@ -227,20 +219,32 @@ def test_tapping_a_look_then_save_persists_it_and_the_page_names_it(rig):
         r.attrs["value"] for r in root.select('input[name="theme"][checked]')] == ["black"]
 
 
-def test_the_screen_card_holds_the_instant_switch_with_its_state(rig):
-    root = parse_html(_display(rig, view="screen"))
-    card = root.select_one("#personalisation-screen")
-    form = card.select_one("form[data-quick-switch]")
-    assert form.attrs["action"].endswith("/quick/display")
-    fields = {i.attrs["name"]: i.attrs["value"] for i in form.select("input")}
-    assert fields["return_to"] == "/display/screen"
-    switch = card.select_one("button.switch")
-    assert switch.attrs["aria-checked"] == "true"
-    assert switch.attrs["aria-labelledby"] == card.select_one("h2").attrs["id"]
-    device_config.save_device_config(rig.owner_dir(), display_enabled=False)
-    card = parse_html(_display(rig, view="screen")).select_one("#personalisation-screen")
-    assert card.select_one("button.switch").attrs["aria-checked"] == "false"
-    assert "Current: Off" in card.text()
+def test_the_retired_screen_address_redirects_to_the_departures_view(rig):
+    status, response, _body = http_request(
+        rig.server.url(rig.scope() + "/display/screen"), cookie=rig.cookies["owner"])
+    assert status == 303
+    assert response["Location"] == rig.scope() + "/display"
+    status, response, _body = http_request(
+        rig.server.url("/display/screen"), cookie=rig.cookies["admin"])
+    assert status == 303 and response["Location"] == "/display"
+    status, _body = rig.get("owner", rig.scope() + "/display/arrivals")
+    assert status == 200
+    _status, body = rig.get("owner", rig.scope() + "/display")
+    assert "personalisation-screen" not in body and "/display/screen" not in body
+
+
+def test_the_arrivals_view_shows_the_arrivals_picture_and_hides_the_departures_one(rig):
+    _seed(rig)
+    root = parse_html(_display(rig, view="arrivals"))
+    assert root.select_one("[data-look-initial]").attrs["data-look-initial"] == "arrivals"
+    panels = {p.attrs["data-look-panel"]: p for p in root.select("[data-look-panel]")}
+    assert "hidden" in panels["departures"].attrs and "hidden" not in panels["arrivals"].attrs
+    assert panels["arrivals"].select_one('input[value=""][name="theme_arriving"]') is not None
+    fields = {i.attrs["name"] for i in root.select('input[type="radio"]') if "name" in i.attrs}
+    assert {"theme", "theme_arriving"} <= fields
+    departures = parse_html(_display(rig))
+    panels = {p.attrs["data-look-panel"]: p for p in departures.select("[data-look-panel]")}
+    assert "hidden" in panels["arrivals"].attrs and "hidden" not in panels["departures"].attrs
 
 
 @pytest.mark.parametrize("who", ["owner", "admin"])
@@ -311,19 +315,19 @@ FORBIDDEN_WORDS = {
 def test_personalisation_holds_no_place_runway_time_zone_or_quiet_hours_control(rig, who, lang):
     """the page offers the look as radio inputs and holds no form control or card named for the
     place, the runway, the time zone, the quiet hours or the refresh interval, in either language;
-    its four views are Look, Special looks, Calendar, Screen"""
+    its four views are Departures, Arrivals, Special looks, Calendar"""
     roots = {view: parse_html(_display(rig, who, lang=lang, view=view)) for view in VIEW_PATHS}
     names = {
         c.attrs["name"] for root in roots.values() for tag in ("input", "select", "textarea")
         for c in root.select(tag) if "name" in c.attrs}
     assert not names & set(FORBIDDEN_CONTROL_NAMES), names & set(FORBIDDEN_CONTROL_NAMES)
-    radios = roots["look"].select('#personalisation-look input[type="radio"][name="theme"]')
+    radios = roots["departures"].select('#personalisation-look input[type="radio"][name="theme"]')
     assert len(radios) == len(device_config.THEME_IDS)
     cards = [
         c for root in roots.values() for c in root.select("div.personalisation__view > section")]
     assert [c.attrs["id"] for c in cards] == [
-        "personalisation-look", "personalisation-special-looks", "personalisation-calendar",
-        "personalisation-screen"]
+        "personalisation-look", "personalisation-look", "personalisation-special-looks",
+        "personalisation-calendar"]
     titles = [c.select_one("h2").text() for c in cards]
     for word in FORBIDDEN_WORDS[lang]:
         assert word not in titles, (word, titles)
@@ -373,3 +377,16 @@ def test_adding_and_removing_a_special_look_return_to_the_special_looks_view(rig
         "owner", rig.scope() + "/settings/rules/callsign/AFR1234/delete", {})
     assert status == 303
     assert response["Location"] == rig.scope() + "/display/special-looks?flash=rule_deleted"
+
+
+def test_a_rejected_arrivals_look_redraws_the_arrivals_view(rig):
+    _seed(rig)
+    status, _response, body = _settings_post(
+        rig, "owner", return_to="/display/arrivals", theme_arriving="not-a-theme")
+    assert status == 200
+    root = parse_html(body)
+    assert root.select_one("[data-look-initial]").attrs["data-look-initial"] == "arrivals"
+    hidden = {
+        i.attrs["name"]: i.attrs["value"]
+        for i in root.select('form#settings-form input[type="hidden"]')}
+    assert hidden["return_to"] == "/display/arrivals"

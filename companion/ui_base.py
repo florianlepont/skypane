@@ -50,6 +50,8 @@ DISPLAY_ROUTE = "/display"
 # Personalisation's other views; the Look view keeps DISPLAY_ROUTE itself.
 DISPLAY_SPECIAL_LOOKS_ROUTE = DISPLAY_ROUTE + "/special-looks"
 DISPLAY_CALENDAR_ROUTE = DISPLAY_ROUTE + "/calendar"
+DISPLAY_ARRIVALS_ROUTE = DISPLAY_ROUTE + "/arrivals"
+# No longer a view: the address still answers, with a redirect to DISPLAY_ROUTE.
 DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
 FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"

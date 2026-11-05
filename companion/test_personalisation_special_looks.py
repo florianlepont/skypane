@@ -101,25 +101,25 @@ def test_the_card_counts_the_rules_and_leads_with_the_new_special_look_action(se
     colour_rules.add_rule(server.state_dir, "prefix", "TVF", "white")
     colour_rules.add_rule(server.state_dir, "hex", "3944F2", "white")
     card = _card(_display(server, session))
-    assert card.select_one(".personalisation-card__current").text() == "Current: 2 special looks"
+    assert card.select(".personalisation-card__current") == []
     assert card.select_one("summary.special-add__summary").text() == "New special look"
+    assert card.select_one(".special-looks > .section-caption").text() == (
+        "A different look for one airline, flight or plane.")
     assert card.select(".empty-state") == []
     assert len(card.select("li.rule-row")) == 2
 
 
-@pytest.mark.parametrize("lang,heading,hint", [
-    ("en", "No special looks yet",
-     "Create one when a particular airline or plane should look different."),
-    ("fr", "Aucun look spécial pour l’instant",
-     "Créez-en un quand une compagnie ou un avion précis doit avoir un autre look."),
+@pytest.mark.parametrize("lang,heading", [
+    ("en", "No special looks yet."),
+    ("fr", "Aucun look spécial."),
 ])
 def test_without_rules_the_card_shows_the_compact_empty_state_and_the_add_action(
-        served, lang, heading, hint):
+        served, lang, heading):
     server, session = served
     card = _card(_display(server, session, lang=lang))
     empty = card.select_one(".empty-state--compact")
     assert empty.select_one(".empty-state__heading").text() == heading
-    assert empty.select_one(".empty-state__body").text() == hint
+    assert empty.select(".empty-state__body") == []
     assert card.select("li.rule-row") == []
     assert card.select_one("details.special-add form.rule-add-form") is not None
 

@@ -511,15 +511,15 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 @pytest.mark.parametrize(
     ("lang", "titles", "page_title", "nav_label"),
     [
-        ("en", ("Look", "Special looks", "Calendar", "Screen"), "Personalisation", "Personalisation sections"),
-        ("fr", ("Allure", "Allures spéciales", "Calendrier", "Écran"), "Personnalisation",
+        ("en", ("Look", "Special looks", "Calendar"), "Personalisation", "Personalisation sections"),
+        ("fr", ("Allure", "Allures spéciales", "Calendrier"), "Personnalisation",
          "Sections de personnalisation"),
     ],
 )
 def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
         lang, titles, page_title, nav_label):
     """the whole Display render (every view at once) is titled Personalisation, starts with the
-    section navigation and then four views in order (Look, Special looks, Calendar, Screen), the pictures and the
+    navigation and then the views in order (Look, Special looks, Calendar), the pictures and the
     rules and calendar row inside their own cards, keeps its native settings form and omits the
     retired screen/status framing in both languages"""
     prefs.set_request_prefs(lang=lang)
@@ -538,7 +538,7 @@ def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
     assert 'aria-label="%s"' % nav_label in rendered
     headings = [
         rendered.index('id="personalisation-%s-title">%s</h2>' % (slug, escape_html(title)))
-        for slug, title in zip(("look", "special-looks", "calendar", "screen"), titles)]
+        for slug, title in zip(("look", "special-looks", "calendar"), titles)]
     assert headings == sorted(headings)
     assert rendered.index('aria-label="%s"' % nav_label) < headings[0]
     positions = [

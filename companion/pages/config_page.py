@@ -330,8 +330,8 @@ def shell_route(route):
 # The view each saved look field lives on, so a rejected save is redrawn where
 # its error can be seen.
 _FIELD_VIEWS = {
-    "theme": personalisation_cards.VIEW_LOOK,
-    "theme_arriving": personalisation_cards.VIEW_LOOK,
+    "theme": personalisation_cards.VIEW_DEPARTURES,
+    "theme_arriving": personalisation_cards.VIEW_ARRIVALS,
     "calendar_theme_id": personalisation_cards.VIEW_CALENDAR,
     "calendar_url": personalisation_cards.VIEW_CALENDAR,
 }

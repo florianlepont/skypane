@@ -385,6 +385,17 @@ def _seen_text(row, now):
     return i18n.t(_TILE_SEEN_TEXT) % relative_age_text(now - row.last_seen)
 
 
+def frame_pic_html(css_class=None):
+    """The CSS-drawn frame: a dark bezel around a white screen. Decorative."""
+    return '<span class="%s__pic" aria-hidden="true"><i></i></span>' % (
+        css_class or FRAME_TILE_CLASS)
+
+
+def seen_text(row, now):
+    """The last-seen word of a frame row ("Seen 2m ago" or "Not seen yet")."""
+    return _seen_text(row, now)
+
+
 def _frame_tile_html(entry, page, current, now):
     return frame_tile_html(
         entry.device, device_scope.target_path(page, entry.device),
@@ -399,10 +410,11 @@ def frame_tile_html(device, href, is_current, now, note=""):
     return (
         '<li><a class="%(cls)s" href="%(href)s"%(current)s>'
         '<span class="%(cls)s__dot">%(dot)s</span>'
-        '<span class="%(cls)s__pic" aria-hidden="true"><i></i></span>'
+        '%(pic)s'
         '<span class="%(cls)s__name">%(name)s</span>'
         '<span class="%(cls)s__seen">%(seen)s</span>%(note)s</a></li>') % {
             "cls": FRAME_TILE_CLASS,
+            "pic": frame_pic_html(),
             "href": escape_html(href),
             "current": ' aria-current="true"' if is_current else "",
             "dot": frame_status.status_dot_html(row),

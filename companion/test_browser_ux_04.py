@@ -256,10 +256,10 @@ def _assert_floor_without_scripts(page, selector, where):
 def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, server):
     """The Touch Targets floor, measured (never declared) in each control's own container,
     in both UI themes, at the 360px contract floor. With scripts blocked: the departures look's
-    first and last radio card, the arrivals table's leading "Same as departures" option and the
+    first and last radio card, the Arrivals view's leading "Same as departures" option and the
     "Add a special look" <summary> all clear 44px, no table scrolls horizontally, the page never
     overflows sideways and a card's preview paints a real box. With scripts: the Departures and
-    Arrivals tabs, the first and last colour dot, every background and stripe option, Reset and
+    Arrivals links, the first and last colour dot, every background and stripe option, Reset and
     Save clear 44px and the page never overflows sideways.
     """
     base_url = server.base_url()
@@ -278,9 +278,6 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
             _assert_floor_without_scripts(
                 page, '[data-look-usage="departures"] .look-pick__grid > label:last-child',
                 "theme=%s: the LAST radio card of the departures look" % theme)
-            _assert_floor_without_scripts(
-                page, '[data-look-usage="arrivals"] label.look-option:has(input[value=""])',
-                "theme=%s: the arrivals \"Same as departures\" option" % theme)
             scrolling = page.eval_on_selector_all(
                 ".look-table__scroll",
                 "els => els.filter(e => e.getClientRects().length"
@@ -301,6 +298,13 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
             if paint["width"] < 60 or paint["height"] < 80:
                 raise AssertionError(
                     "theme=%s: the 'black' card's preview collapsed to %r" % (theme, paint))
+        page.goto(base_url + "/display/arrivals")
+        page.eval_on_selector_all("details.look-edit", "ds => ds.forEach(d => { d.open = true; })")
+        for theme in UI_THEMES_EXPLICIT:
+            _set_ui_theme(page, theme)
+            _assert_floor_without_scripts(
+                page, '[data-look-usage="arrivals"] label.look-option:has(input[value=""])',
+                "theme=%s: the arrivals \"Same as departures\" option" % theme)
         page.goto(base_url + "/display/special-looks")
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
@@ -318,8 +322,8 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             for selector, what in (
-                    ('[data-look-tab="departures"]', "the Departures tab"),
-                    ('[data-look-tab="arrivals"]', "the Arrivals tab"),
+                    ('[data-pers-view="departures"]', "the Departures link"),
+                    ('[data-pers-view="arrivals"]', "the Arrivals link"),
                     (picker + ".look-dot:first-of-type", "the first colour dot"),
                     (picker + ".look-dot:last-of-type", "the last colour dot"),
                     (picker + ".look-seg__option", "a background or stripe option"),
@@ -714,9 +718,8 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
         nested_titles = []
         by_page = {"/display": [], "/device": []}
         for theme in UI_THEMES_EXPLICIT:
-            # Personalisation's cards are on its Special looks, Calendar and Screen views.
-            for route in (
-                    "/display/special-looks", "/display/calendar", "/display/screen", "/device"):
+            # Personalisation's cards are on its Special looks and Calendar views.
+            for route in ("/display/special-looks", "/display/calendar", "/device"):
                 page.goto(base_url + route)
                 _set_ui_theme(page, theme)
                 key = "/device" if route == "/device" else "/display"
@@ -752,12 +755,12 @@ def test_a_settings_card_title_renders_identically_on_both_settings_pages(new_co
                 "than structural position would pick up supersection intro headings too, "
                 "which is exactly the 27-06-shaped mistake this check exists to avoid"
                 % (sorted(allowed_device_texts), sorted(unexpected)))
-        # Display contributes exactly the three Personalisation cards, in the same voice (the
-        # Look view is the picker itself and has no card title).
+        # Display contributes exactly the two Personalisation cards, in the same voice (the
+        # look views are the picker itself and have no card title).
         display_texts = {e["text"] for e in by_page["/display"]}
-        if display_texts != {"Special looks", "Calendar", "Screen"}:
+        if display_texts != {"Special looks", "Calendar"}:
             raise AssertionError(
-                "expected the three Personalisation card titles on its card views, got %r"
+                "expected the two Personalisation card titles on its card views, got %r"
                 % (sorted(display_texts),))
         if nested_titles:
             raise AssertionError("expected no nested settings card, got %r" % (nested_titles,))

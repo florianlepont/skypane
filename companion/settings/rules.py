@@ -34,21 +34,17 @@ RULES_DELETE_ROUTE_SUFFIX = "/delete"
 SPECIAL_LOOKS_HEADING = i18n.msg("look.special_looks", "Special looks")
 RULES_SECTION_CAPTION = i18n.msg(
     "look.override_the_look_for_one_airline_flight_or_aircraft",
-    "Override the look for one airline, flight or aircraft.")
+    "A different look for one airline, flight or plane.")
 SPECIAL_LOOKS_ORDER = i18n.msg(
     "look.most_specific_wins",
-    "Most specific wins: calendar, then flight, aircraft, airline. "
-    "Adding a key already in the list replaces its look.")
+    "Most specific wins: calendar, then flight, aircraft, airline.")
 NEW_SPECIAL_LOOK_HEADING = i18n.msg("look.new_special_look", "New special look")
 ADD_SPECIAL_LOOK_LABEL = NEW_SPECIAL_LOOK_HEADING
 SPECIAL_LOOKS_EMPTY_HEADING = i18n.msg(
-    "display.special_looks_none", "No special looks yet")
-SPECIAL_LOOKS_EMPTY_BODY = i18n.msg(
-    "display.special_looks_empty_hint",
-    "Create one when a particular airline or plane should look different.")
+    "display.special_looks_none", "No special looks yet.")
 RULE_PREVIEW_TEXT = i18n.msg(
     "look.matching_flights_will_look_like_this",
-    "Matching flights will look like this, unless a more specific look applies.")
+    "Matching flights will look like this.")
 RULE_LOOK_LABEL = i18n.msg("look.look", "Look")
 # Owned by companion/i18n_fr/display.py, not this module's own
 # rules.py catalogue — shared segmented-control copy that predates the
@@ -199,8 +195,8 @@ def _rule_add_form_html(errors=None, submitted=None, suggestions_html=""):
         '<h3 class="special-add__title" id="special-add-title">%s</h3>'
         '<button type="button" class="look-sheet__close" data-special-add-close hidden '
         'aria-label="%s">%s</button></div>'
-        '<div class="special-add__cols"><div class="special-add__who">%s%s%s'
-        '<div class="special-add__preview">%s<p class="text-label">%s</p></div></div>'
+        '<div class="special-add__preview">%s<p class="text-label">%s</p></div>'
+        '<div class="special-add__cols"><div class="special-add__who">%s%s%s</div>'
         '<div class="special-add__look">'
         '<p class="look-axis__label special-add__look-label" id="%s">%s</p>'
         '<div data-look-axes-host hidden>%s</div>'
@@ -216,10 +212,10 @@ def _rule_add_form_html(errors=None, submitted=None, suggestions_html=""):
             small, False),
         escape_html(i18n.t(NEW_SPECIAL_LOOK_HEADING)),
         escape_html(i18n.t(LOOK_CLOSE_LABEL)), layout.icon_html("icon-close"),
+        special_mini_html(picture_id), escape_html(i18n.t(RULE_PREVIEW_TEXT)),
         _rule_kind_segment_html(selected_kind, errors),
         _rule_value_field_html(submitted_value, errors),
         suggestions_html,
-        special_mini_html(picture_id), escape_html(i18n.t(RULE_PREVIEW_TEXT)),
         escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t(RULE_LOOK_LABEL)),
         look.axes_html("rule_look"),
         table_html,
@@ -376,7 +372,7 @@ def special_looks_html(ctx, calendar_row_html):
         _rule_add_form_html(suggestions_html=_rule_suggestion_chips_html(ctx.state_dir)))
     rows_html = _rule_list_html(colour_rules.rule_rows(registry))
     empty_html = "" if rows_html else ui_components.empty_state(
-        i18n.t(SPECIAL_LOOKS_EMPTY_HEADING), i18n.t(SPECIAL_LOOKS_EMPTY_BODY), compact=True)
+        i18n.t(SPECIAL_LOOKS_EMPTY_HEADING), "", compact=True)
     return (
         '<div class="special-looks">'
         '<h3 class="special-looks__title">%s</h3>'

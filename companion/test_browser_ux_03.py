@@ -883,7 +883,7 @@ def test_the_preview_follows_hover_and_focus_and_selects_nothing(new_context, se
 
         before = state()
         page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
-        page.hover('[data-look-tab="arrivals"]')
+        page.hover('[data-pers-view="arrivals"]')
         page.hover('[data-look-usage="departures"] .look-frame__picture')
         page.focus('[data-look-sheet] input[data-look-axis="colour"]:checked')
         for _ in range(6):

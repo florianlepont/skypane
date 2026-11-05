@@ -41,7 +41,7 @@ def _open_display(new_context, base_url, viewport, lang="en", route=layout.DISPL
     page = context.new_page()
     _login(page, base_url)
     page.goto(base_url + route)
-    if route == layout.DISPLAY_ROUTE:
+    if route in (layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE):
         page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
     elif route == layout.DISPLAY_CALENDAR_ROUTE:
         page.locator(CALENDAR_OPENER).wait_for(state="visible")
@@ -52,10 +52,16 @@ def _open_display(new_context, base_url, viewport, lang="en", route=layout.DISPL
 
 
 def _show_tab(page, usage):
-    page.click('[data-look-tab="%s"]' % usage)
+    """Opens the Departures or Arrivals view through the navigation (a new page), unless it is
+    the one shown, and waits for its picture and picker."""
+    link = page.locator('[data-pers-view="%s"]' % usage)
+    if link.get_attribute("aria-current") != "page":
+        with page.expect_navigation():
+            link.click()
+    page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
     page.wait_for_function(
-        "u => document.querySelector('[data-look-panel=\"' + u + '\"]').hidden === false",
-        arg=usage, timeout=5000)
+        "u => document.querySelector('[data-look-panel=\"' + u + '\"]').hidden === false"
+        " && document.readyState === 'complete'", arg=usage, timeout=10000)
 
 
 def _axis(axis, value):
@@ -75,7 +81,7 @@ def _checked(page, field):
 
 
 def test_picker_choices_swap_the_picture_live(new_context, make_app_server):
-    """the picker sits in the page under the departures picture with the saved look's three
+    """the picker sits in the page beside the departures picture with the saved look's three
     choices checked; choosing Blue checks the band_blue_field radio, swaps the picture's src to
     that theme's full-frame preview, rewrites the read-back, raises the dirty bar, and the image
     really loads"""
@@ -88,7 +94,7 @@ def test_picker_choices_swap_the_picture_live(new_context, make_app_server):
             assert page.is_checked('%s input[data-look-axis="%s"][value="%s"]' % (SHEET, axis, value))
         picture = page.locator(DEPARTURES + " .look-frame__picture").bounding_box()
         box = sheet.bounding_box()
-        assert box["y"] >= picture["y"] + picture["height"] - 0.5, "expected the picker under the picture"
+        assert box["x"] >= picture["x"] + picture["width"] - 0.5, "expected the picker beside the picture"
 
         page.click(_axis("colour", "blue"))
         assert _checked(page, "theme") == "band_blue_field"
@@ -189,6 +195,11 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
         page.click(_axis("colour", "green"))
         page.click(_axis("background", "paper"))
         page.click(_axis("stripe", "soft"))
+        _save_via_bar(page, timeout=30000)
+        assert device_config.load_device_config(server.state_dir)["theme"] == "band_green_light"
+        assert urlsplit(page.url).path == layout.DISPLAY_ROUTE
+        assert page.locator(DEPARTURES + " [data-look-sentence]").inner_text() == "Green, soft stripe"
+
         _show_tab(page, "arrivals")
         page.click(SHEET + " button.switch")
         page.click(_axis("colour", "black"))
@@ -196,11 +207,9 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
         _save_via_bar(page, timeout=30000)
         saved = device_config.load_device_config(server.state_dir)
         assert (saved["theme"], saved["theme_arriving"]) == ("band_green_light", "grey")
-        assert urlsplit(page.url).path == layout.DISPLAY_ROUTE
-        assert page.locator(DEPARTURES + " [data-look-sentence]").inner_text() == "Green, soft stripe"
+        assert urlsplit(page.url).path == layout.DISPLAY_ARRIVALS_ROUTE
 
         page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
-        _show_tab(page, "arrivals")
         page.click(SHEET + " button.switch")
         assert page.locator(SHEET + " button.switch").get_attribute("aria-checked") == "true"
         _save_via_bar(page, timeout=30000)
@@ -306,25 +315,52 @@ def test_on_phones_the_picker_sits_under_the_picture_and_nothing_overflows(
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_server, lang):
-    """at 1280px the Look view holds the tabs, the picture with its read-back and the picker card
-    under it, the page does not scroll sideways, and every tab and choice is at least 44px in both
-    directions"""
+    """at 1280px a look view is two columns: the picture with its read-back on the left, the picker
+    card on the right and level with it; the page does not scroll sideways, and every choice is
+    at least 44px in both directions"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP, lang=lang)
     try:
         overflow = _assert_no_page_overflow(page, "display", VIEWPORT_DESKTOP["width"])
         assert not overflow, overflow
-        tabs = page.locator(".look-tabs").bounding_box()
         picture = page.locator(DEPARTURES + " .look-frame__picture").bounding_box()
         sheet = page.locator(SHEET).bounding_box()
-        assert tabs["y"] + tabs["height"] <= picture["y"] + 0.5
-        assert picture["y"] + picture["height"] <= sheet["y"] + 0.5
+        assert picture["x"] + picture["width"] <= sheet["x"] + 0.5
+        assert abs(picture["y"] - sheet["y"]) < 30
         assert not page.locator(DEPARTURES + " .look-pick__grid").is_visible()
         for selector in (
-                ".look-tabs__tab", SHEET + " .look-dot", SHEET + " .look-seg__option",
+                ".personalisation-nav__link", SHEET + " .look-dot", SHEET + " .look-seg__option",
                 SHEET + " .look-sheet__reset", SHEET + " .look-sheet__save"):
             for handle in page.locator(selector).all():
                 box = handle.bounding_box()
                 assert box["height"] >= 44 - 0.5 and box["width"] >= 44 - 0.5, (selector, box)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
+def test_the_new_special_look_sheet_has_a_big_preview_and_fits_a_phone(
+        new_context, make_app_server, viewport):
+    """on a phone the New special look sheet opens with its preview taking at least 40% of the
+    sheet's width, the sheet stays inside the screen and scrolls inside itself, and its primary
+    button is on screen without scrolling the page"""
+    server = make_app_server(seed=_seed)
+    context, page = _open_display(
+        new_context, server.base_url(), viewport, route=layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
+    try:
+        page.click(".special-add__summary")
+        panel = page.locator(".special-add__panel")
+        panel.wait_for(state="visible")
+        page.wait_for_function(
+            "() => document.readyState === 'complete' && document.getAnimations().every("
+            "a => a.playState !== 'running')", timeout=10000)
+        sheet = panel.bounding_box()
+        picture = page.locator(".special-add__preview .special-row__mini").bounding_box()
+        assert picture["width"] >= 0.4 * sheet["width"] - 1, (picture, sheet)
+        assert sheet["y"] >= 0 and sheet["y"] + sheet["height"] <= viewport["height"] + 0.5
+        add = page.locator(".special-add__foot button[type=submit]").bounding_box()
+        assert add["height"] >= 44 - 0.5
+        assert add["y"] >= sheet["y"] and add["y"] + add["height"] <= viewport["height"] + 0.5
+        assert not _assert_no_page_overflow(page, "special look sheet", viewport["width"])
     finally:
         context.close()

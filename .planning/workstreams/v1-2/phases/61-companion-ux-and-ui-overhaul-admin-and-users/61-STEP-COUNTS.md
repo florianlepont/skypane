@@ -74,7 +74,7 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 Measured paths (360 x 844):
 
 - U4a: tap the schedule link on Home (opens the Quiet hours dialog), type the start time, Save.
-- U4b: Personalisation tab, tap a look card, Save.
+- U4b: Personalisation tab, tap a look card, Save (plan 61-48: the Departures and Arrivals views are one tap apart in the single tab bar; before it Arrivals was a tab inside the Look view, also one tap; the count is unchanged).
 - U4c: Device tab in the Console bar, type the interval in the number field, Save.
 - L1: Location tab, type "Lyon" in the airport filter (the first control of the sheet), tap the airport (it opens the same page for that airport), Save.
 - L2: Location tab, the permission prompt (one counted step), tap the round Use my position button on the map, Save.

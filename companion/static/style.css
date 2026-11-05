@@ -17,9 +17,8 @@
  *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
  *     the tab bar's space switch cell, the active theme option,
  *     the checked runway/look cards and look dot, the editing look frame)
- *   - the current Personalisation section link and the chosen
- *     Departures/Arrivals tab (.personalisation-nav__link[aria-current],
- *     button.look-tabs__tab[aria-pressed="true"])
+ *   - the current Personalisation section link
+ *     (.personalisation-nav__link[aria-current])
  *   - the current segment of the space switch
  *     (.space-switch__segment--current)
  *   - the current frame's tile outline in the frame tile strip
@@ -8621,12 +8620,32 @@ a.special-row__remove:hover {
   text-transform: uppercase;
 }
 
+/* The preview heads the form: the framed picture takes 44% of a phone sheet's
+ * content width (9rem on a wide sheet) with its caption beside it. */
 .special-add__preview {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--color-border);
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.special-add__preview .special-row__mini {
+  width: 44%;
+  padding: 4px;
+  border-radius: 5px;
+}
+
+@media (min-width: 700px) {
+  .special-add__preview .special-row__mini {
+    width: 9rem;
+  }
+}
+
+.special-add__preview .special-row__image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
 }
 
 .special-add__preview .text-label {
@@ -8755,6 +8774,17 @@ button.rule-suggestion-chip {
     padding: 22px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
     overflow-y: auto;
     border-radius: 18px 18px 0 0;
+  }
+
+  .special-add__foot button {
+    height: 44px;
+  }
+
+  .special-add__foot {
+    position: sticky;
+    bottom: 0;
+    padding-top: var(--space-sm);
+    background: var(--color-dominant);
   }
 
   .look-sheet::before,
@@ -9091,6 +9121,62 @@ a.entity-row__title::before {
   gap: var(--space-xs);
 }
 
+/* An Account frame row: the CSS-drawn frame first, then the name, the
+ * hardware or owner line and the status dot with its last-seen word. */
+li.entity-row.account-frame {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-left: var(--space-md);
+}
+
+.account-frame .entity-row__dot {
+  position: static;
+  align-self: center;
+  margin-top: 0;
+}
+
+.account-frame__pic {
+  display: block;
+  box-sizing: border-box;
+  width: 44px;
+  height: 58px;
+  padding: 3px;
+  background: var(--color-frame-bezel);
+  border: 1px solid var(--color-frame-bezel-hi);
+  border-radius: 5px;
+}
+
+.account-frame__pic i {
+  display: block;
+  height: 100%;
+  background: var(--color-image-backdrop);
+  border-radius: 1px;
+}
+
+.account-frame__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (min-width: 960px) {
+  li.entity-row.account-frame {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding-left: var(--space-md);
+  }
+
+  .account-frame .entity-row__text {
+    display: flex;
+    grid-column: auto;
+  }
+
+  .account-frame .entity-row__meta,
+  .account-frame .entity-row__pills {
+    grid-column: auto;
+  }
+}
+
 details.row-menu {
   position: relative;
 }
@@ -9351,9 +9437,9 @@ a.entity-row__button:hover {
 }
 
 /* Personalisation ------------------------------------------------------
- * A segmented section navigation (Look, Special looks, Calendar, Screen:
- * plain links, one view each) over the current view. The Look view is the
- * look picker: tabs, the frame's picture and the three choices. */
+ * One segmented navigation (Departures, Arrivals, Special looks, Calendar:
+ * plain links, one view each) over the current view. Departures and Arrivals
+ * are the look picker: the frame's picture and the three choices. */
 
 .personalisation {
   display: block;
@@ -9404,6 +9490,11 @@ a.entity-row__button:hover {
   flex: none;
   width: 20px;
   height: 20px;
+}
+
+/* Arrivals reuses the plane, nose down. */
+.personalisation-nav__link[data-pers-view="arrivals"] svg {
+  transform: rotate(90deg);
 }
 
 .personalisation-nav__link:hover {
@@ -9546,38 +9637,7 @@ button.look-pick__customise {
   text-align: left;
 }
 
-/* The Look view ------------------------------------------------------- */
-
-.look-tabs {
-  --js-gate-display: inline-flex;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
-  padding: var(--space-xs);
-  border-radius: var(--radius-card);
-  background: var(--color-secondary);
-}
-
-button.look-tabs__tab {
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  border: none;
-  border-radius: var(--radius-control);
-  background: transparent;
-  box-shadow: none;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-weight: var(--weight-semibold);
-}
-
-button.look-tabs__tab:hover {
-  background: transparent;
-  color: var(--color-text);
-}
-
-button.look-tabs__tab[aria-pressed="true"] {
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
-  color: var(--color-accent);
-}
+/* The look views (Departures, Arrivals) ---------------------------------- */
 
 .look-picker {
   --js-gate-display: block;
@@ -9699,6 +9759,41 @@ button.look-sheet__save:hover {
     right: auto;
     left: 0;
     margin-top: var(--space-sm);
+  }
+}
+
+/* From 960px a look view is two columns, the picture on the left and the
+ * picker on the right, both on the first screen of a laptop. The picture is
+ * as wide as its column and the screen height allow (3:4). */
+@media (min-width: 960px) {
+  .js .personalisation__view:has(.look-view) {
+    max-width: none;
+  }
+
+  .js .look-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
+    gap: var(--space-lg);
+    align-items: flex-start;
+  }
+
+  .js .look-view .look-panel > .look-frame {
+    display: block;
+  }
+
+  .look-view .look-frame__anchor {
+    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    margin-inline: auto;
+  }
+
+  .look-view .look-frame__meta {
+    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    margin-inline: auto;
+  }
+
+  .js .look-view .look-picker {
+    max-width: none;
+    margin-top: 0;
   }
 }
 

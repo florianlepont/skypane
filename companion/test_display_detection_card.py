@@ -153,8 +153,8 @@ def test_display_serves_none_of_the_moved_controls_in_french(rig):
 def test_the_four_views_are_all_there_and_quiet_hours_are_not_on_display(rig):
     page = ""
     for slug, path in (
-            ("look", "/display"), ("special-looks", "/display/special-looks"),
-            ("calendar", "/display/calendar"), ("screen", "/display/screen")):
+            ("look", "/display"), ("look", "/display/arrivals"),
+            ("special-looks", "/display/special-looks"), ("calendar", "/display/calendar")):
         _status, view = rig.get("owner", rig.scope() + path)
         assert 'id="personalisation-%s"' % slug in view
         assert 'href="%s"' % (rig.scope() + path) in view

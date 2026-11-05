@@ -93,35 +93,24 @@ MESSAGES = {
     "home.notice_explain_not_seen":
         "Votre cadre n’a pas encore contacté SkyPane.",
     "home.notice_explain_overdue":
-        "Votre cadre ne s’est pas manifesté à l’heure attendue. Il est peut-être "
-        "à court de batterie ou hors de portée du Wi-Fi.",
+        "Votre cadre ne s’est pas manifesté à l’heure.",
     "home.notice_explain_low_battery":
-        "La batterie de votre cadre est faible. Rechargez-le bientôt pour qu’il "
-        "continue à se mettre à jour.",
+        "La batterie de votre cadre est faible.",
     "home.notice_explain_no_contact":
         "Votre cadre n’est plus en contact avec le serveur.",
     "home.notice_line_battery": "Batterie du cadre à %d %%",
-    "home.notice_line_charging":
-        "Les mesures de la batterie laissent penser que le cadre est peut-être "
-        "en charge.",
+    "home.notice_line_charging": "Le cadre est peut-être en charge.",
     "home.notice_line_last_check_in": "Dernière connexion du cadre : %s",
     "home.notice_line_last_contact": "Dernier contact : %s",
-    "home.notice_line_cannot_tell":
-        "SkyPane ne peut pas distinguer un problème de Wi-Fi, d’internet ou de "
-        "serveur.",
-    "home.notice_tip_low_battery": "Rechargez le cadre ou branchez-le.",
+    "home.notice_tip_low_battery": "Rechargez-le ou branchez-le.",
     "home.notice_tip_overdue":
-        "Attendez le prochain cycle. Si le cadre est en heures calmes, il se "
-        "repose volontairement.",
+        "Attendez un cycle\u00a0; s’il reste muet, contactez un administrateur.",
     "home.notice_tip_not_seen":
-        "Vérifiez que le cadre est alimenté, puis attendez un cycle.",
+        "Vérifiez qu’il est alimenté\u00a0; s’il reste muet, contactez un "
+        "administrateur.",
     "home.notice_tip_no_contact":
-        "Vérifiez que le cadre est alimenté et que votre Wi-Fi ou votre box "
-        "internet fonctionne.",
-    "home.notice_help_lead":
-        "Si cela ne se rétablit pas, un administrateur peut vous aider.",
-    "home.notice_help_plain":
-        "Demandez de l’aide à un administrateur de cette installation SkyPane.",
+        "Vérifiez son alimentation et votre Wi-Fi\u00a0; s’il reste muet, contactez "
+        "un administrateur.",
     "home.notice_contact_label": "Contacter un administrateur",
     "home.notice_mail_subject": "SkyPane : aide pour le cadre %s (%s)",
     "home.notice_mail_body":

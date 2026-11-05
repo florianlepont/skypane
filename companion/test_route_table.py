@@ -160,7 +160,7 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("GET", routes.Exact(routes.DEVICE_ROUTE)),
         ("POST", routes.Exact(routes.QUICK_LED_ROUTE)),
     }
-    assert len(owner) == 25
+    assert len(owner) == 26
     admin_device = {
         (r.method, r.matcher) for r in routes.ROUTES
         if r.access == routes.ADMIN_DEVICE}

@@ -40,7 +40,9 @@ SAMPLE_MIDDLE = {
 }
 
 # The legacy page routes are fixed redirects to a current page.
-LEGACY_REDIRECT = {"/settings": "/display", "/history": "/flights", "/preview": "/flights"}
+LEGACY_REDIRECT = {
+    "/settings": "/display", "/history": "/flights", "/preview": "/flights",
+    "/display/screen": "/display"}
 
 UNKNOWN_ID = "d_00000000"
 

@@ -622,18 +622,13 @@
     openers[o].hidden = false;
   }
 
-  // --- The Look page: Departures/Arrivals tabs over the inline picker ---
+  // --- The look views: the one picture of the type the address names ---
 
   var savedValues = {};
-  var tabs = document.querySelectorAll("[data-look-tab]");
   var panels = document.querySelectorAll("[data-look-panel]");
 
-  function showTab(usage) {
+  function showUsage(usage) {
     var i;
-    for (i = 0; i < tabs.length; i++) {
-      tabs[i].setAttribute(
-        "aria-pressed", tabs[i].getAttribute("data-look-tab") === usage ? "true" : "false");
-    }
     for (i = 0; i < panels.length; i++) {
       panels[i].hidden = panels[i].getAttribute("data-look-panel") !== usage;
     }
@@ -646,12 +641,8 @@
     for (t = 0; t < targets.length; t++) {
       savedValues[targets[t].getAttribute("data-look-usage")] = checkedValue(targets[t]);
     }
-    for (t = 0; t < tabs.length; t++) {
-      tabs[t].addEventListener("click", function (evt) {
-        showTab(evt.currentTarget.getAttribute("data-look-tab"));
-      });
-    }
-    showTab("departures");
+    var lookView = document.querySelector("[data-look-initial]");
+    showUsage(lookView ? lookView.getAttribute("data-look-initial") : "departures");
   }
 
   window.SkyPaneLivePreview = {

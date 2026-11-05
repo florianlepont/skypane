@@ -106,8 +106,8 @@ _STRUCTURE = """
   } else if (bars.length) bad.push('tab bar visible on desktop');
   if (args.list && q('main table:not(.fleet-blocks table)').length) bad.push('table in a list page');
   q('li.entity-row, li.place-airport, li.collection-item, .rule-row, .manual-resolution-row').forEach((row) => {
-    if (row.querySelectorAll('.entity-row__dot .dot, .entity-row__dot [role=img]').length > 1) bad.push('two dots in a row');
-    row.querySelectorAll('.entity-row__dot [role=img]').forEach((d) => {
+    if (row.querySelectorAll('.entity-row__dot .dot, .entity-row__dot [role=img], .account-frame__status [role=img]').length > 1) bad.push('two dots in a row');
+    row.querySelectorAll('.entity-row__dot [role=img], .account-frame__status [role=img]').forEach((d) => {
       if (!d.getAttribute('aria-label')) bad.push('dot without a name'); });
     const box = row.getBoundingClientRect();
     row.querySelectorAll('*').forEach((e) => {
@@ -132,7 +132,7 @@ _STRUCTURE = """
 
 PERSONAL_PAGES = ("/", "/flights", "/detection", "/display", "/airlines")
 PERSONAL_ADMIN_PATHS = PERSONAL_PAGES + (
-    "/display/special-looks", "/display/calendar", "/display/screen")
+    "/display/arrivals", "/display/special-looks", "/display/calendar")
 
 # The visible text of the page with the space switch and the foreign-frame
 # notice set aside: the two things an administrator's personal page may add.
@@ -229,7 +229,7 @@ CASES = (
     _case("admin", "/display", None, "admin-display"),
     _case("admin", "/display/special-looks", None, "admin-display-special-looks"),
     _case("admin", "/display/calendar", None, "admin-display-calendar"),
-    _case("admin", "/display/screen", None, "admin-display-screen"),
+    _case("admin", "/display/arrivals", None, "admin-display-arrivals"),
     _case("admin", "/device", None, "admin-device"),
     _case("admin", "/health", None, "admin-health"),
     _case("admin", "/flights", None, "admin-flight-history"),
@@ -529,7 +529,7 @@ NOTICE_CASES = [
 NOTICE_FIGURES = {
     "not_seen": (),
     "low_battery": (r"Frame battery at \d+%",),
-    "no_contact": (r"Last contact \d+h ago", "Wi-Fi, an internet or a server problem"),
+    "no_contact": (r"Last contact \d+h ago",),
     "overdue": (r"Last check-in \d+",),
 }
 NOTICE_PEOPLE = {
@@ -605,8 +605,8 @@ def test_the_home_notification_holds_the_layout_rules(
             for figure in NOTICE_FIGURES[state]:
                 if not re.search(figure, text):
                     problems.append("missing figure: " + figure)
-            if state != "no_contact" and "Wi-Fi, an internet" in text:
-                problems.append("the no-contact sentence outside no contact")
+            if len(text) > 230:
+                problems.append("the notification is not short: %d characters" % len(text))
             if not with_admin and "@" in text:
                 problems.append("an address in a notification without a contact")
         assert not problems, (where, problems)

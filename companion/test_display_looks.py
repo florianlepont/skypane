@@ -186,8 +186,8 @@ def test_the_calendar_look_carries_the_saved_departures_look_it_follows():
 def test_the_look_view_carries_the_picker_in_the_page_with_a_save_button():
     """the Look view's sheet is the inline picker: in the page (not hidden, not a dialog), inside a
     script-only wrapper, its choices posting nothing, with Reset and a Save that presses the
-    save bar's own Save, and the tabs that switch it between Departures and Arrivals"""
-    root = parse_html(_view("look"))
+    save bar's own Save; the view names the type it opens on"""
+    root = parse_html(_view("departures"))
     sheet = root.select_one("div.look-sheet")
     assert "data-look-inline" in sheet.attrs
     assert "hidden" not in sheet.attrs and "role" not in sheet.attrs
@@ -197,7 +197,8 @@ def test_the_look_view_carries_the_picker_in_the_page_with_a_save_button():
     save = sheet.select_one("button.look-sheet__save")
     assert save.attrs["type"] == "button" and "form" not in save.attrs and "data-look-save" in save.attrs
     assert sheet.select_one("button.look-sheet__reset") is not None
-    assert [b.text() for b in root.select("button[data-look-tab]")] == ["Departures", "Arrivals"]
+    assert not root.select("button[data-look-tab]")
+    assert root.select_one("[data-look-initial]").attrs["data-look-initial"] == "departures"
     assert [p.attrs["data-look-panel"] for p in root.select("[data-look-panel]")] == [
         "departures", "arrivals"]
     assert [node.attrs["value"] for node in sheet.find_all("input")
@@ -206,10 +207,11 @@ def test_the_look_view_carries_the_picker_in_the_page_with_a_save_button():
 
 @pytest.mark.parametrize("lang, words", [
     ("en", ("Look", "Special looks", "Plain paper", "Stripe on soft",
-            "New special look", "Change", "Customise look", "Calendar", "Screen")),
+            "New special look", "Change", "Customise look", "Calendar", "Departures",
+            "Arrivals")),
     ("fr", ("Allure", "Allures spéciales", "Papier uni",
             "Bande sur fond clair", "Nouvelle allure spéciale", "Modifier",
-            "Personnaliser le style", "Calendrier", "Écran")),
+            "Personnaliser le style", "Calendrier", "Départs", "Arrivées")),
 ])
 def test_the_look_card_speaks_the_page_language(lang, words):
     """every visible look-card word renders in the page language"""
