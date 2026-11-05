@@ -17,6 +17,7 @@ import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion.ui_base import (
+    AIRLINE_EDITOR_ROUTE,
     CONFIRM_SUBMIT_SCRIPT_SRC,
     COPY_BUTTON_SCRIPT_SRC,
     DIRTY_STATE_SCRIPT_SRC,
@@ -332,9 +333,10 @@ _FLEET_HREF = "/fleet"
 
 def _device_page_path(active):
     """The un-prefixed path of the device-scoped page `active` names, else None
-    (the Update page, a page with no nav tab, no context)."""
+    (the Update page, a page with no nav tab, no context, the airline editor,
+    which is one global list and shows no frame in view)."""
     for route in device_scope.page_routes():
-        if nav_slug(route) == active:
+        if nav_slug(route) == active and route != AIRLINE_EDITOR_ROUTE:
             return route
     return None
 

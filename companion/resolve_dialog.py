@@ -68,7 +68,7 @@ def trigger_attrs_html(row, now, return_target):
         ap._VIEW_PANEL_CAPTION_ATTR: escape_html(example_callsign),
         ap._VIEW_PANEL_HEADING_ATTR: i18n.t(ap.RESOLVE_HEADING),
         ap._VIEW_PANEL_MODE_ATTR: ap._VIEW_PANEL_MODE_GAP,
-        ap._VIEW_PANEL_SCOPE_ATTR: i18n.t(ap.RESOLVE_CAPTION_TEMPLATE) % escaped_prefix,
+        ap._VIEW_PANEL_SCOPE_ATTR: "",
         ap._VIEW_PANEL_RESOLVE_PREFIX_ATTR: escaped_prefix,
         ap._VIEW_PANEL_FIRST_SEEN_ATTR: escape_html(ap._seen_attribute_text(first_seen, now)),
         ap._VIEW_PANEL_LAST_SEEN_ATTR: escape_html(ap._seen_attribute_text(last_seen, now)),

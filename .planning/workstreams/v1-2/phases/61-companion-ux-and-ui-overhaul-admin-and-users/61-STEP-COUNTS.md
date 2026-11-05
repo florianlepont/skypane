@@ -143,3 +143,7 @@ the bar instead of a strip under the header). A 6th cell does not fit the longes
 "Utilisateurs") at 360 px, so the Console bar moved Audit log into More: A6 is 2 again (More, Audit log), as before
 plan 61-42. The personal bar keeps its four destinations beside the switch (six cells). Nothing else changed: the
 frame strip's collapse is optional and open by default, so no task gained a tap.
+
+## Plan 61-51 (quiet Console pages, global Airlines editor)
+
+Changing an artwork moved from the thumbnail (tap, choose the file) to the row's menu (open "...", "Change artwork", choose the file): one tap more, no flow in the measured set (A8 stays 3, a rename). Enlarging an artwork is now one tap on the thumbnail (it was two: "..." then "Enlarge the artwork"). Inviting a user is unchanged (A2 stays 4). No measured count moved.

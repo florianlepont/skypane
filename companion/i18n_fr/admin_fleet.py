@@ -6,8 +6,6 @@ only carries the French.
 """
 
 MESSAGES = {
-    "admin_fleet.every_frame_on_the_platform_who_owns_it_and_whether_it":
-        "Tous les cadres de la plateforme\u00a0: à qui ils sont et s’ils sont à jour.",
     "admin_fleet.new_frame": "Nouveau cadre",
     "admin_fleet.formerly_owner": "Anciennement %s",
     "admin_fleet.other_frames_n": "Autres cadres (%d)",

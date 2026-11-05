@@ -171,8 +171,9 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
                 "/health", "/device", "/airlines/manage")}
         # Health and Device are folded into the Fleet view; only the editor stays.
         assert list(tools) == ["Airline editor"]
-        expected_prefix = server.frame_prefix if path.startswith("/devices/") else ""
-        assert all(href.startswith(expected_prefix + "/") for href in tools.values())
+        # The editor is one global list: its link carries no frame, whichever
+        # address the page was opened under.
+        assert list(tools.values()) == ["/airlines/manage"]
         active = re.findall(r'sidebar-link--active" href="([^"]+)"', sidebar)
         expected_active = page if page == "/airlines/manage" else "/fleet"
         assert [re.sub(r"^/devices/[^/]+", "", href) for href in active] == [expected_active]

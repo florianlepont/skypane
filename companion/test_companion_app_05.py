@@ -1327,10 +1327,14 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     per_route_min = {
         layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 0, layout.FLIGHTS_ROUTE: 0,
         layout.AIRLINES_ROUTE: 0, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
-        airlines_page.MANAGE_ROUTE: 2, layout.DISPLAY_SPECIAL_LOOKS_ROUTE: 1,
+        # Administrator pages carry no explanatory captions at all (the editor is
+        # still measured, so any caption added back must respect the word floor).
+        airlines_page.MANAGE_ROUTE: 0, layout.DISPLAY_SPECIAL_LOOKS_ROUTE: 1,
         layout.DISPLAY_CALENDAR_ROUTE: 1, layout.DISPLAY_ARRIVALS_ROUTE: 0,
     }
-    site_total_min = 14
+    # Re-derived after the administrator pages dropped their explanatory captions: the
+    # remaining captions are the personal pages' and Device's.
+    site_total_min = 8
 
     skip_counts = {"en": 0, "fr": 0}
     site_total_captions = 0

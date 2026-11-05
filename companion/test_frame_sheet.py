@@ -134,10 +134,15 @@ def _console_html(state_dir, seeded, active):
     return ui_shell.frame_switcher_html(active)
 
 
-@pytest.mark.parametrize("active", ["health", "device", "airlines/manage"])
+def test_the_airline_editor_is_one_global_list_without_a_frame_strip(fleet):
+    state_dir, seeded = fleet
+    assert _console_html(state_dir, seeded, "airlines/manage") == ""
+
+
+@pytest.mark.parametrize("active", ["health", "device"])
 def test_console_pages_list_every_frame_with_the_owner_email(fleet, active):
     state_dir, seeded = fleet
-    page = {"health": "/health", "device": "/device", "airlines/manage": "/airlines/manage"}[active]
+    page = {"health": "/health", "device": "/device"}[active]
     html = _console_html(state_dir, seeded, active)
     cards = _cards(html)
     hrefs = {c.attrs["href"] for c in cards}

@@ -9,6 +9,7 @@ corroboration flag flips) is folded into one sighting with the same rule
 Home and Flights use, so "seen n times" counts flights, not stored rows.
 """
 import collections
+import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
@@ -212,6 +213,24 @@ def collection_from_events(events, now, overrides=None):
         entries.append(_entry(slug, name, slug, False, rows, instant, type_counts))
     spotted = sum(1 for entry in entries if entry.seen)
     return entries, _summary(spotted, len(order))
+
+
+def sightings_across(state_dirs):
+    """The folded sightings of every frame in `state_dirs` merged newest
+    first. A frame whose history cannot be read contributes nothing."""
+    merged = []
+    seen_dirs = set()
+    for state_dir in state_dirs:
+        if not state_dir or state_dir in seen_dirs:
+            continue
+        seen_dirs.add(state_dir)
+        try:
+            with history_db.open_db(state_dir) as conn:
+                merged.extend(_sightings(conn))
+        except (sqlite3.Error, OSError):
+            continue
+    merged.sort(key=lambda row: row.get("ts") or "", reverse=True)
+    return merged
 
 
 def airline_collection(conn, now, overrides=None):

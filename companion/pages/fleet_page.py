@@ -15,10 +15,6 @@ from companion import frame_status, i18n, ui_entity_list, ui_modal
 from companion.pages import co_managers_card
 from companion.ui_base import escape_html
 
-FLEET_PURPOSE = i18n.msg(
-    "admin_fleet.every_frame_on_the_platform_who_owns_it_and_whether_it",
-    "Every frame on the platform: who owns it and whether it is up to date.")
-
 KIND_LIVE = frame_status.KIND_LIVE
 KIND_PENDING = frame_status.KIND_PENDING
 KIND_RETIRED = frame_status.KIND_RETIRED

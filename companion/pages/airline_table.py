@@ -2,16 +2,17 @@
 
 One `<tbody>` per airline: the airline's row (name edited in place, callsign
 prefixes as read-only text, the artwork thumbnail that replaces the artwork
-when clicked, views, last seen, a "..." menu) and, behind a native
+enlarged when tapped, views, last seen, a "..." menu) and, behind a native
 `<details>` chevron, one sub-row per aircraft type seen for it. Unidentified
 prefixes sit above as highlighted rows with a "Name it" link. Below 70rem
 every row is a card.
 
 Every control posts to a route that already existed: the rename and reset
 routes, the illustration upload route, the manual-name delete route. A
-sub-row offers its own "Replace" only for a type that has an artwork slot of
-its own (the curated list's aircraft variants); every other type shows that
-it uses the airline's artwork. Stored text reaches the markup only through
+sub-row offers its own artwork menu only for a type that has an artwork slot
+of its own (the curated list's aircraft variants); every other type shows
+that it uses the airline's artwork. Changing an image is always the "Change
+artwork" item of a "..." menu. Stored text reaches the markup only through
 `escape_html`.
 """
 from dataclasses import dataclass, field
@@ -25,6 +26,9 @@ from server.plane import illustrations
 from server.plane import render as panel_render
 
 NO_VALUE = "—"
+# The manual-name fields of a trigger that carries none (see
+# airlines_page._airline_card_manual_fields()).
+_NO_MANUAL_FIELDS = ("art", False, False, "", "", "", "", "", "", "", "", "")
 SUB_ROW_TYPE_SEP = " · "
 
 CAPTION_TEXT = i18n.msg("airlines.table_caption", "Airlines")
@@ -35,14 +39,13 @@ COL_VIEWS = i18n.msg("airlines.col_views", "Views")
 COL_LAST_SEEN = i18n.msg("airlines.col_last_seen", "Last seen")
 NAME_ARIA = i18n.msg("airlines.name_aria", "Airline name: %s")
 SAVE_NAME_TEXT = i18n.msg("airlines.table_save_name", "Save")
-ART_ARIA = i18n.msg("airlines.art_aria", "Replace the artwork of %s")
+ENLARGE_ARIA = i18n.msg("airlines.enlarge_artwork_of", "Enlarge the artwork of %s")
 ART_UPLOAD_TEXT = i18n.msg("airlines.table_upload", "Upload")
-ART_REPLACE_TEXT = i18n.msg("airlines.table_replace", "Replace")
 USES_AIRLINE_ART = i18n.msg("airlines.uses_airline_artwork", "Uses the airline’s artwork")
 EXPAND_ARIA = i18n.msg("airlines.expand_types_aria", "Aircraft types seen for %s")
 MENU_ARIA = i18n.msg("airlines.row_menu_aria", "Actions for %s")
 MENU_RESET = i18n.msg("airlines.reset_original_name", "Reset to the original name")
-MENU_ENLARGE = i18n.msg("airlines.enlarge_artwork", "Enlarge the artwork")
+MENU_CHANGE_ART = i18n.msg("airlines.change_artwork", "Change artwork")
 NAME_IT_TEXT = i18n.msg("airlines.name_it", "Name it")
 NAME_IT_ARIA = i18n.msg("airlines.name_it_aria", "Name the unidentified prefix %s")
 UNIDENTIFIED_TEXT = i18n.msg("airlines.unidentified_label", "Unidentified")
@@ -90,21 +93,20 @@ def _thumb_html(page, key, state_dir):
          page.ILLUSTRATION_TARGET_WIDTH, page.ILLUSTRATION_TARGET_HEIGHT)
 
 
-def _upload_form_html(page, key, state_dir, aria, with_text):
-    """A one-control upload form: the thumbnail is the label of a file input
-    that submits on change. Without a script the Upload button sends it."""
-    text = (
-        '<span class="airlines-art__replace" aria-hidden="true">%s</span>'
-        % escape_html(i18n.t(ART_REPLACE_TEXT)) if with_text else "")
+def _change_art_form(page, key):
+    """The "Change artwork" menu item: a label wrapping the file input of a
+    form that posts to the illustration upload route. With a script it sends
+    on change; without one the Upload button sends it."""
     return (
-        '<form class="airlines-art" method="post" enctype="multipart/form-data" action="%s">'
-        '<label class="airlines-thumb"><span class="visually-hidden">%s</span>%s%s'
+        '<form class="airlines-art" method="post" '
+        'enctype="multipart/form-data" action="%s">'
+        '<label class="row-menu__item">%s'
         '<input type="file" name="image" accept="image/png" class="visually-hidden" '
         'required data-autosubmit></label>'
         '<noscript><button type="submit" class="airlines-art__upload">%s</button></noscript>'
         "</form>"
-    ) % (page._illustration_url(key, "POST"), escape_html(aria),
-         _thumb_html(page, key, state_dir), text, escape_html(i18n.t(ART_UPLOAD_TEXT)))
+    ) % (page._illustration_url(key, "POST"), escape_html(i18n.t(MENU_CHANGE_ART)),
+         escape_html(i18n.t(ART_UPLOAD_TEXT)))
 
 
 def _name_cell(row):
@@ -126,19 +128,20 @@ def _name_cell(row):
          " autofocus" if row["focus"] else "", escape_html(i18n.t(SAVE_NAME_TEXT)))
 
 
-def _enlarge_html(page, row):
-    """The menu entry that opens the shared lightbox on the artwork; a real
-    link to the picture without a script."""
-    key = row["key"]
+def _enlarge_html(page, row, key, label):
+    """The thumbnail of `key` as the trigger that opens the shared lightbox on
+    the artwork; a real link to the picture without a script. It carries the
+    manual-name state so a superseded name keeps its note in the dialog."""
     image_url = page._illustration_url(key)
     busted = image_url + page._illustration_cache_buster(key, row["state_dir"])
     (_mode, _has_manual, _superseded, manual_value, _resolve_prefix, _heading, _upload,
      delete_action, manual_note, _first, _last, _count) = row["manual_fields"]
     return page._airline_card_zoom_html(
-        row["name"], page._VIEW_PANEL_MODE_ART, escape_html(i18n.t(MENU_ENLARGE)), busted,
+        label, page._VIEW_PANEL_MODE_ART, _thumb_html(page, key, row["state_dir"]), busted,
         page._illustration_url(key, "POST"), manual_value, "", escape_html(row["name"]),
         "", delete_action, manual_note, "", "", "",
-        aria_label=i18n.t(MENU_ENLARGE), css_class="row-menu__item", sheet_href=busted)
+        aria_label=i18n.t(ENLARGE_ARIA) % label, css_class="airlines-thumb",
+        sheet_href=busted)
 
 
 def _reset_form(page, row):
@@ -160,22 +163,24 @@ def _reset_form(page, row):
     ) % (action, hidden, csrf_field(), escape_html(i18n.t(MENU_RESET)))
 
 
-def _menu_cell(page, row):
-    items = _reset_form(page, row)
-    if row["has_art"]:
-        items += _enlarge_html(page, row)
-    if not items:
-        return ""
+def _menu_html(items, aria):
     return (
         '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">%s</summary>'
         '<div class="row-menu__panel">%s</div></details>'
-    ) % (escape_html(i18n.t(MENU_ARIA) % row["name"]),
-         layout.icon_html("icon-more-vertical", size=20), items)
+    ) % (escape_html(aria), layout.icon_html("icon-more-vertical", size=20), items)
+
+
+def _menu_cell(page, row):
+    """Change artwork, then the reset item when the airline has an owner name."""
+    return _menu_html(
+        _change_art_form(page, row["key"]) + _reset_form(page, row),
+        i18n.t(MENU_ARIA) % row["name"])
 
 
 def _artwork_cell(page, row):
     """The airline's artwork: a link to the resolve step for an owner-named
-    airline still without artwork, otherwise the click-to-replace thumbnail."""
+    airline still without artwork, the tap-to-enlarge thumbnail when there is
+    a picture, else the empty frame."""
     if row["needs_artwork"]:
         inner = _thumb_html(page, row["key"], row["state_dir"])
         card = {
@@ -185,8 +190,10 @@ def _artwork_cell(page, row):
         return page._type_trigger_html(
             card, page.ANY_TYPE_ID, row["name"], row["key"], "airlines-thumb", inner,
             i18n.t(page.ACTION_LABEL_TEMPLATE) % (i18n.t(page.ADD_ACTION_TEXT), row["name"]))
-    return _upload_form_html(
-        page, row["key"], row["state_dir"], i18n.t(ART_ARIA) % row["name"], False)
+    if row["has_art"]:
+        return _enlarge_html(page, row, row["key"], row["name"])
+    return '<span class="airlines-thumb">%s</span>' % _thumb_html(
+        page, row["key"], row["state_dir"])
 
 
 def _expand_cell(row):
@@ -221,8 +228,21 @@ def _sub_art_html(page, sub, row):
     if sub["slot"] is None:
         return '<span class="airlines-uses text-label">%s</span>' % escape_html(
             i18n.t(USES_AIRLINE_ART))
-    aria = i18n.t(ART_ARIA) % ("%s, %s" % (row["name"], sub["code"]))
-    return _upload_form_html(page, sub["slot"], row["state_dir"], aria, True)
+    label = "%s, %s" % (row["name"], sub["code"])
+    has_builtin, has_override = page._artwork_files(sub["slot"], row["state_dir"])
+    if has_builtin or has_override:
+        sub_row = dict(row, manual_fields=_NO_MANUAL_FIELDS)
+        return _enlarge_html(page, sub_row, sub["slot"], label)
+    return '<span class="airlines-thumb">%s</span>' % _thumb_html(
+        page, sub["slot"], row["state_dir"])
+
+
+def _sub_menu_html(page, sub, row):
+    if sub["slot"] is None:
+        return ""
+    return _menu_html(
+        _change_art_form(page, sub["slot"]),
+        i18n.t(MENU_ARIA) % ("%s, %s" % (row["name"], sub["code"])))
 
 
 def _sub_row_html(page, sub, row):
@@ -235,9 +255,9 @@ def _sub_row_html(page, sub, row):
         '<td class="airlines-cell airlines-cell--art">%s</td>'
         '<td class="airlines-cell airlines-cell--views">%s</td>'
         '<td class="airlines-cell airlines-cell--seen"></td>'
-        '<td class="airlines-cell airlines-cell--menu"></td></tr>'
+        '<td class="airlines-cell airlines-cell--menu">%s</td></tr>'
     ) % (escape_html(label), _sub_art_html(page, sub, row),
-         escape_html(_views_text(sub["views"])))
+         escape_html(_views_text(sub["views"])), _sub_menu_html(page, sub, row))
 
 
 def _sub_rows(entry, builtin_name, shapes, key):

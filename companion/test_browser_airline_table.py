@@ -4,8 +4,8 @@ French and in both themes, nothing overflows and every control (the name field, 
 artwork, the "..." menu, "Name it") is at least 44 px and owns its centre; the chevron expands
 the aircraft-type sub-rows (a type with its own artwork offers Replace, any other says it uses
 the airline's artwork); renaming saves on change through the real route and the "..." menu resets
-it; the artwork uploads through the real routes; the "..." menu holds only its two items and
-Escape closes it; the filter finds an airline by name, type or prefix; an unidentified prefix is
+it; tapping a thumbnail enlarges it and "Change artwork" in the "..." menu uploads through the
+real routes; the "..." menu holds only its items and Escape closes it; the filter finds an airline by name, type or prefix; an unidentified prefix is
 a highlighted row at the top. With scripts blocked the chevron, the Save button and the Upload
 button still work.
 
@@ -103,7 +103,7 @@ def test_the_table_fits_and_every_control_is_a_44px_target_in_both_themes(
             assert not _assert_no_page_overflow(page, "airlines", viewport["width"])
             for selector in (
                     FRANCE_NAME, TRANSAVIA + " .airlines-expand > summary",
-                    TRANSAVIA + " .airlines-thumb", TRANSAVIA + " .row-menu__toggle",
+                    TRANSAVIA + " .airlines-thumb", TRANSAVIA + " .airlines-row .row-menu__toggle",
                     "a.airlines-name-it"):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "airlines %s %s" % (name, lang))
@@ -130,8 +130,8 @@ def test_the_unidentified_prefix_is_a_highlighted_row_on_top_with_a_name_it_acti
 
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, name, viewport):
-    """one sub-row per type seen: an A320 (own artwork, Replace) and a B738 (the airline's
-    artwork); a mouse click and the keyboard both toggle it"""
+    """one sub-row per type seen: an A320 (own artwork: a tappable thumbnail and its own "..."
+    menu) and a B738 (the airline's artwork); a mouse click and the keyboard both toggle it"""
     context, page = _open(new_context, server, viewport)
     try:
         chevron = TRANSAVIA + " .airlines-expand > summary"
@@ -144,7 +144,9 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         assert rows.count() == 2
         first, second = rows.nth(0), rows.nth(1)
         assert first.locator("th").inner_text().startswith("A320")
-        assert first.locator(".airlines-art__replace").is_visible()
+        assert first.locator("a.airlines-thumb").is_visible()
+        assert first.locator(".row-menu__toggle").is_visible()
+        assert second.locator(".row-menu__toggle").count() == 0
         assert "Uses the airline’s artwork" in second.inner_text()
         assert second.locator("th").inner_text().startswith("B738")
         assert "2 views" in first.inner_text() and "1 view" in second.inner_text()
@@ -172,9 +174,9 @@ def test_renaming_saves_on_change_and_the_menu_resets_it(new_context, make_app_s
         page.locator(renamed + " .row-menu__toggle").click()
         items = page.locator(renamed + " .row-menu__panel .row-menu__item")
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Reset to the original name", "Enlarge the artwork"]
+        assert items.all_inner_texts() == ["Change artwork", "Reset to the original name"]
         with page.expect_navigation():
-            items.first.click()
+            items.nth(1).click()
         page.wait_for_function(
             "() => document.readyState === 'complete' && document.querySelectorAll("
             "'.airlines-name input[value=\"Skyline Air\"]').length === 0", timeout=15000)
@@ -232,27 +234,50 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
         context.close()
 
 
-def test_the_menu_holds_only_its_items_escape_closes_it_and_enlarge_opens_the_lightbox(
-        new_context, server):
+def test_the_menu_holds_only_change_artwork_and_escape_closes_it(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
-        group = TRANSAVIA
+        group = TRANSAVIA + " .airlines-row"
         toggle = group + " .row-menu__toggle"
         _settle(page, toggle)
         page.locator(toggle).click()
         items = page.locator(group + " .row-menu__panel .row-menu__item")
         items.first.wait_for(state="visible")
-        assert items.all_inner_texts() == ["Enlarge the artwork"]
+        assert items.all_inner_texts() == ["Change artwork"]
         page.keyboard.press("Escape")
         page.wait_for_function(
             "sel => !document.querySelector(sel).open", arg=group + " details.row-menu", timeout=5000)
         page.locator(toggle).click()
         items.first.wait_for(state="visible")
-        items.first.click()
+        with page.expect_file_chooser():
+            items.first.click()
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_tapping_a_thumbnail_enlarges_the_artwork_of_the_airline_and_of_a_type(
+        new_context, server, name, viewport):
+    context, page = _open(new_context, server, viewport)
+    try:
+        thumb = TRANSAVIA + " .airlines-row a.airlines-thumb"
+        _settle(page, thumb)
+        page.locator(thumb).click()
         dialog = page.locator(DIALOG)
         dialog.wait_for(state="visible")
         assert "/illustration/transavia-france.png" in dialog.locator(".lightbox__image").get_attribute("src")
         assert dialog.locator(".lightbox__heading").inner_text() == "Transavia France"
+        page.keyboard.press("Escape")
+        dialog.wait_for(state="hidden")
+        chevron = TRANSAVIA + " .airlines-expand > summary"
+        _settle(page, chevron)
+        page.locator(chevron).click()
+        sub_thumb = TRANSAVIA + " .airlines-subrow a.airlines-thumb"
+        _settle(page, sub_thumb)
+        page.locator(sub_thumb).click()
+        dialog.wait_for(state="visible")
+        assert "/illustration/transavia-france-a320.png" in dialog.locator(
+            ".lightbox__image").get_attribute("src")
     finally:
         context.close()
 
@@ -309,7 +334,10 @@ def test_without_scripts_the_chevron_the_save_button_and_the_upload_button_work(
         page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
         save = 'form.airlines-name:has(input[value="Air France"]) .airlines-name__save'
         upload = 'form[action="/illustration/air-france.png"] .airlines-art__upload'
-        assert page.locator(save).is_visible() and page.locator(upload).is_visible()
+        assert page.locator(save).is_visible()
+        assert page.locator(upload).is_hidden()
+        page.locator('tbody.airline-group:has(input[value="Air France"]) .row-menu__toggle').click()
+        assert page.locator(upload).is_visible()
         page.locator(FRANCE_NAME).fill("Skyline Air")
         with page.expect_navigation():
             page.locator(save).click()

@@ -104,8 +104,9 @@ _CONSOLE_ICON_IDS = {
     "editor": "icon-nav-airlines",
 }
 # The Console destinations that act on one frame: their hrefs carry the
-# frame in view.
-_CONSOLE_FRAME_KEYS = frozenset(("health", "device", "editor"))
+# frame in view. The airline editor lists every frame's airlines, so its link
+# carries none.
+_CONSOLE_FRAME_KEYS = frozenset(("health", "device"))
 # Health, Device and Releases no longer have navigation entries: their
 # content lives in the Fleet view, so their pages mark Fleet as current.
 _FLEET_FOLDED_SLUGS = frozenset(("health", "device", "update"))

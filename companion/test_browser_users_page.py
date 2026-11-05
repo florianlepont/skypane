@@ -288,3 +288,36 @@ def test_table_and_cards_fit_and_every_control_is_44px(
         assert not dialog.evaluate("d => d.open")
     finally:
         context.close()
+
+
+_BOXES = (
+    "() => { const box = s => { const r = document.querySelector(s).getBoundingClientRect();"
+    " return {l: r.left, r: r.right, t: r.top, b: r.bottom}; };"
+    " return {title: box('h1.page-title'), button: box('a.page-header__action'),"
+    " main: box('main')}; }")
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("width", (360, 390, 1280))
+def test_the_invite_button_never_overlaps_the_title(
+        new_context, app_server_in_process, width, lang):
+    """on a phone the invite action is a full-width button under the title; on desktop it
+    shares the title's row; the title and the button never overlap"""
+    viewport = {"width": width, "height": 844}
+    context, page, _seed = _open(new_context, app_server_in_process, viewport, lang)
+    try:
+        _settled(page)
+        boxes = page.evaluate(_BOXES)
+        title, button = boxes["title"], boxes["button"]
+        overlap = (title["l"] < button["r"] and button["l"] < title["r"]
+                   and title["t"] < button["b"] and button["t"] < title["b"])
+        assert not overlap, (width, lang, boxes)
+        if width < 700:
+            assert button["t"] >= title["b"], (width, lang, boxes)
+            assert button["r"] - button["l"] >= boxes["main"]["r"] - boxes["main"]["l"] - 2 * 24
+        else:
+            assert button["l"] >= title["r"] - 1, (width, lang, boxes)
+            assert button["t"] < title["b"], (width, lang, boxes)
+        assert button["b"] - button["t"] >= 44
+    finally:
+        context.close()

@@ -145,7 +145,7 @@ def _render(h, status=200, **invite_state):
     return h._console_page(
         console_routes.USERS_ROUTE, None,
         lambda: users_page.render(_view(h, **invite_state)),
-        users_page.USERS_PURPOSE, status=status,
+        None, status=status,
         action_html=users_page.header_action_html,
         scripts=(ui_base.LIST_FILTER_SCRIPT_SRC,))
 

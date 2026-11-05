@@ -16,10 +16,6 @@ from typing import NamedTuple
 from companion import i18n, ui_entity_list, ui_modal, ui_time
 from companion.ui_base import escape_html, icon_html
 
-USERS_PURPOSE = i18n.msg(
-    "admin_users.who_can_sign_in_and_what_they_can_do",
-    "Who can sign in and what they can do.")
-
 EMAIL_FIELD = "email"
 ROLE_FIELD = "role"
 ROLE_USER = "user"
@@ -58,10 +54,6 @@ _ACTIVE_ARIA = i18n.msg("admin_users.active_aria", "Active: %s")
 _MORE_ARIA = i18n.msg("admin_users.more_actions_aria", "More actions for %s")
 _SAVE_ROLE = i18n.msg("admin_users.save_role", "Save role")
 _UNLINK_BUTTON = i18n.msg("admin_users.unlink_identity", "Unlink identity")
-_TABLE_NOTE = i18n.msg(
-    "admin_users.table_note",
-    "The role is saved as soon as it changes. Deactivating signs the person "
-    "out immediately.")
 
 _INVITE_BUTTON = i18n.msg("admin_users.invite_a_user_button", "+ Invite a user")
 _INVITE_TITLE = i18n.msg("admin_users.invite_a_user", "Invite a user")
@@ -265,10 +257,10 @@ def _table_html(view):
     return (
         '%s<table class="users-table"><caption class="visually-hidden">%s</caption>'
         '<thead><tr>%s<td class="users-col users-col--menu"></td></tr></thead>'
-        '<tbody>%s</tbody></table><p class="users-note text-label">%s</p>' % (
+        '<tbody>%s</tbody></table>' % (
             ui_entity_list.count_line_html(_count_text(len(view.rows))),
             _t(_USERS_TEXT), head,
-            "".join(_row_html(row, view.now) for row in view.rows), _t(_TABLE_NOTE)))
+            "".join(_row_html(row, view.now) for row in view.rows)))
 
 
 
@@ -309,8 +301,9 @@ def _invite_dialog(view):
 
 def header_action_html():
     """The page header's "+ Invite a user" trigger (opens the invite dialog)."""
-    return '<div class="page-header__actions">%s</div>' % ui_modal.trigger_html(
+    trigger = ui_modal.trigger_html(
         INVITE_DIALOG_ID, _t(_INVITE_BUTTON), "page-header__action")
+    return '<div class="page-header__actions page-header__actions--stack">%s</div>' % trigger
 
 
 def render(view):

@@ -16,10 +16,6 @@ from typing import NamedTuple
 from companion import i18n, ui_time
 from companion.ui_base import escape_html
 
-AUDIT_PURPOSE = i18n.msg(
-    "admin_lifecycle.what_happened_on_the_platform_newest_first",
-    "What happened on the platform, newest first.")
-
 PAGE_SIZE = 50
 CATEGORY_QUERY = "category"
 PAGE_QUERY = "page"

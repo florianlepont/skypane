@@ -5,8 +5,6 @@ companion/console_users.py; this module only carries the French.
 """
 
 MESSAGES = {
-    "admin_users.who_can_sign_in_and_what_they_can_do":
-        "Qui peut se connecter et ce qu’il peut faire.",
     "admin_users.users": "Utilisateurs",
     "admin_users.n_users": "%d utilisateurs",
     "admin_users.one_user": "1 utilisateur",
@@ -70,7 +68,4 @@ MESSAGES = {
     "admin_users.role_of_aria": "Rôle de %s",
     "admin_users.active_aria": "Actif\u00a0: %s",
     "admin_users.more_actions_aria": "Autres actions pour %s",
-    "admin_users.table_note":
-        "Le rôle s’enregistre dès qu’on le change. Désactiver déconnecte la "
-        "personne immédiatement.",
 }

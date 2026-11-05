@@ -1,5 +1,5 @@
 """Real-browser checks of the Airline editor (/airlines/manage, administrator only): it opens in the
-Console chrome with the frame chip at 360 and 1280 px, in English and French, in both themes, with
+Console chrome with no frame strip (one global list) at 360 and 1280 px, in English and French, in both themes, with
 no sideways scroll and every control at least 44 px and owning its centre. It is reached from the
 Console (the Airlines bar cell on a phone, the sidebar link on desktop). Deleting a manual
 resolution confirms in a dialog whose safe dismiss "Keep resolution" takes the focus, Tab stays
@@ -78,18 +78,18 @@ def _settle(page, selector):
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_editor_is_a_console_page_with_the_frame_strip_and_usable_controls(
+def test_the_editor_is_a_console_page_without_a_frame_strip_and_with_usable_controls(
         new_context, server, name, viewport, lang):
     context, page = _open(new_context, server, viewport, lang)
     try:
         title = "Airline editor" if lang == "en" else "Éditeur de compagnies"
         assert page.locator("h1.page-title").inner_text() == title
         assert page.locator('a.space-switch__segment--current[href="/fleet"]').count() >= 1
-        assert page.locator("ul.frame-tiles").first.is_visible()
+        assert page.locator("ul.frame-tiles").count() == 0
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "editor", viewport["width"])
-            for selector in (FRANCE_NAME, DELETE_LINK, "a.frame-tile[aria-current='true']"):
+            for selector in (FRANCE_NAME, DELETE_LINK):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "editor %s %s" % (name, lang))
     finally:

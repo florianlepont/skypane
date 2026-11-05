@@ -629,7 +629,7 @@ def test_airlines_page_module_exposes_no_deleted_diagnostics_symbol():
 
 
 def test_enlarge_menu_item_opens_the_lightbox_on_the_row_artwork(tmp_path):
-    """each airline row's "..." menu holds an "Enlarge the artwork" trigger whose
+    """each airline row's artwork thumbnail is the "Enlarge the artwork of ..." trigger whose
     data-view-panel-src is the row's own picture, whose caption and heading are the airline
     name, in art mode with the upload route as replace action; it is a plain link to the
     picture without a script"""
@@ -637,7 +637,7 @@ def test_enlarge_menu_item_opens_the_lightbox_on_the_row_artwork(tmp_path):
     for airline_name in ("Air Caraïbes", "Air France"):
         card_slice = _card_slice(rendered, airline_name)
         trigger = re.search(r"<a\b[^>]*data-view-panel-src[^>]*>", card_slice).group(0)
-        assert 'class="row-menu__item"' in trigger
+        assert 'class="airlines-thumb"' in trigger
         img_src = re.search(r'<img class="airlines-thumb__image" src="([^"]+)"', card_slice).group(1)
         src_attr = re.search(r'data-view-panel-src="([^"]+)"', trigger).group(1)
         assert src_attr == img_src, (airline_name, src_attr, img_src)
@@ -646,7 +646,7 @@ def test_enlarge_menu_item_opens_the_lightbox_on_the_row_artwork(tmp_path):
         assert re.search(r'data-view-panel-caption="([^"]+)"', trigger).group(1) == escaped
         assert re.search(r'data-view-panel-heading="([^"]+)"', trigger).group(1) == escaped
         assert 'data-view-panel-mode="art"' in trigger
-        assert 'aria-label="Enlarge the artwork"' in trigger
+        assert 'aria-label="Enlarge the artwork of %s"' % escaped in trigger
 
 
 def test_lightbox_dialog_renders_once_wide_with_own_note_text(tmp_path):
@@ -732,8 +732,9 @@ def test_lightbox_wide_max_width_matches_illustration_target_width(css_text):
 
 
 def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
-    """exactly one lightbox replace form is rendered, every airline with artwork carries one
-    "Enlarge" trigger with a data-view-panel-replace-action, and every upload action in the
+    """exactly one lightbox replace form is rendered, every airline row and every aircraft-type
+    sub-row with artwork carries one thumbnail trigger with a data-view-panel-replace-action,
+    and every upload action in the
     table (airline rows and type sub-rows), with the route prefix stripped, is a member of
     illustrations.target_filenames() — mirroring the image-source membership check"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
@@ -743,7 +744,11 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
     prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
     actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
     expected = len(illustrations.target_variants_by_airline())
-    assert len(actions) == expected
+    typed_with_art = sum(
+        1 for name, shapes in illustrations.target_variants_by_airline() for shape in shapes
+        if illustrations.illustration_path_for_key(
+            "%s-%s" % (illustrations.normalise_airline_key(name), shape)))
+    assert len(actions) == expected + typed_with_art
     uploads = re.findall(r'<form class="airlines-art"[^>]* action="([^"]+)"', rendered)
     assert len(uploads) == expected + sum(
         len(shapes) for _name, shapes in illustrations.target_variants_by_airline())

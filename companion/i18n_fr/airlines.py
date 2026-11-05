@@ -23,14 +23,13 @@ MESSAGES = {
     "airlines.col_last_seen": "Dernière vue",
     "airlines.name_aria": "Nom de la compagnie : %s",
     "airlines.table_save_name": "Enregistrer",
-    "airlines.art_aria": "Remplacer l’illustration de %s",
+    "airlines.enlarge_artwork_of": "Agrandir l’illustration de %s",
     "airlines.table_upload": "Téléverser",
-    "airlines.table_replace": "Remplacer",
+    "airlines.change_artwork": "Changer l’illustration",
     "airlines.uses_airline_artwork": "Utilise celle de la compagnie",
     "airlines.expand_types_aria": "Types d’appareil vus pour %s",
     "airlines.row_menu_aria": "Actions pour %s",
     "airlines.reset_original_name": "Revenir au nom d’origine",
-    "airlines.enlarge_artwork": "Agrandir l’illustration",
     "airlines.name_it": "Nommer",
     "airlines.name_it_aria": "Nommer le préfixe non identifié %s",
     "airlines.unidentified_label": "Non identifiée",
@@ -49,10 +48,6 @@ MESSAGES = {
         "intégré « %s » l’emporte.",
 
     # --- The "Unidentified airlines" gap strip and its cards --------
-    "airlines.table_purpose":
-        "Renommez sur place, cliquez l’illustration pour la remplacer, dépliez pour les appareils.",
-    "airlines.gap_caption":
-        "Indicatifs non identifiés en premier : cliquez Nommer pour choisir une compagnie.",
     "airlines.resolve_prefix_example_callsign":
         "Identifier le préfixe %s — exemple d’indicatif %s",
     "airlines.other_unresolved_prefixes": "%d autres préfixes non résolus — ",
@@ -72,18 +67,10 @@ MESSAGES = {
         "Cette lacune n’existe plus — elle est peut-être déjà résolue. "
         "Consultez État pour la liste complète des lacunes actuelles.",
     "airlines.resolve_an_unidentified_flight": "Identifier un vol non reconnu",
-    "airlines.every_flight_using_prefix_will_show_as_this":
-        "Chaque vol utilisant le préfixe %s s’affichera sous cette "
-        "compagnie.",
     "airlines.times_seen": "Nombre de vues",
     "airlines.airline_name": "Nom de la compagnie",
-    "airlines.start_typing_pick_a_suggestion":
-        "Commencez à taper — choisissez une suggestion.",
     "airlines.save_airline_name": "Enregistrer le nom de la compagnie",
     "airlines.add_an_illustration_for": "Ajouter une illustration pour %s",
-    "airlines.saved_add_artwork_below_or_skip_for_now":
-        "Enregistré — ajoutez une image ci-dessous, ou ignorez pour "
-        "l’instant.",
     "airlines.skip_i_ll_add_artwork_later": "Ignorer — j’ajouterai une image plus tard",
     "airlines.is_already_named_for_this_prefix_and_has":
         "%s est déjà nommée pour ce préfixe et a une image — rien de "

@@ -114,7 +114,7 @@ def test_an_unrenamed_airline_has_no_reset_item(tmp_path):
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card = _card(rendered, "Air France")
     assert "Reset to the original name" not in card and "airlines-menu__form" not in card
-    assert "Enlarge the artwork" in card
+    assert "Change artwork" in card and 'aria-label="Enlarge the artwork of Air France"' in card
 
 
 def test_a_row_names_the_airframe_and_never_an_any_aircraft_label(tmp_path):

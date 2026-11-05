@@ -16,7 +16,8 @@ import server.state_store as state_store
 _URL_ATTRS = ("href", "action", "src")
 LIVE_PAGES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
 PERSONAL_NAV_ROUTES = ("/", "/flights", "/detection", "/display", "/airlines")
-CONSOLE_FRAME_NAV_ROUTES = ("/airlines/manage",)
+# The airline editor is one global list: its address is never frame-scoped.
+GLOBAL_CONSOLE_ADDRESS = "/airlines/manage"
 SPACE_SWITCH_CLASSES = ("space-switch", "tab-bar__link--switch")
 
 
@@ -84,15 +85,18 @@ def _scoped_nav(prefix, route):
 
 def test_nav_links_carry_the_device_prefix(app):
     prefix = _prefix(app.fleet.dev_a)
-    for page, routes_in_nav in (
-            ("/flights", PERSONAL_NAV_ROUTES), ("/health", CONSOLE_FRAME_NAV_ROUTES)):
-        body = _page(app, prefix + page)
-        for container in ("nav.sidebar-nav", "nav.tab-bar"):
-            hrefs = _hrefs(body, within=container)
-            for route in routes_in_nav:
-                assert _scoped_nav(prefix, route) in hrefs, (container, route)
-                if route != "/":
-                    assert route not in hrefs, (container, route)
+    body = _page(app, prefix + "/flights")
+    for container in ("nav.sidebar-nav", "nav.tab-bar"):
+        hrefs = _hrefs(body, within=container)
+        for route in PERSONAL_NAV_ROUTES:
+            assert _scoped_nav(prefix, route) in hrefs, (container, route)
+            if route != "/":
+                assert route not in hrefs, (container, route)
+    body = _page(app, prefix + "/health")
+    for container in ("nav.sidebar-nav", "nav.tab-bar"):
+        hrefs = _hrefs(body, within=container)
+        assert GLOBAL_CONSOLE_ADDRESS in hrefs, container
+        assert _scoped_nav(prefix, GLOBAL_CONSOLE_ADDRESS) not in hrefs, container
 
 
 def test_global_links_are_never_prefixed(app):
@@ -164,7 +168,10 @@ def test_flash_link_action_and_dismiss_keep_the_prefix(app):
 def test_the_live_frame_pages_stay_under_the_live_frames_own_prefix(app, path):
     live = app.fleet.live
     body = _page(app, _prefix(live) + path)
-    assert _prefixed_urls_outside_switcher(body)
+    if path != "/health":
+        # Health carries no frame-scoped address of its own once the airline
+        # editor's link is global; it still must not point at another frame.
+        assert _prefixed_urls_outside_switcher(body)
     assert _other_frame_urls_outside_switcher(body, live) == []
 
 
@@ -224,6 +231,8 @@ def _local_urls(body):
 
 def _device_scoped(url, method="GET"):
     path = re.split(r"[?#]", url, maxsplit=1)[0]
+    if path == GLOBAL_CONSOLE_ADDRESS and method == "GET":
+        return False
     found = routes.match(method, path, "")
     return found is not None and found[0].device_scoped
 

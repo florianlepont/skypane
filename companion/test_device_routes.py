@@ -243,6 +243,10 @@ def _methods(method):
 
 def _scoped_by_table(method, url):
     path = re.split(r"[?#]", url, maxsplit=1)[0]
+    if path == "/airlines/manage" and method == "GET":
+        # The airline editor is one global list: the Console navigation links
+        # to it without a frame.
+        return False
     for each in _methods(method):
         found = routes.match(each, path, "")
         if found is not None and found[0].device_scoped:
