@@ -416,7 +416,7 @@ def test_registry_table_fits_by_stacked_cells_and_short_french_headers(tmp_path,
         "expected both timestamp cells to render a stacked primary line")
     assert table_slice.count('<span class="cell-secondary">') == 2, (
         "expected both timestamp cells to render a stacked secondary line")
-    assert '<span class="mono" title=' not in table_slice, (
+    assert '<span class="tnum" title=' not in table_slice, (
         "expected the one-line concise_timestamp_html() cell to be gone from the table")
 
     rules = css_rules(css_text)

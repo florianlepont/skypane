@@ -25,6 +25,7 @@ from companion.ui_base import (
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
     FLASH_SLOT_MARKER,
+    head_meta_html,
     FRESHNESS_SCRIPT_SRC,
     ICON_DEFS_HTML,
     icon_html,
@@ -85,7 +86,7 @@ LOGIN_SHELL_TEMPLATE = (
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
     "<head>\n"
     '<meta charset="utf-8">\n'
-    '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+    "{head_meta}\n"
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{favicon_link}\n"
@@ -116,6 +117,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     return LOGIN_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
+        "head_meta": head_meta_html(resolved_theme),
         # Only "Login" is translated; SITE_TITLE is a brand name and stays
         # untranslated, so the title keeps the same "<page> - <product>" shape
         # as page_shell()'s <title>.
@@ -271,7 +273,7 @@ PAGE_SHELL_TEMPLATE = (
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
     "<head>\n"
     '<meta charset="utf-8">\n'
-    '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+    "{head_meta}\n"
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
@@ -616,6 +618,7 @@ def page_shell(
     return PAGE_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
+        "head_meta": head_meta_html(resolved_theme),
         "title": escape_html(_device_scoped_title(title, active)),
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,

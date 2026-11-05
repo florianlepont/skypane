@@ -223,9 +223,9 @@ def test_new_login_surfaces_render_the_approved_french():
 
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "faa02a0d3a9d9cd6a6a5a47ec08ce27622b76f605c2a3173885058194812ea60",
-        "nf2": "faa02a0d3a9d9cd6a6a5a47ec08ce27622b76f605c2a3173885058194812ea60",
-        "forb": "55d52ce785cc20b1aacbdc0a749b0b716951d8fe4ae7c8622671da9c99263c76",
+        "nf": "03f4990f1a1ff9e08bd83260a267d3c0ad6270962831f869e81755d3e1282a29",
+        "nf2": "03f4990f1a1ff9e08bd83260a267d3c0ad6270962831f869e81755d3e1282a29",
+        "forb": "48b69025a556bad168702157342d73048dec15de494c8702bcb396adcd763e7c",
     },
 }
 
@@ -344,7 +344,7 @@ def test_unrecognised_principal_clears_to_default():
 
 
 _SHELL_BASELINE_DIGEST = (
-    "9bfabe64ec6ee8b04c0921b835ccb81af85d2f5029cddcdca7951a870da54467")
+    "4245224f447d2eb8834210778befc2e236e455190790a94119a1e403b7516831")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

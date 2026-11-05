@@ -750,7 +750,7 @@ def test_controls_keep_44px_at_every_point_of_the_entrance(
 # translucent on the radius scale, the glass blur stays on a handful of large surfaces,
 # every animation is finite (the status dot's pulse is the one ambient loop), the
 # entrance never shifts the layout, and the text inks stay readable on the page under
-# the four skies and the night sky of the dark theme.
+# the pale sky of Light and the ink gradient of Dark.
 THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-flight-history")]
 AMBIENT_LOOPS = {"skypane-pulse", "skypane-dot-halo"}
 
@@ -788,7 +788,7 @@ def test_cards_tables_and_empty_states_are_glass_on_the_radius_scale(
     context, page = _open(new_context, server, persona, path, dialog, viewport, "en", "light")
     try:
         for surface in page.evaluate(_SURFACES):
-            assert surface["radius"] == "20px", (path, surface)
+            assert surface["radius"] == "22px", (path, surface)
             assert surface["alpha"] < 1, (path, surface)
         blurred = page.evaluate(_BLURRED)
         # A handful of large surfaces: the bars, the sidebar and one or two cards.
@@ -890,20 +890,17 @@ _INKS = """
 }
 """
 
-SKIES = ("dawn", "day", "dusk", "night")
 CONTRAST_PAGES = [c for c in PAGES if c.id in (
     "user-home", "user-account", "user-collection", "user-display", "user-flight-history",
     "admin-collection", "users", "audit", "fleet")]
 
 
-@pytest.mark.parametrize("scheme,sky", [("light", s) for s in SKIES] + [("dark", "night")])
+@pytest.mark.parametrize("scheme", ("light", "dark"))
 @pytest.mark.parametrize("persona,path,dialog", CONTRAST_PAGES)
-def test_text_links_placeholders_and_disabled_controls_stay_readable_on_every_sky(
-        new_context, server, persona, path, dialog, scheme, sky):
+def test_text_links_placeholders_and_disabled_controls_stay_readable_on_the_background(
+        new_context, server, persona, path, dialog, scheme):
     context, page = _open(new_context, server, persona, path, dialog, VIEWPORTS[0].values[0], "en", scheme)
     try:
-        page.evaluate("s => document.documentElement.setAttribute('data-sky', s)", sky)
-        page.wait_for_timeout(100)
         low = []
         for item in page.evaluate(_INKS):
             ratio = contrast_ratio("#%02x%02x%02x" % tuple(item["fg"]), "#%02x%02x%02x" % tuple(item["bg"]))
@@ -911,6 +908,6 @@ def test_text_links_placeholders_and_disabled_controls_stay_readable_on_every_sk
             floor = 3.0 if item["kind"] == "disabled" else WCAG_AA_NORMAL_TEXT
             if ratio < floor:
                 low.append((item["kind"], item["name"], round(ratio, 2)))
-        assert not low, (path, scheme, sky, low)
+        assert not low, (path, scheme, low)
     finally:
         context.close()

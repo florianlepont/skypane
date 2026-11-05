@@ -2,7 +2,7 @@
 the frame name as a second line only for several frames), the plane on its trail is shown only
 when the frame has a flight and flies in once, nothing moves the title (greeting swap, plane
 animation), reduced motion shows the plane at rest, the cards come in one after the other, and
-the phone tab bar keeps its labels legible and uncramped in both themes on every sky."""
+the phone tab bar keeps its labels legible and uncramped in both themes."""
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
@@ -214,18 +214,14 @@ def test_the_home_cards_come_in_one_after_the_other(new_context, fleet_app):
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
-@pytest.mark.parametrize("sky_hour", [(6, "dawn"), (12, "day"), (18, "dusk"), (22, "night")])
-def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, viewport, sky_hour):
-    hour, sky = sky_hour
+def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, viewport):
     context = new_context(viewport=viewport)
     page = context.new_page()
-    page.add_init_script("Date.prototype.getHours = function () { return %d; };" % hour)
     _login(page, admin_server.base_url())
     page.goto(admin_server.base_url() + "/")
     page.wait_for_function(_SETTLED)
-    assert page.evaluate("() => document.documentElement.dataset.sky") == sky
     for theme in _in_both_themes(page):
-        where = "%s %s %dpx" % (sky, theme["theme"], viewport["width"])
+        where = "%s %dpx" % (theme["theme"], viewport["width"])
         # The theme change starts colour transitions; read only the settled colours.
         page.wait_for_function(_SETTLED)
         read = page.evaluate(

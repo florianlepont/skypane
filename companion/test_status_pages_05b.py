@@ -227,7 +227,7 @@ def test_concise_timestamp_htmls_relative_half_is_now_an_element():
         "element, got %r" % (rendered,))
     expected_age = layout.relative_age_text(layout.age_seconds(ts, now_iso))
     assert match.group(2) == expected_age
-    assert rendered.startswith('<span class="mono" title="')
+    assert rendered.startswith('<span class="tnum" title="')
     assert rendered.endswith("</span>")
     clock = layout.local_clock_text(layout.parse_iso(ts), layout.parse_iso(now_iso))
     assert rendered.index(layout.escape_html(clock)) < rendered.index("<time"), (
@@ -711,7 +711,7 @@ def test_mobile_button_override_block_and_source_order(css_text):
         "expected the base `button {` rule to come BEFORE the mobile override that wins over it")
     base_decls = dict(base_rule.declarations)
     assert base_decls.get("height") == "30px"
-    assert base_decls.get("font-size") == "13px"
+    assert base_decls.get("font-size") == "var(--font-caption-size)"
 
 
 def test_lightbox_wide_max_width_matches_illustration_target_width(css_text):

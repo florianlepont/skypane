@@ -231,7 +231,9 @@ def test_the_phone_header_takes_no_more_than_a_third_of_the_screen(
         assert geometry["head"] <= 740 / 3, geometry
         assert geometry["badges"]["top"] >= geometry["title"]["bottom"] - 0.5
         assert max(geometry["chips"]) - min(geometry["chips"]) < 2, geometry
-        assert geometry["title"]["height"] < 40, geometry
+        # The title is on the shared page-title scale (30px+): the French wording may wrap to a
+        # second line, never to a third.
+        assert geometry["title"]["height"] < 70, geometry
         assert geometry["chipsBox"] < 64, geometry
     finally:
         context.close()

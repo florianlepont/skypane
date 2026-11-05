@@ -619,7 +619,7 @@ def _battery_readout_block(latest_reading, now, curve=None):
         value_text, when_text = _battery_reading_parts(mv, ts, now, curve)
     return (
         '<p id="%s" class="battery-readout" role="status">'
-        '<span class="battery-readout__value mono">%s</span>'
+        '<span class="battery-readout__value tnum">%s</span>'
         '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
         "</p>"
     ) % (
@@ -695,7 +695,7 @@ def _battery_section(trend_rows, daily_rows=None, curve=None):
         return _unavailable_block(), "ok"
     if not trend_rows:
         # Compact: this lands inside a row, whose own name is 12px, so the
-        # full-card form's 22px serif heading would invert the hierarchy.
+        # full-card form's 22px display-face heading would invert the hierarchy.
         return layout.empty_state(
             i18n.t(_NO_BATTERY_READINGS_YET_TEXT),
             i18n.t(_NO_BATTERY_TELEMETRY_RECORDED_TEXT), compact=True), "ok"
@@ -937,7 +937,7 @@ def _corroboration_outcomes_html(counts):
     for key, label, _default_state, explanation in _CORROBORATION_ROWS:
         items.append(
             '<li><p class="health-row__outcome">%s'
-            '<span class="mono">%d</span></p>%s</li>' % (
+            '<span class="tnum">%d</span></p>%s</li>' % (
                 layout.status_dot(statuses[key], i18n.t(label)),
                 counts.get(key, 0) or 0,
                 health_rows.note_html(i18n.t(explanation))))

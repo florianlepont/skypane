@@ -283,12 +283,16 @@ def test_accent_and_error_are_hue_separated(theme, theme_tokens):
 # two floors above actually REJECT the exact values that shipped a real
 # accent/error collision. If either of these ever starts failing, the
 # floors have been loosened to the point of being decorative.
+# The floors are exercised against the burnt-orange accent that shipped when
+# the superseded error colours collided with it (the live accent is now a
+# neutral graphite/ivory, which no longer sits near those colours).
 _SUPERSEDED_ERROR = (("light", "#DC2626"), ("dark", "#F87171"))
+_SUPERSEDED_ACCENT = {"light": "#B13F16", "dark": "#FF8A5C"}
 
 
 @pytest.mark.parametrize("theme, superseded", _SUPERSEDED_ERROR)
-def test_perceptual_distance_floor_rejects_the_superseded_error_colour(theme, superseded, theme_tokens):
-    accent = theme_tokens[theme]["--color-accent"]
+def test_perceptual_distance_floor_rejects_the_superseded_error_colour(theme, superseded):
+    accent = _SUPERSEDED_ACCENT[theme]
     distance = perceptual_distance(accent, superseded)
     assert distance < MIN_SIGNAL_PERCEPTUAL_DISTANCE, (
         "the dE76 floor no longer rejects the superseded error colour %r "
@@ -298,8 +302,8 @@ def test_perceptual_distance_floor_rejects_the_superseded_error_colour(theme, su
 
 
 @pytest.mark.parametrize("theme, superseded", _SUPERSEDED_ERROR)
-def test_hue_floor_rejects_the_superseded_error_colour(theme, superseded, theme_tokens):
-    accent = theme_tokens[theme]["--color-accent"]
+def test_hue_floor_rejects_the_superseded_error_colour(theme, superseded):
+    accent = _SUPERSEDED_ACCENT[theme]
     separation = hue_separation(accent, superseded)
     assert separation < MIN_SIGNAL_HUE_SEPARATION, (
         "the hue floor no longer rejects the superseded error colour %r "

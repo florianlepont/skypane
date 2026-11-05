@@ -558,7 +558,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
 # structural CSS parser rather than a raw-text/comment search.
 
 
-def test_heading_roles_share_one_serif_rule_with_named_nested_exception(served_css):
+def test_heading_roles_share_one_display_rule_with_named_nested_exception(served_css):
     """every heading role (h1/h2/h3/legend/.text-heading) shares one serif rule except the
     one named, asserted nested card-title sans exception and `legend` does not
     override its weight"""
@@ -574,26 +574,23 @@ def test_heading_roles_share_one_serif_rule_with_named_nested_exception(served_c
     # (0,0,1) specificity, so the later rule wins at equal specificity).
     for selector in ("h1", "h2", "h3", "legend", ".text-heading"):
         declarations = declarations_for(served_css, selector)
-        assert declarations.get("font-family") == "var(--font-serif)", (
-            "expected %r to resolve font-family to var(--font-serif), got %r"
+        assert declarations.get("font-family") == "var(--font-display)", (
+            "expected %r to resolve font-family to var(--font-display), got %r"
             % (selector, declarations.get("font-family")))
-        assert declarations.get("font-weight") == "var(--weight-regular)", (
-            "expected %r to resolve font-weight to var(--weight-regular) — a later "
+        assert declarations.get("font-weight") == "var(--weight-semibold)", (
+            "expected %r to resolve font-weight to var(--weight-semibold) — a later "
             "same-specificity rule may be overriding it, got %r"
             % (selector, declarations.get("font-weight")))
-    # The shared rule above grants serif to every heading role, and
-    # there is exactly one documented, asserted
-    # exception - the nested card-title selector ("Battery trend",
-    # "Unresolved prefixes", "Resolution statistics"), deliberately
-    # demoted to the sans --font-ui voice at 16px semibold.
+    # The nested card titles ("Battery trend", "Unresolved prefixes", "Resolution
+    # statistics") are section titles like every other: same face, size and weight.
     nested = declarations_for(served_css, ".page-section--nested > h2")
-    assert nested.get("font-family") == "var(--font-ui)", (
-        "expected the nested card-title exception to resolve font-family to var(--font-ui) "
-        "(D-09's sans override)")
+    assert nested.get("font-family") == "var(--font-display)"
+    assert nested.get("font-size") == "var(--font-heading-size)"
+    assert nested.get("font-weight") == "var(--weight-semibold)"
 
 
-def test_serif_never_reaches_dense_or_tabular_content(served_css):
-    """--font-serif never reaches table, body, mono, nav-link or stat-tile-caption rules"""
+def test_display_face_never_reaches_dense_or_tabular_content(served_css):
+    """--font-display never reaches table, body, mono, nav-link or stat-tile-caption rules"""
     # Serif is headings-only. Body, tables, form
     # controls, nav links and mono content stay on --font-ui. Guards
     # against the rejected "serif partout" option creeping back in one
@@ -608,8 +605,8 @@ def test_serif_never_reaches_dense_or_tabular_content(served_css):
     for selector in forbidden_selectors:
         for rule in rules_with_selector(served_css, selector):
             for _prop, value in rule.declarations:
-                assert "--font-serif" not in value, (
-                    "%s applies --font-serif; serif is a headings-only treatment (D-03), "
+                assert "--font-display" not in value, (
+                    "%s applies --font-display; the display face is a headings-only treatment (D-03), "
                     "never dense/tabular content" % selector)
 
 

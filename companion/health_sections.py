@@ -399,7 +399,7 @@ def _registry_cards_html(rows, now):
             "<summary>%s</summary>"
             "<dl>"
             "<dt>%s</dt><dd>%s</dd>"
-            '<dt>%s</dt><dd class="mono">%s</dd>'
+            '<dt>%s</dt><dd class="tnum">%s</dd>'
             "</dl>"
             "</details>"
         ) % (

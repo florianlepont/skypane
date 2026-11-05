@@ -1,6 +1,5 @@
-"""The sky-and-motion language on the SERVED stylesheet: every text colour stays readable
-against the worst case of every sky (dawn, day, dusk, night in the Light theme, the deep night
-sky in the Dark theme) both directly on the page and through the frosted-glass surfaces, the
+"""The background and motion language on the SERVED stylesheet: every text colour stays readable
+against every stop of the pale Light sky and of the Dark ink gradient both directly on the page and through the frosted-glass surfaces, the
 glass has a solid fallback outside its @supports block, and the single reduced-motion rule
 covers the entrance animation's duration and delay."""
 import re
@@ -44,45 +43,62 @@ def _over(glass, backdrop_hex):
 
 
 def _themes(served_css):
-    """(label, tokens): the cascade each sky actually produces, resolved the way the browser
-    does (sky variants override the light :root; Dark owns its night sky)."""
+    """(label, tokens): the cascade each theme actually produces, resolved the way the browser
+    does (explicit Light and the dark blocks override the light :root)."""
     light = custom_properties(served_css, ":root")
+    light_explicit = dict(light, **custom_properties(served_css, 'html[data-ui-theme="light"]'))
     dark_auto = dict(light, **custom_properties(served_css, ":root", at_rules=_DARK_AT_RULE))
     dark_explicit = dict(light, **custom_properties(served_css, 'html[data-ui-theme="dark"]'))
-    skies = [("light-day", light)]
-    for sky in ("dawn", "dusk", "night"):
-        sky_tokens = custom_properties(served_css, 'html[data-sky="%s"]' % sky)
-        skies.append(("light-" + sky, dict(light, **sky_tokens)))
-    skies.append(("dark-auto", dark_auto))
-    skies.append(("dark-explicit", dark_explicit))
-    return skies
+    return [("light", light), ("light-explicit", light_explicit),
+            ("dark-auto", dark_auto), ("dark-explicit", dark_explicit)]
 
 
-def test_every_sky_declares_its_three_stops(served_css):
+def test_every_theme_declares_its_three_stops(served_css):
     for label, tokens in _themes(served_css):
         for stop in _SKY_STOPS:
             assert re.fullmatch(r"#[0-9A-Fa-f]{6}", tokens.get(stop, "")), (
                 "%s declares no hex %s" % (label, stop))
 
 
-def test_dark_themes_are_always_the_night_sky(served_css):
-    """explicit Dark and Auto on a dark system resolve to the same deep night stops whatever
-    html[data-sky] says, because their blocks come later / are more specific"""
+def test_there_is_one_pale_sky_and_one_ink_background(served_css):
+    """Light is a gentle pale gradient, Dark an ink gradient; Auto + dark and explicit Dark agree,
+    and no time-of-day sky is left in the stylesheet"""
     by_label = dict(_themes(served_css))
-    for stop in _SKY_STOPS:
-        assert by_label["dark-auto"][stop] == by_label["dark-explicit"][stop]
-        assert by_label["dark-auto"][stop] != by_label["light-day"][stop]
-    auto_override = custom_properties(
-        served_css, 'html[data-sky][data-ui-theme="auto"]', at_rules=_DARK_AT_RULE)
-    for stop in _SKY_STOPS:
-        assert auto_override[stop] == by_label["dark-auto"][stop], (
-            "Auto + dark system must override a daytime data-sky with the night sky")
+    for label in ("light", "light-explicit"):
+        assert [by_label[label][stop].upper() for stop in _SKY_STOPS] == [
+            "#E7EEF7", "#F1F3F6", "#F6F3EE"], label
+    for label in ("dark-auto", "dark-explicit"):
+        assert [by_label[label][stop].upper() for stop in _SKY_STOPS] == [
+            "#12151D", "#161A24", "#1A1F2B"], label
+    selectors = [sel for rule in css_rules(served_css) for sel in rule.selectors]
+    assert not [sel for sel in selectors if "data-sky" in sel or sel.startswith("html::")]
 
 
-def test_the_four_light_skies_differ(served_css):
-    tops = {label: tokens["--sky-top"] for label, tokens in _themes(served_css)
-            if label.startswith("light-")}
-    assert len(set(tops.values())) == 4, tops
+def test_the_accent_is_graphite_in_light_and_ivory_in_dark(served_css):
+    by_label = dict(_themes(served_css))
+    for label in ("light", "light-explicit"):
+        assert by_label[label]["--color-accent"].upper() == "#1F2430"
+        assert by_label[label]["--color-on-accent"].upper() == "#FFFFFF"
+    for label in ("dark-auto", "dark-explicit"):
+        assert by_label[label]["--color-accent"].upper() == "#F2EFE9"
+        assert by_label[label]["--color-on-accent"].upper() == "#14171F"
+
+
+def test_filled_controls_and_focus_rings_stay_accessible_over_every_background(served_css):
+    """the label on a filled accent control reaches 4.5:1; the accent as a focus ring and as a
+    toggle/icon fill reaches 3:1 over every stop of the page background and over the glass"""
+    failures = []
+    for label, tokens in _themes(served_css):
+        for hover in ("--color-accent", "--color-accent-hover"):
+            ratio = contrast_ratio(tokens["--color-on-accent"], tokens[hover])
+            if ratio < WCAG_AA_NORMAL_TEXT:
+                failures.append("%s on-accent over %s = %.2f" % (label, hover, ratio))
+        for stop in _SKY_STOPS:
+            for surface, background in _surfaces(tokens, tokens[stop]):
+                ratio = contrast_ratio(tokens["--color-accent"], background)
+                if ratio < 3.0:
+                    failures.append("%s ring over %s %s = %.2f" % (label, surface, stop, ratio))
+    assert not failures, failures
 
 
 def _surfaces(tokens, stop_hex):
@@ -163,14 +179,17 @@ def test_glass_applies_only_inside_supports_and_keeps_a_solid_base(served_css):
                 and "backdrop-filter" in dict(rule.declarations)]
 
 
-def test_sky_is_a_fixed_pseudo_element_not_background_attachment(served_css):
+def test_the_background_is_painted_on_the_root_element_itself(served_css):
+    """the gradient lives on <html> (so the Safari bars and the overscroll area show it), covers
+    a short page, and uses neither a fixed layer nor background-attachment: fixed"""
     declarations = {}
     for rule in css_rules(served_css):
-        if rule.selectors == ("html::before",) and not rule.at_rules:
+        if rule.selectors == ("html",) and not rule.at_rules:
             declarations.update(dict(rule.declarations))
-    assert declarations["position"] == "fixed"
-    assert "var(--sky-top)" in declarations["background"]
-    assert declarations["pointer-events"] == "none"
+    assert declarations["min-height"] == "100%"
+    assert "var(--sky-top)" in declarations["background-image"]
+    assert "var(--sky-bottom)" in declarations["background-image"]
+    assert declarations["background-color"] == "var(--color-canvas)"
     assert not [rule for rule in css_rules(served_css)
                 if dict(rule.declarations).get("background-attachment") == "fixed"]
 

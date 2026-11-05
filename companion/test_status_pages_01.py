@@ -192,7 +192,7 @@ def test_connection_and_flight_data_rows_have_no_duplicated_label(tmp_path):
         assert not row.select(".stat-tile"), "a row is not a stat tile"
         assert not row.select(".dot-label"), "the redundant body dot must stay removed"
         body = row.select_one(".health-row__body")
-        assert body.find_all("span", cls="mono"), (
+        assert body.find_all("span", cls="tnum"), (
             "%r's body must carry its mono timestamp" % name)
     pipeline_body = shp.health_row(rendered, "flight-data").select_one(".health-row__body")
     assert pipeline_body.text().count(health_page.LAST_DETECTION_LABEL) == 1
@@ -714,7 +714,7 @@ def test_device_and_pipeline_rows_use_concise_timestamp_format(tmp_path):
     shp.seed_runway_events(str(tmp_path), [
         {"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
     rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
-    assert rendered.count('<span class="mono" title=') >= 2, (
+    assert rendered.count('<span class="tnum" title=') >= 2, (
         "expected at least two concise_timestamp_html() spans (Device row + last aircraft)")
 
 

@@ -1062,9 +1062,9 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
     assert not rules_with_selector(css_text, ".manual-summary")
     assert not rules_with_selector(css_text, ".manual-summary:hover")
     chip_decls = declarations_for(css_text, ".airline-card__chip")
-    assert chip_decls.get("font-size") == "12px"
-    assert chip_decls.get("text-transform") == "uppercase"
-    assert chip_decls.get("border-radius") == "999px"
+    assert chip_decls.get("font-size") == "var(--font-caption-size)"
+    assert chip_decls.get("text-transform") in (None, "none")
+    assert chip_decls.get("border-radius") == "var(--radius-pill)"
 
     image_decls = declarations_for(css_text, ".airlines-thumb__image")
     placeholder_decls = declarations_for(css_text, ".airline-card__placeholder")
@@ -1376,7 +1376,7 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
     for prop, expected in (
             ("position", "fixed"), ("left", "0"), ("right", "0"), ("bottom", "0"),
             ("z-index", "20"),
-            ("padding-bottom", "env(safe-area-inset-bottom, 0px)"),
+            ("padding-bottom", "var(--safe-bottom)"),
             ("background", "var(--color-secondary)"),
             ("border-top", "1px solid var(--color-border)"),
             ("box-shadow", "var(--shadow-card-hover)")):
@@ -1417,7 +1417,7 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
 
     clearance_decls = declarations_for(css_text, ".has-tab-bar .page-content", at_rules=_TAB_BAR_MEDIA)
     padding_bottom = clearance_decls.get("padding-bottom", "")
-    for needle in ("56px", "env(safe-area-inset-bottom, 0px)"):
+    for needle in ("56px", "var(--safe-bottom)"):
         assert needle in padding_bottom
     assert layout.TAB_BAR_BODY_CLASS == "has-tab-bar"
 

@@ -39,6 +39,14 @@
  */
 
 :root {
+  /* The device safe areas (notch, rounded corners, home indicator), which
+   * are non-zero only because every page shell sets viewport-fit=cover. The
+   * fixed bars, sheets, dialogs and toasts pad themselves with these. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
   /* Spacing scale, multiples of 4. */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -48,26 +56,31 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
-  /* Typography scale: exactly 4 sizes, 2 weights. */
-  --font-label-size: 14px;
+  /* One type scale: page title (below), section title, body 16, secondary
+   * 15, caption 13; two weights plus a bold page title. */
+  --font-caption-size: 13px;
+  --font-label-size: 15px;
   --font-body-size: 16px;
   --font-heading-size: 22px;
+  --weight-title: 700;
+  --tracking-title: -0.03em;
   /* The page title scales with the viewport: 30-34px on a phone, 44-48px
    * from the desktop breakpoint (see the @media block below :root). */
   --font-page-title-size: clamp(1.875rem, 1.55rem + 1.4vw, 2.125rem);
   --weight-regular: 400;
   --weight-semibold: 600;
 
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  /* Titles use the platform display face (system fonts only, nothing is
+   * downloaded); there is no serif anywhere in the app. */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Display", "Inter", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  /* A system font stack, deliberately: the zero-external-reference rule
-   * forbids a web font. Leads with Iowan Old Style/Charter (bundled on
-   * Apple platforms) rather than Georgia, so Mac/iPhone render the
-   * intended faces instead of always falling through to Georgia. */
-  --font-serif: "Iowan Old Style", Charter, "Palatino Linotype", Georgia, "Book Antiqua", serif;
 
-  --radius-card: 20px;
-  --radius-control: 8px;
+  /* The whole radius scale: control (buttons, inputs, tracks), card/group, and
+   * pill/sheet (pills, switches, sheets, floating bars). Nothing else. */
+  --radius-control: 14px;
+  --radius-card: 22px;
+  --radius-pill: 32px;
 
   /* Theme-independent colour tokens: every one of these held the exact
    * same value in every theme block before it was a token, so (like
@@ -135,17 +148,17 @@
    * inside an @supports block at the end of this file; outside it every
    * surface keeps its solid --color-dominant/--color-secondary fill. */
   --glass-blur: 16px;
-  --radius-glass: 22px;
 
   /* Light mode (default) */
-  /* The sky behind the page: three stops of a vertical gradient painted by
-   * a fixed pseudo-element on <html>. Light mode shows the sky of the
-   * viewer's local time of day (html[data-sky], set by static/sky.js;
-   * "day" without script). Every stop keeps text and accent readable
-   * (companion/test_sky_contrast.py). */
-  --sky-top: #D5E7F6;
-  --sky-mid: #E3EDF5;
-  --sky-bottom: #F4F1EA;
+  /* The one background behind the page: a very pale sky in Light (three
+   * stops of a gentle vertical gradient) and an ink gradient in Dark. It is
+   * painted on <html> itself, so the browser chrome, the overscroll area and
+   * the strips under the notch and home indicator all show it; the same two
+   * end colours are the theme-color meta tags the page shells carry. Every
+   * stop keeps text and accent readable (companion/test_sky_contrast.py). */
+  --sky-top: #E7EEF7;
+  --sky-mid: #F1F3F6;
+  --sky-bottom: #F6F3EE;
   /* Translucent surfaces painted over the sky: cards and panels, and the
    * bars (sidebar, tab bar, phone header). The composite over the worst
    * sky stop is what the contrast tests measure. The bars are nearly opaque
@@ -155,17 +168,15 @@
   --glass-bar-bg: rgba(255, 255, 255, 0.94);
   --glass-border: rgba(255, 255, 255, 0.7);
   --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
-  --color-canvas: #F7F4EF;
+  --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
   --color-secondary: #EEE8DE;
   --color-border: #DFD7C8;
-  /* Deliberately hue-separated (~16°) from --color-status-warn's
-   * golden amber (~32°), so an accent control and a warning dot never
-   * read as the same signal. Meets WCAG AA text contrast; re-verify
-   * both hue separation and contrast before changing this value
-   * (companion/test_contrast_check.py pins both). */
-  --color-accent: #B13F16;
-  --color-accent-hover: #963610;
+  /* Graphite in Light, ivory in Dark: a neutral accent, so it can never be
+   * mistaken for a status colour (green/amber/red). Meets WCAG AA text
+   * contrast on every surface (companion/test_contrast_check.py). */
+  --color-accent: #1F2430;
+  --color-accent-hover: #343B4D;
   --color-on-accent: #FFFFFF;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
@@ -210,20 +221,20 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --sky-top: #0B1026;
-    --sky-mid: #18203F;
-    --sky-bottom: #2C2540;
+    --sky-top: #12151D;
+    --sky-mid: #161A24;
+    --sky-bottom: #1A1F2B;
     --glass-bg: rgba(255, 255, 255, 0.08);
-    --glass-bar-bg: rgba(16, 21, 48, 0.9);
+    --glass-bar-bg: rgba(22, 26, 36, 0.9);
     --glass-border: rgba(255, 255, 255, 0.16);
     --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
-    --color-canvas: #0C0F14;
+    --color-canvas: #161A24;
     --color-dominant: #151922;
     --color-secondary: #1C222D;
     --color-border: #2A3040;
-    --color-accent: #FF8A5C;
-    --color-accent-hover: #FF9E77;
-    --color-on-accent: #151922;
+    --color-accent: #F2EFE9;
+    --color-accent-hover: #E2DED5;
+    --color-on-accent: #14171F;
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
     --color-text: #F1F3F6;
@@ -251,19 +262,19 @@
 
 /* Explicit theme overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
-  --sky-top: #D5E7F6;
-  --sky-mid: #E3EDF5;
-  --sky-bottom: #F4F1EA;
+  --sky-top: #E7EEF7;
+  --sky-mid: #F1F3F6;
+  --sky-bottom: #F6F3EE;
   --glass-bg: rgba(255, 255, 255, 0.66);
   --glass-bar-bg: rgba(255, 255, 255, 0.94);
   --glass-border: rgba(255, 255, 255, 0.7);
   --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
-  --color-canvas: #F7F4EF;
+  --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
   --color-secondary: #EEE8DE;
   --color-border: #DFD7C8;
-  --color-accent: #B13F16;
-  --color-accent-hover: #963610;
+  --color-accent: #1F2430;
+  --color-accent-hover: #343B4D;
   --color-on-accent: #FFFFFF;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
@@ -287,54 +298,21 @@ html[data-ui-theme="light"] {
   color-scheme: light;
 }
 
-/* Light mode's four skies, chosen by html[data-sky] (static/sky.js, from the
- * viewer's local hour). They sit after the explicit light block and before
- * the explicit dark block on purpose: equal specificity, so the later block
- * wins, and an explicit Dark theme always shows the night sky. Auto with a
- * dark system is handled by the media block directly below. */
-html[data-sky="dawn"] {
-  --sky-top: #FCDFC6;
-  --sky-mid: #F8E4D0;
-  --sky-bottom: #F1ECE8;
-}
-
-html[data-sky="dusk"] {
-  --sky-top: #F7DFDB;
-  --sky-mid: #EDE1EA;
-  --sky-bottom: #EFE8EF;
-}
-
-html[data-sky="night"] {
-  --sky-top: #E1E4F3;
-  --sky-mid: #E6E8F4;
-  --sky-bottom: #EBE9F0;
-}
-
-/* Auto theme on a dark system: always the deep night sky, whatever the
- * hour. More specific than the html[data-sky] blocks above. */
-@media (prefers-color-scheme: dark) {
-  html[data-sky][data-ui-theme="auto"] {
-    --sky-top: #0B1026;
-    --sky-mid: #18203F;
-    --sky-bottom: #2C2540;
-  }
-}
-
 html[data-ui-theme="dark"] {
-  --sky-top: #0B1026;
-  --sky-mid: #18203F;
-  --sky-bottom: #2C2540;
+  --sky-top: #12151D;
+  --sky-mid: #161A24;
+  --sky-bottom: #1A1F2B;
   --glass-bg: rgba(255, 255, 255, 0.08);
-  --glass-bar-bg: rgba(16, 21, 48, 0.9);
+  --glass-bar-bg: rgba(22, 26, 36, 0.9);
   --glass-border: rgba(255, 255, 255, 0.16);
   --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
-  --color-canvas: #0C0F14;
+  --color-canvas: #161A24;
   --color-dominant: #151922;
   --color-secondary: #1C222D;
   --color-border: #2A3040;
-  --color-accent: #FF8A5C;
-  --color-accent-hover: #FF9E77;
-  --color-on-accent: #151922;
+  --color-accent: #F2EFE9;
+  --color-accent-hover: #E2DED5;
+  --color-on-accent: #14171F;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
   --color-text: #F1F3F6;
@@ -523,22 +501,17 @@ html[data-ui-theme="dark"] {
   box-sizing: border-box;
 }
 
-/* The sky: a vertical gradient painted by a fixed, non-interactive
- * pseudo-element behind everything (never background-attachment: fixed,
- * which iOS Safari ignores). html keeps the opaque canvas colour as the
- * floor under it. The pseudo-element takes no space, so it can cause
- * neither layout shift nor horizontal scroll. */
+/* The background: a vertical gradient painted on <html> (the canvas), with
+ * the middle stop as the floor under it. min-height keeps a short page
+ * covered, and background-attachment stays scroll, so there is no fixed layer,
+ * no layout shift and no horizontal scroll. Because the canvas itself carries
+ * the colour, the Safari bars and the overscroll area show the same sky. */
 html {
-  background: var(--color-canvas);
-}
-
-html::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  min-height: 100%;
+  background-color: var(--color-canvas);
+  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
 
 body {
@@ -557,9 +530,15 @@ body {
   overflow-x: hidden;
 }
 
+/* Monospace is for code only: callsigns, identifiers, hashes. */
 .mono {
   font-family: var(--font-mono);
   font-weight: var(--weight-regular);
+}
+
+/* Numbers that line up (times, counts, readouts) stay in the UI face. */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Typography roles */
@@ -575,18 +554,14 @@ body {
   line-height: 1.5;
 }
 
-/* Stays weight-regular on purpose: this is the middle rung of a
- * three-tier heading ladder (semibold .page-title above, semibold
- * nested-card-title below) — a regular middle tier is what keeps all
- * three reading as distinct levels instead of one weight repeated.
- * Carries the same family/letter-spacing/margin every heading-role
- * selector below shares, folded in here rather than left in a group
- * this class also had to join (h1, h2 and h3 keep their own copy since
- * a bare heading tag with no .text-heading class still needs it). */
+/* The section/card title: the display face at the section size, semibold,
+ * on every page. Carries the same family/letter-spacing/margin every
+ * heading-role selector below shares (h1, h2 and h3 keep their own copy
+ * since a bare heading tag with no .text-heading class still needs it). */
 .text-heading {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-heading-size);
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-semibold);
   line-height: 1.25;
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-sm);
@@ -623,7 +598,7 @@ body {
 }
 
 /* Headings-only: body text, tables, form controls, nav links and
- * monospace content stay on --font-ui, never --font-serif. legend's own
+ * monospace content stay on --font-ui, never --font-display. legend's own
  * identical family/weight/letter-spacing live on its own dedicated rule
  * further down (it is a <fieldset>'s accessible group name, the same
  * role as an <h2>) rather than here, so this selector list is not a
@@ -635,22 +610,20 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-serif);
-  font-weight: var(--weight-regular);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-sm);
 }
 
-/* The top rung of the three-tier heading ladder: semibold here,
- * regular on .text-heading, semibold again on the nested-card-title
- * tier — what makes all three read as distinct levels. */
+/* The top rung of the heading ladder: bold and tightly tracked. */
 .page-title {
   view-transition-name: skypane-title;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-page-title-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-title);
   line-height: 1.08;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-title);
   margin: 0 0 var(--space-xs);
 }
 
@@ -718,7 +691,7 @@ h3 {
 .site-title {
   font-size: 24px;
   font-weight: var(--weight-semibold);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
@@ -748,8 +721,8 @@ a:hover {
 .site-header {
   display: flex;
   align-items: center;
-  min-height: 52px;
-  padding: var(--space-xs) var(--space-md);
+  min-height: calc(52px + var(--safe-top));
+  padding: calc(var(--space-xs) + var(--safe-top)) max(var(--space-md), var(--safe-right)) var(--space-xs) max(var(--space-md), var(--safe-left));
   background: var(--color-secondary);
   margin-bottom: var(--space-sm);
   border-bottom: 1px solid var(--color-border);
@@ -806,7 +779,7 @@ a:hover {
 .dashboard-sidebar .space-switch__segment {
   padding: 0 2px;
   gap: 2px;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
 }
 
 .dashboard-sidebar .space-switch__check {
@@ -864,7 +837,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
 }
 
@@ -1145,9 +1118,9 @@ select.visually-hidden {
   background: transparent;
   border: none;
   box-shadow: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
@@ -1197,7 +1170,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 .pref-row__hint {
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -1284,7 +1257,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   width: 16px;
   height: 16px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   display: inline-block;
 }
 
@@ -1305,7 +1278,6 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   color: var(--color-text);
   text-decoration: none;
   font-size: var(--font-label-size);
-  letter-spacing: 0.02em;
   border-radius: var(--radius-control);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
@@ -1347,7 +1319,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
  * contradicting the mobile floor. The wider pair lands on
  * .dashboard-main below instead, at the >=960px level it actually names. */
 .page-content {
-  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+  padding: var(--space-xl) max(var(--space-lg), var(--safe-right)) var(--space-2xl) max(var(--space-lg), var(--safe-left));
 }
 
 /* Phones: the title sits close under the app bar. The gap from the bar to
@@ -1442,7 +1414,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   min-height: 48px;
   margin: 0;
   padding: 2px 2px 2px 10px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--color-toast-bg);
   color: var(--color-toast-fg);
@@ -1545,7 +1517,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   min-height: 44px;
   padding: 0 12px 0 16px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: transparent;
   box-shadow: none;
   color: var(--toast-tone);
@@ -1584,7 +1556,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: transparent;
   box-shadow: none;
   color: color-mix(in srgb, var(--color-toast-fg) 72%, transparent);
@@ -1642,11 +1614,9 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   align-items: center;
   height: 22px;
   padding: 0 9px;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   background: color-mix(in srgb, var(--color-toast-fg) 12%, transparent);
   color: color-mix(in srgb, var(--color-toast-fg) 88%, transparent);
 }
@@ -1732,14 +1702,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .toast-region--flash,
   .toast-region--live {
     position: fixed;
-    top: var(--space-sm);
+    top: calc(var(--space-sm) + var(--safe-top));
     left: 0;
     right: 0;
     z-index: 40;
     display: flex;
     justify-content: center;
     margin: 0;
-    padding: 0 var(--space-md);
+    padding: 0 max(var(--space-md), var(--safe-right)) 0 max(var(--space-md), var(--safe-left));
     pointer-events: none;
   }
 
@@ -1747,7 +1717,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .toast-region--live .toast {
     width: max-content;
     max-width: min(680px, 100%);
-    border-radius: 16px;
+    border-radius: var(--radius-control);
     box-shadow: var(--shadow-toast-float);
     pointer-events: auto;
     animation: skypane-toast-in var(--motion-fast) ease-out;
@@ -1765,12 +1735,12 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .toast-region--flash,
   .toast-region--live {
     top: auto;
-    bottom: var(--space-sm);
+    bottom: calc(var(--space-sm) + var(--safe-bottom));
   }
 
   .has-tab-bar .toast-region--flash,
   .has-tab-bar .toast-region--live {
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
+    bottom: calc(56px + var(--safe-bottom) + var(--space-sm));
   }
 
   .toast-region--flash .toast,
@@ -1788,11 +1758,9 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   align-items: center;
   height: 20px;
   padding: 0 8px;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -1875,14 +1843,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   padding: 3px;
   background: var(--color-frame-bezel);
   border: 1px solid var(--color-frame-bezel-hi);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
 }
 
 .frame-tile__pic i {
   display: block;
   height: 100%;
   background: var(--color-image-backdrop);
-  border-radius: 1px;
+  border-radius: var(--radius-control);
 }
 
 .frame-tile__name {
@@ -2092,8 +2060,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 20px;
   padding: 0 8px;
   gap: 4px;
-  border-radius: 999px;
-  font-size: 11px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
@@ -2139,8 +2107,8 @@ fieldset {
  * joined the heading-rhythm margin group above, and folding these two
  * rules into one must not add it now. */
 legend {
-  font-family: var(--font-serif);
-  font-weight: var(--weight-regular);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   font-size: var(--font-heading-size);
   padding: 0 var(--space-xs);
@@ -2192,11 +2160,11 @@ select {
 button {
   height: 30px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   font-family: var(--font-ui);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   background: var(--color-control-wash); /* fallback for browsers without color-mix() */
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
@@ -2304,7 +2272,7 @@ button:hover {
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
 }
 
@@ -2336,10 +2304,8 @@ button:hover {
   transform: translateY(-50%);
   margin-left: var(--space-xs);
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--color-status-ok);
 }
 
@@ -2511,10 +2477,8 @@ button:disabled {
     position: absolute;
     top: var(--space-sm);
     right: var(--space-sm);
-    font-size: 12px;
+    font-size: var(--font-caption-size);
     font-weight: var(--weight-semibold);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
@@ -2543,7 +2507,7 @@ button:disabled {
    * page that renders the bar without the tab bar. */
   .has-tab-bar .page-content:has(.dirty-bar) {
     padding-bottom: calc(
-      var(--space-2xl) + 176px + env(safe-area-inset-bottom, 0px));
+      var(--space-2xl) + 176px + var(--safe-bottom));
   }
 
   /* The Display look card's live selection states. */
@@ -2612,11 +2576,9 @@ button:disabled {
 }
 
 .detection-summary dt {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.4;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -2633,7 +2595,7 @@ button:disabled {
 }
 
 .detection-tag {
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--font-label-size);
   font-weight: var(--weight-regular);
 }
@@ -2762,10 +2724,8 @@ table.data-table--readings {
  * tops, clipping ascenders in real Safari (not reproduced in Chromium)
  * — an engine-specific ascent-metric difference, not a WebKit-only bug. */
 .data-table th {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-align: left;
   padding: 10px var(--space-md);
@@ -2883,14 +2843,14 @@ table.data-table--registry .cell-inline-sep {
   flex: 1;
 }
 
-/* The card's headline is the nested-card-title voice (16px sans
- * semibold), the same rung .page-section--nested > h2 uses. */
+/* The card's headline is a section title, the same role
+ * .page-section--nested > h2 uses. */
 .update-cta__title {
   margin: 0 0 var(--space-xs);
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: normal;
+  letter-spacing: -0.01em;
   line-height: 1.3;
 }
 
@@ -3134,8 +3094,6 @@ table.data-table--registry .cell-inline-sep {
   background: var(--color-canvas);
   text-align: left;
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3161,13 +3119,13 @@ table.data-table--registry .cell-inline-sep {
  * in this file. 13px/0.75 (up from 12px/0.7): the smaller pair measured
  * at the edge of comfortable contrast on the dark surface. */
 .cell-primary {
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: var(--weight-semibold);
 }
 
 .cell-secondary {
-  font-family: var(--font-mono);
-  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-caption-size);
   opacity: 0.75;
 }
 
@@ -3209,10 +3167,8 @@ table.data-table--registry .cell-inline-sep {
   align-items: center;
   gap: var(--space-sm);
   margin-top: var(--space-xs);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3251,7 +3207,6 @@ table.data-table--registry .cell-inline-sep {
   display: block;
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.03em;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
@@ -3316,7 +3271,6 @@ table.data-table--registry .cell-inline-sep {
   font-size: var(--font-heading-size);
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
   line-height: 1;
 }
 
@@ -3375,10 +3329,8 @@ table.data-table--registry .cell-inline-sep {
 .history-card__dir {
   grid-area: dir;
   justify-self: center;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   line-height: 1.2;
   white-space: nowrap;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -3446,7 +3398,7 @@ img.history-card__art {
   justify-content: center;
   padding: 0 var(--space-sm);
   border-style: dashed;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 60%, transparent);
   white-space: nowrap;
   overflow: hidden;
@@ -3523,10 +3475,8 @@ a.calendar-disconnect-btn.flight-picture-link {
  * harness check pins these two font-size declarations string-equal, so
  * they must always move together. */
 .data-card__label {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3677,10 +3627,8 @@ a.calendar-disconnect-btn.flight-picture-link {
 }
 
 .filter-bar__count {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   white-space: nowrap;
 }
@@ -3748,10 +3696,8 @@ a.calendar-disconnect-btn.flight-picture-link {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   line-height: 1.3;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -4013,10 +3959,8 @@ details[open] > summary::before {
   gap: var(--space-xs);
   margin: 0 0 var(--space-sm);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -4167,10 +4111,10 @@ details[open] > summary::before {
 .page-section--nested > h2,
 .battery-trend-section > h2,
 .theme-status--nested > h2 {
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: normal;
+  letter-spacing: -0.01em;
   margin-bottom: var(--space-md);
 }
 
@@ -4247,11 +4191,9 @@ a.airline-card {
   align-items: center;
   height: 20px;
   padding: 0 8px;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -4638,18 +4580,16 @@ a.airline-card {
 
 /* The h2 keeps the page outline's two sections and the #screen /
  * #server-data link targets; this rule gives it the label voice and takes
- * it off the shared serif heading rule. */
+ * it off the shared heading rule. */
 .health-rows__group {
   margin: 0;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-secondary);
   border-bottom: 1px solid var(--color-border);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
   line-height: 1.3;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -4728,11 +4668,9 @@ a.airline-card {
 
 .health-row__name {
   grid-area: name;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
   line-height: 1.3;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -4896,12 +4834,12 @@ a.airline-card {
     display: flex;
     flex-direction: column;
     gap: var(--space-lg);
-    min-height: calc(100vh - var(--space-md) * 2);
+    min-height: calc(100dvh - var(--space-md) * 2);
     margin: var(--space-md) 0 var(--space-md) var(--space-md);
     padding: var(--space-lg) var(--space-md);
     background: var(--color-secondary);
     border: 1px solid var(--color-border);
-    border-radius: calc(var(--radius-glass) + 4px);
+    border-radius: var(--radius-pill);
     box-shadow: var(--shadow-glass);
     position: sticky;
     top: var(--space-md);
@@ -4997,7 +4935,7 @@ a.airline-card {
 }
 
 .login-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5184,7 +5122,7 @@ a.airline-card {
 .lightbox--wide .lightbox__image {
   width: auto;
   max-width: 100%;
-  max-height: 60vh;
+  max-height: 60svh;
   margin-left: auto;
   margin-right: auto;
 }
@@ -5231,7 +5169,7 @@ a.airline-card {
 
 .lightbox__replace-hint {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: var(--color-overlay-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -5246,7 +5184,7 @@ a.airline-card {
   min-width: 0;
   max-width: 100%;
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: var(--color-overlay-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -5261,7 +5199,7 @@ a.airline-card {
   padding: 0 12px;
   margin-right: var(--space-sm);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   border-radius: var(--radius-control);
@@ -5300,7 +5238,7 @@ a.airline-card {
  * one .lightbox__replace-hint element per zone. */
 .upload-drop__note {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: var(--color-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -5352,7 +5290,7 @@ a.airline-card {
 
 .upload-drop__message {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   color: var(--color-status-error);
 }
@@ -5723,7 +5661,7 @@ button.detection-search:hover {
 
 .map-ready .place-mode {
   padding: 0 var(--space-md);
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   background: var(--color-dominant);
   box-shadow: var(--shadow-card-hover);
 }
@@ -5835,7 +5773,7 @@ button.detection-search:hover {
   gap: var(--space-sm);
   padding: var(--space-md);
   background: var(--color-dominant);
-  border-radius: 20px 20px 0 0;
+  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
   box-shadow: var(--shadow-card-hover);
   pointer-events: auto;
 }
@@ -5857,9 +5795,9 @@ button.detection-search:hover {
 }
 
 .map-ready .place-sheet .place-chosen__name {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-body-size);
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-semibold);
 }
 
 /* Save and Cancel live in the sheet; the count line is for assistive
@@ -5966,7 +5904,7 @@ button.detection-search:hover {
   display: flex;
   flex-direction: column;
   max-width: none;
-  height: calc(100dvh - 52px - 57px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - 52px - 57px - var(--safe-bottom));
   padding: 0;
 }
 
@@ -6108,7 +6046,7 @@ button.detection-search:hover {
 .place-map {
   width: 100%;
   max-width: 100%;
-  height: min(60vh, 26rem);
+  height: min(60svh, 26rem);
   min-height: 17.5rem;
   box-sizing: border-box;
   border: 1px solid var(--color-border);
@@ -6330,8 +6268,8 @@ button.place-result:hover {
 
 .place-subtitle {
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
   font-weight: var(--weight-semibold);
 }
 
@@ -6460,20 +6398,16 @@ button.place-result:hover {
   display: block;
   padding: 0 var(--space-sm);
   margin-bottom: var(--space-xs);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* 2. Page-header screen caption --------------------------------------- */
 .page-header__screen {
   margin: 0 0 var(--space-xs);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -6667,11 +6601,9 @@ button.place-result:hover {
   gap: var(--space-xs);
   margin: 0;
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -6680,17 +6612,17 @@ button.place-result:hover {
   height: 16px;
 }
 
-/* The state title takes the page-title size in the serif face: the
+/* The state title takes the page-title size in the display face: the
  * header's one display line, so it reads from across the room. */
 .home-state__headline {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-page-title-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-title);
   line-height: 1.15;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--tracking-title);
 }
 
 /* A solid dot inside a soft halo of the same status colour, so the state
@@ -6873,7 +6805,7 @@ button.place-result:hover {
 
 .home-battery__value {
   font-size: var(--font-page-title-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-title);
   line-height: 1;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
@@ -6887,11 +6819,9 @@ button.place-result:hover {
 
 /* Same micro-label voice as the header's "Frame state". */
 .home-battery__label {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -6906,8 +6836,8 @@ button.place-result:hover {
    * padding has room for it. */
   transform: translateY(6px);
   padding: 2px var(--space-sm);
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.4;
   white-space: nowrap;
@@ -6936,8 +6866,8 @@ button.place-result:hover {
   gap: var(--space-xs);
   max-width: 100%;
   padding: 2px var(--space-sm);
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.4;
   white-space: nowrap;
@@ -6987,7 +6917,7 @@ button.place-result:hover {
   padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-sm);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .home-switch:hover {
@@ -7029,7 +6959,7 @@ button.place-result:hover {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .home-switch__text {
@@ -7125,7 +7055,7 @@ button.place-result:hover {
   color: var(--color-text);
   background: transparent;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
 }
 
 .modal .quiet-card[aria-pressed="true"] {
@@ -7182,8 +7112,6 @@ button.place-result:hover {
   margin: 0 0 var(--space-sm);
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7197,15 +7125,13 @@ button.place-result:hover {
   min-height: 44px;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-secondary);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
 }
 
 .quiet-tile__label {
   display: block;
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7324,10 +7250,8 @@ button.place-result:hover {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7381,7 +7305,7 @@ button.switch:active {
   display: block;
   width: 52px;
   height: 32px;
-  border-radius: 16px;
+  border-radius: var(--radius-control);
   background: var(--color-secondary);
   border: 1px solid var(--color-border);
   transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
@@ -7609,7 +7533,7 @@ img.recent-flight__thumb {
 
 .history-card--compact .history-card__airline {
   min-width: 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
 }
 
 .history-card--compact .history-card__route {
@@ -7623,7 +7547,7 @@ img.recent-flight__thumb {
 
 .history-card--compact .history-card__code--none {
   line-height: 18px;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
 }
 
 .history-card--compact .icon.history-card__plane {
@@ -7663,7 +7587,7 @@ img.recent-flight__thumb {
 }
 
 .history-card--compact .time-value__age {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
 }
 
 @media (min-width: 960px) {
@@ -7715,9 +7639,9 @@ input[name="radius_km"] {
    * 56px height so the two never overlap in the normal case. */
   .dirty-bar {
     position: fixed;
-    left: var(--space-md);
-    right: var(--space-md);
-    bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px));
+    left: max(var(--space-md), var(--safe-left));
+    right: max(var(--space-md), var(--safe-right));
+    bottom: calc(var(--space-md) + 56px + var(--safe-bottom));
     margin: 0;
     z-index: 30;
     flex-wrap: wrap;
@@ -7736,10 +7660,8 @@ input[name="radius_km"] {
 .status-row__label {
   flex: 0 0 auto;
   min-width: 96px;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7764,9 +7686,9 @@ input[name="radius_km"] {
 
 @media (min-width: 960px) {
   .preview-frame__image {
-    width: min(100%, calc(60vh * 3 / 4));
+    width: min(100%, calc(60svh * 3 / 4));
     max-width: 100%;
-    max-height: 60vh;
+    max-height: 60svh;
     margin: 0 auto;
   }
 }
@@ -7808,7 +7730,7 @@ input[name="radius_km"] {
 button.calendar-disconnect-btn {
   min-height: 30px;
   padding: 4px var(--space-sm);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   color: var(--color-text);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
@@ -7865,7 +7787,7 @@ a.calendar-disconnect-btn {
   display: inline-block;
   min-height: 30px;
   padding: 4px var(--space-sm);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   color: var(--color-text);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
@@ -8017,7 +7939,7 @@ a.calendar-manage--primary:hover {
   box-sizing: border-box;
   width: calc(100% - var(--space-lg) * 2);
   max-width: 440px;
-  max-height: calc(100vh - var(--space-lg) * 2);
+  max-height: calc(100svh - var(--space-lg) * 2);
   overflow-y: auto;
   padding: var(--space-lg);
   background: var(--color-dominant);
@@ -8060,9 +7982,9 @@ a.calendar-manage--primary:hover {
 
 .calendar-sheet__title {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-heading-size);
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-semibold);
 }
 
 a.calendar-sheet__close {
@@ -8203,9 +8125,9 @@ button.calendar-danger--solid {
   align-items: center;
   justify-content: center;
   padding: 0 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
   transition: background-color .15s ease, color .15s ease;
@@ -8256,7 +8178,9 @@ button.calendar-danger--solid {
     right: 0;
     bottom: 0;
     z-index: 20;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    padding-bottom: var(--safe-bottom);
+    padding-left: var(--safe-left);
+    padding-right: var(--safe-right);
     background: var(--color-secondary);
     border-top: 1px solid var(--color-border);
     box-shadow: var(--shadow-card-hover);
@@ -8395,7 +8319,7 @@ button.calendar-danger--solid {
    * TAB_BAR_BODY_CLASS), present only when the bar actually rendered. */
   .has-tab-bar .page-content {
     padding-bottom: calc(
-      var(--space-2xl) + 56px + env(safe-area-inset-bottom, 0px));
+      var(--space-2xl) + 56px + var(--safe-bottom));
   }
 
 }
@@ -8428,7 +8352,7 @@ button.calendar-danger--solid {
 .look-frame__picture {
   position: relative;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: linear-gradient(145deg, var(--color-frame-bezel-hi), var(--color-frame-bezel));
   box-shadow: 0 14px 30px -14px var(--color-shadow-strong);
 }
@@ -8463,7 +8387,7 @@ button.look-frame__open {
   height: 100%;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   box-shadow: none;
   cursor: pointer;
@@ -8528,7 +8452,7 @@ button.look-frame__open:focus-visible {
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--color-border);
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   background: var(--color-dominant);
   color: var(--color-text);
   font-size: var(--font-label-size);
@@ -8606,7 +8530,7 @@ button.look-frame__open:focus-visible {
 
 .look-table th {
   padding: 0 4px;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -8649,7 +8573,7 @@ button.look-frame__open:focus-visible {
   display: block;
   width: 24px;
   height: 32px;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   box-shadow: 0 0 0 1px var(--color-border);
 }
 
@@ -8660,8 +8584,8 @@ button.look-frame__open:focus-visible {
   height: 32px;
   padding: 1px 3px;
   border: 1px dashed var(--color-border);
-  border-radius: 2px;
-  font-size: 12px;
+  border-radius: var(--radius-control);
+  font-size: var(--font-caption-size);
   line-height: 1;
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
@@ -8670,7 +8594,7 @@ button.look-frame__open:focus-visible {
   margin: var(--space-sm) 0 0;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -8692,7 +8616,7 @@ button.look-frame__open:focus-visible {
   max-width: calc(100vw - 2 * var(--space-md));
   padding: var(--space-md) 20px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--color-dominant);
   box-shadow: var(--shadow-pop);
 }
@@ -8723,9 +8647,9 @@ button.look-frame__open:focus-visible {
 .special-add__title,
 .special-looks__title {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: 19px;
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-semibold);
 }
 
 button.look-sheet__close {
@@ -8782,10 +8706,8 @@ button.look-sheet__close[hidden] {
   width: 100%;
   margin: 0 0 var(--space-sm);
   padding: 0;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -8828,7 +8750,7 @@ button.look-sheet__close[hidden] {
   display: flex;
   gap: 2px;
   padding: 3px;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
   background: var(--color-secondary);
 }
 
@@ -8841,7 +8763,7 @@ button.look-sheet__close[hidden] {
   min-width: 0;
   min-height: 44px;
   padding: 0 var(--space-sm);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   white-space: nowrap;
@@ -8850,14 +8772,14 @@ button.look-sheet__close[hidden] {
 
 .look-seg__icon {
   flex: none;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 .look-axis__why {
   min-height: 1.4em;
   margin: var(--space-sm) 0 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   line-height: 1.4;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -8939,7 +8861,7 @@ button.look-sheet__done:hover {
   position: relative;
   flex: none;
   padding: 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   background: var(--color-frame-bezel);
 }
 
@@ -8965,12 +8887,10 @@ button.look-sheet__done:hover {
   display: inline-block;
   margin-right: 6px;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: var(--color-secondary);
-  font-size: 11px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   vertical-align: 1px;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -9037,7 +8957,7 @@ a.special-row__remove:hover {
   width: 54px;
   height: 70px;
   border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, transparent);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 
 .special-add[open] > .special-add__summary {
@@ -9079,7 +8999,6 @@ a.special-row__remove:hover {
 
 .special-add__who input[type="text"] {
   font-family: var(--font-mono);
-  text-transform: uppercase;
 }
 
 /* The preview heads the form: the framed picture takes 44% of a phone sheet's
@@ -9095,7 +9014,7 @@ a.special-row__remove:hover {
 .special-add__preview .special-row__mini {
   width: 44%;
   padding: 4px;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
 }
 
 @media (min-width: 700px) {
@@ -9156,7 +9075,7 @@ a.special-row__remove:hover {
 button.rule-suggestion-chip {
   height: 36px;
   border-color: transparent;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--color-secondary);
   font-weight: var(--weight-regular);
 }
@@ -9170,7 +9089,7 @@ button.rule-suggestion-chip {
   width: min(38rem, calc(100vw - 2 * var(--space-md)));
   padding: var(--space-md) 20px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--color-dominant);
   box-shadow: var(--shadow-pop);
 }
@@ -9231,11 +9150,11 @@ button.rule-suggestion-chip {
     z-index: 51;
     width: auto;
     max-width: none;
-    max-height: 88vh;
+    max-height: 88svh;
     margin: 0;
-    padding: 22px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
     overflow-y: auto;
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--radius-pill) var(--radius-pill) 0 0;
   }
 
   .special-add__foot button {
@@ -9258,7 +9177,7 @@ button.rule-suggestion-chip {
     width: 40px;
     height: 4px;
     margin-left: -20px;
-    border-radius: 2px;
+    border-radius: var(--radius-control);
     background: var(--color-border);
   }
 
@@ -9296,7 +9215,7 @@ button.rule-suggestion-chip {
 
   .look-table th {
     padding: 0;
-    font-size: 11px;
+    font-size: var(--font-caption-size);
   }
 
   .look-cell {
@@ -9353,7 +9272,7 @@ dialog.modal {
   box-sizing: border-box;
   width: min(480px, calc(100% - 48px));
   max-width: none;
-  max-height: 88vh;
+  max-height: 88svh;
   margin: auto;
   padding: var(--space-lg);
   overflow-y: auto;
@@ -9486,8 +9405,8 @@ a.modal__dismiss {
     inset: auto 0 0;
     width: 100%;
     margin: 0;
-    padding: 22px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
-    border-radius: 18px 18px 0 0;
+    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
+    border-radius: var(--radius-pill) var(--radius-pill) 0 0;
   }
 
   dialog.modal.is-modal {
@@ -9506,7 +9425,7 @@ a.modal__dismiss {
     width: 40px;
     height: 4px;
     margin-left: -20px;
-    border-radius: 2px;
+    border-radius: var(--radius-control);
     background: var(--color-border);
   }
 }
@@ -9610,14 +9529,14 @@ li.entity-row.account-frame {
   padding: 3px;
   background: var(--color-frame-bezel);
   border: 1px solid var(--color-frame-bezel-hi);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
 }
 
 .account-frame__pic i {
   display: block;
   height: 100%;
   background: var(--color-image-backdrop);
-  border-radius: 1px;
+  border-radius: var(--radius-control);
 }
 
 .account-frame__status {
@@ -9773,7 +9692,7 @@ a.page-header__action {
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-md);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--color-accent);
   color: var(--color-on-accent);
   font-size: var(--font-label-size);
@@ -9800,7 +9719,7 @@ a.pair-link {
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-md);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--color-border);
   color: var(--color-accent);
   font-size: var(--font-label-size);
@@ -9888,7 +9807,7 @@ a.entity-row__button {
   min-width: 44px;
   padding: 0 var(--space-md);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: var(--color-accent);
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
@@ -10084,7 +10003,7 @@ a.entity-row__button:hover {
   height: auto;
   aspect-ratio: 3 / 4;
   object-fit: contain;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: var(--color-image-backdrop);
 }
 
@@ -10250,12 +10169,12 @@ button.look-sheet__save:hover {
   }
 
   .look-view .look-frame__anchor {
-    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    max-width: min(100%, calc((100svh - 21rem) * 0.75));
     margin-inline: auto;
   }
 
   .look-view .look-frame__meta {
-    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    max-width: min(100%, calc((100svh - 21rem) * 0.75));
     margin-inline: auto;
   }
 
@@ -10314,7 +10233,7 @@ button.look-sheet__save:hover {
   appearance: none;
   -webkit-appearance: none;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-secondary);
   overflow: hidden;
 }
@@ -10325,12 +10244,12 @@ button.look-sheet__save:hover {
 
 .collection-progress__bar::-webkit-progress-value {
   background: var(--color-accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .collection-progress__bar::-moz-progress-bar {
   background: var(--color-accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .collection-badges {
@@ -10477,10 +10396,6 @@ button.look-sheet__save:hover {
 }
 
 @media (max-width: 699.98px) {
-  .page-header:has(> .collection-head__status) .page-title {
-    font-size: 1.625rem;
-  }
-
   .collection-head__status {
     flex-direction: column;
     align-items: stretch;
@@ -10588,10 +10503,9 @@ button.look-sheet__save:hover {
   height: 20px;
   padding: 0 8px;
   border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.04em;
   color: var(--color-text);
 }
 
@@ -10635,11 +10549,11 @@ button.look-sheet__save:hover {
   gap: 6px;
   padding: 2px 8px;
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .type-chip__tag {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
 }
 
@@ -10978,8 +10892,6 @@ button.row-menu__item--destructive:hover {
     border-bottom: 1px solid var(--color-border);
     font-size: var(--font-label-size);
     font-weight: var(--weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
@@ -11320,8 +11232,6 @@ a.airlines-name-it {
     border-bottom: 1px solid var(--color-border);
     font-size: var(--font-label-size);
     font-weight: var(--weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
@@ -11341,7 +11251,7 @@ a.airlines-name-it {
 /* From the desktop breakpoint the page title grows to 44-48px. */
 @media (min-width: 960px) {
   :root {
-    --font-page-title-size: clamp(2.75rem, 2.2rem + 1.6vw, 3rem);
+    --font-page-title-size: clamp(2.5rem, 2.2rem + 0.9vw, 2.75rem);
   }
 }
 
@@ -11533,7 +11443,7 @@ a.airlines-name-it {
   display: flex;
   flex-direction: column;
   min-height: calc(var(--font-body-size) * 1.4);
-  font-family: var(--font-serif);
+  font-family: var(--font-ui);
   font-size: var(--font-body-size);
   line-height: 1.4;
   color: var(--color-accent);
@@ -11648,7 +11558,7 @@ a.airlines-name-it {
   top: 10px;
   bottom: 10px;
   width: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   background: var(--color-accent);
   pointer-events: none;
   animation: skypane-soft-in var(--motion-enter) var(--ease-out) backwards;
