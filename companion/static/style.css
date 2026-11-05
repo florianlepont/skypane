@@ -11421,6 +11421,14 @@ a.airlines-name-it {
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
+/* A compact empty state that sits straight on the sky and is followed by more
+ * content keeps a gap at least as tall as the entrance rise, so while it arrives
+ * (a transformed box paints over its in-flow siblings) it never covers the
+ * controls underneath. */
+.dashboard-main > .empty-state--compact:not(:last-child) {
+  margin-bottom: var(--space-md);
+}
+
 .dashboard-main > .data-table-wrap {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
