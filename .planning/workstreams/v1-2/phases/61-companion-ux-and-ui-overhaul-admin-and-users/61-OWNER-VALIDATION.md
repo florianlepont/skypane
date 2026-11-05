@@ -270,3 +270,8 @@ Larger redesigns (new design work, owner decision on scope):
   pills, then a filter field, a sort select, a three-way count segment, a
   repeated "Airlines: 40" count and a rarity legend line, all stacked.
   Simplify.
+- W47 (owner, screenshot) Personalisation has two layers of navigation (the
+  pill bar Look / Special looks / Calendar / Screen, then the Departures /
+  Arrivals tabs). Merge them into one main tab bar: Departures, Arrivals,
+  Special looks, Calendar. (Open: where the Screen view goes, since his list
+  names four entries and does not mention Screen.) Joins plan 61-48.
