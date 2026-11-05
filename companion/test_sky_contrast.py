@@ -186,6 +186,22 @@ def test_one_reduced_motion_rule_zeroes_duration_and_delay_of_every_animation(se
     assert declared["transition-duration"] == "0.01ms !important"
 
 
+def test_overlays_tables_and_empty_states_take_the_glass_inside_the_support_block(served_css):
+    """the lightbox and the save bar, the tables and empty states that sit on the sky, and the
+    placeholder ink are tokens-only; the glass lives inside the backdrop-filter support block"""
+    rules = css_rules(served_css)
+    glass = {sel for rule in rules if dict(rule.declarations).get("background") == "var(--glass-bg)"
+             for sel in rule.selectors}
+    for selector in (".lightbox", ".airlines-table", ".dashboard-main > .empty-state"):
+        assert selector in glass, selector
+    bar = {sel for rule in rules if dict(rule.declarations).get("background") == "var(--glass-bar-bg)"
+           for sel in rule.selectors}
+    assert ".dirty-bar" in bar
+    placeholder = [dict(rule.declarations) for rule in rules if "::placeholder" in rule.selectors]
+    assert any(d.get("color", "").startswith("color-mix(") and d.get("opacity") == "1"
+               for d in placeholder)
+
+
 def test_the_entrance_never_fills_forwards(served_css):
     """fill-mode backwards only: once the entrance ends the element is back in its plain layout
     state and holds no stacking context that could trap a dropdown"""

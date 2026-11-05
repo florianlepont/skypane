@@ -26,6 +26,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import fleet_console_support as fx
+from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
 from locations_page_support import open_locations_page
 from place_map_support import Hosts
 from companion import auth
@@ -677,3 +678,239 @@ def test_an_administrators_personal_page_equals_a_users(
     # The switch and the foreign-frame notice are the whole difference.
     assert user["switchControls"] == 0 and user["notice"] == 0
     assert admin["switchControls"] >= 1 and admin["notice"] == 1
+
+
+# --- Hit targets while a card is still arriving -------------------------------
+# The cards enter with a finite fade and rise. A control inside an arriving card must
+# answer to at least 44px at every moment of that entrance, not only once it has
+# settled: every page is frozen mid-entrance at several points of the animation
+# timeline and every control is measured by its box and by how far the browser routes a
+# pointer to it.
+PAGES = [c for c in CASES if c.values[2] is None]
+# Progress points of the entrance timeline where the page is frozen. Odd
+# fractions on purpose: a rise that moves by a fraction of a pixel shows up there.
+PHASES = (0.13, 0.37, 0.61, 0.83)
+
+_FREEZE_AT = """
+(fraction) => {
+  for (const animation of document.getAnimations()) {
+    const timing = animation.effect && animation.effect.getComputedTiming();
+    if (!timing || timing.iterations === Infinity) continue;
+    animation.pause();
+    animation.currentTime = timing.delay + fraction * timing.duration;
+  }
+  return document.getAnimations().filter((a) => a.playState === 'paused').length;
+}
+"""
+
+_BOX_HEIGHTS = """
+(scopes) => {
+  const sel = 'a.calendar-manage, a.login-signin, button, select, summary, '
+    + 'input:not([type=hidden]):not([type=radio]):not([type=checkbox]):not([type=file])';
+  const found = new Set();
+  scopes.forEach((s) => document.querySelectorAll(s + ' :is(' + sel + '), ' + s + ':is(' + sel + ')')
+    .forEach((e) => found.add(e)));
+  const bad = [];
+  for (const el of found) {
+    if (!el.checkVisibility() || el.closest('dialog, .visually-hidden')) continue;
+    if (el.matches('.skip-link, .brand__link') || el.closest('.dashboard-sidebar')) continue;
+    if (getComputedStyle(el).display === 'inline') continue;
+    const height = Math.round(el.getBoundingClientRect().height * 100) / 100;
+    if (height < 44) bad.push(el.tagName.toLowerCase() + '.' + String(el.className).split(' ')[0]
+      + ' ' + height);
+  }
+  return bad;
+}
+"""
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+@pytest.mark.parametrize("persona,path,dialog", PAGES)
+def test_controls_keep_44px_at_every_point_of_the_entrance(
+        new_context, server, persona, path, dialog, viewport):
+    context, page = _open(new_context, server, persona, path, dialog, viewport, "fr", "dark")
+    try:
+        # Reload so the entrance restarts, then freeze it at each phase.
+        page.reload(wait_until="commit")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        scopes = _target_scopes(dialog, viewport)
+        problems = []
+        for fraction in PHASES:
+            page.evaluate(_FREEZE_AT, fraction)
+            problems += ["%s: %s" % (fraction, p) for p in page.evaluate(_BOX_HEIGHTS, scopes)]
+            problems += ["%s: %s" % (fraction, p) for p in page.evaluate(_TARGETS, scopes)]
+        assert not problems, (path, viewport["width"], problems)
+    finally:
+        context.close()
+
+
+
+# --- The sky-and-motion language on the real pages ---------------------------
+# Surfaces, motion, performance and contrast: cards, tables and empty states are
+# translucent on the radius scale, the glass blur stays on a handful of large surfaces,
+# every animation is finite (the status dot's pulse is the one ambient loop), the
+# entrance never shifts the layout, and the text inks stay readable on the page under
+# the four skies and the night sky of the dark theme.
+THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-flight-history")]
+AMBIENT_LOOPS = {"skypane-pulse", "skypane-dot-halo"}
+
+
+_SURFACES = """
+() => [...document.querySelectorAll(
+    '.page-section, .dashboard-main > .empty-state, .dashboard-main > .data-table-wrap, .airlines-table')]
+  .filter((e) => e.checkVisibility() && (!e.matches('.airlines-table')
+    || getComputedStyle(e).display === 'table'))
+  .map((e) => { const s = getComputedStyle(e);
+    const alpha = (c) => { const m = c.match(/\\/ ([0-9.]+)\\)$|, ([0-9.]+)\\)$/);
+      return m ? parseFloat(m[1] || m[2]) : 1; };
+    return {name: e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0],
+      radius: s.borderTopLeftRadius, alpha: alpha(s.backgroundColor),
+      blur: s.backdropFilter}; })
+"""
+
+_BLURRED = """
+() => [...document.querySelectorAll('body *')]
+  .filter((e) => e.checkVisibility() && getComputedStyle(e).backdropFilter !== 'none')
+  .map((e) => e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0])
+"""
+
+_ANIMATIONS = """
+() => document.getAnimations().map((a) => ({
+  name: a.animationName || a.transitionProperty || '',
+  iterations: a.effect ? a.effect.getComputedTiming().iterations : 1}))
+"""
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+@pytest.mark.parametrize("persona,path,dialog", PAGES)
+def test_cards_tables_and_empty_states_are_glass_on_the_radius_scale(
+        new_context, server, persona, path, dialog, viewport):
+    context, page = _open(new_context, server, persona, path, dialog, viewport, "en", "light")
+    try:
+        for surface in page.evaluate(_SURFACES):
+            assert surface["radius"] == "20px", (path, surface)
+            assert surface["alpha"] < 1, (path, surface)
+        blurred = page.evaluate(_BLURRED)
+        # A handful of large surfaces: the bars, the sidebar and one or two cards.
+        assert len(blurred) <= 6, (path, blurred)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("persona,path,dialog", PAGES)
+def test_every_animation_on_a_page_is_finite_except_the_status_pulse(
+        new_context, server, persona, path, dialog):
+    context, page = _open(new_context, server, persona, path, dialog, VIEWPORTS[0].values[0], "en", "light")
+    try:
+        page.reload(wait_until="commit")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        for animation in page.evaluate(_ANIMATIONS):
+            if animation["iterations"] == float("inf") or animation["iterations"] is None:
+                assert animation["name"] in AMBIENT_LOOPS, (path, animation)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+@pytest.mark.parametrize("persona,path,dialog", THREE_PAGES)
+def test_the_entrance_shifts_no_layout(new_context, server, persona, path, dialog, viewport):
+    context, page = _open(new_context, server, persona, path, dialog, viewport, "en", "light")
+    try:
+        page.add_init_script(
+            "window.__shift = 0; new PerformanceObserver((list) => { for (const e of list.getEntries())"
+            " if (!e.hadRecentInput) { window.__shift += e.value; (window.__src = window.__src || []).push("
+            "e.sources.map((x) => x.node && (x.node.tagName + '.' + x.node.className)).join(',')); } })"
+            ".observe({type: 'layout-shift', buffered: true});")
+        page.reload()
+        page.wait_for_function(
+            "() => document.readyState === 'complete' && document.getAnimations()"
+            ".every((a) => a.playState !== 'running' || (a.effect && a.effect"
+            ".getComputedTiming().iterations === Infinity))", timeout=10000)
+        assert page.evaluate("() => window.__shift") < 0.001, page.evaluate("() => window.__src")
+    finally:
+        context.close()
+
+
+# The text inks of the page measured on what is really behind them: the element's own and
+# its ancestors' translucent backgrounds composited over each stop of the sky.
+_INKS = """
+() => {
+  const parse = (c) => {
+    let m = c.match(/^rgba?\\(([^)]+)\\)$/);
+    if (m) { const p = m[1].split(/[ ,\\/]+/).map(Number); return {r: p[0], g: p[1], b: p[2], a: p.length > 3 ? p[3] : 1}; }
+    m = c.match(/^color\\(srgb ([^)]+)\\)$/);
+    if (m) { const p = m[1].split(/[ \\/]+/).map(Number);
+      return {r: p[0] * 255, g: p[1] * 255, b: p[2] * 255, a: p.length > 3 ? p[3] : 1}; }
+    return null;
+  };
+  const over = (top, back) => ({r: top.r * top.a + back.r * (1 - top.a),
+    g: top.g * top.a + back.g * (1 - top.a), b: top.b * top.a + back.b * (1 - top.a), a: 1});
+  const hex = (h) => ({r: parseInt(h.slice(1, 3), 16), g: parseInt(h.slice(3, 5), 16),
+    b: parseInt(h.slice(5, 7), 16), a: 1});
+  const root = getComputedStyle(document.documentElement);
+  const stops = ['--sky-top', '--sky-mid', '--sky-bottom'].map((n) => hex(root.getPropertyValue(n).trim()));
+  const behind = (el, stop) => {
+    const layers = [];
+    for (let n = el; n; n = n.parentElement) {
+      const bg = parse(getComputedStyle(n).backgroundColor);
+      if (bg && bg.a > 0) { layers.push(bg); if (bg.a >= 1) break; }
+    }
+    return layers.reduceRight((acc, layer) => over(layer, acc), stop);
+  };
+  const out = [];
+  const seen = new Set();
+  const check = (el, kind, color) => {
+    const ink = parse(color);
+    if (!ink || ink.a === 0) return;
+    for (const stop of stops) {
+      const back = behind(el, stop);
+      const fg = over(ink, back);
+      out.push({kind: kind, name: el.tagName.toLowerCase() + '.' + String(el.className).split(' ')[0],
+        fg: [fg.r, fg.g, fg.b].map(Math.round), bg: [back.r, back.g, back.b].map(Math.round)});
+    }
+  };
+  for (const el of document.querySelectorAll('main *')) {
+    if (!el.checkVisibility() || el.closest('dialog, .visually-hidden, svg, [aria-hidden=true]')) continue;
+    if ([...el.childNodes].every((n) => n.nodeType !== 3 || !n.textContent.trim())
+        && !(el.matches('input, textarea'))) continue;
+    if (el.matches('input, textarea')) {
+      check(el, 'placeholder', getComputedStyle(el, '::placeholder').color);
+      continue;
+    }
+    const style = getComputedStyle(el);
+    if (style.backgroundImage !== 'none' || el.closest('.pill, .rarity-badge, button, .badge, .btn')) continue;
+    const key = el.className + style.color;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const kind = el.disabled || el.getAttribute('aria-disabled') === 'true' ? 'disabled'
+      : el.matches('a') ? 'link' : 'text';
+    check(el, kind, style.color);
+  }
+  return out;
+}
+"""
+
+SKIES = ("dawn", "day", "dusk", "night")
+CONTRAST_PAGES = [c for c in PAGES if c.id in (
+    "user-home", "user-account", "user-collection", "user-display", "user-flight-history",
+    "admin-collection", "users", "audit", "fleet")]
+
+
+@pytest.mark.parametrize("scheme,sky", [("light", s) for s in SKIES] + [("dark", "night")])
+@pytest.mark.parametrize("persona,path,dialog", CONTRAST_PAGES)
+def test_text_links_placeholders_and_disabled_controls_stay_readable_on_every_sky(
+        new_context, server, persona, path, dialog, scheme, sky):
+    context, page = _open(new_context, server, persona, path, dialog, VIEWPORTS[0].values[0], "en", scheme)
+    try:
+        page.evaluate("s => document.documentElement.setAttribute('data-sky', s)", sky)
+        page.wait_for_timeout(100)
+        low = []
+        for item in page.evaluate(_INKS):
+            ratio = contrast_ratio("#%02x%02x%02x" % tuple(item["fg"]), "#%02x%02x%02x" % tuple(item["bg"]))
+            # Disabled text is exempt from WCAG but must stay legible (3:1).
+            floor = 3.0 if item["kind"] == "disabled" else WCAG_AA_NORMAL_TEXT
+            if ratio < floor:
+                low.append((item["kind"], item["name"], round(ratio, 2)))
+        assert not low, (path, scheme, sky, low)
+    finally:
+        context.close()

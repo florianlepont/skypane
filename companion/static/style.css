@@ -1296,6 +1296,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 .sidebar-link {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-xs);
@@ -4626,6 +4627,9 @@ a.airline-card {
  * visually hidden word). The grid is on the 8px scale: a 32px icon, a
  * 16px gutter, a 208px name column, a 64px row. */
 .health-rows {
+  /* The wide five-column row applies when the card itself is wide, not the
+   * viewport: a half-width card on a desktop page keeps the stacked row. */
+  container: health-rows / inline-size;
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -4843,7 +4847,7 @@ a.airline-card {
   box-shadow: none;
 }
 
-@media (min-width: 700px) {
+@container health-rows (min-width: 600px) {
   .health-row__summary {
     grid-template-columns: 32px 208px minmax(0, 1fr) auto 16px;
     grid-template-areas: "icon name verdict value chevron";
@@ -11404,6 +11408,29 @@ a.airlines-name-it {
   --reveal-index: 5;
 }
 
+/* A table or an empty state that sits straight on the sky is a card. Its
+ * solid fill is the fallback of the glass below; the edge covers a scrolling
+ * table used to paint in the page colour would show as opaque bands over it,
+ * so the card fill replaces them. They enter like the other cards. */
+.dashboard-main > .empty-state {
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  animation:
+    skypane-reveal var(--motion-enter) steps(12, end) backwards,
+    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+}
+
+.dashboard-main > .data-table-wrap {
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  overflow-x: auto;
+  animation:
+    skypane-reveal var(--motion-enter) steps(12, end) backwards,
+    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+}
+
 /* Frosted glass. Without backdrop-filter support none of this applies and
  * every surface keeps the solid fill its own rule declares (--color-dominant
  * for cards, --color-secondary for the bars). With it, surfaces become
@@ -11437,6 +11464,7 @@ a.airlines-name-it {
   .login-card,
   .look-sheet,
   .calendar-sheet,
+  .lightbox,
   dialog.modal {
     background: var(--glass-bg);
     border-color: var(--glass-border);
@@ -11453,6 +11481,37 @@ a.airlines-name-it {
     -webkit-backdrop-filter: blur(var(--glass-blur));
     backdrop-filter: blur(var(--glass-blur));
   }
+
+  /* The floating save bar scrolls over content like the tab bar does, so it
+   * takes the bar glass, without a blur of its own. */
+  .dirty-bar {
+    background: var(--glass-bar-bg);
+    border-color: var(--glass-border);
+  }
+
+  /* Tables and empty states that sit straight on the sky become cards. */
+  .dashboard-main > .data-table-wrap,
+  .dashboard-main > .empty-state {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-glass);
+  }
+
+  /* The airline editor's table is a table only on a wide screen. */
+  @media (min-width: 70rem) {
+    .airlines-table {
+      background: var(--glass-bg);
+      border-color: var(--glass-border);
+      box-shadow: var(--shadow-glass);
+    }
+  }
+}
+
+/* The glass rule above outranks the cards' own hover shadow: give it back. */
+.frame-tile:is(:hover),
+.collection-card:is(:hover),
+.airline-card:is(:hover) {
+  box-shadow: var(--shadow-card-hover);
 }
 
 /* Home: personal greeting, plane on a trail, glow ring, card entrance.
@@ -11555,4 +11614,56 @@ a.airlines-name-it {
 
 .dashboard-main .home-columns .page-section:nth-child(2) {
   --reveal-index: 2;
+}
+
+/* The other pages in the same language: the same entrance on the blocks that
+ * sit straight on the sky, a soft arrival for the active navigation item, and
+ * a stacked frame row on a phone. Appended last. */
+@keyframes skypane-soft-in {
+  from {
+    opacity: 0;
+    transform: scaleY(0.3);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* A thin accent bar settles beside the current sidebar item; it is a
+ * pseudo-element, so the link's own box and hit area never change. */
+.sidebar-link--active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 3px;
+  border-radius: 2px;
+  background: var(--color-accent);
+  pointer-events: none;
+  animation: skypane-soft-in var(--motion-enter) var(--ease-out) backwards;
+}
+
+.tab-bar__link--active .tab-bar__pill {
+  animation: skypane-soft-in var(--motion-enter) var(--ease-out) backwards;
+}
+
+@media (max-width: 599.98px) {
+  li.entity-row.account-frame {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  li.entity-row.account-frame > :last-child:not(.entity-row__text) {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+/* Placeholder text is secondary ink, never the browser's pale default: it has
+ * to clear 4.5:1 on the field under every sky. */
+::placeholder {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  opacity: 1;
 }
