@@ -11341,27 +11341,41 @@ a.airlines-name-it {
   }
 }
 
-/* The entrance of a card: opacity and a short rise, finite, painted by
- * the animation only (fill-mode backwards, never forwards), so once it
- * ends the element is back in its plain layout state and creates no
- * stacking context that could trap a dropdown. Siblings stagger through
- * --reveal-index. The global reduced-motion rule above zeroes duration and
- * delay for every animation. */
+/* The entrance of a card: a fade and a short rise, finite, painted by the
+ * animations only (fill-mode backwards, never forwards), so once they end
+ * the element is back in its plain layout state and creates no stacking
+ * context that could trap a dropdown. Siblings stagger through
+ * --reveal-index. The rise moves in whole pixels (steps) on purpose: a
+ * fractional translate under a box that already sits at a fractional
+ * offset makes the browser hit-test the box one pixel short, so a 44px
+ * control inside would answer to 43px while the card is still arriving.
+ * The fade keeps the smooth easing in its own animation. The global
+ * reduced-motion rule above zeroes duration and delay for every animation. */
 @keyframes skypane-reveal {
   from {
-    opacity: 0;
     transform: translateY(12px);
   }
 
   to {
-    opacity: 1;
     transform: none;
+  }
+}
+
+@keyframes skypane-reveal-fade {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }
 
 .reveal,
 .dashboard-main .page-section {
-  animation: skypane-reveal var(--motion-enter) var(--ease-out) backwards;
+  animation:
+    skypane-reveal var(--motion-enter) steps(12, end) backwards,
+    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
   animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
 }
 

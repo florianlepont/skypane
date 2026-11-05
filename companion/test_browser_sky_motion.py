@@ -141,8 +141,9 @@ def test_cards_enter_in_a_short_stagger_and_end_in_their_layout_state(
     page = _open(new_context, make_app_server, 12)
     motion = _section_motion(page)
     assert len(motion) >= 2
-    assert {item["name"] for item in motion} == {"skypane-reveal"}
-    assert {item["duration"] for item in motion} == {"0.4s"}
+    # A whole-pixel rise and a smooth fade, two finite animations of one duration.
+    assert {item["name"] for item in motion} == {"skypane-reveal, skypane-reveal-fade"}
+    assert {item["duration"] for item in motion} == {"0.4s, 0.4s"}
     # Home's state card (not a page section) enters first, so its sections start one step in.
     assert [item["delay"] for item in motion[:2]] == ["0.06s", "0.12s"]
     page.wait_for_timeout(1200)
@@ -159,7 +160,8 @@ def test_cards_enter_in_a_short_stagger_and_end_in_their_layout_state(
 def test_reduced_motion_zeroes_the_entrance(new_context, make_app_server):
     page = _open(new_context, make_app_server, 12, reduced_motion="reduce")
     for item in _section_motion(page):
-        assert float(item["duration"].rstrip("s")) <= 0.0001 and item["delay"] == "0s", item
+        durations = [float(part.rstrip("s")) for part in item["duration"].split(", ")]
+        assert max(durations) <= 0.0001 and set(item["delay"].split(", ")) == {"0s"}, item
     page.wait_for_timeout(100)
     opacity = page.evaluate(
         "() => getComputedStyle(document.querySelector('.dashboard-main .page-section')).opacity")
