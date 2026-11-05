@@ -478,9 +478,8 @@ def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_elem
 
 
 def _recent_row_selector(width):
-    """Home's recent-flight row at `width`: the compact boarding-pass card on a phone, the thumbnail row from
-    960px up (style.css toggles the two lists there)."""
-    return ".recent-flight" if width >= 960 else ".recent-flight-tiles .history-card"
+    """Home's recent-flight row at `width`: the same group row at every width."""
+    return ".recent-flight"
 
 
 # Nothing on Home paints outside the viewport or outside its own recent-flight rows.
@@ -509,7 +508,7 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         "    if (r.width > 0 && r.right > vw + 0.5)"
         "      escaped.push(el.className.toString() || el.tagName);"
         "  });"
-        "  const rows = [...document.querySelectorAll('.recent-flight, .recent-flight-tiles .history-card')]"
+        "  const rows = [...document.querySelectorAll('li.recent-flight')]"
         "    .filter(row => row.offsetParent !== null);"
         "  rows.forEach(row => {"
         "    const rr = row.getBoundingClientRect();"
@@ -565,7 +564,7 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
 @pytest.mark.parametrize("width", [360, 390, 1280])
 def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
         new_context, server, width, lang):
-    """The approved Direction B sequence is current frame, then recent flights (the facts
+    """The sequence is the hero (current frame and state), then the groups (the facts
     region stays empty on the personal Home) at every supported delivery width.  Retired healthy dashboard blocks and the day
     band never return, and every retained Home link can receive a visible keyboard focus."""
     context = new_context(viewport={"width": width, "height": 844})
@@ -576,10 +575,10 @@ def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/")
-        page.locator(".home-current-frame").wait_for(state="visible")
+        page.locator(".home-state").wait_for(state="visible")
         hierarchy = page.evaluate(
             "() => ({"
-            " current: document.querySelector('.home-current-frame').getBoundingClientRect().top,"
+            " current: document.querySelector('.home-state').getBoundingClientRect().top,"
             " flights: document.querySelector('#home-flights').getBoundingClientRect().top,"
             " facts: document.querySelector('.home-facts').getBoundingClientRect().top,"
             " strip: !!document.querySelector('.frame-strip'),"
@@ -634,17 +633,16 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
     # one day — that is the fix working, not failing.
     probe = (
         "() => {"
-        "  const rows = [...document.querySelectorAll('.recent-flight, .recent-flight-tiles .history-card')]"
+        "  const rows = [...document.querySelectorAll('li.recent-flight')]"
         "    .filter(row => row.offsetParent !== null);"
         "  const starved = [];"
         "  let cells = 0, sameLine = 0, twoLine = 0;"
         "  rows.forEach(row => {"
-        "    const cs = row.querySelector('.recent-flight__callsign, .history-card__callsign');"
+        "    const cs = row.querySelector('.row__label');"
         # On a phone card the time column lives in the stub beside the artwork plate (the
         # Flights boarding-pass layout), so the line it must not cost is the plate's.
-        "    const card = row.classList.contains('history-card');"
-        "    const lead = card ? row.querySelector('.history-card__art') : cs;"
-        "    const tm = row.querySelector('.recent-flight__time, .history-card__when');"
+        "    const lead = cs;"
+        "    const tm = row.querySelector('.row__value');"
         "    if (!cs) return;"
         "    cells += 1;"
         "    const box = cs.getBoundingClientRect().width;"

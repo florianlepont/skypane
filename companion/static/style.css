@@ -70,10 +70,10 @@
   --weight-regular: 400;
   --weight-semibold: 600;
 
-  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   /* Titles use the platform display face (system fonts only, nothing is
    * downloaded); there is no serif anywhere in the app. */
-  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Display", "Inter", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* The whole radius scale: control (buttons, inputs, tracks), card/group, and
@@ -147,7 +147,9 @@
   /* Frosted glass: theme-independent geometry. The blur is only applied
    * inside an @supports block at the end of this file; outside it every
    * surface keeps its solid --color-dominant/--color-secondary fill. */
-  --glass-blur: 16px;
+  --glass-blur: 22px;
+  --glass-saturate: 165%;
+  --radius-chip: 9px;
 
   /* Light mode (default) */
   /* The one background behind the page: a very pale sky in Light (three
@@ -164,14 +166,16 @@
    * sky stop is what the contrast tests measure. The bars are nearly opaque
    * because page content scrolls beneath them: whatever passes behind a bar
    * (a white picture, a dark card) must not wash out its labels. */
-  --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-bar-bg: rgba(255, 255, 255, 0.94);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-solid: #FFFFFF;
+  --glass-hairline: rgba(23, 25, 31, 0.1);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
-  --color-secondary: #EEE8DE;
-  --color-border: #DFD7C8;
+  --color-secondary: #E9EEF5;
+  --color-border: #DAE1EB;
   /* Graphite in Light, ivory in Dark: a neutral accent, so it can never be
    * mistaken for a status colour (green/amber/red). Meets WCAG AA text
    * contrast on every surface (companion/test_contrast_check.py). */
@@ -224,10 +228,12 @@
     --sky-top: #12151D;
     --sky-mid: #161A24;
     --sky-bottom: #1A1F2B;
-    --glass-bg: rgba(255, 255, 255, 0.08);
-    --glass-bar-bg: rgba(22, 26, 36, 0.9);
+    --glass-bg: rgba(255, 255, 255, 0.09);
     --glass-border: rgba(255, 255, 255, 0.16);
-    --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+    --glass-highlight: rgba(255, 255, 255, 0.18);
+    --glass-solid: #1C222D;
+    --glass-hairline: rgba(255, 255, 255, 0.1);
+    --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
     --color-canvas: #161A24;
     --color-dominant: #151922;
     --color-secondary: #1C222D;
@@ -265,14 +271,16 @@ html[data-ui-theme="light"] {
   --sky-top: #E7EEF7;
   --sky-mid: #F1F3F6;
   --sky-bottom: #F6F3EE;
-  --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-bar-bg: rgba(255, 255, 255, 0.94);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-solid: #FFFFFF;
+  --glass-hairline: rgba(23, 25, 31, 0.1);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
-  --color-secondary: #EEE8DE;
-  --color-border: #DFD7C8;
+  --color-secondary: #E9EEF5;
+  --color-border: #DAE1EB;
   --color-accent: #1F2430;
   --color-accent-hover: #343B4D;
   --color-on-accent: #FFFFFF;
@@ -302,10 +310,12 @@ html[data-ui-theme="dark"] {
   --sky-top: #12151D;
   --sky-mid: #161A24;
   --sky-bottom: #1A1F2B;
-  --glass-bg: rgba(255, 255, 255, 0.08);
-  --glass-bar-bg: rgba(22, 26, 36, 0.9);
+  --glass-bg: rgba(255, 255, 255, 0.09);
   --glass-border: rgba(255, 255, 255, 0.16);
-  --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+  --glass-solid: #1C222D;
+  --glass-hairline: rgba(255, 255, 255, 0.1);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
   --color-canvas: #161A24;
   --color-dominant: #151922;
   --color-secondary: #1C222D;
@@ -1442,8 +1452,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 /* A docked toast is a persistent state: in flow, full width, no timer
  * and no dismiss. Its right padding replaces the missing 44px control. */
 .toast--docked {
+  --color-toast-bg: var(--color-on-accent);
+  --color-toast-fg: var(--color-text);
   margin-bottom: var(--space-lg);
   padding-right: var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  box-shadow: var(--shadow-glass);
 }
 
 .toast__icon {
@@ -1899,14 +1915,9 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 @media (max-width: 699.98px) {
   .frame-fold {
     margin: 0 0 var(--space-md);
-    background:
-      linear-gradient(
-        color-mix(in srgb, var(--color-text) 5%, transparent),
-        transparent var(--space-lg)),
-      var(--color-secondary);
+    background: var(--color-secondary);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
-    box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-text) 12%, transparent);
   }
 
   .frame-fold__summary {
@@ -2550,9 +2561,9 @@ button:disabled {
   }
 
   .look-seg__option:has(input:checked) {
-    background: var(--color-dominant);
-    color: var(--color-text);
-    box-shadow: 0 0 0 1px var(--color-border), var(--shadow-card);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: var(--shadow-control);
   }
 
   .look-seg__option:has(input:disabled) {
@@ -3657,10 +3668,9 @@ a.calendar-disconnect-btn.flight-picture-link {
   gap: 2px;
   margin: 0;
   padding: 3px;
-  border: none;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-secondary);
-  box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 /* min-content keeps a label whole: a segment grows to its text instead of
@@ -3707,13 +3717,13 @@ a.calendar-disconnect-btn.flight-picture-link {
 }
 
 .filter-chip input:checked + .filter-chip__box {
-  background: var(--color-dominant);
-  box-shadow: inset 0 0 0 1px var(--color-border), var(--shadow-card);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
 }
 
 .filter-chip input:checked + .filter-chip__box .filter-chip__count,
 .filter-chip input:checked + .filter-chip__box .filter-chip__text {
-  color: var(--color-text);
+  color: var(--color-on-accent);
 }
 
 .filter-chip input:focus-visible + .filter-chip__box {
@@ -4786,19 +4796,8 @@ a.airline-card {
 }
 
 @container health-rows (min-width: 600px) {
-  .health-row__summary {
-    grid-template-columns: 32px 208px minmax(0, 1fr) auto 16px;
-    grid-template-areas: "icon name verdict value chevron";
-    padding: 0 var(--space-lg);
-  }
-
   .health-rows__group {
     padding: var(--space-sm) var(--space-lg);
-  }
-
-  .health-row__value {
-    justify-content: flex-end;
-    text-align: right;
   }
 
   /* Indented to the name column, so the evidence reads as belonging to
@@ -5425,9 +5424,9 @@ button.detection-search:hover {
 }
 
 .place-mode:has(input:checked) {
-  background: var(--color-dominant);
-  color: var(--color-accent);
-  box-shadow: var(--shadow-card);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: var(--shadow-control);
 }
 
 .place-mode:has(input:focus-visible) {
@@ -5990,9 +5989,9 @@ button.detection-search:hover {
 
   .map-ready .place-mode:has(input:checked) {
     border-radius: var(--radius-control);
-    background: var(--color-dominant);
-    color: var(--color-accent);
-    box-shadow: var(--shadow-card);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: var(--shadow-control);
   }
 
   .map-ready .place-sheet {
@@ -6420,27 +6419,18 @@ button.place-result:hover {
  * put the day band in a narrower column than its canvas needs (measured:
  * an 880px container leaves 288px per column against a 310px floor),
  * silently invalidating draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT. */
-.home-overview {
-  display: grid;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-}
+
 
 /* .home-overview > * is doubled to (0,2,0) deliberately: at (0,1,0) it
  * tied .frame-strip's own margin-bottom rule and lost to source order,
  * leaving inconsistent gaps (measured in Chromium). */
-.home-overview.home-overview > * {
-  margin-bottom: 0;
-}
+
 
 .home-section > .text-heading {
   margin-top: 0;
 }
 
-.home-status-grid {
-  margin-bottom: var(--space-sm);
-  align-items: stretch;
-}
+
 
 .stat-tile__gauge {
   display: flex;
@@ -6458,44 +6448,20 @@ button.place-result:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.home-columns {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-lg);
-}
 
-.home-columns > .home-section {
-  margin-bottom: 0;
-}
 
-/* .home-columns.home-picture-row is (0,2,0), outranking the generic
- * .home-columns >=960px split above at every width, so this row keeps
- * its own 3:2 ratio instead of the ambient 1fr/1fr. */
-.home-columns.home-picture-row {
-  grid-template-columns: 1fr;
-}
 
-@media (min-width: 1024px) {
-  .home-columns.home-picture-row {
-    grid-template-columns: 3fr 2fr;
-    /* flex-start, not the bare "start" keyword: test_status_pages.py
-     * pins this file to exactly one remaining bare-keyword declaration
-     * elsewhere. Grid treats flex-start as an alias, same effect. */
-    align-items: flex-start;
-  }
-}
+
+
+
 
 /* The latest frame is the Home page's anchor.  The image remains bounded by
  * the existing preview rules; this grid only gives it the reading priority
  * the owner selected, with the recent list immediately alongside on desktop
  * and directly after it on a phone. */
-.home-current-frame {
-  min-width: 0;
-}
 
-.home-current-frame .preview-frame__image {
-  width: 100%;
-}
+
+
 
 /* The docked attention toast only; the container is empty (and takes no
  * space) while every health state is fine. */
@@ -6534,83 +6500,31 @@ button.place-result:hover {
  * side, and from 840px of card (a wide window, sidebar included) the
  * three zones become columns. Surface, border and
  * radius are the shared tokens, so both themes follow the palette. */
-.home-state {
-  --home-tone: var(--color-status-ok);
-  container-type: inline-size;
-  position: relative;
-  isolation: isolate;
-  margin-bottom: var(--space-lg);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-}
 
-.home-state--warn {
-  --home-tone: var(--color-status-warn);
-}
 
-.home-state--error {
-  --home-tone: var(--color-status-error);
-}
 
-.home-state--off {
-  --home-tone: color-mix(in srgb, var(--color-text) 45%, transparent);
-}
+
+
+
+
 
 /* The state tint: a faint, static glow from the top-left corner in the
  * dot's colour. Subtle on purpose (13%, fading out before mid-card), the
  * wording and the dot carry the meaning; nothing moves, so reduced
  * motion needs nothing more. */
-.home-state::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: inherit;
-  background: radial-gradient(
-    90% 130% at 0% 0%,
-    color-mix(in srgb, var(--home-tone) 13%, transparent),
-    transparent 62%);
-}
 
-.home-state__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
 
-.home-state__status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  min-width: 0;
-  padding: var(--space-lg);
-}
 
-.home-state__status > p {
-  margin: 0;
-}
+
+
+
+
 
 /* The micro-label voice the quick-action labels already use (12px
  * uppercase, the sub-scale exception tier). */
-.home-state__eyebrow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
 
-.home-state__eyebrow .icon {
-  width: 16px;
-  height: 16px;
-}
+
+
 
 /* The state title takes the page-title size in the display face: the
  * header's one display line, so it reads from across the room. */
@@ -6651,11 +6565,7 @@ button.place-result:hover {
  * resting frame (quiet hours, screen off) carries no pulse class. The
  * amber ring is gentler (smaller, fainter) through two custom properties,
  * never a second duration. */
-.home-state--warn .home-state__dot,
-.home-state--error .home-state__dot {
-  --dot-halo-scale: 2.2;
-  --dot-halo-alpha: 0.35;
-}
+
 
 .home-state__dot.dot--hollow {
   background: transparent;
@@ -6698,9 +6608,7 @@ button.place-result:hover {
   font-weight: var(--weight-semibold);
 }
 
-.home-state--warn .home-state__next--overdue .icon {
-  color: var(--color-status-warn);
-}
+
 
 .home-state__next .time-value {
   font-weight: var(--weight-semibold);
@@ -6782,8 +6690,7 @@ button.place-result:hover {
   align-items: center;
   justify-items: center;
   margin: 0;
-  padding: var(--space-lg) var(--space-lg) var(--space-md);
-  border-top: 1px solid var(--color-border);
+  padding: var(--space-sm) 0 0;
 }
 
 /* The 132px drawing shown at 120px on a narrow card; its viewBox scales
@@ -6890,94 +6797,31 @@ button.place-result:hover {
 
 /* The recessed panel: a step down from the card surface toward the
  * canvas. */
-.home-state__switches {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: center;
-  gap: var(--space-sm);
-  min-width: 0;
-  padding: var(--space-md);
-  border-top: 1px solid var(--color-border);
-  /* The card no longer clips (the info tooltip may reach past it), so the
-   * recessed panel rounds its own outer corners. */
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
-  background: color-mix(in srgb, var(--color-canvas) 55%, transparent);
-}
+
 
 /* Each row is a pill and one big tap target: the native switch button
  * stretches its ::after over the whole pill, so the control keeps its
  * role, state and focus behaviour while the finger gets a 56px-tall
  * target. */
-.home-switch {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  min-height: 56px;
-  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-sm);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
-}
 
-.home-switch:hover {
-  border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
-}
 
-.home-switch__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-secondary);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
 
-.home-switch--on .home-switch__icon {
-  color: var(--color-text);
-}
 
-.home-switch__icon .icon {
-  width: 18px;
-  height: 18px;
-}
 
-.home-switch .switch,
-.home-switch .switch:hover,
-.home-switch .switch:active {
-  background: none;
-  border: 0;
-  box-shadow: none;
-  /* A transform would make the button the ::after's containing block and
-   * shrink the row-wide target to the button mid-press. */
-  transform: none;
-}
 
-.home-switch .switch::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius-pill);
-}
 
-.home-switch__text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
 
-.home-switch__label {
-  font-weight: var(--weight-semibold);
-}
 
-.home-switch__detail {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-variant-numeric: tabular-nums;
-}
+
+
+
+
+
+
+
+
+
+
 
 .home-switch__window {
   /* Above the switch's row-wide ::after so the link takes its own click;
@@ -7157,76 +7001,21 @@ button.place-result:hover {
   margin: -13px -4px;
 }
 
-.home-switch__detail .home-switch__state {
-  font-size: var(--font-label-size);
-}
 
-.home-switch .quick-action__form {
-  flex: none;
-}
 
-@container (min-width: 520px) {
-  .home-state__body {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
 
-  .home-battery {
-    align-self: stretch;
-    align-content: center;
-    padding: var(--space-lg) var(--space-xl);
-    border-top: 0;
-    border-left: 1px solid var(--color-border);
-  }
 
-  .home-battery > svg {
-    width: 132px;
-    height: 132px;
-  }
 
-  .home-state__switches {
-    grid-column: 1 / -1;
-  }
-}
 
-@container (min-width: 600px) {
-  .home-state__switches {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
-@container (min-width: 840px) {
-  .home-state__body {
-    grid-template-columns: minmax(0, 1fr) auto minmax(260px, 320px);
-  }
 
-  .home-state__status {
-    justify-content: center;
-    padding: var(--space-xl);
-  }
 
-  .home-state__switches {
-    grid-column: auto;
-    grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-lg) var(--space-md);
-    border-top: 0;
-    border-left: 1px solid var(--color-border);
-    border-radius: 0 var(--radius-card) var(--radius-card) 0;
-  }
-}
 
 /* Without the battery dial (a plain user's Home) the status zone and the
  * switches share the row. */
-@container (min-width: 520px) {
-  .home-state--no-battery .home-state__body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 
-@container (min-width: 840px) {
-  .home-state--no-battery .home-state__body {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-  }
-}
+
+
 
 .quick-actions {
   display: flex;
@@ -7421,188 +7210,73 @@ button.switch:active {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.recent-flights {
-  list-style: none;
-  margin: 0 0 var(--space-sm);
-  padding: 0;
-}
+
 
 /* A wrapping flex line, not a grid row: a grid's auto time-track always
  * resolves to its own max-content width regardless of the callsign's
  * needs, starving the callsign to a sliver in French. Flex lets the
  * time wrap to its own second line only when there is truly no room. */
-.recent-flight {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-md);
-  align-items: baseline;
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-border);
-}
 
-.recent-flight:last-child {
-  border-bottom: 0;
-}
 
-.recent-flight__callsign {
-  font-weight: var(--weight-semibold);
-}
+
+
+
 
 /* order: 1 keeps the detail line last visually even though it is the
  * third child before the time (fourth); the inline-start margin
  * reproduces the old grid's thumbnail-width offset (40px + gap). */
-.recent-flight__detail {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-  order: 1;
-  flex: 1 1 100%;
-  margin-inline-start: calc(40px + var(--space-md));
-}
+
 
 /* No percentage width cap here: since this item sits in a content-sized
  * auto track, a percentage would resolve against that same content-
  * derived width and always overflow itself (measured: 88px clientWidth
  * vs 147px scrollWidth in English). The track itself is the line cap. */
-.recent-flight__time {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  text-align: right;
-  margin-inline-start: auto;
-  white-space: nowrap;
-}
 
-/* img.recent-flight__thumb (tag-qualified, not bare .recent-flight__thumb)
- * avoids tying at equal specificity with the dashed-placeholder span's
- * own rule, which would let source order rather than intent decide. */
-img.recent-flight__thumb {
-  display: block;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-image-backdrop);
-  object-fit: cover;
-  flex: none;
-}
-
-.recent-flight__thumb--placeholder {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-control);
-  object-fit: cover;
-  flex: none;
-  border: 1px dashed var(--color-border);
-  background: var(--color-canvas);
-}
 
 /* Home's phone list: the Flights boarding-pass card (.history-card and
  * its bands) at a compact size, one per recent flight. The cards sit on
  * the section's own surface, so the tear-line notches take that colour
  * instead of the page canvas. Rendered before the desktop list; the pair
  * toggles at 960px. */
-.recent-flight-tiles {
-  --history-card-notch: var(--color-dominant);
-  display: grid;
-  gap: var(--space-sm);
-  list-style: none;
-  margin: 0 0 var(--space-md);
-  padding: 0;
-}
 
-.recent-flight-tiles ~ .recent-flights {
-  display: none;
-}
+
+
 
 /* The head is one line: callsign, then the airline taking what is left
  * and ellipsised, so a long operator name never wraps the card. */
-.history-card--compact .history-card__head {
-  padding: var(--space-xs) var(--space-sm) 0 var(--space-sm);
-}
 
-.history-card--compact .history-card__id {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
-  padding-top: 0;
-}
 
-.history-card--compact .history-card__callsign {
-  flex: none;
-  font-size: var(--font-label-size);
-  overflow-wrap: normal;
-}
 
-.history-card--compact .history-card__airline {
-  min-width: 0;
-  font-size: var(--font-caption-size);
-}
 
-.history-card--compact .history-card__route {
-  grid-template-rows: 18px auto;
-  padding: 0 var(--space-sm) 3px;
-}
 
-.history-card--compact .history-card__code {
-  font-size: 18px;
-}
 
-.history-card--compact .history-card__code--none {
-  line-height: 18px;
-  font-size: var(--font-caption-size);
-}
 
-.history-card--compact .icon.history-card__plane {
-  width: 14px;
-  height: 14px;
-}
 
-.history-card--compact .history-card__dir {
-  font-size: 10px;
-  line-height: 1.1;
-}
 
-.history-card--compact .history-card__stub {
-  padding: 3px var(--space-sm);
-}
 
-.history-card--compact .history-card__art {
-  width: 96px;
-  height: 26px;
-}
+
+
+
+
+
+
+
+
+
+
+
 
 /* Too narrow for the "No illustration" words: the dashed outline says
  * it, and the text stays in the markup for a screen reader. */
-.history-card--compact .history-card__art--empty {
-  padding: 0;
-  font-size: 0;
-}
 
-.history-card--compact .history-card__when {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--space-sm);
-}
 
-.history-card--compact .time-value--primary {
-  font-size: var(--font-label-size);
-}
 
-.history-card--compact .time-value__age {
-  font-size: var(--font-caption-size);
-}
 
-@media (min-width: 960px) {
-  .home-columns {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
 
-  .recent-flight-tiles {
-    display: none;
-  }
 
-  .recent-flight-tiles ~ .recent-flights {
-    display: block;
-  }
-}
+
+
+
 
 /* 4. Audit fixes ------------------------------------------------------- */
 
@@ -8750,6 +8424,7 @@ button.look-sheet__close[hidden] {
   display: flex;
   gap: 2px;
   padding: 3px;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--color-secondary);
 }
@@ -9843,6 +9518,7 @@ a.entity-row__button:hover {
   padding: var(--space-xs);
   overflow-x: auto;
   scroll-snap-type: x proximity;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-secondary);
   scrollbar-width: none;
@@ -9889,9 +9565,9 @@ a.entity-row__button:hover {
 }
 
 .personalisation-nav__link[aria-current="page"] {
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
-  color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
 }
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb {
@@ -9902,16 +9578,18 @@ a.entity-row__button:hover {
   display: block;
   width: 0;
   border-radius: var(--radius-control);
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
 }
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb.is-sliding {
   transition: transform var(--motion-fast) ease, width var(--motion-fast) ease;
 }
 
+/* The sliding thumb stays under the current link in the same fill, so the
+ * current option reads as a pill whether or not the thumb has arrived. */
 .personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] {
-  background: transparent;
+  background: var(--color-accent);
   box-shadow: none;
 }
 
@@ -11286,6 +10964,7 @@ a.airlines-name-it {
 }
 
 .reveal,
+.dashboard-main .group-block,
 .dashboard-main .page-section {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
@@ -11349,13 +11028,16 @@ a.airlines-name-it {
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
-/* Frosted glass. Without backdrop-filter support none of this applies and
- * every surface keeps the solid fill its own rule declares (--color-dominant
- * for cards, --color-secondary for the bars). With it, surfaces become
- * translucent over the sky and the overlay surfaces (bars, sheets, dialogs,
- * the login card, Home's state card) also blur what passes behind them.
- * The blur is kept to those few surfaces on purpose; the repeated cards are
- * translucent only. No border-radius here: --radius-card carries it. */
+/* The one glass tier. Every surface (card, group, sheet, dialog, popover,
+ * table, tab bar, sidebar, segmented track) is the same recipe: the
+ * translucent --glass-bg fill, the 1px light --glass-border, the inset top
+ * highlight and the soft shadow inside --shadow-glass, and on the
+ * overlay and bar surfaces the same blur and saturation. Without
+ * backdrop-filter support none of this applies and every surface keeps the
+ * solid fill its own rule declares (--color-dominant, --color-secondary or
+ * --glass-solid). The blur stays off the repeated cards, whose own fixed or
+ * absolutely placed descendants a backdrop-filter would trap. No
+ * border-radius here: --radius-card carries it. */
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .page-section,
   .fleet-block,
@@ -11365,54 +11047,51 @@ a.airlines-name-it {
   .stat-tile,
   .airline-card,
   .collection-card,
-  .frame-tile {
+  .frame-tile,
+  .place-card,
+  .users-table,
+  .toast--docked,
+  .dashboard-main > .data-table-wrap,
+  .dashboard-main > .empty-state {
     background: var(--glass-bg);
     border-color: var(--glass-border);
     box-shadow: var(--shadow-glass);
   }
 
   /* The look picker's cards signal selection with their own box-shadow
-   * ring, so an unselected one must stay shadow-free. */
-  .runway-card {
+   * ring, so an unselected one must stay shadow-free; the segmented tracks
+   * and the other inset controls take the fill and edge without a lift. */
+  .runway-card,
+  .frame-fold,
+  .space-switch,
+  .filter-bar__chips,
+  .personalisation-nav,
+  .look-seg,
+  .place-modes,
+  .map-ready .place-modes,
+  .frame-notice {
     background: var(--glass-bg);
     border-color: var(--glass-border);
   }
 
-  .home-state,
+  .group,
   .login-card,
   .look-sheet,
   .calendar-sheet,
   .lightbox,
-  dialog.modal {
-    background: var(--glass-bg);
-    border-color: var(--glass-border);
-    box-shadow: var(--shadow-glass);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-  }
-
+  dialog.modal,
+  .tab-bar__more-panel,
+  .row-menu__panel,
+  .info-tip__bubble,
   .dashboard-sidebar,
   .site-header,
-  .tab-bar {
-    background: var(--glass-bar-bg);
-    border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-  }
-
-  /* The floating save bar scrolls over content like the tab bar does, so it
-   * takes the bar glass, without a blur of its own. */
+  .tab-bar,
   .dirty-bar {
-    background: var(--glass-bar-bg);
-    border-color: var(--glass-border);
-  }
-
-  /* Tables and empty states that sit straight on the sky become cards. */
-  .dashboard-main > .data-table-wrap,
-  .dashboard-main > .empty-state {
     background: var(--glass-bg);
     border-color: var(--glass-border);
     box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   }
 
   /* The airline editor's table is a table only on a wide screen. */
@@ -11522,17 +11201,11 @@ a.airlines-name-it {
 
 /* The cards come in one after the other: the state card, the current
  * frame, then the recent flights. */
-.home-state.reveal {
-  --reveal-index: 0;
-}
 
-.dashboard-main .home-columns .page-section:nth-child(1) {
-  --reveal-index: 1;
-}
 
-.dashboard-main .home-columns .page-section:nth-child(2) {
-  --reveal-index: 2;
-}
+
+
+
 
 /* The other pages in the same language: the same entrance on the blocks that
  * sit straight on the sky, a soft arrival for the active navigation item, and
@@ -11584,4 +11257,318 @@ a.airlines-name-it {
 ::placeholder {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   opacity: 1;
+}
+
+/* Grouped lists: section label, group, row, hero ----------------------------
+ * The building blocks of every page (companion/ui_groups.py). A group is one
+ * glass surface holding rows separated by hairlines; a row is at least 54px
+ * tall and, when it acts, a link or button across its whole width. The hero
+ * has no surface at all. Nothing nests: a group never holds another group. */
+.group-block {
+  min-width: 0;
+  margin: 0 0 var(--space-lg);
+}
+
+.section-label {
+  margin: 0 0 var(--space-sm);
+  padding: 0 var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.group--panel {
+  padding: var(--space-md);
+}
+
+.group > .row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 54px;
+}
+
+.group > .row + .row {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+/* (0,2,0): beats the bare button and link rules, so a link row and a
+ * button row look the same. */
+.group .row .row__main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  min-height: 54px;
+  height: auto;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--color-text);
+  font: inherit;
+  letter-spacing: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.group .row--action .row__main {
+  cursor: pointer;
+}
+
+.group .row--action .row__main:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.group .row .row__main:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.row__chip {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: var(--space-xs);
+  border-radius: var(--radius-chip);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.row__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A long label wraps to two lines, then truncates with an ellipsis (French
+ * wording is longer). */
+.row__label {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  font-size: var(--font-body-size);
+  line-height: 1.3;
+}
+
+.row__detail {
+  font-size: var(--font-label-size);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.row__value {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.row__chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* A trailing control sits after the row's main area. The switch's own
+ * ::after stretches over the whole row, so the control keeps its role,
+ * state and focus behaviour while the finger gets a row-wide target; a link
+ * inside the main area rises above it and takes its own tap. */
+.group > .row > .quick-action__form,
+.group > .row > select {
+  flex: none;
+  margin-right: var(--space-md);
+}
+
+.group .row .switch,
+.group .row .switch:hover,
+.group .row .switch:active {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.group .row .switch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* The hero: no surface. The picture sits beside a prominent status line in
+ * the display face, with secondary lines beneath it. */
+.hero {
+  --home-tone: var(--color-status-ok);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md) var(--space-lg);
+  align-items: center;
+  margin: 0 0 var(--space-lg);
+}
+
+.hero:has(.hero__picture) {
+  grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
+}
+
+@media (min-width: 700px) {
+  .hero:has(.hero__picture) {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+}
+
+.hero__picture {
+  min-width: 0;
+}
+
+.hero__picture .preview-frame__image {
+  width: 100%;
+  max-height: none;
+  margin: 0;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-glass);
+}
+
+.hero__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.hero__body > p {
+  margin: 0;
+}
+
+.hero__status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  font-family: var(--font-display);
+  font-size: clamp(2.125rem, 1.7rem + 1.2vw, 2.75rem);
+  font-weight: var(--weight-title);
+  line-height: 1.1;
+  letter-spacing: var(--tracking-title);
+  overflow-wrap: anywhere;
+}
+
+.home-state--warn {
+  --home-tone: var(--color-status-warn);
+}
+
+.home-state--error {
+  --home-tone: var(--color-status-error);
+}
+
+.home-state--off {
+  --home-tone: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.home-state--warn .home-state__dot,
+.home-state--error .home-state__dot {
+  --dot-halo-scale: 2.2;
+  --dot-halo-alpha: 0.35;
+}
+
+.home-state--warn .home-state__next--overdue .icon {
+  color: var(--color-status-warn);
+}
+
+.home-state.reveal {
+  --reveal-index: 0;
+}
+
+.dashboard-main .home-state__switches {
+  --reveal-index: 1;
+}
+
+.dashboard-main .group-block.home-section {
+  --reveal-index: 2;
+}
+
+.dashboard-main .home-state__switches.home-section {
+  --reveal-index: 1;
+}
+
+/* The docked notification and attention banners: the same glass as every
+ * surface, a coloured icon chip for the tone, and the page ink on both
+ * themes (the floating flash toast keeps its inverse surface). */
+.toast--docked.toast--warning {
+  --toast-tone: var(--color-status-warn);
+}
+
+.toast--docked.toast--error {
+  --toast-tone: var(--color-status-error);
+}
+
+.toast--docked .toast__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-chip);
+}
+
+.toast--docked .toast__action {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.toast--docked .toast__action::before {
+  display: none;
+}
+
+/* The Fleet State rows: name and verdict stack beside the value, which may
+ * wrap but never takes more than half the row, so a long verdict and a long
+ * value never overlap. */
+@container health-rows (min-width: 420px) {
+  .health-row__summary {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, max-content) 16px;
+    grid-template-areas:
+      "icon name value chevron"
+      "icon verdict value chevron";
+    min-height: 64px;
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .health-row__value {
+    max-width: 50cqw;
+    justify-content: flex-end;
+    text-align: right;
+  }
 }

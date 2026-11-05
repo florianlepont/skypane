@@ -1,7 +1,5 @@
-"""Real-browser checks of Home's status header: it sits above the picture row,
-its three zones (state, battery dial, switches) arrange as columns on a wide
-card, state beside dial with the switches below on a medium one, and stacked
-on a phone, the two switches have 44px targets and nothing overflows from 1280
+"""Real-browser checks of Home's hero and Frame group: the hero sits above the groups
+(the Frame group below the hero at every width), the two switches have 44px targets and nothing overflows from 1280
 down to 360 px, keyboard operation (Space and Enter) with a visible focus
 indicator, the persisted effect plus confirmation flash after each switch, the
 same flow with scripts blocked, the battery dial's accessible name, and a
@@ -35,29 +33,21 @@ VIEWPORTS = (
     ("390", VIEWPORT_PHONE),
     ("360", VIEWPORT_MIN_SUPPORTED),
 )
-# The header's zone arrangement follows its own width (a container query):
-# columns from 840px of card, state beside dial with the switches below
-# from 520px, stacked under that.
-CARD_COLUMNS_MIN = 840
-CARD_SIDE_BY_SIDE_MIN = 520
-
-
 def _assert_zone_arrangement(page, label):
-    """the status zone and the switches stay inside the card and never overlap: beside each
-    other when the card is wide, stacked when it is narrow (the personal Home has no battery
-    zone)"""
+    """the hero and the Frame group (the two switch rows) stay inside the content column and
+    never overlap: the group sits below the hero at every width (the personal Home has no
+    battery zone)"""
     geometry = page.evaluate(
         """() => {
             const r = s => document.querySelector(s).getBoundingClientRect();
-            return {status: r('.home-state__status'), switches: r('.home-state__switches'),
-                    panel: r('.home-state')};
+            return {status: r('.hero__body'), switches: r('.home-state__switches .group'),
+                    panel: r('main'), viewport: window.innerWidth};
         }""")
     status, switches, panel = geometry["status"], geometry["switches"], geometry["panel"]
     for zone in (status, switches):
         assert panel["left"] - 1 <= zone["left"] and zone["right"] <= panel["right"] + 1, label
-    beside = status["right"] <= switches["left"] + 1
-    above = status["bottom"] <= switches["top"] + 1
-    assert beside or above, label
+        assert 0 <= zone["left"] and zone["right"] <= geometry["viewport"], label
+    assert status["bottom"] <= switches["top"] + 1, label
     assert not page.locator(".home-battery").count(), label
 
 
@@ -100,7 +90,7 @@ def _has_visible_focus_indicator(page, selector):
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_status_header_layout_targets_and_keyboard(
         new_context, make_app_server, lang, viewport_name, viewport):
-    """the header sits above the picture row, its zones arrange for the card's width, both
+    """the hero sits above the Frame group, the two arrange for the width, both
     switches are at least 44px tall inside the viewport with no page overflow, show a focus
     indicator under keyboard navigation, and a Space press on the screen switch persists
     display_enabled=false and lands back on Home with the confirmation flash and the
@@ -113,7 +103,7 @@ def test_status_header_layout_targets_and_keyboard(
         geometry = page.evaluate(
             """() => {
                 const r = s => document.querySelector(s).getBoundingClientRect();
-                return {header: r('.home-state'), row: r('.home-picture-row'), title: r('h1')};
+                return {header: r('.home-state'), row: r('.home-state__switches'), title: r('h1')};
             }""")
         assert geometry["title"]["bottom"] <= geometry["header"]["top"] < geometry["row"]["top"]
         _assert_zone_arrangement(page, viewport_name)
@@ -305,7 +295,7 @@ def test_cadence_tooltip_opens_on_hover_and_keyboard_focus(
         assert not _assert_no_page_overflow(page, "tooltip/%s" % viewport_name, viewport["width"])
         page.mouse.move(0, 0)
         assert not bubble.is_visible()
-        page.locator(".home-state__eyebrow").click()
+        page.locator(".home-state__headline").click()
         page.keyboard.press("Tab")
         assert page.evaluate("document.activeElement.classList.contains('info-tip__button')")
         assert bubble.is_visible() and sentence in bubble.inner_text()
@@ -339,7 +329,15 @@ def test_cadence_tooltip_is_legible_in_both_themes(new_context, make_app_server,
                     });
                     return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
                 };
-                const [x, y] = [lum(style.color), lum(style.backgroundColor)].sort((p, q) => q - p);
+                // The bubble is translucent glass: measure its fill composited over the page.
+                const sky = getComputedStyle(document.documentElement)
+                    .getPropertyValue('--sky-mid').trim().match(/[0-9a-f]{2}/gi)
+                    .map(h => parseInt(h, 16));
+                const fill = style.backgroundColor.match(/[\\d.]+/g).map(Number);
+                const alpha = fill.length > 3 ? fill[3] : 1;
+                const over = fill.slice(0, 3).map((v, i) => alpha * v + (1 - alpha) * sky[i]);
+                const [x, y] = [lum(style.color), lum('rgb(' + over.join(',') + ')')]
+                    .sort((p, q) => q - p);
                 return (x + 0.05) / (y + 0.05);
             }""")
         assert ratio >= 4.5, ratio
@@ -548,7 +546,7 @@ def test_user_home_dot_names_the_state_and_links_to_no_health_page(
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-1]], ids=["1280", "360"])
 def test_user_home_layout_has_the_frame_chip_first_and_no_battery_tile(
         new_context, make_app_server, viewport_name, viewport, scheme, lang):
-    """a user with two frames sees the frame chip above the title, the status card, the picture
+    """a user with two frames sees the frame chip above the title, the hero, the Frame group
     and the recent flights in that order; there is no battery tile and no attention bar; the
     switches keep 44px targets and nothing overflows"""
     seed = _seed_user_fleet("silent")
@@ -559,12 +557,10 @@ def test_user_home_layout_has_the_frame_chip_first_and_no_battery_tile(
         assert page.locator(".home-battery").count() == 0
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
-            """() => ['ul.frame-tiles', 'h1', '.home-state', '.home-current-frame',
-                      '.home-section[aria-labelledby="home-flights"]']
+            """() => ['ul.frame-tiles', 'h1', '.home-state',
+                      '.home-state__switches', '.home-section[aria-labelledby="home-flights"]']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
-        assert tops[0] < tops[1] < tops[2] < tops[3]
-        if viewport["width"] < 960:
-            assert tops[3] < tops[4]
+        assert tops[0] < tops[1] < tops[2] < tops[3] < tops[4]
         for selector in (SCOPED_SCREEN_BUTTON, SCOPED_QUIET_BUTTON):
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["x"] + box["width"] <= viewport["width"]

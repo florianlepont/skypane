@@ -827,9 +827,8 @@ def test_flights_catalog_keys_all_present_in_merged_catalog():
 
 
 def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path):
-    """Home's recent-flight relative age is a <time data-relative> element carrying the ROW's
-    own instant, reading exactly what it reads today in both languages, with C5's
-    .time-value/.cell-inline-sep/.time-value__age split and its parentheses intact
+    """Home's recent-flight relative age is the row's value, a <time data-relative> element
+    carrying the ROW's own instant, reading exactly what it reads today in both languages
     (23-03, D14)"""
     now = "2026-08-27T12:00:00+00:00"
     flight_ts = "2026-08-27T11:50:00+00:00"
@@ -839,17 +838,14 @@ def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path
         try:
             rendered = home_page.render(_home_seeded_ctx(sub, now, flight_ts))
             expected_age = layout.relative_age_text(600, lang=lang)
-            cell = re.search(
-                r'<span class="time-value">([^<]*)</span>'
-                r'<span class="cell-inline-sep">·</span>'
-                r'<span class="time-value__age">\((.*?)\)</span>', rendered)
+            cell = re.search(r'<span class="row__value">(.*?)</span>', rendered)
             assert cell is not None, (
-                "lang=%s: expected the recent-flight time cell to keep C5's clock/age split"
+                "lang=%s: expected the recent-flight row to carry its age as the row value"
                 % (lang,))
-            element = _HOME_RELATIVE_ELEMENT_RE.fullmatch(cell.group(2))
+            element = _HOME_RELATIVE_ELEMENT_RE.fullmatch(cell.group(1))
             assert element is not None, (
-                "lang=%s: expected the age half to be a <time data-relative> element, got %r"
-                % (lang, cell.group(2)))
+                "lang=%s: expected the age to be a <time data-relative> element, got %r"
+                % (lang, cell.group(1)))
             assert element.group(2) == expected_age, (
                 "lang=%s: expected Home's recent-flight age to read exactly what it reads "
                 "today (%r), got %r" % (lang, expected_age, element.group(2)))
@@ -920,50 +916,20 @@ def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
     assert "&lt;time" not in rendered, "found a double-escaped '&lt;time' on Flights"
 
 
-def test_recent_flight_thumb_resolved_vs_placeholder(tmp_path):
-    """a recent-flight row whose airline resolves to a real illustration file renders exactly
-    one lazily-loaded /illustration/ thumbnail <img>; a null/unrecognised airline AND an
-    airline whose normalised key resolves to no file on disk anywhere (override or
-    vendored) both render the dashed placeholder span with no <img> at all (fix)"""
-    no_state_dir = str(tmp_path / "absent" / "nested")
-    resolved_row = {"callsign": "AFR1380", "airline": "Air France"}
-    thumb_resolved = home_page._recent_flight_thumb_html(resolved_row, no_state_dir)
-    assert thumb_resolved.count("<img") == 1, "expected exactly one <img> for a resolved airline"
-    assert 'loading="lazy"' in thumb_resolved, "expected the thumbnail <img> to be lazily loaded"
-    assert "/illustration/air-france.png" in thumb_resolved, (
-        "expected the resolved illustration route in the <img> src")
-    unresolved_row = {"callsign": "XYZ", "airline": None}
-    thumb_placeholder = home_page._recent_flight_thumb_html(unresolved_row, no_state_dir)
-    assert "<img" not in thumb_placeholder, "expected no <img> at all for a null/unrecognised airline"
-    assert "recent-flight__thumb--placeholder" in thumb_placeholder, (
-        "expected the dashed placeholder span for a null/unrecognised airline")
-    no_artwork_row = {"callsign": "EZS123", "airline": "easyJet Europe"}
-    thumb_no_artwork = home_page._recent_flight_thumb_html(no_artwork_row, no_state_dir)
-    assert "<img" not in thumb_no_artwork, (
-        "expected no <img> for an airline whose normalised key resolves to no file on disk")
-    assert "recent-flight__thumb--placeholder" in thumb_no_artwork, (
-        "expected the dashed placeholder span for an airline with no artwork file")
-
-
 def test_home_page_french_render_translates_headings_and_alt_text_not_data(tmp_path):
-    """under a French request Home's headings ('Vols récents'/'Voir tous les vols') and a
-    thumbnail's alt text translate while the callsign/airline name stay untranslated data
-    """
+    """under a French request Home's headings ('Vols récents'/'Voir tous les vols') translate
+    while the callsign/airline name stay untranslated data"""
     no_state_dir = str(tmp_path / "absent" / "nested")
     ctx = {
         "gallery_entries": [],
         "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
         "state_dir": no_state_dir,
     }
-    row = {"callsign": "AFR1380", "airline": "Air France"}
     prefs.set_request_prefs(lang="fr")
     try:
         rendered = home_page.render(ctx)
-        thumb = home_page._recent_flight_thumb_html(row, ctx["state_dir"])
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in ("Vols récents", "Voir tous les vols"):
         assert needle in rendered, "expected the French heading/link %r" % (needle,)
-    assert "Illustration Air France" in thumb, (
-        "expected the French alt-text template applied to the untranslated airline name")
-    assert "Air France" in thumb, "expected the airline name itself to stay untranslated data"
+    assert "Frame state" not in rendered and "État du cadre" in rendered

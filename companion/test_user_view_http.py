@@ -362,8 +362,6 @@ def test_home_has_one_dot_and_no_battery_tile_or_attention_bar_for_either_role(r
     assert root.select_one(".home-state__dot").attrs["aria-label"]
     assert not root.select(".home-battery") and not root.select(".home-action")
     assert user_home.index("frame-tiles") < user_home.index("home-state ")
-    assert user_home.index("home-state ") < user_home.index("home-current-frame")
-    assert user_home.index("home-current-frame") < user_home.index("home-flights")
     assert user_home.index("home-state ") < user_home.index("home-flights")
     admin_root = parse_html(admin_home)
     assert not admin_root.select(".home-battery") and not admin_root.select(".home-action")

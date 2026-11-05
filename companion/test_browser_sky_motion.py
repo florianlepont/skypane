@@ -124,7 +124,7 @@ def test_the_background_sits_on_the_root_and_causes_no_overflow(
 
 def _section_motion(page):
     return page.evaluate(
-        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section')).map(el => {
+        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section, .dashboard-main .group-block')).map(el => {
             const style = getComputedStyle(el);
             return {duration: style.animationDuration, delay: style.animationDelay,
                     name: style.animationName};
@@ -139,11 +139,11 @@ def test_cards_enter_in_a_short_stagger_and_end_in_their_layout_state(
     # A whole-pixel rise and a smooth fade, two finite animations of one duration.
     assert {item["name"] for item in motion} == {"skypane-reveal, skypane-reveal-fade"}
     assert {item["duration"] for item in motion} == {"0.4s, 0.4s"}
-    # Home's state card (not a page section) enters first, so its sections start one step in.
+    # Home's hero (not a section or a group) enters first, so its groups start one step in.
     assert [item["delay"] for item in motion[:2]] == ["0.06s", "0.12s"]
     page.wait_for_timeout(1200)
     settled = page.evaluate(
-        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section')).map(el => {
+        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section, .dashboard-main .group-block')).map(el => {
             const style = getComputedStyle(el);
             return {transform: style.transform, opacity: style.opacity,
                     running: el.getAnimations().length};
@@ -159,7 +159,7 @@ def test_reduced_motion_zeroes_the_entrance(new_context, make_app_server):
         assert max(durations) <= 0.0001 and set(item["delay"].split(", ")) == {"0s"}, item
     page.wait_for_timeout(100)
     opacity = page.evaluate(
-        "() => getComputedStyle(document.querySelector('.dashboard-main .page-section')).opacity")
+        "() => getComputedStyle(document.querySelector('.dashboard-main .group-block')).opacity")
     assert opacity == "1"
 
 
@@ -167,11 +167,11 @@ def test_glass_surfaces_blur_where_the_browser_supports_it(new_context, make_app
     desktop = _open(new_context, make_app_server, 12)
     assert desktop.evaluate(
         "() => getComputedStyle(document.querySelector('.dashboard-sidebar')).backdropFilter"
-    ) == "blur(16px)"
+    ) == "blur(22px) saturate(1.65)"
     background = desktop.evaluate(
         "() => getComputedStyle(document.querySelector('.dashboard-sidebar')).backgroundColor")
     assert background.startswith("rgba(") and not background.endswith(", 1)")
     phone = _open(new_context, make_app_server, 12, viewport=VIEWPORT_MIN_SUPPORTED)
     assert phone.evaluate(
         "() => getComputedStyle(document.querySelector('.tab-bar')).backdropFilter"
-    ) == "blur(16px)"
+    ) == "blur(22px) saturate(1.65)"

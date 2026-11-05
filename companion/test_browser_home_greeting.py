@@ -201,13 +201,13 @@ def test_the_home_cards_come_in_one_after_the_other(new_context, fleet_app):
     page.goto(base + _live(fleet_app))
     page.locator(".home-state").wait_for(state="attached")
     delays = page.evaluate(
-        """() => ['.home-state', '.home-current-frame',
+        """() => ['.home-state', '.home-state__switches',
                   'section[aria-labelledby="home-flights"]'].map(
             sel => getComputedStyle(document.querySelector(sel)).animationDelay)""")
     assert delays == ["0s", "0.06s", "0.12s"], delays
     page.wait_for_function(_SETTLED)
     settled = page.evaluate(
-        """() => ['.home-state', '.home-current-frame'].map(sel => {
+        """() => ['.home-state', '.home-state__switches'].map(sel => {
             const s = getComputedStyle(document.querySelector(sel));
             return [s.opacity, s.transform]; })""")
     assert settled == [["1", "none"], ["1", "none"]], settled
@@ -243,7 +243,9 @@ def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, vie
         assert read["first"] >= 68 - 0.5, (where, read)
         parts = [float(p) for p in read["bar"][read["bar"].index("(") + 1:-1].split(",")]
         alpha = parts[3] if len(parts) == 4 else 1.0
-        for backdrop in (255, 0):
+        # The bar is the one glass tier (white 0.09 in Dark): over a pure white backdrop no
+        # light ink can read, so Dark is measured over black, the page's dark ground.
+        for backdrop in ((255, 0) if theme["theme"] == "light" else (0,)):
             bar = "#%02X%02X%02X" % tuple(round(alpha * c + (1 - alpha) * backdrop)
                                           for c in parts[:3])
             for ink in read["inks"]:

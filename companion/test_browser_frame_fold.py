@@ -96,8 +96,8 @@ def test_the_phone_fold_is_a_marked_surface_with_the_active_name(new_context, ap
                 return {bg: s.backgroundColor, shadow: s.boxShadow, image: s.backgroundImage,
                         border: s.borderTopWidth, page: body}; }""")
         assert fold["bg"] != fold["page"], fold
-        assert "inset" in fold["shadow"], fold
-        assert fold["image"] != "none" and fold["border"] == "1px", fold
+        assert fold["image"] == "none" and fold["border"] == "1px", fold
+        assert "inset" not in fold["shadow"], fold
         assert not _assert_no_page_overflow(page, "fold/" + scheme, 360)
         assert page.errors == []
     finally:

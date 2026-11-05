@@ -271,6 +271,7 @@
       "figure.preview-frame",
       'section[aria-labelledby="home-flights"]',
       'section[aria-labelledby="home-frame-state"]',
+      'section[aria-labelledby="home-frame-controls"]',
       ".home-facts"
     ],
     "display": [

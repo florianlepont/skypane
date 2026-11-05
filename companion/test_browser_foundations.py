@@ -128,7 +128,8 @@ def test_no_label_is_tracked_uppercase_and_every_radius_is_a_token(
             """() => ['--radius-control', '--radius-card', '--radius-pill'].map(
                 (n) => getComputedStyle(document.documentElement).getPropertyValue(n).trim())""")
         assert tokens == ["14px", "22px", "32px"]
-        allowed = {"14px", "13px", "22px", "32px"}
+        # 9px is the icon chip's own radius (--radius-chip).
+        allowed = {"14px", "13px", "22px", "32px", "9px"}
         # The vendored Leaflet map controls carry their own radii and are not ours.
         stray = [item for item in page.evaluate(_RADII)
                  if item.split(" ")[0] not in allowed and ".leaflet-" not in item]

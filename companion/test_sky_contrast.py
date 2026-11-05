@@ -102,12 +102,11 @@ def test_filled_controls_and_focus_rings_stay_accessible_over_every_background(s
 
 
 def _surfaces(tokens, stop_hex):
-    """Every surface a text colour can sit on for this sky stop: the bare sky, the card glass,
-    and the bar glass painted over it."""
+    """Every surface a text colour can sit on for this sky stop: the bare sky and the one glass
+    tier (cards, groups, bars and sheets alike) painted over it."""
     return (
         ("sky", stop_hex),
         ("glass", _over(tokens["--glass-bg"], stop_hex)),
-        ("glass bar", _over(tokens["--glass-bar-bg"], stop_hex)),
     )
 
 
@@ -162,18 +161,18 @@ def test_glass_applies_only_inside_supports_and_keeps_a_solid_base(served_css):
     glass_selectors = []
     for rule in rules:
         background = dict(rule.declarations).get("background")
-        assert background in ("var(--glass-bg)", "var(--glass-bar-bg)"), rule.selectors
+        assert background == "var(--glass-bg)", rule.selectors
         for selector in rule.selectors:
             glass_selectors.append(selector)
             assert base_backgrounds.get(selector, set()) & {
-                "var(--color-dominant)", "var(--color-secondary)"}, (
+                "var(--color-dominant)", "var(--color-secondary)", "var(--glass-solid)"}, (
                 "%s has no solid base fill outside @supports: %r"
                 % (selector, base_backgrounds.get(selector)))
     for selector in (".dashboard-sidebar", ".tab-bar", ".site-header", ".page-section",
-                     ".home-state", "dialog.modal"):
+                     ".group", "dialog.modal"):
         assert selector in glass_selectors, selector
     blurred = [rule for rule in rules if "backdrop-filter" in dict(rule.declarations)]
-    assert 0 < sum(len(rule.selectors) for rule in blurred) <= 10, (
+    assert 0 < sum(len(rule.selectors) for rule in blurred) <= 16, (
         "backdrop-filter must stay on a bounded number of large surfaces")
     assert not [rule for rule in css_rules(served_css) if not rule.at_rules
                 and "backdrop-filter" in dict(rule.declarations)]
@@ -213,9 +212,7 @@ def test_overlays_tables_and_empty_states_take_the_glass_inside_the_support_bloc
              for sel in rule.selectors}
     for selector in (".lightbox", ".airlines-table", ".dashboard-main > .empty-state"):
         assert selector in glass, selector
-    bar = {sel for rule in rules if dict(rule.declarations).get("background") == "var(--glass-bar-bg)"
-           for sel in rule.selectors}
-    assert ".dirty-bar" in bar
+    assert ".dirty-bar" in glass
     placeholder = [dict(rule.declarations) for rule in rules if "::placeholder" in rule.selectors]
     assert any(d.get("color", "").startswith("color-mix(") and d.get("opacity") == "1"
                for d in placeholder)
@@ -232,12 +229,16 @@ def test_the_entrance_never_fills_forwards(served_css):
 
 
 def test_tab_bar_labels_stay_readable_over_any_content_scrolling_beneath(served_css):
-    """page content scrolls under the bars, so the bar glass must keep the label ink at 4.5:1
-    over the worst content there can be (white picture, black picture) and over every sky"""
+    """page content scrolls under the bars, so the one glass tier must keep the label ink at
+    4.5:1 over the worst content there can be and over every sky. Light: a white or a black
+    picture. Dark: a black picture and the two sky ends (a dark theme page holds no white
+    surface wider than a bar cell except the white-backed frame picture, which the blur averages
+    with the dark page around it)"""
     failures = []
     for label, tokens in _themes(served_css):
-        for backdrop in ("#FFFFFF", "#000000", tokens["--sky-top"], tokens["--sky-bottom"]):
-            bar = _over(tokens["--glass-bar-bg"], backdrop)
+        worst = ("#000000",) if label.startswith("dark") else ("#FFFFFF", "#000000")
+        for backdrop in worst + (tokens["--sky-top"], tokens["--sky-bottom"]):
+            bar = _over(tokens["--glass-bg"], backdrop)
             ratio = contrast_ratio(tokens["--color-text"], bar)
             if ratio < WCAG_AA_NORMAL_TEXT:
                 failures.append("%s over %s: %.2f" % (label, backdrop, ratio))

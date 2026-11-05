@@ -201,7 +201,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     entrance = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-enter")]
     assert entrance == [
-        ((".reveal", ".dashboard-main .page-section"), "animation"),
+        ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation"),
         ((".dashboard-main > .empty-state",), "animation"),
         ((".dashboard-main > .data-table-wrap",), "animation"),
         ((".sidebar-link--active::after",), "animation"),
@@ -209,7 +209,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
-    assert stagger == [((".reveal", ".dashboard-main .page-section"), "animation-delay")], (
+    assert stagger == [((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     expected = [
         (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
@@ -445,16 +445,16 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
     """authenticated GET / renders the approved frame-signal-first Home page:
-    its current image precedes recent flights, then ONE merged frame-state card carrying the
-    screen and quiet-hours POST controls, and one compact battery fact, while retired
+    its hero (the current image beside the state), the recent-flights group, then the Frame group
+    carrying the screen and quiet-hours POST controls, and one compact battery fact, while retired
     configuration, healthy diagnostics, and activity-band dashboard material stay absent."""
     status, _headers, body = http_request(app04_server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
             '<h1 class="page-title">Home</h1>',
-            'class="home-columns home-picture-row home-signal-grid"',
-            'id="home-current-frame"',
+            'class="hero home-state ',
+            'class="group-block home-section"',
             "Recent flights", 'href="/flights"',
             'class="nav-group"',
             'aria-labelledby="home-frame-state"',
@@ -464,7 +464,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
         assert needle in text, "expected %r in the Home page" % needle
     assert 'class="home-battery' not in text and 'class="home-action' not in text, (
         "expected no battery tile or attention bar on the personal Home")
-    assert text.count("Frame state") == 1, "expected exactly one merged frame-state card"
+    assert text.count("Frame state") == 1, "expected exactly one frame-state hero"
     assert 'class="preview-frame"' in text or "Nothing rendered yet." in text, (
         "expected either the preview-frame figure or its empty state on Home")
     for absent in (
