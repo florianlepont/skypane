@@ -285,3 +285,12 @@ Larger redesigns (new design work, owner decision on scope):
   Personalisation = one tab bar: Departures, Arrivals, Special looks,
   Calendar. /display/screen stays served (expand-only) and redirects to the
   Look view. Plan 61-48.
+- D36 (owner) Location page follows mockups L1 (phone, Airport mode), L2
+  (phone, My position mode) and L3 (desktop): one floating search field
+  (IATA code or address) at the top of the map, separate from the panel; the
+  mode chips under it on phone, the mode switch inside the floating card on
+  desktop; compact bottom sheet on phone (name, runways or radius, Save);
+  floating card at the left of a full-height map on desktop; working "my
+  position" button at the bottom right; discreet "i" for map credits; no
+  coordinates/time-zone line, no saved-settings disclosure. Mockups:
+  scratchpad/sketches (l1, l2, l3). Plan 61-50.
