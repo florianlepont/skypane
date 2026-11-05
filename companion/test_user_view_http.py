@@ -40,7 +40,9 @@ SAMPLE_MIDDLE = {
 }
 
 # The legacy page routes are fixed redirects to a current page.
-LEGACY_REDIRECT = {"/settings": "/display", "/history": "/flights", "/preview": "/flights"}
+LEGACY_REDIRECT = {
+    "/settings": "/display", "/history": "/flights", "/preview": "/flights",
+    "/display/screen": "/display"}
 
 UNKNOWN_ID = "d_00000000"
 
@@ -168,6 +170,11 @@ def test_the_unprefixed_frame_routes_are_admin_only(rig, template):
             status, headers, _body = rig.get(path, who)
             assert status == 303, (path, who)
             assert headers["Location"] == "/devices/%s%s" % (moved[who], path)
+            continue
+        if path in FRAME_PAGE_REDIRECTS and who == "frameless":
+            # No frame to move to: the account page offers to add one.
+            status, headers, _body = rig.get(path, who)
+            assert (status, headers["Location"]) == (303, "/account"), path
             continue
         rig.assert_unknown("GET", path, who)
     anonymous_status, headers, _b = rig.get(path, "anonymous")
@@ -421,8 +428,13 @@ def test_the_led_quick_toggle_is_a_404_for_a_user_and_changes_nothing(rig):
 def test_a_user_with_no_frame_reaches_the_account_page_and_no_device_page(rig):
     assert rig.page("/account", "frameless")
     for page in _FRAME_PAGES:
-        for prefix in ("", "/devices/%s" % rig.fleet.a1, "/devices/%s" % rig.fleet.live):
+        for prefix in ("/devices/%s" % rig.fleet.a1, "/devices/%s" % rig.fleet.live):
             rig.assert_unknown("GET", prefix + page, "frameless")
+        if page in FRAME_PAGE_REDIRECTS:
+            status, headers, _body = rig.get(page, "frameless")
+            assert (status, headers["Location"]) == (303, "/account"), page
+        else:
+            rig.assert_unknown("GET", page, "frameless")
     for target in _hrefs(rig.page("/account", "frameless")):
         assert not target.startswith("/devices/"), target
         assert _page_path(target) not in _FRAME_PAGES[1:], target

@@ -1,0 +1,25 @@
+# Phase 61 Plan 51: Quiet Console pages, global Airlines editor, tap-to-enlarge artwork
+
+Owner round 4 feedback W34 to W37 (iPhone): the Console pages lose their explanatory text, the Users invite button no longer collides with the title, the Airlines editor becomes one global list without a frame strip, and the artwork thumbnail enlarges on tap while changing the image moves into the "..." menu.
+
+## What changed
+
+- **W34, no explanatory text.** The purpose line under the Fleet, Users and Audit log titles is gone (the three `*_PURPOSE` messages and their FR strings are removed; `_console_page` receives no purpose). The Users table footnote is gone. In the Airlines editor the "Rename in place..." and "Unidentified callsigns come first..." captions, the "Every flight using prefix X..." sentence (dialog scope attribute left empty, no-script Step A), the "Start typing" hint and the "Saved, add artwork below" line are removed. Kept on purpose: labels, errors and empty states, accessible names, the delete form's one outcome sentence (a destructive action, pinned by an existing test) and the upload requirement line of the replace zone. The Locations page was not touched (rebuilt in 61-50).
+- **W35, invite button.** The invite trigger carries a `page-header__actions--stack` modifier: from 700 px it sits in the title row, below 700 px the header is one column and the trigger is a full-width 44 px button under the title. New browser test at 360, 390 and 1280 px in EN and FR (no overlap, under the title on a phone, same row on desktop). Invite dialog and flow unchanged.
+- **W36, global list.** The frame tile strip is no longer rendered on the editor (`ui_shell._device_page_path` ignores the editor) and the Console navigation links to `/airlines/manage` without a frame (`ui_nav._CONSOLE_FRAME_KEYS`). The editor was scoped to one frame only for its sightings (views, last seen, aircraft types); it now aggregates the folded sightings of every frame in scope through the new `airline_collection.sightings_across` (merged newest first, unreadable frames skipped, duplicate directories ignored). Artwork, rename and manual-resolution stores were already global. The old frame-scoped addresses still answer (expand-only) and show the same global list, keeping their in-page forms under their prefix. A flight seen by two frames counts once per frame in Views.
+- **W37, artwork.** The thumbnail of an airline row and of an aircraft-type sub-row is the lightbox trigger (a real link to the picture without a script), named "Enlarge the artwork of X" / "Agrandir l'illustration de X". "Change artwork" / "Changer l'illustration" is the first item of the row's "..." menu (a label around the file input, sends on change; an Upload button inside the menu without a script), then "Reset to the original name" when applicable; "Enlarge the artwork" is no longer a menu item. A sub-row with its own artwork slot has its own small "..." menu; other types still say "Uses the airline's artwork". The grid of a sub-row gained a 44 px menu column.
+- **Filters.** The editor's filter bar has no chip row (search field and count only), so nothing there wraps or scrolls. The only Console chip row that wrapped, the Audit log's, is now one line scrolling sideways with scroll-snap and a 44 px minimum chip width.
+
+## Tests (adapted in place, none weakened)
+
+`test_airline_editor`, `test_airline_sheet`, `test_status_pages_05b/06`, `test_view_pages_02`, `test_console_users`, `test_frame_sheet` (the editor case now asserts no strip), `test_nav_spaces`, `test_nav_personal_console`, `test_device_links` and `test_device_routes` (the editor's Console link is an explicit exemption from the "device-scoped addresses carry the prefix" crawl, and Health no longer needs a frame-scoped address of its own), `test_companion_app_05` (caption floor: the editor is still measured but expects zero captions, with a comment; site-wide minimum 14 to 8, derived from a real run), `test_browser_airline_table` (menu items, sub-row menu, tap to enlarge for an airline and a type at 360/1280, file chooser from "Change artwork", no-script Upload inside the menu), `test_browser_airline_editor` (no strip). New: Users invite geometry test, `sightings_across` unit test. `companion/testdata/render_baseline.json` regenerated. `61-UI-SPEC.md` (revision 3 note, part 4) and `61-STEP-COUNTS.md` updated; no measured step count moved.
+
+## Deviations / notes
+
+- The delete form's outcome sentence and the replace zone's upload requirement line were kept (safety / acceptance information, and a test pins the first).
+- Dead script branches for the removed strings (the scope paragraph in `panel-lookup.js`) were left; the paragraph is simply empty.
+- Views across frames may double count a flight two frames both saw.
+
+## Gates
+
+ruff, mypy, comment-history, function-size, `test_phase47_freeze` green; `companion/app.py` is 1473 lines (untouched). Browser files touched were run three times in a row. Full suite (companion, test-support, stub-server, -n 4): 7900 passed, 4 skipped (non-root permission tests), 0 failed.

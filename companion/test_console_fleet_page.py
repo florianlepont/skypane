@@ -89,11 +89,15 @@ def test_the_frame_list_is_the_strip_and_the_other_frames_block(fleet):
     assert "Retired frames" not in page and "need attention" not in page
 
 
-def test_the_page_header_carries_the_add_trigger_and_no_register_form(fleet):
+def test_add_a_frame_lives_only_in_the_strip_and_there_is_no_register_form(fleet):
     server, _seed, cookie = fleet
     _status, _headers, page = fx.get(server, cookie, "/fleet")
     header = re.search(r'<div class="page-header">.*?</div>', page, re.S).group(0)
-    assert 'href="#dlg-add-frame"' in header and "+ Add a frame" in header
+    assert "dlg-add-frame" not in header and "Add a frame" not in header
+    assert "page-header__actions" not in header
+    assert page.count("frame-tile--add") == 1
+    assert '<a class="frame-tile frame-tile--add" href="#dlg-add-frame" data-modal-open>' in page
+    assert page.rindex("frame-tile--add") > page.rindex("frame-tile__name")
     assert "<h1" in header and ">Fleet<" in header
     for text in ("Register a frame", "Register frame", 'name="mac"', 'name="secret_sha256"',
                  'action="/fleet/register"', "MAC address"):

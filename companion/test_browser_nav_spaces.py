@@ -1,6 +1,6 @@
-"""Real-browser checks of the Console and personal navigation: five equal bar
-cells without wrapped or clipped labels at 360px in English and French, the
-space switch, the desktop sidebars, no administrator vocabulary for a user,
+"""Real-browser checks of the Console and personal navigation: equal destination
+cells (and the leading space switch cell) without wrapped or clipped labels at
+360px in English and French, the space switch, the desktop sidebars, no administrator vocabulary for a user,
 and the Locations form fitting its card at 360px. Light and dark themes."""
 import pytest
 
@@ -27,7 +27,7 @@ _FIELD_OVERFLOW = (
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "path", ["/fleet", "/users", "/audit", "/update", "/health", "/device"])
-def test_console_bar_has_five_equal_cells_at_360(
+def test_console_bar_has_switch_and_equal_cells_at_360(
         new_context, app_server_in_process, path, lang, scheme):
     context, page = _admin_page(
         new_context, app_server_in_process, path, VIEWPORT_MIN_SUPPORTED, lang, scheme)
@@ -45,16 +45,16 @@ def test_console_bar_has_five_equal_cells_at_360(
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_personal_bar_has_five_equal_cells_at_360(
+def test_admin_personal_bar_has_switch_and_equal_cells_at_360(
         new_context, app_server_in_process, lang, scheme):
     context, page = _admin_page(
         new_context, app_server_in_process, _own_frame_home, VIEWPORT_MIN_SUPPORTED,
         lang, scheme)
     try:
-        _assert_bar(page, 5, "personal/%s/%s" % (lang, scheme))
+        _assert_bar(page, 6, "personal/%s/%s" % (lang, scheme))
         page.locator(".tab-bar__more > summary").click()
         sheet = page.locator(".tab-bar__more-panel a")
-        assert sheet.count() == 3
+        assert sheet.count() == 2
         for index in range(sheet.count()):
             assert sheet.nth(index).bounding_box()["height"] >= MIN_TAP_PX
     finally:
@@ -81,25 +81,25 @@ def test_user_bar_has_five_equal_cells_and_no_admin_words(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_phone_strip_fits_and_navigates_both_ways_at_360(
+def test_phone_bar_switch_navigates_both_ways_under_a_slim_header_at_360(
         new_context, app_server_in_process, lang):
     context, page = _admin_page(
         new_context, app_server_in_process, "/fleet", VIEWPORT_MIN_SUPPORTED, lang)
     try:
-        strip = page.locator(".space-strip .space-switch__segment")
-        assert strip.count() == 2
-        for index in range(2):
-            assert strip.nth(index).bounding_box()["height"] >= MIN_TAP_PX
-        assert page.locator("header.site-header").bounding_box()["height"] < 120
+        switch = page.locator(".tab-bar > .tab-bar__link--switch")
+        assert switch.count() == 1
+        assert page.locator(".space-strip").count() == 0
+        assert switch.bounding_box()["height"] >= MIN_TAP_PX
+        assert page.locator("header.site-header").bounding_box()["height"] <= 56
         assert not _assert_no_page_overflow(page, "strip", 360)
-        strip.nth(1).click()
+        switch.click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
         page.wait_for_function(
-            "() => document.querySelector('.space-strip [aria-current=page]')"
-            " && document.querySelector('.space-strip [aria-current=page]')"
-            ".getAttribute('href') === '/'")
-        assert page.locator("header.site-header").bounding_box()["height"] < 120
-        page.locator(".space-strip .space-switch__segment").first.click()
+            "() => document.querySelector('.tab-bar > .tab-bar__link--switch')"
+            " && document.querySelector('.tab-bar > .tab-bar__link--switch')"
+            ".getAttribute('href') === '/fleet'")
+        assert page.locator("header.site-header").bounding_box()["height"] <= 56
+        page.locator(".tab-bar > .tab-bar__link--switch").click()
         page.wait_for_function("() => location.pathname.endsWith('/fleet')")
     finally:
         context.close()

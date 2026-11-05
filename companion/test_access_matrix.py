@@ -71,6 +71,7 @@ ROUTE_POLICY = {
     ("GET", "/"): OWNER_DEVICE,
     ("GET", "/display"): OWNER_DEVICE,
     ("GET", "/display/special-looks"): OWNER_DEVICE,
+    ("GET", "/display/arrivals"): OWNER_DEVICE,
     ("GET", "/display/calendar"): OWNER_DEVICE,
     ("GET", "/display/screen"): OWNER_DEVICE,
     ("GET", "/device"): ADMIN_ONLY,
@@ -104,7 +105,8 @@ ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 # `/devices/<id>` prefix. Every other route must refuse the prefix.
 DEVICE_SCOPED = frozenset(
     [("GET", path) for path in (
-        "/", "/display", "/display/special-looks", "/display/calendar", "/display/screen",
+        "/", "/display", "/display/arrivals", "/display/special-looks", "/display/calendar",
+        "/display/screen",
         "/detection", "/device", "/flights", "/health", "/airlines",
         "/airlines/manage",
         "/settings", "/history", "/preview", "/gallery/{}",
@@ -536,10 +538,10 @@ def _own_frame_page(rig, name, path):
 
 
 @pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS)
-def test_a_user_without_a_frame_keeps_the_unknown_path_404(rig, stubbed, path):
+def test_a_user_without_a_frame_is_sent_to_the_account_page(rig, stubbed, path):
     _uid, cookie = _user_with_session(rig, "frameless-%s@example.test" % (path.strip("/") or "home"))
-    status, _h, body = rig.request("GET", path, cookie)
-    assert status == 404 and body == _unknown_path_404(rig, cookie)
+    status, headers, _body = rig.request("GET", path, cookie)
+    assert status == 303 and headers["Location"] == "/account"
     assert stubbed.calls == []
 
 

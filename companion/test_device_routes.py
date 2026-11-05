@@ -18,6 +18,7 @@ EXPECTED_DEVICE_SCOPED = {
     ("GET", "/"),
     ("GET", "/display"),
     ("GET", "/display/special-looks"),
+    ("GET", "/display/arrivals"),
     ("GET", "/display/calendar"),
     ("GET", "/display/screen"),
     ("GET", "/detection"),
@@ -73,7 +74,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 36
+        assert len(EXPECTED_DEVICE_SCOPED) == 37
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))
@@ -218,7 +219,7 @@ def _crawl_addresses(body):
         # The space switch leads to a destination the server resolves (the
         # administrator's own frame), never to a frame-scoped address.
         if any(name in str(node.attrs.get("class", "")) for name in (
-                "space-switch", "mobile-nav__link--space")):
+                "space-switch", "tab-bar__link--switch")):
             continue
         selector = _inside_switcher(node)
         for name, value in node.attrs.items():
@@ -242,6 +243,10 @@ def _methods(method):
 
 def _scoped_by_table(method, url):
     path = re.split(r"[?#]", url, maxsplit=1)[0]
+    if path == "/airlines/manage" and method == "GET":
+        # The airline editor is one global list: the Console navigation links
+        # to it without a frame.
+        return False
     for each in _methods(method):
         found = routes.match(each, path, "")
         if found is not None and found[0].device_scoped:

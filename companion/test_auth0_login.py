@@ -330,7 +330,7 @@ def _signed_in_user(rig):
 def test_user_logout_ends_the_session_then_hops_to_auth0(auth0_rig):
     rig = auth0_rig
     cookie = _signed_in_user(rig)
-    assert http_request(rig.server.url("/"), cookie=cookie)[0] == 404
+    assert http_request(rig.server.url("/health"), cookie=cookie)[0] == 404
     status, headers, body = http_request_full(
         rig.server.url("/logout"), method="POST", data=b"", cookie=cookie)
     assert status == 200

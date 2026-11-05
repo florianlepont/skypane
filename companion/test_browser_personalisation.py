@@ -1,12 +1,13 @@
 """Real-browser checks of the Personalisation page (/display and its three sibling views): at 360
 and 1280 px, in English and French, in both themes, nothing overflows sideways and every control
-(the section navigation, the Departures/Arrivals tabs, the picker's colour dots, background and
-band segments, Reset, Save, the Screen switch) is at least 44x44 and owns its own centre. The
-Look view is the picker: choosing in it raises the save bar naming Look and Save persists the
-look after a reload; the tabs switch the picture and the picker between Departures and Arrivals;
-Reset puts the saved look back. The navigation links are plain links, one view each, with a
-highlight that slides to the current link (and does not under reduced motion); without scripts
-the Look view offers the native look cards and tables."""
+(the one navigation, the picker's colour dots, background and band segments, Reset, Save) is at
+least 44x44 and owns its own centre. Departures and Arrivals are the picker: choosing in it raises
+the save bar naming Look and Save persists the look after a reload; the Arrivals address shows
+its own picture and the "Same as departures" switch; Reset puts the saved look back; from 960 px
+the picture and the picker are two columns that both fit a 1280x800 screen. The navigation links
+are plain links, one view each, with a highlight that slides to the current link (and does not
+under reduced motion); the retired Screen address lands on Departures; without scripts the
+look views offer the native look cards and tables."""
 import pytest
 
 from companion import auth, layout
@@ -30,10 +31,11 @@ pytestmark = pytest.mark.browser
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 VIEW_ROUTES = (
     ("look", layout.DISPLAY_ROUTE),
+    ("look", layout.DISPLAY_ARRIVALS_ROUTE),
     ("special-looks", layout.DISPLAY_SPECIAL_LOOKS_ROUTE),
     ("calendar", layout.DISPLAY_CALENDAR_ROUTE),
-    ("screen", layout.DISPLAY_SCREEN_ROUTE),
 )
+LOOK_ROUTES = (layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE)
 SAVED_LOOK = "band_red_field"
 PICKER = "[data-look-sheet][data-look-inline]"
 THUMB = "[data-pers-thumb]"
@@ -57,7 +59,7 @@ def _ready(page, route):
     """Waits for the view's own main control, then for the page to settle."""
     page.wait_for_function(_SETTLED, timeout=15000)
     page.locator(".personalisation-nav.is-enhanced").wait_for(state="visible")
-    if route == layout.DISPLAY_ROUTE:
+    if route in LOOK_ROUTES:
         page.locator(PICKER).wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
 
@@ -105,15 +107,15 @@ def _checked_theme(page):
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_no_overflow_and_every_control_is_44px_and_reachable(
         new_context, make_app_server, label, viewport, theme, lang):
-    """the Look view does not scroll sideways and its nav links, tabs, colour dots, segments, Reset
-    and Save are at least 44x44 and own their centre; the Screen view's switch likewise"""
+    """the look views do not scroll sideways and their nav links, colour dots, segments, Reset
+    and Save are at least 44x44 and own their centre; the Arrivals view's switch likewise"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
     try:
         overflow = _assert_no_page_overflow(page, "personalisation", viewport["width"])
         assert not overflow, overflow
         selectors = (
-            ".personalisation-nav__link", ".look-tabs__tab", PICKER + " .look-dot",
+            ".personalisation-nav__link", PICKER + " .look-dot",
             PICKER + " .look-seg__option", PICKER + " .look-sheet__reset",
             PICKER + " .look-sheet__save")
         for selector in selectors:
@@ -122,9 +124,11 @@ def test_no_overflow_and_every_control_is_44px_and_reachable(
             for box, owns in measured:
                 assert box["width"] >= 44 - 0.5 and box["height"] >= 44 - 0.5, (selector, box)
                 assert owns, selector
-        page.goto(server.base_url() + layout.DISPLAY_SCREEN_ROUTE)
-        _ready(page, layout.DISPLAY_SCREEN_ROUTE)
-        for selector in (".personalisation-nav__link", "#personalisation-screen button.switch"):
+        page.goto(server.base_url() + layout.DISPLAY_ARRIVALS_ROUTE)
+        _ready(page, layout.DISPLAY_ARRIVALS_ROUTE)
+        for selector in (
+                ".personalisation-nav__link", PICKER + " .look-dot", "[data-look-same]",
+                PICKER + " .look-sheet__save"):
             measured = _measure(page, selector)
             assert measured, selector
             for box, owns in measured:
@@ -165,7 +169,7 @@ def test_on_a_phone_the_navigation_scrolls_sideways_inside_itself_and_shows_the_
     server = make_app_server(seed=_seed)
     context, page = _open(
         new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, lang="fr",
-        route=layout.DISPLAY_SCREEN_ROUTE)
+        route=layout.DISPLAY_CALENDAR_ROUTE)
     try:
         assert page.evaluate(
             "() => { const n = document.querySelector('[data-pers-nav]');"
@@ -232,24 +236,28 @@ def test_the_inline_save_button_saves_the_look(new_context, make_app_server):
 
 
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_tabs_switch_the_picture_and_the_picker_and_reset_restores_the_saved_look(
+def test_the_views_show_their_own_picture_and_reset_restores_the_saved_look(
         new_context, make_app_server, label, viewport):
-    """Departures is shown first; Arrivals shows its own picture and offers "Same as departures";
-    a choice there changes only Arrivals; Reset puts the saved Arrivals look back"""
+    """Departures shows its picture first; the Arrivals address shows its own picture and offers
+    "Same as departures"; a choice there changes only Arrivals; Reset puts the saved Arrivals
+    look back"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport)
     try:
         departures = page.locator('[data-look-panel="departures"]')
         arrivals = page.locator('[data-look-panel="arrivals"]')
         assert departures.is_visible() and not arrivals.is_visible()
-        assert page.locator('[data-look-tab="departures"]').get_attribute("aria-pressed") == "true"
         assert not page.locator("[data-look-same-row]").is_visible()
-        page.click('[data-look-tab="arrivals"]')
+        link = page.locator('.personalisation-nav__link[href$="%s"]' % layout.DISPLAY_ARRIVALS_ROUTE)
+        link.evaluate("el => el.scrollIntoView({block: 'center', inline: 'center'})")
+        with page.expect_navigation():
+            link.click()
+        _ready(page, layout.DISPLAY_ARRIVALS_ROUTE)
         page.wait_for_function(
             "() => document.querySelector('[data-look-panel=\"arrivals\"]').hidden === false"
             " && document.querySelector('[data-look-panel=\"departures\"]').hidden === true",
             timeout=5000)
-        assert page.locator('[data-look-tab="arrivals"]').get_attribute("aria-pressed") == "true"
+        assert arrivals.is_visible() and not departures.is_visible()
         page.locator("[data-look-same-row]").wait_for(state="visible")
         assert page.get_attribute("[data-look-same]", "aria-checked") == "true"
         assert page.locator(PICKER + ' input[data-look-axis="colour"][value="green"]').is_disabled()
@@ -267,13 +275,31 @@ def test_the_tabs_switch_the_picture_and_the_picker_and_reset_restores_the_saved
         page.wait_for_function(
             "() => { const r = document.querySelector('input[name=\"theme_arriving\"]:checked');"
             " return !!r && r.value === ''; }", timeout=5000)
-        page.click('[data-look-tab="departures"]')
-        page.wait_for_function(
-            "() => document.querySelector('[data-look-panel=\"departures\"]').hidden === false",
-            timeout=5000)
-        assert page.is_checked(PICKER + ' input[data-look-axis="colour"][value="red"]')
     finally:
         context.close()
+
+
+def test_on_desktop_the_picture_and_the_picker_are_two_columns_that_fit_the_screen(
+        new_context, make_app_server):
+    """at 1280x800 the picture is on the left and the picker card on the right, side by side, and
+    both end inside the first screen on Departures and on Arrivals; the picture is not tiny"""
+    server = make_app_server(seed=_seed)
+    viewport = {"width": 1280, "height": 800}
+    for route in LOOK_ROUTES:
+        context, page = _open(new_context, server.base_url(), viewport, route=route)
+        try:
+            boxes = page.evaluate(
+                "() => { const pic = document.querySelector('.look-panel:not([hidden]) .look-frame__picture')"
+                ".getBoundingClientRect(); const pick = document.querySelector('[data-look-sheet]')"
+                ".getBoundingClientRect(); return {pic: [pic.left, pic.right, pic.top, pic.bottom],"
+                " pick: [pick.left, pick.right, pick.top, pick.bottom]}; }")
+            pic, pick = boxes["pic"], boxes["pick"]
+            assert pic[1] <= pick[0] + 1, boxes
+            assert pic[3] <= 800 and pick[3] <= 800, boxes
+            assert pic[1] - pic[0] >= 300, boxes
+            assert not _assert_no_page_overflow(page, "look", 1280)
+        finally:
+            context.close()
 
 
 def test_the_picker_is_in_the_page_not_a_dialog(new_context, make_app_server):
@@ -306,6 +332,8 @@ def test_the_navigation_links_are_plain_links_one_view_each(
     try:
         links = page.locator(".personalisation-nav__link")
         assert [links.nth(i).evaluate("el => el.tagName") for i in range(4)] == ["A"] * 4
+        assert [links.nth(i).inner_text().strip() for i in range(4)] == [
+            "Departures", "Arrivals", "Special looks", "Calendar"]
         for position, (slug, route) in enumerate(VIEW_ROUTES):
             if route == layout.DISPLAY_ROUTE:
                 continue
@@ -379,25 +407,38 @@ def test_under_reduced_motion_the_highlight_does_not_slide(new_context, make_app
         context.close()
 
 
+def test_the_retired_screen_address_lands_on_departures(new_context, make_app_server):
+    """the old Screen address still answers: it ends on Departures with its link marked"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(
+        new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SCREEN_ROUTE)
+    try:
+        assert page.url.split("?")[0].endswith(layout.DISPLAY_ROUTE)
+        current = page.locator('.personalisation-nav__link[aria-current="page"]')
+        assert current.get_attribute("href").endswith(layout.DISPLAY_ROUTE)
+    finally:
+        context.close()
+
+
 def test_without_scripts_the_links_work_and_the_look_view_offers_the_native_cards(
         new_context, make_app_server):
     """scripts blocked: the navigation links still open each view, the current link carries the
-    highlight itself, the look cards and the arrivals table are there, and the script-only tabs
-    and picker are not"""
+    highlight itself, the look cards are there, and the script-only picker is not; the Arrivals
+    link opens the arrivals table"""
     server = make_app_server(seed=_seed)
     with _no_js_page(new_context, server.base_url(), layout.DISPLAY_ROUTE,
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
         page.wait_for_load_state("load")
         page.locator(".look-pick__card").first.wait_for(state="visible")
-        assert not page.locator(".look-tabs").is_visible()
         assert not page.locator(PICKER).is_visible()
         assert page.locator('input[name="theme"]:checked').get_attribute("value") == SAVED_LOOK
         background = page.evaluate(
             "() => getComputedStyle(document.querySelector('.personalisation-nav__link[aria-current]'))"
             ".backgroundColor")
         assert background not in ("rgba(0, 0, 0, 0)", "transparent")
-        link = page.locator('.personalisation-nav__link[href$="%s"]' % layout.DISPLAY_SCREEN_ROUTE)
+        link = page.locator('.personalisation-nav__link[href$="%s"]' % layout.DISPLAY_ARRIVALS_ROUTE)
         with page.expect_navigation():
             link.click()
-        page.locator("#personalisation-screen").wait_for(state="visible")
-        assert page.url.split("?")[0].endswith(layout.DISPLAY_SCREEN_ROUTE)
+        page.locator('[data-look-panel="arrivals"]').wait_for(state="visible")
+        assert page.url.split("?")[0].endswith(layout.DISPLAY_ARRIVALS_ROUTE)
+        assert not page.locator('[data-look-panel="departures"]').is_visible()

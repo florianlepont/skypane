@@ -24,7 +24,8 @@ def count_line_html(text):
     return '<p class="entity-count text-label">%s</p>' % escape_html(text)
 
 
-def entity_row_html(dot_html, title, subtitle, pills_html, action_html, href=None):
+def entity_row_html(dot_html, title, subtitle, pills_html, action_html, href=None,
+                    extra_class=""):
     """One row. `title` is a link when `href` is given, else plain text;
     `subtitle` is the muted second line (may be empty or None)."""
     title_text = escape_html(title)
@@ -39,6 +40,8 @@ def entity_row_html(dot_html, title, subtitle, pills_html, action_html, href=Non
     dot_markup = '<span class="entity-row__dot">%s</span>' % dot_html if dot_html else ""
     # Without a dot the text block takes the first grid track instead.
     css = "entity-row" if dot_markup else "entity-row entity-row--no-dot"
+    if extra_class:
+        css += " " + extra_class
     pills_markup = (
         '<span class="entity-row__pills">%s</span>' % pills_html if pills_html else "")
     return (

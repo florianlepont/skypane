@@ -332,18 +332,29 @@ SUPERSEDED keys: `nav.my_views` ("My views"/"Mes vues"), the "Advanced"/"Avancé
 the "Switch to your own views" aria strings are removed from the shell; keep the catalogue entries
 only if another page still uses them.
 
+**Round 4 revision (plan 61-46, W38, W39, W22): the phone switch is a tab-bar cell.** On a phone (<960px) the
+big strip under the header and the switch row in the More sheet are removed. For an administrator the tab bar's
+**first cell** is the space switch: a plain GET link (same fixed destinations as the segments: `/fleet` or `/`)
+that names the space it leads to (icon + short label: "Console" in My frame, "My frame" / "Mon cadre" in Console).
+It is a fixed 64px cell (56px high, 44px target met), set apart by a 1px accent outline on its pill with a faint
+accent wash, accent text and a 1px `--color-border` divider after it. The two-segment control stays in the desktop
+sidebar only. The phone header is a slim logo-only bar (min-height 52px, `--color-secondary`): the gear button and
+its panel are gone (Sign out stays on the Account page, as on the desktop sidebar footer).
+
 ### 1.3 Phone tab bars (bottom, existing `.tab-bar`, 5 cells, equal-share flex, 44px+ targets, 56px high)
 
 | Space | Cell 1 | Cell 2 | Cell 3 | Cell 4 | Cell 5 |
 |-------|--------|--------|--------|--------|--------|
-| Personal (admin **and** user, identical) | Home | History | Location | Style | More |
-| Console | Fleet | Users | Health | Device | More |
+| Personal (admin **and** user, identical) | [admin: switch to Console] Home | History | Location | Style | More |
+| Console | [switch to My frame] Fleet | Users | Airline editor | More |
 
 - **Personal More sheet:** (admin only: the space switch first), Airline collection, Account,
   Sign out (no language or theme switch; they live on Account only, W14). It is identical for a user
   except the space switch row.
-- **Console More sheet:** the space switch, Airline editor, Audit log, Releases, Account,
-  Sign out.
+- **Console More sheet (round 4):** Audit log, Account. The Console bar is the space switch cell, Fleet, Users,
+  Airline editor and More: a sixth equal cell does not fit the longest FR labels ("Compagnies", "Utilisateurs") at 360px,
+  so Audit log moved into More. The personal bar keeps Home, History, Location and Style beside the switch (six cells for
+  an administrator, five for a user); the More sheet no longer holds a space switch row.
 - Health severity dot: on the Console Health cell only, and only when the frame in scope is warn or
   error. The personal bar has no Health cell and no severity dot (the Home dot carries it).
 - Labels never wrap or clip; the longest FR labels are checked at 360px (R6). SUPERSEDED: revision 1
@@ -377,11 +388,22 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
   last-seen word under the name: "Seen 2m ago" / "Vu il y a 2 min", or "Not seen yet" / "Pas encore
   vu" for a frame that never checked in. A third muted line carries "Shared by {owner email}" for a
   co-managed frame and the owner email on a frame the viewer does not own (never on their own).
+- **Phone (<700px, round 4, W23):** the strip sits in a collapsible, marked-off surface (`details.frame-fold`,
+  open by default; the summary row, at least 44px high, shows the active frame's name with a chevron and opens
+  or closes the tiles). With script the choice is remembered in `localStorage` (`skypane.frameStrip`, inside
+  try/catch); without script the strip is simply open. The surface uses `--color-secondary`, a hairline
+  `--color-border`, an inset shadow and a soft top gradient, all from tokens, in both themes. Tiles are 84px wide
+  and show only the small picture (32x42px) and the name on one line (ellipsis) with the status dot in the corner;
+  the last-seen word and the owner note are hidden. From 700px the summary is hidden, the script keeps the strip
+  open and the tiles keep the look above. The Console Fleet strip (frames, System, Add a frame) uses the same
+  fold and compact tiles; its summary names the selected frame or "System". The Fleet strip is always open by
+  default (it also carries the System and Add tiles), even with a single frame.
 - **Active tile:** `aria-current="true"`, outlined 2px in the accent colour with a faint accent wash.
-- **Add a screen tile:** the last item, dashed border, "+" glyph and "Add a screen" / "Ajouter un
-  écran" in the accent colour, linking to the existing pairing flow (`/fleet?pair=1`, the Fleet page
-  with its pairing dialog open). Shown only to an administrator, the only role that may pair a frame;
-  hidden for everyone else.
+- **Add a frame tile (plan 61-47, D34, W33):** the last item, dashed border, "+" glyph and "Add a frame" /
+  "Ajouter un cadre" in the accent colour. Shown to every signed-in person. For a user (and for an
+  administrator on a personal page) it leads to their own Add a frame page (`/pair-frame`); on the Console
+  Fleet strip it opens the Fleet pairing dialog on the page (hash link, works without script) and is the
+  ONLY entry to that dialog (the "+ Add a frame" button next to the Fleet title is gone).
 - **Layout:** below 700px the strip is a horizontal scroller (one row, `overflow-x: auto`, snap);
   from 700px it wraps. Both themes, EN and FR, no page-level horizontal overflow at 360px.
 - Tiles go to the **same page** of the other frame (`device_scope.target_path(page, device)`), always
@@ -397,8 +419,8 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
   platform (administrator only), problems first then by name, each tile also showing the owner
   email as its last line; this is the legitimate place for the all-frames list. The strip is the
   same. With one frame in the fleet nothing is rendered.
-- Strings (EN / FR): "Your frames" / "Vos cadres"; "Seen %s" / "Vu %s"; "Add a screen" / "Ajouter un
-  écran"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la
+- Strings (EN / FR): "Your frames" / "Vos cadres"; "Seen %s" / "Vu %s"; "Add a frame" / "Ajouter un
+  cadre"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la
   flotte" (existing). Removed with the sheet: "Choose a frame", "Manage my frames", "Current", the
   chip's "Switch frame, current: %s", and (earlier) "All frames (Fleet)".
 - The old `?device=` GET redirect stays (old bookmarks).
@@ -410,6 +432,7 @@ scope holds two or more frames**. One frame: nothing is rendered, nothing to cho
 | `/login`, `/login/auth0`, `/callback`, `/logout`, `/credits` | GET/POST | as today | unchanged; `/login` while signed in redirects to the role's landing |
 | `/fleet` | GET | ADMIN_ONLY | Console "Fleet" (admin landing); name link and row menu change (3.2) |
 | `/fleet/pair`, `/fleet/register`, `/fleet/frames/<id>/{retire,reactivate,reassign}` | POST | ADMIN_ONLY, csrf | unchanged; forms in dialogs on `/fleet`; `/fleet/register` has no UI |
+| `/pair-frame` | GET, POST | SIGNED_IN, csrf on POST | plan 61-47 (D34): a signed-in person adds their own frame with the code shown on it; the owner is always the signer (no owner field); same code validation, identical refusal and both throttles as `/fleet/pair`; success 303 to `/devices/<id>/?flash=frame_paired`; an un-prefixed frame page for a user with no frame is a 303 to `/account` |
 | `/users`, `/users/invite`, `/users/<id>/{role,disable,enable,unlink}` | GET/POST | ADMIN_ONLY | unchanged (Console "Users") |
 | `/locations` | GET | ADMIN_ONLY | **303 to `/fleet`** (D20: no Locations page; a user still gets 404) |
 | `/locations/add`, `/locations/<id>/{edit,delete}` | POST | ADMIN_ONLY, csrf | routes and tests kept, **no UI** (expand-only, like `/fleet/register`; the owner may ask for their removal in a later cleanup) |
@@ -514,7 +537,7 @@ Behaviour (testable):
 | # | Dialog | Opened from | Fields | Submit (kind) | Existing POST |
 |---|--------|-------------|--------|---------------|---------------|
 | 1 | Invite a user | "+ Invite a user" (Users header) | Email (type=email, required, max 254), Role (User default / Administrator) | Invite user (primary) | `/users/invite` |
-| 2 | Add a frame | "+ Add a frame" (Fleet header) | Pairing code (mono, XXXX-XXXX, max 12, autocapitalize), Owner (select, "Choose an owner") | Pair frame (primary) | `/fleet/pair` |
+| 2 | Add a frame | the Add a frame tile of the Fleet strip (W33) | Pairing code (mono, XXXX-XXXX, max 12, autocapitalize), Owner (select, "Choose an owner") | Pair frame (primary) | `/fleet/pair` |
 | 3 | Retire | row menu (active rows that are not the served frame) | none (sentence) | Retire frame (destructive) | `/fleet/frames/<id>/retire` |
 | 4 | Reassign | row menu (active rows) | New owner (select, required) | Reassign frame (destructive when the frame is not the served frame, else primary) | `/fleet/frames/<id>/reassign` |
 | 5 | Re-activate | row menu (retired rows) | none (sentence) | Re-activate frame (destructive) | `/fleet/frames/<id>/reactivate` |
@@ -600,8 +623,7 @@ Glossary (two senses of "live" are kept apart): **active** = a frame row that is
 ## 3. Fleet list and users list
 
 Visual anchor (what draws the eye first): on Fleet, the first row whose dot is red or amber (rows
-are ordered problems first) and, beside the title, the accent "+ Add a frame"; with no problem the
-count line and the accent button. On Users, the accent "+ Invite a user" button, then the first
+are ordered problems first); with no problem the count line and the last strip tile "Add a frame". On Users, the accent "+ Invite a user" button, then the first
 email in 16px semibold; the "Invited"/"Disabled" pills are the only other emphasis.
 
 ### 3.1 Status dot vocabulary (D2 and D8, one shared function)
@@ -630,8 +652,8 @@ and `frame_state.STATE_*`.
 
 ### 3.2 Fleet list (Console, `/fleet`)
 
-Page header: title "Fleet" (FR "Flotte"), purpose line, right-aligned primary "+ Add a frame"
-(`.page-header__actions`; the title and button fit one 312px row at 360px in EN and FR).
+Page header: title "Fleet" (FR "Flotte") and purpose line; no header button (W33: "Add a frame" lives only in the
+frame strip's last tile).
 Then one card holding: count line (12px label voice) "6 frames · 1 needs attention", then the list.
 
 Markup: one `ul.entity-list` (replaces the duplicated cards + `<table>` markup; no table, no
@@ -673,7 +695,6 @@ render inside the Manage dialog, so they can no longer truncate in a row.
 | Element | EN | FR |
 |---------|----|----|
 | Fleet title / purpose | Fleet / Every frame on the platform: who owns it and whether it is up to date. | Flotte / Tous les cadres de la plateforme : à qui ils sont et s'ils sont à jour. |
-| Add button | + Add a frame | + Ajouter un cadre |
 | Count | %d frames / 1 frame | %d cadres / 1 cadre |
 | Attention suffix | · %d need attention / · 1 needs attention | · %d demandent de l'attention / · 1 demande de l'attention |
 | Row menu aria | Actions for %s | Actions pour %s |
@@ -716,9 +737,16 @@ Sign out. **Preferences** (W13) is two labelled rows, **Language** / FR "Langue"
 dot, name link to the frame Home (16px semibold), line 2 (14px muted) hardware label for an owned
 frame or "Shared by {owner email}" for a co-managed one, and one 44px action: **"Manage access"**
 (dialog 6) on frames the user owns, **"Leave frame"** (dialog 7) on shared frames. No battery, no last
-contact (D8). Empty state: heading "Your frames will appear here" / FR "Vos cadres apparaîtront ici";
-body "Once an administrator pairs a frame to your account, you land on its Home after you sign in."
-/ FR "Dès qu'un administrateur appaire un cadre à votre compte, vous arrivez sur son accueil après la connexion."
+contact (D8). Under the list a 44px secondary link "Add a frame" / FR "Ajouter un cadre" (`a.pair-link`,
+`/pair-frame`). Empty state (first sign-in with no frame, D34; this card is where a frame-less user lands):
+heading "Your frames will appear here" / FR "Vos cadres apparaîtront ici"; one-line hint "The pairing code is
+shown on your frame's screen." / FR "Le code d'association s'affiche sur l'écran de votre cadre."; one
+primary 44px link "Add your frame" / FR "Ajouter votre cadre" (`a.pair-link--primary`).
+**Add a frame page (`/pair-frame`):** title "Add a frame", purpose "Enter the code shown on your frame's
+screen. The frame will be yours.", one Pairing code field (mono, XXXX-XXXX, max 12, 44px), the validity
+help, primary "Add frame" / FR "Ajouter le cadre" and a Cancel link back to Account; a plain form that
+works without script, a refusal shows the same docked "Code not recognised" toast and field error as the
+Fleet dialog, a lockout the "Too many attempts" toast (429).
 The Identity card keeps long emails wrapping (existing rule).
 
 **Display (user, D9). SUPERSEDED (revision 2): the merged card and the time zone move to the Location and detection tab (section 9); the rest of the page becomes "Personalisation" (section 11); Quiet hours moves to a Home dialog (section 10). Revision 1 text follows for history.** All display settings stay. The Location picker (with time zone) and the
@@ -731,7 +759,7 @@ tracking beyond the fields it already owns. The Device page no longer repeats th
 | Element | EN | FR |
 |---------|----|----|
 | Frame strip aria (SUPERSEDED: the chip's "Switch frame, current: %s") | Your frames | Vos cadres |
-| Add tile (D30; replaces the sheet footer "Manage my frames") | Add a screen | Ajouter un écran |
+| Add tile (D30; replaces the sheet footer "Manage my frames") | Add a frame | Ajouter un cadre |
 | Shared mark | Shared · %s | Partagé · %s |
 | My frames heading | My frames | Mes cadres |
 | Shared line | Shared by %s | Partagé par %s |
@@ -864,7 +892,7 @@ airports) are kept and re-presented.
 **Visual anchor:** the map is the largest element and the first thing the eye reads; the accent pin on
 it is the only accent mark above the fold apart from the active tab and, for an administrator, the accent-filled current segment of the space switch.
 
-### 9.0 Revision 3 (D28): the page is sketch V1; 9.1 and the card-by-card wording below it are history
+### 9.0 Revision 3 (D28): the page is sketch V1; 9.1 and the card-by-card wording below it are history (9.0b below supersedes parts of this)
 
 The map fills the page. Without scripts the page is the plain column described in 9.8.
 
@@ -887,6 +915,45 @@ The map fills the page. Without scripts the page is the plain column described i
 - The map's zoom control is at the top right; the OpenStreetMap credit is at the bottom right on desktop and at the top left, under the
   controls, on a phone (the bottom of the map is under the sheet). The Save bar is the existing dirty bar.
 - Tokens only (no colour literals), both themes, 360px and 1280px, every control at least 44px.
+
+### 9.0b Revision 4 (D36, plan 61-50): mockups L1 (phone, Airport), L2 (phone, My position), L3 (desktop); supersedes 9.0 where they differ
+
+The map is the page. Owner feedback W25 (unusable on a phone), W40 (bigger map), W41 (centred segment labels), W42 (one search field),
+W43 (locate button bug), W44 (no coordinates line), W45 (no saved-settings disclosure, discreet map credit).
+
+- **Stage** (`.place-stage`, map running): fills the page content area. Phone: edge to edge, from the slim app bar to the tab bar (the page
+  content is a flex column of `100dvh - 52px - 57px - safe-area`; a docked warning above the map takes its height off the map, never off the
+  screen), no page scroll, no horizontal overflow, verified at 360x640, 360x844, 390x844. Desktop (>=960px): the whole content area, full
+  viewport height, meeting the sidebar. The page title is visually hidden at both sizes.
+- **One search field** (`.place-search`, `#place-search`, placeholder "Airport (ORY) or address" / "Aéroport (ORY) ou adresse"): floats at
+  the top of the map (12px from the edges on a phone, 360px wide above-left on desktop, separate from the card). Enter or its round search
+  button submits. Text equal to an airport's ICAO code, IATA code or whole name (case, accents and spaces folded) opens that airport's page
+  (`?airport=`, the existing GET flow; no request leaves). Anything else is an address: the existing Nominatim-on-submit flow (one request
+  per submit, lock, cache). A result list starts under the mode chips on a phone; a one-line note never blocks a tap and goes after 8 s.
+  The airport filter field and list exist only in the no-script page (the list's anchors stay in the page as the map's airport data).
+- **Mode** (radios `place-mode-runway` / `place-mode-area`, FR "Aéroport" / "Ma position"): two pill chips under the search field on a
+  phone; the two-segment switch at the top of the card on desktop. Every label is centred in its segment (text box measured against the
+  segment box within 1 px).
+- **Sheet** (`.place-sheet`): phone, a compact bottom sheet, never more than 40dvh (scrolls inside; Cancel and Save stick to its foot):
+  airport name and codes, "Runway to follow", the runway cards three to a row (surface and tag hint hidden), Cancel and Save (the dirty bar,
+  now inside the sheet; it shows once something changed). My position: the radius (number field plus a pointer-only range) and Save. The
+  map recentres on the part the sheet and the floating controls leave clear, and again only when the sheet changes height under the pin.
+  Desktop: the sheet is the body of the 360px card (`.place-card`) under the mode switch, at the left of the map.
+- **Locate button** (`#place-locate`, 48px round, bottom right on the map, above the sheet on a phone): requests the position with the page's
+  permission policy (`geolocation=(self)`), on success switches to My position, places the pin, draws the circle and recentres; on refusal,
+  error or timeout (10 s, plus a 3 s guard) a short message shows in a pill beside the button (`#place-message`, also in the polite status
+  line). Hidden without scripts or without `navigator.geolocation`.
+- **Credits**: no strip over the map. A round 44px "i" button (`#place-info`: top right under the search on a phone, above the locate
+  button on desktop) opens a popover with "© OpenStreetMap contributors" (link to the copyright page), the ODbL / tile / Nominatim credits,
+  the privacy line and the copyright and "report a map problem" links; Escape or a tap outside closes it. See COMPLIANCE.md.
+- **Removed from the page:** the coordinates-and-time-zone summary line and the "Saved setting and map credits" disclosure. Latitude,
+  longitude, label and time zone are still derived, posted and stored. Without scripts they are the open `#details` block in the plain
+  column. With the map running `#details` is a card over the map that shows only when the URL targets it (`#details`, the Quiet hours note's
+  link) or a refused save has an error in it; "Back to the map" closes it.
+- **Segmented controls app-wide (W41):** the filter chips (Departures / Arrivals counts) were clipping long labels ("DEPARTU...") so the
+  visible text sat off centre; `.filter-chip` now has `min-width: min-content` so a segment grows to its label. A browser test measures the
+  label box against the segment box on the flights, airlines, Personalisation and account pages at 360 and 1280px in both languages.
+- Tokens only, both themes, every control at least 44px.
 
 ### 9.1 Page structure (revision 1/2, history; top to bottom on phone; two columns at >=960px)
 
@@ -1191,17 +1258,11 @@ SUPERSEDED: revision 1 kept "Airlines" as one editing gallery for everyone who c
 the curated list `illustrations.target_variants_by_airline()` for the full set of known airlines, their pictures and names. **No new storage, no tracking of the viewer, no points, no streaks, no daily
 targets, no notifications, no ranking against other frames or users, no sharing, no way to mark an airline as seen.** A read model `airline_collection(conn, now)` returns one row per known airline plus unknown seen names; it opens the database read-only like the History page does.
 
-**Page header.** Title "Airline collection" / "Collection de compagnies"; purpose line "Every airline your frame has spotted." / "Toutes les compagnies que votre cadre a repérées."
+**Page header (revision 4, owner W46/W29).** One line: the title "Airline collection" / "Collection de compagnies"; on desktop, to its right, a thin 6px progress bar (`<progress>`, `aria-label` "14 of 62 airlines spotted") with one short sentence under it, "28 airlines spotted · 22 more for the 50 badge" / "28 compagnies repérées · encore 22 pour le badge 50" (label voice, muted; when complete or all badges earned the existing complete sentences replace the goal), and the five badges as small 30px round icons (earned: filled accent tint with a check; locked: dashed outline with a star). Each badge has a `title` tooltip and visually hidden words for its accessible name ("Earned: 5 airlines", "Locked: spot 25 airlines"); the icons are not controls so they are not 44px targets. The purpose line and the big progress card are gone. On a phone (360px) the title, then the progress line, then the badge row (it scrolls sideways) stack, and the header (title, progress, badges) takes at most one third of a 740px screen; the title is 26px so the French title stays on one line.
 
-**Progress card (first, the visual anchor):** headline "14 of 62 airlines spotted" / "14 compagnies sur 62 repérées" (16px semibold), a progress bar (`<progress value max>`, 12px high, token fill; `aria-label` same text, not colour only: the count is in text), and the next goal
-line "6 more for the 20 airlines badge" / "Encore 6 pour le badge 20 compagnies" (14px muted); when complete: "You have spotted every airline on the list." Under it the **badge shelf**.
+**Controls (GET, no script needed), one bar (revision 4):** one row on desktop, wrapping on a phone: the "Filter airlines" field, the segmented "All / Spotted / Not yet seen" filter (label and count side by side, centred in each segment; on a phone the segments scroll sideways on one line instead of wrapping), the sort select inside a bordered wrapper with a visible "Sort by" label (options "Most seen / Latest / A to Z"; FR "Les plus vues / Les plus récentes / A à Z"), and a 44px round "i" button that opens the rarity legend (a native `<details class="row-menu">`: keyboard accessible, closed by Escape or an outside tap through `modal.js`). The visible "Airlines: N" count and the stacked legend line are gone; the count remains as a visually hidden live status for screen readers. Everything sits in one GET form; all controls are 44px+. With a script the sort select and the segments submit on change (`data-autosubmit`, handled in `list-filter.js`) and the Apply button is hidden (`.js`); without a script the Apply button stays visible and is the only way to send the form.
 
-**Badges (five, collection-level, derived from the count):** "First sighting" (1), "5 airlines", "10 airlines", "25 airlines", "50 airlines" (FR: "Première observation", "5 compagnies", "10 compagnies", "25 compagnies", "50 compagnies").
-A badge is a 44px-high pill: a glyph (`icon-star`, add to the sprite) and its label; earned badges are `--color-dominant` with a 2px `--color-text` border and a check; locked badges are 70% text colour with a thin solid border (no dashed pill; revision 3) and the word "Locked" hidden-visible to screen readers ("Locked: spot 25 airlines"). The state is carried by the border, the check and the text, not colour alone. No accent use.
-
-**Controls (GET, no script needed), one bar (revision 3):** row one is the "Filter airlines" field and the sort select ("Most seen / Latest / A to Z"; FR "Les plus vues / Les plus récentes / A à Z") with a visible "Sort by" label; row two is the three `filter-chip` radios "All / Spotted / Not yet seen", a plain-text count "Airlines: 12" / "Compagnies : 12" (no pill, no border, live through `list-filter.js`) and the "Apply" / "Appliquer" submit button. Everything sits in one GET form; all controls are 44px+ and the rows wrap cleanly at 360px. With a script the sort select and the chips submit on change (`data-autosubmit`, handled in `list-filter.js`) and the Apply button is hidden (`.js`); without a script the Apply button stays visible and is the only way to send the form.
-
-**Rarity colours (revision 3):** the three tiers use tokens defined in both themes: Regular neutral, Occasional `--color-rarity-occasional` (teal), Rare `--color-rarity-rare` (violet); the inks are text-safe (>=4.5:1). The tier colours the rarity pill (border, text, dots, tint), a 3px top border on the card, and the aircraft type chips in the sheet (an Occasional or Rare type carries the tier word). Colour is never the only signal: dots and the word ("Regular / Occasional / Rare", FR "Habituelle / Occasionnelle / Rare") always accompany it. A legend under the bar names each tier with its range ("10 or more sightings", "3 to 9 sightings", "Fewer than 3 sightings"). Aircraft types use the same thresholds on the frame's total sightings of that type; the threshold table lives in `companion/airline_collection.py`.
+**Rarity colours (revision 3):** the three tiers use tokens defined in both themes: Regular neutral, Occasional `--color-rarity-occasional` (teal), Rare `--color-rarity-rare` (violet); the inks are text-safe (>=4.5:1). The tier colours the rarity pill (border, text, dots, tint), a 3px top border on the card, and the aircraft type chips in the sheet (an Occasional or Rare type carries the tier word). Colour is never the only signal: dots and the word ("Regular / Occasional / Rare", FR "Habituelle / Occasionnelle / Rare") always accompany it. The legend, behind the "i" button of the bar, names each tier with its range ("10 or more sightings", "3 to 9 sightings", "Fewer than 3 sightings"). Aircraft types use the same thresholds on the frame's total sightings of that type; the threshold table lives in `companion/airline_collection.py`.
 
 **Grid of airline cards:** `ul` of cards, 2 columns at 360px, 3 at >=700px, 4 at >=1280px, gap `--space-md`. Each card is one `<a href="#dlg-airline-<id>" data-modal-open>` (44px+ hit area = the whole card; a link so the no-JS hash path shows the sheet, never a `<button>`) opening the read-only detail sheet:
 - the airline picture (existing normalised illustration, `width`/`height` constants from `illustration_normalize`, `loading="lazy"`);
@@ -1211,7 +1272,7 @@ A badge is a 44px-high pill: a glyph (`icon-star`, add to the sprite) and its la
 - a "New" pill (FR "Nouveau") when the first sighting is within the last 7 days.
 - **Not yet seen** cards: the picture dimmed (`opacity: 0.45`, `filter: grayscale(1)`), the name, and the line "Not seen yet" / "Pas encore vue"; no count, no pill; the card still opens the sheet (name and "Not seen yet"), but never shows editing.
 
-**Detail sheet (read-only, the shared modal component, bottom sheet on phone):** the larger picture; title = name; facts as a definition list: Times seen, First seen, Last seen (Paris-local dates, 14px; relative time via `relative-time.js` as History does), Aircraft types seen (the frame's own types), Rarity with the sentence above, Recent callsigns (up to 5, mono). Dismiss "Close" / "Fermer". **No form, no upload, no rename, no resolve, no delete.**
+**Detail sheet (read-only, the shared modal component, bottom sheet on phone; revision 4, owner W28):** at most 85dvh tall; the head (title and close X) and the Close foot stay in place and only the body scrolls; compact spacing; the picture is at most 72px high on a phone (160px on desktop); facts as a definition list, two per row where they fit (Times seen and Rarity, First seen and Last seen; Aircraft types seen and Recent callsigns, up to 5, mono, span the full row): Paris-local dates, relative time via `relative-time.js` as History does, plus the rarity sentence above. Dismiss "Close" / "Fermer". **No form, no upload, no rename, no resolve, no delete.**
 
 **Empty state** (no events yet), compact: heading "Your collection starts with the first plane" / "Votre collection commence avec le premier avion"; body "Airlines show up here as your frame sees them." / "Les compagnies apparaissent ici dès que votre cadre les voit."; the grid of not-yet-seen cards stays below it, still dimmed.
 
@@ -1272,7 +1333,7 @@ Every string needs an English message and an FR catalogue entry under `companion
 | Quiet hours helper | The screen rests during these hours, in the time zone %s. Change the time zone in Location and detection. | L'écran est au repos pendant ces heures, dans le fuseau %s. Changez le fuseau dans Lieu et détection. |
 | Quiet hours toast | Quiet hours saved — The screen will rest from %s to %s. | Heures calmes enregistrées — L'écran sera au repos de %s à %s. |
 | Collection progress | %d of %d airlines spotted | %d compagnies sur %d repérées |
-| Next goal | %d more for the %d airlines badge | Encore %d pour le badge %d compagnies |
+| Collection status | %d airlines spotted · %d more for the %d badge | %d compagnies repérées · encore %d pour le badge %d |
 | Complete | You have spotted every airline on the list. | Vous avez repéré toutes les compagnies de la liste. |
 | Badges | First sighting / %d airlines / Locked | Première observation / %d compagnies / Verrouillé |
 | Filters / sort | All / Spotted / Not yet seen; Most seen / Latest / A to Z; Filter airlines | Toutes / Repérées / Pas encore vues; Les plus vues / Les plus récentes / A à Z; Filtrer les compagnies |
@@ -1441,7 +1502,7 @@ Fleet, Users, Airlines, Audit with the space switch and Account in More. The pag
 current destination.
 
 Fleet (`/fleet`): the D30 tile strip of every frame (picture, name, status dot, last-seen word,
-the selected one outlined), an "Add a screen" tile (the pairing flow) and a last "System" tile.
+the selected one outlined), a "System" tile and a last "Add a frame" tile (the pairing dialog).
 A tile is a plain link to `/fleet?frame=<id>` or `/fleet?view=system`. The selected frame opens
 four blocks, two columns from 1000px and stacked on a phone: State (health connection, battery
 and last-detection rows), Device and version (model plus the Update page content), Settings (the
@@ -1473,3 +1534,24 @@ Strings: `admin_fleet.system_*`, `admin_fleet.block_*`, `nav.airlines_short`.
 - Still open: the old `/health`, `/device` and `/update` GET pages answer instead of redirecting (see the
   61-45 summary); the State block shows the last detection, not the current flight (the Health snapshot has
   no current flight).
+
+## Revision 3 note, part 3 (plan 61-48, short texts and a one-level Personalisation, W24 W26 W30 W47 W48 D35)
+
+- **One level of navigation (W47, D35).** Personalisation is one pill bar with four plain links: Departures (plane), Arrivals (plane, nose down), Special looks (star), Calendar (calendar), 44px, sliding thumb, scroll-snap on a phone, `aria-current="page"` on the current one. The Departures / Arrivals tabs inside the Look view are gone. Addresses: Departures `/display` (unchanged), Arrivals `/display/arrivals`, Special looks `/display/special-looks`, Calendar `/display/calendar`; all `OWNER_DEVICE`, the Display tab, plain links that work without a script. Departures and Arrivals are two views of the look picker: the same forms, the same `POST /settings`, the same per-type look fields and dirty-state behaviour; the other type's picture and radios stay in the page, hidden, so the form posts both fields and "Same as departures" (on the Arrivals view only) resolves. A rejected `theme_arriving` is redrawn on Arrivals.
+- **Screen view removed (D35).** It only held the screen on/off switch, which lives on Home. `/display/screen` is still served and answers 303 to `/display` (the frame's prefix is kept). Its nav entry, card, "Current: ..." lines and strings are gone.
+- **Two columns on desktop (W48).** From 960px a look view is a grid: the framed picture (as wide as its column and `100vh - 21rem` allow, 3:4) on the left, the picker card on the right; both are on the first screen at 1280x800. A phone keeps the stacked layout (small picture beside its read-back, then the picker).
+- **Short texts (W24, W26).** Special looks: no "Current:" line, the intro is "A different look for one airline, flight or plane." / "Une allure à part pour une compagnie, un vol ou un avion.", the empty state is the single line "No special looks yet." / "Aucun look spécial." above the primary "New special look" button, the precedence line is "Most specific wins: calendar, then flight, aircraft, airline." The Calendar card has no current line either. The New special look sheet opens with the preview: the framed picture takes 40% of the sheet width (at most 9rem) with "Matching flights will look like this." beside it, then the controls; on a phone the sheet scrolls inside itself and its foot (Cancel, Add special look, 44px) is sticky. Home notification: title is one short sentence, the body one short sentence that ends with "contact an administrator" (the mailto button and its 44px target are unchanged); a known figure (battery percent, last check-in) stays as one short line.
+  - Not seen: "Your frame has not contacted SkyPane yet." / "Check it is powered; if it stays silent, contact an administrator."
+  - Overdue: "Your frame has not checked in on time." / "Wait one cycle; if it stays silent, contact an administrator."
+  - Low battery: "Your frame's battery is low." / "Charge it or plug it in."
+  - No contact: "Your frame has no contact with the server." / "Check its power and your Wi-Fi; if it stays silent, contact an administrator."
+- **Account frames (W30).** Each "My frames" row leads with the CSS-drawn frame (the bezel and screen of the frame tiles, 44x58), then the name, the hardware or owner line, the status dot with its last-seen word ("Seen 2m ago" / "Not seen yet") and the action; the "Add a frame" entry stays.
+- **R22 updated.** `/display` has the four-link navigation Departures, Arrivals, Special looks, Calendar, each a plain link to its own address; `/display/screen` redirects to `/display`.
+
+## Revision 3 note, part 4 (plan 61-51, quiet Console pages, W34 W35 W36 W37)
+
+- **No explanatory text on administrator pages (W34).** The Fleet, Users and Audit log pages keep their title and nothing under it (no purpose line); the Users table has no footnote; the Airlines editor has no "Rename in place..." / "Unidentified callsigns come first..." captions, no "Every flight using prefix X..." sentence in the resolve dialog and its no-script section, no "Start typing" hint and no "Saved, add artwork below" line. Kept: field labels, error and empty states, the delete form's one outcome sentence ("Flights with this prefix become unidentified again. Your artwork stays."), the upload requirement line of the replace zone, and every accessible name (visually-hidden labels and aria-labels). The Locations page is outside this rule (rebuilt by plan 61-50). The site-wide caption-floor test measures the editor but now expects zero captions there (administrator pages carry none); its site-wide minimum was lowered from 14 to 8 for the same reason.
+- **Invite a user (W35).** One trigger, `a.page-header__action` inside `.page-header__actions--stack`. From 700px it sits in the header row beside the title; below 700px the header is one column and the trigger is a full-width 44px button under the title, so a long French title ("Utilisateurs") never meets it (checked at 360 and 390px, EN and FR). The invite dialog and flow are unchanged.
+- **Airline editor is one global list (W36).** The frame tile strip is gone from the editor and the Console navigation links to `/airlines/manage` without a frame. Views, Last seen and the aircraft-type counts aggregate the stored sightings of every frame in scope (`airline_collection.sightings_across`); a flight seen by two frames counts once per frame. Artwork, names and manual resolutions were already global files of the served state directory. The old frame-scoped addresses (`/devices/<id>/airlines/manage`) still answer, show the same global list and keep their in-page forms under that prefix (expand-only).
+- **Artwork (W37).** The thumbnail of an airline row and of an aircraft-type sub-row is the tap target that opens the shared lightbox (a real link to the picture without a script); its accessible name is "Enlarge the artwork of <airline>" / "Agrandir l'illustration de <airline>". Changing a picture is the first item "Change artwork" / "Changer l'illustration" of the row's "..." menu (a label wrapping the file input; it sends on change with a script, an Upload button inside the menu without one), then "Reset to the original name" when an owner name exists. A sub-row of a type with its own artwork slot has its own small "..." menu holding "Change artwork"; any other type still says "Uses the airline's artwork". The "..." menu no longer holds "Enlarge the artwork".
+- **Filters on one line.** The editor's filter bar has no chip row (search field and count only), so there was nothing to scroll there. The only Console chip row that wrapped, the Audit log's, is now one line that scrolls sideways with scroll-snap (44px minimum chip width).

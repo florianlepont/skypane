@@ -15,11 +15,10 @@
  *     button.look-sheet__done, button.look-sheet__save, the skip link)
  *   - current location / selection (.sidebar-link--active,
  *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
- *     .site-nav-toggle[aria-expanded="true"], the active theme option,
+ *     the tab bar's space switch cell, the active theme option,
  *     the checked runway/look cards and look dot, the editing look frame)
- *   - the current Personalisation section link and the chosen
- *     Departures/Arrivals tab (.personalisation-nav__link[aria-current],
- *     button.look-tabs__tab[aria-pressed="true"])
+ *   - the current Personalisation section link
+ *     (.personalisation-nav__link[aria-current])
  *   - the current segment of the space switch
  *     (.space-switch__segment--current)
  *   - the current frame's tile outline in the frame tile strip
@@ -637,43 +636,15 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-/* .mobile-nav relies on this rule's flex-wrap to drop onto its own
- * full-width row in normal document flow (never position: absolute,
- * which would only ever overlay) — that is what lets its max-height
- * transition push page content down instead of covering it. */
+/* The phone app bar: a slim strip holding the logo only. The desktop
+ * layout hides it (the sidebar carries the brand there). */
 .site-header {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-lg);
-  padding: var(--space-lg);
+  min-height: 52px;
+  padding: var(--space-xs) var(--space-md);
   background: var(--color-secondary);
-  margin-bottom: var(--space-md);
-}
-
-/* Not type="submit", so the accent-fill rule never reaches it — if a
- * later change makes it a submit button, this rule would lose, the
- * same trap .theme-form .theme-option documents. State is styled off
- * aria-expanded, not a duplicate class, so it cannot drift from the
- * announced state. */
-.site-nav-toggle {
-  margin-left: auto;
-  min-height: 44px;
-  min-width: 44px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  color: var(--color-text);
-  cursor: pointer;
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
-}
-
-.site-nav-toggle[aria-expanded="true"] {
-  color: var(--color-accent);
-  border-color: var(--color-accent);
+  margin-bottom: var(--space-sm);
 }
 
 /* The admin-only two-segment switch between the Console and the personal
@@ -749,47 +720,7 @@ a:hover {
   color: var(--color-on-accent);
 }
 
-.space-strip {
-  padding: 0 var(--space-md);
-  margin-bottom: var(--space-md);
-}
-
-/* flex-basis: 100% (not position: absolute) forces this onto its own
- * full-width row while staying in normal flow. The clipping half
- * (max-height/overflow/transition) lives in the .js .mobile-nav rule
- * below — without .js ever present, this base rule alone renders the
- * panel fully visible in document flow. The two rules must never be
- * edited independently. */
-.mobile-nav {
-  flex-basis: 100%;
-  background: var(--color-secondary);
-  box-shadow: var(--shadow-card-hover);
-  border-bottom-left-radius: var(--radius-card);
-  border-bottom-right-radius: var(--radius-card);
-}
-
-/* max-height (not display/height: auto) is used because neither of
- * those can be transitioned; overflow: hidden makes the collapsed
- * state actually hide its contents. Scoped under .js so clipping only
- * ever applies once script has proven it is running. */
-.js .mobile-nav {
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .22s ease;
-}
-
-/* 320px is measured, not guessed: with the state reminder, language/
- * theme switches and Sign out, French content measures 165px at 390px
- * — the cap is rounded up from that with room for a longer footer. */
-.js .mobile-nav--open {
-  max-height: 320px;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .js .mobile-nav {
-    transition: none;
-  }
-
   /* The global override would leave a 0.01ms loop running; the halo is
    * switched off instead, so reduced motion shows no animation at all. */
   .home-state__dot.home-state__dot--pulse::after {
@@ -1025,14 +956,6 @@ a:hover {
  * replace the active tint the moment the pointer crossed it. */
 .mobile-nav__link:not(.mobile-nav__link--active):hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-}
-
-.mobile-nav__footer {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-sm);
-  border-top: 1px solid var(--color-border);
 }
 
 .nav-notification {
@@ -1319,8 +1242,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 /* Phones: the title sits close under the app bar. The gap from the bar to
- * the title is the bar's bottom margin (--space-md, set on .site-header)
- * plus this top padding (--space-md): 32px in total instead of the 64px
+ * the title is the bar's bottom margin (--space-sm, set on .site-header)
+ * plus this top padding (--space-md): 24px in total instead of the 64px
  * the desktop-sized values gave. The breakpoint is the one that shows the
  * app bar and the tab bar. */
 @media (max-width: 959.98px) {
@@ -1882,6 +1805,91 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .frame-tiles {
     flex-wrap: wrap;
     overflow-x: visible;
+  }
+}
+
+/* The collapsible wrapper of the strip. From 700px it adds nothing: the
+ * summary row is hidden and the strip looks as above. On a phone it is a
+ * marked-off surface (secondary background, hairline border, inset shadow and
+ * a soft gradient, all from tokens) whose summary row names the active frame
+ * and opens or closes the tiles, which shrink to the picture and the name. */
+@media (min-width: 700px) {
+  .frame-fold__summary {
+    display: none;
+  }
+}
+
+@media (max-width: 699.98px) {
+  .frame-fold {
+    margin: 0 0 var(--space-md);
+    background:
+      linear-gradient(
+        color-mix(in srgb, var(--color-text) 5%, transparent),
+        transparent var(--space-lg)),
+      var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-text) 12%, transparent);
+  }
+
+  .frame-fold__summary {
+    padding: 0 var(--space-md);
+    color: var(--color-text);
+    font-weight: var(--weight-semibold);
+  }
+
+  .frame-fold__name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .frame-fold .frame-tiles {
+    margin: 0;
+    padding: var(--space-xs) var(--space-sm) var(--space-sm);
+  }
+
+  .frame-fold .frame-tiles > li {
+    width: 84px;
+  }
+
+  .frame-fold .frame-tile {
+    gap: var(--space-xs);
+    padding: var(--space-xs);
+  }
+
+  .frame-fold .frame-tile__pic {
+    width: 32px;
+    height: 42px;
+    padding: 2px;
+  }
+
+  .frame-fold .frame-tile__pic--system {
+    width: 32px;
+    height: 32px;
+  }
+
+  .frame-fold .frame-tile__dot {
+    top: var(--space-xs);
+    right: var(--space-xs);
+  }
+
+  .frame-fold .frame-tile__name {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-label-size);
+  }
+
+  .frame-fold .frame-tile__seen,
+  .frame-fold .frame-tile__note {
+    display: none;
+  }
+
+  .frame-fold .frame-tile--add {
+    min-height: 44px;
   }
 }
 
@@ -3597,10 +3605,12 @@ a.calendar-disconnect-btn.flight-picture-link {
   box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
+/* min-content keeps a label whole: a segment grows to its text instead of
+ * clipping it, which would push the visible text off the segment's centre. */
 .filter-chip {
   position: relative;
   flex: 1 1 0;
-  min-width: 0;
+  min-width: min-content;
   cursor: pointer;
 }
 
@@ -4790,8 +4800,7 @@ a.airline-card {
     border-top: 1px solid var(--color-border);
   }
 
-  .site-header,
-  .space-strip {
+  .site-header {
     display: none;
   }
 
@@ -5267,12 +5276,13 @@ button.detection-search:hover {
 }
 
 /* Location and detection page. Without the map script it is one column in
- * the order the markup has: the mode switch, the panel (the runway choice or
- * the radius, the airport list, the fields). With the map running
- * (html.map-ready) the map fills the stage; the mode switch and the search
- * float on it and the panel is a bottom sheet on a phone and a card at the
- * left of the map from 960px, in both cases the part of the map the script
- * keeps clear when it centres a place. */
+ * the order the markup has: the panel (the mode switch, the runway choice or
+ * the radius, the airport list, the fields, Save). With the map running
+ * (html.map-ready) the map fills the page and everything else floats on it:
+ * the one search field at the top, then on a phone the mode chips and a
+ * compact bottom sheet, from 960px a card at the left holding the mode
+ * switch and the sheet. The part of the map the script keeps clear when it
+ * centres a place is the sheet (the card on a wide screen). */
 .place-page {
   margin-bottom: var(--space-lg);
 }
@@ -5280,21 +5290,19 @@ button.detection-search:hover {
 .place-stage {
   display: grid;
   gap: var(--space-md);
-  --place-float-h: 8.5rem;
 }
 
 .place-stage > * {
   min-width: 0;
 }
 
-.place-float {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-sm);
-  align-content: start;
+.place-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
 }
 
-.place-panel {
+.place-card {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
@@ -5304,18 +5312,20 @@ button.detection-search:hover {
   border-radius: var(--radius-card);
 }
 
-.place-panel > * {
+.place-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.place-sheet > *,
+.place-card > * {
   margin: 0;
   min-width: 0;
 }
 
 .place-search__row button {
   white-space: nowrap;
-}
-
-.place-line {
-  margin: var(--space-sm) 0 0;
-  overflow-wrap: anywhere;
 }
 
 /* The fallback explanation stays until place-map.js reports the map is
@@ -5328,7 +5338,7 @@ button.detection-search:hover {
   display: none;
 }
 
-/* The mode switch: two segments in one track. */
+/* The mode switch: two segments in one track, each label centred. */
 .place-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -5349,9 +5359,15 @@ button.detection-search:hover {
   color: var(--color-text);
   font-family: var(--font-ui);
   font-weight: var(--weight-semibold);
+  line-height: 1.2;
   text-align: center;
   cursor: pointer;
   overflow-wrap: anywhere;
+}
+
+.place-mode__text {
+  display: block;
+  text-align: center;
 }
 
 .place-mode:has(input:checked) {
@@ -5373,6 +5389,7 @@ button.detection-search:hover {
 
 .place-search__row {
   display: flex;
+  align-items: center;
   gap: var(--space-sm);
 }
 
@@ -5391,56 +5408,61 @@ button.detection-search:hover {
   gap: var(--space-sm);
 }
 
-/* The chosen mode decides which block the panel shows. */
+/* The chosen mode decides which block the sheet shows. */
 .place-stage:has(#place-mode-area:checked) .place-panel__runway,
 .place-stage:not(:has(#place-mode-area:checked)) .place-panel__area {
   display: none;
 }
 
-.place-panel .detection-runways {
-  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+/* The runway cards sit three to a row, as compact as the sheet needs. */
+.place-sheet .detection-runways {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
 }
 
-.place-panel .runway-card {
-  padding: var(--space-sm) var(--space-md);
+.place-sheet .runway-card {
+  padding: var(--space-sm);
+  text-align: center;
 }
 
-.place-panel .runway-card .banner__pill {
+.place-sheet .runway-card .runway-card__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.place-sheet .runway-card .banner__pill {
   display: block;
   width: fit-content;
-  margin-top: var(--space-xs);
+  margin: var(--space-xs) auto 0;
 }
 
 .place-panel__follow {
   display: flex;
   flex-direction: column;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
-.place-derived {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-}
-
-.place-more > summary {
-  font-weight: var(--weight-semibold);
-}
-
-.place-saved .text-heading {
-  margin: var(--space-sm) 0;
+.place-details__close {
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-sm);
 }
 
 /* The map is running: it fills the stage and everything else floats on it. */
+.map-ready .place-page {
+  margin: 0;
+}
+
 .map-ready .place-stage {
   position: relative;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 0;
-  height: max(27rem, calc(100dvh - 17.5rem));
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  display: block;
+  flex: 1 1 auto;
+  min-height: 24rem;
   overflow: hidden;
   background: var(--color-secondary);
+  --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  --place-search-bottom: calc(var(--place-gutter) + 54px);
 }
 
 .map-ready .place-map {
@@ -5454,28 +5476,41 @@ button.detection-search:hover {
   border-radius: 0;
 }
 
+/* The one search field floats at the top of the map. Its label is for
+ * assistive technology only. */
 .map-ready .place-float {
-  grid-row: 1;
-  position: relative;
-  z-index: 2;
-  padding: var(--space-sm);
-  pointer-events: none;
-}
-
-.map-ready .place-float > * {
-  pointer-events: auto;
-}
-
-.map-ready .place-modes {
-  box-shadow: var(--shadow-card-hover);
+  position: absolute;
+  z-index: 3;
+  top: var(--place-gutter);
+  left: var(--place-gutter);
+  right: var(--place-gutter);
 }
 
 .map-ready .place-search__row {
-  padding: var(--space-xs);
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-search__row input[type="search"] {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.map-ready .place-search__go {
+  flex: none;
+  width: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-ready .place-search__go .icon {
+  display: block;
 }
 
 .map-ready .place-search label {
@@ -5498,6 +5533,10 @@ button.detection-search:hover {
   display: none;
 }
 
+.map-ready .place-results:has(.place-results__note) {
+  pointer-events: none;
+}
+
 .map-ready .place-search:focus-within .section-caption {
   display: block;
   position: absolute;
@@ -5516,55 +5555,435 @@ button.detection-search:hover {
   display: none;
 }
 
+/* On a phone the chips sit under the search field: a list of results starts
+ * below them. A one-line note lets taps through. */
 .map-ready .place-results {
+  margin: calc(44px + var(--space-md)) 0 0;
+  max-height: 40dvh;
+  overflow-y: auto;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
-}
-
-.map-ready .place-panel {
-  grid-row: 3;
-  position: relative;
-  z-index: 2;
-  max-height: calc(max(27rem, 100dvh - 17.5rem) * 0.46);
-  overflow-y: auto;
-  border-width: 1px 0 0;
-  border-radius: var(--radius-card) var(--radius-card) 0 0;
   box-shadow: var(--shadow-card-hover);
 }
 
-/* On a phone the title is the page's heading for assistive technology only:
- * the map and the sheet carry the page. The flash banner stays in the flow. */
+/* The overlay carries the card, the credits button and the locate button
+ * above the map. It lets taps through; its parts take them. */
+.map-ready .place-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding-top: calc(var(--place-search-bottom) + var(--space-sm));
+  pointer-events: none;
+}
+
+.map-ready .place-panel > *,
+.map-ready .place-card > * {
+  pointer-events: auto;
+}
+
+.map-ready .place-card {
+  display: contents;
+}
+
+/* The mode chips: two pills under the search field on a phone. */
+.map-ready .place-modes {
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  display: flex;
+  gap: var(--space-sm);
+  margin-left: var(--place-gutter);
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.map-ready .place-mode {
+  padding: 0 var(--space-md);
+  border-radius: 22px;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-mode:has(input:checked) {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.map-ready .place-info {
+  position: relative;
+  grid-column: 2;
+  grid-row: 1;
+  display: block;
+  margin-right: var(--place-gutter);
+}
+
+.map-ready .place-info__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+
+.map-ready .place-info__button .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.map-ready .place-credits {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: min(20rem, calc(100vw - 2 * var(--place-gutter)));
+  box-sizing: border-box;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+
+.map-ready .place-credits[hidden] {
+  display: none;
+}
+
+.map-ready .place-credits p {
+  margin: 0;
+}
+
+.map-ready .place-credits a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.map-ready .place-credits__attribution {
+  font-weight: var(--weight-semibold);
+}
+
+.map-ready .place-tools {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-sm);
+  margin: 0 var(--place-gutter) var(--place-gutter) var(--place-gutter);
+  pointer-events: none;
+}
+
+.map-ready .place-message {
+  max-width: 16rem;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-text);
+  pointer-events: auto;
+}
+
+.map-ready .place-message[hidden] {
+  display: none;
+}
+
+/* The sheet: a compact bottom sheet that never covers more than about 40% of
+ * the viewport; it scrolls inside when it must. */
+.map-ready .place-sheet {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  box-sizing: border-box;
+  max-height: 40dvh;
+  overflow-y: auto;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border-radius: 20px 20px 0 0;
+  box-shadow: var(--shadow-card-hover);
+  pointer-events: auto;
+}
+
+.map-ready .place-hint,
+.map-ready .place-picker,
+.map-ready .place-radius > .section-caption,
+.map-ready .place-sheet .place-radius label,
+.map-ready .place-panel__area .place-subtitle {
+  display: none;
+}
+
+.map-ready .place-sheet .place-chosen p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.map-ready .place-sheet .place-chosen__name {
+  font-family: var(--font-serif);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-regular);
+}
+
+/* Save and Cancel live in the sheet; the count line is for assistive
+ * technology only. */
+.map-ready .place-sheet .dirty-bar {
+  position: sticky;
+  bottom: 0;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: var(--space-md);
+  width: auto;
+  max-width: none;
+  margin: 0;
+  padding: var(--space-sm) 0 0;
+  background: var(--color-dominant);
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  z-index: auto;
+}
+
+.map-ready .place-sheet .dirty-bar[hidden] {
+  display: none;
+}
+
+.map-ready .place-sheet .dirty-bar [data-dirty-count] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.map-ready .place-sheet .dirty-bar button {
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+}
+
+.map-ready .place-sheet .dirty-bar__cancel {
+  background: none;
+  border-color: transparent;
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+/* The page title is the page's heading for assistive technology only: the
+ * map carries the page. The flash banner stays in the flow. */
+.map-ready .page-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The details (coordinates, label, time zone) are a card over the map,
+ * shown when the Quiet hours link targets them or a save was refused. */
+.map-ready .place-details {
+  display: none;
+}
+
+.map-ready .place-details:target,
+.map-ready .place-details:has([aria-invalid="true"]) {
+  display: block;
+  position: absolute;
+  z-index: 5;
+  top: var(--place-gutter);
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  max-height: calc(100% - 40dvh - 2 * var(--place-gutter));
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+}
+
+.map-ready .place-details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: var(--weight-semibold);
+  list-style: none;
+  pointer-events: none;
+}
+
+.map-ready .place-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.map-ready .place-details__close {
+  display: inline-flex;
+}
+
+/* The page fills the area between the app bar and the tab bar on a phone,
+ * the whole content area from 960px. The page's own padding goes. */
+.map-ready .page-content:has(.place-stage) {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  height: calc(100dvh - 52px - 57px - env(safe-area-inset-bottom, 0px));
+  padding: 0;
+}
+
+.map-ready .page-content:has(.place-stage) > * {
+  flex: none;
+}
+
+.map-ready .page-content:has(.place-stage) > .place-page {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.map-ready .site-header:has(~ .page-content .place-stage) {
+  margin-bottom: 0;
+}
+
+/* No zoom buttons on a phone (pinch zooms); the keyboard and the wide screen
+ * have them. */
 @media (max-width: 959.98px) {
-  .map-ready .page-header {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .map-ready .place-locate {
-    position: absolute;
-    z-index: 2;
-    right: var(--space-sm);
-    top: calc(var(--place-float-h) + 7rem);
-  }
-
-  .place-page:has(~ .dirty-bar:not([hidden])) .place-panel {
-    padding-bottom: 8.5rem;
+  .map-ready .place-map .leaflet-control-zoom {
+    display: none;
   }
 }
 
-/* The airport list shows while its filter field is in use, and after a
- * submitted filter. */
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-airports,
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-filter-hint,
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) #airport-results-count,
-.map-ready .place-picker:not(:focus-within):not(.place-picker--searched) .place-subtitle {
-  display: none;
+@media (min-width: 960px) {
+  /* The shell's column gap is taken back so the map meets the sidebar. */
+  .map-ready .page-content:has(.place-stage) {
+    width: calc(100% + var(--space-xl));
+    height: 100dvh;
+    margin: 0 0 0 calc(-1 * var(--space-xl));
+  }
+
+  .map-ready .place-stage {
+    min-height: 34rem;
+    --place-card-w: 360px;
+    --place-search-bottom: calc(var(--space-md) + 54px);
+  }
+
+  .map-ready .place-float {
+    right: auto;
+    top: var(--space-md);
+    left: var(--space-md);
+    width: var(--place-card-w);
+  }
+
+  .map-ready .place-panel {
+    grid-template-columns: calc(var(--place-card-w) + 2 * var(--space-md)) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  /* The mode switch and the sheet are one card at the left. */
+  .map-ready .place-card {
+    display: flex;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 1;
+    gap: var(--space-md);
+    box-sizing: border-box;
+    margin: 0 var(--space-md);
+    max-height: calc(100dvh - var(--place-search-bottom) - 2 * var(--space-md));
+    overflow-y: auto;
+    pointer-events: auto;
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .map-ready .place-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    justify-self: stretch;
+    margin: 0;
+    padding: var(--space-xs);
+    background: var(--color-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+  }
+
+  .map-ready .place-mode {
+    border-radius: var(--radius-control);
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .map-ready .place-mode:has(input:checked) {
+    border-radius: var(--radius-control);
+    background: var(--color-dominant);
+    color: var(--color-accent);
+    box-shadow: var(--shadow-card);
+  }
+
+  .map-ready .place-sheet {
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .map-ready .place-sheet .dirty-bar {
+    justify-content: flex-start;
+  }
+
+  .map-ready .place-info {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+    margin: 0 var(--space-md) var(--space-sm) 0;
+  }
+
+  .map-ready .place-credits {
+    top: auto;
+    bottom: calc(100% + var(--space-sm));
+  }
+
+  .map-ready .place-tools {
+    grid-column: 2;
+    grid-row: 4;
+    margin: 0 var(--space-md) var(--space-md) 0;
+  }
+
+  .map-ready .place-details:target,
+  .map-ready .place-details:has([aria-invalid="true"]) {
+    left: calc(var(--place-card-w) + 3 * var(--space-md));
+    right: auto;
+    width: min(28rem, calc(100% - var(--place-card-w) - 4 * var(--space-md)));
+    top: var(--space-md);
+    max-height: calc(100% - 2 * var(--space-md));
+  }
+
+  .map-ready .place-results {
+    margin-top: var(--space-xs);
+  }
 }
 
 /* The map. Leaflet's own stylesheet comes first on this page; the rules
@@ -5590,7 +6009,9 @@ button.detection-search:hover {
 
 /* A map that did not start leaves the plain form: nothing script-only shows. */
 html:not(.map-ready) .place-search,
-html:not(.map-ready) .place-locate {
+html:not(.map-ready) .place-info,
+html:not(.map-ready) .place-tools,
+html:not(.map-ready) .place-details__close {
   display: none;
 }
 
@@ -5622,17 +6043,6 @@ html:not(.map-ready) .place-locate {
 .place-map .leaflet-bar {
   border: 1px solid var(--color-border);
   box-shadow: none;
-}
-
-.place-map .leaflet-control-attribution {
-  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
-  color: var(--color-text);
-  font-size: var(--font-label-size);
-}
-
-.place-map .leaflet-control-attribution a {
-  color: var(--color-text);
-  text-decoration: underline;
 }
 
 .place-map.leaflet-container:focus-visible {
@@ -5758,14 +6168,6 @@ button.place-result:hover {
   margin: 0;
 }
 
-.place-about {
-  margin-top: var(--space-sm);
-}
-
-.place-about .section-caption {
-  margin: 0 0 var(--space-sm);
-}
-
 /* The airport list scrolls inside its card; each row is one link. */
 .place-airports {
   list-style: none;
@@ -5871,10 +6273,6 @@ button.place-result:hover {
   align-items: center;
 }
 
-.map-ready .place-details:not([open]) .place-derived {
-  text-decoration: none;
-}
-
 /* The locate button is a round button on the map. */
 .map-ready .place-locate {
   width: 48px;
@@ -5887,6 +6285,7 @@ button.place-result:hover {
   border: 1px solid var(--color-border);
   box-shadow: var(--shadow-card-hover);
   color: var(--color-accent);
+  pointer-events: auto;
 }
 
 .map-ready .place-locate__label {
@@ -5896,53 +6295,6 @@ button.place-result:hover {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-@media (max-width: 959.98px) {
-  .map-ready .place-map .leaflet-top {
-    top: var(--place-float-h);
-  }
-}
-
-@media (min-width: 960px) {
-  .map-ready .place-stage {
-    grid-template-columns: 24rem minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    height: max(34rem, calc(100dvh - 17rem));
-    padding: var(--space-md);
-  }
-
-  .map-ready .place-float {
-    grid-column: 1;
-    grid-row: 1;
-    padding: var(--space-md) var(--space-md) 0;
-    background: var(--color-dominant);
-    border: 1px solid var(--color-border);
-    border-bottom: 0;
-    border-radius: var(--radius-card) var(--radius-card) 0 0;
-    box-shadow: var(--shadow-card-hover);
-    pointer-events: auto;
-  }
-
-  .map-ready .place-modes,
-  .map-ready .place-search__row {
-    box-shadow: none;
-  }
-
-  .map-ready .place-panel {
-    grid-column: 1;
-    grid-row: 2;
-    max-height: none;
-    border-width: 0 1px 1px;
-    border-radius: 0 0 var(--radius-card) var(--radius-card);
-  }
-
-  .map-ready .place-locate {
-    position: absolute;
-    z-index: 2;
-    right: var(--space-lg);
-    bottom: calc(var(--space-lg) + var(--space-xl));
-  }
 }
 
 .rule-add-form {
@@ -7846,6 +8198,26 @@ button.calendar-danger--solid {
     background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   }
 
+  /* The administrator's space switch, first cell of the bar: set apart from
+   * the destinations by an accent outline on its pill and a thin divider
+   * after it. It names the space it leads to, never the current one. */
+  .tab-bar__link--switch {
+    flex: 0 0 64px;
+    margin-right: var(--space-xs);
+    border-right: 1px solid var(--color-border);
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__link--switch .tab-bar__pill {
+    border: 1px solid var(--color-accent);
+    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  }
+
+  .tab-bar__link--switch:not(.tab-bar__link--active):hover .tab-bar__pill {
+    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  }
+
   /* :not(.tab-bar__link--active) avoids a same-specificity, later-source
    * hover rule erasing the active tint on pointer-over. */
   .tab-bar__link:not(.tab-bar__link--active):hover .tab-bar__pill {
@@ -8593,12 +8965,32 @@ a.special-row__remove:hover {
   text-transform: uppercase;
 }
 
+/* The preview heads the form: the framed picture takes 44% of a phone sheet's
+ * content width (9rem on a wide sheet) with its caption beside it. */
 .special-add__preview {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--color-border);
+  gap: var(--space-md);
+  padding-bottom: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.special-add__preview .special-row__mini {
+  width: 44%;
+  padding: 4px;
+  border-radius: 5px;
+}
+
+@media (min-width: 700px) {
+  .special-add__preview .special-row__mini {
+    width: 9rem;
+  }
+}
+
+.special-add__preview .special-row__image {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
 }
 
 .special-add__preview .text-label {
@@ -8729,6 +9121,17 @@ button.rule-suggestion-chip {
     border-radius: 18px 18px 0 0;
   }
 
+  .special-add__foot button {
+    height: 44px;
+  }
+
+  .special-add__foot {
+    position: sticky;
+    bottom: 0;
+    padding-top: var(--space-sm);
+    background: var(--color-dominant);
+  }
+
   .look-sheet::before,
   .special-add.is-enhanced[open] > .special-add__panel::before {
     content: "";
@@ -8784,16 +9187,22 @@ button.rule-suggestion-chip {
   }
 }
 
-/* Audit log: the filter chips as plain links, always visible, wrapping on a
- * narrow phone; the pager links keep a full touch target. */
+/* Audit log: the filter chips as plain links, always visible, on one line that
+ * scrolls sideways on a narrow phone; the pager links keep a full touch
+ * target. */
 .audit-chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
   margin: 0 0 var(--space-md);
 }
 
 .audit-chips .filter-chip {
-  flex: 1 1 auto;
+  flex: 1 0 auto;
+  min-width: 44px;
+  scroll-snap-align: start;
   text-decoration: none;
 }
 
@@ -9063,6 +9472,62 @@ a.entity-row__title::before {
   gap: var(--space-xs);
 }
 
+/* An Account frame row: the CSS-drawn frame first, then the name, the
+ * hardware or owner line and the status dot with its last-seen word. */
+li.entity-row.account-frame {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-left: var(--space-md);
+}
+
+.account-frame .entity-row__dot {
+  position: static;
+  align-self: center;
+  margin-top: 0;
+}
+
+.account-frame__pic {
+  display: block;
+  box-sizing: border-box;
+  width: 44px;
+  height: 58px;
+  padding: 3px;
+  background: var(--color-frame-bezel);
+  border: 1px solid var(--color-frame-bezel-hi);
+  border-radius: 5px;
+}
+
+.account-frame__pic i {
+  display: block;
+  height: 100%;
+  background: var(--color-image-backdrop);
+  border-radius: 1px;
+}
+
+.account-frame__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (min-width: 960px) {
+  li.entity-row.account-frame {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding-left: var(--space-md);
+  }
+
+  .account-frame .entity-row__text {
+    display: flex;
+    grid-column: auto;
+  }
+
+  .account-frame .entity-row__meta,
+  .account-frame .entity-row__pills {
+    grid-column: auto;
+  }
+}
+
 details.row-menu {
   position: relative;
 }
@@ -9204,6 +9669,70 @@ a.page-header__action:hover {
   background: var(--color-accent-hover);
 }
 
+/* Add a frame: the link under the frame list and in the empty state, and the
+ * page that takes the pairing code. */
+.pair-actions {
+  margin: var(--space-md) 0 0;
+}
+
+a.pair-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+a.pair-link--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  color: var(--color-on-accent);
+}
+
+a.pair-link--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.pair-form {
+  display: grid;
+  gap: var(--space-md);
+  max-width: 28rem;
+}
+
+.pair-form input {
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.pair-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.pair-form__actions button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+a.pair-form__cancel {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--color-accent);
+}
+
 /* A labelled control inside a dialog, with its help or error text below. */
 .modal__field > p {
   margin: var(--space-xs) 0 0;
@@ -9259,9 +9788,9 @@ a.entity-row__button:hover {
 }
 
 /* Personalisation ------------------------------------------------------
- * A segmented section navigation (Look, Special looks, Calendar, Screen:
- * plain links, one view each) over the current view. The Look view is the
- * look picker: tabs, the frame's picture and the three choices. */
+ * One segmented navigation (Departures, Arrivals, Special looks, Calendar:
+ * plain links, one view each) over the current view. Departures and Arrivals
+ * are the look picker: the frame's picture and the three choices. */
 
 .personalisation {
   display: block;
@@ -9312,6 +9841,11 @@ a.entity-row__button:hover {
   flex: none;
   width: 20px;
   height: 20px;
+}
+
+/* Arrivals reuses the plane, nose down. */
+.personalisation-nav__link[data-pers-view="arrivals"] svg {
+  transform: rotate(90deg);
 }
 
 .personalisation-nav__link:hover {
@@ -9454,38 +9988,7 @@ button.look-pick__customise {
   text-align: left;
 }
 
-/* The Look view ------------------------------------------------------- */
-
-.look-tabs {
-  --js-gate-display: inline-flex;
-  gap: var(--space-xs);
-  margin-bottom: var(--space-md);
-  padding: var(--space-xs);
-  border-radius: var(--radius-card);
-  background: var(--color-secondary);
-}
-
-button.look-tabs__tab {
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  border: none;
-  border-radius: var(--radius-control);
-  background: transparent;
-  box-shadow: none;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-weight: var(--weight-semibold);
-}
-
-button.look-tabs__tab:hover {
-  background: transparent;
-  color: var(--color-text);
-}
-
-button.look-tabs__tab[aria-pressed="true"] {
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
-  color: var(--color-accent);
-}
+/* The look views (Departures, Arrivals) ---------------------------------- */
 
 .look-picker {
   --js-gate-display: block;
@@ -9610,30 +10113,90 @@ button.look-sheet__save:hover {
   }
 }
 
+/* From 960px a look view is two columns, the picture on the left and the
+ * picker on the right, both on the first screen of a laptop. The picture is
+ * as wide as its column and the screen height allow (3:4). */
+@media (min-width: 960px) {
+  .js .personalisation__view:has(.look-view) {
+    max-width: none;
+  }
+
+  .js .look-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
+    gap: var(--space-lg);
+    align-items: flex-start;
+  }
+
+  .js .look-view .look-panel > .look-frame {
+    display: block;
+  }
+
+  .look-view .look-frame__anchor {
+    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    margin-inline: auto;
+  }
+
+  .look-view .look-frame__meta {
+    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    margin-inline: auto;
+  }
+
+  .js .look-view .look-picker {
+    max-width: none;
+    margin-top: 0;
+  }
+}
+
 @media (min-width: 1280px) {
   .look-pick__grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-/* Airline collection: a read-only progress card, a badge shelf, one GET
- * form of filters and a grid of picture cards. The dimming of a card that
- * has not been seen applies to the picture only, never to its text. */
+/* Airline collection: a one-line header (title, a thin progress bar with
+ * one short sentence, small round badge icons), one control bar and a grid
+ * of picture cards. The dimming of a card that has not been seen applies
+ * to the picture only, never to its text. */
+.page-header:has(> .collection-head__status) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-lg);
+  margin-bottom: var(--space-md);
+}
+
+.page-header:has(> .collection-head__status) .page-title {
+  margin: 0;
+}
+
+.collection-head__status {
+  display: flex;
+  flex: 1 1 360px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.collection-progress {
+  flex: 1 1 auto;
+  max-width: 360px;
+  min-width: 0;
+}
+
 .collection-progress__headline {
-  margin: 0 0 var(--space-sm);
-  font-family: inherit;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.5;
+  margin: var(--space-xs) 0 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-progress__bar {
   display: block;
   width: 100%;
-  height: 12px;
+  height: 6px;
   appearance: none;
   -webkit-appearance: none;
-  border: 1px solid var(--color-border);
+  border: 0;
   border-radius: 999px;
   background: var(--color-secondary);
   overflow: hidden;
@@ -9644,95 +10207,107 @@ button.look-sheet__save:hover {
 }
 
 .collection-progress__bar::-webkit-progress-value {
-  background: var(--color-text);
+  background: var(--color-accent);
   border-radius: 999px;
 }
 
 .collection-progress__bar::-moz-progress-bar {
-  background: var(--color-text);
+  background: var(--color-accent);
   border-radius: 999px;
-}
-
-.collection-progress__goal {
-  margin: var(--space-sm) 0 var(--space-md);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-badges {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
+  flex: none;
+  gap: var(--space-xs);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .collection-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  border-radius: 999px;
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  white-space: nowrap;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
 }
 
 .collection-badge--earned {
-  background: var(--color-dominant);
-  border: 2px solid var(--color-text);
-  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-dominant));
+  color: var(--color-accent);
 }
 
 .collection-badge--locked {
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--color-text) 35%, transparent);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--color-text) 40%, transparent);
+  box-sizing: border-box;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
-/* One control bar: row one is the filter field and the sort, row two the
- * show chips, the plain count and (no script only) the Apply button. Every
- * control is at least 44px tall and the rows wrap on a phone. */
+/* One control bar: the filter field, the segmented show filter, the sort
+ * and the legend button on one row where they fit, wrapping cleanly on a
+ * phone. Every control is at least 44px tall. */
 .collection-controls {
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-sm);
-}
-
-.collection-controls__row {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
+  margin-bottom: var(--space-md);
 }
 
 .collection-controls .filter-bar__search {
-  flex: 1 1 220px;
-  max-width: none;
+  flex: 1 1 150px;
+  min-width: 150px;
+  max-width: 340px;
 }
 
 .collection-controls .filter-bar__chips {
   display: flex;
-  flex: 1 1 300px;
-  max-width: 460px;
+  flex: 0 1 auto;
+  max-width: 100%;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
 }
 
-/* A long label ("Not yet seen") wraps inside its segment instead of
- * being cut short. */
-.collection-controls .filter-chip__text {
-  white-space: normal;
+.collection-controls .filter-chip {
+  flex: 1 0 auto;
+  scroll-snap-align: start;
+}
+
+/* Label and count side by side, centred in the segment. */
+.collection-controls .filter-chip__box {
+  flex-direction: row-reverse;
+  justify-content: center;
+  gap: var(--space-xs);
+  padding: 0 var(--space-sm);
   text-align: center;
-  overflow-wrap: anywhere;
-  line-height: 1.2;
+}
+
+.collection-controls .filter-chip__text {
+  overflow: visible;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--font-label-size);
+  white-space: nowrap;
+}
+
+.collection-controls .filter-chip__count {
+  font-size: var(--font-label-size);
 }
 
 .collection-sort {
   display: flex;
-  flex: 0 1 220px;
+  flex: 0 1 auto;
   align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
   min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 0 var(--space-xs) 0 var(--space-sm);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
 }
 
 .collection-sort__label {
@@ -9744,13 +10319,9 @@ button.look-sheet__save:hover {
 .collection-sort select {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 48px;
-}
-
-/* A plain count, no pill and no border. */
-.collection-controls__count {
-  margin: 0 0 0 auto;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  min-height: 44px;
+  border: 0;
+  background-color: transparent;
 }
 
 .collection-controls__apply {
@@ -9764,11 +10335,19 @@ button.look-sheet__save:hover {
   display: none;
 }
 
+.collection-legend .row-menu__toggle {
+  border: 1px solid var(--color-border);
+}
+
+.collection-legend__panel {
+  width: max-content;
+  padding: var(--space-sm) var(--space-md);
+}
+
 .rarity-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-md);
-  margin: 0 0 var(--space-md);
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -9777,7 +10356,43 @@ button.look-sheet__save:hover {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-xs) var(--space-sm);
+}
+
+@media (max-width: 699.98px) {
+  .page-header:has(> .collection-head__status) .page-title {
+    font-size: 1.625rem;
+  }
+
+  .collection-head__status {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-xs);
+  }
+
+  .collection-progress {
+    max-width: none;
+  }
+
+  /* The badge icons scroll sideways rather than wrapping. */
+  .collection-badges {
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .collection-controls .filter-bar__search {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+
+  .collection-controls .filter-bar__chips {
+    flex: 1 1 100%;
+  }
+
+  .collection-sort {
+    flex: 1 1 0;
+  }
 }
 
 .collection-grid {
@@ -9934,23 +10549,61 @@ button.look-sheet__save:hover {
   background: var(--color-text);
 }
 
+/* The detail sheet fits the viewport: the head with its close button and
+ * the Close foot stay in place and only the body scrolls. */
+dialog.collection-sheet[open],
+.collection-sheet:target:not(.is-modal) {
+  display: flex;
+  flex-direction: column;
+  max-height: 85vh;
+  max-height: 85dvh;
+  overflow: hidden;
+}
+
+.collection-sheet .modal__head {
+  flex: none;
+}
+
+.collection-sheet .modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.collection-sheet .modal__actions {
+  flex: none;
+  margin-top: var(--space-sm);
+}
+
 .collection-sheet__art {
-  margin-bottom: var(--space-md);
+  display: flex;
+  justify-content: center;
 }
 
 .collection-sheet__art .collection-card__image {
+  width: auto;
   max-width: 100%;
+  max-height: 160px;
 }
 
 .collection-facts {
   display: grid;
-  gap: var(--space-sm);
-  margin: 0 0 var(--space-md);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
 }
 
 .collection-facts > div {
   display: grid;
-  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  min-width: 0;
+}
+
+.collection-facts > .collection-facts__wide {
+  grid-column: 1 / -1;
 }
 
 .collection-facts dt {
@@ -9961,6 +10614,12 @@ button.look-sheet__save:hover {
 .collection-facts dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 699.98px) {
+  .collection-sheet__art .collection-card__image {
+    max-height: 72px;
+  }
 }
 
 .collection-sheet__note {
@@ -10140,9 +10799,23 @@ button.row-menu__item--destructive:hover {
   color: var(--color-status-error);
 }
 
-.users-note {
-  margin: var(--space-md) 0 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+/* On a phone the invite action sits under the title at full width, so a long
+ * localised title never meets the button; from 700px it shares the title's row. */
+@media (max-width: 699.98px) {
+  .page-header:has(> .page-header__actions--stack) {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: var(--space-md);
+  }
+
+  .page-header__actions--stack {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .page-header__actions--stack a.page-header__action {
+    display: flex;
+    width: 100%;
+  }
 }
 
 @media (min-width: 70rem) {
@@ -10269,10 +10942,10 @@ button.row-menu__item--destructive:hover {
 
 .airlines-subrow {
   display: none;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto 44px;
   grid-template-areas:
-    "name views"
-    "art art";
+    "name views menu"
+    "art art art";
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   padding: var(--space-md);
@@ -10422,8 +11095,14 @@ button.row-menu__item--destructive:hover {
   object-fit: contain;
 }
 
-.airlines-art__replace {
-  font-weight: var(--weight-semibold);
+/* The "Change artwork" menu item is a label around the hidden file input. */
+.airlines-art label.row-menu__item {
+  cursor: pointer;
+}
+
+.airlines-art label.row-menu__item:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .airlines-uses {

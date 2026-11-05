@@ -103,9 +103,9 @@ MESSAGES = {
     "detection.zoom_in": "Zoomer",
     "detection.zoom_out": "Dézoomer",
     "detection.search_none":
-        "Aucun lieu trouvé en France. Essayez une autre orthographe, touchez la carte ou choisissez un aéroport.",
+        "Aucun lieu trouvé en France. Essayez une autre orthographe, touchez la carte ou saisissez un code d’aéroport.",
     "detection.search_failed":
-        "La recherche n’est pas disponible pour le moment. Touchez la carte, choisissez un aéroport ou saisissez des coordonnées.",
+        "La recherche n’est pas disponible pour le moment. Touchez la carte ou saisissez un code d’aéroport.",
     "detection.search_short": "Tapez au moins 3 caractères pour chercher.",
     "detection.results_label": "Résultats de la recherche",
     "detection.locating": "Recherche de votre position…",
@@ -123,11 +123,11 @@ MESSAGES = {
     "detection.map_label":
         "Carte. Utilisez les flèches pour déplacer, plus et moins pour zoomer.",
     "detection.search_label":
-        "Rechercher une ville ou une adresse",
+        "Rechercher un aéroport ou une adresse",
     "detection.search_button":
         "Rechercher un lieu",
     "detection.search_help":
-        "Ce que vous tapez est envoyé au service de recherche d’OpenStreetMap (Nominatim).",
+        "Un code ou un nom d’aéroport choisit cet aéroport. Tout le reste est envoyé au service de recherche d’OpenStreetMap (Nominatim).",
     "detection.locate":
         "Utiliser ma position",
     "detection.about_map":
@@ -140,24 +140,18 @@ MESSAGES = {
         "Signaler un problème de carte",
     "detection.copyright_link":
         "Droits d’auteur d’OpenStreetMap",
-    "detection.empty_heading":
-        "Aucun lieu choisi",
-    "detection.empty_body":
-        "Choisissez un aéroport, cherchez un lieu ou touchez la carte, puis enregistrez.",
     "detection.airports_title":
         "Aéroports français",
     "detection.filter_airports":
         "Filtrer les aéroports",
     "detection.search_placeholder":
-        "Ville ou adresse",
+        "Aéroport (ORY) ou adresse",
     "detection.mode_runway":
         "Aéroport",
     "detection.mode_area":
         "Ma position",
     "detection.mode_switch_label":
         "Ce que le cadre suit",
-    "detection.more_title":
-        "Réglage enregistré et crédits de la carte",
     "detection.area_heading":
         "Détection autour de ce point",
     "detection.runway_label":
@@ -170,6 +164,8 @@ MESSAGES = {
         "Les avions proches de ce point sont affichés. 9 km est un bon début.",
     "detection.details_title":
         "Coordonnées et fuseau horaire",
+    "detection.details_close":
+        "Retour à la carte",
     "detection.label_field":
         "Nom du lieu",
     "detection.section_place":

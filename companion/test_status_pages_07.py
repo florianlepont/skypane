@@ -154,8 +154,8 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
 
 def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
     """the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav
-    surface with the overlay shadow, reuses .mobile-nav__link's 44px/16px geometry rather than
-    restating it, and leaves .mobile-nav's in-flow flex-basis push-down untouched. The
+    surface with the overlay shadow, and reuses .mobile-nav__link's 44px/16px geometry rather than
+    restating it. The
     legacy check's own stylesheet-comment assertion ("the stylesheet
     itself records why this is not a reversal of the rejected-overlay verdict") is dropped: guard
     G1 already rules out a CSS comment as a source of behaviour, and the geometry assertions below
@@ -172,11 +172,6 @@ def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
     for redeclared in ("min-height", "font-size"):
         assert redeclared not in sheet, (
             "the sheet must REUSE .mobile-nav__link's geometry, never restate it, found %r" % (redeclared,))
-
-    mobile_nav_decls = declarations_for(css_text, ".mobile-nav")
-    assert mobile_nav_decls.get("flex-basis") == "100%", (
-        "the dropdown's in-flow push-down mechanism must stay exactly as it is — this plan does "
-        "not reopen the 06.6.1-06 verdict")
 
 
 def test_french_tab_bar_labels_and_landmark():
@@ -206,18 +201,12 @@ def test_french_tab_bar_labels_and_landmark():
                 "expected no leftover English %r label under a French request" % (english,))
 
 
-def test_one_open_dropdown_max_height_and_no_dead_dropdown_nav_rule(css_text):
-    """The one phone dropdown rule remains while retired reminder selectors are gone."""
-    open_rules = rules_with_selector(css_text, ".js .mobile-nav--open")
-    assert len(open_rules) == 1, (
-        "T11: expected exactly ONE open-state dropdown rule in the whole file, got %d"
-        % len(open_rules))
-    open_decls = declarations_for(css_text, ".js .mobile-nav--open")
-    assert list(open_decls.keys()) == ["max-height"], (
-        "expected exactly one max-height declaration for the open state, got %r" % (open_decls,))
-    assert open_decls.get("max-height") == "320px", (
-        "expected the measured single value (the reduced French content at 390px measures "
-        "165px), got %r" % (open_decls,))
+def test_no_dead_dropdown_rules_remain(css_text):
+    """The phone dropdown is gone with its rules; retired reminder selectors stay gone."""
+    for dead in (".mobile-nav", ".js .mobile-nav", ".js .mobile-nav--open",
+                 ".mobile-nav__footer", ".site-nav-toggle", ".space-strip"):
+        assert not rules_with_selector(css_text, dead), (
+            "expected the dead selector %r to be deleted" % (dead,))
 
     # The dropdown's own nav region is deleted, not left as a dead
     # selector — its rule and its .nav-group override both go.
@@ -310,17 +299,12 @@ def test_every_disclosure_has_a_marker_and_no_header_claims_to_stick(css_text):
     # The rotation is a transform and the fade is a transition, both
     # already covered by the single global reduced-motion override — the
     # structural replacement for the legacy raw "count == 2" scan (see
-    # this module's own docstring): the ONE global override and the
-    # `.js .mobile-nav` opt-out both exist, and summary::before (this
+    # this module's own docstring): the ONE global override exists, and summary::before (this
     # task's own subject) carries no third, redundant override of its own.
     reduced_motion_global = declarations_for(css_text, "*", at_rules=_REDUCED_MOTION)
     assert reduced_motion_global.get("transition-duration") == "0.01ms !important", (
         "expected the one global reduced-motion override to still zero every transition, got %r"
         % (reduced_motion_global,))
-    mobile_nav_opt_out = declarations_for(css_text, ".js .mobile-nav", at_rules=_REDUCED_MOTION)
-    assert mobile_nav_opt_out.get("transition") == "none", (
-        "expected the pre-existing .js .mobile-nav transition opt-out to survive, got %r"
-        % (mobile_nav_opt_out,))
     assert declarations_for(css_text, "summary::before", at_rules=_REDUCED_MOTION) == {}, (
         "T3 adds no per-rule reduced-motion override for summary::before — the global override "
         "above already covers its transition")
@@ -437,20 +421,9 @@ def test_resolve_context_hidden_guard_present_after_base_rule(css_text):
     assert guard_decls.get("display") == "none", "expected .resolve-context[hidden] to hide by display: none"
 
 
-def test_nav_toggle_label_names_the_account_menu_it_opens():
-    """the hamburger toggle's accessible name names the account menu it opens (it holds
-    Sign out only: "Account menu" / "Menu du compte"), and the retired "Open menu"
-    translation is deleted rather than orphaned"""
-    assert layout.NAV_TOGGLE_LABEL == "Account menu", (
-        "expected the toggle to name what the panel now holds, got %r" % (layout.NAV_TOGGLE_LABEL,))
-    assert layout.i18n.t_lang(layout.NAV_TOGGLE_LABEL, "fr") != layout.NAV_TOGGLE_LABEL, (
-        "expected a French entry for the renamed toggle label")
-    # The retired "Open menu" wording is not a Message anywhere any
-    # more (deleted, not superseded in place) — i18n.t_lang() only
-    # accepts a Message, so the plain string it used to be raises
-    # TypeError rather than degrading to some stale translation.
-    with pytest.raises(TypeError):
-        layout.i18n.t_lang("Open menu", "fr")
+def test_the_retired_toggle_label_is_gone_from_the_catalogue():
+    """the header toggle and its "Account menu" label were removed with the toggle"""
+    assert not hasattr(layout, "NAV_TOGGLE_LABEL")
     try:
         prefs.set_request_prefs(lang="fr")
         rendered = layout.page_shell(
@@ -458,7 +431,7 @@ def test_nav_toggle_label_names_the_account_menu_it_opens():
             device_config=_NAV_STATUS_DEVICE_CFG)
     finally:
         prefs.set_request_prefs(lang="en")
-    assert 'aria-label="Menu du compte"' in rendered, "expected the French toggle name on a French request"
+    assert "Menu du compte" not in rendered
 
 
 def test_save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives(css_text):

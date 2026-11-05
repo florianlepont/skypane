@@ -195,8 +195,7 @@ def _render(h, status=200, query=None, **state):
     return h._console_page(
         console_routes.FLEET_ROUTE, None,
         lambda: _page_body(h, query or {}, state),
-        fleet_page.FLEET_PURPOSE, status=status,
-        action_html=fleet_page.header_action_html,
+        None, status=status,
         page_flash=console_fleet_view.query_flash_html(h, query or {}),
         scripts=console_fleet_view.page_scripts(
             (query or {}).get(console_fleet_view.VIEW_QUERY) == [console_fleet_view.VIEW_SYSTEM]))
@@ -249,13 +248,13 @@ def handle_register(h, m):
 # ---- pair ---------------------------------------------------------------
 
 
-def _session_key(h):
+def session_key(h):
     """First 16 hex of sha256 of the raw session token; never the token."""
     token = h._raw_session_token() or ""
     return hashlib.sha256(token.encode("utf-8")).hexdigest()[:_SESSION_KEY_HEX]
 
 
-def _docked(tone, title_msg, detail_msg):
+def docked_toast(tone, title_msg, detail_msg):
     from companion import ui_components
     return ui_components.toast_html(
         i18n.t(title_msg), i18n.t(detail_msg), tone=tone, docked=True)
@@ -281,9 +280,9 @@ def _echoed_code(raw):
     return raw.strip().upper()[:_MAX_ECHOED_CODE]
 
 
-def _refuse_claim(h, code, owner_raw, transitioned):
-    """The one answer for a refused code; audits the failure (reason enum
-    only) and a lockout transition once."""
+def audit_refusal(h, transitioned):
+    """Audit a refused code (reason enum only, never the guess) and, once, a
+    lockout transition."""
     conn = fleet_db.connect(h.args.state_dir)
     try:
         actor = audit.actor_for(h)
@@ -292,9 +291,29 @@ def _refuse_claim(h, code, owner_raw, transitioned):
             fleet_ops.record_claim_failure(conn, actor, fleet_ops.FAIL_THROTTLED)
     finally:
         conn.close()
+
+
+def record_refused_attempt(h, key):
+    """Advance both throttles (no short-circuit) for a refused code and
+    audit it."""
+    started_session = SESSION_THROTTLE.record_failure(key)
+    started_global = GLOBAL_THROTTLE.record_failure(_GLOBAL_KEY)
+    audit_refusal(h, started_session or started_global)
+
+
+def is_locked(key):
+    """True when the session bucket `key` or the global bucket is locked;
+    checked before any code is evaluated."""
+    return SESSION_THROTTLE.locked_for(key) or GLOBAL_THROTTLE.locked_for(_GLOBAL_KEY)
+
+
+def _refuse_claim(h, code, owner_raw, transitioned):
+    """The one answer for a refused code; audits the failure (reason enum
+    only) and a lockout transition once."""
+    audit_refusal(h, transitioned)
     return _render(
         h, status=200, open_add_dialog=True, code_value=_echoed_code(code),
-        owner_selected=owner_raw.strip(), claim_toast_html=_docked(
+        owner_selected=owner_raw.strip(), claim_toast_html=docked_toast(
             "error", fleet_page.CLAIM_REFUSED_TITLE, fleet_page.CLAIM_REFUSED_DETAIL),
         code_error=i18n.t(fleet_page.CLAIM_CODE_ERROR))
 
@@ -305,7 +324,10 @@ def _field_failure(h, code, owner_raw, **errors):
         owner_selected=owner_raw.strip(), **errors)
 
 
-def _claim(h, code, owner_id):
+def claim_code(h, code, owner_id):
+    """(device id, frame name, owner email) of the frame the typed `code`
+    turns into a device of `owner_id`. Raises fleet_ops.ClaimRefused or
+    fleet_ops.OwnerUnavailable."""
     conn = fleet_db.connect(h.args.state_dir)
     try:
         result = fleet_ops.claim_pairing_code(
@@ -316,7 +338,7 @@ def _claim(h, code, owner_id):
     finally:
         conn.close()
     frame = (device["name"] if device is not None and device["name"] else result.device_id)
-    return frame, owner["email"] if owner is not None else ""
+    return result.device_id, frame, owner["email"] if owner is not None else ""
 
 
 def handle_pair(h, m):
@@ -331,18 +353,18 @@ def handle_pair(h, m):
         errors["owner_error"] = i18n.t(fleet_page.CLAIM_EMPTY_OWNER)
     if errors:
         return _field_failure(h, code, owner_raw, **errors)
-    key = _session_key(h)
-    if SESSION_THROTTLE.locked_for(key) or GLOBAL_THROTTLE.locked_for(_GLOBAL_KEY):
+    key = session_key(h)
+    if is_locked(key):
         return _render(
             h, status=429, open_add_dialog=True, code_value=_echoed_code(code),
-            owner_selected=owner_raw.strip(), claim_toast_html=_docked(
+            owner_selected=owner_raw.strip(), claim_toast_html=docked_toast(
                 "warning", fleet_page.CLAIM_THROTTLED_TITLE,
                 fleet_page.CLAIM_THROTTLED_DETAIL))
     if not _owner_is_active(h.args.state_dir, owner_id):
         return _field_failure(
             h, code, owner_raw, owner_error=i18n.t(fleet_page.CLAIM_OWNER_GONE))
     try:
-        frame, email = _claim(h, code, owner_id)
+        _device_id, frame, email = claim_code(h, code, owner_id)
     except fleet_ops.ClaimRefused:
         # Both counters always advance (no short-circuit).
         started_session = SESSION_THROTTLE.record_failure(key)

@@ -410,13 +410,13 @@ def test_calendar_disconnect_checkbox_never_appears_in_calendar_connection():
 
 
 def test_personalisation_carries_one_dirty_section_per_card_in_page_order():
-    """Personalisation carries exactly four data-dirty-section cards, named Look, Special looks,
-    Calendar and Screen in that order, in both the connected and not-connected states"""
+    """Personalisation carries exactly three data-dirty-section cards, named Look, Special looks
+    and Calendar in that order, in both the connected and not-connected states"""
     for configured in (False, True):
         ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=configured, calendar_last_synced_at=None)
         rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
         names = re.findall(r'%s="([^"]*)"' % config_page.DIRTY_SECTION_ATTR, rendered)
-        assert names == ["Look", "Special looks", "Calendar", "Screen"], (
+        assert names == ["Look", "Special looks", "Calendar"], (
             "configured=%r: got %r" % (configured, names))
 
 

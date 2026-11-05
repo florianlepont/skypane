@@ -30,10 +30,10 @@ from server.plane import illustrations
 from server.plane import render as panel_render
 
 PAGE_TITLE = i18n.msg("nav.airline_collection", "Airline collection")
-PURPOSE = i18n.msg("airlines.collection_purpose", "Every airline your frame has spotted.")
 
 PROGRESS_TEXT = i18n.msg("airlines.collection_progress", "%d of %d airlines spotted")
-GOAL_TEXT = i18n.msg("airlines.collection_next_goal", "%d more for the %d airlines badge")
+STATUS_TEXT = i18n.msg("airlines.collection_status", "%d airlines spotted")
+GOAL_TEXT = i18n.msg("airlines.collection_next_goal", "%d more for the %d badge")
 GOAL_FIRST_TEXT = i18n.msg(
     "airlines.collection_next_goal_first", "Spot one airline to earn the First sighting badge")
 GOAL_COMPLETE_TEXT = i18n.msg(
@@ -253,8 +253,10 @@ def _date_text(day):
     return "%d %s %d" % (day.day, layout.month_abbr(day.month), day.year)
 
 
-def _fact_html(label, value_html):
-    return '<div><dt>%s</dt><dd>%s</dd></div>' % (escape_html(i18n.t(label)), value_html)
+def _fact_html(label, value_html, wide=False):
+    return '<div%s><dt>%s</dt><dd>%s</dd></div>' % (
+        ' class="collection-facts__wide"' if wide else "",
+        escape_html(i18n.t(label)), value_html)
 
 
 def _types_html(entry):
@@ -275,16 +277,16 @@ def _facts_html(entry, now):
         '<span class="mono">%s</span>' % escape_html(c) for c in entry.callsigns)
     rows = [
         _fact_html(FACT_TIMES, escape_html(str(entry.times_seen))),
+        _fact_html(FACT_RARITY, _rarity_pill_html(entry.rarity)),
         _fact_html(FACT_FIRST, escape_html(_date_text(entry.first_day))),
         _fact_html(FACT_LAST, "%s (%s)" % (
             escape_html(_date_text(entry.last_day)),
             layout.relative_time_html(entry.last_ts, now))),
     ]
     if entry.types:
-        rows.append(_fact_html(FACT_TYPES, _types_html(entry)))
-    rows.append(_fact_html(FACT_RARITY, _rarity_pill_html(entry.rarity)))
+        rows.append(_fact_html(FACT_TYPES, _types_html(entry), wide=True))
     if callsigns:
-        rows.append(_fact_html(FACT_CALLSIGNS, callsigns))
+        rows.append(_fact_html(FACT_CALLSIGNS, callsigns, wide=True))
     return '<dl class="collection-facts">%s</dl>' % "".join(rows)
 
 
@@ -311,32 +313,42 @@ def _goal_text(summary, all_curated_seen):
     return i18n.t(GOAL_TEXT) % (summary.next_goal - summary.spotted, summary.next_goal)
 
 
+def _status_text(summary, all_curated_seen):
+    """The one progress line: the spotted count, then the next goal."""
+    return "%s \u00b7 %s" % (
+        i18n.t(STATUS_TEXT) % summary.spotted, _goal_text(summary, all_curated_seen))
+
+
 def _badge_html(threshold, earned):
+    """A small round icon: a filled check once earned, an outlined star
+    while locked. The words (and the tooltip) carry the state and the goal."""
     label = i18n.t(BADGE_FIRST) if threshold == 1 else i18n.t(BADGE_COUNT) % threshold
-    icon = layout.icon_html("icon-check" if earned else "icon-star", 16)
     if earned:
-        state = '<span class="visually-hidden">%s: </span>' % escape_html(i18n.t(BADGE_EARNED))
+        words = "%s: %s" % (i18n.t(BADGE_EARNED), label)
     else:
-        locked = (i18n.t(BADGE_LOCKED_FIRST) if threshold == 1
-                  else i18n.t(BADGE_LOCKED) % threshold)
-        state = '<span class="visually-hidden">%s. </span>' % escape_html(locked)
-    return '<li class="collection-badge collection-badge--%s">%s%s<span>%s</span></li>' % (
-        "earned" if earned else "locked", icon, state, escape_html(label))
+        words = (i18n.t(BADGE_LOCKED_FIRST) if threshold == 1
+                 else i18n.t(BADGE_LOCKED) % threshold)
+    icon = layout.icon_html("icon-check" if earned else "icon-star", 16)
+    return (
+        '<li class="collection-badge collection-badge--%s" title="%s">%s'
+        '<span class="visually-hidden">%s</span></li>'
+    ) % ("earned" if earned else "locked", escape_html(words), icon, escape_html(words))
 
 
-def _progress_html(summary, all_curated_seen):
+def _status_html(summary, all_curated_seen):
+    """The header's right-hand part: a thin progress bar with one short
+    line under it, and the badge icons."""
     headline = i18n.t(PROGRESS_TEXT) % (summary.spotted, summary.total)
     badges = "".join(
         _badge_html(n, n in summary.earned) for n in collection.BADGE_THRESHOLDS)
     return (
-        '<section class="page-section collection-progress" aria-labelledby="collection-headline">'
-        '<h2 class="collection-progress__headline" id="collection-headline">%s</h2>'
+        '<div class="collection-head__status"><div class="collection-progress">'
         '<progress class="collection-progress__bar" value="%d" max="%d" aria-label="%s">%s</progress>'
-        '<p class="text-label collection-progress__goal">%s</p>'
-        '<ul class="collection-badges" aria-label="%s">%s</ul></section>'
-    ) % (escape_html(headline), min(summary.spotted, summary.total), max(summary.total, 1),
+        '<p class="text-label collection-progress__headline">%s</p></div>'
+        '<ul class="collection-badges" aria-label="%s">%s</ul></div>'
+    ) % (min(summary.spotted, summary.total), max(summary.total, 1),
          escape_html(headline), escape_html(headline),
-         escape_html(_goal_text(summary, all_curated_seen)),
+         escape_html(_status_text(summary, all_curated_seen)),
          escape_html(i18n.t(BADGES_LABEL)), badges)
 
 
@@ -378,24 +390,36 @@ def _search_html(view):
 
 
 def _count_html(shown):
+    """The live count, read out by screen readers only: the segmented
+    filter already shows the visible numbers."""
     return (
-        '<p class="collection-controls__count text-label" role="status" data-filter-count '
+        '<p class="visually-hidden" role="status" data-filter-count '
         'data-filter-count-template="%s">%s</p>'
     ) % (escape_html(i18n.t(COUNT_TEMPLATE)), escape_html(i18n.t(COUNT_TEXT) % shown))
 
 
+def _legend_menu_html():
+    """The rarity legend behind a small info button (a native <details>
+    that the shared menu script closes on Escape or an outside tap)."""
+    label = escape_html(i18n.t(LEGEND_LABEL))
+    return (
+        '<details class="row-menu collection-legend"><summary class="row-menu__toggle" '
+        'aria-label="%s" title="%s">%s</summary>'
+        '<div class="row-menu__panel collection-legend__panel">%s</div></details>'
+    ) % (label, label, layout.icon_html("icon-info", 20), _legend_html())
+
+
 def _controls_html(view, entries, shown):
-    """One bar: the filter field and the sort on the first row, the show
-    chips, the count and (without a script) the Apply button on the second.
-    With a script the sort and the chips submit on change."""
+    """One bar: the filter field, the show segments, the sort and the
+    legend button. With a script the sort and the segments submit on
+    change; without one the Apply button stays visible."""
     return (
         '<form class="filter-bar collection-controls" method="get" action="%s">'
-        '<div class="collection-controls__row">%s%s</div>'
-        '<div class="collection-controls__row">%s%s'
-        '<button type="submit" class="collection-controls__apply">%s</button></div></form>'
+        '%s%s%s%s%s'
+        '<button type="submit" class="collection-controls__apply">%s</button></form>'
     ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
-         _search_html(view), _sort_html(view), _chips_html(view, entries),
-         _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
+         _search_html(view), _chips_html(view, entries), _sort_html(view),
+         _legend_menu_html(), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
 
 
 def _entries_for(ctx, now):
@@ -415,14 +439,12 @@ def render(ctx, query_string=""):
     curated = [entry for entry in entries if entry.curated]
     all_seen = bool(curated) and all(entry.seen for entry in curated)
     shown = _apply_view(entries, view)
-    parts = [
-        layout.page_header(i18n.t(PAGE_TITLE), i18n.t(PURPOSE)),
-        _progress_html(summary, all_seen)]
+    parts = [layout.page_header(
+        i18n.t(PAGE_TITLE), None, action_html=_status_html(summary, all_seen))]
     if summary.spotted == 0:
         parts.append(layout.empty_state(
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
     parts.append(_controls_html(view, entries, len(shown)))
-    parts.append(_legend_html())
     if shown:
         parts.append('<ul class="collection-grid" id="%s">%s</ul>' % (GRID_ID, "".join(
             _card_html(entry, ctx.state_dir) for entry in shown)))

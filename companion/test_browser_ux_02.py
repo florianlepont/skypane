@@ -320,9 +320,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/update")
         page.wait_for_load_state("networkidle")
-        page.click("#site-nav-toggle")
-        page.wait_for_timeout(400)
-        assert page.locator("#mobile-nav .nav-status").count() == 0
+        assert page.locator("header.site-header .nav-status").count() == 0
         current = page.locator('.tab-bar a[href="/fleet"][aria-current="page"]')
         current.wait_for(state="visible")
         assert current.count() == 1
@@ -364,97 +362,6 @@ def test_theme_choices_fit_and_submit_from_narrow_preferences(
         with page.expect_navigation():
             dark.press("Enter")
         assert page.evaluate("() => document.documentElement.dataset.uiTheme") == "dark"
-    finally:
-        context.close()
-
-
-def test_mobile_nav_close_leaves_hidden_and_aria_expanded_consistent(new_context, server):
-    """The mobile nav opens and closes leaving the hidden property and aria-expanded
-    consistent on both paths: a descendant's transitionend never hides an open panel, and a
-    close with no transition applies hidden synchronously rather than waiting for an event
-    that never arrives.
-    """
-    # Two paths, because the defect had two halves: a transitionend listener with no
-    # target/property filter (any child's colour transition could hide an open panel), and a
-    # close with no transition at all that never re-applied the hidden property.
-    base_url = server.base_url()
-    context = new_context(viewport=VIEWPORT_PHONE)
-    try:
-        page = context.new_page()
-        _login(page, base_url)
-        page.goto(base_url + "/display")
-        page.wait_for_load_state("networkidle")
-
-        def state():
-            return page.evaluate(
-                "() => {"
-                " var p = document.getElementById('mobile-nav');"
-                " var t = document.getElementById('site-nav-toggle');"
-                " return {hidden: p.hidden,"
-                "         expanded: t.getAttribute('aria-expanded'),"
-                "         open: p.classList.contains('mobile-nav--open'),"
-                "         height: p.getBoundingClientRect().height};}")
-
-        start = state()
-        if not start["hidden"] or start["expanded"] != "false":
-            raise AssertionError(
-                "expected the panel to start hidden and closed, got %r" % (start,))
-        page.click("#site-nav-toggle")
-        page.wait_for_timeout(400)
-        opened = state()
-        if opened["hidden"] or opened["expanded"] != "true" or not opened["open"]:
-            raise AssertionError(
-                "expected an open panel after the first click, got %r" % (opened,))
-        if opened["height"] <= 0:
-            raise AssertionError("expected the open panel to have a box")
-
-        # A descendant transition must not hide the open panel: fire a transitionend from a
-        # child with the very property the listener cares about, the strictest form of the
-        # target filter.
-        page.evaluate(
-            "() => {"
-            " var p = document.getElementById('mobile-nav');"
-            " var child = p.querySelector('button, a, form');"
-            " child.dispatchEvent(new TransitionEvent('transitionend',"
-            "   {bubbles: true, propertyName: 'max-height'}));}")
-        page.wait_for_timeout(50)
-        after_child = state()
-        if after_child["hidden"] or after_child["expanded"] != "true":
-            raise AssertionError(
-                "a descendant's transitionend must never hide an OPEN panel, got %r"
-                % (after_child,))
-
-        page.click("#site-nav-toggle")
-        page.wait_for_timeout(600)
-        closed = state()
-        if not closed["hidden"] or closed["expanded"] != "false" or closed["open"]:
-            raise AssertionError(
-                "expected hidden and aria-expanded to agree after a transitioned "
-                "close, got %r" % (closed,))
-        context.close()
-
-        # The no-transition path: reduced motion, where the stylesheet switches the transition
-        # off entirely and no transitionend will ever arrive.
-        context = new_context(viewport=VIEWPORT_PHONE, reduced_motion="reduce")
-        page = context.new_page()
-        _login(page, base_url)
-        page.goto(base_url + "/display")
-        page.wait_for_load_state("networkidle")
-        page.click("#site-nav-toggle")
-        page.click("#site-nav-toggle")
-        reduced = page.evaluate(
-            "() => {"
-            " var p = document.getElementById('mobile-nav');"
-            " var t = document.getElementById('site-nav-toggle');"
-            " return {hidden: p.hidden,"
-            "         expanded: t.getAttribute('aria-expanded'),"
-            "         transition: getComputedStyle(p).transitionDuration};}")
-        if reduced["expanded"] != "false":
-            raise AssertionError("expected aria-expanded=false after the close")
-        if not reduced["hidden"]:
-            raise AssertionError(
-                "with no transition to wait for, hidden must be applied "
-                "SYNCHRONOUSLY — got %r" % (reduced,))
     finally:
         context.close()
 

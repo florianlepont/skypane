@@ -123,13 +123,17 @@ def test_a_single_frame_user_sees_no_strip(new_context, fleet_app):
         context.close()
 
 
-def test_a_user_has_no_add_a_screen_tile(new_context, fleet_app):
+def test_a_user_has_an_add_a_frame_tile_to_their_own_page(new_context, fleet_app):
     first = fleet_app.multi.ids[0]
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
         viewport=VIEWPORT_DESKTOP)
     try:
-        assert page.locator("a.frame-tile--add").count() == 0
+        add = page.locator("a.frame-tile--add")
+        assert add.count() == 1 and add.get_attribute("href") == "/pair-frame"
+        with page.expect_navigation():
+            add.click()
+        assert page.url.endswith("/pair-frame")
     finally:
         context.close()
 

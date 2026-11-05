@@ -176,84 +176,43 @@ def test_nav_dropdown_script_es5_safe_and_side_effect_free(app02_server):
         "setTimeout", "setInterval", "innerHTML", "document.write", "eval(")
     for token in banned:
         assert token not in src, "nav-dropdown.js must not contain %r" % token
-    assert "aria-expanded" in src, "expected the open state to be read from aria-expanded"
+    assert "localStorage" in src, "expected the strip choice to be remembered in localStorage"
+    assert src.count("try {") >= 2, "storage access must sit inside try/catch"
 
 
-def test_toggle_aria_contract_and_fixed_label():
-    """the hamburger toggle carries type=button/id/aria-expanded=false/aria-controls and the
-    fixed accessible label (never a close-verb variant), and the panel never renders open"""
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
-    assert 'type="button"' in doc, "expected the toggle to be type=\"button\""
-    assert ('id="%s"' % layout.NAV_TOGGLE_ID) in doc, "expected the toggle id in the document"
-    assert 'aria-expanded="false"' in doc, "expected the toggle to render aria-expanded=\"false\""
-    assert ('aria-controls="%s"' % layout.MOBILE_NAV_ID) in doc, (
-        "expected aria-controls to name the panel id")
-    assert layout.NAV_TOGGLE_LABEL in doc, "expected the fixed toggle label in the document"
-    assert "Close menu" not in doc, (
-        "the toggle's accessible label must never swap to a close verb")
-    assert layout.MOBILE_NAV_OPEN_CLASS not in doc, (
-        "the panel must never render carrying the open class")
-
-
-def test_dropdown_contents_and_order():
-    """the dropdown panel holds Sign out only (no language or theme switch), no
-    screen/quiet-hours state reminder — and zero destination links"""
+def test_header_is_a_slim_logo_bar_without_toggle_or_panel():
+    """the phone header holds the brand only: no account toggle, no panel, no Sign out"""
     doc = layout.page_shell(
         title="T", active="home", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
-    panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
-    panel = doc[panel_start:doc.index("</header>")]
-    for route, _label in layout.NAV_TABS:
-        if route == layout.HOME_ROUTE:
-            continue
-        assert ('href="%s"' % route) not in panel, (
-            "expected zero destination links in the dropdown, found %r" % route)
-    assert "mobile-nav__link" not in panel, "expected zero dropdown destination links"
-    assert 'action="/ui-lang"' not in panel and 'action="/ui-theme"' not in panel
-    assert 'action="/logout"' in panel, "expected Sign out inside the dropdown"
-    assert 'class="nav-status' not in panel, (
-        "expected the retired screen/quiet-hours state reminder to stay out of the dropdown")
-    assert panel.count('class="mobile-nav__footer"') == 1, (
-        "expected exactly one footer region in the dropdown")
+    header = doc[doc.index("<header"):doc.index("</header>")]
+    assert 'class="brand"' in header
+    assert "<button" not in header and "<form" not in header
+    assert "site-nav-toggle" not in doc and "mobile-nav\"" not in doc
+    assert "aria-expanded" not in header
+    assert "Account menu" not in doc and "icon-gear" not in doc
 
 
-def test_three_file_nav_dom_contract_guard(app02_server, served_css):
-    """companion.app.NAV_SCRIPT_ROUTE, layout's nav DOM-contract literals, nav-dropdown.js
-    and style.css all agree with each other and with a rendered document"""
-    # Replicates the Python/CSS/JS drift guard 06.5-02 established for the
-    # battery chart — a menu that never opens on a phone would otherwise
-    # ship with every individual file still valid on its own and no
-    # automated signal.
-    js = served_asset(app02_server, "/static/nav-dropdown.js")
-    for literal in (layout.NAV_TOGGLE_ID, layout.MOBILE_NAV_ID, layout.MOBILE_NAV_OPEN_CLASS):
-        assert literal in js, "DOM contract drift: %r is not looked up by nav-dropdown.js" % literal
+def test_nav_script_route_and_styled_nav_classes(app02_server, served_css):
+    """companion.app.NAV_SCRIPT_ROUTE names the served shell script, and the nav classes the
+    rendered tab bar uses are styled in style.css"""
     for cls in (
-            "site-nav-toggle", "mobile-nav", "mobile-nav--open",
-            "mobile-nav__link", "tab-bar", "tab-bar__link"):
+            "mobile-nav__link", "tab-bar", "tab-bar__link", "tab-bar__link--switch",
+            "frame-fold", "frame-fold__summary"):
         assert _class_is_styled(served_css, cls), (
             "DOM contract drift: %r is not styled in style.css" % cls)
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
-    for literal in (layout.NAV_TOGGLE_ID, layout.MOBILE_NAV_ID):
-        assert literal in doc, "DOM contract drift: %r is not rendered" % literal
     assert app_module.NAV_SCRIPT_ROUTE == layout.NAV_DROPDOWN_SCRIPT_SRC, (
         "nav script route drift: %r vs %r"
         % (app_module.NAV_SCRIPT_ROUTE, layout.NAV_DROPDOWN_SCRIPT_SRC))
 
 
 def test_dropdown_survives_with_javascript_disabled():
-    """with JavaScript disabled the dropdown panel stays unclipped in the DOM (the collapsed
-    look is a CSS max-height constraint, not a hidden attribute or display:none), every nav
-    link stays reachable in the tab bar with its overflow behind a native <details>
-    needing no script, and the server-rendered <html> tag carries no.js marker class"""
+    """with JavaScript disabled every nav link stays reachable in the tab bar with its
+    overflow behind a native <details> needing no script, and the server-rendered <html> tag
+    carries no .js marker class"""
     doc = layout.page_shell(
         title="T", active="home", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
-    panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
-    panel = doc[panel_start:doc.index("</header>")]
-    assert " hidden" not in panel and 'hidden="' not in panel, (
-        "the no-JS floor requires the panel stay in the accessibility tree")
-    assert "display:" not in panel, (
-        "the no-JS floor requires the panel carry no inline display style")
     bar_start = doc.index('<nav class="tab-bar"')
     bar = doc[bar_start:doc.index("</nav>", bar_start)]
     for route in ("/", "/flights", "/detection", "/display", "/airlines", "/account"):
@@ -281,21 +240,18 @@ def test_dropdown_survives_with_javascript_disabled():
         "server-rendered <html> tag must never carry the .js marker class")
 
 
-def test_nav_dropdown_js_progressive_enhancement_state_machine(app02_server, served_css):
-    """nav-dropdown.js adds the .js marker class before its dropdown element lookup and
-    implements the hidden-attribute/transitionend/reduced-motion state machine, matched by
-    style.css's .js-scoped clipping rules"""
+def test_nav_dropdown_js_marks_the_document_and_remembers_the_strip(app02_server):
+    """nav-dropdown.js adds the .js marker class before anything else can bail out, then
+    restores a remembered collapse of the frame strip on a phone only"""
     js = served_asset(app02_server, "/static/nav-dropdown.js")
     marker_idx = js.index('className += " js"')
-    toggle_idx = js.index('getElementById("site-nav-toggle")')
-    assert marker_idx < toggle_idx, ".js marker class must be added before the dropdown lookup"
-    for needle in (
-            "panel.hidden = true", "panel.hidden = false",
-            "transitionend", "matchMedia", "prefers-reduced-motion"):
+    assert marker_idx < js.index("details.frame-fold")
+    for needle in ("matchMedia", "max-width: 699.98px", "skypane.frameStrip", "toggle"):
         assert needle in js, "nav-dropdown.js is missing %r" % needle
-    for selector in (".js .mobile-nav", ".js .mobile-nav--open"):
-        assert declarations_for(served_css, selector), (
-            "style.css is missing a top-level %r rule" % selector)
+
+def _tab_bar_slice(doc):
+    start = doc.index('<nav class="tab-bar"')
+    return doc[start:doc.index("</nav>", start) + len("</nav>")]
 
 
 _TAB_BAR_DEVICE_CFG = {"display_enabled": True, "quiet_hours_enabled": False}
@@ -361,7 +317,7 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
         "expected none of the four bar tabs to be active on /airlines")
 
     assert 'aria-label="Primary navigation"' in bar, "expected the landmark name on the tab bar"
-    for banned in ("onclick", "data-", "<script", "id=\"site-nav-toggle\""):
+    for banned in ("onclick", "data-", "<script"):
         assert banned not in bar, "the tab bar must carry no script hook (%r found)" % (banned,)
 
 
@@ -1553,8 +1509,8 @@ def test_nav_dropdown_script_public(app02_server):
     assert status == 200, "expected 200, got %d" % status
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
-    assert b"site-nav-toggle" in body, (
-        "expected the toggle-id literal in the served body, proving the real file was served")
+    assert b"frame-fold" in body, (
+        "expected the strip selector in the served body, proving the real file was served")
 
 
 @pytest.mark.parametrize(

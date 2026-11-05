@@ -150,21 +150,18 @@ def test_english_lines_and_tips_per_status_key(tmp_path):
     expected = {
         "not_seen": (
             "Your frame has not contacted SkyPane yet.", [],
-            "Check that the frame is powered, then wait one cycle."),
+            "Check it is powered; if it stays silent, contact an administrator."),
         "overdue": (
-            "Your frame has not checked in when expected. It may be out of battery "
-            "or out of Wi-Fi range.", ["Last check-in 50m ago"],
-            "Wait for the next cycle. If the frame is in quiet hours, it is resting "
-            "on purpose."),
+            "Your frame has not checked in on time.", ["Last check-in 50m ago"],
+            "Wait one cycle; if it stays silent, contact an administrator."),
         "low_battery": (
-            "Your frame's battery is low. Charge it soon so it keeps updating.",
-            ["Frame battery at 8%"], "Charge the frame or plug it in."),
+            "Your frame's battery is low.",
+            ["Frame battery at 8%"], "Charge it or plug it in."),
         "no_contact": (
             "Your frame has no contact with the server.",
-            ["Last contact 5h ago",
-             "SkyPane cannot tell a Wi-Fi, an internet or a server problem apart."],
-            "Check that the frame is powered and that your Wi-Fi or internet box is "
-            "working."),
+            ["Last contact 5h ago"],
+            "Check its power and your Wi-Fi; if it stays silent, contact an "
+            "administrator."),
     }
     for key, (title, figures, tip) in expected.items():
         directory = tmp_path / key
@@ -173,9 +170,10 @@ def test_english_lines_and_tips_per_status_key(tmp_path):
         notice = _notice(_render_key(directory, key))
         assert notice.select(".toast__title")[0].text() == title
         lines = _lines(notice)
-        assert lines[: len(figures)] == figures, key
+        assert lines == figures, key
         assert notice.select(".home-notice__tip")[0].text() == tip
-        assert lines[-1] == "If this does not recover, an administrator can help."
+        assert len(notice.select(".toast__title")[0].text().split(". ")) == 1
+        assert tip.count(". ") == 0 and tip.count(".") == 1
         text = notice.text()
         for word in NO_CAUSE_WORDS:
             assert word not in text
@@ -187,9 +185,10 @@ def test_french_lines_and_tips_per_status_key(tmp_path):
     assert notice.select(".toast__title")[0].text() == (
         "Votre cadre n’est plus en contact avec le serveur.")
     assert _lines(notice)[0].startswith("Dernier contact : il y a 5")
-    assert "SkyPane ne peut pas distinguer" in _lines(notice)[1]
-    assert notice.select(".home-notice__tip")[0].text().startswith(
-        "Vérifiez que le cadre est alimenté et que votre Wi-Fi")
+    assert len(_lines(notice)) == 1
+    assert notice.select(".home-notice__tip")[0].text() == (
+        "Vérifiez son alimentation et votre Wi-Fi ; s’il reste muet, contactez "
+        "un administrateur.")
     assert notice.select("a.toast__action")[0].text() == (
         "Contacter un administrateur")
     low = tmp_path / "low"
@@ -254,7 +253,7 @@ def test_no_active_administrator_shows_plain_text_without_link_or_address(tmp_pa
     assert _href(notice) is None
     assert notice.select("a") == []
     text = notice.text()
-    assert "Ask an administrator of this SkyPane installation for help." in text
+    assert "contact an administrator." in text
     assert "@" not in text and "mailto" not in str(notice)
 
 
@@ -293,7 +292,7 @@ def test_an_unreadable_fleet_database_means_no_administrator():
 def test_missing_fleet_database_shows_plain_text(tmp_path):
     notice = _notice(_render_key(tmp_path, "not_seen"))
     assert _href(notice) is None
-    assert "Ask an administrator" in notice.text()
+    assert "contact an administrator" in notice.text()
 
 
 def test_hostile_frame_name_is_escaped_in_markup_and_encoded_in_the_link(tmp_path):

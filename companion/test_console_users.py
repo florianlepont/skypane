@@ -261,7 +261,7 @@ def test_french_page_uses_the_catalogue(rig):
     for heading in ("Utilisateur", "Rôle", "Cadres", "Dernière connexion", "Actif"):
         assert ">%s</th>" % heading in body
     assert "0 cadre" in body and "Vous" in body and "Jamais connecté" in body
-    assert "Le rôle s’enregistre dès qu’on le change." in body
+    assert "Le rôle s’enregistre dès qu’on le change." not in body
     assert i18n_fr.BY_ID["admin_users.invite_user"] == "Inviter"
 
 

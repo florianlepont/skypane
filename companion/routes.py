@@ -33,7 +33,7 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    co_managers, console_routes, device_scope, layout, page_policy, route_types,
+    co_managers, console_routes, device_scope, user_pairing, layout, page_policy, route_types,
     static_files, theme_preview)
 from companion.pages import (
     airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, health_page, place_page,
@@ -130,7 +130,12 @@ def _personalisation_get_routes():
                     ctx, scope=config_page.SCOPE_DISPLAY, view=view),
                 m.device),
             OWNER_DEVICE)
-    return tuple(route_for(r) for r in config_page.PERSONALISATION_ROUTES)
+    redirects = tuple(
+        Route(
+            "GET", Exact(retired),
+            lambda h, m: h.redirect(device_scope.scoped(DISPLAY_ROUTE)), OWNER_DEVICE)
+        for retired in personalisation_cards.RETIRED_VIEW_ROUTES)
+    return tuple(route_for(r) for r in config_page.PERSONALISATION_ROUTES) + redirects
 
 
 # GET routes, in companion/app.py's pre-table _dispatch_get() branch
@@ -308,7 +313,8 @@ _PAGE_AND_IMAGE_KEYS = (
     ("GET", Exact(DISPLAY_ROUTE)),
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["special-looks"])),
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["calendar"])),
-    ("GET", Exact(personalisation_cards.VIEW_ROUTES["screen"])),
+    ("GET", Exact(personalisation_cards.VIEW_ROUTES["arrivals"])),
+    ("GET", Exact(personalisation_cards.RETIRED_VIEW_ROUTES[0])),
     ("GET", Exact(DETECTION_ROUTE)),
     ("GET", Exact(DEVICE_ROUTE)),
     ("GET", Exact(FLIGHTS_ROUTE)),
@@ -369,7 +375,7 @@ ROUTES = tuple(
     route._replace(
         device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS,
         csrf=route.csrf or (route.method, route.matcher) in CSRF_ROUTE_KEYS)
-    for route in _GET_ROUTES + _POST_ROUTES + console_routes.ROUTES
+    for route in _GET_ROUTES + _POST_ROUTES + user_pairing.ROUTES + console_routes.ROUTES
 )
 
 

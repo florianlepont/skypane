@@ -50,6 +50,8 @@ DISPLAY_ROUTE = "/display"
 # Personalisation's other views; the Look view keeps DISPLAY_ROUTE itself.
 DISPLAY_SPECIAL_LOOKS_ROUTE = DISPLAY_ROUTE + "/special-looks"
 DISPLAY_CALENDAR_ROUTE = DISPLAY_ROUTE + "/calendar"
+DISPLAY_ARRIVALS_ROUTE = DISPLAY_ROUTE + "/arrivals"
+# No longer a view: the address still answers, with a redirect to DISPLAY_ROUTE.
 DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
 FLIGHTS_ROUTE = "/flights"
 AIRLINES_ROUTE = "/airlines"
@@ -121,21 +123,6 @@ def nav_slug(route):
         return HOME_NAV_SLUG
     return route.lstrip("/")
 
-
-# The exact literals companion/static/nav-dropdown.js looks up via
-# getElementById()/classList. Duplicated here since a Python module
-# cannot import a JS file; a DOM-contract guard reads the JS source, the
-# stylesheet and the rendered page, and requires all three to agree.
-NAV_TOGGLE_ID = "site-nav-toggle"
-MOBILE_NAV_ID = "mobile-nav"
-MOBILE_NAV_OPEN_CLASS = "mobile-nav--open"
-
-# The fixed accessible name for the hamburger toggle button; state is
-# communicated entirely through aria-expanded, so this must not vary by
-# state. The panel holds Sign out only (destinations live in the bottom tab
-# bar, language and theme on the Account page), so it is named for the
-# account it acts on rather than for preferences.
-NAV_TOGGLE_LABEL = i18n.msg("nav.account_menu", "Account menu")
 
 # Must equal companion/app.py's NAV_SCRIPT_ROUTE exactly. Duplicated
 # rather than imported: companion/pages/__init__.py's boundary forbids
@@ -565,14 +552,6 @@ ICON_IDS = ICON_IDS + (
     "icon-undo",
 )
 
-# One more icon, for the mobile #site-nav-toggle: the panel it opens
-# holds no page-navigation links (those moved to the bottom tab bar), so
-# the hamburger glyph read as site navigation; replaced by a gear.
-# Appended, not merged, for the same reason above.
-ICON_IDS = ICON_IDS + (
-    "icon-gear",
-)
-
 # One more icon, for the estimated "probably charging" pill: a lightning
 # bolt, the one glyph that reads as charging without a word.
 ICON_IDS = ICON_IDS + (
@@ -767,16 +746,6 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-moon" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M16 12.5A7 7 0 0 1 7.5 4a7 7 0 1 0 8.5 8.5z"/>'
-    "</symbol>"
-    # #site-nav-toggle's glyph: a centre circle plus a toothed outer ring,
-    # same viewBox/stroke language as its closest neighbours by stroke
-    # weight, built from <circle>/<path> only.
-    '<symbol id="icon-gear" viewBox="0 0 20 20" fill="none" '
-    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
-    '<circle cx="10" cy="10" r="2.6"/>'
-    '<path d="M10 2.5v2.4M10 15.1v2.4M17.5 10h-2.4M4.9 10H2.5'
-    'M15.3 4.7l-1.7 1.7M6.4 13.6l-1.7 1.7M15.3 15.3l-1.7-1.7'
-    'M6.4 6.4L4.7 4.7"/>'
     "</symbol>"
     '<symbol id="icon-sun" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'

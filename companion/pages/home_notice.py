@@ -1,7 +1,7 @@
 """The notification Home shows while the frame's dot is amber or red.
 
-It says what is wrong in plain words from figures the server already holds
-(battery percent, time since the last check-in), gives one actionable tip,
+It says what is wrong in one short sentence from figures the server already holds
+(battery percent, time since the last check-in), gives one short actionable sentence,
 and ends with a way to reach an administrator: a mailto link to the first
 active administrator, or plain text when there is none. Nothing is sent by
 the server and no route is involved.
@@ -25,44 +25,30 @@ from server import fleet_db
 EXPLAIN_NOT_SEEN = i18n.msg(
     "home.notice_explain_not_seen", "Your frame has not contacted SkyPane yet.")
 EXPLAIN_OVERDUE = i18n.msg(
-    "home.notice_explain_overdue",
-    "Your frame has not checked in when expected. It may be out of battery "
-    "or out of Wi-Fi range.")
+    "home.notice_explain_overdue", "Your frame has not checked in on time.")
 EXPLAIN_LOW_BATTERY = i18n.msg(
-    "home.notice_explain_low_battery",
-    "Your frame's battery is low. Charge it soon so it keeps updating.")
+    "home.notice_explain_low_battery", "Your frame's battery is low.")
 EXPLAIN_NO_CONTACT = i18n.msg(
     "home.notice_explain_no_contact", "Your frame has no contact with the server.")
 
 LINE_BATTERY = i18n.msg("home.notice_line_battery", "Frame battery at %d%%")
 LINE_CHARGING = i18n.msg(
-    "home.notice_line_charging",
-    "The battery readings suggest the frame may be charging.")
+    "home.notice_line_charging", "The frame may be charging.")
 LINE_LAST_CHECK_IN = i18n.msg("home.notice_line_last_check_in", "Last check-in %s")
 LINE_LAST_CONTACT = i18n.msg("home.notice_line_last_contact", "Last contact %s")
-LINE_CANNOT_TELL = i18n.msg(
-    "home.notice_line_cannot_tell",
-    "SkyPane cannot tell a Wi-Fi, an internet or a server problem apart.")
 
 TIP_LOW_BATTERY = i18n.msg(
-    "home.notice_tip_low_battery", "Charge the frame or plug it in.")
+    "home.notice_tip_low_battery", "Charge it or plug it in.")
 TIP_OVERDUE = i18n.msg(
     "home.notice_tip_overdue",
-    "Wait for the next cycle. If the frame is in quiet hours, it is resting "
-    "on purpose.")
+    "Wait one cycle; if it stays silent, contact an administrator.")
 TIP_NOT_SEEN = i18n.msg(
     "home.notice_tip_not_seen",
-    "Check that the frame is powered, then wait one cycle.")
+    "Check it is powered; if it stays silent, contact an administrator.")
 TIP_NO_CONTACT = i18n.msg(
     "home.notice_tip_no_contact",
-    "Check that the frame is powered and that your Wi-Fi or internet box "
-    "is working.")
+    "Check its power and your Wi-Fi; if it stays silent, contact an administrator.")
 
-HELP_LEAD = i18n.msg(
-    "home.notice_help_lead", "If this does not recover, an administrator can help.")
-HELP_PLAIN = i18n.msg(
-    "home.notice_help_plain",
-    "Ask an administrator of this SkyPane installation for help.")
 CONTACT_LABEL = i18n.msg("home.notice_contact_label", "Contact an administrator")
 MAIL_SUBJECT = i18n.msg(
     "home.notice_mail_subject", "SkyPane: help with the frame %s (%s)")
@@ -151,7 +137,6 @@ def _check_in_lines(facts):
 def _contact_lines(facts):
     age = _age_text(facts)
     lines = [] if age is None else [i18n.t(LINE_LAST_CONTACT) % age]
-    lines.append(i18n.t(LINE_CANNOT_TELL))
     return lines
 
 
@@ -200,8 +185,6 @@ def notification_html(facts, status, contact):
     lines = _LINES[status.key](facts)
     extra = _lines_html(lines, i18n.t(_TIPS[status.key]))
     address = usable_address(contact)
-    extra += '<span class="home-notice__line">%s</span>' % escape_html(
-        i18n.t(HELP_LEAD if address else HELP_PLAIN))
     action = (layout.toast_link_action_html(
         mailto_href(address, facts, status), i18n.t(CONTACT_LABEL))
         if address else "")

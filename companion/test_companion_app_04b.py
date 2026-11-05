@@ -25,7 +25,6 @@ import urllib.parse
 
 import pytest
 
-import companion.i18n as i18n_module
 import companion.layout as layout
 import companion.test_companion_app_helpers as cah
 from companion import auth
@@ -228,51 +227,24 @@ def test_ui_lang_cookie_beats_accept_language(app04b_server, session_cookie):
 
 
 # ==========================================================================
-# The mobile toggle's gear glyph and its label.
+# The phone header: logo only; Sign out lives on the Account page.
 # ==========================================================================
 
 
-def test_the_nav_toggle_wears_the_gear_and_opens_the_same_panel(app04b_server, session_cookie):
-    """#site-nav-toggle renders icon-gear (never icon-hamburger), its aria-label is
-    NAV_TOGGLE_LABEL translated through i18n's real per-request path in both EN and FR, and the
-    panel it opens still holds Sign out with zero
-    page-navigation links"""
-    doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
-    toggle_start = doc.index('id="%s"' % layout.NAV_TOGGLE_ID)
-    toggle_end = doc.index("</button>", toggle_start) + len("</button>")
-    toggle_markup = doc[toggle_start:toggle_end]
-    assert "icon-gear" in toggle_markup, (
-        "expected #site-nav-toggle's markup to reference icon-gear, got %r" % toggle_markup)
-    assert toggle_markup.count("icon-hamburger") == 0, (
-        "expected zero icon-hamburger references in #site-nav-toggle, got %d"
-        % toggle_markup.count("icon-hamburger"))
-
-    expected_en = i18n_module.t_lang(layout.NAV_TOGGLE_LABEL, "en")
-    expected_fr = i18n_module.t_lang(layout.NAV_TOGGLE_LABEL, "fr")
-    assert expected_fr != layout.NAV_TOGGLE_LABEL, (
-        "expected a real French translation for NAV_TOGGLE_LABEL, got the English source back "
-        "unchanged")
+def test_the_header_has_no_account_toggle_in_either_language(app04b_server, session_cookie):
+    """the phone header carries no gear toggle or panel in English or French, and Sign out
+    stays one POST form on the Account page"""
     base = app04b_server.base_url()
-    status, _headers, body = http_request(
-        base + "/", cookie=session_cookie, extra_headers={"Accept-Language": "en-GB"})
-    assert status == 200, "expected 200 for the English-language GET, got %d" % status
-    en_needle = ('aria-label="%s"' % layout.escape_html(expected_en)).encode("utf-8")
-    assert en_needle in body, "expected the EN toggle aria-label %r in the rendered body" % en_needle
-    status, _headers, body = http_request(
-        base + "/", cookie=session_cookie, extra_headers={"Accept-Language": "fr-FR,fr;q=0.9"})
-    assert status == 200, "expected 200 for the French-language GET, got %d" % status
-    fr_needle = ('aria-label="%s"' % layout.escape_html(expected_fr)).encode("utf-8")
-    assert fr_needle in body, "expected the FR toggle aria-label %r in the rendered body" % fr_needle
-
-    doc = layout.page_shell(
-        title="T", active="health", body="<p>b</p>",
-        device_config={"display_enabled": True, "quiet_hours_enabled": False})
-    panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
-    panel = doc[panel_start:doc.index("</header>")]
-    assert 'action="/logout"' in panel, "expected Sign out inside the dropdown"
-    assert 'action="/ui-lang"' not in panel and 'action="/ui-theme"' not in panel
-    assert "<a href" not in panel, (
-        "expected zero page-navigation <a href> links in the dropdown, found one")
+    for language in ("en-GB", "fr-FR,fr;q=0.9"):
+        status, _headers, body = http_request(
+            base + "/", cookie=session_cookie, extra_headers={"Accept-Language": language})
+        assert status == 200
+        header = body[body.index(b"<header"):body.index(b"</header>")]
+        assert b"<button" not in header and b"<form" not in header
+        assert b"site-nav-toggle" not in body and b"icon-gear" not in body
+    status, _headers, body = http_request(base + "/account", cookie=session_cookie)
+    assert status == 200
+    assert b'<form method="post" action="/logout"' in body
 
 
 # ==========================================================================

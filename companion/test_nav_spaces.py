@@ -57,9 +57,8 @@ def test_admin_personal_sidebar_follows_the_spec():
 def test_admin_console_sidebar_follows_the_spec():
     _as_admin()
     sidebar = layout.sidebar_nav("users", health_alert="error", device_config={})
-    prefix = "/devices/abc123"
     assert _hrefs(sidebar) == [
-        "/fleet", "/users", prefix + "/airlines/manage", "/audit", "/account"]
+        "/fleet", "/users", "/airlines/manage", "/audit", "/account"]
     assert "space-switch" not in sidebar and ">Administration<" in sidebar
     assert ">Frame tools<" not in sidebar and "Advanced" not in sidebar
     assert sidebar.count("sidebar-link--active") == 1
@@ -75,10 +74,10 @@ def test_admin_bars_follow_the_spec():
     console = ui_nav._tab_bar_html("fleet", health_alert="warn", device_config={"a": 1})
     cells = console.split('<details class="tab-bar__more">')[0]
     assert _hrefs(cells) == [
-        "/fleet", "/users", prefix + "/airlines/manage", "/audit"]
+        "/", "/fleet", "/users", "/airlines/manage"]
     assert "Audit" in console and "Admin<" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'href="([^"]+)"', sheet) == ["/", "/account"]
+    assert re.findall(r'href="([^"]+)"', sheet) == ["/audit", "/account"]
     fleet_cell = cells[cells.index('href="/fleet"'):]
     assert "nav-notification" in fleet_cell[:fleet_cell.index("</a>")]
     summary = console[console.index("<summary"):console.index("</summary>")]
@@ -87,11 +86,11 @@ def test_admin_bars_follow_the_spec():
     mine = ui_nav._tab_bar_html("home", health_alert="warn", device_config={"a": 1})
     cells = mine.split('<details class="tab-bar__more">')[0]
     assert _hrefs(cells) == [
-        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display"]
+        "/fleet", prefix + "/", prefix + "/flights", prefix + "/detection",
+        prefix + "/display"]
     assert "nav-notification" not in mine
     sheet = mine.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'href="([^"]+)"', sheet) == [
-        "/fleet", prefix + "/airlines", "/account"]
+    assert re.findall(r'href="([^"]+)"', sheet) == [prefix + "/airlines", "/account"]
     assert "Admin<" not in mine
 
 

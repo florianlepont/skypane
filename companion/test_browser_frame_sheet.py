@@ -1,5 +1,5 @@
 """Real-browser proof of the frame tile strip for an administrator: the page
-kept across frames, the Add a screen tile and the pairing flow it opens, the
+kept across frames, the Add a frame tile and the pairing flow it opens, the
 strip scrolling sideways on a phone and wrapping on a desktop, geometry at 360
 and 1280 px in both languages and themes, and the personal and Console lists."""
 import pytest
@@ -78,14 +78,14 @@ def test_choosing_a_tile_keeps_the_page_for_the_other_frame(new_context, app, ro
 
 
 def test_the_add_tile_is_last_and_opens_the_pairing_flow(new_context, app):
-    """an administrator's strip ends with a dashed Add a screen tile that leads to the Fleet
+    """an administrator's strip ends with a dashed Add a frame tile that leads to the Fleet
     pairing dialog"""
     context, page = _open(
         new_context, app, _live_path(app, "/display"), viewport=VIEWPORT_DESKTOP)
     try:
         last = page.locator("ul.frame-tiles > li").last.locator("a")
         assert last.get_attribute("class").split() == ["frame-tile", "frame-tile--add"]
-        assert last.inner_text().strip().endswith("Add a screen")
+        assert last.inner_text().strip().endswith("Add a frame")
         assert page.locator(ADD).evaluate(
             "(el) => getComputedStyle(el).borderTopStyle") == "dashed"
         with page.expect_navigation():
@@ -147,7 +147,7 @@ def test_geometry_and_no_overflow(new_context, app, viewport, scheme, lang):
                 assert box["height"] >= TILE_FLOOR and box["width"] >= TILE_FLOOR
         pic = page.locator(TILES + " .frame-tile__pic").first.bounding_box()
         assert pic["width"] > 0 and pic["height"] > pic["width"]
-        label = "Ajouter un écran" if lang == "fr" else "Add a screen"
+        label = "Ajouter un cadre" if lang == "fr" else "Add a frame"
         assert page.locator(ADD).inner_text().strip().endswith(label)
         assert not _assert_no_page_overflow(page, "strip/%s/%s" % (scheme, lang), viewport["width"])
     finally:

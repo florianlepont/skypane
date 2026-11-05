@@ -6,10 +6,11 @@ firmware version or device id beyond the frame's own address and the forms of
 its dialogs. A frame shows no battery or last-contact figure, only its status
 dot.
 """
+import time
 from typing import NamedTuple
 
-from companion import frame_status, i18n, layout, prefs, ui_entity_list, ui_modal
-from companion.pages import co_managers_card
+from companion import frame_status, i18n, layout, prefs, ui_entity_list, ui_modal, ui_shell
+from companion.pages import co_managers_card, pair_frame_page
 
 ACCOUNT_TITLE = i18n.msg("account.account", "Account")
 ACCOUNT_PURPOSE = i18n.msg(
@@ -28,12 +29,6 @@ _THEME_TEXT = i18n.msg("account.theme", "Theme")
 _THEME_HINT = i18n.msg(
     "account.theme_hint", "Light, dark, or follow the system.")
 _MY_FRAMES_TEXT = i18n.msg("account.my_frames", "My frames")
-_NO_FRAMES_HEADING = i18n.msg(
-    "account.your_frames_will_appear_here", "Your frames will appear here")
-_NO_FRAMES_BODY = i18n.msg(
-    "account.once_an_administrator_pairs_a_frame",
-    "Once an administrator pairs a frame to your account, you land on its "
-    "Home after you sign in.")
 UNNAMED_FRAME_TEXT = i18n.msg("account.unnamed_frame", "Unnamed frame")
 _SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
 _LEAVE_FRAME_TEXT = i18n.msg("account.leave_frame", "Leave frame")
@@ -128,10 +123,19 @@ def _frame_line(frame):
     return frame.hardware
 
 
-def _frame_row_html(frame):
+def _frame_status_html(frame, now):
+    """The status dot and the last-seen word of a frame row."""
+    return (
+        '<span class="account-frame__status">%s<span>%s</span></span>' % (
+            frame_status.status_dot_html(frame),
+            layout.escape_html(ui_shell.seen_text(frame, now))))
+
+
+def _frame_row_html(frame, now):
     return ui_entity_list.entity_row_html(
-        frame_status.status_dot_html(frame), frame.name, _frame_line(frame), "",
-        _frame_action_html(frame), frame.href)
+        ui_shell.frame_pic_html("account-frame"), frame.name, _frame_line(frame),
+        _frame_status_html(frame, now), _frame_action_html(frame), frame.href,
+        extra_class="account-frame")
 
 
 def _frame_dialog_html(frame, open_access):
@@ -147,23 +151,25 @@ def _frame_dialog_html(frame, open_access):
         open_=frame.device_id == open_access)
 
 
-def _frames_card(frames, open_access):
+def _frames_card(frames, open_access, now):
     """The My frames card: the empty state with no frames, else one row per
     frame ordered by name, followed by the row dialogs."""
     if not frames:
-        return _card("account-frames", _MY_FRAMES_TEXT, layout.empty_state(
-            i18n.t(_NO_FRAMES_HEADING), i18n.t(_NO_FRAMES_BODY), compact=True))
+        return _card(
+            "account-frames", _MY_FRAMES_TEXT, pair_frame_page.empty_state_html())
     rows = sorted(frames, key=lambda frame: (frame.name.casefold(), frame.href))
     return _card(
         "account-frames", _MY_FRAMES_TEXT,
-        ui_entity_list.entity_list_html("".join(_frame_row_html(f) for f in rows))
+        ui_entity_list.entity_list_html("".join(_frame_row_html(f, now) for f in rows))
+        + '<p class="pair-actions">%s</p>' % pair_frame_page.secondary_link_html()
         + "".join(_frame_dialog_html(f, open_access) for f in rows))
 
 
-def render(identity, ui_theme="auto", frames=(), open_access=""):
+def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
     """The Account page body for `identity`, listing `frames` (the caller's
     own `FrameSummary` values). `open_access` is the id of the frame whose
-    Manage access dialog renders open."""
+    Manage access dialog renders open; `now` (epoch seconds) dates the
+    last-seen words."""
     identity_html = (
         '<div class="account-identity">%s%s</div>' % (
             _pair_html(_EMAIL_TEXT, identity.email),
@@ -183,7 +189,7 @@ def render(identity, ui_theme="auto", frames=(), open_access=""):
         % layout.escape_html(i18n.t(_SIGN_OUT_TEXT)))
     return (
         layout.page_header(i18n.t(ACCOUNT_TITLE), purpose=i18n.t(ACCOUNT_PURPOSE))
-        + _frames_card(tuple(frames), open_access)
+        + _frames_card(tuple(frames), open_access, time.time() if now is None else now)
         + _card("account-identity", _IDENTITY_TEXT, identity_html)
         + _card("account-preferences", _PREFERENCES_TEXT, preferences_html)
         + sign_out_html)

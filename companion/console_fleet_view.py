@@ -1,8 +1,7 @@
 """The Console Fleet page's frame selector and the views it opens.
 
 A strip of tiles lists every frame (picture, name, status dot, last-seen
-word), an "Add a screen" tile that opens the pairing flow and a last "System"
-tile. A tile is a plain link to `/fleet?frame=<id>` (or `/fleet?view=system`),
+word), a "System" tile and a last "Add a frame" tile that opens the pairing dialog. A tile is a plain link to `/fleet?frame=<id>` (or `/fleet?view=system`),
 so the selection needs no script. The selected frame opens four blocks: State,
 Device and version, Settings and Access. Each block reuses the content of the
 page that used to hold it (Health, Update, Device, Manage access) with the
@@ -60,7 +59,7 @@ _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
 _ADD_FIRST = i18n.msg(
-    "admin_fleet.add_screen_first", "Add a screen to see its state and settings.")
+    "admin_fleet.add_screen_first", "Add a frame to see its state and settings.")
 
 _ID_PREFIX_INLINE = "access-inline"
 
@@ -99,7 +98,7 @@ def _system_tile_html(is_current):
 
 def strip_html(entries, selected, is_system):
     """The tile strip: one tile per entry (a `device_scope.SwitcherEntry`),
-    the Add a screen tile and the System tile."""
+    the System tile and a last Add a frame tile."""
     ui_shell = _shell()
     now = device_scope.now_epoch()
     tiles = "".join(
@@ -108,9 +107,17 @@ def strip_html(entries, selected, is_system):
             selected is not None and entry.device.id == selected.id, now,
             ui_shell.tile_note(entry))
         for entry in ui_shell.console_ordered(entries, now))
-    tiles += ui_shell.add_tile_html() + _system_tile_html(is_system)
-    return '<ul class="%s" aria-label="%s">%s</ul>' % (
-        ui_shell.FRAME_TILES_CLASS, _t(ui_shell.STRIP_ARIA_TEXT), tiles)
+    from companion.pages import fleet_page
+    tiles += _system_tile_html(is_system) + ui_shell.add_tile_html(
+        dialog_id=fleet_page.ADD_DIALOG_ID)
+    if is_system:
+        active_name = i18n.t(_SYSTEM_TEXT)
+    else:
+        active_name = ui_shell.device_display_name(selected) if selected else ""
+    return ui_shell.strip_fold_html(
+        '<ul class="%s" aria-label="%s">%s</ul>' % (
+            ui_shell.FRAME_TILES_CLASS, _t(ui_shell.STRIP_ARIA_TEXT), tiles),
+        active_name)
 
 
 def _block(heading_msg, body_html, extra_class=""):

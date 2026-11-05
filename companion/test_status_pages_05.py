@@ -548,7 +548,8 @@ def test_navigation_omits_the_redundant_state_reminder():
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
     assert "nav-status" not in rendered
     assert '<nav class="sidebar-nav"' in rendered
-    assert 'class="mobile-nav__footer"' in rendered
+    assert 'class="sidebar-footer"' in rendered
+    assert "mobile-nav__footer" not in rendered
 
 
 # ==========================================================================

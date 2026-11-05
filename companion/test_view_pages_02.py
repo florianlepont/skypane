@@ -17,7 +17,7 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_view_pages_helpers as vp
-from companion.pages import airlines_page, history_page
+from companion.pages import airline_table, airlines_page, history_page
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import declarations_for, parse_html
 from server.plane import illustrations, manual_resolutions
@@ -820,12 +820,12 @@ def test_airlines_render_empty_ctx_still_contains_gallery_grid():
 def test_airlines_gap_rows_render_first_in_the_table_with_a_name_it_link(tmp_path):
     """a render with an eligible gap emits the unidentified prefix as a highlighted row at the
     top of the table, before every airline's rows and after the filter bar, with its "Name it"
-    link and the explanatory sentence"""
+    link and no explanatory sentence"""
     vp.seed_unresolved_prefixes(tmp_path, {
         "XYZ": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
     })
     rendered = airlines_page.render({"state_dir": str(tmp_path)})
-    assert airlines_page.GAP_CAPTION in rendered
+    assert "Unidentified callsigns come first" not in rendered
     gap_index = rendered.index('class="airline-group airline-group--gap"')
     filter_bar_index = rendered.index('class="filter-bar')
     first_airline_index = rendered.index('<tbody class="airline-group" ')
@@ -835,10 +835,9 @@ def test_airlines_gap_rows_render_first_in_the_table_with_a_name_it_link(tmp_pat
 
 
 def test_airlines_gap_rows_absent_with_no_gaps(tmp_path):
-    """a render with no eligible gaps emits no unidentified row and no gap sentence"""
+    """a render with no eligible gaps emits no unidentified row"""
     rendered = airlines_page.render({"state_dir": str(tmp_path)})
     assert "airline-group--gap" not in rendered
-    assert airlines_page.GAP_CAPTION not in rendered
     assert '<section class="page-section">' not in rendered
 
 
@@ -1038,7 +1037,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     # own MESSAGES lookup (by stable id), never a hand-typed literal
     # that would silently go stale on the next edit.
     for needle in (">Éditeur de compagnies<", ">Nommer</a>",
-                   i18n_fr_airlines.MESSAGES[airlines_page.GAP_CAPTION.msg_id]):
+                   i18n_fr_airlines.MESSAGES[airline_table.MENU_CHANGE_ART.msg_id]):
         assert needle in rendered_fr, "expected the French %r in the French Airlines render" % (needle,)
     for needle in ("Identifier un vol non reconnu", "Nom de la compagnie",
                    "Enregistrer le nom de la compagnie"):
@@ -1048,7 +1047,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
 
     rendered_en = airlines_page.render({"state_dir": str(tmp_path)})
     for needle in ('<h1 class="page-title">Airline editor</h1>', ">Name it</a>",
-                   airlines_page.GAP_CAPTION):
+                   "Change artwork"):
         assert needle in rendered_en, "expected the English %r in the default-language Airlines render" % (needle,)
 
 

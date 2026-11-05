@@ -16,7 +16,8 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from companion import device_scope, frame_state, i18n, layout, routes, wake
 from companion.pages import (
-    airlines_page, co_managers_card, config_page, detection_page, update_page)
+    airlines_page, co_managers_card, config_page, detection_page, pair_frame_page,
+    update_page)
 from server import device_config
 from server.plane import calendar_rules, colour_rules
 
@@ -73,6 +74,7 @@ FLASH_KEY_CO_MANAGER_LEFT = co_managers_card.FLASH_LEFT
 FLASH_KEY_CO_MANAGER_ADD_REFUSED = co_managers_card.FLASH_ADD_REFUSED
 FLASH_KEY_CO_MANAGER_FAILED = co_managers_card.FLASH_FAILED
 FLASH_KEY_CO_MANAGER_LEAVE_NOOP = co_managers_card.FLASH_LEAVE_NOOP
+FLASH_KEY_FRAME_PAIRED = pair_frame_page.FLASH_FRAME_PAIRED
 
 # A fixed key -> copy dictionary — the flash mechanism only ever renders
 # one of these, never a value taken verbatim from the query string.
@@ -123,8 +125,8 @@ FLASH_MESSAGES = {
         "its dot tells you whether it is up to date."),
     FLASH_KEY_WELCOME_ACCOUNT: i18n.msg(
         "common.welcome_to_skypane_your_frame_will_appear_here",
-        "Welcome to SkyPane — You are signed in. Your frame will appear "
-        "here once an administrator pairs it."),
+        "Welcome to SkyPane — You are signed in. Add your frame with the "
+        "code shown on its screen."),
     FLASH_KEY_WELCOME_NEUTRAL: i18n.msg(
         "common.welcome_to_skypane_you_are_signed_in",
         "Welcome to SkyPane — You are signed in."),
@@ -313,6 +315,7 @@ FLASH_MESSAGES = {
     FLASH_KEY_CO_MANAGER_ADD_REFUSED: co_managers_card.FLASH_ADD_REFUSED_TEXT,
     FLASH_KEY_CO_MANAGER_FAILED: co_managers_card.FLASH_FAILED_TEXT,
     FLASH_KEY_CO_MANAGER_LEAVE_NOOP: co_managers_card.FLASH_LEAVE_NOOP_TEXT,
+    FLASH_KEY_FRAME_PAIRED: pair_frame_page.FLASH_FRAME_PAIRED_TEXT,
 }
 
 _SUCCESS = layout.TOAST_TONE_SUCCESS
@@ -378,6 +381,7 @@ FLASH_TONES = {
     FLASH_KEY_CO_MANAGER_ADD_REFUSED: _ERROR,
     FLASH_KEY_CO_MANAGER_FAILED: _ERROR,
     FLASH_KEY_CO_MANAGER_LEAVE_NOOP: _INFO,
+    FLASH_KEY_FRAME_PAIRED: _SUCCESS,
     # The screen switch reaches the frame within about five minutes, at
     # its next wake; quiet hours and the LED wait for the next wake too.
     FLASH_KEY_DISPLAY_ON: _PENDING,

@@ -198,7 +198,7 @@ def test_without_an_administrator_the_notification_is_plain_text(
         new_context, server, "owner", "/devices/%s/" % seed.fleet.a1, "en", viewport)
     try:
         assert page.locator(NOTICE + " a").count() == 0
-        assert "Ask an administrator of this SkyPane installation for help." in page.inner_text(
+        assert "contact an administrator." in page.inner_text(
             NOTICE)
         assert "@" not in page.inner_text(NOTICE)
         _assert_notice_fits(page, "plain/" + viewport_name)

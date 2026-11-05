@@ -10,7 +10,7 @@ import pytest
 from PIL import Image
 
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_PHONE, _assert_hit_target, _assert_no_page_overflow, _in_both_themes,
+    VIEWPORT_DESKTOP, VIEWPORT_PHONE, _assert_no_page_overflow, _in_both_themes,
     _login, _no_js_page,
 )
 
@@ -90,7 +90,7 @@ def test_the_brand_is_one_decorative_link_home_and_the_chrome_keeps_its_hit_targ
         new_context, server, viewport, container):
     """on a personal page the lockup is plain text plus a decorative mark inside the one link to
     the frame's Home (the same for an administrator and a user): no button, an unchanged
-    accessible name, while the phone app bar's menu button beside it keeps its 44 px floor"""
+    accessible name, and the phone app bar is a slim logo-only strip (no menu button)"""
     context = new_context(viewport=viewport)
     try:
         page = context.new_page()
@@ -105,7 +105,9 @@ def test_the_brand_is_one_decorative_link_home_and_the_chrome_keeps_its_hit_targ
         assert page.locator(brand + " svg").get_attribute("aria-hidden") == "true"
         assert page.locator(brand).inner_text().strip() == "SkyPane"
         if viewport is VIEWPORT_PHONE:
-            _assert_hit_target(page, ".site-nav-toggle", "phone app bar")
+            header = page.locator("header.site-header")
+            assert header.locator("button, form, input").count() == 0
+            assert header.bounding_box()["height"] <= 56
     finally:
         context.close()
 

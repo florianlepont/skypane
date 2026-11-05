@@ -24,13 +24,10 @@ from companion.ui_base import (
     HEALTH_SOURCE_FAULT_CLASS,
     HEALTH_ROUTE,
     HOME_ROUTE,
-    MOBILE_NAV_ID,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
     NAV_SHORT_LABELS,
     NAV_TABS,
-    NAV_TOGGLE_ID,
-    NAV_TOGGLE_LABEL,
     UI_THEME_CHOICES,
     _DEFAULT_STATUS_DOT_CLASS,
     _STATUS_DOT_CLASSES,
@@ -107,8 +104,9 @@ _CONSOLE_ICON_IDS = {
     "editor": "icon-nav-airlines",
 }
 # The Console destinations that act on one frame: their hrefs carry the
-# frame in view.
-_CONSOLE_FRAME_KEYS = frozenset(("health", "device", "editor"))
+# frame in view. The airline editor lists every frame's airlines, so its link
+# carries none.
+_CONSOLE_FRAME_KEYS = frozenset(("health", "device"))
 # Health, Device and Releases no longer have navigation entries: their
 # content lives in the Fleet view, so their pages mark Fleet as current.
 _FLEET_FOLDED_SLUGS = frozenset(("health", "device", "update"))
@@ -211,14 +209,18 @@ def space_switch_html(active):
         escape_html(i18n.t(_SPACE_NAV_LABEL)), segments)
 
 
-def _switch_entry(space):
-    """The space switch as a plain More-sheet entry, or None (not an admin,
-    or no destination page)."""
+def _switch_cell_html(space):
+    """The tab bar's first cell for an administrator: a plain GET link to the
+    other space, with that space's glyph and short label. "" for everyone
+    else and when the destination page does not exist."""
     target = _switch_target(space) if is_admin_principal() else None
     if target is None:
-        return None
-    href, label, _aria = target
-    return _Entry(href, label, "", "", False)
+        return ""
+    href, label, aria = target
+    icon_id = "icon-device" if space == CONSOLE_SPACE else "icon-shield"
+    return '<a class="tab-bar__link tab-bar__link--switch" href="%s" aria-label="%s">%s</a>' % (
+        escape_html(href), escape_html(i18n.t(aria)),
+        _tab_bar_cell_body(icon_id, escape_html(i18n.t(label))))
 
 
 def ui_theme_from_cookie(cookies):
@@ -539,46 +541,42 @@ def _tab_bar_sheet_link(entry):
     css_class = (
         "mobile-nav__link mobile-nav__link--active"
         if entry.is_active else "mobile-nav__link")
-    if not entry.slug:
-        css_class += " mobile-nav__link--space"
     aria_current = ' aria-current="page"' if entry.is_active else ""
     return '<a class="%s" href="%s"%s>%s</a>' % (
         css_class, escape_html(entry.href), aria_current,
         escape_html(i18n.t(entry.label)))
 
 
+def _switch_cells(space):
+    cell = _switch_cell_html(space)
+    return [cell] if cell else []
+
+
 def _console_bar(active, health_alert):
-    """(cells, sheet entries) of the Console bar: Fleet (carrying the severity
-    dot), Users, the airline editor and Audit, with the space switch and
+    """(cells, sheet entries) of the Console bar: the space switch, Fleet
+    (carrying the severity dot), Users and the airline editor, with Audit and
     Account in More."""
     entries = _console_entries(active)
-    cells = [
+    cells = _switch_cells(CONSOLE_SPACE) + [
         _tab_bar_cell_link(
             entries[key], _CONSOLE_BAR_LABELS.get(key),
             extra_html=_health_dot(health_alert) if key == "fleet" else "")
-        for key in ("fleet", "users", "editor", "audit") if key in entries]
-    sheet = []
-    switch = _switch_entry(CONSOLE_SPACE)
-    if switch is not None:
-        sheet.append(switch)
+        for key in ("fleet", "users", "editor") if key in entries]
+    sheet = [entries[key] for key in ("audit",) if key in entries]
     sheet.append(_account_entry(active))
     return cells, sheet
 
 
 def _personal_bar(active):
     """(cells, sheet entries) of the personal bar, identical for an
-    administrator and a user: Home, History, Location and Style, with the
-    space switch (administrator only), the airline collection and Account
-    in More."""
-    cells = [
+    administrator and a user apart from the space switch cell that leads an
+    administrator's: Home, History, Location and Style, with the airline
+    collection and Account in More."""
+    cells = _switch_cells(PERSONAL_SPACE) + [
         _tab_bar_cell_link(
             _frame_entry(route, active), NAV_SHORT_LABELS.get(nav_slug(route)))
         for route in _personal_routes(_PERSONAL_BAR_PAGES)]
-    sheet = []
-    switch = _switch_entry(PERSONAL_SPACE)
-    if switch is not None:
-        sheet.append(switch)
-    sheet += [
+    sheet = [
         _frame_entry(route, active)
         for route in _personal_routes((AIRLINES_ROUTE,))]
     sheet.append(_account_entry(active))
@@ -586,11 +584,11 @@ def _personal_bar(active):
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None):
-    """Bottom tab bar shown below 960px, replacing the hamburger dropdown as the
-    sub-960px nav.
+    """Bottom tab bar shown below 960px, the sub-960px nav.
 
-    Four destination cells plus a "More" overflow, chosen by the caller's
-    space (see current_space()). The overflow uses a native
+    For an administrator the first cell is the space switch, a plain link to
+    the other space. Then the destination cells and a "More" overflow, chosen
+    by the caller's space (see current_space()). The overflow uses a native
     <details>/<summary> so it works with scripts blocked. The Health
     severity dot is drawn on the Health cell, never on More.
     Returns "" when there is no session context: no device_config and no
@@ -714,35 +712,3 @@ def _logout_form_html():
         '<button type="submit">%s</button>'
         "</form>"
     ) % escape_html(i18n.t(_SIGN_OUT_TEXT))
-
-
-def _mobile_nav_html(active, health_alert=None, device_config=None):
-    """The hamburger toggle and its <960px panel: Sign out only (language and
-    theme live on the Account page). Destination links live in _tab_bar_html() instead, so
-    this panel carries no navigation landmark of its own.
-
-    The panel pushes content down in-flow (flex-basis: 100%) rather than
-    overlaying it, and is always rendered closed — companion/static/
-    nav-dropdown.js toggles the open class client-side, keyed off the toggle's
-    aria-expanded attribute. `health_alert` is accepted but unused, kept only so
-    existing call sites stay unchanged.
-    """
-    del health_alert
-    toggle_html = (
-        '<button type="button" id="%s" class="site-nav-toggle" '
-        'aria-label="%s" aria-expanded="false" aria-controls="%s">%s</button>'
-    ) % (
-        NAV_TOGGLE_ID, escape_html(i18n.t(NAV_TOGGLE_LABEL)), MOBILE_NAV_ID,
-        icon_html("icon-gear", size=24))
-    footer_html = (
-        '<div class="mobile-nav__footer">%s</div>' % _logout_form_html())
-    # The document carries exactly two "Primary navigation" landmarks (sidebar,
-    # tab bar); the 960px CSS breakpoint exposes exactly one to the accessibility
-    # tree at a time.
-    panel_html = (
-        '<div id="%s" class="mobile-nav">'
-        "%s"
-        "</div>"
-    ) % (
-        MOBILE_NAV_ID, footer_html)
-    return toggle_html + panel_html

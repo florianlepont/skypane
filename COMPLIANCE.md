@@ -267,7 +267,7 @@ document.
 - **Terms checked:** 2026-11-03 (fetched the live policy page).
 - **What the terms require:** the exact URL
   `https://tile.openstreetmap.org/{z}/{x}/{y}.png`; visible attribution
-  "© OpenStreetMap contributors" on the map, not hidden behind a toggle; a
+  "© OpenStreetMap contributors" on or next to the map; a
   valid HTTP Referer from web pages and no restrictive Referrer-Policy that
   prevents it; browser caching honoured, no `no-cache` request headers; no
   bulk download, prefetching or offline use; no more than the tiles the
@@ -280,6 +280,17 @@ document.
   prefetch or offline feature, and show the attribution. No other page,
   script or stylesheet requests this host. The tile URL is meant to live in
   one constant so another provider can replace it.
+- **How the attribution is shown (owner decision, plan 61-50):** the map has
+  no strip of text over it. A discreet round "i" button sits on the map (always
+  on screen, 44 px target, `aria-expanded`) and opens a popover whose first line
+  is the link "© OpenStreetMap contributors" to
+  https://www.openstreetmap.org/copyright, followed by the ODbL data credit, the
+  tile-server and Nominatim credits, the privacy line and the copyright and
+  "report a map problem" links. The popover closes on Escape or a tap outside.
+  This is a one-tap control rather than always-visible text: the OpenStreetMap
+  attribution guidance accepts an "i" control for small maps, but the tile
+  policy's wording ("visible attribution") should be re-read at the next
+  terms check, and the always-visible strip restored if it is judged too hidden.
 - **Difference from the plan's spec:** the live policy forbids a Referrer-Policy
   that stops the Referer being sent. The companion's global `Referrer-Policy`
   stays `same-origin` (unchanged) and the map code must override it for the

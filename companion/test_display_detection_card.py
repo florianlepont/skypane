@@ -153,8 +153,8 @@ def test_display_serves_none_of_the_moved_controls_in_french(rig):
 def test_the_four_views_are_all_there_and_quiet_hours_are_not_on_display(rig):
     page = ""
     for slug, path in (
-            ("look", "/display"), ("special-looks", "/display/special-looks"),
-            ("calendar", "/display/calendar"), ("screen", "/display/screen")):
+            ("look", "/display"), ("look", "/display/arrivals"),
+            ("special-looks", "/display/special-looks"), ("calendar", "/display/calendar")):
         _status, view = rig.get("owner", rig.scope() + path)
         assert 'id="personalisation-%s"' % slug in view
         assert 'href="%s"' % (rig.scope() + path) in view
@@ -168,7 +168,9 @@ def test_the_location_page_holds_what_display_lost(rig):
     status, page = rig.get("owner", rig.scope() + "/detection")
     assert status == 200
     assert 'id="place-map"' in page and 'name="timezone"' in page
-    assert "Runway 08L/26R at Charles de Gaulle International Airport (CDG)" in _text(page)
+    assert "Charles de Gaulle International Airport" in _text(page)
+    checked = re.search(r'<input type="radio" name="runway" value="08L/26R"[^>]*checked', page)
+    assert checked
 
 
 # --- Device -----------------------------------------------------------------

@@ -346,8 +346,7 @@ def handle_audit_get(h, m):
     page = _page_number(_query_value(h, audit_page.PAGE_QUERY))
     return h._console_page(
         console_routes.AUDIT_ROUTE, None,
-        lambda: audit_page.render(build_audit_view(h.args.state_dir, category, page)),
-        audit_page.AUDIT_PURPOSE)
+        lambda: audit_page.render(build_audit_view(h.args.state_dir, category, page)))
 
 
 ROUTES = (

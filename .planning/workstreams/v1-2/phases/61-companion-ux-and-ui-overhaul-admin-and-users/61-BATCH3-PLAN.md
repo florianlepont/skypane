@@ -21,3 +21,30 @@ history guard) and is committed on its own.
 Constraints: unchanged from earlier plans (phase-47 files and `hardware/`
 untouched, expand-only, no deploy, EN/FR strings in `companion/i18n_fr/`,
 360 px, 44 px targets, both themes, behaviour tests, app.py line ceiling).
+
+## Batch 4 (owner validation round 4, 2026-11-05)
+
+Source: `61-OWNER-VALIDATION.md` (W22-W46, D34). Same rules as batch 3, plus:
+each plan runs the full suite once after its last code change.
+
+| Plan | Scope | Owner refs |
+|------|-------|-----------|
+| 61-46 | Phone chrome: slim header (no gear, no Sign out panel), Console / My frame switch becomes the first, set-apart tab-bar button (big switch and More-menu switch removed), compact collapsible textured frame strip (picture + name only) | W22, W23, W38, W39 |
+| 61-47 | Users pair their own frame (access matrix, ownership, audit, same limits), "Add a frame" from Account and the strip, zero-frame first sign-in prompt; Console "Add a frame" only in the strip (no duplicate access) | D34, W32, W33 |
+| 61-48 | Short texts and Home/Account/Personalisation: shorter Home notification, shorter Special looks texts, bigger preview, single-level tab bar (Departures, Arrivals, Special looks, Calendar), Screen view removed, Look view in two columns on desktop (preview left, settings right), graphic frame preview in Account frames | W24, W26, W27, W30, W47, W48, D35 |
+| 61-49 | Airline collection header simplified (sketch w1), badges tile smaller on phone, detail modal fits a phone screen | W28, W29, W46 |
+| 61-50 | Location page: usable on phone, bigger desktop map, one search field above the panel (IATA or address), my-position button fixed, no coordinates/time-zone line, no saved-settings disclosure, discreet "i" map credit, centred segments everywhere | W25, W40-W45 |
+| 61-51 | Console: no explanatory subtitles or helper captions, Users invite as a button/modal at the start or end of the list (no title overlap), Airlines editor global list (no frame strip), tap image to enlarge, change image in the "..." menu, filters scroll sideways | W33-W37 |
+
+## Batch 5 (visual direction A, "sky and motion", D37)
+
+| Plan | Scope |
+|------|-------|
+| 61-52 | Foundations: sky gradient background tokens (dawn/day/dusk/night, Light theme follows local time of day, Dark theme is always night, Auto follows the system), frosted-glass card surface tokens with a solid fallback and guaranteed contrast, bigger serif titles, motion tokens and a single reduced-motion rule |
+| 61-53 | Home: personal greeting title, plane on a trail when a flight is detected, pulsing dot, filling progress bar and badges, staggered card entrance |
+| 61-54 | Other pages polish with the same language (flights, collection, location sheet, personalisation, account, Console), view-transition timing, final contrast and performance pass |
+
+Batch 5 rule (D38): the style is applied to the real, current pages. The
+sketches are a direction only (colours, glass surfaces, gradients, motion,
+type scale); no content, control, route or rule of the current pages is
+dropped or redrawn from a sketch.

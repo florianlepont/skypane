@@ -14,7 +14,7 @@ import pytest
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _login
 from place_map_support import (
-    SETTLED as _SETTLED, Hosts, saved_place, seed as _seed)
+    SETTLED as _SETTLED, Hosts, open_details, saved_place, seed as _seed)
 
 pytestmark = pytest.mark.browser
 
@@ -25,8 +25,8 @@ RESULTS_SHOWN = "() => !document.getElementById('place-results').hidden"
 BUTTON_ENABLED = "() => !document.querySelector('form.place-search button').disabled"
 BUTTON_DISABLED = "() => document.querySelector('form.place-search button').disabled"
 SUBMIT = "() => document.querySelector('form.place-search').requestSubmit()"
-NO_PLACE = "No place found in France. Try another spelling, tap the map or pick an airport."
-FAILED = "Search is not available right now. Tap the map, pick an airport or enter coordinates."
+NO_PLACE = "No place found in France. Try another spelling, tap the map or type an airport code."
+FAILED = "Search is not available right now. Tap the map or type an airport code."
 # Headers a browser adds on its own to a cross-origin fetch; anything else is a custom header.
 BROWSER_HEADERS = frozenset((
     "accept", "accept-encoding", "accept-language", "origin", "referer", "user-agent",
@@ -88,6 +88,43 @@ def test_nothing_is_requested_on_load_or_while_typing_and_a_submit_sends_one(
         custom = sorted(set(headers) - BROWSER_HEADERS)
         if custom:
             raise AssertionError("custom headers were sent: %r" % custom)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("typed,icao", [
+    ("CDG", "LFPG"), ("  lfpg ", "LFPG"), ("ory", "LFPO"), ("Paris-Orly Airport", "LFPO")])
+def test_an_airport_code_or_name_selects_that_airport_without_asking_the_search_service(
+        new_context, make_app_server, typed, icao):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, hosts = _open(new_context, server)
+    try:
+        with page.expect_navigation():
+            _submit_query(page, typed)
+        if "airport=%s" % icao not in page.url:
+            raise AssertionError("landed on %s" % page.url)
+        page.wait_for_function(READY, timeout=15000)
+        if not page.is_checked("#place-mode-runway"):
+            raise AssertionError("Airport mode is not selected")
+        if not page.locator("label.runway-card").count():
+            raise AssertionError("the airport's runways are not listed")
+        if hosts.search_requests:
+            raise AssertionError("an airport code reached the search service: %r"
+                                 % hosts.search_requests)
+    finally:
+        context.close()
+
+
+def test_other_text_is_looked_up_as_an_address(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, hosts = _open(new_context, server)
+    try:
+        _submit_query(page, "12 rue de Rivoli")
+        page.wait_for_function(RESULTS_SHOWN, timeout=10000)
+        if len(hosts.search_requests) != 1 or "/detection" not in page.url:
+            raise AssertionError("the address was not looked up once: %r" % hosts.search_requests)
+        if "airport=" in page.url:
+            raise AssertionError("an address selected an airport")
     finally:
         context.close()
 
@@ -205,7 +242,7 @@ def test_a_city_result_zooms_to_city_level_and_keeps_a_typed_label(
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts = _open(new_context, server)
     try:
-        page.click("#details > summary")
+        open_details(page)
         page.fill("#place-label", "My own name")
         _submit_query(page, "lyon")
         page.wait_for_function(
@@ -280,7 +317,7 @@ def test_a_failed_search_shows_the_next_step_and_the_page_still_saves(
         page.wait_for_function(
             "() => !!document.querySelector('#place-map .place-pin')", timeout=5000)
         page.click("label.place-mode:has(#place-mode-area)")
-        page.click("#details > summary")
+        open_details(page)
         page.fill("#place-label", "Saved after failure")
         with page.expect_navigation() as info:
             page.click(SAVE)

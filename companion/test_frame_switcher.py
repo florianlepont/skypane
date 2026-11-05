@@ -1,5 +1,5 @@
 """The frame tile strip in the personal space: which frames it lists for a
-user and for an administrator, the same-page links, the Add a screen tile and
+user and for an administrator, the same-page links, the Add a frame tile and
 the escaping of names and owner emails. Rendered in-process over a
 seeded fleet.
 """
@@ -54,7 +54,7 @@ def _enter(state_dir, principal, current_id):
 
 
 def _frame_tiles(root):
-    """The frame tiles of the strip, without the Add a screen tile."""
+    """The frame tiles of the strip, without the Add a frame tile."""
     return [
         a for a in root.select("ul.frame-tiles a.frame-tile")
         if "frame-tile--add" not in a.attrs.get("class", "")]
@@ -97,13 +97,17 @@ def _add_tile(html):
     return found[0] if found else None
 
 
-def test_a_user_gets_no_add_tile_and_no_fleet_link(fleet):
+def test_a_user_gets_an_add_tile_to_their_own_page_and_no_fleet_link(fleet):
     state_dir, seeded = fleet
     _add_device(state_dir, seeded.owner_id, 0x11, "Desk")
     _enter(state_dir, _principal(seeded, "owner"), seeded.owner_device)
     html = ui_shell.frame_switcher_html("display")
-    assert _add_tile(html) is None
-    assert "/fleet" not in html and "Add a screen" not in html
+    add = _add_tile(html)
+    assert add.attrs["href"] == "/pair-frame"
+    assert add.text().strip().endswith("Add a frame")
+    assert "/fleet" not in html and "Add a screen" not in html and "Add a frame" in html
+    assert parse_html(html).select("ul.frame-tiles > li")[-1].select_one(
+        "a.frame-tile--add") is not None
     assert "/account#account-frames" not in html
 
 
@@ -116,7 +120,7 @@ def test_an_administrator_gets_the_add_tile_leading_to_the_pairing_flow(fleet):
     html = ui_shell.frame_switcher_html("display")
     add = _add_tile(html)
     assert add.attrs["href"] == "/fleet?pair=1"
-    assert add.text().strip().endswith("Add a screen")
+    assert add.text().strip().endswith("Add a frame")
     assert "All frames" not in html
     items = parse_html(html).select("ul.frame-tiles > li")
     assert items[-1].select_one("a.frame-tile--add") is not None

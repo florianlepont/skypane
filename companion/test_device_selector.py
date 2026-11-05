@@ -181,7 +181,7 @@ def test_add_tile_for_an_administrator_leads_to_the_pairing_flow(fleet_app):
     _, switcher = _switcher(page)
     add = switcher.select("a.frame-tile--add")
     assert [(a.attrs["href"], a.text().strip()[-12:]) for a in add] == [
-        ("/fleet?pair=1", "Add a screen")]
+        ("/fleet?pair=1", "+Add a frame")]
     assert "All frames" not in page
 
 
@@ -238,7 +238,7 @@ def test_switcher_is_in_french_when_the_language_is_french(fleet_app):
     _, _, page = _live_get(fleet_app, "/flights", lang="fr")
     _, switcher = _switcher(page)
     assert switcher.attrs["aria-label"] == "Vos cadres"
-    assert "Ajouter un écran" in page
+    assert "Ajouter un cadre" in page
     assert "Tous les cadres" not in page
     assert "Sans contact" in page and "Pas encore vu" in page
     assert "Cadre d’Orly" in page

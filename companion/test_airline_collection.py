@@ -224,3 +224,21 @@ def test_the_read_model_writes_nothing(conn, seed):
     assert conn.execute("SELECT COUNT(*) FROM runway_events").fetchone()[0] == before
     assert {r[0] for r in conn.execute("SELECT name FROM sqlite_master")} == tables
     assert not conn.in_transaction
+
+
+def test_sightings_across_frames_are_merged_newest_first_and_counted_together(tmp_path):
+    now = datetime.now(timezone.utc)
+    dirs = []
+    for index, (days, hex_code) in enumerate(((1, "aa0001"), (3, "bb0002"))):
+        state_dir = str(tmp_path / ("frame%d" % index))
+        with history_db.open_db(state_dir) as frame_conn:
+            history_db.record_runway_event(
+                frame_conn, ts=(now - timedelta(days=days)).isoformat(), hex=hex_code,
+                callsign="AFR%03d" % index, aircraft_type="A320",
+                confirmed_state="departing", airline="Air France")
+        dirs.append(state_dir)
+    merged = collection.sightings_across(dirs + [dirs[0], "", str(tmp_path / "missing" / "x")])
+    assert [row["hex"] for row in merged] == ["aa0001", "bb0002"]
+    entries, _summary = collection.collection_from_events(merged, now.isoformat())
+    france = next(entry for entry in entries if entry.name == "Air France")
+    assert france.times_seen == 2

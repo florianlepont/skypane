@@ -510,7 +510,7 @@ def test_gap_row_markup_shape_and_attribute_vocabulary():
         airlines_page._VIEW_PANEL_HEADING_ATTR: airlines_page.RESOLVE_HEADING,
         airlines_page._VIEW_PANEL_MODE_ATTR: airlines_page._VIEW_PANEL_MODE_GAP,
         airlines_page._VIEW_PANEL_MANUAL_ATTR: "",
-        airlines_page._VIEW_PANEL_SCOPE_ATTR: airlines_page.RESOLVE_CAPTION_TEMPLATE % "XYZ",
+        airlines_page._VIEW_PANEL_SCOPE_ATTR: "",
         airlines_page._VIEW_PANEL_RESOLVE_PREFIX_ATTR: "XYZ",
         airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR: "t1",
         airlines_page._VIEW_PANEL_LAST_SEEN_ATTR: "t2",
@@ -577,12 +577,12 @@ def test_gap_row_escapes_hostile_example_callsign():
 # =============================================================================
 
 def test_plain_airline_row_has_a_link_enlarge_trigger_and_no_manual_state(tmp_path):
-    """an airline with no sheet-independent manual history carries one "Enlarge the artwork"
-    trigger: a real link to the picture (never a resolve link), mode="art", with every
+    """an airline with no sheet-independent manual history carries one thumbnail
+    "Enlarge the artwork of ..." trigger: a real link to the picture (never a resolve link), mode="art", with every
     manual/resolve-prefix attribute empty and no status chip"""
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card = _card_slice(rendered, "Air France")
-    assert 'class="row-menu__item" data-view-panel-src="/illustration/air-france.png"' in card
+    assert 'class="airlines-thumb" data-view-panel-src="/illustration/air-france.png"' in card
     assert 'data-view-panel-mode="art"' in card
     assert 'data-view-panel-manual=""' in card
     assert 'data-view-panel-resolve-prefix=""' in card
@@ -1447,4 +1447,5 @@ def test_airlines_page_drops_decorative_labels_and_explains_owner_actions(tmp_pa
     assert "Resolved by hand" not in novel
     assert ">Add artwork</" not in novel
     assert "Flights with this prefix become unidentified again. Your artwork stays." in rendered
+    assert "Start typing" not in rendered and "Rename in place" not in rendered
     assert ">Delete my name</button>" in rendered

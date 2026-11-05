@@ -8,7 +8,10 @@ from companion import auth
 from companion import layout
 from companion.test_device_helpers import get, start_fleet_app
 
-PAGES = ("/", "/health", "/audit", "/update", "/flights", "/detection", "/account")
+PAGES = ("/", "/health", "/audit", "/update", "/flights", "/account")
+# The Location page has no empty state of its own: the map is its empty canvas. Its airport list's
+# "nothing matches" state is the one left to measure.
+FILTERED_PAGES = ("/detection?q=zzzzqqq",)
 
 
 def _empty_states(html):
@@ -31,7 +34,7 @@ def _assert_compact_or_filter(blocks, where):
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("path", PAGES)
+@pytest.mark.parametrize("path", PAGES + FILTERED_PAGES)
 def test_empty_pages_use_the_compact_scale(make_app_server, path, lang):
     server = make_app_server()
     cookie = "%s; %s=%s" % (companion_app_server.login(server), auth.UI_LANG_COOKIE_NAME, lang)

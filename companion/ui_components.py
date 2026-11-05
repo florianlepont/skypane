@@ -742,12 +742,13 @@ def empty_state(heading, body, compact=False):
     a verdict.
     """
     if compact:
+        body_html = (
+            '<p class="empty-state__body text-label section-caption">%s</p>'
+            % escape_html(body)) if body else ""
         return (
             '<div class="empty-state empty-state--compact">'
-            '<p class="empty-state__heading text-body">%s</p>'
-            '<p class="empty-state__body text-label section-caption">%s</p>'
-            "</div>"
-        ) % (escape_html(heading), escape_html(body))
+            '<p class="empty-state__heading text-body">%s</p>%s</div>'
+        ) % (escape_html(heading), body_html)
     return (
         '<div class="empty-state">'
         '<p class="empty-state__heading text-heading">%s</p>'

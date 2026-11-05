@@ -379,7 +379,8 @@ def test_the_unprefixed_personal_pages_follow_the_frame_rule_for_every_role(http
         assert status == 303, path
         assert headers["Location"] == "/devices/%s%s" % (
             seeded.owner_device, path), path
-        assert _get(server, path, cookies["lonely"])[0] == 404, path
+        status, headers, _body = _get(server, path, cookies["lonely"])
+        assert (status, headers["Location"]) == (303, "/account"), path
     # Health and the Airline editor are the administrator's: a user is not
     # sent to their own frame, the page is simply not there.
     unknown = _get(server, "/no-such-page-anywhere", cookies["owner"])

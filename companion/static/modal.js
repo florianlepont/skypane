@@ -33,6 +33,13 @@
     return null;
   }
 
+  // The menu a link sits in: its closest <details>, except the frame strip's
+  // fold, which is a page section, not a menu that closes when a choice is made.
+  function closestMenu(node) {
+    var menu = closestTag(node, "details");
+    return menu && !menu.classList.contains("frame-fold") ? menu : null;
+  }
+
   function hasAttr(node, name) {
     return node && node.nodeType === 1 && node.hasAttribute(name);
   }
@@ -75,7 +82,7 @@
       target = document.querySelector('a[data-modal-open][href="' + href + '"]');
     }
     if (target && document.body.contains(target)) {
-      var menu = closestTag(target, "details");
+      var menu = closestMenu(target);
       if (menu && !menu.open) {
         target = menu.querySelector("summary") || target;
       }
@@ -137,7 +144,7 @@
     evt.preventDefault();
     opener = link;
     openerHref = link.getAttribute("href") || "";
-    var menu = closestTag(link, "details");
+    var menu = closestMenu(link);
     if (menu) {
       menu.removeAttribute("open");
     }

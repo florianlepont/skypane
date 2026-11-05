@@ -228,7 +228,7 @@ def test_a2_invite_a_user(world, new_context):
 def test_a3_pair_a_frame(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator("a.page-header__action"), "Add a frame")
+        steps.tap(page.locator("a.frame-tile--add"), "Add a frame")
         steps.type_value(page.locator("#pair-code"), fx.FAKE_CODE, "pairing code")
         steps.choose(page.locator("#pair-owner"), fx.OWNER_EMAIL, "owner")
         steps.tap(page.locator("#dlg-add-frame button[type=submit]"), "Pair frame")
@@ -298,7 +298,8 @@ def test_a5_add_a_co_manager(world, new_context):
 def test_a6_read_the_audit_log(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href='/audit']"), "Audit log")
+        steps.tap(page.locator(".tab-bar__more > summary"), "More")
+        steps.tap(page.locator(".tab-bar__more-panel a[href='/audit']"), "Audit log")
         page.wait_for_url("**/audit")
         assert page.locator("main h1").inner_text() == "Audit log"
         assert page.locator(".section-subnav").count() == 0
@@ -461,19 +462,17 @@ def _save_place(steps, page):
 
 
 def test_l1_pick_an_airport_from_the_list(world, new_context):
-    context, page, steps, _ = _open_location(world, new_context)
+    context, page, steps, hosts = _open_location(world, new_context)
     try:
-        steps.type_value(page.locator("#airport-filter"), "Lyon", "airport filter")
-        link = page.locator("a.place-airport__link[data-icao=LFLL]")
-        page.wait_for_function(
-            "() => { const e = document.querySelector('a.place-airport__link[data-icao=LFLL]');"
-            " return !!e && e.checkVisibility(); }", timeout=10000)
+        # The one search field takes the airport's code; submitting it opens that airport's page.
+        steps.type_value(page.locator("#place-search"), "LYS", "search field")
         with page.expect_navigation():
-            steps.tap(link, "the airport")
+            steps.tap(page.locator("form.place-search button"), "Search")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         _save_place(steps, page)
         place = _frame_place(world)
         assert place is not None and abs(place["latitude"] - 45.7) < 0.5, place
+        assert not hosts.search_requests
         _report_measured("L1", steps, 4)
     finally:
         context.close()
@@ -553,11 +552,11 @@ def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
 def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".space-strip a:has-text('My frame')"), "My frame")
+        steps.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('My frame')"), "My frame")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
         assert page.locator("main h1").inner_text().strip() == "Home"
         back = Steps(page)
-        back.tap(page.locator(".space-strip a:has-text('Console')"), "Console")
+        back.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('Console')"), "Console")
         page.wait_for_url("**/fleet")
         assert back.count == 1
         _report_measured("S1", steps, 1)

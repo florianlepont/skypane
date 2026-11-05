@@ -38,7 +38,7 @@ the L2 test (the test context grants it in advance).
 | A4 | Retire | ~4 | 3 | 4 | 0 | yes after plan 61-45: no scroll; the actions menu is in the detail header. The 4th step is the tile tap, needed only when the frame is not the one selected on landing |
 | A4 | Reassign | ~4 | 4 | 5 | +1 | yes after plan 61-45 (tile tap, menu, Reassign, new owner, confirm; no scroll) |
 | A5 | Add a co-manager | ~5 | 4 | 5 | 0 | yes after plan 61-45 (tile tap, menu, Manage access, person, Add; no scroll); the Access block of the selected frame also offers the forms inline |
-| A6 | Read the audit log | 2 | 1 | 1 | -1 | yes (Audit is a Console bar cell since plan 61-42) |
+| A6 | Read the audit log | 2 | 1 | 2 | 0 | no (Audit moved back into More by plan 61-46, the bar now leads with the space switch) |
 | U1 | Sign in | ~4, ends on Account | 4, ends on Home | 4, ends on Home | 0 (lands on the right page) | yes |
 | U2 | See my frames, one frame | 1 (wrong page) | 0 | 0 | -1 | yes |
 | U3 | Understand a frame's state | ~3 | 0 | 0 (the dot on Home) | -3 | yes |
@@ -59,8 +59,8 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 | U4b | Change the look (Personalisation tab, tap a look, Save) | 5 (old U4 look) | 3 | 3 | -2 | yes |
 | A9 | Administrator changes a user's role (Users tab, choose the role in the row; the select saves at once, plan 61-43) | 4 (Users tab, Manage user, choose, Save role) | 2 | 2 | -2 | yes |
 | U4c | Administrator changes the refresh interval (Settings block of the Fleet view: scroll, the interval, Save) | not measured, new flow | 3 | 3 | n/a | yes |
-| L1 | Pick an airport from the list (Location tab, type in the filter, tap the airport, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
-| L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41) | n/a | yes (rebuilt Location page) |
+| L1 | Pick an airport (Location tab, type its code in the search field, tap Search, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41; unchanged by plan 61-50) | n/a | yes (rebuilt Location page) |
+| L2 | Use my position (Location tab, permission, Use my position, Save) | not measured, new flow | 4 | 4 (was 5 before plan 61-41; unchanged by plan 61-50) | n/a | yes (rebuilt Location page) |
 | L3 | Search a place (Location tab, type, Search places, tap the result, Save) | not measured, new flow | 6 | 5 (was 6 before plan 61-41) | n/a | yes |
 | L4 | Tap the map (Location tab, tap the map, Save) | not measured, new flow | 3 | 3 (was 4 before plan 61-41) | n/a | yes (rebuilt Location page) |
 | S1 | Console to My frame (and back) | not measured, new flow | 1 | 1 (both directions) | n/a | yes |
@@ -74,10 +74,10 @@ Superseded rows (kept for the record, replaced by the revision 2 rows below):
 Measured paths (360 x 844):
 
 - U4a: tap the schedule link on Home (opens the Quiet hours dialog), type the start time, Save.
-- U4b: Personalisation tab, tap a look card, Save.
+- U4b: Personalisation tab, tap a look card, Save (plan 61-48: the Departures and Arrivals views are one tap apart in the single tab bar; before it Arrivals was a tab inside the Look view, also one tap; the count is unchanged).
 - U4c: Device tab in the Console bar, type the interval in the number field, Save.
-- L1: Location tab, type "Lyon" in the airport filter (the first control of the sheet), tap the airport (it opens the same page for that airport), Save.
-- L2: Location tab, the permission prompt (one counted step), tap the round Use my position button on the map, Save.
+- L1: Location tab, type the airport's code ("LYS") in the one search field at the top of the map, tap Search (an airport code or name is answered from the page's own list: it opens the same page for that airport, no request to the search service), Save (plan 61-50: before it, the airport filter then the airport link; the count is unchanged).
+- L2: Location tab, the permission prompt (one counted step), tap the round Use my position button on the map (it now also switches to My position mode, plan 61-50), Save.
 - L3: Location tab, type the query, tap Search places, tap the result (no scroll), Save.
 - L4: Location tab, tap the part of the map the floating controls and the sheet leave clear, Save.
 - S1: tap My frame in the strip under the header from the Console landing; the way back, tap Console, is also one.
@@ -135,3 +135,15 @@ The editor's name field is in the row, so renaming no longer opens the airline s
 on a phone (bar cell, type, Enter). Replacing an artwork is the thumbnail itself (choose the file; with a
 script the form sends it at once): one tap and the file choice, where the sheet needed the row, the type
 and the upload. Reaching an aircraft type's artwork costs one chevron tap. No editor flow got longer.
+
+## Plan 61-46 (phone chrome)
+
+The tab bar leads with the administrator's Console / My frame switch (S1 stays 1: the cell is a plain link, now in
+the bar instead of a strip under the header). A 6th cell does not fit the longest French label ("Compagnies",
+"Utilisateurs") at 360 px, so the Console bar moved Audit log into More: A6 is 2 again (More, Audit log), as before
+plan 61-42. The personal bar keeps its four destinations beside the switch (six cells). Nothing else changed: the
+frame strip's collapse is optional and open by default, so no task gained a tap.
+
+## Plan 61-51 (quiet Console pages, global Airlines editor)
+
+Changing an artwork moved from the thumbnail (tap, choose the file) to the row's menu (open "...", "Change artwork", choose the file): one tap more, no flow in the measured set (A8 stays 3, a rename). Enlarging an artwork is now one tap on the thumbnail (it was two: "..." then "Enlarge the artwork"). Inviting a user is unchanged (A2 stays 4). No measured count moved.

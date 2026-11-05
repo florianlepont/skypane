@@ -4,7 +4,7 @@ resolutions.
 
 Renders the static curated list from
 `illustrations.target_variants_by_airline()` as a table
-(`airline_table.py`), with the frame's own sightings for the
+(`airline_table.py`), with the sightings of every frame for the
 views, last seen and aircraft types.
 `unresolved_row_for_prefix()` makes one read-only membership check via
 `state_store.load_poll_state()`, gated on `ctx.resolve_prefix`. Each
@@ -14,7 +14,6 @@ browser reserves space before the image loads.
 import html as html_module
 import os
 import re
-import sqlite3
 
 from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_HEIGHT,
@@ -28,7 +27,6 @@ import companion.page_context as page_context
 from companion import airline_collection
 from companion.pages import airline_resolutions, airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL
-from server import history_db
 from server.plane import illustrations
 # manual_resolutions, enrich and state_store import this page module in
 # neither direction, so importing them here creates no cycle.
@@ -61,13 +59,6 @@ ROW_TYPES_SEP = " · "
 EDIT_AIRLINE_TEXT = i18n.msg("airlines.edit_airline", "Edit %s")
 ADD_ACTION_TEXT = i18n.msg("airlines.add_artwork", "Add artwork")
 ACTION_LABEL_TEMPLATE = i18n.msg("airlines.action_for", "%s: %s")
-
-TABLE_CAPTION = i18n.msg(
-    "airlines.table_purpose",
-    "Rename in place, click artwork to replace it, expand for aircraft.")
-GAP_CAPTION = i18n.msg(
-    "airlines.gap_caption",
-    "Unidentified callsigns come first: use Name it to pick an airline.")
 
 # Reuses History's shared <dialog> lightbox and panel-lookup.js's click
 # delegation. These five names are duplicated (not imported) from
@@ -261,11 +252,6 @@ RESOLVE_STALE_BODY = i18n.msg(
     "resolved. See Health for the complete list of current gaps.")
 RESOLVE_HEADING = i18n.msg(
     "airlines.resolve_an_unidentified_flight", "Resolve an unidentified flight")
-# No callsign clause: this template must stay true even when no
-# sighting data survives for the prefix (the row-gone fallback path).
-RESOLVE_CAPTION_TEMPLATE = i18n.msg(
-    "airlines.every_flight_using_prefix_will_show_as_this",
-    "Every flight using prefix %s will show as this airline.")
 # "Prefix"/"First seen"/"Last seen"/"Example callsign" are owned by
 # companion/i18n_fr/health.py, not airlines.py — the same ids
 # health_page.py's own unresolved-prefix table uses. "Times seen" is
@@ -287,14 +273,9 @@ RESOLVE_CONTEXT_DD_CLASSES = (
     "resolve-context__callsign",
 )
 NAME_LABEL_TEXT = i18n.msg("airlines.airline_name", "Airline name")
-NAME_HINT_TEXT = i18n.msg(
-    "airlines.start_typing_pick_a_suggestion", "Start typing — pick a suggestion.")
 SAVE_BUTTON_TEXT = i18n.msg("airlines.save_airline_name", "Save airline name")
 STEP_B_HEADING_TEMPLATE = i18n.msg(
     "airlines.add_an_illustration_for", "Add an illustration for %s")
-STEP_B_CAPTION = i18n.msg(
-    "airlines.saved_add_artwork_below_or_skip_for_now",
-    "Saved — add artwork below, or skip for now.")
 STEP_B_SKIP_TEXT = i18n.msg(
     "airlines.skip_i_ll_add_artwork_later", "Skip — I’ll add artwork later")
 # Fourth reachable state: a bookmark or Back press lands on a prefix
@@ -750,7 +731,7 @@ def _gap_trigger_attrs_html(row, now=None):
         _VIEW_PANEL_HEADING_ATTR, i18n.t(RESOLVE_HEADING),
         _VIEW_PANEL_MODE_ATTR, _VIEW_PANEL_MODE_GAP,
         _VIEW_PANEL_MANUAL_ATTR,
-        _VIEW_PANEL_SCOPE_ATTR, i18n.t(RESOLVE_CAPTION_TEMPLATE) % escape_html(prefix),
+        _VIEW_PANEL_SCOPE_ATTR, "",
         _VIEW_PANEL_RESOLVE_PREFIX_ATTR, escape_html(prefix),
         _VIEW_PANEL_FIRST_SEEN_ATTR, escape_html(_seen_attribute_text(first_seen, now)),
         _VIEW_PANEL_LAST_SEEN_ATTR, escape_html(_seen_attribute_text(last_seen, now)),
@@ -981,13 +962,11 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
         '<input type="text" id="%s" name="airline_name" list="%s" '
         'maxlength="100" required autocomplete="off" autofocus>'
         "%s"
-        '<p class="text-label section-caption">%s</p>'
         "</div>"
     ) % (
         name_input_id, i18n.t(NAME_LABEL_TEXT),
         name_input_id, MANUAL_DATALIST_ID + id_suffix,
         datalist_html,
-        i18n.t(NAME_HINT_TEXT),
     )
     submit_html = (
         '<button type="submit">%s</button>' % i18n.t(SAVE_BUTTON_TEXT)
@@ -1105,8 +1084,6 @@ def _resolve_section_html(ctx):
         body = '<p class="text-body">%s</p>' % i18n.t(RESOLVE_STALE_BODY)
         return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
 
-    escaped_prefix = escape_html(prefix)
-
     registry = manual_resolutions.load_manual_resolutions(state_dir)
     entry = registry.get(prefix)
 
@@ -1117,11 +1094,9 @@ def _resolve_section_html(ctx):
             return '<div class="page-section" data-resolve-fallback>%s%s</div>' % (back_link, body)
         # Step A: name not yet saved, so no entry exists and no delete form.
         heading = '<h2 class="text-heading">%s</h2>' % i18n.t(RESOLVE_HEADING)
-        caption = '<p class="text-label section-caption">%s</p>' % (
-            i18n.t(RESOLVE_CAPTION_TEMPLATE) % escaped_prefix)
         form = _resolve_name_form_html(prefix, "")
-        return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s</div>' % (
-            back_link, heading, caption, context_html, form)
+        return '<div class="page-section" data-resolve-fallback>%s%s%s%s</div>' % (
+            back_link, heading, context_html, form)
 
     # Recompute the key from the stored name — never from the query
     # string, and never re-derive the slug locally.
@@ -1141,13 +1116,12 @@ def _resolve_section_html(ctx):
 
     if illustrations.resolved_illustration_path(key, state_dir) is None:
         # Step B: name already saved, no artwork exists yet.
-        caption = '<p class="text-label section-caption">%s</p>' % i18n.t(STEP_B_CAPTION)
         upload_action = _illustration_url(key, "POST")
         upload_zone = _resolve_upload_form_html(upload_action, "")
         skip_link = '<a class="text-label" href="%s">%s</a>' % (
             device_scope.scoped(MANAGE_ROUTE), i18n.t(STEP_B_SKIP_TEXT))
-        return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s%s</div>' % (
-            back_link, heading, caption, context_html, upload_zone, skip_link, delete_form)
+        return '<div class="page-section" data-resolve-fallback>%s%s%s%s%s%s</div>' % (
+            back_link, heading, context_html, upload_zone, skip_link, delete_form)
 
     # Already resolved: a bookmark or a Back press landed on a prefix
     # still listed as a gap, but a manual entry already names an airline
@@ -1196,17 +1170,16 @@ def _manual_resolution_rows(state_dir, registry):
 
 
 def _entries_by_slug(ctx, now):
-    """`{slug: AirlineEntry}` from the frame's stored sightings: the views,
-    last seen and aircraft types of each airline. An unreadable history
-    gives no sightings."""
+    """`{slug: AirlineEntry}` from the stored sightings of every frame in
+    scope (the list is global, not per frame): the views, last seen and
+    aircraft types of each airline. Without a request scope the context's
+    own state directory is used. Unreadable histories give no sightings."""
     overrides = ctx.name_overrides or {}
-    try:
-        if not ctx.state_dir:
-            raise OSError("no state directory")
-        with history_db.open_db(ctx.state_dir) as conn:
-            entries, _summary = airline_collection.airline_collection(conn, now, overrides)
-    except (sqlite3.Error, OSError):
-        entries, _summary = airline_collection.collection_from_events([], now, overrides)
+    dirs = [device.state_dir for device in device_scope.current_devices()]
+    if ctx.state_dir:
+        dirs.append(ctx.state_dir)
+    events = airline_collection.sightings_across(dirs)
+    entries, _summary = airline_collection.collection_from_events(events, now, overrides)
     return {entry.slug: entry for entry in entries}
 
 
@@ -1277,9 +1250,6 @@ def render(ctx):
     total = len(gap_shown) + len(pairs)
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
-    gap_caption_html = "".join(
-        '<p class="text-label section-caption">%s</p>' % escape_html(i18n.t(text))
-        for text in ((TABLE_CAPTION, GAP_CAPTION) if gap_shown else (TABLE_CAPTION,)))
     table_html = airline_table.table_html(airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
         manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
@@ -1287,7 +1257,6 @@ def render(ctx):
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html
-        + gap_caption_html
         + table_html
         + overflow_html
         + airline_resolutions.section_html(

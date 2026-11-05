@@ -13,9 +13,10 @@
  * missing or failing library leaves the plain form as it is.
  *
  * The only requests are the tile pictures the library asks the tile host for
- * (one constant below, no subdomains, no prefetch) and, on a submitted place
- * search, one request to the search service. The position is read from the
- * browser only on a tap. Nothing is stored.
+ * (one constant below, no subdomains, no prefetch) and, on a submitted
+ * address search, one request to the search service (a submitted airport code
+ * or name is answered from the page's own list, no request). The position is
+ * read from the browser only on a tap. Nothing is stored.
  */
 (function () {
   "use strict";
@@ -51,6 +52,8 @@
   var RADIUS_MIN_KM = 2;
   var RADIUS_MAX_KM = 28;
   var READY_CLASS = "map-ready";
+  var MESSAGE_MS = 8000;
+  var LOCATE_GUARD_MS = LOCATE_TIMEOUT_MS + 3000;
 
   var mapEl = document.getElementById("place-map");
   if (!mapEl) {
@@ -78,11 +81,11 @@
   var radiusField = byId("place-radius");
   var statusEl = byId("place-status");
   var noticeEl = byId("place-notice");
-  var detailsEl = byId("details");
-  var derivedEl = byId("place-derived");
-  var zoneField = byId("place-timezone");
+  var messageEl = byId("place-message");
   var rangeField = byId("place-radius-range");
-  var panelEl = document.querySelector(".place-panel");
+  var cardEl = document.querySelector(".place-card");
+  var sheetEl = document.querySelector(".place-sheet");
+  var modesEl = document.querySelector(".place-modes");
   var DESKTOP_QUERY = "(min-width: 960px)";
 
   function text(key) {
@@ -131,6 +134,23 @@
     }
   }
 
+  var messageTimer = null;
+
+  // The visible message of the locate button; it fades after a few seconds.
+  function showMessage(message) {
+    if (!messageEl) {
+      return;
+    }
+    messageEl.textContent = message;
+    messageEl.hidden = !message;
+    window.clearTimeout(messageTimer);
+    if (message) {
+      messageTimer = window.setTimeout(function () {
+        messageEl.hidden = true;
+      }, MESSAGE_MS);
+    }
+  }
+
   function showNotice(message) {
     if (noticeEl) {
       noticeEl.textContent = message;
@@ -155,6 +175,7 @@
       airports.push({
         icao: anchors[i].getAttribute("data-icao"),
         name: anchors[i].getAttribute("data-name") || "",
+        iata: anchors[i].getAttribute("data-iata") || "",
         lat: lat,
         lon: lon,
         anchor: anchors[i]
@@ -166,6 +187,32 @@
   // runway cards, the pin and the label for it, so a dot follows its link.
   function chooseAirport(airport) {
     airport.anchor.click();
+  }
+
+  // Lower case, accents removed, spaces collapsed: how a typed word is
+  // compared with an airport's code or name.
+  function foldText(value) {
+    var folded = String(value).toLowerCase();
+    if (typeof folded.normalize === "function") {
+      folded = folded.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    }
+    return folded.replace(/\s+/g, " ").replace(/^ | $/g, "");
+  }
+
+  // The airport whose ICAO or IATA code or whole name is what was typed.
+  function airportForQuery(query) {
+    var wanted = foldText(query);
+    if (!wanted) {
+      return null;
+    }
+    for (var k = 0; k < airports.length; k++) {
+      var airport = airports[k];
+      if (wanted === foldText(airport.icao) || wanted === foldText(airport.name) ||
+          (airport.iata && wanted === foldText(airport.iata))) {
+        return airport;
+      }
+    }
+    return null;
   }
 
   function distanceKm(lat1, lon1, lat2, lon2) {
@@ -199,25 +246,28 @@
     return !!(window.matchMedia && window.matchMedia(DESKTOP_QUERY).matches);
   }
 
-  // The parts of the map the panel and the floating controls cover: on a wide
+  // The parts of the map the card and the floating controls cover: on a wide
   // screen the card's width at the left, on a phone the sheet's height at the
-  // bottom and the floating controls' height at the top.
+  // bottom and the search field and the mode chips' height at the top.
   function coveredBy() {
     var none = { left: 0, top: 0, bottom: 0 };
-    if (!panelEl || !map) {
+    if (!sheetEl || !map) {
       return none;
     }
     var mapBox = mapEl.getBoundingClientRect();
-    var box = panelEl.getBoundingClientRect();
     if (isDesktop()) {
-      return { left: Math.max(0, box.right - mapBox.left), top: 0, bottom: 0 };
+      var card = (cardEl || sheetEl).getBoundingClientRect();
+      return { left: Math.max(0, card.right - mapBox.left), top: 0, bottom: 0 };
     }
     var top = 0;
-    var search = searchForm || document.querySelector(".place-search");
-    if (search) {
-      top = Math.max(0, search.getBoundingClientRect().bottom - mapBox.top);
+    var floating = [searchForm, modesEl];
+    for (var k = 0; k < floating.length; k++) {
+      if (floating[k]) {
+        top = Math.max(top, floating[k].getBoundingClientRect().bottom - mapBox.top);
+      }
     }
-    return { left: 0, top: top, bottom: Math.max(0, mapBox.bottom - box.top) };
+    var sheet = sheetEl.getBoundingClientRect();
+    return { left: 0, top: top, bottom: Math.max(0, mapBox.bottom - sheet.top) };
   }
 
   // The map centre that puts `point` in the middle of the uncovered part.
@@ -247,12 +297,6 @@
       position: "topright",
       zoomInTitle: text("zoom-in"),
       zoomOutTitle: text("zoom-out")
-    }).addTo(map);
-    // The bottom of the map is under the sheet on a phone, so the credit
-    // sits at the top left there.
-    L.control.attribution({
-      position: isDesktop() ? "bottomright" : "topleft",
-      prefix: false
     }).addTo(map);
     var tiles = L.tileLayer(TILE_URL, {
       maxZoom: MAX_ZOOM,
@@ -331,24 +375,6 @@
     syncing = false;
   }
 
-  // The read-only line under the panel: coordinates and time zone.
-  function updateDerived() {
-    if (!derivedEl) {
-      return;
-    }
-    var lat = latField ? parseNumber(latField.value) : null;
-    var lon = lonField ? parseNumber(lonField.value) : null;
-    if (lat === null || lon === null) {
-      derivedEl.textContent = derivedEl.getAttribute("data-empty") || "";
-      return;
-    }
-    var parts = [roundCoord(lat).toFixed(COORD_DECIMALS), roundCoord(lon).toFixed(COORD_DECIMALS)];
-    if (zoneField && zoneField.value) {
-      parts.push(zoneField.value);
-    }
-    derivedEl.textContent = parts.join(" \u00b7 ");
-  }
-
   function syncRange() {
     if (rangeField && radiusField) {
       var km = parseNumber(radiusField.value);
@@ -369,7 +395,6 @@
     if (!fromFields) {
       writeFields(latlng);
     }
-    updateDerived();
     announce(latlng);
     pinMoved(latlng);
   }
@@ -545,7 +570,10 @@
     }
   }
 
+  var noteTimer = null;
+
   function clearResults() {
+    window.clearTimeout(noteTimer);
     while (resultsEl.firstChild) {
       resultsEl.removeChild(resultsEl.firstChild);
     }
@@ -559,6 +587,8 @@
     note.textContent = message;
     resultsEl.appendChild(note);
     resultsEl.hidden = false;
+    // A note is read once and goes: it never stays over the controls.
+    noteTimer = window.setTimeout(clearResults, MESSAGE_MS);
   }
 
   // Reads one search answer row into a safe record, or null when it has no
@@ -703,10 +733,18 @@
 
   function onSearchSubmit(event) {
     event.preventDefault();
+    var query = searchInput.value.replace(/\s+/g, " ").replace(/^ | $/g, "");
+    // An airport code or name is answered from the page's own list: the
+    // airport's link opens the page for it, nothing leaves the browser.
+    var airport = airportForQuery(query);
+    if (airport) {
+      clearResults();
+      chooseAirport(airport);
+      return;
+    }
     if (searchBusy || searchLocked) {
       return;
     }
-    var query = searchInput.value.replace(/\s+/g, " ").replace(/^ | $/g, "");
     if (query.length < searchMin) {
       showResultsNote(text("search-short"));
       return;
@@ -741,23 +779,43 @@
     }
   }
 
-  function onPosition(position) {
+  var locateGuard = null;
+
+  function finishLocate() {
+    window.clearTimeout(locateGuard);
     setLocateBusy(false);
+  }
+
+  // Reports in the status line (read aloud) and in the visible message.
+  function report(message) {
+    setStatus(message);
+    showMessage(message);
+  }
+
+  // A found position follows the person: the mode becomes My position, the
+  // pin sits on the spot and the map centres on it.
+  function onPosition(position) {
+    finishLocate();
+    var radio = byId("place-mode-area");
+    if (radio && !radio.checked) {
+      radio.checked = true;
+      fire(radio, "change");
+    }
     var point = L.latLng(
       roundCoord(position.coords.latitude), roundCoord(position.coords.longitude));
     placePin(point, { zoom: LOCATE_ZOOM, animate: true });
-    setStatus(format(text("located"), position.coords.accuracy || 0));
+    report(format(text("located"), position.coords.accuracy || 0));
   }
 
   function onPositionError(error) {
-    setLocateBusy(false);
+    finishLocate();
     var key = "locate-unavailable";
     if (error && error.code === 1) {
       key = "locate-denied";
     } else if (error && error.code === 3) {
       key = "locate-timeout";
     }
-    setStatus(text(key));
+    report(text(key));
   }
 
   function onLocateClick() {
@@ -765,17 +823,61 @@
       return;
     }
     setLocateBusy(true);
-    setStatus(text("locating"));
-    navigator.geolocation.getCurrentPosition(onPosition, onPositionError, {
-      enableHighAccuracy: false,
-      timeout: LOCATE_TIMEOUT_MS,
-      maximumAge: LOCATE_MAX_AGE_MS
+    report(text("locating"));
+    // Some browsers never answer a dismissed prompt: the button is freed
+    // after the request's own timeout plus a margin.
+    locateGuard = window.setTimeout(function () {
+      onPositionError({ code: 3 });
+    }, LOCATE_GUARD_MS);
+    try {
+      navigator.geolocation.getCurrentPosition(onPosition, onPositionError, {
+        enableHighAccuracy: false,
+        timeout: LOCATE_TIMEOUT_MS,
+        maximumAge: LOCATE_MAX_AGE_MS
+      });
+    } catch (error) {
+      onPositionError({ code: 2 });
+    }
+  }
+
+  // --- Credits popover --------------------------------------------------------
+
+  var infoButton = byId("place-info");
+  var creditsEl = byId("place-credits");
+
+  function setCreditsOpen(open) {
+    creditsEl.hidden = !open;
+    infoButton.setAttribute("aria-expanded", open ? "true" : "false");
+  }
+
+  function wireCredits() {
+    if (!infoButton || !creditsEl) {
+      return;
+    }
+    infoButton.addEventListener("click", function () {
+      setCreditsOpen(creditsEl.hidden);
+    });
+    document.addEventListener("click", function (event) {
+      if (!creditsEl.hidden && !event.target.closest(".place-info")) {
+        setCreditsOpen(false);
+      }
+    }, true);
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && !creditsEl.hidden) {
+        setCreditsOpen(false);
+        infoButton.focus();
+      }
     });
   }
 
   function wireSearchAndLocate() {
     if (searchForm && searchInput && resultsEl) {
       searchForm.addEventListener("submit", onSearchSubmit);
+      searchInput.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          clearResults();
+        }
+      });
     }
     if (locateButton) {
       if (!navigator.geolocation) {
@@ -796,6 +898,9 @@
     buildMap();
     dotLayer = L.layerGroup().addTo(map);
     map.on("click", function (event) {
+      if (resultsEl) {
+        clearResults();
+      }
       placePin(event.latlng, {});
     });
     map.on("moveend zoomend", refreshDots);
@@ -826,10 +931,6 @@
         fire(radiusField, "input");
       });
     }
-    if (zoneField) {
-      zoneField.addEventListener("change", updateDerived);
-    }
-    updateDerived();
     document.addEventListener("change", function (event) {
       if (event.target && event.target.name === "mode") {
         drawCircle();
@@ -841,22 +942,49 @@
       }
     });
     wireSearchAndLocate();
+    wireCredits();
+    var detailsSummary = document.querySelector("#details > summary");
+    if (detailsSummary) {
+      // With the map the details are a card shown by the #details link: its
+      // title is a heading, not a toggle.
+      detailsSummary.addEventListener("click", function (event) {
+        event.preventDefault();
+      });
+    }
 
-    // Scripts and the library are up: the fields tuck away behind the
-    // read-only line, the form stays the way to type a place. A refused save
-    // keeps them open, and so does a link to them (the Quiet hours note
-    // points here).
-    if (detailsEl && !detailsEl.querySelector("[aria-invalid='true']")
-        && window.location.hash !== "#" + detailsEl.id) {
-      detailsEl.open = false;
-    }
-    var moreEl = document.querySelector(".place-more");
-    if (moreEl) {
-      moreEl.open = false;
-    }
     if (pin) {
       centreOn(pin.getLatLng(), map.getZoom(), false);
     }
+    keepPinClear();
+  }
+
+  // Whether the pin (its tip and the 42 px of glyph above it) lies in the
+  // part of the map the card and the floating controls leave clear.
+  function pinIsClear() {
+    var covered = coveredBy();
+    var size = map.getSize();
+    var at = map.latLngToContainerPoint(pin.getLatLng());
+    return at.x >= covered.left && at.y - 42 >= covered.top &&
+      at.y <= size.y - covered.bottom;
+  }
+
+  // The sheet changes height when Save appears or the mode changes: a pin
+  // that would end up under it is put back in the clear part. A pin the
+  // person just dropped in the clear part stays where their finger put it.
+  function keepPinClear() {
+    if (typeof window.ResizeObserver !== "function" || !sheetEl) {
+      return;
+    }
+    var seen = Math.round(sheetEl.getBoundingClientRect().height);
+    new window.ResizeObserver(function () {
+      var height = Math.round(sheetEl.getBoundingClientRect().height);
+      if (height !== seen && pin) {
+        seen = height;
+        if (!pinIsClear()) {
+          centreOn(pin.getLatLng(), map.getZoom(), false);
+        }
+      }
+    }).observe(sheetEl);
   }
 
   try {

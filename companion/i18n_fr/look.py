@@ -25,7 +25,6 @@ MESSAGES = {
     "look.preview_alt": "Aperçu : %s, %s",
     "look.reset": "Rétablir",
     "look.save": "Enregistrer",
-    "look.departures_or_arrivals": "Départs ou arrivées",
     "look.done": "Terminé",
     "look.close": "Fermer",
 
@@ -67,15 +66,13 @@ MESSAGES = {
     # --- Special looks -------------------------------------------------
     "look.special_looks": "Allures spéciales",
     "look.override_the_look_for_one_airline_flight_or_aircraft":
-        "Changez l’allure d’une compagnie, d’un vol ou d’un avion.",
+        "Une allure à part pour une compagnie, un vol ou un avion.",
     "look.most_specific_wins":
-        "La plus précise l’emporte : calendrier, puis vol, avion, compagnie. "
-        "Ajouter une clé déjà présente remplace son allure.",
+        "La plus précise l’emporte\u00a0: calendrier, puis vol, avion, compagnie.",
     "look.calendar": "Calendrier",
     "look.flights_in_your_calendar": "Allure des vols du calendrier",
     "look.new_special_look": "Nouvelle allure spéciale",
     "look.look": "Allure",
     "look.matching_flights_will_look_like_this":
-        "Les vols concernés auront cette allure, sauf si une allure plus "
-        "précise s’applique.",
+        "Les vols concernés auront cette allure.",
 }

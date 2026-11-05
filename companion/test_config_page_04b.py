@@ -197,12 +197,12 @@ def test_display_page_carries_no_scheduled_input():
 
 def test_display_carries_no_schedule_card_or_quick_action_markup():
     """the Display page has no Quiet hours card (Home's dialog replaces it) and no
-    quiet-hours switch in its place; its only instant switch is the Screen one"""
+    quiet-hours switch in its place, and no instant switch at all (Home holds the screen one)"""
     rendered = config_page.render(_TASK2_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     assert 'id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID not in rendered
     assert config_page.QUIET_HOURS_SECTION_HEADING not in rendered
     assert "/quick/quiet-hours" not in rendered
-    assert "/quick/display" in rendered
+    assert "/quick/display" not in rendered
 
 
 def test_handle_post_same_field_set_after_restructure_saves_the_same_config(tmp_path):

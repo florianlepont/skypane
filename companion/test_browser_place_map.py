@@ -17,8 +17,8 @@ from companion.test_browser_ux_helpers import (
     _login, _set_ui_theme)
 from server import airports
 from place_map_support import (
-    CLEAR_BOX, HIT_PROBE as _HIT_PROBE, MIN_PX, SETTLED as _SETTLED, Hosts, saved_place, seed as _seed,
-    stored as _stored)
+    CLEAR_BOX, DETAILS_SHOWN, HIT_PROBE as _HIT_PROBE, MIN_PX, SETTLED as _SETTLED, Hosts,
+    open_details as _open_details, saved_place, seed as _seed, stored as _stored)
 
 pytestmark = pytest.mark.browser
 
@@ -98,12 +98,6 @@ def _wait_pin(page, x, y):
         arg={"x": x, "y": y}, timeout=10000)
 
 
-def _open_details(page):
-    if not page.eval_on_selector("#details", "el => el.open"):
-        page.click("#details > summary")
-        page.wait_for_function("() => document.getElementById('details').open", timeout=5000)
-
-
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
                          ids=["360", "1280"])
 def test_tap_drops_the_pin_and_fills_the_fields_then_dragging_adjusts_them(
@@ -161,14 +155,19 @@ def test_typing_coordinates_moves_the_pin(new_context, make_app_server):
         context.close()
 
 
-def test_the_fields_start_tucked_away_and_a_saved_place_opens_pinned(
+def test_the_coordinates_are_not_on_the_page_until_their_link_asks_and_a_saved_place_opens_pinned(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(
         new_context, server, VIEWPORT_MIN_SUPPORTED, route="/detection?airport=LFPG")
     try:
-        if page.eval_on_selector("#details", "el => el.open"):
-            raise AssertionError("the coordinates card is open while the map runs")
+        if page.evaluate(DETAILS_SHOWN):
+            raise AssertionError("the coordinates card shows while the map runs")
+        if page.locator(".place-derived, .place-more, .place-saved").count():
+            raise AssertionError("the summary line or the saved-settings disclosure is back")
+        _open_details(page)
+        if not page.is_visible("#details select[name=timezone]"):
+            raise AssertionError("the time zone is out of reach through the details link")
         if not page.locator(MAP + " .place-pin").count():
             raise AssertionError("an airport page opens without its pin")
         if page.is_visible(".place-fallback"):
@@ -179,22 +178,49 @@ def test_the_fields_start_tucked_away_and_a_saved_place_opens_pinned(
         context.close()
 
 
-def test_the_attribution_is_visible_inside_the_map_and_links_to_the_copyright_page(
+CREDITS = "#place-credits"
+INFO = "#place-info"
+
+
+def _open_credits(page):
+    page.click(INFO)
+    page.wait_for_function(
+        "() => !document.getElementById('place-credits').hidden", timeout=5000)
+
+
+def test_the_attribution_sits_behind_a_round_i_button_on_the_map_and_links_to_the_copyright_page(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
-        link = page.locator(MAP + " .leaflet-control-attribution a")
-        if not link.is_visible():
-            raise AssertionError("the attribution is not visible")
+        if page.locator(MAP + " .leaflet-control-attribution").count():
+            raise AssertionError("the library's own credit strip is back")
+        button = page.locator(INFO)
+        box = button.bounding_box()
+        if box["width"] < MIN_PX - SUBPIXEL or box["height"] < MIN_PX - SUBPIXEL:
+            raise AssertionError("the i button is %r" % box)
+        if page.is_visible(CREDITS) or button.get_attribute("aria-expanded") != "false":
+            raise AssertionError("the credits show before the button is used")
+        _open_credits(page)
+        if button.get_attribute("aria-expanded") != "true":
+            raise AssertionError("aria-expanded did not follow")
+        link = page.locator(CREDITS + " .place-credits__attribution a")
         if link.inner_text().strip() != "© OpenStreetMap contributors":
             raise AssertionError("attribution reads %r" % link.inner_text())
         if link.get_attribute("href") != "https://www.openstreetmap.org/copyright":
             raise AssertionError("attribution links to %r" % link.get_attribute("href"))
-        box, map_box = link.bounding_box(), _map_box(page)
-        if not (box["x"] >= map_box["x"] and box["x"] + box["width"] <= map_box["x"] + map_box["width"]
-                and box["y"] + box["height"] <= map_box["y"] + map_box["height"] + SUBPIXEL):
-            raise AssertionError("the attribution leaves the map: %r in %r" % (box, map_box))
+        if "ODbL" not in page.inner_text(CREDITS) or "Nominatim" not in page.inner_text(CREDITS):
+            raise AssertionError("the credits lack the data and search sources")
+        popover, viewport = page.locator(CREDITS).bounding_box(), page.viewport_size
+        if popover["x"] < -SUBPIXEL or popover["x"] + popover["width"] > viewport["width"] + SUBPIXEL:
+            raise AssertionError("the credits leave the viewport: %r" % popover)
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => document.getElementById('place-credits').hidden", timeout=5000)
+        _open_credits(page)
+        page.mouse.click(8, viewport["height"] / 2)
+        page.wait_for_function(
+            "() => document.getElementById('place-credits').hidden", timeout=5000)
     finally:
         context.close()
 
@@ -221,11 +247,11 @@ def _assert_controls(page, width):
     failure = _assert_no_page_overflow(page, "/detection", width)
     if failure:
         raise AssertionError(failure)
-    page.click(".place-more > summary")
-    page.wait_for_function("() => document.querySelector('.place-more').open", timeout=5000)
     selectors = [
-        MAP + " .leaflet-control-zoom-in", MAP + " .leaflet-control-zoom-out",
-        "label.place-mode", ".place-about > summary", "#details > summary", "#place-locate"]
+        "label.place-mode", "#place-search", "form.place-search button", INFO, "#place-locate",
+        "label.runway-card"]
+    if width >= 960:
+        selectors += [MAP + " .leaflet-control-zoom-in", MAP + " .leaflet-control-zoom-out"]
     failures = page.evaluate(_HIT_PROBE, {"selectors": selectors, "min": MIN_PX - SUBPIXEL})
     if failures:
         raise AssertionError("controls too small or covered at %dpx: %r" % (width, failures))
@@ -243,9 +269,11 @@ def test_map_page_layout_and_controls(new_context, make_app_server, viewport, la
     context, page, _hosts, _errors = _open(new_context, server, viewport, lang, theme)
     try:
         _assert_controls(page, viewport["width"])
-        if lang == "fr" and page.locator(MAP + " .leaflet-control-attribution a").inner_text() != (
-                "© contributeurs d’OpenStreetMap"):
-            raise AssertionError("the attribution is not French")
+        if lang == "fr":
+            _open_credits(page)
+            if page.locator(CREDITS + " .place-credits__attribution a").inner_text() != (
+                    "© contributeurs d’OpenStreetMap"):
+                raise AssertionError("the attribution is not French")
     finally:
         context.close()
 
@@ -310,7 +338,7 @@ def test_with_the_library_blocked_the_plain_form_shows_and_saves(
             raise AssertionError("the fallback explanation is hidden")
         if not page.eval_on_selector("#details", "el => el.open"):
             raise AssertionError("the details card is closed")
-        for hidden in ("form.place-search", "#place-locate", MAP):
+        for hidden in ("form.place-search", "#place-locate", INFO, MAP):
             if page.is_visible(hidden):
                 raise AssertionError("%s shows without the library" % hidden)
         page.fill("#place-lat", "48.8566")
@@ -416,6 +444,55 @@ def test_geolocation_is_called_only_on_a_tap_and_moves_the_pin(new_context, make
         context.close()
 
 
+MESSAGE_HAS = (
+    "text => { const m = document.getElementById('place-message');"
+    " return !m.hidden && getComputedStyle(m).display !== 'none' && m.textContent === text; }")
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
+                         ids=["360", "1280"])
+def test_the_round_locate_button_places_the_pin_and_switches_to_my_position(
+        new_context, make_app_server, viewport):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, errors = _open(
+        new_context, server, viewport,
+        context_options={"geolocation": PARIS_FIX, "permissions": ["geolocation"]})
+    try:
+        if not page.is_checked("#place-mode-runway"):
+            raise AssertionError("the page does not start in Airport mode")
+        page.click(LOCATE)
+        page.wait_for_function(
+            "() => document.getElementById('place-lat').value === '48.8566'", timeout=10000)
+        if not page.is_checked("#place-mode-area"):
+            raise AssertionError("a found position did not switch to My position")
+        page.wait_for_function(
+            "() => !!document.querySelector('#place-map .place-circle')", timeout=5000)
+        page.wait_for_function(
+            MESSAGE_HAS, arg="Position found (about 25 m). Check the pin, then save.", timeout=5000)
+        page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+        clear = page.evaluate(CLEAR_BOX)
+        pin = page.evaluate(PIN_BOX)
+        if not (clear["x"] <= pin["x"] <= clear["x"] + clear["width"]
+                and clear["y"] <= pin["y"] <= clear["y"] + clear["height"] + 42):
+            raise AssertionError("the pin %r is not in the clear part of the map %r" % (pin, clear))
+        if _raised(errors):
+            raise AssertionError("the page raised %r" % errors)
+    finally:
+        context.close()
+
+
+def test_a_refused_position_shows_a_short_message_on_the_map(new_context, make_app_server):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
+    try:
+        page.click(LOCATE)
+        page.wait_for_function(MESSAGE_HAS, arg=DENIED, timeout=10000)
+        if page.locator(MAP + " .place-pin").count() or not page.is_checked("#place-mode-runway"):
+            raise AssertionError("a refusal changed the pin or the mode")
+    finally:
+        context.close()
+
+
 def test_the_position_sentence_is_french_on_the_french_page(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(
@@ -513,7 +590,7 @@ def test_a_pin_near_an_airport_offers_to_follow_its_runway(new_context, make_app
     try:
         if not page.is_hidden(NEAREST):
             raise AssertionError("the offer shows with no pin")
-        page.click("#details > summary")
+        _open_details(page)
         page.fill("#place-lat", lat)
         page.fill("#place-lon", lon)
         page.wait_for_function(
@@ -545,7 +622,7 @@ def test_a_pin_far_from_every_airport_offers_nothing(new_context, make_app_serve
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
-        page.click("#details > summary")
+        _open_details(page)
         page.fill("#place-lat", "47.0000")
         page.fill("#place-lon", "2.5000")
         page.wait_for_function(
@@ -569,7 +646,7 @@ def test_airport_dots_appear_when_zoomed_in_and_choosing_one_follows_its_link(
             page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
         # A dot in the part of the map the card leaves clear.
         clear_dot = (
-            "() => { const card = document.querySelector('.place-panel').getBoundingClientRect();"
+            "() => { const card = document.querySelector('.place-card').getBoundingClientRect();"
             " const own = document.querySelector('input[name=airport][form]').value;"
             " const hit = [...document.querySelectorAll('#place-map .place-dot__mark')].find((d) => {"
             "   const r = d.getBoundingClientRect(); return d.dataset.icao !== own"

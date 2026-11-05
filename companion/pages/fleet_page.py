@@ -15,10 +15,6 @@ from companion import frame_status, i18n, ui_entity_list, ui_modal
 from companion.pages import co_managers_card
 from companion.ui_base import escape_html
 
-FLEET_PURPOSE = i18n.msg(
-    "admin_fleet.every_frame_on_the_platform_who_owns_it_and_whether_it",
-    "Every frame on the platform: who owns it and whether it is up to date.")
-
 KIND_LIVE = frame_status.KIND_LIVE
 KIND_PENDING = frame_status.KIND_PENDING
 KIND_RETIRED = frame_status.KIND_RETIRED
@@ -80,7 +76,6 @@ _REASSIGN_LIVE_SENTENCE = i18n.msg(
     "Only the owner changes. Nothing is erased.")
 _THIS_OWNER = i18n.msg("admin_fleet.the_current_owner", "The current owner")
 
-_ADD_BUTTON = i18n.msg("admin_fleet.add_a_frame_button", "+ Add a frame")
 _ADD_TITLE = i18n.msg("admin_fleet.add_a_frame", "Add a frame")
 _BACK_TO_FLEET = i18n.msg("admin_fleet.back_to_fleet", "Back to Fleet")
 _PAIR_PURPOSE = i18n.msg(
@@ -395,12 +390,6 @@ def _register_errors_html(view):
     return "".join(
         '<p class="field-error" role="alert">%s</p>' % _esc(message)
         for message in view.register_errors)
-
-
-def header_action_html():
-    """The page header's "+ Add a frame" trigger (opens the add dialog)."""
-    return '<div class="page-header__actions">%s</div>' % ui_modal.trigger_html(
-        ADD_DIALOG_ID, _t(_ADD_BUTTON), "page-header__action")
 
 
 def owner_label(email, role):

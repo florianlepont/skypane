@@ -105,11 +105,15 @@ def test_every_role_gets_the_same_read_only_collection(rig, who):
     page = rig.page(who)
     body = _main(page)
     assert "<h1" in body and "Airline collection" in body
-    assert "Every airline your frame has spotted." in body
-    assert "4 of %d airlines spotted" % len(CURATED) in body
+    assert "Every airline your frame has spotted." not in body
+    assert "4 airlines spotted \u00b7 1 more for the 5 badge" in body
+    assert 'aria-label="4 of %d airlines spotted"' % len(CURATED) in body
     assert '<progress class="collection-progress__bar" value="4"' in body
     assert body.count("collection-badge--") == 5
     assert "collection-badge--earned" in body and "collection-badge--locked" in body
+    assert 'title="Earned: First sighting"' in body
+    assert 'title="Locked: spot 5 airlines"' in body
+    assert 'class="visually-hidden">Earned: First sighting<' in body
     assert 'type="file"' not in body
     assert "<form" in body
     for form in re.findall(r"<form\b[^>]*>", body):
@@ -207,6 +211,25 @@ def test_rare_airlines_and_aircraft_carry_a_tier_class_and_a_word(rig):
     assert re.search(r'type-chip--regular">A321neo</span>', types)
 
 
+def test_the_legend_sits_behind_one_info_button_in_the_bar(rig):
+    rig.seed_history()
+    body = _main(rig.page())
+    form = re.search(r'<form class="filter-bar collection-controls".*?</form>', body, flags=re.S).group(0)
+    menu = re.search(r'<details class="row-menu collection-legend">.*?</details>', form, flags=re.S)
+    assert menu and 'aria-label="Rarity of airlines and aircraft"' in menu.group(0)
+    assert menu.group(0).count('<ul class="rarity-legend"') == 1
+    assert body.count('class="rarity-legend"') == 1
+    assert "Airlines: %d" % (len(CURATED) + 1) in form
+    assert 'class="visually-hidden" role="status" data-filter-count' in form
+
+
+def test_the_sheet_lays_short_facts_two_per_row_and_long_ones_across(rig):
+    rig.seed_history()
+    sheet = re.search(r'<dialog class="modal collection-sheet".*?</dialog>', rig.page(), flags=re.S).group(0)
+    assert sheet.count('<div class="collection-facts__wide">') == 2
+    assert sheet.index("Times seen") < sheet.index("Rarity") < sheet.index("First seen")
+
+
 def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
     rig.seed_history()
     body = _main(rig.page())
@@ -260,7 +283,7 @@ def test_hostile_stored_text_is_escaped(rig):
 def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
-    for text in ("Collection de compagnies", "Toutes les compagnies que votre cadre a repérées.",
+    for text in ("Collection de compagnies", "4 compagnies repérées \u00b7 encore 1 pour le badge 5",
                  "4 compagnies sur %d repérées" % len(CURATED), "Vue 12 fois", "Vue une fois",
                  "Pas encore vue", "Habituelle", "Occasionnelle", "Nouveau",
                  "Première observation", "Appliquer", "Les plus vues", "Pas encore vues"):

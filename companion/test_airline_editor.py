@@ -216,7 +216,7 @@ def test_an_anonymous_caller_is_sent_to_sign_in(rig):
 def test_the_editor_is_titled_and_framed_as_a_console_page(rig):
     page = rig.get("admin", rig.frame + EDITOR)[2]
     assert '<h1 class="page-title">Airline editor</h1>' in page
-    assert re.search(r'<ul class="frame-tiles"', page)
+    assert "frame-tiles" not in page
     assert re.search(
         r'<a class="space-switch__segment space-switch__segment--current" href="/fleet"'
         r'[^>]*aria-current="page"', page)

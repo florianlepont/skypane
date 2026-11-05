@@ -25,8 +25,9 @@ PERSONAL_SIDEBAR_EN = [
 PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
     "Collection de compagnies", "Compte"]
-CONSOLE_BAR_EN = ["Fleet", "Users", "Airlines", "Audit"]
-CONSOLE_BAR_FR = ["Flotte", "Utilisateurs", "Compagnies", "Audit"]
+CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Airlines"]
+CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Utilisateurs", "Compagnies"]
+SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Airline editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [
     "Flotte", "Utilisateurs", "Éditeur de compagnies", "Journal d’audit", "Compte"]
@@ -101,16 +102,16 @@ def test_the_personal_navigation_is_identical_for_an_administrator_and_a_user(
     user_cells, user_sheet, _bar = _bar_parts(user_page)
     admin_cells, admin_sheet, _bar = _bar_parts(admin_page)
     assert [text for _href, text in user_cells] == bar_labels
-    assert admin_cells == user_cells
+    # The administrator's bar differs by the leading space switch cell alone.
+    assert admin_cells[1:] == user_cells
+    assert admin_cells[0] == ("/fleet", SWITCH_TO_CONSOLE[lang])
     assert [href for href, _text in user_cells] == [
         prefix + route for route in ("/", "/flights", "/detection", "/display")]
 
     airline_row = (prefix + "/airlines", sidebar_labels[4])
     account_row = ("/account", sidebar_labels[5])
     assert user_sheet == [airline_row, account_row]
-    # The administrator's sheet differs by the space switch row alone.
-    assert admin_sheet[1:] == user_sheet
-    assert admin_sheet[0][0] == "/fleet"
+    assert admin_sheet == user_sheet
 
     user_sidebar = _sidebar_anchors(user_page)
     admin_sidebar = _sidebar_anchors(admin_page)
@@ -145,9 +146,9 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
     cells, sheet, _bar = _bar_parts(page)
     assert [text for _href, text in cells] == bar_labels
     assert [href for href, _text in _unscoped(cells)] == [
-        "/fleet", "/users", "/airlines/manage", "/audit"]
-    assert [href for href, _text in _unscoped(sheet)] == ["/", "/account"]
-    assert [text for _href, text in sheet][1:] == [sidebar_labels[4]]
+        "/", "/fleet", "/users", "/airlines/manage"]
+    assert [href for href, _text in _unscoped(sheet)] == ["/audit", "/account"]
+    assert [text for _href, text in sheet] == [sidebar_labels[3], sidebar_labels[4]]
 
     sidebar = _sidebar_anchors(page)
     assert [text for _href, text in sidebar] == sidebar_labels
@@ -170,8 +171,9 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
                 "/health", "/device", "/airlines/manage")}
         # Health and Device are folded into the Fleet view; only the editor stays.
         assert list(tools) == ["Airline editor"]
-        expected_prefix = server.frame_prefix if path.startswith("/devices/") else ""
-        assert all(href.startswith(expected_prefix + "/") for href in tools.values())
+        # The editor is one global list: its link carries no frame, whichever
+        # address the page was opened under.
+        assert list(tools.values()) == ["/airlines/manage"]
         active = re.findall(r'sidebar-link--active" href="([^"]+)"', sidebar)
         expected_active = page if page == "/airlines/manage" else "/fleet"
         assert [re.sub(r"^/devices/[^/]+", "", href) for href in active] == [expected_active]

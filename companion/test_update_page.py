@@ -753,9 +753,9 @@ def test_tab_bar_more_sheets_list_the_overflow_destinations():
     console_bar = console_bar[:console_bar.index("</nav>")]
     console_sheet = console_bar[console_bar.index('<div class="tab-bar__more-panel">'):]
     assert re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', console_sheet) == [
-        layout.ACCOUNT_ROUTE]
+        "/audit", layout.ACCOUNT_ROUTE]
     assert re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', console_bar) == [
-        "/fleet", "/users", "/airlines/manage", "/audit"]
+        "/fleet", "/users", "/airlines/manage"]
 
 
 def test_update_page_marks_fleet_as_the_current_destination_and_has_no_update_link():
@@ -779,15 +779,14 @@ def test_update_page_marks_fleet_as_the_current_destination_and_has_no_update_li
     assert bar.count('aria-current="page"') == 1
 
 
-def test_header_dropdown_preferences_panel_gains_no_update_link():
-    """the hamburger dropdown's preferences panel holds no /update destination link"""
+def test_header_gains_no_update_link():
+    """the slim header holds no /update destination link"""
     doc = layout.page_shell(
         title="T", active="health", body="<p>b</p>",
         device_config={"display_enabled": True, "quiet_hours_enabled": False})
-    panel_start = doc.index('id="%s"' % layout.MOBILE_NAV_ID)
-    panel = doc[panel_start:doc.index("</header>")]
-    assert ('href="%s"' % layout.UPDATE_ROUTE) not in panel
-    assert "mobile-nav__link" not in panel
+    header = doc[doc.index("<header"):doc.index("</header>")]
+    assert ('href="%s"' % layout.UPDATE_ROUTE) not in header
+    assert "mobile-nav__link" not in header
 
 
 def test_french_fleet_view_names_its_blocks_in_french():
