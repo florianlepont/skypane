@@ -271,6 +271,10 @@ def test_on_phones_the_calendar_sheet_is_a_bottom_sheet_and_nothing_overflows(
         page.click(CALENDAR_OPENER)
         sheet = page.locator(SHEET)
         sheet.wait_for(state="visible")
+        # The sheet slides in: measure it only once its finite animations have ended.
+        page.wait_for_function(
+            "() => document.getAnimations().every((a) => (a.effect && a.effect.getComputedTiming()"
+            ".iterations === Infinity) || a.playState !== 'running')", timeout=10000)
         box = sheet.bounding_box()
         assert abs(box["x"]) < 1 and abs(box["width"] - viewport["width"]) < 1
         assert abs(box["y"] + box["height"] - viewport["height"]) < 1

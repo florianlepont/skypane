@@ -202,11 +202,20 @@ def test_threads_sharing_a_clock_stay_spaced(tmp_path):
     stamp_mutex = threading.Lock()
 
     def worker(provider: str) -> None:
-        ledger = make(tmp_path, clock)
+        # The instant the ledger stamped the request is the last clock read
+        # inside acquire(); reading the shared clock afterwards would let
+        # another thread's sleep advance it first.
+        last: list[float] = []
+
+        def recording_time() -> float:
+            last.append(clock.time())
+            return last[-1]
+
+        ledger = rb.RequestLedger(str(tmp_path), clock=recording_time, sleep=clock.sleep)
         for _ in range(5):
             if ledger.acquire(provider):
                 with stamp_mutex:
-                    stamps.append(clock.time())
+                    stamps.append(last[-1])
 
     threads = [
         threading.Thread(target=worker, args=(name,))

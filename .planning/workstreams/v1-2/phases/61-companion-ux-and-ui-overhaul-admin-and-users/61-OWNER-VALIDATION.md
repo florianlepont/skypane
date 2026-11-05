@@ -308,3 +308,21 @@ Larger redesigns (new design work, owner decision on scope):
   under the title, one-level Personalisation tabs, Location sheet, etc.).
   The style is applied to the real current pages and keeps all their
   content, controls and rules; nothing is redrawn from the mockups.
+
+### Round 5, first look at style A in production (2026-11-05)
+
+- W49 (owner) Overall, the owner does not like the new design much: unsure
+  whether it comes from inconsistencies or from the whole direction.
+  Decision pending: refine versus roll back (do not merge PR #301 meanwhile).
+- W50 (owner) The translucent navigation bar should be an iOS "Liquid Glass"
+  effect (strong refraction/blur of what scrolls under it, specular edge,
+  floating pill), not a flat translucent bar.
+- W51 (owner) Frame choice: a button at the top right that opens the frame
+  choice panel (well integrated popover or sheet), instead of the tile strip
+  shown on the page. Supersedes D30 in the user view; the Console view needs
+  the same logic.
+- W52 (owner, bug) Better transparency handling of the header and footer: on
+  iPhone there are black bars at the top and bottom (safe areas / status
+  bar / home indicator area not covered by the page background; check
+  viewport-fit=cover, theme-color, env(safe-area-inset-*) and the fixed sky
+  layer).

@@ -186,6 +186,22 @@ def test_one_reduced_motion_rule_zeroes_duration_and_delay_of_every_animation(se
     assert declared["transition-duration"] == "0.01ms !important"
 
 
+def test_overlays_tables_and_empty_states_take_the_glass_inside_the_support_block(served_css):
+    """the lightbox and the save bar, the tables and empty states that sit on the sky, and the
+    placeholder ink are tokens-only; the glass lives inside the backdrop-filter support block"""
+    rules = css_rules(served_css)
+    glass = {sel for rule in rules if dict(rule.declarations).get("background") == "var(--glass-bg)"
+             for sel in rule.selectors}
+    for selector in (".lightbox", ".airlines-table", ".dashboard-main > .empty-state"):
+        assert selector in glass, selector
+    bar = {sel for rule in rules if dict(rule.declarations).get("background") == "var(--glass-bar-bg)"
+           for sel in rule.selectors}
+    assert ".dirty-bar" in bar
+    placeholder = [dict(rule.declarations) for rule in rules if "::placeholder" in rule.selectors]
+    assert any(d.get("color", "").startswith("color-mix(") and d.get("opacity") == "1"
+               for d in placeholder)
+
+
 def test_the_entrance_never_fills_forwards(served_css):
     """fill-mode backwards only: once the entrance ends the element is back in its plain layout
     state and holds no stacking context that could trap a dropdown"""
@@ -194,3 +210,16 @@ def test_the_entrance_never_fills_forwards(served_css):
             if prop == "animation" and "skypane-reveal" in value:
                 assert "backwards" in value and "forwards" not in value and "both" not in value
                 assert "infinite" not in value
+
+
+def test_tab_bar_labels_stay_readable_over_any_content_scrolling_beneath(served_css):
+    """page content scrolls under the bars, so the bar glass must keep the label ink at 4.5:1
+    over the worst content there can be (white picture, black picture) and over every sky"""
+    failures = []
+    for label, tokens in _themes(served_css):
+        for backdrop in ("#FFFFFF", "#000000", tokens["--sky-top"], tokens["--sky-bottom"]):
+            bar = _over(tokens["--glass-bar-bg"], backdrop)
+            ratio = contrast_ratio(tokens["--color-text"], bar)
+            if ratio < WCAG_AA_NORMAL_TEXT:
+                failures.append("%s over %s: %.2f" % (label, backdrop, ratio))
+    assert not failures, failures

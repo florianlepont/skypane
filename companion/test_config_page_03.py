@@ -1050,14 +1050,15 @@ def test_style_css_carries_section_caption_and_the_restored_dirty_bar_rules(serv
     assert _MUTED_TEXT in " ".join(caption.values()), (
         "expected .section-caption to carry the 70%% color-mix muted idiom, got %r" % (caption,))
 
-    # Three `.dirty-bar` rules: the base rule (flex row, entrance
-    # animation - no position declared) plus one per breakpoint (each
-    # setting position: fixed with its own geometry). Exactly two carry
+    # Four `.dirty-bar` rules: the base rule (flex row, entrance
+    # animation - no position declared), one per breakpoint (each
+    # setting position: fixed with its own geometry) and the bar glass
+    # fill inside the backdrop-filter support block. Exactly two carry
     # position: fixed - never zero (a breakpoint left position: static)
     # and never three (the base rule itself should not set it).
     dirty_bar_rules = rules_with_selector(css, ".dirty-bar")
-    assert len(dirty_bar_rules) == 3, (
-        "expected exactly three `.dirty-bar` rules (the base rule plus one per breakpoint), "
+    assert len(dirty_bar_rules) == 4, (
+        "expected exactly four `.dirty-bar` rules (the base rule, one per breakpoint and the glass fill), "
         "got %r" % ([rule.at_rules for rule in dirty_bar_rules],))
     fixed = [rule.at_rules for rule in dirty_bar_rules
              if dict(rule.declarations).get("position") == "fixed"]

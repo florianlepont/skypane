@@ -8,6 +8,7 @@ Apply button and a card opens its sheet through the hash link.
 
 State is always waited for (settled page, owned centres, focus), never read right after an input."""
 import re
+import time
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -294,12 +295,24 @@ def test_a_dimmed_card_keeps_the_text_of_a_seen_card(new_context, make_app_serve
         context.close()
 
 
+def _wait_settled(page, timeout=15.0):
+    """Wait for _SETTLED by polling it from here. In a scripts-blocked page a
+    wait_for_function armed right after a form navigation can stay unresolved
+    for its whole timeout even though the predicate is already true (a fresh
+    wait issued later resolves at once), so the predicate is evaluated in a loop
+    with its own deadline instead."""
+    deadline = time.monotonic() + timeout
+    while not page.evaluate(_SETTLED):
+        assert time.monotonic() < deadline, "the page did not settle"
+        time.sleep(0.05)
+
+
 def test_chips_sort_and_the_field_work_through_apply_without_script(
         new_context, make_app_server):
     server = make_app_server(seed=_seed)
     with _no_js_page(new_context, server.base_url(), "/airlines",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
-        page.wait_for_function(_SETTLED, timeout=15000)
+        _wait_settled(page)
         assert page.locator(CARD).count() > TOTAL_SPOTTED
         apply_box = page.locator(".collection-controls__apply").bounding_box()
         assert apply_box["height"] >= 44 - 0.5 and apply_box["width"] >= 44 - 0.5
@@ -307,19 +320,19 @@ def test_chips_sort_and_the_field_work_through_apply_without_script(
         page.locator("label.filter-chip", has_text="Spotted").click()
         with page.expect_navigation():
             page.locator(".collection-controls__apply").click()
-        page.wait_for_function(_SETTLED, timeout=15000)
+        _wait_settled(page)
         assert page.locator(CARD).count() == TOTAL_SPOTTED
         assert page.locator(UNSEEN_CARD).count() == 0
         page.locator(".collection-sort select").select_option("az")
         with page.expect_navigation():
             page.locator(".collection-controls__apply").click()
-        page.wait_for_function(_SETTLED, timeout=15000)
+        _wait_settled(page)
         names = page.locator(".collection-card__name").all_inner_texts()
         assert names == sorted(names, key=str.casefold)
         page.fill("#collection-filter", "iberia")
         with page.expect_navigation():
             page.locator(".collection-controls__apply").click()
-        page.wait_for_function(_SETTLED, timeout=15000)
+        _wait_settled(page)
         assert page.locator(".collection-card__name").all_inner_texts() == ["Iberia Airlines"]
         assert "q=iberia" in page.url and "sort=az" in page.url and "show=spotted" in page.url
 

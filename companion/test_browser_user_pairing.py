@@ -53,7 +53,8 @@ def _owns_the_centre(page, selector):
 
 
 def _height(page, selector):
-    return page.locator(selector).first.bounding_box()["height"]
+    # Rounded to 0.01px: layout float noise can read 43.99998 for a 44px box.
+    return round(page.locator(selector).first.bounding_box()["height"], 2)
 
 
 @pytest.fixture
