@@ -280,3 +280,8 @@ Larger redesigns (new design work, owner decision on scope):
   below, leaving a large empty area at the right. On desktop put the preview
   on the left and the settings on the right (two columns, both visible
   without scrolling). Phone keeps the stacked layout. Joins plan 61-48.
+- D35 (owner) The Personalisation "Screen" view is removed (it only holds
+  the screen on/off switch, which already lives on Home; supersedes W27).
+  Personalisation = one tab bar: Departures, Arrivals, Special looks,
+  Calendar. /display/screen stays served (expand-only) and redirects to the
+  Look view. Plan 61-48.
