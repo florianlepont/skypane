@@ -342,3 +342,11 @@ Larger redesigns (new design work, owner decision on scope):
   The owner asked not to approve the production deploy of the style A pages
   until the refinement is ready (note: the style A deploy from PR 301 is
   pending approval on main).
+- D40 (owner) Console Fleet frame choice: a button at the top right showing
+  the selected frame (name, status dot, chevron) opens a glass popover with
+  the platform's frames (thumbnail, status, owner for others' frames, check on
+  the active one), then "System" and "Add a frame". The page content follows
+  the selected frame in grouped lists (State, Device and version, Settings,
+  Access). Phone Console tab bar: "My frame" switch first and set apart, then
+  Fleet, Users, Airlines, More. Mockups: scratchpad/sketches r1, r2. Plan
+  61-57.
