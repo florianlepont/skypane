@@ -21,3 +21,17 @@ history guard) and is committed on its own.
 Constraints: unchanged from earlier plans (phase-47 files and `hardware/`
 untouched, expand-only, no deploy, EN/FR strings in `companion/i18n_fr/`,
 360 px, 44 px targets, both themes, behaviour tests, app.py line ceiling).
+
+## Batch 4 (owner validation round 4, 2026-11-05)
+
+Source: `61-OWNER-VALIDATION.md` (W22-W46, D34). Same rules as batch 3, plus:
+each plan runs the full suite once after its last code change.
+
+| Plan | Scope | Owner refs |
+|------|-------|-----------|
+| 61-46 | Phone chrome: slim header (no gear, no Sign out panel), Console / My frame switch becomes the first, set-apart tab-bar button (big switch and More-menu switch removed), compact collapsible textured frame strip (picture + name only) | W22, W23, W38, W39 |
+| 61-47 | Users pair their own frame (access matrix, ownership, audit, same limits), "Add a frame" from Account and the strip, zero-frame first sign-in prompt; Console "Add a frame" only in the strip (no duplicate access) | D34, W32, W33 |
+| 61-48 | Short texts and Home/Account/Personalisation: shorter Home notification, shorter Special looks texts, bigger preview, no "Screen on" on the Screen view, graphic frame preview in Account frames | W24, W26, W27, W30 |
+| 61-49 | Airline collection header simplified (sketch w1), badges tile smaller on phone, detail modal fits a phone screen | W28, W29, W46 |
+| 61-50 | Location page: usable on phone, bigger desktop map, one search field above the panel (IATA or address), my-position button fixed, no coordinates/time-zone line, no saved-settings disclosure, discreet "i" map credit, centred segments everywhere | W25, W40-W45 |
+| 61-51 | Console: no explanatory subtitles or helper captions, Users invite as a button/modal at the start or end of the list (no title overlap), Airlines editor global list (no frame strip), tap image to enlarge, change image in the "..." menu, filters scroll sideways | W33-W37 |
