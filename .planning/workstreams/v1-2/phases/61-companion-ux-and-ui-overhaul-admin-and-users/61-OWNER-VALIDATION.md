@@ -220,3 +220,28 @@ Larger redesigns (new design work, owner decision on scope):
   ownership assigned to the pairing user, audit entry, abuse limits (same
   code validation and rate limiting as today), tests with the fake frame
   protocol only.
+
+### Round 4, Console feedback (iPhone, 2026-11-05)
+
+- W33 (owner) The "Add a frame" button must appear only in the frame
+  navigation (the tile strip). Access is currently both the "..." menu and
+  the tile: keep the more relevant one (he leans to dropping the tile).
+  (See D34: users can pair too.)
+- W34 (owner) Remove the explanatory subtitles on Console pages ("All the
+  frames of the platform: who owns them and whether they are up to date"):
+  an administrator does not need them. Same for the long helper captions in
+  the Airlines editor ("Rename in place, click the artwork..., Unidentified
+  prefixes first...", "Every flight using the prefix DEF will show under this
+  airline", "start typing").
+- W35 (owner) Users, phone: the "Invite a user" button collides with the
+  page title (title overlaps the button). Make inviting a button or modal at
+  the start or end of the user list instead.
+- W36 (owner) Airlines editor: the frame navigation strip is useless there;
+  the list could be global (not per frame).
+- W37 (owner) Airlines editor: enlarging the artwork should happen on tap of
+  the image; changing the image goes in the "..." menu. Filters scroll
+  sideways instead of wrapping on two lines.
+- W38 (owner) Navigation, phone: remove the Console / My frame switch from
+  the "More" menu and remove the big switch at the top of the page. Instead,
+  the first button of the tab bar is a Console / My frame button, set apart
+  from the others, that switches from one to the other.
