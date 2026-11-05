@@ -8,17 +8,22 @@ import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPACING_S = 0.15
-# A timestamp is printed just after the ledger stamps the request.
-TOLERANCE_S = 0.06
+# Each worker prints the instant the ledger itself stamped the request, so the
+# gaps are not skewed by scheduling delays between stamping and printing.
+TOLERANCE_S = 0.01
 
 WORKER = """
 import sys, time
 sys.path.insert(0, {repo!r})
 from server import request_budget
-ledger = request_budget.RequestLedger(sys.argv[1], spacing_s={spacing})
+stamps = []
+def clock():
+    stamps.append(time.time())
+    return stamps[-1]
+ledger = request_budget.RequestLedger(sys.argv[1], spacing_s={spacing}, clock=clock)
 for _ in range(int(sys.argv[2])):
     if ledger.acquire("adsbfi"):
-        print(repr(time.time()), flush=True)
+        print(repr(stamps[-1]), flush=True)
 """
 
 PAUSER = """
