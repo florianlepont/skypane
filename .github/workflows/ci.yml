@@ -50,7 +50,7 @@ jobs:
   test:
     name: Lint, test, coverage, attribution
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     # Separate group from `deploy`: a deploy paused on reviewer approval
     # never blocks this job. Only a PR push cancels an in-flight run
     # here; a push to main never does.
