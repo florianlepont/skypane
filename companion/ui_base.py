@@ -633,6 +633,11 @@ ICON_IDS = ICON_IDS + (
     "icon-info",
 )
 
+# Three bars of decreasing length: the sort menu's button.
+ICON_IDS = ICON_IDS + (
+    "icon-sort",
+)
+
 # The map's pin: a teardrop with a hole, its tip at the bottom centre of the
 # glyph. Place-map.js draws it as the draggable marker.
 ICON_IDS = ICON_IDS + (
@@ -874,6 +879,10 @@ ICON_DEFS_HTML = (
     '<symbol id="icon-plus" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M10 4v12M4 10h12"/>'
+    "</symbol>"
+    '<symbol id="icon-sort" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M3.5 5.5h13M3.5 10h9M3.5 14.5h5"/>'
     "</symbol>"
     '<symbol id="icon-info" viewBox="0 0 20 20" fill="none" '
     'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'

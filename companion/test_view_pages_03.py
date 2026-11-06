@@ -549,7 +549,7 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
 
 def test_the_phone_row_carries_identity_detail_and_a_picture_action(tmp_path):
     """the phone row reads chip, label (callsign and route), detail (airline and type) and value
-    (age and direction), then the picture action beside it; it carries no naming link for any
+    (age and direction), with the picture thumbnail as its lead control; it carries no naming link for any
     airline, and has no disclosure, summary or copy control"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FACEONE",
@@ -565,25 +565,29 @@ def test_the_phone_row_carries_identity_detail_and_a_picture_action(tmp_path):
     assert li.select_one(".row__label .history-card__callsign").text() == "FACEONE"
     assert li.select_one(".row__detail").text().startswith("Air France")
     assert li.select_one(".row__value .history-card__when") is not None
-    assert li.select_one("a.history-card__picture[data-view-panel-src]") is not None
+    assert li.select_one(".row__main > a.history-card__thumb[data-view-panel-src]") is not None
     assert not [a for a in li.select("a") if "resolve=" in a.attrs.get("href", "")]
 
     unresolved = vp.row_block(rendered, "li", 1)
     assert unresolved is not None, "could not locate the unresolved-airline row"
     assert unresolved.select_one(".row__detail").text().startswith("Airline unknown")
-    assert not unresolved.select(".row__main a")
+    assert [a.attrs["class"] for a in unresolved.select("a")] == ["history-card__thumb"]
     assert unresolved.select("a[data-view-panel-src]")
 
 
-def test_phone_row_identity_branches_and_label_never_wrap(tmp_path, served_css):
+def test_phone_row_identity_branches_and_the_label_keeps_every_code_readable(tmp_path, served_css):
     """every identity branch (callsign, hex plus note, neither) renders one callsign slot in
-    the row label, and the label and detail ellipsise on one line rather than growing the row"""
+    the row label; the callsign and the route are never cut (the route wraps under the callsign
+    as a unit) and the detail line wraps to two lines before it clips"""
     label_block = declarations_for(served_css, ".history-card .row__label")
-    assert label_block.get("white-space") == "nowrap"
-    assert label_block.get("text-overflow") == "ellipsis"
+    assert label_block.get("white-space") == "normal"
+    callsign_block = declarations_for(served_css, ".history-card__callsign")
+    assert callsign_block.get("white-space") == "nowrap"
+    route_block = declarations_for(served_css, ".history-card__route")
+    assert route_block.get("white-space") == "nowrap"
     detail_block = declarations_for(served_css, ".history-card .row__detail")
-    assert detail_block.get("white-space") == "nowrap"
-    assert detail_block.get("text-overflow") == "ellipsis"
+    assert detail_block.get("-webkit-line-clamp") == "2"
+    assert detail_block.get("overflow") == "hidden"
 
     branches = (
         ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}, "GRD01"),

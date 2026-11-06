@@ -163,3 +163,7 @@ No measured count moved. The Fleet blocks, the Users table and cards, the Airlin
 ## Plan 61-60 (final consistency pass)
 
 No measured count moved. The Fleet Access block became group rows (the Remove action is still one tap per co-manager, the invite select plus Add is still select, Add), the System view is one group per topic, the Releases list is a group of the same expandable rows, and the dialogs, tables and search fields only changed surface, radius and size. A1 to A8 and U1 to U4 are as after plan 61-59.
+
+## Plan 61-62 (Flights, Collection and Personalisation controls)
+
+No measured count moved (U4a 3, U4b 3, U4c 3, V1 phone 2 and desktop 1 re-measured at 360 x 844). The Flights thumbnail is still one tap to the picture (it replaced the separate picture button), the collection's sort is now two taps (open the menu, choose) where the select was also two (open, choose), and the whole Personalisation look picker now fits one 360 x 740 screen, so Save never needs a scroll (no count was relying on one). Counts stay as after plan 61-60.

@@ -235,9 +235,18 @@ def test_the_bar_is_one_form_with_sort_and_count_and_a_no_script_apply(rig):
     body = _main(rig.page())
     form = re.search(r'<form class="filter-bar collection-controls".*?</form>', body, flags=re.S).group(0)
     assert form.count("<form") == 1
-    for part in ('name="q"', '<select name="sort" data-autosubmit>', 'name="show"',
-                 'collection-controls__apply', 'data-filter-count'):
+    for part in ('name="q"', 'name="show"', 'collection-controls__apply', 'data-filter-count'):
         assert part in form
+    # The sort is a menu of radio rows (a no-script Apply sends the choice), not a select.
+    assert "<select" not in form
+    sort = re.search(r'<details class="row-menu collection-sort">.*?</details>', form, flags=re.S).group(0)
+    assert re.findall(r'<input type="radio"[^>]*name="sort" value="(\w+)"', sort) == [
+        "most", "rarest", "latest", "az"]
+    assert sort.count(" checked") == 1 and 'value="most" checked' in sort
+    assert 'aria-label="Sort by: Most seen"' in sort
+    # Line one holds the field, the sort and the legend; the segments come after them.
+    assert form.index('name="q"') < form.index("collection-sort") < form.index(
+        "collection-legend") < form.index("filter-bar__chips")
     assert "Airlines: %d" % (len(CURATED) + 1) in form
     assert "Airlines: 1<" in _main(rig.page(query="?q=zed"))
     fr = _main(rig.page(lang="fr", query="?q=zed"))
@@ -254,6 +263,9 @@ def test_filter_chips_sort_and_text_are_applied_by_the_server(rig):
     az = _cards(rig.page(query="?show=spotted&sort=az"))
     names = [re.search(r'collection-card__name">([^<]*)<', c).group(1) for c in az]
     assert names == sorted(names, key=str.casefold)
+    rarest = [_text(card) for card in _cards(rig.page(query="?sort=rarest"))]
+    assert "Seen once" in rarest[0] and "Seen 12 times" in rarest[3]
+    assert "Seen" not in rarest[-1]
     latest = _cards(rig.page(query="?show=spotted&sort=latest"))
     assert "Zed Charter Wings" in latest[0]
     only = _cards(rig.page(query="?q=zed"))

@@ -2602,6 +2602,15 @@ button:disabled {
   }
 
   .look-dot:has(input:checked) {
+    cursor: default;
+  }
+
+  /* The ring hugs the 32px swatch, not the 44px target around it. */
+  .look-dot:has(input:checked)::before {
+    content: "";
+    position: absolute;
+    inset: 6px;
+    border-radius: 50%;
     box-shadow: 0 0 0 2px var(--color-dominant), 0 0 0 4px var(--color-accent);
   }
 
@@ -2618,8 +2627,11 @@ button:disabled {
   }
 
   .look-seg__option:has(input:checked) {
-    background: var(--color-accent);
     color: var(--color-on-accent);
+  }
+
+  .look-seg__option:has(input:checked)::before {
+    background: var(--color-accent);
     box-shadow: var(--shadow-control);
   }
 
@@ -3485,37 +3497,52 @@ a.calendar-disconnect-btn.flight-picture-link {
 .filter-bar__chips {
   --js-gate-display: flex;
   flex: 1 1 200px;
+  box-sizing: border-box;
   min-width: 0;
-  gap: 2px;
+  height: 44px;
+  gap: 0;
   margin: 0;
-  padding: 3px;
-  border: 1px solid var(--color-border);
+  padding: 0;
+  border: 0;
   border-radius: var(--radius-card);
+  box-shadow: inset 0 0 0 1px var(--filter-track-edge, var(--color-border));
   background: var(--color-secondary);
 }
 
-/* min-content keeps a label whole: a segment grows to its text instead of
- * clipping it, which would push the visible text off the segment's centre. */
+/* The label is the 44px target; the selected pill sits 3px inside it on every side, so
+ * the track, the pill and the search button share one height. min-content keeps a label
+ * whole: a segment grows to its text instead of clipping it, which would push the visible
+ * text off the segment's centre. */
 .filter-chip {
   position: relative;
+  display: flex;
   flex: 1 1 0;
+  box-sizing: border-box;
   min-width: min-content;
+  min-height: 44px;
+  padding: 3px;
   cursor: pointer;
 }
 
+/* Label and count on one line, centred on both axes. */
 .filter-chip__box {
   display: flex;
-  flex-direction: column;
+  flex: 1 1 auto;
+  flex-direction: row-reverse;
   align-items: center;
   justify-content: center;
-  min-height: 46px;
-  padding: 0 var(--space-sm);
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 0 var(--space-xs);
   border-radius: var(--radius-control);
+  text-align: center;
+  white-space: nowrap;
   transition: background var(--motion-fast), box-shadow var(--motion-fast);
 }
 
 .filter-chip__count {
-  font-size: var(--font-body-size);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -3527,9 +3554,9 @@ a.calendar-disconnect-btn.flight-picture-link {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--font-caption-size);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  line-height: 1.3;
+  line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3622,9 +3649,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   }
 
   .filter-bar--chips .filter-chip__box {
-    flex-direction: row-reverse;
     gap: var(--space-sm);
-    min-height: 44px;
     padding: 0 var(--space-md);
   }
 
@@ -8227,14 +8252,15 @@ button.look-sheet__close[hidden] {
   place-items: center;
   width: 44px;
   height: 44px;
+  margin: -4px 0;
   border-radius: 50%;
   cursor: pointer;
 }
 
 .look-dot__ink {
   display: block;
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
 }
 
 /* A hairline keeps the black ink visible on the dark theme's surface. */
@@ -8243,16 +8269,23 @@ button.look-sheet__close[hidden] {
   stroke-width: 1;
 }
 
+/* The track is 40px tall; each option keeps a 44px target that overflows it by 2px above and
+ * below, and its visible pill (the ::before) is inset 3px inside the track. */
 .look-seg {
   display: flex;
+  align-items: center;
+  box-sizing: border-box;
+  height: 40px;
   gap: 2px;
-  padding: 3px;
+  padding: 0 3px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
   background: var(--color-secondary);
 }
 
 .look-seg__option {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   flex: 1 1 0;
   align-items: center;
@@ -8266,6 +8299,14 @@ button.look-sheet__close[hidden] {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   white-space: nowrap;
   cursor: pointer;
+}
+
+.look-seg__option::before {
+  content: "";
+  position: absolute;
+  inset: 6px 0;
+  z-index: -1;
+  border-radius: var(--radius-control);
 }
 
 .look-seg__icon {
@@ -8726,6 +8767,8 @@ button.rule-suggestion-chip {
  * target. */
 .audit-chips {
   display: flex;
+  height: auto;
+  padding: 3px;
   flex-wrap: nowrap;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -8736,8 +8779,14 @@ button.rule-suggestion-chip {
 .audit-chips .filter-chip {
   flex: 1 0 auto;
   min-width: 44px;
+  min-height: 0;
+  padding: 0;
   scroll-snap-align: start;
   text-decoration: none;
+}
+
+.audit-chips .filter-chip__box {
+  min-height: 46px;
 }
 
 .audit-chips .filter-chip:focus-visible {
@@ -9552,18 +9601,53 @@ button.look-sheet__save:hover {
  * so the first row of looks is on the first screen. */
 @media (max-width: 699.98px) {
   .js .look-view .look-panel > .look-frame {
-    grid-template-columns: 7.5rem minmax(0, 1fr);
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    gap: var(--space-sm) var(--space-md);
   }
 
   .look-pick {
     display: grid;
-    grid-template-columns: 7.5rem minmax(0, 1fr);
+    grid-template-columns: 5.25rem minmax(0, 1fr);
     gap: var(--space-md);
     align-items: flex-start;
   }
 
   .look-pick > .look-frame__anchor {
-    max-width: 7.5rem;
+    max-width: 5.25rem;
+  }
+
+  /* Tighter spacing so the picture, the three controls and Save fit one phone screen. */
+  .look-sheet[data-look-inline] {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .look-sheet[data-look-inline] .look-axis__label {
+    margin-bottom: var(--space-xs);
+  }
+
+  .look-sheet[data-look-inline] .look-axis {
+    padding: var(--space-xs) 0;
+  }
+
+  .look-sheet[data-look-inline] .look-sheet__foot {
+    padding-top: var(--space-sm);
+  }
+
+  .look-sheet[data-look-inline] .look-sheet__foot button {
+    min-height: 44px;
+    height: 44px;
+  }
+
+  .look-view .look-stage {
+    margin-bottom: var(--space-sm);
+  }
+
+  .page-header:has(+ .personalisation) {
+    margin-bottom: var(--space-md);
+  }
+
+  .personalisation-nav {
+    margin-bottom: var(--space-md);
   }
 
   .look-pick > .look-frame__meta {
@@ -9732,9 +9816,9 @@ button.look-sheet__save:hover {
   color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
-/* One control bar: the filter field, the segmented show filter, the sort
- * and the legend button on one row where they fit, wrapping cleanly on a
- * phone. Every control is at least 44px tall. */
+/* One control bar. Phone: line one is the filter field, the sort menu button and the
+ * legend button; line two is the segmented show filter (it scrolls sideways when the
+ * labels do not fit). From 700px everything shares one line. Every control is 44px. */
 .collection-controls {
   align-items: center;
   gap: var(--space-sm);
@@ -9742,14 +9826,24 @@ button.look-sheet__save:hover {
 }
 
 .collection-controls .filter-bar__search {
-  flex: 1 1 150px;
-  min-width: 150px;
-  max-width: 340px;
+  flex: 1 1 0;
+  order: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+.collection-controls .collection-sort {
+  order: 2;
+}
+
+.collection-controls .collection-legend {
+  order: 3;
 }
 
 .collection-controls .filter-bar__chips {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1 1 100%;
+  order: 4;
   max-width: 100%;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -9761,57 +9855,62 @@ button.look-sheet__save:hover {
   scroll-snap-align: start;
 }
 
-/* Label and count side by side, centred in the segment. */
-.collection-controls .filter-chip__box {
-  flex-direction: row-reverse;
-  justify-content: center;
-  gap: var(--space-xs);
-  padding: 0 var(--space-sm);
-  text-align: center;
-}
-
-.collection-controls .filter-chip__text {
-  overflow: visible;
-  text-transform: none;
-  letter-spacing: 0;
-  font-size: var(--font-label-size);
-  white-space: nowrap;
-}
-
-.collection-controls .filter-chip__count {
-  font-size: var(--font-label-size);
+.collection-sort__toggle,
+.collection-legend .row-menu__toggle {
+  border: 1px solid var(--color-border);
+  background: var(--color-dominant);
 }
 
 .collection-sort {
+  position: relative;
+}
+
+.collection-sort__panel {
+  width: max-content;
+  min-width: 11rem;
+  padding: var(--space-xs) 0;
+}
+
+/* One radio row per order: the label at the left, a tick at the right on the chosen one. */
+.collection-sort__option {
+  display: block;
+  cursor: pointer;
+}
+
+.collection-sort__row {
   display: flex;
-  flex: 0 1 auto;
   align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
+  justify-content: space-between;
+  gap: var(--space-md);
   min-height: 44px;
-  box-sizing: border-box;
-  padding: 0 var(--space-xs) 0 var(--space-sm);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  padding: 0 var(--space-md);
 }
 
-.collection-sort__label {
-  flex: none;
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+.collection-sort__row .icon {
+  visibility: hidden;
+  color: var(--color-accent);
 }
 
-.collection-sort select {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 44px;
-  border: 0;
-  background-color: transparent;
+.collection-sort__option input:checked + .collection-sort__row {
+  font-weight: var(--weight-semibold);
+}
+
+.collection-sort__option input:checked + .collection-sort__row .icon {
+  visibility: visible;
+}
+
+.collection-sort__option:hover .collection-sort__row {
+  background: var(--color-control-wash);
+}
+
+.collection-sort__option input:focus-visible + .collection-sort__row {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .collection-controls__apply {
-  min-height: 48px;
+  order: 5;
+  min-height: 44px;
   padding: 0 var(--space-md);
   font-size: var(--font-body-size);
 }
@@ -9821,8 +9920,24 @@ button.look-sheet__save:hover {
   display: none;
 }
 
-.collection-legend .row-menu__toggle {
-  border: 1px solid var(--color-border);
+@media (min-width: 700px) {
+  .collection-controls .filter-bar__search {
+    flex: 1 1 150px;
+    max-width: 340px;
+  }
+
+  .collection-controls .filter-bar__chips {
+    flex: 0 1 auto;
+    order: 2;
+  }
+
+  .collection-controls .collection-sort {
+    order: 3;
+  }
+
+  .collection-controls .collection-legend {
+    order: 4;
+  }
 }
 
 .collection-legend__panel {
@@ -9861,19 +9976,6 @@ button.look-sheet__save:hover {
     overflow-x: auto;
     scroll-snap-type: x proximity;
     scrollbar-width: none;
-  }
-
-  .collection-controls .filter-bar__search {
-    flex: 1 1 100%;
-    max-width: none;
-  }
-
-  .collection-controls .filter-bar__chips {
-    flex: 1 1 100%;
-  }
-
-  .collection-sort {
-    flex: 1 1 0;
   }
 }
 
@@ -10893,6 +10995,7 @@ a.airlines-name-it {
   .place-modes,
   .map-ready .place-modes,
   .frame-notice {
+    --filter-track-edge: var(--glass-border);
     background: var(--glass-bg);
     border-color: var(--glass-border);
   }
@@ -11350,36 +11453,51 @@ a.airlines-name-it {
   border-top: 1px solid var(--glass-hairline);
 }
 
-.history-card .row__chip,
 .recent-flight .row__chip {
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   color: var(--color-text);
 }
 
+.history-card .row__chip {
+  width: 40px;
+  height: 40px;
+  margin-right: 0;
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+}
+
 .history-card .row__chip .icon,
-.recent-flight .row__chip .icon {
+.recent-flight .row__chip .icon,
+.history-card__direction .icon {
   transition: transform var(--motion-fast);
 }
 
 .history-card[data-filter-kind="departing"] .row__chip .icon,
-.recent-flight[data-filter-kind="departing"] .row__chip .icon {
+.recent-flight[data-filter-kind="departing"] .row__chip .icon,
+.history-card[data-filter-kind="departing"] .history-card__direction .icon {
   transform: rotate(-45deg);
 }
 
 .history-card[data-filter-kind="arriving"] .row__chip .icon,
-.recent-flight[data-filter-kind="arriving"] .row__chip .icon {
+.recent-flight[data-filter-kind="arriving"] .row__chip .icon,
+.history-card[data-filter-kind="arriving"] .history-card__direction .icon {
   transform: rotate(45deg);
 }
 
+/* The callsign is never cut; the route wraps under it as a unit when the line is full. */
 .history-card .row__label {
   display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
   font-weight: var(--weight-semibold);
 }
 
+.history-card__callsign {
+  white-space: nowrap;
+}
+
 .history-card__route {
+  display: inline-block;
   margin-left: var(--space-xs);
   white-space: nowrap;
 }
@@ -11393,10 +11511,14 @@ a.airlines-name-it {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* The detail line wraps to a second line before it clips, so the airline and the
+ * aircraft stay readable on a phone. */
 .history-card .row__detail {
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: break-word;
 }
 
 .history-card .row__value {
@@ -11415,24 +11537,52 @@ a.airlines-name-it {
   font-weight: var(--weight-regular);
 }
 
-.history-card__picture {
-  display: grid;
+/* The one lead control of a row with a render: its 40px thumbnail (inside a 44px target)
+ * opens the render; the direction glyph sits on the thumbnail's corner. */
+.history-card__thumb {
+  position: relative;
+  display: block;
   flex: none;
-  place-items: center;
+  box-sizing: border-box;
   width: 44px;
   height: 44px;
-  margin-right: var(--space-xs);
+  margin: 0 -2px;
+  padding: 2px;
   border-radius: var(--radius-control);
   color: var(--color-text);
 }
 
-.history-card__picture:hover {
-  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+.history-card__thumb-image {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-chip);
+  background: var(--color-secondary);
+  object-fit: cover;
+  object-position: center 35%;
 }
 
-.history-card__picture:focus-visible {
+.history-card__direction {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--color-dominant);
+  box-shadow: 0 0 0 1px var(--color-border);
+  color: var(--color-text);
+}
+
+.history-card__thumb:hover .history-card__thumb-image {
+  opacity: 0.85;
+}
+
+.history-card__thumb:focus-visible {
   outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
+  outline-offset: 0;
 }
 
 /* Account: grouped rows. A frame row is the drawn frame, the name with its

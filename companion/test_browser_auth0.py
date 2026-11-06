@@ -176,6 +176,14 @@ _WELCOME = "Welcome to SkyPane"
 
 
 def _geometry_ok(page, selectors):
+    # Measure only once the stylesheet has applied: every linked sheet is loaded and each
+    # control's computed min-height is its styled value (an unstyled link measures 17px).
+    page.wait_for_function(
+        "(sels) => document.readyState === 'complete'"
+        " && [...document.querySelectorAll('link[rel~=stylesheet]')].every((l) => l.sheet)"
+        " && sels.every((s) => { const el = document.querySelector(s);"
+        "   return !!el && parseFloat(getComputedStyle(el).minHeight) >= 44; })",
+        arg=selectors, timeout=15000)
     assert page.evaluate(
         "() => document.documentElement.scrollWidth <= document.documentElement.clientWidth")
     for selector in selectors:
