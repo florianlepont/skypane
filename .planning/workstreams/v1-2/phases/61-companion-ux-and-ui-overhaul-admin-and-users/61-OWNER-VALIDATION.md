@@ -389,3 +389,17 @@ Owner: "C'est beaucoup mieux !" Then:
 - D41 refined (owner) Present the audit results as an infographic (clear
   visual summary: findings by severity and area, UX journeys with step counts,
   prioritised improvement proposals), not as a long text report.
+- W65 (owner, screenshot) Location page on phone: the bottom panel (runway
+  choice, or radius around a position) is far too big; the map is barely
+  visible. Make the panel compact so the map dominates.
+- W66 (owner) In Airport mode he expected pins for all the airports of France
+  to be displayed on the map, tappable to select one. Nothing is drawn in
+  production (the 61-41/61-50 airport dots do not show): investigate and fix.
+- W67 (owner) In My position mode he expects to pick a position by tapping the
+  map.
+- W68 (owner) Typing in the search bar shows no suggestion, neither an airport
+  nor an address. Suggestions wanted. Constraint: the public Nominatim service
+  forbids search-as-you-type autocomplete (usage policy), so: airport
+  suggestions instantly from the local airport list while typing; address
+  results as a suggestion list on submit (Enter / search button) from
+  Nominatim (D19), no per-keystroke requests to Nominatim.
