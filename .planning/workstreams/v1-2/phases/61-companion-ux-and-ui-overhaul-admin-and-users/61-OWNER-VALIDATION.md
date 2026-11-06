@@ -431,3 +431,14 @@ Source: scratchpad audit (30 findings, 12 proposals) and mockups P01..P10
 - P12 404/forbidden page: visible Home button, clear admin-only message.
 
 Plans: 61-66..61-71 in `61-BATCH3-PLAN.md` (batch 8).
+
+## Round 7 (iPhone, Safari with floating toolbar)
+
+- W70 (owner) Small bug with the shadow at the bottom of the page (Home on
+  iPhone, screenshot): the floating tab bar sits well above the Safari
+  toolbar, and below it a pale wash with a hard horizontal edge crosses the
+  full width, with the page content visible between the bar and the toolbar.
+  Investigate (safe-area-inset-bottom with the floating Safari toolbar,
+  `--bar-shadow`, `100dvh`/`svh` fixed-element bottom edge, body background
+  vs the page canvas) and fix: no hard edge, shadow soft and clipped to the
+  bar. Planned inside 61-67.
