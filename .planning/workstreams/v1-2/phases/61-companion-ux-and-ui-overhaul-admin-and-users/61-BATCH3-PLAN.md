@@ -67,3 +67,4 @@ dropped or redrawn from a sketch.
 | 61-61 | Home and header: remove the plane animation, personal greeting title, recent-flights rows no longer all the same link, status-bar band colour continuity (theme-color and top background), "More" menu opaque like the tab bar |
 | 61-62 | Flights: centred filter and its labels, merge plane icon and image button; airline collection filter and sort bar merged; Personalisation controls more compact |
 | 61-63 | Manage access dialog fixed on phone, frame picture glyph fixed (selector popover and everywhere), co-manager relationship shown on Account |
+| 61-64 | Complete audit (desktop and phone): display bugs, UI bugs, UX bugs (task walkthroughs, step counts, empty/error/loading states, flows), and prioritised improvement proposals so the app feels finished, modern, dynamic and simple. Read-only; the owner chooses what to build (D41) |

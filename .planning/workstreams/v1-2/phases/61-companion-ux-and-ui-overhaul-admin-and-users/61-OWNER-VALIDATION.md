@@ -381,3 +381,8 @@ Owner: "C'est beaucoup mieux !" Then:
 - W64 The background of the "More" menu in the navigation is too
   transparent, text cannot be read; give it the same background as the tab
   bar.
+- D41 (owner) After plans 61-61 to 61-63, the owner wants a complete audit by
+  Claude, on both desktop and phone views, to detect display bugs, UI bugs
+  and UX bugs, and above all to propose improvements so the application feels
+  finished, modern, dynamic and simple. Plan 61-64 (audit and proposals, no
+  code changes; the owner picks what to build).
