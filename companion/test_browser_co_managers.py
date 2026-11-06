@@ -108,7 +108,7 @@ def test_an_admin_adds_a_co_manager_in_four_actions_and_the_dialog_reopens(
         assert INVITED in frig.members()
         assert not page.locator(frig.dialog).evaluate("d => d.open")
         assert page.locator(
-            "section.fleet-block li.data-card", has_text=INVITED).count() == 1
+            "section.fleet-block .co-manager__email", has_text=INVITED).count() == 1
     finally:
         context.close()
 
@@ -122,7 +122,7 @@ def test_removing_works_and_done_closes_the_dialog(new_context, frig):
             "button", name="Remove %s from this frame" % LONG_CO).click()
         page.wait_for_url("**/fleet?frame=*")
         assert frig.members() == []
-        assert page.locator("section.fleet-block li.data-card", has_text=LONG_CO).count() == 0
+        assert page.locator("section.fleet-block .co-manager__email", has_text=LONG_CO).count() == 0
         _open_dialog(page, frig)
         assert page.locator(frig.dialog + " li.data-card", has_text=LONG_CO).count() == 0
         page.locator(frig.dialog + " a.modal__dismiss").click()

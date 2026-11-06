@@ -128,7 +128,7 @@ def _access_html(device, access_views):
     view = dict(access_views).get(device.id)
     if view is None:
         return ""
-    return co_managers_card.access_section_html(
+    return co_managers_card.access_rows_html(
         view, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE)
 
 
@@ -148,7 +148,7 @@ def frame_html(ctx, device, access_views, header_html=""):
                 _SETTINGS_HEADING,
                 _item(config_page.render(ctx, scope=config_page.SCOPE_DEVICE, embedded=True)),
                 slug="settings")
-            + _block(_ACCESS_HEADING, _item(_access_html(device, access_views)), slug="access"))
+            + _block(_ACCESS_HEADING, _access_html(device, access_views), slug="access"))
     return header_html + '<div class="fleet-blocks">%s</div>' % blocks
 
 
@@ -157,10 +157,10 @@ def system_html(ctx):
     from companion.pages import health_page
     with history_db.connection_scope(ctx.state_dir):
         body = health_page.system_html(ctx)
-    return '<div class="fleet-blocks fleet-blocks--system">%s</div>' % _block(
-        _SYSTEM_HEADING,
-        _item(body, True) if body else _item('<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY)),
-        " fleet-block--wide", "system")
+    return '<div class="fleet-blocks fleet-blocks--system">%s</div>' % (
+        body or _block(
+            _SYSTEM_HEADING, _item('<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY)),
+            " fleet-block--wide", "system"))
 
 
 def page_html(h, query, view):

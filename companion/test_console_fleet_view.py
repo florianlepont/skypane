@@ -78,7 +78,8 @@ def test_the_system_tile_opens_the_platform_wide_view(fleet):
     server, _seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet?view=system")
     assert status == 200
-    assert _blocks(page) == ["System"]
+    # One glass group per topic: flight data, sources and identification.
+    assert _blocks(page) == ["Flight data", "Data sources", "Flight identification"]
     assert [a for _h, a in _tiles(page) if 'aria-current="true"' in a]
     assert "Backup" in page or "backup" in page
 

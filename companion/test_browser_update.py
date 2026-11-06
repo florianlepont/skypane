@@ -744,7 +744,7 @@ def test_rows_open_and_the_install_flow_works_with_scripts_blocked(
         button = oldest.locator("form button[type=submit]")
         assert button.is_visible() and button.inner_text() == "Roll back to %s" % _MANY_OLDEST
         with page.expect_navigation():
-            page.evaluate(_CLICK_FORM_SUBMIT_PROBE_IN, ".update-rows > li:last-child form")
+            page.evaluate(_CLICK_FORM_SUBMIT_PROBE_IN, ".update-group > li:last-child form")
         assert page.url == base_url + update_page.INSTALL_ROUTE
         assert _MANY_OLDEST in page.locator("main").inner_text()
         assert fr.load_registry(server.state_dir)["schedule"] is None, (

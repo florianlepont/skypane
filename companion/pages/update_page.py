@@ -567,7 +567,32 @@ def _row_html(release, view, now):
         notes_html, _row_meta_html(release), action_block)
 
 
-def _versions_card_html(ctx, view, releases):
+def _versions_group_html(ctx, view, releases):
+    """The standalone Releases page's version list: the section label above
+    one glass group of version rows (an empty list is one panel)."""
+    from companion import ui_groups
+    heading = i18n.t(HISTORY_HEADING_TEXT)
+    if not releases:
+        return ui_groups.group_panel(
+            layout.empty_state(
+                i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
+                compact=True),
+            label=heading, label_id="update-versions-title",
+            extra_class="update-versions-group")
+    rows = "".join(_row_html(release, view, ctx.now) for release in releases)
+    block = ui_groups.group(
+        rows, label=heading, label_id="update-versions-title",
+        extra_class="update-versions-group")
+    return block.replace(
+        "%s</h2>" % escape_html(heading),
+        '%s <span class="update-versions__count">%d</span></h2>' % (
+            escape_html(heading), len(releases)), 1).replace(
+        '<ul class="group">', '<ul class="group update-group">', 1)
+
+
+def _versions_card_html(ctx, view, releases, embedded=False):
+    if not embedded:
+        return _versions_group_html(ctx, view, releases)
     if not releases:
         body_html = layout.empty_state(
             i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
@@ -711,7 +736,7 @@ def update_page(
         + chooser_html
         + _rollback_banner_html(view)
         + _cta_card_html(ctx, view, releases, next_wake_text, wake_held)
-        + _versions_card_html(ctx, view, releases)
+        + _versions_card_html(ctx, view, releases, embedded)
     )
 
 

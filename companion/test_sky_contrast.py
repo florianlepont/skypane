@@ -68,7 +68,7 @@ def test_there_is_one_pale_sky_and_one_ink_background(served_css):
     by_label = dict(_themes(served_css))
     for label in ("light", "light-explicit"):
         assert [by_label[label][stop].upper() for stop in _SKY_STOPS] == [
-            "#E7EEF7", "#F1F3F6", "#F6F3EE"], label
+            "#E7EEF7", "#F1F3F6", "#EDF1F6"], label
     for label in ("dark-auto", "dark-explicit"):
         assert [by_label[label][stop].upper() for stop in _SKY_STOPS] == [
             "#12151D", "#161A24", "#1A1F2B"], label

@@ -159,3 +159,7 @@ No measured count moved: Manage access and Leave frame are still one tap from th
 ## Plan 61-59 (Console pages on the components)
 
 No measured count moved. The Fleet blocks, the Users table and cards, the Airline editor table, the Audit log list, the 404/403 back link (one row link instead of a text link) and the dialogs only changed surface and geometry: every control, route and form is the same, so the taps of A1 to A8 and U1 to U4 are as after plan 61-58. The unidentified airline row's "Name it" is still one tap.
+
+## Plan 61-60 (final consistency pass)
+
+No measured count moved. The Fleet Access block became group rows (the Remove action is still one tap per co-manager, the invite select plus Add is still select, Add), the System view is one group per topic, the Releases list is a group of the same expandable rows, and the dialogs, tables and search fields only changed surface, radius and size. A1 to A8 and U1 to U4 are as after plan 61-59.

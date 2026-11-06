@@ -54,7 +54,7 @@ def _hex_over(rgba, backdrop):
         round(alpha * fg + (1 - alpha) * bg) for fg, bg in zip((red, green, blue), back))
 
 
-LIGHT_STOPS = ["#E7EEF7", "#F1F3F6", "#F6F3EE"]
+LIGHT_STOPS = ["#E7EEF7", "#F1F3F6", "#EDF1F6"]
 DARK_STOPS = ["#12151D", "#161A24", "#1A1F2B"]
 
 

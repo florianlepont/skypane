@@ -68,6 +68,7 @@
   --font-label-size: 15px;
   --font-body-size: 16px;
   --font-heading-size: 22px;
+  --font-card-title-size: 17px;
   --weight-title: 700;
   --tracking-title: -0.03em;
   /* The page title scales with the viewport: 30-34px on a phone, 44-48px
@@ -167,7 +168,7 @@
    * stop keeps text and accent readable (companion/test_sky_contrast.py). */
   --sky-top: #E7EEF7;
   --sky-mid: #F1F3F6;
-  --sky-bottom: #F6F3EE;
+  --sky-bottom: #EDF1F6;
   /* Translucent surfaces painted over the sky: cards and panels, and the
    * bars (sidebar, tab bar, phone header). The composite over the worst
    * sky stop is what the contrast tests measure. The bars are nearly opaque
@@ -289,7 +290,7 @@
 html[data-ui-theme="light"] {
   --sky-top: #E7EEF7;
   --sky-mid: #F1F3F6;
-  --sky-bottom: #F6F3EE;
+  --sky-bottom: #EDF1F6;
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-border: rgba(255, 255, 255, 0.85);
   --glass-highlight: rgba(255, 255, 255, 0.9);
@@ -2730,9 +2731,13 @@ button:disabled {
 .data-table-wrap {
   overflow-x: auto;
   max-width: 100%;
+  background-color: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
   background-image:
-    linear-gradient(to right, var(--color-canvas), transparent 24px),
-    linear-gradient(to left, var(--color-canvas), transparent 24px),
+    linear-gradient(to right, var(--glass-solid), transparent 24px),
+    linear-gradient(to left, var(--glass-solid), transparent 24px),
     radial-gradient(farthest-side at 0 50%,
       color-mix(in srgb, var(--color-text) 15%, transparent), transparent),
     radial-gradient(farthest-side at 100% 50%,
@@ -2748,6 +2753,10 @@ button:disabled {
  * they read as a visible coloured band. */
 .page-section .data-table-wrap,
 .battery-trend-section .data-table-wrap {
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   background-image:
     linear-gradient(to right, var(--color-dominant), transparent 24px),
     linear-gradient(to left, var(--color-dominant), transparent 24px),
@@ -2941,7 +2950,7 @@ table.data-table--registry .cell-inline-sep {
 .update-cta__title {
   margin: 0 0 var(--space-xs);
   font-family: var(--font-display);
-  font-size: var(--font-heading-size);
+  font-size: var(--font-card-title-size);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   line-height: 1.3;
@@ -3372,12 +3381,12 @@ a.calendar-disconnect-btn.flight-picture-link {
  * input rule's min-height because 48 > 44. */
 .filter-bar__search input {
   width: 100%;
-  height: 48px;
+  height: 44px;
   padding: 0 52px 0 46px;
   font-size: var(--font-body-size);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-card);
   -webkit-appearance: none;
   appearance: none;
@@ -3560,7 +3569,7 @@ a.calendar-disconnect-btn.flight-picture-link {
  * the next line. Without a script the plain full-width field applies. */
 @media (max-width: 959.98px) {
   .js .filter-bar--chips .filter-bar__search {
-    flex: 0 0 48px;
+    flex: 0 0 44px;
     order: 2;
   }
 
@@ -3897,10 +3906,10 @@ details[open] > summary::before {
 .page-section {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  box-shadow: none;
+  box-shadow: var(--shadow-glass);
 }
 
 .page-section:hover,
@@ -6825,7 +6834,7 @@ button.place-result:hover {
   padding: 0;
   border: none;
   background: transparent;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -8109,7 +8118,7 @@ button.look-frame__open:focus-visible {
 .special-looks__title {
   margin: 0;
   font-family: var(--font-display);
-  font-size: 19px;
+  font-size: var(--font-card-title-size);
   font-weight: var(--weight-semibold);
 }
 
@@ -11611,3 +11620,108 @@ a.airlines-name-it {
 /* Location: the map sheet and the mode pills keep the glass tier's solid
  * fill: a translucent fill over a light map tile would not hold the text's
  * contrast in the dark theme. */
+
+/* Console Fleet Access: the owner, each co-manager and the Add control are
+ * rows of one glass group. The Remove action is a trailing control; the Add
+ * row holds the field and a primary button. */
+.group > .row > .row__trailing {
+  flex: none;
+  margin: 0 var(--space-md) 0 0;
+}
+
+.group > .row--purpose .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+.group .co-manager__email {
+  overflow-wrap: anywhere;
+}
+
+.group > .row--form {
+  display: block;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.row__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: flex-end;
+  margin: 0;
+}
+
+.row__form-field {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.row__form-field p {
+  margin: 0;
+}
+
+.row__form-field input,
+.row__form-field select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.row__form > button[type="submit"] {
+  flex: none;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 var(--space-md);
+}
+
+/* The System view: one glass group per topic, two columns from 1000px. */
+.system-topics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 var(--space-md);
+  align-items: flex-start;
+}
+
+.fleet-blocks--system {
+  display: block;
+}
+
+@media (min-width: 1000px) {
+  .system-topics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Cards that hold free content (forms, notes, versions) sit on the same
+ * glass tier as a group and carry a card title one step below the page
+ * title; the section label above a group is the small 13px one. A card does
+ * not lift or change shadow on hover: only an action does. */
+.page-section:not([class*="page-section--"]):hover,
+.page-section:not([class*="page-section--"]):focus-within {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-glass);
+}
+
+.page-section .text-heading,
+.theme-status .text-heading {
+  font-size: var(--font-card-title-size);
+}
+
+/* The dialog container takes focus when nothing inside it asks for it; it is
+ * not a control, so it draws no ring (every control inside keeps its own). */
+dialog.modal:focus,
+dialog.modal:focus-visible {
+  outline: none;
+}
+
+/* Releases: the version list is one glass group of expandable rows. */
+.update-group > li + li {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.update-group .update-row > summary {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.update-group .update-row__body {
+  padding: 0 var(--space-md) var(--space-md);
+}
