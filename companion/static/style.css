@@ -551,7 +551,7 @@ html[data-ui-theme="dark"] {
 @keyframes skypane-toast-in {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale(0.98);
+    transform: translateY(-16px);
   }
   to {
     opacity: 1;
@@ -1784,7 +1784,30 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
     border-radius: var(--radius-control);
     box-shadow: var(--shadow-toast-float);
     pointer-events: auto;
-    animation: skypane-toast-in var(--motion-fast) ease-out;
+    animation: skypane-toast-in var(--motion-spring-duration) var(--motion-spring);
+    /* A horizontal drag is the swipe to dismiss (toast.js); vertical pans
+     * still scroll the page. */
+    touch-action: pan-y;
+  }
+
+  /* The swipe: the toast follows the pointer (toast.js sets the transform and ends the entrance animation),
+   * springs back when released short, or slides off when released past the
+   * threshold. */
+  .toast-region--flash .toast.is-swiping,
+  .toast-region--live .toast.is-swiping {
+    transition: none;
+    user-select: none;
+  }
+
+  .toast-region--flash .toast.is-returning,
+  .toast-region--live .toast.is-returning {
+    transition: transform var(--motion-spring-duration) var(--motion-spring),
+      opacity var(--motion-fast) ease-out;
+  }
+
+  .toast-region--flash .toast.is-leaving,
+  .toast-region--live .toast.is-leaving {
+    transition: transform var(--motion-fast) ease-in, opacity var(--motion-fast) ease-in;
   }
 }
 
@@ -9628,6 +9651,47 @@ a.modal__dismiss {
     margin-left: -20px;
     border-radius: var(--radius-control);
     background: var(--color-border);
+  }
+}
+
+/* Bottom-sheet drag to close (modal.js): the grabber's hit area sits over
+ * the drawn pill, and the heading strip also starts a drag, so neither lets
+ * the browser claim the touch for scrolling. The body keeps native scroll.
+ * The sheet's transform is set by script while dragging. */
+.modal__grabber {
+  display: none;
+}
+
+@media (max-width: 699.98px) {
+  dialog.modal.is-modal .modal__grabber {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 96px;
+    height: 40px;
+    margin-left: -48px;
+    touch-action: none;
+    cursor: grab;
+    z-index: 1;
+  }
+
+  dialog.modal.is-modal .modal__head {
+    touch-action: none;
+  }
+
+  dialog.modal.is-modal[data-sheet-state="dragging"] {
+    transition: none;
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  dialog.modal.is-modal[data-sheet-state="springing"] {
+    transition: transform var(--motion-spring-duration) var(--motion-spring);
+  }
+
+  dialog.modal.is-modal[data-sheet-state="closing"] {
+    transition: transform var(--motion-fast) ease-in;
   }
 }
 

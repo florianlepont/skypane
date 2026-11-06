@@ -55,6 +55,8 @@ from companion.ui_base import (
 from companion.ui_nav import (
     PULL_HINT_ATTR,
     PULL_HINT_TEXT,
+    SHEET_GRAB_ATTR,
+    SHEET_GRAB_TEXT,
     PULL_RELEASE_ATTR,
     PULL_RELEASE_TEXT,
     REFRESH_PAGE_ATTR,
@@ -216,6 +218,7 @@ def _body_attrs_html(active, tab_bar_html, refresh_token):
     body_class_attr += ' %s="%s" %s="%s"' % (
         PULL_HINT_ATTR, escape_html(i18n.t(PULL_HINT_TEXT)),
         PULL_RELEASE_ATTR, escape_html(i18n.t(PULL_RELEASE_TEXT)))
+    body_class_attr += ' %s="%s"' % (SHEET_GRAB_ATTR, escape_html(i18n.t(SHEET_GRAB_TEXT)))
     # The page key selecting this document's swap-region list. Lives on
     # <body> because it, like the other attributes here, sits beside
     # elements that are themselves swap targets, and <body> is the one

@@ -207,6 +207,7 @@ MESSAGES = {
     "common.paused": "En pause",
     "common.reconnecting": "Reconnexion…",
     "common.pull_to_refresh": "Tirez pour actualiser",
+    "common.sheet_grabber": "Faites glisser vers le bas pour fermer",
     "common.release_to_refresh": "Relâchez pour actualiser",
 
     # data_table()'s generic empty-rows fallback (companion/ui_components.py).

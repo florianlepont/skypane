@@ -410,6 +410,10 @@ PULL_RELEASE_TEXT = i18n.msg("common.release_to_refresh", "Release to refresh")
 PULL_HINT_ATTR = "data-pull-text"
 PULL_RELEASE_ATTR = "data-pull-release-text"
 
+# The bottom sheets' grabber label (modal.js reads it off <body>).
+SHEET_GRAB_TEXT = i18n.msg("common.sheet_grabber", "Drag down to close")
+SHEET_GRAB_ATTR = "data-sheet-grab-text"
+
 
 # freshness.js used to carry a hard-coded selector list, duplicated and
 # pinned equal elsewhere — three hand-maintained copies is a shape this
