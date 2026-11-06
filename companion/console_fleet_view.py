@@ -93,20 +93,35 @@ def frame_menu_html(entries, selected, is_system):
         fleet_page.ADD_DIALOG_ID, lambda device: FRAME_HREF_PREFIX + device.id)
 
 
-def _block(heading_msg, body_html, extra_class=""):
-    if not body_html:
+def _block(heading_msg, items_html, extra_class="", slug=""):
+    """One block of the selected frame as a grouped list: the section label
+    above one glass group. `items_html` is a run of `<li>` items (value rows
+    and flush or padded content items)."""
+    if not items_html:
         return ""
-    return (
-        '<section class="fleet-block%s"><h3 class="text-heading">%s</h3>%s</section>' % (
-            extra_class, _t(heading_msg), body_html))
+    from companion import ui_groups
+    return ui_groups.group(
+        items_html, label=i18n.t(heading_msg), label_id="fleet-block-" + slug,
+        extra_class="fleet-block" + extra_class).replace(
+            '<ul class="group">', '<ul class="group fleet-group">', 1)
+
+
+def _item(content_html, flush=False):
+    """Free content (forms, health rows, version cards) as one item of a
+    block's group; the hairline above it is drawn by the group."""
+    if not content_html:
+        return ""
+    return '<li class="fleet-group__item%s">%s</li>' % (
+        " fleet-group__item--flush" if flush else "", content_html)
 
 
 def _model_html(device):
     profile = hardware.REGISTRY.get(device.hardware_type)
     label = profile.label if profile is not None else device.hardware_type
-    return (
-        '<p class="fleet-block__fact"><span class="text-label">%s</span>'
-        '<span>%s</span></p>' % (_t(_MODEL_LABEL), _esc(label)))
+    from companion import ui_groups
+    return ui_groups.row(
+        i18n.t(_MODEL_LABEL), value_html=_esc(label),
+        extra_class="fleet-block__fact")
 
 
 def _access_html(device, access_views):
@@ -124,15 +139,16 @@ def frame_html(ctx, device, access_views, header_html=""):
     from companion.pages import config_page, health_page, update_page
     with history_db.connection_scope(device.state_dir):
         blocks = (
-            _block(_STATE_HEADING, health_page.frame_state_html(ctx))
+            _block(_STATE_HEADING, _item(health_page.frame_state_html(ctx), True), slug="state")
             + _block(
                 _DEVICE_HEADING,
-                _model_html(device) + update_page.render(
-                    ctx, device.hardware_type, embedded=True))
+                _model_html(device) + _item(update_page.render(
+                    ctx, device.hardware_type, embedded=True)), slug="device")
             + _block(
                 _SETTINGS_HEADING,
-                config_page.render(ctx, scope=config_page.SCOPE_DEVICE, embedded=True))
-            + _block(_ACCESS_HEADING, _access_html(device, access_views)))
+                _item(config_page.render(ctx, scope=config_page.SCOPE_DEVICE, embedded=True)),
+                slug="settings")
+            + _block(_ACCESS_HEADING, _item(_access_html(device, access_views)), slug="access"))
     return header_html + '<div class="fleet-blocks">%s</div>' % blocks
 
 
@@ -142,8 +158,9 @@ def system_html(ctx):
     with history_db.connection_scope(ctx.state_dir):
         body = health_page.system_html(ctx)
     return '<div class="fleet-blocks fleet-blocks--system">%s</div>' % _block(
-        _SYSTEM_HEADING, body or '<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY),
-        " fleet-block--wide")
+        _SYSTEM_HEADING,
+        _item(body, True) if body else _item('<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY)),
+        " fleet-block--wide", "system")
 
 
 def page_html(h, query, view):

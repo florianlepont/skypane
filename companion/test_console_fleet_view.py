@@ -33,7 +33,7 @@ def _tiles(page):
 
 
 def _blocks(page):
-    return re.findall(r'<section class="fleet-block[^"]*"><h3 class="text-heading">([^<]*)<', page)
+    return re.findall(r'<section class="group-block fleet-block[^"]*"[^>]*><h2 class="section-label"[^>]*>([^<]*)<', page)
 
 
 def test_the_strip_lists_every_frame_then_system_and_add_tiles(fleet):

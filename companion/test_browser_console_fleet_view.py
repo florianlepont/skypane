@@ -16,7 +16,7 @@ pytestmark = pytest.mark.browser
 _BLOCKS = (
     "() => [...document.querySelectorAll('section.fleet-block')].map(s => {"
     " const b = s.getBoundingClientRect();"
-    " return {title: s.querySelector('h3').textContent, x: b.left, y: b.top,"
+    " return {title: s.querySelector('h2.section-label').textContent, x: b.left, y: b.top,"
     "  w: b.width, right: b.right}; })")
 _TILES = (
     "() => [...document.querySelectorAll('a.frame-row')].map(a => {"

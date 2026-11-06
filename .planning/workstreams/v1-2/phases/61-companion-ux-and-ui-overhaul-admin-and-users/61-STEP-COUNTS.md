@@ -155,3 +155,7 @@ Choosing a frame is two taps now: the frame button at the top right, then the fr
 ## Plan 61-58 (user pages on the components)
 
 No measured count moved: Manage access and Leave frame are still one tap from the Account row, Add a frame is still one tap (now a row), the Flights filter and picture action are unchanged, and the Personalisation views are the same links. Counts stay as after plan 61-57.
+
+## Plan 61-59 (Console pages on the components)
+
+No measured count moved. The Fleet blocks, the Users table and cards, the Airline editor table, the Audit log list, the 404/403 back link (one row link instead of a text link) and the dialogs only changed surface and geometry: every control, route and form is the same, so the taps of A1 to A8 and U1 to U4 are as after plan 61-58. The unidentified airline row's "Name it" is still one tap.

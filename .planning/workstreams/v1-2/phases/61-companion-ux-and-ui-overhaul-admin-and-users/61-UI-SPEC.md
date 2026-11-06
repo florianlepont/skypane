@@ -1627,3 +1627,13 @@ One glass tier and four reusable components, all in the shared stylesheet plus `
 - **Airline collection.** Cards stay a grid on the one glass surface; the artwork sits on a neutral plate, the name is 15px/600, the rarity is the small coloured pill (the coloured top border is gone). The detail sheet shows its facts as rows (label left, value right, hairlines, 54px), wide facts stacked.
 - **Personalisation.** The view bar is a row of separate glass pills (graphite selected pill, sliding thumb kept), scrolling sideways on a phone.
 - **Location.** Sheet and mode pills use the glass tier's solid fill (a translucent fill over a light map tile does not hold contrast in Dark); the sheet clears the floating tab bar (tested at 360x640 and 390x844).
+
+## Console pages on the components (plan 61-59, owner decisions D39, D40)
+
+- **Fleet.** The four blocks of the selected frame (State, Device and version, Settings, Access) are `ui_groups.group` sections: an `h2.section-label` above one glass `ul.group.fleet-group` (two columns from 1000px, stacked on a phone). The group holds value rows (`ui_groups.row`, e.g. Model) and free content items (`li.fleet-group__item`: the State health rows with their native `<details>`, the version cards, the settings form, the access list and add form). Embedded page content brings its own cards; inside a fleet group their surface, border and shadow are removed (hairlines between items instead), so nothing nests. The System view is one such group.
+- **Users.** The glass table from 70rem (header 12px, weight 600, no uppercase; rows at least 56px; hairlines are `--glass-hairline`), glass cards on a phone (the section around them has no surface). The role select clears its French label at 360px.
+- **Airline editor.** Same table language; per-type sub-rows sit on a 5% ink tint of the glass; thumbnails are neutral plates; an unidentified prefix row has the amber tint and an amber "Unidentified" chip; "Name it" no longer wraps.
+- **Audit log.** The phone list is one glass group (`ul.audit-cards`); the table header follows the same 12px rule (global `.data-table th`).
+- **Sheets.** `--radius-sheet` (28px) is the top radius of bottom sheets and dialogs on a phone; the radius scale is now 14 / 22 / 28 / 32 (28 only for sheets).
+- **Error pages.** The 404/403 onward link is a one-row glass group (`.error-actions`), one short line plus one action.
+- **Not changed.** The login card already uses the shared tokens and has no script. Special looks rows keep their Remove buttons (no chevron: a rule row opens nothing); only hairlines and the kind tag were retoned.

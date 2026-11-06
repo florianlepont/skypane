@@ -309,6 +309,6 @@ def header_action_html():
 def render(view):
     """The Users page body (the shell supplies the header and nav)."""
     return (
-        '<section class="page-section" aria-label="%s">%s</section>' % (
+        '<section class="page-section users-section" aria-label="%s">%s</section>' % (
             _t(_USERS_TEXT), _table_html(view))
         + _invite_dialog(view))

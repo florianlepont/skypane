@@ -758,7 +758,7 @@ AMBIENT_LOOPS = {"skypane-pulse", "skypane-dot-halo"}
 _SURFACES = """
 () => [...document.querySelectorAll(
     '.page-section, .dashboard-main > .empty-state, .dashboard-main > .data-table-wrap, .airlines-table')]
-  .filter((e) => e.checkVisibility() && (!e.matches('.airlines-table')
+  .filter((e) => e.checkVisibility() && !e.closest('.group') && (!e.matches('.airlines-table')
     || getComputedStyle(e).display === 'table'))
   .map((e) => { const s = getComputedStyle(e);
     const alpha = (c) => { const m = c.match(/\\/ ([0-9.]+)\\)$|, ([0-9.]+)\\)$/);

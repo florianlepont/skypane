@@ -191,7 +191,7 @@ def test_modal_has_a_phone_bottom_sheet_and_a_no_script_card(app_server_in_proce
     css = served_stylesheet(app_server_in_process)
     phone = ("@media (max-width: 699.98px)",)
     sheet = declarations_for(css, "dialog.modal", phone)
-    assert sheet["border-radius"] == "var(--radius-pill) var(--radius-pill) 0 0"
+    assert sheet["border-radius"] == "var(--radius-sheet) var(--radius-sheet) 0 0"
     assert sheet["width"] == "100%"
     assert "var(--safe-bottom)" in sheet["padding"]
     assert declarations_for(css, ":root")["--safe-bottom"] == "env(safe-area-inset-bottom, 0px)"

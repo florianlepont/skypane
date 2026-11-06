@@ -330,8 +330,9 @@ def _back_link_html(back, home_route=None):
         route, label = LOGIN_ROUTE, _BACK_TO_SIGN_IN_TEXT
     else:
         route, label = home_route or layout.HOME_ROUTE, _BACK_TO_HOME_TEXT
-    return '<p class="text-body"><a href="%s">%s</a></p>' % (
-        route, layout.escape_html(i18n.t(label)))
+    from companion import ui_groups
+    return ui_groups.group(
+        ui_groups.row(i18n.t(label), href=route), extra_class="error-actions")
 
 
 def not_found_page(ui_theme, health_alert, back=BACK_HOME, home_route=None):

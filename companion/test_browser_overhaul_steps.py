@@ -580,7 +580,7 @@ def test_a7_a_frames_health_is_its_fleet_view(world, new_context):
         # The frame's health is the State block of its Fleet view: one tap on
         # button and its row when it is not the selected frame already.
         _select_frame(steps, page, "Kitchen")
-        state = page.locator("section.fleet-block", has=page.locator("h3", has_text="State"))
+        state = page.locator("section.fleet-block", has=page.locator("h2.section-label", has_text="State"))
         state.wait_for(state="visible")
         assert page.locator(".fleet-detail-head h2").inner_text().strip() == "Kitchen"
         _report_measured("A7", steps, 2)

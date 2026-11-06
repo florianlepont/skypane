@@ -87,6 +87,7 @@
   --radius-control: 14px;
   --radius-card: 22px;
   --radius-pill: 32px;
+  --radius-sheet: 28px;
 
   /* Theme-independent colour tokens: every one of these held the exact
    * same value in every theme block before it was a token, so (like
@@ -1973,24 +1974,109 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 .fleet-block {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* A block's group holds value rows and free content items (health rows,
+ * forms, version cards). The embedded page content brings its own card
+ * chrome; inside the one glass group it is flattened so nothing nests. */
+.fleet-group > .fleet-group__item {
   box-sizing: border-box;
   min-width: 0;
   padding: var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
 }
 
-.fleet-block > .text-heading {
-  margin: 0 0 var(--space-sm);
+.fleet-group > .fleet-group__item--flush {
+  padding: 0;
 }
 
-.fleet-block__fact {
+.group .fleet-block__fact .row__value {
+  max-width: 65%;
+  white-space: normal;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.fleet-group > li + li {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group .page-section,
+.fleet-group .update-cta,
+.fleet-group .update-versions,
+.fleet-group .theme-status,
+.fleet-group .data-card,
+.fleet-group .data-cards,
+.fleet-group .empty-state,
+.fleet-group .health-rows,
+.fleet-group .toast--docked,
+.fleet-group .battery-trend-section {
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.fleet-group__item .page-section,
+.fleet-group__item .update-cta,
+.fleet-group__item .update-versions,
+.fleet-group__item .theme-status,
+.fleet-group__item .data-card {
+  padding: 0;
+}
+
+.fleet-group ul.data-cards {
+  padding: 0;
+  list-style: none;
+}
+
+.fleet-group .data-cards > .data-card {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-md);
-  margin: 0 0 var(--space-sm);
+  align-items: center;
+  min-height: 54px;
+}
+
+.fleet-group .data-card + .data-card {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group .theme-status + .theme-status {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group .page-section + .page-section,
+.fleet-group .health-rows + .page-section,
+.fleet-group .toast--docked + .health-rows {
+  margin-top: 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group > .fleet-group__item--flush > .toast--docked,
+.fleet-group > .fleet-group__item--flush > .page-section {
+  padding: var(--space-md);
+}
+
+.fleet-group > .fleet-group__item--flush > .health-rows {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group > .fleet-group__item--flush > .health-rows:first-child {
+  border-top: 0;
+}
+
+.fleet-group .health-rows__group {
+  background: none;
+  border-bottom: 0;
+}
+
+.fleet-group .text-heading {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
 }
 
 @media (min-width: 1000px) {
@@ -2703,17 +2789,45 @@ table.data-table--readings {
  * tops, clipping ascenders in real Safari (not reproduced in Chromium)
  * — an engine-specific ascent-metric difference, not a WebKit-only bug. */
 .data-table th {
-  font-size: var(--font-caption-size);
+  font-size: 12px;
+  text-transform: none;
   font-weight: var(--weight-semibold);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-align: left;
   padding: 10px var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--glass-hairline);
 }
 
 .data-table td {
   padding: 13px var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--glass-hairline);
+}
+
+.data-table--flights td {
+  height: 56px;
+}
+
+/* The users phone cards: the solid glass base outside @supports. */
+.users-row {
+  background: var(--glass-solid);
+}
+
+/* The audit log's phone list: one glass group of entries. */
+.audit-cards {
+  padding: 0 var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.audit-cards .data-card {
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--glass-hairline);
+}
+
+.audit-cards .data-card:last-child {
+  border-bottom: 0;
 }
 
 /* Scoped to Flights' own table only. Tokens only (no literal px), so
@@ -3182,7 +3296,7 @@ a.calendar-disconnect-btn.flight-picture-link {
  * harness check pins these two font-size declarations string-equal, so
  * they must always move together. */
 .data-card__label {
-  font-size: var(--font-caption-size);
+  font-size: 12px;
   font-weight: var(--weight-semibold);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -5500,7 +5614,7 @@ button.detection-search:hover {
   gap: var(--space-sm);
   padding: var(--space-md);
   background: var(--glass-solid);
-  border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   box-shadow: var(--shadow-glass);
   pointer-events: auto;
 }
@@ -8190,12 +8304,12 @@ button.look-sheet__done:hover {
 
 .special-row {
   position: relative;
-  padding: var(--space-sm) 4px;
-  border-top: 1px solid var(--color-border);
+  padding: var(--space-sm) var(--space-xs);
+  border-top: 1px solid var(--glass-hairline);
 }
 
 .special-row:last-child {
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 0;
 }
 
 .special-row__main {
@@ -8235,8 +8349,8 @@ button.look-sheet__done:hover {
   display: inline-block;
   margin-right: 6px;
   padding: 2px 6px;
-  border-radius: var(--radius-control);
-  background: var(--color-secondary);
+  border-radius: var(--radius-chip);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   vertical-align: 1px;
@@ -8502,7 +8616,7 @@ button.rule-suggestion-chip {
     margin: 0;
     padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
     overflow-y: auto;
-    border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   }
 
   .special-add__foot button {
@@ -8754,7 +8868,7 @@ a.modal__dismiss {
     width: 100%;
     margin: 0;
     padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
-    border-radius: var(--radius-pill) var(--radius-pill) 0 0;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   }
 
   dialog.modal.is-modal {
@@ -10005,9 +10119,27 @@ dialog.collection-sheet[open],
   gap: var(--space-sm) var(--space-md);
   margin-bottom: var(--space-md);
   padding: var(--space-md);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+@media (max-width: 69.99rem) {
+  .users-section .users-table {
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+}
+
+/* The section around the table or the phone cards carries no surface of its
+ * own: the table (from 70rem) or each card is the glass. */
+.page-section.users-section {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
 }
 
 .users-cell {
@@ -10089,6 +10221,7 @@ dialog.collection-sheet[open],
 .users-role-form select {
   min-width: 0;
   max-width: 100%;
+  padding-inline: var(--space-sm) 28px;
 }
 
 .users-role-fixed {
@@ -10165,7 +10298,7 @@ button.row-menu__item--destructive:hover {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--color-dominant);
+    background: var(--glass-solid);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
   }
@@ -10186,22 +10319,25 @@ button.row-menu__item--destructive:hover {
     background: none;
     border: 0;
     border-radius: 0;
+    box-shadow: none;
   }
 
   .users-cell {
     display: table-cell;
+    height: 56px;
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-hairline);
   }
 
   .users-col {
     display: table-cell;
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
-    font-size: var(--font-label-size);
+    border-bottom: 1px solid var(--glass-hairline);
+    font-size: 12px;
     font-weight: var(--weight-semibold);
+    text-transform: none;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
@@ -10253,7 +10389,7 @@ button.row-menu__item--destructive:hover {
 
 .airline-group {
   margin-bottom: var(--space-md);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
 }
@@ -10262,9 +10398,23 @@ button.row-menu__item--destructive:hover {
   display: none;
 }
 
-.airline-group--gap {
-  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+.airlines-table .airline-group--gap {
+  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--glass-solid));
   border-color: var(--color-status-warn);
+}
+
+/* The amber "Unidentified" chip of a prefix the table cannot name yet. */
+.airlines-gap-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-status-warn) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-status-warn) 60%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
 }
 
 .airlines-row {
@@ -10288,8 +10438,8 @@ button.row-menu__item--destructive:hover {
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   padding: var(--space-md);
-  border-top: 1px dashed var(--color-border);
-  background: var(--color-secondary);
+  border-top: 1px solid var(--glass-hairline);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
@@ -10409,7 +10559,7 @@ button.row-menu__item--destructive:hover {
   min-height: 44px;
   box-sizing: border-box;
   padding: var(--space-xs);
-  background: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border-radius: var(--radius-control);
   color: var(--color-accent);
   text-decoration: none;
@@ -10466,6 +10616,7 @@ button.row-menu__item--destructive:hover {
 
 a.airlines-name-it {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   justify-content: center;
   min-width: 44px;
@@ -10483,7 +10634,7 @@ a.airlines-name-it {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--color-dominant);
+    background: var(--glass-solid);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
   }
@@ -10503,8 +10654,8 @@ a.airlines-name-it {
     border-radius: 0;
   }
 
-  .airline-group--gap {
-    background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+  .airlines-table .airline-group--gap {
+    background: color-mix(in srgb, var(--color-status-warn) 18%, transparent);
   }
 
   .airlines-row {
@@ -10514,7 +10665,7 @@ a.airlines-name-it {
 
   .airlines-subrow {
     padding: 0;
-    background: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-text) 5%, transparent);
     border: 0;
   }
 
@@ -10525,8 +10676,9 @@ a.airlines-name-it {
   .airlines-cell {
     display: table-cell;
     vertical-align: middle;
+    height: 56px;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-hairline);
   }
 
   .airlines-cell--views,
@@ -10539,18 +10691,23 @@ a.airlines-name-it {
     display: table-cell;
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
-    font-size: var(--font-label-size);
+    border-bottom: 1px solid var(--glass-hairline);
+    font-size: 12px;
     font-weight: var(--weight-semibold);
+    text-transform: none;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 32%; }
+  .airlines-col--name { width: 28%; }
   .airlines-col--prefixes { width: 14%; }
   .airlines-col--art { width: 22%; }
-  .airlines-col--views { width: 11%; }
-  .airlines-col--menu { width: 64px; }
+  .airlines-col--views { width: 10%; }
+  .airlines-col--menu { width: 112px; }
+
+  a.airlines-name-it {
+    padding: 0 var(--space-sm);
+  }
 }
 
 /* ------------------------------------------------------------------
@@ -10672,7 +10829,6 @@ a.airlines-name-it {
  * border-radius here: --radius-card carries it. */
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .page-section,
-  .fleet-block,
   .battery-trend-section,
   .health-rows,
   .airline-group,
@@ -10681,6 +10837,8 @@ a.airlines-name-it {
   .collection-card,
   .place-card,
   .users-table,
+  .users-row,
+  .audit-cards,
   .toast--docked,
   .dashboard-main > .data-table-wrap,
   .dashboard-main > .empty-state {

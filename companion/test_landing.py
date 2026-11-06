@@ -255,11 +255,13 @@ def test_the_404_back_link_goes_to_the_frame_home_for_a_user_with_a_frame(landin
     status, _h, body = http_request(
         landing_rig.server.url("/no-such-page"), cookie=landing_rig.cookies["owner"])
     assert status == 404
-    assert ('<a href="/devices/%s/">Back to Home</a>' % landing_rig.frame) \
+    assert ('<a class="row__main" href="/devices/%s/"><span class="row__text">'
+            '<span class="row__label">Back to Home</span>' % landing_rig.frame) \
         in body.decode("utf-8")
 
 
 def test_the_404_back_link_goes_to_the_account_for_a_user_without_a_frame(landing_rig):
     _s, _h, body = http_request(
         landing_rig.server.url("/no-such-page"), cookie=landing_rig.cookies["none"])
-    assert '<a href="/account">Back to Account</a>' in body.decode("utf-8")
+    assert ('<a class="row__main" href="/account"><span class="row__text">'
+            '<span class="row__label">Back to Account</span>') in body.decode("utf-8")
