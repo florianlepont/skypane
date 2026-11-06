@@ -78,6 +78,9 @@ VIEW_TRANSITION_NAMES = {
     "skypane-title": VIEW_TRANSITION_ROUTES,
     "skypane-picture": ("/",),
     "skypane-tab-slider": VIEW_TRANSITION_ROUTES,
+    # Carried by the .vt-pic class, which the script puts on one picture only while the
+    # thumbnail-to-picture transition runs: no element has it on any route at rest.
+    "skypane-flight-pic": (),
 }
 
 # Named viewport sizes, replacing the inline {"width": ..., "height": ...} dicts this file used

@@ -57,6 +57,13 @@ def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", clock=False
 def _goto(page, server, route, key=None):
     page.goto(server.base_url() + route + ("?flash=%s" % key if key else ""))
     page.locator("main").wait_for(state="visible")
+    if key:
+        # The entrance drop is still running right after load (longer on a loaded runner);
+        # positions are read where the toast has settled.
+        page.wait_for_function(
+            "s => { const t = document.querySelector(s); return !!t && t.getAnimations()"
+            ".filter(a => a.animationName === 'skypane-toast-in')"
+            ".every(a => a.playState === 'finished'); }", arg=TOAST)
 
 
 def _rect(page, selector):

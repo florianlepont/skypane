@@ -436,6 +436,19 @@ html[data-ui-theme="dark"] {
     animation-duration: var(--motion-spring-duration);
     animation-timing-function: var(--motion-spring);
   }
+
+  /* The thumbnail-to-picture transition runs a little longer than a page
+   * change and crops both snapshots to the same cover fit. */
+  ::view-transition-group(skypane-flight-pic) {
+    animation-duration: 480ms;
+    animation-timing-function: var(--ease-out);
+  }
+
+  ::view-transition-old(skypane-flight-pic),
+  ::view-transition-new(skypane-flight-pic) {
+    height: 100%;
+    object-fit: cover;
+  }
 }
 
 /* Base state hidden via display (not opacity/visibility), so the
@@ -915,6 +928,12 @@ a:hover {
   .filter-bar__search:active,
   button.switch:active .switch__thumb {
     scale: none !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
   }
 }
 
@@ -13190,9 +13209,6 @@ body.is-pulling {
   overflow: visible;
   width: auto;
   max-width: calc(100vw - var(--space-md) * 2);
-  opacity: 1;
-  transform: none;
-  transition: none;
 }
 
 .lightbox.lightbox--picture[open] {
@@ -13237,27 +13253,6 @@ body.is-pulling {
  * (never an inline style). */
 .vt-pic {
   view-transition-name: skypane-flight-pic;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  ::view-transition-group(*),
-  ::view-transition-old(*),
-  ::view-transition-new(*) {
-    animation: none;
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  ::view-transition-group(skypane-flight-pic) {
-    animation-duration: 480ms;
-    animation-timing-function: var(--ease-out);
-  }
-
-  ::view-transition-old(skypane-flight-pic),
-  ::view-transition-new(skypane-flight-pic) {
-    height: 100%;
-    object-fit: cover;
-  }
 }
 
 /* Airline card unlock: a card the script plays once gets a glint layer and

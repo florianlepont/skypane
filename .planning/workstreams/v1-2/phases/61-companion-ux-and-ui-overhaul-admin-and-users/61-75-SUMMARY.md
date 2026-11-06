@@ -33,3 +33,18 @@ Screenshots in the session scratchpad `shots75/` (picture dialog, light and dark
 ## Known Stubs
 
 None.
+
+## CI fixes
+
+Full-suite CI on the pull request failed 13 tests after plans 61-72 to 61-75 (which ran targeted tests only).
+
+Code fixed (product was wrong or inconsistent):
+- `test_style_css_honours_the_motion_budget`: the picture-transition rules had added a third reduced-motion `reduce` block and a second `no-preference` block; merged into the existing blocks (the stylesheet keeps 2 and 1).
+- `test_both_dialogs_fade_in_and_leave_nothing_behind[history]`: the picture dialog had `transition: none` and fixed opacity, so it did not fade; the overrides are removed and it fades and zooms in like every dialog. `panel-lookup.js` now opens the dialog synchronously and only the shared-name handover runs inside the view transition (the dialog was previously opened in an asynchronous callback).
+- `test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360`: same cause (open was asynchronous, passed locally by timing); fixed by the synchronous open above.
+
+Tests updated (they pinned an old structure a validated plan changed, or read mid-animation):
+- `test_tab_bar_labels_are_legible_and_uncramped[360, 390]` and `test_the_admin_first_cell_has_the_shape_of_the_other_cells`: `.tab-bar > *` now counts the sliding-pill element as a cell; the selector excludes `.tab-bar__slider`.
+- `test_the_space_switch_stays_first_set_apart_and_the_active_item_is_an_inner_pill` (4 params): same selector fix; the active fill, radius and box are read on the slider once placed (the active link's own pill is transparent by design), after waiting for it.
+- `test_desktop_toast_floats_top_centre_without_moving_the_page[error, pending]`: positions were read during the spring entrance drop; the helper now waits for the entrance animation to finish (passed locally by timing).
+- `test_view_transition_names_are_unique_on_every_route`: `skypane-flight-pic` added to the pinned names with no route (the `.vt-pic` class sits on one picture only while the transition runs).

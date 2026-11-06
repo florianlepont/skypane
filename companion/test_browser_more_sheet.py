@@ -186,7 +186,7 @@ def test_tab_labels_are_twelve_pixels_whole_and_never_touch_at_360(
         for left, right in zip(labels, labels[1:]):
             assert right["left"] - left["right"] >= 4, (left["text"], right["text"])
         cells = page.evaluate(
-            "() => [...document.querySelectorAll('.tab-bar > *')]"
+            "() => [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')]"
             ".map((c) => c.getBoundingClientRect().toJSON())")
         assert all(c["width"] >= 44 and c["height"] >= 44 for c in cells)
         widths = [c["width"] for c in cells]
@@ -199,7 +199,7 @@ def test_the_admin_first_cell_has_the_shape_of_the_other_cells(new_context, app)
     context, page = _open(new_context, app, "/users", VIEWPORT_MIN_SUPPORTED, lang="fr")
     try:
         boxes = page.evaluate(
-            "() => [...document.querySelectorAll('.tab-bar > *')]"
+            "() => [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')]"
             ".map((c) => c.getBoundingClientRect().toJSON())")
         first, others = boxes[0], boxes[1:]
         assert first["height"] == others[0]["height"]

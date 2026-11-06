@@ -638,11 +638,14 @@
     }
     transitioning = true;
     thumb.classList.add(SHARED_CLASS);
+    // The dialog opens at once (it fades in on its own); the browser captures
+    // the old state on the next frame, so the thumbnail carries the shared
+    // name by then and the large picture takes it over in the callback.
+    openFromTrigger(trigger);
+    openedFrom = trigger;
     var run = document.startViewTransition(function () {
       release(thumb);
       image.classList.add(SHARED_CLASS);
-      openFromTrigger(trigger);
-      openedFrom = trigger;
       return pictureReady();
     });
     run.finished.then(null, function () { return null; }).then(function () {
