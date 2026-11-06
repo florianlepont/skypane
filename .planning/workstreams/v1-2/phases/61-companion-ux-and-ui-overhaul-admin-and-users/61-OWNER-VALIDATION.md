@@ -386,3 +386,6 @@ Owner: "C'est beaucoup mieux !" Then:
   and UX bugs, and above all to propose improvements so the application feels
   finished, modern, dynamic and simple. Plan 61-64 (audit and proposals, no
   code changes; the owner picks what to build).
+- D41 refined (owner) Present the audit results as an infographic (clear
+  visual summary: findings by severity and area, UX journeys with step counts,
+  prioritised improvement proposals), not as a long text report.
