@@ -69,3 +69,14 @@ dropped or redrawn from a sketch.
 | 61-63 | Manage access dialog fixed on phone, frame picture glyph fixed (selector popover and everywhere), co-manager relationship shown on Account |
 | 61-64 | Complete audit (desktop and phone): display bugs, UI bugs, UX bugs (task walkthroughs, step counts, empty/error/loading states, flows), and prioritised improvement proposals so the app feels finished, modern, dynamic and simple. Read-only; the owner chooses what to build (D41) |
 | 61-65 | Location page: map full-bleed under the header with a soft gradient scrim (W69), compact bottom panel, airport pins for all of France tappable in Airport mode, tap-to-place in My position mode, search suggestions (airports instantly from the local list, addresses as a result list on submit) | W65-W68 |
+
+## Batch 8 (D42, audit decisions)
+
+| Plan | Scope |
+|------|-------|
+| 61-66 | P01 Fleet save bar, P02 legacy redirects, P12 404 page, P11 i18n sweep |
+| 61-67 | P03 phone More sheet, P07 switches and dark contrast, P09 Users page |
+| 61-68 | P04 Personalisation selector and lists, P06 Flights search and Load more |
+| 61-69 | P05 Location map: centred opening, clusters, runway badge, ORY label |
+| 61-70 | P08 unified toast and sheet components, focus trap, error once |
+| 61-71 | P10 Fleet phone sub-tabs |
