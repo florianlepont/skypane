@@ -11,6 +11,8 @@ from companion import prefs
 from companion_app_server import http_request
 
 LEGACY = ("/health", "/device", "/update")
+# The phone sub-tab each retired page lands on (the device settings are the Settings tab).
+FLEET_TAB = {"/health": "", "/device": "&tab=settings", "/update": ""}
 PERSON_PAGE = {"/health": "/", "/device": "/display", "/update": "/"}
 
 
@@ -37,7 +39,7 @@ def test_an_administrator_lands_on_the_fleet_view_of_the_named_frame(fleet, path
     admin = fx.admin_cookie(server.state_dir)
     for frame in (seed.owned_id, seed.live_id):
         assert _get(server, admin, "%s?frame=%s" % (path, frame)) == (
-            303, "/fleet?frame=%s" % frame), path
+            303, "/fleet?frame=%s%s" % (frame, FLEET_TAB[path])), path
 
 
 @pytest.mark.parametrize("path", ("/health", "/device"))
@@ -45,7 +47,7 @@ def test_a_frames_own_address_lands_on_that_frame_in_the_fleet(fleet, path):
     server, seed = fleet
     admin = fx.admin_cookie(server.state_dir)
     assert _get(server, admin, "/devices/%s%s" % (seed.owned_id, path)) == (
-        303, "/fleet?frame=%s" % seed.owned_id)
+        303, "/fleet?frame=%s%s" % (seed.owned_id, FLEET_TAB[path]))
 
 
 @pytest.mark.parametrize("path", LEGACY)

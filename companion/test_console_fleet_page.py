@@ -80,7 +80,7 @@ def test_the_frame_list_is_the_strip_and_the_other_frames_block(fleet):
     assert "Kitchen" in _text(header) and fx.OWNER_EMAIL in _text(header)
     assert seed.owned_id not in _text(header)
     pending = rows["New frame"]
-    assert "Waiting for pairing" in pending and "<details" not in pending
+    assert "Waiting for pairing" in pending and 'href="#dlg-add-frame"' in pending
     assert fx.MAC_PENDING not in page
     retired = rows["Attic"]
     assert "Formerly %s" % fx.OWNER_EMAIL in retired and "/devices/" not in retired
@@ -137,7 +137,8 @@ def test_actions_menus_follow_the_frame_state(fleet):
     assert "dlg-retire" not in live
     assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', live)[:1] == [
         "Open personal view"]
-    assert "row-menu" not in rows["New frame"]
+    assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', rows["New frame"]) == [
+        "Pair frame"]
     retired = rows["Attic"]
     assert 'href="#dlg-reactivate-%s"' % _slug(seed.retired_id) in retired
     assert "dlg-retire" not in retired and "dlg-reassign" not in retired

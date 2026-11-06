@@ -16,9 +16,16 @@ FRAME_PARAM = "frame"
 SYSTEM_QUERY = "?view=system"
 
 
-def frame_url(frame_id=None):
-    """The Fleet page with `frame_id` selected, or the Fleet page itself."""
-    return FLEET if not frame_id else "%s?%s=%s" % (FLEET, FRAME_PARAM, quote(frame_id, safe=""))
+TAB_SETTINGS = "settings"
+
+
+def frame_url(frame_id=None, tab=None):
+    """The Fleet page with `frame_id` selected (on the phone sub-tab `tab`, a
+    literal), or the Fleet page itself."""
+    if not frame_id:
+        return FLEET
+    url = "%s?%s=%s" % (FLEET, FRAME_PARAM, quote(frame_id, safe=""))
+    return url + "&tab=" + tab if tab else url
 
 
 def with_flash(url, flash_key):
@@ -27,16 +34,16 @@ def with_flash(url, flash_key):
     return "%s%sflash=%s" % (url, "&" if "?" in url else "?", quote(flash_key))
 
 
-def health_target(device_id):
+def health_target(device_id, tab=None):
     """/health (platform wide) shows the System view; a frame's own health
     page shows that frame."""
-    return frame_url(device_id) if device_id else FLEET + SYSTEM_QUERY
+    return frame_url(device_id, tab) if device_id else FLEET + SYSTEM_QUERY
 
 
 def settings_target(back, route, device):
     """Where a device-settings save returns to: the Fleet view of the frame
     for the Device form, `back` for every other form."""
-    return frame_url(device.id) if route == DEVICE_ROUTE else back
+    return frame_url(device.id, TAB_SETTINGS) if route == DEVICE_ROUTE else back
 
 
 def frame_for_type(h, hardware_type):
@@ -72,7 +79,8 @@ def retired_frame_page(h, m):
     wanted = parse_qs(m.query or "").get(FRAME_PARAM, [""])[0]
     own = {device.id for device in device_scope.current_devices()}
     frame_id = wanted if wanted in own else (m.device.id if m.device else None)
-    return h.redirect(_carried_flash(health_target(frame_id), m.query))
+    tab = TAB_SETTINGS if m.path.rstrip("/").endswith(DEVICE_ROUTE) else None
+    return h.redirect(_carried_flash(health_target(frame_id, tab), m.query))
 
 
 def retired_update_page(h, m, serve):

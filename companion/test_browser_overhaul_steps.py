@@ -576,9 +576,10 @@ def test_l4_tap_the_map(world, new_context):
 def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        # The wake interval sits in the Settings block of the Fleet view: only a
-        # scroll is needed to reach it.
+        # On a phone the wake interval sits on the Settings sub-tab of the Fleet view.
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        steps.tap(page.locator("nav.fleet-tabs a", has_text="Settings"), "Settings tab")
+        page.wait_for_url("**tab=settings")
         field = page.locator("input[type=number][name=wake_interval_s]")
         target = "1500" if field.input_value() != "1500" else "1200"
         steps.type_value(field, target, "refresh interval")

@@ -38,7 +38,7 @@ def _open(new_context, server, viewport, lang):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet?frame=" + seed.live_id)
+    page.goto(server.base_url() + "/fleet?tab=settings&frame=" + seed.live_id)
     page.locator("#wake-interval-s").wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
     return context, page

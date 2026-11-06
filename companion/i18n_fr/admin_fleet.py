@@ -88,6 +88,7 @@ MESSAGES = {
     "admin_fleet.system_tile_detail": "Sources et sauvegardes",
     "admin_fleet.system_heading": "Système",
     "admin_fleet.block_state": "État",
+    "admin_fleet.tabs_label": "Sections du cadre",
     "admin_fleet.block_device_version": "Appareil et version",
     "admin_fleet.block_settings": "Réglages",
     "admin_fleet.block_access": "Accès",

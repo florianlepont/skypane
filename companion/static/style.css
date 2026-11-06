@@ -5513,7 +5513,9 @@ button.detection-search:hover {
 }
 
 .place-sheet .runway-card {
+  position: relative;
   padding: var(--space-sm);
+  padding-top: var(--space-md);
   text-align: center;
 }
 
@@ -5529,11 +5531,6 @@ button.detection-search:hover {
 
 /* The "Current" badge straddles the card's top edge at the right corner, so
  * it never sits over the designator in the middle of the card. */
-.place-sheet .runway-card {
-  position: relative;
-  padding-top: var(--space-md);
-}
-
 .place-sheet .runway-card--selected:not(:has(input:checked))::after {
   top: -9px;
   right: var(--space-sm);
@@ -9881,6 +9878,33 @@ details.fleet-other {
   margin-top: var(--space-md);
 }
 
+/* Alone in its card the disclosure needs no extra gap above its summary:
+ * the card's own padding frames it evenly. */
+.page-section > details.fleet-other:first-child {
+  margin-top: 0;
+}
+
+/* The State / Settings / Access sub-tabs of a frame: a phone shows one tab's
+ * blocks (the server marks the current link and the container); from 960px the
+ * control is gone and every block shows, as before. */
+.personalisation-nav.fleet-tabs {
+  display: none;
+}
+
+@media (max-width: 959px) {
+  .personalisation-nav.fleet-tabs {
+    display: flex;
+  }
+
+  .fleet-blocks[data-fleet-tab="state"] > .fleet-block:not(.fleet-block--state),
+  .fleet-blocks[data-fleet-tab="settings"] > .fleet-block:not(.fleet-block--settings),
+  .fleet-blocks[data-fleet-tab="access"] > .fleet-block:not(.fleet-block--access),
+  .fleet-blocks[data-fleet-tab="state"] ~ .fleet-panel-access,
+  .fleet-blocks[data-fleet-tab="settings"] ~ .fleet-panel-access {
+    display: none;
+  }
+}
+
 /* The selected frame's header: its name and owner, and its actions menu. */
 .fleet-detail-head {
   display: flex;
@@ -12156,6 +12180,35 @@ a.airlines-name-it {
 
 .hero__picture {
   min-width: 0;
+}
+
+/* A frame that has sent no picture yet: the picture's box in token colours
+ * (never the white image backdrop) with the frame glyph and one short line. */
+.preview-empty {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  padding: var(--space-sm);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-align: center;
+}
+
+.preview-empty__heading {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+}
+
+.preview-empty__glyph {
+  opacity: .7;
 }
 
 .hero__picture .preview-frame__image {

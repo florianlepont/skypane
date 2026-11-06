@@ -459,7 +459,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
     assert 'class="home-battery' not in text and 'class="home-action' not in text, (
         "expected no battery tile or attention bar on the personal Home")
     assert text.count("Frame state") == 1, "expected exactly one frame-state hero"
-    assert 'class="preview-frame"' in text or "Nothing rendered yet." in text, (
+    assert 'class="preview-frame"' in text or "No picture yet" in text, (
         "expected either the preview-frame figure or its empty state on Home")
     for absent in (
             "Your frame at a glance.", "Quick actions", "On the frame now",
@@ -736,7 +736,7 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
         base + "/settings", method="POST", cookie=session_cookie,
         data=urllib.parse.urlencode({
             "scope": "device", "return_to": "/device", "tracked_runway": "06-24"}).encode())
-    assert status == 303 and headers.get("Location") == "/fleet?frame=live&flash=saved", (
+    assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=saved", (
         "expected a 303 to the Fleet view of the served frame with flash=saved, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
     assert on_disk["tracked_runway"] == runway_before, (

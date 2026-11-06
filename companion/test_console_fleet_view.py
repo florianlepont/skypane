@@ -123,6 +123,19 @@ def test_the_fleet_page_refreshes_its_nav_dot_and_health_rows_in_place(fleet):
     assert all(not href.endswith("/fleet") for href, _attrs in _tiles(page))
 
 
+@pytest.mark.parametrize("query,current", [
+    ("", "State"), ("&tab=state", "State"), ("&tab=settings", "Settings"),
+    ("&tab=access", "Access"), ("&access=x", "Access"), ("&tab=bogus", "State"),
+    ("&tab=<script>", "State")])
+def test_the_sub_tab_comes_from_the_query_and_unknown_values_mean_state(fleet, query, current):
+    server, seed, cookie = fleet
+    _status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s%s" % (seed.owned_id, query))
+    marked = re.findall(r'<a class="personalisation-nav__link" href="[^"]*"'
+                        r' aria-current="page"><span>([^<]*)</span>', page)
+    assert marked == [current]
+    assert 'data-fleet-tab="%s"' % current.lower() in page
+
+
 def test_a_flash_key_in_the_query_shows_its_toast_for_the_selected_frame(fleet):
     server, seed, cookie = fleet
     _status, _headers, page = fx.get(
@@ -143,4 +156,5 @@ def test_the_settings_save_returns_to_the_frames_fleet_view(fleet):
                                 "quiet_hours_end": "06:00"}),
         cookie=cookie, extra_headers={"Origin": server.base_url()})
     assert status == 303
-    assert headers["Location"].startswith("/fleet?frame=%s&flash=" % seed.owned_id)
+    assert headers["Location"].startswith(
+        "/fleet?frame=%s&tab=settings&flash=" % seed.owned_id)

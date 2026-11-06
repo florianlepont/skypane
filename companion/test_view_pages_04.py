@@ -286,7 +286,7 @@ def test_home_page_render_degrades_with_nothing():
     """home_page.render({}) degrades to its empty states without raising, battery.battery_percent()
     clamps and rejects bad input, """
     rendered = home_page.render({})
-    for needle in (home_page.NO_FLIGHTS_HEADING, home_page.NO_PANEL_HEADING, home_page.NO_READING_TEXT):
+    for needle in (home_page.NO_FLIGHTS_HEADING, home_page.DEVICE_NO_IMAGE_HEADING, home_page.NO_READING_TEXT):
         assert needle in rendered, "expected %r for an empty ctx" % needle
     assert (
         battery.battery_percent(battery.BATTERY_FULL_MV) == 100

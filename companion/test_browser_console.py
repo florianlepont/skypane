@@ -162,7 +162,7 @@ def test_audit_co_manager_row_shows_person_and_reason(
 def test_forms_and_confirm_controls_meet_the_touch_target(
         new_context, app_server_in_process):
     server = app_server_in_process
-    context, page = _admin_page(new_context, server, "/fleet", VIEWPORT_MIN_SUPPORTED)
+    context, page = _admin_page(new_context, server, "/fleet?tab=access", VIEWPORT_MIN_SUPPORTED)
     try:
         assert _height(page, "summary.frame-menu__button") >= MIN_TAP_PX
         assert _height(page, "li.entity-row .row-menu__toggle") >= MIN_TAP_PX

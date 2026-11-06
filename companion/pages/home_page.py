@@ -40,7 +40,6 @@ from server.plane import name_overrides
 from server.plane import render as panel_render
 
 PAGE_TITLE = i18n.msg("nav.home", "Home")
-CURRENT_FRAME_HEADING = i18n.msg("home.current_frame", "Current frame")
 
 RECENT_FLIGHTS_LIMIT = 5
 # Rows read before de-duplication, so five distinct flights still show
@@ -60,7 +59,6 @@ FLIGHTS_ROUTE = "/flights"
 ILLUSTRATION_ROUTE_PREFIX = "/illustration/"
 THUMBNAIL_ALT_TEMPLATE = i18n.msg("home.illustration", "%s illustration")
 
-NO_PANEL_HEADING = i18n.msg("home.nothing_rendered_yet", "Nothing rendered yet.")
 NO_PANEL_BODY = i18n.msg(
     "home.the_server_saves_a_copy_of_each_picture_it",
     "The server saves a copy of each picture it sends to the frame; the "
@@ -220,12 +218,15 @@ def _current_picture_html(ctx, current_flight_row):
     newest = entries[0] if entries else None
     if not newest:
         device = ctx.device
-        if device is not None and not device.is_live:
-            return layout.empty_state(
-                i18n.t(DEVICE_NO_IMAGE_HEADING), i18n.t(DEVICE_NO_IMAGE_BODY),
-                compact=True)
-        return layout.empty_state(
-            i18n.t(NO_PANEL_HEADING), i18n.t(NO_PANEL_BODY), compact=True)
+        body = (
+            DEVICE_NO_IMAGE_BODY if device is not None and not device.is_live
+            else NO_PANEL_BODY)
+        return (
+            '<figure class="preview-frame preview-frame--empty">'
+            '<div class="preview-empty">%s<p class="preview-empty__heading">%s</p></div>'
+            '<figcaption class="visually-hidden">%s</figcaption></figure>' % (
+                layout.icon_html("icon-device", 32, "preview-empty__glyph"),
+                escape_html(i18n.t(DEVICE_NO_IMAGE_HEADING)), escape_html(i18n.t(body))))
 
     alt = i18n.t(PANEL_ALT_TEXT)
     if current_flight_row:
@@ -547,7 +548,7 @@ def _status_dot_html(status):
          else " home-state__dot--pulse", word, word)
 
 
-def _frame_state_html(ctx, summary, status, picture_html=""):
+def _frame_state_html(ctx, summary, status, picture_html="", say_once=False):
     """The hero, with no surface of its own: the current picture beside the
     current state as one prominent title with one haloed dot (its colour and
     word come from the shared frame-status resolver; a sentence follows a
@@ -562,6 +563,10 @@ def _frame_state_html(ctx, summary, status, picture_html=""):
     next_iso, interval_s, hold_reason = next_triple
     next_html, _long_overdue = _next_update_html(
         next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
+    if say_once:
+        # The notification above already says the frame is overdue and since
+        # when; the hero keeps only the word.
+        next_html = ""
     detail_html = (
         '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
     user = user_view.is_personal_view()
@@ -668,16 +673,14 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     status = frame_status.frame_status(_status_row(ctx, summary[1]))
     notice = _notice_html(ctx, status)
     picture = _current_picture_html(ctx, current_flight_row)
-    has_picture = picture.startswith("<figure")
     return (
         header
         + '<div class="home-facts">'
         + (notice or ("" if user_view.is_personal_view() else _action_needed_html(ctx)))
         + "</div>"
-        + _frame_state_html(ctx, summary, status, picture if has_picture else "")
-        + ("" if has_picture else ui_groups.group_panel(
-            picture, label=i18n.t(CURRENT_FRAME_HEADING),
-            label_id="home-current-frame", extra_class="home-section home-current-frame"))
+        + _frame_state_html(
+            ctx, summary, status, picture,
+            say_once=bool(notice) and status.key == frame_status.KEY_OVERDUE)
         + _switches_html(ctx.device_config or {})
         + _recent_flights_html(rows, now, ctx.state_dir)
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)

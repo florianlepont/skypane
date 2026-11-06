@@ -24,13 +24,10 @@ MESSAGES = {
     "home.greeting_evening": "Bonsoir",
     "home.greeting_night": "Bonne nuit",
 
-    "home.current_frame": "Dernière image envoyée au cadre",
-
     "home.the_picture_currently_on_the_frame":
         "L’image actuellement affichée sur le cadre",
     "home.the_picture_currently_on_the_frame_flight":
         "L’image actuellement affichée sur le cadre\u00a0: %s",
-    "home.nothing_rendered_yet": "Rien n’a encore été généré.",
     "home.the_server_saves_a_copy_of_each_picture_it":
         "Le serveur conserve une copie de chaque image envoyée au cadre ; "
         "la plus récente apparaîtra ici.",

@@ -173,3 +173,7 @@ No measured count moved (U4a 3, U4b 3, U4c 3, V1 phone 2 and desktop 1 re-measur
 ## Results after plan 61-63 (Manage access sheet, drawn frame, Account relationship)
 
 No measured count moved. Manage access is still one tap from the Account row; in the sheet adding a co-manager is the field, then Add (type the address and press Add, or select and Add for an administrator) and removing is one tap on the row's Remove. Done is still one tap. The Fleet Access block is unchanged in step terms. A5 stays 5 (A5 6 when the frame is not the one selected on landing), A1 to A8 and U1 to U4 are as after plan 61-62.
+
+## After plan 61-71 (Fleet sub-tabs)
+
+On a phone the Fleet page shows State, Settings and Access as sub-tabs. U4c is still 3: the Settings tab tap replaces the scroll, then the interval, then Save.

@@ -233,10 +233,12 @@ def _menu_items(row, manages_access=False):
     """The actions menu's (label, target, destructive) items by state: an
     active frame offers the personal view, manage access (when offered),
     reassign and retire (the served frame cannot be retired); a retired frame
-    re-activates; a pending frame has no menu. Every address is built from
+    re-activates; a pending frame offers the pairing dialog. Every address is built from
     the frame id."""
     if row.kind == KIND_RETIRED:
         return [(i18n.t(_ACTION_REACTIVATE), _slug("dlg-reactivate", row.frame_id), True)]
+    if row.kind == KIND_PENDING:
+        return [(i18n.t(_PAIR_SUBMIT), ADD_DIALOG_ID, False)]
     if row.kind != KIND_LIVE:
         return []
     items = [(i18n.t(_ACTION_PERSONAL_VIEW), "/devices/%s/" % row.frame_id, False)]
@@ -423,7 +425,7 @@ def render(view):
         others = _ui().empty_state(
             i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY), compact=True)
     section = (
-        '<section class="page-section" aria-label="%s">%s</section>' % (
+        '<section class="page-section fleet-panel-access" aria-label="%s">%s</section>' % (
             _t(_FRAMES_TEXT), others) if others else "")
     dialogs = _add_dialog(view) + "".join(
         _row_dialogs(row, view) for row in view.rows)

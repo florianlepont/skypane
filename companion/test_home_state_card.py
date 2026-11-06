@@ -253,21 +253,36 @@ def test_a_short_delay_keeps_the_neutral_next_update_wording(tmp_path):
     assert "dot--ok" in card and "dot--warn" not in card and 'href="/health"' not in card
 
 
-@pytest.mark.parametrize("lang,text", [
-    ("en", "Update overdue · expected at <span"),
-    ("fr", "Mise à jour en retard · attendue à <span"),
+def _render_full(tmp_path, lang="en", **kwargs):
+    prefs.set_request_prefs(lang=lang)
+    try:
+        return home_page.render(_ctx(tmp_path, **kwargs))
+    finally:
+        prefs.set_request_prefs(lang="en")
+
+
+def _late_next_row(next_iso, hold_reason=None):
+    html, _long = home_page._next_update_html(next_iso, 900, hold_reason, NOW, 900)
+    return html
+
+
+@pytest.mark.parametrize("lang,notice,hero_line,word", [
+    ("en", "Your frame has not checked in on time.", "Update overdue", "Overdue"),
+    ("fr", "Votre cadre ne s’est pas manifesté à l’heure.", "Mise à jour en retard", "En retard"),
 ])
-def test_overdue_frame_says_so_with_the_overdue_dot_and_no_countdown(tmp_path, lang, text):
-    """past the grace window the line names the expected time as overdue and drops the
-    countdown; the dot turns amber and reads Overdue, with no Health link"""
-    card = _render(
+def test_overdue_frame_says_so_once_with_the_overdue_dot_and_no_countdown(
+        tmp_path, lang, notice, hero_line, word):
+    """past the grace window the notification above the hero explains the delay and the hero
+    keeps only the amber Overdue word: no second "Update overdue" line, no countdown, no Health
+    link"""
+    page = _render_full(
         tmp_path, lang=lang,
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
-    assert text in card
+    card = _card(page)
+    assert page.count(notice) == 1 and hero_line not in page
     assert "Expected since" not in card and "Attendu depuis" not in card
     assert "data-relative-countdown" not in card
     assert "dot--warn" in card and "dot--ok" not in card and 'href="/health"' not in card
-    word = "Overdue" if lang == "en" else "En retard"
     assert 'role="img" aria-label="%s"' % word in card
 
 
@@ -280,16 +295,15 @@ def test_long_overdue_turns_the_dot_amber_and_links_nowhere(tmp_path, lang, link
         last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=90)).isoformat())
     assert "dot--warn" in card and "dot--ok" not in card
     assert "/health" not in card and link not in card
-    assert 'class="hero home-state home-state--warn reveal"' in card and "#icon-warning" in card
+    assert 'class="hero home-state home-state--warn reveal"' in card
 
 
-def test_overdue_date_appears_only_when_not_today(tmp_path):
+def test_overdue_date_appears_only_when_not_today():
     """an expected time on an earlier day carries its date, one on the same day does not"""
-    same_day = _render(
-        tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
+    now = datetime.fromisoformat(NOW)
+    same_day = _late_next_row((now - timedelta(minutes=40)).isoformat())
     assert re.search(r"expected at <span class=\"time-value\">\d\d:\d\d</span>", same_day)
-    earlier = _render(
-        tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(days=3)).isoformat())
+    earlier = _late_next_row((now - timedelta(days=3)).isoformat())
     assert re.search(r"expected at <span class=\"time-value\">\d+ \w+\.? \d\d:\d\d</span>", earlier)
 
 
@@ -434,9 +448,11 @@ def test_the_header_label_is_a_visible_heading_and_the_next_line_has_an_icon(tmp
     card = _render(tmp_path)
     assert '<h2 class="visually-hidden" id="home-frame-state">Frame state</h2>' in card
     assert "#icon-nav-history" in card and "#icon-warning" not in card
+    assert "#icon-warning" in _late_next_row(
+        (datetime.fromisoformat(NOW) - timedelta(minutes=40)).isoformat())
     late = _render(
         tmp_path, last_checkin_ts=(datetime.fromisoformat(NOW) - timedelta(minutes=50)).isoformat())
-    assert "#icon-warning" in late and "home-state--warn" in late
+    assert "#icon-warning" not in late and "home-state--warn" in late
 
 
 def test_switch_pills_keep_the_native_switch_semantics(tmp_path):

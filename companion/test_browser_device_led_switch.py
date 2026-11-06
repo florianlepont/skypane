@@ -63,7 +63,7 @@ def test_the_led_switch_has_no_accent_box_at_rest(
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/fleet")
+        page.goto(server.base_url() + "/fleet?tab=settings")
         page.wait_for_selector(SWITCH)
         _set_ui_theme(page, theme)
         page.mouse.move(0, 0)
@@ -98,7 +98,7 @@ def test_the_switch_keeps_a_visible_focus_ring_on_keyboard_focus(new_context, se
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/fleet")
+        page.goto(server.base_url() + "/fleet?tab=settings")
         page.wait_for_selector(SWITCH)
         _focus_switch_by_keyboard(page)
         page.wait_for_function(
@@ -115,7 +115,7 @@ def test_a_click_toggles_the_switch_and_leaves_no_accent_box(new_context, server
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/fleet")
+        page.goto(server.base_url() + "/fleet?tab=settings")
         page.wait_for_selector(SWITCH)
         before = page.get_attribute(SWITCH, "aria-checked")
         page.click(SWITCH)

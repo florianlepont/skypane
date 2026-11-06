@@ -205,7 +205,7 @@ def _set_interval(page, base_url, state_dir, seconds):
     # Idempotent: "set it to what it already is" fires no `change` at all, so the bar never
     # reveals and _wait_for_bar() below would time out waiting for a reveal that correctly
     # never comes.
-    page.goto(base_url + "/fleet")
+    page.goto(base_url + "/fleet?tab=settings")
     if _wake_interval_on_disk(state_dir) == seconds:
         return
     page.fill(WAKE_NUMBER_SEL, str(seconds))
@@ -217,7 +217,7 @@ def _set_interval(page, base_url, state_dir, seconds):
         raise AssertionError(
             "setting the interval to %r through the UI stored %r"
             % (seconds, stored))
-    page.goto(base_url + "/fleet")
+    page.goto(base_url + "/fleet?tab=settings")
 
 
 
@@ -246,7 +246,7 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
         cookies = [{"name": auth.UI_LANG_COOKIE_NAME,
                     "value": lang, "url": base_url}]
         saved[lang] = _persist_without_js(
-            new_context, base_url, "/fleet", "wake_interval_s",
+            new_context, base_url, "/fleet?tab=settings", "wake_interval_s",
             "900", read_back,
             viewport=VIEWPORT_MIN_SUPPORTED, cookies=cookies)
     recorded["persisted"] = {
@@ -266,11 +266,11 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
     # The gate, in both directions: asserting only the blocked half passes against a gate
     # stuck shut; asserting only the enabled half is the "renders and does nothing" defect.
     gate = _assert_js_gate(
-        new_context, base_url, "/fleet", WAKE_SLIDER_SEL,
+        new_context, base_url, "/fleet?tab=settings", WAKE_SLIDER_SEL,
         viewport=VIEWPORT_MIN_SUPPORTED)
     recorded["gate"] = gate
 
-    with _no_js_page(new_context, base_url, "/fleet",
+    with _no_js_page(new_context, base_url, "/fleet?tab=settings",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         blocked_number = page.locator(WAKE_NUMBER_SEL).count()
         blocked_unit = page.locator(".field-inline-value").count()
@@ -309,7 +309,7 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
         doc["wake_interval_s"] = 30
         with open(config_path, "w", encoding="utf-8") as fh:
             json.dump(doc, fh)
-        with _no_js_page(new_context, base_url, "/fleet",
+        with _no_js_page(new_context, base_url, "/fleet?tab=settings",
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
             below_value = page.get_attribute(WAKE_NUMBER_SEL, "value")
             below_ranges = page.locator(WAKE_RANGE_SEL).count()
@@ -329,7 +329,7 @@ def test_the_wake_interval_still_saves_with_scripts_blocked_through_the_slider(n
         # half that matters: the page is still usable
         # with a below-floor value on disk.
         corrected = _persist_without_js(
-            new_context, base_url, "/fleet", "wake_interval_s", "1200",
+            new_context, base_url, "/fleet?tab=settings", "wake_interval_s", "1200",
             read_back, viewport=VIEWPORT_MIN_SUPPORTED,
             restore=False)
         recorded["corrected"] = (corrected["set"], corrected["stored"])
@@ -406,7 +406,7 @@ def test_dragging_and_keying_the_wake_range_reach_disk(new_context, server):
             raise AssertionError(
                 "the dragged value did not reach disk; it reads %r"
                 % (recorded["dragged_stored"],))
-        page.goto(base_url + "/fleet")
+        page.goto(base_url + "/fleet?tab=settings")
         if page.input_value(WAKE_NUMBER_SEL) != dragged:
             raise AssertionError("the reloaded page does not show the dragged value")
 
@@ -490,7 +490,7 @@ def test_the_wake_slider_meets_its_floors_at_360px_in_both_themes(new_context, s
     try:
         page = context.new_page()
         _login(page, base_url)
-        page.goto(base_url + "/fleet")
+        page.goto(base_url + "/fleet?tab=settings")
 
         # The hit target, in this control's own container: a class-level measurement is
         # worth nothing here, since a declared box can resolve much smaller once
