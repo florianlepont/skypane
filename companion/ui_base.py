@@ -26,6 +26,33 @@ import companion.i18n as i18n
 
 SITE_TITLE = "SkyPane"
 
+# Every page shell's viewport meta. viewport-fit=cover lets the page paint
+# under the notch and home indicator (the stylesheet pads with the
+# env(safe-area-inset-*) values that then become non-zero).
+VIEWPORT_META = (
+    '<meta name="viewport" content="width=device-width, initial-scale=1, '
+    'viewport-fit=cover">')
+
+# The browser-chrome colour per scheme: the top stop of the page background
+# in Light, the ink top stop in Dark (the --sky-top tokens in style.css).
+THEME_COLOR_LIGHT = "#E7EEF7"
+THEME_COLOR_DARK = "#12151D"
+
+
+def theme_color_meta(ui_theme):
+    """The two theme-color tags (light and dark scheme) of a page shell. An
+    explicit Light/Dark setting overrides the system scheme, so both tags then
+    carry that theme's colour; Auto lets each scheme pick its own."""
+    light, dark = THEME_COLOR_LIGHT, THEME_COLOR_DARK
+    if ui_theme == "light":
+        dark = light
+    elif ui_theme == "dark":
+        light = dark
+    return (
+        '<meta name="theme-color" content="%s" media="(prefers-color-scheme: light)">\n'
+        '<meta name="theme-color" content="%s" media="(prefers-color-scheme: dark)">'
+        % (light, dark))
+
 # Visible timestamps render in LOCAL_TZ and carry the day once the value is
 # no longer "today" ("3 Sep 21:50"), rather than a bare UTC clock. The
 # `title` attribute carries a local full timestamp (see
@@ -1036,3 +1063,8 @@ def escape_html(value):
     if not isinstance(value, str):
         value = str(value)
     return html.escape(value, quote=True)
+
+
+def head_meta_html(ui_theme):
+    """The viewport and theme-color meta tags every page shell carries."""
+    return VIEWPORT_META + "\n" + theme_color_meta(ui_theme)

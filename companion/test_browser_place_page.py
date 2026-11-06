@@ -270,3 +270,27 @@ def test_layout_without_scripts(new_context, make_app_server, viewport):
         _assert_layout(page, viewport["width"], False, viewport["height"])
         if page.is_visible("#place-map") or page.is_visible("form.place-search"):
             raise AssertionError("script-only controls show without scripts")
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_SHORT, VIEWPORT_PHONE], ids=["360x640", "390"])
+def test_the_bottom_sheet_clears_the_floating_tab_bar(new_context, make_app_server, viewport):
+    """On a phone the sheet ends above the floating tab bar, and the sheet's own scroll end
+    shows its last control above the bar: the bar never covers the save action."""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open(new_context, server, viewport)
+    try:
+        page.evaluate(
+            "() => { const s = document.querySelector('.place-sheet'); s.scrollTop = s.scrollHeight; }")
+        page.wait_for_function(
+            "() => { const s = document.querySelector('.place-sheet');"
+            " return s.scrollTop + s.clientHeight >= s.scrollHeight - 1; }")
+        boxes = page.evaluate(
+            "() => ({sheet: document.querySelector('.place-sheet').getBoundingClientRect().bottom,"
+            " bar: document.querySelector('.tab-bar').getBoundingClientRect().top,"
+            " last: [...document.querySelectorAll('.place-sheet *')]"
+            "   .filter(e => e.getBoundingClientRect().height > 0)"
+            "   .reduce((m, e) => Math.max(m, e.getBoundingClientRect().bottom), 0)})")
+        assert boxes["sheet"] <= boxes["bar"] + 0.5, boxes
+        assert boxes["last"] <= boxes["bar"] + 0.5, boxes
+    finally:
+        context.close()

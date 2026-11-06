@@ -231,7 +231,9 @@ def test_the_phone_header_takes_no_more_than_a_third_of_the_screen(
         assert geometry["head"] <= 740 / 3, geometry
         assert geometry["badges"]["top"] >= geometry["title"]["bottom"] - 0.5
         assert max(geometry["chips"]) - min(geometry["chips"]) < 2, geometry
-        assert geometry["title"]["height"] < 40, geometry
+        # The title is on the shared page-title scale (30px+): the French wording may wrap to a
+        # second line, never to a third.
+        assert geometry["title"]["height"] < 70, geometry
         assert geometry["chipsBox"] < 64, geometry
     finally:
         context.close()
@@ -490,7 +492,8 @@ def test_the_detail_sheet_fits_the_screen_with_its_head_and_close_in_reach(
             assert box["top"] >= geometry["dialog"][0] - 0.5, (part, geometry)
             assert box["bottom"] <= geometry["dialog"][1] + 0.5, (part, geometry)
         assert geometry["close"]["height"] >= 44 - 0.5 and geometry["dismiss"]["height"] >= 44 - 0.5
-        assert len(set(round(top) for top in geometry["facts"])) <= len(geometry["facts"]) / 2 + 1, geometry
+        tops = sorted(geometry["facts"])
+        assert all(b - a >= 54 - 0.5 for a, b in zip(tops, tops[1:])), geometry
         if viewport["width"] < 700:
             assert geometry["art"]["height"] <= 80, geometry
     finally:

@@ -223,9 +223,9 @@ def test_new_login_surfaces_render_the_approved_french():
 
 _LOGIN_BASELINE = {
     "en": {
-        "nf": "faa02a0d3a9d9cd6a6a5a47ec08ce27622b76f605c2a3173885058194812ea60",
-        "nf2": "faa02a0d3a9d9cd6a6a5a47ec08ce27622b76f605c2a3173885058194812ea60",
-        "forb": "55d52ce785cc20b1aacbdc0a749b0b716951d8fe4ae7c8622671da9c99263c76",
+        "nf": "375314b26955854249df646f73fdd0f9fe7972ce9fe7b4d6cb20c4e3d52441be",
+        "nf2": "375314b26955854249df646f73fdd0f9fe7972ce9fe7b4d6cb20c4e3d52441be",
+        "forb": "2af2c2062eda432dd93dd76c171b81b67c7d68d9a0763e1d4bd05191e9473ef1",
     },
 }
 
@@ -255,7 +255,7 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     html = account_page.render(account_page.Identity("ada@example.com", "user"))
     doc = _doc(html)
     assert doc.select_one("h1.page-title").text() == "Account"
-    cards = doc.select("section.page-section")
+    cards = [c for c in doc.select("section.group-block") if c.select("h2")]
     assert [c.select_one("h2").text() for c in cards] == [
         "My frames", "Identity", "Preferences"]
     identity = cards[1].text()
@@ -293,7 +293,7 @@ def test_account_page_renders_in_french():
     prefs.set_request_prefs("fr")
     doc = _doc(account_page.render(account_page.Identity("a@b.fr", "user")))
     assert doc.select_one("h1.page-title").text() == "Compte"
-    assert [c.select_one("h2").text() for c in doc.select("section.page-section")] == [
+    assert [c.select_one("h2").text() for c in doc.select("section.group-block") if c.select("h2")] == [
         "Mes cadres", "Identité", "Préférences"]
     assert "Vos cadres apparaîtront ici" in doc.text()
     assert "Ajouter votre cadre" in doc.text()
@@ -344,7 +344,7 @@ def test_unrecognised_principal_clears_to_default():
 
 
 _SHELL_BASELINE_DIGEST = (
-    "9bfabe64ec6ee8b04c0921b835ccb81af85d2f5029cddcdca7951a870da54467")
+    "4245224f447d2eb8834210778befc2e236e455190790a94119a1e403b7516831")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

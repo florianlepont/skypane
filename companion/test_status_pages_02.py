@@ -843,7 +843,7 @@ def test_battery_readout_seeded_with_latest_reading_not_placeholder(tmp_path, mo
     # local timestamp), never the raw ISO, and the span carries the
     # .time-value role.
     expected_inner = (
-        '<span class="battery-readout__value mono">%s</span>'
+        '<span class="battery-readout__value tnum">%s</span>'
         '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
     ) % (
         health_page.escape_html(value_text),
@@ -1002,7 +1002,7 @@ def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path
     ])
     rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
     readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
-    value_start = rendered.index('class="battery-readout__value mono"', readout_start)
+    value_start = rendered.index('class="battery-readout__value tnum"', readout_start)
     value_tag_end = rendered.index(">", value_start) + 1
     value_end = rendered.index("</span>", value_tag_end)
     value_html = rendered[value_tag_end:value_end]

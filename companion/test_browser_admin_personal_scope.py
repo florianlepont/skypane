@@ -81,7 +81,7 @@ def test_fleet_to_a_foreign_frame_and_back(
         strip = page.locator(".frame-notice")
         assert strip.inner_text().startswith(words["viewing"]), where
         assert strip.bounding_box()["height"] >= MIN_TAP_PX
-        assert strip.evaluate("e => getComputedStyle(e).fontSize") == "14px"
+        assert strip.evaluate("e => getComputedStyle(e).fontSize") == "15px"
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         page.wait_for_function(_OWNS_ITS_CENTRE, arg=".frame-notice a", timeout=10000)
         _assert_hit_target(page, ".frame-notice a", where)

@@ -175,9 +175,8 @@ def test_home_attention_row_is_reserved_for_actionable_state(tmp_path):
 
 
 def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
-    """the recent-flight time cell markup carries no monospace class, and reads the clock
-    (.time-value), the existing .cell-inline-sep middle dot and the relative age
-    (.time-value__age) as one line (B18)"""
+    """the recent-flight row carries the clock in its detail line and the relative age as its
+    value, with no monospace class on either (B18)"""
     with history_db.open_db(tmp_path) as conn:
         history_db.record_runway_event(
             conn, ts="2026-08-27T11:35:00+00:00", hex="3c6444", callsign="AFR1380",
@@ -188,64 +187,25 @@ def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
         "health_state": {}, "device_config": {},
     }
     rendered = home_page.render(ctx)
-    start = rendered.index('class="recent-flight__time')
+    start = rendered.index('class="row__text"', rendered.index("recent-flight"))
     end = rendered.index("</li>", start)
-    time_cell = rendered[start:end]
-    assert "mono" not in time_cell, "expected no monospace class in the recent-flight time cell"
-    assert 'class="time-value"' in time_cell, "expected the clock to carry the .time-value role"
-    assert 'class="cell-inline-sep"' in time_cell, "expected the existing .cell-inline-sep middle dot"
-    assert 'class="time-value__age"' in time_cell, "expected the relative age in the .time-value__age muted role"
+    cell = rendered[start:end]
+    detail = cell[cell.index('class="row__detail"'):]
+    value = cell[cell.index('class="row__value"'):]
+    assert "mono" not in detail and "mono" not in value
+    assert "12:35" not in detail and detail.startswith('class="row__detail">')
+    assert "<time" in value and "data-relative" in value
 
 
 # --- CSS-only checks: the served stylesheet's parsed rules, never a disk
 # read -----------------------------------------------------------
 
-def test_home_status_grid_declares_align_items_stretch(served_css):
-    """.home-status-grid's own CSS rule declares align-items: stretch (B2)"""
-    decls = declarations_for(served_css, ".home-status-grid")
-    assert decls.get("align-items") == "stretch", (
-        "expected .home-status-grid to declare align-items: stretch, got %r" % (decls,))
-
-
 def test_recent_flight_time_declares_white_space_nowrap(served_css):
-    """.recent-flight__time's own CSS rule declares white-space: nowrap so the clock/age pair
-    can never wrap onto a second line (B18)"""
-    decls = declarations_for(served_css, ".recent-flight__time")
-    assert decls.get("white-space") == "nowrap", (
-        "expected .recent-flight__time to declare white-space: nowrap, got %r" % (decls,))
-
-
-def test_recent_flight_thumbnails_share_the_shipped_treatments(served_css):
-    """the real recent-flight thumbnail joins the shared white-backing/hairline/radius rule and
-    the placeholder's own rule reuses .airline-card__placeholder's exact dashed/canvas-fill
-    values (never a new literal, never sharing that pinned selector), so a missing thumbnail
-    matches the real ones in weight (B18)"""
-    # img.recent-flight__thumb and .now-showing__image now each have their own single
-    # rule (one rule per selector per at-rule context), so the shared treatment is
-    # asserted as equal resolved declarations rather than shared selector-list membership.
-    thumb_decls = declarations_for(served_css, "img.recent-flight__thumb")
-    now_showing_decls = declarations_for(served_css, ".now-showing__image")
-    for prop in ("border", "border-radius", "background"):
-        assert thumb_decls.get(prop) == now_showing_decls.get(prop), (
-            "expected img.recent-flight__thumb's %r to match .now-showing__image's shared "
-            "white-backing/hairline/radius treatment, got %r vs %r"
-            % (prop, thumb_decls.get(prop), now_showing_decls.get(prop)))
-
-    # .airline-card__placeholder's own selector stays standalone —
-    # companion/test_status_pages.py (a sibling harness this plan may not
-    # edit) pins it as such.
-    placeholder_owner_rules = rules_with_selector(served_css, ".airline-card__placeholder")
-    assert len(placeholder_owner_rules) == 1 and placeholder_owner_rules[0].selectors == (
-        ".airline-card__placeholder",), (
-        "expected .airline-card__placeholder's OWN selector to stay standalone, got %r"
-        % (placeholder_owner_rules,))
-    placeholder_decls = declarations_for(served_css, ".recent-flight__thumb--placeholder")
-    airline_card_decls = dict(placeholder_owner_rules[0].declarations)
-    for prop in ("border", "background"):
-        assert placeholder_decls.get(prop) == airline_card_decls.get(prop), (
-            "expected .recent-flight__thumb--placeholder's own rule to reuse "
-            ".airline-card__placeholder's exact %r value (%r), got %r (B18)"
-            % (prop, airline_card_decls.get(prop), placeholder_decls.get(prop)))
+    """.row__value's own CSS rule declares white-space: nowrap (and an ellipsis) so the age can
+    never wrap onto a second line (B18)"""
+    decls = declarations_for(served_css, ".row__value")
+    assert decls.get("white-space") == "nowrap" and decls.get("text-overflow") == "ellipsis", (
+        "expected .row__value to declare white-space: nowrap and an ellipsis, got %r" % (decls,))
 
 
 # NOTE: "companion/static/style.css still carries exactly one @supports

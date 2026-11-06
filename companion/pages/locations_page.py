@@ -227,7 +227,7 @@ def _actions_html(row, view, prefix):
 
 
 def _position_html(row):
-    return '<span class="mono">%s, %s</span>' % (
+    return '<span class="tnum">%s, %s</span>' % (
         _esc(coordinate_text(row.latitude)), _esc(coordinate_text(row.longitude)))
 
 

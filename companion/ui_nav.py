@@ -494,6 +494,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         "figure.preview-frame",
         'section[aria-labelledby="home-flights"]',
         'section[aria-labelledby="home-frame-state"]',
+        'section[aria-labelledby="home-frame-controls"]',
         ".home-facts",
     ),
     REFRESH_PAGE_DISPLAY: (
@@ -515,7 +516,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
     ),
     REFRESH_PAGE_FLIGHTS: (
         ".page-header__freshness",
-        "ul.history-cards",
+        ".history-cards",
         ".data-table-wrap",
         "[data-filter-count]",
     ),

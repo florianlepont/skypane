@@ -216,7 +216,7 @@ def test_an_anonymous_caller_is_sent_to_sign_in(rig):
 def test_the_editor_is_titled_and_framed_as_a_console_page(rig):
     page = rig.get("admin", rig.frame + EDITOR)[2]
     assert '<h1 class="page-title">Airline editor</h1>' in page
-    assert "frame-tiles" not in page
+    assert "frame-menu" not in page
     assert re.search(
         r'<a class="space-switch__segment space-switch__segment--current" href="/fleet"'
         r'[^>]*aria-current="page"', page)
@@ -233,7 +233,7 @@ def test_the_frame_chip_is_absent_with_a_single_frame(tmp_path):
         if status == 303:
             status, _h, body = http_request(
                 server.url(_h["Location"]), cookie=cookie)
-        assert status == 200 and "frame-tiles" not in body.decode("utf-8", "replace")
+        assert status == 200 and "frame-menu" not in body.decode("utf-8", "replace")
     finally:
         server.stop()
 

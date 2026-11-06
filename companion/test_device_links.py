@@ -51,7 +51,7 @@ def _actions(body):
 
 def _inside_frame_switcher(node):
     while node is not None:
-        if "frame-tiles" in node.attrs.get("class", ""):
+        if "frame-menu" in node.attrs.get("class", ""):
             return True
         node = node.parent
     return False

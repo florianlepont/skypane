@@ -2,7 +2,7 @@
 the frame name as a second line only for several frames), the plane on its trail is shown only
 when the frame has a flight and flies in once, nothing moves the title (greeting swap, plane
 animation), reduced motion shows the plane at rest, the cards come in one after the other, and
-the phone tab bar keeps its labels legible and uncramped in both themes on every sky."""
+the phone tab bar keeps its labels legible and uncramped in both themes."""
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
@@ -100,7 +100,7 @@ def test_without_script_the_greeting_is_the_neutral_default(new_context, fleet_a
 
 def test_the_frame_name_is_a_second_line_for_several_frames(new_context, fleet_app):
     page = _fleet_page(new_context, fleet_app, _live(fleet_app), hour=9)
-    name = page.locator(".frame-fold__name").inner_text()
+    name = page.locator(".frame-menu__name").inner_text()
     assert page.locator(".home-greeting__frame").inner_text() == name
     box = page.evaluate(_BOXES)["greeting"]
     line = page.evaluate("() => parseFloat(getComputedStyle("
@@ -201,31 +201,27 @@ def test_the_home_cards_come_in_one_after_the_other(new_context, fleet_app):
     page.goto(base + _live(fleet_app))
     page.locator(".home-state").wait_for(state="attached")
     delays = page.evaluate(
-        """() => ['.home-state', '.home-current-frame',
+        """() => ['.home-state', '.home-state__switches',
                   'section[aria-labelledby="home-flights"]'].map(
             sel => getComputedStyle(document.querySelector(sel)).animationDelay)""")
     assert delays == ["0s", "0.06s", "0.12s"], delays
     page.wait_for_function(_SETTLED)
     settled = page.evaluate(
-        """() => ['.home-state', '.home-current-frame'].map(sel => {
+        """() => ['.home-state', '.home-state__switches'].map(sel => {
             const s = getComputedStyle(document.querySelector(sel));
             return [s.opacity, s.transform]; })""")
     assert settled == [["1", "none"], ["1", "none"]], settled
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
-@pytest.mark.parametrize("sky_hour", [(6, "dawn"), (12, "day"), (18, "dusk"), (22, "night")])
-def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, viewport, sky_hour):
-    hour, sky = sky_hour
+def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, viewport):
     context = new_context(viewport=viewport)
     page = context.new_page()
-    page.add_init_script("Date.prototype.getHours = function () { return %d; };" % hour)
     _login(page, admin_server.base_url())
     page.goto(admin_server.base_url() + "/")
     page.wait_for_function(_SETTLED)
-    assert page.evaluate("() => document.documentElement.dataset.sky") == sky
     for theme in _in_both_themes(page):
-        where = "%s %s %dpx" % (sky, theme["theme"], viewport["width"])
+        where = "%s %dpx" % (theme["theme"], viewport["width"])
         # The theme change starts colour transitions; read only the settled colours.
         page.wait_for_function(_SETTLED)
         read = page.evaluate(
@@ -247,6 +243,8 @@ def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, vie
         assert read["first"] >= 68 - 0.5, (where, read)
         parts = [float(p) for p in read["bar"][read["bar"].index("(") + 1:-1].split(",")]
         alpha = parts[3] if len(parts) == 4 else 1.0
+        # The floating bar has its own fill per theme: legible over a white and a black
+        # backdrop (a picture scrolling beneath it) in both.
         for backdrop in (255, 0):
             bar = "#%02X%02X%02X" % tuple(round(alpha * c + (1 - alpha) * backdrop)
                                           for c in parts[:3])

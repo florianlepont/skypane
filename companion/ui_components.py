@@ -734,7 +734,7 @@ def empty_state(heading, body, compact=False):
 
     `compact` falsy is byte-identical to this function's pre-existing
     output. Why it exists: an empty state inside a `.stat-tile` put a
-    22px serif heading inside a card whose own caption is 12px, an
+    22px display-face heading inside a card whose own caption is 12px, an
     inverted hierarchy. Compact drops the heading to the Emphasis role
     and the body to the label size, matching a filled tile's verdict and
     detail rows through its own class names, never by borrowing

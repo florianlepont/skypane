@@ -1,8 +1,8 @@
-"""Real-browser checks of the sky-and-motion foundations: the local hour picks the sky
-(dawn 05-08, day 08-17, dusk 17-21, night otherwise) in the Light theme, Dark is always the
-deep night sky, text stays readable over every sky stop and through the glass, the sky is a
-fixed pseudo-element that causes no overflow, reduced motion zeroes the card entrance, the
-entrance ends in the plain layout state, and the glass surfaces blur where the browser
+"""Real-browser checks of the background and motion foundations: Light is one pale sky and Dark
+one ink gradient whatever the local hour (there is no time-of-day sky and no data-sky
+attribute), text stays readable over every stop and through the glass, the gradient is painted
+on the root element itself without causing overflow, reduced motion zeroes the card entrance,
+the entrance ends in the plain layout state, and the glass surfaces blur where the browser
 supports it."""
 import pytest
 
@@ -17,11 +17,6 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-# (local hour, expected sky) around every band edge.
-HOUR_BANDS = (
-    (0, "night"), (4, "night"), (5, "dawn"), (7, "dawn"), (8, "day"), (12, "day"),
-    (16, "day"), (17, "dusk"), (20, "dusk"), (21, "night"), (23, "night"),
-)
 STOPS = ("--sky-top", "--sky-mid", "--sky-bottom")
 
 _READ_SKY = """() => {
@@ -59,13 +54,19 @@ def _hex_over(rgba, backdrop):
         round(alpha * fg + (1 - alpha) * bg) for fg, bg in zip((red, green, blue), back))
 
 
-@pytest.mark.parametrize("hour, expected", HOUR_BANDS, ids=["%02dh-%s" % band for band in HOUR_BANDS])
-def test_local_hour_picks_the_light_sky_and_text_stays_readable(
-        new_context, make_app_server, hour, expected):
+LIGHT_STOPS = ["#E7EEF7", "#F1F3F6", "#EDF1F6"]
+DARK_STOPS = ["#12151D", "#161A24", "#1A1F2B"]
+
+
+@pytest.mark.parametrize("hour", (0, 6, 12, 18, 22))
+def test_light_is_one_pale_sky_at_any_hour_and_text_stays_readable(
+        new_context, make_app_server, hour):
     page = _open(new_context, make_app_server, hour, color_scheme="light")
     page.evaluate(_SET_THEME, "light")
     read = page.evaluate(_READ_SKY)
-    assert read["sky"] == expected, (hour, read)
+    assert read["sky"] is None, read
+    assert [stop.upper() for stop in read["stops"]] == LIGHT_STOPS, (hour, read)
+    assert read["accent"].upper() == "#1F2430"
     for stop in read["stops"]:
         for ink in (read["text"], read["accent"]):
             assert contrast_ratio(ink, stop) >= WCAG_AA_NORMAL_TEXT, (hour, stop, ink)
@@ -73,19 +74,9 @@ def test_local_hour_picks_the_light_sky_and_text_stays_readable(
             assert contrast_ratio(ink, glass) >= WCAG_AA_NORMAL_TEXT, (hour, stop, ink, glass)
 
 
-def test_the_four_light_skies_paint_four_different_gradients(new_context, make_app_server):
-    seen = {}
-    for hour, expected in ((6, "dawn"), (12, "day"), (18, "dusk"), (22, "night")):
-        page = _open(new_context, make_app_server, hour, color_scheme="light")
-        page.evaluate(_SET_THEME, "light")
-        seen[expected] = tuple(page.evaluate(_READ_SKY)["stops"])
-        page.context.close()
-    assert len(set(seen.values())) == 4, seen
-
-
-@pytest.mark.parametrize("hour", (6, 12, 18, 22))
-def test_dark_theme_is_always_the_night_sky(new_context, make_app_server, hour):
-    """explicit Dark, and Auto on a dark system, show the same deep sky at any hour"""
+@pytest.mark.parametrize("hour", (6, 12, 22))
+def test_dark_is_one_ink_gradient_at_any_hour(new_context, make_app_server, hour):
+    """explicit Dark, and Auto on a dark system, show the same ink background at any hour"""
     explicit = _open(new_context, make_app_server, hour, color_scheme="light")
     explicit.evaluate(_SET_THEME, "dark")
     explicit_read = explicit.evaluate(_READ_SKY)
@@ -93,7 +84,8 @@ def test_dark_theme_is_always_the_night_sky(new_context, make_app_server, hour):
     auto.evaluate(_SET_THEME, "auto")
     auto_read = auto.evaluate(_READ_SKY)
     for read in (explicit_read, auto_read):
-        assert read["stops"] == ["#0B1026", "#18203F", "#2C2540"], (hour, read)
+        assert [stop.upper() for stop in read["stops"]] == DARK_STOPS, (hour, read)
+        assert read["accent"].upper() == "#F2EFE9"
         for stop in read["stops"]:
             glass = _hex_over(read["glass"], stop)
             for ink in (read["text"], read["accent"]):
@@ -101,35 +93,38 @@ def test_dark_theme_is_always_the_night_sky(new_context, make_app_server, hour):
                 assert contrast_ratio(ink, glass) >= WCAG_AA_NORMAL_TEXT
 
 
-def test_without_script_the_sky_defaults_to_day(new_context, make_app_server):
+def test_the_background_is_identical_with_and_without_script(new_context, make_app_server):
+    """no script is needed for the background and there is no first-paint colour swap"""
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP, color_scheme="light", java_script_enabled=False)
     page = context.new_page()
     _login(page, server.base_url())
     page.goto(server.base_url() + "/")
-    assert page.evaluate("() => document.documentElement.hasAttribute('data-sky')") is False
     page.evaluate(_SET_THEME, "light")
-    assert page.evaluate(_READ_SKY)["stops"] == ["#D5E7F6", "#E3EDF5", "#F4F1EA"]
+    assert [stop.upper() for stop in page.evaluate(_READ_SKY)["stops"]] == LIGHT_STOPS
 
 
 @pytest.mark.parametrize("viewport", (VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED),
                          ids=("1280", "360"))
-def test_the_sky_is_fixed_and_causes_no_overflow(new_context, make_app_server, viewport):
+def test_the_background_sits_on_the_root_and_causes_no_overflow(
+        new_context, make_app_server, viewport):
     page = _open(new_context, make_app_server, 12, viewport=viewport)
-    sky = page.evaluate(
+    root = page.evaluate(
         """() => {
-            const style = getComputedStyle(document.documentElement, '::before');
-            return {position: style.position, events: style.pointerEvents,
-                    image: style.backgroundImage, attachment: style.backgroundAttachment};
+            const style = getComputedStyle(document.documentElement);
+            const before = getComputedStyle(document.documentElement, '::before');
+            return {image: style.backgroundImage, attachment: style.backgroundAttachment,
+                    colour: style.backgroundColor, beforeContent: before.content};
         }""")
-    assert sky["position"] == "fixed" and sky["events"] == "none"
-    assert sky["image"].startswith("linear-gradient") and sky["attachment"] == "scroll"
+    assert root["image"].startswith("linear-gradient") and root["attachment"] == "scroll"
+    assert root["colour"] != "rgba(0, 0, 0, 0)", "the canvas colour itself carries the sky"
+    assert root["beforeContent"] in ("none", "normal"), "no fixed sky layer remains"
     assert not _assert_no_page_overflow(page, "sky/%s" % viewport["width"], viewport["width"])
 
 
 def _section_motion(page):
     return page.evaluate(
-        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section')).map(el => {
+        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section, .dashboard-main .group-block')).map(el => {
             const style = getComputedStyle(el);
             return {duration: style.animationDuration, delay: style.animationDelay,
                     name: style.animationName};
@@ -144,11 +139,11 @@ def test_cards_enter_in_a_short_stagger_and_end_in_their_layout_state(
     # A whole-pixel rise and a smooth fade, two finite animations of one duration.
     assert {item["name"] for item in motion} == {"skypane-reveal, skypane-reveal-fade"}
     assert {item["duration"] for item in motion} == {"0.4s, 0.4s"}
-    # Home's state card (not a page section) enters first, so its sections start one step in.
+    # Home's hero (not a section or a group) enters first, so its groups start one step in.
     assert [item["delay"] for item in motion[:2]] == ["0.06s", "0.12s"]
     page.wait_for_timeout(1200)
     settled = page.evaluate(
-        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section')).map(el => {
+        """() => Array.from(document.querySelectorAll('.dashboard-main .page-section, .dashboard-main .group-block')).map(el => {
             const style = getComputedStyle(el);
             return {transform: style.transform, opacity: style.opacity,
                     running: el.getAnimations().length};
@@ -164,7 +159,7 @@ def test_reduced_motion_zeroes_the_entrance(new_context, make_app_server):
         assert max(durations) <= 0.0001 and set(item["delay"].split(", ")) == {"0s"}, item
     page.wait_for_timeout(100)
     opacity = page.evaluate(
-        "() => getComputedStyle(document.querySelector('.dashboard-main .page-section')).opacity")
+        "() => getComputedStyle(document.querySelector('.dashboard-main .group-block')).opacity")
     assert opacity == "1"
 
 
@@ -172,11 +167,11 @@ def test_glass_surfaces_blur_where_the_browser_supports_it(new_context, make_app
     desktop = _open(new_context, make_app_server, 12)
     assert desktop.evaluate(
         "() => getComputedStyle(document.querySelector('.dashboard-sidebar')).backdropFilter"
-    ) == "blur(16px)"
+    ) == "blur(22px) saturate(1.65)"
     background = desktop.evaluate(
         "() => getComputedStyle(document.querySelector('.dashboard-sidebar')).backgroundColor")
     assert background.startswith("rgba(") and not background.endswith(", 1)")
     phone = _open(new_context, make_app_server, 12, viewport=VIEWPORT_MIN_SUPPORTED)
     assert phone.evaluate(
         "() => getComputedStyle(document.querySelector('.tab-bar')).backdropFilter"
-    ) == "blur(16px)"
+    ) == "blur(26px) saturate(2)"

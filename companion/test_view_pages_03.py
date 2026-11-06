@@ -7,7 +7,6 @@ battery ring, relative-age elements and French render.
 CSS/JS checks fetch served bytes from a running `companion/app.py`;
 everything else calls `*_page.render()` directly, in-process.
 """
-import os
 import re
 
 import pytest
@@ -21,7 +20,6 @@ from companion.pages import airlines_page, health_page, history_page, home_page
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, rules_with_selector
 from server import history_db
-from server.plane import illustrations
 
 
 @pytest.fixture(scope="module")
@@ -533,7 +531,7 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
     selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLIGHTS]
     witnesses = {
         ".page-header__freshness": 'class="page-header__freshness',
-        "ul.history-cards": '<ul class="history-cards"',
+        ".history-cards": '<div class="history-cards"',
         ".data-table-wrap": 'class="data-table-wrap"',
         "[data-filter-count]": "data-filter-count ",
     }
@@ -549,16 +547,10 @@ def test_flights_declares_its_refresh_regions_and_never_the_filter_input(tmp_pat
             "load, so replacing it leaves the filter permanently dead" % (selector,))
 
 
-def test_the_phone_card_is_a_boarding_pass_with_a_picture_action(tmp_path):
-    """the phone card reads head (identity + picture action), route line, then stub (artwork +
-    time), carries no naming link for any airline, and has no
-    disclosure, summary or copy control"""
-    from PIL import Image
-
-    key = illustrations.normalise_airline_key("Air France")
-    override_path = illustrations.override_path_for_key(key, str(tmp_path))
-    os.makedirs(os.path.dirname(override_path), exist_ok=True)
-    Image.new("RGB", (4, 4), color=(200, 200, 200)).save(override_path, format="PNG")
+def test_the_phone_row_carries_identity_detail_and_a_picture_action(tmp_path):
+    """the phone row reads chip, label (callsign and route), detail (airline and type) and value
+    (age and direction), then the picture action beside it; it carries no naming link for any
+    airline, and has no disclosure, summary or copy control"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FACEONE",
          "airline": "Air France"},
@@ -567,36 +559,31 @@ def test_the_phone_card_is_a_boarding_pass_with_a_picture_action(tmp_path):
     names = ["2026-08-27T08-00-00+00-00.png"]
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
     li = vp.row_block(rendered, "li", 0)
-    assert li is not None, "could not locate the phone card"
+    assert li is not None, "could not locate the phone row"
     assert not li.select("details") and not li.select("summary")
     assert not li.select("[data-copy-value]")
-    bands = [child.attrs.get("class") for child in li.children if not isinstance(child, str)]
-    assert bands == ["history-card__head", "history-card__route", "history-card__stub"]
-    head = li.select_one(".history-card__head")
-    assert head.select_one(".history-card__callsign").text() == "FACEONE"
-    assert head.select_one(".history-card__airline").text() == "Air France"
-    assert head.select_one("a.history-card__picture[data-view-panel-src]") is not None
-    assert li.select_one(".history-card__stub img.history-card__art") is not None
-    assert li.select_one(".history-card__stub .history-card__when") is not None
+    assert li.select_one(".row__label .history-card__callsign").text() == "FACEONE"
+    assert li.select_one(".row__detail").text().startswith("Air France")
+    assert li.select_one(".row__value .history-card__when") is not None
+    assert li.select_one("a.history-card__picture[data-view-panel-src]") is not None
     assert not [a for a in li.select("a") if "resolve=" in a.attrs.get("href", "")]
 
     unresolved = vp.row_block(rendered, "li", 1)
-    assert unresolved is not None, "could not locate the unresolved-airline card"
-    identity = unresolved.select_one(".history-card__head .history-card__id")
-    assert identity.select_one(".history-card__airline--unknown").text() == "Airline unknown"
-    assert not identity.select("a")
+    assert unresolved is not None, "could not locate the unresolved-airline row"
+    assert unresolved.select_one(".row__detail").text().startswith("Airline unknown")
+    assert not unresolved.select(".row__main a")
     assert unresolved.select("a[data-view-panel-src]")
 
 
-def test_phone_card_identity_branches_and_time_never_wrap(tmp_path, served_css):
-    """every identity branch (callsign, hex plus note, neither) renders one callsign slot and one
-    airline line in the card head, the stub's time column never wraps, and the airline line
-    ellipsises rather than growing the card"""
-    when_block = declarations_for(served_css, ".history-card__when")
-    assert when_block.get("white-space") == "nowrap"
-    airline_block = declarations_for(served_css, ".history-card__airline")
-    assert airline_block.get("white-space") == "nowrap"
-    assert airline_block.get("text-overflow") == "ellipsis"
+def test_phone_row_identity_branches_and_label_never_wrap(tmp_path, served_css):
+    """every identity branch (callsign, hex plus note, neither) renders one callsign slot in
+    the row label, and the label and detail ellipsise on one line rather than growing the row"""
+    label_block = declarations_for(served_css, ".history-card .row__label")
+    assert label_block.get("white-space") == "nowrap"
+    assert label_block.get("text-overflow") == "ellipsis"
+    detail_block = declarations_for(served_css, ".history-card .row__detail")
+    assert detail_block.get("white-space") == "nowrap"
+    assert detail_block.get("text-overflow") == "ellipsis"
 
     branches = (
         ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}, "GRD01"),
@@ -609,11 +596,10 @@ def test_phone_card_identity_branches_and_time_never_wrap(tmp_path, served_css):
         vp.seed_runway_events(sub, [fields])
         rendered = history_page.render(vp.history_ctx(sub))
         li = vp.row_block(rendered, "li", 0)
-        assert li is not None, "%s branch: could not locate the rendered card" % name
-        identity = li.select_one(".history-card__head .history-card__id")
-        assert len(identity.select(".history-card__callsign")) == 1, name
-        assert identity.select_one(".history-card__callsign").text() == expected, name
-        assert len(identity.select(".history-card__airline")) == 1, name
+        assert li is not None, "%s branch: could not locate the rendered row" % name
+        label = li.select_one(".row__label")
+        assert len(label.select(".history-card__callsign")) == 1, name
+        assert label.select_one(".history-card__callsign").text() == expected, name
 
 
 def test_freshness_refetches_the_current_url_verbatim(app):
@@ -656,10 +642,11 @@ def test_the_count_animates_without_its_text_production_moving(app):
         "expected the animation to fire only when the rendered text actually differs")
 
 
-def test_phone_card_route_line_mutes_the_home_end_and_names_the_direction(tmp_path):
-    """the phone card's route line carries origin and destination as two codes with the plane
-    glyph and the direction label between them; the home end (the origin of a departure, the
-    destination of an arrival) is muted; a row with no route reads the shared fallback"""
+def test_phone_row_route_mutes_the_home_end_and_names_the_direction(tmp_path):
+    """the phone row's route carries origin and destination as two codes with an arrow between
+    them; the home end (the origin of a departure, the destination of an arrival) is muted; the
+    confirmed direction is spoken in the label; a row with no route reads the shared fallback in
+    its detail line"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "rt01", "callsign": "DEPCARD",
          "origin": "ORY", "destination": "KEF", "confirmed_state": "departing"},
@@ -671,16 +658,16 @@ def test_phone_card_route_line_mutes_the_home_end_and_names_the_direction(tmp_pa
     rendered = history_page.render(vp.history_ctx(tmp_path))
     for index, origin, destination, home, direction in (
             (0, "ORY", "KEF", "from", "Departing"), (1, "NCE", "ORY", "to", "Arriving")):
-        route = vp.row_block(rendered, "li", index).select_one(".history-card__route")
+        li = vp.row_block(rendered, "li", index)
+        route = li.select_one(".history-card__route")
         assert route.select_one(".history-card__code--from").text() == origin
         assert route.select_one(".history-card__code--to").text() == destination
         homes = route.select(".history-card__code--home")
         assert len(homes) == 1 and "history-card__code--%s" % home in homes[0].attrs["class"]
-        assert route.select_one(".history-card__track svg use").attrs["href"] == "#icon-plane"
-        assert route.select_one(".history-card__dir").text() == direction
-    route = vp.row_block(rendered, "li", 2).select_one(".history-card__route")
-    assert route.select_one(".history-card__code--none").text() == history_page.ROUTE_FALLBACK_TEXT
-    assert not route.select(".history-card__code--to")
+        assert direction in li.select_one(".history-card__state").text()
+    li = vp.row_block(rendered, "li", 2)
+    assert not li.select(".history-card__route")
+    assert history_page.ROUTE_FALLBACK_TEXT in li.select_one(".row__detail").text()
 
 
 def test_raw_iso_timestamp_is_never_rendered(tmp_path):
@@ -694,44 +681,6 @@ def test_raw_iso_timestamp_is_never_rendered(tmp_path):
     assert "ISOROW" in rendered
     assert raw_ts not in rendered.replace('datetime="%s"' % raw_ts, "")
     assert "Full timestamp" not in rendered
-
-
-def test_phone_cards_carry_the_airline_name_and_artwork_plate(tmp_path, served_css):
-    """a phone card carries the airline name and, when real artwork exists for it, the Airlines
-    gallery's own served frame as a contain-fitted plate on the shared white image backdrop —
-    and, when no artwork file exists, a dashed "No illustration" placeholder, never an <img>"""
-    from PIL import Image
-
-    key = illustrations.normalise_airline_key("Air France")
-    override_path = illustrations.override_path_for_key(key, str(tmp_path))
-    os.makedirs(os.path.dirname(override_path), exist_ok=True)
-    Image.new("RGB", (4, 4), color=(200, 200, 200)).save(override_path, format="PNG")
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "th01", "callsign": "THUMBED",
-         "airline": "Air France"},
-        {"ts": "2026-08-27T09:00:00+00:00", "hex": "th02", "callsign": "NOART",
-         "airline": "Totally Unknown Air"},
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    li_thumbed = vp.row_block(rendered, "li", 0)
-    li_noart = vp.row_block(rendered, "li", 1)
-    assert li_thumbed is not None and li_noart is not None, "could not locate both phone cards"
-    assert li_thumbed.select_one(".history-card__airline").text() == "Air France"
-    img = li_thumbed.select_one(".history-card__stub img.history-card__art")
-    assert img.attrs["src"] == "%s%s.png" % (history_page.ILLUSTRATION_ROUTE_PREFIX, key)
-    assert img.attrs["alt"] == "Air France illustration"
-    assert img.attrs["loading"] == "lazy"
-    assert not li_noart.select("img"), (
-        "did not expect an <img> for an airline with no artwork file")
-    placeholder = li_noart.select_one(".history-card__stub .history-card__art--empty")
-    assert placeholder.text() == "No illustration"
-    assert li_noart.select_one(".history-card__airline").text() == "Totally Unknown Air"
-
-    plate = declarations_for(served_css, "img.history-card__art")
-    shared = declarations_for(served_css, ".now-showing__image")
-    assert plate.get("background") == shared.get("background")
-    assert plate.get("object-fit") == "contain"
-    assert declarations_for(served_css, ".history-card__art--empty").get("border-style") == "dashed"
 
 
 def test_no_prefix_registry_duplicated_on_history(tmp_path):
@@ -827,9 +776,8 @@ def test_flights_catalog_keys_all_present_in_merged_catalog():
 
 
 def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path):
-    """Home's recent-flight relative age is a <time data-relative> element carrying the ROW's
-    own instant, reading exactly what it reads today in both languages, with C5's
-    .time-value/.cell-inline-sep/.time-value__age split and its parentheses intact
+    """Home's recent-flight relative age is the row's value, a <time data-relative> element
+    carrying the ROW's own instant, reading exactly what it reads today in both languages
     (23-03, D14)"""
     now = "2026-08-27T12:00:00+00:00"
     flight_ts = "2026-08-27T11:50:00+00:00"
@@ -839,17 +787,14 @@ def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path
         try:
             rendered = home_page.render(_home_seeded_ctx(sub, now, flight_ts))
             expected_age = layout.relative_age_text(600, lang=lang)
-            cell = re.search(
-                r'<span class="time-value">([^<]*)</span>'
-                r'<span class="cell-inline-sep">·</span>'
-                r'<span class="time-value__age">\((.*?)\)</span>', rendered)
+            cell = re.search(r'<span class="row__value">(.*?)</span>', rendered)
             assert cell is not None, (
-                "lang=%s: expected the recent-flight time cell to keep C5's clock/age split"
+                "lang=%s: expected the recent-flight row to carry its age as the row value"
                 % (lang,))
-            element = _HOME_RELATIVE_ELEMENT_RE.fullmatch(cell.group(2))
+            element = _HOME_RELATIVE_ELEMENT_RE.fullmatch(cell.group(1))
             assert element is not None, (
-                "lang=%s: expected the age half to be a <time data-relative> element, got %r"
-                % (lang, cell.group(2)))
+                "lang=%s: expected the age to be a <time data-relative> element, got %r"
+                % (lang, cell.group(1)))
             assert element.group(2) == expected_age, (
                 "lang=%s: expected Home's recent-flight age to read exactly what it reads "
                 "today (%r), got %r" % (lang, expected_age, element.group(2)))
@@ -920,50 +865,20 @@ def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
     assert "&lt;time" not in rendered, "found a double-escaped '&lt;time' on Flights"
 
 
-def test_recent_flight_thumb_resolved_vs_placeholder(tmp_path):
-    """a recent-flight row whose airline resolves to a real illustration file renders exactly
-    one lazily-loaded /illustration/ thumbnail <img>; a null/unrecognised airline AND an
-    airline whose normalised key resolves to no file on disk anywhere (override or
-    vendored) both render the dashed placeholder span with no <img> at all (fix)"""
-    no_state_dir = str(tmp_path / "absent" / "nested")
-    resolved_row = {"callsign": "AFR1380", "airline": "Air France"}
-    thumb_resolved = home_page._recent_flight_thumb_html(resolved_row, no_state_dir)
-    assert thumb_resolved.count("<img") == 1, "expected exactly one <img> for a resolved airline"
-    assert 'loading="lazy"' in thumb_resolved, "expected the thumbnail <img> to be lazily loaded"
-    assert "/illustration/air-france.png" in thumb_resolved, (
-        "expected the resolved illustration route in the <img> src")
-    unresolved_row = {"callsign": "XYZ", "airline": None}
-    thumb_placeholder = home_page._recent_flight_thumb_html(unresolved_row, no_state_dir)
-    assert "<img" not in thumb_placeholder, "expected no <img> at all for a null/unrecognised airline"
-    assert "recent-flight__thumb--placeholder" in thumb_placeholder, (
-        "expected the dashed placeholder span for a null/unrecognised airline")
-    no_artwork_row = {"callsign": "EZS123", "airline": "easyJet Europe"}
-    thumb_no_artwork = home_page._recent_flight_thumb_html(no_artwork_row, no_state_dir)
-    assert "<img" not in thumb_no_artwork, (
-        "expected no <img> for an airline whose normalised key resolves to no file on disk")
-    assert "recent-flight__thumb--placeholder" in thumb_no_artwork, (
-        "expected the dashed placeholder span for an airline with no artwork file")
-
-
 def test_home_page_french_render_translates_headings_and_alt_text_not_data(tmp_path):
-    """under a French request Home's headings ('Vols récents'/'Voir tous les vols') and a
-    thumbnail's alt text translate while the callsign/airline name stay untranslated data
-    """
+    """under a French request Home's headings ('Vols récents'/'Voir tous les vols') translate
+    while the callsign/airline name stay untranslated data"""
     no_state_dir = str(tmp_path / "absent" / "nested")
     ctx = {
         "gallery_entries": [],
         "now": "2026-08-27T12:00:00+00:00", "health_state": {}, "device_config": {},
         "state_dir": no_state_dir,
     }
-    row = {"callsign": "AFR1380", "airline": "Air France"}
     prefs.set_request_prefs(lang="fr")
     try:
         rendered = home_page.render(ctx)
-        thumb = home_page._recent_flight_thumb_html(row, ctx["state_dir"])
     finally:
         prefs.set_request_prefs(lang="en")
     for needle in ("Vols récents", "Voir tous les vols"):
         assert needle in rendered, "expected the French heading/link %r" % (needle,)
-    assert "Illustration Air France" in thumb, (
-        "expected the French alt-text template applied to the untranslated airline name")
-    assert "Air France" in thumb, "expected the airline name itself to stay untranslated data"
+    assert "Frame state" not in rendered and "État du cadre" in rendered

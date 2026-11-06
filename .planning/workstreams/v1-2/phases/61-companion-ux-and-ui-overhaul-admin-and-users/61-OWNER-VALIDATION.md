@@ -326,3 +326,27 @@ Larger redesigns (new design work, owner decision on scope):
   bar / home indicator area not covered by the page background; check
   viewport-fit=cover, theme-color, env(safe-area-inset-*) and the fixed sky
   layer).
+- D39 (owner) Refined visual direction, replacing the deployed style A
+  execution. Decisions: a single very pale sky background in Light (no more
+  time-of-day skies) and an ink-dark background in Dark; GRAPHITE accent
+  (#1F2430) in Light, ivory in Dark (links, toggles, active tab, primary
+  buttons, icon chips), status and rarity colours kept; system sans-serif
+  only (no serif titles); fewer tiles: titles and a single "hero" without
+  cards, then grouped lists (one glass surface per section, rows with icon,
+  label, value, chevron, hairline separators), grids of cards only for the
+  airline collection; Liquid Glass floating tab bar on phone; frame choice
+  as a button at the top right opening a popover (sheet on phone), also in
+  the Console; fix the black bars on iPhone (viewport-fit=cover, theme-color,
+  safe areas, canvas colour). Mockups: scratchpad/sketches m1-m3, d1, g1-g3,
+  bg4, acc6, sheetA, sheetB, q1-q9. Audit report: scratchpad/audit/AUDIT.md.
+  The owner asked not to approve the production deploy of the style A pages
+  until the refinement is ready (note: the style A deploy from PR 301 is
+  pending approval on main).
+- D40 (owner) Console Fleet frame choice: a button at the top right showing
+  the selected frame (name, status dot, chevron) opens a glass popover with
+  the platform's frames (thumbnail, status, owner for others' frames, check on
+  the active one), then "System" and "Add a frame". The page content follows
+  the selected frame in grouped lists (State, Device and version, Settings,
+  Access). Phone Console tab bar: "My frame" switch first and set apart, then
+  Fleet, Users, Airlines, More. Mockups: scratchpad/sketches r1, r2. Plan
+  61-57.

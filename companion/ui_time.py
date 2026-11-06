@@ -419,7 +419,7 @@ _FULL_TIMESTAMP_SENTINEL_NOW = datetime(1970, 1, 1, tzinfo=ZoneInfo("UTC"))
 
 
 def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
-    """`<span class="mono" title="<D Mon HH:MM local>"><HH:MM local>
+    """`<span class="tnum" title="<D Mon HH:MM local>"><HH:MM local>
     (<relative>)</span>` — the concise-timestamp-by-default format,
     absolute-first per absolute_and_relative()'s ordering. `title` is
     always a full, day-qualified local timestamp, never the raw ISO
@@ -437,7 +437,7 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
     parsed = parse_iso(ts)
     age = age_seconds(ts, now_ts)
     if parsed is None or age is None:
-        return '<span class="mono" title="%s">%s</span>' % (
+        return '<span class="tnum" title="%s">%s</span>' % (
             escape_html(ts), escape_html(ts))
     full_local = local_clock_text(parsed, _FULL_TIMESTAMP_SENTINEL_NOW, lang=lang)
     # The parenthesised relative half is relative_time_html()'s element,
@@ -445,7 +445,7 @@ def concise_timestamp_html(ts, now_ts, fallback="no reading yet", lang=None):
     # The parentheses stay OUTSIDE the element — punctuation, not part of
     # the age — so the ticker rewriting the element's text need not
     # reproduce them.
-    return '<span class="mono" title="%s">%s (%s)</span>' % (
+    return '<span class="tnum" title="%s">%s (%s)</span>' % (
         escape_html(full_local),
         escape_html(local_clock_text(parsed, parse_iso(now_ts), lang=lang)),
         relative_time_html(ts, now_ts, lang=lang))

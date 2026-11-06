@@ -268,7 +268,7 @@ def fleet_server(server):
 
 
 def _sections(body):
-    return parse_html(body).select("section.page-section")
+    return parse_html(body).select("section.group-block")
 
 
 def _frames_card(body):
@@ -281,12 +281,15 @@ def test_my_frames_is_the_first_card_and_an_empty_account_shows_the_empty_state(
     card = _frames_card(body)
     assert card.attrs["aria-labelledby"] == "account-frames"
     assert card.select_one("h2").text() == "My frames"
-    assert card.select_one(".empty-state__heading").text() == "Your frames will appear here"
+    assert card.select_one(".group--panel .empty-state__heading").text() == (
+        "Your frames will appear here")
     assert "The pairing code is shown on your frame's screen." in card.text()
     assert [(a.text(), a.attrs["href"]) for a in card.select("a")] == [
         ("Add your frame", "/pair-frame")]
-    assert [s.select_one("h2").text() for s in _sections(body)] == [
+    sections = _sections(body)
+    assert [s.select_one("h2").text() for s in sections if s.select("h2")] == [
         "My frames", "Identity", "Preferences"]
+    assert sections[-1].select_one("form[action='/logout'] button").text() == "Sign out"
 
 
 def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_access(
@@ -296,19 +299,21 @@ def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_acce
     assert status == 200
     card = _frames_card(body)
     assert card.select_one("h2").text() == "My frames"
-    rows = card.select("li.entity-row")
+    rows = card.select("li.account-frame")
     assert len(rows) == 2
-    names = [row.select_one("a.entity-row__title").text() for row in rows]
+    assert [a.attrs["href"] for a in card.select("li.account-add-frame a.row__main")] == [
+        "/pair-frame"]
+    names = [row.select_one(".row__label").text() for row in rows]
     assert names == sorted(names, key=str.casefold)
-    hrefs = [row.select_one("a.entity-row__title").attrs["href"] for row in rows]
+    hrefs = [row.select_one("a.row__main").attrs["href"] for row in rows]
     assert sorted(hrefs) == sorted([
         "/devices/%s/" % seeded.owner_device, "/devices/%s/" % second])
     attic = rows[names.index("Attic")]
-    assert attic.select_one('.entity-row__pills .account-frame__status [role="img"]') is not None
-    assert attic.select_one(".entity-row__dot .account-frame__pic i") is not None
+    assert attic.select_one('.row__detail .account-frame__status [role="img"]') is not None
+    assert attic.select_one(".row__main .account-frame__pic i") is not None
     last_seen_word = attic.select_one(".account-frame__status").text().split("Up to date")[-1]
     assert last_seen_word.startswith("Seen ") or "Not seen yet" in last_seen_word
-    assert attic.select_one(".entity-row__meta").text() == (
+    assert attic.select_one(".account-frame__line").text() == (
         hardware.REGISTRY[hardware.LEGACY_KEY].label)
     (action,) = attic.select("a[data-modal-open]")
     assert action.text() == "Manage access"
@@ -345,7 +350,7 @@ def test_a_co_manager_gets_leave_frame_and_the_server_refuses_them_access_change
     finally:
         conn.close()
     tree = parse_html(_get(server, "/account", cookies["other"])[2])
-    attic = [r for r in tree.select("li.entity-row") if "Attic" in r.text()][0]
+    attic = [r for r in tree.select("li.account-frame") if "Attic" in r.text()][0]
     assert [a.text() for a in attic.select("a[data-modal-open]")] == ["Leave frame"]
     assert "Shared by owner@example.test" in attic.text()
     assert not tree.select("dialog#dlg-access-" + second.replace("_", "-"))

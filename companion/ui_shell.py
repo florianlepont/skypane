@@ -11,8 +11,8 @@ for the quick-switch failure toast; nothing here imports a page module.
 """
 from types import SimpleNamespace
 
-import companion.access as access
 import companion.device_scope as device_scope
+import companion.frame_menu as frame_menu
 import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
@@ -25,6 +25,7 @@ from companion.ui_base import (
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
     FLASH_SLOT_MARKER,
+    head_meta_html,
     FRESHNESS_SCRIPT_SRC,
     ICON_DEFS_HTML,
     icon_html,
@@ -85,7 +86,7 @@ LOGIN_SHELL_TEMPLATE = (
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
     "<head>\n"
     '<meta charset="utf-8">\n'
-    '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+    "{head_meta}\n"
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{favicon_link}\n"
@@ -116,6 +117,7 @@ def login_shell(body, ui_theme="auto", lang=None):
     return LOGIN_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
+        "head_meta": head_meta_html(resolved_theme),
         # Only "Login" is translated; SITE_TITLE is a brand name and stays
         # untranslated, so the title keeps the same "<page> - <product>" shape
         # as page_shell()'s <title>.
@@ -271,7 +273,7 @@ PAGE_SHELL_TEMPLATE = (
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
     "<head>\n"
     '<meta charset="utf-8">\n'
-    '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+    "{head_meta}\n"
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
@@ -288,9 +290,10 @@ PAGE_SHELL_TEMPLATE = (
     "</aside>\n"
     '<header class="site-header">\n'
     '<span class="brand">{brand_inner_header}</span>\n'
+    "{frame_menu}"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
-    "{frame_switcher}{flash}\n{banner}\n{body}\n"
+    "{frame_notice}{flash}\n{banner}\n{body}\n"
     "</main>\n"
     "</div>\n"
     "{tab_bar}\n"
@@ -306,21 +309,9 @@ PAGE_SHELL_TEMPLATE = (
 _SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
 
 
-# The frame strip: shown above the page title of every device-scoped page once
-# the request scope lists two or more frames. One whole-tile link per frame,
-# plus an Add a frame tile for every signed-in person.
-STRIP_ARIA_TEXT = i18n.msg("nav.frame_strip_aria", "Your frames")
-_TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
-_TILE_ADD_TEXT = i18n.msg("nav.frame_tile_add", "Add a frame")
-_SWITCHER_SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
+# The shared wordings of the frame button's rows (companion/frame_menu.py).
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
-
-FRAME_TILES_CLASS = "frame-tiles"
-FRAME_TILE_CLASS = "frame-tile"
-# Where the Add a frame tile leads: an administrator's pairing dialog on the
-# Fleet page, anyone else's own Add a frame page.
-_ADMIN_ADD_FRAME_HREF = "/fleet?pair=1"
-_USER_ADD_FRAME_HREF = "/pair-frame"
+_TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
 
 # The strip shown to an administrator on a personal page of a frame they
 # neither own nor co-manage.
@@ -369,16 +360,6 @@ def _switcher_status_row(device, now):
         battery_percent=percent, state=state, screen_off=screen_off)
 
 
-def tile_note(entry):
-    """The muted last line of a tile: who shared the frame, or the owner of a
-    frame the viewer does not own; "" for a frame of their own."""
-    if entry.owner_email is None:
-        return ""
-    if entry.co_managed:
-        return i18n.t(_SWITCHER_SHARED_BY_TEXT) % entry.owner_email
-    return entry.owner_email
-
-
 def _seen_text(row, now):
     """The last-seen word under a tile's name: "Seen 2m ago", or "Not seen
     yet" for a frame that never checked in."""
@@ -387,87 +368,14 @@ def _seen_text(row, now):
     return i18n.t(_TILE_SEEN_TEXT) % relative_age_text(now - row.last_seen)
 
 
-def frame_pic_html(css_class=None):
+def frame_pic_html(css_class):
     """The CSS-drawn frame: a dark bezel around a white screen. Decorative."""
-    return '<span class="%s__pic" aria-hidden="true"><i></i></span>' % (
-        css_class or FRAME_TILE_CLASS)
+    return '<span class="%s__pic" aria-hidden="true"><i></i></span>' % css_class
 
 
 def seen_text(row, now):
     """The last-seen word of a frame row ("Seen 2m ago" or "Not seen yet")."""
     return _seen_text(row, now)
-
-
-def _frame_tile_html(entry, page, current, now):
-    return frame_tile_html(
-        entry.device, device_scope.target_path(page, entry.device),
-        entry.device.id == current.id, now, tile_note(entry))
-
-
-def frame_tile_html(device, href, is_current, now, note=""):
-    """One whole-tile frame link: the frame's picture, name, status dot and
-    last-seen word, outlined when `is_current`. `href` is built by the caller
-    from a fixed path and a validated frame id."""
-    row = _switcher_status_row(device, now)
-    return (
-        '<li><a class="%(cls)s" href="%(href)s"%(current)s>'
-        '<span class="%(cls)s__dot">%(dot)s</span>'
-        '%(pic)s'
-        '<span class="%(cls)s__name">%(name)s</span>'
-        '<span class="%(cls)s__seen">%(seen)s</span>%(note)s</a></li>') % {
-            "cls": FRAME_TILE_CLASS,
-            "pic": frame_pic_html(),
-            "href": escape_html(href),
-            "current": ' aria-current="true"' if is_current else "",
-            "dot": frame_status.status_dot_html(row),
-            "name": escape_html(device_display_name(device)),
-            "seen": escape_html(_seen_text(row, now)),
-            "note": (
-                '<span class="%s__note">%s</span>' % (FRAME_TILE_CLASS, escape_html(note))
-                if note else ""),
-        }
-
-
-def strip_fold_html(tiles_html, active_name):
-    """Wrap the tile `<ul>` in a native disclosure. From 700px the summary is
-    hidden and the strip shows as before; on a phone the summary row (the
-    active frame's name and a chevron) opens and closes it. Always rendered
-    open: with no script the strip is simply visible, and nav-dropdown.js
-    restores a collapsed choice on a phone."""
-    return (
-        '<details class="frame-fold" open>'
-        '<summary class="frame-fold__summary"><span class="frame-fold__name">%s</span></summary>'
-        '%s</details>') % (escape_html(active_name), tiles_html)
-
-
-def add_tile_html(admin=True, dialog_id=None):
-    """The Add a frame tile. With `dialog_id` it opens that dialog on the
-    page (the Fleet page's pairing dialog; the hash link works without
-    script); otherwise it leads to the administrator's Fleet pairing dialog
-    or to everyone else's own Add a frame page."""
-    if dialog_id is not None:
-        from companion import ui_modal
-        href = "#" + ui_modal.validated_slug(dialog_id)
-        opener = " data-modal-open"
-    else:
-        href = _ADMIN_ADD_FRAME_HREF if admin else _USER_ADD_FRAME_HREF
-        opener = ""
-    return (
-        '<li><a class="%(cls)s %(cls)s--add" href="%(href)s"%(opener)s>'
-        '<span class="%(cls)s__plus" aria-hidden="true">+</span>'
-        '<span>%(label)s</span></a></li>') % {
-            "cls": FRAME_TILE_CLASS, "href": href, "opener": opener,
-            "label": escape_html(i18n.t(_TILE_ADD_TEXT))}
-
-
-def _add_frame_tile():
-    """The Add a frame tile for the signed-in person, or "": an
-    administrator pairs from the Fleet page, everyone else from their own
-    Add a frame page."""
-    principal = prefs.current_principal()
-    if principal is None:
-        return ""
-    return add_tile_html(admin=principal[1] == access.ADMIN)
 
 
 def _severity_rank(row):
@@ -489,29 +397,6 @@ def _sheet_entries(active, now):
     if current_space(active) == CONSOLE_SPACE:
         return console_ordered(device_scope.console_frame_entries(), now)
     return device_scope.switcher_entries()
-
-
-def frame_switcher_html(active):
-    """The frame tile strip, or "" when it would be useless or out of place:
-    fewer than two frames listed, a global page (Update) or no request scope.
-    Tiles are plain links to the same page of each frame under its own
-    /devices/<id> prefix, so the strip works without script. They are built
-    from the request scope's own frame list, never from request text, and never
-    carry a MAC, token or secret: a Device has none."""
-    page = _device_page_path(active)
-    current = device_scope.current_device()
-    if page is None or current is None:
-        return ""
-    now = device_scope.now_epoch()
-    entries = _sheet_entries(active, now)
-    if len(entries) < 2:
-        return ""
-    tiles = "".join(_frame_tile_html(e, page, current, now) for e in entries)
-    tiles += _add_frame_tile()
-    return strip_fold_html(
-        '<ul class="%s" aria-label="%s">%s</ul>' % (
-            FRAME_TILES_CLASS, escape_html(i18n.t(STRIP_ARIA_TEXT)), tiles),
-        device_display_name(current))
 
 
 def frame_notice_html(active, console_page=False):
@@ -616,6 +501,7 @@ def page_shell(
     return PAGE_SHELL_TEMPLATE.format_map({
         "lang": escape_html(resolved_lang),
         "ui_theme": escape_html(resolved_theme),
+        "head_meta": head_meta_html(resolved_theme),
         "title": escape_html(_device_scoped_title(title, active)),
         "site_title": escaped_site_title,
         "favicon_link": FAVICON_LINK_HTML,
@@ -632,8 +518,8 @@ def page_shell(
         "sidebar_footer": sidebar_footer_html,
         "sidebar_switch": space_switch_html(active),
         "main_id": SKIP_LINK_TARGET_ID,
-        "frame_switcher": (
-            frame_notice_html(active, console_page) + frame_switcher_html(active)),
+        "frame_notice": frame_notice_html(active, console_page),
+        "frame_menu": frame_menu.header_menu_html(active),
         "flash": flash_html,
         "banner": banner_html,
         "body": body,

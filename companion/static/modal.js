@@ -2,7 +2,7 @@
  * SkyPane companion service — modal.js.
  *
  * Upgrades the shared dialog.modal component (companion/ui_modal.py) and
- * closes the open row menus and frame switchers. No build step, ES5-safe
+ * closes the open row menus and the frame popover. No build step, ES5-safe
  * subset. Served by companion/app.py's MODAL_SCRIPT_ROUTE. No network call,
  * no timer, no HTML-writing sink: only attribute and class changes, focus
  * and the native dialog methods.
@@ -20,6 +20,9 @@
   // The opener's hash target, kept so the link can be found again when a
   // background refresh replaced the opener while the dialog was open.
   var openerHref = "";
+  // The open menus Escape and an outside tap close: row menus and the frame
+  // button's popover.
+  var MENU_SELECTOR = "details.row-menu[open], details.frame-menu[open]";
   var HOLD_SELECTOR = "input:not([type=hidden]), select, textarea";
 
   function closestTag(node, tag) {
@@ -33,11 +36,9 @@
     return null;
   }
 
-  // The menu a link sits in: its closest <details>, except the frame strip's
-  // fold, which is a page section, not a menu that closes when a choice is made.
+  // The menu a link sits in: its closest <details>.
   function closestMenu(node) {
-    var menu = closestTag(node, "details");
-    return menu && !menu.classList.contains("frame-fold") ? menu : null;
+    return closestTag(node, "details");
   }
 
   function hasAttr(node, name) {
@@ -123,8 +124,7 @@
   }
 
   function shutDetails(except) {
-    var open = document.querySelectorAll(
-      "details.row-menu[open]");
+    var open = document.querySelectorAll(MENU_SELECTOR);
     for (var i = 0; i < open.length; i += 1) {
       if (open[i] !== except) {
         open[i].removeAttribute("open");
@@ -199,8 +199,7 @@
     if (evt.key !== "Escape" && evt.key !== "Esc") {
       return;
     }
-    var open = document.querySelectorAll(
-      "details.row-menu[open]");
+    var open = document.querySelectorAll(MENU_SELECTOR);
     if (open.length === 0) {
       return;
     }
@@ -210,6 +209,24 @@
       summary.focus();
     }
   });
+
+  // The frame button is a <summary>: keep aria-expanded in step with the
+  // popover (the attribute is absent without script, where the disclosure
+  // state is still exposed natively).
+  function syncExpanded(menu) {
+    var summary = menu.querySelector("summary");
+    if (summary) {
+      summary.setAttribute("aria-expanded", menu.open ? "true" : "false");
+    }
+  }
+
+  var frameMenus = document.querySelectorAll("details.frame-menu");
+  for (var m = 0; m < frameMenus.length; m += 1) {
+    syncExpanded(frameMenus[m]);
+    frameMenus[m].addEventListener("toggle", function (evt) {
+      syncExpanded(evt.target);
+    });
+  }
 
   // A server-rendered open dialog (a refused submission) or a hash that
   // targets a dialog becomes a modal as soon as the page loads.

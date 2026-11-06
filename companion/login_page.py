@@ -263,7 +263,7 @@ INTERSTITIAL_TEMPLATE = (
     '<html lang="{lang}" data-ui-theme="{ui_theme}">\n'
     "<head>\n"
     '<meta charset="utf-8">\n'
-    '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+    "{head_meta}\n"
     '<meta name="referrer" content="no-referrer">\n'
     '<meta http-equiv="refresh" content="0;url={target}">\n'
     "<title>{title} - {site_title}</title>\n"
@@ -304,6 +304,7 @@ def interstitial_page(kind, target, target_label, ui_theme="auto"):
     return INTERSTITIAL_TEMPLATE.format_map({
         "lang": layout.escape_html(prefs.current_lang()),
         "ui_theme": layout.escape_html(resolved_theme),
+        "head_meta": layout.head_meta_html(resolved_theme),
         "target": escaped_target,
         "title": layout.escape_html(i18n.t(title)),
         "site_title": layout.escape_html(layout.SITE_TITLE),
@@ -329,8 +330,9 @@ def _back_link_html(back, home_route=None):
         route, label = LOGIN_ROUTE, _BACK_TO_SIGN_IN_TEXT
     else:
         route, label = home_route or layout.HOME_ROUTE, _BACK_TO_HOME_TEXT
-    return '<p class="text-body"><a href="%s">%s</a></p>' % (
-        route, layout.escape_html(i18n.t(label)))
+    from companion import ui_groups
+    return ui_groups.group(
+        ui_groups.row(i18n.t(label), href=route), extra_class="error-actions")
 
 
 def not_found_page(ui_theme, health_alert, back=BACK_HOME, home_route=None):

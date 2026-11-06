@@ -85,7 +85,7 @@ def test_the_editor_is_a_console_page_without_a_frame_strip_and_with_usable_cont
         title = "Airline editor" if lang == "en" else "Éditeur de compagnies"
         assert page.locator("h1.page-title").inner_text() == title
         assert page.locator('a.space-switch__segment--current[href="/fleet"]').count() >= 1
-        assert page.locator("ul.frame-tiles").count() == 0
+        assert page.locator("details.frame-menu").count() == 0
         for _paint in _in_both_themes(page):
             page.wait_for_function(_SETTLED, timeout=15000)
             assert not _assert_no_page_overflow(page, "editor", viewport["width"])

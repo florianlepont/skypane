@@ -69,7 +69,6 @@ MESSAGES = {
     "flights.picture": "Image",
     "flights.view_picture_of": "Voir l’image de %s",
     # The phone card's placeholder where an airline has no artwork.
-    "flights.no_illustration": "Pas d’illustration",
     # A selected device with no recorded flights yet.
     "flights.device_empty_heading": "Pas encore d’historique pour ce cadre",
     "flights.device_empty_body":

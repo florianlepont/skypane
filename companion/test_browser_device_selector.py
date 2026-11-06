@@ -1,42 +1,27 @@
-"""Real-browser checks of the frame tile strip: a user with two frames switches
-frame from Display and stays on Display, a one-frame user sees no strip, the
-strip fits at 360px and 1280px in both languages and colour schemes with 44px
-targets, the current tile is outlined with the accent colour, and it works with
-scripts blocked."""
+"""Real-browser checks of the frame button for plain users: a user with two frames switches
+frame from Display and stays on Display, a one-frame user sees the button with only the Add a
+frame row, the popover fits at 360px and 1280px in both languages and colour schemes with 44px
+targets and a check on the current row, and it works with scripts blocked."""
 import os
 from types import SimpleNamespace
 
 import pytest
 from companion_app_server import session_cookie_for_state_dir
+from frame_menu_support import ADD, BUTTON, FRAMES, ROW, open_menu, wait_for_button
 from skypane_two_device_fleet import sim_hardware_env
 
 from companion import auth
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _hit_area)
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow)
 from companion.test_device_helpers import start_fleet_app
 from server import device_dirs, fleet_db, hardware
 
 pytestmark = pytest.mark.browser
 
-STRIP = "ul.frame-tiles"
-TILES = "ul.frame-tiles a.frame-tile:not(.frame-tile--add)"
 HIT_FLOOR = 44
+ROW_FLOOR = 52
 MULTI_EMAIL = "multi@example.test"
 SINGLE_EMAIL = "single@example.test"
-
-# Waits until the page is fully loaded, every finite animation is over and the
-# first tile owns its own centre (a cross-document view transition leaves the
-# root element answering hit tests for a moment).
-_READY = """() => {
-  if (document.readyState !== 'complete') return false;
-  if (!document.getAnimations().every((a) => a.playState !== 'running'
-      || a.effect.getComputedTiming().iterations === Infinity)) return false;
-  const tile = document.querySelector('ul.frame-tiles a.frame-tile');
-  if (!tile) return true;
-  const box = tile.getBoundingClientRect();
-  const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-  return !!hit && tile.contains(hit);
-}"""
 
 
 def _add_user_frames(state_dir, email, names):
@@ -86,50 +71,58 @@ def _open(new_context, app, email, route, lang="en", role="user", **context_args
     page.goto(base + route)
     page.locator("main").wait_for(state="visible")
     if context_args.get("java_script_enabled", True):
-        page.wait_for_function(_READY)
+        wait_for_button(page)
     return context, page
 
 
 def test_a_user_switches_frame_from_display_and_stays_on_display(new_context, fleet_app):
-    """choosing the other frame's tile on Display lands on that frame's Display, where the
-    other frame's tile is now the current one"""
+    """choosing the other frame's row on Display lands on that frame's Display, where the
+    other frame's row is now the current one"""
     first, second = fleet_app.multi.ids
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
         viewport=VIEWPORT_DESKTOP)
     try:
-        assert page.locator(TILES).count() == 2
+        open_menu(page)
+        assert page.locator(FRAMES).count() == 2
         with page.expect_navigation():
-            page.locator('%s[href="/devices/%s/display"]' % (TILES, second)).click()
+            page.locator('%s[href="/devices/%s/display"]' % (FRAMES, second)).click()
         assert page.url.endswith("/devices/%s/display" % second)
-        page.wait_for_function(_READY)
-        current = page.locator('%s[aria-current="true"]' % TILES)
+        wait_for_button(page)
+        open_menu(page)
+        current = page.locator('%s[aria-current="true"]' % FRAMES)
         assert current.count() == 1
         assert current.get_attribute("href") == "/devices/%s/display" % second
     finally:
         context.close()
 
 
-def test_a_single_frame_user_sees_no_strip(new_context, fleet_app):
-    """with one frame the page carries no strip at all"""
+def test_a_single_frame_user_sees_the_button_with_only_the_add_row(new_context, fleet_app):
+    """with one frame the button still shows (it carries Add a frame): one frame row, a check
+    on it, and the Add row"""
     (solo,) = fleet_app.single.ids
     context, page = _open(
         new_context, fleet_app, SINGLE_EMAIL, "/devices/%s/display" % solo,
         viewport=VIEWPORT_DESKTOP)
     try:
-        assert page.locator(STRIP).count() == 0
-        assert page.locator("a.frame-tile").count() == 0
+        assert page.locator("ul.frame-tiles, details.frame-fold").count() == 0
+        open_menu(page)
+        assert page.locator(FRAMES).count() == 1
+        assert page.locator(FRAMES + " .frame-row__check").count() == 1
+        assert page.locator(ADD).count() == 1
+        assert page.locator(ADD).get_attribute("href") == "/pair-frame"
     finally:
         context.close()
 
 
-def test_a_user_has_an_add_a_frame_tile_to_their_own_page(new_context, fleet_app):
+def test_a_user_has_an_add_a_frame_row_to_their_own_page(new_context, fleet_app):
     first = fleet_app.multi.ids[0]
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
         viewport=VIEWPORT_DESKTOP)
     try:
-        add = page.locator("a.frame-tile--add")
+        open_menu(page)
+        add = page.locator(ADD)
         assert add.count() == 1 and add.get_attribute("href") == "/pair-frame"
         with page.expect_navigation():
             add.click()
@@ -142,85 +135,58 @@ def test_a_user_has_an_add_a_frame_tile_to_their_own_page(new_context, fleet_app
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
                          ids=["360", "1280"])
-def test_strip_fits_with_44px_targets_and_outlines_the_current_tile(
+def test_popover_fits_with_big_targets_and_marks_the_current_row(
         new_context, fleet_app, viewport, scheme, lang):
-    """no horizontal overflow, every tile at least 44px high and wide, the current tile
-    outlined in the accent colour and the others not"""
+    """no horizontal overflow, the button 44px high, every row 52px high or more, the current
+    row carries the check and the others do not"""
     first = fleet_app.multi.ids[0]
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first, lang=lang,
         viewport=viewport, color_scheme=scheme)
     try:
-        assert not _assert_no_page_overflow(page, "strip", viewport["width"])
-        for index in range(page.locator(TILES).count()):
-            box = page.locator(TILES).nth(index).bounding_box()
-            assert box["height"] >= HIT_FLOOR and box["width"] >= HIT_FLOOR
-        area = _hit_area(page, TILES + '[aria-current="true"]')
-        assert area["visual"][0] >= HIT_FLOOR and area["visual"][1] >= HIT_FLOOR
-        colours = page.evaluate(
-            """() => {
-              const probe = document.createElement('i');
-              probe.style.color = 'var(--color-accent)';
-              document.body.appendChild(probe);
-              const accent = getComputedStyle(probe).color;
-              probe.remove();
-              const border = (el) => getComputedStyle(el).borderTopColor;
-              const tiles = [...document.querySelectorAll('ul.frame-tiles a.frame-tile')];
-              return {accent,
-                current: border(tiles.find((t) => t.hasAttribute('aria-current'))),
-                others: tiles.filter((t) => !t.hasAttribute('aria-current')).map(border)};
-            }""")
-        assert colours["current"] == colours["accent"]
-        assert all(other != colours["accent"] for other in colours["others"])
+        assert page.locator(BUTTON).bounding_box()["height"] >= HIT_FLOOR
+        open_menu(page)
+        assert not _assert_no_page_overflow(page, "frame menu", viewport["width"])
+        for index in range(page.locator(ROW).count()):
+            assert page.locator(ROW).nth(index).bounding_box()["height"] >= ROW_FLOOR
+        checks = page.locator(FRAMES + " .frame-row__check")
+        assert checks.count() == 1
+        assert page.locator(FRAMES + '[aria-current="true"] .frame-row__check').count() == 1
     finally:
         context.close()
 
 
 @pytest.mark.parametrize("lang,word", [("en", "Not seen yet"), ("fr", "Pas encore vu")])
-def test_tiles_carry_the_dot_word_and_the_last_seen_word(
+def test_rows_carry_the_dot_word_and_the_last_seen_word(
         new_context, fleet_app, lang, word):
-    """every tile has exactly one status dot with its word and the last-seen line, in the
+    """every row has exactly one status dot with its word and the last-seen line, in the
     page language (a never-seen frame reads Not seen yet)"""
     first = fleet_app.multi.ids[0]
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first, lang=lang,
         viewport=VIEWPORT_DESKTOP)
     try:
-        dots = page.locator(TILES + " [role='img']")
+        open_menu(page)
+        dots = page.locator(FRAMES + " .frame-row__dot [role='img']")
         assert dots.count() == 2
         assert [dots.nth(i).get_attribute("aria-label") for i in range(2)] == [word, word]
-        assert page.locator(TILES + " .frame-tile__seen").all_inner_texts() == [word, word]
+        assert page.locator(FRAMES + " .frame-row__seen").all_inner_texts() == [word, word]
     finally:
         context.close()
 
 
-def test_the_strip_is_reachable_and_activated_with_the_keyboard(new_context, fleet_app):
-    first, second = fleet_app.multi.ids
-    context, page = _open(
-        new_context, fleet_app, MULTI_EMAIL, "/devices/%s/display" % first,
-        viewport=VIEWPORT_DESKTOP)
-    try:
-        page.locator('%s[href="/devices/%s/display"]' % (TILES, second)).focus()
-        page.wait_for_function(
-            "() => document.activeElement.matches('ul.frame-tiles a.frame-tile')")
-        with page.expect_navigation():
-            page.keyboard.press("Enter")
-        assert page.url.endswith("/devices/%s/display" % second)
-    finally:
-        context.close()
-
-
-def test_scripts_blocked_a_tile_still_navigates(new_context, fleet_app):
-    """a tile is a plain link: without script it goes to the same page of the other frame"""
+def test_scripts_blocked_a_row_still_navigates(new_context, fleet_app):
+    """a row is a plain link: without script it goes to the same page of the other frame"""
     first, second = fleet_app.multi.ids
     context, page = _open(
         new_context, fleet_app, MULTI_EMAIL, "/devices/%s/flights" % first,
         viewport=VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
     try:
-        tile = page.locator('%s[href="/devices/%s/flights"]' % (TILES, second))
-        tile.wait_for(state="visible")
+        page.locator(BUTTON).click()
+        row = page.locator('%s[href="/devices/%s/flights"]' % (FRAMES, second))
+        row.wait_for(state="visible")
         with page.expect_navigation():
-            tile.click()
+            row.click()
         assert page.url.endswith("/devices/%s/flights" % second)
     finally:
         context.close()

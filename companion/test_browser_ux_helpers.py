@@ -991,17 +991,32 @@ _SETTLE_PROBE = (
     "async selector => {"
     "  const el = document.querySelector(selector);"
     "  if (!el) return;"
+    "  const frame = () => new Promise(r => requestAnimationFrame(r));"
+    "  const finite = a => Number.isFinite(a.effect.getComputedTiming().endTime);"
     "  const related = a => {"
     "    const t = a.effect && a.effect.target;"
     "    return !!t && (t.contains(el) || el.contains(t));"
     "  };"
-    "  const finite = a => Number.isFinite(a.effect.getComputedTiming().endTime);"
-    "  const running = () => document.getAnimations().filter("
+    # subtree:true on the root also reports the view-transition pseudo-element animations a
+    # cross-document navigation starts: while one runs, the root paints over the page and
+    # elementFromPoint answers <html> for every point.
+    "  const running = () => document.documentElement.getAnimations({subtree: true}).filter("
     "    a => a.effect && related(a) && finite(a) && a.playState !== 'paused');"
-    "  for (let pass = 0; pass < 10 && running().length; pass++) {"
+    "  for (let pass = 0; pass < 20 && running().length; pass++) {"
     "    await Promise.all(running().map(a => a.finished.catch(() => null)));"
     "  }"
-    "  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));"
+    "  const centre = () => {"
+    "    const r = el.getBoundingClientRect();"
+    "    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
+    "    return !!hit && (hit === el || el.contains(hit));"
+    "  };"
+    # The control must own its centre on several consecutive frames before it is measured; a
+    # control that never does is left for the probe to report.
+    "  let stable = 0;"
+    "  for (let i = 0; i < 300 && stable < 3; i++) {"
+    "    await frame();"
+    "    stable = centre() ? stable + 1 : 0;"
+    "  }"
     "}")
 
 

@@ -68,6 +68,7 @@ MESSAGES = {
         "Pour économiser sa batterie, le cadre dort entre deux mises à jour\u00a0: "
         "il ne se rafraîchit donc pas en continu.",
     "home.switches": "Commandes du cadre",
+    "home.group_frame": "Cadre",
     "home.edit_quiet_hours": "Modifier les heures calmes (%s)",
     "home.use_quiet_hours": "Utiliser les heures calmes",
     "home.save_quiet_hours": "Enregistrer les heures calmes",

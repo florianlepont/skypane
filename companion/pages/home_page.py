@@ -1,15 +1,15 @@
 """The Home page: answers whether the frame is alive, what it is
 showing, and what it has shown recently.
 
-Opens with one status header (one dot for the frame state, next update
-and the two native-POST switches for screen and quiet hours), then the current picture beside the recent
-flights. The dot is the shared frame-status dot; Home links to no Health
+Opens with one hero (the current picture beside one dot and word for the
+frame state, and the next update), then two glass groups of rows: the
+frame's two native-POST switches (screen and quiet hours) and the recent
+flights.
+The dot is the shared frame-status dot; Home links to no Health
 page (Health is an administrator's Console page), and neither a user nor an
-administrator sees the battery tile or the attention bar here. A recent-flight row gets a
-thumbnail only when a real illustration file resolves for that
-airline, since a recognised name with no artwork file would otherwise
-404 as a broken image. The recent-flight rows and the current
-picture's flight line share one `history_db` read.
+administrator sees the battery tile or the attention bar here. The
+recent-flight rows and the current picture's flight line share one
+`history_db` read.
 """
 
 from types import SimpleNamespace
@@ -24,6 +24,7 @@ import companion.health_signals as health_signals
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
+import companion.ui_groups as ui_groups
 import companion.ui_modal as ui_modal
 import companion.user_view as user_view
 import companion.wake as wake
@@ -31,7 +32,7 @@ from companion.pages import home_greeting, home_notice
 from companion.layout import escape_html
 from companion.settings import quiet_hours
 from server import device_config, history_db
-from server.plane import illustrations, name_overrides
+from server.plane import name_overrides
 # The same presentation-only airline alias Flights applies via
 # history_page.py's panel_render.display_airline_name() call.
 # illustrations.normalise_airline_key() still resolves on the raw
@@ -130,6 +131,7 @@ CADENCE_INFO_NO_INTERVAL_TEXT = i18n.msg(
 CADENCE_INFO_LABEL = i18n.msg("home.cadence_info_label", "About updates")
 CADENCE_INFO_ID = "home-cadence-info"
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
+FRAME_GROUP_LABEL = i18n.msg("home.group_frame", "Frame")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
     "home.edit_quiet_hours", "Edit quiet hours (%s)")
 CLOSE_LABEL = i18n.msg("common.close", "Close")
@@ -242,146 +244,41 @@ def _current_picture_html(ctx, current_flight_row):
         escape_html(alt))
 
 
-def _recent_flight_thumb_html(row, state_dir):
-    """The leading thumbnail cell. The `<img>` renders only when
-    `illustrations.resolved_illustration_path()` finds a real file on
-    disk for the normalised key — never unconditionally.
-
-    An airline the app recognises by name but with no artwork file at
-    all used to still emit `<img src="/illustration/{key}.png">`, which
-    404s as a broken-image icon. A falsy key or a key with no resolved
-    file both now render the identical dashed placeholder with no
-    `<img>` at all.
-    """
-    # The key resolves on the raw stored airline string; only the alt
-    # text below, a user-visible string, is aliased.
-    raw_airline = row.get("airline")
-    key = illustrations.normalise_airline_key(raw_airline)
-    if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
-        alt_text = i18n.t(THUMBNAIL_ALT_TEMPLATE) % panel_render.display_airline_name(raw_airline)
-        return (
-            '<img class="recent-flight__thumb" loading="lazy" decoding="async" '
-            'width="40" height="40" src="%s" alt="%s">'
-        ) % (
-            device_scope.scoped("%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, key)),
-            escape_html(alt_text))
-    return '<span class="recent-flight__thumb recent-flight__thumb--placeholder"></span>'
-
-
-# Owned by companion/i18n_fr/flights.py, not home.py — the same id
-# history_page.py's own clock-cell fallback uses.
-_TIME_CELL_FALLBACK_TEXT = i18n.msg("flights.no_reading_yet", "no reading yet")
-
-
-def _recent_flight_time_html(ts, now):
-    """The recent-flight time, one line: the clock takes the
-    `.time-value` role, the relative age sits beside it as a
-    `.time-value__age` sibling, joined by the `.cell-inline-sep` middle
-    dot (history_page.py's own "Inline compact" convention, duplicated
-    here since a page module cannot import another).
-
-    Does not use `layout.concise_timestamp_html()`, which bundles the
-    clock and the relative age into one already-escaped `<span
-    class="mono">` — the single-element shape this cell exists to avoid.
-    The clock and the age are built and escaped separately instead.
-    Falls back to the escaped, translated "no reading yet" text when
-    `ts` is falsy or fails to parse. The age half is
-    `layout.relative_time_html()`'s `<time data-relative>` element so a
-    ticker script can find it; its return value is raw markup,
-    interpolated verbatim.
-    """
-    if not ts:
-        return escape_html(i18n.t(_TIME_CELL_FALLBACK_TEXT))
-    parsed = layout.parse_iso(ts)
-    if parsed is None:
-        return '<span class="time-value">%s</span>' % escape_html(ts)
-    clock_text = layout.local_clock_text(parsed, now_parsed=layout.parse_iso(now))
-    cell_html = '<span class="time-value">%s</span>' % escape_html(clock_text)
-    age = layout.age_seconds(ts, now)
-    if age is not None:
-        cell_html += (
-            '<span class="cell-inline-sep">·</span>'
-            '<span class="time-value__age">(%s)</span>'
-        ) % layout.relative_time_html(ts, now)
-    return cell_html
-
-
-def _recent_card_identity_html(row):
-    """The card head: the callsign in the identifier voice and the
-    airline muted beside it. A row with no callsign shows its hex with the
-    "no callsign" note; an unknown airline reads "Airline unknown" in
-    italics, with no link (Home's rows carry no actions)."""
-    callsign = row.get("callsign") or ""
-    hex_value = row.get("hex") or ""
-    if callsign:
-        ident = escape_html(callsign)
-    elif hex_value:
-        ident = '%s <span class="history-card__note">%s</span>' % (
-            escape_html(hex_value), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
-    else:
-        ident = "—"
-    airline = panel_render.display_airline_name(row.get("airline")) or ""
-    if airline:
-        airline_html = '<span class="history-card__airline">%s</span>' % escape_html(airline)
-    else:
-        airline_html = (
-            '<span class="history-card__airline history-card__airline--unknown">%s</span>'
-            % escape_html(i18n.t(AIRLINE_UNKNOWN_TEXT)))
-    return (
-        '<div class="history-card__head"><div class="history-card__id">'
-        '<span class="history-card__callsign mono">%s</span>%s</div></div>'
-    ) % (ident, airline_html)
-
-
-def _recent_card_html(row, now, state_dir):
-    """One compact boarding-pass card, the Flights card's own bands
-    (head, route line, stub below the tear line) at a smaller size. No
-    link and no button: the card is information only, like the desktop
-    row."""
-    direction_raw = _direction_text(row.get("confirmed_state"))
-    return '<li class="history-card history-card--compact">%s%s%s</li>' % (
-        _recent_card_identity_html(row),
-        flight_card.route_html(
-            row.get("origin") or "", row.get("destination") or "",
-            row.get("confirmed_state") or "",
-            i18n.t(direction_raw) if direction_raw else ""),
-        flight_card.stub_html(
-            flight_card.art_html(row.get("airline"), state_dir), row.get("ts"), now,
-            clock_now=now))
+def _recent_flight_row_html(row, now):
+    """One recent flight as a row linking to the Flights page: the callsign
+    (or hex), the clock and "<airline> · <route> · <direction>" beneath it,
+    and the relative age on the right."""
+    callsign = row.get("callsign") or row.get("hex") or "—"
+    secondary = _flight_secondary_text(row)
+    ts = row.get("ts")
+    parsed = layout.parse_iso(ts) if ts else None
+    clock = (layout.local_clock_text(parsed, now_parsed=layout.parse_iso(now))
+             if parsed is not None else "")
+    detail = " · ".join(part for part in (clock, secondary) if part)
+    return ui_groups.row(
+        label_html='<span class="mono">%s</span>' % escape_html(callsign),
+        icon="icon-plane", detail=detail,
+        value_html=layout.relative_time_html(ts, now) if parsed is not None else "",
+        href=device_scope.scoped(FLIGHTS_ROUTE), extra_class="recent-flight")
 
 
 def _recent_flights_html(rows, now, state_dir):
-    """The recent-flights section. A phone gets compact boarding-pass
-    cards; a desktop keeps the thumbnail list. Both render, cards first:
-    style.css's `.recent-flight-tiles ~ .recent-flights` toggle at 960 px
-    depends on this order."""
+    """The recent-flights group: one row per flight, then a row to the whole
+    history. With no flight yet the group holds the empty state."""
+    all_row = ui_groups.row(
+        i18n.t(RECENT_FLIGHTS_LINK_TEXT), icon="icon-nav-history",
+        href=device_scope.scoped(FLIGHTS_ROUTE), extra_class="recent-flight-all")
     if not rows:
-        body = layout.empty_state(
-            i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY), compact=True)
-    else:
-        tiles = "".join(_recent_card_html(row, now, state_dir) for row in rows)
-        items = []
-        for row in rows:
-            callsign = row.get("callsign") or row.get("hex") or "—"
-            secondary = _flight_secondary_text(row)
-            items.append(
-                '<li class="recent-flight">%s'
-                '<span class="recent-flight__callsign mono">%s</span>'
-                '<span class="recent-flight__detail text-label">%s</span>'
-                '<span class="recent-flight__time text-label">%s</span>'
-                "</li>"
-                % (_recent_flight_thumb_html(row, state_dir), escape_html(callsign),
-                   escape_html(secondary), _recent_flight_time_html(row.get("ts"), now)))
-        body = '<ul class="recent-flight-tiles">%s</ul><ul class="recent-flights">%s</ul>' % (
-            tiles, "".join(items))
-    return (
-        '<section class="page-section home-section" aria-labelledby="home-flights">'
-        '<h2 class="text-heading" id="home-flights">%s</h2>%s'
-        '<p class="text-label"><a href="%s">%s</a></p>'
-        "</section>"
-    ) % (
-        escape_html(i18n.t(RECENT_FLIGHTS_HEADING)), body,
-        device_scope.scoped(FLIGHTS_ROUTE), escape_html(i18n.t(RECENT_FLIGHTS_LINK_TEXT)))
+        empty = '<li class="row row--empty"><div class="row__main">%s</div></li>' % (
+            layout.empty_state(
+                i18n.t(NO_FLIGHTS_HEADING), i18n.t(NO_FLIGHTS_BODY), compact=True))
+        return ui_groups.group(
+            empty + all_row, label=i18n.t(RECENT_FLIGHTS_HEADING),
+            label_id="home-flights", extra_class="home-section")
+    items = "".join(_recent_flight_row_html(row, now) for row in rows)
+    return ui_groups.group(
+        items + all_row, label=i18n.t(RECENT_FLIGHTS_HEADING), label_id="home-flights",
+        extra_class="home-section")
 
 
 def _interval_text(interval_s):
@@ -499,27 +396,23 @@ def _switch_row_html(spec, is_on, detail_html):
     action, slug, label, icon_id = spec
     label_id = "home-switch-%s-label" % slug
     state_id = "home-switch-%s-state" % slug
-    return (
-        '<div class="home-switch home-switch--%s">'
-        '<span class="home-switch__icon">%s</span>'
-        '<div class="home-switch__text">'
-        '<span class="home-switch__label" id="%s">%s</span>'
-        '<span class="home-switch__detail text-label">%s%s</span>'
-        "</div>%s</div>"
-    ) % (
-        "on" if is_on else "off", layout.icon_html(icon_id, 18), label_id,
-        escape_html(i18n.t(label)),
-        layout.quick_switch_state_html(
+    return ui_groups.row(
+        i18n.t(label), icon=icon_id, label_id=label_id,
+        detail_html=layout.quick_switch_state_html(
             state_id, i18n.t(layout.QUICK_ACTION_ON_TEXT),
-            i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on, extra_class="home-switch__state"),
-        detail_html,
-        layout.quick_switch_html(action, layout.HOME_ROUTE, is_on, label_id, state_id))
+            i18n.t(layout.QUICK_ACTION_OFF_TEXT), is_on,
+            extra_class="home-switch__state") + detail_html,
+        trailing_html=layout.quick_switch_html(
+            action, layout.HOME_ROUTE, is_on, label_id, state_id),
+        extra_class="home-switch home-switch--%s home-switch--%s" % (
+            "on" if is_on else "off", slug))
 
 
 def _switches_html(cfg):
+    """The Frame group: the screen and quiet-hours switch rows."""
     screen_on = cfg.get("display_enabled") is not False
     quiet_on = cfg.get("quiet_hours_enabled") is True
-    # A link beside the switch's label, outside its <button>: the window
+    # A link beside the switch's state, outside its <button>: the window
     # opens the Quiet hours dialog. The accessible name repeats the visible
     # window so it is never out of step with it.
     window_text = _quiet_window_text(cfg)
@@ -528,18 +421,18 @@ def _switches_html(cfg):
         escape_html(window_text) + layout.icon_html("icon-chevron-right", 16, "home-switch__chevron"),
         extra_class="home-switch__window time-value",
         aria_label=i18n.t(EDIT_QUIET_HOURS_LABEL) % window_text)
-    return (
-        '<div class="home-state__switches" role="group" aria-label="%s">%s%s</div>'
-    ) % (
-        escape_html(i18n.t(SWITCHES_LABEL)),
+    rows = (
         _switch_row_html(
             (QUICK_DISPLAY_ACTION, "screen", layout.QUICK_ACTION_SCREEN_LABEL,
              "icon-nav-display"),
-            screen_on, ""),
-        _switch_row_html(
+            screen_on, "")
+        + _switch_row_html(
             (QUICK_QUIET_HOURS_ACTION, "quiet", layout.QUICK_ACTION_QUIET_LABEL,
              "icon-moon"),
             quiet_on, window))
+    return ui_groups.group(
+        rows, label=i18n.t(FRAME_GROUP_LABEL), label_id="home-frame-controls",
+        extra_class="home-state__switches home-section")
 
 
 def _battery_level(ctx, percent):
@@ -652,38 +545,35 @@ def _status_dot_html(status):
          else " home-state__dot--pulse", word, word)
 
 
-def _frame_state_html(ctx, summary, status):
-    """The status header: a "Frame state" label, the current state as a
-    short title beside one haloed dot whose colour and word come from the
-    shared frame-status resolver (plus a sentence for a held state), the
-    next update (with its cadence info); then, for an administrator, the
-    battery dial; then the screen and quiet-hours switches. The dot's tone also tints the card; a
-    resting dot stays still, every other one pulses a soft halo. `summary`
-    is `_frame_state_summary(ctx)` and `status` the resolver's verdict on
-    it, both read once by render()."""
-    cfg = ctx.device_config or {}
+def _frame_state_html(ctx, summary, status, picture_html=""):
+    """The hero, with no surface of its own: the current picture beside the
+    current state as one prominent title with one haloed dot (its colour and
+    word come from the shared frame-status resolver; a sentence follows a
+    held state), the next update with its cadence info and, for an
+    administrator, the battery dial. The dot's tone also tints the hero's
+    glow; a resting dot stays still, every other one pulses a soft halo.
+    `summary` is `_frame_state_summary(ctx)` and `status` the resolver's
+    verdict on it, both read once by render()."""
     (_tone, _screen_title, detail), next_triple, base_interval_s = summary
     # The big title is the dot's own word, so title, dot and notification agree.
     title = i18n.t(status.word)
     next_iso, interval_s, hold_reason = next_triple
     next_html, _long_overdue = _next_update_html(
         next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
-    tone = status.dot_state
     detail_html = (
         '<p class="home-state__detail">%s</p>' % escape_html(detail)) if detail else ""
     user = user_view.is_personal_view()
-    return (
-        '<section class="home-state home-state--%s%s reveal" aria-labelledby="home-frame-state">'
-        '<div class="home-state__body"><div class="home-state__status">'
-        '<h2 class="home-state__eyebrow" id="home-frame-state">%s%s</h2>'
-        '<p class="home-state__headline">%s<span class="home-state__title">%s</span></p>'
-        '%s%s</div>%s%s</div></section>'
-    ) % (
-        tone, " home-state--no-battery" if user else "",
-        layout.icon_html("icon-nav-display", 16),
-        escape_html(i18n.t(FRAME_STATE_HEADING)), _status_dot_html(status),
-        escape_html(title), detail_html, next_html,
-        "" if user else _battery_pill_html(ctx), _switches_html(cfg))
+    return ui_groups.hero(
+        '%s<span class="home-state__title">%s</span>' % (
+            _status_dot_html(status), escape_html(title)),
+        picture_html=picture_html,
+        lines_html=detail_html + next_html + ("" if user else _battery_pill_html(ctx)),
+        status_class="home-state__headline",
+        extra_class="home-state home-state--%s%s reveal" % (
+            status.dot_state, " home-state--no-battery" if user else ""),
+        attrs='aria-labelledby="home-frame-state"',
+        heading_html='<h2 class="visually-hidden" id="home-frame-state">%s</h2>' % escape_html(
+            i18n.t(FRAME_STATE_HEADING)))
 
 
 def _attention_states():
@@ -751,10 +641,10 @@ def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
 
 
 def render(ctx, quiet_errors=None, quiet_submitted=None):
-    """Render Home: the status header (state, next update, battery and the
-    two switches) first, then the generated picture and its flight line,
-    with the recent flights beside it on desktop and after it on a phone.
-    An actionable shared health state adds the attention row; daily
+    """Render Home: the hero (the current picture beside the state, next
+    update and battery), then the Frame group (the screen and quiet-hours
+    switches, the most used controls, kept near the top) and the Recent
+    flights group. An actionable shared health state adds the attention row; daily
     activity belongs to Health. `quiet_errors`/`quiet_submitted` re-render
     the Quiet hours dialog open after a refused save.
     """
@@ -775,20 +665,18 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     summary = _frame_state_summary(ctx)
     status = frame_status.frame_status(_status_row(ctx, summary[1]))
     notice = _notice_html(ctx, status)
+    picture = _current_picture_html(ctx, current_flight_row)
+    has_picture = picture.startswith("<figure")
     return (
         header
         + '<div class="home-facts">'
         + (notice or ("" if user_view.is_personal_view() else _action_needed_html(ctx)))
         + "</div>"
-        + _frame_state_html(ctx, summary, status)
-        + '<div class="home-columns home-picture-row home-signal-grid">'
-        + '<section class="page-section home-section home-current-frame" '
-        'aria-labelledby="home-current-frame">'
-        + '<h2 class="text-heading" id="home-current-frame">%s</h2>'
-        % escape_html(i18n.t(CURRENT_FRAME_HEADING))
-        + _current_picture_html(ctx, current_flight_row)
-        + '</section>'
+        + _frame_state_html(ctx, summary, status, picture if has_picture else "")
+        + ("" if has_picture else ui_groups.group_panel(
+            picture, label=i18n.t(CURRENT_FRAME_HEADING),
+            label_id="home-current-frame", extra_class="home-section home-current-frame"))
+        + _switches_html(ctx.device_config or {})
         + _recent_flights_html(rows, now, ctx.state_dir)
-        + "</div>"
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
     )

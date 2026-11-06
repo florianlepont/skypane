@@ -6,6 +6,7 @@ holds at 360 and 1280px, in English and French, in both themes."""
 import pytest
 
 import fleet_console_support as fx
+from frame_menu_support import BUTTON, click_add, open_menu
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_hit_target,
@@ -79,7 +80,7 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        page.locator("a.frame-tile--add").click()  # 1
+        click_add(page)  # 1
         dialog = page.locator(ADD)
         assert dialog.evaluate("d => d.open")
         page.keyboard.type(fx.FAKE_CODE)  # 2: focus starts on the code field
@@ -95,7 +96,9 @@ def test_pair_a_frame_in_four_actions(new_context, app_server_in_process):
         finally:
             conn.close()
         assert device is not None and device["owner_user_id"] == seed.owner_id
-        assert page.locator("a.frame-tile[href='/fleet?frame=%s']" % device["id"]).count() == 1
+        open_menu(page)
+        assert page.locator(
+            "a.frame-row[href='/fleet?frame=%s']" % device["id"]).count() == 1
     finally:
         context.close()
 
@@ -105,7 +108,7 @@ def test_a_wrong_code_reopens_the_dialog_with_the_typed_value(
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
     try:
-        page.locator("a.frame-tile--add").click()
+        click_add(page)
         page.fill("#pair-code", "kkkk-2222")
         page.select_option("#pair-owner", label=fx.OWNER_EMAIL)
         page.locator(ADD + " button[type=submit]").click()
@@ -125,7 +128,7 @@ def test_missing_owner_reopens_the_dialog_with_a_field_error(
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
     try:
-        page.locator("a.frame-tile--add").click()
+        click_add(page)
         page.fill("#pair-code", fx.FAKE_CODE)
         page.locator(ADD + " button[type=submit]").click()
         page.locator(ADD + ".is-modal[open]").wait_for(state="visible")
@@ -176,8 +179,7 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
     server = app_server_in_process
     context, page, _seed_rows = _open(new_context, server)
     try:
-        trigger = page.locator("a.frame-tile--add")
-        trigger.click()
+        click_add(page)
         handle = page.locator(ADD).element_handle()
         for _ in range(12):
             page.keyboard.press("Tab")
@@ -188,7 +190,7 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
         page.keyboard.press("Escape")
         assert not page.locator(ADD).evaluate("d => d.open")
         page.wait_for_function(
-            "() => document.activeElement.classList.contains('frame-tile--add')",
+            "() => document.activeElement.classList.contains('frame-menu__button')",
             timeout=5000)
     finally:
         context.close()
@@ -246,7 +248,8 @@ def test_the_add_dialog_pairs_through_the_hash_link_without_script(
     with _no_js_page(new_context, server.base_url(), "/fleet",
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         assert not page.locator(ADD).is_visible()
-        page.locator("a.frame-tile--add").click()
+        page.locator(BUTTON).click()
+        page.locator("a.frame-row--add").click()
         dialog = page.locator(ADD)
         assert dialog.is_visible()
         page.fill("#pair-code", fx.FAKE_CODE)
@@ -290,7 +293,7 @@ def test_dialogs_fit_and_every_control_is_44px(
     where = "dialogs/%d/%s/%s" % (viewport["width"], lang, scheme)
     try:
         for opener, dialog_id, controls in (
-                ("a.frame-tile--add", "dlg-add-frame", (
+                ("add", "dlg-add-frame", (
                     "#pair-code", "#pair-owner", "button[type=submit]",
                     "a.modal__dismiss", "a.modal__close")),
                 (None, "dlg-reassign-%s" % _slug(seed.owned_id), (
@@ -299,7 +302,7 @@ def test_dialogs_fit_and_every_control_is_44px(
                 (None, "dlg-retire-%s" % _slug(seed.owned_id), (
                     "button[type=submit]", "a.modal__dismiss", "a.modal__close"))):
             if opener:
-                page.locator(opener).click()
+                click_add(page)
             else:
                 header = page.locator(_HEADER)
                 header.locator("summary.row-menu__toggle").click()

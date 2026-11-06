@@ -382,7 +382,7 @@ def test_every_release_is_listed_in_newest_first_order():
                 for row in doc.select("details.update-row")]
     assert versions == ["fw-v1.%d.0" % n for n in range(11, -1, -1)]
     assert doc.select_one(".update-versions__count").text() == "12"
-    assert doc.select_one("section.update-versions h2").text() == "Versions"
+    assert doc.select_one("section.update-versions-group h2").text() == "Versions 12"
     assert len(doc.select("details.update-row.update-row--running")) == 1
 
 

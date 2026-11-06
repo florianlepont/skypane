@@ -121,7 +121,8 @@ def _links(markup):
     markup = _strip_switch_and_notice(markup)
     return sorted(
         (re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}\b", "DEVICE", href),
-         re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", inner)).strip())
+         re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}", "DEVICE",
+                re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", inner)).strip()))
         for href, inner in re.findall(r'<a [^>]*href="([^"]+)"[^>]*>(.*?)</a>', markup, re.S))
 
 

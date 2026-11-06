@@ -280,7 +280,7 @@ def _table_html(view):
     # Cards first: style.css hides the table behind `.data-cards ~
     # .data-table-wrap` below 960px by sibling order.
     return (
-        '<ul class="data-cards">%s</ul>'
+        '<ul class="data-cards audit-cards">%s</ul>'
         '<div class="data-table-wrap"><table class="data-table data-table--flights">'
         "<thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>" % (cards, heads, body))
 

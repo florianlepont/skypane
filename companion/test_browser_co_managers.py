@@ -108,7 +108,7 @@ def test_an_admin_adds_a_co_manager_in_four_actions_and_the_dialog_reopens(
         assert INVITED in frig.members()
         assert not page.locator(frig.dialog).evaluate("d => d.open")
         assert page.locator(
-            "section.fleet-block li.data-card", has_text=INVITED).count() == 1
+            "section.fleet-block .co-manager__email", has_text=INVITED).count() == 1
     finally:
         context.close()
 
@@ -122,7 +122,7 @@ def test_removing_works_and_done_closes_the_dialog(new_context, frig):
             "button", name="Remove %s from this frame" % LONG_CO).click()
         page.wait_for_url("**/fleet?frame=*")
         assert frig.members() == []
-        assert page.locator("section.fleet-block li.data-card", has_text=LONG_CO).count() == 0
+        assert page.locator("section.fleet-block .co-manager__email", has_text=LONG_CO).count() == 0
         _open_dialog(page, frig)
         assert page.locator(frig.dialog + " li.data-card", has_text=LONG_CO).count() == 0
         page.locator(frig.dialog + " a.modal__dismiss").click()
@@ -220,7 +220,7 @@ def test_account_shows_the_shared_mark_and_owner_without_overflow(
     context, page = _open(new_context, rig, "co", path="/account", lang=lang)
     try:
         assert _no_sideways_scroll(page)
-        owner_line = page.locator(".entity-row__meta", has_text=LONG_OWNER)
+        owner_line = page.locator(".account-frame__line", has_text=LONG_OWNER)
         assert owner_line.count() == 1 and owner_line.is_visible()
         assert owner_line.evaluate(
             "e => { const r = document.createRange(); r.selectNodeContents(e);"
@@ -235,7 +235,7 @@ def test_account_shows_the_shared_mark_and_owner_without_overflow(
 # --- lists without a desktop table stay visible at every width -------------
 
 LIST_WIDTHS = (1000, 700, 360)
-FRAMES_LIST = '[aria-labelledby="account-frames"] ul.entity-list'
+FRAMES_LIST = '[aria-labelledby="account-frames"] ul.group'
 
 
 @pytest.mark.parametrize("width", LIST_WIDTHS)
@@ -245,7 +245,7 @@ def test_the_account_frames_list_is_visible_at_every_width(new_context, rig, wid
         viewport={"width": width, "height": 900})
     try:
         assert page.locator(FRAMES_LIST).is_visible()
-        assert page.locator(FRAMES_LIST + " li.entity-row", has_text="Kitchen").is_visible()
+        assert page.locator(FRAMES_LIST + " li.account-frame", has_text="Kitchen").is_visible()
     finally:
         context.close()
 
@@ -256,7 +256,7 @@ def test_a_co_manager_sees_the_shared_frame_row_on_desktop(new_context, rig):
         viewport={"width": 1000, "height": 900})
     try:
         assert page.locator(FRAMES_LIST).is_visible()
-        row = page.locator(FRAMES_LIST + " li.entity-row", has_text="Kitchen")
+        row = page.locator(FRAMES_LIST + " li.account-frame", has_text="Kitchen")
         assert row.is_visible()
         assert row.get_by_text("Shared by", exact=False).is_visible()
     finally:

@@ -25,15 +25,15 @@ def fleet(app_server_in_process):
 
 
 def _strip(page):
-    return re.search(r'<ul class="frame-tiles".*?</ul>', page, re.S).group(0)
+    return re.search(r'<ul class="frame-menu__list".*?</ul>', page, re.S).group(0)
 
 
 def _tiles(page):
-    return re.findall(r'<a class="frame-tile[^"]*" href="([^"]+)"([^>]*)>', _strip(page))
+    return re.findall(r'<a class="frame-row[^"]*" href="([^"]+)"([^>]*)>', _strip(page))
 
 
 def _blocks(page):
-    return re.findall(r'<section class="fleet-block[^"]*"><h3 class="text-heading">([^<]*)<', page)
+    return re.findall(r'<section class="group-block fleet-block[^"]*"[^>]*><h2 class="section-label"[^>]*>([^<]*)<', page)
 
 
 def test_the_strip_lists_every_frame_then_system_and_add_tiles(fleet):
@@ -78,7 +78,8 @@ def test_the_system_tile_opens_the_platform_wide_view(fleet):
     server, _seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet?view=system")
     assert status == 200
-    assert _blocks(page) == ["System"]
+    # One glass group per topic: flight data, sources and identification.
+    assert _blocks(page) == ["Flight data", "Data sources", "Flight identification"]
     assert [a for _h, a in _tiles(page) if 'aria-current="true"' in a]
     assert "Backup" in page or "backup" in page
 

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Browser checks for the Flights phone card (the boarding-pass layout below 960 px): no
-horizontal overflow at 390 and 360 px in both themes and both languages, the icon-only picture
-action at the 44px floor and operable from the keyboard into the shared lightbox, the filter
-hiding cards and updating the count, the tear-line notches following the page colour, the
-cards working with scripts blocked, and the desktop table unchanged at 1280 px.
+"""Browser checks for the Flights phone list (day groups of flight rows below 960 px): no
+horizontal overflow at 390 and 360 px in both themes and both languages, flat glass day groups
+and centred direction segments, the icon-only picture action at the 44px floor and operable
+from the keyboard into the shared lightbox, the filter hiding rows and day groups and updating
+the count, the rows working with scripts blocked, and the desktop table unchanged at 1280 px.
 """
 import pytest
 
@@ -45,15 +45,13 @@ _CARD_PROBE = (
     "    const r = el.getBoundingClientRect();"
     "    return r.width === 0 || (r.left >= c.left - 0.5 && r.right <= c.right + 0.5);"
     "  });"
-    "  const route = li.querySelector('.history-card__route').getBoundingClientRect();"
-    "  const codes = [...li.querySelectorAll('.history-card__code')]"
-    "    .map(el => el.getBoundingClientRect().top);"
-    "  const art = li.querySelector('.history-card__art').getBoundingClientRect();"
-    "  const when = li.querySelector('.history-card__when').getBoundingClientRect();"
+    "  const chip = li.querySelector('.row__chip').getBoundingClientRect();"
+    "  const value = li.querySelector('.row__value').getBoundingClientRect();"
+    "  const text = li.querySelector('.row__text').getBoundingClientRect();"
     "  return {callsign: li.querySelector('.history-card__callsign').textContent,"
-    "          inside, codesOneRow: codes.every(t => Math.abs(t - codes[0]) < 1),"
-    "          routeH: route.height,"
-    "          stubOneRow: art.top < when.bottom && when.top < art.bottom};"
+    "          inside, height: c.height,"
+    "          oneRow: chip.top < value.bottom && value.top < chip.bottom"
+    "                  && text.right <= value.left + 0.5};"
     "})")
 
 
@@ -61,8 +59,8 @@ _CARD_PROBE = (
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
 def test_cards_fit_the_phone_in_both_themes(new_context, server, viewport, lang):
     """At 390 and 360 px, in English and French, light and dark: the page never scrolls
-    sideways, every card keeps its content inside its own box, the route codes sit on one row,
-    and the artwork shares one row with the time."""
+    sideways, every row keeps its content inside its own box, is at least 54px tall, and shows
+    the chip, the text and the value on one row without the text running under the value."""
     context, page = _open_flights(new_context, server, viewport, lang)
     try:
         for theme in _in_both_themes(page):
@@ -71,7 +69,7 @@ def test_cards_fit_the_phone_in_both_themes(new_context, server, viewport, lang)
             if failure:
                 raise AssertionError(failure)
             for card in page.evaluate(_CARD_PROBE):
-                if not (card["inside"] and card["codesOneRow"] and card["stubOneRow"]):
+                if not (card["inside"] and card["oneRow"] and card["height"] >= 54):
                     raise AssertionError("%s: card %r is broken: %r" % (where, card["callsign"], card))
     finally:
         context.close()
@@ -153,7 +151,7 @@ _COUNTS_VS_CARDS = (
     "  Number(l.querySelector('[data-filter-chip-count]').textContent)])),"
     " cards: [...document.querySelectorAll('li.history-card')].filter(li => li.offsetParent)"
     "   .map(li => li.dataset.filterKind),"
-    " days: [...document.querySelectorAll('li.history-cards__day')]"
+    " days: [...document.querySelectorAll('section.history-day')]"
     "   .filter(li => li.offsetParent).length})")
 
 
@@ -216,20 +214,43 @@ def test_chip_counts_equal_the_visible_cards_with_all_fifty_loaded(new_context, 
         context.close()
 
 
-def test_tear_line_notches_follow_the_page_colour(new_context, server):
-    """The stub's two notches paint in the page canvas colour in both themes, so they read as
-    cut-outs rather than discs."""
-    context, page = _open_flights(new_context, server, VIEWPORT_PHONE)
+_GROUP_PROBE = (
+    "() => ({groups: [...document.querySelectorAll('section.history-day')].map(g => ({"
+    "  label: g.querySelector('h2.section-label').textContent.trim(),"
+    "  glass: getComputedStyle(g.querySelector('ul.group')).backgroundColor,"
+    "  nested: g.querySelectorAll('.group .group').length,"
+    "  rows: g.querySelectorAll('li.history-card').length})),"
+    " tracks: [...document.querySelectorAll('.filter-chip')].map(l => {"
+    "   const box = l.querySelector('.filter-chip__box').getBoundingClientRect();"
+    "   const kids = [...l.querySelectorAll('.filter-chip__count, .filter-chip__text')]"
+    "     .map(e => { const r = e.getBoundingClientRect(); return (r.left + r.right) / 2; });"
+    "   return {mid: (box.left + box.right) / 2, kids}; })})")
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
+def test_each_day_is_one_glass_group_and_the_segments_are_centred(
+        new_context, server, viewport, lang):
+    """One glass group per day, each holding its flight rows with no group inside a group; the
+    direction segments centre their count and label in their pill; the first segment keeps a
+    visible focus ring from the keyboard."""
+    context, page = _open_flights(new_context, server, viewport, lang)
     try:
         for theme in _in_both_themes(page):
-            paint = page.evaluate(
-                "() => { const stub = document.querySelector('.history-card__stub');"
-                " return [getComputedStyle(stub, '::before').backgroundColor,"
-                "         getComputedStyle(stub, '::after').backgroundColor,"
-                "         getComputedStyle(document.documentElement).backgroundColor]; }")
-            if paint[0] != paint[2] or paint[1] != paint[2]:
-                raise AssertionError(
-                    "expected both notches in the canvas colour (%s), got %r" % (theme["theme"], paint))
+            state = page.evaluate(_GROUP_PROBE)
+            where = "%s/%s/%d" % (lang, theme["theme"], viewport["width"])
+            if len(state["groups"]) != 2 or any(g["nested"] or not g["rows"] for g in state["groups"]):
+                raise AssertionError("expected two flat day groups (%s): %r" % (where, state["groups"]))
+            if any(g["glass"] in ("rgba(0, 0, 0, 0)", "transparent") for g in state["groups"]):
+                raise AssertionError("expected a glass fill on every group (%s)" % where)
+            for track in state["tracks"]:
+                if any(abs(mid - track["mid"]) > 1.5 for mid in track["kids"]):
+                    raise AssertionError("expected centred segment content (%s): %r" % (where, track))
+        page.evaluate("() => document.activeElement && document.activeElement.blur()")
+        page.keyboard.press("Tab")
+        page.wait_for_function(
+            "() => { const e = document.activeElement; return e && e.type === 'radio' || "
+            "e && e.matches('[data-filter-input], a, button'); }")
     finally:
         context.close()
 
@@ -321,7 +342,7 @@ def test_direction_chips_filter_count_and_clear(new_context, server):
         if page.evaluate(_VISIBLE_CALLSIGNS) != ["AFR6152"]:
             raise AssertionError("expected only the arrival under the Arrivals chip")
         heads = page.evaluate(
-            "() => [...document.querySelectorAll('li.history-cards__day')]"
+            "() => [...document.querySelectorAll('section.history-day')]"
             ".filter(li => li.offsetParent).length")
         if heads != 1:
             raise AssertionError("expected one day header to stay, got %d" % heads)

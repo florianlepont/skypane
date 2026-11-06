@@ -110,7 +110,7 @@ Every item is repeated, with its alternative, in "Open for owner validation (rev
 | Component library | none; the project's own helpers in `companion/ui_components.py`, `ui_nav.py`, `ui_shell.py` |
 | Icon library | the project's inline SVG sprite (`ui_base.ICON_IDS`, `icon_html()`); new glyphs needed: `icon-plus`, `icon-close`, `icon-more-vertical`; revision 2 adds `icon-shield`, `icon-locate`, `icon-star`, `icon-check`, `icon-chevron-down`, `icon-chevron-right` (if absent, add to the sprite; no external icon set) |
 | Map library (revision 2, location page only) | vendored Leaflet 1.9.4, BSD-2-Clause, files under `companion/static/vendor/leaflet/` plus first-party `companion/static/place-map.js`; no CDN, no key, no npm at runtime (section 9.6) |
-| Font | existing tokens: `--font-ui` system sans (everything), `--font-serif` (headings only), `--font-mono` (identifiers only: pairing code, MAC, device id, callsign) |
+| Font | existing tokens: `--font-ui` system sans (everything), `--font-display` (titles; the serif was retired in plan 61-55), `--font-mono` (identifiers only: pairing code, MAC, device id, callsign) |
 
 Verified against the live `companion/static/style.css` on 2026-11-02 (not only the 2026-09 skill):
 spacing, type, light/dark colour, radius, motion tokens match the skill. Differences the skill
@@ -372,57 +372,57 @@ its panel are gone (Sign out stays on the Account page, as on the desktop sideba
 - No Health dot in the personal sidebar. The Console Health link shows the severity dot of the frame
   in scope.
 
-### 1.5 Frame picker (V3, V6, D30): personal pages and Console frame pages
+### 1.5 Frame picker (V3, V6, D30, D39, D40): personal pages and Console frame pages
 
-SUPERSEDED: revision 1 was a native `<details>` drop-down; revision 2 a frame chip opening a card sheet.
-The owner chose mockup F2 (D30, W17): a strip of frame tiles replaces both. The Fleet entry stays
-removed (V3).
+SUPERSEDED history: revision 1 was a native `<details>` drop-down; revision 2 a frame chip opening a card
+sheet; revision 3 (D30) a strip of frame tiles with a phone fold. Plan 61-57 (D39, D40) replaces the strip
+and its fold (`ul.frame-tiles`, `details.frame-fold`, the `skypane.frameStrip` memory) with a frame button
+and a popover. The Fleet entry stays removed (V3).
 
-Rendered at the top of every device-scoped page, above the page title, **only when the request
-scope holds two or more frames**. One frame: nothing is rendered, nothing to choose (unchanged).
+**The frame button (`details.frame-menu > summary.frame-menu__button`).** In the top bar of every
+device-scoped page and of the Console Fleet page: on a phone the right side of the app bar (the brand on the
+left), on a desktop the top right of the content column, level with the page title (the title keeps clear of
+it). A glass pill at least 44px high showing the status dot of the frame in view (the single `frame_status`
+resolver), its name (one line, ellipsis) and a chevron; `aria-haspopup="true"`, and with script
+`aria-expanded` follows the popover. Shown when the person has two or more accessible frames or may add a
+frame (everyone, 61-47): a user with one frame still sees it, because it carries "Add a frame". Not shown on
+global pages (Update, the airline editor) or with no signed-in person and one frame.
 
-- **Strip (`ul.frame-tiles`, aria-label "Your frames" / "Vos cadres"):** one **frame tile** per frame,
-  each a plain link (no script, no dialog), 132px wide, at least 44px in both axes. A tile shows a
-  small frame picture drawn in CSS (dark bezel, white screen, 44x58px), the frame name (semibold,
-  wraps), the status dot in its top-right corner (the single `frame_status` resolver) and the dot's
-  last-seen word under the name: "Seen 2m ago" / "Vu il y a 2 min", or "Not seen yet" / "Pas encore
-  vu" for a frame that never checked in. A third muted line carries "Shared by {owner email}" for a
-  co-managed frame and the owner email on a frame the viewer does not own (never on their own).
-- **Phone (<700px, round 4, W23):** the strip sits in a collapsible, marked-off surface (`details.frame-fold`,
-  open by default; the summary row, at least 44px high, shows the active frame's name with a chevron and opens
-  or closes the tiles). With script the choice is remembered in `localStorage` (`skypane.frameStrip`, inside
-  try/catch); without script the strip is simply open. The surface uses `--color-secondary`, a hairline
-  `--color-border`, an inset shadow and a soft top gradient, all from tokens, in both themes. Tiles are 84px wide
-  and show only the small picture (32x42px) and the name on one line (ellipsis) with the status dot in the corner;
-  the last-seen word and the owner note are hidden. From 700px the summary is hidden, the script keeps the strip
-  open and the tiles keep the look above. The Console Fleet strip (frames, System, Add a frame) uses the same
-  fold and compact tiles; its summary names the selected frame or "System". The Fleet strip is always open by
-  default (it also carries the System and Add tiles), even with a single frame.
-- **Active tile:** `aria-current="true"`, outlined 2px in the accent colour with a faint accent wash.
-- **Add a frame tile (plan 61-47, D34, W33):** the last item, dashed border, "+" glyph and "Add a frame" /
-  "Ajouter un cadre" in the accent colour. Shown to every signed-in person. For a user (and for an
-  administrator on a personal page) it leads to their own Add a frame page (`/pair-frame`); on the Console
-  Fleet strip it opens the Fleet pairing dialog on the page (hash link, works without script) and is the
-  ONLY entry to that dialog (the "+ Add a frame" button next to the Fleet title is gone).
-- **Layout:** below 700px the strip is a horizontal scroller (one row, `overflow-x: auto`, snap);
-  from 700px it wraps. Both themes, EN and FR, no page-level horizontal overflow at 360px.
-- Tiles go to the **same page** of the other frame (`device_scope.target_path(page, device)`), always
-  under the `/devices/<id>` prefix (never the unprefixed live frame for a user), so the user stays on
-  Home, Flight history, Personalisation and so on.
-- **List content, personal pages:** the frames the viewer owns or co-manages. For an administrator
-  this is the same rule as for a user (V0/V3): no "All frames", no Fleet link anywhere in the personal
-  space (excluding `.space-switch` and `.frame-notice`, administrator only). If an administrator opens a frame that belongs to someone else (Fleet row "Open personal
-  view"), a `.frame-notice` strip (14px, `--color-secondary`, 44px high, wraps) is shown above the
-  page title: "Viewing {owner email}'s frame" with a link "Back to Fleet"; the picker then lists the
-  viewer's own frames plus that one frame (flagged with the owner email).
-- **List content, Console frame pages (Health, Device, Airline editor):** every frame of the
-  platform (administrator only), problems first then by name, each tile also showing the owner
-  email as its last line; this is the legitimate place for the all-frames list. The strip is the
-  same. With one frame in the fleet nothing is rendered.
-- Strings (EN / FR): "Your frames" / "Vos cadres"; "Seen %s" / "Vu %s"; "Add a frame" / "Ajouter un
-  cadre"; "Viewing %s's frame" / "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la
-  flotte" (existing). Removed with the sheet: "Choose a frame", "Manage my frames", "Current", the
-  chip's "Switch frame, current: %s", and (earlier) "All frames (Fleet)".
+**The popover (`.frame-menu__panel`).** A glass panel hung under the button (out of flow, so opening it
+moves nothing): 300px wide, at most `calc(100vw - 24px)`, right edge on the button's right edge, on a phone
+as on a desktop (the anchored form is reliable down to 360px, so no bottom sheet). One list
+(`ul.frame-menu__list`, aria-label "Your frames" / "Vos cadres") of rows, each at least 52px high and a plain
+link (no script, no dialog): the CSS-drawn frame picture (28x38px), the name (semibold, ellipsis), the
+last-seen word ("Seen 2m ago" / "Vu il y a 2 min", "Not seen yet" / "Pas encore vu"), the owner line
+("Shared by {email}" for a co-managed frame, the owner email on a frame the viewer does not own, never on
+their own), the status dot and, on the frame in view, a check (`aria-current="true"` and a tinted row).
+Under a separator: on the Console only a "System" row (round badge, "Sources and backups"; `aria-current`
+on the System view), then an "Add a frame" / "Ajouter un cadre" row (graphite icon chip with a plus): for a
+user and for an administrator on a personal page it leads to `/pair-frame` or `/fleet?pair=1`; on the Fleet
+page it opens the pairing dialog (hash link, works without script) and is the ONLY entry to that dialog.
+The entrance is the existing finite `skypane-soft-in` (scale and opacity, `--motion-fast`), zeroed by the
+single reduced-motion rule.
+
+**Behaviour.** A native `<details>`: opens, closes and every row navigates with no script. modal.js adds
+Escape (focus returns to the button), an outside tap closes, the dialog opener of the Add row closes the
+popover and focus returns to the button when the dialog closes, and `aria-expanded`. Tab walks the rows.
+
+- Rows go to the **same page** of the other frame (`device_scope.target_path(page, device)`), always under
+  the `/devices/<id>` prefix (never the unprefixed live frame for a user), so the user stays on Home, Flight
+  history, Personalisation and so on. On the Fleet page they are `/fleet?frame=<id>` and `/fleet?view=system`
+  and the page content follows (State, Device and version, Settings, Access, or the System view).
+- **List content, personal pages:** the frames the viewer owns or co-manages. For an administrator this is
+  the same rule as for a user (V0/V3): no "All frames", no Fleet link anywhere in the personal space
+  (excluding `.space-switch` and `.frame-notice`, administrator only). If an administrator opens a frame that
+  belongs to someone else (Fleet row "Open personal view"), a `.frame-notice` strip is shown above the page
+  title ("Viewing {owner email}'s frame", link "Back to Fleet"); the popover then lists the viewer's own
+  frames plus that one frame (flagged with the owner email).
+- **List content, Console frame pages (Health, Device) and the Fleet page:** every frame of the platform
+  (administrator only), problems first then by name, each row also showing the owner email; the Console adds
+  the System row.
+- Strings (EN / FR): "Your frames" / "Vos cadres"; "Choose a frame" / "Choisir un cadre" (the button's
+  hint); "Seen %s" / "Vu %s"; "Add a frame" / "Ajouter un cadre"; "System" / "Système"; "Viewing %s's frame" /
+  "Cadre de %s en consultation"; "Back to Fleet" / "Retour à la flotte".
 - The old `?device=` GET redirect stays (old bookmarks).
 
 ### 1.6 Route map (every old route to its place; no broken bookmark; default-deny unchanged)
@@ -545,7 +545,7 @@ Behaviour (testable):
 | 7 | Leave this frame | "Leave frame" button (Account, co-managed frames) | none (sentence) | Leave this frame (destructive) | `/co-managers/leave` |
 | 8 (proposed, open item 4) | Manage user | "Manage user" button (Users row) | Role select, Save role; Access section (Disable/Enable); Sign-in section (Unlink identity) | per section | `/users/<id>/{role,disable,enable,unlink}` |
 | 9 (revision 2) | Quiet hours | schedule row on Home (section 10) | Use quiet hours, Start, End, presets | Save quiet hours (primary) | `/quick/quiet-hours/window` (new) |
-| 10 (D30) | Choose a frame (tile strip, no form, no dialog) | frame strip (section 1.5) | none, one link tile per frame | none | GET links |
+| 10 (D30, D39) | Choose a frame (popover, no form, no dialog) | frame button (section 1.5) | none, one link row per frame | none | GET links |
 | 11 (revision 2) | Airline details (sheet, read-only, no form) | an airline card (section 12.1) | none | none | none |
 | 12 (revision 2) | Remove special look (confirm) | "Remove" on a special-look row (Personalisation) | none (sentence) | Remove special look (destructive; dismiss "Keep special look") | the existing rules remove route |
 | 13 (revision 2) | Delete manual resolution (confirm) | "Delete" on a manual resolution (Airline editor) | none (sentence) | Delete resolution (destructive; dismiss "Keep resolution") | `/airlines/manual-resolutions/<p>/delete` |
@@ -1556,14 +1556,15 @@ Strings: `admin_fleet.system_*`, `admin_fleet.block_*`, `nav.airlines_short`.
 - **Artwork (W37).** The thumbnail of an airline row and of an aircraft-type sub-row is the tap target that opens the shared lightbox (a real link to the picture without a script); its accessible name is "Enlarge the artwork of <airline>" / "Agrandir l'illustration de <airline>". Changing a picture is the first item "Change artwork" / "Changer l'illustration" of the row's "..." menu (a label wrapping the file input; it sends on change with a script, an Upload button inside the menu without one), then "Reset to the original name" when an owner name exists. A sub-row of a type with its own artwork slot has its own small "..." menu holding "Change artwork"; any other type still says "Uses the airline's artwork". The "..." menu no longer holds "Enlarge the artwork".
 - **Filters on one line.** The editor's filter bar has no chip row (search field and count only), so there was nothing to scroll there. The only Console chip row that wrapped, the Audit log's, is now one line that scrolls sideways with scroll-snap (44px minimum chip width).
 
-## Sky and motion language (plan 61-52, owner decisions D37, D38)
+## Sky and motion language (plan 61-52, refined by plan 61-55; owner decisions D37, D38, D39)
 
 The owner chose visual direction A for the whole companion. It is applied to the real, current pages through the shared stylesheet and tokens only; no content, control, route or rule of a page changes (D38). The mockups are a direction (colour, glass, gradient, motion, type scale), never a layout.
 
-- **Sky.** The page background is a three-stop vertical gradient (`--sky-top`, `--sky-mid`, `--sky-bottom`) painted by a fixed, non-interactive `html::before` (never `background-attachment: fixed`, which iOS ignores); `html` keeps `--color-canvas` as the floor. It takes no space: no layout shift, no horizontal scroll. Light theme shows four skies chosen by `html[data-sky]`, set by `nav-dropdown.js` (the one script every page carries) from the viewer's local hour: 05-08 dawn, 08-17 day, 17-21 dusk, otherwise night. Without script, and on the sign-in page (which carries no script), the sky is "day". The Light "night" is a pale moonlit indigo so dark text stays readable. Dark theme (explicit, or Auto on a dark system) is always the deep night sky (`#0B1026`, `#18203F`, `#2C2540`), whatever `data-sky` says.
+- **Background (refined, D39).** There is one background per theme, no time-of-day skies and no `html[data-sky]`. Light is a very pale sky: a gentle vertical gradient `--sky-top #E7EEF7`, `--sky-mid #F1F3F6`, `--sky-bottom #F6F3EE`. Dark is an ink gradient `#12151D`, `#161A24`, `#1A1F2B`. The gradient is painted on `html` itself (`background-image` with `--color-canvas` as the floor colour, `min-height: 100%`, no fixed layer, no `background-attachment: fixed`), so the Safari bars, the overscroll area and the strips under the notch and home indicator show the sky, not a near-black canvas. It takes no space: no layout shift, no horizontal scroll, and nothing flashes at first paint (no script is involved). Every page shell (page shell, sign-in card, refusal and error pages, interstitial) carries `viewport-fit=cover` and two `<meta name="theme-color">` tags (`media="(prefers-color-scheme: light)"` `#E7EEF7`, `media="(prefers-color-scheme: dark)"` `#12151D`, the `--sky-top` of each theme). The theme is rendered by the server from the theme cookie, so an explicit Light or Dark setting writes that theme's colour into both tags; Auto lets each scheme pick its own. The safe areas are tokens (`--safe-top|right|bottom|left`, each an `env(safe-area-inset-*, 0px)`) used by the phone header, page content, tab bar, sheets, dialogs, toasts and the save bar; full-height boxes use `svh`/`dvh`, never `vh`.
 - **Frosted glass.** `--glass-bg` (cards), `--glass-bar-bg` (sidebar, tab bar, phone header), `--glass-border`, `--shadow-glass`, `--glass-blur` (16px). They apply only inside one `@supports (backdrop-filter: blur(1px))` block at the end of the stylesheet; every surface keeps its solid `--color-dominant` / `--color-secondary` base fill outside it. The blur is limited to the sidebar, tab bar, phone header, Home state card, sign-in card, dialogs and the two sheets; the repeated cards (sections, tiles, collection and airline cards) are translucent only. The desktop sidebar is a floating rounded panel with a 16px margin; cards use `--radius-card` (20px).
-- **Contrast.** Every sky stop is pale enough that body text and the accent clear 4.5:1 directly on it, and both inks (and the rarity inks) clear 4.5:1 on the glass composited over the worst stop of every sky (`companion/test_sky_contrast.py`, and per hour band in `companion/test_browser_sky_motion.py`). Accent, rarity and status colours are unchanged.
-- **Typography.** `--font-page-title-size` is `clamp(30px..34px)` on a phone and `clamp(44px..48px)` from 960px, serif, line-height 1.08, letter-spacing -0.02em; existing font stacks only.
+- **Contrast.** Every background stop keeps body text and the accent at 4.5:1 directly on it, and both inks (and the rarity inks) at 4.5:1 on the glass composited over every stop of both themes (`companion/test_sky_contrast.py`, `companion/test_browser_sky_motion.py`). Accent, rarity and status colours are measured pairwise in `companion/test_contrast_check.py`.
+- **Typography (refined, D39).** System sans only, nothing downloaded, no serif anywhere. `--font-ui` is `-apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif`; `--font-display` (titles) is `-apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter Display", "Inter", system-ui, sans-serif`. One scale: page title (`--font-page-title-size`, `clamp` 30-34px on a phone, 40-44px from 960px, weight 700, letter-spacing -0.03em, line-height 1.08), section/card title (`--font-heading-size` 22px, weight 600, on every page including nested cards, the update card and the location sheet), body 16px, secondary 15px (`--font-label-size`), caption 13px (`--font-caption-size`); the tab labels (11px) and the chart axis labels (10px) are the only sub-scale exceptions. Labels are sentence case: no tracked uppercase. Monospace is for code only (callsigns, identifiers, hashes, URLs); times and counts use the UI face with tabular numerals (`.tnum`).
+- **Accent and radii (refined, D39).** The accent is graphite `#1F2430` in Light (hover `#343B4D`, label on it white) and ivory `#F2EFE9` in Dark (hover `#E2DED5`, label on it `#14171F`), for links, toggles, the active tab, primary buttons, icon chips and the focus ring; it reaches 4.5:1 as text and 3:1 as a ring over every background stop and the glass. Status (green/amber/red) and rarity (teal/violet) colours are unchanged. Three radii only: `--radius-control` 14px (buttons, inputs, tracks), `--radius-card` 22px (cards, groups, dialogs), `--radius-pill` 32px (pills, switches, sheets and floating bars); circles use 50%.
 - **Motion.** Tokens: `--motion-fast` 180ms (reactions), `--motion-enter` 400ms (card entrance), `--motion-stagger` 60ms (per-sibling delay), `--ease-out`. `.reveal` and every `.dashboard-main .page-section` rise in (opacity and an 12px translate), siblings staggered through `--reveal-index` (nth-child, capped at 5). The animation uses fill-mode `backwards` only, so after it ends the element is in its plain layout state and holds no stacking context. Hover and press feedback on controls is transform/box-shadow only (primary button lifts 1px on hover, every button sinks 1px on press). One existing `prefers-reduced-motion: reduce` rule zeroes the duration and delay of every animation and transition. All new animation is finite; the existing status-dot pulse stays the only infinite one. Cross-document view transitions are unchanged.
 
 ## Home in style A (plan 61-53, owner decisions D37, D38)
@@ -1575,7 +1576,7 @@ Home keeps every card, control, rule and route; only its details change.
 - **Status dot.** Keeps its existing pulse (the only infinite animation); the static ring gains a third, wider glow layer in the dot's own tone.
 - **Fills.** Home shows no progress bar or counter badge to the signed-in people it serves (the battery dial is a bare-render-only block), so nothing was added; the fill animation is left for pages that carry one.
 - **Entrance.** The state card carries `.reveal`; the state card, the Current frame card and the Recent flights card enter at delays of 0, 60 and 120 ms (`--reveal-index`).
-- **Tab bar.** The bars carry page content scrolling under them, so `--glass-bar-bg` is nearly opaque (0.94 white; dark `rgba(16, 21, 48, 0.9)`): inactive labels clear 4.5:1 over white, black and every sky stop at 360 and 390 px, in both themes. The space-switch cell is 68px wide with no extra right margin.
+- **Tab bar.** The bars carry page content scrolling under them, so `--glass-bar-bg` is nearly opaque (0.94 white; dark `rgba(22, 26, 36, 0.9)`): inactive labels clear 4.5:1 over white, black and every background stop at 360 and 390 px, in both themes. The space-switch cell is 68px wide with no extra right margin.
 
 ## The other pages in style A (plan 61-54, owner decisions D37, D38)
 
@@ -1587,3 +1588,65 @@ Flights, Airline collection, Location, Personalisation (four tabs), Account, the
 - **Layout fixes found on the real pages.** The Console health rows (Fleet "State") use their five-column row only when the card itself is 600px wide or more (a container query), so a half-width card on a desktop page no longer breaks its sentence one word per line; an Account frame row stacks its action under the frame at 360px instead of squeezing the name and hardware line.
 - **Performance.** At most six elements per page carry a backdrop blur (bars, sidebar, one or two cards or sheets); every animation is finite except the status dot's pulse and halo; the entrance adds no layout shift on Home, Account and Flight history.
 - **Contrast.** Body, secondary and link text, placeholders (now the secondary ink at full opacity, 4.5:1) and disabled text (3:1) are measured on the real pages over every sky stop and the dark night sky (`companion/test_browser_overhaul_sweep.py`).
+
+## Surfaces and components (plan 61-56, owner decision D39)
+
+One glass tier and four reusable components, all in the shared stylesheet plus `companion/ui_groups.py`. The mockups (g1, g2, g3, sheetA, sheetB, q7-q9) are a direction for surfaces and for the structure of lists; every content, control, route and rule of a real page stays (D38).
+
+### The glass tier
+
+- Tokens: `--glass-bg` (white 0.72 in Light, white 0.09 in Dark), `--glass-border` (1px, light), `--glass-highlight` (inset top edge), `--shadow-glass` (highlight plus a soft two-layer shadow), `--glass-blur` 22px with `--glass-saturate` 165%, `--glass-solid` (the opaque fallback), `--glass-hairline` (row separators). `--glass-bar-bg` no longer exists: sidebar, tab bar, phone header, save bar, sheets, dialogs, popovers, tables, groups and every card use the same `--glass-bg`.
+- Everything is applied only inside the one `@supports (backdrop-filter: blur(1px))` block; each surface keeps a solid base fill outside it (`--glass-solid`, `--color-dominant`, `--color-secondary`). The blur (`blur(22px) saturate(165%)`) is on groups, dialogs, sheets, popovers, bars and the sidebar; repeated cards, tables and segmented tracks share the fill, edge and shadow without the blur (a backdrop-filter traps fixed and absolutely placed descendants and costs a layer per card).
+- Legacy beige is gone: `--color-secondary` is a cool tint (`#E9EEF5`, Dark unchanged) and `--color-border` `#DAE1EB`. The frame fold, the space switch, the segmented tracks (filter chips, Personalisation nav, look picker, Location modes), tables, the More panel and the Place card take the glass tier. A segmented control is a glass track whose selected option is a graphite (ivory in Dark) pill with the on-accent label.
+- The docked notification and attention banners (`.toast--docked`) are glass banners with the page ink in both themes and a 32px coloured icon chip (amber warning, red error); the contact link stays a 44px underlined link. The floating flash toast keeps its inverse surface.
+
+### Components (`companion/ui_groups.py`)
+
+- `section_label(text, id)`: an `<h2 class="section-label">`, 13px, secondary ink, weight 600, sentence case, no tracking.
+- `group(rows_html, label, label_id)`: `<section class="group-block" aria-labelledby>` with the optional section label above one `<ul class="group">` (one glass surface, 22px radius). `group_panel(content_html, ...)` is the same single surface holding free content (a picture, an empty state) when it cannot be rows. A group never contains another group.
+- `row(label, icon, detail, value_html, href | button_attrs, chevron, trailing_html)`: an `<li class="row">`, at least 54px tall. The main area (`.row__main`) is an `<a>` with an `href`, a `<button type="button">` with `button_attrs`, else a `<div>`; link and button rows show a chevron and cover the whole width (44px or more target, focus ring `outline: 2px solid var(--color-accent)` inset). Optional 32px icon chip (radius `--radius-chip` 9px, accent fill, on-accent glyph), label (two lines then an ellipsis), detail line (wraps), value (secondary ink, tabular numerals, one line with an ellipsis, at most half the row) and a trailing control (a switch form or a select) placed after the main area so a control is never inside a link. A hairline (`--glass-hairline`) separates rows. A switch's `::after` makes the whole row its target. No script is needed.
+- `hero(status_line_html, picture_html, lines_html)`: no surface. An optional picture (36% of the width on a phone, 200px from 700px) beside the status line in the display face, 34px on a phone to 44px on a desktop, weight 700, with its status dot, then secondary lines.
+- Both themes, 360px without horizontal overflow (long values truncate, French wraps in the detail), 44px targets, no colour literal outside the tokens.
+
+### Applied
+
+- Home: the hero (current picture beside the state word and the next update; the battery dial for an administrator), a Recent flights group (one row per flight linking to Flights, plus a "See all flights" row; the empty state when there is no flight), a Frame group (Screen and Quiet hours switch rows; the quiet window still opens the dialog). With no picture yet, "Current frame" is one panel group holding the empty state. Two or three groups replace the former four or five cards.
+- Console Fleet State: the health rows keep their native `<details>` and use the row metrics: from a 420px container the name and verdict stack in one column beside the value, which wraps and never takes more than half the row, so a long verdict and a long value cannot overlap.
+
+## Navigation chrome (plan 61-57, owner decisions D39, D40)
+
+- **Floating tab bar (below 960px).** A pill, not a full-width strip: 12px side margins (`--tab-bar-gap`, plus the left and right safe areas), `bottom: calc(12px + var(--safe-bottom))`, 68px high (`--tab-bar-h`), `--radius-pill`, its own stronger glass: `backdrop-filter: blur(26px) saturate(200%)` (and the `-webkit-` form) inside the glass `@supports` block, a translucent fill (`--bar-bg`: white 0.66 in Light, `rgba(20, 24, 34, 0.86)` in Dark, so light labels hold 4.5:1 over a white picture scrolling beneath), a subtle gradient sheen (`--bar-sheen`), a 1px light `--bar-border`, an inset top specular highlight and a soft long shadow (`--bar-shadow`). Without backdrop-filter the bar keeps the solid `--glass-solid`. The active item is an inner pill (`--bar-pill-bg`: white 0.92 in Light, white 0.18 in Dark) with the graphite (ivory in Dark) label; the administrator's Console / My frame switch stays the first cell, 68px wide and outlined in the accent. Page content clears it (bar + gap + safe area added to the page's bottom padding; the save bar, toasts and the map stage use the same tokens). Hide on scroll was considered and not shipped: a bar that slides off-screen breaks tap targets for assistive and automated pointer input for little gain; the bar never moves.
+- **Phone app bar.** Transparent over the page background (no fill, no border, no blur, so Safari tints nothing), padded below the status bar by `--safe-top`, brand left and the frame button right.
+- **Desktop sidebar.** The floating glass panel of the one glass tier; the current item is a solid graphite pill (ivory in Dark) with the on-accent label; the accent bar beside it is gone.
+- Tests: `test_browser_tab_bar_float.py` (geometry, forced `--safe-bottom`, last content above the bar at the end of the page, ink over white and black in both themes, app bar, reduced motion, no script), `test_sky_contrast.py` (fill over white, black and both sky ends in every theme cascade), `test_browser_frame_menu.py` (popover at 360, 390 and 1440 in EN and FR, both themes).
+
+## User pages on the components (plan 61-58, owner decision D39)
+
+- **Flights (phone).** One glass group per Paris calendar day, the day as its section label ("Today", "Yesterday", "3 Sep"); one row per flight: a neutral plane chip turned by the direction (nose up for a departure, down for an arrival), the callsign and the route codes (home end muted), "airline - aircraft" in the detail line, the live age over the clock at the right, the 44px picture action beside the row. The direction is spoken in the label (visually hidden) and shown by the chip. The Departures / All / Arrivals filter stays the glass track with the graphite pill and centred counts; a day group hides with its last visible row (`data-filter-day-group`); the hairline is drawn between visible rows only. The empty state is one panel group. The wide table is kept from 960px (the glass table with day separator rows). The airline artwork plate of the old boarding-pass card is gone from the phone list.
+- **Account.** Groups: My frames (one row per frame: the CSS frame picture, name, hardware or owner line, status dot and last-seen word, chevron to the frame; Manage access / Leave frame is the row's link line beneath the text, at the right from 640px; the last row is Add a frame with an accent chip), Identity (value rows; a long email ellipsises), Preferences (Language and Theme rows with the content-sized segmented control as the trailing control, dropping under the text when narrow), and Sign out as a group of its own with one danger-coloured row (the form and CSRF unchanged).
+- **Airline collection.** Cards stay a grid on the one glass surface; the artwork sits on a neutral plate, the name is 15px/600, the rarity is the small coloured pill (the coloured top border is gone). The detail sheet shows its facts as rows (label left, value right, hairlines, 54px), wide facts stacked.
+- **Personalisation.** The view bar is a row of separate glass pills (graphite selected pill, sliding thumb kept), scrolling sideways on a phone.
+- **Location.** Sheet and mode pills use the glass tier's solid fill (a translucent fill over a light map tile does not hold contrast in Dark); the sheet clears the floating tab bar (tested at 360x640 and 390x844).
+
+## Console pages on the components (plan 61-59, owner decisions D39, D40)
+
+- **Fleet.** The four blocks of the selected frame (State, Device and version, Settings, Access) are `ui_groups.group` sections: an `h2.section-label` above one glass `ul.group.fleet-group` (two columns from 1000px, stacked on a phone). The group holds value rows (`ui_groups.row`, e.g. Model) and free content items (`li.fleet-group__item`: the State health rows with their native `<details>`, the version cards, the settings form, the access list and add form). Embedded page content brings its own cards; inside a fleet group their surface, border and shadow are removed (hairlines between items instead), so nothing nests. The System view is one such group.
+- **Users.** The glass table from 70rem (header 12px, weight 600, no uppercase; rows at least 56px; hairlines are `--glass-hairline`), glass cards on a phone (the section around them has no surface). The role select clears its French label at 360px.
+- **Airline editor.** Same table language; per-type sub-rows sit on a 5% ink tint of the glass; thumbnails are neutral plates; an unidentified prefix row has the amber tint and an amber "Unidentified" chip; "Name it" no longer wraps.
+- **Audit log.** The phone list is one glass group (`ul.audit-cards`); the table header follows the same 12px rule (global `.data-table th`).
+- **Sheets.** `--radius-sheet` (28px) is the top radius of bottom sheets and dialogs on a phone; the radius scale is now 14 / 22 / 28 / 32 (28 only for sheets).
+- **Error pages.** The 404/403 onward link is a one-row glass group (`.error-actions`), one short line plus one action.
+- **Not changed.** The login card already uses the shared tokens and has no script. Special looks rows keep their Remove buttons (no chevron: a rule row opens nothing); only hairlines and the kind tag were retoned.
+
+## Final design language (plan 61-60, owner decision D39)
+
+The consistency and polish pass over the whole app. The rules every page now follows, in the stylesheet and held by `companion/test_browser_consistency.py`:
+
+- **Page title.** One `h1` per page on `--font-page-title-size` (700, tight tracking). Nothing else on a page is that size.
+- **Headings below the title** use one of three sizes: the section label above a group (13px, 600, secondary ink; `--font-caption-size`), the card title inside a free-content card (`--font-card-title-size`, 17px, 600) and the sub-page title (22px: a frame name on Fleet, the place name on Location). Sheet titles (special look, add look) use the card title size.
+- **Surfaces.** One glass tier (`--glass-solid` fill, `--color-border`, `--shadow-glass`, card radius 22px) for a group, a free-content card (`.page-section`) and a table wrapper (`.data-table-wrap`, so the Flights desktop table matches Users, Airline editor and Audit). A glass surface never sits inside another (embedded content in a Fleet group is flattened). A card does not lift or change shadow on hover; only an action reacts.
+- **Groups and rows.** Lists are a section label over one group of rows (at least 54px, hairline between rows). Fleet Access is rows: the purpose, the owner, each co-manager with its Remove action as a trailing control and the invite select (or typed e-mail) plus a primary Add as the last row. The Fleet System view is one labelled group per topic (flight data, data sources, identification, backups) with the unresolved-airline registry as its own group. The standalone Releases page lists versions as one group of expandable rows with the running count in the label. The airline sheet's facts are hairline rows on the sheet (the sheet is the glass, so no inner group). Special look rule rows keep their trailing Remove action (a rule opens nothing, so no chevron).
+- **Controls.** Selects and text, number, search and time inputs are 44px tall with the 14px control radius. The Flights, Airline collection, Airline editor and Health search field is 44px with that radius too (the phone icon button is 44px square). Primary buttons are graphite (ivory in Dark), secondary buttons are glass, destructive text is the error colour.
+- **Dialogs and sheets** are glass with the 28px top radius on a phone; the dialog container itself draws no focus ring (every control inside keeps its ring); the quiet-hours time fields shrink so a 12-hour clock reads in full on a 360px phone.
+- **Background.** The sky runs from pale blue to a cool pale grey (`--sky-bottom` is `#EDF1F6`); no warm beige remains in Light.
+- **Quality gates** (all in the consistency test): at most six blurred surfaces per page, every animation finite except the status dot pulse, no layout shift above 0.1 while a page settles (Home, Flights, Fleet, Users), reduced motion leaves no looping animation, a visible focus ring on every control type, and `aria-current` on the current navigation entry, `aria-haspopup`/`aria-expanded` on the menus.

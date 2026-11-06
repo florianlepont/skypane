@@ -95,9 +95,10 @@ def test_add_a_frame_lives_only_in_the_strip_and_there_is_no_register_form(fleet
     header = re.search(r'<div class="page-header">.*?</div>', page, re.S).group(0)
     assert "dlg-add-frame" not in header and "Add a frame" not in header
     assert "page-header__actions" not in header
-    assert page.count("frame-tile--add") == 1
-    assert '<a class="frame-tile frame-tile--add" href="#dlg-add-frame" data-modal-open>' in page
-    assert page.rindex("frame-tile--add") > page.rindex("frame-tile__name")
+    assert page.count("frame-row--add") == 1
+    assert '<a class="frame-row frame-row--add" href="#dlg-add-frame" data-modal-open>' in page
+    assert page.rindex("frame-row--add") > page.rindex("frame-row--system")
+    assert page.index("frame-menu__list") < page.index("page-header")
     assert "<h1" in header and ">Fleet<" in header
     for text in ("Register a frame", "Register frame", 'name="mac"', 'name="secret_sha256"',
                  'action="/fleet/register"', "MAC address"):

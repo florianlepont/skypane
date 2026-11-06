@@ -21,9 +21,9 @@
  *     (.personalisation-nav__link[aria-current])
  *   - the current segment of the space switch
  *     (.space-switch__segment--current)
- *   - the current frame's tile outline in the frame tile strip
- *     (.frame-tile[aria-current]) and the Add a screen tile's text
- *     and dashed border (.frame-tile--add)
+ *   - the check of the current frame row in the frame popover
+ *     (.frame-row__check) and the Add a frame row's plus
+ *     (.frame-row--add)
  *   - switch-on state (.switch[aria-checked="true"])
  *   - stat tiles (the top rule and icon of .stat-tile)
  *   - the special-look add button's dashed plus
@@ -39,6 +39,20 @@
  */
 
 :root {
+  /* The device safe areas (notch, rounded corners, home indicator), which
+   * are non-zero only because every page shell sets viewport-fit=cover. The
+   * fixed bars, sheets, dialogs and toasts pad themselves with these. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+
+  /* The floating tab bar: its height and the gap to the screen edge; the
+   * page clears bar + gap + the home-indicator inset. */
+  --tab-bar-h: 68px;
+  --tab-bar-gap: 12px;
+  --tab-bar-pad: 2px;
+
   /* Spacing scale, multiples of 4. */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -48,26 +62,33 @@
   --space-2xl: 48px;
   --space-3xl: 64px;
 
-  /* Typography scale: exactly 4 sizes, 2 weights. */
-  --font-label-size: 14px;
+  /* One type scale: page title (below), section title, body 16, secondary
+   * 15, caption 13; two weights plus a bold page title. */
+  --font-caption-size: 13px;
+  --font-label-size: 15px;
   --font-body-size: 16px;
   --font-heading-size: 22px;
+  --font-card-title-size: 17px;
+  --weight-title: 700;
+  --tracking-title: -0.03em;
   /* The page title scales with the viewport: 30-34px on a phone, 44-48px
    * from the desktop breakpoint (see the @media block below :root). */
   --font-page-title-size: clamp(1.875rem, 1.55rem + 1.4vw, 2.125rem);
   --weight-regular: 400;
   --weight-semibold: 600;
 
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  /* Titles use the platform display face (system fonts only, nothing is
+   * downloaded); there is no serif anywhere in the app. */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  /* A system font stack, deliberately: the zero-external-reference rule
-   * forbids a web font. Leads with Iowan Old Style/Charter (bundled on
-   * Apple platforms) rather than Georgia, so Mac/iPhone render the
-   * intended faces instead of always falling through to Georgia. */
-  --font-serif: "Iowan Old Style", Charter, "Palatino Linotype", Georgia, "Book Antiqua", serif;
 
-  --radius-card: 20px;
-  --radius-control: 8px;
+  /* The whole radius scale: control (buttons, inputs, tracks), card/group, and
+   * pill/sheet (pills, switches, sheets, floating bars). Nothing else. */
+  --radius-control: 14px;
+  --radius-card: 22px;
+  --radius-pill: 32px;
+  --radius-sheet: 28px;
 
   /* Theme-independent colour tokens: every one of these held the exact
    * same value in every theme block before it was a token, so (like
@@ -134,38 +155,46 @@
   /* Frosted glass: theme-independent geometry. The blur is only applied
    * inside an @supports block at the end of this file; outside it every
    * surface keeps its solid --color-dominant/--color-secondary fill. */
-  --glass-blur: 16px;
-  --radius-glass: 22px;
+  --glass-blur: 22px;
+  --glass-saturate: 165%;
+  --radius-chip: 9px;
 
   /* Light mode (default) */
-  /* The sky behind the page: three stops of a vertical gradient painted by
-   * a fixed pseudo-element on <html>. Light mode shows the sky of the
-   * viewer's local time of day (html[data-sky], set by static/sky.js;
-   * "day" without script). Every stop keeps text and accent readable
-   * (companion/test_sky_contrast.py). */
-  --sky-top: #D5E7F6;
-  --sky-mid: #E3EDF5;
-  --sky-bottom: #F4F1EA;
+  /* The one background behind the page: a very pale sky in Light (three
+   * stops of a gentle vertical gradient) and an ink gradient in Dark. It is
+   * painted on <html> itself, so the browser chrome, the overscroll area and
+   * the strips under the notch and home indicator all show it; the same two
+   * end colours are the theme-color meta tags the page shells carry. Every
+   * stop keeps text and accent readable (companion/test_sky_contrast.py). */
+  --sky-top: #E7EEF7;
+  --sky-mid: #F1F3F6;
+  --sky-bottom: #EDF1F6;
   /* Translucent surfaces painted over the sky: cards and panels, and the
    * bars (sidebar, tab bar, phone header). The composite over the worst
    * sky stop is what the contrast tests measure. The bars are nearly opaque
    * because page content scrolls beneath them: whatever passes behind a bar
    * (a white picture, a dark card) must not wash out its labels. */
-  --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-bar-bg: rgba(255, 255, 255, 0.94);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
-  --color-canvas: #F7F4EF;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-solid: #FFFFFF;
+  --glass-hairline: rgba(23, 25, 31, 0.1);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
+  --bar-bg: rgba(255, 255, 255, 0.66);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
+  --bar-border: rgba(255, 255, 255, 0.7);
+  --bar-pill-bg: rgba(255, 255, 255, 0.92);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  --pop-bg: rgba(255, 255, 255, 0.9);
+  --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
-  --color-secondary: #EEE8DE;
-  --color-border: #DFD7C8;
-  /* Deliberately hue-separated (~16°) from --color-status-warn's
-   * golden amber (~32°), so an accent control and a warning dot never
-   * read as the same signal. Meets WCAG AA text contrast; re-verify
-   * both hue separation and contrast before changing this value
-   * (companion/test_contrast_check.py pins both). */
-  --color-accent: #B13F16;
-  --color-accent-hover: #963610;
+  --color-secondary: #E9EEF5;
+  --color-border: #DAE1EB;
+  /* Graphite in Light, ivory in Dark: a neutral accent, so it can never be
+   * mistaken for a status colour (green/amber/red). Meets WCAG AA text
+   * contrast on every surface (companion/test_contrast_check.py). */
+  --color-accent: #1F2430;
+  --color-accent-hover: #343B4D;
   --color-on-accent: #FFFFFF;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
@@ -210,20 +239,28 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --sky-top: #0B1026;
-    --sky-mid: #18203F;
-    --sky-bottom: #2C2540;
-    --glass-bg: rgba(255, 255, 255, 0.08);
-    --glass-bar-bg: rgba(16, 21, 48, 0.9);
+    --sky-top: #12151D;
+    --sky-mid: #161A24;
+    --sky-bottom: #1A1F2B;
+    --glass-bg: rgba(255, 255, 255, 0.09);
     --glass-border: rgba(255, 255, 255, 0.16);
-    --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
-    --color-canvas: #0C0F14;
+    --glass-highlight: rgba(255, 255, 255, 0.18);
+    --glass-solid: #1C222D;
+    --glass-hairline: rgba(255, 255, 255, 0.1);
+    --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
+    --bar-bg: rgba(20, 24, 34, 0.86);
+    --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+    --bar-border: rgba(255, 255, 255, 0.16);
+    --bar-pill-bg: rgba(255, 255, 255, 0.18);
+    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+    --pop-bg: rgba(28, 34, 45, 0.92);
+    --color-canvas: #161A24;
     --color-dominant: #151922;
     --color-secondary: #1C222D;
     --color-border: #2A3040;
-    --color-accent: #FF8A5C;
-    --color-accent-hover: #FF9E77;
-    --color-on-accent: #151922;
+    --color-accent: #F2EFE9;
+    --color-accent-hover: #E2DED5;
+    --color-on-accent: #14171F;
     --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
     --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
     --color-text: #F1F3F6;
@@ -251,19 +288,27 @@
 
 /* Explicit theme overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
-  --sky-top: #D5E7F6;
-  --sky-mid: #E3EDF5;
-  --sky-bottom: #F4F1EA;
-  --glass-bg: rgba(255, 255, 255, 0.66);
-  --glass-bar-bg: rgba(255, 255, 255, 0.94);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --shadow-glass: 0 10px 30px rgba(80, 60, 40, 0.12), 0 2px 6px rgba(80, 60, 40, 0.06);
-  --color-canvas: #F7F4EF;
+  --sky-top: #E7EEF7;
+  --sky-mid: #F1F3F6;
+  --sky-bottom: #EDF1F6;
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.85);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-solid: #FFFFFF;
+  --glass-hairline: rgba(23, 25, 31, 0.1);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
+  --bar-bg: rgba(255, 255, 255, 0.66);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
+  --bar-border: rgba(255, 255, 255, 0.7);
+  --bar-pill-bg: rgba(255, 255, 255, 0.92);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  --pop-bg: rgba(255, 255, 255, 0.9);
+  --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
-  --color-secondary: #EEE8DE;
-  --color-border: #DFD7C8;
-  --color-accent: #B13F16;
-  --color-accent-hover: #963610;
+  --color-secondary: #E9EEF5;
+  --color-border: #DAE1EB;
+  --color-accent: #1F2430;
+  --color-accent-hover: #343B4D;
   --color-on-accent: #FFFFFF;
   --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
   --shadow-card-hover: 0 4px 12px rgba(18, 21, 27, 0.08), 0 2px 4px rgba(18, 21, 27, 0.05);
@@ -287,54 +332,29 @@ html[data-ui-theme="light"] {
   color-scheme: light;
 }
 
-/* Light mode's four skies, chosen by html[data-sky] (static/sky.js, from the
- * viewer's local hour). They sit after the explicit light block and before
- * the explicit dark block on purpose: equal specificity, so the later block
- * wins, and an explicit Dark theme always shows the night sky. Auto with a
- * dark system is handled by the media block directly below. */
-html[data-sky="dawn"] {
-  --sky-top: #FCDFC6;
-  --sky-mid: #F8E4D0;
-  --sky-bottom: #F1ECE8;
-}
-
-html[data-sky="dusk"] {
-  --sky-top: #F7DFDB;
-  --sky-mid: #EDE1EA;
-  --sky-bottom: #EFE8EF;
-}
-
-html[data-sky="night"] {
-  --sky-top: #E1E4F3;
-  --sky-mid: #E6E8F4;
-  --sky-bottom: #EBE9F0;
-}
-
-/* Auto theme on a dark system: always the deep night sky, whatever the
- * hour. More specific than the html[data-sky] blocks above. */
-@media (prefers-color-scheme: dark) {
-  html[data-sky][data-ui-theme="auto"] {
-    --sky-top: #0B1026;
-    --sky-mid: #18203F;
-    --sky-bottom: #2C2540;
-  }
-}
-
 html[data-ui-theme="dark"] {
-  --sky-top: #0B1026;
-  --sky-mid: #18203F;
-  --sky-bottom: #2C2540;
-  --glass-bg: rgba(255, 255, 255, 0.08);
-  --glass-bar-bg: rgba(16, 21, 48, 0.9);
+  --sky-top: #12151D;
+  --sky-mid: #161A24;
+  --sky-bottom: #1A1F2B;
+  --glass-bg: rgba(255, 255, 255, 0.09);
   --glass-border: rgba(255, 255, 255, 0.16);
-  --shadow-glass: 0 10px 30px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
-  --color-canvas: #0C0F14;
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+  --glass-solid: #1C222D;
+  --glass-hairline: rgba(255, 255, 255, 0.1);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
+  --bar-bg: rgba(20, 24, 34, 0.86);
+  --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
+  --bar-border: rgba(255, 255, 255, 0.16);
+  --bar-pill-bg: rgba(255, 255, 255, 0.18);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  --pop-bg: rgba(28, 34, 45, 0.92);
+  --color-canvas: #161A24;
   --color-dominant: #151922;
   --color-secondary: #1C222D;
   --color-border: #2A3040;
-  --color-accent: #FF8A5C;
-  --color-accent-hover: #FF9E77;
-  --color-on-accent: #151922;
+  --color-accent: #F2EFE9;
+  --color-accent-hover: #E2DED5;
+  --color-on-accent: #14171F;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.2);
   --color-text: #F1F3F6;
@@ -523,22 +543,17 @@ html[data-ui-theme="dark"] {
   box-sizing: border-box;
 }
 
-/* The sky: a vertical gradient painted by a fixed, non-interactive
- * pseudo-element behind everything (never background-attachment: fixed,
- * which iOS Safari ignores). html keeps the opaque canvas colour as the
- * floor under it. The pseudo-element takes no space, so it can cause
- * neither layout shift nor horizontal scroll. */
+/* The background: a vertical gradient painted on <html> (the canvas), with
+ * the middle stop as the floor under it. min-height keeps a short page
+ * covered, and background-attachment stays scroll, so there is no fixed layer,
+ * no layout shift and no horizontal scroll. Because the canvas itself carries
+ * the colour, the Safari bars and the overscroll area show the same sky. */
 html {
-  background: var(--color-canvas);
-}
-
-html::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  min-height: 100%;
+  background-color: var(--color-canvas);
+  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
 }
 
 body {
@@ -557,9 +572,15 @@ body {
   overflow-x: hidden;
 }
 
+/* Monospace is for code only: callsigns, identifiers, hashes. */
 .mono {
   font-family: var(--font-mono);
   font-weight: var(--weight-regular);
+}
+
+/* Numbers that line up (times, counts, readouts) stay in the UI face. */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }
 
 /* Typography roles */
@@ -575,18 +596,14 @@ body {
   line-height: 1.5;
 }
 
-/* Stays weight-regular on purpose: this is the middle rung of a
- * three-tier heading ladder (semibold .page-title above, semibold
- * nested-card-title below) — a regular middle tier is what keeps all
- * three reading as distinct levels instead of one weight repeated.
- * Carries the same family/letter-spacing/margin every heading-role
- * selector below shares, folded in here rather than left in a group
- * this class also had to join (h1, h2 and h3 keep their own copy since
- * a bare heading tag with no .text-heading class still needs it). */
+/* The section/card title: the display face at the section size, semibold,
+ * on every page. Carries the same family/letter-spacing/margin every
+ * heading-role selector below shares (h1, h2 and h3 keep their own copy
+ * since a bare heading tag with no .text-heading class still needs it). */
 .text-heading {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-heading-size);
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-semibold);
   line-height: 1.25;
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-sm);
@@ -623,7 +640,7 @@ body {
 }
 
 /* Headings-only: body text, tables, form controls, nav links and
- * monospace content stay on --font-ui, never --font-serif. legend's own
+ * monospace content stay on --font-ui, never --font-display. legend's own
  * identical family/weight/letter-spacing live on its own dedicated rule
  * further down (it is a <fieldset>'s accessible group name, the same
  * role as an <h2>) rather than here, so this selector list is not a
@@ -635,22 +652,20 @@ body {
 h1,
 h2,
 h3 {
-  font-family: var(--font-serif);
-  font-weight: var(--weight-regular);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   margin: 0 0 var(--space-sm);
 }
 
-/* The top rung of the three-tier heading ladder: semibold here,
- * regular on .text-heading, semibold again on the nested-card-title
- * tier — what makes all three read as distinct levels. */
+/* The top rung of the heading ladder: bold and tightly tracked. */
 .page-title {
   view-transition-name: skypane-title;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-page-title-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-title);
   line-height: 1.08;
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-title);
   margin: 0 0 var(--space-xs);
 }
 
@@ -718,7 +733,7 @@ h3 {
 .site-title {
   font-size: 24px;
   font-weight: var(--weight-semibold);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   line-height: 1.2;
   letter-spacing: -0.01em;
 }
@@ -743,16 +758,21 @@ a:hover {
   color: var(--color-accent-hover);
 }
 
-/* The phone app bar: a slim strip holding the logo only. The desktop
- * layout hides it (the sidebar carries the brand there). */
+/* The phone app bar: the logo on the left, the frame button on the right,
+ * transparent over the page background (no bar, so Safari tints nothing),
+ * padded below the status bar. The desktop layout shows only the frame
+ * button of it (the sidebar carries the brand there). */
 .site-header {
+  position: relative;
+  z-index: 15;
   display: flex;
   align-items: center;
-  min-height: 52px;
-  padding: var(--space-xs) var(--space-md);
-  background: var(--color-secondary);
+  justify-content: space-between;
+  gap: var(--space-sm);
+  min-height: calc(52px + var(--safe-top));
+  padding: calc(var(--space-xs) + var(--safe-top)) max(var(--space-md), var(--safe-right)) var(--space-xs) max(var(--space-md), var(--safe-left));
+  background: transparent;
   margin-bottom: var(--space-sm);
-  border-bottom: 1px solid var(--color-border);
 }
 
 /* The admin-only two-segment switch between the Console and the personal
@@ -806,7 +826,7 @@ a:hover {
 .dashboard-sidebar .space-switch__segment {
   padding: 0 2px;
   gap: 2px;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
 }
 
 .dashboard-sidebar .space-switch__check {
@@ -864,7 +884,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
 }
 
@@ -1145,9 +1165,9 @@ select.visually-hidden {
   background: transparent;
   border: none;
   box-shadow: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
@@ -1157,68 +1177,6 @@ select.visually-hidden {
  * must reach 44px; the sidebar footer keeps the compact segments. */
 section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 44px;
-}
-
-/* Preferences: one labelled row per setting. The segmented control is
- * sized to its labels (never stretched); on a narrow screen the text sits
- * above it, from 640px beside it. */
-.pref-rows {
-  display: flex;
-  flex-direction: column;
-}
-
-.pref-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  padding: var(--space-md) 0;
-  border-top: 1px solid var(--color-border);
-}
-
-.pref-row:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.pref-row:last-child {
-  padding-bottom: 0;
-}
-
-.pref-row__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.pref-row__label {
-  font-weight: var(--weight-semibold);
-}
-
-.pref-row__hint {
-  font-size: 13px;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.pref-row .theme-form {
-  flex: 0 0 auto;
-  max-width: 100%;
-}
-
-.pref-row .theme-form .theme-option {
-  flex: 0 1 auto;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-}
-
-@media (min-width: 640px) {
-  .pref-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-lg);
-  }
 }
 
 .account-sign-out button,
@@ -1284,7 +1242,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   width: 16px;
   height: 16px;
   border: 1px solid var(--color-border);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   display: inline-block;
 }
 
@@ -1305,7 +1263,6 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   color: var(--color-text);
   text-decoration: none;
   font-size: var(--font-label-size);
-  letter-spacing: 0.02em;
   border-radius: var(--radius-control);
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
 }
@@ -1315,8 +1272,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 .sidebar-link--active {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  color: var(--color-on-accent);
+  background: var(--color-accent);
   border-radius: var(--radius-control);
   font-weight: var(--weight-semibold);
 }
@@ -1337,7 +1294,10 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   color: var(--color-text);
 }
 
-.sidebar-link--active:hover,
+.sidebar-link--active:hover {
+  color: var(--color-on-accent);
+}
+
 .mobile-nav__link--active:hover {
   color: var(--color-accent);
 }
@@ -1347,7 +1307,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
  * contradicting the mobile floor. The wider pair lands on
  * .dashboard-main below instead, at the >=960px level it actually names. */
 .page-content {
-  padding: var(--space-xl) var(--space-lg) var(--space-2xl);
+  padding: var(--space-xl) max(var(--space-lg), var(--safe-right)) var(--space-2xl) max(var(--space-lg), var(--safe-left));
 }
 
 /* Phones: the title sits close under the app bar. The gap from the bar to
@@ -1442,7 +1402,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   min-height: 48px;
   margin: 0;
   padding: 2px 2px 2px 10px;
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   overflow: hidden;
   background: var(--color-toast-bg);
   color: var(--color-toast-fg);
@@ -1470,8 +1430,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 /* A docked toast is a persistent state: in flow, full width, no timer
  * and no dismiss. Its right padding replaces the missing 44px control. */
 .toast--docked {
+  --color-toast-bg: var(--color-on-accent);
+  --color-toast-fg: var(--color-text);
   margin-bottom: var(--space-lg);
   padding-right: var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  box-shadow: var(--shadow-glass);
 }
 
 .toast__icon {
@@ -1545,7 +1511,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   min-height: 44px;
   padding: 0 12px 0 16px;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: transparent;
   box-shadow: none;
   color: var(--toast-tone);
@@ -1584,7 +1550,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 44px;
   padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: var(--radius-control);
   background: transparent;
   box-shadow: none;
   color: color-mix(in srgb, var(--color-toast-fg) 72%, transparent);
@@ -1642,11 +1608,9 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   align-items: center;
   height: 22px;
   padding: 0 9px;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
   background: color-mix(in srgb, var(--color-toast-fg) 12%, transparent);
   color: color-mix(in srgb, var(--color-toast-fg) 88%, transparent);
 }
@@ -1732,14 +1696,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .toast-region--flash,
   .toast-region--live {
     position: fixed;
-    top: var(--space-sm);
+    top: calc(var(--space-sm) + var(--safe-top));
     left: 0;
     right: 0;
     z-index: 40;
     display: flex;
     justify-content: center;
     margin: 0;
-    padding: 0 var(--space-md);
+    padding: 0 max(var(--space-md), var(--safe-right)) 0 max(var(--space-md), var(--safe-left));
     pointer-events: none;
   }
 
@@ -1747,7 +1711,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .toast-region--live .toast {
     width: max-content;
     max-width: min(680px, 100%);
-    border-radius: 16px;
+    border-radius: var(--radius-control);
     box-shadow: var(--shadow-toast-float);
     pointer-events: auto;
     animation: skypane-toast-in var(--motion-fast) ease-out;
@@ -1765,12 +1729,12 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   .toast-region--flash,
   .toast-region--live {
     top: auto;
-    bottom: var(--space-sm);
+    bottom: calc(var(--space-sm) + var(--safe-bottom));
   }
 
   .has-tab-bar .toast-region--flash,
   .has-tab-bar .toast-region--live {
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--space-sm));
+    bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
   }
 
   .toast-region--flash .toast,
@@ -1788,11 +1752,9 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   align-items: center;
   height: 20px;
   padding: 0 8px;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -1809,209 +1771,196 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   display: none;
 }
 
-/* The frame tile strip above the page title (two or more frames). One
- * whole-tile link per frame: a CSS-drawn frame (dark bezel, white screen), the
- * name, the status dot and the last-seen word. Accent only marks the current
- * tile's outline and the Add a screen tile. Below 700px the strip scrolls
- * sideways; from 700px it wraps. */
-.frame-tiles {
-  box-sizing: border-box;
-  display: flex;
-  gap: var(--space-sm);
-  margin: 0 0 var(--space-md);
-  padding: 4px;
-  list-style: none;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-}
-
-.frame-tiles > li {
-  display: flex;
-  flex: none;
-  width: 132px;
-  scroll-snap-align: start;
-}
-
-.frame-tile {
-  box-sizing: border-box;
+/* The frame button and its popover. The button sits in the top bar; the
+ * popover is a list of 52px rows hanging under it, out of flow, so opening
+ * it moves nothing. A row is a whole-row link. */
+.frame-menu {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: 100%;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.frame-menu__button {
+  box-sizing: border-box;
+  max-width: 100%;
   min-height: 44px;
-  padding: var(--space-sm);
-  background: var(--color-dominant);
+  gap: var(--space-sm);
+  padding: 0 var(--space-md) 0 var(--space-sm);
+  background: var(--glass-solid);
   color: var(--color-text);
   border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  list-style: none;
+}
+
+.frame-menu__button::before,
+.frame-menu__button::marker {
+  content: none;
+}
+
+.frame-menu__button::-webkit-details-marker {
+  display: none;
+}
+
+.frame-menu__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.frame-menu__dot {
+  display: inline-flex;
+  flex: none;
+}
+
+.frame-menu__dot:empty {
+  display: none;
+}
+
+.frame-menu__chevron {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform .15s ease;
+}
+
+.frame-menu[open] > .frame-menu__button .frame-menu__chevron {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.frame-menu__panel {
+  box-sizing: border-box;
+  position: absolute;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  z-index: 25;
+  width: 300px;
+  max-width: calc(100vw - 24px);
+  padding: var(--space-sm);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  text-align: center;
+  box-shadow: var(--shadow-card-hover);
+  transform-origin: top right;
+  animation: skypane-soft-in var(--motion-fast) var(--ease-out) backwards;
+}
+
+.frame-menu__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.frame-menu__tail {
+  margin-top: var(--space-xs);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.frame-row {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 52px;
+  padding: var(--space-xs) var(--space-sm);
+  color: var(--color-text);
+  border-radius: var(--radius-control);
   text-decoration: none;
 }
 
-.frame-tile:hover {
-  background: var(--color-control-wash);
+.frame-row:hover {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  color: var(--color-text);
 }
 
-.frame-tile[aria-current="true"] {
-  border-color: var(--color-accent);
-  box-shadow: 0 0 0 1px var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 8%, var(--color-dominant));
+.frame-row[aria-current="true"] {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 
-.frame-tile__dot {
-  position: absolute;
-  top: var(--space-sm);
-  right: var(--space-sm);
-}
-
-.frame-tile__pic {
+.frame-row__pic {
   display: block;
   box-sizing: border-box;
   flex: none;
-  width: 44px;
-  height: 58px;
-  padding: 3px;
+  width: 28px;
+  height: 38px;
+  padding: 2px;
   background: var(--color-frame-bezel);
   border: 1px solid var(--color-frame-bezel-hi);
-  border-radius: 5px;
+  border-radius: var(--radius-control);
 }
 
-.frame-tile__pic i {
+.frame-row__pic i {
   display: block;
   height: 100%;
   background: var(--color-image-backdrop);
-  border-radius: 1px;
+  border-radius: 2px;
 }
 
-.frame-tile__name {
-  font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
-}
-
-.frame-tile__seen,
-.frame-tile__note {
-  font-size: var(--font-label-size);
-  overflow-wrap: anywhere;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.frame-tile--add {
+.frame-row__icon {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
   justify-content: center;
-  background: transparent;
-  border-style: dashed;
-  color: var(--color-accent);
-  font-weight: var(--weight-semibold);
-}
-
-.frame-tile__plus {
-  font-size: 24px;
+  width: 32px;
+  height: 32px;
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-radius: var(--radius-chip);
+  font-size: var(--font-body-size);
   line-height: 1;
 }
 
-@media (min-width: 700px) {
-  .frame-tiles {
-    flex-wrap: wrap;
-    overflow-x: visible;
-  }
-}
-
-/* The collapsible wrapper of the strip. From 700px it adds nothing: the
- * summary row is hidden and the strip looks as above. On a phone it is a
- * marked-off surface (secondary background, hairline border, inset shadow and
- * a soft gradient, all from tokens) whose summary row names the active frame
- * and opens or closes the tiles, which shrink to the picture and the name. */
-@media (min-width: 700px) {
-  .frame-fold__summary {
-    display: none;
-  }
-}
-
-@media (max-width: 699.98px) {
-  .frame-fold {
-    margin: 0 0 var(--space-md);
-    background:
-      linear-gradient(
-        color-mix(in srgb, var(--color-text) 5%, transparent),
-        transparent var(--space-lg)),
-      var(--color-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-card);
-    box-shadow: inset 0 2px 6px color-mix(in srgb, var(--color-text) 12%, transparent);
-  }
-
-  .frame-fold__summary {
-    padding: 0 var(--space-md);
-    color: var(--color-text);
-    font-weight: var(--weight-semibold);
-  }
-
-  .frame-fold__name {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .frame-fold .frame-tiles {
-    margin: 0;
-    padding: var(--space-xs) var(--space-sm) var(--space-sm);
-  }
-
-  .frame-fold .frame-tiles > li {
-    width: 84px;
-  }
-
-  .frame-fold .frame-tile {
-    gap: var(--space-xs);
-    padding: var(--space-xs);
-  }
-
-  .frame-fold .frame-tile__pic {
-    width: 32px;
-    height: 42px;
-    padding: 2px;
-  }
-
-  .frame-fold .frame-tile__pic--system {
-    width: 32px;
-    height: 32px;
-  }
-
-  .frame-fold .frame-tile__dot {
-    top: var(--space-xs);
-    right: var(--space-xs);
-  }
-
-  .frame-fold .frame-tile__name {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: var(--font-label-size);
-  }
-
-  .frame-fold .frame-tile__seen,
-  .frame-fold .frame-tile__note {
-    display: none;
-  }
-
-  .frame-fold .frame-tile--add {
-    min-height: 44px;
-  }
-}
-
-/* The System tile of the Console Fleet strip: a round badge instead of the
- * frame picture. */
-.frame-tile__pic--system {
-  width: 44px;
-  height: 44px;
+.frame-row__icon i {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
   border-radius: 50%;
 }
 
-.frame-tile__pic--system i {
-  border-radius: 50%;
+.frame-row__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.frame-row__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+}
+
+.frame-row__seen,
+.frame-row__note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 72%, transparent);
+}
+
+.frame-row__dot {
+  display: inline-flex;
+  flex: none;
+}
+
+.frame-row__check {
+  flex: none;
+  width: 6px;
+  height: 11px;
+  margin: 0 var(--space-xs) 3px var(--space-xs);
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
 }
 
 /* The blocks of the selected frame (or the System view): stacked on a phone,
@@ -2026,24 +1975,109 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 .fleet-block {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+/* A block's group holds value rows and free content items (health rows,
+ * forms, version cards). The embedded page content brings its own card
+ * chrome; inside the one glass group it is flattened so nothing nests. */
+.fleet-group > .fleet-group__item {
   box-sizing: border-box;
   min-width: 0;
   padding: var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
 }
 
-.fleet-block > .text-heading {
-  margin: 0 0 var(--space-sm);
+.fleet-group > .fleet-group__item--flush {
+  padding: 0;
 }
 
-.fleet-block__fact {
+.group .fleet-block__fact .row__value {
+  max-width: 65%;
+  white-space: normal;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.fleet-group > li + li {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group .page-section,
+.fleet-group .update-cta,
+.fleet-group .update-versions,
+.fleet-group .theme-status,
+.fleet-group .data-card,
+.fleet-group .data-cards,
+.fleet-group .empty-state,
+.fleet-group .health-rows,
+.fleet-group .toast--docked,
+.fleet-group .battery-trend-section {
+  margin: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.fleet-group__item .page-section,
+.fleet-group__item .update-cta,
+.fleet-group__item .update-versions,
+.fleet-group__item .theme-status,
+.fleet-group__item .data-card {
+  padding: 0;
+}
+
+.fleet-group ul.data-cards {
+  padding: 0;
+  list-style: none;
+}
+
+.fleet-group .data-cards > .data-card {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-md);
-  margin: 0 0 var(--space-sm);
+  align-items: center;
+  min-height: 54px;
+}
+
+.fleet-group .data-card + .data-card {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group .theme-status + .theme-status {
+  margin-top: var(--space-md);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group .page-section + .page-section,
+.fleet-group .health-rows + .page-section,
+.fleet-group .toast--docked + .health-rows {
+  margin-top: 0;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group > .fleet-group__item--flush > .toast--docked,
+.fleet-group > .fleet-group__item--flush > .page-section {
+  padding: var(--space-md);
+}
+
+.fleet-group > .fleet-group__item--flush > .health-rows {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.fleet-group > .fleet-group__item--flush > .health-rows:first-child {
+  border-top: 0;
+}
+
+.fleet-group .health-rows__group {
+  background: none;
+  border-bottom: 0;
+}
+
+.fleet-group .text-heading {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
 }
 
 @media (min-width: 1000px) {
@@ -2092,8 +2126,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 20px;
   padding: 0 8px;
   gap: 4px;
-  border-radius: 999px;
-  font-size: 11px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
@@ -2139,8 +2173,8 @@ fieldset {
  * joined the heading-rhythm margin group above, and folding these two
  * rules into one must not add it now. */
 legend {
-  font-family: var(--font-serif);
-  font-weight: var(--weight-regular);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   font-size: var(--font-heading-size);
   padding: 0 var(--space-xs);
@@ -2192,11 +2226,11 @@ select {
 button {
   height: 30px;
   padding: 0 12px;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   font-family: var(--font-ui);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   background: var(--color-control-wash); /* fallback for browsers without color-mix() */
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
@@ -2304,7 +2338,7 @@ button:hover {
   align-items: center;
   justify-content: center;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
 }
 
@@ -2336,10 +2370,8 @@ button:hover {
   transform: translateY(-50%);
   margin-left: var(--space-xs);
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: var(--color-status-ok);
 }
 
@@ -2511,10 +2543,8 @@ button:disabled {
     position: absolute;
     top: var(--space-sm);
     right: var(--space-sm);
-    font-size: 12px;
+    font-size: var(--font-caption-size);
     font-weight: var(--weight-semibold);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
@@ -2543,7 +2573,7 @@ button:disabled {
    * page that renders the bar without the tab bar. */
   .has-tab-bar .page-content:has(.dirty-bar) {
     padding-bottom: calc(
-      var(--space-2xl) + 176px + env(safe-area-inset-bottom, 0px));
+      var(--space-2xl) + 134px + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
   /* The Display look card's live selection states. */
@@ -2586,9 +2616,9 @@ button:disabled {
   }
 
   .look-seg__option:has(input:checked) {
-    background: var(--color-dominant);
-    color: var(--color-text);
-    box-shadow: 0 0 0 1px var(--color-border), var(--shadow-card);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: var(--shadow-control);
   }
 
   .look-seg__option:has(input:disabled) {
@@ -2612,11 +2642,9 @@ button:disabled {
 }
 
 .detection-summary dt {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.4;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -2633,7 +2661,7 @@ button:disabled {
 }
 
 .detection-tag {
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-size: var(--font-label-size);
   font-weight: var(--weight-regular);
 }
@@ -2703,9 +2731,13 @@ button:disabled {
 .data-table-wrap {
   overflow-x: auto;
   max-width: 100%;
+  background-color: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
   background-image:
-    linear-gradient(to right, var(--color-canvas), transparent 24px),
-    linear-gradient(to left, var(--color-canvas), transparent 24px),
+    linear-gradient(to right, var(--glass-solid), transparent 24px),
+    linear-gradient(to left, var(--glass-solid), transparent 24px),
     radial-gradient(farthest-side at 0 50%,
       color-mix(in srgb, var(--color-text) 15%, transparent), transparent),
     radial-gradient(farthest-side at 100% 50%,
@@ -2721,6 +2753,10 @@ button:disabled {
  * they read as a visible coloured band. */
 .page-section .data-table-wrap,
 .battery-trend-section .data-table-wrap {
+  background-color: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   background-image:
     linear-gradient(to right, var(--color-dominant), transparent 24px),
     linear-gradient(to left, var(--color-dominant), transparent 24px),
@@ -2763,18 +2799,44 @@ table.data-table--readings {
  * — an engine-specific ascent-metric difference, not a WebKit-only bug. */
 .data-table th {
   font-size: 12px;
+  text-transform: none;
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-align: left;
   padding: 10px var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--glass-hairline);
 }
 
 .data-table td {
   padding: 13px var(--space-md);
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--glass-hairline);
+}
+
+.data-table--flights td {
+  height: 56px;
+}
+
+/* The users phone cards: the solid glass base outside @supports. */
+.users-row {
+  background: var(--glass-solid);
+}
+
+/* The audit log's phone list: one glass group of entries. */
+.audit-cards {
+  padding: 0 var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.audit-cards .data-card {
+  padding: var(--space-md) 0;
+  border-bottom: 1px solid var(--glass-hairline);
+}
+
+.audit-cards .data-card:last-child {
+  border-bottom: 0;
 }
 
 /* Scoped to Flights' own table only. Tokens only (no literal px), so
@@ -2883,14 +2945,14 @@ table.data-table--registry .cell-inline-sep {
   flex: 1;
 }
 
-/* The card's headline is the nested-card-title voice (16px sans
- * semibold), the same rung .page-section--nested > h2 uses. */
+/* The card's headline is a section title, the same role
+ * .page-section--nested > h2 uses. */
 .update-cta__title {
   margin: 0 0 var(--space-xs);
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
+  font-family: var(--font-display);
+  font-size: var(--font-card-title-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: normal;
+  letter-spacing: -0.01em;
   line-height: 1.3;
 }
 
@@ -3134,8 +3196,6 @@ table.data-table--registry .cell-inline-sep {
   background: var(--color-canvas);
   text-align: left;
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3161,13 +3221,13 @@ table.data-table--registry .cell-inline-sep {
  * in this file. 13px/0.75 (up from 12px/0.7): the smaller pair measured
  * at the edge of comfortable contrast on the dark surface. */
 .cell-primary {
-  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
   font-weight: var(--weight-semibold);
 }
 
 .cell-secondary {
-  font-family: var(--font-mono);
-  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-caption-size);
   opacity: 0.75;
 }
 
@@ -3177,288 +3237,10 @@ table.data-table--registry .cell-inline-sep {
 }
 
 /* .history-cards ~ .data-table-wrap (a sibling combinator) scopes this
- * toggle to History's own pair only — Airlines/Health also reuse
+ * toggle to History's own pair only: Airlines/Health also reuse
  * .data-table-wrap but never render a sibling .history-cards. */
-.history-cards {
-  display: grid;
-  gap: var(--space-sm);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .history-cards ~ .data-table-wrap {
   display: none;
-}
-
-/* The phone boarding-pass card. No padding on the card itself: each
- * band carries its own, so the stub's tear line can run edge to edge
- * and its notches can sit on the card's border. */
-.history-card {
-  position: relative;
-  background: var(--color-dominant);
-  /* Same hairline-at-rest contract as .runway-card above. */
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-}
-
-/* A slim day header between cards, in the label voice with a trailing
- * hairline. Not a filter row: it carries no data-filter-text. */
-.history-cards__day {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.history-cards__day:first-child {
-  margin-top: 0;
-}
-
-/* [hidden]-vs-author-display collision: the filter hides a day header
- * with no visible row under it. */
-.history-cards__day[hidden] {
-  display: none;
-}
-
-.history-cards__day::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
-}
-
-/* Identity on the left in a shrinkable track, the 44px picture action
- * pinned to its own content width on the right. */
-.history-card__head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-sm) 0 var(--space-md);
-}
-
-.history-card__id {
-  min-width: 0;
-  padding-top: var(--space-xs);
-}
-
-.history-card__callsign {
-  display: block;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  letter-spacing: 0.03em;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.history-card__note {
-  font-family: var(--font-ui);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
-  letter-spacing: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* One line, ellipsised: a long operator name never pushes the card
- * taller or the picture action out of its track. */
-.history-card__airline {
-  display: block;
-  font-size: var(--font-label-size);
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.history-card__airline--unknown {
-  font-style: italic;
-}
-
-/* An icon-only link with a real 44px box, not a padded glyph. */
-.history-card__picture {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-text) 4%, transparent);
-  color: var(--color-text);
-}
-
-.history-card__picture:hover {
-  background: color-mix(in srgb, var(--color-text) 8%, transparent);
-}
-
-/* origin | track | destination: the codes span both grid rows and pin
- * to the top, and the first row is exactly one code tall, so the
- * dashed track runs through the codes' middle while the direction
- * label tucks under the plane beside them rather than on a row of its
- * own. */
-.history-card__route {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: var(--font-heading-size) auto;
-  grid-template-areas:
-    "from track to"
-    "from dir to";
-  column-gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md) var(--space-sm);
-}
-
-.history-card__code {
-  font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0.04em;
-  line-height: 1;
-}
-
-.history-card__code--from {
-  grid-area: from;
-  align-self: start;
-}
-
-.history-card__code--to {
-  grid-area: to;
-  align-self: start;
-}
-
-.history-card__code--home {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.history-card__code--none {
-  line-height: var(--font-heading-size);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
-  letter-spacing: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.history-card__track {
-  grid-area: track;
-  align-self: center;
-  position: relative;
-  display: flex;
-  justify-content: center;
-  min-width: 0;
-}
-
-/* The dashed track behind the plane, through the glyph's middle. */
-.history-card__track::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  border-top: 1px dashed color-mix(in srgb, var(--color-text) 30%, transparent);
-}
-
-/* The dominant-surface pad masks the dashes under the glyph. */
-.icon.history-card__plane {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  padding: 0 var(--space-xs);
-  box-sizing: content-box;
-  background: var(--color-dominant);
-  color: var(--color-text);
-}
-
-.history-card__dir {
-  grid-area: dir;
-  justify-self: center;
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  line-height: 1.2;
-  white-space: nowrap;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* The stub below the tear line: artwork plate and time on one row.
- * The two notches are half-discs in the page colour sitting on the
- * card's side borders, so they follow the canvas in both themes. */
-.history-card__stub {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border-top: 1px dashed var(--color-border);
-}
-
-.history-card__stub::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  background: var(--history-card-notch, var(--color-canvas));
-  left: -8px;
-  clip-path: inset(0 0 0 50%);
-}
-
-.history-card__stub::after {
-  content: "";
-  position: absolute;
-  top: -8px;
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  background: var(--history-card-notch, var(--color-canvas));
-  right: -8px;
-  clip-path: inset(0 50% 0 0);
-}
-
-/* A fixed 40px-tall plate; the artwork keeps its aspect inside it on
- * the image backdrop, the same backing every artwork thumbnail uses. */
-.history-card__art {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 200px;
-  height: 40px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-}
-
-img.history-card__art {
-  background: var(--color-image-backdrop);
-  object-fit: contain;
-}
-
-.history-card__art--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 var(--space-sm);
-  border-style: dashed;
-  font-size: 12px;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.history-card__when {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.3;
-  white-space: nowrap;
 }
 
 /* The row-level picture action on the card and in the table: the
@@ -3525,8 +3307,6 @@ a.calendar-disconnect-btn.flight-picture-link {
 .data-card__label {
   font-size: 12px;
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -3601,12 +3381,12 @@ a.calendar-disconnect-btn.flight-picture-link {
  * input rule's min-height because 48 > 44. */
 .filter-bar__search input {
   width: 100%;
-  height: 48px;
+  height: 44px;
   padding: 0 52px 0 46px;
   font-size: var(--font-body-size);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
+  border-radius: var(--radius-control);
   box-shadow: var(--shadow-card);
   -webkit-appearance: none;
   appearance: none;
@@ -3677,10 +3457,8 @@ a.calendar-disconnect-btn.flight-picture-link {
 }
 
 .filter-bar__count {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   white-space: nowrap;
 }
@@ -3709,10 +3487,9 @@ a.calendar-disconnect-btn.flight-picture-link {
   gap: 2px;
   margin: 0;
   padding: 3px;
-  border: none;
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   background: var(--color-secondary);
-  box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 /* min-content keeps a label whole: a segment grows to its text instead of
@@ -3748,10 +3525,8 @@ a.calendar-disconnect-btn.flight-picture-link {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   line-height: 1.3;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -3761,13 +3536,13 @@ a.calendar-disconnect-btn.flight-picture-link {
 }
 
 .filter-chip input:checked + .filter-chip__box {
-  background: var(--color-dominant);
-  box-shadow: inset 0 0 0 1px var(--color-border), var(--shadow-card);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
 }
 
 .filter-chip input:checked + .filter-chip__box .filter-chip__count,
 .filter-chip input:checked + .filter-chip__box .filter-chip__text {
-  color: var(--color-text);
+  color: var(--color-on-accent);
 }
 
 .filter-chip input:focus-visible + .filter-chip__box {
@@ -3794,7 +3569,7 @@ a.calendar-disconnect-btn.flight-picture-link {
  * the next line. Without a script the plain full-width field applies. */
 @media (max-width: 959.98px) {
   .js .filter-bar--chips .filter-bar__search {
-    flex: 0 0 48px;
+    flex: 0 0 44px;
     order: 2;
   }
 
@@ -4013,10 +3788,8 @@ details[open] > summary::before {
   gap: var(--space-xs);
   margin: 0 0 var(--space-sm);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -4133,10 +3906,10 @@ details[open] > summary::before {
 .page-section {
   padding: var(--space-md);
   margin-bottom: var(--space-lg);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  box-shadow: none;
+  box-shadow: var(--shadow-glass);
 }
 
 .page-section:hover,
@@ -4167,10 +3940,10 @@ details[open] > summary::before {
 .page-section--nested > h2,
 .battery-trend-section > h2,
 .theme-status--nested > h2 {
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: normal;
+  letter-spacing: -0.01em;
   margin-bottom: var(--space-md);
 }
 
@@ -4247,11 +4020,9 @@ a.airline-card {
   align-items: center;
   height: 20px;
   padding: 0 8px;
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -4638,18 +4409,16 @@ a.airline-card {
 
 /* The h2 keeps the page outline's two sections and the #screen /
  * #server-data link targets; this rule gives it the label voice and takes
- * it off the shared serif heading rule. */
+ * it off the shared heading rule. */
 .health-rows__group {
   margin: 0;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-secondary);
   border-bottom: 1px solid var(--color-border);
   font-family: var(--font-ui);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
   line-height: 1.3;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -4728,11 +4497,9 @@ a.airline-card {
 
 .health-row__name {
   grid-area: name;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
   line-height: 1.3;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -4848,19 +4615,8 @@ a.airline-card {
 }
 
 @container health-rows (min-width: 600px) {
-  .health-row__summary {
-    grid-template-columns: 32px 208px minmax(0, 1fr) auto 16px;
-    grid-template-areas: "icon name verdict value chevron";
-    padding: 0 var(--space-lg);
-  }
-
   .health-rows__group {
     padding: var(--space-sm) var(--space-lg);
-  }
-
-  .health-row__value {
-    justify-content: flex-end;
-    text-align: right;
   }
 
   /* Indented to the name column, so the evidence reads as belonging to
@@ -4896,12 +4652,12 @@ a.airline-card {
     display: flex;
     flex-direction: column;
     gap: var(--space-lg);
-    min-height: calc(100vh - var(--space-md) * 2);
+    min-height: calc(100dvh - var(--space-md) * 2);
     margin: var(--space-md) 0 var(--space-md) var(--space-md);
     padding: var(--space-lg) var(--space-md);
     background: var(--color-secondary);
     border: 1px solid var(--color-border);
-    border-radius: calc(var(--radius-glass) + 4px);
+    border-radius: var(--radius-pill);
     box-shadow: var(--shadow-glass);
     position: sticky;
     top: var(--space-md);
@@ -4916,11 +4672,50 @@ a.airline-card {
     border-top: 1px solid var(--color-border);
   }
 
+  /* The app bar holds only the frame button here, laid over the top right of
+   * the content column, level with the page title. */
   .site-header {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: start;
+    height: 0;
+    min-height: 0;
+    padding: 0;
+    margin: 0;
+  }
+
+  .site-header:not(:has(.frame-menu)) {
     display: none;
   }
 
+  .site-header > .brand {
+    display: none;
+  }
+
+  .site-header .frame-menu {
+    position: absolute;
+    top: var(--space-2xl);
+    right: max(var(--space-3xl), calc((100% - 1440px) / 2 + var(--space-3xl)));
+    max-width: 11rem;
+  }
+
+  /* The map fills the content area under the button: its top-right controls
+   * hang below it. */
+  .site-header:has(.frame-menu) ~ .dashboard-main .leaflet-top.leaflet-right {
+    margin-top: calc(var(--space-2xl) + 44px);
+  }
+
+  /* The title row keeps clear of the button: its header (title beside any
+   * badges) or a bare title. */
+  .site-header:has(.frame-menu) ~ .dashboard-main .page-header,
+  .site-header:has(.frame-menu) ~ .dashboard-main > .page-title {
+    padding-right: 12rem;
+  }
+
   .dashboard-main {
+    grid-column: 2;
+    grid-row: 1;
     min-width: 0;
     width: 100%;
     max-width: min(1440px, 100%);
@@ -4997,7 +4792,7 @@ a.airline-card {
 }
 
 .login-shell {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5076,13 +4871,6 @@ a.airline-card {
   display: flex;
   width: fit-content;
   margin-bottom: var(--space-sm);
-}
-
-/* A long email wraps instead of widening the Account card. */
-.account-identity .data-card__value {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: right;
 }
 
 /* box-shadow at rest is this file's one hairline-at-rest exception: a
@@ -5184,7 +4972,7 @@ a.airline-card {
 .lightbox--wide .lightbox__image {
   width: auto;
   max-width: 100%;
-  max-height: 60vh;
+  max-height: 60svh;
   margin-left: auto;
   margin-right: auto;
 }
@@ -5231,7 +5019,7 @@ a.airline-card {
 
 .lightbox__replace-hint {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: var(--color-overlay-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -5246,7 +5034,7 @@ a.airline-card {
   min-width: 0;
   max-width: 100%;
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: var(--color-overlay-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -5261,7 +5049,7 @@ a.airline-card {
   padding: 0 12px;
   margin-right: var(--space-sm);
   font-family: var(--font-ui);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   letter-spacing: -0.01em;
   border-radius: var(--radius-control);
@@ -5300,7 +5088,7 @@ a.airline-card {
  * one .lightbox__replace-hint element per zone. */
 .upload-drop__note {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: var(--color-text); /* fallback for browsers without color-mix() */
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -5352,7 +5140,7 @@ a.airline-card {
 
 .upload-drop__message {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   color: var(--color-status-error);
 }
@@ -5487,9 +5275,9 @@ button.detection-search:hover {
 }
 
 .place-mode:has(input:checked) {
-  background: var(--color-dominant);
-  color: var(--color-accent);
-  box-shadow: var(--shadow-card);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: var(--shadow-control);
 }
 
 .place-mode:has(input:focus-visible) {
@@ -5723,8 +5511,8 @@ button.detection-search:hover {
 
 .map-ready .place-mode {
   padding: 0 var(--space-md);
-  border-radius: 22px;
-  background: var(--color-dominant);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -5834,9 +5622,9 @@ button.detection-search:hover {
   overflow-y: auto;
   gap: var(--space-sm);
   padding: var(--space-md);
-  background: var(--color-dominant);
-  border-radius: 20px 20px 0 0;
-  box-shadow: var(--shadow-card-hover);
+  background: var(--glass-solid);
+  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  box-shadow: var(--shadow-glass);
   pointer-events: auto;
 }
 
@@ -5857,9 +5645,9 @@ button.detection-search:hover {
 }
 
 .map-ready .place-sheet .place-chosen__name {
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-body-size);
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-semibold);
 }
 
 /* Save and Cancel live in the sheet; the count line is for assistive
@@ -5966,7 +5754,7 @@ button.detection-search:hover {
   display: flex;
   flex-direction: column;
   max-width: none;
-  height: calc(100dvh - 52px - 57px - env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - 52px - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom));
   padding: 0;
 }
 
@@ -6052,9 +5840,9 @@ button.detection-search:hover {
 
   .map-ready .place-mode:has(input:checked) {
     border-radius: var(--radius-control);
-    background: var(--color-dominant);
-    color: var(--color-accent);
-    box-shadow: var(--shadow-card);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: var(--shadow-control);
   }
 
   .map-ready .place-sheet {
@@ -6108,7 +5896,7 @@ button.detection-search:hover {
 .place-map {
   width: 100%;
   max-width: 100%;
-  height: min(60vh, 26rem);
+  height: min(60svh, 26rem);
   min-height: 17.5rem;
   box-sizing: border-box;
   border: 1px solid var(--color-border);
@@ -6330,8 +6118,8 @@ button.place-result:hover {
 
 .place-subtitle {
   margin: 0;
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
   font-weight: var(--weight-semibold);
 }
 
@@ -6460,20 +6248,16 @@ button.place-result:hover {
   display: block;
   padding: 0 var(--space-sm);
   margin-bottom: var(--space-xs);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* 2. Page-header screen caption --------------------------------------- */
 .page-header__screen {
   margin: 0 0 var(--space-xs);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -6486,27 +6270,18 @@ button.place-result:hover {
  * put the day band in a narrower column than its canvas needs (measured:
  * an 880px container leaves 288px per column against a 310px floor),
  * silently invalidating draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT. */
-.home-overview {
-  display: grid;
-  gap: var(--space-md);
-  margin-bottom: var(--space-lg);
-}
+
 
 /* .home-overview > * is doubled to (0,2,0) deliberately: at (0,1,0) it
  * tied .frame-strip's own margin-bottom rule and lost to source order,
  * leaving inconsistent gaps (measured in Chromium). */
-.home-overview.home-overview > * {
-  margin-bottom: 0;
-}
+
 
 .home-section > .text-heading {
   margin-top: 0;
 }
 
-.home-status-grid {
-  margin-bottom: var(--space-sm);
-  align-items: stretch;
-}
+
 
 .stat-tile__gauge {
   display: flex;
@@ -6524,44 +6299,20 @@ button.place-result:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.home-columns {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: var(--space-lg);
-}
 
-.home-columns > .home-section {
-  margin-bottom: 0;
-}
 
-/* .home-columns.home-picture-row is (0,2,0), outranking the generic
- * .home-columns >=960px split above at every width, so this row keeps
- * its own 3:2 ratio instead of the ambient 1fr/1fr. */
-.home-columns.home-picture-row {
-  grid-template-columns: 1fr;
-}
 
-@media (min-width: 1024px) {
-  .home-columns.home-picture-row {
-    grid-template-columns: 3fr 2fr;
-    /* flex-start, not the bare "start" keyword: test_status_pages.py
-     * pins this file to exactly one remaining bare-keyword declaration
-     * elsewhere. Grid treats flex-start as an alias, same effect. */
-    align-items: flex-start;
-  }
-}
+
+
+
 
 /* The latest frame is the Home page's anchor.  The image remains bounded by
  * the existing preview rules; this grid only gives it the reading priority
  * the owner selected, with the recent list immediately alongside on desktop
  * and directly after it on a phone. */
-.home-current-frame {
-  min-width: 0;
-}
 
-.home-current-frame .preview-frame__image {
-  width: 100%;
-}
+
+
 
 /* The docked attention toast only; the container is empty (and takes no
  * space) while every health state is fine. */
@@ -6600,97 +6351,43 @@ button.place-result:hover {
  * side, and from 840px of card (a wide window, sidebar included) the
  * three zones become columns. Surface, border and
  * radius are the shared tokens, so both themes follow the palette. */
-.home-state {
-  --home-tone: var(--color-status-ok);
-  container-type: inline-size;
-  position: relative;
-  isolation: isolate;
-  margin-bottom: var(--space-lg);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card);
-}
 
-.home-state--warn {
-  --home-tone: var(--color-status-warn);
-}
 
-.home-state--error {
-  --home-tone: var(--color-status-error);
-}
 
-.home-state--off {
-  --home-tone: color-mix(in srgb, var(--color-text) 45%, transparent);
-}
+
+
+
+
 
 /* The state tint: a faint, static glow from the top-left corner in the
  * dot's colour. Subtle on purpose (13%, fading out before mid-card), the
  * wording and the dot carry the meaning; nothing moves, so reduced
  * motion needs nothing more. */
-.home-state::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  pointer-events: none;
-  border-radius: inherit;
-  background: radial-gradient(
-    90% 130% at 0% 0%,
-    color-mix(in srgb, var(--home-tone) 13%, transparent),
-    transparent 62%);
-}
 
-.home-state__body {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-}
 
-.home-state__status {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  min-width: 0;
-  padding: var(--space-lg);
-}
 
-.home-state__status > p {
-  margin: 0;
-}
+
+
+
+
 
 /* The micro-label voice the quick-action labels already use (12px
  * uppercase, the sub-scale exception tier). */
-.home-state__eyebrow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-xs);
-  margin: 0;
-  font-family: var(--font-ui);
-  font-size: 12px;
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
 
-.home-state__eyebrow .icon {
-  width: 16px;
-  height: 16px;
-}
 
-/* The state title takes the page-title size in the serif face: the
+
+
+/* The state title takes the page-title size in the display face: the
  * header's one display line, so it reads from across the room. */
 .home-state__headline {
   display: flex;
   align-items: flex-start;
   gap: var(--space-md);
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-page-title-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-title);
   line-height: 1.15;
-  letter-spacing: -0.015em;
+  letter-spacing: var(--tracking-title);
 }
 
 /* A solid dot inside a soft halo of the same status colour, so the state
@@ -6719,11 +6416,7 @@ button.place-result:hover {
  * resting frame (quiet hours, screen off) carries no pulse class. The
  * amber ring is gentler (smaller, fainter) through two custom properties,
  * never a second duration. */
-.home-state--warn .home-state__dot,
-.home-state--error .home-state__dot {
-  --dot-halo-scale: 2.2;
-  --dot-halo-alpha: 0.35;
-}
+
 
 .home-state__dot.dot--hollow {
   background: transparent;
@@ -6766,9 +6459,7 @@ button.place-result:hover {
   font-weight: var(--weight-semibold);
 }
 
-.home-state--warn .home-state__next--overdue .icon {
-  color: var(--color-status-warn);
-}
+
 
 .home-state__next .time-value {
   font-weight: var(--weight-semibold);
@@ -6850,8 +6541,7 @@ button.place-result:hover {
   align-items: center;
   justify-items: center;
   margin: 0;
-  padding: var(--space-lg) var(--space-lg) var(--space-md);
-  border-top: 1px solid var(--color-border);
+  padding: var(--space-sm) 0 0;
 }
 
 /* The 132px drawing shown at 120px on a narrow card; its viewBox scales
@@ -6873,7 +6563,7 @@ button.place-result:hover {
 
 .home-battery__value {
   font-size: var(--font-page-title-size);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-title);
   line-height: 1;
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
@@ -6887,11 +6577,9 @@ button.place-result:hover {
 
 /* Same micro-label voice as the header's "Frame state". */
 .home-battery__label {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -6906,8 +6594,8 @@ button.place-result:hover {
    * padding has room for it. */
   transform: translateY(6px);
   padding: 2px var(--space-sm);
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.4;
   white-space: nowrap;
@@ -6936,8 +6624,8 @@ button.place-result:hover {
   gap: var(--space-xs);
   max-width: 100%;
   padding: 2px var(--space-sm);
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.4;
   white-space: nowrap;
@@ -6960,94 +6648,31 @@ button.place-result:hover {
 
 /* The recessed panel: a step down from the card surface toward the
  * canvas. */
-.home-state__switches {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  align-content: center;
-  gap: var(--space-sm);
-  min-width: 0;
-  padding: var(--space-md);
-  border-top: 1px solid var(--color-border);
-  /* The card no longer clips (the info tooltip may reach past it), so the
-   * recessed panel rounds its own outer corners. */
-  border-radius: 0 0 var(--radius-card) var(--radius-card);
-  background: color-mix(in srgb, var(--color-canvas) 55%, transparent);
-}
+
 
 /* Each row is a pill and one big tap target: the native switch button
  * stretches its ::after over the whole pill, so the control keeps its
  * role, state and focus behaviour while the finger gets a 56px-tall
  * target. */
-.home-switch {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  min-height: 56px;
-  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-sm);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-}
 
-.home-switch:hover {
-  border-color: color-mix(in srgb, var(--color-text) 25%, transparent);
-}
 
-.home-switch__icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--color-secondary);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
 
-.home-switch--on .home-switch__icon {
-  color: var(--color-text);
-}
 
-.home-switch__icon .icon {
-  width: 18px;
-  height: 18px;
-}
 
-.home-switch .switch,
-.home-switch .switch:hover,
-.home-switch .switch:active {
-  background: none;
-  border: 0;
-  box-shadow: none;
-  /* A transform would make the button the ::after's containing block and
-   * shrink the row-wide target to the button mid-press. */
-  transform: none;
-}
 
-.home-switch .switch::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-}
 
-.home-switch__text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
 
-.home-switch__label {
-  font-weight: var(--weight-semibold);
-}
 
-.home-switch__detail {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-variant-numeric: tabular-nums;
-}
+
+
+
+
+
+
+
+
+
+
 
 .home-switch__window {
   /* Above the switch's row-wide ::after so the link takes its own click;
@@ -7125,7 +6750,7 @@ button.place-result:hover {
   color: var(--color-text);
   background: transparent;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
 }
 
 .modal .quiet-card[aria-pressed="true"] {
@@ -7182,8 +6807,6 @@ button.place-result:hover {
   margin: 0 0 var(--space-sm);
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7197,15 +6820,13 @@ button.place-result:hover {
   min-height: 44px;
   padding: var(--space-sm) var(--space-md);
   background: var(--color-secondary);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
 }
 
 .quiet-tile__label {
   display: block;
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7213,7 +6834,7 @@ button.place-result:hover {
   padding: 0;
   border: none;
   background: transparent;
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
@@ -7231,76 +6852,21 @@ button.place-result:hover {
   margin: -13px -4px;
 }
 
-.home-switch__detail .home-switch__state {
-  font-size: var(--font-label-size);
-}
 
-.home-switch .quick-action__form {
-  flex: none;
-}
 
-@container (min-width: 520px) {
-  .home-state__body {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
 
-  .home-battery {
-    align-self: stretch;
-    align-content: center;
-    padding: var(--space-lg) var(--space-xl);
-    border-top: 0;
-    border-left: 1px solid var(--color-border);
-  }
 
-  .home-battery > svg {
-    width: 132px;
-    height: 132px;
-  }
 
-  .home-state__switches {
-    grid-column: 1 / -1;
-  }
-}
 
-@container (min-width: 600px) {
-  .home-state__switches {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 
-@container (min-width: 840px) {
-  .home-state__body {
-    grid-template-columns: minmax(0, 1fr) auto minmax(260px, 320px);
-  }
 
-  .home-state__status {
-    justify-content: center;
-    padding: var(--space-xl);
-  }
 
-  .home-state__switches {
-    grid-column: auto;
-    grid-template-columns: minmax(0, 1fr);
-    padding: var(--space-lg) var(--space-md);
-    border-top: 0;
-    border-left: 1px solid var(--color-border);
-    border-radius: 0 var(--radius-card) var(--radius-card) 0;
-  }
-}
 
 /* Without the battery dial (a plain user's Home) the status zone and the
  * switches share the row. */
-@container (min-width: 520px) {
-  .home-state--no-battery .home-state__body {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 
-@container (min-width: 840px) {
-  .home-state--no-battery .home-state__body {
-    grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-  }
-}
+
+
 
 .quick-actions {
   display: flex;
@@ -7324,10 +6890,8 @@ button.place-result:hover {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7381,7 +6945,7 @@ button.switch:active {
   display: block;
   width: 52px;
   height: 32px;
-  border-radius: 16px;
+  border-radius: var(--radius-control);
   background: var(--color-secondary);
   border: 1px solid var(--color-border);
   transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
@@ -7497,188 +7061,17 @@ button.switch:active {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.recent-flights {
-  list-style: none;
-  margin: 0 0 var(--space-sm);
-  padding: 0;
-}
+
 
 /* A wrapping flex line, not a grid row: a grid's auto time-track always
  * resolves to its own max-content width regardless of the callsign's
  * needs, starving the callsign to a sliver in French. Flex lets the
  * time wrap to its own second line only when there is truly no room. */
-.recent-flight {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-md);
-  align-items: baseline;
-  padding: var(--space-sm) 0;
-  border-bottom: 1px solid var(--color-border);
-}
 
-.recent-flight:last-child {
-  border-bottom: 0;
-}
 
-.recent-flight__callsign {
-  font-weight: var(--weight-semibold);
-}
 
-/* order: 1 keeps the detail line last visually even though it is the
- * third child before the time (fourth); the inline-start margin
- * reproduces the old grid's thumbnail-width offset (40px + gap). */
-.recent-flight__detail {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  overflow-wrap: anywhere;
-  order: 1;
-  flex: 1 1 100%;
-  margin-inline-start: calc(40px + var(--space-md));
-}
 
-/* No percentage width cap here: since this item sits in a content-sized
- * auto track, a percentage would resolve against that same content-
- * derived width and always overflow itself (measured: 88px clientWidth
- * vs 147px scrollWidth in English). The track itself is the line cap. */
-.recent-flight__time {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  text-align: right;
-  margin-inline-start: auto;
-  white-space: nowrap;
-}
 
-/* img.recent-flight__thumb (tag-qualified, not bare .recent-flight__thumb)
- * avoids tying at equal specificity with the dashed-placeholder span's
- * own rule, which would let source order rather than intent decide. */
-img.recent-flight__thumb {
-  display: block;
-  width: 40px;
-  height: 40px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-image-backdrop);
-  object-fit: cover;
-  flex: none;
-}
-
-.recent-flight__thumb--placeholder {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-control);
-  object-fit: cover;
-  flex: none;
-  border: 1px dashed var(--color-border);
-  background: var(--color-canvas);
-}
-
-/* Home's phone list: the Flights boarding-pass card (.history-card and
- * its bands) at a compact size, one per recent flight. The cards sit on
- * the section's own surface, so the tear-line notches take that colour
- * instead of the page canvas. Rendered before the desktop list; the pair
- * toggles at 960px. */
-.recent-flight-tiles {
-  --history-card-notch: var(--color-dominant);
-  display: grid;
-  gap: var(--space-sm);
-  list-style: none;
-  margin: 0 0 var(--space-md);
-  padding: 0;
-}
-
-.recent-flight-tiles ~ .recent-flights {
-  display: none;
-}
-
-/* The head is one line: callsign, then the airline taking what is left
- * and ellipsised, so a long operator name never wraps the card. */
-.history-card--compact .history-card__head {
-  padding: var(--space-xs) var(--space-sm) 0 var(--space-sm);
-}
-
-.history-card--compact .history-card__id {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-sm);
-  padding-top: 0;
-}
-
-.history-card--compact .history-card__callsign {
-  flex: none;
-  font-size: var(--font-label-size);
-  overflow-wrap: normal;
-}
-
-.history-card--compact .history-card__airline {
-  min-width: 0;
-  font-size: 13px;
-}
-
-.history-card--compact .history-card__route {
-  grid-template-rows: 18px auto;
-  padding: 0 var(--space-sm) 3px;
-}
-
-.history-card--compact .history-card__code {
-  font-size: 18px;
-}
-
-.history-card--compact .history-card__code--none {
-  line-height: 18px;
-  font-size: 12px;
-}
-
-.history-card--compact .icon.history-card__plane {
-  width: 14px;
-  height: 14px;
-}
-
-.history-card--compact .history-card__dir {
-  font-size: 10px;
-  line-height: 1.1;
-}
-
-.history-card--compact .history-card__stub {
-  padding: 3px var(--space-sm);
-}
-
-.history-card--compact .history-card__art {
-  width: 96px;
-  height: 26px;
-}
-
-/* Too narrow for the "No illustration" words: the dashed outline says
- * it, and the text stays in the markup for a screen reader. */
-.history-card--compact .history-card__art--empty {
-  padding: 0;
-  font-size: 0;
-}
-
-.history-card--compact .history-card__when {
-  flex-direction: row;
-  align-items: baseline;
-  gap: var(--space-sm);
-}
-
-.history-card--compact .time-value--primary {
-  font-size: var(--font-label-size);
-}
-
-.history-card--compact .time-value__age {
-  font-size: 12px;
-}
-
-@media (min-width: 960px) {
-  .home-columns {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-
-  .recent-flight-tiles {
-    display: none;
-  }
-
-  .recent-flight-tiles ~ .recent-flights {
-    display: block;
-  }
-}
 
 /* 4. Audit fixes ------------------------------------------------------- */
 
@@ -7715,9 +7108,9 @@ input[name="radius_km"] {
    * 56px height so the two never overlap in the normal case. */
   .dirty-bar {
     position: fixed;
-    left: var(--space-md);
-    right: var(--space-md);
-    bottom: calc(var(--space-md) + 56px + env(safe-area-inset-bottom, 0px));
+    left: max(var(--space-md), var(--safe-left));
+    right: max(var(--space-md), var(--safe-right));
+    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
     margin: 0;
     z-index: 30;
     flex-wrap: wrap;
@@ -7736,10 +7129,8 @@ input[name="radius_km"] {
 .status-row__label {
   flex: 0 0 auto;
   min-width: 96px;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7764,9 +7155,9 @@ input[name="radius_km"] {
 
 @media (min-width: 960px) {
   .preview-frame__image {
-    width: min(100%, calc(60vh * 3 / 4));
+    width: min(100%, calc(60svh * 3 / 4));
     max-width: 100%;
-    max-height: 60vh;
+    max-height: 60svh;
     margin: 0 auto;
   }
 }
@@ -7808,7 +7199,7 @@ input[name="radius_km"] {
 button.calendar-disconnect-btn {
   min-height: 30px;
   padding: 4px var(--space-sm);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   color: var(--color-text);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
@@ -7865,7 +7256,7 @@ a.calendar-disconnect-btn {
   display: inline-block;
   min-height: 30px;
   padding: 4px var(--space-sm);
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   color: var(--color-text);
   background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
@@ -7937,8 +7328,8 @@ a.calendar-disconnect-btn:focus-visible {
 
 /* The status line leads the Calendar row; the look of its flights follows
  * under a hairline. */
-.special-row--calendar > .calendar-status + .special-row__main {
-  margin-top: var(--space-sm);
+.special-row--calendar > .calendar-status ~ .special-row__main {
+  margin-top: var(--space-md);
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-sm);
 }
@@ -8017,7 +7408,7 @@ a.calendar-manage--primary:hover {
   box-sizing: border-box;
   width: calc(100% - var(--space-lg) * 2);
   max-width: 440px;
-  max-height: calc(100vh - var(--space-lg) * 2);
+  max-height: calc(100svh - var(--space-lg) * 2);
   overflow-y: auto;
   padding: var(--space-lg);
   background: var(--color-dominant);
@@ -8060,9 +7451,9 @@ a.calendar-manage--primary:hover {
 
 .calendar-sheet__title {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-display);
   font-size: var(--font-heading-size);
-  font-weight: var(--weight-regular);
+  font-weight: var(--weight-semibold);
 }
 
 a.calendar-sheet__close {
@@ -8203,9 +7594,9 @@ button.calendar-danger--solid {
   align-items: center;
   justify-content: center;
   padding: 0 12px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
   transition: background-color .15s ease, color .15s ease;
@@ -8250,16 +7641,20 @@ button.calendar-danger--solid {
    * row's fixed height; the safe-area inset is added as extra padding
    * underneath, not folded into the 56px. */
   .tab-bar {
+    box-sizing: border-box;
     display: flex;
+    align-items: center;
     position: fixed;
-    left: 0;
-    right: 0;
-    bottom: 0;
+    left: max(var(--tab-bar-gap), var(--safe-left));
+    right: max(var(--tab-bar-gap), var(--safe-right));
+    bottom: calc(var(--tab-bar-gap) + var(--safe-bottom));
+    height: var(--tab-bar-h);
     z-index: 20;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    background: var(--color-secondary);
-    border-top: 1px solid var(--color-border);
-    box-shadow: var(--shadow-card-hover);
+    padding: 0 var(--tab-bar-pad);
+    background-color: var(--glass-solid);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    box-shadow: var(--bar-shadow);
   }
 
   /* Each of the five flex: 1 1 0 cells takes an equal share of the bar
@@ -8288,8 +7683,8 @@ button.calendar-danger--solid {
     align-items: center;
     justify-content: center;
     gap: var(--space-xs);
-    margin: var(--space-xs) calc(var(--space-xs) / 2);
-    border-radius: var(--radius-control);
+    margin: var(--space-xs) 0;
+    border-radius: var(--radius-pill);
     transition: background-color .15s ease, color .15s ease;
   }
 
@@ -8312,7 +7707,8 @@ button.calendar-danger--solid {
   }
 
   .tab-bar__link--active .tab-bar__pill {
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    background: var(--bar-pill-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
   }
 
   /* The administrator's space switch, first cell of the bar: set apart from
@@ -8320,15 +7716,13 @@ button.calendar-danger--solid {
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
     flex: 0 0 68px;
-    margin-right: 0;
-    border-right: 1px solid var(--color-border);
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__link--switch .tab-bar__pill {
     border: 1px solid var(--color-accent);
-    background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+    background: transparent;
   }
 
   .tab-bar__link--switch:not(.tab-bar__link--active):hover .tab-bar__pill {
@@ -8395,7 +7789,7 @@ button.calendar-danger--solid {
    * TAB_BAR_BODY_CLASS), present only when the bar actually rendered. */
   .has-tab-bar .page-content {
     padding-bottom: calc(
-      var(--space-2xl) + 56px + env(safe-area-inset-bottom, 0px));
+      var(--space-lg) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
 }
@@ -8428,7 +7822,7 @@ button.calendar-danger--solid {
 .look-frame__picture {
   position: relative;
   padding: 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: linear-gradient(145deg, var(--color-frame-bezel-hi), var(--color-frame-bezel));
   box-shadow: 0 14px 30px -14px var(--color-shadow-strong);
 }
@@ -8463,7 +7857,7 @@ button.look-frame__open {
   height: 100%;
   padding: 0;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: transparent;
   box-shadow: none;
   cursor: pointer;
@@ -8528,7 +7922,7 @@ button.look-frame__open:focus-visible {
   min-height: 44px;
   padding: 0 14px;
   border: 1px solid var(--color-border);
-  border-radius: 22px;
+  border-radius: var(--radius-card);
   background: var(--color-dominant);
   color: var(--color-text);
   font-size: var(--font-label-size);
@@ -8606,7 +8000,7 @@ button.look-frame__open:focus-visible {
 
 .look-table th {
   padding: 0 4px;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -8649,7 +8043,7 @@ button.look-frame__open:focus-visible {
   display: block;
   width: 24px;
   height: 32px;
-  border-radius: 2px;
+  border-radius: var(--radius-control);
   box-shadow: 0 0 0 1px var(--color-border);
 }
 
@@ -8660,8 +8054,8 @@ button.look-frame__open:focus-visible {
   height: 32px;
   padding: 1px 3px;
   border: 1px dashed var(--color-border);
-  border-radius: 2px;
-  font-size: 12px;
+  border-radius: var(--radius-control);
+  font-size: var(--font-caption-size);
   line-height: 1;
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
@@ -8670,7 +8064,7 @@ button.look-frame__open:focus-visible {
   margin: var(--space-sm) 0 0;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -8692,7 +8086,7 @@ button.look-frame__open:focus-visible {
   max-width: calc(100vw - 2 * var(--space-md));
   padding: var(--space-md) 20px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--color-dominant);
   box-shadow: var(--shadow-pop);
 }
@@ -8723,9 +8117,9 @@ button.look-frame__open:focus-visible {
 .special-add__title,
 .special-looks__title {
   margin: 0;
-  font-family: var(--font-serif);
-  font-size: 19px;
-  font-weight: var(--weight-regular);
+  font-family: var(--font-display);
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
 }
 
 button.look-sheet__close {
@@ -8782,10 +8176,8 @@ button.look-sheet__close[hidden] {
   width: 100%;
   margin: 0 0 var(--space-sm);
   padding: 0;
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -8828,7 +8220,8 @@ button.look-sheet__close[hidden] {
   display: flex;
   gap: 2px;
   padding: 3px;
-  border-radius: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
   background: var(--color-secondary);
 }
 
@@ -8841,7 +8234,7 @@ button.look-sheet__close[hidden] {
   min-width: 0;
   min-height: 44px;
   padding: 0 var(--space-sm);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   white-space: nowrap;
@@ -8850,14 +8243,14 @@ button.look-sheet__close[hidden] {
 
 .look-seg__icon {
   flex: none;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   box-shadow: inset 0 0 0 1px var(--color-border);
 }
 
 .look-axis__why {
   min-height: 1.4em;
   margin: var(--space-sm) 0 0;
-  font-size: 13px;
+  font-size: var(--font-caption-size);
   line-height: 1.4;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -8920,12 +8313,12 @@ button.look-sheet__done:hover {
 
 .special-row {
   position: relative;
-  padding: var(--space-sm) 4px;
-  border-top: 1px solid var(--color-border);
+  padding: var(--space-sm) var(--space-xs);
+  border-top: 1px solid var(--glass-hairline);
 }
 
 .special-row:last-child {
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 0;
 }
 
 .special-row__main {
@@ -8939,7 +8332,7 @@ button.look-sheet__done:hover {
   position: relative;
   flex: none;
   padding: 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-control);
   background: var(--color-frame-bezel);
 }
 
@@ -8965,12 +8358,10 @@ button.look-sheet__done:hover {
   display: inline-block;
   margin-right: 6px;
   padding: 2px 6px;
-  border-radius: 4px;
-  background: var(--color-secondary);
-  font-size: 11px;
+  border-radius: var(--radius-chip);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
   vertical-align: 1px;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -9037,7 +8428,7 @@ a.special-row__remove:hover {
   width: 54px;
   height: 70px;
   border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, transparent);
-  border-radius: 4px;
+  border-radius: var(--radius-control);
 }
 
 .special-add[open] > .special-add__summary {
@@ -9079,7 +8470,6 @@ a.special-row__remove:hover {
 
 .special-add__who input[type="text"] {
   font-family: var(--font-mono);
-  text-transform: uppercase;
 }
 
 /* The preview heads the form: the framed picture takes 44% of a phone sheet's
@@ -9095,7 +8485,7 @@ a.special-row__remove:hover {
 .special-add__preview .special-row__mini {
   width: 44%;
   padding: 4px;
-  border-radius: 5px;
+  border-radius: var(--radius-control);
 }
 
 @media (min-width: 700px) {
@@ -9156,7 +8546,7 @@ a.special-row__remove:hover {
 button.rule-suggestion-chip {
   height: 36px;
   border-color: transparent;
-  border-radius: 18px;
+  border-radius: var(--radius-card);
   background: var(--color-secondary);
   font-weight: var(--weight-regular);
 }
@@ -9170,7 +8560,7 @@ button.rule-suggestion-chip {
   width: min(38rem, calc(100vw - 2 * var(--space-md)));
   padding: var(--space-md) 20px;
   border: 1px solid var(--color-border);
-  border-radius: 14px;
+  border-radius: var(--radius-control);
   background: var(--color-dominant);
   box-shadow: var(--shadow-pop);
 }
@@ -9231,11 +8621,11 @@ button.rule-suggestion-chip {
     z-index: 51;
     width: auto;
     max-width: none;
-    max-height: 88vh;
+    max-height: 88svh;
     margin: 0;
-    padding: 22px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
+    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
     overflow-y: auto;
-    border-radius: 18px 18px 0 0;
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   }
 
   .special-add__foot button {
@@ -9258,7 +8648,7 @@ button.rule-suggestion-chip {
     width: 40px;
     height: 4px;
     margin-left: -20px;
-    border-radius: 2px;
+    border-radius: var(--radius-control);
     background: var(--color-border);
   }
 
@@ -9296,7 +8686,7 @@ button.rule-suggestion-chip {
 
   .look-table th {
     padding: 0;
-    font-size: 11px;
+    font-size: var(--font-caption-size);
   }
 
   .look-cell {
@@ -9353,7 +8743,7 @@ dialog.modal {
   box-sizing: border-box;
   width: min(480px, calc(100% - 48px));
   max-width: none;
-  max-height: 88vh;
+  max-height: 88svh;
   margin: auto;
   padding: var(--space-lg);
   overflow-y: auto;
@@ -9486,8 +8876,8 @@ a.modal__dismiss {
     inset: auto 0 0;
     width: 100%;
     margin: 0;
-    padding: 22px var(--space-md) calc(var(--space-md) + env(safe-area-inset-bottom, 0px));
-    border-radius: 18px 18px 0 0;
+    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   }
 
   dialog.modal.is-modal {
@@ -9506,7 +8896,7 @@ a.modal__dismiss {
     width: 40px;
     height: 4px;
     margin-left: -20px;
-    border-radius: 2px;
+    border-radius: var(--radius-control);
     background: var(--color-border);
   }
 }
@@ -9587,62 +8977,6 @@ a.entity-row__title::before {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-}
-
-/* An Account frame row: the CSS-drawn frame first, then the name, the
- * hardware or owner line and the status dot with its last-seen word. */
-li.entity-row.account-frame {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  padding-left: var(--space-md);
-}
-
-.account-frame .entity-row__dot {
-  position: static;
-  align-self: center;
-  margin-top: 0;
-}
-
-.account-frame__pic {
-  display: block;
-  box-sizing: border-box;
-  width: 44px;
-  height: 58px;
-  padding: 3px;
-  background: var(--color-frame-bezel);
-  border: 1px solid var(--color-frame-bezel-hi);
-  border-radius: 5px;
-}
-
-.account-frame__pic i {
-  display: block;
-  height: 100%;
-  background: var(--color-image-backdrop);
-  border-radius: 1px;
-}
-
-.account-frame__status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-@media (min-width: 960px) {
-  li.entity-row.account-frame {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    padding-left: var(--space-md);
-  }
-
-  .account-frame .entity-row__text {
-    display: flex;
-    grid-column: auto;
-  }
-
-  .account-frame .entity-row__meta,
-  .account-frame .entity-row__pills {
-    grid-column: auto;
-  }
 }
 
 details.row-menu {
@@ -9773,7 +9107,7 @@ a.page-header__action {
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-md);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   background: var(--color-accent);
   color: var(--color-on-accent);
   font-size: var(--font-label-size);
@@ -9800,7 +9134,7 @@ a.pair-link {
   min-height: 44px;
   min-width: 44px;
   padding: 0 var(--space-md);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   border: 1px solid var(--color-border);
   color: var(--color-accent);
   font-size: var(--font-label-size);
@@ -9888,7 +9222,7 @@ a.entity-row__button {
   min-width: 44px;
   padding: 0 var(--space-md);
   border: 1px solid var(--color-border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: var(--color-accent);
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
@@ -9921,11 +9255,9 @@ a.entity-row__button:hover {
   display: flex;
   gap: var(--space-xs);
   margin: 0 0 var(--space-lg);
-  padding: var(--space-xs);
+  padding: 0;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  border-radius: var(--radius-card);
-  background: var(--color-secondary);
   scrollbar-width: none;
 }
 
@@ -9947,11 +9279,19 @@ a.entity-row__button:hover {
   gap: var(--space-sm);
   min-height: 44px;
   padding: 0 var(--space-md);
-  border-radius: var(--radius-control);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   font-weight: var(--weight-semibold);
   text-decoration: none;
   white-space: nowrap;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .personalisation-nav__link {
+    background: var(--glass-bg);
+  }
 }
 
 .personalisation-nav__link svg {
@@ -9970,29 +9310,31 @@ a.entity-row__button:hover {
 }
 
 .personalisation-nav__link[aria-current="page"] {
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
-  color: var(--color-accent);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
 }
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb {
   position: absolute;
-  top: var(--space-xs);
-  bottom: var(--space-xs);
+  top: 0;
+  bottom: 0;
   left: 0;
   display: block;
   width: 0;
-  border-radius: var(--radius-control);
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-card);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
 }
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb.is-sliding {
   transition: transform var(--motion-fast) ease, width var(--motion-fast) ease;
 }
 
+/* The sliding thumb stays under the current link in the same fill, so the
+ * current option reads as a pill whether or not the thumb has arrived. */
 .personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] {
-  background: transparent;
+  background: var(--color-accent);
   box-shadow: none;
 }
 
@@ -10084,7 +9426,7 @@ a.entity-row__button:hover {
   height: auto;
   aspect-ratio: 3 / 4;
   object-fit: contain;
-  border-radius: 4px;
+  border-radius: var(--radius-control);
   background: var(--color-image-backdrop);
 }
 
@@ -10250,12 +9592,12 @@ button.look-sheet__save:hover {
   }
 
   .look-view .look-frame__anchor {
-    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    max-width: min(100%, calc((100svh - 21rem) * 0.75));
     margin-inline: auto;
   }
 
   .look-view .look-frame__meta {
-    max-width: min(100%, calc((100vh - 21rem) * 0.75));
+    max-width: min(100%, calc((100svh - 21rem) * 0.75));
     margin-inline: auto;
   }
 
@@ -10289,7 +9631,7 @@ button.look-sheet__save:hover {
 
 .collection-head__status {
   display: flex;
-  flex: 1 1 360px;
+  flex: 1 1 300px;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-md);
@@ -10314,7 +9656,7 @@ button.look-sheet__save:hover {
   appearance: none;
   -webkit-appearance: none;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-secondary);
   overflow: hidden;
 }
@@ -10325,12 +9667,12 @@ button.look-sheet__save:hover {
 
 .collection-progress__bar::-webkit-progress-value {
   background: var(--color-accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .collection-progress__bar::-moz-progress-bar {
   background: var(--color-accent);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .collection-badges {
@@ -10477,10 +9819,6 @@ button.look-sheet__save:hover {
 }
 
 @media (max-width: 699.98px) {
-  .page-header:has(> .collection-head__status) .page-title {
-    font-size: 1.625rem;
-  }
-
   .collection-head__status {
     flex-direction: column;
     align-items: stretch;
@@ -10549,6 +9887,9 @@ button.look-sheet__save:hover {
 
 .collection-card__art {
   display: block;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
 .collection-card__image {
@@ -10567,6 +9908,7 @@ button.look-sheet__save:hover {
 }
 
 .collection-card__name {
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
@@ -10588,10 +9930,9 @@ button.look-sheet__save:hover {
   height: 20px;
   padding: 0 8px;
   border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
-  border-radius: 999px;
-  font-size: 12px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  letter-spacing: 0.04em;
   color: var(--color-text);
 }
 
@@ -10615,14 +9956,6 @@ button.look-sheet__save:hover {
   background: var(--color-rarity-rare);
 }
 
-.collection-card--occasional {
-  border-top: 3px solid var(--color-rarity-occasional);
-}
-
-.collection-card--rare {
-  border-top: 3px solid var(--color-rarity-rare);
-}
-
 .type-chips {
   display: inline-flex;
   flex-wrap: wrap;
@@ -10635,11 +9968,11 @@ button.look-sheet__save:hover {
   gap: 6px;
   padding: 2px 8px;
   border: 1px solid var(--color-border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
 }
 
 .type-chip__tag {
-  font-size: 12px;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
 }
 
@@ -10706,30 +10039,44 @@ dialog.collection-sheet[open],
   max-height: 160px;
 }
 
+/* The facts read as rows: the label at the left, the value at the right,
+ * a hairline between them; the wide facts stack. */
 .collection-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-sm) var(--space-md);
+  display: block;
   margin: 0;
 }
 
 .collection-facts > div {
-  display: grid;
-  align-content: start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
   min-width: 0;
+  min-height: 54px;
+  padding: var(--space-xs) 0;
+}
+
+.collection-facts > div + div {
+  border-top: 1px solid var(--glass-hairline);
 }
 
 .collection-facts > .collection-facts__wide {
-  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-xs);
 }
 
 .collection-facts dt {
+  flex: none;
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-facts dd {
   margin: 0;
+  min-width: 0;
+  text-align: right;
   overflow-wrap: anywhere;
 }
 
@@ -10781,9 +10128,27 @@ dialog.collection-sheet[open],
   gap: var(--space-sm) var(--space-md);
   margin-bottom: var(--space-md);
   padding: var(--space-md);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+@media (max-width: 69.99rem) {
+  .users-section .users-table {
+    background: none;
+    border: 0;
+    box-shadow: none;
+  }
+}
+
+/* The section around the table or the phone cards carries no surface of its
+ * own: the table (from 70rem) or each card is the glass. */
+.page-section.users-section {
+  padding: 0;
+  background: none;
+  border: 0;
+  box-shadow: none;
 }
 
 .users-cell {
@@ -10865,6 +10230,7 @@ dialog.collection-sheet[open],
 .users-role-form select {
   min-width: 0;
   max-width: 100%;
+  padding-inline: var(--space-sm) 28px;
 }
 
 .users-role-fixed {
@@ -10941,7 +10307,7 @@ button.row-menu__item--destructive:hover {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--color-dominant);
+    background: var(--glass-solid);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
   }
@@ -10962,24 +10328,25 @@ button.row-menu__item--destructive:hover {
     background: none;
     border: 0;
     border-radius: 0;
+    box-shadow: none;
   }
 
   .users-cell {
     display: table-cell;
+    height: 56px;
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-hairline);
   }
 
   .users-col {
     display: table-cell;
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
-    font-size: var(--font-label-size);
+    border-bottom: 1px solid var(--glass-hairline);
+    font-size: 12px;
     font-weight: var(--weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    text-transform: none;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
@@ -11031,7 +10398,7 @@ button.row-menu__item--destructive:hover {
 
 .airline-group {
   margin-bottom: var(--space-md);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
 }
@@ -11040,9 +10407,23 @@ button.row-menu__item--destructive:hover {
   display: none;
 }
 
-.airline-group--gap {
-  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+.airlines-table .airline-group--gap {
+  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--glass-solid));
   border-color: var(--color-status-warn);
+}
+
+/* The amber "Unidentified" chip of a prefix the table cannot name yet. */
+.airlines-gap-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-status-warn) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-status-warn) 60%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
 }
 
 .airlines-row {
@@ -11066,8 +10447,8 @@ button.row-menu__item--destructive:hover {
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   padding: var(--space-md);
-  border-top: 1px dashed var(--color-border);
-  background: var(--color-secondary);
+  border-top: 1px solid var(--glass-hairline);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
   border-radius: 0 0 var(--radius-card) var(--radius-card);
 }
 
@@ -11187,7 +10568,7 @@ button.row-menu__item--destructive:hover {
   min-height: 44px;
   box-sizing: border-box;
   padding: var(--space-xs);
-  background: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
   border-radius: var(--radius-control);
   color: var(--color-accent);
   text-decoration: none;
@@ -11244,6 +10625,7 @@ button.row-menu__item--destructive:hover {
 
 a.airlines-name-it {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   justify-content: center;
   min-width: 44px;
@@ -11261,7 +10643,7 @@ a.airlines-name-it {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    background: var(--color-dominant);
+    background: var(--glass-solid);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
   }
@@ -11281,8 +10663,8 @@ a.airlines-name-it {
     border-radius: 0;
   }
 
-  .airline-group--gap {
-    background: color-mix(in srgb, var(--color-status-warn) 12%, var(--color-dominant));
+  .airlines-table .airline-group--gap {
+    background: color-mix(in srgb, var(--color-status-warn) 18%, transparent);
   }
 
   .airlines-row {
@@ -11292,7 +10674,7 @@ a.airlines-name-it {
 
   .airlines-subrow {
     padding: 0;
-    background: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-text) 5%, transparent);
     border: 0;
   }
 
@@ -11303,8 +10685,9 @@ a.airlines-name-it {
   .airlines-cell {
     display: table-cell;
     vertical-align: middle;
+    height: 56px;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--glass-hairline);
   }
 
   .airlines-cell--views,
@@ -11317,20 +10700,23 @@ a.airlines-name-it {
     display: table-cell;
     vertical-align: middle;
     padding: var(--space-sm) var(--space-md);
-    border-bottom: 1px solid var(--color-border);
-    font-size: var(--font-label-size);
+    border-bottom: 1px solid var(--glass-hairline);
+    font-size: 12px;
     font-weight: var(--weight-semibold);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    text-transform: none;
     text-align: left;
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 32%; }
+  .airlines-col--name { width: 28%; }
   .airlines-col--prefixes { width: 14%; }
   .airlines-col--art { width: 22%; }
-  .airlines-col--views { width: 11%; }
-  .airlines-col--menu { width: 64px; }
+  .airlines-col--views { width: 10%; }
+  .airlines-col--menu { width: 112px; }
+
+  a.airlines-name-it {
+    padding: 0 var(--space-sm);
+  }
 }
 
 /* ------------------------------------------------------------------
@@ -11341,7 +10727,7 @@ a.airlines-name-it {
 /* From the desktop breakpoint the page title grows to 44-48px. */
 @media (min-width: 960px) {
   :root {
-    --font-page-title-size: clamp(2.75rem, 2.2rem + 1.6vw, 3rem);
+    --font-page-title-size: clamp(2.5rem, 2.2rem + 0.9vw, 2.75rem);
   }
 }
 
@@ -11376,6 +10762,7 @@ a.airlines-name-it {
 }
 
 .reveal,
+.dashboard-main .group-block,
 .dashboard-main .page-section {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
@@ -11439,70 +10826,93 @@ a.airlines-name-it {
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
-/* Frosted glass. Without backdrop-filter support none of this applies and
- * every surface keeps the solid fill its own rule declares (--color-dominant
- * for cards, --color-secondary for the bars). With it, surfaces become
- * translucent over the sky and the overlay surfaces (bars, sheets, dialogs,
- * the login card, Home's state card) also blur what passes behind them.
- * The blur is kept to those few surfaces on purpose; the repeated cards are
- * translucent only. No border-radius here: --radius-card carries it. */
+/* The one glass tier. Every surface (card, group, sheet, dialog, popover,
+ * table, tab bar, sidebar, segmented track) is the same recipe: the
+ * translucent --glass-bg fill, the 1px light --glass-border, the inset top
+ * highlight and the soft shadow inside --shadow-glass, and on the
+ * overlay and bar surfaces the same blur and saturation. Without
+ * backdrop-filter support none of this applies and every surface keeps the
+ * solid fill its own rule declares (--color-dominant, --color-secondary or
+ * --glass-solid). The blur stays off the repeated cards, whose own fixed or
+ * absolutely placed descendants a backdrop-filter would trap. No
+ * border-radius here: --radius-card carries it. */
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .page-section,
-  .fleet-block,
   .battery-trend-section,
   .health-rows,
   .airline-group,
   .stat-tile,
   .airline-card,
   .collection-card,
-  .frame-tile {
+  .place-card,
+  .users-table,
+  .users-row,
+  .audit-cards,
+  .toast--docked,
+  .dashboard-main > .data-table-wrap,
+  .dashboard-main > .empty-state {
     background: var(--glass-bg);
     border-color: var(--glass-border);
     box-shadow: var(--shadow-glass);
   }
 
   /* The look picker's cards signal selection with their own box-shadow
-   * ring, so an unselected one must stay shadow-free. */
-  .runway-card {
+   * ring, so an unselected one must stay shadow-free; the segmented tracks
+   * and the other inset controls take the fill and edge without a lift. */
+  .runway-card,
+  .space-switch,
+  .filter-bar__chips,
+  .look-seg,
+  .place-modes,
+  .map-ready .place-modes,
+  .frame-notice {
     background: var(--glass-bg);
     border-color: var(--glass-border);
   }
 
-  .home-state,
+  .group,
   .login-card,
   .look-sheet,
   .calendar-sheet,
   .lightbox,
-  dialog.modal {
-    background: var(--glass-bg);
-    border-color: var(--glass-border);
-    box-shadow: var(--shadow-glass);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-  }
-
+  dialog.modal,
+  .tab-bar__more-panel,
+  .row-menu__panel,
+  .info-tip__bubble,
   .dashboard-sidebar,
-  .site-header,
-  .tab-bar {
-    background: var(--glass-bar-bg);
-    border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-  }
-
-  /* The floating save bar scrolls over content like the tab bar does, so it
-   * takes the bar glass, without a blur of its own. */
   .dirty-bar {
-    background: var(--glass-bar-bg);
-    border-color: var(--glass-border);
-  }
-
-  /* Tables and empty states that sit straight on the sky become cards. */
-  .dashboard-main > .data-table-wrap,
-  .dashboard-main > .empty-state {
     background: var(--glass-bg);
     border-color: var(--glass-border);
     box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  /* The floating tab bar is its own, stronger glass: a darker tinted fill in
+   * Dark so light labels hold over a white picture scrolling beneath. */
+  .tab-bar {
+    background-color: var(--bar-bg);
+    background-image: var(--bar-sheen);
+    border-color: var(--bar-border);
+    -webkit-backdrop-filter: blur(26px) saturate(200%);
+    backdrop-filter: blur(26px) saturate(200%);
+  }
+
+  /* The popover of the frame button. */
+  .frame-menu__panel {
+    background: var(--pop-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  .frame-menu__button {
+    background: var(--glass-bg);
+    border-color: var(--glass-border);
+    box-shadow: var(--shadow-glass);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   }
 
   /* The airline editor's table is a table only on a wide screen. */
@@ -11516,7 +10926,6 @@ a.airlines-name-it {
 }
 
 /* The glass rule above outranks the cards' own hover shadow: give it back. */
-.frame-tile:is(:hover),
 .collection-card:is(:hover),
 .airline-card:is(:hover) {
   box-shadow: var(--shadow-card-hover);
@@ -11533,7 +10942,7 @@ a.airlines-name-it {
   display: flex;
   flex-direction: column;
   min-height: calc(var(--font-body-size) * 1.4);
-  font-family: var(--font-serif);
+  font-family: var(--font-ui);
   font-size: var(--font-body-size);
   line-height: 1.4;
   color: var(--color-accent);
@@ -11612,17 +11021,11 @@ a.airlines-name-it {
 
 /* The cards come in one after the other: the state card, the current
  * frame, then the recent flights. */
-.home-state.reveal {
-  --reveal-index: 0;
-}
 
-.dashboard-main .home-columns .page-section:nth-child(1) {
-  --reveal-index: 1;
-}
 
-.dashboard-main .home-columns .page-section:nth-child(2) {
-  --reveal-index: 2;
-}
+
+
+
 
 /* The other pages in the same language: the same entrance on the blocks that
  * sit straight on the sky, a soft arrival for the active navigation item, and
@@ -11637,21 +11040,6 @@ a.airlines-name-it {
     opacity: 1;
     transform: none;
   }
-}
-
-/* A thin accent bar settles beside the current sidebar item; it is a
- * pseudo-element, so the link's own box and hit area never change. */
-.sidebar-link--active::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 10px;
-  bottom: 10px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--color-accent);
-  pointer-events: none;
-  animation: skypane-soft-in var(--motion-enter) var(--ease-out) backwards;
 }
 
 .tab-bar__link--active .tab-bar__pill {
@@ -11674,4 +11062,666 @@ a.airlines-name-it {
 ::placeholder {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   opacity: 1;
+}
+
+/* Grouped lists: section label, group, row, hero ----------------------------
+ * The building blocks of every page (companion/ui_groups.py). A group is one
+ * glass surface holding rows separated by hairlines; a row is at least 54px
+ * tall and, when it acts, a link or button across its whole width. The hero
+ * has no surface at all. Nothing nests: a group never holds another group. */
+.group-block {
+  min-width: 0;
+  margin: 0 0 var(--space-lg);
+}
+
+.section-label {
+  margin: 0 0 var(--space-sm);
+  padding: 0 var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  letter-spacing: 0;
+  text-transform: none;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.group {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.group--panel {
+  padding: var(--space-md);
+}
+
+.group > .row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  min-height: 54px;
+}
+
+.group > .row + .row {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+/* (0,2,0): beats the bare button and link rules, so a link row and a
+ * button row look the same. */
+.group .row .row__main {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  width: auto;
+  min-width: 0;
+  min-height: 54px;
+  height: auto;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--color-text);
+  font: inherit;
+  letter-spacing: 0;
+  text-align: left;
+  text-decoration: none;
+}
+
+.group .row--action .row__main {
+  cursor: pointer;
+}
+
+.group .row--action .row__main:hover {
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.group .row .row__main:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.row__chip {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  margin-right: var(--space-xs);
+  border-radius: var(--radius-chip);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.row__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+/* A long label wraps to two lines, then truncates with an ellipsis (French
+ * wording is longer). */
+.row__label {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
+  font-size: var(--font-body-size);
+  line-height: 1.3;
+}
+
+.row__detail {
+  font-size: var(--font-label-size);
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.row__value {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 50%;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-body-size);
+  font-variant-numeric: tabular-nums;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.row__chevron {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+/* A trailing control sits after the row's main area. The switch's own
+ * ::after stretches over the whole row, so the control keeps its role,
+ * state and focus behaviour while the finger gets a row-wide target; a link
+ * inside the main area rises above it and takes its own tap. */
+.group > .row > .quick-action__form,
+.group > .row > select {
+  flex: none;
+  margin-right: var(--space-md);
+}
+
+.group .row .switch,
+.group .row .switch:hover,
+.group .row .switch:active {
+  background: none;
+  border: 0;
+  box-shadow: none;
+  transform: none;
+}
+
+.group .row .switch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* The hero: no surface. The picture sits beside a prominent status line in
+ * the display face, with secondary lines beneath it. */
+.hero {
+  --home-tone: var(--color-status-ok);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-md) var(--space-lg);
+  align-items: center;
+  margin: 0 0 var(--space-lg);
+}
+
+.hero:has(.hero__picture) {
+  grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
+}
+
+@media (min-width: 700px) {
+  .hero:has(.hero__picture) {
+    grid-template-columns: 200px minmax(0, 1fr);
+  }
+}
+
+.hero__picture {
+  min-width: 0;
+}
+
+.hero__picture .preview-frame__image {
+  width: 100%;
+  max-height: none;
+  margin: 0;
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-glass);
+}
+
+.hero__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.hero__body > p {
+  margin: 0;
+}
+
+.hero__status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  font-family: var(--font-display);
+  font-size: clamp(2.125rem, 1.7rem + 1.2vw, 2.75rem);
+  font-weight: var(--weight-title);
+  line-height: 1.1;
+  letter-spacing: var(--tracking-title);
+  overflow-wrap: anywhere;
+}
+
+.home-state--warn {
+  --home-tone: var(--color-status-warn);
+}
+
+.home-state--error {
+  --home-tone: var(--color-status-error);
+}
+
+.home-state--off {
+  --home-tone: color-mix(in srgb, var(--color-text) 45%, transparent);
+}
+
+.home-state--warn .home-state__dot,
+.home-state--error .home-state__dot {
+  --dot-halo-scale: 2.2;
+  --dot-halo-alpha: 0.35;
+}
+
+.home-state--warn .home-state__next--overdue .icon {
+  color: var(--color-status-warn);
+}
+
+.home-state.reveal {
+  --reveal-index: 0;
+}
+
+.dashboard-main .home-state__switches {
+  --reveal-index: 1;
+}
+
+.dashboard-main .group-block.home-section {
+  --reveal-index: 2;
+}
+
+.dashboard-main .home-state__switches.home-section {
+  --reveal-index: 1;
+}
+
+/* The docked notification and attention banners: the same glass as every
+ * surface, a coloured icon chip for the tone, and the page ink on both
+ * themes (the floating flash toast keeps its inverse surface). */
+.toast--docked.toast--warning {
+  --toast-tone: var(--color-status-warn);
+}
+
+.toast--docked.toast--error {
+  --toast-tone: var(--color-status-error);
+}
+
+.toast--docked .toast__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-chip);
+}
+
+.toast--docked .toast__action {
+  color: var(--color-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.toast--docked .toast__action::before {
+  display: none;
+}
+
+/* The Fleet State rows: name and verdict stack beside the value, which may
+ * wrap but never takes more than half the row, so a long verdict and a long
+ * value never overlap. */
+@container health-rows (min-width: 420px) {
+  .health-row__summary {
+    grid-template-columns: 32px minmax(0, 1fr) minmax(0, max-content) 16px;
+    grid-template-areas:
+      "icon name value chevron"
+      "icon verdict value chevron";
+    min-height: 64px;
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .health-row__value {
+    max-width: 50cqw;
+    justify-content: flex-end;
+    text-align: right;
+  }
+}
+
+/* Flights (phone): one glass group per day, one row per flight. The plane
+ * chip is neutral and turns with the direction (nose up for a departure,
+ * down for an arrival); the age and the direction sit at the right. */
+.history-cards {
+  margin: 0;
+}
+
+.history-day[hidden],
+.group > .row[hidden] {
+  display: none;
+}
+
+/* The filter hides rows with [hidden]: the hairline is drawn between two
+ * visible rows only, so a hidden first row never leaves a stray line. */
+.history-day .group > .row + .row {
+  border-top: 0;
+}
+
+.history-day .group > .row:not([hidden]) ~ .row:not([hidden]) {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.history-card .row__chip {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+}
+
+.history-card .row__chip .icon {
+  transition: transform var(--motion-fast);
+}
+
+.history-card[data-filter-kind="departing"] .row__chip .icon {
+  transform: rotate(-45deg);
+}
+
+.history-card[data-filter-kind="arriving"] .row__chip .icon {
+  transform: rotate(45deg);
+}
+
+.history-card .row__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+}
+
+.history-card__route {
+  margin-left: var(--space-xs);
+  white-space: nowrap;
+}
+
+.history-card__arrow {
+  margin: 0 var(--space-xs);
+}
+
+.history-card__code--home {
+  font-weight: var(--weight-regular, 400);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-card .row__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-card .row__value {
+  max-width: 38%;
+  font-size: var(--font-label-size);
+}
+
+.history-card__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+}
+
+.history-card__when .time-value--primary {
+  font-weight: var(--weight-regular);
+}
+
+.history-card__picture {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: var(--space-xs);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+}
+
+.history-card__picture:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.history-card__picture:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* Account: grouped rows. A frame row is the drawn frame, the name with its
+ * hardware and status, a chevron, and the row's one action as a link line
+ * under the text. */
+.account-frame {
+  flex-wrap: wrap;
+}
+
+.group > .account-frame > .row__main {
+  flex: 1 1 100%;
+}
+
+.account-frame__pic {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 52px;
+  padding: 3px;
+  background: var(--color-frame-bezel);
+  border: 1px solid var(--color-frame-bezel-hi);
+  border-radius: var(--radius-chip);
+}
+
+.account-frame__pic i {
+  display: block;
+  height: 100%;
+  background: var(--color-image-backdrop);
+  border-radius: 3px;
+}
+
+.account-frame .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+.account-frame__line {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.account-frame__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.account-frame__action {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0 var(--space-md) var(--space-xs)
+    calc(var(--space-md) + 40px + var(--space-sm) + var(--space-xs));
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.account-add-frame .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+/* A value row never widens the page: a long email ellipsises. */
+.account-identity .row__value {
+  max-width: 65%;
+}
+
+/* A preference row: the control sits at the right; when the row is too
+ * narrow for the text and the control, the control drops under the text. */
+.pref-row {
+  flex-wrap: wrap;
+  padding: var(--space-xs) var(--space-md) var(--space-xs) 0;
+}
+
+.pref-row > .row__main {
+  flex: 1 1 12rem;
+}
+
+.pref-row .theme-form {
+  flex: 0 0 auto;
+  max-width: 100%;
+  margin: 0 0 0 var(--space-md);
+  background: var(--glass-solid);
+}
+
+.pref-row .theme-form .theme-option {
+  flex: 0 1 auto;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .pref-row .theme-form {
+    background: var(--glass-bg);
+  }
+}
+
+.pref-row .theme-form .theme-option--active,
+.pref-row .theme-form .theme-option--active:hover {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* Wide enough, the frame's action sits at the right of its row. */
+@media (min-width: 640px) {
+  .account-frame {
+    flex-wrap: nowrap;
+  }
+
+  .group > .account-frame > .row__main {
+    flex: 1 1 auto;
+  }
+
+  .account-frame__action {
+    margin: 0 var(--space-md);
+    white-space: nowrap;
+  }
+}
+
+/* Sign out is a group of its own: one row in the danger colour. */
+.account-sign-out-group .row > form {
+  display: flex;
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.group .row--danger .row__main {
+  color: var(--color-status-error);
+  font-weight: var(--weight-semibold);
+}
+
+.collection-facts > .collection-facts__wide dd {
+  text-align: left;
+}
+
+/* Location: the map sheet and the mode pills keep the glass tier's solid
+ * fill: a translucent fill over a light map tile would not hold the text's
+ * contrast in the dark theme. */
+
+/* Console Fleet Access: the owner, each co-manager and the Add control are
+ * rows of one glass group. The Remove action is a trailing control; the Add
+ * row holds the field and a primary button. */
+.group > .row > .row__trailing {
+  flex: none;
+  margin: 0 var(--space-md) 0 0;
+}
+
+.group > .row--purpose .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+.group .co-manager__email {
+  overflow-wrap: anywhere;
+}
+
+.group > .row--form {
+  display: block;
+  padding: var(--space-sm) var(--space-md) var(--space-md);
+}
+
+.row__form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: flex-end;
+  margin: 0;
+}
+
+.row__form-field {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
+.row__form-field p {
+  margin: 0;
+}
+
+.row__form-field input,
+.row__form-field select {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.row__form > button[type="submit"] {
+  flex: none;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 var(--space-md);
+}
+
+/* The System view: one glass group per topic, two columns from 1000px. */
+.system-topics {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 var(--space-md);
+  align-items: flex-start;
+}
+
+.fleet-blocks--system {
+  display: block;
+}
+
+@media (min-width: 1000px) {
+  .system-topics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Cards that hold free content (forms, notes, versions) sit on the same
+ * glass tier as a group and carry a card title one step below the page
+ * title; the section label above a group is the small 13px one. A card does
+ * not lift or change shadow on hover: only an action does. */
+.page-section:not([class*="page-section--"]):hover,
+.page-section:not([class*="page-section--"]):focus-within {
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-glass);
+}
+
+.page-section .text-heading,
+.theme-status .text-heading {
+  font-size: var(--font-card-title-size);
+}
+
+/* The dialog container takes focus when nothing inside it asks for it; it is
+ * not a control, so it draws no ring (every control inside keeps its own). */
+dialog.modal:focus,
+dialog.modal:focus-visible {
+  outline: none;
+}
+
+/* Releases: the version list is one glass group of expandable rows. */
+.update-group > li + li {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.update-group .update-row > summary {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.update-group .update-row__body {
+  padding: 0 var(--space-md) var(--space-md);
 }

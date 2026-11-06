@@ -114,7 +114,7 @@ def _pref_rows(page):
     return page.evaluate("""() => [...document.querySelectorAll('.pref-row')].map(row => {
         const form = row.querySelector('.theme-form').getBoundingClientRect();
         const card = row.closest('section').getBoundingClientRect();
-        return {label: row.querySelector('.pref-row__label').textContent,
+        return {label: row.querySelector('.row__label').textContent,
                 formWidth: form.width, cardWidth: card.width, formLeft: form.left,
                 cardLeft: card.left, cardRight: card.right, formRight: form.right,
                 buttons: [...row.querySelectorAll('.theme-option')].map(

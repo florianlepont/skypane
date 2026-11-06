@@ -8,6 +8,7 @@ import re
 import pytest
 
 import fleet_console_support as fx
+from frame_menu_support import open_menu
 from co_manager_browser_support import MIN_TAP_PX, _no_sideways_scroll
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_MIN_SUPPORTED, _set_ui_theme
@@ -127,7 +128,7 @@ def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         context.close()
 
 
-def test_the_frame_strip_ends_with_an_add_a_frame_tile_for_a_user(new_context, seeded):
+def test_the_frame_popover_ends_with_an_add_a_frame_row_for_a_user(new_context, seeded):
     server, seed = seeded
     conn = fleet_db.connect(server.state_dir)
     try:
@@ -139,13 +140,13 @@ def test_the_frame_strip_ends_with_an_add_a_frame_tile_for_a_user(new_context, s
     context, page = _open(
         new_context, server, fx.OWNER_EMAIL, "/")
     try:
-        tiles = page.locator("ul.frame-tiles > li")
-        tiles.last.wait_for(state="visible")
+        open_menu(page)
+        tiles = page.locator("ul.frame-menu__list > li")
         last = tiles.last.locator("a")
         assert last.get_attribute("href") == "/pair-frame"
-        assert last.get_attribute("class").split() == ["frame-tile", "frame-tile--add"]
-        _owns_the_centre(page, "ul.frame-tiles > li:last-child a")
-        assert _height(page, "ul.frame-tiles > li:last-child a") >= MIN_TAP_PX
+        assert last.get_attribute("class").split() == ["frame-row", "frame-row--add"]
+        _owns_the_centre(page, "ul.frame-menu__list > li:last-child a")
+        assert _height(page, "ul.frame-menu__list > li:last-child a") >= 52
         last.click()
         page.wait_for_url("**/pair-frame")
         assert page.locator("main h1").inner_text() == "Add a frame"
@@ -181,6 +182,6 @@ def test_the_fleet_page_header_has_no_add_a_frame_button(new_context, seeded):
         page.goto(server.base_url() + "/fleet")
         page.locator("main").wait_for(state="visible")
         assert page.locator(".page-header a.page-header__action").count() == 0
-        assert page.locator("a.frame-tile--add").count() == 1
+        assert page.locator("a.frame-row--add").count() == 1
     finally:
         context.close()

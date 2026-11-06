@@ -283,7 +283,7 @@ def test_history_render_gallery_section_absent_with_content(tmp_path):
         {"ts": "2026-08-27T10:03:00+00:00", "hex": "notdisc1", "callsign": "NOTDISC"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
-    assert "<h2" not in rendered
+    assert not [h for h in parse_html(rendered).select("h2") if "section-label" not in h.attrs["class"]]
     assert "page-section" not in rendered
     assert 'class="gallery-grid"' not in rendered
     assert 'class="gallery-tile"' not in rendered
@@ -298,7 +298,7 @@ def test_history_render_gallery_section_absent_when_empty(tmp_path):
     """with gallery_entries=[], the same absences hold (the section is gone, not merely
     emptied) and, as before, zero View-panel triggers and zero lightbox dialogs render"""
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=[]))
-    assert "<h2" not in rendered
+    assert not [h for h in parse_html(rendered).select("h2") if "section-label" not in h.attrs["class"]]
     assert "page-section" not in rendered
     assert 'class="gallery-grid"' not in rendered
     assert 'class="gallery-tile"' not in rendered

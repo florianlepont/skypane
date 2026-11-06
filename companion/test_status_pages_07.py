@@ -78,20 +78,9 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     pill_decls = declarations_for(css_text, ".tab-bar__pill", at_rules=_TAB_BAR_MEDIA)
     margin_value = pill_decls.get("margin")
     assert margin_value, "expected .tab-bar__pill to declare a margin shorthand"
-    margin_match = re.search(
-        r"var\(--([a-z-]+)\)\s+(?:var\(--([a-z-]+)\)|"
-        r"calc\(var\(--([a-z-]+)\)\s*/\s*(\d+)\))",
-        margin_value)
+    margin_match = re.search(r"var\(--([a-z-]+)\)\s+(0)$", margin_value)
     assert margin_match, "could not parse .tab-bar__pill's margin shorthand: %r" % (margin_value,)
-    _vertical_token, plain_token, calc_token, divisor = margin_match.groups()
-    if plain_token:
-        token_name = "--" + plain_token
-        assert token_name in tokens, "margin shorthand referenced an unknown token %r" % (plain_token,)
-        horizontal_margin_px = float(tokens[token_name][:-2])
-    else:
-        token_name = "--" + calc_token
-        assert token_name in tokens, "margin shorthand referenced an unknown token %r" % (calc_token,)
-        horizontal_margin_px = float(tokens[token_name][:-2]) / float(divisor)
+    horizontal_margin_px = 0.0
 
     # The cell's own resolved box, asserted independently of the margin
     # above: mutating this must fail on its own, proving the tap-area
@@ -121,7 +110,11 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     # gives a smaller cell, so this is the worst width the fit must
     # survive, not merely the audit's own 390px device.
     FLOOR_VIEWPORT_PX = 360
-    cell_width_px = FLOOR_VIEWPORT_PX / cell_count
+    # The floating bar is inset by --tab-bar-gap on each side and padded by --tab-bar-pad inside.
+    bar_width_px = (
+        FLOOR_VIEWPORT_PX - 2 * float(tokens["--tab-bar-gap"][:-2])
+        - 2 * float(tokens["--tab-bar-pad"][:-2]))
+    cell_width_px = bar_width_px / cell_count
     available_px = cell_width_px - (2 * horizontal_margin_px)
 
     # The longest label across BOTH shipped languages — read from

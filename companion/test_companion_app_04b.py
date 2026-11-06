@@ -851,8 +851,9 @@ def test_home_recent_flights_detail_names_a_direction_only_when_known(make_app_s
     assert status == 200, "expected 200 for GET /, got %d" % status
     details = {}
     for item in parse_html(body.decode("utf-8")).select("li.recent-flight"):
-        callsign = item.select_one(".recent-flight__callsign").text()
-        details[callsign] = item.select_one(".recent-flight__detail").text()
+        callsign = item.select_one(".row__label").text()
+        # The detail leads with the clock; what follows is the airline, route and direction.
+        details[callsign] = item.select_one(".row__detail").text().partition(" · ")[2]
 
     assert details == {
         "AFR1001": "Air France · ORY → TLS · Departing",

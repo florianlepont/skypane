@@ -176,8 +176,7 @@ def test_nav_dropdown_script_es5_safe_and_side_effect_free(app02_server):
         "setTimeout", "setInterval", "innerHTML", "document.write", "eval(")
     for token in banned:
         assert token not in src, "nav-dropdown.js must not contain %r" % token
-    assert "localStorage" in src, "expected the strip choice to be remembered in localStorage"
-    assert src.count("try {") >= 2, "storage access must sit inside try/catch"
+    assert "localStorage" not in src, "the shell script keeps no persistent state"
 
 
 def test_header_is_a_slim_logo_bar_without_toggle_or_panel():
@@ -198,7 +197,7 @@ def test_nav_script_route_and_styled_nav_classes(app02_server, served_css):
     rendered tab bar uses are styled in style.css"""
     for cls in (
             "mobile-nav__link", "tab-bar", "tab-bar__link", "tab-bar__link--switch",
-            "frame-fold", "frame-fold__summary"):
+            "frame-menu", "frame-menu__button", "frame-menu__panel", "frame-row"):
         assert _class_is_styled(served_css, cls), (
             "DOM contract drift: %r is not styled in style.css" % cls)
     assert app_module.NAV_SCRIPT_ROUTE == layout.NAV_DROPDOWN_SCRIPT_SRC, (
@@ -240,14 +239,14 @@ def test_dropdown_survives_with_javascript_disabled():
         "server-rendered <html> tag must never carry the .js marker class")
 
 
-def test_nav_dropdown_js_marks_the_document_and_remembers_the_strip(app02_server):
-    """nav-dropdown.js adds the .js marker class before anything else can bail out, then
-    restores a remembered collapse of the frame strip on a phone only"""
+def test_nav_dropdown_js_marks_the_document_before_the_greeting(app02_server):
+    """nav-dropdown.js adds the .js marker class before anything else can bail out, and
+    holds no trace of the removed frame strip fold"""
     js = served_asset(app02_server, "/static/nav-dropdown.js")
     marker_idx = js.index('className += " js"')
-    assert marker_idx < js.index("details.frame-fold")
-    for needle in ("matchMedia", "max-width: 699.98px", "skypane.frameStrip", "toggle"):
-        assert needle in js, "nav-dropdown.js is missing %r" % needle
+    assert marker_idx < js.index("[data-greeting]")
+    for needle in ("frame-fold", "frameStrip", "matchMedia"):
+        assert needle not in js, "nav-dropdown.js still mentions %r" % needle
 
 def _tab_bar_slice(doc):
     start = doc.index('<nav class="tab-bar"')
@@ -1509,8 +1508,8 @@ def test_nav_dropdown_script_public(app02_server):
     assert status == 200, "expected 200, got %d" % status
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
-    assert b"frame-fold" in body, (
-        "expected the strip selector in the served body, proving the real file was served")
+    assert b"data-greeting" in body, (
+        "expected the greeting selector in the served body, proving the real file was served")
 
 
 @pytest.mark.parametrize(

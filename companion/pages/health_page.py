@@ -619,7 +619,7 @@ def _battery_readout_block(latest_reading, now, curve=None):
         value_text, when_text = _battery_reading_parts(mv, ts, now, curve)
     return (
         '<p id="%s" class="battery-readout" role="status">'
-        '<span class="battery-readout__value mono">%s</span>'
+        '<span class="battery-readout__value tnum">%s</span>'
         '<span class="battery-readout__detail time-value" title="%s"> — %s</span>'
         "</p>"
     ) % (
@@ -695,7 +695,7 @@ def _battery_section(trend_rows, daily_rows=None, curve=None):
         return _unavailable_block(), "ok"
     if not trend_rows:
         # Compact: this lands inside a row, whose own name is 12px, so the
-        # full-card form's 22px serif heading would invert the hierarchy.
+        # full-card form's 22px display-face heading would invert the hierarchy.
         return layout.empty_state(
             i18n.t(_NO_BATTERY_READINGS_YET_TEXT),
             i18n.t(_NO_BATTERY_TELEMETRY_RECORDED_TEXT), compact=True), "ok"
@@ -937,7 +937,7 @@ def _corroboration_outcomes_html(counts):
     for key, label, _default_state, explanation in _CORROBORATION_ROWS:
         items.append(
             '<li><p class="health-row__outcome">%s'
-            '<span class="mono">%d</span></p>%s</li>' % (
+            '<span class="tnum">%d</span></p>%s</li>' % (
                 layout.status_dot(statuses[key], i18n.t(label)),
                 counts.get(key, 0) or 0,
                 health_rows.note_html(i18n.t(explanation))))
@@ -1072,6 +1072,19 @@ def _server_group_html(state, stats, registry_rows, now):
         SERVER_DATA_SECTION_ID, i18n.t(SERVER_DATA_SECTION_HEADING), server_rows)
 
 
+def _server_topics(state, stats, registry_rows, now):
+    """The platform rows as separate topics: (id, label, row html), one per
+    flight data, sources, identification and backups. A topic with no row (no
+    backup marker) is left out."""
+    topics = (
+        ("flight-data", ROW_FLIGHT_DATA_NAME, _flight_data_row(state, now)),
+        ("sources", ROW_SOURCES_NAME, _sources_row(state)),
+        ("identification", STATS_SECTION_HEADING,
+         _identification_row(stats, len(registry_rows))),
+        ("backup", _OFFBOX_BACKUP_TEXT, _backup_row(state.get("offbox"), now)))
+    return [(key, i18n.t(label), row) for key, label, row in topics if row]
+
+
 def _registry_block_html(registry_rows, now):
     # The registry sits below the rows card: the table is the long part
     # of the page, and the verdicts above it are what a glance is for.
@@ -1125,9 +1138,10 @@ def _page_parts(ctx):
         "now": now, "state": state, "banner_html": banner_html,
         "unreachable_html": unreachable_html, "screen_rows": screen_rows,
         "server_group_html": "", "registry_html": "", "source_fault_html": "",
-        "dialog_html": ""}
+        "dialog_html": "", "server_topics": []}
     if user_view.platform_visible():
         parts["server_group_html"] = _server_group_html(state, stats, registry_rows, now)
+        parts["server_topics"] = _server_topics(state, stats, registry_rows, now)
         parts["registry_html"] = _registry_block_html(registry_rows, now)
         parts["source_fault_html"] = _source_fault_block(state["source_fault_raw"])
         parts["dialog_html"] = _resolve_dialog_html(ctx, registry_rows)
@@ -1179,14 +1193,30 @@ def frame_state_html(ctx):
 
 def system_html(ctx):
     """The System view of the Console Fleet page: the platform-wide
-    information of the Health page (source fault, anomaly banner, flight data,
-    ADS-B sources, identification, backups and the unresolved-airline
-    registry)."""
+    information of the Health page, one glass group per topic (source fault
+    and anomaly banner above them; flight data, ADS-B sources, identification
+    and backups; the unresolved-airline registry)."""
+    from companion import ui_groups
     ctx = page_context.coerce(ctx)
     parts = _page_parts(ctx)
     if parts is None or not parts["server_group_html"]:
         return ""
+    groups = "".join(
+        ui_groups.group(
+            '<li class="fleet-group__item fleet-group__item--flush">%s</li>'
+            % health_rows.card_html(row),
+            label=label, label_id="system-" + key,
+            extra_class="fleet-block system-topic",
+            attrs='id="system-topic-%s"' % key).replace(
+                '<ul class="group">', '<ul class="group fleet-group">', 1)
+        for key, label, row in parts["server_topics"])
     return (
         parts["source_fault_html"] + parts["banner_html"]
-        + health_rows.card_html(parts["server_group_html"])
-        + parts["registry_html"] + parts["dialog_html"])
+        + '<div class="system-topics">%s</div>' % groups
+        + (ui_groups.group(
+            '<li class="fleet-group__item fleet-group__item--flush">%s</li>'
+            % parts["registry_html"],
+            extra_class="fleet-block system-topic system-registry").replace(
+                '<ul class="group">', '<ul class="group fleet-group">', 1)
+           if parts["registry_html"] else "")
+        + parts["dialog_html"])

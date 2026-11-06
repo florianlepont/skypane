@@ -271,7 +271,7 @@ def _home(state_dir, now, lang="en", cfg=None):
         page = home_page.render(ctx)
     finally:
         prefs.set_request_prefs(lang="en")
-    start = page.index('<section class="home-state ')
+    start = page.index('<section class="hero home-state ')
     return page[start:page.index("</section>", start)]
 
 

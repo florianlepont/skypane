@@ -85,17 +85,17 @@ def _live_get(app, route, lang=None):
 
 def _switcher(page):
     root = parse_html(page)
-    return root, root.select_one("ul.frame-tiles")
+    return root, root.select_one("ul.frame-menu__list")
 
 
 def _rows(page):
     root, _switcher_node = _switcher(page)
     return root, [
-        a for a in root.select("ul.frame-tiles a.frame-tile")
-        if "frame-tile--add" not in a.attrs.get("class", "")]
+        a for a in root.select("ul.frame-menu__list a.frame-row")
+        if "frame-row--add" not in a.attrs.get("class", "")]
 
 
-def test_single_device_renders_no_switcher_markup(single_app):
+def test_single_device_lists_one_frame_and_the_add_row(single_app):
     server, cookie = single_app
     # The signed-in administrator owns no frame, so the un-prefixed page
     # moves to the account page; the frame is reached by its own id.
@@ -109,7 +109,9 @@ def test_single_device_renders_no_switcher_markup(single_app):
     for route in SCOPED_PAGES:
         status, _, page = _get(server, cookie, prefix + route)
         assert status == 200
-        assert "frame-tiles" not in page and "frame-tile" not in page
+        _root, rows = _rows(page)
+        assert len(rows) == 1
+        assert page.count("frame-row--add") == 1
         assert 'name="device"' not in page
 
 
@@ -122,21 +124,22 @@ def test_switcher_on_every_device_scoped_page(fleet_app, route):
     assert switcher.attrs["aria-label"] == "Your frames"
     assert not switcher.select("form") and not switcher.select("select")
     assert not root.select("dialog.frame-sheet")
-    # Before the title, inside the main region.
-    assert root.select_one("main").select_one("ul.frame-tiles") is not None
-    assert page.index("frame-tiles") < page.index("page-title")
+    # In the top bar, before the content and its title.
+    assert root.select_one("header.site-header ul.frame-menu__list") is not None
+    assert not root.select("main ul.frame-menu__list")
+    assert page.index("frame-menu__list") < page.index("page-title")
 
 
 @pytest.mark.parametrize("route", ["/update", "/login"])
 def test_global_pages_have_no_switcher(fleet_app, route):
     _, _, page = _fleet_get(fleet_app, route)
-    assert "frame-tiles" not in page and "frame-tile" not in page
+    assert "frame-menu" not in page and "frame-row" not in page
 
 
 def test_not_found_page_has_no_switcher(fleet_app):
     status, _, page = _fleet_get(fleet_app, "/devices/d_00000000/flights")
     assert status == 404
-    assert "frame-tiles" not in page and "frame-tile" not in page
+    assert "frame-menu" not in page and "frame-row" not in page
 
 
 def test_rows_order_and_status_words(fleet_app):
@@ -153,7 +156,7 @@ def test_rows_order_and_status_words(fleet_app):
     assert words["/devices/%s/flights" % fleet.dev_b.id] == "No contact"
     assert words["/devices/%s/flights" % fleet.landscape.id] == "Not seen yet"
     assert words["/devices/%s/flights" % fleet.dev_a.id] in ("Up to date", "Low battery")
-    names = [row.select_one(".frame-tile__name").text().strip() for row in rows[1:]]
+    names = [row.select_one(".frame-row__name").text().strip() for row in rows[1:]]
     assert names == sorted(names)
 
 
@@ -173,13 +176,13 @@ def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
     _, rows = _rows(page)
     current = [row for row in rows if row.attrs.get("aria-current") == "true"]
     assert [row.attrs["href"] for row in current] == [_live_path(fleet_app, "/")]
-    assert current[0].select_one(".frame-tile__name").text().strip() == "Orly frame"
+    assert current[0].select_one(".frame-row__name").text().strip() == "Orly frame"
 
 
 def test_add_tile_for_an_administrator_leads_to_the_pairing_flow(fleet_app):
     _, _, page = _live_get(fleet_app, "/health")
     _, switcher = _switcher(page)
-    add = switcher.select("a.frame-tile--add")
+    add = switcher.select("a.frame-row--add")
     assert [(a.attrs["href"], a.text().strip()[-12:]) for a in add] == [
         ("/fleet?pair=1", "+Add a frame")]
     assert "All frames" not in page
@@ -190,7 +193,7 @@ def test_each_tile_reads_a_last_seen_word_from_the_shared_status(fleet_app):
     _, _, page = _live_get(fleet_app, "/flights")
     _, rows = _rows(page)
     seen = {
-        row.attrs["href"]: row.select_one(".frame-tile__seen").text().strip()
+        row.attrs["href"]: row.select_one(".frame-row__seen").text().strip()
         for row in rows}
     assert seen["/devices/%s/flights" % fleet.landscape.id] == "Not seen yet"
     assert seen["/devices/%s/flights" % fleet.dev_a.id].startswith("Seen ")

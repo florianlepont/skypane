@@ -40,7 +40,7 @@ _ADD_YOUR_FRAME = i18n.msg("pair_frame.add_your_frame", "Add your frame")
 EMPTY_BODY = i18n.msg(
     "pair_frame.the_code_is_shown_on_your_frame_s_screen",
     "The pairing code is shown on your frame's screen.")
-_ADD_LINK = i18n.msg("pair_frame.add_a_frame_link", "Add a frame")
+ADD_LINK_TEXT = i18n.msg("pair_frame.add_a_frame_link", "Add a frame")
 
 FORM_CLASS = "pair-form"
 ADD_LINK_CLASS = "pair-link"
@@ -67,12 +67,6 @@ def primary_link_html():
     without script."""
     return '<a class="%s %s--primary" href="%s">%s</a>' % (
         ADD_LINK_CLASS, ADD_LINK_CLASS, PAIR_FRAME_ROUTE, _t(_ADD_YOUR_FRAME))
-
-
-def secondary_link_html():
-    """The Add a frame link under a list of frames."""
-    return '<a class="%s" href="%s">%s</a>' % (
-        ADD_LINK_CLASS, PAIR_FRAME_ROUTE, _t(_ADD_LINK))
 
 
 def empty_state_html():

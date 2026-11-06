@@ -1383,12 +1383,11 @@ def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, c
         "expected the promoted rule to still declare its retained 260902-bl2 bottom margin — a "
         "missing bottom margin means this re-promotion over-reached and took the independently-"
         "justified spacing fix with it, got %r" % nested_decls)
-    assert nested_decls.get("font-family") == "var(--font-ui)", (
-        "expected the nested-heading rule to declare font-family: var(--font-ui) — D-09's second "
-        "reversal moves this tier onto the sans Emphasis role, got %r" % nested_decls)
-    assert nested_decls.get("font-size") == "var(--font-body-size)", (
-        "expected the nested-heading rule to declare font-size: var(--font-body-size) (16px) — "
-        "the same Emphasis-role size .stat-tile__value already uses, not a new fifth size, got %r"
+    assert nested_decls.get("font-family") == "var(--font-display)", (
+        "expected the nested-heading rule to declare the display face — a nested card title is "
+        "a section title like every other, got %r" % nested_decls)
+    assert nested_decls.get("font-size") == "var(--font-heading-size)", (
+        "expected the nested-heading rule to declare the section title size, got %r"
         % nested_decls)
     assert nested_decls.get("font-weight") == "var(--weight-semibold)", (
         "expected the nested-heading rule to declare font-weight: var(--weight-semibold) — a "
@@ -1398,10 +1397,10 @@ def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, c
     assert heading_decls.get("font-size") == "var(--font-heading-size)", (
         "expected .text-heading to still declare --font-heading-size — the section heading tier "
         "this nested title now sits below has no fallback of its own, got %r" % heading_decls)
-    assert heading_decls.get("font-weight") == "var(--weight-regular)", (
-        "expected .text-heading to stay --weight-regular — the section-heading tier must stay "
-        "regular so the semibold nested card title below it reads as a distinct third tier, not "
-        "more of the same weight, got %r" % heading_decls)
+    assert heading_decls.get("font-weight") == "var(--weight-semibold)", (
+        "expected .text-heading to be --weight-semibold — the section title role is semibold "
+        "on every page, got %r" % heading_decls)
+    assert heading_decls.get("font-family") == "var(--font-display)", heading_decls
     tokens = custom_properties(css_text, ":root")
     assert tokens.get("--font-heading-size") == "22px", (
         "expected --font-heading-size to be 22px in :root — D-10 grew the section heading tier "
@@ -1428,18 +1427,16 @@ def test_stat_tile_caption_joins_the_unified_label_voice(css_text):
         "expected .stat-tile__caption's rule body to no longer name the serif token at all — a "
         "serif reference reappearing here is the retired Label-role exception returning, got %r"
         % caption_decls)
-    assert caption_decls.get("font-size") == "12px", (
-        "expected .stat-tile__caption to declare font-size: 12px — the unified label voice's own "
-        "size, got %r" % caption_decls)
+    assert caption_decls.get("font-size") == "var(--font-caption-size)", (
+        "expected .stat-tile__caption to declare the caption size token — the unified label "
+        "voice's own size, got %r" % caption_decls)
     assert caption_decls.get("font-weight") == "var(--weight-semibold)", (
         "expected .stat-tile__caption to declare font-weight: var(--weight-semibold) — one of the "
         "unified label voice's four properties, got %r" % caption_decls)
-    assert caption_decls.get("text-transform") == "uppercase", (
-        "expected .stat-tile__caption to declare text-transform: uppercase — one of the unified "
-        "label voice's four properties, got %r" % caption_decls)
-    assert caption_decls.get("letter-spacing") == "0.06em", (
-        "expected .stat-tile__caption to declare letter-spacing: 0.06em — one of the unified "
-        "label voice's four properties, got %r" % caption_decls)
+    assert caption_decls.get("text-transform") in (None, "none"), (
+        "labels are sentence case: no uppercase transform, got %r" % caption_decls)
+    assert caption_decls.get("letter-spacing") in (None, "normal", "0"), (
+        "labels are not tracked, got %r" % caption_decls)
 
     value_decls = declarations_for(css_text, ".stat-tile__value")
     assert value_decls.get("font-size") == "var(--font-body-size)", (
@@ -1451,24 +1448,22 @@ def test_stat_tile_caption_joins_the_unified_label_voice(css_text):
     # The nested card title's demotion is re-promoted a second time,
     # deliberately, as the bottom rung of the full type ladder.
     nested_decls = declarations_for(css_text, ".page-section--nested > h2")
-    assert nested_decls.get("font-size") == "var(--font-body-size)", (
-        "expected the nested card title to declare font-size: var(--font-body-size) (16px) — "
-        "D-09's second reversal promotes it onto the sans Emphasis role, got %r" % nested_decls)
+    assert nested_decls.get("font-size") == "var(--font-heading-size)", (
+        "expected the nested card title to declare the section title size, got %r" % nested_decls)
     assert nested_decls.get("font-weight") == "var(--weight-semibold)", (
         "expected the nested card title to declare font-weight: var(--weight-semibold) — D-09's "
         "second reversal promotes it onto the sans Emphasis role, got %r" % nested_decls)
 
     heading_decls = declarations_for(css_text, ".text-heading")
-    assert heading_decls.get("font-weight") == "var(--weight-regular)", (
-        "expected the shared heading rule to stay regular weight — the section heading and the "
-        "reverted nested card title both inherit this, and neither should ever carry its own "
-        "weight override again, got %r" % heading_decls)
+    assert heading_decls.get("font-weight") == "var(--weight-semibold)", (
+        "expected the shared heading rule to be semibold on every page, got %r" % heading_decls)
 
     # Token values themselves, so this check fails loudly (not silently)
     # if a future edit changes what 14/16/22 actually mean.
     tokens = custom_properties(css_text, ":root")
     for name, expected in (
-            ("--font-label-size", "14px"),
+            ("--font-caption-size", "13px"),
+            ("--font-label-size", "15px"),
             ("--font-body-size", "16px"),
             ("--font-heading-size", "22px")):
         assert tokens.get(name) == expected, "expected %s to be %s in :root, got %r" % (name, expected, tokens)

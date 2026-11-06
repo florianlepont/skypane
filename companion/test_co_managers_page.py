@@ -488,7 +488,7 @@ def _check_in(rig, frame_id, age_hours):
 
 def _fleet_word(rig, name):
     tree, _body = rig.fleet()
-    row = [r for r in tree.select("a.frame-tile") if name in r.text()][0]
+    row = [r for r in tree.select("a.frame-row") if name in r.text()][0]
     return row.select_one('[role="img"]').attrs["aria-label"]
 
 
@@ -539,11 +539,11 @@ def _account(rig, who, query="", language=None):
 
 
 def _frame_names(body):
-    return [n.text() for n in parse_html(body).select("li.entity-row a.entity-row__title")]
+    return [n.text() for n in parse_html(body).select("li.account-frame .row__label")]
 
 
 def _row_of(tree, name):
-    return [r for r in tree.select("li.entity-row") if name in r.text()][0]
+    return [r for r in tree.select("li.account-frame") if name in r.text()][0]
 
 
 def _leave_id(rig):
@@ -556,9 +556,9 @@ def _access_id(rig):
 
 def test_a_co_managed_frame_says_who_shared_it_and_offers_leave_not_manage_access(rig):
     tree = parse_html(_account(rig, "co"))
-    (row,) = tree.select("li.entity-row")
+    (row,) = tree.select("li.account-frame")
     assert "Shared by %s" % fx.OWNER_EMAIL in row.text()
-    assert row.select_one("a.entity-row__title").attrs["href"] == rig.path
+    assert row.select_one("a.row__main").attrs["href"] == rig.path
     (action,) = row.select("a[data-modal-open]")
     assert (action.text(), action.attrs["href"]) == ("Leave frame", "#" + _leave_id(rig))
     assert tree.select_one("dialog#" + _leave_id(rig)) is not None

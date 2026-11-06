@@ -66,7 +66,7 @@ def _check_bar_switch(page, lang, space, where):
     assert cell["h"] >= MIN_TAP_PX and cell["w"] >= MIN_TAP_PX, (where, cell)
     assert cell["hit"] and cell["icon"], (where, cell)
     assert cell["sw"] <= cell["cw"] and cell["lines"] <= 1, (where, cell)
-    assert cell["dividerPx"] >= 1 and cell["pillBorderPx"] >= 1, (where, cell)
+    assert cell["pillBorderPx"] >= 1, (where, cell)
     assert cell["pillBorder"] == cell["color"], (where, cell)
     assert not cell["big"] and not cell["moreHasSwitch"], (where, cell)
     assert not _assert_no_page_overflow(page, where, page.viewport_size["width"])

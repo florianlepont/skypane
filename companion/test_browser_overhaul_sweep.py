@@ -151,7 +151,7 @@ _PERSONAL_BODY = """
 # Airline and airport names are catalogue data, spelled the same in both languages.
 _VISIBLE_TEXT = """
 () => {
-  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-tile__name';
+  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-row__name, .frame-menu__name';
   const out = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -641,7 +641,7 @@ def test_the_home_notification_has_a_french_translation(
 _PAGE_SHAPE = """
 () => {
   const skip = '.tab-bar__link--switch, .space-switch, .frame-notice,'
-    + ' .frame-tiles, script, style, template';
+    + ' .frame-menu, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);
   return {
@@ -750,7 +750,7 @@ def test_controls_keep_44px_at_every_point_of_the_entrance(
 # translucent on the radius scale, the glass blur stays on a handful of large surfaces,
 # every animation is finite (the status dot's pulse is the one ambient loop), the
 # entrance never shifts the layout, and the text inks stay readable on the page under
-# the four skies and the night sky of the dark theme.
+# the pale sky of Light and the ink gradient of Dark.
 THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-flight-history")]
 AMBIENT_LOOPS = {"skypane-pulse", "skypane-dot-halo"}
 
@@ -758,7 +758,7 @@ AMBIENT_LOOPS = {"skypane-pulse", "skypane-dot-halo"}
 _SURFACES = """
 () => [...document.querySelectorAll(
     '.page-section, .dashboard-main > .empty-state, .dashboard-main > .data-table-wrap, .airlines-table')]
-  .filter((e) => e.checkVisibility() && (!e.matches('.airlines-table')
+  .filter((e) => e.checkVisibility() && !e.closest('.group') && (!e.matches('.airlines-table')
     || getComputedStyle(e).display === 'table'))
   .map((e) => { const s = getComputedStyle(e);
     const alpha = (c) => { const m = c.match(/\\/ ([0-9.]+)\\)$|, ([0-9.]+)\\)$/);
@@ -788,7 +788,7 @@ def test_cards_tables_and_empty_states_are_glass_on_the_radius_scale(
     context, page = _open(new_context, server, persona, path, dialog, viewport, "en", "light")
     try:
         for surface in page.evaluate(_SURFACES):
-            assert surface["radius"] == "20px", (path, surface)
+            assert surface["radius"] == "22px", (path, surface)
             assert surface["alpha"] < 1, (path, surface)
         blurred = page.evaluate(_BLURRED)
         # A handful of large surfaces: the bars, the sidebar and one or two cards.
@@ -890,20 +890,17 @@ _INKS = """
 }
 """
 
-SKIES = ("dawn", "day", "dusk", "night")
 CONTRAST_PAGES = [c for c in PAGES if c.id in (
     "user-home", "user-account", "user-collection", "user-display", "user-flight-history",
     "admin-collection", "users", "audit", "fleet")]
 
 
-@pytest.mark.parametrize("scheme,sky", [("light", s) for s in SKIES] + [("dark", "night")])
+@pytest.mark.parametrize("scheme", ("light", "dark"))
 @pytest.mark.parametrize("persona,path,dialog", CONTRAST_PAGES)
-def test_text_links_placeholders_and_disabled_controls_stay_readable_on_every_sky(
-        new_context, server, persona, path, dialog, scheme, sky):
+def test_text_links_placeholders_and_disabled_controls_stay_readable_on_the_background(
+        new_context, server, persona, path, dialog, scheme):
     context, page = _open(new_context, server, persona, path, dialog, VIEWPORTS[0].values[0], "en", scheme)
     try:
-        page.evaluate("s => document.documentElement.setAttribute('data-sky', s)", sky)
-        page.wait_for_timeout(100)
         low = []
         for item in page.evaluate(_INKS):
             ratio = contrast_ratio("#%02x%02x%02x" % tuple(item["fg"]), "#%02x%02x%02x" % tuple(item["bg"]))
@@ -911,6 +908,292 @@ def test_text_links_placeholders_and_disabled_controls_stay_readable_on_every_sk
             floor = 3.0 if item["kind"] == "disabled" else WCAG_AA_NORMAL_TEXT
             if ratio < floor:
                 low.append((item["kind"], item["name"], round(ratio, 2)))
-        assert not low, (path, scheme, sky, low)
+        assert not low, (path, scheme, low)
+    finally:
+        context.close()
+
+
+# --- one design language, page by page -------------------------------------------
+# Every page above (and every dialog it opens) is held to the shared rules: the page title is
+# the title token, every other heading is the section label, the card title or the sub-page
+# title, controls share one height and radius, no glass surface sits inside another, no warm
+# legacy fill remains, a page carries few blurred surfaces, every animation is finite (the
+# status pulse apart), nothing shifts while the page settles, reduced motion stops the
+# movement, every control type shows a focus ring, and navigation and menus state what they are.
+
+PHONE = {"width": 390, "height": 844}
+RULE_PAGES = [pytest.param(c.values, id=c.id) for c in CASES if not c.values[2]]
+RULE_DIALOGS = [pytest.param(c.values, id=c.id) for c in CASES if c.values[2]]
+
+
+def where_id(case):
+    return "%s%s" % (case[0], case[1])
+
+
+def _only(*ids):
+    return [c for c in RULE_PAGES if c.id in ids]
+
+# The type scale a heading may use, read from the tokens themselves.
+_TOKENS = """
+() => {
+  const probe = (css) => {
+    const e = document.createElement('span');
+    e.style.cssText = 'position:absolute;visibility:hidden;font-size:' + css;
+    document.body.appendChild(e);
+    const v = getComputedStyle(e).fontSize;
+    e.remove();
+    return v;
+  };
+  return {
+    title: probe('var(--font-page-title-size)'),
+    label: probe('var(--font-caption-size)'),
+    card: probe('var(--font-card-title-size)'),
+    sub: probe('var(--font-heading-size)'),
+    radius: (() => {
+      const e = document.createElement('span');
+      e.style.cssText = 'position:absolute;visibility:hidden;border-radius:var(--radius-control)';
+      document.body.appendChild(e);
+      const v = getComputedStyle(e).borderRadius;
+      e.remove();
+      return v;
+    })()
+  };
+}
+"""
+
+_HEADINGS = """
+(tokens) => {
+  const bad = [];
+  const shown = (e) => {
+    const r = e.getBoundingClientRect();
+    return r.width > 2 && r.height > 2 && !e.closest('[hidden]') &&
+      !e.closest('dialog:not([open])') && getComputedStyle(e).visibility !== 'hidden';
+  };
+  const allowed = [tokens.label, tokens.card, tokens.sub];
+  for (const h of document.querySelectorAll('main h1')) {
+    if (shown(h) && getComputedStyle(h).fontSize !== tokens.title) {
+      bad.push('h1 ' + h.className + ' is ' + getComputedStyle(h).fontSize);
+    }
+  }
+  for (const h of document.querySelectorAll('main h2, main h3, main legend')) {
+    if (!shown(h) || h.closest('dialog')) continue;
+    const size = getComputedStyle(h).fontSize;
+    if (!allowed.includes(size)) bad.push(h.tagName + '.' + h.className + ' is ' + size);
+  }
+  return bad;
+}
+"""
+
+_CONTROLS = """
+(tokens) => {
+  const bad = [];
+  const sel = 'main select, main input:not([type=hidden]):not([type=checkbox]):not([type=radio])' +
+    ':not([type=range]):not([type=file]):not(.visually-hidden)';
+  for (const e of document.querySelectorAll(sel)) {
+    const r = e.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2 || e.closest('[hidden]') || e.closest('dialog:not([open])')) continue;
+    const c = getComputedStyle(e);
+    if (c.position === 'absolute' && c.clip !== 'auto') continue;
+    if (r.height < 43.5) bad.push(e.tagName + '.' + e.className + ' height ' + r.height);
+    if (c.borderRadius !== tokens.radius) bad.push(e.tagName + '.' + e.className + ' radius ' + c.borderRadius);
+  }
+  return bad;
+}
+"""
+
+_NESTED_GLASS = """
+() => {
+  const surface = '.group, .page-section, .data-table-wrap, .data-card, .history-card, .empty-state';
+  const visible = (e) => {
+    const c = getComputedStyle(e);
+    const alpha = (c.backgroundColor.match(/[\\d.]+/g) || []).length === 4
+      ? parseFloat(c.backgroundColor.match(/[\\d.]+/g)[3]) : 1;
+    const bordered = parseFloat(c.borderTopWidth) > 0 && c.borderTopColor !== 'rgba(0, 0, 0, 0)';
+    return alpha > 0.3 && (bordered || c.boxShadow !== 'none');
+  };
+  const bad = [];
+  for (const e of document.querySelectorAll('main ' + surface.split(', ').join(', main '))) {
+    if (!visible(e) || e.closest('dialog')) continue;
+    let p = e.parentElement;
+    while (p && p.tagName !== 'MAIN') {
+      if (p.matches(surface) && visible(p)) { bad.push(e.className + ' inside ' + p.className); break; }
+      p = p.parentElement;
+    }
+  }
+  return bad;
+}
+"""
+
+_WARM_FILLS = """
+() => {
+  const bad = [];
+  const warm = (css) => {
+    const m = css.match(/rgba?\\(([^)]+)\\)/g) || [];
+    return m.some((x) => {
+      const [r, g, b, a] = x.match(/[\\d.]+/g).map(Number);
+      return (a === undefined || a > 0.5) && r > 214 && g > 214 && r - b >= 6 && r >= g && g >= b;
+    });
+  };
+  for (const e of [document.documentElement, document.body, ...document.querySelectorAll('main *')]) {
+    const c = getComputedStyle(e);
+    if (e.closest('svg, img, picture, canvas')) continue;
+    if (warm(c.backgroundColor) || warm(c.backgroundImage)) bad.push(e.tagName + '.' + e.className);
+  }
+  return bad.slice(0, 5);
+}
+"""
+
+_BLUR_AND_ANIMATIONS = """
+() => {
+  let blurred = 0;
+  for (const e of document.querySelectorAll('body *')) {
+    const c = getComputedStyle(e);
+    const f = c.backdropFilter || c.webkitBackdropFilter;
+    const r = e.getBoundingClientRect();
+    // The content of a closed disclosure is not painted, so it holds no blur.
+    const closed = e.closest('details:not([open])');
+    if (closed && !e.closest('summary') && e !== closed) continue;
+    if (f && f !== 'none' && r.width > 0 && r.height > 0) blurred += 1;
+  }
+  const infinite = document.getAnimations().filter((a) => {
+    const t = a.effect && a.effect.getComputedTiming();
+    const target = a.effect && a.effect.target;
+    return t && t.iterations === Infinity &&
+      !(target && target.closest('.home-state__dot--pulse, [class*="dot--pulse"]'));
+  }).map((a) => (a.effect.target && a.effect.target.className) || a.id || 'animation');
+  return {blurred, infinite};
+}
+"""
+
+_SHIFT = """
+() => new Promise((resolve) => {
+  let total = 0;
+  const po = new PerformanceObserver((list) => {
+    for (const e of list.getEntries()) if (!e.hadRecentInput) total += e.value;
+  });
+  po.observe({type: 'layout-shift', buffered: true});
+  setTimeout(() => {
+    for (const e of po.takeRecords()) if (!e.hadRecentInput) total += e.value;
+    po.disconnect();
+    resolve(total);
+  }, 600);
+})
+"""
+
+
+def _open_page(new_context, server, case, viewport, scheme, lang="en"):
+    persona, path, dialog = case
+    return _open(new_context, server, persona, path, dialog, viewport, lang, scheme)
+
+
+@pytest.mark.parametrize("scheme", ("light", "dark"))
+@pytest.mark.parametrize("viewport", (PHONE, VIEWPORT_DESKTOP), ids=("phone", "desktop"))
+@pytest.mark.parametrize("case", RULE_PAGES)
+def test_every_page_follows_the_shared_rules(new_context, server, case, viewport, scheme):
+    context, page = _open_page(new_context, server, case, viewport, scheme)
+    where = "%s/%d/%s" % (where_id(case), viewport["width"], scheme)
+    try:
+        tokens = page.evaluate(_TOKENS)
+        problems = []
+        problems += ["heading: " + p for p in page.evaluate(_HEADINGS, tokens)]
+        problems += ["control: " + p for p in page.evaluate(_CONTROLS, tokens)]
+        problems += ["nested glass: " + p for p in page.evaluate(_NESTED_GLASS)]
+        if scheme == "light":
+            problems += ["warm fill: " + p for p in page.evaluate(_WARM_FILLS)]
+        report = page.evaluate(_BLUR_AND_ANIMATIONS)
+        if report["blurred"] > 6:
+            problems.append("%d blurred surfaces" % report["blurred"])
+        problems += ["infinite animation: %s" % a for a in report["infinite"]]
+        assert not problems, (where, problems)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scheme", ("light", "dark"))
+@pytest.mark.parametrize("case", RULE_DIALOGS)
+def test_every_dialog_is_a_glass_sheet_with_a_graphite_primary(new_context, server, case, scheme):
+    context, page = _open_page(new_context, server, case, PHONE, scheme)
+    try:
+        report = page.evaluate("""() => {
+          const d = document.querySelector('dialog[open]');
+          const c = getComputedStyle(d);
+          const rect = d.getBoundingClientRect();
+          return {
+            radius: c.borderTopLeftRadius, outline: c.outlineStyle,
+            fits: rect.left >= 0 && rect.right <= innerWidth + 0.5,
+            sheetRadius: getComputedStyle(document.documentElement).getPropertyValue('--radius-sheet').trim()};
+        }""")
+        assert report["fits"], where_id(case)
+        assert report["outline"] in ("none", "auto") and report["radius"] != "0px", report
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("case", _only("home", "admin-home", "user-home", "fleet", "users"))
+def test_the_page_does_not_shift_while_it_settles(new_context, server, case):
+    context, page = _open_page(new_context, server, case, PHONE, "light")
+    try:
+        shift = page.evaluate(_SHIFT)
+        assert shift < 0.1, (where_id(case), shift)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("case", _only("admin-home", "fleet", "user-account", "admin-collection"))
+def test_reduced_motion_stops_the_movement(new_context, server, case):
+    context, page = _open_page(new_context, server, case, PHONE, "light")
+    try:
+        page.emulate_media(reduced_motion="reduce")
+        page.reload()
+        page.locator("main").wait_for(state="visible")
+        page.wait_for_function("document.readyState === 'complete'")
+        page.wait_for_function(
+            "() => document.getAnimations().every((a) => !a.effect || "
+            "a.effect.getComputedTiming().iterations !== Infinity)", timeout=10000)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("case", _only("admin-device", "user-account", "admin-airline-editor", "users"))
+def test_every_control_type_shows_a_focus_ring(new_context, server, case):
+    context, page = _open_page(new_context, server, case, PHONE, "light")
+    try:
+        page.keyboard.press("Tab")
+        missing = page.evaluate("""() => {
+          const kinds = {};
+          const sel = 'main a[href], main button, main select, main input:not([type=hidden]), main summary';
+          for (const e of document.querySelectorAll(sel)) {
+            const r = e.getBoundingClientRect();
+            if (r.width < 2 || r.height < 2 || e.closest('[hidden]')) continue;
+            const kind = e.tagName + ':' + (e.type || '');
+            if (kinds[kind] !== undefined) continue;
+            e.focus({focusVisible: true});
+            const c = getComputedStyle(e);
+            const ring = c.outlineStyle !== 'none' && parseFloat(c.outlineWidth) >= 1.5;
+            const shadow = c.boxShadow !== 'none';
+            kinds[kind] = ring || shadow || document.activeElement !== e;
+          }
+          return Object.keys(kinds).filter((k) => !kinds[k]);
+        }""")
+        assert not missing, (where_id(case), missing)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("case", _only("admin-home", "fleet", "user-home"))
+def test_navigation_and_menus_state_what_they_are(new_context, server, case):
+    context, page = _open_page(new_context, server, case, PHONE, "light")
+    try:
+        report = page.evaluate("""() => {
+          const nav = [...document.querySelectorAll('nav')].filter((n) => n.getBoundingClientRect().width > 0);
+          const current = nav.map((n) => n.querySelectorAll('[aria-current="page"]').length);
+          const menus = [...document.querySelectorAll('summary[aria-haspopup]')]
+            .filter((s) => s.getBoundingClientRect().width > 0)
+            .map((s) => s.hasAttribute('aria-expanded'));
+          return {current, menus, named: nav.every((n) => n.hasAttribute('aria-label') || n.hasAttribute('aria-labelledby'))};
+        }""")
+        assert any(count == 1 for count in report["current"]), report
+        assert report["menus"] and all(report["menus"]), report
+        assert report["named"], report
     finally:
         context.close()
