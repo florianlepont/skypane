@@ -151,3 +151,7 @@ Changing an artwork moved from the thumbnail (tap, choose the file) to the row's
 ## Plan 61-57 (frame button and popover)
 
 Choosing a frame is two taps now: the frame button at the top right, then the frame's row (the strip was one tile tap). Measured on 360 x 844 after the change: S2 2 (was 1), U2 several 2 (was 1), A7 2 (was 1), A3 pair a frame 5 (the button, the Add a frame row, the code, the owner, Pair), A4 retire 5, A4 reassign 6 and A5 6 when the frame is not the one selected on landing (each counts the button and the row where it counted one tile tap; one fewer when it is already selected). A1 stays 0 and U2 with one frame stays 0 (the button names the frame, no action). The targets of the revision 2 rows were 2 or more for S2, so S2 and A7 stay within them; A3, A4 and A5 are over their first-round targets by the one extra tap and are accepted: the popover keeps the top of every page free of the strip (the audit's heaviest block above the title).
+
+## Plan 61-58 (user pages on the components)
+
+No measured count moved: Manage access and Leave frame are still one tap from the Account row, Add a frame is still one tap (now a row), the Flights filter and picture action are unchanged, and the Personalisation views are the same links. Counts stay as after plan 61-57.

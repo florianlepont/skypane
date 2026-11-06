@@ -255,7 +255,7 @@ def test_account_page_shows_identity_preferences_frames_and_sign_out():
     html = account_page.render(account_page.Identity("ada@example.com", "user"))
     doc = _doc(html)
     assert doc.select_one("h1.page-title").text() == "Account"
-    cards = doc.select("section.page-section")
+    cards = [c for c in doc.select("section.group-block") if c.select("h2")]
     assert [c.select_one("h2").text() for c in cards] == [
         "My frames", "Identity", "Preferences"]
     identity = cards[1].text()
@@ -293,7 +293,7 @@ def test_account_page_renders_in_french():
     prefs.set_request_prefs("fr")
     doc = _doc(account_page.render(account_page.Identity("a@b.fr", "user")))
     assert doc.select_one("h1.page-title").text() == "Compte"
-    assert [c.select_one("h2").text() for c in doc.select("section.page-section")] == [
+    assert [c.select_one("h2").text() for c in doc.select("section.group-block") if c.select("h2")] == [
         "Mes cadres", "Identité", "Préférences"]
     assert "Vos cadres apparaîtront ici" in doc.text()
     assert "Ajouter votre cadre" in doc.text()

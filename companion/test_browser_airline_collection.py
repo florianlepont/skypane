@@ -492,7 +492,8 @@ def test_the_detail_sheet_fits_the_screen_with_its_head_and_close_in_reach(
             assert box["top"] >= geometry["dialog"][0] - 0.5, (part, geometry)
             assert box["bottom"] <= geometry["dialog"][1] + 0.5, (part, geometry)
         assert geometry["close"]["height"] >= 44 - 0.5 and geometry["dismiss"]["height"] >= 44 - 0.5
-        assert len(set(round(top) for top in geometry["facts"])) <= len(geometry["facts"]) / 2 + 1, geometry
+        tops = sorted(geometry["facts"])
+        assert all(b - a >= 54 - 0.5 for a, b in zip(tops, tops[1:])), geometry
         if viewport["width"] < 700:
             assert geometry["art"]["height"] <= 80, geometry
     finally:

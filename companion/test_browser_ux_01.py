@@ -105,7 +105,7 @@ def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, serve
 
 
 def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_context, server):
-    """At 390 and 360 px every phone card shows its icon-only picture link inside the card's
+    """At 390 and 360 px every phone card shows its icon-only picture link inside the row,
     head, as a 44px square, named for its flight, with no horizontal page scroll, in English
     and in French.
     """
@@ -125,7 +125,7 @@ def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_con
                     raise AssertionError("expected phone cards (%s)" % where)
                 measured = page.evaluate(
                     "() => [...document.querySelectorAll('li.history-card')].map(li => {"
-                    "  const a = li.querySelector('.history-card__head > a[data-view-panel-src]');"
+                    "  const a = li.querySelector(':scope > a[data-view-panel-src]');"
                     "  if (!a) return null;"
                     "  const r = a.getBoundingClientRect(), c = li.getBoundingClientRect();"
                     "  return {text: a.textContent.trim(), w: r.width, h: r.height,"

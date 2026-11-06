@@ -3,6 +3,8 @@ HTTP: ownership, audit, the identical refusal, the shared throttles, role
 and CSRF gating, and the empty state of a person with no frame."""
 import re
 
+from companion_markup import parse_html
+
 import pytest
 
 import fleet_console_support as fx
@@ -227,6 +229,7 @@ def test_a_user_with_a_frame_gets_the_add_a_frame_link(rig):
     server, _seed, _cookie = rig
     owner = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
     _status, _headers, page = fx.get(server, owner, "/account")
-    assert re.findall(r'<a class="pair-link" href="([^"]*)">([^<]*)</a>', page) == [
+    doc = parse_html(page)
+    assert [(a.attrs["href"], a.text()) for a in doc.select("li.account-add-frame a.row__main")] == [
         ("/pair-frame", "Add a frame")]
     assert "pair-link--primary" not in page

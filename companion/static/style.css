@@ -1177,68 +1177,6 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   height: 44px;
 }
 
-/* Preferences: one labelled row per setting. The segmented control is
- * sized to its labels (never stretched); on a narrow screen the text sits
- * above it, from 640px beside it. */
-.pref-rows {
-  display: flex;
-  flex-direction: column;
-}
-
-.pref-row {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  padding: var(--space-md) 0;
-  border-top: 1px solid var(--color-border);
-}
-
-.pref-row:first-child {
-  border-top: none;
-  padding-top: 0;
-}
-
-.pref-row:last-child {
-  padding-bottom: 0;
-}
-
-.pref-row__text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.pref-row__label {
-  font-weight: var(--weight-semibold);
-}
-
-.pref-row__hint {
-  font-size: var(--font-caption-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.pref-row .theme-form {
-  flex: 0 0 auto;
-  max-width: 100%;
-}
-
-.pref-row .theme-form .theme-option {
-  flex: 0 1 auto;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-}
-
-@media (min-width: 640px) {
-  .pref-row {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-lg);
-  }
-}
-
 .account-sign-out button,
 .sidebar-footer .logout-form button {
   min-height: 44px;
@@ -3176,282 +3114,10 @@ table.data-table--registry .cell-inline-sep {
 }
 
 /* .history-cards ~ .data-table-wrap (a sibling combinator) scopes this
- * toggle to History's own pair only — Airlines/Health also reuse
+ * toggle to History's own pair only: Airlines/Health also reuse
  * .data-table-wrap but never render a sibling .history-cards. */
-.history-cards {
-  display: grid;
-  gap: var(--space-sm);
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .history-cards ~ .data-table-wrap {
   display: none;
-}
-
-/* The phone boarding-pass card. No padding on the card itself: each
- * band carries its own, so the stub's tear line can run edge to edge
- * and its notches can sit on the card's border. */
-.history-card {
-  position: relative;
-  background: var(--color-dominant);
-  /* Same hairline-at-rest contract as .runway-card above. */
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-}
-
-/* A slim day header between cards, in the label voice with a trailing
- * hairline. Not a filter row: it carries no data-filter-text. */
-.history-cards__day {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  margin-top: var(--space-xs);
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.history-cards__day:first-child {
-  margin-top: 0;
-}
-
-/* [hidden]-vs-author-display collision: the filter hides a day header
- * with no visible row under it. */
-.history-cards__day[hidden] {
-  display: none;
-}
-
-.history-cards__day::after {
-  content: "";
-  flex: 1;
-  height: 1px;
-  background: var(--color-border);
-}
-
-/* Identity on the left in a shrinkable track, the 44px picture action
- * pinned to its own content width on the right. */
-.history-card__head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-sm) 0 var(--space-md);
-}
-
-.history-card__id {
-  min-width: 0;
-  padding-top: var(--space-xs);
-}
-
-.history-card__callsign {
-  display: block;
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-
-.history-card__note {
-  font-family: var(--font-ui);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
-  letter-spacing: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* One line, ellipsised: a long operator name never pushes the card
- * taller or the picture action out of its track. */
-.history-card__airline {
-  display: block;
-  font-size: var(--font-label-size);
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.history-card__airline--unknown {
-  font-style: italic;
-}
-
-/* An icon-only link with a real 44px box, not a padded glyph. */
-.history-card__picture {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-text) 4%, transparent);
-  color: var(--color-text);
-}
-
-.history-card__picture:hover {
-  background: color-mix(in srgb, var(--color-text) 8%, transparent);
-}
-
-/* origin | track | destination: the codes span both grid rows and pin
- * to the top, and the first row is exactly one code tall, so the
- * dashed track runs through the codes' middle while the direction
- * label tucks under the plane beside them rather than on a row of its
- * own. */
-.history-card__route {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-rows: var(--font-heading-size) auto;
-  grid-template-areas:
-    "from track to"
-    "from dir to";
-  column-gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-md) var(--space-sm);
-}
-
-.history-card__code {
-  font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
-}
-
-.history-card__code--from {
-  grid-area: from;
-  align-self: start;
-}
-
-.history-card__code--to {
-  grid-area: to;
-  align-self: start;
-}
-
-.history-card__code--home {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.history-card__code--none {
-  line-height: var(--font-heading-size);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
-  letter-spacing: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.history-card__track {
-  grid-area: track;
-  align-self: center;
-  position: relative;
-  display: flex;
-  justify-content: center;
-  min-width: 0;
-}
-
-/* The dashed track behind the plane, through the glyph's middle. */
-.history-card__track::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 50%;
-  border-top: 1px dashed color-mix(in srgb, var(--color-text) 30%, transparent);
-}
-
-/* The dominant-surface pad masks the dashes under the glyph. */
-.icon.history-card__plane {
-  position: relative;
-  width: 16px;
-  height: 16px;
-  padding: 0 var(--space-xs);
-  box-sizing: content-box;
-  background: var(--color-dominant);
-  color: var(--color-text);
-}
-
-.history-card__dir {
-  grid-area: dir;
-  justify-self: center;
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-  white-space: nowrap;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* The stub below the tear line: artwork plate and time on one row.
- * The two notches are half-discs in the page colour sitting on the
- * card's side borders, so they follow the canvas in both themes. */
-.history-card__stub {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-md);
-  padding: var(--space-sm) var(--space-md);
-  border-top: 1px dashed var(--color-border);
-}
-
-.history-card__stub::before {
-  content: "";
-  position: absolute;
-  top: -8px;
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  background: var(--history-card-notch, var(--color-canvas));
-  left: -8px;
-  clip-path: inset(0 0 0 50%);
-}
-
-.history-card__stub::after {
-  content: "";
-  position: absolute;
-  top: -8px;
-  width: 14px;
-  height: 14px;
-  border: 1px solid var(--color-border);
-  border-radius: 50%;
-  background: var(--history-card-notch, var(--color-canvas));
-  right: -8px;
-  clip-path: inset(0 50% 0 0);
-}
-
-/* A fixed 40px-tall plate; the artwork keeps its aspect inside it on
- * the image backdrop, the same backing every artwork thumbnail uses. */
-.history-card__art {
-  display: block;
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 200px;
-  height: 40px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-}
-
-img.history-card__art {
-  background: var(--color-image-backdrop);
-  object-fit: contain;
-}
-
-.history-card__art--empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0 var(--space-sm);
-  border-style: dashed;
-  font-size: var(--font-caption-size);
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.history-card__when {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.3;
-  white-space: nowrap;
 }
 
 /* The row-level picture action on the card and in the table: the
@@ -5084,13 +4750,6 @@ a.airline-card {
   margin-bottom: var(--space-sm);
 }
 
-/* A long email wraps instead of widening the Account card. */
-.account-identity .data-card__value {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: right;
-}
-
 /* box-shadow at rest is this file's one hairline-at-rest exception: a
  * <dialog> is a floating modal, not a page-flow card. color is set
  * explicitly because <dialog> promoted via showModal() does not reliably
@@ -5729,8 +5388,8 @@ button.detection-search:hover {
 
 .map-ready .place-mode {
   padding: 0 var(--space-md);
-  border-radius: var(--radius-card);
-  background: var(--color-dominant);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
   box-shadow: var(--shadow-card-hover);
 }
 
@@ -5840,9 +5499,9 @@ button.detection-search:hover {
   overflow-y: auto;
   gap: var(--space-sm);
   padding: var(--space-md);
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border-radius: var(--radius-pill) var(--radius-pill) 0 0;
-  box-shadow: var(--shadow-card-hover);
+  box-shadow: var(--shadow-glass);
   pointer-events: auto;
 }
 
@@ -7291,62 +6950,6 @@ button.switch:active {
 
 
 
-/* order: 1 keeps the detail line last visually even though it is the
- * third child before the time (fourth); the inline-start margin
- * reproduces the old grid's thumbnail-width offset (40px + gap). */
-
-
-/* No percentage width cap here: since this item sits in a content-sized
- * auto track, a percentage would resolve against that same content-
- * derived width and always overflow itself (measured: 88px clientWidth
- * vs 147px scrollWidth in English). The track itself is the line cap. */
-
-
-/* Home's phone list: the Flights boarding-pass card (.history-card and
- * its bands) at a compact size, one per recent flight. The cards sit on
- * the section's own surface, so the tear-line notches take that colour
- * instead of the page canvas. Rendered before the desktop list; the pair
- * toggles at 960px. */
-
-
-
-
-/* The head is one line: callsign, then the airline taking what is left
- * and ellipsised, so a long operator name never wraps the card. */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* Too narrow for the "No illustration" words: the dashed outline says
- * it, and the text stays in the markup for a screen reader. */
-
-
-
-
-
-
-
-
-
-
 /* 4. Audit fixes ------------------------------------------------------- */
 
 .config-form input[type="number"],
@@ -7602,8 +7205,8 @@ a.calendar-disconnect-btn:focus-visible {
 
 /* The status line leads the Calendar row; the look of its flights follows
  * under a hairline. */
-.special-row--calendar > .calendar-status + .special-row__main {
-  margin-top: var(--space-sm);
+.special-row--calendar > .calendar-status ~ .special-row__main {
+  margin-top: var(--space-md);
   border-top: 1px solid var(--color-border);
   padding-top: var(--space-sm);
 }
@@ -9253,62 +8856,6 @@ a.entity-row__title::before {
   gap: var(--space-xs);
 }
 
-/* An Account frame row: the CSS-drawn frame first, then the name, the
- * hardware or owner line and the status dot with its last-seen word. */
-li.entity-row.account-frame {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  padding-left: var(--space-md);
-}
-
-.account-frame .entity-row__dot {
-  position: static;
-  align-self: center;
-  margin-top: 0;
-}
-
-.account-frame__pic {
-  display: block;
-  box-sizing: border-box;
-  width: 44px;
-  height: 58px;
-  padding: 3px;
-  background: var(--color-frame-bezel);
-  border: 1px solid var(--color-frame-bezel-hi);
-  border-radius: var(--radius-control);
-}
-
-.account-frame__pic i {
-  display: block;
-  height: 100%;
-  background: var(--color-image-backdrop);
-  border-radius: var(--radius-control);
-}
-
-.account-frame__status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-@media (min-width: 960px) {
-  li.entity-row.account-frame {
-    grid-template-columns: auto minmax(0, 1fr) auto;
-    padding-left: var(--space-md);
-  }
-
-  .account-frame .entity-row__text {
-    display: flex;
-    grid-column: auto;
-  }
-
-  .account-frame .entity-row__meta,
-  .account-frame .entity-row__pills {
-    grid-column: auto;
-  }
-}
-
 details.row-menu {
   position: relative;
 }
@@ -9585,12 +9132,9 @@ a.entity-row__button:hover {
   display: flex;
   gap: var(--space-xs);
   margin: 0 0 var(--space-lg);
-  padding: var(--space-xs);
+  padding: 0;
   overflow-x: auto;
   scroll-snap-type: x proximity;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  background: var(--color-secondary);
   scrollbar-width: none;
 }
 
@@ -9612,11 +9156,19 @@ a.entity-row__button:hover {
   gap: var(--space-sm);
   min-height: 44px;
   padding: 0 var(--space-md);
-  border-radius: var(--radius-control);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   font-weight: var(--weight-semibold);
   text-decoration: none;
   white-space: nowrap;
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .personalisation-nav__link {
+    background: var(--glass-bg);
+  }
 }
 
 .personalisation-nav__link svg {
@@ -9642,12 +9194,12 @@ a.entity-row__button:hover {
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb {
   position: absolute;
-  top: var(--space-xs);
-  bottom: var(--space-xs);
+  top: 0;
+  bottom: 0;
   left: 0;
   display: block;
   width: 0;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-pill);
   background: var(--color-accent);
   box-shadow: var(--shadow-control);
 }
@@ -10212,6 +9764,9 @@ button.look-sheet__save:hover {
 
 .collection-card__art {
   display: block;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
 .collection-card__image {
@@ -10230,6 +9785,7 @@ button.look-sheet__save:hover {
 }
 
 .collection-card__name {
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
@@ -10275,14 +9831,6 @@ button.look-sheet__save:hover {
 
 .rarity-pill--rare .rarity-dot {
   background: var(--color-rarity-rare);
-}
-
-.collection-card--occasional {
-  border-top: 3px solid var(--color-rarity-occasional);
-}
-
-.collection-card--rare {
-  border-top: 3px solid var(--color-rarity-rare);
 }
 
 .type-chips {
@@ -10368,30 +9916,44 @@ dialog.collection-sheet[open],
   max-height: 160px;
 }
 
+/* The facts read as rows: the label at the left, the value at the right,
+ * a hairline between them; the wide facts stack. */
 .collection-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-sm) var(--space-md);
+  display: block;
   margin: 0;
 }
 
 .collection-facts > div {
-  display: grid;
-  align-content: start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
   min-width: 0;
+  min-height: 54px;
+  padding: var(--space-xs) 0;
+}
+
+.collection-facts > div + div {
+  border-top: 1px solid var(--glass-hairline);
 }
 
 .collection-facts > .collection-facts__wide {
-  grid-column: 1 / -1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-xs);
 }
 
 .collection-facts dt {
+  flex: none;
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-facts dd {
   margin: 0;
+  min-width: 0;
+  text-align: right;
   overflow-wrap: anywhere;
 }
 
@@ -11133,7 +10695,6 @@ a.airlines-name-it {
   .runway-card,
   .space-switch,
   .filter-bar__chips,
-  .personalisation-nav,
   .look-seg,
   .place-modes,
   .map-ready .place-modes,
@@ -11649,3 +11210,246 @@ a.airlines-name-it {
     text-align: right;
   }
 }
+
+/* Flights (phone): one glass group per day, one row per flight. The plane
+ * chip is neutral and turns with the direction (nose up for a departure,
+ * down for an arrival); the age and the direction sit at the right. */
+.history-cards {
+  margin: 0;
+}
+
+.history-day[hidden],
+.group > .row[hidden] {
+  display: none;
+}
+
+/* The filter hides rows with [hidden]: the hairline is drawn between two
+ * visible rows only, so a hidden first row never leaves a stray line. */
+.history-day .group > .row + .row {
+  border-top: 0;
+}
+
+.history-day .group > .row:not([hidden]) ~ .row:not([hidden]) {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.history-card .row__chip {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+}
+
+.history-card .row__chip .icon {
+  transition: transform var(--motion-fast);
+}
+
+.history-card[data-filter-kind="departing"] .row__chip .icon {
+  transform: rotate(-45deg);
+}
+
+.history-card[data-filter-kind="arriving"] .row__chip .icon {
+  transform: rotate(45deg);
+}
+
+.history-card .row__label {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+}
+
+.history-card__route {
+  margin-left: var(--space-xs);
+  white-space: nowrap;
+}
+
+.history-card__arrow {
+  margin: 0 var(--space-xs);
+}
+
+.history-card__code--home {
+  font-weight: var(--weight-regular, 400);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-card .row__detail {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-card .row__value {
+  max-width: 38%;
+  font-size: var(--font-label-size);
+}
+
+.history-card__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+}
+
+.history-card__when .time-value--primary {
+  font-weight: var(--weight-regular);
+}
+
+.history-card__picture {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-right: var(--space-xs);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+}
+
+.history-card__picture:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.history-card__picture:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+/* Account: grouped rows. A frame row is the drawn frame, the name with its
+ * hardware and status, a chevron, and the row's one action as a link line
+ * under the text. */
+.account-frame {
+  flex-wrap: wrap;
+}
+
+.group > .account-frame > .row__main {
+  flex: 1 1 100%;
+}
+
+.account-frame__pic {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 40px;
+  height: 52px;
+  padding: 3px;
+  background: var(--color-frame-bezel);
+  border: 1px solid var(--color-frame-bezel-hi);
+  border-radius: var(--radius-chip);
+}
+
+.account-frame__pic i {
+  display: block;
+  height: 100%;
+  background: var(--color-image-backdrop);
+  border-radius: 3px;
+}
+
+.account-frame .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+.account-frame__line {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.account-frame__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.account-frame__action {
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0 var(--space-md) var(--space-xs)
+    calc(var(--space-md) + 40px + var(--space-sm) + var(--space-xs));
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.account-add-frame .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+/* A value row never widens the page: a long email ellipsises. */
+.account-identity .row__value {
+  max-width: 65%;
+}
+
+/* A preference row: the control sits at the right; when the row is too
+ * narrow for the text and the control, the control drops under the text. */
+.pref-row {
+  flex-wrap: wrap;
+  padding: var(--space-xs) var(--space-md) var(--space-xs) 0;
+}
+
+.pref-row > .row__main {
+  flex: 1 1 12rem;
+}
+
+.pref-row .theme-form {
+  flex: 0 0 auto;
+  max-width: 100%;
+  margin: 0 0 0 var(--space-md);
+  background: var(--glass-solid);
+}
+
+.pref-row .theme-form .theme-option {
+  flex: 0 1 auto;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .pref-row .theme-form {
+    background: var(--glass-bg);
+  }
+}
+
+.pref-row .theme-form .theme-option--active,
+.pref-row .theme-form .theme-option--active:hover {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+/* Wide enough, the frame's action sits at the right of its row. */
+@media (min-width: 640px) {
+  .account-frame {
+    flex-wrap: nowrap;
+  }
+
+  .group > .account-frame > .row__main {
+    flex: 1 1 auto;
+  }
+
+  .account-frame__action {
+    margin: 0 var(--space-md);
+    white-space: nowrap;
+  }
+}
+
+/* Sign out is a group of its own: one row in the danger colour. */
+.account-sign-out-group .row > form {
+  display: flex;
+  flex: 1 1 auto;
+  margin: 0;
+}
+
+.group .row--danger .row__main {
+  color: var(--color-status-error);
+  font-weight: var(--weight-semibold);
+}
+
+.collection-facts > .collection-facts__wide dd {
+  text-align: left;
+}
+
+/* Location: the map sheet and the mode pills keep the glass tier's solid
+ * fill: a translucent fill over a light map tile would not hold the text's
+ * contrast in the dark theme. */

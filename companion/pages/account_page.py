@@ -9,7 +9,7 @@ dot.
 import time
 from typing import NamedTuple
 
-from companion import frame_status, i18n, layout, prefs, ui_entity_list, ui_modal, ui_shell
+from companion import frame_status, i18n, layout, prefs, ui_groups, ui_modal, ui_shell
 from companion.pages import co_managers_card, pair_frame_page
 
 ACCOUNT_TITLE = i18n.msg("account.account", "Account")
@@ -73,31 +73,22 @@ def _role_text(identity):
     return _ROLE_ADMIN_TEXT if identity.role == ROLE_ADMIN else _ROLE_USER_TEXT
 
 
-def _card(heading_id, heading, inner_html):
-    return (
-        '<section class="page-section page-section--nested" '
-        'aria-labelledby="%s"><h2 class="text-heading" id="%s">%s</h2>%s</section>'
-        % (heading_id, heading_id, layout.escape_html(i18n.t(heading)), inner_html))
-
-
 def _preference_row(label, hint, control_html):
-    """One labelled preference: its name and a one-line hint beside a
-    segmented control sized to its content."""
-    return (
-        '<div class="pref-row"><div class="pref-row__text">'
-        '<span class="pref-row__label">%s</span>'
-        '<span class="pref-row__hint">%s</span></div>%s</div>'
-    ) % (layout.escape_html(i18n.t(label)), layout.escape_html(i18n.t(hint)),
-         control_html)
+    """One labelled preference as a row: its name and a one-line hint, then
+    a segmented control sized to its content as the trailing control (it
+    drops under the text when the row is too narrow for both)."""
+    return ui_groups.row(
+        i18n.t(label), detail=i18n.t(hint), trailing_html=control_html,
+        extra_class="pref-row")
 
 
-def _pair_html(label, value):
-    return (
-        '<div class="data-card"><div class="data-card__primary">'
-        '<span class="data-card__label">%s</span>'
-        '<span class="data-card__value">%s</span>'
-        "</div></div>"
-    ) % (layout.escape_html(i18n.t(label)), layout.escape_html(value))
+def _value_row(label, value):
+    """A row that only shows a value; a long value ellipsises and keeps its
+    full text as the tooltip."""
+    return ui_groups.row(
+        i18n.t(label),
+        value_html='<span title="%s">%s</span>' % (
+            layout.escape_html(value), layout.escape_html(value)))
 
 
 def _frame_action_html(frame):
@@ -106,13 +97,13 @@ def _frame_action_html(frame):
     if frame.shared:
         return ui_modal.trigger_html(
             co_managers_card.leave_dialog_id(frame.device_id),
-            layout.escape_html(i18n.t(_LEAVE_FRAME_TEXT)), "entity-row__button",
+            layout.escape_html(i18n.t(_LEAVE_FRAME_TEXT)), "account-frame__action",
             i18n.t(_LEAVE_FRAME_ARIA) % frame.name)
     if frame.access is None:
         return ""
     return ui_modal.trigger_html(
         co_managers_card.access_dialog_id(frame.device_id),
-        layout.escape_html(i18n.t(co_managers_card.MENU_LABEL)), "entity-row__button",
+        layout.escape_html(i18n.t(co_managers_card.MENU_LABEL)), "account-frame__action",
         i18n.t(_MANAGE_ACCESS_ARIA) % frame.name)
 
 
@@ -123,19 +114,25 @@ def _frame_line(frame):
     return frame.hardware
 
 
-def _frame_status_html(frame, now):
-    """The status dot and the last-seen word of a frame row."""
+def _frame_detail_html(frame, now):
+    """The row's detail: the hardware (or who shared the frame), then the
+    status dot with the last-seen word."""
     return (
+        '<span class="account-frame__line">%s</span>'
         '<span class="account-frame__status">%s<span>%s</span></span>' % (
+            layout.escape_html(_frame_line(frame)),
             frame_status.status_dot_html(frame),
             layout.escape_html(ui_shell.seen_text(frame, now))))
 
 
 def _frame_row_html(frame, now):
-    return ui_entity_list.entity_row_html(
-        ui_shell.frame_pic_html("account-frame"), frame.name, _frame_line(frame),
-        _frame_status_html(frame, now), _frame_action_html(frame), frame.href,
-        extra_class="account-frame")
+    """One frame: the drawn frame, its name, hardware and status, a chevron to
+    the frame's Home, and its one action (Manage access or Leave frame) as a
+    link line under the text."""
+    return ui_groups.row(
+        frame.name, lead_html=ui_shell.frame_pic_html("account-frame"),
+        detail_html=_frame_detail_html(frame, now), href=frame.href,
+        trailing_html=_frame_action_html(frame), extra_class="account-frame")
 
 
 def _frame_dialog_html(frame, open_access):
@@ -152,17 +149,21 @@ def _frame_dialog_html(frame, open_access):
 
 
 def _frames_card(frames, open_access, now):
-    """The My frames card: the empty state with no frames, else one row per
-    frame ordered by name, followed by the row dialogs."""
+    """The My frames group: the empty state with no frames, else one row per
+    frame ordered by name, then the Add a frame row, followed by the row
+    dialogs."""
     if not frames:
-        return _card(
-            "account-frames", _MY_FRAMES_TEXT, pair_frame_page.empty_state_html())
+        return ui_groups.group_panel(
+            pair_frame_page.empty_state_html(), label=i18n.t(_MY_FRAMES_TEXT),
+            label_id="account-frames")
     rows = sorted(frames, key=lambda frame: (frame.name.casefold(), frame.href))
-    return _card(
-        "account-frames", _MY_FRAMES_TEXT,
-        ui_entity_list.entity_list_html("".join(_frame_row_html(f, now) for f in rows))
-        + '<p class="pair-actions">%s</p>' % pair_frame_page.secondary_link_html()
-        + "".join(_frame_dialog_html(f, open_access) for f in rows))
+    add_row = ui_groups.row(
+        i18n.t(pair_frame_page.ADD_LINK_TEXT), icon="icon-plus",
+        href=pair_frame_page.PAIR_FRAME_ROUTE, extra_class="account-add-frame")
+    return ui_groups.group(
+        "".join(_frame_row_html(f, now) for f in rows) + add_row,
+        label=i18n.t(_MY_FRAMES_TEXT), label_id="account-frames"
+    ) + "".join(_frame_dialog_html(f, open_access) for f in rows)
 
 
 def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
@@ -171,25 +172,26 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
     Manage access dialog renders open; `now` (epoch seconds) dates the
     last-seen words."""
     identity_html = (
-        '<div class="account-identity">%s%s</div>' % (
-            _pair_html(_EMAIL_TEXT, identity.email),
-            _pair_html(_ROLE_TEXT, i18n.t(_role_text(identity)))))
+        _value_row(_EMAIL_TEXT, identity.email)
+        + _value_row(_ROLE_TEXT, i18n.t(_role_text(identity))))
     resolved_theme = ui_theme if ui_theme in layout.UI_THEME_CHOICES else "auto"
     preferences_html = (
-        '<div class="pref-rows">%s%s</div>' % (
-            _preference_row(
-                _LANGUAGE_TEXT, _LANGUAGE_HINT,
-                layout._lang_form_html(prefs.current_lang())),
-            _preference_row(
-                _THEME_TEXT, _THEME_HINT,
-                layout._theme_form_html(resolved_theme))))
-    sign_out_html = (
+        _preference_row(
+            _LANGUAGE_TEXT, _LANGUAGE_HINT, layout._lang_form_html(prefs.current_lang()))
+        + _preference_row(
+            _THEME_TEXT, _THEME_HINT, layout._theme_form_html(resolved_theme)))
+    sign_out_html = ui_groups.group(
+        '<li class="row row--action row--danger">'
         '<form method="post" action="/logout" class="logout-form account-sign-out">'
-        '<button type="submit">%s</button></form>'
-        % layout.escape_html(i18n.t(_SIGN_OUT_TEXT)))
+        '<button type="submit" class="row__main">%s</button></form></li>'
+        % layout.escape_html(i18n.t(_SIGN_OUT_TEXT)),
+        extra_class="account-sign-out-group")
     return (
         layout.page_header(i18n.t(ACCOUNT_TITLE), purpose=i18n.t(ACCOUNT_PURPOSE))
         + _frames_card(tuple(frames), open_access, time.time() if now is None else now)
-        + _card("account-identity", _IDENTITY_TEXT, identity_html)
-        + _card("account-preferences", _PREFERENCES_TEXT, preferences_html)
+        + ui_groups.group(
+            identity_html, label=i18n.t(_IDENTITY_TEXT), label_id="account-identity",
+            extra_class="account-identity")
+        + ui_groups.group(
+            preferences_html, label=i18n.t(_PREFERENCES_TEXT), label_id="account-preferences")
         + sign_out_html)

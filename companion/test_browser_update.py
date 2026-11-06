@@ -673,8 +673,11 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
         assert min(heights) >= 44, "a row summary is %r tall at %s" % (min(heights), where)
 
         for details in (rows.nth(0), rows.nth(3), rows.nth(11)):
+            page.wait_for_function("() => document.getAnimations().length === 0")
             details.locator("summary").click()
             body = details.locator(".update-row__body")
+            page.wait_for_function(
+                "d => d.open", arg=details.element_handle())
             assert body.is_visible()
             box = body.bounding_box()
             assert box["x"] >= -0.5 and box["x"] + box["width"] <= width + 0.5, (

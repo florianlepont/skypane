@@ -112,6 +112,11 @@
       }
       heads[h].hidden = !any;
     }
+    // A phone day is one group: hidden while none of its rows shows.
+    var days = document.querySelectorAll("[data-filter-day-group]");
+    for (var d = 0; d < days.length; d++) {
+      days[d].hidden = !days[d].querySelector("[data-filter-text]:not([hidden])");
+    }
   }
 
   function paintChips(rows, query) {

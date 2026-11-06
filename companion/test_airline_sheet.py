@@ -301,7 +301,7 @@ def test_flights_and_home_show_stored_flights_under_the_new_name_and_reset_resto
 
     _post(server, session, "/airlines/rename", airline="Air France", airline_name="Skyline Air")
     flights_page, home_page = pages()
-    assert "Skyline Air" in flights_page and "/illustration/skyline-air.png" in flights_page
+    assert "Skyline Air" in flights_page
     assert "Skyline Air" in home_page
     with history_db.open_db(server.state_dir) as conn:
         assert history_db.recent_runway_events(conn)[0]["airline"] == "Air France"

@@ -34,7 +34,7 @@ def chip_html(icon_id):
 
 def row(label="", *, label_html="", icon="", detail="", detail_html="",
         value_html="", href="", button_attrs="", chevron=None, trailing_html="",
-        extra_class="", label_id="", attrs=""):
+        extra_class="", label_id="", attrs="", lead_html=""):
     """One `<li class="row">`.
 
     The main area is an `<a>` when `href` is given, a `<button type="button">`
@@ -49,7 +49,7 @@ def row(label="", *, label_html="", icon="", detail="", detail_html="",
     text = label_html or escape_html(label)
     sub = detail_html or (escape_html(detail) if detail else "")
     inner = (
-        (chip_html(icon) if icon else "")
+        (lead_html or (chip_html(icon) if icon else ""))
         + '<span class="row__text"><span class="row__label"%s>%s</span>%s</span>' % (
             _attr("id", label_id), text,
             ('<span class="row__detail">%s</span>' % sub) if sub else "")
@@ -68,15 +68,15 @@ def row(label="", *, label_html="", icon="", detail="", detail_html="",
     return '<li class="%s"%s>%s%s</li>' % (css, attrs and " " + attrs, main, trailing_html)
 
 
-def group(rows_html, label="", label_id="", extra_class=""):
+def group(rows_html, label="", label_id="", extra_class="", attrs=""):
     """A section label (when `label` is given) above one glass surface that
     holds `rows_html` (a run of `row()` items). A group never contains
     another group."""
     heading = section_label(label, label_id) if label else ""
     css = "group-block" + (" " + extra_class if extra_class else "")
     labelled = ' aria-labelledby="%s"' % escape_html(label_id) if label and label_id else ""
-    return '<section class="%s"%s>%s<ul class="group">%s</ul></section>' % (
-        css, labelled, heading, rows_html)
+    return '<section class="%s"%s%s>%s<ul class="group">%s</ul></section>' % (
+        css, labelled, attrs and " " + attrs, heading, rows_html)
 
 
 def group_panel(content_html, label="", label_id="", extra_class=""):

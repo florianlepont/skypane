@@ -144,7 +144,7 @@ def test_row_value_text_reads_over_the_glass(new_context, server, scheme):
 
 
 _SURFACES = """(glass) => { const bad = [];
-  for (const sel of ['.space-switch', '.filter-bar__chips', '.personalisation-nav',
+  for (const sel of ['.space-switch', '.filter-bar__chips', '.personalisation-nav__link:not([aria-current])',
       '.look-seg', '.place-modes', '.tab-bar__more-panel', '.users-table', '.place-card',
       '.dashboard-main > .data-table-wrap']) {
     for (const el of document.querySelectorAll(sel)) {

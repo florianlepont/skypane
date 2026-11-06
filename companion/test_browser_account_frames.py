@@ -36,7 +36,7 @@ class AccountRig(Rig):
         self.email = "#co-manager-%s-email" % self.slug
 
     def row(self, page):
-        return page.locator("li.entity-row", has_text="Kitchen")
+        return page.locator("li.account-frame", has_text="Kitchen")
 
 
 @pytest.fixture
@@ -107,7 +107,7 @@ def test_a_co_manager_leaves_and_lands_on_a_valid_account_page(new_context, arig
         toast = page.locator('.toast-region--flash .toast[role="status"]')
         toast.wait_for(state="visible")
         assert "You left the frame" in toast.inner_text()
-        assert page.locator("li.entity-row", has_text="Kitchen").count() == 0
+        assert page.locator("li.account-frame", has_text="Kitchen").count() == 0
         assert page.locator(".empty-state__heading").inner_text() == (
             "Your frames will appear here")
         assert arig.members() == []
@@ -159,10 +159,10 @@ def test_the_card_and_its_dialog_fit_and_meet_the_tap_targets(
         assert action.inner_text() == labels["manage" if who == "owner" else "leave"]
         assert action.bounding_box()["height"] >= MIN_TAP_PX - SUBPIXEL
         assert action.bounding_box()["width"] >= MIN_TAP_PX - SUBPIXEL
-        assert row.locator("a.entity-row__title").bounding_box()["height"] > 0
+        assert row.locator("a.row__main").bounding_box()["height"] > 0
         assert row.locator('.account-frame__status [role="img"]').count() == 1
         picture = row.locator(".account-frame__pic").bounding_box()
-        name_box = row.locator("a.entity-row__title").bounding_box()
+        name_box = row.locator(".row__label").bounding_box()
         assert picture["width"] >= 40 and picture["height"] >= 50
         assert picture["x"] + picture["width"] <= name_box["x"] + SUBPIXEL
         assert row.locator(".account-frame__status").inner_text().count("ago") <= 1
@@ -233,7 +233,7 @@ def test_the_leave_flow_works_through_hash_links_with_scripts_blocked(
         assert page.locator(arig.leave).is_visible()
         page.locator(arig.leave + ' button[type="submit"]').click()
         page.wait_for_url("**/account?flash=*")
-        assert page.locator("li.entity-row", has_text="Kitchen").count() == 0
+        assert page.locator("li.account-frame", has_text="Kitchen").count() == 0
         assert arig.members() == []
     finally:
         context.close()

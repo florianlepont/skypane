@@ -22,6 +22,7 @@ from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
+import companion.ui_groups as ui_groups
 from server import history_db
 from server.plane import name_overrides
 from server.plane import render as panel_render
@@ -641,8 +642,8 @@ def _day_separator_row_html(day, today):
 
 def _history_table_html(formatted_rows, now=None):
     if not formatted_rows:
-        return layout.empty_state(
-            i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY), compact=True)
+        return ui_groups.group_panel(layout.empty_state(
+            i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY), compact=True))
 
     # The last <th> is the visually-hidden "Picture" header: no data
     # column behind it, so built directly here rather than through the
@@ -700,12 +701,10 @@ def _history_table_html(formatted_rows, now=None):
     ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
 
 
-def _card_identity_html(row):
-    """The card header's left column: the callsign in the identifier
-    voice, then the airline. A row with no callsign promotes its hex
-    with the NO_CALLSIGN_NOTE_TEXT note, so the slot is never blank. An
-    unresolved airline reads "Airline unknown", with no link.
-    """
+def _row_label_html(row):
+    """The row's label: the callsign in the identifier voice, then the route
+    codes with the home end muted. A row with no callsign promotes its hex
+    with the NO_CALLSIGN_NOTE_TEXT note, so the slot is never blank."""
     if row["callsign"]:
         ident = escape_html(row["callsign"])
     elif row["hex"]:
@@ -713,89 +712,111 @@ def _card_identity_html(row):
             escape_html(row["hex"]), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
     else:
         ident = ""
-    is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
-    if is_unresolved:
-        airline_html = (
-            '<span class="history-card__airline history-card__airline--unknown">%s</span>'
-            % escape_html(i18n.t(AIRLINE_FALLBACK_TEXT)))
-    else:
-        airline_html = '<span class="history-card__airline">%s</span>' % escape_html(
-            row["airline_label"])
+    state = row["confirmed_state"] if row["state_raw"] in _CONFIRMED_STATE_LABELS else ""
+    return '<span class="history-card__callsign mono">%s</span>%s%s' % (
+        ident, _route_codes_html(row),
+        ('<span class="history-card__state visually-hidden"> (%s)</span>' % escape_html(state))
+        if state else "")
+
+
+def _route_codes_html(row):
+    """"ORY → KEF" as two code spans; the home end (the origin of a
+    departure, the destination of an arrival) is muted so the far airport
+    reads first. With no route nothing is shown (the detail line carries the
+    shared "Route unavailable" wording)."""
+    origin, destination = row.get("origin"), row.get("destination")
+    if not (origin and destination):
+        return ""
+    state = row.get("state_raw")
     return (
-        '<div class="history-card__id">'
-        '<span class="history-card__callsign mono">%s</span>%s</div>'
-    ) % (ident, airline_html)
+        ' <span class="history-card__route">'
+        '<span class="history-card__code history-card__code--from%s">%s</span>'
+        '<span class="history-card__arrow" aria-hidden="true">\u2192</span>'
+        '<span class="history-card__code history-card__code--to%s">%s</span>'
+        "</span>"
+    ) % (" history-card__code--home" if state == "departing" else "", escape_html(origin),
+         " history-card__code--home" if state == "arriving" else "", escape_html(destination))
 
 
-def _card_stub_html(row, now):
-    """The card's stub, below the tear line: the airline artwork as a
-    wide plate (or a quiet dashed placeholder when there is none) and,
-    on the same row, the time and age.
-    """
-    return flight_card.stub_html(row.get("thumb_html"), row["raw_ts"], now)
+def _row_detail_text(row):
+    """"airline · aircraft type", with the unresolved wording for an unknown
+    airline and the route fallback when the route is missing."""
+    airline = row["airline_label"]
+    if airline == AIRLINE_FALLBACK_TEXT:
+        airline = i18n.t(AIRLINE_FALLBACK_TEXT)
+    route = "" if (row.get("origin") and row.get("destination")) else i18n.t(
+        ROUTE_FALLBACK_TEXT)
+    return " \u00b7 ".join(part for part in (airline, row["aircraft_type_label"], route) if part)
 
 
-def card_day_label(day, today):
-    """The phone list's slim day header: `day_label()`, plus the short
-    date after "Today"/"Yesterday" so the header reads "Today · 3 Oct".
-    An absolute label is already a date and gains nothing.
-    """
-    label = day_label(day, today)
-    absolute = "%d %s" % (day.day, layout.month_abbr(day.month))
-    if label == absolute:
-        return label
-    return "%s %s %s" % (label, CELL_SEPARATOR_TEXT, absolute)
+def _row_value_html(row, now):
+    """The trailing value: the live relative age over the local clock time."""
+    parsed = layout.parse_iso(row["raw_ts"]) if row["raw_ts"] else None
+    if parsed is None:
+        clock = escape_html(row["raw_ts"] or i18n.t(_CLOCK_CELL_FALLBACK))
+        age = ""
+    else:
+        # The day group's label carries the date, so the row shows the clock alone.
+        clock = escape_html(layout.local_clock_text(parsed, parsed))
+        age = ('<span class="time-value time-value__age">%s</span>'
+               % layout.relative_time_html(row["raw_ts"], now)
+               if layout.age_seconds(row["raw_ts"], now) is not None else "")
+    return (
+        '<span class="history-card__when">%s<span class="time-value time-value--primary">%s'
+        "</span></span>"
+    ) % (age, clock)
 
 
 def _history_card_html(row, index, now):
-    """One boarding-pass card: header (identity + picture action), route
-    line, then the stub. `data-filter-group` is the row's loop index,
-    shared with the desktop `<tr>` at the same index so list-filter.js
-    counts one flight once.
-    """
-    return (
-        '<li class="history-card" data-filter-text="%s" '
-        'data-filter-kind="%s" data-filter-group="%d" %s="%s">'
-        '<div class="history-card__head">%s%s</div>%s%s</li>'
+    """One flight as a row: a plane chip turned by the direction, the
+    callsign and route, "airline \u00b7 aircraft" beneath, the age and the
+    direction at the right, and the picture action beside it.
+    `data-filter-group` is the row's loop index, shared with the desktop
+    `<tr>` at the same index so list-filter.js counts one flight once."""
+    attrs = (
+        'data-filter-text="%s" data-filter-kind="%s" data-filter-group="%d" %s="%s"'
     ) % (_filter_text_attr(row), _filter_kind_attr(row), index,
-         layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
-         _card_identity_html(row), row.get("view_panel_icon_html", ""),
-         flight_card.route_html(row.get("origin"), row.get("destination"),
-                                row.get("state_raw"), row["confirmed_state"]),
-         _card_stub_html(row, now))
+         layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)))
+    return ui_groups.row(
+        label_html=_row_label_html(row), icon="icon-plane",
+        detail=_row_detail_text(row), value_html=_row_value_html(row, now),
+        trailing_html=row.get("view_panel_icon_html", ""),
+        extra_class="history-card", attrs=attrs)
 
 
 def _history_cards_html(formatted_rows, now=None):
-    """Mobile boarding-pass representation, one `<li>` per row, built
-    from the same `formatted_rows` list `_history_table_html()`
-    consumes, with a slim day-header `<li>` wherever the Paris calendar
-    day changes (the same grouping the table's separator rows use).
-    Returns "" for an empty list. Must render as a DOM sibling
-    immediately before the desktop table: style.css's
-    `.history-cards ~ .data-table-wrap` breakpoint toggle depends on
-    this order.
-    """
+    """The phone representation: one glass group per Paris calendar day
+    (the day is its section label), one row per flight, built from the same
+    `formatted_rows` list `_history_table_html()` consumes. A row whose
+    timestamp cannot be dated joins the open group. Returns "" for an empty
+    list. Must render as a DOM sibling immediately before the desktop table:
+    style.css's `.history-cards ~ .data-table-wrap` breakpoint toggle depends
+    on this order."""
     if not formatted_rows:
         return ""
     today = paris_day(now)
+    days = []
     current_day = None
-    items = []
     for index, row in enumerate(formatted_rows):
         day = paris_day(row["raw_ts"])
-        if day is not None and day != current_day:
-            current_day = day
-            items.append('<li class="history-cards__day" data-filter-day>%s</li>' % escape_html(
-                card_day_label(day, today)))
-        items.append(_history_card_html(row, index, now))
-    return '<ul class="history-cards">%s</ul>' % "".join(items)
+        if day is not None and day != current_day or not days:
+            current_day = day if day is not None else current_day
+            days.append((day, []))
+        days[-1][1].append(_history_card_html(row, index, now))
+    groups = []
+    for number, (day, items) in enumerate(days):
+        label = day_label(day, today) if day is not None else i18n.t(PAGE_TITLE)
+        groups.append(ui_groups.group(
+            "".join(items), label=label, label_id="history-day-%d" % number,
+            extra_class="history-day", attrs="data-filter-day-group"))
+    return '<div class="history-cards">%s</div>' % "".join(groups)
 
 
 def render(ctx):
     ctx = page_context.coerce(ctx)
-    state_dir = ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
     names = name_overrides.names_by_prefix(ctx.name_overrides)
-    rows = _safe_query(state_dir, lambda conn: history_rows(conn, names))
+    rows = _safe_query(ctx.state_dir, lambda conn: history_rows(conn, names))
 
     # Flights stays on the self-refreshing loop without showing a
     # freshness line: freshness.js returns at its first guard on any page
@@ -809,7 +830,8 @@ def render(ctx):
     gallery_entries_list = ctx.gallery_entries or []
 
     if rows is _DB_UNAVAILABLE:
-        body = '<p class="text-body">%s</p>' % escape_html(i18n.t(_HISTORY_UNAVAILABLE_TEXT))
+        body = ui_groups.group_panel('<p class="text-body">%s</p>' % escape_html(
+            i18n.t(_HISTORY_UNAVAILABLE_TEXT)))
         lightbox_html = ""
     else:
         formatted_rows = [format_event_row(row, now) for row in rows]
@@ -829,10 +851,6 @@ def render(ctx):
                 _view_panel_link_html(match[0], match[1], row_name) if match else "")
             row["view_panel_icon_html"] = (
                 _view_panel_icon_link_html(match[0], match[1], row_name) if match else "")
-            # The phone card's artwork thumbnail, resolved once per row
-            # for the same reason as the view-panel match. The desktop
-            # table does not render it: no room in its width budget.
-            row["thumb_html"] = flight_card.art_html(row["airline_raw"], state_dir)
         # The shared lightbox is emitted once per page, only when at
         # least one row carries a trigger button.
         has_view_panel_button = any(
@@ -842,8 +860,8 @@ def render(ctx):
             # No filter bar over nothing to filter.
             device = ctx.device
             if device is not None and not device.is_live:
-                body = layout.empty_state(
-                    i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
+                body = ui_groups.group_panel(layout.empty_state(
+                    i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True))
             else:
                 body = _history_table_html(visible_rows, now)
         else:

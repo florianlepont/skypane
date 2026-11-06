@@ -293,7 +293,7 @@
     ],
     "flights": [
       ".page-header__freshness",
-      "ul.history-cards",
+      ".history-cards",
       ".data-table-wrap",
       "[data-filter-count]"
     ]
