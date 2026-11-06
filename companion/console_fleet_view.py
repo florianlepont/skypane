@@ -28,13 +28,13 @@ FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
 
 
 def page_scripts(system=False):
-    """The scripts the embedded blocks need: the settings form's dirty bar and
-    value controls, plus the Health registry table's copy, filter and lookup
+    """The scripts the embedded blocks need: the settings form's dirty bar, value
+    controls and the Diagnostic LED quick switch, plus the Health registry table's copy, filter and lookup
     helpers on the System view only."""
     from companion import ui_base
     base = (
         ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.FRESHNESS_SCRIPT_SRC,
-        ui_base.VALUE_CONTROLS_SCRIPT_SRC)
+        ui_base.QUICK_SWITCH_SCRIPT_SRC, ui_base.VALUE_CONTROLS_SCRIPT_SRC)
     if not system:
         return base
     return (
@@ -190,12 +190,17 @@ def page_html(h, query, view):
 
 def query_flash_html(h, query):
     """The toast of a `?flash=` result for the selected frame (the settings
-    save and update install redirect here with one), or None. The text is
-    resolved with the selected frame's own context."""
+    save and update install redirect here with one) or for the System view
+    (a resolved airline prefix), or None. The text is resolved with the
+    selected frame's own context, the live frame's for the System view."""
     from companion import flash
     devices = device_scope.load_devices_for(h.args.state_dir, h._safe_principal())
-    selected, _is_system = selection(query, devices)
-    if selected is None or not query.get("flash"):
+    selected, is_system = selection(query, devices)
+    if not query.get("flash"):
+        return None
+    if is_system:
+        selected = device_scope.live_device(h.args.state_dir)
+    if selected is None:
         return None
     ctx = h.page_context(selected)
     return flash.flash_toast_html(ctx.flash_key, ctx.flash, h.path)

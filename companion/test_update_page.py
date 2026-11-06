@@ -694,12 +694,12 @@ def test_get_update_without_a_session_redirects_to_login(module_app_server_facto
     assert headers.get("Location", "").startswith("/login")
 
 
-def test_get_update_end_to_end_renders_the_scheduled_state(module_app_server_factory):
-    """a real GET /update, seeded through firmware_registry's own write API plus a
+def test_get_fleet_end_to_end_renders_the_scheduled_state(module_app_server_factory):
+    """a real GET /fleet, seeded through firmware_registry's own write API plus a
     hand-written device_report.json, serves the Scheduled state with a Cancel form"""
     server = module_app_server_factory(seed=_seed_update_state)
     cookie = login(server)
-    status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
+    status, _headers, body = get(server, "/fleet", cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
     assert i18n.t(update_page.STATE_LABELS["scheduled"]) in text
@@ -802,13 +802,16 @@ def test_french_fleet_view_names_its_blocks_in_french():
     assert ">Versions<" not in doc
 
 
-def test_update_route_stays_served_and_is_no_console_entry_end_to_end(
+def test_update_route_moves_to_fleet_and_is_no_console_entry_end_to_end(
         module_app_server_factory):
-    """a real GET /update still answers, marks Fleet current and shows no Releases entry in the
-    Console sidebar; the personal /flights page shows no Update link either"""
+    """a real GET /update moves to the Fleet page, which marks Fleet current and shows no
+    Releases entry in the Console sidebar; the personal /flights page shows no Update link
+    either"""
     server = module_app_server_factory()
     cookie = login(server)
-    status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
+    status, headers, _body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
+    assert (status, headers["Location"].startswith("/fleet?frame=")) == (303, True)
+    status, _headers, body = get(server, "/fleet", cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
     sidebar = text[text.index('<nav class="sidebar-nav"'):text.index("</nav>")]

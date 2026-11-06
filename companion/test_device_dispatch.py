@@ -61,15 +61,15 @@ def test_device_flights_page_reads_only_that_devices_history(fleet_app):
 
 def test_device_health_isolation(fleet_app):
     server, fleet, cookie = fleet_app
-    status, _, page_a = _get(server, "/devices/%s/health" % fleet.dev_a.id, cookie)
+    status, _, page_a = _get(server, "/fleet?frame=%s" % fleet.dev_a.id, cookie)
     assert status == 200
-    _, _, page_b = _get(server, "/devices/%s/health" % fleet.dev_b.id, cookie)
-    _, _, page_live = _get(server, "/health", cookie)
+    _, _, page_b = _get(server, "/fleet?frame=%s" % fleet.dev_b.id, cookie)
+    _, _, page_live = _get(server, "/fleet?frame=%s" % fleet.live.id, cookie)
     assert BATTERY_A_TEXT in page_a
     assert BATTERY_A_TEXT not in page_b and BATTERY_A_TEXT not in page_live
 
 
-@pytest.mark.parametrize("route", ["/display", "/device", "/airlines", "/", ""])
+@pytest.mark.parametrize("route", ["/display", "/airlines", "/", ""])
 def test_device_pages_render_for_a_known_device(fleet_app, route):
     server, fleet, cookie = fleet_app
     status, _, _ = _get(server, "/devices/%s%s" % (fleet.dev_a.id, route), cookie)
@@ -160,20 +160,20 @@ def test_history_scope_is_opened_on_the_device_directory(fleet_app):
 
 def test_reading_a_device_page_changes_no_data_file(fleet_app):
     server, fleet, cookie = fleet_app
-    _get(server, "/devices/%s/health" % fleet.dev_a.id, cookie)
+    _get(server, "/fleet?frame=%s" % fleet.dev_a.id, cookie)
     before = snapshot_all(server, fleet)
-    _get(server, "/devices/%s/health" % fleet.dev_a.id, cookie)
+    _get(server, "/fleet?frame=%s" % fleet.dev_a.id, cookie)
     _get(server, "/devices/%s/display" % fleet.dev_a.id, cookie)
     assert snapshot_all(server, fleet) == before
 
 
-def test_fleet_status_is_read_from_the_root_for_a_device_page(fleet_app):
+def test_fleet_status_is_read_from_the_root_for_the_system_view(fleet_app):
     server, fleet, cookie = fleet_app
-    path = "/devices/%s/health" % fleet.dev_a.id
+    path = "/fleet?view=system"
     _, _, before = _get(server, path, cookie)
     fleet_db.write_status(server.state_dir, fleet_db.STATUS_FAULT, "fleet fault marker")
     assert not os.path.exists(os.path.join(fleet.dev_a.state_dir, "fleet_status.json"))
     _, _, after = _get(server, path, cookie)
-    # The global fleet status lives in the root only; a device page still
+    # The global fleet status lives in the root only; the System view still
     # reflects it.
     assert after != before

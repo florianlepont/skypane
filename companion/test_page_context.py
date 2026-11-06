@@ -28,11 +28,14 @@ import efficiency_probe
 
 from companion import layout
 from companion.pages import config_page, health_page
+from companion import legacy_pages
 from companion_app_server import http_request, login
 from server import history_db
 from server.plane import calendar_rules, colour_rules, manual_resolutions
 
-NAV_ROUTES = tuple(route for route, _label in layout.NAV_TABS)
+NAV_ROUTES = tuple(
+    route for route, _label in layout.NAV_TABS
+    if route not in legacy_pages.RETIRED_ADMIN_PAGES) + ("/fleet",)
 
 _NAV_DOT_RE = re.compile(rb'class="dot (dot--\w+) nav-notification"')
 _BANNER_RE = re.compile(rb'class="toast (toast--\w+) toast--docked health-anomaly"')
@@ -159,9 +162,9 @@ def test_coerce_rejects_an_unknown_field_by_name():
 # ==========================================================================
 
 
-def test_health_markup_builds_only_on_health(app_server_in_process, monkeypatch):
-    """with health_state_from_signals wrapped by a counter: GET /display, /device, /flights,
-    /airlines and / (Home carries no health markup for anyone) build zero markup; GET /health
+def test_health_markup_builds_only_on_the_fleet_page(app_server_in_process, monkeypatch):
+    """with health_state_from_signals wrapped by a counter: GET /display, /flights,
+    /airlines and / (Home carries no health markup for anyone) build zero markup; GET /fleet
     builds exactly one; health_signals runs
     exactly once on every one of the six tab routes, whether or not the route reads markup"""
     server = app_server_in_process
@@ -198,10 +201,12 @@ def test_health_markup_builds_only_on_health(app_server_in_process, monkeypatch)
         state_calls.clear()
         status, _headers, _body = http_request(server.url(route), cookie=session)
         assert status == 200, "expected 200 from GET %s, got %d" % (route, status)
-        assert len(signals_calls) == 1, (
-            "expected exactly one health_signals() call for GET %s, got %d"
-            % (route, len(signals_calls)))
-        expected_state_calls = 1 if route == layout.HEALTH_ROUTE else 0
+        # The Fleet page builds two contexts: the shell's (nav dot) and the selected frame's.
+        expected_signals_calls = 2 if route == "/fleet" else 1
+        assert len(signals_calls) == expected_signals_calls, (
+            "expected %d health_signals() call(s) for GET %s, got %d"
+            % (expected_signals_calls, route, len(signals_calls)))
+        expected_state_calls = 1 if route == "/fleet" else 0
         assert len(state_calls) == expected_state_calls, (
             "expected %d health_state_from_signals() call(s) for GET %s, got %d"
             % (expected_state_calls, route, len(state_calls)))
@@ -210,7 +215,7 @@ def test_health_markup_builds_only_on_health(app_server_in_process, monkeypatch)
 def test_nav_dot_shows_warn_on_flights_and_equals_the_health_banner(app_server_in_process):
     """seeded stale-device (warn) scenario: the Console nav dot on /fleet shows the warn state
     while the personal /flights navigation carries none, and on
-    /health the nav dot's severity equals the banner's severity, parsed from the same response -
+    the System view of /fleet the nav dot's severity equals the banner's severity, parsed from the same response -
     they can never disagree since both come from the one shared health_signals() snapshot"""
     server = app_server_in_process
     _seed_warn_scenario(server.state_dir)
@@ -228,8 +233,8 @@ def test_nav_dot_shows_warn_on_flights_and_equals_the_health_banner(app_server_i
     assert dot_match.group(1) == b"dot--warn", (
         "expected the Console nav dot to show warn, got %r" % dot_match.group(1))
 
-    status2, _headers2, body2 = http_request(server.url(layout.HEALTH_ROUTE), cookie=session)
-    assert status2 == 200, "expected 200 from GET /health, got %d" % status2
+    status2, _headers2, body2 = http_request(server.url("/fleet?view=system"), cookie=session)
+    assert status2 == 200, "expected 200 from GET /fleet?view=system, got %d" % status2
     dot_match2 = _NAV_DOT_RE.search(body2)
     banner_match = _BANNER_RE.search(body2)
     assert dot_match2 and banner_match, (
@@ -373,7 +378,7 @@ def test_expensive_registries_load_lazily_at_most_once_per_request(
 
 def test_a_database_fault_degrades_every_page_to_200_instead_of_500ing(
         app_server_in_process, monkeypatch):
-    """sqlite3.connect raising: GET /flights, GET / and GET /device
+    """sqlite3.connect raising: GET /flights, GET / and GET /fleet
     still return 200 with their sections' own pre-existing unavailable blocks rather than
     the page 500ing over one database read"""
     server = app_server_in_process
@@ -400,9 +405,9 @@ def test_a_database_fault_degrades_every_page_to_200_instead_of_500ing(
         "expected Flights to degrade to 200 with the database unavailable, got %d"
         % status_flights)
 
-    status_device, _headers3, _body3 = http_request(server.url(layout.DEVICE_ROUTE), cookie=session)
+    status_device, _headers3, _body3 = http_request(server.url("/fleet"), cookie=session)
     assert status_device == 200, (
-        "expected Device to degrade to 200 with the database unavailable, got %d" % status_device)
+        "expected Fleet to degrade to 200 with the database unavailable, got %d" % status_device)
 
 
 # ==========================================================================

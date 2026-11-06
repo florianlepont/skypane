@@ -381,14 +381,21 @@ def test_the_unprefixed_personal_pages_follow_the_frame_rule_for_every_role(http
             seeded.owner_device, path), path
         status, headers, _body = _get(server, path, cookies["lonely"])
         assert (status, headers["Location"]) == (303, "/account"), path
-    # Health and the Airline editor are the administrator's: a user is not
-    # sent to their own frame, the page is simply not there.
+    # The Airline editor is the administrator's: a user is not sent to their own
+    # frame, the page is simply not there.
     unknown = _get(server, "/no-such-page-anywhere", cookies["owner"])
-    for path in ("/health", "/airlines/manage"):
+    for path in ("/airlines/manage",):
         assert _get(server, path, cookies["admin"])[0] == 200, path
         status, _headers, body = _get(server, path, cookies["owner"])
         assert (status, body) == (unknown[0], unknown[2]) == (404, unknown[2]), path
         assert _get(server, path, cookies["lonely"])[0] == 404, path
+    # The retired Health page moves everyone to the page that replaced it.
+    status, headers, _body = _get(server, "/health", cookies["admin"])
+    assert (status, headers["Location"].split("?")[0]) == (303, "/fleet")
+    status, headers, _body = _get(server, "/health", cookies["owner"])
+    assert (status, headers["Location"]) == (303, "/devices/%s/" % seeded.owner_device)
+    status, headers, _body = _get(server, "/health", cookies["lonely"])
+    assert (status, headers["Location"]) == (303, "/account")
 
 
 def test_a_user_page_links_only_to_their_own_frame(http_fleet):

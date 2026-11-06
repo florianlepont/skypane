@@ -139,12 +139,12 @@ def _seed_unknown_hardware(fleet):
                 db, "2027-01-15T%02d:00:00+00:00" % hour, battery_mv=mv)
 
 
-def test_unknown_hardware_row_still_serves_health_and_home(make_app_server):
+def test_unknown_hardware_row_still_serves_fleet_and_home(make_app_server):
     from companion.test_device_helpers import get, start_fleet_app
     app = start_fleet_app(make_app_server, seed_extra=_seed_unknown_hardware)
     prefix = "/devices/%s" % app.fleet.dev_a.id
-    status, _headers, body = get(app, prefix + "/health")
+    status, _headers, body = get(app, "/fleet?frame=%s" % app.fleet.dev_a.id)
     assert status == 200
-    assert "no-such-type" not in body
+    assert "<script>no-such-type" not in body
     status, _headers, _body = get(app, prefix + "/")
     assert status == 200

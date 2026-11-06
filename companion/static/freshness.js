@@ -278,13 +278,6 @@
       ".page-header__freshness",
       ".frame-strip"
     ],
-    "health": [
-      ".health-row__summary",
-      "div.health-anomaly",
-      "section.health-source-fault",
-      ".page-header__freshness",
-      'a[href$="/fleet"]'
-    ],
     "fleet": [
       ".health-row__summary",
       "div.health-anomaly",

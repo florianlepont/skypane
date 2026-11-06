@@ -263,8 +263,7 @@ _CHILD_PAGE_TITLES = {
     airlines_page.MANAGE_ROUTE: console_routes.AIRLINE_EDITOR_LABEL,
 }
 # The frame pages that belong to the Console: they show no foreign-frame strip.
-_CONSOLE_FRAME_ROUTES = frozenset((
-    layout.HEALTH_ROUTE, layout.DEVICE_ROUTE, airlines_page.MANAGE_ROUTE))
+_CONSOLE_FRAME_ROUTES = frozenset((layout.DEVICE_ROUTE, airlines_page.MANAGE_ROUTE))
 
 # Each tab's own extra scripts, on top of layout.GLOBAL_PAGE_SCRIPTS
 # (present on every authenticated page regardless). One tuple per
@@ -297,12 +296,6 @@ _PAGE_SCRIPTS = {
     ),
     detection_page.DETECTION_ROUTE: place_page.PAGE_SCRIPTS,
     layout.FLIGHTS_ROUTE: (
-        layout.FRESHNESS_SCRIPT_SRC,
-        layout.LIST_FILTER_SCRIPT_SRC,
-        layout.PANEL_LOOKUP_SCRIPT_SRC,
-    ),
-    layout.HEALTH_ROUTE: (
-        layout.COPY_BUTTON_SCRIPT_SRC,
         layout.FRESHNESS_SCRIPT_SRC,
         layout.LIST_FILTER_SCRIPT_SRC,
         layout.PANEL_LOOKUP_SCRIPT_SRC,
@@ -1111,6 +1104,14 @@ class Handler(
         page. The target is built from the frame id, the matched route path
         and a re-encoded query, never from request text.
         """
+        if method == "GET" and principal is not None and principal.role != access.ADMIN:
+            own = {d.id for d in device_scope.load_devices_for(self.args.state_dir, principal)}
+            frame = self._default_frame(principal)
+            moved = legacy_pages.retired_page_target(
+                route_match.path, route_match.query, route_match.device_id, own,
+                None if frame is None else frame.id)
+            if moved is not None:
+                return moved
         if method != "GET" or not route.device_scoped \
                 or route_match.device_id is not None:
             return None
@@ -1339,7 +1340,8 @@ class Handler(
                 for release in confirm_view.get("releases") or [])
             body = update_page.update_install_confirm_page(
                 ctx, version, next_wake_text, wake_held=wake_held, is_bench=is_bench,
-                type_choice=update_page.post_choice(self.args.state_dir, hardware_type))
+                type_choice=update_page.post_choice(self.args.state_dir, hardware_type),
+                back_href=self._update_flash_url(None, hardware_type))
             return self.send_html(200, self._page_shell_for(UPDATE_ROUTE, body, ctx))
         state_dir = self.args.state_dir
         now = history_db.utc_now_iso()

@@ -3,6 +3,8 @@ moved to. Every target is a literal route path; a signed-in person is sent to it
 under their own default frame, never to an administrator page. An administrator
 reaching an old address is already moved to the same page of the served frame by
 the route itself."""
+from urllib.parse import parse_qs
+
 from companion import layout
 from companion.pages import personalisation_cards
 
@@ -27,3 +29,27 @@ def frame_page_target(path, is_admin):
     if path in LIVE_FRAME_PAGES:
         return path
     return None if is_admin else LEGACY_TARGETS.get(path)
+
+
+# The administrator pages that now live on the Fleet page, and the page a
+# person who is not an administrator is moved to instead.
+RETIRED_ADMIN_PAGES = {
+    layout.HEALTH_ROUTE: layout.HOME_ROUTE,
+    layout.DEVICE_ROUTE: layout.DISPLAY_ROUTE,
+    layout.UPDATE_ROUTE: layout.HOME_ROUTE,
+}
+
+
+def retired_page_target(path, query, prefix_id, own_ids, default_id):
+    """Where a person who is not an administrator is moved from a retired
+    administrator page: the replacement page of the frame named by the address
+    prefix or `?frame=` when it is one of `own_ids`, else of `default_id`, else
+    the account page. None when `path` is not a retired page."""
+    page = RETIRED_ADMIN_PAGES.get(path)
+    if page is None:
+        return None
+    if prefix_id is not None and prefix_id not in own_ids:
+        return None
+    wanted = prefix_id or parse_qs(query or "").get("frame", [""])[0]
+    frame = wanted if wanted in own_ids else default_id
+    return "/devices/%s%s" % (frame, page) if frame else "/account"

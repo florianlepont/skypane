@@ -252,7 +252,7 @@ REFRESH_LIVE_DOT_ATTR = layout.REFRESH_LIVE_DOT_ATTR
 # layout.py's REFRESH_SWAP_SELECTORS_BY_PAGE, the per-page registry Home
 # and the Display scope also join.
 REFRESH_SWAP_SELECTORS = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[
-    layout.REFRESH_PAGE_HEALTH]
+    layout.REFRESH_PAGE_FLEET]
 
 # Looked up by battery-trend.js and styled by style.css — duplicated,
 # not imported, since those are static assets. A cross-file check
@@ -320,9 +320,6 @@ _APPEARS_ONCE_RECORDED_TEXT = i18n.msg(
 _LAST_OFFBOX_BACKUP_TEXT = i18n.msg("health.last_off_box_backup", "Last off-box backup")
 _NEVER_TEXT = i18n.msg("health.never", "never")
 _OFFBOX_BACKUP_TEXT = i18n.msg("health.off_box_backup", "Off-box backup")
-# Owned by companion/i18n_fr/nav.py, not health.py — the same id the
-# nav tab label uses.
-_NAV_HEALTH_TEXT = i18n.msg("nav.health", "Health")
 
 # The DB-unavailable sentinel, the safe-query/cutoff/meta-flag helpers,
 # staleness_status(), offbox_backup_status() and the battery query
@@ -1151,31 +1148,6 @@ def _page_parts(ctx):
 def _never_seen_html():
     return layout.empty_state(
         i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True)
-
-
-def render(ctx):
-    ctx = page_context.coerce(ctx)
-    parts = _page_parts(ctx)
-    if parts is None:
-        return (
-            '<div class="status-page">'
-            + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
-            + _never_seen_html()
-            + "</div>")
-    rows_card_html = health_rows.card_html(
-        health_rows.group_html(
-            SCREEN_SECTION_ID, i18n.t(SCREEN_SECTION_HEADING), parts["screen_rows"])
-        + parts["server_group_html"])
-    return (
-        '<div class="status-page">'
-        + layout.page_header(i18n.t(_NAV_HEALTH_TEXT))
-        + parts["source_fault_html"]
-        + parts["unreachable_html"] + parts["banner_html"]
-        + rows_card_html
-        + parts["registry_html"]
-        + parts["dialog_html"]
-        + "</div>"
-    )
 
 
 def frame_state_html(ctx):

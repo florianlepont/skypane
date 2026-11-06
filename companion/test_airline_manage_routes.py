@@ -15,7 +15,7 @@ from server.plane import name_overrides
 
 CO_EMAIL = "co-manager@example.test"
 
-ADMIN_GETS = ("/health", "/airlines/manage")
+ADMIN_GETS = ("/airlines/manage",)
 AIRLINE_POSTS = (
     ("/airlines/resolve", {"prefix": "ZZZ", "airline_name": "Zed Air"}),
     ("/airlines/rename", {"airline": "Air France", "airline_name": "AF Test"}),

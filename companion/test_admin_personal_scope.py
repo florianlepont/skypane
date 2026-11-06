@@ -16,7 +16,7 @@ from companion_markup import parse_html
 from server import device_dirs, fleet_db, hardware
 
 PERSONAL_PAGES = ("/", "/display", "/flights", "/airlines", "/detection")
-CONSOLE_FRAME_PAGES = ("/health", "/device", "/airlines/manage")
+CONSOLE_FRAME_PAGES = ("/airlines/manage",)
 NASTY_OWNER = "o&<b>wner@example.test"
 KEEPER_EMAIL = "keeper@example.test"
 COMANAGER_EMAIL = "comanager@example.test"

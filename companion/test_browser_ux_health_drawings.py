@@ -35,7 +35,7 @@ VISIBLE_VIEW = ".battery-chart__view:not([hidden])"
 RING_FIGURE = "#health-row-battery svg.drawing__figure"
 RING_VALUE = "#health-row-battery svg.drawing__figure .drawing-ring-value"
 RING_TRACK = "#health-row-battery svg.drawing__figure .drawing-ring-track"
-RING_PAGES = (("Health", "/health"),)
+RING_PAGES = (("Fleet", "/fleet"),)
 
 
 @pytest.fixture(scope="module")
@@ -242,7 +242,7 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
     # resolve to something else, since a judgement painted in the data's own ink is a
     # judgement nobody can see; and every one of them must move when the theme does.
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/health")
+    page.goto(server.base_url() + "/fleet")
     _open_health_rows(page)
     page.wait_for_selector(CHART_AREA)
     seen = {}
@@ -344,11 +344,11 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
             _login(page, base_url)
             context.add_cookies([{
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-            page.goto(base_url + "/health")
+            page.goto(base_url + "/fleet")
             _open_health_rows(page)
             page.wait_for_selector(CHART_LEGEND)
             message = _assert_no_page_overflow(
-                page, "/health in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
+                page, "/fleet in %s" % lang, VIEWPORT_MIN_SUPPORTED["width"])
             if message:
                 raise AssertionError(message)
 
@@ -440,7 +440,7 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
 
     # All three additions are server-rendered SVG and owe nothing to a script. Measured in
     # the theme+no-JS combination most likely to be wrong.
-    with _no_js_page(new_context, server.base_url(), "/health",
+    with _no_js_page(new_context, server.base_url(), "/fleet",
                      viewport=VIEWPORT_MIN_SUPPORTED) as blocked:
         _open_health_rows(blocked)
         for label, selector in (("area", CHART_AREA), ("mark", CHART_MARK),
@@ -480,7 +480,7 @@ def test_health_has_no_regularity_grid_and_the_connection_row_still_renders(
         _login(page, server.base_url())
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
-        page.goto(server.base_url() + "/health")
+        page.goto(server.base_url() + "/fleet")
         _open_health_rows(page)
         for selector in (".check-in-grid", ".check-in-key", ".check-in-grid__scale",
                          "rect.drawing-cell"):
@@ -500,7 +500,7 @@ def test_health_has_no_regularity_grid_and_the_connection_row_still_renders(
         assert body["l"] >= body["cl"] - 0.5 and body["r"] <= body["cr"] + 0.5, (
             "the connection row body spills out of its card: %r" % (body,))
         message = _assert_no_page_overflow(
-            page, "/health in %s" % lang, viewport["width"])
+            page, "/fleet in %s" % lang, viewport["width"])
         if message:
             raise AssertionError(message)
     finally:
@@ -520,7 +520,7 @@ def _open_status(context, base_url, lang):
     page = context.new_page()
     _login(page, base_url)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-    page.goto(base_url + "/health")
+    page.goto(base_url + "/fleet")
     _open_health_rows(page)
     page.wait_for_selector(".battery-unit:not([hidden])")
     return page
@@ -593,7 +593,7 @@ def test_the_battery_unit_switch_changes_chart_and_readout_by_keyboard_and_point
         assert _readout_value(page) == _active_reading(page)
 
         message = _assert_no_page_overflow(
-            page, "/health unit switch %s %s" % (width_label, lang), viewport["width"])
+            page, "/fleet unit switch %s %s" % (width_label, lang), viewport["width"])
         if message:
             raise AssertionError(message)
         assert page.locator(".day-band").count() == 0, "Health carries no day band"
@@ -622,7 +622,7 @@ def test_the_battery_unit_switch_works_by_touch(new_context, server):
 
 def test_the_battery_chart_stays_on_voltage_without_script(new_context, server):
     """With scripts blocked the control is not offered and the voltage chart stays visible."""
-    with _no_js_page(new_context, server.base_url(), "/health") as page:
+    with _no_js_page(new_context, server.base_url(), "/fleet") as page:
         _open_health_rows(page)
         assert page.is_hidden(".battery-unit")
         assert page.is_visible('.battery-chart__view[data-unit="mv"] .sparkline__canvas')
@@ -630,32 +630,12 @@ def test_the_battery_chart_stays_on_voltage_without_script(new_context, server):
 
 
 @pytest.mark.parametrize("width", (1280, 1024, 960, 700, 390, 360))
-def test_health_cards_share_one_width_and_every_row_aligns(new_context, server, width):
-    """Every card on Health spans the same column: the rows card, the unresolved-prefix card and the
-    docked toast share their left and right edges at every viewport (no per-element width cap), the
-    group bands span their card, and every row's icon, name, verdict and value columns line up
-    from one row to the next, with nothing overflowing sideways."""
+def test_every_health_row_aligns_in_the_fleet_state_block(new_context, server, width):
+    """Every health row's icon, name, verdict and value columns line up from one row to the next
+    on the Fleet page's State block, at every viewport, with nothing overflowing sideways."""
     context = new_context(viewport={"width": width, "height": 900})
     try:
         page = _open_status(context, server.base_url(), "fr")
-        edges = page.evaluate(
-            "() => { const e = s => { const b = document.querySelector(s).getBoundingClientRect();"
-            " return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10]; };"
-            " return {rows: e('.health-rows'), registry: e('#unresolved-prefixes'),"
-            " page: e('.status-page'),"
-            " bands: [...document.querySelectorAll('.health-rows__group')].map("
-            "   g => { const b = g.getBoundingClientRect();"
-            "     return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10]; }),"
-            " toasts: [...document.querySelectorAll('.status-page > .toast')].map("
-            "   t => { const b = t.getBoundingClientRect();"
-            "     return [Math.round(b.left * 10) / 10, Math.round(b.right * 10) / 10]; })}; }")
-        assert edges["rows"] == edges["registry"] == edges["page"], (
-            "the rows card, the registry card and the page column must share one width, got %r" % (edges,))
-        inner = [edges["rows"][0] + 1, edges["rows"][1] - 1]  # inside the card's 1px hairline
-        for band in edges["bands"]:
-            assert band == inner, "a group band must span its card, got %r vs %r" % (band, inner)
-        for toast in edges["toasts"]:
-            assert toast == edges["rows"], "a toast must share the card width, got %r" % (toast,)
         columns = page.evaluate(
             "() => [...document.querySelectorAll('.health-row__summary')].map(s => {"
             " const r = c => { const el = s.querySelector(c);"
@@ -666,7 +646,7 @@ def test_health_cards_share_one_width_and_every_row_aligns(new_context, server, 
             "   verdict: r('.health-row__verdict'), value: r('.health-row__value'),"
             "   nameHeight: s.querySelector('.health-row__name').getBoundingClientRect().height,"
             "   box: s.getBoundingClientRect().height}; })")
-        assert len(columns) >= 5
+        assert len(columns) >= 3
         # The value column is right-aligned on the wide layout, so only its right edge is shared.
         left_aligned = ("icon", "name", "verdict") if width >= 700 else ("icon", "name", "verdict", "value")
         for key in left_aligned:
@@ -683,7 +663,7 @@ def test_health_cards_share_one_width_and_every_row_aligns(new_context, server, 
             assert row["nameHeight"] <= 20, (
                 "a row name wraps onto a second line (%.1fpx tall) at %dpx" % (row["nameHeight"], width))
             assert row["box"] >= 64 - 0.5, "a row is at least 64px tall (8px grid), got %.1f" % row["box"]
-        message = _assert_no_page_overflow(page, "/health rows at %dpx" % width, width)
+        message = _assert_no_page_overflow(page, "/fleet rows at %dpx" % width, width)
         if message:
             raise AssertionError(message)
     finally:

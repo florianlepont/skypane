@@ -29,9 +29,8 @@ ROUTES = (
     ("display", layout.DISPLAY_ROUTE),
     ("flights", layout.FLIGHTS_ROUTE),
     ("airlines", layout.AIRLINES_ROUTE),
-    ("health", layout.HEALTH_ROUTE),
-    ("device", layout.DEVICE_ROUTE),
-    ("update", layout.UPDATE_ROUTE),
+    ("fleet", "/fleet"),
+    ("system", "/fleet?view=system"),
 )
 VIEWPORTS = (
     ("1280", VIEWPORT_DESKTOP),
@@ -95,10 +94,8 @@ def test_authenticated_route_matrix_has_primary_content_and_no_page_overflow(
             raise AssertionError("%s/%s: route rendered no primary heading" % (route_name, lang))
         active_routes = page.locator('a[aria-current="page"]').evaluate_all(
             "els => els.map(el => el.getAttribute('href'))")
-        # Health, Device and Update live inside the Fleet view, so their
-        # pages mark the Fleet entry current.
-        expected_active = (
-            "/fleet" if route_name in ("health", "device", "update") else route)
+        # Both views of the Fleet page mark the Fleet entry current.
+        expected_active = "/fleet" if route_name in ("fleet", "system") else route
         if expected_active not in active_routes:
             raise AssertionError("%s/%s: navigation exposes no active route" % (route_name, lang))
         overflow = _assert_no_page_overflow(
@@ -165,10 +162,10 @@ def test_health_warning_and_intentional_sleep_are_seeded_as_separate_review_stat
     try:
         for label, served in (("warning", warning_server), ("scheduled-sleep", sleep_server)):
             context, page = _open_authenticated_page(
-                new_context, served.base_url(), "en", VIEWPORT_DESKTOP, layout.HEALTH_ROUTE)
+                new_context, served.base_url(), "en", VIEWPORT_DESKTOP, "/fleet")
             contexts.append(context)
             if not page.locator("main").inner_text().strip():
-                raise AssertionError("%s fixture rendered no Health content" % label)
+                raise AssertionError("%s fixture rendered no Fleet content" % label)
         if device_config.load_device_config(sleep_server.tmpdir)["quiet_hours_start"] != "00:00":
             raise AssertionError("scheduled-sleep fixture did not retain its all-day quiet window")
     finally:

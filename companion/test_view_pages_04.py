@@ -23,6 +23,7 @@ import companion.layout as layout
 import companion.test_view_pages_helpers as vp
 import companion.wake as wake
 from companion.pages import airlines_page, health_page, history_page, home_page
+import health_page_composition
 from companion_app_server import get, login, served_stylesheet
 from companion_markup import declarations_for, parse_html, rules_with_selector
 from server import device_config, history_db
@@ -574,7 +575,7 @@ def test_health_carries_no_day_band(tmp_path):
         "quiet_hours_start": device_config.DEFAULT_QUIET_HOURS_START,
         "quiet_hours_end": device_config.DEFAULT_QUIET_HOURS_END,
     })
-    rendered = health_page.render(ctx)
+    rendered = health_page_composition.render(ctx)
     assert _home_day_band_section(rendered) is None
     for needle in ('class="%s"' % draw.DRAWING_BAND_CLASS, draw.DRAWING_BAND_MARK_CLASS,
                    draw.DRAWING_BAND_SPAN_CLASS, "day-band"):
@@ -591,7 +592,7 @@ def test_health_carries_no_day_band(tmp_path):
         else:
             os.remove(path)
     os.mkdir(os.path.join(str(absent), "history.db"))
-    rendered_absent = health_page.render(absent_ctx)
+    rendered_absent = health_page_composition.render(absent_ctx)
     assert '<h1 class="page-title">' in rendered_absent, "expected Health to render with history.db absent"
 
 
@@ -609,7 +610,7 @@ def test_health_reads_no_per_day_check_in_rows_for_a_band(tmp_path):
 
     history_db.recent_device_health = _recording_recent
     try:
-        health_page.render(read_ctx)
+        health_page_composition.render(read_ctx)
     finally:
         history_db.recent_device_health = real_recent
     assert limits == [health_page.BATTERY_TREND_LIMIT], (
@@ -627,7 +628,7 @@ def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
-    health_rendered = health_page.render(ctx)
+    health_rendered = health_page_composition.render(ctx)
     assert health_rendered.count('class="%s"' % draw.DRAWING_RING_VALUE_CLASS) == 1, (
         "expected exactly one battery ring value arc on Health")
     doc = parse_html(health_rendered)
@@ -650,7 +651,7 @@ def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):
         "2026-08-27T06:00:00+00:00",
         "2026-08-27T10:00:00+00:00",
     ])
-    rendered = health_page.render(ctx)
+    rendered = health_page_composition.render(ctx)
     figures = re.findall(
         r'<svg class="%s[^"]*"[^>]*>(.*?)</svg>' % re.escape(draw.DRAWING_FIGURE_CLASS), rendered, re.S)
     assert len(figures) == 1, "expected the ring alone, got %d aspect-locked figures" % len(figures)
@@ -680,7 +681,7 @@ def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_p
     # sentinel arrived" and "the original left" are two independent
     # readings rather than one.
     sentinel = "skypane-emitter-under-mutation"
-    health_before = health_page.render(health_ctx)
+    health_before = health_page_composition.render(health_ctx)
     home_before = home_page.render(home_ctx)
 
     def _mutated(attr):
@@ -689,7 +690,7 @@ def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_p
         original = getattr(draw, attr)
         setattr(draw, attr, sentinel)
         try:
-            return original, health_page.render(health_ctx), home_page.render(home_ctx)
+            return original, health_page_composition.render(health_ctx), home_page.render(home_ctx)
         finally:
             setattr(draw, attr, original)
 
@@ -709,7 +710,7 @@ def test_breaking_a_shared_emitter_breaks_health_and_leaves_home_untouched(tmp_p
     # THE RESTORE IS PART OF THE CHECK. A mutation left behind would make
     # every later check in this file measure a sabotaged module, and the
     # failure would land somewhere else entirely.
-    assert health_page.render(health_ctx) == health_before, "Health did not return to its pre-mutation markup"
+    assert health_page_composition.render(health_ctx) == health_before, "Health did not return to its pre-mutation markup"
     assert home_page.render(home_ctx) == home_before, "Home did not return to its pre-mutation markup"
 
 

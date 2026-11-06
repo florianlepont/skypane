@@ -18,12 +18,14 @@ import threading
 
 import efficiency_probe
 
-from companion import layout
+from companion import layout, legacy_pages
 from companion_app_server import http_request, login
 
 import companion.app as app
 
-NAV_ROUTES = tuple(route for route, _label in layout.NAV_TABS)
+NAV_ROUTES = tuple(
+    route for route, _label in layout.NAV_TABS
+    if route not in legacy_pages.RETIRED_ADMIN_PAGES) + ("/fleet",)
 
 
 def test_each_nav_tab_route_opens_exactly_one_connection_per_request(app_server_in_process):

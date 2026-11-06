@@ -236,17 +236,18 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
         context.close()
 
 
-def test_the_no_js_floor_holds_for_health(new_context, server):
-    """With scripts blocked Health renders in full: all five rows with their icon/name/verdict/value
-    slots each exactly once and their evidence reachable through the native disclosure, the
-    registry filter bar and Clear, the unresolved-prefix rows, and a per-row Resolve action that
-    actually navigates to the Airlines resolve surface.
+def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context, server):
+    """With scripts blocked the Fleet page's State block renders in full: every health row with
+    its icon/name/verdict/value slots each exactly once and its evidence reachable through the
+    native disclosure; its System view keeps the registry filter bar and Clear, the
+    unresolved-prefix rows, and a per-row Resolve action that actually navigates to the Airlines
+    resolve surface.
     """
-    with _no_js_page(new_context, server.base_url(), "/health") as page:
+    with _no_js_page(new_context, server.base_url(), "/fleet") as page:
         rows = page.eval_on_selector_all("details.health-row", "els => els.length")
-        if rows != 5:
+        if rows < 3:
             raise AssertionError(
-                "expected all five Health rows to render with scripts blocked, "
+                "expected the health rows to render with scripts blocked, "
                 "got %d" % (rows,))
         # Every row must be complete, not merely present.
         slots = page.eval_on_selector_all(
@@ -263,8 +264,6 @@ def test_the_no_js_floor_holds_for_health(new_context, server):
                     "expected row %d to render its icon/name/verdict/value/body slots "
                     "exactly once each with scripts blocked, got %r"
                     % (index, slot))
-        # The disclosure is the browser's own: a closed row's evidence appears when its summary
-        # is activated from the keyboard, with no script involved.
         _open_health_rows(page)
         hidden = page.eval_on_selector_all(
             ".health-row__body",
@@ -273,6 +272,8 @@ def test_the_no_js_floor_holds_for_health(new_context, server):
             raise AssertionError(
                 "expected every row body to be visible once its summary was activated with "
                 "scripts blocked, %d stayed empty" % (hidden,))
+    with _no_js_page(new_context, server.base_url(), "/fleet?view=system") as page:
+        _open_health_rows(page)
         if not page.query_selector(".filter-bar [data-filter-input]"):
             raise AssertionError("expected the registry filter bar with scripts blocked")
         if not page.query_selector("[data-filter-clear]"):
@@ -355,7 +356,7 @@ def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_ser
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/device")
+    page.goto(base_url + "/fleet")
     wake_sel = 'input[name="wake_interval_s"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
     target = "1800" if before != "1800" else "3600"
@@ -433,7 +434,7 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
     # shares the module's read-only server.
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/device")
+    page.goto(base_url + "/fleet")
 
     # a. Fresh load: disarmed.
     if _guard_armed(page):

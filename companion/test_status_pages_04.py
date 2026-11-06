@@ -14,6 +14,7 @@ import pytest
 from companion import illustration_normalize, layout, prefs
 from companion.i18n_fr import health as i18n_fr_health
 from companion.pages import airlines_page, config_page, health_page, history_page
+import health_page_composition
 import companion.test_status_pages_helpers as shp
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
@@ -111,7 +112,7 @@ def test_nested_card_heading_rhythm_holds_for_every_allowed_element(tmp_path, cs
                 "JAF": {"count": 4, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                         "example_callsign": "JAF412"},
             })
-        rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
         heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
         after = rendered[heading_at + len(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING):]
         assert after.startswith(allowed), (
@@ -150,7 +151,7 @@ def test_resolution_statistics_table_is_the_only_data_table_prose(tmp_path, css_
         "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                 "example_callsign": "ABC123"},
     })
-    rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
     doc = parse_html(rendered)
 
     assert rendered.count("data-table--prose") == 1
@@ -185,7 +186,7 @@ def test_description_column_is_the_only_muted_column(tmp_path, css_text):
         "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                 "example_callsign": "ABC123"},
     })
-    rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
 
     expected = len(health_page._SOURCE_ROWS)
     desc_count = rendered.count('<td class="desc">')
@@ -239,7 +240,7 @@ def test_stats_cards_list_is_complete_and_precedes_the_table(tmp_path):
         {"ts": shp.iso(now), "hex": "abc004", "route_source": "airline_only"},
         {"ts": shp.iso(now), "hex": "abc005", "route_source": "miss"},
     ])
-    rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
 
     assert rendered.count('<ul class="data-cards">') == 1
     expected_items = len(health_page._SOURCE_ROWS)
@@ -323,7 +324,7 @@ def test_registry_mobile_cards_paired_with_the_desktop_table(tmp_path):
                 "example_callsign": "QRS789"},
     }
     shp.seed_unresolved_prefixes(state_dir, prefixes)
-    rendered = health_page.render(shp.ctx(state_dir, now_iso))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_iso))
 
     rows = health_page.unresolved_rows(state_dir)
     expected_count = len(rows)
@@ -406,7 +407,7 @@ def test_registry_table_fits_by_stacked_cells_and_short_french_headers(tmp_path,
                 "last_seen": shp.iso(now - timedelta(hours=1)),
                 "example_callsign": "ABC123"},
     })
-    rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
 
     assert '<table class="data-table data-table--registry">' in rendered, (
         "expected the registry table to carry the additive data-table--registry modifier")
@@ -452,7 +453,7 @@ def test_no_chrome_for_empty_registry_and_no_cross_page_leak(tmp_path):
     empty_dir.mkdir()
     empty_dir = str(empty_dir)
     now = shp.now()
-    rendered_empty = health_page.render(shp.ctx(empty_dir, shp.iso(now)))
+    rendered_empty = health_page_composition.render(shp.ctx(empty_dir, shp.iso(now)))
     unresolved_at = rendered_empty.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
     assert not shp.health_row(rendered_empty, "identification").select(".data-table"), (
         "expected the empty identification breakdown to be entirely absent")
@@ -473,7 +474,7 @@ def test_no_chrome_for_empty_registry_and_no_cross_page_leak(tmp_path):
         "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                 "example_callsign": "ABC123"},
     })
-    rendered_both = health_page.render(shp.ctx(both_dir, shp.iso(now)))
+    rendered_both = health_page_composition.render(shp.ctx(both_dir, shp.iso(now)))
     cards_list_count = rendered_both.count('<ul class="data-cards">')
     assert cards_list_count == 2, (
         "expected exactly two <ul class=\"data-cards\"> lists (stats + registry) when both "
@@ -508,7 +509,7 @@ def test_humanised_battery_readout_end_to_end(tmp_path, battery_trend_js):
         (shp.iso(base - timedelta(minutes=1)), 4190),
     ]
     shp.seed_device_health(state_dir, readings)
-    rendered = health_page.render(shp.ctx(state_dir, shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(base)))
 
     section_html = _row_html(rendered, "battery")
 
@@ -600,7 +601,7 @@ def test_anomaly_active_agrees_with_the_banner_both_directions(tmp_path):
         state = health_page.safe_health_state(state_dir, ts)
         severity = state["severity"] if state else "ok"
         verdict = severity != "ok"
-        rendered = health_page.render(shp.ctx(state_dir, ts))
+        rendered = health_page_composition.render(shp.ctx(state_dir, ts))
         banner_present = health_page.ANOMALY_BANNER_TEXT in rendered
         assert verdict == banner_present, (
             "the severity path (%r)=%r disagreed with the banner's presence=%r for %r"
@@ -620,7 +621,7 @@ def test_section_builder_markup_survives_the_row_reframe(tmp_path):
     shp.seed_device_health(state_dir, readings)
     shp.seed_runway_events(state_dir, [
         dict(ts=shp.iso(base), hex="abc123", confirmed_state="DEPARTING", corroborated="True")])
-    rendered = health_page.render(shp.ctx(state_dir, shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(base)))
     assert "dot--" in rendered, "expected at least one dot-- status class to survive the reframe"
     assert '<table class="data-table data-table--readings">' in rendered, (
         "expected the battery table to survive the reframe")
@@ -656,7 +657,7 @@ def test_health_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_gly
         return rendered.count("<use") - rendered.count("toast__glyph")
 
     state_dir = str(tmp_path)
-    empty_rendered = health_page.render(shp.ctx(state_dir))
+    empty_rendered = health_page_composition.render(shp.ctx(state_dir))
     assert _non_toast_uses(empty_rendered) == 5, (
         "expected exactly five non-toast <use occurrences on the empty render (one state glyph "
         "per row; Health carries no auto-refresh pill any more)")
@@ -674,7 +675,7 @@ def test_health_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_gly
         "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                 "example_callsign": "ABC123"},
     })
-    seeded_rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    seeded_rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
     assert _non_toast_uses(seeded_rendered) == 10, (
         "expected exactly ten non-toast <use occurrences on a seeded render (the same five "
         "plus the unresolved-prefixes filter bar's search glyph, its inline-clear cross and "
@@ -738,7 +739,7 @@ def test_health_carries_no_auto_refresh_pill_or_freshness_line(tmp_path):
         state_dir.mkdir()
         if seed_readings:
             shp.seed_device_health(str(state_dir), [(shp.iso(shp.now()), 4190)])
-        rendered = health_page.render(shp.ctx(str(state_dir), shp.iso(shp.now())))
+        rendered = health_page_composition.render(shp.ctx(str(state_dir), shp.iso(shp.now())))
         for needle in ("data-refresh-pill", "data-loaded-at", "page-header__freshness"):
             assert needle not in rendered, "expected %r to be gone from the Health page" % needle
 
@@ -828,7 +829,7 @@ def test_flight_data_row_renders_last_detection_timestamp(tmp_path):
         history_db.META_LAST_PIPELINE_RUN: now_iso,
         history_db.META_LAST_DETECTION: detection_iso,
     })
-    rendered = health_page.render(shp.ctx(state_dir, now_iso))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_iso))
     expected_detail = layout.concise_timestamp_html(detection_iso, now_iso)
     assert rendered.count(expected_detail) == 1, (
         "expected the flight-data row to render concise_timestamp_html() "
@@ -850,7 +851,7 @@ def test_flight_data_row_falls_back_honestly_when_no_detection(tmp_path):
     state_dir = str(tmp_path)
     now_iso = shp.iso(shp.now())
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: now_iso})
-    rendered = health_page.render(shp.ctx(state_dir, now_iso))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_iso))
     # The pipeline has run but never produced a detection, so the row is
     # dated by its last run and the last-aircraft fact reads "never".
     facts = shp.health_row(rendered, "flight-data").select(".health-row__facts > div")
@@ -939,7 +940,7 @@ def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
 
     banner_dir = tmp_path / "banner"
     banner_dir.mkdir()
-    rendered = health_page.render(shp.ctx(str(banner_dir)))
+    rendered = health_page_composition.render(shp.ctx(str(banner_dir)))
     banners = parse_html(rendered).select(".toast." + health_page.HEALTH_ANOMALY_CLASS)
     assert len(banners) == 1, "expected a fresh empty state dir to render an anomaly toast"
     label_text = banners[0].select_one(".toast__title").text()
@@ -949,7 +950,7 @@ def test_uir_03_07_12_13_one_line_fixes_hold_together(tmp_path, css_text):
 
     caption_dir = tmp_path / "caption"
     caption_dir.mkdir()
-    rendered2 = health_page.render(shp.ctx(str(caption_dir)))
+    rendered2 = health_page_composition.render(shp.ctx(str(caption_dir)))
     assert "section-caption" not in _row_html(rendered2, "battery").replace(
         "empty-state__body text-label section-caption", ""), (
         "expected no range caption in the Battery row")
@@ -1031,7 +1032,7 @@ def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
     })
     shp.seed_runway_events(state_dir, [
         {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
-    rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
     assert "<details" in rendered, "expected at least one <details> disclosure to actually render"
     assert "data-filter-input" in rendered, (
         "expected the registry filter input to actually render")
@@ -1072,7 +1073,7 @@ def test_swap_selectors_pinned_both_directions(freshness_js):
 
 def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
     """The swap registry has ONE definition site (health_page.REFRESH_SWAP_SELECTORS resolves
-    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with Health's five regions
+    from layout.REFRESH_SWAP_SELECTORS_BY_PAGE and is that same object, with the Fleet page's four regions
     in their documented order) and ONE key set (the script's registry keys equal the Python's, in
     both directions), with every selector appearing exactly once per registry entry in the
     script's comment-stripped code and the registry actually read"""
@@ -1080,17 +1081,16 @@ def test_swap_registry_has_one_definition_site_and_one_key_set(freshness_js):
     assert hasattr(health_page, "REFRESH_SWAP_SELECTORS"), (
         "expected health_page.REFRESH_SWAP_SELECTORS to survive as a name — every existing "
         "reader and every shipped pin resolves through it")
-    assert health_page.REFRESH_SWAP_SELECTORS is registry[layout.REFRESH_PAGE_HEALTH], (
-        "expected health_page.REFRESH_SWAP_SELECTORS to BE the registry's Health entry, not a "
+    assert health_page.REFRESH_SWAP_SELECTORS is registry[layout.REFRESH_PAGE_FLEET], (
+        "expected health_page.REFRESH_SWAP_SELECTORS to BE the registry's Fleet entry, not a "
         "copy of it — a copy is a second definition site with extra steps")
     assert health_page.REFRESH_SWAP_SELECTORS == (
         ".health-row__summary",
         "div.health-anomaly",
         "section.health-source-fault",
-        ".page-header__freshness",
         'a[href$="/fleet"]'), (
-        "Health's five regions: each row's summary replaces the retired tile grid, the other "
-        "four are unchanged")
+        "the Fleet page's four regions: each health row's summary, the anomaly banner, the "
+        "source-fault block and the Fleet navigation link")
 
     js = freshness_js
     block = re.search(r"var SWAP_SELECTORS_BY_PAGE = \{(.*?)\n  \};", js, flags=re.S)

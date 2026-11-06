@@ -48,7 +48,7 @@ def test_cookie_is_opaque_and_only_its_hash_is_stored(app_server_in_process):
     token = _token(cookie)
     assert token != _hash(token)
     assert _session_hashes(server.state_dir) == {_hash(token)}
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+    assert http_request(server.url("/fleet"), cookie=cookie)[0] == 200
 
 
 def test_logout_deletes_the_row_and_the_old_cookie_is_refused(app_server_in_process):
@@ -59,25 +59,25 @@ def test_logout_deletes_the_row_and_the_old_cookie_is_refused(app_server_in_proc
         extra_headers={"Origin": server.base_url()})
     assert status == 200
     assert _session_hashes(server.state_dir) == set()
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+    assert http_request(server.url("/fleet"), cookie=cookie)[0] == 303
 
 
 def test_a_disabled_user_is_cut_off_on_the_next_request(app_server_in_process):
     server = app_server_in_process
     cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+    assert http_request(server.url("/fleet"), cookie=cookie)[0] == 200
     conn = fleet_db.connect(server.state_dir)
     try:
         assert fleet_db.set_user_disabled(conn, "admin@example.com", True)
     finally:
         conn.close()
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+    assert http_request(server.url("/fleet"), cookie=cookie)[0] == 303
 
 
 def test_an_admin_user_session_reaches_admin_pages(app_server_in_process):
     server = app_server_in_process
     cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+    assert http_request(server.url("/fleet"), cookie=cookie)[0] == 200
 
 
 def test_expired_and_idle_sessions_are_refused(app_server_in_process, monkeypatch):
@@ -86,16 +86,16 @@ def test_expired_and_idle_sessions_are_refused(app_server_in_process, monkeypatc
     start = app._now()
 
     monkeypatch.setattr(app, "_now", lambda: start + fleet_sessions.IDLE_TIMEOUT_S + 1)
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+    assert http_request(server.url("/fleet"), cookie=cookie)[0] == 303
 
     monkeypatch.setattr(app, "_now", lambda: start)
     cookie = login(server)
     # Stay active so only the absolute limit applies.
     for day in range(1, 31):
         monkeypatch.setattr(app, "_now", lambda day=day: start + day * 86400 - 60)
-        assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+        assert http_request(server.url("/fleet"), cookie=cookie)[0] == 200
     monkeypatch.setattr(app, "_now", lambda: start + fleet_sessions.ABSOLUTE_LIFETIME_S + 1)
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 303
+    assert http_request(server.url("/fleet"), cookie=cookie)[0] == 303
 
 
 def test_set_cookie_attributes(app_server_in_process):
@@ -112,7 +112,7 @@ def test_an_unreadable_fleet_db_answers_503_on_gated_routes_only(app_server_in_p
     cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
     with open(fleet_db.fleet_db_path(server.state_dir), "wb") as handle:
         handle.write(b"this is not a database" * 100)
-    for path in ("/health", "/"):
+    for path in ("/fleet", "/"):
         status, headers, _body = http_request(server.url(path), cookie=cookie)
         assert status == 503
         assert "Location" not in headers
@@ -132,7 +132,7 @@ def test_a_user_role_session_gets_the_unknown_path_404_on_admin_routes(app_serve
     server = app_server_in_process
     cookie, _user_id = _seed_user_session(server.state_dir, role="user")
     unknown = http_request(server.url("/no-such-page"), cookie=cookie)
-    for path in ("/health", "/airlines/manage"):
+    for path in ("/users", "/airlines/manage"):
         status, _headers, body = http_request(server.url(path), cookie=cookie)
         assert status == 404
         assert body == unknown[2]
@@ -142,7 +142,7 @@ def test_a_user_role_session_gets_the_unknown_path_404_on_admin_routes(app_serve
     assert status == 404
     assert body == unknown[2]
     assert b"nav-dot" not in body
-    anonymous = http_request(server.url("/health"))
+    anonymous = http_request(server.url("/fleet"))
     assert anonymous[0] == 303
 
 
@@ -159,7 +159,7 @@ def test_a_user_session_may_use_the_signed_in_routes(app_server_in_process):
 
 def test_an_unknown_token_is_refused(app_server_in_process):
     server = app_server_in_process
-    assert http_request(server.url("/health"), cookie="sp_session=nope")[0] == 303
+    assert http_request(server.url("/fleet"), cookie="sp_session=nope")[0] == 303
 
 
 def _unwritable_state_dir(monkeypatch):
@@ -176,7 +176,7 @@ def test_unwritable_state_dir_reads_sessions_and_logs_the_fallback(
     cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
     _unwritable_state_dir(monkeypatch)
     capfd.readouterr()
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+    assert http_request(server.url("/airlines/manage"), cookie=cookie)[0] == 200
     assert "state directory is not writable" in capfd.readouterr().out
 
 
@@ -188,7 +188,7 @@ def test_unwritable_state_dir_with_pending_wal_answers_503(
     with open(fleet_db.fleet_db_path(server.state_dir) + "-wal", "wb") as handle:
         handle.write(b"unmerged frames")
     capfd.readouterr()
-    status, headers, _body = http_request(server.url("/health"), cookie=cookie)
+    status, headers, _body = http_request(server.url("/airlines/manage"), cookie=cookie)
     assert status == 503
     assert "Location" not in headers
     assert "fallback refused" in capfd.readouterr().out
@@ -200,4 +200,4 @@ def test_unwritable_state_dir_with_empty_wal_still_reads(
     cookie, _user_id = _seed_user_session(server.state_dir, role="admin")
     _unwritable_state_dir(monkeypatch)
     open(fleet_db.fleet_db_path(server.state_dir) + "-wal", "wb").close()
-    assert http_request(server.url("/health"), cookie=cookie)[0] == 200
+    assert http_request(server.url("/airlines/manage"), cookie=cookie)[0] == 200

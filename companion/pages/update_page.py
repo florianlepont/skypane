@@ -27,10 +27,9 @@ from server import history_db
 INSTALL_ROUTE = "/update/install"
 CANCEL_ROUTE = "/update/cancel"
 
-# Shares its id with companion/ui_base.py's own nav-label Message, the
-# same pattern companion/pages/health_page.py's _NAV_HEALTH_TEXT uses:
-# msg() is idempotent for a repeat id/English pair, and this page's own
-# <h1> heading must read exactly what the nav calls it.
+# Shares its id with companion/ui_base.py's own nav-label Message: msg() is
+# idempotent for a repeat id/English pair, and this page's own <h1> heading
+# must read exactly what the nav calls it.
 _NAV_UPDATE_TEXT = i18n.msg("nav.update", "Releases")
 
 # The query parameter that picks the hardware type on GET and the form
@@ -621,7 +620,8 @@ def _install_confirm_form_html(version, type_html=""):
 
 
 def update_install_confirm_page(
-        ctx, version, next_wake_text, wake_held=False, is_bench=False, type_choice=None):
+        ctx, version, next_wake_text, wake_held=False, is_bench=False, type_choice=None,
+        back_href=None):
     """Two-step install confirmation: rendered whenever the posted
     `confirm` field is not exactly "yes", including a bare POST with
     none. This page is the actual security control -- it works with
@@ -641,7 +641,9 @@ def update_install_confirm_page(
     operator has to already know that convention. `type_choice` (a
     `TypeChoice`, None for the single-type page) adds the hidden type
     field to the confirming form and, when the chooser is shown, names
-    the hardware type; with None the page is the one-type page.
+    the hardware type; with None the page is the one-type page. `back_href`
+    is where the Cancel link goes (the Fleet view of the frame); without it,
+    the Update page of the type.
     """
     ctx = page_context.coerce(ctx)
     resolved_wake_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
@@ -658,6 +660,8 @@ def update_install_confirm_page(
     if type_choice is not None and type_choice.carries_field:
         type_html = _type_field_html(type_choice.selected)
         back_route = escape_html(page_route(type_choice.selected))
+    if back_href is not None:
+        back_route = escape_html(back_href)
     if type_choice is not None and type_choice.chooser:
         type_note_html = '<p class="text-label">%s</p>' % escape_html(
             i18n.t(CONFIRM_TYPE_TEMPLATE) % _type_label(type_choice.selected))

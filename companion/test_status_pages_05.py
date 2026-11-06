@@ -19,6 +19,7 @@ import companion.test_status_pages_helpers as shp
 import companion.wake as wake
 from companion import i18n, illustration_normalize, layout, prefs
 from companion.pages import health_page, home_page
+import health_page_composition
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import declarations_for, keyframes, parse_html
 from server.plane import illustrations
@@ -103,7 +104,7 @@ def test_23_06_page_headers_stay_free_of_redundant_freshness_lines(tmp_path):
     either and keeps only the silent hidden refresh marker that carries data-loaded-at."""
     now_iso = shp.iso(shp.now())
     built = layout.refresh_marker_html(now_iso)
-    health = health_page.render(shp.ctx(str(tmp_path / "h"), now_iso))
+    health = health_page_composition.render(shp.ctx(str(tmp_path / "h"), now_iso))
     home = home_page.render(_home_ctx(str(tmp_path / "o"), now_iso))
     assert "data-loaded-at" not in health
     assert "data-refresh-pill" not in health
@@ -279,7 +280,7 @@ def test_health_rows_read_in_plain_language(tmp_path):
     from server import history_db
     shp.seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     shp.seed_runway_events(tmp, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
-    rendered = health_page.render(shp.ctx(tmp, shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
 
     visible = _visible_text_outside_title_attributes(rendered)
     for banned in ("Corroboration", "Single-source (uncorroborated)", "pipeline last ran", "ADS-B pipeline"):
@@ -315,7 +316,7 @@ def test_health_keeps_status_primary_and_explains_details_on_request(
     ])
     try:
         prefs.set_request_prefs(lang=lang)
-        rendered = health_page.render(shp.ctx(state_dir, shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
 
@@ -365,7 +366,7 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
     for source in ("fresh_hit", "cache_hit", "airline_only", "miss", "manual"):
         events.append({"ts": shp.iso(now), "hex": "abc123", "route_source": source})
     shp.seed_runway_events(tmp, events)
-    rendered = health_page.render(shp.ctx(tmp, shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
 
     assert health_page.UNRESOLVED_SECTION_HEADING in rendered and "data-filter-input" in rendered, (
         "fixture gap: expected the registry card to actually render")

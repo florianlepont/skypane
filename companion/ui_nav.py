@@ -22,7 +22,6 @@ from companion.ui_base import (
     HEALTH_ALERT_SUFFIX_TEXT,
     HEALTH_ANOMALY_CLASS,
     HEALTH_SOURCE_FAULT_CLASS,
-    HEALTH_ROUTE,
     HOME_ROUTE,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
@@ -420,7 +419,6 @@ REFRESH_TOKEN_ATTR = "data-refresh-token"
 REFRESH_PAGE_ATTR = "data-refresh-page"
 REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
-REFRESH_PAGE_HEALTH = nav_slug(HEALTH_ROUTE)
 REFRESH_PAGE_FLIGHTS = nav_slug(FLIGHTS_ROUTE)
 # The Console Fleet page refreshes its health rows and the Fleet navigation
 # dot in place; it carries no freshness token (every tick is a full 200).
@@ -500,13 +498,6 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
     REFRESH_PAGE_DISPLAY: (
         ".page-header__freshness",
         ".frame-strip",
-    ),
-    REFRESH_PAGE_HEALTH: (
-        ".health-row__summary",
-        "div." + HEALTH_ANOMALY_CLASS,
-        "section." + HEALTH_SOURCE_FAULT_CLASS,
-        ".page-header__freshness",
-        'a[href$="/fleet"]',
     ),
     REFRESH_PAGE_FLEET: (
         ".health-row__summary",

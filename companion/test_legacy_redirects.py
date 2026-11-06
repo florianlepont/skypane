@@ -59,8 +59,7 @@ def test_a_non_admin_is_told_the_page_may_be_reserved_and_the_refusal_stays_unif
     server, seed = fleet
     owner = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
     bodies = set()
-    for path in ("/health", "/device", "/update", "/users", "/audit", "/fleet",
-                 "/devices/%s/health" % seed.owned_id, "/no-such-page",
+    for path in ("/users", "/audit", "/fleet", "/no-such-page",
                  "/devices/%s/" % seed.live_id):
         status, _location, body = _get(server, owner, path)
         assert status == 404, path

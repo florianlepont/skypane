@@ -253,20 +253,20 @@ def test_the_header_has_no_account_toggle_in_either_language(app04b_server, sess
 
 
 def test_wake_interval_env_prefill_and_on_disk_precedence(make_app_server):
-    """authenticated GET /device pre-fills Wake interval with SKYPANE_SLEEP_S=900 when nothing
+    """authenticated GET /fleet pre-fills Wake interval with SKYPANE_SLEEP_S=900 when nothing
     is stored, and a stored wake_interval_s=120 always wins over that environment value"""
     server = make_app_server(fake_providers=True, env_overrides={app_module.SLEEP_ENV_VAR: "900"})
     cookie = login(server)
     base = server.base_url()
 
-    status, _headers, body = http_request(base + "/device", cookie=cookie)
+    status, _headers, body = http_request(base + "/fleet", cookie=cookie)
     assert status == 200, "expected 200 for the env-only pre-fill case, got %d" % status
     assert re.search(rb'name="wake_interval_s"[^>]*value="900"', body), (
         "expected the Wake interval input to carry value=\"900\" pre-filled from "
         "SKYPANE_SLEEP_S=900 with nothing stored")
 
     device_config.save_device_config(server.state_dir, wake_interval_s=120)
-    status, _headers, body = http_request(base + "/device", cookie=cookie)
+    status, _headers, body = http_request(base + "/fleet", cookie=cookie)
     assert status == 200, "expected 200 after storing wake_interval_s=120, got %d" % status
     assert re.search(rb'name="wake_interval_s"[^>]*value="120"', body), (
         "expected the stored wake_interval_s=120 to win over the SKYPANE_SLEEP_S=900 "
@@ -276,13 +276,13 @@ def test_wake_interval_env_prefill_and_on_disk_precedence(make_app_server):
 
 
 def test_wake_interval_below_floor_env_degrades_to_placeholder(make_app_server):
-    """authenticated GET /device degrades a below-floor SKYPANE_SLEEP_S=30 (the shipped
+    """authenticated GET /fleet degrades a below-floor SKYPANE_SLEEP_S=30 (the shipped
     deploy/skypane.env.example value) to the placeholder empty state, never a value attribute
     the form could not submit"""
     from companion.pages import config_page
     server = make_app_server(fake_providers=True, env_overrides={app_module.SLEEP_ENV_VAR: "30"})
     cookie = login(server)
-    status, _headers, body = http_request(server.base_url() + "/device", cookie=cookie)
+    status, _headers, body = http_request(server.base_url() + "/fleet", cookie=cookie)
     assert status == 200, "expected 200, got %d" % status
     assert b'name="wake_interval_s"' in body, "expected the Wake interval input to still be present"
     assert not re.search(rb'name="wake_interval_s"[^>]*\bvalue="', body), (

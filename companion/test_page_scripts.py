@@ -11,7 +11,7 @@ served or on-disk JS file (companion/test_suite_guards.py G2/G11).
 import pytest
 
 import companion.app as app
-from companion import layout
+from companion import console_fleet_view, layout, legacy_pages
 from companion.pages import health_page
 from companion.test_browser_ux_helpers import seed_state_dir
 from companion_app_server import get, login
@@ -75,7 +75,17 @@ CASES = (
 )
 CASE_IDS = ("empty", "seeded", "flash")
 
-NAV_ROUTES = tuple(route for route, _label in layout.NAV_TABS)
+FLEET_SYSTEM_ROUTE = "/fleet?view=system"
+NAV_ROUTES = tuple(
+    route for route, _label in layout.NAV_TABS
+    if route not in legacy_pages.RETIRED_ADMIN_PAGES) + ("/fleet", FLEET_SYSTEM_ROUTE)
+
+
+def _route_page_scripts(route):
+    """The route's own extra scripts: the Fleet page's depend on its view."""
+    if route in ("/fleet", FLEET_SYSTEM_ROUTE):
+        return console_fleet_view.page_scripts(route == FLEET_SYSTEM_ROUTE)
+    return app._PAGE_SCRIPTS[route]
 
 
 @pytest.fixture(scope="module")
@@ -86,7 +96,8 @@ def servers(module_app_server_factory):
 def _page_body(servers, server_name, route, query=""):
     server = servers[server_name]
     session = login(server)
-    status, _headers, body = get(server, route + query, cookie=session)
+    path = route + (query.replace("?", "&", 1) if "?" in route else query)
+    status, _headers, body = get(server, path, cookie=session)
     assert status == 200, (
         "expected 200 from %s%s on the %r server, got %d"
         % (route, query, server_name, status))
@@ -141,7 +152,7 @@ def test_shell_script_set_matches_global_and_route_tuple(servers, route, server_
         "%s (%s state, query=%r): a shell script src repeats: %r"
         % (route, server_name, query, shell_srcs))
 
-    expected = set(layout.GLOBAL_PAGE_SCRIPTS) | set(app._PAGE_SCRIPTS[route])
+    expected = set(layout.GLOBAL_PAGE_SCRIPTS) | set(_route_page_scripts(route))
     assert set(shell_srcs) == expected, (
         "%s (%s state, query=%r): shell script set %r does not equal "
         "GLOBAL_PAGE_SCRIPTS | _PAGE_SCRIPTS[route] %r"
@@ -165,7 +176,9 @@ def test_shell_script_set_matches_global_and_route_tuple(servers, route, server_
 
 
 def test_every_nav_tab_route_has_a_page_scripts_tuple():
-    missing = [route for route in NAV_ROUTES if route not in app._PAGE_SCRIPTS]
+    missing = [
+        route for route in NAV_ROUTES
+        if route not in app._PAGE_SCRIPTS and route not in ("/fleet", FLEET_SYSTEM_ROUTE)]
     assert not missing, (
         "layout.NAV_TABS route(s) %r have no app._PAGE_SCRIPTS entry - a "
         "tab landing without one would silently lose its scripts" % (missing,))

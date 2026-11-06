@@ -1,4 +1,4 @@
-"""Tests the Health page's fleet database fallback anomaly.
+"""Tests the Fleet System view's fleet database fallback anomaly.
 
 byos writes fleet_status.json when it falls back to the legacy device
 files; the companion reads only that file (never fleet.db) and shows one
@@ -119,23 +119,23 @@ def _fetch_health(make_app_server, status, lang="en"):
     server = make_app_server(seed=lambda d: _seed(d, status))
     cookie = companion_app_server.login(server)
     cookie = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
-    code, _, body = companion_app_server.get(server, "/health", cookie=cookie)
+    code, _, body = companion_app_server.get(server, "/fleet?view=system", cookie=cookie)
     assert code == 200
     return body.decode("utf-8")
 
 
-def test_served_health_page_shows_sentence_for_fault(make_app_server):
+def test_served_system_view_shows_sentence_for_fault(make_app_server):
     html = _fetch_health(make_app_server, fleet_db.STATUS_FAULT)
     assert _PILL in html
 
 
 @pytest.mark.parametrize("status", [None, "absent", "malformed"])
-def test_served_health_page_silent_otherwise(make_app_server, status):
+def test_served_system_view_silent_otherwise(make_app_server, status):
     html = _fetch_health(make_app_server, status)
     assert _PILL not in html
 
 
-def test_served_health_page_french_for_fault(make_app_server):
+def test_served_system_view_french_for_fault(make_app_server):
     html = _fetch_health(make_app_server, fleet_db.STATUS_FAULT, lang="fr")
     assert _FRENCH in html
     assert _PILL not in html

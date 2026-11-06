@@ -2040,7 +2040,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 
 .fleet-group .data-cards > .data-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
   min-height: 54px;
 }
 
@@ -3116,6 +3117,7 @@ table.data-table--registry .cell-inline-sep {
   list-style: none;
   margin: var(--space-sm) 0 0;
   padding: 0;
+  container: update-rows / inline-size;
 }
 
 .update-rows > li + li {
@@ -3240,7 +3242,11 @@ table.data-table--registry .cell-inline-sep {
     width: auto;
     min-width: 200px;
   }
+}
 
+/* The release rows lay out in columns only where their own list is wide
+ * enough; the Fleet page puts them in a narrow block even on a wide screen. */
+@container update-rows (min-width: 700px) {
   .update-row > summary {
     grid-template-columns: 232px minmax(0, 1fr) 140px 20px;
     grid-template-areas: "v s d c";
@@ -12183,6 +12189,10 @@ dialog.modal:focus-visible {
 }
 
 /* Releases: the version list is one glass group of expandable rows. */
+.update-group {
+  container: update-rows / inline-size;
+}
+
 .update-group > li + li {
   border-top: 1px solid var(--glass-hairline);
 }

@@ -135,7 +135,7 @@ def test_health_pill_is_visible_and_fits_in_both_themes(
         new_context, charging_server, lang, viewport_name, viewport):
     """in Health's Battery row the pill is visible in the closed row's summary, whole inside it,
     on one line, with no page overflow, in light and dark"""
-    context, page = _open(new_context, charging_server, layout.HEALTH_ROUTE, lang, viewport)
+    context, page = _open(new_context, charging_server, "/fleet", lang, viewport)
     try:
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
@@ -161,7 +161,7 @@ def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_ser
                          'form[action="/quick/quiet-hours"] button[role="switch"]'):
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["width"] >= 44, (selector, box)
-        page.goto(charging_server.base_url() + layout.HEALTH_ROUTE)
+        page.goto(charging_server.base_url() + "/fleet")
         summary = page.locator("#health-row-battery > summary")
         summary.wait_for(state="visible")
         assert summary.bounding_box()["height"] >= 44
@@ -175,7 +175,7 @@ def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_ser
 
 def test_a_discharging_battery_shows_no_pill(new_context, discharging_server):
     """with a falling battery neither page shows the pill"""
-    for route in (layout.HOME_ROUTE, layout.HEALTH_ROUTE):
+    for route in (layout.HOME_ROUTE, "/fleet"):
         context, page = _open(new_context, discharging_server, route, "en", VIEWPORT_PHONE)
         try:
             assert page.locator(".charging-pill").count() == 0, route
@@ -187,8 +187,8 @@ def test_a_discharging_battery_shows_no_pill(new_context, discharging_server):
 def test_the_pill_is_inside_a_region_the_freshness_loop_swaps(new_context, charging_server):
     """on Health the pill sits inside one of the regions the page's refresh loop replaces in
     place, so it appears and disappears with its data and needs no reload"""
-    swap_selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_HEALTH]
-    context, page = _open(new_context, charging_server, layout.HEALTH_ROUTE, "en", VIEWPORT_PHONE)
+    swap_selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE[layout.REFRESH_PAGE_FLEET]
+    context, page = _open(new_context, charging_server, "/fleet", "en", VIEWPORT_PHONE)
     try:
         page.locator(HEALTH_PILL).first.wait_for(state="visible")
         inside = page.evaluate(
@@ -206,7 +206,7 @@ def test_a_new_reading_removes_the_pill_on_the_next_load(new_context, make_app_s
     the next load of the page no longer shows the pill (Health has no live refresh marker, so
     the personal Home that used to swap it in place is the only loop that ever did)"""
     server = make_app_server(seed=_seed_charging, fake_providers=True)
-    context, page = _open(new_context, server, layout.HEALTH_ROUTE, "en", VIEWPORT_PHONE)
+    context, page = _open(new_context, server, "/fleet", "en", VIEWPORT_PHONE)
     try:
         page.locator(HEALTH_PILL).wait_for(state="visible")
         with history_db.open_db(server.state_dir) as conn:

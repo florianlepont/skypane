@@ -22,8 +22,8 @@ _LEGACY_TOPIC_URL = "https://push.example/secret-topic"
 def _device_page(server, cookie, lang):
     cookie_header = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
     status, _headers, body = http_request(
-        server.base_url() + "/device", cookie=cookie_header)
-    assert status == 200, "expected an authenticated 200 for /device, got %d" % status
+        server.base_url() + "/fleet", cookie=cookie_header)
+    assert status == 200, "expected an authenticated 200 for /fleet, got %d" % status
     return body.decode("utf-8", errors="replace")
 
 

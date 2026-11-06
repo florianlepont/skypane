@@ -133,7 +133,7 @@ def test_install_confirm_page_offers_a_plain_cancel_link_not_a_second_form(serve
     text = body.decode("utf-8")
     assert text.count('action="%s"' % update_page.INSTALL_ROUTE) == 1, (
         "expected exactly one form posting to %r" % (update_page.INSTALL_ROUTE,))
-    assert '<a class="text-label" href="%s">' % layout.UPDATE_ROUTE in text
+    assert '<a class="text-label" href="%s">' % _FLEET_LIVE in text
 
 
 # ==========================================================================
@@ -152,7 +152,7 @@ def test_install_confirm_yes_schedules_and_get_shows_scheduled(server, cookie):
     assert registry["schedule"]["state"] == "scheduled"
     assert registry["schedule"]["version"] == _DOWNGRADE_VERSION
 
-    status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
+    status, _headers, body = get(server, _FLEET_LIVE, cookie=cookie)
     assert status == 200
     text = body.decode("utf-8")
     assert i18n.t(update_page.STATE_LABELS["scheduled"]) in text
@@ -446,7 +446,7 @@ def _hidden_types(html):
 
 
 def test_one_relevant_type_shows_no_chooser_and_no_type_field(server, cookie):
-    status, _headers, body = get(server, layout.UPDATE_ROUTE, cookie=cookie)
+    status, _headers, body = get(server, _FLEET_LIVE, cookie=cookie)
     assert status == 200
     html = body.decode("utf-8")
     assert _type_buttons(html) == []
@@ -460,7 +460,7 @@ def test_one_relevant_type_shows_no_chooser_and_no_type_field(server, cookie):
 
 def test_chooser_lists_each_relevant_type_and_defaults_to_legacy(
         two_type_server, two_type_cookie):
-    status, _headers, body = get(two_type_server, layout.UPDATE_ROUTE, cookie=two_type_cookie)
+    status, _headers, body = get(two_type_server, _FLEET_LIVE, cookie=two_type_cookie)
     assert status == 200
     html = body.decode("utf-8")
     labels = {key: fr.hardware.get_profile(key, _SIM_ENV).label for key in (_LEGACY, _OTHER)}
@@ -488,8 +488,14 @@ def test_other_type_page_shows_only_that_types_releases_and_schedule(
     assert 'action="%s"' % update_page.CANCEL_ROUTE not in legacy.decode("utf-8")
 
 
+def test_a_bare_type_query_is_the_legacy_frames_fleet_view(two_type_server, two_type_cookie):
+    status, headers, _body = get(
+        two_type_server, layout.UPDATE_ROUTE + "?type=", cookie=two_type_cookie)
+    assert (status, headers.get("Location")) == (303, _FLEET_LIVE)
+
+
 def test_unknown_or_malformed_query_type_falls_back_to_legacy(two_type_server, two_type_cookie):
-    for value in ("nope", "../x", "", _OTHER + "x"):
+    for value in ("nope", "../x", _OTHER + "x"):
         status, _headers, body = get(
             two_type_server, layout.UPDATE_ROUTE + "?type=" + urllib.parse.quote(value),
             cookie=two_type_cookie)
@@ -586,7 +592,7 @@ def test_older_release_above_the_floor_can_be_scheduled_in_each_type(
 
 def test_chooser_renders_in_french(two_type_server, two_type_cookie):
     fr_cookie = two_type_cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME
-    status, _headers, body = get(two_type_server, layout.UPDATE_ROUTE, cookie=fr_cookie)
+    status, _headers, body = get(two_type_server, _FLEET_LIVE, cookie=fr_cookie)
     html = body.decode("utf-8")
     assert status == 200
     assert "Hardware type" not in html
@@ -614,7 +620,7 @@ def test_confirm_page_and_release_list_forms_carry_the_session_token(server, coo
     _status, _headers, body = _post(
         server, update_page.INSTALL_ROUTE, cookie, {"version": _DOWNGRADE_VERSION})
     _assert_token_in_forms(_forms_to(body.decode("utf-8"), update_page.INSTALL_ROUTE), cookie)
-    _status, _headers, page = http_request(server.base_url() + layout.UPDATE_ROUTE, cookie=cookie)
+    _status, _headers, page = http_request(server.base_url() + _FLEET_LIVE, cookie=cookie)
     _assert_token_in_forms(_forms_to(page.decode("utf-8"), update_page.INSTALL_ROUTE), cookie)
 
 
@@ -622,7 +628,7 @@ def test_cancel_form_carries_the_session_token_and_works_with_it(server, cookie)
     _post(
         server, update_page.INSTALL_ROUTE, cookie,
         {"version": _DOWNGRADE_VERSION, "confirm": "yes"})
-    _status, _headers, page = http_request(server.base_url() + layout.UPDATE_ROUTE, cookie=cookie)
+    _status, _headers, page = http_request(server.base_url() + _FLEET_LIVE, cookie=cookie)
     _assert_token_in_forms(_forms_to(page.decode("utf-8"), update_page.CANCEL_ROUTE), cookie)
     assert _post(server, update_page.CANCEL_ROUTE, cookie)[0] == 303
     assert fr.load_registry(server.state_dir)["schedule"] is None

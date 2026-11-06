@@ -19,6 +19,7 @@ FRAME_PAGE_REDIRECTS = (
 LEGACY_PAGE_TARGETS = {
     "/settings": "/display", "/history": "/flights", "/preview": "/flights",
     "/display/screen": "/display",
+    "/health": "/", "/device": "/display", "/update": "/",
 }
 ADMIN_FRAMELESS_TARGET = "/account"
 SIGNED_IN_LOGIN_ROLES = ("admin", "owner", "other", "co-manager")

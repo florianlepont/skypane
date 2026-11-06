@@ -96,10 +96,11 @@ def test_the_console_navigation_no_longer_lists_status_version_or_device(fleet):
 
 
 @pytest.mark.parametrize("path", ["/health", "/device", "/update"])
-def test_the_old_pages_keep_working(fleet, path):
+def test_the_old_pages_move_to_the_fleet_page(fleet, path):
     server, _seed, cookie = fleet
-    status, _headers, _page = fx.get(server, cookie, path)
-    assert status == 200
+    status, headers, _page = fx.get(server, cookie, path)
+    assert status == 303
+    assert headers["Location"].startswith("/fleet?frame=")
 
 
 def test_french_block_headings(fleet):

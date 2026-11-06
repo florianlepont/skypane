@@ -22,7 +22,7 @@ from provisioned_fleet import (
     ADMIN_EMAIL, FRAMELESS_EMAIL, GALLERY_FILENAME, NAME_A1, NAME_A2, NAME_B1,
     SEEDED_ADMIN_ONLY, USER_A_EMAIL, USER_B_EMAIL, device_dir, mark_checked_in,
     provision_fleet)
-from server import device_config, device_dirs
+from server import history_db, device_config, device_dirs
 from server.plane import calendar_rules
 from server.plane.calendar_rules import registry as calendar_registry
 
@@ -191,19 +191,16 @@ def test_the_unprefixed_frame_routes_are_admin_only(rig, template):
     assert anonymous_status == 303 and headers["Location"].startswith("/login")
 
 
-@pytest.mark.parametrize("path", ["/", "/display", "/flights", "/health", "/airlines"])
+@pytest.mark.parametrize("path", ["/", "/display", "/flights", "/airlines"])
 def test_an_admin_moves_from_the_personal_pages_to_their_own_frame(rig, path):
     status, headers, _body = rig.get(path, "admin")
-    if path == "/health":
-        assert status == 200
-        return
     assert status == 303
     location = headers["Location"]
     assert re.fullmatch(r"/devices/d_[0-9a-f]{8}" + re.escape(path), location)
     assert rig.get(location, "admin")[0] == 200
 
 
-@pytest.mark.parametrize("path", ["/device", "/update", "/runway-image/06-24.png"])
+@pytest.mark.parametrize("path", ["/runway-image/06-24.png"])
 def test_admin_only_frame_routes_are_404_for_users_in_both_forms(rig, path):
     for who in ("a", "b"):
         rig.assert_unknown("GET", path, who)
@@ -347,7 +344,7 @@ def test_user_display_has_no_runway_wake_interval_or_led_control(rig):
     admin_display = rig.page("/devices/%s/display" % rig.fleet.a1, "admin")
     assert 'name="tracked_runway"' not in admin_display
     assert "detection-card" not in admin_display
-    admin_device = rig.page("/devices/%s/device" % rig.fleet.a1, "admin")
+    admin_device = rig.page("/fleet?frame=%s" % rig.fleet.a1, "admin")
     assert 'name="wake_interval_s"' in admin_device
     assert "/quick/led" in admin_device
 
@@ -376,23 +373,25 @@ def test_home_has_one_dot_and_no_battery_tile_or_attention_bar_for_either_role(r
     admin_root = parse_html(admin_home)
     assert not admin_root.select(".home-battery") and not admin_root.select(".home-action")
     assert len(admin_root.select(".home-state__dot")) == 1
-    # The battery is read on the administrator's Console Health page instead.
-    admin_health = rig.page("/devices/%s/health" % rig.fleet.a1, "admin")
+    # The battery is read in the State block of the administrator's Fleet view instead.
+    admin_health = rig.page("/fleet?frame=%s" % rig.fleet.a1, "admin")
     assert "Battery" in admin_health
 
 
-def test_health_is_the_administrators_alone_and_keeps_its_platform_rows(rig):
-    mark_checked_in(rig.state_dir, rig.fleet.a1, source_fault=True)
+def test_the_system_view_is_the_administrators_alone_and_keeps_its_platform_rows(rig):
+    with history_db.open_db(rig.state_dir) as conn:
+        history_db.set_meta(conn, history_db.META_SOURCE_FAULT, "True")
     platform_texts = (
-        health_page.SERVER_DATA_SECTION_HEADING, health_page.ROW_FLIGHT_DATA_NAME,
-        health_page.ROW_SOURCES_NAME, health_page.SOURCE_FAULT_HEADING,
+        health_page.ROW_FLIGHT_DATA_NAME, health_page.ROW_SOURCES_NAME, health_page.SOURCE_FAULT_HEADING,
         health_page.UNRESOLVED_SECTION_HEADING)
-    path = "/devices/%s/health" % rig.fleet.a1
-    admin_health = rig.page(path, "admin")
+    admin_health = rig.page("/fleet?view=system", "admin")
     for text in platform_texts:
         assert escape_html(i18n.t(text)) in admin_health, text
-    rig.assert_unknown("GET", path, "a")
-    rig.assert_unknown("GET", "/health", "a")
+    rig.assert_unknown("GET", "/fleet?view=system", "a")
+    # The retired Health address moves a user to their own Home, never to a platform page.
+    status, headers, _body = rig.get("/health", "a")
+    assert status == 303 and headers["Location"].startswith("/devices/")
+    assert "fleet" not in headers["Location"]
 
 
 def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
@@ -406,7 +405,7 @@ def test_user_pages_link_to_no_admin_page_and_admin_pages_still_do(rig):
     personal = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/" % own, "admin"))]
     assert "/fleet" in personal
     assert "/device" not in personal and "/health" not in personal
-    console = [_page_path(t) for t in _hrefs(rig.page("/devices/%s/health" % own, "admin"))]
+    console = [_page_path(t) for t in _hrefs(rig.page("/fleet?frame=%s" % own, "admin"))]
     assert "/fleet" in console
     assert "/device" not in console
 
@@ -556,4 +555,4 @@ def test_no_refresh_card_on_personalisation_for_either_role_and_device_keeps_it(
         assert 'name="wake_interval_s"' not in display, who
         assert "wake-interval" not in display, who
     assert 'name="wake_interval_s"' in rig.page(
-        "/devices/%s/device" % rig.fleet.a1, "admin")
+        "/fleet?frame=%s" % rig.fleet.a1, "admin")

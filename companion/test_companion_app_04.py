@@ -337,7 +337,7 @@ def test_both_shells_agree_on_document_language():
 @pytest.mark.parametrize(
     "tab_path,heading",
     [("/", "Home"), ("/display", "Personalisation"), ("/flights", "Flight history"),
-     ("/airlines", "Airlines"), ("/health", "Health"), ("/device", "Device")])
+     ("/airlines", "Airlines"), ("/fleet", "Fleet")])
 def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, session_cookie, tab_path, heading):
     """authenticated GET %s returns 200 and contains its own %r heading"""
     status, _headers, body = http_request(
@@ -758,13 +758,13 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
         "expected a crafted return_to to fall back to /display, got %r" % headers.get("Location"))
 
 
-def test_display_and_device_pages_split_the_groups(app04_server, session_cookie):
-    """GET /display and GET /device split the settings groups per companion/screens.py each carrying its hidden
+def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_cookie):
+    """GET /display and the settings of GET /fleet split the settings groups per companion/screens.py each carrying its hidden
     scope/return_to fields; Refresh now lives on Device only."""
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
     _s, _h, special_body = http_request(base + "/display/special-looks", cookie=session_cookie)
-    _s, _h, device_body = http_request(base + "/device", cookie=session_cookie)
+    _s, _h, device_body = http_request(base + "/fleet", cookie=session_cookie)
     display_text = display_body.decode("utf-8", errors="replace")
     special_text = special_body.decode("utf-8", errors="replace")
     device_text = device_body.decode("utf-8", errors="replace")

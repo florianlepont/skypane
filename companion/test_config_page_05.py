@@ -278,7 +278,7 @@ def test_settings_post_empty_body_leaves_led_unchanged_and_renders_unchecked(mak
     assert on_disk["led_enabled"] is led_before, (
         "expected an empty-body POST to LEAVE the stored led_enabled %r unchanged, got %r"
         % (led_before, on_disk["led_enabled"]))
-    get_status, _get_headers, body = get(server, companion_app.DEVICE_ROUTE, cookie=session_cookie)
+    get_status, _get_headers, body = get(server, "/fleet", cookie=session_cookie)
     assert get_status == 200, "expected 200 on the follow-up GET, got %d" % get_status
     assert b'name="led_enabled" value="on" checked' not in body, (
         "expected the LED checkbox to render unchecked after saving False")
