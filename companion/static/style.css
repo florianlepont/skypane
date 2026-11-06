@@ -5396,7 +5396,9 @@ button.detection-search:hover {
   overflow: hidden;
   background: var(--color-secondary);
   --place-gutter: calc(var(--space-sm) + var(--space-xs));
-  --place-search-bottom: calc(var(--place-gutter) + 54px);
+  /* The map runs under the app bar; everything that floats starts below it. */
+  --place-top: calc(52px + var(--safe-top));
+  --place-search-bottom: calc(var(--place-top) + var(--place-gutter) + 54px);
 }
 
 .map-ready .place-map {
@@ -5415,7 +5417,7 @@ button.detection-search:hover {
 .map-ready .place-float {
   position: absolute;
   z-index: 3;
-  top: var(--place-gutter);
+  top: calc(var(--place-top) + var(--place-gutter));
   left: var(--place-gutter);
   right: var(--place-gutter);
 }
@@ -5489,17 +5491,21 @@ button.detection-search:hover {
   display: none;
 }
 
-/* On a phone the chips sit under the search field: a list of results starts
- * below them. A one-line note lets taps through. */
+/* The suggestion list opens right under the field, over the mode chips: a
+ * glass panel of 52 px rows. A one-line note lets taps through. */
 .map-ready .place-results {
-  margin: calc(44px + var(--space-md)) 0 0;
+  margin: var(--space-xs) 0 0;
   max-height: 40dvh;
   overflow-y: auto;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-dominant);
+  padding: 0;
+  background: var(--glass-solid);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-card-hover);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.map-ready .place-results__note {
+  padding: var(--space-sm) var(--space-md);
 }
 
 /* The overlay carries the card, the credits button and the locate button
@@ -5642,16 +5648,16 @@ button.detection-search:hover {
   display: none;
 }
 
-/* The sheet: a compact bottom sheet that never covers more than about 40% of
+/* The sheet: a compact bottom sheet that never covers more than about 28% of
  * the viewport; it scrolls inside when it must. */
 .map-ready .place-sheet {
   grid-column: 1 / -1;
   grid-row: 3;
   box-sizing: border-box;
-  max-height: 40dvh;
+  max-height: 28dvh;
   overflow-y: auto;
   gap: var(--space-sm);
-  padding: var(--space-md);
+  padding: var(--space-md) var(--space-md) var(--space-sm);
   background: var(--glass-solid);
   border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   box-shadow: var(--shadow-glass);
@@ -5661,23 +5667,86 @@ button.detection-search:hover {
 .map-ready .place-hint,
 .map-ready .place-picker,
 .map-ready .place-radius > .section-caption,
-.map-ready .place-sheet .place-radius label,
 .map-ready .place-panel__area .place-subtitle {
   display: none;
 }
 
+/* The airport line: the name, then its codes, on one line that ellipsizes. */
 .map-ready .place-sheet .place-chosen p {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: baseline;
+  gap: var(--space-sm);
+  margin: 0;
+  min-width: 0;
+}
+
+.map-ready .place-sheet .place-chosen__name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.map-ready .place-sheet .place-chosen .section-caption {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The detection radius is one row: its label, the number and the slider. */
+.map-ready .place-sheet .place-radius {
+  flex-direction: row;
+  align-items: center;
+  flex-wrap: nowrap;
   gap: var(--space-sm);
   margin: 0;
 }
 
-.map-ready .place-sheet .place-chosen__name {
-  font-family: var(--font-display);
-  font-size: var(--font-body-size);
+.map-ready .place-sheet .place-radius label {
+  flex: none;
   font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.map-ready .place-sheet .place-radius__row {
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: var(--space-sm);
+}
+
+.map-ready .place-sheet .place-radius__row input[type="number"] {
+  flex: 0 0 4.5rem;
+  width: 4.5rem;
+}
+
+/* The hint shows until a place is set. */
+.place-tap-hint {
+  margin: 0 0 var(--space-sm);
+  color: color-mix(in srgb, var(--color-text) 75%, transparent);
+  font-weight: var(--weight-semibold);
+}
+
+.place-tap-hint[hidden],
+html:not(.map-ready) .place-tap-hint {
+  display: none;
+}
+
+/* The status line is read aloud; the visible feedback is the pin itself. */
+.map-ready .place-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Save and Cancel live in the sheet; the count line is for assistive
@@ -5747,10 +5816,10 @@ button.detection-search:hover {
   display: block;
   position: absolute;
   z-index: 5;
-  top: var(--place-gutter);
+  top: calc(var(--place-top) + var(--place-gutter));
   left: var(--place-gutter);
   right: var(--place-gutter);
-  max-height: calc(100% - 40dvh - 2 * var(--place-gutter));
+  max-height: calc(100% - var(--place-top) - 28dvh - 2 * var(--place-gutter));
   overflow-y: auto;
   box-sizing: border-box;
   padding: var(--space-md);
@@ -5784,7 +5853,7 @@ button.detection-search:hover {
   display: flex;
   flex-direction: column;
   max-width: none;
-  height: calc(100dvh - 52px - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom));
+  height: calc(100dvh - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom));
   padding: 0;
 }
 
@@ -5798,13 +5867,107 @@ button.detection-search:hover {
   min-height: 0;
 }
 
+/* The app bar floats over the map (the map runs under the status bar and the
+ * bar). A soft fade of the canvas colour behind it keeps the logo and the
+ * frame button readable without a hard bar. */
 .map-ready .site-header:has(~ .page-content .place-stage) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   margin-bottom: 0;
 }
 
+.map-ready .site-header:has(~ .page-content .place-stage)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: calc(100% + 24px);
+  background: linear-gradient(
+    to bottom, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent);
+  pointer-events: none;
+}
+
 /* No zoom buttons on a phone (pinch zooms); the keyboard and the wide screen
- * have them. */
+ * have them. The runway choice is one row of compact chips: the runway name,
+ * the legacy number below it, the length and surface only in the tooltip
+ * and for assistive technology. More than three runways scroll sideways. */
 @media (max-width: 959.98px) {
+  .map-ready .place-sheet .detection-runways {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - 2 * var(--space-sm)) / 3);
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    padding: var(--space-xs) 0;
+  }
+
+  .map-ready .place-sheet .runway-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-xs);
+    min-height: 64px;
+    padding: var(--space-xs) var(--space-sm);
+    scroll-snap-align: start;
+  }
+
+  .map-ready .place-sheet .runway-card .runway-card__detail {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .map-ready .place-sheet .runway-card .banner__pill {
+    margin: 0;
+  }
+
+  /* The chips are separate pills over the map: no box behind the pair. */
+  .map-ready .place-stage .place-modes {
+    background: none;
+    border-color: transparent;
+  }
+
+  .map-ready .place-sheet .runway-card .runway-card__check {
+    top: var(--space-xs);
+    right: var(--space-xs);
+  }
+
+  /* The follow offer is its button; the sentence is for assistive technology. */
+  .map-ready .place-sheet .place-nearest__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .map-ready .place-sheet .place-nearest {
+    margin-top: 0;
+  }
+
+  .map-ready .place-sheet #runway-group-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .map-ready .place-sheet .dirty-bar {
+    padding-top: 0;
+  }
+
+  .map-ready .place-sheet .dirty-bar__save {
+    flex: 1 1 auto;
+  }
+
   .map-ready .place-map .leaflet-control-zoom {
     display: none;
   }
@@ -5818,9 +5981,26 @@ button.detection-search:hover {
     margin: 0 0 0 calc(-1 * var(--space-xl));
   }
 
+  .map-ready .site-header:has(~ .page-content .place-stage) {
+    position: relative;
+    left: auto;
+    right: auto;
+  }
+
+  /* Only the frame button sits over the map here: the fade is a soft glow at
+   * the top right, away from the search field and the card. */
+  .map-ready .site-header:has(~ .page-content .place-stage)::before {
+    left: auto;
+    width: 22rem;
+    height: calc(var(--space-2xl) + 44px + var(--space-xl));
+    background: radial-gradient(
+      ellipse at top right, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent 70%);
+  }
+
   .map-ready .place-stage {
     min-height: 34rem;
     --place-card-w: 360px;
+    --place-top: 0px;
     --place-search-bottom: calc(var(--space-md) + 54px);
   }
 
@@ -5842,7 +6022,8 @@ button.detection-search:hover {
     flex-direction: column;
     grid-column: 1;
     grid-row: 1;
-    gap: var(--space-md);
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
     box-sizing: border-box;
     margin: 0 var(--space-md);
     max-height: calc(100dvh - var(--place-search-bottom) - 2 * var(--space-md));
@@ -5873,6 +6054,19 @@ button.detection-search:hover {
     background: var(--color-accent);
     color: var(--color-on-accent);
     box-shadow: var(--shadow-control);
+  }
+
+  .map-ready .place-status {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    white-space: normal;
+  }
+
+  .map-ready .place-status:empty {
+    display: none;
   }
 
   .map-ready .place-sheet {
@@ -5915,9 +6109,6 @@ button.detection-search:hover {
     max-height: calc(100% - 2 * var(--space-md));
   }
 
-  .map-ready .place-results {
-    margin-top: var(--space-xs);
-  }
 }
 
 /* The map. Leaflet's own stylesheet comes first on this page; the rules
@@ -6007,8 +6198,11 @@ html:not(.map-ready) .place-details__close {
   fill-opacity: 0.12;
 }
 
-/* An airport dot: a 12 px mark inside a 44 px invisible hit box. */
+/* An airport pin: a small round mark inside a 44 px invisible hit box, with
+ * its IATA code beside it from zoom 6, on hover, and always for the airport
+ * the setting follows (bigger, in the accent). */
 .place-dot {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6016,13 +6210,50 @@ html:not(.map-ready) .place-details__close {
   border: 0;
 }
 
+/* The mark is positioned and blockified on purpose: left inline (the library's
+ * marker rule overrides the hit box's display) its size is ignored and only a
+ * sliver of its border is drawn. */
 .place-dot__mark {
-  width: 12px;
-  height: 12px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
   box-sizing: border-box;
   border-radius: 50%;
   border: 2px solid var(--color-dominant);
-  background: color-mix(in srgb, var(--color-text) 60%, transparent);
+  background: color-mix(in srgb, var(--color-text) 75%, transparent);
+  box-shadow: var(--shadow-control);
+}
+
+.place-dot__label {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 11px);
+  transform: translateY(-50%);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--color-text);
+  text-shadow: 0 0 3px var(--color-dominant), 0 0 3px var(--color-dominant);
+  pointer-events: none;
+}
+
+.place-map--bare .place-dot:not(.place-dot--selected):not(:hover) .place-dot__label {
+  display: none;
+}
+
+.place-dot--selected .place-dot__mark {
+  width: 22px;
+  height: 22px;
+  background: var(--color-accent);
+}
+
+.place-dot--selected .place-dot__label {
+  left: calc(50% + 15px);
 }
 
 .place-status {
@@ -6064,7 +6295,7 @@ button.place-result {
   gap: var(--space-xs);
   width: 100%;
   height: auto;
-  min-height: 44px;
+  min-height: 52px;
   padding: var(--space-sm) var(--space-md);
   font-size: var(--font-body-size);
   background: transparent;
@@ -6076,8 +6307,15 @@ button.place-result {
 }
 
 button.place-result:hover {
-  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
   box-shadow: none;
+}
+
+button.place-result.is-active {
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+  box-shadow: none;
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
 }
 
 .place-result__name {
@@ -6086,7 +6324,10 @@ button.place-result:hover {
 }
 
 .place-result__rest {
-  overflow-wrap: anywhere;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 

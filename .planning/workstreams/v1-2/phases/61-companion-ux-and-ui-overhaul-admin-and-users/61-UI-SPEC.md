@@ -955,6 +955,32 @@ W43 (locate button bug), W44 (no coordinates line), W45 (no saved-settings discl
   label box against the segment box on the flights, airlines, Personalisation and account pages at 360 and 1280px in both languages.
 - Tokens only, both themes, every control at least 44px.
 
+### 9.0c Revision 5 (plan 61-65, owner feedback W65-W69): full-bleed map, compact panel, pins for every airport, tap to place, suggestions
+
+- **Full-bleed (W69):** the map runs under the status bar and the app bar (phone: the app bar floats over it, `position: absolute; top: 0`;
+  desktop: the map already starts at the viewport top). A soft vertical fade of the canvas colour (`--color-canvas`, 85% at the top, transparent
+  24px below the bar) sits behind the bar (`.site-header::before`); on desktop it is a radial glow at the top right behind the frame button.
+  The search field and the mode chips float below the bar (`--place-top`: 52px + safe-area on a phone). Tokens only, both themes.
+- **Compact sheet (W65):** phone, at most 28dvh. Airport mode: one line with the airport name and its codes (ellipsis), one row of three
+  64px runway chips (runway name, the legacy "Runway N" pill; length and surface only in the chip's title and for assistive technology; an
+  airport with more than three runways scrolls the row sideways), one full-width 44px Save with Cancel beside it (the dirty bar). My position:
+  the hint "Tap the map to place" until a pin exists, then one row "Radius (km)" + number + slider, then Save. The follow offer shows its
+  button only; the status line is read aloud, not shown. Desktop keeps the card of 9.0b with tighter spacing.
+- **Airport pins (W66):** in Airport mode every airport of the catalogue is drawn at every zoom (small round graphite marks in 44px hit
+  boxes; the followed airport is bigger, in the accent; the IATA label shows from zoom 6, on hover and for the followed airport). A tap
+  opens that airport's page like the list does (`data-detection-nav`, so mode and radius carry). My position mode draws none, so a tap
+  always places the pin. The catalogue (about 20 KB) rides on `#place-map` as `data-airports`, independent of the no-script list's filter.
+  Cause of the missing pins: the marks had a `display: inline` span inside a box whose `display` the map library overrides, so only a
+  4x19px sliver of the border showed, and a zoom floor of 8 hid them at the overview zoom; with `?q=` the anchor list the script read was
+  filtered too.
+- **Tap to place (W67):** My position: a tap on the map places or moves the pin and circle and fills the fields; the hint shows until placed.
+- **Suggestions (W68):** typing (2+ characters) lists up to 6 airports (IATA, ICAO, name, municipality; accents and case folded; exact
+  code, code prefix, name prefix, word prefix, then any part) from the page's own catalogue, 52px rows in a glass list under the field,
+  over the chips. The field is a combobox, the list a listbox (arrow keys wrap, Enter picks the active row, the first Escape closes the
+  list and keeps the text). No request while typing: an address is looked up only on submit (Enter or the search button; one request,
+  1.5s lock, cache) and its results (up to 5) fill the same list; choosing one switches to My position and places the pin. Notes
+  ("No place found", "Search is not available") stay as before. Without scripts the form posts as before.
+
 ### 9.1 Page structure (revision 1/2, history; top to bottom on phone; two columns at >=960px)
 
 1. **Status card** (compact): the saved setting in one sentence (existing `detection_summary`

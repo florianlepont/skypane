@@ -78,7 +78,14 @@ def _map_box(page):
 
 
 def _tap_map(page, fx, fy):
-    """Clicks at the given fractions of the part of the map nothing floats over."""
+    """Chooses My position (Airport mode draws a tappable pin for every airport, so a tap
+    there may select one), then clicks at the given fractions of the part of the map nothing
+    floats over."""
+    if not page.is_checked("#place-mode-area"):
+        page.click("label.place-mode:has(#place-mode-area)")
+        page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+        page.wait_for_function(
+            "() => document.querySelectorAll('#place-map .place-dot').length === 0", timeout=5000)
     box = page.evaluate(CLEAR_BOX)
     x, y = box["x"] + box["width"] * fx, box["y"] + box["height"] * fy
     page.mouse.click(x, y)
@@ -633,7 +640,7 @@ def test_a_pin_far_from_every_airport_offers_nothing(new_context, make_app_serve
         context.close()
 
 
-def test_airport_dots_appear_when_zoomed_in_and_choosing_one_follows_its_link(
+def test_airport_pins_choosing_one_follows_its_link(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(
@@ -671,16 +678,6 @@ def test_airport_dots_appear_when_zoomed_in_and_choosing_one_follows_its_link(
         context.close()
 
 
-def test_no_dots_show_at_the_overview_zoom(new_context, make_app_server):
-    server = make_app_server(seed=_seed, fake_providers=True)
-    context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
-    try:
-        if page.locator(MAP + " .place-dot").count():
-            raise AssertionError("airport dots show at zoom 5")
-    finally:
-        context.close()
-
-
 def test_the_area_circle_follows_the_radius_and_the_mode(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
@@ -688,8 +685,9 @@ def test_the_area_circle_follows_the_radius_and_the_mode(new_context, make_app_s
         _tap_map(page, 0.5, 0.5)
         page.wait_for_function(
             "() => !!document.querySelector('#place-map .place-pin')", timeout=5000)
-        if page.locator(MAP + " .place-circle").count():
-            raise AssertionError("a circle shows in runway mode")
+        page.click("label.place-mode:has(#place-mode-runway)")
+        page.wait_for_function(
+            "() => !document.querySelector('#place-map .place-circle')", timeout=5000)
         page.click("label.place-mode:has(#place-mode-area)")
         page.wait_for_function(
             "() => !!document.querySelector('#place-map .place-circle')", timeout=5000)

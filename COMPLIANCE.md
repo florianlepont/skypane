@@ -324,6 +324,9 @@ document.
   send the origin as Referer on that request, because the global
   `Referrer-Policy: same-origin` would otherwise send none to another origin.
   Results are used once to place a pin and are not stored by SkyPane.
+  While typing, the field only lists airports from the page's own catalogue
+  (no request at all); the address lookup still runs on submit only, and its
+  results (up to five) are listed in the same suggestion list.
 - **Difference from the plan's spec:** the policy asks that the service can be
   switched without a software update; the search host is a constant in the
   page code and in the CSP, so switching it is a SkyPane release, which is

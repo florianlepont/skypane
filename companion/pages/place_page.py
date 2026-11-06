@@ -27,6 +27,7 @@ fallback explanation shows and the details are open. With the map running the
 details block is reached only through the `#details` link (the Quiet hours
 note points there).
 """
+import json
 import unicodedata
 from urllib.parse import urlencode
 
@@ -114,6 +115,8 @@ LOCATE_TIMEOUT = i18n.msg(
 NEAREST_AIRPORT = i18n.msg(
     "detection.nearest_airport", "Nearest airport: %s, %d km. Follow its runway?")
 FOLLOW_AIRPORT = i18n.msg("detection.follow_airport", "Follow %s")
+TAP_HINT = i18n.msg("detection.tap_hint", "Tap the map to place")
+RESULT_AIRPORT = i18n.msg("detection.result_airport", "Airport")
 
 SEARCH_MIN_CHARS = 3
 SEARCH_MAX_CHARS = 120
@@ -138,6 +141,7 @@ _MAP_STRINGS = (
     ("locate-timeout", LOCATE_TIMEOUT),
     ("nearest", NEAREST_AIRPORT),
     ("follow", FOLLOW_AIRPORT),
+    ("result-airport", RESULT_AIRPORT),
 )
 
 AIRPORTS_TITLE = i18n.msg("detection.airports_title", "French airports")
@@ -356,6 +360,16 @@ def _map_strings_attrs():
         % (SEARCH_MIN_CHARS, SEARCH_MAX_CHARS, SEARCH_LOCK_MS))
 
 
+def _airports_json():
+    """The whole catalogue for the map's pins and the typed suggestions, one
+    compact row per airport: ICAO, IATA, name, municipality, latitude,
+    longitude. It does not depend on the search term that filters the list."""
+    rows = [
+        [a.icao, a.iata, a.name, a.municipality, round(a.lat, 4), round(a.lon, 4)]
+        for a in airports.load_catalogue().values()]
+    return json.dumps(rows, ensure_ascii=False, separators=(",", ":"))
+
+
 def _map_attrs(view):
     has_pin = bool(view.latitude and view.longitude)
     if not has_pin:
@@ -366,12 +380,15 @@ def _map_attrs(view):
         zoom = PLACE_ZOOM
     return (
         'data-lat="%s" data-lon="%s" data-zoom="%d" data-mode="%s" '
-        'data-airport="%s" data-radius-km="%s" %s'
+        'data-airport="%s" data-radius-km="%s" data-airports="%s" '
+        'data-airport-url="%s" %s'
     ) % (
         escape_html(view.latitude if has_pin else ""),
         escape_html(view.longitude if has_pin else ""), zoom, escape_html(view.mode),
         escape_html(view.airport.icao if view.airport is not None else ""),
-        escape_html(view.radius), _map_strings_attrs())
+        escape_html(view.radius), escape_html(_airports_json()),
+        escape_html(_href(airport="__ICAO__", radius_km=view.carry_radius)),
+        _map_strings_attrs())
 
 
 def _search_form_html():
@@ -578,7 +595,7 @@ def _runway_card_html(view, airport, runway):
         ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if current else "")
     return (
-        '<label class="runway-card%s"%s>'
+        '<label class="runway-card%s"%s title="%s">'
         '<input type="radio" name="runway" value="%s" class="visually-hidden" form="%s"%s>'
         '<span class="runway-card__number">%s%s</span>'
         '<span class="runway-card__detail text-label section-caption">%s</span>'
@@ -586,6 +603,7 @@ def _runway_card_html(view, airport, runway):
         "</label>"
     ) % (
         " runway-card--selected" if current else "", badge,
+        escape_html(_runway_detail(runway, view.lang)),
         escape_html(runway.designator), dp.FORM_ID,
         " checked" if runway.designator == view.runway else "",
         escape_html(runway.designator), pill,
@@ -654,8 +672,12 @@ def _radius_html(view):
 def _area_block_html(view):
     return (
         '<div class="place-panel__area">'
-        '<h2 class="place-subtitle">%s</h2>%s</div>'
-    ) % (escape_html(i18n.t(AREA_HEADING)), _radius_html(view))
+        '<h2 class="place-subtitle">%s</h2>'
+        '<p id="place-tap-hint" class="place-tap-hint text-label"%s>%s</p>%s</div>'
+    ) % (
+        escape_html(i18n.t(AREA_HEADING)),
+        " hidden" if view.latitude and view.longitude else "",
+        escape_html(i18n.t(TAP_HINT)), _radius_html(view))
 
 
 def _number_field_html(view, field, control_id, label, value, hint):

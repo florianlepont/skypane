@@ -45,7 +45,9 @@
   var MAX_ZOOM = 18;
   var FRANCE_CENTRE = [46.6, 2.5];
   var AIRPORT_ZOOM = 13;
-  var DOT_MIN_ZOOM = 8;
+  var LABEL_MIN_ZOOM = 6;
+  var SUGGEST_MAX = 6;
+  var SUGGEST_MIN_CHARS = 2;
   var TILE_ERRORS_BEFORE_NOTICE = 4;
   var NEAREST_AIRPORT_KM = 3;
   var COORD_DECIMALS = 4;
@@ -166,29 +168,6 @@
 
   // --- Server-rendered catalogue (never fetched) ---------------------------
 
-  var airports = [];
-  var anchors = document.querySelectorAll("a[data-icao][data-lat][data-lon]");
-  for (var i = 0; i < anchors.length; i++) {
-    var lat = parseNumber(anchors[i].getAttribute("data-lat"));
-    var lon = parseNumber(anchors[i].getAttribute("data-lon"));
-    if (lat !== null && lon !== null) {
-      airports.push({
-        icao: anchors[i].getAttribute("data-icao"),
-        name: anchors[i].getAttribute("data-name") || "",
-        iata: anchors[i].getAttribute("data-iata") || "",
-        lat: lat,
-        lon: lon,
-        anchor: anchors[i]
-      });
-    }
-  }
-
-  // Choosing an airport is the list's own navigation: the server renders the
-  // runway cards, the pin and the label for it, so a dot follows its link.
-  function chooseAirport(airport) {
-    airport.anchor.click();
-  }
-
   // Lower case, accents removed, spaces collapsed: how a typed word is
   // compared with an airport's code or name.
   function foldText(value) {
@@ -199,6 +178,54 @@
     return folded.replace(/\s+/g, " ").replace(/^ | $/g, "");
   }
 
+  // The whole catalogue arrives with the page as one attribute (rows of ICAO,
+  // IATA, name, municipality, latitude, longitude), whatever the airport list
+  // below is filtered to: every pin and every typed suggestion comes from it.
+  var airports = [];
+  (function readCatalogue() {
+    var rows = [];
+    try {
+      rows = JSON.parse(mapEl.getAttribute("data-airports") || "[]");
+    } catch (ignored) {
+      rows = [];
+    }
+    for (var i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var lat = Array.isArray(row) ? parseNumber(row[4]) : null;
+      var lon = Array.isArray(row) ? parseNumber(row[5]) : null;
+      if (lat !== null && lon !== null) {
+        airports.push({
+          icao: String(row[0]),
+          iata: String(row[1] || ""),
+          name: String(row[2] || ""),
+          city: String(row[3] || ""),
+          lat: lat,
+          lon: lon,
+          folded: [
+            foldText(row[1] || ""), foldText(row[0]), foldText(row[2] || ""),
+            foldText(row[3] || "")
+          ]
+        });
+      }
+    }
+  }());
+
+  var airportUrl = mapEl.getAttribute("data-airport-url") || "";
+
+  // Choosing an airport is the page's own navigation (the list's, now by a
+  // pin or a suggestion): the server renders the runway cards, the pin and
+  // the label for it. The link carries the live mode and radius through the
+  // form guard, which handles every data-detection-nav click.
+  function chooseAirport(airport) {
+    var link = document.createElement("a");
+    link.setAttribute("href", airportUrl.replace("__ICAO__", encodeURIComponent(airport.icao)));
+    link.setAttribute("data-detection-nav", "");
+    link.hidden = true;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   // The airport whose ICAO or IATA code or whole name is what was typed.
   function airportForQuery(query) {
     var wanted = foldText(query);
@@ -207,8 +234,8 @@
     }
     for (var k = 0; k < airports.length; k++) {
       var airport = airports[k];
-      if (wanted === foldText(airport.icao) || wanted === foldText(airport.name) ||
-          (airport.iata && wanted === foldText(airport.iata))) {
+      if (wanted === airport.folded[1] || wanted === airport.folded[2] ||
+          (airport.iata && wanted === airport.folded[0])) {
         return airport;
       }
     }
@@ -329,6 +356,14 @@
     });
   }
 
+  function chooseAreaMode() {
+    var radio = byId("place-mode-area");
+    if (radio && !radio.checked) {
+      radio.checked = true;
+      fire(radio, "change");
+    }
+  }
+
   function areaWanted() {
     var radio = byId("place-mode-area");
     return !!(radio && radio.checked);
@@ -390,7 +425,12 @@
       roundCoord(latlng.lng).toFixed(COORD_DECIMALS)));
   }
 
+  var tapHintEl = byId("place-tap-hint");
+
   function afterPinMoved(latlng, fromFields) {
+    if (tapHintEl) {
+      tapHintEl.hidden = true;
+    }
     drawCircle();
     if (!fromFields) {
       writeFields(latlng);
@@ -499,24 +539,46 @@
     }
   }
 
-  // --- Airport dots ----------------------------------------------------------
+  // --- Airport pins ----------------------------------------------------------
 
-  function dotIcon(airport) {
+  function runwayWanted() {
+    var radio = byId("place-mode-runway");
+    return !!(radio && radio.checked);
+  }
+
+  // A small round mark in a 44 px invisible hit box, with the IATA code as a
+  // label that the stylesheet shows from the label zoom, on hover, or always
+  // for the airport the setting follows.
+  function dotIcon(airport, selected) {
     return L.divIcon({
-      className: "place-dot",
+      className: "place-dot" + (selected ? " place-dot--selected" : ""),
       html: '<span class="place-dot__mark" data-icao="' + escapeText(airport.icao) +
-        '"></span>',
+        '"></span><span class="place-dot__label">' +
+        escapeText(airport.iata || airport.icao) + "</span>",
       iconSize: [44, 44],
       iconAnchor: [22, 22]
     });
   }
 
+  function syncLabelZoom() {
+    var low = map.getZoom() < LABEL_MIN_ZOOM;
+    var has = (" " + mapEl.className + " ").indexOf(" place-map--bare ") >= 0;
+    if (low && !has) {
+      mapEl.className += " place-map--bare";
+    } else if (!low && has) {
+      mapEl.className = mapEl.className.replace(/\s*place-map--bare\b/, "");
+    }
+  }
+
+  // Every airport near the view is drawn in Airport mode; My position mode
+  // shows none, so a tap there always places the pin.
   function refreshDots() {
     if (!dotLayer) {
       return;
     }
+    syncLabelZoom();
     var wanted = {};
-    if (map.getZoom() >= DOT_MIN_ZOOM) {
+    if (runwayWanted()) {
       var bounds = map.getBounds().pad(0.25);
       for (var k = 0; k < airports.length; k++) {
         if (bounds.contains([airports[k].lat, airports[k].lon])) {
@@ -541,7 +603,8 @@
 
   function makeDot(airport) {
     var marker = L.marker([airport.lat, airport.lon], {
-      icon: dotIcon(airport),
+      icon: dotIcon(airport, airport.icao === currentAirportCode()),
+      title: airport.name,
       keyboard: false,
       riseOnHover: false
     });
@@ -571,6 +634,7 @@
   }
 
   var noteTimer = null;
+  var activeOption = -1;
 
   function clearResults() {
     window.clearTimeout(noteTimer);
@@ -578,6 +642,11 @@
       resultsEl.removeChild(resultsEl.firstChild);
     }
     resultsEl.hidden = true;
+    activeOption = -1;
+    if (searchInput) {
+      searchInput.setAttribute("aria-expanded", "false");
+      searchInput.removeAttribute("aria-activedescendant");
+    }
   }
 
   function showResultsNote(message) {
@@ -635,8 +704,48 @@
 
   function chooseResult(result) {
     clearResults();
+    chooseAreaMode();
     placePin(L.latLng(result.lat, result.lon), { zoom: result.zoom, animate: true });
     fillLabel(result.name);
+  }
+
+  // The one list under the search field, for typed airport suggestions and
+  // for submitted address results alike: a listbox of option buttons, each
+  // with a name and a smaller line. `rows` hold `name`, `rest` and `choose`.
+  function showOptions(rows) {
+    clearResults();
+    var ul = document.createElement("ul");
+    ul.className = "place-results__list";
+    ul.setAttribute("role", "listbox");
+    ul.setAttribute("aria-label", resultsEl.getAttribute("aria-label") || "");
+    rows.forEach(function (row, at) {
+      var li = document.createElement("li");
+      li.setAttribute("role", "presentation");
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "place-result";
+      button.id = "place-option-" + at;
+      button.tabIndex = -1;
+      button.setAttribute("role", "option");
+      button.setAttribute("aria-selected", "false");
+      var nameEl = document.createElement("span");
+      nameEl.className = "place-result__name";
+      nameEl.textContent = row.name;
+      button.appendChild(nameEl);
+      if (row.rest) {
+        var restEl = document.createElement("span");
+        restEl.className = "place-result__rest text-label";
+        restEl.textContent = row.rest;
+        button.appendChild(restEl);
+      }
+      button.title = row.rest ? row.name + " - " + row.rest : row.name;
+      button.addEventListener("click", row.choose);
+      li.appendChild(button);
+      ul.appendChild(li);
+    });
+    resultsEl.appendChild(ul);
+    resultsEl.hidden = false;
+    searchInput.setAttribute("aria-expanded", "true");
   }
 
   function renderResults(list) {
@@ -651,32 +760,122 @@
       showResultsNote(text("search-none"));
       return;
     }
-    clearResults();
-    var ul = document.createElement("ul");
-    ul.className = "place-results__list";
-    rows.forEach(function (result) {
-      var li = document.createElement("li");
-      var button = document.createElement("button");
-      button.type = "button";
-      button.className = "place-result";
-      var nameEl = document.createElement("span");
-      nameEl.className = "place-result__name";
-      nameEl.textContent = result.name;
-      button.appendChild(nameEl);
-      if (result.rest) {
-        var restEl = document.createElement("span");
-        restEl.className = "place-result__rest text-label";
-        restEl.textContent = result.rest;
-        button.appendChild(restEl);
+    showOptions(rows.map(function (result) {
+      return {
+        name: result.name,
+        rest: result.rest,
+        choose: function () {
+          chooseResult(result);
+        }
+      };
+    }));
+  }
+
+  // Airports whose code, name or municipality starts with or contains what
+  // was typed, best first: an exact code, a code prefix, a name or
+  // municipality prefix, a word prefix, then any part. Answered from the
+  // page's own catalogue; nothing leaves the browser while typing.
+  function suggestAirports(query) {
+    var wanted = foldText(query);
+    if (wanted.length < SUGGEST_MIN_CHARS) {
+      return [];
+    }
+    var found = [];
+    airports.forEach(function (airport) {
+      var f = airport.folded;
+      var rank = 9;
+      if (wanted === f[0] || wanted === f[1]) {
+        rank = 0;
+      } else if (f[0].indexOf(wanted) === 0 || f[1].indexOf(wanted) === 0) {
+        rank = 1;
+      } else if (f[2].indexOf(wanted) === 0 || f[3].indexOf(wanted) === 0) {
+        rank = 2;
+      } else if ((" " + f[2] + " " + f[3]).indexOf(" " + wanted) >= 0) {
+        rank = 3;
+      } else if (f[2].indexOf(wanted) >= 0 || f[3].indexOf(wanted) >= 0) {
+        rank = 4;
       }
-      button.addEventListener("click", function () {
-        chooseResult(result);
-      });
-      li.appendChild(button);
-      ul.appendChild(li);
+      if (rank < 9) {
+        found.push({ airport: airport, rank: rank });
+      }
     });
-    resultsEl.appendChild(ul);
-    resultsEl.hidden = false;
+    found.sort(function (a, b) {
+      return a.rank - b.rank || (a.airport.name < b.airport.name ? -1 : 1);
+    });
+    return found.slice(0, SUGGEST_MAX).map(function (entry) {
+      return entry.airport;
+    });
+  }
+
+  function showAirportSuggestions() {
+    var matches = suggestAirports(searchInput.value);
+    if (!matches.length) {
+      clearResults();
+      return;
+    }
+    showOptions(matches.map(function (airport) {
+      var codes = [airport.iata, airport.icao].filter(Boolean).join(" · ");
+      return {
+        name: airport.name,
+        rest: text("result-airport") + " · " + codes +
+          (airport.city ? " · " + airport.city : ""),
+        choose: function () {
+          clearResults();
+          chooseAirport(airport);
+        }
+      };
+    }));
+  }
+
+  function optionButtons() {
+    return resultsEl.querySelectorAll("button[role='option']");
+  }
+
+  function setActiveOption(at) {
+    var options = optionButtons();
+    for (var k = 0; k < options.length; k++) {
+      var on = k === at;
+      options[k].setAttribute("aria-selected", on ? "true" : "false");
+      options[k].className = "place-result" + (on ? " is-active" : "");
+      if (on) {
+        searchInput.setAttribute("aria-activedescendant", options[k].id);
+        if (typeof options[k].scrollIntoView === "function") {
+          options[k].scrollIntoView({ block: "nearest" });
+        }
+      }
+    }
+    if (at < 0) {
+      searchInput.removeAttribute("aria-activedescendant");
+    }
+    activeOption = at;
+  }
+
+  // Arrow keys move through the options (wrapping), Enter picks the active
+  // one, Escape closes the list; with no active option Enter submits.
+  function onSearchKey(event) {
+    var options = optionButtons();
+    if (event.key === "Escape") {
+      // The first Escape closes the list and keeps the typed text (a search
+      // field would clear itself); a second one is the field's own.
+      if (!resultsEl.hidden) {
+        event.preventDefault();
+      }
+      clearResults();
+    } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      if (!options.length) {
+        if (event.key === "ArrowDown") {
+          showAirportSuggestions();
+        }
+        return;
+      }
+      event.preventDefault();
+      var step = event.key === "ArrowDown" ? 1 : -1;
+      var next = activeOption < 0 && step < 0 ? options.length - 1 : activeOption + step;
+      setActiveOption((next + options.length) % options.length);
+    } else if (event.key === "Enter" && activeOption >= 0 && options[activeOption]) {
+      event.preventDefault();
+      options[activeOption].click();
+    }
   }
 
   function searchUrl(query) {
@@ -755,6 +954,8 @@
       renderResults(searchCache[key]);
       return;
     }
+    // The typed suggestions give way to the answer, which replaces them.
+    clearResults();
     runSearch(query, key);
   }
 
@@ -796,11 +997,7 @@
   // pin sits on the spot and the map centres on it.
   function onPosition(position) {
     finishLocate();
-    var radio = byId("place-mode-area");
-    if (radio && !radio.checked) {
-      radio.checked = true;
-      fire(radio, "change");
-    }
+    chooseAreaMode();
     var point = L.latLng(
       roundCoord(position.coords.latitude), roundCoord(position.coords.longitude));
     placePin(point, { zoom: LOCATE_ZOOM, animate: true });
@@ -873,11 +1070,12 @@
   function wireSearchAndLocate() {
     if (searchForm && searchInput && resultsEl) {
       searchForm.addEventListener("submit", onSearchSubmit);
-      searchInput.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") {
-          clearResults();
-        }
-      });
+      searchInput.setAttribute("role", "combobox");
+      searchInput.setAttribute("aria-autocomplete", "list");
+      searchInput.setAttribute("aria-controls", "place-results");
+      searchInput.setAttribute("aria-expanded", "false");
+      searchInput.addEventListener("keydown", onSearchKey);
+      searchInput.addEventListener("input", showAirportSuggestions);
     }
     if (locateButton) {
       if (!navigator.geolocation) {
@@ -934,6 +1132,7 @@
     document.addEventListener("change", function (event) {
       if (event.target && event.target.name === "mode") {
         drawCircle();
+        refreshDots();
         if (pin) {
           pinMoved(pin.getLatLng());
           // The panel changed height: keep the pin in the clear part.
@@ -943,6 +1142,7 @@
     });
     wireSearchAndLocate();
     wireCredits();
+    showCheckedRunway();
     var detailsSummary = document.querySelector("#details > summary");
     if (detailsSummary) {
       // With the map the details are a card shown by the #details link: its
@@ -956,6 +1156,17 @@
       centreOn(pin.getLatLng(), map.getZoom(), false);
     }
     keepPinClear();
+  }
+
+  // On a phone the runway chips are one row that scrolls sideways when an
+  // airport has more than three: the chosen one is brought into view.
+  function showCheckedRunway() {
+    var row = document.querySelector(".place-sheet .detection-runways");
+    var checked = row && row.querySelector("input:checked");
+    var card = checked && checked.parentNode;
+    if (card && row.scrollWidth > row.clientWidth) {
+      row.scrollLeft = Math.max(0, card.offsetLeft - row.offsetLeft - 4);
+    }
   }
 
   // Whether the pin (its tip and the 42 px of glyph above it) lies in the
