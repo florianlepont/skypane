@@ -618,7 +618,7 @@ class Handler(
         if principal is None:
             prefs.set_request_principal(None)
         else:
-            prefs.set_request_principal(principal.role, principal.role)
+            prefs.set_request_principal(principal.role, principal.role, principal.email)
 
     def _owner_lookup(self, device_id):
         return fleet_db.get_device_owner(self._fleet_conn(), device_id)

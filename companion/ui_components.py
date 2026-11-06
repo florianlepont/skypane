@@ -758,7 +758,7 @@ def empty_state(heading, body, compact=False):
 
 
 def page_header(title, purpose=None, freshness_html=None, action_html=None,
-                trail_html=None):
+                trail_html=None, title_html=None):
     """The shared page-header component every authenticated page's
     render() opens with, in place of a bare <h1>. This exact signature
     and parameter order is called across many page modules — do not
@@ -771,7 +771,8 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None,
 
     Blocks concatenate title, then freshness/action, then purpose last.
     `trail_html` (already-safe markup) sits after the purpose, inside the
-    header; Home uses it for its greeting and its trail.
+    header. `title_html` (already-safe markup) replaces the `<h1>` element
+    entirely; `title` is then only the page's plain name for callers that read it.
     The returned string ends with FLASH_SLOT_MARKER, which page_shell()
     is the only consumer of.
     """
@@ -782,12 +783,11 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None,
     action_block = action_html if action_html else ""
     return (
         '<div class="page-header">'
-        '<h1 class="page-title">%s</h1>'
-        "%s%s%s%s"
+        "%s%s%s%s%s"
         "</div>"
         "%s"
     ) % (
-        escape_html(title), freshness_block, action_block, purpose_html,
+        title_html or '<h1 class="page-title">%s</h1>' % escape_html(title), freshness_block, action_block, purpose_html,
         trail_html or "", FLASH_SLOT_MARKER,
     )
 

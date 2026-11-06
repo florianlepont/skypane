@@ -16,10 +16,10 @@
 
   var hour = new Date().getHours();
 
-  // Home's greeting line carries the four wordings; the one for the local
-  // hour (morning 05-12, afternoon 12-17, evening 17-21, else night)
-  // replaces the neutral server text. The line's box is reserved by the
-  // stylesheet, so the swap never moves the title.
+  // Home's title carries the four wordings (first name included); the one
+  // for the local hour (morning 05-12, afternoon 12-17, evening 17-21, else
+  // night) replaces the neutral server text. This script runs before the
+  // first paint, so the swap does not move the page.
   var greeting = document.querySelector("[data-greeting]");
   var greetingText = greeting && greeting.querySelector("[data-greeting-text]");
   if (greetingText) {

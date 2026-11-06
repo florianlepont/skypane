@@ -150,7 +150,6 @@
   --motion-dot-pulse: 3.2s;
   /* Home's plane flies in once along its trail; only that animation spends
    * this duration. */
-  --motion-flight: 1.2s;
 
   /* Frosted glass: theme-independent geometry. The blur is only applied
    * inside an @supports block at the end of this file; outside it every
@@ -547,10 +546,13 @@ html[data-ui-theme="dark"] {
  * the middle stop as the floor under it. min-height keeps a short page
  * covered, and background-attachment stays scroll, so there is no fixed layer,
  * no layout shift and no horizontal scroll. Because the canvas itself carries
- * the colour, the Safari bars and the overscroll area show the same sky. */
+ * the colour, the Safari bars and the overscroll area show the same sky. The
+ * flat colour under the gradient is its first stop, the colour of the
+ * theme-color tags: a browser that tints its top bar from the flat colour
+ * rather than the gradient image shows no lighter band above the page. */
 html {
   min-height: 100%;
-  background-color: var(--color-canvas);
+  background-color: var(--sky-top);
   background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
@@ -7651,9 +7653,22 @@ button.calendar-danger--solid {
     height: var(--tab-bar-h);
     z-index: 20;
     padding: 0 var(--tab-bar-pad);
-    background-color: var(--glass-solid);
-    border: 1px solid var(--color-border);
+    border: 1px solid var(--bar-border);
     border-radius: var(--radius-pill);
+  }
+
+  /* The bar's glass (fill, blur, shadow) lives on this layer behind the cells,
+   * not on the bar: a backdrop-filter on the bar would make it the backdrop
+   * root of the More panel inside it, and the panel could then only blur the
+   * bar's own (empty) content, not the page scrolling beneath. */
+  .tab-bar::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    background-color: var(--glass-solid);
     box-shadow: var(--bar-shadow);
   }
 
@@ -7782,6 +7797,18 @@ button.calendar-danger--solid {
     border-top-left-radius: var(--radius-card);
     border-top-right-radius: var(--radius-card);
     box-shadow: var(--shadow-card-hover);
+  }
+
+  /* The sheet's links read as the group rows used across the app: a hairline
+   * between neighbours, 48px tall, no rounded hover plate. */
+  .tab-bar__more-panel .mobile-nav__link {
+    min-height: 48px;
+    padding: 0 var(--space-sm);
+    border-radius: 0;
+  }
+
+  .tab-bar__more-panel .mobile-nav__link + .mobile-nav__link {
+    border-top: 1px solid var(--glass-hairline);
   }
 
   /* The last card must never sit under the bar. Scoped to the
@@ -10876,7 +10903,6 @@ a.airlines-name-it {
   .calendar-sheet,
   .lightbox,
   dialog.modal,
-  .tab-bar__more-panel,
   .row-menu__panel,
   .info-tip__bubble,
   .dashboard-sidebar,
@@ -10890,7 +10916,8 @@ a.airlines-name-it {
 
   /* The floating tab bar is its own, stronger glass: a darker tinted fill in
    * Dark so light labels hold over a white picture scrolling beneath. */
-  .tab-bar {
+  .tab-bar::before,
+  .tab-bar__more-panel {
     background-color: var(--bar-bg);
     background-image: var(--bar-sheen);
     border-color: var(--bar-border);
@@ -10931,92 +10958,15 @@ a.airlines-name-it {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* Home: personal greeting, plane on a trail, glow ring, card entrance.
- * Appended last: equal-specificity rules here win over the base rules. */
-
-/* The greeting line above the title. Its box is reserved whether or not
- * the script has swapped the wording (one line, two when the frame name
- * follows), so the title never moves. */
-.home-greeting {
-  margin: 0 0 var(--space-xs);
-  display: flex;
-  flex-direction: column;
-  min-height: calc(var(--font-body-size) * 1.4);
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
-  line-height: 1.4;
-  color: var(--color-accent);
-}
-
-.home-greeting--framed {
-  min-height: calc(var(--font-body-size) * 2.8);
-}
-
+/* Home: the greeting is the page title; the frame name follows it as a calm
+ * second line when the person has several frames. */
 .home-greeting__frame {
+  display: block;
+  margin: 0 0 var(--space-xs);
   font-family: var(--font-ui);
   font-size: var(--font-label-size);
+  line-height: 1.4;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* The plane's trail under the title: a dotted curve and a small plane at
- * its end. The box keeps the viewBox's 320x56 ratio, so it reserves its
- * height before it paints. */
-.home-trail {
-  margin: 0 0 var(--space-sm);
-  max-width: 320px;
-}
-
-.home-trail__svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 320 / 56;
-  overflow: visible;
-}
-
-.home-trail__path {
-  fill: none;
-  stroke: color-mix(in srgb, var(--color-text) 45%, transparent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-dasharray: 0.5 7;
-}
-
-.home-trail__plane {
-  fill: var(--color-accent);
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: skypane-plane-fly var(--motion-flight) var(--ease-out) backwards;
-}
-
-/* Along the trail, the plane's own offsets from its resting point; the
- * resting state is the plain layout state (fill-mode backwards only). */
-@keyframes skypane-plane-fly {
-  from {
-    opacity: 0;
-    transform: translate(-292px, 32px) rotate(6deg);
-  }
-
-  15% {
-    opacity: 1;
-  }
-
-  35% {
-    transform: translate(-235px, 26px) rotate(-8deg);
-  }
-
-  60% {
-    transform: translate(-172px, 14px) rotate(-18deg);
-  }
-
-  80% {
-    transform: translate(-96px, 3px) rotate(-14deg);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
 }
 
 /* The cards come in one after the other: the state card, the current
@@ -11400,20 +11350,24 @@ a.airlines-name-it {
   border-top: 1px solid var(--glass-hairline);
 }
 
-.history-card .row__chip {
+.history-card .row__chip,
+.recent-flight .row__chip {
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   color: var(--color-text);
 }
 
-.history-card .row__chip .icon {
+.history-card .row__chip .icon,
+.recent-flight .row__chip .icon {
   transition: transform var(--motion-fast);
 }
 
-.history-card[data-filter-kind="departing"] .row__chip .icon {
+.history-card[data-filter-kind="departing"] .row__chip .icon,
+.recent-flight[data-filter-kind="departing"] .row__chip .icon {
   transform: rotate(-45deg);
 }
 
-.history-card[data-filter-kind="arriving"] .row__chip .icon {
+.history-card[data-filter-kind="arriving"] .row__chip .icon,
+.recent-flight[data-filter-kind="arriving"] .row__chip .icon {
   transform: rotate(45deg);
 }
 

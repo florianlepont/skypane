@@ -173,5 +173,5 @@ def test_glass_surfaces_blur_where_the_browser_supports_it(new_context, make_app
     assert background.startswith("rgba(") and not background.endswith(", 1)")
     phone = _open(new_context, make_app_server, 12, viewport=VIEWPORT_MIN_SUPPORTED)
     assert phone.evaluate(
-        "() => getComputedStyle(document.querySelector('.tab-bar')).backdropFilter"
+        "() => getComputedStyle(document.querySelector('.tab-bar'), '::before').backdropFilter"
     ) == "blur(26px) saturate(2)"

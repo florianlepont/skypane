@@ -171,7 +171,8 @@ def test_glass_applies_only_inside_supports_and_keeps_a_solid_base(served_css):
                 "var(--color-dominant)", "var(--color-secondary)", "var(--glass-solid)"}, (
                 "%s has no solid base fill outside @supports: %r"
                 % (selector, base_backgrounds.get(selector)))
-    for selector in (".dashboard-sidebar", ".tab-bar", ".frame-menu__panel", ".page-section",
+    for selector in (".dashboard-sidebar", ".tab-bar::before", ".tab-bar__more-panel",
+                     ".frame-menu__panel", ".page-section",
                      ".group", "dialog.modal"):
         assert selector in glass_selectors, selector
     blurred = [rule for rule in rules if "backdrop-filter" in dict(rule.declarations)]
@@ -191,7 +192,7 @@ def test_the_background_is_painted_on_the_root_element_itself(served_css):
     assert declarations["min-height"] == "100%"
     assert "var(--sky-top)" in declarations["background-image"]
     assert "var(--sky-bottom)" in declarations["background-image"]
-    assert declarations["background-color"] == "var(--color-canvas)"
+    assert declarations["background-color"] == "var(--sky-top)"
     assert not [rule for rule in css_rules(served_css)
                 if dict(rule.declarations).get("background-attachment") == "fixed"]
 
@@ -267,7 +268,7 @@ def test_the_tab_bar_is_a_floating_stronger_glass_pill(served_css):
     assert declared["bottom"] == "calc(var(--tab-bar-gap) + var(--safe-bottom))"
     assert declared["border-radius"] == "var(--radius-pill)"
     blurred = [dict(rule.declarations) for rule in css_rules(served_css)
-               if ".tab-bar" in rule.selectors and "backdrop-filter" in dict(rule.declarations)]
+               if ".tab-bar::before" in rule.selectors and "backdrop-filter" in dict(rule.declarations)]
     assert blurred and blurred[0]["backdrop-filter"] == "blur(26px) saturate(200%)"
     assert blurred[0]["-webkit-backdrop-filter"] == "blur(26px) saturate(200%)"
     root = custom_properties(served_css, ":root")
