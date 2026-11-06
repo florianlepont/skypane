@@ -5534,18 +5534,16 @@ button.detection-search:hover {
   padding-top: var(--space-md);
 }
 
-@supports selector(:has(*)) {
-  .place-sheet .runway-card--selected:not(:has(input:checked))::after {
-    top: -9px;
-    right: var(--space-sm);
-    padding: 0 var(--space-sm);
-    line-height: 18px;
-    border-radius: var(--radius-pill);
-    background: var(--color-dominant);
-    border: 1px solid var(--color-border);
-    color: var(--color-text);
-    white-space: nowrap;
-  }
+.place-sheet .runway-card--selected:not(:has(input:checked))::after {
+  top: -9px;
+  right: var(--space-sm);
+  padding: 0 var(--space-sm);
+  line-height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  white-space: nowrap;
 }
 
 .place-panel__follow {
@@ -7210,7 +7208,13 @@ button.place-result.is-active {
  * sentence below it. */
 .modal .quiet-times-row {
   gap: var(--space-sm);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 700px) {
+  .modal .quiet-times-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .modal .quiet-preset-row {
@@ -9544,6 +9548,42 @@ a.modal__dismiss {
     border-radius: var(--radius-control);
     background: var(--color-border);
   }
+}
+
+/* The calendar sheet is the same bottom sheet as every other dialog below
+ * 700px: full width, pinned to the bottom edge, rounded top corners and a
+ * grabber. The in-page card shown without scripts keeps its own rules. */
+@media (max-width: 699.98px) {
+  dialog.calendar-sheet:modal {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 88svh;
+    margin: 0;
+    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    box-shadow: var(--shadow-pop);
+  }
+
+  dialog.calendar-sheet:modal::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: var(--radius-control);
+    background: var(--color-border);
+  }
+}
+
+/* A dialog that opens on its heading: the heading is a focus target, not a
+ * control, so it draws no ring. */
+.modal__title:focus,
+.modal__title:focus-visible {
+  outline: none;
 }
 
 /* Shared entity list (companion/ui_entity_list.py): rows of an optional

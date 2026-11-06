@@ -1,5 +1,5 @@
-"""Browser proof of the Quiet hours dialog on Home: it opens from the schedule link with focus on
-Start time, Tab stays inside it, Esc closes it and returns focus to the schedule link, the presets
+"""Browser proof of the Quiet hours dialog on Home: it opens from the schedule link on its title (no
+field takes the focus), Tab stays inside it, Esc closes it and returns focus to the schedule link, the presets
 fill both fields, saving writes only the three quiet-hours keys and updates Home, a refused value
 reopens the dialog with the error beside the field, a background refresh while it is open leaves it
 and a half-typed time intact, and it works with scripts blocked. Layout is measured at 360 and
@@ -106,8 +106,8 @@ def _open_dialog(page):
     page.wait_for_function(
         "() => { const d = document.querySelector('%s');"
         " return d.open && d.classList.contains('is-modal')"
-        " && document.activeElement && document.activeElement.id === 'quiet-window-start'; }"
-        % DIALOG, timeout=10000)
+        " && document.activeElement && document.activeElement.matches('%s .modal__title'); }"
+        % (DIALOG, DIALOG), timeout=10000)
     _wait_at_rest(page, START)
 
 
@@ -130,10 +130,10 @@ def _config(server):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_link_opens_the_dialog_with_focus_on_start_and_esc_returns_to_the_link(
+def test_link_opens_the_dialog_on_its_title_and_esc_returns_to_the_link(
         new_context, make_app_server, lang, viewport_name, viewport):
-    """The schedule link is a 44px target; a click opens the modal with focus on Start time; Tab
-    never leaves it; Esc closes it and focus returns to the schedule link."""
+    """The schedule link is a 44px target; a click opens the modal on its title, not on a field;
+    Tab never leaves it; Esc closes it and focus returns to the schedule link."""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), lang, viewport)
     try:
@@ -141,9 +141,8 @@ def test_link_opens_the_dialog_with_focus_on_start_and_esc_returns_to_the_link(
         assert box["height"] >= MIN_PX and box["width"] >= MIN_PX, box
         assert not page.evaluate(_HIT_PROBE, {"selectors": [LINK], "min": MIN_PX})
         _open_dialog(page)
-        # The page behind is inert: focus is inside the dialog, or (at the end of the cycle)
-        # handed to the browser, which shows as no active element or the body; it is never on a
-        # control of the page behind.
+        # Focus is trapped: it is always on a control inside the dialog, never on the page
+        # behind, the body or the browser chrome.
         page.evaluate(
             """() => { window.__inside = [];
               const dialog = document.querySelector('%s');
@@ -151,8 +150,8 @@ def test_link_opens_the_dialog_with_focus_on_start_and_esc_returns_to_the_link(
                 dialog.contains(e.target))); }""" % DIALOG)
         inside_or_nowhere = (
             "() => { const a = document.activeElement;"
-            " return !a || a === document.body"
-            " || document.querySelector('%s').contains(a); }" % DIALOG)
+            " return !!a && a !== document.body"
+            " && document.querySelector('%s').contains(a); }" % DIALOG)
         for key in ["Tab"] * 14 + ["Shift+Tab"] * 3:
             page.keyboard.press(key)
             page.wait_for_function(inside_or_nowhere, timeout=5000)

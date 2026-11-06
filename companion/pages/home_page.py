@@ -630,7 +630,8 @@ def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
     """The Quiet hours dialog, rendered open when a save was refused. It is
     a sibling of the swapped regions below, never inside one, so a
     background refresh cannot discard an open dialog or a half-typed time.
-    Start time takes the initial focus although the switch comes first."""
+    The dialog opens on its title so no time field raises the native picker
+    or the keyboard unasked."""
     cfg = ctx.device_config or {}
     return ui_modal.dialog_html(
         quiet_hours.QUIET_DIALOG_ID, i18n.t(STATE_QUIET_TEXT),
@@ -639,7 +640,7 @@ def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
             cfg, device_scope.scoped(DETECTION_PATH) + "#details", errors, submitted),
         i18n.t(quiet_hours.QUIET_DIALOG_SAVE_LABEL), i18n.t(CLOSE_LABEL),
         device_scope.scoped(layout.HOME_ROUTE), open_=bool(errors),
-        focus_id=quiet_hours.QUIET_DIALOG_START_ID)
+        focus_title=True)
 
 
 def render(ctx, quiet_errors=None, quiet_submitted=None):

@@ -71,8 +71,9 @@ def _open_dialog(page, base_url):
     page.click(WINDOW_LINK)
     page.wait_for_function(
         "() => { const d = document.querySelector('%s');"
-        " return d.open && document.activeElement && document.activeElement.id === "
-        "'quiet-window-start'; }" % DIALOG, timeout=10000)
+        " return d.open && document.activeElement"
+        " && document.activeElement.matches('%s .modal__title'); }" % (DIALOG, DIALOG),
+        timeout=10000)
     _wait_at_rest(page, START)
 
 

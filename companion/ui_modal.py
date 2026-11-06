@@ -87,10 +87,24 @@ def _autofocus_named_control(body_html, focus_id):
     return body_html[:chosen.start()] + tag + body_html[chosen.end():], True
 
 
+def _autofocus_invalid_control(body_html):
+    """`body_html` with ` autofocus` added to the invalid control, if any.
+    Returns (html, found)."""
+    invalid = next(
+        (m for m in _CONTROL_RE.finditer(body_html)
+         if _INVALID_RE.search(m.group(0)) and not _HIDDEN_RE.search(m.group(0))), None)
+    if invalid is None:
+        return body_html, False
+    tag = invalid.group(0)
+    if "autofocus" not in tag:
+        tag = tag[:-1].rstrip("/").rstrip() + " autofocus>"
+    return body_html[:invalid.start()] + tag + body_html[invalid.end():], True
+
+
 def dialog_html(
         dialog_id, title, form_action, csrf_html, body_html, submit_label,
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
-        open_=False, subtitle=None, focus_id=None):
+        open_=False, subtitle=None, focus_id=None, focus_title=False):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -102,13 +116,22 @@ def dialog_html(
     `focus_id` names the control (by its `id`) that takes the initial focus
     instead of the first one, for a dialog whose first control is a switch;
     an invalid control still wins, and a name that matches nothing is a
-    ValueError.
+    ValueError. `focus_title` opens the dialog on its title instead of a
+    field (a time or text field would raise the keyboard or the native
+    picker unasked); an invalid control still takes the focus.
     """
     slug = validated_slug(dialog_id)
     title_id = slug + "-title"
     submit_focus = ""
     dismiss_focus = ""
-    if confirm_only:
+    title_attrs = ""
+    dialog_attrs = ""
+    if focus_title and not confirm_only:
+        body_html, found = _autofocus_invalid_control(body_html)
+        if not found:
+            title_attrs = ' tabindex="-1"'
+            dialog_attrs = " data-focus-title"
+    elif confirm_only:
         dismiss_focus = " autofocus"
     else:
         if focus_id is None:
@@ -126,10 +149,10 @@ def dialog_html(
     close_text = escape_html(i18n.t(_CLOSE_LABEL_TEXT))
     href = escape_html(dismiss_href)
     return (
-        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s"%(open)s>'
+        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s"%(open)s%(dialog_attrs)s>'
         '<form method="post" action="%(action)s">%(csrf)s'
         '<header class="modal__head"><div>'
-        '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
+        '<h2 class="modal__title text-heading" id="%(title_id)s"%(title_attrs)s>%(title)s</h2>'
         '%(subtitle)s</div>'
         '<a class="modal__close" href="%(href)s" data-modal-close aria-label="%(close)s">'
         '%(close_icon)s</a></header>'
@@ -142,6 +165,8 @@ def dialog_html(
         "id": slug,
         "title_id": title_id,
         "open": " open" if open_ else "",
+        "dialog_attrs": dialog_attrs,
+        "title_attrs": title_attrs,
         "action": escape_html(form_action),
         "csrf": csrf_html,
         "title": escape_html(title),

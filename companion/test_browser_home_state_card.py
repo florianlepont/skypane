@@ -456,7 +456,7 @@ def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
         page.keyboard.press("Enter")
         page.wait_for_function(
             "() => document.querySelector('#dlg-quiet-hours').open"
-            " && document.activeElement.id === 'quiet-window-start'", timeout=10000)
+            " && document.activeElement.matches('#dlg-quiet-hours .modal__title')", timeout=10000)
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False
         page.keyboard.press("Escape")
         page.wait_for_function(

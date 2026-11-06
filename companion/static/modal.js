@@ -121,6 +121,19 @@
     dialog.removeEventListener("close", onClosed);
     dialog.addEventListener("close", onClosed);
     dialog.showModal();
+    focusTitleIfAsked(dialog);
+  }
+
+  // A dialog marked data-focus-title opens on its heading, so no field
+  // raises the keyboard or a native picker unasked.
+  function focusTitleIfAsked(dialog) {
+    if (!dialog.hasAttribute("data-focus-title")) {
+      return;
+    }
+    var title = dialog.querySelector(".modal__title");
+    if (title) {
+      title.focus();
+    }
   }
 
   function shutDetails(except) {
@@ -207,6 +220,77 @@
     shutDetails(null);
     if (summary) {
       summary.focus();
+    }
+  });
+
+  var FOCUSABLE = 'a[href], button, input, select, textarea, summary, ' +
+    '[tabindex]';
+
+  // The modal dialog that is open now, if any.
+  function openModalDialog() {
+    var all = document.querySelectorAll("dialog[open]");
+    for (var i = all.length - 1; i >= 0; i -= 1) {
+      var matches = all[i].matches || all[i].msMatchesSelector;
+      try {
+        if (matches.call(all[i], ":modal")) {
+          return all[i];
+        }
+      } catch (err) {
+        if (all[i].classList.contains("is-modal")) {
+          return all[i];
+        }
+      }
+    }
+    return null;
+  }
+
+  // The controls a Tab can reach inside `root`, in document order.
+  function tabStops(root) {
+    var found = root.querySelectorAll(FOCUSABLE);
+    var stops = [];
+    for (var i = 0; i < found.length; i += 1) {
+      var el = found[i];
+      if (el.disabled || el.getAttribute("tabindex") === "-1" ||
+          (el.type === "hidden") || el.getClientRects().length === 0) {
+        continue;
+      }
+      if (window.getComputedStyle(el).visibility === "hidden") {
+        continue;
+      }
+      stops.push(el);
+    }
+    return stops;
+  }
+
+  // Tab and Shift+Tab loop inside the open dialog: they never reach the
+  // page behind it nor the browser's own chrome.
+  document.addEventListener("keydown", function (evt) {
+    if (evt.key !== "Tab" || evt.altKey || evt.ctrlKey || evt.metaKey) {
+      return;
+    }
+    var dialog = openModalDialog();
+    if (!dialog) {
+      return;
+    }
+    var stops = tabStops(dialog);
+    if (stops.length === 0) {
+      evt.preventDefault();
+      return;
+    }
+    var first = stops[0];
+    var last = stops[stops.length - 1];
+    var active = document.activeElement;
+    if (!dialog.contains(active) || active === dialog) {
+      evt.preventDefault();
+      (evt.shiftKey ? last : first).focus();
+    } else if (evt.shiftKey && (active === first || (stops.indexOf(active) === -1 &&
+        (active.compareDocumentPosition(first) & 4)))) {
+      evt.preventDefault();
+      last.focus();
+    } else if (!evt.shiftKey && (active === last || (stops.indexOf(active) === -1 &&
+        (active.compareDocumentPosition(last) & 2)))) {
+      evt.preventDefault();
+      first.focus();
     }
   });
 

@@ -102,6 +102,14 @@ CLAIM_REFUSED_DETAIL = i18n.msg(
     "frame within 35 minutes.")
 CLAIM_CODE_ERROR = i18n.msg(
     "admin_fleet.check_the_code_and_try_again", "Check the code and try again.")
+
+
+def claim_refused_error():
+    """The one message shown, once, beside the code field after a refused
+    code: what happened and what to do."""
+    return "%s. %s" % (i18n.t(CLAIM_REFUSED_TITLE), i18n.t(CLAIM_CODE_ERROR))
+
+
 CLAIM_THROTTLED_TITLE = i18n.msg("admin_fleet.too_many_attempts", "Too many attempts")
 CLAIM_THROTTLED_DETAIL = i18n.msg(
     "admin_fleet.wait_a_few_minutes_before_trying_again",
