@@ -220,6 +220,12 @@ CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
 # shell because any page can hold a dialog, a menu or a switcher.
 MODAL_SCRIPT_SRC = "/static/modal.js"
 
+# Must equal companion/app.py's MOTION_SCRIPT_ROUTE exactly. The motion layer's
+# script: the tab bar's sliding pill and the placeholder and blur-up of a
+# loading picture. Registered on the shell because every page has the bar and
+# most have a picture; every page works the same without it.
+MOTION_SCRIPT_SRC = "/static/motion.js"
+
 # Must equal companion/static_files.py's LEAFLET_SCRIPT_ROUTE and
 # PLACE_MAP_SCRIPT_ROUTE. The vendored map library and the first-party glue
 # that drives it; only the Location and detection page loads them, the

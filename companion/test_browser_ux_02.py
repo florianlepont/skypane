@@ -167,6 +167,11 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
             "'[data-look-usage=\"departures\"] img.look-frame__image');"
             " return i.getAttribute('src') === src && i.complete && i.naturalWidth > 0; }",
             arg=target["src"], timeout=10000)
+        # The arrived picture fades in from a blur (about 900ms); it must then rest fully opaque.
+        page.wait_for_function(
+            "() => !document.querySelector("
+            "'[data-look-usage=\"departures\"] img.look-frame__image')"
+            ".classList.contains('is-revealed')", timeout=10000)
         opacity = page.evaluate(
             "() => parseFloat(getComputedStyle(document.querySelector("
             "'[data-look-usage=\"departures\"] img.look-frame__image')).opacity)")

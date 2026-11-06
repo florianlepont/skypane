@@ -147,6 +147,17 @@
   --motion-enter: 400ms;
   --motion-stagger: 60ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* The spring every settle uses: press release, switch thumb, the sliding
+   * tab pill. The curve overshoots slightly, so it is only ever spent on
+   * `scale` and `transform`, never on a layout property or a colour.
+   * --motion-press is the fast, un-sprung half of a press. */
+  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-spring-duration: 420ms;
+  --motion-press: 90ms;
+  /* A loading placeholder's sweep, and the blur-up of the picture that
+   * replaces it. */
+  --motion-shimmer: 1.3s;
+  --motion-reveal: 900ms;
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
@@ -416,6 +427,13 @@ html[data-ui-theme="dark"] {
 @media (prefers-reduced-motion: no-preference) {
   @view-transition {
     navigation: auto;
+  }
+
+  /* The tab bar's slider glides to its new place on the spring while the page
+   * changes (it is the one named element of the bar). */
+  ::view-transition-group(skypane-tab-slider) {
+    animation-duration: var(--motion-spring-duration);
+    animation-timing-function: var(--motion-spring);
   }
 }
 
@@ -866,9 +884,36 @@ a:hover {
 
 @media (prefers-reduced-motion: reduce) {
   /* The global override would leave a 0.01ms loop running; the halo is
-   * switched off instead, so reduced motion shows no animation at all. */
+   * switched off instead, so reduced motion shows no animation at all. The
+   * placeholder sweep, the blur-up, the switch ring and the slider's stretch
+   * go the same way, and a press no longer scales. !important because the
+   * rules they override are declared further down the file. */
   .home-state__dot.home-state__dot--pulse::after {
     animation: none;
+  }
+
+  .is-loading::after,
+  .is-revealed,
+  .switch.switch--tick .switch__track::after,
+  .tab-bar__slider--stretch {
+    animation: none !important;
+  }
+
+  .is-loading::after {
+    transform: none !important;
+    opacity: 0.5;
+  }
+
+  button:not(.value-control__handle):not(.switch):active,
+  .mobile-nav__link:active,
+  .sidebar-link:active,
+  .history-card:active,
+  .filter-chip__box:active,
+  .tab-bar__pill:active,
+  .frame-menu__button:active,
+  .filter-bar__search:active,
+  button.switch:active .switch__thumb {
+    scale: none !important;
   }
 }
 
@@ -1085,7 +1130,7 @@ a:hover {
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .mobile-nav__link--active {
@@ -1288,7 +1333,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   text-decoration: none;
   font-size: var(--font-label-size);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .sidebar-link__icon {
@@ -2262,7 +2307,7 @@ button {
   border: 1px solid var(--color-control-border-subtle); /* fallback for browsers without color-mix() */
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 button[type="submit"] {
@@ -3620,7 +3665,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   border-radius: var(--radius-control);
   text-align: center;
   white-space: nowrap;
-  transition: background var(--motion-fast), box-shadow var(--motion-fast);
+  transition: background var(--motion-fast), box-shadow var(--motion-fast), scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .filter-chip__count {
@@ -7459,7 +7504,9 @@ button.switch:active {
   border-radius: 50%;
   background: var(--color-switch-thumb);
   box-shadow: 0 1px 3px var(--color-shadow-strong);
-  transition: transform var(--motion-fast) ease;
+  transform-origin: left center;
+  transition: transform var(--motion-spring-duration) var(--motion-spring),
+    scale var(--motion-fast) var(--ease-out);
 }
 
 .switch[aria-checked="true"] .switch__track {
@@ -7469,7 +7516,43 @@ button.switch:active {
 
 .switch[aria-checked="true"] .switch__thumb {
   transform: translateX(20px);
+  transform-origin: right center;
   background: var(--color-switch-thumb-on);
+}
+
+/* Pressed, the thumb stretches towards the side it is about to leave from
+ * (scale, not width: nothing around it moves) and the spring above settles it
+ * on release. The button itself never scales (the generic press rule leaves
+ * .switch out): its 44px target stays 44px. */
+button.switch:active .switch__thumb {
+  scale: 1.25 1;
+}
+
+/* A ring that grows off the track and fades once per toggle; quick-switch.js
+ * adds the class on a press. */
+.switch__track::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch.switch--tick .switch__track::after {
+  animation: skypane-switch-ring var(--motion-spring-duration) var(--ease-out);
+}
+
+@keyframes skypane-switch-ring {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.3 1.45;
+  }
 }
 
 .settings-switch-row {
@@ -8199,7 +8282,7 @@ button.calendar-danger--solid {
     gap: var(--space-xs);
     margin: var(--space-xs) 0;
     border-radius: var(--radius-pill);
-    transition: background-color .15s ease, color .15s ease;
+    transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
 
   /* 12px sentence case, not the uppercase label voice: a destination is not
@@ -12841,4 +12924,141 @@ dialog.modal:focus-visible {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+/* Motion. Everything below moves only `transform`, `scale`, `opacity` or a
+ * filter, so nothing around it shifts, and the global reduced-motion override
+ * at the top of the file already collapses its durations; the infinite loop
+ * and the blur-up are switched off outright in the reduced-motion block at the
+ * end of this section. */
+
+/* Press feedback on buttons, rows and chips: pressed, the control shrinks to
+ * 97 % within --motion-press; released, the transition each of them declares
+ * (their own colours plus `scale`) springs it back. The press drops the other
+ * transitions for its few milliseconds so the shrink is immediate. */
+button:not(.value-control__handle):not(.switch):active,
+.mobile-nav__link:active,
+.sidebar-link:active,
+.history-card:active,
+.filter-chip__box:active,
+.tab-bar__pill:active,
+.frame-menu__button:active,
+.filter-bar__search:active {
+  scale: 0.97;
+  transition: scale var(--motion-press) ease-out;
+}
+
+.history-card,
+.frame-menu__button,
+.filter-bar__search {
+  transition: scale var(--motion-spring-duration) var(--motion-spring);
+}
+
+/* Loading placeholders. A script marks the container of a picture that has not
+ * arrived yet with .is-loading: a soft band sweeps across it (a translateX of
+ * a pseudo-element, clipped to the container), and the picture itself fades in
+ * once from a blur when it lands (.is-revealed; no scale, so the
+ * picture's box is the same before, during and after). Without the script nothing is
+ * marked and the picture simply appears. */
+.is-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.history-card__thumb.is-loading {
+  overflow: visible;
+  clip-path: inset(-3px round var(--radius-control));
+}
+
+.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--color-text) 14%, transparent) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: skypane-shimmer var(--motion-shimmer) linear infinite;
+}
+
+@keyframes skypane-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.is-revealed {
+  animation: skypane-blur-up var(--motion-reveal) var(--ease-out) both;
+}
+
+@keyframes skypane-blur-up {
+  from {
+    filter: blur(16px);
+    opacity: 0.35;
+  }
+  to {
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+/* The tab bar's sliding pill. Without the script the active link keeps its own
+ * pill; once the script has placed the slider it takes over the active
+ * background. The slider is moved with transform only: the script sets a
+ * whole-pixel translate, the spring glides it, and a short stretch rides on
+ * `scale`. */
+.tab-bar__slider {
+  display: none;
+  view-transition-name: skypane-tab-slider;
+}
+
+@media (max-width: 959.98px) {
+  .tab-bar {
+    isolation: isolate;
+  }
+
+  .tab-bar__link {
+    position: relative;
+    z-index: 1;
+  }
+
+  .tab-bar__slider {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    border-radius: var(--radius-pill);
+    background: var(--bar-pill-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .tab-bar--slider .tab-bar__slider {
+    opacity: 1;
+  }
+
+  .tab-bar--slider .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .tab-bar__slider--glide {
+    transition: transform var(--motion-spring-duration) var(--motion-spring);
+  }
+
+  .tab-bar__slider--stretch {
+    animation: skypane-slider-stretch var(--motion-spring-duration) var(--ease-out);
+  }
+}
+
+@keyframes skypane-slider-stretch {
+  40% {
+    scale: 1.1 0.94;
+  }
 }

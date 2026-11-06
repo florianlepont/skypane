@@ -44,6 +44,7 @@ QUICK_SWITCH_SCRIPT_ROUTE = "/static/quick-switch.js"
 VALUE_CONTROLS_SCRIPT_ROUTE = "/static/value-controls.js"
 CALENDAR_SHEET_SCRIPT_ROUTE = "/static/calendar-sheet.js"
 MODAL_SCRIPT_ROUTE = "/static/modal.js"
+MOTION_SCRIPT_ROUTE = "/static/motion.js"
 # Vendored Leaflet, unmodified; only the location page links the script and the
 # stylesheet. The library's marker images are not vendored and not served.
 LEAFLET_SCRIPT_ROUTE = "/static/vendor/leaflet/leaflet.js"
@@ -73,6 +74,7 @@ _QUICK_SWITCH_JS_PATH = os.path.join(STATIC_DIR, "quick-switch.js")
 _VALUE_CONTROLS_JS_PATH = os.path.join(STATIC_DIR, "value-controls.js")
 _CALENDAR_SHEET_JS_PATH = os.path.join(STATIC_DIR, "calendar-sheet.js")
 _MODAL_JS_PATH = os.path.join(STATIC_DIR, "modal.js")
+_MOTION_JS_PATH = os.path.join(STATIC_DIR, "motion.js")
 _LEAFLET_DIR = os.path.join(STATIC_DIR, "vendor", "leaflet")
 _LEAFLET_JS_PATH = os.path.join(_LEAFLET_DIR, "leaflet.js")
 _LEAFLET_CSS_PATH = os.path.join(_LEAFLET_DIR, "leaflet.css")
@@ -126,6 +128,7 @@ STATIC_ROUTES = {
     VALUE_CONTROLS_SCRIPT_ROUTE: StaticAsset(_VALUE_CONTROLS_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     CALENDAR_SHEET_SCRIPT_ROUTE: StaticAsset(_CALENDAR_SHEET_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     MODAL_SCRIPT_ROUTE: StaticAsset(_MODAL_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    MOTION_SCRIPT_ROUTE: StaticAsset(_MOTION_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     LEAFLET_SCRIPT_ROUTE: StaticAsset(_LEAFLET_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     LEAFLET_STYLE_ROUTE: StaticAsset(_LEAFLET_CSS_PATH, "text/css", _PUBLIC_NO_CACHE),
     LEAFLET_LICENSE_ROUTE: StaticAsset(_LEAFLET_LICENSE_PATH, "text/plain", _PUBLIC_NO_CACHE),

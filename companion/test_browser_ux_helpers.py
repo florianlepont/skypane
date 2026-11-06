@@ -77,6 +77,7 @@ VIEW_TRANSITION_NAMES = {
     "skypane-sidebar": VIEW_TRANSITION_ROUTES,
     "skypane-title": VIEW_TRANSITION_ROUTES,
     "skypane-picture": ("/",),
+    "skypane-tab-slider": VIEW_TRANSITION_ROUTES,
 }
 
 # Named viewport sizes, replacing the inline {"width": ..., "height": ...} dicts this file used

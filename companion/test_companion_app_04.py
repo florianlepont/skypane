@@ -42,6 +42,12 @@ _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 # stay), which are waits, not movement speeds. Each may only drive its
 # own armed toast timer hairline.
 _MOTION_TOKENS = ("--motion-fast", "--motion-slow", "--motion-enter", "--motion-stagger")
+# The motion layer's own tokens: the spring curve and its duration (press release, switch
+# thumb and ring, the sliding tab pill), the fast half of a press, and the placeholder sweep and
+# blur-up durations. The first three are spent by transitions as well as animations.
+_MOTION_LAYER_TOKENS = (
+    "--motion-spring", "--motion-spring-duration", "--motion-press",
+    "--motion-shimmer", "--motion-reveal")
 _MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
 _MOTION_EXCEPTION_SELECTORS = {
@@ -182,14 +188,16 @@ def _spenders(served_css, token):
 
 def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
     """the served :root declares exactly --motion-fast, --motion-slow, the card entrance's
-    --motion-enter/--motion-stagger and the documented exceptions (the two toast dwells and the status dot pulse); each exception is spent by
+    --motion-enter/--motion-stagger, the motion layer's spring/press/shimmer/reveal tokens and
+    the documented exceptions (the two toast dwells and the status dot pulse); each exception is spent by
     exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
     animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a
     transition, so none can become a general-purpose motion speed"""
     root = custom_properties(served_css, ":root")
     declared = sorted(name for name in root if name.startswith("--motion-"))
     assert declared == sorted(
-        _MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS + (_DOT_PULSE_TOKEN,)), (
+        _MOTION_TOKENS + _MOTION_LAYER_TOKENS + _MOTION_EXCEPTION_TOKENS
+        + (_DOT_PULSE_TOKEN,)), (
         "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
     # The card entrance's two tokens: --motion-enter is the animation's duration and
@@ -206,6 +214,15 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
     assert stagger == [((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
+    # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
+    # marks the loading container and the one that fades the arrived picture in.
+    for token, selectors_expected, keyframes in (
+            ("--motion-shimmer", (".is-loading::after",), "skypane-shimmer"),
+            ("--motion-reveal", (".is-revealed",), "skypane-blur-up")):
+        spenders = _spenders(served_css, token)
+        assert [(sel, prop) for sel, prop, _value in spenders] == [
+            (selectors_expected, "animation")] and keyframes in spenders[0][2], (
+            "expected only %r to spend %s, got %r" % (selectors_expected, token, spenders))
     expected = [
         (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
         for token in _MOTION_EXCEPTION_TOKENS

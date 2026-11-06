@@ -372,14 +372,14 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_eighteen_deferred_scripts_before_closing_body():
+def test_nineteen_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
-    GLOBAL_PAGE_SCRIPTS' 6 tags before the closing body tag; asking for
+    GLOBAL_PAGE_SCRIPTS' 7 tags before the closing body tag; asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    eighteen together, including panel-lookup.js, flash-cleanup.js, toast.js,
+    nineteen together, including panel-lookup.js, flash-cleanup.js, toast.js,
     confirm-submit.js, theme-preview.js,
     submit-guard.js, relative-time.js, quick-switch.js,
-    value-controls.js, calendar-sheet.js and modal.js — and none of submit-guard.js/relative-time.js/
+    value-controls.js, calendar-sheet.js, modal.js and motion.js — and none of submit-guard.js/relative-time.js/
     quick-switch.js/value-controls.js on the login shell, which emits no script"""
     bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     bare_count = bare_doc[:bare_doc.index("</body>")].count('<script src=')
@@ -396,7 +396,7 @@ def test_eighteen_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count('<script src=')
-    assert count == 18, "expected exactly 18 deferred <script src= tags before </body>, got %d" % count
+    assert count == 19, "expected exactly 19 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
             layout.TOAST_SCRIPT_SRC,
@@ -404,7 +404,8 @@ def test_eighteen_deferred_scripts_before_closing_body():
             layout.THEME_PREVIEW_SCRIPT_SRC,
             layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
             layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC,
-            layout.CALENDAR_SHEET_SCRIPT_SRC, layout.MODAL_SCRIPT_SRC):
+            layout.CALENDAR_SHEET_SCRIPT_SRC, layout.MODAL_SCRIPT_SRC,
+            layout.MOTION_SCRIPT_SRC):
         expected_tag = '<script src="%s" defer></script>' % src_const
         assert expected_tag in doc, "expected a deferred <script> tag for %r" % src_const
     login_doc = layout.login_shell("<p>login</p>")
@@ -413,7 +414,8 @@ def test_eighteen_deferred_scripts_before_closing_body():
                        layout.QUICK_SWITCH_SCRIPT_SRC,
                        layout.VALUE_CONTROLS_SCRIPT_SRC,
                        layout.CALENDAR_SHEET_SCRIPT_SRC,
-                       layout.MODAL_SCRIPT_SRC):
+                       layout.MODAL_SCRIPT_SRC,
+                       layout.MOTION_SCRIPT_SRC):
         assert shell_only not in login_doc, (
             "%s is registered on the authenticated shell only — the login shell emits "
             "no script" % shell_only)
