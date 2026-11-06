@@ -403,6 +403,13 @@ REFRESH_RECONNECTING_TEXT = i18n.msg("common.reconnecting", "Reconnecting…")
 REFRESH_PAUSED_ATTR = "data-refresh-paused-text"
 REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
 
+# The pull-to-refresh indicator's two prompts (motion.js reads them off
+# <body>; the third state reuses the refresh pill's own "Updating…").
+PULL_HINT_TEXT = i18n.msg("common.pull_to_refresh", "Pull to refresh")
+PULL_RELEASE_TEXT = i18n.msg("common.release_to_refresh", "Release to refresh")
+PULL_HINT_ATTR = "data-pull-text"
+PULL_RELEASE_ATTR = "data-pull-release-text"
+
 
 # freshness.js used to carry a hard-coded selector list, duplicated and
 # pinned equal elsewhere — three hand-maintained copies is a shape this

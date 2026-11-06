@@ -53,6 +53,10 @@ from companion.ui_base import (
     nav_slug,
 )
 from companion.ui_nav import (
+    PULL_HINT_ATTR,
+    PULL_HINT_TEXT,
+    PULL_RELEASE_ATTR,
+    PULL_RELEASE_TEXT,
     REFRESH_PAGE_ATTR,
     REFRESH_PAUSED_ATTR,
     REFRESH_PAUSED_TEXT,
@@ -208,6 +212,10 @@ def _body_attrs_html(active, tab_bar_html, refresh_token):
             escape_html(i18n.t(REFRESH_PAUSED_TEXT)),
             REFRESH_RECONNECTING_ATTR,
             escape_html(i18n.t(REFRESH_RECONNECTING_TEXT))))
+    # motion.js's pull-to-refresh prompts (Flights only acts on them).
+    body_class_attr += ' %s="%s" %s="%s"' % (
+        PULL_HINT_ATTR, escape_html(i18n.t(PULL_HINT_TEXT)),
+        PULL_RELEASE_ATTR, escape_html(i18n.t(PULL_RELEASE_TEXT)))
     # The page key selecting this document's swap-region list. Lives on
     # <body> because it, like the other attributes here, sits beside
     # elements that are themselves swap targets, and <body> is the one

@@ -206,6 +206,8 @@ MESSAGES = {
     # the English forms are also the script's own no-attribute fallbacks.
     "common.paused": "En pause",
     "common.reconnecting": "Reconnexion…",
+    "common.pull_to_refresh": "Tirez pour actualiser",
+    "common.release_to_refresh": "Relâchez pour actualiser",
 
     # data_table()'s generic empty-rows fallback (companion/ui_components.py).
     "common.no_data_yet": "Aucune donnée pour l’instant.",

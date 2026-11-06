@@ -158,6 +158,7 @@
    * replaces it. */
   --motion-shimmer: 1.3s;
   --motion-reveal: 900ms;
+  --motion-count: 600ms;
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
@@ -13060,5 +13061,61 @@ button:not(.value-control__handle):not(.switch):active,
 @keyframes skypane-slider-stretch {
   40% {
     scale: 1.1 0.94;
+  }
+}
+
+/* Pull to refresh (Flights, phone). The list follows the finger with a
+ * transform only; the settle back is the spring. pan-up leaves the browser
+ * only an upward pan (scrolling down) so a downward drag at the top reaches
+ * the script, and only while the page sits at the top (.is-pullable). */
+.history-cards.is-pullable {
+  touch-action: pan-down;
+}
+
+.history-cards.is-pull-settling {
+  transition: transform var(--motion-spring-duration) var(--motion-spring);
+}
+
+body.is-pulling {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pull-indicator {
+  position: fixed;
+  top: var(--pull-top, var(--space-xl));
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 36px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-dominant);
+  box-shadow: 0 4px 14px var(--color-shadow-strong);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(var(--pull-offset, 0px) / 2 - 18px));
+}
+
+.pull-indicator.is-pull-settling {
+  transition: opacity var(--motion-fast) ease-out,
+    transform var(--motion-spring-duration) var(--motion-spring);
+}
+
+.pull-indicator__icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+@media (min-width: 700px) {
+  .pull-indicator {
+    display: none;
   }
 }
