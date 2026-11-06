@@ -389,7 +389,7 @@ def _lightbox_html():
     empty shell and the close button.
     """
     return (
-        '<dialog class="lightbox" id="%s" aria-label="%s">'
+        '<dialog class="lightbox lightbox--picture" id="%s" aria-label="%s">'
         '<img class="lightbox__image" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<button type="button" %s>%s</button>'

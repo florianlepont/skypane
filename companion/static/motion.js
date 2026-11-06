@@ -19,6 +19,12 @@
  * - Live Home: the countdown rolls on each tick, numbers count up once, a
  *   flight row the refresh brings in slides to the top (FLIP).
  * - Pull to refresh on a phone's Flights list.
+
+ * - Airline card unlock: a card the server marks as newly seen plays a 3D
+ *   flip, a glint and a few sparks once per airline and per user. "Played" is
+ *   a list in localStorage keyed by the user's scope; storage that cannot be
+ *   used means no animation at all (never a replay on every load). Without
+ *   this script, or under reduced motion, the card is simply shown as it ends.
  *
  * Every motion is skipped under prefers-reduced-motion. No build step,
  * ES5-safe subset. Served by companion/app.py's MOTION_SCRIPT_ROUTE. Never a
@@ -585,4 +591,113 @@
   if (pageKey === "flights") {
     initPullToRefresh();
   }
+  // ---- Airline card unlock -------------------------------------------------
+  var SPARKS = [[-100, -60], [100, -70], [-120, 20], [120, 30], [0, -95], [-55, 85], [65, 90], [30, -80]];
+
+  function unlockStore(scope) {
+    var key = "skypane.unlocked." + scope;
+    try {
+      var raw = window.localStorage.getItem(key);
+      var list = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(list)) {
+        list = [];
+      }
+      return {
+        has: function (slug) { return list.indexOf(slug) !== -1; },
+        add: function (slug) {
+          if (list.indexOf(slug) === -1) {
+            list.push(slug);
+            window.localStorage.setItem(key, JSON.stringify(list));
+          }
+        }
+      };
+    } catch (err) {
+      return null;
+    }
+  }
+
+  function playUnlock(item) {
+    var card = item.querySelector("a.collection-card");
+    if (!card || !card.animate) {
+      return;
+    }
+    var glint = document.createElement("span");
+    glint.className = "unlock-glint";
+    glint.setAttribute("aria-hidden", "true");
+    var sweep = document.createElement("i");
+    sweep.className = "unlock-glint__sweep";
+    glint.appendChild(sweep);
+    card.appendChild(glint);
+    var flip = card.animate(
+      [{transform: "rotateY(90deg)"}, {transform: "rotateY(0deg)"}],
+      {duration: 560, easing: "cubic-bezier(0.34, 1.3, 0.64, 1)"});
+    sweep.animate(
+      [{transform: "translateX(-120%)"}, {transform: "translateX(120%)"}],
+      {duration: 900, delay: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both"}
+    ).finished.then(function () {
+      glint.remove();
+    }, function () {
+      glint.remove();
+    });
+    SPARKS.forEach(function (to, index) {
+      var spark = document.createElement("i");
+      spark.className = "unlock-spark";
+      spark.setAttribute("aria-hidden", "true");
+      item.appendChild(spark);
+      spark.animate(
+        [{opacity: 1, transform: "translate(0, 0) scale(1)"},
+         {opacity: 0, transform: "translate(" + to[0] + "px, " + to[1] + "px) scale(0.3)"}],
+        {duration: 900, delay: 300 + index * 25, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both"}
+      ).finished.then(function () {
+        spark.remove();
+      }, function () {
+        spark.remove();
+      });
+    });
+    return flip;
+  }
+
+  function initCardUnlock() {
+    var grid = document.querySelector(".collection-grid[data-unlock-scope]");
+    if (!grid) {
+      return;
+    }
+    var store = unlockStore(grid.getAttribute("data-unlock-scope"));
+    var items = grid.querySelectorAll(".collection-item[data-unlock]");
+    if (!store) {
+      return;
+    }
+    function settle(item) {
+      var slug = item.getAttribute("data-unlock");
+      try {
+        store.add(slug);
+      } catch (err) {
+        return;
+      }
+      if (!reducedMotion()) {
+        playUnlock(item);
+      }
+    }
+    for (var i = 0; i < items.length; i += 1) {
+      (function (item) {
+        if (store.has(item.getAttribute("data-unlock"))) {
+          return;
+        }
+        if (!window.IntersectionObserver) {
+          settle(item);
+          return;
+        }
+        // The flip plays when the card is actually on screen.
+        var watcher = new IntersectionObserver(function (entries) {
+          if (entries[0].isIntersecting) {
+            watcher.disconnect();
+            settle(item);
+          }
+        }, {threshold: 0.6});
+        watcher.observe(item);
+      })(items[i]);
+    }
+  }
+
+  initCardUnlock();
 })();

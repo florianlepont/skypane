@@ -348,7 +348,7 @@ def test_lightbox_carries_no_nearest_render_disclaimer(tmp_path):
             rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
         finally:
             prefs.set_request_prefs(lang="en")
-        dialog = re.search(r'<dialog class="lightbox".*?</dialog>', rendered, re.S)
+        dialog = re.search(r'<dialog class="lightbox[^"]*".*?</dialog>', rendered, re.S)
         assert dialog is not None, "could not locate the lightbox dialog"
         assert "lightbox__caption" in dialog.group(0)
         assert "lightbox__note" not in dialog.group(0)

@@ -258,8 +258,9 @@ def _card_html(entry, state_dir):
             _picture_html(entry, state_dir), escape_html(entry.name),
             escape_html(line), pills_html),
         extra_class=classes)
-    return '<li class="collection-item" data-filter-text="%s">%s</li>' % (
-        escape_html(entry.name.lower()), link)
+    unlock = ' data-unlock="%s"' % escape_html(entry.slug) if entry.seen and entry.is_new else ""
+    return '<li class="collection-item" data-filter-text="%s"%s>%s</li>' % (
+        escape_html(entry.name.lower()), unlock, link)
 
 
 def _date_text(day):
@@ -473,8 +474,9 @@ def render(ctx, query_string=""):
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
     parts.append(_controls_html(view, entries, len(shown)))
     if shown:
-        parts.append('<ul class="collection-grid" id="%s">%s</ul>' % (GRID_ID, "".join(
-            _card_html(entry, ctx.state_dir) for entry in shown)))
+        parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
+            GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
+            "".join(_card_html(entry, ctx.state_dir) for entry in shown)))
         parts.extend(_sheet_html(entry, ctx.state_dir, now) for entry in shown)
     else:
         parts.append(layout.empty_state(i18n.t(NO_MATCH_HEADING), i18n.t(NO_MATCH_BODY)))

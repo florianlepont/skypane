@@ -113,12 +113,14 @@ def test_picture_action_is_a_44px_keyboard_operable_lightbox_trigger(new_context
         if shown != expected_src:
             raise AssertionError("expected the lightbox to show %r, got %r" % (expected_src, shown))
         page.keyboard.press("Escape")
-        if dialog.evaluate("el => el.open"):
-            raise AssertionError("expected Escape to close the lightbox")
+        page.wait_for_function(
+            "s => !document.querySelector(s).open", arg=LIGHTBOX, timeout=10000)
         if not action.evaluate("el => el === document.activeElement"):
             raise AssertionError("expected focus to return to the picture action")
         page.locator(FIRST_ACTION).nth(1).click()
-        if not dialog.evaluate("el => el.open") or "/gallery/" in page.url:
+        page.wait_for_function(
+            "s => document.querySelector(s).open", arg=LIGHTBOX, timeout=10000)
+        if "/gallery/" in page.url:
             raise AssertionError("expected a tap to open the lightbox in place")
     finally:
         context.close()

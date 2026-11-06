@@ -893,16 +893,16 @@ a:hover {
     animation: none;
   }
 
-  .is-loading::after,
+  .is-loading::after {
+    animation: none !important;
+    transform: none !important;
+    opacity: 0.5;
+  }
+
   .is-revealed,
   .switch.switch--tick .switch__track::after,
   .tab-bar__slider--stretch {
     animation: none !important;
-  }
-
-  .is-loading::after {
-    transform: none !important;
-    opacity: 0.5;
   }
 
   button:not(.value-control__handle):not(.switch):active,
@@ -1886,6 +1886,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   list-style: none;
+  transition: scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .frame-menu__button::before,
@@ -3539,6 +3540,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   flex: 1 1 280px;
   max-width: 560px;
   min-width: 0;
+  transition: scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 /* 16px text: iOS Safari zooms the page on focus for anything smaller.
@@ -8262,6 +8264,7 @@ button.calendar-danger--solid {
     padding: 0 var(--tab-bar-pad);
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-pill);
+    isolation: isolate;
   }
 
   /* The bar's glass (fill, blur, shadow) lives on this layer behind the cells,
@@ -8292,6 +8295,8 @@ button.calendar-danger--solid {
     color: var(--color-text);
     text-decoration: none;
     font-family: var(--font-ui);
+    position: relative;
+    z-index: 1;
   }
 
   /* The pill spans its whole cell horizontally (only the vertical margin),
@@ -13013,9 +13018,7 @@ button:not(.value-control__handle):not(.switch):active,
   transition: scale var(--motion-press) ease-out;
 }
 
-.history-card,
-.frame-menu__button,
-.filter-bar__search {
+.history-card {
   transition: scale var(--motion-spring-duration) var(--motion-spring);
 }
 
@@ -13082,15 +13085,6 @@ button:not(.value-control__handle):not(.switch):active,
 }
 
 @media (max-width: 959.98px) {
-  .tab-bar {
-    isolation: isolate;
-  }
-
-  .tab-bar__link {
-    position: relative;
-    z-index: 1;
-  }
-
   .tab-bar__slider {
     display: block;
     position: absolute;
@@ -13182,4 +13176,128 @@ body.is-pulling {
   .pull-indicator {
     display: none;
   }
+}
+
+/* The Flights picture dialog shows the picture alone: no card, no border and
+ * no glass behind it (the (0,2,0) selector beats the dark-theme .lightbox
+ * rules wherever they sit). The picture carries the soft shadow;
+ * the caption and the Close button sit under it over the scrim. */
+.lightbox.lightbox--picture {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  overflow: visible;
+  width: auto;
+  max-width: calc(100vw - var(--space-md) * 2);
+  opacity: 1;
+  transform: none;
+  transition: none;
+}
+
+.lightbox.lightbox--picture[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.lightbox--picture .lightbox__image:not([hidden]) {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100svh - 10rem);
+  margin: 0;
+  border-radius: var(--radius-frame-pic);
+  box-shadow: var(--shadow-pop);
+}
+
+.lightbox--picture .lightbox__caption {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--color-dominant);
+  color: var(--color-text);
+}
+
+.lightbox--picture .lightbox__caption:empty {
+  display: none;
+}
+
+.lightbox--picture button[data-view-panel-close] {
+  min-height: 44px;
+  min-width: 44px;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+/* The shared element of the thumbnail-to-picture transition: whichever of the
+ * two pictures carries the class owns the name. The script moves the class
+ * (never an inline style). */
+.vt-pic {
+  view-transition-name: skypane-flight-pic;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(skypane-flight-pic) {
+    animation-duration: 480ms;
+    animation-timing-function: var(--ease-out);
+  }
+
+  ::view-transition-old(skypane-flight-pic),
+  ::view-transition-new(skypane-flight-pic) {
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+/* Airline card unlock: a card the script plays once gets a glint layer and
+ * spark dots; without the script (or with reduced motion) the card is
+ * already shown as it ends up. The item is the perspective stage. */
+.collection-item[data-unlock] {
+  perspective: 900px;
+  position: relative;
+}
+
+.collection-item[data-unlock] .collection-card {
+  position: relative;
+}
+
+.unlock-glint {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  pointer-events: none;
+}
+
+.unlock-glint__sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg, transparent 35%, color-mix(in srgb, var(--color-switch-thumb) 55%, transparent) 50%, transparent 65%);
+  transform: translateX(-120%);
+}
+
+.unlock-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
 }
