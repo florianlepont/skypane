@@ -403,3 +403,7 @@ Owner: "C'est beaucoup mieux !" Then:
   suggestions instantly from the local airport list while typing; address
   results as a suggestion list on submit (Enter / search button) from
   Nominatim (D19), no per-keystroke requests to Nominatim.
+- W69 (owner) Location page: the map could go beyond the header and pass under
+  it (full-bleed under the status bar and the app bar). If that hurts
+  readability of the site name, add a small soft gradient scrim behind the
+  header (a nice-looking fade), not a hard bar. Joins plan 61-65.
