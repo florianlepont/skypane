@@ -75,7 +75,7 @@ scripted one:
    `config-<public-host>` or give the companion its own name: an A record
    pointing at the VPS's IPv4 (no AAAA unless it is the VPS's real IPv6,
    or the certificate challenge can fail). Production has used
-   `skypane.algernon.ovh` for the companion since 2026-09-23.
+   `skypane.algernon.is` for the companion since 2026-09-23.
 
 No OVH API token or credential is needed anywhere in this flow — the VPS
 is created by hand in the console, and everything after that point is
@@ -96,7 +96,7 @@ public DNS name (e.g. `<public-host>`) or a nip.io fallback
 leave it out to get `config-<public-host>`. Production:
 
 ```bash
-sudo ./deploy/provision.sh <public-host> skypane.algernon.ovh
+sudo ./deploy/provision.sh <public-host> skypane.algernon.is
 ```
 
 `provision.sh` prepares the machine only — the service user, a root-owned
@@ -113,8 +113,8 @@ missing. It is idempotent — re-run it after editing `provision.sh` or
 
 ## Caddy layout (host Caddyfile shared with other projects)
 
-The VPS's Caddy also serves another project (`cortege.algernon.ovh`,
-`cortege-files.algernon.ovh`), so `/etc/caddy/Caddyfile` is **not**
+The VPS's Caddy also serves another project (`cortege.algernon.is`,
+`cortege-files.algernon.is`), so `/etc/caddy/Caddyfile` is **not**
 SkyPane's file and no SkyPane script ever writes it:
 
 | Path | Owner | Written by |
@@ -153,7 +153,7 @@ sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.pre37    # backup first
 sudo install -d -o root -g root -m 0755 /etc/caddy/sites   # provision.sh also does this
 sudoedit /etc/caddy/Caddyfile
 #   - delete SkyPane's two site blocks (the device host and the companion
-#     host, e.g. skypane.algernon.ovh) - leave every other block alone
+#     host, e.g. skypane.algernon.is) - leave every other block alone
 #   - add the line:  import sites/*.caddy
 # Do NOT reload Caddy yet: until activate.sh writes sites/skypane.caddy,
 # a reload would drop SkyPane's sites.
@@ -166,7 +166,7 @@ SkyPane and the other project still answer:
 
 ```bash
 curl -s -o /dev/null -w '%{http_code}\n' https://<public-host>/device/v1/display   # expect 401
-curl -sI https://cortege.algernon.ovh | head -1   # expect its usual status line
+curl -sI https://cortege.algernon.is | head -1   # expect its usual status line
 ```
 
 To revert the migration, put the old host file back and reload:

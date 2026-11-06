@@ -81,7 +81,7 @@ def test_documents_shared_host_caddyfile_layout_and_migration():
     assert "sudo cp /etc/caddy/Caddyfile /etc/caddy/Caddyfile.pre37" in text
     # The revert path copies the backup back and reloads.
     assert "sudo cp /etc/caddy/Caddyfile.pre37 /etc/caddy/Caddyfile" in text
-    assert "cortege.algernon.ovh" in text
+    assert "cortege.algernon.is" in text
 
 
 def _firmware_section():
