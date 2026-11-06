@@ -59,3 +59,11 @@ dropped or redrawn from a sketch.
 | 61-58 | User pages migrated to the new components: Home (hero + groups), Flights, Account, Location, Personalisation, Airline collection |
 | 61-59 | Console pages: Fleet detail groups, Users table, Airlines editor, Audit; dialogs and empty states; login |
 | 61-60 | Final pass: contrast, performance, consistency audit with screenshots, test hardening |
+
+## Batch 7 (owner round 6, 2026-11-06)
+
+| Plan | Scope |
+|------|-------|
+| 61-61 | Home and header: remove the plane animation, personal greeting title, recent-flights rows no longer all the same link, status-bar band colour continuity (theme-color and top background), "More" menu opaque like the tab bar |
+| 61-62 | Flights: centred filter and its labels, merge plane icon and image button; airline collection filter and sort bar merged; Personalisation controls more compact |
+| 61-63 | Manage access dialog fixed on phone, frame picture glyph fixed (selector popover and everywhere), co-manager relationship shown on Account |

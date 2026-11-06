@@ -350,3 +350,34 @@ Larger redesigns (new design work, owner decision on scope):
   Access). Phone Console tab bar: "My frame" switch first and set apart, then
   Fleet, Users, Airlines, More. Mockups: scratchpad/sketches r1, r2. Plan
   61-57.
+
+### Round 6, first look at the refined design in production on iPhone (2026-11-06)
+
+Owner: "C'est beaucoup mieux !" Then:
+- W53 Remove the plane-on-a-trail animation on Home: it does not work well and
+  takes too much room.
+- W54 The Home title should be a personal greeting ("Bonjour Florian") as in
+  the mockups, instead of "Accueil" (first name from the account; fall back
+  to a neutral greeting).
+- W55 Home, Recent flights: every row links to the same flights page as "See
+  all flights", which is odd. Rows should not all act as the same link.
+- W56 The header area under the iPhone status bar / battery is still not the
+  same colour as the site background (a lighter band at the top).
+- W57 Flights: the Departures/Arrivals filter is still not centred, and the
+  text inside the filter is not centred in its box (count stacked above the
+  label).
+- W58 Flights rows: the little plane icon on each row and the image button
+  could be merged into one.
+- W59 Personalisation: the buttons and swatches in the settings box could be
+  smaller so more of the interface fits on screen.
+- W60 Airline collection: the filter and sort part is still not nice; it
+  should be clearly merged and improved.
+- W61 Account of a co-manager (Marco Alfinito): the Account page says
+  "User" while he is in fact a co-manager of a frame; show that.
+- W62 Manage access (dialog): completely broken on phone (title clipped under
+  the sheet edge, grey wash, input instead of a select for a co-manager).
+- W63 The little frame picture before each frame in the frame selector
+  popover is broken (renders as a warped capsule).
+- W64 The background of the "More" menu in the navigation is too
+  transparent, text cannot be read; give it the same background as the tab
+  bar.
