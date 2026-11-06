@@ -90,6 +90,8 @@ TILES_FAILED = i18n.msg(
     "The map pictures could not load. The pin and the coordinates still work.")
 ZOOM_IN = i18n.msg("detection.zoom_in", "Zoom in")
 ZOOM_OUT = i18n.msg("detection.zoom_out", "Zoom out")
+SHOW_FRANCE = i18n.msg("detection.show_france", "Show all of France")
+CLUSTER_TITLE = i18n.msg("detection.cluster_title", "Zoom in on these airports (%d)")
 SEARCH_NONE = i18n.msg(
     "detection.search_none",
     "No place found in France. Try another spelling, tap the map or type an airport code.")
@@ -131,6 +133,7 @@ _MAP_STRINGS = (
     ("tiles-failed", TILES_FAILED),
     ("zoom-in", ZOOM_IN),
     ("zoom-out", ZOOM_OUT),
+    ("cluster", CLUSTER_TITLE),
     ("search-none", SEARCH_NONE),
     ("search-failed", SEARCH_FAILED),
     ("search-short", SEARCH_SHORT),
@@ -174,7 +177,7 @@ _PAGE_FIELDS = frozenset((
 
 OSM_COPYRIGHT_URL = "https://www.openstreetmap.org/copyright"
 OSM_FIX_URL = "https://www.openstreetmap.org/fixthemap"
-CATALOGUE_ZOOM = 13
+CATALOGUE_ZOOM = 12
 PLACE_ZOOM = 12
 FRANCE_ZOOM = 5
 
@@ -444,9 +447,12 @@ def _locate_html():
         '<div class="place-tools">'
         '<p id="place-message" class="place-message text-label" role="status" '
         'aria-live="polite" hidden></p>'
+        '<button type="button" class="place-france js-gate" id="place-france">%s</button>'
         '<button type="button" class="place-locate detection-search js-gate" '
         'id="place-locate">%s<span class="place-locate__label">%s</span></button></div>'
-    ) % (layout.icon_html("icon-locate", 20), escape_html(i18n.t(LOCATE_BUTTON)))
+    ) % (
+        escape_html(i18n.t(SHOW_FRANCE)),
+        layout.icon_html("icon-locate", 20), escape_html(i18n.t(LOCATE_BUTTON)))
 
 
 def _map_html(view):

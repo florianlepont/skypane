@@ -102,6 +102,8 @@ MESSAGES = {
         "Les images de la carte n’ont pas pu se charger. Le repère et les coordonnées fonctionnent toujours.",
     "detection.zoom_in": "Zoomer",
     "detection.zoom_out": "Dézoomer",
+    "detection.show_france": "Voir toute la France",
+    "detection.cluster_title": "Zoomer sur ces aéroports (%d)",
     "detection.search_none":
         "Aucun lieu trouvé en France. Essayez une autre orthographe, touchez la carte ou saisissez un code d’aéroport.",
     "detection.search_failed":

@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L1-pin": 3, "L2": 4, "L3": 5, "L4": 3,
+    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L1-pin": 4, "L2": 4, "L3": 5, "L4": 3,
     "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -492,7 +492,14 @@ def test_l1_pick_an_airport_by_tapping_its_pin(world, new_context):
     context, page, steps, hosts = _open_location(world, new_context)
     try:
         page.wait_for_function(
-            "() => document.querySelectorAll('#place-map .place-dot').length >= 50", timeout=10000)
+            "() => document.querySelectorAll('#place-map .place-dot').length >= 1", timeout=10000)
+        # The map opens on the frame's own airport: zoom out to all of France to reach another.
+        steps.tap(page.locator("#place-france"), "Show all of France")
+        page.wait_for_function(
+            "() => document.querySelectorAll('#place-map .place-cluster').length >= 3", timeout=10000)
+        page.wait_for_function(
+            "() => document.getAnimations().every((a) => a.playState !== 'running'"
+            " || a.effect.getComputedTiming().iterations === Infinity)", timeout=10000)
         # A pin whose own hit box owns its centre, in the part of the map nothing floats over.
         spot = page.evaluate(
             "() => { const c = (" + CLEAR_BOX + ")();"
@@ -509,7 +516,7 @@ def test_l1_pick_an_airport_by_tapping_its_pin(world, new_context):
         _save_place(steps, page)
         assert _frame_place(world) is not None
         assert not hosts.search_requests
-        _report_measured("L1-pin", steps, 3)
+        _report_measured("L1-pin", steps, 4)
     finally:
         context.close()
 
@@ -556,7 +563,7 @@ def test_l4_tap_the_map(world, new_context):
     try:
         page.wait_for_function(MAP_TILES, timeout=15000)
         steps.tap_point(
-            page.locator("#place-map"), 0.5, 0.55, "the map", clear=page.evaluate(CLEAR_BOX))
+            page.locator("#place-map"), 0.25, 0.4, "the map", clear=page.evaluate(CLEAR_BOX))
         page.wait_for_function(
             "() => document.getElementById('place-lat').value !== ''", timeout=10000)
         _save_place(steps, page)

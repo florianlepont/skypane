@@ -5527,6 +5527,27 @@ button.detection-search:hover {
   margin: var(--space-xs) auto 0;
 }
 
+/* The "Current" badge straddles the card's top edge at the right corner, so
+ * it never sits over the designator in the middle of the card. */
+.place-sheet .runway-card {
+  position: relative;
+  padding-top: var(--space-md);
+}
+
+@supports selector(:has(*)) {
+  .place-sheet .runway-card--selected:not(:has(input:checked))::after {
+    top: -9px;
+    right: var(--space-sm);
+    padding: 0 var(--space-sm);
+    line-height: 18px;
+    border-radius: var(--radius-pill);
+    background: var(--color-dominant);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    white-space: nowrap;
+  }
+}
+
 .place-panel__follow {
   display: flex;
   flex-direction: column;
@@ -6055,7 +6076,7 @@ html:not(.map-ready) .place-tap-hint {
     grid-auto-columns: calc((100% - 2 * var(--space-sm)) / 3);
     overflow-x: auto;
     scroll-snap-type: x proximity;
-    padding: var(--space-xs) 0;
+    padding: var(--space-md) 0 var(--space-xs);
   }
 
   .map-ready .place-sheet .runway-card {
@@ -6412,6 +6433,54 @@ html:not(.map-ready) .place-details__close {
 
 .place-dot--selected .place-dot__label {
   left: calc(50% + 15px);
+}
+
+/* A numbered bubble standing for the airports inside one grid cell; the
+ * mark is positioned and sized in even pixels so it sits on whole pixels. */
+.place-cluster {
+  position: relative;
+  background: transparent;
+  border: 0;
+}
+
+.place-cluster__count {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--color-dominant);
+  background: var(--color-text);
+  color: var(--color-dominant);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  box-shadow: var(--shadow-control);
+}
+
+/* The way back to the whole of France, a pill over the map. */
+.place-france {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-card-hover);
+  cursor: pointer;
+  pointer-events: auto;
+  --js-gate-display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
 }
 
 .place-status {
