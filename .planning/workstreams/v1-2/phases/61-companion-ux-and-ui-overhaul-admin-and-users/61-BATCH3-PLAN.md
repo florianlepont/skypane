@@ -80,3 +80,12 @@ dropped or redrawn from a sketch.
 | 61-69 | P05 Location map: centred opening, clusters, runway badge, ORY label |
 | 61-70 | P08 unified toast and sheet components, focus trap, error once |
 | 61-71 | P10 Fleet phone sub-tabs |
+
+## Batch 9 (D43, motion)
+
+| Plan | Scope |
+|------|-------|
+| 61-72 | M2 skeletons and blur-up, M4 spring press, M5 sliding tab-bar pill, M8 spring switch |
+| 61-73 | M1 live Home, M3 pull to refresh |
+| 61-74 | M7 draggable sheets, M9 swipeable toast |
+| 61-75 | M6 thumbnail to picture transition (picture alone), M10 airline card unlock |

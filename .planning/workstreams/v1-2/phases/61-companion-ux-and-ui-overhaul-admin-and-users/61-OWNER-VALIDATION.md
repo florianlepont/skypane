@@ -442,3 +442,23 @@ Plans: 61-66..61-71 in `61-BATCH3-PLAN.md` (batch 8).
   `--bar-shadow`, `100dvh`/`svh` fixed-element bottom edge, body background
   vs the page canvas) and fix: no hard edge, shadow soft and clipped to the
   bar. Planned inside 61-67.
+
+## Motion decisions (D43), owner answered idea by idea on real-page demos
+
+All ten motion ideas validated as demoed (CSP-safe: no inline style; reduced
+motion respected; whole-pixel moves; works without JS where noted):
+
+- M1 Live Home (pulsing dot, ticking countdown, count-up, new flight slides in).
+- M2 Skeletons then blur-up picture fade.
+- M3 Pull to refresh on Flights (Refresh link stays without JS).
+- M4 Spring press feedback on buttons, rows, chips (CSS only).
+- M5 Sliding tab-bar pill.
+- M6 Flight thumbnail to picture shared transition; owner: show the picture
+  alone, no white card around it.
+- M7 Draggable bottom sheets (grabber, drag to close).
+- M8 Spring switch with tick (vibrate where supported).
+- M9 Swipeable toast.
+- M10 Airline card unlock (3D flip, glint, sparks, once).
+
+Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
+61-74 (M7, M9), 61-75 (M6, M10).
