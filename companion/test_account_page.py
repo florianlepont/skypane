@@ -303,7 +303,9 @@ def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_acce
     assert len(rows) == 2
     assert [a.attrs["href"] for a in card.select("li.account-add-frame a.row__main")] == [
         "/pair-frame"]
-    names = [row.select_one(".row__label").text() for row in rows]
+    names = [
+        row.select_one(".row__label").text().replace(
+            row.select_one(".account-frame__role").text(), "").strip() for row in rows]
     assert names == sorted(names, key=str.casefold)
     hrefs = [row.select_one("a.row__main").attrs["href"] for row in rows]
     assert sorted(hrefs) == sorted([

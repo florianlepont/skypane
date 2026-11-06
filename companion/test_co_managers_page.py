@@ -52,7 +52,8 @@ def _forms_to(tree, route):
 
 
 def _rows(tree):
-    return tree.select("ul.data-cards > li.data-card")
+    return [row for row in tree.select("dialog.modal ul.group > li.row")
+            if "row--form" not in row.attrs["class"]]
 
 
 def _hidden(form):
@@ -72,7 +73,12 @@ def test_the_dialog_carries_the_frame_name_the_title_and_the_done_dismissal():
     dismiss = tree.select_one("a.modal__dismiss")
     assert dismiss.text() == "Done"
     assert dismiss.attrs["href"] == "/fleet"
-    assert tree.select_one("h3").text() == "Co-managers"
+    assert dialog.attrs["class"] == "modal access-sheet"
+    assert tree.select_one("h2.section-label").text() == "Co-managers"
+    # One group, no second surface inside it, and no long purpose paragraph.
+    assert len(tree.select("ul.group")) == 1
+    for stale in (".data-card", ".data-cards", ".row--purpose"):
+        assert not tree.select(stale)
 
 
 def test_a_reopened_dialog_renders_open():
@@ -96,7 +102,7 @@ def test_every_co_manager_gets_a_destructive_remove_form_and_the_owner_none():
         assert form.attrs["action"] == PREFIX + card.REMOVE_ROUTE
         button = row.select_one("button")
         assert button.text() == "Remove"
-        assert "calendar-disconnect-btn" in button.attrs["class"]
+        assert button.attrs["class"] == "co-manager__remove-btn"
         assert button.attrs["aria-label"] == "Remove %s from this frame" % email
         assert _hidden(form) == {
             "csrf_token": TOKEN, "return_to": "/fleet", "user_id": user_id}
@@ -249,14 +255,16 @@ def test_the_dialog_rules_use_existing_tokens_only(tmp_path):
     rules = [rule for rule in css_rules(css)
              if any(sel.startswith(".co-manager__") for sel in rule.selectors)]
     selectors = {sel for rule in rules for sel in rule.selectors}
-    assert {".co-manager__email", ".co-manager__who", ".co-manager__row"} <= selectors
+    assert {".co-manager__email", ".co-manager__remove"} <= selectors
     assert declarations_for(css, ".co-manager__email") == {
         "overflow-wrap": "anywhere", "min-width": "0"}
     for rule in rules:
         for _name, value in rule.declarations:
             assert not re.search(r"#[0-9a-fA-F]{3,8}\b|rgb\(|hsl\(", value)
-            if "var(" in value:
-                assert re.fullmatch(r"var\(--space-(xs|sm|md|lg)\)", value)
+            for token in re.findall(r"var\((--[a-z-]+)\)", value):
+                assert re.fullmatch(
+                    r"--(space-(xs|sm|md|lg)|radius-control|color-status-error"
+                    r"|font-label-size|weight-semibold)", token), token
 
 
 # --- over real HTTP ---------------------------------------------------------
@@ -385,7 +393,7 @@ def test_a_disabled_co_manager_keeps_the_row_with_a_pill(rig):
     other = rig.db(lambda c: fleet_db.add_user(c, OTHER_CO.lower(), "user"))
     rig.db(lambda c: fleet_db.add_co_manager(c, rig.seed.owned_id, other, None))
     rig.db(lambda c: fleet_db.set_user_disabled(c, OTHER_CO.lower(), True))
-    disabled = [r for r in rig.dialog().select("li.data-card") if OTHER_CO.lower() in r.text()]
+    disabled = [r for r in rig.dialog().select("ul.group > li.row") if OTHER_CO.lower() in r.text()]
     assert "Disabled" in disabled[0].text()
 
 
@@ -539,7 +547,13 @@ def _account(rig, who, query="", language=None):
 
 
 def _frame_names(body):
-    return [n.text() for n in parse_html(body).select("li.account-frame .row__label")]
+    return [_label_name(n) for n in parse_html(body).select("li.account-frame .row__label")]
+
+
+def _label_name(label):
+    """A frame row's name without its Owner or Co-manager pill."""
+    pill = label.select_one(".account-frame__role")
+    return label.text().replace(pill.text(), "").strip() if pill else label.text()
 
 
 def _row_of(tree, name):
@@ -552,6 +566,40 @@ def _leave_id(rig):
 
 def _access_id(rig):
     return "dlg-access-%s" % rig.seed.owned_id.replace("_", "-")
+
+
+def _role_row_text(tree):
+    (group,) = tree.select('section[aria-labelledby="account-identity"]')
+    return [r.text() for r in group.select("li.row") if r.select_one(".row__label").text() in (
+        "Role", "Rôle")][0]
+
+
+def test_account_marks_each_frame_owner_or_co_manager_and_the_role_row_counts_shared_ones(rig):
+    co = parse_html(_account(rig, "co"))
+    assert co.select_one("li.account-frame .account-frame__role").text() == "Co-manager"
+    assert "Co-manager of 1 frame" in _role_row_text(co)
+    assert "User" in _role_row_text(co)
+    owner = parse_html(_account(rig, "owner"))
+    assert owner.select_one("li.account-frame .account-frame__role").text() == "Owner"
+    assert "Co-manager" not in _role_row_text(owner)
+
+
+def test_the_french_account_marks_and_counts_in_french(rig):
+    co = parse_html(_account(rig, "co", language="fr"))
+    assert co.select_one(".account-frame__role").text() == "Co-gestionnaire"
+    assert "Co-gestionnaire de 1 cadre" in _role_row_text(co)
+    owner = parse_html(_account(rig, "owner", language="fr"))
+    assert owner.select_one(".account-frame__role").text() == "Propriétaire"
+
+
+def test_the_role_row_counts_several_shared_frames_with_the_plural(rig):
+    from companion.pages import account_page
+    frames = tuple(
+        account_page.FrameSummary("F%d" % i, "hw", "/devices/x%d/" % i, "x%d" % i, shared=True)
+        for i in (1, 2))
+    tree = parse_html(account_page.render(
+        account_page.Identity("a@example.test", account_page.ROLE_USER), frames=frames))
+    assert "Co-manager of 2 frames" in _role_row_text(tree)
 
 
 def test_a_co_managed_frame_says_who_shared_it_and_offers_leave_not_manage_access(rig):

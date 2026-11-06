@@ -167,3 +167,7 @@ No measured count moved. The Fleet Access block became group rows (the Remove ac
 ## Plan 61-62 (Flights, Collection and Personalisation controls)
 
 No measured count moved (U4a 3, U4b 3, U4c 3, V1 phone 2 and desktop 1 re-measured at 360 x 844). The Flights thumbnail is still one tap to the picture (it replaced the separate picture button), the collection's sort is now two taps (open the menu, choose) where the select was also two (open, choose), and the whole Personalisation look picker now fits one 360 x 740 screen, so Save never needs a scroll (no count was relying on one). Counts stay as after plan 61-60.
+
+## Results after plan 61-63 (Manage access sheet, drawn frame, Account relationship)
+
+No measured count moved. Manage access is still one tap from the Account row; in the sheet adding a co-manager is the field, then Add (type the address and press Add, or select and Add for an administrator) and removing is one tap on the row's Remove. Done is still one tap. The Fleet Access block is unchanged in step terms. A5 stays 5 (A5 6 when the frame is not the one selected on landing), A1 to A8 and U1 to U4 are as after plan 61-62.

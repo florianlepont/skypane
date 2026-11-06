@@ -89,6 +89,9 @@
   --radius-card: 22px;
   --radius-pill: 32px;
   --radius-sheet: 28px;
+  /* The small drawn frame (a thin bezel, a white screen): a portrait
+   * e-ink frame, not a pill. */
+  --radius-frame-pic: 5px;
 
   /* Theme-independent colour tokens: every one of these held the exact
    * same value in every theme block before it was a token, so (like
@@ -1895,7 +1898,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   padding: 2px;
   background: var(--color-frame-bezel);
   border: 1px solid var(--color-frame-bezel-hi);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-frame-pic);
 }
 
 .frame-row__pic i {
@@ -7243,25 +7246,8 @@ button.calendar-disconnect-btn:focus-visible {
   box-shadow: none;
 }
 
-/* Manage access dialog: a row is the address with its pills on the left and the
- * Remove action on the right, wrapping beneath on a narrow phone. A long
- * address wraps inside its own box instead of widening the page. */
-.co-manager__row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.co-manager__who {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-
+/* Manage access: the owner and each co-manager are rows of one glass group;
+ * a long address wraps inside its own box instead of widening the page. */
 .co-manager__email {
   overflow-wrap: anywhere;
   min-width: 0;
@@ -7269,6 +7255,25 @@ button.calendar-disconnect-btn:focus-visible {
 
 .co-manager__remove {
   margin: 0;
+}
+
+/* Remove is a quiet text button in the danger colour with a 44px target. The
+ * selector out-ranks the dialog and submit-button rules, hover and focus
+ * included. */
+.co-manager__remove button.co-manager__remove-btn,
+.co-manager__remove button.co-manager__remove-btn:hover,
+.co-manager__remove button.co-manager__remove-btn:focus-visible,
+dialog.modal .co-manager__remove button.co-manager__remove-btn {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  color: var(--color-status-error);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
 }
 
 /* The administrator's picker holds full e-mail addresses; a native select
@@ -10131,7 +10136,9 @@ button.look-sheet__save:hover {
 /* The detail sheet fits the viewport: the head with its close button and
  * the Close foot stay in place and only the body scrolls. */
 dialog.collection-sheet[open],
-.collection-sheet:target:not(.is-modal) {
+.collection-sheet:target:not(.is-modal),
+dialog.access-sheet[open],
+.access-sheet:target:not(.is-modal) {
   display: flex;
   flex-direction: column;
   max-height: 85vh;
@@ -10139,10 +10146,12 @@ dialog.collection-sheet[open],
   overflow: hidden;
 }
 
-.collection-sheet .modal__head {
+.collection-sheet .modal__head,
+.access-sheet .modal__head {
   flex: none;
 }
 
+.access-sheet .modal__body,
 .collection-sheet .modal__body {
   flex: 1 1 auto;
   min-height: 0;
@@ -10152,7 +10161,8 @@ dialog.collection-sheet[open],
   overscroll-behavior: contain;
 }
 
-.collection-sheet .modal__actions {
+.collection-sheet .modal__actions,
+.access-sheet .modal__actions {
   flex: none;
   margin-top: var(--space-sm);
 }
@@ -11605,7 +11615,7 @@ a.airlines-name-it {
   padding: 3px;
   background: var(--color-frame-bezel);
   border: 1px solid var(--color-frame-bezel-hi);
-  border-radius: var(--radius-chip);
+  border-radius: var(--radius-frame-pic);
 }
 
 .account-frame__pic i {
@@ -11617,6 +11627,12 @@ a.airlines-name-it {
 
 .account-frame .row__label {
   font-weight: var(--weight-semibold);
+}
+
+.account-frame__role {
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .account-frame__line {
@@ -11775,6 +11791,53 @@ a.airlines-name-it {
   min-height: 44px;
   height: 44px;
   padding: 0 var(--space-md);
+}
+
+/* The Manage access sheet: the head keeps its place, the one group scrolls
+ * inside, the add form is stacked (field, then a full-width primary button)
+ * and Done is a full-width secondary button. A phone sheet clears its rounded
+ * corners above the title and the home indicator below the button. */
+dialog.access-sheet .modal__body {
+  gap: 0;
+  margin-top: var(--space-sm);
+  padding-bottom: var(--space-xs);
+}
+
+.access-sheet .group-block {
+  margin: 0;
+}
+
+.access-sheet .row__form {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.access-sheet .row__form-field {
+  flex: none;
+}
+
+.access-sheet .row__form > button[type="submit"] {
+  width: 100%;
+}
+
+.access-sheet a.modal__dismiss {
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+dialog.access-sheet .modal__actions {
+  margin-top: var(--space-sm);
+}
+
+@media (max-width: 699.98px) {
+  dialog.access-sheet,
+  .access-sheet:target:not(.is-modal),
+  .access-sheet[open]:not(.is-modal) {
+    padding-top: var(--radius-sheet);
+  }
 }
 
 /* The System view: one glass group per topic, two columns from 1000px. */

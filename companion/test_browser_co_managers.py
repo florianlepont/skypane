@@ -29,7 +29,7 @@ _CONTAINMENT_JS = """
   const cardBox = box(card);
   const problems = [];
   if (card.scrollWidth > card.clientWidth + 1) problems.push('card scrolls inside');
-  card.querySelectorAll('li.data-card').forEach((row) => {
+  card.querySelectorAll('li.row:has(.co-manager__email)').forEach((row) => {
     const rowBox = box(row);
     if (rowBox.left < cardBox.left - 1 || rowBox.right > cardBox.right + 1) {
       problems.push('row outside card');
@@ -124,7 +124,7 @@ def test_removing_works_and_done_closes_the_dialog(new_context, frig):
         assert frig.members() == []
         assert page.locator("section.fleet-block .co-manager__email", has_text=LONG_CO).count() == 0
         _open_dialog(page, frig)
-        assert page.locator(frig.dialog + " li.data-card", has_text=LONG_CO).count() == 0
+        assert page.locator(frig.dialog + " .co-manager__email", has_text=LONG_CO).count() == 0
         page.locator(frig.dialog + " a.modal__dismiss").click()
         assert not page.locator(frig.dialog).evaluate("d => d.open")
     finally:

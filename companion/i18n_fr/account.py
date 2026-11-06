@@ -83,5 +83,9 @@ MESSAGES = {
     "account.shared_by": "Partagé par %s",
     "account.leave_frame": "Quitter le cadre",
     "account.leave_frame_aria": "Quitter le cadre\u00a0: %s",
+    "account.frame_owner": "Propriétaire",
+    "account.frame_co_manager": "Co-gestionnaire",
+    "account.co_manager_of_one": "Co-gestionnaire de 1 cadre",
+    "account.co_manager_of_many": "Co-gestionnaire de %d cadres",
     "account.manage_access_aria": "Gérer l’accès\u00a0: %s",
 }

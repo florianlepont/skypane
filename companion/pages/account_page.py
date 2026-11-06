@@ -34,6 +34,10 @@ _SHARED_BY_TEXT = i18n.msg("account.shared_by", "Shared by %s")
 _LEAVE_FRAME_TEXT = i18n.msg("account.leave_frame", "Leave frame")
 _LEAVE_FRAME_ARIA = i18n.msg("account.leave_frame_aria", "Leave frame: %s")
 _MANAGE_ACCESS_ARIA = i18n.msg("account.manage_access_aria", "Manage access: %s")
+_PILL_OWNER_TEXT = i18n.msg("account.frame_owner", "Owner")
+_PILL_CO_MANAGER_TEXT = i18n.msg("account.frame_co_manager", "Co-manager")
+_CO_MANAGER_OF_ONE_TEXT = i18n.msg("account.co_manager_of_one", "Co-manager of 1 frame")
+_CO_MANAGER_OF_MANY_TEXT = i18n.msg("account.co_manager_of_many", "Co-manager of %d frames")
 _SIGN_OUT_TEXT = i18n.msg("common.sign_out", "Sign out")
 
 ROLE_USER = "user"
@@ -91,6 +95,21 @@ def _value_row(label, value):
             layout.escape_html(value), layout.escape_html(value)))
 
 
+def _role_row(identity, frames):
+    """The Role row: the role, and under it how many frames the person
+    co-manages when there are any (a plain User is often a co-manager)."""
+    shared = sum(1 for frame in frames if frame.shared)
+    detail = ""
+    if shared:
+        detail = i18n.t(_CO_MANAGER_OF_ONE_TEXT if shared == 1 else _CO_MANAGER_OF_MANY_TEXT)
+        detail = detail % shared if shared > 1 else detail
+    role = i18n.t(_role_text(identity))
+    return ui_groups.row(
+        i18n.t(_ROLE_TEXT), detail=detail,
+        value_html='<span title="%s">%s</span>' % (
+            layout.escape_html(role), layout.escape_html(role)))
+
+
 def _frame_action_html(frame):
     """The one 44px action of a frame row: Manage access on an owned frame,
     Leave frame on a shared one; nothing when an owned frame has no view."""
@@ -129,8 +148,11 @@ def _frame_row_html(frame, now):
     """One frame: the drawn frame, its name, hardware and status, a chevron to
     the frame's Home, and its one action (Manage access or Leave frame) as a
     link line under the text."""
+    pill = i18n.t(_PILL_CO_MANAGER_TEXT if frame.shared else _PILL_OWNER_TEXT)
     return ui_groups.row(
-        frame.name, lead_html=ui_shell.frame_pic_html("account-frame"),
+        label_html='%s <span class="banner__pill account-frame__role">%s</span>' % (
+            layout.escape_html(frame.name), layout.escape_html(pill)),
+        lead_html=ui_shell.frame_pic_html("account-frame"),
         detail_html=_frame_detail_html(frame, now), href=frame.href,
         trailing_html=_frame_action_html(frame), extra_class="account-frame")
 
@@ -171,9 +193,10 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
     own `FrameSummary` values). `open_access` is the id of the frame whose
     Manage access dialog renders open; `now` (epoch seconds) dates the
     last-seen words."""
+    frames = tuple(frames)
     identity_html = (
         _value_row(_EMAIL_TEXT, identity.email)
-        + _value_row(_ROLE_TEXT, i18n.t(_role_text(identity))))
+        + _role_row(identity, frames))
     resolved_theme = ui_theme if ui_theme in layout.UI_THEME_CHOICES else "auto"
     preferences_html = (
         _preference_row(
@@ -188,7 +211,7 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
         extra_class="account-sign-out-group")
     return (
         layout.page_header(i18n.t(ACCOUNT_TITLE), purpose=i18n.t(ACCOUNT_PURPOSE))
-        + _frames_card(tuple(frames), open_access, time.time() if now is None else now)
+        + _frames_card(frames, open_access, time.time() if now is None else now)
         + ui_groups.group(
             identity_html, label=i18n.t(_IDENTITY_TEXT), label_id="account-identity",
             extra_class="account-identity")

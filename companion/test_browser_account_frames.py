@@ -68,7 +68,7 @@ def test_an_owner_adds_a_co_manager_from_account_and_the_dialog_reopens(
         page.locator(arig.access + "[open]").wait_for(state="visible")
         assert INVITED in arig.members()
         assert page.locator(
-            arig.access + " li.data-card", has_text=INVITED).count() == 1
+            arig.access + " ul.group > li.row", has_text=INVITED).count() == 1
         toast = page.locator('.toast-region--flash .toast[role="status"]')
         toast.wait_for(state="visible")
         assert "Co-manager added" in toast.inner_text()
