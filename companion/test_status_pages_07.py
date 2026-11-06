@@ -95,8 +95,8 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
         "pre-task value, got %r" % (link_decls,))
 
     label_decls = declarations_for(css_text, ".tab-bar__label", at_rules=_TAB_BAR_MEDIA)
-    assert label_decls.get("font-size") == "11px", (
-        "expected .tab-bar__label's font-size to still resolve to 11px, got %r" % (label_decls,))
+    assert label_decls.get("font-size") == "12px", (
+        "expected .tab-bar__label's font-size to resolve to 12px, got %r" % (label_decls,))
 
     # The personal bar's four destination cells carry the short form of a
     # label where one exists; the airline collection lives in the More sheet.
@@ -133,7 +133,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     # Per-character advance: MEASURED, not modelled — the audit's own real
     # figure for "Compagnies" (10 characters) needing 65px at this label's
     # 11px font-size gives 65 / 10 = 6.5px/character.
-    PER_CHARACTER_ADVANCE_PX = 6.5
+    PER_CHARACTER_ADVANCE_PX = 7.1  # 71px for 'Compagnies' at the 12px label size
     AUDIT_MEASURED_FLOOR_PX = 65  # "Compagnies" at 11px, 2026-09-17 audit
     modelled_requirement_px = PER_CHARACTER_ADVANCE_PX * len(longest_label)
     required_px = max(modelled_requirement_px, AUDIT_MEASURED_FLOOR_PX)
@@ -147,7 +147,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
 
 
 def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
-    """the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav
+    """the More sheet opens upward from the fixed bar (absolute, just above it, as wide as the bar) on the nav
     surface with the overlay shadow, and reuses .mobile-nav__link's 44px/16px geometry rather than
     restating it. The
     legacy check's own stylesheet-comment assertion ("the stylesheet
@@ -156,8 +156,8 @@ def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
     are what the comment was describing."""
     sheet = declarations_for(css_text, ".tab-bar__more-panel", at_rules=_TAB_BAR_MEDIA)
     assert sheet.get("position") == "absolute"
-    assert sheet.get("bottom") == "100%"
-    assert sheet.get("right") == "0"
+    assert sheet.get("bottom") == "calc(100% + var(--space-sm))"
+    assert sheet.get("left") == "0" and sheet.get("right") == "0"
     assert sheet.get("background") == "var(--color-secondary)"
     assert sheet.get("box-shadow") == "var(--shadow-card-hover)"
     # The sheet's rows REUSE .mobile-nav__link's geometry rather than

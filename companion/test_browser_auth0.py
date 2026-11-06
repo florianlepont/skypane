@@ -99,7 +99,7 @@ def test_sign_out_ends_on_the_fixed_login_page(rig, new_context):
     page = context.new_page()
     _sign_in(page, rig, INVITED_USER, "auth0|user-1")
     page.wait_for_url(_landing_url(base, "/account"))
-    page.click(".account-sign-out button")
+    page.click(".logout-form button:visible")
     page.wait_for_url(base + "/login")
     assert page.locator("a.login-signin").count() == 1
     assert _session_cookie(context) == []
@@ -243,7 +243,7 @@ def test_first_sign_in_shows_one_welcome_and_the_second_none(rig, new_context):
     page.get_by_text(_WELCOME).wait_for()
     assert page.get_by_text(_WELCOME).count() == 1
     assert "Add your frame with the code shown on its screen" in page.locator(".toast").inner_text()
-    page.click(".account-sign-out button")
+    page.click(".logout-form button:visible")
     page.wait_for_url(base + "/login")
     _sign_in(page, rig, INVITED_USER, "auth0|user-1")
     page.wait_for_url(base + "/account")

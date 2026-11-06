@@ -33,6 +33,21 @@ _COUNT_ONE = i18n.msg("admin_users.one_user", "1 user")
 _FRAMES_MANY = i18n.msg("admin_users.n_frames", "%d frames")
 _FRAMES_ONE = i18n.msg("admin_users.one_frame", "1 frame")
 _YOU = i18n.msg("admin_users.you", "You")
+_STATUS_ACTIVE = i18n.msg("admin_users.status_active", "Active")
+_CO_MANAGER_SUFFIX = i18n.msg("admin_users.co_manager_suffix", "co-manager")
+_SELF_LOCK = i18n.msg(
+    "admin_users.self_lock", "You cannot disable or demote yourself.")
+_COPY_INVITE = i18n.msg("admin_users.copy_invitation", "Copy invitation message")
+_COPIED = i18n.msg("admin_users.copied", "Copied")
+_COL_INVITATION = i18n.msg("admin_users.col_invitation", "Invitation message")
+_INVITATION_MESSAGE = i18n.msg(
+    "admin_users.invitation_message",
+    "Hello, you have been invited to SkyPane. Open {url} and sign in with "
+    "{email}.")
+_INVITATION_MESSAGE_NO_URL = i18n.msg(
+    "admin_users.invitation_message_no_url",
+    "Hello, you have been invited to SkyPane. Open the app and sign in with "
+    "{email}.")
 _COL_EMAIL = i18n.msg("admin_users.email", "Email")
 _COL_ROLE = i18n.msg("admin_users.role", "Role")
 _ROLE_NAME_USER = i18n.msg("admin_users.role_user", "User")
@@ -83,6 +98,7 @@ class UserRow(NamedTuple):
     frame_count: int
     is_self: bool
     is_last_admin: bool
+    co_managed_count: int = 0
 
 
 class UsersView(NamedTuple):
@@ -95,6 +111,7 @@ class UsersView(NamedTuple):
     email_error: str = ""
     role_error: str = ""
     open_invite_dialog: bool = False
+    app_url: str = ""
 
 
 def role_name(role):
@@ -127,21 +144,33 @@ def _t(message):
     return _esc(i18n.t(message))
 
 
-def _pill(label_html):
-    return '<span class="banner__pill">%s</span>' % label_html
+def _pill(label_html, tone=""):
+    css = "banner__pill users-pill"
+    if tone:
+        css += " users-pill--" + tone
+    return '<span class="%s">%s</span>' % (css, label_html)
 
 
-def _pills_html(row):
-    pills = []
-    if status_of(row) == STATUS_INVITED:
-        pills.append(_pill(_t(_STATUS_INVITED)))
-    if row.disabled:
-        pills.append(_pill(_t(_STATUS_DISABLED)))
-    return "".join(pills)
+def _status_pill(row):
+    """The one status mark of a row: Active (has signed in), Invited (has not
+    yet) or Disabled."""
+    status = status_of(row)
+    label = {
+        STATUS_ACTIVE: _STATUS_ACTIVE, STATUS_INVITED: _STATUS_INVITED,
+        STATUS_DISABLED: _STATUS_DISABLED}[status]
+    return _pill(_t(label), status)
 
 
 def _frames_text(count):
     return i18n.t(_FRAMES_ONE) if count == 1 else i18n.t(_FRAMES_MANY) % count
+
+
+def _frames_cell_text(row):
+    """Owned plus co-managed frames; a co-manager is named as such."""
+    text = _frames_text(row.frame_count + row.co_managed_count)
+    if row.co_managed_count:
+        text += " \u00b7 " + i18n.t(_CO_MANAGER_SUFFIX)
+    return text
 
 
 def _count_text(count):
@@ -170,12 +199,21 @@ def _post_form(row, suffix, css, inner_html):
             _esc(_action_path(row, suffix)), css, _ui().csrf_field(), inner_html))
 
 
+def _guard_ids(row):
+    return ["users-guard-%d-%s" % (row.user_id, name)
+            for name, on in (("self", row.is_self), ("last", row.is_last_admin)) if on]
+
+
 def _guard_html(row):
     notes = ""
     if row.is_self:
-        notes += '<span class="users-guard text-label">%s</span>' % _t(_THIS_IS_YOU)
+        notes += (
+            '<span class="users-guard text-label" id="users-guard-%d-self">%s %s</span>'
+            % (row.user_id, _t(_THIS_IS_YOU), _t(_SELF_LOCK)))
     if row.is_last_admin:
-        notes += '<span class="users-guard text-label">%s</span>' % _t(_LAST_ADMIN)
+        notes += (
+            '<span class="users-guard text-label" id="users-guard-%d-last">%s</span>'
+            % (row.user_id, _t(_LAST_ADMIN)))
     return notes
 
 
@@ -202,12 +240,14 @@ def _active_cell(row):
     shown disabled where the server refuses the change anyway."""
     active = not row.disabled
     locked = active and (row.is_self or row.is_last_admin)
+    explained = (
+        ' aria-describedby="%s"' % " ".join(_guard_ids(row)) if locked else "")
     button = (
         '<button type="submit" class="switch" role="switch" aria-checked="%s" '
-        'aria-label="%s"%s><span class="switch__track" aria-hidden="true">'
+        'aria-label="%s"%s%s><span class="switch__track" aria-hidden="true">'
         '<span class="switch__thumb"></span></span></button>' % (
             "true" if active else "false", _esc(i18n.t(_ACTIVE_ARIA) % row.email),
-            " disabled" if locked else ""))
+            explained, " disabled" if locked else ""))
     label = '<span class="users-active-label text-label" aria-hidden="true">%s</span>' % (
         _t(_COL_ACTIVE))
     suffix = _routes().USER_DISABLE_SUFFIX if active else _routes().USER_ENABLE_SUFFIX
@@ -230,37 +270,66 @@ def _menu_cell(row):
             unlink))
 
 
-def _row_html(row, now):
-    you = _pill(_t(_YOU)) if row.is_self else ""
+def invitation_message(app_url, email):
+    """The sentence an administrator pastes to someone they invited: where to
+    go and which address to sign in with. It carries no secret."""
+    if app_url:
+        return i18n.t(_INVITATION_MESSAGE).format(url=app_url, email=email)
+    return i18n.t(_INVITATION_MESSAGE_NO_URL).format(email=email)
+
+
+def _invite_cell(row, app_url):
+    """The Copy invitation message button of a person who has not signed in
+    yet. The shared copy script writes the message with the Clipboard API and
+    falls back to a text selection; the button is hidden without script."""
+    if status_of(row) != STATUS_INVITED:
+        return ""
     return (
-        '<tr class="users-row" id="user-%d">'
+        '<button type="button" class="users-copy" data-copy-value="%s" '
+        'data-copied-text="%s">%s<span class="copy-btn__label">%s</span></button>'
+        '<span class="visually-hidden" role="status" data-copy-feedback></span>' % (
+            _esc(invitation_message(app_url, row.email)), _t(_COPIED),
+            icon_html("icon-copy"), _t(_COPY_INVITE)))
+
+
+def _row_html(row, view):
+    you = _pill(_t(_YOU), "you") if row.is_self else ""
+    return (
+        '<tr class="users-row%s" id="user-%d">'
         '<th scope="row" class="users-cell users-cell--user">'
         '<span class="users-avatar" aria-hidden="true">%s</span>'
-        '<span class="users-who"><span class="users-email">%s</span>'
-        '<span class="users-pills">%s%s</span></span></th>'
+        '<span class="users-who"><span class="users-email" title="%s">%s</span>'
+        '<span class="users-status">%s</span>'
+        '<span class="users-pills">%s</span></span></th>'
         '<td class="users-cell users-cell--role">%s</td>'
         '<td class="users-cell users-cell--frames">%s</td>'
         '<td class="users-cell users-cell--seen">%s</td>'
         '<td class="users-cell users-cell--active">%s</td>'
+        '<td class="users-cell users-cell--invite">%s</td>'
         '<td class="users-cell users-cell--menu">%s</td></tr>' % (
-            row.user_id, _initial(row.email), _esc(row.email), you, _pills_html(row),
-            _role_cell(row), _esc(_frames_text(row.frame_count)),
-            _last_sign_in_html(row, now), _active_cell(row), _menu_cell(row)))
+            " users-row--menu" if row.has_identity else "", row.user_id,
+            _initial(row.email), _esc(row.email), _esc(row.email), _status_pill(row), you,
+            _role_cell(row), _esc(_frames_cell_text(row)),
+            _last_sign_in_html(row, view.now), _active_cell(row),
+            _invite_cell(row, view.app_url), _menu_cell(row)))
 
 
 def _table_html(view):
     head = "".join(
-        '<th scope="col" class="users-col users-col--%s">%s</th>' % (name, _t(label))
+        '<th scope="col" class="users-col users-col--%s">%s</th>' % (
+            name, _t(label) if name != "invite" else (
+                '<span class="visually-hidden">%s</span>' % _t(label)))
         for name, label in (
             ("user", _COL_USER), ("role", _COL_ROLE), ("frames", _COL_FRAMES),
-            ("seen", _COL_LAST_SIGN_IN), ("active", _COL_ACTIVE)))
+            ("seen", _COL_LAST_SIGN_IN), ("active", _COL_ACTIVE),
+            ("invite", _COL_INVITATION)))
     return (
         '%s<table class="users-table"><caption class="visually-hidden">%s</caption>'
         '<thead><tr>%s<td class="users-col users-col--menu"></td></tr></thead>'
         '<tbody>%s</tbody></table>' % (
             ui_entity_list.count_line_html(_count_text(len(view.rows))),
             _t(_USERS_TEXT), head,
-            "".join(_row_html(row, view.now) for row in view.rows)))
+            "".join(_row_html(row, view) for row in view.rows)))
 
 
 

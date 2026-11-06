@@ -51,7 +51,7 @@ _STYLE_VALUES = (
     "              s.animationName].join('|'));"
     " }"
     " return {colours: [...colours], motion: [...motion]}; }")
-# The shared button and filter-chip classes the console reuses, added to a
+# The shared button, filter-chip and status-pill classes the console reuses, added to a
 # reference page so their resolved paint counts as already in use.
 _ADD_EXISTING_BUTTONS = (
     "() => { for (const cls of ['calendar-disconnect-btn']) {"
@@ -61,7 +61,11 @@ _ADD_EXISTING_BUTTONS = (
     " const chip = document.createElement('a'); chip.className = 'filter-chip';"
     " chip.href = '/'; chip.innerHTML ="
     "  '<span class=\"filter-chip__box\"><span class=\"filter-chip__text\">x</span></span>';"
-    " document.querySelector('main').appendChild(chip); }")
+    " document.querySelector('main').appendChild(chip);"
+    " for (const tone of ['active', 'invited', 'disabled']) {"
+    "  const pill = document.createElement('span');"
+    "  pill.className = 'banner__pill users-pill users-pill--' + tone; pill.textContent = 'x';"
+    "  document.querySelector('main').appendChild(pill); } }")
 REFERENCE_PATHS = ("/", "/display", "/health", "/flights", "/airlines", "/airlines/manage", "/update", "/account")
 def _no_sideways_scroll(page):
     return page.evaluate(

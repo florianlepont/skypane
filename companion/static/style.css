@@ -186,7 +186,10 @@
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
   --bar-border: rgba(255, 255, 255, 0.7);
   --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  /* The floating bar's shadow reaches 1px + 6px + 14px - 8px = 12px under it,
+   * exactly the gap to the screen edge (--tab-bar-gap), so it is never cut by
+   * the bottom of the viewport and never spills under the browser toolbar. */
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -212,6 +215,8 @@
   /* The switch thumb: white on light surfaces, a light grey on dark ones
    * so an unchecked thumb stays visible on its dark track. */
   --color-switch-thumb: #FFFFFF;
+  --color-switch-off: #7C8799;
+  --color-switch-thumb-on: #FFFFFF;
   /* Rarity inks for airlines and aircraft: each is text-safe (4.5:1 or
    * better) on the card and page surfaces of its theme. */
   --color-rarity-occasional: #0F766E;
@@ -254,7 +259,7 @@
     --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
     --bar-border: rgba(255, 255, 255, 0.16);
     --bar-pill-bg: rgba(255, 255, 255, 0.18);
-    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
     --pop-bg: rgba(28, 34, 45, 0.92);
     --color-canvas: #161A24;
     --color-dominant: #151922;
@@ -273,6 +278,8 @@
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
     --color-switch-thumb: #E6E9EE;
+    --color-switch-off: #6B7589;
+    --color-switch-thumb-on: #14171F;
     --color-rarity-occasional: #5EEAD4;
     --color-rarity-rare: #C4B5FD;
     --color-frame-bezel: #050608;
@@ -303,7 +310,7 @@ html[data-ui-theme="light"] {
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
   --bar-border: rgba(255, 255, 255, 0.7);
   --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -319,6 +326,8 @@ html[data-ui-theme="light"] {
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
   --color-switch-thumb: #FFFFFF;
+  --color-switch-off: #7C8799;
+  --color-switch-thumb-on: #FFFFFF;
   --color-rarity-occasional: #0F766E;
   --color-rarity-rare: #6D28D9;
   --color-frame-bezel: #2A2622;
@@ -348,7 +357,7 @@ html[data-ui-theme="dark"] {
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
   --bar-border: rgba(255, 255, 255, 0.16);
   --bar-pill-bg: rgba(255, 255, 255, 0.18);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
   --pop-bg: rgba(28, 34, 45, 0.92);
   --color-canvas: #161A24;
   --color-dominant: #151922;
@@ -364,6 +373,8 @@ html[data-ui-theme="dark"] {
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
   --color-switch-thumb: #E6E9EE;
+  --color-switch-off: #6B7589;
+  --color-switch-thumb-on: #14171F;
   --color-rarity-occasional: #5EEAD4;
   --color-rarity-rare: #C4B5FD;
   --color-frame-bezel: #050608;
@@ -1187,6 +1198,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 .account-sign-out button,
 .sidebar-footer .logout-form button {
   min-height: 44px;
+}
+
+/* With the sidebar showing, its footer is the one Sign out; the Account
+ * page's own card is for the phone, where the sidebar is hidden. */
+@media (min-width: 960px) {
+  section.account-sign-out-group {
+    display: none;
+  }
 }
 
 .theme-form .theme-option--active {
@@ -5420,9 +5439,7 @@ button.detection-search:hover {
 }
 
 .place-sheet .runway-card .runway-card__detail {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .place-sheet .runway-card .banner__pill {
@@ -5731,33 +5748,30 @@ button.detection-search:hover {
   display: none;
 }
 
-/* The airport line: the name, then its codes, on one line that ellipsizes. */
+/* The airport header: the name on its own line, its codes and municipality
+ * under it. Both wrap rather than ellipsize, so nothing is cut off. */
 .map-ready .place-sheet .place-chosen p {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-sm);
+  gap: 0 var(--space-sm);
   margin: 0;
   min-width: 0;
 }
 
 .map-ready .place-sheet .place-chosen__name {
-  flex: 0 1 auto;
+  flex: 1 1 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
 }
 
 .map-ready .place-sheet .place-chosen .section-caption {
-  flex: 1 1 0;
+  flex: 1 1 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* The detection radius is one row: its label, the number and the slider. */
@@ -6298,7 +6312,12 @@ html:not(.map-ready) .place-details__close {
   line-height: 1;
   white-space: nowrap;
   color: var(--color-text);
-  text-shadow: 0 0 3px var(--color-dominant), 0 0 3px var(--color-dominant);
+  /* A solid chip, not a halo: the map tiles stay light in the dark theme, so
+   * the label carries its own surface to keep 4.5:1 on any tile. */
+  padding: 3px var(--space-xs);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-chip);
   pointer-events: none;
 }
 
@@ -7277,8 +7296,8 @@ button.switch:active {
   width: 52px;
   height: 32px;
   border-radius: var(--radius-control);
-  background: var(--color-secondary);
-  border: 1px solid var(--color-border);
+  background: var(--color-switch-off);
+  border: 1px solid var(--color-switch-off);
   transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
@@ -7301,6 +7320,7 @@ button.switch:active {
 
 .switch[aria-checked="true"] .switch__thumb {
   transform: translateX(20px);
+  background: var(--color-switch-thumb-on);
 }
 
 .settings-switch-row {
@@ -8018,9 +8038,8 @@ button.calendar-danger--solid {
     font-family: var(--font-ui);
   }
 
-  /* The pill's horizontal margin is halved to 2px (from the vertical
-   * 8px) because "Compagnies" needs 65px in a 78px cell at 11px size;
-   * the full margin caused it to truncate with an ellipsis (measured). */
+  /* The pill spans its whole cell horizontally (only the vertical margin),
+   * so a long label such as "Compagnies" keeps the full cell width. */
   .tab-bar__pill {
     flex: 1 1 auto;
     min-width: 0;
@@ -8034,11 +8053,11 @@ button.calendar-danger--solid {
     transition: background-color .15s ease, color .15s ease;
   }
 
-  /* 11px, not the 12px/uppercase label voice — a destination is not a
-   * label. Joins the existing sub-scale exception tier beside
-   * .sparkline-axis-label (10px) and .cell-secondary. */
+  /* 12px sentence case, not the uppercase label voice: a destination is not
+   * a label. The French short labels are chosen so neighbours never touch at
+   * 360px. */
   .tab-bar__label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: var(--weight-regular);
     line-height: 1;
     max-width: 100%;
@@ -8081,15 +8100,17 @@ button.calendar-danger--solid {
     background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   }
 
+  /* Not positioned itself: the sheet opens against the whole bar, so it is
+   * as wide as the bar. The chevron is placed against the summary. */
   .tab-bar__more {
     flex: 1 1 0;
     min-width: 0;
     display: flex;
-    position: relative;
   }
 
   .tab-bar__more > .tab-bar__link {
     flex: 1 1 auto;
+    position: relative;
   }
 
   /* Rotation is inverted from the base chevron rule: this sheet opens
@@ -8108,38 +8129,132 @@ button.calendar-danger--solid {
     transform: rotate(45deg);
   }
 
-  /* Radius only on the top corners: the sheet sits flush on the bar and
-   * its right edge meets the viewport edge, so a full --radius-card would
-   * round corners that touch something. */
+  /* The More sheet: a sheet as wide as the bar, floating just above it. Theme
+   * and language are one tap each; below them the remaining destinations, the
+   * Account row and Sign out. It scrolls inside itself on a short screen. */
   .tab-bar__more-panel {
     position: absolute;
-    bottom: 100%;
+    bottom: calc(100% + var(--space-sm));
+    left: 0;
     right: 0;
-    min-width: 180px;
-    /* Sized by its longest row, not by the 78px cell it hangs from, so a
-     * long French label stays on one line; the cap keeps it on screen. */
-    width: max-content;
-    max-width: calc(100vw - var(--space-md));
+    max-height: calc(100dvh - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom) - var(--safe-top) - var(--space-3xl));
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    padding: var(--space-sm);
+    gap: var(--space-md);
+    padding: var(--space-md);
     background: var(--color-secondary);
     border: 1px solid var(--color-border);
-    border-top-left-radius: var(--radius-card);
-    border-top-right-radius: var(--radius-card);
+    border-radius: var(--radius-sheet);
     box-shadow: var(--shadow-card-hover);
   }
 
-  /* The sheet's links read as the group rows used across the app: a hairline
-   * between neighbours, 48px tall, no rounded hover plate. */
+  .tab-bar__more:not([open]) > .tab-bar__more-panel {
+    display: none;
+  }
+
+  .tab-bar__pref {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .tab-bar__pref-label {
+    padding-left: var(--space-sm);
+    font-size: var(--font-caption-size);
+    font-weight: var(--weight-semibold);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .tab-bar__pref .theme-form {
+    background: var(--glass-solid);
+  }
+
+  .tab-bar__pref .theme-form .theme-option {
+    height: 44px;
+    font-size: var(--font-label-size);
+  }
+
+  .tab-bar__more-panel > .mobile-nav__link {
+    border-top: 1px solid var(--glass-hairline);
+  }
+
+  .tab-bar__links {
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--space-sm);
+    margin: 0;
+    border-top: 1px solid var(--glass-hairline);
+  }
+
   .tab-bar__more-panel .mobile-nav__link {
     min-height: 48px;
     padding: 0 var(--space-sm);
     border-radius: 0;
   }
 
-  .tab-bar__more-panel .mobile-nav__link + .mobile-nav__link {
+  .tab-bar__more-panel .mobile-nav__link + .mobile-nav__link,
+  .tab-bar__links > * + * {
     border-top: 1px solid var(--glass-hairline);
+  }
+
+  /* The Account row: the page name over the signed-in e-mail (the link's
+   * data-email), a chevron at the end. */
+  .tab-bar__more-panel .tab-bar__account {
+    position: relative;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    min-height: 56px;
+    padding-right: var(--space-lg);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__account[data-email]::after {
+    content: attr(data-email);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-caption-size);
+    font-weight: var(--weight-regular);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .tab-bar__account::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: var(--space-sm);
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .tab-bar__sign-out {
+    margin: 0;
+  }
+
+  .tab-bar__sign-out button[type="submit"] {
+    width: 100%;
+    display: flex;
+    text-align: left;
+    min-height: 48px;
+    justify-content: flex-start;
+    padding: 0 var(--space-sm);
+    background: none;
+    border: 0;
+    box-shadow: none;
+    color: var(--color-status-error);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__sign-out button[type="submit"]:hover {
+    background: var(--color-control-wash);
+    box-shadow: none;
   }
 
   /* The last card must never sit under the bar. Scoped to the
@@ -9390,6 +9505,8 @@ details.row-menu[open] > .row-menu__toggle {
   background: var(--color-control-wash);
 }
 
+/* Opaque on purpose (it is not part of the glass group): its labels, some in
+ * a status colour, must hold 4.5:1 whatever scrolls behind the menu. */
 .row-menu__panel {
   position: absolute;
   top: 100%;
@@ -10562,7 +10679,8 @@ dialog.access-sheet[open],
   grid-template-areas:
     "user user"
     "role active"
-    "frames seen";
+    "frames seen"
+    "invite invite";
   position: relative;
   align-items: center;
   gap: var(--space-sm) var(--space-md);
@@ -10600,13 +10718,19 @@ dialog.access-sheet[open],
 
 .users-cell--user {
   grid-area: user;
-  padding-right: 44px;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
 
+/* Room for the "..." menu, only on a row that has one. */
+.users-row--menu .users-cell--user {
+  padding-right: 44px;
+}
+
 .users-cell--role { grid-area: role; }
+.users-cell--invite { grid-area: invite; }
+.users-cell--invite:empty { display: none; }
 .users-cell--active { grid-area: active; justify-self: end; }
 .users-cell--menu {
   position: absolute;
@@ -10638,25 +10762,89 @@ dialog.access-sheet[open],
   font-weight: var(--weight-semibold);
 }
 
+/* Email on the first line, cut with an ellipsis rather than broken
+ * mid-word (the full address is the title), the status pill at its end;
+ * the "You" mark under it. */
 .users-who {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-sm);
   min-width: 0;
 }
 
 .users-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
+}
+
+.users-status {
+  display: flex;
 }
 
 .users-pills {
   display: flex;
   flex-wrap: wrap;
+  grid-column: 1 / -1;
   gap: var(--space-xs);
 }
 
 .users-pills:empty {
   display: none;
+}
+
+/* Status pills reuse the battery and charging pill recipes: the status colour
+ * mixed toward the text colour on a tint of itself, so the small label holds
+ * 4.5:1 in both themes. */
+.users-pill--active {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-ok) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-ok) 16%, transparent);
+}
+
+.users-pill--invited {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-warn) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-warn) 18%, var(--color-dominant));
+}
+
+.users-pill--disabled {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-error) 70%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-error) 16%, var(--color-dominant));
+}
+
+/* The copy button: full-width on a phone card, hidden without script. */
+.users-copy {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.js .users-copy {
+  display: flex;
+}
+
+.users-copy .copy-btn__label {
+  display: inline;
+  position: static;
+  transform: none;
+  margin: 0;
+  font-size: inherit;
 }
 
 .users-role-form,
@@ -10744,6 +10932,7 @@ button.row-menu__item--destructive:hover {
 @media (min-width: 70rem) {
   .users-table {
     display: table;
+    table-layout: fixed;
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
@@ -10795,24 +10984,66 @@ button.row-menu__item--destructive:hover {
     border-bottom: 0;
   }
 
-  .users-cell--user {
+  .users-cell--user,
+  .users-row--menu .users-cell--user {
     display: table-cell;
     padding-right: var(--space-md);
   }
 
-  .users-col--user {
-    width: 34%;
-  }
+  .users-col--user { width: 34%; }
+  .users-col--role { width: 20%; }
+  .users-col--frames { width: 12%; }
+  .users-col--seen { width: 12%; }
+  .users-col--active { width: 8%; }
+  .users-col--invite { width: 56px; }
+  .users-col--menu { width: 56px; }
 
   .users-avatar {
     display: inline-grid;
     margin-right: var(--space-sm);
   }
 
+  /* The email takes the whole first line; the status and "You" pills sit
+   * under it. */
   .users-who {
-    display: inline-flex;
+    display: inline-grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
     vertical-align: middle;
     max-width: calc(100% - 48px);
+  }
+
+  .users-email {
+    grid-column: 1 / -1;
+    max-width: 100%;
+  }
+
+  .users-pills {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .users-cell--invite:empty {
+    display: table-cell;
+  }
+
+  /* An icon-only button in the table; its name is the label, read aloud. */
+  .users-copy {
+    width: 44px;
+    padding: 0;
+  }
+
+  .users-copy .copy-btn__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .users-copy.copy-btn--copied {
+    border-color: var(--color-accent);
   }
 
   .users-cell--active .users-active-label {
@@ -11324,7 +11555,6 @@ a.airlines-name-it {
   .calendar-sheet,
   .lightbox,
   dialog.modal,
-  .row-menu__panel,
   .info-tip__bubble,
   .dashboard-sidebar,
   .dirty-bar {

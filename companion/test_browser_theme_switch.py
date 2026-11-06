@@ -143,15 +143,19 @@ def test_account_preferences_are_labelled_rows_with_compact_controls(
 
 @pytest.mark.parametrize("width", (360, 1280))
 def test_navigation_carries_no_language_or_theme_switch(new_context, server, width):
-    """neither the sidebar nor the phone bar and its panel hold a language or theme form, and
-    the Account entry shows the person glyph"""
+    """neither the sidebar nor the page header holds a language or theme form (the phone More
+    sheet is the one navigation surface that does), and the Account entry shows the person glyph"""
     context = new_context(viewport={"width": width, "height": 800})
     page = context.new_page()
     try:
         _login(page, server.base_url())
         page.goto(server.base_url() + "/")
         page.wait_for_function("document.readyState === 'complete'")
-        assert page.locator('form[action="/ui-theme"], form[action="/ui-lang"]').count() == 0
+        outside_sheet = page.evaluate(
+            """() => [...document.querySelectorAll(
+                'form[action="/ui-theme"], form[action="/ui-lang"]')]
+                .filter(f => !f.closest('.tab-bar__more-panel')).length""")
+        assert outside_sheet == 0
         icons = page.evaluate("""() => [...document.querySelectorAll(
             'a[href$="/account"] use')].map(u => u.getAttribute('href'))""")
         assert icons and set(icons) == {"#icon-person"}, icons

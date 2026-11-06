@@ -263,7 +263,10 @@ def test_table_and_cards_fit_and_every_control_is_44px(
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         email = _row(page, LONG_EMAIL).locator(".users-email")
         assert email.evaluate("e => getComputedStyle(e).fontFamily").lower().count("mono") == 0
-        assert email.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
+        # A long address is cut with an ellipsis on one line, never broken mid-word; the whole
+        # address is the element's title.
+        assert email.evaluate("e => getComputedStyle(e).textOverflow") == "ellipsis"
+        assert email.get_attribute("title") == LONG_EMAIL
         assert _row(page, LONG_EMAIL).evaluate("e => e.scrollWidth <= e.clientWidth + 1")
         wide = viewport["width"] >= 1120
         assert page.locator("thead").is_visible() == wide

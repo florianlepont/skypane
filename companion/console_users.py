@@ -124,8 +124,24 @@ def _build_rows(conn, actor_id):
             disabled=bool(row["disabled"]), has_identity=bool(row["has_identity"]),
             last_seen=None if row["last_seen_at"] is None else float(row["last_seen_at"]),
             frame_count=int(row["frame_count"]), is_self=int(row["id"]) == actor_id,
-            is_last_admin=is_active_admin and active_admins <= 1))
+            is_last_admin=is_active_admin and active_admins <= 1,
+            co_managed_count=int(row["co_managed_count"])))
     return tuple(rows)
+
+
+_HOST_RE = re.compile(r"[A-Za-z0-9.-]{1,253}(:[0-9]{1,5})?\Z")
+_LOCAL_HOSTS = ("localhost", "127.0.0.1")
+
+
+def _app_url(h):
+    """The address people open this app at, from the request's Host header:
+    https except for a loopback host. "" when the header is missing or is not
+    a plain host name, so a hostile header never reaches the copied message."""
+    host = (h.headers.get("Host") or "").strip()
+    if _HOST_RE.match(host) is None:
+        return ""
+    scheme = "http" if host.split(":")[0] in _LOCAL_HOSTS else "https"
+    return "%s://%s" % (scheme, host)
 
 
 def _view(h, **invite_state):
@@ -137,7 +153,8 @@ def _view(h, **invite_state):
     finally:
         conn.close()
     return users_page.UsersView(
-        rows=rows, now=datetime.datetime.now(datetime.timezone.utc), **invite_state)
+        rows=rows, now=datetime.datetime.now(datetime.timezone.utc),
+        app_url=_app_url(h), **invite_state)
 
 
 def _render(h, status=200, **invite_state):
@@ -147,7 +164,7 @@ def _render(h, status=200, **invite_state):
         lambda: users_page.render(_view(h, **invite_state)),
         None, status=status,
         action_html=users_page.header_action_html,
-        scripts=(ui_base.LIST_FILTER_SCRIPT_SRC,))
+        scripts=(ui_base.LIST_FILTER_SCRIPT_SRC, ui_base.COPY_BUTTON_SCRIPT_SRC))
 
 
 def handle_users_get(h, m):

@@ -118,7 +118,8 @@ def _normalise(markup, server):
 
 
 def _links(markup):
-    markup = _strip_switch_and_notice(markup)
+    markup = _strip_switch_and_notice(markup).replace(
+        USER_EMAIL, "OWNER").replace(ADMIN_EMAIL, "OWNER")
     return sorted(
         (re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}\b", "DEVICE", href),
          re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}", "DEVICE",

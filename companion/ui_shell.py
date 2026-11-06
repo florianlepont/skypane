@@ -471,7 +471,8 @@ def page_shell(
     sidebar_html = sidebar_nav(
         active, health_alert=health_alert, device_config=device_config)
     tab_bar_html = _tab_bar_html(
-        active, health_alert=health_alert, device_config=device_config)
+        active, health_alert=health_alert, device_config=device_config,
+        ui_theme=resolved_theme)
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
     flash_html = flash or ""
     banner_html = banner or ""
