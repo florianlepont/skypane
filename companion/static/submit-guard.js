@@ -76,6 +76,35 @@
     }, 0);
   });
 
+  // Form validation messages: a control carrying data-msg-missing (empty
+  // required field) and optionally data-msg-invalid (wrong type) shows those
+  // translated sentences instead of the browser's own English ones. The invalid
+  // event does not bubble, so it is caught in the capture phase; the custom message
+  // is cleared as soon as the person edits the control, or the form would stay
+  // invalid.
+  document.addEventListener("invalid", function (evt) {
+    var el = evt.target;
+    if (!el || !el.hasAttribute || !el.hasAttribute("data-msg-missing")) {
+      return;
+    }
+    var message = null;
+    if (el.validity.valueMissing) {
+      message = el.getAttribute("data-msg-missing");
+    } else if (el.validity.typeMismatch || el.validity.patternMismatch) {
+      message = el.getAttribute("data-msg-invalid");
+    }
+    el.setCustomValidity(message || "");
+  }, true);
+
+  function clearCustomMessage(evt) {
+    var el = evt.target;
+    if (el && el.hasAttribute && el.hasAttribute("data-msg-missing")) {
+      el.setCustomValidity("");
+    }
+  }
+  document.addEventListener("input", clearCustomMessage, true);
+  document.addEventListener("change", clearCustomMessage, true);
+
   // A page restored from bfcache comes back with any control this file
   // disabled still disabled. Only controls this file itself disabled
   // are restored, so a button the server

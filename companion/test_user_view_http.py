@@ -17,7 +17,7 @@ from companion.pages import health_page
 from companion.settings import calendar as calendar_settings
 from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir)
-from matrix_rows_landing import FRAME_PAGE_REDIRECTS
+from matrix_rows_landing import FRAME_PAGE_REDIRECTS, LEGACY_PAGE_TARGETS
 from provisioned_fleet import (
     ADMIN_EMAIL, FRAMELESS_EMAIL, GALLERY_FILENAME, NAME_A1, NAME_A2, NAME_B1,
     SEEDED_ADMIN_ONLY, USER_A_EMAIL, USER_B_EMAIL, device_dir, mark_checked_in,
@@ -170,6 +170,16 @@ def test_the_unprefixed_frame_routes_are_admin_only(rig, template):
             status, headers, _body = rig.get(path, who)
             assert status == 303, (path, who)
             assert headers["Location"] == "/devices/%s%s" % (moved[who], path)
+            continue
+        if path in LEGACY_PAGE_TARGETS and who in moved:
+            status, headers, _body = rig.get(path, who)
+            assert status == 303, (path, who)
+            assert headers["Location"] == "/devices/%s%s" % (
+                moved[who], LEGACY_PAGE_TARGETS[path])
+            continue
+        if path in LEGACY_PAGE_TARGETS and who == "frameless":
+            status, headers, _body = rig.get(path, who)
+            assert (status, headers["Location"]) == (303, "/account"), path
             continue
         if path in FRAME_PAGE_REDIRECTS and who == "frameless":
             # No frame to move to: the account page offers to add one.

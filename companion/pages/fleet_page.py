@@ -11,9 +11,9 @@ code, escaped into the input's `value` on the immediate response.
 import datetime
 from typing import NamedTuple
 
-from companion import frame_status, i18n, ui_entity_list, ui_modal
+from companion import device_scope, frame_status, i18n, ui_entity_list, ui_modal
 from companion.pages import co_managers_card
-from companion.ui_base import escape_html
+from companion.ui_base import escape_html, validation_attrs
 
 KIND_LIVE = frame_status.KIND_LIVE
 KIND_PENDING = frame_status.KIND_PENDING
@@ -31,6 +31,8 @@ PAIR_QUERY_FLAG = "pair"
 ADD_DIALOG_ID = "dlg-add-frame"
 
 _FRAMES_TEXT = i18n.msg("admin_fleet.frames", "Frames")
+# Same id and English as the frame button's, so one name reads one way.
+_LIVE_FRAME_NAME = i18n.msg("nav.device_default_name", "Orly frame")
 _UNNAMED_FRAME = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")
 _NEW_FRAME = i18n.msg("admin_fleet.new_frame", "New frame")
 _WAITING_FOR_PAIRING = i18n.msg("admin_fleet.waiting_for_pairing", "Waiting for pairing")
@@ -204,6 +206,8 @@ def _slug(prefix, frame_id):
 def _display_name(row):
     if row.kind == KIND_PENDING:
         return i18n.t(_NEW_FRAME)
+    if row.is_live_frame and row.name == device_scope.LIVE_NAME:
+        return i18n.t(_LIVE_FRAME_NAME)
     return row.name or i18n.t(_UNNAMED_FRAME)
 
 
@@ -349,8 +353,8 @@ def _reassign_dialog(row, view):
     dialog_id = _slug("dlg-reassign", row.frame_id)
     picker = (
         '<div class="modal__field"><label for="%s-owner">%s</label>'
-        '<select id="%s-owner" name="%s" required>%s</select></div>' % (
-            dialog_id, _t(_NEW_OWNER), dialog_id, OWNER_FIELD,
+        '<select id="%s-owner" name="%s" required%s>%s</select></div>' % (
+            dialog_id, _t(_NEW_OWNER), dialog_id, OWNER_FIELD, validation_attrs("select"),
             _owner_options(view._replace(owner_selected=""))))
     return _frame_dialog(
         row, dialog_id, _routes().FRAME_REASSIGN_SUFFIX, i18n.t(_TITLE_REASSIGN),

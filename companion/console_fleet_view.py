@@ -149,7 +149,9 @@ def frame_html(ctx, device, access_views, header_html=""):
                 _item(config_page.render(ctx, scope=config_page.SCOPE_DEVICE, embedded=True)),
                 slug="settings")
             + _block(_ACCESS_HEADING, _access_html(device, access_views), slug="access"))
-    return header_html + '<div class="fleet-blocks">%s</div>' % blocks
+    return (
+        header_html + '<div class="fleet-blocks">%s</div>' % blocks
+        + config_page.docked_dirty_bar_html())
 
 
 def system_html(ctx):

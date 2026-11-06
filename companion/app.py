@@ -31,7 +31,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from companion import (  # noqa: E402
-    access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout,
+    access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
     login_page, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
@@ -411,11 +411,6 @@ parse_single_uploaded_file = post_actions.parse_single_uploaded_file
 # page_context.build_page_context().
 
 
-# The un-prefixed frame pages a user is sent on to their own frame.
-_USER_FRAME_PAGES = frozenset((
-    layout.HOME_ROUTE, "/display", "/flights", "/airlines", "/detection"))
-
-
 def _effective_access(route, route_match):
     """The `Access` and the captured value `access.decide` is fed for a
     matched route. A device-scoped route under a /devices/<id> prefix is
@@ -747,9 +742,14 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         health_alert = self._health_alert_for_admin()
         back, home_route = self._back_target()
+        principal = self._safe_principal()
+        # The same sentence for every refusal a signed-in non-admin can get
+        # (an unknown path, another person's frame, an administrator page),
+        # so the page never tells which of them it was.
         return login_page.not_found_page(
             self._resolved_ui_theme(), health_alert, back=back,
-            home_route=home_route)
+            home_route=home_route,
+            admin_hint=principal is not None and principal.role == access.USER)
 
     def _handle_credits_get(self):
         """GET CREDITS_ROUTE: the public credits page. Only the request
@@ -1114,7 +1114,9 @@ class Handler(
         if method != "GET" or not route.device_scoped \
                 or route_match.device_id is not None:
             return None
-        if principal is None or route_match.path not in _USER_FRAME_PAGES:
+        page = legacy_pages.frame_page_target(
+            route_match.path, principal is not None and principal.role == access.ADMIN)
+        if principal is None or page is None:
             return None
         if principal.role == access.ADMIN and "device" in dict(
                 parse_qsl(route_match.query or "", keep_blank_values=True)):
@@ -1130,7 +1132,7 @@ class Handler(
             except _STORE_ERRORS:
                 return None
             return sign_in.ACCOUNT_ROUTE if fleet else None
-        target = "/devices/%s%s" % (frame.id, route_match.path)
+        target = "/devices/%s%s" % (frame.id, page)
         pairs = parse_qsl(route_match.query or "", keep_blank_values=True)
         return target + ("?" + urlencode(pairs) if pairs else "")
 

@@ -13,7 +13,7 @@ carry the host page path as `return_to` so the dialog reopens after a change.
 from typing import NamedTuple
 
 from companion import i18n
-from companion.ui_base import escape_html
+from companion.ui_base import escape_html, validation_attrs
 
 ADD_ROUTE = "/co-managers/add"
 REMOVE_ROUTE = "/co-managers/remove"
@@ -190,10 +190,11 @@ def _typed_field_html(device_id, prefix="co-manager"):
         '<p><label for="%s">%s</label>'
         '<input type="email" id="%s" name="%s" autocomplete="off" '
         'autocapitalize="none" spellcheck="false" required maxlength="%d" '
-        'aria-describedby="%s"></p>'
+        'aria-describedby="%s"%s></p>'
         '<p class="text-label section-caption" id="%s">%s</p>' % (
             input_id, _t(_LABEL_EMAIL), input_id, FIELD_EMAIL,
-            _MAX_EMAIL_CHARS, help_id, help_id, _t(_HELPER_EMAIL)))
+            _MAX_EMAIL_CHARS, help_id, validation_attrs("email"), help_id,
+            _t(_HELPER_EMAIL)))
 
 
 def _select_field_html(device_id, candidates, prefix="co-manager"):
@@ -203,8 +204,9 @@ def _select_field_html(device_id, candidates, prefix="co-manager"):
         for email in candidates)
     return (
         '<p><label for="%s">%s</label>'
-        '<select id="%s" name="%s" required>%s</select></p>' % (
-            person_id, _t(_LABEL_PERSON), person_id, FIELD_EMAIL, options))
+        '<select id="%s" name="%s" required%s>%s</select></p>' % (
+            person_id, _t(_LABEL_PERSON), person_id, FIELD_EMAIL,
+            validation_attrs("select"), options))
 
 
 def _inline_remove_html(device_id, user_id, email, return_to):

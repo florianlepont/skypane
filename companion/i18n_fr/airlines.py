@@ -120,6 +120,8 @@ MESSAGES = {
     # --- The Airline collection page ----------------------------------
     "airlines.collection_progress": "%d compagnies sur %d repérées",
     "airlines.collection_status": "%d compagnies repérées",
+    "airlines.collection_progress_one": "%d compagnie sur %d repérée",
+    "airlines.collection_status_one": "%d compagnie repérée",
     "airlines.collection_next_goal": "encore %d pour le badge %d",
     "airlines.collection_next_goal_first":
         "Repérez une compagnie pour obtenir le badge Première observation",

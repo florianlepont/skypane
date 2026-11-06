@@ -218,10 +218,11 @@ def test_markup_in_a_device_name_is_escaped(fleet_app):
     assert "<script>alert" not in page
 
 
-def test_document_title_names_a_non_live_device_only(fleet_app):
+def test_document_title_names_the_frame_on_every_device_page(fleet_app):
     fleet = fleet_app.fleet
     _, _, live_page = _live_get(fleet_app, "/flights")
-    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == "Flight history - SkyPane"
+    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == (
+        "Flight history - Orly frame - SkyPane")
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
     title = re.search(r"<title>(.*?)</title>", page).group(1)
     assert title == "Flight history - sim-1 - SkyPane"

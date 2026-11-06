@@ -51,6 +51,9 @@ UNAVAILABLE_PURPOSE_TEXT = i18n.msg(
 # The inline i18n.t() literals login_body()/not_found_page()/
 # forbidden_page() below used to carry, hoisted to module-level
 # Messages.
+ADMIN_HINT_PURPOSE_TEXT = i18n.msg(
+    "common.this_page_is_missing_or_reserved_for_administrators",
+    "This page doesn't exist, or it is reserved for administrators.")
 _BACK_TO_HOME_TEXT = i18n.msg("common.back_to_home", "Back to Home")
 _BACK_TO_ACCOUNT_TEXT = i18n.msg("account.back_to_account", "Back to Account")
 _SIGN_IN_TEXT = i18n.msg("common.sign_in", "Sign in")
@@ -330,19 +333,23 @@ def _back_link_html(back, home_route=None):
         route, label = LOGIN_ROUTE, _BACK_TO_SIGN_IN_TEXT
     else:
         route, label = home_route or layout.HOME_ROUTE, _BACK_TO_HOME_TEXT
-    from companion import ui_groups
-    return ui_groups.group(
-        ui_groups.row(i18n.t(label), href=route), extra_class="error-actions")
+    return '<p class="error-actions"><a class="error-home-button" href="%s">%s</a></p>' % (
+        layout.escape_html(route), layout.escape_html(i18n.t(label)))
 
 
-def not_found_page(ui_theme, health_alert, back=BACK_HOME, home_route=None):
+def not_found_page(ui_theme, health_alert, back=BACK_HOME, home_route=None,
+                   admin_hint=False):
     """The shared 404 body, reached pre-auth from static-asset
     delegates too. `health_alert` (`None` for an unauthenticated
     caller) is the caller's own already-computed nav-dot severity,
     never markup — an error page never renders Health's own banner.
+    `admin_hint` is true for a signed-in non-administrator: the sentence then
+    also names the administrator-only case, and is the same for every refusal
+    so it never reveals which one it was.
     """
+    purpose = ADMIN_HINT_PURPOSE_TEXT if admin_hint else NOT_FOUND_PURPOSE_TEXT
     body = (
-        layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(NOT_FOUND_PURPOSE_TEXT))
+        layout.page_header(i18n.t(NOT_FOUND_TITLE), purpose=i18n.t(purpose))
         + _back_link_html(back, home_route)
     )
     return layout.page_shell(

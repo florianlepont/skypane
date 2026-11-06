@@ -526,7 +526,9 @@ def _admin_moves_to_account(key, name):
 
 def _moves_to_own_frame(key, name):
     return (
-        key[0] == "GET" and key[1] in matrix_rows_landing.FRAME_PAGE_REDIRECTS
+        key[0] == "GET"
+        and (key[1] in matrix_rows_landing.FRAME_PAGE_REDIRECTS
+             or key[1] in matrix_rows_landing.LEGACY_PAGE_TARGETS)
         and name in ("owner", "other", "co-manager"))
 
 
@@ -534,10 +536,11 @@ def _own_frame_page(rig, name, path):
     frame = {
         "owner": rig.fleet.owner_device, "co-manager": rig.fleet.owner_device,
         "other": rig.fleet.other_device}[name]
-    return "/devices/%s%s" % (frame, path)
+    return "/devices/%s%s" % (frame, matrix_rows_landing.LEGACY_PAGE_TARGETS.get(path, path))
 
 
-@pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS)
+@pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS
+                         + tuple(matrix_rows_landing.LEGACY_PAGE_TARGETS))
 def test_a_user_without_a_frame_is_sent_to_the_account_page(rig, stubbed, path):
     _uid, cookie = _user_with_session(rig, "frameless-%s@example.test" % (path.strip("/") or "home"))
     status, headers, _body = rig.request("GET", path, cookie)
@@ -545,7 +548,7 @@ def test_a_user_without_a_frame_is_sent_to_the_account_page(rig, stubbed, path):
     assert stubbed.calls == []
 
 
-@pytest.mark.parametrize("path", ("/device", "/settings", "/history", "/preview"))
+@pytest.mark.parametrize("path", ("/device",))
 def test_other_unprefixed_pages_are_not_redirected_for_a_user(rig, stubbed, path):
     cookie = rig.cookies["owner"]
     status, _h, body = rig.request("GET", path, cookie)

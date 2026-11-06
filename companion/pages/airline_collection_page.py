@@ -18,6 +18,7 @@ from companion import device_scope
 from companion import i18n
 from companion import ui_modal
 import companion.layout as layout
+from companion import prefs
 from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_HEIGHT,
     ILLUSTRATION_TARGET_WIDTH,
@@ -33,6 +34,15 @@ PAGE_TITLE = i18n.msg("nav.airline_collection", "Airline collection")
 
 PROGRESS_TEXT = i18n.msg("airlines.collection_progress", "%d of %d airlines spotted")
 STATUS_TEXT = i18n.msg("airlines.collection_status", "%d airlines spotted")
+PROGRESS_ONE_TEXT = i18n.msg("airlines.collection_progress_one", "%d of %d airline spotted")
+STATUS_ONE_TEXT = i18n.msg("airlines.collection_status_one", "%d airline spotted")
+
+
+def _count_text(count, many, one):
+    """`many` or `one` for `count`: one for 1 in every language, and for 0
+    in French, where zero takes the singular."""
+    singular = count == 1 or (count == 0 and prefs.current_lang() == "fr")
+    return i18n.t(one if singular else many)
 GOAL_TEXT = i18n.msg("airlines.collection_next_goal", "%d more for the %d badge")
 GOAL_FIRST_TEXT = i18n.msg(
     "airlines.collection_next_goal_first", "Spot one airline to earn the First sighting badge")
@@ -321,7 +331,7 @@ def _goal_text(summary, all_curated_seen):
 def _status_text(summary, all_curated_seen):
     """The one progress line: the spotted count, then the next goal."""
     return "%s \u00b7 %s" % (
-        i18n.t(STATUS_TEXT) % summary.spotted, _goal_text(summary, all_curated_seen))
+        _count_text(summary.spotted, STATUS_TEXT, STATUS_ONE_TEXT) % summary.spotted, _goal_text(summary, all_curated_seen))
 
 
 def _badge_html(threshold, earned):
@@ -343,7 +353,8 @@ def _badge_html(threshold, earned):
 def _status_html(summary, all_curated_seen):
     """The header's right-hand part: a thin progress bar with one short
     line under it, and the badge icons."""
-    headline = i18n.t(PROGRESS_TEXT) % (summary.spotted, summary.total)
+    headline = _count_text(summary.spotted, PROGRESS_TEXT, PROGRESS_ONE_TEXT) % (
+        summary.spotted, summary.total)
     badges = "".join(
         _badge_html(n, n in summary.earned) for n in collection.BADGE_THRESHOLDS)
     return (

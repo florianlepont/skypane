@@ -13,7 +13,7 @@ administrator.
 import datetime
 from typing import NamedTuple
 
-from companion import i18n, ui_entity_list, ui_modal, ui_time
+from companion import i18n, ui_base, ui_entity_list, ui_modal, ui_time
 from companion.ui_base import escape_html, icon_html
 
 EMAIL_FIELD = "email"
@@ -288,11 +288,11 @@ def _invite_dialog(view):
         '<p class="text-body">%s</p>'
         '<div class="modal__field"><label for="invite-email">%s</label>'
         '<input type="email" id="invite-email" name="%s" required maxlength="254" '
-        'autocomplete="off" spellcheck="false" value="%s"%s>%s</div>'
+        'autocomplete="off" spellcheck="false" value="%s"%s%s>%s</div>'
         '<div class="modal__field"><label for="invite-role">%s</label>'
         '<select id="invite-role" name="%s"%s>%s</select>%s</div>' % (
             _t(_INVITE_PURPOSE), _t(_COL_EMAIL), EMAIL_FIELD, _esc(view.email_value),
-            email_attrs, email_error, _t(_COL_ROLE), ROLE_FIELD, role_attrs,
+            email_attrs, ui_base.validation_attrs("email"), email_error, _t(_COL_ROLE), ROLE_FIELD, role_attrs,
             _role_options(view.role_selected), role_error))
     return ui_modal.dialog_html(
         INVITE_DIALOG_ID, i18n.t(_INVITE_TITLE), _routes().USERS_INVITE_ROUTE,

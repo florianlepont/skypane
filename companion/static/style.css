@@ -2305,6 +2305,60 @@ button:not(.value-control__handle):active {
   display: none;
 }
 
+/* The bar of the Fleet settings: sticks to the bottom of the viewport inside
+ * the page's own column (so it is as wide as the content on a desktop and
+ * above the floating tab bar on a phone) and never overlays the cards: it
+ * sits in the flow after them. Specificity beats the fixed rules of the
+ * stand-alone bar at every width. */
+.dirty-bar.dirty-bar--docked {
+  position: sticky;
+  left: auto;
+  right: auto;
+  width: auto;
+  max-width: none;
+  margin: var(--space-lg) 0 0;
+  bottom: var(--space-lg);
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  column-gap: var(--space-sm);
+  row-gap: var(--space-sm);
+}
+
+.dirty-bar.dirty-bar--docked[hidden] {
+  display: none;
+}
+
+.dirty-bar--docked [data-dirty-count] {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.dirty-bar--docked button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.dirty-bar--docked .dirty-bar__cancel {
+  order: 2;
+}
+
+.dirty-bar--docked .dirty-bar__save {
+  order: 3;
+}
+
+@media (max-width: 959.98px) {
+  .dirty-bar.dirty-bar--docked {
+    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dirty-bar--docked [data-dirty-count] {
+    grid-column: 1 / -1;
+  }
+}
+
 .dirty-bar__cancel {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
@@ -11070,10 +11124,12 @@ a.airlines-name-it {
     border-bottom: 1px solid var(--glass-hairline);
   }
 
+  /* Counts and dates stay on one line. */
   .airlines-cell--views,
   .airlines-cell--seen,
   .airlines-cell--menu {
     justify-self: auto;
+    white-space: nowrap;
   }
 
   .airlines-col {
@@ -11088,11 +11144,16 @@ a.airlines-name-it {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 28%; }
-  .airlines-col--prefixes { width: 14%; }
-  .airlines-col--art { width: 22%; }
-  .airlines-col--views { width: 10%; }
-  .airlines-col--menu { width: 112px; }
+  .airlines-col--name { width: 37%; }
+  .airlines-col--prefixes { width: 11%; }
+  .airlines-col--art { width: 14%; }
+  .airlines-col--views { width: 8%; }
+  .airlines-col--menu { width: 96px; }
+
+  /* The airline name input ends in an ellipsis rather than a hard clip. */
+  .airlines-name input[type="text"] {
+    text-overflow: ellipsis;
+  }
 
   a.airlines-name-it {
     padding: 0 var(--space-sm);
@@ -12132,4 +12193,63 @@ dialog.modal:focus-visible {
 
 .update-group .update-row__body {
   padding: 0 var(--space-md) var(--space-md);
+}
+
+/* The wake interval is typed as a number or dragged on the slider: the
+ * browser's own tiny spinner would be a third control for one value. */
+#wake-interval-s {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+#wake-interval-s::-webkit-outer-spin-button,
+#wake-interval-s::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* The one onward link of the error pages: a real primary button. */
+.error-actions {
+  margin: var(--space-lg) 0 0;
+}
+
+.error-home-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 44px;
+  padding: 0 var(--space-xl);
+  box-sizing: border-box;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  box-shadow: var(--shadow-control);
+}
+
+.error-home-button:hover {
+  background: var(--color-accent-hover);
+}
+
+@media (max-width: 599.98px) {
+  .error-home-button {
+    display: flex;
+    width: 100%;
+  }
+}
+
+/* A System topic's own row already carries the topic's title, so its section
+ * label only names the group for assistive technology. */
+.system-topic > .section-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }

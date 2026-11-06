@@ -14,5 +14,11 @@ SAMPLES = {}
 
 FRAME_PAGE_REDIRECTS = (
     "/", "/display", "/flights", "/airlines", "/detection")
+# Old bookmarks a non-administrator is moved from to the page that replaced
+# them (an administrator's request is answered by the route itself).
+LEGACY_PAGE_TARGETS = {
+    "/settings": "/display", "/history": "/flights", "/preview": "/flights",
+    "/display/screen": "/display",
+}
 ADMIN_FRAMELESS_TARGET = "/account"
 SIGNED_IN_LOGIN_ROLES = ("admin", "owner", "other", "co-manager")

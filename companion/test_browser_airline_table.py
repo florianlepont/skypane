@@ -357,3 +357,33 @@ def test_the_resolve_dialog_still_focuses_its_name_field(new_context, server):
             timeout=10000)
     finally:
         context.close()
+
+
+_CLIPPED_NAMES = (
+    "() => [...document.querySelectorAll('tbody.airline-group:not([hidden]) .airlines-row"
+    " .airlines-name input[name=\"airline_name\"]')]"
+    ".filter(i => i.scrollWidth > i.clientWidth + 1).map(i => i.value)")
+_WRAPPED_CELLS = (
+    "() => [...document.querySelectorAll('.airlines-row .airlines-cell--views,"
+    " .airlines-row .airlines-cell--seen')].filter(td => {"
+    " const tops = new Set();"
+    " const walker = document.createTreeWalker(td, NodeFilter.SHOW_TEXT);"
+    " for (let n = walker.nextNode(); n; n = walker.nextNode()) {"
+    "  if (!n.textContent.trim() || n.parentElement.closest('.visually-hidden')) continue;"
+    "  const range = document.createRange(); range.selectNodeContents(n);"
+    "  for (const r of range.getClientRects()) if (r.width > 0) tops.add(Math.round(r.top)); }"
+    " return tops.size > 1; }).map(td => td.innerText)")
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_on_a_desktop_no_airline_name_is_clipped_and_counts_stay_on_one_line(
+        new_context, server, lang):
+    context, page = _open(new_context, server, VIEWPORT_DESKTOP, lang)
+    try:
+        page.wait_for_function(_SETTLED, timeout=15000)
+        assert page.locator(VISIBLE_GROUPS).count() >= 30
+        assert page.evaluate(_CLIPPED_NAMES) == []
+        wrapped = page.evaluate(_WRAPPED_CELLS)
+        assert wrapped == [], wrapped
+    finally:
+        context.close()

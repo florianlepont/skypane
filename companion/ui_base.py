@@ -1060,6 +1060,29 @@ def icon_html(icon_id, size=20, extra_class=""):
     ) % (css_class, size, size, icon_id)
 
 
+_MSG_FILL_IN = i18n.msg("validation.fill_in", "Please fill in this field.")
+_MSG_CHOOSE = i18n.msg("validation.choose", "Please choose an option.")
+_MSG_EMAIL_MISSING = i18n.msg("validation.email_missing", "Please enter an email address.")
+_MSG_EMAIL_INVALID = i18n.msg(
+    "validation.email_invalid", "Please enter a valid email address, such as name@example.com.")
+_VALIDATION_KINDS = {
+    "text": (_MSG_FILL_IN, None),
+    "select": (_MSG_CHOOSE, None),
+    "email": (_MSG_EMAIL_MISSING, _MSG_EMAIL_INVALID),
+}
+
+
+def validation_attrs(kind):
+    """Attributes (with a leading space) carrying the translated form
+    validation messages submit-guard.js shows in place of the browser's own
+    English ones. `kind` is "text", "select" or "email"."""
+    missing, invalid = _VALIDATION_KINDS[kind]
+    attrs = ' data-msg-missing="%s"' % escape_html(i18n.t(missing))
+    if invalid is not None:
+        attrs += ' data-msg-invalid="%s"' % escape_html(i18n.t(invalid))
+    return attrs
+
+
 def escape_html(value):
     """Coerce `value` to its escaped string form for safe HTML interpolation.
 

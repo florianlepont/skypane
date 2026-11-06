@@ -420,12 +420,13 @@ def frame_notice_html(active, console_page=False):
 
 
 def _device_scoped_title(title, active):
-    """The page title with the selected device's name appended for a non-live
-    device on a device-scoped page; every other title is returned unchanged."""
+    """The page title with the selected frame's name appended on a
+    device-scoped page, whatever the role or frame; every other title is
+    returned unchanged."""
     current = device_scope.current_device()
-    if current is None or current.is_live or _device_page_path(active) is None:
+    if current is None or _device_page_path(active) is None:
         return title
-    return "%s - %s" % (title, current.name)
+    return "%s - %s" % (title, device_display_name(current))
 
 
 def page_shell(
