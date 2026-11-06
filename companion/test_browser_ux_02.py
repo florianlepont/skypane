@@ -189,11 +189,11 @@ def test_images_hold_their_place_before_they_arrive(new_context, server):
     # on a fast machine and proves nothing.
     surfaces = (
         ("/", ".preview-frame", ".preview-frame__image", "**/gallery/**", 100, ()),
-        # 140: at 360px the departures picture sits beside its read-back and is about 110px
-        # wide, so its 3:4 box is ~147px tall - measured, not assumed.
+        # 90: at 360px the departures picture sits beside its read-back and is about 84px
+        # wide, so its 3:4 box is ~99px tall - measured, not assumed.
         ("/display", '[data-look-usage="departures"] .look-frame__picture',
          '[data-look-usage="departures"] .look-frame__image',
-         "**/frame-preview/**", 140, ()),
+         "**/frame-preview/**", 90, ()),
     )
     for width in (VIEWPORT_MIN_SUPPORTED["width"], VIEWPORT_DESKTOP["width"]):
         for route_path, box_sel, img_sel, url_glob, floor, openers in surfaces:

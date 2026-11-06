@@ -18,7 +18,7 @@ pytestmark = pytest.mark.browser
 
 LIGHTBOX = "#panel-lookup-dialog"
 CARD = "li.history-card"
-FIRST_ACTION = "li.history-card .history-card__picture"
+FIRST_ACTION = "li.history-card .history-card__thumb"
 
 
 @pytest.fixture(scope="module")
@@ -45,11 +45,18 @@ _CARD_PROBE = (
     "    const r = el.getBoundingClientRect();"
     "    return r.width === 0 || (r.left >= c.left - 0.5 && r.right <= c.right + 0.5);"
     "  });"
-    "  const chip = li.querySelector('.row__chip').getBoundingClientRect();"
+    "  const chip = li.querySelector('.history-card__thumb, .row__chip').getBoundingClientRect();"
+    "  const label = li.querySelector('.row__label');"
+    "  const detail = li.querySelector('.row__detail');"
     "  const value = li.querySelector('.row__value').getBoundingClientRect();"
     "  const text = li.querySelector('.row__text').getBoundingClientRect();"
     "  return {callsign: li.querySelector('.history-card__callsign').textContent,"
     "          inside, height: c.height,"
+    "          readable: label.scrollWidth <= label.clientWidth + 1"
+    "                    && detail.clientHeight <= 2 * parseFloat(getComputedStyle(detail).lineHeight) + 1"
+    "                    && (detail.textContent.length > 40"
+    "                        || detail.scrollHeight <= detail.clientHeight + 1),"
+    "          controls: li.querySelectorAll('a, button').length,"
     "          oneRow: chip.top < value.bottom && value.top < chip.bottom"
     "                  && text.right <= value.left + 0.5};"
     "})")
@@ -60,7 +67,9 @@ _CARD_PROBE = (
 def test_cards_fit_the_phone_in_both_themes(new_context, server, viewport, lang):
     """At 390 and 360 px, in English and French, light and dark: the page never scrolls
     sideways, every row keeps its content inside its own box, is at least 54px tall, and shows
-    the chip, the text and the value on one row without the text running under the value."""
+    the lead, the text and the value on one row without the text running under the value, with
+    the label unclipped, the detail at most two lines (unclipped unless it is a very long
+    name) and at most one control per row."""
     context, page = _open_flights(new_context, server, viewport, lang)
     try:
         for theme in _in_both_themes(page):
@@ -69,7 +78,8 @@ def test_cards_fit_the_phone_in_both_themes(new_context, server, viewport, lang)
             if failure:
                 raise AssertionError(failure)
             for card in page.evaluate(_CARD_PROBE):
-                if not (card["inside"] and card["oneRow"] and card["height"] >= 54):
+                if not (card["inside"] and card["oneRow"] and card["height"] >= 54
+                        and card["readable"] and card["controls"] <= 1):
                     raise AssertionError("%s: card %r is broken: %r" % (where, card["callsign"], card))
     finally:
         context.close()
@@ -221,10 +231,11 @@ _GROUP_PROBE = (
     "  nested: g.querySelectorAll('.group .group').length,"
     "  rows: g.querySelectorAll('li.history-card').length})),"
     " tracks: [...document.querySelectorAll('.filter-chip')].map(l => {"
-    "   const box = l.querySelector('.filter-chip__box').getBoundingClientRect();"
-    "   const kids = [...l.querySelectorAll('.filter-chip__count, .filter-chip__text')]"
-    "     .map(e => { const r = e.getBoundingClientRect(); return (r.left + r.right) / 2; });"
-    "   return {mid: (box.left + box.right) / 2, kids}; })})")
+    "   const box = l.querySelector('.filter-chip__box');"
+    "   const b = box.getBoundingClientRect(); const range = document.createRange();"
+    "   range.selectNodeContents(box); const t = range.getBoundingClientRect();"
+    "   return {dx: (t.left + t.right - b.left - b.right) / 2,"
+    "           dy: (t.top + t.bottom - b.top - b.bottom) / 2}; })})")
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
@@ -244,7 +255,7 @@ def test_each_day_is_one_glass_group_and_the_segments_are_centred(
             if any(g["glass"] in ("rgba(0, 0, 0, 0)", "transparent") for g in state["groups"]):
                 raise AssertionError("expected a glass fill on every group (%s)" % where)
             for track in state["tracks"]:
-                if any(abs(mid - track["mid"]) > 1.5 for mid in track["kids"]):
+                if abs(track["dx"]) > 1 or abs(track["dy"]) > 1:
                     raise AssertionError("expected centred segment content (%s): %r" % (where, track))
         page.evaluate("() => document.activeElement && document.activeElement.blur()")
         page.keyboard.press("Tab")

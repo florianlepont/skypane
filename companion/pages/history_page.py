@@ -354,15 +354,19 @@ def _view_panel_link_html(name, iso, row_name):
     )
 
 
-def _view_panel_icon_link_html(name, iso, row_name):
-    """The phone card's picture action: the same real link and trigger
-    attributes as `_view_panel_link_html()`, drawn as a 44px icon
-    button. The glyph is aria-hidden, so the `aria-label` alone names it.
+def _view_panel_thumb_html(name, iso, row_name):
+    """The phone row's lead control: the same real link and trigger attributes as
+    `_view_panel_link_html()`, drawn as the archived render's 40px thumbnail with the
+    direction glyph on its corner. The image and the glyph carry no text of their own, so the
+    `aria-label` alone names the control.
     """
-    return '<a class="history-card__picture" %s>%s</a>' % (
-        _view_panel_attrs(name, iso, row_name),
-        layout.icon_html("icon-picture", 20),
-    )
+    src = escape_html(device_scope.scoped(_GALLERY_ROUTE_PREFIX + name))
+    return (
+        '<a class="history-card__thumb" %s>'
+        '<img class="history-card__thumb-image" src="%s" alt="" width="40" height="40" '
+        'loading="lazy" decoding="async">'
+        '<span class="history-card__direction" aria-hidden="true">%s</span></a>'
+    ) % (_view_panel_attrs(name, iso, row_name), src, layout.icon_html("icon-plane", 12))
 
 
 # Owned by companion/i18n_fr/airlines.py, not flights.py — the same id
@@ -768,9 +772,10 @@ def _row_value_html(row, now):
 
 
 def _history_card_html(row, index, now):
-    """One flight as a row: a plane chip turned by the direction, the
-    callsign and route, "airline \u00b7 aircraft" beneath, the age and the
-    direction at the right, and the picture action beside it.
+    """One flight as a row: at the left the archived render's thumbnail (the
+    control that opens it) or, with no render, a plane chip turned by the direction;
+    the callsign and route, "airline \u00b7 aircraft" beneath, and the age over the clock at
+    the right.
     `data-filter-group` is the row's loop index, shared with the desktop
     `<tr>` at the same index so list-filter.js counts one flight once."""
     attrs = (
@@ -780,7 +785,7 @@ def _history_card_html(row, index, now):
     return ui_groups.row(
         label_html=_row_label_html(row), icon="icon-plane",
         detail=_row_detail_text(row), value_html=_row_value_html(row, now),
-        trailing_html=row.get("view_panel_icon_html", ""),
+        lead_html=row.get("view_panel_thumb_html", ""),
         extra_class="history-card", attrs=attrs)
 
 
@@ -849,8 +854,8 @@ def render(ctx):
             row_name = _row_name(row["callsign"], row["hex"])
             row["view_panel_html"] = (
                 _view_panel_link_html(match[0], match[1], row_name) if match else "")
-            row["view_panel_icon_html"] = (
-                _view_panel_icon_link_html(match[0], match[1], row_name) if match else "")
+            row["view_panel_thumb_html"] = (
+                _view_panel_thumb_html(match[0], match[1], row_name) if match else "")
         # The shared lightbox is emitted once per page, only when at
         # least one row carries a trigger button.
         has_view_panel_button = any(

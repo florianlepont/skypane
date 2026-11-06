@@ -161,43 +161,15 @@ def _pill(message):
     return '<span class="banner__pill">%s</span>' % _t(message)
 
 
-def _who_html(email, pills):
-    return (
-        '<div class="co-manager__who"><span class="co-manager__email text-body">%s</span>%s</div>'
-        % (_esc(email), "".join(_pill(p) for p in pills)))
-
-
-def _row_html(who_html, action_html=""):
-    return '<li class="data-card"><div class="co-manager__row">%s%s</div></li>' % (
-        who_html, action_html)
-
-
 def _remove_form_html(device_id, user_id, email, return_to):
     return (
         '<form method="post" action="%s" class="co-manager__remove">%s%s'
         '<input type="hidden" name="%s" value="%d">'
-        '<button type="submit" class="calendar-disconnect-btn" aria-label="%s">%s</button>'
+        '<button type="submit" class="co-manager__remove-btn" aria-label="%s">%s</button>'
         "</form>" % (
             _esc(_frame_route(device_id, REMOVE_ROUTE)), _csrf_field(),
             _return_field(return_to), FIELD_USER_ID, int(user_id),
             _esc(i18n.t(_REMOVE_ARIA) % email), _t(_REMOVE_BUTTON)))
-
-
-def _member_row(view, device_id, member, return_to):
-    user_id, email, disabled = member
-    pills = []
-    if view.viewer_user_id is not None and user_id == view.viewer_user_id:
-        pills.append(_PILL_YOU)
-    if disabled:
-        pills.append(_PILL_DISABLED)
-    return _row_html(
-        _who_html(email, pills), _remove_form_html(device_id, user_id, email, return_to))
-
-
-def _list_html(view, device_id, return_to):
-    rows = [_row_html(_who_html(view.owner_email, (_PILL_OWNER,)))]
-    rows.extend(_member_row(view, device_id, member, return_to) for member in view.members)
-    return '<ul class="data-cards data-cards--standalone">%s</ul>' % "".join(rows)
 
 
 def _empty_html(view):
@@ -205,14 +177,6 @@ def _empty_html(view):
     body = _EMPTY_BODY_ADMIN if view.is_admin_viewer else _EMPTY_BODY_OWNER
     return layout.empty_state(
         i18n.t(_EMPTY_HEADING), i18n.t(body), compact=True)
-
-
-def _add_form(device_id, return_to, field_html, submit_html):
-    return (
-        '<form method="post" action="%s" class="fleet-form" autocomplete="off">%s%s%s'
-        '<div class="update-actions">%s</div></form>' % (
-            _esc(_frame_route(device_id, ADD_ROUTE)), _csrf_field(),
-            _return_field(return_to), field_html, submit_html))
 
 
 def _field_ids(device_id, prefix="co-manager"):
@@ -243,36 +207,6 @@ def _select_field_html(device_id, candidates, prefix="co-manager"):
             person_id, _t(_LABEL_PERSON), person_id, FIELD_EMAIL, options))
 
 
-def _add_html(view, device_id, return_to, prefix="co-manager"):
-    """The Add control: a typed address for an owner, a choice of the eligible
-    invited people for an administrator (never decided by the list being
-    empty)."""
-    if view.is_admin_viewer and not view.candidates:
-        return '<p class="text-label section-caption">%s</p>' % _t(_NO_CANDIDATES)
-    field = (
-        _select_field_html(device_id, view.candidates, prefix) if view.is_admin_viewer
-        else _typed_field_html(device_id, prefix))
-    submit = '<button type="submit">%s</button>' % _t(_ADD_BUTTON)
-    return _add_form(device_id, return_to, field, submit)
-
-
-def access_section_html(view, device_id, return_to, id_prefix="co-manager"):
-    """The access content of one frame: the owner, the co-managers with a
-    Remove form each, and the Add form. Shown inside the Manage access
-    dialog and inline in the Console Fleet frame view."""
-    parts = [
-        '<section class="page-section">'
-        '<h3 class="text-heading">%s</h3>'
-        '<p class="text-label section-caption">%s</p>' % (
-            _t(_HEADING), _t(_PURPOSE_MANAGE)),
-        _list_html(view, device_id, return_to)]
-    if not view.members:
-        parts.append(_empty_html(view))
-    parts.append(_add_html(view, device_id, return_to, id_prefix))
-    parts.append("</section>")
-    return "".join(parts)
-
-
 def _inline_remove_html(device_id, user_id, email, return_to):
     return _remove_form_html(device_id, user_id, email, return_to).replace(
         'class="co-manager__remove"', 'class="co-manager__remove row__trailing"', 1)
@@ -300,16 +234,18 @@ def _inline_add_row(view, device_id, return_to, prefix):
             _return_field(return_to), field, submit))
 
 
-def access_rows_html(view, device_id, return_to, id_prefix="co-manager"):
+def access_rows_html(view, device_id, return_to, id_prefix="co-manager", purpose=True):
     """The access content of one frame as the rows of a glass group: a purpose
-    row, the owner, each co-manager with its Remove action as a trailing
-    control, and the Add control as a last row with a primary button."""
+    row (when `purpose`), the owner, each co-manager with its Remove action as
+    a trailing control, and the Add control as a last row with a primary
+    button."""
     from companion import ui_groups
     rows = [ui_groups.row(
-        i18n.t(_HEADING), detail=i18n.t(_PURPOSE_MANAGE), extra_class="row--purpose"),
-        ui_groups.row(
-            label_html='<span class="co-manager__email">%s</span>' % _esc(view.owner_email),
-            value_html=_pills_html((_PILL_OWNER,)))]
+        i18n.t(_HEADING), detail=i18n.t(_PURPOSE_MANAGE), extra_class="row--purpose")
+    ] if purpose else []
+    rows.append(ui_groups.row(
+        label_html='<span class="co-manager__email">%s</span>' % _esc(view.owner_email),
+        value_html=_pills_html((_PILL_OWNER,))))
     for user_id, email, disabled in view.members:
         pills = []
         if view.viewer_user_id is not None and user_id == view.viewer_user_id:
@@ -327,15 +263,20 @@ def access_rows_html(view, device_id, return_to, id_prefix="co-manager"):
 
 
 def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=False):
-    """The Manage access dialog of one frame: the owner, the co-managers with
-    a Remove form each, and the Add form. `return_to` is a whitelisted host
+    """The Manage access dialog of one frame, a bottom sheet on a phone: the
+    title with the frame name and a close button, then one glass group holding
+    the owner, the co-managers with a Remove action each, and the Add form.
+    `return_to` is a whitelisted host
     page path (see `safe_return_to`); the forms send it back so the dialog
     reopens there after a change. `open_` renders it open."""
-    from companion import ui_modal
+    from companion import ui_groups, ui_modal
+    label_id = access_dialog_id(device_id) + "-people"
+    people = ui_groups.group(
+        access_rows_html(view, device_id, return_to, purpose=False),
+        label=i18n.t(_HEADING), label_id=label_id)
     return ui_modal.sections_dialog_html(
-        access_dialog_id(device_id), i18n.t(_DIALOG_TITLE), frame_name,
-        access_section_html(view, device_id, return_to), i18n.t(_DONE), return_to,
-        open_=open_)
+        access_dialog_id(device_id), i18n.t(_DIALOG_TITLE), frame_name, people,
+        i18n.t(_DONE), return_to, open_=open_, extra_class="access-sheet")
 
 
 def leave_dialog_html(device_id, frame_name, return_to=RETURN_ACCOUNT):

@@ -245,9 +245,10 @@ def _current_picture_html(ctx, current_flight_row):
 
 
 def _recent_flight_row_html(row, now):
-    """One recent flight as a row linking to the Flights page: the callsign
-    (or hex), the clock and "<airline> · <route> · <direction>" beneath it,
-    and the relative age on the right."""
+    """One recent flight as an informational row (no link, no chevron): a plane
+    chip turned by the direction, the callsign (or hex), the clock and
+    "<airline> · <route> · <direction>" beneath it, and the relative age on the
+    right."""
     callsign = row.get("callsign") or row.get("hex") or "—"
     secondary = _flight_secondary_text(row)
     ts = row.get("ts")
@@ -259,12 +260,13 @@ def _recent_flight_row_html(row, now):
         label_html='<span class="mono">%s</span>' % escape_html(callsign),
         icon="icon-plane", detail=detail,
         value_html=layout.relative_time_html(ts, now) if parsed is not None else "",
-        href=device_scope.scoped(FLIGHTS_ROUTE), extra_class="recent-flight")
+        extra_class="recent-flight",
+        attrs='data-filter-kind="%s"' % escape_html(row.get("confirmed_state") or ""))
 
 
 def _recent_flights_html(rows, now, state_dir):
-    """The recent-flights group: one row per flight, then a row to the whole
-    history. With no flight yet the group holds the empty state."""
+    """The recent-flights group: one informational row per flight, then the one
+    link row to the whole history. With no flight yet the group holds the empty state."""
     all_row = ui_groups.row(
         i18n.t(RECENT_FLIGHTS_LINK_TEXT), icon="icon-nav-history",
         href=device_scope.scoped(FLIGHTS_ROUTE), extra_class="recent-flight-all")
@@ -660,8 +662,7 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     # without a visible freshness line.
     header = layout.page_header(
         i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now),
-        trail_html=(home_greeting.greeting_html()
-                    + home_greeting.trail_html(bool(current_flight_row))))
+        title_html=home_greeting.title_html(), trail_html=home_greeting.frame_line_html())
     summary = _frame_state_summary(ctx)
     status = frame_status.frame_status(_status_row(ctx, summary[1]))
     notice = _notice_html(ctx, status)

@@ -25,11 +25,12 @@ _BAR = """() => {
   const bar = document.querySelector('.tab-bar');
   const box = bar.getBoundingClientRect();
   const style = getComputedStyle(bar);
+  const glass = getComputedStyle(bar, '::before');
   return {left: box.left, right: window.innerWidth - box.right, top: box.top,
           bottom: window.innerHeight - box.bottom, height: box.height,
           radius: parseFloat(style.borderTopLeftRadius),
-          blur: style.backdropFilter || style.webkitBackdropFilter,
-          shadow: style.boxShadow, image: style.backgroundImage};
+          blur: glass.backdropFilter || glass.webkitBackdropFilter,
+          shadow: glass.boxShadow, image: glass.backgroundImage};
 }"""
 
 _LAST_CONTENT_BOTTOM = """() => {
@@ -170,14 +171,15 @@ def test_the_bar_ink_holds_over_a_white_and_a_black_backdrop(
             """() => {
               const rgba = (css) => css.match(/[\\d.]+/g).map(Number);
               const bar = document.querySelector('.tab-bar');
-              const sheen = getComputedStyle(bar).backgroundImage.match(/rgba?\\([^)]*\\)/)[0];
+              const glass = getComputedStyle(bar, '::before');
+              const sheen = glass.backgroundImage.match(/rgba?\\([^)]*\\)/)[0];
               const labels = [...document.querySelectorAll(
                   '.tab-bar__link:not(.tab-bar__link--active):not(.tab-bar__link--switch)'
                   + ' .tab-bar__label')];
               const active = document.querySelector(
                   '.tab-bar__link--active .tab-bar__label');
               const pill = document.querySelector('.tab-bar__link--active .tab-bar__pill');
-              return {fill: getComputedStyle(bar).backgroundColor, sheen,
+              return {fill: glass.backgroundColor, sheen,
                       pill: getComputedStyle(pill).backgroundColor,
                       inks: labels.map(el => getComputedStyle(el).color),
                       active: getComputedStyle(active).color};
@@ -203,6 +205,58 @@ def test_the_bar_ink_holds_over_a_white_and_a_black_backdrop(
             pill = over(read["pill"], fill)
             assert contrast_ratio(ink_hex(read["active"]), hex_of(pill)) >= WCAG_AA_NORMAL_TEXT, (
                 scheme, backdrop, "active")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_the_more_sheet_has_the_bar_glass_and_its_ink_holds_over_any_backdrop(
+        new_context, app, scheme):
+    """the More sheet takes the floating bar's fill, sheen, edge and blur, is not nested in a
+    backdrop root (so it blurs the page, not the empty bar), and its row ink (the current row's
+    accent included, over its 12% tint) holds 4.5:1 over a white and a black backdrop"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_PHONE, scheme)
+    try:
+        page.locator(".tab-bar__more > summary").click()
+        page.locator(".tab-bar__more-panel a").first.wait_for(state="visible")
+        page.wait_for_function(_SETTLED)
+        read = page.evaluate(
+            """() => {
+              const bar = document.querySelector('.tab-bar');
+              const glass = getComputedStyle(bar, '::before');
+              const panel = getComputedStyle(document.querySelector('.tab-bar__more-panel'));
+              const barStyle = getComputedStyle(bar);
+              const links = [...document.querySelectorAll('.tab-bar__more-panel a')];
+              return {
+                same: ['backgroundColor', 'backgroundImage', 'backdropFilter']
+                    .every((k) => glass[k] === panel[k]) && barStyle.backdropFilter === 'none'
+                    && panel.borderTopColor === barStyle.borderTopColor,
+                fill: panel.backgroundColor,
+                sheen: panel.backgroundImage.match(/rgba?\\([^)]*\\)/)[0],
+                inks: links.map((a) => [getComputedStyle(a).color,
+                                        a.classList.contains('mobile-nav__link--active')]),
+                tall: links.every((a) => a.getBoundingClientRect().height >= 44)};
+            }""")
+        assert read["same"] and read["tall"] and read["inks"], read
+
+        def parts(css):
+            return [float(p) for p in css[css.index("(") + 1:-1].split(",")]
+
+        def over(top, base):
+            numbers = parts(top)
+            alpha = numbers[3] if len(numbers) == 4 else 1.0
+            return [alpha * c + (1 - alpha) * b for c, b in zip(numbers[:3], base)]
+
+        def hex_of(rgb):
+            return "#%02X%02X%02X" % tuple(round(c) for c in rgb)
+
+        for backdrop in ((255, 255, 255), (0, 0, 0)):
+            fill = over(read["sheen"], over(read["fill"], backdrop))
+            for ink, active in read["inks"]:
+                ink_rgb = parts(ink)[:3]
+                plate = [0.12 * i + 0.88 * f for i, f in zip(ink_rgb, fill)] if active else fill
+                assert contrast_ratio(hex_of(ink_rgb), hex_of(plate)) >= WCAG_AA_NORMAL_TEXT, (
+                    scheme, backdrop, ink, active)
     finally:
         context.close()
 

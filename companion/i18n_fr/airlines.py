@@ -137,6 +137,7 @@ MESSAGES = {
     "airlines.collection_show_unseen": "Pas encore vues",
     "airlines.collection_sort_by": "Trier par",
     "airlines.collection_sort_most": "Les plus vues",
+    "airlines.collection_sort_rarest": "Les plus rares",
     "airlines.collection_sort_latest": "Les plus récentes",
     "airlines.collection_sort_az": "A à Z",
     "airlines.collection_filter_label": "Filtrer les compagnies",

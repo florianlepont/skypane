@@ -38,16 +38,27 @@ _PRINCIPAL_CTX = contextvars.ContextVar("skypane_principal", default=None)
 
 PRINCIPAL_KINDS = ("user", "admin")
 
+# The signed-in principal's e-mail for this request ("" when unknown). Only
+# the Home greeting reads it, to derive a first name; it is never rendered.
+_EMAIL_CTX = contextvars.ContextVar("skypane_principal_email", default="")
 
-def set_request_principal(kind=None, role=None):
+
+def set_request_principal(kind=None, role=None, email=""):
     """Store this request's principal. Anything unrecognised (including
     None) clears it, so the shell falls back to the unchanged default
     rendering. Call it once per request, before any page is rendered.
     """
     if kind in PRINCIPAL_KINDS:
         _PRINCIPAL_CTX.set((kind, role))
+        _EMAIL_CTX.set(email or "")
     else:
         _PRINCIPAL_CTX.set(None)
+        _EMAIL_CTX.set("")
+
+
+def current_principal_email():
+    """The request principal's e-mail, or "" when unset."""
+    return _EMAIL_CTX.get()
 
 
 def current_principal():

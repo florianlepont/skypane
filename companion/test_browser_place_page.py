@@ -192,14 +192,18 @@ def _assert_sheet(page, boxes, width, height):
         raise AssertionError("the map does not fill the stage: %r" % boxes)
     if abs(stage["width"] - width) > 1:
         raise AssertionError("the map is not edge to edge: %r" % boxes)
-    if float_box["top"] < stage["top"] - SUBPIXEL or float_box["bottom"] > modes["top"] + SUBPIXEL:
-        raise AssertionError("the search field is not above the chips: %r" % boxes)
+    if stage["top"] > SUBPIXEL:
+        raise AssertionError("the map does not run under the status bar and app bar: %r" % boxes)
+    header = page.evaluate(
+        "() => document.querySelector('.site-header').getBoundingClientRect().bottom")
+    if float_box["top"] < header - SUBPIXEL or float_box["bottom"] > modes["top"] + SUBPIXEL:
+        raise AssertionError("the search field is not between the app bar and the chips: %r" % boxes)
     if modes["bottom"] > sheet["top"] + SUBPIXEL:
         raise AssertionError("the chips run into the sheet: %r" % boxes)
     if abs(sheet["bottom"] - stage["bottom"]) > 2 or abs(sheet["width"] - stage["width"]) > 2:
         raise AssertionError("the sheet is not docked at the foot of the map: %r" % boxes)
-    if sheet["height"] > height * 0.4 + 1:
-        raise AssertionError("the sheet covers more than 40%% of the viewport: %r" % boxes)
+    if sheet["height"] > height * 0.28 + 1:
+        raise AssertionError("the sheet covers more than 28%% of the viewport: %r" % boxes)
     if panel["bottom"] > height + SUBPIXEL:
         raise AssertionError("the sheet is cut by the viewport foot: %r" % boxes)
     if page.evaluate("() => document.documentElement.scrollHeight") > height + 1:
@@ -213,6 +217,11 @@ def _assert_sheet(page, boxes, width, height):
         ".map((c) => Math.round(c.getBoundingClientRect().top))")
     if len(tops) != 3 or max(tops) - min(tops) > 2:
         raise AssertionError("the runway cards are not three to a row: %r" % tops)
+    tall = page.evaluate(
+        "() => [...document.querySelectorAll('.place-sheet label.runway-card')]"
+        ".map((c) => c.getBoundingClientRect().height).filter((h) => h > 72)")
+    if tall:
+        raise AssertionError("runway chips taller than 72 px: %r" % tall)
     covered = page.evaluate(
         "() => { const s = document.querySelector('.place-sheet'); const b = s.scrollHeight - s.clientHeight;"
         " return b; }")

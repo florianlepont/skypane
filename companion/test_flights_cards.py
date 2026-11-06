@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Behaviour checks for the Flights phone list (below 960 px), read from the page the
 companion app serves: one glass group per day with one row per flight (plane chip, callsign
-and route, airline and aircraft, age and direction); the icon-only picture link only when a
-picture exists, named per flight in English and French; the unresolved-airline wording; the
+and route, airline and aircraft, age and direction); the picture thumbnail as the row's one
+lead control only when a picture exists (the plane chip otherwise), named per flight in English
+and French; the unresolved-airline wording; the
 day section labels; and no inline style attribute anywhere in the list.
 """
 import pytest
@@ -47,18 +48,20 @@ def _cards(doc):
 
 
 def test_every_flight_is_one_row_with_chip_label_detail_and_value(pictured):
-    """each flight renders as one row: a plane chip, the callsign and route label, the detail
-    line, the age and direction at the right; the rows keep the filter contract (one
-    data-filter-text and data-filter-group each)"""
+    """each flight renders as one row: one lead element (the picture thumbnail here, as every
+    flight has a picture), the callsign and route label, the detail line, the age and direction
+    at the right; the rows keep the filter contract (one data-filter-text and data-filter-group
+    each)"""
     cards = _cards(_flights_doc(pictured))
     assert sorted(cards) == sorted(f[0] for f in _FLIGHTS)
     for callsign, card in cards.items():
         parts = [child.attrs.get("class") for child in card.select_one(".row__main").children
                  if not isinstance(child, str)]
-        assert parts[:3] == ["row__chip", "row__text", "row__value"], callsign
+        assert parts[:3] == ["history-card__thumb", "row__text", "row__value"], callsign
+        assert not card.select(".row__chip") and not card.select(".history-card__picture"), callsign
         assert callsign.lower() in card.attrs["data-filter-text"]
         assert card.attrs["data-filter-group"].isdigit()
-        assert card.select_one(".row__chip svg use").attrs["href"] == "#icon-plane"
+        assert card.select_one(".history-card__direction svg use").attrs["href"] == "#icon-plane"
         when = card.select_one(".row__value .history-card__when")
         assert when.select_one(".time-value--primary").text()
         assert when.select_one("time[data-relative]") is not None
@@ -83,29 +86,39 @@ def test_the_route_codes_mute_the_home_end_and_the_direction_reads_at_the_right(
 
 
 @pytest.mark.parametrize("lang,prefix", [("en", "View picture of "), ("fr", "Voir l’image de ")])
-def test_the_picture_action_is_an_icon_link_named_for_its_flight(pictured, lang, prefix):
-    """with a picture available every card head carries one icon-only real /gallery/ link with
-    the lightbox trigger attributes and a per-flight accessible name, in English and French"""
+def test_the_thumbnail_is_the_one_picture_control_named_for_its_flight(pictured, lang, prefix):
+    """with a picture available every row's lead is one real /gallery/ link with the lightbox
+    trigger attributes and a per-flight accessible name, drawn as the picture's thumbnail with
+    the direction glyph on its corner (no separate image button, no plane chip), in English and
+    French"""
     for callsign, card in _cards(_flights_doc(pictured, lang)).items():
         links = card.select("a[data-view-panel-src]")
         assert len(links) == 1, callsign
         link = links[0]
-        assert link.parent.tag == "li" and link.attrs["class"] == "history-card__picture"
+        assert link.parent.attrs["class"] == "row__main", callsign
+        assert link.attrs["class"] == "history-card__thumb"
         assert link.attrs["href"] == "/gallery/" + _GALLERY
         assert link.attrs["data-view-panel-src"] == link.attrs["href"]
         assert link.attrs["data-view-panel-caption"]
         assert link.attrs["aria-label"] == prefix + callsign
         assert link.text() == ""
-        assert link.select_one("svg").attrs["aria-hidden"] == "true"
+        image = link.select_one("img.history-card__thumb-image")
+        assert image.attrs["src"] == link.attrs["href"] and image.attrs["alt"] == ""
+        assert link.select_one(".history-card__direction").attrs["aria-hidden"] == "true"
+        assert len(card.select("a")) == 1 and not card.select("button"), callsign
 
 
-def test_a_flight_with_no_picture_shows_no_action(unpictured):
-    """with no archived render there is no picture link on any card, and no lightbox shell"""
+def test_a_flight_with_no_picture_keeps_the_plane_chip_and_no_control(unpictured):
+    """with no archived render there is no picture link on any row, no lightbox shell, and
+    the lead is the plain plane chip (not a control)"""
     doc = _flights_doc(unpictured)
     assert _cards(doc)
     assert not doc.select("li.history-card a[data-view-panel-src]")
-    assert not doc.select("li.history-card .history-card__picture")
+    assert not doc.select("li.history-card .history-card__thumb")
     assert not doc.select("dialog#panel-lookup-dialog")
+    for card in doc.select("li.history-card"):
+        assert card.select_one(".row__main > .row__chip svg use").attrs["href"] == "#icon-plane"
+        assert not card.select("a") and not card.select("button")
 
 
 @pytest.mark.parametrize("lang,unknown,resolve", [
@@ -118,7 +131,7 @@ def test_an_unresolved_airline_reads_unknown_with_no_resolve_link(pictured, lang
     doc = _flights_doc(pictured, lang)
     cards = _cards(doc)
     assert unknown in cards["OBS412"].select_one(".row__detail").text()
-    assert not cards["OBS412"].select(".row__main a")
+    assert [a for a in cards["OBS412"].select("a") if a.attrs["class"] != "history-card__thumb"] == []
     assert not [a for a in doc.select("a") if "resolve=" in a.attrs.get("href", "")]
     assert resolve not in doc.text()
     assert unknown not in cards["TVF72YL"].select_one(".row__detail").text()

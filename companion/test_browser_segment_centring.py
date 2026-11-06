@@ -3,21 +3,25 @@
 segment (Departures / Arrivals count tabs, the Personalisation tabs, the theme switch, the tab
 bar, the space switch), at 360 px and 1280 px in both languages. A label that does not fit and
 is clipped or overflows reads as off centre, so the measure is the text's own box against the
-segment's box, the way a person sees it."""
+segment's box, the way a person sees it. Every segment is held within 1px on both axes at 360, 390
+and 1440 px, including the Flights direction filter, the airline collection's show filter and
+the Personalisation background and band controls; the Flights filter bar also shares one
+44px height with its search button."""
 import pytest
 
 import companion.test_view_pages_helpers as vp
 from companion import auth
-from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _login
+from companion.test_browser_ux_helpers import VIEWPORT_MIN_SUPPORTED, _login
 
 pytestmark = pytest.mark.browser
 
 SEGMENTS = (
     ".filter-chip__box, .theme-option, .personalisation-nav__link, .space-switch__segment, "
-    ".tab-bar__link")
+    ".tab-bar__link, .look-seg__option")
 PATHS = ("/flights", "/airlines", "/display", "/account")
-MAX_OFFSET_X = 0.6
-MAX_OFFSET_Y = 1.5
+MAX_OFFSET = 1.0
+VIEWPORT_PHONE_390 = {"width": 390, "height": 844}
+VIEWPORT_WIDE = {"width": 1440, "height": 900}
 
 _OFF_CENTRE = (
     "(sel) => [...document.querySelectorAll(sel)]"
@@ -35,8 +39,8 @@ def server(module_app_server_factory):
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP],
-                         ids=["360", "1280"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE_390, VIEWPORT_WIDE],
+                         ids=["360", "390", "1440"])
 def test_segment_and_chip_labels_are_centred(new_context, server, viewport, lang):
     context = new_context(viewport=viewport)
     context.add_cookies([{
@@ -51,9 +55,45 @@ def test_segment_and_chip_labels_are_centred(new_context, server, viewport, lang
                 "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations"
                 " === Infinity)", timeout=10000)
             rows = page.evaluate(_OFF_CENTRE, SEGMENTS)
-            off = [row for row in rows if abs(row[2]) > MAX_OFFSET_X or abs(row[3]) > MAX_OFFSET_Y]
+            assert any("filter-chip__box" in row[0] for row in rows) or path in (
+                "/display", "/account"), path
+            off = [row for row in rows if abs(row[2]) > MAX_OFFSET or abs(row[3]) > MAX_OFFSET]
             if off:
                 raise AssertionError("%s at %dpx: labels off centre %r" % (
                     path, viewport["width"], off))
+    finally:
+        context.close()
+
+
+_BAR = (
+    "() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect();"
+    " const track = box('.filter-bar__chips'); const search = box('.filter-bar__search');"
+    " return {track: [track.height, (track.top + track.bottom) / 2],"
+    "  search: [search.height, (search.top + search.bottom) / 2],"
+    "  chips: [...document.querySelectorAll('.filter-chip')].map((l) => l.getBoundingClientRect().height)}; }")
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE_390],
+                         ids=["360", "390"])
+def test_the_flights_filter_bar_shares_one_height_with_its_search_button(
+        new_context, server, viewport, lang):
+    """the segmented track and the collapsed search button are both 44px tall on one centre
+    line, and every segment is a 44px target"""
+    context = new_context(viewport=viewport)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/flights")
+        page.wait_for_function(
+            "() => document.readyState === 'complete' && document.getAnimations().every("
+            "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations"
+            " === Infinity)", timeout=10000)
+        bar = page.evaluate(_BAR)
+        assert abs(bar["track"][0] - 44) <= 0.5 and abs(bar["search"][0] - 44) <= 0.5, bar
+        assert abs(bar["track"][1] - bar["search"][1]) <= 0.5, bar
+        assert all(height >= 44 - 0.5 for height in bar["chips"]), bar
     finally:
         context.close()

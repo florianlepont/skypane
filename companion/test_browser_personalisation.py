@@ -15,6 +15,7 @@ from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT,
     VIEWPORT_DESKTOP,
     VIEWPORT_MIN_SUPPORTED,
+    _assert_hit_target,
     _assert_no_page_overflow,
     _bar_text,
     _login,
@@ -100,6 +101,38 @@ def _checked_theme(page):
     return page.evaluate(
         "() => { const r = document.querySelector('input[name=\"theme\"]:checked');"
         " return r ? r.value : null; }")
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [{"width": 390, "height": 844}, {"width": 360, "height": 740}],
+                         ids=["390x844", "360x740"])
+def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
+        new_context, make_app_server, viewport, lang):
+    """after load, with no scrolling, the picture, the colour swatches, the background and band
+    controls and the Save button are all inside the viewport and end above the floating tab bar;
+    the swatches are drawn 32px inside their 44px targets"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), viewport, lang=lang)
+    try:
+        page.wait_for_function("() => window.scrollY === 0")
+        geometry = page.evaluate(
+            "() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect();"
+            " const segments = [...document.querySelectorAll('%s .look-seg')];"
+            " const dot = document.querySelector('%s .look-dot__ink').getBoundingClientRect();"
+            " return {tab: box('.tab-bar').top, save: box('%s .look-sheet__save').bottom,"
+            "  segments: segments.map((s) => [s.getBoundingClientRect().bottom,"
+            "    s.getBoundingClientRect().height]),"
+            "  picture: box('.look-frame__picture').width, ink: dot.width, scroll: window.scrollY}; }"
+            % (PICKER, PICKER, PICKER))
+        assert geometry["scroll"] == 0 and geometry["save"] <= geometry["tab"], geometry
+        assert len(geometry["segments"]) == 2, geometry
+        for bottom, height in geometry["segments"]:
+            assert bottom <= geometry["tab"] and abs(height - 40) <= 0.5, geometry
+        assert geometry["picture"] <= 90 and geometry["ink"] == 32, geometry
+        _assert_hit_target(page, PICKER + " .look-dot:first-of-type", "a colour swatch")
+        _assert_hit_target(page, PICKER + " .look-seg__option", "a segment")
+    finally:
+        context.close()
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])

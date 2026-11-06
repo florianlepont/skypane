@@ -94,7 +94,7 @@ def test_notification_sits_under_the_title_and_above_the_state_card(tmp_path, ke
     last, _ = _seed(tmp_path, key)
     rendered = _render(tmp_path, lang, last=last,
                        device=_frame(tmp_path) if key == "no_contact" else None)
-    title = rendered.index('<h1 class="page-title">')
+    title = rendered.index('<h1 class="page-title page-title--greeting"')
     facts = rendered.index('<div class="home-facts">')
     notice = rendered.index("home-notice")
     card = rendered.index('aria-labelledby="home-frame-state"')

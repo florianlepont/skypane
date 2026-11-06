@@ -53,6 +53,7 @@ SHOW_SPOTTED = i18n.msg("airlines.collection_show_spotted", "Spotted")
 SHOW_UNSEEN = i18n.msg("airlines.collection_show_unseen", "Not yet seen")
 SORT_LABEL = i18n.msg("airlines.collection_sort_by", "Sort by")
 SORT_MOST = i18n.msg("airlines.collection_sort_most", "Most seen")
+SORT_RAREST = i18n.msg("airlines.collection_sort_rarest", "Rarest")
 SORT_LATEST = i18n.msg("airlines.collection_sort_latest", "Latest")
 SORT_AZ = i18n.msg("airlines.collection_sort_az", "A to Z")
 FILTER_LABEL = i18n.msg("airlines.collection_filter_label", "Filter airlines")
@@ -103,7 +104,8 @@ NO_MATCH_BODY = i18n.msg(
 
 SHOW_VALUES = (
     ("all", SHOW_ALL), ("spotted", SHOW_SPOTTED), ("unseen", SHOW_UNSEEN))
-SORT_VALUES = (("most", SORT_MOST), ("latest", SORT_LATEST), ("az", SORT_AZ))
+SORT_VALUES = (
+    ("most", SORT_MOST), ("rarest", SORT_RAREST), ("latest", SORT_LATEST), ("az", SORT_AZ))
 DEFAULT_SHOW = "all"
 DEFAULT_SORT = "most"
 QUERY_MAX_CHARS = 60
@@ -175,6 +177,9 @@ def _apply_view(entries, view):
         return sorted(shown, key=lambda e: e.last_ts, reverse=True)
     if view.sort == "az":
         return sorted(shown, key=lambda e: e.name.casefold())
+    if view.sort == "rarest":
+        # Seen airlines first, the fewest sightings leading; the unseen close the list.
+        return sorted(shown, key=lambda e: (not e.seen, e.times_seen, e.name.casefold()))
     return sorted(shown, key=lambda e: -e.times_seen)
 
 
@@ -369,14 +374,25 @@ def _chips_html(view, entries):
 
 
 def _sort_html(view):
+    """The sort as a small menu: an icon button naming the current order opens a panel of
+    radio rows, the chosen one marked with a tick. The radios are plain form fields, so
+    without a script the visible Apply button sends the choice."""
+    current = i18n.t(dict(SORT_VALUES)[view.sort])
+    name = "%s: %s" % (i18n.t(SORT_LABEL), current)
     options = "".join(
-        '<option value="%s"%s>%s</option>' % (
-            value, " selected" if value == view.sort else "", escape_html(i18n.t(label)))
+        '<label class="collection-sort__option"><input type="radio" class="visually-hidden" '
+        'name="%s" value="%s"%s data-autosubmit><span class="collection-sort__row">'
+        '<span>%s</span>%s</span></label>' % (
+            SORT_PARAM, value, " checked" if value == view.sort else "",
+            escape_html(i18n.t(label)), layout.icon_html("icon-check", 16))
         for value, label in SORT_VALUES)
     return (
-        '<label class="collection-sort"><span class="collection-sort__label">%s</span>'
-        '<select name="%s" data-autosubmit>%s</select></label>'
-    ) % (escape_html(i18n.t(SORT_LABEL)), SORT_PARAM, options)
+        '<details class="row-menu collection-sort"><summary class="row-menu__toggle '
+        'collection-sort__toggle" aria-label="%s" title="%s">%s</summary>'
+        '<div class="row-menu__panel collection-sort__panel" role="radiogroup" '
+        'aria-label="%s">%s</div></details>'
+    ) % (escape_html(name), escape_html(name), layout.icon_html("icon-sort", 20),
+         escape_html(i18n.t(SORT_LABEL)), options)
 
 
 def _search_html(view):
@@ -410,16 +426,16 @@ def _legend_menu_html():
 
 
 def _controls_html(view, entries, shown):
-    """One bar: the filter field, the show segments, the sort and the
-    legend button. With a script the sort and the segments submit on
-    change; without one the Apply button stays visible."""
+    """One bar: the filter field, the sort menu and the legend button on the first line, the
+    show segments on the second (one line on a wide screen). With a script the sort and the
+    segments submit on change; without one the Apply button stays visible."""
     return (
         '<form class="filter-bar collection-controls" method="get" action="%s">'
         '%s%s%s%s%s'
         '<button type="submit" class="collection-controls__apply">%s</button></form>'
     ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
-         _search_html(view), _chips_html(view, entries), _sort_html(view),
-         _legend_menu_html(), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
+         _search_html(view), _sort_html(view), _legend_menu_html(),
+         _chips_html(view, entries), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
 
 
 def _entries_for(ctx, now):

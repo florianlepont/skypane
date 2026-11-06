@@ -133,7 +133,7 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
             ".collection-grid", "el => getComputedStyle(el).gridTemplateColumns.split(' ').length")
         assert columns == (2 if viewport["width"] < 700 else 4)
         for selector in (
-                SEEN_CARD, UNSEEN_CARD, ".filter-chip", ".collection-sort select",
+                SEEN_CARD, UNSEEN_CARD, ".filter-chip", ".collection-sort > summary",
                 "#collection-filter"):
             _wait_owns_centre(page, selector)
             box = page.locator(selector).first.bounding_box()
@@ -179,7 +179,7 @@ def _assert_bar_is_one_unclipped_unit(page, width):
         "() => { const form = document.querySelector('.collection-controls').getBoundingClientRect();"
         " const box = sel => document.querySelector(sel).getBoundingClientRect();"
         " return {form: [form.left, form.right],"
-        " parts: ['#collection-filter', '.collection-sort select', '.filter-bar__chips',"
+        " parts: ['#collection-filter', '.collection-sort > summary', '.filter-bar__chips',"
         " '.collection-legend > summary']"
         ".map(sel => [box(sel).left, box(sel).right, box(sel).top]),"
         " visibleCount: !!document.querySelector('.collection-controls__count')}; }")
@@ -227,7 +227,9 @@ def test_the_phone_header_takes_no_more_than_a_third_of_the_screen(
             " title: box('.page-title'), badges: box('.collection-badges'),"
             " chipsScroll: chips.scrollWidth, chipsBox: chips.getBoundingClientRect().height,"
             " chips: Array.from(document.querySelectorAll('.filter-chip'))"
-            ".map(c => c.getBoundingClientRect().top)}; }")
+            ".map(c => c.getBoundingClientRect().top),"
+            " line1: ['#collection-filter', '.collection-sort > summary', '.collection-legend > summary']"
+            ".map(sel => box(sel)), track: box('.filter-bar__chips')}; }")
         assert geometry["head"] <= 740 / 3, geometry
         assert geometry["badges"]["top"] >= geometry["title"]["bottom"] - 0.5
         assert max(geometry["chips"]) - min(geometry["chips"]) < 2, geometry
@@ -235,6 +237,13 @@ def test_the_phone_header_takes_no_more_than_a_third_of_the_screen(
         # second line, never to a third.
         assert geometry["title"]["height"] < 70, geometry
         assert geometry["chipsBox"] < 64, geometry
+        # One compact bar of two lines: the field, the sort button and the legend button share
+        # line one (the field takes the free width), the segments are line two.
+        line1 = geometry["line1"]
+        assert max(box["top"] for box in line1) - min(box["top"] for box in line1) < 1, geometry
+        assert line1[0]["width"] > line1[1]["width"] + line1[2]["width"], geometry
+        assert geometry["track"]["top"] >= max(box["bottom"] for box in line1) - 0.5, geometry
+        assert geometry["bar"]["height"] <= 2 * 44 + 8 + 1, geometry
     finally:
         context.close()
 
@@ -325,7 +334,8 @@ def test_chips_sort_and_the_field_work_through_apply_without_script(
         _wait_settled(page)
         assert page.locator(CARD).count() == TOTAL_SPOTTED
         assert page.locator(UNSEEN_CARD).count() == 0
-        page.locator(".collection-sort select").select_option("az")
+        page.locator(".collection-sort > summary").click()
+        page.locator(".collection-sort__option", has_text="A to Z").click()
         with page.expect_navigation():
             page.locator(".collection-controls__apply").click()
         _wait_settled(page)
@@ -343,12 +353,23 @@ def test_the_sort_and_the_chips_apply_on_change_with_script(new_context, make_ap
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
     try:
-        page.locator(".collection-sort select").select_option("az")
+        summary = page.locator(".collection-sort > summary")
+        assert "Most seen" in summary.get_attribute("aria-label")
+        summary.click()
+        panel = page.locator(".collection-sort__panel")
+        panel.wait_for(state="visible")
+        assert page.locator(".collection-sort__option").all_inner_texts() == [
+            "Most seen", "Rarest", "Latest", "A to Z"]
+        ticks = page.evaluate(
+            "() => [...document.querySelectorAll('.collection-sort__row .icon')]"
+            ".map(i => getComputedStyle(i).visibility)")
+        assert ticks == ["visible", "hidden", "hidden", "hidden"], ticks
+        page.locator(".collection-sort__option", has_text="A to Z").click()
         page.wait_for_url("**sort=az**", timeout=10000)
         page.wait_for_function(_SETTLED, timeout=15000)
         names = page.locator(".collection-card__name").all_inner_texts()
         assert names == sorted(names, key=str.casefold)
-        assert page.locator(".collection-sort select").input_value() == "az"
+        assert page.locator('.collection-sort input[value="az"]').is_checked()
         page.locator("label.filter-chip", has_text="Spotted").click()
         page.wait_for_url("**show=spotted**", timeout=10000)
         page.wait_for_function(_SETTLED, timeout=15000)

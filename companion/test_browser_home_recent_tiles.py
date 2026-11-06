@@ -46,7 +46,7 @@ _ROW_PROBE = (
     "    return r.width === 0 || (r.left >= c.left - 0.5 && r.right <= c.right + 0.5"
     "      && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5);"
     "  });"
-    "  const link = li.querySelector('a.row__main').getBoundingClientRect();"
+    "  const link = li.querySelector('.row__main').getBoundingClientRect();"
     "  const chip = li.querySelector('.row__chip').getBoundingClientRect();"
     "  return {callsign: li.querySelector('.row__label').textContent,"
     "          inside, height: c.height, link: [link.width, link.height],"
@@ -59,7 +59,7 @@ _ROW_PROBE = (
 def test_rows_fit_the_phone_in_both_themes(new_context, server, viewport, lang):
     """At 390 and 360 px, in English and French, light and dark: the page never scrolls
     sideways and every flight row is at least 54 px tall with its content inside its own box,
-    a 32 px icon chip and a link covering the row at 44 px or more."""
+    a 32 px icon chip and a main area covering the row at 44 px or more (a plain row, not a link)."""
     context, page = _open_home(new_context, server, viewport, lang)
     try:
         for theme in _in_both_themes(page):
@@ -102,11 +102,12 @@ def test_five_flights_fit_one_phone_screen(new_context, server):
 
 def test_rows_render_with_scripts_blocked(new_context, server):
     """The rows are server-rendered: with scripts blocked a phone still gets five rows with
-    their ages, each a working link to the Flights page."""
+    their ages, as plain rows (no link); only the See all flights row links to Flights."""
     with _no_js_page(new_context, server.base_url(), "/", viewport=VIEWPORT_PHONE) as page:
         assert page.locator(ROW).count() == 5
         assert page.locator("%s .row__value" % ROW).first.is_visible()
-        assert page.locator("%s a.row__main" % ROW).first.get_attribute("href") == "/flights"
+        assert page.locator("%s a" % ROW).count() == 0
+        assert page.locator("li.recent-flight-all a.row__main").get_attribute("href") == "/flights"
 
 
 def test_desktop_shows_the_same_rows(new_context, server):

@@ -18,6 +18,7 @@ never a straight quote), and a non-breaking space (U+00A0) before
 
 MESSAGES = {
     "home.greeting_default": "Bonjour",
+    "home.greeting_with_name": "%s %s",
     "home.greeting_morning": "Bonjour",
     "home.greeting_afternoon": "Bon après-midi",
     "home.greeting_evening": "Bonsoir",

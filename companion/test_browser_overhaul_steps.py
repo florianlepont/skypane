@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L2": 4, "L3": 5, "L4": 3,
+    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L1-pin": 3, "L2": 4, "L3": 5, "L4": 3,
     "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -335,7 +335,7 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     try:
         assert page.locator(FRAMES).count() == 1
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
-        assert page.locator("main h1").inner_text().strip() == "Home"
+        assert page.locator("main h1").get_attribute("aria-label") == "Home"
         _report("U2-one", steps, 0)
     finally:
         context.close()
@@ -488,6 +488,32 @@ def test_l1_pick_an_airport_from_the_list(world, new_context):
         context.close()
 
 
+def test_l1_pick_an_airport_by_tapping_its_pin(world, new_context):
+    context, page, steps, hosts = _open_location(world, new_context)
+    try:
+        page.wait_for_function(
+            "() => document.querySelectorAll('#place-map .place-dot').length >= 50", timeout=10000)
+        # A pin whose own hit box owns its centre, in the part of the map nothing floats over.
+        spot = page.evaluate(
+            "() => { const c = (" + CLEAR_BOX + ")();"
+            " for (const d of document.querySelectorAll('#place-map .place-dot')) {"
+            "  const r = d.getBoundingClientRect(); const x = r.left + r.width / 2, y = r.top + r.height / 2;"
+            "  if (x > c.x + 30 && x < c.x + c.width - 30 && y > c.y + 30 && y < c.y + c.height - 30"
+            "   && d.contains(document.elementFromPoint(x, y))) return {x: x, y: y}; }"
+            " return null; }")
+        with page.expect_navigation():
+            steps.tap_point(
+                page.locator("#place-map"), 0, 0, "an airport pin",
+                clear={"x": spot["x"], "y": spot["y"], "width": 0, "height": 0})
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        _save_place(steps, page)
+        assert _frame_place(world) is not None
+        assert not hosts.search_requests
+        _report_measured("L1-pin", steps, 3)
+    finally:
+        context.close()
+
+
 def test_l2_use_my_position(world, new_context):
     context, page, steps, _ = _open_location(world, new_context)
     try:
@@ -564,7 +590,7 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     try:
         steps.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('My frame')"), "My frame")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
-        assert page.locator("main h1").inner_text().strip() == "Home"
+        assert page.locator("main h1").get_attribute("aria-label") == "Home"
         back = Steps(page)
         back.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('Console')"), "Console")
         page.wait_for_url("**/fleet")

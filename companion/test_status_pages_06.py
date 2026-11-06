@@ -1378,11 +1378,14 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
             ("bottom", "calc(var(--tab-bar-gap) + var(--safe-bottom))"),
             ("height", "var(--tab-bar-h)"),
             ("z-index", "20"),
-            ("background-color", "var(--glass-solid)"),
-            ("border", "1px solid var(--color-border)"),
-            ("border-radius", "var(--radius-pill)"),
-            ("box-shadow", "var(--bar-shadow)")):
+            ("border", "1px solid var(--bar-border)"),
+            ("border-radius", "var(--radius-pill)")):
         assert fixed_decls.get(prop) == expected, (prop, fixed_decls)
+    # The glass (solid base fill and shadow) sits on a layer behind the cells so the bar is not
+    # the backdrop root of the More sheet.
+    glass_decls = declarations_for(css_text, ".tab-bar::before", at_rules=_TAB_BAR_MEDIA)
+    assert glass_decls.get("background-color") == "var(--glass-solid)"
+    assert glass_decls.get("box-shadow") == "var(--bar-shadow)"
 
     link_decls = declarations_for(css_text, ".tab-bar__link", at_rules=_TAB_BAR_MEDIA)
     assert link_decls.get("flex") == "1 1 0"

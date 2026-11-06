@@ -1,34 +1,50 @@
-"""The Home title's decoration: a greeting line and a plane on a dotted trail,
-both under the title.
+"""The Home page title: a personal greeting.
 
-Both are purely decorative (`aria-hidden`), so the page keeps one plain
-`<h1>` ("Home"/"Accueil") for titles, screen readers and no-script visitors.
-The greeting's server text is a neutral default; nav-dropdown.js swaps in the
-wording for the viewer's local hour from the four `data-greeting-*`
-attributes (morning 05-12, afternoon 12-17, evening 17-21, night otherwise,
-the same edges as the sky). Its box is always reserved, so the swap never
-moves the title. The plane is only rendered when the frame has a flight to
-show, and flies in once through a finite CSS animation (style.css).
+The visible `<h1>` is the greeting ("Good morning, Florian" / "Bonjour
+Florian"); its accessible name stays the page's plain name ("Home"/"Accueil",
+also the document title), so screen readers, titles and no-script visitors
+keep a stable page name. The server text is the neutral default; nav-dropdown.js
+swaps in the wording for the viewer's local hour from the four
+`data-greeting-*` attributes (morning 05-12, afternoon 12-17, evening 17-21,
+night otherwise, the same edges as the sky). The first name comes from the
+signed-in e-mail's local part, only when it has a separator (`.`, `_`, `-`,
+`+`) so a handle such as "marcoalfinito" is never shown; with no usable name
+the greeting is the bare wording. An e-mail address is never put in the title.
 """
+
+import re
 
 import companion.device_scope as device_scope
 import companion.i18n as i18n
+from companion import prefs
 from companion.layout import escape_html
 from companion.ui_shell import device_display_name
 
+# The same id as the navigation label and the document title.
+_PAGE_NAME = i18n.msg("nav.home", "Home")
 GREETING_DEFAULT = i18n.msg("home.greeting_default", "Hello")
+GREETING_WITH_NAME = i18n.msg("home.greeting_with_name", "%s, %s")
 GREETING_MORNING = i18n.msg("home.greeting_morning", "Good morning")
 GREETING_AFTERNOON = i18n.msg("home.greeting_afternoon", "Good afternoon")
 GREETING_EVENING = i18n.msg("home.greeting_evening", "Good evening")
 GREETING_NIGHT = i18n.msg("home.greeting_night", "Good night")
 
-# The trail is a gentle rise from the lower left to the plane's resting
-# point; the plane is a top-down silhouette drawn around its own origin and
-# placed at the trail's end.
-_TRAIL_PATH = "M 4 46 C 80 46 150 8 296 14"
-_PLANE_PATH = (
-    "M 12 0 L 4 -2 L -2 -10 L -5 -10 L -2 -2 L -8 -2 L -10 -6 L -12 -6 "
-    "L -10 0 L -12 6 L -10 6 L -8 2 L -2 2 L -5 10 L -2 10 L 4 2 Z")
+_SEPARATORS = re.compile(r"[._+\-]+")
+
+
+def first_name(email):
+    """The first name read from `email`'s local part, or "" when it cannot be
+    told from a handle: the local part needs a separator, and the first token
+    must be letters only (at least two) to count as a name."""
+    local = (email or "").split("@", 1)[0]
+    if not _SEPARATORS.search(local):
+        return ""
+    token = next((part for part in _SEPARATORS.split(local) if part), "")
+    return token.title() if len(token) >= 2 and token.isalpha() else ""
+
+
+def _viewer_first_name():
+    return first_name(prefs.current_principal_email())
 
 
 def _frame_name():
@@ -39,32 +55,32 @@ def _frame_name():
     return device_display_name(device)
 
 
-def greeting_html():
-    """The greeting line, with the frame name as a calm second line when the
-    person has more than one frame."""
-    name = _frame_name()
-    frame = (
-        '<span class="home-greeting__frame">%s</span>' % escape_html(name)) if name else ""
+def _wording(greeting, name):
+    word = i18n.t(greeting)
+    return i18n.t(GREETING_WITH_NAME) % (word, name) if name else word
+
+
+def title_html():
+    """The greeting `<h1>`: visible greeting text, accessible name "Home"."""
+    name = _viewer_first_name()
     return (
-        '<p class="home-greeting%s" aria-hidden="true" data-greeting '
+        '<h1 class="page-title page-title--greeting" aria-label="%s" data-greeting '
         'data-greeting-morning="%s" data-greeting-afternoon="%s" '
         'data-greeting-evening="%s" data-greeting-night="%s">'
-        '<span class="home-greeting__hello" data-greeting-text>%s</span>%s</p>'
+        '<span data-greeting-text>%s</span></h1>'
     ) % (
-        " home-greeting--framed" if name else "",
-        escape_html(i18n.t(GREETING_MORNING)), escape_html(i18n.t(GREETING_AFTERNOON)),
-        escape_html(i18n.t(GREETING_EVENING)), escape_html(i18n.t(GREETING_NIGHT)),
-        escape_html(i18n.t(GREETING_DEFAULT)), frame)
+        escape_html(i18n.t(_PAGE_NAME)),
+        escape_html(_wording(GREETING_MORNING, name)),
+        escape_html(_wording(GREETING_AFTERNOON, name)),
+        escape_html(_wording(GREETING_EVENING, name)),
+        escape_html(_wording(GREETING_NIGHT, name)),
+        escape_html(_wording(GREETING_DEFAULT, name)))
 
 
-def trail_html(has_flight):
-    """The plane on its dotted trail, or "" when the frame has no flight."""
-    if not has_flight:
+def frame_line_html():
+    """The active frame's name as a second line under the title, for people
+    with several frames; "" otherwise."""
+    name = _frame_name()
+    if not name:
         return ""
-    return (
-        '<div class="home-trail" aria-hidden="true">'
-        '<svg class="home-trail__svg" viewBox="0 0 320 56" focusable="false">'
-        '<path class="home-trail__path" d="%s"/>'
-        '<g transform="translate(296 14) rotate(-4)">'
-        '<path class="home-trail__plane" d="%s"/></g></svg></div>'
-    ) % (_TRAIL_PATH, _PLANE_PATH)
+    return '<p class="home-greeting__frame">%s</p>' % escape_html(name)

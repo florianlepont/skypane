@@ -350,3 +350,60 @@ Larger redesigns (new design work, owner decision on scope):
   Access). Phone Console tab bar: "My frame" switch first and set apart, then
   Fleet, Users, Airlines, More. Mockups: scratchpad/sketches r1, r2. Plan
   61-57.
+
+### Round 6, first look at the refined design in production on iPhone (2026-11-06)
+
+Owner: "C'est beaucoup mieux !" Then:
+- W53 Remove the plane-on-a-trail animation on Home: it does not work well and
+  takes too much room.
+- W54 The Home title should be a personal greeting ("Bonjour Florian") as in
+  the mockups, instead of "Accueil" (first name from the account; fall back
+  to a neutral greeting).
+- W55 Home, Recent flights: every row links to the same flights page as "See
+  all flights", which is odd. Rows should not all act as the same link.
+- W56 The header area under the iPhone status bar / battery is still not the
+  same colour as the site background (a lighter band at the top).
+- W57 Flights: the Departures/Arrivals filter is still not centred, and the
+  text inside the filter is not centred in its box (count stacked above the
+  label).
+- W58 Flights rows: the little plane icon on each row and the image button
+  could be merged into one.
+- W59 Personalisation: the buttons and swatches in the settings box could be
+  smaller so more of the interface fits on screen.
+- W60 Airline collection: the filter and sort part is still not nice; it
+  should be clearly merged and improved.
+- W61 Account of a co-manager (Marco Alfinito): the Account page says
+  "User" while he is in fact a co-manager of a frame; show that.
+- W62 Manage access (dialog): completely broken on phone (title clipped under
+  the sheet edge, grey wash, input instead of a select for a co-manager).
+- W63 The little frame picture before each frame in the frame selector
+  popover is broken (renders as a warped capsule).
+- W64 The background of the "More" menu in the navigation is too
+  transparent, text cannot be read; give it the same background as the tab
+  bar.
+- D41 (owner) After plans 61-61 to 61-63, the owner wants a complete audit by
+  Claude, on both desktop and phone views, to detect display bugs, UI bugs
+  and UX bugs, and above all to propose improvements so the application feels
+  finished, modern, dynamic and simple. Plan 61-64 (audit and proposals, no
+  code changes; the owner picks what to build).
+- D41 refined (owner) Present the audit results as an infographic (clear
+  visual summary: findings by severity and area, UX journeys with step counts,
+  prioritised improvement proposals), not as a long text report.
+- W65 (owner, screenshot) Location page on phone: the bottom panel (runway
+  choice, or radius around a position) is far too big; the map is barely
+  visible. Make the panel compact so the map dominates.
+- W66 (owner) In Airport mode he expected pins for all the airports of France
+  to be displayed on the map, tappable to select one. Nothing is drawn in
+  production (the 61-41/61-50 airport dots do not show): investigate and fix.
+- W67 (owner) In My position mode he expects to pick a position by tapping the
+  map.
+- W68 (owner) Typing in the search bar shows no suggestion, neither an airport
+  nor an address. Suggestions wanted. Constraint: the public Nominatim service
+  forbids search-as-you-type autocomplete (usage policy), so: airport
+  suggestions instantly from the local airport list while typing; address
+  results as a suggestion list on submit (Enter / search button) from
+  Nominatim (D19), no per-keystroke requests to Nominatim.
+- W69 (owner) Location page: the map could go beyond the header and pass under
+  it (full-bleed under the status bar and the app bar). If that hurts
+  readability of the site name, add a small soft gradient scrim behind the
+  header (a nice-looking fade), not a hard bar. Joins plan 61-65.

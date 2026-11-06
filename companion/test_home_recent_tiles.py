@@ -38,17 +38,17 @@ def _rows(section):
         for row in section.select("ul.group > li.recent-flight")}
 
 
-def test_every_recent_flight_is_one_row_linking_to_flights(server):
+def test_every_recent_flight_is_one_informational_row(server):
     """each of the five newest distinct flights is one row of the group, newest first: a plane
-    chip, the callsign in the identifier voice, a detail line and the relative age; the whole row
-    is a link to the Flights page, and the "See all flights" row closes the group"""
+    chip, the callsign in the identifier voice, a detail line and the relative age; the row
+    is plain (no link, no chevron), and the one "See all flights" link row closes the group"""
     section = _home_section(server)
     rows = section.select("ul.group > li.recent-flight")
     assert [r.select_one(".row__label").text() for r in rows] == [f[0] for f in _FLIGHTS]
     for row in rows:
-        assert row.attrs["class"].split() == ["row", "row--action", "recent-flight"]
-        link = row.select_one("a.row__main")
-        assert link is not None and link.attrs["href"] == "/flights"
+        assert row.attrs["class"].split() == ["row", "recent-flight"]
+        assert row.select("a") == [] and row.select("button") == []
+        assert row.select(".row__chevron") == []
         assert "mono" in row.select_one(".row__label .mono").attrs["class"].split()
         assert row.select_one(".row__chip") is not None
         assert row.select_one(".row__detail").text()
@@ -56,6 +56,8 @@ def test_every_recent_flight_is_one_row_linking_to_flights(server):
     last = section.select("ul.group > li")[-1]
     assert "recent-flight-all" in last.attrs["class"].split()
     assert last.select_one("a.row__main").attrs["href"] == "/flights"
+    assert last.select_one(".row__chevron") is not None
+    assert section.select("a") == [last.select_one("a.row__main")]
     assert last.select_one(".row__label").text() == "See all flights"
     assert section.select("[style]") == []
 

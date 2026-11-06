@@ -43,10 +43,6 @@ _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 # own armed toast timer hairline.
 _MOTION_TOKENS = ("--motion-fast", "--motion-slow", "--motion-enter", "--motion-stagger")
 _MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
-# The third: how long Home's plane takes to fly in along its trail, once.
-_FLIGHT_TOKEN = "--motion-flight"
-_FLIGHT_KEYFRAMES = "skypane-plane-fly"
-_FLIGHT_SELECTOR = ".home-trail__plane"
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
 _MOTION_EXCEPTION_SELECTORS = {
     "--motion-toast-dwell": (".toast[data-toast-armed] .toast__timer",),
@@ -186,14 +182,14 @@ def _spenders(served_css, token):
 
 def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
     """the served :root declares exactly --motion-fast, --motion-slow, the card entrance's
-    --motion-enter/--motion-stagger and the documented exceptions (the two toast dwells the status dot pulse and the Home plane's flight); each exception is spent by
+    --motion-enter/--motion-stagger and the documented exceptions (the two toast dwells and the status dot pulse); each exception is spent by
     exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
     animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a
     transition, so none can become a general-purpose motion speed"""
     root = custom_properties(served_css, ":root")
     declared = sorted(name for name in root if name.startswith("--motion-"))
     assert declared == sorted(
-        _MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS + (_DOT_PULSE_TOKEN, _FLIGHT_TOKEN)), (
+        _MOTION_TOKENS + _MOTION_EXCEPTION_TOKENS + (_DOT_PULSE_TOKEN,)), (
         "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
     # The card entrance's two tokens: --motion-enter is the animation's duration and
@@ -213,8 +209,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     expected = [
         (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
         for token in _MOTION_EXCEPTION_TOKENS
-    ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES),
-         (_FLIGHT_TOKEN, (_FLIGHT_SELECTOR,), _FLIGHT_KEYFRAMES)]
+    ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES)]
     for token, selectors_expected, keyframes in expected:
         spenders = _spenders(served_css, token)
         assert len(spenders) == 1, (
@@ -451,7 +446,7 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
-            '<h1 class="page-title">Home</h1>',
+            '<h1 class="page-title page-title--greeting" aria-label="Home" data-greeting',
             'class="hero home-state ',
             'class="group-block home-section"',
             "Recent flights", 'href="/flights"',
