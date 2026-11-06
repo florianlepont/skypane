@@ -441,7 +441,7 @@ def test_search_collapses_expands_and_keeps_44px_targets(new_context, server, vi
         context.close()
 
 
-def test_desktop_search_is_always_open_beside_the_chips(new_context, server):
+def test_desktop_search_is_always_open_in_the_title_row(new_context, server):
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -449,10 +449,13 @@ def test_desktop_search_is_always_open_beside_the_chips(new_context, server):
         page.goto(server.base_url() + "/flights")
         page.locator(".filter-bar__search").wait_for(state="visible")
         field = page.locator(".filter-bar__search").bounding_box()
-        chips = page.locator(".filter-bar__chips").bounding_box()
-        if field["width"] < 300 or abs(field["y"] - chips["y"]) > 12 or field["x"] < chips["x"]:
-            raise AssertionError("expected an open search right of the chips, got %r %r"
-                                 % (field, chips))
+        header = page.locator(".page-header").bounding_box()
+        title = page.locator(".page-title").bounding_box()
+        if (field["width"] < 300 or abs(field["y"] - header["y"]) > 1
+                or field["x"] < title["x"] + title["width"]
+                or field["y"] + field["height"] > header["y"] + header["height"] + 1):
+            raise AssertionError("expected an open search right of the title, got %r %r %r"
+                                 % (field, title, header))
     finally:
         context.close()
 

@@ -167,8 +167,10 @@ def test_states_render_in_french_with_the_state_words(name):
         assert row.select_one(".calendar-status__pill").text().strip() == expected[0]
         detail = row.select_one(".calendar-status__detail").text().strip()
     assert expected[1] in detail, detail
-    assert row.select_one("a[data-calendar-open]").text().strip() == "Choisir un calendrier"
-    for english in ("Connected", "flights in", "Manage", "Out of date", "Choose calendar"):
+    assert row.select_one("a[data-calendar-open]").text().strip() == (
+        "Connecter un calendrier" if name == "none" else "Choisir un calendrier")
+    for english in ("Connected", "flights in", "Manage", "Out of date", "Choose calendar",
+                    "Connect a calendar"):
         assert english not in row.text()
 
 
@@ -187,7 +189,7 @@ def test_the_calendar_row_meta_no_longer_repeats_the_verdict():
 def test_the_page_carries_one_button_and_no_disclosure_in_the_connection_block():
     """the page's connection block is a single "Choose calendar" link opening the sheet:
     no <details>, no inline URL field, no Disconnect button outside the sheet"""
-    for name, label in (("ok", "Choose calendar"), ("none", "Choose calendar")):
+    for name, label in (("ok", "Choose calendar"), ("none", "Connect a calendar")):
         rendered = config_page.render(_ctx(**_STATES[name][0]), scope=config_page.SCOPE_DISPLAY)
         doc = parse_html(rendered)
         row = doc.select_one(".calendar-status")

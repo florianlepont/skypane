@@ -195,10 +195,10 @@ def test_every_view_fits_the_screen_in_both_languages_and_themes(
         context.close()
 
 
-def test_on_a_phone_the_navigation_scrolls_sideways_inside_itself_and_shows_the_current_link(
+def test_on_a_phone_the_navigation_fits_without_scrolling_and_shows_the_current_link(
         new_context, make_app_server):
-    """at 360 px the pill bar is wider than the screen, scrolls inside itself (the page does not),
-    and the current link is scrolled into view"""
+    """at 360 px the segmented control fits its column in French (no sideways scroll inside it or
+    in the page) and the current link sits fully on screen"""
     server = make_app_server(seed=_seed)
     context, page = _open(
         new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, lang="fr",
@@ -206,7 +206,7 @@ def test_on_a_phone_the_navigation_scrolls_sideways_inside_itself_and_shows_the_
     try:
         assert page.evaluate(
             "() => { const n = document.querySelector('[data-pers-nav]');"
-            " return n.scrollWidth > n.clientWidth && getComputedStyle(n).overflowX !== 'visible'; }")
+            " return n.scrollWidth <= n.clientWidth; }")
         page.wait_for_function(
             "() => { const l = document.querySelector('.personalisation-nav__link[aria-current]');"
             " const r = l.getBoundingClientRect();"
@@ -388,7 +388,7 @@ def _thumb_covers_current_link(page):
         "() => { const t = document.querySelector('[data-pers-thumb]').getBoundingClientRect();"
         " const l = document.querySelector('.personalisation-nav__link[aria-current]')"
         ".getBoundingClientRect();"
-        " return Math.abs(t.left - l.left) < 1.5 && Math.abs(t.width - l.width) < 1.5; }")
+        " return Math.abs(t.left - (l.left + 3)) < 1.5 && Math.abs(t.width - (l.width - 6)) < 1.5; }")
 
 
 def test_the_highlight_slides_to_the_current_link(new_context, make_app_server):
@@ -466,8 +466,8 @@ def test_without_scripts_the_links_work_and_the_look_view_offers_the_native_card
         assert not page.locator(PICKER).is_visible()
         assert page.locator('input[name="theme"]:checked').get_attribute("value") == SAVED_LOOK
         background = page.evaluate(
-            "() => getComputedStyle(document.querySelector('.personalisation-nav__link[aria-current]'))"
-            ".backgroundColor")
+            "() => getComputedStyle(document.querySelector("
+            "'.personalisation-nav__link[aria-current] > span')).backgroundColor")
         assert background not in ("rgba(0, 0, 0, 0)", "transparent")
         link = page.locator('.personalisation-nav__link[href$="%s"]' % layout.DISPLAY_ARRIVALS_ROUTE)
         with page.expect_navigation():

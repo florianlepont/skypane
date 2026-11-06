@@ -84,6 +84,7 @@ CALENDAR_NONE_LEAD = i18n.msg(
     "calendar_group.colour_the_flights_from_your_calendar_on_screen",
     "Colour the flights from your calendar on screen.")
 CALENDAR_CHOOSE_TEXT = i18n.msg("display.choose_calendar", "Choose calendar")
+CALENDAR_CONNECT_ADD_TEXT = i18n.msg("display.connect_a_calendar", "Connect a calendar")
 CALENDAR_FLIGHTS_ON_TEXT = i18n.msg(
     "display.calendar_flights_on", "Flights in your calendar: on")
 CALENDAR_FLIGHTS_OFF_TEXT = i18n.msg(
@@ -343,7 +344,8 @@ def _status_row_html(state, title, detail_html):
         "</div>"
     ) % (
         state, tile_class, _CALENDAR_ICON_SVG, _status_title_html(state, title), detail,
-        button_class, escape_html(_sheet_href()), escape_html(i18n.t(CALENDAR_CHOOSE_TEXT)))
+        button_class, escape_html(_sheet_href()),
+        escape_html(i18n.t(CALENDAR_CONNECT_ADD_TEXT if not_connected else CALENDAR_CHOOSE_TEXT)))
 
 
 def _url_form_html(connected, error_message):

@@ -123,6 +123,7 @@ MESSAGES = {
     "display.special_looks_none": "Aucun look spécial.",
     "display.calendar_not_connected": "Aucun calendrier connecté",
     "display.choose_calendar": "Choisir un calendrier",
+    "display.connect_a_calendar": "Connecter un calendrier",
     "display.calendar_flights_on": "Vols de votre calendrier : activés",
     "display.calendar_flights_off": "Vols de votre calendrier : désactivés",
     "display.on": "Allumé",

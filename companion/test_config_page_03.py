@@ -1204,7 +1204,7 @@ def test_rules_row_renders_inside_aspect_after_form():
     }, scope=config_page.SCOPE_DISPLAY)
     form_start = rendered.index('<form class="config-form" id="%s"' % config_page.SETTINGS_FORM_ID)
     form_end = rendered.index("</form>", form_start)
-    aspect_pos = rendered.index('class="page-section personalisation-card"')
+    aspect_pos = rendered.index('class="page-section personalisation-card personalisation-card--list"')
     rules_start, rules_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_RULES)
     assert form_end < aspect_pos < rules_start, (
         "expected </form> < the look card < the rules, got positions %d/%d/%d"

@@ -33,8 +33,7 @@
   // A thumb behind the current link. Each view is its own page, so the
   // thumb starts under the link of the page that was left (kept in
   // sessionStorage) and slides to the current one, unless the visitor
-  // prefers reduced motion. The bar scrolls sideways on a phone: the
-  // current link is brought into view.
+  // prefers reduced motion.
   var nav = document.querySelector("[data-pers-nav]");
   var NAV_KEY = "skypane-pers-nav";
   if (nav) {
@@ -55,8 +54,9 @@
       }
     }
     var placeThumb = function (link) {
-      thumb.style.width = link.offsetWidth + "px";
-      thumb.style.transform = "translateX(" + link.offsetLeft + "px)";
+      // The pill sits 3px inside its segment, like the label's own box.
+      thumb.style.width = (link.offsetWidth - 6) + "px";
+      thumb.style.transform = "translateX(" + (link.offsetLeft + 3) + "px)";
     };
     if (thumb && currentLink) {
       nav.className += " is-enhanced";
@@ -68,7 +68,6 @@
         thumb.className += " is-sliding";
         placeThumb(currentLink);
       }
-      nav.scrollLeft = currentLink.offsetLeft - (nav.clientWidth - currentLink.offsetWidth) / 2;
       try {
         window.sessionStorage.setItem(NAV_KEY, currentLink.getAttribute("data-pers-view"));
       } catch (err) {

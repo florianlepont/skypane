@@ -512,7 +512,7 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
     ("lang", "titles", "page_title", "nav_label"),
     [
         ("en", ("Look", "Special looks", "Calendar"), "Personalisation", "Personalisation sections"),
-        ("fr", ("Allure", "Allures spéciales", "Calendrier"), "Personnalisation",
+        ("fr", ("Allure", "Looks spéciaux", "Calendrier"), "Personnalisation",
          "Sections de personnalisation"),
     ],
 )

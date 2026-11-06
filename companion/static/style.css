@@ -3674,46 +3674,67 @@ a.calendar-disconnect-btn.flight-picture-link {
   color: var(--color-text);
 }
 
-/* Phone, scripts on: the search collapses to a 48px icon button beside
- * the chips and opens over the whole row on focus or while it holds
- * text (list-filter.js sets data-filter-active), pushing the chips to
- * the next line. Without a script the plain full-width field applies. */
-@media (max-width: 959.98px) {
-  .js .filter-bar--chips .filter-bar__search {
-    flex: 0 0 44px;
-    order: 2;
-  }
+/* The search lives in the page header's title row (.filter-bar--title).
+ * Without a script it is a plain field beside the title. With one, a phone
+ * shows a 44px magnifier at the row's right edge that opens over the whole
+ * row, in place: the title keeps its box under the field, so nothing below
+ * moves. From 960px the field is always open at the right. */
+.page-header:has(> .filter-bar--title) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+  min-height: 44px;
+}
 
-  .js .filter-bar--chips .filter-bar__search input {
-    padding: 0;
-    cursor: pointer;
-  }
+.page-header:has(> .filter-bar--title) > .page-title {
+  margin: 0;
+}
 
-  .js .filter-bar--chips .filter-bar__search input::placeholder {
-    color: transparent;
-  }
+.filter-bar--title {
+  flex: 1 1 280px;
+  margin: 0 0 0 auto;
+  max-width: 560px;
+}
 
-  .js .filter-bar--chips .filter-bar__search:focus-within,
-  .js .filter-bar--chips[data-filter-active] .filter-bar__search {
-    flex: 1 0 100%;
-    order: 0;
-    max-width: none;
-    /* Declared on the open state only: a transition runs with the
-     * destination state's property, so opening animates while the
-     * collapse the script's own .js class causes at load does not. */
-    transition: flex-basis var(--motion-fast) ease;
-  }
+.filter-bar--title .filter-bar__search {
+  flex: 1 1 100%;
+  max-width: none;
+}
 
-  .js .filter-bar--chips .filter-bar__search:focus-within input,
-  .js .filter-bar--chips[data-filter-active] .filter-bar__search input {
-    padding: 0 52px 0 46px;
-    cursor: text;
-  }
+.js .filter-bar--title {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 44px;
+  max-width: none;
+  margin: 0;
+}
 
-  .js .filter-bar--chips .filter-bar__search:focus-within input::placeholder,
-  .js .filter-bar--chips[data-filter-active] .filter-bar__search input::placeholder {
-    color: color-mix(in srgb, var(--color-text) 55%, transparent);
-  }
+.js .filter-bar--title .filter-bar__search input {
+  padding: 0;
+  cursor: pointer;
+}
+
+.js .filter-bar--title .filter-bar__search input::placeholder {
+  color: transparent;
+}
+
+.js .filter-bar--title:focus-within,
+.js .filter-bar--title[data-filter-active] {
+  width: 100%;
+}
+
+.js .filter-bar--title:focus-within input,
+.js .filter-bar--title[data-filter-active] input {
+  padding: 0 52px 0 46px;
+  cursor: text;
+}
+
+.js .filter-bar--title:focus-within input::placeholder,
+.js .filter-bar--title[data-filter-active] input::placeholder {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 @media (min-width: 960px) {
@@ -3735,10 +3756,68 @@ a.calendar-disconnect-btn.flight-picture-link {
     padding: 0 var(--space-md);
   }
 
-  .filter-bar--chips .filter-bar__search {
-    flex: 0 1 380px;
-    margin-left: auto;
-    order: 2;
+  .js .filter-bar--title,
+  .js .filter-bar--title:focus-within,
+  .js .filter-bar--title[data-filter-active] {
+    width: 380px;
+  }
+
+  .js .filter-bar--title .filter-bar__search input,
+  .js .filter-bar--title:focus-within input {
+    padding: 0 52px 0 46px;
+    cursor: text;
+  }
+
+  .js .filter-bar--title .filter-bar__search input::placeholder {
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  }
+}
+
+/* The end of the list: how many flights are shown and the Load more link,
+ * a full-width 44px+ glass button under the last row. */
+.history-more {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0 var(--space-lg);
+  text-align: center;
+}
+
+.history-more__count {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-more__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.history-more__link:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--glass-solid));
+}
+
+.history-more__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 960px) {
+  .history-more {
+    max-width: 24rem;
+    margin-inline: auto;
   }
 }
 
@@ -9746,22 +9825,21 @@ a.entity-row__button:hover {
   display: block;
 }
 
-/* The pill bar scrolls sideways on a phone rather than wrapping. A script
- * (theme-preview.js) adds .is-enhanced and slides the thumb under the
- * current link; without one the current link carries the highlight. */
+/* One segmented control: four equal-ish segments in a single track that
+ * always fits its column (a label gives way with an ellipsis rather than
+ * the bar scrolling). A script (theme-preview.js) adds .is-enhanced and
+ * slides the thumb under the current link; without one the current link
+ * carries the highlight. The track matches the Flights direction chips. */
 .personalisation-nav {
   position: relative;
   display: flex;
-  gap: var(--space-xs);
+  box-sizing: border-box;
+  gap: 0;
   margin: 0 0 var(--space-lg);
   padding: 0;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-
-.personalisation-nav::-webkit-scrollbar {
-  display: none;
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  box-shadow: inset 0 0 0 1px var(--filter-track-edge, var(--color-border));
 }
 
 .personalisation-nav__thumb {
@@ -9771,44 +9849,54 @@ a.entity-row__button:hover {
 .personalisation-nav__link {
   position: relative;
   z-index: 1;
-  scroll-snap-align: center;
   display: flex;
-  flex: none;
+  flex: 1 1 auto;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
+  box-sizing: border-box;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 var(--space-md);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: var(--glass-solid);
+  padding: 3px;
+  background: none;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
+  line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
 }
 
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .personalisation-nav__link {
-    background: var(--glass-bg);
-  }
+.personalisation-nav__link > span {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 38px;
+  text-align: center;
+  border-radius: var(--radius-control);
 }
 
+/* The labels alone fit the track; the glyphs would not. */
 .personalisation-nav__link svg {
-  flex: none;
-  width: 20px;
-  height: 20px;
-}
-
-/* Arrivals reuses the plane, nose down. */
-.personalisation-nav__link[data-pers-view="arrivals"] svg {
-  transform: rotate(90deg);
+  display: none;
 }
 
 .personalisation-nav__link:hover {
   color: var(--color-text);
 }
 
-.personalisation-nav__link[aria-current="page"] {
+.personalisation-nav__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-card);
+}
+
+.personalisation-nav__link[aria-current="page"] > span {
   background: var(--color-accent);
   box-shadow: var(--shadow-control);
   color: var(--color-on-accent);
@@ -9816,12 +9904,12 @@ a.entity-row__button:hover {
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 3px;
+  bottom: 3px;
   left: 0;
   display: block;
   width: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--color-accent);
   box-shadow: var(--shadow-control);
 }
@@ -9832,9 +9920,15 @@ a.entity-row__button:hover {
 
 /* The sliding thumb stays under the current link in the same fill, so the
  * current option reads as a pill whether or not the thumb has arrived. */
-.personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] {
-  background: var(--color-accent);
+.personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] > span {
   box-shadow: none;
+}
+
+@media (min-width: 700px) {
+  .personalisation-nav__link {
+    flex: 1 1 0;
+    font-size: var(--font-label-size);
+  }
 }
 
 .personalisation__view {
@@ -9890,6 +9984,98 @@ a.entity-row__button:hover {
 
 .personalisation-card .special-looks .empty-state--compact {
   margin-bottom: var(--space-sm);
+}
+
+/* Special looks and Calendar: no card around the view. The rows form one
+ * glass group like every other list, and the add row sits under it as a
+ * dashed outline. */
+.personalisation .personalisation-card--list.page-section,
+.personalisation .personalisation-card--list.page-section:hover,
+.personalisation .personalisation-card--list.page-section:focus-within {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.personalisation-card--list > .personalisation-card__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.personalisation-card--list .special-looks > .section-caption {
+  margin: 0 0 var(--space-md);
+  padding: 0 var(--space-xs);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) {
+  overflow: hidden;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) > .special-row {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) > .special-row:first-child {
+  border-top: 0;
+}
+
+.personalisation-card--list .special-list--add {
+  margin-top: var(--space-md);
+}
+
+.personalisation-card--list .special-row--add,
+.personalisation-card--list .special-row--add:last-child {
+  padding: 0;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.personalisation-card--list .special-add:not([open]) > .special-add__summary {
+  min-height: 56px;
+  border-radius: var(--radius-card);
+  background: none;
+  color: var(--color-text);
+}
+
+.personalisation-card--list .special-add:not([open]) > .special-add__summary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  color: var(--color-text);
+}
+
+.personalisation-card--list .special-row--add:has(.special-add[open]) {
+  padding: 0 var(--space-md);
+  border-style: solid;
+}
+
+/* While nothing is connected, "Connect a calendar" is the same dashed add
+ * row; connected, the button stays the quiet "Choose calendar". */
+.personalisation-card--list a.calendar-manage--primary {
+  background: none;
+  color: var(--color-text);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.personalisation-card--list a.calendar-manage--primary::before {
+  content: "+";
+  margin-right: var(--space-sm);
+  font-size: var(--font-body-size);
+  line-height: 1;
+}
+
+.personalisation-card--list a.calendar-manage--primary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
 .personalisation-switch {
@@ -11540,6 +11726,7 @@ a.airlines-name-it {
   .runway-card,
   .space-switch,
   .filter-bar__chips,
+  .personalisation-nav,
   .look-seg,
   .place-modes,
   .map-ready .place-modes,

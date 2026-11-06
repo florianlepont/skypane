@@ -59,7 +59,7 @@ EAGER_FIELDS = (
     "state_dir", "device", "root_state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
-    "sheet_key", "calendar_sheet", "calendar_sheet_error",
+    "sheet_key", "calendar_sheet", "calendar_sheet_error", "history_more",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -418,6 +418,8 @@ def build_page_context(handler, device):
             "calendar_sheet": (
                 params.get(config_page.CALENDAR_SHEET_PARAM, [None])[0]
                 == config_page.CALENDAR_SHEET_MANAGE),
+            # The Flights page's Load more count, a plain integer.
+            "history_more": params.get("more", [None])[0],
             "calendar_sheet_error": (
                 params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]
                 if params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]

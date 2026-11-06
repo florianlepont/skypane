@@ -68,18 +68,20 @@ def test_segment_and_chip_labels_are_centred(new_context, server, viewport, lang
 _BAR = (
     "() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect();"
     " const track = box('.filter-bar__chips'); const search = box('.filter-bar__search');"
+    " const title = box('.page-header');"
     " return {track: [track.height, (track.top + track.bottom) / 2],"
     "  search: [search.height, (search.top + search.bottom) / 2],"
+    "  title: [title.height, (title.top + title.bottom) / 2],"
     "  chips: [...document.querySelectorAll('.filter-chip')].map((l) => l.getBoundingClientRect().height)}; }")
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE_390],
                          ids=["360", "390"])
-def test_the_flights_filter_bar_shares_one_height_with_its_search_button(
+def test_the_flights_direction_track_and_title_row_search_are_both_44px(
         new_context, server, viewport, lang):
-    """the segmented track and the collapsed search button are both 44px tall on one centre
-    line, and every segment is a 44px target"""
+    """the segmented track and the collapsed search button in the title row are both 44px tall,
+    the button sits on the title row's centre line, and every segment is a 44px target"""
     context = new_context(viewport=viewport)
     context.add_cookies([{
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
@@ -93,7 +95,8 @@ def test_the_flights_filter_bar_shares_one_height_with_its_search_button(
             " === Infinity)", timeout=10000)
         bar = page.evaluate(_BAR)
         assert abs(bar["track"][0] - 44) <= 0.5 and abs(bar["search"][0] - 44) <= 0.5, bar
-        assert abs(bar["track"][1] - bar["search"][1]) <= 0.5, bar
+        assert abs(bar["title"][0] - 44) <= 0.5 or bar["title"][0] > 44, bar
+        assert abs(bar["search"][1] - bar["title"][1]) <= 0.5, bar
         assert all(height >= 44 - 0.5 for height in bar["chips"]), bar
     finally:
         context.close()
