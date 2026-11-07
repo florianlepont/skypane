@@ -543,4 +543,34 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
 - W94 (owner) Idea: on desktop the Fleet groups could stop being toggles /
   expandable blocks and become dialogs that open. (To weigh against W86/W87,
   where he prefers pages over modals for Personalisation.)
+
+#### Users
+
+- W95 (owner, question) What does "Dissocier l'identité" mean? Answer: it
+  detaches the person's sign-in identity (the sign-in provider account linked
+  at first login) from their SkyPane user and closes their session; the
+  identity is linked again at their next sign-in. Wording to make clearer.
+- W96 (owner, screenshot) Users: his own row is far too wide compared with the
+  rest (the self-protection explanation under the role, five lines of text,
+  "2 cadres · co-gestionnaire" wrapping).
+
+#### Airline editor
+
+- W97 (owner, screenshot) Unidentified airline rows lack finesse: the "Nommer"
+  button is not centred and a bit too big.
+- W98 (owner, question) Why can the visual of some aircraft types not be
+  changed? e.g. for Air France nothing can be done on the type rows (their
+  row menu offers nothing / "Utilise celle de la compagnie").
+- W99 (owner) Missing option to delete an illustration, with a default
+  behaviour: the type (or airline) reverts to the default illustration; this
+  also means being able to pick a flight type as the airline's default one.
+- W100 (owner) Why is there a separate "manual resolution" table? Resolution
+  should happen directly in the airline table.
+- W101 (owner) The "unresolved fleets" table in System should no longer exist
+  since it is already in Airlines.
+
+#### Audit log
+
+- W102 (owner, screenshot) Too much information per row and the table
+  overflows the page; use a toggle (expandable row) to show more detail.
 - (owner has not finished; more items to come.)
