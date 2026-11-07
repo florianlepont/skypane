@@ -475,8 +475,8 @@ def test_switch_pills_keep_the_native_switch_semantics(tmp_path):
 
 def test_served_home_page_carries_no_inline_style(make_app_server):
     """the Home page served to a signed-in reader has no style attribute anywhere (the CSP
-    forbids inline styles), and a signed-in reader's Home carries no battery dial: the battery
-    lives on the Console Health and Device pages"""
+    forbids inline styles), and a signed-in reader's Home carries the Battery row of the Frame
+    group but no battery dial (the dial is the administrator's hero tile)"""
     def seed(state_dir):
         _seed_battery(state_dir, 3700)
     server = make_app_server(seed=seed, fake_providers=True)
@@ -485,6 +485,7 @@ def test_served_home_page_carries_no_inline_style(make_app_server):
     html = page.decode("utf-8")
     assert status == 200 and 'class="%s"' % draw.DRAWING_ARC_VALUE_CLASS not in html
     assert "home-battery" not in html
+    assert 'id="frame-battery-label"' in html
     assert not re.search(r"<[^>]+\sstyle=", html)
 
 

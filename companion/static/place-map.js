@@ -88,6 +88,7 @@
   var radiusField = byId("place-radius");
   var statusEl = byId("place-status");
   var noticeEl = byId("place-notice");
+  var loadingEl = byId("place-loading");
   var messageEl = byId("place-message");
   var rangeField = byId("place-radius-range");
   var cardEl = document.querySelector(".place-card");
@@ -162,6 +163,25 @@
     if (noticeEl) {
       noticeEl.textContent = message;
       noticeEl.hidden = false;
+    }
+  }
+
+  // The loading note shows from the moment the map is built until its first
+  // pictures are in (or have failed, or the wait has run out), so the map is
+  // never an unexplained blank.
+  var LOADING_MAX_MS = 8000;
+  var loadingTimer = 0;
+
+  function setLoading(on) {
+    if (!loadingEl) {
+      return;
+    }
+    loadingEl.hidden = !on;
+    window.clearTimeout(loadingTimer);
+    if (on) {
+      loadingTimer = window.setTimeout(function () {
+        loadingEl.hidden = true;
+      }, LOADING_MAX_MS);
     }
   }
 
@@ -354,8 +374,14 @@
       tileErrors += 1;
       if (!tilesLoaded && tileErrors >= TILE_ERRORS_BEFORE_NOTICE) {
         showNotice(text("tiles-failed"));
+        setLoading(false);
       }
     });
+    // "load" fires once every tile in view has arrived or failed.
+    tiles.on("load", function () {
+      setLoading(false);
+    });
+    setLoading(true);
     tiles.addTo(map);
   }
 
@@ -1320,6 +1346,7 @@
         map = null;
       }
     }
+    setLoading(false);
     giveUp();
     var classes = document.documentElement.className.split(" ");
     document.documentElement.className = classes.filter(function (name) {

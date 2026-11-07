@@ -279,14 +279,21 @@ def new_context(new_context, blocked_requests):
     Every context this factory returns gets a route guard
     that continues loopback/data/blob/about requests and aborts
     everything else, recording the aborted URL in `blocked_requests`.
+    `splash=True` opts one context into the opening splash, which every
+    other context skips by arriving with the session already marked.
     Guard rule G10: a test that needs an extra viewport/context calls
     THIS fixture (`new_context(viewport=...)`), never
     `browser.new_context(...)` directly — only this fixture installs the
     guard.
     """
-    def factory(**kwargs):
+    def factory(splash=False, **kwargs):
         ctx = new_context(**kwargs)
         ctx.route("**/*", _make_route_guard(blocked_requests))
+        if not splash:
+            # The opening splash plays once per browser session on a first
+            # visit; every other browser test starts as a returning visitor.
+            ctx.add_init_script(
+                "try { window.sessionStorage.setItem('skypane.splash', '1'); } catch (e) {}")
         return ctx
 
     yield factory

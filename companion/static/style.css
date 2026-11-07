@@ -716,7 +716,6 @@ h3 {
 
 /* The top rung of the heading ladder: bold and tightly tracked. */
 .page-title {
-  view-transition-name: skypane-title;
   font-family: var(--font-display);
   font-size: var(--font-page-title-size);
   font-weight: var(--weight-title);
@@ -6675,6 +6674,49 @@ html:not(.map-ready) .place-details__close {
   display: none;
 }
 
+/* The map's loading note, centred over the map until its pictures are in. */
+.place-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.place-loading[hidden] {
+  display: none;
+}
+
+/* A ring with one accent quarter. Bounded: the note itself is removed after
+ * a few seconds, and reduced motion zeroes the duration. */
+.place-loading__spinner {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: skypane-spin var(--motion-slow) linear 4;
+}
+
+@keyframes skypane-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .place-map.place-map .leaflet-bar a,
 .place-map.place-map .leaflet-bar a:hover {
   width: 44px;
@@ -7470,6 +7512,61 @@ button.place-result.is-active {
   justify-content: start;
   padding: var(--space-md) var(--space-lg);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The Battery row of Home's Frame group: the level word is tinted by the
+ * level but always present, so colour is never the only signal; the thin
+ * bar is an SVG whose widths are percentage attributes. */
+.frame-battery {
+  --battery-tone: var(--color-status-ok);
+}
+
+.frame-battery--low {
+  --battery-tone: var(--color-status-warn);
+}
+
+.frame-battery--critical {
+  --battery-tone: var(--color-status-error);
+}
+
+.frame-battery__state {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.frame-battery__word {
+  color: color-mix(in srgb, var(--battery-tone) 55%, var(--color-text));
+}
+
+.frame-battery--none .frame-battery__state {
+  font-weight: var(--weight-regular);
+}
+
+.frame-battery__bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: var(--space-xs);
+}
+
+.frame-battery__bar rect {
+  height: 100%;
+  rx: 2px;
+}
+
+.frame-battery__track {
+  fill: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+.frame-battery__fill {
+  fill: var(--battery-tone);
+}
+
+.frame-battery__note {
+  display: block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
 }
 
 /* The estimated "Probably charging" pill, shared by Home and Health. The
@@ -13730,6 +13827,169 @@ button:not(.value-control__handle):not(.switch):active,
     filter: blur(0);
     opacity: 1;
   }
+}
+
+/* The opening splash (the "Cadre" concept): the overlay is server-rendered in
+ * every authenticated document and stays hidden until splash-boot.js puts
+ * `splash-on` on <html> before the first paint. Every moving value is driven
+ * by splash.js through attributes and the Web Animations API, so nothing here
+ * needs an inline style. */
+.splash {
+  display: none;
+}
+
+html.splash-on {
+  overflow: hidden;
+}
+
+html.splash-on .splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: block;
+  background-color: var(--sky-top);
+  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+}
+
+/* While the page opens from the frame, the overlay lets the page show
+ * through everywhere but the frame itself. */
+html.splash-on .splash.splash--opening {
+  background: none;
+}
+
+.splash__frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: min(46svh, 300px);
+  aspect-ratio: 3 / 4;
+  transform: translate(-50%, -50%);
+}
+
+.splash__panel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid var(--glass-hairline);
+  border-radius: 18px;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-glass);
+}
+
+.splash__ink {
+  position: absolute;
+  inset: 0;
+  background: var(--color-accent);
+  opacity: 0;
+}
+
+.splash__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+.splash__band--1 {
+  background: linear-gradient(90deg, transparent, var(--color-rarity-occasional) 35%, var(--color-rarity-occasional) 65%, transparent);
+}
+
+.splash__band--2 {
+  background: linear-gradient(90deg, transparent, var(--color-status-ok) 35%, var(--color-status-ok) 65%, transparent);
+}
+
+.splash__band--3 {
+  background: linear-gradient(90deg, transparent, var(--color-status-warn) 35%, var(--color-status-warn) 65%, transparent);
+}
+
+.splash__band--4 {
+  background: linear-gradient(90deg, transparent, var(--color-status-error) 35%, var(--color-status-error) 65%, transparent);
+}
+
+/* The small logo is centred in the frame from the very first frame: ghosted
+ * underneath, and a sharp copy the scan line uncovers from the top. */
+.splash .splash__logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  color: var(--color-text);
+}
+
+@media (min-width: 960px) {
+  .splash .splash__logo {
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+  }
+}
+
+.splash .splash__logo--ghost {
+  opacity: 0.35;
+}
+
+.splash .splash__logo--sharp {
+  clip-path: inset(0 0 100% 0);
+}
+
+.splash.splash--static .splash__logo--sharp {
+  clip-path: none;
+}
+
+.splash__scan {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent);
+  opacity: 0;
+}
+
+.splash__outline {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: calc(100% + 18px);
+  height: calc(100% + 18px);
+  overflow: visible;
+}
+
+/* The bar follows real progress event by event, so neither outline rect
+ * carries a smoothing transition. */
+.splash__track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 16%, transparent);
+  stroke-width: 1.2;
+  transition: none;
+}
+
+.splash__bar {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  transition: none;
+}
+
+.splash__caption {
+  position: absolute;
+  top: calc(50% + min(46svh, 300px) / 2 + var(--space-lg));
+  right: 0;
+  left: 0;
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The tab bar's sliding pill. Without the script the active link keeps its own

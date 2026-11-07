@@ -578,6 +578,16 @@
     // which then open this dialog in place), not a <button>, so this
     // navigation must never happen once JS is running the show.
     evt.preventDefault();
+    if (pictureDialog && !dialog.open && !transitioning) {
+      // The dialog opens once its picture can paint, never as an empty box
+      // with a caption, and never from a thumbnail that has not loaded.
+      whenPictureReady(trigger, function () {
+        if (!openWithTransition(trigger)) {
+          openFromTrigger(trigger);
+        }
+      });
+      return;
+    }
     if (!openWithTransition(trigger)) {
       openFromTrigger(trigger);
     }
@@ -607,7 +617,7 @@
 
   function visibleThumb(trigger) {
     var thumb = trigger ? trigger.querySelector("img") : null;
-    if (!thumb || !thumb.isConnected) {
+    if (!thumb || !thumb.isConnected || !thumb.complete || !thumb.naturalWidth) {
       return null;
     }
     var box = thumb.getBoundingClientRect();
@@ -623,6 +633,49 @@
       return image.decode().catch(function () { return null; });
     }
     return Promise.resolve();
+  }
+
+  var waitingFor = null;
+  var settleWaiting = null;
+
+  // Runs open() once the trigger's large picture is in the cache (or has
+  // failed). While it loads, the thumbnail keeps the shared loading
+  // placeholder; a second tap on the same thumbnail opens the dialog at once
+  // with the picture arriving into it, so a stalled network never traps the
+  // tap.
+  function whenPictureReady(trigger, open) {
+    var src = trigger.getAttribute("data-view-panel-src") || "";
+    if (waitingFor) {
+      if (waitingFor === trigger && settleWaiting) {
+        settleWaiting();
+      }
+      return;
+    }
+    if (!src) {
+      open();
+      return;
+    }
+    var probe = new window.Image();
+    probe.src = src;
+    if (probe.complete && probe.naturalWidth > 0) {
+      open();
+      return;
+    }
+    waitingFor = trigger;
+    trigger.classList.add("is-loading");
+    var settled = false;
+    settleWaiting = function () {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      trigger.classList.remove("is-loading");
+      waitingFor = null;
+      settleWaiting = null;
+      open();
+    };
+    probe.onload = settleWaiting;
+    probe.onerror = settleWaiting;
   }
 
   function release(node) {

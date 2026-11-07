@@ -19,6 +19,8 @@ MESSAGES = {
     # --- Login page ------------------------------------------------
     "common.sign_in": "Se connecter",
     "common.login": "Connexion",
+    "common.splash_loading": "Chargement\u2026",
+    "common.splash_ready": "Prêt",
 
     # --- 404 page ----------------------------------------------------
     "common.page_not_found": "Page introuvable.",

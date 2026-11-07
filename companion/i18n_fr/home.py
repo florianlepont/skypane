@@ -81,6 +81,13 @@ MESSAGES = {
     "home.battery_aria": "Batterie à environ %s",
     "home.battery_low": "Faible",
     "home.battery_critical": "Très faible",
+    "home.battery_row_percent": "%d\u00a0%%",
+    "home.battery_row_normal": "Niveau normal",
+    "home.battery_row_none": "Aucune mesure pour l’instant",
+    "home.battery_row_autonomy": "Autonomie estimée\u00a0: %s",
+    "home.battery_row_autonomy_short": "moins de 2 jours",
+    "home.battery_row_autonomy_days": "environ %d jours",
+    "home.battery_row_autonomy_weeks": "environ %d semaines",
     "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
     "home.action_needed": "Un élément demande votre attention",
 

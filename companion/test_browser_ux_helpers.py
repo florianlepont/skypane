@@ -75,7 +75,6 @@ def seed_two_releases(state_dir):
 VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/fleet")
 VIEW_TRANSITION_NAMES = {
     "skypane-sidebar": VIEW_TRANSITION_ROUTES,
-    "skypane-title": VIEW_TRANSITION_ROUTES,
     "skypane-picture": ("/",),
     "skypane-tab-slider": VIEW_TRANSITION_ROUTES,
     "skypane-tab-bar": VIEW_TRANSITION_ROUTES,

@@ -230,6 +230,15 @@ MODAL_SCRIPT_SRC = "/static/modal.js"
 # most have a picture; every page works the same without it.
 MOTION_SCRIPT_SRC = "/static/motion.js"
 
+# Must equal companion/static_files.py's SPLASH_BOOT_SCRIPT_ROUTE and
+# SPLASH_SCRIPT_ROUTE. The opening splash: a tiny synchronous script in the
+# document head decides, before the first paint, whether the splash shows
+# (once per session, not for cached assets) by putting a class on <html>;
+# the deferred script then runs the animation and the real preload. Without
+# scripts the class is never set and the overlay markup stays hidden.
+SPLASH_BOOT_SCRIPT_SRC = "/static/splash-boot.js"
+SPLASH_SCRIPT_SRC = "/static/splash.js"
+
 # Must equal companion/static_files.py's LEAFLET_SCRIPT_ROUTE and
 # PLACE_MAP_SCRIPT_ROUTE. The vendored map library and the first-party glue
 # that drives it; only the Location and detection page loads them, the

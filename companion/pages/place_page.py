@@ -73,6 +73,7 @@ SEARCH_HELP = i18n.msg(
     "An airport code or name picks that airport. Anything else is sent to "
     "OpenStreetMap’s search service (Nominatim).")
 LOCATE_BUTTON = i18n.msg("detection.locate", "Use my position")
+MAP_LOADING = i18n.msg("detection.map_loading", "Loading the map\u2026")
 ABOUT_MAP = i18n.msg("detection.about_map", "About this map")
 MAP_CREDITS = i18n.msg(
     "detection.map_credits",
@@ -474,6 +475,15 @@ def _map_html(view):
     ) % (escape_html(i18n.t(MAP_LABEL)), _map_attrs(view))
 
 
+def _loading_html():
+    """The map's loading note: a spinner and the words, hidden until the map
+    script starts the map and removed again once the pictures are in."""
+    return (
+        '<p id="place-loading" class="place-loading text-label" role="status" hidden>'
+        '<span class="place-loading__spinner" aria-hidden="true"></span>%s</p>'
+    ) % escape_html(i18n.t(MAP_LOADING))
+
+
 def _mode_switch_html(view):
     return (
         '<div class="place-modes" role="radiogroup" aria-label="%s" %s="%s">%s%s</div>%s'
@@ -865,6 +875,6 @@ def render(ctx, query=None, errors=None, submitted=None, place=None):
         + fail_safe_toast_html(view)
         + _stray_errors_html(view)
         + _form_html(view)
-        + '<div class="place-page"><div class="place-stage">%s%s%s</div></div>' % (
-            _map_html(view), _float_html(), _panel_html(view))
+        + '<div class="place-page"><div class="place-stage">%s%s%s%s</div></div>' % (
+            _map_html(view), _loading_html(), _float_html(), _panel_html(view))
     )

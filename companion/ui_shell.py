@@ -16,6 +16,7 @@ import companion.frame_menu as frame_menu
 import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
+import companion.ui_splash as ui_splash
 from companion.ui_base import (
     AIRLINE_EDITOR_ROUTE,
     CONFIRM_SUBMIT_SCRIPT_SRC,
@@ -47,6 +48,8 @@ from companion.ui_base import (
     CALENDAR_CONNECT_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
     MOTION_SCRIPT_SRC,
+    SPLASH_BOOT_SCRIPT_SRC,
+    SPLASH_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
     escape_html,
@@ -140,6 +143,7 @@ def login_shell(body, ui_theme="auto", lang=None):
 # page_shell()'s `scripts` argument only ever widens or narrows which of
 # these are present; it never reorders them.
 SHELL_SCRIPT_ORDER = (
+    SPLASH_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     DIRTY_STATE_SCRIPT_SRC,
     LIST_FILTER_SCRIPT_SRC,
@@ -167,6 +171,7 @@ SHELL_SCRIPT_ORDER = (
 # form's submit guard, the nav status line's relative time, and the
 # modal/menu dismissal script (any page can hold a dialog or a menu).
 GLOBAL_PAGE_SCRIPTS = (
+    SPLASH_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
@@ -291,11 +296,13 @@ PAGE_SHELL_TEMPLATE = (
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
+    '<script src="{splash_boot_src}"></script>\n'
     "{favicon_link}\n"
     "</head>\n"
     "<body{body_attrs}>\n"
     "{skip_link}\n"
     "{icon_defs}\n"
+    "{splash}\n"
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
     '<span class="brand">{brand_inner_sidebar}</span>\n'
@@ -530,6 +537,8 @@ def page_shell(
         "body_attrs": body_attrs,
         "skip_link": skip_link_html,
         "icon_defs": ICON_DEFS_HTML,
+        "splash": ui_splash.splash_html(),
+        "splash_boot_src": SPLASH_BOOT_SCRIPT_SRC,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
         "sidebar_switch": space_switch_html(active),
