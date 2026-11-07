@@ -531,4 +531,16 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
 - W92 (owner) In the Manage access dialog the e-mail field pre-fills itself
   (browser autofill suggestions); very annoying: disable autofill on that
   field (autocomplete off, no autofill of the owner's own address).
+
+### Admin account (desktop)
+
+- W93 (owner, screenshot) Fleet (admin, desktop): the visual principle is
+  right but the rendering is a bit broken and too busy: box sizes and the
+  amount of information shown need rework; there are holes (empty space) in
+  places and too much text elsewhere (State group short vs a tall Device and
+  version group with the versions list; Settings and Access below). He asks
+  me to make a proposal.
+- W94 (owner) Idea: on desktop the Fleet groups could stop being toggles /
+  expandable blocks and become dialogs that open. (To weigh against W86/W87,
+  where he prefers pages over modals for Personalisation.)
 - (owner has not finished; more items to come.)
