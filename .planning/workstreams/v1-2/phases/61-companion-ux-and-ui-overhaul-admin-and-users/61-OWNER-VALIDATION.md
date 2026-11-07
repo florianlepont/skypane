@@ -629,3 +629,7 @@ removes a frame (W91).
 - W112 (owner) The Home page really lacks a signature element: a stylish
   animation with a "wow" effect, without taking much space. Concepts to be
   shown as live demos on the real Home page (decision D-K).
+- W112b (owner) The frame will later also display photos, so aircraft are one
+  use and not the only one: the signature animation must not be built around
+  planes; it should be about the frame and the app in general (content
+  neutral).
