@@ -58,7 +58,11 @@ def test_the_selected_frame_shows_its_four_blocks_in_order(fleet):
     server, seed, cookie = fleet
     status, _headers, page = fx.get(server, cookie, "/fleet?frame=%s" % seed.owned_id)
     assert status == 200
-    assert _blocks(page) == ["State", "Device and version", "Settings", "Access"]
+    # State, the desktop summary rows, then the groups (shown as dialogs behind those rows from
+    # 960px).
+    assert _blocks(page) == [
+        "State", "Device and settings", "Device and version", "Version history", "Settings",
+        "Access"]
     # The settings form posts to the frame's own route; the wake interval is there.
     assert 'action="/devices/%s/settings"' % seed.owned_id in page
     assert "name=\"wake_interval_s\"" in page
@@ -108,7 +112,9 @@ def test_french_block_headings(fleet):
     _status, _headers, page = fx.get(
         server, cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME,
         "/fleet?frame=%s" % seed.owned_id)
-    assert _blocks(page) == ["État", "Appareil et version", "Réglages", "Accès"]
+    assert _blocks(page) == [
+        "État", "Appareil et réglages", "Appareil et version", "Historique des versions",
+        "Réglages", "Accès"]
 
 
 def test_the_fleet_page_refreshes_its_nav_dot_and_health_rows_in_place(fleet):

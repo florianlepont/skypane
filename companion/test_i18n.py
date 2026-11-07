@@ -415,7 +415,7 @@ _FRENCH_PAGE_CASES = (
     ("/", "Accueil", "Home"),
     ("/display", "Personnalisation", "Display"),
     ("/flights", "Vols", "Flights"),
-    ("/airlines", "Collection de compagnies", "Airline collection"),
+    ("/airlines", "Compagnies", "Airlines"),
     ("/fleet", "Flotte", "Fleet"),
     ("/fleet?view=system", "Système", "System"),
 )

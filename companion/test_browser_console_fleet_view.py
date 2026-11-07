@@ -14,7 +14,8 @@ from companion.test_browser_ux_helpers import (
 pytestmark = pytest.mark.browser
 
 _BLOCKS = (
-    "() => [...document.querySelectorAll('section.fleet-block')].map(s => {"
+    "() => [...document.querySelectorAll('section.fleet-block')]"
+    ".filter(s => s.getClientRects().length > 0).map(s => {"
     " const b = s.getBoundingClientRect();"
     " return {title: s.querySelector('h2.section-label').textContent, x: b.left, y: b.top,"
     "  w: b.width, right: b.right}; })")
@@ -52,7 +53,9 @@ def test_the_blocks_lay_out_and_nothing_overflows(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         blocks = page.evaluate(_BLOCKS)
-        assert len(blocks) == 4, where
+        # A phone's State tab shows State, Device and Versions; from 960px State and the
+        # summary rows (the other groups live in their dialogs).
+        assert len(blocks) == (2 if viewport["width"] >= 960 else 3), where
         first, second = blocks[0], blocks[1]
         if viewport["width"] >= 1000:
             assert second["x"] > first["right"] - 1, (where, blocks)
@@ -88,7 +91,8 @@ def test_a_row_is_a_plain_link_that_selects_the_frame(
             "(sel) => document.querySelector(sel).getAttribute('aria-current') === 'true'",
             arg=target)
         assert page.locator(FRAMES + '[aria-current="true"]').count() == 1
-        assert page.locator("section.fleet-block").count() == 4
+        # State, the summary rows, Device, Versions, Settings and Access.
+        assert page.locator("section.fleet-block").count() == 6
         page.locator(SYSTEM).click()
         page.wait_for_url("**/fleet?view=system")
         page.wait_for_function(_SETTLED, timeout=15000)

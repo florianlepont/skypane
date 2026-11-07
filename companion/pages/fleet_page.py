@@ -11,7 +11,7 @@ code, escaped into the input's `value` on the immediate response.
 import datetime
 from typing import NamedTuple
 
-from companion import device_scope, frame_status, i18n, ui_entity_list, ui_modal
+from companion import device_scope, fleet_summary, frame_status, i18n, ui_entity_list, ui_modal
 from companion.pages import co_managers_card
 from companion.ui_base import escape_html, validation_attrs
 
@@ -283,19 +283,38 @@ def detail_header_html(view, frame_id):
             _actions_menu(row, frozenset(key for key, _view in view.access))))
 
 
-def _other_frames_html(rows):
-    """The pending and retired frames in a collapsed block; empty without
-    any."""
+def _other_rows(rows):
+    """The pending frames, then the retired ones."""
     others = [row for row in rows if row.kind != KIND_LIVE]
-    if not others:
-        return ""
     pending = [row for row in others if row.kind == KIND_PENDING]
-    ordered = pending + [row for row in others if row.kind == KIND_RETIRED]
+    return pending + [row for row in others if row.kind == KIND_RETIRED]
+
+
+def _other_frames_html(rows):
+    """The pending and retired frames in a collapsed block (a phone's view);
+    empty without any. From 960px the Fleet page shows them in a dialog
+    instead (`_other_frames_dialog`)."""
+    ordered = _other_rows(rows)
+    if not ordered:
+        return ""
     return (
         '<details class="fleet-other"><summary>%s</summary>%s</details>' % (
             _esc(i18n.t(_OTHER_FRAMES) % len(ordered)),
             ui_entity_list.entity_list_html(
                 "".join(_row_html(row) for row in ordered))))
+
+
+def _other_frames_dialog(rows):
+    """The pending and retired frames as a dialog the Other frames summary row
+    opens (hidden below 960px, where the collapsed block shows them)."""
+    ordered = _other_rows(rows)
+    if not ordered:
+        return ""
+    return fleet_summary.dialog(
+        fleet_summary.OTHERS_DIALOG, i18n.t(_OTHER_FRAMES) % len(ordered),
+        _routes().FLEET_ROUTE,
+        ui_entity_list.entity_list_html("".join(_row_html(row) for row in ordered)),
+        inline=False)
 
 
 def _owner_options(view, placeholder=True):
@@ -427,6 +446,6 @@ def render(view):
     section = (
         '<section class="page-section fleet-panel-access" aria-label="%s">%s</section>' % (
             _t(_FRAMES_TEXT), others) if others else "")
-    dialogs = _add_dialog(view) + "".join(
+    dialogs = _other_frames_dialog(view.rows) + _add_dialog(view) + "".join(
         _row_dialogs(row, view) for row in view.rows)
     return _register_errors_html(view) + section + dialogs

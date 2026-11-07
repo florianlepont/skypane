@@ -1,10 +1,11 @@
-"""Real-browser checks of the Airline collection (/airlines): at 360 and 1280 px, in English and
+"""Real-browser checks of the Airlines collection (/airlines): at 360 and 1280 px, in English and
 French, in both themes, nothing overflows sideways, every card, chip, select, field and button is at
-least 44 px high and owns its centre, the badge pills are 44 px high, and the headline is the first
-thing under the page header. A card opens its read-only sheet with the focus inside, Escape closes
-it and returns the focus to the card, and a dimmed card keeps the text colour of a seen card (the
-dimming is on the picture only). With scripts blocked the chips, sort and field work through the
-Apply button and a card opens its sheet through the hash link.
+least 44 px high and owns its centre, the progress sits on one line (count, bar, next goal, a compact
+earned/total badge pill), the page title has the size of the other pages' titles, the control bar
+sticks while the cards scroll, and a card not seen yet is only dimmed. A card opens its read-only
+sheet with the focus inside, Escape closes it and returns the focus to the card. With scripts
+blocked the chips, sort and field work through the Apply button and a card opens its sheet through
+the hash link.
 
 State is always waited for (settled page, owned centres, focus), never read right after an input."""
 import re
@@ -131,7 +132,7 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
         assert not _assert_no_page_overflow(page, "collection", viewport["width"])
         columns = page.eval_on_selector(
             ".collection-grid", "el => getComputedStyle(el).gridTemplateColumns.split(' ').length")
-        assert columns == (2 if viewport["width"] < 700 else 4)
+        assert columns == (2 if viewport["width"] < 700 else 3)
         for selector in (
                 SEEN_CARD, UNSEEN_CARD, ".filter-chip", ".collection-sort > summary",
                 "#collection-filter"):
@@ -144,14 +145,12 @@ def test_the_collection_does_not_overflow_and_its_targets_are_44px(
         _wait_owns_centre(page, ".collection-legend > summary")
         legend_box = page.locator(".collection-legend > summary").bounding_box()
         assert legend_box["height"] >= 44 - 0.5 and legend_box["width"] >= 44 - 0.5
-        for badge in page.locator(".collection-badge").all():
-            box = badge.bounding_box()
-            assert 24 <= box["width"] <= 36 and abs(box["width"] - box["height"]) < 1
-            assert badge.get_attribute("title") and badge.locator(".visually-hidden").inner_text()
-        assert page.locator(".collection-badge--earned").count() == 1
-        assert page.locator(".collection-badge--locked").count() == 4
-        assert page.locator(".collection-badge--locked .visually-hidden").first.inner_text(
-        ).startswith("Locked" if lang == "en" else "Verrouillé")
+        # The badges are one compact pill, "earned/total", spelled out for assistive technology.
+        pill = page.locator(".collection-badges")
+        assert pill.count() == 1 and pill.locator("span[aria-hidden]").inner_text() == "1/5"
+        assert pill.get_attribute("title")
+        spelled = pill.locator(".visually-hidden").inner_text()
+        assert "1/5" in spelled and ("Locked" if lang == "en" else "Verrouillé") in spelled
         assert 3 <= page.locator(".collection-progress__bar").bounding_box()["height"] <= 8
         _assert_segments_are_centred(page)
     finally:
@@ -201,13 +200,17 @@ def test_the_progress_line_sits_in_the_one_line_header(new_context, make_app_ser
             " return {title: box('.page-title'), line: box('.collection-progress__headline'),"
             " bar: box('.collection-progress__bar'), badges: box('.collection-badges'),"
             " text: document.querySelector('.collection-progress__headline').textContent,"
+            " goal: document.querySelector('.collection-progress__goal').textContent,"
+            " goal_box: box('.collection-progress__goal'),"
             " head: box('main .page-header')}; }")
-        assert geometry["text"].startswith("%d airlines spotted \u00b7 " % TOTAL_SPOTTED)
-        assert geometry["text"].endswith(" badge")
-        assert geometry["line"]["top"] > geometry["bar"]["top"]
-        assert geometry["line"]["top"] < geometry["title"]["bottom"] + 40
-        assert geometry["badges"]["left"] > geometry["bar"]["left"]
-        assert abs(geometry["badges"]["top"] - geometry["title"]["top"]) < 40
+        assert geometry["text"] == "%d of 36 airlines spotted" % TOTAL_SPOTTED
+        assert geometry["goal"].endswith(" badge")
+        # Count, bar, goal and badge pill share one line, in that order, beside the title.
+        line = [geometry[name] for name in ("line", "bar", "goal_box", "badges")]
+        centres = [box["top"] + box["height"] / 2 for box in line]
+        assert max(centres) - min(centres) < 4, geometry
+        assert all(a["right"] <= b["left"] + 0.5 for a, b in zip(line, line[1:])), geometry
+        assert geometry["badges"]["left"] > geometry["title"]["right"], geometry
         assert geometry["head"]["height"] < 90, geometry
     finally:
         context.close()
@@ -243,7 +246,8 @@ def test_the_phone_header_takes_no_more_than_a_third_of_the_screen(
         assert max(box["top"] for box in line1) - min(box["top"] for box in line1) < 1, geometry
         assert line1[0]["width"] > line1[1]["width"] + line1[2]["width"], geometry
         assert geometry["track"]["top"] >= max(box["bottom"] for box in line1) - 0.5, geometry
-        assert geometry["bar"]["height"] <= 2 * 44 + 8 + 1, geometry
+        # Two lines of 44px controls and their gap, inside the bar's own 8px padding and 1px border.
+        assert geometry["bar"]["height"] <= 2 * 44 + 8 + 2 * 8 + 2 + 1, geometry
     finally:
         context.close()
 
@@ -274,7 +278,7 @@ def test_a_card_opens_its_read_only_sheet_and_escape_returns_to_the_card(
 
 
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
-def test_a_dimmed_card_keeps_the_text_of_a_seen_card(new_context, make_app_server, theme):
+def test_a_dimmed_card_keeps_a_readable_name_and_carries_no_other_text(new_context, make_app_server, theme):
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, theme=theme)
     try:
@@ -282,8 +286,9 @@ def test_a_dimmed_card_keeps_the_text_of_a_seen_card(new_context, make_app_serve
             "sel => { const card = document.querySelector(sel);"
             " const cs = el => getComputedStyle(el);"
             " const picture = card.querySelector('.collection-card__art');"
+            " const seenLine = card.querySelector('.collection-card__seen');"
             " return {name: cs(card.querySelector('.collection-card__name')).color,"
-            " seen: cs(card.querySelector('.collection-card__seen')).color,"
+            " seen: seenLine ? cs(seenLine).color : null,"
             " background: cs(card).backgroundColor, cardOpacity: cs(card).opacity,"
             " sky: cs(document.documentElement).getPropertyValue('--sky-mid').trim(),"
             " pictureOpacity: cs(picture).opacity, pictureFilter: cs(picture).filter}; }")
@@ -291,7 +296,7 @@ def test_a_dimmed_card_keeps_the_text_of_a_seen_card(new_context, make_app_serve
         unseen = page.evaluate(probe, UNSEEN_CARD)
         assert unseen["cardOpacity"] == "1" and seen["pictureOpacity"] == "1"
         assert unseen["pictureOpacity"] == "0.45" and "grayscale(1)" in unseen["pictureFilter"]
-        assert unseen["name"] == seen["name"] and unseen["seen"] == seen["seen"]
+        assert seen["seen"] and unseen["seen"] is None
         # The card is translucent glass: its text sits on the card fill composited over the
         # sky behind it (measured on the middle stop).
         card_red, card_green, card_blue, card_alpha = _channels(unseen["background"])
@@ -299,9 +304,10 @@ def test_a_dimmed_card_keeps_the_text_of_a_seen_card(new_context, make_app_serve
         surface = "rgb(%s)" % ", ".join(
             str(round(card_alpha * fg + (1 - card_alpha) * int(sky[i:i + 2], 16)))
             for fg, i in zip((card_red, card_green, card_blue), (1, 3, 5)))
-        for colour in (unseen["name"], unseen["seen"]):
-            assert _contrast(colour, surface) >= 4.5, (theme, colour, unseen, surface)
-        assert "Not seen yet" in page.locator(UNSEEN_CARD).first.inner_text()
+        assert _contrast(unseen["name"], surface) >= 4.5, (theme, unseen, surface)
+        # A card not seen yet is only dimmed: it carries its name and no other text.
+        card = page.locator(UNSEEN_CARD).first
+        assert card.inner_text().strip() == card.locator(".collection-card__name").inner_text()
     finally:
         context.close()
 
@@ -393,14 +399,14 @@ def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_wo
             " let bg = el.closest('.collection-card') || document.body;"
             " return {text: el.textContent.trim(), color: s.color,"
             " border: s.borderTopColor, bg: getComputedStyle(document.documentElement).backgroundColor}; }")
-        rare = page.evaluate(probe, ".collection-card--rare .rarity-pill--rare")
-        occasional = page.evaluate(probe, ".collection-card--occasional .rarity-pill--occasional")
-        regular = page.evaluate(probe, ".collection-card--regular .rarity-pill")
+        rare = page.evaluate(probe, ".collection-card--rare .collection-card__rarity--rare")
+        occasional = page.evaluate(
+            probe, ".collection-card--occasional .collection-card__rarity--occasional")
+        regular = page.evaluate(probe, ".collection-card--regular .collection-card__rarity")
         assert rare["text"] == "Rare" and occasional["text"] == "Occasional"
         assert len({rare["color"], occasional["color"], regular["color"]}) == 3
-        for pill in (rare, occasional):
-            assert pill["color"] == pill["border"]
-            assert _contrast(pill["color"], pill["bg"]) >= 4.5, (theme, pill)
+        for word in (rare, occasional):
+            assert _contrast(word["color"], word["bg"]) >= 4.5, (theme, word)
         assert not page.locator(".rarity-legend").is_visible()
         page.locator(".collection-legend > summary").click()
         page.locator(".rarity-legend").wait_for(state="visible")
@@ -460,7 +466,7 @@ def test_the_collection_is_two_taps_from_home_on_a_phone_and_one_on_desktop(
         page.goto(server.base_url() + "/")
         page.wait_for_function(_SETTLED, timeout=15000)
         page.locator(".tab-bar__more > summary").click()
-        link = page.locator(".tab-bar__more-panel a", has_text="Airline collection")
+        link = page.locator(".tab-bar__more-panel a", has_text="Airlines")
         link.wait_for(state="visible")
         with page.expect_navigation():
             link.click()
@@ -475,7 +481,7 @@ def test_the_collection_is_two_taps_from_home_on_a_phone_and_one_on_desktop(
         page.goto(server.base_url() + "/")
         page.wait_for_function(_SETTLED, timeout=15000)
         with page.expect_navigation():
-            page.locator("nav.sidebar-nav a", has_text="Airline collection").click()
+            page.locator("nav.sidebar-nav a", has_text="Airlines").click()
         page.wait_for_url("**/airlines")
         assert page.locator(".collection-progress__headline").is_visible()
     finally:
@@ -517,5 +523,64 @@ def test_the_detail_sheet_fits_the_screen_with_its_head_and_close_in_reach(
         assert all(b - a >= 54 - 0.5 for a, b in zip(tops, tops[1:])), geometry
         if viewport["width"] < 700:
             assert geometry["art"]["height"] <= 80, geometry
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_the_page_title_has_the_size_of_the_other_pages_titles(
+        new_context, make_app_server, label, viewport):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), viewport)
+    try:
+        read = ("() => { const h = document.querySelector('main h1.page-title');"
+                " const s = getComputedStyle(h); return [s.fontSize, s.fontWeight, s.lineHeight]; }")
+        collection = page.evaluate(read)
+        assert page.locator("main h1.page-title").inner_text() == "Airlines"
+        page.goto(server.base_url() + "/flights")
+        page.wait_for_function(_SETTLED, timeout=15000)
+        page.locator("main h1.page-title").wait_for(state="visible")
+        assert page.evaluate(read) == collection
+    finally:
+        context.close()
+
+
+def test_the_control_bar_sticks_to_the_top_while_the_cards_scroll(
+        new_context, make_app_server):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
+    try:
+        page.evaluate("() => window.scrollTo(0, document.documentElement.scrollHeight / 2)")
+        page.wait_for_function("() => window.scrollY > 300", timeout=10000)
+        page.wait_for_function(
+            "() => { const r = document.querySelector('.collection-controls')"
+            ".getBoundingClientRect(); return r.top >= 0 && r.top < 24 && r.height > 60; }",
+            timeout=10000)
+        page.wait_for_function(
+            "() => { const el = document.querySelector('#collection-filter');"
+            " const r = el.getBoundingClientRect();"
+            " return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el; }",
+            timeout=10000)
+    finally:
+        context.close()
+
+
+def test_the_new_pill_sits_on_the_picture_and_only_a_new_airline_has_one(
+        new_context, make_app_server):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP)
+    try:
+        assert page.locator(".rarity-pill--new").count() == 1
+        inside = page.evaluate(
+            "() => { const pill = document.querySelector('.rarity-pill--new').getBoundingClientRect();"
+            " const art = document.querySelector('.rarity-pill--new').closest('.collection-card__art')"
+            ".getBoundingClientRect();"
+            " return pill.left >= art.left && pill.right <= art.right && pill.top >= art.top"
+            " && pill.bottom <= art.bottom; }")
+        assert inside
+        # Each seen card reads on one line: the count, then the rarity in words.
+        assert page.locator(SEEN_CARD + " .collection-card__seen").first.inner_text().count(
+            "·") == 1
+        assert page.locator(UNSEEN_CARD + " .collection-card__seen").count() == 0
     finally:
         context.close()

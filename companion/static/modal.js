@@ -23,8 +23,9 @@
   // background refresh replaced the opener while the dialog was open.
   var openerHref = "";
   // The open menus Escape and an outside tap close: row menus and the frame
-  // button's popover.
-  var MENU_SELECTOR = "details.row-menu[open], details.frame-menu[open]";
+  // button's popover, and the phone More sheet.
+  var MENU_SELECTOR =
+    "details.row-menu[open], details.frame-menu[open], details.tab-bar__more[open]";
   var HOLD_SELECTOR = "input:not([type=hidden]), select, textarea";
 
   function closestTag(node, tag) {
@@ -205,6 +206,29 @@
     link = closestWithAttr(target, "data-modal-close");
     if (link) {
       onCloserClick(evt, link);
+      return;
+    }
+    link = closestWithAttr(target, "data-modal-submit");
+    if (link) {
+      // A Save inside a dialog submits the page's own form (the id it names):
+      // one submit control per form stays on the page; without script the
+      // page's own Save bar is the way to save.
+      var saveForm = document.getElementById(link.getAttribute("data-modal-submit"));
+      if (saveForm && typeof saveForm.requestSubmit === "function") {
+        saveForm.requestSubmit();
+      }
+      return;
+    }
+    link = closestWithAttr(target, "data-modal-reset-close");
+    if (link) {
+      // The reset button resets its form as the click's default action; the
+      // dialog closes right after it.
+      var resetDialog = closestTag(link, "dialog");
+      window.setTimeout(function () {
+        if (resetDialog && resetDialog.open) {
+          resetDialog.close();
+        }
+      }, 0);
       return;
     }
     onBackdropClick(evt);

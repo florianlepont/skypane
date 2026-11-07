@@ -217,7 +217,7 @@ def test_modal_has_a_phone_bottom_sheet_and_a_no_script_card(app_server_in_proce
     assert card["position"] == "fixed"
     assert "100vmax var(--color-scrim)" in card["box-shadow"]
     assert declarations_for(css, "dialog.modal")["max-height"] == "88svh"
-    assert declarations_for(css, "dialog.modal button")["min-height"] == "44px"
+    assert declarations_for(css, "dialog.modal:not(:where(.fleet-dialog--inline)) button")["min-height"] == "44px"
     assert declarations_for(css, "a.modal__close")["width"] == "44px"
     assert declarations_for(
         css, "dialog.modal.is-modal[open]", ("@starting-style",))["opacity"] == "0"

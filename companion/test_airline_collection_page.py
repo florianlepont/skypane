@@ -104,16 +104,15 @@ def test_every_role_gets_the_same_read_only_collection(rig, who):
     rig.seed_history()
     page = rig.page(who)
     body = _main(page)
-    assert "<h1" in body and "Airline collection" in body
+    assert re.search(r"<h1[^>]*>Airlines</h1>", body)
     assert "Every airline your frame has spotted." not in body
-    assert "4 airlines spotted \u00b7 1 more for the 5 badge" in body
+    assert "1 more for the 5 badge" in body
     assert 'aria-label="4 of %d airlines spotted"' % len(CURATED) in body
     assert '<progress class="collection-progress__bar" value="4"' in body
-    assert body.count("collection-badge--") == 5
-    assert "collection-badge--earned" in body and "collection-badge--locked" in body
-    assert 'title="Earned: First sighting"' in body
-    assert 'title="Locked: spot 5 airlines"' in body
-    assert 'class="visually-hidden">Earned: First sighting<' in body
+    assert body.count('class="collection-badges"') == 1
+    assert ">1/5<" in body
+    assert 'title="Earned: First sighting; Locked: spot 5 airlines;' in body
+    assert 'class="visually-hidden">Collection badges: 1/5. Earned: First sighting. Locked: spot 5 airlines.' in body
     assert 'type="file"' not in body
     assert "<form" in body
     for form in re.findall(r"<form\b[^>]*>", body):
@@ -158,8 +157,9 @@ def test_unseen_cards_are_dimmed_and_say_not_seen_yet(rig):
     assert len(unseen) == len(CURATED) - 3
     for card in unseen:
         text = _text(card)
-        assert "Not seen yet" in text
-        assert "Seen once" not in text and "Rare" not in text and "times" not in text
+        assert text in {name for name in CURATED}, text
+        assert "Not seen yet" not in text and "Seen once" not in text
+        assert "Rare" not in text and "times" not in text
 
 
 def test_the_empty_history_shows_the_start_state_and_only_unseen_cards(rig):
@@ -169,7 +169,7 @@ def test_the_empty_history_shows_the_start_state_and_only_unseen_cards(rig):
     assert "0 of %d airlines spotted" % len(CURATED) in body
     assert len(_cards(body)) == len(CURATED)
     assert all("collection-card--unseen" in card for card in _cards(body))
-    assert "collection-badge--earned" not in body
+    assert ">0/5<" in body
 
 
 def test_a_sheet_per_card_is_read_only_and_reached_by_a_hash_link(rig):
@@ -197,7 +197,8 @@ def test_rare_airlines_and_aircraft_carry_a_tier_class_and_a_word(rig):
     rig.seed_history()
     body = rig.page()
     assert "collection-card--rare" in _card_for(body, RARE_NAME)
-    assert "rarity-pill--rare" in _card_for(body, RARE_NAME)
+    assert "collection-card__rarity--rare" in _card_for(body, RARE_NAME)
+    assert "Seen once \u00b7 " in _text(_card_for(body, RARE_NAME))
     assert "collection-card--occasional" in _card_for(body, OCCASIONAL_NAME)
     assert "collection-card--regular" in _card_for(body, REGULAR_NAME)
     legend = _text(re.search(r'<ul class="rarity-legend".*?</ul>', body, flags=re.S).group(0))
@@ -295,9 +296,9 @@ def test_hostile_stored_text_is_escaped(rig):
 def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
-    for text in ("Collection de compagnies", "4 compagnies repérées \u00b7 encore 1 pour le badge 5",
+    for text in (">Compagnies</h1>", "encore 1 pour le badge 5",
                  "4 compagnies sur %d repérées" % len(CURATED), "Vue 12 fois", "Vue une fois",
-                 "Pas encore vue", "Habituelle", "Occasionnelle", "Nouveau",
+                 "Habituelle", "Occasionnelle", "Nouveau",
                  "Première observation", "Appliquer", "Les plus vues", "Pas encore vues"):
         assert text in body
     assert "Seen once" not in body and "Not seen yet" not in body
@@ -306,7 +307,7 @@ def test_the_page_is_french_with_french_strings(rig):
 @pytest.mark.parametrize("who", ("owner", "co"))
 def test_resolve_is_ignored_for_everyone_but_an_administrator(rig, who):
     status, _headers, body = rig.get(who, "?resolve=XYZ")
-    assert status == 200 and "Airline collection" in body
+    assert status == 200 and "<h1" in body and "Airlines" in body
 
 
 def test_an_administrator_resolve_link_goes_to_the_editor(rig):
@@ -329,14 +330,14 @@ def test_the_spotted_count_is_plural_aware_in_both_languages(rig):
     rig.event(RARE_NAME, 30, aircraft_type="A320")
     one_en = _text(_main(rig.page("owner", lang="en")))
     one_fr = _text(_main(rig.page("owner", lang="fr")))
-    assert "1 airline spotted" in one_en and "1 airlines" not in one_en
+    assert "1 airlines" not in one_en
     assert "1 of %d airline spotted" % len(CURATED) in one_en
-    assert "1 compagnie repérée" in one_fr and "1 compagnies" not in one_fr
+    assert "1 compagnies" not in one_fr
     assert "1 compagnie sur %d repérée" % len(CURATED) in one_fr
 
 
 def test_zero_spotted_is_plural_in_english_and_singular_in_french(rig):
     empty_en = _text(_main(rig.page("owner", lang="en")))
     empty_fr = _text(_main(rig.page("owner", lang="fr")))
-    assert "0 airlines spotted" in empty_en
-    assert "0 compagnie repérée" in empty_fr
+    assert "0 of %d airlines spotted" % len(CURATED) in empty_en
+    assert "0 compagnie sur %d repérée" % len(CURATED) in empty_fr

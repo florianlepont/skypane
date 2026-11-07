@@ -5,6 +5,7 @@ bar whose shadow is bounded so nothing it paints reaches beyond the gap under it
 import io
 import re
 
+import fleet_rows_support
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from PIL import Image, ImageChops
@@ -133,7 +134,8 @@ def test_the_reactivate_menu_item_sits_on_an_opaque_panel_with_readable_ink(
         page.locator("main").wait_for(state="visible")
         page.evaluate("t => document.documentElement.setAttribute('data-ui-theme', t)", scheme)
         page.wait_for_function(_SETTLED)
-        item = page.locator("a.row-menu__item", has_text="Re-activate").first
+        fleet_rows_support.open_dialog(page, "others")
+        item = page.locator("#dlg-fleet-others a.row-menu__item", has_text="Re-activate").first
         item.evaluate(
             "el => { for (let d = el.closest('details'); d;"
             " d = d.parentElement && d.parentElement.closest('details')) d.open = true; }")

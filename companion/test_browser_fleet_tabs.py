@@ -91,13 +91,16 @@ def test_the_default_tab_is_state_and_a_link_changes_tab_without_scripts(
         context.close()
 
 
-def test_a_desktop_shows_every_group_and_no_tabs(new_context, app_server_in_process):
+def test_a_desktop_shows_the_state_and_the_summary_rows_and_no_tabs(
+        new_context, app_server_in_process):
     context, page = _open(new_context, app_server_in_process, VIEWPORT_DESKTOP, "en")
     try:
         probe = page.evaluate(_PROBE)
         assert probe["nav"] is False
-        assert set(probe["blocks"]) == set(TABS)
-        assert probe["other"] is True
+        # The detail groups live in dialogs behind the summary rows.
+        assert set(probe["blocks"]) == {"state", "sums"}
+        assert probe["other"] is False
+        assert page.locator("a.fleet-sum").count() == 5
     finally:
         context.close()
 
@@ -142,7 +145,7 @@ def test_the_other_frames_card_is_evenly_padded_and_a_pending_frame_offers_pairi
             " return [r.top - a.top, a.bottom - r.bottom]; }")
         assert abs(gaps[0] - gaps[1]) <= 2, gaps
         page.locator(".fleet-other > summary").click()
-        row = page.locator(".entity-row", has_text="Waiting for pairing")
+        row = page.locator(".fleet-other .entity-row", has_text="Waiting for pairing")
         row.locator("summary.row-menu__toggle").click()
         assert row.locator(".row-menu__list, .row-menu").get_by_text("Pair frame").count() >= 1
     finally:

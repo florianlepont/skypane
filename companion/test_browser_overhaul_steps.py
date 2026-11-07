@@ -670,10 +670,10 @@ def test_v1_airline_collection_phone_and_desktop(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a", has_text="Airline collection"),
-                  "Airline collection")
+        steps.tap(page.locator(".tab-bar__more-panel a", has_text="Airlines"),
+                  "Airlines")
         page.wait_for_url("**/airlines")
-        assert page.locator("main h1").inner_text().strip() == "Airline collection"
+        assert page.locator("main h1").inner_text().strip() == "Airlines"
         _report_measured("V1-phone", steps, 2)
     finally:
         context.close()
@@ -686,7 +686,7 @@ def test_v1_airline_collection_phone_and_desktop(world, new_context):
         world.sign_in(page, fx.OWNER_EMAIL, "auth0|owner")
         page.wait_for_url(re.compile(".*/devices/[^/]+/(\\?flash=welcome\\w*)?$"))
         wide = Steps(page)
-        wide.tap(page.locator(".dashboard-sidebar a", has_text="Airline collection"),
+        wide.tap(page.locator(".dashboard-sidebar a", has_text="Airlines"),
                  "sidebar link")
         page.wait_for_url("**/airlines")
         _report_measured("V1-desktop", wide, 1)

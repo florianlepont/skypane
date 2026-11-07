@@ -99,7 +99,7 @@ _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
 _NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Personalisation")
 _NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
 _NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
-_NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airline collection")
+_NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
 # The short forms the phone tab bar uses where the full label would not fit
 # one of five equal cells.
 NAV_SHORT_LABELS = {

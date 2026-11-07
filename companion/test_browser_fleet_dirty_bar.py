@@ -13,6 +13,9 @@ from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, _login
 pytestmark = pytest.mark.browser
 
 PHONE = {"width": 390, "height": 844}
+# A desktop short enough that the page scrolls, so the docked bar sticks to the viewport's foot:
+# from 960px the page holds only State and the summary rows, which fit a tall screen.
+SHORT_DESKTOP = {"width": 1280, "height": 520}
 WORDS = {"en": ("Unsaved changes", "Cancel", "Save"),
          "fr": ("Modifications non enregistrées", "Annuler", "Enregistrer")}
 _SETTLED = (
@@ -39,13 +42,33 @@ def _open(new_context, server, viewport, lang):
     page = context.new_page()
     _login(page, server.base_url())
     page.goto(server.base_url() + "/fleet?tab=settings&frame=" + seed.live_id)
-    page.locator("#wake-interval-s").wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
+    _reveal(page)
     return context, page
 
 
+def _wide(page):
+    return page.viewport_size["width"] >= 960
+
+
+def _reveal(page):
+    """The wake interval field: on a phone it is in the Settings tab; from 960px it is in
+    the Settings dialog behind the Wake interval summary row."""
+    if _wide(page):
+        page.locator("a.fleet-sum[href='#dlg-fleet-settings']").click()
+        page.wait_for_function(
+            "() => document.querySelector('#dlg-fleet-settings').open", timeout=10000)
+    page.locator("#wake-interval-s").wait_for(state="visible")
+
+
 def _make_dirty(page):
+    """Change the interval; on a desktop the dialog is then dismissed (Escape) so the
+    unsaved-changes bar of the page takes over, as it does on a phone."""
     page.locator("#wake-interval-s").fill("900")
+    if _wide(page):
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('#dlg-fleet-settings').open", timeout=10000)
     page.locator(BAR).wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
     for selector in (BAR + " .dirty-bar__save", BAR + " .dirty-bar__cancel"):
@@ -53,7 +76,7 @@ def _make_dirty(page):
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("viewport", [PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+@pytest.mark.parametrize("viewport", [PHONE, SHORT_DESKTOP], ids=["390", "1280"])
 def test_the_bar_is_docked_inside_the_viewport_and_never_overlaps_the_tab_bar(
         new_context, app_server_in_process, viewport, lang):
     context, page = _open(new_context, app_server_in_process, viewport, lang)

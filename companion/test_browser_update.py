@@ -103,7 +103,8 @@ def _seed_running_bench_and_newer(state_dir):
     os.makedirs(str(state_dir), exist_ok=True)
     releases = (
         (_RUNNING_VERSION, "2026-09-20T09:00:00+00:00", False,
-         ["Note %02d: a realistic commit summary that runs to a full line of text." % n
+         [("Note %02d: a realistic commit summary that runs to a full line of text and then well past "
+          "the end of the widest line a dialog allows, so it is always cut." % n)
           for n in range(30)]),
         (_BENCH_VERSION, "2026-09-27T09:00:00+00:00", True, ["Bench build."]),
         (_AVAILABLE_VERSION, "2026-09-28T09:00:00+00:00", False, ["Fixes the OTA netif panic."]),
@@ -188,6 +189,25 @@ def _seed_many_releases(state_dir, scenario=None):
 
 
 FLEET_ROUTE = "/fleet"
+
+
+def _reveal(page, which):
+    """From 960px the Fleet page keeps the update card (`device`) and the version list
+    (`versions`) in dialogs behind summary rows: open the named one. Below 960px both are
+    on the page already."""
+    if page.viewport_size["width"] < 960:
+        return
+    dialog_id = "dlg-fleet-" + which
+    page.locator("a.fleet-sum[href='#%s']" % dialog_id).click()
+    page.wait_for_function(
+        "id => document.getElementById(id).open", arg=dialog_id, timeout=10000)
+
+
+def _dismiss(page):
+    """Close the open dialog (from 960px)."""
+    if page.viewport_size["width"] >= 960:
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => !document.querySelector('dialog[open]')", timeout=10000)
 FLEET_FRAME_HREF = "/fleet?frame=live"
 
 
@@ -417,13 +437,18 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
             # :nth-of-type (1-based), not Playwright's ">> nth=" chaining
             # syntax -- _assert_hit_target()'s underlying _hit_area() runs
             # this selector through document.querySelector() directly.
-            selector = "%s:nth-of-type(%d)" % (_MORE_SHEET_LINK_SELECTOR, index + 1)
+            # The pages are in the sheet's first block, the Account row in the settings block.
+            selector = (".tab-bar__pages a.mobile-nav__link", ".tab-bar__links a.mobile-nav__link")[index]
             seen = _assert_hit_target(
                 page, selector,
                 "More sheet link %d at %dpx/%s" % (index, viewport["width"], lang))
             heights.append(seen["hit"][1])
 
-        overflow = page.evaluate(_OVERFLOW_PROBE, _MORE_SHEET_LINK_SELECTOR)
+        # A page row is an icon then its name: the name is what must not wrap or truncate.
+        overflow = page.evaluate(
+            _OVERFLOW_PROBE,
+            ".tab-bar__more-panel a.mobile-nav__link:not(.tab-bar__nav-link),"
+            " .tab-bar__more-panel a.tab-bar__nav-link > span")
         for index, entry in enumerate(overflow):
             assert entry["scrollWidth"] <= entry["clientWidth"] + 0.5, (
                 "More sheet link %d truncated at %dpx/%s: scrollWidth %r > "
@@ -517,6 +542,7 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
         page.goto(base_url + FLEET_ROUTE)
+        _reveal(page, "versions")
         where = "%dpx/%s" % (viewport["width"], lang)
 
         badge = page.locator(".update-row__badge:visible")
@@ -547,10 +573,15 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         meta = row.locator(".update-row__meta time:not([data-relative])")
         assert meta.count() >= 1 and meta.first.is_visible()
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
+        # The Install button is in the update card, a different dialog from the version list.
+        _dismiss(page)
+        _reveal(page, "device")
         install_button = page.locator(".update-cta form button[type=submit]")
         install_box = install_button.bounding_box()
         assert install_box is not None and install_button.is_enabled()
         assert install_box["x"] + install_box["width"] <= viewport["width"] + 0.5
+        _dismiss(page)
+        _reveal(page, "versions")
 
         summary.click()
         assert row.evaluate("el => el.open") is False
@@ -579,6 +610,7 @@ def test_card_and_eligible_releases_at_every_width(
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
         page.goto(base_url + FLEET_ROUTE)
+        _reveal(page, "device")
         where = "%dpx/%s" % (viewport["width"], lang)
 
         card = page.locator("section.update-cta")
@@ -595,6 +627,9 @@ def test_card_and_eligible_releases_at_every_width(
         selector = ".update-cta form button[type=submit]"
         install = page.locator(selector)
         _assert_hit_target(page, selector, where)
+        # A key press first: after the pointer opened the dialog, a script focus alone does
+        # not match :focus-visible.
+        page.keyboard.press("Tab")
         install.focus()
         outline = install.evaluate(
             "el => { const s = getComputedStyle(el);"
@@ -640,6 +675,7 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
         page.goto(base_url + FLEET_ROUTE)
+        _reveal(page, "versions")
         where = "%dpx/%s" % (width, lang)
 
         rows = page.locator("details.update-row")
@@ -688,10 +724,13 @@ def test_older_release_rollback_button_is_quiet_and_only_newer_installs_use_the_
         page.goto(base_url + FLEET_ROUTE)
         accent = page.evaluate(_ACCENT_PROBE)
 
+        _reveal(page, "device")
         primary = page.locator(".update-cta form button[type=submit]")
         assert primary.inner_text() == "Installer %s" % _MANY_NEWEST
         assert _background(primary) == accent
+        _dismiss(page)
 
+        _reveal(page, "versions")
         older = page.locator("details.update-row").nth(11)
         older.locator("summary").click()
         rollback = older.locator("form button[type=submit]")
@@ -747,6 +786,7 @@ def test_in_flight_states_fit_and_offer_only_what_the_server_would_accept(
         base_url = server.base_url()
         _login(page, base_url)
         page.goto(base_url + FLEET_ROUTE)
+        _reveal(page, "device")
         where = "%s at %dpx" % (scenario, width)
         assert _page_has_no_horizontal_overflow(page), "overflow: " + where
         assert page.locator("section.update-cta").count() == 1
@@ -919,6 +959,7 @@ def test_chooser_fits_without_horizontal_overflow(
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
         page.goto(base_url + FLEET_ROUTE)
+        _reveal(page, "device")
         assert page.locator(_CHOOSER).count() == 1
         sizes = page.evaluate(
             "() => ({doc: document.documentElement.scrollWidth,"

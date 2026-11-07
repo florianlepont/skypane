@@ -8505,9 +8505,69 @@ button.calendar-danger--solid {
   .tab-bar__links {
     display: flex;
     flex-direction: column;
-    padding-top: var(--space-sm);
     margin: 0;
-    border-top: 1px solid var(--glass-hairline);
+  }
+
+  /* The pages at the top of the sheet continue the tab bar: one row each, an
+   * icon tile then the page name. */
+  .tab-bar__pages {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tab-bar__pages .tab-bar__nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    min-height: 56px;
+    border-radius: var(--radius-control);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__nav-icon {
+    flex: none;
+    box-sizing: content-box;
+    padding: 10px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  }
+
+  .tab-bar__pages .mobile-nav__link--active .tab-bar__nav-icon {
+    background: var(--color-accent);
+    color: var(--color-dominant);
+  }
+
+  .tab-bar__separator {
+    flex: none;
+    width: 100%;
+    height: 0;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .tab-bar__settings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  /* The page behind the open sheet is dimmed and blurred. The scrim is a
+   * fixed layer on the body that covers the whole viewport, above every page
+   * layer (the sticky headers, the unsaved-changes bar) and under the bar,
+   * which is raised above it while the sheet is open. */
+  body:has(.tab-bar__more[open])::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    background: color-mix(in srgb, var(--color-text) 55%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  body:has(.tab-bar__more[open]) .tab-bar {
+    z-index: 46;
   }
 
   .tab-bar__more-panel .mobile-nav__link {
@@ -9646,9 +9706,9 @@ a.modal__close {
   margin-top: var(--space-md);
 }
 
-.modal input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-.modal select,
-.modal textarea {
+.modal:not(:where(.fleet-dialog--inline)) input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.modal:not(:where(.fleet-dialog--inline)) select,
+.modal:not(:where(.fleet-dialog--inline)) textarea {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -9670,7 +9730,7 @@ a.modal__close {
   background: var(--color-dominant);
 }
 
-dialog.modal button {
+dialog.modal:not(:where(.fleet-dialog--inline)) button {
   height: auto;
   min-height: 44px;
   min-width: 44px;
@@ -10123,13 +10183,136 @@ details.fleet-other {
     display: flex;
   }
 
-  .fleet-blocks[data-fleet-tab="state"] > .fleet-block:not(.fleet-block--state),
-  .fleet-blocks[data-fleet-tab="settings"] > .fleet-block:not(.fleet-block--settings),
-  .fleet-blocks[data-fleet-tab="access"] > .fleet-block:not(.fleet-block--access),
+  .fleet-blocks[data-fleet-tab="state"] .fleet-block:not(.fleet-block--state),
+  .fleet-blocks[data-fleet-tab="settings"] .fleet-block:not(.fleet-block--settings),
+  .fleet-blocks[data-fleet-tab="access"] .fleet-block:not(.fleet-block--access),
   .fleet-blocks[data-fleet-tab="state"] ~ .fleet-panel-access,
   .fleet-blocks[data-fleet-tab="settings"] ~ .fleet-panel-access {
     display: none;
   }
+}
+
+/* Detail dialogs of the Fleet page. Below 960px a dialog that is also a
+ * block of the phone page renders as plain content (the dialog box, its head
+ * and its action row are not drawn) and the summary rows are not shown; from
+ * 960px the groups live in their dialogs, behind the summary rows. */
+@media (max-width: 959.98px) {
+  .fleet-dialog--inline:not([open]):not(:target) {
+    display: contents;
+  }
+
+  .fleet-dialog--inline:not([open]):not(:target) > .modal__body {
+    display: contents;
+  }
+
+  .fleet-dialog--inline:not([open]):not(:target) > .modal__head,
+  .fleet-dialog--inline:not([open]):not(:target) > .modal__actions,
+  .fleet-block--sums {
+    display: none;
+  }
+
+  .fleet-block--versions > .section-label {
+    display: none;
+  }
+}
+
+@media (min-width: 960px) {
+  .fleet-block--access,
+  .fleet-panel-access {
+    display: none;
+  }
+
+  dialog.fleet-dialog {
+    width: min(640px, calc(100% - 48px));
+  }
+
+  .fleet-dialog .fleet-block > .section-label {
+    display: none;
+  }
+
+  .fleet-dialog--inline input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  .fleet-dialog--inline select,
+  .fleet-dialog--inline textarea {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+  }
+
+  dialog.fleet-dialog--inline button {
+    height: auto;
+    min-height: 44px;
+    min-width: 44px;
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-label-size);
+  }
+
+  .fleet-dialog .fleet-group {
+    box-shadow: none;
+    border: 0;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .fleet-dialog .fleet-group > .fleet-group__item {
+    padding-inline: 0;
+  }
+}
+
+/* One summary row: an icon tile, the label over the value, a chevron. */
+.fleet-sum-list > li + li {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+a.fleet-sum {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  box-sizing: border-box;
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.fleet-sum:hover {
+  background: var(--color-control-wash);
+}
+
+a.fleet-sum:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.fleet-sum__icon {
+  box-sizing: content-box;
+  flex: none;
+  padding: 10px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+.fleet-sum__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fleet-sum__label {
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-sum__value {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.fleet-sum__chevron {
+  flex: none;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
 /* The selected frame's header: its name and owner, and its actions menu. */
@@ -10694,10 +10877,10 @@ button.look-sheet__save:hover {
   }
 }
 
-/* Airline collection: a one-line header (title, a thin progress bar with
- * one short sentence, small round badge icons), one control bar and a grid
- * of picture cards. The dimming of a card that has not been seen applies
- * to the picture only, never to its text. */
+/* Airline collection: a header with the page title at the standard size, then
+ * the progress on one line (count, a thin bar, the next goal, a compact
+ * "earned/total" badge pill), one sticky control bar and a calm grid of
+ * larger picture cards. A card that has not been seen is only dimmed. */
 .page-header:has(> .collection-head__status) {
   display: flex;
   flex-wrap: wrap;
@@ -10714,25 +10897,37 @@ button.look-sheet__save:hover {
   display: flex;
   flex: 1 1 300px;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-md);
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
   min-width: 0;
 }
 
-.collection-progress {
-  flex: 1 1 auto;
-  max-width: 360px;
-  min-width: 0;
+@media (min-width: 700px) {
+  .collection-head__status {
+    justify-content: flex-end;
+  }
 }
 
 .collection-progress__headline {
-  margin: var(--space-xs) 0 0;
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+}
+
+.collection-progress__goal {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-progress__bar {
   display: block;
-  width: 100%;
+  flex: 1 1 48px;
+  max-width: 140px;
+  min-width: 48px;
   height: 6px;
   appearance: none;
   -webkit-appearance: none;
@@ -10757,42 +10952,36 @@ button.look-sheet__save:hover {
 }
 
 .collection-badges {
-  display: flex;
+  display: inline-flex;
   flex: none;
+  align-items: center;
   gap: var(--space-xs);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.collection-badge {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-}
-
-.collection-badge--earned {
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-dominant));
-  color: var(--color-accent);
-}
-
-.collection-badge--locked {
-  background: transparent;
-  border: 1px dashed color-mix(in srgb, var(--color-text) 40%, transparent);
+  height: 32px;
   box-sizing: border-box;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  margin: 0;
+  padding: 0 var(--space-sm);
+  border: 1px dashed color-mix(in srgb, var(--color-text) 40%, transparent);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* One control bar. Phone: line one is the filter field, the sort menu button and the
  * legend button; line two is the segmented show filter (it scrolls sideways when the
  * labels do not fit). From 700px everything shares one line. Every control is 44px. */
 .collection-controls {
+  position: sticky;
+  top: calc(var(--space-sm) + var(--safe-top));
+  z-index: 5;
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-glass);
 }
 
 .collection-controls .filter-bar__search {
@@ -10930,25 +11119,6 @@ button.look-sheet__save:hover {
   gap: var(--space-xs) var(--space-sm);
 }
 
-@media (max-width: 699.98px) {
-  .collection-head__status {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-xs);
-  }
-
-  .collection-progress {
-    max-width: none;
-  }
-
-  /* The badge icons scroll sideways rather than wrapping. */
-  .collection-badges {
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-}
-
 .collection-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -10969,10 +11139,11 @@ button.look-sheet__save:hover {
   height: 100%;
   box-sizing: border-box;
   min-height: 44px;
-  padding: var(--space-sm);
+  padding: var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   color: var(--color-text);
   text-decoration: none;
 }
@@ -10985,10 +11156,20 @@ button.look-sheet__save:hover {
 }
 
 .collection-card__art {
+  position: relative;
   display: block;
   overflow: hidden;
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.collection-card__art .rarity-pill--new {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  border-color: transparent;
+  background: var(--color-text);
+  color: var(--color-dominant);
 }
 
 .collection-card__image {
@@ -11001,13 +11182,25 @@ button.look-sheet__save:hover {
   margin-bottom: 0;
 }
 
+/* Not seen yet: the whole card is calmer, with no text of its own. */
+.collection-card--unseen {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
+}
+
 .collection-card--unseen .collection-card__art {
   opacity: 0.45;
   filter: grayscale(1);
 }
 
+.collection-card--unseen .collection-card__name {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-weight: var(--weight-regular);
+}
+
 .collection-card__name {
-  font-size: var(--font-label-size);
+  padding-top: var(--space-xs);
+  font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
@@ -11016,10 +11209,17 @@ button.look-sheet__save:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.collection-card__pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
+.collection-card__rarity {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.collection-card__rarity--occasional {
+  color: var(--color-rarity-occasional);
+}
+
+.collection-card__rarity--rare {
+  color: var(--color-rarity-rare);
 }
 
 .rarity-pill {
@@ -11198,12 +11398,6 @@ dialog.access-sheet[open],
 @media (min-width: 700px) {
   .collection-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 1280px) {
-  .collection-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 

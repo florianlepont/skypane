@@ -236,3 +236,87 @@ def test_other_pages_keep_their_sign_out_in_the_sidebar_and_the_sheet(new_contex
             "el => el.checkVisibility()")
     finally:
         context.close()
+
+
+_ORDER = """() => {
+  const top = (sel) => { const el = document.querySelector(sel);
+    return el ? el.getBoundingClientRect().top : null; };
+  const panel = document.querySelector('.tab-bar__more-panel');
+  return {pages: top('.tab-bar__pages'), separator: top('.tab-bar__separator'),
+          theme: top('.tab-bar__pref'), account: top('.tab-bar__account'),
+          signOut: top('.tab-bar__sign-out'),
+          firstChild: panel.firstElementChild.className,
+          icons: [...document.querySelectorAll('.tab-bar__pages a')].map(
+            (a) => !!a.querySelector('svg.icon')),
+          labels: [...document.querySelectorAll('.tab-bar__pages a')].map((a) => a.textContent.trim())}; }"""
+
+
+@pytest.mark.parametrize("lang,audit", [("en", "Audit log"), ("fr", "Journal d’audit")])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_the_sheet_lists_the_pages_first_then_a_separator_then_the_settings(
+        new_context, app, viewport, lang, audit):
+    context, page = _open(new_context, app, "/fleet", viewport, lang=lang)
+    try:
+        _open_sheet(page)
+        order = page.evaluate(_ORDER)
+        assert order["firstChild"] == "tab-bar__pages", order
+        assert order["labels"] == [audit] and all(order["icons"]), order
+        assert (order["pages"] < order["separator"] < order["theme"] < order["account"]
+                < order["signOut"]), order
+        for row in page.locator(".tab-bar__pages a").all():
+            assert row.bounding_box()["height"] >= 44
+    finally:
+        context.close()
+
+
+def test_a_personal_page_puts_airlines_at_the_top_of_the_sheet(new_context, app):
+    context, page = _open(new_context, app, _home(app), VIEWPORT_PHONE)
+    try:
+        _open_sheet(page)
+        order = page.evaluate(_ORDER)
+        assert order["labels"] == ["Airlines"] and order["firstChild"] == "tab-bar__pages"
+        assert order["pages"] < order["separator"] < order["theme"], order
+    finally:
+        context.close()
+
+
+_SCRIM_HITS = """() => {
+  const w = window.innerWidth, h = window.innerHeight;
+  const covered = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  const panel = document.querySelector('.tab-bar__more-panel').getBoundingClientRect();
+  const bar = document.querySelector('.tab-bar').getBoundingClientRect();
+  const misses = [];
+  for (let x = 2; x < w; x += 24) {
+    for (let y = 2; y < h; y += 24) {
+      if (covered(panel, x, y) || covered(bar, x, y)) continue;
+      const hit = document.elementFromPoint(x, y);
+      if (hit !== document.body) misses.push([x, y, hit && (hit.className || hit.tagName)]);
+    }
+  }
+  const scrim = getComputedStyle(document.body, '::after');
+  const base = scrim.backgroundColor.match(/[\\d.]+/g).map(Number);
+  return {misses: misses.slice(0, 5), count: misses.length,
+          alpha: base.length > 3 ? base[3] : 1, blur: scrim.backdropFilter,
+          position: scrim.position, size: [scrim.width, scrim.height], vw: w, vh: h}; }"""
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("path", ["/fleet", "/airlines"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_the_page_behind_the_open_sheet_is_dimmed_blurred_and_fully_covered(
+        new_context, app, viewport, path, scheme):
+    context, page = _open(new_context, app, path, viewport, scheme=scheme)
+    try:
+        _open_sheet(page)
+        probe = page.evaluate(_SCRIM_HITS)
+        assert probe["count"] == 0, probe
+        assert probe["alpha"] >= 0.4 and "blur" in probe["blur"], probe
+        assert probe["position"] == "fixed", probe
+        assert abs(float(probe["size"][0][:-2]) - probe["vw"]) <= 1, probe
+        assert abs(float(probe["size"][1][:-2]) - probe["vh"]) <= 1, probe
+        # A tap on the dimmed page closes the sheet.
+        page.mouse.click(8, 8)
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=10000)
+    finally:
+        context.close()
