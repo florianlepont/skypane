@@ -774,5 +774,8 @@ Users
 - W136 (owner, screenshot) Buttons on two lines are a problem, illegible (the
   row menu items "Réinitialiser la connexion" and "Supprimer l'utilisateur"
   wrap onto two lines).
-- W137 (owner) Display bug in the Users table.
+- W137 (owner, screenshot) Display bug in the Users table: the "6
+  utilisateurs" caption sits on the top edge of an outer translucent panel
+  whose border runs through it, with the table card nested inside it (double
+  panel, caption overlapping the border).
 - (owner has not confirmed he is done; more may come.)
