@@ -158,8 +158,10 @@ def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
     assert sheet.get("position") == "absolute"
     assert sheet.get("bottom") == "calc(100% + var(--space-sm))"
     assert sheet.get("left") == "0" and sheet.get("right") == "0"
-    assert sheet.get("background") == "var(--color-secondary)"
-    assert sheet.get("box-shadow") == "var(--shadow-card-hover)"
+    # Opaque and the same colour as the bar; the shadow is cast upward only.
+    assert sheet.get("background") == "var(--glass-solid)"
+    assert sheet.get("border") == "1px solid var(--bar-border)"
+    assert sheet.get("box-shadow") == "var(--bar-sheet-shadow)"
     # The sheet's rows REUSE .mobile-nav__link's geometry rather than
     # restating it — proven structurally: if the panel's OWN rule declared
     # these, they would appear in its own parsed declarations above.

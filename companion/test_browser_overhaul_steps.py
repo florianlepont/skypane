@@ -306,12 +306,11 @@ def test_a5_add_a_co_manager(world, new_context):
 def test_a6_read_the_audit_log(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a[href='/audit']"), "Audit log")
+        steps.tap(page.locator(".tab-bar > a.tab-bar__link[href='/audit']"), "Audit")
         page.wait_for_url("**/audit")
         assert page.locator("main h1").inner_text() == "Audit log"
         assert page.locator(".section-subnav").count() == 0
-        _report("A6", steps, 2)
+        _report("A6", steps, 1)
     finally:
         context.close()
 
@@ -335,7 +334,7 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     try:
         assert page.locator(FRAMES).count() == 1
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
-        assert page.locator("main h1").get_attribute("aria-label") == "Home"
+        assert page.locator("main h1").inner_text() == "Home"
         _report("U2-one", steps, 0)
     finally:
         context.close()
@@ -601,7 +600,7 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     try:
         steps.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('My frame')"), "My frame")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
-        assert page.locator("main h1").get_attribute("aria-label") == "Home"
+        assert page.locator("main h1").inner_text() == "Home"
         back = Steps(page)
         back.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('Console')"), "Console")
         page.wait_for_url("**/fleet")

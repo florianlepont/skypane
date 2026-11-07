@@ -37,7 +37,7 @@ _BOXES = """() => {
   const box = (sel) => { const el = document.querySelector(sel);
     if (!el) return null; const r = el.getBoundingClientRect();
     return [r.x, r.y, r.width, r.height].map(n => Math.round(n * 100) / 100); };
-  return {title: box('h1.page-title'), frame: box('.home-greeting__frame')};
+  return {title: box('.page-greeting'), frame: box('.home-greeting__frame')};
 }"""
 
 
@@ -91,29 +91,30 @@ def test_the_title_greets_by_the_local_hour(new_context, fleet_app, hour, band, 
     # The owner's address has a separator, so the first name is shown.
     want = "%s%s" % (GREETINGS[lang][band], ", Florian" if lang == "en" else " Florian")
     page.wait_for_function(
-        "want => document.querySelector('h1.page-title').innerText === want", arg=want)
-    # The visible title is the greeting; the accessible name stays the plain page name.
-    assert page.locator("h1.page-title").get_attribute("aria-label") == (
+        "want => document.querySelector('.page-greeting').innerText === want", arg=want)
+    # The visible line is the greeting; the page's one h1 is hidden and holds the plain page name.
+    assert page.locator("h1.page-title").inner_text() == (
         "Home" if lang == "en" else "Accueil")
+    assert page.locator("main h1").count() == 1
     assert page.get_by_role("heading", name="Home" if lang == "en" else "Accueil").count() == 1
     assert page.title().startswith("Home" if lang == "en" else "Accueil")
-    assert "@" not in page.locator("h1.page-title").inner_text()
+    assert "@" not in page.locator(".page-greeting").inner_text()
 
 
 def test_without_script_the_greeting_is_the_neutral_default(new_context, fleet_app):
     page = _fleet_page(new_context, fleet_app, _live(fleet_app), java_script_enabled=False)
-    assert page.locator("h1.page-title").inner_text() == "Hello, Florian"
-    assert page.locator("h1.page-title").get_attribute("aria-label") == "Home"
+    assert page.locator(".page-greeting").inner_text() == "Hello, Florian"
+    assert page.locator("h1.page-title").inner_text() == "Home"
 
 
 def test_an_address_without_a_separator_gets_the_bare_greeting(new_context, fleet_app):
     """"owner@example.com" could be a handle, not a name: never shown, in any wording"""
     plain = _fleet_page(new_context, fleet_app, _live(fleet_app), named=False,
                         java_script_enabled=False)
-    assert plain.locator("h1.page-title").inner_text() == "Hello"
+    assert plain.locator(".page-greeting").inner_text() == "Hello"
     page = _fleet_page(new_context, fleet_app, _live(fleet_app), hour=9, named=False)
     page.wait_for_function(
-        "() => document.querySelector('h1.page-title').innerText === 'Good morning'")
+        "() => document.querySelector('.page-greeting').innerText === 'Good morning'")
 
 
 def test_the_frame_name_is_a_second_line_for_several_frames(new_context, fleet_app):
@@ -154,11 +155,11 @@ def test_the_greeting_swap_keeps_the_title_in_place_and_within_two_lines(
     expected = plain.evaluate(_BOXES)["title"]
     page = _fleet_page(new_context, fleet_app, _live(fleet_app), hour=14, viewport=viewport)
     page.wait_for_function(
-        "() => document.querySelector('h1.page-title').innerText === 'Good afternoon, Florian'")
+        "() => document.querySelector('.page-greeting').innerText === 'Good afternoon, Florian'")
     seen = page.evaluate(_BOXES)["title"]
     assert seen[1] == expected[1] and seen[0] == expected[0], (seen, expected)
     line = page.evaluate("() => parseFloat(getComputedStyle("
-                         "document.querySelector('h1.page-title')).lineHeight)")
+                         "document.querySelector('.page-greeting')).lineHeight)")
     assert seen[3] <= line * (1 if viewport is VIEWPORT_DESKTOP else 2) + 1, (seen, line)
     failure = _assert_no_page_overflow(page, "Home", expected_width=viewport["width"])
     if failure:

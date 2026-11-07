@@ -200,7 +200,7 @@ def test_the_tab_bar_shadow_never_paints_beyond_the_gap_below_the_bar(
         page.wait_for_timeout(300)
         bar = page.locator(".tab-bar").bounding_box()
         gap = page.evaluate("() => window.innerHeight") - (bar["y"] + bar["height"])
-        assert gap == pytest.approx(12 + inset, abs=0.5)
+        assert gap == pytest.approx(6 + inset, abs=0.5)
         shown = Image.open(io.BytesIO(page.screenshot())).convert("RGB")
         page.evaluate("() => { document.querySelector('.tab-bar').style.visibility = 'hidden'; }")
         page.wait_for_timeout(300)

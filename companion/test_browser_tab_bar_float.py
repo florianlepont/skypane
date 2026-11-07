@@ -1,8 +1,11 @@
-"""Real-browser geometry of the floating tab bar and the phone top bar: 12px side margins, 68px
-high, a pill above the home-indicator inset (forced with --safe-bottom), the stronger glass, the
+"""Real-browser geometry of the floating tab bar and the phone top bar: 8px side margins, 68px
+high, a pill 6px above the home-indicator inset (forced with --safe-bottom), opaque (the More
+sheet too), the
 admin's space switch kept first and set apart, the last content clear of the bar at the end of the
-page, ink that holds over a white and a black backdrop in both themes, a top bar that is
+page, ink and active pill contrast in both themes, a top bar that is
 transparent and clears the status bar, and reduced motion."""
+import re
+
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
@@ -30,7 +33,9 @@ _BAR = """() => {
           bottom: window.innerHeight - box.bottom, height: box.height,
           radius: parseFloat(style.borderTopLeftRadius),
           blur: glass.backdropFilter || glass.webkitBackdropFilter,
-          shadow: glass.boxShadow, image: glass.backgroundImage};
+          shadow: glass.boxShadow, image: glass.backgroundImage,
+          fill: glass.backgroundColor, barFill: style.backgroundColor,
+          border: style.borderTopColor, borderWidth: parseFloat(style.borderTopWidth)};
 }"""
 
 _LAST_CONTENT_BOTTOM = """() => {
@@ -80,18 +85,22 @@ def test_the_bar_floats_as_a_pill_with_margins_above_the_inset(
     context, page = _open(new_context, app, _home(app), viewport, scheme)
     try:
         flat = page.evaluate(_BAR)
-        assert flat["left"] == pytest.approx(12, abs=0.5)
-        assert flat["right"] == pytest.approx(12, abs=0.5)
+        assert flat["left"] == pytest.approx(8, abs=0.5)
+        assert flat["right"] == pytest.approx(8, abs=0.5)
         assert flat["height"] == pytest.approx(68, abs=0.5)
-        assert flat["bottom"] == pytest.approx(12, abs=0.5)
+        assert flat["bottom"] == pytest.approx(6, abs=0.5)
         assert flat["radius"] >= 32
-        assert "blur(26px)" in flat["blur"] and "saturate(2)" in flat["blur"]
-        assert "inset" in flat["shadow"] and "linear-gradient" in flat["image"]
+        # Opaque: one solid colour, no blur, no sheen, a visible edge and a shadow.
+        assert flat["blur"] in ("none", "")
+        assert flat["image"] == "none"
+        assert flat["fill"] == flat["barFill"] and flat["fill"].startswith("rgb(")
+        assert flat["borderWidth"] == 1 and flat["border"].startswith("rgb(")
+        assert flat["shadow"] != "none"
         page.evaluate(
             "(px) => document.documentElement.style.setProperty('--safe-bottom', px + 'px')",
             INSET)
         lifted = page.evaluate(_BAR)
-        assert lifted["bottom"] == pytest.approx(12 + INSET, abs=0.5)
+        assert lifted["bottom"] == pytest.approx(6 + INSET, abs=0.5)
         assert lifted["left"] == flat["left"] and lifted["height"] == flat["height"]
     finally:
         context.close()
@@ -165,60 +174,54 @@ def test_the_space_switch_stays_first_set_apart_and_the_active_item_is_an_inner_
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", VIEWPORTS, ids=VIEWPORT_IDS)
-def test_the_bar_ink_holds_over_a_white_and_a_black_backdrop(
+def test_the_bar_ink_and_active_pill_hold_their_contrast(
         new_context, app, viewport, scheme):
-    """the computed fill of the bar (topped by the brightest sheen stop) is composited over a
-    pure white and a pure black backdrop; every inactive label and the active label hold 4.5:1"""
+    """the bar is opaque, so what scrolls beneath never changes its contrast: every inactive
+    label holds 4.5:1 on it, the solid active pill holds 3:1 against the bar and its label
+    4.5:1 on the pill"""
     context, page = _open(new_context, app, _home(app), viewport, scheme)
     try:
         read = page.evaluate(
             """() => {
-              const rgba = (css) => css.match(/[\\d.]+/g).map(Number);
-              const bar = document.querySelector('.tab-bar');
-              const glass = getComputedStyle(bar, '::before');
-              const sheen = glass.backgroundImage.match(/rgba?\\([^)]*\\)/)[0];
+              const bar = getComputedStyle(document.querySelector('.tab-bar'), '::before');
               const labels = [...document.querySelectorAll(
                   '.tab-bar__link:not(.tab-bar__link--active):not(.tab-bar__link--switch)'
                   + ' .tab-bar__label')];
               const active = document.querySelector(
                   '.tab-bar__link--active .tab-bar__label');
               const pill = document.querySelector('.tab-bar__link--active .tab-bar__pill');
-              return {fill: glass.backgroundColor, sheen,
+              const slider = getComputedStyle(document.querySelector('.tab-bar__slider'));
+              return {fill: bar.backgroundColor,
                       pill: getComputedStyle(pill).backgroundColor,
+                      slider: slider.backgroundColor, sliderOpacity: slider.opacity,
                       inks: labels.map(el => getComputedStyle(el).color),
                       active: getComputedStyle(active).color};
             }""")
 
-        def over(top, base):
-            parts = [float(p) for p in top[top.index("(") + 1:-1].split(",")]
-            alpha = parts[3] if len(parts) == 4 else 1.0
-            return [alpha * c + (1 - alpha) * b for c, b in zip(parts[:3], base)]
-
-        def hex_of(rgb):
-            return "#%02X%02X%02X" % tuple(round(c) for c in rgb)
-
-        def ink_hex(css):
-            return hex_of([float(p) for p in css[css.index("(") + 1:-1].split(",")[:3]])
+        def hex_of(css):
+            numbers = [float(p) for p in css[css.index("(") + 1:-1].split(",")]
+            assert len(numbers) == 3, css
+            return "#%02X%02X%02X" % tuple(round(c) for c in numbers)
 
         assert read["inks"]
-        for backdrop in ((255, 255, 255), (0, 0, 0)):
-            fill = over(read["sheen"], over(read["fill"], backdrop))
-            for ink in read["inks"]:
-                assert contrast_ratio(ink_hex(ink), hex_of(fill)) >= WCAG_AA_NORMAL_TEXT, (
-                    scheme, backdrop, ink)
-            pill = over(read["pill"], fill)
-            assert contrast_ratio(ink_hex(read["active"]), hex_of(pill)) >= WCAG_AA_NORMAL_TEXT, (
-                scheme, backdrop, "active")
+        bar = hex_of(read["fill"])
+        for ink in read["inks"]:
+            assert contrast_ratio(hex_of(ink), bar) >= WCAG_AA_NORMAL_TEXT, (scheme, ink)
+        # The sliding pill (once the script has placed it) and the server-rendered pill are both
+        # the solid accent.
+        solid = read["slider"] if read["sliderOpacity"] == "1" else read["pill"]
+        assert contrast_ratio(hex_of(solid), bar) >= 3.0, (scheme, solid, bar)
+        assert contrast_ratio(hex_of(read["active"]), hex_of(solid)) >= WCAG_AA_NORMAL_TEXT, (
+            scheme, "active")
     finally:
         context.close()
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_the_more_sheet_has_the_bar_glass_and_its_ink_holds_over_any_backdrop(
-        new_context, app, scheme):
-    """the More sheet takes the floating bar's fill, sheen, edge and blur, is not nested in a
-    backdrop root (so it blurs the page, not the empty bar), and its row ink (the current row's
-    accent included, over its 12% tint) holds 4.5:1 over a white and a black backdrop"""
+def test_the_more_sheet_is_opaque_and_the_colour_of_the_bar(new_context, app, scheme):
+    """the More sheet is one solid colour, the bar's own, with the bar's edge colour and no blur;
+    its shadow is cast upward only (no downward offset that would darken the bar); its row ink
+    (the current row's accent included, over its 12% tint) holds 4.5:1"""
     context, page = _open(new_context, app, _home(app), VIEWPORT_PHONE, scheme)
     try:
         page.locator(".tab-bar__more > summary").click()
@@ -229,38 +232,36 @@ def test_the_more_sheet_has_the_bar_glass_and_its_ink_holds_over_any_backdrop(
               const bar = document.querySelector('.tab-bar');
               const glass = getComputedStyle(bar, '::before');
               const panel = getComputedStyle(document.querySelector('.tab-bar__more-panel'));
-              const barStyle = getComputedStyle(bar);
               const links = [...document.querySelectorAll('.tab-bar__more-panel a')];
               return {
-                same: ['backgroundColor', 'backgroundImage', 'backdropFilter']
-                    .every((k) => glass[k] === panel[k]) && barStyle.backdropFilter === 'none'
-                    && panel.borderTopColor === barStyle.borderTopColor,
-                fill: panel.backgroundColor,
-                sheen: panel.backgroundImage.match(/rgba?\\([^)]*\\)/)[0],
+                fill: panel.backgroundColor, barFill: glass.backgroundColor,
+                image: panel.backgroundImage, blur: panel.backdropFilter,
+                edge: panel.borderTopColor === getComputedStyle(bar).borderTopColor,
+                shadow: panel.boxShadow,
                 inks: links.map((a) => [getComputedStyle(a).color,
                                         a.classList.contains('mobile-nav__link--active')]),
                 tall: links.every((a) => a.getBoundingClientRect().height >= 44)};
             }""")
-        assert read["same"] and read["tall"] and read["inks"], read
+        assert read["fill"] == read["barFill"] and read["fill"].startswith("rgb("), read
+        assert read["image"] == "none" and read["blur"] in ("none", ""), read
+        assert read["edge"] and read["tall"] and read["inks"], read
+        # Every layer's vertical offset is negative: the shadow is cast upward only.
+        for layer in re.split(r",\s*(?=rgba?\()", read["shadow"]):
+            lengths = [float(x) for x in re.findall(r"(-?\d+(?:\.\d+)?)px", layer)]
+            assert lengths[1] <= 0, read["shadow"]
 
         def parts(css):
             return [float(p) for p in css[css.index("(") + 1:-1].split(",")]
 
-        def over(top, base):
-            numbers = parts(top)
-            alpha = numbers[3] if len(numbers) == 4 else 1.0
-            return [alpha * c + (1 - alpha) * b for c, b in zip(numbers[:3], base)]
-
         def hex_of(rgb):
             return "#%02X%02X%02X" % tuple(round(c) for c in rgb)
 
-        for backdrop in ((255, 255, 255), (0, 0, 0)):
-            fill = over(read["sheen"], over(read["fill"], backdrop))
-            for ink, active in read["inks"]:
-                ink_rgb = parts(ink)[:3]
-                plate = [0.12 * i + 0.88 * f for i, f in zip(ink_rgb, fill)] if active else fill
-                assert contrast_ratio(hex_of(ink_rgb), hex_of(plate)) >= WCAG_AA_NORMAL_TEXT, (
-                    scheme, backdrop, ink, active)
+        fill = parts(read["fill"])
+        for ink, active in read["inks"]:
+            ink_rgb = parts(ink)[:3]
+            plate = [0.12 * i + 0.88 * f for i, f in zip(ink_rgb, fill)] if active else fill
+            assert contrast_ratio(hex_of(ink_rgb), hex_of(plate)) >= WCAG_AA_NORMAL_TEXT, (
+                scheme, ink, active)
     finally:
         context.close()
 

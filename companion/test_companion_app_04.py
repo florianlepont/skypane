@@ -481,7 +481,8 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
-            '<h1 class="page-title page-title--greeting" aria-label="Home" data-greeting',
+            '<h1 class="page-title visually-hidden">Home</h1>',
+            '<p class="page-greeting" data-greeting',
             'class="hero home-state ',
             'class="group-block home-section"',
             "Recent flights", 'href="/flights"',

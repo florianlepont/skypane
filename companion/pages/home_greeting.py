@@ -61,13 +61,16 @@ def _wording(greeting, name):
 
 
 def title_html():
-    """The greeting `<h1>`: visible greeting text, accessible name "Home"."""
+    """Home's page heading and its greeting: a visually hidden `<h1>` naming
+    the page, then the visible greeting as a quiet line (the frame's state is
+    the visible title)."""
     name = _viewer_first_name()
     return (
-        '<h1 class="page-title page-title--greeting" aria-label="%s" data-greeting '
+        '<h1 class="page-title visually-hidden">%s</h1>'
+        '<p class="page-greeting" data-greeting '
         'data-greeting-morning="%s" data-greeting-afternoon="%s" '
         'data-greeting-evening="%s" data-greeting-night="%s">'
-        '<span data-greeting-text>%s</span></h1>'
+        '<span data-greeting-text>%s</span></p>'
     ) % (
         escape_html(i18n.t(_PAGE_NAME)),
         escape_html(_wording(GREETING_MORNING, name)),

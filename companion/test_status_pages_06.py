@@ -1353,8 +1353,8 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
     assert fixed_decls.get("display") == "flex"
     for prop, expected in (
             ("position", "fixed"),
-            ("left", "max(var(--tab-bar-gap), var(--safe-left))"),
-            ("right", "max(var(--tab-bar-gap), var(--safe-right))"),
+            ("left", "max(var(--tab-bar-side), var(--safe-left))"),
+            ("right", "max(var(--tab-bar-side), var(--safe-right))"),
             ("bottom", "calc(var(--tab-bar-gap) + var(--safe-bottom))"),
             ("height", "var(--tab-bar-h)"),
             ("z-index", "20"),
@@ -1377,9 +1377,9 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
     assert sidebar_active_decls.get("color") == "var(--color-on-accent)"
     active_pill_decls = declarations_for(
         css_text, ".tab-bar__link--active .tab-bar__pill", at_rules=_TAB_BAR_MEDIA)
-    assert active_pill_decls.get("background") == "var(--bar-pill-bg)"
+    assert active_pill_decls.get("background") == "var(--color-accent)"
     active_text_decls = declarations_for(css_text, ".tab-bar__link--active", at_rules=_TAB_BAR_MEDIA)
-    assert active_text_decls.get("color") == "var(--color-accent)"
+    assert active_text_decls.get("color") == "var(--color-on-accent)"
     assert active_text_decls.get("font-weight") == "var(--weight-semibold)"
 
     hover_selector = ".tab-bar__link:not(.tab-bar__link--active):hover .tab-bar__pill"

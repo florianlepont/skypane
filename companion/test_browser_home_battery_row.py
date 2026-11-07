@@ -240,7 +240,7 @@ def test_the_status_block_reads_as_one_coherent_statement(
         assert ("next refresh" if lang == "en" else "prochain rafraîchissement") in ring
         sizes = page.evaluate(
             """() => ({greeting: parseFloat(getComputedStyle(
-                          document.querySelector('h1.page-title--greeting')).fontSize),
+                          document.querySelector('.page-greeting')).fontSize),
                        title: parseFloat(getComputedStyle(
                           document.querySelector('.home-state__title')).fontSize)})""")
         assert sizes["greeting"] <= 16.5 and sizes["greeting"] < sizes["title"] - 8

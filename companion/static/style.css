@@ -50,7 +50,8 @@
   /* The floating tab bar: its height and the gap to the screen edge; the
    * page clears bar + gap + the home-indicator inset. */
   --tab-bar-h: 68px;
-  --tab-bar-gap: 12px;
+  --tab-bar-gap: 6px;
+  --tab-bar-side: 8px;
   --tab-bar-pad: 2px;
 
   /* Spacing scale, multiples of 4. */
@@ -192,7 +193,7 @@
   --sky-mid: #F1F3F6;
   --sky-bottom: #EDF1F6;
   /* Translucent surfaces painted over the sky: cards and panels, and the
-   * bars (sidebar, tab bar, phone header). The composite over the worst
+   * bars (sidebar, phone header). The composite over the worst
    * sky stop is what the contrast tests measure. The bars are nearly opaque
    * because page content scrolls beneath them: whatever passes behind a bar
    * (a white picture, a dark card) must not wash out its labels. */
@@ -204,12 +205,12 @@
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
-  --bar-border: rgba(255, 255, 255, 0.7);
-  --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  /* The floating bar's shadow reaches 1px + 6px + 14px - 8px = 12px under it,
-   * exactly the gap to the screen edge (--tab-bar-gap), so it is never cut by
-   * the bottom of the viewport and never spills under the browser toolbar. */
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
+  --bar-border: #AEB8C8;
+  /* The floating bar's shadow reaches 1px + 2px = 3px under it, inside the
+   * gap to the screen edge (--tab-bar-gap), so it is never cut by the bottom
+   * of the viewport; the rest of it is cast upward. */
+  --bar-shadow: 0 1px 2px rgba(18, 21, 27, 0.2), 0 -4px 8px -4px rgba(18, 21, 27, 0.22);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(18, 21, 27, 0.4);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -277,9 +278,9 @@
     --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
     --bar-bg: rgba(20, 24, 34, 0.86);
     --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
-    --bar-border: rgba(255, 255, 255, 0.16);
-    --bar-pill-bg: rgba(255, 255, 255, 0.18);
-    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
+    --bar-border: #46506A;
+    --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+    --bar-sheet-shadow: 0 -10px 28px -12px rgba(0, 0, 0, 0.7);
     --pop-bg: rgba(28, 34, 45, 0.92);
     --color-canvas: #161A24;
     --color-dominant: #151922;
@@ -328,9 +329,9 @@ html[data-ui-theme="light"] {
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
-  --bar-border: rgba(255, 255, 255, 0.7);
-  --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
+  --bar-border: #AEB8C8;
+  --bar-shadow: 0 1px 2px rgba(18, 21, 27, 0.2), 0 -4px 8px -4px rgba(18, 21, 27, 0.22);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(18, 21, 27, 0.4);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -375,9 +376,9 @@ html[data-ui-theme="dark"] {
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
   --bar-bg: rgba(20, 24, 34, 0.86);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
-  --bar-border: rgba(255, 255, 255, 0.16);
-  --bar-pill-bg: rgba(255, 255, 255, 0.18);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
+  --bar-border: #46506A;
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(0, 0, 0, 0.7);
   --pop-bg: rgba(28, 34, 45, 0.92);
   --color-canvas: #161A24;
   --color-dominant: #151922;
@@ -732,8 +733,10 @@ h3 {
   margin: 0 0 var(--space-xs);
 }
 
-/* Home's greeting is a quiet line above the state, which is the title. */
-.page-title.page-title--greeting {
+/* Home's greeting is a quiet line above the state, which is the visible
+ * title; the page's h1 is visually hidden. */
+.page-greeting {
+  margin: 0 0 var(--space-xs);
   font-family: var(--font-ui);
   font-size: var(--font-body-size);
   font-weight: var(--weight-regular);
@@ -770,13 +773,15 @@ h3 {
 }
 
 /* The brand lockup: the logo mark beside the live site-title text. The
- * 28px mark sits inside the title's 28.8px line box, so the lockup is
- * exactly as tall as the bare title used to be and nothing shifts. The
- * mark is decorative (aria-hidden); the text is the accessible name. */
+ * lockup is 44px high whether or not it is a link (the wordmark link is the
+ * 44px target), so the logo and everything under it sit at the same place in
+ * the Console and in My frame. The mark is decorative (aria-hidden); the
+ * text is the accessible name. */
 .brand {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
+  min-height: 44px;
   min-width: 0;
 }
 
@@ -6451,14 +6456,10 @@ html:not(.map-ready) .place-tap-hint {
     clip-path: inset(50%);
   }
 
-  /* The phone has the tab bar below the page: it floats over the map as
-   * glass, and the sheet and the Save bar sit above it. */
+  /* The phone has the tab bar below the page: it floats over the map, and
+   * the sheet and the Save bar sit above it. */
   .map-ready .place-stage {
     --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
-  }
-
-  .map-ready:has(.place-stage) .tab-bar {
-    background-color: transparent;
   }
 
   /* The bar keeps the two buttons on one row; the count is read aloud only. */
@@ -8479,8 +8480,8 @@ a.calendar-manage--primary:hover {
     display: flex;
     align-items: center;
     position: fixed;
-    left: max(var(--tab-bar-gap), var(--safe-left));
-    right: max(var(--tab-bar-gap), var(--safe-right));
+    left: max(var(--tab-bar-side), var(--safe-left));
+    right: max(var(--tab-bar-side), var(--safe-right));
     bottom: calc(var(--tab-bar-gap) + var(--safe-bottom));
     height: var(--tab-bar-h);
     z-index: 20;
@@ -8488,15 +8489,13 @@ a.calendar-manage--primary:hover {
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-pill);
     isolation: isolate;
-    /* The solid fill under the glass layer is painted from the first frame, so
-     * the page never shows through the bar while a page change is in flight. */
+    /* Opaque: a solid token surface from the first frame, so neither the page
+     * scrolling beneath nor a page change in flight ever shows through. */
     background-color: var(--glass-solid);
   }
 
-  /* The bar's glass (fill, blur, shadow) lives on this layer behind the cells,
-   * not on the bar: a backdrop-filter on the bar would make it the backdrop
-   * root of the More panel inside it, and the panel could then only blur the
-   * bar's own (empty) content, not the page scrolling beneath. */
+  /* The bar's edge shadow lives on this layer behind the cells so the More
+   * panel inside the bar never inherits it. */
   .tab-bar::before {
     content: "";
     position: absolute;
@@ -8508,8 +8507,8 @@ a.calendar-manage--primary:hover {
     box-shadow: var(--bar-shadow);
   }
 
-  /* Each of the five flex: 1 1 0 cells takes an equal share of the bar
-   * (72px at 360px, 78px at 390px) at 56px high, clearing WCAG 2.5.5's
+  /* The flex: 1 1 0 cells share the bar equally (the space switch aside) at
+   * 56px high, clearing WCAG 2.5.5's
    * 44px target-size floor directly. color is set
    * explicitly because this element doubles as the "More" <summary>, and
    * the global summary rule's accent colour would otherwise win. */
@@ -8553,21 +8552,21 @@ a.calendar-manage--primary:hover {
     white-space: nowrap;
   }
 
+  /* The active cell is a solid accent pill with its on-accent ink. */
   .tab-bar__link--active {
-    color: var(--color-accent);
+    color: var(--color-on-accent);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__link--active .tab-bar__pill {
-    background: var(--bar-pill-bg);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
+    background: var(--color-accent);
   }
 
   /* The administrator's space switch, first cell of the bar: set apart from
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 71px;
+    flex: 0 0 68px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -8616,9 +8615,11 @@ a.calendar-manage--primary:hover {
     transform: rotate(45deg);
   }
 
-  /* The More sheet: a sheet as wide as the bar, floating just above it. Theme
-   * and language are one tap each; below them the remaining destinations, the
-   * Account row and Sign out. It scrolls inside itself on a short screen. */
+  /* The More sheet: a sheet as wide as the bar, floating just above it, opaque
+   * and the same colour as the bar. The pages that do not fit the bar come
+   * first, then Account, theme and language (one tap each) and Sign out. Its
+   * shadow is cast upward only, so it never darkens the bar. It scrolls inside
+   * itself on a short screen. */
   .tab-bar__more-panel {
     position: absolute;
     bottom: calc(100% + var(--space-sm));
@@ -8629,31 +8630,37 @@ a.calendar-manage--primary:hover {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
-    padding: var(--space-md);
-    background: var(--color-secondary);
-    border: 1px solid var(--color-border);
+    padding: var(--space-sm) var(--space-md) var(--space-md);
+    background: var(--glass-solid);
+    border: 1px solid var(--bar-border);
     border-radius: var(--radius-sheet);
-    box-shadow: var(--shadow-card-hover);
+    box-shadow: var(--bar-sheet-shadow);
   }
 
   .tab-bar__more:not([open]) > .tab-bar__more-panel {
     display: none;
   }
 
+  /* Theme and language: the label at the start, the segmented control at the
+   * end of one row. */
   .tab-bar__pref {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
   }
 
   .tab-bar__pref-label {
+    flex: none;
     padding-left: var(--space-sm);
-    font-size: var(--font-caption-size);
+    font-size: var(--font-label-size);
     font-weight: var(--weight-semibold);
-    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    color: var(--color-text);
   }
 
   .tab-bar__pref .theme-form {
+    flex: 1 1 0;
+    max-width: 220px;
     background: var(--glass-solid);
   }
 
@@ -12589,8 +12596,9 @@ button.row-menu__item--destructive:hover {
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
-/* The one glass tier. Every surface (card, group, sheet, dialog, popover,
- * table, tab bar, sidebar, segmented track) is the same recipe: the
+/* The one glass tier. The tab bar and its More sheet are not part of it: both
+ * are opaque, one solid colour. Every surface (card, group, sheet, dialog,
+ * popover, table, sidebar, segmented track) is the same recipe: the
  * translucent --glass-bg fill, the 1px light --glass-border, the inset top
  * highlight and the soft shadow inside --shadow-glass, and on the
  * overlay and bar surfaces the same blur and saturation. Without
@@ -12647,17 +12655,6 @@ button.row-menu__item--destructive:hover {
     box-shadow: var(--shadow-glass);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  }
-
-  /* The floating tab bar is its own, stronger glass: a darker tinted fill in
-   * Dark so light labels hold over a white picture scrolling beneath. */
-  .tab-bar::before,
-  .tab-bar__more-panel {
-    background-color: var(--bar-bg);
-    background-image: var(--bar-sheen);
-    border-color: var(--bar-border);
-    -webkit-backdrop-filter: blur(26px) saturate(200%);
-    backdrop-filter: blur(26px) saturate(200%);
   }
 
   /* The popover of the frame button. */
@@ -14012,8 +14009,7 @@ html.splash-on .splash__scan {
     top: 0;
     z-index: 0;
     border-radius: var(--radius-pill);
-    background: var(--bar-pill-bg);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
+    background: var(--color-accent);
     pointer-events: none;
     opacity: 0;
   }

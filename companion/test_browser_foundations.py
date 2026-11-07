@@ -36,8 +36,8 @@ _TITLES = """
   return {
     display: root.getPropertyValue('--font-display').trim(),
     ui: root.getPropertyValue('--font-ui').trim(),
-    // Home's greeting is a quiet body-size line above the state, not a title.
-    pageTitles: [...document.querySelectorAll('main h1.page-title:not(.page-title--greeting)')].filter(visible).map(read),
+    pageTitles: [...document.querySelectorAll('main h1.page-title')].filter(visible).map(read),
+    h1Count: document.querySelectorAll('main h1').length,
     sectionTitles: [...document.querySelectorAll('main .text-heading')].filter(visible).map(read),
     headings: [...document.querySelectorAll('main h1, main h2, main h3, main legend, main .text-heading')]
       .filter(visible).map(read),
@@ -101,8 +101,8 @@ def test_titles_are_on_the_type_scale_in_the_display_face(
     context, page = _open_page(new_context, server, path, viewport, scheme)
     try:
         read = page.evaluate(_TITLES)
-        # Home's only h1 is the greeting, which is not a title.
-        assert read["pageTitles"] or path == "/", (path, "no page title")
+        assert read["pageTitles"], (path, "no page title")
+        assert read["h1Count"] == 1, (path, "exactly one h1 per page")
         low, high = (30, 34) if viewport["width"] < 960 else (40, 44)
         for title in read["pageTitles"]:
             assert _same_stack(title["family"], read["display"]), title
@@ -165,15 +165,15 @@ def test_fixed_bars_and_header_follow_the_safe_area_tokens(new_context, server):
     context, page = _open_page(new_context, server, "/", PHONE)
     try:
         before = page.evaluate(_PHONE_BARS)
-        assert before["barBottom"] == 12 and before["headerTop"] == 4
+        assert before["barBottom"] == 6 and before["headerTop"] == 4
         page.add_style_tag(content=_FORCED_INSETS)
         page.wait_for_function(
             "() => window.innerHeight - document.querySelector('.tab-bar')"
-            ".getBoundingClientRect().bottom === 12 + 34")
+            ".getBoundingClientRect().bottom === 6 + 34")
         after = page.evaluate(_PHONE_BARS)
         assert after["headerTop"] == 4 + 47
         assert after["headerLeft"] == 40 and after["barRight"] == 40
-        assert after["barBottom"] == 12 + 34
+        assert after["barBottom"] == 6 + 34
         assert after["contentLeft"] == 40 and after["contentRight"] == 40
         top = page.evaluate("() => document.querySelector('.site-header').getBoundingClientRect().height")
         assert top >= 52 + 47

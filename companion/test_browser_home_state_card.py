@@ -581,7 +581,7 @@ def test_user_home_layout_has_the_frame_button_first_and_no_battery_tile(
         assert page.locator(".home-battery").count() == 0
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
-            """() => ['details.frame-menu', 'h1', '.home-state',
+            """() => ['details.frame-menu', '.page-greeting', '.home-state',
                       '.home-state__switches', '.home-section[aria-labelledby="home-flights"]']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
         # On a phone the button is in the bar above the title; on a desktop it is level with it.

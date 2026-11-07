@@ -567,16 +567,16 @@ def _switch_cells(space):
 
 def _console_bar(active, health_alert):
     """(cells, sheet entries) of the Console bar: the space switch, Fleet
-    (carrying the severity dot), Users and the airline editor, with Audit and
-    Account in More."""
+    (carrying the severity dot), Users, the airline editor and the audit log,
+    with Account in More. Six cells, like the personal bar of an
+    administrator, so the switch and every cell keep the same width."""
     entries = _console_entries(active)
     cells = _switch_cells(CONSOLE_SPACE) + [
         _tab_bar_cell_link(
             entries[key], _CONSOLE_BAR_LABELS.get(key),
             extra_html=_health_dot(health_alert) if key == "fleet" else "")
-        for key in ("fleet", "users", "editor") if key in entries]
-    sheet = [entries[key] for key in ("audit",) if key in entries]
-    sheet.append(_account_entry(active))
+        for key in ("fleet", "users", "editor", "audit") if key in entries]
+    sheet = [_account_entry(active)]
     return cells, sheet
 
 
@@ -620,8 +620,9 @@ def _sheet_preference_html(label, form_html):
 
 def _more_panel_html(active, sheet, ui_theme):
     """The More sheet, top to bottom: the pages that do not fit the bar (a
-    continuation of the bar), a separator, then the settings block: theme and
-    language (one tap each, plain POST forms), the Account row and Sign out.
+    continuation of the bar), a separator, then the settings block: the
+    Account row, theme and language (one tap each, plain POST forms) and Sign
+    out.
     The Account page already carries all of its own controls, so there the
     sheet holds the links alone and a second Sign out never appears."""
     pages = "".join(
@@ -636,11 +637,11 @@ def _more_panel_html(active, sheet, ui_theme):
         _sheet_preference_html(_THEME_TEXT, _theme_form_html(ui_theme))
         + _sheet_preference_html(_LANGUAGE_TEXT, _lang_form_html(prefs.current_lang())))
     return (
-        pages_html + separator + '<div class="tab-bar__settings">%s'
-        '<div class="tab-bar__links">%s</div>'
+        pages_html + separator + '<div class="tab-bar__settings">'
+        '<div class="tab-bar__links">%s</div>%s'
         '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">'
         '<button type="submit">%s</button></form></div>' % (
-            preferences, account, escape_html(i18n.t(_SIGN_OUT_TEXT))))
+            account, preferences, escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):
