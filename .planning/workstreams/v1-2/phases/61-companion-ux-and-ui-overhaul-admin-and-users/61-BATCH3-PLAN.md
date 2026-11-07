@@ -115,3 +115,12 @@ dropped or redrawn from a sketch.
 |------|-------|
 | 61-84 | Straight fixes: toggle reload, Always on removed, picture dialog glitch, calendar bug, duplicate Save, aircraft size, floating Save label, tab pill and footer flash, Users menu and table panel, airline resolve fields, audit id, Airlines header and counter |
 | 61-85.. | After the owner answers the mockup decisions |
+
+## Batch 13 (D47)
+
+| Plan | Scope |
+|------|-------|
+| 61-85 | R9-1 Home status wording and battery line, R9-2 Quiet hours compact, R9-3 Flights rows |
+| 61-86 | R9-4 tab bar and More menu, R9-5 Console switch alignment and Journal tab |
+| 61-87 | R9-6 Fleet desktop single column of sections |
+| 61-88 | R9-7 Location full-bleed, loading state, airport pick in place |

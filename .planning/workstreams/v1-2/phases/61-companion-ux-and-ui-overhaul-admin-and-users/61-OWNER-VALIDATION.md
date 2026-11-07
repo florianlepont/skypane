@@ -810,3 +810,32 @@ Home status coherence and battery (W114, W115, W117), Quiet hours compact
 (W118), Flights rows (W120), tab bar and More menu (W129, W130, W131),
 Console/My frame switch (W134), Fleet desktop (W135), Location mobile
 full-bleed and loading state (W122, W123, W124).
+
+## Round 9 decisions (D47), owner answered one by one (mockups90/)
+
+- R9-1 Home status block: layout option 1 (single line); wording: the normal
+  state word becomes "En ligne" (EN "Online") instead of "À jour", and the
+  line reads "Prochain rafraîchissement dans N min" (EN "Next refresh in N
+  min"); the owner's point: "À jour" next to "next update" contradicts
+  itself. Greeting small and grey; battery "69 % · autonomie ~6 semaines" on
+  one line without "Niveau normal".
+- R9-2 Quiet hours sheet compact (Nuit / Journée side by side, no Toujours
+  actif, Début / Fin side by side, Enregistrer, Fermer), all visible on
+  iPhone.
+- R9-3 Flights rows: option 1 (two lines), no plane icon, no call sign in the
+  row (kept in the detail).
+- R9-4 Tab bar: option A (floating, low, opaque, strong active pill, clear
+  contrast, no pale band); More menu opaque, same colour as the bar, order
+  Compagnies, Compte, Thème, Langue, Déconnexion.
+- R9-5 Console / My frame: logo 44 px in both views, 6 tab cells in both
+  (Console gains Journal).
+- R9-6 Fleet desktop: option 1, one column of coherent sections with
+  everything inline and nothing repeated; the only dialog left is the
+  confirmation for Remove this frame (replaces the summary rows and dialogs).
+- R9-7 Location: full-bleed on phone, designed loading state with a progress
+  bar replacing the no-JS form flash, picking an airport moves the map in
+  place without reloading.
+
+Plans (batch 13): 61-85 Home status wording and battery, Quiet hours,
+Flights rows; 61-86 tab bar, More menu, Console switch; 61-87 Fleet desktop
+single column; 61-88 Location full-bleed, loading, in-place airport.
