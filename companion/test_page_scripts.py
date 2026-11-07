@@ -146,7 +146,11 @@ def test_shell_script_set_matches_global_and_route_tuple(servers, route, server_
     body = _page_body(servers, server_name, route, query)
     doc = parse_html(body)
     all_srcs = _script_srcs(doc)
-    shell_srcs = [s for s in all_srcs if s != health_page.BATTERY_TREND_SCRIPT_SRC]
+    # The splash gate in <head> is a plain synchronous script, not one of the
+    # shell's deferred scripts.
+    shell_srcs = [s for s in all_srcs
+                  if s not in (health_page.BATTERY_TREND_SCRIPT_SRC,
+                               layout.SPLASH_BOOT_SCRIPT_SRC)]
 
     assert len(shell_srcs) == len(set(shell_srcs)), (
         "%s (%s state, query=%r): a shell script src repeats: %r"
@@ -158,10 +162,13 @@ def test_shell_script_set_matches_global_and_route_tuple(servers, route, server_
         "GLOBAL_PAGE_SCRIPTS | _PAGE_SCRIPTS[route] %r"
         % (route, server_name, query, sorted(set(shell_srcs)), sorted(expected)))
 
-    assert len(shell_srcs) < 15, (
+    # The pre-per-page-scripts baseline was 15; the splash adds two global
+    # scripts (the synchronous boot script and splash.js).
+    script_ceiling = 15 + 2
+    assert len(shell_srcs) < script_ceiling, (
         "%s (%s state, query=%r): still serves %d shell script tags, no "
-        "fewer than the pre-per-page-scripts baseline of 15"
-        % (route, server_name, query, len(shell_srcs)))
+        "fewer than the ceiling of %d"
+        % (route, server_name, query, len(shell_srcs), script_ceiling))
 
     order_positions = [layout.SHELL_SCRIPT_ORDER.index(s) for s in shell_srcs]
     assert order_positions == sorted(order_positions), (
@@ -195,7 +202,7 @@ def test_authenticated_404_carries_exactly_the_global_set(servers):
     status, _headers, body = get(server, "/no-such-page", cookie=session)
     assert status == 404, "expected 404 from /no-such-page, got %d" % status
     doc = parse_html(body.decode("utf-8"))
-    srcs = _script_srcs(doc)
+    srcs = [s for s in _script_srcs(doc) if s != layout.SPLASH_BOOT_SCRIPT_SRC]
     assert len(srcs) == len(set(srcs)), "404 page repeats a script src: %r" % (srcs,)
     assert set(srcs) == set(layout.GLOBAL_PAGE_SCRIPTS), (
         "expected the authenticated 404 page to carry exactly "

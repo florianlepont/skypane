@@ -179,8 +179,8 @@ def _select_frame(steps, page, name):
     row.wait_for(state="visible")
     steps.tap(row, "row of " + name)
     page.wait_for_function(
-        "(n) => document.querySelector('details.frame-menu > summary').textContent"
-        ".includes(n)", arg=name)
+        "(n) => (document.querySelector('details.frame-menu > summary')"
+        " || {textContent: ''}).textContent.includes(n)", arg=name)
     page.wait_for_function("() => document.readyState === 'complete'")
 
 

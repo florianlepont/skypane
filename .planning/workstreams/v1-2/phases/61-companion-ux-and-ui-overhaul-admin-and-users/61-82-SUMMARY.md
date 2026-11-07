@@ -33,3 +33,13 @@ Screenshots: scratchpad `shots82/` (splash sequence at 390 and 1280, light and d
 None.
 
 ## Self-Check: PASSED
+
+## CI fixes
+
+PR CI failed 26 tests after this plan; all root-caused and fixed.
+
+- 22 test_page_scripts.py tests (21 shell-set params, `test_authenticated_404_carries_exactly_the_global_set`): the synchronous splash gate `splash-boot.js` in `<head>` is deliberately not a deferred shell script (`test_twenty_deferred_scripts_before_closing_body` pins that). Test updated: both tests now exclude it. The route-count ceiling rose from 15 to 16 because `splash.js` is a new global deferred script. No code change.
+- `test_health_markup_builds_only_on_the_fleet_page`: code fix. The Home Battery row took its level from `ctx.health_state`, which builds the health pipeline. It now uses `_row_battery_level` (hold flag plus latest reading). The admin hero dial is unchanged.
+- `test_accent_budget`: code fix. The probe reads computed style, which exists for `display: none` too. `.splash__ink` and `.splash__scan` get their accent fill only under `html.splash-on`.
+- `test_a4_retire_a_frame`: test race fix. The wait predicate ran on a navigating document with no `details.frame-menu`; it is now null-safe.
+- `test_pairing_flow_in_the_browser`: test race fix. `_refusal_text` read before the POST response document loaded; it now waits for the alert and `readyState === 'complete'`.

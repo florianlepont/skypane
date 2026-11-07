@@ -470,6 +470,10 @@ def _owner_id(state_dir):
 
 
 def _refusal_text(page):
+    # The refusal arrives with the page the POST navigates to: wait for it
+    # (and for that document to finish loading) before reading.
+    page.locator('[role="alert"], .field-error').first.wait_for(state="attached")
+    page.wait_for_function("() => document.readyState === 'complete'")
     return " ".join(page.locator(
         '[role="alert"], .field-error').all_inner_texts())
 

@@ -13879,8 +13879,11 @@ html.splash-on .splash.splash--opening {
 .splash__ink {
   position: absolute;
   inset: 0;
-  background: var(--color-accent);
   opacity: 0;
+}
+
+html.splash-on .splash__ink {
+  background: var(--color-accent);
 }
 
 .splash__band {
@@ -13947,9 +13950,12 @@ html.splash-on .splash.splash--opening {
   right: 0;
   left: 0;
   height: 2px;
+  opacity: 0;
+}
+
+html.splash-on .splash__scan {
   background: var(--color-accent);
   box-shadow: 0 0 10px var(--color-accent);
-  opacity: 0;
 }
 
 .splash__outline {

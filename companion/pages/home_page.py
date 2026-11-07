@@ -464,7 +464,7 @@ def _battery_row_html(ctx, interval_s):
     autonomy = "" if percent is None or charging else home_battery_row.autonomy_text(
         ctx.state_dir, ctx.now, interval_s, page_context.device_curve(ctx.device))
     return home_battery_row.row_html(
-        percent, _battery_level(ctx, percent), charging, autonomy)
+        percent, _row_battery_level(ctx, percent), charging, autonomy)
 
 
 def _switches_html(cfg, battery_html=""):
@@ -493,6 +493,17 @@ def _switches_html(cfg, battery_html=""):
     return ui_groups.group(
         rows, label=i18n.t(FRAME_GROUP_LABEL), label_id="home-frame-controls",
         extra_class="home-state__switches home-section")
+
+
+def _row_battery_level(ctx, percent):
+    """The Battery row's level from the latest reading and the page
+    context's hold flag alone; unlike the hero dial it never builds the
+    health state, so every user's Home stays off the health pipeline."""
+    if ctx.battery_critical is True:
+        return "critical"
+    if percent is not None and percent <= battery.LOW_BATTERY_DISPLAY_PERCENT:
+        return "low"
+    return "ok"
 
 
 def _battery_level(ctx, percent):
