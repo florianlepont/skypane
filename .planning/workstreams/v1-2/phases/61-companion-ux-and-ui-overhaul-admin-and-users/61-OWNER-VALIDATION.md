@@ -573,4 +573,8 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
 
 - W102 (owner, screenshot) Too much information per row and the table
   overflows the page; use a toggle (expandable row) to show more detail.
+- W103 (owner, question) Wouldn't "Delete user" be simpler than "Unlink
+  identity"? Open: today a user can only be disabled (Active switch) or have
+  the identity unlinked; no delete exists. Needs a product decision on what
+  happens to the user's frames (owner) and the audit trail before building.
 - (owner has not finished; more items to come.)
