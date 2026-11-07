@@ -111,10 +111,9 @@ def test_picker_choices_swap_the_picture_live(new_context, make_app_server):
         context.close()
 
 
-def test_combinations_without_a_theme_are_disabled_with_their_reason(new_context, make_app_server):
-    """with a soft background both stripe options stay offered except the soft one, disabled
-    with the soft-on-soft reason; yellow disables every stripe with the white-on-yellow reason;
-    a full background disables every stripe; the disabled options are skipped, never hidden"""
+def test_combinations_without_a_theme_are_not_offered(new_context, make_app_server):
+    """with a soft background the soft stripe is not offered (disabled and not displayed);
+    yellow and a full background leave nothing to choose, so the whole stripe group goes away"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
@@ -122,23 +121,30 @@ def test_combinations_without_a_theme_are_disabled_with_their_reason(new_context
         page.locator(SHEET + " button.switch").wait_for(state="visible")
         page.click(SHEET + " button.switch")
         assert page.locator(SHEET + " button.switch").get_attribute("aria-checked") == "false"
-        why = page.locator(SHEET + " [data-look-why]")
 
         def disabled():
             return page.evaluate(
                 "s => [...document.querySelectorAll(s + ' input[data-look-axis=stripe]')]"
                 ".filter(e => e.disabled).map(e => e.value)", SHEET)
 
-        assert disabled() == ["soft"] and "soft background" in why.inner_text()
+        def shown():
+            return page.evaluate(
+                "s => [...document.querySelectorAll(s + ' input[data-look-axis=stripe]')]"
+                ".filter(e => e.parentNode.getClientRects().length > 0).map(e => e.value)", SHEET)
+
+        def group_shown():
+            return page.evaluate(
+                "s => document.querySelector(s + ' [data-look-why]').parentNode"
+                ".getClientRects().length > 0", SHEET)
+
+        assert disabled() == ["soft"] and shown() == ["none", "solid"] and group_shown()
         page.click(_axis("colour", "yellow"))
-        assert disabled() == ["solid", "soft"] and "yellow" in why.inner_text()
+        assert disabled() == ["solid", "soft"] and shown() == [] and not group_shown()
         assert _checked(page, "theme_arriving") == "yellow_light"
         page.click(_axis("colour", "red"))
         page.click(_axis("background", "full"))
-        assert disabled() == ["solid", "soft"] and "full background" in why.inner_text()
+        assert disabled() == ["solid", "soft"] and shown() == [] and not group_shown()
         assert _checked(page, "theme_arriving") == "red"
-        assert page.locator(SHEET + " .look-seg__option.is-disabled").count() == 2
-        assert page.locator(SHEET + " .look-seg__option.is-disabled").first.is_visible()
     finally:
         context.close()
 
@@ -281,7 +287,8 @@ def test_on_phones_the_calendar_sheet_is_a_bottom_sheet_and_nothing_overflows(
         assert page.locator("[data-look-scrim]").is_visible()
         for selector in (SHEET + " .look-dot", SHEET + " .look-seg__option"):
             for handle in page.locator(selector).all():
-                assert handle.bounding_box()["height"] >= 44
+                if handle.is_visible():  # an option with no theme is not offered at all
+                    assert handle.bounding_box()["height"] >= 44
         assert page.evaluate("s => document.querySelector(s).scrollWidth <= document.querySelector(s).clientWidth", SHEET)
         overflow = _assert_no_page_overflow(page, "calendar with the sheet", viewport["width"])
         assert not overflow, overflow
@@ -312,7 +319,8 @@ def test_on_phones_the_picker_sits_under_the_picture_and_nothing_overflows(
             assert sheet["x"] >= 0 and sheet["x"] + sheet["width"] <= viewport["width"] + 0.5
             for selector in (SHEET + " .look-dot", SHEET + " .look-seg__option"):
                 for handle in page.locator(selector).all():
-                    assert handle.bounding_box()["height"] >= 44
+                    if handle.is_visible():  # an option with no theme is not offered at all
+                        assert handle.bounding_box()["height"] >= 44
     finally:
         context.close()
 
@@ -336,6 +344,8 @@ def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_s
                 ".personalisation-nav__link", SHEET + " .look-dot", SHEET + " .look-seg__option",
                 SHEET + " .look-sheet__reset", SHEET + " .look-sheet__save"):
             for handle in page.locator(selector).all():
+                if not handle.is_visible():  # an option with no theme is not offered at all
+                    continue
                 box = handle.bounding_box()
                 assert box["height"] >= 44 - 0.5 and box["width"] >= 44 - 0.5, (selector, box)
     finally:

@@ -68,7 +68,10 @@ _ROLE_OF_ARIA = i18n.msg("admin_users.role_of_aria", "Role of %s")
 _ACTIVE_ARIA = i18n.msg("admin_users.active_aria", "Active: %s")
 _MORE_ARIA = i18n.msg("admin_users.more_actions_aria", "More actions for %s")
 _SAVE_ROLE = i18n.msg("admin_users.save_role", "Save role")
-_UNLINK_BUTTON = i18n.msg("admin_users.unlink_identity", "Unlink identity")
+_UNLINK_BUTTON = i18n.msg("admin_users.unlink_identity", "Reset sign-in")
+_UNLINK_HINT = i18n.msg(
+    "admin_users.unlink_identity_hint",
+    "Signs this person out; they link their sign-in account again next time they sign in.")
 
 _INVITE_BUTTON = i18n.msg("admin_users.invite_a_user_button", "+ Invite a user")
 _INVITE_TITLE = i18n.msg("admin_users.invite_a_user", "Invite a user")
@@ -208,11 +211,11 @@ def _guard_html(row):
     notes = ""
     if row.is_self:
         notes += (
-            '<span class="users-guard text-label" id="users-guard-%d-self">%s %s</span>'
+            '<span class="users-guard visually-hidden" id="users-guard-%d-self">%s %s</span>'
             % (row.user_id, _t(_THIS_IS_YOU), _t(_SELF_LOCK)))
     if row.is_last_admin:
         notes += (
-            '<span class="users-guard text-label" id="users-guard-%d-last">%s</span>'
+            '<span class="users-guard visually-hidden" id="users-guard-%d-last">%s</span>'
             % (row.user_id, _t(_LAST_ADMIN)))
     return notes
 
@@ -223,8 +226,13 @@ def _role_cell(row):
     signed-in administrator and the last active administrator."""
     guard = _guard_html(row)
     if guard:
-        return '<span class="users-role-fixed">%s</span>%s' % (
-            _esc(role_name(row.role)), guard)
+        # The explanation is a tooltip and a hidden description of the role,
+        # not text in the cell: the "You" pill already marks the row.
+        explained = " ".join(
+            _t(note) for flag, note in (
+                (row.is_self, _SELF_LOCK), (row.is_last_admin, _LAST_ADMIN)) if flag)
+        return '<span class="users-role-fixed" title="%s">%s</span>%s' % (
+            explained, _esc(role_name(row.role)), guard)
     select_id = "role-%d" % row.user_id
     controls = (
         '<label class="visually-hidden" for="%s">%s</label>'
@@ -261,8 +269,8 @@ def _menu_cell(row):
         return ""
     unlink = _post_form(
         row, _routes().USER_UNLINK_SUFFIX, "users-menu__form",
-        '<button type="submit" class="row-menu__item row-menu__item--destructive">'
-        '%s</button>' % _t(_UNLINK_BUTTON))
+        '<button type="submit" class="row-menu__item row-menu__item--destructive" '
+        'title="%s">%s</button>' % (_t(_UNLINK_HINT), _t(_UNLINK_BUTTON)))
     return (
         '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">'
         '%s</summary><div class="row-menu__panel">%s</div></details>' % (
@@ -357,7 +365,8 @@ def _invite_dialog(view):
         '<p class="text-body">%s</p>'
         '<div class="modal__field"><label for="invite-email">%s</label>'
         '<input type="email" id="invite-email" name="%s" required maxlength="254" '
-        'autocomplete="off" spellcheck="false" value="%s"%s%s>%s</div>'
+        'autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore="true" '
+        'data-form-type="other" spellcheck="false" value="%s"%s%s>%s</div>'
         '<div class="modal__field"><label for="invite-role">%s</label>'
         '<select id="invite-role" name="%s"%s>%s</select>%s</div>' % (
             _t(_INVITE_PURPOSE), _t(_COL_EMAIL), EMAIL_FIELD, _esc(view.email_value),

@@ -78,6 +78,7 @@ VIEW_TRANSITION_NAMES = {
     "skypane-title": VIEW_TRANSITION_ROUTES,
     "skypane-picture": ("/",),
     "skypane-tab-slider": VIEW_TRANSITION_ROUTES,
+    "skypane-tab-bar": VIEW_TRANSITION_ROUTES,
     # Carried by the .vt-pic class, which the script puts on one picture only while the
     # thumbnail-to-picture transition runs: no element has it on any route at rest.
     "skypane-flight-pic": (),

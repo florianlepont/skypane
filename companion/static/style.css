@@ -2802,9 +2802,7 @@ button:disabled {
   }
 
   .look-seg__option:has(input:disabled) {
-    opacity: 0.45;
-    text-decoration: line-through;
-    cursor: not-allowed;
+    display: none;
   }
 }
 
@@ -3846,10 +3844,19 @@ a.calendar-disconnect-btn.flight-picture-link {
     padding: 0 var(--space-md);
   }
 
+  /* In the title row, after the title and clear of the frame button (the
+   * header keeps that space free); it wraps under the title when the row is
+   * too narrow for both. */
   .js .filter-bar--title,
   .js .filter-bar--title:focus-within,
   .js .filter-bar--title[data-filter-active] {
-    width: 380px;
+    position: relative;
+    top: auto;
+    right: auto;
+    flex: 0 1 360px;
+    width: 360px;
+    max-width: 100%;
+    margin: 0 0 0 auto;
   }
 
   .js .filter-bar--title .filter-bar__search input,
@@ -5536,6 +5543,7 @@ button.detection-search:hover {
   align-items: center;
   justify-content: center;
   min-height: 44px;
+  margin: 0;
   padding: 0 var(--space-md);
   border-radius: var(--radius-control);
   color: var(--color-text);
@@ -5611,6 +5619,28 @@ button.detection-search:hover {
 
 .place-sheet .runway-card .runway-card__detail {
   overflow-wrap: anywhere;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* The airport's name and codes keep a clear gap above the runway heading. */
+.place-sheet #runway-group-heading {
+  margin-top: var(--space-md);
+}
+
+/* The selected mark straddles the card's top-right corner, so it never sits
+ * over the designator or the length centred in the card. */
+.place-sheet .runway-card .runway-card__check {
+  top: -8px;
+  right: -6px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  background: var(--glass-solid);
+  color: var(--color-accent);
 }
 
 .place-sheet .runway-card .banner__pill {
@@ -5631,6 +5661,11 @@ button.detection-search:hover {
   border: 1px solid var(--color-border);
   color: var(--color-text);
   white-space: nowrap;
+}
+
+.place-sheet .runway-card .runway-card__check .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .place-panel__follow {
@@ -6021,7 +6056,7 @@ html:not(.map-ready) .place-tap-hint {
   max-width: none;
   margin: 0;
   padding: var(--space-sm) 0 0;
-  background: var(--color-dominant);
+  background: var(--glass-solid);
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -6288,6 +6323,8 @@ html:not(.map-ready) .place-tap-hint {
     max-height: calc(100dvh - var(--place-search-bottom) - 2 * var(--space-md));
     overflow-y: auto;
     pointer-events: auto;
+    background: var(--glass-solid);
+    border-color: var(--color-border);
     box-shadow: var(--shadow-card-hover);
   }
 
@@ -8263,6 +8300,9 @@ button.calendar-danger--solid {
  * can never show the bar regardless of any later rule order. */
 .tab-bar {
   display: none;
+  /* A named group of its own: a page change carries the bar across as one
+   * unchanged image instead of cross-fading it with the page behind. */
+  view-transition-name: skypane-tab-bar;
 }
 
 @media (max-width: 959.98px) {
@@ -8284,6 +8324,9 @@ button.calendar-danger--solid {
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-pill);
     isolation: isolate;
+    /* The solid fill under the glass layer is painted from the first frame, so
+     * the page never shows through the bar while a page change is in flight. */
+    background-color: var(--glass-solid);
   }
 
   /* The bar's glass (fill, blur, shadow) lives on this layer behind the cells,
@@ -8360,7 +8403,7 @@ button.calendar-danger--solid {
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 68px;
+    flex: 0 0 71px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -9522,7 +9565,7 @@ dialog.modal {
   max-width: none;
   max-height: 88svh;
   margin: auto;
-  padding: var(--space-lg);
+  padding: var(--space-lg) var(--space-lg) 0;
   overflow-y: auto;
   background: var(--color-dominant);
   color: var(--color-text);
@@ -9612,11 +9655,19 @@ a.modal__close {
   min-height: 44px;
 }
 
+/* The action row stays at the foot of the dialog on an opaque strip while
+ * the body scrolls above it, so Save is always reachable. The dialog has no
+ * bottom padding of its own: the strip carries it. */
 .modal__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-top: var(--space-lg);
+  margin-top: var(--space-md);
+  padding: var(--space-sm) 0 var(--space-lg);
+  background: var(--color-dominant);
 }
 
 dialog.modal button {
@@ -9653,8 +9704,12 @@ a.modal__dismiss {
     inset: auto 0 0;
     width: 100%;
     margin: 0;
-    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
+    padding: 22px max(var(--space-md), var(--safe-right)) 0 max(var(--space-md), var(--safe-left));
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  }
+
+  .modal__actions {
+    padding-bottom: calc(var(--space-md) + var(--safe-bottom));
   }
 
   dialog.modal.is-modal {
@@ -10174,6 +10229,7 @@ a.entity-row__button:hover {
 
 .personalisation-nav__link > span {
   display: block;
+  flex: 1 1 auto;
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
@@ -11357,11 +11413,6 @@ dialog.access-sheet[open],
   font-weight: var(--weight-semibold);
 }
 
-.users-guard {
-  display: block;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 .users-table button.users-role-save {
   min-height: 44px;
   min-width: 44px;
@@ -11481,9 +11532,13 @@ button.row-menu__item--destructive:hover {
     padding-right: var(--space-md);
   }
 
-  .users-col--user { width: 34%; }
+  .users-cell--frames {
+    white-space: nowrap;
+  }
+
+  .users-col--user { width: 30%; }
   .users-col--role { width: 20%; }
-  .users-col--frames { width: 12%; }
+  .users-col--frames { width: 16%; }
   .users-col--seen { width: 12%; }
   .users-col--active { width: 8%; }
   .users-col--invite { width: 56px; }
@@ -11598,6 +11653,11 @@ button.row-menu__item--destructive:hover {
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   padding: var(--space-md);
+}
+
+/* The Name it action is wider than the "..." menu: its column sizes to it. */
+.airlines-row--gap {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
 }
 
 .airlines-subrow {
@@ -11786,16 +11846,32 @@ button.row-menu__item--destructive:hover {
 }
 
 a.airlines-name-it {
+  position: relative;
+  isolation: isolate;
   display: inline-flex;
   white-space: nowrap;
   align-items: center;
   justify-content: center;
   min-width: 44px;
   min-height: 44px;
+  margin-left: var(--space-sm);
   padding: 0 var(--space-md);
   box-sizing: border-box;
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   text-decoration: none;
+}
+
+/* The drawn pill is 32px tall inside the 44px target, centred in the row. */
+a.airlines-name-it::before {
+  content: "";
+  position: absolute;
+  inset: 6px 0;
+  z-index: -1;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
 }
 
 @media (min-width: 70rem) {
@@ -11876,7 +11952,7 @@ a.airlines-name-it {
   .airlines-col--prefixes { width: 11%; }
   .airlines-col--art { width: 14%; }
   .airlines-col--views { width: 8%; }
-  .airlines-col--menu { width: 96px; }
+  .airlines-col--menu { width: 112px; }
 
   /* The airline name input ends in an ellipsis rather than a hard clip. */
   .airlines-name input[type="text"] {
@@ -11932,7 +12008,8 @@ a.airlines-name-it {
 
 .reveal,
 .dashboard-main .group-block,
-.dashboard-main .page-section {
+.dashboard-main .page-section,
+.dashboard-main .personalisation-look {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -12004,7 +12081,8 @@ a.airlines-name-it {
  * solid fill its own rule declares (--color-dominant, --color-secondary or
  * --glass-solid). The blur stays off the repeated cards, whose own fixed or
  * absolutely placed descendants a backdrop-filter would trap. No
- * border-radius here: --radius-card carries it. */
+ * border-radius here: --radius-card carries it. Modal dialogs are not
+ * glass: they sit over a dimmed page on their own opaque surface. */
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .page-section,
   .battery-trend-section,
@@ -12044,9 +12122,6 @@ a.airlines-name-it {
   .group,
   .login-card,
   .look-sheet,
-  .calendar-sheet,
-  .lightbox,
-  dialog.modal,
   .info-tip__bubble,
   .dashboard-sidebar,
   .dirty-bar {
@@ -12659,6 +12734,7 @@ a.airlines-name-it {
  * under the text. */
 .account-frame {
   flex-wrap: wrap;
+  padding-block: var(--space-sm);
 }
 
 .group > .account-frame > .row__main {
@@ -12864,6 +12940,15 @@ dialog.access-sheet .modal__body {
 
 .access-sheet .group-block {
   margin: 0;
+}
+
+/* The empty state under the owner row sits in the same group with the same
+ * inner padding as the rows around it. */
+.access-sheet .fleet-group__item {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
 }
 
 .access-sheet .row__form {

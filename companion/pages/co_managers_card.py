@@ -189,6 +189,7 @@ def _typed_field_html(device_id, prefix="co-manager"):
     return (
         '<p><label for="%s">%s</label>'
         '<input type="email" id="%s" name="%s" autocomplete="off" '
+        'data-1p-ignore data-lpignore="true" data-bwignore="true" data-form-type="other" '
         'autocapitalize="none" spellcheck="false" required maxlength="%d" '
         'aria-describedby="%s"%s></p>'
         '<p class="text-label section-caption" id="%s">%s</p>' % (

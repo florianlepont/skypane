@@ -196,7 +196,7 @@ def test_row_controls_follow_the_user_state(rig):
                            for a in ("role", "disable", "unlink")}
     row = _row_html(body, seed.owner_id)
     assert 'data-autosubmit' in row and "<noscript><button" in row
-    assert row.count('class="row-menu"') == 1 and ">Unlink identity<" in row
+    assert row.count('class="row-menu"') == 1 and ">Reset sign-in<" in row
     never = _row_forms(body, seed.admin2_id)
     assert not any(action.endswith("/unlink") for action in never)
     assert "row-menu" not in _row_html(body, seed.admin2_id)

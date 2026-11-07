@@ -87,6 +87,7 @@ def _code_field(view):
     return (
         '<div class="modal__field"><label for="pair-code">%s</label>'
         '<input type="text" id="pair-code" name="%s" class="mono" autocomplete="off" '
+        'data-1p-ignore data-lpignore="true" data-bwignore="true" data-form-type="other" '
         'autocapitalize="characters" spellcheck="false" inputmode="text" '
         'maxlength="12" placeholder="XXXX-XXXX" value="%s" required%s autofocus%s>%s'
         '<p class="text-label">%s</p></div>') % (

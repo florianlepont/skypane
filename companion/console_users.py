@@ -68,10 +68,11 @@ console_flash.register_flash(
     i18n.msg("admin_users.flash_user_enabled_detail", "{email} can sign in again."))
 console_flash.register_flash(
     FLASH_UNLINKED, "success",
-    i18n.msg("admin_users.flash_identity_unlinked", "Identity unlinked"),
+    i18n.msg("admin_users.flash_identity_unlinked", "Sign-in reset"),
     i18n.msg(
         "admin_users.flash_identity_unlinked_detail",
-        "{email} is signed out and will be re-linked at next sign-in."))
+        "{email} is signed out; their sign-in account is linked again at "
+        "their next sign-in."))
 console_flash.register_flash(
     FLASH_LAST_ADMIN, "error", _REFUSED_TITLE,
     i18n.msg(

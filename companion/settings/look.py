@@ -67,7 +67,7 @@ COLOUR_LABELS = {
 # "Soft" rather than the registry's "Light", so the frame's look is never
 # confused with the companion's own light and dark modes.
 BACKGROUND_LABELS = {
-    BACKGROUND_PAPER: i18n.msg("look.background_paper", "Paper"),
+    BACKGROUND_PAPER: i18n.msg("look.background_paper", "White"),
     BACKGROUND_FULL: i18n.msg("look.background_full", "Full"),
     BACKGROUND_SOFT: i18n.msg("look.background_soft", "Soft"),
 }
@@ -84,7 +84,7 @@ STYLE_LABELS = {
     (BACKGROUND_SOFT, STRIPE_SOLID): i18n.msg("look.style_stripe_on_soft", "Stripe on soft"),
 }
 PLAIN_PAPER_LABEL = i18n.msg("look.plain_paper", "Plain paper")
-COLOUR_AXIS_LABEL = i18n.msg("look.colour", "Colour")
+COLOUR_AXIS_LABEL = i18n.msg("look.colour", "Main colour")
 BACKGROUND_AXIS_LABEL = i18n.msg("look.background", "Background")
 STRIPE_AXIS_LABEL = i18n.msg("look.diagonal_stripe", "Diagonal stripe")
 

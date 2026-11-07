@@ -170,7 +170,7 @@ def test_unlink_an_identity_from_the_overflow_menu_only_when_one_is_linked(
         assert _row(page, fx.USER_EMAIL).locator("details.row-menu").count() == 0
         row = _row(page, fx.OWNER_EMAIL)
         row.locator("summary").click()
-        item = row.get_by_role("button", name="Unlink identity")
+        item = row.get_by_role("button", name="Reset sign-in")
         item.wait_for(state="visible")
         item.click()
         _wait_db(page, server, seed.owner_id, 2, None)

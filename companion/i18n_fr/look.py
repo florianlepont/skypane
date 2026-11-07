@@ -29,7 +29,7 @@ MESSAGES = {
     "look.close": "Fermer",
 
     # --- The three choices ---------------------------------------------
-    "look.colour": "Couleur",
+    "look.colour": "Couleur principale",
     "look.background": "Fond",
     "look.diagonal_stripe": "Bande diagonale",
     "look.black": "Noir",
@@ -37,7 +37,7 @@ MESSAGES = {
     "look.red": "Rouge",
     "look.green": "Vert",
     "look.blue": "Bleu",
-    "look.background_paper": "Papier",
+    "look.background_paper": "Blanc",
     "look.background_full": "Plein",
     "look.background_soft": "Clair",
     "look.stripe_none": "Aucune",

@@ -109,12 +109,12 @@ MESSAGES = {
     "home.notice_line_last_contact": "Dernier contact : %s",
     "home.notice_tip_low_battery": "Rechargez-le ou branchez-le.",
     "home.notice_tip_overdue":
-        "Attendez un cycle\u00a0; s’il reste muet, contactez un administrateur.",
+        "Attendez un cycle, s’il reste muet, contactez un administrateur.",
     "home.notice_tip_not_seen":
-        "Vérifiez qu’il est alimenté\u00a0; s’il reste muet, contactez un "
+        "Vérifiez qu’il est alimenté, s’il reste muet, contactez un "
         "administrateur.",
     "home.notice_tip_no_contact":
-        "Vérifiez son alimentation et votre Wi-Fi\u00a0; s’il reste muet, contactez "
+        "Vérifiez son alimentation et votre Wi-Fi, s’il reste muet, contactez "
         "un administrateur.",
     "home.notice_contact_label": "Contacter un administrateur",
     "home.notice_mail_subject": "SkyPane : aide pour le cadre %s (%s)",

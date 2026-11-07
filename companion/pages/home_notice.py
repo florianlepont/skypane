@@ -41,13 +41,13 @@ TIP_LOW_BATTERY = i18n.msg(
     "home.notice_tip_low_battery", "Charge it or plug it in.")
 TIP_OVERDUE = i18n.msg(
     "home.notice_tip_overdue",
-    "Wait one cycle; if it stays silent, contact an administrator.")
+    "Wait one cycle, if it stays silent, contact an administrator.")
 TIP_NOT_SEEN = i18n.msg(
     "home.notice_tip_not_seen",
-    "Check it is powered; if it stays silent, contact an administrator.")
+    "Check it is powered, if it stays silent, contact an administrator.")
 TIP_NO_CONTACT = i18n.msg(
     "home.notice_tip_no_contact",
-    "Check its power and your Wi-Fi; if it stays silent, contact an administrator.")
+    "Check its power and your Wi-Fi, if it stays silent, contact an administrator.")
 
 CONTACT_LABEL = i18n.msg("home.notice_contact_label", "Contact an administrator")
 MAIL_SUBJECT = i18n.msg(

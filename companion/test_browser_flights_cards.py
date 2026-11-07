@@ -453,7 +453,8 @@ def test_desktop_search_is_always_open_in_the_title_row(new_context, server):
         field = page.locator(".filter-bar__search").bounding_box()
         header = page.locator(".page-header").bounding_box()
         title = page.locator(".page-title").bounding_box()
-        if (field["width"] < 300 or abs(field["y"] - header["y"]) > 1
+        # On the title's row (centred against the title, so a few pixels below the header top).
+        if (field["width"] < 300 or not header["y"] - 1 <= field["y"] <= header["y"] + 4
                 or field["x"] < title["x"] + title["width"]
                 or field["y"] + field["height"] > header["y"] + header["height"] + 1):
             raise AssertionError("expected an open search right of the title, got %r %r %r"

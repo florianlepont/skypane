@@ -206,14 +206,16 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     entrance = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-enter")]
     assert entrance == [
-        ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation"),
+        ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section",
+          ".dashboard-main .personalisation-look"), "animation"),
         ((".dashboard-main > .empty-state",), "animation"),
         ((".dashboard-main > .data-table-wrap",), "animation"),
         ((".tab-bar__link--active .tab-bar__pill",), "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
-    assert stagger == [((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation-delay")], (
+    assert stagger == [((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section",
+                         ".dashboard-main .personalisation-look"), "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.

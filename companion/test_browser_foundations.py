@@ -185,7 +185,8 @@ def test_sheets_and_the_save_bar_clear_the_home_indicator(new_context, server):
     try:
         page.add_style_tag(content=_FORCED_INSETS)
         page.wait_for_function(
-            "() => parseFloat(getComputedStyle(document.querySelector('dialog[open]')).paddingBottom) === 50")
+            "() => parseFloat(getComputedStyle(document.querySelector("
+            "'dialog[open] .modal__actions')).paddingBottom) === 50")
         sheet = page.evaluate(
             """() => { const s = getComputedStyle(document.querySelector('dialog[open]'));
                 return {left: parseFloat(s.paddingLeft), right: parseFloat(s.paddingRight)}; }""")

@@ -226,8 +226,7 @@
   }
 
   // One set of the three choices, bound to whichever target getTarget()
-  // returns. Stripe options with no theme are disabled, never hidden,
-  // and the reason is written beside them.
+  // returns. Stripe options with no theme are disabled and not shown.
   function bindAxes(container, getTarget) {
     var state = { colour: "black", background: "paper", stripe: "none" };
     var why = container.querySelector("[data-look-why]");
@@ -247,7 +246,7 @@
 
     function paintStripes() {
       var list = radios("stripe");
-      var reasons = [];
+      var offered = 0;
       var i;
       for (i = 0; i < list.length; i++) {
         var key = cellKey(state.colour, state.background, list[i].value);
@@ -255,14 +254,15 @@
         list[i].disabled = missing;
         if (missing) {
           addClass(list[i].parentNode, "is-disabled");
-          if (reasons.indexOf(model.reasons[key]) === -1) {
-            reasons.push(model.reasons[key]);
-          }
         } else {
+          offered += 1;
           removeClass(list[i].parentNode, "is-disabled");
         }
       }
-      why.textContent = reasons.join(" ");
+      // A combination with no theme is not offered at all; with nothing left
+      // to choose the whole stripe group goes away.
+      why.textContent = "";
+      why.parentNode.hidden = offered < 2;
     }
 
     function paintIcons() {

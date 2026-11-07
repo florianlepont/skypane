@@ -18,7 +18,10 @@ MESSAGES = {
     "admin_users.the_last_active_administrator_cannot_be_changed":
         "Le dernier administrateur actif ne peut pas être modifié.",
     "admin_users.save_role": "Enregistrer le rôle",
-    "admin_users.unlink_identity": "Dissocier l’identité",
+    "admin_users.unlink_identity": "Réinitialiser la connexion",
+    "admin_users.unlink_identity_hint":
+        "Déconnecte cette personne\u00a0; elle relie de nouveau son compte de connexion à "
+        "sa prochaine connexion.",
     "admin_users.invite_a_user": "Inviter un utilisateur",
     "admin_users.they_sign_in_with_this_email_through_auth0_skypane_does":
         "Ils se connectent avec cette adresse via Auth0. SkyPane ne leur envoie "
@@ -55,10 +58,10 @@ MESSAGES = {
         "La session de {email} est fermée ; la connexion est impossible.",
     "admin_users.flash_user_enabled": "Utilisateur activé",
     "admin_users.flash_user_enabled_detail": "{email} peut de nouveau se connecter.",
-    "admin_users.flash_identity_unlinked": "Identité dissociée",
+    "admin_users.flash_identity_unlinked": "Connexion réinitialisée",
     "admin_users.flash_identity_unlinked_detail":
-        "La session de {email} est fermée ; son identité sera associée de nouveau "
-        "à la prochaine connexion.",
+        "La session de {email} est fermée ; son compte de connexion sera relié de "
+        "nouveau à la prochaine connexion.",
     "admin_users.flash_last_admin_detail":
         "Il doit rester au moins un administrateur actif.",
     "admin_users.flash_self_action_detail":
