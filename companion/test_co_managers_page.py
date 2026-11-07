@@ -303,8 +303,9 @@ class Rig:
         return parse_html(body), body
 
     def dialog(self, query=""):
-        tree, _body = self.fleet(query=query)
-        found = tree.select("dialog#dlg-access-%s" % self.seed.owned_id.replace("_", "-"))
+        """The Access section of the owned frame (inline on the page; no dialog)."""
+        tree, _body = self.fleet(query=query or "?frame=" + self.seed.owned_id)
+        found = tree.select("section.fleet-block--access")
         return found[0] if found else None
 
 
@@ -330,17 +331,14 @@ def rig(tmp_path):
     server.stop()
 
 
-def test_fleet_offers_manage_access_in_the_detail_menu_with_a_dialog_per_frame(rig):
+def test_fleet_shows_the_access_section_inline_not_behind_a_menu_or_dialog(rig):
     tree, _body = rig.fleet(query="?frame=" + rig.seed.owned_id)
-    dialog_id = "dlg-access-%s" % rig.seed.owned_id.replace("_", "-")
-    items = [
-        a for a in tree.select("div.fleet-detail-head details.row-menu a")
-        if a.attrs["href"] == "#" + dialog_id]
-    assert [a.text() for a in items] == ["Manage access"]
-    dialog = tree.select_one("dialog#" + dialog_id)
-    emails = [n.text() for n in dialog.select("span.co-manager__email")]
+    assert [a.text() for a in tree.select("div.fleet-detail-head details.row-menu a")] == [
+        "Open personal view"]
+    assert not tree.select("dialog#dlg-access-%s" % rig.seed.owned_id.replace("_", "-"))
+    section = tree.select("section.fleet-block--access")[0]
+    emails = [n.text() for n in section.select("span.co-manager__email")]
     assert emails == [fx.OWNER_EMAIL, CO_EMAIL]
-    assert "open" not in dialog.attrs
 
 
 def test_the_admin_dialog_offers_the_invited_people_and_remove_forms(rig):
@@ -351,12 +349,12 @@ def test_the_admin_dialog_offers_the_invited_people_and_remove_forms(rig):
     assert remove.attrs["action"] == "/devices/%s%s" % (rig.seed.owned_id, card.REMOVE_ROUTE)
 
 
-def test_access_query_opens_only_the_named_frames_dialog(rig):
-    dialog = rig.dialog("?access=" + rig.seed.owned_id)
-    assert "open" in dialog.attrs
+def test_access_query_selects_the_frame_and_its_access_tab_without_a_dialog(rig):
     tree, _body = rig.fleet(query="?access=" + rig.seed.owned_id)
-    opened = [d for d in tree.select("dialog") if "open" in d.attrs]
-    assert [d.attrs["id"] for d in opened] == [dialog.attrs["id"]]
+    assert tree.select_one("div.fleet-blocks").attrs["data-fleet-tab"] == "access"
+    assert not [d for d in tree.select("dialog") if "open" in d.attrs]
+    section = tree.select("section.fleet-block--access")[0]
+    assert fx.OWNER_EMAIL in section.text()
 
 
 def test_an_unknown_access_value_opens_nothing_and_is_not_echoed(rig):
@@ -474,14 +472,14 @@ def test_a_co_manager_cannot_use_the_forms_whatever_the_return_target(rig):
             if m.text() == INVITED_EMAIL] == []
 
 
-def test_a_french_request_renders_the_dialog_in_french(rig):
+def test_a_french_request_renders_the_access_section_in_french(rig):
     status, _headers, body = http_request(
-        rig.server.url("/fleet"), cookie=rig.cookies["admin"],
+        rig.server.url("/fleet?frame=" + rig.seed.owned_id), cookie=rig.cookies["admin"],
         extra_headers={"Accept-Language": "fr"})
     text = html.unescape(body.decode("utf-8"))
     assert status == 200
-    assert "Gérer l’accès" in text
-    assert "Co-gestionnaires" in text
+    assert "Accès" in text and "Co-gestionnaires" in text
+    assert "Réattribuer" in text and "Retirer ce cadre" in text
 
 
 def _check_in(rig, frame_id, age_hours):

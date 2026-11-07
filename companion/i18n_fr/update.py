@@ -17,6 +17,7 @@ the app's other nav labels.
 
 MESSAGES = {
     "update.version_history": "Versions",
+    "update.all_versions": "Toutes les versions (%d)",
     "update.no_version_reported_yet": "Aucune version signalée pour le moment",
 
     "update.scheduled": "Planifiée",

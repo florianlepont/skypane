@@ -21,7 +21,6 @@ import collections
 import io
 import os
 
-import fleet_rows_support
 import pytest
 from PIL import Image
 
@@ -475,8 +474,6 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         base_url = server.base_url()
         _login(page, base_url)
         page.goto(base_url + "/fleet")
-        # From 960px the field is in the Settings dialog; leaving it hands over to the Save bar.
-        fleet_rows_support.open_dialog(page, "settings")
 
         before = str(device_config.load_device_config(server.tmpdir)["wake_interval_s"])
         # Below server/device_config.py's own WAKE_INTERVAL_MIN_S (60): a genuine server-side
@@ -488,7 +485,6 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         page.keyboard.press("ControlOrMeta+A")
         page.keyboard.type(rejected)
         page.keyboard.press("Tab")
-        fleet_rows_support.close_dialog(page)
         _wait_for_bar(page)
         # noValidate disables only the browser's own pre-flight check for this one native
         # submit; the request that follows is still a real native POST, so the server's own

@@ -177,3 +177,7 @@ No measured count moved. Manage access is still one tap from the Account row; in
 ## After plan 61-71 (Fleet sub-tabs)
 
 On a phone the Fleet page shows State, Settings and Access as sub-tabs. U4c is still 3: the Settings tab tap replaces the scroll, then the interval, then Save.
+
+## After plan 61-87 (Fleet single column of sections)
+
+Reassign, Retire and the co-manager forms are inline in the Access section (the Access tab on a phone), so the frame's actions menu and its dialogs are out of those paths. Measured on 360 x 844 when the frame is not the one selected on landing: A4 retire 6 (button, frame row, Access tab, scroll to the Retire row, the Retire link, confirm; was 5, one over because the Retire row sits below the fold), A4 reassign 6 (button, row, Access tab, the new owner, a scroll, Reassign; unchanged), A5 5 (button, row, Access tab, person, Add; was 6). A1 stays 0. The A4 retire target in the test is raised to 6 and recorded here as one scroll over the design target.

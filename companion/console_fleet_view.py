@@ -4,8 +4,9 @@ The frame button in the top bar opens a popover that lists every frame
 (picture, name, status dot, last-seen word), a "System" row and a last
 "Add a frame" row that opens the pairing dialog. A row is a plain link to
 `/fleet?frame=<id>` (or `/fleet?view=system`), so the selection needs no
-script. The selected frame opens four blocks: State,
-Device and version, Settings and Access. Each block reuses the content of the
+script. The selected frame opens one column of section cards: State, Device and version
+(the model, the running firmware and the version history), Settings, Access
+(owner, co-managers, reassign, retire) and Other frames. Each section reuses the content of the
 page that used to hold it (Health, Update, Device, Manage access) with the
 same forms and POST routes. The System view holds the platform-wide part of
 the Health page.
@@ -14,7 +15,7 @@ Selection is read from the query only to pick one of the frames the request
 scope already lists; a value matching none falls back to the first frame, so
 no request text reaches a path, a query or a filesystem call.
 """
-from companion import device_scope, fleet_summary, i18n
+from companion import device_scope, i18n
 from companion.pages import co_managers_card
 from companion.ui_base import escape_html
 from server import hardware, history_db
@@ -123,7 +124,7 @@ def frame_menu_html(entries, selected, is_system):
         fleet_page.ADD_DIALOG_ID, lambda device: FRAME_HREF_PREFIX + device.id)
 
 
-def _block(heading_msg, items_html, extra_class="", slug=""):
+def _block(heading_msg, items_html, extra_class="", slug="", heading=""):
     """One block of the selected frame as a grouped list: the section label
     above one glass group. `items_html` is a run of `<li>` items (value rows
     and flush or padded content items)."""
@@ -131,7 +132,7 @@ def _block(heading_msg, items_html, extra_class="", slug=""):
         return ""
     from companion import ui_groups
     return ui_groups.group(
-        items_html, label=i18n.t(heading_msg), label_id="fleet-block-" + slug,
+        items_html, label=heading or i18n.t(heading_msg), label_id="fleet-block-" + slug,
         extra_class="fleet-block" + extra_class).replace(
             '<ul class="group">', '<ul class="group fleet-group">', 1)
 
@@ -165,83 +166,57 @@ def _access_html(device, access_views):
         view, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE)
 
 
-def _access_summary(device, access_views):
-    """(owner e-mail, co-manager count) of the frame's access view, or None."""
-    view = dict(access_views).get(device.id)
-    if view is None:
-        return None
-    return view.owner_email, len(view.members)
+def _access_block(device, access_views, view):
+    """The Access section: the owner and co-managers with their forms, the
+    inline Reassign form and, for a frame that can be retired, the Retire row
+    whose link opens the one confirmation dialog."""
+    from companion.pages import fleet_page
+    rows = _access_html(device, access_views)
+    row = next((r for r in view.rows if r.frame_id == device.id), None)
+    if row is not None:
+        rows += fleet_page.reassign_row_html(row, view) + fleet_page.retire_row_html(row)
+    return _block(_ACCESS_HEADING, rows, " fleet-block--access", "access")
 
 
-def _summary_rows(device, model, parts, wake_seconds, access, others):
-    """The desktop summary rows, one per detail dialog."""
-    running, release_count = parts
-    rows = [
-        fleet_summary.row(
-            "icon-device", i18n.t(_DEVICE_HEADING),
-            fleet_summary.device_value(model, running), fleet_summary.DEVICE_DIALOG),
-        fleet_summary.row(
-            "icon-nav-update", i18n.t(fleet_summary.VERSIONS_LABEL),
-            fleet_summary.versions_value(running, release_count),
-            fleet_summary.VERSIONS_DIALOG),
-        fleet_summary.row(
-            "icon-refresh", i18n.t(fleet_summary.WAKE_LABEL),
-            fleet_summary.wake_value(wake_seconds), fleet_summary.SETTINGS_DIALOG)]
-    if access is not None:
-        rows.append(fleet_summary.row(
-            "icon-person", i18n.t(_ACCESS_HEADING),
-            fleet_summary.access_value(*access),
-            co_managers_card.access_dialog_id(device.id)))
-    if others:
-        rows.append(fleet_summary.row(
-            "icon-nav-device", i18n.t(fleet_summary.OTHERS_LABEL),
-            fleet_summary.others_value(others), fleet_summary.OTHERS_DIALOG))
-    return "".join(rows)
+def others_block(rows):
+    """The Other frames section (pending, then retired frames) as a compact
+    list, or "" when there are none. It belongs to the Access tab on a phone."""
+    from companion.pages import fleet_page
+    listing = fleet_page.other_frames_list_html(rows)
+    if not listing:
+        return ""
+    count = sum(1 for row in rows if row.kind != fleet_page.KIND_LIVE)
+    return _block(
+        None, _item(listing, True), " fleet-block--access fleet-block--others",
+        "others", heading=fleet_page.other_frames_title(count))
 
 
-def frame_html(ctx, device, access_views, header_html="", tab=TAB_STATE, others=0):
-    """The selected frame's header and blocks. `ctx` is the page context
+def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
+    """The selected frame's header and sections. `ctx` is the page context
     built for `device`, whose state directory the History reads must be scoped
-    to. `others` is the number of pending and retired frames (the Other frames
-    summary row)."""
+    to; `view` is the page's `FleetView`."""
     from companion.pages import config_page, health_page, update_page
-    back = "%s%s" % (FRAME_HREF_PREFIX, device.id)
     with history_db.connection_scope(device.state_dir):
-        device_html, versions_html, parts = update_page.render_parts(
+        device_html, versions_html, _parts = update_page.render_parts(
             ctx, device.hardware_type)
         settings_html = config_page.render(
             ctx, scope=config_page.SCOPE_DEVICE, embedded=True)
-        wake_seconds = (ctx.device_config or {}).get("wake_interval_s")
-        model = _model_label(device)
-        access = _access_summary(device, access_views)
         blocks = (
             _block(
                 _STATE_HEADING, _item(health_page.frame_state_html(ctx), True),
                 " fleet-block--state", "state")
-            + fleet_summary.rows_group(
-                _summary_rows(device, model, parts, wake_seconds, access, others))
-            + fleet_summary.dialog(
-                fleet_summary.DEVICE_DIALOG, i18n.t(_DEVICE_HEADING), back,
-                _block(
-                    _DEVICE_HEADING, _model_html(device) + _item(device_html),
-                    " fleet-block--state fleet-block--device", "device"))
-            + fleet_summary.dialog(
-                fleet_summary.VERSIONS_DIALOG, i18n.t(fleet_summary.VERSIONS_LABEL), back,
-                _block(
-                    fleet_summary.VERSIONS_LABEL, _item(versions_html),
-                    " fleet-block--state fleet-block--versions", "versions"))
-            + fleet_summary.dialog(
-                fleet_summary.SETTINGS_DIALOG, i18n.t(_SETTINGS_HEADING), back,
-                _block(
-                    _SETTINGS_HEADING, _item(settings_html),
-                    " fleet-block--settings", "settings"),
-                fleet_summary.settings_actions("settings-form"))
             + _block(
-                _ACCESS_HEADING, _access_html(device, access_views),
-                " fleet-block--access", "access"))
+                _DEVICE_HEADING,
+                _model_html(device) + _item(device_html) + _item(versions_html),
+                " fleet-block--state fleet-block--device", "device")
+            + _block(
+                _SETTINGS_HEADING, _item(settings_html),
+                " fleet-block--settings", "settings")
+            + _access_block(device, view.access, view)
+            + others_block(view.rows))
     return (
-        header_html + tabs_html(device.id, tab)
-        + '<div class="fleet-blocks" data-fleet-tab="%s">%s</div>' % (tab, blocks)
+        '<div class="fleet-frame">' + header_html + tabs_html(device.id, tab)
+        + '<div class="fleet-blocks" data-fleet-tab="%s">%s</div></div>' % (tab, blocks)
         + config_page.docked_dirty_bar_html())
 
 
@@ -254,6 +229,12 @@ def system_html(ctx):
         body or _block(
             _SYSTEM_HEADING, _item('<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY)),
             " fleet-block--wide", "system"))
+
+
+def _others_alone(view):
+    """The Other frames section on a fleet without a selectable frame."""
+    blocks = others_block(view.rows)
+    return '<div class="fleet-blocks">%s</div>' % blocks if blocks else ""
 
 
 def page_html(h, query, view):
@@ -273,11 +254,10 @@ def page_html(h, query, view):
     if is_system:
         return system_html(h.page_context(device_scope.live_device(root)))
     if selected is None:
-        return '<p class="text-label">%s</p>' % _t(_ADD_FIRST)
+        return '<p class="text-label">%s</p>' % _t(_ADD_FIRST) + _others_alone(view)
     return frame_html(
-        h.page_context(selected), selected, view.access,
-        fleet_page.detail_header_html(view, selected.id), tab_selection(query),
-        sum(1 for row in view.rows if row.kind != fleet_page.KIND_LIVE))
+        h.page_context(selected), selected, view,
+        fleet_page.detail_header_html(view, selected.id), tab_selection(query))
 
 
 def query_flash_html(h, query):

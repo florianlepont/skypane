@@ -31,8 +31,8 @@ _PROBE = """() => {
     }),
     blocks: [...document.querySelectorAll('.fleet-block')].filter(shown).map(
       (b) => b.querySelector('ul.group').parentElement.className.match(/fleet-block--(\\w+)/)[1]),
-    other: !!document.querySelector('.fleet-panel-access') &&
-      shown(document.querySelector('.fleet-panel-access')),
+    other: !!document.querySelector('.fleet-block--others') &&
+      shown(document.querySelector('.fleet-block--others')),
     pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
   };
 }"""
@@ -91,16 +91,15 @@ def test_the_default_tab_is_state_and_a_link_changes_tab_without_scripts(
         context.close()
 
 
-def test_a_desktop_shows_the_state_and_the_summary_rows_and_no_tabs(
+def test_a_desktop_shows_every_section_in_one_column_and_no_tabs(
         new_context, app_server_in_process):
     context, page = _open(new_context, app_server_in_process, VIEWPORT_DESKTOP, "en")
     try:
         probe = page.evaluate(_PROBE)
         assert probe["nav"] is False
-        # The detail groups live in dialogs behind the summary rows.
-        assert set(probe["blocks"]) == {"state", "sums"}
-        assert probe["other"] is False
-        assert page.locator("a.fleet-sum").count() == 5
+        assert set(probe["blocks"]) == {"state", "settings", "access"}
+        assert probe["other"] is True
+        assert page.locator("a.fleet-sum").count() == 0
     finally:
         context.close()
 
@@ -134,18 +133,18 @@ def test_a_frame_with_no_picture_shows_a_designed_empty_state(
         context.close()
 
 
-def test_the_other_frames_card_is_evenly_padded_and_a_pending_frame_offers_pairing(
+def test_the_other_frames_section_is_evenly_padded_and_a_pending_frame_offers_pairing(
         new_context, app_server_in_process):
     context, page = _open(new_context, app_server_in_process, PHONE, "en", "access")
     try:
         gaps = page.evaluate(
-            "() => { const s = document.querySelector('.fleet-panel-access');"
+            "() => { const s = document.querySelector('.fleet-block--others > .group');"
             " const a = s.getBoundingClientRect();"
-            " const r = s.querySelector('.fleet-other > summary').getBoundingClientRect();"
-            " return [r.top - a.top, a.bottom - r.bottom]; }")
+            " const f = s.querySelector('.entity-row').getBoundingClientRect();"
+            " const l = [...s.querySelectorAll('.entity-row')].pop().getBoundingClientRect();"
+            " return [f.top - a.top, a.bottom - l.bottom]; }")
         assert abs(gaps[0] - gaps[1]) <= 2, gaps
-        page.locator(".fleet-other > summary").click()
-        row = page.locator(".fleet-other .entity-row", has_text="Waiting for pairing")
+        row = page.locator(".fleet-block--others .entity-row", has_text="Waiting for pairing")
         row.locator("summary.row-menu__toggle").click()
         assert row.locator(".row-menu__list, .row-menu").get_by_text("Pair frame").count() >= 1
     finally:

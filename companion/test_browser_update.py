@@ -192,22 +192,19 @@ FLEET_ROUTE = "/fleet"
 
 
 def _reveal(page, which):
-    """From 960px the Fleet page keeps the update card (`device`) and the version list
-    (`versions`) in dialogs behind summary rows: open the named one. Below 960px both are
-    on the page already."""
-    if page.viewport_size["width"] < 960:
+    """The Fleet page shows the update card inline; the version list sits in a `<details>`
+    ("All versions (N)"), collapsed until opened: open it for `versions`."""
+    if which != "versions":
         return
-    dialog_id = "dlg-fleet-" + which
-    page.locator("a.fleet-sum[href='#%s']" % dialog_id).click()
+    details = page.locator("details.update-all")
+    if details.get_attribute("open") is None:
+        details.locator("> summary").click()
     page.wait_for_function(
-        "id => document.getElementById(id).open", arg=dialog_id, timeout=10000)
+        "() => document.querySelector('details.update-all').open", timeout=10000)
 
 
 def _dismiss(page):
-    """Close the open dialog (from 960px)."""
-    if page.viewport_size["width"] >= 960:
-        page.keyboard.press("Escape")
-        page.wait_for_function("() => !document.querySelector('dialog[open]')", timeout=10000)
+    """Nothing to close: the card and the list are part of the page."""
 FLEET_FRAME_HREF = "/fleet?frame=live"
 
 
@@ -501,6 +498,8 @@ def test_version_rows_fit_at_phone_widths_with_no_overflow(
         _login(page, base_url)
         page.goto(base_url + FLEET_ROUTE)
         where = "%dpx/%s" % (viewport["width"], lang)
+        assert page.locator("details.update-all").get_attribute("open") is None
+        _reveal(page, "versions")
 
         rows = page.locator("details.update-row")
         assert rows.count() == 3, "expected 3 release rows at %s, got %d" % (where, rows.count())
@@ -547,7 +546,7 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         badge = page.locator(".update-row__badge:visible")
         assert badge.count() == 1, "expected one visible Running badge at %s" % where
         assert badge.inner_text().strip().lower() == ("running" if lang == "en" else "en cours")
-        assert badge.locator("xpath=ancestor::details").locator(".update-row__version .mono").inner_text() == (
+        assert badge.locator("xpath=ancestor::details[contains(@class, 'update-row')]").locator(".update-row__version .mono").inner_text() == (
             _RUNNING_VERSION)
 
         row = page.locator("details.update-row--running")
@@ -572,7 +571,7 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         meta = row.locator(".update-row__meta time:not([data-relative])")
         assert meta.count() >= 1 and meta.first.is_visible()
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
-        # The Install button is in the update card, a different dialog from the version list.
+        # The Install button is in the update card above the version list.
         _dismiss(page)
         _reveal(page, "device")
         install_button = page.locator(".update-cta form button[type=submit]")
@@ -679,7 +678,8 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
 
         rows = page.locator("details.update-row")
         assert rows.count() == 12, "the full history must be listed at %s" % where
-        assert page.locator(".update-versions__count").inner_text() == "12"
+        assert page.locator("details.update-all > summary").inner_text().strip() in (
+            "All versions (12)", "Toutes les versions (12)")
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
 
         wrapped = page.evaluate(_WRAPPED_VERSION_PROBE)
@@ -754,6 +754,9 @@ def test_rows_open_and_the_install_flow_works_with_scripts_blocked(
     with _no_js_page(
             new_context, base_url, FLEET_ROUTE, viewport=VIEWPORT_PHONE,
             reduced_motion="reduce") as page:
+        # The version list is a native disclosure, closed until its summary is clicked.
+        page.locator("details.update-all > summary").click()
+        assert page.locator("details.update-all").evaluate("el => el.open") is True
         rows = page.locator("details.update-row")
         assert rows.count() == 12
         oldest = rows.nth(11)

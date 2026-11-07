@@ -8,7 +8,6 @@ Read-only checks share one module-scoped, read-only `server` fixture. The four c
 persist a real setting through the UI each get their own function-scoped `make_app_server`
 server, so no xdist worker sees another test's leftover on-disk state.
 """
-import fleet_rows_support
 import pytest
 
 from place_map_support import Hosts
@@ -336,15 +335,11 @@ def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_ser
     base_url = server.base_url()
     _login(page, base_url)
     page.goto(base_url + "/fleet")
-    # From 960px the settings form is in a dialog; leaving it with the edit unsaved hands over
-    # to the page's own Save bar.
-    fleet_rows_support.open_dialog(page, "settings")
     wake_sel = 'input[name="wake_interval_s"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
     target = "1800" if before != "1800" else "3600"
     page.fill(wake_sel, target)
     _commit_field(page, wake_sel)
-    fleet_rows_support.close_dialog(page)
     _wait_for_bar(page)
     _save_via_bar(page)
     stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
@@ -423,7 +418,6 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
     if _guard_armed(page):
         raise AssertionError("expected the leave-guard to start disarmed on a clean page load")
 
-    fleet_rows_support.open_dialog(page, "settings")
     wake_sel = 'input[name="wake_interval_s"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
     target = "1800" if before != "1800" else "3600"
@@ -467,7 +461,6 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
             "this check's own premise (unsaved-but-committed) does not hold")
 
     # Click Annuler: the guard disarms and the bar hides.
-    fleet_rows_support.close_dialog(page)
     page.click("[data-dirty-cancel]")
     _wait_for_bar_hidden(page)
     if _guard_armed(page):

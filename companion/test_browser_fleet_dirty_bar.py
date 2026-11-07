@@ -13,8 +13,7 @@ from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, _login
 pytestmark = pytest.mark.browser
 
 PHONE = {"width": 390, "height": 844}
-# A desktop short enough that the page scrolls, so the docked bar sticks to the viewport's foot:
-# from 960px the page holds only State and the summary rows, which fit a tall screen.
+# A desktop short enough that the page scrolls, so the docked bar sticks to the viewport's foot.
 SHORT_DESKTOP = {"width": 1280, "height": 520}
 WORDS = {"en": ("Unsaved changes", "Cancel", "Save"),
          "fr": ("Modifications non enregistrées", "Annuler", "Enregistrer")}
@@ -47,28 +46,14 @@ def _open(new_context, server, viewport, lang):
     return context, page
 
 
-def _wide(page):
-    return page.viewport_size["width"] >= 960
-
-
 def _reveal(page):
-    """The wake interval field: on a phone it is in the Settings tab; from 960px it is in
-    the Settings dialog behind the Wake interval summary row."""
-    if _wide(page):
-        page.locator("a.fleet-sum[href='#dlg-fleet-settings']").click()
-        page.wait_for_function(
-            "() => document.querySelector('#dlg-fleet-settings').open", timeout=10000)
+    """The wake interval field: inline on the page, in the Settings tab on a phone."""
     page.locator("#wake-interval-s").wait_for(state="visible")
 
 
 def _make_dirty(page):
-    """Change the interval; on a desktop the dialog is then dismissed (Escape) so the
-    unsaved-changes bar of the page takes over, as it does on a phone."""
+    """Change the interval; the page's unsaved-changes bar takes over."""
     page.locator("#wake-interval-s").fill("900")
-    if _wide(page):
-        page.keyboard.press("Escape")
-        page.wait_for_function(
-            "() => !document.querySelector('#dlg-fleet-settings').open", timeout=10000)
     page.locator(BAR).wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=15000)
     for selector in (BAR + " .dirty-bar__save", BAR + " .dirty-bar__cancel"):

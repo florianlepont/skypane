@@ -5,7 +5,6 @@ feedback, the tab bar's sliding pill and the spring switch with its tick.
 Every check reads the real served page in a real browser: the computed style, the box the
 browser hit-tests, the classes the script leaves behind.
 """
-import fleet_rows_support
 import pytest
 
 from companion.test_browser_ux_helpers import (
@@ -204,7 +203,6 @@ def test_the_switch_springs_ticks_and_keeps_its_44px_target(new_context, server,
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet?tab=settings")
         _wait_ready(page)
-        fleet_rows_support.open_dialog(page, "settings")
         page.wait_for_selector(SWITCH)
         before = page.locator(SWITCH).get_attribute("aria-checked")
         page.locator(SWITCH).scroll_into_view_if_needed()

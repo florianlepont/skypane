@@ -44,6 +44,7 @@ TYPE_CHOOSER_LABEL_TEXT = i18n.msg("update.hardware_type", "Hardware type")
 CONFIRM_TYPE_TEMPLATE = i18n.msg("update.for_hardware_type_s", "For %s")
 
 HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
+ALL_VERSIONS_TEXT = i18n.msg("update.all_versions", "All versions (%d)")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
     "update.no_version_reported_yet", "No version reported yet")
 
@@ -593,19 +594,24 @@ def _versions_card_html(ctx, view, releases, embedded=False):
     if not embedded:
         return _versions_group_html(ctx, view, releases)
     if not releases:
-        body_html = layout.empty_state(
-            i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
-            compact=True)
-        count_html = ""
-    else:
-        body_html = '<ul class="update-rows">%s</ul>' % "".join(
-            _row_html(release, view, ctx.now) for release in releases)
-        count_html = '<span class="update-versions__count">%d</span>' % len(releases)
+        return (
+            '<section class="page-section update-versions" '
+            'aria-labelledby="update-versions-title"><div class="update-versions__head">'
+            '<h2 class="text-heading" id="update-versions-title">%s</h2></div>%s</section>') % (
+                escape_html(i18n.t(HISTORY_HEADING_TEXT)),
+                layout.empty_state(
+                    i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
+                    compact=True))
+    # The running release is already the device card's headline; the full
+    # history stays one disclosure away.
     return (
-        '<section class="page-section update-versions" aria-labelledby="update-versions-title">'
-        '<div class="update-versions__head">'
-        '<h2 class="text-heading" id="update-versions-title">%s</h2>%s</div>%s</section>'
-    ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), count_html, body_html)
+        '<section class="page-section update-versions" aria-label="%s">'
+        '<details class="update-all"><summary>%s%s</summary>'
+        '<ul class="update-rows">%s</ul></details></section>'
+    ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)),
+         escape_html(i18n.t(ALL_VERSIONS_TEXT) % len(releases)),
+         layout.icon_html("icon-chevron-right", size=16, extra_class="update-all__chevron"),
+         "".join(_row_html(release, view, ctx.now) for release in releases))
 
 
 def _install_confirm_form_html(version, type_html=""):
@@ -716,7 +722,7 @@ def update_parts(
     """(device section html, versions section html, summary) of the page: the
     type chooser, the rollback warning and the call-to-action card, then the
     Versions card. `summary` is (running version or None, number of releases
-    shown), the facts a collapsed summary row quotes."""
+    shown)."""
     ctx = page_context.coerce(ctx)
     releases = _owner_releases(view)
     chooser_html = ""
@@ -769,7 +775,7 @@ def _loaded_parts(ctx, requested_type, embedded):
 
 def render_parts(ctx, requested_type=None):
     """The embedded page as (device html, versions html, summary): the Fleet
-    page shows each in its own dialog."""
+    page places the device card and the version history in one section."""
     return _loaded_parts(ctx, requested_type, True)
 
 

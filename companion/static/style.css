@@ -2231,11 +2231,6 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 @media (min-width: 1000px) {
-  .fleet-blocks {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: flex-start;
-  }
-
   .fleet-block--wide {
     grid-column: 1 / -1;
   }
@@ -3371,13 +3366,6 @@ table.data-table--flights .cell-inline-sep {
 .update-cta .update-actions form,
 .update-cta .update-actions button[type="submit"] {
   width: 100%;
-}
-
-.update-versions__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-md);
 }
 
 .update-versions__head h2 {
@@ -9960,9 +9948,9 @@ a.modal__close {
   margin-top: var(--space-md);
 }
 
-.modal:not(:where(.fleet-dialog--inline)) input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-.modal:not(:where(.fleet-dialog--inline)) select,
-.modal:not(:where(.fleet-dialog--inline)) textarea {
+.modal input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.modal select,
+.modal textarea {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -9984,7 +9972,7 @@ a.modal__close {
   background: var(--color-dominant);
 }
 
-dialog.modal:not(:where(.fleet-dialog--inline)) button {
+dialog.modal button {
   height: auto;
   min-height: 44px;
   min-width: 44px;
@@ -10385,17 +10373,6 @@ a.pair-form__cancel {
   margin: var(--space-xs) 0 0;
 }
 
-/* The collapsed block of pending and retired frames under the selected frame. */
-details.fleet-other {
-  margin-top: var(--space-md);
-}
-
-/* Alone in its card the disclosure needs no extra gap above its summary:
- * the card's own padding frames it evenly. */
-.page-section > details.fleet-other:first-child {
-  margin-top: 0;
-}
-
 /* The State / Settings / Access sub-tabs of a frame: a phone shows one tab's
  * blocks (the server marks the current link and the container); from 960px the
  * control is gone and every block shows, as before. */
@@ -10410,134 +10387,91 @@ details.fleet-other {
 
   .fleet-blocks[data-fleet-tab="state"] .fleet-block:not(.fleet-block--state),
   .fleet-blocks[data-fleet-tab="settings"] .fleet-block:not(.fleet-block--settings),
-  .fleet-blocks[data-fleet-tab="access"] .fleet-block:not(.fleet-block--access),
-  .fleet-blocks[data-fleet-tab="state"] ~ .fleet-panel-access,
-  .fleet-blocks[data-fleet-tab="settings"] ~ .fleet-panel-access {
+  .fleet-blocks[data-fleet-tab="access"] .fleet-block:not(.fleet-block--access) {
     display: none;
   }
 }
 
-/* Detail dialogs of the Fleet page. Below 960px a dialog that is also a
- * block of the phone page renders as plain content (the dialog box, its head
- * and its action row are not drawn) and the summary rows are not shown; from
- * 960px the groups live in their dialogs, behind the summary rows. */
-@media (max-width: 959.98px) {
-  .fleet-dialog--inline:not([open]):not(:target) {
-    display: contents;
-  }
-
-  .fleet-dialog--inline:not([open]):not(:target) > .modal__body {
-    display: contents;
-  }
-
-  .fleet-dialog--inline:not([open]):not(:target) > .modal__head,
-  .fleet-dialog--inline:not([open]):not(:target) > .modal__actions,
-  .fleet-block--sums {
-    display: none;
-  }
-
-  .fleet-block--versions > .section-label {
-    display: none;
-  }
-}
-
+/* The frame's sections as one centred column from 960px: every section card
+ * (State, Device and version, Settings, Access, Other frames) follows the
+ * same pattern, a label above one glass group, and every control is inline.
+ * A phone keeps its sub-tabs above (the rules above). */
 @media (min-width: 960px) {
-  .fleet-block--access,
-  .fleet-panel-access {
-    display: none;
-  }
-
-  dialog.fleet-dialog {
-    width: min(640px, calc(100% - 48px));
-  }
-
-  .fleet-dialog .fleet-block > .section-label {
-    display: none;
-  }
-
-  .fleet-dialog--inline input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-  .fleet-dialog--inline select,
-  .fleet-dialog--inline textarea {
+  .fleet-frame {
     box-sizing: border-box;
     width: 100%;
-    max-width: 100%;
-    min-height: 44px;
+    max-width: 800px;
+    margin-inline: auto;
   }
 
-  dialog.fleet-dialog--inline button {
-    height: auto;
-    min-height: 44px;
-    min-width: 44px;
-    padding: var(--space-sm) var(--space-md);
-    font-size: var(--font-label-size);
+  .fleet-blocks:not(.fleet-blocks--system) {
+    gap: var(--space-lg);
   }
 
-  .fleet-dialog .fleet-group {
-    box-shadow: none;
-    border: 0;
-    background: transparent;
+  /* Five cards stand on the page at once: they are opaque instead of blurred, which
+   * keeps the page's blurred surfaces few. */
+  .fleet-frame .group {
+    background: var(--glass-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-
-  .fleet-dialog .fleet-group > .fleet-group__item {
-    padding-inline: 0;
-  }
 }
 
-/* One summary row: an icon tile, the label over the value, a chevron. */
-.fleet-sum-list > li + li {
-  border-top: 1px solid var(--glass-hairline);
-}
-
-a.fleet-sum {
-  display: flex;
+/* The Retire row: the warning in the danger colour and a quiet outlined link
+ * that opens the one confirmation. */
+.fleet-retire {
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-md);
-  box-sizing: border-box;
-  min-height: 64px;
   padding: var(--space-sm) var(--space-md);
-  color: var(--color-text);
+}
+
+.fleet-retire .row__label {
+  color: var(--color-status-error);
+  font-weight: var(--weight-semibold);
+}
+
+a.fleet-retire__link {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-status-error);
+  border-radius: var(--radius-control);
+  color: var(--color-status-error);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
   text-decoration: none;
 }
 
-a.fleet-sum:hover {
-  background: var(--color-control-wash);
-}
-
-a.fleet-sum:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
-}
-
-.fleet-sum__icon {
-  box-sizing: content-box;
-  flex: none;
-  padding: 10px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-}
-
-.fleet-sum__text {
+/* The version history, collapsed to its summary line until opened. */
+.update-all > summary {
   display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.fleet-sum__label {
-  font-size: var(--font-caption-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.fleet-sum__value {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  min-height: 44px;
+  color: var(--color-text);
   font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
+  cursor: pointer;
+  list-style: none;
 }
 
-.fleet-sum__chevron {
-  flex: none;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+.update-all > summary::before {
+  content: none;
+}
+
+.update-all > summary::-webkit-details-marker {
+  display: none;
+}
+
+.update-all[open] > summary .update-all__chevron {
+  transform: rotate(90deg);
 }
 
 /* The selected frame's header: its name and owner, and its actions menu. */
