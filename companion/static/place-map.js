@@ -44,7 +44,12 @@
   ];
   var MAX_ZOOM = 18;
   var FRANCE_CENTRE = [46.6, 2.5];
-  var AIRPORT_ZOOM = 13;
+  var AIRPORT_ZOOM = 12;
+  var FRANCE_ZOOM = 5;
+  // Airports closer than one grid cell (in screen pixels) at a zoom below
+  // CLUSTER_MAX_ZOOM + 1 are drawn as one numbered bubble.
+  var CLUSTER_CELL_PX = 64;
+  var CLUSTER_MAX_ZOOM = 11;
   var LABEL_MIN_ZOOM = 6;
   var SUGGEST_MAX = 6;
   var SUGGEST_MIN_CHARS = 2;
@@ -310,15 +315,25 @@
   }
 
   function buildMap() {
+    // Without a saved place the map opens on the airport the setting follows
+    // (when there is one) rather than on the whole of France.
+    var own = null;
+    for (var k = 0; !hasStartPin && k < airports.length; k++) {
+      if (airports[k].icao === mapEl.getAttribute("data-airport")) {
+        own = airports[k];
+      }
+    }
+    var start = hasStartPin ? [startLat, startLon] : own ? [own.lat, own.lon] : null;
+    var zoom = hasStartPin ? startZoom : own ? AIRPORT_ZOOM : FRANCE_ZOOM;
     map = L.map(mapEl, {
       zoomControl: false,
       attributionControl: false,
       maxZoom: MAX_ZOOM,
-      center: hasStartPin ? [startLat, startLon] : FRANCE_CENTRE,
-      zoom: hasStartPin ? startZoom : 5
+      center: start || FRANCE_CENTRE,
+      zoom: zoom
     });
-    if (hasStartPin) {
-      centreOn(L.latLng(startLat, startLon), startZoom, false);
+    if (start) {
+      centreOn(L.latLng(start[0], start[1]), zoom, false);
     }
     L.control.zoom({
       position: "topright",
@@ -570,43 +585,116 @@
     }
   }
 
-  // Every airport near the view is drawn in Airport mode; My position mode
-  // shows none, so a tap there always places the pin.
+  // The page's own button zooms out to the whole of France, for the way back
+  // from an airport's close-up view.
+  function wireFranceButton() {
+    var button = byId("place-france");
+    if (button) {
+      button.addEventListener("click", function () {
+        centreOn(L.latLng(FRANCE_CENTRE[0], FRANCE_CENTRE[1]), FRANCE_ZOOM, true);
+      });
+    }
+  }
+
+  // A numbered bubble in a 44 px invisible hit box, an even size so the
+  // anchor lands on whole pixels.
+  function clusterIcon(count) {
+    return L.divIcon({
+      className: "place-cluster",
+      html: '<span class="place-cluster__count">' + count + "</span>",
+      iconSize: [44, 44],
+      iconAnchor: [22, 22]
+    });
+  }
+
+  // The drawn items for the current zoom: every airport is either an
+  // individual pin or counted in exactly one bubble. The followed airport is
+  // always a pin. The grid is in world pixels of the zoom, so it does not
+  // move when the map pans.
+  function drawnItems() {
+    var zoom = map.getZoom();
+    var wanted = {};
+    var followed = currentAirportCode();
+    var cells = {};
+    var k;
+    for (k = 0; k < airports.length; k++) {
+      var airport = airports[k];
+      if (zoom > CLUSTER_MAX_ZOOM || airport.icao === followed) {
+        wanted["p:" + airport.icao] = { airport: airport };
+        continue;
+      }
+      var at = map.project(L.latLng(airport.lat, airport.lon), zoom);
+      var key = Math.floor(at.x / CLUSTER_CELL_PX) + ":" + Math.floor(at.y / CLUSTER_CELL_PX);
+      (cells[key] = cells[key] || []).push(airport);
+    }
+    for (var cell in cells) {
+      if (!Object.prototype.hasOwnProperty.call(cells, cell)) {
+        continue;
+      }
+      var members = cells[cell];
+      if (members.length === 1) {
+        wanted["p:" + members[0].icao] = { airport: members[0] };
+      } else {
+        wanted["c:" + cell + ":" + members.length + ":" + members[0].icao] = { members: members };
+      }
+    }
+    return wanted;
+  }
+
+  // Every airport is drawn in Airport mode, clustered while zoomed out; My
+  // position mode shows none, so a tap there always places the pin.
   function refreshDots() {
     if (!dotLayer) {
       return;
     }
     syncLabelZoom();
-    var wanted = {};
-    if (runwayWanted()) {
-      var bounds = map.getBounds().pad(0.25);
-      for (var k = 0; k < airports.length; k++) {
-        if (bounds.contains([airports[k].lat, airports[k].lon])) {
-          wanted[airports[k].icao] = airports[k];
-        }
+    var wanted = runwayWanted() ? drawnItems() : {};
+    var key;
+    for (key in dots) {
+      if (Object.prototype.hasOwnProperty.call(dots, key) && !wanted[key]) {
+        dotLayer.removeLayer(dots[key]);
+        delete dots[key];
       }
     }
-    var icao;
-    for (icao in dots) {
-      if (Object.prototype.hasOwnProperty.call(dots, icao) && !wanted[icao]) {
-        dotLayer.removeLayer(dots[icao]);
-        delete dots[icao];
-      }
-    }
-    for (icao in wanted) {
-      if (Object.prototype.hasOwnProperty.call(wanted, icao) && !dots[icao]) {
-        dots[icao] = makeDot(wanted[icao]);
-        dotLayer.addLayer(dots[icao]);
+    for (key in wanted) {
+      if (Object.prototype.hasOwnProperty.call(wanted, key) && !dots[key]) {
+        dots[key] = wanted[key].airport ? makeDot(wanted[key].airport) : makeCluster(wanted[key].members);
+        dotLayer.addLayer(dots[key]);
       }
     }
   }
 
-  function makeDot(airport) {
-    var marker = L.marker([airport.lat, airport.lon], {
-      icon: dotIcon(airport, airport.icao === currentAirportCode()),
-      title: airport.name,
+  function makeCluster(members) {
+    var lat = 0;
+    var lon = 0;
+    var bounds = L.latLngBounds([]);
+    members.forEach(function (airport) {
+      lat += airport.lat;
+      lon += airport.lon;
+      bounds.extend([airport.lat, airport.lon]);
+    });
+    var marker = L.marker([lat / members.length, lon / members.length], {
+      icon: clusterIcon(members.length),
+      title: format(text("cluster"), members.length),
       keyboard: false,
       riseOnHover: false
+    });
+    marker.on("click", function () {
+      var zoom = Math.max(
+        map.getZoom() + 1, Math.min(map.getBoundsZoom(bounds.pad(0.4)), CLUSTER_MAX_ZOOM + 1));
+      centreOn(bounds.getCenter(), zoom, true);
+    });
+    return marker;
+  }
+
+  function makeDot(airport) {
+    var selected = airport.icao === currentAirportCode();
+    var marker = L.marker([airport.lat, airport.lon], {
+      icon: dotIcon(airport, selected),
+      title: airport.name,
+      keyboard: false,
+      riseOnHover: false,
+      zIndexOffset: selected ? 1000 : 0
     });
     marker.on("click", function () {
       chooseAirport(airport);
@@ -1095,6 +1183,7 @@
     document.documentElement.className += " " + READY_CLASS;
     buildMap();
     dotLayer = L.layerGroup().addTo(map);
+    wireFranceButton();
     map.on("click", function (event) {
       if (resultsEl) {
         clearResults();

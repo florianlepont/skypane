@@ -18,12 +18,12 @@ def fleet_app(make_app_server):
     return start_fleet_app(make_app_server)
 
 
-@pytest.mark.parametrize("path", ("/", "/device", "/display", "/flights", "/health"))
+@pytest.mark.parametrize("path", ("/", "/display", "/flights", "/fleet"))
 def test_pages_carry_no_poll_form_button_or_cooldown_script(fleet_app, path):
     prefixes = [_prefix(fleet_app.fleet.live), _prefix(fleet_app.fleet.dev_a)]
-    if path in ("/device", "/health"):
-        # The Console pages of the served frame also answer without a prefix.
-        prefixes.append("")
+    if path == "/fleet":
+        # The Console page lives at one address, whatever the frame.
+        prefixes = [""]
     for prefix in prefixes:
         status, _headers, page = get(fleet_app, prefix + path)
         assert status == 200

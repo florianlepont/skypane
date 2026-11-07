@@ -165,7 +165,7 @@ def test_the_console_sidebar_lists_the_console_pages_for_the_frame_in_view(
             principal="user", now=app._now())
     finally:
         conn.close()
-    status, page = _get(server, "sp_session=tok-a", "/update")
+    status, page = _get(server, "sp_session=tok-a", "/fleet")
     assert status == 200
     sidebar = _sidebar(page)
     assert _hrefs(_console_group(sidebar)) == ["/fleet", "/users"]
@@ -244,7 +244,7 @@ def test_a_user_still_cannot_open_the_console(served):
 
 def test_no_console_page_renders_a_section_chip_row(served):
     server, cookies = served
-    for path in (*CONSOLE_PAGES, "/update"):
+    for path in (*CONSOLE_PAGES, "/fleet?view=system"):
         status, page = _get(server, cookies["admin"], path)
         assert status == 200, path
         assert "section-subnav" not in page, path
@@ -252,7 +252,7 @@ def test_no_console_page_renders_a_section_chip_row(served):
 
 def test_no_console_page_renders_a_section_chip_row_in_french(served):
     server, cookies = served
-    for path in ("/fleet", "/update"):
+    for path in ("/fleet", "/fleet?view=system"):
         status, page = _get(
             server, cookies["admin"], path, headers={"Accept-Language": "fr"})
         assert status == 200, path
@@ -263,10 +263,11 @@ def _main(markup):
     return re.search(r"<main.*?</main>", markup, re.S).group(0)
 
 
-def test_update_is_the_unknown_path_404_for_a_user(served):
+def test_the_release_pages_of_the_console_are_not_reachable_by_a_user(served):
     server, cookies = served
-    assert _get(server, cookies["owner"], "/update") == _get(
-        server, cookies["owner"], "/no-such-page-anywhere")
+    unknown = _get(server, cookies["owner"], "/no-such-page-anywhere")
+    for path in ("/update/install", "/update/cancel"):
+        assert _get(server, cookies["owner"], path) == unknown, path
 
 
 def test_console_pages_are_not_frame_tabs():

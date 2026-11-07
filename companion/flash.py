@@ -421,7 +421,7 @@ _FLASH_UNDO = {
 }
 
 SEE_HEALTH_TEXT = i18n.msg("common.see_health", "See Health")
-_FLASH_LINKS = {FLASH_KEY_MANUAL_PREFIX_STALE: (layout.HEALTH_ROUTE, SEE_HEALTH_TEXT)}
+_FLASH_LINKS = {FLASH_KEY_MANUAL_PREFIX_STALE: ("/fleet?view=system", SEE_HEALTH_TEXT)}
 
 # The query parameters a flash rides on; the dismiss link drops them.
 _FLASH_QUERY_PARAMS = ("flash", "rule")

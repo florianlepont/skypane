@@ -50,29 +50,14 @@ def _chips_html(chips, legend):
     ) % (escape_html(legend), "".join(parts))
 
 
-def filter_bar_html(
-        input_id, label, placeholder, count_template, count_total,
-        shown, empty_heading, empty_body, chips=None, chips_legend=""):
-    """The filter bar plus its empty state, as one markup string.
-
-    `chips` (optional) adds the segmented group and switches the search
-    field to its collapsing form; omit it for the plain search pill.
-    `count_total` and `shown` seed the live count the script rewrites
-    from `count_template` ("%d of %d shown", already translated; served
-    to the script with `#` for each `%d`).
-    Every argument is escaped here, never by the caller.
-
+def _search_html(input_id, label, placeholder):
+    """The visually-hidden label, the field (a magnifier, the 16px input)
+    and its inline clear button: the one search control both bar forms use.
     The input has no `name` (never submitted by a form) and carries the
     autofill-suppression attributes the WebKit contacts heuristic needs
-    (see history_page.py's `_FILTER_INPUT_ID` note). A placeholder
-    stands in for the visible label, which stays as a visually-hidden
-    `<label for>`.
-    """
-    count_text = count_template % (shown, count_total)
-    chips_markup = _chips_html(chips, chips_legend) if chips else ""
-    modifier = " filter-bar--chips" if chips else ""
+    (see history_page.py's `_FILTER_INPUT_ID` note). A placeholder stands in
+    for the visible label, which stays as a visually-hidden `<label for>`."""
     return (
-        '<div class="filter-bar%s">'
         '<label class="visually-hidden" for="%s">%s</label>'
         '<div class="filter-bar__search">'
         '<input type="search" id="%s" placeholder="%s" autocomplete="off" '
@@ -81,6 +66,44 @@ def filter_bar_html(
         '<button type="button" class="filter-bar__clear" data-filter-clear '
         'aria-label="%s">%s</button>'
         "</div>"
+    ) % (
+        escape_html(input_id), escape_html(label),
+        escape_html(input_id), escape_html(placeholder),
+        icon_html("icon-search", 20),
+        escape_html(i18n.t(FILTER_CLEAR_LABEL)), icon_html("icon-close", 14))
+
+
+def filter_title_search_html(input_id, label, placeholder):
+    """The search field for a page header's title row: a magnifier at the
+    row's right edge that opens into the field in place, over the title and
+    without moving anything below (the bar's own search is then omitted
+    with `search_in_bar=False`)."""
+    return '<div class="filter-bar filter-bar--title">%s</div>' % _search_html(
+        input_id, label, placeholder)
+
+
+def filter_bar_html(
+        input_id, label, placeholder, count_template, count_total,
+        shown, empty_heading, empty_body, chips=None, chips_legend="",
+        search_in_bar=True):
+    """The filter bar plus its empty state, as one markup string.
+
+    `chips` (optional) adds the segmented group and switches the search
+    field to its collapsing form; omit it for the plain search pill.
+    `search_in_bar=False` leaves the search field out: the page places it
+    itself with `filter_title_search_html()` under the same `input_id`.
+    `count_total` and `shown` seed the live count the script rewrites
+    from `count_template` ("%d of %d shown", already translated; served
+    to the script with `#` for each `%d`).
+    Every argument is escaped here, never by the caller.
+    """
+    count_text = count_template % (shown, count_total)
+    chips_markup = _chips_html(chips, chips_legend) if chips else ""
+    modifier = " filter-bar--chips" if chips else ""
+    search_markup = _search_html(input_id, label, placeholder) if search_in_bar else ""
+    return (
+        '<div class="filter-bar%s">'
+        "%s"
         "%s"
         '<div class="filter-bar__meta">'
         '<span class="filter-bar__count" data-filter-count role="status" '
@@ -94,11 +117,7 @@ def filter_bar_html(
         '<button type="button" data-filter-clear data-filter-clear-all>%s</button>'
         "</div>"
     ) % (
-        modifier, escape_html(input_id), escape_html(label),
-        escape_html(input_id), escape_html(placeholder),
-        icon_html("icon-search", 20),
-        escape_html(i18n.t(FILTER_CLEAR_LABEL)), icon_html("icon-close", 14),
-        chips_markup,
+        modifier, search_markup, chips_markup,
         escape_html(count_template.replace("%d", COUNT_PLACEHOLDER)),
         escape_html(count_text),
         icon_html("icon-search", 22),

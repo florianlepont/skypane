@@ -144,8 +144,10 @@ class TestPrefixMatching:
 # --- prefix crawl -----------------------------------------------------------
 
 CRAWL_PREFIXES = ("/devices/",)
+# The Fleet view of the frame under test; "{frame}" is its id.
+FLEET_FRAME_PAGE = "/fleet?frame={frame}"
 CRAWL_PAGES = (
-    "/", "/display", "/device", "/flights", "/airlines", "/health",
+    "/", "/display", "/flights", "/airlines", FLEET_FRAME_PAGE,
     "/display?sheet=manage", "/airlines/manage", "/airlines/manage?resolve=XQZ",
     "/airlines/manage?resolve=ABC",
     "/display?flash=display_on", "/airlines?flash=manual_prefix_stale")
@@ -210,12 +212,16 @@ def _inside_switcher(node):
     return False
 
 
-def _crawl_addresses(body):
+def _crawl_addresses(body, page=None):
     """(kind, url, in_selector) for every address a page asks the browser to
     follow: href and src (GET), form action (the form's own method), plus
-    every return_to hidden value and data-* address attribute."""
+    every return_to hidden value and data-* address attribute. On the Fleet
+    page, which lists every frame, only the selected frame's blocks are read."""
     found = []
-    for node in parse_html(body).find_all():
+    root = parse_html(body)
+    if page == FLEET_FRAME_PAGE:
+        root = root.select_one(".fleet-blocks")
+    for node in root.find_all():
         # The space switch leads to a destination the server resolves (the
         # administrator's own frame), never to a frame-scoped address.
         if any(name in str(node.attrs.get("class", "")) for name in (
@@ -254,10 +260,17 @@ def _scoped_by_table(method, url):
     return False
 
 
+def _page_path(prefix, page):
+    """The address of `page` for the frame under `prefix` ("/devices/<id>")."""
+    if page == FLEET_FRAME_PAGE:
+        return page.format(frame=prefix.rsplit("/", 1)[1])
+    return prefix + page
+
+
 def _crawl(app, prefix, page):
     from companion.test_device_helpers import get
-    status, _headers, body = get(app, prefix + page)
-    assert status == 200, prefix + page
+    status, _headers, body = get(app, _page_path(prefix, page))
+    assert status == 200, _page_path(prefix, page)
     return body
 
 
@@ -267,10 +280,10 @@ class TestPrefixCrawl:
         prefix = "/devices/%s" % crawl_app.fleet.dev_a.id
         other = "/devices/%s" % crawl_app.fleet.dev_b.id
         body = _crawl(crawl_app, prefix, page if page != "/" else "/")
-        addresses = _crawl_addresses(body)
+        addresses = _crawl_addresses(body, page)
         assert addresses, page
         for method, url, in_selector in addresses:
-            where = "%s%s -> %s %s" % (prefix, page, method, url)
+            where = "%s -> %s %s" % (_page_path(prefix, page), method, url)
             if method == "RETURN_TO":
                 assert "/devices/" not in url, where
                 continue
@@ -285,7 +298,7 @@ class TestPrefixCrawl:
     def test_global_targets_are_never_prefixed(self, crawl_app, page):
         prefix = "/devices/%s" % crawl_app.fleet.dev_a.id
         body = _crawl(crawl_app, prefix, page)
-        for method, url, _selector in _crawl_addresses(body):
+        for method, url, _selector in _crawl_addresses(body, page):
             if method == "RETURN_TO":
                 continue
             path = re.split(r"[?#]", url, maxsplit=1)[0]
@@ -296,8 +309,8 @@ class TestPrefixCrawl:
             assert any(m is not None and m[0].device_scoped for m in matches), (
                 page, method, url)
 
-    def test_the_six_device_pages_and_the_sheet_and_resolve_queries_are_crawled(self):
-        assert {"/", "/display", "/device", "/flights", "/airlines", "/health"} <= set(CRAWL_PAGES)
+    def test_the_device_pages_and_the_sheet_and_resolve_queries_are_crawled(self):
+        assert {"/", "/display", "/flights", "/airlines", FLEET_FRAME_PAGE} <= set(CRAWL_PAGES)
         assert "/display?sheet=manage" in CRAWL_PAGES
         assert any(page.startswith("/airlines/manage?resolve=") for page in CRAWL_PAGES)
 
@@ -311,10 +324,11 @@ class TestPrefixCrawl:
             frame = str(fleet_db.list_devices(conn)[0]["id"])
         finally:
             conn.close()
-        status, _headers, body = get(single_device_app, "/devices/%s%s" % (frame, page))
+        status, _headers, body = get(
+            single_device_app, _page_path("/devices/" + frame, page))
         assert status == 200, page
         # Every frame address on the page names that one frame.
         assert set(re.findall(r"/devices/([^/\"'?#]+)", body)) == {frame}, page
-        # The Console pages for the served frame still resolve without a prefix.
-        if page.split("?")[0] in ("/device", "/health", "/airlines/manage"):
+        # The Console page for the served frame still resolves without a prefix.
+        if page.split("?")[0] == "/airlines/manage":
             assert get(single_device_app, page)[0] == 200, page

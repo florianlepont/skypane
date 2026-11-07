@@ -52,7 +52,7 @@ def _user(state_dir, user_id):
 
 def _row_html(body, user_id):
     """The table row holding this user's role form (its select id)."""
-    for match in re.finditer(r'<tr class="users-row"[^>]*>.*?</tr>', body, re.S):
+    for match in re.finditer(r'<tr class="users-row[^"]*"[^>]*>.*?</tr>', body, re.S):
         if 'for="role-%d"' % user_id in match.group(0) or (
                 "/users/%d/" % user_id in match.group(0)):
             return match.group(0)
@@ -92,7 +92,7 @@ def test_the_page_lists_every_user_as_a_table_row_with_role_frames_and_pills(rig
     assert status == 200
     for email in (fx.ADMIN_EMAIL, fx.OWNER_EMAIL, fx.SECOND_ADMIN_EMAIL, fx.USER_EMAIL):
         assert email in body
-    assert body.count('<tr class="users-row"') == 4
+    assert body.count('<tr class="users-row') == 4
     assert "entity-row" not in body and "dlg-user-" not in body and "Manage" not in body
     for heading in ("User", "Role", "Frames", "Last sign-in", "Active"):
         assert ">%s</th>" % heading in body
@@ -156,7 +156,8 @@ def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
     assert hostile not in body and "&lt;img src=x" in body
     css = fx.get(server, cookie, "/static/style.css")[2]
     rule = re.search(r"\.users-email \{[^}]*\}", css).group(0)
-    assert "monospace" not in rule and "overflow-wrap: anywhere" in rule
+    assert "monospace" not in rule
+    assert "text-overflow: ellipsis" in rule and "overflow-wrap: anywhere" not in rule
 
 
 def test_own_row_shows_the_guard_in_place_of_the_role_select_and_locks_the_switch(rig):

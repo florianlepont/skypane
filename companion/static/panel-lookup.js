@@ -578,7 +578,9 @@
     // which then open this dialog in place), not a <button>, so this
     // navigation must never happen once JS is running the show.
     evt.preventDefault();
-    openFromTrigger(trigger);
+    if (!openWithTransition(trigger)) {
+      openFromTrigger(trigger);
+    }
     if (fromTypeLink) {
       // The switcher was rebuilt: keep the keyboard on the shown type.
       var shown = typesNav.querySelector('[aria-current="true"]');
@@ -588,11 +590,96 @@
     }
   });
 
+  // The picture dialog (Flights) grows the tapped thumbnail into the large
+  // picture and back with a same-document view transition. The shared name
+  // lives on the .vt-pic class, moved between the two pictures (never an
+  // inline style). Without the API, or for a trigger with no visible
+  // thumbnail, the dialog opens and closes exactly as before (under reduced
+  // motion the stylesheet gives every view transition no animation).
+  var pictureDialog = dialog.classList.contains("lightbox--picture");
+  var SHARED_CLASS = "vt-pic";
+  var openedFrom = null;
+  var transitioning = false;
+
+  function canTransition() {
+    return pictureDialog && typeof document.startViewTransition === "function";
+  }
+
+  function visibleThumb(trigger) {
+    var thumb = trigger ? trigger.querySelector("img") : null;
+    if (!thumb || !thumb.isConnected) {
+      return null;
+    }
+    var box = thumb.getBoundingClientRect();
+    var inView = box.width > 0 && box.height > 0 && box.bottom > 0
+      && box.top < window.innerHeight;
+    return inView ? thumb : null;
+  }
+
+  // The new state is captured once the large picture can paint (the browser
+  // itself gives up on a transition that takes several seconds).
+  function pictureReady() {
+    if (image.decode && image.getAttribute("src")) {
+      return image.decode().catch(function () { return null; });
+    }
+    return Promise.resolve();
+  }
+
+  function release(node) {
+    if (node) {
+      node.classList.remove(SHARED_CLASS);
+    }
+  }
+
+  function openWithTransition(trigger) {
+    var thumb = canTransition() && !dialog.open && !transitioning ? visibleThumb(trigger) : null;
+    if (!thumb) {
+      return false;
+    }
+    transitioning = true;
+    thumb.classList.add(SHARED_CLASS);
+    // The dialog opens at once (it fades in on its own); the browser captures
+    // the old state on the next frame, so the thumbnail carries the shared
+    // name by then and the large picture takes it over in the callback.
+    openFromTrigger(trigger);
+    openedFrom = trigger;
+    var run = document.startViewTransition(function () {
+      release(thumb);
+      image.classList.add(SHARED_CLASS);
+      return pictureReady();
+    });
+    run.finished.then(null, function () { return null; }).then(function () {
+      release(image);
+      release(thumb);
+      transitioning = false;
+    });
+    return true;
+  }
+
+  // Closes the dialog; the picture shrinks back to its thumbnail when it can.
+  function closeDialog() {
+    var thumb = canTransition() && dialog.open && !transitioning ? visibleThumb(openedFrom) : null;
+    if (!thumb) {
+      dialog.close();
+      return;
+    }
+    transitioning = true;
+    image.classList.add(SHARED_CLASS);
+    var run = document.startViewTransition(function () {
+      release(image);
+      dialog.close();
+      thumb.classList.add(SHARED_CLASS);
+    });
+    run.finished.then(null, function () { return null; }).then(function () {
+      release(image);
+      release(thumb);
+      transitioning = false;
+    });
+  }
+
   var closeButton = dialog.querySelector("[data-view-panel-close]");
   if (closeButton) {
-    closeButton.addEventListener("click", function () {
-      dialog.close();
-    });
+    closeButton.addEventListener("click", closeDialog);
   }
 
   // A click on the backdrop closes the dialog. A click inside it lands
@@ -600,7 +687,16 @@
   // evt.target === dialog means the backdrop was clicked.
   dialog.addEventListener("click", function (evt) {
     if (evt.target === dialog) {
-      dialog.close();
+      closeDialog();
+    }
+  });
+
+  // Escape takes the same shrinking path where it exists; elsewhere the
+  // native cancel closes the dialog untouched.
+  dialog.addEventListener("cancel", function (event) {
+    if (canTransition() && visibleThumb(openedFrom)) {
+      event.preventDefault();
+      closeDialog();
     }
   });
 

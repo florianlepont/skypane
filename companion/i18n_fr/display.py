@@ -123,6 +123,7 @@ MESSAGES = {
     "display.special_looks_none": "Aucun look spécial.",
     "display.calendar_not_connected": "Aucun calendrier connecté",
     "display.choose_calendar": "Choisir un calendrier",
+    "display.connect_a_calendar": "Connecter un calendrier",
     "display.calendar_flights_on": "Vols de votre calendrier : activés",
     "display.calendar_flights_off": "Vols de votre calendrier : désactivés",
     "display.on": "Allumé",
@@ -137,6 +138,8 @@ MESSAGES = {
     "display.choose_how_often_the_frame_checks":
         "Choisissez à quelle fréquence le cadre vérifie les nouvelles données de vol.",
     "display.wake_interval_seconds": "Intervalle de réveil (secondes)",
+    "display.wake_interval_unit": "secondes",
+    "display.wake_interval_minutes": "\u00b7 # mn",
     # The range input's own accessible name, distinct from the number
     # input's label above — two controls sharing one accessible name is
     # how a screen-reader visitor loses track of which they are on.

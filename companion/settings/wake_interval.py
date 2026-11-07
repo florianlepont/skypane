@@ -23,11 +23,12 @@ WAKE_INTERVAL_PLACEHOLDER_TEXT = i18n.msg("display.uses_server_default", "Uses s
 WAKE_INTERVAL_INPUT_LABEL = i18n.msg(
     "display.wake_interval_seconds", "Wake interval (seconds)")
 # The unit, rendered as a sibling beside the number input (never a
-# placeholder, which vanishes once a value is typed). Not routed
-# through i18n.t(): "s" is the SI symbol for a second, the same symbol
-# in French, so it is a unit symbol, not prose. aria-hidden, since the
-# field's own translated label already says "seconds".
-WAKE_INTERVAL_UNIT_LABEL = "s"
+# placeholder, which vanishes once a value is typed). aria-hidden, since
+# the field's own label already says "seconds".
+WAKE_INTERVAL_UNIT_LABEL = i18n.msg("display.wake_interval_unit", "seconds")
+# The same value in minutes, repainted live by value-controls.js through
+# the readout hook ("#" is the minute count, rounded up).
+WAKE_INTERVAL_MINUTES_TEXT = i18n.msg("display.wake_interval_minutes", "\u00b7 # min")
 WAKE_INTERVAL_INPUT_ID = "wake-interval-s"
 WAKE_INTERVAL_SECTION_CAPTION_ID = "wake-interval-caption"
 
@@ -331,6 +332,13 @@ def wake_slider_html(interval_s):
     )
 
 
+def _wake_minutes_text(interval_s):
+    if interval_s is None:
+        return ""
+    return i18n.t(WAKE_INTERVAL_MINUTES_TEXT).replace(
+        layout.VALUE_CONTROL_TEXT_TOKEN, str(_wake_minutes(interval_s)))
+
+
 def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, next_wake_clock=None,
                         battery_rows=None):
     """The Wake interval settings group: a plain `<label>` wraps a
@@ -368,16 +376,16 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         '<div class="theme-status" %s="%s">'
         '<h2 class="text-heading">%s</h2>'
         '<p class="text-label section-caption" id="%s">%s</p>'
-        # The label is its own element above the control (for=), not a
-        # wrapping <label> — a wrapping label put its text and the
-        # input on one line, misaligning this field against every
-        # sibling field on the page.
-        '<label for="%s">%s</label>'
+        # The label is its own element (for=), not a wrapping <label>,
+        # and is read aloud only: the heading above is the one visible
+        # name of this card.
+        '<label for="%s" class="visually-hidden">%s</label>'
         '<input type="number" id="%s" name="wake_interval_s" min="%d" max="%d"'
         ' placeholder="%s"%s%s>'
         # The unit as a sibling, aria-hidden: the label above already
         # names the unit, so repeating it would announce the fact twice.
         '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
+        '<span class="text-label field-inline-value" aria-hidden="true" %s="%s" %s="%s" %s="%d">%s</span>'
         "%s"
         # The slider sits after the error message, so the error stays
         # adjacent to the control it describes.
@@ -393,7 +401,11 @@ def wake_interval_group(current_wake_interval_s, errors=None, submitted=None, ne
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
         escape_html(i18n.t(WAKE_INTERVAL_PLACEHOLDER_TEXT)),
         value_attr, error_attrs,
-        escape_html(WAKE_INTERVAL_UNIT_LABEL),
+        escape_html(i18n.t(WAKE_INTERVAL_UNIT_LABEL)),
+        layout.VALUE_CONTROL_READOUT_ATTR, escape_html(WAKE_INTERVAL_FIELD_NAME),
+        layout.VALUE_CONTROL_READOUT_TEXT_ATTR, escape_html(i18n.t(WAKE_INTERVAL_MINUTES_TEXT)),
+        layout.VALUE_CONTROL_READOUT_SCALE_ATTR, WAKE_GAUGE_SECONDS_PER_MINUTE,
+        escape_html(_wake_minutes_text(gauge_interval_s)),
         error_html,
         wake_slider_html(gauge_interval_s),
     )

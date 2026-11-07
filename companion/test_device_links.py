@@ -14,7 +14,7 @@ from server.plane import calendar_rules, manual_resolutions
 import server.state_store as state_store
 
 _URL_ATTRS = ("href", "action", "src")
-LIVE_PAGES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+LIVE_PAGES = ("/", "/display", "/flights", "/airlines")
 PERSONAL_NAV_ROUTES = ("/", "/flights", "/detection", "/display", "/airlines")
 # The airline editor is one global list: its address is never frame-scoped.
 GLOBAL_CONSOLE_ADDRESS = "/airlines/manage"
@@ -30,6 +30,10 @@ def app(module_app_server_factory):
 
 def _prefix(device):
     return "/devices/%s" % device.id
+
+
+def _fleet_view(device):
+    return "/fleet?frame=%s" % device.id
 
 
 def _page(app, path):
@@ -92,7 +96,7 @@ def test_nav_links_carry_the_device_prefix(app):
             assert _scoped_nav(prefix, route) in hrefs, (container, route)
             if route != "/":
                 assert route not in hrefs, (container, route)
-    body = _page(app, prefix + "/health")
+    body = _page(app, _fleet_view(app.fleet.dev_a))
     for container in ("nav.sidebar-nav", "nav.tab-bar"):
         hrefs = _hrefs(body, within=container)
         assert GLOBAL_CONSOLE_ADDRESS in hrefs, container
@@ -101,7 +105,7 @@ def test_nav_links_carry_the_device_prefix(app):
 
 def test_global_links_are_never_prefixed(app):
     prefix = _prefix(app.fleet.dev_a)
-    body = _page(app, prefix + "/health")
+    body = _page(app, _fleet_view(app.fleet.dev_a))
     for container in ("nav.sidebar-nav", "nav.tab-bar"):
         hrefs = _hrefs(body, within=container)
         for route in ("/account", "/fleet", "/users", "/audit"):
@@ -110,13 +114,12 @@ def test_global_links_are_never_prefixed(app):
 
 
 def test_active_nav_state_resolves_from_the_unprefixed_route(app):
-    prefix = _prefix(app.fleet.dev_a)
-    body = _page(app, prefix + "/health")
+    body = _page(app, _fleet_view(app.fleet.dev_a))
     current = [
         node.attrs["href"] for node in
         parse_html(body).select_one("nav.sidebar-nav").find_all("a")
         if node.attrs.get("aria-current") == "page"]
-    # Health, Device and Update live in the Fleet view: their pages mark Fleet
+    # Health, Device and Update live in the Fleet view, which marks Fleet
     # (a global link, never prefixed) as the current destination.
     assert current == ["/fleet"]
 
@@ -138,7 +141,7 @@ def test_quick_switch_forms_post_under_the_prefix_with_unprefixed_return_to(app)
 
 def test_led_form_posts_under_the_prefix(app):
     prefix = _prefix(app.fleet.dev_a)
-    body = _page(app, prefix + "/device")
+    body = _page(app, _fleet_view(app.fleet.dev_a))
     assert prefix + "/quick/led" in _actions(body)
     assert "/quick/led" not in _actions(body)
 
@@ -158,7 +161,7 @@ def test_flash_link_action_and_dismiss_keep_the_prefix(app):
     prefix = _prefix(app.fleet.dev_a)
     body = _page(app, prefix + "/airlines?flash=manual_prefix_stale")
     root = parse_html(body)
-    assert prefix + "/health" in [
+    assert "/fleet?view=system" in [
         node.attrs.get("href") for node in root.find_all("a", cls="toast__action")]
     assert prefix + "/airlines" in [
         node.attrs.get("href") for node in root.find_all("a", cls="toast__dismiss")]
@@ -168,10 +171,7 @@ def test_flash_link_action_and_dismiss_keep_the_prefix(app):
 def test_the_live_frame_pages_stay_under_the_live_frames_own_prefix(app, path):
     live = app.fleet.live
     body = _page(app, _prefix(live) + path)
-    if path != "/health":
-        # Health carries no frame-scoped address of its own once the airline
-        # editor's link is global; it still must not point at another frame.
-        assert _prefixed_urls_outside_switcher(body)
+    assert _prefixed_urls_outside_switcher(body)
     assert _other_frame_urls_outside_switcher(body, live) == []
 
 
@@ -321,22 +321,20 @@ def test_frame_preview_urls_resolve_under_the_prefix(seeded):
 
 def test_live_airlines_and_display_pages_stay_under_the_live_prefix(seeded):
     live = seeded.fleet.live
-    for path in ("/airlines", "/airlines/manage?resolve=ABC", "/display?sheet=manage", "/health"):
+    for path in ("/airlines", "/airlines/manage?resolve=ABC", "/display?sheet=manage"):
         body = _page(seeded, _prefix(live) + path)
         assert _other_frame_urls_outside_switcher(body, live) == [], path
-    # The served frame's Console pages still answer without a prefix.
-    assert get(seeded, "/health")[0] == 200
+    # The served frame's Console page still answers without a prefix.
     assert get(seeded, "/airlines/manage?resolve=ABC")[0] == 200
 
 
-def test_freshness_script_refreshes_its_own_page_and_the_health_page_has_no_nav_link(seeded):
+def test_freshness_script_refreshes_its_own_page_and_the_fleet_page_has_no_health_nav_link(seeded):
     status, _headers, script = get(seeded, "/static/freshness.js")
     assert status == 200
     assert "fetch(window.location.href" in script
     assert 'a[href$="/fleet"]' in script
     selector = 'a[href$="/health"]'
-    prefix = _prefix(seeded.fleet.dev_a)
-    root = parse_html(_page(seeded, prefix + "/health"))
+    root = parse_html(_page(seeded, _fleet_view(seeded.fleet.dev_a)))
     assert not any(
         node.attrs.get("href", "").endswith("/health")
         for node in root.select_one("nav.sidebar-nav").find_all("a")), selector

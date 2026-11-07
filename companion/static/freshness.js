@@ -78,6 +78,18 @@
   // re-derives its own row state from it.
   var SWAPPED_EVENT = "skypane-regions-swapped";
 
+  // Dispatched just before a swap replaces any region, so a listener can
+  // record where things are (motion.js animates a new row into place from
+  // those positions).
+  var SWAPPING_EVENT = "skypane-regions-swapping";
+
+  // A request for one refresh now (the pull-to-refresh gesture). The
+  // listener marks the event handled; a requester that sees it unhandled
+  // knows this page has no refresh loop and may reload instead. The done
+  // event follows every finished cycle, swapped, unchanged or failed.
+  var REQUEST_EVENT = "skypane-refresh-request";
+  var DONE_EVENT = "skypane-refresh-done";
+
   // The DOM value is never trusted unvalidated: only a plain hex string
   // matching TOKEN_RE is ever accepted, so a page whose body somehow
   // carries something else can never inject an arbitrary header value.
@@ -278,13 +290,6 @@
       ".page-header__freshness",
       ".frame-strip"
     ],
-    "health": [
-      ".health-row__summary",
-      "div.health-anomaly",
-      "section.health-source-fault",
-      ".page-header__freshness",
-      'a[href$="/fleet"]'
-    ],
     "fleet": [
       ".health-row__summary",
       "div.health-anomaly",
@@ -412,13 +417,17 @@
   // diff are in place, so a listener always sees the finished document.
   // Built the ES3-era way (createEvent/initEvent) for the same reach
   // reason this file uses replaceChild over replaceWith.
-  function announceSwap() {
+  function announce(name) {
     if (!document.createEvent) {
       return;
     }
     var evt = document.createEvent("Event");
-    evt.initEvent(SWAPPED_EVENT, false, false);
+    evt.initEvent(name, false, false);
     document.dispatchEvent(evt);
+  }
+
+  function announceSwap() {
+    announce(SWAPPED_EVENT);
   }
 
   // battery-trend.js's two readout spans are updated via textContent on
@@ -457,6 +466,7 @@
   }
 
   function applySwap(fromDoc) {
+    announce(SWAPPING_EVENT);
     swapNodes(fromDoc);
     swapBatteryReadout(fromDoc);
     updateLoadedAt(fromDoc);
@@ -522,6 +532,7 @@
         inFlight = false;
         hidePill();
         succeed();
+        announce(DONE_EVENT);
         return null;
       }
       if (!response.ok) {
@@ -556,6 +567,7 @@
       inFlight = false;
       hidePill();
       succeed();
+      announce(DONE_EVENT);
     }).catch(function () {
       // A network-level failure gets the same treatment as a non-OK
       // status: no partial swap, no guess, a backed-off retry.
@@ -581,6 +593,7 @@
 
   function failAndRetry() {
     inFlight = false;
+    announce(DONE_EVENT);
     retryDelayMs = retryDelayMs === 0
       ? RETRY_BASE_MS
       : Math.min(retryDelayMs * 2, RETRY_CEILING_MS);
@@ -644,6 +657,18 @@
     intervalHandle = null;
     syncLiveDot();
   }
+
+  document.addEventListener(REQUEST_EVENT, function (evt) {
+    evt.handled = true;
+    if (document.hidden || unsavedEdits()) {
+      announce(DONE_EVENT);
+      return;
+    }
+    // The next cycle sends no If-None-Match: an asked-for refresh always
+    // returns the page itself.
+    ticksSinceForcedRefresh = FORCED_REFRESH_EVERY_N_TICKS;
+    doRefresh();
+  });
 
   document.addEventListener("visibilitychange", function () {
     if (document.hidden) {

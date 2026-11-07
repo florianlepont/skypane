@@ -167,6 +167,11 @@ def test_the_live_preview_crossfade_settles_correct_through_its_own_listener(new
             "'[data-look-usage=\"departures\"] img.look-frame__image');"
             " return i.getAttribute('src') === src && i.complete && i.naturalWidth > 0; }",
             arg=target["src"], timeout=10000)
+        # The arrived picture fades in from a blur (about 900ms); it must then rest fully opaque.
+        page.wait_for_function(
+            "() => !document.querySelector("
+            "'[data-look-usage=\"departures\"] img.look-frame__image')"
+            ".classList.contains('is-revealed')", timeout=10000)
         opacity = page.evaluate(
             "() => parseFloat(getComputedStyle(document.querySelector("
             "'[data-look-usage=\"departures\"] img.look-frame__image')).opacity)")
@@ -305,7 +310,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
         _login(page, base_url)
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-        page.goto(base_url + "/update")
+        page.goto(base_url + "/fleet")
         page.wait_for_load_state("networkidle")
         assert page.locator(".dashboard-sidebar .nav-status").count() == 0
         assert page.locator('.sidebar-nav a[href="/fleet"][aria-current="page"]').count() == 1
@@ -318,7 +323,7 @@ def test_navigation_omits_redundant_state_and_preserves_current_route(
         _login(page, base_url)
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-        page.goto(base_url + "/update")
+        page.goto(base_url + "/fleet")
         page.wait_for_load_state("networkidle")
         assert page.locator("header.site-header .nav-status").count() == 0
         current = page.locator('.tab-bar a[href="/fleet"][aria-current="page"]')
@@ -756,7 +761,7 @@ def test_health_tables_fit_their_wraps_with_every_disclosure_open(new_context, s
         _login(page, base_url)
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
-        page.goto(base_url + "/health")
+        page.goto(base_url + "/fleet")
         page.locator("details.readings-disclosure").first.wait_for(state="attached")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
@@ -883,7 +888,7 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
     pages = (("/", 1), ("/display", 2), ("/display/special-looks", 2),
              ("/display/calendar", 2),
              ("/flights", 1),
-             ("/airlines", 1), ("/health", 4), ("/device", 1))
+             ("/airlines", 1), ("/fleet", 4), ("/fleet?view=system", 1))
     base_url = server.base_url()
     context = new_context(
         viewport={"width": width, "height": 844}, reduced_motion="reduce")
@@ -1125,7 +1130,7 @@ def _retired_relative_age_ticks_in_a_real_tab(page, server):
     """
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/health")
+    page.goto(base_url + "/fleet")
     page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
     first = page.eval_on_selector(FRESHNESS_AGE, "el => el.textContent")
     # The server-rendered floor: the element already reads something
@@ -1191,7 +1196,7 @@ def _retired_hidden_tab_does_no_work_and_catches_up_on_return(page, server):
     # listener and its own document.hidden reads, unmodified.
     base_url = server.base_url()
     _login(page, base_url)
-    page.goto(base_url + "/health")
+    page.goto(base_url + "/fleet")
     page.locator(FRESHNESS_AGE).first.wait_for(state="attached")
     read = "() => document.querySelector(%r).textContent" % FRESHNESS_AGE
     # Control first: without this the check passes on a page whose element never changes for
@@ -1251,7 +1256,7 @@ def _retired_relative_age_is_server_rendered_and_static_without_scripts(new_cont
     # Needs the UI-language cookie set before the first navigation, which is what
     # _no_js_page()'s own `cookies` parameter is for.
     with _no_js_page(
-            new_context, base_url, "/health",
+            new_context, base_url, "/fleet",
             viewport=VIEWPORT_MIN_SUPPORTED,
             cookies=[{
                 "name": auth.UI_LANG_COOKIE_NAME,

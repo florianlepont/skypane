@@ -147,6 +147,18 @@
   --motion-enter: 400ms;
   --motion-stagger: 60ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  /* The spring every settle uses: press release, switch thumb, the sliding
+   * tab pill. The curve overshoots slightly, so it is only ever spent on
+   * `scale` and `transform`, never on a layout property or a colour.
+   * --motion-press is the fast, un-sprung half of a press. */
+  --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --motion-spring-duration: 420ms;
+  --motion-press: 90ms;
+  /* A loading placeholder's sweep, and the blur-up of the picture that
+   * replaces it. */
+  --motion-shimmer: 1.3s;
+  --motion-reveal: 900ms;
+  --motion-count: 600ms;
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
@@ -186,7 +198,10 @@
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
   --bar-border: rgba(255, 255, 255, 0.7);
   --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  /* The floating bar's shadow reaches 1px + 6px + 14px - 8px = 12px under it,
+   * exactly the gap to the screen edge (--tab-bar-gap), so it is never cut by
+   * the bottom of the viewport and never spills under the browser toolbar. */
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -212,6 +227,8 @@
   /* The switch thumb: white on light surfaces, a light grey on dark ones
    * so an unchecked thumb stays visible on its dark track. */
   --color-switch-thumb: #FFFFFF;
+  --color-switch-off: #7C8799;
+  --color-switch-thumb-on: #FFFFFF;
   /* Rarity inks for airlines and aircraft: each is text-safe (4.5:1 or
    * better) on the card and page surfaces of its theme. */
   --color-rarity-occasional: #0F766E;
@@ -254,7 +271,7 @@
     --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
     --bar-border: rgba(255, 255, 255, 0.16);
     --bar-pill-bg: rgba(255, 255, 255, 0.18);
-    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
     --pop-bg: rgba(28, 34, 45, 0.92);
     --color-canvas: #161A24;
     --color-dominant: #151922;
@@ -273,6 +290,8 @@
      * than the accent-vs-warn gap); now dE76 32.2/25.6°. */
     --color-status-error: #FB7185;
     --color-switch-thumb: #E6E9EE;
+    --color-switch-off: #6B7589;
+    --color-switch-thumb-on: #14171F;
     --color-rarity-occasional: #5EEAD4;
     --color-rarity-rare: #C4B5FD;
     --color-frame-bezel: #050608;
@@ -303,7 +322,7 @@ html[data-ui-theme="light"] {
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
   --bar-border: rgba(255, 255, 255, 0.7);
   --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 2px 4px rgba(18, 21, 27, 0.08), 0 18px 40px -12px rgba(18, 21, 27, 0.32);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -319,6 +338,8 @@ html[data-ui-theme="light"] {
   --color-status-warn: #D97706;
   --color-status-error: #BE123C;
   --color-switch-thumb: #FFFFFF;
+  --color-switch-off: #7C8799;
+  --color-switch-thumb-on: #FFFFFF;
   --color-rarity-occasional: #0F766E;
   --color-rarity-rare: #6D28D9;
   --color-frame-bezel: #2A2622;
@@ -348,7 +369,7 @@ html[data-ui-theme="dark"] {
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
   --bar-border: rgba(255, 255, 255, 0.16);
   --bar-pill-bg: rgba(255, 255, 255, 0.18);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 4px rgba(0, 0, 0, 0.3), 0 18px 40px -12px rgba(0, 0, 0, 0.6);
+  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
   --pop-bg: rgba(28, 34, 45, 0.92);
   --color-canvas: #161A24;
   --color-dominant: #151922;
@@ -364,6 +385,8 @@ html[data-ui-theme="dark"] {
   --color-status-warn: #FBBF24;
   --color-status-error: #FB7185;
   --color-switch-thumb: #E6E9EE;
+  --color-switch-off: #6B7589;
+  --color-switch-thumb-on: #14171F;
   --color-rarity-occasional: #5EEAD4;
   --color-rarity-rare: #C4B5FD;
   --color-frame-bezel: #050608;
@@ -405,6 +428,26 @@ html[data-ui-theme="dark"] {
 @media (prefers-reduced-motion: no-preference) {
   @view-transition {
     navigation: auto;
+  }
+
+  /* The tab bar's slider glides to its new place on the spring while the page
+   * changes (it is the one named element of the bar). */
+  ::view-transition-group(skypane-tab-slider) {
+    animation-duration: var(--motion-spring-duration);
+    animation-timing-function: var(--motion-spring);
+  }
+
+  /* The thumbnail-to-picture transition runs a little longer than a page
+   * change and crops both snapshots to the same cover fit. */
+  ::view-transition-group(skypane-flight-pic) {
+    animation-duration: 480ms;
+    animation-timing-function: var(--ease-out);
+  }
+
+  ::view-transition-old(skypane-flight-pic),
+  ::view-transition-new(skypane-flight-pic) {
+    height: 100%;
+    object-fit: cover;
   }
 }
 
@@ -521,7 +564,7 @@ html[data-ui-theme="dark"] {
 @keyframes skypane-toast-in {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale(0.98);
+    transform: translateY(-16px);
   }
   to {
     opacity: 1;
@@ -855,8 +898,41 @@ a:hover {
 
 @media (prefers-reduced-motion: reduce) {
   /* The global override would leave a 0.01ms loop running; the halo is
-   * switched off instead, so reduced motion shows no animation at all. */
+   * switched off instead, so reduced motion shows no animation at all. The
+   * placeholder sweep, the blur-up, the switch ring and the slider's stretch
+   * go the same way, and a press no longer scales. !important because the
+   * rules they override are declared further down the file. */
   .home-state__dot.home-state__dot--pulse::after {
+    animation: none;
+  }
+
+  .is-loading::after {
+    animation: none !important;
+    transform: none !important;
+    opacity: 0.5;
+  }
+
+  .is-revealed,
+  .switch.switch--tick .switch__track::after,
+  .tab-bar__slider--stretch {
+    animation: none !important;
+  }
+
+  button:not(.value-control__handle):not(.switch):active,
+  .mobile-nav__link:active,
+  .sidebar-link:active,
+  .history-card:active,
+  .filter-chip__box:active,
+  .tab-bar__pill:active,
+  .frame-menu__button:active,
+  .filter-bar__search:active,
+  button.switch:active .switch__thumb {
+    scale: none !important;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
     animation: none;
   }
 }
@@ -1074,7 +1150,7 @@ a:hover {
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .mobile-nav__link--active {
@@ -1189,6 +1265,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   min-height: 44px;
 }
 
+/* With the sidebar showing, its footer is the one Sign out; the Account
+ * page's own card is for the phone, where the sidebar is hidden. */
+@media (min-width: 960px) {
+  section.account-sign-out-group {
+    display: none;
+  }
+}
+
 .theme-form .theme-option--active {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent);
   color: var(--color-accent);
@@ -1269,7 +1353,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   text-decoration: none;
   font-size: var(--font-label-size);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .sidebar-link__icon {
@@ -1719,7 +1803,30 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
     border-radius: var(--radius-control);
     box-shadow: var(--shadow-toast-float);
     pointer-events: auto;
-    animation: skypane-toast-in var(--motion-fast) ease-out;
+    animation: skypane-toast-in var(--motion-spring-duration) var(--motion-spring);
+    /* A horizontal drag is the swipe to dismiss (toast.js); vertical pans
+     * still scroll the page. */
+    touch-action: pan-y;
+  }
+
+  /* The swipe: the toast follows the pointer (toast.js sets the transform and ends the entrance animation),
+   * springs back when released short, or slides off when released past the
+   * threshold. */
+  .toast-region--flash .toast.is-swiping,
+  .toast-region--live .toast.is-swiping {
+    transition: none;
+    user-select: none;
+  }
+
+  .toast-region--flash .toast.is-returning,
+  .toast-region--live .toast.is-returning {
+    transition: transform var(--motion-spring-duration) var(--motion-spring),
+      opacity var(--motion-fast) ease-out;
+  }
+
+  .toast-region--flash .toast.is-leaving,
+  .toast-region--live .toast.is-leaving {
+    transition: transform var(--motion-fast) ease-in, opacity var(--motion-fast) ease-in;
   }
 }
 
@@ -1798,6 +1905,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   list-style: none;
+  transition: scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .frame-menu__button::before,
@@ -2040,7 +2148,8 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 
 .fleet-group .data-cards > .data-card {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  justify-content: center;
   min-height: 54px;
 }
 
@@ -2242,7 +2351,7 @@ button {
   border: 1px solid var(--color-control-border-subtle); /* fallback for browsers without color-mix() */
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 button[type="submit"] {
@@ -2303,6 +2412,60 @@ button:not(.value-control__handle):active {
  * [hidden] { display: none } rule regardless of source order. */
 .dirty-bar[hidden] {
   display: none;
+}
+
+/* The bar of the Fleet settings: sticks to the bottom of the viewport inside
+ * the page's own column (so it is as wide as the content on a desktop and
+ * above the floating tab bar on a phone) and never overlays the cards: it
+ * sits in the flow after them. Specificity beats the fixed rules of the
+ * stand-alone bar at every width. */
+.dirty-bar.dirty-bar--docked {
+  position: sticky;
+  left: auto;
+  right: auto;
+  width: auto;
+  max-width: none;
+  margin: var(--space-lg) 0 0;
+  bottom: var(--space-lg);
+  z-index: 30;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  column-gap: var(--space-sm);
+  row-gap: var(--space-sm);
+}
+
+.dirty-bar.dirty-bar--docked[hidden] {
+  display: none;
+}
+
+.dirty-bar--docked [data-dirty-count] {
+  min-width: 0;
+  font-weight: 600;
+}
+
+.dirty-bar--docked button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.dirty-bar--docked .dirty-bar__cancel {
+  order: 2;
+}
+
+.dirty-bar--docked .dirty-bar__save {
+  order: 3;
+}
+
+@media (max-width: 959.98px) {
+  .dirty-bar.dirty-bar--docked {
+    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dirty-bar--docked [data-dirty-count] {
+    grid-column: 1 / -1;
+  }
 }
 
 .dirty-bar__cancel {
@@ -3062,6 +3225,7 @@ table.data-table--registry .cell-inline-sep {
   list-style: none;
   margin: var(--space-sm) 0 0;
   padding: 0;
+  container: update-rows / inline-size;
 }
 
 .update-rows > li + li {
@@ -3186,7 +3350,11 @@ table.data-table--registry .cell-inline-sep {
     width: auto;
     min-width: 200px;
   }
+}
 
+/* The release rows lay out in columns only where their own list is wide
+ * enough; the Fleet page puts them in a narrow block even on a wide screen. */
+@container update-rows (min-width: 700px) {
   .update-row > summary {
     grid-template-columns: 232px minmax(0, 1fr) 140px 20px;
     grid-template-areas: "v s d c";
@@ -3391,6 +3559,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   flex: 1 1 280px;
   max-width: 560px;
   min-width: 0;
+  transition: scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 /* 16px text: iOS Safari zooms the page on focus for anything smaller.
@@ -3541,7 +3710,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   border-radius: var(--radius-control);
   text-align: center;
   white-space: nowrap;
-  transition: background var(--motion-fast), box-shadow var(--motion-fast);
+  transition: background var(--motion-fast), box-shadow var(--motion-fast), scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .filter-chip__count {
@@ -3595,46 +3764,67 @@ a.calendar-disconnect-btn.flight-picture-link {
   color: var(--color-text);
 }
 
-/* Phone, scripts on: the search collapses to a 48px icon button beside
- * the chips and opens over the whole row on focus or while it holds
- * text (list-filter.js sets data-filter-active), pushing the chips to
- * the next line. Without a script the plain full-width field applies. */
-@media (max-width: 959.98px) {
-  .js .filter-bar--chips .filter-bar__search {
-    flex: 0 0 44px;
-    order: 2;
-  }
+/* The search lives in the page header's title row (.filter-bar--title).
+ * Without a script it is a plain field beside the title. With one, a phone
+ * shows a 44px magnifier at the row's right edge that opens over the whole
+ * row, in place: the title keeps its box under the field, so nothing below
+ * moves. From 960px the field is always open at the right. */
+.page-header:has(> .filter-bar--title) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-md);
+  min-height: 44px;
+}
 
-  .js .filter-bar--chips .filter-bar__search input {
-    padding: 0;
-    cursor: pointer;
-  }
+.page-header:has(> .filter-bar--title) > .page-title {
+  margin: 0;
+}
 
-  .js .filter-bar--chips .filter-bar__search input::placeholder {
-    color: transparent;
-  }
+.filter-bar--title {
+  flex: 1 1 280px;
+  margin: 0 0 0 auto;
+  max-width: 560px;
+}
 
-  .js .filter-bar--chips .filter-bar__search:focus-within,
-  .js .filter-bar--chips[data-filter-active] .filter-bar__search {
-    flex: 1 0 100%;
-    order: 0;
-    max-width: none;
-    /* Declared on the open state only: a transition runs with the
-     * destination state's property, so opening animates while the
-     * collapse the script's own .js class causes at load does not. */
-    transition: flex-basis var(--motion-fast) ease;
-  }
+.filter-bar--title .filter-bar__search {
+  flex: 1 1 100%;
+  max-width: none;
+}
 
-  .js .filter-bar--chips .filter-bar__search:focus-within input,
-  .js .filter-bar--chips[data-filter-active] .filter-bar__search input {
-    padding: 0 52px 0 46px;
-    cursor: text;
-  }
+.js .filter-bar--title {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 2;
+  width: 44px;
+  max-width: none;
+  margin: 0;
+}
 
-  .js .filter-bar--chips .filter-bar__search:focus-within input::placeholder,
-  .js .filter-bar--chips[data-filter-active] .filter-bar__search input::placeholder {
-    color: color-mix(in srgb, var(--color-text) 55%, transparent);
-  }
+.js .filter-bar--title .filter-bar__search input {
+  padding: 0;
+  cursor: pointer;
+}
+
+.js .filter-bar--title .filter-bar__search input::placeholder {
+  color: transparent;
+}
+
+.js .filter-bar--title:focus-within,
+.js .filter-bar--title[data-filter-active] {
+  width: 100%;
+}
+
+.js .filter-bar--title:focus-within input,
+.js .filter-bar--title[data-filter-active] input {
+  padding: 0 52px 0 46px;
+  cursor: text;
+}
+
+.js .filter-bar--title:focus-within input::placeholder,
+.js .filter-bar--title[data-filter-active] input::placeholder {
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 @media (min-width: 960px) {
@@ -3656,10 +3846,68 @@ a.calendar-disconnect-btn.flight-picture-link {
     padding: 0 var(--space-md);
   }
 
-  .filter-bar--chips .filter-bar__search {
-    flex: 0 1 380px;
-    margin-left: auto;
-    order: 2;
+  .js .filter-bar--title,
+  .js .filter-bar--title:focus-within,
+  .js .filter-bar--title[data-filter-active] {
+    width: 380px;
+  }
+
+  .js .filter-bar--title .filter-bar__search input,
+  .js .filter-bar--title:focus-within input {
+    padding: 0 52px 0 46px;
+    cursor: text;
+  }
+
+  .js .filter-bar--title .filter-bar__search input::placeholder {
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  }
+}
+
+/* The end of the list: how many flights are shown and the Load more link,
+ * a full-width 44px+ glass button under the last row. */
+.history-more {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0 var(--space-lg);
+  text-align: center;
+}
+
+.history-more__count {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-more__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.history-more__link:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--glass-solid));
+}
+
+.history-more__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 960px) {
+  .history-more {
+    max-width: 24rem;
+    margin-inline: auto;
   }
 }
 
@@ -5355,20 +5603,34 @@ button.detection-search:hover {
 }
 
 .place-sheet .runway-card {
+  position: relative;
   padding: var(--space-sm);
+  padding-top: var(--space-md);
   text-align: center;
 }
 
 .place-sheet .runway-card .runway-card__detail {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .place-sheet .runway-card .banner__pill {
   display: block;
   width: fit-content;
   margin: var(--space-xs) auto 0;
+}
+
+/* The "Current" badge straddles the card's top edge at the right corner, so
+ * it never sits over the designator in the middle of the card. */
+.place-sheet .runway-card--selected:not(:has(input:checked))::after {
+  top: -9px;
+  right: var(--space-sm);
+  padding: 0 var(--space-sm);
+  line-height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  white-space: nowrap;
 }
 
 .place-panel__follow {
@@ -5671,33 +5933,30 @@ button.detection-search:hover {
   display: none;
 }
 
-/* The airport line: the name, then its codes, on one line that ellipsizes. */
+/* The airport header: the name on its own line, its codes and municipality
+ * under it. Both wrap rather than ellipsize, so nothing is cut off. */
 .map-ready .place-sheet .place-chosen p {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-sm);
+  gap: 0 var(--space-sm);
   margin: 0;
   min-width: 0;
 }
 
 .map-ready .place-sheet .place-chosen__name {
-  flex: 0 1 auto;
+  flex: 1 1 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-family: var(--font-display);
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
 }
 
 .map-ready .place-sheet .place-chosen .section-caption {
-  flex: 1 1 0;
+  flex: 1 1 100%;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 /* The detection radius is one row: its label, the number and the slider. */
@@ -5902,7 +6161,7 @@ html:not(.map-ready) .place-tap-hint {
     grid-auto-columns: calc((100% - 2 * var(--space-sm)) / 3);
     overflow-x: auto;
     scroll-snap-type: x proximity;
-    padding: var(--space-xs) 0;
+    padding: var(--space-md) 0 var(--space-xs);
   }
 
   .map-ready .place-sheet .runway-card {
@@ -6238,7 +6497,12 @@ html:not(.map-ready) .place-details__close {
   line-height: 1;
   white-space: nowrap;
   color: var(--color-text);
-  text-shadow: 0 0 3px var(--color-dominant), 0 0 3px var(--color-dominant);
+  /* A solid chip, not a halo: the map tiles stay light in the dark theme, so
+   * the label carries its own surface to keep 4.5:1 on any tile. */
+  padding: 3px var(--space-xs);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-chip);
   pointer-events: none;
 }
 
@@ -6254,6 +6518,54 @@ html:not(.map-ready) .place-details__close {
 
 .place-dot--selected .place-dot__label {
   left: calc(50% + 15px);
+}
+
+/* A numbered bubble standing for the airports inside one grid cell; the
+ * mark is positioned and sized in even pixels so it sits on whole pixels. */
+.place-cluster {
+  position: relative;
+  background: transparent;
+  border: 0;
+}
+
+.place-cluster__count {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--color-dominant);
+  background: var(--color-text);
+  color: var(--color-dominant);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  box-shadow: var(--shadow-control);
+}
+
+/* The way back to the whole of France, a pill over the map. */
+.place-france {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-card-hover);
+  cursor: pointer;
+  pointer-events: auto;
+  --js-gate-display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
 }
 
 .place-status {
@@ -6983,7 +7295,13 @@ button.place-result.is-active {
  * sentence below it. */
 .modal .quiet-times-row {
   gap: var(--space-sm);
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 700px) {
+  .modal .quiet-times-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .modal .quiet-preset-row {
@@ -7217,8 +7535,8 @@ button.switch:active {
   width: 52px;
   height: 32px;
   border-radius: var(--radius-control);
-  background: var(--color-secondary);
-  border: 1px solid var(--color-border);
+  background: var(--color-switch-off);
+  border: 1px solid var(--color-switch-off);
   transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
@@ -7231,7 +7549,9 @@ button.switch:active {
   border-radius: 50%;
   background: var(--color-switch-thumb);
   box-shadow: 0 1px 3px var(--color-shadow-strong);
-  transition: transform var(--motion-fast) ease;
+  transform-origin: left center;
+  transition: transform var(--motion-spring-duration) var(--motion-spring),
+    scale var(--motion-fast) var(--ease-out);
 }
 
 .switch[aria-checked="true"] .switch__track {
@@ -7241,6 +7561,43 @@ button.switch:active {
 
 .switch[aria-checked="true"] .switch__thumb {
   transform: translateX(20px);
+  transform-origin: right center;
+  background: var(--color-switch-thumb-on);
+}
+
+/* Pressed, the thumb stretches towards the side it is about to leave from
+ * (scale, not width: nothing around it moves) and the spring above settles it
+ * on release. The button itself never scales (the generic press rule leaves
+ * .switch out): its 44px target stays 44px. */
+button.switch:active .switch__thumb {
+  scale: 1.25 1;
+}
+
+/* A ring that grows off the track and fades once per toggle; quick-switch.js
+ * adds the class on a press. */
+.switch__track::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.switch.switch--tick .switch__track::after {
+  animation: skypane-switch-ring var(--motion-spring-duration) var(--ease-out);
+}
+
+@keyframes skypane-switch-ring {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.3 1.45;
+  }
 }
 
 .settings-switch-row {
@@ -7926,6 +8283,7 @@ button.calendar-danger--solid {
     padding: 0 var(--tab-bar-pad);
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-pill);
+    isolation: isolate;
   }
 
   /* The bar's glass (fill, blur, shadow) lives on this layer behind the cells,
@@ -7956,11 +8314,12 @@ button.calendar-danger--solid {
     color: var(--color-text);
     text-decoration: none;
     font-family: var(--font-ui);
+    position: relative;
+    z-index: 1;
   }
 
-  /* The pill's horizontal margin is halved to 2px (from the vertical
-   * 8px) because "Compagnies" needs 65px in a 78px cell at 11px size;
-   * the full margin caused it to truncate with an ellipsis (measured). */
+  /* The pill spans its whole cell horizontally (only the vertical margin),
+   * so a long label such as "Compagnies" keeps the full cell width. */
   .tab-bar__pill {
     flex: 1 1 auto;
     min-width: 0;
@@ -7971,14 +8330,14 @@ button.calendar-danger--solid {
     gap: var(--space-xs);
     margin: var(--space-xs) 0;
     border-radius: var(--radius-pill);
-    transition: background-color .15s ease, color .15s ease;
+    transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
 
-  /* 11px, not the 12px/uppercase label voice — a destination is not a
-   * label. Joins the existing sub-scale exception tier beside
-   * .sparkline-axis-label (10px) and .cell-secondary. */
+  /* 12px sentence case, not the uppercase label voice: a destination is not
+   * a label. The French short labels are chosen so neighbours never touch at
+   * 360px. */
   .tab-bar__label {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: var(--weight-regular);
     line-height: 1;
     max-width: 100%;
@@ -8021,15 +8380,17 @@ button.calendar-danger--solid {
     background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   }
 
+  /* Not positioned itself: the sheet opens against the whole bar, so it is
+   * as wide as the bar. The chevron is placed against the summary. */
   .tab-bar__more {
     flex: 1 1 0;
     min-width: 0;
     display: flex;
-    position: relative;
   }
 
   .tab-bar__more > .tab-bar__link {
     flex: 1 1 auto;
+    position: relative;
   }
 
   /* Rotation is inverted from the base chevron rule: this sheet opens
@@ -8048,38 +8409,132 @@ button.calendar-danger--solid {
     transform: rotate(45deg);
   }
 
-  /* Radius only on the top corners: the sheet sits flush on the bar and
-   * its right edge meets the viewport edge, so a full --radius-card would
-   * round corners that touch something. */
+  /* The More sheet: a sheet as wide as the bar, floating just above it. Theme
+   * and language are one tap each; below them the remaining destinations, the
+   * Account row and Sign out. It scrolls inside itself on a short screen. */
   .tab-bar__more-panel {
     position: absolute;
-    bottom: 100%;
+    bottom: calc(100% + var(--space-sm));
+    left: 0;
     right: 0;
-    min-width: 180px;
-    /* Sized by its longest row, not by the 78px cell it hangs from, so a
-     * long French label stays on one line; the cap keeps it on screen. */
-    width: max-content;
-    max-width: calc(100vw - var(--space-md));
+    max-height: calc(100dvh - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom) - var(--safe-top) - var(--space-3xl));
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
-    padding: var(--space-sm);
+    gap: var(--space-md);
+    padding: var(--space-md);
     background: var(--color-secondary);
     border: 1px solid var(--color-border);
-    border-top-left-radius: var(--radius-card);
-    border-top-right-radius: var(--radius-card);
+    border-radius: var(--radius-sheet);
     box-shadow: var(--shadow-card-hover);
   }
 
-  /* The sheet's links read as the group rows used across the app: a hairline
-   * between neighbours, 48px tall, no rounded hover plate. */
+  .tab-bar__more:not([open]) > .tab-bar__more-panel {
+    display: none;
+  }
+
+  .tab-bar__pref {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .tab-bar__pref-label {
+    padding-left: var(--space-sm);
+    font-size: var(--font-caption-size);
+    font-weight: var(--weight-semibold);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .tab-bar__pref .theme-form {
+    background: var(--glass-solid);
+  }
+
+  .tab-bar__pref .theme-form .theme-option {
+    height: 44px;
+    font-size: var(--font-label-size);
+  }
+
+  .tab-bar__more-panel > .mobile-nav__link {
+    border-top: 1px solid var(--glass-hairline);
+  }
+
+  .tab-bar__links {
+    display: flex;
+    flex-direction: column;
+    padding-top: var(--space-sm);
+    margin: 0;
+    border-top: 1px solid var(--glass-hairline);
+  }
+
   .tab-bar__more-panel .mobile-nav__link {
     min-height: 48px;
     padding: 0 var(--space-sm);
     border-radius: 0;
   }
 
-  .tab-bar__more-panel .mobile-nav__link + .mobile-nav__link {
+  .tab-bar__more-panel .mobile-nav__link + .mobile-nav__link,
+  .tab-bar__links > * + * {
     border-top: 1px solid var(--glass-hairline);
+  }
+
+  /* The Account row: the page name over the signed-in e-mail (the link's
+   * data-email), a chevron at the end. */
+  .tab-bar__more-panel .tab-bar__account {
+    position: relative;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 0;
+    min-height: 56px;
+    padding-right: var(--space-lg);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__account[data-email]::after {
+    content: attr(data-email);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--font-caption-size);
+    font-weight: var(--weight-regular);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .tab-bar__account::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    right: var(--space-sm);
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid currentColor;
+    border-right: 2px solid currentColor;
+    transform: translateY(-50%) rotate(45deg);
+  }
+
+  .tab-bar__sign-out {
+    margin: 0;
+  }
+
+  .tab-bar__sign-out button[type="submit"] {
+    width: 100%;
+    display: flex;
+    text-align: left;
+    min-height: 48px;
+    justify-content: flex-start;
+    padding: 0 var(--space-sm);
+    background: none;
+    border: 0;
+    box-shadow: none;
+    color: var(--color-status-error);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__sign-out button[type="submit"]:hover {
+    background: var(--color-control-wash);
+    box-shadow: none;
   }
 
   /* The last card must never sit under the bar. Scoped to the
@@ -9223,6 +9678,83 @@ a.modal__dismiss {
   }
 }
 
+/* Bottom-sheet drag to close (modal.js): the grabber's hit area sits over
+ * the drawn pill, and the heading strip also starts a drag, so neither lets
+ * the browser claim the touch for scrolling. The body keeps native scroll.
+ * The sheet's transform is set by script while dragging. */
+.modal__grabber {
+  display: none;
+}
+
+@media (max-width: 699.98px) {
+  dialog.modal.is-modal .modal__grabber {
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 96px;
+    height: 40px;
+    margin-left: -48px;
+    touch-action: none;
+    cursor: grab;
+    z-index: 1;
+  }
+
+  dialog.modal.is-modal .modal__head {
+    touch-action: none;
+  }
+
+  dialog.modal.is-modal[data-sheet-state="dragging"] {
+    transition: none;
+    cursor: grabbing;
+    user-select: none;
+  }
+
+  dialog.modal.is-modal[data-sheet-state="springing"] {
+    transition: transform var(--motion-spring-duration) var(--motion-spring);
+  }
+
+  dialog.modal.is-modal[data-sheet-state="closing"] {
+    transition: transform var(--motion-fast) ease-in;
+  }
+}
+
+/* The calendar sheet is the same bottom sheet as every other dialog below
+ * 700px: full width, pinned to the bottom edge, rounded top corners and a
+ * grabber. The in-page card shown without scripts keeps its own rules. */
+@media (max-width: 699.98px) {
+  dialog.calendar-sheet:modal {
+    position: fixed;
+    inset: auto 0 0;
+    width: 100%;
+    max-width: none;
+    max-height: 88svh;
+    margin: 0;
+    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
+    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+    box-shadow: var(--shadow-pop);
+  }
+
+  dialog.calendar-sheet:modal::before {
+    content: "";
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 40px;
+    height: 4px;
+    margin-left: -20px;
+    border-radius: var(--radius-control);
+    background: var(--color-border);
+  }
+}
+
+/* A dialog that opens on its heading: the heading is a focus target, not a
+ * control, so it draws no ring. */
+.modal__title:focus,
+.modal__title:focus-visible {
+  outline: none;
+}
+
 /* Shared entity list (companion/ui_entity_list.py): rows of an optional
  * dot, a text block and one action. A phone shows one column; from 960px
  * the same DOM becomes columns, with the dot in the row's left padding.
@@ -9330,6 +9862,8 @@ details.row-menu[open] > .row-menu__toggle {
   background: var(--color-control-wash);
 }
 
+/* Opaque on purpose (it is not part of the glass group): its labels, some in
+ * a status colour, must hold 4.5:1 whatever scrolls behind the menu. */
 .row-menu__panel {
   position: absolute;
   top: 100%;
@@ -9516,6 +10050,33 @@ details.fleet-other {
   margin-top: var(--space-md);
 }
 
+/* Alone in its card the disclosure needs no extra gap above its summary:
+ * the card's own padding frames it evenly. */
+.page-section > details.fleet-other:first-child {
+  margin-top: 0;
+}
+
+/* The State / Settings / Access sub-tabs of a frame: a phone shows one tab's
+ * blocks (the server marks the current link and the container); from 960px the
+ * control is gone and every block shows, as before. */
+.personalisation-nav.fleet-tabs {
+  display: none;
+}
+
+@media (max-width: 959px) {
+  .personalisation-nav.fleet-tabs {
+    display: flex;
+  }
+
+  .fleet-blocks[data-fleet-tab="state"] > .fleet-block:not(.fleet-block--state),
+  .fleet-blocks[data-fleet-tab="settings"] > .fleet-block:not(.fleet-block--settings),
+  .fleet-blocks[data-fleet-tab="access"] > .fleet-block:not(.fleet-block--access),
+  .fleet-blocks[data-fleet-tab="state"] ~ .fleet-panel-access,
+  .fleet-blocks[data-fleet-tab="settings"] ~ .fleet-panel-access {
+    display: none;
+  }
+}
+
 /* The selected frame's header: its name and owner, and its actions menu. */
 .fleet-detail-head {
   display: flex;
@@ -9569,22 +10130,21 @@ a.entity-row__button:hover {
   display: block;
 }
 
-/* The pill bar scrolls sideways on a phone rather than wrapping. A script
- * (theme-preview.js) adds .is-enhanced and slides the thumb under the
- * current link; without one the current link carries the highlight. */
+/* One segmented control: four equal-ish segments in a single track that
+ * always fits its column (a label gives way with an ellipsis rather than
+ * the bar scrolling). A script (theme-preview.js) adds .is-enhanced and
+ * slides the thumb under the current link; without one the current link
+ * carries the highlight. The track matches the Flights direction chips. */
 .personalisation-nav {
   position: relative;
   display: flex;
-  gap: var(--space-xs);
+  box-sizing: border-box;
+  gap: 0;
   margin: 0 0 var(--space-lg);
   padding: 0;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-
-.personalisation-nav::-webkit-scrollbar {
-  display: none;
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  box-shadow: inset 0 0 0 1px var(--filter-track-edge, var(--color-border));
 }
 
 .personalisation-nav__thumb {
@@ -9594,44 +10154,54 @@ a.entity-row__button:hover {
 .personalisation-nav__link {
   position: relative;
   z-index: 1;
-  scroll-snap-align: center;
   display: flex;
-  flex: none;
+  flex: 1 1 auto;
   align-items: center;
+  justify-content: center;
   gap: var(--space-sm);
+  box-sizing: border-box;
+  min-width: 0;
   min-height: 44px;
-  padding: 0 var(--space-md);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-pill);
-  background: var(--glass-solid);
+  padding: 3px;
+  background: none;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
+  line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
 }
 
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .personalisation-nav__link {
-    background: var(--glass-bg);
-  }
+.personalisation-nav__link > span {
+  display: block;
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 38px;
+  padding: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 38px;
+  text-align: center;
+  border-radius: var(--radius-control);
 }
 
+/* The labels alone fit the track; the glyphs would not. */
 .personalisation-nav__link svg {
-  flex: none;
-  width: 20px;
-  height: 20px;
-}
-
-/* Arrivals reuses the plane, nose down. */
-.personalisation-nav__link[data-pers-view="arrivals"] svg {
-  transform: rotate(90deg);
+  display: none;
 }
 
 .personalisation-nav__link:hover {
   color: var(--color-text);
 }
 
-.personalisation-nav__link[aria-current="page"] {
+.personalisation-nav__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-card);
+}
+
+.personalisation-nav__link[aria-current="page"] > span {
   background: var(--color-accent);
   box-shadow: var(--shadow-control);
   color: var(--color-on-accent);
@@ -9639,12 +10209,12 @@ a.entity-row__button:hover {
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 3px;
+  bottom: 3px;
   left: 0;
   display: block;
   width: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-control);
   background: var(--color-accent);
   box-shadow: var(--shadow-control);
 }
@@ -9655,9 +10225,15 @@ a.entity-row__button:hover {
 
 /* The sliding thumb stays under the current link in the same fill, so the
  * current option reads as a pill whether or not the thumb has arrived. */
-.personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] {
-  background: var(--color-accent);
+.personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] > span {
   box-shadow: none;
+}
+
+@media (min-width: 700px) {
+  .personalisation-nav__link {
+    flex: 1 1 0;
+    font-size: var(--font-label-size);
+  }
 }
 
 .personalisation__view {
@@ -9713,6 +10289,98 @@ a.entity-row__button:hover {
 
 .personalisation-card .special-looks .empty-state--compact {
   margin-bottom: var(--space-sm);
+}
+
+/* Special looks and Calendar: no card around the view. The rows form one
+ * glass group like every other list, and the add row sits under it as a
+ * dashed outline. */
+.personalisation .personalisation-card--list.page-section,
+.personalisation .personalisation-card--list.page-section:hover,
+.personalisation .personalisation-card--list.page-section:focus-within {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.personalisation-card--list > .personalisation-card__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.personalisation-card--list .special-looks > .section-caption {
+  margin: 0 0 var(--space-md);
+  padding: 0 var(--space-xs);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) {
+  overflow: hidden;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) > .special-row {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) > .special-row:first-child {
+  border-top: 0;
+}
+
+.personalisation-card--list .special-list--add {
+  margin-top: var(--space-md);
+}
+
+.personalisation-card--list .special-row--add,
+.personalisation-card--list .special-row--add:last-child {
+  padding: 0;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.personalisation-card--list .special-add:not([open]) > .special-add__summary {
+  min-height: 56px;
+  border-radius: var(--radius-card);
+  background: none;
+  color: var(--color-text);
+}
+
+.personalisation-card--list .special-add:not([open]) > .special-add__summary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  color: var(--color-text);
+}
+
+.personalisation-card--list .special-row--add:has(.special-add[open]) {
+  padding: 0 var(--space-md);
+  border-style: solid;
+}
+
+/* While nothing is connected, "Connect a calendar" is the same dashed add
+ * row; connected, the button stays the quiet "Choose calendar". */
+.personalisation-card--list a.calendar-manage--primary {
+  background: none;
+  color: var(--color-text);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.personalisation-card--list a.calendar-manage--primary::before {
+  content: "+";
+  margin-right: var(--space-sm);
+  font-size: var(--font-body-size);
+  line-height: 1;
+}
+
+.personalisation-card--list a.calendar-manage--primary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
 .personalisation-switch {
@@ -10502,7 +11170,8 @@ dialog.access-sheet[open],
   grid-template-areas:
     "user user"
     "role active"
-    "frames seen";
+    "frames seen"
+    "invite invite";
   position: relative;
   align-items: center;
   gap: var(--space-sm) var(--space-md);
@@ -10540,13 +11209,19 @@ dialog.access-sheet[open],
 
 .users-cell--user {
   grid-area: user;
-  padding-right: 44px;
   display: flex;
   align-items: center;
   gap: var(--space-sm);
 }
 
+/* Room for the "..." menu, only on a row that has one. */
+.users-row--menu .users-cell--user {
+  padding-right: 44px;
+}
+
 .users-cell--role { grid-area: role; }
+.users-cell--invite { grid-area: invite; }
+.users-cell--invite:empty { display: none; }
 .users-cell--active { grid-area: active; justify-self: end; }
 .users-cell--menu {
   position: absolute;
@@ -10578,25 +11253,89 @@ dialog.access-sheet[open],
   font-weight: var(--weight-semibold);
 }
 
+/* Email on the first line, cut with an ellipsis rather than broken
+ * mid-word (the full address is the title), the status pill at its end;
+ * the "You" mark under it. */
 .users-who {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-sm);
   min-width: 0;
 }
 
 .users-email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
+}
+
+.users-status {
+  display: flex;
 }
 
 .users-pills {
   display: flex;
   flex-wrap: wrap;
+  grid-column: 1 / -1;
   gap: var(--space-xs);
 }
 
 .users-pills:empty {
   display: none;
+}
+
+/* Status pills reuse the battery and charging pill recipes: the status colour
+ * mixed toward the text colour on a tint of itself, so the small label holds
+ * 4.5:1 in both themes. */
+.users-pill--active {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-ok) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-ok) 16%, transparent);
+}
+
+.users-pill--invited {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-warn) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-warn) 18%, var(--color-dominant));
+}
+
+.users-pill--disabled {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-error) 70%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-error) 16%, var(--color-dominant));
+}
+
+/* The copy button: full-width on a phone card, hidden without script. */
+.users-copy {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+}
+
+.js .users-copy {
+  display: flex;
+}
+
+.users-copy .copy-btn__label {
+  display: inline;
+  position: static;
+  transform: none;
+  margin: 0;
+  font-size: inherit;
 }
 
 .users-role-form,
@@ -10684,6 +11423,7 @@ button.row-menu__item--destructive:hover {
 @media (min-width: 70rem) {
   .users-table {
     display: table;
+    table-layout: fixed;
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
@@ -10735,24 +11475,66 @@ button.row-menu__item--destructive:hover {
     border-bottom: 0;
   }
 
-  .users-cell--user {
+  .users-cell--user,
+  .users-row--menu .users-cell--user {
     display: table-cell;
     padding-right: var(--space-md);
   }
 
-  .users-col--user {
-    width: 34%;
-  }
+  .users-col--user { width: 34%; }
+  .users-col--role { width: 20%; }
+  .users-col--frames { width: 12%; }
+  .users-col--seen { width: 12%; }
+  .users-col--active { width: 8%; }
+  .users-col--invite { width: 56px; }
+  .users-col--menu { width: 56px; }
 
   .users-avatar {
     display: inline-grid;
     margin-right: var(--space-sm);
   }
 
+  /* The email takes the whole first line; the status and "You" pills sit
+   * under it. */
   .users-who {
-    display: inline-flex;
+    display: inline-grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    justify-items: start;
     vertical-align: middle;
     max-width: calc(100% - 48px);
+  }
+
+  .users-email {
+    grid-column: 1 / -1;
+    max-width: 100%;
+  }
+
+  .users-pills {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .users-cell--invite:empty {
+    display: table-cell;
+  }
+
+  /* An icon-only button in the table; its name is the label, read aloud. */
+  .users-copy {
+    width: 44px;
+    padding: 0;
+  }
+
+  .users-copy .copy-btn__label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .users-copy.copy-btn--copied {
+    border-color: var(--color-accent);
   }
 
   .users-cell--active .users-active-label {
@@ -11070,10 +11852,12 @@ a.airlines-name-it {
     border-bottom: 1px solid var(--glass-hairline);
   }
 
+  /* Counts and dates stay on one line. */
   .airlines-cell--views,
   .airlines-cell--seen,
   .airlines-cell--menu {
     justify-self: auto;
+    white-space: nowrap;
   }
 
   .airlines-col {
@@ -11088,11 +11872,16 @@ a.airlines-name-it {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 28%; }
-  .airlines-col--prefixes { width: 14%; }
-  .airlines-col--art { width: 22%; }
-  .airlines-col--views { width: 10%; }
-  .airlines-col--menu { width: 112px; }
+  .airlines-col--name { width: 37%; }
+  .airlines-col--prefixes { width: 11%; }
+  .airlines-col--art { width: 14%; }
+  .airlines-col--views { width: 8%; }
+  .airlines-col--menu { width: 96px; }
+
+  /* The airline name input ends in an ellipsis rather than a hard clip. */
+  .airlines-name input[type="text"] {
+    text-overflow: ellipsis;
+  }
 
   a.airlines-name-it {
     padding: 0 var(--space-sm);
@@ -11242,6 +12031,7 @@ a.airlines-name-it {
   .runway-card,
   .space-switch,
   .filter-bar__chips,
+  .personalisation-nav,
   .look-seg,
   .place-modes,
   .map-ready .place-modes,
@@ -11257,7 +12047,6 @@ a.airlines-name-it {
   .calendar-sheet,
   .lightbox,
   dialog.modal,
-  .row-menu__panel,
   .info-tip__bubble,
   .dashboard-sidebar,
   .dirty-bar {
@@ -11563,6 +12352,35 @@ a.airlines-name-it {
 
 .hero__picture {
   min-width: 0;
+}
+
+/* A frame that has sent no picture yet: the picture's box in token colours
+ * (never the white image backdrop) with the frame glyph and one short line. */
+.preview-empty {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  padding: var(--space-sm);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-align: center;
+}
+
+.preview-empty__heading {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+}
+
+.preview-empty__glyph {
+  opacity: .7;
 }
 
 .hero__picture .preview-frame__image {
@@ -12122,6 +12940,10 @@ dialog.modal:focus-visible {
 }
 
 /* Releases: the version list is one glass group of expandable rows. */
+.update-group {
+  container: update-rows / inline-size;
+}
+
 .update-group > li + li {
   border-top: 1px solid var(--glass-hairline);
 }
@@ -12132,4 +12954,345 @@ dialog.modal:focus-visible {
 
 .update-group .update-row__body {
   padding: 0 var(--space-md) var(--space-md);
+}
+
+/* The wake interval is typed as a number or dragged on the slider: the
+ * browser's own tiny spinner would be a third control for one value. */
+#wake-interval-s {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+#wake-interval-s::-webkit-outer-spin-button,
+#wake-interval-s::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* The one onward link of the error pages: a real primary button. */
+.error-actions {
+  margin: var(--space-lg) 0 0;
+}
+
+.error-home-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  min-width: 44px;
+  padding: 0 var(--space-xl);
+  box-sizing: border-box;
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  box-shadow: var(--shadow-control);
+}
+
+.error-home-button:hover {
+  background: var(--color-accent-hover);
+}
+
+@media (max-width: 599.98px) {
+  .error-home-button {
+    display: flex;
+    width: 100%;
+  }
+}
+
+/* A System topic's own row already carries the topic's title, so its section
+ * label only names the group for assistive technology. */
+.system-topic > .section-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Motion. Everything below moves only `transform`, `scale`, `opacity` or a
+ * filter, so nothing around it shifts, and the global reduced-motion override
+ * at the top of the file already collapses its durations; the infinite loop
+ * and the blur-up are switched off outright in the reduced-motion block at the
+ * end of this section. */
+
+/* Press feedback on buttons, rows and chips: pressed, the control shrinks to
+ * 97 % within --motion-press; released, the transition each of them declares
+ * (their own colours plus `scale`) springs it back. The press drops the other
+ * transitions for its few milliseconds so the shrink is immediate. */
+button:not(.value-control__handle):not(.switch):active,
+.mobile-nav__link:active,
+.sidebar-link:active,
+.history-card:active,
+.filter-chip__box:active,
+.tab-bar__pill:active,
+.frame-menu__button:active,
+.filter-bar__search:active {
+  scale: 0.97;
+  transition: scale var(--motion-press) ease-out;
+}
+
+.history-card {
+  transition: scale var(--motion-spring-duration) var(--motion-spring);
+}
+
+/* Loading placeholders. A script marks the container of a picture that has not
+ * arrived yet with .is-loading: a soft band sweeps across it (a translateX of
+ * a pseudo-element, clipped to the container), and the picture itself fades in
+ * once from a blur when it lands (.is-revealed; no scale, so the
+ * picture's box is the same before, during and after). Without the script nothing is
+ * marked and the picture simply appears. */
+.is-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.history-card__thumb.is-loading {
+  overflow: visible;
+  clip-path: inset(-3px round var(--radius-control));
+}
+
+.is-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 30%,
+    color-mix(in srgb, var(--color-text) 14%, transparent) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  animation: skypane-shimmer var(--motion-shimmer) linear infinite;
+}
+
+@keyframes skypane-shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.is-revealed {
+  animation: skypane-blur-up var(--motion-reveal) var(--ease-out) both;
+}
+
+@keyframes skypane-blur-up {
+  from {
+    filter: blur(16px);
+    opacity: 0.35;
+  }
+  to {
+    filter: blur(0);
+    opacity: 1;
+  }
+}
+
+/* The tab bar's sliding pill. Without the script the active link keeps its own
+ * pill; once the script has placed the slider it takes over the active
+ * background. The slider is moved with transform only: the script sets a
+ * whole-pixel translate, the spring glides it, and a short stretch rides on
+ * `scale`. */
+.tab-bar__slider {
+  display: none;
+  view-transition-name: skypane-tab-slider;
+}
+
+@media (max-width: 959.98px) {
+  .tab-bar__slider {
+    display: block;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 0;
+    border-radius: var(--radius-pill);
+    background: var(--bar-pill-bg);
+    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
+    pointer-events: none;
+    opacity: 0;
+  }
+
+  .tab-bar--slider .tab-bar__slider {
+    opacity: 1;
+  }
+
+  .tab-bar--slider .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .tab-bar__slider--glide {
+    transition: transform var(--motion-spring-duration) var(--motion-spring);
+  }
+
+  .tab-bar__slider--stretch {
+    animation: skypane-slider-stretch var(--motion-spring-duration) var(--ease-out);
+  }
+}
+
+@keyframes skypane-slider-stretch {
+  40% {
+    scale: 1.1 0.94;
+  }
+}
+
+/* Pull to refresh (Flights, phone). The list follows the finger with a
+ * transform only; the settle back is the spring. pan-up leaves the browser
+ * only an upward pan (scrolling down) so a downward drag at the top reaches
+ * the script, and only while the page sits at the top (.is-pullable). */
+.history-cards.is-pullable {
+  touch-action: pan-down;
+}
+
+.history-cards.is-pull-settling {
+  transition: transform var(--motion-spring-duration) var(--motion-spring);
+}
+
+body.is-pulling {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.pull-indicator {
+  position: fixed;
+  top: var(--pull-top, var(--space-xl));
+  left: 50%;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 36px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-dominant);
+  box-shadow: 0 4px 14px var(--color-shadow-strong);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, calc(var(--pull-offset, 0px) / 2 - 18px));
+}
+
+.pull-indicator.is-pull-settling {
+  transition: opacity var(--motion-fast) ease-out,
+    transform var(--motion-spring-duration) var(--motion-spring);
+}
+
+.pull-indicator__icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+@media (min-width: 700px) {
+  .pull-indicator {
+    display: none;
+  }
+}
+
+/* The Flights picture dialog shows the picture alone: no card, no border and
+ * no glass behind it (the (0,2,0) selector beats the dark-theme .lightbox
+ * rules wherever they sit). The picture carries the soft shadow;
+ * the caption and the Close button sit under it over the scrim. */
+.lightbox.lightbox--picture {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+  overflow: visible;
+  width: auto;
+  max-width: calc(100vw - var(--space-md) * 2);
+}
+
+.lightbox.lightbox--picture[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.lightbox--picture .lightbox__image:not([hidden]) {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100svh - 10rem);
+  margin: 0;
+  border-radius: var(--radius-frame-pic);
+  box-shadow: var(--shadow-pop);
+}
+
+.lightbox--picture .lightbox__caption {
+  margin: 0;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: var(--color-dominant);
+  color: var(--color-text);
+}
+
+.lightbox--picture .lightbox__caption:empty {
+  display: none;
+}
+
+.lightbox--picture button[data-view-panel-close] {
+  min-height: 44px;
+  min-width: 44px;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+}
+
+/* The shared element of the thumbnail-to-picture transition: whichever of the
+ * two pictures carries the class owns the name. The script moves the class
+ * (never an inline style). */
+.vt-pic {
+  view-transition-name: skypane-flight-pic;
+}
+
+/* Airline card unlock: a card the script plays once gets a glint layer and
+ * spark dots; without the script (or with reduced motion) the card is
+ * already shown as it ends up. The item is the perspective stage. */
+.collection-item[data-unlock] {
+  perspective: 900px;
+  position: relative;
+}
+
+.collection-item[data-unlock] .collection-card {
+  position: relative;
+}
+
+.unlock-glint {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--radius-card);
+  pointer-events: none;
+}
+
+.unlock-glint__sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg, transparent 35%, color-mix(in srgb, var(--color-switch-thumb) 55%, transparent) 50%, transparent 65%);
+  transform: translateX(-120%);
+}
+
+.unlock-spark {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 3;
 }

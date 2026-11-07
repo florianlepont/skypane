@@ -252,7 +252,7 @@ def test_actions_are_real_controls_that_work_without_scripts(server, session):
         assert fields == {"state": state, "return_to": "/"}, "%s: got %r" % (key, fields)
     stale = flash_toast(_page(
         server, session, "/airlines?flash=%s" % flash.FLASH_KEY_MANUAL_PREFIX_STALE))
-    assert stale.select_one("a.toast__action").attrs.get("href") == layout.HEALTH_ROUTE
+    assert stale.select_one("a.toast__action").attrs.get("href") == "/fleet?view=system"
     plain = flash_toast(_page(server, session, "/display?flash=%s" % flash.FLASH_KEY_SAVE_FAILED))
     assert not plain.select(".toast__action"), "a flash with no follow-up offers no action"
 
@@ -277,11 +277,11 @@ def test_undo_round_trip_without_scripts(make_app_server):
 
 
 def test_toast_hooks_render_only_on_the_flash_toast_not_on_persistent_states(server, session):
-    """a persistent docked toast (Health's anomaly) carries neither the toast.js hook nor a
+    """a persistent docked toast (the System view's anomaly) carries neither the toast.js hook nor a
     dismiss control nor a timer, so it can never be hidden by script"""
-    body = _page(server, session, layout.HEALTH_ROUTE)
+    body = _page(server, session, "/fleet?view=system")
     docked = parse_html(body).select(".toast--docked")
-    assert docked, "expected the fresh install's Health page to show its anomaly state"
+    assert docked, "expected the fresh install's System view to show its anomaly state"
     for node in docked:
         assert layout.TOAST_ATTR not in node.attrs
         assert not node.select(".toast__dismiss") and not node.select(".toast__timer")

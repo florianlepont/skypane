@@ -19,7 +19,7 @@ STRANGER_EMAIL = "stranger@example.test"
 
 PAGES = ("/", "/display", "/detection", "/flights", "/airlines")
 LEGACY_REDIRECTS = ("/settings", "/history", "/preview")
-ADMIN_FRAME_GETS = ("/device", "/update", "/health", "/airlines/manage")
+ADMIN_FRAME_GETS = ("/update", "/airlines/manage")
 ADMIN_GETS = ("/fleet", "/users", "/audit")
 
 
@@ -186,6 +186,13 @@ def test_a_co_manager_saves_a_detection_runway(rig):
 def test_a_co_manager_gets_404_for_the_administrator_frame_pages(rig, page):
     status, body = rig.unknown("GET")
     assert rig.get("co", rig.prefix() + page)[::2] == (status, body)
+
+
+@pytest.mark.parametrize("page,target", [("/device", "/display"), ("/health", "/")])
+def test_a_co_manager_is_moved_from_the_retired_frame_pages_to_the_frames_own_pages(
+        rig, page, target):
+    status, headers, _body = rig.get("co", rig.prefix() + page)
+    assert (status, headers["Location"]) == (303, rig.prefix() + target)
 
 
 @pytest.mark.parametrize("path", ADMIN_GETS)

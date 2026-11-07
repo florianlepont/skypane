@@ -33,10 +33,10 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    co_managers, console_routes, device_scope, user_pairing, layout, page_policy, route_types,
+    co_managers, console_routes, device_scope, fleet_moves, user_pairing, layout, page_policy, route_types,
     static_files, theme_preview)
 from companion.pages import (
-    airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, health_page, place_page,
+    airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, place_page,
     history_page, home_page, personalisation_cards, update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
@@ -175,17 +175,13 @@ _GET_ROUTES = (
             OWNER_DEVICE),
         Route(
             "GET", Exact(DEVICE_ROUTE),
-            lambda h, m: h._render_tab(
-                DEVICE_ROUTE,
-                lambda ctx: config_page.render(ctx, scope=config_page.SCOPE_DEVICE),
-                m.device),
-            ADMIN_ONLY),
+            fleet_moves.retired_frame_page, ADMIN_ONLY),
         Route(
             "GET", Exact(FLIGHTS_ROUTE),
             lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(HEALTH_ROUTE),
-            lambda h, m: h._render_tab(HEALTH_ROUTE, health_page.render, m.device), ADMIN_DEVICE),
+            fleet_moves.retired_frame_page, ADMIN_DEVICE),
         Route(
             "GET", Exact(AIRLINES_ROUTE),
             lambda h, m: airline_collection_page.get(h, m.device), OWNER_DEVICE),
@@ -194,10 +190,11 @@ _GET_ROUTES = (
             lambda h, m: h._render_tab(MANAGE_ROUTE, airlines_page.render, m.device), ADMIN_DEVICE),
         Route(
             "GET", Exact(UPDATE_ROUTE),
-            lambda h, m: h._render_tab(
-                UPDATE_ROUTE,
-                lambda ctx: update_page.render(ctx, h._requested_update_type()),
-                m.device),
+            lambda h, m: fleet_moves.retired_update_page(
+                h, m, lambda: h._render_tab(
+                    UPDATE_ROUTE,
+                    lambda ctx: update_page.render(ctx, h._requested_update_type()),
+                    m.device)),
             ADMIN_ONLY),
         # The pre-refactor page routes survive as fixed 303s so a stale
         # bookmark or link still lands somewhere useful. The targets are

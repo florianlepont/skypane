@@ -220,6 +220,12 @@ CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
 # shell because any page can hold a dialog, a menu or a switcher.
 MODAL_SCRIPT_SRC = "/static/modal.js"
 
+# Must equal companion/app.py's MOTION_SCRIPT_ROUTE exactly. The motion layer's
+# script: the tab bar's sliding pill and the placeholder and blur-up of a
+# loading picture. Registered on the shell because every page has the bar and
+# most have a picture; every page works the same without it.
+MOTION_SCRIPT_SRC = "/static/motion.js"
+
 # Must equal companion/static_files.py's LEAFLET_SCRIPT_ROUTE and
 # PLACE_MAP_SCRIPT_ROUTE. The vendored map library and the first-party glue
 # that drives it; only the Location and detection page loads them, the
@@ -1058,6 +1064,29 @@ def icon_html(icon_id, size=20, extra_class=""):
         '<svg class="%s" width="%d" height="%d" aria-hidden="true" '
         'focusable="false"><use href="#%s"></use></svg>'
     ) % (css_class, size, size, icon_id)
+
+
+_MSG_FILL_IN = i18n.msg("validation.fill_in", "Please fill in this field.")
+_MSG_CHOOSE = i18n.msg("validation.choose", "Please choose an option.")
+_MSG_EMAIL_MISSING = i18n.msg("validation.email_missing", "Please enter an email address.")
+_MSG_EMAIL_INVALID = i18n.msg(
+    "validation.email_invalid", "Please enter a valid email address, such as name@example.com.")
+_VALIDATION_KINDS = {
+    "text": (_MSG_FILL_IN, None),
+    "select": (_MSG_CHOOSE, None),
+    "email": (_MSG_EMAIL_MISSING, _MSG_EMAIL_INVALID),
+}
+
+
+def validation_attrs(kind):
+    """Attributes (with a leading space) carrying the translated form
+    validation messages submit-guard.js shows in place of the browser's own
+    English ones. `kind` is "text", "select" or "email"."""
+    missing, invalid = _VALIDATION_KINDS[kind]
+    attrs = ' data-msg-missing="%s"' % escape_html(i18n.t(missing))
+    if invalid is not None:
+        attrs += ' data-msg-invalid="%s"' % escape_html(i18n.t(invalid))
+    return attrs
 
 
 def escape_html(value):

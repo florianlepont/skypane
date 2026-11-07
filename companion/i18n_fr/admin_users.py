@@ -29,6 +29,18 @@ MESSAGES = {
     "admin_users.n_frames": "%d cadres",
     "admin_users.one_frame": "1 cadre",
     "admin_users.you": "Vous",
+    "admin_users.status_active": "Actif",
+    "admin_users.co_manager_suffix": "co-gestionnaire",
+    "admin_users.self_lock": "Vous ne pouvez pas vous désactiver ni vous rétrograder.",
+    "admin_users.copy_invitation": "Copier le message d’invitation",
+    "admin_users.copied": "Copié",
+    "admin_users.col_invitation": "Message d’invitation",
+    "admin_users.invitation_message":
+        "Bonjour, vous êtes invité(e) sur SkyPane. Ouvrez {url} et connectez-vous "
+        "avec l’adresse {email}.",
+    "admin_users.invitation_message_no_url":
+        "Bonjour, vous êtes invité(e) sur SkyPane. Ouvrez l’application et "
+        "connectez-vous avec l’adresse {email}.",
     "admin_users.enter_a_valid_email_address": "Saisissez une adresse e-mail valide.",
     "admin_users.that_email_is_already_invited": "Cet e-mail est déjà invité.",
     "admin_users.choose_a_role": "Choisissez un rôle.",

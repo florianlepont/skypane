@@ -187,6 +187,10 @@ def _seed_many_releases(state_dir, scenario=None):
     atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
 
 
+FLEET_ROUTE = "/fleet"
+FLEET_FRAME_HREF = "/fleet?frame=live"
+
+
 def _page_has_no_horizontal_overflow(page):
     return page.evaluate(
         "() => document.documentElement.scrollWidth <= "
@@ -271,11 +275,11 @@ def _click_install_form_no_js(page):
 
 
 # ==========================================================================
-# JS confirm-dialog misclick guard versus the server-side gate.
+# Install goes through the server-side confirmation page.
 # ==========================================================================
 
 
-def test_js_confirm_accept_lands_on_server_confirm_page_then_schedules(
+def test_install_lands_on_server_confirm_page_then_schedules(
         new_context, make_app_server):
     server = make_app_server(seed=_seed_two_releases)
     context = new_context(viewport=VIEWPORT_PHONE)
@@ -283,14 +287,13 @@ def test_js_confirm_accept_lands_on_server_confirm_page_then_schedules(
         page = context.new_page()
         base_url = server.base_url()
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
 
-        page.once("dialog", lambda dialog: dialog.accept())
         _install_submit(page).click()
         page.wait_for_load_state("networkidle")
         assert page.url == base_url + update_page.INSTALL_ROUTE, (
-            "expected accepting the native confirm() to submit the form "
-            "with no 'confirm' field, landing on the server confirm page")
+            "expected the Install click to submit the form with no 'confirm' "
+            "field, landing on the server confirm page")
         assert fr.load_registry(server.state_dir)["schedule"] is None, (
             "the server confirm page must not have scheduled anything yet")
 
@@ -303,25 +306,6 @@ def test_js_confirm_accept_lands_on_server_confirm_page_then_schedules(
         assert registry["schedule"]["state"] == "scheduled"
         assert registry["schedule"]["version"] == _AVAILABLE_VERSION
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 1
-    finally:
-        context.close()
-
-
-def test_js_confirm_dismiss_sends_no_request_registry_unchanged(new_context, make_app_server):
-    server = make_app_server(seed=_seed_two_releases)
-    context = new_context(viewport=VIEWPORT_PHONE)
-    try:
-        page = context.new_page()
-        base_url = server.base_url()
-        _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
-
-        page.once("dialog", lambda dialog: dialog.dismiss())
-        _install_submit(page).click()
-        page.wait_for_timeout(300)
-        assert page.url == base_url + layout.UPDATE_ROUTE, (
-            "a dismissed confirm() must never submit the form")
-        assert fr.load_registry(server.state_dir)["schedule"] is None
     finally:
         context.close()
 
@@ -352,9 +336,8 @@ def test_full_flow_install_then_scheduled_then_cancel_returns_to_available(
         page = context.new_page()
         base_url = server.base_url()
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
 
-        page.once("dialog", lambda dialog: dialog.accept())
         _install_submit(page).click()
         page.wait_for_load_state("networkidle")
         page.locator(
@@ -416,7 +399,7 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         if page.viewport_size["width"] != viewport["width"]:
             raise AssertionError("expected the measurement to be taken at %dpx" % (viewport["width"],))
 
@@ -492,7 +475,7 @@ def test_version_rows_fit_at_phone_widths_with_no_overflow(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         where = "%dpx/%s" % (viewport["width"], lang)
 
         rows = page.locator("details.update-row")
@@ -533,7 +516,7 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         where = "%dpx/%s" % (viewport["width"], lang)
 
         badge = page.locator(".update-row__badge:visible")
@@ -595,7 +578,7 @@ def test_card_and_eligible_releases_at_every_width(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         where = "%dpx/%s" % (viewport["width"], lang)
 
         card = page.locator("section.update-cta")
@@ -618,14 +601,13 @@ def test_card_and_eligible_releases_at_every_width(
             " return [s.outlineStyle, parseFloat(s.outlineWidth)]; }")
         assert outline[0] != "none" and outline[1] >= 2, "no focus ring at %s: %r" % (where, outline)
 
-        page.on("dialog", lambda dialog: dialog.accept())
         with page.expect_navigation():
             install.click()
         assert update_page.INSTALL_ROUTE in page.url
-        cancel = page.locator('main a[href="%s"]' % layout.UPDATE_ROUTE)
+        cancel = page.locator('main a[href="%s"]' % FLEET_FRAME_HREF)
         with page.expect_navigation():
             cancel.click()
-        assert page.url.endswith(layout.UPDATE_ROUTE)
+        assert page.url.endswith(FLEET_FRAME_HREF)
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 0, (
             "cancelling at the confirmation page must leave nothing scheduled at %s" % where)
     finally:
@@ -657,7 +639,7 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         where = "%dpx/%s" % (width, lang)
 
         rows = page.locator("details.update-row")
@@ -703,7 +685,7 @@ def test_older_release_rollback_button_is_quiet_and_only_newer_installs_use_the_
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": "fr", "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         accent = page.evaluate(_ACCENT_PROBE)
 
         primary = page.locator(".update-cta form button[type=submit]")
@@ -732,7 +714,7 @@ def test_rows_open_and_the_install_flow_works_with_scripts_blocked(
     server = make_app_server(seed=_seed_many_releases)
     base_url = server.base_url()
     with _no_js_page(
-            new_context, base_url, layout.UPDATE_ROUTE, viewport=VIEWPORT_PHONE,
+            new_context, base_url, FLEET_ROUTE, viewport=VIEWPORT_PHONE,
             reduced_motion="reduce") as page:
         rows = page.locator("details.update-row")
         assert rows.count() == 12
@@ -744,7 +726,7 @@ def test_rows_open_and_the_install_flow_works_with_scripts_blocked(
         button = oldest.locator("form button[type=submit]")
         assert button.is_visible() and button.inner_text() == "Roll back to %s" % _MANY_OLDEST
         with page.expect_navigation():
-            page.evaluate(_CLICK_FORM_SUBMIT_PROBE_IN, ".update-group > li:last-child form")
+            page.evaluate(_CLICK_FORM_SUBMIT_PROBE_IN, ".update-rows > li:last-child form")
         assert page.url == base_url + update_page.INSTALL_ROUTE
         assert _MANY_OLDEST in page.locator("main").inner_text()
         assert fr.load_registry(server.state_dir)["schedule"] is None, (
@@ -764,7 +746,7 @@ def test_in_flight_states_fit_and_offer_only_what_the_server_would_accept(
         page = context.new_page()
         base_url = server.base_url()
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         where = "%s at %dpx" % (scenario, width)
         assert _page_has_no_horizontal_overflow(page), "overflow: " + where
         assert page.locator("section.update-cta").count() == 1
@@ -794,7 +776,7 @@ def test_desktop_sidebar_frame_tools_group_fits_with_no_overlap(new_context, ser
     try:
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + layout.HEALTH_ROUTE)
+        page.goto(server.base_url() + FLEET_ROUTE)
         assert page.locator(".nav-group--frame-tools").count() == 0
         links = page.locator(".sidebar-nav a.sidebar-link")
         count = links.count()
@@ -867,7 +849,7 @@ def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         page = context.new_page()
         base_url = server.base_url()
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         other_label = fr.hardware.get_profile(_OTHER_TYPE, _SIM_ENV).label
         assert page.locator(_CHOOSER + " button").count() == 2
         assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').count() == 1
@@ -906,7 +888,7 @@ def test_chooser_is_keyboard_operable(new_context, two_type_server):
         page = context.new_page()
         base_url = two_type_server.base_url()
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         for _ in range(40):
             page.keyboard.press("Tab")
             if page.evaluate(
@@ -936,7 +918,7 @@ def test_chooser_fits_without_horizontal_overflow(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + layout.UPDATE_ROUTE)
+        page.goto(base_url + FLEET_ROUTE)
         assert page.locator(_CHOOSER).count() == 1
         sizes = page.evaluate(
             "() => ({doc: document.documentElement.scrollWidth,"

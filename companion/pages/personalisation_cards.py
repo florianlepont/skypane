@@ -3,7 +3,7 @@ Special looks, Calendar) and the one view it points at. Each view has its own
 address; Departures is the page's own address.
 
 Departures and Arrivals are two views of the look picker. Special looks and
-Calendar are cards with a title. Every view is a section carrying the
+Calendar are one glass group of rows with an add row under it. Every view is a section carrying the
 dirty-state attribute, so the save bar names the sections that changed. The
 views only compose markup built by the settings modules; none of them decides
 what is saved.
@@ -47,10 +47,12 @@ RETIRED_VIEW_ROUTES = (layout.DISPLAY_SCREEN_ROUTE,)
 
 
 def _card_html(slug, title, body_html):
-    """One card: a section named after `slug`, its 16px title and the body."""
+    """One list view: a section named after `slug` whose title stays for
+    assistive technology and the save bar, then the body. The body is a
+    glass group of rows, so the section carries no card chrome of its own."""
     return (
-        '<section class="page-section personalisation-card" id="%s-%s" '
-        'aria-labelledby="%s-%s-title" %s="%s">'
+        '<section class="page-section personalisation-card personalisation-card--list" '
+        'id="%s-%s" aria-labelledby="%s-%s-title" %s="%s">'
         '<h2 class="text-heading personalisation-card__title" id="%s-%s-title">%s</h2>'
         "%s</section>"
     ) % (

@@ -236,7 +236,7 @@ def test_the_map_data_contract_with_a_saved_place_and_with_an_airport(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?airport=LFPG")
     attrs = _attrs(_tag(page, r'<div id="place-map"[^>]*>'))
     airport = airports.find_airport("LFPG")
-    assert attrs["data-airport"] == "LFPG" and attrs["data-zoom"] == "13"
+    assert attrs["data-airport"] == "LFPG" and attrs["data-zoom"] == "12"
     assert attrs["data-lat"] == "%.4f" % airport.lat
     assert attrs["data-mode"] == "runway"
 

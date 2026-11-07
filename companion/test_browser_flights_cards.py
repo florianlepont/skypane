@@ -113,12 +113,14 @@ def test_picture_action_is_a_44px_keyboard_operable_lightbox_trigger(new_context
         if shown != expected_src:
             raise AssertionError("expected the lightbox to show %r, got %r" % (expected_src, shown))
         page.keyboard.press("Escape")
-        if dialog.evaluate("el => el.open"):
-            raise AssertionError("expected Escape to close the lightbox")
+        page.wait_for_function(
+            "s => !document.querySelector(s).open", arg=LIGHTBOX, timeout=10000)
         if not action.evaluate("el => el === document.activeElement"):
             raise AssertionError("expected focus to return to the picture action")
         page.locator(FIRST_ACTION).nth(1).click()
-        if not dialog.evaluate("el => el.open") or "/gallery/" in page.url:
+        page.wait_for_function(
+            "s => document.querySelector(s).open", arg=LIGHTBOX, timeout=10000)
+        if "/gallery/" in page.url:
             raise AssertionError("expected a tap to open the lightbox in place")
     finally:
         context.close()
@@ -441,7 +443,7 @@ def test_search_collapses_expands_and_keeps_44px_targets(new_context, server, vi
         context.close()
 
 
-def test_desktop_search_is_always_open_beside_the_chips(new_context, server):
+def test_desktop_search_is_always_open_in_the_title_row(new_context, server):
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -449,10 +451,13 @@ def test_desktop_search_is_always_open_beside_the_chips(new_context, server):
         page.goto(server.base_url() + "/flights")
         page.locator(".filter-bar__search").wait_for(state="visible")
         field = page.locator(".filter-bar__search").bounding_box()
-        chips = page.locator(".filter-bar__chips").bounding_box()
-        if field["width"] < 300 or abs(field["y"] - chips["y"]) > 12 or field["x"] < chips["x"]:
-            raise AssertionError("expected an open search right of the chips, got %r %r"
-                                 % (field, chips))
+        header = page.locator(".page-header").bounding_box()
+        title = page.locator(".page-title").bounding_box()
+        if (field["width"] < 300 or abs(field["y"] - header["y"]) > 1
+                or field["x"] < title["x"] + title["width"]
+                or field["y"] + field["height"] > header["y"] + header["height"] + 1):
+            raise AssertionError("expected an open search right of the title, got %r %r %r"
+                                 % (field, title, header))
     finally:
         context.close()
 

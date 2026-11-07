@@ -8,7 +8,7 @@ from companion import auth
 from companion import layout
 from companion.test_device_helpers import get, start_fleet_app
 
-PAGES = ("/", "/health", "/audit", "/update", "/flights", "/account")
+PAGES = ("/", "/fleet", "/fleet?view=system", "/audit", "/flights", "/account")
 # The Location page has no empty state of its own: the map is its empty canvas. Its airport list's
 # "nothing matches" state is the one left to measure.
 FILTERED_PAGES = ("/detection?q=zzzzqqq",)
@@ -41,7 +41,7 @@ def test_empty_pages_use_the_compact_scale(make_app_server, path, lang):
     code, _, body = companion_app_server.get(server, path, cookie=cookie)
     assert code == 200
     blocks = _empty_states(body.decode("utf-8"))
-    assert blocks or path == "/health", "%s shows no empty state to measure" % path
+    assert blocks or path.startswith("/fleet"), "%s shows no empty state to measure" % path
     _assert_compact_or_filter(blocks, path)
 
 
@@ -61,7 +61,7 @@ def test_the_locations_page_a_refused_submission_shows_is_compact(make_app_serve
 def test_health_coverage_gaps_empty_state_is_compact(make_app_server):
     server = make_app_server()
     cookie = companion_app_server.login(server)
-    _, _, body = companion_app_server.get(server, "/health", cookie=cookie)
+    _, _, body = companion_app_server.get(server, "/fleet?view=system", cookie=cookie)
     html = body.decode("utf-8")
     section = companion_markup.parse_html(html).select_one("#unresolved-prefixes")
     blocks = section.select(".empty-state")
@@ -69,10 +69,10 @@ def test_health_coverage_gaps_empty_state_is_compact(make_app_server):
     _assert_compact_or_filter(blocks, "coverage gaps")
 
 
-def test_a_frame_that_never_checked_in_gets_the_compact_health_empty_state(make_app_server):
+def test_a_frame_that_never_checked_in_gets_the_compact_state_empty_state(make_app_server):
     app = start_fleet_app(make_app_server)
     device = app.fleet.dev_a
-    _, _, html = get(app, "/devices/%s/health" % device.id)
+    _, _, html = get(app, "/fleet?frame=%s" % device.id)
     assert "This frame has not checked in yet" in html
     blocks = _empty_states(html)
     assert blocks

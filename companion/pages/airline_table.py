@@ -21,6 +21,7 @@ import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.layout as layout
 from companion.layout import csrf_field, escape_html
+from companion.ui_base import validation_attrs
 from companion.pages import airline_sheet
 from server.plane import illustrations
 from server.plane import render as panel_render
@@ -120,12 +121,13 @@ def _name_cell(row):
         '<form class="airlines-name" method="post" action="%s">'
         '<input type="hidden" name="airline" value="%s">%s'
         '<input type="text" name="airline_name" value="%s" maxlength="100" required '
-        'autocomplete="off" aria-label="%s" data-autosubmit%s>'
+        'autocomplete="off" aria-label="%s" data-autosubmit%s%s>'
         '<noscript><button type="submit" class="airlines-name__save">%s</button></noscript>'
         "</form>"
     ) % (device_scope.scoped(airline_sheet.RENAME_ROUTE, "POST"), escape_html(sheet["builtin"]),
          csrf_field(), escape_html(name), escape_html(i18n.t(NAME_ARIA) % name),
-         " autofocus" if row["focus"] else "", escape_html(i18n.t(SAVE_NAME_TEXT)))
+         " autofocus" if row["focus"] else "", validation_attrs("text"),
+         escape_html(i18n.t(SAVE_NAME_TEXT)))
 
 
 def _enlarge_html(page, row, key, label):

@@ -176,11 +176,9 @@ def test_the_location_page_holds_what_display_lost(rig):
 # --- Device -----------------------------------------------------------------
 
 
-@pytest.mark.parametrize("scope", [True, False])
-def test_device_page_carries_no_detection_card(rig, scope):
+def test_the_fleet_settings_carry_no_detection_card(rig):
     _save_lfpg(rig)
-    path = (rig.scope() if scope else "") + "/device"
-    status, page = rig.get("admin", path)
+    status, page = rig.get("admin", "/fleet?frame=%s" % rig.fleet.owner_device)
     assert status == 200
     assert "detection-card" not in page
     assert "Location and detection" not in page
@@ -188,9 +186,9 @@ def test_device_page_carries_no_detection_card(rig, scope):
     assert page.index("Diagnostic LED") > 0
 
 
-def test_device_page_stays_admin_only(rig):
+def test_the_fleet_page_stays_admin_only(rig):
     for who in ("owner", "other"):
-        status, page = rig.get(who, rig.scope() + "/device")
+        status, page = rig.get(who, "/fleet?frame=%s" % rig.fleet.owner_device)
         assert status == 404
         assert "detection-card" not in page
 

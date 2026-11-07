@@ -25,7 +25,7 @@ import time
 
 import pytest
 
-from companion import access, app, auth, routes, static_files
+from companion import access, app, auth, legacy_pages, routes, static_files
 from companion_app_server import (
     InProcessAppServer, auth0_env, http_request,
     login_via_auth0)
@@ -526,7 +526,9 @@ def _admin_moves_to_account(key, name):
 
 def _moves_to_own_frame(key, name):
     return (
-        key[0] == "GET" and key[1] in matrix_rows_landing.FRAME_PAGE_REDIRECTS
+        key[0] == "GET"
+        and (key[1] in matrix_rows_landing.FRAME_PAGE_REDIRECTS
+             or key[1] in matrix_rows_landing.LEGACY_PAGE_TARGETS)
         and name in ("owner", "other", "co-manager"))
 
 
@@ -534,22 +536,16 @@ def _own_frame_page(rig, name, path):
     frame = {
         "owner": rig.fleet.owner_device, "co-manager": rig.fleet.owner_device,
         "other": rig.fleet.other_device}[name]
-    return "/devices/%s%s" % (frame, path)
+    return "/devices/%s%s" % (frame, matrix_rows_landing.LEGACY_PAGE_TARGETS.get(path, path))
 
 
-@pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS)
+@pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS
+                         + tuple(matrix_rows_landing.LEGACY_PAGE_TARGETS))
 def test_a_user_without_a_frame_is_sent_to_the_account_page(rig, stubbed, path):
     _uid, cookie = _user_with_session(rig, "frameless-%s@example.test" % (path.strip("/") or "home"))
     status, headers, _body = rig.request("GET", path, cookie)
     assert status == 303 and headers["Location"] == "/account"
     assert stubbed.calls == []
-
-
-@pytest.mark.parametrize("path", ("/device", "/settings", "/history", "/preview"))
-def test_other_unprefixed_pages_are_not_redirected_for_a_user(rig, stubbed, path):
-    cookie = rig.cookies["owner"]
-    status, _h, body = rig.request("GET", path, cookie)
-    assert status == 404 and body == _unknown_path_404(rig, cookie)
 
 
 @pytest.mark.parametrize("path", matrix_rows_landing.FRAME_PAGE_REDIRECTS)
@@ -617,6 +613,11 @@ def test_http_outcome_under_a_device_prefix_matches_the_base_route(
         location = headers.get("Location")
         assert location == "/login" or location.startswith("/login?next=")
         assert stubbed.calls == []
+    elif key[1] in legacy_pages.RETIRED_ADMIN_PAGES and name in ("owner", "co-manager"):
+        assert status == 303
+        assert headers["Location"] == "/devices/%s%s" % (
+            rig.fleet.owner_device, legacy_pages.RETIRED_ADMIN_PAGES[key[1]])
+        assert stubbed.calls == []
     else:
         assert status == 404
         assert body == _unknown_path_404(rig, cookie)
@@ -676,6 +677,9 @@ def test_a_co_manager_gets_not_found_on_a_frame_they_do_not_co_manage(
 _ADMIN_ONLY_DEVICE_KEYS = [
     key for key in _SCOPED_KEYS
     if ROUTE_POLICY[key] in (ADMIN_ONLY, ADMIN_DEVICE)]
+_RETIRED_PAGE_KEYS = [
+    key for key in _ADMIN_ONLY_DEVICE_KEYS if key[1] in legacy_pages.RETIRED_ADMIN_PAGES]
+_REFUSED_KEYS = [key for key in _ADMIN_ONLY_DEVICE_KEYS if key not in _RETIRED_PAGE_KEYS]
 
 
 def test_the_device_update_and_led_routes_stay_admin_only_in_both_forms():
@@ -687,9 +691,9 @@ def test_the_device_update_and_led_routes_stay_admin_only_in_both_forms():
                    for key in _REAL_KEYS)
 
 
-@pytest.mark.parametrize("key", _ADMIN_ONLY_DEVICE_KEYS, ids=[
+@pytest.mark.parametrize("key", _REFUSED_KEYS, ids=[
     "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
-    for k in _ADMIN_ONLY_DEVICE_KEYS])
+    for k in _REFUSED_KEYS])
 def test_an_admin_only_device_route_refuses_its_owner_in_both_forms(
         rig, stubbed, key):
     cookie = rig.cookies["owner"]
@@ -697,6 +701,20 @@ def test_an_admin_only_device_route_refuses_its_owner_in_both_forms(
     for path in (_sample_path(key), _scoped_path(rig.fleet.owner_device, key)):
         status, _h, body = rig.request(key[0], path, cookie)
         assert status == 404 and body == unknown
+    assert stubbed.calls == []
+
+
+@pytest.mark.parametrize("key", _RETIRED_PAGE_KEYS, ids=[
+    "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
+    for k in _RETIRED_PAGE_KEYS])
+def test_a_retired_admin_page_moves_its_owner_to_the_replacement_in_both_forms(
+        rig, stubbed, key):
+    cookie = rig.cookies["owner"]
+    expected = "/devices/%s%s" % (
+        rig.fleet.owner_device, legacy_pages.RETIRED_ADMIN_PAGES[key[1]])
+    for path in (_sample_path(key), _scoped_path(rig.fleet.owner_device, key)):
+        status, headers, _b = rig.request(key[0], path, cookie)
+        assert (status, headers["Location"]) == (303, expected)
     assert stubbed.calls == []
 
 
@@ -870,5 +888,7 @@ def test_a_demoted_admin_loses_admin_pages_without_signing_in_again(rig, stubbed
         conn.execute("UPDATE users SET role = 'user' WHERE id = ?", (uid,))
     finally:
         conn.close()
-    assert rig.request("GET", "/health", cookie)[0] == 404
+    status, headers, _b = rig.request("GET", "/health", cookie)
+    assert (status, headers["Location"]) == (303, "/account")
+    assert rig.request("GET", "/airlines/manage", cookie)[0] == 404
     assert rig.request("GET", "/account", cookie)[0] == 200

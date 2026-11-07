@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from companion import auth, ui_nav
+from companion import auth
 from companion.test_device_helpers import get, start_fleet_app
 from companion_app_server import http_request
 from server import history_db
@@ -79,10 +79,17 @@ def _page(app, device, page):
     return body
 
 
+def _fleet_view(app, device):
+    """The Fleet page with `device` selected."""
+    status, _, body = get(app, "/fleet?frame=%s" % device.id)
+    assert status == 200
+    return body
+
+
 def _french_page(app, device, page):
     cookie = "%s; %s=fr" % (app.cookie, auth.UI_LANG_COOKIE_NAME)
-    status, _, body = http_request(
-        app.server.base_url() + "/devices/%s/%s" % (device.id, page), cookie=cookie)
+    path = "/fleet?frame=%s" % device.id if page == "fleet" else "/devices/%s/%s" % (device.id, page)
+    status, _, body = http_request(app.server.base_url() + path, cookie=cookie)
     assert status == 200
     return body.decode("utf-8", "replace")
 
@@ -100,9 +107,9 @@ def _hrefs(page):
 
 def test_health_pages_show_only_their_own_device(two_devices):
     app = two_devices
-    health_a = _page(app, app.fleet.dev_a, "health")
-    health_b = _page(app, app.fleet.dev_b, "health")
-    live = get(app, "/health")[2]
+    health_a = _fleet_view(app, app.fleet.dev_a)
+    health_b = _fleet_view(app, app.fleet.dev_b)
+    live = get(app, "/fleet?frame=%s" % app.fleet.live.id)[2]
     assert "3811" in health_a and "3555" not in health_a
     assert "3555" in health_b and "3811" not in health_b
     assert "3811" not in live and "3555" not in live
@@ -123,44 +130,29 @@ def test_flights_pages_show_only_their_own_device(two_devices):
 
 def test_never_seen_device_gets_the_health_empty_state(bare_device):
     app = bare_device
-    page = _page(app, app.fleet.dev_a, "health")
+    page = _fleet_view(app, app.fleet.dev_a)
     assert "This frame has not checked in yet" in page
     assert "Health appears after its first wake." in page
     # The page is the empty state alone: no rows, no toast, no dot.
     assert "health-row" not in _main(page) and "toast" not in _main(page)
 
 
-def test_never_seen_device_has_no_health_nav_dot(make_app_server):
-    # Device B checked in once, weeks ago, so its stale check-in raises the
-    # dot; device A never checked in and must not. This makes the absence
-    # the device's own state and not a page that never draws a dot.
-    def seed_extra(fleet):
-        _seed_flight(
-            fleet.dev_b.state_dir, CALLSIGN_B, mv=3555,
-            checked_in=_iso(timedelta(days=20)))
-
-    app = start_fleet_app(make_app_server, seed_extra=seed_extra)
-    assert ui_nav.NAV_NOTIFICATION_CLASS in _page(app, app.fleet.dev_b, "health")
-    assert ui_nav.NAV_NOTIFICATION_CLASS not in _page(app, app.fleet.dev_a, "health")
-    assert ui_nav.NAV_NOTIFICATION_CLASS not in _page(app, app.fleet.dev_b, "flights")
-
-
 def test_health_empty_state_in_french(bare_device):
     app = bare_device
-    body = _french_page(app, app.fleet.dev_a, "health")
+    body = _french_page(app, app.fleet.dev_a, "fleet")
     assert "Ce cadre ne s’est pas encore connecté" in body
     assert "L’état apparaîtra après son premier réveil." in body
 
 
 def test_online_device_has_no_unreachable_toast(two_devices):
     app = two_devices
-    page = _page(app, app.fleet.dev_a, "health")
+    page = _fleet_view(app, app.fleet.dev_a)
     assert "No signal since" not in page
 
 
 def test_silent_device_shows_the_unreachable_toast_and_its_last_data(two_devices):
     app = two_devices
-    page = _page(app, app.fleet.dev_b, "health")
+    page = _fleet_view(app, app.fleet.dev_b)
     assert "No signal since" in page
     assert "Showing the last known data." in page
     assert "toast--docked" in page and "toast--warning" in page
@@ -171,7 +163,7 @@ def test_silent_device_shows_the_unreachable_toast_and_its_last_data(two_devices
 
 def test_live_frame_health_has_no_device_states(two_devices):
     app = two_devices
-    page = get(app, "/health")[2]
+    page = get(app, "/fleet?frame=%s" % app.fleet.live.id)[2]
     assert "No signal since" not in page
     assert "has not checked in yet" not in page
 
@@ -183,7 +175,7 @@ def test_battery_without_a_reading_shows_the_compact_state(make_app_server):
             checked_in=_iso(timedelta(minutes=5)))
 
     app = start_fleet_app(make_app_server, seed_extra=seed_extra)
-    page = _page(app, app.fleet.dev_a, "health")
+    page = _fleet_view(app, app.fleet.dev_a)
     assert "No battery reading" in page
     assert "Shown after the first check-in." in page
 
@@ -236,8 +228,9 @@ def test_corrupt_history_database_does_not_break_the_pages(make_app_server):
             fh.write(b"this is not a sqlite database" * 20)
 
     app = start_fleet_app(make_app_server, seed_extra=seed_extra)
-    for page in ("health", "flights", ""):
-        status, _, _ = get(app, "/devices/%s/%s" % (app.fleet.dev_a.id, page))
+    for path in ("/fleet?frame=%s" % app.fleet.dev_a.id,
+                 "/devices/%s/flights" % app.fleet.dev_a.id, "/devices/%s/" % app.fleet.dev_a.id):
+        status, _, _ = get(app, path)
         assert status == 200
 
 

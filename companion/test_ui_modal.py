@@ -103,6 +103,20 @@ def test_focus_id_names_the_control_that_takes_the_initial_focus():
     assert len([n for n in doc.select("*") if "autofocus" in n.attrs]) == 1
 
 
+def test_focus_title_opens_on_the_heading_with_no_field_focused():
+    doc = _dialog(focus_title=True)
+    assert [n for n in doc.select("*") if "autofocus" in n.attrs] == []
+    assert "data-focus-title" in doc.select_one("dialog").attrs
+    assert doc.select_one("h2").attrs["tabindex"] == "-1"
+
+
+def test_focus_title_still_focuses_an_invalid_field():
+    body = '<input id="a" name="a" aria-invalid="true" aria-describedby="a-err">'
+    doc = _dialog(body_html=body, open_=True, focus_title=True)
+    assert "autofocus" in doc.select_one("#a").attrs
+    assert "data-focus-title" not in doc.select_one("dialog").attrs
+
+
 def test_an_invalid_field_still_wins_over_focus_id():
     body = (
         '<input id="a" name="a"><input id="b" name="b">'

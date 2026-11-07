@@ -37,6 +37,8 @@ MESSAGES = {
     "flights.chip_all": "Tous",
     "flights.chip_departures": "Départs",
     "flights.chip_arrivals": "Arrivées",
+    "flights.flights_shown": "%d vols affichés",
+    "flights.load_more": "Charger plus",
     "flights.no_matching_flights": "Aucun vol correspondant",
     "flights.try_a_different_search_or_clear_filter_to_see":
         "Essayez une autre recherche, ou effacez le filtre pour voir "

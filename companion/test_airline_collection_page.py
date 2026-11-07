@@ -323,3 +323,20 @@ def test_an_owner_cannot_post_to_the_editing_routes(rig):
         cookie=cookie, data=with_csrf(cookie, {"airline": RARE_NAME, "airline_name": "X"}),
         extra_headers={"Origin": rig.server.base_url()})
     assert status == 404
+
+
+def test_the_spotted_count_is_plural_aware_in_both_languages(rig):
+    rig.event(RARE_NAME, 30, aircraft_type="A320")
+    one_en = _text(_main(rig.page("owner", lang="en")))
+    one_fr = _text(_main(rig.page("owner", lang="fr")))
+    assert "1 airline spotted" in one_en and "1 airlines" not in one_en
+    assert "1 of %d airline spotted" % len(CURATED) in one_en
+    assert "1 compagnie repérée" in one_fr and "1 compagnies" not in one_fr
+    assert "1 compagnie sur %d repérée" % len(CURATED) in one_fr
+
+
+def test_zero_spotted_is_plural_in_english_and_singular_in_french(rig):
+    empty_en = _text(_main(rig.page("owner", lang="en")))
+    empty_fr = _text(_main(rig.page("owner", lang="fr")))
+    assert "0 airlines spotted" in empty_en
+    assert "0 compagnie repérée" in empty_fr

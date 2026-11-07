@@ -13,7 +13,8 @@ import companion.battery as battery
 import companion.health_signals as health_signals
 import companion.layout as layout
 import companion.prefs as prefs
-from companion.pages import health_page, home_page
+from companion.pages import home_page
+import health_page_composition
 from server import device_config, history_db
 
 NOW = datetime(2026, 8, 27, 12, 0, 0, tzinfo=timezone.utc)
@@ -278,7 +279,7 @@ def _home(state_dir, now, lang="en", cfg=None):
 def _health(state_dir, now, lang="en"):
     prefs.set_request_prefs(lang=lang)
     try:
-        return health_page.render({"state_dir": str(state_dir), "now": now.isoformat()})
+        return health_page_composition.render({"state_dir": str(state_dir), "now": now.isoformat()})
     finally:
         prefs.set_request_prefs(lang="en")
 

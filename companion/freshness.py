@@ -31,7 +31,7 @@ import server.state_store as state_store
 # a member) never compute a token or carry one on <body> at all.
 _FRESHNESS_PAGE_SLUGS = frozenset((
     layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY,
-    layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_FLIGHTS,
+    layout.REFRESH_PAGE_FLIGHTS,
 ))
 
 
@@ -218,8 +218,7 @@ def _page_freshness_token(route, ctx, query):
         "ui_theme": ctx.ui_theme,
         "db": _freshness_db_signal(
             state_dir,
-            want_pipeline_run=platform and slug in (
-                layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME),
+            want_pipeline_run=platform and slug == layout.REFRESH_PAGE_HOME,
             platform=platform),
         "signals": signal_fields,
         "files": _freshness_file_stamps(state_dir, platform),
@@ -234,9 +233,9 @@ def _page_freshness_token(route, ctx, query):
             None if signals is None else frame_state.resolve_state(
                 signals["next_wake_iso"], signals["effective_interval_s"],
                 signals["hold_reason"], now))
-    if slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME):
+    if slug == layout.REFRESH_PAGE_HOME:
         parts["charging"] = _freshness_charging(ctx)
-    if slug in (layout.REFRESH_PAGE_HEALTH, layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
+    if slug in (layout.REFRESH_PAGE_HOME, layout.REFRESH_PAGE_DISPLAY):
         # Home's day band (_day_checkins()) buckets check-ins by this same
         # Paris calendar day, and both Home's and Display's own next-wake
         # local_clock_text() choose day qualifiers ("today"/"tomorrow")

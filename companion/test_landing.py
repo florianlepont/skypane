@@ -12,7 +12,7 @@ import pytest
 from companion import access, device_scope
 from companion_app_server import http_request, login_via_auth0
 from access_matrix_support import session_cookie_for
-from matrix_rows_landing import FRAME_PAGE_REDIRECTS
+from matrix_rows_landing import FRAME_PAGE_REDIRECTS, LEGACY_PAGE_TARGETS
 from server import fleet_db, fleet_sessions, hardware
 
 _REFRESH_RE = re.compile(r'http-equiv="refresh" content="0;url=([^"]*)"')
@@ -146,7 +146,20 @@ def test_a_user_is_moved_from_an_unprefixed_page_to_their_frame(landing_rig, pag
     assert follow == 200
 
 
-@pytest.mark.parametrize("page", FRAME_PAGE_REDIRECTS)
+@pytest.mark.parametrize("page", sorted(LEGACY_PAGE_TARGETS))
+def test_a_user_is_moved_from_an_old_bookmark_to_the_page_that_replaced_it(
+        landing_rig, page):
+    status, headers, _b = http_request(
+        landing_rig.server.url(page), cookie=landing_rig.cookies["owner"])
+    assert status == 303
+    assert headers["Location"] == "/devices/%s%s" % (
+        landing_rig.frame, LEGACY_PAGE_TARGETS[page])
+    follow, _h, _b = http_request(
+        landing_rig.server.url(headers["Location"]), cookie=landing_rig.cookies["owner"])
+    assert follow == 200
+
+
+@pytest.mark.parametrize("page", FRAME_PAGE_REDIRECTS + tuple(LEGACY_PAGE_TARGETS))
 def test_a_user_without_a_frame_is_sent_to_the_account_page(landing_rig, page):
     status, headers, _b = http_request(
         landing_rig.server.url(page), cookie=landing_rig.cookies["none"])
@@ -255,13 +268,12 @@ def test_the_404_back_link_goes_to_the_frame_home_for_a_user_with_a_frame(landin
     status, _h, body = http_request(
         landing_rig.server.url("/no-such-page"), cookie=landing_rig.cookies["owner"])
     assert status == 404
-    assert ('<a class="row__main" href="/devices/%s/"><span class="row__text">'
-            '<span class="row__label">Back to Home</span>' % landing_rig.frame) \
-        in body.decode("utf-8")
+    assert ('<a class="error-home-button" href="/devices/%s/">Back to Home</a>'
+            % landing_rig.frame) in body.decode("utf-8")
 
 
 def test_the_404_back_link_goes_to_the_account_for_a_user_without_a_frame(landing_rig):
     _s, _h, body = http_request(
         landing_rig.server.url("/no-such-page"), cookie=landing_rig.cookies["none"])
-    assert ('<a class="row__main" href="/account"><span class="row__text">'
-            '<span class="row__label">Back to Account</span>') in body.decode("utf-8")
+    assert ('<a class="error-home-button" href="/account">Back to Account</a>'
+            in body.decode("utf-8"))

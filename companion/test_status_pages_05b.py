@@ -17,6 +17,7 @@ import companion.test_status_pages_helpers as shp
 from companion import i18n, illustration_normalize, layout, prefs
 from companion.i18n_fr import health as i18n_fr_health
 from companion.pages import airlines_page, health_page, history_page
+import health_page_composition
 from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, parse_html, rules_with_selector
 from server import history_db
@@ -74,7 +75,7 @@ def _rendered_pages_with_search_inputs(tmp_path):
         "ABC": {"count": 3, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                 "example_callsign": "ABC123"},
     })
-    health_rendered = health_page.render(shp.ctx(tmp, shp.iso(now)))
+    health_rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
     shp.seed_runway_events(tmp, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     history_rendered = history_page.render(shp.ctx(tmp))
     return [airlines_rendered, health_rendered, history_rendered]
@@ -244,7 +245,7 @@ def test_concise_timestamp_htmls_relative_half_is_now_an_element():
 
 
 def test_health_page_renders_in_french(tmp_path):
-    """health_page.render() under lang='fr' carries the French page title and at least three
+    """health_page_composition.render() under lang='fr' carries the French page title and at least three
     other French strings, and none of a short list of English source strings with distinct
     French forms """
     tmp = str(tmp_path)
@@ -254,7 +255,7 @@ def test_health_page_renders_in_french(tmp_path):
         "ts": shp.ago(300), "callsign": "AFR1234", "icao24": "abc123", "corroborated": "True"}])
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered = health_page.render(shp.ctx(tmp, shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
     assert "État" in rendered, "expected the French page title (État, via the shared nav catalogue)"
@@ -267,14 +268,14 @@ def test_health_page_renders_in_french(tmp_path):
 
 
 def test_health_page_renders_byte_identical_in_english(tmp_path):
-    """health_page.render() under lang='en' (the default) is byte-for-byte unchanged for a
+    """health_page_composition.render() under lang='en' (the default) is byte-for-byte unchanged for a
     seeded state — pinned representative substrings """
     tmp = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(tmp, [(shp.ago(120), 3800)])
     try:
         prefs.set_request_prefs(lang="en")
-        rendered = health_page.render(shp.ctx(tmp, shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
     for english_text in (
@@ -287,7 +288,7 @@ def test_health_page_renders_byte_identical_in_english(tmp_path):
 
 def test_health_page_device_and_pipeline_timestamps_fully_localise_under_french(tmp_path):
     """compute_health_state()'s device_detail_html/pipeline_detail_html fields (and
-    health_page.render()'s own page) fully localise their timestamps under lang='fr' — no
+    health_page_composition.render()'s own page) fully localise their timestamps under lang='fr' — no
     English month abbreviation or ' ago' survives — proving the request-language ContextVar
     is resolved at the correct point relative to when this state is computed (Polish fix 2)"""
     tmp = str(tmp_path)
@@ -299,7 +300,7 @@ def test_health_page_device_and_pipeline_timestamps_fully_localise_under_french(
     try:
         prefs.set_request_prefs(lang="fr")
         state = health_page.compute_health_state(tmp, now=now_iso)
-        rendered = health_page.render(dict(shp.ctx(tmp, now_iso), health_state=state))
+        rendered = health_page_composition.render(dict(shp.ctx(tmp, now_iso), health_state=state))
     finally:
         prefs.set_request_prefs(lang="en")
     fragments = (state["device_detail_html"], state["pipeline_detail_html"], rendered)
@@ -495,7 +496,7 @@ def test_compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_a
         "ABC": {"count": 3, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
                 "example_callsign": "ABC123"},
     })
-    health_rendered = health_page.render(shp.ctx(tmp, shp.iso(now)))
+    health_rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
     for possessive, rendered in (("Compagnies'", airlines_rendered), ("Health's", health_rendered)):
         for attr in attrs:
             assert attr in rendered, (
@@ -606,7 +607,7 @@ def test_health_page_still_renders_both_migrated_header_sets(tmp_path):
     registry = {"ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"}}
     shp.seed_unresolved_prefixes(tmp, registry)
     shp.seed_runway_events(tmp, [{"ts": shp.iso(shp.now()), "hex": "abc123", "route_source": "fresh_hit"}])
-    rendered = health_page.render(shp.ctx(tmp))
+    rendered = health_page_composition.render(shp.ctx(tmp))
     for header in ("Prefix", "First seen", "Last seen", "Example callsign", "Source", "Description"):
         assert ("<th>%s</th>" % header) in rendered, (
             "expected Health to still render the migrated %r column header" % header)

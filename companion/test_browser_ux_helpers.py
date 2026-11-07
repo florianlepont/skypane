@@ -72,11 +72,15 @@ def seed_two_releases(state_dir):
     atomic_io.atomic_write(fr.device_report_path(str(state_dir)), json.dumps(device_report))
 
 
-VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+VIEW_TRANSITION_ROUTES = ("/", "/display", "/flights", "/airlines", "/fleet")
 VIEW_TRANSITION_NAMES = {
     "skypane-sidebar": VIEW_TRANSITION_ROUTES,
     "skypane-title": VIEW_TRANSITION_ROUTES,
     "skypane-picture": ("/",),
+    "skypane-tab-slider": VIEW_TRANSITION_ROUTES,
+    # Carried by the .vt-pic class, which the script puts on one picture only while the
+    # thumbnail-to-picture transition runs: no element has it on any route at rest.
+    "skypane-flight-pic": (),
 }
 
 # Named viewport sizes, replacing the inline {"width": ..., "height": ...} dicts this file used

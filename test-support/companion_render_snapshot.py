@@ -76,7 +76,7 @@ THEMES = ("light", "dark")
 _NOT_FOUND_PATH = "/this-page-does-not-exist"
 
 # One concrete (path, method, needs_session, form) sample per PAGE_REQUESTS
-# entry the plan calls for: the seven NAV_TABS routes, /device and
+# entry the plan calls for: the NAV_TABS routes, the Fleet page's two views and
 # /display with the flash-banner query, the unauthenticated /login page,
 # a 404 path, and the calendar-disconnect confirm page (a POST with no
 # confirm field, which renders the confirm page at 200 without changing
@@ -88,12 +88,11 @@ PAGE_REQUESTS = (
     (companion_app.DISPLAY_ROUTE + "/special-looks", "GET", True, None),
     (companion_app.DISPLAY_ROUTE + "/calendar", "GET", True, None),
     (companion_app.DISPLAY_ROUTE + "/screen", "GET", True, None),
-    (companion_app.DEVICE_ROUTE, "GET", True, None),
+    ("/fleet", "GET", True, None),
     (companion_app.FLIGHTS_ROUTE, "GET", True, None),
-    (companion_app.HEALTH_ROUTE, "GET", True, None),
+    ("/fleet?view=system", "GET", True, None),
     (companion_app.AIRLINES_ROUTE, "GET", True, None),
-    (companion_app.UPDATE_ROUTE, "GET", True, None),
-    (companion_app.DEVICE_ROUTE + "?flash=saved", "GET", True, None),
+    ("/fleet?flash=saved", "GET", True, None),
     (companion_app.DISPLAY_ROUTE + "?flash=saved", "GET", True, None),
     (companion_app.LOGIN_ROUTE, "GET", False, None),
     (_NOT_FOUND_PATH, "GET", True, None),

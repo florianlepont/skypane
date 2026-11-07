@@ -257,12 +257,12 @@ class SettingsActionsMixin:
         raw = self._read_upload_body()
         if raw is None:
             return self._scoped_redirect(
-                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
 
         payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
         if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
             return self._scoped_redirect(
-                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
 
         state_dir = device.state_dir
         override_dir = illustrations.override_dir_for_state_dir(state_dir)
@@ -270,7 +270,7 @@ class SettingsActionsMixin:
             os.makedirs(override_dir, exist_ok=True)
         except OSError:
             return self._scoped_redirect(
-                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)))
 
         # The raw upload's temp lives in override_dir (mkstemp: a unique
         # name, so two concurrent uploads of the same key can never
@@ -295,7 +295,7 @@ class SettingsActionsMixin:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
                 return self._scoped_redirect(
-                    back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED))
+                    resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
 
             with Image.open(raw_tmp_path) as img:
                 rgba = img.convert("RGBA")
@@ -305,10 +305,10 @@ class SettingsActionsMixin:
             override_path = illustrations.override_path_for_key(key, state_dir)
             atomic_io.atomic_write(override_path, buffer.getvalue())
             return self._scoped_redirect(
-                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED))
+                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED)))
         except Exception:
             return self._scoped_redirect(
-                back + "?flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)))
         finally:
             if raw_tmp_path is not None:
                 try:
@@ -334,7 +334,7 @@ class SettingsActionsMixin:
         row = unresolved_row_for_prefix(state_dir, form.get("prefix"))
         if row is None:
             return self._scoped_redirect(
-                "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
+                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_PREFIX_STALE)))
         prefix = row[0]
 
         result = manual_resolutions.add_entry(state_dir, prefix, form.get("airline_name"))
@@ -345,10 +345,10 @@ class SettingsActionsMixin:
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
             if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
                 return self._scoped_redirect(
-                    "%s?flash=%s" % (back, quote(FLASH_KEY_MANUAL_RESOLVED)))
+                    resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_RESOLVED)))
             return self._scoped_redirect(
-                "%s?resolve=%s&flash=%s"
-                % (back, quote(prefix, safe=""), quote(FLASH_KEY_MANUAL_RESOLVED)))
+                resolve_dialog.with_query(back, "resolve=%s&flash=%s" % (
+                    quote(prefix, safe=""), quote(FLASH_KEY_MANUAL_RESOLVED))))
 
         if result == manual_resolutions.ADD_REJECTED_PREFIX:
             flash_key = FLASH_KEY_MANUAL_NAME_EMPTY
@@ -374,8 +374,8 @@ class SettingsActionsMixin:
             # to no flash at all.
             flash_key = FLASH_KEY_MANUAL_SAVE_FAILED
         return self._scoped_redirect(
-            "%s?resolve=%s&flash=%s"
-            % (back, quote(prefix, safe=""), quote(flash_key)))
+            resolve_dialog.with_query(back, "resolve=%s&flash=%s" % (
+                quote(prefix, safe=""), quote(flash_key))))
 
     def _rename_redirect(self, flash_key, sheet_key=None):
         """Back to the Airline editor with `flash_key`; a refusal reopens the sheet."""

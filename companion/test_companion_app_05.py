@@ -190,7 +190,7 @@ def test_illustration_oversized_upload_is_rejected_and_connection_stays_healthy(
     assert not os.path.exists(override_path), (
         "expected no override file to be written for a rejected oversized upload")
     health_status, _headers2, _body2 = http_request(
-        server.base_url() + "/health", cookie=session_cookie)
+        server.base_url() + "/fleet", cookie=session_cookie)
     assert health_status == 200, (
         "expected a fresh authenticated GET after the oversized-upload drain to still return "
         "200, got %d" % health_status)
@@ -1283,7 +1283,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # one enumeration and not the other fails here.
     site_routes = (
         layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE,
-        layout.AIRLINES_ROUTE, layout.HEALTH_ROUTE, layout.DEVICE_ROUTE,
+        layout.AIRLINES_ROUTE, "/fleet",
     )
     assert set(site_routes) == set(browser_ux_helpers.VIEW_TRANSITION_ROUTES), (
         "layout's own six route constants %r do not equal "
@@ -1326,7 +1326,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # render of each route.
     per_route_min = {
         layout.HOME_ROUTE: 0, layout.DISPLAY_ROUTE: 0, layout.FLIGHTS_ROUTE: 0,
-        layout.AIRLINES_ROUTE: 0, layout.HEALTH_ROUTE: 0, layout.DEVICE_ROUTE: 2,
+        layout.AIRLINES_ROUTE: 0, "/fleet": 2,
         # Administrator pages carry no explanatory captions at all (the editor is
         # still measured, so any caption added back must respect the word floor).
         airlines_page.MANAGE_ROUTE: 0, layout.DISPLAY_SPECIAL_LOOKS_ROUTE: 1,

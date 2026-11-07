@@ -97,6 +97,7 @@ from companion.ui_base import (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    MOTION_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     LEAFLET_STYLE_HREF,
     PLACE_MAP_SCRIPT_SRC,
@@ -188,7 +189,7 @@ from companion.ui_nav import (
     REFRESH_PAGE_ATTR,
     REFRESH_PAGE_DISPLAY,
     REFRESH_PAGE_FLIGHTS,
-    REFRESH_PAGE_HEALTH,
+    REFRESH_PAGE_FLEET,
     REFRESH_PAGE_HOME,
     REFRESH_PAUSED_ATTR,
     REFRESH_PAUSED_TEXT,
@@ -258,7 +259,7 @@ from companion.ui_components import (
     status_dot,
     status_row,
 )
-from companion.ui_filter import filter_bar_html
+from companion.ui_filter import filter_bar_html, filter_title_search_html
 from companion.ui_shell import (
     GLOBAL_PAGE_SCRIPTS,
     SHELL_SCRIPT_ORDER,
@@ -348,7 +349,7 @@ __all__ = (
     "REFRESH_PAGE_ATTR",
     "REFRESH_PAGE_DISPLAY",
     "REFRESH_PAGE_FLIGHTS",
-    "REFRESH_PAGE_HEALTH",
+    "REFRESH_PAGE_FLEET",
     "REFRESH_PAGE_HOME",
     "REFRESH_PAUSED_ATTR",
     "REFRESH_PAUSED_TEXT",
@@ -388,6 +389,7 @@ __all__ = (
     "VALUE_CONTROLS_SCRIPT_SRC",
     "CALENDAR_SHEET_SCRIPT_SRC",
     "MODAL_SCRIPT_SRC",
+    "MOTION_SCRIPT_SRC",
     "LEAFLET_SCRIPT_SRC",
     "LEAFLET_STYLE_HREF",
     "PLACE_MAP_SCRIPT_SRC",
@@ -479,6 +481,7 @@ __all__ = (
     "empty_state",
     "escape_html",
     "filter_bar_html",
+    "filter_title_search_html",
     "flash_banner",
     "frame_strip_html",
     "refresh_marker_html",

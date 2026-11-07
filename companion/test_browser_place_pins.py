@@ -65,6 +65,9 @@ def test_a_fresh_page_draws_tappable_pins_and_tapping_one_selects_it(
             " const h = d.getBoundingClientRect(); return [m.width, m.height, h.width, h.height]; })")
         assert all(s[0] >= 10 and s[1] >= 10 for s in sizes), "a pin mark is not drawn round"
         assert all(s[2] >= 44 and s[3] >= 44 for s in sizes), "a pin hit box is under 44 px"
+        # The map opens on the frame's own airport; zoomed out, isolated airports stay pins.
+        page.click(".place-france")
+        page.wait_for_function(IDLE, timeout=10000)
         page.wait_for_function(CLEAR_PIN, timeout=10000)
         pin = page.evaluate(CLEAR_PIN)
         with page.expect_navigation():

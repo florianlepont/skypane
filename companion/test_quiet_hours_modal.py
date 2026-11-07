@@ -155,11 +155,12 @@ def test_the_start_and_end_fields_are_tiles_with_their_labels(rig):
     assert _dialog(body).select_one(".quiet-intro").text() == "When should the screen rest?"
 
 
-def test_start_time_takes_the_initial_focus_and_nothing_else_does(rig):
+def test_the_dialog_opens_on_its_title_and_no_field_asks_for_the_focus(rig):
     _status, body = rig.get("owner")
     dialog = _dialog(body)
-    focused = [n for n in dialog.select("*") if "autofocus" in n.attrs]
-    assert [n.attrs["id"] for n in focused] == ["quiet-window-start"]
+    assert [n for n in dialog.select("*") if "autofocus" in n.attrs] == []
+    assert "data-focus-title" in dialog.attrs
+    assert dialog.select_one(".modal__title").attrs["tabindex"] == "-1"
 
 
 def test_the_helper_names_the_zone_and_links_to_the_place_page(rig):

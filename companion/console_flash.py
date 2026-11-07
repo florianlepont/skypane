@@ -97,8 +97,11 @@ def _toast_for(payload):
     # which register flash keys while the navigation is still importing, can
     # import it first.
     from companion import ui_components
-    return ui_components.toast_html(
-        title, detail or None, tone=tone, dismiss_href=True)
+    # The same region as a query-string flash: it floats above the tab bar
+    # with scripts and keeps its place in flow without them.
+    return '<div class="toast-region toast-region--flash">%s</div>' % (
+        ui_components.toast_html(
+            title, detail or None, tone=tone, dismiss_href=True))
 
 
 def take_flash(cookie_header):

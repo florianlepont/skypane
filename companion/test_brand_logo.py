@@ -47,7 +47,7 @@ EXPECTED_LINKS = {
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("route", ["/", "/display", "/flights", "/airlines", "/health", "/device", "/update"])
+@pytest.mark.parametrize("route", ["/", "/display", "/flights", "/airlines", "/fleet"])
 def test_every_page_links_the_svg_favicon_and_the_apple_touch_icon(server, cookie, route, lang):
     status, _, body = get(server, route, cookie=_lang_cookie(cookie, lang))
     assert status == 200

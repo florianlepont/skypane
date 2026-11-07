@@ -11,9 +11,9 @@ code, escaped into the input's `value` on the immediate response.
 import datetime
 from typing import NamedTuple
 
-from companion import frame_status, i18n, ui_entity_list, ui_modal
+from companion import device_scope, frame_status, i18n, ui_entity_list, ui_modal
 from companion.pages import co_managers_card
-from companion.ui_base import escape_html
+from companion.ui_base import escape_html, validation_attrs
 
 KIND_LIVE = frame_status.KIND_LIVE
 KIND_PENDING = frame_status.KIND_PENDING
@@ -31,6 +31,8 @@ PAIR_QUERY_FLAG = "pair"
 ADD_DIALOG_ID = "dlg-add-frame"
 
 _FRAMES_TEXT = i18n.msg("admin_fleet.frames", "Frames")
+# Same id and English as the frame button's, so one name reads one way.
+_LIVE_FRAME_NAME = i18n.msg("nav.device_default_name", "Orly frame")
 _UNNAMED_FRAME = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")
 _NEW_FRAME = i18n.msg("admin_fleet.new_frame", "New frame")
 _WAITING_FOR_PAIRING = i18n.msg("admin_fleet.waiting_for_pairing", "Waiting for pairing")
@@ -100,6 +102,14 @@ CLAIM_REFUSED_DETAIL = i18n.msg(
     "frame within 35 minutes.")
 CLAIM_CODE_ERROR = i18n.msg(
     "admin_fleet.check_the_code_and_try_again", "Check the code and try again.")
+
+
+def claim_refused_error():
+    """The one message shown, once, beside the code field after a refused
+    code: what happened and what to do."""
+    return "%s. %s" % (i18n.t(CLAIM_REFUSED_TITLE), i18n.t(CLAIM_CODE_ERROR))
+
+
 CLAIM_THROTTLED_TITLE = i18n.msg("admin_fleet.too_many_attempts", "Too many attempts")
 CLAIM_THROTTLED_DETAIL = i18n.msg(
     "admin_fleet.wait_a_few_minutes_before_trying_again",
@@ -204,6 +214,8 @@ def _slug(prefix, frame_id):
 def _display_name(row):
     if row.kind == KIND_PENDING:
         return i18n.t(_NEW_FRAME)
+    if row.is_live_frame and row.name == device_scope.LIVE_NAME:
+        return i18n.t(_LIVE_FRAME_NAME)
     return row.name or i18n.t(_UNNAMED_FRAME)
 
 
@@ -221,10 +233,12 @@ def _menu_items(row, manages_access=False):
     """The actions menu's (label, target, destructive) items by state: an
     active frame offers the personal view, manage access (when offered),
     reassign and retire (the served frame cannot be retired); a retired frame
-    re-activates; a pending frame has no menu. Every address is built from
+    re-activates; a pending frame offers the pairing dialog. Every address is built from
     the frame id."""
     if row.kind == KIND_RETIRED:
         return [(i18n.t(_ACTION_REACTIVATE), _slug("dlg-reactivate", row.frame_id), True)]
+    if row.kind == KIND_PENDING:
+        return [(i18n.t(_PAIR_SUBMIT), ADD_DIALOG_ID, False)]
     if row.kind != KIND_LIVE:
         return []
     items = [(i18n.t(_ACTION_PERSONAL_VIEW), "/devices/%s/" % row.frame_id, False)]
@@ -349,8 +363,8 @@ def _reassign_dialog(row, view):
     dialog_id = _slug("dlg-reassign", row.frame_id)
     picker = (
         '<div class="modal__field"><label for="%s-owner">%s</label>'
-        '<select id="%s-owner" name="%s" required>%s</select></div>' % (
-            dialog_id, _t(_NEW_OWNER), dialog_id, OWNER_FIELD,
+        '<select id="%s-owner" name="%s" required%s>%s</select></div>' % (
+            dialog_id, _t(_NEW_OWNER), dialog_id, OWNER_FIELD, validation_attrs("select"),
             _owner_options(view._replace(owner_selected=""))))
     return _frame_dialog(
         row, dialog_id, _routes().FRAME_REASSIGN_SUFFIX, i18n.t(_TITLE_REASSIGN),
@@ -411,7 +425,7 @@ def render(view):
         others = _ui().empty_state(
             i18n.t(_EMPTY_HEADING), i18n.t(_EMPTY_BODY), compact=True)
     section = (
-        '<section class="page-section" aria-label="%s">%s</section>' % (
+        '<section class="page-section fleet-panel-access" aria-label="%s">%s</section>' % (
             _t(_FRAMES_TEXT), others) if others else "")
     dialogs = _add_dialog(view) + "".join(
         _row_dialogs(row, view) for row in view.rows)

@@ -128,6 +128,35 @@
     announceFailure();
   }
 
+  // A press on any switch: the ring plays once and, where the browser has a
+  // vibration motor, a 10 ms tick. Both are skipped under reduced motion.
+  function tick(control) {
+    if (window.matchMedia
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
+    control.classList.remove("switch--tick");
+    void control.offsetWidth;
+    control.classList.add("switch--tick");
+    if (navigator.vibrate) {
+      navigator.vibrate(10);
+    }
+  }
+
+  document.addEventListener("click", function (evt) {
+    var node = evt.target;
+    while (node && node !== document) {
+      if (node.classList && node.classList.contains("switch")
+          && node.getAttribute("role") === "switch") {
+        if (!ancestorWith(node, PENDING_ATTR)) {
+          tick(node);
+        }
+        return;
+      }
+      node = node.parentNode;
+    }
+  });
+
   document.addEventListener("submit", function (evt) {
     var form = evt.target;
     if (!form || !form.hasAttribute || !form.hasAttribute(FORM_ATTR)) {

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Real-browser checks of the resolve dialog on Health: a Resolve link opens the shared dialog in
+"""Real-browser checks of the resolve dialog on the Fleet System view: a Resolve link opens the shared dialog in
 place at 390 and 1280 px in both languages and both themes (the URL never changes, focus lands on
 the name field, Escape hands focus back to the link); naming an airline continues inside the same
-dialog (add artwork or skip) and ends on Health with the row gone; a refused name reopens the
-dialog on Health with the field focused; and with scripts blocked the link still goes to the
+dialog (add artwork or skip) and ends on the System view with the row gone; a refused name reopens the
+dialog on the System view with the field focused; and with scripts blocked the link still goes to the
 Airlines page.
 """
 import re
@@ -51,7 +51,7 @@ def _open_health(new_context, server, viewport, lang="en"):
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/health")
+    page.goto(server.base_url() + "/fleet?view=system")
     page.wait_for_load_state("load")
     page.locator(VISIBLE_LINK % "QXA").first.wait_for(state="visible")
     return context, page
@@ -76,7 +76,7 @@ def _click_resolve(page, prefix="QXA"):
 
 def _wait_for_health(page, query):
     """Wait for the redirect back to Health with exactly `query` and for the page to load."""
-    page.wait_for_url(re.compile(r"/health\?%s$" % re.escape(query)))
+    page.wait_for_url(re.compile(r"/fleet\?view=system&%s$" % re.escape(query)))
     page.wait_for_load_state("load")
 
 
@@ -92,13 +92,13 @@ def _png(path):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_resolve_opens_the_dialog_in_place_with_usable_controls(new_context, server, viewport, lang):
-    """clicking Resolve opens the modal without leaving /health, shows the prefix's context with
+    """clicking Resolve opens the modal without leaving the System view, shows the prefix's context with
     the return target set, focuses the name field, keeps 16 px text and 44 px controls, never
     overflows (light and dark) and hands focus back to the link on Escape"""
     context, page = _open_health(new_context, server, viewport, lang)
     try:
         _click_resolve(page)
-        assert page.url == server.base_url() + "/health"
+        assert page.url == server.base_url() + "/fleet?view=system"
         assert page.evaluate(FOCUSED_ID) == NAME_INPUT[1:]
         assert page.locator(DIALOG + " .resolve-context__prefix").inner_text() == "QXA"
         assert page.locator(DIALOG + " .resolve-context__count").inner_text() == "5"
@@ -120,7 +120,7 @@ def test_resolve_opens_the_dialog_in_place_with_usable_controls(new_context, ser
         page.locator(DIALOG + "[open]").wait_for(state="detached")
         assert page.evaluate(
             "() => document.activeElement.getAttribute('data-view-panel-resolve-prefix')") == "QXA"
-        assert page.url == server.base_url() + "/health"
+        assert page.url == server.base_url() + "/fleet?view=system"
     finally:
         context.close()
 
@@ -142,7 +142,7 @@ def test_naming_then_skipping_artwork_ends_on_health_with_the_row_gone(new_conte
         assert NEW_NAME in page.locator(DIALOG + " .lightbox__heading").inner_text()
         page.locator(CLOSE).click()
         page.locator(DIALOG + "[open]").wait_for(state="detached")
-        assert page.url.split("?")[0] == server.base_url() + "/health"
+        assert page.url.split("?")[0] == server.base_url() + "/fleet"
         assert page.locator(ROW_LINKS % "QXA").count() == 0
         assert page.locator(ROW_LINKS % "QXB").count() >= 1
     finally:
@@ -191,10 +191,10 @@ def test_a_refused_name_reopens_the_dialog_on_health_with_the_field_focused(
 
 
 def test_an_unknown_reopen_value_opens_nothing(new_context, server):
-    """/health?resolve= with a value that is not an unresolved prefix leaves the page quiet"""
+    """The System view with ?resolve= with a value that is not an unresolved prefix leaves the page quiet"""
     context, page = _open_health(new_context, server, VIEWPORT_PHONE)
     try:
-        page.goto(server.base_url() + "/health?resolve=ZZZ")
+        page.goto(server.base_url() + "/fleet?view=system&resolve=ZZZ")
         page.wait_for_load_state("load")
         assert page.locator(DIALOG + "[open]").count() == 0
     finally:
@@ -205,7 +205,7 @@ def test_without_scripts_resolve_is_still_a_link_to_the_airline_editor(new_conte
     """scripts blocked: the dialog stays closed and the Resolve link goes to Airlines, which
     sends the administrator on to the Airline editor, where the in-page resolve section
     appears"""
-    with _no_js_page(new_context, server.base_url(), "/health", viewport=VIEWPORT_DESKTOP,
+    with _no_js_page(new_context, server.base_url(), "/fleet?view=system", viewport=VIEWPORT_DESKTOP,
                      reduced_motion="reduce") as page:
         page.wait_for_load_state("load")
         assert page.locator(DIALOG).is_hidden()

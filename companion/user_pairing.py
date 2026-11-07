@@ -64,9 +64,8 @@ def handle_post(h, m):
     except fleet_ops.ClaimRefused:
         console_pairing.record_refused_attempt(h, key)
         return _respond(h, 200, pair_frame_page.PairView(
-            code_value=_echoed(code), toast_html=console_pairing.docked_toast(
-                "error", fleet_page.CLAIM_REFUSED_TITLE, fleet_page.CLAIM_REFUSED_DETAIL),
-            code_error=i18n.t(fleet_page.CLAIM_CODE_ERROR)))
+            code_value=_echoed(code),
+            code_error=fleet_page.claim_refused_error()))
     except fleet_ops.OwnerUnavailable:
         return h.send_html(404, h._not_found_page())
     console_pairing.SESSION_THROTTLE.record_success(key)

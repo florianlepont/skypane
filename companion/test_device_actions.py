@@ -138,13 +138,13 @@ def test_live_manual_resolve_writes_only_the_root(app):
     _others_unchanged(app, fleet.live, before)
 
 
-def test_resolve_dialog_return_route_keeps_the_device_prefix(app):
+def test_resolve_dialog_return_route_lands_on_the_platform_wide_system_view(app):
     fleet = app.fleet
     status, headers, _ = post(
         app, _prefix(fleet.dev_a) + "/airlines/resolve",
         {"prefix": "NOPE", "airline_name": RESOLVED_NAME, "return": "health"})
     assert status == 303
-    assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/")
+    assert headers["Location"].startswith("/fleet?view=system&")
 
 
 def test_airline_rename_writes_only_that_devices_overrides(app):

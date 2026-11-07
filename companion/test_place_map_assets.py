@@ -14,7 +14,7 @@ LEAFLET_JS = "/static/vendor/leaflet/leaflet.js"
 LEAFLET_CSS = "/static/vendor/leaflet/leaflet.css"
 PLACE_MAP_JS = "/static/place-map.js"
 OTHER_ROUTES = (
-    "/", "/display", "/flights", "/airlines", "/health", "/device", "/credits")
+    "/", "/display", "/flights", "/airlines", "/fleet", "/credits")
 
 
 @pytest.fixture(scope="module")

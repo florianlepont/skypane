@@ -31,6 +31,13 @@ from server.plane import render as panel_render
 # not a retention policy.
 HISTORY_ROW_LIMIT = 50
 
+# The query parameter that asks for more history: `?more=2` shows the
+# newest (2 + 1) * HISTORY_ROW_LIMIT flights. A link, so it works without a
+# script; bounded so a hand-edited value cannot ask for the whole table.
+MORE_PARAM = "more"
+MAX_MORE_PAGES = 19
+_NEW_ROWS_ANCHOR = "flights-new"
+
 PAGE_TITLE = i18n.msg("nav.flight_history", "Flight history")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
     "flights.picture_shown_on_the_frame", "Picture shown on the frame")
@@ -382,7 +389,7 @@ def _lightbox_html():
     empty shell and the close button.
     """
     return (
-        '<dialog class="lightbox" id="%s" aria-label="%s">'
+        '<dialog class="lightbox lightbox--picture" id="%s" aria-label="%s">'
         '<img class="lightbox__image" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
         '<button type="button" %s>%s</button>'
@@ -399,16 +406,32 @@ def _safe_query(state_dir, fn):
         return _DB_UNAVAILABLE
 
 
-def history_rows(conn, airline_names=None):
-    """The most recent `HISTORY_ROW_LIMIT` `runway_events` rows, newest
-    first (matches `history_db.recent_runway_events()`'s own ordering),
-    with a pass stored twice folded into one row — the same fold Home
-    applies, so chip counts and day headers count
-    flights, not stored events. Storage keeps every event.
+def more_pages(raw):
+    """The `?more=` value as a page count in [0, MAX_MORE_PAGES]; anything
+    that is not a plain non-negative integer is 0."""
+    text = str(raw or "").strip()
+    if not text.isdigit() or len(text) > 3:
+        return 0
+    return min(int(text), MAX_MORE_PAGES)
+
+
+def history_rows_page(conn, airline_names=None, pages=0):
+    """`(rows, has_more)`: the most recent `(pages + 1) * HISTORY_ROW_LIMIT`
+    `runway_events` rows, newest first (matches
+    `history_db.recent_runway_events()`'s own ordering), with a pass stored
+    twice folded into one row — the same fold Home applies, so chip counts
+    and day headers count flights, not stored events. `has_more` is true
+    when stored events exist beyond that limit. Storage keeps every event.
     """
-    return flight_card.fold_repeated_passes(
-        history_db.recent_runway_events(
-            conn, limit=HISTORY_ROW_LIMIT, airline_names=airline_names))
+    limit = (pages + 1) * HISTORY_ROW_LIMIT
+    events = history_db.recent_runway_events(
+        conn, limit=limit + 1, airline_names=airline_names)
+    return flight_card.fold_repeated_passes(events[:limit]), len(events) > limit
+
+
+def history_rows(conn, airline_names=None):
+    """The most recent `HISTORY_ROW_LIMIT` flights; see `history_rows_page`."""
+    return history_rows_page(conn, airline_names)[0]
 
 
 def format_event_row(row, now=None):
@@ -581,7 +604,7 @@ def _filter_bar_html(rows):
         _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
         i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
         shown, shown, i18n.t(_FILTER_EMPTY_HEADING), empty_body,
-        chips=chips, chips_legend=i18n.t(_FILTER_CHIPS_LEGEND))
+        chips=chips, chips_legend=i18n.t(_FILTER_CHIPS_LEGEND), search_in_bar=False)
 
 
 # Mirrors layout.concise_timestamp_html()'s own default fallback string
@@ -771,17 +794,19 @@ def _row_value_html(row, now):
     ) % (age, clock)
 
 
-def _history_card_html(row, index, now):
+def _history_card_html(row, index, now, anchor_index=None):
     """One flight as a row: at the left the archived render's thumbnail (the
     control that opens it) or, with no render, a plane chip turned by the direction;
     the callsign and route, "airline \u00b7 aircraft" beneath, and the age over the clock at
     the right.
     `data-filter-group` is the row's loop index, shared with the desktop
-    `<tr>` at the same index so list-filter.js counts one flight once."""
+    `<tr>` at the same index so list-filter.js counts one flight once. The
+    row at `anchor_index` carries the id the Load more link scrolls to."""
     attrs = (
-        'data-filter-text="%s" data-filter-kind="%s" data-filter-group="%d" %s="%s"'
+        'data-filter-text="%s" data-filter-kind="%s" data-filter-group="%d" %s="%s"%s'
     ) % (_filter_text_attr(row), _filter_kind_attr(row), index,
-         layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)))
+         layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
+         ' id="%s"' % _NEW_ROWS_ANCHOR if index == anchor_index else "")
     return ui_groups.row(
         label_html=_row_label_html(row), icon="icon-plane",
         detail=_row_detail_text(row), value_html=_row_value_html(row, now),
@@ -789,7 +814,7 @@ def _history_card_html(row, index, now):
         extra_class="history-card", attrs=attrs)
 
 
-def _history_cards_html(formatted_rows, now=None):
+def _history_cards_html(formatted_rows, now=None, anchor_index=None):
     """The phone representation: one glass group per Paris calendar day
     (the day is its section label), one row per flight, built from the same
     `formatted_rows` list `_history_table_html()` consumes. A row whose
@@ -807,7 +832,7 @@ def _history_cards_html(formatted_rows, now=None):
         if day is not None and day != current_day or not days:
             current_day = day if day is not None else current_day
             days.append((day, []))
-        days[-1][1].append(_history_card_html(row, index, now))
+        days[-1][1].append(_history_card_html(row, index, now, anchor_index))
     groups = []
     for number, (day, items) in enumerate(days):
         label = day_label(day, today) if day is not None else i18n.t(PAGE_TITLE)
@@ -817,18 +842,42 @@ def _history_cards_html(formatted_rows, now=None):
     return '<div class="history-cards">%s</div>' % "".join(groups)
 
 
+_SHOWN_COUNT_TEXT = i18n.msg("flights.flights_shown", "%d flights shown")
+_LOAD_MORE_TEXT = i18n.msg("flights.load_more", "Load more")
+
+
+def _load_more_html(shown, pages):
+    """The end-of-list block: how many flights are shown and a Load more
+    link to the next page of history. A plain link (`?more=`), so it works
+    without a script; it returns to the first new row."""
+    href = device_scope.scoped(
+        "%s?%s=%d#%s" % (layout.FLIGHTS_ROUTE, MORE_PARAM, pages + 1, _NEW_ROWS_ANCHOR))
+    return (
+        '<div class="history-more" data-history-more>'
+        '<p class="text-label history-more__count">%s</p>'
+        '<a class="history-more__link" href="%s">%s</a></div>'
+    ) % (escape_html(i18n.t(_SHOWN_COUNT_TEXT) % shown), escape_html(href),
+         escape_html(i18n.t(_LOAD_MORE_TEXT)))
+
+
 def render(ctx):
     ctx = page_context.coerce(ctx)
     now = ctx.now or history_db.utc_now_iso()
     names = name_overrides.names_by_prefix(ctx.name_overrides)
-    rows = _safe_query(ctx.state_dir, lambda conn: history_rows(conn, names))
+    pages = more_pages(ctx.history_more)
+    fetched = _safe_query(
+        ctx.state_dir, lambda conn: history_rows_page(conn, names, pages))
+    rows, has_more = fetched if fetched is not _DB_UNAVAILABLE else (_DB_UNAVAILABLE, False)
 
     # Flights stays on the self-refreshing loop without showing a
     # freshness line: freshness.js returns at its first guard on any page
     # with no [data-loaded-at], so the silent marker is what keeps it on
     # the loop.
     header = layout.page_header(
-        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now))
+        i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now),
+        action_html=layout.filter_title_search_html(
+            _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT), i18n.t(_FILTER_PLACEHOLDER_TEXT))
+        if rows is not _DB_UNAVAILABLE and rows else None)
 
     # gallery_entries_list is the input to nearest_gallery_entry() below,
     # which every per-row "View panel near this time" trigger depends on.
@@ -873,9 +922,12 @@ def render(ctx):
             # Cards render before the table: style.css's
             # `.history-cards ~ .data-table-wrap` sibling-combinator
             # toggle depends on this DOM order.
+            anchor_index = (
+                min(pages * HISTORY_ROW_LIMIT, len(visible_rows) - 1) if pages else None)
             body = (
                 _filter_bar_html(visible_rows)
-                + _history_cards_html(visible_rows, now)
-                + _history_table_html(visible_rows, now))
+                + _history_cards_html(visible_rows, now, anchor_index)
+                + _history_table_html(visible_rows, now)
+                + (_load_more_html(len(visible_rows), pages) if has_more else ""))
 
     return header + body + lightbox_html

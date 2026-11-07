@@ -185,7 +185,7 @@ def test_battery_is_read_on_health_not_on_the_personal_home(new_context, make_ap
         page.goto(server.base_url() + layout.HOME_ROUTE)
         page.locator(".home-state").wait_for(state="visible")
         assert page.locator(".home-battery").count() == 0
-        page.goto(server.base_url() + layout.HEALTH_ROUTE)
+        page.goto(server.base_url() + "/fleet")
         row = page.locator('details.health-row[id$="battery"]')
         row.wait_for(state="visible")
         assert "battery" in row.inner_text().lower()
@@ -229,13 +229,14 @@ def _seed_checkin(minutes_ago, battery_mv):
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 @pytest.mark.parametrize("minutes_ago,battery_mv,wording,amber", [
     (2, 4100, "Next update in", False),
-    (16, 3700, "Update overdue · expected at", True),
-    (30, 3381, "Update overdue · expected at", True),
+    (16, 3700, None, True),
+    (30, 3381, None, True),
 ])
 def test_late_states_fit_every_viewport_without_a_battery_block(
         new_context, make_app_server, scheme, viewport_name, viewport,
         minutes_ago, battery_mv, wording, amber):
-    """on time, late and long overdue each read their own wording; only the on-time one keeps
+    """on time keeps its next-update line; late and long overdue say it once, in the notification
+    above the hero, with no second "Update overdue" line; only the on-time one keeps
     the green dot, a late or long overdue frame turns the dot amber, and none of them links to a
     Health page; the personal Home carries no battery block for an administrator, the zones
     arrange for the card's width, and nothing overflows"""
@@ -246,7 +247,12 @@ def test_late_states_fit_every_viewport_without_a_battery_block(
         _login(page, server.base_url())
         page.goto(server.base_url() + layout.HOME_ROUTE)
         page.locator(".home-state").wait_for(state="visible")
-        assert wording in page.locator(".home-state__next").inner_text()
+        if wording is not None:
+            assert wording in page.locator(".home-state__next").inner_text()
+        else:
+            assert page.locator(".home-state__next").count() == 0
+            assert "Update overdue" not in page.locator("main").inner_text()
+            assert page.locator(".home-facts").inner_text().strip() != ""
         assert page.locator(".home-state__dot.dot--warn").count() == (1 if amber else 0)
         assert page.locator('.home-state a[href$="/health"]').count() == 0
         if amber:
@@ -456,7 +462,7 @@ def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
         page.keyboard.press("Enter")
         page.wait_for_function(
             "() => document.querySelector('#dlg-quiet-hours').open"
-            " && document.activeElement.id === 'quiet-window-start'", timeout=10000)
+            " && document.activeElement.matches('#dlg-quiet-hours .modal__title')", timeout=10000)
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False
         page.keyboard.press("Escape")
         page.wait_for_function(

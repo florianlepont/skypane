@@ -46,12 +46,19 @@ from companion.ui_base import (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    MOTION_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
 from companion.ui_nav import (
+    PULL_HINT_ATTR,
+    PULL_HINT_TEXT,
+    SHEET_GRAB_ATTR,
+    SHEET_GRAB_TEXT,
+    PULL_RELEASE_ATTR,
+    PULL_RELEASE_TEXT,
     REFRESH_PAGE_ATTR,
     REFRESH_PAUSED_ATTR,
     REFRESH_PAUSED_TEXT,
@@ -149,6 +156,7 @@ SHELL_SCRIPT_ORDER = (
     VALUE_CONTROLS_SCRIPT_SRC,
     CALENDAR_SHEET_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    MOTION_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
 )
@@ -165,6 +173,7 @@ GLOBAL_PAGE_SCRIPTS = (
     SUBMIT_GUARD_SCRIPT_SRC,
     RELATIVE_TIME_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
+    MOTION_SCRIPT_SRC,
 )
 
 
@@ -205,6 +214,11 @@ def _body_attrs_html(active, tab_bar_html, refresh_token):
             escape_html(i18n.t(REFRESH_PAUSED_TEXT)),
             REFRESH_RECONNECTING_ATTR,
             escape_html(i18n.t(REFRESH_RECONNECTING_TEXT))))
+    # motion.js's pull-to-refresh prompts (Flights only acts on them).
+    body_class_attr += ' %s="%s" %s="%s"' % (
+        PULL_HINT_ATTR, escape_html(i18n.t(PULL_HINT_TEXT)),
+        PULL_RELEASE_ATTR, escape_html(i18n.t(PULL_RELEASE_TEXT)))
+    body_class_attr += ' %s="%s"' % (SHEET_GRAB_ATTR, escape_html(i18n.t(SHEET_GRAB_TEXT)))
     # The page key selecting this document's swap-region list. Lives on
     # <body> because it, like the other attributes here, sits beside
     # elements that are themselves swap targets, and <body> is the one
@@ -420,12 +434,13 @@ def frame_notice_html(active, console_page=False):
 
 
 def _device_scoped_title(title, active):
-    """The page title with the selected device's name appended for a non-live
-    device on a device-scoped page; every other title is returned unchanged."""
+    """The page title with the selected frame's name appended on a
+    device-scoped page, whatever the role or frame; every other title is
+    returned unchanged."""
     current = device_scope.current_device()
-    if current is None or current.is_live or _device_page_path(active) is None:
+    if current is None or _device_page_path(active) is None:
         return title
-    return "%s - %s" % (title, current.name)
+    return "%s - %s" % (title, device_display_name(current))
 
 
 def page_shell(
@@ -470,7 +485,8 @@ def page_shell(
     sidebar_html = sidebar_nav(
         active, health_alert=health_alert, device_config=device_config)
     tab_bar_html = _tab_bar_html(
-        active, health_alert=health_alert, device_config=device_config)
+        active, health_alert=health_alert, device_config=device_config,
+        ui_theme=resolved_theme)
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
     flash_html = flash or ""
     banner_html = banner or ""

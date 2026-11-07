@@ -22,6 +22,8 @@ MESSAGES = {
 
     # --- 404 page ----------------------------------------------------
     "common.page_not_found": "Page introuvable.",
+    "common.this_page_is_missing_or_reserved_for_administrators":
+        "Cette page n’existe pas, ou elle est réservée aux administrateurs.",
     "common.the_page_you_requested_doesn_t_exist_or_may":
         "La page demandée n’existe pas ou a peut-être été déplacée.",
     "common.back_to_home": "Retour à l’accueil",
@@ -204,6 +206,9 @@ MESSAGES = {
     # the English forms are also the script's own no-attribute fallbacks.
     "common.paused": "En pause",
     "common.reconnecting": "Reconnexion…",
+    "common.pull_to_refresh": "Tirez pour actualiser",
+    "common.sheet_grabber": "Faites glisser vers le bas pour fermer",
+    "common.release_to_refresh": "Relâchez pour actualiser",
 
     # data_table()'s generic empty-rows fallback (companion/ui_components.py).
     "common.no_data_yet": "Aucune donnée pour l’instant.",

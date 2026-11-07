@@ -209,7 +209,7 @@ def test_the_look_view_carries_the_picker_in_the_page_with_a_save_button():
     ("en", ("Look", "Special looks", "Plain paper", "Stripe on soft",
             "New special look", "Change", "Customise look", "Calendar", "Departures",
             "Arrivals")),
-    ("fr", ("Allure", "Allures spéciales", "Papier uni",
+    ("fr", ("Allure", "Looks spéciaux", "Papier uni",
             "Bande sur fond clair", "Nouvelle allure spéciale", "Modifier",
             "Personnaliser le style", "Calendrier", "Départs", "Arrivées")),
 ])

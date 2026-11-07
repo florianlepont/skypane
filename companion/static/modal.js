@@ -4,8 +4,10 @@
  * Upgrades the shared dialog.modal component (companion/ui_modal.py) and
  * closes the open row menus and the frame popover. No build step, ES5-safe
  * subset. Served by companion/app.py's MODAL_SCRIPT_ROUTE. No network call,
- * no timer, no HTML-writing sink: only attribute and class changes, focus
- * and the native dialog methods.
+ * no HTML-writing sink: attribute and class changes, focus, the native
+ * dialog methods and, for the phone's drag-to-close, the dialog's own
+ * transform set through the CSSOM (never a style attribute in the markup)
+ * with one short fallback timer.
  *
  * Scripts blocked, a dialog still works: a [data-modal-open] link is a hash
  * link to it, the stylesheet shows the targeted (or server-rendered open)
@@ -108,6 +110,7 @@
       return;
     }
     dialog.classList.remove("is-modal");
+    resetSheet(dialog);
     clearHash();
     returnFocus();
   }
@@ -118,9 +121,23 @@
       dialog.close();
     }
     dialog.classList.add("is-modal");
+    ensureGrabber(dialog);
     dialog.removeEventListener("close", onClosed);
     dialog.addEventListener("close", onClosed);
     dialog.showModal();
+    focusTitleIfAsked(dialog);
+  }
+
+  // A dialog marked data-focus-title opens on its heading, so no field
+  // raises the keyboard or a native picker unasked.
+  function focusTitleIfAsked(dialog) {
+    if (!dialog.hasAttribute("data-focus-title")) {
+      return;
+    }
+    var title = dialog.querySelector(".modal__title");
+    if (title) {
+      title.focus();
+    }
   }
 
   function shutDetails(except) {
@@ -210,6 +227,77 @@
     }
   });
 
+  var FOCUSABLE = 'a[href], button, input, select, textarea, summary, ' +
+    '[tabindex]';
+
+  // The modal dialog that is open now, if any.
+  function openModalDialog() {
+    var all = document.querySelectorAll("dialog[open]");
+    for (var i = all.length - 1; i >= 0; i -= 1) {
+      var matches = all[i].matches || all[i].msMatchesSelector;
+      try {
+        if (matches.call(all[i], ":modal")) {
+          return all[i];
+        }
+      } catch (err) {
+        if (all[i].classList.contains("is-modal")) {
+          return all[i];
+        }
+      }
+    }
+    return null;
+  }
+
+  // The controls a Tab can reach inside `root`, in document order.
+  function tabStops(root) {
+    var found = root.querySelectorAll(FOCUSABLE);
+    var stops = [];
+    for (var i = 0; i < found.length; i += 1) {
+      var el = found[i];
+      if (el.disabled || el.getAttribute("tabindex") === "-1" ||
+          (el.type === "hidden") || el.getClientRects().length === 0) {
+        continue;
+      }
+      if (window.getComputedStyle(el).visibility === "hidden") {
+        continue;
+      }
+      stops.push(el);
+    }
+    return stops;
+  }
+
+  // Tab and Shift+Tab loop inside the open dialog: they never reach the
+  // page behind it nor the browser's own chrome.
+  document.addEventListener("keydown", function (evt) {
+    if (evt.key !== "Tab" || evt.altKey || evt.ctrlKey || evt.metaKey) {
+      return;
+    }
+    var dialog = openModalDialog();
+    if (!dialog) {
+      return;
+    }
+    var stops = tabStops(dialog);
+    if (stops.length === 0) {
+      evt.preventDefault();
+      return;
+    }
+    var first = stops[0];
+    var last = stops[stops.length - 1];
+    var active = document.activeElement;
+    if (!dialog.contains(active) || active === dialog) {
+      evt.preventDefault();
+      (evt.shiftKey ? last : first).focus();
+    } else if (evt.shiftKey && (active === first || (stops.indexOf(active) === -1 &&
+        (active.compareDocumentPosition(first) & 4)))) {
+      evt.preventDefault();
+      last.focus();
+    } else if (!evt.shiftKey && (active === last || (stops.indexOf(active) === -1 &&
+        (active.compareDocumentPosition(last) & 2)))) {
+      evt.preventDefault();
+      first.focus();
+    }
+  });
+
   // The frame button is a <summary>: keep aria-expanded in step with the
   // popover (the attribute is absent without script, where the disclosure
   // state is still exposed natively).
@@ -227,6 +315,190 @@
       syncExpanded(evt.target);
     });
   }
+
+  // ---- Phone bottom sheets: drag the grabber or the heading down to close.
+  var PHONE_QUERY = window.matchMedia ? window.matchMedia("(max-width: 699.98px)") : null;
+  var REDUCED_QUERY = window.matchMedia
+    ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+  var GRAB_TEXT_ATTR = "data-sheet-grab-text";
+  // A drag past this many pixels, or a faster flick, closes the sheet.
+  var CLOSE_DISTANCE = 90;
+  var CLOSE_VELOCITY = 0.5;
+  // Upward drags barely move the sheet.
+  var RUBBER_BAND = 6;
+  var SETTLE_FALLBACK_MS = 600;
+  var NO_DRAG = "a, button, input, select, textarea, summary, label";
+  var drag = null;
+
+  function phoneSheet() {
+    return !!PHONE_QUERY && PHONE_QUERY.matches;
+  }
+
+  function reducedMotion() {
+    return !!REDUCED_QUERY && REDUCED_QUERY.matches;
+  }
+
+  // The grabber's hit area; the pill itself is drawn by the stylesheet. Only
+  // shown on a phone.
+  function ensureGrabber(dialog) {
+    if (dialog.querySelector("[data-modal-grabber]")) {
+      return;
+    }
+    var grabber = document.createElement("div");
+    grabber.className = "modal__grabber";
+    grabber.setAttribute("data-modal-grabber", "");
+    grabber.setAttribute("role", "img");
+    var text = document.body.getAttribute(GRAB_TEXT_ATTR);
+    if (text) {
+      grabber.setAttribute("aria-label", text);
+    }
+    dialog.insertBefore(grabber, dialog.firstChild);
+  }
+
+  function resetSheet(dialog) {
+    if (drag && drag.dialog === dialog) {
+      drag = null;
+    }
+    if (dialog.getAttribute("data-sheet-state") === null && !dialog.style.transform) {
+      return;
+    }
+    dialog.removeAttribute("data-sheet-state");
+    dialog.style.transform = "";
+  }
+
+  // The heading strip and the grabber start a drag; controls and the body do
+  // not, so scrolling and tapping inside the sheet are untouched.
+  function dragStart(node, dialog) {
+    if (closestWithAttr(node, "data-modal-grabber")) {
+      return true;
+    }
+    var el = node;
+    while (el && el !== dialog && el.nodeType === 1) {
+      if (el.matches && el.matches(NO_DRAG)) {
+        return false;
+      }
+      if (el.classList.contains("modal__head")) {
+        return true;
+      }
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  function sheetDialog(node) {
+    var dialog = closestTag(node, "dialog");
+    if (!isModalDialog(dialog) || !dialog.classList.contains("is-modal") ||
+        !dialog.open || dialog.getAttribute("data-sheet-state") === "closing") {
+      return null;
+    }
+    return dialog;
+  }
+
+  document.addEventListener("pointerdown", function (evt) {
+    if (!phoneSheet() || drag || evt.button > 0 || evt.isPrimary === false) {
+      return;
+    }
+    var dialog = sheetDialog(evt.target);
+    if (!dialog || !dragStart(evt.target, dialog)) {
+      return;
+    }
+    drag = {
+      dialog: dialog, id: evt.pointerId, startY: evt.clientY, lastY: evt.clientY,
+      lastT: evt.timeStamp, velocity: 0, offset: 0
+    };
+    dialog.setAttribute("data-sheet-state", "dragging");
+    try {
+      dialog.setPointerCapture(evt.pointerId);
+    } catch (err) {
+      // A synthetic or already-ended pointer cannot be captured; the drag
+      // still follows the events that reach the document.
+    }
+  });
+
+  document.addEventListener("pointermove", function (evt) {
+    if (!drag || evt.pointerId !== drag.id) {
+      return;
+    }
+    var moved = evt.clientY - drag.startY;
+    drag.offset = moved > 0 ? moved : moved / RUBBER_BAND;
+    var dt = evt.timeStamp - drag.lastT;
+    if (dt > 0) {
+      drag.velocity = (evt.clientY - drag.lastY) / dt;
+    }
+    drag.lastY = evt.clientY;
+    drag.lastT = evt.timeStamp;
+    drag.dialog.style.transform = "translateY(" + Math.round(drag.offset) + "px)";
+  });
+
+  // Runs done once the sheet's transform transition ends (or, with no
+  // transition to wait for, at once).
+  function afterSettle(dialog, done) {
+    if (reducedMotion()) {
+      done();
+      return;
+    }
+    var finished = false;
+    function finish() {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      dialog.removeEventListener("transitionend", onEnd);
+      done();
+    }
+    function onEnd(evt) {
+      if (evt.target === dialog && evt.propertyName === "transform") {
+        finish();
+      }
+    }
+    dialog.addEventListener("transitionend", onEnd);
+    window.setTimeout(finish, SETTLE_FALLBACK_MS);
+  }
+
+  // Closing goes through the dialog's own close(): the same close event,
+  // focus return and hash clean-up as the Close link.
+  function closeSheet(dialog) {
+    dialog.setAttribute("data-sheet-state", "closing");
+    dialog.style.transform = "translateY(" + Math.ceil(dialog.getBoundingClientRect().height) + "px)";
+    afterSettle(dialog, function () {
+      if (dialog.open) {
+        dialog.close();
+      }
+      resetSheet(dialog);
+    });
+  }
+
+  function springBack(dialog) {
+    dialog.setAttribute("data-sheet-state", "springing");
+    dialog.style.transform = "translateY(0px)";
+    afterSettle(dialog, function () {
+      if (dialog.getAttribute("data-sheet-state") === "springing") {
+        resetSheet(dialog);
+      }
+    });
+  }
+
+  function endDrag(evt, cancelled) {
+    if (!drag || evt.pointerId !== drag.id) {
+      return;
+    }
+    var dialog = drag.dialog;
+    var far = drag.offset > CLOSE_DISTANCE;
+    var fast = drag.offset > 0 && drag.velocity > CLOSE_VELOCITY;
+    drag = null;
+    if (!cancelled && (far || fast)) {
+      closeSheet(dialog);
+    } else {
+      springBack(dialog);
+    }
+  }
+
+  document.addEventListener("pointerup", function (evt) {
+    endDrag(evt, false);
+  });
+  document.addEventListener("pointercancel", function (evt) {
+    endDrag(evt, true);
+  });
 
   // A server-rendered open dialog (a refused submission) or a hash that
   // targets a dialog becomes a modal as soon as the page loads.

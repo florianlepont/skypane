@@ -184,6 +184,7 @@ from companion.settings.wake_interval import (
     WAKE_INTERVAL_SECTION_CAPTION_ID as WAKE_INTERVAL_SECTION_CAPTION_ID,
     WAKE_INTERVAL_SECTION_HEADING as WAKE_INTERVAL_SECTION_HEADING,
     WAKE_INTERVAL_UNIT_LABEL as WAKE_INTERVAL_UNIT_LABEL,
+    WAKE_INTERVAL_MINUTES_TEXT as WAKE_INTERVAL_MINUTES_TEXT,
     WAKE_SLIDER_CLASS as WAKE_SLIDER_CLASS,
     WAKE_SLIDER_INPUT_CLASS as WAKE_SLIDER_INPUT_CLASS,
     WAKE_SLIDER_LABEL as WAKE_SLIDER_LABEL,
@@ -652,19 +653,63 @@ SAVE_BUTTON_TEXT = i18n.msg("display.save_settings", "Save settings")
 CANCEL_BUTTON_TEXT = i18n.msg("display.cancel", "Cancel")
 
 
-def _settings_page_html(pieces, quick_led_html, dirty_strings):
+# The short Save of the docked bar: same id and English as the Look card's.
+DOCKED_SAVE_BUTTON_TEXT = i18n.msg("look.save", "Save")
+
+
+def _dirty_bar_html(dirty_strings, extra_class="", save_text=None):
+    """The save/cancel bar bound to the settings form by `form=`. A native
+    `type="reset"` Cancel and an empty-until-JS count span keep the bar
+    usable with no script; no `hidden` attribute, since it is the only save
+    affordance for a scripts-blocked visitor: dirty-state.js hides it at init
+    and reveals it on real changes. `STATIC_SAVE_FALLBACK_ATTR` must reach
+    the format call below as a bare name, for the AST invariant checked
+    elsewhere.
+    """
+    return (
+        '<div class="dirty-bar%s" data-dirty-bar%s role="status" '
+        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
+        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
+        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s" '
+        'data-dirty-initial-text="%s">'
+        "<span data-dirty-count></span>"
+        '<button type="submit" class="dirty-bar__save" form="%s" %s>%s</button>'
+        '<button type="reset" form="%s" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
+        "</div>"
+    ) % (
+        extra_class,
+        " data-dirty-generic" if extra_class else "",
+        dirty_strings["changed_suffix"],
+        dirty_strings["and_word"],
+        dirty_strings["list_and"],
+        dirty_strings["unsaved_singular"],
+        dirty_strings["unsaved_plural"],
+        dirty_strings["saving"],
+        dirty_strings["initial_text"],
+        SETTINGS_FORM_ID,
+        STATIC_SAVE_FALLBACK_ATTR,
+        escape_html(i18n.t(save_text or SAVE_BUTTON_TEXT)),
+        SETTINGS_FORM_ID,
+        escape_html(i18n.t(CANCEL_BUTTON_TEXT)),
+    )
+
+
+def docked_dirty_bar_html():
+    """The bar for a settings form embedded in a glass group (the Fleet
+    page): it is rendered by the page after the group, never inside it, because
+    a backdrop-filtered ancestor would become the containing block of any
+    fixed descendant. The `--docked` modifier makes it stick to the bottom of
+    the viewport inside the main column."""
+    return _dirty_bar_html(_dirty_bar_strings(), " dirty-bar--docked", DOCKED_SAVE_BUTTON_TEXT)
+
+
+def _settings_page_html(pieces, quick_led_html, dirty_strings, with_bar=True):
     """The final HTML assembly: the physical `<form>` (hidden scope
     fields, groups_html), every scope's own extra sections in their
     locked order, and the dirty-bar save affordance last, after
     `</form>` and the extra sections, so its `position: fixed` sits
-    outside the short settings form.
-
-    A native `type="reset"` Cancel and an empty-until-JS count span
-    keep the bar usable with no script; no `hidden` attribute, since it
-    is the only save affordance for a scripts-blocked visitor —
-    dirty-state.js hides it at init and reveals it on real changes.
-    `STATIC_SAVE_FALLBACK_ATTR` must reach the format call below as a
-    bare name, for the AST invariant checked elsewhere.
+    outside the short settings form. `with_bar=False` leaves the bar to
+    the caller (see `docked_dirty_bar_html`).
     """
     return (
         pieces["header"]
@@ -679,15 +724,6 @@ def _settings_page_html(pieces, quick_led_html, dirty_strings):
         "%s"
         "%s"
         "%s"
-        '<div class="dirty-bar" data-dirty-bar role="status" '
-        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
-        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
-        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s" '
-        'data-dirty-initial-text="%s">'
-        "<span data-dirty-count></span>"
-        '<button type="submit" class="dirty-bar__save" form="%s" %s>%s</button>'
-        '<button type="reset" form="%s" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
-        "</div>"
     ) % (
         SETTINGS_FORM_ID,
         device_scope.scoped(SETTINGS_ROUTE, "POST"),
@@ -698,20 +734,7 @@ def _settings_page_html(pieces, quick_led_html, dirty_strings):
         pieces["display_watches_supersection_html"],
         quick_led_html,
         pieces["display_on_supersection_html"],
-        dirty_strings["changed_suffix"],
-        dirty_strings["and_word"],
-        dirty_strings["list_and"],
-        dirty_strings["unsaved_singular"],
-        dirty_strings["unsaved_plural"],
-        dirty_strings["saving"],
-        dirty_strings["initial_text"],
-        SETTINGS_FORM_ID,
-        STATIC_SAVE_FALLBACK_ATTR,
-        escape_html(i18n.t(SAVE_BUTTON_TEXT)),
-        # The Cancel button: form=, then its label.
-        SETTINGS_FORM_ID,
-        escape_html(i18n.t(CANCEL_BUTTON_TEXT)),
-    )
+    ) + (_dirty_bar_html(dirty_strings) if with_bar else "")
 
 
 def render(
@@ -763,7 +786,7 @@ def render(
     if embedded:
         # The Console Fleet view supplies its own block heading.
         pieces["header"] = ""
-    return _settings_page_html(pieces, quick_led_html, dirty_strings)
+    return _settings_page_html(pieces, quick_led_html, dirty_strings, with_bar=not embedded)
 
 
 def _scope_fields_html(scope, return_route):

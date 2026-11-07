@@ -22,7 +22,6 @@ from companion.ui_base import (
     HEALTH_ALERT_SUFFIX_TEXT,
     HEALTH_ANOMALY_CLASS,
     HEALTH_SOURCE_FAULT_CLASS,
-    HEALTH_ROUTE,
     HOME_ROUTE,
     NAV_ICON_IDS,
     NAV_NOTIFICATION_CLASS,
@@ -86,7 +85,9 @@ PERSONAL_SPACE = "personal"
 
 _AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
 _AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Airlines")
-_CONSOLE_BAR_LABELS = {"editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL}
+_USERS_BAR_LABEL = i18n.msg("nav.users_short", "Users")
+_CONSOLE_BAR_LABELS = {
+    "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
 _PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
 _SWITCH_TO_PERSONAL_TEXT = i18n.msg(
@@ -200,7 +201,8 @@ def space_switch_html(active):
     which one is marked current."""
     if not is_admin_principal() or not console_routes.available_nav_entries():
         return ""
-    space = current_space(active)
+    # The Account page belongs to both spaces: no segment is marked current.
+    space = None if active == ACCOUNT_NAV_SLUG else current_space(active)
     segments = "".join(
         _space_segment_html(
             name, href, label, aria, icon_id, name == space)
@@ -401,6 +403,17 @@ REFRESH_RECONNECTING_TEXT = i18n.msg("common.reconnecting", "Reconnecting…")
 REFRESH_PAUSED_ATTR = "data-refresh-paused-text"
 REFRESH_RECONNECTING_ATTR = "data-refresh-reconnecting-text"
 
+# The pull-to-refresh indicator's two prompts (motion.js reads them off
+# <body>; the third state reuses the refresh pill's own "Updating…").
+PULL_HINT_TEXT = i18n.msg("common.pull_to_refresh", "Pull to refresh")
+PULL_RELEASE_TEXT = i18n.msg("common.release_to_refresh", "Release to refresh")
+PULL_HINT_ATTR = "data-pull-text"
+PULL_RELEASE_ATTR = "data-pull-release-text"
+
+# The bottom sheets' grabber label (modal.js reads it off <body>).
+SHEET_GRAB_TEXT = i18n.msg("common.sheet_grabber", "Drag down to close")
+SHEET_GRAB_ATTR = "data-sheet-grab-text"
+
 
 # freshness.js used to carry a hard-coded selector list, duplicated and
 # pinned equal elsewhere — three hand-maintained copies is a shape this
@@ -420,7 +433,6 @@ REFRESH_TOKEN_ATTR = "data-refresh-token"
 REFRESH_PAGE_ATTR = "data-refresh-page"
 REFRESH_PAGE_HOME = nav_slug(HOME_ROUTE)
 REFRESH_PAGE_DISPLAY = nav_slug(DISPLAY_ROUTE)
-REFRESH_PAGE_HEALTH = nav_slug(HEALTH_ROUTE)
 REFRESH_PAGE_FLIGHTS = nav_slug(FLIGHTS_ROUTE)
 # The Console Fleet page refreshes its health rows and the Fleet navigation
 # dot in place; it carries no freshness token (every tick is a full 200).
@@ -501,13 +513,6 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         ".page-header__freshness",
         ".frame-strip",
     ),
-    REFRESH_PAGE_HEALTH: (
-        ".health-row__summary",
-        "div." + HEALTH_ANOMALY_CLASS,
-        "section." + HEALTH_SOURCE_FAULT_CLASS,
-        ".page-header__freshness",
-        'a[href$="/fleet"]',
-    ),
     REFRESH_PAGE_FLEET: (
         ".health-row__summary",
         "div." + HEALTH_ANOMALY_CLASS,
@@ -584,7 +589,48 @@ def _personal_bar(active):
     return cells, sheet
 
 
-def _tab_bar_html(active, health_alert=None, device_config=None):
+def _account_sheet_link(entry):
+    """The More sheet's Account row. It is a sheet link like the others; the
+    signed-in e-mail rides along as a data attribute that the stylesheet shows
+    under the page name, so the link's own text stays the page name."""
+    css_class = "mobile-nav__link tab-bar__account"
+    aria_current = ""
+    if entry.is_active:
+        css_class += " mobile-nav__link--active"
+        aria_current = ' aria-current="page"'
+    email = prefs.current_principal_email()
+    detail = ' data-email="%s"' % escape_html(email) if email else ""
+    return '<a class="%s" href="%s"%s%s>%s</a>' % (
+        css_class, escape_html(entry.href), aria_current, detail,
+        escape_html(i18n.t(entry.label)))
+
+
+def _sheet_preference_html(label, form_html):
+    return (
+        '<div class="tab-bar__pref"><span class="tab-bar__pref-label">%s</span>%s</div>'
+        % (escape_html(i18n.t(label)), form_html))
+
+
+def _more_panel_html(active, sheet, ui_theme):
+    """The More sheet: theme and language (one tap each, plain POST forms),
+    then the entries that do not fit the bar, the Account row and Sign out.
+    The Account page already carries all of its own controls, so there the
+    sheet holds the links alone and a second Sign out never appears."""
+    links = "".join(
+        _account_sheet_link(entry) if entry.slug == ACCOUNT_NAV_SLUG
+        else _tab_bar_sheet_link(entry) for entry in sheet)
+    if active == ACCOUNT_NAV_SLUG:
+        return links
+    preferences = (
+        _sheet_preference_html(_THEME_TEXT, _theme_form_html(ui_theme))
+        + _sheet_preference_html(_LANGUAGE_TEXT, _lang_form_html(prefs.current_lang())))
+    return (
+        preferences + '<div class="tab-bar__links">%s</div>' % links
+        + '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">'
+        '<button type="submit">%s</button></form>' % escape_html(i18n.t(_SIGN_OUT_TEXT)))
+
+
+def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):
     """Bottom tab bar shown below 960px, the sub-960px nav.
 
     For an administrator the first cell is the space switch, a plain link to
@@ -616,7 +662,7 @@ def _tab_bar_html(active, health_alert=None, device_config=None):
         % (summary_class,
            _tab_bar_cell_body(
                TAB_BAR_MORE_ICON_ID, escape_html(i18n.t(TAB_BAR_MORE_LABEL))),
-           "".join(_tab_bar_sheet_link(entry) for entry in sheet)))
+           _more_panel_html(active, sheet, ui_theme)))
     return (
         '<nav class="tab-bar" aria-label="%s">%s</nav>'
     ) % (

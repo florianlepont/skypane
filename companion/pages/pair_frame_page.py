@@ -13,6 +13,7 @@ from typing import NamedTuple
 
 from companion import i18n, layout, ui_components
 from companion.pages import fleet_page
+from companion.ui_base import validation_attrs
 
 PAIR_FRAME_ROUTE = "/pair-frame"
 CODE_FIELD = fleet_page.CODE_FIELD
@@ -87,9 +88,9 @@ def _code_field(view):
         '<div class="modal__field"><label for="pair-code">%s</label>'
         '<input type="text" id="pair-code" name="%s" class="mono" autocomplete="off" '
         'autocapitalize="characters" spellcheck="false" inputmode="text" '
-        'maxlength="12" placeholder="XXXX-XXXX" value="%s" required autofocus%s>%s'
+        'maxlength="12" placeholder="XXXX-XXXX" value="%s" required%s autofocus%s>%s'
         '<p class="text-label">%s</p></div>') % (
-            _t(_CODE_LABEL), CODE_FIELD, _esc(view.code_value), attrs, error,
+            _t(_CODE_LABEL), CODE_FIELD, _esc(view.code_value), validation_attrs("text"), attrs, error,
             _t(_CODE_HELP))
 
 

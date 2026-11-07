@@ -14,6 +14,7 @@ from datetime import datetime, timedelta, timezone
 import companion.test_status_pages_helpers as shp
 from companion import draw, layout, prefs
 from companion.pages import health_page
+import health_page_composition
 import companion.wake as wake
 from companion_markup import parse_html
 from server import device_config, history_db
@@ -29,7 +30,7 @@ _DEFAULT_DEVICE_WARN_S, _DEFAULT_DEVICE_ERROR_S = wake.device_staleness_threshol
 
 def test_render_shows_two_distinct_freshness_labels(tmp_path):
     """render() shows two distinct, separately-named freshness signals, each as its own row"""
-    rendered = health_page.render(shp.ctx(str(tmp_path)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path)))
     assert health_page.ROW_CONNECTION_NAME in rendered
     assert health_page.ROW_FLIGHT_DATA_NAME in rendered
     assert health_page.ROW_CONNECTION_NAME != health_page.ROW_FLIGHT_DATA_NAME
@@ -145,7 +146,7 @@ def test_health_page_timestamp_helpers_promoted_not_duplicated(tmp_path):
     now = shp.now()
     ts = shp.iso(now - timedelta(minutes=3))
     shp.seed_device_health(str(tmp_path), [(ts, 4200)])
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     # The title is now a full local timestamp, never the raw ISO — the
     # raw seeded ISO string must not survive verbatim on the page.
     assert ts not in rendered
@@ -162,7 +163,7 @@ def test_independent_thresholds_one_warn_one_ok(tmp_path):
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
 
     assert shp.health_row_state(rendered, "connection") == ("error", True)
     assert shp.health_row_state(rendered, "flight-data") == ("ok", False)
@@ -179,7 +180,7 @@ def test_connection_and_flight_data_rows_have_no_duplicated_label(tmp_path):
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     for row_id, name in (("connection", health_page.ROW_CONNECTION_NAME),
                          ("flight-data", health_page.ROW_FLIGHT_DATA_NAME)):
         assert rendered.count(">%s<" % name) == 1, (
@@ -205,7 +206,7 @@ def test_connection_and_flight_data_rows_have_no_duplicated_label(tmp_path):
 
 def test_battery_empty_state_no_sparkline(tmp_path):
     """zero battery rows render the good-news empty state and no sparkline"""
-    rendered = health_page.render(shp.ctx(str(tmp_path)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path)))
     assert "No battery readings yet." in rendered
     doc = parse_html(rendered)
     assert not doc.find_all("line", cls=health_page.SPARKLINE_LINE_CLASS), (
@@ -234,7 +235,7 @@ def test_battery_ring_agrees_with_its_own_readout(tmp_path):
         (shp.iso(base), 3690),
     ]
     shp.seed_device_health(str(with_reading), readings)
-    rendered = health_page.render(shp.ctx(str(with_reading), now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(str(with_reading), now_value=shp.iso(base)))
     doc = parse_html(rendered)
 
     tracks = doc.find_all("circle", cls=draw.DRAWING_RING_TRACK_CLASS)
@@ -275,7 +276,7 @@ def test_battery_ring_agrees_with_its_own_readout(tmp_path):
             "battery_sparkline_svg()'s own output carries %r — this feature adds "
             "a ring BESIDE the chart, not inside it" % (cls,))
 
-    blank_rendered = health_page.render(shp.ctx(str(no_reading), now_value=shp.iso(base)))
+    blank_rendered = health_page_composition.render(shp.ctx(str(no_reading), now_value=shp.iso(base)))
     blank_doc = parse_html(blank_rendered)
     for cls in (draw.DRAWING_RING_TRACK_CLASS, draw.DRAWING_RING_VALUE_CLASS):
         assert not blank_doc.find_all("circle", cls=cls), (
@@ -301,7 +302,7 @@ def test_battery_trend_shows_all_readings_and_one_sparkline(tmp_path):
         (shp.iso(base), 4180),
     ]
     shp.seed_device_health(str(tmp_path), readings)
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     for _ts, mv in readings:
         assert str(mv) in rendered, "expected battery_mv=%d to appear (a trend, not just the latest)" % mv
     doc = parse_html(rendered)
@@ -324,7 +325,7 @@ def test_battery_chart_ships_a_percentage_twin_calculated_by_the_server(tmp_path
         (shp.iso(base), 3600),
     ]
     shp.seed_device_health(str(tmp_path), readings)
-    doc = parse_html(health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base))))
+    doc = parse_html(health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base))))
     voltage = _voltage_view(doc)
     percent = doc.find("div", cls="battery-chart__view", attrs={"data-unit": "percent"})
     assert "hidden" not in voltage.attrs and "hidden" in percent.attrs
@@ -348,7 +349,7 @@ def test_battery_unit_control_is_localised(tmp_path):
         (shp.iso(base - timedelta(minutes=1)), 3900), (shp.iso(base), 3800)])
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+        rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     finally:
         prefs.set_request_prefs(lang="en")
     assert ">Pourcentage</button>" in rendered and ">Tension</button>" in rendered
@@ -370,7 +371,7 @@ def test_battery_trend_timestamps_show_concise_format(tmp_path):
         (shp.iso(base), 4180),
     ]
     shp.seed_device_health(str(tmp_path), readings)
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     for ts, _mv in readings:
         expected_span = layout.concise_timestamp_html(ts, shp.iso(base))
         assert rendered.count(expected_span) >= 1, (
@@ -389,7 +390,7 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
         (shp.iso(base), 4180),
     ]
     shp.seed_device_health(str(tmp_path), readings)
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     assert '<details class="readings-disclosure"' in rendered
     details_tag = rendered[rendered.index('<details class="readings-disclosure"'):]
     details_open_tag = details_tag[:details_tag.index(">") + 1]
@@ -403,7 +404,7 @@ def test_battery_readings_collapsed_behind_closed_disclosure_after_chart(tmp_pat
 def test_battery_trend_heading_names_only_the_subject(tmp_path):
     """the Battery row is named by its bare subject, carries no window label, and the
     retired "Last 3 months" range caption does not render on an empty render"""
-    rendered = health_page.render(shp.ctx(str(tmp_path)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path)))
     name = shp.health_row(rendered, "battery").select_one(".health-row__name")
     assert name.text() == "Battery"
     assert "3 months" not in rendered
@@ -422,7 +423,7 @@ def test_battery_chart_plots_daily_averages_not_raw_readings(tmp_path):
             ts = shp.iso((base - timedelta(days=day)).replace(hour=hour))
             readings.append((ts, mv))
     shp.seed_device_health(str(tmp_path), readings)
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     doc = parse_html(rendered)
     for expected_mean in ("4100", "4101", "4102"):
         assert doc.find_all(attrs={"data-mv": expected_mean}), (
@@ -449,7 +450,7 @@ def test_battery_chart_falls_back_to_raw_series_on_day_one(tmp_path):
         (shp.iso(base), 4180),
     ]
     shp.seed_device_health(str(tmp_path), readings)
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(base)))
     doc = parse_html(rendered)
     lines = _voltage_view(doc).find_all("line", cls=health_page.SPARKLINE_LINE_CLASS)
     assert len(lines) == 2, "a same-day device must still get its raw-readings chart, got %d segments" % len(lines)
@@ -489,7 +490,7 @@ def test_anomaly_active_never_raises_on_hostile_inputs(tmp_path):
         verdict = _anomaly_active(candidate_str)
         assert isinstance(verdict, bool), (
             "expected a bool (no raise) for %r, got %r" % (candidate_str, verdict))
-        rendered = health_page.render(shp.ctx(candidate_str))
+        rendered = health_page_composition.render(shp.ctx(candidate_str))
         assert verdict == (health_page.ANOMALY_BANNER_TEXT in rendered), (
             "the severity path disagreed with render()'s banner for %r" % candidate_str)
 
@@ -523,7 +524,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
         d.mkdir()
     base = shp.now()
 
-    empty_rendered = health_page.render(shp.ctx(str(empty_dir), now_value=shp.iso(base)))
+    empty_rendered = health_page_composition.render(shp.ctx(str(empty_dir), now_value=shp.iso(base)))
     assert "Last 3 months" not in empty_rendered, "expected no range caption on an empty render"
 
     multiday_readings = [
@@ -531,7 +532,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
         (shp.iso(base - timedelta(days=2)), 4200),
     ]
     shp.seed_device_health(str(multiday_dir), multiday_readings)
-    multiday_rendered = health_page.render(shp.ctx(str(multiday_dir), now_value=shp.iso(base)))
+    multiday_rendered = health_page_composition.render(shp.ctx(str(multiday_dir), now_value=shp.iso(base)))
     assert "Last 3 months" not in multiday_rendered, "expected no range caption when the daily series is on screen"
 
     sameday_readings = [
@@ -539,7 +540,7 @@ def test_battery_caption_is_mode_honest_across_renders(tmp_path):
         (shp.iso(base), 4190),
     ]
     shp.seed_device_health(str(sameday_dir), sameday_readings)
-    sameday_rendered = health_page.render(shp.ctx(str(sameday_dir), now_value=shp.iso(base)))
+    sameday_rendered = health_page_composition.render(shp.ctx(str(sameday_dir), now_value=shp.iso(base)))
     assert ("View %d readings" % len(sameday_readings)) in sameday_rendered, (
         "expected the readings disclosure to name the real count on the same-day fallback")
     assert ("Latest %d readings" % len(sameday_readings)) not in sameday_rendered
@@ -560,7 +561,7 @@ def test_anomaly_banner_names_real_categories_not_generic_only(tmp_path):
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     shp.seed_runway_events(str(tmp_path), [
         {"ts": shp.iso(now), "hex": "abc123", "corroborated": False}])
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert "Data sources disagreed" in rendered, "expected the anomaly banner to name the real failing category"
     assert health_page.ANOMALY_BANNER_TEXT in rendered, (
         "expected ANOMALY_BANNER_TEXT to remain present as the banner's fallback tail")
@@ -645,7 +646,7 @@ def test_anomaly_banner_renders_one_pill_per_anomaly_on_the_page(tmp_path):
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{
         history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     toasts = parse_html(rendered).select(".toast." + health_page.HEALTH_ANOMALY_CLASS)
     assert len(toasts) == 1, "expected exactly one anomaly toast"
     pills = toasts[0].select(".toast__pill")
@@ -668,7 +669,7 @@ def test_sources_row_keeps_the_verdict_in_the_summary_and_explanations_in_the_bo
         {"ts": shp.iso(now), "hex": "def456", "corroborated": None},
         {"ts": shp.iso(now), "hex": "ghi789", "corroborated": False},
     ])
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     row = shp.health_row(rendered, "sources")
     summary_text = row.select_one("summary").text()
     body = row.select_one(".health-row__body")
@@ -713,7 +714,7 @@ def test_device_and_pipeline_rows_use_concise_timestamp_format(tmp_path):
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     shp.seed_runway_events(str(tmp_path), [
         {"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert rendered.count('<span class="tnum" title=') >= 2, (
         "expected at least two concise_timestamp_html() spans (Device row + last aircraft)")
 
@@ -726,7 +727,7 @@ def test_health_pill_reversal_guard(tmp_path):
     # retired literals are truly gone, so a later refactor cannot silently
     # bring them back.
     now_iso = shp.iso(shp.now())
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=now_iso))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=now_iso))
     assert "data-loaded-at" not in rendered, "expected the retired freshness line to be gone"
     assert "page-header__freshness" not in rendered
     assert rendered.count('<h1 class="page-title"') == 1, "expected page_header() to be called exactly once"
@@ -755,7 +756,7 @@ def test_battery_row_healthy_on_a_normal_trend(tmp_path):
     ]
     shp.seed_device_health(str(tmp_path), readings)
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert shp.health_row_state(rendered, "battery") == ("ok", False)
     assert rendered.count("dot--ok") == 0 and "dot--warn" not in rendered and "dot--error" not in rendered, (
         "expected zero dot classes of any colour in this fixture")
@@ -781,7 +782,7 @@ def test_battery_empty_history_is_neutral_with_no_anomaly_banner(tmp_path):
     # No history at all: a neutral row, never a verdict about a drop.
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
-    empty = health_page.render(shp.ctx(str(empty_dir)))
+    empty = health_page_composition.render(shp.ctx(str(empty_dir)))
     assert shp.health_row_state(empty, "battery") == ("off", False)
     assert "Battery dropped abnormally." not in empty
 
@@ -790,7 +791,7 @@ def test_battery_empty_history_is_neutral_with_no_anomaly_banner(tmp_path):
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.iso(now), 4200)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert "dot--error" not in rendered, "did not expect an error status class with a single battery reading"
     assert shp.health_row_state(rendered, "battery") == ("ok", False), (
         "expected the Battery row to read healthy with a single, healthy battery reading")
@@ -810,7 +811,7 @@ def test_battery_drop_drives_the_row_and_banner_detail_copy_not_rendered(tmp_pat
     ]
     shp.seed_device_health(str(tmp_path), readings)
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     assert shp.health_row_state(rendered, "battery") == ("warn", True), (
         "expected the Battery row to read warn and render open for a drop >= "
         "BATTERY_DROP_WARN_MV (demoted from error, D-05)")
@@ -834,7 +835,7 @@ def test_anomaly_detail_list_markup_is_gone(tmp_path):
     now = shp.now()
     shp.seed_device_health(str(tmp_path), [(shp.ago(_DEFAULT_DEVICE_ERROR_S + 60), 4000)])
     shp.seed_meta(str(tmp_path), **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     banner = parse_html(rendered).select_one(".toast." + health_page.HEALTH_ANOMALY_CLASS)
     assert not banner.select("ul"), "expected zero <ul elements inside the anomaly toast"
     assert not banner.select("li"), "expected zero <li elements inside the anomaly toast"
@@ -857,7 +858,7 @@ def test_none_of_the_four_anomaly_item_strings_render(tmp_path):
         history_db.META_LAST_PIPELINE_RUN: shp.ago(health_page.STALE_PIPELINE_ERROR_S + 60)})
     shp.seed_runway_events(str(tmp_path), [
         {"ts": shp.iso(now), "hex": "abc123", "corroborated": False}])
-    rendered = health_page.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(str(tmp_path), now_value=shp.iso(now)))
     expected_items = health_page.collect_anomalies("error", "error", "error", True)
     assert len(expected_items) == 4, "expected collect_anomalies() to return all four items, got %r" % (expected_items,)
     count = rendered.count(health_page.ANOMALY_BANNER_TEXT)

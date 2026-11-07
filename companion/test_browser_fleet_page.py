@@ -37,7 +37,7 @@ _EN_WORDS = {
     "Waiting for pairing", "Retired"}
 
 
-def _open(new_context, server, viewport, lang="en", scheme="light", path="/fleet"):
+def _open(new_context, server, viewport, lang="en", scheme="light", path="/fleet?tab=access"):
     seed = fx.seed_fleet(server.state_dir)
     fx.issue_code(server.state_dir, seed.pending_id)
     context = new_context(viewport=viewport, color_scheme=scheme)

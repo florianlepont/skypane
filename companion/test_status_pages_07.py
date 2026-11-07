@@ -18,6 +18,7 @@ import companion.i18n as i18n
 import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout, prefs
 from companion.pages import airlines_page, config_page, health_page, home_page
+import health_page_composition
 from companion_app_server import get, login, served_asset, served_stylesheet
 from companion_markup import (
     css_rules, custom_properties, declarations_for, parse_html, rules_with_selector,
@@ -94,8 +95,8 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
         "pre-task value, got %r" % (link_decls,))
 
     label_decls = declarations_for(css_text, ".tab-bar__label", at_rules=_TAB_BAR_MEDIA)
-    assert label_decls.get("font-size") == "11px", (
-        "expected .tab-bar__label's font-size to still resolve to 11px, got %r" % (label_decls,))
+    assert label_decls.get("font-size") == "12px", (
+        "expected .tab-bar__label's font-size to resolve to 12px, got %r" % (label_decls,))
 
     # The personal bar's four destination cells carry the short form of a
     # label where one exists; the airline collection lives in the More sheet.
@@ -132,7 +133,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     # Per-character advance: MEASURED, not modelled — the audit's own real
     # figure for "Compagnies" (10 characters) needing 65px at this label's
     # 11px font-size gives 65 / 10 = 6.5px/character.
-    PER_CHARACTER_ADVANCE_PX = 6.5
+    PER_CHARACTER_ADVANCE_PX = 7.1  # 71px for 'Compagnies' at the 12px label size
     AUDIT_MEASURED_FLOOR_PX = 65  # "Compagnies" at 11px, 2026-09-17 audit
     modelled_requirement_px = PER_CHARACTER_ADVANCE_PX * len(longest_label)
     required_px = max(modelled_requirement_px, AUDIT_MEASURED_FLOOR_PX)
@@ -146,7 +147,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
 
 
 def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
-    """the More sheet opens upward from the fixed bar (absolute, bottom: 100%, right: 0) on the nav
+    """the More sheet opens upward from the fixed bar (absolute, just above it, as wide as the bar) on the nav
     surface with the overlay shadow, and reuses .mobile-nav__link's 44px/16px geometry rather than
     restating it. The
     legacy check's own stylesheet-comment assertion ("the stylesheet
@@ -155,8 +156,8 @@ def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
     are what the comment was describing."""
     sheet = declarations_for(css_text, ".tab-bar__more-panel", at_rules=_TAB_BAR_MEDIA)
     assert sheet.get("position") == "absolute"
-    assert sheet.get("bottom") == "100%"
-    assert sheet.get("right") == "0"
+    assert sheet.get("bottom") == "calc(100% + var(--space-sm))"
+    assert sheet.get("left") == "0" and sheet.get("right") == "0"
     assert sheet.get("background") == "var(--color-secondary)"
     assert sheet.get("box-shadow") == "var(--shadow-card-hover)"
     # The sheet's rows REUSE .mobile-nav__link's geometry rather than
@@ -518,7 +519,7 @@ def test_health_nightly_regression_held_agrees_with_strip_dot_unlit_no_warn(tmp_
     # "now") so its own, unrelated staleness thresholds do not confound
     # this check's real subject.
     shp.seed_meta(tmp, **{history_db.META_LAST_PIPELINE_RUN: clock.isoformat()})
-    rendered_health = health_page.render(shp.ctx(tmp, now_value=clock.isoformat()))
+    rendered_health = health_page_composition.render(shp.ctx(tmp, now_value=clock.isoformat()))
     for warn_token in (
             "dot--warn", "dot--error", "stat-tile--warn",
             "status-card__headline--warn", "Update overdue", "Mise à jour en retard"):
@@ -845,7 +846,7 @@ def test_the_failure_toast_is_translated_sticky_and_carries_no_internal():
 def test_health_omits_redundant_freshness_line(tmp_path):
     """Health no longer repeats a generic freshness indicator in its page header."""
     tmp = str(tmp_path)
-    rendered = health_page.render(shp.ctx(tmp, now_value=shp.iso(shp.now())))
+    rendered = health_page_composition.render(shp.ctx(tmp, now_value=shp.iso(shp.now())))
     assert "page-header__freshness" not in rendered
     assert health_page.REFRESH_LIVE_DOT_ATTR not in rendered
 
@@ -854,7 +855,7 @@ def test_health_omits_refresh_loop_markers(tmp_path):
     """Health has no retired header refresh target after its freshness copy was removed."""
     tmp = str(tmp_path)
     now_iso = shp.iso(shp.now())
-    rendered = health_page.render(shp.ctx(tmp, now_value=now_iso))
+    rendered = health_page_composition.render(shp.ctx(tmp, now_value=now_iso))
     assert "data-loaded-at" not in rendered
     assert "data-refresh-pill" not in rendered
 
@@ -925,12 +926,11 @@ def test_freshness_js_breathes_only_from_the_loops_own_state(freshness_js, css_t
 # =============================================================================
 
 def test_both_tabs_ok_end_to_end(make_app_server):
-    """GET /health, GET /airlines and GET /history all return 200 with their own page heading against a
-    real running service, /health's real HTTP response body carries the page purpose, both section
-    descriptions, no duplicated freshness label, the auto-refresh pill (hidden) and zero stale-banner
-    markers, the nested modifier twice, the prose modifier once, both readout spans, no raw ISO in
-    the readout's own slice, and the desc-class cells at their expected count after the
-    Resolution-statistics heading, /airlines' real HTTP response body carries zero occurrences of
+    """GET /fleet, GET /airlines and GET /history all return 200 with their own page heading against a
+    real running service, /fleet's real HTTP response body carries each row name once, no auto-refresh pill, zero stale-banner
+    markers, both readout spans and no raw ISO in the readout's own slice, the System view the
+    Resolution-statistics heading,
+    /airlines' real HTTP response body carries zero occurrences of
     the retired per-card replace class, exactly one lightbox replace form and one action="" and
     one file input, and at least one un-busted replace-action trigger attribute, /history's real
     HTTP response body carries zero occurrences of the replace-form class, replace-action attribute,
@@ -967,7 +967,8 @@ def test_both_tabs_ok_end_to_end(make_app_server):
     session_cookie = login(server)
 
     for path, heading in (
-            ("/health", "Health"), ("/airlines", "Airline collection"),
+            ("/fleet", "Fleet"), ("/fleet?view=system", "System"),
+            ("/airlines", "Airline collection"),
             ("/airlines/manage", "Airlines"),
             # /history added so the served-HTML twin of the render-level
             # History guard above runs against a real running service,
@@ -976,45 +977,31 @@ def test_both_tabs_ok_end_to_end(make_app_server):
         status, _headers, body = get(server, path, cookie=session_cookie)
         assert status == 200, "expected 200 for %s, got %d" % (path, status)
         assert heading.encode() in body, "expected the %r heading in %s's response body" % (heading, path)
-        if path == "/health":
+        if path == "/fleet":
             body_text = body.decode("utf-8", errors="replace")
             for name in (health_page.ROW_CONNECTION_NAME, health_page.ROW_FLIGHT_DATA_NAME):
                 name_count = body_text.count(">%s<" % name)
                 assert name_count == 1, (
-                    "expected the row name %r exactly once in the real /health HTTP response body, got %d"
+                    "expected the row name %r exactly once in the real /fleet HTTP response body, got %d"
                     % (name, name_count))
 
             assert "data-refresh-pill" not in body_text
-            assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real /health HTTP response body"
-
-            nested_count = body_text.count("page-section--nested")
-            assert nested_count == 1, (
-                "expected page-section--nested exactly once (the registry card) in the real "
-                "/health HTTP response body, got %d" % nested_count)
-            prose_count = body_text.count("data-table--prose")
-            assert prose_count == 1, (
-                "expected data-table--prose exactly once in the real /health HTTP response body, "
-                "got %d" % prose_count)
-            assert "battery-readout__value" in body_text, "expected the readout's value span in the real /health HTTP response body"
-            assert "battery-readout__detail" in body_text, "expected the readout's detail span in the real /health HTTP response body"
+            assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real /fleet HTTP response body"
+            assert "battery-readout__value" in body_text, "expected the readout's value span in the real /fleet HTTP response body"
+            assert "battery-readout__detail" in body_text, "expected the readout's detail span in the real /fleet HTTP response body"
             readout_start = body_text.index('<p id="%s"' % health_page.BATTERY_READOUT_ID)
             readout_end = body_text.index("</p>", readout_start) + len("</p>")
             readout_slice = body_text[readout_start:readout_end]
             visible = re.sub(r"<[^>]*>", "", readout_slice)
             assert not re.search(r"\d{4}-\d{2}-\d{2}T", visible), (
-                "expected no raw ISO string in the real /health response's readout own slice, "
+                "expected no raw ISO string in the real /fleet response's readout own slice, "
                 "got %r" % (visible,))
 
-            desc_count = body_text.count('<td class="desc">')
-            expected_desc = len(health_page._SOURCE_ROWS)
-            assert desc_count == expected_desc, (
-                "expected exactly %d desc-class cells in the real /health HTTP response body, "
-                "got %d" % (expected_desc, desc_count))
-            stats_at = body_text.index(health_page.STATS_SECTION_HEADING)
-            first_desc_at = body_text.index('<td class="desc">')
-            assert first_desc_at >= stats_at, (
-                "expected the desc-class cells to fall after the Resolution-statistics heading in "
-                "the real /health HTTP response body")
+        elif path == "/fleet?view=system":
+            body_text = body.decode("utf-8", errors="replace")
+            assert "data-refresh-pill" not in body_text
+            assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real System view HTTP response body"
+            assert health_page.STATS_SECTION_HEADING in body_text
 
         elif path == "/airlines/manage":
             body_text = body.decode("utf-8", errors="replace")

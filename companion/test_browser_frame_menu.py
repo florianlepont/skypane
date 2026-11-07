@@ -89,11 +89,9 @@ def test_the_add_row_is_last_and_opens_the_pairing_flow(new_context, app):
         assert last.get_attribute("class").split() == ["frame-row", "frame-row--add"]
         assert last.inner_text().strip().endswith("Add a frame")
         assert page.locator(ADD).get_attribute("href") == "/pair-frame"
-        page.goto(app.server.base_url() + _live_path(app, "/health"))
+        page.goto(app.server.base_url() + "/fleet")
         open_menu(page)
-        with page.expect_navigation():
-            page.locator(ADD).click()
-        assert page.url.endswith("/fleet?pair=1")
+        page.locator(ADD).click()
         page.wait_for_function(
             "() => document.querySelector('dialog#dlg-add-frame').open")
     finally:
@@ -249,13 +247,13 @@ def test_the_personal_list_has_no_fleet_entry_system_row_or_owner_line(new_conte
 
 def test_a_console_popover_lists_every_frame_with_the_owner_email(new_context, app):
     context, page = _open(
-        new_context, app, _live_path(app, "/health"), viewport=VIEWPORT_DESKTOP)
+        new_context, app, "/fleet", viewport=VIEWPORT_DESKTOP)
     try:
         open_menu(page)
         fleet = app.fleet
         for device in (fleet.live, fleet.dev_a, fleet.dev_b, fleet.landscape):
             assert page.locator(
-                '%s[href="/devices/%s/health"]' % (FRAMES, device.id)).count() == 1
+                '%s[href="/fleet?frame=%s"]' % (FRAMES, device.id)).count() == 1
         notes = page.locator(FRAMES + " .frame-row__note").all_inner_texts()
         assert notes and all("@" in note for note in notes)
     finally:

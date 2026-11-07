@@ -203,7 +203,7 @@ def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, vie
               const bar = getComputedStyle(document.querySelector('.tab-bar'), '::before');
               const inactive = [...document.querySelectorAll(
                   '.tab-bar__link:not(.tab-bar__link--active) .tab-bar__label')];
-              const cells = [...document.querySelectorAll('.tab-bar > *')]
+              const cells = [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')]
                   .map(el => el.getBoundingClientRect());
               return {bar: bar.backgroundColor,
                       inks: inactive.map(el => getComputedStyle(el).color),

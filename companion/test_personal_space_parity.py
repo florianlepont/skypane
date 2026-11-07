@@ -118,7 +118,8 @@ def _normalise(markup, server):
 
 
 def _links(markup):
-    markup = _strip_switch_and_notice(markup)
+    markup = _strip_switch_and_notice(markup).replace(
+        USER_EMAIL, "OWNER").replace(ADMIN_EMAIL, "OWNER")
     return sorted(
         (re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}\b", "DEVICE", href),
          re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}", "DEVICE",
@@ -200,4 +201,4 @@ def test_the_airline_collection_is_read_only_and_counts_the_same_history(parity,
     assert not re.search(r"(?:action|href)=\"[^\"]*/airlines/", main)
     assert not re.search(r"(?:rename|resolve|delete|replace)", main.lower().replace("unresolved", ""))
     assert ("Seen once" if lang == "en" else "Vue une fois") in main
-    assert ("1 of " if lang == "en" else "1 compagnies sur ") in main
+    assert ("1 of " if lang == "en" else "1 compagnie sur ") in main

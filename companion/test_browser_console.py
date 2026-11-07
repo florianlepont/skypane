@@ -15,7 +15,7 @@ import pytest
 import fleet_console_support as fx
 from frame_menu_support import click_add, click_add_without_script, open_menu
 from locations_page_support import open_locations_page
-from companion import auth
+from companion import auth, legacy_pages
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _in_both_themes, _login,
     _set_ui_theme)
@@ -51,7 +51,7 @@ _STYLE_VALUES = (
     "              s.animationName].join('|'));"
     " }"
     " return {colours: [...colours], motion: [...motion]}; }")
-# The shared button and filter-chip classes the console reuses, added to a
+# The shared button, filter-chip and status-pill classes the console reuses, added to a
 # reference page so their resolved paint counts as already in use.
 _ADD_EXISTING_BUTTONS = (
     "() => { for (const cls of ['calendar-disconnect-btn']) {"
@@ -61,7 +61,11 @@ _ADD_EXISTING_BUTTONS = (
     " const chip = document.createElement('a'); chip.className = 'filter-chip';"
     " chip.href = '/'; chip.innerHTML ="
     "  '<span class=\"filter-chip__box\"><span class=\"filter-chip__text\">x</span></span>';"
-    " document.querySelector('main').appendChild(chip); }")
+    " document.querySelector('main').appendChild(chip);"
+    " for (const tone of ['active', 'invited', 'disabled']) {"
+    "  const pill = document.createElement('span');"
+    "  pill.className = 'banner__pill users-pill users-pill--' + tone; pill.textContent = 'x';"
+    "  document.querySelector('main').appendChild(pill); } }")
 REFERENCE_PATHS = ("/", "/display", "/health", "/flights", "/airlines", "/airlines/manage", "/update", "/account")
 def _no_sideways_scroll(page):
     return page.evaluate(
@@ -158,7 +162,7 @@ def test_audit_co_manager_row_shows_person_and_reason(
 def test_forms_and_confirm_controls_meet_the_touch_target(
         new_context, app_server_in_process):
     server = app_server_in_process
-    context, page = _admin_page(new_context, server, "/fleet", VIEWPORT_MIN_SUPPORTED)
+    context, page = _admin_page(new_context, server, "/fleet?tab=access", VIEWPORT_MIN_SUPPORTED)
     try:
         assert _height(page, "summary.frame-menu__button") >= MIN_TAP_PX
         assert _height(page, "li.entity-row .row-menu__toggle") >= MIN_TAP_PX
@@ -325,7 +329,9 @@ def test_user_sees_no_administrator_entry(new_context, app_server_in_process):
         context.close()
 
 
-@pytest.mark.parametrize("path", ADMIN_ONLY_PATHS + ("/locations", "/locations/1/edit"))
+@pytest.mark.parametrize("path", tuple(
+    path for path in ADMIN_ONLY_PATHS if path not in legacy_pages.RETIRED_ADMIN_PAGES
+) + ("/locations", "/locations/1/edit"))
 def test_admin_urls_are_the_unknown_path_page_for_a_user(
         new_context, app_server_in_process, path):
     server = app_server_in_process

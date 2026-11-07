@@ -12,6 +12,7 @@ import pytest
 
 from companion import battery, draw, i18n, layout, prefs
 from companion.pages import health_page
+import health_page_composition
 import companion.test_status_pages_helpers as shp
 import companion.wake as wake
 from companion_app_server import served_asset, served_stylesheet
@@ -697,7 +698,7 @@ def test_health_renders_no_check_in_regularity_grid(tmp_path, lang):
     ])
     try:
         prefs.set_request_prefs(lang=lang)
-        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
     doc = parse_html(rendered)
@@ -837,7 +838,7 @@ def test_battery_readout_seeded_with_latest_reading_not_placeholder(tmp_path, mo
     ]
     shp.seed_device_health(state_dir, readings)
     monkeypatch.setattr(history_db, "utc_now_iso", lambda: shp.iso(base))
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(base)))
     value_text, when_text = health_page._battery_reading_parts(4190, shp.iso(base), shp.iso(base))
     # The detail span's title is when_text itself (a full Europe/Paris
     # local timestamp), never the raw ISO, and the span carries the
@@ -946,9 +947,9 @@ def test_health_page_has_zero_utc_literal_in_either_language(tmp_path):
     ])
     try:
         prefs.set_request_prefs(lang="en")
-        en_rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        en_rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
         prefs.set_request_prefs(lang="fr")
-        fr_rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        fr_rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
     for lang_name, rendered in (("EN", en_rendered), ("FR", fr_rendered)):
@@ -992,7 +993,7 @@ def test_concise_timestamp_html_title_is_a_full_local_timestamp_not_raw_iso():
 
 
 def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path):
-    """a seeded health_page.render() call's battery-readout__value span
+    """a seeded health_page_composition.render() call's battery-readout__value span
     carries both the '≈' estimate and the ' mV' millivolt figure"""
     state_dir = str(tmp_path)
     base = shp.now()
@@ -1000,7 +1001,7 @@ def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path
         (shp.iso(base - timedelta(minutes=1)), 4200),
         (shp.iso(base), 3750),
     ])
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(base)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(base)))
     readout_start = rendered.index('id="%s"' % health_page.BATTERY_READOUT_ID)
     value_start = rendered.index('class="battery-readout__value tnum"', readout_start)
     value_tag_end = rendered.index(">", value_start) + 1
@@ -1021,13 +1022,13 @@ def test_seeded_render_shows_both_the_estimate_and_the_millivolt_figure(tmp_path
     ids=["ok", "warn", "error"])
 def test_connection_row_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
     """the Frame connection row's verdict matches DEVICE_STATE_TEXT at each of the
-    three severities a real health_page.render() call can produce, and its
+    three severities a real health_page_composition.render() call can produce, and its
     state attribute names the same severity"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now - timedelta(seconds=age_s)), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert _row_verdict(rendered, "connection") == (
         expected_state, health_page.DEVICE_STATE_TEXT[expected_state])
 
@@ -1038,12 +1039,12 @@ def test_connection_row_verdict_matches_state_at_each_severity(tmp_path, age_s, 
     ids=["ok", "warn", "error"])
 def test_flight_data_row_verdict_matches_state_at_each_severity(tmp_path, age_s, expected_state):
     """the Flight data row's verdict matches PIPELINE_STATE_TEXT at each of the three
-    severities a real health_page.render() call can produce"""
+    severities a real health_page_composition.render() call can produce"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now - timedelta(seconds=age_s))})
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert _row_verdict(rendered, "flight-data") == (
         expected_state, health_page.PIPELINE_STATE_TEXT[expected_state])
 
@@ -1053,13 +1054,13 @@ def test_flight_data_row_verdict_matches_state_at_each_severity(tmp_path, age_s,
     ids=["agree", "disagree"])
 def test_sources_row_verdict_matches_disagreement_state(tmp_path, corroborated, expected_state):
     """the Sources row's verdict matches CORROBORATION_STATE_TEXT for both the
-    agreement and disagreement states a real health_page.render() call can produce"""
+    agreement and disagreement states a real health_page_composition.render() call can produce"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
     shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": corroborated}])
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert _row_verdict(rendered, "sources") == (
         expected_state, health_page.CORROBORATION_STATE_TEXT[expected_state])
 
@@ -1076,7 +1077,7 @@ def test_identification_row_carries_no_judgement(tmp_path):
         {"ts": shp.iso(now), "hex": "abc%03d" % index,
          "route_source": "miss" if index == 0 else "fresh_hit"}
         for index in range(4)])
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     state, verdict = _row_verdict(rendered, "identification")
     assert state == "off"
     assert verdict == "75.0% of flights identified"
@@ -1104,7 +1105,7 @@ def test_one_row_anatomy_across_every_health_row(tmp_path, seed):
             {"ts": shp.iso(now), "hex": "abc001", "route_source": "fresh_hit", "corroborated": True},
             {"ts": shp.iso(now), "hex": "abc002", "route_source": "manual", "corroborated": None},
         ])
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     doc = parse_html(rendered)
     rows = doc.select("details.health-row")
     assert [row.attrs["id"] for row in rows] == [
@@ -1144,7 +1145,7 @@ def test_only_one_saw_it_is_neutral_and_still_distinct(tmp_path, lang, agree_lab
     ])
     try:
         prefs.set_request_prefs(lang=lang)
-        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
     body = shp.health_row(rendered, "sources").select_one(".health-row__body")
@@ -1209,7 +1210,7 @@ def test_health_empty_states_are_all_compact(tmp_path):
     full-width card one (Unresolved prefixes), use the compact form"""
     state_dir = str(tmp_path)
     now = shp.now()
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     doc = parse_html(rendered)
     in_row = [row for row in doc.select("details.health-row") if row.select(".empty-state")]
     assert [row.attrs["id"] for row in in_row] == ["health-row-battery"], (
@@ -1247,7 +1248,7 @@ def test_resolution_detail_line_has_a_singular_form(tmp_path, total, lang, expec
         for index in range(total)])
     try:
         prefs.set_request_prefs(lang=lang)
-        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
     assert expected in rendered, "expected %r for total=%d in %s" % (expected, total, lang)
@@ -1292,13 +1293,13 @@ def test_pipeline_never_ran_renders_neutral_no_warn_no_banner(tmp_path):
     dot--warn, zero battery-fallback text, no dated facts, and no anomaly banner
     when the device is healthy"""
     # A pipeline that has genuinely never run renders the neutral "No
-    # detection yet" verdict — proven against a real health_page.render()
+    # detection yet" verdict — proven against a real health_page_composition.render()
     # call, with the device seeded healthy so only the pipeline signal is
     # under test.
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert _row_verdict(rendered, "flight-data") == ("off", health_page.PIPELINE_STATE_TEXT["off"])
     assert shp.health_row_state(rendered, "flight-data") == ("off", False)
     row = shp.health_row(rendered, "flight-data")
@@ -1320,7 +1321,7 @@ def test_pipeline_never_ran_renders_neutral_in_french(tmp_path):
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+        rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     finally:
         prefs.set_request_prefs(lang="en")
     row = shp.health_row(rendered, "flight-data")
@@ -1348,6 +1349,6 @@ def test_compute_health_state_carries_pipeline_detail_html_never_ran(tmp_path):
     expected = health_page.escape_html(i18n.t(health_page.PIPELINE_NEVER_RAN_DETAIL_TEXT))
     assert detail_only == expected, (
         "expected pipeline_detail_html to equal the never-ran detail sentence exactly, got %r" % (detail_only,))
-    rendered = health_page.render(shp.ctx(state_dir, now_value=shp.iso(now)))
+    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
     assert detail_only in rendered, (
         "expected the Flight data row to show the same verdict-free sentence Home reads")

@@ -13,6 +13,7 @@ import companion.test_config_page_helpers as cp
 from companion import freshness, user_view
 from companion.layout import escape_html
 from companion.pages import config_page, health_page, home_page
+import health_page_composition
 from server import history_db
 
 NOW = "2026-06-01T12:00:00+00:00"
@@ -118,9 +119,9 @@ def test_user_health_shows_frame_card_and_no_platform_rows(tmp_path):
         history_db.record_device_health(conn, NOW, battery_mv=4000)
     ctx = _live_ctx(tmp_path)
     _as("admin")
-    admin_html = health_page.render(ctx)
+    admin_html = health_page_composition.render(ctx)
     _as("user")
-    user_html = health_page.render(_live_ctx(tmp_path))
+    user_html = health_page_composition.render(_live_ctx(tmp_path))
 
     assert i18n.t(health_page.SCREEN_SECTION_HEADING) in user_html
     assert i18n.t(health_page._LAST_CHECK_IN_TEXT) in user_html
@@ -135,10 +136,10 @@ def test_user_health_shows_frame_card_and_no_platform_rows(tmp_path):
 def test_user_health_hides_source_fault_block(tmp_path):
     _set_meta(tmp_path, history_db.META_SOURCE_FAULT, "True")
     _as("admin")
-    admin_html = health_page.render(_live_ctx(tmp_path))
+    admin_html = health_page_composition.render(_live_ctx(tmp_path))
     assert i18n.t(health_page.SOURCE_FAULT_HEADING) in admin_html
     _as("user")
-    user_html = health_page.render(_live_ctx(tmp_path))
+    user_html = health_page_composition.render(_live_ctx(tmp_path))
     assert i18n.t(health_page.SOURCE_FAULT_HEADING) not in user_html
 
 
@@ -148,7 +149,7 @@ def test_platform_only_faults_do_not_change_user_severity_but_do_for_admin(tmp_p
     baseline_severity = baseline.health_severity
     baseline_anomalies = baseline.health_state["anomalies"]
     baseline_attention = home_page._action_needed_html(baseline)
-    baseline_health = health_page.render(baseline)
+    baseline_health = health_page_composition.render(baseline)
 
     _set_meta(tmp_path, history_db.META_SOURCE_FAULT, "True")
 
@@ -161,7 +162,7 @@ def test_platform_only_faults_do_not_change_user_severity_but_do_for_admin(tmp_p
     assert user_ctx.health_state["severity"] == baseline_severity
     assert user_ctx.health_state["anomalies"] == baseline_anomalies
     assert home_page._action_needed_html(user_ctx) == baseline_attention
-    assert health_page.render(user_ctx) == baseline_health
+    assert health_page_composition.render(user_ctx) == baseline_health
 
 
 def test_user_home_attention_ignores_pipeline_state():

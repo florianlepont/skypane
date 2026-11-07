@@ -955,7 +955,7 @@ _TICKER_SITES = (
     ("display-calendar", "/display/calendar",
      '[data-look-usage="calendar"] time[data-relative]',
      _seed_calendar_ticker),
-    ("health-registry", "/health",
+    ("health-registry", "/fleet?view=system",
      '.data-table--registry tr[data-filter-group="0"] time[data-relative]',
      _seed_health_ticker),
 )

@@ -22,19 +22,23 @@ from server import hardware, history_db
 FRAME_QUERY = "frame"
 VIEW_QUERY = "view"
 VIEW_SYSTEM = "system"
+TAB_QUERY = "tab"
+TAB_STATE = "state"
+TAB_SETTINGS = "settings"
+TAB_ACCESS = "access"
 SYSTEM_HREF = "/fleet?%s=%s" % (VIEW_QUERY, VIEW_SYSTEM)
 FRAME_HREF_PREFIX = "/fleet?%s=" % FRAME_QUERY
 
 
 
 def page_scripts(system=False):
-    """The scripts the embedded blocks need: the settings form's dirty bar and
-    value controls, plus the Health registry table's copy, filter and lookup
+    """The scripts the embedded blocks need: the settings form's dirty bar, value
+    controls and the Diagnostic LED quick switch, plus the Health registry table's copy, filter and lookup
     helpers on the System view only."""
     from companion import ui_base
     base = (
         ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.FRESHNESS_SCRIPT_SRC,
-        ui_base.VALUE_CONTROLS_SCRIPT_SRC)
+        ui_base.QUICK_SWITCH_SCRIPT_SRC, ui_base.VALUE_CONTROLS_SCRIPT_SRC)
     if not system:
         return base
     return (
@@ -49,6 +53,7 @@ _STATE_HEADING = i18n.msg("admin_fleet.block_state", "State")
 _DEVICE_HEADING = i18n.msg("admin_fleet.block_device_version", "Device and version")
 _SETTINGS_HEADING = i18n.msg("admin_fleet.block_settings", "Settings")
 _ACCESS_HEADING = i18n.msg("admin_fleet.block_access", "Access")
+_TABS_LABEL = i18n.msg("admin_fleet.tabs_label", "Frame sections")
 _MODEL_LABEL = i18n.msg("admin_fleet.block_model", "Model")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
@@ -78,6 +83,31 @@ def selection(query, devices):
         if device.id == wanted:
             return device, False
     return (devices[0] if devices else None), False
+
+
+def tab_selection(query):
+    """The phone sub-tab a query names: only the exact `tab=settings` or
+    `tab=access` (an old `access=` link too) leave State, the default."""
+    wanted = (query.get(TAB_QUERY) or [""])[0]
+    if wanted in (TAB_SETTINGS, TAB_ACCESS):
+        return wanted
+    return TAB_ACCESS if query.get("access") else TAB_STATE
+
+
+def tabs_html(frame_id, tab):
+    """The State / Settings / Access segmented control (phone only, by the
+    stylesheet): three plain links to `/fleet?frame=<id>&tab=<tab>`, the current
+    one marked, so it works without script and can be linked to."""
+    labels = (
+        (TAB_STATE, _STATE_HEADING), (TAB_SETTINGS, _SETTINGS_HEADING),
+        (TAB_ACCESS, _ACCESS_HEADING))
+    links = "".join(
+        '<a class="personalisation-nav__link" href="%s%s&amp;%s=%s"%s><span>%s</span></a>' % (
+            FRAME_HREF_PREFIX, _esc(frame_id), TAB_QUERY, key,
+            ' aria-current="page"' if key == tab else "", _t(label))
+        for key, label in labels)
+    return '<nav class="personalisation-nav fleet-tabs" aria-label="%s">%s</nav>' % (
+        _t(_TABS_LABEL), links)
 
 
 def frame_menu_html(entries, selected, is_system):
@@ -132,24 +162,32 @@ def _access_html(device, access_views):
         view, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE)
 
 
-def frame_html(ctx, device, access_views, header_html=""):
+def frame_html(ctx, device, access_views, header_html="", tab=TAB_STATE):
     """The selected frame's header and four blocks. `ctx` is the page context
     built for `device`, whose state directory the History reads must be scoped
     to."""
     from companion.pages import config_page, health_page, update_page
     with history_db.connection_scope(device.state_dir):
         blocks = (
-            _block(_STATE_HEADING, _item(health_page.frame_state_html(ctx), True), slug="state")
+            _block(
+                _STATE_HEADING, _item(health_page.frame_state_html(ctx), True),
+                " fleet-block--state", "state")
             + _block(
                 _DEVICE_HEADING,
                 _model_html(device) + _item(update_page.render(
-                    ctx, device.hardware_type, embedded=True)), slug="device")
+                    ctx, device.hardware_type, embedded=True)),
+                " fleet-block--state", "device")
             + _block(
                 _SETTINGS_HEADING,
                 _item(config_page.render(ctx, scope=config_page.SCOPE_DEVICE, embedded=True)),
-                slug="settings")
-            + _block(_ACCESS_HEADING, _access_html(device, access_views), slug="access"))
-    return header_html + '<div class="fleet-blocks">%s</div>' % blocks
+                " fleet-block--settings", "settings")
+            + _block(
+                _ACCESS_HEADING, _access_html(device, access_views),
+                " fleet-block--access", "access"))
+    return (
+        header_html + tabs_html(device.id, tab)
+        + '<div class="fleet-blocks" data-fleet-tab="%s">%s</div>' % (tab, blocks)
+        + config_page.docked_dirty_bar_html())
 
 
 def system_html(ctx):
@@ -183,17 +221,22 @@ def page_html(h, query, view):
         return '<p class="text-label">%s</p>' % _t(_ADD_FIRST)
     return frame_html(
         h.page_context(selected), selected, view.access,
-        fleet_page.detail_header_html(view, selected.id))
+        fleet_page.detail_header_html(view, selected.id), tab_selection(query))
 
 
 def query_flash_html(h, query):
     """The toast of a `?flash=` result for the selected frame (the settings
-    save and update install redirect here with one), or None. The text is
-    resolved with the selected frame's own context."""
+    save and update install redirect here with one) or for the System view
+    (a resolved airline prefix), or None. The text is resolved with the
+    selected frame's own context, the live frame's for the System view."""
     from companion import flash
     devices = device_scope.load_devices_for(h.args.state_dir, h._safe_principal())
-    selected, _is_system = selection(query, devices)
-    if selected is None or not query.get("flash"):
+    selected, is_system = selection(query, devices)
+    if not query.get("flash"):
+        return None
+    if is_system:
+        selected = device_scope.live_device(h.args.state_dir)
+    if selected is None:
         return None
     ctx = h.page_context(selected)
     return flash.flash_toast_html(ctx.flash_key, ctx.flash, h.path)

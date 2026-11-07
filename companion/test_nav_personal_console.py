@@ -26,7 +26,7 @@ PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
     "Collection de compagnies", "Compte"]
 CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Airlines"]
-CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Utilisateurs", "Compagnies"]
+CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Membres", "Cies"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Airline editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [
@@ -137,7 +137,7 @@ def test_the_personal_navigation_never_links_console_pages_or_locations(served):
 @pytest.mark.parametrize("lang,bar_labels,sidebar_labels", [
     ("en", CONSOLE_BAR_EN, CONSOLE_SIDEBAR_EN),
     ("fr", CONSOLE_BAR_FR, CONSOLE_SIDEBAR_FR)])
-@pytest.mark.parametrize("path", ["/fleet", "/users", "/audit", "/update"])
+@pytest.mark.parametrize("path", ["/fleet", "/users", "/audit", "/fleet?view=system"])
 def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
         served, path, lang, bar_labels, sidebar_labels):
     server, cookies = served
@@ -154,10 +154,11 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
     assert [text for _href, text in sidebar] == sidebar_labels
 
 
-@pytest.mark.parametrize("page", ["/health", "/device", "/airlines/manage"])
+@pytest.mark.parametrize("page", ["/fleet", "/fleet?view=system", "/airlines/manage"])
 def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served, page):
     server, cookies = served
-    for path in (page, server.frame_prefix + page):
+    paths = (page, server.frame_prefix + page) if page == "/airlines/manage" else (page,)
+    for path in paths:
         status, markup = _get(server, cookies["admin"], path)
         assert status == 200, path
         sidebar = _nav(markup, '<nav class="sidebar-nav"')
@@ -197,8 +198,7 @@ def test_the_old_space_name_and_group_are_gone_from_every_served_page(served, wh
     server, cookies = served
     pages = [server.frame_prefix + page for page in PERSONAL_PAGES] + ["/account"]
     if who == "admin":
-        pages += ["/fleet", "/users", "/audit", "/update", "/health", "/device",
-                  "/airlines/manage", server.frame_prefix + "/health"]
+        pages += ["/fleet", "/fleet?view=system", "/users", "/audit", "/airlines/manage"]
     for path in pages:
         _status, markup = _get(server, cookies[who], path, lang)
         for gone in ("My views", "Mes vues", "Advanced", "Avancé"):

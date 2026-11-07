@@ -18,7 +18,7 @@ from server import fleet_db, fleet_migrate, history_db
 MARKUP_NAME = '<script>alert("x")</script> & Co'
 FRESH_TS_AGE_S = 60
 STALE_TS = "2026-01-01T00:00:00+00:00"
-SCOPED_PAGES = ("/", "/display", "/flights", "/airlines", "/health", "/device")
+SCOPED_PAGES = ("/", "/display", "/flights", "/airlines")
 
 
 def _seed(fleet):
@@ -130,7 +130,7 @@ def test_switcher_on_every_device_scoped_page(fleet_app, route):
     assert page.index("frame-menu__list") < page.index("page-title")
 
 
-@pytest.mark.parametrize("route", ["/update", "/login"])
+@pytest.mark.parametrize("route", ["/account", "/login"])
 def test_global_pages_have_no_switcher(fleet_app, route):
     _, _, page = _fleet_get(fleet_app, route)
     assert "frame-menu" not in page and "frame-row" not in page
@@ -179,12 +179,12 @@ def test_live_frame_is_current_by_default_with_its_default_name(fleet_app):
     assert current[0].select_one(".frame-row__name").text().strip() == "Orly frame"
 
 
-def test_add_tile_for_an_administrator_leads_to_the_pairing_flow(fleet_app):
-    _, _, page = _live_get(fleet_app, "/health")
+def test_add_tile_for_an_administrator_opens_the_pairing_dialog_on_the_fleet_page(fleet_app):
+    _, _, page = _fleet_get(fleet_app, "/fleet")
     _, switcher = _switcher(page)
     add = switcher.select("a.frame-row--add")
     assert [(a.attrs["href"], a.text().strip()[-12:]) for a in add] == [
-        ("/fleet?pair=1", "+Add a frame")]
+        ("#dlg-add-frame", "+Add a frame")]
     assert "All frames" not in page
 
 
@@ -218,10 +218,11 @@ def test_markup_in_a_device_name_is_escaped(fleet_app):
     assert "<script>alert" not in page
 
 
-def test_document_title_names_a_non_live_device_only(fleet_app):
+def test_document_title_names_the_frame_on_every_device_page(fleet_app):
     fleet = fleet_app.fleet
     _, _, live_page = _live_get(fleet_app, "/flights")
-    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == "Flight history - SkyPane"
+    assert re.search(r"<title>(.*?)</title>", live_page).group(1) == (
+        "Flight history - Orly frame - SkyPane")
     _, _, page = _fleet_get(fleet_app, "/devices/%s/flights" % fleet.dev_a.id)
     title = re.search(r"<title>(.*?)</title>", page).group(1)
     assert title == "Flight history - sim-1 - SkyPane"
@@ -259,9 +260,9 @@ def test_switch_redirects_to_the_same_page_under_the_device(fleet_app):
 def test_switch_to_live_redirects_to_the_live_frame_prefix(fleet_app):
     fleet = fleet_app.fleet
     status, headers, _ = _fleet_get(
-        fleet_app, "/devices/%s/health?device=live" % fleet.dev_a.id)
+        fleet_app, "/devices/%s/flights?device=live" % fleet.dev_a.id)
     assert (status, headers["Location"]) == (
-        303, "/devices/%s/health" % fleet.live.id)
+        303, "/devices/%s/flights" % fleet.live.id)
 
 
 def test_switch_keeps_other_query_parameters(fleet_app):
@@ -293,5 +294,5 @@ def test_switch_is_behind_the_session_gate(fleet_app):
 
 
 def test_device_parameter_on_a_global_page_is_ignored(fleet_app):
-    status, headers, _ = _fleet_get(fleet_app, "/update?device=d_00000000")
+    status, headers, _ = _fleet_get(fleet_app, "/account?device=d_00000000")
     assert status == 200 and "Location" not in headers

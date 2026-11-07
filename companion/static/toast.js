@@ -14,6 +14,10 @@
  *   stay until dismissed. The timer pauses while the
  *   pointer is over the toast, while focus is inside it and while the
  *   document is hidden, and resumes with the time that was left.
+ * - Swipe: a floating toast (the flash and live regions) follows a sideways
+ *   drag and is dismissed by one past 80px or a quick flick; a shorter drag
+ *   springs back. The auto-hide timer and its hairline pause while the
+ *   pointer is down. Its own dismiss control and action keep working.
  * - Never moves focus to a toast; announcement is the server-rendered
  *   role="status"/role="alert" alone. Focus only moves (to <main>) when
  *   it was inside a toast that is being removed, so it is never lost.
@@ -207,6 +211,176 @@
     if (toast) {
       removeToast(toast);
     }
+  });
+
+  // ---- Swipe to dismiss (floating toasts only).
+  var FLOATING_SELECTOR = ".toast-region--flash, .toast-region--live";
+  var SWIPE_DISTANCE = 80;
+  var SWIPE_VELOCITY = 0.6;
+  var SWIPE_FALLBACK_MS = 500;
+  var CONTROL_SELECTOR = "a, button, input, select, textarea, summary";
+  var swipe = null;
+
+  function inFloatingRegion(toast) {
+    var el = toast.parentNode;
+    while (el && el.classList) {
+      if (el.matches(FLOATING_SELECTOR)) {
+        return true;
+      }
+      el = el.parentNode;
+    }
+    return false;
+  }
+
+  function onControl(node, toast) {
+    while (node && node !== toast && node.nodeType === 1) {
+      if (node.matches(CONTROL_SELECTOR)) {
+        return true;
+      }
+      node = node.parentNode;
+    }
+    return false;
+  }
+
+  function reduced() {
+    return !!window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  }
+
+  function setSwipeState(toast, name) {
+    toast.classList.remove("is-swiping", "is-returning", "is-leaving");
+    if (name) {
+      toast.classList.add(name);
+    }
+  }
+
+  function clearSwipe(toast) {
+    setSwipeState(toast, "");
+    toast.style.transform = "";
+    toast.style.opacity = "";
+  }
+
+  // Runs done when the toast's transform transition ends, or after a
+  // fallback delay; at once under reduced motion.
+  function afterTransition(toast, done) {
+    if (reduced()) {
+      done();
+      return;
+    }
+    var finished = false;
+    function finish() {
+      if (finished) {
+        return;
+      }
+      finished = true;
+      toast.removeEventListener("transitionend", onEnd);
+      done();
+    }
+    function onEnd(evt) {
+      if (evt.target === toast && evt.propertyName === "transform") {
+        finish();
+      }
+    }
+    toast.addEventListener("transitionend", onEnd);
+    window.setTimeout(finish, SWIPE_FALLBACK_MS);
+  }
+
+  function setSwipePause(toast, active) {
+    if (toast._skypaneTimer) {
+      toast._skypaneTimer.set("swipe", active);
+    } else if (active) {
+      toast.classList.add(PAUSED_CLASS);
+    } else {
+      toast.classList.remove(PAUSED_CLASS);
+    }
+  }
+
+  document.addEventListener("pointerdown", function (evt) {
+    if (swipe || evt.button > 0 || evt.isPrimary === false) {
+      return;
+    }
+    var toast = closestToast(evt.target);
+    if (!toast || !inFloatingRegion(toast) || onControl(evt.target, toast)) {
+      return;
+    }
+    swipe = {
+      toast: toast, id: evt.pointerId, startX: evt.clientX, lastX: evt.clientX,
+      lastT: evt.timeStamp, velocity: 0, offset: 0
+    };
+    setSwipeState(toast, "is-swiping");
+    // The entrance animation would override the dragged transform.
+    toast.style.animation = "none";
+    setSwipePause(toast, true);
+    try {
+      toast.setPointerCapture(evt.pointerId);
+    } catch (err) {
+      // A pointer that cannot be captured still drives the drag through the
+      // events that reach the document.
+    }
+  });
+
+  document.addEventListener("pointermove", function (evt) {
+    if (!swipe || evt.pointerId !== swipe.id) {
+      return;
+    }
+    swipe.offset = evt.clientX - swipe.startX;
+    var dt = evt.timeStamp - swipe.lastT;
+    if (dt > 0) {
+      swipe.velocity = (evt.clientX - swipe.lastX) / dt;
+    }
+    swipe.lastX = evt.clientX;
+    swipe.lastT = evt.timeStamp;
+    var fade = Math.max(0.3, 1 - Math.abs(swipe.offset) / 300);
+    swipe.toast.style.transform = "translateX(" + Math.round(swipe.offset) + "px)";
+    swipe.toast.style.opacity = String(fade);
+  });
+
+  function leave(toast, direction) {
+    setSwipeState(toast, "is-leaving");
+    var width = Math.max(window.innerWidth || 0, toast.offsetWidth);
+    toast.style.transform = "translateX(" + direction * width + "px)";
+    toast.style.opacity = "0";
+    afterTransition(toast, function () {
+      removeToast(toast);
+    });
+  }
+
+  function comeBack(toast) {
+    setSwipeState(toast, "is-returning");
+    toast.style.transform = "translateX(0px)";
+    toast.style.opacity = "1";
+    afterTransition(toast, function () {
+      if (toast.classList.contains("is-returning")) {
+        clearSwipe(toast);
+      }
+    });
+  }
+
+  function endSwipe(evt, cancelled) {
+    if (!swipe || evt.pointerId !== swipe.id) {
+      return;
+    }
+    var toast = swipe.toast;
+    var offset = swipe.offset;
+    var flick = Math.abs(offset) > 0 && swipe.velocity * offset > 0 &&
+      Math.abs(swipe.velocity) > SWIPE_VELOCITY;
+    swipe = null;
+    if (!toast.parentNode) {
+      return;
+    }
+    if (!cancelled && (Math.abs(offset) > SWIPE_DISTANCE || flick)) {
+      leave(toast, offset < 0 ? -1 : 1);
+    } else {
+      setSwipePause(toast, false);
+      comeBack(toast);
+    }
+  }
+
+  document.addEventListener("pointerup", function (evt) {
+    endSwipe(evt, false);
+  });
+  document.addEventListener("pointercancel", function (evt) {
+    endSwipe(evt, true);
   });
 
   var toasts = document.querySelectorAll("[" + AUTOHIDE_ATTR + "]");

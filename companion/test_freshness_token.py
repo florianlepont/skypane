@@ -50,7 +50,7 @@ _ETAG_RE = re.compile(r'^"[0-9a-f]{32}"$')
 _TOKEN_ATTR_RE = re.compile(r'data-refresh-token="([0-9a-f]{32})"')
 
 _FRESHNESS_ROUTES = (
-    layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.HEALTH_ROUTE, layout.FLIGHTS_ROUTE,
+    layout.HOME_ROUTE, layout.DISPLAY_ROUTE, layout.FLIGHTS_ROUTE,
 )
 
 
@@ -80,7 +80,7 @@ def _token(server, route, cookie):
 
 
 def test_every_refresh_page_carries_an_etag_matching_its_body_token(app_server_in_process):
-    """/, /display, /health and /flights each carry a 32-hex ETag equal to the body's
+    """/, /display and /flights each carry a 32-hex ETag equal to the body's
     data-refresh-token attribute"""
     server = app_server_in_process
     session = login(server)
@@ -88,12 +88,12 @@ def test_every_refresh_page_carries_an_etag_matching_its_body_token(app_server_i
         _token(server, route, session)  # raises on any mismatch
 
 
-def test_device_and_airlines_carry_neither_etag_nor_refresh_token(app_server_in_process):
-    """/device and /airlines are not refresh pages: no ETag header, no data-refresh-token
-    attribute at all"""
+def test_fleet_and_airlines_carry_neither_etag_nor_refresh_token(app_server_in_process):
+    """/fleet and /airlines are not token pages: no ETag header, no data-refresh-token
+    attribute at all (the Fleet page is refetched whole on each freshness tick)"""
     server = app_server_in_process
     session = login(server)
-    for route in (layout.DEVICE_ROUTE, layout.AIRLINES_ROUTE):
+    for route in ("/fleet", layout.AIRLINES_ROUTE):
         status, headers, body = _get(server, route, session)
         assert status == 200, "expected 200 from GET %s, got %d" % (route, status)
         assert "ETag" not in headers, "expected no ETag on %s, got %r" % (route, headers)
@@ -317,11 +317,10 @@ def test_new_runway_event_changes_flights_and_home_tokens(app_server_in_process)
     assert after_home != before_home, "expected a new runway event to change /"
 
 
-def test_new_device_health_row_changes_home_and_health_tokens(app_server_in_process):
+def test_new_device_health_row_changes_the_home_token(app_server_in_process):
     server = app_server_in_process
     session = login(server)
     before_home = _token(server, layout.HOME_ROUTE, session)
-    before_health = _token(server, layout.HEALTH_ROUTE, session)
 
     with history_db.open_db(server.state_dir) as conn:
         history_db.record_device_health(
@@ -329,9 +328,7 @@ def test_new_device_health_row_changes_home_and_health_tokens(app_server_in_proc
             boot_reason="timer", rssi="-55")
 
     after_home = _token(server, layout.HOME_ROUTE, session)
-    after_health = _token(server, layout.HEALTH_ROUTE, session)
     assert after_home != before_home, "expected a new device_health row to change /"
-    assert after_health != before_health, "expected a new device_health row to change /health"
 
 
 def test_device_config_save_changes_display_and_home_tokens(app_server_in_process):
@@ -395,7 +392,7 @@ def test_new_gallery_png_changes_flights_token(app_server_in_process):
     assert after != before, "expected a new gallery PNG to change /flights"
 
 
-def test_offbox_marker_touched_changes_health_token(app_server_in_process, monkeypatch):
+def test_offbox_marker_touched_changes_the_home_token(app_server_in_process, monkeypatch):
     server = app_server_in_process
     session = login(server)
     marker_path = os.path.join(server.state_dir, "offbox-marker.txt")
@@ -403,20 +400,19 @@ def test_offbox_marker_touched_changes_health_token(app_server_in_process, monke
     with open(marker_path, "w") as fh:
         fh.write("skypane-state-20260101T000000Z.tar.gz")
 
-    before = _token(server, layout.HEALTH_ROUTE, session)
+    before = _token(server, layout.HOME_ROUTE, session)
 
     with open(marker_path, "w") as fh:
         fh.write("skypane-state-20260102T000000Z.tar.gz")
 
-    after = _token(server, layout.HEALTH_ROUTE, session)
-    assert after != before, "expected touching the off-box marker to change /health"
+    after = _token(server, layout.HOME_ROUTE, session)
+    assert after != before, "expected touching the off-box marker to change /"
 
 
-def test_staleness_threshold_crossed_changes_health_and_home_tokens(
+def test_staleness_threshold_crossed_changes_the_home_token(
         app_server_in_process, monkeypatch):
     """monkeypatching history_db.utc_now_iso() forward, past every staleness floor, changes
-    both /health (the tile verdicts) and / (the shared signals snapshot, and the frame-strip's
-    own resolved state)"""
+    / (the shared signals snapshot, and the frame-strip's own resolved state)"""
     server = app_server_in_process
     session = login(server)
     with history_db.open_db(server.state_dir) as conn:
@@ -424,7 +420,6 @@ def test_staleness_threshold_crossed_changes_health_and_home_tokens(
             conn, ts=history_db.utc_now_iso(), battery_mv=4000, fw_version="1.0.0",
             boot_reason="timer", rssi="-60")
 
-    before_health = _token(server, layout.HEALTH_ROUTE, session)
     before_home = _token(server, layout.HOME_ROUTE, session)
 
     future = datetime.now(timezone.utc) + timedelta(hours=2)
@@ -435,9 +430,7 @@ def test_staleness_threshold_crossed_changes_health_and_home_tokens(
 
     monkeypatch.setattr(history_db, "utc_now_iso", fake_utc_now_iso)
 
-    after_health = _token(server, layout.HEALTH_ROUTE, session)
     after_home = _token(server, layout.HOME_ROUTE, session)
-    assert after_health != before_health, "expected a 2h time jump to change /health"
     assert after_home != before_home, "expected a 2h time jump to change /"
 
 
@@ -472,30 +465,30 @@ def test_the_charging_verdict_ends_by_the_clock_alone(tmp_path):
     assert verdict(now + timedelta(seconds=2 * 300 + 70)) is False
 
 
-def test_the_charging_pill_going_stale_changes_the_health_token_and_home_shows_none(
+def test_the_charging_pill_going_stale_changes_the_home_token_and_leaves_the_fleet_page(
         app_server_in_process, monkeypatch):
-    """the Health page shows the pill and gets a new token when the clock alone makes the
-    reading stale, so the freshness loop removes the pill without a new reading or a reload;
-    the personal Home never shows the pill at all"""
+    """the Fleet page shows the pill and drops it when the clock alone makes the reading stale
+    (a refetch of the page removes it, without a new reading), and the Home token changes with
+    it; the personal Home never shows the pill at all"""
     server = app_server_in_process
     session = login(server)
     now = _seed_charging_ramp(server.state_dir)
-    before = _token(server, layout.HEALTH_ROUTE, session)
-    assert "charging-pill" in _get(server, layout.HEALTH_ROUTE, session)[2].decode("utf-8")
+    before = _token(server, layout.HOME_ROUTE, session)
+    assert "charging-pill" in _get(server, "/fleet", session)[2].decode("utf-8")
     assert "charging-pill" not in _get(server, layout.HOME_ROUTE, session)[2].decode("utf-8")
 
     later = (now + timedelta(seconds=2 * 300 + 120)).isoformat(timespec="seconds")
     monkeypatch.setattr(history_db, "utc_now_iso", lambda: later)
-    assert _token(server, layout.HEALTH_ROUTE, session) != before
-    assert "charging-pill" not in _get(server, layout.HEALTH_ROUTE, session)[2].decode("utf-8")
+    assert _token(server, layout.HOME_ROUTE, session) != before
+    assert "charging-pill" not in _get(server, "/fleet", session)[2].decode("utf-8")
 
 
-def test_pipeline_run_meta_advance_changes_health_and_home_tokens(app_server_in_process):
+def test_pipeline_run_meta_advance_changes_the_home_token(app_server_in_process):
     """META_LAST_PIPELINE_RUN advancing (while the pipeline stays "ok" throughout, so its
-    derived pipeline_state category never flips) still changes both Health's own token - the
-    Pipeline tile - and Home's - the Flight-data tile renders the same raw timestamp as plain
-    text via pipeline_detail_html, so it must track the meta value, not just its derived
-    state. Flights never embeds the raw meta value at all, so its token is unaffected"""
+    derived pipeline_state category never flips) still changes Home's token - the Flight-data
+    tile renders the raw timestamp as plain text via pipeline_detail_html, so it must track
+    the meta value, not just its derived state. Flights never embeds the raw meta value at
+    all, so its token is unaffected"""
     server = app_server_in_process
     session = login(server)
     base = datetime.now(timezone.utc)
@@ -505,18 +498,15 @@ def test_pipeline_run_meta_advance_changes_health_and_home_tokens(app_server_in_
     with history_db.open_db(server.state_dir) as conn:
         history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, first_run)
 
-    before_health = _token(server, layout.HEALTH_ROUTE, session)
     before_home = _token(server, layout.HOME_ROUTE, session)
     before_flights = _token(server, layout.FLIGHTS_ROUTE, session)
 
     with history_db.open_db(server.state_dir) as conn:
         history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, second_run)
 
-    after_health = _token(server, layout.HEALTH_ROUTE, session)
     after_home = _token(server, layout.HOME_ROUTE, session)
     after_flights = _token(server, layout.FLIGHTS_ROUTE, session)
 
-    assert after_health != before_health, "expected the pipeline-run advance to change /health"
     assert after_home != before_home, (
         "expected the pipeline-run advance to change / (the Flight-data tile's own timestamp)")
     assert after_flights == before_flights, (
@@ -553,10 +543,10 @@ def test_paris_midnight_rollover_changes_home_and_display_tokens(app_server_in_p
 def test_lang_cookie_changes_the_token(app_server_in_process):
     server = app_server_in_process
     session = login(server)
-    before = _token(server, layout.HEALTH_ROUTE, session)
+    before = _token(server, layout.HOME_ROUTE, session)
 
     fr_cookie = session + "; " + auth.UI_LANG_COOKIE_NAME + "=fr"
-    after = _token(server, layout.HEALTH_ROUTE, fr_cookie)
+    after = _token(server, layout.HOME_ROUTE, fr_cookie)
     assert after != before, "expected the lang cookie to change the token"
 
 

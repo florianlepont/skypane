@@ -20,7 +20,7 @@ def test_login_page_and_flow(app_server):
     assert status == 200
 
     cookie = companion_app_server.login(app_server)
-    status, _, _ = companion_app_server.get(app_server, "/health", cookie=cookie)
+    status, _, _ = companion_app_server.get(app_server, "/fleet", cookie=cookie)
     assert status == 200
 
 

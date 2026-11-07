@@ -278,7 +278,7 @@ def test_settings_post_empty_body_leaves_led_unchanged_and_renders_unchecked(mak
     assert on_disk["led_enabled"] is led_before, (
         "expected an empty-body POST to LEAVE the stored led_enabled %r unchanged, got %r"
         % (led_before, on_disk["led_enabled"]))
-    get_status, _get_headers, body = get(server, companion_app.DEVICE_ROUTE, cookie=session_cookie)
+    get_status, _get_headers, body = get(server, "/fleet", cookie=session_cookie)
     assert get_status == 200, "expected 200 on the follow-up GET, got %d" % get_status
     assert b'name="led_enabled" value="on" checked' not in body, (
         "expected the LED checkbox to render unchecked after saving False")
@@ -512,7 +512,7 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
     ("lang", "titles", "page_title", "nav_label"),
     [
         ("en", ("Look", "Special looks", "Calendar"), "Personalisation", "Personalisation sections"),
-        ("fr", ("Allure", "Allures spéciales", "Calendrier"), "Personnalisation",
+        ("fr", ("Allure", "Looks spéciaux", "Calendrier"), "Personnalisation",
          "Sections de personnalisation"),
     ],
 )
@@ -815,13 +815,13 @@ def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(
     with a 96px minimum, no height declared so the 44px touch-target floor is untouched) with
     the unit as a sibling label"""
     rendered = config_page.wake_interval_group(300)
-    label = '<label for="%s">%s</label>' % (
+    label = '<label for="%s" class="visually-hidden">%s</label>' % (
         config_page.WAKE_INTERVAL_INPUT_ID, escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
     assert label in rendered, "expected the label to be its own element above the control (B17)"
     assert "</label><input" in rendered, "expected the input to be the label's SIBLING, not its child (B17)"
     unit = (
         '<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
-        % config_page.WAKE_INTERVAL_UNIT_LABEL)
+        % i18n.t(config_page.WAKE_INTERVAL_UNIT_LABEL))
     assert unit in rendered, "expected the unit as a sibling label, not a placeholder (B17)"
     input_tag = rendered[rendered.index('<input type="number"'):]
     input_tag = input_tag[:input_tag.index(">") + 1]
@@ -1213,10 +1213,10 @@ def test_the_wake_control_preserves_the_native_input_contract(
         assert " value=" not in element, (
             "%s: the number input carries a value attribute - an out-of-range value fails "
             "HTML5 constraint validation" % name)
-    label = '<label for="%s">%s</label>' % (
+    label = '<label for="%s" class="visually-hidden">%s</label>' % (
         escape_html(config_page.WAKE_INTERVAL_INPUT_ID), escape_html(i18n.t(wake_interval.WAKE_INTERVAL_INPUT_LABEL)))
     unit = ('<span class="text-label field-inline-value" aria-hidden="true">%s</span>'
-            % escape_html(config_page.WAKE_INTERVAL_UNIT_LABEL))
+            % escape_html(i18n.t(config_page.WAKE_INTERVAL_UNIT_LABEL)))
     assert label in markup and unit in markup, "%s: the B17 label or the unit sibling changed" % name
     assert markup.index(label) < markup.index(element), "%s: the label is no longer ABOVE the control (B17)" % name
     assert markup.index(unit) == markup.index(element) + len(element), (
@@ -1302,8 +1302,11 @@ def test_the_readout_seam_this_card_declares_is_the_one_the_script_reads(value_c
     markup = config_page.wake_interval_group(600, battery_rows=_FALLING)
     script = cp.strip_js_line_and_block_comments(value_controls_js)
     assert layout.VALUE_CONTROL_INPUT_ATTR in markup
-    assert layout.VALUE_CONTROL_READOUT_ATTR not in markup
-    assert layout.VALUE_CONTROL_READOUT_TEXT_ATTR not in markup
+    # The card's one readout is the minutes beside the seconds value: no
+    # battery or arrival sentence, so no base and no days wording.
+    assert markup.count(layout.VALUE_CONTROL_READOUT_ATTR + "=") == 1
+    assert 'data-value-readout-text="%s"' % html.escape(
+        i18n.t(config_page.WAKE_INTERVAL_MINUTES_TEXT)) in markup
     assert layout.VALUE_CONTROL_READOUT_BASE_ATTR not in markup
     assert ('"%s"' % layout.VALUE_CONTROL_INPUT_ATTR) in script
     return

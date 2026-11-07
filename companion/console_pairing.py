@@ -313,9 +313,8 @@ def _refuse_claim(h, code, owner_raw, transitioned):
     audit_refusal(h, transitioned)
     return _render(
         h, status=200, open_add_dialog=True, code_value=_echoed_code(code),
-        owner_selected=owner_raw.strip(), claim_toast_html=docked_toast(
-            "error", fleet_page.CLAIM_REFUSED_TITLE, fleet_page.CLAIM_REFUSED_DETAIL),
-        code_error=i18n.t(fleet_page.CLAIM_CODE_ERROR))
+        owner_selected=owner_raw.strip(),
+        code_error=fleet_page.claim_refused_error())
 
 
 def _field_failure(h, code, owner_raw, **errors):

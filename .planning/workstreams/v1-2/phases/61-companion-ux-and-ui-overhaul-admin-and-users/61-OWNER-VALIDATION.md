@@ -407,3 +407,58 @@ Owner: "C'est beaucoup mieux !" Then:
   it (full-bleed under the status bar and the app bar). If that hurts
   readability of the site name, add a small soft gradient scrim behind the
   header (a nice-looking fade), not a hard bar. Joins plan 61-65.
+
+## Audit decisions (D42), owner answered point by point
+
+Source: scratchpad audit (30 findings, 12 proposals) and mockups P01..P10
+(before/after). The owner validated all 12 points as proposed:
+
+- P01 Fleet save bar docked at the bottom (above the tab bar on phone).
+- P02 Redirect /health, /device, /update and old bookmarks for every role.
+- P03 Phone More sheet: theme, language, Account, Sign out (mockup).
+- P04 Personalisation: one 4-segment selector, same list layout for Special
+  looks and Calendar (mockup).
+- P05 Location map: opens on the airport, numbered clusters, runway badge in
+  the corner, readable dark ORY label (mockup).
+- P06 Flights: stable inline search, Load more (mockup).
+- P07 Switches: darker off track, contrasting thumb, dark contrast fixes.
+- P08 One toast, one sheet style, error shown once, focus trap, no time
+  auto-focus.
+- P09 Users: ellipsis, status pills, co-manager frame count, copyable invite
+  message (mockup).
+- P10 Fleet on phone: State / Settings / Access sub-tabs (mockup).
+- P11 Plural, frame name and validation i18n sweep, consistent page titles.
+- P12 404/forbidden page: visible Home button, clear admin-only message.
+
+Plans: 61-66..61-71 in `61-BATCH3-PLAN.md` (batch 8).
+
+## Round 7 (iPhone, Safari with floating toolbar)
+
+- W70 (owner) Small bug with the shadow at the bottom of the page (Home on
+  iPhone, screenshot): the floating tab bar sits well above the Safari
+  toolbar, and below it a pale wash with a hard horizontal edge crosses the
+  full width, with the page content visible between the bar and the toolbar.
+  Investigate (safe-area-inset-bottom with the floating Safari toolbar,
+  `--bar-shadow`, `100dvh`/`svh` fixed-element bottom edge, body background
+  vs the page canvas) and fix: no hard edge, shadow soft and clipped to the
+  bar. Planned inside 61-67.
+
+## Motion decisions (D43), owner answered idea by idea on real-page demos
+
+All ten motion ideas validated as demoed (CSP-safe: no inline style; reduced
+motion respected; whole-pixel moves; works without JS where noted):
+
+- M1 Live Home (pulsing dot, ticking countdown, count-up, new flight slides in).
+- M2 Skeletons then blur-up picture fade.
+- M3 Pull to refresh on Flights (Refresh link stays without JS).
+- M4 Spring press feedback on buttons, rows, chips (CSS only).
+- M5 Sliding tab-bar pill.
+- M6 Flight thumbnail to picture shared transition; owner: show the picture
+  alone, no white card around it.
+- M7 Draggable bottom sheets (grabber, drag to close).
+- M8 Spring switch with tick (vibrate where supported).
+- M9 Swipeable toast.
+- M10 Airline card unlock (3D flip, glint, sparks, once).
+
+Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
+61-74 (M7, M9), 61-75 (M6, M10).

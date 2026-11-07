@@ -633,12 +633,15 @@ def set_user_disabled_guarded(
 
 
 def list_users_with_frame_counts(conn: sqlite3.Connection) -> list[sqlite3.Row]:
-    """Users with owned-frame count, newest session activity and whether an
+    """Users with owned-frame count, co-managed-frame count, newest session
+    activity and whether an
     identity has signed in (iss and sub set). Never the issuer or subject.
     """
     return list(conn.execute(
         "SELECT u.id, u.email, u.role, u.disabled, u.created_at, "
         "(SELECT count(*) FROM devices d WHERE d.owner_user_id = u.id) AS frame_count, "
+        "(SELECT count(*) FROM device_co_managers c WHERE c.user_id = u.id) "
+        "AS co_managed_count, "
         "(SELECT max(s.last_seen_at) FROM sessions s WHERE s.user_id = u.id) "
         "AS last_seen_at, "
         "(u.iss IS NOT NULL AND u.sub IS NOT NULL) AS has_identity "

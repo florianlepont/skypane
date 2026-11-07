@@ -18,6 +18,7 @@ from companion import device_scope
 from companion import i18n
 from companion import ui_modal
 import companion.layout as layout
+from companion import prefs
 from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_HEIGHT,
     ILLUSTRATION_TARGET_WIDTH,
@@ -33,6 +34,15 @@ PAGE_TITLE = i18n.msg("nav.airline_collection", "Airline collection")
 
 PROGRESS_TEXT = i18n.msg("airlines.collection_progress", "%d of %d airlines spotted")
 STATUS_TEXT = i18n.msg("airlines.collection_status", "%d airlines spotted")
+PROGRESS_ONE_TEXT = i18n.msg("airlines.collection_progress_one", "%d of %d airline spotted")
+STATUS_ONE_TEXT = i18n.msg("airlines.collection_status_one", "%d airline spotted")
+
+
+def _count_text(count, many, one):
+    """`many` or `one` for `count`: one for 1 in every language, and for 0
+    in French, where zero takes the singular."""
+    singular = count == 1 or (count == 0 and prefs.current_lang() == "fr")
+    return i18n.t(one if singular else many)
 GOAL_TEXT = i18n.msg("airlines.collection_next_goal", "%d more for the %d badge")
 GOAL_FIRST_TEXT = i18n.msg(
     "airlines.collection_next_goal_first", "Spot one airline to earn the First sighting badge")
@@ -248,8 +258,9 @@ def _card_html(entry, state_dir):
             _picture_html(entry, state_dir), escape_html(entry.name),
             escape_html(line), pills_html),
         extra_class=classes)
-    return '<li class="collection-item" data-filter-text="%s">%s</li>' % (
-        escape_html(entry.name.lower()), link)
+    unlock = ' data-unlock="%s"' % escape_html(entry.slug) if entry.seen and entry.is_new else ""
+    return '<li class="collection-item" data-filter-text="%s"%s>%s</li>' % (
+        escape_html(entry.name.lower()), unlock, link)
 
 
 def _date_text(day):
@@ -321,7 +332,7 @@ def _goal_text(summary, all_curated_seen):
 def _status_text(summary, all_curated_seen):
     """The one progress line: the spotted count, then the next goal."""
     return "%s \u00b7 %s" % (
-        i18n.t(STATUS_TEXT) % summary.spotted, _goal_text(summary, all_curated_seen))
+        _count_text(summary.spotted, STATUS_TEXT, STATUS_ONE_TEXT) % summary.spotted, _goal_text(summary, all_curated_seen))
 
 
 def _badge_html(threshold, earned):
@@ -343,7 +354,8 @@ def _badge_html(threshold, earned):
 def _status_html(summary, all_curated_seen):
     """The header's right-hand part: a thin progress bar with one short
     line under it, and the badge icons."""
-    headline = i18n.t(PROGRESS_TEXT) % (summary.spotted, summary.total)
+    headline = _count_text(summary.spotted, PROGRESS_TEXT, PROGRESS_ONE_TEXT) % (
+        summary.spotted, summary.total)
     badges = "".join(
         _badge_html(n, n in summary.earned) for n in collection.BADGE_THRESHOLDS)
     return (
@@ -462,8 +474,9 @@ def render(ctx, query_string=""):
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
     parts.append(_controls_html(view, entries, len(shown)))
     if shown:
-        parts.append('<ul class="collection-grid" id="%s">%s</ul>' % (GRID_ID, "".join(
-            _card_html(entry, ctx.state_dir) for entry in shown)))
+        parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
+            GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
+            "".join(_card_html(entry, ctx.state_dir) for entry in shown)))
         parts.extend(_sheet_html(entry, ctx.state_dir, now) for entry in shown)
     else:
         parts.append(layout.empty_state(i18n.t(NO_MATCH_HEADING), i18n.t(NO_MATCH_BODY)))

@@ -10,7 +10,6 @@ airlines_page already reads.
 """
 import companion.device_scope as device_scope
 import companion.i18n as i18n
-import companion.layout as layout
 from companion.layout import escape_html
 from companion.pages import airline_sheet, airlines_page as ap
 from server.plane import enrich, illustrations, manual_resolutions
@@ -20,7 +19,7 @@ from server.plane import enrich, illustrations, manual_resolutions
 # it means the Airline editor, so no request can choose its own redirect target.
 RETURN_FIELD = "return"
 RETURN_HEALTH = "health"
-_RETURN_ROUTES = {RETURN_HEALTH: layout.HEALTH_ROUTE}
+_RETURN_ROUTES = {RETURN_HEALTH: "/fleet?view=system"}
 
 # Which page started the flow; panel-lookup.js copies it into the name form's return field.
 RETURN_ATTR = "data-view-panel-return"
@@ -40,6 +39,11 @@ def return_route(value):
     if isinstance(value, str) and value in _RETURN_ROUTES:
         return _RETURN_ROUTES[value]
     return ap.MANAGE_ROUTE
+
+
+def with_query(route, query):
+    """`route` (which may already carry a query) with `query` appended."""
+    return "%s%s%s" % (route, "&" if "?" in route else "?", query)
 
 
 def _return_query(return_target):

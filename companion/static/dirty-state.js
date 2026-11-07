@@ -283,6 +283,11 @@
       return;
     }
     bar.hidden = false;
+    // The docked bar always says the same thing, whatever changed.
+    if (bar.hasAttribute("data-dirty-generic")) {
+      setCountText(dirtyInitialText);
+      return;
+    }
     var labels = dirtySectionLabels();
     if (labels.length === 0) {
       // Never-silent fallback: a differing field sits outside every

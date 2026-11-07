@@ -125,13 +125,17 @@ def test_the_space_switch_stays_first_set_apart_and_the_active_item_is_an_inner_
         new_context, app, viewport, scheme):
     context, page = _open(new_context, app, _home(app), viewport, scheme)
     try:
+        # Once the script has placed the sliding pill it paints the active item's fill, so the
+        # inner pill is measured on the slider, after its glide has ended.
+        page.wait_for_function(
+            "() => document.querySelector('.tab-bar').classList.contains('tab-bar--slider')"
+            " && document.querySelector('.tab-bar__slider').getAnimations().length === 0")
         facts = page.evaluate(
             """() => {
-              const cells = [...document.querySelectorAll('.tab-bar > *')];
+              const cells = [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')];
               const first = cells[0];
               const pill = first.querySelector('.tab-bar__pill');
-              const active = document.querySelector(
-                  '.tab-bar__link--active .tab-bar__pill');
+              const active = document.querySelector('.tab-bar__slider');
               const bar = document.querySelector('.tab-bar').getBoundingClientRect();
               return {firstIsSwitch: first.classList.contains('tab-bar__link--switch'),
                       outline: getComputedStyle(pill).borderTopWidth,
