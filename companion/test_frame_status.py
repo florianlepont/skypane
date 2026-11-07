@@ -25,7 +25,7 @@ CASES = [
     ("low battery", _row(battery_percent=5), "dot--warn", "Low battery"),
     ("held", _row(state=frame_state.STATE_HELD), "dot--off", "Resting"),
     ("screen off", _row(screen_off=True), "dot--off", "Resting"),
-    ("healthy", _row(), "dot--ok", "Up to date"),
+    ("healthy", _row(), "dot--ok", "Online"),
 ]
 
 
@@ -77,7 +77,7 @@ def test_french_words():
         frame_status.WORD_OVERDUE: "En retard",
         frame_status.WORD_LOW_BATTERY: "Batterie faible",
         frame_status.WORD_RESTING: "Au repos",
-        frame_status.WORD_UP_TO_DATE: "À jour",
+        frame_status.WORD_UP_TO_DATE: "En ligne",
     }
     for message, french in expected.items():
         assert i18n.t_lang(message, "fr") == french

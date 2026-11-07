@@ -239,7 +239,7 @@ def test_home_catalog_keys_all_present_in_merged_catalog():
 
 
 def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
-    """the Frame strip's headline reads 'Next update in N min' (a live countdown, no clock) for a future next-update,
+    """the Frame strip's headline reads 'Next refresh in N min' (a live countdown, no clock) for a future next-update,
     'Update overdue · expected at HH:MM' in the warn treatment for a past one, and renders no headline at all
     when either the check-in or the wake interval is unknown (moved from the deleted
     _status_card_html())"""
@@ -258,7 +258,7 @@ def test_home_status_card_headline_next_update_or_expected_since(tmp_path):
     # 11:55 UTC + 15 minutes = 12:10 UTC = 14:10 Europe/Paris (CEST,
     # UTC+2, in effect in late August) — still AFTER the 12:00 UTC "now",
     # so this is the not-yet-due branch: a countdown element, no clock.
-    assert "Next update <time" in rendered_future and "in 10m" in rendered_future, (
+    assert "Next refresh <time" in rendered_future and "in 10m" in rendered_future, (
         "expected the future next-update headline as a countdown")
     assert "time-value--primary" not in rendered_future and "≈" not in rendered_future, (
         "expected no clock and no approximation sign on the on-time headline")
@@ -944,7 +944,7 @@ def test_frame_state_is_view_free_and_localises_its_own_copy():
     # new entries, or the pre-existing entries for the two deliberate
     # collisions) and renders unchanged in English.
     headline_pairs = (
-        (frame_state.HEADLINE_DUE, "Prochaine mise à jour %s"),
+        (frame_state.HEADLINE_DUE, "Prochain rafraîchissement %s"),
         (frame_state.HEADLINE_HELD, "Prochain réveil vers %s · heures calmes"),
         (frame_state.HEADLINE_LATE, "Mise à jour en retard · attendue à %s"),
     )

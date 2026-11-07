@@ -336,16 +336,15 @@ def test_airline_fallback_distinct_from_route_fallback(tmp_path):
     li_block = _row_block(rendered, "li", 0)
     assert tr_block is not None and li_block is not None, (
         "could not locate row block for a no-airline row")
-    for label, block in (("desktop", tr_block), ("mobile", li_block)):
-        assert history_page.AIRLINE_FALLBACK_TEXT in block
-        assert panel_render.ROUTE_FALLBACK_TEXT in block
-        assert block.count(panel_render.ROUTE_FALLBACK_TEXT) == 1, (
-            "expected ROUTE_FALLBACK_TEXT exactly once (Route column only) in the %s row, "
-            "found %d" % (label, block.count(panel_render.ROUTE_FALLBACK_TEXT)))
-        assert "<a " not in block.split(history_page.AIRLINE_FALLBACK_TEXT, 1)[1].split(
-            panel_render.ROUTE_FALLBACK_TEXT, 1)[0], (
-            "expected no link between the airline fallback and the route fallback in the %s row"
-            % label)
+    assert history_page.AIRLINE_FALLBACK_TEXT in li_block
+    assert panel_render.ROUTE_FALLBACK_TEXT not in li_block, (
+        "the phone row says nothing about a missing route")
+    assert history_page.AIRLINE_FALLBACK_TEXT in tr_block
+    assert tr_block.count(panel_render.ROUTE_FALLBACK_TEXT) == 1, (
+        "expected ROUTE_FALLBACK_TEXT exactly once (Route column only) in the desktop row")
+    assert "<a " not in tr_block.split(history_page.AIRLINE_FALLBACK_TEXT, 1)[1].split(
+        panel_render.ROUTE_FALLBACK_TEXT, 1)[0], (
+        "expected no link between the airline fallback and the route fallback in the desktop row")
 
 
 def test_hex_only_row_promotes_hex_to_primary(tmp_path):
@@ -562,14 +561,14 @@ def test_the_phone_row_carries_identity_detail_and_a_picture_action(tmp_path):
     assert not li.select("details") and not li.select("summary")
     assert not li.select("[data-copy-value]")
     assert li.select_one(".row__label .history-card__callsign").text() == "FACEONE"
-    assert li.select_one(".row__detail").text().startswith("Air France")
+    assert li.select_one(".row__label .history-card__airline").text() == "Air France"
     assert li.select_one(".row__value .history-card__when") is not None
     assert li.select_one(".row__main > a.history-card__thumb[data-view-panel-src]") is not None
     assert not [a for a in li.select("a") if "resolve=" in a.attrs.get("href", "")]
 
     unresolved = vp.row_block(rendered, "li", 1)
     assert unresolved is not None, "could not locate the unresolved-airline row"
-    assert unresolved.select_one(".row__detail").text().startswith("Airline unknown")
+    assert unresolved.select_one(".row__label .history-card__airline").text() == "Airline unknown"
     assert [a.attrs["class"] for a in unresolved.select("a")] == ["history-card__thumb"]
     assert unresolved.select("a[data-view-panel-src]")
 
@@ -580,8 +579,6 @@ def test_phone_row_identity_branches_and_the_label_keeps_every_code_readable(tmp
     as a unit) and the detail line wraps to two lines before it clips"""
     label_block = declarations_for(served_css, ".history-card .row__label")
     assert label_block.get("white-space") == "normal"
-    callsign_block = declarations_for(served_css, ".history-card__callsign")
-    assert callsign_block.get("white-space") == "nowrap"
     route_block = declarations_for(served_css, ".history-card__route")
     assert route_block.get("white-space") == "nowrap"
     detail_block = declarations_for(served_css, ".history-card .row__detail")
@@ -601,8 +598,12 @@ def test_phone_row_identity_branches_and_the_label_keeps_every_code_readable(tmp
         li = vp.row_block(rendered, "li", 0)
         assert li is not None, "%s branch: could not locate the rendered row" % name
         label = li.select_one(".row__label")
-        assert len(label.select(".history-card__callsign")) == 1, name
-        assert label.select_one(".history-card__callsign").text() == expected, name
+        idents = label.select(".history-card__callsign")
+        assert len(idents) == (1 if expected else 0), name
+        if expected:
+            # Never drawn: the call sign is visually hidden text only.
+            assert "visually-hidden" in idents[0].attrs["class"], name
+            assert idents[0].text() == expected, name
 
 
 def test_freshness_refetches_the_current_url_verbatim(app):
@@ -648,8 +649,7 @@ def test_the_count_animates_without_its_text_production_moving(app):
 def test_phone_row_route_mutes_the_home_end_and_names_the_direction(tmp_path):
     """the phone row's route carries origin and destination as two codes with an arrow between
     them; the home end (the origin of a departure, the destination of an arrival) is muted; the
-    confirmed direction is spoken in the label; a row with no route reads the shared fallback in
-    its detail line"""
+    confirmed direction opens the detail line; a row with no route says nothing about it"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "rt01", "callsign": "DEPCARD",
          "origin": "ORY", "destination": "KEF", "confirmed_state": "departing"},
@@ -667,10 +667,10 @@ def test_phone_row_route_mutes_the_home_end_and_names_the_direction(tmp_path):
         assert route.select_one(".history-card__code--to").text() == destination
         homes = route.select(".history-card__code--home")
         assert len(homes) == 1 and "history-card__code--%s" % home in homes[0].attrs["class"]
-        assert direction in li.select_one(".history-card__state").text()
+        assert li.select_one(".row__detail").text().startswith(direction)
     li = vp.row_block(rendered, "li", 2)
     assert not li.select(".history-card__route")
-    assert history_page.ROUTE_FALLBACK_TEXT in li.select_one(".row__detail").text()
+    assert history_page.ROUTE_FALLBACK_TEXT not in li.text()
 
 
 def test_raw_iso_timestamp_is_never_rendered(tmp_path):

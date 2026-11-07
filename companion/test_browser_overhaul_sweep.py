@@ -976,7 +976,8 @@ _HEADINGS = """
       !e.closest('dialog:not([open])') && getComputedStyle(e).visibility !== 'hidden';
   };
   const allowed = [tokens.label, tokens.card, tokens.sub];
-  for (const h of document.querySelectorAll('main h1')) {
+  // Home's greeting is a quiet body-size line above the state, not a title.
+  for (const h of document.querySelectorAll('main h1:not(.page-title--greeting)')) {
     if (shown(h) && getComputedStyle(h).fontSize !== tokens.title) {
       bad.push('h1 ' + h.className + ' is ' + getComputedStyle(h).fontSize);
     }

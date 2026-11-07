@@ -67,12 +67,12 @@ def _checked(card, action):
 
 
 def test_screen_on_state_wording_and_both_switches(tmp_path):
-    """the default state reads "Up to date" (the dot's word), names the next update as a countdown with no clock
+    """the default state reads "Online" (the dot's word), names the next update as a countdown with no clock
     and offers two native POST switches that are checked, each posting the opposite state"""
     card = _render(tmp_path, cfg={"quiet_hours_enabled": True})
-    assert '<span class="home-state__title">Up to date</span>' in card
+    assert '<span class="home-state__title">Online</span>' in card
     line = re.search(r'<p class="home-state__next">.*?</p>', card, re.S).group(0)
-    assert "Next update <time" in line and "data-relative-countdown" in line
+    assert "Next refresh <time" in line and "data-relative-countdown" in line
     assert "≈" not in line and "time-value" not in line
     assert "23:00 – 07:00" in card
     assert _checked(card, "/quick/display") == "true"
@@ -110,7 +110,7 @@ def test_screen_off_state_flips_the_screen_switch(tmp_path):
 
 def test_quiet_hours_state_names_the_end_time_and_the_window(tmp_path):
     """inside the quiet window the title reads "Resting" with "rests until HH:MM" under it
-    and the switch is checked; with the schedule disabled the same clock reads "Up to date", the
+    and the switch is checked; with the schedule disabled the same clock reads "Online", the
     switch is unchecked and the window stays visible beside it"""
     window = {"quiet_hours_enabled": True, "quiet_hours_start": "00:00", "quiet_hours_end": "23:59"}
     card = _render(tmp_path, cfg=window)
@@ -121,7 +121,7 @@ def test_quiet_hours_state_names_the_end_time_and_the_window(tmp_path):
     assert "00:00 – 23:59" in card
     window["quiet_hours_enabled"] = False
     card = _render(tmp_path, cfg=window)
-    assert '<span class="home-state__title">Up to date</span>' in card
+    assert '<span class="home-state__title">Online</span>' in card
     assert "rests until" not in card
     assert _checked(card, "/quick/quiet-hours") == "false"
     assert "00:00 – 23:59" in card
@@ -142,7 +142,7 @@ def test_battery_empty_hold_outranks_the_display_switch(tmp_path):
 def test_without_a_check_in_there_is_no_next_update_but_the_switches_remain(tmp_path):
     """no check-in: no invented next-update line and nothing to explain, both switches stay"""
     card = _render(tmp_path, last_checkin_ts=None)
-    assert "Next update" not in card and "home-state__next" not in card
+    assert "Next refresh" not in card and "home-state__next" not in card
     assert "info-tip" not in card
     assert "/quick/display" in card and "/quick/quiet-hours" in card
 
@@ -151,7 +151,7 @@ def test_french_status_header(tmp_path):
     """the header reads in French: hidden heading, state, next update, info tooltip, switch
     labels and state words"""
     card = _render(tmp_path, lang="fr", cfg={"quiet_hours_enabled": True})
-    for text in ("État du cadre", '<span class="home-state__title">À jour</span>', "Prochaine mise à jour <time",
+    for text in ("État du cadre", '<span class="home-state__title">En ligne</span>', "Prochain rafraîchissement <time",
                  "il se réveille environ toutes les 15 min",
                  "il ne se rafraîchit donc pas en continu", "À propos des mises à jour",
                  "Heures calmes", "Écran",
@@ -249,7 +249,7 @@ def test_a_short_delay_keeps_the_neutral_next_update_wording(tmp_path):
     """a few minutes past the expected wake is normal: the usual next-update line, green dot, no
     overdue wording and no Health link"""
     card = _late_ctx(tmp_path, 20)
-    assert "Next update <time" in card and "Update overdue" not in card
+    assert "Next refresh <time" in card and "Update overdue" not in card
     assert "dot--ok" in card and "dot--warn" not in card and 'href="/health"' not in card
 
 

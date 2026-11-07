@@ -496,3 +496,68 @@ def test_airlines_search_pill_has_no_chips_and_both_clears_work(new_context, ser
         _assert_no_page_overflow(page, "airlines filter bar")
     finally:
         context.close()
+
+
+_VISIBLE_TEXT = """sel => [...document.querySelectorAll(sel)].map(row => {
+    const copy = row.cloneNode(true);
+    copy.querySelectorAll('.visually-hidden').forEach(e => e.remove());
+    return {text: copy.textContent, planes: row.querySelectorAll('use[href="#icon-plane"]').length,
+            callsignSlot: row.querySelector('.history-card__callsign') !== null,
+            filter: row.getAttribute('data-filter-text')};
+})"""
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport,selector", [
+    (VIEWPORT_PHONE, "li.history-card"), (VIEWPORT_DESKTOP, "tr[data-flight-row]")],
+    ids=["phone-cards", "desktop-table"])
+def test_a_flights_row_has_no_plane_icon_and_no_call_sign(
+        new_context, server, viewport, selector, lang):
+    """No plane icon and no visible call sign in any row; a search by call sign still finds the
+    row, and the picture control (when the row has one) still names the flight."""
+    context = new_context(viewport=viewport)
+    context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang,
+                          "url": server.base_url()}])
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/flights")
+        page.locator(selector).first.wait_for(state="visible")
+        rows = page.evaluate(_VISIBLE_TEXT, selector)
+        assert rows
+        for row in rows:
+            assert row["planes"] == 0
+            assert row["text"].strip()
+        for call_sign in [flight[0] for flight in vp.FLIGHT_CARD_FLIGHTS]:
+            for row in rows:
+                assert call_sign not in row["text"]
+        page.fill("[data-filter-input]", "obs412")
+        page.wait_for_function(
+            """sel => { const rows = [...document.querySelectorAll(sel)];
+                        const shown = rows.filter(r => !r.hidden && r.offsetParent !== null);
+                        return shown.length === 1
+                            && shown[0].getAttribute('data-filter-text').includes('obs412'); }""",
+            arg=selector, timeout=10000)
+    finally:
+        context.close()
+
+
+def test_a_phone_row_is_two_lines_airline_then_direction(new_context, server):
+    """The title is the airline, the line under it the direction and aircraft; the clock sits
+    over the age at the right."""
+    context = new_context(viewport=VIEWPORT_PHONE)
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/flights")
+        page.locator("li.history-card").first.wait_for(state="visible")
+        probe = page.evaluate(
+            """() => [...document.querySelectorAll('li.history-card')].map(li => ({
+                title: li.querySelector('.row__label .history-card__airline').textContent,
+                detail: li.querySelector('.row__detail') ? li.querySelector('.row__detail').textContent : '',
+                value: li.querySelector('.row__value').textContent}))""")
+        assert all(row["title"].strip() for row in probe)
+        assert any(row["detail"].startswith(("Departing", "Arriving")) for row in probe)
+        assert all(row["value"].strip() for row in probe)
+    finally:
+        context.close()

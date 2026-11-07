@@ -244,7 +244,7 @@ def _seed_checkin(minutes_ago, battery_mv):
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 @pytest.mark.parametrize("minutes_ago,battery_mv,wording,amber", [
-    (2, 4100, "Next update in", False),
+    (2, 4100, "Next refresh in", False),
     (16, 3700, None, True),
     (30, 3381, None, True),
 ])
@@ -542,7 +542,7 @@ def _open_user_home(new_context, server, fleet, lang="en", **context_args):
 
 
 @pytest.mark.parametrize("mode,word,tone", [
-    ("fresh", "Up to date", "ok"),
+    ("fresh", "Online", "ok"),
     ("off", "Resting", "off"),
     ("silent", "No contact", "error"),
     ("never", "Not seen yet", "warn"),

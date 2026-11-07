@@ -155,7 +155,7 @@ def test_rows_order_and_status_words(fleet_app):
         for row in rows}
     assert words["/devices/%s/flights" % fleet.dev_b.id] == "No contact"
     assert words["/devices/%s/flights" % fleet.landscape.id] == "Not seen yet"
-    assert words["/devices/%s/flights" % fleet.dev_a.id] in ("Up to date", "Low battery")
+    assert words["/devices/%s/flights" % fleet.dev_a.id] in ("Online", "Low battery")
     names = [row.select_one(".frame-row__name").text().strip() for row in rows[1:]]
     assert names == sorted(names)
 

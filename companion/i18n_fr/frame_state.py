@@ -28,5 +28,5 @@ MESSAGES = {
     "frame_state.status_overdue": "En retard",
     "frame_state.status_low_battery": "Batterie faible",
     "frame_state.status_resting": "Au repos",
-    "frame_state.status_up_to_date": "À jour",
+    "frame_state.status_up_to_date": "En ligne",
 }

@@ -34,7 +34,7 @@ _ROW_FACTS = (
     "    || k.getBoundingClientRect().right > b.right + 0.5)}; })")
 
 _EN_WORDS = {
-    "Not seen yet", "No contact", "Overdue", "Low battery", "Resting", "Up to date",
+    "Not seen yet", "No contact", "Overdue", "Low battery", "Resting", "Online",
     "Waiting for pairing", "Retired"}
 
 

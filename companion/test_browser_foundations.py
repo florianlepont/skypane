@@ -36,7 +36,8 @@ _TITLES = """
   return {
     display: root.getPropertyValue('--font-display').trim(),
     ui: root.getPropertyValue('--font-ui').trim(),
-    pageTitles: [...document.querySelectorAll('main h1.page-title')].filter(visible).map(read),
+    // Home's greeting is a quiet body-size line above the state, not a title.
+    pageTitles: [...document.querySelectorAll('main h1.page-title:not(.page-title--greeting)')].filter(visible).map(read),
     sectionTitles: [...document.querySelectorAll('main .text-heading')].filter(visible).map(read),
     headings: [...document.querySelectorAll('main h1, main h2, main h3, main legend, main .text-heading')]
       .filter(visible).map(read),
@@ -100,7 +101,8 @@ def test_titles_are_on_the_type_scale_in_the_display_face(
     context, page = _open_page(new_context, server, path, viewport, scheme)
     try:
         read = page.evaluate(_TITLES)
-        assert read["pageTitles"], (path, "no page title")
+        # Home's only h1 is the greeting, which is not a title.
+        assert read["pageTitles"] or path == "/", (path, "no page title")
         low, high = (30, 34) if viewport["width"] < 960 else (40, 44)
         for title in read["pageTitles"]:
             assert _same_stack(title["family"], read["display"]), title

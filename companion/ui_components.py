@@ -599,7 +599,7 @@ def _frame_update_cell_html(
     countdown_html = relative_time_html(resolved_next_wake_iso, now_value, countdown=True)
     headline_before, headline_after = i18n.t(headline_i18n_source).split("%s", 1)
     if headline_i18n_source is _FRAME_HEADLINE_DUE_TEXT:
-        # On time the sentence itself carries the countdown ("Next update in
+        # On time the sentence itself carries the countdown ("Next refresh in
         # 4 min"); there is no clock and no second line.
         value_html = countdown_html
         caption_html = ""

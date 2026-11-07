@@ -363,17 +363,17 @@ def _view_panel_link_html(name, iso, row_name):
 
 def _view_panel_thumb_html(name, iso, row_name):
     """The phone row's lead control: the same real link and trigger attributes as
-    `_view_panel_link_html()`, drawn as the archived render's 40px thumbnail with the
-    direction glyph on its corner. The image and the glyph carry no text of their own, so the
-    `aria-label` alone names the control.
+    `_view_panel_link_html()`, drawn as the archived render's 40px thumbnail. The image
+    carries no text of its own, so the `aria-label` (which names the call
+    sign) alone names the control.
     """
     src = escape_html(device_scope.scoped(_GALLERY_ROUTE_PREFIX + name))
     return (
         '<a class="history-card__thumb" %s>'
         '<img class="history-card__thumb-image" src="%s" alt="" width="40" height="40" '
         'loading="lazy" decoding="async">'
-        '<span class="history-card__direction" aria-hidden="true">%s</span></a>'
-    ) % (_view_panel_attrs(name, iso, row_name), src, layout.icon_html("icon-plane", 12))
+        '</a>'
+    ) % (_view_panel_attrs(name, iso, row_name), src)
 
 
 # Owned by companion/i18n_fr/airlines.py, not flights.py — the same id
@@ -574,15 +574,16 @@ def day_label(day, today):
 
 def _flight_cell_html(row):
     """The desktop Flight column's cell: `_merged_cell()`'s primary slot
-    carries the callsign (mono); the secondary slot carries "{airline} ·
-    {aircraft type}" as one plain string, so the rendered cell reads
-    "AFR1234 · Air France · A320". An unresolved airline reads as plain
+    carries the airline and the secondary slot the aircraft type, so the
+    rendered cell reads "Air France · A320"; the call sign is not shown (it
+    stays searchable and in the picture link's name). An unresolved airline reads as plain
     unidentified wording, with no link, for every viewer.
     """
     is_unresolved = row["airline_label"] == AIRLINE_FALLBACK_TEXT
     airline_display = i18n.t(row["airline_label"]) if is_unresolved else row["airline_label"]
-    secondary = "%s · %s" % (airline_display, row["aircraft_type_label"])
-    return _merged_cell(row["callsign"], secondary)
+    cell = _merged_cell(airline_display, row["aircraft_type_label"])
+    ident = _row_ident_html(row) if row["callsign"] else ""
+    return cell.replace("<td>", "<td>" + ident, 1)
 
 
 def _filter_bar_html(rows):
@@ -728,22 +729,29 @@ def _history_table_html(formatted_rows, now=None):
     ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
 
 
-def _row_label_html(row):
-    """The row's label: the callsign in the identifier voice, then the route
-    codes with the home end muted. A row with no callsign promotes its hex
-    with the NO_CALLSIGN_NOTE_TEXT note, so the slot is never blank."""
+def _row_ident_html(row):
+    """The call sign (or the hex, with the no-call-sign note) as visually
+    hidden text: it is not drawn in the row, but a screen reader and the page's
+    text still carry it."""
     if row["callsign"]:
         ident = escape_html(row["callsign"])
     elif row["hex"]:
         ident = '%s <span class="history-card__note">%s</span>' % (
             escape_html(row["hex"]), escape_html(i18n.t(NO_CALLSIGN_NOTE_TEXT)))
     else:
-        ident = ""
-    state = row["confirmed_state"] if row["state_raw"] in _CONFIRMED_STATE_LABELS else ""
-    return '<span class="history-card__callsign mono">%s</span>%s%s' % (
-        ident, _route_codes_html(row),
-        ('<span class="history-card__state visually-hidden"> (%s)</span>' % escape_html(state))
-        if state else "")
+        return ""
+    return '<span class="history-card__callsign mono visually-hidden">%s</span> ' % ident
+
+
+def _row_label_html(row):
+    """The row's title: the airline, then the route codes with the home end
+    muted. The call sign is not drawn; it stays in the row's search text, as
+    visually hidden text and in the picture link's accessible name."""
+    airline = row["airline_label"]
+    if airline == AIRLINE_FALLBACK_TEXT:
+        airline = i18n.t(AIRLINE_FALLBACK_TEXT)
+    return '%s<span class="history-card__airline">%s</span>%s' % (
+        _row_ident_html(row), escape_html(airline), _route_codes_html(row))
 
 
 def _route_codes_html(row):
@@ -766,14 +774,9 @@ def _route_codes_html(row):
 
 
 def _row_detail_text(row):
-    """"airline · aircraft type", with the unresolved wording for an unknown
-    airline and the route fallback when the route is missing."""
-    airline = row["airline_label"]
-    if airline == AIRLINE_FALLBACK_TEXT:
-        airline = i18n.t(AIRLINE_FALLBACK_TEXT)
-    route = "" if (row.get("origin") and row.get("destination")) else i18n.t(
-        ROUTE_FALLBACK_TEXT)
-    return " \u00b7 ".join(part for part in (airline, row["aircraft_type_label"], route) if part)
+    """"direction · aircraft type", skipping any empty part."""
+    state = row["confirmed_state"] if row["state_raw"] in _CONFIRMED_STATE_LABELS else ""
+    return " \u00b7 ".join(part for part in (state, row["aircraft_type_label"]) if part)
 
 
 def _row_value_html(row, now):
@@ -795,10 +798,9 @@ def _row_value_html(row, now):
 
 
 def _history_card_html(row, index, now, anchor_index=None):
-    """One flight as a row: at the left the archived render's thumbnail (the
-    control that opens it) or, with no render, a plane chip turned by the direction;
-    the callsign and route, "airline \u00b7 aircraft" beneath, and the age over the clock at
-    the right.
+    """One flight as a two-line row: at the left the archived render's thumbnail
+    (the control that opens it); the airline and route, "direction \u00b7 aircraft"
+    beneath, and the clock over the age at the right.
     `data-filter-group` is the row's loop index, shared with the desktop
     `<tr>` at the same index so list-filter.js counts one flight once. The
     row at `anchor_index` carries the id the Load more link scrolls to."""
@@ -808,7 +810,7 @@ def _history_card_html(row, index, now, anchor_index=None):
          layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
          ' id="%s"' % _NEW_ROWS_ANCHOR if index == anchor_index else "")
     return ui_groups.row(
-        label_html=_row_label_html(row), icon="icon-plane",
+        label_html=_row_label_html(row),
         detail=_row_detail_text(row), value_html=_row_value_html(row, now),
         lead_html=row.get("view_panel_thumb_html", ""),
         extra_class="history-card", attrs=attrs)

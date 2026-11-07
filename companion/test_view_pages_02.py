@@ -325,9 +325,9 @@ def test_view_panel_trigger_is_a_labelled_link_naming_its_row(tmp_path):
         if tag == "tr":
             assert link.text() == history_page.VIEW_PICTURE_LABEL
         else:
-            # The card's action is icon-only: no visible text, a hidden glyph.
+            # The card's action is the picture thumbnail alone: no text, no icon.
             assert link.text() == ""
-            assert link.select_one("svg").attrs["aria-hidden"] == "true"
+            assert not link.select("svg")
         assert link.attrs["aria-label"] == "View picture of VPTITLE"
         assert link.attrs["href"] == "/gallery/%s" % names[0]
 
