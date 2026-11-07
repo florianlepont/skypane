@@ -1340,36 +1340,6 @@
     }
   }
 
-  // --- Credits popover --------------------------------------------------------
-
-  var infoButton = byId("place-info");
-  var creditsEl = byId("place-credits");
-
-  function setCreditsOpen(open) {
-    creditsEl.hidden = !open;
-    infoButton.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-
-  function wireCredits() {
-    if (!infoButton || !creditsEl) {
-      return;
-    }
-    infoButton.addEventListener("click", function () {
-      setCreditsOpen(creditsEl.hidden);
-    });
-    document.addEventListener("click", function (event) {
-      if (!creditsEl.hidden && !event.target.closest(".place-info")) {
-        setCreditsOpen(false);
-      }
-    }, true);
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && !creditsEl.hidden) {
-        setCreditsOpen(false);
-        infoButton.focus();
-      }
-    });
-  }
-
   function wireSearchAndLocate() {
     if (searchForm && searchInput && resultsEl) {
       searchForm.addEventListener("submit", onSearchSubmit);
@@ -1445,18 +1415,9 @@
       }
     });
     wireSearchAndLocate();
-    wireCredits();
     rememberOpened();
     wireCancel();
     showCheckedRunway();
-    var detailsSummary = document.querySelector("#details > summary");
-    if (detailsSummary) {
-      // With the map the details are a card shown by the #details link: its
-      // title is a heading, not a toggle.
-      detailsSummary.addEventListener("click", function (event) {
-        event.preventDefault();
-      });
-    }
 
     if (pin) {
       centreOn(pin.getLatLng(), map.getZoom(), false);

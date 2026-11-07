@@ -24,3 +24,7 @@ Screenshots: scratchpad `shots88/` (loading 390 and 1280, light and dark; loaded
 ## Known Stubs
 
 None.
+
+## Follow-up: line ceiling
+
+place-map.js reached 1522 lines, over the 1500-line ceiling. The credits popover and the details-card heading wiring moved unchanged into the new deferred script companion/static/place-card.js (place page only, after place-map.js, inert unless the map started); place-map.js is now 1483 lines. The shell script set grew to 21 and test_companion_app_03 was updated in place.

@@ -49,7 +49,8 @@ from server import airports, detection, device_config
 # the glue that drives it.
 PAGE_SCRIPTS = (
     layout.DIRTY_STATE_SCRIPT_SRC, layout.LIST_FILTER_SCRIPT_SRC,
-    layout.LEAFLET_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC)
+    layout.LEAFLET_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC,
+    layout.PLACE_CARD_SCRIPT_SRC)
 PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
 
 PAGE_TITLE = i18n.msg("nav.detection", "Location and detection")

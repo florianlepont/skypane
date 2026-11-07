@@ -37,6 +37,7 @@ HOOKS = (
     ("[data-calendar-sheet]", layout.CALENDAR_CONNECT_SCRIPT_SRC),
     ("#place-map", layout.LEAFLET_SCRIPT_SRC),
     ("#place-map", layout.PLACE_MAP_SCRIPT_SRC),
+    ("#place-map", layout.PLACE_CARD_SCRIPT_SRC),
 )
 
 # A route's calendar-feed secret, saved directly (no network fetch - see

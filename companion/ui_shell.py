@@ -52,6 +52,7 @@ from companion.ui_base import (
     SPLASH_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
+    PLACE_CARD_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -165,6 +166,7 @@ SHELL_SCRIPT_ORDER = (
     MOTION_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
+    PLACE_CARD_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
