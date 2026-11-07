@@ -788,4 +788,12 @@ Audit log
 - W139 (owner, screenshot) A strange number appears in the audit log next to
   the e-mail (the target's internal id, e.g. "...le.org4", glued to the
   address with no separation): hide it or show it clearly as secondary.
+
+Airlines header
+- W140 (owner, screenshot) Everything is a bit too tight to the title: the
+  identified-airlines counter / progress should drop below the title so the
+  header breathes.
+- W141 (orchestrator, from the same screenshot) The counter text reads "38
+  compagnies sur 36 repérées" (38 of 36), which is incoherent: the wording or
+  the figures are wrong (chips say Toutes 47, Repérées 38). To fix with W140.
 - (owner has not confirmed he is done; more may come.)
