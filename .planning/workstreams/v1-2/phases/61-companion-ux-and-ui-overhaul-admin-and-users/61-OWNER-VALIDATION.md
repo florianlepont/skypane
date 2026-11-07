@@ -672,3 +672,12 @@ Plans (batch 11): 61-77 Compagnies page + More menu + Fleet desktop rows;
 61-78 Home signature S1+S3; 61-79 Location + Special looks/Calendar pages;
 61-80 airline editor + audit log; 61-81 delete user + owner removes frame;
 61-82 opening splash and loading indicators.
+
+## Decision D-F (opening splash), owner direction
+
+He chose the "Cadre" concept (P2 / V2 Cadre fidèle) with these changes: the
+coloured artwork drawing (sun, hill) that has nothing to do with the app goes
+away; the e-ink refresh instead reconstitutes, in ink, the real interface of
+the site (the page being revealed); the logo is much smaller, centred and
+present from the very start of the splash. Planned as plan 61-82 once the
+revised demo is validated.
