@@ -84,7 +84,7 @@ def test_screen_on_state_wording_and_both_switches(tmp_path):
 
 def test_switches_are_named_and_described_for_assistive_tech(tmp_path):
     """each switch is a labelled control: aria-labelledby points at the visible row label and
-    aria-describedby at the visible On/Off word, and the row carries no JS-optimistic region"""
+    aria-describedby at the visible On/Off word, and each row is a quick-switch region that refreshes the page's state regions after a confirmed flip"""
     card = _render(tmp_path)
     for action, slug, label in (("/quick/display", "screen", "Screen"),
                                 ("/quick/quiet-hours", "quiet", "Quiet hours")):
@@ -93,7 +93,7 @@ def test_switches_are_named_and_described_for_assistive_tech(tmp_path):
         assert 'aria-describedby="home-switch-%s-state"' % slug in button
         assert re.search(r'id="home-switch-%s-label">%s</span>' % (slug, label), card)
         assert 'id="home-switch-%s-state"' % slug in card
-    assert "data-quick-region" not in card
+    assert card.count("data-quick-region data-quick-refresh") == 2
 
 
 def test_screen_off_state_flips_the_screen_switch(tmp_path):
@@ -462,7 +462,7 @@ def test_switch_pills_keep_the_native_switch_semantics(tmp_path):
     for action, slug, icon in (("/quick/display", "screen", "icon-nav-display"),
                                ("/quick/quiet-hours", "quiet", "icon-moon")):
         row = re.search(
-            r'<li class="row home-switch home-switch--(?:on|off) home-switch--%s">'
+            r'<li class="row home-switch home-switch--(?:on|off) home-switch--%s" data-quick-region data-quick-refresh>'
             r'<div class="row__main"><span class="row__chip" aria-hidden="true">'
             r'<svg[^>]*aria-hidden="true"[^>]*><use href="#%s"></use></svg></span>(.*?)</form></li>'
             % (slug, icon), card, re.S)
@@ -506,7 +506,8 @@ def test_quiet_hours_window_is_a_link_to_the_dialog_outside_the_switch(
     assert link.group(1) == "#dlg-quiet-hours"
     assert link.group(2) == name
     assert link.group(3).startswith("23:00 – 07:00") and "icon-chevron-right" in link.group(3)
-    row = re.search(r'<li class="row home-switch home-switch--(?:on|off) home-switch--quiet">'
+    row = re.search(r'<li class="row home-switch home-switch--(?:on|off) home-switch--quiet" '
+                    r'data-quick-region data-quick-refresh>'
                     r'.*?home-switch__window.*?</form></li>', card, re.S).group(0)
     assert row.count('role="switch"') == 1
     button = re.search(r"<button[^>]*role=\"switch\".*?</button>", row, re.S).group(0)

@@ -107,7 +107,8 @@ def test_every_role_gets_the_same_read_only_collection(rig, who):
     assert re.search(r"<h1[^>]*>Airlines</h1>", body)
     assert "Every airline your frame has spotted." not in body
     assert "1 more for the 5 badge" in body
-    assert 'aria-label="4 of %d airlines spotted"' % len(CURATED) in body
+    # The seeded charter is outside the curated list: it is listed, so it counts in the total.
+    assert 'aria-label="4 of %d airlines spotted"' % (len(CURATED) + 1) in body
     assert '<progress class="collection-progress__bar" value="4"' in body
     assert body.count('class="collection-badges"') == 1
     assert ">1/5<" in body
@@ -297,7 +298,7 @@ def test_the_page_is_french_with_french_strings(rig):
     rig.seed_history()
     body = rig.page(lang="fr")
     for text in (">Compagnies</h1>", "encore 1 pour le badge 5",
-                 "4 compagnies sur %d repérées" % len(CURATED), "Vue 12 fois", "Vue une fois",
+                 "4 compagnies repérées sur %d" % (len(CURATED) + 1), "Vue 12 fois", "Vue une fois",
                  "Habituelle", "Occasionnelle", "Nouveau",
                  "Première observation", "Appliquer", "Les plus vues", "Pas encore vues"):
         assert text in body
@@ -333,11 +334,26 @@ def test_the_spotted_count_is_plural_aware_in_both_languages(rig):
     assert "1 airlines" not in one_en
     assert "1 of %d airline spotted" % len(CURATED) in one_en
     assert "1 compagnies" not in one_fr
-    assert "1 compagnie sur %d repérée" % len(CURATED) in one_fr
+    assert "1 compagnie repérée sur %d" % len(CURATED) in one_fr
 
 
 def test_zero_spotted_is_plural_in_english_and_singular_in_french(rig):
     empty_en = _text(_main(rig.page("owner", lang="en")))
     empty_fr = _text(_main(rig.page("owner", lang="fr")))
     assert "0 of %d airlines spotted" % len(CURATED) in empty_en
-    assert "0 compagnie sur %d repérée" % len(CURATED) in empty_fr
+    assert "0 compagnie repérée sur %d" % len(CURATED) in empty_fr
+
+
+def test_the_progress_sentence_counts_against_every_listed_airline(rig):
+    """an airline outside the curated list still counts as spotted, so the progress total is
+    the number of airlines the page lists (the All chip), never fewer than the spotted count"""
+    rig.event(RARE_NAME, 30, aircraft_type="A320")
+    rig.event("Zzyzx Air Charter", 20, aircraft_type="A320")
+    for lang in ("en", "fr"):
+        main = _text(_main(rig.page("owner", lang=lang)))
+        sentence = re.search(
+            r"(\d+) (?:of|compagnies? repérées? sur) (\d+)", main)
+        chip = re.search(r"(\d+)\s*(?:All|Toutes)", main)
+        assert sentence and chip, main
+        spotted, total = int(sentence.group(1)), int(sentence.group(2))
+        assert spotted <= total == int(chip.group(1)) == len(CURATED) + 1

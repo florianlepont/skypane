@@ -28,6 +28,12 @@
   // companion/layout.py's REFRESH_PENDING_ATTR and the same-named
   // constant in freshness.js, so a swap never repaints a pending switch.
   var PENDING_ATTR = "data-pending";
+  // Set on a switch whose change also alters other regions of the page (the
+  // Home headline and next-update line): once the server confirms, one
+  // freshness.js refresh cycle repaints them in place. Must equal
+  // freshness.js's REQUEST_EVENT name below.
+  var REFRESH_ATTR = "data-quick-refresh";
+  var REFRESH_REQUEST_EVENT = "skypane-refresh-request";
   var STATE_ON_ATTR = "data-quick-state-on";
   var STATE_OFF_ATTR = "data-quick-state-off";
   // Must equal companion/ui_base.py's QUICK_TOAST_ATTR and
@@ -104,6 +110,11 @@
       region.classList.remove(on ? "quick-action--off" : "quick-action--on");
       region.classList.add(on ? "quick-action--on" : "quick-action--off");
     }
+    // Home's rows carry their state in a modifier of their own.
+    if (region.classList && region.classList.contains("home-switch")) {
+      region.classList.remove(on ? "home-switch--off" : "home-switch--on");
+      region.classList.add(on ? "home-switch--on" : "home-switch--off");
+    }
   }
 
   // Clones the server-rendered, translated error toast into the live
@@ -120,6 +131,17 @@
       region.removeChild(region.firstChild);
     }
     region.appendChild(template.content.cloneNode(true));
+  }
+
+  // Asks freshness.js for one refresh now. A page without that loop simply
+  // leaves the dependent regions as they were until its next navigation.
+  function requestRefresh(region) {
+    if (!region.hasAttribute(REFRESH_ATTR) || !document.createEvent) {
+      return;
+    }
+    var evt = document.createEvent("Event");
+    evt.initEvent(REFRESH_REQUEST_EVENT, false, false);
+    document.dispatchEvent(evt);
   }
 
   function rollBack(control, region, form, wasOn) {
@@ -214,6 +236,7 @@
       // the opaque redirect above) rolls back.
       if (response.status === 204) {
         region.removeAttribute(PENDING_ATTR);
+        requestRefresh(region);
         return;
       }
       rollBack(control, region, form, wasOn);

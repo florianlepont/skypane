@@ -435,11 +435,12 @@ def _switch_row_html(spec, is_on, detail_html):
     form from `layout.quick_switch_html()`: a native POST that works with
     scripts blocked.
 
-    The row deliberately carries no `data-quick-region`, so quick-switch.js
-    leaves the submit alone and the browser follows the server's redirect:
-    flipping either switch changes the headline and the next-update line
-    too, so the page must be re-rendered rather than optimistically
-    patched. `return_to` is one of the server-side whitelist's values.
+    The row is a quick-switch region that also asks for a refresh:
+    quick-switch.js flips the switch under the finger over fetch, and once
+    the server confirms, one freshness refresh repaints the headline and
+    the next-update line in place, with no page load. Without scripts the
+    form posts natively and the browser follows the server's redirect.
+    `return_to` is one of the server-side whitelist's values.
     """
     action, slug, label, icon_id = spec
     label_id = "home-switch-%s-label" % slug
@@ -453,7 +454,8 @@ def _switch_row_html(spec, is_on, detail_html):
         trailing_html=layout.quick_switch_html(
             action, layout.HOME_ROUTE, is_on, label_id, state_id),
         extra_class="home-switch home-switch--%s home-switch--%s" % (
-            "on" if is_on else "off", slug))
+            "on" if is_on else "off", slug),
+        attrs="%s data-quick-refresh" % layout.QUICK_SWITCH_REGION_ATTR)
 
 
 def _battery_row_html(ctx, interval_s):

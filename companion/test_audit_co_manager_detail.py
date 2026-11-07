@@ -281,3 +281,22 @@ def test_the_stored_detail_is_json_the_page_never_echoes(rig):
     body = _audit_body(server)
     assert json.dumps(detail, sort_keys=True) not in html.unescape(body)
     assert urllib.parse.quote("co_manager_user_id") not in body
+
+
+def test_a_named_target_shows_its_id_as_a_separate_secondary_item(rig):
+    """the target's stored id is never glued to its e-mail: the Target item holds the address
+    alone and the id sits in an item of its own, labelled, in both languages"""
+    server, seed, ids = rig
+
+    def write(conn):
+        with fleet_db.transaction(conn):
+            fleet_db.audit_append(
+                conn, fx.ACTOR, "user.delete", "user", str(ids["co"]), "ok", {})
+    _db(server, write)
+    for language, label in (("en", "Internal ID"), ("fr", "Identifiant interne")):
+        body = _audit_body(server, language)
+        row = next(r for r in _rows(body) if CO_EMAIL in html.unescape(r))
+        assert re.search(
+            r'<dt>%s</dt><dd><span class="cell-secondary mono">%d</span>' % (label, ids["co"]),
+            row), row
+        assert not re.search(r"%s</span><span" % re.escape(CO_EMAIL), row)

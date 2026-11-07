@@ -12,7 +12,7 @@
  *     input and filter-chip box, the sparkline hit target, the look
  *     frame/open button) and the native accent-color of input/select
  *   - primary actions (button[type="submit"], a.calendar-manage--primary,
- *     button.look-sheet__done, button.look-sheet__save, the skip link)
+ *     button.look-sheet__done, the skip link)
  *   - current location / selection (.sidebar-link--active,
  *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
  *     the tab bar's space switch cell, the active theme option,
@@ -436,6 +436,14 @@ html[data-ui-theme="dark"] {
 @media (prefers-reduced-motion: no-preference) {
   @view-transition {
     navigation: auto;
+  }
+
+  /* The page snapshot can be shorter than the area the transition covers (a
+   * phone's strip under its bottom toolbar). That strip shows this layer, not
+   * the canvas colour, so it carries the colour the page gradient ends on
+   * instead of flashing the lighter top colour for the length of the change. */
+  ::view-transition {
+    background-color: var(--sky-bottom);
   }
 
   /* The tab bar's slider glides to its new place on the spring while the page
@@ -2427,6 +2435,11 @@ button:not(.value-control__handle):active {
   display: none;
 }
 
+.dirty-bar button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* The bar of the Fleet settings: sticks to the bottom of the viewport inside
  * the page's own column (so it is as wide as the content on a desktop and
  * above the floating tab bar on a phone) and never overlays the cards: it
@@ -2455,11 +2468,6 @@ button:not(.value-control__handle):active {
 .dirty-bar--docked [data-dirty-count] {
   min-width: 0;
   font-weight: 600;
-}
-
-.dirty-bar--docked button {
-  min-height: 44px;
-  min-width: 44px;
 }
 
 .dirty-bar--docked .dirty-bar__cancel {
@@ -3123,6 +3131,13 @@ table.data-table--readings {
 
 .audit-event__item dd {
   margin: 0;
+}
+
+/* The internal id is for support, not for reading: quieter than the items
+ * around it. */
+.audit-event__item--secondary dd {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .audit-head {
@@ -8076,6 +8091,17 @@ input[name="radius_km"] {
     flex-wrap: wrap;
   }
 
+  /* The count reads on its own line and the two buttons share the line under
+   * it, side by side at the same width. */
+  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) [data-dirty-count] {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) button {
+    flex: 1 1 0;
+  }
+
 }
 
 .status-row {
@@ -9577,6 +9603,12 @@ a.form-bar__cancel {
   border-radius: var(--radius-control);
 }
 
+/* Save wears the same type size as the Cancel link beside it. */
+.dirty-bar.form-bar .dirty-bar__save {
+  min-height: 44px;
+  font-size: var(--font-label-size);
+}
+
 a.form-bar__cancel:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
 }
@@ -10894,21 +10926,6 @@ button.look-sheet__done[hidden] {
   display: none;
 }
 
-.look-sheet[data-look-inline] .look-sheet__foot button {
-  min-height: 48px;
-}
-
-button.look-sheet__save {
-  border-color: transparent;
-  background: var(--color-accent);
-  box-shadow: var(--shadow-control);
-  color: var(--color-on-accent);
-}
-
-button.look-sheet__save:hover {
-  background: var(--color-accent-hover);
-}
-
 /* On a phone the large picture is smaller and its read-back sits beside it,
  * so the first row of looks is on the first screen. */
 @media (max-width: 699.98px) {
@@ -10928,7 +10945,7 @@ button.look-sheet__save:hover {
     max-width: 5.25rem;
   }
 
-  /* Tighter spacing so the picture, the three controls and Save fit one phone screen. */
+  /* Tighter spacing so the picture and the three controls fit one phone screen. */
   .look-sheet[data-look-inline] {
     padding: var(--space-sm) var(--space-md);
   }
@@ -10939,15 +10956,6 @@ button.look-sheet__save:hover {
 
   .look-sheet[data-look-inline] .look-axis {
     padding: var(--space-xs) 0;
-  }
-
-  .look-sheet[data-look-inline] .look-sheet__foot {
-    padding-top: var(--space-sm);
-  }
-
-  .look-sheet[data-look-inline] .look-sheet__foot button {
-    min-height: 44px;
-    height: 44px;
   }
 
   .look-view .look-stage {
@@ -11035,10 +11043,6 @@ button.look-sheet__save:hover {
  * "earned/total" badge pill), one sticky control bar and a calm grid of
  * larger picture cards. A card that has not been seen is only dimmed. */
 .page-header:has(> .collection-head__status) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-lg);
   margin-bottom: var(--space-md);
 }
 
@@ -11046,20 +11050,16 @@ button.look-sheet__save:hover {
   margin: 0;
 }
 
+/* The title keeps its own row; the progress sits under it with room to
+ * breathe, wrapping onto further lines on a narrow screen. */
 .collection-head__status {
   display: flex;
-  flex: 1 1 300px;
   align-items: center;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
+  gap: var(--space-sm) var(--space-md);
   min-width: 0;
-}
-
-@media (min-width: 700px) {
-  .collection-head__status {
-    justify-content: flex-end;
-  }
+  margin-top: var(--space-md);
 }
 
 .collection-progress__headline {
@@ -11086,12 +11086,12 @@ button.look-sheet__save:hover {
   -webkit-appearance: none;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
   overflow: hidden;
 }
 
 .collection-progress__bar::-webkit-progress-bar {
-  background: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 
 .collection-progress__bar::-webkit-progress-value {
@@ -11275,7 +11275,7 @@ button.look-sheet__save:hover {
 .collection-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-md);
+  gap: var(--space-lg);
   margin: 0 0 var(--space-lg);
   padding: 0;
   list-style: none;
@@ -11292,7 +11292,7 @@ button.look-sheet__save:hover {
   height: 100%;
   box-sizing: border-box;
   min-height: 44px;
-  padding: var(--space-md);
+  padding: var(--space-lg);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -11311,6 +11311,8 @@ button.look-sheet__save:hover {
 .collection-card__art {
   position: relative;
   display: block;
+  box-sizing: border-box;
+  padding: var(--space-md);
   overflow: hidden;
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--color-text) 5%, transparent);
@@ -11594,13 +11596,11 @@ dialog.access-sheet[open],
   }
 }
 
-/* The section around the table or the phone cards carries no surface of its
- * own: the table (from 70rem) or each card is the glass. */
-.page-section.users-section {
-  padding: 0;
-  background: none;
-  border: 0;
-  box-shadow: none;
+/* The section around the table or the phone cards is plain layout, not a
+ * card: the table (from 70rem) or each card is the one glass surface, with the
+ * count line above it. */
+.users-section {
+  margin: 0 0 var(--space-lg);
 }
 
 .users-cell {
@@ -11799,6 +11799,17 @@ button.row-menu__item:hover {
 button.row-menu__item--destructive,
 button.row-menu__item--destructive:hover {
   color: var(--color-status-error);
+}
+
+/* The row menu is as wide as its longest label and every label stays on one
+ * line, on a phone too. */
+.users-cell--menu .row-menu__panel {
+  width: max-content;
+}
+
+.users-cell--menu .row-menu__item {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 /* On a phone the invite action sits under the title at full width, so a long
@@ -12298,14 +12309,14 @@ button.row-menu__item--destructive:hover {
 }
 
 .airlines-resolve__fields input[type="text"] {
-  flex: 1 1 16rem;
+  flex: 0 1 280px;
   min-width: 0;
   min-height: 44px;
   box-sizing: border-box;
 }
 
 .airlines-resolve__fields select {
-  flex: 0 1 14rem;
+  flex: 0 1 180px;
   min-width: 0;
   min-height: 44px;
 }
@@ -12314,7 +12325,6 @@ button.row-menu__item--destructive:hover {
   display: flex;
   flex: none;
   gap: var(--space-sm);
-  margin-left: auto;
 }
 
 .airlines-resolve__ok {
@@ -12344,10 +12354,6 @@ button.row-menu__item--destructive:hover {
 
   .airlines-resolve__fields select {
     width: 100%;
-  }
-
-  .airlines-resolve__actions {
-    margin-left: 0;
   }
 
   .airlines-resolve__actions > * {
@@ -12692,10 +12698,6 @@ button.row-menu__item--destructive:hover {
     opacity: 1;
     transform: none;
   }
-}
-
-.tab-bar__link--active .tab-bar__pill {
-  animation: skypane-soft-in var(--motion-enter) var(--ease-out) backwards;
 }
 
 @media (max-width: 599.98px) {
@@ -14029,6 +14031,16 @@ html.splash-on .splash__scan {
   .tab-bar--slider .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
     background: transparent;
     box-shadow: none;
+    view-transition-name: none;
+  }
+
+  /* Before the script has placed the slider (the first frame of a page change)
+   * the server-rendered active pill carries the slider's view-transition name,
+   * so the browser glides the old page's pill to the new one natively. Once the
+   * slider exists it owns the name and the pill gives it up: one element holds
+   * the name at any time. */
+  .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
+    view-transition-name: skypane-tab-slider;
   }
 
   .tab-bar__slider--glide {
@@ -14158,6 +14170,18 @@ body.is-pulling {
  * (never an inline style). */
 .vt-pic {
   view-transition-name: skypane-flight-pic;
+}
+
+/* While the picture grows or shrinks, every other named element of the page
+ * folds back into the one page snapshot. A named element is its own group
+ * painted above that snapshot, and the dialog lives inside the snapshot, so a
+ * named tab bar (or its sliding pill) would cover the dialog's Close button
+ * for the length of the transition and drop under it afterwards. */
+html.is-picture-transition .tab-bar,
+html.is-picture-transition .tab-bar__slider,
+html.is-picture-transition .dashboard-sidebar,
+html.is-picture-transition .preview-frame__image {
+  view-transition-name: none;
 }
 
 /* Airline card unlock: a card the script plays once gets a glint layer and

@@ -384,6 +384,11 @@ TAB_BAR_MORE_ICON_ID = "icon-more"
 # clearance to it, so pages that render no bar reserve no space for
 # one.
 TAB_BAR_BODY_CLASS = "has-tab-bar"
+# An empty marker right after the tab bar. The shell's head asks the browser to
+# hold the first paint until it is parsed, so a page change's new snapshot always
+# holds the whole bar (and its active pill) instead of a half-parsed page.
+TAB_BAR_END_ID = "tab-bar-end"
+TAB_BAR_END_HTML = '<span id="%s" hidden></span>' % TAB_BAR_END_ID
 
 # companion/static/freshness.js shows a visible neutral badge when its
 # refresh loop is retrying or idle, instead of stopping dead. The badge

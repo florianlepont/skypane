@@ -351,17 +351,18 @@ def _badges_html(summary):
          escape_html(i18n.t(BADGES_LABEL)), earned, total, escape_html(". ".join(words)))
 
 
-def _status_html(summary, all_curated_seen):
-    """The header's progress on one line: the spotted count, a thin bar, the
+def _status_html(summary, all_curated_seen, total):
+    """The header's progress, under the title: the spotted count out of every
+    airline the page lists (the figure the "All" chip shows), a thin bar, the
     next goal and the compact badge pill."""
     headline = _count_text(summary.spotted, PROGRESS_TEXT, PROGRESS_ONE_TEXT) % (
-        summary.spotted, summary.total)
+        summary.spotted, total)
     return (
         '<div class="collection-head__status">'
         '<p class="collection-progress__headline">%s</p>'
         '<progress class="collection-progress__bar" value="%d" max="%d" aria-label="%s">%s</progress>'
         '<p class="collection-progress__goal">%s</p>%s</div>'
-    ) % (escape_html(headline), min(summary.spotted, summary.total), max(summary.total, 1),
+    ) % (escape_html(headline), min(summary.spotted, total), max(total, 1),
          escape_html(headline), escape_html(headline),
          escape_html(_goal_text(summary, all_curated_seen)), _badges_html(summary))
 
@@ -465,7 +466,7 @@ def render(ctx, query_string=""):
     all_seen = bool(curated) and all(entry.seen for entry in curated)
     shown = _apply_view(entries, view)
     parts = [layout.page_header(
-        i18n.t(PAGE_TITLE), None, action_html=_status_html(summary, all_seen))]
+        i18n.t(PAGE_TITLE), None, action_html=_status_html(summary, all_seen, len(entries)))]
     if summary.spotted == 0:
         parts.append(layout.empty_state(
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))

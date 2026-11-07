@@ -1364,9 +1364,9 @@ def test_the_bar_s_save_button_is_the_same_static_fallback_element_relocated():
         "expected exactly one data-static-save-fallback occurrence, got %d"
         % rendered.count(config_page.STATIC_SAVE_FALLBACK_ATTR))
     button_match = re.search(
-        r'<button\b[^>]*%s[^>]*>Save settings</button>'
+        r'<button\b[^>]*%s[^>]*>Save</button>'
         % re.escape(config_page.STATIC_SAVE_FALLBACK_ATTR), rendered)
-    assert button_match, "expected the fallback attribute on a type=\"submit\" Save settings button"
+    assert button_match, "expected the fallback attribute on a type=\"submit\" Save button"
     assert 'type="submit"' in button_match.group(0), "expected the fallback button to carry type=\"submit\""
     assert 'form="%s"' % config_page.SETTINGS_FORM_ID in button_match.group(0), (
         "expected the relocated fallback button to carry form=%r, preserving native "

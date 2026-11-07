@@ -87,3 +87,14 @@ def test_theme_colours_are_the_top_stop_of_the_page_background(served_css):
     dark = custom_properties(served_css, ":root", at_rules=_DARK_AT_RULE)["--sky-top"].upper()
     assert by_media["(prefers-color-scheme: light)"] == light
     assert by_media["(prefers-color-scheme: dark)"] == dark
+
+
+def test_a_page_with_a_tab_bar_holds_its_first_paint_until_the_bar_is_parsed():
+    """the head asks the browser to wait for the marker that follows the tab bar, so a page
+    change's new snapshot holds the whole bar; a page with no bar asks for nothing"""
+    html = layout.page_shell("T", "home", "<p>b</p>", ui_theme="light", device_config={"a": 1})
+    assert layout.page_shell("T", "home", "<p>b</p>", ui_theme="light").count("rel=\"expect\"") == 0
+    assert html.count('<link rel="expect" href="#tab-bar-end" blocking="render">') == 1
+    assert html.index('rel="expect"') < html.index("</head>")
+    assert html.index("</nav><span id=\"tab-bar-end\" hidden></span>") > html.index('class="tab-bar"')
+    assert html.count('id="tab-bar-end"') == 1

@@ -191,7 +191,7 @@ def _assert_bar_is_one_unclipped_unit(page, width):
         assert max(tops) - min(tops) < 24, geometry
 
 
-def test_the_progress_line_sits_in_the_one_line_header(new_context, make_app_server):
+def test_the_progress_line_sits_under_the_title_with_room_to_breathe(new_context, make_app_server):
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
@@ -205,13 +205,14 @@ def test_the_progress_line_sits_in_the_one_line_header(new_context, make_app_ser
             " head: box('main .page-header')}; }")
         assert geometry["text"] == "%d of 36 airlines spotted" % TOTAL_SPOTTED
         assert geometry["goal"].endswith(" badge")
-        # Count, bar, goal and badge pill share one line, in that order, beside the title.
+        # Count, bar, goal and badge pill share one line, in that order, under the title.
         line = [geometry[name] for name in ("line", "bar", "goal_box", "badges")]
         centres = [box["top"] + box["height"] / 2 for box in line]
         assert max(centres) - min(centres) < 4, geometry
         assert all(a["right"] <= b["left"] + 0.5 for a, b in zip(line, line[1:])), geometry
-        assert geometry["badges"]["left"] > geometry["title"]["right"], geometry
-        assert geometry["head"]["height"] < 90, geometry
+        assert geometry["line"]["top"] >= geometry["title"]["bottom"] + 8 - 0.5, geometry
+        assert geometry["badges"]["top"] >= geometry["title"]["bottom"] + 8 - 0.5, geometry
+        assert geometry["head"]["height"] < 140, geometry
     finally:
         context.close()
 
@@ -582,5 +583,40 @@ def test_the_new_pill_sits_on_the_picture_and_only_a_new_airline_has_one(
         assert page.locator(SEEN_CARD + " .collection-card__seen").first.inner_text().count(
             "·") == 1
         assert page.locator(UNSEEN_CARD + " .collection-card__seen").count() == 0
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang,sentence", [
+    ("en", "%d of 36 airlines spotted"), ("fr", "%d compagnies repérées sur 36")])
+def test_the_progress_sentence_reads_coherently_in_both_languages(
+        new_context, make_app_server, lang, sentence):
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP, lang=lang)
+    try:
+        text = page.locator(".collection-progress__headline").inner_text()
+        assert text == sentence % TOTAL_SPOTTED, text
+        all_chip = page.locator(".filter-chip", has_text="All" if lang == "en" else "Toutes")
+        assert all_chip.locator(".filter-chip__count").inner_text() == "36"
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_the_aircraft_picture_sits_inside_the_card_with_room_around_it(
+        new_context, make_app_server, label, viewport):
+    """the picture is inset from its card: at least 28px of card padding and picture-box padding
+    on each side, so it is well under the card's own width"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), viewport)
+    try:
+        sizes = page.evaluate(
+            "() => { const card = document.querySelector('a.collection-card:not(.collection-card--unseen)');"
+            " const img = card.querySelector('.collection-card__image').getBoundingClientRect();"
+            " const c = card.getBoundingClientRect();"
+            " return {gapLeft: img.left - c.left, gapRight: c.right - img.right,"
+            "  ratio: img.width / c.width}; }")
+        assert sizes["gapLeft"] >= 28 and sizes["gapRight"] >= 28, sizes
+        assert sizes["ratio"] <= 0.82, sizes
     finally:
         context.close()

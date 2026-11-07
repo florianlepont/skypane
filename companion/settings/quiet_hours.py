@@ -640,8 +640,6 @@ QUIET_DIALOG_ENABLED_LABEL = i18n.msg("home.use_quiet_hours", "Use quiet hours")
 QUIET_DIALOG_SAVE_LABEL = i18n.msg("home.save_quiet_hours", "Save quiet hours")
 QUIET_DIALOG_INTRO = i18n.msg("home.quiet_intro", "When should the screen rest?")
 QUIET_DIALOG_CARDS_LABEL = i18n.msg("home.quiet_presets_label", "Quiet hours presets")
-QUIET_DIALOG_ALWAYS_LABEL = i18n.msg("home.quiet_always_active", "Always active")
-QUIET_DIALOG_ALWAYS_DETAIL = i18n.msg("home.quiet_never_rests", "Never rests")
 QUIET_DIALOG_CUSTOM_LABEL = i18n.msg("home.quiet_or_choose", "Or choose your hours")
 QUIET_DIALOG_ZONE_SENTENCE = i18n.msg(
     "home.quiet_hours_zone_sentence",
@@ -689,14 +687,15 @@ def _dialog_card_html(icon_id, title, detail, pressed, attrs):
 
 
 def _dialog_cards_html(start, end, enabled):
-    """The three preset cards (Night, Day, Always active). A window preset
-    is selected when quiet hours are on with exactly its hours, "Always
-    active" when they are off; dirty-state.js keeps this in step."""
+    """The two preset cards (Night, Day). A card is selected when quiet hours
+    are on with exactly its hours; with the schedule off, or on with custom
+    hours (including any value stored earlier), no card is selected and the
+    time fields show the stored hours. dirty-state.js keeps this in step."""
     night = (QUIET_HOURS_PRESET_NIGHT_START, QUIET_HOURS_PRESET_NIGHT_END)
     day = (QUIET_HOURS_PRESET_WORKDAY_START, QUIET_HOURS_PRESET_WORKDAY_END)
     window_attrs = ' data-preset-start="%s" data-preset-end="%s"'
     return (
-        '<div class="quiet-cards" role="group" aria-label="%s">%s%s%s</div>'
+        '<div class="quiet-cards" role="group" aria-label="%s">%s%s</div>'
     ) % (
         escape_html(i18n.t(QUIET_DIALOG_CARDS_LABEL)),
         _dialog_card_html(
@@ -704,10 +703,7 @@ def _dialog_cards_html(start, end, enabled):
             enabled and (start, end) == night, window_attrs % night),
         _dialog_card_html(
             "icon-sun", i18n.t(QUIET_HOURS_PRESET_WORKDAY_LABEL), "%s \u2013 %s" % day,
-            enabled and (start, end) == day, window_attrs % day),
-        _dialog_card_html(
-            "icon-infinity", i18n.t(QUIET_DIALOG_ALWAYS_LABEL),
-            i18n.t(QUIET_DIALOG_ALWAYS_DETAIL), not enabled, ' data-preset-enabled="0"'))
+            enabled and (start, end) == day, window_attrs % day))
 
 
 def quiet_hours_dialog_body_html(cfg, detection_href, errors=None, submitted=None):

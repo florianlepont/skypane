@@ -198,6 +198,16 @@ def test_the_background_is_painted_on_the_root_element_itself(served_css):
                 if dict(rule.declarations).get("background-attachment") == "fixed"]
 
 
+def test_the_page_change_layer_carries_the_colour_the_gradient_ends_on(served_css):
+    """the layer under a page change's snapshots is painted with the gradient's last stop, so a
+    strip the snapshot does not cover (under a phone's bottom toolbar) never flashes the lighter
+    top colour"""
+    rules = [rule for rule in css_rules(served_css) if rule.selectors == ("::view-transition",)]
+    assert len(rules) == 1, rules
+    assert rules[0].at_rules == ("@media (prefers-reduced-motion: no-preference)",), rules[0].at_rules
+    assert dict(rules[0].declarations)["background-color"] == "var(--sky-bottom)"
+
+
 def test_one_reduced_motion_rule_zeroes_duration_and_delay_of_every_animation(served_css):
     reduce_rules = [rule for rule in css_rules(served_css)
                     if rule.at_rules == ("@media (prefers-reduced-motion: reduce)",)

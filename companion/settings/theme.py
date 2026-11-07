@@ -201,17 +201,18 @@ def look_sheet_html(inline=False):
     each choice into the opened look's own theme radio.
 
     `inline` is the Look page's picker: the same three choices sitting in
-    the page (no dialog, no title, no Done), with a Save button that
-    presses the save bar's own Save (the form keeps its one submit
-    control). Its wrapper is script-only: without a
-    script the page offers the native radio tables instead.
+    the page (no dialog, no title, no Done, no buttons of its own: saving
+    and cancelling belong to the page's save bar). Its wrapper is
+    script-only: without a script the page offers the native radio tables
+    instead.
     """
     inline_attrs = " data-look-inline" if inline else " hidden"
     role = "" if inline else ' role="dialog" aria-modal="true" aria-labelledby="%s"' % LOOK_SHEET_TITLE_ID
-    save = (
-        '<button type="button" class="look-sheet__save" data-look-save>%s</button>' % (
-            escape_html(i18n.t(LOOK_SAVE_LABEL)))
-        if inline else "")
+    foot = "" if inline else (
+        '<div class="look-sheet__foot">'
+        '<button type="button" class="look-sheet__reset" data-look-reset>%s</button>'
+        '<button type="button" class="look-sheet__done" data-look-done>%s</button>'
+        "</div>" % (escape_html(i18n.t(LOOK_RESET_LABEL)), escape_html(i18n.t(LOOK_DONE_LABEL))))
     return (
         '<div class="look-scrim" data-look-scrim hidden></div>'
         '<div class="look-sheet" id="%s"%s data-look-sheet data-look-model="%s"%s>'
@@ -224,11 +225,7 @@ def look_sheet_html(inline=False):
         '<button type="button" class="switch" role="switch" aria-checked="false" '
         'aria-labelledby="look-same-label" data-look-same>'
         '<span class="switch__track"><span class="switch__thumb"></span></span></button></div>'
-        "%s"
-        '<div class="look-sheet__foot">'
-        '<button type="button" class="look-sheet__reset" data-look-reset>%s</button>'
-        '<button type="button" class="look-sheet__done" data-look-done%s>%s</button>%s'
-        "</div>"
+        "%s%s"
         "</div>"
     ) % (
         LOOK_SHEET_ID, role, escape_html(look.look_model_json()), inline_attrs,
@@ -236,9 +233,7 @@ def look_sheet_html(inline=False):
         LOOK_SHEET_TITLE_ID,
         escape_html(i18n.t(LOOK_CLOSE_LABEL)), layout.icon_html("icon-close"),
         escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)),
-        look.axes_html("look"),
-        escape_html(i18n.t(LOOK_RESET_LABEL)), " hidden" if inline else "",
-        escape_html(i18n.t(LOOK_DONE_LABEL)), save,
+        look.axes_html("look"), foot,
     )
 
 

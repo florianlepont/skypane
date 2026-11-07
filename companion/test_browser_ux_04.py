@@ -327,9 +327,7 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
                     ('[data-pers-view="arrivals"]', "the Arrivals link"),
                     (picker + ".look-dot:first-of-type", "the first colour dot"),
                     (picker + ".look-dot:last-of-type", "the last colour dot"),
-                    (picker + ".look-seg__option", "a background or stripe option"),
-                    (picker + ".look-sheet__reset", "Reset"),
-                    (picker + ".look-sheet__save", "Save")):
+                    (picker + ".look-seg__option", "a background or stripe option")):
                 _assert_hit_target(page, selector, "theme=%s: %s" % (theme, what))
             msg = _assert_no_page_overflow(
                 page, "the look picker on /display (theme=%s)" % theme,

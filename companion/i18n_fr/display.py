@@ -173,13 +173,12 @@ MESSAGES = {
     "display.uses_server_default": "Utilise la valeur par défaut du serveur",
 
     # --- Save --------------------------------------------------------
-    "display.save_settings": "Enregistrer les réglages",
     # Symbolic notation ("≈" plus a placeholder already localized by its
     # caller), identical in both languages — not a missed translation,
     # listed in test_i18n.py's _UNCHANGED_IN_FRENCH cognate set.
 
     # The restored dirty-save-bar's connector/progress words and the
-    # "Saving…" progressive, sharing the "Enregistrer les réglages"
+    # "Saving…" progressive, sharing the "Enregistrer"
     # verb and the "Vérification en cours…" ellipsis style above.
     "display.saving": "Enregistrement…",
     "display.unsaved_changes": "Modifications non enregistrées",

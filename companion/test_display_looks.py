@@ -183,10 +183,10 @@ def test_the_calendar_look_carries_the_saved_departures_look_it_follows():
     assert not root.select('[data-look-usage="departures"]')
 
 
-def test_the_look_view_carries_the_picker_in_the_page_with_a_save_button():
+def test_the_look_view_carries_the_picker_in_the_page_with_no_buttons_of_its_own():
     """the Look view's sheet is the inline picker: in the page (not hidden, not a dialog), inside a
-    script-only wrapper, its choices posting nothing, with Reset and a Save that presses the
-    save bar's own Save; the view names the type it opens on"""
+    script-only wrapper, its choices posting nothing, with no Save, Reset or Done button (the page's
+    save bar saves and cancels); the view names the type it opens on"""
     root = parse_html(_view("departures"))
     sheet = root.select_one("div.look-sheet")
     assert "data-look-inline" in sheet.attrs
@@ -194,9 +194,9 @@ def test_the_look_view_carries_the_picker_in_the_page_with_a_save_button():
     assert "js-gate" in sheet.parent.attrs["class"]
     for node in sheet.find_all("input"):
         assert "form" not in node.attrs and node.attrs["name"].startswith("look_")
-    save = sheet.select_one("button.look-sheet__save")
-    assert save.attrs["type"] == "button" and "form" not in save.attrs and "data-look-save" in save.attrs
-    assert sheet.select_one("button.look-sheet__reset") is not None
+    for leftover in (".look-sheet__foot", "button.look-sheet__save", "button.look-sheet__reset",
+                     "[data-look-done]"):
+        assert sheet.select(leftover) == [], leftover
     assert not root.select("button[data-look-tab]")
     assert root.select_one("[data-look-initial]").attrs["data-look-initial"] == "departures"
     assert [p.attrs["data-look-panel"] for p in root.select("[data-look-panel]")] == [

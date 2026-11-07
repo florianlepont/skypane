@@ -176,8 +176,7 @@ def test_dialog_and_row_fit_and_every_control_is_44px_in_both_themes(
     try:
         selectors = [
             DIALOG + " a.modal__close", START, END, DIALOG + " label.quiet-tile",
-            CARDS + ":nth-child(1)", CARDS + ":nth-child(2)",
-            CARDS + ":nth-child(3)", DIALOG + " .quiet-timezone-note a",
+            CARDS + ":nth-child(1)", CARDS + ":nth-child(2)", DIALOG + " .quiet-timezone-note a",
             SAVE, DIALOG + " a.modal__dismiss"]
         for _theme in _in_both_themes(page):
             _wait_at_rest(page, LINK)
@@ -210,14 +209,15 @@ def _wait_pressed(page, expected_index):
         arg=[CARDS, -1 if expected_index is None else expected_index], timeout=5000)
 
 
-def test_preset_cards_fill_both_fields_and_always_active_clears_the_switch(
+def test_preset_cards_fill_both_fields_and_there_is_no_always_active_card(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url())
     try:
         _open_dialog(page)
         buttons = page.locator(CARDS)
-        assert buttons.count() == 3
+        assert buttons.count() == 2
+        assert "Always" not in page.locator(DIALOG).inner_text()
         _wait_pressed(page, 0)                      # the stored 23:00-07:00 is Night
         buttons.nth(1).click()
         _wait_value(page, START, "08:00")
@@ -228,11 +228,7 @@ def test_preset_cards_fill_both_fields_and_always_active_clears_the_switch(
         _wait_value(page, END, "07:00")
         assert page.is_checked(ENABLED)
         _wait_pressed(page, 0)
-        buttons.nth(2).click()
-        page.wait_for_function(
-            "() => !document.querySelector('%s').checked" % ENABLED, timeout=5000)
-        _wait_pressed(page, 2)
-        # Choosing a window again after Always active turns quiet hours back on.
+        # Choosing a window turns quiet hours on.
         buttons.nth(0).click()
         page.wait_for_function(
             "() => document.querySelector('%s').checked" % ENABLED, timeout=5000)
@@ -317,20 +313,23 @@ def test_saving_in_three_taps_changes_only_the_three_keys_and_home_follows(
         context.close()
 
 
-def test_choosing_always_active_and_saving_stores_off(new_context, make_app_server):
-    server = make_app_server(seed=_seed, fake_providers=True)
+def test_a_schedule_stored_off_with_custom_hours_opens_with_no_card_selected(
+        new_context, make_app_server):
+    def seed_off(state_dir):
+        seed_state_dir(state_dir)
+        device_config.save_device_config(
+            state_dir, display_enabled=True, quiet_hours_enabled=False,
+            quiet_hours_start="21:00", quiet_hours_end="05:30", wake_interval_s=600)
+
+    server = make_app_server(seed=seed_off, fake_providers=True)
     context, page = _open_home(new_context, server.base_url())
     try:
         _open_dialog(page)
-        page.locator(CARDS).nth(2).click()                  # "Always active"
-        page.wait_for_function(
-            "() => !document.querySelector('%s').checked" % ENABLED, timeout=5000)
-        with page.expect_navigation():
-            page.click(SAVE)
-        assert _config(server)["quiet_hours_enabled"] is False
-        page.wait_for_function(
-            "() => document.querySelector('#home-switch-quiet-state')"
-            ".textContent.toLowerCase().indexOf('off') !== -1", timeout=10000)
+        assert page.locator(CARDS).count() == 2
+        _wait_pressed(page, None)
+        _wait_value(page, START, "21:00")
+        _wait_value(page, END, "05:30")
+        assert not page.is_checked(ENABLED)
     finally:
         context.close()
 

@@ -38,6 +38,7 @@ MESSAGES = {
     "admin_lifecycle.who": "Qui",
     "admin_lifecycle.action": "Action",
     "admin_lifecycle.target": "Cible",
+    "admin_lifecycle.target_id": "Identifiant interne",
     "admin_lifecycle.outcome": "Résultat",
     "admin_lifecycle.from": "Depuis",
     "admin_lifecycle.system": "Système",
