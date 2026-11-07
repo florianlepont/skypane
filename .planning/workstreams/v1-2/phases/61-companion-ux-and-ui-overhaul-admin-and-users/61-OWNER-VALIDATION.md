@@ -609,3 +609,19 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
 - W111 (owner) When changing tab, the bar briefly becomes transparent then
   opaque (screenshot also shows page content showing through the tab bar).
 - (owner has not finished; more items to come.)
+
+## Round 8 grouping (D44)
+
+The owner finished his round 8 feedback (W71-W111). Grouping:
+
+Straight fixes, no decision needed (plan 61-76): W72, W73, W74, W77, W78,
+W79, W83, W85 (Couleur principale, Blanc, hide unavailable options), W89,
+W90, W92, W95 (reword), W96, W97, W106 (opaque modal backgrounds, Save
+reachable without scrolling), W107, W110, W111.
+
+Decisions with mockups (asked one by one): D-A Collection page desktop (W88),
+D-B Fleet admin desktop (W93, W94), D-C airline editor (W98-W101), D-D audit
+log (W102), D-E Location (W80, W81, W82, W108), D-F preload and loading
+indicator (W71, W75, W76, W104), D-G More menu (W105), D-H Special looks and
+Calendar as pages (W86, W87, W109), D-I Users: delete user (W103), D-J owner
+removes a frame (W91).

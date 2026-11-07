@@ -89,3 +89,10 @@ dropped or redrawn from a sketch.
 | 61-73 | M1 live Home, M3 pull to refresh |
 | 61-74 | M7 draggable sheets, M9 swipeable toast |
 | 61-75 | M6 thumbnail to picture transition (picture alone), M10 airline card unlock |
+
+## Batch 10 (D44, round 8)
+
+| Plan | Scope |
+|------|-------|
+| 61-76 | Straight fixes: wording, search vs frame button, Location sheet spacing and runway cards, Fleet sub-tab thumb, tab bar flash, picture backdrop, opaque modals, Quiet hours Save reachable, autofill off, Manage access dialog, Account rows, Users own row, Nommer button, Personalisation vocabulary |
+| 61-77.. | Decided after the owner answers D-A to D-J (mockups) |
