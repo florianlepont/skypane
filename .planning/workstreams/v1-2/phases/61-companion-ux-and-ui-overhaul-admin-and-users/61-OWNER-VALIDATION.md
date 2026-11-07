@@ -733,4 +733,46 @@ Location
   shows that temporary interface again.
 - W124 (owner, screenshot) On mobile the page still has an ugly grey header
   band and footer band instead of the map full-bleed.
-- (owner has not finished; more to come.)
+
+Personalisation
+- W125 (owner) Still a bug on the Calendar view.
+- W126 (owner, screenshot) The Save button inside the look tile (as on
+  Departures) is a duplicate: remove it, the "Save settings" floating bar
+  already exists. (Desktop screenshot also shows the "Comme les départs" card
+  clipped at its top edge.)
+
+Airlines
+- W127 (owner) Much better, but the aircraft are too big for their box: make
+  them a bit smaller to air out the page and each card.
+
+Mobile
+- W128 (owner, screenshot) The floating "Save settings" bar: its button is too
+  big and wraps onto two lines: just "Enregistrer".
+- W129 (owner, screenshot) The More menu is still not right. Order: Compagnies,
+  then Compte, then Thème, then Langue, then Déconnexion. Its background is
+  half transparent (odd): it should be the same colour as the navigation bar.
+- W130 (owner) The tab bar is too high: too far from the search and from the
+  Safari bottom UI.
+- W131 (owner) The tab bar is not visible enough against the rest of the
+  interface, which is mostly white or light blue.
+- W132 (owner) The sliding tab pill works about one time in ten when changing
+  tab.
+- W133 (owner) When changing tab, a light-blue footer appears for half a
+  second then disappears.
+
+Console
+- W134 (owner) Switching between the My frame view and the Console view: the
+  space switch is not aligned the same in the two views, and neither is the
+  logo.
+
+Fleet (admin, desktop)
+- W135 (owner) The Fleet view still does not work well: some elements open
+  inline (toggles), others open in modals, and information is repeated. It
+  needs rework: he wants proposals (mockups).
+
+Users
+- W136 (owner, screenshot) Buttons on two lines are a problem, illegible (the
+  row menu items "Réinitialiser la connexion" and "Supprimer l'utilisateur"
+  wrap onto two lines).
+- W137 (owner) Display bug in the Users table.
+- (owner has not confirmed he is done; more may come.)
