@@ -96,3 +96,4 @@ dropped or redrawn from a sketch.
 |------|-------|
 | 61-76 | Straight fixes: wording, search vs frame button, Location sheet spacing and runway cards, Fleet sub-tab thumb, tab bar flash, picture backdrop, opaque modals, Quiet hours Save reachable, autofill off, Manage access dialog, Account rows, Users own row, Nommer button, Personalisation vocabulary |
 | 61-77.. | Decided after the owner answers D-A to D-J (mockups) |
+| 61-78 | D-K signature: S1 Respiration + S3 Cycle on Home |

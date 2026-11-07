@@ -633,3 +633,11 @@ removes a frame (W91).
   use and not the only one: the signature animation must not be built around
   planes; it should be about the frame and the app in general (content
   neutral).
+
+## Decision D-K (signature animation), owner answered
+
+S1 Respiration (glass glint every ~12 s, breathing halo and status dot) and S3
+Cycle (thin ring around the picture showing the wake, poll, display, sleep
+cycle until the next update, small flourish on refresh) together, both
+content-neutral. S2 and S4 not retained (so the S4 flash limit does not
+apply). Planned as plan 61-78 after 61-76.
