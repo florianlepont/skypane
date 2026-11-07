@@ -625,3 +625,7 @@ log (W102), D-E Location (W80, W81, W82, W108), D-F preload and loading
 indicator (W71, W75, W76, W104), D-G More menu (W105), D-H Special looks and
 Calendar as pages (W86, W87, W109), D-I Users: delete user (W103), D-J owner
 removes a frame (W91).
+
+- W112 (owner) The Home page really lacks a signature element: a stylish
+  animation with a "wow" effect, without taking much space. Concepts to be
+  shown as live demos on the real Home page (decision D-K).
