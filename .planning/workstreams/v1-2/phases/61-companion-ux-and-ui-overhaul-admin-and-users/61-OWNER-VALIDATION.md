@@ -687,3 +687,9 @@ pas"); the original P2 "Cadre" concept (splash79: frame outline draws, e-paper
 refresh inside it, logo revealed, page opens from the frame rectangle) is the
 one to build, no coloured artwork, no dithered interface. Logo to stay small
 and centred. Reference: scratchpad splash79/demo.html section p2. Plan 61-82.
+
+- W113 (owner) There is no battery indication left for the user on the Home
+  screen (a surprise to him). Cause: plan 61-17 removed the battery tile from
+  Home for users (administrators keep a small pill; users only get the amber
+  or red notification when low). He asked for mockups of where to put it back
+  before choosing (decision D-L).
