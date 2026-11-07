@@ -368,8 +368,6 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
     shp.seed_runway_events(tmp, events)
     rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
 
-    assert health_page.UNRESOLVED_SECTION_HEADING in rendered and "data-filter-input" in rendered, (
-        "fixture gap: expected the registry card to actually render")
     assert health_page.STATS_SECTION_HEADING in rendered and "% of flights identified" in rendered, (
         "fixture gap: expected the identification row to actually render")
     assert "data-table--prose" in rendered, "fixture gap: expected the breakdown table to render"

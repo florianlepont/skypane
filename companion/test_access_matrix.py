@@ -120,7 +120,8 @@ DEVICE_SCOPED = frozenset(
         "/settings", "/detection", "/quick/display", "/quick/quiet-hours",
         "/quick/quiet-hours/window",
         "/quick/led", "/airlines/resolve", "/airlines/rename",
-        "/airlines/rename/reset", "/airlines/manual-resolutions/{}/delete",
+        "/airlines/rename/reset", "/airlines/artwork/delete", "/airlines/default-type",
+        "/airlines/manual-resolutions/{}/delete",
         "/illustration/{}.png", "/settings/rules/add",
         "/settings/calendar/disconnect", "/settings/calendar/connect",
         "/settings/rules/{}/delete")]

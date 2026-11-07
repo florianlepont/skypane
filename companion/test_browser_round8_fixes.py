@@ -1,7 +1,7 @@
 """Real-browser checks of the owner's round 8 straight fixes: opaque dialogs with a Save that is
 reachable without scrolling, the Flights search clear of the frame button, the Location sheet's
 runway cards and mode switch, the Fleet sub-tab thumb, the picture dialog's backdrop, the
-tab bar's stable fill and its fitting first cell, the "Name it" pill, the Users self row, the
+tab bar's stable fill and its fitting first cell, the Users self row, the
 look picker offering only existing combinations, the Personalisation look views' entrance, and the
 fields that must not be autofilled.
 
@@ -301,38 +301,6 @@ def test_the_picture_dialog_dims_the_whole_viewport_with_no_blurred_band(
         for y in (viewport["height"] - 20, viewport["height"] - 90, viewport["height"] - 160):
             red, green, blue = shot.getpixel((8, y))
             assert max(red, green, blue) < 170, (y, (red, green, blue))
-    finally:
-        context.close()
-
-
-# --- Name it pill ------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("viewport,name", ((VIEWPORT_DESKTOP, "1280"), PHONES[1]))
-def test_the_name_it_pill_is_a_small_centred_button_with_a_44px_target(
-        new_context, make_app_server, viewport, name):
-    server = make_app_server(seed=_airline_seed, fake_providers=True)
-    context = new_context(viewport=viewport)
-    page = context.new_page()
-    _login(page, server.base_url())
-    page.goto(server.base_url() + "/airlines/manage")
-    try:
-        _settle_on(page, FRANCE_NAME)
-        _settle_on(page, "a.airlines-name-it")
-        probe = page.evaluate(
-            """() => { const a = document.querySelector('a.airlines-name-it');
-              const r = a.getBoundingClientRect();
-              const row = a.closest('tr').getBoundingClientRect();
-              const pill = getComputedStyle(a, '::before');
-              return {h: r.height, w: r.width, mid: r.top + r.height / 2,
-                      rowMid: row.top + row.height / 2, rowBottom: row.bottom, rowTop: row.top,
-                      pillInset: [pill.top, pill.bottom], pillH: pill.height}; }""")
-        assert probe["h"] >= 43.5 and probe["w"] >= 43.5, probe
-        assert float(probe["pillH"].replace("px", "")) <= 34, probe
-        if name == "1280":
-            assert abs(probe["mid"] - probe["rowMid"]) < 1.5, probe
-        else:
-            assert probe["mid"] >= probe["rowTop"] and probe["mid"] <= probe["rowMid"], probe
     finally:
         context.close()
 

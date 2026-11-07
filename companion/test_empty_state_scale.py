@@ -58,17 +58,6 @@ def test_the_locations_page_a_refused_submission_shows_is_compact(make_app_serve
     _assert_compact_or_filter(blocks, "/locations (refused submission)")
 
 
-def test_health_coverage_gaps_empty_state_is_compact(make_app_server):
-    server = make_app_server()
-    cookie = companion_app_server.login(server)
-    _, _, body = companion_app_server.get(server, "/fleet?view=system", cookie=cookie)
-    html = body.decode("utf-8")
-    section = companion_markup.parse_html(html).select_one("#unresolved-prefixes")
-    blocks = section.select(".empty-state")
-    assert blocks
-    _assert_compact_or_filter(blocks, "coverage gaps")
-
-
 def test_a_frame_that_never_checked_in_gets_the_compact_state_empty_state(make_app_server):
     app = start_fleet_app(make_app_server)
     device = app.fleet.dev_a

@@ -12,7 +12,6 @@ from datetime import timedelta
 import pytest
 
 from companion import illustration_normalize, layout, prefs
-from companion.i18n_fr import health as i18n_fr_health
 from companion.pages import airlines_page, config_page, health_page, history_page
 import health_page_composition
 import companion.test_status_pages_helpers as shp
@@ -53,7 +52,7 @@ def _row_html(rendered, row_id):
     ends = [index for index in (
         rendered.find('<details class="health-row"', start),
         rendered.find('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start),
-        rendered.find('</div><section id="%s"' % health_page.UNRESOLVED_SECTION_ID, start),
+        len(rendered),
     ) if index != -1]
     return rendered[start:min(ends)]
 
@@ -86,39 +85,9 @@ def _rule_with_selectors(rules, selectors, at_rules=()):
 # ==========================================================================
 
 
-def test_nested_card_heading_rhythm_holds_for_every_allowed_element(tmp_path, css_text):
-    """The one nested Health card (Unresolved prefixes) shows its heading-to-content rhythm in both the
-    empty and seeded state — the element after </h2> is either rhythm-governed p.text-body or a member of
-    the verified no-top-margin allowlist — and style.css's demotion rule/prose rhythm rule carry the
-    sketch's two margin values in the right source order"""
-    allowed = (
-        '<p class="text-body">', '<p class="text-body section-caption">',
-        '<p class="text-label section-caption">',
-        '<p id="%s"' % health_page.BATTERY_READOUT_ID, "<div ", "<details", "<svg ",
-        '<ul class="data-cards">')
-    for seeded in (False, True):
-        state_dir = tmp_path / ("seeded" if seeded else "empty")
-        state_dir.mkdir()
-        state_dir = str(state_dir)
-        now = shp.now()
-        if seeded:
-            shp.seed_device_health(state_dir, [
-                (shp.iso(now - timedelta(minutes=3)), 4200),
-                (shp.iso(now - timedelta(minutes=1)), 4190),
-            ])
-            shp.seed_runway_events(state_dir, [
-                {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
-            shp.seed_unresolved_prefixes(state_dir, {
-                "JAF": {"count": 4, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                        "example_callsign": "JAF412"},
-            })
-        rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-        heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
-        after = rendered[heading_at + len(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING):]
-        assert after.startswith(allowed), (
-            "seeded=%s: the registry heading is followed by %r, outside the no-top-margin allowlist"
-            % (seeded, after[:60]))
-
+def test_nested_card_heading_rhythm_rules_keep_their_margins_and_order(tmp_path, css_text):
+    """style.css's demotion rule/prose rhythm rule for a nested card heading (still used by the
+    battery trend section) carry the sketch's two margin values in the right source order"""
     rules = css_rules(css_text)
     heading_decls = declarations_for(css_text, ".page-section--nested > h2")
     assert heading_decls.get("margin-bottom") == "var(--space-md)", (
@@ -135,8 +104,8 @@ def test_nested_card_heading_rhythm_holds_for_every_allowed_element(tmp_path, cs
 
 
 def test_resolution_statistics_table_is_the_only_data_table_prose(tmp_path, css_text):
-    """Exactly the Identification row's breakdown table carries data-table--prose, neither the battery
-    readings table nor the unresolved-prefix registry table does, and style.css's
+    """Exactly the Identification row's breakdown table carries data-table--prose, not the battery
+    readings table, and style.css's
     .data-table--prose sits after .data-table with the shared max-content floor still intact on
     the base rule"""
     state_dir = str(tmp_path)
@@ -147,10 +116,6 @@ def test_resolution_statistics_table_is_the_only_data_table_prose(tmp_path, css_
     ])
     shp.seed_runway_events(state_dir, [
         {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
-    shp.seed_unresolved_prefixes(state_dir, {
-        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
     doc = parse_html(rendered)
 
@@ -160,8 +125,6 @@ def test_resolution_statistics_table_is_the_only_data_table_prose(tmp_path, css_
     assert not doc.select_one("#health-row-battery").select("table.data-table--prose"), (
         "the battery readings table must not carry data-table--prose")
     assert doc.select_one("#health-row-battery").select("table.data-table--readings")
-    assert not doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID).select("table.data-table--prose"), (
-        "the unresolved-prefix registry table must not carry data-table--prose")
 
     rules = css_rules(css_text)
     assert _rule_index(rules, ".data-table") < _rule_index(rules, ".data-table--prose"), (
@@ -182,10 +145,6 @@ def test_description_column_is_the_only_muted_column(tmp_path, css_text):
     now = shp.now()
     shp.seed_runway_events(state_dir, [
         {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
-    shp.seed_unresolved_prefixes(state_dir, {
-        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
 
     expected = len(health_page._SOURCE_ROWS)
@@ -197,8 +156,6 @@ def test_description_column_is_the_only_muted_column(tmp_path, css_text):
     doc = parse_html(rendered)
     assert len(doc.select_one("#health-row-identification").select("td.desc")) == expected, (
         "expected every desc cell to live in the Identification row's breakdown table")
-    assert not doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID).select("td.desc"), (
-        "the unresolved-prefix registry table must carry no desc cell")
     assert not doc.select_one("#health-row-battery").select("td.desc"), (
         "the battery readings table must carry no desc cell")
 
@@ -302,168 +259,18 @@ def test_data_cards_toggle_contract_and_untouched_rules(css_text):
             "expected the harness's own pinned selector %r to still exist" % literal)
 
 
-def test_registry_mobile_cards_paired_with_the_desktop_table(tmp_path):
-    """The registry's mobile .data-cards representation is exactly paired with its table by
-    (data-filter-text, data-filter-group), carries concise_timestamp_html()'s own First/Last seen
-    markup exactly once each while the desktop table carries the stacked cell built from the same
-    two formatters over the same now, positioned between the filter bar and the table wrap, and
-    every column (prefix, count, both timestamps, example callsign) is reachable in the card
-    slice"""
-    state_dir = str(tmp_path)
-    now = shp.now()
-    now_iso = shp.iso(now)
-    prefixes = {
-        "ABC": {"count": 12, "first_seen": shp.iso(now - timedelta(days=6)),
-                "last_seen": shp.iso(now - timedelta(hours=1)),
-                "example_callsign": "ABC123"},
-        "XYZ": {"count": 3, "first_seen": shp.iso(now - timedelta(days=4)),
-                "last_seen": shp.iso(now - timedelta(hours=5)),
-                "example_callsign": "XYZ456"},
-        "QRS": {"count": 27, "first_seen": shp.iso(now - timedelta(days=9)),
-                "last_seen": shp.iso(now - timedelta(minutes=20)),
-                "example_callsign": "QRS789"},
-    }
-    shp.seed_unresolved_prefixes(state_dir, prefixes)
-    rendered = health_page_composition.render(shp.ctx(state_dir, now_iso))
-
-    rows = health_page.unresolved_rows(state_dir)
-    expected_count = len(rows)
-    assert expected_count == len(prefixes)
-
-    tr_pattern = re.compile(
-        r'<tr class="[^"]*" data-filter-text="([^"]*)" data-filter-group="(\d+)">')
-    li_pattern = re.compile(
-        r'<li class="data-card" data-filter-text="([^"]*)" data-filter-group="(\d+)">')
-    tr_matches = tr_pattern.findall(rendered)
-    li_matches = li_pattern.findall(rendered)
-
-    assert len(tr_matches) == expected_count
-    assert len(li_matches) == expected_count
-
-    tr_pairs = {(text, int(group)) for text, group in tr_matches}
-    li_pairs = {(text, int(group)) for text, group in li_matches}
-    assert tr_pairs == li_pairs, (
-        "expected the <tr> and <li> (filter-text, filter-group) pair sets to be equal")
-
-    distinct_groups = {group for _text, group in tr_matches}
-    assert len(distinct_groups) == expected_count
-    filter_text_elements = rendered.count("data-filter-text=")
-    assert filter_text_elements == 2 * expected_count, (
-        "expected exactly twice the row count's worth of data-filter-text elements (2N)")
-
-    filter_bar_at = rendered.index('<div class="filter-bar">')
-    cards_at = rendered.index('<ul class="data-cards">', filter_bar_at)
-    table_wrap_at = rendered.index('<div class="data-table-wrap">', cards_at)
-    assert filter_bar_at < cards_at < table_wrap_at, (
-        "expected filter bar, then card list, then table wrap, in that document order")
-    cards_end = rendered.index("</ul>", cards_at) + len("</ul>")
-    card_slice = rendered[cards_at:cards_end]
-    table_wrap_slice = rendered[table_wrap_at:]
-
-    for prefix, count, first_seen, last_seen, example_callsign in rows:
-        first_html = layout.concise_timestamp_html(first_seen, now_iso, fallback="")
-        last_html = layout.concise_timestamp_html(last_seen, now_iso, fallback="")
-        assert rendered.count(first_html) == 1 and first_html in card_slice, (
-            "expected First seen markup exactly once, in the card slice")
-        assert rendered.count(last_html) == 1 and last_html in card_slice, (
-            "expected Last seen markup exactly once, in the card slice")
-        for raw_ts in (first_seen, last_seen):
-            clock = layout.escape_html(
-                layout.local_clock_text(layout.parse_iso(raw_ts), layout.parse_iso(now_iso)))
-            # The desktop cell's age half is a live <time data-relative> element
-            # (layout.relative_time_html()'s own pre-escaped markup), not
-            # escape_html(relative_age_text(...)) — interpolated verbatim below,
-            # matching health_page._registry_seen_cell_html()'s own construction.
-            age = layout.relative_time_html(raw_ts, now_iso)
-            expected_cell = (
-                '<span class="cell-primary" title="%s">%s</span>'
-                '<span class="cell-inline-sep">%s</span>'
-                '<span class="cell-secondary">%s</span>'
-            ) % (
-                layout.escape_html(health_page._full_local_timestamp_text(raw_ts)),
-                clock, health_page._REGISTRY_CELL_SEPARATOR_TEXT, age)
-            assert expected_cell in table_wrap_slice, (
-                "expected the table's cell to be the two stacked lines built from the SAME "
-                "formatters concise_timestamp_html() composes")
-            assert clock in first_html or clock in last_html, (
-                "expected the stacked clock line to be the same text the card's own "
-                "concise_timestamp_html() output carries")
-        assert layout.escape_html(prefix) in card_slice
-        assert str(count) in card_slice
-        assert layout.escape_html(example_callsign) in card_slice
-        assert first_html in card_slice
-        assert last_html in card_slice
-
-
-def test_registry_table_fits_by_stacked_cells_and_short_french_headers(tmp_path, css_text):
-    """The unresolved-prefix table fits by the two levers headless measurement selected — the
-    Flights stacked-cell precedent scoped to its own data-table--registry modifier (the base
-    no-crop floor kept), plus two shortened French headers with the retired long forms gone and
-    the English sources untouched — and never by a 1100px card fallback"""
-    state_dir = str(tmp_path)
-    now = shp.now()
-    shp.seed_unresolved_prefixes(state_dir, {
-        "ABC": {"count": 12, "first_seen": shp.iso(now - timedelta(days=6)),
-                "last_seen": shp.iso(now - timedelta(hours=1)),
-                "example_callsign": "ABC123"},
-    })
-    rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-
-    assert '<table class="data-table data-table--registry">' in rendered, (
-        "expected the registry table to carry the additive data-table--registry modifier")
-    table_at = rendered.index('<div class="data-table-wrap">')
-    table_slice = rendered[table_at:]
-    assert table_slice.count('<span class="cell-primary" title=') == 2, (
-        "expected both timestamp cells to render a stacked primary line")
-    assert table_slice.count('<span class="cell-secondary">') == 2, (
-        "expected both timestamp cells to render a stacked secondary line")
-    assert '<span class="tnum" title=' not in table_slice, (
-        "expected the one-line concise_timestamp_html() cell to be gone from the table")
-
-    rules = css_rules(css_text)
-    for selector in ("table.data-table--registry .cell-primary",
-                     "table.data-table--registry .cell-secondary",
-                     "table.data-table--registry .cell-inline-sep"):
-        assert rules_with_selector(css_text, selector), (
-            "expected style.css to carry a rule for %r" % (selector,))
-    assert not any(".data-table--registry" in rule.selectors for rule in rules), (
-        "expected no bare .data-table--registry rule — this table keeps the base "
-        "min-width: max-content no-crop floor, unlike .data-table--prose")
-    at_rule_preludes = {at_rule for rule in rules for at_rule in rule.at_rules}
-    assert not any("1100px" in at_rule for at_rule in at_rule_preludes), (
-        "expected no 1100px card-fallback breakpoint — measurement showed levers 1 and 2 "
-        "fit the table in both languages, so lever 3 was not applied")
-
-    assert i18n_fr_health.MESSAGES.get("health.first_seen") == "Première fois", (
-        "expected the shortened French 'First seen' header")
-    assert i18n_fr_health.MESSAGES.get("health.last_seen") == "Dernière fois", (
-        "expected the shortened French 'Last seen' header")
-    for retired in ("Vu pour la première fois", "Vu pour la dernière fois"):
-        assert retired not in i18n_fr_health.MESSAGES.values(), (
-            "expected the retired long French header %r to be gone" % (retired,))
-    assert health_page._REGISTRY_HEADERS[2:4] == ("First seen", "Last seen"), (
-        "expected the English header sources to be unchanged")
-
-
-def test_no_chrome_for_empty_registry_and_no_cross_page_leak(tmp_path):
-    """No card chrome renders for an empty registry (filter bar and .data-cards both absent,
-    empty_state() present instead); the breakdown and the registry together render exactly two
-    .data-cards lists; History and Airlines carry zero occurrences of the new card class names"""
+def test_no_registry_chrome_and_no_cross_page_leak(tmp_path):
+    """The Health composition carries no unresolved-prefix registry (no filter bar, no card
+    list for it) even when the registry holds a prefix; the breakdown alone renders one
+    .data-cards list; History and Airlines carry zero occurrences of the card class names"""
     empty_dir = tmp_path / "empty"
     empty_dir.mkdir()
     empty_dir = str(empty_dir)
     now = shp.now()
     rendered_empty = health_page_composition.render(shp.ctx(empty_dir, shp.iso(now)))
-    unresolved_at = rendered_empty.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
     assert not shp.health_row(rendered_empty, "identification").select(".data-table"), (
         "expected the empty identification breakdown to be entirely absent")
-    section_slice = rendered_empty[unresolved_at:]
-    assert "data-card" not in section_slice, (
-        "expected no .data-cards/.data-card markup in an empty registry's section")
-    assert "filter-bar" not in section_slice, (
-        "expected no filter bar in an empty registry's section")
-    assert health_page._NO_GAPS_HEADING in section_slice, (
-        "expected the empty_state() no-gaps heading in an empty registry's section")
+    assert "data-card" not in rendered_empty and "filter-bar" not in rendered_empty
 
     both_dir = tmp_path / "both"
     both_dir.mkdir()
@@ -476,9 +283,10 @@ def test_no_chrome_for_empty_registry_and_no_cross_page_leak(tmp_path):
     })
     rendered_both = health_page_composition.render(shp.ctx(both_dir, shp.iso(now)))
     cards_list_count = rendered_both.count('<ul class="data-cards">')
-    assert cards_list_count == 2, (
-        "expected exactly two <ul class=\"data-cards\"> lists (stats + registry) when both "
-        "have data, got %d" % cards_list_count)
+    assert cards_list_count == 1, (
+        "expected exactly one <ul class=\"data-cards\"> list (the stats breakdown), got %d"
+        % cards_list_count)
+    assert "ABC123" not in rendered_both and "filter-bar" not in rendered_both
 
     leak_dir = tmp_path / "leak"
     leak_dir.mkdir()
@@ -667,8 +475,8 @@ def test_health_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_gly
         assert len(icon.select("svg")) == 1
     assert layout.STAT_TILE_ICON_CLASS not in empty_rendered, (
         "the stat-tile tint class has no consumer on Health any more")
-    # Two group bands and the registry heading.
-    _headings_carry_no_glyph(empty_rendered, 3)
+    # The two group bands.
+    _headings_carry_no_glyph(empty_rendered, 2)
 
     now = shp.now()
     shp.seed_unresolved_prefixes(state_dir, {
@@ -676,13 +484,10 @@ def test_health_row_icons_are_the_four_state_glyphs_and_no_heading_carries_a_gly
                 "example_callsign": "ABC123"},
     })
     seeded_rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
-    assert _non_toast_uses(seeded_rendered) == 10, (
-        "expected exactly ten non-toast <use occurrences on a seeded render (the same five "
-        "plus the unresolved-prefixes filter bar's search glyph, its inline-clear cross and "
-        "its empty state's search glyph, plus the two upload glyphs of the resolve dialog the "
-        "table's Resolve links open)")
-    # The fourth heading is the resolve dialog's own, empty until a Resolve link fills it.
-    _headings_carry_no_glyph(seeded_rendered, 4)
+    assert _non_toast_uses(seeded_rendered) == 5, (
+        "expected the same five non-toast <use occurrences on a seeded render: the registry "
+        "adds no filter bar and no dialog glyphs any more")
+    _headings_carry_no_glyph(seeded_rendered, 2)
 
 
 # ==========================================================================
@@ -1016,7 +821,7 @@ def test_bare_summary_rule_declares_the_accent_colour(css_text):
 
 def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
     """The interaction-skip guard's cross-file contract: a fixture rich enough to actually render
-    a disclosure, a filter input and a chart hit target, and freshness.js's shipped source still
+    a disclosure and a chart hit target, and freshness.js's shipped source still
     checks for a focused INPUT/SUMMARY and health_page.SPARKLINE_HIT_CLASS's own literal value but
     no longer checks for an open <details> at all"""
     state_dir = str(tmp_path)
@@ -1026,16 +831,10 @@ def test_interaction_skip_guard_cross_file_contract(tmp_path, freshness_js):
         (shp.iso(now), 4190),
     ])
     shp.seed_meta(state_dir, **{history_db.META_LAST_PIPELINE_RUN: shp.iso(now)})
-    shp.seed_unresolved_prefixes(state_dir, {
-        "ABC": {"count": 2, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
     shp.seed_runway_events(state_dir, [
         {"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page_composition.render(shp.ctx(state_dir, shp.iso(now)))
     assert "<details" in rendered, "expected at least one <details> disclosure to actually render"
-    assert "data-filter-input" in rendered, (
-        "expected the registry filter input to actually render")
     assert health_page.SPARKLINE_HIT_CLASS in rendered, (
         "expected the battery chart's hit-target class to actually render")
 

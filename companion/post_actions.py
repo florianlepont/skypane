@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from PIL import Image
 
-from companion import device_scope, layout
+from companion import airline_actions, device_scope, layout
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -65,7 +65,7 @@ from companion.settings import form_post
 from companion.pages.airlines_page import unresolved_row_for_prefix
 from server import atomic_io, device_config
 from server.plane import (
-    calendar_rules, colour_rules, enrich, illustrations, manual_resolutions, name_overrides,
+    airline_default_types, calendar_rules, colour_rules, enrich, illustrations, manual_resolutions, name_overrides,
 )
 import server.poll_cycle as poll_cycle
 
@@ -93,6 +93,38 @@ def _illustration_filenames(state_dir=None):
                 filenames.add(key + ".png")
         filenames |= _renamed_illustration_filenames(state_dir)
     return frozenset(filenames)
+
+
+def _record_resolution(handler, state_dir, key, default_type):
+    """The side effects of naming an airline: the optional default aircraft
+    type chosen in the same row, and the audit row."""
+    if not key:
+        return
+    chosen = airline_default_types.normalise_code(default_type)
+    if chosen:
+        airline_default_types.set_default_type(state_dir, key, chosen)
+    airline_actions.record(
+        handler, airline_actions.ACTION_RESOLVE, key, {"type": chosen} if chosen else None)
+
+
+def type_slugs():
+    """Every file-name suffix an airline's per-type picture can carry."""
+    return tuple(illustrations.SHAPE_SLUGS) + tuple(illustrations._TYPE_VARIANT_SLUGS.values())
+
+
+def illustration_filename_known(filename, state_dir=None):
+    """Whether `filename` may hold artwork: a name in
+    `_illustration_filenames()`, or `{airline}-{type slug}.png` for an
+    airline whose own file name is in it (the exact-type tier of
+    `illustrations.select_illustration()` looks for exactly that file)."""
+    names = _illustration_filenames(state_dir)
+    if filename in names:
+        return True
+    for slug in type_slugs():
+        suffix = "-%s.png" % slug
+        if filename.endswith(suffix) and filename[:-len(suffix)] + ".png" in names:
+            return True
+    return False
 
 
 def _renamed_illustration_filenames(state_dir):
@@ -251,7 +283,7 @@ class SettingsActionsMixin:
         back = resolve_dialog.return_route(
             parse_qs(urlsplit(self.path).query).get(resolve_dialog.RETURN_FIELD, [None])[0])
         filename = key + ".png"
-        if filename not in _illustration_filenames(device.state_dir):
+        if not illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
 
         raw = self._read_upload_body()
@@ -343,7 +375,11 @@ class SettingsActionsMixin:
             registry = manual_resolutions.load_manual_resolutions(state_dir)
             entry = registry.get(prefix) or {}
             key = manual_resolutions.illustration_key_for_name(entry.get("airline_name"))
-            if key and illustrations.resolved_illustration_path(key, state_dir) is not None:
+            _record_resolution(self, state_dir, key, form.get("default_type"))
+            # The editor's inline row stays on the table: artwork is added
+            # from the row itself, not from a second step.
+            if form.get("inline") or (
+                    key and illustrations.resolved_illustration_path(key, state_dir) is not None):
                 return self._scoped_redirect(
                     resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_MANUAL_RESOLVED)))
             return self._scoped_redirect(

@@ -106,7 +106,7 @@ _STRUCTURE = """
       if (l.scrollWidth > l.clientWidth) bad.push('clipped bar label ' + l.textContent); });
   } else if (bars.length) bad.push('tab bar visible on desktop');
   if (args.list && q('main table:not(.fleet-blocks table)').length) bad.push('table in a list page');
-  q('li.entity-row, li.place-airport, li.collection-item, .rule-row, .manual-resolution-row').forEach((row) => {
+  q('li.entity-row, li.place-airport, li.collection-item, .rule-row').forEach((row) => {
     if (row.querySelectorAll('.entity-row__dot .dot, .entity-row__dot [role=img], .account-frame__status [role=img]').length > 1) bad.push('two dots in a row');
     row.querySelectorAll('.entity-row__dot [role=img], .account-frame__status [role=img]').forEach((d) => {
       if (!d.getAttribute('aria-label')) bad.push('dot without a name'); });

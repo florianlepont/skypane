@@ -33,7 +33,7 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    co_managers, console_routes, device_scope, fleet_moves, user_pairing, layout, page_policy, route_types,
+    airline_actions, co_managers, console_routes, device_scope, fleet_moves, user_pairing, layout, page_policy, route_types,
     static_files, theme_preview)
 from companion.pages import (
     airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, place_page,
@@ -270,6 +270,12 @@ _POST_ROUTES = (
         "POST", Exact(airlines_page.RENAME_RESET_ROUTE),
         lambda h, m: h._handle_airline_rename_reset_post(m.device), ADMIN_DEVICE),
     Route(
+        "POST", Exact(airlines_page.ARTWORK_DELETE_ROUTE),
+        lambda h, m: airline_actions.handle_artwork_delete(h, m), ADMIN_DEVICE, csrf=True),
+    Route(
+        "POST", Exact(airlines_page.DEFAULT_TYPE_ROUTE),
+        lambda h, m: airline_actions.handle_default_type(h, m), ADMIN_DEVICE, csrf=True),
+    Route(
         "POST",
         PrefixSuffix(airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX),
         lambda h, m: h._handle_manual_resolution_delete(m.device, m.captured), ADMIN_DEVICE),
@@ -340,6 +346,8 @@ _ACTION_KEYS = (
     ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
     ("POST", Exact(airlines_page.RENAME_ROUTE)),
     ("POST", Exact(airlines_page.RENAME_RESET_ROUTE)),
+    ("POST", Exact(airlines_page.ARTWORK_DELETE_ROUTE)),
+    ("POST", Exact(airlines_page.DEFAULT_TYPE_ROUTE)),
     ("POST", PrefixSuffix(
         airlines_page.MANUAL_DELETE_ROUTE_PREFIX, airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
     ("POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
@@ -352,7 +360,7 @@ _ACTION_KEYS = (
     ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
 )
 
-# The routes that act on a single device: 18 GET and 18 POST.
+# The routes that act on a single device.
 _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 
 # Form field carrying the per-session anti-forgery token.

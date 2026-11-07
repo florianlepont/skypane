@@ -892,7 +892,7 @@ class Handler(
         # _serve_runway_image()). The set is a per-request union of
         # vendored and server-persisted manual keys, computed fresh.
         filename = key + ".png"
-        if filename not in _illustration_filenames(device.state_dir):
+        if not post_actions.illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
         # An overridden key's bytes may have originated as a user
         # upload, but this route only ever decodes bytes this server's

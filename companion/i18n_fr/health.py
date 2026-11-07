@@ -111,7 +111,6 @@ MESSAGES = {
     "health.nothing_to_compare_yet": "Rien à comparer pour l’instant",
     "health.this_appears_once_the_frame_has_recorded_at":
         "Ceci apparaît une fois que le cadre a enregistré au moins un vol.",
-    "health.more_details": "Plus de détails",
     "health.both_agree": "Les deux concordent",
     "health.both_flight_data_sources_on_the_frame_picked":
         "Les deux sources de données de vol du cadre ont identifié le même avion.",
@@ -193,22 +192,8 @@ MESSAGES = {
 
     # --- Unresolved-prefix registry / filter bar --------------------------
     "health.airlines_we_could_not_name": "Compagnies non identifiées",
-    "health.no_coverage_gaps": "Aucune lacune de couverture.",
-    "health.every_airline_we_ve_seen_recently_has_been":
-        "Toutes les compagnies vues récemment ont été identifiées — il "
-        "n’y a plus rien à rechercher.",
     # This note is one sentence; the instruction clause is in the
     # read-only note detail entry below.
-    "health.this_list_is_read_only_here": "Cette liste est en lecture seule ici.",
-    "health.each_row_s_resolve_link_opens_the_airlines_page":
-        "Le lien Résoudre de chaque ligne ouvre la page Compagnies pour "
-        "nommer cette compagnie (et ajouter une image, si besoin).",
-    "health.filter_by_prefix": "Filtrer par préfixe",
-    "health.search_placeholder": "Préfixe…",
-    "health.no_matching_prefixes": "Aucun préfixe correspondant",
-    "health.try_a_different_search_or_clear_filter_to_see":
-        "Essayez une autre recherche, ou effacez le filtre pour voir "
-        "les %d préfixes.",
     "health.of_shown": "%d sur %d affichés",
     "health.clear": "Effacer",
     "health.prefix": "Préfixe",
@@ -219,9 +204,6 @@ MESSAGES = {
     "health.first_seen": "Première fois",
     "health.last_seen": "Dernière fois",
     "health.example_callsign": "Exemple d’indicatif",
-    "health.resolve": "Résoudre",
-    "health.resolve_prefix": "Résoudre le préfixe %s",
-    "health.resolve_this_prefix": "Résoudre ce préfixe",
 
     # --- Resolution-statistics table --------------------------------------
     "health.how_well_we_name_flights": "Identification des vols",

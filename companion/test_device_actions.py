@@ -64,11 +64,16 @@ def _post_upload(app, path):
         content_type=content_type)[:2]
 
 
-def _others_unchanged(app, device, before):
-    """`before` is snapshot_all(); every directory except `device`'s own."""
+def _without(snap, ignore):
+    return {name: value for name, value in snap.items() if name not in ignore}
+
+
+def _others_unchanged(app, device, before, ignore=()):
+    """`before` is snapshot_all(); every directory except `device`'s own. `ignore` names
+    files left out of the comparison (the shared fleet database, which holds the audit log)."""
     live, dev_a, dev_b = before
     if device is not app.fleet.live:
-        assert snapshot(app.server.state_dir) == live
+        assert _without(snapshot(app.server.state_dir), ignore) == _without(live, ignore)
     if device is not app.fleet.dev_a:
         assert snapshot(app.fleet.dev_a.state_dir) == dev_a
     if device is not app.fleet.dev_b:
@@ -124,7 +129,8 @@ def test_manual_resolve_writes_only_that_devices_registry(app):
     assert status == 303
     assert headers["Location"].startswith(_prefix(fleet.dev_a) + "/airlines/manage?")
     assert "XQZ" in manual_resolutions.load_manual_resolutions(fleet.dev_a.state_dir)
-    _others_unchanged(app, fleet.dev_a, before)
+    # Naming an airline is audited in the shared fleet database; no registry elsewhere changes.
+    _others_unchanged(app, fleet.dev_a, before, ignore=("fleet.db",))
 
 
 def test_live_manual_resolve_writes_only_the_root(app):

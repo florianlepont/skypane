@@ -130,7 +130,6 @@ def test_user_health_shows_frame_card_and_no_platform_rows(tmp_path):
         assert escape_html(i18n.t(text)) in admin_html, text
         assert escape_html(i18n.t(text)) not in user_html, text
     assert health_page.SERVER_DATA_SECTION_ID not in user_html
-    assert health_page.UNRESOLVED_SECTION_ID not in user_html
     assert "resolve-dialog" not in user_html
 
 

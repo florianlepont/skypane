@@ -96,8 +96,8 @@ def test_a_row_is_a_plain_link_that_selects_the_frame(
         page.locator(SYSTEM).click()
         page.wait_for_url("**/fleet?view=system")
         page.wait_for_function(_SETTLED, timeout=15000)
-        # The System view is one group per topic (flight data, sources, identification) and the registry.
-        assert page.locator("section.fleet-block").count() == 4
+        # The System view is one group per topic (flight data, sources, identification).
+        assert page.locator("section.fleet-block").count() == 3
         assert page.locator(BUTTON + " .frame-menu__name").inner_text() == "System"
         open_menu(page)
         assert page.locator(SYSTEM + '[aria-current="true"]').count() == 1

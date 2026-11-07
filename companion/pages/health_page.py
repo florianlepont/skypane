@@ -31,7 +31,6 @@ import companion.user_view as user_view
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
-import companion.resolve_dialog as resolve_dialog
 import companion.prefs as prefs  # for the resolved language directly:
 # French requires a real U+00A0 before the colon (_label_colon() below),
 # not merely a translated label.
@@ -52,23 +51,12 @@ _unavailable_block = health_sections_module._unavailable_block
 UNRESOLVED_SECTION_HEADING = health_sections_module.UNRESOLVED_SECTION_HEADING
 STATS_SECTION_HEADING = health_sections_module.STATS_SECTION_HEADING
 RESOLUTION_WINDOW_DAYS = health_sections_module.RESOLUTION_WINDOW_DAYS
-_MORE_DETAILS_TEXT = health_sections_module._MORE_DETAILS_TEXT
-_REGISTRY_HEADERS = health_sections_module._REGISTRY_HEADERS
-RESOLVE_LINK_HREF_TEMPLATE = health_sections_module.RESOLVE_LINK_HREF_TEMPLATE
-RESOLVE_LINK_ARIA_TEMPLATE = health_sections_module.RESOLVE_LINK_ARIA_TEMPLATE
-RESOLVE_LINK_TEXT = health_sections_module.RESOLVE_LINK_TEXT
-RESOLVE_CARD_LINK_TEXT = health_sections_module.RESOLVE_CARD_LINK_TEXT
-_REGISTRY_CELL_SEPARATOR_TEXT = health_sections_module._REGISTRY_CELL_SEPARATOR_TEXT
-_NO_GAPS_HEADING = health_sections_module._NO_GAPS_HEADING
-_READ_ONLY_NOTE = health_sections_module._READ_ONLY_NOTE
-_READ_ONLY_NOTE_DETAIL = health_sections_module._READ_ONLY_NOTE_DETAIL
 _NO_STATS_HEADING = health_sections_module._NO_STATS_HEADING
 _RESOLUTION_DETAIL_TEMPLATE = health_sections_module._RESOLUTION_DETAIL_TEMPLATE
 _RESOLUTION_DETAIL_SINGULAR_TEMPLATE = health_sections_module._RESOLUTION_DETAIL_SINGULAR_TEMPLATE
 _NO_STATS_BODY = health_sections_module._NO_STATS_BODY
 _SOURCE_ROWS = health_sections_module._SOURCE_ROWS
 _OTHER_SOURCE_LABEL = health_sections_module._OTHER_SOURCE_LABEL
-_FILTER_INPUT_ID = health_sections_module._FILTER_INPUT_ID
 
 
 def _label_colon(label):
@@ -293,8 +281,8 @@ SCREEN_SECTION_ID = "screen"
 SCREEN_SECTION_HEADING = i18n.msg("health.screen", "Screen")
 SERVER_DATA_SECTION_ID = "server-data"
 SERVER_DATA_SECTION_HEADING = i18n.msg("health.server_data", "Server & data")
-# The unresolved-prefix card's anchor: the identification row links to it.
-UNRESOLVED_SECTION_ID = "unresolved-prefixes"
+# Where the identification row sends the owner to name unidentified airlines.
+UNRESOLVED_LINK_HREF = "/airlines/manage"
 
 
 # Inline literals hoisted from the markup builders below, one constant
@@ -783,7 +771,6 @@ coverage_status = health_signals_module.coverage_status
 # companion/health_sections.py now — re-exported here since render()
 # below calls each of these as a bare name.
 resolution_stats = health_sections_module.resolution_stats
-_registry_section = health_sections_module._registry_section
 _stats_table_html = health_sections_module._stats_table_html
 
 
@@ -972,8 +959,8 @@ def _identification_row(stats, unresolved_count):
     to_resolve = escape_html(
         i18n.t(_TO_RESOLVE_TEMPLATE) % unresolved_count
         if unresolved_count else i18n.t(_NOTHING_TO_RESOLVE_TEXT))
-    link = '<p class="health-row__note"><a class="text-link" href="#%s">%s</a></p>' % (
-        UNRESOLVED_SECTION_ID, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)))
+    link = '<p class="health-row__note"><a class="text-link" href="%s">%s</a></p>' % (
+        device_scope.scoped(UNRESOLVED_LINK_HREF), escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)))
     if stats["total"] == 0:
         return health_rows.row_html(
             "identification", "off", name,
@@ -1014,22 +1001,6 @@ def _backup_row(offbox, now):
 # companion/static/freshness.js) rather than showing a stale-view banner:
 # a page that reloads itself cannot go stale. Severity stays computed
 # server-side only — the timer reveals a pill and reloads, nothing else.
-
-
-def _resolve_dialog_html(ctx, registry_rows):
-    """The shared resolve dialog, emitted once and only when something can
-    open it: a Resolve link in the table, or the hidden step-B trigger
-    that reopens it after a name was saved. `?resolve=` is acted on only
-    when it names a prefix still in the table (step A, whose own link
-    opens the dialog) or one just named that still lacks artwork (step
-    B); any other value renders nothing extra."""
-    step_b_html = (
-        resolve_dialog.step_b_trigger_html(
-            ctx.state_dir, ctx.resolve_prefix, resolve_dialog.RETURN_HEALTH)
-        if ctx.resolve_prefix and ctx.state_dir else "")
-    if not registry_rows and not step_b_html:
-        return ""
-    return resolve_dialog.dialog_html() + step_b_html
 
 
 def _epoch_of(iso):
@@ -1082,16 +1053,6 @@ def _server_topics(state, stats, registry_rows, now):
     return [(key, i18n.t(label), row) for key, label, row in topics if row]
 
 
-def _registry_block_html(registry_rows, now):
-    # The registry sits below the rows card: the table is the long part
-    # of the page, and the verdicts above it are what a glance is for.
-    return (
-        '<section id="%s" class="page-section page-section--nested">'
-        '<h2 class="text-heading">%s</h2>%s</section>' % (
-            UNRESOLVED_SECTION_ID, escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)),
-            _registry_section(registry_rows, now)))
-
-
 def _page_parts(ctx):
     """Everything the Health page and the Console Fleet blocks are built
     from, computed once per request: the frame's connection status, the
@@ -1134,14 +1095,12 @@ def _page_parts(ctx):
     parts = {
         "now": now, "state": state, "banner_html": banner_html,
         "unreachable_html": unreachable_html, "screen_rows": screen_rows,
-        "server_group_html": "", "registry_html": "", "source_fault_html": "",
-        "dialog_html": "", "server_topics": []}
+        "server_group_html": "", "source_fault_html": "",
+        "server_topics": []}
     if user_view.platform_visible():
         parts["server_group_html"] = _server_group_html(state, stats, registry_rows, now)
         parts["server_topics"] = _server_topics(state, stats, registry_rows, now)
-        parts["registry_html"] = _registry_block_html(registry_rows, now)
         parts["source_fault_html"] = _source_fault_block(state["source_fault_raw"])
-        parts["dialog_html"] = _resolve_dialog_html(ctx, registry_rows)
     return parts
 
 
@@ -1167,7 +1126,7 @@ def system_html(ctx):
     """The System view of the Console Fleet page: the platform-wide
     information of the Health page, one glass group per topic (source fault
     and anomaly banner above them; flight data, ADS-B sources, identification
-    and backups; the unresolved-airline registry)."""
+    and backups)."""
     from companion import ui_groups
     ctx = page_context.coerce(ctx)
     parts = _page_parts(ctx)
@@ -1185,10 +1144,4 @@ def system_html(ctx):
     return (
         parts["source_fault_html"] + parts["banner_html"]
         + '<div class="system-topics">%s</div>' % groups
-        + (ui_groups.group(
-            '<li class="fleet-group__item fleet-group__item--flush">%s</li>'
-            % parts["registry_html"],
-            extra_class="fleet-block system-topic system-registry").replace(
-                '<ul class="group">', '<ul class="group fleet-group">', 1)
-           if parts["registry_html"] else "")
-        + parts["dialog_html"])
+        )

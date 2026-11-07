@@ -62,8 +62,8 @@ def test_a_builtin_row_edits_the_name_in_place_and_lists_its_prefixes_read_only(
 
 def test_manual_only_and_unidentified_rows_have_no_rename_form(tmp_path):
     """an owner-named airline (no built-in prefix to rename by) shows its name as plain text,
-    and an unidentified prefix row carries the empty sheet attributes on its "Name it" link, so
-    a click never inherits another row's values"""
+    and an unidentified prefix is resolved in its own row: a form posting to the resolve route
+    with the prefix, a name field with suggestions and an optional default aircraft type"""
     tmp = str(tmp_path)
     manual_resolutions.add_entry(tmp, "XQZ", "Totally Novel Airline", now="2026-01-01T00:00:00+00:00")
     shp.seed_unresolved_prefixes(tmp, {
@@ -76,8 +76,11 @@ def test_manual_only_and_unidentified_rows_have_no_rename_form(tmp_path):
             assert ('%s="' % attr) in trigger, (attr, trigger[:120])
     novel = _card(rendered, "Totally Novel Airline")
     assert 'name="airline_name"' not in novel and "<form" in novel
-    gap = re.search(r'<a class="airlines-name-it" href="/airlines/manage\?resolve=XYZ"[^>]*>', rendered).group(0)
-    assert _attr(gap, airline_sheet.AIRLINE_ATTR) == ""
+    gap = re.search(r'<form class="airlines-resolve".*?</form>', rendered, re.S).group(0)
+    assert 'action="/airlines/resolve"' in gap and 'name="prefix" value="XYZ"' in gap
+    assert 'name="airline_name"' in gap and 'list="airlines-known-names"' in gap
+    assert '<select name="default_type"' in gap and ">Validate<" in gap and ">Ignore<" in gap
+    assert 'id="airlines-known-names"' in rendered
 
 
 def test_the_shared_dialog_no_longer_holds_a_name_form(tmp_path):
@@ -125,7 +128,7 @@ def test_a_row_names_the_airframe_and_never_an_any_aircraft_label(tmp_path):
             prefs.set_request_prefs(lang=lang)
             rendered = airlines_page.render(shp.ctx(str(tmp_path)))
             assert forbidden not in rendered
-            assert ">A320</th>" in _card(rendered, "Transavia France")
+            assert '<span class="airlines-type">A320</span>' in _card(rendered, "Transavia France")
     finally:
         prefs.set_request_prefs(lang="en")
 

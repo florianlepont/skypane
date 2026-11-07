@@ -16,7 +16,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from companion import device_scope, frame_state, i18n, layout, routes, wake
 from companion.pages import (
-    airlines_page, co_managers_card, config_page, detection_page, pair_frame_page,
+    airline_sheet, airlines_page, co_managers_card, config_page, detection_page, pair_frame_page,
     update_page)
 from server import device_config
 from server.plane import calendar_rules, colour_rules
@@ -46,6 +46,11 @@ FLASH_KEY_RENAMED = airlines_page.FLASH_RENAMED
 FLASH_KEY_RENAME_RESET = airlines_page.FLASH_RENAME_RESET
 FLASH_KEY_RENAME_STALE = airlines_page.FLASH_RENAME_STALE
 FLASH_KEY_RENAME_FULL = airlines_page.FLASH_RENAME_FULL
+FLASH_KEY_ARTWORK_DELETED = airline_sheet.FLASH_ARTWORK_DELETED
+FLASH_KEY_ARTWORK_STALE = airline_sheet.FLASH_ARTWORK_STALE
+FLASH_KEY_ARTWORK_DELETE_FAILED = airline_sheet.FLASH_ARTWORK_DELETE_FAILED
+FLASH_KEY_DEFAULT_TYPE_SAVED = airline_sheet.FLASH_DEFAULT_TYPE_SAVED
+FLASH_KEY_DEFAULT_TYPE_FAILED = airline_sheet.FLASH_DEFAULT_TYPE_FAILED
 FLASH_KEY_RENAME_TAKEN = airlines_page.FLASH_RENAME_TAKEN
 FLASH_KEY_RENAME_SAVE_FAILED = airlines_page.FLASH_RENAME_SAVE_FAILED
 FLASH_KEY_RULE_ADDED = config_page.FLASH_RULE_ADDED
@@ -215,6 +220,22 @@ FLASH_MESSAGES = {
     FLASH_KEY_RENAME_STALE: i18n.msg(
         "common.that_airline_can_t_be_renamed_anymore",
         "That airline can’t be renamed here — reload the Airlines page and try again."),
+    FLASH_KEY_ARTWORK_DELETED: i18n.msg(
+        "common.artwork_deleted_the_default_illustration_is_back",
+        "Artwork removed — the default illustration is back."),
+    FLASH_KEY_ARTWORK_STALE: i18n.msg(
+        "common.that_artwork_can_t_be_removed_anymore",
+        "That artwork can’t be removed anymore — reload the Airlines page "
+        "and try again."),
+    FLASH_KEY_ARTWORK_DELETE_FAILED: i18n.msg(
+        "common.couldn_t_remove_that_artwork",
+        "Couldn’t remove that artwork — the frame’s state directory may "
+        "not be writable."),
+    FLASH_KEY_DEFAULT_TYPE_SAVED: i18n.msg(
+        "common.default_aircraft_type_saved", "Default aircraft type saved."),
+    FLASH_KEY_DEFAULT_TYPE_FAILED: i18n.msg(
+        "common.couldn_t_save_the_default_aircraft_type",
+        "Couldn’t save the default aircraft type — try again."),
     FLASH_KEY_RENAME_FULL: i18n.msg(
         "common.the_renamed_airlines_list_is_full_200_entries",
         "The renamed-airlines list is full (200 entries) — reset one before "
@@ -348,6 +369,11 @@ FLASH_TONES = {
     FLASH_KEY_RENAME_RESET: _PENDING,
     FLASH_KEY_RENAME_STALE: _WARNING,
     FLASH_KEY_RENAME_FULL: _WARNING,
+    FLASH_KEY_ARTWORK_DELETED: _PENDING,
+    FLASH_KEY_ARTWORK_STALE: _WARNING,
+    FLASH_KEY_ARTWORK_DELETE_FAILED: _ERROR,
+    FLASH_KEY_DEFAULT_TYPE_SAVED: _PENDING,
+    FLASH_KEY_DEFAULT_TYPE_FAILED: _ERROR,
     # The owner typed a name that cannot be used: their input needs changing.
     FLASH_KEY_RENAME_TAKEN: _ERROR,
     FLASH_KEY_RENAME_SAVE_FAILED: _ERROR,

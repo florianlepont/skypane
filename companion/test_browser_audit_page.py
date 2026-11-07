@@ -7,7 +7,7 @@ import pytest
 
 import fleet_console_support as fx
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _login)
+    _login)
 from server import fleet_db
 
 pytestmark = pytest.mark.browser
@@ -39,27 +39,40 @@ def _no_sideways_scroll(page):
         "document.documentElement.scrollWidth <= document.documentElement.clientWidth")
 
 
-def test_phone_layout_stacks_cards_without_sideways_scroll(
-        new_context, app_server_in_process):
-    context, page = _open(new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED)
+def _wait_ready(page):
+    page.wait_for_function("document.readyState === 'complete'")
+    page.wait_for_function(
+        "() => { const s = document.querySelector('.audit-event__row');"
+        " if (!s) return false; const r = s.getBoundingClientRect();"
+        " return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) !== document.documentElement; }")
+
+
+@pytest.mark.parametrize("viewport", [
+    {"width": 360, "height": 740}, {"width": 390, "height": 844},
+    {"width": 1280, "height": 900}, {"width": 1440, "height": 900}])
+def test_rows_are_compact_expand_and_never_overflow(
+        new_context, app_server_in_process, viewport):
+    context, page = _open(new_context, app_server_in_process, viewport)
     try:
+        _wait_ready(page)
         assert _no_sideways_scroll(page)
-        assert page.locator("ul.data-cards").is_visible()
-        assert not page.locator("table.data-table--flights").is_visible()
+        assert page.locator(".audit-event").count() == 50
+        first = page.locator(".audit-event").first
+        assert first.locator(".audit-event__detail").is_hidden()
+        assert first.locator("summary").bounding_box()["height"] >= MIN_TAP_PX
+        first.locator("summary").click()
+        page.wait_for_function(
+            "() => document.querySelector('.audit-event details').open")
+        detail = first.locator(".audit-event__detail")
+        assert detail.is_visible()
+        for label in ("Target", "From", "Exact date", "Author"):
+            assert first.locator("dt", has_text=label).is_visible()
+        box = detail.bounding_box()
+        assert box["x"] >= 0 and box["x"] + box["width"] <= viewport["width"]
+        assert _no_sideways_scroll(page)
+        head_visible = page.locator(".audit-head").is_visible()
+        assert head_visible == (viewport["width"] >= 1000)
         for selector in (".audit-chips .filter-chip__box", ".audit-pager .text-link"):
             assert page.locator(selector).first.bounding_box()["height"] >= MIN_TAP_PX
-    finally:
-        context.close()
-
-
-def test_desktop_layout_shows_the_table_with_fifty_rows(
-        new_context, app_server_in_process):
-    context, page = _open(new_context, app_server_in_process, VIEWPORT_DESKTOP)
-    try:
-        assert page.locator("table.data-table--flights").is_visible()
-        assert not page.locator("ul.data-cards").is_visible()
-        assert page.locator("table.data-table--flights tbody tr").count() == 50
-        assert page.locator(".audit-chips").is_visible()
-        assert _no_sideways_scroll(page)
     finally:
         context.close()

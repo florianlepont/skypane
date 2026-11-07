@@ -52,7 +52,7 @@ def _page(server, cookie, query=""):
 
 
 def _rows(html):
-    return re.findall(r"<tr><td>.*?</tr>", html, re.S)
+    return re.findall(r'<li class="audit-event">.*?</li>', html, re.S)
 
 
 def test_events_are_listed_newest_first_with_every_column(rig):
@@ -65,8 +65,11 @@ def test_events_are_listed_newest_first_with_every_column(rig):
     assert "Frame retired" in rows[0] and "Refused" in rows[0]
     assert "Pairing code claimed" in rows[1] and "Success" in rows[1]
     assert 'class="time-value"' in rows[0]
-    for head in ("When", "Who", "Action", "Target", "Outcome", "From"):
-        assert "<th>%s</th>" % head in html
+    for head in ("When", "Who", "Action", "Outcome"):
+        assert ">%s</span>" % head in html
+    for label in ("Target", "From", "Exact date", "Author"):
+        assert "<dt>%s</dt>" % label in rows[0]
+    assert "<details>" in rows[0] and "<summary" in rows[0]
     assert "127.0.0.1" in rows[0]
     assert "pairing.claim" not in html and "device.retire" not in html
 
@@ -131,7 +134,7 @@ def test_the_chips_are_plain_links_and_filter(rig):
     failed = _page(server, cookie, "?category=failed")[2]
     assert "2 events" in failed
     assert "Failed" in failed and "Refused" in failed
-    assert _page(server, cookie, "?category=bogus")[2].count("<tr><td>") == min(
+    assert _page(server, cookie, "?category=bogus")[2].count('<li class="audit-event">') == min(
         50, total)
 
 
@@ -183,8 +186,8 @@ def test_actor_and_target_texts(rig):
             action="device.reassign", target_id=seed.owned_id, start=_FUTURE + 1000)
     rows = _rows(_page(server, cookie)[2])
     assert fx.ADMIN_EMAIL in rows[0] and "Kitchen" in rows[0] and seed.owned_id in rows[0]
-    assert "<td>Frame</td>" in rows[1]
-    assert "<td>System</td>" in rows[2]
+    assert '<span class="audit-event__who">Frame</span>' in rows[1]
+    assert '<span class="audit-event__who">System</span>' in rows[2]
 
 
 def test_unknown_action_keys_get_a_generic_label(rig):

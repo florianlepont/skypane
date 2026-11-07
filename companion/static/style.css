@@ -3013,22 +3013,158 @@ table.data-table--readings {
   background: var(--glass-solid);
 }
 
-/* The audit log's phone list: one glass group of entries. */
+/* The audit log: one glass group of compact event rows (when, who, action,
+ * outcome, chevron). Each row is a native <details>; its panel lists target,
+ * source address, exact date, author and reason. Phone: when and outcome on
+ * the first line, the action and the author below; from 640px of group width
+ * the four columns sit on one line under a header. Long values wrap, so
+ * nothing widens the page. */
 .audit-cards {
+  container: audit-log / inline-size;
   padding: 0 var(--space-md);
   background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-glass);
+  list-style: none;
+  margin: 0;
+  --audit-columns: 11rem minmax(0, 1fr) minmax(0, 1.4fr) 7rem 20px;
 }
 
-.audit-cards .data-card {
-  padding: var(--space-md) 0;
-  border-bottom: 1px solid var(--glass-hairline);
+.audit-event + .audit-event {
+  border-top: 1px solid var(--glass-hairline);
 }
 
-.audit-cards .data-card:last-child {
-  border-bottom: 0;
+.audit-event__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 20px;
+  grid-template-areas: "when outcome chevron" "action action chevron" "who who chevron";
+  column-gap: var(--space-sm);
+  row-gap: 2px;
+  align-items: center;
+  min-height: 60px;
+  padding: var(--space-sm) 0;
+  color: var(--color-text);
+  list-style: none;
+}
+
+.audit-event__row::before {
+  content: none;
+}
+
+.audit-event__row::-webkit-details-marker {
+  display: none;
+}
+
+.audit-event__when {
+  grid-area: when;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-sm);
+  min-width: 0;
+}
+
+.audit-event__when .time-value {
+  font-weight: var(--weight-semibold);
+}
+
+.audit-event__when .time-value__age {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.audit-event__who {
+  grid-area: who;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.audit-event__action {
+  grid-area: action;
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.audit-event__outcome {
+  grid-area: outcome;
+  justify-self: end;
+}
+
+.audit-event__chevron {
+  grid-area: chevron;
+  justify-self: end;
+  transform: rotate(90deg);
+}
+
+.audit-event details[open] > summary .audit-event__chevron {
+  transform: rotate(-90deg);
+}
+
+.audit-event__detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
+  padding: 0 0 var(--space-md);
+}
+
+.audit-event__item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-event__item dt {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.audit-event__item dd {
+  margin: 0;
+}
+
+.audit-head {
+  display: none;
+  list-style: none;
+}
+
+@container audit-log (min-width: 640px) {
+  .audit-head {
+    display: grid;
+    grid-template-columns: var(--audit-columns);
+    column-gap: var(--space-md);
+    padding: var(--space-sm) 0;
+    font-size: var(--font-label-size);
+    font-weight: var(--weight-semibold);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    border-bottom: 1px solid var(--glass-hairline);
+  }
+
+  .audit-head__cell--outcome {
+    grid-column: 4;
+  }
+
+  .audit-event__row {
+    grid-template-columns: var(--audit-columns);
+    grid-template-areas: "when who action outcome chevron";
+    column-gap: var(--space-md);
+    min-height: 56px;
+  }
+
+  .audit-event__who {
+    font-size: var(--font-body-size);
+  }
+
+  .audit-event__when {
+    display: grid;
+  }
+
+  .audit-event__outcome {
+    justify-self: start;
+  }
 }
 
 /* Scoped to Flights' own table only. Tokens only (no literal px), so
@@ -3050,15 +3186,6 @@ table.data-table--flights .cell-secondary {
 }
 
 table.data-table--flights .cell-inline-sep {
-  display: none;
-}
-
-table.data-table--registry .cell-primary,
-table.data-table--registry .cell-secondary {
-  display: block;
-}
-
-table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
@@ -11778,9 +11905,10 @@ button.row-menu__item--destructive:hover {
   padding: var(--space-md);
 }
 
-/* The Name it action is wider than the "..." menu: its column sizes to it. */
+/* An unidentified prefix is one cell holding its resolve form. */
 .airlines-row--gap {
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "resolve";
 }
 
 .airlines-subrow {
@@ -11788,7 +11916,8 @@ button.row-menu__item--destructive:hover {
   grid-template-columns: minmax(0, 1fr) auto 44px;
   grid-template-areas:
     "name views menu"
-    "art art art";
+    "art art art"
+    "seen seen seen";
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   padding: var(--space-md);
@@ -11810,10 +11939,20 @@ button.row-menu__item--destructive:hover {
 
 .airlines-cell--name { grid-area: name; }
 
+.airlines-cell--resolve {
+  grid-area: resolve;
+  font-weight: var(--weight-regular);
+}
+
+.airlines-cell--act:empty {
+  display: none;
+}
+
 .airlines-namebox {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 0 var(--space-xs);
   min-width: 0;
 }
 .airlines-cell--prefixes {
@@ -11840,9 +11979,53 @@ button.row-menu__item--destructive:hover {
 .airlines-cell--menu { grid-area: menu; justify-self: end; }
 
 .airlines-cell--type {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   padding-left: calc(44px + var(--space-xs));
+}
+
+/* An aircraft designator, set like code. */
+.airlines-type {
+  padding: 2px var(--space-sm);
+  border: 1px solid var(--glass-hairline);
+  border-radius: var(--radius-control);
+  background: var(--glass-solid);
+  color: var(--color-text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 24px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.airlines-pill--star {
+  background: color-mix(in srgb, var(--color-status-warn) 20%, transparent);
+}
+
+.airlines-state {
+  display: inline-block;
+  vertical-align: middle;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--art .airlines-thumb {
+  vertical-align: middle;
 }
 
 .airlines-expand {
@@ -11876,6 +12059,7 @@ button.row-menu__item--destructive:hover {
 
 .airlines-name--fixed {
   display: block;
+  flex: 1 1 8rem;
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
@@ -11951,6 +12135,127 @@ button.row-menu__item--destructive:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* A type that has no picture of its own shows the airline's, dimmed. */
+.airlines-thumb--inherited {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.row-menu__sep {
+  margin: var(--space-xs) 0;
+  border: 0;
+  border-top: 1px solid var(--glass-hairline);
+}
+
+/* The inline action of a type row: link-like text with a 44px target. */
+.airlines-act {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.airlines-act:hover {
+  background: var(--color-control-wash);
+}
+
+.airlines-act:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* The in-place resolve form of an unidentified prefix. */
+.airlines-resolve {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.airlines-resolve__cap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-resolve__fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.airlines-resolve__fields input[type="text"] {
+  flex: 1 1 16rem;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.airlines-resolve__fields select {
+  flex: 0 1 14rem;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.airlines-resolve__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.airlines-resolve__ok {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+.airlines-resolve__skip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.airlines-resolve__skip:hover {
+  background: var(--color-control-wash);
+}
+
+@media (max-width: 559.98px) {
+  .airlines-resolve__fields > * {
+    flex: 1 1 100%;
+  }
+
+  .airlines-resolve__fields select {
+    width: 100%;
+  }
+
+  .airlines-resolve__actions {
+    margin-left: 0;
+  }
+
+  .airlines-resolve__actions > * {
+    flex: 1 1 0;
+  }
+}
+
 .airlines-name__save,
 .airlines-art__upload {
   min-height: 44px;
@@ -11961,39 +12266,6 @@ button.row-menu__item--destructive:hover {
 
 .airlines-menu__form {
   margin: 0;
-}
-
-.airlines-cell--action {
-  align-self: center;
-}
-
-a.airlines-name-it {
-  position: relative;
-  isolation: isolate;
-  display: inline-flex;
-  white-space: nowrap;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  margin-left: var(--space-sm);
-  padding: 0 var(--space-md);
-  box-sizing: border-box;
-  color: var(--color-accent);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  text-decoration: none;
-}
-
-/* The drawn pill is 32px tall inside the 44px target, centred in the row. */
-a.airlines-name-it::before {
-  content: "";
-  position: absolute;
-  inset: 6px 0;
-  z-index: -1;
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
 }
 
 @media (min-width: 70rem) {
@@ -12070,19 +12342,15 @@ a.airlines-name-it::before {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 37%; }
-  .airlines-col--prefixes { width: 11%; }
-  .airlines-col--art { width: 14%; }
+  .airlines-col--name { width: 36%; }
+  .airlines-col--prefixes { width: 8%; }
+  .airlines-col--art { width: 17%; }
   .airlines-col--views { width: 8%; }
   .airlines-col--menu { width: 112px; }
 
   /* The airline name input ends in an ellipsis rather than a hard clip. */
   .airlines-name input[type="text"] {
     text-overflow: ellipsis;
-  }
-
-  a.airlines-name-it {
-    padding: 0 var(--space-sm);
   }
 }
 
