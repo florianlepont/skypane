@@ -12,8 +12,8 @@ Two panel formats are in scope (decision D-10 in `58-CONTEXT.md`): the 13.3" (cu
 
 | Supplier | Contacted | Asked for | Status | Reply |
 |---|---|---|---|---|
-| OKRA Technologies (Shanghai) | 2026-11-02 (owner-reported; the supplier name is assumed from the datasheet page the owner shared) | 7.3" OK-EL073TF1 and the OK-DEV01C ESP32-S3 board; 13.3" if offered | waiting | none yet |
-| Seekink | 2026-11-02 (owner-reported) | 7.3" and 13.3" Spectra 6 modules, demo kits | waiting | none yet |
+| OKRA Technologies (Shanghai) | 2026-11-02 (owner-reported; the supplier name is assumed from the datasheet page the owner shared) | 7.3" OK-EL073TF1 and the OK-DEV01C ESP32-S3 board; 13.3" if offered | replied with datasheets (7.3" tentative v0.1, 13.3" EL133UF3 v1.0), no price; owner replied; not pursued since 2026-11-07 | datasheets only |
+| Seekink | 2026-11-02 (owner-reported) | 7.3" and 13.3" Spectra 6 modules, demo kits | not pursued since 2026-11-07 | none |
 
 ## What each reply must answer
 
@@ -47,5 +47,35 @@ Order-of-magnitude totals: Seeed kit about 67.7 EUR excl. VAT with the 15 EUR de
 
 ## Decisions still open
 
-- Purchase of a 7.3" evaluation unit: pending the owner's explicit written agreement.
+- Purchase of a 7.3" evaluation unit: agreed by the owner on 2026-11-07 (one Seeed EE04 bundle kit, owner orders). Ordered by the owner on 2026-11-07; invoice received (see "Order placed" below).
 - Gallery 3 and Kaleido 3: dropped for this phase by the owner on 2026-11-02 (decision D-11).
+
+## Order notes for the Seeed evaluation unit (not an order)
+
+- Seeed's own pages blocked automated reads on 2026-11-07, so price and stock must be read on the page at checkout.
+- A European reseller, OpenELAB (Munich), listed on 2026-11-07: bundle 67.15 EUR (pre-order, dispatch estimated 10 to 20 days),
+  board alone 11.50 EUR and panel alone 55.49 EUR (shown in stock). Bundle contents per that reseller: EE04 board, 2.4 GHz FPC antenna, 7.3" panel.
+- Not in the bundle: battery, USB-C cable, enclosure. Check whether the antenna and the 24/50-pin jumper cap are supplied.
+  The 50-pin side must be selected for the 7.3" panel; a wrong jumper position can damage the screen (Seeed wiki).
+- Battery: a 3.7 V LiPo with a JST 2.0 mm plug. Check the polarity with a multimeter before the first connection (`hardware/BOM.md`).
+- Record the price actually paid and the delivery date in `hardware/SECOND-HARDWARE-VALIDATION.md` when part 2 starts.
+
+## Order placed (from the owner's invoice screenshots, 2026-11-07)
+
+Seeed Studio order 7000035995, paid by PayPal, shipped to France from the Seeed Germany warehouse.
+
+| Line | Amount (EUR) |
+|---|---|
+| XIAO ePaper Display Board EE04 (ESP32-S3), 1 piece | 8.99 |
+| 7.3" Spectra 6 panel, 800x480, SPI, 1 piece | 40.99 |
+| Subtotal | 49.98 |
+| Shipping (Seeed Carrier KJ_EU) | 6.91 |
+| VAT | 10.00 |
+| PayPal fee | 1.67 |
+| **Grand total paid** | **68.56** |
+
+- Delivery estimate on the invoice: about 5 to 10 working days from the Germany warehouse. That points to mid to late November 2026 (estimate, not a carrier date).
+- The prices were excl. VAT: VAT is 20 % of the 49.98 goods subtotal, with no VAT on shipping.
+- Against the 100 EUR TTC target for the complete device: 68.56 EUR paid for board and panel; a battery (about 8.55 EUR in the 2026-08 BOM, to be re-sourced) brings it to about 77 EUR.
+- The goods ship from Germany, so no customs step is expected.
+- Not on the invoice: battery, USB-C cable, antenna and jumper cap (check them on unboxing).

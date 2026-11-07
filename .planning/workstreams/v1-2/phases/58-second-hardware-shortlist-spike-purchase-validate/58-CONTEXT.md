@@ -41,6 +41,8 @@ Out of scope: any purchase, order call or payment; flashing the live frame; any 
 
 - **D-11:** Gallery 3 and Kaleido 3 are dropped for this phase (owner, 2026-11-02): no panel could be bought as a single unit and the drive requirements for an ESP32-S3 are unknown. Spectra 6 stays the technology. Watch items kept out of scope: Spectra 6 Plus, an eight-ink Spectra 6, and ChLCD.
 
+- **D-12:** The owner agreed in writing (conversation, 2026-11-07) to buy ONE 7.3" evaluation unit first: the Seeed Studio XIAO ePaper EE04 bundle kit (board + 7.3" Spectra 6 panel). The owner places the order; Claude orders nothing. Chinese suppliers (OKRA, Seekink, AliExpress) are no longer pursued. Further units follow only after the evaluation unit is validated, in one shipment. Part 2 (58-03, 58-04) starts when the owner says the unit is on the bench.
+
 ### Claude's Discretion
 - Document layout, file names (new files only), spike harness structure, test choices.
 
