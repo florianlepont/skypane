@@ -778,4 +778,14 @@ Users
   utilisateurs" caption sits on the top edge of an outer translucent panel
   whose border runs through it, with the table card nested inside it (double
   panel, caption overlapping the border).
+
+Airline editor
+- W138 (owner, screenshot) The name field and the aircraft-type field in the
+  inline resolve rows are too long, which makes the row less pretty (the name
+  input stretches across most of the row).
+
+Audit log
+- W139 (owner, screenshot) A strange number appears in the audit log next to
+  the e-mail (the target's internal id, e.g. "...le.org4", glued to the
+  address with no separation): hide it or show it clearly as secondary.
 - (owner has not confirmed he is done; more may come.)
