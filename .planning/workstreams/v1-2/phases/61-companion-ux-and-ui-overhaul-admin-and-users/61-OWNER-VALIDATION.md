@@ -702,3 +702,35 @@ autonomy ("environ 3 semaines") only when an honest figure exists; "Aucune
 mesure pour l'instant" with no bar when there is no reading. For every user
 (not only administrators). Mockups: scratchpad battery82/. Planned as plan
 61-83.
+
+## Round 9 (production review of round 8, page by page; in progress)
+
+Home
+- W114 (owner) "À jour" and "Prochaine mise à jour dans 25 min" are not
+  coherent: merge the two lines into one coherent statement.
+- W115 (owner) Battery row: "Niveau normal" is useless: drop it; show the
+  autonomy ("~6 semaines") beside the percentage, not below it.
+- W116 (owner) Clicking a toggle (such as Quiet hours) reloads the page with a
+  strange effect.
+- W117 (owner) The title "Bon après-midi, Florian" and "À jour" are the same
+  size, which is confusing.
+- W118 (owner, screenshot) The Quiet hours sheet does not show everything at
+  once on iPhone: the end time is hidden below Start, scrolling is needed.
+- W119 (owner) "Toujours actif" is useless: it is the same as switching the
+  toggle off; remove it.
+
+Flights
+- W120 (owner) Too much information per row, hard to read on mobile: remove
+  the flight ID number and the small plane icon (it carries no information).
+- W121 (owner) Opening a picture: the navigation bar is briefly above the
+  Close button, then goes under it: a visual glitch.
+
+Location
+- W122 (owner, screenshot) On desktop and phone, the Location page shows
+  another interface (an empty grey rectangle) for a few milliseconds before
+  the map: very disturbing; he expected the loading bar here.
+- W123 (owner) Picking an airport from the search results reloads the page and
+  shows that temporary interface again.
+- W124 (owner, screenshot) On mobile the page still has an ugly grey header
+  band and footer band instead of the map full-bleed.
+- (owner has not finished; more to come.)
