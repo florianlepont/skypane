@@ -484,5 +484,24 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
   sits off-centre / overflows its card and the check mark overlaps.
 - W78 (owner) Location (screenshot): the Airport / My position segmented
   control is still offset inside its container.
-- (owner has not finished; more items to come. A desktop screenshot of the
-  Account "Mes cadres" group was also attached, no comment yet.)
+- (A desktop screenshot of the Account "Mes cadres" group was also attached,
+  no comment yet.)
+- W79 (owner) Location (screenshot): a gap is missing between the airport
+  info (name, codes) and the "Piste à suivre" heading.
+- W80 (owner) Location: the Save place button behaves differently from the
+  rest of the site; it should be the small popup/bar "Save or Cancel" that
+  appears (the docked unsaved-changes pattern), not an always-visible footer.
+- W81 (owner) Location: he likes the nearest-airport follow suggestion. "My
+  position" should be the first tab when the page opens, and the sheet's text
+  sizes and margins need visual rework (not pretty: runway card text clipped,
+  "Rayon" row, suggestion button, footer not aligned with the sheet padding).
+- W82 (owner) Location: the map could also pass behind the navigation menu
+  (desktop sidebar) for a really cool effect.
+- W83 (owner) Personalisation: the Departures and Arrivals tabs do not have
+  the opening effect the other two tabs have.
+- W84 (owner, positive) The picture reveal when changing colour etc. is very
+  stylish.
+- W85 (owner) Personalisation vocabulary: "Couleur" should read "Couleur
+  principale"; "Papier" should read just "Blanc"; the "Bande diagonale"
+  wording to change (message cut off, to clarify with the owner).
+- (owner has not finished; more items to come.)
