@@ -1,6 +1,7 @@
 /* The opening splash's gate. A tiny synchronous script in the document head,
  * right after the stylesheet: it decides, before the first paint, whether the
- * splash shows, by putting `splash-on` on <html>. The overlay markup is
+ * splash shows, by putting `splash-on` on <html>. It also puts `js-early` on
+ * <html> whenever scripts run (see below). The overlay markup is
  * hidden by the stylesheet until then, so there is no flash of the page
  * under it and, without scripts, no splash at all.
  *
@@ -16,7 +17,20 @@
 
   var KEY = "skypane.splash";
   var HARD_CAP_MS = 3200;
+  var EARLY_CLASS = "js-early";
+  // How long the Location page's loading state may wait for the map before
+  // the plain form shows instead.
+  var EARLY_CAP_MS = 6000;
   var root = document.documentElement;
+
+  // Scripts run: the class is on <html> before the first paint, so a page
+  // that swaps its plain form for a script-driven view can hide the form and
+  // show a loading state from the start. The cap puts the plain form back if
+  // the page's own script never reports ready.
+  root.classList.add(EARLY_CLASS);
+  window.setTimeout(function () {
+    root.classList.remove(EARLY_CLASS);
+  }, EARLY_CAP_MS);
 
   // A resource timing entry for the stylesheet whose bytes did not cross the
   // network (a memory-cache hit, or a revalidation that only moved headers).

@@ -332,16 +332,16 @@ def test_editing_a_coordinate_names_the_place_section(new_context, make_app_serv
 
 
 def _carry_radius_through_a_filter(page):
-    """Type a radius in the area mode, filter the airport list on the server and pick an
-    airport."""
+    """Type a radius in the area mode, then follow the airport list's own link (a page-local
+    navigation: the list stays in the page for the plain form and when the map cannot run;
+    the map's own picks update the page in place)."""
     page.click(MODE_AREA_LABEL)
     page.fill("#place-radius", "12")
-    # The airport list belongs to the Airport mode.
     page.click(MODE_RUNWAY_LABEL)
-    # The one search field answers an airport code by opening that airport's page.
-    page.fill("#place-search", SEARCH)
     with page.expect_navigation():
-        page.click("form.place-search button")
+        page.evaluate(
+            "icao => document.querySelector(\".place-airport__link[data-icao='\" + icao + \"']\")"
+            ".click()", CDG)
 
 
 def test_filter_and_pick_do_not_raise_leave_guard_and_keep_radius(new_context, make_app_server):
@@ -403,9 +403,10 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
     server = make_app_server(seed=_seed(SAVED_POSITION), fake_providers=True)
     page, dialogs = _open(new_context, server)
     page.click(MODE_RUNWAY_LABEL)
-    page.fill("#place-search", SEARCH)
     with page.expect_navigation():
-        page.click("form.place-search button")
+        page.evaluate(
+            "icao => document.querySelector(\".place-airport__link[data-icao='\" + icao + \"']\")"
+            ".click()", CDG)
     page.go_back()
     page.wait_for_load_state()
     page.click(MODE_RUNWAY_LABEL)

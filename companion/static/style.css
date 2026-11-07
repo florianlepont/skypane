@@ -5878,6 +5878,15 @@ html:not(.map-ready) .place-mode__text .icon {
 
 /* The map fills the whole window: it runs behind the glass sidebar and the
  * glass tab bar as well as behind the app bar. */
+html.map-ready,
+html.js-early:has(.place-stage) {
+  /* The page behind the map is the map's own placeholder colour, so no pale
+   * band can show above or below it, and the page never rubber-bands. */
+  background-color: var(--color-secondary);
+  background-image: none;
+  overscroll-behavior: none;
+}
+
 .map-ready .place-map {
   position: fixed;
   inset: 0;
@@ -5887,9 +5896,12 @@ html:not(.map-ready) .place-mode__text .icon {
   overflow: clip;
   width: auto;
   height: auto;
-  min-height: 0;
+  /* The largest viewport: the map also runs under the browser's toolbars,
+   * which a fixed box sized to the smallest viewport leaves uncovered. */
+  min-height: 100lvh;
   border: 0;
   border-radius: 0;
+  background: var(--color-secondary);
 }
 
 /* The one search field floats at the top of the map. Its label is for
@@ -6728,6 +6740,182 @@ html:not(.map-ready) .place-details__close {
 @keyframes skypane-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* The Location page's loading state. With scripts on (the head script puts
+ * js-early on <html> before the first paint) the plain form never shows: the
+ * shapes of the search field, the mode chips and the sheet shimmer on the
+ * page's backdrop colour under a thin progress bar and the loading note, until
+ * the map script reports it runs (map-ready). Without scripts nothing of it
+ * shows. Every animation here is finite. */
+.place-boot {
+  display: none;
+}
+
+html.js-early:not(.map-ready) .place-boot {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  min-height: 100lvh;
+  background: var(--color-secondary);
+  --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  --place-top: calc(52px + var(--safe-top));
+  --place-boot-search-h: 54px;
+  --place-boot-bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
+}
+
+html.js-early:not(.map-ready) .place-stage > :not(.place-boot),
+html.js-early:not(.map-ready):has(.place-stage) .page-header {
+  display: none;
+}
+
+.place-runways {
+  display: contents;
+}
+
+.place-boot .place-boot__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+html.js-early:not(.map-ready) .place-boot .place-boot__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-accent);
+  transform: scaleX(0.04);
+  transform-origin: left center;
+  animation: skypane-boot-progress var(--motion-slow) cubic-bezier(0.1, 0.6, 0.3, 1) 1 forwards;
+}
+
+@keyframes skypane-boot-progress {
+  to {
+    transform: scaleX(0.92);
+  }
+}
+
+.place-boot .place-boot__search {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  top: calc(var(--place-top) + var(--place-gutter));
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  height: var(--place-boot-search-h);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.place-boot .place-boot__chip {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  top: calc(var(--place-top) + var(--place-gutter) + var(--place-boot-search-h) + var(--space-sm));
+  left: var(--place-gutter);
+  width: 8.5rem;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.place-boot .place-boot__chip + .place-boot__chip {
+  left: calc(var(--place-gutter) + 8.5rem + var(--space-sm));
+  width: 7rem;
+}
+
+.place-boot .place-boot__note {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.place-boot .place-boot__sheet {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  bottom: var(--place-boot-bottom);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  height: 9.5rem;
+  padding: var(--space-md) calc(var(--space-md) + var(--space-xs));
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-glass);
+}
+
+.place-boot .place-boot__line {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: 52px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.place-boot .place-boot__line--short {
+  width: 55%;
+  height: 24px;
+}
+
+.place-boot .place-boot__line--thin {
+  height: 12px;
+}
+
+@media (min-width: 960px) {
+  /* The loading state keeps the sidebar's column clear and shows the card's
+   * shape at the left of the map. */
+  html.js-early:not(.map-ready) .place-boot {
+    --place-boot-left: calc(240px + 2 * var(--space-md));
+    --place-boot-card-w: 400px;
+  }
+
+  .place-boot .place-boot__search {
+    top: var(--space-md);
+    left: var(--place-boot-left);
+    right: auto;
+    width: var(--place-boot-card-w);
+  }
+
+  .place-boot .place-boot__chip {
+    display: none;
+  }
+
+  .place-boot .place-boot__note {
+    left: calc(50% + (240px + var(--space-md)) / 2);
+  }
+
+  .place-boot .place-boot__sheet {
+    top: calc(2 * var(--space-md) + var(--place-boot-search-h));
+    bottom: auto;
+    left: var(--place-boot-left);
+    right: auto;
+    width: var(--place-boot-card-w);
+    height: auto;
+    gap: var(--space-md);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card-hover);
   }
 }
 
