@@ -507,4 +507,28 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
   should not have a 'Claire' option" (the diagonal band selector, options
   None / Pleine / Claire, most likely; to confirm with the owner which
   selector and what the options become).
+- W85b (owner, screenshot) Clarified: in the new-look dialog the diagonal band
+  option "Claire" shows struck through ("Le cadre n'a pas encore de thème pour
+  cette combinaison"); an option with no theme should not be offered at all.
+- W86 (owner) Personalisation: the "new special look" dialog is broken on
+  desktop; he expected the options in a full page like the Departures and
+  Arrivals tabs, not a modal.
+- W87 (owner) Personalisation: the Calendar view is completely broken when
+  editing a calendar's configuration or adding a new one. Same wish: go to a
+  page instead of a modal where possible (also for the other dialogs).
+- W88 (owner) Airline collection: the title is too big; call it "Compagnies"
+  (preferred) or "Collection". The desktop view is far too busy, illegible:
+  he wants a detailed, near-real mockup proposal.
+- W89 (owner) Account: the frame rows should breathe more; as a user he does
+  not care about the hardware detail line.
+- W90 (owner, screenshots) Account: the Manage access dialog (add a
+  co-manager) is a bit broken (empty-state heading inside the owner group,
+  uneven paddings, Done button off-grid).
+- W91 (owner, question) As a user (owner of a frame) there is no option to
+  remove a frame: is that normal? Answer: today only administrators can retire
+  a frame; owners see Manage access, co-managers see Leave frame. Product
+  decision needed (owner "Remove frame" with confirmation?).
+- W92 (owner) In the Manage access dialog the e-mail field pre-fills itself
+  (browser autofill suggestions); very annoying: disable autofill on that
+  field (autocomplete off, no autofill of the owner's own address).
 - (owner has not finished; more items to come.)
