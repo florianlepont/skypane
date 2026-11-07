@@ -47,7 +47,7 @@ Order-of-magnitude totals: Seeed kit about 67.7 EUR excl. VAT with the 15 EUR de
 
 ## Decisions still open
 
-- Purchase of a 7.3" evaluation unit: agreed by the owner on 2026-11-07 (one Seeed EE04 bundle kit, owner orders). Not yet ordered as far as Claude knows.
+- Purchase of a 7.3" evaluation unit: agreed by the owner on 2026-11-07 (one Seeed EE04 bundle kit, owner orders). Ordered by the owner on 2026-11-07 (owner-reported: "j'ai commandé le kit"). Price paid, delivery estimate and order reference not yet given.
 - Gallery 3 and Kaleido 3: dropped for this phase by the owner on 2026-11-02 (decision D-11).
 
 ## Order notes for the Seeed evaluation unit (not an order)
