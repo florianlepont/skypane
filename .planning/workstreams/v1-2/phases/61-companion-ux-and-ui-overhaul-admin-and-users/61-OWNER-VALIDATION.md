@@ -577,4 +577,35 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
   identity"? Open: today a user can only be disabled (Active switch) or have
   the identity unlinked; no delete exists. Needs a product decision on what
   happens to the user's frames (owner) and the audit trail before building.
+
+### Round 8, iPhone checklist (owner answers, numbered as the checklist)
+
+- Items 1 (bottom shadow/bars) and 6 (Home): all OK. Item 5 Vols and 8
+  Personalisation: OK except as noted below.
+- W104 (owner, item 2) The animations play late the first time they load, so
+  they lose their dynamism. General question: should there be a preload at
+  site opening that loads the animations and everything needed into cache,
+  with the loading logo he mentioned was missing (also W75, W76)?
+- W105 (owner, item 3) The More menu is much better, but "Collection de
+  compagnies" is lost among all the information. Idea: dim/blur the site
+  behind so the More panel stands out more.
+- W106 (owner, item 4) Better, but e.g. the Quiet hours sheet needs scrolling
+  to reach Save (a problem). On desktop and mobile, the modal backgrounds
+  have a fake transparency effect that does not work and makes the content
+  hard to read (same as W73).
+- W107 (owner, item 5) Opening a picture: the blurred yellowish band below the
+  image falls oddly: the backdrop is not covering enough (screenshot: caption
+  pill and Close over a half-transparent strip, the tab bar and list show
+  through).
+- W108 (owner, item 7) Location: the map is still not fully full-screen; it
+  does not pass under the floating navigation bar. Should "Save place" use the
+  floating Save/Cancel popup like the other save buttons? Maybe not possible
+  with the nav bar.
+- W109 (owner, item 8 Personalisation) Same remark as Location: the Save
+  button does not have the floating popup behaviour agreed earlier.
+- W110 (owner, item 9, screenshot) Fleet sub-tabs on phone: the selected
+  segment is a tiny black pill, broken (thumb not sized to its tab). The
+  admin "Mon cadre" tab label is clipped and outlined.
+- W111 (owner) When changing tab, the bar briefly becomes transparent then
+  opaque (screenshot also shows page content showing through the tab bar).
 - (owner has not finished; more items to come.)
