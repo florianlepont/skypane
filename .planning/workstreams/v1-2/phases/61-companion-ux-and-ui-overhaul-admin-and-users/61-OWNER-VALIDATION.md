@@ -797,3 +797,16 @@ Airlines header
   compagnies sur 36 repérées" (38 of 36), which is incoherent: the wording or
   the figures are wrong (chips say Toutes 47, Repérées 38). To fix with W140.
 - (owner has not confirmed he is done; more may come.)
+
+## Round 9 grouping (D46)
+
+The owner finished his round 9 feedback (W114-W141). Grouping:
+
+Straight fixes, no decision needed (plan 61-84): W116, W119, W121, W125,
+W126, W127, W128, W132, W133, W136, W137, W138, W139, W140, W141.
+
+Decisions with mockups (asked one by one, mockups in scratchpad mockups90/):
+Home status coherence and battery (W114, W115, W117), Quiet hours compact
+(W118), Flights rows (W120), tab bar and More menu (W129, W130, W131),
+Console/My frame switch (W134), Fleet desktop (W135), Location mobile
+full-bleed and loading state (W122, W123, W124).

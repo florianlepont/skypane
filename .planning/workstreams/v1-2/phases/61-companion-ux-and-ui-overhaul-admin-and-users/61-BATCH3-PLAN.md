@@ -108,3 +108,10 @@ dropped or redrawn from a sketch.
 | 61-81 | D-I delete user, D-J owner removes a frame |
 | 61-82 | D-F opening splash (concept to choose) and loading indicators |
 | 61-83 | D-L battery row on Home (Frame group), for all users |
+
+## Batch 12 (D46, round 9)
+
+| Plan | Scope |
+|------|-------|
+| 61-84 | Straight fixes: toggle reload, Always on removed, picture dialog glitch, calendar bug, duplicate Save, aircraft size, floating Save label, tab pill and footer flash, Users menu and table panel, airline resolve fields, audit id, Airlines header and counter |
+| 61-85.. | After the owner answers the mockup decisions |
