@@ -284,7 +284,7 @@ restore_site_file() {
 }
 
 # Invoked only through the EXIT trap below.
-# shellcheck disable=SC2317
+# shellcheck disable=SC2317,SC2329
 on_exit() {
     local _rc=$?
     rm -f "${SITE_FILE_NEW}"
