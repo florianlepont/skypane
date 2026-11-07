@@ -693,3 +693,12 @@ and centred. Reference: scratchpad splash79/demo.html section p2. Plan 61-82.
   Home for users (administrators keep a small pill; users only get the amber
   or red notification when low). He asked for mockups of where to put it back
   before choosing (decision D-L).
+
+## Decision D-L (battery on Home), owner answered
+
+Option C: a "Batterie" row in the Home Frame group (under Screen and Quiet
+hours): icon tile, "69 % · Niveau normal", a thin level bar and the estimated
+autonomy ("environ 3 semaines") only when an honest figure exists; "Aucune
+mesure pour l'instant" with no bar when there is no reading. For every user
+(not only administrators). Mockups: scratchpad battery82/. Planned as plan
+61-83.

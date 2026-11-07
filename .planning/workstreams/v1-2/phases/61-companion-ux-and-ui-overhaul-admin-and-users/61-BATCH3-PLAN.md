@@ -107,3 +107,4 @@ dropped or redrawn from a sketch.
 | 61-80 | D-C airline editor, D-D audit log |
 | 61-81 | D-I delete user, D-J owner removes a frame |
 | 61-82 | D-F opening splash (concept to choose) and loading indicators |
+| 61-83 | D-L battery row on Home (Frame group), for all users |
