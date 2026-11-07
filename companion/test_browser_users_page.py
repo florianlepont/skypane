@@ -327,3 +327,63 @@ def test_the_invite_button_never_overlaps_the_title(
         assert button["b"] - button["t"] >= 44
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
+def test_the_row_menu_keeps_every_item_on_one_line_inside_the_screen(
+        new_context, app_server_in_process, viewport, lang):
+    """each item of the "..." menu is one line tall (never wrapped), the panel is as wide as its
+    longest label and sits inside the viewport, on a phone card and in the desktop table"""
+    context, page, _seed = _open(new_context, app_server_in_process, viewport, lang=lang)
+    try:
+        _settled(page)
+        row = _row(page, fx.USER_EMAIL) if page.locator("tr.users-row", has_text=fx.USER_EMAIL).count() \
+            else page.locator("tr.users-row").nth(1)
+        row.locator("summary").click()
+        page.wait_for_function(
+            "() => { const p = document.querySelector('details.row-menu[open] .row-menu__panel');"
+            " return !!p && p.getBoundingClientRect().width > 0; }", timeout=10000)
+        report = page.evaluate("""() => {
+            const panel = document.querySelector('details.row-menu[open] .row-menu__panel');
+            const box = panel.getBoundingClientRect();
+            const items = [...panel.querySelectorAll('.row-menu__item')].map(item => {
+                const r = item.getBoundingClientRect();
+                const range = document.createRange();
+                range.selectNodeContents(item);
+                return {height: r.height, lines: range.getClientRects().length,
+                        overflow: item.scrollWidth - item.clientWidth};
+            });
+            return {items, left: box.left, right: box.right, vw: document.documentElement.clientWidth};
+        }""")
+        assert report["items"], report
+        for item in report["items"]:
+            assert item["lines"] == 1 and item["height"] < 60 and item["overflow"] <= 1, report
+        assert report["left"] >= -0.5 and report["right"] <= report["vw"] + 0.5, report
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
+def test_the_users_list_is_one_surface_with_its_count_above_it(
+        new_context, app_server_in_process, viewport):
+    """the section around the list has no surface of its own (no background, border or shadow),
+    and the count line sits wholly above the table or the first card instead of on an edge"""
+    context, page, _seed = _open(new_context, app_server_in_process, viewport)
+    try:
+        _settled(page)
+        report = page.evaluate("""() => {
+            const section = document.querySelector('.users-section');
+            const style = getComputedStyle(section);
+            const count = document.querySelector('.entity-count').getBoundingClientRect();
+            const first = document.querySelector('.users-table .users-row').getBoundingClientRect();
+            const table = document.querySelector('.users-table').getBoundingClientRect();
+            return {bg: style.backgroundColor, border: style.borderTopWidth, shadow: style.boxShadow,
+                    countBottom: count.bottom, tableTop: table.top, firstTop: first.top};
+        }""")
+        assert report["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), report
+        assert report["border"] == "0px" and report["shadow"] == "none", report
+        assert report["countBottom"] <= report["tableTop"] + 0.5, report
+        assert report["countBottom"] <= report["firstTop"] + 0.5, report
+    finally:
+        context.close()

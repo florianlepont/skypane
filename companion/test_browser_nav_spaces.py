@@ -32,11 +32,11 @@ def test_console_bar_has_switch_and_equal_cells_at_360(
     context, page = _admin_page(
         new_context, app_server_in_process, path, VIEWPORT_MIN_SUPPORTED, lang, scheme)
     try:
-        _assert_bar(page, 5, "console%s/%s/%s" % (path, lang, scheme))
+        _assert_bar(page, 6, "console%s/%s/%s" % (path, lang, scheme))
         assert page.locator(".section-subnav").count() == 0
         page.locator(".tab-bar__more > summary").click()
         sheet = page.locator(".tab-bar__more-panel a")
-        assert sheet.count() == 2
+        assert sheet.count() == 1
         for index in range(sheet.count()):
             assert sheet.nth(index).bounding_box()["height"] >= MIN_TAP_PX
     finally:
@@ -137,8 +137,8 @@ def test_desktop_sidebars_put_the_switch_first(
         switch.locator("a", has_text="My frame").click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
         page.wait_for_function(
-            "() => document.querySelector('.dashboard-sidebar .space-switch"
-            " [aria-current=page]').textContent.includes('My frame')")
+            "() => { const a = document.querySelector('.dashboard-sidebar .space-switch"
+            " [aria-current=page]'); return !!a && a.textContent.includes('My frame'); }")
         assert page.locator(".sidebar-nav").inner_text().count("Update") == 0
         assert page.locator(".section-subnav").count() == 0
     finally:

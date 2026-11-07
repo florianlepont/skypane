@@ -1,9 +1,9 @@
 """Real-browser checks of the Personalisation page (/display and its three sibling views): at 360
 and 1280 px, in English and French, in both themes, nothing overflows sideways and every control
-(the one navigation, the picker's colour dots, background and band segments, Reset, Save) is at
+(the one navigation, the picker's colour dots, background and band segments) is at
 least 44x44 and owns its own centre. Departures and Arrivals are the picker: choosing in it raises
 the save bar naming Look and Save persists the look after a reload; the Arrivals address shows
-its own picture and the "Same as departures" switch; Reset puts the saved look back; from 960 px
+its own picture and the "Same as departures" switch; the save bar's Cancel puts the saved look back; from 960 px
 the picture and the picker are two columns that both fit a 1280x800 screen. The navigation links
 are plain links, one view each, with a highlight that slides to the current link (and does not
 under reduced motion); the retired Screen address lands on Departures; without scripts the
@@ -109,7 +109,7 @@ def _checked_theme(page):
 def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
         new_context, make_app_server, viewport, lang):
     """after load, with no scrolling, the picture, the colour swatches, the background and band
-    controls and the Save button are all inside the viewport and end above the floating tab bar;
+    controls are all inside the viewport and end above the floating tab bar;
     the swatches are drawn 32px inside their 44px targets"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang)
@@ -119,12 +119,12 @@ def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
             "() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect();"
             " const segments = [...document.querySelectorAll('%s .look-seg')];"
             " const dot = document.querySelector('%s .look-dot__ink').getBoundingClientRect();"
-            " return {tab: box('.tab-bar').top, save: box('%s .look-sheet__save').bottom,"
+            " return {tab: box('.tab-bar').top, picker: box('%s').bottom,"
             "  segments: segments.map((s) => [s.getBoundingClientRect().bottom,"
             "    s.getBoundingClientRect().height]),"
             "  picture: box('.look-frame__picture').width, ink: dot.width, scroll: window.scrollY}; }"
             % (PICKER, PICKER, PICKER))
-        assert geometry["scroll"] == 0 and geometry["save"] <= geometry["tab"], geometry
+        assert geometry["scroll"] == 0 and geometry["picker"] <= geometry["tab"], geometry
         assert len(geometry["segments"]) == 2, geometry
         for bottom, height in geometry["segments"]:
             assert bottom <= geometry["tab"] and abs(height - 40) <= 0.5, geometry
@@ -140,8 +140,9 @@ def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_no_overflow_and_every_control_is_44px_and_reachable(
         new_context, make_app_server, label, viewport, theme, lang):
-    """the look views do not scroll sideways and their nav links, colour dots, segments, Reset
-    and Save are at least 44x44 and own their centre; the Arrivals view's switch likewise"""
+    """the look views do not scroll sideways and their nav links, colour dots and segments are at
+    least 44x44 and own their centre; the Arrivals view's switch likewise; the picker has no
+    Save or Reset button of its own"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
     try:
@@ -149,8 +150,10 @@ def test_no_overflow_and_every_control_is_44px_and_reachable(
         assert not overflow, overflow
         selectors = (
             ".personalisation-nav__link", PICKER + " .look-dot",
-            PICKER + " .look-seg__option", PICKER + " .look-sheet__reset",
-            PICKER + " .look-sheet__save")
+            PICKER + " .look-seg__option")
+        assert page.locator(PICKER + " button.look-sheet__save, " + PICKER
+                            + " button.look-sheet__reset, " + PICKER
+                            + " .look-sheet__foot").count() == 0
         for selector in selectors:
             measured = _measure(page, selector)
             assert measured, selector
@@ -160,8 +163,7 @@ def test_no_overflow_and_every_control_is_44px_and_reachable(
         page.goto(server.base_url() + layout.DISPLAY_ARRIVALS_ROUTE)
         _ready(page, layout.DISPLAY_ARRIVALS_ROUTE)
         for selector in (
-                ".personalisation-nav__link", PICKER + " .look-dot", "[data-look-same]",
-                PICKER + " .look-sheet__save"):
+                ".personalisation-nav__link", PICKER + " .look-dot", "[data-look-same]"):
             measured = _measure(page, selector)
             assert measured, selector
             for box, owns in measured:
@@ -250,9 +252,9 @@ def test_choosing_in_the_picker_raises_the_bar_naming_look_and_save_persists_it(
         context.close()
 
 
-def test_the_inline_save_button_saves_the_look(new_context, make_app_server):
-    """the Save button in the picker card submits the settings form: the look is stored and the
-    page returns to the Look view"""
+def test_the_floating_save_bar_saves_the_look(new_context, make_app_server):
+    """the picker card has no Save button of its own: the floating bar's Save submits the
+    settings form, the look is stored and the page returns to the Look view"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
@@ -260,7 +262,7 @@ def test_the_inline_save_button_saves_the_look(new_context, make_app_server):
         _wait_for_bar(page)
         chosen = _checked_theme(page)
         with page.expect_navigation(timeout=30000):
-            page.click(PICKER + " button.look-sheet__save")
+            page.click(".dirty-bar button[type=submit]")
         _ready(page, layout.DISPLAY_ROUTE)
         assert device_config.load_device_config(server.state_dir)["theme"] == chosen
         assert page.url.split("?")[0].endswith(layout.DISPLAY_ROUTE)
@@ -269,10 +271,10 @@ def test_the_inline_save_button_saves_the_look(new_context, make_app_server):
 
 
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_views_show_their_own_picture_and_reset_restores_the_saved_look(
+def test_the_views_show_their_own_picture_and_cancel_restores_the_saved_look(
         new_context, make_app_server, label, viewport):
     """Departures shows its picture first; the Arrivals address shows its own picture and offers
-    "Same as departures"; a choice there changes only Arrivals; Reset puts the saved Arrivals
+    "Same as departures"; a choice there changes only Arrivals; Cancel puts the saved Arrivals
     look back"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport)
@@ -304,7 +306,7 @@ def test_the_views_show_their_own_picture_and_reset_restores_the_saved_look(
             "() => { const r = document.querySelector('input[name=\"theme_arriving\"]:checked');"
             " return !!r && r.value.indexOf('green') !== -1; }", timeout=5000)
         assert _checked_theme(page) == SAVED_LOOK
-        page.click(PICKER + " button.look-sheet__reset")
+        page.click(".dirty-bar [data-dirty-cancel]")
         page.wait_for_function(
             "() => { const r = document.querySelector('input[name=\"theme_arriving\"]:checked');"
             " return !!r && r.value === ''; }", timeout=5000)
@@ -475,3 +477,31 @@ def test_without_scripts_the_links_work_and_the_look_view_offers_the_native_card
         page.locator('[data-look-panel="arrivals"]').wait_for(state="visible")
         assert page.url.split("?")[0].endswith(layout.DISPLAY_ARRIVALS_ROUTE)
         assert not page.locator('[data-look-panel="departures"]').is_visible()
+
+
+@pytest.mark.parametrize("lang,label", [("en", "Save"), ("fr", "Enregistrer")])
+@pytest.mark.parametrize("label_vp,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_the_floating_bar_save_button_is_the_short_word_on_one_line(
+        new_context, make_app_server, label_vp, viewport, lang, label):
+    """the floating bar's Save reads just "Save" / "Enregistrer": one line, 44px tall, inside the
+    bar, with Cancel beside it"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), viewport, lang=lang)
+    try:
+        page.click(PICKER + ' .look-dot:has(input[data-look-axis="colour"][value="green"])')
+        _wait_for_bar(page)
+        save = page.locator(".dirty-bar button.dirty-bar__save")
+        page.wait_for_function(
+            "() => { const b = document.querySelector('.dirty-bar');"
+            " return b && b.getBoundingClientRect().height > 0; }", timeout=10000)
+        assert save.inner_text().strip() == label
+        box = save.bounding_box()
+        assert box["height"] <= 48 and box["height"] >= 43.5, box
+        bar = page.locator(".dirty-bar").bounding_box()
+        assert box["x"] >= bar["x"] and box["x"] + box["width"] <= bar["x"] + bar["width"] + 0.5
+        line_count = save.evaluate(
+            "el => { const r = document.createRange(); r.selectNodeContents(el);"
+            " return r.getClientRects().length; }")
+        assert line_count == 1
+    finally:
+        context.close()

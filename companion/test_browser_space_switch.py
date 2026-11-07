@@ -153,7 +153,7 @@ def test_the_phone_tab_bar_leads_with_the_switch_to_the_other_space(
         assert cell["href"] == ("/" if space == "console" else "/fleet"), cell
         assert page.locator(".space-switch:visible").count() == 0
         assert page.locator("header.site-header").bounding_box()["height"] <= 56
-        _assert_bar(page, 5 if space == "console" else 6, where)
+        _assert_bar(page, 6, where)
     finally:
         context.close()
 

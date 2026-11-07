@@ -1,6 +1,6 @@
 """Real-browser checks of the Console Fleet view: the frame button's popover selects a frame
 with a plain link, lists System and Add a frame and the owner of other people's frames, the
-four blocks sit in two columns on desktop and stack on a phone, nothing overflows at 360 and
+sections form one column on desktop and a phone's tab shows its own, nothing overflows at 360 and
 1280px in either theme and language, and every row is a 52px target."""
 import pytest
 
@@ -53,16 +53,13 @@ def test_the_blocks_lay_out_and_nothing_overflows(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         blocks = page.evaluate(_BLOCKS)
-        # A phone's State tab shows State, Device and Versions; from 960px State and the
-        # summary rows (the other groups live in their dialogs).
-        assert len(blocks) == (2 if viewport["width"] >= 960 else 3), where
-        first, second = blocks[0], blocks[1]
-        if viewport["width"] >= 1000:
-            assert second["x"] > first["right"] - 1, (where, blocks)
-            assert abs(second["y"] - first["y"]) < 2, (where, blocks)
-        else:
-            assert abs(second["x"] - first["x"]) < 2, (where, blocks)
-            assert second["y"] > first["y"], (where, blocks)
+        # A phone's State tab shows State and Device and version; from 960px every section
+        # (State, Device and version, Settings, Access, Other frames) is on the page.
+        assert len(blocks) == (5 if viewport["width"] >= 960 else 2), where
+        for upper, lower in zip(blocks, blocks[1:]):
+            assert abs(lower["x"] - upper["x"]) < 2 and lower["y"] > upper["y"], (where, blocks)
+        if viewport["width"] >= 960:
+            assert blocks[0]["w"] <= 800.5, (where, blocks[0])
         for block in blocks:
             assert block["right"] <= viewport["width"] + 0.5, (where, block)
         open_menu(page)
@@ -91,8 +88,8 @@ def test_a_row_is_a_plain_link_that_selects_the_frame(
             "(sel) => document.querySelector(sel).getAttribute('aria-current') === 'true'",
             arg=target)
         assert page.locator(FRAMES + '[aria-current="true"]').count() == 1
-        # State, the summary rows, Device, Versions, Settings and Access.
-        assert page.locator("section.fleet-block").count() == 6
+        # State, Device and version, Settings, Access and Other frames.
+        assert page.locator("section.fleet-block").count() == 5
         page.locator(SYSTEM).click()
         page.wait_for_url("**/fleet?view=system")
         page.wait_for_function(_SETTLED, timeout=15000)

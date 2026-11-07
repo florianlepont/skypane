@@ -34,7 +34,7 @@ _ROW_FACTS = (
     "    || k.getBoundingClientRect().right > b.right + 0.5)}; })")
 
 _EN_WORDS = {
-    "Not seen yet", "No contact", "Overdue", "Low battery", "Resting", "Up to date",
+    "Not seen yet", "No contact", "Overdue", "Low battery", "Resting", "Online",
     "Waiting for pairing", "Retired"}
 
 
@@ -64,20 +64,9 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         assert page.locator("table").count() == 0
-        if viewport["width"] >= 960:
-            # From 960px a summary row opens the pending and retired frames in a dialog.
-            assert not page.locator("details.fleet-other").is_visible()
-            page.locator("a.fleet-sum[href='#dlg-fleet-others']").click()
-            page.wait_for_function(
-                "() => document.querySelector('#dlg-fleet-others').open", timeout=10000)
-            assert page.locator("#dlg-fleet-others li.entity-row").count() == 2
-        else:
-            # The pending and retired frames sit in a collapsed block.
-            assert page.locator("details.fleet-other").get_attribute("open") is None
-            page.locator("details.fleet-other > summary").click()
-            page.wait_for_function(
-                "() => document.querySelector('details.fleet-other').open", timeout=10000)
-            assert page.locator("details.fleet-other li.entity-row").count() == 2
+        # The pending and retired frames are a section of the page, open at every width.
+        assert page.locator("details.fleet-other").count() == 0
+        assert page.locator(".fleet-block--others li.entity-row").count() == 2
         assert not _assert_no_page_overflow(page, where + "/other", viewport["width"])
         rows = page.evaluate(_ROW_FACTS)
         assert len(rows) == 2
@@ -88,10 +77,6 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
             assert all("mono" not in family.lower() for family in row["metaFamily"])
             if lang == "en":
                 assert row["label"] in _EN_WORDS, (where, row)
-        if viewport["width"] >= 960:
-            page.keyboard.press("Escape")
-            page.wait_for_function(
-                "() => !document.querySelector('#dlg-fleet-others').open", timeout=10000)
         _assert_hit_target(page, "summary.frame-menu__button", where)
         open_menu(page)
         _assert_hit_target(page, "a.frame-row--add", where)
@@ -146,8 +131,7 @@ def test_the_actions_menu_opens_closes_with_escape_and_has_44px_items(
             "() => document.querySelectorAll("
             "'.fleet-detail-head details.row-menu[open]').length === 1", timeout=10000)
         items = page.locator(".fleet-detail-head .row-menu__item")
-        assert items.all_inner_texts() == [
-            "Open personal view", "Manage access", "Reassign", "Retire"]
+        assert items.all_inner_texts() == ["Open personal view"]
         for index in range(items.count()):
             assert items.nth(index).bounding_box()["height"] >= MIN_TAP_PX
         assert not _assert_no_page_overflow(page, "menu-open", viewport["width"])

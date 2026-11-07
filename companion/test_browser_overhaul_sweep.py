@@ -217,8 +217,6 @@ CASES = (
     _case("admin", "/fleet", None, "fleet"),
     _case("admin", "/fleet", "dlg-add-frame", "fleet-add-dialog"),
     _case("admin", "/fleet", "dlg-retire-{slug}", "fleet-retire-dialog"),
-    _case("admin", "/fleet", "dlg-reassign-{slug}", "fleet-reassign-dialog"),
-    _case("admin", "/fleet", "dlg-access-{slug}", "fleet-access-dialog"),
     _case("admin", "/users", None, "users"),
     _case("admin", "/users", "dlg-invite-user", "users-invite-dialog"),
     _case("admin", "/locations", None, "locations"),

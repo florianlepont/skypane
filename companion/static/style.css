@@ -12,7 +12,7 @@
  *     input and filter-chip box, the sparkline hit target, the look
  *     frame/open button) and the native accent-color of input/select
  *   - primary actions (button[type="submit"], a.calendar-manage--primary,
- *     button.look-sheet__done, button.look-sheet__save, the skip link)
+ *     button.look-sheet__done, the skip link)
  *   - current location / selection (.sidebar-link--active,
  *     .mobile-nav__link--active, .tab-bar__link--active and its pill,
  *     the tab bar's space switch cell, the active theme option,
@@ -50,7 +50,8 @@
   /* The floating tab bar: its height and the gap to the screen edge; the
    * page clears bar + gap + the home-indicator inset. */
   --tab-bar-h: 68px;
-  --tab-bar-gap: 12px;
+  --tab-bar-gap: 6px;
+  --tab-bar-side: 8px;
   --tab-bar-pad: 2px;
 
   /* Spacing scale, multiples of 4. */
@@ -192,7 +193,7 @@
   --sky-mid: #F1F3F6;
   --sky-bottom: #EDF1F6;
   /* Translucent surfaces painted over the sky: cards and panels, and the
-   * bars (sidebar, tab bar, phone header). The composite over the worst
+   * bars (sidebar, phone header). The composite over the worst
    * sky stop is what the contrast tests measure. The bars are nearly opaque
    * because page content scrolls beneath them: whatever passes behind a bar
    * (a white picture, a dark card) must not wash out its labels. */
@@ -204,12 +205,12 @@
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
-  --bar-border: rgba(255, 255, 255, 0.7);
-  --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  /* The floating bar's shadow reaches 1px + 6px + 14px - 8px = 12px under it,
-   * exactly the gap to the screen edge (--tab-bar-gap), so it is never cut by
-   * the bottom of the viewport and never spills under the browser toolbar. */
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
+  --bar-border: #AEB8C8;
+  /* The floating bar's shadow reaches 1px + 2px = 3px under it, inside the
+   * gap to the screen edge (--tab-bar-gap), so it is never cut by the bottom
+   * of the viewport; the rest of it is cast upward. */
+  --bar-shadow: 0 1px 2px rgba(18, 21, 27, 0.2), 0 -4px 8px -4px rgba(18, 21, 27, 0.22);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(18, 21, 27, 0.4);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -277,9 +278,9 @@
     --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
     --bar-bg: rgba(20, 24, 34, 0.86);
     --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
-    --bar-border: rgba(255, 255, 255, 0.16);
-    --bar-pill-bg: rgba(255, 255, 255, 0.18);
-    --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
+    --bar-border: #46506A;
+    --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+    --bar-sheet-shadow: 0 -10px 28px -12px rgba(0, 0, 0, 0.7);
     --pop-bg: rgba(28, 34, 45, 0.92);
     --color-canvas: #161A24;
     --color-dominant: #151922;
@@ -328,9 +329,9 @@ html[data-ui-theme="light"] {
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
-  --bar-border: rgba(255, 255, 255, 0.7);
-  --bar-pill-bg: rgba(255, 255, 255, 0.92);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 1px 2px rgba(18, 21, 27, 0.1), 0 6px 14px -8px rgba(18, 21, 27, 0.3);
+  --bar-border: #AEB8C8;
+  --bar-shadow: 0 1px 2px rgba(18, 21, 27, 0.2), 0 -4px 8px -4px rgba(18, 21, 27, 0.22);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(18, 21, 27, 0.4);
   --pop-bg: rgba(255, 255, 255, 0.9);
   --color-canvas: #F1F3F6;
   --color-dominant: #FFFFFF;
@@ -375,9 +376,9 @@ html[data-ui-theme="dark"] {
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
   --bar-bg: rgba(20, 24, 34, 0.86);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
-  --bar-border: rgba(255, 255, 255, 0.16);
-  --bar-pill-bg: rgba(255, 255, 255, 0.18);
-  --bar-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 14px -8px rgba(0, 0, 0, 0.6);
+  --bar-border: #46506A;
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+  --bar-sheet-shadow: 0 -10px 28px -12px rgba(0, 0, 0, 0.7);
   --pop-bg: rgba(28, 34, 45, 0.92);
   --color-canvas: #161A24;
   --color-dominant: #151922;
@@ -436,6 +437,14 @@ html[data-ui-theme="dark"] {
 @media (prefers-reduced-motion: no-preference) {
   @view-transition {
     navigation: auto;
+  }
+
+  /* The page snapshot can be shorter than the area the transition covers (a
+   * phone's strip under its bottom toolbar). That strip shows this layer, not
+   * the canvas colour, so it carries the colour the page gradient ends on
+   * instead of flashing the lighter top colour for the length of the change. */
+  ::view-transition {
+    background-color: var(--sky-bottom);
   }
 
   /* The tab bar's slider glides to its new place on the spring while the page
@@ -724,6 +733,18 @@ h3 {
   margin: 0 0 var(--space-xs);
 }
 
+/* Home's greeting is a quiet line above the state, which is the visible
+ * title; the page's h1 is visually hidden. */
+.page-greeting {
+  margin: 0 0 var(--space-xs);
+  font-family: var(--font-ui);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 .page-header__purpose {
   margin: 0 0 var(--space-lg);
 }
@@ -752,13 +773,15 @@ h3 {
 }
 
 /* The brand lockup: the logo mark beside the live site-title text. The
- * 28px mark sits inside the title's 28.8px line box, so the lockup is
- * exactly as tall as the bare title used to be and nothing shifts. The
- * mark is decorative (aria-hidden); the text is the accessible name. */
+ * lockup is 44px high whether or not it is a link (the wordmark link is the
+ * 44px target), so the logo and everything under it sit at the same place in
+ * the Console and in My frame. The mark is decorative (aria-hidden); the
+ * text is the accessible name. */
 .brand {
   display: inline-flex;
   align-items: center;
   gap: var(--space-sm);
+  min-height: 44px;
   min-width: 0;
 }
 
@@ -2208,11 +2231,6 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 @media (min-width: 1000px) {
-  .fleet-blocks {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: flex-start;
-  }
-
   .fleet-block--wide {
     grid-column: 1 / -1;
   }
@@ -2427,6 +2445,11 @@ button:not(.value-control__handle):active {
   display: none;
 }
 
+.dirty-bar button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
 /* The bar of the Fleet settings: sticks to the bottom of the viewport inside
  * the page's own column (so it is as wide as the content on a desktop and
  * above the floating tab bar on a phone) and never overlays the cards: it
@@ -2455,11 +2478,6 @@ button:not(.value-control__handle):active {
 .dirty-bar--docked [data-dirty-count] {
   min-width: 0;
   font-weight: 600;
-}
-
-.dirty-bar--docked button {
-  min-height: 44px;
-  min-width: 44px;
 }
 
 .dirty-bar--docked .dirty-bar__cancel {
@@ -3125,6 +3143,13 @@ table.data-table--readings {
   margin: 0;
 }
 
+/* The internal id is for support, not for reading: quieter than the items
+ * around it. */
+.audit-event__item--secondary dd {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
 .audit-head {
   display: none;
   list-style: none;
@@ -3341,13 +3366,6 @@ table.data-table--flights .cell-inline-sep {
 .update-cta .update-actions form,
 .update-cta .update-actions button[type="submit"] {
   width: 100%;
-}
-
-.update-versions__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-md);
 }
 
 .update-versions__head h2 {
@@ -5860,6 +5878,15 @@ html:not(.map-ready) .place-mode__text .icon {
 
 /* The map fills the whole window: it runs behind the glass sidebar and the
  * glass tab bar as well as behind the app bar. */
+html.map-ready,
+html.js-early:has(.place-stage) {
+  /* The page behind the map is the map's own placeholder colour, so no pale
+   * band can show above or below it, and the page never rubber-bands. */
+  background-color: var(--color-secondary);
+  background-image: none;
+  overscroll-behavior: none;
+}
+
 .map-ready .place-map {
   position: fixed;
   inset: 0;
@@ -5869,9 +5896,12 @@ html:not(.map-ready) .place-mode__text .icon {
   overflow: clip;
   width: auto;
   height: auto;
-  min-height: 0;
+  /* The largest viewport: the map also runs under the browser's toolbars,
+   * which a fixed box sized to the smallest viewport leaves uncovered. */
+  min-height: 100lvh;
   border: 0;
   border-radius: 0;
+  background: var(--color-secondary);
 }
 
 /* The one search field floats at the top of the map. Its label is for
@@ -6426,14 +6456,10 @@ html:not(.map-ready) .place-tap-hint {
     clip-path: inset(50%);
   }
 
-  /* The phone has the tab bar below the page: it floats over the map as
-   * glass, and the sheet and the Save bar sit above it. */
+  /* The phone has the tab bar below the page: it floats over the map, and
+   * the sheet and the Save bar sit above it. */
   .map-ready .place-stage {
     --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
-  }
-
-  .map-ready:has(.place-stage) .tab-bar {
-    background-color: transparent;
   }
 
   /* The bar keeps the two buttons on one row; the count is read aloud only. */
@@ -6714,6 +6740,182 @@ html:not(.map-ready) .place-details__close {
 @keyframes skypane-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* The Location page's loading state. With scripts on (the head script puts
+ * js-early on <html> before the first paint) the plain form never shows: the
+ * shapes of the search field, the mode chips and the sheet shimmer on the
+ * page's backdrop colour under a thin progress bar and the loading note, until
+ * the map script reports it runs (map-ready). Without scripts nothing of it
+ * shows. Every animation here is finite. */
+.place-boot {
+  display: none;
+}
+
+html.js-early:not(.map-ready) .place-boot {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  min-height: 100lvh;
+  background: var(--color-secondary);
+  --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  --place-top: calc(52px + var(--safe-top));
+  --place-boot-search-h: 54px;
+  --place-boot-bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
+}
+
+html.js-early:not(.map-ready) .place-stage > :not(.place-boot),
+html.js-early:not(.map-ready):has(.place-stage) .page-header {
+  display: none;
+}
+
+.place-runways {
+  display: contents;
+}
+
+.place-boot .place-boot__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+html.js-early:not(.map-ready) .place-boot .place-boot__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-accent);
+  transform: scaleX(0.04);
+  transform-origin: left center;
+  animation: skypane-boot-progress var(--motion-slow) cubic-bezier(0.1, 0.6, 0.3, 1) 1 forwards;
+}
+
+@keyframes skypane-boot-progress {
+  to {
+    transform: scaleX(0.92);
+  }
+}
+
+.place-boot .place-boot__search {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  top: calc(var(--place-top) + var(--place-gutter));
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  height: var(--place-boot-search-h);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.place-boot .place-boot__chip {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  top: calc(var(--place-top) + var(--place-gutter) + var(--place-boot-search-h) + var(--space-sm));
+  left: var(--place-gutter);
+  width: 8.5rem;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.place-boot .place-boot__chip + .place-boot__chip {
+  left: calc(var(--place-gutter) + 8.5rem + var(--space-sm));
+  width: 7rem;
+}
+
+.place-boot .place-boot__note {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.place-boot .place-boot__sheet {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  bottom: var(--place-boot-bottom);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  height: 9.5rem;
+  padding: var(--space-md) calc(var(--space-md) + var(--space-xs));
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-glass);
+}
+
+.place-boot .place-boot__line {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: 52px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.place-boot .place-boot__line--short {
+  width: 55%;
+  height: 24px;
+}
+
+.place-boot .place-boot__line--thin {
+  height: 12px;
+}
+
+@media (min-width: 960px) {
+  /* The loading state keeps the sidebar's column clear and shows the card's
+   * shape at the left of the map. */
+  html.js-early:not(.map-ready) .place-boot {
+    --place-boot-left: calc(240px + 2 * var(--space-md));
+    --place-boot-card-w: 400px;
+  }
+
+  .place-boot .place-boot__search {
+    top: var(--space-md);
+    left: var(--place-boot-left);
+    right: auto;
+    width: var(--place-boot-card-w);
+  }
+
+  .place-boot .place-boot__chip {
+    display: none;
+  }
+
+  .place-boot .place-boot__note {
+    left: calc(50% + (240px + var(--space-md)) / 2);
+  }
+
+  .place-boot .place-boot__sheet {
+    top: calc(2 * var(--space-md) + var(--place-boot-search-h));
+    bottom: auto;
+    left: var(--place-boot-left);
+    right: auto;
+    width: var(--place-boot-card-w);
+    height: auto;
+    gap: var(--space-md);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card-hover);
   }
 }
 
@@ -7563,10 +7765,7 @@ button.place-result.is-active {
 }
 
 .frame-battery__note {
-  display: block;
-  margin-top: var(--space-xs);
-  font-size: var(--font-caption-size);
-  line-height: 1.3;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The estimated "Probably charging" pill, shared by Home and Health. The
@@ -7642,18 +7841,12 @@ button.place-result.is-active {
   height: 16px;
 }
 
-/* Quiet hours dialog: the two time fields share a row on a wide dialog,
- * stack on a phone, and the preset row keeps its bottom gap off the
- * sentence below it. */
+/* Quiet hours dialog: the two presets share a row and so do the two time
+ * fields, at every width, so the whole sheet fits a small phone without
+ * scrolling. */
 .modal .quiet-times-row {
   gap: var(--space-sm);
-  grid-template-columns: minmax(0, 1fr);
-}
-
-@media (min-width: 700px) {
-  .modal .quiet-times-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .modal .quiet-preset-row {
@@ -7675,6 +7868,7 @@ button.place-result.is-active {
 
 .quiet-cards {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm);
 }
 
@@ -7726,6 +7920,7 @@ button.place-result.is-active {
 .quiet-card__detail {
   font-size: var(--font-label-size);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
@@ -7783,6 +7978,25 @@ button.place-result.is-active {
 
 .modal .quiet-timezone-note {
   margin: 0;
+}
+
+/* On a phone the two presets and the two times each get half the sheet:
+ * the check mark gives way (the border and the filled icon already mark the
+ * selection) and the times use a smaller size, so "23:00 – 07:00" and a
+ * 12-hour "11:00 PM" stay on one line. */
+@media (max-width: 480px) {
+  .modal .quiet-card {
+    gap: var(--space-sm);
+    padding: var(--space-sm);
+  }
+
+  .quiet-card[aria-pressed="true"] .quiet-card__check {
+    display: none;
+  }
+
+  .modal .quiet-tile input[type="time"] {
+    font-size: 1.25rem;
+  }
 }
 
 /* The link inside the sentence keeps its place in the line; its padding and
@@ -8074,6 +8288,17 @@ input[name="radius_km"] {
     margin: 0;
     z-index: 30;
     flex-wrap: wrap;
+  }
+
+  /* The count reads on its own line and the two buttons share the line under
+   * it, side by side at the same width. */
+  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) [data-dirty-count] {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) button {
+    flex: 1 1 0;
   }
 
 }
@@ -8431,8 +8656,8 @@ a.calendar-manage--primary:hover {
     display: flex;
     align-items: center;
     position: fixed;
-    left: max(var(--tab-bar-gap), var(--safe-left));
-    right: max(var(--tab-bar-gap), var(--safe-right));
+    left: max(var(--tab-bar-side), var(--safe-left));
+    right: max(var(--tab-bar-side), var(--safe-right));
     bottom: calc(var(--tab-bar-gap) + var(--safe-bottom));
     height: var(--tab-bar-h);
     z-index: 20;
@@ -8440,15 +8665,13 @@ a.calendar-manage--primary:hover {
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-pill);
     isolation: isolate;
-    /* The solid fill under the glass layer is painted from the first frame, so
-     * the page never shows through the bar while a page change is in flight. */
+    /* Opaque: a solid token surface from the first frame, so neither the page
+     * scrolling beneath nor a page change in flight ever shows through. */
     background-color: var(--glass-solid);
   }
 
-  /* The bar's glass (fill, blur, shadow) lives on this layer behind the cells,
-   * not on the bar: a backdrop-filter on the bar would make it the backdrop
-   * root of the More panel inside it, and the panel could then only blur the
-   * bar's own (empty) content, not the page scrolling beneath. */
+  /* The bar's edge shadow lives on this layer behind the cells so the More
+   * panel inside the bar never inherits it. */
   .tab-bar::before {
     content: "";
     position: absolute;
@@ -8460,8 +8683,8 @@ a.calendar-manage--primary:hover {
     box-shadow: var(--bar-shadow);
   }
 
-  /* Each of the five flex: 1 1 0 cells takes an equal share of the bar
-   * (72px at 360px, 78px at 390px) at 56px high, clearing WCAG 2.5.5's
+  /* The flex: 1 1 0 cells share the bar equally (the space switch aside) at
+   * 56px high, clearing WCAG 2.5.5's
    * 44px target-size floor directly. color is set
    * explicitly because this element doubles as the "More" <summary>, and
    * the global summary rule's accent colour would otherwise win. */
@@ -8505,21 +8728,21 @@ a.calendar-manage--primary:hover {
     white-space: nowrap;
   }
 
+  /* The active cell is a solid accent pill with its on-accent ink. */
   .tab-bar__link--active {
-    color: var(--color-accent);
+    color: var(--color-on-accent);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__link--active .tab-bar__pill {
-    background: var(--bar-pill-bg);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
+    background: var(--color-accent);
   }
 
   /* The administrator's space switch, first cell of the bar: set apart from
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 71px;
+    flex: 0 0 68px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -8568,9 +8791,11 @@ a.calendar-manage--primary:hover {
     transform: rotate(45deg);
   }
 
-  /* The More sheet: a sheet as wide as the bar, floating just above it. Theme
-   * and language are one tap each; below them the remaining destinations, the
-   * Account row and Sign out. It scrolls inside itself on a short screen. */
+  /* The More sheet: a sheet as wide as the bar, floating just above it, opaque
+   * and the same colour as the bar. The pages that do not fit the bar come
+   * first, then Account, theme and language (one tap each) and Sign out. Its
+   * shadow is cast upward only, so it never darkens the bar. It scrolls inside
+   * itself on a short screen. */
   .tab-bar__more-panel {
     position: absolute;
     bottom: calc(100% + var(--space-sm));
@@ -8581,31 +8806,37 @@ a.calendar-manage--primary:hover {
     display: flex;
     flex-direction: column;
     gap: var(--space-md);
-    padding: var(--space-md);
-    background: var(--color-secondary);
-    border: 1px solid var(--color-border);
+    padding: var(--space-sm) var(--space-md) var(--space-md);
+    background: var(--glass-solid);
+    border: 1px solid var(--bar-border);
     border-radius: var(--radius-sheet);
-    box-shadow: var(--shadow-card-hover);
+    box-shadow: var(--bar-sheet-shadow);
   }
 
   .tab-bar__more:not([open]) > .tab-bar__more-panel {
     display: none;
   }
 
+  /* Theme and language: the label at the start, the segmented control at the
+   * end of one row. */
   .tab-bar__pref {
     display: flex;
-    flex-direction: column;
-    gap: var(--space-xs);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
   }
 
   .tab-bar__pref-label {
+    flex: none;
     padding-left: var(--space-sm);
-    font-size: var(--font-caption-size);
+    font-size: var(--font-label-size);
     font-weight: var(--weight-semibold);
-    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    color: var(--color-text);
   }
 
   .tab-bar__pref .theme-form {
+    flex: 1 1 0;
+    max-width: 220px;
     background: var(--glass-solid);
   }
 
@@ -9577,6 +9808,12 @@ a.form-bar__cancel {
   border-radius: var(--radius-control);
 }
 
+/* Save wears the same type size as the Cancel link beside it. */
+.dirty-bar.form-bar .dirty-bar__save {
+  min-height: 44px;
+  font-size: var(--font-label-size);
+}
+
 a.form-bar__cancel:hover {
   background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
 }
@@ -9899,9 +10136,9 @@ a.modal__close {
   margin-top: var(--space-md);
 }
 
-.modal:not(:where(.fleet-dialog--inline)) input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-.modal:not(:where(.fleet-dialog--inline)) select,
-.modal:not(:where(.fleet-dialog--inline)) textarea {
+.modal input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.modal select,
+.modal textarea {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
@@ -9923,7 +10160,7 @@ a.modal__close {
   background: var(--color-dominant);
 }
 
-dialog.modal:not(:where(.fleet-dialog--inline)) button {
+dialog.modal button {
   height: auto;
   min-height: 44px;
   min-width: 44px;
@@ -10324,17 +10561,6 @@ a.pair-form__cancel {
   margin: var(--space-xs) 0 0;
 }
 
-/* The collapsed block of pending and retired frames under the selected frame. */
-details.fleet-other {
-  margin-top: var(--space-md);
-}
-
-/* Alone in its card the disclosure needs no extra gap above its summary:
- * the card's own padding frames it evenly. */
-.page-section > details.fleet-other:first-child {
-  margin-top: 0;
-}
-
 /* The State / Settings / Access sub-tabs of a frame: a phone shows one tab's
  * blocks (the server marks the current link and the container); from 960px the
  * control is gone and every block shows, as before. */
@@ -10349,134 +10575,91 @@ details.fleet-other {
 
   .fleet-blocks[data-fleet-tab="state"] .fleet-block:not(.fleet-block--state),
   .fleet-blocks[data-fleet-tab="settings"] .fleet-block:not(.fleet-block--settings),
-  .fleet-blocks[data-fleet-tab="access"] .fleet-block:not(.fleet-block--access),
-  .fleet-blocks[data-fleet-tab="state"] ~ .fleet-panel-access,
-  .fleet-blocks[data-fleet-tab="settings"] ~ .fleet-panel-access {
+  .fleet-blocks[data-fleet-tab="access"] .fleet-block:not(.fleet-block--access) {
     display: none;
   }
 }
 
-/* Detail dialogs of the Fleet page. Below 960px a dialog that is also a
- * block of the phone page renders as plain content (the dialog box, its head
- * and its action row are not drawn) and the summary rows are not shown; from
- * 960px the groups live in their dialogs, behind the summary rows. */
-@media (max-width: 959.98px) {
-  .fleet-dialog--inline:not([open]):not(:target) {
-    display: contents;
-  }
-
-  .fleet-dialog--inline:not([open]):not(:target) > .modal__body {
-    display: contents;
-  }
-
-  .fleet-dialog--inline:not([open]):not(:target) > .modal__head,
-  .fleet-dialog--inline:not([open]):not(:target) > .modal__actions,
-  .fleet-block--sums {
-    display: none;
-  }
-
-  .fleet-block--versions > .section-label {
-    display: none;
-  }
-}
-
+/* The frame's sections as one centred column from 960px: every section card
+ * (State, Device and version, Settings, Access, Other frames) follows the
+ * same pattern, a label above one glass group, and every control is inline.
+ * A phone keeps its sub-tabs above (the rules above). */
 @media (min-width: 960px) {
-  .fleet-block--access,
-  .fleet-panel-access {
-    display: none;
-  }
-
-  dialog.fleet-dialog {
-    width: min(640px, calc(100% - 48px));
-  }
-
-  .fleet-dialog .fleet-block > .section-label {
-    display: none;
-  }
-
-  .fleet-dialog--inline input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-  .fleet-dialog--inline select,
-  .fleet-dialog--inline textarea {
+  .fleet-frame {
     box-sizing: border-box;
     width: 100%;
-    max-width: 100%;
-    min-height: 44px;
+    max-width: 800px;
+    margin-inline: auto;
   }
 
-  dialog.fleet-dialog--inline button {
-    height: auto;
-    min-height: 44px;
-    min-width: 44px;
-    padding: var(--space-sm) var(--space-md);
-    font-size: var(--font-label-size);
+  .fleet-blocks:not(.fleet-blocks--system) {
+    gap: var(--space-lg);
   }
 
-  .fleet-dialog .fleet-group {
-    box-shadow: none;
-    border: 0;
-    background: transparent;
+  /* Five cards stand on the page at once: they are opaque instead of blurred, which
+   * keeps the page's blurred surfaces few. */
+  .fleet-frame .group {
+    background: var(--glass-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
-
-  .fleet-dialog .fleet-group > .fleet-group__item {
-    padding-inline: 0;
-  }
 }
 
-/* One summary row: an icon tile, the label over the value, a chevron. */
-.fleet-sum-list > li + li {
-  border-top: 1px solid var(--glass-hairline);
-}
-
-a.fleet-sum {
-  display: flex;
+/* The Retire row: the warning in the danger colour and a quiet outlined link
+ * that opens the one confirmation. */
+.fleet-retire {
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-md);
-  box-sizing: border-box;
-  min-height: 64px;
   padding: var(--space-sm) var(--space-md);
-  color: var(--color-text);
+}
+
+.fleet-retire .row__label {
+  color: var(--color-status-error);
+  font-weight: var(--weight-semibold);
+}
+
+a.fleet-retire__link {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-status-error);
+  border-radius: var(--radius-control);
+  color: var(--color-status-error);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
   text-decoration: none;
 }
 
-a.fleet-sum:hover {
-  background: var(--color-control-wash);
-}
-
-a.fleet-sum:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
-}
-
-.fleet-sum__icon {
-  box-sizing: content-box;
-  flex: none;
-  padding: 10px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-}
-
-.fleet-sum__text {
+/* The version history, collapsed to its summary line until opened. */
+.update-all > summary {
   display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.fleet-sum__label {
-  font-size: var(--font-caption-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.fleet-sum__value {
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  min-height: 44px;
+  color: var(--color-text);
   font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
+  cursor: pointer;
+  list-style: none;
 }
 
-.fleet-sum__chevron {
-  flex: none;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+.update-all > summary::before {
+  content: none;
+}
+
+.update-all > summary::-webkit-details-marker {
+  display: none;
+}
+
+.update-all[open] > summary .update-all__chevron {
+  transform: rotate(90deg);
 }
 
 /* The selected frame's header: its name and owner, and its actions menu. */
@@ -10894,21 +11077,6 @@ button.look-sheet__done[hidden] {
   display: none;
 }
 
-.look-sheet[data-look-inline] .look-sheet__foot button {
-  min-height: 48px;
-}
-
-button.look-sheet__save {
-  border-color: transparent;
-  background: var(--color-accent);
-  box-shadow: var(--shadow-control);
-  color: var(--color-on-accent);
-}
-
-button.look-sheet__save:hover {
-  background: var(--color-accent-hover);
-}
-
 /* On a phone the large picture is smaller and its read-back sits beside it,
  * so the first row of looks is on the first screen. */
 @media (max-width: 699.98px) {
@@ -10928,7 +11096,7 @@ button.look-sheet__save:hover {
     max-width: 5.25rem;
   }
 
-  /* Tighter spacing so the picture, the three controls and Save fit one phone screen. */
+  /* Tighter spacing so the picture and the three controls fit one phone screen. */
   .look-sheet[data-look-inline] {
     padding: var(--space-sm) var(--space-md);
   }
@@ -10939,15 +11107,6 @@ button.look-sheet__save:hover {
 
   .look-sheet[data-look-inline] .look-axis {
     padding: var(--space-xs) 0;
-  }
-
-  .look-sheet[data-look-inline] .look-sheet__foot {
-    padding-top: var(--space-sm);
-  }
-
-  .look-sheet[data-look-inline] .look-sheet__foot button {
-    min-height: 44px;
-    height: 44px;
   }
 
   .look-view .look-stage {
@@ -11035,10 +11194,6 @@ button.look-sheet__save:hover {
  * "earned/total" badge pill), one sticky control bar and a calm grid of
  * larger picture cards. A card that has not been seen is only dimmed. */
 .page-header:has(> .collection-head__status) {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-lg);
   margin-bottom: var(--space-md);
 }
 
@@ -11046,20 +11201,16 @@ button.look-sheet__save:hover {
   margin: 0;
 }
 
+/* The title keeps its own row; the progress sits under it with room to
+ * breathe, wrapping onto further lines on a narrow screen. */
 .collection-head__status {
   display: flex;
-  flex: 1 1 300px;
   align-items: center;
   justify-content: flex-start;
   flex-wrap: wrap;
-  gap: var(--space-xs) var(--space-sm);
+  gap: var(--space-sm) var(--space-md);
   min-width: 0;
-}
-
-@media (min-width: 700px) {
-  .collection-head__status {
-    justify-content: flex-end;
-  }
+  margin-top: var(--space-md);
 }
 
 .collection-progress__headline {
@@ -11086,12 +11237,12 @@ button.look-sheet__save:hover {
   -webkit-appearance: none;
   border: 0;
   border-radius: var(--radius-pill);
-  background: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
   overflow: hidden;
 }
 
 .collection-progress__bar::-webkit-progress-bar {
-  background: var(--color-secondary);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
 }
 
 .collection-progress__bar::-webkit-progress-value {
@@ -11275,7 +11426,7 @@ button.look-sheet__save:hover {
 .collection-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-md);
+  gap: var(--space-lg);
   margin: 0 0 var(--space-lg);
   padding: 0;
   list-style: none;
@@ -11292,7 +11443,7 @@ button.look-sheet__save:hover {
   height: 100%;
   box-sizing: border-box;
   min-height: 44px;
-  padding: var(--space-md);
+  padding: var(--space-lg);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -11311,6 +11462,8 @@ button.look-sheet__save:hover {
 .collection-card__art {
   position: relative;
   display: block;
+  box-sizing: border-box;
+  padding: var(--space-md);
   overflow: hidden;
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--color-text) 5%, transparent);
@@ -11594,13 +11747,11 @@ dialog.access-sheet[open],
   }
 }
 
-/* The section around the table or the phone cards carries no surface of its
- * own: the table (from 70rem) or each card is the glass. */
-.page-section.users-section {
-  padding: 0;
-  background: none;
-  border: 0;
-  box-shadow: none;
+/* The section around the table or the phone cards is plain layout, not a
+ * card: the table (from 70rem) or each card is the one glass surface, with the
+ * count line above it. */
+.users-section {
+  margin: 0 0 var(--space-lg);
 }
 
 .users-cell {
@@ -11799,6 +11950,17 @@ button.row-menu__item:hover {
 button.row-menu__item--destructive,
 button.row-menu__item--destructive:hover {
   color: var(--color-status-error);
+}
+
+/* The row menu is as wide as its longest label and every label stays on one
+ * line, on a phone too. */
+.users-cell--menu .row-menu__panel {
+  width: max-content;
+}
+
+.users-cell--menu .row-menu__item {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 /* On a phone the invite action sits under the title at full width, so a long
@@ -12298,14 +12460,14 @@ button.row-menu__item--destructive:hover {
 }
 
 .airlines-resolve__fields input[type="text"] {
-  flex: 1 1 16rem;
+  flex: 0 1 280px;
   min-width: 0;
   min-height: 44px;
   box-sizing: border-box;
 }
 
 .airlines-resolve__fields select {
-  flex: 0 1 14rem;
+  flex: 0 1 180px;
   min-width: 0;
   min-height: 44px;
 }
@@ -12314,7 +12476,6 @@ button.row-menu__item--destructive:hover {
   display: flex;
   flex: none;
   gap: var(--space-sm);
-  margin-left: auto;
 }
 
 .airlines-resolve__ok {
@@ -12344,10 +12505,6 @@ button.row-menu__item--destructive:hover {
 
   .airlines-resolve__fields select {
     width: 100%;
-  }
-
-  .airlines-resolve__actions {
-    margin-left: 0;
   }
 
   .airlines-resolve__actions > * {
@@ -12561,8 +12718,9 @@ button.row-menu__item--destructive:hover {
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
-/* The one glass tier. Every surface (card, group, sheet, dialog, popover,
- * table, tab bar, sidebar, segmented track) is the same recipe: the
+/* The one glass tier. The tab bar and its More sheet are not part of it: both
+ * are opaque, one solid colour. Every surface (card, group, sheet, dialog,
+ * popover, table, sidebar, segmented track) is the same recipe: the
  * translucent --glass-bg fill, the 1px light --glass-border, the inset top
  * highlight and the soft shadow inside --shadow-glass, and on the
  * overlay and bar surfaces the same blur and saturation. Without
@@ -12619,17 +12777,6 @@ button.row-menu__item--destructive:hover {
     box-shadow: var(--shadow-glass);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  }
-
-  /* The floating tab bar is its own, stronger glass: a darker tinted fill in
-   * Dark so light labels hold over a white picture scrolling beneath. */
-  .tab-bar::before,
-  .tab-bar__more-panel {
-    background-color: var(--bar-bg);
-    background-image: var(--bar-sheen);
-    border-color: var(--bar-border);
-    -webkit-backdrop-filter: blur(26px) saturate(200%);
-    backdrop-filter: blur(26px) saturate(200%);
   }
 
   /* The popover of the frame button. */
@@ -12692,10 +12839,6 @@ button.row-menu__item--destructive:hover {
     opacity: 1;
     transform: none;
   }
-}
-
-.tab-bar__link--active .tab-bar__pill {
-  animation: skypane-soft-in var(--motion-enter) var(--ease-out) backwards;
 }
 
 @media (max-width: 599.98px) {
@@ -13234,33 +13377,19 @@ button.row-menu__item--destructive:hover {
   color: var(--color-text);
 }
 
-.history-card .row__chip {
-  width: 40px;
-  height: 40px;
-  margin-right: 0;
-  background: color-mix(in srgb, var(--color-text) 8%, transparent);
-  color: var(--color-text);
-}
-
-.history-card .row__chip .icon,
-.recent-flight .row__chip .icon,
-.history-card__direction .icon {
+.recent-flight .row__chip .icon {
   transition: transform var(--motion-fast);
 }
 
-.history-card[data-filter-kind="departing"] .row__chip .icon,
-.recent-flight[data-filter-kind="departing"] .row__chip .icon,
-.history-card[data-filter-kind="departing"] .history-card__direction .icon {
+.recent-flight[data-filter-kind="departing"] .row__chip .icon {
   transform: rotate(-45deg);
 }
 
-.history-card[data-filter-kind="arriving"] .row__chip .icon,
-.recent-flight[data-filter-kind="arriving"] .row__chip .icon,
-.history-card[data-filter-kind="arriving"] .history-card__direction .icon {
+.recent-flight[data-filter-kind="arriving"] .row__chip .icon {
   transform: rotate(45deg);
 }
 
-/* The callsign is never cut; the route wraps under it as a unit when the line is full. */
+/* The airline is never cut; the route wraps under it as a unit when the line is full. */
 .history-card .row__label {
   display: block;
   overflow: visible;
@@ -13268,8 +13397,8 @@ button.row-menu__item--destructive:hover {
   font-weight: var(--weight-semibold);
 }
 
-.history-card__callsign {
-  white-space: nowrap;
+.history-card__airline {
+  overflow-wrap: anywhere;
 }
 
 .history-card__route {
@@ -13314,7 +13443,7 @@ button.row-menu__item--destructive:hover {
 }
 
 /* The one lead control of a row with a render: its 40px thumbnail (inside a 44px target)
- * opens the render; the direction glyph sits on the thumbnail's corner. */
+ * opens the render. */
 .history-card__thumb {
   position: relative;
   display: block;
@@ -13336,20 +13465,6 @@ button.row-menu__item--destructive:hover {
   background: var(--color-secondary);
   object-fit: cover;
   object-position: center 35%;
-}
-
-.history-card__direction {
-  position: absolute;
-  right: -2px;
-  bottom: -2px;
-  display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: var(--color-dominant);
-  box-shadow: 0 0 0 1px var(--color-border);
-  color: var(--color-text);
 }
 
 .history-card__thumb:hover .history-card__thumb-image {
@@ -14016,8 +14131,7 @@ html.splash-on .splash__scan {
     top: 0;
     z-index: 0;
     border-radius: var(--radius-pill);
-    background: var(--bar-pill-bg);
-    box-shadow: inset 0 1px 0 var(--glass-highlight), 0 1px 3px var(--color-shadow-strong);
+    background: var(--color-accent);
     pointer-events: none;
     opacity: 0;
   }
@@ -14029,6 +14143,16 @@ html.splash-on .splash__scan {
   .tab-bar--slider .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
     background: transparent;
     box-shadow: none;
+    view-transition-name: none;
+  }
+
+  /* Before the script has placed the slider (the first frame of a page change)
+   * the server-rendered active pill carries the slider's view-transition name,
+   * so the browser glides the old page's pill to the new one natively. Once the
+   * slider exists it owns the name and the pill gives it up: one element holds
+   * the name at any time. */
+  .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
+    view-transition-name: skypane-tab-slider;
   }
 
   .tab-bar__slider--glide {
@@ -14158,6 +14282,18 @@ body.is-pulling {
  * (never an inline style). */
 .vt-pic {
   view-transition-name: skypane-flight-pic;
+}
+
+/* While the picture grows or shrinks, every other named element of the page
+ * folds back into the one page snapshot. A named element is its own group
+ * painted above that snapshot, and the dialog lives inside the snapshot, so a
+ * named tab bar (or its sliding pill) would cover the dialog's Close button
+ * for the length of the transition and drop under it afterwards. */
+html.is-picture-transition .tab-bar,
+html.is-picture-transition .tab-bar__slider,
+html.is-picture-transition .dashboard-sidebar,
+html.is-picture-transition .preview-frame__image {
+  view-transition-name: none;
 }
 
 /* Airline card unlock: a card the script plays once gets a glint layer and

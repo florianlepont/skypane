@@ -99,7 +99,7 @@ def test_the_quiet_window_saves_with_scripts_blocked_through_the_dialog(new_cont
                          cookies=cookies, reduced_motion="reduce") as page:
             page.click(WINDOW_LINK)
             page.wait_for_selector(DIALOG + ":target", state="visible", timeout=10000)
-            assert page.locator(START).count() == 1 and page.locator(PRESETS).count() == 3
+            assert page.locator(START).count() == 1 and page.locator(PRESETS).count() == 2
             page.fill(START, "21:45")
             page.fill(END, "06:15")
             with page.expect_navigation():

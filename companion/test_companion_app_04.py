@@ -218,8 +218,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section",
           ".dashboard-main .personalisation-look"), "animation"),
         ((".dashboard-main > .empty-state",), "animation"),
-        ((".dashboard-main > .data-table-wrap",), "animation"),
-        ((".tab-bar__link--active .tab-bar__pill",), "animation")], (
+        ((".dashboard-main > .data-table-wrap",), "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
@@ -482,7 +481,8 @@ def test_home_page_renders_widgets(app04_server, session_cookie):
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
-            '<h1 class="page-title page-title--greeting" aria-label="Home" data-greeting',
+            '<h1 class="page-title visually-hidden">Home</h1>',
+            '<p class="page-greeting" data-greeting',
             'class="hero home-state ',
             'class="group-block home-section"',
             "Recent flights", 'href="/flights"',

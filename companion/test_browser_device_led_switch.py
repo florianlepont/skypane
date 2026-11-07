@@ -2,7 +2,6 @@
 """Browser checks for the Device page Diagnostic LED switch: no accent-coloured box around the
 switch or its region at rest, while the keyboard focus ring stays visible.
 """
-import fleet_rows_support
 import pytest
 
 from companion import auth
@@ -65,7 +64,6 @@ def test_the_led_switch_has_no_accent_box_at_rest(
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/fleet?tab=settings")
-        fleet_rows_support.open_dialog(page, "settings")
         page.wait_for_selector(SWITCH)
         _set_ui_theme(page, theme)
         page.mouse.move(0, 0)

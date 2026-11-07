@@ -612,15 +612,14 @@ def test_a_pin_near_an_airport_offers_to_follow_its_runway(new_context, make_app
             raise AssertionError("the button reads %r" % button.inner_text())
         if button.bounding_box()["height"] < MIN_PX - SUBPIXEL:
             raise AssertionError("the button is under 44 px")
-        with page.expect_navigation():
-            button.click()
-        if "airport=LFPG" not in page.url:
-            raise AssertionError("landed on %s" % page.url)
-        page.wait_for_function(READY, timeout=15000)
+        button.click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('.place-sheet label.runway-card').length > 0",
+            timeout=10000)
+        page.wait_for_function(
+            "() => location.search.indexOf('airport=LFPG') >= 0", timeout=5000)
         if not page.is_checked("#place-mode-runway"):
             raise AssertionError("runway mode is not selected")
-        if not page.locator("label.runway-card").count():
-            raise AssertionError("the airport's runways are not listed")
         if not page.is_hidden(NEAREST):
             raise AssertionError("the offer shows for the airport already followed")
     finally:

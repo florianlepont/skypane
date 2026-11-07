@@ -1,6 +1,6 @@
 """Real-browser flows of the Fleet dialogs: pair a frame in four actions,
-refuse a wrong code with the dialog reopened, retire in three, reassign in
-four, re-activate; initial focus, Tab containment, Esc and focus return; and
+refuse a wrong code with the dialog reopened, retire in two actions (the one
+confirmation dialog), reassign inline without a dialog, re-activate; initial focus, Tab containment, Esc and focus return; and
 the same forms through plain hash links with scripts blocked. Dialog geometry
 holds at 360 and 1280px, in English and French, in both themes."""
 import pytest
@@ -46,23 +46,20 @@ def _open(new_context, server, viewport=VIEWPORT_DESKTOP, lang="en", scheme="lig
         "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
+    page.goto(server.base_url() + "/fleet?tab=access&frame=" + seed.owned_id)
     page.locator("main").wait_for(state="visible")
     _set_ui_theme(page, scheme)
     return context, page, seed
 
 
 _HEADER = ".fleet-detail-head"
+_RETIRE_LINK = "a.fleet-retire__link"
+_OTHERS = ".fleet-block--others"
 
 
-def _row(page, name):
-    return page.locator("details.fleet-other li.entity-row", has=page.locator(
-        "text=%s" % name)).first
-
-
-def _open_menu_item(page, label, scope=_HEADER):
-    """Two actions: the actions menu button of `scope` (the selected frame's
-    header, or a row of the Other frames block), then the named item."""
+def _open_menu_item(page, label, scope):
+    """Two actions: the actions menu button of `scope` (a row of the Other frames
+    section), then the named item."""
     holder = page.locator(scope).first
     holder.locator("summary.row-menu__toggle").click()
     holder.locator("a.row-menu__item", has_text=label).click()
@@ -138,36 +135,40 @@ def test_missing_owner_reopens_the_dialog_with_a_field_error(
         context.close()
 
 
-def test_retire_in_three_actions_with_focus_on_the_dismiss_control(
+def test_retire_in_two_actions_with_focus_on_the_dismiss_control(
         new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
         dialog = page.locator("#dlg-retire-%s" % _slug(seed.owned_id))
-        _open_menu_item(page, "Retire")  # 1, 2
+        page.locator(_RETIRE_LINK).click()  # 1
         assert dialog.evaluate("d => d.open")
         assert page.evaluate(_ACTIVE) == "Keep frame"
-        dialog.locator("button[type=submit]").click()  # 3
+        # The confirmation is the only dialog open.
+        assert page.locator("dialog[open]").count() == 1
+        dialog.locator("button[type=submit]").click()  # 2
         page.wait_for_url("**/fleet")
         assert _device(server, seed.owned_id) is None
-        assert page.locator("details.fleet-other > summary").inner_text().endswith("(3)")
+        page.wait_for_function(
+            "() => document.querySelector('.fleet-block--others > h2').textContent"
+            ".trim().endsWith('(3)')", timeout=10000)
     finally:
         context.close()
 
 
-def test_escape_closes_a_confirm_and_returns_focus_to_the_row_menu_button(
+def test_escape_closes_the_retire_confirmation_and_returns_focus_to_its_link(
         new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
         dialog = page.locator("#dlg-retire-%s" % _slug(seed.owned_id))
-        _open_menu_item(page, "Retire")
+        page.locator(_RETIRE_LINK).click()
         page.keyboard.press("Escape")
         assert not dialog.evaluate("d => d.open")
-        # Focus goes back to the menu button when the dialog's close event
-        # fires, which can land a frame after Escape returns.
+        # Focus goes back to the link when the dialog's close event fires, which can land a
+        # frame after Escape returns.
         page.wait_for_function(
-            "() => document.activeElement.classList.contains('row-menu__toggle')",
+            "() => document.activeElement.classList.contains('fleet-retire__link')",
             timeout=5000)
         assert _device(server, seed.owned_id) is not None
     finally:
@@ -196,52 +197,31 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
         context.close()
 
 
-def test_keep_current_owner_dismisses_without_changing_anything(
-        new_context, app_server_in_process):
+def test_reassign_is_inline_and_needs_no_dialog(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        _open_menu_item(page, "Reassign")
-        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
-        assert dialog.evaluate("d => d.open")
-        dialog.locator("a.modal__dismiss").click()
-        assert not dialog.evaluate("d => d.open")
-        assert _device(server, seed.owned_id)["owner_user_id"] == seed.owner_id
-    finally:
-        context.close()
-
-
-def test_reassign_in_four_actions(new_context, app_server_in_process):
-    server = app_server_in_process
-    context, page, seed = _open(new_context, server)
-    try:
-        _open_menu_item(page, "Reassign")  # 1, 2
-        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
-        dialog.locator("select").select_option(label=fx.ADMIN_EMAIL + " (admin)")  # 3
-        dialog.locator("button[type=submit]").click()  # 4
-        page.wait_for_url("**/fleet")
+        form = page.locator("form[action$='/reassign']")
+        form.locator("select").select_option(label=fx.ADMIN_EMAIL + " (admin)")  # 1
+        assert page.locator("dialog[open]").count() == 0
+        form.locator("button[type=submit]").click()  # 2
+        page.wait_for_url("**/fleet**")
         assert _device(server, seed.owned_id)["owner_user_id"] == seed.admin_id
     finally:
         context.close()
 
 
-def test_reactivate_from_the_other_frames_block(new_context, app_server_in_process):
+def test_reactivate_from_the_other_frames_section(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        page.locator("a.fleet-sum[href='#dlg-fleet-others']").click()
-        page.wait_for_function(
-            "() => document.querySelector('#dlg-fleet-others').open", timeout=10000)
-        _open_menu_item(page, "Re-activate", "#dlg-fleet-others li.entity-row:has-text('Attic')")
+        _open_menu_item(page, "Re-activate", _OTHERS + " li.entity-row:has-text('Attic')")
         dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
         assert dialog.evaluate("d => d.open")
         assert page.evaluate(_ACTIVE) == "Keep retired"
         dialog.locator("button[type=submit]").click()
         page.wait_for_url("**/fleet")
-        page.locator("a.fleet-sum[href='#dlg-fleet-others']").click()
-        page.wait_for_function(
-            "() => document.querySelector('#dlg-fleet-others').open", timeout=10000)
-        assert "Attic" not in page.locator("#dlg-fleet-others").text_content()
+        assert "Attic" not in page.locator(_OTHERS).text_content()
     finally:
         context.close()
 
@@ -273,15 +253,16 @@ def test_the_no_script_dismiss_link_returns_to_the_page_and_retire_posts(
         new_context, app_server_in_process):
     server = app_server_in_process
     seed = _seed(server)
-    with _no_js_page(new_context, server.base_url(), "/fleet?frame=" + seed.owned_id,
+    with _no_js_page(new_context, server.base_url(),
+                     "/fleet?tab=access&frame=" + seed.owned_id,
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         dialog_id = "#dlg-retire-%s" % _slug(seed.owned_id)
-        _open_menu_item(page, "Retire")
+        page.locator(_RETIRE_LINK).click()
         assert page.locator(dialog_id).is_visible()
         page.locator(dialog_id + " a.modal__dismiss").click()
         assert not page.locator(dialog_id).is_visible()
         assert _device(server, seed.owned_id) is not None
-        _open_menu_item(page, "Retire")
+        page.locator(_RETIRE_LINK).click()
         page.locator(dialog_id + " button[type=submit]").click()
         page.wait_for_url("**/fleet")
         assert _device(server, seed.owned_id) is None
@@ -301,17 +282,12 @@ def test_dialogs_fit_and_every_control_is_44px(
                 ("add", "dlg-add-frame", (
                     "#pair-code", "#pair-owner", "button[type=submit]",
                     "a.modal__dismiss", "a.modal__close")),
-                (None, "dlg-reassign-%s" % _slug(seed.owned_id), (
-                    "select", "button[type=submit]", "a.modal__dismiss",
-                    "a.modal__close")),
                 (None, "dlg-retire-%s" % _slug(seed.owned_id), (
                     "button[type=submit]", "a.modal__dismiss", "a.modal__close"))):
             if opener:
                 click_add(page)
             else:
-                header = page.locator(_HEADER)
-                header.locator("summary.row-menu__toggle").click()
-                header.locator("a.row-menu__item[href='#%s']" % dialog_id).click()
+                page.locator(_RETIRE_LINK).click()
             dialog = page.locator("#" + dialog_id)
             assert dialog.evaluate("d => d.open"), where
             fit = dialog.evaluate(_FIT)

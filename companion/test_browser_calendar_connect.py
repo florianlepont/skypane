@@ -119,6 +119,10 @@ def test_the_page_is_usable_in_both_themes(new_context, server, viewport, lang):
                 tab = page.locator(".tab-bar").bounding_box()
                 assert bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)
             assert _assert_no_page_overflow(page, where) == ""
+            sizes = page.evaluate(
+                "args => args.map(s => getComputedStyle(document.querySelector(s)).fontSize)",
+                [SAVE, CANCEL])
+            assert sizes[0] == sizes[1], (where, "Save and Cancel differ in type size", sizes)
         french = "Nouveau lien" in page.locator(".form-page__card").inner_text()
         assert french == (lang == "fr")
     finally:

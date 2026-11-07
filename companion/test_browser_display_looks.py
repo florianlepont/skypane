@@ -373,8 +373,7 @@ def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_s
         assert abs(picture["y"] - sheet["y"]) < 30
         assert not page.locator(DEPARTURES + " .look-pick__grid").is_visible()
         for selector in (
-                ".personalisation-nav__link", SHEET + " .look-dot", SHEET + " .look-seg__option",
-                SHEET + " .look-sheet__reset", SHEET + " .look-sheet__save"):
+                ".personalisation-nav__link", SHEET + " .look-dot", SHEET + " .look-seg__option"):
             for handle in page.locator(selector).all():
                 if not handle.is_visible():  # an option with no theme is not offered at all
                     continue

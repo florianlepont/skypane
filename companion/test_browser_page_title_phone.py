@@ -1,5 +1,6 @@
-"""Real-browser checks of the page title and its spacing on phones: every page shows its <h1>
-at every supported width, and on a phone the title sits at most PHONE_TITLE_GAP_MAX below the
+"""Real-browser checks of the page title and its spacing on phones: every page has exactly one <h1>
+at every supported width (Home's is visually hidden: its visible title is the frame state headline),
+and on a phone the title sits at most PHONE_TITLE_GAP_MAX below the
 app bar, so the top of the page does not waste vertical space."""
 import pytest
 
@@ -23,10 +24,13 @@ def _title_state(page):
             const h1 = all[0];
             const box = h1.getBoundingClientRect();
             const bar = document.querySelector('.site-header').getBoundingClientRect();
-            const style = getComputedStyle(h1);
-            return {count: all.length, text: h1.textContent.trim(),
-                    width: box.width, height: box.height, clip: style.clipPath,
-                    gap: box.top - bar.bottom};
+            const hidden = h1.classList.contains('visually-hidden');
+            const shown = hidden ? document.querySelector('.home-state__title') : h1;
+            const shownBox = shown.getBoundingClientRect();
+            return {count: all.length, text: h1.textContent.trim(), hidden: hidden,
+                    width: shownBox.width, height: shownBox.height,
+                    clip: getComputedStyle(shown).clipPath,
+                    gap: hidden ? 0 : box.top - bar.bottom};
         }""")
 
 
@@ -36,8 +40,10 @@ def _title_state(page):
                          ids=["390", "360", "1280"])
 def test_page_title_is_visible_on_every_page_and_close_to_the_app_bar(
         new_context, make_app_server, viewport, scheme, lang):
-    """every page shows its single non-empty h1 at full size at 390, 360 and 1280; on a phone
-    the title starts within PHONE_TITLE_GAP_MAX of the app bar; no page overflows sideways"""
+    """every page has its single non-empty h1 and shows its title at full size at 390, 360 and
+    1280 (on Home the hidden h1 names the page and the frame state headline is the visible
+    title); on a phone a visible h1 starts within PHONE_TITLE_GAP_MAX of the app bar; no page
+    overflows sideways"""
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=viewport, color_scheme=scheme)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang,
@@ -53,6 +59,7 @@ def test_page_title_is_visible_on_every_page_and_close_to_the_app_bar(
             assert state["count"] == 1 and state["text"], (route, state)
             assert state["width"] > 40 and state["height"] > 20, (route, state)
             assert state["clip"] == "none", (route, state)
+            assert state["hidden"] is (route == "/"), (route, state)
             if phone:
                 assert 0 <= state["gap"] <= PHONE_TITLE_GAP_MAX, (route, state)
             assert not _assert_no_page_overflow(

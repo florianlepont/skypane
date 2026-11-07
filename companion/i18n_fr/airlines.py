@@ -117,8 +117,8 @@ MESSAGES = {
     "airlines.edit_airline": "Modifier %s",
 
     # --- The Airline collection page ----------------------------------
-    "airlines.collection_progress": "%d compagnies sur %d repérées",
-    "airlines.collection_progress_one": "%d compagnie sur %d repérée",
+    "airlines.collection_progress": "%d compagnies repérées sur %d",
+    "airlines.collection_progress_one": "%d compagnie repérée sur %d",
     "airlines.collection_next_goal": "encore %d pour le badge %d",
     "airlines.collection_next_goal_first":
         "Repérez une compagnie pour obtenir le badge Première observation",

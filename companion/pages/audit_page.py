@@ -26,6 +26,7 @@ _COL_WHEN = i18n.msg("admin_lifecycle.when", "When")
 _COL_WHO = i18n.msg("admin_lifecycle.who", "Who")
 _COL_ACTION = i18n.msg("admin_lifecycle.action", "Action")
 _COL_TARGET = i18n.msg("admin_lifecycle.target", "Target")
+_COL_TARGET_ID = i18n.msg("admin_lifecycle.target_id", "Internal ID")
 _COL_OUTCOME = i18n.msg("admin_lifecycle.outcome", "Outcome")
 _COL_FROM = i18n.msg("admin_lifecycle.from", "From")
 _COL_PERSON = i18n.msg("admin_lifecycle.audit_person", "Person")
@@ -227,11 +228,18 @@ def _exact_date_text(event):
 def _target_html(event):
     if event.target_id is None:
         return '<span class="cell-primary">%s</span>' % _esc(_NO_TARGET)
-    primary = event.target_primary or event.target_id
-    secondary = (
-        '<span class="cell-secondary mono">%s</span>' % _esc(event.target_id)
-        if event.target_primary else "")
-    return '<span class="cell-primary">%s</span>%s' % (_esc(primary), secondary)
+    return '<span class="cell-primary">%s</span>' % _esc(
+        event.target_primary or event.target_id)
+
+
+def _target_id_item(event):
+    """The target's stored id as an item of its own, labelled and secondary,
+    only when the Target item shows a name or an address instead of it."""
+    if event.target_id is None or not event.target_primary:
+        return []
+    return [_detail_item(
+        _COL_TARGET_ID, '<span class="cell-secondary mono">%s</span>' % _esc(event.target_id),
+        " audit-event__item--secondary")]
 
 
 def _outcome_html(event):
@@ -249,6 +257,7 @@ def _detail_html(event):
     author and, for a co-manager row, the person and the reason."""
     items = [
         _detail_item(_COL_TARGET, _target_html(event)),
+        *_target_id_item(event),
         _detail_item(_COL_FROM, '<span class="mono">%s</span>' % _esc(event.source_ip)
                      if event.source_ip else _esc(_NO_TARGET)),
         _detail_item(_COL_EXACT, _esc(_exact_date_text(event))),

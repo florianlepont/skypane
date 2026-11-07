@@ -49,7 +49,8 @@ from server import airports, detection, device_config
 # the glue that drives it.
 PAGE_SCRIPTS = (
     layout.DIRTY_STATE_SCRIPT_SRC, layout.LIST_FILTER_SCRIPT_SRC,
-    layout.LEAFLET_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC)
+    layout.LEAFLET_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC,
+    layout.PLACE_CARD_SCRIPT_SRC)
 PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
 
 PAGE_TITLE = i18n.msg("nav.detection", "Location and detection")
@@ -484,6 +485,29 @@ def _loading_html():
     ) % escape_html(i18n.t(MAP_LOADING))
 
 
+def _boot_html():
+    """The loading state shown from the first paint while the map script
+    starts, only with scripts running (a head script sets `js-early` on the
+    page element): a progress bar, the shape of the search field, the mode
+    chips and the sheet, and the loading note. It is hidden again once the map
+    runs, and never shows without scripts."""
+    return (
+        '<div class="place-boot" role="status">'
+        '<div class="place-boot__progress" aria-hidden="true">'
+        '<span class="place-boot__fill"></span></div>'
+        '<span class="place-boot__search is-loading" aria-hidden="true"></span>'
+        '<span class="place-boot__chip is-loading" aria-hidden="true"></span>'
+        '<span class="place-boot__chip is-loading" aria-hidden="true"></span>'
+        '<p class="place-boot__note text-label">'
+        '<span class="place-loading__spinner" aria-hidden="true"></span>%s</p>'
+        '<div class="place-boot__sheet" aria-hidden="true">'
+        '<span class="place-boot__line place-boot__line--title is-loading"></span>'
+        '<span class="place-boot__line place-boot__line--short is-loading"></span>'
+        '<span class="place-boot__line place-boot__line--thin is-loading"></span>'
+        "</div></div>"
+    ) % escape_html(i18n.t(MAP_LOADING))
+
+
 def _mode_switch_html(view):
     return (
         '<div class="place-modes" role="radiogroup" aria-label="%s" %s="%s">%s%s</div>%s'
@@ -640,6 +664,12 @@ def _runway_card_html(view, airport, runway):
 
 
 def _runway_group_html(view):
+    """The runway group in its swap container: the map script replaces the
+    container's content with the same group rendered for another airport."""
+    return '<div id="place-runways" class="place-runways">%s</div>' % _runways_inner_html(view)
+
+
+def _runways_inner_html(view):
     """The chosen airport's runways as radio cards, or the note asking for an
     airport (an unknown code posted by hand reads as not in the catalogue)."""
     errors = view.errors
@@ -875,6 +905,6 @@ def render(ctx, query=None, errors=None, submitted=None, place=None):
         + fail_safe_toast_html(view)
         + _stray_errors_html(view)
         + _form_html(view)
-        + '<div class="place-page"><div class="place-stage">%s%s%s%s</div></div>' % (
-            _map_html(view), _loading_html(), _float_html(), _panel_html(view))
+        + '<div class="place-page"><div class="place-stage">%s%s%s%s%s</div></div>' % (
+            _boot_html(), _map_html(view), _loading_html(), _float_html(), _panel_html(view))
     )

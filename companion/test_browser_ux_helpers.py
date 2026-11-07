@@ -1382,6 +1382,9 @@ _DISPLAY_HEIGHT_PROBE = (
     "  clientHeight: document.documentElement.clientHeight,"
     "  scrollWidth: document.documentElement.scrollWidth,"
     "  heading: !!document.getElementById(args.headingId),"
+    "  contentBottom: (() => { const h = document.getElementById(args.headingId);"
+    "    const s = h && h.closest('section');"
+    "    return s ? s.getBoundingClientRect().bottom + window.scrollY : 0; })(),"
     "  themeRadios: document.querySelectorAll("
     "    'input[name=\"theme\"]').length,"
     "})")
@@ -1392,7 +1395,7 @@ def _display_page_height(make_context, base_url, viewport):
     pointed at Display.
 
     Returns the probe's own dict (height, clientWidth, clientHeight, scrollWidth, heading,
-    themeRadios); raises AssertionError when the measurement cannot be trusted.
+    contentBottom, themeRadios); raises AssertionError when the measurement cannot be trusted.
 
     Scripts are enabled here, deliberately: the height a visitor sees includes
     `theme-preview.js` collapsing panels at load, so a scripts-blocked measurement would report
@@ -1432,12 +1435,15 @@ def _display_page_height(make_context, base_url, viewport):
             "different number of chips is not comparable with the one this "
             "plan recorded before it started"
             % (viewport["width"], seen["themeRadios"], expected_radios))
-    if seen["height"] <= seen["clientHeight"]:
+    # The page may now fit a phone viewport exactly (the picker has no buttons of its own), so
+    # scrollHeight == clientHeight is a real document height; the proof it is Display's is the
+    # Look section's own measured bottom edge lying inside that height.
+    if seen["height"] < seen["clientHeight"] or not 0 < seen["contentBottom"] <= seen["height"]:
         raise AssertionError(
             "_display_page_height: the document reports a scrollHeight of %d "
-            "against a client height of %d — Display is not shorter than a "
-            "phone viewport, so this is a viewport height wearing a document "
-            "height's name" % (seen["height"], seen["clientHeight"]))
+            "against a client height of %d and the Look section ends at %d — "
+            "this is a viewport height wearing a document height's name"
+            % (seen["height"], seen["clientHeight"], seen["contentBottom"]))
     return seen
 
 

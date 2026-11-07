@@ -133,7 +133,7 @@ CADENCE_INFO_LABEL = i18n.msg("home.cadence_info_label", "About updates")
 CADENCE_INFO_ID = "home-cadence-info"
 # The ring around the picture: the frame cycle until the next update. The
 # name carries the same countdown the next-update line shows.
-CYCLE_RING_LABEL = i18n.msg("home.cycle_ring", "Frame cycle: next update %s")
+CYCLE_RING_LABEL = i18n.msg("home.cycle_ring", "Frame cycle: next refresh %s")
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 FRAME_GROUP_LABEL = i18n.msg("home.group_frame", "Frame")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
@@ -254,7 +254,7 @@ def _current_picture_html(ctx, current_flight_row):
 def _cycle_ring_html(ctx, next_triple):
     """The thin ring around the picture: the share of the frame cycle (wake,
     poll, display, sleep) already elapsed, from the same next-update triple
-    the "Next update in N min" line reads. The progress is rendered as
+    the "Next refresh in N min" line reads. The progress is rendered as
     attributes (no style attribute, for the CSP); relative-time.js repaints
     it from `data-ring-next` / `data-ring-interval` each second. "" without
     a known next update."""
@@ -389,7 +389,7 @@ def _cadence_info_html(base_interval_s):
 def _next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):
     """The next-update row, or "" without a check-in. The wording template
     comes from frame_state, the single due/held/late decision shared with
-    every other consumer. On time it reads "Next update in 5 min" (a live
+    every other consumer. On time it reads "Next refresh in 5 min" (a live
     countdown, no clock); a held frame names the wake clock and a countdown;
     an overdue frame reads "Update overdue · expected at HH:MM" behind a
     warning sign, with no countdown. The cadence info button follows the
@@ -403,7 +403,7 @@ def _next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):
     long_overdue = frame_state.is_long_overdue(next_iso, interval_s, hold_reason, now)
     countdown = layout.relative_time_html(next_iso, now, countdown=True)
     if state == frame_state.STATE_DUE or state == frame_state.STATE_UNKNOWN:
-        modifier, icon_id, tail = "", "icon-nav-history", ""
+        modifier, icon_id, tail = "", "", ""
         value = countdown
     else:
         value = '<span class="time-value">%s</span>' % escape_html(
@@ -417,7 +417,9 @@ def _next_update_html(next_iso, interval_s, hold_reason, now, base_interval_s):
     return (
         '<div class="home-state__next-row">'
         '<p class="home-state__next%s">%s<span>%s%s</span></p>%s</div>' % (
-            modifier, layout.icon_html(icon_id, 18, "home-state__next-icon"), text, tail,
+            modifier,
+            layout.icon_html(icon_id, 18, "home-state__next-icon") if icon_id else "",
+            text, tail,
             _cadence_info_html(base_interval_s))
     ), long_overdue
 
@@ -435,11 +437,12 @@ def _switch_row_html(spec, is_on, detail_html):
     form from `layout.quick_switch_html()`: a native POST that works with
     scripts blocked.
 
-    The row deliberately carries no `data-quick-region`, so quick-switch.js
-    leaves the submit alone and the browser follows the server's redirect:
-    flipping either switch changes the headline and the next-update line
-    too, so the page must be re-rendered rather than optimistically
-    patched. `return_to` is one of the server-side whitelist's values.
+    The row is a quick-switch region that also asks for a refresh:
+    quick-switch.js flips the switch under the finger over fetch, and once
+    the server confirms, one freshness refresh repaints the headline and
+    the next-update line in place, with no page load. Without scripts the
+    form posts natively and the browser follows the server's redirect.
+    `return_to` is one of the server-side whitelist's values.
     """
     action, slug, label, icon_id = spec
     label_id = "home-switch-%s-label" % slug
@@ -453,7 +456,8 @@ def _switch_row_html(spec, is_on, detail_html):
         trailing_html=layout.quick_switch_html(
             action, layout.HOME_ROUTE, is_on, label_id, state_id),
         extra_class="home-switch home-switch--%s home-switch--%s" % (
-            "on" if is_on else "off", slug))
+            "on" if is_on else "off", slug),
+        attrs="%s data-quick-refresh" % layout.QUICK_SWITCH_REGION_ATTR)
 
 
 def _battery_row_html(ctx, interval_s):

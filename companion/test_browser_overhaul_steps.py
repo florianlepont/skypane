@@ -184,13 +184,11 @@ def _select_frame(steps, page, name):
     page.wait_for_function("() => document.readyState === 'complete'")
 
 
-def _row_menu(steps, page, name, item):
-    """The frame's actions menu in its detail header (the frame is selected
-    first when it is not)."""
+def _access_tab(steps, page, name):
+    """The Access tab of the frame `name` (the frame is selected first when it is not):
+    its owner, co-managers, Reassign and Retire sections are inline there."""
     _select_frame(steps, page, name)
-    header = page.locator(".fleet-detail-head")
-    steps.tap(header.locator("summary.row-menu__toggle"), "actions menu of " + name)
-    steps.tap(header.locator("a.row-menu__item", has_text=item), item)
+    steps.tap(page.locator("nav.fleet-tabs a", has_text="Access"), "Access tab")
 
 
 def test_a1_fleet_state_is_readable_on_landing(world, new_context):
@@ -198,12 +196,13 @@ def test_a1_fleet_state_is_readable_on_landing(world, new_context):
     try:
         # Every live frame is a popover row with its status dot (and the button
         # shows the selected one's); the pending and retired frames wait in the
-        # collapsed Other frames block.
+        # Other frames section of the Access tab.
         assert page.locator(BUTTON + " [role=img][aria-label]").count() == 1
         dots = page.locator(FRAMES + " [role=img][aria-label]")
         assert dots.count() >= 2
         assert page.locator(FRAMES + " .dot").count() >= 2
-        assert page.locator("details.fleet-other").get_attribute("open") is None
+        assert page.locator("details.fleet-other").count() == 0
+        assert page.locator(".fleet-block--others").count() == 1
         assert page.locator("table").count() == 0
         _report("A1", steps, 0)
     finally:
@@ -255,12 +254,13 @@ def test_a3_pair_a_frame(world, new_context):
 def test_a4_retire_a_frame(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        _row_menu(steps, page, "Kitchen", "Retire")
+        _access_tab(steps, page, "Kitchen")
+        steps.tap(page.locator("a.fleet-retire__link"), "Retire this frame")
         dialog = page.locator("#dlg-retire-" + world.seed.owned_id.lower().replace("_", "-"))
         steps.tap(dialog.locator("button[type=submit]"), "confirm Retire")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id) is None
-        _report("A4-retire", steps, 5)
+        _report("A4-retire", steps, 6)
     finally:
         context.close()
 
@@ -268,10 +268,10 @@ def test_a4_retire_a_frame(world, new_context):
 def test_a4_reassign_a_frame(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        _row_menu(steps, page, "Kitchen", "Reassign")
-        dialog = page.locator("#dlg-reassign-" + world.seed.owned_id.lower().replace("_", "-"))
-        steps.choose(dialog.locator("select"), fx.ADMIN_EMAIL + " (admin)", "new owner")
-        steps.tap(dialog.locator("button[type=submit]"), "confirm Reassign")
+        _access_tab(steps, page, "Kitchen")
+        form = page.locator("form[action$='/reassign']")
+        steps.choose(form.locator("select"), fx.ADMIN_EMAIL + " (admin)", "new owner")
+        steps.tap(form.locator("button[type=submit]"), "Reassign")
         page.wait_for_url("**/fleet")
         assert world.device(world.seed.owned_id)["owner_user_id"] == world.seed.admin_id
         _report("A4-reassign", steps, 6)
@@ -283,11 +283,11 @@ def test_a5_add_a_co_manager(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
         slug = world.seed.owned_id.lower().replace("_", "-")
-        _row_menu(steps, page, "Kitchen", "Manage access")
+        _access_tab(steps, page, "Kitchen")
         steps.choose(
-            page.locator("#co-manager-%s-person" % slug), fx.USER_EMAIL, "person")
+            page.locator("#access-inline-%s-person" % slug), fx.USER_EMAIL, "person")
         steps.tap(page.locator(
-            '#dlg-access-%s form[action$="/co-managers/add"] button' % slug),
+            '.fleet-block--access form[action$="/co-managers/add"] button'),
             "Add co-manager")
         page.wait_for_url("**/fleet?frame=*")
         conn = fleet_db.connect(world.state_dir)
@@ -306,12 +306,11 @@ def test_a5_add_a_co_manager(world, new_context):
 def test_a6_read_the_audit_log(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a[href='/audit']"), "Audit log")
+        steps.tap(page.locator(".tab-bar > a.tab-bar__link[href='/audit']"), "Audit")
         page.wait_for_url("**/audit")
         assert page.locator("main h1").inner_text() == "Audit log"
         assert page.locator(".section-subnav").count() == 0
-        _report("A6", steps, 2)
+        _report("A6", steps, 1)
     finally:
         context.close()
 
@@ -335,7 +334,7 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     try:
         assert page.locator(FRAMES).count() == 1
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
-        assert page.locator("main h1").get_attribute("aria-label") == "Home"
+        assert page.locator("main h1").inner_text() == "Home"
         _report("U2-one", steps, 0)
     finally:
         context.close()
@@ -601,7 +600,7 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     try:
         steps.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('My frame')"), "My frame")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
-        assert page.locator("main h1").get_attribute("aria-label") == "Home"
+        assert page.locator("main h1").inner_text() == "Home"
         back = Steps(page)
         back.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('Console')"), "Console")
         page.wait_for_url("**/fleet")

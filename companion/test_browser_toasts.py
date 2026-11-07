@@ -10,7 +10,6 @@ reloads the page without the flash."""
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlsplit
 
-import fleet_rows_support
 import pytest
 
 from companion import auth, flash, layout
@@ -292,10 +291,8 @@ def test_quick_switch_failure_is_a_sticky_error_toast(new_context, make_app_serv
     try:
         page.route("**/quick/led", lambda route: route.abort())
         _goto(page, server, "/fleet")
-        fleet_rows_support.open_dialog(page, "settings")
         page.click('[data-quick-region] button[role="switch"]')
         page.locator(LIVE_TOAST).wait_for(state="visible")
-        fleet_rows_support.close_dialog(page)
         assert "toast--error" in page.get_attribute(LIVE_TOAST, "class")
         page.clock.run_for(10 * 60 * 1000)
         assert _toast_count(page, LIVE_TOAST) == 1

@@ -53,6 +53,7 @@ LEAFLET_SCRIPT_ROUTE = "/static/vendor/leaflet/leaflet.js"
 LEAFLET_STYLE_ROUTE = "/static/vendor/leaflet/leaflet.css"
 LEAFLET_LICENSE_ROUTE = "/static/vendor/leaflet/LICENSE"
 PLACE_MAP_SCRIPT_ROUTE = "/static/place-map.js"
+PLACE_CARD_SCRIPT_ROUTE = "/static/place-card.js"
 # Brand icons. Browsers fetch these before any session exists (the login page
 # links them), so they are public like every other static asset.
 FAVICON_ROUTE = "/static/favicon.svg"
@@ -84,6 +85,7 @@ _LEAFLET_JS_PATH = os.path.join(_LEAFLET_DIR, "leaflet.js")
 _LEAFLET_CSS_PATH = os.path.join(_LEAFLET_DIR, "leaflet.css")
 _LEAFLET_LICENSE_PATH = os.path.join(_LEAFLET_DIR, "LICENSE")
 _PLACE_MAP_JS_PATH = os.path.join(STATIC_DIR, "place-map.js")
+_PLACE_CARD_JS_PATH = os.path.join(STATIC_DIR, "place-card.js")
 _FAVICON_PATH = os.path.join(STATIC_DIR, "favicon.svg")
 _APPLE_TOUCH_ICON_PATH = os.path.join(STATIC_DIR, "apple-touch-icon.png")
 
@@ -139,6 +141,7 @@ STATIC_ROUTES = {
     LEAFLET_STYLE_ROUTE: StaticAsset(_LEAFLET_CSS_PATH, "text/css", _PUBLIC_NO_CACHE),
     LEAFLET_LICENSE_ROUTE: StaticAsset(_LEAFLET_LICENSE_PATH, "text/plain", _PUBLIC_NO_CACHE),
     PLACE_MAP_SCRIPT_ROUTE: StaticAsset(_PLACE_MAP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    PLACE_CARD_SCRIPT_ROUTE: StaticAsset(_PLACE_CARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     FAVICON_ROUTE: StaticAsset(_FAVICON_PATH, "image/svg+xml", _PUBLIC_NO_CACHE),
     APPLE_TOUCH_ICON_ROUTE: StaticAsset(_APPLE_TOUCH_ICON_PATH, "image/png", _PUBLIC_NO_CACHE),
 }

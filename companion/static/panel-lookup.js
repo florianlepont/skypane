@@ -678,6 +678,18 @@
     probe.onerror = settleWaiting;
   }
 
+  // Held on <html> for the length of a picture transition: the stylesheet
+  // folds the other named elements (the tab bar) back into the page
+  // snapshot so none of them paints above the dialog.
+  var TRANSITION_CLASS = "is-picture-transition";
+
+  function endTransition(node) {
+    document.documentElement.classList.remove(TRANSITION_CLASS);
+    release(image);
+    release(node);
+    transitioning = false;
+  }
+
   function release(node) {
     if (node) {
       node.classList.remove(SHARED_CLASS);
@@ -690,6 +702,7 @@
       return false;
     }
     transitioning = true;
+    document.documentElement.classList.add(TRANSITION_CLASS);
     thumb.classList.add(SHARED_CLASS);
     // The dialog opens at once (it fades in on its own); the browser captures
     // the old state on the next frame, so the thumbnail carries the shared
@@ -702,9 +715,7 @@
       return pictureReady();
     });
     run.finished.then(null, function () { return null; }).then(function () {
-      release(image);
-      release(thumb);
-      transitioning = false;
+      endTransition(thumb);
     });
     return true;
   }
@@ -717,6 +728,7 @@
       return;
     }
     transitioning = true;
+    document.documentElement.classList.add(TRANSITION_CLASS);
     image.classList.add(SHARED_CLASS);
     var run = document.startViewTransition(function () {
       release(image);
@@ -724,9 +736,7 @@
       thumb.classList.add(SHARED_CLASS);
     });
     run.finished.then(null, function () { return null; }).then(function () {
-      release(image);
-      release(thumb);
-      transitioning = false;
+      endTransition(thumb);
     });
   }
 

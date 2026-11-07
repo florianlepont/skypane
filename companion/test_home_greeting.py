@@ -30,7 +30,7 @@ def test_first_name_needs_a_separator_and_letters(email, expected):
     ("en", "marcoalfinito@example.com", "Hello"),
     ("fr", "", "Bonjour"),
 ])
-def test_the_title_is_the_greeting_with_the_plain_page_name(lang, email, default):
+def test_the_heading_names_the_page_and_the_greeting_is_a_quiet_line(lang, email, default):
     prefs.set_request_prefs(lang=lang)
     prefs.set_request_principal("admin", "admin", email)
     try:
@@ -39,5 +39,7 @@ def test_the_title_is_the_greeting_with_the_plain_page_name(lang, email, default
         prefs.set_request_principal(None)
         prefs.set_request_prefs(lang="en")
     assert "<span data-greeting-text>%s</span>" % default in html
-    assert 'aria-label="%s"' % ("Home" if lang == "en" else "Accueil") in html
+    assert '<h1 class="page-title visually-hidden">%s</h1>' % (
+        "Home" if lang == "en" else "Accueil") in html
+    assert html.count("<h1") == 1
     assert "@" not in html

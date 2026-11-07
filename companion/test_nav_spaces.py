@@ -74,10 +74,10 @@ def test_admin_bars_follow_the_spec():
     console = ui_nav._tab_bar_html("fleet", health_alert="warn", device_config={"a": 1})
     cells = console.split('<details class="tab-bar__more">')[0]
     assert _hrefs(cells) == [
-        "/", "/fleet", "/users", "/airlines/manage"]
+        "/", "/fleet", "/users", "/airlines/manage", "/audit"]
     assert "Audit" in console and "Admin<" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == ["/audit", "/account"]
+    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == ["/account"]
     fleet_cell = cells[cells.index('href="/fleet"'):]
     assert "nav-notification" in fleet_cell[:fleet_cell.index("</a>")]
     summary = console[console.index("<summary"):console.index("</summary>")]

@@ -33,7 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 def test_render_emits_no_fieldset_or_legend_three_groups_no_runway_cards_and_save_button():
     """render() emits no <fieldset>/<legend> and no .theme-chip-grid on this legacy SCOPE_ALL
     render, three theme-status-wrapped groups (Diagnostic LED/Quiet hours/Wake interval), no
-    runway-card label, and a Save settings submit button"""
+    runway-card label, and a Save submit button"""
     ctx = {
         "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
     }
@@ -44,7 +44,7 @@ def test_render_emits_no_fieldset_or_legend_three_groups_no_runway_cards_and_sav
     assert "theme-chip-grid" not in rendered
     assert '<label class="runway-card' not in rendered
     assert 'name="tracked_runway"' not in rendered
-    assert "Save settings" in rendered
+    assert ">Save</button>" in rendered
 
 
 def test_led_group_carries_the_switch_and_its_state_attribute_sequence():
@@ -163,7 +163,7 @@ def test_handle_post_preset_filled_submission_treated_identically_to_hand_typed(
 
 def test_render_wires_quiet_hours_group_after_led_before_save_button():
     """render() wires quiet_hours_group() with the saved current values, positioned after
-    Diagnostic LED and before the Save settings button"""
+    Diagnostic LED and before the Save button"""
     rendered = config_page.render({
         "device_config": {
             "theme": "black", "tracked_runway": "3", "led_enabled": True,
@@ -177,7 +177,7 @@ def test_render_wires_quiet_hours_group_after_led_before_save_button():
     assert 'name="quiet_hours_enabled"' not in rendered
     led_heading_pos = rendered.index(config_page.LED_SECTION_HEADING)
     quiet_heading_pos = rendered.index(config_page.QUIET_HOURS_SECTION_HEADING)
-    save_button_pos = rendered.index("Save settings")
+    save_button_pos = rendered.index(">Save</button>")
     assert led_heading_pos < quiet_heading_pos < save_button_pos
 
 

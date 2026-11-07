@@ -97,6 +97,44 @@ def test_the_picture_dialog_shows_the_picture_alone_and_close_returns_to_the_thu
         context.close()
 
 
+def test_the_tab_bar_is_not_a_named_group_while_the_picture_transition_runs(
+        new_context, flights_server):
+    """a named tab bar would paint above the page snapshot that holds the dialog, covering its
+    Close button for the length of the transition: while the transition runs the bar and its
+    pill carry no view-transition name, and both get their names back afterwards"""
+    context, page = _page(new_context, flights_server.base_url(), "/flights", VIEWPORT_MIN_SUPPORTED)
+    try:
+        page.evaluate("""() => {
+            window.__samples = [];
+            const bar = document.querySelector('.tab-bar');
+            const slider = document.querySelector('.tab-bar__slider');
+            const tick = () => {
+                window.__samples.push([
+                    document.documentElement.classList.contains('is-picture-transition'),
+                    getComputedStyle(bar).viewTransitionName,
+                    getComputedStyle(slider).viewTransitionName]);
+                requestAnimationFrame(tick);
+            };
+            tick();
+        }""")
+        _open_picture(page)
+        page.locator(DIALOG + " [data-view-panel-close]").click()
+        page.wait_for_function(
+            "s => !document.querySelector(s).open && document.querySelector('.vt-pic') === null"
+            " && !document.documentElement.classList.contains('is-picture-transition')",
+            arg=DIALOG, timeout=10000)
+        samples = page.evaluate("() => window.__samples")
+        during = [sample for sample in samples if sample[0]]
+        assert during, samples[-5:]
+        assert all(sample[1:] == ["none", "none"] for sample in during), during
+        names = page.evaluate(
+            "() => [getComputedStyle(document.querySelector('.tab-bar')).viewTransitionName,"
+            " getComputedStyle(document.querySelector('.tab-bar__slider')).viewTransitionName]")
+        assert names == ["skypane-tab-bar", "skypane-tab-slider"]
+    finally:
+        context.close()
+
+
 def test_the_picture_dialog_keeps_a_focus_trap_and_a_labelled_dialog(new_context, flights_server):
     context, page = _page(new_context, flights_server.base_url(), "/flights", VIEWPORT_DESKTOP)
     try:

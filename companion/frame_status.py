@@ -44,7 +44,7 @@ WORD_NOT_SEEN = i18n.msg("frame_state.status_not_seen", "Not seen yet")
 WORD_OVERDUE = i18n.msg("frame_state.status_overdue", "Overdue")
 WORD_LOW_BATTERY = i18n.msg("frame_state.status_low_battery", "Low battery")
 WORD_RESTING = i18n.msg("frame_state.status_resting", "Resting")
-WORD_UP_TO_DATE = i18n.msg("frame_state.status_up_to_date", "Up to date")
+WORD_UP_TO_DATE = i18n.msg("frame_state.status_up_to_date", "Online")
 
 
 class FrameStatus(NamedTuple):

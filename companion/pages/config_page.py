@@ -641,16 +641,14 @@ def _render_all_scope(groups, builders):
     }
 
 
-# The dirty-save-bar's own two button labels.
-SAVE_BUTTON_TEXT = i18n.msg("display.save_settings", "Save settings")
+# The dirty-save-bar's own two button labels. The short "Save": the bar names
+# the unsaved changes beside it, and a longer label wraps on a phone.
+SAVE_BUTTON_TEXT = i18n.msg("look.save", "Save")
 # Same id as companion.settings.calendar.CALENDAR_DISCONNECT_CANCEL_TEXT
 # — same English, same French translation, and msg() is idempotent for
 # a repeat id/English pair.
 CANCEL_BUTTON_TEXT = i18n.msg("display.cancel", "Cancel")
 
-
-# The short Save of the docked bar: same id and English as the Look card's.
-DOCKED_SAVE_BUTTON_TEXT = i18n.msg("look.save", "Save")
 
 
 def _dirty_bar_html(dirty_strings, extra_class="", save_text=None):
@@ -696,7 +694,7 @@ def docked_dirty_bar_html():
     a backdrop-filtered ancestor would become the containing block of any
     fixed descendant. The `--docked` modifier makes it stick to the bottom of
     the viewport inside the main column."""
-    return _dirty_bar_html(_dirty_bar_strings(), " dirty-bar--docked", DOCKED_SAVE_BUTTON_TEXT)
+    return _dirty_bar_html(_dirty_bar_strings(), " dirty-bar--docked")
 
 
 def _settings_page_html(pieces, quick_led_html, dirty_strings, with_bar=True):

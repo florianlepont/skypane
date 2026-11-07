@@ -5,7 +5,6 @@ bar whose shadow is bounded so nothing it paints reaches beyond the gap under it
 import io
 import re
 
-import fleet_rows_support
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from PIL import Image, ImageChops
@@ -134,8 +133,7 @@ def test_the_reactivate_menu_item_sits_on_an_opaque_panel_with_readable_ink(
         page.locator("main").wait_for(state="visible")
         page.evaluate("t => document.documentElement.setAttribute('data-ui-theme', t)", scheme)
         page.wait_for_function(_SETTLED)
-        fleet_rows_support.open_dialog(page, "others")
-        item = page.locator("#dlg-fleet-others a.row-menu__item", has_text="Re-activate").first
+        item = page.locator(".fleet-block--others a.row-menu__item", has_text="Re-activate").first
         item.evaluate(
             "el => { for (let d = el.closest('details'); d;"
             " d = d.parentElement && d.parentElement.closest('details')) d.open = true; }")
@@ -200,7 +198,7 @@ def test_the_tab_bar_shadow_never_paints_beyond_the_gap_below_the_bar(
         page.wait_for_timeout(300)
         bar = page.locator(".tab-bar").bounding_box()
         gap = page.evaluate("() => window.innerHeight") - (bar["y"] + bar["height"])
-        assert gap == pytest.approx(12 + inset, abs=0.5)
+        assert gap == pytest.approx(6 + inset, abs=0.5)
         shown = Image.open(io.BytesIO(page.screenshot())).convert("RGB")
         page.evaluate("() => { document.querySelector('.tab-bar').style.visibility = 'hidden'; }")
         page.wait_for_timeout(300)

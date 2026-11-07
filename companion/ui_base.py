@@ -245,6 +245,9 @@ SPLASH_SCRIPT_SRC = "/static/splash.js"
 # library first. LEAFLET_STYLE_HREF is that page's extra stylesheet.
 LEAFLET_SCRIPT_SRC = "/static/vendor/leaflet/leaflet.js"
 PLACE_MAP_SCRIPT_SRC = "/static/place-map.js"
+# The credits popover and details-card wiring of the same page; runs after
+# the glue and does nothing unless the map started.
+PLACE_CARD_SCRIPT_SRC = "/static/place-card.js"
 LEAFLET_STYLE_HREF = "/static/vendor/leaflet/leaflet.css"
 
 # The registration seam value-controls.js reads, defined here so a page
@@ -451,7 +454,7 @@ FRAME_STRIP_HEADING = i18n.msg("home.frame", "Frame")
 # below are owned by home.py's catalogue (untouched by this plan); the
 # held headline and both delay sentences are owned by frame_state.py's
 # own catalogue, migrated later in this same plan.
-_FRAME_HEADLINE_DUE_TEXT = i18n.msg("home.next_update", "Next update %s")
+_FRAME_HEADLINE_DUE_TEXT = i18n.msg("home.next_update", "Next refresh %s")
 _FRAME_HEADLINE_HELD_TEXT = i18n.msg(
     "frame_state.next_wake_around_quiet_hours",
     "Next wake around %s · quiet hours")

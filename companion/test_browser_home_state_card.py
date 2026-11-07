@@ -126,11 +126,16 @@ def test_status_header_layout_targets_and_keyboard(
         page.keyboard.press("Shift+Tab")
         page.keyboard.press("Shift+Tab")
         assert _has_visible_focus_indicator(page, SCREEN_BUTTON), "no focus ring on the screen switch"
-        with page.expect_navigation():
-            page.keyboard.press("Space")
-        # flash-cleanup.js drops the query string once the toast is shown.
+        page.evaluate("() => { window.__noReload = true; }")
+        page.keyboard.press("Space")
+        # The switch flips in place and the headline follows without a page load.
+        page.wait_for_function(
+            "() => document.querySelector('.home-state__headline')"
+            " && document.querySelector('.home-state__detail')"
+            " && document.querySelector('.home-state__detail').textContent.trim() !== ''",
+            timeout=15000)
+        assert page.evaluate("() => window.__noReload === true")
         assert urlsplit(page.url).path == layout.HOME_ROUTE
-        assert page.locator(FLASH).count() == 1
         assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
         assert page.locator(SCREEN_BUTTON).get_attribute("aria-checked") == "false"
         headline = page.locator(".home-state__headline").inner_text()
@@ -143,16 +148,21 @@ def test_status_header_layout_targets_and_keyboard(
 
 
 def test_enter_on_the_quiet_switch_posts_and_the_header_follows(new_context, make_app_server):
-    """Enter on the quiet-hours switch (scripts on) posts, persists, redirects with the flash
-    and the switch reads checked with the headline following the new state"""
+    """Enter on the quiet-hours switch (scripts on) posts over fetch and persists: the switch
+    reads checked in place, with no page load"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_DESKTOP)
     try:
         assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "false"
         page.locator(QUIET_BUTTON).focus()
-        with page.expect_navigation():
-            page.keyboard.press("Enter")
-        assert page.locator(FLASH).count() == 1
+        page.evaluate("() => { window.__noReload = true; }")
+        page.keyboard.press("Enter")
+        page.wait_for_function(
+            "s => document.querySelector(s).getAttribute('aria-checked') === 'true'"
+            " && !document.querySelector('[data-quick-region][data-pending]')",
+            arg=QUIET_BUTTON, timeout=15000)
+        assert page.evaluate("() => window.__noReload === true")
+        assert page.locator(FLASH).count() == 0
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
         assert page.locator(QUIET_BUTTON).get_attribute("aria-checked") == "true"
     finally:
@@ -161,12 +171,18 @@ def test_enter_on_the_quiet_switch_posts_and_the_header_follows(new_context, mak
 
 def test_clicking_the_row_toggles_the_switch(new_context, make_app_server):
     """the whole switch row is the tap target: a click on the row's left edge, away from the
-    track, still presses the switch"""
+    track, still presses the switch (in place, no page load)"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_PHONE)
     try:
-        with page.expect_navigation():
-            page.locator(".home-switch--on").first.click(position={"x": 12, "y": 28})
+        page.evaluate("() => { window.__noReload = true; }")
+        page.locator(".home-switch--on").first.click(position={"x": 12, "y": 28})
+        page.wait_for_function(
+            "() => document.querySelector('" + SCREEN_BUTTON + "')"
+            ".getAttribute('aria-checked') === 'false'", timeout=15000)
+        page.wait_for_function(
+            "() => !document.querySelector('[data-quick-region][data-pending]')", timeout=15000)
+        assert page.evaluate("() => window.__noReload === true")
         assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
     finally:
         context.close()
@@ -228,7 +244,7 @@ def _seed_checkin(minutes_ago, battery_mv):
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 @pytest.mark.parametrize("minutes_ago,battery_mv,wording,amber", [
-    (2, 4100, "Next update in", False),
+    (2, 4100, "Next refresh in", False),
     (16, 3700, None, True),
     (30, 3381, None, True),
 ])
@@ -473,6 +489,8 @@ def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
         label = page.locator("#home-switch-quiet-label").bounding_box()
         page.mouse.click(label["x"] + 4, label["y"] + 4)
         page.locator(QUIET_BUTTON + '[aria-checked="true"]').wait_for()
+        page.wait_for_function(
+            "() => !document.querySelector('[data-quick-region][data-pending]')", timeout=15000)
         assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
     finally:
         context.close()
@@ -524,7 +542,7 @@ def _open_user_home(new_context, server, fleet, lang="en", **context_args):
 
 
 @pytest.mark.parametrize("mode,word,tone", [
-    ("fresh", "Up to date", "ok"),
+    ("fresh", "Online", "ok"),
     ("off", "Resting", "off"),
     ("silent", "No contact", "error"),
     ("never", "Not seen yet", "warn"),
@@ -563,7 +581,7 @@ def test_user_home_layout_has_the_frame_button_first_and_no_battery_tile(
         assert page.locator(".home-battery").count() == 0
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
-            """() => ['details.frame-menu', 'h1', '.home-state',
+            """() => ['details.frame-menu', '.page-greeting', '.home-state',
                       '.home-state__switches', '.home-section[aria-labelledby="home-flights"]']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
         # On a phone the button is in the bar above the title; on a desktop it is level with it.
@@ -575,5 +593,72 @@ def test_user_home_layout_has_the_frame_button_first_and_no_battery_tile(
         _assert_zone_arrangement(page, "user-home")
         assert not _assert_no_page_overflow(
             page, "user-home/%s/%s/%s" % (scheme, viewport_name, lang), viewport["width"])
+    finally:
+        context.close()
+
+
+def _wait_controls_settled(page):
+    """A switch owns its own centre (the page change transition is over) and nothing is pending."""
+    page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
+    page.wait_for_function(
+        "s => { const e = document.querySelector(s); if (!e) return false;"
+        " const r = e.getBoundingClientRect();"
+        " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
+        " return hit === e || e.contains(hit); }", arg=SCREEN_BUTTON, timeout=15000)
+    page.wait_for_function(
+        "() => document.getAnimations().every(a => a.effect"
+        " && a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')",
+        timeout=15000)
+
+
+def test_a_switch_flips_in_place_and_the_state_regions_follow(new_context, make_app_server):
+    """pressing the screen switch posts over fetch: the page is never reloaded (a marker on window
+    survives, no navigation happens), the switch, the headline and the saved config all change,
+    and the quiet-hours switch then does the same"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_PHONE)
+    try:
+        _wait_controls_settled(page)
+        navigations = []
+        page.on("framenavigated", lambda frame: navigations.append(frame.url))
+        page.evaluate("() => { window.__noReload = true; }")
+        page.locator(SCREEN_BUTTON).click()
+        page.wait_for_function(
+            "() => document.querySelector('.home-state__detail')"
+            " && document.querySelector('.home-state__detail').textContent.includes('stays blank')",
+            timeout=15000)
+        assert page.get_attribute(SCREEN_BUTTON, "aria-checked") == "false"
+        assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
+        page.locator(SCREEN_BUTTON).click()
+        page.wait_for_function(
+            "() => !document.querySelector('.home-state__detail')", timeout=15000)
+        page.locator(QUIET_BUTTON).click()
+        page.wait_for_function(
+            "s => document.querySelector(s).getAttribute('aria-checked') === 'true'"
+            " && !document.querySelector('[data-quick-region][data-pending]')",
+            arg=QUIET_BUTTON, timeout=15000)
+        assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is True
+        assert page.evaluate("() => window.__noReload === true")
+        assert navigations == []
+    finally:
+        context.close()
+
+
+def test_a_refused_switch_flips_back_and_says_so(new_context, make_app_server):
+    """when the server answers with anything but 204 the switch returns to what it was and the
+    failure toast appears, still without a page load"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_DESKTOP)
+    try:
+        _wait_controls_settled(page)
+        page.route("**/quick/display", lambda route: route.fulfill(status=500, body="no"))
+        page.evaluate("() => { window.__noReload = true; }")
+        page.locator(SCREEN_BUTTON).click()
+        page.wait_for_function(
+            "() => !!document.querySelector('.toast-region [role=alert], .toast-region .toast')",
+            timeout=15000)
+        assert page.get_attribute(SCREEN_BUTTON, "aria-checked") == "true"
+        assert device_config.load_device_config(server.state_dir)["display_enabled"] is True
+        assert page.evaluate("() => window.__noReload === true")
     finally:
         context.close()

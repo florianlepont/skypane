@@ -52,6 +52,7 @@ from companion.ui_base import (
     SPLASH_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
+    PLACE_CARD_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -71,6 +72,8 @@ from companion.ui_nav import (
     CONSOLE_SPACE,
     PERSONAL_SPACE,
     TAB_BAR_BODY_CLASS,
+    TAB_BAR_END_HTML,
+    TAB_BAR_END_ID,
     _logout_form_html,
     _tab_bar_html,
     is_admin_principal,
@@ -163,6 +166,7 @@ SHELL_SCRIPT_ORDER = (
     MOTION_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
+    PLACE_CARD_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
@@ -296,6 +300,7 @@ PAGE_SHELL_TEMPLATE = (
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
+    "{tab_bar_expect}"
     '<script src="{splash_boot_src}"></script>\n'
     "{favicon_link}\n"
     "</head>\n"
@@ -548,7 +553,10 @@ def page_shell(
         "flash": flash_html,
         "banner": banner_html,
         "body": body,
-        "tab_bar": tab_bar_html,
+        "tab_bar": tab_bar_html + TAB_BAR_END_HTML if tab_bar_html else "",
+        "tab_bar_expect": (
+            '<link rel="expect" href="#%s" blocking="render">\n' % TAB_BAR_END_ID
+            if tab_bar_html else ""),
         "quick_toast_attr": QUICK_TOAST_ATTR,
         "quick_toast_template_attr": QUICK_TOAST_TEMPLATE_ATTR,
         "quick_toast": _quick_toast_html(),

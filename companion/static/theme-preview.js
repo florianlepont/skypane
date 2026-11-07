@@ -446,31 +446,23 @@
     syncSheet();
   });
 
-  sheet.querySelector("[data-look-reset]").addEventListener("click", function () {
-    if (inline && current) {
-      var saved = savedValues[current.getAttribute("data-look-usage")];
-      if (saved !== undefined && saved !== null) {
-        setValue(current, saved);
-      }
-      syncSheet();
-    } else if (current && initialValue !== null) {
-      setValue(current, initialValue);
-      syncSheet();
-    }
-  });
-  // The picker's Save is the save bar's Save: the form keeps one submit control.
-  var inlineSave = sheet.querySelector("[data-look-save]");
-  if (inlineSave) {
-    inlineSave.addEventListener("click", function () {
-      var barSave = document.querySelector("[data-static-save-fallback]");
-      if (barSave) {
-        barSave.click();
+  // The dialog's own footer. The inline picker has none: the page's save bar
+  // saves, and its Cancel restores every look to the saved value.
+  var resetButton = sheet.querySelector("[data-look-reset]");
+  if (resetButton) {
+    resetButton.addEventListener("click", function () {
+      if (current && initialValue !== null) {
+        setValue(current, initialValue);
+        syncSheet();
       }
     });
   }
-  sheet.querySelector("[data-look-done]").addEventListener("click", function () {
-    closeSheet(true);
-  });
+  var doneButton = sheet.querySelector("[data-look-done]");
+  if (doneButton) {
+    doneButton.addEventListener("click", function () {
+      closeSheet(true);
+    });
+  }
   sheet.querySelector("[data-look-close]").addEventListener("click", function () {
     closeSheet(true);
   });
@@ -581,7 +573,6 @@
 
   // --- The look views: the one picture of the type the address names ---
 
-  var savedValues = {};
   var panels = document.querySelectorAll("[data-look-panel]");
 
   function showUsage(usage) {
@@ -594,10 +585,6 @@
   }
 
   if (inline) {
-    var t;
-    for (t = 0; t < targets.length; t++) {
-      savedValues[targets[t].getAttribute("data-look-usage")] = checkedValue(targets[t]);
-    }
     var lookView = document.querySelector("[data-look-initial]");
     showUsage(lookView ? lookView.getAttribute("data-look-initial") : "departures");
   }

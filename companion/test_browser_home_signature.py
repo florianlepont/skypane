@@ -1,5 +1,5 @@
 """Real-browser checks of Home's signature animation: a thin ring around the picture shows
-the share of the frame cycle already elapsed (the same data as "Next update in N min"), a soft
+the share of the frame cycle already elapsed (the same data as "Next refresh in N min"), a soft
 glass glint crosses the picture and the picture's glow and the status dot breathe. All of it
 is content-neutral, takes no room, appears on Home only, is static under reduced motion and
 the ring renders at its server-computed progress without scripts."""
@@ -86,8 +86,8 @@ def test_ring_progress_matches_the_next_update_data(new_context, make_app_server
 def test_ring_has_an_accessible_name_in_both_languages(new_context, make_app_server):
     """the ring is an image named by the next-update countdown, in English and French"""
     server = make_app_server(seed=_seed_checkin(2), fake_providers=True)
-    for lang, pattern in (("en", r"^Frame cycle: next update in \d+"),
-                          ("fr", r"^Cycle du cadre\s*: prochaine mise à jour dans \d+")):
+    for lang, pattern in (("en", r"^Frame cycle: next refresh in \d+"),
+                          ("fr", r"^Cycle du cadre\s*: prochain rafraîchissement dans \d+")):
         context, page = _open_home(new_context, server.base_url(), VIEWPORT_PHONE, lang=lang)
         try:
             ring = page.locator(RING)
@@ -104,7 +104,7 @@ def test_ring_renders_at_its_server_progress_without_scripts(new_context, make_a
     with _no_js_page(new_context, server.base_url(), layout.HOME_ROUTE) as page:
         ring = page.locator(RING)
         assert ring.count() == 1
-        assert re.search(r"next update in \d+", ring.get_attribute("aria-label"))
+        assert re.search(r"next refresh in \d+", ring.get_attribute("aria-label"))
         assert abs(_progress(page) - 2 * 60.0 / WAKE_S) < 0.06
         assert page.locator(BAR).get_attribute("stroke-dasharray") == "100 100"
 

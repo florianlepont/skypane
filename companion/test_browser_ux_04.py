@@ -21,7 +21,6 @@ import collections
 import io
 import os
 
-import fleet_rows_support
 import pytest
 from PIL import Image
 
@@ -327,9 +326,7 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
                     ('[data-pers-view="arrivals"]', "the Arrivals link"),
                     (picker + ".look-dot:first-of-type", "the first colour dot"),
                     (picker + ".look-dot:last-of-type", "the last colour dot"),
-                    (picker + ".look-seg__option", "a background or stripe option"),
-                    (picker + ".look-sheet__reset", "Reset"),
-                    (picker + ".look-sheet__save", "Save")):
+                    (picker + ".look-seg__option", "a background or stripe option")):
                 _assert_hit_target(page, selector, "theme=%s: %s" % (theme, what))
             msg = _assert_no_page_overflow(
                 page, "the look picker on /display (theme=%s)" % theme,
@@ -477,8 +474,6 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         base_url = server.base_url()
         _login(page, base_url)
         page.goto(base_url + "/fleet")
-        # From 960px the field is in the Settings dialog; leaving it hands over to the Save bar.
-        fleet_rows_support.open_dialog(page, "settings")
 
         before = str(device_config.load_device_config(server.tmpdir)["wake_interval_s"])
         # Below server/device_config.py's own WAKE_INTERVAL_MIN_S (60): a genuine server-side
@@ -490,7 +485,6 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         page.keyboard.press("ControlOrMeta+A")
         page.keyboard.type(rejected)
         page.keyboard.press("Tab")
-        fleet_rows_support.close_dialog(page)
         _wait_for_bar(page)
         # noValidate disables only the browser's own pre-flight check for this one native
         # submit; the request that follows is still a real native POST, so the server's own

@@ -176,8 +176,7 @@ def test_dialog_and_row_fit_and_every_control_is_44px_in_both_themes(
     try:
         selectors = [
             DIALOG + " a.modal__close", START, END, DIALOG + " label.quiet-tile",
-            CARDS + ":nth-child(1)", CARDS + ":nth-child(2)",
-            CARDS + ":nth-child(3)", DIALOG + " .quiet-timezone-note a",
+            CARDS + ":nth-child(1)", CARDS + ":nth-child(2)", DIALOG + " .quiet-timezone-note a",
             SAVE, DIALOG + " a.modal__dismiss"]
         for _theme in _in_both_themes(page):
             _wait_at_rest(page, LINK)
@@ -210,14 +209,15 @@ def _wait_pressed(page, expected_index):
         arg=[CARDS, -1 if expected_index is None else expected_index], timeout=5000)
 
 
-def test_preset_cards_fill_both_fields_and_always_active_clears_the_switch(
+def test_preset_cards_fill_both_fields_and_there_is_no_always_active_card(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url())
     try:
         _open_dialog(page)
         buttons = page.locator(CARDS)
-        assert buttons.count() == 3
+        assert buttons.count() == 2
+        assert "Always" not in page.locator(DIALOG).inner_text()
         _wait_pressed(page, 0)                      # the stored 23:00-07:00 is Night
         buttons.nth(1).click()
         _wait_value(page, START, "08:00")
@@ -228,11 +228,7 @@ def test_preset_cards_fill_both_fields_and_always_active_clears_the_switch(
         _wait_value(page, END, "07:00")
         assert page.is_checked(ENABLED)
         _wait_pressed(page, 0)
-        buttons.nth(2).click()
-        page.wait_for_function(
-            "() => !document.querySelector('%s').checked" % ENABLED, timeout=5000)
-        _wait_pressed(page, 2)
-        # Choosing a window again after Always active turns quiet hours back on.
+        # Choosing a window turns quiet hours on.
         buttons.nth(0).click()
         page.wait_for_function(
             "() => document.querySelector('%s').checked" % ENABLED, timeout=5000)
@@ -250,7 +246,7 @@ def test_preset_cards_fill_both_fields_and_always_active_clears_the_switch(
 
 def test_the_preset_cards_and_tiles_follow_the_sketch_in_both_themes(
         new_context, make_app_server):
-    """The selected card has the accent border and a check; the tiles are filled blocks with a
+    """The selected card has the accent border (no check mark on a phone); the tiles are filled blocks with a
     large time; the enable checkbox row is out of the layout with a script."""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", VIEWPORT_MIN_SUPPORTED)
@@ -278,8 +274,10 @@ def test_the_preset_cards_and_tiles_follow_the_sketch_in_both_themes(
                     enabledHidden: enabled.getClientRects().length === 0};
                 }""", [PRESSED, CARDS, START, ENABLED])
             assert look["border"] == look["accent"], look
-            assert look["checkShown"] and not look["offCheckShown"], look
-            assert look["timeSize"] >= 24, look
+            # On a phone the check gives way to the accent border and the filled icon, so both
+            # presets and both times fit one row each.
+            assert not look["checkShown"] and not look["offCheckShown"], look
+            assert look["timeSize"] >= 20, look
             assert look["tileFill"] != "rgba(0, 0, 0, 0)", look
             assert look["enabledHidden"], look
             page.keyboard.press("Escape")
@@ -317,20 +315,23 @@ def test_saving_in_three_taps_changes_only_the_three_keys_and_home_follows(
         context.close()
 
 
-def test_choosing_always_active_and_saving_stores_off(new_context, make_app_server):
-    server = make_app_server(seed=_seed, fake_providers=True)
+def test_a_schedule_stored_off_with_custom_hours_opens_with_no_card_selected(
+        new_context, make_app_server):
+    def seed_off(state_dir):
+        seed_state_dir(state_dir)
+        device_config.save_device_config(
+            state_dir, display_enabled=True, quiet_hours_enabled=False,
+            quiet_hours_start="21:00", quiet_hours_end="05:30", wake_interval_s=600)
+
+    server = make_app_server(seed=seed_off, fake_providers=True)
     context, page = _open_home(new_context, server.base_url())
     try:
         _open_dialog(page)
-        page.locator(CARDS).nth(2).click()                  # "Always active"
-        page.wait_for_function(
-            "() => !document.querySelector('%s').checked" % ENABLED, timeout=5000)
-        with page.expect_navigation():
-            page.click(SAVE)
-        assert _config(server)["quiet_hours_enabled"] is False
-        page.wait_for_function(
-            "() => document.querySelector('#home-switch-quiet-state')"
-            ".textContent.toLowerCase().indexOf('off') !== -1", timeout=10000)
+        assert page.locator(CARDS).count() == 2
+        _wait_pressed(page, None)
+        _wait_value(page, START, "21:00")
+        _wait_value(page, END, "05:30")
+        assert not page.is_checked(ENABLED)
     finally:
         context.close()
 
@@ -429,3 +430,45 @@ def test_with_scripts_blocked_the_hash_link_shows_the_form_and_the_submit_posts(
         assert page.url.endswith("/?flash=quiet_window_saved")
     after = _config(server)
     assert (after["quiet_hours_start"], after["quiet_hours_end"]) == ("23:00", "06:30")
+
+
+SMALL_PHONES = (("390x844", {"width": 390, "height": 844}),
+                ("375x667", {"width": 375, "height": 667}))
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("name,viewport", SMALL_PHONES, ids=[v[0] for v in SMALL_PHONES])
+def test_the_quiet_hours_sheet_fits_a_small_phone_without_scrolling(
+        new_context, make_app_server, lang, name, viewport):
+    """Everything (both presets, both times, Save and Close) is visible at once on a 390x844
+    and a 375x667 phone, the presets side by side and the times side by side."""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), lang, viewport)
+    try:
+        _open_dialog(page)
+        probe = page.evaluate(
+            """() => {
+                const d = document.querySelector('dialog#dlg-quiet-hours');
+                const r = e => e.getBoundingClientRect();
+                const cards = [...d.querySelectorAll('.quiet-card')].map(r);
+                const times = [...d.querySelectorAll('.quiet-tile')].map(r);
+                const save = r(d.querySelector('button[type=submit]'));
+                const close = [...d.querySelectorAll('button, a')].filter(
+                    e => e.textContent.trim() === (document.documentElement.lang === 'fr'
+                        ? 'Fermer' : 'Close')).map(r)[0];
+                const scrolls = [d, ...d.querySelectorAll('*')].filter(
+                    e => e.scrollHeight > e.clientHeight + 1
+                        && ['auto', 'scroll'].includes(getComputedStyle(e).overflowY));
+                const clipped = [...d.querySelectorAll('input[type=time]')].filter(
+                    e => e.scrollWidth > e.clientWidth + 1).length;
+                return {cards, times, save: save.bottom, close: close.bottom, top: r(d).top,
+                        height: innerHeight, scrolls: scrolls.length, clipped};
+            }""")
+        assert probe["scrolls"] == 0 and probe["clipped"] == 0
+        assert probe["top"] >= 0
+        assert probe["save"] <= probe["height"] and probe["close"] <= probe["height"]
+        assert len(probe["cards"]) == 2 and len(probe["times"]) == 2
+        for pair in (probe["cards"], probe["times"]):
+            assert abs(pair[0]["top"] - pair[1]["top"]) < 2
+            assert pair[0]["right"] <= pair[1]["left"] + 0.5
+    finally:
+        context.close()

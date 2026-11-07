@@ -255,9 +255,9 @@ def test_the_map_runs_behind_the_glass_sidebar_on_a_wide_screen(new_context, mak
         context.close()
 
 
-def test_the_map_runs_behind_the_glass_tab_bar_on_a_phone(new_context, make_app_server):
-    """the map reaches the bottom of the window, the tab bar floats over it as glass (it paints no
-    solid fill of its own) and the sheet and the bar sit above the tab bar"""
+def test_the_map_runs_behind_the_opaque_tab_bar_on_a_phone(new_context, make_app_server):
+    """the map reaches the bottom of the window, the tab bar floats over it as one opaque
+    surface (a solid fill, no blur) and the sheet and the bar sit above the tab bar"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_PHONE)
     try:
@@ -269,8 +269,8 @@ def test_the_map_runs_behind_the_glass_tab_bar_on_a_phone(new_context, make_app_
             "() => { const t = document.querySelector('.tab-bar');"
             " return {solid: getComputedStyle(t).backgroundColor,"
             "         glass: getComputedStyle(t, '::before').backdropFilter}; }")
-        assert fill["solid"] == "rgba(0, 0, 0, 0)", fill
-        assert "blur" in fill["glass"], fill
+        assert fill["solid"].startswith("rgb("), fill
+        assert fill["glass"] in ("none", ""), fill
         sheet = page.locator(".place-sheet").bounding_box()
         assert sheet["y"] + sheet["height"] <= tab["y"] + 0.5, (sheet, tab)
         assert page.evaluate(

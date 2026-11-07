@@ -92,6 +92,25 @@ def _open(new_context, server, viewport, lang="en", **context_args):
     return context, page
 
 
+def test_the_resolve_fields_are_short_and_share_a_row_on_a_wide_screen(new_context, server):
+    """the inline resolve row keeps its name field near 280px and the type select near 180px
+    (never stretched across the row), the two side by side with the buttons after them"""
+    context, page = _open(new_context, server, VIEWPORTS[-1][1], "en")
+    try:
+        page.wait_for_function(_SETTLED, timeout=15000)
+        _settle(page, GAP_NAME)
+        boxes = page.evaluate("""args => {
+            const r = s => document.querySelector(s).getBoundingClientRect();
+            return {name: r(args[0]), select: r(args[1]), ok: r(args[2])};
+        }""", [GAP_NAME, GAP + " select", GAP + " .airlines-resolve__ok"])
+        assert 200 <= boxes["name"]["width"] <= 281, boxes
+        assert 120 <= boxes["select"]["width"] <= 181, boxes
+        assert abs(boxes["name"]["top"] - boxes["select"]["top"]) < 2, boxes
+        assert boxes["select"]["right"] <= boxes["ok"]["left"] + 1, boxes
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_table_fits_and_every_control_is_a_44px_target_in_both_themes(

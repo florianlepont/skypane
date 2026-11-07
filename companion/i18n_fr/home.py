@@ -40,7 +40,7 @@ MESSAGES = {
     # consumer (companion/layout.py's frame_strip_html()) renders
     # live — grammatical agreement matches that shared context, not
     # a re-derivation of this page's own former wording.
-    "home.next_update": "Prochaine mise à jour %s",
+    "home.next_update": "Prochain rafraîchissement %s",
     "home.expected_since": "Mise à jour en retard · attendue à %s",
 
     # companion/layout.py's own frame_strip_html(), keyed here for
@@ -50,7 +50,7 @@ MESSAGES = {
     "home.frame": "Cadre",
     "home.no_reading_yet": "Aucune mesure pour l’instant",
 
-    "home.cycle_ring": "Cycle du cadre\u00a0: prochaine mise à jour %s",
+    "home.cycle_ring": "Cycle du cadre\u00a0: prochain rafraîchissement %s",
     "home.frame_state": "État du cadre",
     "home.state_screen_on": "Écran allumé",
     "home.state_title_screen_off": "Écran éteint",
@@ -74,20 +74,17 @@ MESSAGES = {
     "home.quiet_hours_zone_sentence": "Fuseau\u00a0: {zone}. Changer dans {card}.",
     "home.quiet_intro": "Quand l’écran doit-il se reposer\u00a0?",
     "home.quiet_presets_label": "Préréglages des heures calmes",
-    "home.quiet_always_active": "Toujours actif",
-    "home.quiet_never_rests": "Jamais de repos",
     "home.quiet_or_choose": "Ou choisir ses heures",
     "home.battery_label": "Batterie",
     "home.battery_aria": "Batterie à environ %s",
     "home.battery_low": "Faible",
     "home.battery_critical": "Très faible",
     "home.battery_row_percent": "%d\u00a0%%",
-    "home.battery_row_normal": "Niveau normal",
     "home.battery_row_none": "Aucune mesure pour l’instant",
-    "home.battery_row_autonomy": "Autonomie estimée\u00a0: %s",
+    "home.battery_row_autonomy": "autonomie %s",
     "home.battery_row_autonomy_short": "moins de 2 jours",
-    "home.battery_row_autonomy_days": "environ %d jours",
-    "home.battery_row_autonomy_weeks": "environ %d semaines",
+    "home.battery_row_autonomy_days": "~%d jours",
+    "home.battery_row_autonomy_weeks": "~%d semaines",
     "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
     "home.action_needed": "Un élément demande votre attention",
 

@@ -59,6 +59,9 @@
   var RADIUS_MIN_KM = 2;
   var RADIUS_MAX_KM = 28;
   var READY_CLASS = "map-ready";
+  // Set on the page element by the head script while scripts run: the loading
+  // state shows instead of the plain form. A map that cannot start clears it.
+  var EARLY_CLASS = "js-early";
   var MESSAGE_MS = 8000;
   var LOCATE_GUARD_MS = LOCATE_TIMEOUT_MS + 3000;
 
@@ -71,6 +74,14 @@
   // leave the plain form (the fallback explanation stays visible).
   function giveUp() {
     mapEl.hidden = true;
+    removeRootClass(EARLY_CLASS);
+  }
+
+  function removeRootClass(name) {
+    var classes = document.documentElement.className.split(" ");
+    document.documentElement.className = classes.filter(function (cls) {
+      return cls !== name;
+    }).join(" ");
   }
 
   if (typeof L === "undefined" || typeof L.map !== "function") {
@@ -237,11 +248,10 @@
 
   var airportUrl = mapEl.getAttribute("data-airport-url") || "";
 
-  // Choosing an airport is the page's own navigation (the list's, now by a
-  // pin or a suggestion): the server renders the runway cards, the pin and
-  // the label for it. The link carries the live mode and radius through the
-  // form guard, which handles every data-detection-nav click.
-  function chooseAirport(airport) {
+  // The fallback when the page cannot be updated in place: the page's own
+  // navigation, carried through the form guard, which handles every
+  // data-detection-nav click. The server renders everything for the airport.
+  function navigateToAirport(airport) {
     var link = document.createElement("a");
     link.setAttribute("href", airportUrl.replace("__ICAO__", encodeURIComponent(airport.icao)));
     link.setAttribute("data-detection-nav", "");
@@ -249,6 +259,163 @@
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  }
+
+  var runwaysEl = byId("place-runways");
+  var pickTicket = 0;
+  // The runway group and the address the page opened with: Cancel
+  // after an in-place pick puts them back.
+  var openedRunways = [];
+  var openedAddress = window.location.pathname + window.location.search;
+  var pickedHere = false;
+
+  function rememberOpened() {
+    for (var k = 0; runwaysEl && k < runwaysEl.childNodes.length; k++) {
+      openedRunways.push(runwaysEl.childNodes[k].cloneNode(true));
+    }
+  }
+
+  // The form's Cancel (a native reset) restores the fields it holds; the
+  // parts a pick swapped in place come back from what the page opened with.
+  function restoreOpened() {
+    if (!pickedHere) {
+      return;
+    }
+    pickedHere = false;
+    pickTicket += 1;
+    while (runwaysEl.firstChild) {
+      runwaysEl.removeChild(runwaysEl.firstChild);
+    }
+    openedRunways.forEach(function (node) {
+      runwaysEl.appendChild(node.cloneNode(true));
+    });
+    if (dotLayer) {
+      dotLayer.clearLayers();
+      dots = {};
+    }
+    drawCircle();
+    refreshDots();
+    showCheckedRunway();
+    var point = fieldsPoint();
+    if (point) {
+      placePin(point, { fromFields: true, pan: true });
+    }
+    if (window.history && typeof window.history.replaceState === "function") {
+      try {
+        window.history.replaceState(window.history.state, "", openedAddress);
+      } catch (ignored) {
+        return;
+      }
+    }
+  }
+
+  function wireCancel() {
+    var form = document.querySelector("form[data-dirty-form]");
+    if (form) {
+      form.addEventListener("reset", function () {
+        window.setTimeout(restoreOpened, 0);
+      });
+    }
+  }
+
+  // Moves the page to an airport without leaving it: the Airport mode is
+  // chosen, the pin, the label and the coordinates follow the airport, the
+  // map flies there, and the runway cards and the airport header are swapped
+  // for the ones the server renders for that airport (fetched from the page's
+  // own airport URL, so the data and the validation are the server's). The
+  // address bar follows through history.replaceState. A failed fetch falls
+  // back to the page's own navigation.
+  function chooseAirport(airport) {
+    if (!map || !runwaysEl || typeof window.fetch !== "function" ||
+        typeof window.DOMParser !== "function") {
+      navigateToAirport(airport);
+      return;
+    }
+    pickTicket += 1;
+    pickedHere = true;
+    var ticket = pickTicket;
+    if (searchInput) {
+      searchInput.value = "";
+    }
+    var radio = byId("place-mode-runway");
+    if (radio && !radio.checked) {
+      radio.checked = true;
+      fire(radio, "change");
+    }
+    if (labelField) {
+      labelField.value = airport.name;
+      fire(labelField, "input");
+    }
+    placePin(L.latLng(airport.lat, airport.lon), { zoom: AIRPORT_ZOOM, animate: true });
+    var url = airportUrl.replace("__ICAO__", encodeURIComponent(airport.icao));
+    window.fetch(url, {
+      credentials: "same-origin",
+      headers: { Accept: "text/html" }
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("airport page " + response.status);
+      }
+      return response.text();
+    }).then(function (html) {
+      if (ticket !== pickTicket) {
+        return;
+      }
+      var fresh = new window.DOMParser().parseFromString(html, "text/html")
+        .getElementById("place-runways");
+      if (!fresh) {
+        throw new Error("no runway group");
+      }
+      showPickedAirport(airport, fresh);
+    }).catch(function () {
+      if (ticket === pickTicket) {
+        navigateToAirport(airport);
+      }
+    });
+  }
+
+  function showPickedAirport(airport, fresh) {
+    while (runwaysEl.firstChild) {
+      runwaysEl.removeChild(runwaysEl.firstChild);
+    }
+    for (var k = 0; k < fresh.childNodes.length; k++) {
+      runwaysEl.appendChild(document.importNode(fresh.childNodes[k], true));
+    }
+    if (dotLayer) {
+      dotLayer.clearLayers();
+      dots = {};
+    }
+    refreshDots();
+    showCheckedRunway();
+    if (pin) {
+      pinMoved(pin.getLatLng());
+    }
+    var chosen = document.querySelector("input[name='airport'][form]");
+    var runway = runwaysEl.querySelector("input[name='runway']:checked");
+    // The form guard counts the differences from what the page opened with.
+    fire(chosen || runway || runwaysEl, "change");
+    if (runway) {
+      fire(runway, "change");
+    }
+    setStatus(airport.name);
+    keepAddressInStep(airport);
+  }
+
+  // The address now names the picked airport, the live mode and the radius,
+  // exactly what the page's own navigation would have put there.
+  function keepAddressInStep(airport) {
+    if (!window.history || typeof window.history.replaceState !== "function") {
+      return;
+    }
+    var pairs = ["airport=" + encodeURIComponent(airport.icao), "mode=runway"];
+    if (radiusField && radiusField.value) {
+      pairs.push("radius_km=" + encodeURIComponent(radiusField.value));
+    }
+    try {
+      window.history.replaceState(
+        window.history.state, "", window.location.pathname + "?" + pairs.join("&"));
+    } catch (ignored) {
+      return;
+    }
   }
 
   // The airport whose ICAO or IATA code or whole name is what was typed.
@@ -1173,36 +1340,6 @@
     }
   }
 
-  // --- Credits popover --------------------------------------------------------
-
-  var infoButton = byId("place-info");
-  var creditsEl = byId("place-credits");
-
-  function setCreditsOpen(open) {
-    creditsEl.hidden = !open;
-    infoButton.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-
-  function wireCredits() {
-    if (!infoButton || !creditsEl) {
-      return;
-    }
-    infoButton.addEventListener("click", function () {
-      setCreditsOpen(creditsEl.hidden);
-    });
-    document.addEventListener("click", function (event) {
-      if (!creditsEl.hidden && !event.target.closest(".place-info")) {
-        setCreditsOpen(false);
-      }
-    }, true);
-    document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape" && !creditsEl.hidden) {
-        setCreditsOpen(false);
-        infoButton.focus();
-      }
-    });
-  }
-
   function wireSearchAndLocate() {
     if (searchForm && searchInput && resultsEl) {
       searchForm.addEventListener("submit", onSearchSubmit);
@@ -1278,16 +1415,9 @@
       }
     });
     wireSearchAndLocate();
-    wireCredits();
+    rememberOpened();
+    wireCancel();
     showCheckedRunway();
-    var detailsSummary = document.querySelector("#details > summary");
-    if (detailsSummary) {
-      // With the map the details are a card shown by the #details link: its
-      // title is a heading, not a toggle.
-      detailsSummary.addEventListener("click", function (event) {
-        event.preventDefault();
-      });
-    }
 
     if (pin) {
       centreOn(pin.getLatLng(), map.getZoom(), false);
@@ -1348,9 +1478,6 @@
     }
     setLoading(false);
     giveUp();
-    var classes = document.documentElement.className.split(" ");
-    document.documentElement.className = classes.filter(function (name) {
-      return name !== READY_CLASS;
-    }).join(" ");
+    removeRootClass(READY_CLASS);
   }
 }());
