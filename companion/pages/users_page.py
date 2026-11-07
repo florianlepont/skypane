@@ -73,6 +73,19 @@ _UNLINK_HINT = i18n.msg(
     "admin_users.unlink_identity_hint",
     "Signs this person out; they link their sign-in account again next time they sign in.")
 
+_DELETE_BUTTON = i18n.msg("admin_users.delete_user", "Delete user")
+_DELETE_TITLE = i18n.msg("admin_users.delete_user_title", "Delete this user?")
+_DELETE_KEEP = i18n.msg("admin_users.delete_user_keep", "Keep this user")
+_DELETE_WHAT = i18n.msg(
+    "admin_users.delete_user_what",
+    "%s is removed from SkyPane. Their sign-in sessions are closed, they lose "
+    "access to the frames they co-manage and their record is deleted. The "
+    "audit log keeps their address. This cannot be undone.")
+_DELETE_OWNER_RULE = i18n.msg(
+    "admin_users.delete_user_owner_rule",
+    "Someone who owns a frame cannot be deleted: reassign or retire the "
+    "frame first.")
+
 _INVITE_BUTTON = i18n.msg("admin_users.invite_a_user_button", "+ Invite a user")
 _INVITE_TITLE = i18n.msg("admin_users.invite_a_user", "Invite a user")
 _BACK_TO_USERS = i18n.msg("admin_users.back_to_users", "Back to Users")
@@ -262,15 +275,34 @@ def _active_cell(row):
     return _post_form(row, suffix, "users-active-form", label + button)
 
 
+def delete_dialog_id(row):
+    return "dlg-delete-user-%d" % row.user_id
+
+
+def _delete_dialog(row):
+    """The confirmation the menu's Delete user item opens."""
+    body = '<p class="text-body">%s</p><p class="text-label">%s</p>' % (
+        _esc(i18n.t(_DELETE_WHAT) % row.email), _t(_DELETE_OWNER_RULE))
+    return ui_modal.dialog_html(
+        delete_dialog_id(row), i18n.t(_DELETE_TITLE),
+        _action_path(row, _routes().USER_DELETE_SUFFIX),
+        _ui().csrf_field(), body, i18n.t(_DELETE_BUTTON), i18n.t(_DELETE_KEEP),
+        _routes().USERS_ROUTE, destructive=True, confirm_only=True,
+        subtitle=row.email)
+
+
 def _menu_cell(row):
-    """The "..." menu: only the rare actions, today the identity unlink of a
-    user who has signed in."""
-    if not row.has_identity:
-        return ""
-    unlink = _post_form(
-        row, _routes().USER_UNLINK_SUFFIX, "users-menu__form",
-        '<button type="submit" class="row-menu__item row-menu__item--destructive" '
-        'title="%s">%s</button>' % (_t(_UNLINK_HINT), _t(_UNLINK_BUTTON)))
+    """The "..." menu: only the rare actions, the identity unlink of a user
+    who has signed in, then Delete user, which opens its confirmation."""
+    unlink = ""
+    if row.has_identity:
+        unlink = _post_form(
+            row, _routes().USER_UNLINK_SUFFIX, "users-menu__form",
+            '<button type="submit" class="row-menu__item row-menu__item--destructive" '
+            'title="%s">%s</button>' % (_t(_UNLINK_HINT), _t(_UNLINK_BUTTON)))
+    unlink += ui_modal.trigger_html(
+        delete_dialog_id(row), _t(_DELETE_BUTTON),
+        "row-menu__item row-menu__item--destructive")
     return (
         '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">'
         '%s</summary><div class="row-menu__panel">%s</div></details>' % (
@@ -315,7 +347,7 @@ def _row_html(row, view):
         '<td class="users-cell users-cell--active">%s</td>'
         '<td class="users-cell users-cell--invite">%s</td>'
         '<td class="users-cell users-cell--menu">%s</td></tr>' % (
-            " users-row--menu" if row.has_identity else "", row.user_id,
+            " users-row--menu", row.user_id,
             _initial(row.email), _esc(row.email), _esc(row.email), _status_pill(row), you,
             _role_cell(row), _esc(_frames_cell_text(row)),
             _last_sign_in_html(row, view.now), _active_cell(row),
@@ -389,4 +421,5 @@ def render(view):
     return (
         '<section class="page-section users-section" aria-label="%s">%s</section>' % (
             _t(_USERS_TEXT), _table_html(view))
-        + _invite_dialog(view))
+        + _invite_dialog(view)
+        + "".join(_delete_dialog(row) for row in view.rows))

@@ -126,7 +126,8 @@ DEVICE_SCOPED = frozenset(
         "/settings/calendar/disconnect", "/settings/calendar/connect",
         "/settings/rules/{}/delete")]
     + [("POST", path) for path in (
-        "/co-managers/add", "/co-managers/remove", "/co-managers/leave")])
+        "/co-managers/add", "/co-managers/remove", "/co-managers/leave",
+        "/frame/remove")])
 
 # Policy -> principal -> outcome, hand-written. A disabled, deleted or
 # expired session resolves to no principal, so it reads as anonymous.

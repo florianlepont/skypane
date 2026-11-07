@@ -13,6 +13,10 @@ Security invariants:
 - Each change and its audit row share one `BEGIN IMMEDIATE` transaction, so a
   failed audit write rolls the change back too.
 - Only co-manager rows are ever deleted here, so no path can remove the owner.
+- Removing a frame acts on the authorised device for its own owner only (an
+  administrator who is not the owner is refused, since retiring is theirs on
+  Fleet), re-checks the owner inside the retire transaction, and never
+  touches the live frame: `fleet_ops.retire_frame` refuses and audits it.
 - `return_to` is attacker-controlled: it is honoured only when it equals one
   of the whitelisted host pages exactly (`card.safe_return_to`); anything else
   is ignored and the redirect is the frame's Home as before. The frame id put
@@ -25,7 +29,7 @@ import urllib.parse
 
 from companion import access, audit, console_flash, device_scope
 from companion.pages import co_managers_card as card
-from server import fleet_db
+from server import fleet_db, fleet_ops
 
 _MAX_EMAIL_CHARS = 254
 _USER_ID_RE = re.compile(r"\A[0-9]{1,9}\Z")
@@ -225,6 +229,31 @@ def handle_leave(h, m):
     return h.redirect("%s?flash=%s" % (_ACCOUNT_PATH, card.FLASH_LEFT))
 
 
+def handle_remove_frame(h, m):
+    """The owner retires their own frame: it leaves their account, keeps its
+    history and can be assigned again by an administrator. The live frame is
+    refused and left untouched. The form is never read."""
+    device = m.device
+    principal = h._safe_principal()
+    if principal is None or principal.user_id != device.owner_user_id:
+        return h.redirect("%s?flash=%s" % (_ACCOUNT_PATH, card.FLASH_FRAME_REMOVE_REFUSED))
+    try:
+        conn = fleet_db.connect(h.args.state_dir)
+        try:
+            fleet_ops.retire_frame(
+                conn, h.args.state_dir, device.id, audit.actor_for(h),
+                owner_user_id=principal.user_id)
+        finally:
+            conn.close()
+    except fleet_ops.LiveFrameProtected:
+        return h.redirect("%s?flash=%s" % (_ACCOUNT_PATH, card.FLASH_FRAME_REMOVE_LIVE))
+    except fleet_ops.NotFound:
+        return h.redirect("%s?flash=%s" % (_ACCOUNT_PATH, card.FLASH_FRAME_REMOVE_REFUSED))
+    except (*_STORE_ERRORS, fleet_ops.OpsError, ValueError):
+        return _failed(h, device, "device.retire", back=False)
+    return h.redirect("%s?flash=%s" % (_ACCOUNT_PATH, card.FLASH_FRAME_REMOVED))
+
+
 def _owner_email(conn, owner_user_id):
     row = conn.execute("SELECT email FROM users WHERE id = ?", (owner_user_id,)).fetchone()
     return None if row is None else str(row["email"])
@@ -252,4 +281,8 @@ def access_view(conn, device, principal):
     candidates = tuple(
         str(r["email"]) for r in fleet_db.eligible_co_manager_candidates(conn, device.id)
     ) if is_admin else ()
-    return card.CardView(owner_email, members, candidates, viewer_id, is_admin)
+    # Removing a frame is the owner's own act; an administrator retires a
+    # frame from Fleet, and the live frame is never offered.
+    can_remove = (
+        viewer_id is not None and device.owner_user_id == viewer_id and not device.is_live)
+    return card.CardView(owner_email, members, candidates, viewer_id, is_admin, can_remove)

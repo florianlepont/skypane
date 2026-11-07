@@ -19,6 +19,16 @@ MESSAGES = {
         "Le dernier administrateur actif ne peut pas être modifié.",
     "admin_users.save_role": "Enregistrer le rôle",
     "admin_users.unlink_identity": "Réinitialiser la connexion",
+    "admin_users.delete_user": "Supprimer l’utilisateur",
+    "admin_users.delete_user_title": "Supprimer cet utilisateur\u00a0?",
+    "admin_users.delete_user_keep": "Garder cet utilisateur",
+    "admin_users.delete_user_what":
+        "%s est retiré de SkyPane. Ses sessions de connexion sont fermées, il perd "
+        "l’accès aux cadres qu’il co-gère et son compte est supprimé. Le journal "
+        "d’audit conserve son adresse. Cette action est irréversible.",
+    "admin_users.delete_user_owner_rule":
+        "Une personne qui possède un cadre ne peut pas être supprimée\u00a0: "
+        "réaffectez ou retirez d’abord le cadre.",
     "admin_users.unlink_identity_hint":
         "Déconnecte cette personne\u00a0; elle relie de nouveau son compte de connexion à "
         "sa prochaine connexion.",
@@ -65,7 +75,13 @@ MESSAGES = {
     "admin_users.flash_last_admin_detail":
         "Il doit rester au moins un administrateur actif.",
     "admin_users.flash_self_action_detail":
-        "Vous ne pouvez pas vous désactiver ni vous rétrograder.",
+        "Vous ne pouvez pas vous désactiver, vous rétrograder ni vous supprimer.",
+    "admin_users.flash_user_deleted": "Utilisateur supprimé",
+    "admin_users.flash_user_deleted_detail":
+        "{email} a été supprimé. Le journal d’audit conserve son adresse.",
+    "admin_users.flash_owns_frame_detail":
+        "{email} possède encore le cadre {frame}. Réaffectez ou retirez d’abord le "
+        "cadre. Rien n’a été changé.",
     "admin_users.flash_user_not_found": "Utilisateur introuvable",
     "admin_users.flash_user_not_found_detail":
         "Il a peut-être déjà été modifié. Rien n’a été changé.",

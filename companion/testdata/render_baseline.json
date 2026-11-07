@@ -526,6 +526,10 @@
    "location": "/login",
    "status": 303
   },
+  "POST /frame/remove": {
+   "location": "/login",
+   "status": 303
+  },
   "POST /illustration/air-france.png": {
    "location": "/login",
    "status": 303
@@ -607,6 +611,10 @@
    "status": 303
   },
   "POST /update/install": {
+   "location": "/login",
+   "status": 303
+  },
+  "POST /users/1/delete": {
    "location": "/login",
    "status": 303
   },

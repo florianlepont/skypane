@@ -192,12 +192,14 @@ _UNAUTH_POST_REQUESTS = (
     "/users/1/disable",
     "/users/1/enable",
     "/users/1/unlink",
+    "/users/1/delete",
     "/locations/add",
     "/locations/1/edit",
     "/locations/1/delete",
     "/co-managers/add",
     "/co-managers/remove",
     "/co-managers/leave",
+    "/frame/remove",
     _NOT_FOUND_PATH,
 )
 

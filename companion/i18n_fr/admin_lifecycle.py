@@ -77,6 +77,8 @@ MESSAGES = {
     "admin_lifecycle.action_user_disable": "Utilisateur désactivé",
     "admin_lifecycle.action_user_enable": "Utilisateur activé",
     "admin_lifecycle.action_user_unlink": "Identité dissociée",
+    "admin_lifecycle.action_user_delete": "Utilisateur supprimé",
+    "admin_lifecycle.audit_reason_remove_user_deleted": "La personne a été supprimée",
     "admin_lifecycle.action_location_add": "Lieu ajouté",
     "admin_lifecycle.action_location_update": "Lieu modifié",
     "admin_lifecycle.action_location_delete": "Lieu supprimé",

@@ -35,6 +35,7 @@ _SAMPLE_MIDDLE = {
     routes.PrefixSuffix("/users/", "/disable"): "1",
     routes.PrefixSuffix("/users/", "/enable"): "1",
     routes.PrefixSuffix("/users/", "/unlink"): "1",
+    routes.PrefixSuffix("/users/", "/delete"): "1",
     routes.PrefixSuffix("/locations/", "/edit"): "1",
     routes.PrefixSuffix("/locations/", "/delete"): "1",
 }
@@ -183,6 +184,7 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
     assert owner_only == {
         ("POST", routes.Exact("/co-managers/add")),
         ("POST", routes.Exact("/co-managers/remove")),
+        ("POST", routes.Exact("/frame/remove")),
     }
 
 

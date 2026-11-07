@@ -309,6 +309,9 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(co_managers_card.LEAVE_ROUTE),
         lambda h, m: co_managers.handle_leave(h, m), OWNER_DEVICE, csrf=True),
+    Route(
+        "POST", Exact(co_managers_card.REMOVE_FRAME_ROUTE),
+        lambda h, m: co_managers.handle_remove_frame(h, m), OWNER_ONLY_DEVICE, csrf=True),
 )
 
 _PAGE_AND_IMAGE_KEYS = (
@@ -358,6 +361,7 @@ _ACTION_KEYS = (
     ("POST", Exact(co_managers_card.ADD_ROUTE)),
     ("POST", Exact(co_managers_card.REMOVE_ROUTE)),
     ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
+    ("POST", Exact(co_managers_card.REMOVE_FRAME_ROUTE)),
 )
 
 # The routes that act on a single device.

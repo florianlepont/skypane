@@ -18,6 +18,7 @@ from companion.ui_base import escape_html, validation_attrs
 ADD_ROUTE = "/co-managers/add"
 REMOVE_ROUTE = "/co-managers/remove"
 LEAVE_ROUTE = "/co-managers/leave"
+REMOVE_FRAME_ROUTE = "/frame/remove"
 
 FIELD_EMAIL = "email"
 FIELD_USER_ID = "user_id"
@@ -35,6 +36,9 @@ FLASH_LEFT = "co_manager_left"
 FLASH_ADD_REFUSED = "co_manager_add_refused"
 FLASH_FAILED = "co_manager_failed"
 FLASH_LEAVE_NOOP = "co_manager_leave_noop"
+FLASH_FRAME_REMOVED = "frame_removed"
+FLASH_FRAME_REMOVE_REFUSED = "frame_remove_refused"
+FLASH_FRAME_REMOVE_LIVE = "frame_remove_live"
 
 # None of these texts carries a placeholder: the typed address, an id or a
 # frame name never reaches a flash.
@@ -57,6 +61,16 @@ FLASH_FAILED_TEXT = i18n.msg(
 FLASH_LEAVE_NOOP_TEXT = i18n.msg(
     "co_managers.flash_leave_noop",
     "Nothing changed — only co-managers can leave a frame.")
+
+FLASH_FRAME_REMOVED_TEXT = i18n.msg(
+    "co_managers.flash_frame_removed",
+    "Frame removed — it no longer appears in your account.")
+FLASH_FRAME_REMOVE_REFUSED_TEXT = i18n.msg(
+    "co_managers.flash_frame_remove_refused",
+    "Nothing changed — only the owner of a frame can remove it.")
+FLASH_FRAME_REMOVE_LIVE_TEXT = i18n.msg(
+    "co_managers.flash_frame_remove_live",
+    "This frame cannot be removed. Ask an administrator.")
 
 _HEADING = i18n.msg("co_managers.heading", "Co-managers")
 _PURPOSE_MANAGE = i18n.msg(
@@ -95,6 +109,15 @@ _LEAVE_CONSEQUENCE = i18n.msg(
     "administrator can add you again.")
 _LEAVE_KEEP = i18n.msg("co_managers.leave_keep", "Stay on this frame")
 
+_REMOVE_FRAME_TEXT = i18n.msg("co_managers.remove_frame", "Remove this frame")
+_REMOVE_FRAME_TITLE = i18n.msg("co_managers.remove_frame_title", "Remove this frame?")
+_REMOVE_FRAME_KEEP = i18n.msg("co_managers.remove_frame_keep", "Keep this frame")
+_REMOVE_FRAME_CONSEQUENCE = i18n.msg(
+    "co_managers.remove_frame_consequence",
+    "This frame stops belonging to you and disappears from your account. Its "
+    "co-managers lose access. An administrator can assign it to someone again "
+    "later; its history is kept.")
+
 _MAX_EMAIL_CHARS = 254
 
 
@@ -107,6 +130,7 @@ class CardView(NamedTuple):
     candidates: tuple
     viewer_user_id: int | None
     is_admin_viewer: bool
+    can_remove_frame: bool = False
 
 
 def safe_return_to(value):
@@ -127,6 +151,10 @@ def access_dialog_id(device_id):
 
 def leave_dialog_id(device_id):
     return dialog_id("dlg-leave", device_id)
+
+
+def remove_frame_dialog_id(device_id):
+    return dialog_id("dlg-remove-frame", device_id)
 
 
 def _esc(value):
@@ -277,9 +305,39 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     people = ui_groups.group(
         access_rows_html(view, device_id, return_to, purpose=False),
         label=i18n.t(_HEADING), label_id=label_id)
-    return ui_modal.sections_dialog_html(
-        access_dialog_id(device_id), i18n.t(_DIALOG_TITLE), frame_name, people,
-        i18n.t(_DONE), return_to, open_=open_, extra_class="access-sheet")
+    remove_frame = ""
+    if view.can_remove_frame:
+        remove_frame = _remove_frame_group_html(device_id)
+    dialog = ui_modal.sections_dialog_html(
+        access_dialog_id(device_id), i18n.t(_DIALOG_TITLE), frame_name,
+        people + remove_frame, i18n.t(_DONE), return_to, open_=open_,
+        extra_class="access-sheet")
+    if view.can_remove_frame:
+        dialog += remove_frame_dialog_html(device_id, frame_name)
+    return dialog
+
+
+def _remove_frame_group_html(device_id):
+    """The quiet danger link under the people group, a link of its own rather
+    than a second surface: it opens the removal confirmation, which stacks
+    over the Manage access dialog."""
+    from companion import ui_modal
+    trigger = ui_modal.trigger_html(
+        remove_frame_dialog_id(device_id), _t(_REMOVE_FRAME_TEXT),
+        "access-remove-frame__link")
+    return '<p class="access-remove-frame">%s</p>' % trigger
+
+
+def remove_frame_dialog_html(device_id, frame_name):
+    """The confirmation of an owner removing their frame. The form posts no
+    id; the server acts on the frame in the path, for its owner only."""
+    from companion import ui_modal
+    body = '<p class="text-body">%s%s</p>' % (_warning_icon(), _t(_REMOVE_FRAME_CONSEQUENCE))
+    return ui_modal.dialog_html(
+        remove_frame_dialog_id(device_id), i18n.t(_REMOVE_FRAME_TITLE),
+        _frame_route(device_id, REMOVE_FRAME_ROUTE), _csrf_field(), body,
+        i18n.t(_REMOVE_FRAME_TEXT), i18n.t(_REMOVE_FRAME_KEEP), RETURN_ACCOUNT,
+        destructive=True, confirm_only=True, subtitle=frame_name)
 
 
 def leave_dialog_html(device_id, frame_name, return_to=RETURN_ACCOUNT):

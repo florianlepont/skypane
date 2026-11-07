@@ -270,7 +270,8 @@ def test_the_french_page_shows_french_reasons(rig):
 
 def test_every_whitelisted_reason_has_a_label():
     assert {via for _action, via in audit_page.REASON_LABELS} == {
-        "owner", "admin", "self", "reassign", "retire", "delete", "owner_disabled"}
+        "owner", "admin", "self", "reassign", "retire", "delete", "owner_disabled",
+        "user_deleted"}
 
 
 def test_the_stored_detail_is_json_the_page_never_echoes(rig):

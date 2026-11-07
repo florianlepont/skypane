@@ -206,8 +206,7 @@ def _ids(server):
         conn.close()
     return {
         "owned": owned, "slug": _slug(owned), "owner_user": owner,
-        "rule_dialog": "remove-look-%s-%s" % (RULE[0], _digest(RULE[1])),
-        "resolution_dialog": "delete-resolution-" + _digest("ZZZ")}
+        "rule_dialog": "remove-look-%s-%s" % (RULE[0], _digest(RULE[1]))}
 
 
 def _case(persona, path, dialog=None, label=None):
@@ -239,7 +238,7 @@ CASES = (
     _case("admin", "/airlines", None, "admin-collection"),
     _case("admin", "/airlines/manage", None, "admin-airline-editor"),
     _case("admin", "/display/special-looks", "{rule_dialog}", "remove-special-look-dialog"),
-    _case("admin", "/airlines/manage", "{resolution_dialog}", "delete-resolution-dialog"),
+    _case("admin", "/users", "dlg-delete-user-{owner_user}", "users-delete-dialog"),
     _case("admin", "/", "dlg-quiet-hours", "admin-quiet-hours-dialog"),
     _case("owner", "/devices/{owned}/", None, "user-home"),
     _case("owner", "/devices/{owned}/", "dlg-quiet-hours", "quiet-hours-dialog"),
@@ -249,6 +248,7 @@ CASES = (
     _case("co", "/devices/{owned}/detection", None, "co-manager-location"),
     _case("owner", "/account", None, "user-account"),
     _case("owner", "/account", "dlg-access-{slug}", "user-access-dialog"),
+    _case("owner", "/account", "dlg-remove-frame-{slug}", "user-remove-frame-dialog"),
     _case("co", "/account", None, "co-manager-account"),
     _case("co", "/account", "dlg-leave-{slug}", "co-manager-leave-dialog"),
 )

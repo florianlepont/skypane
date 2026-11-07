@@ -56,6 +56,8 @@ REASON_LABELS = {
         "admin_lifecycle.audit_reason_remove_retire", "Frame retired"),
     (_REMOVE_ACTION, "delete"): i18n.msg(
         "admin_lifecycle.audit_reason_remove_delete", "Frame deleted"),
+    (_REMOVE_ACTION, "user_deleted"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_user_deleted", "Person was deleted"),
     (_REMOVE_ACTION, "owner_disabled"): i18n.msg(
         "admin_lifecycle.audit_reason_remove_owner_disabled",
         "Frame owner was disabled"),
@@ -87,6 +89,7 @@ ACTION_LABELS = {
     "user.disable": i18n.msg("admin_lifecycle.action_user_disable", "User disabled"),
     "user.enable": i18n.msg("admin_lifecycle.action_user_enable", "User enabled"),
     "user.unlink": i18n.msg("admin_lifecycle.action_user_unlink", "Identity unlinked"),
+    "user.delete": i18n.msg("admin_lifecycle.action_user_delete", "User deleted"),
     "location.add": i18n.msg("admin_lifecycle.action_location_add", "Location added"),
     "location.update": i18n.msg("admin_lifecycle.action_location_update", "Location updated"),
     "location.delete": i18n.msg("admin_lifecycle.action_location_delete", "Location deleted"),
