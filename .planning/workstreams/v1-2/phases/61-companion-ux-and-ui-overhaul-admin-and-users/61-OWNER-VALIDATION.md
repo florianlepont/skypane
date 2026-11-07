@@ -462,3 +462,27 @@ motion respected; whole-pixel moves; works without JS where noted):
 
 Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
 61-74 (M7, M9), 61-75 (M6, M10).
+
+## Round 8 (desktop test of the deployed round 7), in progress
+
+- W71 (owner) General: the title transition effects from one page to the
+  next are a bit buggy and differ every time.
+- W72 (owner) Home: the empty-state sentence "Vérifiez qu'il est alimenté ;
+  s'il reste muet, contactez un administrateur." must use a comma, not a
+  semicolon.
+- W73 (owner) Home, Quiet hours dialog (desktop screenshot): contrast problem
+  (grey translucent panel, grey secondary text on grey).
+- W74 (owner) Flights history (desktop screenshot): the search field runs
+  into / under the frame picker button at the top right.
+- W75 (owner) Flights: clicking a picture whose image has not loaded yet shows
+  an odd visual glitch. More generally the site has no loading indicator where
+  one is needed; avoid odd transition effects.
+- W76 (owner) Location: while the page and the map load there is an odd
+  intermediate state; a small loading icon is probably missing.
+- W77 (owner) Location (screenshot): the sheet tiles are too transparent, the
+  text over the map is hard to read; the runway cards' text (length, surface)
+  sits off-centre / overflows its card and the check mark overlaps.
+- W78 (owner) Location (screenshot): the Airport / My position segmented
+  control is still offset inside its container.
+- (owner has not finished; more items to come. A desktop screenshot of the
+  Account "Mes cadres" group was also attached, no comment yet.)
