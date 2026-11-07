@@ -368,8 +368,6 @@ def test_health_registry_and_stats_prose_has_no_adsbdb_or_requirement_id(tmp_pat
     shp.seed_runway_events(tmp, events)
     rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
 
-    assert health_page.UNRESOLVED_SECTION_HEADING in rendered and "data-filter-input" in rendered, (
-        "fixture gap: expected the registry card to actually render")
     assert health_page.STATS_SECTION_HEADING in rendered and "% of flights identified" in rendered, (
         "fixture gap: expected the identification row to actually render")
     assert "data-table--prose" in rendered, "fixture gap: expected the breakdown table to render"
@@ -504,7 +502,7 @@ def test_shell_has_no_theme_or_language_form_and_account_has_both_in_order():
 
 def test_french_shell_nav_reads_the_locked_french_labels():
     """under lang='fr' the personal nav reads Accueil/Historique des vols/Lieu et détection/
-    Personnalisation/Collection de compagnies and the Console nav reads Flotte/Utilisateurs/
+    Personnalisation/Compagnies and the Console nav reads Flotte/Utilisateurs/
     Éditeur de compagnies"""
     try:
         prefs.set_request_prefs(lang="fr")
@@ -513,7 +511,7 @@ def test_french_shell_nav_reads_the_locked_french_labels():
     finally:
         prefs.set_request_prefs(lang="en")
     for label in ("Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
-                  "Collection de compagnies"):
+                  "Compagnies"):
         assert label in personal, "expected the French nav label %r in the personal shell" % (label,)
     for label in ("Flotte", "Utilisateurs", "Éditeur de compagnies"):
         assert label in console, "expected the French nav label %r in the Console shell" % (label,)

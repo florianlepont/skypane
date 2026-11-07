@@ -59,7 +59,9 @@ WELCOME_NEUTRAL = "welcome_neutral"
 _ACCOUNT_FLASH_KEYS = (
     co_managers_card.FLASH_ADDED, co_managers_card.FLASH_REMOVED,
     co_managers_card.FLASH_LEFT, co_managers_card.FLASH_ADD_REFUSED,
-    co_managers_card.FLASH_FAILED, co_managers_card.FLASH_LEAVE_NOOP)
+    co_managers_card.FLASH_FAILED, co_managers_card.FLASH_LEAVE_NOOP,
+    co_managers_card.FLASH_FRAME_REMOVED, co_managers_card.FLASH_FRAME_REMOVE_REFUSED,
+    co_managers_card.FLASH_FRAME_REMOVE_LIVE)
 
 
 def _log(message):

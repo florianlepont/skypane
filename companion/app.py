@@ -117,7 +117,7 @@ SUBMIT_GUARD_SCRIPT_ROUTE = static_files.SUBMIT_GUARD_SCRIPT_ROUTE
 RELATIVE_TIME_SCRIPT_ROUTE = static_files.RELATIVE_TIME_SCRIPT_ROUTE
 QUICK_SWITCH_SCRIPT_ROUTE = static_files.QUICK_SWITCH_SCRIPT_ROUTE
 VALUE_CONTROLS_SCRIPT_ROUTE = static_files.VALUE_CONTROLS_SCRIPT_ROUTE
-CALENDAR_SHEET_SCRIPT_ROUTE = static_files.CALENDAR_SHEET_SCRIPT_ROUTE
+CALENDAR_CONNECT_SCRIPT_ROUTE = static_files.CALENDAR_CONNECT_SCRIPT_ROUTE
 MODAL_SCRIPT_ROUTE = static_files.MODAL_SCRIPT_ROUTE
 MOTION_SCRIPT_ROUTE = static_files.MOTION_SCRIPT_ROUTE
 # Single definition site is companion/pages/config_page.py (app.py imports
@@ -282,7 +282,7 @@ _PAGE_SCRIPTS = {
         layout.QUICK_SWITCH_SCRIPT_SRC,
     ),
     layout.DISPLAY_ROUTE: (
-        layout.CALENDAR_SHEET_SCRIPT_SRC,
+        layout.CALENDAR_CONNECT_SCRIPT_SRC,
         layout.CONFIRM_SUBMIT_SCRIPT_SRC,
         layout.DIRTY_STATE_SCRIPT_SRC,
         layout.FRESHNESS_SCRIPT_SRC,
@@ -892,7 +892,7 @@ class Handler(
         # _serve_runway_image()). The set is a per-request union of
         # vendored and server-persisted manual keys, computed fresh.
         filename = key + ".png"
-        if filename not in _illustration_filenames(device.state_dir):
+        if not post_actions.illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
         # An overridden key's bytes may have originated as a user
         # upload, but this route only ever decodes bytes this server's

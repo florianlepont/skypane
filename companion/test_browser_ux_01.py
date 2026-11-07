@@ -8,6 +8,7 @@ Read-only checks share one module-scoped, read-only `server` fixture. The four c
 persist a real setting through the UI each get their own function-scoped `make_app_server`
 server, so no xdist worker sees another test's leftover on-disk state.
 """
+import fleet_rows_support
 import pytest
 
 from place_map_support import Hosts
@@ -239,9 +240,8 @@ def test_airlines_filter_bar_is_a_16px_search_pill_with_a_visible_quiet_count_at
 def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context, server):
     """With scripts blocked the Fleet page's State block renders in full: every health row with
     its icon/name/verdict/value slots each exactly once and its evidence reachable through the
-    native disclosure; its System view keeps the registry filter bar and Clear, the
-    unresolved-prefix rows, and a per-row Resolve action that actually navigates to the Airlines
-    resolve surface.
+    native disclosure; its System view carries no unresolved-prefix table (those prefixes are
+    named in the Airlines table).
     """
     with _no_js_page(new_context, server.base_url(), "/fleet") as page:
         rows = page.eval_on_selector_all("details.health-row", "els => els.length")
@@ -274,33 +274,12 @@ def test_the_no_js_floor_holds_for_the_fleet_state_and_system_views(new_context,
                 "scripts blocked, %d stayed empty" % (hidden,))
     with _no_js_page(new_context, server.base_url(), "/fleet?view=system") as page:
         _open_health_rows(page)
-        if not page.query_selector(".filter-bar [data-filter-input]"):
-            raise AssertionError("expected the registry filter bar with scripts blocked")
-        if not page.query_selector("[data-filter-clear]"):
-            raise AssertionError("expected the Clear control with scripts blocked")
-        # The table or its card fallback, whichever the viewport resolves to, must be present,
-        # with the Resolve action reachable from it.
-        rows = page.eval_on_selector_all(
-            "table.data-table--registry tbody tr, ul.data-cards > li", "els => els.length")
-        if rows < 1:
-            raise AssertionError(
-                "expected the unresolved-prefix rows (table or card fallback) with "
-                "scripts blocked, got %d" % (rows,))
-        # `:visible` matters: the card list and the table are both in the DOM at every width
-        # (the toggle between them is CSS-only), so the reachable one is whichever the
-        # viewport actually shows.
-        resolve = page.locator('a[href^="/airlines/manage?resolve="]:visible').first
-        if resolve.count() == 0:
-            raise AssertionError(
-                "expected the per-row Resolve action to be reachable with scripts "
-                "blocked")
-        href = resolve.get_attribute("href")
-        with page.expect_navigation():
-            resolve.click()
-        if "/airlines" not in page.url or "resolve=" not in page.url:
-            raise AssertionError(
-                "expected the Resolve link (%r) to navigate to the Airlines "
-                "resolve surface with scripts blocked, got %r" % (href, page.url))
+        # Unidentified prefixes are named in the Airlines table, not listed here.
+        for selector in (".filter-bar [data-filter-input]", "[data-filter-clear]",
+                         'a[href^="/airlines/manage?resolve="]'):
+            if page.query_selector(selector):
+                raise AssertionError(
+                    "the System view must not carry the unresolved-prefix table (%s)" % selector)
 
 
 # Each of the four checks below saves a real setting through the real UI, so each gets its own
@@ -357,11 +336,15 @@ def test_device_reveal_and_persist_stays_in_step_with_display(page, make_app_ser
     base_url = server.base_url()
     _login(page, base_url)
     page.goto(base_url + "/fleet")
+    # From 960px the settings form is in a dialog; leaving it with the edit unsaved hands over
+    # to the page's own Save bar.
+    fleet_rows_support.open_dialog(page, "settings")
     wake_sel = 'input[name="wake_interval_s"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
     target = "1800" if before != "1800" else "3600"
     page.fill(wake_sel, target)
     _commit_field(page, wake_sel)
+    fleet_rows_support.close_dialog(page)
     _wait_for_bar(page)
     _save_via_bar(page)
     stored = device_config.load_device_config(server.tmpdir)["wake_interval_s"]
@@ -440,6 +423,7 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
     if _guard_armed(page):
         raise AssertionError("expected the leave-guard to start disarmed on a clean page load")
 
+    fleet_rows_support.open_dialog(page, "settings")
     wake_sel = 'input[name="wake_interval_s"]'
     before = page.eval_on_selector(wake_sel, "el => el.value")
     target = "1800" if before != "1800" else "3600"
@@ -483,6 +467,7 @@ def test_leave_guard_arms_on_uncommitted_edit_and_stays_armed_through_commit(pag
             "this check's own premise (unsaved-but-committed) does not hold")
 
     # Click Annuler: the guard disarms and the bar hides.
+    fleet_rows_support.close_dialog(page)
     page.click("[data-dirty-cancel]")
     _wait_for_bar_hidden(page)
     if _guard_armed(page):

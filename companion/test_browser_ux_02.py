@@ -59,6 +59,14 @@ def test_both_dialogs_fade_in_and_leave_nothing_behind(new_context, server, rout
             raise AssertionError(
                 "expected %s to render at least one %s dialog trigger"
                 % (route, trigger_sel))
+        # A picture dialog opens once its picture is in the cache: a visitor who has already
+        # seen the picture taps and the dialog opens within two frames, so have it loaded first.
+        page.evaluate(
+            "sel => new Promise(resolve => {"
+            "const src = document.querySelector(sel).getAttribute('data-view-panel-src');"
+            "if (!src) { resolve(); return; }"
+            "const i = new Image(); i.onload = i.onerror = () => resolve(); i.src = src; })",
+            trigger_sel)
         opening = page.evaluate(
             "sel => new Promise(resolve => {"
             "const d = document.getElementById('panel-lookup-dialog');"
@@ -937,7 +945,8 @@ def test_every_disclosure_on_every_page_opens_without_overflow(new_context, serv
 def test_view_transition_names_are_unique_on_every_route(page, server):
     """Every view-transition name the served stylesheet declares resolves to at most one
     element on each of the six authenticated routes, counted from the computed value on every
-    element of the real document — the sidebar and the page title on all six, Home's frame
+    element of the real document — the sidebar on all six (page titles carry no name, so every
+    page change cross-fades them the same way), Home's frame
     picture on Home only, and the declared set itself pinned so a dropped declaration fails
     rather than emptying the measurement. A name matching twice makes the browser drop the
     whole transition with no error anywhere, and no source scan can see it.

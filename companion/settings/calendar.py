@@ -1,20 +1,21 @@
 """The Calendar settings group: the one-line connection status row on the
-Display page, the "Manage" sheet that holds every control (paste or
+Personalisation page, the connection page that holds every control (paste or
 replace the link, disconnect), the two-step disconnect confirmation page,
-and the calendar row of the look card's Special looks list (built here so
+and the calendar row of the Special looks list (built here so
 `companion.settings.theme` stays independent of this module — see that
 module's own docstring for why).
 
-The page keeps one compact row and one button; the sheet is a single
-`<dialog>`. Scripts-blocked, the same markup renders open in the page
-(`?calendar=manage#calendar-sheet`); `companion/static/calendar-sheet.js`
-upgrades it to a modal and adds the pending label and the in-sheet
-disconnect confirmation.
+The list keeps one compact row and one button that opens the connection page
+(a page of its own, at `DISPLAY_CALENDAR_CONNECT_ROUTE`); the disconnect
+confirmation is a dialog on that page, with the server-rendered
+confirmation page behind it for a bare POST.
+`companion/static/calendar-connect.js` only labels the pending connect.
 """
 from urllib.parse import urlsplit
 
 from companion import device_scope, i18n
 from companion import ui_components
+from companion import ui_modal
 import companion.layout as layout
 from companion.layout import csrf_field, escape_html
 import companion.page_context as page_context
@@ -34,12 +35,8 @@ from companion.settings.theme import (
 CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
 CALENDAR_CONNECT_ROUTE = "/settings/calendar/connect"
 
-# The sheet's no-script address and anchor; companion/pages/config_page.py
-# owns the same strings for the redirect side.
-SHEET_ID = "calendar-sheet"
-SHEET_PARAM = "calendar"
-SHEET_MANAGE = "manage"
-ROW_ID = "calendar-row"
+CONNECT_FORM_ID = "calendar-connect-form"
+DISCONNECT_DIALOG_ID = "disconnect-calendar"
 
 
 # --- Status row copy -------------------------------------------------------
@@ -300,17 +297,6 @@ def _status_detail_html(state, last_synced_at, now, entry_count):
     return escape_html(i18n.t(CALENDAR_NONE_LEAD))
 
 
-def _sheet_href(fragment=SHEET_ID):
-    """The no-script address of the sheet (the page with the sheet open)."""
-    return device_scope.scoped(
-        "%s?%s=%s#%s" % (layout.DISPLAY_CALENDAR_ROUTE, SHEET_PARAM, SHEET_MANAGE, fragment))
-
-
-def _display_fragment_href(fragment):
-    """The Display page's own fragment link, under the current device's prefix."""
-    return device_scope.scoped("%s#%s" % (layout.DISPLAY_CALENDAR_ROUTE, fragment))
-
-
 def _status_title_html(state, title):
     """The one status line: whether the calendar's flights are shown, then
     the calendar's name when one is connected, then the verdict pill for any
@@ -340,18 +326,19 @@ def _status_row_html(state, title, detail_html):
         '<div class="calendar-status" data-calendar-state="%s">'
         '<span class="%s">%s</span>'
         '<div class="calendar-status__main">%s%s</div>'
-        '<a class="%s" href="%s" data-calendar-open aria-haspopup="dialog">%s</a>'
+        '<a class="%s" href="%s">%s</a>'
         "</div>"
     ) % (
         state, tile_class, _CALENDAR_ICON_SVG, _status_title_html(state, title), detail,
-        button_class, escape_html(_sheet_href()),
+        button_class, escape_html(device_scope.scoped(layout.DISPLAY_CALENDAR_CONNECT_ROUTE)),
         escape_html(i18n.t(CALENDAR_CONNECT_ADD_TEXT if not_connected else CALENDAR_CHOOSE_TEXT)))
 
 
 def _url_form_html(connected, error_message):
     """The paste-or-replace form: write-only field (never a `value`
-    attribute), its hint, its inline error and the submit. The pending
-    label travels as a data attribute so the script carries no copy."""
+    attribute), its hint and its inline error. Its submit button is in the
+    page's floating bar (`form=`). The pending label travels as a data
+    attribute on that button so the script carries no copy."""
     hint_id = "calendar-url-hint"
     error_id = "calendar-connect-url-error"
     describedby = hint_id + (" " + error_id if error_message else "")
@@ -362,108 +349,54 @@ def _url_form_html(connected, error_message):
     label = CALENDAR_NEW_LINK_LABEL if connected else CALENDAR_LINK_LABEL
     hint = CALENDAR_REPLACE_HINT if connected else CALENDAR_URL_HINT
     how_html = "" if connected else (
-        '<p class="text-label calendar-sheet__note">%s</p>'
+        '<p class="text-label form-page__note">%s</p>'
         % escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)))
     return (
-        '<form class="calendar-sheet__form" method="post" action="%s" data-calendar-connect>'
-        '<div class="calendar-sheet__field">'
-        '<label for="calendar-connect-url">%s</label>'
+        '<form class="form-page__section" id="%s" method="post" action="%s" data-calendar-connect>'
+        '<label for="calendar-connect-url" class="form-page__label">%s</label>'
         '<input type="text" id="calendar-connect-url" name="calendar_url" '
         'autocomplete="off" spellcheck="false" maxlength="%d" placeholder="%s" '
         'aria-describedby="%s"%s>'
-        '<p class="text-label section-caption" id="%s">%s</p>%s%s</div>'
-        '<div class="calendar-sheet__foot">'
-        '<a class="calendar-sheet__cancel" href="%s" data-calendar-close>%s</a>'
-        '<button type="submit" data-pending-label="%s">%s</button></div>'
-        "</form>"
+        '<p class="text-label section-caption" id="%s">%s</p>%s%s</form>'
     ) % (
-        device_scope.scoped(CALENDAR_CONNECT_ROUTE, "POST"), escape_html(i18n.t(label)),
-        CALENDAR_URL_MAX_LEN,
+        CONNECT_FORM_ID, device_scope.scoped(CALENDAR_CONNECT_ROUTE, "POST"),
+        escape_html(i18n.t(label)), CALENDAR_URL_MAX_LEN,
         escape_html(i18n.t(CALENDAR_URL_PLACEHOLDER)), describedby, invalid,
-        hint_id, escape_html(i18n.t(hint)), error_html, how_html,
-        escape_html(_display_fragment_href(ROW_ID)),
-        escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
-        escape_html(i18n.t(CALENDAR_CHECKING_TEXT)),
-        escape_html(i18n.t(CALENDAR_REPLACE_BUTTON_TEXT if connected
-                           else CALENDAR_CONNECT_BUTTON_TEXT)))
+        hint_id, escape_html(i18n.t(hint)), error_html, how_html)
 
 
 def _disconnect_html(provider):
-    """The quiet red Disconnect action and its in-sheet confirmation. The
-    form posts an empty confirm field: scripts-blocked, the server renders
-    its own confirmation page; the script instead reveals the (hidden)
-    confirmation inside the sheet and only a click there posts the real
-    confirm value. The server stays the gate either way."""
+    """The quiet red Disconnect link and its confirmation dialog. The dialog
+    posts the confirm value the route requires; a browser without scripts
+    reaches the same dialog through the link's hash, and a bare POST still
+    lands on the server's own confirmation page. The server stays the gate
+    either way."""
+    heading = (
+        i18n.t(CALENDAR_CONFIRM_HEADING_TEMPLATE) % provider if provider
+        else i18n.t(CALENDAR_DISCONNECT_CONFIRM_HEADING))
+    body = '<p>%s</p><input type="hidden" name="%s" value="%s">' % (
+        escape_html(i18n.t(CALENDAR_CONFIRM_BODY)), CALENDAR_DISCONNECT_CONFIRM_FIELD,
+        escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE))
     return (
-        '<div class="calendar-sheet__disconnect">'
-        '<form id="%s" method="post" action="%s" data-calendar-disconnect '
-        'data-confirm-value="%s">'
-        '<input type="hidden" name="%s" value="" data-confirm-field>%s'
-        '<button type="submit" class="calendar-danger">%s</button></form>'
-        '<div class="calendar-sheet__confirm" data-calendar-confirm role="alertdialog" '
-        'aria-labelledby="calendar-confirm-heading" hidden>'
-        '<p class="calendar-sheet__confirm-heading" id="calendar-confirm-heading">%s</p>'
-        '<p class="text-body">%s</p>'
-        '<div class="calendar-sheet__foot">'
-        '<button type="button" data-calendar-confirm-cancel>%s</button>'
-        '<button type="button" class="calendar-danger calendar-danger--solid" '
-        'data-calendar-confirm-yes>%s</button></div></div></div>'
+        '<div class="form-page__section form-page__section--danger">%s%s</div>'
     ) % (
-        CALENDAR_DISCONNECT_FORM_ID, device_scope.scoped(CALENDAR_DISCONNECT_ROUTE, "POST"),
-        escape_html(CALENDAR_DISCONNECT_CONFIRM_VALUE), CALENDAR_DISCONNECT_CONFIRM_FIELD,
-        csrf_field(), escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT)),
-        escape_html(
-            i18n.t(CALENDAR_CONFIRM_HEADING_TEMPLATE) % provider if provider
-            else i18n.t(CALENDAR_DISCONNECT_CONFIRM_HEADING)),
-        escape_html(i18n.t(CALENDAR_CONFIRM_BODY)),
-        escape_html(i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT)),
-        escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT)))
-
-
-def _sheet_html(configured, drift, provider, masked_url, is_open, error_message):
-    """The "Manage" dialog. Closed it renders nothing; open (the no-script
-    `?calendar=manage` address, or a refused paste) it is an in-page card
-    that the script promotes to a modal. The full feed URL is never in
-    this markup: only the masked host."""
-    title = (
-        i18n.t(CALENDAR_SHEET_TITLE_TEMPLATE) % provider if configured and provider
-        else i18n.t(CALENDAR_SHEET_CONNECT_TITLE))
-    link_html = ""
-    if configured and masked_url:
-        link_html = (
-            '<div class="calendar-sheet__link"><p class="calendar-sheet__label">%s</p>'
-            '<p class="calendar-masked-url">%s</p>'
-            '<p class="text-label section-caption">%s</p></div>'
-        ) % (escape_html(i18n.t(CALENDAR_LINK_LABEL)), escape_html(masked_url),
-             escape_html(i18n.t(CALENDAR_PRIVATE_NOTE)))
-    disconnect_html = _disconnect_html(provider) if (configured or drift) else ""
-    return (
-        '<dialog class="calendar-sheet" id="%s" aria-labelledby="calendar-sheet-title" '
-        'data-calendar-sheet%s%s>'
-        '<div class="calendar-sheet__head">'
-        '<p class="calendar-sheet__title" id="calendar-sheet-title">%s</p>'
-        '<a class="calendar-sheet__close" href="%s" data-calendar-close aria-label="%s">'
-        '<span aria-hidden="true">×</span></a></div>'
-        "%s%s%s</dialog>"
-    ) % (
-        SHEET_ID, " open" if is_open else "",
-        ' data-calendar-error="1"' if error_message else "",
-        escape_html(title), escape_html(_display_fragment_href(ROW_ID)),
-        escape_html(i18n.t(CALENDAR_CLOSE_LABEL)),
-        link_html, _url_form_html(configured, error_message), disconnect_html)
+        ui_modal.trigger_html(
+            DISCONNECT_DIALOG_ID, escape_html(i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT)),
+            "form-page__danger"),
+        ui_modal.dialog_html(
+            DISCONNECT_DIALOG_ID, heading,
+            device_scope.scoped(CALENDAR_DISCONNECT_ROUTE, "POST"), csrf_field(), body,
+            i18n.t(CALENDAR_DISCONNECT_BUTTON_TEXT), i18n.t(CALENDAR_DISCONNECT_CANCEL_TEXT),
+            device_scope.scoped(layout.DISPLAY_CALENDAR_CONNECT_ROUTE),
+            destructive=True, confirm_only=True))
 
 
 def _calendar_connection_html(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
-        errors=None, submitted=None, state_dir=None, sheet_open=False, sheet_error=None):
-    """Calendar's connection block inside the look card's Calendar row:
-    the one status row and the Manage dialog. Returns the block's HTML.
-
-    The feed URL is write-only: never a `value` attribute, never a
-    reveal or copy control; the sheet shows only `host…`. `sheet_error`
-    is one of the redirect side's fixed codes ("invalid"/"unreachable"),
-    `errors` the settings POST's own field errors.
-    """
+        errors=None, submitted=None, state_dir=None):
+    """Calendar's connection block inside the Calendar row: the empty state
+    while nothing is connected, then the one status row whose button opens
+    the connection page. Returns the block's HTML."""
     secret_url = (
         calendar_rules.configured_calendar_url(state_dir) if (configured and state_dir) else "")
     provider = _provider_name(secret_url)
@@ -471,21 +404,53 @@ def _calendar_connection_html(
     state = calendar_state(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count)
     title = provider or masked_url or i18n.t(CALENDAR_LINK_LABEL)
-    error_message = (errors or {}).get("calendar_url")
-    if not error_message:
-        error_message = {
-            "invalid": CALENDAR_ERROR_INVALID, "unreachable": CALENDAR_ERROR_UNREACHABLE,
-        }.get(sheet_error)
     empty_html = ui_components.empty_state(
         i18n.t(CALENDAR_EMPTY_HEADING), i18n.t(CALENDAR_NONE_LEAD), compact=True
     ) if state == "none" else ""
-    return (
-        empty_html
-        + _status_row_html(state, title, _status_detail_html(
-            state, last_synced_at, now, entry_count))
-        + _sheet_html(
-            configured, drift, provider, masked_url,
-            sheet_open or bool(error_message), error_message))
+    return empty_html + _status_row_html(state, title, _status_detail_html(
+        state, last_synced_at, now, entry_count))
+
+
+def connect_page_html(configured, drift, state_dir, error_message, picture_id, sentence):
+    """The calendar connection page body: the picture of the look calendar
+    flights get on the left, the options on the right. Returns (markup,
+    title, submit label); the page's floating bar carries the submit. The
+    full feed URL is never in this markup: only the masked host."""
+    secret_url = (
+        calendar_rules.configured_calendar_url(state_dir) if (configured and state_dir) else "")
+    provider = _provider_name(secret_url)
+    masked_url = _masked_calendar_url(secret_url)
+    title = (
+        i18n.t(CALENDAR_SHEET_TITLE_TEMPLATE) % provider if configured and provider
+        else i18n.t(CALENDAR_SHEET_CONNECT_TITLE))
+    link_html = ""
+    if configured and masked_url:
+        link_html = (
+            '<div class="form-page__section"><p class="form-page__label">%s</p>'
+            '<p class="calendar-masked-url">%s</p>'
+            '<p class="text-label section-caption">%s</p></div>'
+        ) % (escape_html(i18n.t(CALENDAR_LINK_LABEL)), escape_html(masked_url),
+             escape_html(i18n.t(CALENDAR_PRIVATE_NOTE)))
+    disconnect_html = _disconnect_html(provider) if (configured or drift) else ""
+    size = theme_preview.FRAME_PREVIEW_SIZE_LARGE
+    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[size]
+    picture_html = (
+        '<div class="form-page__preview"><div class="look-frame__anchor">'
+        '<div class="look-frame__picture"><img class="look-frame__image" src="%s" '
+        'width="%d" height="%d" alt=""></div></div>'
+        '<p class="form-page__caption"><span class="form-page__name">%s</span>'
+        '<span class="form-page__sentence">%s</span></p></div>'
+    ) % (
+        escape_html(theme_preview.frame_preview_src(
+            picture_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING, size)),
+        width, height, escape_html(i18n.t(CALENDAR_ROW_TITLE)), escape_html(sentence))
+    markup = (
+        '<div class="form-page">%s<div class="form-page__card">'
+        '<h2 class="form-page__title">%s</h2>%s%s%s</div></div>'
+    ) % (picture_html, escape_html(title), link_html,
+         _url_form_html(configured, error_message), disconnect_html)
+    return markup, title, i18n.t(
+        CALENDAR_REPLACE_BUTTON_TEXT if configured else CALENDAR_CONNECT_BUTTON_TEXT)
 
 
 def calendar_disconnect_confirm_page(ctx):
@@ -549,11 +514,11 @@ def special_mini_html(theme_id, opener_label=None):
 def calendar_special_row_html(
         departures_safe_id, current_calendar_theme_id, configured, drift,
         last_synced_at, last_attempt_at, now, entry_count,
-        errors=None, submitted=None, state_dir=None, sheet_open=False, sheet_error=None):
+        errors=None, submitted=None, state_dir=None):
     """The calendar row of the Special looks list: a mini render of the
     look calendar flights get, its read-back and the "Change" control (the
     colour x style table, with "Same as departures" first), preceded by the
-    one-line connection status with its "Choose calendar" sheet. Returns the
+    one-line connection status with its "Choose calendar" link. Returns the
     row's HTML; the connection verdict lives in that status line only,
     never repeated in the row's meta.
     """
@@ -574,8 +539,7 @@ def calendar_special_row_html(
             "calendar_theme_id", same_checked, i18n.t(SAME_AS_DEPARTURES_LABEL)))
     connection_html = _calendar_connection_html(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
-        errors=errors, submitted=submitted, state_dir=state_dir,
-        sheet_open=sheet_open, sheet_error=sheet_error)
+        errors=errors, submitted=submitted, state_dir=state_dir)
     row_html = (
         '<li class="special-row special-row--calendar" id="calendar-row" data-look-anchor%s>'
         "%s"

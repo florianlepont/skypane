@@ -173,8 +173,9 @@ def test_glass_applies_only_inside_supports_and_keeps_a_solid_base(served_css):
                 % (selector, base_backgrounds.get(selector)))
     for selector in (".dashboard-sidebar", ".tab-bar::before", ".tab-bar__more-panel",
                      ".frame-menu__panel", ".page-section",
-                     ".group", "dialog.modal"):
+                     ".group"):
         assert selector in glass_selectors, selector
+    assert "dialog.modal" not in glass_selectors
     blurred = [rule for rule in rules if "backdrop-filter" in dict(rule.declarations)]
     assert 0 < sum(len(rule.selectors) for rule in blurred) <= 16, (
         "backdrop-filter must stay on a bounded number of large surfaces")
@@ -209,14 +210,17 @@ def test_one_reduced_motion_rule_zeroes_duration_and_delay_of_every_animation(se
 
 
 def test_overlays_tables_and_empty_states_take_the_glass_inside_the_support_block(served_css):
-    """the lightbox and the save bar, the tables and empty states that sit on the sky, and the
-    placeholder ink are tokens-only; the glass lives inside the backdrop-filter support block"""
+    """the save bar, the tables and empty states that sit on the sky, and the placeholder ink are
+    tokens-only; the glass lives inside the backdrop-filter support block, while the modal
+    dialogs (lightbox, dialog.modal, calendar sheet) stay on their own opaque surface"""
     rules = css_rules(served_css)
     glass = {sel for rule in rules if dict(rule.declarations).get("background") == "var(--glass-bg)"
              for sel in rule.selectors}
-    for selector in (".lightbox", ".airlines-table", ".dashboard-main > .empty-state"):
+    for selector in (".airlines-table", ".dashboard-main > .empty-state"):
         assert selector in glass, selector
     assert ".dirty-bar" in glass
+    for selector in (".lightbox", "dialog.modal", ".calendar-sheet"):
+        assert selector not in glass, selector
     placeholder = [dict(rule.declarations) for rule in rules if "::placeholder" in rule.selectors]
     assert any(d.get("color", "").startswith("color-mix(") and d.get("opacity") == "1"
                for d in placeholder)

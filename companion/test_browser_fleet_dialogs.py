@@ -229,14 +229,19 @@ def test_reactivate_from_the_other_frames_block(new_context, app_server_in_proce
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        page.locator("details.fleet-other > summary").click()
-        _open_menu_item(page, "Re-activate", "details.fleet-other li.entity-row:has-text('Attic')")
+        page.locator("a.fleet-sum[href='#dlg-fleet-others']").click()
+        page.wait_for_function(
+            "() => document.querySelector('#dlg-fleet-others').open", timeout=10000)
+        _open_menu_item(page, "Re-activate", "#dlg-fleet-others li.entity-row:has-text('Attic')")
         dialog = page.locator("#dlg-reactivate-%s" % _slug(seed.retired_id))
         assert dialog.evaluate("d => d.open")
         assert page.evaluate(_ACTIVE) == "Keep retired"
         dialog.locator("button[type=submit]").click()
         page.wait_for_url("**/fleet")
-        assert "Attic" not in page.locator("details.fleet-other").text_content()
+        page.locator("a.fleet-sum[href='#dlg-fleet-others']").click()
+        page.wait_for_function(
+            "() => document.querySelector('#dlg-fleet-others').open", timeout=10000)
+        assert "Attic" not in page.locator("#dlg-fleet-others").text_content()
     finally:
         context.close()
 

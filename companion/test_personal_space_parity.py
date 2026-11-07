@@ -150,6 +150,9 @@ def test_only_an_administrator_is_offered_the_space_switch(parity):
         assert "space-switch" not in _get(parity, "user", page)
 
 
+HARDWARE_LABEL = hardware.REGISTRY[hardware.LEGACY_KEY].label
+
+
 def test_account_navigation_and_controls_match_for_both_principals(parity):
     status = {}
     pages = {}
@@ -163,10 +166,11 @@ def test_account_navigation_and_controls_match_for_both_principals(parity):
     # The account page itself is not frame-scoped, so only the frame prefix
     # of the navigation differs by who owns which frame; identity rows differ
     # by design.
+    # An administrator's frame row also names the hardware model; a person's does not.
     def unscoped(markup, email):
         return sorted(
-            (href.replace("/devices/DEVICE", ""), text) for href, text in _links(markup)
-            if text != email)
+            (href.replace("/devices/DEVICE", ""), text.replace(HARDWARE_LABEL, ""))
+            for href, text in _links(markup) if text != email)
     assert unscoped(pages["admin"], ADMIN_EMAIL) == unscoped(pages["user"], USER_EMAIL)
 
 

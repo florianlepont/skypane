@@ -21,11 +21,9 @@ from datetime import datetime, timedelta, timezone
 
 from companion.layout import escape_html
 import companion.battery_chart as battery_chart
-import companion.device_scope as device_scope
 import companion.health_signals as health_signals_module
 import companion.i18n as i18n
 import companion.layout as layout
-import companion.resolve_dialog as resolve_dialog
 from server import history_db
 
 # Re-read under their own bare names purely for this module's own
@@ -49,20 +47,6 @@ UNRESOLVED_SECTION_HEADING = i18n.msg(
 STATS_SECTION_HEADING = i18n.msg(
     "health.how_well_we_name_flights", "Flight identification")
 
-
-_NO_GAPS_HEADING = i18n.msg("health.no_coverage_gaps", "No coverage gaps.")
-_NO_GAPS_BODY = i18n.msg(
-    "health.every_airline_we_ve_seen_recently_has_been",
-    "Every airline we've seen recently has been named — nothing left to look up.")
-
-# The genuine reference material — where resolution happens and what it
-# does — lives in _READ_ONLY_NOTE_DETAIL below, rendered in a `<details
-# class="readings-disclosure">` immediately after this visible sentence.
-_READ_ONLY_NOTE = i18n.msg("health.this_list_is_read_only_here", "This list is read-only here.")
-_READ_ONLY_NOTE_DETAIL = i18n.msg(
-    "health.each_row_s_resolve_link_opens_the_airlines_page",
-    "Each row's Resolve link opens the Airlines page to name that airline "
-    "(and add artwork, if it needs one).")
 
 # The heading is a %-template interpolated with RESOLUTION_WINDOW_DAYS
 # at the one call site, never a literal "30", so it cannot silently
@@ -142,25 +126,6 @@ _STATS_HEADERS = (
     i18n.msg("health.count", "Count"),
 )
 
-# Driven client-side by list-filter.js's data-filter-* attribute
-# contract. No hyphen in this value: see history_page.py's own
-# `_FILTER_INPUT_ID` comment for the WebKit/Safari contacts-autofill
-# explanation.
-_FILTER_INPUT_ID = "airlines_filter_input"
-_FILTER_LABEL_TEXT = i18n.msg("health.filter_by_prefix", "Filter by prefix")
-_FILTER_PLACEHOLDER_TEXT = i18n.msg("health.search_placeholder", "Prefix…")
-_FILTER_EMPTY_HEADING = i18n.msg("health.no_matching_prefixes", "No matching prefixes")
-_FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
-    "health.try_a_different_search_or_clear_filter_to_see",
-    "Try a different search, or Clear filter to see all %d prefixes.")
-
-
-_MORE_DETAILS_TEXT = i18n.msg("health.more_details", "More details")
-
-
-_FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
-
-
 def _unavailable_block():
     return '<p class="text-body">%s</p>' % escape_html(i18n.t(HEALTH_UNAVAILABLE_TEXT))
 
@@ -198,238 +163,6 @@ def resolution_stats(conn, window_days=RESOLUTION_WINDOW_DAYS, now=None):
         rows.append((
             i18n.t(_OTHER_SOURCE_LABEL), i18n.t(_OTHER_SOURCE_GLOSS), other_count))
     return {"rows": rows, "total": total, "resolved_pct": resolved_pct}
-
-
-def _registry_filter_bar_html(total):
-    """Filter bar over the unresolved-prefix registry, only rendered when
-    there is data to filter: the plain search pill, no chips (a prefix
-    row carries no second dimension).
-    """
-    return layout.filter_bar_html(
-        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
-        i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
-        total, total, i18n.t(_FILTER_EMPTY_HEADING),
-        i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % total)
-
-
-# Single-sourced so the table builder and the mobile card builder can't
-# disagree on a header word. Indices 1-4 are read directly by
-# _registry_cards_html() for its field labels; index 0 ("Prefix") has no
-# card-side label because the prefix is the card's primary line. "Resolve"
-# is always appended, never inserted, since those index lookups are
-# positional. "Prefix"/"First seen"/"Last seen"/"Example callsign" are
-# the same ids airlines_page.py's own RESOLVE_CONTEXT_LABELS uses.
-_REGISTRY_HEADERS = (
-    i18n.msg("health.prefix", "Prefix"),
-    i18n.msg("health.count", "Count"),
-    i18n.msg("health.first_seen", "First seen"),
-    i18n.msg("health.last_seen", "Last seen"),
-    i18n.msg("health.example_callsign", "Example callsign"),
-    i18n.msg("health.resolve", "Resolve"),
-)
-
-# The per-row deep link to the Airlines resolve surface. Both
-# representations (_registry_row_html()'s <td> and
-# _registry_cards_html()'s .data-card__action block) build their anchor
-# from these same constants, so href/aria-label/text can't drift apart.
-RESOLVE_LINK_HREF_TEMPLATE = "/airlines/manage?resolve=%s"
-RESOLVE_LINK_ARIA_TEMPLATE = i18n.msg("health.resolve_prefix", "Resolve prefix %s")
-RESOLVE_LINK_TEXT = i18n.msg("health.resolve", "Resolve")
-RESOLVE_CARD_LINK_TEXT = i18n.msg("health.resolve_this_prefix", "Resolve this prefix")
-
-
-def _registry_filter_text(prefix):
-    """The lowercased, escaped `data-filter-text` value shared by a
-    registry `<tr>` (`_registry_row_html()`) and its paired
-    `<li class="data-card">` (`_registry_cards_html()`), so the two
-    representations' filter text can never diverge.
-    """
-    return escape_html(prefix.lower() if isinstance(prefix, str) else str(prefix).lower())
-
-
-# Restated rather than imported from history_page.py: page modules may
-# not import each other. display: none inside this table's stacked
-# cells, but kept in the DOM in case a future change un-scopes the rule.
-_REGISTRY_CELL_SEPARATOR_TEXT = "·"
-
-
-def _registry_seen_cell_html(raw_ts, now):
-    """The First seen / Last seen cell's two stacked lines: a
-    Europe/Paris local clock primary line and a relative-age secondary
-    line, the same shape `history_page._when_cell_html()` builds for
-    Flights' When column. Stacked because the one-line form measured too
-    wide for two of six columns to fit unwrapped in French. Degrades
-    like `_when_cell_html()`: a falsy timestamp renders empty, an
-    unparseable one renders the raw value with no secondary line.
-
-    The secondary line is `layout.relative_time_html()`'s own
-    pre-escaped `<time data-relative>` markup, not
-    `escape_html(layout.relative_age_text(age))` — interpolated verbatim,
-    never re-escaped, so a ticker script can find and update it.
-    """
-    if not raw_ts:
-        return ""
-    parsed = layout.parse_iso(raw_ts)
-    if parsed is None:
-        return '<span class="cell-primary">%s</span>' % escape_html(raw_ts)
-    clock_text = layout.local_clock_text(parsed, layout.parse_iso(now))
-    age = layout.age_seconds(raw_ts, now)
-    html = '<span class="cell-primary" title="%s">%s</span>' % (
-        escape_html(_full_local_timestamp_text(raw_ts)), escape_html(clock_text))
-    if age is not None:
-        html += (
-            '<span class="cell-inline-sep">%s</span>'
-            '<span class="cell-secondary">%s</span>'
-        ) % (
-            escape_html(_REGISTRY_CELL_SEPARATOR_TEXT),
-            layout.relative_time_html(raw_ts, now))
-    return html
-
-
-def _resolve_trigger_attrs(row, now):
-    """The attributes that turn a Resolve link into a trigger for the
-    shared resolve dialog on this page. The link keeps its `href` to the
-    Airlines page, which is what a visitor without script follows."""
-    return resolve_dialog.trigger_attrs_html(row, now, resolve_dialog.RETURN_HEALTH)
-
-
-def _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now):
-    """One `<tr>` for the unresolved-prefix registry table. First
-    seen/Last seen return already-safe markup, interpolated verbatim,
-    never re-escaped. Appends a sixth `<td>`: a plain `<a>` to
-    `/airlines?resolve={prefix}`, never a submit-type control, that
-    also carries the trigger attributes opening the resolve dialog in
-    place when script runs.
-    """
-    row_class = "row-alt" if index % 2 else "row"
-    # The desktop table's timestamp cells are stacked (see
-    # _registry_seen_cell_html()); the mobile card below keeps calling
-    # concise_timestamp_html() directly since it has no width budget to
-    # protect. Both still build from the same underlying formatters over
-    # the same `now`, so they cannot disagree about what a value is.
-    first_seen_html = _registry_seen_cell_html(first_seen, now)
-    last_seen_html = _registry_seen_cell_html(last_seen, now)
-    escaped_prefix = escape_html(prefix)
-    resolve_href = device_scope.scoped(RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix)
-    resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
-    trigger_attrs = _resolve_trigger_attrs(
-        (prefix, count, first_seen, last_seen, example_callsign), now)
-    cells = (
-        '<td class="mono">%s</td>' % escaped_prefix,
-        "<td>%s</td>" % escape_html(count),
-        "<td>%s</td>" % first_seen_html,
-        "<td>%s</td>" % last_seen_html,
-        '<td class="mono">%s</td>' % escape_html(example_callsign),
-        '<td><a href="%s" %saria-label="%s">%s</a></td>' % (
-            resolve_href, trigger_attrs, resolve_aria, escape_html(i18n.t(RESOLVE_LINK_TEXT))),
-    )
-    filter_text = _registry_filter_text(prefix)
-    # data-filter-group must match the paired mobile card's value exactly:
-    # list-filter.js counts distinct groups, not raw elements, so a
-    # mismatch would double "N of N shown" once a row has two DOM forms.
-    return '<tr class="%s" data-filter-text="%s" data-filter-group="%d">%s</tr>' % (
-        row_class, filter_text, index, "".join(cells))
-
-
-def _registry_table_html(rows, now):
-    """The unresolved-prefix registry table, hand-rolled rather than via
-    `layout.data_table()` so each row can carry its own `data-filter-text`
-    attribute (that builder has no per-row attribute hook). Matches
-    `data_table()`'s CSS classes for visual consistency.
-    """
-    header_cells = "".join("<th>%s</th>" % escape_html(i18n.t(h)) for h in _REGISTRY_HEADERS)
-    body_rows = [
-        _registry_row_html(index, prefix, count, first_seen, last_seen, example_callsign, now)
-        for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows)
-    ]
-    # data-table--registry scopes the stacked-cell rule to this table,
-    # additively: the base data-table class and its rules are unchanged.
-    return (
-        '<div class="data-table-wrap">'
-        '<table class="data-table data-table--registry">'
-        "<thead><tr>%s</tr></thead>"
-        "<tbody>%s</tbody>"
-        "</table>"
-        "</div>"
-    ) % (header_cells, "".join(body_rows))
-
-
-def _registry_cards_html(rows, now):
-    """Mobile two-line-plus-disclosure representation of the registry:
-    one card per prefix (Prefix/Count and Last seen at rest, First
-    seen/Example callsign in a `<details>` disclosure), since a
-    horizontal scroller would break the First-seen/Last-seen comparison.
-    `data-filter-text`/`data-filter-group` use the same helper and loop
-    index as the paired `<tr>`, so the two can't diverge.
-    """
-    if not rows:
-        return ""
-    items = []
-    for index, (prefix, count, first_seen, last_seen, example_callsign) in enumerate(rows):
-        filter_text = _registry_filter_text(prefix)
-        primary = (
-            '<div class="data-card__primary">'
-            '<span class="cell-primary mono">%s</span>'
-            '<span class="data-card__value">'
-            '<span class="data-card__label">%s</span> %s'
-            "</span>"
-            "</div>"
-        ) % (escape_html(prefix), escape_html(i18n.t(_REGISTRY_HEADERS[1])), escape_html(count))
-        secondary = (
-            '<div class="data-card__secondary">'
-            '<span class="data-card__label">%s</span>%s'
-            "</div>"
-        ) % (
-            escape_html(i18n.t(_REGISTRY_HEADERS[3])),
-            layout.concise_timestamp_html(last_seen, now, fallback=""))
-        escaped_prefix = escape_html(prefix)
-        resolve_href = device_scope.scoped(RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix)
-        resolve_aria = escape_html(i18n.t(RESOLVE_LINK_ARIA_TEMPLATE)) % escaped_prefix
-        action = (
-            '<div class="data-card__action">'
-            '<a href="%s" %saria-label="%s">%s</a>'
-            "</div>"
-        ) % (
-            resolve_href,
-            _resolve_trigger_attrs(
-                (prefix, count, first_seen, last_seen, example_callsign), now),
-            resolve_aria, escape_html(i18n.t(RESOLVE_CARD_LINK_TEXT)))
-        details = (
-            '<details class="data-card__details">'
-            "<summary>%s</summary>"
-            "<dl>"
-            "<dt>%s</dt><dd>%s</dd>"
-            '<dt>%s</dt><dd class="tnum">%s</dd>'
-            "</dl>"
-            "</details>"
-        ) % (
-            escape_html(i18n.t(_MORE_DETAILS_TEXT)),
-            escape_html(i18n.t(_REGISTRY_HEADERS[2])),
-            layout.concise_timestamp_html(first_seen, now, fallback=""),
-            escape_html(i18n.t(_REGISTRY_HEADERS[4])),
-            escape_html(example_callsign),
-        )
-        items.append(
-            '<li class="data-card" data-filter-text="%s" data-filter-group="%d">%s%s%s%s</li>'
-            % (filter_text, index, primary, secondary, action, details))
-    return '<ul class="data-cards">%s</ul>' % "".join(items)
-
-
-def _registry_section(rows, now):
-    header_html = '<p class="text-body section-caption">%s</p>' % escape_html(
-        i18n.t(_READ_ONLY_NOTE))
-
-    if not rows:
-        return header_html + layout.empty_state(
-            i18n.t(_NO_GAPS_HEADING), i18n.t(_NO_GAPS_BODY), compact=True)
-
-    filter_html = _registry_filter_bar_html(len(rows))
-    cards_html = _registry_cards_html(rows, now)
-    table_html = _registry_table_html(rows, now)
-    # Cards must render before the table: style.css's
-    # `.data-cards ~ .data-table-wrap` sibling-combinator toggle depends
-    # on this DOM order.
-    return header_html + filter_html + cards_html + table_html
 
 
 def _stats_cards_html(rows):

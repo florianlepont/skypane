@@ -19,7 +19,8 @@ MIN_TAP_PX = 44
 LONG_NAME = "Salon with an exceedingly long frame name " + "x" * 60
 
 _ROW_FACTS = (
-    "() => [...document.querySelectorAll('li.entity-row')].map(row => {"
+    "() => [...document.querySelectorAll('li.entity-row')]"
+    ".filter(row => row.getClientRects().length > 0).map(row => {"
     " const title = row.querySelector('.entity-row__title');"
     " const b = row.getBoundingClientRect();"
     " const kids = [...row.querySelectorAll('.entity-row__title, .entity-row__meta')];"
@@ -63,11 +64,20 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         assert page.locator("table").count() == 0
-        # The pending and retired frames sit in a collapsed block.
-        assert page.locator("details.fleet-other").get_attribute("open") is None
-        page.locator("details.fleet-other > summary").click()
-        page.wait_for_function(
-            "() => document.querySelector('details.fleet-other').open", timeout=10000)
+        if viewport["width"] >= 960:
+            # From 960px a summary row opens the pending and retired frames in a dialog.
+            assert not page.locator("details.fleet-other").is_visible()
+            page.locator("a.fleet-sum[href='#dlg-fleet-others']").click()
+            page.wait_for_function(
+                "() => document.querySelector('#dlg-fleet-others').open", timeout=10000)
+            assert page.locator("#dlg-fleet-others li.entity-row").count() == 2
+        else:
+            # The pending and retired frames sit in a collapsed block.
+            assert page.locator("details.fleet-other").get_attribute("open") is None
+            page.locator("details.fleet-other > summary").click()
+            page.wait_for_function(
+                "() => document.querySelector('details.fleet-other').open", timeout=10000)
+            assert page.locator("details.fleet-other li.entity-row").count() == 2
         assert not _assert_no_page_overflow(page, where + "/other", viewport["width"])
         rows = page.evaluate(_ROW_FACTS)
         assert len(rows) == 2
@@ -78,7 +88,10 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
             assert all("mono" not in family.lower() for family in row["metaFamily"])
             if lang == "en":
                 assert row["label"] in _EN_WORDS, (where, row)
-        assert page.locator("details.fleet-other li.entity-row").count() == 2
+        if viewport["width"] >= 960:
+            page.keyboard.press("Escape")
+            page.wait_for_function(
+                "() => !document.querySelector('#dlg-fleet-others').open", timeout=10000)
         _assert_hit_target(page, "summary.frame-menu__button", where)
         open_menu(page)
         _assert_hit_target(page, "a.frame-row--add", where)

@@ -472,7 +472,7 @@ def test_rules_routes_require_auth_and_write_nothing(make_app_server):
 
 
 def test_rules_add_and_delete_forms_sit_outside_settings_form(make_app_server):
-    """the rules add form and each delete form sit outside <form id=SETTINGS_FORM_ID> -
+    """the rules add form (its own page) and each delete form sit outside <form id=SETTINGS_FORM_ID> -
     neither carries the settings form's id nor a form= attribute pointing at it, and a rule add
     followed by an unrelated settings-form save leaves both the rule and every device-config
     setting intact"""
@@ -486,11 +486,14 @@ def test_rules_add_and_delete_forms_sit_outside_settings_form(make_app_server):
     status, _headers, body = http_request(base + "/display/special-looks", cookie=session)
     assert status == 200, "expected 200 GET /display/special-looks, got %d" % status
     page = body.decode("utf-8")
+    status, _headers, body = http_request(base + "/display/special-looks/new", cookie=session)
+    assert status == 200, "expected 200 GET /display/special-looks/new, got %d" % status
+    new_page = body.decode("utf-8")
 
     add_form_marker = 'action="%s"' % config_page.RULES_ADD_ROUTE
-    add_tag_start = page.rindex("<form", 0, page.index(add_form_marker))
-    add_tag_end = page.index(">", add_tag_start)
-    add_form_tag = page[add_tag_start:add_tag_end + 1]
+    add_tag_start = new_page.rindex("<form", 0, new_page.index(add_form_marker))
+    add_tag_end = new_page.index(">", add_tag_start)
+    add_form_tag = new_page[add_tag_start:add_tag_end + 1]
 
     expected_delete_action = "%scallsign/AFR9001%s" % (
         config_page.RULES_DELETE_ROUTE_PREFIX, config_page.RULES_DELETE_ROUTE_SUFFIX)
@@ -802,12 +805,16 @@ def test_calendar_sync_failure_never_leaks_the_url(app_server_in_process):
     for needle in needles:
         assert needle not in location, "leak in Location header: %r found in %r" % (needle, location)
         assert needle.encode() not in redirect_body, "leak in the redirect response body: %r" % (needle,)
-    status2, _h2, page_body = http_request(server.base_url() + location, cookie=session)
+    status2, _h2, list_body = http_request(server.base_url() + location, cookie=session)
+    status3, _h3, page_body = http_request(
+        server.base_url() + layout.DISPLAY_CALENDAR_CONNECT_ROUTE, cookie=session)
+    assert status2 == status3 == 200
     assert layout.escape_html("%s…" % hostname).encode() in page_body, (
         "expected the masked host + ellipsis fragment to be served once connected (D-14/R-10)")
     for needle in (token, path_segment, query_param, url):
-        assert needle.encode() not in page_body, (
-            "leak in the served response body: %r found on the rendered Settings page" % (needle,))
+        for body in (list_body, page_body):
+            assert needle.encode() not in body, (
+                "leak in the served response body: %r found on the rendered Settings page" % (needle,))
 
 
 def test_calendar_disconnect_reports_deletion_and_erases_entries(app_server_in_process):
@@ -1297,7 +1304,8 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
     # picker alone, so its captions live on the cards of the other views.
     measured_routes = site_routes + (
         airlines_page.MANAGE_ROUTE, layout.DISPLAY_SPECIAL_LOOKS_ROUTE,
-        layout.DISPLAY_CALENDAR_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE)
+        layout.DISPLAY_CALENDAR_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE,
+        layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE, layout.DISPLAY_CALENDAR_CONNECT_ROUTE)
 
     # --- fetch every route x language over the real server ---
     exempt_by_lang = {
@@ -1330,7 +1338,10 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
         # Administrator pages carry no explanatory captions at all (the editor is
         # still measured, so any caption added back must respect the word floor).
         airlines_page.MANAGE_ROUTE: 0, layout.DISPLAY_SPECIAL_LOOKS_ROUTE: 1,
-        layout.DISPLAY_CALENDAR_ROUTE: 1, layout.DISPLAY_ARRIVALS_ROUTE: 0,
+        layout.DISPLAY_CALENDAR_ROUTE: 0, layout.DISPLAY_ARRIVALS_ROUTE: 0,
+        # The new special look page has none; the calendar connection page keeps the
+        # link's hint (the privacy explanation).
+        layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE: 0, layout.DISPLAY_CALENDAR_CONNECT_ROUTE: 1,
     }
     # Re-derived after the administrator pages dropped their explanatory captions: the
     # remaining captions are the personal pages' and Device's.
@@ -1376,7 +1387,7 @@ def test_site_wide_editorial_floor_all_six_routes_both_languages(make_app_server
         "site-wide total: only %d .section-caption element(s) measured across all six "
         "routes/both languages, expected at least %d" % (site_total_captions, site_total_min))
 
-    # Only the calendar privacy explanation (on Display) is still rendered; the
+    # Only the calendar privacy explanation (on the connection page) is still rendered; the
     # look-section intro the other exemption names no longer renders anywhere.
     expected_skip_count = 1
     for lang in ("en", "fr"):

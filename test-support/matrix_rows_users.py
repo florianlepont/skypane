@@ -11,10 +11,12 @@ ROWS = {
     ("POST", "/users/{}/disable"): "admin-only",
     ("POST", "/users/{}/enable"): "admin-only",
     ("POST", "/users/{}/unlink"): "admin-only",
+    ("POST", "/users/{}/delete"): "admin-only",
 }
 SAMPLES = {
     "/users/{}/role": "1",
     "/users/{}/disable": "1",
     "/users/{}/enable": "1",
     "/users/{}/unlink": "1",
+    "/users/{}/delete": "1",
 }

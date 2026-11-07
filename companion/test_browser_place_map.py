@@ -273,7 +273,8 @@ def _assert_controls(page, width):
                          ids=["360", "1280"])
 def test_map_page_layout_and_controls(new_context, make_app_server, viewport, lang, theme):
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page, _hosts, _errors = _open(new_context, server, viewport, lang, theme)
+    context, page, _hosts, _errors = _open(
+        new_context, server, viewport, lang, theme, route="/detection?mode=runway")
     try:
         _assert_controls(page, viewport["width"])
         if lang == "fr":
@@ -335,7 +336,7 @@ def test_with_the_library_blocked_the_plain_form_shows_and_saves(
     page.on("console", lambda message: console.append(message) if message.type == "error" else None)
     try:
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/detection")
+        page.goto(server.base_url() + "/detection?mode=runway")
         page.wait_for_function(
             "() => document.getElementById('place-map').hidden", timeout=10000)
         page.wait_for_function(_SETTLED, timeout=10000)
@@ -462,7 +463,7 @@ def test_the_round_locate_button_places_the_pin_and_switches_to_my_position(
         new_context, make_app_server, viewport):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, errors = _open(
-        new_context, server, viewport,
+        new_context, server, viewport, route="/detection?mode=runway",
         context_options={"geolocation": PARIS_FIX, "permissions": ["geolocation"]})
     try:
         if not page.is_checked("#place-mode-runway"):
@@ -490,7 +491,8 @@ def test_the_round_locate_button_places_the_pin_and_switches_to_my_position(
 
 def test_a_refused_position_shows_a_short_message_on_the_map(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_DESKTOP)
+    context, page, _hosts, _errors = _open(
+        new_context, server, VIEWPORT_DESKTOP, route="/detection?mode=runway")
     try:
         page.click(LOCATE)
         page.wait_for_function(MESSAGE_HAS, arg=DENIED, timeout=10000)

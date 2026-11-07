@@ -1,6 +1,6 @@
 """Real-browser flows of the Users table: invite in a few actions, a duplicate
 email refused with the dialog reopened, a role that saves as soon as it
-changes, the Active switch, unlink from the "..." menu, the guard sentences,
+changes, the Active switch, unlink and Delete user in the "..." menu, the guard sentences,
 keyboard use of the menu, the no-script controls, and table and card geometry
 at 360 and 1280px in both languages and both themes."""
 import pytest
@@ -167,10 +167,13 @@ def test_unlink_an_identity_from_the_overflow_menu_only_when_one_is_linked(
                      "WHERE id = ?", (seed.owner_id,))
         page.reload()
         _settled(page)
-        assert _row(page, fx.USER_EMAIL).locator("details.row-menu").count() == 0
+        plain = _row(page, fx.USER_EMAIL)
+        assert plain.locator("details.row-menu").count() == 1
+        assert plain.locator("form.users-menu__form").count() == 0
+        assert plain.locator("a.row-menu__item").count() == 1
         row = _row(page, fx.OWNER_EMAIL)
         row.locator("summary").click()
-        item = row.get_by_role("button", name="Unlink identity")
+        item = row.get_by_role("button", name="Reset sign-in")
         item.wait_for(state="visible")
         item.click()
         _wait_db(page, server, seed.owner_id, 2, None)

@@ -112,9 +112,9 @@ def _assert_pill_fits(page, pill_selector, box_selector, where):
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_home_shows_no_pill_and_no_battery_block_in_both_themes(
         new_context, charging_server, lang, viewport_name, viewport):
-    """the personal Home never shows the charging pill nor a battery block, even while the
-    battery is charging (the pill lives on Console Health), and does not overflow, in light
-    and dark"""
+    """the personal Home shows no charging pill and no battery dial even while the battery is
+    charging (the pill lives on Console Health); its Battery row carries the hedged charging
+    wording in words and draws no pill, and nothing overflows, in light and dark"""
     context, page = _open(new_context, charging_server, layout.HOME_ROUTE, lang, viewport)
     try:
         page.locator(".home-state").wait_for(state="visible")
@@ -123,7 +123,9 @@ def test_home_shows_no_pill_and_no_battery_block_in_both_themes(
             where = "Home %s %s %s" % (lang, viewport_name, theme)
             assert page.locator(".charging-pill").count() == 0, where
             assert page.locator(".home-battery").count() == 0, where
-            assert WORDS[lang] not in page.locator("body").inner_text(), where
+            assert WORDS[lang] in page.locator(".frame-battery").inner_text(), where
+            assert WORDS[lang] not in page.locator("body").inner_text().replace(
+                page.locator(".frame-battery").inner_text(), ""), where
             assert _assert_no_page_overflow(page, where) == ""
     finally:
         context.close()

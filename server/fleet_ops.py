@@ -502,11 +502,14 @@ def retire_frame(
     device_id: str,
     actor: fleet_db.AuditActor,
     now: int | None = None,
+    owner_user_id: int | None = None,
 ) -> str:
     """Park a frame as a retired pending row, keeping its data and token.
 
     Returns the new pending id. The live frame is refused and the refusal is
-    audited.
+    audited. With `owner_user_id`, the frame must still belong to that user
+    when the transaction holds the write lock, else NotFound: an owner retiring
+    their own frame cannot retire one that was just reassigned.
     """
     dev = fleet_db.get_device(conn, device_id)
     if dev is None:
@@ -518,6 +521,10 @@ def retire_frame(
         )
         raise LiveFrameProtected("the live frame cannot be retired")
     with fleet_db.transaction(conn):
+        current = fleet_db.get_device(conn, device_id)
+        if owner_user_id is not None and (
+                current is None or current["owner_user_id"] != owner_user_id):
+            raise NotFound("no such frame")
         co_manager_ids = [int(r["user_id"]) for r in fleet_db.list_co_managers(conn, device_id)]
         pending_id = fleet_db.park_retired(conn, device_id, _now(now))
         if pending_id is None:
@@ -525,7 +532,8 @@ def retire_frame(
         fleet_db.audit_co_manager_removals(conn, actor, device_id, co_manager_ids, "retire")
         fleet_db.audit_append(
             conn, actor, ACTION_RETIRE, "device", device_id, "ok",
-            {"pending_id": pending_id, "owner_user_id": dev["owner_user_id"]},
+            {"pending_id": pending_id, "owner_user_id": dev["owner_user_id"],
+             **({"via": "owner"} if owner_user_id is not None else {})},
         )
     return pending_id
 

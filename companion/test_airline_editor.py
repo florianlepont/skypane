@@ -14,7 +14,7 @@ import fleet_console_support as fx
 from companion import device_scope
 from companion_app_server import InProcessAppServer, http_request, with_csrf
 from server import fleet_db
-from server.plane import manual_resolutions, name_overrides
+from server.plane import airline_default_types, manual_resolutions, name_overrides
 
 CO_EMAIL = "co-manager@example.test"
 EDITOR = "/airlines/manage"
@@ -169,16 +169,97 @@ def test_deleting_a_manual_resolution_returns_to_the_editor_and_removes_it(rig):
     assert "manual-resolutions/ZZZ/delete" not in rig.get("admin", rig.frame + EDITOR)[2]
 
 
-def test_the_delete_dialog_names_its_safe_dismiss_and_carries_the_token(rig):
+def test_a_hand_named_airline_keeps_its_row_with_a_pill_and_a_delete_item(rig):
     manual_resolutions.add_entry(rig.owned_dir, "ZZZ", "Zed Air", now=STAMP)
     page = rig.get("admin", rig.frame + EDITOR)[2]
-    dialog = re.search(r'<dialog class="modal" id="delete-resolution-[0-9a-f]{10}".*?</dialog>', page, re.S)
-    assert dialog, "the delete dialog is missing"
-    text = dialog.group(0)
-    assert "Delete this resolution?" in text and ">Delete resolution<" in text
-    assert re.search(r'class="modal__dismiss"[^>]*autofocus[^>]*>Keep resolution<', text)
-    assert re.search(r'<input type="hidden" name="[a-z_]*csrf[a-z_]*" value="[^"]+">', text)
-    assert 'class="calendar-disconnect-btn"' in text
+    assert "manual-resolutions/" not in page.split("</table>")[1]
+    group = re.search(r'<tbody class="airline-group"(?:(?!</tbody>).)*Zed Air.*?</tbody>', page, re.S)
+    assert group, "the hand-named airline has no row"
+    text = group.group(0)
+    assert 'class="airlines-pill">Named by hand<' in text
+    form = re.search(r'<form class="airlines-menu__form"[^>]*manual-resolutions/ZZZ/delete".*?</form>', text, re.S)
+    assert form and ">Delete my name<" in form.group(0)
+    assert re.search(r'<input type="hidden" name="[a-z_]*csrf[a-z_]*" value="[^"]+">', form.group(0))
+    assert "Manual resolutions" not in page
+
+
+def _override(rig, key):
+    folder = os.path.join(rig.owned_dir, "illustration_overrides")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, key + ".png")
+    with open(os.path.join(VENDORED, "vueling-airlines.png"), "rb") as handle:
+        data = handle.read()
+    with open(path, "wb") as handle:
+        handle.write(data)
+    return path
+
+
+def _audit_actions(rig):
+    conn = fleet_db.connect(rig.server.state_dir)
+    try:
+        return [row["action"] for row in fleet_db.list_audit(conn, "all", 50, 0)]
+    finally:
+        conn.close()
+
+
+def test_deleting_an_uploaded_artwork_reverts_to_the_default_and_is_audited(rig):
+    airline = _override(rig, "air-france")
+    per_type = _override(rig, "air-france-b737")
+    status, headers, _b = rig.post(
+        "admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-b737"})
+    path, query = _query(headers)
+    assert (status, path, query["flash"]) == (303, rig.frame + EDITOR, ["airline_artwork_deleted"])
+    assert not os.path.exists(per_type) and os.path.exists(airline)
+    again = rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": "air-france-b737"})
+    assert _query(again[1])[1]["flash"] == ["airline_artwork_deleted"]
+    assert os.path.isfile(os.path.join(VENDORED, "air-france.png"))
+    assert _audit_actions(rig).count("airline.artwork_delete") == 2
+
+
+@pytest.mark.parametrize("key", ("", "nope", "../air-france", "air-france-zz", "generic-fallback.png/.."))
+def test_deleting_artwork_of_an_unknown_key_changes_nothing(rig, key):
+    _override(rig, "air-france")
+    before = rig.stored()
+    status, headers, _b = rig.post("admin", rig.frame + "/airlines/artwork/delete", {"key": key})
+    assert (status, _query(headers)[1]["flash"]) == (303, ["airline_artwork_stale"])
+    assert rig.stored() == before
+    assert "airline.artwork_delete" not in _audit_actions(rig)
+
+
+def test_the_default_type_is_stored_cleared_validated_and_audited(rig):
+    route = rig.frame + "/airlines/default-type"
+    status, headers, _b = rig.post("admin", route, {"airline_key": "air-france", "type": "a320"})
+    assert (status, _query(headers)[1]["flash"]) == (303, ["airline_default_type_saved"])
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"air-france": "A320"}
+    rig.post("admin", route, {"airline_key": "air-france", "type": ""})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {}
+    for form in ({"airline_key": "air-france", "type": "x; y"}, {"airline_key": "nope", "type": "A320"}):
+        rig.post("admin", route, form)
+        assert airline_default_types.load_default_types(rig.owned_dir) == {}
+    assert _audit_actions(rig).count("airline.default_type") == 2
+
+
+@pytest.mark.parametrize("who", ("owner", "co", "anonymous"))
+def test_the_artwork_routes_refuse_everyone_but_the_administrator(rig, who):
+    _override(rig, "air-france")
+    before = rig.stored()
+    for route, form in (("/airlines/artwork/delete", {"key": "air-france"}),
+                        ("/airlines/default-type", {"airline_key": "air-france", "type": "A320"})):
+        status, _h, _b = rig.post(who, rig.frame + route, form)
+        assert status in (303, 404), status
+    assert rig.stored() == before
+
+
+def test_naming_a_prefix_inline_stays_on_the_editor_and_stores_the_default_type(rig):
+    shp.seed_unresolved_prefixes(rig.owned_dir, {
+        "XQZ": {"count": 5, "first_seen": STAMP, "last_seen": STAMP, "example_callsign": "XQZ1"}})
+    status, headers, _b = rig.post(
+        "admin", rig.frame + "/airlines/resolve",
+        {"prefix": "XQZ", "airline_name": "Xqz Wings", "inline": "1", "default_type": "B738"})
+    path, query = _query(headers)
+    assert (status, path, query) == (303, rig.frame + EDITOR, {"flash": ["manual_resolved"]})
+    assert airline_default_types.load_default_types(rig.owned_dir) == {"xqz-wings": "B738"}
+    assert "airline.resolve" in _audit_actions(rig)
 
 
 @pytest.mark.parametrize("who", ("owner", "co"))

@@ -19,6 +19,8 @@ MESSAGES = {
     # --- Login page ------------------------------------------------
     "common.sign_in": "Se connecter",
     "common.login": "Connexion",
+    "common.splash_loading": "Chargement\u2026",
+    "common.splash_ready": "Prêt",
 
     # --- 404 page ----------------------------------------------------
     "common.page_not_found": "Page introuvable.",
@@ -121,6 +123,18 @@ MESSAGES = {
         "Nom de SkyPane rétabli — Vols et Accueil l’affichent dès "
         "maintenant, et le cadre l’utilisera à son prochain réveil et à "
         "sa prochaine vérification.",
+    "common.artwork_deleted_the_default_illustration_is_back":
+        "Illustration supprimée — l’illustration par défaut est de retour.",
+    "common.that_artwork_can_t_be_removed_anymore":
+        "Cette illustration ne peut plus être supprimée ici — rechargez la "
+        "page Compagnies et réessayez.",
+    "common.couldn_t_remove_that_artwork":
+        "Impossible de supprimer cette illustration — le dossier d’état du "
+        "cadre n’est peut-être pas accessible en écriture.",
+    "common.default_aircraft_type_saved":
+        "Type d’appareil par défaut enregistré.",
+    "common.couldn_t_save_the_default_aircraft_type":
+        "Impossible d’enregistrer le type d’appareil par défaut — réessayez.",
     "common.that_airline_can_t_be_renamed_anymore":
         "Cette compagnie ne peut plus être renommée ici — rechargez la "
         "page Compagnies et réessayez.",

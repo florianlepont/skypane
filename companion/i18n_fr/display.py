@@ -89,7 +89,6 @@ MESSAGES = {
     # --- Flight colours / per-flight rules ------------------------------
     "display.match_by": "S’applique à",
     "display.value": "Valeur",
-    "display.add_rule": "Ajouter l’allure",
     "display.callsign": "Indicatif",
     "display.icao24_hex": "Code hexadécimal ICAO24",
     "display.callsign_prefix": "Préfixe d’indicatif",

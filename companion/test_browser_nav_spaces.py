@@ -115,7 +115,7 @@ CONSOLE_SIDEBAR_LABELS = [
     "Fleet", "Users", "Airline editor", "Audit log", "Account"]
 PERSONAL_SIDEBAR_LABELS = [
     "Home", "Flight history", "Location and detection", "Personalisation",
-    "Airline collection", "Account"]
+    "Airlines", "Account"]
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])

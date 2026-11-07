@@ -71,8 +71,11 @@ ROUTE_POLICY = {
     ("GET", "/"): OWNER_DEVICE,
     ("GET", "/display"): OWNER_DEVICE,
     ("GET", "/display/special-looks"): OWNER_DEVICE,
+    ("GET", "/display/special-looks/new"): OWNER_DEVICE,
+    ("GET", "/display/special-looks/edit"): OWNER_DEVICE,
     ("GET", "/display/arrivals"): OWNER_DEVICE,
     ("GET", "/display/calendar"): OWNER_DEVICE,
+    ("GET", "/display/calendar/connect"): OWNER_DEVICE,
     ("GET", "/display/screen"): OWNER_DEVICE,
     ("GET", "/device"): ADMIN_ONLY,
     ("GET", "/detection"): OWNER_DEVICE,
@@ -106,6 +109,7 @@ ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 DEVICE_SCOPED = frozenset(
     [("GET", path) for path in (
         "/", "/display", "/display/arrivals", "/display/special-looks", "/display/calendar",
+        "/display/special-looks/new", "/display/special-looks/edit", "/display/calendar/connect",
         "/display/screen",
         "/detection", "/device", "/flights", "/health", "/airlines",
         "/airlines/manage",
@@ -116,12 +120,14 @@ DEVICE_SCOPED = frozenset(
         "/settings", "/detection", "/quick/display", "/quick/quiet-hours",
         "/quick/quiet-hours/window",
         "/quick/led", "/airlines/resolve", "/airlines/rename",
-        "/airlines/rename/reset", "/airlines/manual-resolutions/{}/delete",
+        "/airlines/rename/reset", "/airlines/artwork/delete", "/airlines/default-type",
+        "/airlines/manual-resolutions/{}/delete",
         "/illustration/{}.png", "/settings/rules/add",
         "/settings/calendar/disconnect", "/settings/calendar/connect",
         "/settings/rules/{}/delete")]
     + [("POST", path) for path in (
-        "/co-managers/add", "/co-managers/remove", "/co-managers/leave")])
+        "/co-managers/add", "/co-managers/remove", "/co-managers/leave",
+        "/frame/remove")])
 
 # Policy -> principal -> outcome, hand-written. A disabled, deleted or
 # expired session resolves to no principal, so it reads as anonymous.

@@ -136,7 +136,9 @@ def test_special_looks_and_calendar_are_one_group_with_a_dashed_add_row(new_cont
             "() => getComputedStyle(document.querySelector("
             "'#personalisation-calendar a.calendar-manage--primary')).borderTopStyle") == "dashed"
         connect.click()
-        page.locator("dialog#calendar-sheet").wait_for(state="visible")
+        page.wait_for_url("**" + layout.DISPLAY_CALENDAR_CONNECT_ROUTE)
+        page.locator("#calendar-connect-url").wait_for(state="visible")
+        assert page.locator("dialog[open]").count() == 0
     finally:
         context.close()
 

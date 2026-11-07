@@ -163,6 +163,14 @@
   --motion-toast-dwell: 6s;
   --motion-toast-dwell-long: 12s;
   --motion-dot-pulse: 3.2s;
+  /* Home's two slow ambient loops, content-neutral (the frame may show any
+   * picture): --motion-breathe is the ~6s breathing of the status dot and
+   * of the glow behind the picture, --motion-glint the 12s cycle of which
+   * the soft glass glint across the picture spends a short part. Only the
+   * rules that carry those animations may spend them; reduced motion turns
+   * both off outright. */
+  --motion-breathe: 6s;
+  --motion-glint: 12s;
   /* Home's plane flies in once along its trail; only that animation spends
    * this duration. */
 
@@ -708,7 +716,6 @@ h3 {
 
 /* The top rung of the heading ladder: bold and tightly tracked. */
 .page-title {
-  view-transition-name: skypane-title;
   font-family: var(--font-display);
   font-size: var(--font-page-title-size);
   font-weight: var(--weight-title);
@@ -904,6 +911,12 @@ a:hover {
    * rules they override are declared further down the file. */
   .home-state__dot.home-state__dot--pulse::after {
     animation: none;
+  }
+
+  .home-state__dot--pulse,
+  .hero__picture::before,
+  .hero__glass::after {
+    animation: none !important;
   }
 
   .is-loading::after {
@@ -2802,9 +2815,7 @@ button:disabled {
   }
 
   .look-seg__option:has(input:disabled) {
-    opacity: 0.45;
-    text-decoration: line-through;
-    cursor: not-allowed;
+    display: none;
   }
 }
 
@@ -3001,22 +3012,158 @@ table.data-table--readings {
   background: var(--glass-solid);
 }
 
-/* The audit log's phone list: one glass group of entries. */
+/* The audit log: one glass group of compact event rows (when, who, action,
+ * outcome, chevron). Each row is a native <details>; its panel lists target,
+ * source address, exact date, author and reason. Phone: when and outcome on
+ * the first line, the action and the author below; from 640px of group width
+ * the four columns sit on one line under a header. Long values wrap, so
+ * nothing widens the page. */
 .audit-cards {
+  container: audit-log / inline-size;
   padding: 0 var(--space-md);
   background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-glass);
+  list-style: none;
+  margin: 0;
+  --audit-columns: 11rem minmax(0, 1fr) minmax(0, 1.4fr) 7rem 20px;
 }
 
-.audit-cards .data-card {
-  padding: var(--space-md) 0;
-  border-bottom: 1px solid var(--glass-hairline);
+.audit-event + .audit-event {
+  border-top: 1px solid var(--glass-hairline);
 }
 
-.audit-cards .data-card:last-child {
-  border-bottom: 0;
+.audit-event__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 20px;
+  grid-template-areas: "when outcome chevron" "action action chevron" "who who chevron";
+  column-gap: var(--space-sm);
+  row-gap: 2px;
+  align-items: center;
+  min-height: 60px;
+  padding: var(--space-sm) 0;
+  color: var(--color-text);
+  list-style: none;
+}
+
+.audit-event__row::before {
+  content: none;
+}
+
+.audit-event__row::-webkit-details-marker {
+  display: none;
+}
+
+.audit-event__when {
+  grid-area: when;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-sm);
+  min-width: 0;
+}
+
+.audit-event__when .time-value {
+  font-weight: var(--weight-semibold);
+}
+
+.audit-event__when .time-value__age {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.audit-event__who {
+  grid-area: who;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.audit-event__action {
+  grid-area: action;
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.audit-event__outcome {
+  grid-area: outcome;
+  justify-self: end;
+}
+
+.audit-event__chevron {
+  grid-area: chevron;
+  justify-self: end;
+  transform: rotate(90deg);
+}
+
+.audit-event details[open] > summary .audit-event__chevron {
+  transform: rotate(-90deg);
+}
+
+.audit-event__detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-sm) var(--space-md);
+  margin: 0;
+  padding: 0 0 var(--space-md);
+}
+
+.audit-event__item {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.audit-event__item dt {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.audit-event__item dd {
+  margin: 0;
+}
+
+.audit-head {
+  display: none;
+  list-style: none;
+}
+
+@container audit-log (min-width: 640px) {
+  .audit-head {
+    display: grid;
+    grid-template-columns: var(--audit-columns);
+    column-gap: var(--space-md);
+    padding: var(--space-sm) 0;
+    font-size: var(--font-label-size);
+    font-weight: var(--weight-semibold);
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+    border-bottom: 1px solid var(--glass-hairline);
+  }
+
+  .audit-head__cell--outcome {
+    grid-column: 4;
+  }
+
+  .audit-event__row {
+    grid-template-columns: var(--audit-columns);
+    grid-template-areas: "when who action outcome chevron";
+    column-gap: var(--space-md);
+    min-height: 56px;
+  }
+
+  .audit-event__who {
+    font-size: var(--font-body-size);
+  }
+
+  .audit-event__when {
+    display: grid;
+  }
+
+  .audit-event__outcome {
+    justify-self: start;
+  }
 }
 
 /* Scoped to Flights' own table only. Tokens only (no literal px), so
@@ -3038,15 +3185,6 @@ table.data-table--flights .cell-secondary {
 }
 
 table.data-table--flights .cell-inline-sep {
-  display: none;
-}
-
-table.data-table--registry .cell-primary,
-table.data-table--registry .cell-secondary {
-  display: block;
-}
-
-table.data-table--registry .cell-inline-sep {
   display: none;
 }
 
@@ -3846,10 +3984,19 @@ a.calendar-disconnect-btn.flight-picture-link {
     padding: 0 var(--space-md);
   }
 
+  /* In the title row, after the title and clear of the frame button (the
+   * header keeps that space free); it wraps under the title when the row is
+   * too narrow for both. */
   .js .filter-bar--title,
   .js .filter-bar--title:focus-within,
   .js .filter-bar--title[data-filter-active] {
-    width: 380px;
+    position: relative;
+    top: auto;
+    right: auto;
+    flex: 0 1 360px;
+    width: 360px;
+    max-width: 100%;
+    margin: 0 0 0 auto;
   }
 
   .js .filter-bar--title .filter-bar__search input,
@@ -5536,6 +5683,7 @@ button.detection-search:hover {
   align-items: center;
   justify-content: center;
   min-height: 44px;
+  margin: 0;
   padding: 0 var(--space-md);
   border-radius: var(--radius-control);
   color: var(--color-text);
@@ -5548,8 +5696,16 @@ button.detection-search:hover {
 }
 
 .place-mode__text {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
   text-align: center;
+}
+
+/* The icons belong to the map layout; the plain form needs the room. */
+html:not(.map-ready) .place-mode__text .icon {
+  display: none;
 }
 
 .place-mode:has(input:checked) {
@@ -5611,6 +5767,32 @@ button.detection-search:hover {
 
 .place-sheet .runway-card .runway-card__detail {
   overflow-wrap: anywhere;
+  text-align: center;
+  text-wrap: balance;
+}
+
+/* The airport's name and codes keep a clear gap above the runway heading. */
+.place-sheet #runway-group-heading {
+  margin-top: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The selected mark straddles the card's top-right corner, so it never sits
+ * over the designator or the length centred in the card. */
+.place-sheet .runway-card .runway-card__check {
+  top: -8px;
+  right: -6px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  background: var(--glass-solid);
+  color: var(--color-accent);
 }
 
 .place-sheet .runway-card .banner__pill {
@@ -5631,6 +5813,11 @@ button.detection-search:hover {
   border: 1px solid var(--color-border);
   color: var(--color-text);
   white-space: nowrap;
+}
+
+.place-sheet .runway-card .runway-card__check .icon {
+  width: 14px;
+  height: 14px;
 }
 
 .place-panel__follow {
@@ -5655,18 +5842,31 @@ button.detection-search:hover {
   display: block;
   flex: 1 1 auto;
   min-height: 24rem;
-  overflow: hidden;
+  /* Clipped, never a scroll container: the map is fixed to the window, and a
+   * scroll container would be scrolled when a control of the map takes focus. */
+  overflow: clip;
   background: var(--color-secondary);
   --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  /* The one inner padding of the sheet and its rows (20px). */
+  --place-pad: calc(var(--space-md) + var(--space-xs));
+  /* What the floating tab bar covers at the foot of the page (nothing on a
+   * wide screen) and the height of the docked Save bar. */
+  --place-clear: 0px;
+  --place-bar-h: calc(44px + 2 * var(--space-sm) + 2px);
   /* The map runs under the app bar; everything that floats starts below it. */
   --place-top: calc(52px + var(--safe-top));
   --place-search-bottom: calc(var(--place-top) + var(--place-gutter) + 54px);
 }
 
+/* The map fills the whole window: it runs behind the glass sidebar and the
+ * glass tab bar as well as behind the app bar. */
 .map-ready .place-map {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 0;
+  /* Clipped rather than hidden: a hidden box can be scrolled when one of its
+   * controls takes focus, which would slide the zoom buttons away. */
+  overflow: clip;
   width: auto;
   height: auto;
   min-height: 0;
@@ -5781,6 +5981,7 @@ button.detection-search:hover {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto minmax(0, 1fr) auto;
   padding-top: calc(var(--place-search-bottom) + var(--space-sm));
+  padding-bottom: var(--place-clear);
   pointer-events: none;
 }
 
@@ -5919,11 +6120,17 @@ button.detection-search:hover {
   max-height: 28dvh;
   overflow-y: auto;
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-md) var(--space-sm);
+  margin: 0 var(--place-gutter) var(--space-sm);
+  padding: var(--space-md) var(--place-pad);
   background: var(--glass-solid);
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  border-radius: var(--radius-sheet);
   box-shadow: var(--shadow-glass);
   pointer-events: auto;
+}
+
+/* While Save and Cancel show, the sheet sits above them. */
+.map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
+  margin-bottom: calc(var(--place-bar-h) + 2 * var(--space-sm));
 }
 
 .map-ready .place-hint,
@@ -5959,37 +6166,69 @@ button.detection-search:hover {
   overflow-wrap: anywhere;
 }
 
-/* The detection radius is one row: its label, the number and the slider. */
-.map-ready .place-sheet .place-radius {
-  flex-direction: row;
+/* The pin's readout: its coordinates, and what a tap does. */
+.place-pos {
+  display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+html:not(.map-ready) .place-pos {
+  display: none;
+}
+
+.place-pos__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-dominant);
+}
+
+.place-pos__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.place-pos__coords {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-pos__hint {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.place-pos__coords[hidden],
+.place-pos__hint[hidden] {
+  display: none;
+}
+
+/* The detection radius: its label with the number on one line, the slider
+ * under them and the scale under the slider. */
+.map-ready .place-sheet .place-radius {
   gap: var(--space-sm);
   margin: 0;
 }
 
 .map-ready .place-sheet .place-radius label {
-  flex: none;
   font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
-.map-ready .place-sheet .place-radius__row {
-  flex: 1 1 auto;
-  min-width: 0;
-  gap: var(--space-sm);
-}
-
-.map-ready .place-sheet .place-radius__row input[type="number"] {
-  flex: 0 0 4.5rem;
-  width: 4.5rem;
-}
-
 /* The hint shows until a place is set. */
 .place-tap-hint {
-  margin: 0 0 var(--space-sm);
-  color: color-mix(in srgb, var(--color-text) 75%, transparent);
-  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .place-tap-hint[hidden],
@@ -6008,49 +6247,27 @@ html:not(.map-ready) .place-tap-hint {
   white-space: nowrap;
 }
 
-/* Save and Cancel live in the sheet; the count line is for assistive
- * technology only. */
-.map-ready .place-sheet .dirty-bar {
-  position: sticky;
-  bottom: 0;
-  flex-direction: row-reverse;
-  justify-content: flex-start;
-  flex-wrap: nowrap;
-  gap: var(--space-md);
-  width: auto;
-  max-width: none;
+/* Save and Cancel float over the map in the Fleet page's docked bar: above the
+ * tab bar on a phone, at the foot of the card's column from 960px. It shows
+ * once something changed. */
+.map-ready .place-panel > .dirty-bar.dirty-bar--docked {
+  position: absolute;
+  z-index: 6;
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  bottom: calc(var(--place-clear) + var(--space-sm));
   margin: 0;
-  padding: var(--space-sm) 0 0;
-  background: var(--color-dominant);
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  z-index: auto;
+  padding: var(--space-sm);
+  /* Solid: the labels must read over any map picture, in both themes. */
+  background: var(--glass-solid);
 }
 
-.map-ready .place-sheet .dirty-bar[hidden] {
+.map-ready .place-panel > .dirty-bar.dirty-bar--docked[hidden] {
   display: none;
 }
 
-.map-ready .place-sheet .dirty-bar [data-dirty-count] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.map-ready .place-sheet .dirty-bar button {
-  min-height: 44px;
-  padding: 0 var(--space-lg);
-}
-
-.map-ready .place-sheet .dirty-bar__cancel {
-  background: none;
-  border-color: transparent;
-  color: var(--color-accent);
-  text-decoration: underline;
+.map-ready .place-panel > .dirty-bar [data-dirty-count] {
+  padding-left: var(--space-sm);
 }
 
 /* The page title is the page's heading for assistive technology only: the
@@ -6078,7 +6295,9 @@ html:not(.map-ready) .place-tap-hint {
   top: calc(var(--place-top) + var(--place-gutter));
   left: var(--place-gutter);
   right: var(--place-gutter);
-  max-height: calc(100% - var(--place-top) - 28dvh - 2 * var(--place-gutter));
+  max-height: calc(
+    100% - var(--place-top) - 28dvh - var(--place-clear) - var(--place-bar-h)
+    - 4 * var(--space-sm) - 2 * var(--place-gutter));
   overflow-y: auto;
   box-sizing: border-box;
   padding: var(--space-md);
@@ -6106,13 +6325,14 @@ html:not(.map-ready) .place-tap-hint {
   display: inline-flex;
 }
 
-/* The page fills the area between the app bar and the tab bar on a phone,
- * the whole content area from 960px. The page's own padding goes. */
+/* The page fills the whole window: on a phone the tab bar floats over its
+ * foot, from 960px the sidebar floats over its left edge. The page's own
+ * padding goes. */
 .map-ready .page-content:has(.place-stage) {
   display: flex;
   flex-direction: column;
   max-width: none;
-  height: calc(100dvh - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom));
+  height: 100dvh;
   padding: 0;
 }
 
@@ -6198,19 +6418,6 @@ html:not(.map-ready) .place-tap-hint {
     right: var(--space-xs);
   }
 
-  /* The follow offer is its button; the sentence is for assistive technology. */
-  .map-ready .place-sheet .place-nearest__text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .map-ready .place-sheet .place-nearest {
-    margin-top: 0;
-  }
-
   .map-ready .place-sheet #runway-group-heading {
     position: absolute;
     width: 1px;
@@ -6219,15 +6426,55 @@ html:not(.map-ready) .place-tap-hint {
     clip-path: inset(50%);
   }
 
-  .map-ready .place-sheet .dirty-bar {
-    padding-top: 0;
+  /* The phone has the tab bar below the page: it floats over the map as
+   * glass, and the sheet and the Save bar sit above it. */
+  .map-ready .place-stage {
+    --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
-  .map-ready .place-sheet .dirty-bar__save {
-    flex: 1 1 auto;
+  .map-ready:has(.place-stage) .tab-bar {
+    background-color: transparent;
   }
 
+  /* The bar keeps the two buttons on one row; the count is read aloud only. */
+  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .map-ready .place-panel > .dirty-bar [data-dirty-count] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* The sheet is compact here: the readout is one line and the radius is a
+   * row and a slider. */
+  .map-ready .place-pos {
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .map-ready .place-pos__icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .map-ready .place-pos__hint,
+  .map-ready .place-radius__scale {
+    display: none;
+  }
   .map-ready .place-map .leaflet-control-zoom {
+    display: none;
+  }
+}
+
+/* On a small phone the map keeps the room: the nearest-airport offer is not
+ * shown. */
+@media (max-width: 699.98px) {
+  .map-ready .place-nearest {
     display: none;
   }
 }
@@ -6236,7 +6483,6 @@ html:not(.map-ready) .place-tap-hint {
   /* The shell's column gap is taken back so the map meets the sidebar. */
   .map-ready .page-content:has(.place-stage) {
     width: calc(100% + var(--space-xl));
-    height: 100dvh;
     margin: 0 0 0 calc(-1 * var(--space-xl));
   }
 
@@ -6258,7 +6504,7 @@ html:not(.map-ready) .place-tap-hint {
 
   .map-ready .place-stage {
     min-height: 34rem;
-    --place-card-w: 360px;
+    --place-card-w: 400px;
     --place-top: 0px;
     --place-search-bottom: calc(var(--space-md) + 54px);
   }
@@ -6281,13 +6527,16 @@ html:not(.map-ready) .place-tap-hint {
     flex-direction: column;
     grid-column: 1;
     grid-row: 1;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-md);
+    padding: var(--place-pad);
     box-sizing: border-box;
     margin: 0 var(--space-md);
-    max-height: calc(100dvh - var(--place-search-bottom) - 2 * var(--space-md));
+    max-height: calc(
+      100dvh - var(--place-search-bottom) - 3 * var(--space-md) - var(--place-bar-h));
     overflow-y: auto;
     pointer-events: auto;
+    background: var(--glass-solid);
+    border-color: var(--color-border);
     box-shadow: var(--shadow-card-hover);
   }
 
@@ -6315,30 +6564,39 @@ html:not(.map-ready) .place-tap-hint {
     box-shadow: var(--shadow-control);
   }
 
-  .map-ready .place-status {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    white-space: normal;
-  }
-
-  .map-ready .place-status:empty {
-    display: none;
-  }
-
   .map-ready .place-sheet {
     max-height: none;
     overflow: visible;
+    margin: 0;
     padding: 0;
+    gap: var(--space-md);
     background: none;
     border-radius: 0;
     box-shadow: none;
   }
 
-  .map-ready .place-sheet .dirty-bar {
-    justify-content: flex-start;
+  /* The sheet is part of the card here: the bar never lifts it. */
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
+    margin-bottom: 0;
+  }
+
+  /* Save and Cancel sit under the card, in its column. */
+  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
+    right: auto;
+    left: var(--space-md);
+    bottom: var(--space-lg);
+    width: var(--place-card-w);
+    box-sizing: border-box;
+  }
+
+  /* The sidebar is frosted glass over the map. */
+  .map-ready .dashboard-sidebar {
+    z-index: 6;
+    background: var(--bar-bg);
+    background-image: var(--bar-sheen);
+    border-color: var(--bar-border);
+    -webkit-backdrop-filter: blur(26px) saturate(200%);
+    backdrop-filter: blur(26px) saturate(200%);
   }
 
   .map-ready .place-info {
@@ -6357,6 +6615,10 @@ html:not(.map-ready) .place-tap-hint {
     grid-column: 2;
     grid-row: 4;
     margin: 0 var(--space-md) var(--space-md) 0;
+  }
+
+  .map-ready .place-sheet .place-chosen__name {
+    font-size: var(--font-heading-size);
   }
 
   .map-ready .place-details:target,
@@ -6410,6 +6672,49 @@ html:not(.map-ready) .place-details__close {
 
 .place-map__notice[hidden] {
   display: none;
+}
+
+/* The map's loading note, centred over the map until its pictures are in. */
+.place-loading {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  background: var(--glass-bg);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.place-loading[hidden] {
+  display: none;
+}
+
+/* A ring with one accent quarter. Bounded: the note itself is removed after
+ * a few seconds, and reduced motion zeroes the duration. */
+.place-loading__spinner {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: skypane-spin var(--motion-slow) linear 4;
+}
+
+@keyframes skypane-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .place-map.place-map .leaflet-bar a,
@@ -6645,10 +6950,33 @@ button.place-result.is-active {
 
 .place-nearest {
   display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-dominant));
+}
+
+.place-nearest__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-dominant);
+}
+
+.place-nearest__body {
+  display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  min-width: 0;
 }
 
 .place-nearest__text {
@@ -6719,27 +7047,46 @@ button.place-result.is-active {
   margin-top: var(--space-md);
 }
 
+.place-panel__area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 .place-panel__area .place-radius {
   margin-top: 0;
 }
 
-.place-radius__row {
+.place-radius__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-md);
 }
 
-.place-radius__row input[type="number"] {
-  flex: 0 0 6rem;
-  width: 6rem;
+.place-radius__head label {
+  margin: 0;
+}
+
+.place-radius__head input[type="number"] {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  text-align: center;
 }
 
 .place-radius__range {
   --js-gate-display: block;
-  flex: 1 1 auto;
-  min-width: 0;
+  width: 100%;
   min-height: 44px;
+  margin: 0;
   accent-color: var(--color-accent);
+}
+
+.place-radius__scale {
+  --js-gate-display: flex;
+  justify-content: space-between;
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .place-radius .section-caption,
@@ -6854,17 +7201,13 @@ button.place-result.is-active {
  * an 880px container leaves 288px per column against a 310px floor),
  * silently invalidating draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT. */
 
-
 /* .home-overview > * is doubled to (0,2,0) deliberately: at (0,1,0) it
  * tied .frame-strip's own margin-bottom rule and lost to source order,
  * leaving inconsistent gaps (measured in Chromium). */
 
-
 .home-section > .text-heading {
   margin-top: 0;
 }
-
-
 
 .stat-tile__gauge {
   display: flex;
@@ -6882,20 +7225,10 @@ button.place-result.is-active {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-
-
-
-
-
-
-
 /* The latest frame is the Home page's anchor.  The image remains bounded by
  * the existing preview rules; this grid only gives it the reading priority
  * the owner selected, with the recent list immediately alongside on desktop
  * and directly after it on a phone. */
-
-
-
 
 /* The docked attention toast only; the container is empty (and takes no
  * space) while every health state is fine. */
@@ -6935,30 +7268,13 @@ button.place-result.is-active {
  * three zones become columns. Surface, border and
  * radius are the shared tokens, so both themes follow the palette. */
 
-
-
-
-
-
-
-
 /* The state tint: a faint, static glow from the top-left corner in the
  * dot's colour. Subtle on purpose (13%, fading out before mid-card), the
  * wording and the dot carry the meaning; nothing moves, so reduced
  * motion needs nothing more. */
 
-
-
-
-
-
-
-
 /* The micro-label voice the quick-action labels already use (12px
  * uppercase, the sub-scale exception tier). */
-
-
-
 
 /* The state title takes the page-title size in the display face: the
  * header's one display line, so it reads from across the room. */
@@ -7000,10 +7316,13 @@ button.place-result.is-active {
  * amber ring is gentler (smaller, fainter) through two custom properties,
  * never a second duration. */
 
-
 .home-state__dot.dot--hollow {
   background: transparent;
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-text) 50%, transparent);
+}
+
+.home-state__dot--pulse {
+  animation: skypane-dot-breathe var(--motion-breathe) ease-in-out infinite;
 }
 
 .home-state__dot--pulse::after {
@@ -7041,8 +7360,6 @@ button.place-result.is-active {
 .home-state__next--overdue {
   font-weight: var(--weight-semibold);
 }
-
-
 
 .home-state__next .time-value {
   font-weight: var(--weight-semibold);
@@ -7197,6 +7514,61 @@ button.place-result.is-active {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* The Battery row of Home's Frame group: the level word is tinted by the
+ * level but always present, so colour is never the only signal; the thin
+ * bar is an SVG whose widths are percentage attributes. */
+.frame-battery {
+  --battery-tone: var(--color-status-ok);
+}
+
+.frame-battery--low {
+  --battery-tone: var(--color-status-warn);
+}
+
+.frame-battery--critical {
+  --battery-tone: var(--color-status-error);
+}
+
+.frame-battery__state {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.frame-battery__word {
+  color: color-mix(in srgb, var(--battery-tone) 55%, var(--color-text));
+}
+
+.frame-battery--none .frame-battery__state {
+  font-weight: var(--weight-regular);
+}
+
+.frame-battery__bar {
+  display: block;
+  width: 100%;
+  height: 4px;
+  margin-top: var(--space-xs);
+}
+
+.frame-battery__bar rect {
+  height: 100%;
+  rx: 2px;
+}
+
+.frame-battery__track {
+  fill: color-mix(in srgb, var(--color-text) 14%, transparent);
+}
+
+.frame-battery__fill {
+  fill: var(--battery-tone);
+}
+
+.frame-battery__note {
+  display: block;
+  margin-top: var(--space-xs);
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+}
+
 /* The estimated "Probably charging" pill, shared by Home and Health. The
  * ok tone, never the accent: it reports a state, it is not an action or a
  * selection. The bolt and the words carry the meaning, so colour is
@@ -7232,30 +7604,10 @@ button.place-result.is-active {
 /* The recessed panel: a step down from the card surface toward the
  * canvas. */
 
-
 /* Each row is a pill and one big tap target: the native switch button
  * stretches its ::after over the whole pill, so the control keeps its
  * role, state and focus behaviour while the finger gets a 56px-tall
  * target. */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .home-switch__window {
   /* Above the switch's row-wide ::after so the link takes its own click;
@@ -7441,21 +7793,8 @@ button.place-result.is-active {
   margin: -13px -4px;
 }
 
-
-
-
-
-
-
-
-
-
-
 /* Without the battery dial (a plain user's Home) the status zone and the
  * switches share the row. */
-
-
-
 
 .quick-actions {
   display: flex;
@@ -7689,17 +8028,10 @@ button.switch:active .switch__thumb {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-
-
 /* A wrapping flex line, not a grid row: a grid's auto time-track always
  * resolves to its own max-content width regardless of the callsign's
  * needs, starving the callsign to a sliver in French. Flex lets the
  * time wrap to its own second line only when there is truly no room. */
-
-
-
-
-
 
 /* 4. Audit fixes ------------------------------------------------------- */
 
@@ -8030,185 +8362,6 @@ a.calendar-manage--primary:hover {
   background: var(--color-accent-hover);
 }
 
-/* box-shadow at rest is this file's hairline-at-rest exception for a
- * floating modal, as for .lightbox. color is explicit because a <dialog>
- * promoted by showModal() does not reliably inherit it. No entrance
- * animation: the motion budget is spent elsewhere. */
-.calendar-sheet {
-  box-sizing: border-box;
-  width: calc(100% - var(--space-lg) * 2);
-  max-width: 440px;
-  max-height: calc(100svh - var(--space-lg) * 2);
-  overflow-y: auto;
-  padding: var(--space-lg);
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card-hover);
-}
-
-/* The dialog is a container, not a control: arriving at it by its
- * fragment must not draw a heavy ring round the whole card. Every control
- * inside keeps the global focus ring. */
-.calendar-sheet:focus {
-  outline: none;
-}
-
-/* Scripts blocked: the open dialog is an in-page card, not a modal. */
-.calendar-sheet[open]:not(:modal) {
-  position: static;
-  width: auto;
-  max-width: none;
-  margin: var(--space-md) 0 0;
-  box-shadow: none;
-}
-
-.calendar-sheet::backdrop {
-  background: var(--color-scrim);
-}
-
-.calendar-sheet > * + * {
-  margin-top: var(--space-md);
-}
-
-.calendar-sheet__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.calendar-sheet__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
-}
-
-a.calendar-sheet__close {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 44px;
-  height: 44px;
-  margin-right: calc(var(--space-sm) * -1);
-  font-size: 24px;
-  line-height: 1;
-  color: var(--color-text);
-  text-decoration: none;
-  border-radius: var(--radius-control);
-}
-
-a.calendar-sheet__close:hover {
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-}
-
-.calendar-sheet__label {
-  margin: 0;
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-}
-
-.calendar-sheet__link .calendar-masked-url {
-  margin-top: var(--space-xs);
-}
-
-.calendar-sheet input[type="text"] {
-  width: 100%;
-}
-
-.calendar-sheet__note {
-  margin: var(--space-sm) 0 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.calendar-sheet__field .section-caption {
-  margin: var(--space-xs) 0 0;
-}
-
-.calendar-sheet__foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
-}
-
-.calendar-sheet button {
-  height: auto;
-  min-height: 44px;
-}
-
-a.calendar-sheet__cancel {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 12px;
-  font-size: var(--font-label-size);
-  color: var(--color-text);
-  text-decoration: none;
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  border-radius: var(--radius-control);
-}
-
-.calendar-sheet__disconnect {
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--color-border);
-}
-
-/* The quiet destructive action: error-coloured text, no fill. Equal
- * (0,1,1) specificity to button[type="submit"], later in source, so it
- * wins on position and clears the primary fill and its shadow. */
-button.calendar-danger {
-  padding: 0 4px;
-  color: var(--color-status-error);
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-
-button.calendar-danger:hover {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  text-decoration: underline;
-}
-
-button.calendar-danger--solid {
-  padding: 0 12px;
-  border-color: var(--color-status-error);
-}
-
-.calendar-sheet__confirm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  border: 1px solid var(--color-status-error);
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-status-error) 6%, transparent);
-}
-
-/* An author display beats the UA [hidden] rule, so restate it. */
-.calendar-sheet__confirm[hidden] {
-  display: none;
-}
-
-.calendar-sheet__confirm-heading {
-  margin: 0;
-  font-weight: var(--weight-semibold);
-}
-
-.calendar-sheet__confirm .text-body {
-  margin: 0;
-}
-
-.calendar-sheet__confirm .calendar-sheet__foot {
-  margin-top: var(--space-xs);
-}
-
 .text-link {
   color: var(--color-accent);
   text-decoration: underline;
@@ -8263,6 +8416,9 @@ button.calendar-danger--solid {
  * can never show the bar regardless of any later rule order. */
 .tab-bar {
   display: none;
+  /* A named group of its own: a page change carries the bar across as one
+   * unchanged image instead of cross-fading it with the page behind. */
+  view-transition-name: skypane-tab-bar;
 }
 
 @media (max-width: 959.98px) {
@@ -8284,6 +8440,9 @@ button.calendar-danger--solid {
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-pill);
     isolation: isolate;
+    /* The solid fill under the glass layer is painted from the first frame, so
+     * the page never shows through the bar while a page change is in flight. */
+    background-color: var(--glass-solid);
   }
 
   /* The bar's glass (fill, blur, shadow) lives on this layer behind the cells,
@@ -8360,7 +8519,7 @@ button.calendar-danger--solid {
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 68px;
+    flex: 0 0 71px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -8462,9 +8621,69 @@ button.calendar-danger--solid {
   .tab-bar__links {
     display: flex;
     flex-direction: column;
-    padding-top: var(--space-sm);
     margin: 0;
-    border-top: 1px solid var(--glass-hairline);
+  }
+
+  /* The pages at the top of the sheet continue the tab bar: one row each, an
+   * icon tile then the page name. */
+  .tab-bar__pages {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tab-bar__pages .tab-bar__nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    min-height: 56px;
+    border-radius: var(--radius-control);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__nav-icon {
+    flex: none;
+    box-sizing: content-box;
+    padding: 10px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  }
+
+  .tab-bar__pages .mobile-nav__link--active .tab-bar__nav-icon {
+    background: var(--color-accent);
+    color: var(--color-dominant);
+  }
+
+  .tab-bar__separator {
+    flex: none;
+    width: 100%;
+    height: 0;
+    margin: 0;
+    border: 0;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .tab-bar__settings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  /* The page behind the open sheet is dimmed and blurred. The scrim is a
+   * fixed layer on the body that covers the whole viewport, above every page
+   * layer (the sticky headers, the unsaved-changes bar) and under the bar,
+   * which is raised above it while the sheet is open. */
+  body:has(.tab-bar__more[open])::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 44;
+    background: color-mix(in srgb, var(--color-text) 55%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  body:has(.tab-bar__more[open]) .tab-bar {
+    z-index: 46;
   }
 
   .tab-bar__more-panel .mobile-nav__link {
@@ -8690,8 +8909,7 @@ button.look-frame__open:focus-visible {
 }
 
 /* These summaries carry their own icon instead of the global chevron. */
-.look-edit__summary::before,
-.special-add__summary::before {
+.look-edit__summary::before {
   content: none;
 }
 
@@ -8858,8 +9076,7 @@ button.look-frame__open:focus-visible {
   margin-top: var(--space-sm);
 }
 
-.look-sheet__head,
-.special-add__head {
+.look-sheet__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -8867,7 +9084,6 @@ button.look-frame__open:focus-visible {
 }
 
 .look-sheet__title,
-.special-add__title,
 .special-looks__title {
   margin: 0;
   font-family: var(--font-display);
@@ -9024,8 +9240,7 @@ button.look-sheet__close[hidden] {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.look-sheet__foot,
-.special-add__foot {
+.look-sheet__foot {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -9034,8 +9249,7 @@ button.look-sheet__close[hidden] {
   border-top: 1px solid var(--color-border);
 }
 
-.look-sheet__foot button,
-.special-add__foot button {
+.look-sheet__foot button {
   height: 40px;
   padding: 0 var(--space-md);
   font-size: var(--font-label-size);
@@ -9173,7 +9387,223 @@ a.special-row__remove:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Add a special look ----------------------------------------------- */
+a.special-row__edit {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+a.special-row__edit:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+/* The pages that edit one thing (a special look, the calendar link): the
+ * picture on the left, the options in a card on the right, Cancel and Save in
+ * the docked bar. One column on a phone, the picture beside its caption. */
+.form-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+a.form-back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-xs);
+  min-height: 44px;
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-decoration: none;
+}
+
+.form-back .icon {
+  transform: rotate(180deg);
+}
+
+.form-page {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 37rem);
+  gap: var(--space-xl) var(--space-2xl);
+  align-items: flex-start;
+}
+
+.form-page__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.form-page__caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.form-page__name {
+  font-family: var(--font-display);
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.form-page__sentence {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.form-page__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+  padding: calc(var(--space-md) + var(--space-xs));
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.form-page__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+}
+
+.form-page__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin: 0;
+}
+
+.form-page__section + .form-page__section {
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.form-page__label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.form-page__fixed {
+  margin: 0;
+}
+
+/* The quiet destructive link: error-coloured, a 44px target. */
+a.form-page__danger {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-status-error);
+  text-decoration: none;
+  border: 1px solid var(--color-status-error);
+  border-radius: var(--radius-control);
+}
+
+a.form-page__danger:hover {
+  background: color-mix(in srgb, var(--color-status-error) 8%, transparent);
+}
+
+.form-page input[type="text"] {
+  width: 100%;
+}
+
+.form-page input[name="rule_key"] {
+  font-family: var(--font-mono);
+}
+
+.form-page .theme-form {
+  min-height: 44px;
+}
+
+.form-page .theme-form input[type="radio"] + label {
+  flex: 1 1 0;
+  height: 38px;
+  font-size: var(--font-label-size);
+}
+
+.form-page .section-caption {
+  margin: 0;
+}
+
+.form-page__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Cancel is a link; Save is the bar's submit button. */
+.form-bar__title {
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+}
+
+a.form-bar__cancel {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  border-radius: var(--radius-control);
+}
+
+a.form-bar__cancel:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+@media (max-width: 959.98px) {
+  .form-page {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+  }
+
+  .form-page__preview {
+    display: grid;
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .form-bar__title {
+    display: none;
+  }
+
+  .dirty-bar.form-bar {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+/* The add row of the Special looks list ---------------------------- */
 
 .special-add__summary {
   display: flex;
@@ -9182,12 +9612,7 @@ a.special-row__remove:hover {
   min-height: 64px;
   font-weight: var(--weight-semibold);
   color: var(--color-accent);
-  list-style: none;
-  cursor: pointer;
-}
-
-.special-add__summary::-webkit-details-marker {
-  display: none;
+  text-decoration: none;
 }
 
 .special-add__plus {
@@ -9198,95 +9623,6 @@ a.special-row__remove:hover {
   height: 70px;
   border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, transparent);
   border-radius: var(--radius-control);
-}
-
-.special-add[open] > .special-add__summary {
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-}
-
-.special-add__panel {
-  padding: var(--space-sm) 0 var(--space-md);
-}
-
-.special-add__form {
-  gap: var(--space-md);
-}
-
-.special-add__cols {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-md);
-}
-
-.special-add__who,
-.special-add__look {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.special-add__who .theme-form {
-  min-height: 44px;
-}
-
-.special-add__who .theme-form input[type="radio"] + label {
-  flex: 1 1 0;
-  height: 38px;
-  font-size: var(--font-label-size);
-}
-
-.special-add__who input[type="text"] {
-  font-family: var(--font-mono);
-}
-
-/* The preview heads the form: the framed picture takes 44% of a phone sheet's
- * content width (9rem on a wide sheet) with its caption beside it. */
-.special-add__preview {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.special-add__preview .special-row__mini {
-  width: 44%;
-  padding: 4px;
-  border-radius: var(--radius-control);
-}
-
-@media (min-width: 700px) {
-  .special-add__preview .special-row__mini {
-    width: 9rem;
-  }
-}
-
-.special-add__preview .special-row__image {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 3 / 4;
-}
-
-.special-add__preview .text-label {
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.special-add__look-label {
-  margin: 0;
-}
-
-/* The three choices name themselves; the "Look" heading only stays for
- * assistive technology once the picker replaces the table. */
-.special-add.is-enhanced .special-add__look-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 .rule-suggestions {
@@ -9320,27 +9656,6 @@ button.rule-suggestion-chip {
   font-weight: var(--weight-regular);
 }
 
-/* With scripts, the add form is a dialog anchored beside the list. */
-.special-add.is-enhanced[open] > .special-add__panel {
-  position: absolute;
-  right: calc(100% + var(--space-md));
-  bottom: 0;
-  z-index: 51;
-  width: min(38rem, calc(100vw - 2 * var(--space-md)));
-  padding: var(--space-md) 20px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-pop);
-}
-
-@media (min-width: 700px) {
-  .special-add.is-enhanced .special-add__cols {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--space-lg);
-  }
-}
-
 @media (min-width: 1200px) {
   .look-card__grid {
     grid-template-columns: minmax(0, 15rem) minmax(0, 15rem) minmax(17rem, 1fr);
@@ -9352,7 +9667,6 @@ button.rule-suggestion-chip {
   }
 
   /* Without scripts, an open table or add form needs the card's width. */
-  .special-looks:has(.special-add[open]:not(.is-enhanced)),
   .special-looks:has(.look-edit[open]) {
     grid-column: 1 / -1;
   }
@@ -9365,23 +9679,13 @@ button.rule-suggestion-chip {
   }
 }
 
-@media (max-width: 1199.98px) {
-  .special-add.is-enhanced[open] > .special-add__panel {
-    right: auto;
-    left: 0;
-    top: auto;
-    bottom: calc(100% - 64px);
-  }
-}
-
-/* Phones: both dialogs become bottom sheets over a dimmed page. */
+/* Phones: the look sheet becomes a bottom sheet over a dimmed page. */
 @media (max-width: 699.98px) {
   .look-scrim {
     background: var(--color-scrim);
   }
 
-  .look-sheet,
-  .special-add.is-enhanced[open] > .special-add__panel {
+  .look-sheet {
     position: fixed;
     top: auto;
     right: 0;
@@ -9397,19 +9701,11 @@ button.rule-suggestion-chip {
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   }
 
-  .special-add__foot button {
-    height: 44px;
-  }
+  
 
-  .special-add__foot {
-    position: sticky;
-    bottom: 0;
-    padding-top: var(--space-sm);
-    background: var(--color-dominant);
-  }
+  
 
-  .look-sheet::before,
-  .special-add.is-enhanced[open] > .special-add__panel::before {
+  .look-sheet::before {
     content: "";
     position: absolute;
     top: 8px;
@@ -9522,7 +9818,7 @@ dialog.modal {
   max-width: none;
   max-height: 88svh;
   margin: auto;
-  padding: var(--space-lg);
+  padding: var(--space-lg) var(--space-lg) 0;
   overflow-y: auto;
   background: var(--color-dominant);
   color: var(--color-text);
@@ -9603,23 +9899,31 @@ a.modal__close {
   margin-top: var(--space-md);
 }
 
-.modal input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
-.modal select,
-.modal textarea {
+.modal:not(:where(.fleet-dialog--inline)) input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+.modal:not(:where(.fleet-dialog--inline)) select,
+.modal:not(:where(.fleet-dialog--inline)) textarea {
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;
   min-height: 44px;
 }
 
+/* The action row stays at the foot of the dialog on an opaque strip while
+ * the body scrolls above it, so Save is always reachable. The dialog has no
+ * bottom padding of its own: the strip carries it. */
 .modal__actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
-  margin-top: var(--space-lg);
+  margin-top: var(--space-md);
+  padding: var(--space-sm) 0 var(--space-lg);
+  background: var(--color-dominant);
 }
 
-dialog.modal button {
+dialog.modal:not(:where(.fleet-dialog--inline)) button {
   height: auto;
   min-height: 44px;
   min-width: 44px;
@@ -9653,8 +9957,12 @@ a.modal__dismiss {
     inset: auto 0 0;
     width: 100%;
     margin: 0;
-    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
+    padding: 22px max(var(--space-md), var(--safe-right)) 0 max(var(--space-md), var(--safe-left));
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  }
+
+  .modal__actions {
+    padding-bottom: calc(var(--space-md) + var(--safe-bottom));
   }
 
   dialog.modal.is-modal {
@@ -9716,35 +10024,6 @@ a.modal__dismiss {
 
   dialog.modal.is-modal[data-sheet-state="closing"] {
     transition: transform var(--motion-fast) ease-in;
-  }
-}
-
-/* The calendar sheet is the same bottom sheet as every other dialog below
- * 700px: full width, pinned to the bottom edge, rounded top corners and a
- * grabber. The in-page card shown without scripts keeps its own rules. */
-@media (max-width: 699.98px) {
-  dialog.calendar-sheet:modal {
-    position: fixed;
-    inset: auto 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: 88svh;
-    margin: 0;
-    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    box-shadow: var(--shadow-pop);
-  }
-
-  dialog.calendar-sheet:modal::before {
-    content: "";
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    width: 40px;
-    height: 4px;
-    margin-left: -20px;
-    border-radius: var(--radius-control);
-    background: var(--color-border);
   }
 }
 
@@ -10068,13 +10347,136 @@ details.fleet-other {
     display: flex;
   }
 
-  .fleet-blocks[data-fleet-tab="state"] > .fleet-block:not(.fleet-block--state),
-  .fleet-blocks[data-fleet-tab="settings"] > .fleet-block:not(.fleet-block--settings),
-  .fleet-blocks[data-fleet-tab="access"] > .fleet-block:not(.fleet-block--access),
+  .fleet-blocks[data-fleet-tab="state"] .fleet-block:not(.fleet-block--state),
+  .fleet-blocks[data-fleet-tab="settings"] .fleet-block:not(.fleet-block--settings),
+  .fleet-blocks[data-fleet-tab="access"] .fleet-block:not(.fleet-block--access),
   .fleet-blocks[data-fleet-tab="state"] ~ .fleet-panel-access,
   .fleet-blocks[data-fleet-tab="settings"] ~ .fleet-panel-access {
     display: none;
   }
+}
+
+/* Detail dialogs of the Fleet page. Below 960px a dialog that is also a
+ * block of the phone page renders as plain content (the dialog box, its head
+ * and its action row are not drawn) and the summary rows are not shown; from
+ * 960px the groups live in their dialogs, behind the summary rows. */
+@media (max-width: 959.98px) {
+  .fleet-dialog--inline:not([open]):not(:target) {
+    display: contents;
+  }
+
+  .fleet-dialog--inline:not([open]):not(:target) > .modal__body {
+    display: contents;
+  }
+
+  .fleet-dialog--inline:not([open]):not(:target) > .modal__head,
+  .fleet-dialog--inline:not([open]):not(:target) > .modal__actions,
+  .fleet-block--sums {
+    display: none;
+  }
+
+  .fleet-block--versions > .section-label {
+    display: none;
+  }
+}
+
+@media (min-width: 960px) {
+  .fleet-block--access,
+  .fleet-panel-access {
+    display: none;
+  }
+
+  dialog.fleet-dialog {
+    width: min(640px, calc(100% - 48px));
+  }
+
+  .fleet-dialog .fleet-block > .section-label {
+    display: none;
+  }
+
+  .fleet-dialog--inline input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]),
+  .fleet-dialog--inline select,
+  .fleet-dialog--inline textarea {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 100%;
+    min-height: 44px;
+  }
+
+  dialog.fleet-dialog--inline button {
+    height: auto;
+    min-height: 44px;
+    min-width: 44px;
+    padding: var(--space-sm) var(--space-md);
+    font-size: var(--font-label-size);
+  }
+
+  .fleet-dialog .fleet-group {
+    box-shadow: none;
+    border: 0;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .fleet-dialog .fleet-group > .fleet-group__item {
+    padding-inline: 0;
+  }
+}
+
+/* One summary row: an icon tile, the label over the value, a chevron. */
+.fleet-sum-list > li + li {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+a.fleet-sum {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  box-sizing: border-box;
+  min-height: 64px;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+a.fleet-sum:hover {
+  background: var(--color-control-wash);
+}
+
+a.fleet-sum:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.fleet-sum__icon {
+  box-sizing: content-box;
+  flex: none;
+  padding: 10px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+}
+
+.fleet-sum__text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.fleet-sum__label {
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.fleet-sum__value {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.fleet-sum__chevron {
+  flex: none;
+  color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
 /* The selected frame's header: its name and owner, and its actions menu. */
@@ -10174,6 +10576,7 @@ a.entity-row__button:hover {
 
 .personalisation-nav__link > span {
   display: block;
+  flex: 1 1 auto;
   box-sizing: border-box;
   min-width: 0;
   max-width: 100%;
@@ -10261,7 +10664,7 @@ a.entity-row__button:hover {
 }
 
 /* In the card, "New special look" is the section's one primary action. */
-.personalisation-card .special-add:not([open]) > .special-add__summary {
+.personalisation-card .special-add__summary {
   justify-content: center;
   min-height: 44px;
   padding: 0 var(--space-md);
@@ -10271,11 +10674,11 @@ a.entity-row__button:hover {
   color: var(--color-on-accent);
 }
 
-.personalisation-card .special-add:not([open]) > .special-add__summary:hover {
+.personalisation-card .special-add__summary:hover {
   background: var(--color-accent-hover);
 }
 
-.personalisation-card .special-add:not([open]) .special-add__plus {
+.personalisation-card .special-add__plus {
   width: auto;
   height: auto;
   border: 0;
@@ -10346,21 +10749,16 @@ a.entity-row__button:hover {
   border-radius: var(--radius-card);
 }
 
-.personalisation-card--list .special-add:not([open]) > .special-add__summary {
+.personalisation-card--list .special-add__summary {
   min-height: 56px;
   border-radius: var(--radius-card);
   background: none;
   color: var(--color-text);
 }
 
-.personalisation-card--list .special-add:not([open]) > .special-add__summary:hover {
+.personalisation-card--list .special-add__summary:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   color: var(--color-text);
-}
-
-.personalisation-card--list .special-row--add:has(.special-add[open]) {
-  padding: 0 var(--space-md);
-  border-style: solid;
 }
 
 /* While nothing is connected, "Connect a calendar" is the same dashed add
@@ -10576,13 +10974,7 @@ button.look-sheet__save:hover {
 }
 
 @media (min-width: 700px) {
-  /* The add dialog opens over its own card, never beside it. */
-  .personalisation-card .special-add.is-enhanced[open] > .special-add__panel {
-    top: auto;
-    right: auto;
-    bottom: calc(100% - 64px);
-    left: 0;
-  }
+  
 
   .look-pick__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -10638,10 +11030,10 @@ button.look-sheet__save:hover {
   }
 }
 
-/* Airline collection: a one-line header (title, a thin progress bar with
- * one short sentence, small round badge icons), one control bar and a grid
- * of picture cards. The dimming of a card that has not been seen applies
- * to the picture only, never to its text. */
+/* Airline collection: a header with the page title at the standard size, then
+ * the progress on one line (count, a thin bar, the next goal, a compact
+ * "earned/total" badge pill), one sticky control bar and a calm grid of
+ * larger picture cards. A card that has not been seen is only dimmed. */
 .page-header:has(> .collection-head__status) {
   display: flex;
   flex-wrap: wrap;
@@ -10658,25 +11050,37 @@ button.look-sheet__save:hover {
   display: flex;
   flex: 1 1 300px;
   align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-md);
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
   min-width: 0;
 }
 
-.collection-progress {
-  flex: 1 1 auto;
-  max-width: 360px;
-  min-width: 0;
+@media (min-width: 700px) {
+  .collection-head__status {
+    justify-content: flex-end;
+  }
 }
 
 .collection-progress__headline {
-  margin: var(--space-xs) 0 0;
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+}
+
+.collection-progress__goal {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .collection-progress__bar {
   display: block;
-  width: 100%;
+  flex: 1 1 48px;
+  max-width: 140px;
+  min-width: 48px;
   height: 6px;
   appearance: none;
   -webkit-appearance: none;
@@ -10701,42 +11105,36 @@ button.look-sheet__save:hover {
 }
 
 .collection-badges {
-  display: flex;
+  display: inline-flex;
   flex: none;
+  align-items: center;
   gap: var(--space-xs);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.collection-badge {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-}
-
-.collection-badge--earned {
-  background: color-mix(in srgb, var(--color-accent) 14%, var(--color-dominant));
-  color: var(--color-accent);
-}
-
-.collection-badge--locked {
-  background: transparent;
-  border: 1px dashed color-mix(in srgb, var(--color-text) 40%, transparent);
+  height: 32px;
   box-sizing: border-box;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
+  margin: 0;
+  padding: 0 var(--space-sm);
+  border: 1px dashed color-mix(in srgb, var(--color-text) 40%, transparent);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* One control bar. Phone: line one is the filter field, the sort menu button and the
  * legend button; line two is the segmented show filter (it scrolls sideways when the
  * labels do not fit). From 700px everything shares one line. Every control is 44px. */
 .collection-controls {
+  position: sticky;
+  top: calc(var(--space-sm) + var(--safe-top));
+  z-index: 5;
   align-items: center;
   gap: var(--space-sm);
   margin-bottom: var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-glass);
 }
 
 .collection-controls .filter-bar__search {
@@ -10874,25 +11272,6 @@ button.look-sheet__save:hover {
   gap: var(--space-xs) var(--space-sm);
 }
 
-@media (max-width: 699.98px) {
-  .collection-head__status {
-    flex-direction: column;
-    align-items: stretch;
-    gap: var(--space-xs);
-  }
-
-  .collection-progress {
-    max-width: none;
-  }
-
-  /* The badge icons scroll sideways rather than wrapping. */
-  .collection-badges {
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-  }
-}
-
 .collection-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -10913,10 +11292,11 @@ button.look-sheet__save:hover {
   height: 100%;
   box-sizing: border-box;
   min-height: 44px;
-  padding: var(--space-sm);
+  padding: var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
   color: var(--color-text);
   text-decoration: none;
 }
@@ -10929,10 +11309,20 @@ button.look-sheet__save:hover {
 }
 
 .collection-card__art {
+  position: relative;
   display: block;
   overflow: hidden;
   border-radius: var(--radius-control);
   background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.collection-card__art .rarity-pill--new {
+  position: absolute;
+  top: var(--space-xs);
+  right: var(--space-xs);
+  border-color: transparent;
+  background: var(--color-text);
+  color: var(--color-dominant);
 }
 
 .collection-card__image {
@@ -10945,13 +11335,25 @@ button.look-sheet__save:hover {
   margin-bottom: 0;
 }
 
+/* Not seen yet: the whole card is calmer, with no text of its own. */
+.collection-card--unseen {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
+}
+
 .collection-card--unseen .collection-card__art {
   opacity: 0.45;
   filter: grayscale(1);
 }
 
+.collection-card--unseen .collection-card__name {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-weight: var(--weight-regular);
+}
+
 .collection-card__name {
-  font-size: var(--font-label-size);
+  padding-top: var(--space-xs);
+  font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
@@ -10960,10 +11362,17 @@ button.look-sheet__save:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.collection-card__pills {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-xs);
+.collection-card__rarity {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.collection-card__rarity--occasional {
+  color: var(--color-rarity-occasional);
+}
+
+.collection-card__rarity--rare {
+  color: var(--color-rarity-rare);
 }
 
 .rarity-pill {
@@ -11145,12 +11554,6 @@ dialog.access-sheet[open],
   }
 }
 
-@media (min-width: 1280px) {
-  .collection-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-}
-
 /* Users table ----------------------------------------------------------
  * One <table> of users. Below 70rem every row is a card: avatar and
  * email with the "..." menu on top, the role select and the Active switch
@@ -11214,7 +11617,7 @@ dialog.access-sheet[open],
   gap: var(--space-sm);
 }
 
-/* Room for the "..." menu, only on a row that has one. */
+/* Room for the "..." menu. */
 .users-row--menu .users-cell--user {
   padding-right: 44px;
 }
@@ -11253,19 +11656,20 @@ dialog.access-sheet[open],
   font-weight: var(--weight-semibold);
 }
 
-/* Email on the first line, cut with an ellipsis rather than broken
- * mid-word (the full address is the title), the status pill at its end;
- * the "You" mark under it. */
+/* The email takes the whole first line, cut with an ellipsis rather than
+ * broken mid-word (the full address is the title), clear of the "..." menu;
+ * the status pill and the "You" mark sit under it. */
 .users-who {
   display: grid;
   flex: 1 1 auto;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  column-gap: var(--space-sm);
+  gap: var(--space-xs) var(--space-sm);
   min-width: 0;
 }
 
 .users-email {
+  grid-column: 1 / -1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -11280,7 +11684,8 @@ dialog.access-sheet[open],
 .users-pills {
   display: flex;
   flex-wrap: wrap;
-  grid-column: 1 / -1;
+  grid-column: 2;
+  grid-row: 2;
   gap: var(--space-xs);
 }
 
@@ -11355,11 +11760,6 @@ dialog.access-sheet[open],
 .users-role-fixed {
   display: block;
   font-weight: var(--weight-semibold);
-}
-
-.users-guard {
-  display: block;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .users-table button.users-role-save {
@@ -11481,9 +11881,13 @@ button.row-menu__item--destructive:hover {
     padding-right: var(--space-md);
   }
 
-  .users-col--user { width: 34%; }
+  .users-cell--frames {
+    white-space: nowrap;
+  }
+
+  .users-col--user { width: 30%; }
   .users-col--role { width: 20%; }
-  .users-col--frames { width: 12%; }
+  .users-col--frames { width: 16%; }
   .users-col--seen { width: 12%; }
   .users-col--active { width: 8%; }
   .users-col--invite { width: 56px; }
@@ -11600,12 +12004,19 @@ button.row-menu__item--destructive:hover {
   padding: var(--space-md);
 }
 
+/* An unidentified prefix is one cell holding its resolve form. */
+.airlines-row--gap {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "resolve";
+}
+
 .airlines-subrow {
   display: none;
   grid-template-columns: minmax(0, 1fr) auto 44px;
   grid-template-areas:
     "name views menu"
-    "art art art";
+    "art art art"
+    "seen seen seen";
   align-items: center;
   gap: var(--space-sm) var(--space-md);
   padding: var(--space-md);
@@ -11627,10 +12038,20 @@ button.row-menu__item--destructive:hover {
 
 .airlines-cell--name { grid-area: name; }
 
+.airlines-cell--resolve {
+  grid-area: resolve;
+  font-weight: var(--weight-regular);
+}
+
+.airlines-cell--act:empty {
+  display: none;
+}
+
 .airlines-namebox {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 0 var(--space-xs);
   min-width: 0;
 }
 .airlines-cell--prefixes {
@@ -11657,11 +12078,54 @@ button.row-menu__item--destructive:hover {
 .airlines-cell--menu { grid-area: menu; justify-self: end; }
 
 .airlines-cell--type {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   padding-left: calc(44px + var(--space-xs));
 }
 
+/* An aircraft designator, set like code. */
+.airlines-type {
+  padding: 2px var(--space-sm);
+  border: 1px solid var(--glass-hairline);
+  border-radius: var(--radius-control);
+  background: var(--glass-solid);
+  color: var(--color-text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 24px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.airlines-pill--star {
+  background: color-mix(in srgb, var(--color-status-warn) 20%, transparent);
+}
+
+.airlines-state {
+  display: inline-block;
+  vertical-align: middle;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--art .airlines-thumb {
+  vertical-align: middle;
+}
 
 .airlines-expand {
   flex: none;
@@ -11694,6 +12158,7 @@ button.row-menu__item--destructive:hover {
 
 .airlines-name--fixed {
   display: block;
+  flex: 1 1 8rem;
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
@@ -11769,6 +12234,127 @@ button.row-menu__item--destructive:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* A type that has no picture of its own shows the airline's, dimmed. */
+.airlines-thumb--inherited {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.row-menu__sep {
+  margin: var(--space-xs) 0;
+  border: 0;
+  border-top: 1px solid var(--glass-hairline);
+}
+
+/* The inline action of a type row: link-like text with a 44px target. */
+.airlines-act {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.airlines-act:hover {
+  background: var(--color-control-wash);
+}
+
+.airlines-act:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* The in-place resolve form of an unidentified prefix. */
+.airlines-resolve {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.airlines-resolve__cap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-resolve__fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.airlines-resolve__fields input[type="text"] {
+  flex: 1 1 16rem;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.airlines-resolve__fields select {
+  flex: 0 1 14rem;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.airlines-resolve__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-sm);
+  margin-left: auto;
+}
+
+.airlines-resolve__ok {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+.airlines-resolve__skip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.airlines-resolve__skip:hover {
+  background: var(--color-control-wash);
+}
+
+@media (max-width: 559.98px) {
+  .airlines-resolve__fields > * {
+    flex: 1 1 100%;
+  }
+
+  .airlines-resolve__fields select {
+    width: 100%;
+  }
+
+  .airlines-resolve__actions {
+    margin-left: 0;
+  }
+
+  .airlines-resolve__actions > * {
+    flex: 1 1 0;
+  }
+}
+
 .airlines-name__save,
 .airlines-art__upload {
   min-height: 44px;
@@ -11779,23 +12365,6 @@ button.row-menu__item--destructive:hover {
 
 .airlines-menu__form {
   margin: 0;
-}
-
-.airlines-cell--action {
-  align-self: center;
-}
-
-a.airlines-name-it {
-  display: inline-flex;
-  white-space: nowrap;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 0 var(--space-md);
-  box-sizing: border-box;
-  font-weight: var(--weight-semibold);
-  text-decoration: none;
 }
 
 @media (min-width: 70rem) {
@@ -11872,19 +12441,15 @@ a.airlines-name-it {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .airlines-col--name { width: 37%; }
-  .airlines-col--prefixes { width: 11%; }
-  .airlines-col--art { width: 14%; }
+  .airlines-col--name { width: 36%; }
+  .airlines-col--prefixes { width: 8%; }
+  .airlines-col--art { width: 17%; }
   .airlines-col--views { width: 8%; }
-  .airlines-col--menu { width: 96px; }
+  .airlines-col--menu { width: 112px; }
 
   /* The airline name input ends in an ellipsis rather than a hard clip. */
   .airlines-name input[type="text"] {
     text-overflow: ellipsis;
-  }
-
-  a.airlines-name-it {
-    padding: 0 var(--space-sm);
   }
 }
 
@@ -11932,7 +12497,8 @@ a.airlines-name-it {
 
 .reveal,
 .dashboard-main .group-block,
-.dashboard-main .page-section {
+.dashboard-main .page-section,
+.dashboard-main .personalisation-look {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -12004,7 +12570,8 @@ a.airlines-name-it {
  * solid fill its own rule declares (--color-dominant, --color-secondary or
  * --glass-solid). The blur stays off the repeated cards, whose own fixed or
  * absolutely placed descendants a backdrop-filter would trap. No
- * border-radius here: --radius-card carries it. */
+ * border-radius here: --radius-card carries it. Modal dialogs are not
+ * glass: they sit over a dimmed page on their own opaque surface. */
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
   .page-section,
   .battery-trend-section,
@@ -12044,9 +12611,6 @@ a.airlines-name-it {
   .group,
   .login-card,
   .look-sheet,
-  .calendar-sheet,
-  .lightbox,
-  dialog.modal,
   .info-tip__bubble,
   .dashboard-sidebar,
   .dirty-bar {
@@ -12114,11 +12678,6 @@ a.airlines-name-it {
 
 /* The cards come in one after the other: the state card, the current
  * frame, then the recent flights. */
-
-
-
-
-
 
 /* The other pages in the same language: the same entrance on the blocks that
  * sit straight on the sky, a soft arrival for the active navigation item, and
@@ -12351,7 +12910,155 @@ a.airlines-name-it {
 }
 
 .hero__picture {
+  position: relative;
   min-width: 0;
+}
+
+/* The picture sits above the glow behind it. */
+.hero__picture .preview-frame {
+  position: relative;
+}
+
+/* A soft glow of the state's tone behind the picture, breathing on the
+ * dot's period. Only opacity and a transform move; it is a pseudo-element,
+ * so it takes no room. */
+.hero__picture::before {
+  content: "";
+  position: absolute;
+  inset: -14px;
+  border-radius: calc(var(--radius-control) + 14px);
+  pointer-events: none;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--home-tone) 26%, transparent), transparent);
+  opacity: 0.25;
+  animation: skypane-picture-breathe var(--motion-breathe) ease-in-out infinite;
+}
+
+/* A glint of glass crossing the picture, clipped to its rounded box. The
+ * band rests off to the left for most of its cycle. */
+.hero__glass {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  pointer-events: none;
+}
+
+.hero__glass::after {
+  content: "";
+  position: absolute;
+  top: -10%;
+  bottom: -10%;
+  left: 0;
+  width: 50%;
+  opacity: 0;
+  transform: translateX(-140%) skewX(-18deg);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--color-text) 15%, transparent) 30%,
+    var(--glass-highlight) 50%,
+    color-mix(in srgb, var(--color-text) 15%, transparent) 70%,
+    transparent
+  );
+  animation: skypane-glint var(--motion-glint) cubic-bezier(0.45, 0, 0.3, 1) infinite;
+}
+
+/* The frame cycle (wake, poll, display, sleep) as a thin ring around the
+ * picture: the bar's stroke-dashoffset is the share of the cycle already
+ * elapsed (it steps once a second; no transition, so the page never has a
+ * running animation to wait out), the four dots mark the quarters. It sits 5px outside the box and
+ * takes no room. */
+.hero__ring {
+  position: absolute;
+  inset: -5px;
+  width: calc(100% + 10px);
+  height: calc(100% + 10px);
+  overflow: visible;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+
+.hero__ring rect {
+  fill: none;
+}
+
+.hero__ring-track {
+  stroke: color-mix(in srgb, var(--color-text) 14%, transparent);
+  stroke-width: 1;
+}
+
+.hero__ring-ticks {
+  stroke: color-mix(in srgb, var(--color-text) 38%, transparent);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.hero__ring-bar {
+  stroke: var(--color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.hero__ring-done {
+  stroke: var(--home-tone);
+  stroke-width: 3;
+  opacity: 0;
+}
+
+/* The small flourish when a refresh starts a new cycle: the ring lights up
+ * once and gives a quick spring. */
+.hero__ring.is-ring-done {
+  animation: skypane-ring-pop var(--motion-spring-duration) var(--motion-spring);
+}
+
+.hero__ring.is-ring-done .hero__ring-done {
+  animation: skypane-ring-glow var(--motion-spring-duration) ease-out;
+}
+
+@keyframes skypane-picture-breathe {
+  0%, 100% {
+    opacity: 0.12;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.03);
+  }
+}
+
+@keyframes skypane-dot-breathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.14);
+  }
+}
+
+@keyframes skypane-glint {
+  0%, 34% {
+    opacity: 0;
+    transform: translateX(-140%) skewX(-18deg);
+  }
+  38%, 46% {
+    opacity: 0.85;
+  }
+  50%, 100% {
+    opacity: 0;
+    transform: translateX(330%) skewX(-18deg);
+  }
+}
+
+@keyframes skypane-ring-pop {
+  30% {
+    transform: scale(1.045);
+  }
+}
+
+@keyframes skypane-ring-glow {
+  25% {
+    opacity: 1;
+  }
 }
 
 /* A frame that has sent no picture yet: the picture's box in token colours
@@ -12659,6 +13366,7 @@ a.airlines-name-it {
  * under the text. */
 .account-frame {
   flex-wrap: wrap;
+  padding-block: var(--space-sm);
 }
 
 .group > .account-frame > .row__main {
@@ -12866,6 +13574,34 @@ dialog.access-sheet .modal__body {
   margin: 0;
 }
 
+/* The empty state under the owner row sits in the same group with the same
+ * inner padding as the rows around it. */
+.access-sheet .fleet-group__item {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: var(--space-sm) var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+/* Remove this frame: a quiet danger link set apart under the people group,
+ * in regular weight and no surface so it does not compete with Done. */
+.access-sheet .access-remove-frame {
+  margin: var(--space-sm) 0 0;
+  text-align: center;
+}
+
+a.access-remove-frame__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  color: var(--color-status-error);
+  font-weight: var(--weight-regular);
+  text-decoration: underline;
+}
+
 .access-sheet .row__form {
   flex-direction: column;
   align-items: stretch;
@@ -13069,7 +13805,7 @@ button:not(.value-control__handle):not(.switch):active,
     transparent 70%
   );
   transform: translateX(-100%);
-  animation: skypane-shimmer var(--motion-shimmer) linear infinite;
+  animation: skypane-shimmer var(--motion-shimmer) linear 6;
 }
 
 @keyframes skypane-shimmer {
@@ -13091,6 +13827,175 @@ button:not(.value-control__handle):not(.switch):active,
     filter: blur(0);
     opacity: 1;
   }
+}
+
+/* The opening splash (the "Cadre" concept): the overlay is server-rendered in
+ * every authenticated document and stays hidden until splash-boot.js puts
+ * `splash-on` on <html> before the first paint. Every moving value is driven
+ * by splash.js through attributes and the Web Animations API, so nothing here
+ * needs an inline style. */
+.splash {
+  display: none;
+}
+
+html.splash-on {
+  overflow: hidden;
+}
+
+html.splash-on .splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: block;
+  background-color: var(--sky-top);
+  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+}
+
+/* While the page opens from the frame, the overlay lets the page show
+ * through everywhere but the frame itself. */
+html.splash-on .splash.splash--opening {
+  background: none;
+}
+
+.splash__frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  height: min(46svh, 300px);
+  aspect-ratio: 3 / 4;
+  transform: translate(-50%, -50%);
+}
+
+.splash__panel {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 1px solid var(--glass-hairline);
+  border-radius: 18px;
+  background: var(--color-dominant);
+  box-shadow: var(--shadow-glass);
+}
+
+.splash__ink {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+html.splash-on .splash__ink {
+  background: var(--color-accent);
+}
+
+.splash__band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 34%;
+  opacity: 0;
+  transform: translateX(-120%);
+}
+
+.splash__band--1 {
+  background: linear-gradient(90deg, transparent, var(--color-rarity-occasional) 35%, var(--color-rarity-occasional) 65%, transparent);
+}
+
+.splash__band--2 {
+  background: linear-gradient(90deg, transparent, var(--color-status-ok) 35%, var(--color-status-ok) 65%, transparent);
+}
+
+.splash__band--3 {
+  background: linear-gradient(90deg, transparent, var(--color-status-warn) 35%, var(--color-status-warn) 65%, transparent);
+}
+
+.splash__band--4 {
+  background: linear-gradient(90deg, transparent, var(--color-status-error) 35%, var(--color-status-error) 65%, transparent);
+}
+
+/* The small logo is centred in the frame from the very first frame: ghosted
+ * underneath, and a sharp copy the scan line uncovers from the top. */
+.splash .splash__logo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  color: var(--color-text);
+}
+
+@media (min-width: 960px) {
+  .splash .splash__logo {
+    width: 36px;
+    height: 36px;
+    margin: -18px 0 0 -18px;
+  }
+}
+
+.splash .splash__logo--ghost {
+  opacity: 0.35;
+}
+
+.splash .splash__logo--sharp {
+  clip-path: inset(0 0 100% 0);
+}
+
+.splash.splash--static .splash__logo--sharp {
+  clip-path: none;
+}
+
+.splash__scan {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 2px;
+  opacity: 0;
+}
+
+html.splash-on .splash__scan {
+  background: var(--color-accent);
+  box-shadow: 0 0 10px var(--color-accent);
+}
+
+.splash__outline {
+  position: absolute;
+  top: -9px;
+  left: -9px;
+  width: calc(100% + 18px);
+  height: calc(100% + 18px);
+  overflow: visible;
+}
+
+/* The bar follows real progress event by event, so neither outline rect
+ * carries a smoothing transition. */
+.splash__track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--color-text) 16%, transparent);
+  stroke-width: 1.2;
+  transition: none;
+}
+
+.splash__bar {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  transition: none;
+}
+
+.splash__caption {
+  position: absolute;
+  top: calc(50% + min(46svh, 300px) / 2 + var(--space-lg));
+  right: 0;
+  left: 0;
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The tab bar's sliding pill. Without the script the active link keeps its own

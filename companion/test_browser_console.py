@@ -146,10 +146,9 @@ def test_audit_co_manager_row_shows_person_and_reason(
     context, page = _admin_page(
         new_context, app_server_in_process, "/audit", viewport, seed=False)
     try:
-        visible = page.locator(
-            "ul.data-cards:visible" if viewport["width"] < 960
-            else "table:visible")
-        text = visible.inner_text()
+        page.locator("ul.audit-cards summary").first.click()
+        page.locator("ul.audit-cards details[open]").wait_for(state="visible")
+        text = page.locator("ul.audit-cards").inner_text()
         assert long_email in text
         assert "Frame reassigned to a new owner" in text
         assert _no_sideways_scroll(page)
@@ -471,6 +470,10 @@ def _owner_id(state_dir):
 
 
 def _refusal_text(page):
+    # The refusal arrives with the page the POST navigates to: wait for it
+    # (and for that document to finish loading) before reading.
+    page.locator('[role="alert"], .field-error').first.wait_for(state="attached")
+    page.wait_for_function("() => document.readyState === 'complete'")
     return " ".join(page.locator(
         '[role="alert"], .field-error').all_inner_texts())
 

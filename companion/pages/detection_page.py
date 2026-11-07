@@ -181,7 +181,7 @@ def dirty_bar_html(carried_href=None, save_text=None):
         ' data-dirty-carried="%s"' % escape_html(carried_href)
         if carried_href is not None else "")
     return (
-        '<div class="dirty-bar" data-dirty-bar%s role="status" '
+        '<div class="dirty-bar dirty-bar--docked" data-dirty-bar%s role="status" '
         'data-dirty-changed-suffix="%s" data-dirty-and="%s" data-dirty-list-and="%s" '
         'data-dirty-unsaved-singular="%s" data-dirty-unsaved-plural="%s" '
         'data-dirty-saving="%s" data-dirty-initial-text="%s">'

@@ -317,8 +317,9 @@ def test_a_user_sees_their_own_frames_ordered_by_name_with_a_dot_and_manage_acce
     assert attic.select_one(".row__main .account-frame__pic i") is not None
     last_seen_word = attic.select_one(".account-frame__status").text().split("Up to date")[-1]
     assert last_seen_word.startswith("Seen ") or "Not seen yet" in last_seen_word
-    assert attic.select_one(".account-frame__line").text() == (
-        hardware.REGISTRY[hardware.LEGACY_KEY].label)
+    # A person has no use for the hardware model: only an administrator sees it.
+    assert not attic.select(".account-frame__line")
+    assert hardware.REGISTRY[hardware.LEGACY_KEY].label not in attic.text()
     (action,) = attic.select("a[data-modal-open]")
     assert action.text() == "Manage access"
     for banned in ("Last contact", "Battery", "%"):
@@ -343,6 +344,18 @@ def test_an_admin_sees_only_the_frames_they_own_on_the_account_page(fleet_server
     assert card.select_one(".empty-state__heading").text() == "Your frames will appear here"
     assert seeded.owner_device not in body and seeded.other_device not in body
     assert 'href="/devices/' not in body
+
+
+def test_an_administrator_still_sees_the_hardware_line_of_their_frame():
+    from companion.pages import account_page
+    frame = account_page.FrameSummary(
+        name="Attic", hardware="XIAO ePaper EE02", href="/devices/d_1/", device_id="d_1")
+    body = account_page.render(
+        account_page.Identity("a@example.com", account_page.ROLE_ADMIN), frames=(frame,))
+    user_body = account_page.render(
+        account_page.Identity("a@example.com", "user"), frames=(frame,))
+    assert 'class="account-frame__line">XIAO ePaper EE02<' in body
+    assert "XIAO ePaper EE02" not in user_body
 
 
 def test_a_co_manager_gets_leave_frame_and_the_server_refuses_them_access_changes(

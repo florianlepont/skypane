@@ -35,6 +35,7 @@ _SAMPLE_MIDDLE = {
     routes.PrefixSuffix("/users/", "/disable"): "1",
     routes.PrefixSuffix("/users/", "/enable"): "1",
     routes.PrefixSuffix("/users/", "/unlink"): "1",
+    routes.PrefixSuffix("/users/", "/delete"): "1",
     routes.PrefixSuffix("/locations/", "/edit"): "1",
     routes.PrefixSuffix("/locations/", "/delete"): "1",
 }
@@ -160,7 +161,7 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("GET", routes.Exact(routes.DEVICE_ROUTE)),
         ("POST", routes.Exact(routes.QUICK_LED_ROUTE)),
     }
-    assert len(owner) == 26
+    assert len(owner) == 29
     admin_device = {
         (r.method, r.matcher) for r in routes.ROUTES
         if r.access == routes.ADMIN_DEVICE}
@@ -170,6 +171,8 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("POST", routes.Exact(routes.airlines_page.RESOLVE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.RENAME_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.RENAME_RESET_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE)),
         ("POST", routes.PrefixSuffix(
             routes.airlines_page.MANUAL_DELETE_ROUTE_PREFIX,
             routes.airlines_page.MANUAL_DELETE_ROUTE_SUFFIX)),
@@ -181,6 +184,7 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
     assert owner_only == {
         ("POST", routes.Exact("/co-managers/add")),
         ("POST", routes.Exact("/co-managers/remove")),
+        ("POST", routes.Exact("/frame/remove")),
     }
 
 

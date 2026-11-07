@@ -1,5 +1,5 @@
 """Admin console routes for the users area: the Users page, invite, role
-change, disable, enable and identity unlink.
+change, disable, enable, identity unlink and delete.
 
 Security invariants:
 - Every route is admin-only and every POST carries a CSRF token.
@@ -9,7 +9,10 @@ Security invariants:
 - Each change and its audit row share one `BEGIN IMMEDIATE` transaction, so
   the last-administrator and self-action guards cannot be raced. A refusal
   rolls the change back and is audited afterwards as a denied row.
-- Disabling or unlinking deletes the user's sessions in the same transaction.
+- Disabling, unlinking or deleting deletes the user's sessions in the same
+  transaction. A delete is refused while the person owns a frame, for the
+  signed-in administrator and for the last active administrator, and its
+  audit row names the person by e-mail because the id means nothing after.
 - The page never shows the issuer or subject of a linked identity.
 """
 import datetime
@@ -27,6 +30,7 @@ USERS_INVITE_PATH = "/users/invite"
 USER_ACTION_PREFIX = "/users/"
 ROLE_SUFFIX = "/role"
 DISABLE_SUFFIX = "/disable"
+DELETE_SUFFIX = "/delete"
 ENABLE_SUFFIX = "/enable"
 UNLINK_SUFFIX = "/unlink"
 
@@ -39,6 +43,8 @@ FLASH_ROLE_SAVED = "users.role_saved"
 FLASH_DISABLED = "users.disabled"
 FLASH_ENABLED = "users.enabled"
 FLASH_UNLINKED = "users.unlinked"
+FLASH_DELETED = "users.deleted"
+FLASH_OWNS_FRAME = "users.owns_frame"
 FLASH_LAST_ADMIN = "users.last_admin"
 FLASH_SELF_ACTION = "users.self_action"
 FLASH_NOT_FOUND = "users.not_found"
@@ -68,10 +74,23 @@ console_flash.register_flash(
     i18n.msg("admin_users.flash_user_enabled_detail", "{email} can sign in again."))
 console_flash.register_flash(
     FLASH_UNLINKED, "success",
-    i18n.msg("admin_users.flash_identity_unlinked", "Identity unlinked"),
+    i18n.msg("admin_users.flash_identity_unlinked", "Sign-in reset"),
     i18n.msg(
         "admin_users.flash_identity_unlinked_detail",
-        "{email} is signed out and will be re-linked at next sign-in."))
+        "{email} is signed out; their sign-in account is linked again at "
+        "their next sign-in."))
+console_flash.register_flash(
+    FLASH_DELETED, "success",
+    i18n.msg("admin_users.flash_user_deleted", "User deleted"),
+    i18n.msg(
+        "admin_users.flash_user_deleted_detail",
+        "{email} was removed. The audit log keeps their address."))
+console_flash.register_flash(
+    FLASH_OWNS_FRAME, "error", _REFUSED_TITLE,
+    i18n.msg(
+        "admin_users.flash_owns_frame_detail",
+        "{email} still owns the frame {frame}. Reassign or retire the frame "
+        "first. Nothing was modified."))
 console_flash.register_flash(
     FLASH_LAST_ADMIN, "error", _REFUSED_TITLE,
     i18n.msg(
@@ -81,7 +100,7 @@ console_flash.register_flash(
     FLASH_SELF_ACTION, "error", _REFUSED_TITLE,
     i18n.msg(
         "admin_users.flash_self_action_detail",
-        "You cannot disable or demote yourself."))
+        "You cannot disable, demote or delete yourself."))
 console_flash.register_flash(
     FLASH_NOT_FOUND, "error",
     i18n.msg("admin_users.flash_user_not_found", "User not found"),
@@ -232,10 +251,12 @@ def _actor_id(h):
     return None if principal is None else principal.user_id
 
 
-def _run_action(h, user_id, action, change, success_flash):
+def _run_action(h, user_id, action, change, success_flash, audit_by_email=False):
     """Run `change(conn, actor_id, row)` and write its audit row in one
     transaction. `change` returns (audit detail, flash params) or raises a
     guard error, in which case nothing is kept and a denied row is written.
+    `audit_by_email` names the audit target by the person's e-mail instead of
+    their id, for an action after which the id means nothing.
     Returns the redirect response.
     """
     conn = fleet_db.connect(h.args.state_dir)
@@ -247,17 +268,23 @@ def _run_action(h, user_id, action, change, success_flash):
                     (user_id,)).fetchone()
                 if row is None:
                     raise _UnknownUser()
+                target = str(row["email"]) if audit_by_email else str(user_id)
                 detail, params = change(conn, _actor_id(h), row)
                 if detail is not None:
-                    audit.record_in(h, conn, action, "user", str(user_id), "ok", detail or None)
+                    audit.record_in(h, conn, action, "user", target, "ok", detail or None)
         except _UnknownUser:
             return h.redirect(USERS_PATH, set_cookie=_back(FLASH_NOT_FOUND))
         except _NotLinked:
             return h.redirect(USERS_PATH, set_cookie=_back(FLASH_NOT_LINKED))
+        except fleet_db.UserOwnsFrame as exc:
+            audit.record_standalone(
+                h, action, "user", target, "denied", {"reason": "owns_frame"})
+            return h.redirect(USERS_PATH, set_cookie=_back(
+                FLASH_OWNS_FRAME, email=row["email"], frame=exc.frame_name))
         except (fleet_db.LastAdminError, fleet_db.SelfActionError) as exc:
             reason = "self" if isinstance(exc, fleet_db.SelfActionError) else "last_admin"
             audit.record_standalone(
-                h, action, "user", str(user_id), "denied", {"reason": reason})
+                h, action, "user", target, "denied", {"reason": reason})
             flash = FLASH_SELF_ACTION if reason == "self" else FLASH_LAST_ADMIN
             return h.redirect(USERS_PATH, set_cookie=_back(flash))
     finally:
@@ -332,6 +359,20 @@ def handle_unlink(h, m):
     return _run_action(h, user_id, "user.unlink", change, FLASH_UNLINKED)
 
 
+def handle_delete(h, m):
+    user_id = _target_id(m)
+    if user_id is None:
+        return _unknown_id(h)
+
+    def change(conn, actor_id, row):
+        fleet_db.delete_user_guarded(
+            conn, actor_id, user_id, actor=audit.actor_for(h))
+        return {"role": row["role"]}, {"email": row["email"]}
+
+    return _run_action(
+        h, user_id, "user.delete", change, FLASH_DELETED, audit_by_email=True)
+
+
 ROUTES = (
     route_types.Route(
         "GET", route_types.Exact(USERS_PATH), handle_users_get, route_types.ADMIN_ONLY),
@@ -350,4 +391,7 @@ ROUTES = (
     route_types.Route(
         "POST", route_types.PrefixSuffix(USER_ACTION_PREFIX, UNLINK_SUFFIX),
         handle_unlink, route_types.ADMIN_ONLY, csrf=True),
+    route_types.Route(
+        "POST", route_types.PrefixSuffix(USER_ACTION_PREFIX, DELETE_SUFFIX),
+        handle_delete, route_types.ADMIN_ONLY, csrf=True),
 )

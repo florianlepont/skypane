@@ -1206,8 +1206,8 @@ def test_empty_state_default_form_is_byte_identical_and_compact_is_opt_in():
 
 
 def test_health_empty_states_are_all_compact(tmp_path):
-    """on a fresh install both Health empty states, the in-row one (Battery) and the
-    full-width card one (Unresolved prefixes), use the compact form"""
+    """on a fresh install the one Health empty state, the in-row one (Battery), uses the
+    compact form"""
     state_dir = str(tmp_path)
     now = shp.now()
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
@@ -1217,9 +1217,7 @@ def test_health_empty_states_are_all_compact(tmp_path):
         "expected exactly one in-row empty state on a fresh install (Battery), got %r"
         % ([row.attrs["id"] for row in in_row],))
     assert in_row[0].select(".empty-state--compact"), "expected the in-row empty state to use the compact form"
-    registry = doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID)
-    assert registry.select(".empty-state--compact"), (
-        "expected the full-width card empty state (Unresolved prefixes) to use the compact form")
+    assert not doc.select("#unresolved-prefixes"), "the unresolved-prefix card is gone"
 
 
 _RESOLUTION_SINGULAR_CASES = [

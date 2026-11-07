@@ -86,6 +86,15 @@ class SelfActionError(FleetDbError):
     """A user may not demote or disable themselves."""
 
 
+class UserOwnsFrame(FleetDbError):
+    """The user still owns a frame, so the person cannot be deleted.
+    `frame_name` is the frame's name, or its id when it has none."""
+
+    def __init__(self, frame_name: str) -> None:
+        super().__init__("user still owns a frame")
+        self.frame_name = frame_name
+
+
 class LocationInUse(FleetDbError):
     """A device still references the location."""
 
@@ -630,6 +639,49 @@ def set_user_disabled_guarded(
                     conn, target_user_id, actor or AuditActor(None, "system", None)
                 )
         return cur.rowcount > 0
+
+
+def delete_user_guarded(
+    conn: sqlite3.Connection,
+    actor_user_id: int | None,
+    target_user_id: int,
+    actor: AuditActor | None = None,
+) -> bool:
+    """Delete a user record; False for an unknown user.
+
+    Refused with SelfActionError for the actor's own record, LastAdminError
+    for the only active administrator and UserOwnsFrame while the user owns a
+    frame. Otherwise, in the caller's transaction: the user's sessions go,
+    each co-manager row of theirs goes (one audit row per frame, under
+    `actor`), locations they created become unowned (administrators only see
+    them) and the row is deleted. Audit rows keep their actor label and id.
+    """
+    with _atomic(conn):
+        if actor_user_id is not None and actor_user_id == target_user_id:
+            raise SelfActionError("cannot delete yourself")
+        if _is_active_admin(conn, target_user_id) and count_active_admins(conn) <= 1:
+            raise LastAdminError("cannot delete the last active admin")
+        owned = conn.execute(
+            "SELECT id, name FROM devices WHERE owner_user_id = ? ORDER BY id LIMIT 1",
+            (target_user_id,),
+        ).fetchone()
+        if owned is not None:
+            raise UserOwnsFrame(str(owned["name"] or owned["id"]))
+        who = actor or AuditActor(None, "system", None)
+        conn.execute("DELETE FROM sessions WHERE user_id = ?", (target_user_id,))
+        for row in list(conn.execute(
+            "SELECT device_id FROM device_co_managers WHERE user_id = ? "
+            "ORDER BY device_id", (target_user_id,),
+        )):
+            audit_co_manager_removals(
+                conn, who, str(row["device_id"]), [target_user_id], "user_deleted")
+        conn.execute("DELETE FROM device_co_managers WHERE user_id = ?", (target_user_id,))
+        conn.execute(
+            "UPDATE locations SET owner_user_id = NULL WHERE owner_user_id = ?",
+            (target_user_id,),
+        )
+        return conn.execute(
+            "DELETE FROM users WHERE id = ?", (target_user_id,)).rowcount > 0
 
 
 def list_users_with_frame_counts(conn: sqlite3.Connection) -> list[sqlite3.Row]:

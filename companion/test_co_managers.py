@@ -59,6 +59,12 @@ FLASHES = {
         "Couldn't update co-managers — try again in a moment.", "error", "alert"),
     cards.FLASH_LEAVE_NOOP: (
         "Nothing changed — only co-managers can leave a frame.", "info", "status"),
+    cards.FLASH_FRAME_REMOVED: (
+        "Frame removed — it no longer appears in your account.", "success", "status"),
+    cards.FLASH_FRAME_REMOVE_REFUSED: (
+        "Nothing changed — only the owner of a frame can remove it.", "info", "status"),
+    cards.FLASH_FRAME_REMOVE_LIVE: (
+        "This frame cannot be removed. Ask an administrator.", "error", "alert"),
 }
 
 
@@ -96,6 +102,9 @@ def test_each_flash_renders_in_french(base, key):
         cards.FLASH_ADD_REFUSED: "co_managers.flash_add_refused",
         cards.FLASH_FAILED: "co_managers.flash_failed",
         cards.FLASH_LEAVE_NOOP: "co_managers.flash_leave_noop",
+        cards.FLASH_FRAME_REMOVED: "co_managers.flash_frame_removed",
+        cards.FLASH_FRAME_REMOVE_REFUSED: "co_managers.flash_frame_remove_refused",
+        cards.FLASH_FRAME_REMOVE_LIVE: "co_managers.flash_frame_remove_live",
     }[key]]
     title, detail = _toast_parts(french)
     assert title in body

@@ -195,6 +195,8 @@ PROTECTED = (
     (config_page.CALENDAR_DISCONNECT_ROUTE, {"confirm": "yes"}),
     (MANUAL_DELETE, {}),
     (airlines_page.RENAME_RESET_ROUTE, {"airline": "Air France"}),
+    (airlines_page.ARTWORK_DELETE_ROUTE, {"key": "air-france"}),
+    (airlines_page.DEFAULT_TYPE_ROUTE, {"airline_key": "air-france", "type": "A320"}),
     (update_page.INSTALL_ROUTE, {"version": "9.9.9", "confirm": "yes"}),
     (update_page.CANCEL_ROUTE, {}),
 )
@@ -234,7 +236,7 @@ def _form_tokens(page_html, action_fragment):
 
 @pytest.mark.parametrize("page,action", (
     ("/display/special-looks", RULE_DELETE),
-    ("/display/calendar", config_page.CALENDAR_DISCONNECT_ROUTE),
+    ("/display/calendar/connect", config_page.CALENDAR_DISCONNECT_ROUTE),
     ("/airlines/manage", airlines_page.RENAME_RESET_ROUTE),
     ("/airlines/manage", airlines_page.LIGHTBOX_DELETE_CLASS),
 ))
@@ -267,11 +269,15 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
         (route.method, route.matcher) for route in console_routes.ROUTES if route.csrf}
     co_manager_posts = {
         ("POST", routes.Exact(path)) for path in (
-            "/co-managers/add", "/co-managers/remove", "/co-managers/leave")}
+            "/co-managers/add", "/co-managers/remove", "/co-managers/leave",
+            "/frame/remove")}
     quiet_window_post = {("POST", routes.Exact(routes.QUICK_QUIET_HOURS_WINDOW_ROUTE))}
     pair_frame_post = {("POST", routes.Exact("/pair-frame"))}
+    airline_posts = {
+        ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
+        ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE))}
     assert len(routes.CSRF_ROUTE_KEYS) == 7
     assert flagged == (
         set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post
-        | pair_frame_post)
+        | pair_frame_post | airline_posts)
     assert all(method == "POST" for method, _matcher in console_posts)

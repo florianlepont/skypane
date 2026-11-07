@@ -711,6 +711,28 @@ def compute_next_wake_text(ctx):
     return text, state == frame_state.STATE_HELD
 
 
+def update_parts(
+        ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False):
+    """(device section html, versions section html, summary) of the page: the
+    type chooser, the rollback warning and the call-to-action card, then the
+    Versions card. `summary` is (running version or None, number of releases
+    shown), the facts a collapsed summary row quotes."""
+    ctx = page_context.coerce(ctx)
+    releases = _owner_releases(view)
+    chooser_html = ""
+    if type_choice is not None:
+        if type_choice.carries_field:
+            view = dict(view, type_field_html=_type_field_html(type_choice.selected))
+        if type_choice.chooser:
+            chooser_html = _type_chooser_html(type_choice)
+    device_html = (
+        chooser_html + _rollback_banner_html(view)
+        + _cta_card_html(ctx, view, releases, next_wake_text, wake_held))
+    return (
+        device_html, _versions_card_html(ctx, view, releases, embedded),
+        (view.get("running_version"), len(releases)))
+
+
 def update_page(
         ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False):
     """The page body: `layout.page_header()`, then the rollback warning
@@ -727,21 +749,28 @@ def update_page(
     single-type page, byte for byte. `embedded` drops the page header (the
     Console Fleet view supplies its own block heading).
     """
+    device_html, versions_html, _summary = update_parts(
+        ctx, view, next_wake_text, wake_held, type_choice, embedded)
+    return ("" if embedded else layout.page_header(i18n.t(_NAV_UPDATE_TEXT))) + (
+        device_html + versions_html)
+
+
+def _loaded_parts(ctx, requested_type, embedded):
     ctx = page_context.coerce(ctx)
-    releases = _owner_releases(view)
-    chooser_html = ""
-    if type_choice is not None:
-        if type_choice.carries_field:
-            view = dict(view, type_field_html=_type_field_html(type_choice.selected))
-        if type_choice.chooser:
-            chooser_html = _type_chooser_html(type_choice)
-    return (
-        ("" if embedded else layout.page_header(i18n.t(_NAV_UPDATE_TEXT)))
-        + chooser_html
-        + _rollback_banner_html(view)
-        + _cta_card_html(ctx, view, releases, next_wake_text, wake_held)
-        + _versions_card_html(ctx, view, releases, embedded)
-    )
+    state_dir = ctx.state_dir
+    now = ctx.now or history_db.utc_now_iso()
+    device_report = firmware_registry.load_device_report(state_dir)
+    choice = resolve_type_choice(state_dir, device_report, requested_type)
+    registry = firmware_registry.load_registry(state_dir, choice.selected)
+    view = firmware_registry.update_view(registry, device_report, now)
+    next_wake_text, wake_held = compute_next_wake_text(ctx)
+    return update_parts(ctx, view, next_wake_text, wake_held, choice, embedded)
+
+
+def render_parts(ctx, requested_type=None):
+    """The embedded page as (device html, versions html, summary): the Fleet
+    page shows each in its own dialog."""
+    return _loaded_parts(ctx, requested_type, True)
 
 
 def render(ctx, requested_type=None, embedded=False):
@@ -751,12 +780,6 @@ def render(ctx, requested_type=None, embedded=False):
     `requested_type` is the untrusted `type` query value: it picks among
     the relevant hardware types only when more than one exists.
     """
-    ctx = page_context.coerce(ctx)
-    state_dir = ctx.state_dir
-    now = ctx.now or history_db.utc_now_iso()
-    device_report = firmware_registry.load_device_report(state_dir)
-    choice = resolve_type_choice(state_dir, device_report, requested_type)
-    registry = firmware_registry.load_registry(state_dir, choice.selected)
-    view = firmware_registry.update_view(registry, device_report, now)
-    next_wake_text, wake_held = compute_next_wake_text(ctx)
-    return update_page(ctx, view, next_wake_text, wake_held, choice, embedded)
+    device_html, versions_html, _summary = _loaded_parts(ctx, requested_type, embedded)
+    return ("" if embedded else layout.page_header(i18n.t(_NAV_UPDATE_TEXT))) + (
+        device_html + versions_html)

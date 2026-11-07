@@ -294,15 +294,29 @@ def test_resolve_dialog_forms_stay_in_the_device(seeded):
     assert "/airlines/rename" not in _actions(body)
 
 
-def test_calendar_sheet_actions_and_close_links_stay_in_the_device(seeded):
+def test_calendar_connection_page_actions_and_links_stay_in_the_device(seeded):
     prefix = _prefix(seeded.fleet.dev_a)
-    body = _page(seeded, prefix + "/display/calendar?sheet=manage")
-    sheet = parse_html(body).select_one("dialog[data-calendar-sheet]")
-    actions = [node.attrs.get("action") for node in sheet.find_all("form")]
+    body = _page(seeded, prefix + "/display/calendar/connect")
+    page = parse_html(body).select_one("div.form-view")
+    actions = [node.attrs.get("action") for node in page.find_all("form")]
     assert prefix + "/settings/calendar/connect" in actions
     assert prefix + "/settings/calendar/disconnect" in actions
-    for link in sheet.find_all("a"):
-        assert link.attrs["href"].startswith(prefix + "/display/calendar#"), link.attrs
+    for link in page.find_all("a"):
+        if link.attrs["href"].startswith("#"):
+            continue
+        assert link.attrs["href"].startswith(prefix + "/display/calendar"), link.attrs
+    bar = parse_html(body).select_one(".dirty-bar.form-bar")
+    assert bar.select_one("a.form-bar__cancel").attrs["href"] == prefix + "/display/calendar"
+
+
+def test_special_look_pages_post_and_link_inside_the_device(seeded):
+    prefix = _prefix(seeded.fleet.dev_a)
+    body = _page(seeded, prefix + "/display/special-looks/new")
+    page = parse_html(body).select_one("div.form-view")
+    assert [node.attrs.get("action") for node in page.find_all("form")] == [
+        prefix + "/settings/rules/add"]
+    for link in page.find_all("a"):
+        assert link.attrs["href"].startswith(prefix + "/display/special-looks"), link.attrs
 
 
 def test_frame_preview_urls_resolve_under_the_prefix(seeded):

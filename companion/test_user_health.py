@@ -80,7 +80,8 @@ def test_user_display_keeps_everyday_controls_and_drops_admin_ones(tmp_path, lan
     _as("user")
     user_html = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
     assert "quiet_hours_start" not in user_html
-    assert 'name="calendar_url"' in user_html
+    assert 'name="calendar_url"' in config_page.render(
+        ctx, scope=config_page.SCOPE_DISPLAY, view="calendar-connect")
     assert 'name="timezone"' not in user_html
     assert 'name="location_id"' not in user_html
     assert 'name="theme' in user_html
@@ -129,7 +130,6 @@ def test_user_health_shows_frame_card_and_no_platform_rows(tmp_path):
         assert escape_html(i18n.t(text)) in admin_html, text
         assert escape_html(i18n.t(text)) not in user_html, text
     assert health_page.SERVER_DATA_SECTION_ID not in user_html
-    assert health_page.UNRESOLVED_SECTION_ID not in user_html
     assert "resolve-dialog" not in user_html
 
 

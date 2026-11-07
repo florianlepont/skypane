@@ -21,6 +21,7 @@ import collections
 import io
 import os
 
+import fleet_rows_support
 import pytest
 from PIL import Image
 
@@ -166,13 +167,13 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/display")
 
-            # The looks live on three views: Look (departures cards, arrivals table), Special
-            # looks (the add form) and Calendar (its own table).
+            # The looks live on three views: Look (departures cards, arrivals table), the new
+            # special look page (the add form) and Calendar (its own table).
             disclosures = []
             counts = {}
-            for route in ("/display", "/display/special-looks", "/display/calendar"):
+            for route in ("/display", "/display/special-looks/new", "/display/calendar"):
                 page.goto(base_url + route)
-                for disclosure in page.query_selector_all("details.look-edit, details.special-add"):
+                for disclosure in page.query_selector_all("details.look-edit"):
                     if disclosure.query_selector("summary") is None:
                         raise AssertionError(
                             "lang=%s: a look disclosure carries no <summary>" % (lang,))
@@ -183,9 +184,9 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 for field in ("theme", "theme_arriving", "calendar_theme_id", "rule_theme_id"):
                     counts[field] = counts.get(field, 0) + page.eval_on_selector_all(
                         'input[name="%s"]' % field, "els => els.length")
-            if len(disclosures) != 3:
+            if len(disclosures) != 2:
                 raise AssertionError(
-                    "lang=%s: expected 3 look disclosures, found %d" % (lang, len(disclosures)))
+                    "lang=%s: expected 2 look disclosures, found %d" % (lang, len(disclosures)))
 
             for field, expected in (
                     ("theme", n_themes),
@@ -310,7 +311,7 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
             _set_ui_theme(page, theme)
             _assert_floor_without_scripts(
                 page, ".special-add__summary",
-                "theme=%s: the \"Add a special look\" <summary>" % theme)
+                "theme=%s: the \"Add a special look\" link" % theme)
 
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:
@@ -476,6 +477,8 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         base_url = server.base_url()
         _login(page, base_url)
         page.goto(base_url + "/fleet")
+        # From 960px the field is in the Settings dialog; leaving it hands over to the Save bar.
+        fleet_rows_support.open_dialog(page, "settings")
 
         before = str(device_config.load_device_config(server.tmpdir)["wake_interval_s"])
         # Below server/device_config.py's own WAKE_INTERVAL_MIN_S (60): a genuine server-side
@@ -487,6 +490,7 @@ def test_a_rejected_value_claims_nothing_the_field_echoes_it_and_disk_is_untouch
         page.keyboard.press("ControlOrMeta+A")
         page.keyboard.type(rejected)
         page.keyboard.press("Tab")
+        fleet_rows_support.close_dialog(page)
         _wait_for_bar(page)
         # noValidate disables only the browser's own pre-flight check for this one native
         # submit; the request that follows is still a real native POST, so the server's own
@@ -1491,7 +1495,7 @@ def test_a_row_expands_to_its_types_and_each_type_has_its_own_replace(new_contex
 
 def test_every_type_stays_listed_and_reachable_without_scripts(new_context, server):
     """With scripts blocked the chevron still expands a multi-type row to its types as text,
-    a single-type airline expands to its one seen type using the airline's artwork, all inside the narrowest supported viewport without
+    a single-type airline expands to its one seen type (editable, following the airline's artwork), all inside the narrowest supported viewport without
     overflow."""
     with _no_js_page(new_context, server.base_url(), "/airlines/manage",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
@@ -1505,9 +1509,10 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
         single.locator(".airlines-expand > summary").click()
         row = single.locator(".airlines-subrow")
         row.first.wait_for(state="visible")
-        if row.count() != 1 or "Uses the airline’s artwork" not in row.first.inner_text():
-            raise AssertionError("expected one seen type using the airline's artwork, got %r"
-                                 % row.all_inner_texts())
+        if row.count() != 1 or "Same as the airline" not in row.first.inner_text() or (
+                row.first.locator(".row-menu__toggle").count() != 1):
+            raise AssertionError("expected one seen type, editable, following the airline's "
+                                 "artwork, got %r" % row.all_inner_texts())
         problem = _assert_no_page_overflow(page, "airlines without scripts")
         if problem:
             raise AssertionError(problem)

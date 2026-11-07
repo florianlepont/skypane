@@ -1,7 +1,9 @@
 """The Audit log page body: a read-only, newest-first table of platform
 events with filter chips and pagination.
 
-Pure markup: it takes an `AuditView` and reads nothing else. Rows carry
+Pure markup: it takes an `AuditView` and reads nothing else. Each event is a
+compact row (when, who, action, outcome) whose native <details> chevron
+reveals target, source address, exact date, author and reason. Rows carry
 display text only (actor, plain-language action label, target, outcome,
 source address); the stored `detail` JSON is never rendered, and the audit
 store cannot hold a code, guess or secret. A co-manager row also carries the
@@ -14,7 +16,7 @@ import datetime
 from typing import NamedTuple
 
 from companion import i18n, ui_time
-from companion.ui_base import escape_html
+from companion.ui_base import LOCAL_TZ, escape_html, icon_html
 
 PAGE_SIZE = 50
 CATEGORY_QUERY = "category"
@@ -28,6 +30,8 @@ _COL_OUTCOME = i18n.msg("admin_lifecycle.outcome", "Outcome")
 _COL_FROM = i18n.msg("admin_lifecycle.from", "From")
 _COL_PERSON = i18n.msg("admin_lifecycle.audit_person", "Person")
 _COL_REASON = i18n.msg("admin_lifecycle.audit_reason", "Reason")
+_COL_EXACT = i18n.msg("admin_lifecycle.exact_date", "Exact date")
+_COL_AUTHOR = i18n.msg("admin_lifecycle.author", "Author")
 
 _UNKNOWN_USER = i18n.msg("admin_lifecycle.audit_unknown_user", "Unknown user")
 _REASON_OTHER = i18n.msg("admin_lifecycle.audit_reason_other", "Other reason")
@@ -52,6 +56,8 @@ REASON_LABELS = {
         "admin_lifecycle.audit_reason_remove_retire", "Frame retired"),
     (_REMOVE_ACTION, "delete"): i18n.msg(
         "admin_lifecycle.audit_reason_remove_delete", "Frame deleted"),
+    (_REMOVE_ACTION, "user_deleted"): i18n.msg(
+        "admin_lifecycle.audit_reason_remove_user_deleted", "Person was deleted"),
     (_REMOVE_ACTION, "owner_disabled"): i18n.msg(
         "admin_lifecycle.audit_reason_remove_owner_disabled",
         "Frame owner was disabled"),
@@ -83,9 +89,15 @@ ACTION_LABELS = {
     "user.disable": i18n.msg("admin_lifecycle.action_user_disable", "User disabled"),
     "user.enable": i18n.msg("admin_lifecycle.action_user_enable", "User enabled"),
     "user.unlink": i18n.msg("admin_lifecycle.action_user_unlink", "Identity unlinked"),
+    "user.delete": i18n.msg("admin_lifecycle.action_user_delete", "User deleted"),
     "location.add": i18n.msg("admin_lifecycle.action_location_add", "Location added"),
     "location.update": i18n.msg("admin_lifecycle.action_location_update", "Location updated"),
     "location.delete": i18n.msg("admin_lifecycle.action_location_delete", "Location deleted"),
+    "airline.resolve": i18n.msg("admin_lifecycle.action_airline_resolve", "Airline named"),
+    "airline.artwork_delete": i18n.msg(
+        "admin_lifecycle.action_airline_artwork_delete", "Airline artwork removed"),
+    "airline.default_type": i18n.msg(
+        "admin_lifecycle.action_airline_default_type", "Default aircraft type changed"),
     "release.install": i18n.msg(
         "admin_lifecycle.action_release_install", "Release install scheduled"),
     "release.cancel": i18n.msg(
@@ -195,33 +207,21 @@ def note_texts(event):
     return person, i18n.t(label)
 
 
-def _note_cell_html(event):
-    texts = note_texts(event)
-    if texts is None:
-        return ""
-    return (
-        '<span class="cell-secondary co-manager__email">%s</span>'
-        '<span class="cell-secondary">%s</span>' % (_esc(texts[0]), _esc(texts[1])))
-
-
-def _note_cards_html(event):
-    texts = note_texts(event)
-    if texts is None:
-        return ""
-    return "".join(
-        '<div class="data-card__secondary">%s</div>' % _pair(label, value_html)
-        for label, value_html in (
-            (_COL_PERSON, '<span class="co-manager__email">%s</span>' % _esc(texts[0])),
-            (_COL_REASON, _esc(texts[1]))))
-
-
 def _when_html(event, now):
     seen = datetime.datetime.fromtimestamp(event.ts, datetime.timezone.utc)
     return (
-        '<span class="time-value">%s</span><span class="cell-inline-sep">·</span>'
-        '<span class="time-value__age">(%s)</span>' % (
+        '<span class="time-value">%s</span>'
+        '<span class="time-value__age">%s</span>' % (
             _esc(ui_time.local_clock_text(seen, now_parsed=now)),
             ui_time.relative_time_html(seen.isoformat(), now.isoformat())))
+
+
+def _exact_date_text(event):
+    """"D Mon YYYY, HH:MM" in Europe/Paris, in the request's language."""
+    local = datetime.datetime.fromtimestamp(event.ts, datetime.timezone.utc).astimezone(
+        LOCAL_TZ)
+    return "%d %s %d, %s" % (
+        local.day, ui_time.month_abbr(local.month), local.year, local.strftime("%H:%M"))
 
 
 def _target_html(event):
@@ -239,50 +239,53 @@ def _outcome_html(event):
     return '<span class="banner__pill">%s</span>' % _t(label)
 
 
-def _from_html(event):
-    return '<span class="mono">%s</span>' % _esc(event.source_ip) if event.source_ip else ""
+def _detail_item(label, value_html, extra_class=""):
+    return '<div class="audit-event__item%s"><dt>%s</dt><dd>%s</dd></div>' % (
+        extra_class, _t(label), value_html)
 
 
-def _row_html(event, now):
+def _detail_html(event):
+    """The fields behind the chevron: target, source address, exact date,
+    author and, for a co-manager row, the person and the reason."""
+    items = [
+        _detail_item(_COL_TARGET, _target_html(event)),
+        _detail_item(_COL_FROM, '<span class="mono">%s</span>' % _esc(event.source_ip)
+                     if event.source_ip else _esc(_NO_TARGET)),
+        _detail_item(_COL_EXACT, _esc(_exact_date_text(event))),
+        _detail_item(_COL_AUTHOR, _esc(actor_text(event))),
+    ]
+    texts = note_texts(event)
+    if texts is not None:
+        items.append(_detail_item(
+            _COL_PERSON, '<span class="co-manager__email">%s</span>' % _esc(texts[0])))
+        items.append(_detail_item(_COL_REASON, _esc(texts[1])))
+    return '<dl class="audit-event__detail">%s</dl>' % "".join(items)
+
+
+def _event_html(event, now):
     return (
-        "<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>" % (
+        '<li class="audit-event"><details>'
+        '<summary class="audit-event__row">'
+        '<span class="audit-event__when">%s</span>'
+        '<span class="audit-event__who">%s</span>'
+        '<span class="audit-event__action">%s</span>'
+        '<span class="audit-event__outcome">%s</span>%s</summary>%s</details></li>' % (
             _when_html(event, now), _esc(actor_text(event)),
-            _esc(action_text(event.action)) + _note_cell_html(event),
-            _target_html(event), _outcome_html(event), _from_html(event)))
-
-
-def _pair(label, value_html):
-    return (
-        '<span class="data-card__label">%s</span> '
-        '<span class="data-card__value">%s</span>' % (_t(label), value_html))
-
-
-def _card_html(event, now):
-    return (
-        '<li class="data-card">'
-        '<div class="data-card__primary"><span>%s</span><span>%s</span></div>'
-        '<div class="data-card__secondary">%s</div>'
-        '<div class="data-card__secondary">%s</div>'
-        '<div class="data-card__secondary">%s</div>'
-        '<div class="data-card__secondary">%s</div>%s</li>' % (
             _esc(action_text(event.action)), _outcome_html(event),
-            _pair(_COL_WHEN, _when_html(event, now)),
-            _pair(_COL_WHO, _esc(actor_text(event))),
-            _pair(_COL_TARGET, _target_html(event)),
-            _pair(_COL_FROM, _from_html(event)), _note_cards_html(event)))
+            icon_html("icon-chevron-right", size=16, extra_class="audit-event__chevron"),
+            _detail_html(event)))
 
 
 def _table_html(view):
-    heads = "".join("<th>%s</th>" % _t(label) for label in (
-        _COL_WHEN, _COL_WHO, _COL_ACTION, _COL_TARGET, _COL_OUTCOME, _COL_FROM))
-    body = "".join(_row_html(event, view.now) for event in view.events)
-    cards = "".join(_card_html(event, view.now) for event in view.events)
-    # Cards first: style.css hides the table behind `.data-cards ~
-    # .data-table-wrap` below 960px by sibling order.
+    heads = "".join(
+        '<span class="audit-head__cell audit-head__cell--%s">%s</span>' % (name, _t(label))
+        for name, label in (
+            ("when", _COL_WHEN), ("who", _COL_WHO), ("action", _COL_ACTION),
+            ("outcome", _COL_OUTCOME)))
+    events = "".join(_event_html(event, view.now) for event in view.events)
     return (
-        '<ul class="data-cards audit-cards">%s</ul>'
-        '<div class="data-table-wrap"><table class="data-table data-table--flights">'
-        "<thead><tr>%s</tr></thead><tbody>%s</tbody></table></div>" % (cards, heads, body))
+        '<ul class="audit-cards"><li class="audit-head" aria-hidden="true">%s</li>%s</ul>' % (
+            heads, events))
 
 
 def audit_href(category, page):

@@ -8,7 +8,6 @@ Every check calls `history_page.render()` / `airlines_page.render()`
 directly, in-process. CSS/JS checks fetch served bytes from a running
 `companion/app.py` and assert on them structurally, never from disk.
 """
-import html
 import re
 
 import pytest
@@ -819,8 +818,8 @@ def test_airlines_render_empty_ctx_still_contains_gallery_grid():
 
 def test_airlines_gap_rows_render_first_in_the_table_with_a_name_it_link(tmp_path):
     """a render with an eligible gap emits the unidentified prefix as a highlighted row at the
-    top of the table, before every airline's rows and after the filter bar, with its "Name it"
-    link and no explanatory sentence"""
+    top of the table, before every airline's rows and after the filter bar, with its resolve
+    form (Validate) and no explanatory sentence"""
     vp.seed_unresolved_prefixes(tmp_path, {
         "XYZ": {"count": 3, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
     })
@@ -831,7 +830,7 @@ def test_airlines_gap_rows_render_first_in_the_table_with_a_name_it_link(tmp_pat
     first_airline_index = rendered.index('<tbody class="airline-group" ')
     assert gap_index > filter_bar_index, "expected the gap row after the filter bar"
     assert gap_index < first_airline_index, "expected the gap row before every airline's rows"
-    assert ">Name it</a>" in rendered
+    assert ">Validate</button>" in rendered and ">Name it</a>" not in rendered
 
 
 def test_airlines_gap_rows_absent_with_no_gaps(tmp_path):
@@ -1036,7 +1035,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
     # The needle names the CURRENT French translation via the module's
     # own MESSAGES lookup (by stable id), never a hand-typed literal
     # that would silently go stale on the next edit.
-    for needle in (">Éditeur de compagnies<", ">Nommer</a>",
+    for needle in (">Éditeur de compagnies<", ">Valider</button>", ">Ignorer</button>",
                    i18n_fr_airlines.MESSAGES[airline_table.MENU_CHANGE_ART.msg_id]):
         assert needle in rendered_fr, "expected the French %r in the French Airlines render" % (needle,)
     for needle in ("Identifier un vol non reconnu", "Nom de la compagnie",
@@ -1046,7 +1045,7 @@ def test_airlines_full_seeded_render_french_end_to_end(tmp_path):
         "expected the seeded example callsign to stay untranslated data")
 
     rendered_en = airlines_page.render({"state_dir": str(tmp_path)})
-    for needle in ('<h1 class="page-title">Airline editor</h1>', ">Name it</a>",
+    for needle in ('<h1 class="page-title">Airline editor</h1>', ">Validate</button>",
                    "Change artwork"):
         assert needle in rendered_en, "expected the English %r in the default-language Airlines render" % (needle,)
 
@@ -1076,50 +1075,19 @@ def test_airlines_catalog_keys_all_present_in_merged_catalog():
 # ======================================================================
 
 
-def test_resolve_dialog_seen_attributes_carry_formatted_paris_local_text(tmp_path):
-    """the resolve dialog's data-view-panel-first-seen/-last-seen carry FORMATTED Europe/Paris
-    text byte-identical to the no-JS path's own rendered <dd> text for the same row (15:49 UTC
-    reading 17:49), and neither render carries a single ISO-8601 timestamp anywhere"""
+def test_the_gap_row_shows_the_last_sighting_in_paris_local_time(tmp_path):
+    """the unidentified row's last-seen text is formatted Europe/Paris local time (06:05 UTC
+    reads 08:05) and neither the table nor the no-JS resolve section carries a raw ISO-8601
+    timestamp outside the <time datetime> attribute"""
     now = "2026-09-13T09:00:00+00:00"
-    first_seen = "2026-09-09T15:49:27+00:00"
-    last_seen = "2026-09-11T06:05:00+00:00"
     vp.seed_unresolved_prefixes(tmp_path, {
-        "XYZ": {"count": 7, "first_seen": first_seen, "last_seen": last_seen, "example_callsign": "XYZ123"},
+        "XYZ": {"count": 7, "first_seen": "2026-09-09T15:49:27+00:00",
+                "last_seen": "2026-09-11T06:05:00+00:00", "example_callsign": "XYZ123"},
     })
     rendered = airlines_page.render({"state_dir": str(tmp_path), "now": now})
     fallback = airlines_page.render({"state_dir": str(tmp_path), "now": now, "resolve_prefix": "XYZ"})
-
-    attrs = {}
-    for name, attr in (("first", airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR),
-                       ("last", airlines_page._VIEW_PANEL_LAST_SEEN_ATTR)):
-        values = [v for v in re.findall(r'%s="([^"]*)"' % re.escape(attr), rendered) if v]
-        assert len(values) == 1, (
-            "expected exactly one non-empty %s attribute for the one seeded gap, found %r" % (attr, values))
-        attrs[name] = html.unescape(values[0])
-
-    texts = {}
-    for name, dd_class in (("first", "resolve-context__first-seen"), ("last", "resolve-context__last-seen")):
-        bodies = [b for b in re.findall(
-            r'<dd class="%s[^"]*"[^>]*>(.*?)</dd>' % dd_class, fallback, re.S) if b.strip()]
-        assert len(bodies) == 1, (
-            "expected exactly one populated %s <dd> in the no-JS fallback, found %r" % (dd_class, bodies))
-        texts[name] = html.unescape(re.sub(r"<[^>]*>", "", bodies[0]))
-
-    for name in ("first", "last"):
-        assert attrs[name] == texts[name], (
-            "expected the JS path's %s-seen attribute to equal the no-JS path's rendered text "
-            "byte for byte, got %r and %r" % (name, attrs[name], texts[name]))
-        assert not _ISO_INSTANT_RE.search(attrs[name]), (
-            "expected no raw ISO-8601 in the %s-seen attribute, got %r" % (name, attrs[name]))
-    # "Paris local time everywhere": 15:49 UTC is 17:49 in Paris on
-    # that date, so an unconverted value would still read "15:49" here
-    # and pass every shape check above.
-    assert "17:49" in attrs["first"], (
-        "expected the 15:49 UTC sighting to render as 17:49 Europe/Paris, got %r" % (attrs["first"],))
-    # With ONE exemption, stated rather than silently widened -
-    # layout.relative_time_html()'s <time datetime="..." data-relative>
-    # element carries a machine-readable instant in the attribute HTML
-    # defines for exactly that purpose.
+    gap = re.search(r'<tbody class="airline-group airline-group--gap".*?</tbody>', rendered, re.S).group(0)
+    assert "08:05" in gap and "data-view-panel" not in gap
     for label, page in (("gallery", rendered), ("resolve fallback", fallback)):
         page = re.sub(r'<time datetime="[^"]*" data-relative>', "<time data-relative>", page)
         leaks = _ISO_INSTANT_RE.findall(page)

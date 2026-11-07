@@ -30,8 +30,21 @@ MESSAGES = {
     "airlines.expand_types_aria": "Types d’appareil vus pour %s",
     "airlines.row_menu_aria": "Actions pour %s",
     "airlines.reset_original_name": "Revenir au nom d’origine",
-    "airlines.name_it": "Nommer",
-    "airlines.name_it_aria": "Nommer le préfixe non identifié %s",
+    "airlines.resolve_name_aria": "Nom de la compagnie pour le préfixe %s",
+    "airlines.resolve_name_placeholder": "Nom de la compagnie",
+    "airlines.resolve_type_aria": "Type d’appareil par défaut pour %s",
+    "airlines.resolve_type_none": "Type d’appareil",
+    "airlines.resolve_validate": "Valider",
+    "airlines.resolve_ignore": "Ignorer",
+    "airlines.named_by_hand": "Nommée à la main",
+    "airlines.state_airline_default": "Celle de la compagnie",
+    "airlines.state_own_artwork": "Illustration propre",
+    "airlines.customise_artwork": "Personnaliser",
+    "airlines.menu_revert_artwork": "Revenir à celle par défaut",
+    "airlines.menu_delete_artwork": "Supprimer l’illustration",
+    "airlines.menu_set_default_type": "Définir comme type par défaut",
+    "airlines.menu_clear_default_type": "Retirer comme type par défaut",
+    "airlines.default_type_pill": "Type par défaut",
     "airlines.unidentified_label": "Non identifiée",
     "airlines.views_one": "1 vue",
     "airlines.views_many": "%d vues",
@@ -80,20 +93,6 @@ MESSAGES = {
         "Les vols de ce préfixe redeviennent non identifiés. "
         "L’illustration reste.",
     "airlines.delete_manual_name": "Supprimer mon nom",
-
-    # --- The manual resolutions list and its delete confirmation -----
-    "airlines.manual_resolutions": "Résolutions manuelles",
-    "airlines.manual_resolutions_caption":
-        "Noms que vous avez donnés à des préfixes non identifiés.",
-    "airlines.delete_resolution_link": "Supprimer",
-    "airlines.delete_resolution_aria": "Supprimer la résolution %s",
-    "airlines.delete_this_resolution": "Supprimer cette résolution\u00a0?",
-    "airlines.delete_resolution_body":
-        "%s ne nommera plus les vols de ce préfixe, qui redeviennent non "
-        "identifiés. L’illustration reste.",
-    "airlines.delete_resolution": "Supprimer la résolution",
-    "airlines.keep_resolution": "Garder la résolution",
-
     # --- The replace/upload forms' shared copy ------------------------
     "airlines.replace_this_illustration": "Remplacer cette illustration",
     "airlines.upload": "Envoyer",
@@ -119,9 +118,7 @@ MESSAGES = {
 
     # --- The Airline collection page ----------------------------------
     "airlines.collection_progress": "%d compagnies sur %d repérées",
-    "airlines.collection_status": "%d compagnies repérées",
     "airlines.collection_progress_one": "%d compagnie sur %d repérée",
-    "airlines.collection_status_one": "%d compagnie repérée",
     "airlines.collection_next_goal": "encore %d pour le badge %d",
     "airlines.collection_next_goal_first":
         "Repérez une compagnie pour obtenir le badge Première observation",

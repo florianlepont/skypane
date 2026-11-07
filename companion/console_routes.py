@@ -31,6 +31,8 @@ USER_ROLE_SUFFIX = "/role"
 USER_DISABLE_SUFFIX = "/disable"
 USER_ENABLE_SUFFIX = "/enable"
 USER_UNLINK_SUFFIX = "/unlink"
+USER_DELETE_SUFFIX = "/delete"
+USER_DELETE_SUFFIX = "/delete"
 
 AUDIT_ROUTE = "/audit"
 

@@ -207,14 +207,17 @@ def test_modal_has_a_phone_bottom_sheet_and_a_no_script_card(app_server_in_proce
     sheet = declarations_for(css, "dialog.modal", phone)
     assert sheet["border-radius"] == "var(--radius-sheet) var(--radius-sheet) 0 0"
     assert sheet["width"] == "100%"
-    assert "var(--safe-bottom)" in sheet["padding"]
+    # The action row carries the bottom padding (and the safe area) so it can stay in view.
+    assert " 0 max(" in sheet["padding"]
+    assert "var(--safe-bottom)" in declarations_for(css, ".modal__actions", phone)["padding-bottom"]
+    assert declarations_for(css, ".modal__actions")["position"] == "sticky"
     assert declarations_for(css, ":root")["--safe-bottom"] == "env(safe-area-inset-bottom, 0px)"
     assert declarations_for(css, "dialog.modal::before", phone)["height"] == "4px"
     card = declarations_for(css, ".modal:target:not(.is-modal)")
     assert card["position"] == "fixed"
     assert "100vmax var(--color-scrim)" in card["box-shadow"]
     assert declarations_for(css, "dialog.modal")["max-height"] == "88svh"
-    assert declarations_for(css, "dialog.modal button")["min-height"] == "44px"
+    assert declarations_for(css, "dialog.modal:not(:where(.fleet-dialog--inline)) button")["min-height"] == "44px"
     assert declarations_for(css, "a.modal__close")["width"] == "44px"
     assert declarations_for(
         css, "dialog.modal.is-modal[open]", ("@starting-style",))["opacity"] == "0"

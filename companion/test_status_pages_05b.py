@@ -57,28 +57,23 @@ def _card_slice(rendered, airline_name):
 def _sub_rows(card_slice):
     """The type label and the artwork-upload action of every sub-row of one airline."""
     rows = re.findall(r'<tr class="airlines-subrow">(.*?)</tr>', card_slice)
-    return [(re.search(r"<th[^>]*>([^<]*)</th>", row).group(1),
+    return [(re.search(r'<span class="airlines-type">([^<]*)</span>', row).group(1),
              (re.search(r'<form class="airlines-art"[^>]* action="([^"]+)"', row) or [None, None])[1])
             for row in rows]
 
 
 def _rendered_pages_with_search_inputs(tmp_path):
     """Render every page this app renders an <input type="search"> on today —
-    Compagnies' gallery filter, Health's registry filter (seeded so it
-    appears) and Flights' history filter — and return their rendered HTML.
+    Compagnies' gallery filter and Flights' history filter — and return their
+    rendered HTML.
     Rewritten from an ast-based module-wide source scan to
     the rendered behaviour on the pages actually served."""
     tmp = str(tmp_path)
     airlines_rendered = airlines_page.render(shp.ctx(tmp))
     now = shp.now()
-    shp.seed_unresolved_prefixes(tmp, {
-        "ABC": {"count": 3, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
-    health_rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
     shp.seed_runway_events(tmp, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     history_rendered = history_page.render(shp.ctx(tmp))
-    return [airlines_rendered, health_rendered, history_rendered]
+    return [airlines_rendered, history_rendered]
 
 
 # ==========================================================================
@@ -484,20 +479,14 @@ def test_gallery_filter_label_for_matches_input_id(tmp_path):
             in rendered)
 
 
-def test_compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_attributes(tmp_path):
-    """Compagnies' gallery filter input and Health's registry filter input both carry
+def test_compagnies_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
+    """Compagnies' gallery filter input carries
     autocomplete=off/spellcheck=false/autocapitalize=characters (Safari contact-autofill
     suppression)"""
     attrs = ('autocomplete="off"', 'spellcheck="false"', 'autocapitalize="characters"')
     tmp = str(tmp_path)
     airlines_rendered = airlines_page.render(shp.ctx(tmp))
-    now = shp.now()
-    shp.seed_unresolved_prefixes(tmp, {
-        "ABC": {"count": 3, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
-    health_rendered = health_page_composition.render(shp.ctx(tmp, shp.iso(now)))
-    for possessive, rendered in (("Compagnies'", airlines_rendered), ("Health's", health_rendered)):
+    for possessive, rendered in (("Compagnies'", airlines_rendered),):
         for attr in attrs:
             assert attr in rendered, (
                 "expected %s search filter input to carry %r — without it, iOS Safari offers "
@@ -505,8 +494,8 @@ def test_compagnies_and_health_filter_inputs_carry_safari_autofill_suppression_a
 
 
 def test_every_rendered_search_input_carries_safari_autofill_suppression_attributes(tmp_path):
-    """every <input type="search"> this app can render — Compagnies' gallery filter, Health's
-    registry filter (seeded so it appears) and Flights' history filter — carries
+    """every <input type="search"> this app can render — Compagnies' gallery filter and Flights'
+    history filter — carries
     autocomplete=off/spellcheck=false/autocapitalize=characters, so a fourth filter bar cannot
     reintroduce the Safari contact/phone-number autofill defect the developer photographed on
     2026-09-21 (rewritten from an ast-based source scan to the rendered behaviour on every
@@ -522,8 +511,8 @@ def test_every_rendered_search_input_carries_safari_autofill_suppression_attribu
                 assert node.attrs.get(attr) == expected, (
                     "iOS Safari offers contact/phone-number autofill on a search input missing "
                     "%s=%r, got %r" % (attr, expected, node.attrs))
-    assert total >= 3, (
-        "expected at least 3 <input type=\"search\"> occurrences across the pages this app "
+    assert total >= 2, (
+        "expected at least 2 <input type=\"search\"> occurrences across the pages this app "
         "renders (the floor known at plan time), found only %d — this would let the check "
         "pass vacuously if every filter input were deleted" % total)
 
@@ -540,8 +529,7 @@ def test_no_filter_input_id_anywhere_in_the_app_contains_a_hyphen(tmp_path):
         "autocomplete=\"off\""
     )
     for module, name in (
-            (airlines_page, "airlines_page"), (health_page, "health_page"),
-            (history_page, "history_page")):
+            (airlines_page, "airlines_page"), (history_page, "history_page")):
         value = module._FILTER_INPUT_ID
         assert "-" not in value, "%s — %s._FILTER_INPUT_ID = %r" % (mechanism, name, value)
     pages = _rendered_pages_with_search_inputs(tmp_path)
@@ -600,17 +588,18 @@ def test_airlines_page_no_longer_renders_registry_or_stats_headers(tmp_path):
             "the Airlines gallery must not render the migrated %r column header (D-13)" % header)
 
 
-def test_health_page_still_renders_both_migrated_header_sets(tmp_path):
-    """the rendered Health page still contains both migrated header sets — the content moved,
-    it was not lost"""
+def test_health_page_renders_the_statistics_headers_and_no_registry_headers(tmp_path):
+    """the rendered Health page keeps the resolution-statistics column headers and no longer
+    renders the unresolved-prefix registry's (those prefixes are named in the Airlines table)"""
     tmp = str(tmp_path)
     registry = {"ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"}}
     shp.seed_unresolved_prefixes(tmp, registry)
     shp.seed_runway_events(tmp, [{"ts": shp.iso(shp.now()), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page_composition.render(shp.ctx(tmp))
-    for header in ("Prefix", "First seen", "Last seen", "Example callsign", "Source", "Description"):
-        assert ("<th>%s</th>" % header) in rendered, (
-            "expected Health to still render the migrated %r column header" % header)
+    for header in ("Source", "Description"):
+        assert ("<th>%s</th>" % header) in rendered, header
+    for header in ("Prefix", "First seen", "Last seen", "Example callsign"):
+        assert ("<th>%s</th>" % header) not in rendered, header
 
 
 def test_airlines_page_module_exposes_no_deleted_diagnostics_symbol():

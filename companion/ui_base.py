@@ -77,6 +77,10 @@ DISPLAY_ROUTE = "/display"
 # Personalisation's other views; the Look view keeps DISPLAY_ROUTE itself.
 DISPLAY_SPECIAL_LOOKS_ROUTE = DISPLAY_ROUTE + "/special-looks"
 DISPLAY_CALENDAR_ROUTE = DISPLAY_ROUTE + "/calendar"
+# The pages that replace the special look and calendar dialogs.
+DISPLAY_SPECIAL_LOOK_NEW_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/new"
+DISPLAY_SPECIAL_LOOK_EDIT_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/edit"
+DISPLAY_CALENDAR_CONNECT_ROUTE = DISPLAY_CALENDAR_ROUTE + "/connect"
 DISPLAY_ARRIVALS_ROUTE = DISPLAY_ROUTE + "/arrivals"
 # No longer a view: the address still answers, with a redirect to DISPLAY_ROUTE.
 DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
@@ -99,7 +103,7 @@ _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
 _NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Personalisation")
 _NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
 _NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
-_NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airline collection")
+_NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
 # The short forms the phone tab bar uses where the full label would not fit
 # one of five equal cells.
 NAV_SHORT_LABELS = {
@@ -208,11 +212,11 @@ QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
 # one clamp/round/keyboard model rather than duplicating it per control.
 VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
 
-# Must equal companion/app.py's CALENDAR_SHEET_SCRIPT_ROUTE exactly. Opens
-# the Display page's calendar Manage sheet as a modal, labels the pending
-# connect and runs the in-sheet disconnect confirmation; inert on a page
-# with no [data-calendar-sheet] dialog.
-CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
+# Must equal companion/app.py's CALENDAR_CONNECT_SCRIPT_ROUTE exactly. Labels
+# the pending connect on the calendar connection page (the server reads the
+# link before saving it); inert on a page with no [data-calendar-connect]
+# form.
+CALENDAR_CONNECT_SCRIPT_SRC = "/static/calendar-connect.js"
 
 # Must equal companion/app.py's MODAL_SCRIPT_ROUTE exactly. Opens the shared
 # dialog.modal component as a modal, returns focus on close, and closes open
@@ -225,6 +229,15 @@ MODAL_SCRIPT_SRC = "/static/modal.js"
 # loading picture. Registered on the shell because every page has the bar and
 # most have a picture; every page works the same without it.
 MOTION_SCRIPT_SRC = "/static/motion.js"
+
+# Must equal companion/static_files.py's SPLASH_BOOT_SCRIPT_ROUTE and
+# SPLASH_SCRIPT_ROUTE. The opening splash: a tiny synchronous script in the
+# document head decides, before the first paint, whether the splash shows
+# (once per session, not for cached assets) by putting a class on <html>;
+# the deferred script then runs the animation and the real preload. Without
+# scripts the class is never set and the overlay markup stays hidden.
+SPLASH_BOOT_SCRIPT_SRC = "/static/splash-boot.js"
+SPLASH_SCRIPT_SRC = "/static/splash.js"
 
 # Must equal companion/static_files.py's LEAFLET_SCRIPT_ROUTE and
 # PLACE_MAP_SCRIPT_ROUTE. The vendored map library and the first-party glue

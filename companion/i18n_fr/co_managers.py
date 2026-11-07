@@ -49,6 +49,19 @@ MESSAGES = {
     "co_managers.flash_failed":
         "Impossible de mettre à jour les co-gestionnaires — réessayez dans un "
         "instant.",
+    "co_managers.flash_frame_removed":
+        "Cadre retiré — il n’apparaît plus dans votre compte.",
+    "co_managers.flash_frame_remove_refused":
+        "Rien n’a changé — seul le propriétaire d’un cadre peut le retirer.",
+    "co_managers.flash_frame_remove_live":
+        "Ce cadre ne peut pas être retiré. Demandez à un administrateur.",
+    "co_managers.remove_frame": "Retirer ce cadre",
+    "co_managers.remove_frame_title": "Retirer ce cadre\u00a0?",
+    "co_managers.remove_frame_keep": "Garder ce cadre",
+    "co_managers.remove_frame_consequence":
+        "Ce cadre cesse de vous appartenir et disparaît de votre compte. Ses "
+        "co-gestionnaires perdent l’accès. Un administrateur pourra l’attribuer "
+        "de nouveau à quelqu’un\u00a0; son historique est conservé.",
     "co_managers.flash_leave_noop":
         "Rien n’a changé — seuls les co-gestionnaires peuvent quitter un cadre.",
 }

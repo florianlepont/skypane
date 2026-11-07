@@ -50,6 +50,7 @@ MESSAGES = {
     "home.frame": "Cadre",
     "home.no_reading_yet": "Aucune mesure pour l’instant",
 
+    "home.cycle_ring": "Cycle du cadre\u00a0: prochaine mise à jour %s",
     "home.frame_state": "État du cadre",
     "home.state_screen_on": "Écran allumé",
     "home.state_title_screen_off": "Écran éteint",
@@ -80,6 +81,13 @@ MESSAGES = {
     "home.battery_aria": "Batterie à environ %s",
     "home.battery_low": "Faible",
     "home.battery_critical": "Très faible",
+    "home.battery_row_percent": "%d\u00a0%%",
+    "home.battery_row_normal": "Niveau normal",
+    "home.battery_row_none": "Aucune mesure pour l’instant",
+    "home.battery_row_autonomy": "Autonomie estimée\u00a0: %s",
+    "home.battery_row_autonomy_short": "moins de 2 jours",
+    "home.battery_row_autonomy_days": "environ %d jours",
+    "home.battery_row_autonomy_weeks": "environ %d semaines",
     "home.battery_fact_empty": "Batterie · Aucune mesure pour l’instant",
     "home.action_needed": "Un élément demande votre attention",
 
@@ -109,12 +117,12 @@ MESSAGES = {
     "home.notice_line_last_contact": "Dernier contact : %s",
     "home.notice_tip_low_battery": "Rechargez-le ou branchez-le.",
     "home.notice_tip_overdue":
-        "Attendez un cycle\u00a0; s’il reste muet, contactez un administrateur.",
+        "Attendez un cycle, s’il reste muet, contactez un administrateur.",
     "home.notice_tip_not_seen":
-        "Vérifiez qu’il est alimenté\u00a0; s’il reste muet, contactez un "
+        "Vérifiez qu’il est alimenté, s’il reste muet, contactez un "
         "administrateur.",
     "home.notice_tip_no_contact":
-        "Vérifiez son alimentation et votre Wi-Fi\u00a0; s’il reste muet, contactez "
+        "Vérifiez son alimentation et votre Wi-Fi, s’il reste muet, contactez "
         "un administrateur.",
     "home.notice_contact_label": "Contacter un administrateur",
     "home.notice_mail_subject": "SkyPane : aide pour le cadre %s (%s)",

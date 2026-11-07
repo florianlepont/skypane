@@ -462,3 +462,243 @@ motion respected; whole-pixel moves; works without JS where noted):
 
 Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
 61-74 (M7, M9), 61-75 (M6, M10).
+
+## Round 8 (desktop test of the deployed round 7), in progress
+
+- W71 (owner) General: the title transition effects from one page to the
+  next are a bit buggy and differ every time.
+- W72 (owner) Home: the empty-state sentence "Vérifiez qu'il est alimenté ;
+  s'il reste muet, contactez un administrateur." must use a comma, not a
+  semicolon.
+- W73 (owner) Home, Quiet hours dialog (desktop screenshot): contrast problem
+  (grey translucent panel, grey secondary text on grey).
+- W74 (owner) Flights history (desktop screenshot): the search field runs
+  into / under the frame picker button at the top right.
+- W75 (owner) Flights: clicking a picture whose image has not loaded yet shows
+  an odd visual glitch. More generally the site has no loading indicator where
+  one is needed; avoid odd transition effects.
+- W76 (owner) Location: while the page and the map load there is an odd
+  intermediate state; a small loading icon is probably missing.
+- W77 (owner) Location (screenshot): the sheet tiles are too transparent, the
+  text over the map is hard to read; the runway cards' text (length, surface)
+  sits off-centre / overflows its card and the check mark overlaps.
+- W78 (owner) Location (screenshot): the Airport / My position segmented
+  control is still offset inside its container.
+- (A desktop screenshot of the Account "Mes cadres" group was also attached,
+  no comment yet.)
+- W79 (owner) Location (screenshot): a gap is missing between the airport
+  info (name, codes) and the "Piste à suivre" heading.
+- W80 (owner) Location: the Save place button behaves differently from the
+  rest of the site; it should be the small popup/bar "Save or Cancel" that
+  appears (the docked unsaved-changes pattern), not an always-visible footer.
+- W81 (owner) Location: he likes the nearest-airport follow suggestion. "My
+  position" should be the first tab when the page opens, and the sheet's text
+  sizes and margins need visual rework (not pretty: runway card text clipped,
+  "Rayon" row, suggestion button, footer not aligned with the sheet padding).
+- W82 (owner) Location: the map could also pass behind the navigation menu
+  (desktop sidebar) for a really cool effect.
+- W83 (owner) Personalisation: the Departures and Arrivals tabs do not have
+  the opening effect the other two tabs have.
+- W84 (owner, positive) The picture reveal when changing colour etc. is very
+  stylish.
+- W85 (owner) Personalisation vocabulary: "Couleur" should read "Couleur
+  principale"; "Papier" should read just "Blanc"; the "Bande diagonale"
+  wording to change. His message was cut off; its continuation says: "...
+  should not have a 'Claire' option" (the diagonal band selector, options
+  None / Pleine / Claire, most likely; to confirm with the owner which
+  selector and what the options become).
+- W85b (owner, screenshot) Clarified: in the new-look dialog the diagonal band
+  option "Claire" shows struck through ("Le cadre n'a pas encore de thème pour
+  cette combinaison"); an option with no theme should not be offered at all.
+- W86 (owner) Personalisation: the "new special look" dialog is broken on
+  desktop; he expected the options in a full page like the Departures and
+  Arrivals tabs, not a modal.
+- W87 (owner) Personalisation: the Calendar view is completely broken when
+  editing a calendar's configuration or adding a new one. Same wish: go to a
+  page instead of a modal where possible (also for the other dialogs).
+- W88 (owner) Airline collection: the title is too big; call it "Compagnies"
+  (preferred) or "Collection". The desktop view is far too busy, illegible:
+  he wants a detailed, near-real mockup proposal.
+- W89 (owner) Account: the frame rows should breathe more; as a user he does
+  not care about the hardware detail line.
+- W90 (owner, screenshots) Account: the Manage access dialog (add a
+  co-manager) is a bit broken (empty-state heading inside the owner group,
+  uneven paddings, Done button off-grid).
+- W91 (owner, question) As a user (owner of a frame) there is no option to
+  remove a frame: is that normal? Answer: today only administrators can retire
+  a frame; owners see Manage access, co-managers see Leave frame. Product
+  decision needed (owner "Remove frame" with confirmation?).
+- W92 (owner) In the Manage access dialog the e-mail field pre-fills itself
+  (browser autofill suggestions); very annoying: disable autofill on that
+  field (autocomplete off, no autofill of the owner's own address).
+
+### Admin account (desktop)
+
+- W93 (owner, screenshot) Fleet (admin, desktop): the visual principle is
+  right but the rendering is a bit broken and too busy: box sizes and the
+  amount of information shown need rework; there are holes (empty space) in
+  places and too much text elsewhere (State group short vs a tall Device and
+  version group with the versions list; Settings and Access below). He asks
+  me to make a proposal.
+- W94 (owner) Idea: on desktop the Fleet groups could stop being toggles /
+  expandable blocks and become dialogs that open. (To weigh against W86/W87,
+  where he prefers pages over modals for Personalisation.)
+
+#### Users
+
+- W95 (owner, question) What does "Dissocier l'identité" mean? Answer: it
+  detaches the person's sign-in identity (the sign-in provider account linked
+  at first login) from their SkyPane user and closes their session; the
+  identity is linked again at their next sign-in. Wording to make clearer.
+- W96 (owner, screenshot) Users: his own row is far too wide compared with the
+  rest (the self-protection explanation under the role, five lines of text,
+  "2 cadres · co-gestionnaire" wrapping).
+
+#### Airline editor
+
+- W97 (owner, screenshot) Unidentified airline rows lack finesse: the "Nommer"
+  button is not centred and a bit too big.
+- W98 (owner, question) Why can the visual of some aircraft types not be
+  changed? e.g. for Air France nothing can be done on the type rows (their
+  row menu offers nothing / "Utilise celle de la compagnie").
+- W99 (owner) Missing option to delete an illustration, with a default
+  behaviour: the type (or airline) reverts to the default illustration; this
+  also means being able to pick a flight type as the airline's default one.
+- W100 (owner) Why is there a separate "manual resolution" table? Resolution
+  should happen directly in the airline table.
+- W101 (owner) The "unresolved fleets" table in System should no longer exist
+  since it is already in Airlines.
+
+#### Audit log
+
+- W102 (owner, screenshot) Too much information per row and the table
+  overflows the page; use a toggle (expandable row) to show more detail.
+- W103 (owner, question) Wouldn't "Delete user" be simpler than "Unlink
+  identity"? Open: today a user can only be disabled (Active switch) or have
+  the identity unlinked; no delete exists. Needs a product decision on what
+  happens to the user's frames (owner) and the audit trail before building.
+
+### Round 8, iPhone checklist (owner answers, numbered as the checklist)
+
+- Items 1 (bottom shadow/bars) and 6 (Home): all OK. Item 5 Vols and 8
+  Personalisation: OK except as noted below.
+- W104 (owner, item 2) The animations play late the first time they load, so
+  they lose their dynamism. General question: should there be a preload at
+  site opening that loads the animations and everything needed into cache,
+  with the loading logo he mentioned was missing (also W75, W76)?
+- W105 (owner, item 3) The More menu is much better, but "Collection de
+  compagnies" is lost among all the information. Idea: dim/blur the site
+  behind so the More panel stands out more.
+- W106 (owner, item 4) Better, but e.g. the Quiet hours sheet needs scrolling
+  to reach Save (a problem). On desktop and mobile, the modal backgrounds
+  have a fake transparency effect that does not work and makes the content
+  hard to read (same as W73).
+- W107 (owner, item 5) Opening a picture: the blurred yellowish band below the
+  image falls oddly: the backdrop is not covering enough (screenshot: caption
+  pill and Close over a half-transparent strip, the tab bar and list show
+  through).
+- W108 (owner, item 7) Location: the map is still not fully full-screen; it
+  does not pass under the floating navigation bar. Should "Save place" use the
+  floating Save/Cancel popup like the other save buttons? Maybe not possible
+  with the nav bar.
+- W109 (owner, item 8 Personalisation) Same remark as Location: the Save
+  button does not have the floating popup behaviour agreed earlier.
+- W110 (owner, item 9, screenshot) Fleet sub-tabs on phone: the selected
+  segment is a tiny black pill, broken (thumb not sized to its tab). The
+  admin "Mon cadre" tab label is clipped and outlined.
+- W111 (owner) When changing tab, the bar briefly becomes transparent then
+  opaque (screenshot also shows page content showing through the tab bar).
+- (owner has not finished; more items to come.)
+
+## Round 8 grouping (D44)
+
+The owner finished his round 8 feedback (W71-W111). Grouping:
+
+Straight fixes, no decision needed (plan 61-76): W72, W73, W74, W77, W78,
+W79, W83, W85 (Couleur principale, Blanc, hide unavailable options), W89,
+W90, W92, W95 (reword), W96, W97, W106 (opaque modal backgrounds, Save
+reachable without scrolling), W107, W110, W111.
+
+Decisions with mockups (asked one by one): D-A Collection page desktop (W88),
+D-B Fleet admin desktop (W93, W94), D-C airline editor (W98-W101), D-D audit
+log (W102), D-E Location (W80, W81, W82, W108), D-F preload and loading
+indicator (W71, W75, W76, W104), D-G More menu (W105), D-H Special looks and
+Calendar as pages (W86, W87, W109), D-I Users: delete user (W103), D-J owner
+removes a frame (W91).
+
+- W112 (owner) The Home page really lacks a signature element: a stylish
+  animation with a "wow" effect, without taking much space. Concepts to be
+  shown as live demos on the real Home page (decision D-K).
+- W112b (owner) The frame will later also display photos, so aircraft are one
+  use and not the only one: the signature animation must not be built around
+  planes; it should be about the frame and the app in general (content
+  neutral).
+
+## Decision D-K (signature animation), owner answered
+
+S1 Respiration (glass glint every ~12 s, breathing halo and status dot) and S3
+Cycle (thin ring around the picture showing the wake, poll, display, sleep
+cycle until the next update, small flourish on refresh) together, both
+content-neutral. S2 and S4 not retained (so the S4 flash limit does not
+apply). Planned as plan 61-78 after 61-76.
+
+## Round 8 decisions (D45), owner answered one by one
+
+- D-A Collection: the mockup, but the page title keeps the standard size used
+  by the other pages (consistency); renamed "Compagnies".
+- D-B Fleet admin desktop: option 2, summary rows that open dialogs.
+- D-C Airline editor: the mockup (inline resolution, editable type rows with
+  "same as airline" default, delete illustration / revert to default, star
+  for the airline default type, no separate manual-resolution table, no
+  unresolved-fleets table in System).
+- D-D Audit log: the mockup (compact rows, expandable detail).
+- D-E Location: the mockup, "My position" first; on mobile in My position the
+  nearest-airport suggestion is removed to leave room for the map and the rest
+  of the sheet is compressed without becoming illegible; floating Save/Cancel
+  bar; map behind the sidebar / tab bar.
+- D-F Preload: opening splash once per session plus map/picture loading
+  indicators; the splash must be much more signature (3 concepts to choose).
+- D-G More menu: dimmed page behind; navigation pages (Companies, ...) at the
+  top as the continuation of the tab bar, then a separator, then settings
+  (theme, language, account, sign out).
+- D-H Special looks and Calendar as full pages with floating Cancel/Create.
+- D-I Delete user: with confirmation, refused while the person owns a frame,
+  e-mail kept in the audit log.
+- D-J Owner can remove their frame from Manage access, with confirmation;
+  admin can reassign; co-managers keep Leave frame.
+- D-K Signature animation: S1 + S3 (content-neutral).
+
+Plans (batch 11): 61-77 Compagnies page + More menu + Fleet desktop rows;
+61-78 Home signature S1+S3; 61-79 Location + Special looks/Calendar pages;
+61-80 airline editor + audit log; 61-81 delete user + owner removes frame;
+61-82 opening splash and loading indicators.
+
+## Decision D-F (opening splash), owner direction
+
+He chose the "Cadre" concept (P2 / V2 Cadre fidèle) with these changes: the
+coloured artwork drawing (sun, hill) that has nothing to do with the app goes
+away; the e-ink refresh instead reconstitutes, in ink, the real interface of
+the site (the page being revealed); the logo is much smaller, centred and
+present from the very start of the splash. Planned as plan 61-82 once the
+revised demo is validated.
+
+D-F final: the owner rejected the ink-rendered-interface variant ("j'aime
+pas"); the original P2 "Cadre" concept (splash79: frame outline draws, e-paper
+refresh inside it, logo revealed, page opens from the frame rectangle) is the
+one to build, no coloured artwork, no dithered interface. Logo to stay small
+and centred. Reference: scratchpad splash79/demo.html section p2. Plan 61-82.
+
+- W113 (owner) There is no battery indication left for the user on the Home
+  screen (a surprise to him). Cause: plan 61-17 removed the battery tile from
+  Home for users (administrators keep a small pill; users only get the amber
+  or red notification when low). He asked for mockups of where to put it back
+  before choosing (decision D-L).
+
+## Decision D-L (battery on Home), owner answered
+
+Option C: a "Batterie" row in the Home Frame group (under Screen and Quiet
+hours): icon tile, "69 % · Niveau normal", a thin level bar and the estimated
+autonomy ("environ 3 semaines") only when an honest figure exists; "Aucune
+mesure pour l'instant" with no bar when there is no reading. For every user
+(not only administrators). Mockups: scratchpad battery82/. Planned as plan
+61-83.

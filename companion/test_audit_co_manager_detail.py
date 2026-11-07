@@ -83,27 +83,17 @@ def _audit_body(server, language=None):
 
 
 def _rows(body):
-    return re.findall(r"<tr><td>.*?</tr>", body, re.S)
-
-
-def _cards(body):
-    return re.findall(r'<li class="data-card">.*?</li>', body, re.S)
+    return re.findall(r'<li class="audit-event">.*?</li>', body, re.S)
 
 
 def _co_manager_rows(body):
     return [r for r in _rows(body) if "Co-manager" in r]
 
 
-def _both(body):
-    """Table rows and cards that belong to a co-manager action."""
-    return _co_manager_rows(body), [c for c in _cards(body) if "Co-manager" in c]
-
-
 def _assert_shown(body, email, reason):
-    rows, cards_ = _both(body)
-    assert rows and cards_
+    rows = _co_manager_rows(body)
+    assert rows
     assert any(email in html.unescape(r) and reason in r for r in rows), rows
-    assert any(email in html.unescape(c) and reason in c for c in cards_), cards_
 
 
 def test_an_owner_add_shows_the_person_and_reason(rig):
@@ -193,7 +183,6 @@ def test_an_unknown_via_gets_the_generic_label_never_the_raw_word(rig):
     assert "zz_secret_word" not in body
     rows = _co_manager_rows(body)
     assert len(rows) == 2 and all("Other reason" in r for r in rows)
-    assert all("Other reason" in c for c in _cards(body) if "Co-manager" in c)
 
 
 def test_an_unknown_or_missing_user_gets_the_neutral_text(rig):
@@ -281,7 +270,8 @@ def test_the_french_page_shows_french_reasons(rig):
 
 def test_every_whitelisted_reason_has_a_label():
     assert {via for _action, via in audit_page.REASON_LABELS} == {
-        "owner", "admin", "self", "reassign", "retire", "delete", "owner_disabled"}
+        "owner", "admin", "self", "reassign", "retire", "delete", "owner_disabled",
+        "user_deleted"}
 
 
 def test_the_stored_detail_is_json_the_page_never_echoes(rig):

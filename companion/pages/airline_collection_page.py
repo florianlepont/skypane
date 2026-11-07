@@ -30,12 +30,10 @@ from server import history_db
 from server.plane import illustrations
 from server.plane import render as panel_render
 
-PAGE_TITLE = i18n.msg("nav.airline_collection", "Airline collection")
+PAGE_TITLE = i18n.msg("nav.airline_collection", "Airlines")
 
 PROGRESS_TEXT = i18n.msg("airlines.collection_progress", "%d of %d airlines spotted")
-STATUS_TEXT = i18n.msg("airlines.collection_status", "%d airlines spotted")
 PROGRESS_ONE_TEXT = i18n.msg("airlines.collection_progress_one", "%d of %d airline spotted")
-STATUS_ONE_TEXT = i18n.msg("airlines.collection_status_one", "%d airline spotted")
 
 
 def _count_text(count, many, one):
@@ -238,25 +236,28 @@ def _seen_text(times):
 
 
 def _card_html(entry, state_dir):
+    """A calm card: the picture, the name and, for a seen airline, one line
+    with the sighting count and the rarity in words. An airline not seen yet is
+    only dimmed (no text); the New pill sits on the picture and only while it
+    applies."""
     classes = "collection-card" + (
         " collection-card--" + entry.rarity if entry.seen else " collection-card--unseen")
+    new = ""
+    line_html = ""
     if entry.seen:
-        pills = _rarity_pill_html(entry.rarity)
         if entry.is_new:
-            pills += '<span class="rarity-pill rarity-pill--new">%s</span>' % (
+            new = '<span class="rarity-pill rarity-pill--new">%s</span>' % (
                 escape_html(i18n.t(NEW_PILL)))
-        line = _seen_text(entry.times_seen)
-        pills_html = '<span class="collection-card__pills">%s</span>' % pills
-    else:
-        line = i18n.t(NOT_SEEN)
-        pills_html = ""
+        line_html = (
+            '<span class="collection-card__seen text-label">%s \u00b7 '
+            '<span class="collection-card__rarity collection-card__rarity--%s">%s</span></span>'
+        ) % (escape_html(_seen_text(entry.times_seen)), entry.rarity,
+             escape_html(i18n.t(RARITY_LABELS[entry.rarity])))
     link = ui_modal.trigger_html(
         DIALOG_PREFIX + entry.slug,
-        '<span class="collection-card__art">%s</span>'
-        '<span class="collection-card__name">%s</span>'
-        '<span class="collection-card__seen text-label">%s</span>%s' % (
-            _picture_html(entry, state_dir), escape_html(entry.name),
-            escape_html(line), pills_html),
+        '<span class="collection-card__art">%s%s</span>'
+        '<span class="collection-card__name">%s</span>%s' % (
+            _picture_html(entry, state_dir), new, escape_html(entry.name), line_html),
         extra_class=classes)
     unlock = ' data-unlock="%s"' % escape_html(entry.slug) if entry.seen and entry.is_new else ""
     return '<li class="collection-item" data-filter-text="%s"%s>%s</li>' % (
@@ -329,44 +330,40 @@ def _goal_text(summary, all_curated_seen):
     return i18n.t(GOAL_TEXT) % (summary.next_goal - summary.spotted, summary.next_goal)
 
 
-def _status_text(summary, all_curated_seen):
-    """The one progress line: the spotted count, then the next goal."""
-    return "%s \u00b7 %s" % (
-        _count_text(summary.spotted, STATUS_TEXT, STATUS_ONE_TEXT) % summary.spotted, _goal_text(summary, all_curated_seen))
-
-
-def _badge_html(threshold, earned):
-    """A small round icon: a filled check once earned, an outlined star
-    while locked. The words (and the tooltip) carry the state and the goal."""
+def _badge_words(threshold, earned):
     label = i18n.t(BADGE_FIRST) if threshold == 1 else i18n.t(BADGE_COUNT) % threshold
     if earned:
-        words = "%s: %s" % (i18n.t(BADGE_EARNED), label)
-    else:
-        words = (i18n.t(BADGE_LOCKED_FIRST) if threshold == 1
-                 else i18n.t(BADGE_LOCKED) % threshold)
-    icon = layout.icon_html("icon-check" if earned else "icon-star", 16)
+        return "%s: %s" % (i18n.t(BADGE_EARNED), label)
+    return (i18n.t(BADGE_LOCKED_FIRST) if threshold == 1
+            else i18n.t(BADGE_LOCKED) % threshold)
+
+
+def _badges_html(summary):
+    """One compact pill, a star and "earned/total". The tooltip and the
+    visually hidden list spell out every badge in words."""
+    words = [_badge_words(n, n in summary.earned) for n in collection.BADGE_THRESHOLDS]
+    earned = sum(1 for n in collection.BADGE_THRESHOLDS if n in summary.earned)
+    total = len(collection.BADGE_THRESHOLDS)
     return (
-        '<li class="collection-badge collection-badge--%s" title="%s">%s'
-        '<span class="visually-hidden">%s</span></li>'
-    ) % ("earned" if earned else "locked", escape_html(words), icon, escape_html(words))
+        '<p class="collection-badges" title="%s">%s<span aria-hidden="true">%d/%d</span>'
+        '<span class="visually-hidden">%s: %d/%d. %s</span></p>'
+    ) % (escape_html("; ".join(words)), layout.icon_html("icon-star", 16), earned, total,
+         escape_html(i18n.t(BADGES_LABEL)), earned, total, escape_html(". ".join(words)))
 
 
 def _status_html(summary, all_curated_seen):
-    """The header's right-hand part: a thin progress bar with one short
-    line under it, and the badge icons."""
+    """The header's progress on one line: the spotted count, a thin bar, the
+    next goal and the compact badge pill."""
     headline = _count_text(summary.spotted, PROGRESS_TEXT, PROGRESS_ONE_TEXT) % (
         summary.spotted, summary.total)
-    badges = "".join(
-        _badge_html(n, n in summary.earned) for n in collection.BADGE_THRESHOLDS)
     return (
-        '<div class="collection-head__status"><div class="collection-progress">'
+        '<div class="collection-head__status">'
+        '<p class="collection-progress__headline">%s</p>'
         '<progress class="collection-progress__bar" value="%d" max="%d" aria-label="%s">%s</progress>'
-        '<p class="text-label collection-progress__headline">%s</p></div>'
-        '<ul class="collection-badges" aria-label="%s">%s</ul></div>'
-    ) % (min(summary.spotted, summary.total), max(summary.total, 1),
+        '<p class="collection-progress__goal">%s</p>%s</div>'
+    ) % (escape_html(headline), min(summary.spotted, summary.total), max(summary.total, 1),
          escape_html(headline), escape_html(headline),
-         escape_html(_status_text(summary, all_curated_seen)),
-         escape_html(i18n.t(BADGES_LABEL)), badges)
+         escape_html(_goal_text(summary, all_curated_seen)), _badges_html(summary))
 
 
 def _chips_html(view, entries):

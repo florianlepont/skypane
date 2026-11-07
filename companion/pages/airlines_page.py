@@ -25,9 +25,9 @@ from companion.layout import csrf_field, escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 from companion import airline_collection
-from companion.pages import airline_resolutions, airline_sheet, airline_table
+from companion.pages import airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL
-from server.plane import illustrations
+from server.plane import airline_default_types, illustrations
 # manual_resolutions, enrich and state_store import this page module in
 # neither direction, so importing them here creates no cycle.
 from server.plane import manual_resolutions
@@ -238,6 +238,8 @@ FLASH_RENAME_STALE = airline_sheet.FLASH_RENAME_STALE
 FLASH_RENAME_FULL = airline_sheet.FLASH_RENAME_FULL
 FLASH_RENAME_TAKEN = airline_sheet.FLASH_RENAME_TAKEN
 FLASH_RENAME_SAVE_FAILED = airline_sheet.FLASH_RENAME_SAVE_FAILED
+ARTWORK_DELETE_ROUTE = airline_sheet.ARTWORK_DELETE_ROUTE
+DEFAULT_TYPE_ROUTE = airline_sheet.DEFAULT_TYPE_ROUTE
 
 # A prefix needs at least GAP_BLOCK_THRESHOLD sightings to earn a gap
 # card; at most GAP_BLOCK_CAP cards ever render (see
@@ -1253,14 +1255,13 @@ def render(ctx):
     table_html = airline_table.table_html(airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
         manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
-        gap_rows=gap_shown, focus_key=focus_key))
+        gap_rows=gap_shown, focus_key=focus_key,
+        default_types=airline_default_types.load_default_types(state_dir)))
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html
         + table_html
         + overflow_html
-        + airline_resolutions.section_html(
-            [(row[0], row[1]) for row in manual_rows], device_scope.scoped(MANAGE_ROUTE))
         + lightbox_html
         + resolve_html
     )

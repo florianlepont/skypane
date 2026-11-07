@@ -26,7 +26,7 @@ from place_map_support import Hosts
 
 from companion import auth, layout
 from companion.pages import config_page
-from server import airports, device_config, history_db, state_store
+from server import airports, device_config, history_db
 from server.plane import calendar_rules
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE,
@@ -940,14 +940,6 @@ def _seed_calendar_ticker(state_dir):
         now=now.timestamp())
 
 
-def _seed_health_ticker(state_dir):
-    seen = (datetime.now(timezone.utc) - timedelta(minutes=_TICK_MINUTES_AGO)).isoformat()
-    state_store.save_poll_state(state_dir, {"unresolved_prefixes": {
-        "TVF": {"count": 5, "first_seen": seen, "last_seen": seen,
-                "example_callsign": "TVF123"},
-    }})
-
-
 _TICKER_SITES = (
     ("flights", "/flights",
      'table.data-table--flights tr[data-filter-group="0"] time[data-relative]',
@@ -955,9 +947,6 @@ _TICKER_SITES = (
     ("display-calendar", "/display/calendar",
      '[data-look-usage="calendar"] time[data-relative]',
      _seed_calendar_ticker),
-    ("health-registry", "/fleet?view=system",
-     '.data-table--registry tr[data-filter-group="0"] time[data-relative]',
-     _seed_health_ticker),
 )
 
 
@@ -966,8 +955,8 @@ _TICKER_SITES = (
     ids=[site[0] for site in _TICKER_SITES])
 def test_cfg34_live_age_ticks_at_each_converted_site(
         new_context, make_app_server, name, path, selector, seed_fn):
-    """Each of the three converted ages (Flights' When cell, Display's Calendar status
-    detail, Health's registry First-seen cell) is a genuine <time data-relative> element that
+    """Each of the two converted ages (Flights' When cell, Display's Calendar status
+    detail) is a genuine <time data-relative> element that
     relative-time.js's once-a-second ticker advances in a visible tab: read once right after
     load, read again with the clock UNMOVED (the control an element that never changes for any
     reason would also pass — see below), then again after the virtual clock runs forward past

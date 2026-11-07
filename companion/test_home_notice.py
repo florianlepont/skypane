@@ -150,17 +150,17 @@ def test_english_lines_and_tips_per_status_key(tmp_path):
     expected = {
         "not_seen": (
             "Your frame has not contacted SkyPane yet.", [],
-            "Check it is powered; if it stays silent, contact an administrator."),
+            "Check it is powered, if it stays silent, contact an administrator."),
         "overdue": (
             "Your frame has not checked in on time.", ["Last check-in 50m ago"],
-            "Wait one cycle; if it stays silent, contact an administrator."),
+            "Wait one cycle, if it stays silent, contact an administrator."),
         "low_battery": (
             "Your frame's battery is low.",
             ["Frame battery at 8%"], "Charge it or plug it in."),
         "no_contact": (
             "Your frame has no contact with the server.",
             ["Last contact 5h ago"],
-            "Check its power and your Wi-Fi; if it stays silent, contact an "
+            "Check its power and your Wi-Fi, if it stays silent, contact an "
             "administrator."),
     }
     for key, (title, figures, tip) in expected.items():
@@ -187,7 +187,7 @@ def test_french_lines_and_tips_per_status_key(tmp_path):
     assert _lines(notice)[0].startswith("Dernier contact : il y a 5")
     assert len(_lines(notice)) == 1
     assert notice.select(".home-notice__tip")[0].text() == (
-        "Vérifiez son alimentation et votre Wi-Fi ; s’il reste muet, contactez "
+        "Vérifiez son alimentation et votre Wi-Fi, s’il reste muet, contactez "
         "un administrateur.")
     assert notice.select("a.toast__action")[0].text() == (
         "Contacter un administrateur")

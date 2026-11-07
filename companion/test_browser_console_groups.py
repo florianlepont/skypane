@@ -83,8 +83,16 @@ def test_fleet_blocks_are_flat_glass_groups(new_context, server, viewport, lang,
         new_context, server, "admin", "/fleet?frame={owned}", None, viewport, lang, scheme)
     try:
         assert not _assert_no_page_overflow(page, "fleet", viewport["width"])
+        if viewport["width"] >= 960:
+            # From 960px the Device group lives in its dialog, behind a summary row.
+            page.locator("a.fleet-sum").first.click()
+            page.wait_for_function(
+                "() => document.querySelector('dialog.fleet-dialog[open]') !== null"
+                " && document.querySelector('.fleet-block__fact').getClientRects().length > 0",
+                timeout=10000)
         out = page.evaluate(_FLEET)
-        assert out["count"] == 4 and out["bad"] == [], out
+        # State, the summary rows, Device, Versions, Settings and Access.
+        assert out["count"] == 6 and out["bad"] == [], out
     finally:
         context.close()
 

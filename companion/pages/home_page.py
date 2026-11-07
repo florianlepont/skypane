@@ -3,15 +3,17 @@ showing, and what it has shown recently.
 
 Opens with one hero (the current picture beside one dot and word for the
 frame state, and the next update), then two glass groups of rows: the
-frame's two native-POST switches (screen and quiet hours) and the recent
-flights.
+frame's two native-POST switches (screen and quiet hours) with the
+battery row, and the recent flights.
 The dot is the shared frame-status dot; Home links to no Health
 page (Health is an administrator's Console page), and neither a user nor an
-administrator sees the battery tile or the attention bar here. The
+administrator sees the attention bar here. Everyone sees the battery as one
+row of the Frame group; an administrator also keeps the dial in the hero. The
 recent-flight rows and the current picture's flight line share one
 `history_db` read.
 """
 
+from datetime import timezone
 from types import SimpleNamespace
 
 import companion.battery as battery
@@ -26,9 +28,10 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_groups as ui_groups
 import companion.ui_modal as ui_modal
+import companion.ui_time as ui_time
 import companion.user_view as user_view
 import companion.wake as wake
-from companion.pages import home_greeting, home_notice
+from companion.pages import home_battery_row, home_greeting, home_notice
 from companion.layout import escape_html
 from companion.settings import quiet_hours
 from server import device_config, history_db
@@ -128,6 +131,9 @@ CADENCE_INFO_NO_INTERVAL_TEXT = i18n.msg(
     "refresh continuously.")
 CADENCE_INFO_LABEL = i18n.msg("home.cadence_info_label", "About updates")
 CADENCE_INFO_ID = "home-cadence-info"
+# The ring around the picture: the frame cycle until the next update. The
+# name carries the same countdown the next-update line shows.
+CYCLE_RING_LABEL = i18n.msg("home.cycle_ring", "Frame cycle: next update %s")
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 FRAME_GROUP_LABEL = i18n.msg("home.group_frame", "Frame")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
@@ -243,6 +249,45 @@ def _current_picture_html(ctx, current_flight_row):
     ) % (
         escape_html(device_scope.scoped(GALLERY_ROUTE_PREFIX + newest)),
         escape_html(alt))
+
+
+def _cycle_ring_html(ctx, next_triple):
+    """The thin ring around the picture: the share of the frame cycle (wake,
+    poll, display, sleep) already elapsed, from the same next-update triple
+    the "Next update in N min" line reads. The progress is rendered as
+    attributes (no style attribute, for the CSP); relative-time.js repaints
+    it from `data-ring-next` / `data-ring-interval` each second. "" without
+    a known next update."""
+    next_iso, interval_s, _hold = next_triple
+    parsed = layout.parse_iso(next_iso) if next_iso else None
+    now_parsed = layout.parse_iso(ctx.now)
+    if parsed is None or now_parsed is None or not interval_s:
+        return ""
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    remaining = parsed.timestamp() - now_parsed.timestamp()
+    progress = min(1.0, max(0.0, 1.0 - remaining / float(interval_s)))
+    if remaining > 0:
+        countdown = ui_time.relative_future_text(int(remaining))
+    else:
+        countdown = i18n.t(ui_time.RELATIVE_WAITING_TEXT)
+    template = i18n.t(CYCLE_RING_LABEL)
+    rect = ('<rect class="%s" x="0" y="0" width="100%%" height="100%%" rx="19" '
+            'pathLength="100"%s/>')
+    return (
+        '<svg class="hero__ring" role="img" aria-label="%s" data-cycle-ring '
+        'data-ring-next="%s" data-ring-interval="%d" data-ring-label="%s">%s%s%s%s</svg>'
+        '<span class="hero__glass" aria-hidden="true"></span>'
+    ) % (
+        escape_html(template % countdown),
+        escape_html(parsed.astimezone(timezone.utc).isoformat(timespec="seconds")),
+        int(interval_s), escape_html(template),
+        rect % ("hero__ring-track", ""),
+        rect % ("hero__ring-ticks", ' stroke-dasharray="0 25"'),
+        rect % ("hero__ring-bar", ' stroke-dasharray="100 100" stroke-dashoffset="%.2f"' % (
+            100.0 * (1.0 - progress))),
+        rect % ("hero__ring-done", ""),
+    )
 
 
 def _recent_flight_row_html(row, now):
@@ -411,8 +456,19 @@ def _switch_row_html(spec, is_on, detail_html):
             "on" if is_on else "off", slug))
 
 
-def _switches_html(cfg):
-    """The Frame group: the screen and quiet-hours switch rows."""
+def _battery_row_html(ctx, interval_s):
+    """The Battery row: the latest reading, its level word, and the
+    autonomy figure only while the frame is not charging."""
+    percent = _battery_percent(ctx)
+    charging = percent is not None and _charging_likely(ctx)
+    autonomy = "" if percent is None or charging else home_battery_row.autonomy_text(
+        ctx.state_dir, ctx.now, interval_s, page_context.device_curve(ctx.device))
+    return home_battery_row.row_html(
+        percent, _row_battery_level(ctx, percent), charging, autonomy)
+
+
+def _switches_html(cfg, battery_html=""):
+    """The Frame group: the screen, quiet-hours and battery rows."""
     screen_on = cfg.get("display_enabled") is not False
     quiet_on = cfg.get("quiet_hours_enabled") is True
     # A link beside the switch's state, outside its <button>: the window
@@ -432,10 +488,22 @@ def _switches_html(cfg):
         + _switch_row_html(
             (QUICK_QUIET_HOURS_ACTION, "quiet", layout.QUICK_ACTION_QUIET_LABEL,
              "icon-moon"),
-            quiet_on, window))
+            quiet_on, window)
+        + battery_html)
     return ui_groups.group(
         rows, label=i18n.t(FRAME_GROUP_LABEL), label_id="home-frame-controls",
         extra_class="home-state__switches home-section")
+
+
+def _row_battery_level(ctx, percent):
+    """The Battery row's level from the latest reading and the page
+    context's hold flag alone; unlike the hero dial it never builds the
+    health state, so every user's Home stays off the health pipeline."""
+    if ctx.battery_critical is True:
+        return "critical"
+    if percent is not None and percent <= battery.LOW_BATTERY_DISPLAY_PERCENT:
+        return "low"
+    return "ok"
 
 
 def _battery_level(ctx, percent):
@@ -672,7 +740,7 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     summary = _frame_state_summary(ctx)
     status = frame_status.frame_status(_status_row(ctx, summary[1]))
     notice = _notice_html(ctx, status)
-    picture = _current_picture_html(ctx, current_flight_row)
+    picture = _current_picture_html(ctx, current_flight_row) + _cycle_ring_html(ctx, summary[1])
     return (
         header
         + '<div class="home-facts">'
@@ -681,7 +749,7 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
         + _frame_state_html(
             ctx, summary, status, picture,
             say_once=bool(notice) and status.key == frame_status.KEY_OVERDUE)
-        + _switches_html(ctx.device_config or {})
+        + _switches_html(ctx.device_config or {}, _battery_row_html(ctx, summary[2]))
         + _recent_flights_html(rows, now, ctx.state_dir)
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
     )

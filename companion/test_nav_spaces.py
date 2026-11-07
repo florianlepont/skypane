@@ -77,7 +77,7 @@ def test_admin_bars_follow_the_spec():
         "/", "/fleet", "/users", "/airlines/manage"]
     assert "Audit" in console and "Admin<" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'href="([^"]+)"', sheet) == ["/audit", "/account"]
+    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == ["/audit", "/account"]
     fleet_cell = cells[cells.index('href="/fleet"'):]
     assert "nav-notification" in fleet_cell[:fleet_cell.index("</a>")]
     summary = console[console.index("<summary"):console.index("</summary>")]
@@ -90,7 +90,7 @@ def test_admin_bars_follow_the_spec():
         prefix + "/display"]
     assert "nav-notification" not in mine
     sheet = mine.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'href="([^"]+)"', sheet) == [prefix + "/airlines", "/account"]
+    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == [prefix + "/airlines", "/account"]
     assert "Admin<" not in mine
 
 

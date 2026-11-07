@@ -196,10 +196,11 @@ def test_row_controls_follow_the_user_state(rig):
                            for a in ("role", "disable", "unlink")}
     row = _row_html(body, seed.owner_id)
     assert 'data-autosubmit' in row and "<noscript><button" in row
-    assert row.count('class="row-menu"') == 1 and ">Unlink identity<" in row
+    assert row.count('class="row-menu"') == 1 and ">Reset sign-in<" in row
     never = _row_forms(body, seed.admin2_id)
     assert not any(action.endswith("/unlink") for action in never)
-    assert "row-menu" not in _row_html(body, seed.admin2_id)
+    assert ">Reset sign-in<" not in _row_html(body, seed.admin2_id)
+    assert 'href="#dlg-delete-user-%d"' % seed.admin2_id in _row_html(body, seed.admin2_id)
     assert any(action.endswith("/disable") for action in never)
     disabled = _row_forms(body, seed.user_id)
     assert any(action.endswith("/enable") for action in disabled)
@@ -217,10 +218,12 @@ def test_every_action_form_has_csrf_and_the_right_path_and_no_script_confirm(rig
     assert len(forms) >= 9
     for action, inner in forms:
         assert 'name="csrf_token"' in inner, action
-        assert re.match(r"^/users(/invite|/\d+/(role|disable|enable|unlink))$", action)
+        assert re.match(r"^/users(/invite|/\d+/(role|disable|enable|unlink|delete))$", action)
     assert "/users/%d/role" % seed.owner_id in body
     table = body.split("<table")[1].split("</table>")[0]
-    assert table.count("<details") == 2 and "confirm(" not in body
+    assert table.count("<details") == table.count('<tr class="users-row')
+    assert "confirm(" not in body
+    assert "/users/%d/delete" % seed.owner_id in body
 
 
 def test_page_never_shows_identity_or_session_values(rig):
@@ -560,7 +563,7 @@ def test_unlinking_a_user_without_an_identity_is_an_error_flash_and_no_audit(rig
 def test_invalid_or_unknown_ids_touch_nothing(rig, middle):
     server, seed, cookie = rig
     before = _sql(server.state_dir, "SELECT id, role, disabled, iss, sub FROM users ORDER BY id")
-    for action in ("role", "disable", "enable", "unlink"):
+    for action in ("role", "disable", "enable", "unlink", "delete"):
         status, headers, _ = _act(server, cookie, middle, action, role="admin")
         assert status in (303, 404)
         if status == 303:
@@ -576,6 +579,7 @@ _ROUTES = (
     ("/users/%d/disable", {}),
     ("/users/%d/enable", {}),
     ("/users/%d/unlink", {}),
+    ("/users/%d/delete", {}),
 )
 
 

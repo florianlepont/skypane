@@ -187,7 +187,7 @@ def test_french_tab_bar_labels_and_landmark():
     for english, french in (
             ("Home", "Accueil"), ("History", "Vols"), ("Location", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
-            ("Airline collection", "Collection de compagnies"), ("Account", "Compte")):
+            ("Airlines", "Compagnies"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
             "expected the %r cell to read %r in French, got %r" % (english, french, bar))
         if english != french:
@@ -968,7 +968,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
 
     for path, heading in (
             ("/fleet", "Fleet"), ("/fleet?view=system", "System"),
-            ("/airlines", "Airline collection"),
+            ("/airlines", "Airlines"),
             ("/airlines/manage", "Airlines"),
             # /history added so the served-HTML twin of the render-level
             # History guard above runs against a real running service,

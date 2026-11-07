@@ -18,6 +18,8 @@ from server.plane import enrich, illustrations, name_overrides
 
 RENAME_ROUTE = "/airlines/rename"
 RENAME_RESET_ROUTE = "/airlines/rename/reset"
+ARTWORK_DELETE_ROUTE = "/airlines/artwork/delete"
+DEFAULT_TYPE_ROUTE = "/airlines/default-type"
 SHEET_QUERY_PARAM = "sheet"
 
 # The trigger vocabulary this sheet adds to panel-lookup.js's
@@ -47,6 +49,11 @@ FLASH_RENAME_STALE = "airline_rename_stale"
 FLASH_RENAME_FULL = "airline_rename_full"
 FLASH_RENAME_TAKEN = "airline_rename_taken"
 FLASH_RENAME_SAVE_FAILED = "airline_rename_save_failed"
+FLASH_ARTWORK_DELETED = "airline_artwork_deleted"
+FLASH_ARTWORK_STALE = "airline_artwork_stale"
+FLASH_ARTWORK_DELETE_FAILED = "airline_artwork_delete_failed"
+FLASH_DEFAULT_TYPE_SAVED = "airline_default_type_saved"
+FLASH_DEFAULT_TYPE_FAILED = "airline_default_type_failed"
 # The refusals a reopened sheet answers with focus on the name field: the
 # owner has to change what they typed.
 NAME_REFUSAL_FLASHES = (

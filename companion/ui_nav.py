@@ -541,15 +541,17 @@ def _tab_bar_cell_link(entry, label=None, extra_html=""):
 
 
 def _tab_bar_sheet_link(entry):
-    """One More-sheet row. Reuses .mobile-nav__link, so the rows share its
-    44px/16px tap-target geometry instead of duplicating the numbers.
+    """One More-sheet navigation row: the page's icon then its name. Reuses
+    .mobile-nav__link, so the rows share its 44px/16px tap-target geometry
+    instead of duplicating the numbers.
     """
     css_class = (
-        "mobile-nav__link mobile-nav__link--active"
-        if entry.is_active else "mobile-nav__link")
+        "mobile-nav__link tab-bar__nav-link mobile-nav__link--active"
+        if entry.is_active else "mobile-nav__link tab-bar__nav-link")
     aria_current = ' aria-current="page"' if entry.is_active else ""
-    return '<a class="%s" href="%s"%s>%s</a>' % (
+    return '<a class="%s" href="%s"%s>%s<span>%s</span></a>' % (
         css_class, escape_html(entry.href), aria_current,
+        icon_html(entry.icon, extra_class="tab-bar__nav-icon"),
         escape_html(i18n.t(entry.label)))
 
 
@@ -612,22 +614,28 @@ def _sheet_preference_html(label, form_html):
 
 
 def _more_panel_html(active, sheet, ui_theme):
-    """The More sheet: theme and language (one tap each, plain POST forms),
-    then the entries that do not fit the bar, the Account row and Sign out.
+    """The More sheet, top to bottom: the pages that do not fit the bar (a
+    continuation of the bar), a separator, then the settings block: theme and
+    language (one tap each, plain POST forms), the Account row and Sign out.
     The Account page already carries all of its own controls, so there the
     sheet holds the links alone and a second Sign out never appears."""
-    links = "".join(
-        _account_sheet_link(entry) if entry.slug == ACCOUNT_NAV_SLUG
-        else _tab_bar_sheet_link(entry) for entry in sheet)
+    pages = "".join(
+        _tab_bar_sheet_link(entry) for entry in sheet if entry.slug != ACCOUNT_NAV_SLUG)
+    account = "".join(
+        _account_sheet_link(entry) for entry in sheet if entry.slug == ACCOUNT_NAV_SLUG)
+    pages_html = '<div class="tab-bar__pages">%s</div>' % pages if pages else ""
+    separator = '<hr class="tab-bar__separator">' if pages else ""
     if active == ACCOUNT_NAV_SLUG:
-        return links
+        return pages_html + separator + account
     preferences = (
         _sheet_preference_html(_THEME_TEXT, _theme_form_html(ui_theme))
         + _sheet_preference_html(_LANGUAGE_TEXT, _lang_form_html(prefs.current_lang())))
     return (
-        preferences + '<div class="tab-bar__links">%s</div>' % links
-        + '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">'
-        '<button type="submit">%s</button></form>' % escape_html(i18n.t(_SIGN_OUT_TEXT)))
+        pages_html + separator + '<div class="tab-bar__settings">%s'
+        '<div class="tab-bar__links">%s</div>'
+        '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">'
+        '<button type="submit">%s</button></form></div>' % (
+            preferences, account, escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):

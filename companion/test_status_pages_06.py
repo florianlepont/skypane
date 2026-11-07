@@ -14,7 +14,7 @@ import pytest
 
 import companion.test_status_pages_helpers as shp
 from companion import illustration_normalize, layout
-from companion.pages import airlines_page, health_page
+from companion.pages import airlines_page
 from companion_app_server import served_stylesheet
 from companion_markup import css_rules, declarations_for, rules_with_selector
 from server.plane import illustrations, manual_resolutions
@@ -490,36 +490,25 @@ def _gap_group(row, index=0):
     return airline_table._gap_group_html(airlines_page, index, row, None)
 
 
-def test_gap_row_markup_shape_and_attribute_vocabulary():
-    """an unidentified prefix is a highlighted table row whose "Name it" control is a real <a
-    href="/airlines/manage?resolve={prefix}"> trigger with zero <img> tags, carrying every
-    data-view-panel-* attribute the dialog reads, non-empty where a value exists"""
+def test_gap_row_markup_shape_and_form_vocabulary():
+    """an unidentified prefix is a highlighted table row resolved in place: one form posting
+    the prefix to the resolve route with a name field, a default aircraft type select,
+    Validate and Ignore, zero <img> tags and no dialog trigger"""
     row = ("XYZ", 5, "t1", "t2", "XYZ123")
     group_html = _gap_group(row)
-    assert "<img" not in group_html
+    assert "<img" not in group_html and "data-view-panel" not in group_html
     assert group_html.startswith('<tbody class="airline-group airline-group--gap"')
     assert 'class="airlines-row airlines-row--gap"' in group_html
-    link = re.search(r'<a class="airlines-name-it"[^>]*>Name it</a>', group_html).group(0)
-    expected_href = 'href="%s?%s=XYZ"' % (
-        airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
-    assert expected_href in link
-    assert 'aria-label="Name the unidentified prefix XYZ"' in link
-    required_attr_values = {
-        airlines_page._VIEW_PANEL_SRC_ATTR: "",
-        airlines_page._VIEW_PANEL_CAPTION_ATTR: "XYZ123",
-        airlines_page._VIEW_PANEL_HEADING_ATTR: airlines_page.RESOLVE_HEADING,
-        airlines_page._VIEW_PANEL_MODE_ATTR: airlines_page._VIEW_PANEL_MODE_GAP,
-        airlines_page._VIEW_PANEL_MANUAL_ATTR: "",
-        airlines_page._VIEW_PANEL_SCOPE_ATTR: "",
-        airlines_page._VIEW_PANEL_RESOLVE_PREFIX_ATTR: "XYZ",
-        airlines_page._VIEW_PANEL_FIRST_SEEN_ATTR: "t1",
-        airlines_page._VIEW_PANEL_LAST_SEEN_ATTR: "t2",
-        airlines_page._VIEW_PANEL_COUNT_ATTR: "5",
-    }
-    for attr, expected_value in required_attr_values.items():
-        expected_fragment = '%s="%s"' % (attr, expected_value)
-        assert expected_fragment in link, "expected %r in the Name it link" % (expected_fragment,)
-    assert '<span class="airline-card__placeholder" aria-hidden="true"></span>' in group_html
+    form = re.search(r'<form class="airlines-resolve"[^>]*>', group_html).group(0)
+    assert 'method="post"' in form and 'action="/airlines/resolve"' in form
+    assert '<input type="hidden" name="prefix" value="XYZ">' in group_html
+    assert '<input type="hidden" name="inline" value="1">' in group_html
+    field = re.search(r'<input type="text" name="airline_name"[^>]*>', group_html).group(0)
+    assert 'list="airlines-known-names"' in field and "required" in field
+    assert 'aria-label="Airline name for the prefix XYZ"' in field
+    assert '<select name="default_type" aria-label="Default aircraft type for XYZ">' in group_html
+    assert '<button type="submit" class="airlines-resolve__ok">Validate</button>' in group_html
+    assert '<button type="reset" class="airlines-resolve__skip">Ignore</button>' in group_html
     assert '<span class="mono">XYZ123</span>' in group_html
 
 
@@ -604,7 +593,7 @@ def test_active_manual_states_render_expected_attributes_and_no_chip(tmp_path):
     expected_delete_action = airlines_page._manual_delete_action("OLD")
     assert ('data-view-panel-delete-action="%s"' % expected_delete_action) in card_art
     assert 'action="%s"' % expected_delete_action in card_art
-    assert "Reset to the original name" in card_art
+    assert "Delete my name" in card_art
     assert "airline-card__chip" not in card_art
 
     card_needs = _card_slice(rendered, "Totally Novel Airline")
@@ -976,15 +965,6 @@ def test_manual_section_seed_helper_end_to_end(tmp_path):
     superseded_by_prefix = {prefix: superseded for prefix, _, _, superseded, _ in rows}
     assert superseded_by_prefix.get("AFR") is True
     assert superseded_by_prefix.get("XQZ") is False
-
-
-def test_health_resolve_link_template_matches_airlines_route_constants():
-    """health_page.RESOLVE_LINK_HREF_TEMPLATE equals the template derived
-    from airlines_page.MANAGE_ROUTE and airlines_page.RESOLVE_QUERY_PARAM
-    - the cross-module equality check airlines_page.py's own comment
-    already claims exists"""
-    expected_template = "%s?%s=%%s" % (airlines_page.MANAGE_ROUTE, airlines_page.RESOLVE_QUERY_PARAM)
-    assert health_page.RESOLVE_LINK_HREF_TEMPLATE == expected_template
 
 
 def test_manual_delete_form_renders_in_both_dialog_and_no_js_fallback(tmp_path):

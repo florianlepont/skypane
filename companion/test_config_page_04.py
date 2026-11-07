@@ -51,9 +51,14 @@ _CALENDAR_GROUP_STATES = (
 
 
 def _calendar_connection_call(configured, drift, last_synced_at):
-    """_calendar_connection_html() returns the status row plus the Manage dialog as one string."""
+    """_calendar_connection_html() returns the empty state or the status row as one string."""
     return config_page._calendar_connection_html(
         configured, drift, last_synced_at, None, "2026-09-07T09:12:04+00:00", 0)
+
+
+def _connect_page_call(configured, drift, state_dir=None):
+    """The calendar connection page's own markup (picture, link form, disconnect dialog)."""
+    return config_page.connect_page_html(configured, drift, state_dir, None, "white", "Plain paper")[0]
 
 
 def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_path):
@@ -63,21 +68,19 @@ def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_
     with history_db.open_db(tmpdir) as conn:
         history_db.record_runway_event(
             conn, ts="2026-09-07T09:00:00+00:00", hex="3944F2", callsign="AFR1380")
-    rendered = config_page.render({
+    rules_segment = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "state_dir": tmpdir,
-    }, scope=config_page.SCOPE_DISPLAY)
-    rules_segment = cp.rules_row_segment(rendered)
+    }, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     assert 'class="rule-suggestion-chip" data-kind="callsign" data-value="AFR1380"' in rules_segment, (
         "expected a suggestion chip for the seeded callsign")
 
-    empty_rendered = config_page.render({
+    empty_segment = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
         "state_dir": None,
-    }, scope=config_page.SCOPE_DISPLAY)
-    empty_segment = cp.rules_row_segment(empty_rendered)
+    }, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     assert "rule-suggestion-chip" not in empty_segment, (
         "expected no suggestion chips when there are no recent events")
 
@@ -119,18 +122,19 @@ def test_rules_section_carries_no_dirty_section_attr():
 
 
 def test_rules_french_render_shows_french_row_label_and_button():
-    """a French Display render of the special looks shows 'Looks spéciaux', the 'Nouvelle
-    allure spéciale' action and the 'Ajouter l’allure' submit button"""
+    """a French render of the special looks shows 'Looks spéciaux', the 'Nouvelle allure
+    spéciale' action and the new look page's 'Créer l’allure' submit button"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }
     try:
         prefs.set_request_prefs(lang="fr")
-        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+        rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
+            ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     finally:
         prefs.set_request_prefs(lang="en")
-    for text in ("Looks spéciaux", "Nouvelle allure spéciale", "Ajouter l’allure"):
+    for text in ("Looks spéciaux", "Nouvelle allure spéciale", "Créer l’allure"):
         assert escape_html(text) in rendered, "expected the French %r" % (text,)
 
 
@@ -177,9 +181,13 @@ def test_calendar_secret_never_reaches_render_function(tmp_path):
     ctx = dict(
         cp.CALENDAR_BASE_CTX, calendar_configured=configured,
         calendar_last_synced_at=None, state_dir=tmpdir)
-    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+    rendered = config_page.render(
+        ctx, scope=config_page.SCOPE_DISPLAY, view="calendar-connect")
     assert escape_html("%s…" % host) in rendered, (
         "expected the masked host + ellipsis fragment to appear once connected")
+    for view in (None, "calendar"):
+        for needle in (token, path, query_param, url):
+            assert needle not in config_page.render(ctx, scope=config_page.SCOPE_DISPLAY, view=view)
     for needle in (token, path, query_param, url):
         assert needle not in rendered, "expected %r never to appear in the rendered page" % (needle,)
 
@@ -369,10 +377,10 @@ def test_handle_post_calendar_theme_id_absent_leaves_unchanged(tmp_path):
 
 
 def test_calendar_connect_field_never_carries_value_in_either_state():
-    """the write-only calendar_url field renders in the merged _calendar_connection_html()'s own
-    markup for both the connected and not-connected states and never carries a value attribute"""
+    """the write-only calendar_url field renders in the connection page's own markup for both the
+    connected and not-connected states and never carries a value attribute"""
     for configured in (False, True):
-        rendered = _calendar_connection_call(configured, False, None)
+        rendered = _connect_page_call(configured, False)
         assert 'name="calendar_url"' in rendered, (
             "expected the calendar_url field when configured=%r" % (configured,))
         after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
@@ -394,16 +402,22 @@ def test_calendar_containment_at_the_renderer_five_needles(tmp_path):
     configured = calendar_rules.calendar_is_configured(tmpdir)
     drift = calendar_rules.calendar_secret_mode_is_unsafe(tmpdir)
     group_html = _calendar_connection_call(configured, drift, None)
+    page_html = _connect_page_call(configured, drift, tmpdir)
+    assert escape_html("%s…" % host) in page_html, "expected only the masked host on the page"
     for needle in (token, host, path, query_param, url):
         assert needle not in group_html, (
             "expected %r never to appear in the merged _calendar_connection_html()'s own markup" % (needle,))
+    for needle in (token, path, query_param, url):
+        assert needle not in page_html, (
+            "expected %r never to appear in the connection page's own markup" % (needle,))
 
 
 def test_calendar_disconnect_checkbox_never_appears_in_calendar_connection():
     """_calendar_connection_html() renders no calendar_disconnect checkbox in any of its four
     states (disconnecting is its own standalone form, not an in-form checkbox)"""
     for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-        rendered = _calendar_connection_call(configured, drift, last_synced_at)
+        rendered = _calendar_connection_call(configured, drift, last_synced_at) + _connect_page_call(
+            configured, drift)
         assert 'name="calendar_disconnect"' not in rendered, (
             "state %r: expected _calendar_connection_html() to render no calendar_disconnect "
             "checkbox at all (D-08 retires it)" % ((configured, drift),))
@@ -425,7 +439,8 @@ def test_calendar_connection_never_nests_a_form_inside_another_in_either_state()
     disconnect-form sibling) never nests one <form> inside another, in any of its four
     distinguishable states"""
     for configured, drift, last_synced_at in _CALENDAR_GROUP_STATES:
-        rendered = _calendar_connection_call(configured, drift, last_synced_at)
+        rendered = _calendar_connection_call(configured, drift, last_synced_at) + _connect_page_call(
+            configured, drift)
         depth = 0
         pos = 0
         while True:
@@ -486,31 +501,27 @@ def test_calendar_disconnect_confirm_page_posts_back_with_confirm_preset():
 
 
 def test_calendar_disconnect_form_is_not_inside_settings_form_on_display_scope():
-    """on the Display scope, the calendar disconnect form's opening tag appears after the
-    settings form's own closing tag - it is a sibling, never a descendant"""
+    """the calendar disconnect form is on the connection page, which has no settings form at all
+    (so it can never be a descendant of one), and the calendar list view carries no disconnect form"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    settings_form_close = rendered.find("</form>")
-    disconnect_form_open = rendered.find(
-        '<form id="%s" method="post" action="%s"'
-        % (config_page.CALENDAR_DISCONNECT_FORM_ID, config_page.CALENDAR_DISCONNECT_ROUTE))
-    assert settings_form_close != -1, "expected the settings form to be present"
-    assert disconnect_form_open != -1, "expected the disconnect form to be present on the Display scope"
-    assert disconnect_form_open >= settings_form_close, (
-        "expected the disconnect form's opening tag to appear AFTER the settings form's closing tag")
+    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY, view="calendar-connect")
+    assert 'id="%s"' % config_page.SETTINGS_FORM_ID not in rendered
+    assert 'action="%s"' % config_page.CALENDAR_DISCONNECT_ROUTE in rendered, (
+        "expected the disconnect form to be present on the connection page")
+    listed = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY, view="calendar")
+    assert config_page.CALENDAR_DISCONNECT_ROUTE not in listed
 
 
-def test_calendar_connect_form_renders_inside_the_calendar_row_and_display_has_no_quiet_hours_card():
-    """on the Display scope, the calendar connect/replace form's own <form> opening tag renders
-    inside the Calendar row, and no Quiet hours card follows it"""
+def test_calendar_connect_form_renders_on_its_own_page_and_display_has_no_quiet_hours_card():
+    """the calendar connect/replace form renders on the connection page (not in the Calendar row
+    of the list view), and no Quiet hours card shows on either"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
-    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    calendar_row_index = rendered.index('data-look-usage="%s"' % config_page.COLOUR_USAGE_CALENDAR)
-    connect_form_index = rendered.index(
-        '<form class="calendar-sheet__form" method="post" action="%s"' % config_page.CALENDAR_CONNECT_ROUTE)
-    assert 'id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID not in rendered
-    assert calendar_row_index < connect_form_index, (
-        "expected Calendar row < connect form, got %d, %d" % (calendar_row_index, connect_form_index))
+    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY, view="calendar-connect")
+    listed = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY, view="calendar")
+    assert ('action="%s"' % config_page.CALENDAR_CONNECT_ROUTE) in rendered
+    assert ('action="%s"' % config_page.CALENDAR_CONNECT_ROUTE) not in listed
+    assert 'id="%s"' % config_page.QUIET_HOURS_GROUP_HEADING_ID not in rendered + listed
+    assert 'href="/display/calendar/connect"' in listed, "expected the row's button to open the page"
 
 
 def test_calendar_disconnect_form_absent_when_not_configured_or_on_device_scope():

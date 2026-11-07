@@ -50,7 +50,7 @@ def _row_html(rendered, row_id):
     ends = [index for index in (
         rendered.find('<details class="health-row"', start),
         rendered.find('<h2 id="%s"' % health_page.SERVER_DATA_SECTION_ID, start),
-        rendered.find('</div><section id="%s"' % health_page.UNRESOLVED_SECTION_ID, start),
+        len(rendered),
     ) if index != -1]
     return rendered[start:min(ends)]
 
@@ -487,10 +487,10 @@ def test_health_page_group_headings_hold_no_description(tmp_path):
     assert 'class="text-label section-caption"></p>' not in rendered
 
 
-def test_server_rows_sit_above_the_registry_card_which_is_unchanged(tmp_path):
-    """the Server & data rows (flight data, sources, identification) form one card above the
-    unresolved-prefix registry, which keeps its own nested page-section; there is no tile grid,
-    no stat tile and no separate statistics card"""
+def test_server_rows_form_one_card_with_no_registry_card_below(tmp_path):
+    """the Server & data rows (flight data, sources, identification) form one card; no
+    unresolved-prefix card and no nested page-section follows it; there is no tile grid, no stat
+    tile and no separate statistics card, and the breakdown lives inside the Identification row"""
     state_dir = str(tmp_path)
     now = shp.now()
     shp.seed_device_health(state_dir, [(shp.iso(now), 4200)])
@@ -504,28 +504,17 @@ def test_server_rows_sit_above_the_registry_card_which_is_unchanged(tmp_path):
     doc = parse_html(rendered)
     assert not doc.select(".dashboard-grid") and not doc.select(".stat-tile"), (
         "the tile grids the rows replaced must not come back")
-    rows_close = rendered.index("health-row-identification")
-    registry_open = rendered.index('<section id="%s"' % health_page.UNRESOLVED_SECTION_ID)
-    assert rows_close < registry_open, "expected the registry card below every row"
     for row_id in ("flight-data", "sources", "identification"):
-        assert rendered.index("health-row-%s" % row_id) < registry_open, (
-            "expected the %s row above the registry card" % row_id)
-    registry = doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID)
-    assert registry.attrs["class"] == "page-section page-section--nested", (
-        "expected the registry card to carry no status modifier, got %r" % (registry.attrs["class"],))
-    assert health_page.UNRESOLVED_SECTION_HEADING in registry.select_one("h2").text()
-    assert len(doc.select("section.page-section--nested")) == 1, (
-        "expected the registry to be the only nested page-section (the statistics card is now a row)")
-    # The registry card is not inside the rows card.
-    assert not doc.select_one(".health-rows").select("#" + health_page.UNRESOLVED_SECTION_ID)
-    # The statistics breakdown lives inside the Identification row.
+        assert doc.select_one(".health-rows").select("#health-row-%s" % row_id), row_id
+    assert not doc.select("section.page-section--nested")
+    assert "ABC123" not in rendered and "data-filter-input" not in rendered
     identification = doc.select_one("#health-row-identification")
     breakdown = identification.select(".data-table") + identification.select(".data-cards")
     assert breakdown, "expected the resolution breakdown inside the Identification row"
-    assert not doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID).select(".data-table--prose")
-    # The source-fault block never carries the nested modifier.
     assert not doc.select(".%s.page-section--nested" % health_page.HEALTH_SOURCE_FAULT_CLASS), (
         "the source-fault block must never carry the nested modifier")
+    link = identification.select_one("a.text-link")
+    assert link is not None and link.attrs["href"] == "/airlines/manage"
 
 
 def test_identification_row_renders_percentage_and_window(tmp_path):
@@ -551,105 +540,6 @@ def test_identification_row_renders_percentage_and_window(tmp_path):
     expected_heading = health_page._NO_STATS_HEADING % health_page.RESOLUTION_WINDOW_DAYS
     assert expected_heading in shp.health_row(rendered_empty, "identification").text(), (
         "expected the no-stats heading with zero resolution history")
-
-
-def test_registry_card_keeps_filter_bar_note_and_button_clear(tmp_path):
-    """the migrated Unresolved-prefixes card keeps its filter bar, read-only note, and Clear
-    controls (real type=button buttons, never a submit)"""
-    state_dir = str(tmp_path)
-    registry = {
-        "ABC": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
-    }
-    shp.seed_unresolved_prefixes(state_dir, registry)
-    rendered = health_page_composition.render(shp.ctx(state_dir))
-    for marker in ("data-filter-input", "data-filter-count", "data-filter-clear", "data-filter-empty"):
-        assert marker in rendered, (
-            "expected the migrated filter bar's %r marker to survive the move" % marker)
-    # The note was reworded to include an apostrophe ("row's") and drop
-    # its second apostrophe ("prefix's") along with the word "prefix"
-    # itself, which escape_html()'s quote=True mode renders as &#x27; —
-    # compare against the escaped form, not the raw Python literal.
-    assert layout.escape_html(health_page._READ_ONLY_NOTE) in rendered, (
-        "expected the read-only note to survive the move verbatim (escaped)")
-    section_start = rendered.index(
-        '<h2 class="text-heading">%s</h2>' % health_page.UNRESOLVED_SECTION_HEADING)
-    section_slice = rendered[section_start:section_start + 4000]
-    buttons = re.findall(r"<button[^>]*>", section_slice)
-    assert buttons and all(
-        'type="button"' in b and "data-filter-clear" in b for b in buttons), (
-        "the read-only registry card's only buttons are the filter bar's two Clear controls "
-        "(type=button, never a submit): %r" % (buttons,))
-
-
-def test_registry_seen_cells_age_is_a_live_time_element(tmp_path):
-    """the unresolved-prefix registry's First seen / Last seen cells render their relative age
-    as a live <time data-relative> element (layout.relative_time_html()'s own markup), reading
-    exactly what relative_age_text() reads today, with the cell-primary/cell-inline-sep/
-    cell-secondary shape unchanged and no double-escaping"""
-    state_dir = str(tmp_path)
-    now = shp.now()
-    seen_ts = shp.iso(now - timedelta(seconds=600))
-    registry = {
-        "ABC": {"count": 1, "first_seen": seen_ts, "last_seen": seen_ts,
-                "example_callsign": "ABC123"},
-    }
-    shp.seed_unresolved_prefixes(state_dir, registry)
-    rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
-    doc = parse_html(rendered)
-    row = doc.select_one('.data-table--registry tr[data-filter-group="0"]')
-    assert row is not None, "expected to locate the seeded registry row"
-    cells = row.select("td")
-    expected_age = layout.relative_age_text(600)
-    for label, cell in (("First seen", cells[2]), ("Last seen", cells[3])):
-        element = cell.select_one("time[data-relative]")
-        assert element is not None, "expected %s to carry a <time data-relative> element" % label
-        assert element.text() == expected_age, (
-            "%s: expected the age text to read exactly relative_age_text()'s own output, got %r"
-            % (label, element.text()))
-        assert element.attrs.get("datetime"), "%s: expected a non-empty datetime attribute" % label
-        assert layout.age_seconds(element.attrs["datetime"], shp.iso(now)) == 600, (
-            "%s: expected the element's own instant to carry the registry row's moment" % label)
-        assert cell.find("span", cls="cell-primary") is not None
-        assert cell.find("span", cls="cell-secondary") is not None
-    assert "&lt;time" not in rendered, "found a double-escaped '&lt;time' on Health"
-
-
-def test_read_only_note_reworded_to_point_at_airlines_not_the_runbook(tmp_path):
-    """the read-only note is reworded to name Airlines as the resolution surface, no longer points at
-    the manual runbook, no longer says 'prefix' in either half, and is now split into a short
-    visible sentence plus its moved instruction inside a readings-disclosure"""
-    # The note now points at the Airlines page's per-row Resolve link
-    # instead of the old manual runbook, and is split: `_READ_ONLY_NOTE`
-    # (visible) carries "This list is read-only here."; the Airlines
-    # instruction lives in `_READ_ONLY_NOTE_DETAIL`, inside a
-    # <details class="readings-disclosure">.
-    old_note_closing_phrase = "following the existing coverage-gap runbook."
-    expected_visible = "This list is read-only here."
-    expected_detail = (
-        "Each row's Resolve link opens the Airlines page to name "
-        "that airline (and add artwork, if it needs one).")
-    assert health_page._READ_ONLY_NOTE == expected_visible, (
-        "expected _READ_ONLY_NOTE to equal the CFG-79 shortened string, got %r"
-        % (health_page._READ_ONLY_NOTE,))
-    assert health_page._READ_ONLY_NOTE_DETAIL == expected_detail, (
-        "expected _READ_ONLY_NOTE_DETAIL to equal the moved D-06 plain-language instruction, got %r"
-        % (health_page._READ_ONLY_NOTE_DETAIL,))
-    assert "prefix" not in health_page._READ_ONLY_NOTE.lower(), (
-        "expected _READ_ONLY_NOTE to contain no occurrence of 'prefix'")
-    assert "prefix" not in health_page._READ_ONLY_NOTE_DETAIL.lower(), (
-        "expected _READ_ONLY_NOTE_DETAIL to contain no occurrence of 'prefix'")
-
-    rendered = health_page_composition.render(shp.ctx(str(tmp_path)))
-    # Both contain an apostrophe ("row's"), which escape_html()'s
-    # quote=True mode renders as &#x27; — compare against the escaped
-    # form, the module's own single escaping choke-point discipline.
-    visible_marker = '<p class="text-body section-caption">%s</p>' % layout.escape_html(expected_visible)
-    assert visible_marker in rendered, (
-        "expected the rendered page to contain the visible note verbatim (escaped)")
-    assert layout.escape_html(expected_detail) not in rendered, (
-        "expected the repeated Resolve-opens-Airlines instruction to be gone from the page")
-    assert old_note_closing_phrase not in rendered, (
-        "expected the old runbook-pointing phrase to be fully gone from the render")
 
 
 def test_source_rows_gains_fifth_manual_entry(tmp_path):
@@ -799,53 +689,6 @@ def test_no_stats_heading_derives_from_window_constant_not_hard_coded():
         "expected the formatted heading to actually name the configured window")
 
 
-def test_registry_resolve_link_pairs_desktop_and_mobile_and_escapes_hostile_input(tmp_path):
-    """the registry's per-row Resolve link is paired identically (href/aria-label) across the desktop
-    table and mobile card, with distinct visible text per representation, and a hostile prefix renders
-    fully escaped in both (phase 13)"""
-    # phase 13 (): each registry row's Resolve link is emitted twice —
-    # once in the desktop <tr>'s sixth <td>, once in the mobile card's
-    # .data-card__action block — sharing the identical href/aria-label,
-    # differing only in visible link text.
-    state_dir = str(tmp_path / "normal")
-    os.makedirs(state_dir)
-    shp.seed_unresolved_prefixes(state_dir, {
-        "XYZ": {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "XYZ123"},
-    })
-    rendered = health_page_composition.render(shp.ctx(state_dir))
-    expected_href = 'href="%s"' % (health_page.RESOLVE_LINK_HREF_TEMPLATE % "XYZ")
-    expected_aria = 'aria-label="%s"' % (health_page.RESOLVE_LINK_ARIA_TEMPLATE % "XYZ")
-    assert rendered.count(expected_href) == 2, (
-        "expected %r exactly twice (table + card), got %d" % (expected_href, rendered.count(expected_href)))
-    assert rendered.count(expected_aria) == 2, (
-        "expected %r exactly twice (table + card), got %d" % (expected_aria, rendered.count(expected_aria)))
-    assert rendered.count(">%s</a>" % health_page.RESOLVE_LINK_TEXT) == 1, (
-        "expected the desktop anchor's link text 'Resolve' exactly once")
-    assert rendered.count(">%s</a>" % health_page.RESOLVE_CARD_LINK_TEXT) == 1, (
-        "expected the mobile anchor's link text 'Resolve this prefix' exactly once")
-
-    # Hostile prefix — must render fully escaped in both representations,
-    # no raw angle bracket or quote reaching output.
-    state_dir_hostile = str(tmp_path / "hostile")
-    os.makedirs(state_dir_hostile)
-    hostile_prefix = '<x>"'
-    shp.seed_unresolved_prefixes(state_dir_hostile, {
-        hostile_prefix: {"count": 1, "first_seen": "t1", "last_seen": "t2", "example_callsign": "X"},
-    })
-    rendered_hostile = health_page_composition.render(shp.ctx(state_dir_hostile))
-    escaped_prefix = layout.escape_html(hostile_prefix)
-    expected_href_h = 'href="%s"' % (health_page.RESOLVE_LINK_HREF_TEMPLATE % escaped_prefix)
-    expected_aria_h = 'aria-label="%s"' % (health_page.RESOLVE_LINK_ARIA_TEMPLATE % escaped_prefix)
-    assert rendered_hostile.count(expected_href_h) == 2, (
-        "expected the escaped href exactly twice, got %d" % rendered_hostile.count(expected_href_h))
-    assert rendered_hostile.count(expected_aria_h) == 2, (
-        "expected the escaped aria-label exactly twice, got %d" % rendered_hostile.count(expected_aria_h))
-    assert hostile_prefix not in rendered_hostile, (
-        "expected no raw hostile prefix anywhere in the rendered page")
-    assert "<x>" not in rendered_hostile, (
-        "expected the hostile prefix's angle bracket to never reach the output raw")
-
-
 # ==========================================================================
 # Health still gains no form/state-changing control (phase 13)
 # ==========================================================================
@@ -905,8 +748,7 @@ def test_health_still_has_no_form_and_no_button_in_any_state(tmp_path, state_nam
 
 
 def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_text):
-    """the Unresolved-prefixes read-only note composes section-caption with its sizing class, the
-    Battery row carries no range caption, and style.css's .section-caption still declares
+    """the Battery row carries no range caption, and style.css's .section-caption still declares
     exactly one property at the file's single 70% muted strength"""
     # Pins the markup pair AND the single muted strength together, so a
     # future edit cannot satisfy one half while forking the other. The
@@ -917,16 +759,6 @@ def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_t
     assert "3 months" not in _row_html(rendered, "battery"), (
         "expected no range caption in the Battery row")
 
-    # phase 13 (): the reworded note contains apostrophes, which
-    # escape_html() renders as &#x27; — locate the escaped form, not the
-    # raw Python literal.
-    note_at = rendered.index(layout.escape_html(health_page._READ_ONLY_NOTE))
-    note_open = rendered.rindex("<p", 0, note_at)
-    note_tag = rendered[note_open:rendered.index(">", note_open) + 1]
-    assert 'class="text-body section-caption"' in note_tag, (
-        "expected the read-only note's own <p> to compose text-body with section-caption, got %r"
-        % note_tag)
-
     decls = declarations_for(css_text, ".section-caption")
     assert len(decls) == 1 and decls.get("color") == (
         "color-mix(in srgb, var(--color-text) 70%, transparent)"), (
@@ -935,8 +767,8 @@ def test_quick_260902_gjj_muted_captions_compose_section_caption(tmp_path, css_t
 
 
 def test_migrated_cards_have_independent_failure_isolation(tmp_path):
-    """corrupting only the database leaves the registry card rendering while the stats card degrades, and
-    vice versa"""
+    """corrupting only the database degrades the stats row, and a malformed registry file
+    leaves the identification stats rendering"""
     # The registry read (state_store.load_poll_state(), a filesystem/JSON
     # failure mode) and the stats read (_safe_query(), a SQLite failure
     # mode) must degrade independently — corrupting one source must never
@@ -948,12 +780,7 @@ def test_migrated_cards_have_independent_failure_isolation(tmp_path):
     assert dbs, "expected a database file to have been created"
     with open(os.path.join(db_broken, dbs[0]), "wb") as fh:
         fh.write(b"not a sqlite file at all")
-    shp.seed_unresolved_prefixes(db_broken, {
-        "ABC": {"count": 2, "first_seen": "t1", "last_seen": "t2", "example_callsign": "ABC123"},
-    })
     rendered = health_page_composition.render(shp.ctx(db_broken))
-    assert "ABC" in rendered, (
-        "expected the registry rows to still render when only the database is broken")
     assert health_page.HEALTH_UNAVAILABLE_TEXT in rendered, (
         "expected the stats card to show the unavailable copy when the database is broken")
 
@@ -966,8 +793,6 @@ def test_migrated_cards_have_independent_failure_isolation(tmp_path):
     rendered2 = health_page_composition.render(shp.ctx(registry_broken, now_value=shp.iso(now)))
     assert "100.0% of flights identified" in rendered2, (
         "expected the identification stats to still render when only the registry file is malformed")
-    assert health_page._NO_GAPS_HEADING in rendered2, (
-        "expected the registry to degrade to its empty/no-gaps state, not crash the page")
 
 
 def test_read_health_inputs_keeps_stats_separate(tmp_path):
@@ -1136,10 +961,6 @@ def test_quick_260902_gjj_card_status_borders_render_correct_modifiers(tmp_path,
         (shp.iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
     ]
     shp.seed_device_health(state_dir, readings)
-    shp.seed_unresolved_prefixes(state_dir, {
-        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
     # The Resolution-statistics card is omitted entirely when its window
     # holds zero rows — seed one so the card (and its "no status
     # modifier" assertion below) still renders.
@@ -1153,13 +974,6 @@ def test_quick_260902_gjj_card_status_borders_render_correct_modifiers(tmp_path,
     assert battery_state == "warn", "expected the seeded battery fixture to compute a warn verdict (D-05 demotion)"
     assert shp.health_row_state(rendered, "battery") == (battery_state, True), (
         "expected the Battery row to carry the verdict battery_status() computes, and to open itself")
-
-    coverage_state = health_page.coverage_status([("ABC", 1, "", "", "")])
-    assert coverage_state == "warn", "expected the seeded registry fixture to still compute a warn coverage verdict"
-    registry = parse_html(rendered).select_one("#" + health_page.UNRESOLVED_SECTION_ID)
-    assert registry.attrs["class"] == "page-section page-section--nested", (
-        "expected the Unresolved-prefixes section to carry no status modifier: unidentified airlines "
-        "are informational, got %r" % registry.attrs["class"])
 
     # The identification rate computes no verdict, so its row stays neutral.
     assert shp.health_row_state(rendered, "identification") == ("off", False)
@@ -1214,10 +1028,9 @@ def test_card_status_modifiers_survive_hover_source_order(css_text):
 
 
 def test_quick_260902_gjj_dot_removal_scoped_not_global(tmp_path):
-    """the Battery row and the Unresolved-prefixes card render no dot-label anywhere inside their own
-    boundaries, the Sources row's three dots survive untouched (proving the removal is scoped,
-    not global), and BATTERY_STATUS_LABEL/_battery_badge_block are both gone via hasattr, never a
-    source grep"""
+    """the Battery row renders no dot-label anywhere inside its own boundaries, the Sources
+    row's three dots survive untouched (proving the removal is scoped, not global), and
+    BATTERY_STATUS_LABEL/_battery_badge_block are both gone via hasattr, never a source grep"""
     # Proves the two dot removals are SCOPED to the battery-trend and
     # Unresolved-prefixes cards, not a global regression that also strips
     # the three surviving Corroboration dots. Without the third
@@ -1230,20 +1043,12 @@ def test_quick_260902_gjj_dot_removal_scoped_not_global(tmp_path):
         (shp.iso(now), 4200 - health_page.BATTERY_DROP_WARN_MV),
     ]
     shp.seed_device_health(state_dir, readings)
-    shp.seed_unresolved_prefixes(state_dir, {
-        "ABC": {"count": 1, "first_seen": shp.iso(now), "last_seen": shp.iso(now),
-                "example_callsign": "ABC123"},
-    })
     shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "corroborated": True}])
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
 
     battery_slice = _row_html(rendered, "battery")
     assert "dot-label" not in battery_slice, (
         "the battery row must render no dot-label — its own badge is retired")
-
-    registry = parse_html(rendered).select_one("#" + health_page.UNRESOLVED_SECTION_ID)
-    assert not registry.select(".dot-label"), (
-        "the Unresolved-prefixes card must render no dot-label — its own dot is retired")
 
     # The Sources row's outcome dots survive untouched, so this check
     # fails if status_dot() itself breaks, not only if the two removals
@@ -1339,8 +1144,8 @@ def test_data_table_th_has_symmetric_nonzero_padding(css_text):
 
 
 def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, css_text):
-    """exactly the registry card carries page-section--nested (located by its own heading constant),
-    the source-fault block never carries it even when it renders, both group band headings are
+    """no block of the page carries page-section--nested, the source-fault block never does even
+    when it renders, both group band headings are
     untouched, and style.css's nested-heading rule declares the sans family, the Body size (16px)
     and the semibold weight explicitly (plus its retained bottom margin), sitting below a
     .text-heading section-heading tier confirmed still 22px/regular at the token level too"""
@@ -1353,16 +1158,8 @@ def test_nested_heading_tier_promoted_to_sans_semibold_emphasis_role(tmp_path, c
     shp.seed_runway_events(state_dir, [{"ts": shp.iso(now), "hex": "abc123", "route_source": "fresh_hit"}])
     rendered = health_page_composition.render(shp.ctx(state_dir, now_value=shp.iso(now)))
 
-    assert rendered.count("page-section--nested") == 1, (
-        "expected exactly one page-section--nested occurrence (the registry card), got %d"
-        % rendered.count("page-section--nested"))
-
-    heading_at = rendered.index(">%s</h2>" % health_page.UNRESOLVED_SECTION_HEADING)
-    section_open = rendered.rindex('<section ', 0, heading_at)
-    section_tag = rendered[section_open:rendered.index(">", section_open) + 1]
-    assert "page-section--nested" in section_tag, (
-        "expected the <section> carrying the registry heading to declare page-section--nested, got %r"
-        % (section_tag,))
+    assert "page-section--nested" not in rendered, (
+        "expected no page-section--nested block: the unresolved-prefix card is gone")
 
     fault = parse_html(rendered).select(
         "section.toast." + health_page.HEALTH_SOURCE_FAULT_CLASS)
@@ -1517,10 +1314,8 @@ def test_two_tier_hierarchy_carried_by_layout_not_type(tmp_path, css_text):
                 "seeded=%s: expected the %r group band to sit inside the one rows card" % (seeded, section_id))
         assert not doc.select(".section-intro")
 
-        registry = doc.select_one("#" + health_page.UNRESOLVED_SECTION_ID)
-        assert "page-section--nested" in registry.attrs["class"].split(), (
-            "seeded=%s: expected the registry heading's enclosing <section> to carry a card class" % seeded)
-        assert registry.select("h2"), "seeded=%s: expected the registry card to carry its own heading" % seeded
+        assert not doc.select("section.page-section--nested"), (
+            "seeded=%s: the unresolved-prefix card no longer exists" % seeded)
 
     tokens = custom_properties(css_text, ":root")
     rows_token, rows_gap = _margin_bottom_token_px(css_text, ".health-rows", tokens)

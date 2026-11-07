@@ -1,11 +1,9 @@
 """Real-browser checks of the Airline editor (/airlines/manage, administrator only): it opens in the
 Console chrome with no frame strip (one global list) at 360 and 1280 px, in English and French, in both themes, with
 no sideways scroll and every control at least 44 px and owning its centre. It is reached from the
-Console (the Airlines bar cell on a phone, the sidebar link on desktop). Deleting a manual
-resolution confirms in a dialog whose safe dismiss "Keep resolution" takes the focus, Tab stays
-inside, Escape closes it and returns the focus to the Delete link, and Delete resolution removes the
-row; with scripts blocked the hash link shows the dialog and the POST works. Renaming an airline
-works end to end.
+Console (the Airlines bar cell on a phone, the sidebar link on desktop). An airline named by hand
+keeps its row with a pill and no separate list exists; "Delete my name" in its row menu removes the
+name, with and without scripts. Renaming an airline works end to end.
 
 State is always waited for (settled page, owned centres, focus), never read right after an input."""
 import pytest
@@ -21,9 +19,8 @@ from server.plane import manual_resolutions
 pytestmark = pytest.mark.browser
 
 VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
-DELETE_LINK = ".manual-resolution-row a.special-row__remove"
-ROW = ".manual-resolution-row"
-DIALOG = "dialog.modal[open]"
+ROW = "tbody.airline-group:has(.airlines-pill)"
+DELETE_LINK = ROW + " .airlines-row .row-menu__toggle"
 FRANCE_NAME = '.airlines-name input[name="airline_name"][value="Air France"]'
 
 _SETTLED = (
@@ -35,10 +32,6 @@ _OWNS_CENTRE = (
     " const r = el.getBoundingClientRect();"
     " const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);"
     " return !!hit && (hit === el || el.contains(hit) || hit.contains(el)); }")
-_FOCUS_IN_DIALOG_OR_NOWHERE = (
-    "() => { const a = document.activeElement; return !a || a === document.body"
-    " || !!a.closest('dialog.modal[open]'); }")
-_FOCUS_ON_DISMISS = "() => document.activeElement.matches('dialog.modal[open] a.modal__dismiss')"
 
 
 def _seed(state_dir):
@@ -126,74 +119,44 @@ def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
         context.close()
 
 
-@pytest.mark.parametrize("name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_delete_dialog_names_its_safe_dismiss_and_keeps_focus_inside(
-        new_context, make_app_server, name, viewport):
-    server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open(new_context, server, viewport)
-    try:
-        trigger = page.locator(DELETE_LINK).first
-        _settle(page, DELETE_LINK)
-        trigger.click()
-        page.wait_for_selector(DIALOG)
-        page.wait_for_function(_FOCUS_ON_DISMISS, timeout=10000)
-        dialog = page.locator(DIALOG)
-        assert dialog.locator(".modal__title").inner_text() == "Delete this resolution?"
-        assert dialog.locator("a.modal__dismiss").inner_text() == "Keep resolution"
-        page.evaluate(
-            """() => { window.__inside = [];
-              document.addEventListener('focusin', (e) => window.__inside.push(
-                !!e.target.closest('dialog.modal[open]'))); }""")
-        for key in ["Tab"] * 8 + ["Shift+Tab"] * 3:
-            page.keyboard.press(key)
-            page.wait_for_function(_FOCUS_IN_DIALOG_OR_NOWHERE, timeout=5000)
-        page.wait_for_function(
-            "() => window.__inside.length >= 4 && window.__inside.every(Boolean)", timeout=5000)
-        page.keyboard.press("Escape")
-        page.wait_for_selector(DIALOG, state="detached")
-        page.wait_for_function(
-            "() => document.activeElement === document.querySelector('%s')" % DELETE_LINK,
-            timeout=10000)
-        assert page.locator(ROW).count() == 2
-    finally:
-        context.close()
-
-
-def test_confirming_the_delete_removes_the_resolution_and_keeping_it_does_not(
+def test_a_hand_named_airline_stays_in_the_table_and_its_menu_deletes_the_name(
         new_context, make_app_server):
+    """no separate manual-resolutions table: the two owner-named airlines keep a row with the
+    "Named by hand" pill, and "Delete my name" in the row menu removes the name"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
-        page.locator(DELETE_LINK).first.click()
-        page.wait_for_function(_FOCUS_ON_DISMISS, timeout=10000)
-        page.locator(DIALOG + " a.modal__dismiss").click()
-        page.wait_for_selector(DIALOG, state="detached")
+        assert page.locator(".manual-resolutions").count() == 0
         assert page.locator(ROW).count() == 2
+        assert page.locator(ROW + " .airlines-pill").first.inner_text() == "Named by hand"
+        _settle(page, DELETE_LINK)
         page.locator(DELETE_LINK).first.click()
-        page.wait_for_function(_FOCUS_ON_DISMISS, timeout=10000)
+        item = page.locator(ROW + " .row-menu__panel button.row-menu__item").first
+        item.wait_for(state="visible")
+        assert item.inner_text() == "Delete my name"
         with page.expect_navigation():
-            page.locator(DIALOG + " button[type=submit]").click()
+            item.click()
         page.wait_for_url("**/airlines/manage")
         page.wait_for_function(_SETTLED, timeout=15000)
         page.wait_for_function(
             "() => document.querySelectorAll('%s').length === 1" % ROW, timeout=10000)
         remaining = manual_resolutions.load_manual_resolutions(server.state_dir)
-        assert list(remaining) == ["ZZZ"]
+        assert len(remaining) == 1
     finally:
         context.close()
 
 
-def test_without_scripts_the_hash_link_shows_the_dialog_and_the_post_works(
+def test_without_scripts_the_menu_opens_and_deleting_the_name_works(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open(
         new_context, server, VIEWPORT_MIN_SUPPORTED, java_script_enabled=False)
     try:
         page.locator(DELETE_LINK).first.click()
-        dialog = page.locator("dialog.modal:target")
-        dialog.wait_for(state="visible")
+        item = page.locator(ROW + " .row-menu__panel button.row-menu__item").first
+        item.wait_for(state="visible")
         with page.expect_navigation():
-            dialog.locator("button[type=submit]").click()
+            item.click()
         page.wait_for_url("**/airlines/manage")
         page.wait_for_load_state("load")
         assert page.locator(ROW).count() == 1

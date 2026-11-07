@@ -1,5 +1,5 @@
 """The retired Health page's full-page composition, kept for the render-level
-tests of the row, banner, registry and dialog builders that the Fleet page
+tests of the row and banner builders that the Fleet page
 still uses. The server no longer serves this page: `render` exists here only
 so those builders can be checked in the arrangement they used to be shown in.
 """
@@ -30,7 +30,5 @@ def render(ctx):
         + parts["source_fault_html"]
         + parts["unreachable_html"] + parts["banner_html"]
         + rows_card_html
-        + parts["registry_html"]
-        + parts["dialog_html"]
         + "</div>"
     )

@@ -106,7 +106,7 @@ _STRUCTURE = """
       if (l.scrollWidth > l.clientWidth) bad.push('clipped bar label ' + l.textContent); });
   } else if (bars.length) bad.push('tab bar visible on desktop');
   if (args.list && q('main table:not(.fleet-blocks table)').length) bad.push('table in a list page');
-  q('li.entity-row, li.place-airport, li.collection-item, .rule-row, .manual-resolution-row').forEach((row) => {
+  q('li.entity-row, li.place-airport, li.collection-item, .rule-row').forEach((row) => {
     if (row.querySelectorAll('.entity-row__dot .dot, .entity-row__dot [role=img], .account-frame__status [role=img]').length > 1) bad.push('two dots in a row');
     row.querySelectorAll('.entity-row__dot [role=img], .account-frame__status [role=img]').forEach((d) => {
       if (!d.getAttribute('aria-label')) bad.push('dot without a name'); });
@@ -206,8 +206,7 @@ def _ids(server):
         conn.close()
     return {
         "owned": owned, "slug": _slug(owned), "owner_user": owner,
-        "rule_dialog": "remove-look-%s-%s" % (RULE[0], _digest(RULE[1])),
-        "resolution_dialog": "delete-resolution-" + _digest("ZZZ")}
+        "rule_dialog": "remove-look-%s-%s" % (RULE[0], _digest(RULE[1]))}
 
 
 def _case(persona, path, dialog=None, label=None):
@@ -239,7 +238,7 @@ CASES = (
     _case("admin", "/airlines", None, "admin-collection"),
     _case("admin", "/airlines/manage", None, "admin-airline-editor"),
     _case("admin", "/display/special-looks", "{rule_dialog}", "remove-special-look-dialog"),
-    _case("admin", "/airlines/manage", "{resolution_dialog}", "delete-resolution-dialog"),
+    _case("admin", "/users", "dlg-delete-user-{owner_user}", "users-delete-dialog"),
     _case("admin", "/", "dlg-quiet-hours", "admin-quiet-hours-dialog"),
     _case("owner", "/devices/{owned}/", None, "user-home"),
     _case("owner", "/devices/{owned}/", "dlg-quiet-hours", "quiet-hours-dialog"),
@@ -249,6 +248,7 @@ CASES = (
     _case("co", "/devices/{owned}/detection", None, "co-manager-location"),
     _case("owner", "/account", None, "user-account"),
     _case("owner", "/account", "dlg-access-{slug}", "user-access-dialog"),
+    _case("owner", "/account", "dlg-remove-frame-{slug}", "user-remove-frame-dialog"),
     _case("co", "/account", None, "co-manager-account"),
     _case("co", "/account", "dlg-leave-{slug}", "co-manager-leave-dialog"),
 )
@@ -752,7 +752,12 @@ def test_controls_keep_44px_at_every_point_of_the_entrance(
 # entrance never shifts the layout, and the text inks stay readable on the page under
 # the pale sky of Light and the ink gradient of Dark.
 THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-flight-history")]
-AMBIENT_LOOPS = {"skypane-pulse", "skypane-dot-halo"}
+# Home's signature is the one other deliberate ambient motion, content-neutral and slow: the
+# dot's and the picture glow's 6s breathing and the 12s cycle of the glass glint. Each is
+# transform/opacity only and switched off under reduced motion; no other page may loop.
+AMBIENT_LOOPS = {
+    "skypane-pulse", "skypane-dot-halo",
+    "skypane-dot-breathe", "skypane-picture-breathe", "skypane-glint"}
 
 
 _SURFACES = """
@@ -1060,7 +1065,8 @@ _BLUR_AND_ANIMATIONS = """
     const t = a.effect && a.effect.getComputedTiming();
     const target = a.effect && a.effect.target;
     return t && t.iterations === Infinity &&
-      !(target && target.closest('.home-state__dot--pulse, [class*="dot--pulse"]'));
+      !(target && target.closest(
+        '.home-state__dot--pulse, [class*="dot--pulse"], .hero__picture, .hero__glass'));
   }).map((a) => (a.effect.target && a.effect.target.className) || a.id || 'animation');
   return {blurred, infinite};
 }

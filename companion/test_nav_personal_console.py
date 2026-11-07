@@ -21,10 +21,10 @@ PERSONAL_BAR_EN = ["Home", "History", "Location", "Style"]
 PERSONAL_BAR_FR = ["Accueil", "Vols", "Lieu", "Style"]
 PERSONAL_SIDEBAR_EN = [
     "Home", "Flight history", "Location and detection", "Personalisation",
-    "Airline collection", "Account"]
+    "Airlines", "Account"]
 PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
-    "Collection de compagnies", "Compte"]
+    "Compagnies", "Compte"]
 CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Airlines"]
 CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Membres", "Cies"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}

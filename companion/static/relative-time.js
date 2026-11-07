@@ -93,7 +93,9 @@
   // A page with nothing to tick registers no listener and no timer at
   // all. Queried once here and never cached beyond this test — see
   // repaintAll() below for why the live lookup has to be per tick.
-  if (!document.querySelector(HOOK_SELECTOR)) {
+  // Home's cycle ring (see repaintRings) is ticked by the same timer.
+  var RING_SELECTOR = "[data-cycle-ring]";
+  if (!document.querySelector(HOOK_SELECTOR + "," + RING_SELECTOR)) {
     return;
   }
 
@@ -189,6 +191,66 @@
     }
   }
 
+  // Home's ring around the picture shows how much of the frame cycle has
+  // elapsed: the server renders data-ring-next (the next update's instant)
+  // and data-ring-interval (the cycle's length in seconds); the bar's
+  // stroke-dashoffset is 100 x the share still to come. Set as an attribute
+  // (never a style, for the CSP). Its accessible name is the server's
+  // sentence with the same countdown wording the page shows.
+  var RING_DONE_CLASS = "is-ring-done";
+  var RING_JUMP = 0.1;
+  var lastRingProgress = null;
+
+  function ringProgress(ring, nowMs) {
+    var nextMs = new Date(ring.getAttribute("data-ring-next")).getTime();
+    var cycleMs = Number(ring.getAttribute("data-ring-interval")) * 1000;
+    if (isNaN(nextMs) || !(cycleMs > 0)) {
+      return null;
+    }
+    return Math.min(1, Math.max(0, 1 - (nextMs - nowMs) / cycleMs));
+  }
+
+  function repaintRing(ring, nowMs) {
+    var progress = ringProgress(ring, nowMs);
+    var bar = ring.querySelector(".hero__ring-bar");
+    if (progress === null || !bar) {
+      return;
+    }
+    var offset = (100 * (1 - progress)).toFixed(2);
+    if (bar.getAttribute("stroke-dashoffset") !== offset) {
+      bar.setAttribute("stroke-dashoffset", offset);
+    }
+    var aheadS = Math.floor((new Date(ring.getAttribute("data-ring-next")).getTime() - nowMs) / 1000);
+    var when = aheadS > 0 ? distanceText(aheadS, true) : wording(WAITING_ATTR, WAITING_TEXT);
+    var label = (ring.getAttribute("data-ring-label") || "%s").replace("%s", when);
+    if (ring.getAttribute("aria-label") !== label) {
+      ring.setAttribute("aria-label", label);
+    }
+    lastRingProgress = progress;
+  }
+
+  function repaintRings(nowMs) {
+    var rings = document.querySelectorAll(RING_SELECTOR);
+    var i;
+    for (i = 0; i < rings.length; i += 1) {
+      repaintRing(rings[i], nowMs);
+    }
+  }
+
+  // A refresh that swaps in a fresh cycle (the progress fell back) gives
+  // the new ring its one small flourish.
+  document.addEventListener("skypane-regions-swapped", function () {
+    var ring = document.querySelector(RING_SELECTOR);
+    var nowMs = Date.now();
+    if (ring && lastRingProgress !== null) {
+      var progress = ringProgress(ring, nowMs);
+      if (progress !== null && progress < lastRingProgress - RING_JUMP) {
+        ring.classList.add(RING_DONE_CLASS);
+      }
+    }
+    repaintAll();
+  });
+
   // Looked up fresh on every pass, never cached: several of these
   // elements live inside freshness.js's swap targets, so a cached
   // NodeList would go stale the moment a refresh replaces the region.
@@ -199,6 +261,7 @@
     for (i = 0; i < nodes.length; i += 1) {
       repaint(nodes[i], nowMs);
     }
+    repaintRings(nowMs);
   }
 
   // Single interval handle; a no-op start when one already exists

@@ -128,14 +128,14 @@ def test_choose_calendar_sits_with_the_text_row(
 
 
 def test_with_scripts_blocked_the_button_is_still_a_link_on_the_right(new_context, server):
-    """no script: the same row layout, and the button stays the plain link to the open sheet"""
+    """no script: the same row layout, and the button stays the plain link to the connection page"""
     _connect(server, [("AF1234", "CDG", "ORY", 2)])
     for viewport in (VIEWPORT_PHONE, VIEWPORT_DESKTOP):
         with _no_js_page(new_context, server.base_url(), "/display/calendar", viewport=viewport,
                          reduced_motion="reduce") as page:
             page.wait_for_load_state("load")
             page.locator(BUTTON).wait_for(state="visible")
-            assert page.locator(BUTTON).get_attribute("href") == "/display/calendar?calendar=manage#calendar-sheet"
+            assert page.locator(BUTTON).get_attribute("href") == "/display/calendar/connect"
             _assert_inline(_measure(page), "no-js %d" % viewport["width"], phone=viewport["width"] < 960)
 
 

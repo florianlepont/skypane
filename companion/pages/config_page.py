@@ -140,13 +140,14 @@ from companion.settings.calendar import (
     _masked_calendar_url as _masked_calendar_url,
     calendar_disconnect_confirm_page as calendar_disconnect_confirm_page,
     calendar_special_row_html as calendar_special_row_html,
-    calendar_state as calendar_state)
+    calendar_state as calendar_state,
+    connect_page_html as connect_page_html)
 from companion.settings.rules import (
     RULES_ADD_ROUTE as RULES_ADD_ROUTE,
     RULES_DELETE_ROUTE_PREFIX as RULES_DELETE_ROUTE_PREFIX,
     RULES_DELETE_ROUTE_SUFFIX as RULES_DELETE_ROUTE_SUFFIX,
     RULES_SECTION_CAPTION as RULES_SECTION_CAPTION,
-    RULE_ADD_BUTTON_TEXT as RULE_ADD_BUTTON_TEXT,
+    RULE_CREATE_BUTTON_TEXT as RULE_CREATE_BUTTON_TEXT,
     RULE_KIND_FIELD_LABEL as RULE_KIND_FIELD_LABEL,
     RULE_KIND_HEADING_ID as RULE_KIND_HEADING_ID,
     RULE_KIND_LABELS as RULE_KIND_LABELS,
@@ -158,7 +159,7 @@ from companion.settings.rules import (
     RULE_VALUE_FIELD_LABEL as RULE_VALUE_FIELD_LABEL,
     RULE_VALUE_PLACEHOLDER as RULE_VALUE_PLACEHOLDER,
     SPECIAL_LOOKS_HEADING as SPECIAL_LOOKS_HEADING,
-    _rule_add_form_html as _rule_add_form_html,
+    rule_form_html as rule_form_html,
     _rule_delete_action as _rule_delete_action,
     _rule_kind_radio_html as _rule_kind_radio_html,
     _rule_list_html as _rule_list_html,
@@ -334,7 +335,7 @@ _FIELD_VIEWS = {
     "theme": personalisation_cards.VIEW_DEPARTURES,
     "theme_arriving": personalisation_cards.VIEW_ARRIVALS,
     "calendar_theme_id": personalisation_cards.VIEW_CALENDAR,
-    "calendar_url": personalisation_cards.VIEW_CALENDAR,
+    "calendar_url": personalisation_cards.VIEW_CALENDAR_CONNECT,
 }
 
 
@@ -440,15 +441,11 @@ FLASH_CALENDAR_CONNECT_INVALID = "calendar_connect_invalid"
 # was saved, the previous connection (if any) is untouched.
 FLASH_CALENDAR_CONNECT_FAILED = "calendar_connect_failed"
 
-# The calendar sheet's no-script address and its reopen-after-refusal
-# vocabulary: `?calendar=manage#calendar-sheet`, plus an optional
+# The calendar connection page's refusal vocabulary: an optional
 # `calendar_error` code from the fixed set below (never free text).
-CALENDAR_SHEET_PARAM = "calendar"
-CALENDAR_SHEET_MANAGE = "manage"
 CALENDAR_ERROR_PARAM = "calendar_error"
 CALENDAR_ERROR_INVALID = "invalid"
 CALENDAR_ERROR_UNREACHABLE = "unreachable"
-CALENDAR_SHEET_ID = "calendar-sheet"
 
 
 DETECTION_ROUTE = "/detection"
@@ -599,8 +596,7 @@ def _render_display_scope(
             departures_safe_id, values["calendar_theme_id"], calendar_status["calendar_configured"],
             calendar_status["calendar_drift"], calendar_status["calendar_last_synced_at"],
             calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
-            errors=errors, submitted=submitted, state_dir=ctx.state_dir,
-            sheet_open=bool(ctx.calendar_sheet), sheet_error=ctx.calendar_sheet_error)
+            errors=errors, submitted=submitted, state_dir=ctx.state_dir)
         aspect_section_html = personalisation_cards.page_html(
             ctx, values, calendar_row_html, calendar_status, errors, submitted, view)
     return {
@@ -783,6 +779,11 @@ def render(
     else:
         pieces = _render_all_scope(groups, builders)
 
+    if scope == SCOPE_DISPLAY and view in personalisation_cards.FORM_VIEWS and (
+            screens.GROUP_THEME in groups):
+        # A page that edits one thing and posts to a route of its own: no
+        # settings form and no settings save bar.
+        return pieces["header"] + pieces["aspect_section_html"]
     if embedded:
         # The Console Fleet view supplies its own block heading.
         pieces["header"] = ""

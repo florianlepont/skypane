@@ -29,7 +29,7 @@ MESSAGES = {
     "look.close": "Fermer",
 
     # --- The three choices ---------------------------------------------
-    "look.colour": "Couleur",
+    "look.colour": "Couleur principale",
     "look.background": "Fond",
     "look.diagonal_stripe": "Bande diagonale",
     "look.black": "Noir",
@@ -37,7 +37,7 @@ MESSAGES = {
     "look.red": "Rouge",
     "look.green": "Vert",
     "look.blue": "Bleu",
-    "look.background_paper": "Papier",
+    "look.background_paper": "Blanc",
     "look.background_full": "Plein",
     "look.background_soft": "Clair",
     "look.stripe_none": "Aucune",
@@ -72,6 +72,8 @@ MESSAGES = {
     "look.calendar": "Calendrier",
     "look.flights_in_your_calendar": "Allure des vols du calendrier",
     "look.new_special_look": "Nouvelle allure spéciale",
+    "look.edit_special_look": "Modifier l’allure spéciale",
+    "look.create_look": "Créer l’allure",
     "look.look": "Allure",
     "look.matching_flights_will_look_like_this":
         "Les vols concernés auront cette allure.",

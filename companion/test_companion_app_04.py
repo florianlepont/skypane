@@ -63,6 +63,15 @@ _DOT_PULSE_TOKEN = "--motion-dot-pulse"
 _DOT_PULSE_KEYFRAMES = "skypane-dot-halo"
 _DOT_PULSE_SELECTOR = ".home-state__dot--pulse::after"
 
+# Home's two ambient loop periods (the ~6s breathing of the dot and of the glow behind the
+# picture, the 12s cycle of the glass glint) and the rules allowed to spend them.
+_AMBIENT_TOKENS = {
+    "--motion-breathe": (
+        ((".home-state__dot--pulse",), "skypane-dot-breathe"),
+        ((".hero__picture::before",), "skypane-picture-breathe")),
+    "--motion-glint": (((".hero__glass::after",), "skypane-glint"),),
+}
+
 _ANIMATION_VALUE_KEYWORDS = frozenset((
     "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
     "forwards", "backwards", "both", "running", "paused", "auto",
@@ -198,7 +207,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     declared = sorted(name for name in root if name.startswith("--motion-"))
     assert declared == sorted(
         _MOTION_TOKENS + _MOTION_LAYER_TOKENS + _MOTION_EXCEPTION_TOKENS
-        + (_DOT_PULSE_TOKEN,)), (
+        + (_DOT_PULSE_TOKEN,) + tuple(_AMBIENT_TOKENS)), (
         "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
     # The card entrance's two tokens: --motion-enter is the animation's duration and
@@ -206,14 +215,16 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     entrance = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-enter")]
     assert entrance == [
-        ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation"),
+        ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section",
+          ".dashboard-main .personalisation-look"), "animation"),
         ((".dashboard-main > .empty-state",), "animation"),
         ((".dashboard-main > .data-table-wrap",), "animation"),
         ((".tab-bar__link--active .tab-bar__pill",), "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
-    assert stagger == [((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section"), "animation-delay")], (
+    assert stagger == [((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section",
+                         ".dashboard-main .personalisation-look"), "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.
@@ -228,6 +239,13 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
         for token in _MOTION_EXCEPTION_TOKENS
     ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES)]
+    for token, rules in _AMBIENT_TOKENS.items():
+        spenders = _spenders(served_css, token)
+        assert [(sel, prop) for sel, prop, _value in spenders] == [
+            (selectors, "animation") for selectors, _keyframes in rules], (
+            "expected only %r to spend %s, got %r" % (rules, token, spenders))
+        for (_selectors, keyframes), (_s, _p, value) in zip(rules, spenders):
+            assert keyframes in value, (token, value)
     for token, selectors_expected, keyframes in expected:
         spenders = _spenders(served_css, token)
         assert len(spenders) == 1, (
@@ -781,7 +799,7 @@ def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_
     scope/return_to fields; Refresh now lives on Device only."""
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
-    _s, _h, special_body = http_request(base + "/display/special-looks", cookie=session_cookie)
+    _s, _h, special_body = http_request(base + "/display/special-looks/new", cookie=session_cookie)
     _s, _h, device_body = http_request(base + "/fleet", cookie=session_cookie)
     display_text = display_body.decode("utf-8", errors="replace")
     special_text = special_body.decode("utf-8", errors="replace")
@@ -815,7 +833,7 @@ def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")
     assert rules_panel_marker in special_text, (
-        "expected the Special looks page to carry the rules editor (moved from Device, 20-07/D-10)")
+        "expected the new special look page to carry the rules editor (moved from Device, 20-07/D-10)")
     assert "Manual refresh" not in display_text, (
         "expected the Display page NOT to carry Manual refresh")
 

@@ -170,13 +170,20 @@ def test_position_setting_with_a_location_fills_the_place_fields(rig):
 def test_mode_card_is_a_radiogroup_with_the_saved_mode_checked(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
     assert 'role="radiogroup" aria-label="What the frame follows"' in page
-    assert re.search(r'id="place-mode-runway" value="runway"[^>]*checked', page)
-    assert not re.search(r'value="position"[^>]*checked', page)
-    _s, _h, other = rig.get("owner", rig.scope() + "/detection?mode=position")
-    assert re.search(r'id="place-mode-area" value="position"[^>]*checked', other)
+    # A frame with no saved detection opens on My position, the first of the two modes.
+    assert re.search(r'id="place-mode-area" value="position"[^>]*checked', page)
+    assert not re.search(r'value="runway"[^>]*checked', page)
+    assert page.index('id="place-mode-area"') < page.index('id="place-mode-runway"')
+    _s, _h, other = rig.get("owner", rig.scope() + "/detection?mode=runway")
+    assert re.search(r'id="place-mode-runway" value="runway"[^>]*checked', other)
     modes = other.split("place-modes")[1].split("</div>")[0]
-    assert not re.search(r'value="runway"[^>]*checked', modes)
+    assert not re.search(r'value="position"[^>]*checked', modes)
     assert rig.config_bytes(rig.owner_dir()) is None
+    # A saved runway setting is shown as it is saved.
+    device_config.save_device_config(
+        rig.owner_dir(), detection={"mode": "runway", "airport": "LFPO", "runway": "07/25"})
+    _s, _h, saved = rig.get("owner", rig.scope() + "/detection")
+    assert re.search(r'id="place-mode-runway" value="runway"[^>]*checked', saved)
 
 
 # --- search ---------------------------------------------------------------
@@ -530,7 +537,7 @@ def test_carried_values_render_as_defaults_with_a_visible_dirty_bar(rig):
     assert status == 200
     assert re.search(r'name="radius_km"[^>]*value="12"', page)
     assert re.search(r'id="place-mode-area" value="position"[^>]*checked', page)
-    bar = re.search(r'<div class="dirty-bar"[^>]*>', page).group(0)
+    bar = re.search(r'<div class="dirty-bar dirty-bar--docked"[^>]*>', page).group(0)
     assert 'data-dirty-carried="%s/detection"' % rig.scope() in bar
     assert " hidden" not in bar
 

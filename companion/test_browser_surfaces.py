@@ -145,13 +145,15 @@ def test_row_value_text_reads_over_the_glass(new_context, server, scheme):
 
 _SURFACES = """(glass) => { const bad = [];
   for (const sel of ['.space-switch', '.filter-bar__chips', '.personalisation-nav',
-      '.look-seg', '.place-modes', '.tab-bar__more-panel', '.users-table', '.place-card',
+      '.look-seg', '.place-modes', '.tab-bar__more-panel', '.users-table',
       '.dashboard-main > .data-table-wrap']) {
     for (const el of document.querySelectorAll(sel)) {
       if (!el.checkVisibility()) continue;
       const bg = getComputedStyle(el).backgroundColor;
       if (bg !== glass) bad.push(sel + ' ' + bg);
     } } return bad; }"""
+# The Location card over the map is deliberately not on this list: it is opaque so its text stays
+# legible over the map (checked in test_browser_round8_fixes.py).
 _PAGES = (("/display", "look-seg"), ("/flights", "filter-bar__chips"),
           ("/detection", "place-modes"), ("/users", "users-table"))
 
