@@ -752,7 +752,12 @@ def test_controls_keep_44px_at_every_point_of_the_entrance(
 # entrance never shifts the layout, and the text inks stay readable on the page under
 # the pale sky of Light and the ink gradient of Dark.
 THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-flight-history")]
-AMBIENT_LOOPS = {"skypane-pulse", "skypane-dot-halo"}
+# Home's signature is the one other deliberate ambient motion, content-neutral and slow: the
+# dot's and the picture glow's 6s breathing and the 12s cycle of the glass glint. Each is
+# transform/opacity only and switched off under reduced motion; no other page may loop.
+AMBIENT_LOOPS = {
+    "skypane-pulse", "skypane-dot-halo",
+    "skypane-dot-breathe", "skypane-picture-breathe", "skypane-glint"}
 
 
 _SURFACES = """
@@ -1060,7 +1065,8 @@ _BLUR_AND_ANIMATIONS = """
     const t = a.effect && a.effect.getComputedTiming();
     const target = a.effect && a.effect.target;
     return t && t.iterations === Infinity &&
-      !(target && target.closest('.home-state__dot--pulse, [class*="dot--pulse"]'));
+      !(target && target.closest(
+        '.home-state__dot--pulse, [class*="dot--pulse"], .hero__picture, .hero__glass'));
   }).map((a) => (a.effect.target && a.effect.target.className) || a.id || 'animation');
   return {blurred, infinite};
 }

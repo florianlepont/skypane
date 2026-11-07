@@ -50,6 +50,7 @@ MESSAGES = {
     "home.frame": "Cadre",
     "home.no_reading_yet": "Aucune mesure pour l’instant",
 
+    "home.cycle_ring": "Cycle du cadre\u00a0: prochaine mise à jour %s",
     "home.frame_state": "État du cadre",
     "home.state_screen_on": "Écran allumé",
     "home.state_title_screen_off": "Écran éteint",

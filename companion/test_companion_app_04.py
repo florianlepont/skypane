@@ -63,6 +63,15 @@ _DOT_PULSE_TOKEN = "--motion-dot-pulse"
 _DOT_PULSE_KEYFRAMES = "skypane-dot-halo"
 _DOT_PULSE_SELECTOR = ".home-state__dot--pulse::after"
 
+# Home's two ambient loop periods (the ~6s breathing of the dot and of the glow behind the
+# picture, the 12s cycle of the glass glint) and the rules allowed to spend them.
+_AMBIENT_TOKENS = {
+    "--motion-breathe": (
+        ((".home-state__dot--pulse",), "skypane-dot-breathe"),
+        ((".hero__picture::before",), "skypane-picture-breathe")),
+    "--motion-glint": (((".hero__glass::after",), "skypane-glint"),),
+}
+
 _ANIMATION_VALUE_KEYWORDS = frozenset((
     "var", "none", "infinite", "normal", "reverse", "alternate", "alternate-reverse",
     "forwards", "backwards", "both", "running", "paused", "auto",
@@ -198,7 +207,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     declared = sorted(name for name in root if name.startswith("--motion-"))
     assert declared == sorted(
         _MOTION_TOKENS + _MOTION_LAYER_TOKENS + _MOTION_EXCEPTION_TOKENS
-        + (_DOT_PULSE_TOKEN,)), (
+        + (_DOT_PULSE_TOKEN,) + tuple(_AMBIENT_TOKENS)), (
         "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
     # The card entrance's two tokens: --motion-enter is the animation's duration and
@@ -230,6 +239,13 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (token, _MOTION_EXCEPTION_SELECTORS[token], _MOTION_EXCEPTION_KEYFRAMES)
         for token in _MOTION_EXCEPTION_TOKENS
     ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES)]
+    for token, rules in _AMBIENT_TOKENS.items():
+        spenders = _spenders(served_css, token)
+        assert [(sel, prop) for sel, prop, _value in spenders] == [
+            (selectors, "animation") for selectors, _keyframes in rules], (
+            "expected only %r to spend %s, got %r" % (rules, token, spenders))
+        for (_selectors, keyframes), (_s, _p, value) in zip(rules, spenders):
+            assert keyframes in value, (token, value)
     for token, selectors_expected, keyframes in expected:
         spenders = _spenders(served_css, token)
         assert len(spenders) == 1, (

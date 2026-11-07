@@ -12,6 +12,7 @@ recent-flight rows and the current picture's flight line share one
 `history_db` read.
 """
 
+from datetime import timezone
 from types import SimpleNamespace
 
 import companion.battery as battery
@@ -26,6 +27,7 @@ import companion.layout as layout
 import companion.page_context as page_context
 import companion.ui_groups as ui_groups
 import companion.ui_modal as ui_modal
+import companion.ui_time as ui_time
 import companion.user_view as user_view
 import companion.wake as wake
 from companion.pages import home_greeting, home_notice
@@ -128,6 +130,9 @@ CADENCE_INFO_NO_INTERVAL_TEXT = i18n.msg(
     "refresh continuously.")
 CADENCE_INFO_LABEL = i18n.msg("home.cadence_info_label", "About updates")
 CADENCE_INFO_ID = "home-cadence-info"
+# The ring around the picture: the frame cycle until the next update. The
+# name carries the same countdown the next-update line shows.
+CYCLE_RING_LABEL = i18n.msg("home.cycle_ring", "Frame cycle: next update %s")
 SWITCHES_LABEL = i18n.msg("home.switches", "Frame controls")
 FRAME_GROUP_LABEL = i18n.msg("home.group_frame", "Frame")
 EDIT_QUIET_HOURS_LABEL = i18n.msg(
@@ -243,6 +248,45 @@ def _current_picture_html(ctx, current_flight_row):
     ) % (
         escape_html(device_scope.scoped(GALLERY_ROUTE_PREFIX + newest)),
         escape_html(alt))
+
+
+def _cycle_ring_html(ctx, next_triple):
+    """The thin ring around the picture: the share of the frame cycle (wake,
+    poll, display, sleep) already elapsed, from the same next-update triple
+    the "Next update in N min" line reads. The progress is rendered as
+    attributes (no style attribute, for the CSP); relative-time.js repaints
+    it from `data-ring-next` / `data-ring-interval` each second. "" without
+    a known next update."""
+    next_iso, interval_s, _hold = next_triple
+    parsed = layout.parse_iso(next_iso) if next_iso else None
+    now_parsed = layout.parse_iso(ctx.now)
+    if parsed is None or now_parsed is None or not interval_s:
+        return ""
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    remaining = parsed.timestamp() - now_parsed.timestamp()
+    progress = min(1.0, max(0.0, 1.0 - remaining / float(interval_s)))
+    if remaining > 0:
+        countdown = ui_time.relative_future_text(int(remaining))
+    else:
+        countdown = i18n.t(ui_time.RELATIVE_WAITING_TEXT)
+    template = i18n.t(CYCLE_RING_LABEL)
+    rect = ('<rect class="%s" x="0" y="0" width="100%%" height="100%%" rx="19" '
+            'pathLength="100"%s/>')
+    return (
+        '<svg class="hero__ring" role="img" aria-label="%s" data-cycle-ring '
+        'data-ring-next="%s" data-ring-interval="%d" data-ring-label="%s">%s%s%s%s</svg>'
+        '<span class="hero__glass" aria-hidden="true"></span>'
+    ) % (
+        escape_html(template % countdown),
+        escape_html(parsed.astimezone(timezone.utc).isoformat(timespec="seconds")),
+        int(interval_s), escape_html(template),
+        rect % ("hero__ring-track", ""),
+        rect % ("hero__ring-ticks", ' stroke-dasharray="0 25"'),
+        rect % ("hero__ring-bar", ' stroke-dasharray="100 100" stroke-dashoffset="%.2f"' % (
+            100.0 * (1.0 - progress))),
+        rect % ("hero__ring-done", ""),
+    )
 
 
 def _recent_flight_row_html(row, now):
@@ -672,7 +716,7 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     summary = _frame_state_summary(ctx)
     status = frame_status.frame_status(_status_row(ctx, summary[1]))
     notice = _notice_html(ctx, status)
-    picture = _current_picture_html(ctx, current_flight_row)
+    picture = _current_picture_html(ctx, current_flight_row) + _cycle_ring_html(ctx, summary[1])
     return (
         header
         + '<div class="home-facts">'
