@@ -641,3 +641,34 @@ Cycle (thin ring around the picture showing the wake, poll, display, sleep
 cycle until the next update, small flourish on refresh) together, both
 content-neutral. S2 and S4 not retained (so the S4 flash limit does not
 apply). Planned as plan 61-78 after 61-76.
+
+## Round 8 decisions (D45), owner answered one by one
+
+- D-A Collection: the mockup, but the page title keeps the standard size used
+  by the other pages (consistency); renamed "Compagnies".
+- D-B Fleet admin desktop: option 2, summary rows that open dialogs.
+- D-C Airline editor: the mockup (inline resolution, editable type rows with
+  "same as airline" default, delete illustration / revert to default, star
+  for the airline default type, no separate manual-resolution table, no
+  unresolved-fleets table in System).
+- D-D Audit log: the mockup (compact rows, expandable detail).
+- D-E Location: the mockup, "My position" first; on mobile in My position the
+  nearest-airport suggestion is removed to leave room for the map and the rest
+  of the sheet is compressed without becoming illegible; floating Save/Cancel
+  bar; map behind the sidebar / tab bar.
+- D-F Preload: opening splash once per session plus map/picture loading
+  indicators; the splash must be much more signature (3 concepts to choose).
+- D-G More menu: dimmed page behind; navigation pages (Companies, ...) at the
+  top as the continuation of the tab bar, then a separator, then settings
+  (theme, language, account, sign out).
+- D-H Special looks and Calendar as full pages with floating Cancel/Create.
+- D-I Delete user: with confirmation, refused while the person owns a frame,
+  e-mail kept in the audit log.
+- D-J Owner can remove their frame from Manage access, with confirmation;
+  admin can reassign; co-managers keep Leave frame.
+- D-K Signature animation: S1 + S3 (content-neutral).
+
+Plans (batch 11): 61-77 Compagnies page + More menu + Fleet desktop rows;
+61-78 Home signature S1+S3; 61-79 Location + Special looks/Calendar pages;
+61-80 airline editor + audit log; 61-81 delete user + owner removes frame;
+61-82 opening splash and loading indicators.

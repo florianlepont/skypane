@@ -96,4 +96,14 @@ dropped or redrawn from a sketch.
 |------|-------|
 | 61-76 | Straight fixes: wording, search vs frame button, Location sheet spacing and runway cards, Fleet sub-tab thumb, tab bar flash, picture backdrop, opaque modals, Quiet hours Save reachable, autofill off, Manage access dialog, Account rows, Users own row, Nommer button, Personalisation vocabulary |
 | 61-77.. | Decided after the owner answers D-A to D-J (mockups) |
-| 61-78 | D-K signature: S1 Respiration + S3 Cycle on Home |
+
+## Batch 11 (D45)
+
+| Plan | Scope |
+|------|-------|
+| 61-77 | D-A Compagnies page, D-G More menu, D-B Fleet desktop summary rows and dialogs |
+| 61-78 | D-K Home signature: S1 Respiration + S3 Cycle |
+| 61-79 | D-E Location rework, D-H Special looks and Calendar as pages |
+| 61-80 | D-C airline editor, D-D audit log |
+| 61-81 | D-I delete user, D-J owner removes a frame |
+| 61-82 | D-F opening splash (concept to choose) and loading indicators |
