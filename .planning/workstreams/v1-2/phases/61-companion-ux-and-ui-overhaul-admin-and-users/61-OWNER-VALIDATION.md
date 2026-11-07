@@ -503,5 +503,8 @@ Plans (batch 9) in `61-BATCH3-PLAN.md`: 61-72 (M2, M4, M5, M8), 61-73 (M1, M3),
   stylish.
 - W85 (owner) Personalisation vocabulary: "Couleur" should read "Couleur
   principale"; "Papier" should read just "Blanc"; the "Bande diagonale"
-  wording to change (message cut off, to clarify with the owner).
+  wording to change. His message was cut off; its continuation says: "...
+  should not have a 'Claire' option" (the diagonal band selector, options
+  None / Pleine / Claire, most likely; to confirm with the owner which
+  selector and what the options become).
 - (owner has not finished; more items to come.)
