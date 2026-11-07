@@ -14,8 +14,8 @@
  *   real themes and why the others are not; this file never decides
  *   that itself. A choice checks the matching theme radio and fires a
  *   change event, so dirty-state.js sees it like a click;
- * - the "Add a special look" disclosure as a dialog with the same three
- *   choices and recent-key suggestions.
+ * - the special look form page: the same three choices in the page and
+ *   recent-key suggestions.
  *
  * No build step, ES5-safe subset. Never a network call, a timer, or an
  * HTML-writing DOM sink: writes are an <img> src/alt (from server
@@ -501,16 +501,9 @@
     openSheet(target, trigger);
   });
 
-  // --- Add a special look -------------------------------------------------
+  // --- The special look form page -----------------------------------------
 
-  var add = document.querySelector("[data-special-add]");
-  var addForm = add ? add.querySelector("[data-look-target]") : null;
-
-  function closeAdd() {
-    if (add && add.open) {
-      add.open = false;
-    }
-  }
+  var addForm = document.querySelector("[data-special-form]");
 
   function showSuggestions() {
     var box = addForm.querySelector("[data-rule-suggestions]");
@@ -528,49 +521,15 @@
     box.hidden = !any;
   }
 
-  if (add && addForm) {
-    var panel = add.querySelector(".special-add__panel");
-    var summary = add.querySelector("summary");
+  if (addForm) {
     var axesHost = addForm.querySelector("[data-look-axes-host]");
     var tableHost = addForm.querySelector("[data-look-table-host]");
     var addAxes = bindAxes(axesHost.querySelector("[data-look-axes]"), function () { return addForm; });
-    var reveal = addForm.querySelectorAll("[data-special-add-close], [data-special-add-cancel]");
-    var r;
-    for (r = 0; r < reveal.length; r++) {
-      reveal[r].hidden = false;
-      reveal[r].addEventListener("click", closeAdd);
-    }
     axesHost.hidden = false;
     tableHost.hidden = true;
-    panel.setAttribute("role", "dialog");
-    panel.setAttribute("aria-modal", "true");
-    addClass(add, "is-enhanced");
     addAxes.load(effectiveTheme(addForm));
     showSuggestions();
 
-    add.addEventListener("toggle", function () {
-      if (add.open) {
-        closeSheet(false);
-        scrim.hidden = false;
-        var start = addForm.querySelector('input[name="rule_kind"]:checked')
-          || addForm.querySelector("input");
-        start.focus();
-      } else {
-        scrim.hidden = true;
-        if (add.contains(document.activeElement)) {
-          summary.focus();
-        }
-      }
-    });
-    panel.addEventListener("keydown", function (evt) {
-      if (evt.key === "Escape") {
-        evt.preventDefault();
-        closeAdd();
-        summary.focus();
-        return;
-      }
-      trapTab(evt, panel);
-    });
     addForm.addEventListener("change", function (evt) {
       if (evt.target && evt.target.name === "rule_kind") {
         showSuggestions();
@@ -591,7 +550,6 @@
 
   scrim.addEventListener("click", function () {
     closeSheet(true);
-    closeAdd();
   });
 
   // Focus that leaves an open dialog (a click elsewhere, an assistive

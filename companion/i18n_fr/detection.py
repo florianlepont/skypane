@@ -123,6 +123,7 @@ MESSAGES = {
         "Aéroport le plus proche : %s, à %d km. Suivre sa piste ?",
     "detection.follow_airport": "Suivre %s",
     "detection.tap_hint": "Touchez la carte pour placer le point",
+    "detection.move_hint": "Touchez la carte pour le déplacer",
     "detection.result_airport": "Aéroport",
     "detection.map_label":
         "Carte. Utilisez les flèches pour déplacer, plus et moins pour zoomer.",

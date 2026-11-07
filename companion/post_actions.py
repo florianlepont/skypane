@@ -547,17 +547,14 @@ class SettingsActionsMixin:
             "%s?flash=%s" % (layout.DISPLAY_CALENDAR_ROUTE, quote(FLASH_KEY_CALENDAR_SYNC_FAILED)))
 
     def _calendar_sheet_redirect(self, flash_key, error=None):
-        """Back to Display with the calendar sheet reopened (the script
-        opens it on `?calendar=manage`, a scripts-blocked page renders it
-        in the page), carrying the toast key and, for a refusal, the
-        sheet's own inline error code from a fixed vocabulary."""
-        query = "flash=%s&%s=%s" % (
-            quote(flash_key), config_page.CALENDAR_SHEET_PARAM,
-            config_page.CALENDAR_SHEET_MANAGE)
+        """Back to the calendar connection page after a refusal, carrying
+        the toast key and the page's own inline error code from a fixed
+        vocabulary."""
+        query = "flash=%s" % quote(flash_key)
         if error:
             query += "&%s=%s" % (config_page.CALENDAR_ERROR_PARAM, quote(error))
-        return self._scoped_redirect("%s?%s#%s" % (
-            layout.DISPLAY_CALENDAR_ROUTE, query, config_page.CALENDAR_SHEET_ID))
+        return self._scoped_redirect("%s?%s" % (
+            layout.DISPLAY_CALENDAR_CONNECT_ROUTE, query))
 
     def _handle_calendar_connect_post(self, device):
         """POST /settings/calendar/connect: the calendar sheet's own

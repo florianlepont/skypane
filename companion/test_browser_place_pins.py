@@ -55,7 +55,7 @@ def _open(new_context, server, viewport=PHONE, lang="en", route="/detection", **
 def test_a_fresh_page_draws_tappable_pins_and_tapping_one_selects_it(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page, hosts = _open(new_context, server)
+    context, page, hosts = _open(new_context, server, route="/detection?mode=runway")
     try:
         page.wait_for_function(
             "() => document.querySelectorAll('#place-map .place-dot').length >= 100", timeout=10000)

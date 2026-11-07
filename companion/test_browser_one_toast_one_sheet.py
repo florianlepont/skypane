@@ -1,6 +1,6 @@
 """Real-browser proof that every result and every dialog behaves the same way: a success message
 after an action is the one floating toast above the tab bar and never pushes the page; the calendar
-dialog is a bottom sheet on a phone and a centred dialog on a wide screen like the others; a refused
+disconnect dialog is a bottom sheet on a phone and a centred dialog on a wide screen like the others; a refused
 pairing code is shown once; Tab loops inside an open dialog and Escape returns focus to the trigger;
 the Quiet hours dialog opens without a field focused and its 12-hour times are not clipped.
 
@@ -14,13 +14,14 @@ from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _login, seed_state_dir)
 from server import device_config
+from server.plane import calendar_rules
 
 pytestmark = pytest.mark.browser
 
 INVITE = "#dlg-invite-user"
 ADD = "#dlg-add-frame"
-CALENDAR = "#calendar-sheet"
-CALENDAR_OPENER = ".calendar-status [data-calendar-open]"
+CALENDAR = "#disconnect-calendar"
+CALENDAR_OPENER = "a.form-page__danger[data-modal-open]"
 TOAST = ".toast-region--flash .toast"
 QUIET_DIALOG = "dialog#dlg-quiet-hours"
 QUIET_LINK = "a.home-switch__window"
@@ -112,8 +113,11 @@ def test_the_invite_result_stays_in_flow_with_scripts_blocked(new_context, app_s
 
 
 def _open_calendar(new_context, server, viewport):
+    """The calendar's disconnect confirmation, the one dialog of the calendar connection page."""
+    assert calendar_rules.save_calendar_url(
+        server.state_dir, "https://calendar.example/feed.ics?token=TOASTTEST")
     context, page = _context(new_context, server, viewport)
-    page.goto(server.base_url() + "/display/calendar")
+    page.goto(server.base_url() + "/display/calendar/connect")
     page.locator(CALENDAR_OPENER).wait_for(state="visible")
     page.wait_for_function(_SETTLED, timeout=10000)
     page.locator(CALENDAR_OPENER).click()
@@ -123,7 +127,7 @@ def _open_calendar(new_context, server, viewport):
     return context, page
 
 
-def test_the_calendar_dialog_is_a_bottom_sheet_on_a_phone(new_context, app_server_in_process):
+def test_the_calendar_disconnect_dialog_is_a_bottom_sheet_on_a_phone(new_context, app_server_in_process):
     context, page = _open_calendar(new_context, app_server_in_process, VIEWPORT_PHONE)
     try:
         box = page.locator(CALENDAR).bounding_box()
@@ -136,7 +140,7 @@ def test_the_calendar_dialog_is_a_bottom_sheet_on_a_phone(new_context, app_serve
         context.close()
 
 
-def test_the_calendar_dialog_is_centred_on_a_wide_screen(new_context, app_server_in_process):
+def test_the_calendar_disconnect_dialog_is_centred_on_a_wide_screen(new_context, app_server_in_process):
     context, page = _open_calendar(new_context, app_server_in_process, VIEWPORT_DESKTOP)
     try:
         box = page.locator(CALENDAR).bounding_box()

@@ -91,7 +91,7 @@ def test_no_script_save_with_both_external_hosts_aborted(new_context, make_app_s
             context.route(pattern, lambda route: (requested.append(route.request.url), route.abort()))
         page = context.new_page()
         _login(page, server.base_url())
-        page.goto(server.base_url() + "/detection")
+        page.goto(server.base_url() + "/detection?mode=runway")
         if not page.is_visible(".place-fallback"):
             raise AssertionError("the no-script explanation is not shown")
         if not page.eval_on_selector("#details", "el => el.open"):
@@ -200,8 +200,9 @@ def _assert_sheet(page, boxes, width, height):
         raise AssertionError("the search field is not between the app bar and the chips: %r" % boxes)
     if modes["bottom"] > sheet["top"] + SUBPIXEL:
         raise AssertionError("the chips run into the sheet: %r" % boxes)
-    if abs(sheet["bottom"] - stage["bottom"]) > 2 or abs(sheet["width"] - stage["width"]) > 2:
-        raise AssertionError("the sheet is not docked at the foot of the map: %r" % boxes)
+    gutter = 12
+    if abs(sheet["width"] - (stage["width"] - 2 * gutter)) > 2:
+        raise AssertionError("the sheet is not as wide as the map less its gutters: %r" % boxes)
     if sheet["height"] > height * 0.28 + 1:
         raise AssertionError("the sheet covers more than 28%% of the viewport: %r" % boxes)
     if panel["bottom"] > height + SUBPIXEL:
@@ -210,8 +211,17 @@ def _assert_sheet(page, boxes, width, height):
         raise AssertionError("the page scrolls: the map does not fit between the bars")
     bar = page.evaluate(
         "() => { const t = document.querySelector('.tab-bar'); return t ? t.getBoundingClientRect().top : null; }")
-    if bar is not None and stage["bottom"] > bar + SUBPIXEL:
-        raise AssertionError("the map runs under the tab bar: %r vs %r" % (stage, bar))
+    save_bar = page.evaluate(
+        "() => { const b = document.querySelector('.place-panel > .dirty-bar');"
+        " if (!b || b.hidden) return null; const r = b.getBoundingClientRect();"
+        " return {top: r.top, bottom: r.bottom}; }")
+    floor = save_bar["top"] if save_bar else bar
+    if bar is not None and (sheet["bottom"] > floor + SUBPIXEL or floor - sheet["bottom"] > 24):
+        raise AssertionError("the sheet does not float just above the bars: %r vs %r" % (sheet, floor))
+    if save_bar and bar - save_bar["bottom"] > 24:
+        raise AssertionError("the save bar is not just above the tab bar: %r vs %r" % (save_bar, bar))
+    if bar is not None and stage["bottom"] < height - SUBPIXEL:
+        raise AssertionError("the map does not run under the tab bar: %r vs %r" % (stage, bar))
     tops = page.evaluate(
         "() => [...document.querySelectorAll('.place-sheet label.runway-card')].slice(0, 3)"
         ".map((c) => Math.round(c.getBoundingClientRect().top))")
@@ -236,16 +246,13 @@ def _assert_card(page, boxes):
     stage, float_box, panel, map_box = (boxes[sel] for sel in PARTS[:4])
     card, modes = boxes[".place-card"], boxes[".place-modes"]
     viewport = page.viewport_size
-    if abs(map_box["width"] - stage["width"]) > 2 or abs(map_box["height"] - stage["height"]) > 2:
-        raise AssertionError("the map does not fill the stage: %r" % boxes)
+    if abs(map_box["height"] - stage["height"]) > 2 or map_box["left"] > 1 or (
+            abs(map_box["width"] - viewport["width"]) > 1):
+        raise AssertionError("the map is not the whole window: %r" % boxes)
     if stage["height"] < viewport["height"] - 2:
         raise AssertionError("the map is not the full height: %r" % boxes)
-    side = page.evaluate(
-        "() => document.querySelector('.dashboard-sidebar').getBoundingClientRect().right")
-    if abs(stage["left"] - side) > 2:
-        raise AssertionError("the map does not meet the sidebar: %r vs %r" % (stage["left"], side))
-    if abs(card["width"] - 360) > 2 or abs(float_box["width"] - 360) > 2:
-        raise AssertionError("card %.1f / search %.1f px wide, expected 360" % (
+    if abs(card["width"] - 400) > 2 or abs(float_box["width"] - 400) > 2:
+        raise AssertionError("card %.1f / search %.1f px wide, expected 400" % (
             card["width"], float_box["width"]))
     if round(card["left"]) != round(float_box["left"]):
         raise AssertionError("the search field is not above the card: %r" % boxes)

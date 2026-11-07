@@ -799,7 +799,7 @@ def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_
     scope/return_to fields; Refresh now lives on Device only."""
     base = app04_server.base_url()
     _s, _h, display_body = http_request(base + "/display", cookie=session_cookie)
-    _s, _h, special_body = http_request(base + "/display/special-looks", cookie=session_cookie)
+    _s, _h, special_body = http_request(base + "/display/special-looks/new", cookie=session_cookie)
     _s, _h, device_body = http_request(base + "/fleet", cookie=session_cookie)
     display_text = display_body.decode("utf-8", errors="replace")
     special_text = special_body.decode("utf-8", errors="replace")
@@ -833,7 +833,7 @@ def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")
     assert rules_panel_marker in special_text, (
-        "expected the Special looks page to carry the rules editor (moved from Device, 20-07/D-10)")
+        "expected the new special look page to carry the rules editor (moved from Device, 20-07/D-10)")
     assert "Manual refresh" not in display_text, (
         "expected the Display page NOT to carry Manual refresh")
 

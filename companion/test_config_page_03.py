@@ -273,25 +273,22 @@ def test_render_both_quiet_hours_time_inputs_carry_required():
 
 
 def test_calendar_connection_url_error_never_echoes_the_submitted_secret():
-    """_calendar_connection_html(..., errors={"calendar_url": ERROR_CALENDAR_URL_INVALID}) renders
-    the error message under the field and opens the sheet on it, while the write-only field itself
-    still carries no value attribute at all
+    """connect_page_html(..., error_message=ERROR_CALENDAR_URL_INVALID) renders the error message
+    under the field and marks the field invalid, while the write-only field itself still carries
+    no value attribute at all
 
-    The write-only calendar_url field's own `errors` parameter lives directly on
-    _calendar_connection_html() - it never accepts `submitted` at all (nothing to repopulate:
+    The write-only calendar_url field never accepts `submitted` at all (nothing to repopulate:
     the one field it renders is write-only), so there is no submitted URL for it to echo.
     """
     error_message = form_post.ERROR_CALENDAR_URL_INVALID
-    rendered = config_page._calendar_connection_html(
-        False, False, None, None, "2026-09-07T09:12:04+00:00", 0,
-        errors={"calendar_url": error_message})
+    rendered, _title, _submit = config_page.connect_page_html(
+        False, False, None, error_message, "white", "Plain paper")
     assert escape_html(error_message) in rendered, "expected the calendar_url error message to render"
     assert 'name="calendar_url"' in rendered, "expected the calendar_url field itself to still render"
     after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
     assert "value=" not in after_name, (
         "expected no value attribute on the calendar_url field even with an error present")
-    assert re.search(r"<dialog[^>]* open[ >]", rendered), (
-        "expected a refused paste to render the sheet open")
+    assert 'aria-invalid="true"' in rendered, "expected a refused paste to mark the field invalid"
 
 
 def test_style_css_styles_field_error(served_css):
@@ -453,9 +450,17 @@ def test_live_preview_crossfades_through_one_class_shared_by_css_and_js(served_c
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     templates = re.findall(r'data-preview-src-template="([^"]+)"', rendered)
-    assert len(templates) == 4, (
-        "expected a preview template on each of the four look targets (departures, arrivals, "
-        "calendar, a new special look), got %r" % (templates,))
+    assert len(templates) == 3, (
+        "expected a preview template on each of the three look targets (departures, arrivals, "
+        "calendar), got %r" % (templates,))
+    new_look = config_page.render({
+        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
+    }, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
+    new_templates = re.findall(r'data-preview-src-template="([^"]+)"', new_look)
+    assert len(new_templates) == 1, (
+        "expected the new special look page to carry one look target, got %r" % (new_templates,))
+    templates += new_templates
     for template in templates:
         assert template.startswith(config_page.FRAME_PREVIEW_ROUTE_PREFIX + "__THEME__.png?"), template
     js = cp.strip_js_line_and_block_comments(theme_preview_js)
@@ -1159,7 +1164,7 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
 def test_aspect_card_full_shape_checklist():
     """the Display page's look card carries its full shape: the heading, two framed pictures
     each with a "Change" disclosure holding the no-script table, the Special looks list with the
-    calendar row, the "Add a special look" disclosure holding the rules add form, the hidden
+    calendar row, the "New special look" link to the page holding the rules add form, the hidden
     look sheet (a labelled, modal dialog), and none of the retired accordion markup"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
@@ -1180,8 +1185,9 @@ def test_aspect_card_full_shape_checklist():
     assert card.select_one(
         "section#personalisation-calendar li.special-row--calendar").attrs.get(
         "data-look-usage") == "calendar"
-    add_form = special.select_one("details.special-add form")
-    assert add_form.attrs.get("action") == config_page.RULES_ADD_ROUTE
+    add_link = special.select_one("a.special-add__summary")
+    assert add_link.attrs.get("href") == "/display/special-looks/new"
+    assert not special.select("details.special-add")
     # The whole-page render carries the Look view's inline picker: in the page, not a dialog.
     sheet = look_card.select_one("div.look-sheet")
     assert "data-look-inline" in sheet.attrs and "hidden" not in sheet.attrs
@@ -1269,16 +1275,18 @@ def test_rules_list_orders_most_specific_first_then_alphabetically(tmp_path):
 def test_aspect_rules_copy_appears_escaped_verbatim():
     """every special-looks copy string - heading, caption, field labels, kind labels/titles, the
     add action and the precedence line - appears escaped-verbatim"""
-    rendered = config_page.render({
+    ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-    }, scope=config_page.SCOPE_DISPLAY)
+    }
+    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
+        ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     copy_strings = (
         config_page.SPECIAL_LOOKS_HEADING,
         config_page.RULES_SECTION_CAPTION,
         config_page.RULE_KIND_FIELD_LABEL,
         config_page.RULE_VALUE_FIELD_LABEL,
-        config_page.RULE_ADD_BUTTON_TEXT,
+        config_page.RULE_CREATE_BUTTON_TEXT,
         rules_settings.ADD_SPECIAL_LOOK_LABEL,
         rules_settings.SPECIAL_LOOKS_ORDER,
     )
@@ -1299,13 +1307,12 @@ def test_aspect_rules_row_label_locked_verbatim():
 
 
 def test_rules_no_select_and_three_named_radios_one_checked():
-    """the add form carries no <select>, and its three rule_kind radios carry the three kind ids
+    """the add page carries no <select>, and its three rule_kind radios carry the three kind ids
     and the three technical titles, exactly one checked by default"""
-    rendered = config_page.render({
+    rules_segment = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
-    }, scope=config_page.SCOPE_DISPLAY)
-    rules_segment = cp.rules_row_segment(rendered)
+    }, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     assert "<select" not in rules_segment
     kind_inputs = re.findall(r'<input type="radio" name="rule_kind"[^>]*>', rules_segment)
     assert len(kind_inputs) == len(colour_rules.RULE_KINDS)
@@ -1345,16 +1352,16 @@ def test_rules_row_carries_pill_badge_and_confirmed_remove_dialog(tmp_path):
 
 def test_rules_empty_state_carries_no_heading_element():
     """with no rules, the Special looks list carries its own h3 heading and no other heading
-    element, and the add row's summary names the action"""
+    element, and the add row's link names the action"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     special = parse_html(rendered).select_one("div.special-looks")
     headings = [node for node in special.find_all() if re.fullmatch(r"h[1-6]", node.tag)]
-    assert [node.tag for node in headings] == ["h3", "h3"], (
-        "expected only the list heading and the add form's dialog heading")
-    assert special.select_one("summary.special-add__summary").text() == i18n.t(
+    assert [node.tag for node in headings] == ["h3"], (
+        "expected only the list heading")
+    assert special.select_one("a.special-add__summary").text() == i18n.t(
         rules_settings.ADD_SPECIAL_LOOK_LABEL)
 
 

@@ -1,9 +1,11 @@
 """The colour-rules settings group: the per-flight rules shown as the
-look card's "Special looks" list (rows, per-row delete, and the "Add a
-special look" form with recent suggestions). Built here so `companion.settings.theme` stays
-independent of this module — see that module's own docstring for why.
+Special looks list (rows with Edit and Remove, and the Add link) and the page
+that creates or edits one rule (kind, key, the look, recent suggestions).
+Built here so `companion.settings.theme` stays independent of this module —
+see that module's own docstring for why.
 """
 import hashlib
+from urllib.parse import urlencode
 
 from companion import device_scope, i18n
 from companion import theme_preview
@@ -19,7 +21,7 @@ from companion.settings.calendar import special_mini_html
 from companion.settings.form import (
     _field_error_attrs, _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
-    COLOUR_USAGE_RULES, LOOK_CLOSE_LABEL, look_target_attrs)
+    COLOUR_USAGE_RULES, LOOK_SAVE_LABEL, look_target_attrs)
 
 
 # The per-flight colour-rules editor's routes. Add and delete are
@@ -39,7 +41,12 @@ SPECIAL_LOOKS_ORDER = i18n.msg(
     "look.most_specific_wins",
     "Most specific wins: calendar, then flight, aircraft, airline.")
 NEW_SPECIAL_LOOK_HEADING = i18n.msg("look.new_special_look", "New special look")
+EDIT_SPECIAL_LOOK_HEADING = i18n.msg("look.edit_special_look", "Edit special look")
 ADD_SPECIAL_LOOK_LABEL = NEW_SPECIAL_LOOK_HEADING
+RULE_CREATE_BUTTON_TEXT = i18n.msg("look.create_look", "Create look")
+RULE_EDIT_BUTTON_TEXT = i18n.msg("rules.edit", "Edit")
+RULE_EDIT_ARIA = i18n.msg("rules.edit_rule_aria", "Edit the special look for %s")
+SPECIAL_LOOKS_BACK_LABEL = SPECIAL_LOOKS_HEADING
 SPECIAL_LOOKS_EMPTY_HEADING = i18n.msg(
     "display.special_looks_none", "No special looks yet.")
 RULE_PREVIEW_TEXT = i18n.msg(
@@ -51,7 +58,6 @@ RULE_LOOK_LABEL = i18n.msg("look.look", "Look")
 # per-flight rules feature.
 RULE_KIND_FIELD_LABEL = i18n.msg("display.match_by", "Applies to")
 RULE_VALUE_FIELD_LABEL = i18n.msg("display.value", "Value")
-RULE_ADD_BUTTON_TEXT = i18n.msg("display.add_rule", "Add special look")
 RULE_CANCEL_TEXT = i18n.msg("display.cancel", "Cancel")
 # The plain-language segment labels, used by both the add form's
 # segment text and the rule-row kind badge, so the two can never
@@ -84,6 +90,7 @@ RULE_REMOVE_BUTTON_TEXT = i18n.msg("rules.remove", "Remove")
 # itself is data, never translated.
 RULE_SUGGESTIONS_LABEL = i18n.msg("rules.recent", "Recent:")
 # aria-labelledby targets for the two radiogroups the add form carries.
+RULE_FORM_ID = "special-look-form"
 RULE_KIND_HEADING_ID = "rule-kind-heading"
 RULE_THEME_HEADING_ID = "rule-theme-heading"
 RULE_REMOVE_DIALOG_TITLE = i18n.msg(
@@ -166,63 +173,110 @@ def _rule_value_field_html(submitted_value, errors):
         _field_error_html(errors, "rule_key", "rule-key"))
 
 
-def _rule_add_form_html(errors=None, submitted=None, suggestions_html=""):
-    """The "New special look" form, one `<form>` posting to
-    `RULES_ADD_ROUTE` with the unchanged `rule_kind`/`rule_key`/
-    `rule_theme_id` fields. Its look is the same colour x style table of
-    native radios the pictures use (scripts swap in the three-choice
-    picker over it); a mini render shows the chosen look.
+def _rule_for(registry, kind, value):
+    """The theme id stored for (kind, value), or None."""
+    for row_kind, row_value, theme_id, _created_at in colour_rules.rule_rows(registry):
+        if (row_kind, row_value) == (kind, value):
+            return theme_id
+    return None
+
+
+def _rule_fixed_key_html(kind, value):
+    """The key an edit keeps: shown as text and posted as hidden fields, so
+    saving replaces that rule and cannot make another."""
+    return (
+        '<input type="hidden" name="rule_kind" value="%s">'
+        '<input type="hidden" name="rule_key" value="%s">'
+        '<div class="form-page__section"><p class="form-page__label">%s</p>'
+        '<p class="form-page__fixed"><span class="special-row__tag">%s</span> '
+        '<span class="mono">%s</span></p></div>'
+    ) % (
+        escape_html(kind), escape_html(value), escape_html(i18n.t(RULE_KIND_FIELD_LABEL)),
+        escape_html(_rule_kind_label_text(kind)), escape_html(value))
+
+
+def rule_form_html(ctx, edit=None, errors=None, submitted=None):
+    """The page that creates or edits one rule: the picture on the left, the
+    options on the right, one `<form>` posting to `RULES_ADD_ROUTE` with the
+    unchanged `rule_kind`/`rule_key`/`rule_theme_id` fields (the route replaces
+    a rule that already exists). `edit` is (kind, key, theme_id) of the rule
+    being edited, or None for a new one. Its look is the same colour x style
+    table of native radios the pictures use (scripts swap in the three-choice
+    picker over it); the picture follows the choice.
 
     Validation errors render under each field, keeping the typed value.
+    Returns (form markup, title, submit label).
     """
-    selected_kind = _submitted_or_current(
-        submitted, "rule_kind", colour_rules.RULE_KIND_CALLSIGN)
-    submitted_value = submitted.get("rule_key", "") if submitted is not None else ""
-    selected_theme_id = _submitted_or_current(
-        submitted, "rule_theme_id", device_config.THEME_IDS[0])
+    if edit is not None:
+        selected_kind, submitted_value, selected_theme_id = edit
+        title, submit_text = EDIT_SPECIAL_LOOK_HEADING, LOOK_SAVE_LABEL
+        who_html = _rule_fixed_key_html(selected_kind, submitted_value)
+    else:
+        selected_kind = _submitted_or_current(
+            submitted, "rule_kind", colour_rules.RULE_KIND_CALLSIGN)
+        submitted_value = submitted.get("rule_key", "") if submitted is not None else ""
+        selected_theme_id = _submitted_or_current(
+            submitted, "rule_theme_id", device_config.THEME_IDS[0])
+        title, submit_text = NEW_SPECIAL_LOOK_HEADING, RULE_CREATE_BUTTON_TEXT
+        who_html = '<div class="form-page__section">%s%s%s</div>' % (
+            _rule_kind_segment_html(selected_kind, errors),
+            _rule_value_field_html(submitted_value, errors),
+            _rule_suggestion_chips_html(ctx.state_dir))
     picture_id = (
         selected_theme_id if selected_theme_id in device_config.THEMES
         else device_config.DEFAULT_THEME_ID)
+    state = theme_preview.FRAME_PREVIEW_STATE_DEPARTING
     small = theme_preview.FRAME_PREVIEW_SIZE_SMALL
+    large = theme_preview.FRAME_PREVIEW_SIZE_LARGE
+    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[large]
     table_html = look.look_table_html(
-        "rule_theme_id", selected_theme_id, i18n.t(NEW_SPECIAL_LOOK_HEADING),
-        lambda theme_id: theme_preview.frame_preview_src(
-            theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING, small),
+        "rule_theme_id", selected_theme_id, i18n.t(title),
+        lambda theme_id: theme_preview.frame_preview_src(theme_id, state, small),
         form_id=None)
-    return (
-        '<form method="post" action="%s" class="rule-add-form special-add__form"%s>'
-        '<div class="special-add__head">'
-        '<h3 class="special-add__title" id="special-add-title">%s</h3>'
-        '<button type="button" class="look-sheet__close" data-special-add-close hidden '
-        'aria-label="%s">%s</button></div>'
-        '<div class="special-add__preview">%s<p class="text-label">%s</p></div>'
-        '<div class="special-add__cols"><div class="special-add__who">%s%s%s</div>'
-        '<div class="special-add__look">'
-        '<p class="look-axis__label special-add__look-label" id="%s">%s</p>'
+    form_html = (
+        '<form method="post" action="%s" id="%s" class="form-page rule-add-form" '
+        'data-special-form%s>'
+        '<div class="form-page__preview"><div class="look-frame__anchor">'
+        '<div class="look-frame__picture"><img class="look-frame__image" data-look-image '
+        'src="%s" width="%d" height="%d" alt=""></div></div>'
+        '<p class="form-page__caption"><span class="form-page__name">%s</span>'
+        '<span class="form-page__sentence">%s</span></p></div>'
+        '<div class="form-page__card">%s'
+        '<div class="form-page__section">'
+        '<p class="look-axis__label" id="%s">%s</p>'
         '<div data-look-axes-host hidden>%s</div>'
         '<div data-look-table-host>%s</div>%s</div></div>'
-        '<div class="special-add__foot">'
-        '<button type="button" class="look-sheet__reset" data-special-add-cancel hidden>%s</button>'
-        '<button type="submit">%s</button></div>'
         "</form>"
     ) % (
-        escape_html(device_scope.scoped(RULES_ADD_ROUTE, "POST")),
-        look_target_attrs(
-            COLOUR_USAGE_RULES, "rule_theme_id", theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
-            small, False),
-        escape_html(i18n.t(NEW_SPECIAL_LOOK_HEADING)),
-        escape_html(i18n.t(LOOK_CLOSE_LABEL)), layout.icon_html("icon-close"),
-        special_mini_html(picture_id), escape_html(i18n.t(RULE_PREVIEW_TEXT)),
-        _rule_kind_segment_html(selected_kind, errors),
-        _rule_value_field_html(submitted_value, errors),
-        suggestions_html,
+        escape_html(device_scope.scoped(RULES_ADD_ROUTE, "POST")), RULE_FORM_ID,
+        look_target_attrs(COLOUR_USAGE_RULES, "rule_theme_id", state, large, False),
+        escape_html(theme_preview.frame_preview_src(picture_id, state, large)), width, height,
+        escape_html(i18n.t(title)), escape_html(i18n.t(RULE_PREVIEW_TEXT)),
+        who_html,
         escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t(RULE_LOOK_LABEL)),
         look.axes_html("rule_look"),
         table_html,
         _field_error_html(errors, "rule_theme_id", "rule-theme"),
-        escape_html(i18n.t(RULE_CANCEL_TEXT)),
-        escape_html(i18n.t(RULE_ADD_BUTTON_TEXT)),
     )
+    return form_html, i18n.t(title), i18n.t(submit_text)
+
+
+def edit_target(ctx):
+    """(kind, key, theme_id) of the rule the request names (`ctx.rule_edit`),
+    or None when it names nothing that exists."""
+    named = ctx.rule_edit
+    registry = ctx.colour_rules
+    if not named or not isinstance(registry, dict):
+        return None
+    theme_id = _rule_for(registry, named[0], named[1])
+    return (named[0], named[1], theme_id) if theme_id else None
+
+
+def edit_href(kind, value):
+    """The address of the page that edits one rule."""
+    return device_scope.scoped(
+        "%s?%s" % (layout.DISPLAY_SPECIAL_LOOK_EDIT_ROUTE,
+                   urlencode((("rule_kind", kind), ("rule_key", value)))))
 
 
 def _recent_rule_keys(rows):
@@ -324,18 +378,22 @@ def _rule_row_html(kind, value, theme_id):
     opens the confirm dialog (a hash link, so it works without script).
     """
     trigger, dialog = _rule_remove_html(kind, value)
+    subject = "%s %s" % (_rule_kind_label_text(kind), value)
+    edit_html = '<a class="special-row__edit" href="%s" aria-label="%s">%s</a>' % (
+        escape_html(edit_href(kind, value)), escape_html(i18n.t(RULE_EDIT_ARIA) % subject),
+        escape_html(i18n.t(RULE_EDIT_BUTTON_TEXT)))
     return (
         '<li class="special-row rule-row"><div class="special-row__main">%s'
         '<div class="special-row__text">'
         '<p class="special-row__title"><span class="special-row__tag rule-row__kind">%s</span>%s</p>'
         '<p class="special-row__meta rule-row__theme">%s</p></div>'
-        "%s</div>%s</li>"
+        "%s%s</div>%s</li>"
     ) % (
         special_mini_html(theme_id),
         escape_html(_rule_kind_label_text(kind)),
         _rule_title_html(kind, value),
         escape_html(look.look_sentence(theme_id)),
-        trigger, dialog,
+        edit_html, trigger, dialog,
     )
 
 
@@ -353,23 +411,20 @@ def _rule_list_html(rows):
 
 
 def special_looks_html(ctx, calendar_row_html):
-    """The look card's Special looks column: the calendar row, one row
-    per per-flight rule, and the "Add a special look" disclosure holding
-    the add form. `ctx` arrives already a `PageContext`.
+    """The Special looks list: the calendar row, one row per per-flight
+    rule, and the link to the page that adds one. `ctx` arrives already a
+    `PageContext`.
     """
     registry = ctx.colour_rules
     if not isinstance(registry, dict):
         registry = {kind: {} for kind in colour_rules.RULE_KINDS}
     add_html = (
         '<li class="special-row special-row--add">'
-        '<details class="special-add" data-special-add>'
-        '<summary class="special-add__summary">'
-        '<span class="special-add__plus">%s</span><span>%s</span></summary>'
-        '<div class="special-add__panel" aria-labelledby="special-add-title">%s</div>'
-        "</details></li>"
+        '<a class="special-add__summary" href="%s">'
+        '<span class="special-add__plus">%s</span><span>%s</span></a></li>'
     ) % (
-        layout.icon_html("icon-plus"), escape_html(i18n.t(ADD_SPECIAL_LOOK_LABEL)),
-        _rule_add_form_html(suggestions_html=_rule_suggestion_chips_html(ctx.state_dir)))
+        escape_html(device_scope.scoped(layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE)),
+        layout.icon_html("icon-plus"), escape_html(i18n.t(ADD_SPECIAL_LOOK_LABEL)))
     rows_html = _rule_list_html(colour_rules.rule_rows(registry))
     empty_html = "" if rows_html else ui_components.empty_state(
         i18n.t(SPECIAL_LOOKS_EMPTY_HEADING), "", compact=True)

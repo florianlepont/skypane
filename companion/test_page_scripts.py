@@ -34,7 +34,7 @@ HOOKS = (
     ("time[data-relative]", layout.RELATIVE_TIME_SCRIPT_SRC),
     ("form[data-quick-switch]", layout.QUICK_SWITCH_SCRIPT_SRC),
     ("[data-value-control]", layout.VALUE_CONTROLS_SCRIPT_SRC),
-    ("[data-calendar-sheet]", layout.CALENDAR_SHEET_SCRIPT_SRC),
+    ("[data-calendar-sheet]", layout.CALENDAR_CONNECT_SCRIPT_SRC),
     ("#place-map", layout.LEAFLET_SCRIPT_SRC),
     ("#place-map", layout.PLACE_MAP_SCRIPT_SRC),
 )

@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L1-pin": 4, "L2": 4, "L3": 5, "L4": 3,
+    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
     "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -491,6 +491,9 @@ def test_l1_pick_an_airport_from_the_list(world, new_context):
 def test_l1_pick_an_airport_by_tapping_its_pin(world, new_context):
     context, page, steps, hosts = _open_location(world, new_context)
     try:
+        # My position is the page's first and default mode, and the airport pins belong to
+        # Airport mode: one more tap than before.
+        steps.tap(page.locator("label.place-mode:has(#place-mode-runway)"), "Airport tab")
         page.wait_for_function(
             "() => document.querySelectorAll('#place-map .place-dot').length >= 1", timeout=10000)
         # The map opens on the frame's own airport: zoom out to all of France to reach another.

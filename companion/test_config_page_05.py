@@ -113,8 +113,8 @@ _FLOOR_CTX = {
 }
 # Minimums pinned a little below the observed figures - re-derived by RUNNING this exact
 # fixture through this exact selector.
-_FLOOR_MIN_MEASURED = {"display": 2, "device": 2}
-_FLOOR_EXPECTED_SKIPS = {"display": 1, "device": 0}
+_FLOOR_MIN_MEASURED = {"display": 1, "calendar connection": 1, "device": 2}
+_FLOOR_EXPECTED_SKIPS = {"display": 0, "calendar connection": 1, "device": 0}
 
 
 def _measured_section_captions(rendered):
@@ -136,9 +136,10 @@ def _measured_section_captions(rendered):
 
 def test_settings_pages_editorial_floor_render_level_both_languages():
     """the settings-pages editorial floor, measured on the RENDERED page (never a source scan):
-    every non-exempt .section-caption element on /display and /device is at most 12
-    whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is skipped exactly once
-    on /display for the protected calendar privacy explanation and never on /device"""
+    every non-exempt .section-caption element on /display, the calendar connection page and
+    /device is at most 12 whitespace-split words in both languages; ASPECT_CAPTION_EXEMPTIONS is
+    skipped exactly once on the connection page for the protected calendar privacy explanation
+    and never elsewhere"""
     exempt_by_lang = {
         lang: {
             cp.caption_word_count_text(i18n.t_lang(text, lang))
@@ -146,12 +147,14 @@ def test_settings_pages_editorial_floor_render_level_both_languages():
         }
         for lang in ("en", "fr")
     }
-    for page_name, scope in (
-            ("display", config_page.SCOPE_DISPLAY), ("device", config_page.SCOPE_DEVICE)):
+    for page_name, scope, view in (
+            ("display", config_page.SCOPE_DISPLAY, None),
+            ("calendar connection", config_page.SCOPE_DISPLAY, "calendar-connect"),
+            ("device", config_page.SCOPE_DEVICE, None)):
         for lang in ("en", "fr"):
             prefs.set_request_prefs(lang=lang)
             try:
-                rendered = config_page.render(_FLOOR_CTX, scope=scope)
+                rendered = config_page.render(_FLOOR_CTX, scope=scope, view=view)
             finally:
                 prefs.set_request_prefs(lang="en")
 
@@ -398,13 +401,17 @@ def test_calendar_secret_never_reaches_served_http_bytes(make_app_server):
     session_cookie = login(server)
     status, _headers, body = get(server, "/display/calendar", cookie=session_cookie)
     assert status == 200, "expected 200 on the authenticated Calendar page, got %d" % status
-    body_text = body.decode("utf-8", errors="replace")
-    assert 'data-calendar-state="pending"' in body_text, (
+    list_text = body.decode("utf-8", errors="replace")
+    assert 'data-calendar-state="pending"' in list_text, (
         "expected the 'saved, not read yet' state (no sync recorded yet)")
+    status, _headers, body = get(server, "/display/calendar/connect", cookie=session_cookie)
+    assert status == 200, "expected 200 on the authenticated connection page, got %d" % status
+    body_text = body.decode("utf-8", errors="replace")
     assert escape_html("%s…" % _CALENDAR_HOST) in body_text, (
         "expected the masked host + ellipsis fragment to be served once connected")
-    for needle in (_CALENDAR_TOKEN, _CALENDAR_PATH, _CALENDAR_QUERY_PARAM, _CALENDAR_URL):
-        assert needle not in body_text, "expected %r never to appear in the served response body" % (needle,)
+    for text in (list_text, body_text):
+        for needle in (_CALENDAR_TOKEN, _CALENDAR_PATH, _CALENDAR_QUERY_PARAM, _CALENDAR_URL):
+            assert needle not in text, "expected %r never to appear in the served response body" % (needle,)
 
 
 @pytest.mark.parametrize("hostile", ["not a url", "", "javascript:alert(1)"], ids=[
@@ -438,13 +445,16 @@ def test_display_scope_has_three_radiogroups_device_has_none():
     labelled by their own table caption) and the Device scope renders none"""
     display_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY)
     device_rendered = config_page.render(_TASK3_BASE_CTX, scope=config_page.SCOPE_DEVICE)
-    display_count = display_rendered.count('role="radiogroup"')
+    new_look_rendered = config_page.render(
+        _TASK3_BASE_CTX, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
+    display_count = new_look_rendered.count('role="radiogroup"')
     assert display_count >= 1, (
-        "expected at least one role=\"radiogroup\" occurrence on the Display scope, got %d"
+        "expected at least one role=\"radiogroup\" occurrence on the new special look page, got %d"
         % display_count)
-    assert display_rendered.count('<caption class="visually-hidden">') == 3, (
-        "expected each of the three look tables (Arrivals, Calendar, new special look) to carry "
-        "its own caption")
+    assert display_rendered.count('<caption class="visually-hidden">') == 2, (
+        "expected each of the two look tables (Arrivals, Calendar) to carry its own caption")
+    assert new_look_rendered.count('<caption class="visually-hidden">') == 1, (
+        "expected the new special look page's look table to carry its own caption")
     assert display_rendered.count('class="look-pick__grid" role="radiogroup"') == 1, (
         "expected the departures look to be one labelled radiogroup of radio cards")
     device_count = device_rendered.count('role="radiogroup"')
@@ -546,12 +556,13 @@ def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
         for usage in (
             config_page.COLOUR_USAGE_DEPARTURES,
             config_page.COLOUR_USAGE_ARRIVALS,
-            config_page.COLOUR_USAGE_RULES,
             config_page.COLOUR_USAGE_CALENDAR,
         )
     ]
     assert positions == sorted(positions)
-    assert headings[1] < positions[2] < headings[2] < positions[3]
+    # The rules editor is a page of its own; the Special looks list only links to it.
+    assert 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES not in rendered
+    assert headings[1] < headings[2] < positions[2]
     assert 'class="page-header__screen' not in rendered
     assert 'class="page-header__purpose' not in rendered
     assert 'class="frame-strip' not in rendered
@@ -582,9 +593,9 @@ def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
     """every look-table option's own <label> carries a data-preview-src naming its own theme's
     full-frame preview in its look's state and size, while the table itself loads no image at
     all (its swatches are inline SVG)"""
-    rendered = config_page.render(
-        {"device_config": {"theme": "blue"}},
-        scope=config_page.SCOPE_DISPLAY)
+    ctx = {"device_config": {"theme": "blue"}}
+    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
+        ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     sources = re.findall(
         r'<label class="(?:look-(?:cell|option)|runway-card look-pick__card)[^"]*"[^>]*?'
         r' ?data-preview-src="([^"]*)"', rendered)
@@ -629,12 +640,13 @@ def test_look_card_has_no_caption_or_sample_flight_pill(tmp_path):
 # --- the compact chip grid, the swatch legend and the palette grids ----
 
 def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatch_legend():
-    """Display renders exactly three look tables (arrivals, calendar, a new special look), each
-    with one radio per registered theme and its gap notes listed after the table, never inside
-    it, plus the departures look as one grid of radio cards with one card per registered theme"""
-    rendered = config_page.render({
-        "device_config": {"theme": "white", "tracked_runway": "3"},
-    }, scope=config_page.SCOPE_DISPLAY)
+    """Display renders exactly two look tables (arrivals, calendar) and the new special look page
+    one more, each with one radio per registered theme and its gap notes listed after the table,
+    never inside it, plus the departures look as one grid of radio cards with one card per
+    registered theme"""
+    ctx = {"device_config": {"theme": "white", "tracked_runway": "3"}}
+    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
+        ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     root = parse_html(rendered)
     blocks = root.find_all("div", cls="look-table-block")
     assert len(blocks) == 3
@@ -725,17 +737,17 @@ def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_c
                 "page; found selector %r" % (selector,))
 
 
-def test_the_rules_add_form_is_one_left_aligned_centre_aligned_row(served_css):
-    """the special look form lays its two halves side by side from 700px when enhanced (who it
-    applies to, then the look), stacks them on phones, and centre-aligns its action row"""
-    stacked = declarations_for(served_css, ".special-add__cols")
-    assert stacked.get("grid-template-columns") == "minmax(0, 1fr)"
-    wide = declarations_for(
-        served_css, ".special-add.is-enhanced .special-add__cols", at_rules=("@media (min-width: 700px)",))
-    assert wide.get("grid-template-columns") == "minmax(0, 1fr) minmax(0, 1fr)"
-    foot = declarations_for(served_css, ".special-add__foot")
-    assert foot.get("align-items") == "center"
-    assert foot.get("margin-left") != "auto"
+def test_the_form_pages_are_two_columns_from_960_and_stack_on_phones(served_css):
+    """the pages that edit one thing (a special look, the calendar link) lay the picture and the
+    options side by side from 960px, stack them on phones, and order Cancel before Save in the
+    docked bar"""
+    wide = declarations_for(served_css, ".form-page")
+    assert wide.get("grid-template-columns") == "minmax(0, 17rem) minmax(0, 37rem)"
+    narrow = declarations_for(
+        served_css, ".form-page", at_rules=("@media (max-width: 959.98px)",))
+    assert narrow.get("grid-template-columns") == "minmax(0, 1fr)"
+    cancel = declarations_for(served_css, "a.form-bar__cancel")
+    assert cancel.get("order") == "2"
 
 
 # --- the time-input site-language sibling, the runway/calendar/segment

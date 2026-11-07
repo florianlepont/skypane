@@ -5570,8 +5570,16 @@ button.detection-search:hover {
 }
 
 .place-mode__text {
-  display: block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
   text-align: center;
+}
+
+/* The icons belong to the map layout; the plain form needs the room. */
+html:not(.map-ready) .place-mode__text .icon {
+  display: none;
 }
 
 .place-mode:has(input:checked) {
@@ -5640,6 +5648,10 @@ button.detection-search:hover {
 /* The airport's name and codes keep a clear gap above the runway heading. */
 .place-sheet #runway-group-heading {
   margin-top: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The selected mark straddles the card's top-right corner, so it never sits
@@ -5704,18 +5716,31 @@ button.detection-search:hover {
   display: block;
   flex: 1 1 auto;
   min-height: 24rem;
-  overflow: hidden;
+  /* Clipped, never a scroll container: the map is fixed to the window, and a
+   * scroll container would be scrolled when a control of the map takes focus. */
+  overflow: clip;
   background: var(--color-secondary);
   --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  /* The one inner padding of the sheet and its rows (20px). */
+  --place-pad: calc(var(--space-md) + var(--space-xs));
+  /* What the floating tab bar covers at the foot of the page (nothing on a
+   * wide screen) and the height of the docked Save bar. */
+  --place-clear: 0px;
+  --place-bar-h: calc(44px + 2 * var(--space-sm) + 2px);
   /* The map runs under the app bar; everything that floats starts below it. */
   --place-top: calc(52px + var(--safe-top));
   --place-search-bottom: calc(var(--place-top) + var(--place-gutter) + 54px);
 }
 
+/* The map fills the whole window: it runs behind the glass sidebar and the
+ * glass tab bar as well as behind the app bar. */
 .map-ready .place-map {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 0;
+  /* Clipped rather than hidden: a hidden box can be scrolled when one of its
+   * controls takes focus, which would slide the zoom buttons away. */
+  overflow: clip;
   width: auto;
   height: auto;
   min-height: 0;
@@ -5830,6 +5855,7 @@ button.detection-search:hover {
   grid-template-columns: minmax(0, 1fr) auto;
   grid-template-rows: auto minmax(0, 1fr) auto;
   padding-top: calc(var(--place-search-bottom) + var(--space-sm));
+  padding-bottom: var(--place-clear);
   pointer-events: none;
 }
 
@@ -5968,11 +5994,17 @@ button.detection-search:hover {
   max-height: 28dvh;
   overflow-y: auto;
   gap: var(--space-sm);
-  padding: var(--space-md) var(--space-md) var(--space-sm);
+  margin: 0 var(--place-gutter) var(--space-sm);
+  padding: var(--space-md) var(--place-pad);
   background: var(--glass-solid);
-  border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
+  border-radius: var(--radius-sheet);
   box-shadow: var(--shadow-glass);
   pointer-events: auto;
+}
+
+/* While Save and Cancel show, the sheet sits above them. */
+.map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
+  margin-bottom: calc(var(--place-bar-h) + 2 * var(--space-sm));
 }
 
 .map-ready .place-hint,
@@ -6008,37 +6040,69 @@ button.detection-search:hover {
   overflow-wrap: anywhere;
 }
 
-/* The detection radius is one row: its label, the number and the slider. */
-.map-ready .place-sheet .place-radius {
-  flex-direction: row;
+/* The pin's readout: its coordinates, and what a tap does. */
+.place-pos {
+  display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+html:not(.map-ready) .place-pos {
+  display: none;
+}
+
+.place-pos__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-dominant);
+}
+
+.place-pos__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.place-pos__coords {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-pos__hint {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.place-pos__coords[hidden],
+.place-pos__hint[hidden] {
+  display: none;
+}
+
+/* The detection radius: its label with the number on one line, the slider
+ * under them and the scale under the slider. */
+.map-ready .place-sheet .place-radius {
   gap: var(--space-sm);
   margin: 0;
 }
 
 .map-ready .place-sheet .place-radius label {
-  flex: none;
   font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
-.map-ready .place-sheet .place-radius__row {
-  flex: 1 1 auto;
-  min-width: 0;
-  gap: var(--space-sm);
-}
-
-.map-ready .place-sheet .place-radius__row input[type="number"] {
-  flex: 0 0 4.5rem;
-  width: 4.5rem;
-}
-
 /* The hint shows until a place is set. */
 .place-tap-hint {
-  margin: 0 0 var(--space-sm);
-  color: color-mix(in srgb, var(--color-text) 75%, transparent);
-  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .place-tap-hint[hidden],
@@ -6057,49 +6121,27 @@ html:not(.map-ready) .place-tap-hint {
   white-space: nowrap;
 }
 
-/* Save and Cancel live in the sheet; the count line is for assistive
- * technology only. */
-.map-ready .place-sheet .dirty-bar {
-  position: sticky;
-  bottom: 0;
-  flex-direction: row-reverse;
-  justify-content: flex-start;
-  flex-wrap: nowrap;
-  gap: var(--space-md);
-  width: auto;
-  max-width: none;
+/* Save and Cancel float over the map in the Fleet page's docked bar: above the
+ * tab bar on a phone, at the foot of the card's column from 960px. It shows
+ * once something changed. */
+.map-ready .place-panel > .dirty-bar.dirty-bar--docked {
+  position: absolute;
+  z-index: 6;
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  bottom: calc(var(--place-clear) + var(--space-sm));
   margin: 0;
-  padding: var(--space-sm) 0 0;
+  padding: var(--space-sm);
+  /* Solid: the labels must read over any map picture, in both themes. */
   background: var(--glass-solid);
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  z-index: auto;
 }
 
-.map-ready .place-sheet .dirty-bar[hidden] {
+.map-ready .place-panel > .dirty-bar.dirty-bar--docked[hidden] {
   display: none;
 }
 
-.map-ready .place-sheet .dirty-bar [data-dirty-count] {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
-.map-ready .place-sheet .dirty-bar button {
-  min-height: 44px;
-  padding: 0 var(--space-lg);
-}
-
-.map-ready .place-sheet .dirty-bar__cancel {
-  background: none;
-  border-color: transparent;
-  color: var(--color-accent);
-  text-decoration: underline;
+.map-ready .place-panel > .dirty-bar [data-dirty-count] {
+  padding-left: var(--space-sm);
 }
 
 /* The page title is the page's heading for assistive technology only: the
@@ -6127,7 +6169,9 @@ html:not(.map-ready) .place-tap-hint {
   top: calc(var(--place-top) + var(--place-gutter));
   left: var(--place-gutter);
   right: var(--place-gutter);
-  max-height: calc(100% - var(--place-top) - 28dvh - 2 * var(--place-gutter));
+  max-height: calc(
+    100% - var(--place-top) - 28dvh - var(--place-clear) - var(--place-bar-h)
+    - 4 * var(--space-sm) - 2 * var(--place-gutter));
   overflow-y: auto;
   box-sizing: border-box;
   padding: var(--space-md);
@@ -6155,13 +6199,14 @@ html:not(.map-ready) .place-tap-hint {
   display: inline-flex;
 }
 
-/* The page fills the area between the app bar and the tab bar on a phone,
- * the whole content area from 960px. The page's own padding goes. */
+/* The page fills the whole window: on a phone the tab bar floats over its
+ * foot, from 960px the sidebar floats over its left edge. The page's own
+ * padding goes. */
 .map-ready .page-content:has(.place-stage) {
   display: flex;
   flex-direction: column;
   max-width: none;
-  height: calc(100dvh - var(--tab-bar-h) - var(--tab-bar-gap) - var(--safe-bottom));
+  height: 100dvh;
   padding: 0;
 }
 
@@ -6247,19 +6292,6 @@ html:not(.map-ready) .place-tap-hint {
     right: var(--space-xs);
   }
 
-  /* The follow offer is its button; the sentence is for assistive technology. */
-  .map-ready .place-sheet .place-nearest__text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .map-ready .place-sheet .place-nearest {
-    margin-top: 0;
-  }
-
   .map-ready .place-sheet #runway-group-heading {
     position: absolute;
     width: 1px;
@@ -6268,15 +6300,55 @@ html:not(.map-ready) .place-tap-hint {
     clip-path: inset(50%);
   }
 
-  .map-ready .place-sheet .dirty-bar {
-    padding-top: 0;
+  /* The phone has the tab bar below the page: it floats over the map as
+   * glass, and the sheet and the Save bar sit above it. */
+  .map-ready .place-stage {
+    --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
-  .map-ready .place-sheet .dirty-bar__save {
-    flex: 1 1 auto;
+  .map-ready:has(.place-stage) .tab-bar {
+    background-color: transparent;
   }
 
+  /* The bar keeps the two buttons on one row; the count is read aloud only. */
+  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
+    grid-template-columns: 1fr 2fr;
+  }
+
+  .map-ready .place-panel > .dirty-bar [data-dirty-count] {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  /* The sheet is compact here: the readout is one line and the radius is a
+   * row and a slider. */
+  .map-ready .place-pos {
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .map-ready .place-pos__icon {
+    width: 32px;
+    height: 32px;
+  }
+
+  .map-ready .place-pos__hint,
+  .map-ready .place-radius__scale {
+    display: none;
+  }
   .map-ready .place-map .leaflet-control-zoom {
+    display: none;
+  }
+}
+
+/* On a small phone the map keeps the room: the nearest-airport offer is not
+ * shown. */
+@media (max-width: 699.98px) {
+  .map-ready .place-nearest {
     display: none;
   }
 }
@@ -6285,7 +6357,6 @@ html:not(.map-ready) .place-tap-hint {
   /* The shell's column gap is taken back so the map meets the sidebar. */
   .map-ready .page-content:has(.place-stage) {
     width: calc(100% + var(--space-xl));
-    height: 100dvh;
     margin: 0 0 0 calc(-1 * var(--space-xl));
   }
 
@@ -6307,7 +6378,7 @@ html:not(.map-ready) .place-tap-hint {
 
   .map-ready .place-stage {
     min-height: 34rem;
-    --place-card-w: 360px;
+    --place-card-w: 400px;
     --place-top: 0px;
     --place-search-bottom: calc(var(--space-md) + 54px);
   }
@@ -6330,11 +6401,12 @@ html:not(.map-ready) .place-tap-hint {
     flex-direction: column;
     grid-column: 1;
     grid-row: 1;
-    gap: var(--space-sm);
-    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-md);
+    padding: var(--place-pad);
     box-sizing: border-box;
     margin: 0 var(--space-md);
-    max-height: calc(100dvh - var(--place-search-bottom) - 2 * var(--space-md));
+    max-height: calc(
+      100dvh - var(--place-search-bottom) - 3 * var(--space-md) - var(--place-bar-h));
     overflow-y: auto;
     pointer-events: auto;
     background: var(--glass-solid);
@@ -6366,30 +6438,39 @@ html:not(.map-ready) .place-tap-hint {
     box-shadow: var(--shadow-control);
   }
 
-  .map-ready .place-status {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    clip-path: none;
-    white-space: normal;
-  }
-
-  .map-ready .place-status:empty {
-    display: none;
-  }
-
   .map-ready .place-sheet {
     max-height: none;
     overflow: visible;
+    margin: 0;
     padding: 0;
+    gap: var(--space-md);
     background: none;
     border-radius: 0;
     box-shadow: none;
   }
 
-  .map-ready .place-sheet .dirty-bar {
-    justify-content: flex-start;
+  /* The sheet is part of the card here: the bar never lifts it. */
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
+    margin-bottom: 0;
+  }
+
+  /* Save and Cancel sit under the card, in its column. */
+  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
+    right: auto;
+    left: var(--space-md);
+    bottom: var(--space-lg);
+    width: var(--place-card-w);
+    box-sizing: border-box;
+  }
+
+  /* The sidebar is frosted glass over the map. */
+  .map-ready .dashboard-sidebar {
+    z-index: 6;
+    background: var(--bar-bg);
+    background-image: var(--bar-sheen);
+    border-color: var(--bar-border);
+    -webkit-backdrop-filter: blur(26px) saturate(200%);
+    backdrop-filter: blur(26px) saturate(200%);
   }
 
   .map-ready .place-info {
@@ -6408,6 +6489,10 @@ html:not(.map-ready) .place-tap-hint {
     grid-column: 2;
     grid-row: 4;
     margin: 0 var(--space-md) var(--space-md) 0;
+  }
+
+  .map-ready .place-sheet .place-chosen__name {
+    font-size: var(--font-heading-size);
   }
 
   .map-ready .place-details:target,
@@ -6696,10 +6781,33 @@ button.place-result.is-active {
 
 .place-nearest {
   display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-dominant));
+}
+
+.place-nearest__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-dominant);
+}
+
+.place-nearest__body {
+  display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   align-items: flex-start;
   gap: var(--space-sm);
-  margin-top: var(--space-sm);
+  min-width: 0;
 }
 
 .place-nearest__text {
@@ -6770,27 +6878,46 @@ button.place-result.is-active {
   margin-top: var(--space-md);
 }
 
+.place-panel__area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 .place-panel__area .place-radius {
   margin-top: 0;
 }
 
-.place-radius__row {
+.place-radius__head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: var(--space-md);
 }
 
-.place-radius__row input[type="number"] {
-  flex: 0 0 6rem;
-  width: 6rem;
+.place-radius__head label {
+  margin: 0;
+}
+
+.place-radius__head input[type="number"] {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  text-align: center;
 }
 
 .place-radius__range {
   --js-gate-display: block;
-  flex: 1 1 auto;
-  min-width: 0;
+  width: 100%;
   min-height: 44px;
+  margin: 0;
   accent-color: var(--color-accent);
+}
+
+.place-radius__scale {
+  --js-gate-display: flex;
+  justify-content: space-between;
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .place-radius .section-caption,
@@ -6905,17 +7032,13 @@ button.place-result.is-active {
  * an 880px container leaves 288px per column against a 310px floor),
  * silently invalidating draw.py's DAY_BAND_MIN_MARK_SPACING_PERCENT. */
 
-
 /* .home-overview > * is doubled to (0,2,0) deliberately: at (0,1,0) it
  * tied .frame-strip's own margin-bottom rule and lost to source order,
  * leaving inconsistent gaps (measured in Chromium). */
 
-
 .home-section > .text-heading {
   margin-top: 0;
 }
-
-
 
 .stat-tile__gauge {
   display: flex;
@@ -6933,20 +7056,10 @@ button.place-result.is-active {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-
-
-
-
-
-
-
 /* The latest frame is the Home page's anchor.  The image remains bounded by
  * the existing preview rules; this grid only gives it the reading priority
  * the owner selected, with the recent list immediately alongside on desktop
  * and directly after it on a phone. */
-
-
-
 
 /* The docked attention toast only; the container is empty (and takes no
  * space) while every health state is fine. */
@@ -6986,30 +7099,13 @@ button.place-result.is-active {
  * three zones become columns. Surface, border and
  * radius are the shared tokens, so both themes follow the palette. */
 
-
-
-
-
-
-
-
 /* The state tint: a faint, static glow from the top-left corner in the
  * dot's colour. Subtle on purpose (13%, fading out before mid-card), the
  * wording and the dot carry the meaning; nothing moves, so reduced
  * motion needs nothing more. */
 
-
-
-
-
-
-
-
 /* The micro-label voice the quick-action labels already use (12px
  * uppercase, the sub-scale exception tier). */
-
-
-
 
 /* The state title takes the page-title size in the display face: the
  * header's one display line, so it reads from across the room. */
@@ -7050,7 +7146,6 @@ button.place-result.is-active {
  * resting frame (quiet hours, screen off) carries no pulse class. The
  * amber ring is gentler (smaller, fainter) through two custom properties,
  * never a second duration. */
-
 
 .home-state__dot.dot--hollow {
   background: transparent;
@@ -7096,8 +7191,6 @@ button.place-result.is-active {
 .home-state__next--overdue {
   font-weight: var(--weight-semibold);
 }
-
-
 
 .home-state__next .time-value {
   font-weight: var(--weight-semibold);
@@ -7287,30 +7380,10 @@ button.place-result.is-active {
 /* The recessed panel: a step down from the card surface toward the
  * canvas. */
 
-
 /* Each row is a pill and one big tap target: the native switch button
  * stretches its ::after over the whole pill, so the control keeps its
  * role, state and focus behaviour while the finger gets a 56px-tall
  * target. */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 .home-switch__window {
   /* Above the switch's row-wide ::after so the link takes its own click;
@@ -7496,21 +7569,8 @@ button.place-result.is-active {
   margin: -13px -4px;
 }
 
-
-
-
-
-
-
-
-
-
-
 /* Without the battery dial (a plain user's Home) the status zone and the
  * switches share the row. */
-
-
-
 
 .quick-actions {
   display: flex;
@@ -7744,17 +7804,10 @@ button.switch:active .switch__thumb {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-
-
 /* A wrapping flex line, not a grid row: a grid's auto time-track always
  * resolves to its own max-content width regardless of the callsign's
  * needs, starving the callsign to a sliver in French. Flex lets the
  * time wrap to its own second line only when there is truly no room. */
-
-
-
-
-
 
 /* 4. Audit fixes ------------------------------------------------------- */
 
@@ -8083,185 +8136,6 @@ a.calendar-manage--primary {
 
 a.calendar-manage--primary:hover {
   background: var(--color-accent-hover);
-}
-
-/* box-shadow at rest is this file's hairline-at-rest exception for a
- * floating modal, as for .lightbox. color is explicit because a <dialog>
- * promoted by showModal() does not reliably inherit it. No entrance
- * animation: the motion budget is spent elsewhere. */
-.calendar-sheet {
-  box-sizing: border-box;
-  width: calc(100% - var(--space-lg) * 2);
-  max-width: 440px;
-  max-height: calc(100svh - var(--space-lg) * 2);
-  overflow-y: auto;
-  padding: var(--space-lg);
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-card-hover);
-}
-
-/* The dialog is a container, not a control: arriving at it by its
- * fragment must not draw a heavy ring round the whole card. Every control
- * inside keeps the global focus ring. */
-.calendar-sheet:focus {
-  outline: none;
-}
-
-/* Scripts blocked: the open dialog is an in-page card, not a modal. */
-.calendar-sheet[open]:not(:modal) {
-  position: static;
-  width: auto;
-  max-width: none;
-  margin: var(--space-md) 0 0;
-  box-shadow: none;
-}
-
-.calendar-sheet::backdrop {
-  background: var(--color-scrim);
-}
-
-.calendar-sheet > * + * {
-  margin-top: var(--space-md);
-}
-
-.calendar-sheet__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-}
-
-.calendar-sheet__title {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: var(--font-heading-size);
-  font-weight: var(--weight-semibold);
-}
-
-a.calendar-sheet__close {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 44px;
-  height: 44px;
-  margin-right: calc(var(--space-sm) * -1);
-  font-size: 24px;
-  line-height: 1;
-  color: var(--color-text);
-  text-decoration: none;
-  border-radius: var(--radius-control);
-}
-
-a.calendar-sheet__close:hover {
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-}
-
-.calendar-sheet__label {
-  margin: 0;
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-}
-
-.calendar-sheet__link .calendar-masked-url {
-  margin-top: var(--space-xs);
-}
-
-.calendar-sheet input[type="text"] {
-  width: 100%;
-}
-
-.calendar-sheet__note {
-  margin: var(--space-sm) 0 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.calendar-sheet__field .section-caption {
-  margin: var(--space-xs) 0 0;
-}
-
-.calendar-sheet__foot {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-sm);
-  margin-top: var(--space-md);
-}
-
-.calendar-sheet button {
-  height: auto;
-  min-height: 44px;
-}
-
-a.calendar-sheet__cancel {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 12px;
-  font-size: var(--font-label-size);
-  color: var(--color-text);
-  text-decoration: none;
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  border-radius: var(--radius-control);
-}
-
-.calendar-sheet__disconnect {
-  padding-top: var(--space-sm);
-  border-top: 1px solid var(--color-border);
-}
-
-/* The quiet destructive action: error-coloured text, no fill. Equal
- * (0,1,1) specificity to button[type="submit"], later in source, so it
- * wins on position and clears the primary fill and its shadow. */
-button.calendar-danger {
-  padding: 0 4px;
-  color: var(--color-status-error);
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-}
-
-button.calendar-danger:hover {
-  background: transparent;
-  border-color: transparent;
-  box-shadow: none;
-  text-decoration: underline;
-}
-
-button.calendar-danger--solid {
-  padding: 0 12px;
-  border-color: var(--color-status-error);
-}
-
-.calendar-sheet__confirm {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  padding: var(--space-md);
-  border: 1px solid var(--color-status-error);
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-status-error) 6%, transparent);
-}
-
-/* An author display beats the UA [hidden] rule, so restate it. */
-.calendar-sheet__confirm[hidden] {
-  display: none;
-}
-
-.calendar-sheet__confirm-heading {
-  margin: 0;
-  font-weight: var(--weight-semibold);
-}
-
-.calendar-sheet__confirm .text-body {
-  margin: 0;
-}
-
-.calendar-sheet__confirm .calendar-sheet__foot {
-  margin-top: var(--space-xs);
 }
 
 .text-link {
@@ -8811,8 +8685,7 @@ button.look-frame__open:focus-visible {
 }
 
 /* These summaries carry their own icon instead of the global chevron. */
-.look-edit__summary::before,
-.special-add__summary::before {
+.look-edit__summary::before {
   content: none;
 }
 
@@ -8979,8 +8852,7 @@ button.look-frame__open:focus-visible {
   margin-top: var(--space-sm);
 }
 
-.look-sheet__head,
-.special-add__head {
+.look-sheet__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -8988,7 +8860,6 @@ button.look-frame__open:focus-visible {
 }
 
 .look-sheet__title,
-.special-add__title,
 .special-looks__title {
   margin: 0;
   font-family: var(--font-display);
@@ -9145,8 +9016,7 @@ button.look-sheet__close[hidden] {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.look-sheet__foot,
-.special-add__foot {
+.look-sheet__foot {
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -9155,8 +9025,7 @@ button.look-sheet__close[hidden] {
   border-top: 1px solid var(--color-border);
 }
 
-.look-sheet__foot button,
-.special-add__foot button {
+.look-sheet__foot button {
   height: 40px;
   padding: 0 var(--space-md);
   font-size: var(--font-label-size);
@@ -9294,7 +9163,223 @@ a.special-row__remove:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Add a special look ----------------------------------------------- */
+a.special-row__edit {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+a.special-row__edit:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+/* The pages that edit one thing (a special look, the calendar link): the
+ * picture on the left, the options in a card on the right, Cancel and Save in
+ * the docked bar. One column on a phone, the picture beside its caption. */
+.form-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+a.form-back {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-xs);
+  min-height: 44px;
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-decoration: none;
+}
+
+.form-back .icon {
+  transform: rotate(180deg);
+}
+
+.form-page {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 37rem);
+  gap: var(--space-xl) var(--space-2xl);
+  align-items: flex-start;
+}
+
+.form-page__preview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.form-page__caption {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.form-page__name {
+  font-family: var(--font-display);
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.form-page__sentence {
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.form-page__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+  padding: calc(var(--space-md) + var(--space-xs));
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.form-page__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+}
+
+.form-page__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin: 0;
+}
+
+.form-page__section + .form-page__section {
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.form-page__label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.form-page__fixed {
+  margin: 0;
+}
+
+/* The quiet destructive link: error-coloured, a 44px target. */
+a.form-page__danger {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-status-error);
+  text-decoration: none;
+  border: 1px solid var(--color-status-error);
+  border-radius: var(--radius-control);
+}
+
+a.form-page__danger:hover {
+  background: color-mix(in srgb, var(--color-status-error) 8%, transparent);
+}
+
+.form-page input[type="text"] {
+  width: 100%;
+}
+
+.form-page input[name="rule_key"] {
+  font-family: var(--font-mono);
+}
+
+.form-page .theme-form {
+  min-height: 44px;
+}
+
+.form-page .theme-form input[type="radio"] + label {
+  flex: 1 1 0;
+  height: 38px;
+  font-size: var(--font-label-size);
+}
+
+.form-page .section-caption {
+  margin: 0;
+}
+
+.form-page__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* Cancel is a link; Save is the bar's submit button. */
+.form-bar__title {
+  min-width: 0;
+  font-weight: var(--weight-semibold);
+}
+
+a.form-bar__cancel {
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 var(--space-lg);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  border-radius: var(--radius-control);
+}
+
+a.form-bar__cancel:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+@media (max-width: 959.98px) {
+  .form-page {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+  }
+
+  .form-page__preview {
+    display: grid;
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-md);
+  }
+
+  .form-bar__title {
+    display: none;
+  }
+
+  .dirty-bar.form-bar {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+/* The add row of the Special looks list ---------------------------- */
 
 .special-add__summary {
   display: flex;
@@ -9303,12 +9388,7 @@ a.special-row__remove:hover {
   min-height: 64px;
   font-weight: var(--weight-semibold);
   color: var(--color-accent);
-  list-style: none;
-  cursor: pointer;
-}
-
-.special-add__summary::-webkit-details-marker {
-  display: none;
+  text-decoration: none;
 }
 
 .special-add__plus {
@@ -9319,95 +9399,6 @@ a.special-row__remove:hover {
   height: 70px;
   border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, transparent);
   border-radius: var(--radius-control);
-}
-
-.special-add[open] > .special-add__summary {
-  border-radius: var(--radius-control);
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
-}
-
-.special-add__panel {
-  padding: var(--space-sm) 0 var(--space-md);
-}
-
-.special-add__form {
-  gap: var(--space-md);
-}
-
-.special-add__cols {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-md);
-}
-
-.special-add__who,
-.special-add__look {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-.special-add__who .theme-form {
-  min-height: 44px;
-}
-
-.special-add__who .theme-form input[type="radio"] + label {
-  flex: 1 1 0;
-  height: 38px;
-  font-size: var(--font-label-size);
-}
-
-.special-add__who input[type="text"] {
-  font-family: var(--font-mono);
-}
-
-/* The preview heads the form: the framed picture takes 44% of a phone sheet's
- * content width (9rem on a wide sheet) with its caption beside it. */
-.special-add__preview {
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  padding-bottom: var(--space-md);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.special-add__preview .special-row__mini {
-  width: 44%;
-  padding: 4px;
-  border-radius: var(--radius-control);
-}
-
-@media (min-width: 700px) {
-  .special-add__preview .special-row__mini {
-    width: 9rem;
-  }
-}
-
-.special-add__preview .special-row__image {
-  width: 100%;
-  height: auto;
-  aspect-ratio: 3 / 4;
-}
-
-.special-add__preview .text-label {
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.special-add__look-label {
-  margin: 0;
-}
-
-/* The three choices name themselves; the "Look" heading only stays for
- * assistive technology once the picker replaces the table. */
-.special-add.is-enhanced .special-add__look-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }
 
 .rule-suggestions {
@@ -9441,27 +9432,6 @@ button.rule-suggestion-chip {
   font-weight: var(--weight-regular);
 }
 
-/* With scripts, the add form is a dialog anchored beside the list. */
-.special-add.is-enhanced[open] > .special-add__panel {
-  position: absolute;
-  right: calc(100% + var(--space-md));
-  bottom: 0;
-  z-index: 51;
-  width: min(38rem, calc(100vw - 2 * var(--space-md)));
-  padding: var(--space-md) 20px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  background: var(--color-dominant);
-  box-shadow: var(--shadow-pop);
-}
-
-@media (min-width: 700px) {
-  .special-add.is-enhanced .special-add__cols {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: var(--space-lg);
-  }
-}
-
 @media (min-width: 1200px) {
   .look-card__grid {
     grid-template-columns: minmax(0, 15rem) minmax(0, 15rem) minmax(17rem, 1fr);
@@ -9473,7 +9443,6 @@ button.rule-suggestion-chip {
   }
 
   /* Without scripts, an open table or add form needs the card's width. */
-  .special-looks:has(.special-add[open]:not(.is-enhanced)),
   .special-looks:has(.look-edit[open]) {
     grid-column: 1 / -1;
   }
@@ -9486,23 +9455,13 @@ button.rule-suggestion-chip {
   }
 }
 
-@media (max-width: 1199.98px) {
-  .special-add.is-enhanced[open] > .special-add__panel {
-    right: auto;
-    left: 0;
-    top: auto;
-    bottom: calc(100% - 64px);
-  }
-}
-
-/* Phones: both dialogs become bottom sheets over a dimmed page. */
+/* Phones: the look sheet becomes a bottom sheet over a dimmed page. */
 @media (max-width: 699.98px) {
   .look-scrim {
     background: var(--color-scrim);
   }
 
-  .look-sheet,
-  .special-add.is-enhanced[open] > .special-add__panel {
+  .look-sheet {
     position: fixed;
     top: auto;
     right: 0;
@@ -9518,19 +9477,11 @@ button.rule-suggestion-chip {
     border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
   }
 
-  .special-add__foot button {
-    height: 44px;
-  }
+  
 
-  .special-add__foot {
-    position: sticky;
-    bottom: 0;
-    padding-top: var(--space-sm);
-    background: var(--color-dominant);
-  }
+  
 
-  .look-sheet::before,
-  .special-add.is-enhanced[open] > .special-add__panel::before {
+  .look-sheet::before {
     content: "";
     position: absolute;
     top: 8px;
@@ -9849,35 +9800,6 @@ a.modal__dismiss {
 
   dialog.modal.is-modal[data-sheet-state="closing"] {
     transition: transform var(--motion-fast) ease-in;
-  }
-}
-
-/* The calendar sheet is the same bottom sheet as every other dialog below
- * 700px: full width, pinned to the bottom edge, rounded top corners and a
- * grabber. The in-page card shown without scripts keeps its own rules. */
-@media (max-width: 699.98px) {
-  dialog.calendar-sheet:modal {
-    position: fixed;
-    inset: auto 0 0;
-    width: 100%;
-    max-width: none;
-    max-height: 88svh;
-    margin: 0;
-    padding: 22px max(var(--space-md), var(--safe-right)) calc(var(--space-md) + var(--safe-bottom)) max(var(--space-md), var(--safe-left));
-    border-radius: var(--radius-sheet) var(--radius-sheet) 0 0;
-    box-shadow: var(--shadow-pop);
-  }
-
-  dialog.calendar-sheet:modal::before {
-    content: "";
-    position: absolute;
-    top: 8px;
-    left: 50%;
-    width: 40px;
-    height: 4px;
-    margin-left: -20px;
-    border-radius: var(--radius-control);
-    background: var(--color-border);
   }
 }
 
@@ -10518,7 +10440,7 @@ a.entity-row__button:hover {
 }
 
 /* In the card, "New special look" is the section's one primary action. */
-.personalisation-card .special-add:not([open]) > .special-add__summary {
+.personalisation-card .special-add__summary {
   justify-content: center;
   min-height: 44px;
   padding: 0 var(--space-md);
@@ -10528,11 +10450,11 @@ a.entity-row__button:hover {
   color: var(--color-on-accent);
 }
 
-.personalisation-card .special-add:not([open]) > .special-add__summary:hover {
+.personalisation-card .special-add__summary:hover {
   background: var(--color-accent-hover);
 }
 
-.personalisation-card .special-add:not([open]) .special-add__plus {
+.personalisation-card .special-add__plus {
   width: auto;
   height: auto;
   border: 0;
@@ -10603,21 +10525,16 @@ a.entity-row__button:hover {
   border-radius: var(--radius-card);
 }
 
-.personalisation-card--list .special-add:not([open]) > .special-add__summary {
+.personalisation-card--list .special-add__summary {
   min-height: 56px;
   border-radius: var(--radius-card);
   background: none;
   color: var(--color-text);
 }
 
-.personalisation-card--list .special-add:not([open]) > .special-add__summary:hover {
+.personalisation-card--list .special-add__summary:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   color: var(--color-text);
-}
-
-.personalisation-card--list .special-row--add:has(.special-add[open]) {
-  padding: 0 var(--space-md);
-  border-style: solid;
 }
 
 /* While nothing is connected, "Connect a calendar" is the same dashed add
@@ -10833,13 +10750,7 @@ button.look-sheet__save:hover {
 }
 
 @media (min-width: 700px) {
-  /* The add dialog opens over its own card, never beside it. */
-  .personalisation-card .special-add.is-enhanced[open] > .special-add__panel {
-    top: auto;
-    right: auto;
-    bottom: calc(100% - 64px);
-    left: 0;
-  }
+  
 
   .look-pick__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -11934,7 +11845,6 @@ button.row-menu__item--destructive:hover {
   padding-left: calc(44px + var(--space-xs));
 }
 
-
 .airlines-expand {
   flex: none;
   width: 44px;
@@ -12401,11 +12311,6 @@ a.airlines-name-it::before {
 
 /* The cards come in one after the other: the state card, the current
  * frame, then the recent flights. */
-
-
-
-
-
 
 /* The other pages in the same language: the same entrance on the blocks that
  * sit straight on the sky, a soft arrival for the active navigation item, and

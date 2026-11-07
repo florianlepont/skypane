@@ -379,7 +379,7 @@ def test_nineteen_deferred_scripts_before_closing_body():
     nineteen together, including panel-lookup.js, flash-cleanup.js, toast.js,
     confirm-submit.js, theme-preview.js,
     submit-guard.js, relative-time.js, quick-switch.js,
-    value-controls.js, calendar-sheet.js, modal.js and motion.js — and none of submit-guard.js/relative-time.js/
+    value-controls.js, calendar-connect.js, modal.js and motion.js — and none of submit-guard.js/relative-time.js/
     quick-switch.js/value-controls.js on the login shell, which emits no script"""
     bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     bare_count = bare_doc[:bare_doc.index("</body>")].count('<script src=')
@@ -404,7 +404,7 @@ def test_nineteen_deferred_scripts_before_closing_body():
             layout.THEME_PREVIEW_SCRIPT_SRC,
             layout.SUBMIT_GUARD_SCRIPT_SRC, layout.RELATIVE_TIME_SCRIPT_SRC,
             layout.QUICK_SWITCH_SCRIPT_SRC, layout.VALUE_CONTROLS_SCRIPT_SRC,
-            layout.CALENDAR_SHEET_SCRIPT_SRC, layout.MODAL_SCRIPT_SRC,
+            layout.CALENDAR_CONNECT_SCRIPT_SRC, layout.MODAL_SCRIPT_SRC,
             layout.MOTION_SCRIPT_SRC):
         expected_tag = '<script src="%s" defer></script>' % src_const
         assert expected_tag in doc, "expected a deferred <script> tag for %r" % src_const
@@ -413,7 +413,7 @@ def test_nineteen_deferred_scripts_before_closing_body():
                        layout.RELATIVE_TIME_SCRIPT_SRC,
                        layout.QUICK_SWITCH_SCRIPT_SRC,
                        layout.VALUE_CONTROLS_SCRIPT_SRC,
-                       layout.CALENDAR_SHEET_SCRIPT_SRC,
+                       layout.CALENDAR_CONNECT_SCRIPT_SRC,
                        layout.MODAL_SCRIPT_SRC,
                        layout.MOTION_SCRIPT_SRC):
         assert shell_only not in login_doc, (

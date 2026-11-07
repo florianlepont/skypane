@@ -5,8 +5,10 @@ top (an airport code or name picks that airport, anything else is looked up
 as an address), and one panel carries the rest: a bottom sheet on a phone,
 a card at the left of the map from 960px. The mode switch (Airport / My
 position) is chips under the search on a phone and the top of the card on a
-wide screen; the panel shows the runway choice in Airport mode and the
-detection radius in My-position mode, with Cancel and Save inside it. A round
+wide screen; My position is the first switch and the default for a frame
+with no saved detection setting. The panel shows the runway choice in Airport
+mode and the pin readout and detection radius in My-position mode; Save and
+Cancel float in a docked bar that shows once something changed. A round
 button locates the visitor and a small "i" opens the map credits. The whole
 page is server-rendered and complete without scripts and without any external
 network: choosing an airport is a GET navigation (`?airport=`, `?q=`), the
@@ -40,7 +42,7 @@ from companion.settings import quiet_hours
 from companion.settings.form import (
     CURRENT_BADGE_ATTR, CURRENT_BADGE_LABEL, DIRTY_SECTION_ATTR, SELECTED_LABEL,
     _field_error_attrs, _field_error_html)
-from server import airports, detection
+from server import airports, detection, device_config
 
 # The scripts and the extra stylesheet this page alone loads, beyond the
 # shared ones: the form guard, the airport filter, then the map library and
@@ -118,6 +120,9 @@ NEAREST_AIRPORT = i18n.msg(
     "detection.nearest_airport", "Nearest airport: %s, %d km. Follow its runway?")
 FOLLOW_AIRPORT = i18n.msg("detection.follow_airport", "Follow %s")
 TAP_HINT = i18n.msg("detection.tap_hint", "Tap the map to place")
+MOVE_HINT = i18n.msg("detection.move_hint", "Tap the map to move it")
+# The pin readout is language-neutral: number, hemisphere, number, hemisphere.
+COORDS_TEMPLATE = "%s %s · %s %s"
 RESULT_AIRPORT = i18n.msg("detection.result_airport", "Airport")
 
 SEARCH_MIN_CHARS = 3
@@ -240,7 +245,14 @@ class _View:
             return dp.MODE_RUNWAY
         if requested is None:
             requested = self.query.get("mode")
-        return requested if requested in dp.MODES else self.saved_mode
+        return requested if requested in dp.MODES else self._default_mode()
+
+    def _default_mode(self):
+        """The mode a plain visit opens on: the saved one when the frame has a
+        saved detection setting, else My position."""
+        configured = device_config.normalise_detection(
+            self.ctx.device_config.get("detection")) is not None
+        return self.saved_mode if configured else dp.MODE_POSITION
 
     def _airport_code(self):
         if self.submitted is not None and "airport" in self.submitted:
@@ -359,8 +371,8 @@ def _map_strings_attrs():
         'data-t-%s="%s"' % (name, escape_html(i18n.t(message)))
         for name, message in _MAP_STRINGS)
     return words + (
-        ' data-search-min="%d" data-search-max="%d" data-search-lock-ms="%d"'
-        % (SEARCH_MIN_CHARS, SEARCH_MAX_CHARS, SEARCH_LOCK_MS))
+        ' data-t-coords="%s" data-search-min="%d" data-search-max="%d" data-search-lock-ms="%d"'
+        % (escape_html(COORDS_TEMPLATE), SEARCH_MIN_CHARS, SEARCH_MAX_CHARS, SEARCH_LOCK_MS))
 
 
 def _airports_json():
@@ -468,8 +480,8 @@ def _mode_switch_html(view):
     ) % (
         escape_html(i18n.t(MODE_SWITCH_LABEL)), DIRTY_SECTION_ATTR,
         escape_html(i18n.t(dp.SECTION_DETECTION)),
-        _mode_card_html(view, dp.MODE_RUNWAY, "place-mode-runway", MODE_RUNWAY_CARD),
-        _mode_card_html(view, dp.MODE_POSITION, "place-mode-area", MODE_AREA_CARD),
+        _mode_card_html(view, dp.MODE_POSITION, "place-mode-area", MODE_AREA_CARD, "icon-locate"),
+        _mode_card_html(view, dp.MODE_RUNWAY, "place-mode-runway", MODE_RUNWAY_CARD, "icon-plane"),
         _field_error_html(view.errors, "mode", "place-mode"))
 
 
@@ -572,14 +584,14 @@ def airports_card_html(view):
         _filter_form_html(view, listed) + listing + empty + hidden_empty)
 
 
-def _mode_card_html(view, mode, control_id, text):
+def _mode_card_html(view, mode, control_id, text, icon):
     return (
         '<label class="place-mode">'
         '<input type="radio" name="mode" id="%s" value="%s" class="visually-hidden" '
-        'form="%s"%s><span class="place-mode__text">%s</span></label>'
+        'form="%s"%s><span class="place-mode__text">%s%s</span></label>'
     ) % (
         control_id, mode, dp.FORM_ID, " checked" if view.mode == mode else "",
-        escape_html(i18n.t(text)))
+        layout.icon_html(icon, 18), escape_html(i18n.t(text)))
 
 
 def _runway_detail(runway, lang):
@@ -658,32 +670,63 @@ def _runway_group_html(view):
 def _radius_html(view):
     return (
         '<div class="place-radius">'
+        '<div class="place-radius__head">'
         '<label for="place-radius">%s</label>'
-        '<div class="place-radius__row">'
         '<input type="number" id="place-radius" name="radius_km" form="%s" '
-        'min="%d" max="%d" step="1" inputmode="numeric" value="%s"%s>'
+        'min="%d" max="%d" step="1" inputmode="numeric" value="%s"%s></div>'
         '<input type="range" id="place-radius-range" class="place-radius__range js-gate" '
         'min="%d" max="%d" step="1" value="%s" aria-hidden="true" tabindex="-1">'
-        "</div>"
+        '<p class="place-radius__scale text-label js-gate" aria-hidden="true">'
+        "<span>%d km</span><span>%d km</span><span>%d km</span></p>"
         '<p id="place-radius-help" class="text-label section-caption">%s</p>%s</div>'
     ) % (
         escape_html(i18n.t(RADIUS_LABEL)), dp.FORM_ID, detection.RADIUS_KM_MIN,
         detection.RADIUS_KM_MAX, escape_html(view.radius),
         _field_error_attrs(view.errors, "radius_km", "place-radius", "place-radius-help"),
         detection.RADIUS_KM_MIN, detection.RADIUS_KM_MAX, escape_html(view.radius),
+        detection.RADIUS_KM_MIN, (detection.RADIUS_KM_MIN + detection.RADIUS_KM_MAX) // 2,
+        detection.RADIUS_KM_MAX,
         escape_html(i18n.t(RADIUS_HELP)),
         _field_error_html(view.errors, "radius_km", "place-radius"))
+
+
+def _coords_text(view):
+    """The pin's coordinates as one readout ("48.7262 N · 2.3652 E"), the
+    decimal comma in French; empty without a pin."""
+    try:
+        lat, lon = float(view.latitude), float(view.longitude)
+    except ValueError:
+        return ""
+
+    def number(value):
+        text = "%.4f" % abs(value)
+        return text.replace(".", ",") if view.lang == "fr" else text
+    return COORDS_TEMPLATE % (
+        number(lat), "N" if lat >= 0 else "S", number(lon), "E" if lon >= 0 else "W")
+
+
+def _pin_readout_html(view):
+    """The pin's readout: its coordinates and what a tap does. The map script
+    keeps both current; before a pin exists only the invitation shows."""
+    has_pin = bool(view.latitude and view.longitude)
+    return (
+        '<div class="place-pos"><span class="place-pos__icon">%s</span>'
+        '<p class="place-pos__text">'
+        '<span id="place-coords" class="place-pos__coords"%s>%s</span>'
+        '<span id="place-tap-hint" class="place-tap-hint text-label"%s>%s</span>'
+        '<span id="place-move-hint" class="place-pos__hint text-label"%s>%s</span></p></div>'
+    ) % (
+        layout.icon_html("icon-pin", 20),
+        "" if has_pin else " hidden", escape_html(_coords_text(view)) if has_pin else "",
+        " hidden" if has_pin else "", escape_html(i18n.t(TAP_HINT)),
+        "" if has_pin else " hidden", escape_html(i18n.t(MOVE_HINT)))
 
 
 def _area_block_html(view):
     return (
         '<div class="place-panel__area">'
-        '<h2 class="place-subtitle">%s</h2>'
-        '<p id="place-tap-hint" class="place-tap-hint text-label"%s>%s</p>%s</div>'
-    ) % (
-        escape_html(i18n.t(AREA_HEADING)),
-        " hidden" if view.latitude and view.longitude else "",
-        escape_html(i18n.t(TAP_HINT)), _radius_html(view))
+        '<h2 class="place-subtitle">%s</h2>%s%s</div>'
+    ) % (escape_html(i18n.t(AREA_HEADING)), _pin_readout_html(view), _radius_html(view))
 
 
 def _number_field_html(view, field, control_id, label, value, hint):
@@ -765,31 +808,43 @@ def details_card_html(view):
         escape_html(i18n.t(DETAILS_CLOSE)))
 
 
+def _nearest_html():
+    """The offer to follow a close airport instead of a position: shown by
+    the map script in My-position mode, never on a phone."""
+    return (
+        '<div id="place-nearest" class="place-nearest" hidden>'
+        '<span class="place-nearest__icon">%s</span>'
+        '<div class="place-nearest__body">'
+        '<p class="place-nearest__text text-label"></p>'
+        '<button type="button" class="place-nearest__button detection-search"></button>'
+        "</div></div>"
+    ) % layout.icon_html("icon-plane", 20)
+
+
 def _panel_html(view):
     """The overlay that carries everything but the map and the search: the
-    card (mode switch, then the sheet with the block of the chosen mode, the
-    details and Save), the credits button and the locate button. On a phone
-    the mode switch is chips under the search and the sheet sits at the
-    bottom; from 960px the switch and the sheet form one card at the left."""
+    card (mode switch, then the sheet with the block of the chosen mode and
+    the details), the docked Save and Cancel bar, the credits button and the
+    locate button. On a phone the mode switch is chips under the search and
+    the sheet sits at the bottom; from 960px the switch and the sheet form
+    one card at the left."""
     plain_href = device_scope.scoped(dp.DETECTION_ROUTE)
     return (
         '<div class="place-panel">'
         '<div class="place-card">%s'
         '<div class="place-sheet">'
         '<div class="place-panel__follow" %s="%s">'
-        '<div class="place-panel__runway">%s%s</div>%s</div>'
-        '<div id="place-nearest" class="place-nearest" hidden>'
-        '<p class="place-nearest__text text-label"></p>'
-        '<button type="button" class="place-nearest__button detection-search"></button></div>'
+        '<div class="place-panel__runway">%s%s</div>%s</div>%s'
         '<p id="place-notice" class="place-map__notice text-label" hidden></p>'
         '<p id="place-status" class="place-status text-label" role="status" '
         'aria-live="polite"></p>'
-        '<p class="place-fallback text-label section-caption">%s</p>%s%s'
-        "</div></div>%s%s</div>"
+        '<p class="place-fallback text-label section-caption">%s</p>%s'
+        "</div></div>%s%s%s</div>"
     ) % (
         _mode_switch_html(view),
         DIRTY_SECTION_ATTR, escape_html(i18n.t(dp.SECTION_DETECTION)),
         airports_card_html(view), _runway_group_html(view), _area_block_html(view),
+        _nearest_html(),
         escape_html(i18n.t(NO_SCRIPT_MAP)), details_card_html(view),
         dp.dirty_bar_html(
             plain_href if view.carried_dirty else None, i18n.t(dp.SAVE_LOCATION)),

@@ -441,11 +441,33 @@
   }
 
   var tapHintEl = byId("place-tap-hint");
+  var moveHintEl = byId("place-move-hint");
+  var coordsEl = byId("place-coords");
+
+  // The readout above the radius: "48.7262 N · 2.3652 E", with the decimal
+  // comma on a French page, and the hint that a tap moves the pin.
+  function showReadout(latlng) {
+    var comma = (document.documentElement.getAttribute("lang") || "").slice(0, 2) === "fr";
+    function number(value) {
+      var out = Math.abs(roundCoord(value)).toFixed(COORD_DECIMALS);
+      return comma ? out.replace(".", ",") : out;
+    }
+    if (coordsEl) {
+      coordsEl.textContent = format(
+        text("coords"), number(latlng.lat), latlng.lat >= 0 ? "N" : "S",
+        number(latlng.lng), latlng.lng >= 0 ? "E" : "W");
+      coordsEl.hidden = false;
+    }
+    if (moveHintEl) {
+      moveHintEl.hidden = false;
+    }
+  }
 
   function afterPinMoved(latlng, fromFields) {
     if (tapHintEl) {
       tapHintEl.hidden = true;
     }
+    showReadout(latlng);
     drawCircle();
     if (!fromFields) {
       writeFields(latlng);

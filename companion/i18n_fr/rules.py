@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """French strings for the Flight colours section
-(companion/settings/rules.py's _rule_add_form_html()/_rule_row_html()
+(companion/settings/rules.py's rule_form_html()/_rule_row_html()
 and rules_usage_row_html()'s rules usage panel), keyed by stable
 message id (see companion/i18n.py's Message/msg()). Every id is
 declared at its own display site in companion/settings/rules.py — this
@@ -26,6 +26,8 @@ MESSAGES = {
     "rules.airline": "Compagnie",
 
     "rules.remove": "Retirer",
+    "rules.edit": "Modifier",
+    "rules.edit_rule_aria": "Modifier l’allure spéciale pour %s",
     "rules.remove_this_special_look": "Supprimer ce look spécial ?",
     "rules.remove_special_look_body":
         "%s retrouve votre look habituel. Vous pouvez rajouter le look spécial à tout moment.",

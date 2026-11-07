@@ -112,7 +112,7 @@ def test_no_js_filter_pick_save_360(new_context, make_app_server, lang, search_b
     are read back from disk, and the fallback explanation and the open details card show."""
     server = make_app_server(seed=_seed(), fake_providers=True)
     base_url = server.base_url()
-    with _no_js_page(new_context, base_url, "/detection", viewport=VIEWPORT_MIN_SUPPORTED,
+    with _no_js_page(new_context, base_url, "/detection?mode=runway", viewport=VIEWPORT_MIN_SUPPORTED,
                      cookies=_lang(base_url, lang)) as page:
         if not page.is_visible(".place-fallback") or page.is_visible("#place-map"):
             raise AssertionError("the no-script fallback is not what shows")
@@ -235,7 +235,8 @@ def test_search_button_is_not_accent_and_44px(new_context, make_app_server, view
     """The Search airports button is the quiet wash, not the accent fill the Save button
     carries, and is at least 44 px tall at both widths."""
     server = make_app_server(seed=_seed(), fake_providers=True)
-    with _no_js_page(new_context, server.base_url(), "/detection", viewport=viewport) as page:
+    with _no_js_page(
+            new_context, server.base_url(), "/detection?mode=runway", viewport=viewport) as page:
         search = page.evaluate(_STYLE_PROBE, SEARCH_BUTTON)
         save = page.evaluate(_STYLE_PROBE, SAVE)
     if save["bg"] in ("rgba(0, 0, 0, 0)", "transparent"):

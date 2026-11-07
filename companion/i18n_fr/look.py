@@ -72,6 +72,8 @@ MESSAGES = {
     "look.calendar": "Calendrier",
     "look.flights_in_your_calendar": "Allure des vols du calendrier",
     "look.new_special_look": "Nouvelle allure spéciale",
+    "look.edit_special_look": "Modifier l’allure spéciale",
+    "look.create_look": "Créer l’allure",
     "look.look": "Allure",
     "look.matching_flights_will_look_like_this":
         "Les vols concernés auront cette allure.",

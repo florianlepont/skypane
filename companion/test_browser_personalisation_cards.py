@@ -95,7 +95,7 @@ def test_the_cards_do_not_overflow_and_their_controls_are_44px(
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
     try:
         assert not _assert_no_page_overflow(page, "cards", viewport["width"])
-        for selector in (REMOVE, "#personalisation-special-looks summary.special-add__summary"):
+        for selector in (REMOVE, "#personalisation-special-looks a.special-add__summary", "#personalisation-special-looks a.special-row__edit"):
             _wait_owns_centre(page, selector)
             box = page.locator(selector).first.bounding_box()
             assert box["width"] >= 44 - 0.5 and box["height"] >= 44 - 0.5, (selector, box)

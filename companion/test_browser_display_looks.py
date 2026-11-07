@@ -3,8 +3,8 @@ choices sit in the page under the Departures/Arrivals picture, swap that picture
 the combinations the frame has no theme for with their reason, the dirty bar's Save persists the
 new look, "Same as departures" follows departures, and nothing overflows at 1280, 390 and 360 px.
 On the Calendar view the same sheet is still a labelled dialog (a bottom sheet on phones) that
-traps focus, closes on Escape and returns focus to its opener; on the Special looks view "Add a
-special look" becomes a dialog whose choices post a real rule."""
+traps focus, closes on Escape and returns focus to its opener; on the Special looks view "New
+special look" is a page whose choices post a real rule, and each rule has an Edit page."""
 from urllib.parse import urlsplit
 
 import pytest
@@ -45,6 +45,8 @@ def _open_display(new_context, base_url, viewport, lang="en", route=layout.DISPL
         page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
     elif route == layout.DISPLAY_CALENDAR_ROUTE:
         page.locator(CALENDAR_OPENER).wait_for(state="visible")
+    elif route == layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE:
+        page.locator(".form-page__card").wait_for(state="visible")
     else:
         page.locator(".special-add__summary").wait_for(state="visible")
     page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
@@ -224,26 +226,27 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
         context.close()
 
 
-def test_add_a_special_look_is_a_dialog_that_posts_a_rule(new_context, make_app_server):
-    """with scripts, "Add a special look" opens a modal dialog whose table gives way to the three
-    choices; a suggestion fills the key, the choices pick the theme, the mini render follows,
-    Escape closes it, and submitting adds the rule with that look"""
+def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_server):
+    """with scripts, "New special look" opens a page (no dialog) whose table gives way to the
+    three choices; a suggestion fills the key, the choices pick the theme, the picture follows,
+    and Create look in the floating bar adds the rule with that look; Cancel returns to the list"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
         new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
     try:
-        page.click(".special-add__summary")
-        panel = page.locator(".special-add__panel")
-        panel.wait_for(state="visible")
-        assert panel.get_attribute("role") == "dialog"
+        with page.expect_navigation():
+            page.click(".special-add__summary")
+        assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE
+        page.locator("[data-look-axes-host]").wait_for(state="visible")
         assert not page.locator("[data-look-table-host]").is_visible()
-        # The panel handles Escape only while focus is inside it, and the script moves focus there
-        # from the details toggle event, which the browser queues as a task after the click.
-        page.wait_for_function(
-            "() => document.querySelector('.special-add__panel').contains(document.activeElement)")
-        page.keyboard.press("Escape")
-        page.wait_for_function("() => !document.querySelector('.special-add').open")
-        page.click(".special-add__summary")
+        assert page.locator("dialog[open]").count() == 0
+        with page.expect_navigation():
+            page.click(".form-bar a.form-bar__cancel")
+        assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
+        page.locator(".special-add__summary").wait_for(state="visible")
+        with page.expect_navigation():
+            page.click(".special-add__summary")
+        page.locator("[data-look-axes-host]").wait_for(state="visible")
         page.click('label[for="rule-kind-prefix"]')
         page.click('.rule-suggestion-chip[data-kind="prefix"]')
         assert page.input_value("#rule-key") == "AFR"
@@ -252,12 +255,41 @@ def test_add_a_special_look_is_a_dialog_that_posts_a_rule(new_context, make_app_
         page.click('%s .look-seg__option:has(input[data-look-axis="background"][value="paper"])' % host)
         page.click('%s .look-seg__option:has(input[data-look-axis="stripe"][value="soft"])' % host)
         assert _checked(page, "rule_theme_id") == "band_blue_light"
-        assert page.locator(".special-add__preview img").get_attribute("src").startswith(
-            "/frame-preview/band_blue_light.png")
+        page.wait_for_function(
+            "() => document.querySelector('.look-frame__image').getAttribute('src')"
+            ".startsWith('/frame-preview/band_blue_light.png')")
         with page.expect_navigation():
-            page.click('.special-add__foot button[type="submit"]')
+            page.click('.form-bar button[type="submit"]')
+        assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
         rows = colour_rules.rule_rows(colour_rules.load_colour_rules(server.state_dir))
         assert ("prefix", "AFR", "band_blue_light") in [row[:3] for row in rows]
+    finally:
+        context.close()
+
+
+def test_edit_a_special_look_is_a_page_that_replaces_the_rule(new_context, make_app_server):
+    """each row has an Edit link to a page that keeps the key, shows the rule's own look checked,
+    and saving replaces that rule's look without adding another"""
+    server = make_app_server(seed=_seed)
+    assert colour_rules.add_rule(
+        server.state_dir, "prefix", "TVF", "white") == colour_rules.ADD_OK_NEW
+    context, page = _open_display(
+        new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
+    try:
+        with page.expect_navigation():
+            page.click('li.rule-row a.special-row__edit[href$="rule_key=TVF"]')
+        assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOK_EDIT_ROUTE
+        assert page.locator(".form-page__name").inner_text() == "Edit special look"
+        assert page.input_value('input[name="rule_key"]') == "TVF"
+        assert _checked(page, "rule_theme_id") == "white"
+        page.locator("[data-look-axes-host]").wait_for(state="visible")
+        page.click('[data-look-axes-host] .look-dot:has(input[value="red"])')
+        with page.expect_navigation():
+            page.click('.form-bar button[type="submit"]')
+        rows = [row[:3] for row in colour_rules.rule_rows(
+            colour_rules.load_colour_rules(server.state_dir))]
+        tvf = [row for row in rows if row[:2] == ("prefix", "TVF")]
+        assert len(tvf) == 1 and tvf[0][2] != "white"
     finally:
         context.close()
 
@@ -353,28 +385,29 @@ def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_s
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
-def test_the_new_special_look_sheet_has_a_big_preview_and_fits_a_phone(
-        new_context, make_app_server, viewport):
-    """on a phone the New special look sheet opens with its preview taking at least 40% of the
-    sheet's width, the sheet stays inside the screen and scrolls inside itself, and its primary
-    button is on screen without scrolling the page"""
+def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, viewport):
+    """on a phone the New special look page is one column with its picture beside its caption, the
+    Create look button is in a bar floating above the tab bar and on screen without scrolling, and
+    nothing overflows"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
-        new_context, server.base_url(), viewport, route=layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
+        new_context, server.base_url(), viewport, route=layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE)
     try:
-        page.click(".special-add__summary")
-        panel = page.locator(".special-add__panel")
-        panel.wait_for(state="visible")
+        page.locator("[data-look-axes-host]").wait_for(state="visible")
         page.wait_for_function(
             "() => document.readyState === 'complete' && document.getAnimations().every("
             "a => a.playState !== 'running')", timeout=10000)
-        sheet = panel.bounding_box()
-        picture = page.locator(".special-add__preview .special-row__mini").bounding_box()
-        assert picture["width"] >= 0.4 * sheet["width"] - 1, (picture, sheet)
-        assert sheet["y"] >= 0 and sheet["y"] + sheet["height"] <= viewport["height"] + 0.5
-        add = page.locator(".special-add__foot button[type=submit]").bounding_box()
+        preview = page.locator(".form-page__preview").bounding_box()
+        card = page.locator(".form-page__card").bounding_box()
+        assert preview["y"] + preview["height"] <= card["y"] + 0.5, (preview, card)
+        picture = page.locator(".form-page__preview .look-frame__picture").bounding_box()
+        caption = page.locator(".form-page__caption").bounding_box()
+        assert picture["x"] + picture["width"] <= caption["x"] + 0.5, (picture, caption)
+        bar = page.locator(".dirty-bar.form-bar").bounding_box()
+        tab = page.locator(".tab-bar").bounding_box()
+        assert bar["y"] >= 0 and bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)
+        add = page.locator('.form-bar button[type="submit"]').bounding_box()
         assert add["height"] >= 44 - 0.5
-        assert add["y"] >= sheet["y"] and add["y"] + add["height"] <= viewport["height"] + 0.5
-        assert not _assert_no_page_overflow(page, "special look sheet", viewport["width"])
+        assert not _assert_no_page_overflow(page, "new special look page", viewport["width"])
     finally:
         context.close()

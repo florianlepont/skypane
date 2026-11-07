@@ -65,7 +65,7 @@ def _open(new_context, server, viewport, lang="en"):
         {"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     page = context.new_page()
     _login(page, server.base_url())
-    page.goto(server.base_url() + "/detection")
+    page.goto(server.base_url() + "/detection?mode=runway")
     page.wait_for_function(READY, timeout=15000)
     page.wait_for_function(TILES, timeout=15000)
     page.wait_for_function(IDLE, timeout=10000)

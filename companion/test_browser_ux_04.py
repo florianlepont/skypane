@@ -167,13 +167,13 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
             page.goto(base_url + "/display")
 
-            # The looks live on three views: Look (departures cards, arrivals table), Special
-            # looks (the add form) and Calendar (its own table).
+            # The looks live on three views: Look (departures cards, arrivals table), the new
+            # special look page (the add form) and Calendar (its own table).
             disclosures = []
             counts = {}
-            for route in ("/display", "/display/special-looks", "/display/calendar"):
+            for route in ("/display", "/display/special-looks/new", "/display/calendar"):
                 page.goto(base_url + route)
-                for disclosure in page.query_selector_all("details.look-edit, details.special-add"):
+                for disclosure in page.query_selector_all("details.look-edit"):
                     if disclosure.query_selector("summary") is None:
                         raise AssertionError(
                             "lang=%s: a look disclosure carries no <summary>" % (lang,))
@@ -184,9 +184,9 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                 for field in ("theme", "theme_arriving", "calendar_theme_id", "rule_theme_id"):
                     counts[field] = counts.get(field, 0) + page.eval_on_selector_all(
                         'input[name="%s"]' % field, "els => els.length")
-            if len(disclosures) != 3:
+            if len(disclosures) != 2:
                 raise AssertionError(
-                    "lang=%s: expected 3 look disclosures, found %d" % (lang, len(disclosures)))
+                    "lang=%s: expected 2 look disclosures, found %d" % (lang, len(disclosures)))
 
             for field, expected in (
                     ("theme", n_themes),
@@ -311,7 +311,7 @@ def test_the_palette_meets_its_floors_at_360px_in_both_themes(new_context, serve
             _set_ui_theme(page, theme)
             _assert_floor_without_scripts(
                 page, ".special-add__summary",
-                "theme=%s: the \"Add a special look\" <summary>" % theme)
+                "theme=%s: the \"Add a special look\" link" % theme)
 
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     try:

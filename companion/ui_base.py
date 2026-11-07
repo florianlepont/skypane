@@ -77,6 +77,10 @@ DISPLAY_ROUTE = "/display"
 # Personalisation's other views; the Look view keeps DISPLAY_ROUTE itself.
 DISPLAY_SPECIAL_LOOKS_ROUTE = DISPLAY_ROUTE + "/special-looks"
 DISPLAY_CALENDAR_ROUTE = DISPLAY_ROUTE + "/calendar"
+# The pages that replace the special look and calendar dialogs.
+DISPLAY_SPECIAL_LOOK_NEW_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/new"
+DISPLAY_SPECIAL_LOOK_EDIT_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/edit"
+DISPLAY_CALENDAR_CONNECT_ROUTE = DISPLAY_CALENDAR_ROUTE + "/connect"
 DISPLAY_ARRIVALS_ROUTE = DISPLAY_ROUTE + "/arrivals"
 # No longer a view: the address still answers, with a redirect to DISPLAY_ROUTE.
 DISPLAY_SCREEN_ROUTE = DISPLAY_ROUTE + "/screen"
@@ -208,11 +212,11 @@ QUICK_SWITCH_SCRIPT_SRC = "/static/quick-switch.js"
 # one clamp/round/keyboard model rather than duplicating it per control.
 VALUE_CONTROLS_SCRIPT_SRC = "/static/value-controls.js"
 
-# Must equal companion/app.py's CALENDAR_SHEET_SCRIPT_ROUTE exactly. Opens
-# the Display page's calendar Manage sheet as a modal, labels the pending
-# connect and runs the in-sheet disconnect confirmation; inert on a page
-# with no [data-calendar-sheet] dialog.
-CALENDAR_SHEET_SCRIPT_SRC = "/static/calendar-sheet.js"
+# Must equal companion/app.py's CALENDAR_CONNECT_SCRIPT_ROUTE exactly. Labels
+# the pending connect on the calendar connection page (the server reads the
+# link before saving it); inert on a page with no [data-calendar-connect]
+# form.
+CALENDAR_CONNECT_SCRIPT_SRC = "/static/calendar-connect.js"
 
 # Must equal companion/app.py's MODAL_SCRIPT_ROUTE exactly. Opens the shared
 # dialog.modal component as a modal, returns focus on close, and closes open

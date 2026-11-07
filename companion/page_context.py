@@ -59,7 +59,7 @@ EAGER_FIELDS = (
     "state_dir", "device", "root_state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
-    "sheet_key", "calendar_sheet", "calendar_sheet_error", "history_more",
+    "sheet_key", "rule_edit", "calendar_sheet_error", "history_more",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -320,6 +320,16 @@ def runway_images_available(image_dir=_RUNWAY_IMAGE_DIR):
     return available
 
 
+def _rule_edit_from(params):
+    """(kind, key) the query names for the special look edit page, both
+    normalised, or None when either is missing or invalid."""
+    kind = colour_rules.normalise_rule_kind(params.get("rule_kind", [None])[0])
+    if kind is None:
+        return None
+    key = colour_rules.normalise_rule_value(kind, params.get("rule_key", [None])[0])
+    return (kind, key) if key is not None else None
+
+
 def build_page_context(handler, device):
     """Build the `PageContext` every page module's `render()`/
     `handle_post()` receives — documented in full in
@@ -412,14 +422,14 @@ def build_page_context(handler, device):
             # Deliberately unvalidated: the Airlines page only ever
             # compares it against the artwork keys it rendered itself.
             "sheet_key": params.get(airlines_page.SHEET_QUERY_PARAM, [None])[0],
-            # The calendar sheet's no-script address and its refusal
-            # code. Only members of the fixed vocabulary survive: the
-            # query is client-supplied and picks nothing but a branch.
-            "calendar_sheet": (
-                params.get(config_page.CALENDAR_SHEET_PARAM, [None])[0]
-                == config_page.CALENDAR_SHEET_MANAGE),
+            # The rule the special look edit page names: only a kind and a
+            # key that survive the rule normalisers, never the raw query.
+            "rule_edit": _rule_edit_from(params),
             # The Flights page's Load more count, a plain integer.
             "history_more": params.get("more", [None])[0],
+            # The calendar connection page's refusal code. Only members of
+            # the fixed vocabulary survive: the query is client-supplied and
+            # picks nothing but a branch.
             "calendar_sheet_error": (
                 params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]
                 if params.get(config_page.CALENDAR_ERROR_PARAM, [None])[0]

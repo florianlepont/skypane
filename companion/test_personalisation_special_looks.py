@@ -102,7 +102,9 @@ def test_the_card_counts_the_rules_and_leads_with_the_new_special_look_action(se
     colour_rules.add_rule(server.state_dir, "hex", "3944F2", "white")
     card = _card(_display(server, session))
     assert card.select(".personalisation-card__current") == []
-    assert card.select_one("summary.special-add__summary").text() == "New special look"
+    add = card.select_one("a.special-add__summary")
+    assert add.text() == "New special look"
+    assert add.attrs["href"].endswith("/display/special-looks/new")
     assert card.select_one(".special-looks > .section-caption").text() == (
         "A different look for one airline, flight or plane.")
     assert card.select(".empty-state") == []
@@ -121,7 +123,8 @@ def test_without_rules_the_card_shows_the_compact_empty_state_and_the_add_action
     assert empty.select_one(".empty-state__heading").text() == heading
     assert empty.select(".empty-state__body") == []
     assert card.select("li.rule-row") == []
-    assert card.select_one("details.special-add form.rule-add-form") is not None
+    assert card.select_one("a.special-add__summary") is not None
+    assert card.select("form") == [] and card.select("details.special-add") == []
 
 
 def test_a_hostile_stored_rule_is_not_rendered_but_a_normalised_one_is_escaped():
@@ -138,3 +141,71 @@ def test_a_hostile_stored_rule_is_not_rendered_but_a_normalised_one_is_escaped()
     assert "bogus" not in markup
     assert markup.count("<li ") == 1
     assert 'action="/settings/rules/prefix/TVF/delete"' in markup
+
+
+def _page(server, session, path, lang=None):
+    headers = {"Accept-Language": lang} if lang else None
+    status, _headers, body = http_request(
+        server.base_url() + path, cookie=session, extra_headers=headers)
+    assert status == 200
+    return parse_html(body.decode("utf-8"))
+
+
+def test_the_new_special_look_is_a_page_with_the_unchanged_fields_and_a_docked_bar(served):
+    """the new look page posts the same fields to the same route, shows the picture and the
+    options, and carries Cancel (a link back to the list) and Create look in the docked bar"""
+    server, session = served
+    page = _page(server, session, "/display/special-looks/new")
+    form = page.select_one("form#special-look-form")
+    assert form.attrs["action"] == "/settings/rules/add" and form.attrs["method"] == "post"
+    assert [r.attrs["value"] for r in form.select('input[name="rule_kind"]')] == [
+        "callsign", "hex", "prefix"]
+    assert form.select_one('input[name="rule_key"]') is not None
+    assert form.select('input[name="rule_theme_id"]')
+    assert form.select_one(".look-frame__image") is not None
+    assert page.select("dialog[open]") == [] and page.select("details.special-add") == []
+    bar = page.select_one(".dirty-bar.form-bar")
+    assert bar.select_one("a.form-bar__cancel").attrs["href"] == "/display/special-looks"
+    assert bar.select_one("a.form-bar__cancel").text() == "Cancel"
+    submit = bar.select_one('button[type="submit"]')
+    assert submit.attrs["form"] == "special-look-form" and submit.text() == "Create look"
+    assert page.select_one("a.form-back").attrs["href"] == "/display/special-looks"
+    current = page.select_one('nav.personalisation-nav a[aria-current="page"]')
+    assert current.attrs["data-pers-view"] == "special-looks"
+
+
+def test_editing_a_special_look_keeps_its_key_and_preselects_its_look(served):
+    """the edit page names the rule's key as fixed fields, checks the rule's own look, and
+    saves through the same add route (which replaces); an unknown rule shows the new look page"""
+    server, session = served
+    colour_rules.add_rule(server.state_dir, "prefix", "TVF", "green_light")
+    list_page = _page(server, session, "/display/special-looks")
+    edit = list_page.select_one("li.rule-row a.special-row__edit")
+    assert edit.attrs["href"].endswith(
+        "/display/special-looks/edit?rule_kind=prefix&rule_key=TVF")
+    page = _page(server, session, "/display/special-looks/edit?rule_kind=prefix&rule_key=TVF")
+    form = page.select_one("form#special-look-form")
+    assert form.attrs["action"] == "/settings/rules/add"
+    assert form.select_one('input[name="rule_kind"]').attrs["value"] == "prefix"
+    assert form.select_one('input[name="rule_kind"]').attrs["type"] == "hidden"
+    assert form.select_one('input[name="rule_key"]').attrs["value"] == "TVF"
+    checked = [r for r in form.select('input[name="rule_theme_id"]') if "checked" in r.attrs]
+    assert [r.attrs["value"] for r in checked] == ["green_light"]
+    assert page.select_one(".form-page__name").text() == "Edit special look"
+    assert page.select_one('.dirty-bar button[type="submit"]').text() == "Save"
+    unknown = _page(server, session, "/display/special-looks/edit?rule_kind=prefix&rule_key=ZZZ")
+    assert unknown.select_one(".form-page__name").text() == "New special look"
+    hostile = _page(
+        server, session, "/display/special-looks/edit?rule_kind=%3Cb%3E&rule_key=%3Cscript%3E")
+    assert hostile.select_one(".form-page__name").text() == "New special look"
+
+
+def test_the_edit_and_new_pages_are_french_in_french(served):
+    server, session = served
+    colour_rules.add_rule(server.state_dir, "prefix", "TVF", "green_light")
+    new = _page(server, session, "/display/special-looks/new", lang="fr")
+    assert new.select_one(".form-page__name").text() == "Nouvelle allure spéciale"
+    assert new.select_one('.dirty-bar button[type="submit"]').text() == "Créer l’allure"
+    edit = _page(
+        server, session, "/display/special-looks/edit?rule_kind=prefix&rule_key=TVF", lang="fr")
+    assert edit.select_one(".form-page__name").text() == "Modifier l’allure spéciale"

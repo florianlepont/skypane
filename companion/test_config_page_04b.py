@@ -304,7 +304,9 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
         "expected the Personalisation page title")
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
     rules_row_marker = 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES
-    assert rules_row_marker in display, "expected the rules row, inside the Aspect card, on the Display page (D-11)"
+    assert rules_row_marker in config_page.render(
+        ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new"), (
+        "expected the rules editor on the new special look page (D-11)")
     assert "Refresh now" not in display and "Refresh now" not in device, (
         "expected no manual-refresh section on either page")
     assert rules_row_marker not in device, "expected the rules row off the Device page (D-11)"

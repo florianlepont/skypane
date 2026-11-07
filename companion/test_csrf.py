@@ -234,7 +234,7 @@ def _form_tokens(page_html, action_fragment):
 
 @pytest.mark.parametrize("page,action", (
     ("/display/special-looks", RULE_DELETE),
-    ("/display/calendar", config_page.CALENDAR_DISCONNECT_ROUTE),
+    ("/display/calendar/connect", config_page.CALENDAR_DISCONNECT_ROUTE),
     ("/airlines/manage", airlines_page.RENAME_RESET_ROUTE),
     ("/airlines/manage", airlines_page.LIGHTBOX_DELETE_CLASS),
 ))

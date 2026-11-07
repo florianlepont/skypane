@@ -218,9 +218,11 @@ def test_the_map_data_contract_without_a_place(rig):
     attrs = _attrs(tag)
     assert "place-map" in attrs["class"] and "js-gate" in attrs["class"]
     assert (attrs["data-lat"], attrs["data-lon"], attrs["data-zoom"]) == ("", "", "5")
-    assert attrs["data-mode"] == "runway" and attrs["data-airport"] == "LFPO"
+    assert attrs["data-mode"] == "position" and attrs["data-airport"] == "LFPO"
     assert attrs["data-radius-km"] == "9"
     assert attrs["tabindex"] == "0" and attrs["role"] == "group"
+    _s, _h, runway = rig.get("owner", rig.scope() + "/detection?mode=runway")
+    assert _attrs(_tag(runway, r'<div id="place-map"[^>]*>'))["data-mode"] == "runway"
     assert 'id="place-status"' in page and 'aria-live="polite"' in page
 
 
