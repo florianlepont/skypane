@@ -59,7 +59,8 @@ PAIRS = [
 
 def render_pair(field_idx, dithered, letters_idx):
     ink = ink_rgb(letters_idx)
-    canvas = field(field_idx, dithered).copy()
+    # yellow needs a lighter field (75% white) to separate from its own ink
+    canvas = (lightened_field(field_idx, 0.75) if field_idx == pf.IDX_YELLOW else field(field_idx, dithered)).copy()
     g.giant_text(canvas, v.LINES, (40, 130, g.W - 40, 1290), ink, heavy=v.HEAVY)
     v.vnose_tail(canvas)
     v.footer(canvas, ink=ink)
