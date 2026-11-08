@@ -867,4 +867,10 @@ single column; 61-88 Location full-bleed, loading, in-place airport.
   les versions (3)" disclosure and its rows overlap / misaligned, the open
   row's detail not aligned), and the rollback (downgrade) button should be
   available directly in the view, not inside the toggle.
+- W150 (owner, screenshot of the Fleet Access card) These last two options
+  ("Personne invitée / Ajouter un co-gestionnaire" and "Nouveau propriétaire
+  / Réattribuer") are very ugly (two stacked form rows with a wide select and
+  a heavy button); the reassignment should rather be a button next to the
+  owner (in the owner row). ("rétribution" in his message read as
+  réattribution.)
 - (owner may have more; not confirmed done.)
