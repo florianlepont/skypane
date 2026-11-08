@@ -29,6 +29,9 @@ previous-flight card adds little. Content sits in the top third of a
 
 ### Retained aircraft layouts
 
+All three layouts are kept (reviewer decision), as selectable options rather
+than a single winner; A remains the reference mock-up.
+
 | | Layout | Notes |
 |---|---|---|
 | A (primary) | Large nose/cockpit entering from the right edge, smaller rear half (wing and tail) entering from the left edge below it | Both halves bleed off the frame. Shows the airline logo on the fuselage and the livery on the tail. |
@@ -62,6 +65,12 @@ aircraft hides the junction between lines on two-line names, so a short name
 can read as two fragments; the aircraft position may need to follow the number
 of lines.
 
+Long names (`long-names-1.png`, `long-names-2.png`, five names on all three
+layouts): layout C keeps every line readable; layouts A and B hide part of the
+middle line (and, for A, part of the bottom line). Four-line names such as
+Villefranche-sur-Saône flatten the letters. This is a trade-off the layouts
+carry, not a defect to fix in one of them.
+
 ### Departure vs arrival
 
 Direction is currently only a small word at the top. At 3 m it is invisible, so
@@ -92,20 +101,22 @@ plumbing. See `cases-arriving-and-generic.png`.
    (never a single line; spaces and hyphens first, then syllables), and a
    fallback for very long names. Where the aircraft sits relative to the lines
    may need to depend on the line count.
-4. **Aircraft halves**: crop points (nose half, rear half) are tuned for the
+4. **Layout selection**: three layouts to expose (per device, theme or rule),
+   with a default; a way to choose between them must be designed.
+5. **Aircraft halves**: crop points (nose half, rear half) are tuned for the
    A320 family illustration used in the mock-ups. Each aircraft type in
    `server/plane/illustrations.py` needs its own crop fractions, or a
    metadata-free heuristic.
-5. **Panel quantisation**: the mock-ups paste full-RGB aircraft over an
+6. **Panel quantisation**: the mock-ups paste full-RGB aircraft over an
    approximated palette. Real output goes through the 6-colour quantiser, which
    needs a look on glass, particularly the white halo and the dithered fields.
-6. **Dither limits**: the production background helper asserts a lighten
+7. **Dither limits**: the production background helper asserts a lighten
    fraction below 0.5; the yellow field needs about 0.75.
-7. **Landscape (800x480)**: not explored. The giant-letters idea needs a
+8. **Landscape (800x480)**: not explored. The giant-letters idea needs a
    landscape variant (one or two lines of lettering, aircraft across).
-8. **State screens** (no connection, pairing, SET A LOCATION, NEARBY,
+9. **State screens** (no connection, pairing, SET A LOCATION, NEARBY,
    OVERHEAD): not explored; they should adopt the same pairings.
-9. Tests: golden fixtures stay for the current layout; the new layout needs its
+10. Tests: golden fixtures stay for the current layout; the new layout needs its
    own fixtures.
 
 ## Open questions
