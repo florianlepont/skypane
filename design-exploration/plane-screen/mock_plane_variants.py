@@ -110,13 +110,26 @@ def v10():  # aircraft with a hard offset shadow in the dark ink
     return c
 
 
-VARIANTS = [v01, v05, v06, v07, v08, v09, v10]
+def vcockpit():  # nose and cockpit only, entering from the right edge
+    c = base()
+    full = load_plane(2500)
+    nose = full.crop((0, 0, int(full.width * 0.36), full.height))
+    nose = nose.crop(nose.getbbox())
+    pos = (W - nose.width + 30, 700 - nose.height // 2)
+    layer = Image.new("RGBA", nose.size, WHITE + (0,))
+    layer.putalpha(nose.getchannel("A").filter(ImageFilter.MaxFilter(15)))
+    c.paste(layer, pos, layer)
+    c.paste(nose, pos, nose)
+    return c
+
+
+VARIANTS = [v01, v09, vcockpit]
 
 
 def main(out_dir):
     os.makedirs(out_dir, exist_ok=True)
     tw, th = 360, 480
-    sheet = Image.new("RGB", (4 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
+    sheet = Image.new("RGB", (len(VARIANTS) * (tw + 12) + 12, th + 24), (110, 110, 110))
     label_font = ImageFont.truetype(g.FONT, 36)
     for i, fn in enumerate(VARIANTS):
         canvas = fn()
@@ -124,7 +137,7 @@ def main(out_dir):
         canvas.save(os.path.join(out_dir, "variant-%02d.png" % (i + 1)))
         thumb = canvas.resize((tw, th), Image.LANCZOS)
         ImageDraw.Draw(thumb).text((tw - 50, th - 52), str(i + 1), font=label_font, fill=(200, 30, 30))
-        sheet.paste(thumb, (12 + (i % 4) * (tw + 12), 12 + (i // 4) * (th + 12)))
+        sheet.paste(thumb, (12 + i * (tw + 12), 12))
     sheet.save(os.path.join(out_dir, "sheet.png"))
 
 
