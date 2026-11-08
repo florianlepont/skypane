@@ -8,7 +8,7 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 from server import panel_format as pf
-from server.plane import dither, illustrations
+from server.plane import illustrations
 
 W, H = pf.WIDTH, pf.HEIGHT
 FONT = "server/assets/fonts/Inter-Bold.ttf"
@@ -31,9 +31,9 @@ def giant_text(canvas, lines, box, fill):
     gap = 14
     for i, line in enumerate(lines):
         f = ImageFont.truetype(FONT, 600)
-        l, t, r, b = f.getbbox(line)
-        layer = Image.new("L", (r - l, b - t), 0)
-        ImageDraw.Draw(layer).text((-l, -t), line, font=f, fill=255)
+        left, top, right, bottom = f.getbbox(line)
+        layer = Image.new("L", (right - left, bottom - top), 0)
+        ImageDraw.Draw(layer).text((-left, -top), line, font=f, fill=255)
         layer = layer.resize((x1 - x0, round(slot - gap)), Image.LANCZOS)
         canvas.paste(Image.new("RGB", layer.size, fill), (x0, round(y0 + slot * i)), layer)
 
