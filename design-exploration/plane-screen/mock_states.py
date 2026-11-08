@@ -20,9 +20,9 @@ W, H = g.W, g.H
 WHITE = (255, 255, 255)
 
 # (key, lettering lines, small label, body lines, icon drawer)
-# Generic screens: they do not follow the theme and share one look: the
-# dimmed (dithered dark) field with white ink, as the non-watching screens
-# are today.
+# Generic screens: they do not follow the theme. As today, the watching screen
+# is white with black ink (the frame is working) and the others use the dimmed
+# (dithered dark) field with white ink (the frame is resting).
 STATES = [
     ("watching", ["RUNWAY", "3"], "WATCHING", ["No aircraft detected yet.", "The display updates the moment one is."], glyphs.draw_runway_icon),
     ("quiet hours", ["QUIET", "HOURS"], "SLEEPING", ["Back at 07:00"], glyphs.draw_moon_icon),
@@ -42,9 +42,9 @@ def icon_mask(drawer):
     return img.convert("L")
 
 
-def render(lines, label, body, drawer):
-    c = t.field(pf.IDX_BLACK, True).copy()
-    ink = WHITE
+def render(lines, label, body, drawer, watching=False):
+    c = Image.new("RGB", (W, H), WHITE) if watching else t.field(pf.IDX_BLACK, True).copy()
+    ink = (0, 0, 0) if watching else WHITE
     g.giant_text(c, lines, (40, 130, W - 40, 1290), ink, heavy=1)
     dr = ImageDraw.Draw(c)
     dr.text((64, 56), label, font=ImageFont.truetype(g.FONT, 56), fill=ink)
@@ -65,7 +65,7 @@ def main(out_dir, font_dir):
     label_font = ImageFont.truetype("server/assets/fonts/Inter-Bold.ttf", 22)
     sheet = Image.new("RGB", (4 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
     for i, (key, lines, label, body, drawer) in enumerate(STATES):
-        c = render(lines, label, body, drawer)
+        c = render(lines, label, body, drawer, watching=(key == "watching"))
         c.save(os.path.join(out_dir, "state-%s.png" % key.replace(" ", "_")))
         thumb = c.resize((tw, th), Image.LANCZOS)
         ImageDraw.Draw(thumb).text((8, th - 30), key, font=label_font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
