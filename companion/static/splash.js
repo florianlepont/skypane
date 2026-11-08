@@ -3,7 +3,7 @@
  * line that uncovers the logo from its ghost), the real preload progress
  * thickens the outline, and at 100% the page opens from the frame's
  * rectangle. It runs only when splash-boot.js has put `splash-on` on <html>
- * (once per session, not for cached assets, not without scripts).
+ * (once per browser session, not without scripts).
  *
  * Preloaded for real, each group reporting its own events: the fonts, the
  * stylesheets, the page's scripts (the motion assets, seen through resource

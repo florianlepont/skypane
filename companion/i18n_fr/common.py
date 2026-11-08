@@ -86,6 +86,8 @@ MESSAGES = {
     "common.diagnostic_led_turned_off_applies_the_next_time":
         "LED de diagnostic éteinte — s’applique au prochain réveil du "
         "cadre.",
+    "common.session_expired_sign_in_again":
+        "Session expirée — reconnectez-vous.",
     "common.couldn_t_change_that_please_try_again":
         "Impossible de modifier ce réglage — réessayez.",
     "common.welcome_to_skypane_this_is_your_frame_s_home":

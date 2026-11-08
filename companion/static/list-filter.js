@@ -325,6 +325,10 @@
 
   function fetchView(url) {
     return fetch(url, { credentials: "same-origin" }).then(function (response) {
+      if (response.redirected && window.skypaneSession
+          && /\/login$/.test(new URL(response.url).pathname)) {
+        window.skypaneSession.expire();
+      }
       if (!response.ok || response.redirected) {
         throw new Error("flights");
       }
@@ -341,6 +345,9 @@
   // A failed or redirected request (an expired session) falls back to the
   // plain navigation the same address would have done.
   function giveUp(url) {
+    if (window.skypaneSession && window.skypaneSession.ending()) {
+      return;
+    }
     window.location.assign(url);
   }
 

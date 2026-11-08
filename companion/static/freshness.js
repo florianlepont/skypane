@@ -537,7 +537,17 @@
       }
       if (!response.ok) {
         // Non-OK (including the opaque redirect above): do not swap or
-        // navigate, leave the stale page visible, and schedule a retry.
+        // navigate, leave the stale page visible, and schedule a retry
+        // unless the refusal means the session ended, which the session
+        // guard then announces and follows with the sign-in redirect.
+        if (window.skypaneSession) {
+          window.skypaneSession.report(response).then(function (ended) {
+            if (!ended) {
+              failAndRetry();
+            }
+          });
+          return null;
+        }
         failAndRetry();
         return null;
       }

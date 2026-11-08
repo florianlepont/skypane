@@ -230,10 +230,17 @@ MODAL_SCRIPT_SRC = "/static/modal.js"
 # most have a picture; every page works the same without it.
 MOTION_SCRIPT_SRC = "/static/motion.js"
 
+# Must equal companion/static_files.py's SESSION_GUARD_SCRIPT_ROUTE and
+# PREFETCH_SCRIPT_ROUTE. The first turns a request refused because the
+# session ended into a toast and a redirect to sign-in that keeps the page;
+# the second warms the navigation destinations on idle, touch and hover.
+SESSION_GUARD_SCRIPT_SRC = "/static/session-guard.js"
+PREFETCH_SCRIPT_SRC = "/static/prefetch.js"
+
 # Must equal companion/static_files.py's SPLASH_BOOT_SCRIPT_ROUTE and
 # SPLASH_SCRIPT_ROUTE. The opening splash: a tiny synchronous script in the
 # document head decides, before the first paint, whether the splash shows
-# (once per session, not for cached assets) by putting a class on <html>;
+# (once per browser session) by putting a class on <html>;
 # the deferred script then runs the animation and the real preload. Without
 # scripts the class is never set and the overlay markup stays hidden.
 SPLASH_BOOT_SCRIPT_SRC = "/static/splash-boot.js"
@@ -427,6 +434,12 @@ HEALTH_SOURCE_FAULT_CLASS = "health-source-fault"
 # server-rendered, translated error toast it clones into that region.
 QUICK_TOAST_ATTR = "data-quick-toast"
 QUICK_TOAST_TEMPLATE_ATTR = "data-quick-toast-template"
+# The translated "session ended" toast session-guard.js clones into the same
+# live region before it sends the browser to sign-in.
+SESSION_EXPIRED_TEXT = i18n.msg(
+    "common.session_expired_sign_in_again",
+    "Session expired — sign in again.")
+SESSION_EXPIRED_TEMPLATE_ATTR = "data-session-expired-template"
 # No longer used by frame_strip_html(): the one computed delay
 # sentence below (frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN)
 # replaces this old static caption. It survives as DELAY_UNKNOWN's own

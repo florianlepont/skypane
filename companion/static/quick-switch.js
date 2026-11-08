@@ -153,9 +153,30 @@
     document.dispatchEvent(evt);
   }
 
-  function rollBack(control, region, form, wasOn) {
+  // Tells prefetch.js the user changed something, so pages it warmed before
+  // the change are not served after it.
+  function announceMutation() {
+    if (!document.createEvent) {
+      return;
+    }
+    var evt = document.createEvent("Event");
+    evt.initEvent("skypane-mutated", false, false);
+    document.dispatchEvent(evt);
+  }
+
+  function rollBack(control, region, form, wasOn, response) {
     applyState(control, region, form, wasOn);
     region.removeAttribute(PENDING_ATTR);
+    // A refusal because the session ended gets the session guard's own
+    // toast and redirect instead of the generic failure.
+    if (response && window.skypaneSession) {
+      window.skypaneSession.report(response).then(function (ended) {
+        if (!ended) {
+          announceFailure();
+        }
+      });
+      return;
+    }
     announceFailure();
   }
 
@@ -248,10 +269,11 @@
       // the opaque redirect above) rolls back.
       if (response.status === 204) {
         region.removeAttribute(PENDING_ATTR);
+        announceMutation();
         requestRefresh(region);
         return;
       }
-      rollBack(control, region, form, wasOn);
+      rollBack(control, region, form, wasOn, response);
     })["catch"](function () {
       // A network-level failure gets the same treatment as a non-OK
       // status. Bracket form because catch is a reserved word in ES3.

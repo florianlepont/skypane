@@ -32,7 +32,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
-    login_page, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
+    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -336,12 +336,9 @@ _page_freshness_token = freshness._page_freshness_token
 
 def _validated_next_route(candidate):
     """Validate a caller-supplied `next` redirect target against
-    `layout.NAV_TABS`'s known routes. Open-redirect mitigation: an exact
-    membership test, never `startswith`/URL-parsed/regex-matched.
-    Anything not byte-identical to a real route is discarded (`None`).
-    """
-    allowed = {route for route, _ in layout.NAV_TABS}
-    return candidate if candidate in allowed else None
+    `layout.NAV_TABS`'s known routes (see companion/next_route.py)."""
+    return next_route_check.validated_next_route(
+        candidate, {route for route, _ in layout.NAV_TABS})
 
 
 # The flash-text resolution (_resolve_flash_text()) lives in
@@ -464,7 +461,8 @@ class Handler(
         # Every HTML page is either session-gated or a login form — never
         # something a shared cache or the back button should replay
         # after sign-out.
-        self.send_header("Cache-Control", "no-store")
+        for name, value in page_cache.html_cache_headers(self.headers, code, set_cookies):
+            self.send_header(name, value)
         if etag is not None:
             self.send_header("ETag", etag)
         for cookie in set_cookies:
@@ -625,13 +623,13 @@ class Handler(
         # Carries the requested route through login via an allowlisted
         # `next` param, validated by _validated_next_route(); unrecognised
         # values discard silently to the bare LOGIN_ROUTE.
-        requested_path = urlsplit(self.path).path
-        next_route = _validated_next_route(requested_path)
-        if next_route:
+        target = (_validated_next_route(self.path)
+                  or _validated_next_route(urlsplit(self.path).path))
+        if target:
             # safe="" so the value is unambiguously one query token
             # ("/login?next=%2Fhealth", not "/login?next=/health").
             self.redirect(
-                "%s?next=%s" % (LOGIN_ROUTE, quote(next_route, safe="")))
+                "%s?next=%s" % (LOGIN_ROUTE, quote(target, safe="")))
         else:
             self.redirect(LOGIN_ROUTE)
 

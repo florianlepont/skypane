@@ -47,6 +47,8 @@ VALUE_CONTROLS_SCRIPT_ROUTE = "/static/value-controls.js"
 CALENDAR_CONNECT_SCRIPT_ROUTE = "/static/calendar-connect.js"
 MODAL_SCRIPT_ROUTE = "/static/modal.js"
 MOTION_SCRIPT_ROUTE = "/static/motion.js"
+SESSION_GUARD_SCRIPT_ROUTE = "/static/session-guard.js"
+PREFETCH_SCRIPT_ROUTE = "/static/prefetch.js"
 SPLASH_BOOT_SCRIPT_ROUTE = "/static/splash-boot.js"
 SPLASH_SCRIPT_ROUTE = "/static/splash.js"
 # Vendored Leaflet, unmodified; only the location page links the script and the
@@ -80,6 +82,8 @@ _VALUE_CONTROLS_JS_PATH = os.path.join(STATIC_DIR, "value-controls.js")
 _CALENDAR_CONNECT_JS_PATH = os.path.join(STATIC_DIR, "calendar-connect.js")
 _MODAL_JS_PATH = os.path.join(STATIC_DIR, "modal.js")
 _MOTION_JS_PATH = os.path.join(STATIC_DIR, "motion.js")
+_SESSION_GUARD_JS_PATH = os.path.join(STATIC_DIR, "session-guard.js")
+_PREFETCH_JS_PATH = os.path.join(STATIC_DIR, "prefetch.js")
 _SPLASH_BOOT_JS_PATH = os.path.join(STATIC_DIR, "splash-boot.js")
 _SPLASH_JS_PATH = os.path.join(STATIC_DIR, "splash.js")
 _LEAFLET_DIR = os.path.join(STATIC_DIR, "vendor", "leaflet")
@@ -137,6 +141,8 @@ STATIC_ROUTES = {
     CALENDAR_CONNECT_SCRIPT_ROUTE: StaticAsset(_CALENDAR_CONNECT_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     MODAL_SCRIPT_ROUTE: StaticAsset(_MODAL_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     MOTION_SCRIPT_ROUTE: StaticAsset(_MOTION_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    SESSION_GUARD_SCRIPT_ROUTE: StaticAsset(_SESSION_GUARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    PREFETCH_SCRIPT_ROUTE: StaticAsset(_PREFETCH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     SPLASH_BOOT_SCRIPT_ROUTE: StaticAsset(_SPLASH_BOOT_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     SPLASH_SCRIPT_ROUTE: StaticAsset(_SPLASH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     LEAFLET_SCRIPT_ROUTE: StaticAsset(_LEAFLET_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),

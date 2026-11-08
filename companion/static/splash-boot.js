@@ -5,12 +5,15 @@
  * hidden by the stylesheet until then, so there is no flash of the page
  * under it and, without scripts, no splash at all.
  *
- * The splash shows once per browser session (the guard is written before
- * anything else, so a second page opened during the splash skips it), never
- * when the stylesheet came from the cache (a visitor who has been here
- * before), and never when session storage is unavailable (the once-only
- * promise could not be kept). The hard cap below removes the class again
- * even if the main splash script never runs.
+ * The splash shows at every opening of the site: once per browser session,
+ * whatever the cache holds, so opening the app or a tab from a bookmark or the
+ * home-screen icon plays it and moving between pages does not (the guard is
+ * written before anything else, so a second page opened during the splash
+ * skips it). It never shows when session storage is unavailable (the
+ * once-only promise could not be kept). A page restored from the back/forward
+ * cache keeps whatever it showed; the splash does not replay there. The hard
+ * cap below removes the class again even if the main splash script never
+ * runs.
  *
  * The main splash script is not linked from the page: this script loads it,
  * from the address named by its own `data-splash-src` attribute, only when
@@ -37,26 +40,6 @@
     root.classList.remove(EARLY_CLASS);
   }, EARLY_CAP_MS);
 
-  // A resource timing entry for the stylesheet whose bytes did not cross the
-  // network (a memory-cache hit, or a revalidation that only moved headers).
-  function stylesheetWasCached() {
-    var entries;
-    try {
-      entries = window.performance.getEntriesByType("resource");
-    } catch (error) {
-      return false;
-    }
-    for (var i = 0; i < entries.length; i += 1) {
-      var entry = entries[i];
-      if (entry.name.indexOf("/static/style.css") === -1) {
-        continue;
-      }
-      return entry.transferSize === 0 ||
-        (entry.encodedBodySize > 0 && entry.transferSize < entry.encodedBodySize);
-    }
-    return false;
-  }
-
   // The splash script reads the overlay markup, so it is added once the
   // document has been parsed (what `defer` did when the page linked it).
   function loadSplashScript() {
@@ -82,9 +65,6 @@
     }
     window.sessionStorage.setItem(KEY, "1");
   } catch (error) {
-    return;
-  }
-  if (stylesheetWasCached()) {
     return;
   }
   root.classList.add("splash-on");
