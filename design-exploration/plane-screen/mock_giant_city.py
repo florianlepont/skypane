@@ -41,7 +41,12 @@ def giant_text(canvas, lines, box, fill, heavy=0):
         layer = Image.new("L", (right - left, bottom - top), 0)
         ImageDraw.Draw(layer).text((-left, -top), line, font=f, fill=255, stroke_width=heavy, stroke_fill=255)
         layer = layer.resize((x1 - x0, round(slot - gap)), Image.LANCZOS)
-        canvas.paste(Image.new("RGB", layer.size, fill), (x0, round(y0 + slot * i)), layer)
+        pos = (x0, round(y0 + slot * i))
+        if isinstance(fill, Image.Image):  # a canvas-sized pattern, e.g. a dithered ink
+            src = fill.crop((pos[0], pos[1], pos[0] + layer.width, pos[1] + layer.height))
+        else:
+            src = Image.new("RGB", layer.size, fill)
+        canvas.paste(src, pos, layer)
 
 
 def sliced_plane(canvas, key, half_w, center_y, gap=36):

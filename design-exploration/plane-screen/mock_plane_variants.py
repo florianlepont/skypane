@@ -50,12 +50,13 @@ def base(text_box=(40, 130, W - 40, 1290), text_fill=BLUE, bg=LIGHT):
     return canvas
 
 
-def footer(canvas, state=None, flight=None, airline=None):
+def footer(canvas, state=None, flight=None, airline=None, ink=None):
+    ink = ink or BLUE
     state, flight, airline = state or STATE, flight or FLIGHT, airline or AIRLINE
     d = ImageDraw.Draw(canvas)
-    d.text((64, 56), state, font=ImageFont.truetype(g.FONT, 56), fill=BLUE)
-    d.text((64, 1330), flight, font=ImageFont.truetype(g.FONT, 150), fill=BLUE)
-    d.text((64, 1500), airline, font=ImageFont.truetype(g.FONT, 56), fill=BLUE)
+    d.text((64, 56), state, font=ImageFont.truetype(g.FONT, 56), fill=ink)
+    d.text((64, 1330), flight, font=ImageFont.truetype(g.FONT, 150), fill=ink)
+    d.text((64, 1500), airline, font=ImageFont.truetype(g.FONT, 56), fill=ink)
 
 
 def v01():  # whole, centred, full width
@@ -136,22 +137,18 @@ def halo_paste(canvas, piece, pos):
     canvas.paste(piece, pos, piece)
 
 
-def vnose_tail():
-    """Big nose above, small tail below; both halves bleed off the frame.
-
-    Nose tip at x=130 and tail end at x=795 stay fixed; each half is scaled
-    so the feature the reviewer marked lands exactly on the frame edge.
-    """
-    c = base()
-    nose_plane = load_plane(2400)
-    nose = nose_plane.crop((0, 0, nose_plane.width, nose_plane.height))
+def vnose_tail(c=None):
+    """Big nose above, small tail below; both halves bleed off the frame."""
+    c = c or base()
+    full = load_plane(2200)
+    nose = full.crop((0, 0, int(full.width * 0.5), full.height))
     nose = nose.crop(nose.getbbox())
-    nose = nose.crop((0, 0, W - 130 + 40, nose.height))
-    halo_paste(c, nose, (130, 470 - nose.height // 2))
-    tail_plane = load_plane(1475)
-    tail = tail_plane.crop((int(tail_plane.width * 0.434), 0, tail_plane.width, tail_plane.height))
+    ny = 470 - nose.height // 2
+    halo_paste(c, nose, (W - nose.width + 30, ny))
+    small = load_plane(1250)
+    tail = small.crop((int(small.width * 0.5), 0, small.width, small.height))
     tail = tail.crop(tail.getbbox())
-    halo_paste(c, tail, (795 - tail.width, 1275 - tail.height))
+    halo_paste(c, tail, (-30, 1275 - tail.height))
     return c
 
 
