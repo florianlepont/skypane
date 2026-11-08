@@ -3,14 +3,16 @@
 Outcome of a discussion session about a new look for the e-ink "plane mode"
 screen. Nothing here changes the production renderer or the golden fixtures;
 the mock-ups come from standalone scripts in `design-exploration/plane-screen/`
-(`mock_giant_city.py`, `mock_plane_variants.py`, `mock_themes.py`), run with
-`PYTHONPATH=.`. Images live next to this file in `plane-screen-design-brief/`.
+(`mock_*.py`, one per topic), run with `PYTHONPATH=.`. Those using Anton take a
+font directory argument: the font was fetched outside the repository, it is not
+vendored. Images live next to this file in `plane-screen-design-brief/`.
 
 ## Why change
 
 Reviewer feedback on the current screen (see the four reference renders in the
 session): it feels under-designed, the text cannot be read from 2-3 m, and the
-previous-flight card adds little. Content sits in the top third of a
+previous-flight card is questionable (removed in every mock-up; the reviewer
+never formally confirmed the removal). Content sits in the top third of a
 1200x1600 frame. At 150 ppi (about 59 px/cm), a 2 cm capital needs roughly
 120 px of cap height; the current title is around 30 px.
 
@@ -21,10 +23,12 @@ previous-flight card adds little. Content sits in the top third of a
 - The destination city is set in very heavy letters filling the whole portrait
   frame, split into stacked lines (`MAR / SEI / LLE`, `NEW / YORK`), each line
   stretched to the frame width.
-- Two tones of one hue: pale field, saturated letters.
+- Two tones of one hue: pale field, saturated letters (with the diagonal band,
+  the lettering flips tone where it crosses the band, see below).
 - The aircraft is always horizontal (rotated variants were rejected).
-- Flight number is large at the bottom (about 150 px, 2.5 cm); airline name
-  below it, small. Direction word (DEPARTING / ARRIVING) stays small at the top.
+- Flight number is large at the bottom (about 150 px, 2.5 cm, bottom-left in the
+  first mock-ups; about 124 px and right-aligned once the band was added, see
+  below); airline name below it, small. Direction word (DEPARTING / ARRIVING) stays small at the top.
 - The previous-flight card is removed.
 
 ### Retained aircraft layouts
@@ -36,7 +40,7 @@ than a single winner; A remains the reference mock-up.
 |---|---|---|
 | A (primary) | Large nose/cockpit entering from the right edge, smaller rear half (wing and tail) entering from the left edge below it | Both halves bleed off the frame. Shows the airline logo on the fuselage and the livery on the tail. |
 | B | Whole aircraft, centred, near full width | Simplest; hides most of the middle text line. |
-| C | Whole aircraft in its own band under the lettering | Lettering is compressed into the top part of the frame. |
+| C | Whole aircraft in its own band under the lettering | Lettering is compressed into the top part of the frame. Status unclear: the reviewer found a horizontal band out of step with A and B (three reworks in `band-rework` were not retained) and asked for the diagonal instead; the diagonal was only built on A and B. |
 
 Rejected: rotated or climbing aircraft, vertical aircraft, tail-only, white
 disc, runway band, drop shadow, hard cuts inside the frame.
@@ -46,8 +50,8 @@ and `primary-layout-1200x1600.png`.
 
 ### Lettering font (decided)
 
-Anton (SIL OFL), condensed and naturally very heavy, drawn without any added
-stroke. Compared with Inter Black, Bebas Neue (needs a faked stroke), Archivo
+Anton (SIL OFL), condensed and naturally very heavy, drawn with at most a 1 px
+added stroke. Compared with Inter Black, Bebas Neue (needs a faked stroke), Archivo
 Black, Alfa Slab One and Zilla Slab (`fonts-six-marseille.png`,
 `fonts-six-newyork.png`; head-to-head `bebas-vs-anton-1.png` and `-2.png`).
 Bebas Neue was the runner-up. Sans-serif was preferred over slab. Anton is not vendored yet:
@@ -59,8 +63,9 @@ Bebas Neue was the runner-up. Sans-serif was preferred over slab. Anton is not v
 Grey / black, light blue / blue, light red / red, light yellow / yellow,
 white / black. Yellow needs a much lighter field (about 75% white instead of
 40%) to separate from its own ink; the panel has a single yellow, so yellow
-lettering cannot be darkened except by dithering it with black (tried, rejected
-in favour of the lighter field).
+lettering cannot be darkened except by dithering it with black (tried for the
+lettering and rejected in favour of the lighter field; still used for the small
+text, see below).
 
 See `colour-pairings.png`.
 
@@ -95,10 +100,10 @@ number is about 1.3 cm tall at 128 ppi, readable to roughly 2 m, not 3 m.
 
 The diagonal band of the current renderer comes back, with its real geometry
 (`style.BAND_*_FRAC`), as a solid band in the pairing's ink over the light
-field. Lettering is two-tone: ink off the band, the pairing's light field shade
+field. The white / black pairing was not rendered with the band. Lettering is two-tone: ink off the band, the pairing's light field shade
 inside it (white inside the band was tried and rejected: it works for blue,
-red and grey but fails for yellow). Validated in all five pairings on the
-nose-and-tail layout (`diagonal-band-colours-light-lettering.png`; earlier
+red and grey but fails for yellow). Validated in four pairings (blue, red,
+grey, yellow) on the nose-and-tail layout (`diagonal-band-colours-light-lettering.png`; earlier
 tries in `diagonal-band.png` and `diagonal-band-colours.png`). The flight
 number and airline are right-aligned at the bottom right, in the pairing's
 plain ink on the light field, outside the band (`diagonal-band-flight-right-*.png`,
@@ -143,17 +148,19 @@ is typed from close up. Final direction: `status-screens-calm.png`.
 
 Direction is currently only a small word at the top. At 3 m it is invisible, so
 the field colour should carry it. A green pairing for arrivals was shown and
-liked; the existing `theme_arriving` setting could carry this without new
-plumbing. See `cases-arriving-and-generic.png`.
+liked (shown before the band and the pairings were settled); the existing
+`theme_arriving` setting could carry this without new plumbing. Green is not
+among the five pairings, so an arrival colour has to be added to them. See
+`cases-arriving-and-generic.png`.
 
 ## What the new design keeps, replaces or drops
 
 | Existing feature | Verdict |
 |---|---|
-| 16+ colour themes (`server/themes.py`) | Reduce to the five pairings above, plus an arrival colour. Flat full-colour themes and the three "band" themes have no place in this look. |
+| 18 colour themes (`server/themes.py`) | Reduce to the five pairings above, plus an arrival colour. Flat full-colour themes and the three "band" themes have no place in this look. |
 | Per-airline colour rules (`colour_rules.py`) | Keep: a rule still resolves to a theme id, which now selects a pairing. |
 | Per-airline illustration | Keep and use much larger; needs per-aircraft-type crop points (see below). The generic grey fallback loses the airline colour cue. |
-| Diagonal band | Keep, reworked (see "Diagonal band" below). |
+| Diagonal band | Keep, reworked (see "Diagonal band" above). |
 | Previous-flight card | Drop. |
 | Small top labels | Keep, small. |
 
@@ -161,8 +168,9 @@ plumbing. See `cases-arriving-and-generic.png`.
 
 1. **New portrait layout** beside the current one, selected per device or
    theme, so the golden render stays untouched until a decision is made.
-2. **Font**: vendor Anton (see above). Lines are stretched to the full frame
-   width, which widens the condensed letters; check this on the real panel.
+2. **Font**: vendor Anton (see above). On flight screens, lines are stretched
+   to the full frame width, which widens the condensed letters; check this on
+   the real panel. Status screens use natural proportions.
 3. **City splitting**: a rule for breaking names into 2-3 stacked lines
    (never a single line; spaces and hyphens first, then syllables), and a
    fallback for very long names. Where the aircraft sits relative to the lines
@@ -180,14 +188,20 @@ plumbing. See `cases-arriving-and-generic.png`.
    fraction below 0.5; the yellow field needs about 0.75.
 8. **Landscape (800x480)**: a landscape variant of each layout is needed (one
    stretched line of lettering, see above).
-9. **State screens** (no connection, pairing, SET A LOCATION, NEARBY,
-   OVERHEAD): not explored; they should adopt the same pairings.
+9. **State screens**: portrait design decided (see above), to implement in
+   `hold_screens.py` (not the pairing screen); landscape not explored.
+   SET A LOCATION, NEARBY and OVERHEAD are tags on the flight screens and
+   follow them.
 10. Tests: golden fixtures stay for the current layout; the new layout needs its
    own fixtures.
 
 ## Open questions
 
-- Letter distortion vs. a condensed face.
+- How much the stretched Anton letters distort on flight screens, judged on
+  glass.
+- Whether to keep three layouts as options, and what the default is.
+- Whether layout C survives, and in what form.
+- Status screens in landscape.
 - Whether the contrast between field and lettering is right on real glass
   (the reviewer expects it to be softer there than on a monitor).
 - Arrival colour (green was liked, not formally chosen).
