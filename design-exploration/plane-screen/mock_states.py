@@ -69,7 +69,17 @@ def render(lines, label, body, drawer, watching=False, icon_at="corner"):
                 right = x1 - icon_w - 30
         g.giant_text(c, [line], (left, round(y0 + slot * i), right, round(y0 + slot * (i + 1))), ink, heavy=1, stretch=True)
     dr = ImageDraw.Draw(c)
-    dr.text((64, 56), label, font=ImageFont.truetype(g.FONT, 56), fill=ink)
+    label_x = 64
+    if icon_at == "label":  # small icon before the small label, same row
+        h = 64
+        icon = mask.resize((round(mask.width * h / mask.height), h), Image.LANCZOS)
+        c.paste(Image.new("RGB", icon.size, ink), (64, 54), icon)
+        label_x = 64 + icon.width + 22
+    if icon_at == "footer":  # icon bottom-left, facing the body text
+        h = 120
+        icon = mask.resize((round(mask.width * h / mask.height), h), Image.LANCZOS)
+        c.paste(Image.new("RGB", icon.size, ink), (64, 1330), icon)
+    dr.text((label_x, 56), label, font=ImageFont.truetype(g.FONT, 56), fill=ink)
     if icon_at == "corner":
         small = icon_mask(drawer)
         c.paste(Image.new("RGB", small.size, ink), (W - 64 - 38 - 100, 44 - 60), small)
