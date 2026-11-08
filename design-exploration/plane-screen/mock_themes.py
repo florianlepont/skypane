@@ -47,6 +47,25 @@ def theme_colours(theme):
     return field(idx, False), ink, ink
 
 
+# (label, field ink, field dithered, lettering ink): the chosen pairings
+PAIRS = [
+    ("grey / black", pf.IDX_BLACK, True, pf.IDX_BLACK),
+    ("light blue / blue", pf.IDX_BLUE, True, pf.IDX_BLUE),
+    ("light red / red", pf.IDX_RED, True, pf.IDX_RED),
+    ("light yellow / yellow", pf.IDX_YELLOW, True, pf.IDX_YELLOW),
+    ("white / black", pf.IDX_WHITE, False, pf.IDX_BLACK),
+]
+
+
+def render_pair(field_idx, dithered, letters_idx):
+    ink = ink_rgb(letters_idx)
+    canvas = field(field_idx, dithered).copy()
+    g.giant_text(canvas, v.LINES, (40, 130, g.W - 40, 1290), ink, heavy=v.HEAVY)
+    v.vnose_tail(canvas)
+    v.footer(canvas, ink=ink)
+    return canvas
+
+
 def render(theme):
     bg, letters, ink = theme_colours(theme)
     canvas = bg.copy()
@@ -73,5 +92,19 @@ def main(out_dir):
         sheet.save(os.path.join(out_dir, "sheet-%d.png" % (n // 6 + 1)))
 
 
+def main_pairs(out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    tw, th = 400, 533
+    font = ImageFont.truetype(g.FONT, 30)
+    sheet = Image.new("RGB", (3 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
+    for i, (label, fidx, dith, lidx) in enumerate(PAIRS):
+        canvas = render_pair(fidx, dith, lidx)
+        canvas.save(os.path.join(out_dir, "pair-%d.png" % (i + 1)))
+        thumb = canvas.resize((tw, th), Image.LANCZOS)
+        ImageDraw.Draw(thumb).text((tw - 12 - font.getlength(label), 8), label, font=font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
+        sheet.paste(thumb, (12 + (i % 3) * (tw + 12), 12 + (i // 3) * (th + 12)))
+    sheet.save(os.path.join(out_dir, "pairs.png"))
+
+
 if __name__ == "__main__":
-    main(sys.argv[1])
+    (main_pairs if os.environ.get("MOCK_PAIRS") else main)(sys.argv[1])
