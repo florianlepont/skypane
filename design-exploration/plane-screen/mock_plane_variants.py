@@ -136,7 +136,7 @@ def vnose_tail():  # big nose from the right edge, smaller tail below from the l
     nose = full.crop((0, 0, int(full.width * 0.36), full.height))
     nose = nose.crop(nose.getbbox())
     ny = 470 - nose.height // 2
-    halo_paste(c, nose, (W - nose.width + 30, ny))
+    halo_paste(c, nose, (W - nose.width - 80, ny))
     small = load_plane(1250)
     tail = small.crop((int(small.width * 0.5), 0, small.width, small.height))
     tail = tail.crop(tail.getbbox())
