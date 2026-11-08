@@ -377,6 +377,7 @@
   var sheetTitle = sheet.querySelector("[data-look-sheet-title]");
   var sameRow = sheet.querySelector("[data-look-same-row]");
   var same = sheet.querySelector("[data-look-same]");
+  var sameNote = sheet.querySelector("[data-look-same-note]");
   var sheetAxesBox = sheet.querySelector("[data-look-axes]");
   var sheetAxes = bindAxes(sheetAxesBox, function () { return current; });
 
@@ -399,6 +400,7 @@
     var following = !!follows && checkedValue(current) === "";
     same.setAttribute("aria-checked", following ? "true" : "false");
     setAxesDisabled(following);
+    sameNote.hidden = !following;
     sheetAxes.load(effectiveTheme(current));
   }
 
@@ -443,6 +445,10 @@
     var start = sheet.querySelector('input[data-look-axis="colour"]:checked:not(:disabled)')
       || sheet.querySelector("[data-look-close]");
     start.focus({ preventScroll: true });
+    // Beside the page a popover can open below the fold: bring it into view.
+    if (!(window.matchMedia && window.matchMedia(PHONE_QUERY).matches) && sheet.scrollIntoView) {
+      sheet.scrollIntoView({ block: "nearest" });
+    }
   }
 
   function sameIsOn() {
@@ -539,6 +545,11 @@
 
     addForm.addEventListener("change", function (evt) {
       if (evt.target && evt.target.name === "rule_kind") {
+        // A key typed for one kind is not valid for another: start again.
+        var key = addForm.querySelector('input[name="rule_key"]');
+        key.value = "";
+        key.setCustomValidity("");
+        key.removeAttribute("aria-invalid");
         showSuggestions();
       }
     });

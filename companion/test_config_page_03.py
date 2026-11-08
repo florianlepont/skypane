@@ -718,8 +718,8 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
         "expected the leading Same-as-departures option to NOT be checked once an override is set")
     assert not re.search(r'name="theme_arriving" value="white"[^>]*checked', arrivals_segment), (
         "expected the departures theme (white) to NOT be marked selected in the arrivals table")
-    sentence = re.search(r'data-look-sentence>([^<]*)<', arrivals_segment).group(1)
-    assert sentence == escape_html(look.look_sentence("black")), sentence
+    alt = re.search(r'<img class="look-frame__image"[^>]* alt="([^"]*)"', arrivals_segment).group(1)
+    assert alt.endswith(escape_html(look.look_sentence("black"))), alt
     calendar_start, calendar_end = cp.aspect_usage_row_bounds(
         rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[calendar_start:calendar_end]

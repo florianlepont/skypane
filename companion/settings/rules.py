@@ -387,7 +387,7 @@ def _rule_row_html(kind, value, theme_id):
         '<div class="special-row__text">'
         '<p class="special-row__title"><span class="special-row__tag rule-row__kind">%s</span>%s</p>'
         '<p class="special-row__meta rule-row__theme">%s</p></div>'
-        "%s%s</div>%s</li>"
+        '<div class="special-row__actions">%s%s</div></div>%s</li>'
     ) % (
         special_mini_html(theme_id),
         escape_html(_rule_kind_label_text(kind)),

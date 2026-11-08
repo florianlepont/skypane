@@ -102,7 +102,9 @@ def test_picker_choices_swap_the_picture_live(new_context, make_app_server):
         assert _checked(page, "theme") == "band_blue_field"
         src = _picture_src(page, DEPARTURES)
         assert src.startswith("/frame-preview/band_blue_field.png?state=departing")
-        assert page.locator(DEPARTURES + " [data-look-sentence]").inner_text() == "Blue, stripe on soft"
+        page.wait_for_function(
+            "() => document.querySelector('%s img.look-frame__image').alt.endsWith('%s')" % (
+                DEPARTURES, "Blue, stripe on soft"), timeout=10000)
         page.wait_for_function(
             "() => { const i = document.querySelector('%s img.look-frame__image');"
             " return i.complete && i.naturalWidth === 600; }" % DEPARTURES)
@@ -242,7 +244,9 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
         _save_via_bar(page, timeout=30000)
         assert device_config.load_device_config(server.state_dir)["theme"] == "band_green_light"
         assert urlsplit(page.url).path == layout.DISPLAY_ROUTE
-        assert page.locator(DEPARTURES + " [data-look-sentence]").inner_text() == "Green, soft stripe"
+        page.wait_for_function(
+            "() => document.querySelector('%s img.look-frame__image').alt.endsWith('%s')" % (
+                DEPARTURES, "Green, soft stripe"), timeout=10000)
 
         _show_tab(page, "arrivals")
         page.click(SHEET + " button.switch")
@@ -373,7 +377,7 @@ def test_on_phones_the_calendar_sheet_is_a_bottom_sheet_and_nothing_overflows(
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
 def test_on_phones_the_picker_sits_under_the_picture_and_nothing_overflows(
         new_context, make_app_server, viewport):
-    """on a phone the Look view shows the small picture beside its read-back, the picker as a card
+    """on a phone the Look view shows the picture centred with no caption, the picker as a card
     in the page at the full content width, every choice at least 44px tall, and no sideways scroll,
     on both tabs"""
     server = make_app_server(seed=_seed)
@@ -384,8 +388,9 @@ def test_on_phones_the_picker_sits_under_the_picture_and_nothing_overflows(
             overflow = _assert_no_page_overflow(page, "look " + usage, viewport["width"])
             assert not overflow, overflow
             picture = page.locator('[data-look-panel="%s"] .look-frame__picture' % usage).bounding_box()
-            caption = page.locator('[data-look-panel="%s"] .look-frame__caption' % usage).bounding_box()
-            assert caption["x"] >= picture["x"] + picture["width"] - 0.5, "expected the read-back beside the picture"
+            assert not page.locator('[data-look-panel="%s"] .look-frame__caption' % usage).count()
+            centre = picture["x"] + picture["width"] / 2
+            assert abs(centre - viewport["width"] / 2) <= 2, "expected the picture centred"
             sheet = page.locator(SHEET).bounding_box()
             assert sheet["y"] >= picture["y"] + picture["height"] - 0.5
             assert sheet["x"] >= 0 and sheet["x"] + sheet["width"] <= viewport["width"] + 0.5

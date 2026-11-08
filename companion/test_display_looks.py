@@ -251,11 +251,11 @@ def test_the_look_view_carries_the_picker_in_the_page_with_no_buttons_of_its_own
 
 @pytest.mark.parametrize("lang, words", [
     ("en", ("Look", "Special looks", "Plain paper", "Stripe on soft",
-            "New special look", "Change", "Customise look", "Calendar", "Departures",
+            "New special look", "Change", "Calendar", "Departures",
             "Arrivals")),
     ("fr", ("Allure", "Looks spéciaux", "Papier uni",
             "Bande sur fond clair", "Nouvelle allure spéciale", "Modifier",
-            "Personnaliser le style", "Calendrier", "Départs", "Arrivées")),
+            "Calendrier", "Départs", "Arrivées")),
 ])
 def test_the_look_card_speaks_the_page_language(lang, words):
     """every visible look-card word renders in the page language"""
@@ -275,15 +275,17 @@ def test_each_picture_shows_its_saved_look_in_its_own_state():
         theme_preview.frame_preview_src("band_red_field", "departing", "large"),
         theme_preview.frame_preview_src("band_red_field", "arriving", "large"),
     ]
-    sentences = [node.text() for node in root.find_all("span", cls="look-frame__sentence")]
-    assert sentences == ["Red, stripe on soft", "Same as departures"]
+    assert not root.find_all("p", cls="look-frame__caption")
+    alts = [img.attrs["alt"] for img in images]
+    assert alts == ["Preview: Departures, Red, stripe on soft",
+                    "Preview: Arrivals, Same as departures"]
     ctx = dict(_DISPLAY_CTX, device_config=dict(
         _DISPLAY_CTX["device_config"], theme_arriving="band_blue_field"))
     root = parse_html(_render(ctx=ctx))
     images = root.find_all("img", cls="look-frame__image")
     assert images[1].attrs["src"] == theme_preview.frame_preview_src(
         "band_blue_field", "arriving", "large")
-    assert root.find_all("span", cls="look-frame__sentence")[1].text() == "Blue, stripe on soft"
+    assert images[1].attrs["alt"] == "Preview: Arrivals, Blue, stripe on soft"
 
 
 # --- Saving every look -----------------------------------------------------------

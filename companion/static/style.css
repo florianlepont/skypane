@@ -9122,21 +9122,12 @@ button.look-frame__open:focus-visible {
   max-width: none;
 }
 
-.look-frame__caption {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  margin: 0;
-}
-
-.look-frame__name,
 .special-row__title {
   margin: 0;
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.look-frame__sentence,
 .special-row__meta {
   margin: 0;
   font-size: var(--font-label-size);
@@ -9384,6 +9375,15 @@ button.look-sheet__close[hidden] {
   display: none;
 }
 
+.look-sheet__same-note {
+  margin: var(--space-xs) 0 var(--space-sm);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.look-sheet__same-note[hidden] {
+  display: none;
+}
+
 .look-axis {
   min-width: 0;
   margin: 0;
@@ -9417,6 +9417,11 @@ button.look-sheet__close[hidden] {
   text-transform: none;
   font-size: var(--font-label-size);
   color: var(--color-text);
+}
+
+/* An empty value keeps its line, so the label is as tall with or without it. */
+.look-axis__value:empty::before {
+  content: "\200b";
 }
 
 .look-dots {
@@ -9507,6 +9512,17 @@ button.look-sheet__close[hidden] {
 .look-axis__why:empty {
   min-height: 0;
   margin: 0;
+}
+
+/* The colour row's reason (plain white paper) comes and goes as a background
+ * or stripe is chosen: beside the page, its two lines stay reserved so nothing
+ * below moves. A phone has no room to spare above the tab bar. */
+@media (min-width: 700px) {
+  .look-axis__why[data-look-colour-why]:empty {
+    min-height: 2.8em;
+    min-height: 2lh;
+    margin: var(--space-sm) 0 0;
+  }
 }
 
 .look-sheet__foot {
@@ -9675,6 +9691,44 @@ a.special-row__edit {
 
 a.special-row__edit:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.special-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* The kind badge sits on its own line and never breaks inside a word. */
+.rule-row .special-row__tag {
+  display: block;
+  width: fit-content;
+  margin: 0 0 var(--space-xs);
+  white-space: nowrap;
+}
+
+/* On a phone the text takes the whole width beside the picture and the two
+ * actions sit under it, side by side. */
+@media (max-width: 699.98px) {
+  .rule-row .special-row__main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: flex-start;
+    gap: var(--space-sm) 14px;
+  }
+
+  .rule-row .special-row__mini {
+    grid-row: 1 / span 2;
+  }
+
+  .rule-row .special-row__actions {
+    grid-column: 2;
+  }
+
+  .rule-row .special-row__actions > * {
+    flex: 1 1 0;
+  }
 }
 
 /* The pages that edit one thing (a special look, the calendar link): the
@@ -9904,13 +9958,6 @@ button.rule-suggestion-chip {
   /* Without scripts, an open table or add form needs the card's width. */
   .special-looks:has(.look-edit[open]) {
     grid-column: 1 / -1;
-  }
-
-  .look-sheet--calendar {
-    top: 0;
-    right: calc(100% + var(--space-md));
-    left: auto;
-    margin-top: 0;
   }
 }
 
@@ -10904,7 +10951,6 @@ a.entity-row__button:hover {
 }
 
 .personalisation-card--list .special-list:not(.special-list--add) {
-  overflow: hidden;
   background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -11008,14 +11054,6 @@ a.entity-row__button:hover {
   margin-top: var(--space-lg);
 }
 
-button.look-pick__customise {
-  height: auto;
-  max-width: 100%;
-  padding-block: 6px;
-  white-space: normal;
-  text-align: left;
-}
-
 /* The look views (Departures, Arrivals) ---------------------------------- */
 
 .look-picker {
@@ -11027,8 +11065,7 @@ button.look-pick__customise {
 /* With a script the picker below replaces the look cards, the "Change"
  * table and the "Customise" button; without one they are the way in. */
 .js .look-view .look-pick__grid,
-.js .look-view .look-edit,
-.js .look-view .look-pick__customise {
+.js .look-view .look-edit {
   display: none;
 }
 
@@ -11039,9 +11076,10 @@ button.look-pick__customise {
   align-items: flex-start;
 }
 
-.js .look-view .look-panel > .look-frame > .look-frame__meta,
-.js .look-view .look-pick > .look-frame__meta {
-  margin-top: 0;
+/* With a script the inline picker replaces the "Change" table, so the meta
+ * row under the picture holds nothing. */
+.js .look-view .look-panel > .look-frame > .look-frame__meta {
+  display: none;
 }
 
 .js .look-view .look-panel > .look-frame > .field-error {
@@ -11075,23 +11113,19 @@ button.look-sheet__done[hidden] {
   display: none;
 }
 
-/* On a phone the large picture takes a little over half the width, with its
- * read-back beside it, so the frame is big enough to judge a look by. */
+/* On a phone the large picture takes a little over half the width, centred,
+ * so the frame is big enough to judge a look by. */
 @media (max-width: 699.98px) {
   .js .look-view .look-panel > .look-frame {
-    grid-template-columns: minmax(0, 56%) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 56%);
+    justify-content: center;
     gap: var(--space-sm) var(--space-md);
   }
 
-  .look-pick {
-    display: grid;
-    grid-template-columns: minmax(0, 56%) minmax(0, 1fr);
-    gap: var(--space-md);
-    align-items: flex-start;
-  }
-
-  .look-pick > .look-frame__anchor {
+  html:not(.js) .look-pick > .look-frame__anchor {
+    width: 56%;
     max-width: none;
+    margin: 0 auto var(--space-md);
   }
 
   /* Tighter spacing so the picture and the three controls fit one phone screen. */
@@ -11117,16 +11151,6 @@ button.look-sheet__done[hidden] {
 
   .personalisation-nav {
     margin-bottom: var(--space-md);
-  }
-
-  .look-pick > .look-frame__meta {
-    margin-top: 0;
-    max-width: none;
-  }
-
-  .look-pick > .look-pick__grid,
-  .look-pick > .field-error {
-    grid-column: 1 / -1;
   }
 }
 

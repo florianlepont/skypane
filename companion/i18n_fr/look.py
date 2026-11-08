@@ -20,13 +20,14 @@ MESSAGES = {
     "look.arrivals_look": "Allure des arrivées",
     "look.calendar_flights_look": "Allure des vols du calendrier",
     "look.change": "Modifier",
-    "look.customise_look": "Personnaliser le style",
     "look.change_the_look": "Modifier l’allure : %s",
     "look.preview_alt": "Aperçu : %s, %s",
     "look.reset": "Rétablir",
     "look.save": "Enregistrer",
     "look.done": "Terminé",
     "look.close": "Fermer",
+    "look.follows_departures_note": (
+        "Cette allure suit celle des départs. Désactivez pour choisir la vôtre."),
 
     # --- The three choices ---------------------------------------------
     "look.colour": "Couleur principale",
