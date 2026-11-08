@@ -901,8 +901,11 @@ def test_the_fleet_versions_are_one_table_with_the_action_always_in_view():
     assert not doc.select("details.update-all") and not doc.select("details.update-row")
     rows = {row.select_one(".mono").text(): row for row in doc.select("tr.update-table__row")}
     assert set(rows) == {"fw-v1.0.0", "fw-v1.1.0", "fw-v1.2.0"}
-    assert [c.text() for c in doc.select("thead th")][:2] == ["Version", "Released"]
+    assert [c.text() for c in doc.select("thead th")][:3] == ["Version", "State", "Released"]
     assert rows["fw-v1.0.0"].select_one("time") is not None
+    states = {version: [c.text() for c in row.select(".update-table__state > span")]
+              for version, row in rows.items()}
+    assert states == {"fw-v1.0.0": ["Earlier"], "fw-v1.1.0": ["Running"], "fw-v1.2.0": ["Newer"]}
     old = rows["fw-v1.0.0"].select_one("form button")
     assert old.text() == "Roll back" and old.attrs["aria-label"] == "Roll back to fw-v1.0.0"
     assert rows["fw-v1.2.0"].select_one("form button").text() == "Install"
@@ -911,6 +914,7 @@ def test_the_fleet_versions_are_one_table_with_the_action_always_in_view():
     assert [li.text() for li in rows["fw-v1.0.0"].select(".update-table__notes li")] == [
         "First", "Second"]
     fr = parse_html(_embedded(view, "fr"))
+    assert [c.text() for c in fr.select("thead th")][:3] == ["Version", "État", "Sortie"]
     assert fr.select_one("tr.update-table__row form button").text() in ("Revenir", "Installer")
     assert "Revenir à fw-v1.0.0" in str(_embedded(view, "fr"))
 

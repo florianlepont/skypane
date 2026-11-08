@@ -265,7 +265,7 @@ def test_calendar_d01_registry_entries_never_appear_in_rules_list(tmp_path):
 
 
 def test_aspect_calendar_row_palette_populated_in_order():
-    """the calendar row's table carries one leading Same-as-departures option plus exactly one
+    """the calendar look's table carries one leading Same-as-departures option plus exactly one
     radio per registered theme, each id once, and the table carries no id attribute of its own
 
     The no-id clause is load-bearing: look_table_html() has four call sites on one page, and an
@@ -275,10 +275,9 @@ def test_aspect_calendar_row_palette_populated_in_order():
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
-    start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
-    calendar_segment = rendered[start:end]
+    calendar_segment = cp.calendar_look_segment(rendered)
     table_match = re.search(r'<table class="look-table"[^>]*>', calendar_segment)
-    assert table_match, "expected a .look-table inside the calendar row"
+    assert table_match, "expected a .look-table inside the calendar look"
     assert ' id="' not in table_match.group(0)
     radio_values = re.findall(r'name="calendar_theme_id" value="([^"]*)"', calendar_segment)
     real_ids = [rid for rid in radio_values if rid]
@@ -459,13 +458,12 @@ def test_calendar_connection_never_nests_a_form_inside_another_in_either_state()
 
 
 def test_calendar_row_no_inline_js_and_palette_cross_submits_form():
-    """the calendar row renders no inline event-handler attribute and no <script> tag, and every
+    """the calendar look renders no inline event-handler attribute and no <script> tag, and every
     calendar_theme_id radio in its palette cross-submits into the settings form via
     form=settings-form"""
     ctx = dict(cp.CALENDAR_BASE_CTX, calendar_configured=True, calendar_last_synced_at=None)
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
-    calendar_start, calendar_end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_CALENDAR)
-    calendar_segment = rendered[calendar_start:calendar_end]
+    calendar_segment = cp.calendar_look_segment(rendered)
     assert "<script" not in calendar_segment, "expected no <script> tag inside the Calendar row"
     assert not re.search(r'\son\w+="', calendar_segment), (
         "expected no inline on*= event-handler attribute inside the Calendar row")

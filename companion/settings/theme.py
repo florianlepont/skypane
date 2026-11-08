@@ -148,10 +148,12 @@ def _value_and_picture(effective_value, departures_id, allow_same):
     return False, departures_id if allow_same else device_config.DEFAULT_THEME_ID
 
 
-def look_frame_html(usage, effective_value, departures_id, errors, state):
+def look_frame_html(usage, effective_value, departures_id, errors, state, carries_departures=False):
     """One large framed picture with its caption and "Change" control.
     The picture is the live full-frame preview of the saved (or, after a
-    rejected save, submitted) look.
+    rejected save, submitted) look. `carries_departures` is for a page with no
+    departures look of its own: the target carries the departures theme the
+    "Same as departures" choice follows.
     """
     field_name = LOOK_FIELDS[usage]
     allow_same = usage != COLOUR_USAGE_DEPARTURES
@@ -181,7 +183,8 @@ def look_frame_html(usage, effective_value, departures_id, errors, state):
     ) % (
         look_target_attrs(
             usage, field_name, state, theme_preview.FRAME_PREVIEW_SIZE_LARGE, allow_same,
-            title=i18n.t(LOOK_SHEET_TITLES[usage])),
+            title=i18n.t(LOOK_SHEET_TITLES[usage]),
+            departures_id=departures_id if carries_departures else None),
         escape_html(preview(picture_id)), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),

@@ -628,6 +628,7 @@ def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
             assert link.attrs["aria-label"] == "View picture of " + callsign
     doc = parse_html(rendered)
     assert not doc.select("[aria-expanded]")
-    assert not doc.select("summary")
+    assert not [node for node in doc.select("summary")
+                if "collection-sort__toggle" not in node.attrs.get("class", "")]
 
 

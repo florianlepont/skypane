@@ -574,16 +574,16 @@ def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
 
 
 def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_dimensions():
-    """a Display render carries exactly two large framed pictures, departures then arrivals,
-    each an <img> of the saved look's full-frame preview in its own state with explicit width and
+    """a Display render carries exactly three large framed pictures, departures, arrivals and the
+    calendar look the all-views render appends, each an <img> of the saved look's full-frame preview in its own state with explicit width and
     height from the render pipeline's real served size, and loading left eager (the default)"""
     rendered = config_page.render(
         {"device_config": {"theme": "blue"}},
         scope=config_page.SCOPE_DISPLAY)
     images = re.findall(r'<img class="look-frame__image"[^>]*>', rendered)
-    assert len(images) == 2, images
+    assert len(images) == 3, images
     width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_LARGE]
-    for tag, state in zip(images, ("departing", "arriving")):
+    for tag, state in zip(images, ("departing", "arriving", "departing")):
         assert 'src="%s"' % escape_html(
             "%sblue.png?state=%s&size=large" % (config_page.FRAME_PREVIEW_ROUTE_PREFIX, state)) in tag
         assert 'width="%d"' % width in tag and 'height="%d"' % height in tag

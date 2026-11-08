@@ -144,7 +144,7 @@ def test_the_version_table_headings_are_in_french(new_context, app_server_in_pro
     context, page, _seed = _open(new_context, app_server_in_process, lang="fr", releases=True)
     try:
         heads = page.locator("table.update-table thead th").all_inner_texts()
-        assert heads[0].strip() == "Version" and heads[1].strip() == "Sortie"
+        assert [h.strip() for h in heads[:3]] == ["Version", "État", "Sortie"]
         assert page.locator("table.update-table tbody button").last.inner_text() == "Installer"
     finally:
         context.close()

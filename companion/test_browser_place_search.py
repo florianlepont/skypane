@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Browser checks for the place search of the Location and detection page: a request only on a
-submitted query, one at a time with a lock afterwards, the exact request the search service
+submitted query or once the typing pauses, one at a time with a lock afterwards, the exact request the search service
 gets (parameters, Referer, no credentials), result handling that never executes markup, and the
 failure sentence with the rest of the page still saving.
 
@@ -60,7 +60,7 @@ def _results_text(page):
     return page.inner_text("#place-results")
 
 
-def test_nothing_is_requested_on_load_or_while_typing_and_a_submit_sends_one(
+def test_nothing_is_requested_on_load_or_before_typing_pauses_and_a_submit_sends_one(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, hosts = _open(new_context, server)

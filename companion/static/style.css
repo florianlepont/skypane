@@ -4139,16 +4139,9 @@ a.calendar-disconnect-btn.flight-picture-link {
   display: flex;
 }
 
-.history-sort {
-  display: block;
+.history-controls .collection-sort {
   flex: 0 0 auto;
   margin: 0;
-}
-
-.history-sort select {
-  box-sizing: border-box;
-  min-width: 9rem;
-  max-width: 100%;
 }
 
 .history-controls__apply {
@@ -7181,6 +7174,14 @@ html.js-early:not(.map-ready) .place-boot .place-boot__fill {
   border-top: 1px solid var(--color-border);
 }
 
+/* A group heading in the one suggestion list (airports, then places). */
+.place-results__group {
+  padding: var(--space-xs) var(--space-md);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
 button.place-result {
   display: flex;
   flex-direction: column;
@@ -8165,6 +8166,7 @@ button.switch:active {
 .switch__track {
   position: relative;
   display: block;
+  flex: none;
   width: 52px;
   height: 32px;
   border-radius: var(--radius-control);
@@ -9498,6 +9500,7 @@ button.look-sheet__close[hidden] {
   gap: 6px;
   min-width: 0;
   min-height: 44px;
+  margin: 0;
   padding: 0 var(--space-sm);
   border-radius: var(--radius-control);
   font-size: var(--font-label-size);
@@ -10702,11 +10705,12 @@ a.fleet-retire__link {
   text-decoration: none;
 }
 
-/* The version history: one table, its action always in view. */
+/* The version history: one table (version, state, release date, action), the
+ * action always in view; on a phone each row is a compact card. */
 .update-table {
   width: 100%;
   border-collapse: collapse;
-  table-layout: auto;
+  table-layout: fixed;
 }
 
 .update-table__col {
@@ -10717,18 +10721,19 @@ a.fleet-retire__link {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-table__col--when {
-  text-align: right;
-}
+.update-table__col--state { width: 7.5rem; }
+.update-table__col--when { width: 9rem; text-align: left; }
+.update-table__col--action { width: 9rem; }
 
 .update-table__row > * {
   padding: var(--space-sm);
   border-top: 1px solid var(--glass-hairline);
-  vertical-align: middle;
+  vertical-align: top;
 }
 
 .update-table__version {
   min-width: 0;
+  padding-top: var(--space-md);
   text-align: left;
   font-weight: var(--weight-regular);
 }
@@ -10739,20 +10744,45 @@ a.fleet-retire__link {
   white-space: nowrap;
 }
 
-.update-table__version .update-row__badge {
-  margin-left: var(--space-xs);
+.update-table__state {
+  padding-top: var(--space-md);
 }
 
 .update-table__when {
+  padding-top: var(--space-md);
   font-size: var(--font-label-size);
-  text-align: right;
-  white-space: nowrap;
+  text-align: left;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-table__action {
-  text-align: right;
+.update-table__date {
+  display: block;
+  font-size: var(--font-caption-size);
   white-space: nowrap;
+}
+
+.update-table__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.update-table__chip--newer {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+
+/* The action cell holds one 44px button, as wide for Install as for Roll back. */
+.update-table__action {
+  padding-top: var(--space-md);
+  text-align: right;
 }
 
 .update-table__action form {
@@ -10761,12 +10791,61 @@ a.fleet-retire__link {
 
 .update-table__action button[type="submit"] {
   min-height: 44px;
-  min-width: 44px;
+  min-width: 7.5rem;
   padding: 0 var(--space-md);
 }
 
 .update-table__row--running > * {
-  background: color-mix(in srgb, var(--color-status-ok) 7%, transparent);
+  background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
+}
+
+.update-table__row--running > .update-table__version {
+  box-shadow: inset 3px 0 0 var(--color-status-ok);
+}
+
+@media (max-width: 699.98px) {
+  .update-table,
+  .update-table tbody {
+    display: block;
+  }
+
+  .update-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .update-table__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "version state"
+      "when action";
+    align-items: center;
+    column-gap: var(--space-sm);
+    border-top: 1px solid var(--glass-hairline);
+  }
+
+  .update-table__row > * {
+    display: block;
+    border-top: 0;
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .update-table__row--running {
+    background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
+  }
+
+  .update-table__row--running > * {
+    background: none;
+  }
+
+  .update-table__version { grid-area: version; padding-top: var(--space-sm); }
+  .update-table__state { grid-area: state; padding-top: var(--space-sm); text-align: right; }
+  .update-table__when { grid-area: when; padding-top: 0; }
+  .update-table__action { grid-area: action; padding-top: 0; }
 }
 
 .update-table__notes > summary {
@@ -12309,10 +12388,11 @@ button.row-menu__item--destructive:hover {
 
 .airlines-subrow {
   display: none;
-  grid-template-columns: minmax(0, 1fr) auto 44px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
   grid-template-areas:
-    "name views menu"
+    "name name menu"
     "art art art"
+    "views views views"
     "seen seen seen";
   align-items: center;
   gap: var(--space-sm) var(--space-md);
@@ -12324,6 +12404,11 @@ button.row-menu__item--destructive:hover {
 
 .airline-group:has(details.airlines-expand[open]) .airlines-subrow {
   display: grid;
+}
+
+/* A type row has no prefixes: the empty cell would open a column of its own. */
+.airlines-subrow .airlines-cell--prefixes {
+  display: none;
 }
 
 .airlines-cell {
@@ -12726,6 +12811,25 @@ button.row-menu__item--destructive:hover {
     border-bottom: 1px solid var(--glass-hairline);
   }
 
+  /* A type row keeps its empty prefixes and action cells: dropping either
+   * would pull the following cells one column to the left. */
+  .airlines-cell--act:empty,
+  .airlines-subrow .airlines-cell--prefixes {
+    display: table-cell;
+  }
+
+  /* The artwork column is narrower than the thumbnail plus its state word:
+   * the state word stays for assistive technology and the dimming of the
+   * thumbnail says the rest. */
+  .airlines-subrow .airlines-state {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
   /* Counts and dates stay on one line. */
   .airlines-cell--views,
   .airlines-cell--seen,
@@ -12749,7 +12853,7 @@ button.row-menu__item--destructive:hover {
   .airlines-col--name { width: 36%; }
   .airlines-col--prefixes { width: 8%; }
   .airlines-col--art { width: 17%; }
-  .airlines-col--views { width: 8%; }
+  .airlines-col--views { width: 10%; }
   .airlines-col--menu { width: 112px; }
 
   /* The airline name input ends in an ellipsis rather than a hard clip. */
@@ -12918,13 +13022,21 @@ button.row-menu__item--destructive:hover {
   .login-card,
   .look-sheet,
   .info-tip__bubble,
-  .dashboard-sidebar,
-  .dirty-bar {
+  .dashboard-sidebar {
     background: var(--glass-bg);
     border-color: var(--glass-border);
     box-shadow: var(--shadow-glass);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  /* The save bar floats over anything (the Location map included), so its
+   * surface is opaque in both themes: translucent glass over a pale map left
+   * its light text unreadable. */
+  .dirty-bar {
+    background: var(--glass-solid);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-glass);
   }
 
   /* The popover of the frame button. */

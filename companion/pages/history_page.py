@@ -638,16 +638,12 @@ def _chips_html(view, result):
 
 
 def _sort_html(view):
-    """The sort as a native select of the search form: it works without a
+    """The sort as the shared radio menu of the search form: it works without a
     script (the Apply button sends it) and with one it reorders in place."""
-    options = "".join(
-        '<option value="%s"%s>%s</option>' % (
-            value, " selected" if value == view.sort else "", escape_html(i18n.t(text)))
-        for value, text in _SORT_TEXTS)
-    return (
-        '<label class="history-sort"><span class="visually-hidden">%s</span>'
-        '<select name="%s" form="%s" data-flights-auto data-flights-key="sort">%s</select></label>'
-    ) % (escape_html(i18n.t(_SORT_LABEL)), history_query.SORT_PARAM, _FORM_ID, options)
+    return ui_filter.sort_menu_html(
+        history_query.SORT_PARAM, _SORT_TEXTS, view.sort, _SORT_LABEL,
+        ' form="%s" data-flights-auto data-flights-key="sort"' % _FORM_ID,
+        ' data-flights-key="sort"')
 
 
 def _matches_html(view, result):

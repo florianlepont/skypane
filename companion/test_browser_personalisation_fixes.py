@@ -82,36 +82,36 @@ def _wait_sheet_visible(page):
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "viewport", [VIEWPORT_DESKTOP, VIEWPORT_WIDE, VIEWPORT_PHONE], ids=["1280", "1440", "390"])
-def test_the_calendar_view_shows_its_own_content_and_its_look_popover_is_visible(
+def test_the_calendar_view_shows_its_own_content_and_leads_to_its_look_page(
         new_context, make_app_server, viewport, lang, theme):
     """the Calendar view holds the connect row and the calendar look row inside the list card, no
-    card of another view; its look chooser opens a popover that is fully visible (every corner
-    hits the sheet) and, while it follows departures, explains why its choices are off"""
+    card of another view and no popover; the row's Change link is a 44px target that opens the
+    calendar look page, whose picker sits in the page and, while the look follows departures,
+    explains why its choices are off"""
     server = make_app_server(seed=_seed)
     context, page = _open(
         new_context, server.base_url(), viewport, layout.DISPLAY_CALENDAR_ROUTE, lang, theme)
     try:
-        page.locator(OPENER).first.wait_for(state="visible")
+        change = page.locator(CALENDAR_ROW + " a.special-row__edit")
+        change.wait_for(state="visible")
         assert page.locator("#personalisation-calendar").count() == 1
         assert page.locator("#personalisation-look, .look-card, .look-picker").count() == 0
+        assert page.locator(SHEET).count() == 0
         card = page.locator("#personalisation-calendar .special-list").bounding_box()
         for selector in (".calendar-status", CALENDAR_ROW):
             box = page.locator(selector).bounding_box()
             assert _inside(box, card), (selector, box, card)
-        page.wait_for_function(_OWNS_CENTRE, arg=CALENDAR_ROW + " summary", timeout=10000)
-        page.locator(OPENER).first.click()
-        _wait_sheet_visible(page)
-        sheet = page.locator(SHEET).bounding_box()
-        assert sheet["x"] >= -0.5 and sheet["x"] + sheet["width"] <= viewport["width"] + 0.5
+        page.wait_for_function(_OWNS_CENTRE, arg=CALENDAR_ROW + " a.special-row__edit", timeout=10000)
+        box = change.bounding_box()
+        assert box["height"] >= 44 - 0.5 and box["width"] >= 44 - 0.5, box
+        change.click()
+        page.wait_for_url("**" + layout.DISPLAY_CALENDAR_LOOK_ROUTE)
+        page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
         note = page.locator("[data-look-same-note]")
         assert note.is_visible() and note.inner_text().strip()
-        for selector in ("[data-look-close]", "[data-look-done]"):
-            assert page.locator(selector).is_visible()
         page.locator("[data-look-same]").click()
         page.wait_for_function(
             "() => document.querySelector('[data-look-same-note]').hidden", timeout=10000)
-        page.keyboard.press("Escape")
-        page.wait_for_function("() => document.querySelector('[data-look-sheet]').hidden", timeout=10000)
     finally:
         context.close()
 

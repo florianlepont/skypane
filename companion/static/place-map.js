@@ -1340,6 +1340,9 @@
     }
   }
 
+  // What place-card.js needs to add typed address suggestions to the list.
+  window.skypanePlaceSearch = { read: readResult, choose: chooseResult, url: searchUrl };
+
   function wireSearchAndLocate() {
     if (searchForm && searchInput && resultsEl) {
       searchForm.addEventListener("submit", onSearchSubmit);
