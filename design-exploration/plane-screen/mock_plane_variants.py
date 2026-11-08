@@ -123,7 +123,29 @@ def vcockpit():  # nose and cockpit only, entering from the right edge
     return c
 
 
-VARIANTS = [v01, v09, vcockpit]
+def halo_paste(canvas, piece, pos):
+    layer = Image.new("RGBA", piece.size, WHITE + (0,))
+    layer.putalpha(piece.getchannel("A").filter(ImageFilter.MaxFilter(15)))
+    canvas.paste(layer, pos, layer)
+    canvas.paste(piece, pos, piece)
+
+
+def vnose_tail():  # big nose from the right edge, smaller tail below from the left
+    c = base()
+    full = load_plane(2500)
+    nose = full.crop((0, 0, int(full.width * 0.36), full.height))
+    nose = nose.crop(nose.getbbox())
+    ny = 470 - nose.height // 2
+    halo_paste(c, nose, (W - nose.width + 30, ny))
+    small = load_plane(1250)
+    tail = small.crop((int(small.width * 0.5), 0, small.width, small.height))
+    tail = tail.crop(tail.getbbox())
+    tail_y = 1275 - tail.height
+    halo_paste(c, tail, (-30, tail_y))
+    return c
+
+
+VARIANTS = [v01, v09, vcockpit, vnose_tail]
 
 
 def main(out_dir):
