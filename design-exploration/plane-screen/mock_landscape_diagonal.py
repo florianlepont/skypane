@@ -54,7 +54,7 @@ def build(name, idx, fraction, layout):
     tone = Image.composite(field, solid, mask)
     g.giant_text(c, [name], (16, 40, W - 16, 340), tone, heavy=1, stretch=True)
     if layout == "whole":
-        t.v.paste_with_halo(c, t.v.load_plane(560), (W / 2 - 60, 190), halo=9)
+        t.v.paste_with_halo(c, t.v.load_plane(560), (W / 2, 190), halo=9)
     else:
         full = t.v.load_plane(800)
         nose = full.crop((0, 0, int(full.width * 0.5), full.height))
