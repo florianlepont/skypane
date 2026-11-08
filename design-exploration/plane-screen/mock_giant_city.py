@@ -14,6 +14,7 @@ from server.plane import illustrations
 W, H = pf.WIDTH, pf.HEIGHT
 MODE = os.environ.get("MOCK_MODE", "sliced")
 FONT = "server/assets/fonts/Inter-Bold.ttf"
+FONT_HEAVY = "/usr/share/fonts/opentype/inter/Inter-Black.otf"
 BLUE = tuple(pf.PALETTE_RGB[12:15])
 WHITE = (255, 255, 255)
 LIGHT = (176, 202, 232)  # light blue, rendered by dithering blue/white
@@ -26,16 +27,16 @@ def fit_font(text, width, path=FONT):
     return ImageFont.truetype(path, size - 4)
 
 
-def giant_text(canvas, lines, box, fill):
+def giant_text(canvas, lines, box, fill, heavy=0):
     """Each line is stretched to the box width and fitted to its own slot."""
     x0, y0, x1, y1 = box
     slot = (y1 - y0) / len(lines)
     gap = 14
     for i, line in enumerate(lines):
-        f = ImageFont.truetype(FONT, 600)
-        left, top, right, bottom = f.getbbox(line)
+        f = ImageFont.truetype(FONT_HEAVY if heavy else FONT, 600)
+        left, top, right, bottom = f.getbbox(line, stroke_width=heavy)
         layer = Image.new("L", (right - left, bottom - top), 0)
-        ImageDraw.Draw(layer).text((-left, -top), line, font=f, fill=255)
+        ImageDraw.Draw(layer).text((-left, -top), line, font=f, fill=255, stroke_width=heavy, stroke_fill=255)
         layer = layer.resize((x1 - x0, round(slot - gap)), Image.LANCZOS)
         canvas.paste(Image.new("RGB", layer.size, fill), (x0, round(y0 + slot * i)), layer)
 

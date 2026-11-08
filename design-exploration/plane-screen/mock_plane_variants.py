@@ -1,9 +1,9 @@
-"""Ten ways to place the aircraft over the giant destination lettering.
+"""Seven horizontal ways to place the aircraft over the giant destination lettering.
 
 Standalone exploration: does not touch server/plane/render. Run from the repo
 root with PYTHONPATH=.:
     python3 design-exploration/plane-screen/mock_plane_variants.py OUT_DIR
-Writes variant-01.png .. variant-10.png (1200x1600) and sheet.png.
+Writes variant-01.png .. variant-07.png (1200x1600) and sheet.png.
 """
 import os
 import sys
@@ -18,6 +18,7 @@ from server.plane import illustrations  # noqa: E402
 W, H = g.W, g.H
 BLUE, WHITE, LIGHT = g.BLUE, g.WHITE, g.LIGHT
 LINES = ["MAR", "SEI", "LLE"]
+HEAVY = int(os.environ.get("MOCK_HEAVY", "22"))  # extra stroke in px at 600 px font size
 
 
 def load_plane(width, angle=0):
@@ -40,7 +41,7 @@ def paste_with_halo(canvas, im, centre, halo=15):
 
 def base(text_box=(40, 130, W - 40, 1290), text_fill=BLUE, bg=LIGHT):
     canvas = Image.new("RGB", (W, H), bg)
-    g.giant_text(canvas, LINES, text_box, text_fill)
+    g.giant_text(canvas, LINES, text_box, text_fill, heavy=HEAVY)
     return canvas
 
 
@@ -54,24 +55,6 @@ def footer(canvas, state="DEPARTING", flight="AF1006", airline="Air France"):
 def v01():  # whole, centred, full width
     c = base()
     paste_with_halo(c, load_plane(1120), (W / 2, 710))
-    return c
-
-
-def v02():  # whole, climbing at 12 degrees
-    c = base()
-    paste_with_halo(c, load_plane(1100, 12), (W / 2, 710))
-    return c
-
-
-def v03():  # big diagonal, bleeding off the corners
-    c = base()
-    paste_with_halo(c, load_plane(1800, 32), (W / 2, 700))
-    return c
-
-
-def v04():  # vertical, nose up, spans the lettering height
-    c = base()
-    paste_with_halo(c, load_plane(1250, 90), (W / 2 + 60, 720))
     return c
 
 
@@ -127,21 +110,21 @@ def v10():  # aircraft with a hard offset shadow in the dark ink
     return c
 
 
-VARIANTS = [v01, v02, v03, v04, v05, v06, v07, v08, v09, v10]
+VARIANTS = [v01, v05, v06, v07, v08, v09, v10]
 
 
 def main(out_dir):
     os.makedirs(out_dir, exist_ok=True)
     tw, th = 360, 480
-    sheet = Image.new("RGB", (5 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
+    sheet = Image.new("RGB", (4 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
     label_font = ImageFont.truetype(g.FONT, 36)
     for i, fn in enumerate(VARIANTS):
         canvas = fn()
         footer(canvas)
         canvas.save(os.path.join(out_dir, "variant-%02d.png" % (i + 1)))
         thumb = canvas.resize((tw, th), Image.LANCZOS)
-        ImageDraw.Draw(thumb).text((10, 8), str(i + 1), font=label_font, fill=(200, 30, 30))
-        sheet.paste(thumb, (12 + (i % 5) * (tw + 12), 12 + (i // 5) * (th + 12)))
+        ImageDraw.Draw(thumb).text((tw - 50, th - 52), str(i + 1), font=label_font, fill=(200, 30, 30))
+        sheet.paste(thumb, (12 + (i % 4) * (tw + 12), 12 + (i // 4) * (th + 12)))
     sheet.save(os.path.join(out_dir, "sheet.png"))
 
 
