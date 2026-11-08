@@ -106,5 +106,45 @@ def main_pairs(out_dir):
     sheet.save(os.path.join(out_dir, "pairs.png"))
 
 
+def lightened_field(idx, fraction):
+    """Like field(idx, True) but with an adjustable share of white."""
+    return dither.dithered_state_background(idx, lighten_fraction=fraction).convert("RGB")
+
+
+def darkened_ink(idx, fraction):
+    """Full-canvas pattern: `idx` ink dithered toward black (a darker shade)."""
+    r, g_, b = ink_rgb(idx)
+    flat = Image.new("RGB", (g.W, g.H), tuple(round(c * (1 - fraction)) for c in (r, g_, b)))
+    two = Image.new("P", (1, 1))
+    two.putpalette([r, g_, b, 0, 0, 0])
+    return flat.quantize(palette=two, dither=Image.FLOYDSTEINBERG).convert("RGB")
+
+
+def main_yellow(out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    yellow = ink_rgb(pf.IDX_YELLOW)
+    variants = [
+        ("current", field(pf.IDX_YELLOW, True), yellow),
+        ("lighter field", lightened_field(pf.IDX_YELLOW, 0.75), yellow),
+        ("darker letters", field(pf.IDX_YELLOW, True), darkened_ink(pf.IDX_YELLOW, 0.45)),
+    ]
+    tw, th = 400, 533
+    font = ImageFont.truetype(g.FONT, 30)
+    sheet = Image.new("RGB", (3 * (tw + 12) + 12, th + 24), (110, 110, 110))
+    for i, (label, bg, letters) in enumerate(variants):
+        canvas = bg.copy()
+        g.giant_text(canvas, v.LINES, (40, 130, g.W - 40, 1290), letters, heavy=v.HEAVY)
+        v.vnose_tail(canvas)
+        v.footer(canvas, ink=yellow if label != "darker letters" else tuple(round(c * 0.55) for c in yellow))
+        canvas.save(os.path.join(out_dir, "yellow-%d.png" % (i + 1)))
+        thumb = canvas.resize((tw, th), Image.LANCZOS)
+        ImageDraw.Draw(thumb).text((tw - 12 - font.getlength(label), 8), label, font=font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
+        sheet.paste(thumb, (12 + i * (tw + 12), 12))
+    sheet.save(os.path.join(out_dir, "yellow.png"))
+
+
 if __name__ == "__main__":
+    if os.environ.get("MOCK_YELLOW"):
+        main_yellow(sys.argv[1])
+        sys.exit(0)
     (main_pairs if os.environ.get("MOCK_PAIRS") else main)(sys.argv[1])
