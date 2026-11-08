@@ -40,8 +40,14 @@ def giant_text(canvas, lines, box, fill, heavy=0):
         left, top, right, bottom = f.getbbox(line, stroke_width=heavy)
         layer = Image.new("L", (right - left, bottom - top), 0)
         ImageDraw.Draw(layer).text((-left, -top), line, font=f, fill=255, stroke_width=heavy, stroke_fill=255)
-        layer = layer.resize((x1 - x0, round(slot - gap)), Image.LANCZOS)
-        pos = (x0, round(y0 + slot * i))
+        if len(lines) == 1:  # a single word keeps its own proportions, centred in the box
+            scale = (x1 - x0) / layer.width
+            layer = layer.resize((x1 - x0, round(layer.height * scale)), Image.LANCZOS)
+            y_top = round((y0 + y1 - layer.height) / 2)
+        else:
+            layer = layer.resize((x1 - x0, round(slot - gap)), Image.LANCZOS)
+            y_top = round(y0 + slot * i)
+        pos = (x0, y_top)
         if isinstance(fill, Image.Image):  # a canvas-sized pattern, e.g. a dithered ink
             src = fill.crop((pos[0], pos[1], pos[0] + layer.width, pos[1] + layer.height))
         else:
