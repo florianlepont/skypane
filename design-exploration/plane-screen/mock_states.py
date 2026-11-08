@@ -10,44 +10,44 @@ import sys
 from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import mock_diagonal as d  # noqa: E402
 import mock_giant_city as g  # noqa: E402
 import mock_themes as t  # noqa: E402
 
 from server import panel_format as pf  # noqa: E402
 
 W, H = g.W, g.H
+WHITE = (255, 255, 255)
 
-# (key, lettering lines, small label, body lines, field ink, field lightening)
+# (key, lettering lines, small label, body lines, white field?)
+# Generic screens: they do not follow the theme. Same colours as today: white
+# for the watching screen, the dimmed (dithered dark) field with white ink for
+# every other one.
 STATES = [
-    ("watching", ["WATCH", "ING"], "RUNWAY 3", ["No aircraft detected yet.", "The display updates the moment one is."], pf.IDX_BLUE, None),
-    ("quiet hours", ["QUIET", "HOURS"], "SLEEPING", ["Back at 07:00"], pf.IDX_BLACK, None),
-    ("display off", ["DISPLAY", "OFF"], "SWITCHED OFF", ["Turn it back on from the companion page."], pf.IDX_BLACK, None),
-    ("battery empty", ["BATTERY", "EMPTY"], "CHARGE ME", ["Charge the frame over USB-C.", "It will pick up where it left off."], pf.IDX_RED, None),
-    ("no connection", ["NO", "CONNEC", "TION"], "OFFLINE", ["The frame can't reach its server.", "It will try again on its own."], pf.IDX_RED, None),
-    ("updating", ["UPDA", "TING"], "FIRMWARE", ["Installing a firmware update.", "The frame will restart when it's ready."], pf.IDX_BLUE, None),
-    ("frame retired", ["FRAME", "RETIRED"], "SKYPANE", ["This frame was removed from SkyPane.", "Ask an administrator to set it up again."], pf.IDX_BLACK, None),
+    ("watching", ["WATCH", "ING"], "RUNWAY 3", ["No aircraft detected yet.", "The display updates the moment one is."], True),
+    ("quiet hours", ["QUIET", "HOURS"], "SLEEPING", ["Back at 07:00"], False),
+    ("display off", ["DISPLAY", "OFF"], "SWITCHED OFF", ["Turn it back on from the companion page."], False),
+    ("battery empty", ["BATTERY", "EMPTY"], "CHARGE ME", ["Charge the frame over USB-C.", "It will pick up where it left off."], False),
+    ("no connection", ["NO", "CONNEC", "TION"], "OFFLINE", ["The frame can't reach its server.", "It will try again on its own."], False),
+    ("updating", ["UPDA", "TING"], "FIRMWARE", ["Installing a firmware update.", "The frame will restart when it's ready."], False),
+    ("frame retired", ["FRAME", "RETIRED"], "SKYPANE", ["This frame was removed from SkyPane.", "Ask an administrator to set it up again."], False),
 ]
 
 
-def render(lines, label, body, idx, fraction):
-    ink = t.ink_rgb(idx)
-    field = t.lightened_field(idx, fraction) if fraction else t.field(idx, True)
-    solid = Image.new("RGB", (W, H), ink)
-    mask = d.band_mask()
-    c = field.copy()
-    c.paste(solid, (0, 0), mask)
-    tone = Image.composite(field, solid, mask)
-    g.giant_text(c, lines, (40, 130, W - 40, 1290), tone, heavy=1)
-    layer = Image.new("L", (W, H), 0)
-    dr = ImageDraw.Draw(layer)
-    dr.text((64, 56), label, font=ImageFont.truetype(g.FONT, 56), fill=255)
+def render(lines, label, body, white):
+    if white:
+        c = Image.new("RGB", (W, H), WHITE)
+        ink = (0, 0, 0)
+    else:
+        c = t.field(pf.IDX_BLACK, True).copy()
+        ink = WHITE
+    g.giant_text(c, lines, (40, 130, W - 40, 1290), ink, heavy=1)
+    dr = ImageDraw.Draw(c)
+    dr.text((64, 56), label, font=ImageFont.truetype(g.FONT, 56), fill=ink)
     y = 1330
     for line in body:
         font = ImageFont.truetype(g.FONT, 46)
-        dr.text((W - 64 - font.getlength(line), y), line, font=font, fill=255)
+        dr.text((W - 64 - font.getlength(line), y), line, font=font, fill=ink)
         y += 64
-    c.paste(tone, (0, 0), layer)  # the text flips tone where it crosses the band
     return c
 
 
@@ -57,8 +57,8 @@ def main(out_dir, font_dir):
     tw, th = 300, 400
     label_font = ImageFont.truetype("server/assets/fonts/Inter-Bold.ttf", 22)
     sheet = Image.new("RGB", (4 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
-    for i, (key, lines, label, body, idx, fraction) in enumerate(STATES):
-        c = render(lines, label, body, idx, fraction)
+    for i, (key, lines, label, body, white) in enumerate(STATES):
+        c = render(lines, label, body, white)
         c.save(os.path.join(out_dir, "state-%s.png" % key.replace(" ", "_")))
         thumb = c.resize((tw, th), Image.LANCZOS)
         ImageDraw.Draw(thumb).text((8, th - 30), key, font=label_font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
