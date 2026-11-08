@@ -17,12 +17,17 @@ from server.plane import illustrations  # noqa: E402
 
 W, H = g.W, g.H
 BLUE, WHITE, LIGHT = g.BLUE, g.WHITE, g.LIGHT
-LINES = ["MAR", "SEI", "LLE"]
+LINES = os.environ.get("MOCK_LINES", "MAR,SEI,LLE").split(",")
+PLANE_KEY = os.environ.get("MOCK_PLANE", "air-france")
+STATE = os.environ.get("MOCK_STATE", "DEPARTING")
+FLIGHT = os.environ.get("MOCK_FLIGHT", "AF1006")
+AIRLINE = os.environ.get("MOCK_AIRLINE", "Air France")
 HEAVY = int(os.environ.get("MOCK_HEAVY", "22"))  # extra stroke in px at 600 px font size
 
 
 def load_plane(width, angle=0):
-    im = Image.open(illustrations.resolved_illustration_path("air-france")).convert("RGBA")
+    path = illustrations.generic_fallback_path() if PLANE_KEY == "generic" else illustrations.resolved_illustration_path(PLANE_KEY)
+    im = Image.open(path).convert("RGBA")
     im = im.crop(im.getbbox())
     im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
     if angle:
@@ -45,7 +50,8 @@ def base(text_box=(40, 130, W - 40, 1290), text_fill=BLUE, bg=LIGHT):
     return canvas
 
 
-def footer(canvas, state="DEPARTING", flight="AF1006", airline="Air France"):
+def footer(canvas, state=None, flight=None, airline=None):
+    state, flight, airline = state or STATE, flight or FLIGHT, airline or AIRLINE
     d = ImageDraw.Draw(canvas)
     d.text((64, 56), state, font=ImageFont.truetype(g.FONT, 56), fill=BLUE)
     d.text((64, 1330), flight, font=ImageFont.truetype(g.FONT, 150), fill=BLUE)
