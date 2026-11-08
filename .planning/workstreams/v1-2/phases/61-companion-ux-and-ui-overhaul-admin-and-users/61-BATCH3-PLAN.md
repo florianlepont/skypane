@@ -136,3 +136,5 @@ dropped or redrawn from a sketch.
 | 61-93 | Location search and radius, accessibility, naming glossary, tab bar labels, 360 overflows, type scale, time format (W144, F05, F13, F14, F16, F17, F20, F27, F28, F31, F32) |
 | 61-94 | Performance quick wins (PERF P01-P11, P16) |
 | 61-95 | Splash at every site opening, page preloading, session-expiry feedback (W154, W155, workflow findings) |
+| 61-91a | W146: server theme catalogue with all colour x background x stripe combinations (before 61-91) |
+| 61-93b | W152: Location phone map full-bleed (needs a fresh iPhone capture) |

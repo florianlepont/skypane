@@ -932,3 +932,23 @@ states; 61-91 Personalisation (calendar, matrix, caption, looks rows);
 61-92 Fleet and Users; 61-93 Location, accessibility, navigation naming and
 overflow polish; 61-94 performance quick wins; 61-95 splash at every session
 opening, page preloading and session-expiry feedback.
+
+## Coverage check of batch 14 (owner asked: does the plan cover every point?)
+
+Owner W142-W155: all assigned (61-89 W147; 61-90 W142 W143; 61-91 W145 W146
+W148 W153; 61-92 W149 W150 W151; 61-93 W144; 61-95 W154 W155) EXCEPT W152
+(Location phone map full-bleed, still open: moved to a dedicated plan 61-93b).
+W146 (all look combinations) is large enough for its own plan, 61-91a: a
+server-side theme catalogue with all 5 colours x 3 backgrounds x 3 stripe
+states (45, today 18) rendered for the frame, expand-only, live frame
+unchanged; the UI part stays in 61-91.
+
+Audit 2 findings F01-F33: all assigned except F22 (Home banner/greeting
+spacing, now 61-93), F26 (splash dismiss when ready: owner decided to keep
+the current duration) and F33 (/devices/<id>/update 404: now 61-92).
+Workflow findings: all assigned to 61-90..61-95 except the radius field
+showing 999 until Save (now 61-93) and two missing features: rename a frame
+and a Flights sort (owner decision pending).
+Performance: P01-P11 and P16 in 61-94; P12 (backdrop-filter cost) and P14
+(bfcache) need a real phone; P13 (precompressed static in Caddy) is deploy
+config; P15 (CSS split) after P01+P02.
