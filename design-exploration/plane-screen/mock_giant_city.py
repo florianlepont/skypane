@@ -3,6 +3,7 @@
 Standalone: does not touch server/plane/render. Run from the repo root:
     python3 design-exploration/plane-screen/mock_giant_city.py OUT.png [CITY_LINES...]
 """
+import os
 import sys
 
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -11,6 +12,7 @@ from server import panel_format as pf
 from server.plane import illustrations
 
 W, H = pf.WIDTH, pf.HEIGHT
+MODE = os.environ.get("MOCK_MODE", "sliced")
 FONT = "server/assets/fonts/Inter-Bold.ttf"
 BLUE = tuple(pf.PALETTE_RGB[12:15])
 WHITE = (255, 255, 255)
@@ -68,12 +70,27 @@ def sliced_plane(canvas, key, half_w, center_y, gap=36):
     print("pieces", [p.size for p in pieces], "stack", total)
 
 
+def whole_plane(canvas, key, plane_w, center_y):
+    """The uncut aircraft, centred on the canvas."""
+    im = Image.open(illustrations.resolved_illustration_path(key)).convert("RGBA")
+    im = im.crop(im.getbbox())
+    im = im.resize((plane_w, round(im.height * plane_w / im.width)), Image.LANCZOS)
+    pos = ((W - im.width) // 2, round(center_y - im.height / 2))
+    halo = Image.new("RGBA", im.size, WHITE + (0,))
+    halo.putalpha(im.getchannel("A").filter(ImageFilter.MaxFilter(15)))
+    canvas.paste(halo, pos, halo)
+    canvas.paste(im, pos, im)
+
+
 def main(out, lines, key="air-france", flight="AF1006", airline="Air France", state="DEPARTING"):
     bg = Image.new("RGB", (W, H), WHITE)
     d = ImageDraw.Draw(bg)
     d.rectangle((0, 0, W, H), fill=LIGHT)
     giant_text(bg, lines, (40, 130, W - 40, 1290), BLUE)
-    sliced_plane(bg, key, 620, 710)
+    if MODE == "whole":
+        whole_plane(bg, key, 1120, 710)
+    else:
+        sliced_plane(bg, key, 620, 710)
     d = ImageDraw.Draw(bg)
     small = ImageFont.truetype(FONT, 56)
     d.text((64, 56), state, font=small, fill=BLUE)
