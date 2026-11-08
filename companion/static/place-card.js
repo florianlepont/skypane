@@ -45,6 +45,43 @@
 
   wireCredits();
 
+  // The radius field and its slider: a value past the limits is pulled back
+  // to the nearest limit once the field is left, and the slider speaks the
+  // value in kilometres.
+  function wireRadius() {
+    var field = document.getElementById("place-radius");
+    var range = document.getElementById("place-radius-range");
+    if (!field) {
+      return;
+    }
+    function speak() {
+      if (range && field.value !== "") {
+        range.setAttribute("aria-valuetext", field.value + " km");
+      }
+    }
+    field.addEventListener("input", speak);
+    if (range) {
+      range.addEventListener("input", speak);
+    }
+    field.addEventListener("change", function () {
+      var km = parseFloat(field.value);
+      var min = parseFloat(field.getAttribute("min"));
+      var max = parseFloat(field.getAttribute("max"));
+      if (isNaN(km) || isNaN(min) || isNaN(max)) {
+        return;
+      }
+      var clamped = Math.round(Math.min(max, Math.max(min, km)));
+      if (String(clamped) !== field.value) {
+        field.value = String(clamped);
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      speak();
+    });
+    speak();
+  }
+
+  wireRadius();
+
   var detailsSummary = document.querySelector("#details > summary");
   if (detailsSummary) {
     // With the map the details are a card shown by the #details link: its

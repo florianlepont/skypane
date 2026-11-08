@@ -66,6 +66,8 @@ SORT_RAREST = i18n.msg("airlines.collection_sort_rarest", "Rarest")
 SORT_LATEST = i18n.msg("airlines.collection_sort_latest", "Latest")
 SORT_AZ = i18n.msg("airlines.collection_sort_az", "A to Z")
 FILTER_LABEL = i18n.msg("airlines.collection_filter_label", "Filter airlines")
+# The field's placeholder is shorter than its label so it never clips on a phone.
+FILTER_PLACEHOLDER = i18n.msg("airlines.collection_filter_placeholder", "Filter")
 APPLY_TEXT = i18n.msg("airlines.collection_apply", "Apply")
 COUNT_TEXT = i18n.msg("airlines.collection_count", "Airlines: %d")
 COUNT_TEMPLATE = i18n.msg("airlines.collection_count_template", "Airlines: #")
@@ -413,7 +415,7 @@ def _search_html(view):
         '%s<input type="search" id="collection-filter" name="%s" value="%s" maxlength="%d" '
         'placeholder="%s" autocomplete="off" spellcheck="false" data-filter-input></div>'
     ) % (label, layout.icon_html("icon-search", 20), TEXT_PARAM, escape_html(view.text),
-         QUERY_MAX_CHARS, label)
+         QUERY_MAX_CHARS, escape_html(i18n.t(FILTER_PLACEHOLDER)))
 
 
 def _count_html(shown):

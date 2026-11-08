@@ -642,6 +642,12 @@ body {
   overflow-x: hidden;
 }
 
+/* A footnote mark stays at the 12px floor, with no effect on the line height. */
+sup {
+  font-size: 0.75rem;
+  line-height: 0;
+}
+
 /* Monospace is for code only: callsigns, identifiers, hashes. */
 .mono {
   font-family: var(--font-mono);
@@ -4638,7 +4644,7 @@ a.airline-card {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: var(--weight-regular);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -4668,12 +4674,12 @@ a.airline-card {
   outline-offset: 1px;
 }
 
-/* HTML <span>, not SVG text: color sets the ink, not fill. 10px matches
- * this file's sub-scale exception tier. line-height: 1.2 is required,
+/* HTML <span>, not SVG text: color sets the ink, not fill. 12px is the
+ * smallest text this file sets. line-height: 1.2 is required,
  * not decorative: health_page.py's vertical-inset math assumes this
  * exact, non-inherited line-height. */
 .sparkline-axis-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: var(--weight-regular);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -4748,7 +4754,7 @@ a.airline-card {
 }
 
 .drawing-axis-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: var(--weight-regular);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -5241,6 +5247,12 @@ a.airline-card {
   .site-header:has(.frame-menu) ~ .dashboard-main .page-header,
   .site-header:has(.frame-menu) ~ .dashboard-main > .page-title {
     padding-right: 12rem;
+  }
+
+  /* The attention banner under the greeting starts clear of the frame
+   * button, never touching it. */
+  .site-header:has(.frame-menu) ~ .dashboard-main .home-facts {
+    margin-top: var(--space-xl);
   }
 
   .dashboard-main {
@@ -5875,9 +5887,19 @@ html:not(.map-ready) .place-mode__text .icon {
 }
 
 .place-sheet .runway-card .runway-card__detail {
-  overflow-wrap: anywhere;
   text-align: center;
-  text-wrap: balance;
+}
+
+/* The length and the surface stack on two lines, each kept whole, so no
+ * separator is left dangling at a line end. */
+.place-sheet .runway-card .runway-card__length,
+.place-sheet .runway-card .runway-card__surface {
+  display: block;
+  white-space: nowrap;
+}
+
+.place-sheet .runway-card .runway-card__sep {
+  display: none;
 }
 
 /* The airport's name and codes keep a clear gap above the runway heading. */
@@ -6041,9 +6063,9 @@ html.js-early:has(.place-stage) {
   white-space: nowrap;
 }
 
-/* The privacy line floats under the search field while it is in use, out of
- * the flow so nothing moves when the field loses focus; it gives way to the
- * results. */
+/* The privacy line floats under the empty search field while it has focus,
+ * out of the flow so nothing moves when the field loses focus; as soon as
+ * something is typed it gives way, so it never sits over the suggestions. */
 .map-ready .place-search {
   position: relative;
 }
@@ -6056,7 +6078,7 @@ html.js-early:has(.place-stage) {
   pointer-events: none;
 }
 
-.map-ready .place-search:focus-within .section-caption {
+.map-ready .place-search:focus-within:has(input:placeholder-shown) .section-caption {
   display: block;
   position: absolute;
   top: calc(100% + var(--space-xs));
@@ -8026,6 +8048,11 @@ button.place-result.is-active {
   line-height: 1.2;
 }
 
+.quiet-tile .field-inline-value {
+  display: block;
+  margin-left: 0;
+}
+
 .modal .quiet-timezone-note {
   margin: 0;
 }
@@ -8721,8 +8748,8 @@ a.calendar-manage--primary:hover {
     z-index: 1;
   }
 
-  /* The pill spans its whole cell horizontally (only the vertical margin),
-   * so a long label such as "Compagnies" keeps the full cell width. */
+  /* The pill spans its whole cell horizontally and keeps a small inset, so a
+   * label never touches the pill's edge. */
   .tab-bar__pill {
     flex: 1 1 auto;
     min-width: 0;
@@ -8732,6 +8759,7 @@ a.calendar-manage--primary:hover {
     justify-content: center;
     gap: var(--space-xs);
     margin: var(--space-xs) 0;
+    padding: 0 var(--tab-bar-pad);
     border-radius: var(--radius-pill);
     transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
@@ -8763,7 +8791,7 @@ a.calendar-manage--primary:hover {
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 68px;
+    flex: 0 0 69px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -11536,6 +11564,9 @@ button.look-sheet__done[hidden] {
   margin: 0 0 var(--space-lg);
   padding: 0;
   list-style: none;
+  /* The unlock sparks fly past a card's edge; they never widen the page. */
+  overflow-x: clip;
+  overflow-clip-margin: var(--space-lg);
 }
 
 .collection-item {
@@ -11614,7 +11645,8 @@ button.look-sheet__done[hidden] {
   padding-top: var(--space-xs);
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .collection-card__seen {

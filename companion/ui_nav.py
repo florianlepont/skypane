@@ -84,7 +84,7 @@ CONSOLE_SPACE = "console"
 PERSONAL_SPACE = "personal"
 
 _AUDIT_BAR_LABEL = i18n.msg("nav.audit_short", "Audit")
-_AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Airlines")
+_AIRLINES_BAR_LABEL = i18n.msg("nav.airlines_short", "Editor")
 _USERS_BAR_LABEL = i18n.msg("nav.users_short", "Users")
 _CONSOLE_BAR_LABELS = {
     "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
