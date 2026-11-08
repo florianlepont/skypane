@@ -45,12 +45,15 @@ def paint_labels(c, fill):
     c.paste(src, (0, 0), layer)
 
 
-def build(field, band, letters, labels):
+def build(field, band, letters, labels, layout="nose_tail"):
     c = field.copy()
     mask = band_mask()
     c.paste(band, (0, 0), mask)
     g.giant_text(c, t.v.LINES, (40, 130, W - 40, 1290), letters, heavy=1)
-    t.v.vnose_tail(c)
+    if layout == "whole":
+        t.v.paste_with_halo(c, t.v.load_plane(1120), (W / 2, 710))
+    else:
+        t.v.vnose_tail(c)
     paint_labels(c, labels)
     return c
 
@@ -111,7 +114,7 @@ def main_colours(out_dir, font_dir):
             solid = Image.new("RGB", (W, H), t.ink_rgb(idx))
             field = t.lightened_field(idx, fraction) if fraction else t.field(idx, True)
             tone = two_tone(solid, field, mask)  # light field shade inside the band, not white
-            c = build(field, solid, tone, tone)
+            c = build(field, solid, tone, tone, layout=os.environ.get("MOCK_LAYOUT", "nose_tail"))
             c.save(os.path.join(out_dir, "col-%d-%d.png" % (row + 1, col + 1)))
             thumb = c.resize((tw, th), Image.LANCZOS)
             label = "%s / %s" % (city, name)
