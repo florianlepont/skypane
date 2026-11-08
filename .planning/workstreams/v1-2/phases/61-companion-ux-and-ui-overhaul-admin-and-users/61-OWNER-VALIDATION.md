@@ -894,3 +894,16 @@ single column; 61-88 Location full-bleed, loading, in-place airport.
   (the Modifier link was added in plan 61-79). Stack the actions under the
   text or move them into a row menu on phone.
 - (owner may have more; not confirmed done.)
+
+## Round 10 grouping (D48)
+
+The owner finished his round 10 feedback (W142-W153) and asked for a detailed
+audit of visual bugs, improvements, performance and end-to-end workflows
+(three read-only agents: audit100, perf101, workflows102). Plan: group his
+items with the audit findings into plan 61-89 (straight fixes) and further
+plans after the audits report; W146 (all theme combinations) needs an
+investigation of how themes are produced before it is planned.
+
+Straight fixes: W142, W143, W144, W145, W147, W148, W149, W150, W151, W152
+(needs a fresh iPhone capture), W153.
+To investigate first: W146.
