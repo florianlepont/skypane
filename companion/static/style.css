@@ -54,6 +54,11 @@
   --tab-bar-side: 8px;
   --tab-bar-pad: 2px;
 
+  /* The height of the floating Cancel and Save bar: one row of 44px
+   * targets on a wide screen (the phone block below adds the message line);
+   * pages clear it and the map pages lift their own controls over it. */
+  --save-bar-h: calc(44px + 2 * var(--space-md) + 2px);
+
   /* Spacing scale, multiples of 4. */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -1885,6 +1890,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
     bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
   }
 
+  /* A toast never covers the Cancel and Save bar: it rides above it. */
+  .has-tab-bar:has(.dirty-bar:not([hidden])) .toast-region--flash,
+  .has-tab-bar:has(.dirty-bar:not([hidden])) .toast-region--live {
+    bottom: calc(
+      var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-md)
+      + var(--save-bar-h) + var(--space-sm));
+  }
+
   .toast-region--flash .toast,
   .toast-region--live .toast {
     width: 100%;
@@ -2421,89 +2434,87 @@ button:not(.value-control__handle):active {
   color: var(--color-text);
 }
 
+/* The one floating Cancel and Save bar, on every page with something to save.
+ * Phone: docked above the tab bar, the screen width less the margins, a
+ * message line over the two buttons. From 960px: docked to the foot of the
+ * main content column (same width as the cards), one row. The message is
+ * clipped to one line so the height never depends on its words. */
 .dirty-bar {
-  display: flex;
+  position: fixed;
+  z-index: 30;
+  left: max(var(--space-md), var(--safe-left));
+  right: max(var(--space-md), var(--safe-right));
+  bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "message message"
+    "cancel save";
+  gap: var(--space-sm);
   align-items: center;
-  gap: var(--space-md);
   padding: var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  margin-top: var(--space-md);
   box-shadow: var(--shadow-card-hover), 0 12px 32px var(--color-shadow-strong);
   /* Reuses the existing skypane-bar-arrive @keyframes rather than a new
-   * block, keeping the file's pinned @keyframes count unchanged. Fires
-   * when display changes from none, the only way this element is ever
-   * revealed. The global reduced-motion override already zeroes it. */
+   * block. Fires when display changes from none, the only way the bar is
+   * ever revealed. The global reduced-motion override already zeroes it. */
   animation: skypane-bar-arrive var(--motion-fast) ease-out;
 }
 
-/* [hidden]-vs-author-display collision, the same trap fixed elsewhere
- * in this file: an author display: flex always beats the UA
- * [hidden] { display: none } rule regardless of source order. */
+/* [hidden]-vs-author-display collision: an author display always beats the
+ * UA [hidden] { display: none } rule regardless of source order. */
 .dirty-bar[hidden] {
   display: none;
 }
 
-.dirty-bar button {
+.dirty-bar__message {
+  grid-area: message;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+  line-height: var(--space-lg);
+}
+
+.dirty-bar__save {
+  grid-area: save;
+}
+
+.dirty-bar > :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   min-height: 44px;
   min-width: 44px;
-}
-
-/* The bar of the Fleet settings: sticks to the bottom of the viewport inside
- * the page's own column (so it is as wide as the content on a desktop and
- * above the floating tab bar on a phone) and never overlays the cards: it
- * sits in the flow after them. Specificity beats the fixed rules of the
- * stand-alone bar at every width. */
-.dirty-bar.dirty-bar--docked {
-  position: sticky;
-  left: auto;
-  right: auto;
-  width: auto;
-  max-width: none;
-  margin: var(--space-lg) 0 0;
-  bottom: var(--space-lg);
-  z-index: 30;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  column-gap: var(--space-sm);
-  row-gap: var(--space-sm);
-}
-
-.dirty-bar.dirty-bar--docked[hidden] {
-  display: none;
-}
-
-.dirty-bar--docked [data-dirty-count] {
-  min-width: 0;
-  font-weight: 600;
-}
-
-.dirty-bar--docked .dirty-bar__cancel {
-  order: 2;
-}
-
-.dirty-bar--docked .dirty-bar__save {
-  order: 3;
-}
-
-@media (max-width: 959.98px) {
-  .dirty-bar.dirty-bar--docked {
-    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .dirty-bar--docked [data-dirty-count] {
-    grid-column: 1 / -1;
-  }
+  padding: 0 var(--space-lg);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
 }
 
 .dirty-bar__cancel {
+  grid-area: cancel;
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  border-radius: var(--radius-control);
   box-shadow: none;
   color: var(--color-text);
+  text-decoration: none;
+}
+
+.dirty-bar__cancel:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+/* On a phone the message line sits over the buttons. */
+@media (max-width: 959.98px) {
+  :root {
+    --save-bar-h: calc(44px + var(--space-lg) + var(--space-sm) + 2 * var(--space-md) + 2px);
+  }
 }
 
 /* .frame-strip__cell button and button[type="submit"] are equal
@@ -2758,21 +2769,19 @@ button:disabled {
   }
 
   /* :has() proves the bar exists in the DOM with no script needed, so a
-   * scripts-blocked visitor still gets clearance. >=960px: the bar
-   * measures 64px (never wraps at this width) plus --space-lg (24px)
-   * above the viewport foot = 88px, measured via a real browser. */
+   * scripts-blocked visitor still gets clearance: the bar and its offset
+   * from the viewport foot. */
   .dashboard-main:has(.dirty-bar) {
-    padding-bottom: calc(var(--space-2xl) + 88px);
+    padding-bottom: calc(var(--space-2xl) + var(--save-bar-h) + var(--space-lg));
   }
 
-  /* Measured via a real browser, scripts enabled, scrolled to the
-   * document bottom, worst realistic case: 134px bar + 56px tab bar +
-   * 16px anchor + 16px cushion = 222px, rounded up to 224px on the 8px
-   * grid. .has-tab-bar keeps this from matching a hypothetical future
-   * page that renders the bar without the tab bar. */
+  /* On a phone the tab bar sits under the bar as well. .has-tab-bar keeps
+   * this from matching a hypothetical future page that renders the bar
+   * without the tab bar. */
   .has-tab-bar .page-content:has(.dirty-bar) {
     padding-bottom: calc(
-      var(--space-2xl) + 134px + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+      var(--space-2xl) + var(--save-bar-h) + var(--tab-bar-h) + var(--tab-bar-gap)
+      + var(--safe-bottom));
   }
 
   /* The Display look card's live selection states. */
@@ -5166,15 +5175,19 @@ a.airline-card {
     padding: var(--space-2xl) var(--space-3xl);
   }
 
+  /* Docked to the foot of the main column: as wide as the content of the
+   * cards (the column's padding off each side, at most 1440px less that),
+   * centred in the column beside the sidebar. */
   .dirty-bar {
-    position: fixed;
-    bottom: var(--space-lg);
     left: calc(240px + var(--space-md) + var(--space-xl) + var(--space-md));
     right: var(--space-md);
-    width: fit-content;
-    max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
+    bottom: var(--space-lg);
+    width: min(
+      calc(1440px - 2 * var(--space-3xl)),
+      calc(100% - 240px - 3 * var(--space-md) - var(--space-xl) - 2 * var(--space-3xl)));
     margin: 0 auto;
-    z-index: 30;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas: "message cancel save";
   }
 
   .history-cards {
@@ -5870,7 +5883,7 @@ html:not(.map-ready) .place-mode__text .icon {
   /* What the floating tab bar covers at the foot of the page (nothing on a
    * wide screen) and the height of the docked Save bar. */
   --place-clear: 0px;
-  --place-bar-h: calc(44px + 2 * var(--space-sm) + 2px);
+  --place-bar-h: var(--save-bar-h);
   /* The map runs under the app bar; everything that floats starts below it. */
   --place-top: calc(52px + var(--safe-top));
   --place-search-bottom: calc(var(--place-top) + var(--place-gutter) + 54px);
@@ -6160,7 +6173,7 @@ html.js-early:has(.place-stage) {
 
 /* While Save and Cancel show, the sheet sits above them. */
 .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
-  margin-bottom: calc(var(--place-bar-h) + 2 * var(--space-sm));
+  margin-bottom: calc(var(--place-bar-h) + var(--space-md) + var(--space-sm));
 }
 
 .map-ready .place-hint,
@@ -6275,29 +6288,6 @@ html:not(.map-ready) .place-tap-hint {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-/* Save and Cancel float over the map in the Fleet page's docked bar: above the
- * tab bar on a phone, at the foot of the card's column from 960px. It shows
- * once something changed. */
-.map-ready .place-panel > .dirty-bar.dirty-bar--docked {
-  position: absolute;
-  z-index: 6;
-  left: var(--place-gutter);
-  right: var(--place-gutter);
-  bottom: calc(var(--place-clear) + var(--space-sm));
-  margin: 0;
-  padding: var(--space-sm);
-  /* Solid: the labels must read over any map picture, in both themes. */
-  background: var(--glass-solid);
-}
-
-.map-ready .place-panel > .dirty-bar.dirty-bar--docked[hidden] {
-  display: none;
-}
-
-.map-ready .place-panel > .dirty-bar [data-dirty-count] {
-  padding-left: var(--space-sm);
 }
 
 /* The page title is the page's heading for assistive technology only: the
@@ -6462,20 +6452,6 @@ html:not(.map-ready) .place-tap-hint {
     --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
-  /* The bar keeps the two buttons on one row; the count is read aloud only. */
-  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
-    grid-template-columns: 1fr 2fr;
-  }
-
-  .map-ready .place-panel > .dirty-bar [data-dirty-count] {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
   /* The sheet is compact here: the readout is one line and the radius is a
    * row and a slider. */
   .map-ready .place-pos {
@@ -6606,15 +6582,6 @@ html:not(.map-ready) .place-tap-hint {
     margin-bottom: 0;
   }
 
-  /* Save and Cancel sit under the card, in its column. */
-  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
-    right: auto;
-    left: var(--space-md);
-    bottom: var(--space-lg);
-    width: var(--place-card-w);
-    box-sizing: border-box;
-  }
-
   /* The sidebar is frosted glass over the map. */
   .map-ready .dashboard-sidebar {
     z-index: 6;
@@ -6641,6 +6608,11 @@ html:not(.map-ready) .place-tap-hint {
     grid-column: 2;
     grid-row: 4;
     margin: 0 var(--space-md) var(--space-md) 0;
+  }
+
+  /* The bar spans the foot of the column: the map's own controls ride above it. */
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-tools {
+    margin-bottom: calc(var(--space-lg) + var(--save-bar-h) + var(--space-sm));
   }
 
   .map-ready .place-sheet .place-chosen__name {
@@ -8274,35 +8246,6 @@ input[name="radius_km"] {
   min-width: 96px;
 }
 
-@media (max-width: 959.98px) {
-
-  /* z-index: 30, one value above the tab bar's 20 at every breakpoint:
-   * the save bar is the active task and may cover ambient nav chrome,
-   * never the reverse. The bottom offset already adds the tab bar's
-   * 56px height so the two never overlap in the normal case. */
-  .dirty-bar {
-    position: fixed;
-    left: max(var(--space-md), var(--safe-left));
-    right: max(var(--space-md), var(--safe-right));
-    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
-    margin: 0;
-    z-index: 30;
-    flex-wrap: wrap;
-  }
-
-  /* The count reads on its own line and the two buttons share the line under
-   * it, side by side at the same width. */
-  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) [data-dirty-count] {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-
-  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) button {
-    flex: 1 1 0;
-  }
-
-}
-
 .status-row {
   display: flex;
   align-items: baseline;
@@ -9785,39 +9728,6 @@ a.form-page__danger:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Cancel is a link; Save is the bar's submit button. */
-.form-bar__title {
-  min-width: 0;
-  font-weight: var(--weight-semibold);
-}
-
-a.form-bar__cancel {
-  order: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 44px;
-  padding: 0 var(--space-lg);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  color: var(--color-text);
-  text-decoration: none;
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  border-radius: var(--radius-control);
-}
-
-/* Save wears the same type size as the Cancel link beside it. */
-.dirty-bar.form-bar .dirty-bar__save {
-  min-height: 44px;
-  font-size: var(--font-label-size);
-}
-
-a.form-bar__cancel:hover {
-  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
-}
-
 @media (max-width: 959.98px) {
   .form-page {
     grid-template-columns: minmax(0, 1fr);
@@ -9831,13 +9741,6 @@ a.form-bar__cancel:hover {
     gap: var(--space-md);
   }
 
-  .form-bar__title {
-    display: none;
-  }
-
-  .dirty-bar.form-bar {
-    grid-template-columns: 1fr 2fr;
-  }
 }
 
 /* The add row of the Special looks list ---------------------------- */

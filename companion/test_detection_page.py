@@ -537,7 +537,7 @@ def test_carried_values_render_as_defaults_with_a_visible_dirty_bar(rig):
     assert status == 200
     assert re.search(r'name="radius_km"[^>]*value="12"', page)
     assert re.search(r'id="place-mode-area" value="position"[^>]*checked', page)
-    bar = re.search(r'<div class="dirty-bar dirty-bar--docked"[^>]*>', page).group(0)
+    bar = re.search(r'<div class="dirty-bar"[^>]*>', page).group(0)
     assert 'data-dirty-carried="%s/detection"' % rig.scope() in bar
     assert " hidden" not in bar
 

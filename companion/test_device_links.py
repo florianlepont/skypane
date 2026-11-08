@@ -305,8 +305,8 @@ def test_calendar_connection_page_actions_and_links_stay_in_the_device(seeded):
         if link.attrs["href"].startswith("#"):
             continue
         assert link.attrs["href"].startswith(prefix + "/display/calendar"), link.attrs
-    bar = parse_html(body).select_one(".dirty-bar.form-bar")
-    assert bar.select_one("a.form-bar__cancel").attrs["href"] == prefix + "/display/calendar"
+    bar = parse_html(body).select_one(".dirty-bar")
+    assert bar.select_one("a.dirty-bar__cancel").attrs["href"] == prefix + "/display/calendar"
 
 
 def test_special_look_pages_post_and_link_inside_the_device(seeded):

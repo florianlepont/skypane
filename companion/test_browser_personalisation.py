@@ -222,21 +222,21 @@ def test_on_a_phone_the_navigation_fits_without_scrolling_and_shows_the_current_
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_choosing_in_the_picker_raises_the_bar_naming_look_and_save_persists_it(
         new_context, make_app_server, label, viewport, lang):
-    """one tap in the picker raises the save bar naming the Look section, Save stores the look the
-    picker chose and the reloaded page shows it checked and in the picture"""
+    """one tap in the picker raises the save bar with the one message every page uses, Save stores
+    the look the picker chose and the reloaded page shows it checked and in the picture"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang)
     try:
-        look_word = "Look" if lang == "en" else "Allure"
+        message = "Unsaved changes" if lang == "en" else "Modifications non enregistrées"
         assert _checked_theme(page) == SAVED_LOOK
         dot = page.locator(PICKER + ' .look-dot:has(input[data-look-axis="colour"][value="blue"])')
         dot.evaluate("el => el.scrollIntoView({block: 'center'})")
         dot.click()
         _wait_for_bar(page)
         page.wait_for_function(
-            "w => document.querySelector('[data-dirty-count]').textContent.startsWith(w)",
-            arg=look_word, timeout=5000)
-        assert _bar_text(page).startswith(look_word)
+            "w => document.querySelector('[data-dirty-count]').textContent === w",
+            arg=message, timeout=5000)
+        assert _bar_text(page) == message
         chosen = _checked_theme(page)
         assert chosen and chosen != SAVED_LOOK and "blue" in chosen
         page.wait_for_function(

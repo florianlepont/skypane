@@ -153,7 +153,7 @@ def _page(server, session, path, lang=None):
 
 def test_the_new_special_look_is_a_page_with_the_unchanged_fields_and_a_docked_bar(served):
     """the new look page posts the same fields to the same route, shows the picture and the
-    options, and carries Cancel (a link back to the list) and Create look in the docked bar"""
+    options, and carries Cancel (a link back to the list) and Save in the docked bar"""
     server, session = served
     page = _page(server, session, "/display/special-looks/new")
     form = page.select_one("form#special-look-form")
@@ -164,11 +164,11 @@ def test_the_new_special_look_is_a_page_with_the_unchanged_fields_and_a_docked_b
     assert form.select('input[name="rule_theme_id"]')
     assert form.select_one(".look-frame__image") is not None
     assert page.select("dialog[open]") == [] and page.select("details.special-add") == []
-    bar = page.select_one(".dirty-bar.form-bar")
-    assert bar.select_one("a.form-bar__cancel").attrs["href"] == "/display/special-looks"
-    assert bar.select_one("a.form-bar__cancel").text() == "Cancel"
+    bar = page.select_one(".dirty-bar")
+    assert bar.select_one("a.dirty-bar__cancel").attrs["href"] == "/display/special-looks"
+    assert bar.select_one("a.dirty-bar__cancel").text() == "Cancel"
     submit = bar.select_one('button[type="submit"]')
-    assert submit.attrs["form"] == "special-look-form" and submit.text() == "Create look"
+    assert submit.attrs["form"] == "special-look-form" and submit.text() == "Save"
     assert page.select_one("a.form-back").attrs["href"] == "/display/special-looks"
     current = page.select_one('nav.personalisation-nav a[aria-current="page"]')
     assert current.attrs["data-pers-view"] == "special-looks"
@@ -205,7 +205,7 @@ def test_the_edit_and_new_pages_are_french_in_french(served):
     colour_rules.add_rule(server.state_dir, "prefix", "TVF", "green_light")
     new = _page(server, session, "/display/special-looks/new", lang="fr")
     assert new.select_one(".form-page__name").text() == "Nouvelle allure spéciale"
-    assert new.select_one('.dirty-bar button[type="submit"]').text() == "Créer l’allure"
+    assert new.select_one('.dirty-bar button[type="submit"]').text() == "Enregistrer"
     edit = _page(
         server, session, "/display/special-looks/edit?rule_kind=prefix&rule_key=TVF", lang="fr")
     assert edit.select_one(".form-page__name").text() == "Modifier l’allure spéciale"

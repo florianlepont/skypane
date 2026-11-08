@@ -14,7 +14,7 @@ floating Cancel and Save bar: a new special look, an edited special look and
 the calendar connection. Each belongs to the Special looks or Calendar view
 (`PARENT_VIEWS`), which the navigation marks as current.
 """
-from companion import i18n
+from companion import i18n, ui_save_bar
 from companion import device_scope
 import companion.layout as layout
 from companion.layout import escape_html
@@ -33,7 +33,6 @@ PAGE_ID = "personalisation"
 NAV_LABEL = i18n.msg("display.personalisation_sections", "Personalisation sections")
 
 LOOK_TITLE = i18n.msg("look.look", "Look")
-CANCEL_TEXT = i18n.msg("display.cancel", "Cancel")
 CALENDAR_TITLE = i18n.msg("look.calendar", "Calendar")
 
 # One address per view. Departures keeps the page's original address.
@@ -142,21 +141,14 @@ def _nav_html(view):
     ) % (escape_html(i18n.t(NAV_LABEL)), links)
 
 
-def _bar_html(title, cancel_href, form_id, submit_text, pending_label=None):
-    """The floating Cancel and Save bar of a form page, docked like the Fleet
-    page's: above the tab bar on a phone, at the foot of the main column on a
-    wide screen. Cancel is a link back to the list; Save submits the page's
-    form (`form=`). It is always shown: the page is the edit."""
+def _bar_html(title, cancel_href, form_id, pending_label=None):
+    """The floating Cancel and Save bar of a form page. Cancel is a link back
+    to the list; Save submits the page's form (`form=`). It is always shown:
+    the page is the edit."""
     pending = (
-        ' data-pending-label="%s"' % escape_html(pending_label) if pending_label else "")
-    return (
-        '<div class="dirty-bar dirty-bar--docked form-bar" role="group" aria-label="%s">'
-        '<span class="form-bar__title">%s</span>'
-        '<a class="form-bar__cancel" href="%s">%s</a>'
-        '<button type="submit" class="dirty-bar__save" form="%s"%s>%s</button></div>'
-    ) % (
-        escape_html(title), escape_html(title), escape_html(cancel_href),
-        escape_html(i18n.t(CANCEL_TEXT)), form_id, pending, escape_html(submit_text))
+        'data-pending-label="%s"' % escape_html(pending_label) if pending_label else "")
+    return ui_save_bar.save_bar_html(
+        form_id, cancel_href=cancel_href, title=title, save_attrs=pending)
 
 
 def _back_html(parent_view):
@@ -181,7 +173,7 @@ def _form_view(ctx, values, view, errors):
             "invalid": calendar_settings.CALENDAR_ERROR_INVALID,
             "unreachable": calendar_settings.CALENDAR_ERROR_UNREACHABLE,
         }.get(ctx.calendar_sheet_error)
-        markup, title, submit = calendar_settings.connect_page_html(
+        markup, title, _submit = calendar_settings.connect_page_html(
             ctx.calendar_configured, ctx.calendar_drift, ctx.state_dir, error_message,
             picture_id, look.look_sentence(picture_id))
         form_id = calendar_settings.CONNECT_FORM_ID
@@ -189,13 +181,13 @@ def _form_view(ctx, values, view, errors):
         extra = ""
     else:
         edit = rules.edit_target(ctx) if view == VIEW_LOOK_EDIT else None
-        markup, title, submit = rules.rule_form_html(ctx, edit)
+        markup, title, _submit = rules.rule_form_html(ctx, edit)
         form_id, pending = rules.RULE_FORM_ID, None
         extra = look_sheet_html()
     return (
         '<div class="form-view">%s%s%s%s</div>'
     ) % (_back_html(parent), markup, extra,
-         _bar_html(title, cancel_href, form_id, submit, pending))
+         _bar_html(title, cancel_href, form_id, pending))
 
 
 def page_html(ctx, values, calendar_row_html, calendar_status, errors, submitted, view=None):

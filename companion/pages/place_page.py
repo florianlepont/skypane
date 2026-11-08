@@ -886,8 +886,7 @@ def _panel_html(view):
         airports_card_html(view), _runway_group_html(view), _area_block_html(view),
         _nearest_html(),
         escape_html(i18n.t(NO_SCRIPT_MAP)), details_card_html(view),
-        dp.dirty_bar_html(
-            plain_href if view.carried_dirty else None, i18n.t(dp.SAVE_LOCATION)),
+        dp.dirty_bar_html(plain_href if view.carried_dirty else None),
         _credits_html(), _locate_html())
 
 

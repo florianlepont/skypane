@@ -24,8 +24,8 @@ pytestmark = pytest.mark.browser
 CONNECT_ROUTE = "/display/calendar/connect"
 OPENER = ".calendar-status a.calendar-manage"
 URL_INPUT = "#calendar-connect-url"
-SAVE = ".dirty-bar.form-bar button[type=submit]"
-CANCEL = ".dirty-bar.form-bar a.form-bar__cancel"
+SAVE = ".dirty-bar button[type=submit]"
+CANCEL = ".dirty-bar a.dirty-bar__cancel"
 DISCONNECT_LINK = "a.form-page__danger[data-modal-open]"
 DISCONNECT_DIALOG = "dialog#disconnect-calendar"
 OLD_URL = "https://old-calendar.example/published/2/OLDSECRET?auth=OLDTOKEN"
@@ -112,7 +112,7 @@ def test_the_page_is_usable_in_both_themes(new_context, server, viewport, lang):
             where = "calendar page (%s, %s, %d)" % (lang, theme["theme"], viewport["width"])
             for selector in (URL_INPUT, SAVE, CANCEL, DISCONNECT_LINK, "a.form-back"):
                 _assert_hit_target(page, selector, where)
-            bar = page.locator(".dirty-bar.form-bar").bounding_box()
+            bar = page.locator(".dirty-bar").bounding_box()
             assert bar["x"] >= 0 and bar["x"] + bar["width"] <= viewport["width"], bar
             assert bar["y"] >= 0 and bar["y"] + bar["height"] <= viewport["height"], bar
             if viewport["width"] < 960:
@@ -186,7 +186,7 @@ def test_the_connect_button_shows_a_pending_label_on_submit(new_context, server)
     context, page = _open_page(new_context, server, VIEWPORT_PHONE, CONNECT_ROUTE)
     try:
         page.fill(URL_INPUT, NEW_URL)
-        assert page.locator(SAVE).inner_text() == "Connect"
+        assert page.locator(SAVE).inner_text() == "Save"
         page.evaluate(
             "() => document.querySelector('[data-calendar-connect]')"
             ".addEventListener('submit', e => e.preventDefault())")

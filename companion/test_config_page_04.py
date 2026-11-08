@@ -123,7 +123,7 @@ def test_rules_section_carries_no_dirty_section_attr():
 
 def test_rules_french_render_shows_french_row_label_and_button():
     """a French render of the special looks shows 'Looks spéciaux', the 'Nouvelle allure
-    spéciale' action and the new look page's 'Créer l’allure' submit button"""
+    spéciale' action and the new look page's 'Enregistrer' submit button"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
@@ -134,7 +134,7 @@ def test_rules_french_render_shows_french_row_label_and_button():
             ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     finally:
         prefs.set_request_prefs(lang="en")
-    for text in ("Looks spéciaux", "Nouvelle allure spéciale", "Créer l’allure"):
+    for text in ("Looks spéciaux", "Nouvelle allure spéciale", "Enregistrer"):
         assert escape_html(text) in rendered, "expected the French %r" % (text,)
 
 

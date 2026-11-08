@@ -739,15 +739,15 @@ def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_c
 
 def test_the_form_pages_are_two_columns_from_960_and_stack_on_phones(served_css):
     """the pages that edit one thing (a special look, the calendar link) lay the picture and the
-    options side by side from 960px, stack them on phones, and order Cancel before Save in the
+    options side by side from 960px, stack them on phones, and place Cancel before Save in the
     docked bar"""
     wide = declarations_for(served_css, ".form-page")
     assert wide.get("grid-template-columns") == "minmax(0, 17rem) minmax(0, 37rem)"
     narrow = declarations_for(
         served_css, ".form-page", at_rules=("@media (max-width: 959.98px)",))
     assert narrow.get("grid-template-columns") == "minmax(0, 1fr)"
-    cancel = declarations_for(served_css, "a.form-bar__cancel")
-    assert cancel.get("order") == "2"
+    assert declarations_for(served_css, ".dirty-bar__cancel").get("grid-area") == "cancel"
+    assert declarations_for(served_css, ".dirty-bar__save").get("grid-area") == "save"
 
 
 # --- the time-input site-language sibling, the runway/calendar/segment

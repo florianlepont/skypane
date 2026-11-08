@@ -158,7 +158,7 @@ def test_the_cards_come_in_the_specified_order(rig):
     positions = [page.index(mark) for mark in marks]
     assert positions == sorted(positions)
     assert "<title>Location and detection" in page
-    assert "Save location</button>" in page
+    assert ">Save</button>" in page
 
 
 def test_the_page_is_titled_and_labelled_in_french(rig):
@@ -168,7 +168,7 @@ def test_the_page_is_titled_and_labelled_in_french(rig):
     for needle in ("Aéroports français", "Filtrer les aéroports", "Aéroport",
                    "Ma position", "Piste à suivre", "Rayon (km)",
                    "Coordonnées et fuseau horaire", "Nom du lieu", "Fuseau horaire",
-                   "Enregistrer le lieu",
+                   "Enregistrer",
                    "Rechercher un aéroport ou une adresse", "Utiliser ma position",
                    "Retour à la carte", "contributeurs d’OpenStreetMap"):
         assert needle in text, needle

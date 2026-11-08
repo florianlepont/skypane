@@ -297,37 +297,52 @@ def _open(new_context, server, route="/detection", lang=None, viewport=VIEWPORT_
     return page, dialogs
 
 
-@pytest.mark.parametrize("lang,section", [("en", "Detection"), ("fr", "Détection")])
-def test_mode_toggle_reveals_dirty_bar_and_cancel_restores(new_context, make_app_server,
-                                                          lang, section):
-    """Choosing the other mode reveals the bar naming the Detection section, and Cancel puts
-    the saved mode back and hides the bar."""
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_mode_toggle_reveals_dirty_bar_and_cancel_restores(new_context, make_app_server, lang):
+    """Choosing the other mode reveals the bar with the one message every page uses, and Cancel
+    puts the saved mode back and hides the bar."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     page, _dialogs = _open(new_context, server, lang=lang)
     _wait_for_bar_hidden(page)
     page.click(MODE_AREA_LABEL)
     _wait_for_bar(page)
-    suffix = page.get_attribute("[data-dirty-bar]", "data-dirty-changed-suffix")
-    if _bar_text(page).strip() != section + suffix:
+    expected = page.get_attribute("[data-dirty-bar]", "data-dirty-initial-text")
+    if _bar_text(page).strip() != expected:
         raise AssertionError("lang=%s: the bar reads %r" % (lang, _bar_text(page)))
-    if lang == "en" and _bar_text(page).strip() != "Detection changed":
+    if lang == "en" and _bar_text(page).strip() != "Unsaved changes":
         raise AssertionError("the English bar reads %r" % _bar_text(page))
     page.click("[data-dirty-cancel]")
     _wait_for_bar_hidden(page)
     page.wait_for_function("() => document.getElementById('place-mode-runway').checked")
 
 
-@pytest.mark.parametrize("lang,section", [("en", "Place"), ("fr", "Lieu")])
-def test_editing_a_coordinate_names_the_place_section(new_context, make_app_server, lang,
-                                                      section):
+@pytest.mark.parametrize("lang,sections", [("en", "Detection, Place"), ("fr", "Détection, Lieu")])
+def test_changing_both_areas_names_them_after_the_message(new_context, make_app_server, lang,
+                                                          sections):
+    """The page name only shows when several areas changed: the same message, a colon and the
+    list of the areas."""
+    server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
+    page, _dialogs = _open(new_context, server, lang=lang)
+    _wait_for_bar_hidden(page)
+    page.click(MODE_AREA_LABEL)
+    open_details(page)
+    page.fill("#place-lat", "43.1")
+    lead = page.get_attribute("[data-dirty-bar]", "data-dirty-several")
+    page.wait_for_function(
+        "expected => document.querySelector('[data-dirty-count]').textContent === expected",
+        arg="%s %s" % (lead, sections), timeout=10000)
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_editing_a_coordinate_reads_the_one_message(new_context, make_app_server, lang):
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     page, _dialogs = _open(new_context, server, lang=lang)
     _wait_for_bar_hidden(page)
     open_details(page)
     page.fill("#place-lat", "43.1")
     _wait_for_bar(page)
-    suffix = page.get_attribute("[data-dirty-bar]", "data-dirty-changed-suffix")
-    if _bar_text(page).strip() != section + suffix:
+    expected = page.get_attribute("[data-dirty-bar]", "data-dirty-initial-text")
+    if _bar_text(page).strip() != expected:
         raise AssertionError("lang=%s: the bar reads %r" % (lang, _bar_text(page)))
 
 

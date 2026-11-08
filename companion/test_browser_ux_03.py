@@ -467,11 +467,8 @@ def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, 
 
         expected_label = page.evaluate(
             "() => {"
-            " var field = document.querySelector('input[name=\"theme\"]');"
-            " var wrapper = field.closest('[data-dirty-section]');"
             " var bar = document.querySelector('[data-dirty-bar]');"
-            " return wrapper.getAttribute('data-dirty-section')"
-            "   + bar.getAttribute('data-dirty-changed-suffix');"
+            " return bar.getAttribute('data-dirty-initial-text');"
             "}")
         _click_control(page, 'input[name="theme"][value="%s"]' % theme_target)
         _wait_for_bar(page)

@@ -61,7 +61,6 @@ MESSAGES = {
     "detection.field_longitude": "Longitude",
     "detection.latitude_hint": "Degrés décimaux, par exemple 48,8566.",
     "detection.longitude_hint": "Degrés décimaux, par exemple 2,3522.",
-    "detection.save_location": "Enregistrer le lieu",
     "detection.location_saved_flash":
         "Lieu enregistré — vous pouvez maintenant le choisir ci-dessus.",
 

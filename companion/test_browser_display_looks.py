@@ -229,7 +229,7 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
 def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_server):
     """with scripts, "New special look" opens a page (no dialog) whose table gives way to the
     three choices; a suggestion fills the key, the choices pick the theme, the picture follows,
-    and Create look in the floating bar adds the rule with that look; Cancel returns to the list"""
+    and Save in the floating bar adds the rule with that look; Cancel returns to the list"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
         new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
@@ -241,7 +241,7 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
         assert not page.locator("[data-look-table-host]").is_visible()
         assert page.locator("dialog[open]").count() == 0
         with page.expect_navigation():
-            page.click(".form-bar a.form-bar__cancel")
+            page.click(".dirty-bar a.dirty-bar__cancel")
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
         page.locator(".special-add__summary").wait_for(state="visible")
         with page.expect_navigation():
@@ -259,7 +259,7 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
             "() => document.querySelector('.look-frame__image').getAttribute('src')"
             ".startsWith('/frame-preview/band_blue_light.png')")
         with page.expect_navigation():
-            page.click('.form-bar button[type="submit"]')
+            page.click('.dirty-bar button[type="submit"]')
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
         rows = colour_rules.rule_rows(colour_rules.load_colour_rules(server.state_dir))
         assert ("prefix", "AFR", "band_blue_light") in [row[:3] for row in rows]
@@ -285,7 +285,7 @@ def test_edit_a_special_look_is_a_page_that_replaces_the_rule(new_context, make_
         page.locator("[data-look-axes-host]").wait_for(state="visible")
         page.click('[data-look-axes-host] .look-dot:has(input[value="red"])')
         with page.expect_navigation():
-            page.click('.form-bar button[type="submit"]')
+            page.click('.dirty-bar button[type="submit"]')
         rows = [row[:3] for row in colour_rules.rule_rows(
             colour_rules.load_colour_rules(server.state_dir))]
         tvf = [row for row in rows if row[:2] == ("prefix", "TVF")]
@@ -386,7 +386,7 @@ def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_s
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
 def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, viewport):
     """on a phone the New special look page is one column with its picture beside its caption, the
-    Create look button is in a bar floating above the tab bar and on screen without scrolling, and
+    Save button is in a bar floating above the tab bar and on screen without scrolling, and
     nothing overflows"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
@@ -402,10 +402,10 @@ def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, vi
         picture = page.locator(".form-page__preview .look-frame__picture").bounding_box()
         caption = page.locator(".form-page__caption").bounding_box()
         assert picture["x"] + picture["width"] <= caption["x"] + 0.5, (picture, caption)
-        bar = page.locator(".dirty-bar.form-bar").bounding_box()
+        bar = page.locator(".dirty-bar").bounding_box()
         tab = page.locator(".tab-bar").bounding_box()
         assert bar["y"] >= 0 and bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)
-        add = page.locator('.form-bar button[type="submit"]').bounding_box()
+        add = page.locator('.dirty-bar button[type="submit"]').bounding_box()
         assert add["height"] >= 44 - 0.5
         assert not _assert_no_page_overflow(page, "new special look page", viewport["width"])
     finally:
