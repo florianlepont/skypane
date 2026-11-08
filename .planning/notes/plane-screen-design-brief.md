@@ -44,6 +44,16 @@ disc, runway band, drop shadow, hard cuts inside the frame.
 See `plane-screen-design-brief/layouts-departing.png` (A, B, C in that order)
 and `primary-layout-1200x1600.png`.
 
+### Lettering font (decided)
+
+Anton (SIL OFL), condensed and naturally very heavy, drawn without any added
+stroke. Compared with Inter Black, Bebas Neue (needs a faked stroke), Archivo
+Black, Alfa Slab One and Zilla Slab (`fonts-six-marseille.png`,
+`fonts-six-newyork.png`; head-to-head `bebas-vs-anton-1.png` and `-2.png`).
+Bebas Neue was the runner-up. Sans-serif was preferred over slab. Anton is not vendored yet:
+`server/assets/fonts/` would need `Anton-Regular.ttf` plus its OFL text and a
+`VENDOR.md` entry.
+
 ### Colour pairings (field / lettering)
 
 Grey / black, light blue / blue, light red / red, light yellow / yellow,
@@ -93,10 +103,8 @@ plumbing. See `cases-arriving-and-generic.png`.
 
 1. **New portrait layout** beside the current one, selected per device or
    theme, so the golden render stays untouched until a decision is made.
-2. **Font**: the mock-ups use Inter Black plus an added stroke. The repo only
-   vendors Inter Bold; Inter Black (OFL) would need vendoring. The stretch to
-   full width distorts letters; check that this is acceptable on the real panel
-   or switch to a condensed face.
+2. **Font**: vendor Anton (see above). Lines are stretched to the full frame
+   width, which widens the condensed letters; check this on the real panel.
 3. **City splitting**: a rule for breaking names into 2-3 stacked lines
    (never a single line; spaces and hyphens first, then syllables), and a
    fallback for very long names. Where the aircraft sits relative to the lines
