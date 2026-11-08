@@ -138,8 +138,8 @@ def halo_paste(canvas, piece, pos):
 
 def vnose_tail():  # big nose from the right edge, smaller tail below from the left
     c = base()
-    full = load_plane(2500)
-    nose = full.crop((0, 0, int(full.width * 0.42), full.height))
+    full = load_plane(2200)
+    nose = full.crop((0, 0, int(full.width * 0.5), full.height))
     nose = nose.crop(nose.getbbox())
     ny = 470 - nose.height // 2
     halo_paste(c, nose, (W - nose.width + 30, ny))

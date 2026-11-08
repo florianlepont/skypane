@@ -18,6 +18,9 @@ FONT_HEAVY = "/usr/share/fonts/opentype/inter/Inter-Black.otf"
 BLUE = tuple(pf.PALETTE_RGB[12:15])
 WHITE = (255, 255, 255)
 LIGHT = (176, 202, 232)  # light blue, rendered by dithering blue/white
+if os.environ.get("MOCK_THEME") == "green":  # arriving: panel green ink on a light green
+    BLUE = tuple(pf.PALETTE_RGB[15:18])
+    LIGHT = (184, 214, 190)
 
 
 def fit_font(text, width, path=FONT):
