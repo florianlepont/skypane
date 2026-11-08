@@ -35,12 +35,14 @@ def two_tone(outside, inside, mask):
 
 
 def paint_labels(c, fill):
-    """State, flight and airline drawn through `fill` (an RGB tuple or a canvas-sized image)."""
+    """State top-left; flight and airline right-aligned, below the band's right edge
+    (the band's lower end stays left of x=660), through `fill`."""
     layer = Image.new("L", (W, H), 0)
     d = ImageDraw.Draw(layer)
     d.text((64, 56), t.v.STATE, font=ImageFont.truetype(g.FONT, 56), fill=255)
-    d.text((64, 1330), t.v.FLIGHT, font=ImageFont.truetype(g.FONT, 150), fill=255)
-    d.text((64, 1500), t.v.AIRLINE, font=ImageFont.truetype(g.FONT, 56), fill=255)
+    for text, size, top in ((t.v.FLIGHT, 124, 1290), (t.v.AIRLINE, 48, 1432)):
+        font = ImageFont.truetype(g.FONT, size)
+        d.text((W - 64 - font.getlength(text), top), text, font=font, fill=255)
     src = fill if isinstance(fill, Image.Image) else Image.new("RGB", (W, H), fill)
     c.paste(src, (0, 0), layer)
 
@@ -114,7 +116,7 @@ def main_colours(out_dir, font_dir):
             solid = Image.new("RGB", (W, H), t.ink_rgb(idx))
             field = t.lightened_field(idx, fraction) if fraction else t.field(idx, True)
             tone = two_tone(solid, field, mask)  # light field shade inside the band, not white
-            c = build(field, solid, tone, tone, layout=os.environ.get("MOCK_LAYOUT", "nose_tail"))
+            c = build(field, solid, tone, t.ink_rgb(idx), layout=os.environ.get("MOCK_LAYOUT", "nose_tail"))
             c.save(os.path.join(out_dir, "col-%d-%d.png" % (row + 1, col + 1)))
             thumb = c.resize((tw, th), Image.LANCZOS)
             label = "%s / %s" % (city, name)

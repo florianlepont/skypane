@@ -99,10 +99,12 @@ field. Lettering is two-tone: ink off the band, the pairing's light field shade
 inside it (white inside the band was tried and rejected: it works for blue,
 red and grey but fails for yellow). Validated in all five pairings on the
 nose-and-tail layout (`diagonal-band-colours-light-lettering.png`; earlier
-tries in `diagonal-band.png` and `diagonal-band-colours.png`). Known weakness:
-the flight number sits across the band edge at the bottom left and loses
-contrast there, so its position (or its tone) needs to be reworked. Not yet
-shown on the other two layouts or in landscape.
+tries in `diagonal-band.png` and `diagonal-band-colours.png`). The flight
+number and airline are right-aligned at the bottom right, in the pairing's
+plain ink on the light field, outside the band (`diagonal-band-flight-right-*.png`,
+nose-and-tail and whole-aircraft layouts); centred inside the band or across its
+edge lost contrast. Remaining weakness: yellow ink on the light yellow field is
+faint for the flight number. Not yet shown in landscape.
 
 ### Departure vs arrival
 
