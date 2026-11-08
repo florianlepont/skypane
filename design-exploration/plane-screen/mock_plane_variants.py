@@ -130,9 +130,9 @@ def vcockpit():  # nose and cockpit only, entering from the right edge
     return c
 
 
-def halo_paste(canvas, piece, pos):
+def halo_paste(canvas, piece, pos, halo=15):
     layer = Image.new("RGBA", piece.size, WHITE + (0,))
-    layer.putalpha(piece.getchannel("A").filter(ImageFilter.MaxFilter(15)))
+    layer.putalpha(piece.getchannel("A").filter(ImageFilter.MaxFilter(halo)))
     canvas.paste(layer, pos, layer)
     canvas.paste(piece, pos, piece)
 

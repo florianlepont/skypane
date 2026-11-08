@@ -30,7 +30,7 @@ def fit_font(text, width, path=FONT):
     return ImageFont.truetype(path, size - 4)
 
 
-def giant_text(canvas, lines, box, fill, heavy=0):
+def giant_text(canvas, lines, box, fill, heavy=0, stretch=False):
     """Each line is stretched to the box width and fitted to its own slot."""
     x0, y0, x1, y1 = box
     slot = (y1 - y0) / len(lines)
@@ -40,7 +40,7 @@ def giant_text(canvas, lines, box, fill, heavy=0):
         left, top, right, bottom = f.getbbox(line, stroke_width=heavy)
         layer = Image.new("L", (right - left, bottom - top), 0)
         ImageDraw.Draw(layer).text((-left, -top), line, font=f, fill=255, stroke_width=heavy, stroke_fill=255)
-        if len(lines) == 1:  # a single word keeps its own proportions, centred in the box
+        if len(lines) == 1 and not stretch:  # a single word keeps its own proportions, centred in the box
             scale = (x1 - x0) / layer.width
             layer = layer.resize((x1 - x0, round(layer.height * scale)), Image.LANCZOS)
             y_top = round((y0 + y1 - layer.height) / 2)
