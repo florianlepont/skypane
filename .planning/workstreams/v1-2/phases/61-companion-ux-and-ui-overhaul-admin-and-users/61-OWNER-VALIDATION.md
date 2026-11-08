@@ -886,4 +886,11 @@ single column; 61-88 Location full-bleed, loading, in-place airport.
   needed to tell whether 61-88 changed anything. Grey bands: the status-bar
   strip at the top and the strip under the tab bar (above Safari's floating
   toolbar).
+- W153 (owner, fresh iPhone screenshot 12:24, deployed version)
+  Personalisation > Looks spéciaux on phone: the panel is broken: the row's
+  text column is squeezed to about 60 px (the "Compagnie" tag, the name
+  "French Air Force", the call sign and "Jaune, plein" break letter by
+  letter) because the "Modifier" and "Retirer" buttons sit inline beside it
+  (the Modifier link was added in plan 61-79). Stack the actions under the
+  text or move them into a row menu on phone.
 - (owner may have more; not confirmed done.)
