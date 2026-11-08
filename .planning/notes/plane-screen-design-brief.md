@@ -51,6 +51,17 @@ in favour of the lighter field).
 
 See `colour-pairings.png`.
 
+### Destination splitting (decided)
+
+Tried nine names split by hand (`cities-hand-split.png`). Three lines read best
+for long names (Bordeaux, Toulouse, Barcelona, Casablanca); two lines for
+medium names (London, Frankfurt, New York). Short names (Nice, Lyon, Rome) are
+split in two as well, accepting very tall letters, because a single small line
+loses the poster effect (`short-names-two-vs-one-line.png`). Known cost: the
+aircraft hides the junction between lines on two-line names, so a short name
+can read as two fragments; the aircraft position may need to follow the number
+of lines.
+
 ### Departure vs arrival
 
 Direction is currently only a small word at the top. At 3 m it is invisible, so
@@ -77,8 +88,10 @@ plumbing. See `cases-arriving-and-generic.png`.
    vendors Inter Bold; Inter Black (OFL) would need vendoring. The stretch to
    full width distorts letters; check that this is acceptable on the real panel
    or switch to a condensed face.
-3. **City splitting**: a rule for breaking names into 2-4 stacked lines
-   (syllables, spaces, hyphens), and a fallback for very long names.
+3. **City splitting**: a rule for breaking names into 2-3 stacked lines
+   (never a single line; spaces and hyphens first, then syllables), and a
+   fallback for very long names. Where the aircraft sits relative to the lines
+   may need to depend on the line count.
 4. **Aircraft halves**: crop points (nose half, rear half) are tuned for the
    A320 family illustration used in the mock-ups. Each aircraft type in
    `server/plane/illustrations.py` needs its own crop fractions, or a
