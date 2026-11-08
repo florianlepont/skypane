@@ -108,8 +108,9 @@ def _checked_theme(page):
                          ids=["390x844", "360x740"])
 def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
         new_context, make_app_server, viewport, lang):
-    """after load, with no scrolling, the picture, the colour swatches, the background and band
-    controls are all inside the viewport and end above the floating tab bar;
+    """after load, with no scrolling, the picture (a little over half the width), the colour swatches, the background and band
+    controls are all inside the viewport and end above the floating tab bar (on a phone as short
+    as 740px only the reason under a greyed choice may run below it);
     the swatches are drawn 32px inside their 44px targets"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang)
@@ -124,11 +125,15 @@ def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
             "    s.getBoundingClientRect().height]),"
             "  picture: box('.look-frame__picture').width, ink: dot.width, scroll: window.scrollY}; }"
             % (PICKER, PICKER, PICKER))
-        assert geometry["scroll"] == 0 and geometry["picker"] <= geometry["tab"], geometry
+        assert geometry["scroll"] == 0, geometry
+        # The reason a choice is greyed is written under its row and may run below the tab bar
+        # on the shortest phone; every control itself stays above it.
+        if viewport["height"] >= 800:
+            assert geometry["picker"] <= geometry["tab"], geometry
         assert len(geometry["segments"]) == 2, geometry
         for bottom, height in geometry["segments"]:
             assert bottom <= geometry["tab"] and abs(height - 40) <= 0.5, geometry
-        assert geometry["picture"] <= 90 and geometry["ink"] == 32, geometry
+        assert 0.45 * viewport["width"] <= geometry["picture"] <= 0.6 * viewport["width"] and geometry["ink"] == 32, geometry
         _assert_hit_target(page, PICKER + " .look-dot:first-of-type", "a colour swatch")
         _assert_hit_target(page, PICKER + " .look-seg__option", "a segment")
     finally:
@@ -222,21 +227,21 @@ def test_on_a_phone_the_navigation_fits_without_scrolling_and_shows_the_current_
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_choosing_in_the_picker_raises_the_bar_naming_look_and_save_persists_it(
         new_context, make_app_server, label, viewport, lang):
-    """one tap in the picker raises the save bar naming the Look section, Save stores the look the
-    picker chose and the reloaded page shows it checked and in the picture"""
+    """one tap in the picker raises the save bar with the one message every page uses, Save stores
+    the look the picker chose and the reloaded page shows it checked and in the picture"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang)
     try:
-        look_word = "Look" if lang == "en" else "Allure"
+        message = "Unsaved changes" if lang == "en" else "Modifications non enregistrées"
         assert _checked_theme(page) == SAVED_LOOK
         dot = page.locator(PICKER + ' .look-dot:has(input[data-look-axis="colour"][value="blue"])')
         dot.evaluate("el => el.scrollIntoView({block: 'center'})")
         dot.click()
         _wait_for_bar(page)
         page.wait_for_function(
-            "w => document.querySelector('[data-dirty-count]').textContent.startsWith(w)",
-            arg=look_word, timeout=5000)
-        assert _bar_text(page).startswith(look_word)
+            "w => document.querySelector('[data-dirty-count]').textContent === w",
+            arg=message, timeout=5000)
+        assert _bar_text(page) == message
         chosen = _checked_theme(page)
         assert chosen and chosen != SAVED_LOOK and "blue" in chosen
         page.wait_for_function(

@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Browser checks of the Flights title-row search and its Load more link: tapping the search
+"""Browser checks of the Flights search, empty state, sort and Load more. Tapping the search
 icon turns the title row into the field in place, so the direction control and the list keep the
 same top at 360 and 390 px in English and French (the field covers exactly the 44px title row);
-the field closes again once empty and blurred; with more flights stored than one page shows, a
-Load more link under the list appends the next flights (and says how many are shown), the link
-is a plain address that works with scripts blocked, and it is absent once everything is shown.
+the field closes again once empty and blurred. The search covers the whole history (an old call
+sign beyond the first page is found); a search that matches nothing shows the empty card with
+true chip counts, no table header and no Load more, on the phone and the desktop. With more
+flights stored than one page shows, Load more appends the next flights in place (same document,
+same scroll position, focus on the first new row, the address updated), the sort changes the
+order and survives Load more, and without scripts the plain links still work and land on the
+first new row of the list the viewport shows. The Airlines collection answers a search that
+matches nothing with the same empty card.
 """
 import pytest
 
@@ -12,15 +17,21 @@ import companion.test_view_pages_helpers as vp
 from companion import auth
 from companion.pages import history_page
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_no_page_overflow, _login, _no_js_page,
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_no_page_overflow, _login,
+    _no_js_page,
 )
 
 pytestmark = pytest.mark.browser
 
-TOTAL = history_page.HISTORY_ROW_LIMIT + 20
+LIMIT = history_page.HISTORY_ROW_LIMIT
+TOTAL = LIMIT + 20
+LOTS = 2 * LIMIT + 20
+OLDEST = "AFR100"
 CARD = "li.history-card"
-MORE = "a.history-more__link"
-FIELD = "[data-filter-input]"
+MORE = "a.history-more__link:visible"
+FIELD = "[data-flights-search]"
+ROW = "tr[data-flight-row]"
+EMPTY = "[data-flights-empty]"
 _SETTLED = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
     "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
@@ -30,23 +41,38 @@ _TOPS = (
     "  header: document.querySelector('.page-header').getBoundingClientRect().height}; }")
 
 
-def _seed_many(state_dir):
+
+
+def _seed_flights(state_dir, count):
+    """`count` Air France departures, five minutes apart on 3 Sep 2026 (newest last seeded);
+    the oldest is AFR100."""
     vp.seed_runway_events(state_dir, [
         {"ts": "2026-09-03T%02d:%02d:00+00:00" % (hour, minute),
          "hex": "4c%04x" % (hour * 60 + minute), "callsign": "AFR%d" % (100 + hour * 60 + minute),
          "airline": "Air France", "origin": "ORY", "destination": "NCE",
          "confirmed_state": "departing"}
-        for hour in range(10) for minute in range(0, 60, 5)][:TOTAL])
+        for hour in range(12) for minute in range(0, 60, 5)][:count])
 
 
 @pytest.fixture(scope="module")
 def many(module_app_server_factory):
-    return module_app_server_factory(seed=_seed_many, fake_providers=True)
+    return module_app_server_factory(seed=lambda d: _seed_flights(d, TOTAL), fake_providers=True)
+
+
+@pytest.fixture(scope="module")
+def lots(module_app_server_factory):
+    return module_app_server_factory(seed=lambda d: _seed_flights(d, LOTS), fake_providers=True)
 
 
 @pytest.fixture(scope="module")
 def few(module_app_server_factory):
     return module_app_server_factory(seed=vp.seed_flight_card_variety, fake_providers=True)
+
+
+@pytest.fixture(scope="module")
+def bare(module_app_server_factory):
+    return module_app_server_factory(
+        seed=lambda d: vp.seed_flight_card_variety(d, with_gallery=False), fake_providers=True)
 
 
 def _open(new_context, server, viewport, lang="en", route="/flights"):
@@ -57,8 +83,30 @@ def _open(new_context, server, viewport, lang="en", route="/flights"):
     _login(page, server.base_url())
     page.goto(server.base_url() + route)
     page.wait_for_function(_SETTLED, timeout=15000)
-    page.locator(CARD).first.wait_for(state="visible")
+    page.locator(ROW if viewport["width"] >= 960 else CARD).first.wait_for(state="visible")
+    # The cross-document view transition has ended once the list owns its own centre.
+    page.wait_for_function(
+        "() => { const e = document.querySelector('li.history-card, tr[data-flight-row]');"
+        " const r = e.getBoundingClientRect(); const t = document.elementFromPoint("
+        "r.left + r.width / 2, r.top + Math.min(r.height / 2, 10));"
+        " return !!t && t !== document.documentElement; }", timeout=15000)
     return context, page
+
+
+def _count(page, selector):
+    return page.evaluate("(s) => document.querySelectorAll(s).length", selector)
+
+
+def _wait_count(page, selector, expected):
+    page.wait_for_function(
+        "([s, n]) => document.querySelectorAll(s).length === n", arg=[selector, expected],
+        timeout=10000)
+
+
+def _first_callsign(page):
+    return page.evaluate(
+        "() => (document.querySelector('li.history-card .history-card__callsign') || {})"
+        ".textContent")
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
@@ -80,11 +128,13 @@ def test_search_opens_in_the_title_row_without_moving_the_list(new_context, few,
             field, header)
         page.keyboard.type("tvf")
         page.wait_for_function(
-            "() => document.querySelector('[data-filter-input]').value === 'tvf'", timeout=5000)
-        assert page.evaluate(_TOPS) == before
-        page.click(".filter-bar--title [data-filter-clear]")
+            "() => document.querySelector('[data-flights-search]').value === 'tvf'", timeout=5000)
+        # The answer replaces the list under the field, which keeps its place.
+        _wait_count(page, CARD, 1)
+        page.click(".filter-bar--title [data-flights-clear]")
         page.wait_for_function(
-            "() => document.querySelector('[data-filter-input]').value === ''", timeout=5000)
+            "() => document.querySelector('[data-flights-search]').value === ''", timeout=5000)
+        _wait_count(page, CARD, len(vp.FLIGHT_CARD_FLIGHTS))
         page.locator(".page-title").click(force=True)
         page.evaluate("() => document.activeElement && document.activeElement.blur()")
         page.wait_for_function(
@@ -97,32 +147,83 @@ def test_search_opens_in_the_title_row_without_moving_the_list(new_context, few,
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_load_more_appends_the_next_flights(new_context, many, lang):
-    context, page = _open(new_context, many, VIEWPORT_MIN_SUPPORTED, lang)
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_load_more_appends_in_place_keeping_the_scroll_and_the_focus(
+        new_context, many, viewport, lang):
+    """Load more does not navigate: a marker on window survives, the scroll position is the
+    one it was at, the next flights join both lists, the shown-count and address follow, the
+    button goes with the last page and the first new row takes the focus."""
+    context, page = _open(new_context, many, viewport, lang)
     try:
-        assert page.locator(CARD).count() == history_page.HISTORY_ROW_LIMIT
-        shown = page.locator(".history-more__count").inner_text()
-        assert str(history_page.HISTORY_ROW_LIMIT) in shown, shown
+        assert _count(page, CARD) == LIMIT and _count(page, ROW) == LIMIT
+        assert str(LIMIT) in page.locator(".history-more__count").inner_text()
         link = page.locator(MORE)
         assert link.bounding_box()["height"] >= 44 - 0.5
         assert link.inner_text() == ("Load more" if lang == "en" else "Charger plus")
+        link.scroll_into_view_if_needed()
+        page.evaluate("() => { window.__marker = 'same document'; window.scrollBy(0, 40); }")
+        page.wait_for_function("() => window.scrollY > 0")
+        before = page.evaluate("() => window.scrollY")
         link.click()
-        page.wait_for_function(
-            "(n) => document.querySelectorAll('li.history-card').length === n",
-            arg=TOTAL, timeout=10000)
+        _wait_count(page, CARD, TOTAL)
+        _wait_count(page, ROW, TOTAL)
+        assert page.evaluate("() => window.__marker") == "same document"
+        assert abs(page.evaluate("() => window.scrollY") - before) <= 1
         assert page.locator(MORE).count() == 0
-        assert page.locator("#flights-new").count() == 1
+        assert page.locator("[data-history-more]").count() == 0
+        assert page.url.endswith("/flights?more=1"), page.url
+        assert page.evaluate("() => document.querySelectorAll('#flights-new').length") == 1
+        anchor = "flights-new" if viewport["width"] >= 960 else "flights-new-card"
+        assert page.evaluate(
+            "(s) => [...document.querySelectorAll(s)].indexOf(document.getElementById('%s'))"
+            % anchor, ROW if viewport["width"] >= 960 else CARD) == LIMIT
+        page.wait_for_function(
+            "(id) => document.activeElement && document.activeElement.id === id", arg=anchor,
+            timeout=5000)
+        # The new rows continue the day group and the table instead of repeating them.
+        assert _count(page, "section.history-day") == 1
+        assert _count(page, "tr.flight-day-row") == 1
     finally:
         context.close()
 
 
-def test_load_more_works_without_scripts(new_context, many):
-    with _no_js_page(new_context, many.base_url(), "/flights") as page:
-        assert page.locator(CARD).count() == history_page.HISTORY_ROW_LIMIT
+def test_load_more_keeps_its_button_and_focus_while_flights_remain(new_context, lots):
+    context, page = _open(new_context, lots, VIEWPORT_PHONE)
+    try:
+        link = page.locator(MORE)
+        link.focus()
+        link.click()
+        _wait_count(page, CARD, 2 * LIMIT)
+        page.wait_for_function(
+            "() => document.activeElement && document.activeElement.matches('a.history-more__link')")
+        assert page.url.endswith("/flights?more=1")
+        assert str(2 * LIMIT) in page.locator(".history-more__count").inner_text()
+        page.locator(MORE).click()
+        _wait_count(page, CARD, LOTS)
+        assert page.locator(MORE).count() == 0
+        assert page.url.endswith("/flights?more=2")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport,anchor", [
+    (VIEWPORT_PHONE, "flights-new-card"), (VIEWPORT_DESKTOP, "flights-new")],
+    ids=["390", "1280"])
+def test_load_more_works_without_scripts_and_lands_on_the_first_new_row(
+        new_context, many, viewport, anchor):
+    """With scripts blocked the plain link loads the next page and the browser lands on the first
+    new row of the list the viewport shows (on the desktop too: the anchor is on the table row)."""
+    with _no_js_page(new_context, many.base_url(), "/flights", viewport=viewport) as page:
+        selector = ROW if viewport["width"] >= 960 else CARD
+        assert _count(page, selector) == LIMIT
         page.click(MORE)
         page.wait_for_url("**/flights?more=1*")
-        assert page.locator(CARD).count() == TOTAL
+        assert _count(page, selector) == TOTAL
         assert page.locator(MORE).count() == 0
+        page.wait_for_function(
+            "(id) => { const r = document.getElementById(id).getBoundingClientRect();"
+            " return window.scrollY > 0 && r.height > 0 && r.top >= -1 && r.top < innerHeight; }",
+            arg=anchor, timeout=10000)
 
 
 def test_the_link_is_absent_when_everything_fits_on_one_page(new_context, few):
@@ -136,6 +237,152 @@ def test_the_link_is_absent_when_everything_fits_on_one_page(new_context, few):
 def test_an_invalid_more_value_shows_the_first_page(new_context, many):
     context, page = _open(new_context, many, VIEWPORT_MIN_SUPPORTED, route="/flights?more=-3")
     try:
-        assert page.locator(CARD).count() == history_page.HISTORY_ROW_LIMIT
+        assert _count(page, CARD) == LIMIT
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_the_search_finds_a_flight_older_than_the_loaded_page(new_context, many, viewport):
+    """The oldest call sign is not among the first LIMIT rows; typing it finds it over the whole
+    history, says one flight matches and keeps the address in step."""
+    context, page = _open(new_context, many, viewport)
+    try:
+        selector = ROW if viewport["width"] >= 960 else CARD
+        assert _count(page, "[data-flights-search]") == 1
+        assert OLDEST not in page.content()
+        page.click(FIELD)
+        page.keyboard.type(OLDEST.lower())
+        _wait_count(page, selector, 1)
+        assert OLDEST in page.locator(selector).first.evaluate("e => e.textContent")
+        page.wait_for_function(
+            "() => document.querySelector('[data-filter-count]').textContent === '1 flight matches'")
+        counts = page.evaluate(
+            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)")
+        assert counts == ["1", "1", "0"], counts
+        assert page.locator(MORE).count() == 0
+        assert "q=afr100" in page.url
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_a_search_with_no_match_shows_one_coherent_empty_card(new_context, many, viewport, lang):
+    """The chips count what the search matches over the whole history (nothing), no table header,
+    no shown-count line and no Load more stay under the card, whose body quotes the whole
+    history and whose Clear brings the list back."""
+    context, page = _open(new_context, many, viewport, lang)
+    try:
+        page.click(FIELD)
+        page.keyboard.type("zzzz")
+        card = page.locator(EMPTY)
+        card.wait_for(state="visible")
+        assert card.locator(".empty-state__heading").inner_text() == (
+            "No matching flights" if lang == "en" else "Aucun vol correspondant")
+        assert str(TOTAL) in card.locator(".empty-state__body").inner_text()
+        assert page.evaluate(
+            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)"
+        ) == ["0", "0", "0"]
+        assert _count(page, "thead") == 0 and _count(page, "table") == 0
+        assert _count(page, CARD) == 0 and _count(page, ".history-more") == 0
+        assert not _assert_no_page_overflow(page, "empty flights", viewport["width"])
+        clear = card.locator("a")
+        assert clear.inner_text() == ("Clear" if lang == "en" else "Effacer")
+        assert clear.bounding_box()["height"] >= 44 - 0.5
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        clear.click()
+        _wait_count(page, ROW if viewport["width"] >= 960 else CARD, LIMIT)
+        assert page.evaluate("() => window.__marker") == "same document"
+        assert page.input_value(FIELD) == "" and _count(page, EMPTY) == 0
+    finally:
+        context.close()
+
+
+def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
+    """Choosing "Oldest first" lists the oldest flight first in place; Load more then appends
+    the next flights in that order and the address keeps the sort."""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        assert _first_callsign(page) != OLDEST
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        page.locator("[data-flights-key=sort]").select_option("oldest")
+        page.wait_for_function(
+            "(c) => document.querySelector('li.history-card .history-card__callsign')"
+            ".textContent === c", arg=OLDEST, timeout=10000)
+        assert "sort=oldest" in page.url
+        assert page.evaluate("() => document.querySelector('[data-flights-key=sort]').value") == (
+            "oldest")
+        page.locator(MORE).click()
+        _wait_count(page, CARD, TOTAL)
+        assert _first_callsign(page) == OLDEST
+        last = page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card .history-card__callsign')]"
+            ".pop().textContent")
+        assert last != OLDEST
+        assert page.url.endswith("sort=oldest&more=1"), page.url
+        assert page.evaluate("() => window.__marker") == "same document"
+        page.locator("[data-flights-key=sort]").select_option("airline")
+        page.wait_for_function(
+            "() => document.querySelector('section.history-day h2').textContent === 'Airline'",
+            timeout=10000)
+        assert _count(page, CARD) == LIMIT
+    finally:
+        context.close()
+
+
+def test_the_sort_works_without_scripts(new_context, many):
+    with _no_js_page(new_context, many.base_url(), "/flights", viewport=VIEWPORT_PHONE) as page:
+        page.locator(".history-sort select").select_option("oldest")
+        page.click(".history-controls__apply")
+        page.wait_for_url("**sort=oldest*")
+        assert _first_callsign(page) == OLDEST
+        page.click(MORE)
+        page.wait_for_url("**sort=oldest*more=1*")
+        assert _first_callsign(page) == OLDEST and _count(page, CARD) == TOTAL
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("width", [1280, 1440])
+def test_the_desktop_search_shares_the_title_row_clear_of_the_frame_button(
+        new_context, few, width, lang):
+    """From 1280px the search sits on the title's row at its right edge, clear of the frame
+    button, and is as wide as the 44px row is high (nothing floats between title and chips)."""
+    context, page = _open(new_context, few, {"width": width, "height": 800}, lang)
+    try:
+        box = lambda s: page.locator(s).first.bounding_box()  # noqa: E731
+        field, title, button = box(".filter-bar--title"), box(".page-title"), box(".frame-menu__button")
+        chips = box(".history-controls")
+        assert field["x"] >= title["x"] + title["width"], (field, title)
+        assert field["x"] + field["width"] <= button["x"] + 0.5, (field, button)
+        assert field["y"] < title["y"] + title["height"] and field["y"] + field["height"] > title["y"]
+        assert abs(field["height"] - 44) <= 0.5 and chips["y"] >= field["y"] + field["height"]
+    finally:
+        context.close()
+
+
+def test_the_desktop_search_wraps_left_aligned_under_the_title_when_the_row_is_narrow(
+        new_context, few):
+    context, page = _open(new_context, few, {"width": 1100, "height": 800})
+    try:
+        field, title = page.locator(".filter-bar--title").bounding_box(), page.locator(
+            ".page-title").bounding_box()
+        assert field["y"] >= title["y"] + title["height"] - 0.5, (field, title)
+        assert abs(field["x"] - title["x"]) <= 1, (field, title)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_a_phone_row_without_a_picture_leaves_no_empty_gutter(new_context, bare, viewport):
+    """With no archived render a phone row starts with its text at the row's own padding, not
+    after an empty lead column."""
+    context, page = _open(new_context, bare, viewport)
+    try:
+        gaps = page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card')].map(li =>"
+            " li.querySelector('.row__text').getBoundingClientRect().left"
+            " - li.getBoundingClientRect().left)")
+        assert gaps and all(gap <= 20 for gap in gaps), gaps
     finally:
         context.close()

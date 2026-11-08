@@ -142,6 +142,7 @@ _UNAUTH_GET_REQUESTS = (
     companion_app.UPDATE_ROUTE,
     "/account",
     "/pair-frame",
+    "/frame/name",
     "/fleet",
     "/audit",
     "/users",
@@ -200,6 +201,7 @@ _UNAUTH_POST_REQUESTS = (
     "/co-managers/remove",
     "/co-managers/leave",
     "/frame/remove",
+    "/frame/name",
     _NOT_FOUND_PATH,
 )
 

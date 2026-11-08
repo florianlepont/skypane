@@ -328,7 +328,7 @@ def test_with_the_library_blocked_the_plain_form_shows_and_saves(
     server = make_app_server(seed=_seed, fake_providers=True)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
     hosts = Hosts(context)
-    context.route("**/static/vendor/leaflet/leaflet.js", lambda route: route.abort())
+    context.route("**/static/vendor/leaflet/leaflet.js*", lambda route: route.abort())
     page = context.new_page()
     errors = []
     page.on("pageerror", lambda error: errors.append(str(error)))

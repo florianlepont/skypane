@@ -481,7 +481,7 @@ def test_position_page_in_french(rig):
     assert 'value="Home"' in page
     assert "Rayon (km)" in text
     assert "Vos lieux" not in text
-    assert "Enregistrer le lieu" in text
+    assert "Enregistrer" in text
 
 
 def test_position_save_leaves_the_location_unchanged_when_the_config_write_fails(

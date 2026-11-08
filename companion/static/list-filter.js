@@ -268,3 +268,356 @@
   // No DOMContentLoaded wrapper needed: the <script> tag carries defer,
   // so this file only ever runs after parsing.
 })();
+
+/*
+ * The Flights page's server-driven list. The search, the direction chips and
+ * the sort are one GET form the server answers over the whole history; this
+ * block only sends that form without leaving the page and swaps the answer in,
+ * and appends the next flights for Load more without a reload, so the scroll
+ * position, the focus and the typed text survive. Every control also works
+ * without it (a form submit, a plain Load more link).
+ */
+(function () {
+  "use strict";
+
+  var form = document.querySelector("[data-flights-form]");
+  if (!form || !window.fetch || !window.DOMParser || !history.replaceState) {
+    return;
+  }
+
+  var VIEW = "[data-flights-view]";
+  var ID_ATTR = "data-flight-id";
+  var DEFAULT_SORT = "newest";
+  var SEARCH_DELAY_MS = 250;
+  var CARD_ANCHOR = "flights-new-card";
+  var TABLE_ANCHOR = "flights-new";
+  var input = form.querySelector("[data-flights-search]");
+  var latest = 0;
+  var timer = null;
+  var busy = false;
+
+  function encode(value) {
+    return encodeURIComponent(value);
+  }
+
+  // The address for the form's current controls; defaults are left out, as
+  // the server leaves them out of its own links.
+  function currentUrl() {
+    var parts = [];
+    var fields = form.elements;
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (!field.name || field.type === "submit" || field.type === "button") {
+        continue;
+      }
+      if (field.type === "radio" && !field.checked) {
+        continue;
+      }
+      var value = field.name === "q" ? field.value.replace(/^\s+|\s+$/g, "") : field.value;
+      if (value === "" || (field.name === "sort" && value === DEFAULT_SORT)) {
+        continue;
+      }
+      parts.push(encode(field.name) + "=" + encode(value));
+    }
+    var action = form.getAttribute("action");
+    return action + (parts.length ? "?" + parts.join("&") : "");
+  }
+
+  function fetchView(url) {
+    return fetch(url, { credentials: "same-origin" }).then(function (response) {
+      if (response.redirected && window.skypaneSession
+          && /\/login$/.test(new URL(response.url).pathname)) {
+        window.skypaneSession.expire();
+      }
+      if (!response.ok || response.redirected) {
+        throw new Error("flights");
+      }
+      return response.text();
+    }).then(function (text) {
+      var doc = new DOMParser().parseFromString(text, "text/html");
+      if (!doc.querySelector(VIEW)) {
+        throw new Error("flights");
+      }
+      return doc;
+    });
+  }
+
+  // A failed or redirected request (an expired session) falls back to the
+  // plain navigation the same address would have done.
+  function giveUp(url) {
+    if (window.skypaneSession && window.skypaneSession.ending()) {
+      return;
+    }
+    window.location.assign(url);
+  }
+
+  function syncActive() {
+    if (input && input.value !== "") {
+      form.setAttribute("data-filter-active", "");
+    } else {
+      form.removeAttribute("data-filter-active");
+    }
+  }
+
+  // The page's list is a run of sibling elements, each marked [data-flights-view]
+  // (the controls, the empty card or the lists, the Load more block). A swap puts the
+  // fetched run where the live one is. The entrance animation the stylesheet gives a
+  // card is finished at once: only the first arrival of a page is staged.
+  function swapView(doc) {
+    var live = document.querySelectorAll(VIEW);
+    var fresh = doc.querySelectorAll(VIEW);
+    var active = document.activeElement;
+    var key = active && active.getAttribute ? active.getAttribute("data-flights-key") : null;
+    var parent = live[0].parentNode;
+    var added = [];
+    var i;
+    for (i = 0; i < fresh.length; i++) {
+      var node = document.importNode(fresh[i], true);
+      parent.insertBefore(node, live[0]);
+      added.push(node);
+    }
+    for (i = 0; i < live.length; i++) {
+      parent.removeChild(live[i]);
+    }
+    for (i = 0; i < added.length; i++) {
+      settle(added[i]);
+    }
+    if (key) {
+      var again = document.querySelector('[data-flights-key="' + key + '"]');
+      if (again) {
+        again.focus();
+      }
+    }
+  }
+
+  function settle(node) {
+    if (!node.getAnimations) {
+      return;
+    }
+    var running = node.getAnimations({ subtree: true });
+    for (var i = 0; i < running.length; i++) {
+      running[i].finish();
+    }
+  }
+
+  function refresh() {
+    window.clearTimeout(timer);
+    var url = currentUrl();
+    var mine = ++latest;
+    fetchView(url).then(function (doc) {
+      if (mine !== latest) {
+        return;
+      }
+      swapView(doc);
+      history.replaceState(null, "", url);
+    }, function () {
+      if (mine === latest) {
+        giveUp(url);
+      }
+    });
+  }
+
+  function idMap(root) {
+    var map = {};
+    var rows = root.querySelectorAll("[" + ID_ATTR + "]");
+    for (var i = 0; i < rows.length; i++) {
+      map[rows[i].getAttribute(ID_ATTR)] = rows[i];
+    }
+    return map;
+  }
+
+  // Appends the phone cards the fetched list holds beyond the live ones: a
+  // fetched day group that already exists takes its new rows, any other is
+  // added whole. Returns the first appended card.
+  function appendCards(live, fetched) {
+    var liveCards = live.querySelector(".history-cards");
+    var newCards = fetched.querySelector(".history-cards");
+    if (!liveCards || !newCards) {
+      return null;
+    }
+    var present = idMap(liveCards);
+    var first = null;
+    var groups = newCards.children;
+    for (var g = 0; g < groups.length; g++) {
+      var rows = groups[g].querySelectorAll("[" + ID_ATTR + "]");
+      var fresh = [];
+      var host = null;
+      for (var r = 0; r < rows.length; r++) {
+        var known = present[rows[r].getAttribute(ID_ATTR)];
+        if (known) {
+          host = known.parentNode;
+        } else {
+          fresh.push(rows[r]);
+        }
+      }
+      if (!fresh.length) {
+        continue;
+      }
+      var added = [];
+      if (host) {
+        for (var f = 0; f < fresh.length; f++) {
+          var card = document.importNode(fresh[f], true);
+          host.appendChild(card);
+          added.push(card);
+        }
+      } else {
+        var section = document.importNode(groups[g], true);
+        liveCards.appendChild(section);
+        settle(section);
+        added = section.querySelectorAll("[" + ID_ATTR + "]");
+      }
+      first = first || added[0];
+    }
+    return first;
+  }
+
+  // The same for the desktop table: rows in order, a day separator only when
+  // a new row follows it. Returns the first appended row.
+  function appendRows(live, fetched) {
+    var liveBody = live.querySelector(".data-table-wrap tbody");
+    var newBody = fetched.querySelector(".data-table-wrap tbody");
+    if (!liveBody || !newBody) {
+      return null;
+    }
+    var present = idMap(liveBody);
+    var first = null;
+    var day = null;
+    var rows = newBody.children;
+    for (var i = 0; i < rows.length; i++) {
+      var id = rows[i].getAttribute(ID_ATTR);
+      if (id === null) {
+        day = rows[i];
+      } else if (present[id]) {
+        day = null;
+      } else {
+        if (day) {
+          liveBody.appendChild(document.importNode(day, true));
+          day = null;
+        }
+        var row = document.importNode(rows[i], true);
+        liveBody.appendChild(row);
+        first = first || row;
+      }
+    }
+    return first;
+  }
+
+  function clearAnchors(live) {
+    var old = live.querySelectorAll("#" + CARD_ANCHOR + ", #" + TABLE_ANCHOR);
+    for (var i = 0; i < old.length; i++) {
+      old[i].removeAttribute("id");
+    }
+  }
+
+  function visible(el) {
+    return !!(el && el.getClientRects().length);
+  }
+
+  function updateMore(live, fetched, hadFocus, firstNew) {
+    var liveMore = live.querySelector("[data-history-more]");
+    var newMore = fetched.querySelector("[data-history-more]");
+    if (!liveMore) {
+      return;
+    }
+    if (!newMore) {
+      liveMore.parentNode.removeChild(liveMore);
+      if (hadFocus && firstNew) {
+        firstNew.setAttribute("tabindex", "-1");
+        firstNew.focus({ preventScroll: true });
+      }
+      return;
+    }
+    var count = liveMore.querySelector(".history-more__count");
+    var newCount = newMore.querySelector(".history-more__count");
+    if (count && newCount) {
+      count.textContent = newCount.textContent;
+    }
+    var links = liveMore.querySelectorAll("[data-flights-more]");
+    var newLinks = newMore.querySelectorAll("[data-flights-more]");
+    for (var i = 0; i < links.length && i < newLinks.length; i++) {
+      links[i].setAttribute("href", newLinks[i].getAttribute("href"));
+    }
+  }
+
+  function loadMore(link) {
+    if (busy) {
+      return;
+    }
+    var href = link.getAttribute("href");
+    var url = href.split("#")[0];
+    busy = true;
+    link.setAttribute("aria-busy", "true");
+    fetchView(url).then(function (doc) {
+      var live = document;
+      var fetched = doc;
+      var hadFocus = live.querySelector("[data-history-more]").contains(document.activeElement);
+      clearAnchors(live);
+      var card = appendCards(live, fetched);
+      var row = appendRows(live, fetched);
+      if (card) {
+        card.id = CARD_ANCHOR;
+      }
+      if (row) {
+        row.id = TABLE_ANCHOR;
+      }
+      updateMore(live, fetched, hadFocus, visible(row) ? row : card);
+      history.replaceState(null, "", url);
+      busy = false;
+    }, function () {
+      busy = false;
+      giveUp(href);
+    });
+  }
+
+  function clearSearch(link) {
+    var inView = !!(link.closest && link.closest(VIEW));
+    if (input) {
+      input.value = "";
+    }
+    if (inView) {
+      var chips = document.querySelectorAll('input[name="kind"][form="' + form.id + '"]');
+      for (var i = 0; i < chips.length; i++) {
+        chips[i].checked = chips[i].value === "";
+      }
+    }
+    syncActive();
+    refresh();
+    if (!inView && input) {
+      input.focus();
+    }
+  }
+
+  if (input) {
+    input.addEventListener("input", function () {
+      syncActive();
+      window.clearTimeout(timer);
+      timer = window.setTimeout(refresh, SEARCH_DELAY_MS);
+    });
+  }
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    refresh();
+  });
+
+  document.addEventListener("change", function (event) {
+    var target = event.target;
+    if (target && target.hasAttribute && target.hasAttribute("data-flights-auto")) {
+      refresh();
+    }
+  });
+
+  document.addEventListener("click", function (event) {
+    var target = event.target && event.target.closest ? event.target : null;
+    var link = target ? target.closest("a[data-flights-more], a[data-flights-clear]") : null;
+    if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    if (link.hasAttribute("data-flights-more")) {
+      loadMore(link);
+    } else {
+      clearSearch(link);
+    }
+  });
+})();

@@ -31,11 +31,15 @@ MESSAGES = {
     "admin_fleet.no_frames_yet": "Aucun cadre pour l’instant",
     "admin_fleet.open_personal_view": "Ouvrir la vue personnelle",
     "admin_fleet.reassign": "Réattribuer",
+    "admin_fleet.open_personal_view_aria": "Ouvrir la vue personnelle de %s",
     "admin_fleet.re_activate": "Réactiver",
     "admin_fleet.retire_frame": "Retirer le cadre",
     "admin_fleet.re_activate_frame": "Réactiver le cadre",
     "admin_fleet.keep_frame": "Garder le cadre",
     "admin_fleet.new_owner": "Nouveau propriétaire",
+    "admin_fleet.reassign_frame_title": "Réattribuer «\u00a0%s\u00a0»\u00a0?",
+    "admin_fleet.keep_owner": "Garder le propriétaire",
+    "admin_fleet.reassign_aria": "Réattribuer %s à un autre propriétaire",
     "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating":
         "Ce cadre affichera un écran « retiré » et ne se mettra plus à jour. "
         "Ses données sont conservées et vous pourrez le réactiver plus tard.",

@@ -13,15 +13,18 @@ matching `data_table()`'s CSS classes and escaping every cell through
 """
 import re
 import sqlite3
+from urllib.parse import urlencode
 from datetime import datetime, timezone
 
 import companion.device_scope as device_scope
 import companion.flight_card as flight_card
+import companion.history_query as history_query
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
+import companion.ui_filter as ui_filter
 import companion.ui_groups as ui_groups
 from server import history_db
 from server.plane import name_overrides
@@ -36,7 +39,12 @@ HISTORY_ROW_LIMIT = 50
 # script; bounded so a hand-edited value cannot ask for the whole table.
 MORE_PARAM = "more"
 MAX_MORE_PAGES = 19
+# The Load more link lands on the first new row. Two links and two ids, one
+# per representation: a fragment targets the first element with its id, and
+# the representation the viewport hides has no box to scroll to.
 _NEW_ROWS_ANCHOR = "flights-new"
+_NEW_CARD_ANCHOR = "flights-new-card"
+_FORM_ID = "flights_form"
 
 PAGE_TITLE = i18n.msg("nav.flight_history", "Flight history")
 LIGHTBOX_ARIA_LABEL = i18n.msg(
@@ -109,10 +117,6 @@ _PICTURE_HEADER_TEXT = i18n.msg("flights.picture", "Picture")
 # "View picture" links would otherwise share one accessible name.
 _VIEW_PICTURE_OF_TEMPLATE = i18n.msg("flights.view_picture_of", "View picture of %s")
 
-# "Callsign" and "Clear" are owned by other catalogues; declared here
-# since this page reads them.
-_FILTER_COUNT_TEMPLATE = i18n.msg("health.of_shown", "%d of %d shown")
-
 # Names the .data-table-wrap scroller for keyboard users: tabindex="0"
 # plus this label turn the wrapper into a focusable, named region a
 # keyboard user can Tab to and arrow-scroll.
@@ -142,7 +146,6 @@ _DB_UNAVAILABLE = object()  # Same sentinel discipline as health_page.py:
 _FILTER_INPUT_ID = "history_filter_input"
 _FILTER_PLACEHOLDER_TEXT = i18n.msg(
     "flights.search_placeholder", "Callsign, airline, airport…")
-_FILTER_KINDS = ("departing", "arriving")
 _FILTER_CHIPS_LEGEND = i18n.msg("flights.filter_direction", "Filter by direction")
 _CHIP_ALL_TEXT = i18n.msg("flights.chip_all", "All")
 _CHIP_DEPARTURES_TEXT = i18n.msg("flights.chip_departures", "Departures")
@@ -153,6 +156,20 @@ _FILTER_EMPTY_HEADING = i18n.msg("flights.no_matching_flights", "No matching fli
 _FILTER_EMPTY_BODY_TEMPLATE = i18n.msg(
     "flights.try_a_different_search_or_clear_filter_to_see",
     "Try a different search, or Clear filter to see all %d flights.")
+_SORT_LABEL = i18n.msg("flights.sort_by", "Sort by")
+_SORT_TEXTS = (
+    (history_query.SORT_NEWEST, i18n.msg("flights.sort_newest", "Newest first")),
+    (history_query.SORT_OLDEST, i18n.msg("flights.sort_oldest", "Oldest first")),
+    (history_query.SORT_AIRLINE, i18n.msg("flights.sort_airline", "Airline")),
+    (history_query.SORT_DIRECTION, i18n.msg("flights.sort_direction", "Direction")),
+)
+_APPLY_TEXT = i18n.msg("flights.apply_filters", "Apply")
+_MATCHES_TEXT = i18n.msg("flights.matches_many", "%d flights match")
+_MATCH_ONE_TEXT = i18n.msg("flights.matches_one", "1 flight matches")
+_NO_MATCH_TEXT = i18n.msg("flights.matches_none", "No flight matches")
+_TOTAL_TEXT = i18n.msg("flights.count_many", "%d flights")
+_TOTAL_ONE_TEXT = i18n.msg("flights.count_one", "1 flight")
+_TOTAL_NONE_TEXT = i18n.msg("flights.count_none", "No flights")
 
 # The presentational note shown beside a promoted hex when a row has no
 # callsign: a module-level constant so the desktop cell and the mobile
@@ -415,23 +432,29 @@ def more_pages(raw):
     return min(int(text), MAX_MORE_PAGES)
 
 
-def history_rows_page(conn, airline_names=None, pages=0):
-    """`(rows, has_more)`: the most recent `(pages + 1) * HISTORY_ROW_LIMIT`
-    `runway_events` rows, newest first (matches
-    `history_db.recent_runway_events()`'s own ordering), with a pass stored
-    twice folded into one row — the same fold Home applies, so chip counts
-    and day headers count flights, not stored events. `has_more` is true
-    when stored events exist beyond that limit. Storage keeps every event.
-    """
-    limit = (pages + 1) * HISTORY_ROW_LIMIT
-    events = history_db.recent_runway_events(
-        conn, limit=limit + 1, airline_names=airline_names)
-    return flight_card.fold_repeated_passes(events[:limit]), len(events) > limit
+def history_result(conn, view, pages, airline_names=None):
+    """The page of flights for `view` (the search, direction and sort the
+    address carries) and `pages` Load more steps: see `history_query.select`.
+    Storage keeps every event; a pass stored twice is one flight here, as on
+    Home."""
+    return history_query.select(conn, view, pages, HISTORY_ROW_LIMIT, airline_names)
 
 
-def history_rows(conn, airline_names=None):
-    """The most recent `HISTORY_ROW_LIMIT` flights; see `history_rows_page`."""
-    return history_rows_page(conn, airline_names)[0]
+def view_href(view, pages=0, anchor=""):
+    """The Flights address for `view` and `pages` Load more steps, under the
+    current device's prefix. Defaults are left out, so the plain page keeps
+    its plain address."""
+    params = []
+    if view.q:
+        params.append((history_query.Q_PARAM, view.q))
+    if view.kind:
+        params.append((history_query.KIND_PARAM, view.kind))
+    if view.sort != history_query.DEFAULT_SORT:
+        params.append((history_query.SORT_PARAM, view.sort))
+    if pages:
+        params.append((MORE_PARAM, str(pages)))
+    path = layout.FLIGHTS_ROUTE + ("?" + urlencode(params) if params else "")
+    return device_scope.scoped(path + ("#" + anchor if anchor else ""))
 
 
 def format_event_row(row, now=None):
@@ -515,13 +538,11 @@ def _merged_cell(primary, secondary):
 
 
 def _filter_text_attr(row):
-    """The escaped, lowercased haystack for a row's `data-filter-text`
-    attribute, computed once per row and reused by both the desktop
-    `<tr>` and the mobile `<li>` for the same flight: callsign, hex,
-    resolved airline name, both route codes and the aircraft type, so a
-    search for "Transavia", "KEF" or "A320" finds the row. The
-    unresolved-airline fallback wording is never searchable.
-    """
+    """The escaped, lowercased words a row answers to (call sign, hex,
+    airline as displayed, both route codes, aircraft type), carried on the
+    desktop `<tr>` and the phone `<li>` of the same flight. The server's own
+    search matches the same words (`history_query`); the unresolved-airline
+    fallback wording is never among them."""
     airline = "" if row["airline_label"] == AIRLINE_FALLBACK_TEXT else row["airline_label"]
     parts = (
         row["callsign"], row["hex"], airline, row.get("origin", ""),
@@ -530,13 +551,19 @@ def _filter_text_attr(row):
 
 
 def _filter_kind_attr(row):
-    """The row's `data-filter-kind` attribute, the dimension the chip
-    group filters on: the runway direction the detector confirmed. Only
-    departing and arriving count; anything else, an overhead row
-    included, belongs to "All" alone, so a chip never claims a row it cannot name.
-    """
+    """The row's `data-filter-kind`: the runway direction the detector
+    confirmed. Only departing and arriving count; anything else, an overhead
+    row included, belongs to "All" alone."""
     state = row.get("state_raw") or ""
-    return state if state in _FILTER_KINDS else ""
+    return state if state in history_query.KINDS else ""
+
+
+def _row_facts(row, index):
+    """The attributes both representations of one flight share: its words, its
+    direction, its loop index and its stable identity."""
+    return 'data-filter-text="%s" data-filter-kind="%s" data-filter-group="%d" %s="%s"' % (
+        _filter_text_attr(row), _filter_kind_attr(row), index,
+        layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)))
 
 
 def paris_day(raw_ts):
@@ -586,26 +613,85 @@ def _flight_cell_html(row):
     return cell.replace("<td>", "<td>" + ident, 1)
 
 
-def _filter_bar_html(rows):
-    """The Flights filter bar: the shared search field plus a direction
-    chip group (All / Departures / Arrivals) whose counts come from the
-    rows' own `state_raw`. `rows` is every flight the page renders, so
-    the live count and empty-state body read its length.
-    """
-    shown = len(rows)
-    empty_body = i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % shown
+def _chips_html(view, result):
+    """The direction chips: radios of the search form (`kind`), each with the
+    number of flights of that direction that match the search over the whole
+    history, so the counts stay true while a direction is chosen or the list is
+    empty. "All" counts every match, an overhead pass included."""
     chips = (
-        ("", i18n.t(_CHIP_ALL_TEXT), shown),
-        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT),
-         sum(1 for r in rows if _filter_kind_attr(r) == "departing")),
-        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT),
-         sum(1 for r in rows if _filter_kind_attr(r) == "arriving")),
+        ("", i18n.t(_CHIP_ALL_TEXT), result.matched),
+        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT), result.counts["departing"]),
+        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT), result.counts["arriving"]),
     )
-    return layout.filter_bar_html(
-        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT),
-        i18n.t(_FILTER_PLACEHOLDER_TEXT), i18n.t(_FILTER_COUNT_TEMPLATE),
-        shown, shown, i18n.t(_FILTER_EMPTY_HEADING), empty_body,
-        chips=chips, chips_legend=i18n.t(_FILTER_CHIPS_LEGEND), search_in_bar=False)
+    parts = []
+    for kind, text, count in chips:
+        parts.append(
+            '<label class="filter-chip%s"><input type="radio" class="visually-hidden" '
+            'name="%s" value="%s" form="%s"%s data-flights-auto data-flights-key="kind-%s">'
+            '<span class="filter-chip__box"><span class="filter-chip__count" data-filter-chip-count>%d</span>'
+            '<span class="filter-chip__text">%s</span></span></label>' % (
+                "" if count else " is-zero", history_query.KIND_PARAM, kind, _FORM_ID,
+                " checked" if kind == view.kind else "", kind or "all", count,
+                escape_html(text)))
+    return ('<fieldset class="filter-bar__chips"><legend class="visually-hidden">%s</legend>'
+            "%s</fieldset>") % (escape_html(i18n.t(_FILTER_CHIPS_LEGEND)), "".join(parts))
+
+
+def _sort_html(view):
+    """The sort as a native select of the search form: it works without a
+    script (the Apply button sends it) and with one it reorders in place."""
+    options = "".join(
+        '<option value="%s"%s>%s</option>' % (
+            value, " selected" if value == view.sort else "", escape_html(i18n.t(text)))
+        for value, text in _SORT_TEXTS)
+    return (
+        '<label class="history-sort"><span class="visually-hidden">%s</span>'
+        '<select name="%s" form="%s" data-flights-auto data-flights-key="sort">%s</select></label>'
+    ) % (escape_html(i18n.t(_SORT_LABEL)), history_query.SORT_PARAM, _FORM_ID, options)
+
+
+def _matches_html(view, result):
+    """How many flights the page lists in all (the chosen direction's, when
+    one is chosen): "N flights match" while a search is typed, else just
+    "N flights". Read out by screen readers only: the sighted reader has the
+    same number in the "All" chip, and a visible line here would push the list
+    down whenever a search opens."""
+    many, one, none = (
+        (_MATCHES_TEXT, _MATCH_ONE_TEXT, _NO_MATCH_TEXT) if view.q
+        else (_TOTAL_TEXT, _TOTAL_ONE_TEXT, _TOTAL_NONE_TEXT))
+    listed = result.counts[view.kind] if view.kind else result.matched
+    if listed == 0:
+        text = i18n.t(none)
+    elif listed == 1:
+        text = i18n.t(one)
+    else:
+        text = i18n.t(many) % listed
+    return '<p class="visually-hidden" data-filter-count data-flights-view role="status">%s</p>' % (
+        escape_html(text))
+
+
+def _controls_html(view, result):
+    """The direction chips and the sort under the title, plus the Apply
+    button that stands in for their change handler when no script runs."""
+    return (
+        '<div class="filter-bar filter-bar--chips history-controls" data-flights-view>%s%s'
+        '<button type="submit" class="history-controls__apply" form="%s">%s</button>'
+        "</div>%s"
+    ) % (_chips_html(view, result), _sort_html(view), _FORM_ID,
+         escape_html(i18n.t(_APPLY_TEXT)), _matches_html(view, result))
+
+
+def _empty_html(view, result):
+    """The card shown when the search or the direction matches nothing: the
+    heading, the body quoting how many flights the whole history holds and a
+    Clear link (a plain address, so it works without a script) that drops the
+    search and the direction and keeps the sort."""
+    clear = view_href(history_query.View("", "", view.sort))
+    return ui_filter.filter_empty_html(
+        i18n.t(_FILTER_EMPTY_HEADING), i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % result.total,
+        '<a class="calendar-disconnect-btn" href="%s" data-flights-clear>%s</a>' % (
+            escape_html(clear), escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT))),
+        "data-flights-empty data-flights-view")
 
 
 # Mirrors layout.concise_timestamp_html()'s own default fallback string
@@ -668,7 +754,7 @@ def _day_separator_row_html(day, today):
     ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
 
 
-def _history_table_html(formatted_rows, now=None):
+def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True):
     if not formatted_rows:
         return ui_groups.group_panel(layout.empty_state(
             i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY), compact=True))
@@ -690,7 +776,7 @@ def _history_table_html(formatted_rows, now=None):
         # A row whose timestamp cannot be dated takes the ungrouped
         # path: no separator is emitted and the current group stays
         # open, so it never splits a real day in two.
-        day = paris_day(row["raw_ts"])
+        day = paris_day(row["raw_ts"]) if dated else None
         if day is not None and day != current_day:
             current_day = day
             body_rows.append(_day_separator_row_html(day, today))
@@ -705,21 +791,17 @@ def _history_table_html(formatted_rows, now=None):
             "<td>%s</td>" % escape_html(row["confirmed_state"]),
             "<td>%s</td>" % row.get("view_panel_html", ""),
         )
-        # data-filter-group carries this row's loop index, shared with
-        # the <li> at the same index in _history_cards_html(), so
-        # list-filter.js counts logical rows once, not once per
-        # representation; the stable event identity arrives beside it as
-        # its own attribute — one renumbers when a detection lands, the
-        # other must not.
+        # The stable event identity lets the refresh loop tell a new row from
+        # one that only moved; the row at `anchor_index` is where the no-script
+        # Load more link lands.
         body_rows.append(
-            '<tr class="%s" data-flight-row data-filter-text="%s" '
-            'data-filter-kind="%s" data-filter-group="%d" %s="%s">%s</tr>'
-            % (row_class, _filter_text_attr(row), _filter_kind_attr(row), index,
-               layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
+            '<tr class="%s" data-flight-row %s%s>%s</tr>'
+            % (row_class, _row_facts(row, index),
+               ' id="%s"' % _NEW_ROWS_ANCHOR if index == anchor_index else "",
                "".join(cells)))
 
     return (
-        '<div class="data-table-wrap" tabindex="0" role="region" '
+        '<div class="data-table-wrap" data-flights-view tabindex="0" role="region" '
         'aria-label="%s">'
         '<table class="data-table data-table--flights">'
         "<thead><tr>%s</tr></thead>"
@@ -779,15 +861,17 @@ def _row_detail_text(row):
     return " \u00b7 ".join(part for part in (state, row["aircraft_type_label"]) if part)
 
 
-def _row_value_html(row, now):
-    """The trailing value: the live relative age over the local clock time."""
+def _row_value_html(row, now, dated=True):
+    """The trailing value: the live relative age over the local clock time.
+    Under a day grouping the group's label carries the date, so the row shows
+    the clock alone; under any other order the row dates itself."""
     parsed = layout.parse_iso(row["raw_ts"]) if row["raw_ts"] else None
     if parsed is None:
         clock = escape_html(row["raw_ts"] or i18n.t(_CLOCK_CELL_FALLBACK))
         age = ""
     else:
-        # The day group's label carries the date, so the row shows the clock alone.
-        clock = escape_html(layout.local_clock_text(parsed, parsed))
+        reference = parsed if dated else layout.parse_iso(now)
+        clock = escape_html(layout.local_clock_text(parsed, reference))
         age = ('<span class="time-value time-value__age">%s</span>'
                % layout.relative_time_html(row["raw_ts"], now)
                if layout.age_seconds(row["raw_ts"], now) is not None else "")
@@ -797,31 +881,28 @@ def _row_value_html(row, now):
     ) % (age, clock)
 
 
-def _history_card_html(row, index, now, anchor_index=None):
+def _history_card_html(row, index, now, anchor_index=None, dated=True):
     """One flight as a two-line row: at the left the archived render's thumbnail
     (the control that opens it); the airline and route, "direction \u00b7 aircraft"
-    beneath, and the clock over the age at the right.
-    `data-filter-group` is the row's loop index, shared with the desktop
-    `<tr>` at the same index so list-filter.js counts one flight once. The
-    row at `anchor_index` carries the id the Load more link scrolls to."""
-    attrs = (
-        'data-filter-text="%s" data-filter-kind="%s" data-filter-group="%d" %s="%s"%s'
-    ) % (_filter_text_attr(row), _filter_kind_attr(row), index,
-         layout.REFRESH_ROW_ID_ATTR, escape_html(_row_identity(row)),
-         ' id="%s"' % _NEW_ROWS_ANCHOR if index == anchor_index else "")
+    beneath, and the clock over the age at the right. The row at
+    `anchor_index` carries the id the Load more link scrolls to."""
+    attrs = '%s%s' % (
+        _row_facts(row, index),
+        ' id="%s"' % _NEW_CARD_ANCHOR if index == anchor_index else "")
     return ui_groups.row(
         label_html=_row_label_html(row),
-        detail=_row_detail_text(row), value_html=_row_value_html(row, now),
+        detail=_row_detail_text(row), value_html=_row_value_html(row, now, dated),
         lead_html=row.get("view_panel_thumb_html", ""),
         extra_class="history-card", attrs=attrs)
 
 
-def _history_cards_html(formatted_rows, now=None, anchor_index=None):
-    """The phone representation: one glass group per Paris calendar day
-    (the day is its section label), one row per flight, built from the same
-    `formatted_rows` list `_history_table_html()` consumes. A row whose
-    timestamp cannot be dated joins the open group. Returns "" for an empty
-    list. Must render as a DOM sibling immediately before the desktop table:
+def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True, group_label=""):
+    """The phone representation, built from the same `formatted_rows` list
+    `_history_table_html()` consumes. Newest or oldest first it is one glass
+    group per Paris calendar day (the day is its section label); under any
+    other order it is one group named `group_label`. A row whose timestamp
+    cannot be dated joins the open group. Returns "" for an empty list. Must
+    render as a DOM sibling immediately before the desktop table:
     style.css's `.history-cards ~ .data-table-wrap` breakpoint toggle depends
     on this order."""
     if not formatted_rows:
@@ -830,36 +911,77 @@ def _history_cards_html(formatted_rows, now=None, anchor_index=None):
     days = []
     current_day = None
     for index, row in enumerate(formatted_rows):
-        day = paris_day(row["raw_ts"])
+        day = paris_day(row["raw_ts"]) if dated else None
         if day is not None and day != current_day or not days:
             current_day = day if day is not None else current_day
             days.append((day, []))
-        days[-1][1].append(_history_card_html(row, index, now, anchor_index))
+        days[-1][1].append(_history_card_html(row, index, now, anchor_index, dated))
     groups = []
     for number, (day, items) in enumerate(days):
-        label = day_label(day, today) if day is not None else i18n.t(PAGE_TITLE)
+        label = day_label(day, today) if day is not None else (group_label or i18n.t(PAGE_TITLE))
         groups.append(ui_groups.group(
             "".join(items), label=label, label_id="history-day-%d" % number,
             extra_class="history-day", attrs="data-filter-day-group"))
-    return '<div class="history-cards">%s</div>' % "".join(groups)
+    return '<div class="history-cards" data-flights-view>%s</div>' % "".join(groups)
 
 
 _SHOWN_COUNT_TEXT = i18n.msg("flights.flights_shown", "%d flights shown")
 _LOAD_MORE_TEXT = i18n.msg("flights.load_more", "Load more")
 
 
-def _load_more_html(shown, pages):
+def _load_more_html(shown, view, pages):
     """The end-of-list block: how many flights are shown and a Load more
     link to the next page of history. A plain link (`?more=`), so it works
-    without a script; it returns to the first new row."""
-    href = device_scope.scoped(
-        "%s?%s=%d#%s" % (layout.FLIGHTS_ROUTE, MORE_PARAM, pages + 1, _NEW_ROWS_ANCHOR))
+    without a script; it returns to the first new row. There are two links,
+    one for each representation of the list (see `_NEW_ROWS_ANCHOR`); the
+    stylesheet shows the one that matches the viewport."""
+    text = escape_html(i18n.t(_LOAD_MORE_TEXT))
+    links = "".join(
+        '<a class="history-more__link history-more__link--%s" href="%s" data-flights-more>%s</a>'
+        % (kind, escape_html(view_href(view, pages + 1, anchor)), text)
+        for kind, anchor in (("cards", _NEW_CARD_ANCHOR), ("table", _NEW_ROWS_ANCHOR)))
     return (
-        '<div class="history-more" data-history-more>'
-        '<p class="text-label history-more__count">%s</p>'
-        '<a class="history-more__link" href="%s">%s</a></div>'
-    ) % (escape_html(i18n.t(_SHOWN_COUNT_TEXT) % shown), escape_html(href),
-         escape_html(i18n.t(_LOAD_MORE_TEXT)))
+        '<div class="history-more" data-history-more data-flights-view>'
+        '<p class="text-label history-more__count" role="status">%s</p>%s</div>'
+    ) % (escape_html(i18n.t(_SHOWN_COUNT_TEXT) % shown), links)
+
+
+def _search_form_html(view):
+    """The title-row search: a GET form the server answers. The direction chips
+    and the sort join it by `form=`, so one Enter sends all three."""
+    return layout.filter_title_search_form_html(
+        _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT), i18n.t(_FILTER_PLACEHOLDER_TEXT),
+        _FORM_ID, device_scope.scoped(layout.FLIGHTS_ROUTE), history_query.Q_PARAM, view.q,
+        view_href(history_query.View("", view.kind, view.sort)))
+
+
+def _list_html(formatted_rows, view, result, pages, now):
+    """The cards, the table and the Load more block for the flights shown."""
+    dated = view.sort in (history_query.SORT_NEWEST, history_query.SORT_OLDEST)
+    # Cards render before the table: style.css's
+    # `.history-cards ~ .data-table-wrap` sibling-combinator
+    # toggle depends on this DOM order.
+    anchor_index = (
+        min(pages * HISTORY_ROW_LIMIT, len(formatted_rows) - 1) if pages else None)
+    group_label = i18n.t(dict(_SORT_TEXTS)[view.sort])
+    return (
+        _history_cards_html(formatted_rows, now, anchor_index, dated, group_label)
+        + _history_table_html(formatted_rows, now, anchor_index, dated)
+        + (_load_more_html(len(formatted_rows), view, pages) if result.has_more else ""))
+
+
+def _attach_pictures(formatted_rows, gallery_entries):
+    """Stores each row's picture link and thumbnail (the nearest archived
+    render, else the earliest one; the empty string when there is none)."""
+    for row in formatted_rows:
+        match = (
+            nearest_gallery_entry(gallery_entries, row["raw_ts"])
+            or earliest_gallery_entry(gallery_entries))
+        row_name = _row_name(row["callsign"], row["hex"])
+        row["view_panel_html"] = (
+            _view_panel_link_html(match[0], match[1], row_name) if match else "")
+        row["view_panel_thumb_html"] = (
+            _view_panel_thumb_html(match[0], match[1], row_name) if match else "")
 
 
 def render(ctx):
@@ -867,9 +989,11 @@ def render(ctx):
     now = ctx.now or history_db.utc_now_iso()
     names = name_overrides.names_by_prefix(ctx.name_overrides)
     pages = more_pages(ctx.history_more)
-    fetched = _safe_query(
-        ctx.state_dir, lambda conn: history_rows_page(conn, names, pages))
-    rows, has_more = fetched if fetched is not _DB_UNAVAILABLE else (_DB_UNAVAILABLE, False)
+    view = history_query.parse_view(ctx.history_query)
+    result = _safe_query(
+        ctx.state_dir, lambda conn: history_result(conn, view, pages, names))
+    available = result is not _DB_UNAVAILABLE
+    has_history = available and result.total > 0
 
     # Flights stays on the self-refreshing loop without showing a
     # freshness line: freshness.js returns at its first guard on any page
@@ -877,59 +1001,27 @@ def render(ctx):
     # the loop.
     header = layout.page_header(
         i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now),
-        action_html=layout.filter_title_search_html(
-            _FILTER_INPUT_ID, i18n.t(_FILTER_LABEL_TEXT), i18n.t(_FILTER_PLACEHOLDER_TEXT))
-        if rows is not _DB_UNAVAILABLE and rows else None)
+        action_html=_search_form_html(view) if has_history else None)
 
-    # gallery_entries_list is the input to nearest_gallery_entry() below,
-    # which every per-row "View panel near this time" trigger depends on.
-    gallery_entries_list = ctx.gallery_entries or []
-
-    if rows is _DB_UNAVAILABLE:
+    if not available:
         body = ui_groups.group_panel('<p class="text-body">%s</p>' % escape_html(
             i18n.t(_HISTORY_UNAVAILABLE_TEXT)))
-        lightbox_html = ""
-    else:
-        formatted_rows = [format_event_row(row, now) for row in rows]
-        # formatted_rows is the one list both _history_cards_html() and
-        # _history_table_html() render from, so the two can never
-        # disagree about which flights exist.
-        visible_rows = formatted_rows
-        # The nearest-render match is computed once per row and stored
-        # onto the row dict both renderers share. A row with no match
-        # carries the empty string, never a disabled/broken control.
-        for row in visible_rows:
-            match = (
-                nearest_gallery_entry(gallery_entries_list, row["raw_ts"])
-                or earliest_gallery_entry(gallery_entries_list))
-            row_name = _row_name(row["callsign"], row["hex"])
-            row["view_panel_html"] = (
-                _view_panel_link_html(match[0], match[1], row_name) if match else "")
-            row["view_panel_thumb_html"] = (
-                _view_panel_thumb_html(match[0], match[1], row_name) if match else "")
-        # The shared lightbox is emitted once per page, only when at
-        # least one row carries a trigger button.
-        has_view_panel_button = any(
-            row["view_panel_html"] for row in visible_rows)
-        lightbox_html = _lightbox_html() if has_view_panel_button else ""
-        if not visible_rows:
-            # No filter bar over nothing to filter.
-            device = ctx.device
-            if device is not None and not device.is_live:
-                body = ui_groups.group_panel(layout.empty_state(
-                    i18n.t(DEVICE_EMPTY_HEADING), i18n.t(DEVICE_EMPTY_BODY), compact=True))
-            else:
-                body = _history_table_html(visible_rows, now)
-        else:
-            # Cards render before the table: style.css's
-            # `.history-cards ~ .data-table-wrap` sibling-combinator
-            # toggle depends on this DOM order.
-            anchor_index = (
-                min(pages * HISTORY_ROW_LIMIT, len(visible_rows) - 1) if pages else None)
-            body = (
-                _filter_bar_html(visible_rows)
-                + _history_cards_html(visible_rows, now, anchor_index)
-                + _history_table_html(visible_rows, now)
-                + (_load_more_html(len(visible_rows), pages) if has_more else ""))
+        return header + body
+    if not has_history:
+        device = ctx.device
+        heading, text = (
+            (DEVICE_EMPTY_HEADING, DEVICE_EMPTY_BODY)
+            if device is not None and not device.is_live
+            else (_NO_FLIGHTS_HEADING, _NO_FLIGHTS_BODY))
+        return header + ui_groups.group_panel(layout.empty_state(
+            i18n.t(heading), i18n.t(text), compact=True))
 
-    return header + body + lightbox_html
+    formatted_rows = [format_event_row(row, now) for row in result.rows]
+    _attach_pictures(formatted_rows, ctx.gallery_entries or [])
+    inner = _controls_html(view, result)
+    if formatted_rows:
+        inner += _list_html(formatted_rows, view, result, pages, now)
+    else:
+        inner += _empty_html(view, result)
+    lightbox = _lightbox_html() if any(r["view_panel_html"] for r in formatted_rows) else ""
+    return header + inner + lightbox

@@ -51,6 +51,5 @@ def test_the_live_frame_name_is_translated_in_the_title_the_heading_and_the_butt
     home = _page(server, admin, "/devices/%s/" % seed.live_id, "fr")
     assert _title(home).endswith("Cadre d’Orly - SkyPane")
     fleet_page = _page(server, admin, "/fleet?frame=%s" % seed.live_id, "fr")
-    heading = re.search(r'<h2 class="text-heading">([^<]*)</h2>', fleet_page).group(1)
-    assert heading == "Cadre d’Orly"
+    assert 'aria-label="Renommer Cadre d’Orly"' in fleet_page
     assert "Orly frame" not in fleet_page

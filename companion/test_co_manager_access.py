@@ -19,7 +19,7 @@ STRANGER_EMAIL = "stranger@example.test"
 
 PAGES = ("/", "/display", "/detection", "/flights", "/airlines")
 LEGACY_REDIRECTS = ("/settings", "/history", "/preview")
-ADMIN_FRAME_GETS = ("/update", "/airlines/manage")
+ADMIN_FRAME_GETS = ("/airlines/manage",)
 ADMIN_GETS = ("/fleet", "/users", "/audit")
 
 
@@ -180,6 +180,11 @@ def test_a_co_manager_saves_a_detection_runway(rig):
 
 
 # --- excluded ------------------------------------------------------------
+
+
+def test_a_co_manager_is_moved_from_the_retired_update_page_under_a_frame_prefix(rig):
+    status, headers, _body = rig.get("co", rig.prefix() + "/update")
+    assert status == 303 and headers["Location"] == rig.prefix() + "/"
 
 
 @pytest.mark.parametrize("page", ADMIN_FRAME_GETS)

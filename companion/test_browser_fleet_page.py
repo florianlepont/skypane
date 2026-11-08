@@ -38,7 +38,7 @@ _EN_WORDS = {
     "Waiting for pairing", "Retired"}
 
 
-def _open(new_context, server, viewport, lang="en", scheme="light", path="/fleet?tab=access"):
+def _open(new_context, server, viewport, lang="en", scheme="light", path="/fleet"):
     seed = fx.seed_fleet(server.state_dir)
     fx.issue_code(server.state_dir, seed.pending_id)
     context = new_context(viewport=viewport, color_scheme=scheme)
@@ -90,7 +90,7 @@ def test_the_other_frames_fit_with_one_dot_per_row_and_no_table(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_a_long_frame_name_wraps_inside_the_detail_header_at_360(
+def test_a_long_frame_name_never_overflows_and_the_header_links_stay_in_view_at_360(
         new_context, app_server_in_process, lang):
     server = app_server_in_process
     seed = fx.seed_fleet(server.state_dir)
@@ -110,55 +110,43 @@ def test_a_long_frame_name_wraps_inside_the_detail_header_at_360(
         page.goto(server.base_url() + "/fleet?frame=" + seed.owned_id)
         page.locator("main").wait_for(state="visible")
         assert not _assert_no_page_overflow(page, "long-name", 360)
-        title = page.locator(".fleet-detail-head h2", has_text=LONG_NAME)
-        title.wait_for(state="visible")
-        assert title.evaluate("e => e.scrollWidth <= e.clientWidth + 1")
-        assert title.bounding_box()["height"] > 30
+        links = page.locator(".fleet-detail-head a.row-action")
+        links.first.wait_for(state="visible")
+        assert links.count() == 2
+        for index in range(2):
+            box = links.nth(index).bounding_box()
+            assert box["height"] >= MIN_TAP_PX - 0.5 and box["x"] >= -0.5
+            assert box["x"] + box["width"] <= 360 + 0.5
     finally:
         context.close()
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
-def test_the_actions_menu_opens_closes_with_escape_and_has_44px_items(
+def test_the_header_offers_two_visible_44px_links_not_a_menu(
         new_context, app_server_in_process, viewport):
-    context, page, _seed = _open(
+    context, page, seed = _open(
         new_context, app_server_in_process, viewport, path="/fleet?frame={owned}")
     try:
-        toggle = ".fleet-detail-head .row-menu__toggle"
-        _assert_hit_target(page, toggle, "toggle")
-        page.locator(toggle).click()
-        page.wait_for_function(
-            "() => document.querySelectorAll("
-            "'.fleet-detail-head details.row-menu[open]').length === 1", timeout=10000)
-        items = page.locator(".fleet-detail-head .row-menu__item")
-        assert items.all_inner_texts() == ["Open personal view"]
-        for index in range(items.count()):
-            assert items.nth(index).bounding_box()["height"] >= MIN_TAP_PX
-        assert not _assert_no_page_overflow(page, "menu-open", viewport["width"])
-        page.keyboard.press("Escape")
-        page.wait_for_function(
-            "() => document.querySelectorAll('details.row-menu[open]').length === 0",
-            timeout=10000)
-        page.locator(toggle).click()
-        page.wait_for_function(
-            "() => document.querySelectorAll('details.row-menu[open]').length === 1",
-            timeout=10000)
-        page.mouse.click(5, 5)
-        page.wait_for_function(
-            "() => document.querySelectorAll('details.row-menu[open]').length === 0",
-            timeout=10000)
+        links = ".fleet-detail-head a.row-action"
+        _assert_hit_target(page, links + ":nth-of-type(1)", "personal view")
+        _assert_hit_target(page, links + ":nth-of-type(2)", "rename")
+        assert page.locator(links).all_inner_texts() == ["Open personal view", "Rename"]
+        assert page.locator(".fleet-detail-head details").count() == 0
+        for index in range(2):
+            assert page.locator(links).nth(index).bounding_box()["height"] >= MIN_TAP_PX - 0.5
+        assert not _assert_no_page_overflow(page, "header-links", viewport["width"])
+        # The header names the frame once less: no repeated heading.
+        assert page.locator(".fleet-detail-head h2").count() == 0
     finally:
         context.close()
 
 
-def test_the_actions_menu_toggles_without_script(new_context, app_server_in_process):
+def test_the_header_links_work_without_script(new_context, app_server_in_process):
     server = app_server_in_process
     seed = fx.seed_fleet(server.state_dir)
     with _no_js_page(new_context, server.base_url(), "/fleet?frame=" + seed.owned_id,
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
-        first = page.locator(".fleet-detail-head details.row-menu")
-        first.locator("summary").click()
-        assert first.get_attribute("open") is not None
-        assert first.locator(".row-menu__item").first.bounding_box()["height"] >= MIN_TAP_PX
-        first.locator("summary").click()
-        assert first.get_attribute("open") is None
+        with page.expect_navigation():
+            page.locator(".fleet-detail-head a.row-action", has_text="Rename").click()
+        assert page.url.endswith("/devices/%s/frame/name" % seed.owned_id)
+        assert page.locator('input[name="name"]').input_value() == "Kitchen"

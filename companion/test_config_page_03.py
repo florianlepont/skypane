@@ -16,6 +16,7 @@ import pytest
 import companion.i18n as i18n
 import companion.test_config_page_helpers as cp
 from companion import app as companion_app
+from companion import ui_save_bar
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import form_post, look
@@ -717,8 +718,8 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
         "expected the leading Same-as-departures option to NOT be checked once an override is set")
     assert not re.search(r'name="theme_arriving" value="white"[^>]*checked', arrivals_segment), (
         "expected the departures theme (white) to NOT be marked selected in the arrivals table")
-    sentence = re.search(r'data-look-sentence>([^<]*)<', arrivals_segment).group(1)
-    assert sentence == escape_html(look.look_sentence("black")), sentence
+    alt = re.search(r'<img class="look-frame__image"[^>]* alt="([^"]*)"', arrivals_segment).group(1)
+    assert alt.endswith(escape_html(look.look_sentence("black"))), alt
     calendar_start, calendar_end = cp.aspect_usage_row_bounds(
         rendered, config_page.COLOUR_USAGE_CALENDAR)
     calendar_segment = rendered[calendar_start:calendar_end]
@@ -1055,21 +1056,18 @@ def test_style_css_carries_section_caption_and_the_restored_dirty_bar_rules(serv
     assert _MUTED_TEXT in " ".join(caption.values()), (
         "expected .section-caption to carry the 70%% color-mix muted idiom, got %r" % (caption,))
 
-    # Four `.dirty-bar` rules: the base rule (flex row, entrance
-    # animation - no position declared), one per breakpoint (each
-    # setting position: fixed with its own geometry) and the bar glass
-    # fill inside the backdrop-filter support block. Exactly two carry
-    # position: fixed - never zero (a breakpoint left position: static)
-    # and never three (the base rule itself should not set it).
+    # Three `.dirty-bar` rules: the one base rule (the phone layout, position:
+    # fixed, entrance animation), the wide-screen docking geometry and the bar
+    # glass fill inside the backdrop-filter support block. Only the base rule
+    # positions the bar: one component, one position rule.
     dirty_bar_rules = rules_with_selector(css, ".dirty-bar")
-    assert len(dirty_bar_rules) == 4, (
-        "expected exactly four `.dirty-bar` rules (the base rule, one per breakpoint and the glass fill), "
-        "got %r" % ([rule.at_rules for rule in dirty_bar_rules],))
+    assert len(dirty_bar_rules) == 3, (
+        "expected exactly three `.dirty-bar` rules (the base rule, the wide-screen docking and the "
+        "glass fill), got %r" % ([rule.at_rules for rule in dirty_bar_rules],))
     fixed = [rule.at_rules for rule in dirty_bar_rules
              if dict(rule.declarations).get("position") == "fixed"]
-    assert len(fixed) == 2 and () not in fixed, (
-        "expected exactly the two breakpoint `.dirty-bar` rules to set position: fixed, got %r"
-        % (fixed,))
+    assert fixed == [()], (
+        "expected only the base `.dirty-bar` rule to set position: fixed, got %r" % (fixed,))
     assert _declared(css, ".dirty-bar[hidden]").get("display") == "none", (
         "expected the `.dirty-bar[hidden] { display: none; }` override to survive")
     assert _declared(css, ".dirty-bar__cancel"), (
@@ -1286,7 +1284,7 @@ def test_aspect_rules_copy_appears_escaped_verbatim():
         config_page.RULES_SECTION_CAPTION,
         config_page.RULE_KIND_FIELD_LABEL,
         config_page.RULE_VALUE_FIELD_LABEL,
-        config_page.RULE_CREATE_BUTTON_TEXT,
+        ui_save_bar.SAVE_TEXT,
         rules_settings.ADD_SPECIAL_LOOK_LABEL,
         rules_settings.SPECIAL_LOOKS_ORDER,
     )

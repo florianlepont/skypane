@@ -558,7 +558,7 @@ def test_theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme():
 
 
 def test_theme_preview_means_pairwise_distinct():
-    """the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used"""
+    """every registered theme's preview has a pairwise-distinct mean RGB at the crop/size used"""
     import io
     means = []
     for theme_id in device_config.THEME_IDS:
@@ -566,7 +566,7 @@ def test_theme_preview_means_pairwise_distinct():
         img = Image.open(io.BytesIO(payload)).convert("RGB").resize((1, 1))
         means.append(img.getpixel((0, 0)))
     assert len(set(means)) == len(means), (
-        "expected 18 pairwise-distinct mean RGB values, got %r" % (means,))
+        "expected one distinct mean RGB value per registered theme, got %r" % (means,))
 
 
 def test_theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph():
@@ -1581,9 +1581,9 @@ def test_copy_button_script_es5_safe_reads_data_copied_text(app02_server):
         "expected exactly one \"Copied\" literal (the documented fallback), got %d" % src.count('"Copied"'))
 
 
-def test_dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes(app02_server):
+def test_dirty_state_script_es5_safe_reads_three_dirty_bar_attributes(app02_server):
     """dirty-state.js stays ES5-safe (no let/const/arrow/backtick/innerHTML/outerHTML/
-    insertAdjacentHTML/document.write/eval/XHR), contains NO fetch( any more, reads all seven
+    insertAdjacentHTML/document.write/eval/XHR), contains NO fetch( any more, reads all three
     of the bar's own data-dirty-* attributes, and each restored hardcoded literal survives
     only as its own documented fallback"""
     src = served_asset(app02_server, "/static/dirty-state.js")
@@ -1597,16 +1597,12 @@ def test_dirty_state_script_es5_safe_reads_seven_dirty_bar_attributes(app02_serv
     required = ("textContent", "addEventListener", "getAttribute", "querySelector")
     for token in required:
         assert token in src, "expected %r in dirty-state.js" % token
-    for attr in (
-            "data-dirty-changed-suffix", "data-dirty-and", "data-dirty-list-and",
-            "data-dirty-unsaved-singular", "data-dirty-unsaved-plural",
-            "data-dirty-saving", "data-dirty-initial-text"):
+    for attr in ("data-dirty-several", "data-dirty-saving", "data-dirty-initial-text"):
         assert attr in src, "expected dirty-state.js to read %r" % attr
     # Each restored hardcoded word survives ONLY as its own
     # documented fallback literal, never a second inline occurrence
     # elsewhere in the file.
     for literal in (
-            '" changed"', '" and "', '", and "', '"1 unsaved change"',
-            '" unsaved changes"', '"Saving…"', '"Unsaved changes"'):
+            '"Unsaved changes:"', '"Saving…"', '"Unsaved changes"'):
         assert src.count(literal) == 1, (
             "expected exactly one %s literal (the fallback), got %d" % (literal, src.count(literal)))

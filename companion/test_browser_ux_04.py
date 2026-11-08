@@ -559,18 +559,12 @@ def test_section_naming_reflects_the_fields_actually_changed_in_document_order(
             target_theme = next(
                 r for r in device_config.THEME_IDS if r != current_theme)
 
-            # Built from the bar's own data-dirty-* words and each section wrapper's own
-            # label, never a hardcoded English/French literal, so this check works unchanged
-            # in either language.
-            theme_label = page.eval_on_selector(
-                theme_sel,
-                "el => el.closest('[data-dirty-section]')"
-                ".getAttribute('data-dirty-section')")
-            changed_suffix = page.eval_on_selector(
+            # Built from the bar's own data-dirty-* words, never a hardcoded English/French
+            # literal, so this check works unchanged in either language: one changed area
+            # reads the plain "Unsaved changes", whatever its name.
+            expected_one = page.eval_on_selector(
                 "[data-dirty-bar]",
-                "el => el.getAttribute('data-dirty-changed-suffix')")
-
-            expected_one = theme_label + changed_suffix
+                "el => el.getAttribute('data-dirty-initial-text')")
 
             # Phase A: one changed field (the theme). The bar names only it.
             _click_control(
@@ -908,14 +902,9 @@ def test_a_form_associated_radio_path_reaches_the_bar_and_disk_end_to_end(
             target_theme = next(
                 r for r in device_config.THEME_IDS if r != current_theme)
 
-            theme_label = page.eval_on_selector(
-                theme_sel,
-                "el => el.closest('[data-dirty-section]')"
-                ".getAttribute('data-dirty-section')")
-            changed_suffix = page.eval_on_selector(
+            expected = page.eval_on_selector(
                 "[data-dirty-bar]",
-                "el => el.getAttribute('data-dirty-changed-suffix')")
-            expected = theme_label + changed_suffix
+                "el => el.getAttribute('data-dirty-initial-text')")
 
             # 2. Select a theme radio whose value differs from disk, via
             #    a real element.click().

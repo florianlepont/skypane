@@ -38,12 +38,19 @@ from companion.test_browser_ux_helpers import (
 pytestmark = pytest.mark.browser
 
 
+def _seed_coloured_look(state_dir):
+    """The shared seed plus a coloured departures look: on plain white paper the picker's colour
+    row is greyed, and these checks drive the colour row from the keyboard."""
+    seed_state_dir(state_dir)
+    device_config.save_device_config(state_dir, theme="red")
+
+
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
     """The shared, read-only seeded fixture every read-only check in this module measures
     against — module-scoped because none of them persists a real setting.
     """
-    return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
+    return module_app_server_factory(seed=_seed_coloured_look, fake_providers=True)
 
 
 # Shared helpers for this module's swap-and-request-counting checks. Local to this module: no
@@ -374,8 +381,11 @@ def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
                 "expected the first rendered row to carry a non-empty "
                 "data-filter-text to filter by — with none, this check has "
                 "nothing to type")
-        page.click("[data-filter-input]")
-        page.type("[data-filter-input]", query)
+        page.click("[data-flights-search]")
+        page.type("[data-flights-search]", query)
+        page.wait_for_function(
+            "() => document.querySelectorAll('tr[data-flight-row]').length === 1"
+            " && window.location.search.indexOf('q=') !== -1", timeout=10000)
         visible = page.evaluate(
             "() => [...document.querySelectorAll('tr[data-flight-row]')]"
             ".filter(el => !el.hidden).length")
@@ -419,7 +429,7 @@ def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
             raise AssertionError(
                 "the live count reverted to the server's own unfiltered sentence "
                 "after a refresh, expected it to still read %r" % (count_text,))
-        if page.eval_on_selector("[data-filter-input]", "el => el.value") != query:
+        if page.eval_on_selector("[data-flights-search]", "el => el.value") != query:
             raise AssertionError("the typed query itself did not survive the refresh")
     finally:
         context.close()
@@ -467,11 +477,8 @@ def test_the_dirty_count_arrives_and_moves_only_when_the_word_does(new_context, 
 
         expected_label = page.evaluate(
             "() => {"
-            " var field = document.querySelector('input[name=\"theme\"]');"
-            " var wrapper = field.closest('[data-dirty-section]');"
             " var bar = document.querySelector('[data-dirty-bar]');"
-            " return wrapper.getAttribute('data-dirty-section')"
-            "   + bar.getAttribute('data-dirty-changed-suffix');"
+            " return bar.getAttribute('data-dirty-initial-text');"
             "}")
         _click_control(page, 'input[name="theme"][value="%s"]' % theme_target)
         _wait_for_bar(page)
@@ -1069,7 +1076,7 @@ def test_the_live_preview_is_contained_keyed_focusable_and_saves(
     visible focus ring, and the native save lands on the persisted theme with the
     saved confirmation.
     """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    server = make_app_server(seed=_seed_coloured_look, fake_providers=True)
     base_url = server.base_url()
     context = new_context(viewport=viewport)
     try:

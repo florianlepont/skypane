@@ -17,7 +17,7 @@ import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
 from companion import audit, console_flash, device_scope, i18n, route_types
-from companion.pages import audit_page
+from companion.pages import audit_page, fleet_page
 from server import device_dirs, fleet_db, fleet_ops
 
 # Same literals as companion/console_routes.py (which imports this module, so
@@ -150,7 +150,7 @@ _OPERATION_ERRORS = (fleet_ops.OpsError, ValueError, OSError, sqlite3.Error)
 
 
 def _frame_label(device):
-    return str(device["name"]) if device["name"] else str(device["id"])
+    return str(device["name"]) if device["name"] else fleet_page.unnamed_text()
 
 
 # ---- handlers -------------------------------------------------------------
@@ -240,7 +240,8 @@ def handle_reassign(h, m):
     finally:
         conn.close()
     return h.redirect(
-        FLEET_PATH, set_cookie=_back(FLASH_REASSIGNED, frame=label, email=email))
+        "%s?frame=%s&tab=access" % (FLEET_PATH, device_id),
+        set_cookie=_back(FLASH_REASSIGNED, frame=label, email=email))
 
 
 # ---- audit log page -----------------------------------------------------------

@@ -102,6 +102,22 @@
     }
   }
 
+  // A dialog closed without saving shows the saved values when it opens
+  // again, not what was typed before. The forms are reset to their
+  // server-rendered values and told so with a change event, for the parts of
+  // the page that mirror a field (the quiet-hours preset cards).
+  function resetForms(dialog) {
+    var forms = dialog.querySelectorAll("form");
+    for (var i = 0; i < forms.length; i++) {
+      forms[i].reset();
+      if (document.createEvent) {
+        var evt = document.createEvent("Event");
+        evt.initEvent("change", true, false);
+        forms[i].dispatchEvent(evt);
+      }
+    }
+  }
+
   function onClosed(evt) {
     var dialog = evt.target;
     // The close that openModal() issues on an already-open dialog reports
@@ -112,6 +128,7 @@
     }
     dialog.classList.remove("is-modal");
     resetSheet(dialog);
+    resetForms(dialog);
     clearHash();
     returnFocus();
   }

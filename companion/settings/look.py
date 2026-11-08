@@ -5,7 +5,10 @@ markup built on that reading.
 The axes are derived from `server.themes.THEMES` itself, never from a
 hand-written table, so a theme added to the registry lands in its cell
 automatically. A combination with no theme is a *gap*: it is shown
-disabled with a reason, never hidden and never invented.
+disabled with a reason, never hidden and never invented. Of the
+5 x 3 x 3 combinations, the ten whose stripe would be invisible (a
+solid stripe on a full background, a soft stripe on a soft background) are
+gaps for good: they would render like the same look without a stripe.
 
 The posted values do not change: every control that is submitted is a
 native radio carrying a real theme id (or the empty "same as
@@ -47,15 +50,26 @@ STRIPE_SOLID = "solid"
 STRIPE_SOFT = "soft"
 STRIPES = (STRIPE_NONE, STRIPE_SOLID, STRIPE_SOFT)
 
-# The table's columns, as (background, stripe) pairs. Plain paper (paper,
-# none) is the one colourless look and sits outside the table.
-STYLE_COLUMNS = (
-    (BACKGROUND_FULL, STRIPE_NONE),
-    (BACKGROUND_SOFT, STRIPE_NONE),
-    (BACKGROUND_PAPER, STRIPE_SOLID),
-    (BACKGROUND_PAPER, STRIPE_SOFT),
-    (BACKGROUND_SOFT, STRIPE_SOLID),
+# The tables' columns, as (background, stripe) pairs, in two tables so
+# each fits a phone: the looks without a stripe on a coloured background
+# (and on plain paper), then the stripes on a coloured background. Plain
+# paper (paper, none) is the one colourless look and sits outside the
+# tables.
+STYLE_COLUMN_GROUPS = (
+    (
+        (BACKGROUND_FULL, STRIPE_NONE),
+        (BACKGROUND_SOFT, STRIPE_NONE),
+        (BACKGROUND_PAPER, STRIPE_SOLID),
+        (BACKGROUND_PAPER, STRIPE_SOFT),
+    ),
+    (
+        (BACKGROUND_SOFT, STRIPE_SOLID),
+        (BACKGROUND_FULL, STRIPE_SOFT),
+        (BACKGROUND_FULL, STRIPE_SOLID),
+        (BACKGROUND_SOFT, STRIPE_SOFT),
+    ),
 )
+STYLE_COLUMNS = tuple(pair for group in STYLE_COLUMN_GROUPS for pair in group)
 
 COLOUR_LABELS = {
     COLOUR_BLACK: i18n.msg("look.black", "Black"),
@@ -82,6 +96,9 @@ STYLE_LABELS = {
     (BACKGROUND_PAPER, STRIPE_SOLID): i18n.msg("look.style_stripe", "Stripe"),
     (BACKGROUND_PAPER, STRIPE_SOFT): i18n.msg("look.style_soft_stripe", "Soft stripe"),
     (BACKGROUND_SOFT, STRIPE_SOLID): i18n.msg("look.style_stripe_on_soft", "Stripe on soft"),
+    (BACKGROUND_FULL, STRIPE_SOFT): i18n.msg("look.style_soft_stripe_on_full", "Soft stripe on full"),
+    (BACKGROUND_FULL, STRIPE_SOLID): i18n.msg("look.style_stripe_on_full", "Stripe on full"),
+    (BACKGROUND_SOFT, STRIPE_SOFT): i18n.msg("look.style_soft_stripe_on_soft", "Soft stripe on soft"),
 }
 PLAIN_PAPER_LABEL = i18n.msg("look.plain_paper", "Plain paper")
 COLOUR_AXIS_LABEL = i18n.msg("look.colour", "Main colour")
@@ -90,24 +107,28 @@ STRIPE_AXIS_LABEL = i18n.msg("look.diagonal_stripe", "Diagonal stripe")
 
 REASON_STRIPE_ON_FULL = "stripe_on_full"
 REASON_SOFT_ON_SOFT = "soft_on_soft"
-REASON_YELLOW_STRIPE = "yellow_stripe"
+# The registry has a theme for this combination but the frame's hardware
+# cannot show one of its inks.
 REASON_NO_THEME = "no_theme"
 REASON_MESSAGES = {
     REASON_STRIPE_ON_FULL: i18n.msg(
-        "look.a_stripe_would_vanish_on_a_full_background",
-        "A stripe would vanish on a full background."),
+        "look.same_rendering_without_solid_stripe_on_full",
+        "On a full background a solid stripe is invisible: same rendering as without a stripe."),
     REASON_SOFT_ON_SOFT: i18n.msg(
-        "look.a_soft_stripe_would_vanish_on_a_soft_background",
-        "A soft stripe would vanish on a soft background."),
-    REASON_YELLOW_STRIPE: i18n.msg(
-        "look.text_on_a_stripe_is_white_unreadable_on_yellow",
-        "Text on a stripe is white, and white on yellow is unreadable."),
+        "look.same_rendering_without_stripe_on_soft",
+        "A soft stripe on a soft background is invisible: same rendering as without a stripe."),
     REASON_NO_THEME: i18n.msg(
         "look.the_frame_has_no_theme_for_this_combination",
         "The frame has no theme for this combination yet."),
 }
+# Shown under the colour choice while it changes nothing.
+COLOUR_PAPER_REASON = i18n.msg(
+    "look.colour_changes_nothing_on_plain_paper",
+    "On plain white paper the colour changes nothing: pick a background or a stripe first.")
 GAP_CELL_TEMPLATE = i18n.msg("look.not_available", "%s: not available")
 TABLE_CAPTION_TEMPLATE = i18n.msg("look.colour_and_style", "%s: colour and style")
+TABLE_CAPTION_STRIPES_TEMPLATE = i18n.msg(
+    "look.colour_and_style_stripes", "%s: colour and style, stripes on a background")
 NOTES_HEADING = i18n.msg("look.why_some_cells_are_empty", "Why some cells are empty")
 
 # Field names of the three script-only axis radio groups. They are
@@ -181,18 +202,18 @@ def resolve(colour, background, stripe, theme_ids=None):
 def gap_reason(colour, background, stripe, theme_ids=None):
     """Why `(colour, background, stripe)` has no theme: one of the
     REASON_* keys, or `None` when it does have one. A combination the
-    registry has but `theme_ids` leaves out is `REASON_NO_THEME`.
+    registry has but `theme_ids` leaves out (the hardware cannot show its
+    inks) is `REASON_NO_THEME`; one the registry cannot have is an
+    invisible stripe.
     """
     if resolve(colour, background, stripe, theme_ids) is not None:
         return None
     if resolve(colour, background, stripe) is not None:
         return REASON_NO_THEME
-    if background == BACKGROUND_FULL and stripe != STRIPE_NONE:
+    if background == BACKGROUND_FULL and stripe == STRIPE_SOLID:
         return REASON_STRIPE_ON_FULL
     if background == BACKGROUND_SOFT and stripe == STRIPE_SOFT:
         return REASON_SOFT_ON_SOFT
-    if colour == COLOUR_YELLOW and stripe != STRIPE_NONE:
-        return REASON_YELLOW_STRIPE
     return REASON_NO_THEME
 
 
@@ -300,6 +321,30 @@ def _option_html(field_name, value, checked, label_text, preview_src, form_id, e
         swatch_html, visible, escape_html(label_text))
 
 
+def _style_table_html(
+        field_name, columns, selected_theme_id, preview_src, notes, form_id, theme_ids, caption):
+    """One colour x style table over `columns` (background, stripe pairs)."""
+    head = "".join(
+        '<th scope="col">%s</th>' % escape_html(i18n.t(STYLE_LABELS[pair])) for pair in columns)
+    rows = []
+    for colour in COLOURS:
+        cells = "".join(
+            _table_cell_html(
+                field_name, colour, background, stripe, selected_theme_id, preview_src, notes, form_id,
+                theme_ids)
+            for background, stripe in columns)
+        rows.append(
+            '<tr><th scope="row"><svg class="look-table__ink" viewBox="0 0 12 12" width="12" '
+            'height="12" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="6" '
+            'fill="%s"></circle></svg><span class="look-table__colour">%s</span></th>%s</tr>' % (
+                escape_html(colour_hex(colour)), escape_html(i18n.t(COLOUR_LABELS[colour])),
+                cells))
+    return (
+        '<table class="look-table"><caption class="visually-hidden">%s</caption>'
+        '<thead><tr><td></td>%s</tr></thead><tbody>%s</tbody></table>'
+    ) % (escape_html(caption), head, "".join(rows))
+
+
 def look_table_html(
         field_name, selected_theme_id, caption, preview_src, leading_html="", form_id=SETTINGS_FORM_ID,
         theme_ids=None):
@@ -319,22 +364,12 @@ def look_table_html(
         for colour in COLOURS for background, stripe in STYLE_COLUMNS
         if resolve(colour, background, stripe, theme_ids) is None]
     notes = _gap_notes(gaps)
-    head = "".join(
-        '<th scope="col">%s</th>' % escape_html(i18n.t(STYLE_LABELS[pair]))
-        for pair in STYLE_COLUMNS)
-    rows = []
-    for colour in COLOURS:
-        cells = "".join(
-            _table_cell_html(
-                field_name, colour, background, stripe, selected_theme_id, preview_src, notes, form_id,
-                theme_ids)
-            for background, stripe in STYLE_COLUMNS)
-        rows.append(
-            '<tr><th scope="row"><svg class="look-table__ink" viewBox="0 0 12 12" width="12" '
-            'height="12" aria-hidden="true" focusable="false"><circle cx="6" cy="6" r="6" '
-            'fill="%s"></circle></svg><span class="look-table__colour">%s</span></th>%s</tr>' % (
-                escape_html(colour_hex(colour)), escape_html(i18n.t(COLOUR_LABELS[colour])),
-                cells))
+    tables = "".join(
+        _style_table_html(
+            field_name, columns, selected_theme_id, preview_src, notes, form_id, theme_ids,
+            i18n.t(template) % caption)
+        for columns, template in zip(
+            STYLE_COLUMN_GROUPS, (TABLE_CAPTION_TEMPLATE, TABLE_CAPTION_STRIPES_TEMPLATE)))
     paper_id = resolve(COLOURS[0], BACKGROUND_PAPER, STRIPE_NONE, theme_ids)
     paper_html = "" if paper_id is None else _option_html(
         field_name, paper_id, paper_id == selected_theme_id, i18n.t(PLAIN_PAPER_LABEL),
@@ -345,15 +380,12 @@ def look_table_html(
     return (
         '<div class="look-table-block">'
         '<div class="look-table__options">%s%s</div>'
-        '<div class="look-table__scroll">'
-        '<table class="look-table"><caption class="visually-hidden">%s</caption>'
-        '<thead><tr><td></td>%s</tr></thead><tbody>%s</tbody></table></div>'
+        '<div class="look-table__scroll">%s</div>'
         '<p class="visually-hidden">%s</p><ul class="look-table__notes">%s</ul>'
         "</div>"
     ) % (
         leading_html, paper_html,
-        escape_html(i18n.t(TABLE_CAPTION_TEMPLATE) % caption), head, "".join(rows),
-        escape_html(i18n.t(NOTES_HEADING)), notes_html)
+        tables, escape_html(i18n.t(NOTES_HEADING)), notes_html)
 
 
 def same_option_html(field_name, checked, label_text, form_id=SETTINGS_FORM_ID):
@@ -393,6 +425,7 @@ def look_model_json(theme_ids=None):
         "cells": cells, "reasons": reasons, "axes": axes, "sentences": sentences,
         "colours": {colour: colour_hex(colour) for colour in COLOURS},
         "colourNames": {colour: i18n.t(COLOUR_LABELS[colour]) for colour in COLOURS},
+        "colourReason": i18n.t(COLOUR_PAPER_REASON),
         "paper": _palette_hex(panel_format.IDX_WHITE),
         "softOpacity": SOFT_INK_OPACITY,
     }, sort_keys=True, ensure_ascii=False)
@@ -442,7 +475,8 @@ def axes_html(prefix):
         '<div class="look-axes" data-look-axes>'
         '<fieldset class="look-axis"><legend class="look-axis__label">%s'
         ' <span class="look-axis__value" data-look-colour-name></span></legend>'
-        '<div class="look-dots">%s</div></fieldset>'
+        '<div class="look-dots">%s</div>'
+        '<p class="look-axis__why" data-look-colour-why aria-live="polite"></p></fieldset>'
         '<fieldset class="look-axis"><legend class="look-axis__label">%s</legend>'
         '<div class="look-seg">%s</div></fieldset>'
         '<fieldset class="look-axis" aria-describedby="%s"><legend class="look-axis__label">%s</legend>'

@@ -59,7 +59,7 @@ EAGER_FIELDS = (
     "state_dir", "device", "root_state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
-    "sheet_key", "rule_edit", "calendar_sheet_error", "history_more",
+    "sheet_key", "rule_edit", "calendar_sheet_error", "history_more", "history_query",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -427,6 +427,10 @@ def build_page_context(handler, device):
             "rule_edit": _rule_edit_from(params),
             # The Flights page's Load more count, a plain integer.
             "history_more": params.get("more", [None])[0],
+            # The Flights page's search text, direction and sort, raw: the
+            # page validates them.
+            "history_query": {
+                name: params.get(name, [None])[0] for name in ("q", "kind", "sort")},
             # The calendar connection page's refusal code. Only members of
             # the fixed vocabulary survive: the query is client-supplied and
             # picks nothing but a branch.

@@ -81,6 +81,8 @@ from companion.ui_base import (
     QUICK_STATE_ON_ATTR,
     QUICK_SWITCH_CONTROL_ATTR,
     QUICK_TOAST_TEMPLATE_ATTR,
+    SESSION_EXPIRED_TEMPLATE_ATTR,
+    SESSION_EXPIRED_TEXT,
     QUICK_SWITCH_FAILED_TEXT,
     QUICK_SWITCH_QUIET_LABEL_ID,
     QUICK_SWITCH_QUIET_STATE_ID,
@@ -101,6 +103,8 @@ from companion.ui_base import (
     CALENDAR_CONNECT_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
     MOTION_SCRIPT_SRC,
+    PREFETCH_SCRIPT_SRC,
+    SESSION_GUARD_SCRIPT_SRC,
     SPLASH_BOOT_SCRIPT_SRC,
     SPLASH_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
@@ -265,7 +269,8 @@ from companion.ui_components import (
     status_dot,
     status_row,
 )
-from companion.ui_filter import filter_bar_html, filter_title_search_html
+from companion.ui_filter import (
+    filter_bar_html, filter_title_search_form_html, filter_title_search_html)
 from companion.ui_shell import (
     GLOBAL_PAGE_SCRIPTS,
     SHELL_SCRIPT_ORDER,
@@ -345,6 +350,8 @@ __all__ = (
     "QUICK_STATE_ON_ATTR",
     "QUICK_SWITCH_CONTROL_ATTR",
     "QUICK_TOAST_TEMPLATE_ATTR",
+    "SESSION_EXPIRED_TEMPLATE_ATTR",
+    "SESSION_EXPIRED_TEXT",
     "QUICK_SWITCH_FAILED_TEXT",
     "QUICK_SWITCH_QUIET_LABEL_ID",
     "QUICK_SWITCH_QUIET_STATE_ID",
@@ -399,6 +406,8 @@ __all__ = (
     "CALENDAR_CONNECT_SCRIPT_SRC",
     "MODAL_SCRIPT_SRC",
     "MOTION_SCRIPT_SRC",
+    "PREFETCH_SCRIPT_SRC",
+    "SESSION_GUARD_SCRIPT_SRC",
     "SPLASH_BOOT_SCRIPT_SRC",
     "SPLASH_SCRIPT_SRC",
     "LEAFLET_SCRIPT_SRC",
@@ -493,6 +502,7 @@ __all__ = (
     "empty_state",
     "escape_html",
     "filter_bar_html",
+    "filter_title_search_form_html",
     "filter_title_search_html",
     "flash_banner",
     "frame_strip_html",

@@ -110,7 +110,7 @@ def test_reassign_wipes_the_previous_owners_data_and_keeps_the_identity(rig):
     before = _identity(server.state_dir, fleet.a1)
     status, headers, _ = _frame_post(
         server, cookie, fleet.a1, "reassign", owner_user_id=str(fleet.b_id))
-    assert status == 303 and headers["Location"] == "/fleet"
+    assert status == 303 and headers["Location"] == "/fleet?frame=%s&tab=access" % fleet.a1
     assert "Frame reassigned" in _flash_page(server, cookie, headers)
     assert _files(directory) == {device_dirs.CONFIG_FILENAME, device_dirs.PANEL_FILENAME}
     with open(os.path.join(directory, device_dirs.CONFIG_FILENAME)) as fh:

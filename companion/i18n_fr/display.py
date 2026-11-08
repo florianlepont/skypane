@@ -177,16 +177,11 @@ MESSAGES = {
     # caller), identical in both languages — not a missed translation,
     # listed in test_i18n.py's _UNCHANGED_IN_FRENCH cognate set.
 
-    # The restored dirty-save-bar's connector/progress words and the
-    # "Saving…" progressive, sharing the "Enregistrer"
-    # verb and the "Vérification en cours…" ellipsis style above.
+    # The save bar's words: the "Saving…" progressive shares the
+    # "Enregistrer" verb and the "Vérification en cours…" ellipsis style above.
     "display.saving": "Enregistrement…",
     "display.unsaved_changes": "Modifications non enregistrées",
-    "display.changed": " modifié",
-    "display.and": " et ",
-    "display.and_2": " et ",
-    "display.1_unsaved_change": "1 modification non enregistrée",
-    "display.unsaved_changes_2": " modifications non enregistrées",
+    "display.unsaved_changes_in": "Modifications non enregistrées\u00a0:",
 
     # --- Field-level validation errors ------------------------------
     "display.that_is_not_one_of_the_available_choices":

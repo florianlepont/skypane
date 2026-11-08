@@ -102,7 +102,9 @@ def test_picker_choices_swap_the_picture_live(new_context, make_app_server):
         assert _checked(page, "theme") == "band_blue_field"
         src = _picture_src(page, DEPARTURES)
         assert src.startswith("/frame-preview/band_blue_field.png?state=departing")
-        assert page.locator(DEPARTURES + " [data-look-sentence]").inner_text() == "Blue, stripe on soft"
+        page.wait_for_function(
+            "() => document.querySelector('%s img.look-frame__image').alt.endsWith('%s')" % (
+                DEPARTURES, "Blue, stripe on soft"), timeout=10000)
         page.wait_for_function(
             "() => { const i = document.querySelector('%s img.look-frame__image');"
             " return i.complete && i.naturalWidth === 600; }" % DEPARTURES)
@@ -113,9 +115,22 @@ def test_picker_choices_swap_the_picture_live(new_context, make_app_server):
         context.close()
 
 
-def test_combinations_without_a_theme_are_not_offered(new_context, make_app_server):
-    """with a soft background the soft stripe is not offered (disabled and not displayed);
-    yellow and a full background leave nothing to choose, so the whole stripe group goes away"""
+def _axis_state(page, axis):
+    """(value, disabled) of every option of one axis, in document order."""
+    return page.evaluate(
+        "a => [...document.querySelectorAll('%s input[data-look-axis=' + a + ']')]"
+        ".map(e => [e.value, e.disabled])" % SHEET, axis)
+
+
+def _why(page, selector):
+    return page.locator(SHEET + " " + selector).inner_text().strip()
+
+
+def test_combinations_without_a_theme_stay_visible_greyed_with_their_reason(
+        new_context, make_app_server):
+    """a stripe that would be invisible (a soft stripe on a soft background, a solid stripe on a
+    full one) stays in its row, greyed and disabled, with the reason written under the row; the
+    row is never removed; the new yellow looks (black text in the stripe) are reachable"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
@@ -125,28 +140,51 @@ def test_combinations_without_a_theme_are_not_offered(new_context, make_app_serv
         assert page.locator(SHEET + " button.switch").get_attribute("aria-checked") == "false"
 
         def disabled():
+            return [value for value, off in _axis_state(page, "stripe") if off]
+
+        def stripe_row_shown():
             return page.evaluate(
                 "s => [...document.querySelectorAll(s + ' input[data-look-axis=stripe]')]"
-                ".filter(e => e.disabled).map(e => e.value)", SHEET)
+                ".every(e => e.parentNode.getClientRects().length > 0 && e.parentNode.offsetWidth > 0)",
+                SHEET)
 
-        def shown():
-            return page.evaluate(
-                "s => [...document.querySelectorAll(s + ' input[data-look-axis=stripe]')]"
-                ".filter(e => e.parentNode.getClientRects().length > 0).map(e => e.value)", SHEET)
-
-        def group_shown():
-            return page.evaluate(
-                "s => document.querySelector(s + ' [data-look-why]').parentNode"
-                ".getClientRects().length > 0", SHEET)
-
-        assert disabled() == ["soft"] and shown() == ["none", "solid"] and group_shown()
+        assert disabled() == ["soft"] and stripe_row_shown()
+        assert "soft background is invisible" in _why(page, "[data-look-why]")
         page.click(_axis("colour", "yellow"))
-        assert disabled() == ["solid", "soft"] and shown() == [] and not group_shown()
-        assert _checked(page, "theme_arriving") == "yellow_light"
-        page.click(_axis("colour", "red"))
+        assert _checked(page, "theme_arriving") == "band_yellow_field"
+        assert disabled() == ["soft"] and stripe_row_shown()
         page.click(_axis("background", "full"))
-        assert disabled() == ["solid", "soft"] and shown() == [] and not group_shown()
-        assert _checked(page, "theme_arriving") == "red"
+        assert _checked(page, "theme_arriving") == "yellow"
+        assert disabled() == ["solid"] and stripe_row_shown()
+        assert "full background a solid stripe is invisible" in _why(page, "[data-look-why]")
+        page.click(_axis("stripe", "soft"))
+        assert _checked(page, "theme_arriving") == "band_yellow_on_full"
+        page.click(_axis("background", "paper"))
+        assert _checked(page, "theme_arriving") == "band_yellow_light"
+        assert disabled() == [] and _why(page, "[data-look-why]") == ""
+    finally:
+        context.close()
+
+
+def test_the_colour_row_is_greyed_with_a_reason_on_plain_white_paper(new_context, make_app_server):
+    """on a white background with no stripe the colour changes nothing: the colour row stays
+    but is disabled with its reason; choosing a background or a stripe enables it again"""
+    server = make_app_server(seed=_seed)
+    context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP)
+    try:
+        def colours_disabled():
+            return [off for _value, off in _axis_state(page, "colour")]
+
+        assert not any(colours_disabled()) and _why(page, "[data-look-colour-why]") == ""
+        page.click(_axis("background", "paper"))
+        page.click(_axis("stripe", "none"))
+        assert _checked(page, "theme") == "white"
+        assert all(colours_disabled())
+        assert "colour changes nothing" in _why(page, "[data-look-colour-why]")
+        assert page.locator(SHEET + " .look-dot").first.is_visible()
+        page.click(_axis("stripe", "solid"))
+        assert not any(colours_disabled()) and _why(page, "[data-look-colour-why]") == ""
+        assert _checked(page, "theme") == "band_red"
     finally:
         context.close()
 
@@ -206,7 +244,9 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
         _save_via_bar(page, timeout=30000)
         assert device_config.load_device_config(server.state_dir)["theme"] == "band_green_light"
         assert urlsplit(page.url).path == layout.DISPLAY_ROUTE
-        assert page.locator(DEPARTURES + " [data-look-sentence]").inner_text() == "Green, soft stripe"
+        page.wait_for_function(
+            "() => document.querySelector('%s img.look-frame__image').alt.endsWith('%s')" % (
+                DEPARTURES, "Green, soft stripe"), timeout=10000)
 
         _show_tab(page, "arrivals")
         page.click(SHEET + " button.switch")
@@ -229,7 +269,7 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
 def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_server):
     """with scripts, "New special look" opens a page (no dialog) whose table gives way to the
     three choices; a suggestion fills the key, the choices pick the theme, the picture follows,
-    and Create look in the floating bar adds the rule with that look; Cancel returns to the list"""
+    and Save in the floating bar adds the rule with that look; Cancel returns to the list"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
         new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
@@ -241,7 +281,7 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
         assert not page.locator("[data-look-table-host]").is_visible()
         assert page.locator("dialog[open]").count() == 0
         with page.expect_navigation():
-            page.click(".form-bar a.form-bar__cancel")
+            page.click(".dirty-bar a.dirty-bar__cancel")
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
         page.locator(".special-add__summary").wait_for(state="visible")
         with page.expect_navigation():
@@ -251,6 +291,9 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
         page.click('.rule-suggestion-chip[data-kind="prefix"]')
         assert page.input_value("#rule-key") == "AFR"
         host = "[data-look-axes-host]"
+        assert all(
+            node.is_disabled() for node in page.locator(host + ' input[data-look-axis="colour"]').all())
+        page.click('%s .look-seg__option:has(input[data-look-axis="background"][value="full"])' % host)
         page.click('%s .look-dot:has(input[value="blue"])' % host)
         page.click('%s .look-seg__option:has(input[data-look-axis="background"][value="paper"])' % host)
         page.click('%s .look-seg__option:has(input[data-look-axis="stripe"][value="soft"])' % host)
@@ -259,7 +302,7 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
             "() => document.querySelector('.look-frame__image').getAttribute('src')"
             ".startsWith('/frame-preview/band_blue_light.png')")
         with page.expect_navigation():
-            page.click('.form-bar button[type="submit"]')
+            page.click('.dirty-bar button[type="submit"]')
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
         rows = colour_rules.rule_rows(colour_rules.load_colour_rules(server.state_dir))
         assert ("prefix", "AFR", "band_blue_light") in [row[:3] for row in rows]
@@ -283,9 +326,10 @@ def test_edit_a_special_look_is_a_page_that_replaces_the_rule(new_context, make_
         assert page.input_value('input[name="rule_key"]') == "TVF"
         assert _checked(page, "rule_theme_id") == "white"
         page.locator("[data-look-axes-host]").wait_for(state="visible")
+        page.click('[data-look-axes-host] .look-seg__option:has(input[data-look-axis="background"][value="full"])')
         page.click('[data-look-axes-host] .look-dot:has(input[value="red"])')
         with page.expect_navigation():
-            page.click('.form-bar button[type="submit"]')
+            page.click('.dirty-bar button[type="submit"]')
         rows = [row[:3] for row in colour_rules.rule_rows(
             colour_rules.load_colour_rules(server.state_dir))]
         tvf = [row for row in rows if row[:2] == ("prefix", "TVF")]
@@ -333,7 +377,7 @@ def test_on_phones_the_calendar_sheet_is_a_bottom_sheet_and_nothing_overflows(
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
 def test_on_phones_the_picker_sits_under_the_picture_and_nothing_overflows(
         new_context, make_app_server, viewport):
-    """on a phone the Look view shows the small picture beside its read-back, the picker as a card
+    """on a phone the Look view shows the picture centred with no caption, the picker as a card
     in the page at the full content width, every choice at least 44px tall, and no sideways scroll,
     on both tabs"""
     server = make_app_server(seed=_seed)
@@ -344,8 +388,9 @@ def test_on_phones_the_picker_sits_under_the_picture_and_nothing_overflows(
             overflow = _assert_no_page_overflow(page, "look " + usage, viewport["width"])
             assert not overflow, overflow
             picture = page.locator('[data-look-panel="%s"] .look-frame__picture' % usage).bounding_box()
-            caption = page.locator('[data-look-panel="%s"] .look-frame__caption' % usage).bounding_box()
-            assert caption["x"] >= picture["x"] + picture["width"] - 0.5, "expected the read-back beside the picture"
+            assert not page.locator('[data-look-panel="%s"] .look-frame__caption' % usage).count()
+            centre = picture["x"] + picture["width"] / 2
+            assert abs(centre - viewport["width"] / 2) <= 2, "expected the picture centred"
             sheet = page.locator(SHEET).bounding_box()
             assert sheet["y"] >= picture["y"] + picture["height"] - 0.5
             assert sheet["x"] >= 0 and sheet["x"] + sheet["width"] <= viewport["width"] + 0.5
@@ -386,7 +431,7 @@ def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_s
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
 def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, viewport):
     """on a phone the New special look page is one column with its picture beside its caption, the
-    Create look button is in a bar floating above the tab bar and on screen without scrolling, and
+    Save button is in a bar floating above the tab bar and on screen without scrolling, and
     nothing overflows"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
@@ -402,10 +447,10 @@ def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, vi
         picture = page.locator(".form-page__preview .look-frame__picture").bounding_box()
         caption = page.locator(".form-page__caption").bounding_box()
         assert picture["x"] + picture["width"] <= caption["x"] + 0.5, (picture, caption)
-        bar = page.locator(".dirty-bar.form-bar").bounding_box()
+        bar = page.locator(".dirty-bar").bounding_box()
         tab = page.locator(".tab-bar").bounding_box()
         assert bar["y"] >= 0 and bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)
-        add = page.locator('.form-bar button[type="submit"]').bounding_box()
+        add = page.locator('.dirty-bar button[type="submit"]').bounding_box()
         assert add["height"] >= 44 - 0.5
         assert not _assert_no_page_overflow(page, "new special look page", viewport["width"])
     finally:

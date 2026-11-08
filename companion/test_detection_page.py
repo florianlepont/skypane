@@ -272,7 +272,7 @@ def test_runway_cards_show_real_designators_for_cdg(rig):
     assert tuple(shown) == LFPG_RUNWAYS
     assert 'value="08L/26R"' in page and 'name="runway"' in page
     text = _visible_text(page)
-    assert re.search(r"4,209 m · Asphalt", text)
+    assert re.search(r"4,209 m\s+·\s+Asphalt", text)
     assert page.count('role="radiogroup" aria-labelledby="runway-group-heading"') == 1
     assert '<input type="hidden" name="airport" value="LFPG" form="detection-form">' in page
     assert "CDG · 08L/26R" in text
@@ -511,7 +511,7 @@ def test_french_runway_cards_and_errors(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection?airport=LFPG", lang="fr")
     text = _visible_text(page)
     assert "Piste à suivre" in text
-    assert "4 209 m · Asphalte" in text
+    assert re.search(r"4\s209 m\s+·\s+Asphalte", text)
     _s, _h, rejected = rig.post("owner", rig.scope() + "/detection", {
         "action": "save_detection", "mode": "runway", "airport": "LFPG",
         "runway": "01/19"}, lang="fr")
@@ -537,7 +537,7 @@ def test_carried_values_render_as_defaults_with_a_visible_dirty_bar(rig):
     assert status == 200
     assert re.search(r'name="radius_km"[^>]*value="12"', page)
     assert re.search(r'id="place-mode-area" value="position"[^>]*checked', page)
-    bar = re.search(r'<div class="dirty-bar dirty-bar--docked"[^>]*>', page).group(0)
+    bar = re.search(r'<div class="dirty-bar"[^>]*>', page).group(0)
     assert 'data-dirty-carried="%s/detection"' % rig.scope() in bar
     assert " hidden" not in bar
 

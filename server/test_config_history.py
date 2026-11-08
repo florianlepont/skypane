@@ -238,7 +238,7 @@ def test_every_theme_is_single_colour():
 
 
 def test_ink_contrast_pairing_is_correct():
-    """every one of the 18 registered themes carries the exact background/ink pairing expected, pinned as an explicit id-to-(background,ink) mapping"""
+    """every one of the 18 historical themes carries the exact background/ink pairing expected, pinned as an explicit id-to-(background,ink) mapping"""
     # Every entry's ink is whichever of Black/White contrasts with its
     # own background - black text on the lighter inks (White/Yellow/
     # Yellow Light), white text everywhere else, applied uniformly to
@@ -272,7 +272,8 @@ def test_ink_contrast_pairing_is_correct():
         "band_blue_field": (panel_format.IDX_BLUE, panel_format.IDX_WHITE),
         "band_red_field": (panel_format.IDX_RED, panel_format.IDX_WHITE),
     }
-    if set(expected) != set(device_config.THEMES):
+    # The 18 historical ids are pinned here; themes added since are pinned by test_themes.py.
+    if not set(expected) <= set(device_config.THEMES):
         pytest.fail("expected mapping covers %r, THEMES actually has %r" % (set(expected), set(device_config.THEMES)))
     for theme_id, (bg, ink) in expected.items():
         entry = device_config.THEMES[theme_id]
@@ -317,7 +318,8 @@ def test_dithered_and_weight_contract_is_correct():
         "band_blue_field": (True, "bold"),
         "band_red_field": (True, "bold"),
     }
-    if set(expected) != set(device_config.THEMES):
+    # The 18 historical ids are pinned here; themes added since are pinned by test_themes.py.
+    if not set(expected) <= set(device_config.THEMES):
         pytest.fail("expected mapping covers %r, THEMES actually has %r" % (set(expected), set(device_config.THEMES)))
     for theme_id, (dithered, weight) in expected.items():
         entry = device_config.THEMES[theme_id]
@@ -328,7 +330,7 @@ def test_dithered_and_weight_contract_is_correct():
 
 
 def test_default_theme_and_labels_are_correct():
-    """DEFAULT_THEME_ID is 'white' and a THEMES member; theme_label() returns the exact plain label for all 18 ids"""
+    """DEFAULT_THEME_ID is 'white' and a THEMES member; theme_label() returns the exact plain label for the 18 historical ids"""
     if device_config.DEFAULT_THEME_ID != "white":
         pytest.fail("DEFAULT_THEME_ID is %r, expected 'white'" % (device_config.DEFAULT_THEME_ID,))
     if device_config.DEFAULT_THEME_ID not in device_config.THEMES:
@@ -344,7 +346,7 @@ def test_default_theme_and_labels_are_correct():
         "band_black": "Band Black",
         "band_blue_field": "Band Blue Field", "band_red_field": "Band Red Field",
     }
-    if set(expected_labels) != set(device_config.THEMES):
+    if not set(expected_labels) <= set(device_config.THEMES):
         pytest.fail("expected label mapping covers %r, THEMES actually has %r" % (set(expected_labels), set(device_config.THEMES)))
     for theme_id, label in expected_labels.items():
         got = device_config.theme_label(theme_id)
@@ -360,11 +362,12 @@ def test_theme_is_band_matches_registry_band_ids():
         want = theme_id in expected_band_ids
         if got != want:
             pytest.fail("theme_is_band(%r) returned %r, expected %r" % (theme_id, got, want))
-    if expected_band_ids != {
+    historical = {
         "band_blue", "band_blue_light", "band_green_light", "band_red", "band_black",
         "band_blue_field", "band_red_field",
-    }:
-        pytest.fail("registry's own band ids are %r, expected the 7 band ids" % (expected_band_ids,))
+    }
+    if not historical <= expected_band_ids:
+        pytest.fail("registry's own band ids are %r, expected the 7 historical band ids among them" % (expected_band_ids,))
 
 
 def test_theme_band_index_matches_registry_or_none():

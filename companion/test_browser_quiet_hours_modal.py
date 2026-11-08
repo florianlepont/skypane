@@ -472,3 +472,22 @@ def test_the_quiet_hours_sheet_fits_a_small_phone_without_scrolling(
             assert pair[0]["right"] <= pair[1]["left"] + 0.5
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_a_twelve_hour_browser_also_gets_the_24_hour_time_under_each_field(
+        new_context, make_app_server, lang):
+    """The browser here shows a 12-hour clock in its time fields; each tile then writes the
+    24-hour time under the field, the form the rest of the page uses."""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), lang, VIEWPORT_MIN_SUPPORTED)
+    try:
+        _open_dialog(page)
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('%s .quiet-tile .field-inline-value')]"
+            ".map(e => e.textContent.trim()).join('|') === '23:00|07:00'" % DIALOG, timeout=5000)
+        assert page.evaluate(
+            "() => [...document.querySelectorAll('%s .quiet-tile .field-inline-value')]"
+            ".every(e => e.getBoundingClientRect().height > 0)" % DIALOG)
+    finally:
+        context.close()

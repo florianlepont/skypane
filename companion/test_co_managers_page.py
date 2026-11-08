@@ -333,19 +333,26 @@ def rig(tmp_path):
 
 def test_fleet_shows_the_access_section_inline_not_behind_a_menu_or_dialog(rig):
     tree, _body = rig.fleet(query="?frame=" + rig.seed.owned_id)
-    assert [a.text() for a in tree.select("div.fleet-detail-head details.row-menu a")] == [
-        "Open personal view"]
+    assert [a.text() for a in tree.select("div.fleet-detail-head a")] == [
+        "Open personal view", "Rename"]
     assert not tree.select("dialog#dlg-access-%s" % rig.seed.owned_id.replace("_", "-"))
     section = tree.select("section.fleet-block--access")[0]
     emails = [n.text() for n in section.select("span.co-manager__email")]
     assert emails == [fx.OWNER_EMAIL, CO_EMAIL]
 
 
-def test_the_admin_dialog_offers_the_invited_people_and_remove_forms(rig):
-    dialog = rig.dialog()
-    options = [o.attrs["value"] for o in dialog.select("select option")]
+def test_the_admin_add_dialog_offers_the_invited_people_and_the_section_the_remove_forms(rig):
+    tree, _body = rig.fleet(query="?frame=" + rig.seed.owned_id)
+    add_dialog = tree.select_one("dialog#" + card.add_dialog_id(rig.seed.owned_id))
+    options = [o.attrs["value"] for o in add_dialog.select("select option")]
     assert INVITED_EMAIL in options
-    (remove,) = _forms_to(dialog, card.REMOVE_ROUTE)
+    (add_form,) = _forms_to(add_dialog, card.ADD_ROUTE)
+    assert _hidden(add_form)["return_to"] == "/fleet"
+    section = tree.select("section.fleet-block--access")[0]
+    # The section itself holds one row that opens the dialog, not a form.
+    assert not section.select("select")
+    assert section.select_one('a[data-modal-open][href="#%s"]' % add_dialog.attrs["id"])
+    (remove,) = _forms_to(section, card.REMOVE_ROUTE)
     assert remove.attrs["action"] == "/devices/%s%s" % (rig.seed.owned_id, card.REMOVE_ROUTE)
 
 
@@ -409,7 +416,7 @@ def test_adding_with_a_fleet_return_goes_back_to_the_frame_with_the_dialog_close
     status, headers, _body = rig.post(
         "admin", card.ADD_ROUTE, {"email": INVITED_EMAIL, "return_to": "/fleet"})
     assert status == 303
-    assert headers["Location"] == "/fleet?frame=" + rig.seed.owned_id
+    assert headers["Location"] == "/fleet?frame=%s&tab=access" % rig.seed.owned_id
     assert "sp_flash=" in headers["Set-Cookie"]
     cookie = rig.cookies["admin"] + "; " + headers["Set-Cookie"].split(";")[0]
     status, _headers, body = http_request(
@@ -428,11 +435,11 @@ def test_adding_with_a_fleet_return_goes_back_to_the_frame_with_the_dialog_close
 def test_a_refused_add_and_a_removal_return_to_fleet_too(rig):
     _s, headers, _b = rig.post(
         "admin", card.ADD_ROUTE, {"email": "nobody@example.test", "return_to": "/fleet"})
-    assert headers["Location"] == "/fleet?frame=" + rig.seed.owned_id
+    assert headers["Location"] == "/fleet?frame=%s&tab=access" % rig.seed.owned_id
     assert "nobody@example.test" not in str(headers)
     _s, headers, _b = rig.post(
         "admin", card.REMOVE_ROUTE, {"user_id": str(rig.co_id), "return_to": "/fleet"})
-    assert headers["Location"] == "/fleet?frame=" + rig.seed.owned_id
+    assert headers["Location"] == "/fleet?frame=%s&tab=access" % rig.seed.owned_id
     assert rig.dialog().select("span.co-manager__email")[-1].text() == fx.OWNER_EMAIL
 
 

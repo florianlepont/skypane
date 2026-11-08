@@ -19,7 +19,7 @@ from companion.pages import config_page
 from companion.settings import look
 from companion_app_server import get, http_request, login
 from companion_markup import parse_html
-from server import device_config
+from server import device_config, themes
 from server.plane import colour_rules
 
 
@@ -54,8 +54,14 @@ def _model(rendered):
 
 # --- The registry read as three choices --------------------------------------
 
+def _invisible_stripe(background, stripe):
+    """A stripe the look can never show: the same colour as the field it is on."""
+    return (background == look.BACKGROUND_FULL and stripe == look.STRIPE_SOLID) or (
+        background == look.BACKGROUND_SOFT and stripe == look.STRIPE_SOFT)
+
+
 def test_every_registered_theme_is_exactly_one_cell_of_the_three_choices():
-    """the 18 registry themes map onto distinct (colour, background, stripe) cells, plain paper
+    """the registry themes map onto distinct (colour, background, stripe) cells, plain paper
     under every colour, and resolve() maps each cell back to the same id"""
     cells = {}
     for theme_id in device_config.THEME_IDS:
@@ -65,27 +71,43 @@ def test_every_registered_theme_is_exactly_one_cell_of_the_three_choices():
         colour, background, stripe = axes
         for any_colour in ([colour] if colour else look.COLOURS):
             assert look.resolve(any_colour, background, stripe) == theme_id
-    assert len(cells) == len(device_config.THEME_IDS) == 18
+    assert len(cells) == len(device_config.THEME_IDS)
 
 
-def test_combinations_with_no_theme_are_gaps_with_the_right_reason():
-    """a stripe on a full background, a soft stripe on a soft background and any yellow stripe
-    are gaps with their own reason, the remaining missing cells say the frame has no theme yet,
-    and no real theme cell ever carries a reason"""
+def test_every_resolvable_cell_has_a_theme_and_every_other_cell_a_reason():
+    """a combination is either a real theme (and has no reason) or has exactly one reason; the
+    only combinations without a theme are the stripes that would be invisible, which say they
+    render like the same look without a stripe"""
+    unresolved = set()
     for colour in look.COLOURS:
         for background in look.BACKGROUNDS:
             for stripe in look.STRIPES:
                 reason = look.gap_reason(colour, background, stripe)
                 theme_id = look.resolve(colour, background, stripe)
-                assert (reason is None) == (theme_id is not None)
-                if background == look.BACKGROUND_FULL and stripe != look.STRIPE_NONE:
-                    assert reason == look.REASON_STRIPE_ON_FULL
-                elif background == look.BACKGROUND_SOFT and stripe == look.STRIPE_SOFT:
-                    assert reason == look.REASON_SOFT_ON_SOFT
-                elif colour == look.COLOUR_YELLOW and stripe != look.STRIPE_NONE:
-                    assert reason == look.REASON_YELLOW_STRIPE
-    assert look.gap_reason("green", "paper", "solid") == look.REASON_NO_THEME
-    assert look.gap_reason("black", "paper", "soft") == look.REASON_NO_THEME
+                assert (reason is None) == (theme_id is not None), (colour, background, stripe)
+                if theme_id is None:
+                    unresolved.add((colour, background, stripe))
+                    assert _invisible_stripe(background, stripe), (colour, background, stripe)
+                    assert reason == (
+                        look.REASON_STRIPE_ON_FULL if background == look.BACKGROUND_FULL
+                        else look.REASON_SOFT_ON_SOFT)
+                else:
+                    assert not _invisible_stripe(background, stripe), (colour, background, stripe)
+    assert unresolved == {
+        (colour, background, stripe)
+        for colour in look.COLOURS for background in look.BACKGROUNDS for stripe in look.STRIPES
+        if _invisible_stripe(background, stripe)}
+
+
+def test_a_hardware_profile_that_cannot_show_a_theme_gets_the_no_theme_reason():
+    """a combination the registry has but the frame's inks cannot show is a gap with the
+    hardware reason, not the invisible-stripe one"""
+    black_and_white = frozenset({0, 1})
+    offered = themes.themes_for_inks(black_and_white)
+    assert look.resolve("red", "full", "none", offered) is None
+    assert look.gap_reason("red", "full", "none", offered) == look.REASON_NO_THEME
+    assert look.gap_reason("black", "paper", "soft", offered) is None
+    assert look.gap_reason("red", "full", "solid", offered) == look.REASON_STRIPE_ON_FULL
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
@@ -99,20 +121,42 @@ def test_the_sheet_model_names_every_cell_and_every_gap_in_the_page_language(lan
     assert set(model["axes"]) == set(device_config.THEME_IDS) == set(model["sentences"])
     prefs.set_request_prefs(lang=lang)
     try:
-        expected = i18n.t(look.REASON_MESSAGES[look.REASON_YELLOW_STRIPE])
-        assert model["reasons"]["yellow|paper|solid"] == expected
+        expected = i18n.t(look.REASON_MESSAGES[look.REASON_STRIPE_ON_FULL])
+        assert model["reasons"]["yellow|full|solid"] == expected
+        assert model["reasons"]["blue|soft|soft"] == i18n.t(
+            look.REASON_MESSAGES[look.REASON_SOFT_ON_SOFT])
+        assert model["colourReason"] == i18n.t(look.COLOUR_PAPER_REASON)
         assert model["sentences"]["band_red_field"] == look.look_sentence("band_red_field")
     finally:
         prefs.set_request_prefs(lang="en")
+    assert model["cells"]["yellow|paper|solid"] == "band_yellow"
+    assert model["cells"]["blue|full|soft"] == "band_blue_on_full"
     if lang == "fr":
         assert model["sentences"]["band_red_field"] == "Rouge, bande sur fond clair"
+        assert "même rendu que sans bande" in model["reasons"]["yellow|full|solid"]
+
+
+def test_the_no_script_tables_cover_every_combination_once():
+    """the served no-script tables hold one cell per colour and per (background, stripe) pair of
+    the three choices but plain paper: a radio for every theme, a marked gap for every other"""
+    html = look.look_table_html("theme", "white", "Departures", lambda theme_id: "")
+    root = parse_html(html)
+    assert len(root.find_all("table")) == len(look.STYLE_COLUMN_GROUPS)
+    cells = [td for body in root.find_all("tbody") for td in body.find_all("td")]
+    gaps = [td for td in cells if "look-table__gap" in td.attrs.get("class", "")]
+    assert len(cells) == len(look.COLOURS) * len(look.STYLE_COLUMNS)
+    assert len(gaps) == sum(
+        1 for colour in look.COLOURS for background, stripe in look.STYLE_COLUMNS
+        if look.resolve(colour, background, stripe) is None)
+    pairs = {(background, stripe) for background in look.BACKGROUNDS for stripe in look.STRIPES}
+    assert set(look.STYLE_COLUMNS) == pairs - {(look.BACKGROUND_PAPER, look.STRIPE_NONE)}
 
 
 # --- Served markup -------------------------------------------------------------
 
 @pytest.mark.parametrize("field", ["theme", "theme_arriving", "calendar_theme_id"])
 def test_served_page_offers_every_theme_through_native_radios_without_scripts(server, cookie, field):
-    """the served Display page offers all 18 theme ids for each look as native radios that post
+    """the served Display page offers every registered theme id for each look as native radios that post
     through the settings form: the departures look as radio cards, the others inside a <details>
     a scripts-blocked browser can open"""
     page = "/display/calendar" if field == "calendar_theme_id" else "/display"
@@ -207,11 +251,11 @@ def test_the_look_view_carries_the_picker_in_the_page_with_no_buttons_of_its_own
 
 @pytest.mark.parametrize("lang, words", [
     ("en", ("Look", "Special looks", "Plain paper", "Stripe on soft",
-            "New special look", "Change", "Customise look", "Calendar", "Departures",
+            "New special look", "Change", "Calendar", "Departures",
             "Arrivals")),
     ("fr", ("Allure", "Looks spéciaux", "Papier uni",
             "Bande sur fond clair", "Nouvelle allure spéciale", "Modifier",
-            "Personnaliser le style", "Calendrier", "Départs", "Arrivées")),
+            "Calendrier", "Départs", "Arrivées")),
 ])
 def test_the_look_card_speaks_the_page_language(lang, words):
     """every visible look-card word renders in the page language"""
@@ -231,15 +275,17 @@ def test_each_picture_shows_its_saved_look_in_its_own_state():
         theme_preview.frame_preview_src("band_red_field", "departing", "large"),
         theme_preview.frame_preview_src("band_red_field", "arriving", "large"),
     ]
-    sentences = [node.text() for node in root.find_all("span", cls="look-frame__sentence")]
-    assert sentences == ["Red, stripe on soft", "Same as departures"]
+    assert not root.find_all("p", cls="look-frame__caption")
+    alts = [img.attrs["alt"] for img in images]
+    assert alts == ["Preview: Departures, Red, stripe on soft",
+                    "Preview: Arrivals, Same as departures"]
     ctx = dict(_DISPLAY_CTX, device_config=dict(
         _DISPLAY_CTX["device_config"], theme_arriving="band_blue_field"))
     root = parse_html(_render(ctx=ctx))
     images = root.find_all("img", cls="look-frame__image")
     assert images[1].attrs["src"] == theme_preview.frame_preview_src(
         "band_blue_field", "arriving", "large")
-    assert root.find_all("span", cls="look-frame__sentence")[1].text() == "Blue, stripe on soft"
+    assert images[1].attrs["alt"] == "Preview: Arrivals, Blue, stripe on soft"
 
 
 # --- Saving every look -----------------------------------------------------------

@@ -307,12 +307,15 @@ def wake_slider_html(interval_s):
     gauges and number input are not gated. `min`/`max` come from
     `device_config`, never re-typed, so this control can never accept
     what `save_device_config()`'s own server-side re-check would reject.
+    The native range has `step="any"`: a typed 700 s keeps the thumb at 700
+    instead of snapping to the nearest minute, while dragging and the arrow
+    keys still move in `WAKE_SLIDER_STEP_S` steps (data-value-step).
     """
     if interval_s is None:
         return ""
     return (
         '<div class="%s %s" %s %s="%s" %s="%s" %s="%d" %s="%d" %s="%d">'
-        '<input type="range" class="%s" %s value="%d" min="%d" max="%d" step="%d"'
+        '<input type="range" class="%s" %s value="%d" min="%d" max="%d" step="any"'
         ' aria-label="%s" aria-describedby="%s">'
         "</div>"
     ) % (
@@ -326,7 +329,6 @@ def wake_slider_html(interval_s):
         escape_html(WAKE_SLIDER_INPUT_CLASS), layout.VALUE_CONTROL_INPUT_ATTR,
         interval_s,
         device_config.WAKE_INTERVAL_MIN_S, device_config.WAKE_INTERVAL_MAX_S,
-        WAKE_SLIDER_STEP_S,
         escape_html(i18n.t(WAKE_SLIDER_LABEL)),
         escape_html(WAKE_INTERVAL_SECTION_CAPTION_ID),
     )

@@ -12,9 +12,7 @@ import collections
 import unicodedata
 from urllib.parse import parse_qs
 
-from companion import i18n
-from companion.layout import escape_html
-from companion.pages import config_page
+from companion import i18n, ui_save_bar
 from server import airports, detection
 
 DETECTION_ROUTE = "/detection"
@@ -97,7 +95,6 @@ LATITUDE_HINT = i18n.msg(
     "detection.latitude_hint", "Decimal degrees, for example 48.8566.")
 LONGITUDE_HINT = i18n.msg(
     "detection.longitude_hint", "Decimal degrees, for example 2.3522.")
-SAVE_LOCATION = i18n.msg("detection.save_location", "Save location")
 
 ERROR_MODE = i18n.msg("detection.error_mode", "Choose a detection mode.")
 ERROR_AIRPORT = i18n.msg("detection.error_airport", "Choose an airport.")
@@ -170,28 +167,9 @@ def location_usable(row):
     return detection.inside_france(row["latitude"], row["longitude"])
 
 
-def dirty_bar_html(carried_href=None, save_text=None):
-    """The unsaved-changes bar: visible in the markup so Save works with
-    scripts blocked, hidden at init by dirty-state.js. `carried_href` marks
-    a bar rendered for unsaved values that came with the page; it is where
-    Cancel returns to the stored setting. `save_text` is the Save button's
-    label (the settings pages' own label when omitted)."""
-    strings = config_page._dirty_bar_strings()
-    carried = (
-        ' data-dirty-carried="%s"' % escape_html(carried_href)
-        if carried_href is not None else "")
-    return (
-        '<div class="dirty-bar dirty-bar--docked" data-dirty-bar%s role="status" '
-        'data-dirty-changed-suffix="%s" data-dirty-and="%s" data-dirty-list-and="%s" '
-        'data-dirty-unsaved-singular="%s" data-dirty-unsaved-plural="%s" '
-        'data-dirty-saving="%s" data-dirty-initial-text="%s">'
-        "<span data-dirty-count></span>"
-        '<button type="submit" class="dirty-bar__save" form="%s" %s>%s</button>'
-        '<button type="reset" form="%s" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
-        "</div>"
-    ) % (
-        carried, strings["changed_suffix"], strings["and_word"], strings["list_and"],
-        strings["unsaved_singular"], strings["unsaved_plural"], strings["saving"],
-        strings["initial_text"], FORM_ID, config_page.STATIC_SAVE_FALLBACK_ATTR,
-        escape_html(save_text or i18n.t(config_page.SAVE_BUTTON_TEXT)), FORM_ID,
-        escape_html(i18n.t(config_page.CANCEL_BUTTON_TEXT)))
+def dirty_bar_html(carried_href=None):
+    """The unsaved-changes bar of the page: visible in the markup so Save
+    works with scripts blocked, hidden at init by dirty-state.js.
+    `carried_href` marks a bar rendered for unsaved values that came with the
+    page; it is where Cancel returns to the stored setting."""
+    return ui_save_bar.save_bar_html(FORM_ID, carried_href=carried_href)

@@ -50,6 +50,7 @@ class CardGeometry(NamedTuple):
     text_right: int
     band: bool
     overlay_right: int
+    band_ink: int = BAND_TEXT_INK
 
 
 def band_slope(size):
@@ -86,7 +87,7 @@ def band_span(size, center, y_top, y_bottom):
     return max(1, round(2 * (half - pad)))
 
 
-def card_geometry(size, band_theme) -> CardGeometry:
+def card_geometry(size, band_theme, band_ink=BAND_TEXT_INK) -> CardGeometry:
     """Column edges for `size`. A band theme sizes the text column to fit
     inside the band around the text block's expected extent and keeps the
     bottom-left overlays clear of the band's left edge."""
@@ -112,6 +113,7 @@ def card_geometry(size, band_theme) -> CardGeometry:
         text_right=text_right,
         band=bool(band_theme),
         overlay_right=overlay_right,
+        band_ink=band_ink,
     )
 
 
@@ -163,7 +165,7 @@ def _line_height(font, size):
 def _draw_top_row(canvas, size, state, geom, ink, weight, runway_id):
     """State label at the left and runway tag at the right, both tracked.
     The tag is flush to the text column's right edge, or centred on the
-    band's top row in white ink for band themes."""
+    band's top row in the band's text ink for band themes."""
     draw = ImageDraw.Draw(canvas)
     px = max(12, round(size[1] * LABEL_HEIGHT_FRACTION))
     tracking = max(1, round(size[1] * LABEL_TRACKING_FRACTION))
@@ -179,7 +181,7 @@ def _draw_top_row(canvas, size, state, geom, ink, weight, runway_id):
         tag_x = band_center(size, top + px / 2) - tag_width / 2
     else:
         tag_x = geom.text_right - tag_width
-    tag_ink = BAND_TEXT_INK if geom.band else ink
+    tag_ink = geom.band_ink if geom.band else ink
     tag_bbox = text._tracked_text_bbox(font, (tag_x, top), tag, tracking)
     common.assert_within_canvas(tag_bbox, size, "landscape runway tag")
     text.draw_tracked_text(draw, (tag_x, top), tag, font, tag_ink, tracking=tracking)
@@ -256,7 +258,7 @@ def _centered_line(draw, size, geom, line, font, y, center, ink, what):
     line = _ellipsize(font, line, band_span(size, center, y, y + ascent + descent))
     bbox = draw.textbbox((center, y), line, font=font, anchor="ma")
     common.assert_within_canvas(bbox, size, what)
-    draw.text((center, y), line, font=font, fill=BAND_TEXT_INK, anchor="ma")
+    draw.text((center, y), line, font=font, fill=geom.band_ink, anchor="ma")
 
 
 def _draw_main_text(canvas, size, geom, flight, state, route, ink, weight, top, bottom):
@@ -344,7 +346,7 @@ def build_card_canvas(
     ink = style.state_ink_index(state, theme_id=theme_id)
     weight = device_config.theme_weight(theme_id)
     band_theme = device_config.theme_is_band(theme_id)
-    geom = card_geometry(size, band_theme)
+    geom = card_geometry(size, band_theme, device_config.theme_band_ink_index(theme_id))
     if device_config.theme_dithered(theme_id):
         canvas = dither.dithered_state_background(bg_idx, size=size)
     else:

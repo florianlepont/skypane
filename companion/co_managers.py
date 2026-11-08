@@ -76,9 +76,10 @@ def _redirect_back(h, device, flash_key):
         return _redirect_home(h, flash_key)
     access_query = "%s=%s" % (card.ACCESS_QUERY, urllib.parse.quote(device.id, safe=""))
     if return_to == card.RETURN_FLEET:
-        # Fleet selects the frame; its Access block shows the result inline.
+        # Fleet selects the frame on its Access tab, where the result shows.
         return h.redirect(
-            "%s?frame=%s" % (return_to, urllib.parse.quote(device.id, safe="")),
+            "%s?frame=%s&tab=%s" % (
+                return_to, urllib.parse.quote(device.id, safe=""), card.ACCESS_QUERY),
             set_cookie=console_flash.queue_flash(flash_key))
     return h.redirect("%s?%s&flash=%s" % (return_to, access_query, flash_key))
 

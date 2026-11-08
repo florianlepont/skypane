@@ -256,9 +256,9 @@ def test_settings_save_redirect_carries_flash_banner_and_cleanup_script(make_app
     body_text = body.decode("utf-8", errors="replace")
     assert flash_toast(body_text) is not None, (
         "expected the rendered redirect target to carry the flash toast")
-    expected_script_tag = (
-        '<script src="%s" defer></script>' % companion_app.FLASH_CLEANUP_SCRIPT_ROUTE)
-    assert expected_script_tag in body_text, (
+    assert re.search(
+        r'<script src="%s\?v=[0-9a-f]+" defer></script>'
+        % re.escape(companion_app.FLASH_CLEANUP_SCRIPT_ROUTE), body_text), (
         "expected the rendered redirect target to carry flash-cleanup.js's own deferred "
         "<script> tag")
 
@@ -451,10 +451,11 @@ def test_display_scope_has_three_radiogroups_device_has_none():
     assert display_count >= 1, (
         "expected at least one role=\"radiogroup\" occurrence on the new special look page, got %d"
         % display_count)
-    assert display_rendered.count('<caption class="visually-hidden">') == 2, (
-        "expected each of the two look tables (Arrivals, Calendar) to carry its own caption")
-    assert new_look_rendered.count('<caption class="visually-hidden">') == 1, (
-        "expected the new special look page's look table to carry its own caption")
+    tables_per_look = len(look.STYLE_COLUMN_GROUPS)
+    assert display_rendered.count('<caption class="visually-hidden">') == 2 * tables_per_look, (
+        "expected each table of the two looks (Arrivals, Calendar) to carry its own caption")
+    assert new_look_rendered.count('<caption class="visually-hidden">') == tables_per_look, (
+        "expected each table of the new special look page's look to carry its own caption")
     assert display_rendered.count('class="look-pick__grid" role="radiogroup"') == 1, (
         "expected the departures look to be one labelled radiogroup of radio cards")
     device_count = device_rendered.count('role="radiogroup"')
@@ -660,7 +661,7 @@ def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatc
         assert sorted(values) == sorted(device_config.THEME_IDS)
         notes = block.find("ul", cls="look-table__notes")
         assert notes.find_all("li")
-        assert not block.find("table").find_all("ul")
+        assert all(not table.find_all("ul") for table in block.find_all("table"))
 
 
 def test_the_swatch_legend_names_as_many_things_as_the_registry_carries():
@@ -739,15 +740,15 @@ def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_c
 
 def test_the_form_pages_are_two_columns_from_960_and_stack_on_phones(served_css):
     """the pages that edit one thing (a special look, the calendar link) lay the picture and the
-    options side by side from 960px, stack them on phones, and order Cancel before Save in the
+    options side by side from 960px, stack them on phones, and place Cancel before Save in the
     docked bar"""
     wide = declarations_for(served_css, ".form-page")
     assert wide.get("grid-template-columns") == "minmax(0, 17rem) minmax(0, 37rem)"
     narrow = declarations_for(
         served_css, ".form-page", at_rules=("@media (max-width: 959.98px)",))
     assert narrow.get("grid-template-columns") == "minmax(0, 1fr)"
-    cancel = declarations_for(served_css, "a.form-bar__cancel")
-    assert cancel.get("order") == "2"
+    assert declarations_for(served_css, ".dirty-bar__cancel").get("grid-area") == "cancel"
+    assert declarations_for(served_css, ".dirty-bar__save").get("grid-area") == "save"
 
 
 # --- the time-input site-language sibling, the runway/calendar/segment
@@ -1271,9 +1272,12 @@ def test_the_range_is_gated_nameless_and_bounded_by_device_config():
     assert "role=" not in element, "the range carries a role (%s)" % element
     for attr, expected in (("min", device_config.WAKE_INTERVAL_MIN_S),
                            ("max", device_config.WAKE_INTERVAL_MAX_S),
-                           ("step", config_page.WAKE_SLIDER_STEP_S),
                            ("value", 600)):
         assert ('%s="%d"' % (attr, expected)) in element, "the range's %s is not %d - %s" % (attr, expected, element)
+    # The native range does not snap a typed value (step="any"); the minute
+    # step both gauges speak in is the wrapper's data-value-step.
+    assert 'step="any"' in element
+    assert ('%s="%d"' % (layout.VALUE_CONTROL_STEP_ATTR, config_page.WAKE_SLIDER_STEP_S)) in markup
     for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
                    'aria-describedby="%s"' % config_page.WAKE_INTERVAL_SECTION_CAPTION_ID):
         assert needed in element, "the range is missing %r - %s" % (needed, element)

@@ -167,7 +167,7 @@ def test_modal_js_is_served_and_listed_in_the_shell_scripts(app_server_in_proces
     status, _headers, page = get(server, "/display", cookie=session)
     assert status == 200
     doc = parse_html(page.decode())
-    srcs = [node.attrs["src"] for node in doc.select("script[src]")]
+    srcs = [node.attrs["src"].split("?", 1)[0] for node in doc.select("script[src]")]
     assert layout.MODAL_SCRIPT_SRC in srcs
     assert layout.MODAL_SCRIPT_SRC in layout.GLOBAL_PAGE_SCRIPTS
     assert all("src" in node.attrs for node in doc.select("script")), "no inline script"

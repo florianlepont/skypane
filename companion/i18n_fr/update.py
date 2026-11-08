@@ -17,7 +17,10 @@ the app's other nav labels.
 
 MESSAGES = {
     "update.version_history": "Versions",
-    "update.all_versions": "Toutes les versions (%d)",
+    "update.col_version": "Version",
+    "update.col_released": "Sortie",
+    "update.col_action": "Action",
+    "update.notes_n": "Notes (%d)",
     "update.no_version_reported_yet": "Aucune version signalée pour le moment",
 
     "update.scheduled": "Planifiée",
@@ -40,7 +43,13 @@ MESSAGES = {
     "update.released_on_s": "Sortie le %s",
     "update.last_installed_s": "Dernière installation\u00a0: %s",
 
-    "update.unknown_time": "une heure inconnue",
+    "update.scheduled_installs_at_the_next_wake":
+        "Planifiée — installation au prochain réveil.",
+    "update.the_frame_will_download_and_install_this_no_time":
+        "Le cadre téléchargera et installera cette version à son "
+        "prochain réveil. Il conservera la mise à jour après un "
+        "premier contact réussi — sinon, il revient automatiquement en "
+        "arrière.",
     "update.scheduled_installs_at_the_next_wake_around_s":
         "Planifiée — installation au prochain réveil, vers %s.",
     "update.scheduled_installs_when_quiet_hours_end_around_s":
@@ -53,6 +62,7 @@ MESSAGES = {
     "update.install": "Installer",
     "update.install_version_s": "Installer %s",
     "update.roll_back_to_s": "Revenir à %s",
+    "update.roll_back": "Revenir",
     "update.not_installable": "Non installable",
     "update.install_firmware_s": "Installer le firmware %s ?",
     "update.the_frame_will_download_and_install_this":

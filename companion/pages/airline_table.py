@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 
 import companion.device_scope as device_scope
 import companion.i18n as i18n
+import companion.illustration_normalize as illustration_normalize
 import companion.layout as layout
 from companion.layout import csrf_field, escape_html
 from companion.ui_base import validation_attrs
@@ -28,6 +29,8 @@ from server.plane import airline_default_types
 from server.plane import illustrations
 from server.plane import render as panel_render
 
+# The list thumbnail is 88 CSS px wide; 264 covers a 3x screen.
+THUMB_WIDTH = 264
 NO_VALUE = "—"
 # The manual-name fields of a trigger that carries none (see
 # airlines_page._airline_card_manual_fields()).
@@ -108,7 +111,9 @@ def _thumb_html(page, key, state_dir):
     return (
         '<img class="airlines-thumb__image" src="%s%s" width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="">'
-    ) % (page._illustration_url(key), page._illustration_cache_buster(key, state_dir),
+    ) % (page._illustration_url(key),
+         illustration_normalize.thumbnail_query(
+             page._illustration_cache_buster(key, state_dir), THUMB_WIDTH),
          page.ILLUSTRATION_TARGET_WIDTH, page.ILLUSTRATION_TARGET_HEIGHT)
 
 
@@ -289,11 +294,18 @@ def _sub_art_html(page, sub, row):
         thumb = _enlarge_html(page, sub_row, sub["slot"], label)
         state = STATE_OWN
     else:
-        thumb = '<span class="airlines-thumb airlines-thumb--inherited">%s</span>' % _thumb_html(
-            page, row["key"], row["state_dir"])
+        thumb = (
+            '<span class="airlines-thumb airlines-thumb--inherited" title="%s">%s</span>' % (
+                escape_html(i18n.t(STATE_DEFAULT)),
+                _thumb_html(page, row["key"], row["state_dir"])))
         state = STATE_DEFAULT
-    return '%s<span class="airlines-state text-label">%s</span>' % (
-        thumb, escape_html(i18n.t(state)))
+    # A type that shows its airline's picture says so as a tooltip and to
+    # assistive technology; the dimmed picture is the visible cue, so every
+    # type row keeps the height of the airline row.
+    state_class = "airlines-state text-label" + (
+        "" if sub["has_own"] else " visually-hidden")
+    return '%s<span class="%s">%s</span>' % (
+        thumb, state_class, escape_html(i18n.t(state)))
 
 
 def _sub_action_html(page, sub):

@@ -438,23 +438,15 @@ def test_save_bar_geometry_is_restored_and_the_tab_bar_stacking_survives(css_tex
     dirty_bar_rules = rules_with_selector(css_text, ".dirty-bar")
     assert dirty_bar_rules, "expected the restored .dirty-bar base rule to exist in style.css"
 
+    # One component: the base rule is the phone layout (fixed, above the tab bar, z-index 30
+    # at every width); the wide-screen rule only re-docks it to the main column.
     base_decls = declarations_for(css_text, ".dirty-bar")
-    assert "position" not in base_decls, "expected the base .dirty-bar rule to declare no position of its own"
-
-    fixed_count = 0
-    z30_count = 0
-    for at_rules in (("@media (min-width: 960px)",), ("@media (max-width: 959.98px)",)):
-        breakpoint_decls = declarations_for(css_text, ".dirty-bar", at_rules=at_rules)
-        if breakpoint_decls.get("position") == "fixed":
-            fixed_count += 1
-        if breakpoint_decls.get("z-index") == "30":
-            z30_count += 1
-    assert fixed_count == 2, (
-        "expected exactly two `.dirty-bar { ... }` rule bodies (one per breakpoint) to set "
-        "position: fixed, got %d" % fixed_count)
-    assert z30_count == 2, (
-        "expected exactly two `.dirty-bar { ... }` rule bodies (one per breakpoint) to set "
-        "z-index: 30, got %d" % z30_count)
+    assert base_decls.get("position") == "fixed" and base_decls.get("z-index") == "30", base_decls
+    assert "var(--tab-bar-h)" in base_decls.get("bottom", ""), (
+        "expected the phone layout to sit above the tab bar, got %r" % (base_decls.get("bottom"),))
+    wide_decls = declarations_for(
+        css_text, ".dirty-bar", at_rules=("@media (min-width: 960px)",))
+    assert "position" not in wide_decls and "left" in wide_decls and "width" in wide_decls, wide_decls
 
     assert not rules_with_selector(css_text, ".dirty-ready .dashboard-main"), (
         "expected no .dirty-ready-scoped content-clearance rule to exist — this restoration's own "

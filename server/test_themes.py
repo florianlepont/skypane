@@ -28,6 +28,7 @@ _ACCESSOR_NAMES = (
     "theme_is_band",
     "theme_band_index",
     "theme_band_dithered",
+    "theme_band_ink_index",
 )
 
 
@@ -47,7 +48,7 @@ def test_device_config_registry_names_are_themes_registry_names_by_identity():
 
 
 def test_device_config_accessors_are_themes_accessors_by_identity():
-    """Every one of the eight presentation accessors resolves to the exact
+    """Every one of the nine presentation accessors resolves to the exact
     same function object through device_config as through themes."""
     for name in _ACCESSOR_NAMES:
         via_device_config = getattr(device_config, name)
@@ -120,6 +121,15 @@ _THEME_SNAPSHOT = {
     "band_blue_light": (1, 1, 0, 4), "band_green_light": (1, 1, 0, 5),
     "band_red": (1, 1, 0, 3), "band_black": (1, 1, 0, 0),
     "band_blue_field": (4, 4, 1, 4), "band_red_field": (3, 3, 1, 3),
+    # Added after the 18 above, which stay frozen in id, order and content.
+    "band_yellow": (1, 1, 0, 2), "band_green": (1, 1, 0, 5),
+    "band_black_light": (1, 1, 0, 0), "band_yellow_light": (1, 1, 0, 2),
+    "band_red_light": (1, 1, 0, 3),
+    "band_black_field": (0, 0, 1, 0), "band_yellow_field": (2, 2, 0, 2),
+    "band_green_field": (5, 5, 1, 5),
+    "band_black_on_full": (0, 0, 1, 0), "band_yellow_on_full": (2, 2, 0, 2),
+    "band_red_on_full": (3, 3, 1, 3), "band_green_on_full": (5, 5, 1, 5),
+    "band_blue_on_full": (4, 4, 1, 4),
 }
 
 
@@ -147,7 +157,24 @@ def test_required_inks_of_white_and_union_rule():
         band = themes.theme_band_index(tid)
         if band is not None:
             expected.add(band)
+            expected.add(themes.theme_band_ink_index(tid))
         assert themes.theme_required_inks(tid) == expected
+
+
+def test_text_inside_a_stripe_is_black_on_yellow_and_white_elsewhere():
+    for tid in themes.THEME_IDS:
+        band = themes.theme_band_index(tid)
+        want = panel_format.IDX_BLACK if band == panel_format.IDX_YELLOW else panel_format.IDX_WHITE
+        assert themes.theme_band_ink_index(tid) == want, tid
+        if band == panel_format.IDX_YELLOW:
+            assert panel_format.IDX_BLACK in themes.theme_required_inks(tid), tid
+
+
+def test_historical_themes_keep_their_ids_and_come_first():
+    historical = list(_THEME_SNAPSHOT)[:18]
+    assert list(themes.THEME_IDS)[:18] == historical
+    assert historical[0] == "white" and historical[-1] == "band_red_field"
+    assert len(set(themes.THEME_IDS)) == len(themes.THEME_IDS) == 31
 
 
 def test_themes_for_inks_all_six_offers_every_theme_in_order():

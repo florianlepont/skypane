@@ -270,7 +270,7 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     co_manager_posts = {
         ("POST", routes.Exact(path)) for path in (
             "/co-managers/add", "/co-managers/remove", "/co-managers/leave",
-            "/frame/remove")}
+            "/frame/remove", "/frame/name")}
     quiet_window_post = {("POST", routes.Exact(routes.QUICK_QUIET_HOURS_WINDOW_ROUTE))}
     pair_frame_post = {("POST", routes.Exact("/pair-frame"))}
     airline_posts = {

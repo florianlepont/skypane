@@ -80,6 +80,10 @@ _PURPOSE_MANAGE = i18n.msg(
 _DIALOG_TITLE = i18n.msg("co_managers.dialog_title", "Manage access")
 MENU_LABEL = i18n.msg("co_managers.menu_label", "Manage access")
 _DONE = i18n.msg("co_managers.done", "Done")
+_CANCEL = i18n.msg("co_managers.cancel", "Cancel")
+_RENAME_LINK = i18n.msg("co_managers.rename_frame", "Rename this frame")
+# Same id and English as the Rename frame page's action.
+_RENAME_ARIA = i18n.msg("frame_name.action_aria", "Rename %s")
 _LEAVE_TITLE = i18n.msg("co_managers.leave_title", "Leave this frame?")
 _PILL_OWNER = i18n.msg("co_managers.pill_owner", "Owner")
 _PILL_YOU = i18n.msg("co_managers.pill_you", "You")
@@ -265,18 +269,56 @@ def _inline_add_row(view, device_id, return_to, prefix):
             _return_field(return_to), field, submit))
 
 
-def access_rows_html(view, device_id, return_to, id_prefix="co-manager", purpose=True):
+def add_dialog_id(device_id):
+    return dialog_id("dlg-add-co-manager", device_id)
+
+
+def _add_row_html(view, device_id, return_to, prefix, as_dialog):
+    """The Add control: the inline form row, or (`as_dialog`) one row that
+    opens the Add co-manager dialog."""
+    if not as_dialog or (view.is_admin_viewer and not view.candidates):
+        return _inline_add_row(view, device_id, return_to, prefix)
+    from companion import ui_groups
+    row = ui_groups.row(
+        i18n.t(_ADD_BUTTON), icon="icon-plus", href="#" + add_dialog_id(device_id),
+        chevron=False, extra_class="access-add")
+    return row.replace('<a class="row__main"', '<a class="row__main" data-modal-open', 1)
+
+
+def add_dialog_html(view, device_id, return_to, dismiss_href, frame_name=""):
+    """The Add co-manager dialog of one frame (the picker of invited people
+    for an administrator, the typed address for an owner); "" when an
+    administrator has nobody left to add."""
+    from companion import ui_modal
+    if view.is_admin_viewer and not view.candidates:
+        return ""
+    prefix = "co-manager-dialog"
+    field = (
+        _select_field_html(device_id, view.candidates, prefix) if view.is_admin_viewer
+        else _typed_field_html(device_id, prefix))
+    return ui_modal.dialog_html(
+        add_dialog_id(device_id), i18n.t(_ADD_BUTTON),
+        _frame_route(device_id, ADD_ROUTE), _csrf_field(),
+        _return_field(return_to) + '<div class="modal__field">%s</div>' % field,
+        i18n.t(_ADD_BUTTON), i18n.t(_CANCEL), dismiss_href, subtitle=frame_name or None)
+
+
+def access_rows_html(
+        view, device_id, return_to, id_prefix="co-manager", purpose=True,
+        owner_action_html="", add_as_dialog=False):
     """The access content of one frame as the rows of a glass group: a purpose
-    row (when `purpose`), the owner, each co-manager with its Remove action as
-    a trailing control, and the Add control as a last row with a primary
-    button."""
+    row (when `purpose`), the owner (with `owner_action_html`, such as Reassign,
+    as its trailing control), each co-manager with its Remove action as a
+    trailing control, and the Add control as a last row (the inline form, or
+    one row opening the Add co-manager dialog when `add_as_dialog`)."""
     from companion import ui_groups
     rows = [ui_groups.row(
         i18n.t(_HEADING), detail=i18n.t(_PURPOSE_MANAGE), extra_class="row--purpose")
     ] if purpose else []
     rows.append(ui_groups.row(
         label_html='<span class="co-manager__email">%s</span>' % _esc(view.owner_email),
-        value_html=_pills_html((_PILL_OWNER,))))
+        value_html=_pills_html((_PILL_OWNER,)), trailing_html=owner_action_html,
+        extra_class="access-person" if owner_action_html else ""))
     for user_id, email, disabled in view.members:
         pills = []
         if view.viewer_user_id is not None and user_id == view.viewer_user_id:
@@ -286,10 +328,11 @@ def access_rows_html(view, device_id, return_to, id_prefix="co-manager", purpose
         rows.append(ui_groups.row(
             label_html='<span class="co-manager__email">%s</span>' % _esc(email),
             value_html=_pills_html(pills),
-            trailing_html=_inline_remove_html(device_id, user_id, email, return_to)))
+            trailing_html=_inline_remove_html(device_id, user_id, email, return_to),
+            extra_class="access-person"))
     if not view.members:
         rows.append('<li class="fleet-group__item">%s</li>' % _empty_html(view))
-    rows.append(_inline_add_row(view, device_id, return_to, id_prefix))
+    rows.append(_add_row_html(view, device_id, return_to, id_prefix, add_as_dialog))
     return "".join(rows)
 
 
@@ -305,9 +348,9 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     people = ui_groups.group(
         access_rows_html(view, device_id, return_to, purpose=False),
         label=i18n.t(_HEADING), label_id=label_id)
-    remove_frame = ""
+    remove_frame = _rename_link_html(device_id, frame_name)
     if view.can_remove_frame:
-        remove_frame = _remove_frame_group_html(device_id)
+        remove_frame += _remove_frame_group_html(device_id)
     dialog = ui_modal.sections_dialog_html(
         access_dialog_id(device_id), i18n.t(_DIALOG_TITLE), frame_name,
         people + remove_frame, i18n.t(_DONE), return_to, open_=open_,
@@ -315,6 +358,15 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     if view.can_remove_frame:
         dialog += remove_frame_dialog_html(device_id, frame_name)
     return dialog
+
+
+def _rename_link_html(device_id, frame_name):
+    """The quiet link under the people group to the frame's Rename page."""
+    return (
+        '<p class="access-rename"><a class="access-rename__link" href="%s" '
+        'aria-label="%s">%s</a></p>' % (
+            _esc(_frame_route(device_id, "/frame/name")),
+            _esc(i18n.t(_RENAME_ARIA) % frame_name), _t(_RENAME_LINK)))
 
 
 def _remove_frame_group_html(device_id):

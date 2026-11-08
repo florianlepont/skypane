@@ -47,6 +47,8 @@ _EMPTY_BODY = i18n.msg(
 
 _ACTION_PERSONAL_VIEW = i18n.msg(
     "admin_fleet.open_personal_view", "Open personal view")
+_OPEN_PERSONAL_ARIA = i18n.msg(
+    "admin_fleet.open_personal_view_aria", "Open the personal view of %s")
 _ACTION_REASSIGN = i18n.msg("admin_fleet.reassign", "Reassign")
 _ACTION_REACTIVATE = i18n.msg("admin_fleet.re_activate", "Re-activate")
 _CONFIRM_RETIRE = i18n.msg("admin_fleet.retire_frame", "Retire frame")
@@ -57,6 +59,9 @@ _TITLE_RETIRE = i18n.msg("admin_fleet.retire_frame_title", "Retire “%s”?")
 _TITLE_REACTIVATE = i18n.msg(
     "admin_fleet.re_activate_frame_title", "Re-activate “%s”?")
 _NEW_OWNER = i18n.msg("admin_fleet.new_owner", "New owner")
+_TITLE_REASSIGN = i18n.msg("admin_fleet.reassign_frame_title", "Reassign “%s”?")
+_KEEP_OWNER = i18n.msg("admin_fleet.keep_owner", "Keep current owner")
+_REASSIGN_ARIA = i18n.msg("admin_fleet.reassign_aria", "Reassign %s to another owner")
 _RETIRE_SENTENCE = i18n.msg(
     "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating",
     "This frame will show a retired screen and stop updating. Its data is kept "
@@ -258,17 +263,24 @@ def row_html(row):
 
 
 def detail_header_html(view, frame_id):
-    """The selected frame's detail header: its name and the actions menu (the
-    personal view). The owner is not repeated here: the Access section names
-    it. Empty when `frame_id` is not a live row of `view`."""
+    """The selected frame's header: two visible link buttons, its personal
+    view and Rename. The frame's name is the frame button's label above, not
+    repeated here. Empty when `frame_id` is not a live row of `view`."""
     row = next(
         (r for r in view.rows if r.kind == KIND_LIVE and r.frame_id == frame_id), None)
     if row is None:
         return ""
+    from companion.pages import frame_name_page
+    name = _display_name(row)
     return (
-        '<div class="fleet-detail-head"><div class="fleet-detail-head__text">'
-        '<h2 class="text-heading">%s</h2></div>%s</div>' % (
-            _esc(_display_name(row)), _actions_menu(row)))
+        '<div class="fleet-detail-head">'
+        '<a class="row-action" href="/devices/%s/" aria-label="%s">%s</a>'
+        '<a class="row-action" href="%s" aria-label="%s">%s</a></div>' % (
+            _esc(frame_id), _esc(i18n.t(_OPEN_PERSONAL_ARIA) % name),
+            _t(_ACTION_PERSONAL_VIEW),
+            _esc(frame_name_page.device_route(frame_id)),
+            _esc(i18n.t(frame_name_page.ACTION_ARIA) % name),
+            _t(frame_name_page.ACTION_TEXT)))
 
 
 def _other_rows(rows):
@@ -347,27 +359,36 @@ def _frame_dialog(
         subtitle="%s · %s" % (row.hardware, row.mono_id), **flags)
 
 
-def reassign_row_html(row, view):
-    """The inline Reassign row of a live frame: the new owner's picker, the
-    button and the sentence saying what the change does. A plain form on the
-    page (no dialog)."""
+def reassign_action_html(row):
+    """The Reassign control beside the owner: the link that opens the
+    confirmation dialog. Offered for a live frame only."""
+    if row.kind != KIND_LIVE:
+        return ""
+    return ui_modal.trigger_html(
+        _slug("dlg-reassign", row.frame_id), _t(_ACTION_REASSIGN),
+        "row-action", i18n.t(_REASSIGN_ARIA) % _display_name(row))
+
+
+def reassign_dialog_html(row, view):
+    """The Reassign confirmation of a live frame: the new owner's picker and
+    the sentence saying what the change does."""
+    if row.kind != KIND_LIVE:
+        return ""
     if row.is_live_frame:
         sentence = i18n.t(_REASSIGN_LIVE_SENTENCE)
     else:
         sentence = i18n.t(_REASSIGN_SENTENCE) % (
             row.owner_email or i18n.t(_THIS_OWNER))
     field_id = _slug("fleet-reassign", row.frame_id) + "-owner"
-    return (
-        '<li class="row row--form"><form method="post" action="%s" class="row__form" '
-        'autocomplete="off">%s<div class="row__form-field"><p><label for="%s">%s</label>'
-        '<select id="%s" name="%s" required%s>%s</select></p>'
-        '<p class="text-label section-caption">%s</p></div>'
-        '<button type="submit">%s</button></form></li>' % (
-            _esc(_routes().FRAME_ACTION_PREFIX + row.frame_id
-                 + _routes().FRAME_REASSIGN_SUFFIX),
-            _ui().csrf_field(), field_id, _t(_NEW_OWNER), field_id, OWNER_FIELD,
-            validation_attrs("select"), _owner_options(view._replace(owner_selected="")),
-            _esc(sentence), _t(_ACTION_REASSIGN)))
+    field = (
+        '<div class="modal__field"><label for="%s">%s</label>'
+        '<select id="%s" name="%s" required%s>%s</select></div>' % (
+            field_id, _t(_NEW_OWNER), field_id, OWNER_FIELD,
+            validation_attrs("select"), _owner_options(view._replace(owner_selected=""))))
+    return _frame_dialog(
+        row, _slug("dlg-reassign", row.frame_id), _routes().FRAME_REASSIGN_SUFFIX,
+        i18n.t(_TITLE_REASSIGN), sentence, field, _ACTION_REASSIGN, _KEEP_OWNER,
+        destructive=not row.is_live_frame)
 
 
 def retire_row_html(row):

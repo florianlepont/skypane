@@ -79,6 +79,7 @@ ACTION_LABELS = {
     "pairing.claim": i18n.msg("admin_lifecycle.action_pairing_claim", "Pairing code claimed"),
     "device.reassign": i18n.msg("admin_lifecycle.action_device_reassign", "Frame reassigned"),
     "device.retire": i18n.msg("admin_lifecycle.action_device_retire", "Frame retired"),
+    "device.rename": i18n.msg("admin_lifecycle.action_device_rename", "Frame renamed"),
     "device.reactivate": i18n.msg(
         "admin_lifecycle.action_device_reactivate", "Frame re-activated"),
     "device.co_manager_add": i18n.msg(

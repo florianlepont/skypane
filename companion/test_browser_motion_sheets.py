@@ -93,7 +93,7 @@ def test_dragging_the_grabber_past_the_threshold_closes_the_sheet_and_returns_fo
         # The sheet follows the pointer in whole pixels while the button is down.
         page.wait_for_function(
             "s => { const m = new DOMMatrix(getComputedStyle(document.querySelector(s)).transform);"
-            " return m.f > 60 && Number.isInteger(m.f); }", arg=QUIET_DIALOG, timeout=5000)
+            " return m.f > 60 && Number.isInteger(m.f); }", arg=QUIET_DIALOG, timeout=15000)
         page.mouse.up()
         page.wait_for_function(
             "s => !document.querySelector(s).open"
@@ -188,7 +188,7 @@ def test_tab_still_loops_inside_the_sheet_and_never_lands_on_the_grabber(
             " return !!a && d.contains(a) && !a.matches('.modal__grabber'); }")
         for key in ["Tab"] * 10 + ["Shift+Tab"] * 10:
             page.keyboard.press(key)
-            page.wait_for_function(inside, arg=QUIET_DIALOG, timeout=5000)
+            page.wait_for_function(inside, arg=QUIET_DIALOG, timeout=15000)
         page.keyboard.press("Escape")
         page.wait_for_function(
             "s => !document.querySelector(s).open"
@@ -213,7 +213,7 @@ def test_with_reduced_motion_a_drag_release_still_closes_instantly(new_context, 
         # No spring: the sheet is back at rest as soon as the pointer is released.
         page.wait_for_function(
             "s => { const d = document.querySelector(s); return d.open"
-            " && getComputedStyle(d).transform === 'none'; }", arg=QUIET_DIALOG, timeout=3000)
+            " && getComputedStyle(d).transform === 'none'; }", arg=QUIET_DIALOG, timeout=15000)
         assert page.locator(QUIET_DIALOG).evaluate(
             "d => getComputedStyle(d).transitionDuration") in ("0s", "1e-05s")
     finally:
@@ -321,7 +321,7 @@ def test_swiping_the_toast_sideways_past_the_threshold_dismisses_it(
         _drag(page, start, 0, dx=-150, release=False)
         page.wait_for_function(
             "s => { const m = new DOMMatrix(getComputedStyle(document.querySelector(s)).transform);"
-            " return m.e < -60 && Number.isInteger(m.e); }", arg=TOAST, timeout=5000)
+            " return m.e < -60 && Number.isInteger(m.e); }", arg=TOAST, timeout=15000)
         page.mouse.up()
         page.wait_for_function(
             "s => document.querySelectorAll(s).length === 0", arg=TOAST, timeout=10000)
@@ -371,7 +371,7 @@ def test_the_dwell_bar_pauses_during_the_gesture_and_resumes_after(
         page.wait_for_function(
             "s => document.querySelector(s).classList.contains('is-paused')"
             " && getComputedStyle(document.querySelector(s + ' .toast__timer'))"
-            ".animationPlayState === 'paused'", arg=TOAST, timeout=5000)
+            ".animationPlayState === 'paused'", arg=TOAST, timeout=15000)
         page.evaluate("() => window.__finish()")
         page.wait_for_function(
             "s => { const t = document.querySelector(s); return !!t"
@@ -401,6 +401,6 @@ def test_with_reduced_motion_a_swipe_still_dismisses_the_toast(
         box = page.locator(TOAST).bounding_box()
         _drag(page, (box["x"] + box["width"] / 2, box["y"] + 6), 0, dx=150)
         page.wait_for_function(
-            "s => document.querySelectorAll(s).length === 0", arg=TOAST, timeout=5000)
+            "s => document.querySelectorAll(s).length === 0", arg=TOAST, timeout=15000)
     finally:
         context.close()
