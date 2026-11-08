@@ -138,3 +138,5 @@ dropped or redrawn from a sketch.
 | 61-95 | Splash at every site opening, page preloading, session-expiry feedback (W154, W155, workflow findings) |
 | 61-91a | W146: server theme catalogue with all colour x background x stripe combinations (before 61-91) |
 | 61-93b | W152: Location phone map full-bleed (needs a fresh iPhone capture) |
+| 61-90 (add) | Flights sort control (date, airline, direction) |
+| 61-92 (add) | Rename a frame (owner and administrators) via the common SaveBar |

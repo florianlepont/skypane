@@ -952,3 +952,9 @@ and a Flights sort (owner decision pending).
 Performance: P01-P11 and P16 in 61-94; P12 (backdrop-filter cost) and P14
 (bfcache) need a real phone; P13 (precompressed static in Caddy) is deploy
 config; P15 (CSS split) after P01+P02.
+
+Owner decision on the two missing features: both added. Rename a frame: a
+name field on the frame page for the owner and administrators, saved through
+the common SaveBar (plan 61-92). Sort in Flights: by date, airline or
+direction, like the Airlines collection (plan 61-90). Radius display clamp
+and F22 go to 61-93, F33 to 61-92.
