@@ -4031,7 +4031,7 @@ a.calendar-disconnect-btn.flight-picture-link {
     flex: 0 1 360px;
     width: 360px;
     max-width: 100%;
-    margin: 0 0 0 auto;
+    margin: 0;
   }
 
   .js .filter-bar--title .filter-bar__search input,
@@ -4077,6 +4077,19 @@ a.calendar-disconnect-btn.flight-picture-link {
   text-decoration: none;
 }
 
+/* One Load more link per representation of the list: the one under the
+ * phone cards by default, the one under the table from 960px. */
+.history-more__link--table {
+  display: none;
+}
+
+/* The no-script Load more lands on the first new row with room above it (the
+ * entrance rise of its group is still moving when the browser scrolls). */
+.history-card[id],
+.data-table--flights tr[id] {
+  scroll-margin-top: var(--space-xl);
+}
+
 .history-more__link:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, var(--glass-solid));
 }
@@ -4091,6 +4104,63 @@ a.calendar-disconnect-btn.flight-picture-link {
     max-width: 24rem;
     margin-inline: auto;
   }
+
+  .history-more__link--cards {
+    display: none;
+  }
+
+  .history-more__link--table {
+    display: flex;
+  }
+}
+
+/* Wide enough for the title and the search on one row: the search then sits at
+ * the row's right edge, clear of the frame button; below that it wraps under
+ * the title, left-aligned with it and with the chips. */
+@media (min-width: 1280px) {
+  .page-header:has(> .filter-bar--title) {
+    flex-wrap: nowrap;
+  }
+
+  .page-header:has(> .filter-bar--title) > .page-title {
+    flex: none;
+  }
+
+  .js .filter-bar--title,
+  .js .filter-bar--title:focus-within,
+  .js .filter-bar--title[data-filter-active] {
+    min-width: 260px;
+    margin-left: auto;
+  }
+}
+
+/* Flights: the direction chips and the sort share one row under the title
+ * (the search is in the title row). The Apply button is the no-script way to
+ * send them; with a script they act on change. */
+.history-controls .filter-bar__chips {
+  display: flex;
+}
+
+.history-sort {
+  display: block;
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.history-sort select {
+  box-sizing: border-box;
+  min-width: 9rem;
+  max-width: 100%;
+}
+
+.history-controls__apply {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+.js .history-controls__apply {
+  display: none;
 }
 
 /* The empty state: a soft card with a search glyph in a halo and its
@@ -4107,6 +4177,16 @@ a.calendar-disconnect-btn.flight-picture-link {
 }
 
 .empty-state--filter button {
+  min-height: 44px;
+  margin-top: var(--space-sm);
+}
+
+/* The Flights empty state's Clear is a link (it works without a script):
+ * the same 44px secondary button the table's picture action uses. */
+.empty-state--filter .calendar-disconnect-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   margin-top: var(--space-sm);
 }
 

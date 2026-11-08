@@ -748,10 +748,11 @@ def test_history_lightbox_carries_zero_replace_markup(tmp_path):
     assert dialog_count == 1, (
         "expected the History dialog exactly once (proves the absence checks below mean "
         "something), got %d" % dialog_count)
+    # The one form on the page is the search; nothing in the lightbox is a form.
+    assert rendered.count("<form") == 1 and "<form " in rendered and "data-flights-form" in rendered
     for token, label in (
             (airlines_page.LIGHTBOX_REPLACE_FORM_CLASS, "airlines_page.LIGHTBOX_REPLACE_FORM_CLASS"),
             (airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR, "airlines_page._VIEW_PANEL_REPLACE_ACTION_ATTR"),
-            ("<form", "<form"),
             ('<input type="file"', '<input type="file"'),
             ("enctype", "enctype"),
             (airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS, "airlines_page.LIGHTBOX_REPLACE_ZONE_CLASS"),

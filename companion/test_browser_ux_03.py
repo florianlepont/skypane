@@ -381,8 +381,11 @@ def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
                 "expected the first rendered row to carry a non-empty "
                 "data-filter-text to filter by — with none, this check has "
                 "nothing to type")
-        page.click("[data-filter-input]")
-        page.type("[data-filter-input]", query)
+        page.click("[data-flights-search]")
+        page.type("[data-flights-search]", query)
+        page.wait_for_function(
+            "() => document.querySelectorAll('tr[data-flight-row]').length === 1"
+            " && window.location.search.indexOf('q=') !== -1", timeout=10000)
         visible = page.evaluate(
             "() => [...document.querySelectorAll('tr[data-flight-row]')]"
             ".filter(el => !el.hidden).length")
@@ -426,7 +429,7 @@ def test_a_refresh_never_interrupts_or_undoes_the_filter(new_context, server):
             raise AssertionError(
                 "the live count reverted to the server's own unfiltered sentence "
                 "after a refresh, expected it to still read %r" % (count_text,))
-        if page.eval_on_selector("[data-filter-input]", "el => el.value") != query:
+        if page.eval_on_selector("[data-flights-search]", "el => el.value") != query:
             raise AssertionError("the typed query itself did not survive the refresh")
     finally:
         context.close()

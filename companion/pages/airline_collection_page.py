@@ -16,6 +16,7 @@ from companion import access
 from companion import airline_collection as collection
 from companion import device_scope
 from companion import i18n
+from companion import ui_filter
 from companion import ui_modal
 import companion.layout as layout
 from companion import prefs
@@ -448,6 +449,13 @@ def _controls_html(view, entries, shown):
          _chips_html(view, entries), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
 
 
+def _no_match_html(action_html, attrs):
+    """The card for a search or a filter that matches no airline, with its
+    Clear action."""
+    return ui_filter.filter_empty_html(
+        i18n.t(NO_MATCH_HEADING), i18n.t(NO_MATCH_BODY), action_html, attrs)
+
+
 def _entries_for(ctx, now):
     overrides = ctx.name_overrides or {}
     try:
@@ -472,10 +480,17 @@ def render(ctx, query_string=""):
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
     parts.append(_controls_html(view, entries, len(shown)))
     if shown:
+        # Revealed by list-filter.js when the typed text hides every card.
+        parts.append(_no_match_html(
+            '<button type="button" data-filter-clear data-filter-clear-all>%s</button>' %
+            escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT)), "data-filter-empty hidden"))
         parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
             GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
             "".join(_card_html(entry, ctx.state_dir) for entry in shown)))
         parts.extend(_sheet_html(entry, ctx.state_dir, now) for entry in shown)
     else:
-        parts.append(layout.empty_state(i18n.t(NO_MATCH_HEADING), i18n.t(NO_MATCH_BODY)))
+        parts.append(_no_match_html(
+            '<a class="calendar-disconnect-btn" href="%s">%s</a>' % (
+                escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
+                escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT))), "data-collection-empty"))
     return "".join(parts)

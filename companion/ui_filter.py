@@ -50,27 +50,43 @@ def _chips_html(chips, legend):
     ) % (escape_html(legend), "".join(parts))
 
 
-def _search_html(input_id, label, placeholder):
+def _search_html(input_id, label, placeholder, server=None):
     """The visually-hidden label, the field (a magnifier, the 16px input)
     and its inline clear button: the one search control both bar forms use.
     The input has no `name` (never submitted by a form) and carries the
     autofill-suppression attributes the WebKit contacts heuristic needs
     (see history_page.py's `_FILTER_INPUT_ID` note). A placeholder stands in
-    for the visible label, which stays as a visually-hidden `<label for>`."""
+    for the visible label, which stays as a visually-hidden `<label for>`.
+    With `server` (a `(name, value, clear_href)` triple) the field is a real
+    form field the server answers: it is named, holds the current text, is
+    marked `data-flights-search` instead of `data-filter-input` (list-filter.js
+    does not filter it) and its clear control is a link to `clear_href`."""
+    if server is None:
+        field = "data-filter-input"
+        clear = (
+            '<button type="button" class="filter-bar__clear" data-filter-clear '
+            'aria-label="%s">%s</button>') % (
+                escape_html(i18n.t(FILTER_CLEAR_LABEL)), icon_html("icon-close", 14))
+    else:
+        name, value, clear_href = server
+        field = 'name="%s" value="%s" maxlength="60" data-flights-search' % (
+            escape_html(name), escape_html(value))
+        clear = (
+            '<a class="filter-bar__clear" href="%s" data-flights-clear '
+            'aria-label="%s">%s</a>') % (
+                escape_html(clear_href), escape_html(i18n.t(FILTER_CLEAR_LABEL)),
+                icon_html("icon-close", 14))
     return (
         '<label class="visually-hidden" for="%s">%s</label>'
         '<div class="filter-bar__search">'
         '<input type="search" id="%s" placeholder="%s" autocomplete="off" '
-        'spellcheck="false" autocapitalize="characters" data-filter-input>'
-        "%s"
-        '<button type="button" class="filter-bar__clear" data-filter-clear '
-        'aria-label="%s">%s</button>'
+        'spellcheck="false" autocapitalize="characters" %s>'
+        "%s%s"
         "</div>"
     ) % (
         escape_html(input_id), escape_html(label),
-        escape_html(input_id), escape_html(placeholder),
-        icon_html("icon-search", 20),
-        escape_html(i18n.t(FILTER_CLEAR_LABEL)), icon_html("icon-close", 14))
+        escape_html(input_id), escape_html(placeholder), field,
+        icon_html("icon-search", 20), clear)
 
 
 def filter_title_search_html(input_id, label, placeholder):
@@ -80,6 +96,34 @@ def filter_title_search_html(input_id, label, placeholder):
     with `search_in_bar=False`)."""
     return '<div class="filter-bar filter-bar--title">%s</div>' % _search_html(
         input_id, label, placeholder)
+
+
+def filter_title_search_form_html(
+        input_id, label, placeholder, form_id, action, name, value, clear_href):
+    """The same title-row search as a GET form the server answers: `name`
+    and `value` are the field's, `clear_href` the address that clears it.
+    Other controls join the form with `form="<form_id>"`, so Enter sends the
+    search together with them and the page works without a script."""
+    return (
+        '<form class="filter-bar filter-bar--title" id="%s" method="get" action="%s" '
+        'role="search" data-flights-form%s>%s</form>'
+    ) % (escape_html(form_id), escape_html(action), " data-filter-active" if value else "", _search_html(
+        input_id, label, placeholder, (name, value, clear_href)))
+
+
+def filter_empty_html(heading, body, action_html, attrs):
+    """The soft card a search or filter that matches nothing shows: a search
+    glyph in a halo, the heading, the body and the card's own Clear action
+    (`action_html`, the caller's already-safe markup). `attrs` are the raw
+    attributes that mark it (`data-filter-empty hidden` for the one a script
+    reveals, `data-flights-empty` for the one the server renders)."""
+    return (
+        '<div class="empty-state empty-state--filter" %s>'
+        '<span class="empty-state__halo">%s</span>'
+        '<p class="empty-state__heading text-heading">%s</p>'
+        '<p class="empty-state__body text-body">%s</p>'
+        "%s</div>"
+    ) % (attrs, icon_html("icon-search", 22), escape_html(heading), escape_html(body), action_html)
 
 
 def filter_bar_html(
@@ -110,17 +154,14 @@ def filter_bar_html(
         'data-filter-count-template="%s">%s</span>'
         "</div>"
         "</div>"
-        '<div class="empty-state empty-state--filter" data-filter-empty hidden>'
-        '<span class="empty-state__halo">%s</span>'
-        '<p class="empty-state__heading text-heading">%s</p>'
-        '<p class="empty-state__body text-body">%s</p>'
-        '<button type="button" data-filter-clear data-filter-clear-all>%s</button>'
-        "</div>"
+        "%s"
     ) % (
         modifier, search_markup, chips_markup,
         escape_html(count_template.replace("%d", COUNT_PLACEHOLDER)),
         escape_html(count_text),
-        icon_html("icon-search", 22),
-        escape_html(empty_heading), escape_html(empty_body),
-        escape_html(i18n.t(FILTER_CLEAR_TEXT)),
+        filter_empty_html(
+            empty_heading, empty_body,
+            '<button type="button" data-filter-clear data-filter-clear-all>%s</button>'
+            % escape_html(i18n.t(FILTER_CLEAR_TEXT)),
+            "data-filter-empty hidden"),
     )

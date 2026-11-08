@@ -457,6 +457,52 @@ def test_the_text_filter_hides_cards_instantly_with_script(new_context, make_app
         context.close()
 
 
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_a_search_with_no_match_shows_the_empty_card_and_clear_brings_the_cards_back(
+        new_context, make_app_server, label, viewport, lang):
+    """Typing something no airline has leaves a card saying so (not a blank page) with a Clear
+    button; Clear empties the field and shows the cards again, the sticky bar still stuck."""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), viewport, lang)
+    try:
+        card = page.locator("[data-filter-empty]")
+        assert not card.is_visible()
+        page.fill("#collection-filter", "zzzzq")
+        card.wait_for(state="visible")
+        assert card.locator(".empty-state__heading").inner_text() == (
+            "No matching airlines" if lang == "en" else "Aucune compagnie correspondante")
+        assert page.locator(".collection-item:not([hidden])").count() == 0
+        clear = card.locator("[data-filter-clear]")
+        assert clear.inner_text() == ("Clear" if lang == "en" else "Effacer")
+        assert clear.bounding_box()["height"] >= 44 - 0.5
+        assert not _assert_no_page_overflow(page, "airline empty", viewport["width"])
+        page.wait_for_function(_SETTLED, timeout=15000)
+        clear.click()
+        page.wait_for_function(
+            "() => document.querySelector('#collection-filter').value === ''"
+            " && document.querySelector('[data-filter-empty]').hidden", timeout=10000)
+        assert page.locator(".collection-item:not([hidden])").count() > 0
+        assert page.locator(".collection-controls").evaluate(
+            "el => getComputedStyle(el).position") == "sticky"
+    finally:
+        context.close()
+
+
+def test_a_server_side_search_with_no_match_shows_the_empty_card_with_a_clear_link(
+        new_context, make_app_server):
+    """Opening the page with a search nothing matches (the no-script path) shows the same card,
+    whose Clear is a plain link back to the whole collection."""
+    server = make_app_server(seed=_seed)
+    with _no_js_page(new_context, server.base_url(), "/airlines?q=zzzzq") as page:
+        card = page.locator("[data-collection-empty]")
+        card.wait_for(state="visible")
+        assert page.locator(CARD).count() == 0
+        card.locator("a").click()
+        page.wait_for_url("**/airlines")
+        assert page.locator(CARD).count() > 0
+
+
 def test_the_collection_is_two_taps_from_home_on_a_phone_and_one_on_desktop(
         new_context, make_app_server):
     server = make_app_server(seed=_seed)
