@@ -44,6 +44,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
 - [ ] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
+- [ ] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last)
 
 ## Phase Details
 
@@ -590,6 +591,17 @@ Plans:
 **Notes**: The extent of the structural change (how far navigation and pages may move, and whether the existing companion architecture stays as is) is settled in discuss-phase; no new runtime dependency is assumed. SEED-011 (distinct message for an unverified email) is absorbed by UX-04. SEED-012 (the admin invite creating the Auth0 account) stays an owner decision and is not part of this phase unless the owner brings it in. Phase 44 of v1.1 is the model for the walkthrough method.
 **UI hint**: yes
 
+### Phase 62: Plane Screen Redesign (giant-lettering design)
+
+**Goal**: The e-ink plane screens read from 2-3 m: the destination is set in giant lettering behind the aircraft, a diagonal band and a per-state colour carry the mode, and the generic status screens share one calm layout, in portrait (1200x1600) and landscape (800x480), without changing a pixel of the current layout until the owner chooses.
+**Depends on**: Phase 56 (per-hardware rendering, closed). Runs before Phase 59, which stays last. Touches no file of Phase 47, 47.1 or `hardware/`.
+**Requirements**: TBD (defined in discuss-phase from the design brief)
+**Source**: `.planning/notes/plane-screen-design-brief.md` (mock-ups in `.planning/notes/plane-screen-design-brief/`, scripts in `design-exploration/plane-screen/`).
+**Open decisions** (settled in discuss-phase): the three aircraft layouts (A nose and tail, B whole aircraft, C band) and the default; the arrival colour; the status screens in landscape; the real-panel contrast; vendoring the Anton font.
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 62 to break down)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -608,3 +620,4 @@ Plans:
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
+| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 0/0 | Not started | - |
