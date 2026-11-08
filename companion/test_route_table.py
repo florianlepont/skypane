@@ -185,6 +185,8 @@ def test_owner_device_routes_are_exactly_the_user_reachable_frame_routes():
         ("POST", routes.Exact("/co-managers/add")),
         ("POST", routes.Exact("/co-managers/remove")),
         ("POST", routes.Exact("/frame/remove")),
+        ("GET", routes.Exact("/frame/name")),
+        ("POST", routes.Exact("/frame/name")),
     }
 
 

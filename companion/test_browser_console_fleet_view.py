@@ -53,9 +53,10 @@ def test_the_blocks_lay_out_and_nothing_overflows(
     try:
         assert not _assert_no_page_overflow(page, where, viewport["width"])
         blocks = page.evaluate(_BLOCKS)
-        # A phone's State tab shows State and Device and version; from 960px every section
-        # (State, Device and version, Settings, Access, Other frames) is on the page.
-        assert len(blocks) == (5 if viewport["width"] >= 960 else 2), where
+        # A phone's State tab shows State, Device and version and the pending and retired
+        # frames; from 960px every section (State, Device and version, Settings, Access,
+        # Other frames) is on the page.
+        assert len(blocks) == (5 if viewport["width"] >= 960 else 3), where
         for upper, lower in zip(blocks, blocks[1:]):
             assert abs(lower["x"] - upper["x"]) < 2 and lower["y"] > upper["y"], (where, blocks)
         if viewport["width"] >= 960:

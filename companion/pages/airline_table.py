@@ -289,11 +289,18 @@ def _sub_art_html(page, sub, row):
         thumb = _enlarge_html(page, sub_row, sub["slot"], label)
         state = STATE_OWN
     else:
-        thumb = '<span class="airlines-thumb airlines-thumb--inherited">%s</span>' % _thumb_html(
-            page, row["key"], row["state_dir"])
+        thumb = (
+            '<span class="airlines-thumb airlines-thumb--inherited" title="%s">%s</span>' % (
+                escape_html(i18n.t(STATE_DEFAULT)),
+                _thumb_html(page, row["key"], row["state_dir"])))
         state = STATE_DEFAULT
-    return '%s<span class="airlines-state text-label">%s</span>' % (
-        thumb, escape_html(i18n.t(state)))
+    # A type that shows its airline's picture says so as a tooltip and to
+    # assistive technology; the dimmed picture is the visible cue, so every
+    # type row keeps the height of the airline row.
+    state_class = "airlines-state text-label" + (
+        "" if sub["has_own"] else " visually-hidden")
+    return '%s<span class="%s">%s</span>' % (
+        thumb, state_class, escape_html(i18n.t(state)))
 
 
 def _sub_action_html(page, sub):

@@ -86,22 +86,22 @@ def _rgb(css):
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_a_long_email_is_cut_with_an_ellipsis_on_one_line(new_context, server, viewport, lang):
+def test_a_long_email_wraps_inside_its_cell_and_keeps_its_full_value_as_the_title(
+        new_context, server, viewport, lang):
     context, page = _open(new_context, server, viewport, lang)
     try:
         email = _row(page, LONG_EMAIL).locator(".users-email")
         facts = email.evaluate(
             """el => { const cs = getComputedStyle(el);
-              return {over: cs.textOverflow, wrap: cs.whiteSpace, scroll: el.scrollWidth,
-                      client: el.clientWidth, height: el.getBoundingClientRect().height,
-                      line: parseFloat(cs.lineHeight), title: el.title, text: el.textContent}; }""")
-        assert facts["over"] == "ellipsis" and facts["wrap"] == "nowrap"
-        assert facts["scroll"] > facts["client"], "the long address should be truncated"
-        assert facts["height"] <= facts["line"] + 1
+              return {over: cs.textOverflow, wrap: cs.overflowWrap, scroll: el.scrollWidth,
+                      client: el.clientWidth, title: el.title, text: el.textContent,
+                      cell: el.closest('.users-cell').getBoundingClientRect().right,
+                      right: el.getBoundingClientRect().right}; }""")
+        assert facts["over"] != "ellipsis" and facts["wrap"] == "anywhere"
+        assert facts["scroll"] <= facts["client"] + 1, "the address must wrap, not overflow"
+        assert facts["right"] <= facts["cell"] + 0.5
         assert facts["title"] == facts["text"] == LONG_EMAIL
-        short = _row(page, "owner@example.test").locator(".users-email")
-        assert short.evaluate("el => el.scrollWidth <= el.clientWidth")
-        _assert_no_page_overflow(page, "users")
+        assert not _assert_no_page_overflow(page, "users")
     finally:
         context.close()
 
@@ -114,10 +114,10 @@ def test_status_pills_say_active_invited_and_you_with_readable_ink(
         page.evaluate("t => document.documentElement.setAttribute('data-ui-theme', t)", scheme)
         page.wait_for_function(_SETTLED)
         for row in page.locator(".users-row").all():
-            assert row.locator(".users-status .users-pill").count() == 1
+            assert row.locator(".users-status .users-pill:visible").count() == 1
         status = {}
         for email, expected in ((ACTIVE_EMAIL, "Active"), (LONG_EMAIL, "Invited")):
-            pill = _row(page, email).locator(".users-status .users-pill")
+            pill = _row(page, email).locator(".users-status .users-pill:visible")
             assert pill.inner_text() == expected
             status[email] = pill
         own = _row(page, "admin@example.test").locator(".users-pills .users-pill")
@@ -242,7 +242,7 @@ def test_the_desktop_table_keeps_the_pills_and_the_copy_button_in_their_columns(
         button = row.locator("button.users-copy").bounding_box()
         assert button["x"] >= box["x"] - 0.5
         assert button["x"] + button["width"] <= box["x"] + box["width"] + 0.5
-        assert row.locator(".users-status .users-pill").inner_text() == "Invited"
+        assert row.locator(".users-status .users-pill:visible").inner_text() == "Invited"
         _assert_no_page_overflow(page, "users")
     finally:
         context.close()

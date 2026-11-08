@@ -158,36 +158,47 @@ def _model_html(device):
         extra_class="fleet-block__fact")
 
 
-def _access_html(device, access_views):
-    view = dict(access_views).get(device.id)
-    if view is None:
-        return ""
-    return co_managers_card.access_rows_html(
-        view, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE)
+def _access_html(device, access_views, row, view):
+    """The Access rows and the dialogs they open: the owner row carries the
+    Reassign control and the Add co-manager row opens its own dialog."""
+    from companion.pages import fleet_page
+    access = dict(access_views).get(device.id)
+    if access is None:
+        return "", ""
+    rows = co_managers_card.access_rows_html(
+        access, device.id, co_managers_card.RETURN_FLEET, _ID_PREFIX_INLINE,
+        owner_action_html=fleet_page.reassign_action_html(row) if row else "",
+        add_as_dialog=True)
+    dismiss = "%s%s&%s=%s" % (FRAME_HREF_PREFIX, device.id, TAB_QUERY, TAB_ACCESS)
+    dialogs = co_managers_card.add_dialog_html(
+        access, device.id, co_managers_card.RETURN_FLEET, dismiss)
+    if row:
+        dialogs += fleet_page.reassign_dialog_html(row, view)
+    return rows, dialogs
 
 
 def _access_block(device, access_views, view):
-    """The Access section: the owner and co-managers with their forms, the
-    inline Reassign form and, for a frame that can be retired, the Retire row
-    whose link opens the one confirmation dialog."""
+    """The Access section: the owner (with Reassign) and co-managers and, for
+    a frame that can be retired, the Retire row whose link opens the one
+    confirmation dialog."""
     from companion.pages import fleet_page
-    rows = _access_html(device, access_views)
     row = next((r for r in view.rows if r.frame_id == device.id), None)
+    rows, dialogs = _access_html(device, access_views, row, view)
     if row is not None:
-        rows += fleet_page.reassign_row_html(row, view) + fleet_page.retire_row_html(row)
-    return _block(_ACCESS_HEADING, rows, " fleet-block--access", "access")
+        rows += fleet_page.retire_row_html(row)
+    return _block(_ACCESS_HEADING, rows, " fleet-block--access", "access") + dialogs
 
 
 def others_block(rows):
     """The Other frames section (pending, then retired frames) as a compact
-    list, or "" when there are none. It belongs to the Access tab on a phone."""
+    list, or "" when there are none. It shows with the State tab on a phone."""
     from companion.pages import fleet_page
     listing = fleet_page.other_frames_list_html(rows)
     if not listing:
         return ""
     count = sum(1 for row in rows if row.kind != fleet_page.KIND_LIVE)
     return _block(
-        None, _item(listing, True), " fleet-block--access fleet-block--others",
+        None, _item(listing, True), " fleet-block--state fleet-block--others",
         "others", heading=fleet_page.other_frames_title(count))
 
 

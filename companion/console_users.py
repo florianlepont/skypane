@@ -34,6 +34,9 @@ DELETE_SUFFIX = "/delete"
 ENABLE_SUFFIX = "/enable"
 UNLINK_SUFFIX = "/unlink"
 
+DISABLE_ACTION = "user.disable"
+ENABLE_ACTION = "user.enable"
+
 _USER_ID_RE = re.compile(r"\A[0-9]{1,9}\Z")
 _MAX_EMAIL_CHARS = 254
 _ROLES = (users_page.ROLE_USER, users_page.ROLE_ADMIN)
@@ -183,7 +186,9 @@ def _render(h, status=200, **invite_state):
         lambda: users_page.render(_view(h, **invite_state)),
         None, status=status,
         action_html=users_page.header_action_html,
-        scripts=(ui_base.LIST_FILTER_SCRIPT_SRC, ui_base.COPY_BUTTON_SCRIPT_SRC))
+        scripts=(
+            ui_base.LIST_FILTER_SCRIPT_SRC, ui_base.COPY_BUTTON_SCRIPT_SRC,
+            ui_base.QUICK_SWITCH_SCRIPT_SRC))
 
 
 def handle_users_get(h, m):
@@ -289,6 +294,9 @@ def _run_action(h, user_id, action, change, success_flash, audit_by_email=False)
             return h.redirect(USERS_PATH, set_cookie=_back(flash))
     finally:
         conn.close()
+    if h._wants_no_content() and action in (DISABLE_ACTION, ENABLE_ACTION):
+        # The Active switch updates in place: the page already shows the result.
+        return h.send_no_content()
     return h.redirect(USERS_PATH, set_cookie=_back(success_flash, **params))
 
 
@@ -325,7 +333,7 @@ def handle_disable(h, m):
             conn, actor_id, user_id, True, actor=audit.actor_for(h))
         return {}, {"email": row["email"]}
 
-    return _run_action(h, user_id, "user.disable", change, FLASH_DISABLED)
+    return _run_action(h, user_id, DISABLE_ACTION, change, FLASH_DISABLED)
 
 
 def handle_enable(h, m):
@@ -339,7 +347,7 @@ def handle_enable(h, m):
         fleet_db.set_user_disabled_guarded(conn, actor_id, user_id, False)
         return {}, {"email": row["email"]}
 
-    return _run_action(h, user_id, "user.enable", change, FLASH_ENABLED)
+    return _run_action(h, user_id, ENABLE_ACTION, change, FLASH_ENABLED)
 
 
 def handle_unlink(h, m):

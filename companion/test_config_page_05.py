@@ -1272,9 +1272,12 @@ def test_the_range_is_gated_nameless_and_bounded_by_device_config():
     assert "role=" not in element, "the range carries a role (%s)" % element
     for attr, expected in (("min", device_config.WAKE_INTERVAL_MIN_S),
                            ("max", device_config.WAKE_INTERVAL_MAX_S),
-                           ("step", config_page.WAKE_SLIDER_STEP_S),
                            ("value", 600)):
         assert ('%s="%d"' % (attr, expected)) in element, "the range's %s is not %d - %s" % (attr, expected, element)
+    # The native range does not snap a typed value (step="any"); the minute
+    # step both gauges speak in is the wrapper's data-value-step.
+    assert 'step="any"' in element
+    assert ('%s="%d"' % (layout.VALUE_CONTROL_STEP_ATTR, config_page.WAKE_SLIDER_STEP_S)) in markup
     for needed in ('aria-label="%s"' % escape_html(i18n.t(config_page.WAKE_SLIDER_LABEL)),
                    'aria-describedby="%s"' % config_page.WAKE_INTERVAL_SECTION_CAPTION_ID):
         assert needed in element, "the range is missing %r - %s" % (needed, element)

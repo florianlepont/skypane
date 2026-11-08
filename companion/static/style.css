@@ -3394,17 +3394,6 @@ table.data-table--flights .cell-inline-sep {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-rows {
-  list-style: none;
-  margin: var(--space-sm) 0 0;
-  padding: 0;
-  container: update-rows / inline-size;
-}
-
-.update-rows > li + li {
-  border-top: 1px solid var(--color-border);
-}
-
 /* The one-line row. Phone: version and age on the first line, the first
  * note on its own ellipsised line below, the chevron spanning both.
  * Replaces the global summary's flex layout and leading chevron: the row
@@ -5124,8 +5113,9 @@ a.airline-card {
   margin: 0;
 }
 
-.health-row__outcome .mono {
-  margin-left: var(--space-sm);
+.health-row__outcome .tnum {
+  margin-left: auto;
+  padding-left: var(--space-md);
   font-weight: var(--weight-semibold);
 }
 
@@ -10681,48 +10671,142 @@ a.fleet-retire__link {
   text-decoration: none;
 }
 
-/* The version history, collapsed to its summary line until opened. */
-.update-all > summary {
+/* The version history: one table, its action always in view. */
+.update-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.update-table__col {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-table__col--when {
+  text-align: right;
+}
+
+.update-table__row > * {
+  padding: var(--space-sm);
+  border-top: 1px solid var(--glass-hairline);
+  vertical-align: middle;
+}
+
+.update-table__version {
+  min-width: 0;
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.update-table__version .mono {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.update-table__version .update-row__badge {
+  margin-left: var(--space-xs);
+}
+
+.update-table__when {
+  font-size: var(--font-label-size);
+  text-align: right;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-table__action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.update-table__action form {
+  margin: 0;
+}
+
+.update-table__action button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+.update-table__row--running > * {
+  background: color-mix(in srgb, var(--color-status-ok) 7%, transparent);
+}
+
+.update-table__notes > summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
+  min-height: 44px;
+  font-size: var(--font-label-size);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.update-table__notes ul {
+  margin: 0 0 var(--space-xs);
+  padding-left: var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* A quiet outlined action link in a row (Reassign beside the owner). */
+a.row-action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   min-height: 44px;
-  color: var(--color-text);
+  min-width: 44px;
+  margin-right: var(--space-md);
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  cursor: pointer;
-  list-style: none;
+  text-decoration: none;
 }
 
-.update-all > summary::before {
-  content: none;
+/* A person row: the address takes the line it needs and its action drops
+ * under it on a narrow screen instead of breaking the address. */
+.group > .row.access-person {
+  flex-wrap: wrap;
 }
 
-.update-all > summary::-webkit-details-marker {
-  display: none;
-}
-
-.update-all[open] > summary .update-all__chevron {
-  transform: rotate(90deg);
-}
-
-/* The selected frame's header: its name and owner, and its actions menu. */
-.fleet-detail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  margin: 0 0 var(--space-md);
-}
-
-.fleet-detail-head__text {
+.group > .row.access-person > .row__main {
+  flex: 1 0 14rem;
   min-width: 0;
 }
 
-.fleet-detail-head__text > * {
-  margin: 0;
-  overflow-wrap: anywhere;
+.group > .row.access-person > .row__main + * {
+  margin-left: auto;
+}
+
+.access-add .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+/* The selected frame's header: its personal view and Rename as two link
+ * buttons (the frame's name is the frame button's label). */
+.fleet-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.fleet-detail-head a.row-action {
+  margin-right: 0;
 }
 
 /* The "Manage user" button of a Users row: a 44px bordered text link. */
@@ -11844,9 +11928,7 @@ dialog.access-sheet[open],
 .users-email {
   grid-column: 1 / -1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-weight: var(--weight-semibold);
 }
 
@@ -12065,17 +12147,13 @@ button.row-menu__item--destructive:hover {
     padding-right: var(--space-md);
   }
 
-  .users-cell--frames {
-    white-space: nowrap;
-  }
-
-  .users-col--user { width: 30%; }
-  .users-col--role { width: 20%; }
-  .users-col--frames { width: 16%; }
-  .users-col--seen { width: 12%; }
-  .users-col--active { width: 8%; }
-  .users-col--invite { width: 56px; }
-  .users-col--menu { width: 56px; }
+  .users-col--user { width: 28%; }
+  .users-col--role { width: 23%; }
+  .users-col--frames { width: 11%; }
+  .users-col--seen { width: 13%; }
+  .users-col--active { width: 7%; }
+  .users-col--invite { width: 76px; }
+  .users-col--menu { width: 76px; }
 
   .users-avatar {
     display: inline-grid;
@@ -12245,6 +12323,19 @@ button.row-menu__item--destructive:hover {
 }
 
 .airlines-cell--art { grid-area: art; }
+
+/* A type row's picture and its state word sit on one line. */
+.airlines-subrow .airlines-cell--art {
+  white-space: nowrap;
+}
+
+.airlines-subrow .airlines-cell--art > * {
+  vertical-align: middle;
+}
+
+.airlines-subrow .airlines-state {
+  margin-left: var(--space-sm);
+}
 
 .airlines-cell--views {
   grid-area: views;
@@ -13722,9 +13813,21 @@ dialog.access-sheet .modal__body {
 
 /* Remove this frame: a quiet danger link set apart under the people group,
  * in regular weight and no surface so it does not compete with Done. */
+.access-sheet .access-rename,
 .access-sheet .access-remove-frame {
   margin: var(--space-sm) 0 0;
   text-align: center;
+}
+
+a.access-rename__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 a.access-remove-frame__link {
@@ -13772,7 +13875,8 @@ dialog.access-sheet .modal__actions {
   }
 }
 
-/* The System view: one glass group per topic, two columns from 1000px. */
+/* The System view: one glass group per topic in one centred column, like the
+ * frame's sections, so an opened card never leaves a gap beside it. */
 .system-topics {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -13782,12 +13886,10 @@ dialog.access-sheet .modal__actions {
 
 .fleet-blocks--system {
   display: block;
-}
-
-@media (min-width: 1000px) {
-  .system-topics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 800px;
+  margin-inline: auto;
 }
 
 /* Cards that hold free content (forms, notes, versions) sit on the same

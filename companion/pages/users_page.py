@@ -160,21 +160,30 @@ def _t(message):
     return _esc(i18n.t(message))
 
 
-def _pill(label_html, tone=""):
+def _pill(label_html, tone="", attrs=""):
     css = "banner__pill users-pill"
     if tone:
         css += " users-pill--" + tone
-    return '<span class="%s">%s</span>' % (css, label_html)
+    return '<span class="%s"%s>%s</span>' % (css, attrs, label_html)
+
+
+_STATUS_LABELS = {
+    STATUS_ACTIVE: _STATUS_ACTIVE, STATUS_INVITED: _STATUS_INVITED,
+    STATUS_DISABLED: _STATUS_DISABLED}
 
 
 def _status_pill(row):
-    """The one status mark of a row: Active (has signed in), Invited (has not
-    yet) or Disabled."""
-    status = status_of(row)
-    label = {
-        STATUS_ACTIVE: _STATUS_ACTIVE, STATUS_INVITED: _STATUS_INVITED,
-        STATUS_DISABLED: _STATUS_DISABLED}[status]
-    return _pill(_t(label), status)
+    """The row's status marks: Active (has signed in) or Invited (has not
+    yet) while the person is enabled, Disabled otherwise. Both are in the
+    markup, one of them hidden, so the Active switch can flip them in place
+    (the quick-switch script toggles the two `data-quick-state-*` marks)."""
+    enabled = status_of(row._replace(disabled=False))
+    off = row.disabled
+    return (
+        _pill(_t(_STATUS_LABELS[enabled]), enabled,
+              (" hidden" if off else "") + " data-quick-state-on")
+        + _pill(_t(_STATUS_DISABLED), STATUS_DISABLED,
+                ("" if off else " hidden") + " data-quick-state-off"))
 
 
 def _frames_text(count):
@@ -265,14 +274,19 @@ def _active_cell(row):
         ' aria-describedby="%s"' % " ".join(_guard_ids(row)) if locked else "")
     button = (
         '<button type="submit" class="switch" role="switch" aria-checked="%s" '
-        'aria-label="%s"%s%s><span class="switch__track" aria-hidden="true">'
+        'aria-label="%s" data-quick-control%s%s><span class="switch__track" aria-hidden="true">'
         '<span class="switch__thumb"></span></span></button>' % (
             "true" if active else "false", _esc(i18n.t(_ACTIVE_ARIA) % row.email),
             explained, " disabled" if locked else ""))
     label = '<span class="users-active-label text-label" aria-hidden="true">%s</span>' % (
         _t(_COL_ACTIVE))
-    suffix = _routes().USER_DISABLE_SUFFIX if active else _routes().USER_ENABLE_SUFFIX
-    return _post_form(row, suffix, "users-active-form", label + button)
+    on_path = _esc(_action_path(row, _routes().USER_DISABLE_SUFFIX))
+    off_path = _esc(_action_path(row, _routes().USER_ENABLE_SUFFIX))
+    return (
+        '<form method="post" action="%s" class="users-active-form" data-quick-switch '
+        'data-quick-action-on="%s" data-quick-action-off="%s">%s%s</form>' % (
+            on_path if active else off_path, on_path, off_path,
+            _ui().csrf_field(), label + button))
 
 
 def delete_dialog_id(row):
@@ -293,16 +307,21 @@ def _delete_dialog(row):
 
 def _menu_cell(row):
     """The "..." menu: only the rare actions, the identity unlink of a user
-    who has signed in, then Delete user, which opens its confirmation."""
+    who has signed in, then Delete user, which opens its confirmation. The
+    signed-in administrator's own row offers no Delete (the server refuses
+    it), and no menu at all when nothing else is left."""
     unlink = ""
     if row.has_identity:
         unlink = _post_form(
             row, _routes().USER_UNLINK_SUFFIX, "users-menu__form",
             '<button type="submit" class="row-menu__item row-menu__item--destructive" '
             'title="%s">%s</button>' % (_t(_UNLINK_HINT), _t(_UNLINK_BUTTON)))
-    unlink += ui_modal.trigger_html(
-        delete_dialog_id(row), _t(_DELETE_BUTTON),
-        "row-menu__item row-menu__item--destructive")
+    if not row.is_self:
+        unlink += ui_modal.trigger_html(
+            delete_dialog_id(row), _t(_DELETE_BUTTON),
+            "row-menu__item row-menu__item--destructive")
+    if not unlink:
+        return ""
     return (
         '<details class="row-menu"><summary class="row-menu__toggle" aria-label="%s">'
         '%s</summary><div class="row-menu__panel">%s</div></details>' % (
@@ -335,7 +354,7 @@ def _invite_cell(row, app_url):
 def _row_html(row, view):
     you = _pill(_t(_YOU), "you") if row.is_self else ""
     return (
-        '<tr class="users-row%s" id="user-%d">'
+        '<tr class="users-row%s" id="user-%d" data-quick-region>'
         '<th scope="row" class="users-cell users-cell--user">'
         '<span class="users-avatar" aria-hidden="true">%s</span>'
         '<span class="users-who"><span class="users-email" title="%s">%s</span>'
@@ -422,4 +441,4 @@ def render(view):
         '<section class="users-section" aria-label="%s">%s</section>' % (
             _t(_USERS_TEXT), _table_html(view))
         + _invite_dialog(view)
-        + "".join(_delete_dialog(row) for row in view.rows))
+        + "".join(_delete_dialog(row) for row in view.rows if not row.is_self))

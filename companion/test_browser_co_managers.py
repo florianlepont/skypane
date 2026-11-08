@@ -63,8 +63,10 @@ class FleetRig(Rig):
         super().__init__(server)
         self.slug = self.seed.owned_id.lower().replace("_", "-")
         self.section = ".fleet-block--access"
-        self.person = "#access-inline-%s-person" % self.slug
-        self.email = "#access-inline-%s-email" % self.slug
+        self.dialog = "#dlg-add-co-manager-%s" % self.slug
+        self.person = "%s #co-manager-dialog-%s-person" % (self.dialog, self.slug)
+        self.email = "%s #co-manager-dialog-%s-email" % (self.dialog, self.slug)
+        self.add_row = self.section + " li.access-add a.row__main"
 
 
 @pytest.fixture
@@ -80,16 +82,24 @@ def _open_fleet(new_context, rig, who="admin", lang="en", theme=None,
         viewport=viewport, **context_kwargs)
 
 
-_ADD_BUTTON = 'form[action$="/co-managers/add"] button'
+_ADD_BUTTON = 'form[action$="/co-managers/add"] button[type="submit"]'
 
 
-def test_an_admin_adds_a_co_manager_in_two_actions_inline(new_context, frig):
+def _open_add_dialog(page, frig):
+    """One tap on the Add co-manager row opens its dialog."""
+    page.locator(frig.add_row).click()
+    page.wait_for_function(
+        "sel => document.querySelector(sel).open", arg=frig.dialog, timeout=10000)
+
+
+def test_an_admin_adds_a_co_manager_in_three_actions_through_the_add_row(new_context, frig):
     context, page = _open_fleet(new_context, frig)
     try:
-        page.select_option(frig.person, label=INVITED)  # 1
-        assert page.locator("dialog[open]").count() == 0
-        page.locator(frig.section + " " + _ADD_BUTTON).click()  # 2
-        page.wait_for_url("**/fleet?frame=*")
+        assert page.locator(frig.section + " select").count() == 0, "no inline picker remains"
+        _open_add_dialog(page, frig)  # 1
+        page.select_option(frig.person, label=INVITED)  # 2
+        page.locator(frig.dialog + " " + _ADD_BUTTON).click()  # 3
+        page.wait_for_url("**/fleet?frame=*&tab=access")
         toast = page.locator(CONSOLE_TOAST).first
         toast.wait_for(state="visible")
         assert "Co-manager added" in toast.inner_text()
@@ -115,7 +125,7 @@ def test_removing_a_co_manager_updates_the_section(new_context, frig):
 def test_a_refused_add_returns_to_the_frame_with_the_error_toast(new_context, frig):
     context, page = _open_fleet(new_context, frig, who="admin", query="?access=" + frig.seed.owned_id)
     try:
-        page.locator(frig.section + " " + _ADD_BUTTON).wait_for(state="visible")
+        _open_add_dialog(page, frig)
         # The admin picker only offers eligible people, so force an unknown
         # address through the select the way a stale page would.
         page.evaluate(
@@ -123,8 +133,8 @@ def test_a_refused_add_returns_to_the_frame_with_the_error_toast(new_context, fr
             " const o = document.createElement('option'); o.value = %r;"
             " o.textContent = 'x'; s.appendChild(o); s.value = %r; }"
             % (UNKNOWN, UNKNOWN), frig.person)
-        page.locator(frig.section + " " + _ADD_BUTTON).click()
-        page.wait_for_url("**/fleet?frame=*")
+        page.locator(frig.dialog + " " + _ADD_BUTTON).click()
+        page.wait_for_url("**/fleet?frame=*&tab=access")
         assert "can't be added" in page.locator(CONSOLE_TOAST).first.inner_text()
         assert UNKNOWN not in page.url
         assert UNKNOWN not in frig.members()
@@ -155,11 +165,25 @@ def test_the_section_fits_and_meets_the_tap_targets(
         if viewport["width"] == 360:
             assert owner_email.bounding_box()["height"] > 30, "the long address wraps"
         for selector in (
-                frig.person, 'form[action$="/co-managers/add"] button[type="submit"]',
-                "form.co-manager__remove button"):
+                "li.access-add a.row__main", "a.row-action", "form.co-manager__remove button"):
             target = section.locator(selector).first
             assert target.bounding_box()["height"] >= MIN_TAP_PX - SUBPIXEL, selector
             assert target.bounding_box()["width"] >= MIN_TAP_PX - SUBPIXEL, selector
+        # The owner's row and its Reassign button never overlap: the button wraps under the
+        # address on a narrow screen and sits beside it on a wide one.
+        owner_row = section.locator("li.access-person", has_text=LONG_OWNER).first
+        main_box = owner_row.locator(".row__main").bounding_box()
+        button_box = owner_row.locator("a.row-action").bounding_box()
+        assert (button_box["y"] >= main_box["y"] + main_box["height"] - SUBPIXEL
+                or button_box["x"] >= main_box["x"] + main_box["width"] - SUBPIXEL)
+        # The picker lives in the dialog, inside the viewport and with 44px controls.
+        _open_add_dialog(page, frig)
+        for selector in (frig.person, frig.dialog + " " + _ADD_BUTTON):
+            target = page.locator(selector).first
+            target_box = target.bounding_box()
+            assert target_box["height"] >= MIN_TAP_PX - SUBPIXEL, selector
+            assert target_box["x"] >= -SUBPIXEL
+            assert target_box["x"] + target_box["width"] <= viewport["width"] + SUBPIXEL, selector
     finally:
         context.close()
 
@@ -167,10 +191,12 @@ def test_the_section_fits_and_meets_the_tap_targets(
 def test_the_section_works_with_scripts_blocked(new_context, frig):
     context, page = _open_fleet(new_context, frig, java_script_enabled=False)
     try:
-        assert page.locator(frig.section + " " + _ADD_BUTTON).is_visible()
+        assert page.locator(frig.add_row).is_visible()
+        page.locator(frig.add_row).click()
+        page.wait_for_url("**#dlg-add-co-manager-*")
         page.select_option(frig.person, label=INVITED)
-        page.locator(frig.section + " " + _ADD_BUTTON).click()
-        page.wait_for_url("**/fleet?frame=*")
+        page.locator(frig.dialog + " " + _ADD_BUTTON).click()
+        page.wait_for_url("**/fleet?frame=*&tab=access")
         assert INVITED in frig.members()
         assert _no_sideways_scroll(page)
     finally:

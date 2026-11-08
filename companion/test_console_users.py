@@ -50,6 +50,14 @@ def _user(state_dir, user_id):
         state_dir, "SELECT role, disabled, iss, sub FROM users WHERE id = ?", (user_id,))[0]
 
 
+def _visible_status(row):
+    """The status pills of a row that are shown (the Active switch flips two
+    marks in place, so the other one is in the markup, hidden)."""
+    return [
+        name for name, rest in re.findall(r'users-pill--(\w+)"([^>]*)>', row)
+        if "hidden" not in rest and not name == "you"]
+
+
 def _row_html(body, user_id):
     """The table row holding this user's role form (its select id)."""
     for match in re.finditer(r'<tr class="users-row[^"]*"[^>]*>.*?</tr>', body, re.S):
@@ -99,13 +107,12 @@ def test_the_page_lists_every_user_as_a_table_row_with_role_frames_and_pills(rig
     assert "4 users" in body
     assert 'value="admin" selected' in _row_html(body, seed.admin2_id)
     assert "0 frames" in _row_html(body, seed.admin2_id)
-    assert "Disabled" in _row_html(body, seed.owner_id)
-    assert "Invited" not in _row_html(body, seed.admin2_id)
-    assert "Invited" in _row_html(body, seed.user_id)
+    assert _visible_status(_row_html(body, seed.owner_id)) == ["disabled"]
+    assert _visible_status(_row_html(body, seed.admin2_id)) == ["active"]
+    assert _visible_status(_row_html(body, seed.user_id)) == ["invited"]
     assert "Never signed in" in _row_html(body, seed.user_id)
-    assert "Disabled" not in _row_html(body, seed.user_id)
     own = _row_html(body, seed.admin_id)
-    assert ">You<" in own and "Invited" not in own
+    assert ">You<" in own and _visible_status(own) == ["active"]
     assert "Active: %s" % fx.USER_EMAIL in _row_html(body, seed.user_id)
 
 
@@ -157,7 +164,7 @@ def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
     css = fx.get(server, cookie, "/static/style.css")[2]
     rule = re.search(r"\.users-email \{[^}]*\}", css).group(0)
     assert "monospace" not in rule
-    assert "text-overflow: ellipsis" in rule and "overflow-wrap: anywhere" not in rule
+    assert "overflow-wrap: anywhere" in rule and "text-overflow" not in rule
 
 
 def test_own_row_shows_the_guard_in_place_of_the_role_select_and_locks_the_switch(rig):

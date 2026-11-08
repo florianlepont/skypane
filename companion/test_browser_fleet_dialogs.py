@@ -1,6 +1,6 @@
 """Real-browser flows of the Fleet dialogs: pair a frame in four actions,
 refuse a wrong code with the dialog reopened, retire in two actions (the one
-confirmation dialog), reassign inline without a dialog, re-activate; initial focus, Tab containment, Esc and focus return; and
+confirmation dialog), reassign from the owner row's button with one confirmation, re-activate; initial focus, Tab containment, Esc and focus return; and
 the same forms through plain hash links with scripts blocked. Dialog geometry
 holds at 360 and 1280px, in English and French, in both themes."""
 import pytest
@@ -197,15 +197,23 @@ def test_tab_stays_inside_the_dialog_and_escape_returns_focus_to_the_trigger(
         context.close()
 
 
-def test_reassign_is_inline_and_needs_no_dialog(new_context, app_server_in_process):
+def test_reassign_is_a_button_beside_the_owner_with_one_confirmation(
+        new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)
     try:
-        form = page.locator("form[action$='/reassign']")
-        form.locator("select").select_option(label=fx.ADMIN_EMAIL + " (admin)")  # 1
-        assert page.locator("dialog[open]").count() == 0
-        form.locator("button[type=submit]").click()  # 2
-        page.wait_for_url("**/fleet**")
+        owner_row = page.locator(".fleet-block--access li.row", has_text=fx.OWNER_EMAIL).first
+        button = owner_row.locator("a.row-action")
+        assert button.inner_text() == "Reassign"
+        assert button.bounding_box()["height"] >= MIN_TAP_PX - 0.5
+        # No form with a wide select stays in the Access section.
+        assert page.locator(".fleet-block--access select").count() == 0
+        button.click()  # 1
+        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
+        page.wait_for_function("d => d.open", arg=dialog.element_handle(), timeout=10000)
+        dialog.locator("select").select_option(label=fx.ADMIN_EMAIL + " (admin)")  # 2
+        dialog.locator("button[type=submit]").click()  # 3
+        page.wait_for_url("**/fleet?frame=%s&tab=access" % seed.owned_id)
         assert _device(server, seed.owned_id)["owner_user_id"] == seed.admin_id
     finally:
         context.close()

@@ -16,7 +16,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit
 
 from companion import device_scope, frame_state, i18n, layout, routes, wake
 from companion.pages import (
-    airline_sheet, airlines_page, co_managers_card, config_page, detection_page, pair_frame_page,
+    airline_sheet, airlines_page, co_managers_card, config_page, detection_page, frame_name_page, pair_frame_page,
     update_page)
 from server import device_config
 from server.plane import calendar_rules, colour_rules
@@ -83,6 +83,7 @@ FLASH_KEY_FRAME_REMOVED = co_managers_card.FLASH_FRAME_REMOVED
 FLASH_KEY_FRAME_REMOVE_REFUSED = co_managers_card.FLASH_FRAME_REMOVE_REFUSED
 FLASH_KEY_FRAME_REMOVE_LIVE = co_managers_card.FLASH_FRAME_REMOVE_LIVE
 FLASH_KEY_FRAME_PAIRED = pair_frame_page.FLASH_FRAME_PAIRED
+FLASH_KEY_FRAME_RENAMED = frame_name_page.FLASH_FRAME_RENAMED
 
 # A fixed key -> copy dictionary — the flash mechanism only ever renders
 # one of these, never a value taken verbatim from the query string.
@@ -343,6 +344,7 @@ FLASH_MESSAGES = {
     FLASH_KEY_FRAME_REMOVE_REFUSED: co_managers_card.FLASH_FRAME_REMOVE_REFUSED_TEXT,
     FLASH_KEY_FRAME_REMOVE_LIVE: co_managers_card.FLASH_FRAME_REMOVE_LIVE_TEXT,
     FLASH_KEY_FRAME_PAIRED: pair_frame_page.FLASH_FRAME_PAIRED_TEXT,
+    FLASH_KEY_FRAME_RENAMED: frame_name_page.FLASH_FRAME_RENAMED_TEXT,
 }
 
 _SUCCESS = layout.TOAST_TONE_SUCCESS
@@ -417,6 +419,7 @@ FLASH_TONES = {
     FLASH_KEY_FRAME_REMOVE_REFUSED: _INFO,
     FLASH_KEY_FRAME_REMOVE_LIVE: _ERROR,
     FLASH_KEY_FRAME_PAIRED: _SUCCESS,
+    FLASH_KEY_FRAME_RENAMED: _SUCCESS,
     # The screen switch reaches the frame within about five minutes, at
     # its next wake; quiet hours and the LED wait for the next wake too.
     FLASH_KEY_DISPLAY_ON: _PENDING,

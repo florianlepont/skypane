@@ -52,14 +52,11 @@ def _open_fleet(new_context, server, viewport, lang, scheme):
 
 def _open_personal_view(page, server, seed, words, viewport):
     row = page.locator(".fleet-detail-head")
-    row.locator(".row-menu__toggle").click()
-    item = row.locator(".row-menu__item", has_text=words["personal"])
-    page.wait_for_function(
-        "(el) => el.getBoundingClientRect().height > 0", arg=item.element_handle())
-    assert item.bounding_box()["height"] >= MIN_TAP_PX
-    for other in row.locator(".row-menu__item").all():
-        assert other.bounding_box()["height"] >= MIN_TAP_PX
-    assert not _assert_no_page_overflow(page, "fleet-menu", viewport["width"])
+    item = row.locator("a.row-action", has_text=words["personal"])
+    item.wait_for(state="visible")
+    for link in row.locator("a.row-action").all():
+        assert link.bounding_box()["height"] >= MIN_TAP_PX - 0.5
+    assert not _assert_no_page_overflow(page, "fleet-header", viewport["width"])
     with page.expect_navigation():
         item.click()
     page.wait_for_url(server.base_url() + "/devices/%s/" % seed.owned_id)

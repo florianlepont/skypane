@@ -14,6 +14,8 @@ MESSAGES = {
     "co_managers.dialog_title": "Gérer l’accès",
     "co_managers.menu_label": "Gérer l’accès",
     "co_managers.done": "Terminé",
+    "co_managers.cancel": "Annuler",
+    "co_managers.rename_frame": "Renommer ce cadre",
     "co_managers.leave_title": "Quitter ce cadre ?",
     "co_managers.pill_owner": "Propriétaire",
     "co_managers.pill_you": "Vous",

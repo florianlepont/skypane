@@ -52,6 +52,7 @@ MESSAGES = {
     "admin_lifecycle.action_pairing_claim": "Code d’association utilisé",
     "admin_lifecycle.action_device_reassign": "Cadre réattribué",
     "admin_lifecycle.action_device_retire": "Cadre retiré",
+    "admin_lifecycle.action_device_rename": "Cadre renommé",
     "admin_lifecycle.action_device_reactivate": "Cadre réactivé",
     "admin_lifecycle.action_device_co_manager_add": "Co-gestionnaire ajouté",
     "admin_lifecycle.action_device_co_manager_remove": "Co-gestionnaire retiré",

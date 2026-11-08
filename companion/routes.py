@@ -33,7 +33,7 @@ admin role (every global page and mutation).
 import re
 
 from companion import (
-    airline_actions, co_managers, console_routes, device_scope, fleet_moves, user_pairing, layout, page_policy, route_types,
+    airline_actions, co_managers, console_routes, device_scope, fleet_moves, frame_rename, user_pairing, layout, page_policy, route_types,
     static_files, theme_preview)
 from companion.pages import (
     airline_collection_page, airlines_page, co_managers_card, config_page, detection_page, place_page,
@@ -362,6 +362,8 @@ _ACTION_KEYS = (
     ("POST", Exact(co_managers_card.REMOVE_ROUTE)),
     ("POST", Exact(co_managers_card.LEAVE_ROUTE)),
     ("POST", Exact(co_managers_card.REMOVE_FRAME_ROUTE)),
+    ("GET", Exact(frame_rename.page.RENAME_ROUTE)),
+    ("POST", Exact(frame_rename.page.RENAME_ROUTE)),
 )
 
 # The routes that act on a single device.
@@ -387,7 +389,9 @@ ROUTES = tuple(
     route._replace(
         device_scoped=(route.method, route.matcher) in _DEVICE_SCOPED_KEYS,
         csrf=route.csrf or (route.method, route.matcher) in CSRF_ROUTE_KEYS)
-    for route in _GET_ROUTES + _POST_ROUTES + user_pairing.ROUTES + console_routes.ROUTES
+    for route in (
+        _GET_ROUTES + _POST_ROUTES + user_pairing.ROUTES + frame_rename.ROUTES
+        + console_routes.ROUTES)
 )
 
 
@@ -420,6 +424,11 @@ def match(method, path, query):
     prefix goes through the plain loop and finds nothing.
     """
     prefixed = DEVICE_PREFIX_RE.match(path)
+    if prefixed is not None and method == "GET" and prefixed.group(2) == UPDATE_ROUTE:
+        # The retired Update page keeps answering under a frame's prefix: the
+        # one global route, with the id carried, so an administrator is moved
+        # to that frame's Fleet view (anyone else sees the unknown-path page).
+        return _match_in(ROUTES, method, UPDATE_ROUTE, query, prefixed.group(1))
     if prefixed is not None:
         scoped_routes = tuple(route for route in ROUTES if route.device_scoped)
         return _match_in(

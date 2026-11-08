@@ -58,6 +58,8 @@ EXPECTED_DEVICE_SCOPED = {
     ("POST", "/co-managers/remove"),
     ("POST", "/co-managers/leave"),
     ("POST", "/frame/remove"),
+    ("GET", "/frame/name"),
+    ("POST", "/frame/name"),
 }
 
 # One concrete request path per expected entry.
@@ -80,7 +82,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 43
+        assert len(EXPECTED_DEVICE_SCOPED) == 45
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))
@@ -113,7 +115,6 @@ class TestPrefixMatching:
         ("POST", "/logout"),
         ("POST", "/ui-theme"),
         ("POST", "/ui-lang"),
-        ("GET", "/update"),
         ("POST", "/update/install"),
         ("POST", "/update/cancel"),
         ("GET", "/runway-image/09.png"),
@@ -121,6 +122,16 @@ class TestPrefixMatching:
     def test_global_routes_do_not_match_under_prefix(self, method, path):
         assert routes.match(method, path, "") is not None
         assert routes.match(method, PREFIX + path, "") is None
+
+    def test_the_retired_update_page_alone_answers_under_a_prefix(self):
+        """A frame-prefixed Update address matches the one global route and
+        carries the frame id, so an administrator is moved to that frame's
+        Fleet view; no other method or path under the prefix matches."""
+        route, matched = routes.match("GET", PREFIX + "/update", "")
+        assert route is routes.match("GET", "/update", "")[0]
+        assert matched.device_id == DEVICE_ID
+        assert routes.match("POST", PREFIX + "/update", "") is None
+        assert routes.match("GET", PREFIX + "/update/", "") is None
 
     @pytest.mark.parametrize("bad_prefix", [
         "/devices/d_1a2b3c4",
