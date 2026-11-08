@@ -839,3 +839,32 @@ full-bleed and loading state (W122, W123, W124).
 Plans (batch 13): 61-85 Home status wording and battery, Quiet hours,
 Flights rows; 61-86 tab bar, More menu, Console switch; 61-87 Fleet desktop
 single column; 61-88 Location full-bleed, loading, in-place airport.
+
+## Round 10 (production review of round 9, desktop; in progress)
+
+- W142 (owner, screenshot) Flights: the page is buggy when the list is empty:
+  header chips read "Tous 0 / Départs 0 / Arrivées 0" while the empty state
+  says "44 vols", the table header is shown under the "Aucun vol
+  correspondant" card, and "44 vols affichés" + "Charger plus" still appear.
+- W143 (owner) "Charger plus" sends him back to the top of the table, which
+  makes no sense (it should keep the position / land on the first new row).
+- W144 (owner, screenshot of Location search) Typing a city ("Arrou"): the
+  hint "Un code ou un nom d'aéroport choisit cet aéroport. Tout le reste est
+  envoyé au service de recherche d'OpenStreetMap (Nominatim)." covers the
+  suggestions; he has to press Enter to see a city name.
+- W145 (owner, screenshot) Personalisation Departures: the caption under the
+  picture ("Départs · Rouge, bande sur fond clair") is useless: remove it.
+- W146 (owner) Generate ALL possible backgrounds in the customisation: for
+  example the light yellow background or the band with light yellow are
+  missing (options with no theme are hidden since 61-76). Every colour x
+  background x band combination should exist as a theme.
+- W147 (owner) The size of the "save the detected changes" popup (floating
+  bar) is never the same: the same component must be used everywhere.
+- W148 (owner, screenshot) Calendar view still broken on desktop: it shows
+  the Departures "Comme les départs" customisation card, clipped at the top,
+  next to an empty panel.
+- W149 (owner, screenshot) Fleet versions table: display bug (the "Toutes
+  les versions (3)" disclosure and its rows overlap / misaligned, the open
+  row's detail not aligned), and the rollback (downgrade) button should be
+  available directly in the view, not inside the toggle.
+- (owner may have more; not confirmed done.)
