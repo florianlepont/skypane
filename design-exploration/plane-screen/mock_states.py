@@ -42,14 +42,37 @@ def icon_mask(drawer):
     return img.convert("L")
 
 
-def render(lines, label, body, drawer, watching=False):
+def render(lines, label, body, drawer, watching=False, icon_at="corner"):
+    """icon_at: "corner" (small, top right), "start" (before the first line) or
+    "end" (after the last line); the icon then shares its line, scaled to the
+    line's height."""
     c = Image.new("RGB", (W, H), WHITE) if watching else t.field(pf.IDX_BLACK, True).copy()
     ink = (0, 0, 0) if watching else WHITE
-    g.giant_text(c, lines, (40, 130, W - 40, 1290), ink, heavy=1)
+    x0, x1, y0, y1 = 40, W - 40, 130, 1290
+    slot = (y1 - y0) / len(lines)
+    mask = icon_mask(drawer)
+    mask = mask.crop(mask.getbbox())
+    gap = 14
+    for i, line in enumerate(lines):
+        left, right = x0, x1
+        target = (icon_at == "start" and i == 0) or (icon_at == "end" and i == len(lines) - 1)
+        if target:
+            icon_h = round(slot - gap)
+            icon_w = round(mask.width * icon_h / mask.height)
+            icon = mask.resize((icon_w, icon_h), Image.LANCZOS)
+            top = round(y0 + slot * i)
+            if icon_at == "start":
+                c.paste(Image.new("RGB", icon.size, ink), (x0, top), icon)
+                left = x0 + icon_w + 30
+            else:
+                c.paste(Image.new("RGB", icon.size, ink), (x1 - icon_w, top), icon)
+                right = x1 - icon_w - 30
+        g.giant_text(c, [line], (left, round(y0 + slot * i), right, round(y0 + slot * (i + 1))), ink, heavy=1, stretch=True)
     dr = ImageDraw.Draw(c)
     dr.text((64, 56), label, font=ImageFont.truetype(g.FONT, 56), fill=ink)
-    mask = icon_mask(drawer)
-    c.paste(Image.new("RGB", mask.size, ink), (W - 64 - 38 - 100, 44 - 60), mask)
+    if icon_at == "corner":
+        small = icon_mask(drawer)
+        c.paste(Image.new("RGB", small.size, ink), (W - 64 - 38 - 100, 44 - 60), small)
     y = 1330
     for line in body:
         font = ImageFont.truetype(g.FONT, 46)
@@ -59,13 +82,14 @@ def render(lines, label, body, drawer, watching=False):
 
 
 def main(out_dir, font_dir):
+    icon_at = os.environ.get("MOCK_ICON", "corner")
     os.makedirs(out_dir, exist_ok=True)
     g.FONT_HEAVY = os.path.join(font_dir, "Anton-Regular.ttf")
     tw, th = 300, 400
     label_font = ImageFont.truetype("server/assets/fonts/Inter-Bold.ttf", 22)
     sheet = Image.new("RGB", (4 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
     for i, (key, lines, label, body, drawer) in enumerate(STATES):
-        c = render(lines, label, body, drawer, watching=(key == "watching"))
+        c = render(lines, label, body, drawer, watching=(key == "watching"), icon_at=icon_at)
         c.save(os.path.join(out_dir, "state-%s.png" % key.replace(" ", "_")))
         thumb = c.resize((tw, th), Image.LANCZOS)
         ImageDraw.Draw(thumb).text((8, th - 30), key, font=label_font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
