@@ -88,5 +88,38 @@ def main(out_dir, font_dir):
     sheet.save(os.path.join(out_dir, "diagonal.png"))
 
 
+COLOURS = [
+    ("blue", pf.IDX_BLUE, None),
+    ("red", pf.IDX_RED, None),
+    ("grey", pf.IDX_BLACK, None),
+    ("yellow", pf.IDX_YELLOW, 0.75),
+]
+CITIES = [("NICE", ["NI", "CE"]), ("BORDEAUX", ["BOR", "DEA", "UX"]), ("SAINT-ÉTIENNE", ["SAINT", "ÉTI", "ENNE"])]
+
+
+def main_colours(out_dir, font_dir):
+    """The solid-band, light-field, two-tone variant in each colour pairing and on three cities."""
+    os.makedirs(out_dir, exist_ok=True)
+    g.FONT_HEAVY = os.path.join(font_dir, "Anton-Regular.ttf")
+    white = Image.new("RGB", (W, H), WHITE)
+    mask = band_mask()
+    tw, th = 310, 413
+    font = ImageFont.truetype(g.FONT, 22)
+    sheet = Image.new("RGB", (len(COLOURS) * (tw + 12) + 12, len(CITIES) * (th + 12) + 12), (110, 110, 110))
+    for row, (city, lines) in enumerate(CITIES):
+        t.v.LINES = lines
+        for col, (name, idx, fraction) in enumerate(COLOURS):
+            solid = Image.new("RGB", (W, H), t.ink_rgb(idx))
+            field = t.lightened_field(idx, fraction) if fraction else t.field(idx, True)
+            tone = two_tone(solid, white, mask)
+            c = build(field, solid, tone, tone)
+            c.save(os.path.join(out_dir, "col-%d-%d.png" % (row + 1, col + 1)))
+            thumb = c.resize((tw, th), Image.LANCZOS)
+            label = "%s / %s" % (city, name)
+            ImageDraw.Draw(thumb).text((6, 6), label, font=font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
+            sheet.paste(thumb, (12 + col * (tw + 12), 12 + row * (th + 12)))
+    sheet.save(os.path.join(out_dir, "diagonal-colours.png"))
+
+
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    (main_colours if os.environ.get("MOCK_COLOURS") else main)(sys.argv[1], sys.argv[2])
