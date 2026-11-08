@@ -974,3 +974,24 @@ golden cases without touching the 18 existing hashes, contrast test over the
 catalogue (floor 2.7). Yellow Full/Soft-stripe and Soft/Full-stripe have a
 stripe contrast of 1.12 (nearly invisible): to validate on the real panel.
 Report: scratchpad themes91a/ (planches, report text in the hand-back).
+
+## Round 11 (production review after PR #310, 2026-11-08)
+
+- W156 Flights: the sort select should reuse the Airlines collection filter
+  design (it is a native select styled differently from the chips).
+- W157 Personalisation (look sheet): the segmented tabs (Fond / Bande
+  diagonale) have labels that are not centred inside their pill (swatch and
+  label sit off-centre, uneven cells).
+- W158 Personalisation Calendar: the look popover is still broken/clipped on
+  desktop; the owner wants a dedicated page like the special looks instead of a
+  popover.
+- W159 Location: typing a city or address keeps the airport suggestions until
+  Enter; airports and places must be one grouped search that updates as you type.
+- W160 Location (night mode): the unsaved-changes bar over the map is
+  unreadable (light glass, pale text).
+- W161 Fleet firmware versions table deserves a nicer design.
+- W162 Users: the Active quick switch renders broken (misshapen knob, wrong
+  colours, mixed states across rows) after the in-place switch change.
+- W163 Airlines collection (type rows): "Utilise celle de la compagnie"
+  overlaps the views count and the actions column is misaligned (dark block at
+  the right), after the type row alignment change.
