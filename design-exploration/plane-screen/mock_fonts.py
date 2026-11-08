@@ -48,5 +48,39 @@ def main(out_dir, font_dir):
         sheet.save(os.path.join(out_dir, "fonts-%d.png" % (n + 1)))
 
 
+CITIES = [
+    ("MARSEILLE", ["MAR", "SEI", "LLE"]),
+    ("NICE", ["NI", "CE"]),
+    ("BORDEAUX", ["BOR", "DEA", "UX"]),
+    ("CLERMONT-FERRAND", ["CLER", "MONT", "FERRAND"]),
+    ("SAINT-ÉTIENNE", ["SAINT", "ÉTI", "ENNE"]),
+    ("NEW YORK", ["NEW", "YORK"]),
+]
+
+
+def main_pair(out_dir, font_dir):
+    """Bebas Neue with an added stroke vs Anton as drawn, on six names."""
+    os.makedirs(out_dir, exist_ok=True)
+    tw, th = 400, 533
+    label_font = ImageFont.truetype(g.FONT, 28)
+    choices = [("Bebas Neue + stroke", os.path.join(font_dir, "BebasNeue-Regular.ttf"), 14), ("Anton", os.path.join(font_dir, "Anton-Regular.ttf"), 1)]
+    for n in range(0, len(CITIES), 3):
+        chunk = CITIES[n : n + 3]
+        sheet = Image.new("RGB", (2 * (tw + 12) + 12, len(chunk) * (th + 12) + 12), (110, 110, 110))
+        for row, (name, lines) in enumerate(chunk):
+            t.v.LINES = lines
+            for col, (label, path, stroke) in enumerate(choices):
+                g.FONT_HEAVY = path
+                t.v.HEAVY = stroke
+                thumb = t.render_pair(pf.IDX_BLUE, True, pf.IDX_BLUE).resize((tw, th), Image.LANCZOS)
+                text = "%s - %s" % (name, label)
+                ImageDraw.Draw(thumb).text((tw - 12 - label_font.getlength(text), 8), text, font=label_font, fill=(255, 255, 255), stroke_width=3, stroke_fill=(0, 0, 0))
+                sheet.paste(thumb, (12 + col * (tw + 12), 12 + row * (th + 12)))
+        sheet.save(os.path.join(out_dir, "bebas-vs-anton-%d.png" % (n // 3 + 1)))
+
+
 if __name__ == "__main__":
-    main(sys.argv[1], sys.argv[2])
+    if os.environ.get("MOCK_PAIR"):
+        main_pair(sys.argv[1], sys.argv[2])
+    else:
+        main(sys.argv[1], sys.argv[2])
