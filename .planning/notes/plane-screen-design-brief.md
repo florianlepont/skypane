@@ -91,6 +91,19 @@ fit), the flight number and airline sit bottom-left or bottom-right. Layout A
 the word; C keeps everything readable with a smaller aircraft. The flight
 number is about 1.3 cm tall at 128 ppi, readable to roughly 2 m, not 3 m.
 
+### Diagonal band (decided)
+
+The diagonal band of the current renderer comes back, with its real geometry
+(`style.BAND_*_FRAC`), as a solid band in the pairing's ink over the light
+field. Lettering is two-tone: ink off the band, the pairing's light field shade
+inside it (white inside the band was tried and rejected: it works for blue,
+red and grey but fails for yellow). Validated in all five pairings on the
+nose-and-tail layout (`diagonal-band-colours-light-lettering.png`; earlier
+tries in `diagonal-band.png` and `diagonal-band-colours.png`). Known weakness:
+the flight number sits across the band edge at the bottom left and loses
+contrast there, so its position (or its tone) needs to be reworked. Not yet
+shown on the other two layouts or in landscape.
+
 ### Departure vs arrival
 
 Direction is currently only a small word at the top. At 3 m it is invisible, so
@@ -105,7 +118,7 @@ plumbing. See `cases-arriving-and-generic.png`.
 | 16+ colour themes (`server/themes.py`) | Reduce to the five pairings above, plus an arrival colour. Flat full-colour themes and the three "band" themes have no place in this look. |
 | Per-airline colour rules (`colour_rules.py`) | Keep: a rule still resolves to a theme id, which now selects a pairing. |
 | Per-airline illustration | Keep and use much larger; needs per-aircraft-type crop points (see below). The generic grey fallback loses the airline colour cue. |
-| Diagonal band | Drop. |
+| Diagonal band | Keep, reworked (see "Diagonal band" below). |
 | Previous-flight card | Drop. |
 | Small top labels | Keep, small. |
 
