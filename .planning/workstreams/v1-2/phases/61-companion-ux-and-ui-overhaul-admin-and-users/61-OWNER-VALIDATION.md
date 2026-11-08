@@ -920,3 +920,15 @@ To investigate first: W146.
   (what is possible given authenticated, non-cacheable pages and iOS Safari
   without Speculation Rules: prefetch of tab destinations on touch/hover,
   warming of static assets and images, view-transition continuity).
+
+## Audit 2 decisions (D49), owner answered
+
+The owner accepted the whole proposed order (audit100 visual/UX 33 findings,
+perf101 performance, workflows102 end-to-end) and the splash stays as is
+(no shortening: it keeps its current ~2 s).
+
+Plans (batch 14): 61-89 one SaveBar component; 61-90 Flights and empty
+states; 61-91 Personalisation (calendar, matrix, caption, looks rows);
+61-92 Fleet and Users; 61-93 Location, accessibility, navigation naming and
+overflow polish; 61-94 performance quick wins; 61-95 splash at every session
+opening, page preloading and session-expiry feedback.
