@@ -116,7 +116,7 @@ def main_colours(out_dir, font_dir):
             solid = Image.new("RGB", (W, H), t.ink_rgb(idx))
             field = t.lightened_field(idx, fraction) if fraction else t.field(idx, True)
             tone = two_tone(solid, field, mask)  # light field shade inside the band, not white
-            c = build(field, solid, tone, t.ink_rgb(idx), layout=os.environ.get("MOCK_LAYOUT", "nose_tail"))
+            c = build(field, solid, tone, t.darkened_ink(idx, 0.45) if idx == pf.IDX_YELLOW else t.ink_rgb(idx), layout=os.environ.get("MOCK_LAYOUT", "nose_tail"))
             c.save(os.path.join(out_dir, "col-%d-%d.png" % (row + 1, col + 1)))
             thumb = c.resize((tw, th), Image.LANCZOS)
             label = "%s / %s" % (city, name)

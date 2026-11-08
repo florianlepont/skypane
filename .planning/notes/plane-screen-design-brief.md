@@ -103,8 +103,11 @@ tries in `diagonal-band.png` and `diagonal-band-colours.png`). The flight
 number and airline are right-aligned at the bottom right, in the pairing's
 plain ink on the light field, outside the band (`diagonal-band-flight-right-*.png`,
 nose-and-tail and whole-aircraft layouts); centred inside the band or across its
-edge lost contrast. Remaining weakness: yellow ink on the light yellow field is
-faint for the flight number. Not yet shown in landscape.
+edge lost contrast. For yellow, the small text (state, flight, airline) is dithered
+toward black (about 45%) so it separates from the light yellow field; the giant
+lettering stays plain yellow. Landscape versions of both layouts with the band
+are in `landscape-diagonal-nose-tail.png` and `landscape-diagonal-whole.png`;
+there the state label sits above the lettering so the two no longer touch.
 
 ### Departure vs arrival
 

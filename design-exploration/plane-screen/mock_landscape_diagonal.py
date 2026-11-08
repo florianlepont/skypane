@@ -36,12 +36,22 @@ def field_for(idx, fraction):
     return full.crop((0, 0, W, H))
 
 
-def labels(c, ink):
-    d = ImageDraw.Draw(c)
-    d.text((28, 22), t.v.STATE, font=ImageFont.truetype(g.FONT, 26), fill=ink)
+def label_fill(idx):
+    """Plain ink, except yellow: it is dithered toward black so the small text
+    separates from the light yellow field."""
+    if idx == pf.IDX_YELLOW:
+        return t.darkened_ink(idx, 0.45).crop((0, 0, W, H))
+    return Image.new("RGB", (W, H), t.ink_rgb(idx))
+
+
+def labels(c, idx):
+    layer = Image.new("L", (W, H), 0)
+    d = ImageDraw.Draw(layer)
+    d.text((28, 12), t.v.STATE, font=ImageFont.truetype(g.FONT, 24), fill=255)
     for text, size, top in ((t.v.FLIGHT, 64, 360), (t.v.AIRLINE, 26, 428)):
         font = ImageFont.truetype(g.FONT, size)
-        d.text((W - 28 - font.getlength(text), top), text, font=font, fill=ink)
+        d.text((W - 28 - font.getlength(text), top), text, font=font, fill=255)
+    c.paste(label_fill(idx), (0, 0), layer)
 
 
 def build(name, idx, fraction, layout):
@@ -52,7 +62,7 @@ def build(name, idx, fraction, layout):
     mask = band_mask()
     c.paste(solid, (0, 0), mask)
     tone = Image.composite(field, solid, mask)
-    g.giant_text(c, [name], (16, 40, W - 16, 340), tone, heavy=1, stretch=True)
+    g.giant_text(c, [name], (16, 52, W - 16, 340), tone, heavy=1, stretch=True)
     if layout == "whole":
         t.v.paste_with_halo(c, t.v.load_plane(560), (W / 2, 190), halo=9)
     else:
@@ -64,7 +74,7 @@ def build(name, idx, fraction, layout):
         tail = small.crop((int(small.width * 0.5), 0, small.width, small.height))
         tail = tail.crop(tail.getbbox())
         t.v.halo_paste(c, tail, (-12, H - 24 - tail.height), halo=9)
-    labels(c, ink)
+    labels(c, idx)
     return c
 
 
