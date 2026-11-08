@@ -958,3 +958,19 @@ name field on the frame page for the owner and administrators, saved through
 the common SaveBar (plan 61-92). Sort in Flights: by date, airline or
 direction, like the Airlines collection (plan 61-90). Radius display clamp
 and F22 go to 61-93, F33 to 61-92.
+
+## Decision D50 (look themes, W146), owner answered
+
+Investigation themes91a: 45 combinations, 22 have a theme, 13 readable ones to
+create (all yellow stripes get black text inside the band; 31 themes in
+total), 10 combinations cannot exist (Full background + full stripe, Soft
+background + soft stripe: stripe invisible). Owner chose option A: those 10
+stay visible in the selector but greyed with a reason ("same rendering as
+without stripe"), no extra theme. Plan 61-91a: generate the catalogue with a
+(colour, background, stripe) builder keeping the 18 historical ids frozen,
+add the 13 new ids after them, black text in yellow bands (portrait and
+landscape renderers), cache bounds raised to 4 x number of themes, 13 new
+golden cases without touching the 18 existing hashes, contrast test over the
+catalogue (floor 2.7). Yellow Full/Soft-stripe and Soft/Full-stripe have a
+stripe contrast of 1.12 (nearly invisible): to validate on the real panel.
+Report: scratchpad themes91a/ (planches, report text in the hand-back).
