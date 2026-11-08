@@ -5,7 +5,7 @@ Standalone: does not touch server/plane/render. Run from the repo root:
 """
 import sys
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 from server import panel_format as pf
 from server.plane import illustrations
@@ -38,21 +38,34 @@ def giant_text(canvas, lines, box, fill):
         canvas.paste(Image.new("RGB", layer.size, fill), (x0, round(y0 + slot * i)), layer)
 
 
-def sliced_plane(canvas, key, plane_w, y_front, y_rear, cut=0.5):
+def sliced_plane(canvas, key, half_w, center_y, gap=36):
+    """Two equal-width halves, point-symmetric about the canvas centre.
+
+    The nose half is flush with the right edge, the tail half flush with the
+    left edge; the halves are stacked without overlap and the stack is
+    centred vertically on `center_y`.
+    """
     path = illustrations.resolved_illustration_path(key)
     im = Image.open(path).convert("RGBA")
     im = im.crop(im.getbbox())
+    plane_w = half_w * 2
     h = round(im.height * plane_w / im.width)
     im = im.resize((plane_w, h), Image.LANCZOS)
-    cx = round(plane_w * cut)
-    front, rear = im.crop((0, 0, cx, h)), im.crop((cx, 0, plane_w, h))
-    # front half bleeds off the left edge, rear half off the right edge
-    for piece, x, y in ((front, 440, y_front), (rear, 1080 - (plane_w - cx), y_rear)):
+    front, rear = im.crop((0, 0, half_w, h)), im.crop((half_w, 0, plane_w, h))
+    pieces = []
+    for piece in (front, rear):
+        piece = piece.crop(piece.getbbox())
+        pieces.append(piece)
+    total = sum(p.height for p in pieces) + gap
+    y = round(center_y - total / 2)
+    xs = (W - pieces[0].width, 0)
+    for piece, x in zip(pieces, xs):
         halo = Image.new("RGBA", piece.size, WHITE + (0,))
-        alpha = piece.getchannel("A").filter(__import__("PIL.ImageFilter", fromlist=["x"]).MaxFilter(15))
-        halo.putalpha(alpha)
+        halo.putalpha(piece.getchannel("A").filter(ImageFilter.MaxFilter(15)))
         canvas.paste(halo, (x, y), halo)
         canvas.paste(piece, (x, y), piece)
+        y += piece.height + gap
+    print("pieces", [p.size for p in pieces], "stack", total)
 
 
 def main(out, lines, key="air-france", flight="AF1006", airline="Air France", state="DEPARTING"):
@@ -60,7 +73,7 @@ def main(out, lines, key="air-france", flight="AF1006", airline="Air France", st
     d = ImageDraw.Draw(bg)
     d.rectangle((0, 0, W, H), fill=LIGHT)
     giant_text(bg, lines, (40, 130, W - 40, 1290), BLUE)
-    sliced_plane(bg, key, 2200, 300, 860)
+    sliced_plane(bg, key, 620, 710)
     d = ImageDraw.Draw(bg)
     small = ImageFont.truetype(FONT, 56)
     d.text((64, 56), state, font=small, fill=BLUE)
