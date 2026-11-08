@@ -136,18 +136,26 @@ def halo_paste(canvas, piece, pos):
     canvas.paste(piece, pos, piece)
 
 
-def vnose_tail():  # big nose from the right edge, smaller tail below from the left
+def clipped_paste(canvas, piece, pos, x_min, x_max):
+    """Paste `piece` with its halo, keeping only the columns x_min..x_max."""
+    tmp = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
+    halo_paste(tmp, piece, pos)
+    box = (x_min, 0, x_max, canvas.height)
+    canvas.paste(tmp.crop(box), (x_min, 0), tmp.crop(box))
+
+
+def vnose_tail(nose_end=1110, tail_start=120):
+    """Big nose above, small tail below, each ending in a straight cut."""
     c = base()
     full = load_plane(2200)
     nose = full.crop((0, 0, int(full.width * 0.5), full.height))
     nose = nose.crop(nose.getbbox())
     ny = 470 - nose.height // 2
-    halo_paste(c, nose, (W - nose.width + 30, ny))
+    clipped_paste(c, nose, (W - nose.width + 30, ny), 0, nose_end)
     small = load_plane(1250)
     tail = small.crop((int(small.width * 0.34), 0, small.width, small.height))
     tail = tail.crop(tail.getbbox())
-    tail_y = 1275 - tail.height
-    halo_paste(c, tail, (-30, tail_y))
+    clipped_paste(c, tail, (-30, 1275 - tail.height), tail_start, W)
     return c
 
 
