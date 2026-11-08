@@ -720,11 +720,9 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
         "expected the departures theme (white) to NOT be marked selected in the arrivals table")
     alt = re.search(r'<img class="look-frame__image"[^>]* alt="([^"]*)"', arrivals_segment).group(1)
     assert alt.endswith(escape_html(look.look_sentence("black"))), alt
-    calendar_start, calendar_end = cp.aspect_usage_row_bounds(
-        rendered, config_page.COLOUR_USAGE_CALENDAR)
-    calendar_segment = rendered[calendar_start:calendar_end]
+    calendar_segment = cp.calendar_look_segment(rendered)
     assert re.search(r'name="calendar_theme_id" value=""[^>]*checked', calendar_segment), (
-        "expected the calendar row's leading Same-as-departures option to still be checked, "
+        "expected the calendar look's leading Same-as-departures option to still be checked, "
         "unaffected by the arrivals override")
 
 
@@ -1180,9 +1178,10 @@ def test_aspect_card_full_shape_checklist():
     assert frames[0].select_one("div.look-pick__grid")
     assert frames[1].select_one("details.look-edit table.look-table")
     special = card.select_one("div.special-looks")
-    assert card.select_one(
-        "section#personalisation-calendar li.special-row--calendar").attrs.get(
-        "data-look-usage") == "calendar"
+    calendar_row = card.select_one("section#personalisation-calendar li.special-row--calendar")
+    assert calendar_row.select_one("a.special-row__edit").attrs["href"] == "/display/calendar-look"
+    assert not calendar_row.select("[data-look-usage]") and not calendar_row.select("input")
+    assert card.select_one('div.look-frame[data-look-usage="calendar"]')
     add_link = special.select_one("a.special-add__summary")
     assert add_link.attrs.get("href") == "/display/special-looks/new"
     assert not special.select("details.special-add")

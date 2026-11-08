@@ -159,7 +159,7 @@ def test_served_page_offers_every_theme_through_native_radios_without_scripts(se
     """the served Display page offers every registered theme id for each look as native radios that post
     through the settings form: the departures look as radio cards, the others inside a <details>
     a scripts-blocked browser can open"""
-    page = "/display/calendar" if field == "calendar_theme_id" else "/display"
+    page = "/display/calendar-look" if field == "calendar_theme_id" else "/display"
     status, _headers, body = get(server, page, cookie=cookie)
     assert status == 200
     root = parse_html(body.decode("utf-8"))
@@ -196,7 +196,7 @@ def _view(view):
     return config_page.render(_DISPLAY_CTX, scope=config_page.SCOPE_DISPLAY, view=view)
 
 
-@pytest.mark.parametrize("view", ["special-looks", "calendar"])
+@pytest.mark.parametrize("view", ["special-looks"])
 def test_the_sheet_is_a_hidden_labelled_dialog_with_script_only_controls(view):
     """on the views whose openers use it, the look sheet ships hidden, as a modal dialog labelled
     by its own title, and none of its controls belongs to a form or posts anything; its "same as
@@ -217,10 +217,19 @@ def test_the_sheet_is_a_hidden_labelled_dialog_with_script_only_controls(view):
     assert why.attrs.get("aria-live") == "polite"
 
 
-def test_the_calendar_look_carries_the_saved_departures_look_it_follows():
-    """the Calendar view holds no departures look, so its "same as departures" look names the
-    saved departures theme itself for the script to resolve"""
+def test_the_calendar_list_has_no_look_sheet_and_links_to_the_look_page():
+    """the Calendar list opens nothing: no sheet, no opener, one link to the look page"""
     root = parse_html(_view("calendar"))
+    assert not root.select("div.look-sheet") and not root.select("[data-look-open]")
+    assert not root.select("[data-look-target]")
+    link = root.select_one("a.special-row__edit")
+    assert link.attrs["href"] == "/display/calendar-look"
+
+
+def test_the_calendar_look_carries_the_saved_departures_look_it_follows():
+    """the calendar look page holds no departures look, so its "same as departures" look names the
+    saved departures theme itself for the script to resolve"""
+    root = parse_html(_view("calendar-look"))
     row = root.select_one('[data-look-usage="calendar"]')
     assert row.attrs["data-look-follows"] == "departures"
     assert row.attrs["data-look-follows-theme"] == "band_red_field"
@@ -270,7 +279,7 @@ def test_each_picture_shows_its_saved_look_in_its_own_state():
     shows the departures look arriving while arrivals follow departures, and its own override
     once set; each picture's read-back names the look"""
     root = parse_html(_render())
-    images = root.find_all("img", cls="look-frame__image")
+    images = root.find_all("img", cls="look-frame__image")[:2]
     assert [img.attrs["src"] for img in images] == [
         theme_preview.frame_preview_src("band_red_field", "departing", "large"),
         theme_preview.frame_preview_src("band_red_field", "arriving", "large"),
@@ -311,7 +320,7 @@ def test_each_theme_saves_through_the_existing_form_post(make_app_server, theme_
         theme_id, theme_id, theme_id)
     for field, page in (
             ("theme", "/display"), ("theme_arriving", "/display"),
-            ("calendar_theme_id", "/display/calendar")):
+            ("calendar_theme_id", "/display/calendar-look")):
         _s, _h, body = get(server, page, cookie=session)
         root = parse_html(body.decode("utf-8"))
         checked = [

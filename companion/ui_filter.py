@@ -165,3 +165,28 @@ def filter_bar_html(
             % escape_html(i18n.t(FILTER_CLEAR_TEXT)),
             "data-filter-empty hidden"),
     )
+
+
+def sort_menu_html(param, values, current, label, radio_attrs="", summary_attrs=""):
+    """The sort as a small menu shared by the Airlines collection and the
+    Flights list: an icon button naming the current order opens a panel of
+    radio rows, the chosen one marked with a tick. The radios are plain form
+    fields, so without a script the page's Apply button sends the choice.
+    `values` is a sequence of (value, message) pairs; `radio_attrs` is extra
+    markup for every radio (a `form=` attribute, script hooks) and
+    `summary_attrs` for the menu button."""
+    name = "%s: %s" % (i18n.t(label), i18n.t(dict(values)[current]))
+    options = "".join(
+        '<label class="collection-sort__option"><input type="radio" class="visually-hidden" '
+        'name="%s" value="%s"%s%s><span class="collection-sort__row">'
+        '<span>%s</span>%s</span></label>' % (
+            param, value, " checked" if value == current else "", radio_attrs,
+            escape_html(i18n.t(text)), icon_html("icon-check", 16))
+        for value, text in values)
+    return (
+        '<details class="row-menu collection-sort"><summary class="row-menu__toggle '
+        'collection-sort__toggle" aria-label="%s" title="%s"%s>%s</summary>'
+        '<div class="row-menu__panel collection-sort__panel" role="radiogroup" '
+        'aria-label="%s">%s</div></details>'
+    ) % (escape_html(name), escape_html(name), summary_attrs, icon_html("icon-sort", 20),
+         escape_html(i18n.t(label)), options)

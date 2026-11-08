@@ -24,10 +24,11 @@ from server.plane import calendar_rules
 
 from companion import theme_preview
 from companion.settings import look
-from companion.settings.form import _field_error_html, _submitted_or_current
+from companion.settings.form import SETTINGS_FORM_ID, _submitted_or_current
 from companion.settings.theme import (
     COLOUR_USAGE_CALENDAR, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_ARIA_TEMPLATE,
-    LOOK_SHEET_TITLES, SAME_AS_DEPARTURES_LABEL, look_edit_html, look_target_attrs)
+    LOOK_CHANGE_LABEL, LOOK_SHEET_TITLES, SAME_AS_DEPARTURES_LABEL, look_frame_html,
+    look_sheet_html)
 
 
 # An immediate, session-gated POST outside SETTINGS_ROUTE and the
@@ -36,6 +37,10 @@ CALENDAR_DISCONNECT_ROUTE = "/settings/calendar/disconnect"
 CALENDAR_CONNECT_ROUTE = "/settings/calendar/connect"
 
 CONNECT_FORM_ID = "calendar-connect-form"
+# The look table's radios belong to the settings form by id, so the page's form is that form.
+LOOK_FORM_ID = SETTINGS_FORM_ID
+# The route the settings form posts to (config_page.SETTINGS_ROUTE).
+SETTINGS_POST_ROUTE = "/settings"
 DISCONNECT_DIALOG_ID = "disconnect-calendar"
 
 
@@ -515,12 +520,11 @@ def calendar_special_row_html(
         departures_safe_id, current_calendar_theme_id, configured, drift,
         last_synced_at, last_attempt_at, now, entry_count,
         errors=None, submitted=None, state_dir=None):
-    """The calendar row of the Special looks list: a mini render of the
-    look calendar flights get, its read-back and the "Change" control (the
-    colour x style table, with "Same as departures" first), preceded by the
-    one-line connection status with its "Choose calendar" link. Returns the
-    row's HTML; the connection verdict lives in that status line only,
-    never repeated in the row's meta.
+    """The calendar row of the Calendar list: a mini render of the look
+    calendar flights get, its read-back and a "Change" link to the page that
+    edits that look, preceded by the one-line connection status with its
+    "Choose calendar" link. Returns the row's HTML; the connection verdict
+    lives in that status line only, never repeated in the row's meta.
     """
     effective_calendar = _submitted_or_current(
         submitted, "calendar_theme_id", current_calendar_theme_id)
@@ -530,35 +534,47 @@ def calendar_special_row_html(
         else effective_calendar)
     sentence = i18n.t(SAME_AS_DEPARTURES_LABEL) if same_checked else look.look_sentence(picture_id)
     usage_label = i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR])
-    small = theme_preview.FRAME_PREVIEW_SIZE_SMALL
-    table_html = look.look_table_html(
-        "calendar_theme_id", "" if same_checked else effective_calendar, usage_label,
-        lambda theme_id: theme_preview.frame_preview_src(
-            theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING, small),
-        leading_html=look.same_option_html(
-            "calendar_theme_id", same_checked, i18n.t(SAME_AS_DEPARTURES_LABEL)))
     connection_html = _calendar_connection_html(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
         errors=errors, submitted=submitted, state_dir=state_dir)
-    row_html = (
-        '<li class="special-row special-row--calendar" id="calendar-row" data-look-anchor%s>'
+    change_html = (
+        '<a class="special-row__edit" href="%s" aria-label="%s">%s</a>'
+    ) % (
+        escape_html(device_scope.scoped(layout.DISPLAY_CALENDAR_LOOK_ROUTE)),
+        escape_html(i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
+        escape_html(i18n.t(LOOK_CHANGE_LABEL)))
+    return (
+        '<li class="special-row special-row--calendar" id="calendar-row">'
         "%s"
         '<div class="special-row__main">%s'
         '<div class="special-row__text">'
         '<p class="special-row__title"><span class="special-row__tag">%s</span>%s</p>'
-        '<p class="special-row__meta"><span data-look-sentence>%s</span></p>'
-        "</div>%s</div>%s"
+        '<p class="special-row__meta"><span>%s</span></p>'
+        '</div><div class="special-row__actions">%s</div></div>'
         "</li>"
     ) % (
-        look_target_attrs(
-            COLOUR_USAGE_CALENDAR, "calendar_theme_id", theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
-            small, True, title=i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR]),
-            departures_id=departures_safe_id),
-        connection_html,
-        special_mini_html(picture_id, opener_label=i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
+        connection_html, special_mini_html(picture_id),
         escape_html(i18n.t(CALENDAR_TAG)), escape_html(i18n.t(CALENDAR_ROW_TITLE)),
-        escape_html(sentence),
-        look_edit_html(COLOUR_USAGE_CALENDAR, table_html, icon_only=True),
-        _field_error_html(errors, "calendar_theme_id", "calendar-theme"),
-    )
-    return row_html
+        escape_html(sentence), change_html)
+
+
+def look_page_html(calendar_value, departures_id, errors, form_id, post_route, hidden_html):
+    """The page that edits the calendar's look: the live picture and the
+    picker (with a script) or the colour x style table of native radios
+    (without), plus a "Same as departures" choice. One form posting to the
+    settings route with the `calendar_theme_id` field only. Returns (markup,
+    title)."""
+    title = i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR])
+    frame = look_frame_html(
+        COLOUR_USAGE_CALENDAR, calendar_value, departures_id, errors,
+        theme_preview.FRAME_PREVIEW_STATE_DEPARTING, carries_departures=True)
+    markup = (
+        '<form class="look-page" id="%s" method="post" action="%s" data-calendar-look>%s'
+        '<div class="look-view" data-look-initial="%s"><div class="look-stage">'
+        '<div class="look-panel" data-look-panel="%s">%s</div></div>'
+        '<div class="look-picker js-gate">%s</div></div></form>'
+    ) % (
+        escape_html(form_id), escape_html(device_scope.scoped(post_route, "POST")),
+        hidden_html, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_CALENDAR, frame,
+        look_sheet_html(inline=True))
+    return markup, title

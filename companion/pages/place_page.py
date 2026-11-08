@@ -72,7 +72,7 @@ SEARCH_BUTTON = i18n.msg("detection.search_button", "Search places")
 SEARCH_HELP = i18n.msg(
     "detection.search_help",
     "An airport code or name picks that airport. Anything else is sent to "
-    "OpenStreetMap’s search service (Nominatim).")
+    "OpenStreetMap’s search service (Nominatim), after a short pause, as you type.")
 LOCATE_BUTTON = i18n.msg("detection.locate", "Use my position")
 MAP_LOADING = i18n.msg("detection.map_loading", "Loading the map\u2026")
 ABOUT_MAP = i18n.msg("detection.about_map", "About this map")
@@ -126,6 +126,8 @@ MOVE_HINT = i18n.msg("detection.move_hint", "Tap the map to move it")
 # The pin readout is language-neutral: number, hemisphere, number, hemisphere.
 COORDS_TEMPLATE = "%s %s · %s %s"
 RESULT_AIRPORT = i18n.msg("detection.result_airport", "Airport")
+GROUP_AIRPORTS = i18n.msg("detection.group_airports", "Airports")
+GROUP_PLACES = i18n.msg("detection.group_places", "Places and addresses")
 
 SEARCH_MIN_CHARS = 3
 SEARCH_MAX_CHARS = 120
@@ -152,6 +154,8 @@ _MAP_STRINGS = (
     ("nearest", NEAREST_AIRPORT),
     ("follow", FOLLOW_AIRPORT),
     ("result-airport", RESULT_AIRPORT),
+    ("group-airports", GROUP_AIRPORTS),
+    ("group-places", GROUP_PLACES),
 )
 
 AIRPORTS_TITLE = i18n.msg("detection.airports_title", "French airports")

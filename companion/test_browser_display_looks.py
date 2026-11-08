@@ -27,7 +27,6 @@ pytestmark = pytest.mark.browser
 SHEET = "[data-look-sheet]"
 DEPARTURES = '[data-look-usage="departures"]'
 ARRIVALS = '[data-look-usage="arrivals"]'
-CALENDAR_OPENER = '[data-look-usage="calendar"] button.look-frame__open'
 
 
 def _seed(state_dir):
@@ -43,8 +42,8 @@ def _open_display(new_context, base_url, viewport, lang="en", route=layout.DISPL
     page.goto(base_url + route)
     if route in (layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE):
         page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
-    elif route == layout.DISPLAY_CALENDAR_ROUTE:
-        page.locator(CALENDAR_OPENER).wait_for(state="visible")
+    elif route == layout.DISPLAY_CALENDAR_LOOK_ROUTE:
+        page.locator(SHEET + "[data-look-inline]").wait_for(state="visible")
     elif route == layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE:
         page.locator(".form-page__card").wait_for(state="visible")
     else:
@@ -189,44 +188,33 @@ def test_the_colour_row_is_greyed_with_a_reason_on_plain_white_paper(new_context
         context.close()
 
 
-def test_calendar_sheet_traps_focus_closes_on_escape_and_returns_focus(new_context, make_app_server):
-    """on the Calendar view the look sheet is still a dialog: opened from the keyboard it takes
-    focus, Tab and Shift+Tab stay inside it, Escape closes it and focus returns to the control
-    that opened it; Reset restores the look that was there when it opened"""
+def test_calendar_look_page_picker_is_in_the_page_and_works_from_the_keyboard(
+        new_context, make_app_server):
+    """the calendar look is a page of its own: the picker sits in the page (no dialog, no
+    scrim), "Same as departures" is a switch operated from the keyboard and, once off, the
+    picker's choices check a calendar theme radio; Cancel leads back to the Calendar list"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
-        new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_CALENDAR_ROUTE)
+        new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_CALENDAR_LOOK_ROUTE)
     try:
-        page.focus(CALENDAR_OPENER)
-        page.keyboard.press("Enter")
-        page.locator(SHEET).wait_for(state="visible")
-        assert page.locator(SHEET).get_attribute("role") == "dialog"
-        inside = "() => document.querySelector('%s').contains(document.activeElement)" % SHEET
-        page.wait_for_function(inside, timeout=5000)
-        for _ in range(12):
-            page.keyboard.press("Tab")
-            page.wait_for_function(inside, timeout=5000)
-        for _ in range(12):
-            page.keyboard.press("Shift+Tab")
-            page.wait_for_function(inside, timeout=5000)
-        assert page.locator(SHEET + " button.switch").get_attribute("aria-checked") == "true"
+        assert page.locator(SHEET).get_attribute("role") is None
+        assert page.locator("dialog[open]").count() == 0
+        assert page.locator("[data-look-open]:visible").count() == 0
         before = _checked(page, "calendar_theme_id")
-        page.click(SHEET + " button.switch")
+        assert before == ""
+        page.focus(SHEET + " button.switch")
+        page.keyboard.press("Enter")
+        page.wait_for_function(
+            "s => document.querySelector(s).getAttribute('aria-checked') === 'false'",
+            arg=SHEET + " button.switch", timeout=5000)
         page.click(_axis("colour", "green"))
         page.wait_for_function(
-            "b => { const r = [...document.querySelectorAll('input')].find("
-            "e => e.name === 'calendar_theme_id' && e.checked); return !!r && r.value !== b; }",
-            arg=before, timeout=5000)
-        page.click(SHEET + " [data-look-reset]")
-        page.wait_for_function(
-            "b => { const r = [...document.querySelectorAll('input')].find("
-            "e => e.name === 'calendar_theme_id' && e.checked); return !!r && r.value === b; }",
-            arg=before, timeout=5000)
-        page.keyboard.press("Escape")
-        page.locator(SHEET).wait_for(state="hidden")
-        page.wait_for_function(
-            "s => document.activeElement === document.querySelector(s)", arg=CALENDAR_OPENER,
+            "() => { const r = [...document.querySelectorAll('input')].find("
+            "e => e.name === 'calendar_theme_id' && e.checked); return !!r && r.value !== ''; }",
             timeout=5000)
+        with page.expect_navigation():
+            page.click(".dirty-bar a.dirty-bar__cancel")
+        assert urlsplit(page.url).path == layout.DISPLAY_CALENDAR_ROUTE
     finally:
         context.close()
 
@@ -339,37 +327,29 @@ def test_edit_a_special_look_is_a_page_that_replaces_the_rule(new_context, make_
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
-def test_on_phones_the_calendar_sheet_is_a_bottom_sheet_and_nothing_overflows(
+def test_on_phones_the_calendar_look_page_has_no_sheet_and_nothing_overflows(
         new_context, make_app_server, viewport):
-    """on a phone the Calendar view's sheet is pinned to the bottom of the viewport at full width
-    over a dimmed page, every choice is at least 44px tall, and neither the page nor the open sheet
-    scrolls sideways"""
+    """on a phone the calendar look page holds its picker in the page, every choice is at least
+    44px tall, the save bar floats above the tab bar, and neither the page nor the picker scrolls
+    sideways"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
-        new_context, server.base_url(), viewport, route=layout.DISPLAY_CALENDAR_ROUTE)
+        new_context, server.base_url(), viewport, route=layout.DISPLAY_CALENDAR_LOOK_ROUTE)
     try:
-        overflow = _assert_no_page_overflow(page, "calendar", viewport["width"])
+        overflow = _assert_no_page_overflow(page, "calendar look", viewport["width"])
         assert not overflow, overflow
-        page.click(CALENDAR_OPENER)
-        sheet = page.locator(SHEET)
-        sheet.wait_for(state="visible")
-        # The sheet slides in: measure it only once its finite animations have ended.
-        page.wait_for_function(
-            "() => document.getAnimations().every((a) => (a.effect && a.effect.getComputedTiming()"
-            ".iterations === Infinity) || a.playState !== 'running')", timeout=10000)
-        box = sheet.bounding_box()
-        assert abs(box["x"]) < 1 and abs(box["width"] - viewport["width"]) < 1
-        assert abs(box["y"] + box["height"] - viewport["height"]) < 1
-        assert page.locator("[data-look-scrim]").is_visible()
+        assert page.locator("[data-look-scrim]").is_hidden()
+        page.click(SHEET + " button.switch")
         for selector in (SHEET + " .look-dot", SHEET + " .look-seg__option"):
             for handle in page.locator(selector).all():
                 if handle.is_visible():  # an option with no theme is not offered at all
                     assert handle.bounding_box()["height"] >= 44
-        assert page.evaluate("s => document.querySelector(s).scrollWidth <= document.querySelector(s).clientWidth", SHEET)
-        overflow = _assert_no_page_overflow(page, "calendar with the sheet", viewport["width"])
-        assert not overflow, overflow
-        page.click("[data-look-scrim]", position={"x": 10, "y": 10})
-        sheet.wait_for(state="hidden")
+        assert page.evaluate(
+            "s => document.querySelector(s).scrollWidth <= document.querySelector(s).clientWidth",
+            SHEET)
+        page.locator(".dirty-bar").wait_for(state="visible")
+        bar = page.locator(".dirty-bar").bounding_box()
+        assert bar["y"] + bar["height"] <= viewport["height"]
     finally:
         context.close()
 

@@ -46,6 +46,9 @@ CONFIRM_TYPE_TEMPLATE = i18n.msg("update.for_hardware_type_s", "For %s")
 HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
 COL_VERSION_TEXT = i18n.msg("update.col_version", "Version")
 COL_RELEASED_TEXT = i18n.msg("update.col_released", "Released")
+COL_STATE_TEXT = i18n.msg("update.col_state", "State")
+STATE_NEWER_TEXT = i18n.msg("update.state_newer", "Newer")
+STATE_OLDER_TEXT = i18n.msg("update.state_older", "Earlier")
 COL_ACTION_TEXT = i18n.msg("update.col_action", "Action")
 NOTES_TEXT = i18n.msg("update.notes_n", "Notes (%d)")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
@@ -633,36 +636,55 @@ def _versions_card_html(ctx, view, releases, embedded=False):
         ' <span class="update-versions__count">%d</span></h3></div>'
         '<table class="update-table"><thead><tr>'
         '<th scope="col" class="update-table__col">%s</th>'
+        '<th scope="col" class="update-table__col update-table__col--state">%s</th>'
         '<th scope="col" class="update-table__col update-table__col--when">%s</th>'
         '<th scope="col" class="update-table__col update-table__col--action">'
         '<span class="visually-hidden">%s</span></th></tr></thead>'
         '<tbody>%s</tbody></table></section>'
     ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), escape_html(i18n.t(HISTORY_HEADING_TEXT)),
          len(releases), escape_html(i18n.t(COL_VERSION_TEXT)),
+         escape_html(i18n.t(COL_STATE_TEXT)),
          escape_html(i18n.t(COL_RELEASED_TEXT)), escape_html(i18n.t(COL_ACTION_TEXT)),
          "".join(_table_row_html(release, view, ctx.now) for release in releases))
 
 
+def _state_cell_html(release):
+    """The row's state as a pill: the running release's badge, "Newer" for a
+    release the frame could install, "Earlier" for one it would roll back to."""
+    if release.get("running"):
+        return '<span class="update-row__badge banner__pill">%s</span>' % escape_html(
+            i18n.t(RUNNING_BADGE_TEXT))
+    direction = release.get("direction")
+    label = {_DIRECTION_NEWER: STATE_NEWER_TEXT, _DIRECTION_OLDER: STATE_OLDER_TEXT}.get(direction)
+    if label is None:
+        return ""
+    return '<span class="update-table__chip update-table__chip--%s">%s</span>' % (
+        direction, escape_html(i18n.t(label)))
+
+
 def _table_row_html(release, view, now):
-    """One release as a table row: the version (with its Running badge and
-    any notes behind one optional disclosure), when it was released, and the
-    action that is always in view (Install, Roll back, or a state word)."""
+    """One release as a table row: the version with any notes behind one
+    disclosure, its state pill, when it was released (the age, the full date
+    under it) and the action that is always in view (Install, Roll back, or a
+    state word)."""
     notes = [str(note) for note in (release.get("notes") or []) if note]
-    badge_html = (
-        ' <span class="update-row__badge banner__pill">%s</span>'
-        % escape_html(i18n.t(RUNNING_BADGE_TEXT))) if release.get("running") else ""
     notes_html = (
         '<details class="update-table__notes"><summary>%s</summary><ul>%s</ul></details>'
         % (escape_html(i18n.t(NOTES_TEXT) % len(notes)),
            "".join("<li>%s</li>" % escape_html(note) for note in notes))) if notes else ""
-    when_html = _ago_html(release.get("released_at"), now)
+    released_at = release.get("released_at")
+    date_html = (
+        '<span class="update-table__date">%s</span>' % layout.absolute_time_html(released_at)
+        if released_at else "")
     return (
         '<tr class="update-table__row%s"><th scope="row" class="update-table__version">'
-        '%s%s%s</th><td class="update-table__when">%s</td>'
+        '%s%s</th><td class="update-table__state">%s</td>'
+        '<td class="update-table__when">%s%s</td>'
         '<td class="update-table__action">%s</td></tr>'
     ) % (
         " update-table__row--running" if release.get("running") else "",
-        _mono_html(release.get("version")), badge_html, notes_html, when_html,
+        _mono_html(release.get("version")), notes_html, _state_cell_html(release),
+        _ago_html(released_at, now), date_html,
         _row_action_html(release, view, compact=True))
 
 

@@ -290,7 +290,8 @@ def test_history_render_gallery_section_absent_with_content(tmp_path):
     assert "No renders yet." not in rendered
     assert "data-view-panel-src" in rendered, "expected at least one View-panel trigger to survive"
     assert rendered.count('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) == 1
-    assert "<details" not in rendered, "expected the retired card disclosure to be gone"
+    assert rendered.count("<details") == rendered.count('<details class="row-menu collection-sort"'), (
+        "expected the retired card disclosure to be gone (the sort menu is the only details)")
 
 
 def test_history_render_gallery_section_absent_when_empty(tmp_path):

@@ -481,7 +481,7 @@ def test_the_controls_work_as_a_plain_form_without_scripts(new_context, server):
     search is the plain full-width field, and sending the form filters the list by the
     server."""
     with _no_js_page(new_context, server.base_url(), "/flights", viewport=VIEWPORT_PHONE) as page:
-        for selector in (".filter-bar__chips", ".history-sort select", ".history-controls__apply"):
+        for selector in (".filter-bar__chips", ".collection-sort > summary", ".history-controls__apply"):
             if not page.locator(selector).is_visible():
                 raise AssertionError("expected %s shown with scripts blocked" % selector)
         if page.locator(".history-controls__apply").bounding_box()["height"] < 44 - 0.5:

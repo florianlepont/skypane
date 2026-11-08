@@ -364,8 +364,7 @@ def test_a_rejected_save_redraws_the_view_it_came_from(rig):
         rig, "owner", return_to="/display/calendar", calendar_theme_id="not-a-theme")
     assert status == 200
     root = parse_html(body)
-    assert [c.attrs["id"] for c in root.select("div.personalisation__view > section")] == [
-        "personalisation-calendar"]
+    assert root.select("div.personalisation__view > .form-view form[data-calendar-look]")
     assert _stored(rig)["calendar_theme_id"] == "black"
 
 

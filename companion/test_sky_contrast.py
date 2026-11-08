@@ -16,7 +16,7 @@ _RGBA_RE = re.compile(
     r"rgba\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*,\s*([0-9.]+)\s*\)")
 _INKS = ("--color-text", "--color-accent")
 # The glass fill, the floating tab bar's own fill and the popover's.
-_SUPPORTS_FILLS = ("var(--glass-bg)", "var(--bar-bg)", "var(--pop-bg)")
+_SUPPORTS_FILLS = ("var(--glass-bg)", "var(--bar-bg)", "var(--pop-bg)", "var(--glass-solid)")
 _RARITY_INKS = ("--color-rarity-occasional", "--color-rarity-rare")
 
 
@@ -219,7 +219,7 @@ def test_one_reduced_motion_rule_zeroes_duration_and_delay_of_every_animation(se
 
 
 def test_overlays_tables_and_empty_states_take_the_glass_inside_the_support_block(served_css):
-    """the save bar, the tables and empty states that sit on the sky, and the placeholder ink are
+    """the save bar (opaque), the tables and empty states that sit on the sky, and the placeholder ink are
     tokens-only; the glass lives inside the backdrop-filter support block, while the modal
     dialogs (lightbox, dialog.modal, calendar sheet) stay on their own opaque surface"""
     rules = css_rules(served_css)
@@ -227,7 +227,11 @@ def test_overlays_tables_and_empty_states_take_the_glass_inside_the_support_bloc
              for sel in rule.selectors}
     for selector in (".airlines-table", ".dashboard-main > .empty-state"):
         assert selector in glass, selector
-    assert ".dirty-bar" in glass
+    # The save bar floats over anything (the Location map included): opaque, never glass.
+    assert ".dirty-bar" not in glass
+    assert any(
+        ".dirty-bar" in rule.selectors and dict(rule.declarations).get("background")
+        == "var(--glass-solid)" for rule in rules)
     for selector in (".lightbox", "dialog.modal", ".calendar-sheet"):
         assert selector not in glass, selector
     placeholder = [dict(rule.declarations) for rule in rules if "::placeholder" in rule.selectors]

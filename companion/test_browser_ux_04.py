@@ -167,10 +167,10 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
             page.goto(base_url + "/display")
 
             # The looks live on three views: Look (departures cards, arrivals table), the new
-            # special look page (the add form) and Calendar (its own table).
+            # special look page (the add form) and the calendar look page (its own table).
             disclosures = []
             counts = {}
-            for route in ("/display", "/display/special-looks/new", "/display/calendar"):
+            for route in ("/display", "/display/special-looks/new", "/display/calendar-look"):
                 page.goto(base_url + route)
                 for disclosure in page.query_selector_all("details.look-edit"):
                     if disclosure.query_selector("summary") is None:
@@ -197,7 +197,7 @@ def test_the_accordion_is_operable_and_saves_with_scripts_blocked(new_context, m
                         "lang=%s: expected %d radios named %r in the DOM whether or not its "
                         "disclosure is open, found %d" % (lang, expected, field, counts[field]))
 
-            page.goto(base_url + "/display/calendar")
+            page.goto(base_url + "/display/calendar-look")
             calendar = page.query_selector('[data-look-usage="calendar"] details.look-edit')
             # Centred first: left to itself the scroll can park the summary under the
             # fixed bottom tab bar, which then swallows the click.

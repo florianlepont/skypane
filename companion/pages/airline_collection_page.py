@@ -389,25 +389,8 @@ def _chips_html(view, entries):
 
 
 def _sort_html(view):
-    """The sort as a small menu: an icon button naming the current order opens a panel of
-    radio rows, the chosen one marked with a tick. The radios are plain form fields, so
-    without a script the visible Apply button sends the choice."""
-    current = i18n.t(dict(SORT_VALUES)[view.sort])
-    name = "%s: %s" % (i18n.t(SORT_LABEL), current)
-    options = "".join(
-        '<label class="collection-sort__option"><input type="radio" class="visually-hidden" '
-        'name="%s" value="%s"%s data-autosubmit><span class="collection-sort__row">'
-        '<span>%s</span>%s</span></label>' % (
-            SORT_PARAM, value, " checked" if value == view.sort else "",
-            escape_html(i18n.t(label)), layout.icon_html("icon-check", 16))
-        for value, label in SORT_VALUES)
-    return (
-        '<details class="row-menu collection-sort"><summary class="row-menu__toggle '
-        'collection-sort__toggle" aria-label="%s" title="%s">%s</summary>'
-        '<div class="row-menu__panel collection-sort__panel" role="radiogroup" '
-        'aria-label="%s">%s</div></details>'
-    ) % (escape_html(name), escape_html(name), layout.icon_html("icon-sort", 20),
-         escape_html(i18n.t(SORT_LABEL)), options)
+    return ui_filter.sort_menu_html(
+        SORT_PARAM, SORT_VALUES, view.sort, SORT_LABEL, " data-autosubmit")
 
 
 def _search_html(view):

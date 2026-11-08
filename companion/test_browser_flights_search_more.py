@@ -109,6 +109,12 @@ def _first_callsign(page):
         ".textContent")
 
 
+def _choose_sort(page, value):
+    """Open the sort menu and pick one order, the way a finger does."""
+    page.locator(".collection-sort > summary").click()
+    page.locator('.collection-sort__option:has(input[value="%s"])' % value).click()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_search_opens_in_the_title_row_without_moving_the_list(new_context, few, viewport, lang):
@@ -306,12 +312,12 @@ def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
     try:
         assert _first_callsign(page) != OLDEST
         page.evaluate("() => { window.__marker = 'same document'; }")
-        page.locator("[data-flights-key=sort]").select_option("oldest")
+        _choose_sort(page, "oldest")
         page.wait_for_function(
             "(c) => document.querySelector('li.history-card .history-card__callsign')"
             ".textContent === c", arg=OLDEST, timeout=10000)
         assert "sort=oldest" in page.url
-        assert page.evaluate("() => document.querySelector('[data-flights-key=sort]').value") == (
+        assert page.evaluate("() => document.querySelector('input[name=sort]:checked').value") == (
             "oldest")
         page.locator(MORE).click()
         _wait_count(page, CARD, TOTAL)
@@ -322,7 +328,7 @@ def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
         assert last != OLDEST
         assert page.url.endswith("sort=oldest&more=1"), page.url
         assert page.evaluate("() => window.__marker") == "same document"
-        page.locator("[data-flights-key=sort]").select_option("airline")
+        _choose_sort(page, "airline")
         page.wait_for_function(
             "() => document.querySelector('section.history-day h2').textContent === 'Airline'",
             timeout=10000)
@@ -333,7 +339,7 @@ def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
 
 def test_the_sort_works_without_scripts(new_context, many):
     with _no_js_page(new_context, many.base_url(), "/flights", viewport=VIEWPORT_PHONE) as page:
-        page.locator(".history-sort select").select_option("oldest")
+        _choose_sort(page, "oldest")
         page.click(".history-controls__apply")
         page.wait_for_url("**sort=oldest*")
         assert _first_callsign(page) == OLDEST

@@ -731,7 +731,7 @@ def test_the_theme_still_saves_with_scripts_blocked(new_context, make_app_server
     n_themes = len(device_config.THEME_IDS)
     for route, field, usage, state, expected in (
             ("/display", "theme", "departures", "open", n_themes),
-            ("/display/calendar", "calendar_theme_id", "calendar", "closed", n_themes + 1)):
+            ("/display/calendar-look", "calendar_theme_id", "calendar", "closed", n_themes + 1)):
         with _no_js_page(new_context, base_url, route,
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
             count = page.eval_on_selector_all(
@@ -952,7 +952,7 @@ _TICKER_SITES = (
      'table.data-table--flights tr[data-filter-group="0"] time[data-relative]',
      _seed_flights_ticker),
     ("display-calendar", "/display/calendar",
-     '[data-look-usage="calendar"] time[data-relative]',
+     '#calendar-row time[data-relative]',
      _seed_calendar_ticker),
 )
 
