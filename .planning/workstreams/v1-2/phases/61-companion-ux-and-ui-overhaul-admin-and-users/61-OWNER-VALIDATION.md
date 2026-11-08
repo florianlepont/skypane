@@ -879,4 +879,11 @@ single column; 61-88 Location full-bleed, loading, in-place airport.
   right; the ⋮ menu column is not aligned with the parent row's; some rows
   show "Utilise celle de la compagnie" wrapped on two lines while others show
   the picture).
+- W152 (owner, screenshot) On mobile the Location map is still not full
+  screen. Note: the screenshot's status-bar clock reads 16:54, the same
+  capture as the round 9 one (before plan 61-88, which was deployed on
+  2026-11-07 at 21:37 UTC); a fresh screenshot of the deployed version is
+  needed to tell whether 61-88 changed anything. Grey bands: the status-bar
+  strip at the top and the strip under the tab bar (above Safari's floating
+  toolbar).
 - (owner may have more; not confirmed done.)
