@@ -1,0 +1,149 @@
+"""Ten ways to place the aircraft over the giant destination lettering.
+
+Standalone exploration: does not touch server/plane/render. Run from the repo
+root with PYTHONPATH=.:
+    python3 design-exploration/plane-screen/mock_plane_variants.py OUT_DIR
+Writes variant-01.png .. variant-10.png (1200x1600) and sheet.png.
+"""
+import os
+import sys
+
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import mock_giant_city as g  # noqa: E402
+
+from server.plane import illustrations  # noqa: E402
+
+W, H = g.W, g.H
+BLUE, WHITE, LIGHT = g.BLUE, g.WHITE, g.LIGHT
+LINES = ["MAR", "SEI", "LLE"]
+
+
+def load_plane(width, angle=0):
+    im = Image.open(illustrations.resolved_illustration_path("air-france")).convert("RGBA")
+    im = im.crop(im.getbbox())
+    im = im.resize((width, round(im.height * width / im.width)), Image.LANCZOS)
+    if angle:
+        im = im.rotate(-angle, expand=True, resample=Image.BICUBIC)
+    return im
+
+
+def paste_with_halo(canvas, im, centre, halo=15):
+    pos = (round(centre[0] - im.width / 2), round(centre[1] - im.height / 2))
+    if halo > 1:
+        layer = Image.new("RGBA", im.size, WHITE + (0,))
+        layer.putalpha(im.getchannel("A").filter(ImageFilter.MaxFilter(halo)))
+        canvas.paste(layer, pos, layer)
+    canvas.paste(im, pos, im)
+
+
+def base(text_box=(40, 130, W - 40, 1290), text_fill=BLUE, bg=LIGHT):
+    canvas = Image.new("RGB", (W, H), bg)
+    g.giant_text(canvas, LINES, text_box, text_fill)
+    return canvas
+
+
+def footer(canvas, state="DEPARTING", flight="AF1006", airline="Air France"):
+    d = ImageDraw.Draw(canvas)
+    d.text((64, 56), state, font=ImageFont.truetype(g.FONT, 56), fill=BLUE)
+    d.text((64, 1330), flight, font=ImageFont.truetype(g.FONT, 150), fill=BLUE)
+    d.text((64, 1500), airline, font=ImageFont.truetype(g.FONT, 56), fill=BLUE)
+
+
+def v01():  # whole, centred, full width
+    c = base()
+    paste_with_halo(c, load_plane(1120), (W / 2, 710))
+    return c
+
+
+def v02():  # whole, climbing at 12 degrees
+    c = base()
+    paste_with_halo(c, load_plane(1100, 12), (W / 2, 710))
+    return c
+
+
+def v03():  # big diagonal, bleeding off the corners
+    c = base()
+    paste_with_halo(c, load_plane(1800, 32), (W / 2, 700))
+    return c
+
+
+def v04():  # vertical, nose up, spans the lettering height
+    c = base()
+    paste_with_halo(c, load_plane(1250, 90), (W / 2 + 60, 720))
+    return c
+
+
+def v05():  # huge close-up, nose and tail cropped by the frame
+    c = base()
+    paste_with_halo(c, load_plane(2100), (W / 2, 720), halo=1)
+    return c
+
+
+def v06():  # runway band: full-width dark band, aircraft rides on it
+    c = base()
+    d = ImageDraw.Draw(c)
+    d.rectangle((0, 640, W, 840), fill=BLUE)
+    for x in range(0, W, 120):
+        d.rectangle((x + 20, 735, x + 80, 745), fill=WHITE)
+    paste_with_halo(c, load_plane(1100), (W / 2, 640), halo=1)
+    return c
+
+
+def v07():  # white disc (sun / porthole), aircraft breaks out of it
+    c = base()
+    d = ImageDraw.Draw(c)
+    d.ellipse((120, 300, 1080, 1260), fill=WHITE)
+    paste_with_halo(c, load_plane(1160), (W / 2, 780), halo=1)
+    return c
+
+
+def v08():  # tail fin only, giant, bottom-right: the livery from afar
+    c = base()
+    full = load_plane(2200)
+    tail = full.crop((int(full.width * 0.62), 0, full.width, full.height))
+    pos = (W - tail.width + 40, 1330 - tail.height)
+    layer = Image.new("RGBA", tail.size, WHITE + (0,))
+    layer.putalpha(tail.getchannel("A").filter(ImageFilter.MaxFilter(15)))
+    c.paste(layer, pos, layer)
+    c.paste(tail, pos, tail)
+    return c
+
+
+def v09():  # lettering compressed on top, aircraft in its own lower band
+    c = base(text_box=(40, 130, W - 40, 900))
+    paste_with_halo(c, load_plane(1120), (W / 2, 1110))
+    return c
+
+
+def v10():  # aircraft with a hard offset shadow in the dark ink
+    c = base()
+    plane = load_plane(1120)
+    shadow = Image.new("RGBA", plane.size, BLUE + (0,))
+    shadow.putalpha(plane.getchannel("A"))
+    c.paste(shadow, (round(W / 2 - plane.width / 2) + 28, 710 - plane.height // 2 + 40), shadow)
+    paste_with_halo(c, plane, (W / 2, 710), halo=1)
+    return c
+
+
+VARIANTS = [v01, v02, v03, v04, v05, v06, v07, v08, v09, v10]
+
+
+def main(out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    tw, th = 360, 480
+    sheet = Image.new("RGB", (5 * (tw + 12) + 12, 2 * (th + 12) + 12), (110, 110, 110))
+    label_font = ImageFont.truetype(g.FONT, 36)
+    for i, fn in enumerate(VARIANTS):
+        canvas = fn()
+        footer(canvas)
+        canvas.save(os.path.join(out_dir, "variant-%02d.png" % (i + 1)))
+        thumb = canvas.resize((tw, th), Image.LANCZOS)
+        ImageDraw.Draw(thumb).text((10, 8), str(i + 1), font=label_font, fill=(200, 30, 30))
+        sheet.paste(thumb, (12 + (i % 5) * (tw + 12), 12 + (i // 5) * (th + 12)))
+    sheet.save(os.path.join(out_dir, "sheet.png"))
+
+
+if __name__ == "__main__":
+    main(sys.argv[1])
