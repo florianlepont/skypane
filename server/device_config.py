@@ -57,6 +57,7 @@ from server.themes import (  # noqa: F401
     theme_background_index,
     theme_band_dithered,
     theme_band_index,
+    theme_band_ink_index,
     theme_dithered,
     theme_ink_index,
     theme_is_band,

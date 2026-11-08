@@ -31,184 +31,126 @@ DEFAULT_THEME_ID = "white"
 
 # --- Theme registry ----------------------------------------------------
 #
-# Always reference panel_format's IDX_* constants, never a bare integer.
-# "dithered" selects a flat field vs. the same ink dithered ~40% toward
-# White (a flat saturated field reads too harsh at full-panel coverage).
-# "weight" isn't derivable from "dithered" alone: flat fields read best
-# Regular; dithered fields need Bold except Yellow, which stays legible
+# Every entry is built by `_build_theme()` from three choices: the main
+# colour, the background (plain white paper, a flat full field, or a soft
+# field dithered ~40% toward White) and the diagonal stripe (none, solid or
+# soft). Always reference panel_format's IDX_* constants, never a bare
+# integer. "weight" isn't derivable from "dithered" alone: flat fields read
+# best Regular; dithered fields need Bold except Yellow, which stays legible
 # Regular even dithered.
+#
+# The ids are stored values: the first 18 specs below are frozen in name,
+# order and content, and new themes are only ever appended. The ten
+# combinations that cannot exist (a stripe on a full field, a soft stripe
+# on a soft field) would render exactly like the same theme without the
+# stripe, so they have no theme.
 #
 # The old two-tone "sky" pairing is retired; a stale `"theme": "sky"`
 # degrades safely to DEFAULT_THEME_ID via device_config.normalise_theme_id().
+BACKGROUND_PAPER = "paper"
+BACKGROUND_FULL = "full"
+BACKGROUND_SOFT = "soft"
+STRIPE_NONE = "none"
+STRIPE_SOLID = "solid"
+STRIPE_SOFT = "soft"
+
+_COLOUR_INDEXES = {
+    "black": IDX_BLACK,
+    "yellow": IDX_YELLOW,
+    "red": IDX_RED,
+    "green": IDX_GREEN,
+    "blue": IDX_BLUE,
+}
+
+
+def _build_theme(colour: str | None, background: str, stripe: str, label: str) -> dict[str, object]:
+    """One registry entry. A paper background is White with black text; a
+    full or soft field takes the colour, with black text on yellow and white
+    text elsewhere. A stripe adds the band keys (its colour is the main
+    colour). `colour` is `None` only for plain paper.
+    """
+    if background == BACKGROUND_PAPER:
+        field, ink, dithered, weight = IDX_WHITE, IDX_BLACK, False, "regular"
+    else:
+        assert colour is not None
+        field = _COLOUR_INDEXES[colour]
+        ink = IDX_BLACK if field == IDX_YELLOW else IDX_WHITE
+        dithered = background == BACKGROUND_SOFT
+        weight = "bold" if dithered and field != IDX_YELLOW else "regular"
+    theme: dict[str, object] = {
+        "departing_index": field,
+        "arriving_index": field,
+        "ink_index": ink,
+        "label": label,
+        "dithered": dithered,
+        "weight": weight,
+    }
+    if stripe != STRIPE_NONE:
+        assert colour is not None
+        theme["band_index"] = _COLOUR_INDEXES[colour]
+        theme["band_dithered"] = stripe == STRIPE_SOFT
+    return theme
+
+
+# (id, colour, background, stripe, label) - the 18 historical themes first
+# (ids frozen), then the themes added since, in the order they were added.
+# Appending only.
+_LEGACY_SPECS: tuple[tuple[str, str | None, str, str, str], ...] = (
+    ("white", None, BACKGROUND_PAPER, STRIPE_NONE, "White"),
+    ("black", "black", BACKGROUND_FULL, STRIPE_NONE, "Black"),
+    ("grey", "black", BACKGROUND_SOFT, STRIPE_NONE, "Grey"),
+    ("yellow", "yellow", BACKGROUND_FULL, STRIPE_NONE, "Yellow"),
+    ("yellow_light", "yellow", BACKGROUND_SOFT, STRIPE_NONE, "Yellow Light"),
+    ("red", "red", BACKGROUND_FULL, STRIPE_NONE, "Red"),
+    ("red_light", "red", BACKGROUND_SOFT, STRIPE_NONE, "Red Light"),
+    ("green", "green", BACKGROUND_FULL, STRIPE_NONE, "Green"),
+    ("green_light", "green", BACKGROUND_SOFT, STRIPE_NONE, "Green Light"),
+    ("blue", "blue", BACKGROUND_FULL, STRIPE_NONE, "Blue"),
+    ("blue_light", "blue", BACKGROUND_SOFT, STRIPE_NONE, "Blue Light"),
+    ("band_blue", "blue", BACKGROUND_PAPER, STRIPE_SOLID, "Band Blue"),
+    ("band_blue_light", "blue", BACKGROUND_PAPER, STRIPE_SOFT, "Band Blue Light"),
+    ("band_green_light", "green", BACKGROUND_PAPER, STRIPE_SOFT, "Band Green Light"),
+    ("band_red", "red", BACKGROUND_PAPER, STRIPE_SOLID, "Band Red"),
+    ("band_black", "black", BACKGROUND_PAPER, STRIPE_SOLID, "Band Black"),
+    ("band_blue_field", "blue", BACKGROUND_SOFT, STRIPE_SOLID, "Band Blue Field"),
+    ("band_red_field", "red", BACKGROUND_SOFT, STRIPE_SOLID, "Band Red Field"),
+)
+
+# Id suffix and label suffix of each readable striped (background, stripe)
+# pair, for the themes generated rather than listed above.
+_STRIPED_NAMING = {
+    (BACKGROUND_PAPER, STRIPE_SOLID): ("", ""),
+    (BACKGROUND_PAPER, STRIPE_SOFT): ("_light", " Light"),
+    (BACKGROUND_SOFT, STRIPE_SOLID): ("_field", " Field"),
+    (BACKGROUND_FULL, STRIPE_SOFT): ("_on_full", " On Full"),
+}
+
+# The generated themes, in registry order: (colour, background, stripe).
+_ADDED_COMBINATIONS = tuple(
+    (colour, background, stripe)
+    for background, stripe, colours in (
+        (BACKGROUND_PAPER, STRIPE_SOLID, ("yellow", "green")),
+        (BACKGROUND_PAPER, STRIPE_SOFT, ("black", "yellow", "red")),
+        (BACKGROUND_SOFT, STRIPE_SOLID, ("black", "yellow", "green")),
+        (BACKGROUND_FULL, STRIPE_SOFT, ("black", "yellow", "red", "green", "blue")),
+    )
+    for colour in colours
+)
+
+
+def _generated_specs() -> list[tuple[str, str | None, str, str, str]]:
+    specs: list[tuple[str, str | None, str, str, str]] = []
+    for colour, background, stripe in _ADDED_COMBINATIONS:
+        id_suffix, label_suffix = _STRIPED_NAMING[(background, stripe)]
+        specs.append((
+            "band_%s%s" % (colour, id_suffix), colour, background, stripe,
+            "Band %s%s" % (colour.capitalize(), label_suffix)))
+    return specs
+
+
 THEMES: dict[str, dict[str, object]] = {
-    "white": {
-        "departing_index": IDX_WHITE,
-        "arriving_index": IDX_WHITE,
-        "ink_index": IDX_BLACK,
-        "label": "White",
-        "dithered": False,
-        "weight": "regular",
-    },
-    "black": {
-        "departing_index": IDX_BLACK,
-        "arriving_index": IDX_BLACK,
-        "ink_index": IDX_WHITE,
-        "label": "Black",
-        "dithered": False,
-        "weight": "regular",
-    },
-    "grey": {
-        "departing_index": IDX_BLACK,
-        "arriving_index": IDX_BLACK,
-        "ink_index": IDX_WHITE,
-        "label": "Grey",
-        "dithered": True,
-        "weight": "bold",
-    },
-    "yellow": {
-        "departing_index": IDX_YELLOW,
-        "arriving_index": IDX_YELLOW,
-        "ink_index": IDX_BLACK,
-        "label": "Yellow",
-        "dithered": False,
-        "weight": "regular",
-    },
-    "yellow_light": {
-        "departing_index": IDX_YELLOW,
-        "arriving_index": IDX_YELLOW,
-        "ink_index": IDX_BLACK,
-        "label": "Yellow Light",
-        "dithered": True,
-        "weight": "regular",
-    },
-    "red": {
-        "departing_index": IDX_RED,
-        "arriving_index": IDX_RED,
-        "ink_index": IDX_WHITE,
-        "label": "Red",
-        "dithered": False,
-        "weight": "regular",
-    },
-    "red_light": {
-        "departing_index": IDX_RED,
-        "arriving_index": IDX_RED,
-        "ink_index": IDX_WHITE,
-        "label": "Red Light",
-        "dithered": True,
-        "weight": "bold",
-    },
-    "green": {
-        "departing_index": IDX_GREEN,
-        "arriving_index": IDX_GREEN,
-        "ink_index": IDX_WHITE,
-        "label": "Green",
-        "dithered": False,
-        "weight": "regular",
-    },
-    "green_light": {
-        "departing_index": IDX_GREEN,
-        "arriving_index": IDX_GREEN,
-        "ink_index": IDX_WHITE,
-        "label": "Green Light",
-        "dithered": True,
-        "weight": "bold",
-    },
-    "blue": {
-        "departing_index": IDX_BLUE,
-        "arriving_index": IDX_BLUE,
-        "ink_index": IDX_WHITE,
-        "label": "Blue",
-        "dithered": False,
-        "weight": "regular",
-    },
-    "blue_light": {
-        "departing_index": IDX_BLUE,
-        "arriving_index": IDX_BLUE,
-        "ink_index": IDX_WHITE,
-        "label": "Blue Light",
-        "dithered": True,
-        "weight": "bold",
-    },
-    # Diagonal-band themes: base canvas renders as build_canvas("white");
-    # only label, band_index and band_dithered vary between these 5. Read
-    # via theme_is_band()/theme_band_index()/theme_band_dithered() below,
-    # never by indexing THEMES directly.
-    "band_blue": {
-        "departing_index": IDX_WHITE,
-        "arriving_index": IDX_WHITE,
-        "ink_index": IDX_BLACK,
-        "label": "Band Blue",
-        "dithered": False,
-        "weight": "regular",
-        "band_index": IDX_BLUE,
-        "band_dithered": False,
-    },
-    "band_blue_light": {
-        "departing_index": IDX_WHITE,
-        "arriving_index": IDX_WHITE,
-        "ink_index": IDX_BLACK,
-        "label": "Band Blue Light",
-        "dithered": False,
-        "weight": "regular",
-        "band_index": IDX_BLUE,
-        "band_dithered": True,
-    },
-    "band_green_light": {
-        "departing_index": IDX_WHITE,
-        "arriving_index": IDX_WHITE,
-        "ink_index": IDX_BLACK,
-        "label": "Band Green Light",
-        "dithered": False,
-        "weight": "regular",
-        "band_index": IDX_GREEN,
-        "band_dithered": True,
-    },
-    "band_red": {
-        "departing_index": IDX_WHITE,
-        "arriving_index": IDX_WHITE,
-        "ink_index": IDX_BLACK,
-        "label": "Band Red",
-        "dithered": False,
-        "weight": "regular",
-        "band_index": IDX_RED,
-        "band_dithered": False,
-    },
-    "band_black": {
-        "departing_index": IDX_WHITE,
-        "arriving_index": IDX_WHITE,
-        "ink_index": IDX_BLACK,
-        "label": "Band Black",
-        "dithered": False,
-        "weight": "regular",
-        "band_index": IDX_BLACK,
-        "band_dithered": False,
-    },
-    # Two "tone-on-tone" themes whose field is not White: base-canvas
-    # fields copied from the matching `_light` theme (ink/weight too -
-    # draw_main_text_block() forces white ink for every band theme, so a
-    # row's own ink_index only colours outside the band). band_index
-    # equals the field colour on purpose; band_dithered is False for a
-    # solid diagonal.
-    "band_blue_field": {
-        "departing_index": IDX_BLUE,
-        "arriving_index": IDX_BLUE,
-        "ink_index": IDX_WHITE,
-        "label": "Band Blue Field",
-        "dithered": True,
-        "weight": "bold",
-        "band_index": IDX_BLUE,
-        "band_dithered": False,
-    },
-    "band_red_field": {
-        "departing_index": IDX_RED,
-        "arriving_index": IDX_RED,
-        "ink_index": IDX_WHITE,
-        "label": "Band Red Field",
-        "dithered": True,
-        "weight": "bold",
-        "band_index": IDX_RED,
-        "band_dithered": False,
-    },
+    theme_id: _build_theme(colour, background, stripe, label)
+    for theme_id, colour, background, stripe, label in (*_LEGACY_SPECS, *_generated_specs())
 }
 
 THEME_IDS = tuple(THEMES)
@@ -276,6 +218,20 @@ def theme_band_dithered(theme_id: str) -> bool:
     return cast(bool, THEMES[theme_id].get("band_dithered", False))
 
 
+def band_text_ink(band_index: int | None) -> int:
+    """The ink for text drawn inside a stripe of colour `band_index`: black
+    on a yellow stripe (white on yellow is illegible), white otherwise.
+    """
+    return IDX_BLACK if band_index == IDX_YELLOW else IDX_WHITE
+
+
+def theme_band_ink_index(theme_id: str) -> int:
+    """The ink for text inside `theme_id`'s stripe; white for a non-band
+    theme, where it is unused.
+    """
+    return band_text_ink(theme_band_index(theme_id))
+
+
 # --- Ink requirements --------------------------------------------------
 #
 # A hardware profile lists the inks its panel can show; a theme is only
@@ -284,7 +240,7 @@ def theme_band_dithered(theme_id: str) -> bool:
 
 def theme_required_inks(theme_id: str) -> frozenset[int]:
     """Palette indices `theme_id` draws with: its two backgrounds, text ink
-    and band colour (if any), plus White (the paper every theme sits on).
+    and band colour with its text ink (if any), plus White (the paper every theme sits on).
     """
     inks = {
         theme_background_index("departing", theme_id),
@@ -295,6 +251,7 @@ def theme_required_inks(theme_id: str) -> frozenset[int]:
     band = theme_band_index(theme_id)
     if band is not None:
         inks.add(band)
+        inks.add(band_text_ink(band))
     return frozenset(inks)
 
 

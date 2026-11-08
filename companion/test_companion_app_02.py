@@ -558,7 +558,7 @@ def test_theme_preview_bytes_open_as_320x120_rgb_png_for_every_theme():
 
 
 def test_theme_preview_means_pairwise_distinct():
-    """the 18 themes' previews have pairwise-distinct mean RGB at the crop/size used"""
+    """every registered theme's preview has a pairwise-distinct mean RGB at the crop/size used"""
     import io
     means = []
     for theme_id in device_config.THEME_IDS:
@@ -566,7 +566,7 @@ def test_theme_preview_means_pairwise_distinct():
         img = Image.open(io.BytesIO(payload)).convert("RGB").resize((1, 1))
         means.append(img.getpixel((0, 0)))
     assert len(set(means)) == len(means), (
-        "expected 18 pairwise-distinct mean RGB values, got %r" % (means,))
+        "expected one distinct mean RGB value per registered theme, got %r" % (means,))
 
 
 def test_theme_preview_crop_keeps_8_3_and_excludes_every_caption_glyph():

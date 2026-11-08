@@ -38,12 +38,19 @@ from companion.test_browser_ux_helpers import (
 pytestmark = pytest.mark.browser
 
 
+def _seed_coloured_look(state_dir):
+    """The shared seed plus a coloured departures look: on plain white paper the picker's colour
+    row is greyed, and these checks drive the colour row from the keyboard."""
+    seed_state_dir(state_dir)
+    device_config.save_device_config(state_dir, theme="red")
+
+
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
     """The shared, read-only seeded fixture every read-only check in this module measures
     against — module-scoped because none of them persists a real setting.
     """
-    return module_app_server_factory(seed=seed_state_dir, fake_providers=True)
+    return module_app_server_factory(seed=_seed_coloured_look, fake_providers=True)
 
 
 # Shared helpers for this module's swap-and-request-counting checks. Local to this module: no
@@ -1066,7 +1073,7 @@ def test_the_live_preview_is_contained_keyed_focusable_and_saves(
     visible focus ring, and the native save lands on the persisted theme with the
     saved confirmation.
     """
-    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    server = make_app_server(seed=_seed_coloured_look, fake_providers=True)
     base_url = server.base_url()
     context = new_context(viewport=viewport)
     try:

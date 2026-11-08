@@ -2755,7 +2755,7 @@ def test_band_center_x_computed_once_not_recomputed_per_line():
 
 
 def test_band_black_main_card_ink_swaps_to_white():
-    """every registered band theme's main card text samples as IDX_WHITE (never IDX_BLACK) inside its own drawn bboxes - the round-13 ink swap, widened on real glass to every band colour, is proven by actual pixel colour, not by absence of an exception (PHASE9-5)"""
+    """every registered band theme's main card text samples as its band ink (white, black on yellow) inside its own drawn bboxes - the round-13 ink swap, widened on real glass to every band colour, is proven by actual pixel colour, not by absence of an exception (PHASE9-5)"""
     # Retargeted to render.text: see test_non_band_text_blocks_unaffected_by_band_idx_kwarg()'s
     # comment above - same rebind-target reasoning applies here.
     orig_main = render.text.draw_main_text_block
@@ -2788,19 +2788,23 @@ def test_band_black_main_card_ink_swaps_to_white():
                         ink_values.add(with_pixels[x, y])
         return ink_values
 
-    # Black text reads poorly against every band colour (Blue/Green/Red
-    # too, not just Black), so every registered band theme's main card
-    # draws in white ink, unconditionally. Proven by actual pixel colour
-    # for the full registered set, not by absence of an exception.
+    # Black text reads poorly against Blue/Green/Red/Black bands, so those
+    # draw in white ink; a yellow band is the opposite (white on yellow is
+    # illegible), so it draws in black. Proven by actual pixel colour for
+    # the full registered set, not by absence of an exception.
     band_ids = [t for t in render.device_config.THEME_IDS if render.device_config.theme_is_band(t)]
-    if len(band_ids) != 7:
-        pytest.fail("expected exactly 7 registered band theme ids, found %d: %r" % (len(band_ids), band_ids))
+    if len(band_ids) != 20:
+        pytest.fail("expected exactly 20 registered band theme ids, found %d: %r" % (len(band_ids), band_ids))
     for theme_id in band_ids:
         ink_values = _ink_pixels_drawn(theme_id)
-        if IDX_WHITE not in ink_values:
-            pytest.fail("%s main card: no newly-painted IDX_WHITE ink pixels found - ink swap missing" % theme_id)
-        if IDX_BLACK in ink_values:
-            pytest.fail("%s main card: newly-painted IDX_BLACK ink pixels found - ink swap incomplete" % theme_id)
+        want = render.device_config.theme_band_ink_index(theme_id)
+        other = IDX_BLACK if want == IDX_WHITE else IDX_WHITE
+        if (want == IDX_BLACK) != (render.device_config.theme_band_index(theme_id) == panel_format.IDX_YELLOW):
+            pytest.fail("%s: only a yellow band takes black text" % theme_id)
+        if want not in ink_values:
+            pytest.fail("%s main card: no newly-painted ink %d pixels found - band ink missing" % (theme_id, want))
+        if other in ink_values:
+            pytest.fail("%s main card: newly-painted ink %d pixels found - band ink incomplete" % (theme_id, other))
 
 
 def test_previous_card_never_collides_with_the_band():

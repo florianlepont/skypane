@@ -113,9 +113,22 @@ def test_picker_choices_swap_the_picture_live(new_context, make_app_server):
         context.close()
 
 
-def test_combinations_without_a_theme_are_not_offered(new_context, make_app_server):
-    """with a soft background the soft stripe is not offered (disabled and not displayed);
-    yellow and a full background leave nothing to choose, so the whole stripe group goes away"""
+def _axis_state(page, axis):
+    """(value, disabled) of every option of one axis, in document order."""
+    return page.evaluate(
+        "a => [...document.querySelectorAll('%s input[data-look-axis=' + a + ']')]"
+        ".map(e => [e.value, e.disabled])" % SHEET, axis)
+
+
+def _why(page, selector):
+    return page.locator(SHEET + " " + selector).inner_text().strip()
+
+
+def test_combinations_without_a_theme_stay_visible_greyed_with_their_reason(
+        new_context, make_app_server):
+    """a stripe that would be invisible (a soft stripe on a soft background, a solid stripe on a
+    full one) stays in its row, greyed and disabled, with the reason written under the row; the
+    row is never removed; the new yellow looks (black text in the stripe) are reachable"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
@@ -125,28 +138,51 @@ def test_combinations_without_a_theme_are_not_offered(new_context, make_app_serv
         assert page.locator(SHEET + " button.switch").get_attribute("aria-checked") == "false"
 
         def disabled():
+            return [value for value, off in _axis_state(page, "stripe") if off]
+
+        def stripe_row_shown():
             return page.evaluate(
                 "s => [...document.querySelectorAll(s + ' input[data-look-axis=stripe]')]"
-                ".filter(e => e.disabled).map(e => e.value)", SHEET)
+                ".every(e => e.parentNode.getClientRects().length > 0 && e.parentNode.offsetWidth > 0)",
+                SHEET)
 
-        def shown():
-            return page.evaluate(
-                "s => [...document.querySelectorAll(s + ' input[data-look-axis=stripe]')]"
-                ".filter(e => e.parentNode.getClientRects().length > 0).map(e => e.value)", SHEET)
-
-        def group_shown():
-            return page.evaluate(
-                "s => document.querySelector(s + ' [data-look-why]').parentNode"
-                ".getClientRects().length > 0", SHEET)
-
-        assert disabled() == ["soft"] and shown() == ["none", "solid"] and group_shown()
+        assert disabled() == ["soft"] and stripe_row_shown()
+        assert "soft background is invisible" in _why(page, "[data-look-why]")
         page.click(_axis("colour", "yellow"))
-        assert disabled() == ["solid", "soft"] and shown() == [] and not group_shown()
-        assert _checked(page, "theme_arriving") == "yellow_light"
-        page.click(_axis("colour", "red"))
+        assert _checked(page, "theme_arriving") == "band_yellow_field"
+        assert disabled() == ["soft"] and stripe_row_shown()
         page.click(_axis("background", "full"))
-        assert disabled() == ["solid", "soft"] and shown() == [] and not group_shown()
-        assert _checked(page, "theme_arriving") == "red"
+        assert _checked(page, "theme_arriving") == "yellow"
+        assert disabled() == ["solid"] and stripe_row_shown()
+        assert "full background a solid stripe is invisible" in _why(page, "[data-look-why]")
+        page.click(_axis("stripe", "soft"))
+        assert _checked(page, "theme_arriving") == "band_yellow_on_full"
+        page.click(_axis("background", "paper"))
+        assert _checked(page, "theme_arriving") == "band_yellow_light"
+        assert disabled() == [] and _why(page, "[data-look-why]") == ""
+    finally:
+        context.close()
+
+
+def test_the_colour_row_is_greyed_with_a_reason_on_plain_white_paper(new_context, make_app_server):
+    """on a white background with no stripe the colour changes nothing: the colour row stays
+    but is disabled with its reason; choosing a background or a stripe enables it again"""
+    server = make_app_server(seed=_seed)
+    context, page = _open_display(new_context, server.base_url(), VIEWPORT_DESKTOP)
+    try:
+        def colours_disabled():
+            return [off for _value, off in _axis_state(page, "colour")]
+
+        assert not any(colours_disabled()) and _why(page, "[data-look-colour-why]") == ""
+        page.click(_axis("background", "paper"))
+        page.click(_axis("stripe", "none"))
+        assert _checked(page, "theme") == "white"
+        assert all(colours_disabled())
+        assert "colour changes nothing" in _why(page, "[data-look-colour-why]")
+        assert page.locator(SHEET + " .look-dot").first.is_visible()
+        page.click(_axis("stripe", "solid"))
+        assert not any(colours_disabled()) and _why(page, "[data-look-colour-why]") == ""
+        assert _checked(page, "theme") == "band_red"
     finally:
         context.close()
 
@@ -251,6 +287,9 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
         page.click('.rule-suggestion-chip[data-kind="prefix"]')
         assert page.input_value("#rule-key") == "AFR"
         host = "[data-look-axes-host]"
+        assert all(
+            node.is_disabled() for node in page.locator(host + ' input[data-look-axis="colour"]').all())
+        page.click('%s .look-seg__option:has(input[data-look-axis="background"][value="full"])' % host)
         page.click('%s .look-dot:has(input[value="blue"])' % host)
         page.click('%s .look-seg__option:has(input[data-look-axis="background"][value="paper"])' % host)
         page.click('%s .look-seg__option:has(input[data-look-axis="stripe"][value="soft"])' % host)
@@ -283,6 +322,7 @@ def test_edit_a_special_look_is_a_page_that_replaces_the_rule(new_context, make_
         assert page.input_value('input[name="rule_key"]') == "TVF"
         assert _checked(page, "rule_theme_id") == "white"
         page.locator("[data-look-axes-host]").wait_for(state="visible")
+        page.click('[data-look-axes-host] .look-seg__option:has(input[data-look-axis="background"][value="full"])')
         page.click('[data-look-axes-host] .look-dot:has(input[value="red"])')
         with page.expect_navigation():
             page.click('.dirty-bar button[type="submit"]')

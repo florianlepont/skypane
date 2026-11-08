@@ -226,11 +226,14 @@
   }
 
   // One set of the three choices, bound to whichever target getTarget()
-  // returns. Stripe options with no theme are disabled and not shown.
+  // returns. A choice with no theme is disabled, greyed and explained, never
+  // removed: the stripe row is always there, and the colour row greys out
+  // while the look is plain white paper (a colour changes nothing there).
   function bindAxes(container, getTarget) {
     var state = { colour: "black", background: "paper", stripe: "none" };
     var why = container.querySelector("[data-look-why]");
     var colourName = container.querySelector("[data-look-colour-name]");
+    var colourWhy = container.querySelector("[data-look-colour-why]");
 
     function radios(axis) {
       return container.querySelectorAll('input[data-look-axis="' + axis + '"]');
@@ -246,7 +249,7 @@
 
     function paintStripes() {
       var list = radios("stripe");
-      var offered = 0;
+      var reasons = [];
       var i;
       for (i = 0; i < list.length; i++) {
         var key = cellKey(state.colour, state.background, list[i].value);
@@ -254,15 +257,30 @@
         list[i].disabled = missing;
         if (missing) {
           addClass(list[i].parentNode, "is-disabled");
+          var reason = model.reasons[key];
+          if (reason && reasons.indexOf(reason) === -1) {
+            reasons.push(reason);
+          }
         } else {
-          offered += 1;
           removeClass(list[i].parentNode, "is-disabled");
         }
       }
-      // A combination with no theme is not offered at all; with nothing left
-      // to choose the whole stripe group goes away.
-      why.textContent = "";
-      why.parentNode.hidden = offered < 2;
+      why.textContent = reasons.join(" ");
+    }
+
+    function paintColours() {
+      var list = radios("colour");
+      var plain = state.background === "paper" && state.stripe === "none";
+      var i;
+      for (i = 0; i < list.length; i++) {
+        list[i].disabled = plain;
+        if (plain) {
+          addClass(list[i].parentNode, "is-disabled");
+        } else {
+          removeClass(list[i].parentNode, "is-disabled");
+        }
+      }
+      colourWhy.textContent = plain ? model.colourReason : "";
     }
 
     function paintIcons() {
@@ -280,6 +298,7 @@
       paintAxis("background");
       paintAxis("stripe");
       paintStripes();
+      paintColours();
       paintIcons();
       var plain = state.background === "paper" && state.stripe === "none";
       colourName.textContent = plain ? "" : model.colourNames[state.colour];
@@ -305,10 +324,6 @@
         return;
       }
       state[axis] = input.value;
-      // Plain paper has no colour; picking one means "use this colour".
-      if (axis === "colour" && state.background === "paper" && state.stripe === "none") {
-        state.background = "full";
-      }
       if (!model.cells[cellKey(state.colour, state.background, state.stripe)]) {
         state.stripe = "none";
       }

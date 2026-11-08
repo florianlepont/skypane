@@ -2841,8 +2841,16 @@ button:disabled {
     box-shadow: var(--shadow-control);
   }
 
+  /* A choice with no theme stays in place, greyed; the reason is written under its row. */
   .look-seg__option:has(input:disabled) {
-    display: none;
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .look-dot:has(input:disabled) {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(1);
   }
 }
 
@@ -9414,6 +9422,13 @@ button.look-sheet__close[hidden] {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* An empty reason takes no room but stays in the page, so a reason that
+ * appears is still announced. */
+.look-axis__why:empty {
+  min-height: 0;
+  margin: 0;
+}
+
 .look-sheet__foot {
   display: flex;
   align-items: center;
@@ -10980,23 +10995,23 @@ button.look-sheet__done[hidden] {
   display: none;
 }
 
-/* On a phone the large picture is smaller and its read-back sits beside it,
- * so the first row of looks is on the first screen. */
+/* On a phone the large picture takes a little over half the width, with its
+ * read-back beside it, so the frame is big enough to judge a look by. */
 @media (max-width: 699.98px) {
   .js .look-view .look-panel > .look-frame {
-    grid-template-columns: 5.25rem minmax(0, 1fr);
+    grid-template-columns: minmax(0, 56%) minmax(0, 1fr);
     gap: var(--space-sm) var(--space-md);
   }
 
   .look-pick {
     display: grid;
-    grid-template-columns: 5.25rem minmax(0, 1fr);
+    grid-template-columns: minmax(0, 56%) minmax(0, 1fr);
     gap: var(--space-md);
     align-items: flex-start;
   }
 
   .look-pick > .look-frame__anchor {
-    max-width: 5.25rem;
+    max-width: none;
   }
 
   /* Tighter spacing so the picture and the three controls fit one phone screen. */

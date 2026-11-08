@@ -451,10 +451,11 @@ def test_display_scope_has_three_radiogroups_device_has_none():
     assert display_count >= 1, (
         "expected at least one role=\"radiogroup\" occurrence on the new special look page, got %d"
         % display_count)
-    assert display_rendered.count('<caption class="visually-hidden">') == 2, (
-        "expected each of the two look tables (Arrivals, Calendar) to carry its own caption")
-    assert new_look_rendered.count('<caption class="visually-hidden">') == 1, (
-        "expected the new special look page's look table to carry its own caption")
+    tables_per_look = len(look.STYLE_COLUMN_GROUPS)
+    assert display_rendered.count('<caption class="visually-hidden">') == 2 * tables_per_look, (
+        "expected each table of the two looks (Arrivals, Calendar) to carry its own caption")
+    assert new_look_rendered.count('<caption class="visually-hidden">') == tables_per_look, (
+        "expected each table of the new special look page's look to carry its own caption")
     assert display_rendered.count('class="look-pick__grid" role="radiogroup"') == 1, (
         "expected the departures look to be one labelled radiogroup of radio cards")
     device_count = device_rendered.count('role="radiogroup"')
@@ -660,7 +661,7 @@ def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatc
         assert sorted(values) == sorted(device_config.THEME_IDS)
         notes = block.find("ul", cls="look-table__notes")
         assert notes.find_all("li")
-        assert not block.find("table").find_all("ul")
+        assert all(not table.find_all("ul") for table in block.find_all("table"))
 
 
 def test_the_swatch_legend_names_as_many_things_as_the_registry_carries():

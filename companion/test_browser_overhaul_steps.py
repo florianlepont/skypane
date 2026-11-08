@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
+    "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
     "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -420,7 +420,8 @@ def test_u4a_change_the_quiet_hours_start(world, new_context):
 
 
 def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
-    """Personalisation tab, tap a colour in the picker, Save."""
+    """Personalisation tab, tap a background (the colour row is greyed on plain white paper),
+    tap a colour in the picker, Save."""
     context, page, steps = _owner(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
@@ -428,10 +429,13 @@ def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
         steps.tap(page.locator(
+            '[data-look-sheet][data-look-inline] .look-seg__option:has('
+            'input[data-look-axis="background"][value="full"])'), "a background")
+        steps.tap(page.locator(
             "[data-look-sheet][data-look-inline] .look-dot:has(input:not(:checked))").first, "a look")
         page.locator("[data-static-save-fallback]").wait_for(state="visible")
         _save_and_reload(steps, page)
-        _report_measured("U4b", steps, 3)
+        _report_measured("U4b", steps, 4)
     finally:
         context.close()
 
