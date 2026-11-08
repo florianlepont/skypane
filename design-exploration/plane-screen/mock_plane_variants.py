@@ -136,26 +136,22 @@ def halo_paste(canvas, piece, pos):
     canvas.paste(piece, pos, piece)
 
 
-def clipped_paste(canvas, piece, pos, x_min, x_max):
-    """Paste `piece` with its halo, keeping only the columns x_min..x_max."""
-    tmp = Image.new("RGBA", canvas.size, (0, 0, 0, 0))
-    halo_paste(tmp, piece, pos)
-    box = (x_min, 0, x_max, canvas.height)
-    canvas.paste(tmp.crop(box), (x_min, 0), tmp.crop(box))
+def vnose_tail():
+    """Big nose above, small tail below; both halves bleed off the frame.
 
-
-def vnose_tail(nose_end=1110, tail_start=120):
-    """Big nose above, small tail below, each ending in a straight cut."""
+    Nose tip at x=130 and tail end at x=795 stay fixed; each half is scaled
+    so the feature the reviewer marked lands exactly on the frame edge.
+    """
     c = base()
-    full = load_plane(2200)
-    nose = full.crop((0, 0, int(full.width * 0.5), full.height))
+    nose_plane = load_plane(2400)
+    nose = nose_plane.crop((0, 0, nose_plane.width, nose_plane.height))
     nose = nose.crop(nose.getbbox())
-    ny = 470 - nose.height // 2
-    clipped_paste(c, nose, (W - nose.width + 30, ny), 0, nose_end)
-    small = load_plane(1250)
-    tail = small.crop((int(small.width * 0.34), 0, small.width, small.height))
+    nose = nose.crop((0, 0, W - 130 + 40, nose.height))
+    halo_paste(c, nose, (130, 470 - nose.height // 2))
+    tail_plane = load_plane(1475)
+    tail = tail_plane.crop((int(tail_plane.width * 0.434), 0, tail_plane.width, tail_plane.height))
     tail = tail.crop(tail.getbbox())
-    clipped_paste(c, tail, (-30, 1275 - tail.height), tail_start, W)
+    halo_paste(c, tail, (795 - tail.width, 1275 - tail.height))
     return c
 
 
