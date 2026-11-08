@@ -28,8 +28,8 @@ STATES = [
     ("quiet hours", ["QUIET", "HOURS"], "SLEEPING", ["Back at 07:00"], glyphs.draw_moon_icon),
     ("display off", ["DISPLAY", "OFF"], "SWITCHED OFF", ["Turn it back on from the companion page."], glyphs.draw_power_icon),
     ("battery empty", ["BATTERY", "EMPTY"], "CHARGE ME", ["Charge the frame over USB-C.", "It will pick up where it left off."], glyphs.draw_empty_battery_icon),
-    ("no connection", ["NO", "CONNEC", "TION"], "OFFLINE", ["The frame can't reach its server.", "It will try again on its own."], glyphs.draw_alert_icon),
-    ("updating", ["UPDA", "TING"], "FIRMWARE", ["Installing a firmware update.", "The frame will restart when it's ready."], glyphs.draw_updating_icon),
+    ("no connection", ["NO", "CONNECTION"], "OFFLINE", ["The frame can't reach its server.", "It will try again on its own."], glyphs.draw_alert_icon),
+    ("updating", ["FIRMWARE", "UPDATE"], "INSTALLING", ["Installing a firmware update.", "The frame will restart when it's ready."], glyphs.draw_updating_icon),
     ("frame retired", ["FRAME", "RETIRED"], "SKYPANE", ["This frame was removed from SkyPane.", "Ask an administrator to set it up again."], glyphs.draw_power_icon),
 ]
 
@@ -49,7 +49,7 @@ def render(lines, label, body, drawer, watching=False, icon_at="corner"):
     c = Image.new("RGB", (W, H), WHITE) if watching else t.field(pf.IDX_BLACK, True).copy()
     ink = (0, 0, 0) if watching else WHITE
     calm = icon_at == "calm"
-    x0, x1, y0, y1 = (110, W - 110, 330, 1180) if calm else (40, W - 40, 130, 1290)
+    x0, x1, y0, y1 = (110, W - 110, 380, 1180) if calm else (40, W - 40, 130, 1290)
     slot = (y1 - y0) / len(lines)
     mask = icon_mask(drawer)
     mask = mask.crop(mask.getbbox())
@@ -92,10 +92,10 @@ def render(lines, label, body, drawer, watching=False, icon_at="corner"):
         icon = mask.resize((round(mask.width * h / mask.height), h), Image.LANCZOS)
         c.paste(Image.new("RGB", icon.size, ink), (64, 1330), icon)
     if calm:
-        h = 56
+        h = 120
         icon = mask.resize((round(mask.width * h / mask.height), h), Image.LANCZOS)
-        c.paste(Image.new("RGB", icon.size, ink), (110, 150), icon)
-        dr.text((110 + icon.width + 20, 150), label, font=ImageFont.truetype(g.FONT, 52), fill=ink)
+        c.paste(Image.new("RGB", icon.size, ink), (110, 120), icon)
+        dr.text((110, 262), label, font=ImageFont.truetype(g.FONT, 52), fill=ink)
         y = 1290
         for line in body:
             dr.text((110, y), line, font=ImageFont.truetype(g.FONT, 40), fill=ink)
