@@ -48,7 +48,8 @@ def render(lines, label, body, drawer, watching=False, icon_at="corner"):
     line's height."""
     c = Image.new("RGB", (W, H), WHITE) if watching else t.field(pf.IDX_BLACK, True).copy()
     ink = (0, 0, 0) if watching else WHITE
-    x0, x1, y0, y1 = 40, W - 40, 130, 1290
+    calm = icon_at == "calm"
+    x0, x1, y0, y1 = (110, W - 110, 330, 1180) if calm else (40, W - 40, 130, 1290)
     slot = (y1 - y0) / len(lines)
     mask = icon_mask(drawer)
     mask = mask.crop(mask.getbbox())
@@ -67,6 +68,17 @@ def render(lines, label, body, drawer, watching=False, icon_at="corner"):
             else:
                 c.paste(Image.new("RGB", icon.size, ink), (x1 - icon_w, top), icon)
                 right = x1 - icon_w - 30
+        if calm:  # natural proportions, flush left, one common cap height
+            size = min(330, round(slot * 0.8))  # leave a gap between lines
+            font = ImageFont.truetype(g.FONT_HEAVY, size)
+            c_draw = ImageDraw.Draw(c)
+            bb = c_draw.textbbox((0, 0), line, font=font)
+            scale = min(1.0, (x1 - x0) / (bb[2] - bb[0]))
+            if scale < 1.0:
+                font = ImageFont.truetype(g.FONT_HEAVY, round(size * scale))
+                bb = c_draw.textbbox((0, 0), line, font=font)
+            c_draw.text((x0 - bb[0], round(y0 + slot * i) - bb[1]), line, font=font, fill=ink)
+            continue
         g.giant_text(c, [line], (left, round(y0 + slot * i), right, round(y0 + slot * (i + 1))), ink, heavy=1, stretch=True)
     dr = ImageDraw.Draw(c)
     label_x = 64
@@ -79,6 +91,16 @@ def render(lines, label, body, drawer, watching=False, icon_at="corner"):
         h = 120
         icon = mask.resize((round(mask.width * h / mask.height), h), Image.LANCZOS)
         c.paste(Image.new("RGB", icon.size, ink), (64, 1330), icon)
+    if calm:
+        h = 56
+        icon = mask.resize((round(mask.width * h / mask.height), h), Image.LANCZOS)
+        c.paste(Image.new("RGB", icon.size, ink), (110, 150), icon)
+        dr.text((110 + icon.width + 20, 150), label, font=ImageFont.truetype(g.FONT, 52), fill=ink)
+        y = 1290
+        for line in body:
+            dr.text((110, y), line, font=ImageFont.truetype(g.FONT, 40), fill=ink)
+            y += 58
+        return c
     dr.text((label_x, 56), label, font=ImageFont.truetype(g.FONT, 56), fill=ink)
     if icon_at == "corner":
         small = icon_mask(drawer)
