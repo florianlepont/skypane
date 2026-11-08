@@ -907,3 +907,16 @@ investigation of how themes are produced before it is planned.
 Straight fixes: W142, W143, W144, W145, W147, W148, W149, W150, W151, W152
 (needs a fresh iPhone capture), W153.
 To investigate first: W146.
+
+- W154 (owner) The opening animation is not shown "exactly everywhere as we
+  said": he expects the splash at the opening of the site (each time he opens
+  it), not only on the very first visit or after a stylesheet change (the
+  61-82 rule skipped it whenever the stylesheet came from the cache).
+  Decision: show it once per browser session, at site opening, whatever the
+  cache state; skip on in-session navigation, no JS, reduced motion keeps the
+  static variant.
+- W155 (owner) In general the pages do not seem to be preloaded: navigating
+  between pages should feel instant. To be shaped with the performance audit
+  (what is possible given authenticated, non-cacheable pages and iOS Safari
+  without Speculation Rules: prefetch of tab destinations on touch/hover,
+  warming of static assets and images, view-transition continuity).
