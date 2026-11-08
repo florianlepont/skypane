@@ -873,4 +873,10 @@ single column; 61-88 Location full-bleed, loading, in-place airport.
   a heavy button); the reassignment should rather be a button next to the
   owner (in the owner row). ("rétribution" in his message read as
   réattribution.)
+- W151 (owner, screenshot) Airline editor, aircraft-type sub-rows (Air France
+  expanded): small display bug: the type rows' cells do not line up with the
+  airline row (the row backgrounds stop short, leaving a pale block at the
+  right; the ⋮ menu column is not aligned with the parent row's; some rows
+  show "Utilise celle de la compagnie" wrapped on two lines while others show
+  the picture).
 - (owner may have more; not confirmed done.)
