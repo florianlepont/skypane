@@ -11,6 +11,10 @@
  * before), and never when session storage is unavailable (the once-only
  * promise could not be kept). The hard cap below removes the class again
  * even if the main splash script never runs.
+ *
+ * The main splash script is not linked from the page: this script loads it,
+ * from the address named by its own `data-splash-src` attribute, only when
+ * the splash is going to play, so every other page load skips the download.
  */
 (function () {
   "use strict";
@@ -22,6 +26,7 @@
   // the plain form shows instead.
   var EARLY_CAP_MS = 6000;
   var root = document.documentElement;
+  var bootTag = document.currentScript;
 
   // Scripts run: the class is on <html> before the first paint, so a page
   // that swaps its plain form for a script-driven view can hide the form and
@@ -52,6 +57,25 @@
     return false;
   }
 
+  // The splash script reads the overlay markup, so it is added once the
+  // document has been parsed (what `defer` did when the page linked it).
+  function loadSplashScript() {
+    var src = bootTag && bootTag.getAttribute("data-splash-src");
+    if (!src) {
+      return;
+    }
+    function add() {
+      var script = document.createElement("script");
+      script.src = src;
+      document.head.appendChild(script);
+    }
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", add);
+    } else {
+      add();
+    }
+  }
+
   try {
     if (window.sessionStorage.getItem(KEY)) {
       return;
@@ -64,6 +88,7 @@
     return;
   }
   root.classList.add("splash-on");
+  loadSplashScript();
   window.setTimeout(function () {
     root.classList.remove("splash-on");
   }, HARD_CAP_MS);

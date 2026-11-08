@@ -146,7 +146,6 @@ def login_shell(body, ui_theme="auto", lang=None):
 # page_shell()'s `scripts` argument only ever widens or narrows which of
 # these are present; it never reorders them.
 SHELL_SCRIPT_ORDER = (
-    SPLASH_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     DIRTY_STATE_SCRIPT_SRC,
     LIST_FILTER_SCRIPT_SRC,
@@ -175,7 +174,6 @@ SHELL_SCRIPT_ORDER = (
 # form's submit guard, the nav status line's relative time, and the
 # modal/menu dismissal script (any page can hold a dialog or a menu).
 GLOBAL_PAGE_SCRIPTS = (
-    SPLASH_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
@@ -301,7 +299,7 @@ PAGE_SHELL_TEMPLATE = (
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
     "{tab_bar_expect}"
-    '<script src="{splash_boot_src}"></script>\n'
+    '<script src="{splash_boot_src}" data-splash-src="{splash_src}"></script>\n'
     "{favicon_link}\n"
     "</head>\n"
     "<body{body_attrs}>\n"
@@ -544,6 +542,7 @@ def page_shell(
         "icon_defs": ICON_DEFS_HTML,
         "splash": ui_splash.splash_html(),
         "splash_boot_src": SPLASH_BOOT_SCRIPT_SRC,
+        "splash_src": SPLASH_SCRIPT_SRC,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
         "sidebar_switch": space_switch_html(active),

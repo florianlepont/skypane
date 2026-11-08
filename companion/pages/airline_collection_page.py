@@ -16,6 +16,7 @@ from companion import access
 from companion import airline_collection as collection
 from companion import device_scope
 from companion import i18n
+from companion import illustration_normalize
 from companion import ui_filter
 from companion import ui_modal
 import companion.layout as layout
@@ -204,7 +205,8 @@ def _picture_html(entry, state_dir):
     return (
         '<img class="collection-card__image" src="%s%s" width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="%s">'
-    ) % (src, buster, ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
+    ) % (src, illustration_normalize.thumbnail_query(buster, ILLUSTRATION_TARGET_WIDTH),
+         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
          escape_html(entry.name))
 
 

@@ -457,7 +457,7 @@ class Handler(
         of `set_cookies` becomes its own Set-Cookie header. `policy` is chosen
         by the calling page handler, never derived from the request.
         """
-        body = html_str.encode("utf-8")
+        body = static_files.version_static_urls(html_str).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
@@ -863,7 +863,9 @@ class Handler(
         own STATIC_ROUTES entry and route-table row.
         """
         asset = static_files.STATIC_ROUTES[route]
-        return self._serve_static(asset.path, asset.content_type, asset.cache_control)
+        cache_control = static_files.cache_control_for(
+            route, urlsplit(self.path).query, asset.cache_control)
+        return self._serve_static(asset.path, asset.content_type, cache_control)
 
     def _serve_gallery_image(self, device, requested):
         payload = gallery_bytes(device.state_dir, requested)
@@ -904,11 +906,12 @@ class Handler(
         # lru_cache'd per path+mtime, so a replaced asset is picked up
         # on the very next request, not left stale.
         try:
-            payload = illustration_normalize.cached_normalized_png_bytes(path)
+            payload, content_type, seconds = illustration_normalize.served_illustration(
+                path, urlsplit(self.path).query)
         except Exception:
             # Any decode failure degrades to the same 404, never a 500.
             return self.send_html(404, self._not_found_page())
-        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+        return self.send_bytes(200, content_type, payload, cache_seconds=seconds)
 
     # _handle_illustration_replace(), _handle_manual_resolve_post(),
     # _handle_manual_resolution_delete(), _handle_rule_add_post(),

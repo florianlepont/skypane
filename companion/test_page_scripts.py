@@ -106,7 +106,7 @@ def _page_body(servers, server_name, route, query=""):
 
 
 def _script_srcs(doc):
-    return [node.attrs.get("src") for node in doc.select("script[src]")]
+    return [node.attrs.get("src", "").split("?", 1)[0] for node in doc.select("script[src]")]
 
 
 # ==========================================================================
@@ -163,8 +163,8 @@ def test_shell_script_set_matches_global_and_route_tuple(servers, route, server_
         "GLOBAL_PAGE_SCRIPTS | _PAGE_SCRIPTS[route] %r"
         % (route, server_name, query, sorted(set(shell_srcs)), sorted(expected)))
 
-    # The pre-per-page-scripts baseline was 15; the splash adds two global
-    # scripts (the synchronous boot script and splash.js).
+    # The pre-per-page-scripts baseline was 15; the splash adds one global
+    # script (the synchronous boot script, which loads splash.js itself).
     script_ceiling = 15 + 2
     assert len(shell_srcs) < script_ceiling, (
         "%s (%s state, query=%r): still serves %d shell script tags, no "

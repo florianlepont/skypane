@@ -67,7 +67,7 @@ def _open_ready(new_context, server, viewport, route="/detection", lang="en", **
 
 def _hold_the_map_script(context):
     """Answers the page's own map script with nothing, so the page stays in its loading state."""
-    context.route("**/static/place-map.js", lambda route: route.fulfill(
+    context.route("**/static/place-map.js*", lambda route: route.fulfill(
         status=200, content_type="text/javascript", body="/* held */"))
 
 

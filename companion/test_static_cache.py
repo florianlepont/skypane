@@ -8,6 +8,7 @@ criterion 2). Exercises `companion/app.py`'s `_serve_static()` helper behind
 `_serve_stylesheet()`, `_serve_script_file()` and `_serve_runway_image()`.
 """
 import email.utils
+import hashlib
 import re
 from datetime import timedelta
 
@@ -52,6 +53,13 @@ def _assert_validators(headers):
     return etag, last_modified
 
 
+def _assert_immutable_headers(headers):
+    """A versioned asset URL carries the content-addressed, year-long policy."""
+    _assert_validators(headers)
+    directives = [d.strip() for d in headers.get("Cache-Control", "").split(",")]
+    assert directives == ["public", "max-age=31536000", "immutable"], directives
+
+
 def _assert_static_cache_headers(headers, public=True):
     """`_assert_validators()` plus the no-cache policy every CSS/JS static route
     carries: `no-cache` (and, for a pre-auth shared asset, `public`), never a `max-age`
@@ -90,10 +98,39 @@ def test_every_served_script_route_has_the_same_validators_and_policy(static_ser
     srcs |= {"/static/battery-trend.js"}
     assert srcs, "expected at least one script[src] on the rendered page"
     for src in sorted(srcs):
+        assert "?v=" in src or src == "/static/battery-trend.js", src
+        route = src.split("?", 1)[0]
         status, headers, body = http_request(static_server.base_url() + src)
         assert status == 200, "expected 200 from %s, got %d" % (src, status)
         assert body, "expected a non-empty body from %s" % (src,)
+        if "?v=" in src:
+            _assert_immutable_headers(headers)
+        status, headers, _ = http_request(static_server.base_url() + route)
+        assert status == 200
         _assert_static_cache_headers(headers)
+
+
+def test_a_stale_or_missing_version_token_keeps_the_revalidating_policy(static_server):
+    """Only the current token earns the immutable policy, so a URL from
+    before a deploy never pins old bytes in a browser."""
+    for suffix in ("", "?v=deadbeef", "?v="):
+        _status, headers, _body = http_request(
+            static_server.base_url() + "/static/style.css" + suffix)
+        _assert_static_cache_headers(headers)
+
+
+def test_the_served_stylesheet_has_no_comments_and_its_url_names_its_bytes(static_server):
+    cookie = login(static_server)
+    _status, _headers, page = http_request(static_server.base_url() + "/", cookie=cookie)
+    doc = parse_html(page.decode("utf-8"))
+    href = doc.select('link[rel="stylesheet"]')[0].attrs["href"]
+    assert re.fullmatch(r"/static/style\.css\?v=[0-9a-f]{12}", href), href
+    _status, headers, body = http_request(static_server.base_url() + href)
+    assert b"/*" not in body.replace(b'"/*', b"")
+    assert hashlib.sha256(body).hexdigest().startswith(href.split("=")[1])
+    _assert_immutable_headers(headers)
+    status, _headers, again = http_request(static_server.base_url() + href)
+    assert status == 200 and again == body
 
 
 @pytest.mark.parametrize(
@@ -324,3 +361,21 @@ def test_second_page_load_gets_304_for_every_static_request(
     server_hits = [path for path, code in recorded if path.startswith("/static/")]
     assert server_hits, "expected the origin to have recorded the revalidation requests"
     assert all(code in (200, 304) for _path, code in recorded if _path.startswith("/static/"))
+
+
+def test_the_illustration_route_serves_a_small_webp_for_a_listed_width(static_server):
+    """`?w=264` returns a downsized WebP (far smaller than the PNG); an
+    unlisted width gets the normal PNG."""
+    cookie = login(static_server)
+    base = static_server.base_url() + "/illustration/air-france.png"
+    status, headers, full = http_request(base, cookie=cookie)
+    assert status == 200 and headers["Content-Type"] == "image/png"
+    status, headers, small = http_request(base + "?w=264", cookie=cookie)
+    assert status == 200
+    assert headers["Content-Type"] in ("image/webp", "image/png")
+    if headers["Content-Type"] == "image/webp":
+        assert small[:4] == b"RIFF" and small[8:12] == b"WEBP"
+    assert len(small) < len(full) / 3
+    assert "max-age=3600" in headers["Cache-Control"]
+    status, headers, other = http_request(base + "?w=999", cookie=cookie)
+    assert status == 200 and headers["Content-Type"] == "image/png" and other == full

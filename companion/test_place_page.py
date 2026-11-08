@@ -195,8 +195,11 @@ def test_every_catalogue_airport_is_an_anchor_sorted_by_municipality(rig):
     assert {r["data-icao"] for r in rows} == set(catalogue)
     lfpg = next(r for r in rows if r["data-icao"] == "LFPG")
     airport = catalogue["LFPG"]
-    assert (lfpg["data-lat"], lfpg["data-lon"], lfpg["data-name"]) == (
-        "%.4f" % airport.lat, "%.4f" % airport.lon, airport.name)
+    # The position and name of every airport travel once, in the map's JSON.
+    assert not {"data-lat", "data-lon", "data-name", "data-iata"} & set(lfpg)
+    map_rows = json.loads(html.unescape(re.search(r'data-airports="([^"]*)"', page).group(1)))
+    assert ["LFPG", airport.iata, airport.name, airport.municipality,
+            round(airport.lat, 4), round(airport.lon, 4)] in map_rows
     towns = [_fold(catalogue[r["data-icao"]].municipality) for r in rows]
     assert towns == sorted(towns)
     row = re.search(r'data-icao="LFPG".*?place-airport__meta text-label"[^>]*>([^<]*)<', page, re.S)

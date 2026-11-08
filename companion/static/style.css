@@ -159,6 +159,9 @@
    * --motion-press is the fast, un-sprung half of a press. */
   --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --motion-spring-duration: 420ms;
+  /* The cross-document page change: short, so the new page is touchable
+   * as soon as it is shown. */
+  --motion-view-transition: 260ms;
   --motion-press: 90ms;
   /* A loading placeholder's sweep, and the blur-up of the picture that
    * replaces it. */
@@ -455,7 +458,7 @@ html[data-ui-theme="dark"] {
   /* The tab bar's slider glides to its new place on the spring while the page
    * changes (it is the one named element of the bar). */
   ::view-transition-group(skypane-tab-slider) {
-    animation-duration: var(--motion-spring-duration);
+    animation-duration: var(--motion-view-transition);
     animation-timing-function: var(--motion-spring);
   }
 
@@ -13297,6 +13300,19 @@ button.row-menu__item--destructive:hover {
  * once and gives a quick spring. */
 .hero__ring.is-ring-done {
   animation: skypane-ring-pop var(--motion-spring-duration) var(--motion-spring);
+}
+
+/* After a minute without a touch (motion.js sets data-ambient="rest") the
+ * ambient loops stop, so a wall tablet's compositor is idle. */
+html[data-ambient="rest"] .home-state__dot--pulse,
+html[data-ambient="rest"] .hero__picture::before,
+html[data-ambient="rest"] .hero__glass::after {
+  animation-iteration-count: 0;
+}
+
+html[data-ambient="rest"] .home-state__dot--pulse::after {
+  animation-iteration-count: 0;
+  opacity: 0;
 }
 
 .hero__ring.is-ring-done .hero__ring-done {

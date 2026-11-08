@@ -539,13 +539,11 @@ def _airport_row_html(view, airport):
     href = _href(airport=airport.icao, q=view.q, radius_km=view.carry_radius)
     return (
         '<li class="place-airport" data-filter-text="%s">'
-        '<a class="place-airport__link" href="%s#airport-runways" data-detection-nav data-icao="%s" '
-        'data-iata="%s" data-lat="%s" data-lon="%s" data-name="%s">'
+        '<a class="place-airport__link" href="%s#airport-runways" data-detection-nav data-icao="%s">'
         '<span class="place-airport__name">%s</span>'
         '<span class="place-airport__meta text-label"%s>%s</span></a></li>'
     ) % (
         escape_html(haystack), escape_html(href), escape_html(airport.icao),
-        escape_html(airport.iata), _coord(airport.lat), _coord(airport.lon), escape_html(airport.name),
         escape_html(airport.name), current, escape_html(dp.airport_codes(airport)))
 
 
@@ -910,6 +908,12 @@ def _panel_html(view):
         _credits_html(), _locate_html())
 
 
+# Opens the connection to the tile host while the page is still being
+# parsed, so the first tiles do not wait for a DNS lookup and TLS handshake
+# (the host is the one the page's policy already allows pictures from).
+TILE_PRECONNECT_HTML = '<link rel="preconnect" href="https://tile.openstreetmap.org">'
+
+
 def render(ctx, query=None, errors=None, submitted=None, place=None):
     """The Location and detection page body.
 
@@ -920,7 +924,8 @@ def render(ctx, query=None, errors=None, submitted=None, place=None):
     ctx = page_context.coerce(ctx)
     view = _View(ctx, query, errors, submitted, place)
     return (
-        layout.page_header(i18n.t(PAGE_TITLE), i18n.t(PAGE_PURPOSE))
+        TILE_PRECONNECT_HTML
+        + layout.page_header(i18n.t(PAGE_TITLE), i18n.t(PAGE_PURPOSE))
         + fail_safe_toast_html(view)
         + _stray_errors_html(view)
         + _form_html(view)

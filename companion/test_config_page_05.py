@@ -256,9 +256,9 @@ def test_settings_save_redirect_carries_flash_banner_and_cleanup_script(make_app
     body_text = body.decode("utf-8", errors="replace")
     assert flash_toast(body_text) is not None, (
         "expected the rendered redirect target to carry the flash toast")
-    expected_script_tag = (
-        '<script src="%s" defer></script>' % companion_app.FLASH_CLEANUP_SCRIPT_ROUTE)
-    assert expected_script_tag in body_text, (
+    assert re.search(
+        r'<script src="%s\?v=[0-9a-f]+" defer></script>'
+        % re.escape(companion_app.FLASH_CLEANUP_SCRIPT_ROUTE), body_text), (
         "expected the rendered redirect target to carry flash-cleanup.js's own deferred "
         "<script> tag")
 

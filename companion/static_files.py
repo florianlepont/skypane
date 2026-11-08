@@ -17,7 +17,9 @@ import collections
 import email.utils
 import hashlib
 import os
+import re
 import threading
+from urllib.parse import parse_qs
 
 _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
 STATIC_DIR = os.path.join(_HERE, "static")
@@ -147,6 +149,64 @@ STATIC_ROUTES = {
 }
 
 
+# A CSS string literal (kept verbatim) or a block comment (dropped).
+_CSS_TOKEN = re.compile(
+    r"""("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')|/\*.*?\*/""", re.DOTALL)
+
+
+def minify_css(payload):
+    """The served form of a stylesheet: block comments removed (string
+    literals untouched), every line trimmed and blank lines dropped. The
+    result depends only on the input bytes, so its hash is stable, and
+    the source file keeps its comments.
+    """
+    text = _CSS_TOKEN.sub(lambda m: m.group(1) or " ", payload.decode("utf-8"))
+    lines = (line.strip() for line in text.splitlines())
+    return "\n".join(line for line in lines if line).encode("utf-8") + b"\n"
+
+
+# A long-lived, content-addressed URL: the `?v=` token changes with the
+# served bytes, so a deploy that edits an asset also changes every URL
+# the HTML names and no browser can run new markup against old assets.
+IMMUTABLE_CACHE = "public, max-age=31536000, immutable"
+_VERSION_LENGTH = 12
+_STATIC_URL = re.compile(r'((?:href|src)=")(/static/[^"?#]+\.(?:css|js))(")')
+
+
+def asset_version(route):
+    """The `?v=` token for a STATIC_ROUTES route (a prefix of the served
+    payload's SHA-256), or None for an unknown route or unreadable file."""
+    asset = STATIC_ROUTES.get(route)
+    if asset is None:
+        return None
+    try:
+        return static_entry(asset.path).etag.strip('"')[:_VERSION_LENGTH]
+    except OSError:
+        return None
+
+
+def version_static_urls(html):
+    """`html` with every known /static/ href or src given its `?v=` token.
+    Applied to the final markup at send time, so page modules keep
+    naming plain routes."""
+    def add(match):
+        version = asset_version(match.group(2))
+        if version is None:
+            return match.group(0)
+        return "%s%s?v=%s%s" % (match.group(1), match.group(2), version, match.group(3))
+    return _STATIC_URL.sub(add, html)
+
+
+def cache_control_for(route, query, default):
+    """The immutable policy only for a request whose `v` names the
+    current bytes; any other (or missing) token revalidates as before."""
+    version = asset_version(route)
+    requested = parse_qs(query).get("v", [None])[0]
+    if version is not None and requested == version:
+        return IMMUTABLE_CACHE
+    return default
+
+
 def read_static_bytes(abs_path):
     """The one disk-read seam behind `static_entry()` - kept as its own
     function so a test can monkeypatch it and count how often it runs.
@@ -166,6 +226,8 @@ def static_entry(abs_path):
     if entry is not None:
         return entry
     payload = read_static_bytes(abs_path)
+    if abs_path == _STYLE_CSS_PATH:
+        payload = minify_css(payload)
     mtime_s = int(os.stat(abs_path).st_mtime)
     etag = '"%s"' % hashlib.sha256(payload).hexdigest()[:32]
     last_modified = email.utils.formatdate(mtime_s, usegmt=True)

@@ -364,9 +364,10 @@ def test_every_card_image_source_passes_route_membership_test(tmp_path):
     sources = re.findall(r'src="([^"]+)"', rendered)
     assert sources, "expected at least one <img src=...> in the rendered gallery"
     for src in sources:
-        assert src.startswith(prefix) and src.endswith(".png"), (
+        route = src.split("?", 1)[0]
+        assert route.startswith(prefix) and route.endswith(".png"), (
             "expected every image source to be %s{key}.png, got %r" % (prefix, src))
-        filename = src[len(prefix):]
+        filename = route[len(prefix):]
         assert filename in targets, "%r is not a member of illustrations.target_filenames()" % (filename,)
 
 
@@ -630,8 +631,9 @@ def test_enlarge_menu_item_opens_the_lightbox_on_the_row_artwork(tmp_path):
         assert 'class="airlines-thumb"' in trigger
         img_src = re.search(r'<img class="airlines-thumb__image" src="([^"]+)"', card_slice).group(1)
         src_attr = re.search(r'data-view-panel-src="([^"]+)"', trigger).group(1)
-        assert src_attr == img_src, (airline_name, src_attr, img_src)
-        assert 'href="%s"' % img_src in trigger
+        # The row shows the small WebP; the link and the lightbox open the full picture.
+        assert img_src == src_attr + "?w=264", (airline_name, src_attr, img_src)
+        assert 'href="%s"' % src_attr in trigger
         escaped = layout.escape_html(airline_name)
         assert re.search(r'data-view-panel-caption="([^"]+)"', trigger).group(1) == escaped
         assert re.search(r'data-view-panel-heading="([^"]+)"', trigger).group(1) == escaped
