@@ -81,6 +81,16 @@ middle line (and, for A, part of the bottom line). Four-line names such as
 Villefranche-sur-Saône flatten the letters. This is a trade-off the layouts
 carry, not a defect to fix in one of them.
 
+### Landscape (800x480)
+
+The three layouts were adapted to the 7.3" landscape panel
+(`landscape-800x480.png`) and all three are kept. The destination is one
+stretched line across the width (long names such as Clermont-Ferrand still
+fit), the flight number and airline sit bottom-left or bottom-right. Layout A
+(nose and tail) covers less lettering than in portrait; B hides the centre of
+the word; C keeps everything readable with a smaller aircraft. The flight
+number is about 1.3 cm tall at 128 ppi, readable to roughly 2 m, not 3 m.
+
 ### Departure vs arrival
 
 Direction is currently only a small word at the top. At 3 m it is invisible, so
@@ -120,8 +130,8 @@ plumbing. See `cases-arriving-and-generic.png`.
    needs a look on glass, particularly the white halo and the dithered fields.
 7. **Dither limits**: the production background helper asserts a lighten
    fraction below 0.5; the yellow field needs about 0.75.
-8. **Landscape (800x480)**: not explored. The giant-letters idea needs a
-   landscape variant (one or two lines of lettering, aircraft across).
+8. **Landscape (800x480)**: a landscape variant of each layout is needed (one
+   stretched line of lettering, see above).
 9. **State screens** (no connection, pairing, SET A LOCATION, NEARBY,
    OVERHEAD): not explored; they should adopt the same pairings.
 10. Tests: golden fixtures stay for the current layout; the new layout needs its
