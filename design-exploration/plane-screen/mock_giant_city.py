@@ -47,7 +47,7 @@ def sliced_plane(canvas, key, plane_w, y_front, y_rear, cut=0.5):
     cx = round(plane_w * cut)
     front, rear = im.crop((0, 0, cx, h)), im.crop((cx, 0, plane_w, h))
     # front half bleeds off the left edge, rear half off the right edge
-    for piece, x, y in ((front, 40, y_front), (rear, W - 40 - (plane_w - cx), y_rear)):
+    for piece, x, y in ((front, 440, y_front), (rear, 1080 - (plane_w - cx), y_rear)):
         halo = Image.new("RGBA", piece.size, WHITE + (0,))
         alpha = piece.getchannel("A").filter(__import__("PIL.ImageFilter", fromlist=["x"]).MaxFilter(15))
         halo.putalpha(alpha)
@@ -60,7 +60,7 @@ def main(out, lines, key="air-france", flight="AF1006", airline="Air France", st
     d = ImageDraw.Draw(bg)
     d.rectangle((0, 0, W, H), fill=LIGHT)
     giant_text(bg, lines, (40, 130, W - 40, 1290), BLUE)
-    sliced_plane(bg, key, 1700, 520, 700)
+    sliced_plane(bg, key, 2200, 300, 860)
     d = ImageDraw.Draw(bg)
     small = ImageFont.truetype(FONT, 56)
     d.text((64, 56), state, font=small, fill=BLUE)
