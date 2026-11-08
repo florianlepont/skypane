@@ -101,7 +101,6 @@ def main_colours(out_dir, font_dir):
     """The solid-band, light-field, two-tone variant in each colour pairing and on three cities."""
     os.makedirs(out_dir, exist_ok=True)
     g.FONT_HEAVY = os.path.join(font_dir, "Anton-Regular.ttf")
-    white = Image.new("RGB", (W, H), WHITE)
     mask = band_mask()
     tw, th = 310, 413
     font = ImageFont.truetype(g.FONT, 22)
@@ -111,7 +110,7 @@ def main_colours(out_dir, font_dir):
         for col, (name, idx, fraction) in enumerate(COLOURS):
             solid = Image.new("RGB", (W, H), t.ink_rgb(idx))
             field = t.lightened_field(idx, fraction) if fraction else t.field(idx, True)
-            tone = two_tone(solid, white, mask)
+            tone = two_tone(solid, field, mask)  # light field shade inside the band, not white
             c = build(field, solid, tone, tone)
             c.save(os.path.join(out_dir, "col-%d-%d.png" % (row + 1, col + 1)))
             thumb = c.resize((tw, th), Image.LANCZOS)
