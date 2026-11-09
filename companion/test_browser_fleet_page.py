@@ -150,3 +150,85 @@ def test_the_header_links_work_without_script(new_context, app_server_in_process
             page.locator(".fleet-detail-head a.row-action", has_text="Rename").click()
         assert page.url.endswith("/devices/%s/frame/name" % seed.owned_id)
         assert page.locator('input[name="name"]').input_value() == "Kitchen"
+
+
+_TEXT_INSET = """() => {
+  const bad = [];
+  const blocks = [...document.querySelectorAll('.fleet-group')]
+      .filter((b) => b.getClientRects().length > 0);
+  for (const block of blocks) {
+    const box = block.getBoundingClientRect();
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent.trim() || !node.parentElement.checkVisibility()) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      for (const r of range.getClientRects()) {
+        if (r.width === 0) continue;
+        if (r.left < box.left + 16 - 0.5 || r.right > box.right - 16 + 0.5) {
+          bad.push(node.textContent.trim().slice(0, 30) + ' ' + Math.round(r.left - box.left)
+                   + '/' + Math.round(box.right - r.right));
+        }
+      }
+    }
+  }
+  return {bad: bad, blocks: blocks.length};
+}"""
+
+_HEAD = """() => {
+  const r = (s) => document.querySelector(s).getBoundingClientRect();
+  const title = r('main h1'), head = r('.fleet-detail-head');
+  const links = [...document.querySelectorAll('.fleet-detail-head a.row-action')]
+      .map((a) => a.getBoundingClientRect());
+  return {titleLeft: title.left, titleBottom: title.bottom, headLeft: head.left,
+          headTop: head.top, links: links.map((l) => [l.left, l.top, l.right, l.bottom])};
+}"""
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
+def test_a_frame_that_never_woke_keeps_its_state_text_inside_the_card_and_its_actions_under_the_title(
+        new_context, app_server_in_process, viewport, lang, scheme):
+    context, page, _seed = _open(
+        new_context, app_server_in_process, viewport, lang, scheme, path="/fleet?frame={owned}")
+    where = "fleet-state/%d/%s/%s" % (viewport["width"], lang, scheme)
+    try:
+        page.wait_for_function("() => document.readyState === 'complete'")
+        assert page.locator(".fleet-block--state .empty-state").count() >= 1
+        for tab in ("state", "settings", "access"):
+            if viewport is VIEWPORT_MIN_SUPPORTED:
+                page.goto(page.url.split("&tab=")[0].split("#")[0] + "&tab=" + tab)
+                page.locator("main").wait_for(state="visible")
+            read = page.evaluate(_TEXT_INSET)
+            assert read["blocks"] >= 1 and not read["bad"], (where, tab, read)
+        head = page.evaluate(_HEAD)
+        # The two actions start at the title's left edge, directly under it, side by side or
+        # stacked, never on a floating row far below.
+        assert abs(head["headLeft"] - head["titleLeft"]) <= 1, (where, head)
+        assert 0 <= head["headTop"] - head["titleBottom"] <= 24, (where, head)
+        assert len(head["links"]) == 2 and abs(head["links"][0][0] - head["titleLeft"]) <= 1, (
+            where, head)
+        assert head["links"][0][1] - head["headTop"] <= 1, (where, head)
+        assert all(link[2] <= viewport["width"] for link in head["links"]), (where, head)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize(
+    "viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
+def test_the_versions_and_system_sections_keep_their_text_inside_their_cards(
+        new_context, app_server_in_process, viewport):
+    context, page, seed = _open(
+        new_context, app_server_in_process, viewport, "en", "dark", path="/fleet?view=system")
+    try:
+        page.wait_for_function("() => document.readyState === 'complete'")
+        read = page.evaluate(_TEXT_INSET)
+        assert read["blocks"] >= 1 and not read["bad"], read
+        page.goto(page.url.split("?")[0] + "?frame=" + seed.owned_id)
+        page.locator(".fleet-block--device").wait_for(state="visible")
+        read = page.evaluate(_TEXT_INSET)
+        assert read["blocks"] >= 1 and not read["bad"], read
+    finally:
+        context.close()

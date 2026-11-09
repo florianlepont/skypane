@@ -33,7 +33,8 @@ _HERO = """() => {
             width: r.width, height: r.height}; };
   const h1 = document.querySelector('main h1');
   return {picture: box('.hero__picture .preview-frame'), title: box('main h1'),
-          pencil: box('.title-action .btn--icon'), pill: box('.home-state__pill'),
+          pencil: box('.title-action .btn--icon'),
+          glyph: box('.title-action .btn--icon .icon'), pill: box('.home-state__pill'),
           size: parseFloat(getComputedStyle(h1).fontSize),
           h1s: document.querySelectorAll('h1').length,
           dot: !!document.querySelector('.home-state__pill .home-state__dot'),
@@ -111,22 +112,61 @@ def test_the_picture_and_the_title_column_sit_side_by_side_at_every_width(
         raise AssertionError(failure)
 
 
-@pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED],
-                         ids=["1280", "360"])
+_PENCIL_LOOK = """() => {
+  const btn = document.querySelector('.title-action .btn--icon');
+  const s = getComputedStyle(btn);
+  const h1 = getComputedStyle(document.querySelector('main h1'));
+  return {bg: s.backgroundColor, border: parseFloat(s.borderTopWidth), shadow: s.boxShadow,
+          color: s.color, text: h1.color, lineHeight: parseFloat(h1.lineHeight)};
+}"""
+
+
+@pytest.mark.parametrize("viewport, glyph", [
+    (VIEWPORT_DESKTOP, 20), (VIEWPORT_PHONE, 20), (VIEWPORT_MIN_SUPPORTED, 18)],
+    ids=["1280", "390", "360"])
 @pytest.mark.parametrize("app_name", ["fleet_app", "long_name_app"])
-def test_the_round_pencil_stays_on_the_title_line_for_a_short_and_a_long_name(
-        new_context, request, app_name, viewport):
+def test_the_quiet_pencil_stays_level_with_the_first_title_line_for_a_short_and_a_long_name(
+        new_context, request, app_name, viewport, glyph):
     app = request.getfixturevalue(app_name)
     page = _fleet_page(new_context, app, _live(app), viewport=viewport)
     hero = page.evaluate(_HERO)
-    pencil, title = hero["pencil"], hero["title"]
+    pencil, title, mark = hero["pencil"], hero["title"], hero["glyph"]
+    # A small glyph inside an invisible 44px hit area.
+    assert abs(mark["width"] - glyph) <= 0.5 and abs(mark["height"] - glyph) <= 0.5, hero
     assert pencil["width"] >= 44 - 0.5 and pencil["height"] >= 44 - 0.5, hero
-    assert pencil["top"] < title["bottom"] and pencil["left"] >= title["right"] - 0.5, hero
+    # Centred on the first line of the title, which it never overlaps.
+    line = page.evaluate(_PENCIL_LOOK)["lineHeight"]
+    assert abs((mark["top"] + mark["bottom"]) / 2 - (title["top"] + line / 2)) <= 1.5, hero
+    assert pencil["left"] >= title["right"] - 0.5, hero
     assert pencil["right"] <= viewport["width"], hero
+    # No disc at rest; the glyph takes the muted text colour.
+    look = page.evaluate(_PENCIL_LOOK)
+    assert look["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), look
+    assert look["border"] == 0 and look["shadow"] == "none", look
+    assert look["color"] != look["text"], look
     assert page.locator(".title-action .btn--icon").get_attribute("aria-label") == "Rename frame"
     failure = _assert_no_page_overflow(page, "Home", expected_width=viewport["width"])
     if failure:
         raise AssertionError(failure)
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED],
+                         ids=["1280", "360"])
+def test_the_pencil_shows_a_light_halo_only_on_hover(
+        new_context, fleet_app, viewport):
+    page = _fleet_page(new_context, fleet_app, _live(fleet_app), viewport=viewport)
+    pencil = page.locator(".title-action .btn--icon")
+    for _theme in _in_both_themes(page):
+        page.wait_for_function(_SETTLED)
+        page.mouse.move(0, 0)
+        rest = pencil.evaluate("el => getComputedStyle(el).backgroundColor")
+        pencil.hover()
+        page.wait_for_function(
+            "(rest) => getComputedStyle(document.querySelector('.title-action .btn--icon'))"
+            ".backgroundColor !== rest", arg=rest)
+        page.wait_for_function(_SETTLED)
+        halo = pencil.evaluate("el => getComputedStyle(el).backgroundColor")
+        assert halo != rest and halo != "rgba(0, 0, 0, 0)", (rest, halo)
 
 
 def test_the_pencil_opens_the_frame_name_page(new_context, fleet_app):

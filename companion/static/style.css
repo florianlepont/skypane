@@ -2226,6 +2226,7 @@ select.visually-hidden {
 }
 
 .fleet-group > .fleet-group__item--flush > .toast--docked,
+.fleet-group > .fleet-group__item--flush > .empty-state,
 .fleet-group > .fleet-group__item--flush > .page-section {
   padding: var(--space-md);
 }
@@ -7953,24 +7954,27 @@ button.place-result.is-active {
  * target. */
 
 .home-switch__window {
-  /* Above the switch's row-wide ::after so the link takes its own click;
-   * the padding and the matching negative margin give a 44px target
-   * without moving the line. */
+  /* Above the switch's row-wide ::after so the link takes its own click.
+   * The box is the text itself, so the focus ring hugs it; the 44px target
+   * is the ::after reaching past it. */
   position: relative;
   z-index: 1;
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
   box-sizing: border-box;
-  min-height: 44px;
-  padding: 0 6px;
-  margin: -13px -6px;
   white-space: nowrap;
   color: inherit;
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--color-text) 35%, transparent);
   text-underline-offset: 3px;
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-chip);
+}
+
+.home-switch__window::after {
+  content: "";
+  position: absolute;
+  inset: -13px -6px;
 }
 
 .home-switch__window:hover {
@@ -8172,12 +8176,18 @@ button.place-result.is-active {
   }
 }
 
-/* The link inside the sentence keeps its place in the line; its padding and
- * the matching negative margin give a 44px target without moving the text. */
+/* The link inside the sentence keeps its place in the line; its ::after
+ * gives a 44px target while the focus ring hugs the text. */
 .quiet-timezone-note a {
+  position: relative;
   display: inline-block;
-  padding: 13px 4px;
-  margin: -13px -4px;
+  border-radius: var(--radius-chip);
+}
+
+.quiet-timezone-note a::after {
+  content: "";
+  position: absolute;
+  inset: -13px -4px;
 }
 
 /* Without the battery dial (a plain user's Home) the status zone and the
@@ -11056,14 +11066,16 @@ a.row-action {
 }
 
 /* The selected frame's header: its personal view and Rename as two link
- * buttons (the frame's name is the frame button's label). */
+ * buttons (the frame's name is the frame button's label), directly under the
+ * page title and starting at its left edge; the negative top margin takes back
+ * most of the title row's own bottom space. */
 .fleet-detail-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: flex-start;
   gap: var(--space-sm);
-  margin: 0 0 var(--space-md);
+  margin: calc(var(--space-sm) - var(--space-lg)) 0 var(--space-md);
 }
 
 .fleet-detail-head a.row-action {
@@ -13714,14 +13726,14 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-tone) 22%, transparent);
 }
 
-/* The frame's name as the page title, with its round action beside it on the
- * same line. The text takes the room left and wraps inside its own box; the
- * action never drops under it. */
+/* The frame's name as the page title, with its quiet icon action beside it on
+ * the same line. The text takes the room left and wraps inside its own box;
+ * the action never drops under it and stays level with the first line. */
 .title-action {
+  --title-size: 28px;
   display: flex;
   flex-wrap: nowrap;
-  align-items: center;
-  gap: var(--space-sm);
+  align-items: flex-start;
   min-width: 0;
   max-width: 100%;
 }
@@ -13730,29 +13742,53 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   flex: 0 1 auto;
   min-width: 0;
   margin: 0;
-  font-size: 28px;
+  font-size: var(--title-size);
   line-height: 1.1;
   overflow-wrap: anywhere;
 }
 
+/* The 44px box is the invisible hit area centred on the first line; only the
+ * 20px glyph shows at rest, a light halo appears on hover and focus. */
 .title-action__action {
+  position: relative;
+  z-index: 1;
   flex: none;
+  margin-block: calc((var(--title-size) * 1.1 - 44px) / 2);
 }
 
-/* The action is a circle: the 44px icon button rounded to its own half. */
 .title-action__action .btn.btn--icon {
   border-radius: 50%;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.title-action__action .btn.btn--icon .icon {
+  width: 20px;
+  height: 20px;
+}
+
+.title-action__action .btn.btn--icon:hover,
+.title-action__action .btn.btn--icon:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
 }
 
 @media (min-width: 700px) {
-  .title-action__text {
-    font-size: 48px;
+  .title-action {
+    --title-size: 48px;
   }
 }
 
 @media (max-width: 379.98px) {
-  .title-action__text {
-    font-size: 24px;
+  .title-action {
+    --title-size: 24px;
+  }
+
+  .title-action__action .btn.btn--icon .icon {
+    width: 18px;
+    height: 18px;
   }
 }
 
