@@ -11,9 +11,10 @@ name up through this module.
 """
 from PIL import ImageDraw, ImageFont
 
-from server.panel_format import IDX_WHITE, WIDTH
+from server.panel_format import WIDTH
 from server.plane import enrich, runway_config
 from server.plane.render import style
+from server.themes import band_text_ink
 
 _font_cache = {}
 
@@ -335,15 +336,16 @@ def _main_block_band_center_x(draw, y, number_text, tracked_text, plain_text, nu
     return style._band_center_x((y + plain_bbox_m[3]) / 2, WIDTH)
 
 
-def _draw_main_block_band(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight):
+def _draw_main_block_band(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx):
     """`draw_main_text_block()`'s band-theme branch: a three-tier
     hierarchy (identifier / dash rule / route line / airline·type line)
-    centred inside the band, in white ink unconditionally (black is
-    illegible on real Spectra 6 ink regardless of band colour). See that
+    centred inside the band, in white ink (black on a yellow band, where
+    white is illegible; black is illegible on every other band colour on
+    real Spectra 6 ink). See that
     function's docstring for the full contract.
     """
     draw = ImageDraw.Draw(canvas)
-    effective_ink = IDX_WHITE
+    effective_ink = band_text_ink(band_idx)
     number_text, tracked_text, plain_text = _main_block_band_classify(flight, state, route)
 
     band_safe_width = style.SAFE_BOX[2] - style.SAFE_BOX[0]
@@ -356,7 +358,7 @@ def _draw_main_block_band(canvas, flight, state, route, main_placement, ink_idx,
     first_bbox = None
 
     # Re-fit each line against the band's own width at its actual y (not
-    # SAFE_BOX's width): white ink is only visible ON the band, so an
+    # SAFE_BOX's width): band ink is only visible ON the band, so an
     # overhang lands on White and silently vanishes.
     if number_text:
         band_left, band_right = style._band_edges(y, WIDTH)
@@ -411,14 +413,14 @@ def draw_main_text_block(canvas, flight, state, route, main_placement, ink_idx, 
     `None` draws the plain layout (`_draw_main_block_plain()`); a band
     theme instead draws a three-tier hierarchy (identifier / dash rule /
     route line / airline·type line) centred inside the band
-    (`_draw_main_block_band()`) - `band_idx`'s own value is otherwise
-    unused, only whether it is `None`.
+    (`_draw_main_block_band()`) - `band_idx` then only picks the text ink
+    (`themes.band_text_ink()`).
 
     Returns (line1_bbox, line2_bbox).
     """
     if band_idx is None:
         return _draw_main_block_plain(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight)
-    return _draw_main_block_band(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight)
+    return _draw_main_block_band(canvas, flight, state, route, main_placement, ink_idx, bg_idx, weight, band_idx)
 
 
 # --- Band-only previous-card text roles ---------------------------------

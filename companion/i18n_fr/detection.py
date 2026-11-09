@@ -61,7 +61,6 @@ MESSAGES = {
     "detection.field_longitude": "Longitude",
     "detection.latitude_hint": "Degrés décimaux, par exemple 48,8566.",
     "detection.longitude_hint": "Degrés décimaux, par exemple 2,3522.",
-    "detection.save_location": "Enregistrer le lieu",
     "detection.location_saved_flash":
         "Lieu enregistré — vous pouvez maintenant le choisir ci-dessus.",
 
@@ -125,6 +124,8 @@ MESSAGES = {
     "detection.tap_hint": "Touchez la carte pour placer le point",
     "detection.move_hint": "Touchez la carte pour le déplacer",
     "detection.result_airport": "Aéroport",
+    "detection.group_airports": "Aéroports",
+    "detection.group_places": "Lieux et adresses",
     "detection.map_loading": "Chargement de la carte\u2026",
     "detection.map_label":
         "Carte. Utilisez les flèches pour déplacer, plus et moins pour zoomer.",
@@ -133,7 +134,7 @@ MESSAGES = {
     "detection.search_button":
         "Rechercher un lieu",
     "detection.search_help":
-        "Un code ou un nom d’aéroport choisit cet aéroport. Tout le reste est envoyé au service de recherche d’OpenStreetMap (Nominatim).",
+        "Un code ou un nom d’aéroport choisit cet aéroport. Tout le reste est envoyé au service de recherche d’OpenStreetMap (Nominatim), après une courte pause, pendant la saisie.",
     "detection.locate":
         "Utiliser ma position",
     "detection.about_map":

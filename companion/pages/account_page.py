@@ -151,12 +151,15 @@ def _frame_row_html(frame, now, show_hardware):
     the frame's Home, and its one action (Manage access or Leave frame) as a
     link line under the text."""
     pill = i18n.t(_PILL_CO_MANAGER_TEXT if frame.shared else _PILL_OWNER_TEXT)
+    action_html = _frame_action_html(frame)
+    # One affordance per row: the row itself opens the frame's Home, and a row
+    # that also carries an action link shows no chevron beside it.
     return ui_groups.row(
         label_html='%s <span class="banner__pill account-frame__role">%s</span>' % (
             layout.escape_html(frame.name), layout.escape_html(pill)),
         lead_html=ui_shell.frame_pic_html("account-frame"),
         detail_html=_frame_detail_html(frame, now, show_hardware), href=frame.href,
-        trailing_html=_frame_action_html(frame), extra_class="account-frame")
+        trailing_html=action_html, chevron=not action_html, extra_class="account-frame")
 
 
 def _frame_dialog_html(frame, open_access):

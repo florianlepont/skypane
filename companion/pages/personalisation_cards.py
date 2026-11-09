@@ -8,13 +8,13 @@ dirty-state attribute, so the save bar names the sections that changed. The
 views only compose markup built by the settings modules; none of them decides
 what is saved.
 
-Three more addresses are pages that edit one thing and post to a route of
-their own, with the picture on the left, the options on the right and a
-floating Cancel and Save bar: a new special look, an edited special look and
-the calendar connection. Each belongs to the Special looks or Calendar view
+Four more addresses are pages that edit one thing with a floating Cancel and
+Save bar: a new special look, an edited special look, the calendar connection
+(each posting to a route of its own, picture on the left and options on the
+right) and the calendar's look (the settings route, the look picker). Each belongs to the Special looks or Calendar view
 (`PARENT_VIEWS`), which the navigation marks as current.
 """
-from companion import i18n
+from companion import i18n, theme_preview, ui_save_bar
 from companion import device_scope
 import companion.layout as layout
 from companion.layout import escape_html
@@ -26,15 +26,15 @@ from companion.settings import rules
 from companion.settings.form import DIRTY_SECTION_ATTR
 from companion.settings.rules import SPECIAL_LOOKS_HEADING, special_looks_html
 from companion.settings.theme import (
-    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_DEPARTURES, FRAME_COLOURS_ROW_LABELS,
-    departures_safe_theme_id, look_card_body_html, look_sheet_html)
+    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
+    FRAME_COLOURS_ROW_LABELS, departures_safe_theme_id, look_card_body_html, look_frame_html,
+    look_sheet_html)
 from server import device_config, screen_layouts
 
 PAGE_ID = "personalisation"
 NAV_LABEL = i18n.msg("display.personalisation_sections", "Personalisation sections")
 
 LOOK_TITLE = i18n.msg("look.look", "Look")
-CANCEL_TEXT = i18n.msg("display.cancel", "Cancel")
 CALENDAR_TITLE = i18n.msg("look.calendar", "Calendar")
 
 # One address per view. Departures keeps the page's original address.
@@ -46,6 +46,7 @@ VIEW_CALENDAR = "calendar"
 VIEW_LOOK_NEW = "special-look-new"
 VIEW_LOOK_EDIT = "special-look-edit"
 VIEW_CALENDAR_CONNECT = "calendar-connect"
+VIEW_CALENDAR_LOOK = "calendar-look"
 VIEW_ROUTES = {
     VIEW_DEPARTURES: layout.DISPLAY_ROUTE,
     VIEW_ARRIVALS: layout.DISPLAY_ARRIVALS_ROUTE,
@@ -55,12 +56,14 @@ VIEW_ROUTES = {
     VIEW_LOOK_NEW: layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE,
     VIEW_LOOK_EDIT: layout.DISPLAY_SPECIAL_LOOK_EDIT_ROUTE,
     VIEW_CALENDAR_CONNECT: layout.DISPLAY_CALENDAR_CONNECT_ROUTE,
+    VIEW_CALENDAR_LOOK: layout.DISPLAY_CALENDAR_LOOK_ROUTE,
 }
 # The pages that edit one thing, and the list view each one returns to.
 PARENT_VIEWS = {
     VIEW_LOOK_NEW: VIEW_SPECIAL_LOOKS,
     VIEW_LOOK_EDIT: VIEW_SPECIAL_LOOKS,
     VIEW_CALENDAR_CONNECT: VIEW_CALENDAR,
+    VIEW_CALENDAR_LOOK: VIEW_CALENDAR,
 }
 FORM_VIEWS = tuple(PARENT_VIEWS)
 ROUTE_VIEWS = {route: view for view, route in VIEW_ROUTES.items()}
@@ -127,10 +130,19 @@ def _special_looks_card(ctx, sheet_html):
         special_looks_html(ctx, "") + sheet_html)
 
 
-def _calendar_card(calendar_row_html, sheet_html):
+def _calendar_card(calendar_row_html):
     return _card_html(
-        "calendar", i18n.t(CALENDAR_TITLE),
-        '<ul class="special-list">%s</ul>' % calendar_row_html + sheet_html)
+        "calendar", i18n.t(CALENDAR_TITLE), '<ul class="special-list">%s</ul>' % calendar_row_html)
+
+
+def _calendar_look_controls(values, errors):
+    """The calendar look's picture and radio table, for the render that holds
+    every view at once (no route serves it): the controls of the look page,
+    without its form, sheet or bar."""
+    return look_frame_html(
+        COLOUR_USAGE_CALENDAR, values["calendar_theme_id"],
+        departures_safe_theme_id(values["theme_id"], None), errors,
+        theme_preview.FRAME_PREVIEW_STATE_DEPARTING, carries_departures=True)
 
 
 def _views():
@@ -165,21 +177,14 @@ def _nav_html(view):
     ) % (escape_html(i18n.t(NAV_LABEL)), links)
 
 
-def _bar_html(title, cancel_href, form_id, submit_text, pending_label=None):
-    """The floating Cancel and Save bar of a form page, docked like the Fleet
-    page's: above the tab bar on a phone, at the foot of the main column on a
-    wide screen. Cancel is a link back to the list; Save submits the page's
-    form (`form=`). It is always shown: the page is the edit."""
+def _bar_html(title, cancel_href, form_id, pending_label=None):
+    """The floating Cancel and Save bar of a form page. Cancel is a link back
+    to the list; Save submits the page's form (`form=`). It is always shown:
+    the page is the edit."""
     pending = (
-        ' data-pending-label="%s"' % escape_html(pending_label) if pending_label else "")
-    return (
-        '<div class="dirty-bar dirty-bar--docked form-bar" role="group" aria-label="%s">'
-        '<span class="form-bar__title">%s</span>'
-        '<a class="form-bar__cancel" href="%s">%s</a>'
-        '<button type="submit" class="dirty-bar__save" form="%s"%s>%s</button></div>'
-    ) % (
-        escape_html(title), escape_html(title), escape_html(cancel_href),
-        escape_html(i18n.t(CANCEL_TEXT)), form_id, pending, escape_html(submit_text))
+        'data-pending-label="%s"' % escape_html(pending_label) if pending_label else "")
+    return ui_save_bar.save_bar_html(
+        form_id, cancel_href=cancel_href, title=title, save_attrs=pending)
 
 
 def _back_html(parent_view):
@@ -191,12 +196,18 @@ def _back_html(parent_view):
          layout.icon_html("icon-chevron-right", 18), escape_html(title))
 
 
-def _form_view(ctx, values, view, errors):
+def _form_view(ctx, values, view, errors, scope_fields_html):
     """One form page: the link back to its list, the picture and options, and
     the floating bar."""
     parent = PARENT_VIEWS[view]
     cancel_href = device_scope.scoped(VIEW_ROUTES[parent])
-    if view == VIEW_CALENDAR_CONNECT:
+    if view == VIEW_CALENDAR_LOOK:
+        markup, title = calendar_settings.look_page_html(
+            values["calendar_theme_id"], departures_safe_theme_id(values["theme_id"], None),
+            errors, calendar_settings.LOOK_FORM_ID, calendar_settings.SETTINGS_POST_ROUTE,
+            scope_fields_html)
+        form_id, pending, extra = calendar_settings.LOOK_FORM_ID, None, ""
+    elif view == VIEW_CALENDAR_CONNECT:
         departures_id = departures_safe_theme_id(values["theme_id"], None)
         chosen = values["calendar_theme_id"]
         picture_id = chosen if chosen in device_config.THEMES else departures_id
@@ -204,7 +215,7 @@ def _form_view(ctx, values, view, errors):
             "invalid": calendar_settings.CALENDAR_ERROR_INVALID,
             "unreachable": calendar_settings.CALENDAR_ERROR_UNREACHABLE,
         }.get(ctx.calendar_sheet_error)
-        markup, title, submit = calendar_settings.connect_page_html(
+        markup, title, _submit = calendar_settings.connect_page_html(
             ctx.calendar_configured, ctx.calendar_drift, ctx.state_dir, error_message,
             picture_id, look.look_sentence(picture_id))
         form_id = calendar_settings.CONNECT_FORM_ID
@@ -212,16 +223,18 @@ def _form_view(ctx, values, view, errors):
         extra = ""
     else:
         edit = rules.edit_target(ctx) if view == VIEW_LOOK_EDIT else None
-        markup, title, submit = rules.rule_form_html(ctx, edit)
+        markup, title, _submit = rules.rule_form_html(ctx, edit)
         form_id, pending = rules.RULE_FORM_ID, None
         extra = look_sheet_html()
     return (
         '<div class="form-view">%s%s%s%s</div>'
     ) % (_back_html(parent), markup, extra,
-         _bar_html(title, cancel_href, form_id, submit, pending))
+         _bar_html(title, cancel_href, form_id, pending))
 
 
-def page_html(ctx, values, calendar_row_html, calendar_status, errors, submitted, view=None):
+def page_html(
+        ctx, values, calendar_row_html, calendar_status, errors, submitted, view=None,
+        scope_fields_html=""):
     """The Personalisation body: the navigation, then the one view it names.
     `view=None` renders every view in navigation order (one look view holding
     both pictures, one look sheet), for checks against every control at once;
@@ -232,14 +245,15 @@ def page_html(ctx, values, calendar_row_html, calendar_status, errors, submitted
     """
     if view in FORM_VIEWS:
         return '<div class="personalisation">%s<div class="personalisation__view">%s</div></div>' % (
-            _nav_html(view), _form_view(ctx, values, view, errors))
+            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html))
     sheet_html = look_sheet_html() if view is not None else ""
     usage = LOOK_VIEW_USAGES.get(view)
     parts = {
         VIEW_DEPARTURES: lambda: _look_view(values, errors, submitted, usage),
         VIEW_LAYOUT: lambda: _layout_view(values, errors, submitted),
         VIEW_SPECIAL_LOOKS: lambda: _special_looks_card(ctx, sheet_html),
-        VIEW_CALENDAR: lambda: _calendar_card(calendar_row_html, sheet_html),
+        VIEW_CALENDAR: lambda: _calendar_card(calendar_row_html) + (
+            _calendar_look_controls(values, errors) if view is None else ""),
     }
     parts[VIEW_ARRIVALS] = parts[VIEW_DEPARTURES]
     shown = (view,) if view is not None else (

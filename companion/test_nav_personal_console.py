@@ -25,8 +25,8 @@ PERSONAL_SIDEBAR_EN = [
 PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Personnalisation",
     "Compagnies", "Compte"]
-CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Airlines", "Audit"]
-CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Membres", "Cies", "Journal"]
+CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Editor", "Audit"]
+CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Équipe", "Éditeur", "Journal"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Airline editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [

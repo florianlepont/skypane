@@ -244,7 +244,7 @@ def _current_picture_html(ctx, current_flight_row):
     return (
         '<figure class="preview-frame">'
         '<img class="preview-frame__image" src="%s" alt="%s" '
-        'width="600" height="800" decoding="async">'
+        'width="600" height="800" decoding="async" fetchpriority="high">'
         "</figure>"
     ) % (
         escape_html(device_scope.scoped(GALLERY_ROUTE_PREFIX + newest)),

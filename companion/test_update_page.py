@@ -878,3 +878,64 @@ def test_one_type_page_is_byte_identical_to_the_recorded_render():
     assert sorted(pages) == sorted(golden)
     for name, html in pages.items():
         assert html == golden[name], name
+
+
+def _embedded(view, lang="en"):
+    prefs.set_request_prefs(lang=lang)
+    try:
+        return update_page.update_page(_ctx(), view, "", embedded=True)
+    finally:
+        prefs.set_request_prefs(lang="en")
+
+
+def test_the_fleet_versions_are_one_table_with_the_action_always_in_view():
+    """no disclosure hides the actions: every release is a table row with its
+    version, its relative date and its Install or Roll back button"""
+    view = _view(
+        releases=[_release("fw-v1.0.0", notes=["First", "Second"],
+                           published_at="2026-09-10T09:00:00+00:00"),
+                  _release("fw-v1.1.0", installed_at=[_NOW]),
+                  _release("fw-v1.2.0")],
+        device_entry=_device("fw-v1.1.0"))
+    doc = parse_html(_embedded(view))
+    assert not doc.select("details.update-all") and not doc.select("details.update-row")
+    rows = {row.select_one(".mono").text(): row for row in doc.select("tr.update-table__row")}
+    assert set(rows) == {"fw-v1.0.0", "fw-v1.1.0", "fw-v1.2.0"}
+    assert [c.text() for c in doc.select("thead th")][:3] == ["Version", "State", "Released"]
+    assert rows["fw-v1.0.0"].select_one("time") is not None
+    states = {version: [c.text() for c in row.select(".update-table__state > span")]
+              for version, row in rows.items()}
+    assert states == {"fw-v1.0.0": ["Earlier"], "fw-v1.1.0": ["Running"], "fw-v1.2.0": ["Newer"]}
+    old = rows["fw-v1.0.0"].select_one("form button")
+    assert old.text() == "Roll back" and old.attrs["aria-label"] == "Roll back to fw-v1.0.0"
+    assert rows["fw-v1.2.0"].select_one("form button").text() == "Install"
+    assert not rows["fw-v1.1.0"].select("form")
+    assert "update-table__row--running" in rows["fw-v1.1.0"].attrs["class"]
+    assert [li.text() for li in rows["fw-v1.0.0"].select(".update-table__notes li")] == [
+        "First", "Second"]
+    fr = parse_html(_embedded(view, "fr"))
+    assert [c.text() for c in fr.select("thead th")][:3] == ["Version", "État", "Sortie"]
+    assert fr.select_one("tr.update-table__row form button").text() in ("Revenir", "Installer")
+    assert "Revenir à fw-v1.0.0" in str(_embedded(view, "fr"))
+
+
+def test_a_frame_with_no_known_next_wake_gets_a_sentence_without_a_time():
+    """never "an unknown time": with no clock time to name the sentences just
+    say the install happens at the next wake, in both languages"""
+    view = _view(
+        releases=[_release("fw-v1.0.0"), _release("fw-v1.2.0")],
+        schedule=_schedule("fw-v1.0.0"))
+    card = _cta(update_page.update_page(_ctx(), view, ""))
+    assert "Scheduled — installs at the next wake." in card.text()
+    assert "unknown" not in card.text()
+    confirm = update_page.update_install_confirm_page(_ctx(), "fw-v1.2.0", "")
+    assert "at its next wake. It will keep the update" in confirm
+    assert "unknown" not in confirm and "around" not in confirm
+    prefs.set_request_prefs(lang="fr")
+    try:
+        fr_confirm = update_page.update_install_confirm_page(_ctx(), "fw-v1.2.0", "")
+    finally:
+        prefs.set_request_prefs(lang="en")
+    assert "inconnue" not in fr_confirm and "réveil, vers" not in fr_confirm
+    with_time = update_page.update_install_confirm_page(_ctx(), "fw-v1.2.0", "08:14")
+    assert "around 08:14" in with_time

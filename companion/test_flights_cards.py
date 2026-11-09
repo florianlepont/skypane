@@ -220,7 +220,7 @@ def test_chip_counts_and_day_headers_follow_the_folded_list(make_app_server):
     assert len(doc.select(".history-cards li.history-card")) == 3
     assert len(doc.select(".history-cards h2.section-label")) == 2
     assert len(doc.select("tr.flight-day-row")) == 2
-    assert doc.select_one("[data-filter-count]").text() == "3 of 3 shown"
+    assert doc.select_one("[data-filter-count]").text() == "3 flights"
 
 
 def test_a_pass_straddling_midnight_folds_into_the_newer_day(make_app_server):
@@ -253,8 +253,7 @@ def test_all_fifty_flights_are_in_the_first_response_with_no_paging_step(make_ap
     assert "show more" not in doc.text().lower()
     assert not [a for a in doc.select("a") if "limit=" in a.attrs.get("href", "")]
     assert _chip_counts(doc) == {"all": "50", "departing": "40", "arriving": "10"}
-    assert doc.select_one("[data-filter-count]").text() == "50 of 50 shown"
-    assert "all 50 flights" in doc.text()
+    assert doc.select_one("[data-filter-count]").text() == "50 flights"
 
 
 def test_a_legacy_limit_query_is_ignored(make_app_server):

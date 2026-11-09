@@ -16,6 +16,8 @@ from companion import access
 from companion import airline_collection as collection
 from companion import device_scope
 from companion import i18n
+from companion import illustration_normalize
+from companion import ui_filter
 from companion import ui_modal
 import companion.layout as layout
 from companion import prefs
@@ -65,6 +67,8 @@ SORT_RAREST = i18n.msg("airlines.collection_sort_rarest", "Rarest")
 SORT_LATEST = i18n.msg("airlines.collection_sort_latest", "Latest")
 SORT_AZ = i18n.msg("airlines.collection_sort_az", "A to Z")
 FILTER_LABEL = i18n.msg("airlines.collection_filter_label", "Filter airlines")
+# The field's placeholder is shorter than its label so it never clips on a phone.
+FILTER_PLACEHOLDER = i18n.msg("airlines.collection_filter_placeholder", "Filter")
 APPLY_TEXT = i18n.msg("airlines.collection_apply", "Apply")
 COUNT_TEXT = i18n.msg("airlines.collection_count", "Airlines: %d")
 COUNT_TEMPLATE = i18n.msg("airlines.collection_count_template", "Airlines: #")
@@ -201,7 +205,8 @@ def _picture_html(entry, state_dir):
     return (
         '<img class="collection-card__image" src="%s%s" width="%d" height="%d" '
         'loading="lazy" decoding="async" alt="%s">'
-    ) % (src, buster, ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
+    ) % (src, illustration_normalize.thumbnail_query(buster, ILLUSTRATION_TARGET_WIDTH),
+         ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
          escape_html(entry.name))
 
 
@@ -384,25 +389,8 @@ def _chips_html(view, entries):
 
 
 def _sort_html(view):
-    """The sort as a small menu: an icon button naming the current order opens a panel of
-    radio rows, the chosen one marked with a tick. The radios are plain form fields, so
-    without a script the visible Apply button sends the choice."""
-    current = i18n.t(dict(SORT_VALUES)[view.sort])
-    name = "%s: %s" % (i18n.t(SORT_LABEL), current)
-    options = "".join(
-        '<label class="collection-sort__option"><input type="radio" class="visually-hidden" '
-        'name="%s" value="%s"%s data-autosubmit><span class="collection-sort__row">'
-        '<span>%s</span>%s</span></label>' % (
-            SORT_PARAM, value, " checked" if value == view.sort else "",
-            escape_html(i18n.t(label)), layout.icon_html("icon-check", 16))
-        for value, label in SORT_VALUES)
-    return (
-        '<details class="row-menu collection-sort"><summary class="row-menu__toggle '
-        'collection-sort__toggle" aria-label="%s" title="%s">%s</summary>'
-        '<div class="row-menu__panel collection-sort__panel" role="radiogroup" '
-        'aria-label="%s">%s</div></details>'
-    ) % (escape_html(name), escape_html(name), layout.icon_html("icon-sort", 20),
-         escape_html(i18n.t(SORT_LABEL)), options)
+    return ui_filter.sort_menu_html(
+        SORT_PARAM, SORT_VALUES, view.sort, SORT_LABEL, " data-autosubmit")
 
 
 def _search_html(view):
@@ -412,7 +400,7 @@ def _search_html(view):
         '%s<input type="search" id="collection-filter" name="%s" value="%s" maxlength="%d" '
         'placeholder="%s" autocomplete="off" spellcheck="false" data-filter-input></div>'
     ) % (label, layout.icon_html("icon-search", 20), TEXT_PARAM, escape_html(view.text),
-         QUERY_MAX_CHARS, label)
+         QUERY_MAX_CHARS, escape_html(i18n.t(FILTER_PLACEHOLDER)))
 
 
 def _count_html(shown):
@@ -448,6 +436,13 @@ def _controls_html(view, entries, shown):
          _chips_html(view, entries), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
 
 
+def _no_match_html(action_html, attrs):
+    """The card for a search or a filter that matches no airline, with its
+    Clear action."""
+    return ui_filter.filter_empty_html(
+        i18n.t(NO_MATCH_HEADING), i18n.t(NO_MATCH_BODY), action_html, attrs)
+
+
 def _entries_for(ctx, now):
     overrides = ctx.name_overrides or {}
     try:
@@ -472,10 +467,17 @@ def render(ctx, query_string=""):
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
     parts.append(_controls_html(view, entries, len(shown)))
     if shown:
+        # Revealed by list-filter.js when the typed text hides every card.
+        parts.append(_no_match_html(
+            '<button type="button" data-filter-clear data-filter-clear-all>%s</button>' %
+            escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT)), "data-filter-empty hidden"))
         parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
             GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
             "".join(_card_html(entry, ctx.state_dir) for entry in shown)))
         parts.extend(_sheet_html(entry, ctx.state_dir, now) for entry in shown)
     else:
-        parts.append(layout.empty_state(i18n.t(NO_MATCH_HEADING), i18n.t(NO_MATCH_BODY)))
+        parts.append(_no_match_html(
+            '<a class="calendar-disconnect-btn" href="%s">%s</a>' % (
+                escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
+                escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT))), "data-collection-empty"))
     return "".join(parts)

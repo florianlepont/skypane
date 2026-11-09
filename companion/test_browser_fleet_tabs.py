@@ -69,7 +69,8 @@ def test_each_tab_fits_and_shows_only_its_own_groups(
             assert [link["current"] for link in probe["links"]] == [
                 "page" if name == tab else None for name in TABS]
             assert set(probe["blocks"]) == {tab}, probe
-            assert probe["other"] is (tab == "access")
+            # The pending and retired frames show on the State tab, the landing one.
+            assert probe["other"] is (tab == "state")
         finally:
             context.close()
 
@@ -135,7 +136,7 @@ def test_a_frame_with_no_picture_shows_a_designed_empty_state(
 
 def test_the_other_frames_section_is_evenly_padded_and_a_pending_frame_offers_pairing(
         new_context, app_server_in_process):
-    context, page = _open(new_context, app_server_in_process, PHONE, "en", "access")
+    context, page = _open(new_context, app_server_in_process, PHONE, "en", "state")
     try:
         gaps = page.evaluate(
             "() => { const s = document.querySelector('.fleet-block--others > .group');"

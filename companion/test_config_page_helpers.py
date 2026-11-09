@@ -51,7 +51,8 @@ def aspect_usage_row_bounds(rendered, usage):
     the Personalisation page: Departures and Arrivals are the two framed
     pictures of the Look card, the rules are the Special looks card (rule
     rows plus the "Add a special look" form), and Calendar flights is the
-    calendar row of the Calendar card, which follows the Special looks card.
+    calendar row of the Calendar card, which follows the Special looks card (see
+    `calendar_look_segment()` for the calendar look's own controls).
     """
     if usage == config_page.COLOUR_USAGE_RULES:
         start = rendered.index('class="special-looks"')
@@ -65,6 +66,14 @@ def aspect_usage_row_bounds(rendered, usage):
         config_page.COLOUR_USAGE_ARRIVALS: 'class="special-looks"',
     }
     return start, rendered.index(following[usage], start)
+
+
+def calendar_look_segment(rendered):
+    """The calendar look's controls (picture and radio table) of `rendered`: what the all-views
+    render appends to the Calendar card, and the body of the calendar look page."""
+    start = rendered.rindex("<", 0, rendered.index('data-look-usage="calendar"'))
+    bar = rendered.find('<div class="dirty-bar"', start)
+    return rendered[start:bar if bar >= 0 else len(rendered)]
 
 
 def rules_row_segment(rendered):

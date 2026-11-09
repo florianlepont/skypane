@@ -134,15 +134,11 @@
   var carried = carriedCancelHref !== null;
   bar.hidden = !carried;
 
-  // Connector words read once off the dirty-bar element, server-
-  // rendered and translated; each fallback literal is used only when
-  // its attribute is absent, so the bar can never render empty or
-  // untranslated.
-  var dirtyChangedSuffix = bar.getAttribute("data-dirty-changed-suffix") || " changed";
-  var dirtyAnd = bar.getAttribute("data-dirty-and") || " and ";
-  var dirtyListAnd = bar.getAttribute("data-dirty-list-and") || ", and ";
-  var dirtyUnsavedSingular = bar.getAttribute("data-dirty-unsaved-singular") || "1 unsaved change";
-  var dirtyUnsavedPlural = bar.getAttribute("data-dirty-unsaved-plural") || " unsaved changes";
+  // Words read once off the bar element, server-rendered and translated;
+  // each fallback literal is used only when its attribute is absent, so the
+  // bar can never render empty or untranslated. The several-areas message
+  // is this lead-in followed by the list of areas.
+  var dirtySeveral = bar.getAttribute("data-dirty-several") || "Unsaved changes:";
   var dirtySavingText = bar.getAttribute("data-dirty-saving") || "Saving…";
   var dirtyInitialText = bar.getAttribute("data-dirty-initial-text") || "Unsaved changes";
 
@@ -283,35 +279,14 @@
       return;
     }
     bar.hidden = false;
-    // The docked bar always says the same thing, whatever changed.
-    if (bar.hasAttribute("data-dirty-generic")) {
+    // One message for every page, naming the areas only
+    // when several of them changed.
+    var labels = dirtySectionLabels();
+    if (labels.length < 2) {
       setCountText(dirtyInitialText);
       return;
     }
-    var labels = dirtySectionLabels();
-    if (labels.length === 0) {
-      // Never-silent fallback: a differing field sits outside every
-      // section wrapper, so the bar falls back to a raw-count copy
-      // rather than going silent while unsaved edits exist.
-      setCountText(count === 1
-        ? dirtyUnsavedSingular
-        : count + dirtyUnsavedPlural);
-      return;
-    }
-    if (labels.length === 1) {
-      setCountText(labels[0] + dirtyChangedSuffix);
-      return;
-    }
-    if (labels.length === 2) {
-      setCountText(labels[0] + dirtyAnd + labels[1] + dirtyChangedSuffix);
-      return;
-    }
-    // Three or more: every label but the last joined with ", " (a
-    // punctuation mark, not a translatable word — French list-commas
-    // read identically), the last one prefixed with the final joiner —
-    // UI-SPEC §5.1's table.
-    var head = labels.slice(0, labels.length - 1).join(", ");
-    setCountText(head + dirtyListAnd + labels[labels.length - 1] + dirtyChangedSuffix);
+    setCountText(dirtySeveral + " " + labels.join(", "));
   }
 
   var suppressGuard = false;

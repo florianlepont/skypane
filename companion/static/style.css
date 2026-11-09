@@ -54,6 +54,11 @@
   --tab-bar-side: 8px;
   --tab-bar-pad: 2px;
 
+  /* The height of the floating Cancel and Save bar: one row of 44px
+   * targets on a wide screen (the phone block below adds the message line);
+   * pages clear it and the map pages lift their own controls over it. */
+  --save-bar-h: calc(44px + 2 * var(--space-md) + 2px);
+
   /* Spacing scale, multiples of 4. */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -154,6 +159,9 @@
    * --motion-press is the fast, un-sprung half of a press. */
   --motion-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --motion-spring-duration: 420ms;
+  /* The cross-document page change: short, so the new page is touchable
+   * as soon as it is shown. */
+  --motion-view-transition: 260ms;
   --motion-press: 90ms;
   /* A loading placeholder's sweep, and the blur-up of the picture that
    * replaces it. */
@@ -450,7 +458,7 @@ html[data-ui-theme="dark"] {
   /* The tab bar's slider glides to its new place on the spring while the page
    * changes (it is the one named element of the bar). */
   ::view-transition-group(skypane-tab-slider) {
-    animation-duration: var(--motion-spring-duration);
+    animation-duration: var(--motion-view-transition);
     animation-timing-function: var(--motion-spring);
   }
 
@@ -635,6 +643,12 @@ body {
    * .data-table-wrap's own overflow-x: auto still gives a wide table its
    * own scoped horizontal scroll — do not remove either half. */
   overflow-x: hidden;
+}
+
+/* A footnote mark stays at the 12px floor, with no effect on the line height. */
+sup {
+  font-size: 0.75rem;
+  line-height: 0;
 }
 
 /* Monospace is for code only: callsigns, identifiers, hashes. */
@@ -1885,6 +1899,14 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
     bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
   }
 
+  /* A toast never covers the Cancel and Save bar: it rides above it. */
+  .has-tab-bar:has(.dirty-bar:not([hidden])) .toast-region--flash,
+  .has-tab-bar:has(.dirty-bar:not([hidden])) .toast-region--live {
+    bottom: calc(
+      var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-md)
+      + var(--save-bar-h) + var(--space-sm));
+  }
+
   .toast-region--flash .toast,
   .toast-region--live .toast {
     width: 100%;
@@ -2421,89 +2443,87 @@ button:not(.value-control__handle):active {
   color: var(--color-text);
 }
 
+/* The one floating Cancel and Save bar, on every page with something to save.
+ * Phone: docked above the tab bar, the screen width less the margins, a
+ * message line over the two buttons. From 960px: docked to the foot of the
+ * main content column (same width as the cards), one row. The message is
+ * clipped to one line so the height never depends on its words. */
 .dirty-bar {
-  display: flex;
+  position: fixed;
+  z-index: 30;
+  left: max(var(--space-md), var(--safe-left));
+  right: max(var(--space-md), var(--safe-right));
+  bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas:
+    "message message"
+    "cancel save";
+  gap: var(--space-sm);
   align-items: center;
-  gap: var(--space-md);
   padding: var(--space-md);
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  margin-top: var(--space-md);
   box-shadow: var(--shadow-card-hover), 0 12px 32px var(--color-shadow-strong);
   /* Reuses the existing skypane-bar-arrive @keyframes rather than a new
-   * block, keeping the file's pinned @keyframes count unchanged. Fires
-   * when display changes from none, the only way this element is ever
-   * revealed. The global reduced-motion override already zeroes it. */
+   * block. Fires when display changes from none, the only way the bar is
+   * ever revealed. The global reduced-motion override already zeroes it. */
   animation: skypane-bar-arrive var(--motion-fast) ease-out;
 }
 
-/* [hidden]-vs-author-display collision, the same trap fixed elsewhere
- * in this file: an author display: flex always beats the UA
- * [hidden] { display: none } rule regardless of source order. */
+/* [hidden]-vs-author-display collision: an author display always beats the
+ * UA [hidden] { display: none } rule regardless of source order. */
 .dirty-bar[hidden] {
   display: none;
 }
 
-.dirty-bar button {
+.dirty-bar__message {
+  grid-area: message;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--weight-semibold);
+  line-height: var(--space-lg);
+}
+
+.dirty-bar__save {
+  grid-area: save;
+}
+
+.dirty-bar > :is(button, a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   min-height: 44px;
   min-width: 44px;
-}
-
-/* The bar of the Fleet settings: sticks to the bottom of the viewport inside
- * the page's own column (so it is as wide as the content on a desktop and
- * above the floating tab bar on a phone) and never overlays the cards: it
- * sits in the flow after them. Specificity beats the fixed rules of the
- * stand-alone bar at every width. */
-.dirty-bar.dirty-bar--docked {
-  position: sticky;
-  left: auto;
-  right: auto;
-  width: auto;
-  max-width: none;
-  margin: var(--space-lg) 0 0;
-  bottom: var(--space-lg);
-  z-index: 30;
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  align-items: center;
-  column-gap: var(--space-sm);
-  row-gap: var(--space-sm);
-}
-
-.dirty-bar.dirty-bar--docked[hidden] {
-  display: none;
-}
-
-.dirty-bar--docked [data-dirty-count] {
-  min-width: 0;
-  font-weight: 600;
-}
-
-.dirty-bar--docked .dirty-bar__cancel {
-  order: 2;
-}
-
-.dirty-bar--docked .dirty-bar__save {
-  order: 3;
-}
-
-@media (max-width: 959.98px) {
-  .dirty-bar.dirty-bar--docked {
-    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
-    grid-template-columns: 1fr 1fr;
-  }
-
-  .dirty-bar--docked [data-dirty-count] {
-    grid-column: 1 / -1;
-  }
+  padding: 0 var(--space-lg);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
 }
 
 .dirty-bar__cancel {
+  grid-area: cancel;
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  border-radius: var(--radius-control);
   box-shadow: none;
   color: var(--color-text);
+  text-decoration: none;
+}
+
+.dirty-bar__cancel:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+/* On a phone the message line sits over the buttons. */
+@media (max-width: 959.98px) {
+  :root {
+    --save-bar-h: calc(44px + var(--space-lg) + var(--space-sm) + 2 * var(--space-md) + 2px);
+  }
 }
 
 /* .frame-strip__cell button and button[type="submit"] are equal
@@ -2758,21 +2778,19 @@ button:disabled {
   }
 
   /* :has() proves the bar exists in the DOM with no script needed, so a
-   * scripts-blocked visitor still gets clearance. >=960px: the bar
-   * measures 64px (never wraps at this width) plus --space-lg (24px)
-   * above the viewport foot = 88px, measured via a real browser. */
+   * scripts-blocked visitor still gets clearance: the bar and its offset
+   * from the viewport foot. */
   .dashboard-main:has(.dirty-bar) {
-    padding-bottom: calc(var(--space-2xl) + 88px);
+    padding-bottom: calc(var(--space-2xl) + var(--save-bar-h) + var(--space-lg));
   }
 
-  /* Measured via a real browser, scripts enabled, scrolled to the
-   * document bottom, worst realistic case: 134px bar + 56px tab bar +
-   * 16px anchor + 16px cushion = 222px, rounded up to 224px on the 8px
-   * grid. .has-tab-bar keeps this from matching a hypothetical future
-   * page that renders the bar without the tab bar. */
+  /* On a phone the tab bar sits under the bar as well. .has-tab-bar keeps
+   * this from matching a hypothetical future page that renders the bar
+   * without the tab bar. */
   .has-tab-bar .page-content:has(.dirty-bar) {
     padding-bottom: calc(
-      var(--space-2xl) + 134px + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+      var(--space-2xl) + var(--save-bar-h) + var(--tab-bar-h) + var(--tab-bar-gap)
+      + var(--safe-bottom));
   }
 
   /* The Display look card's live selection states. */
@@ -2832,8 +2850,16 @@ button:disabled {
     box-shadow: var(--shadow-control);
   }
 
+  /* A choice with no theme stays in place, greyed; the reason is written under its row. */
   .look-seg__option:has(input:disabled) {
-    display: none;
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .look-dot:has(input:disabled) {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(1);
   }
 }
 
@@ -3375,17 +3401,6 @@ table.data-table--flights .cell-inline-sep {
 .update-versions__count {
   font-size: var(--font-label-size);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.update-rows {
-  list-style: none;
-  margin: var(--space-sm) 0 0;
-  padding: 0;
-  container: update-rows / inline-size;
-}
-
-.update-rows > li + li {
-  border-top: 1px solid var(--color-border);
 }
 
 /* The one-line row. Phone: version and age on the first line, the first
@@ -4014,7 +4029,7 @@ a.calendar-disconnect-btn.flight-picture-link {
     flex: 0 1 360px;
     width: 360px;
     max-width: 100%;
-    margin: 0 0 0 auto;
+    margin: 0;
   }
 
   .js .filter-bar--title .filter-bar__search input,
@@ -4060,6 +4075,19 @@ a.calendar-disconnect-btn.flight-picture-link {
   text-decoration: none;
 }
 
+/* One Load more link per representation of the list: the one under the
+ * phone cards by default, the one under the table from 960px. */
+.history-more__link--table {
+  display: none;
+}
+
+/* The no-script Load more lands on the first new row with room above it (the
+ * entrance rise of its group is still moving when the browser scrolls). */
+.history-card[id],
+.data-table--flights tr[id] {
+  scroll-margin-top: var(--space-xl);
+}
+
 .history-more__link:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, var(--glass-solid));
 }
@@ -4074,6 +4102,56 @@ a.calendar-disconnect-btn.flight-picture-link {
     max-width: 24rem;
     margin-inline: auto;
   }
+
+  .history-more__link--cards {
+    display: none;
+  }
+
+  .history-more__link--table {
+    display: flex;
+  }
+}
+
+/* Wide enough for the title and the search on one row: the search then sits at
+ * the row's right edge, clear of the frame button; below that it wraps under
+ * the title, left-aligned with it and with the chips. */
+@media (min-width: 1280px) {
+  .page-header:has(> .filter-bar--title) {
+    flex-wrap: nowrap;
+  }
+
+  .page-header:has(> .filter-bar--title) > .page-title {
+    flex: none;
+  }
+
+  .js .filter-bar--title,
+  .js .filter-bar--title:focus-within,
+  .js .filter-bar--title[data-filter-active] {
+    min-width: 260px;
+    margin-left: auto;
+  }
+}
+
+/* Flights: the direction chips and the sort share one row under the title
+ * (the search is in the title row). The Apply button is the no-script way to
+ * send them; with a script they act on change. */
+.history-controls .filter-bar__chips {
+  display: flex;
+}
+
+.history-controls .collection-sort {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.history-controls__apply {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+.js .history-controls__apply {
+  display: none;
 }
 
 /* The empty state: a soft card with a search glyph in a halo and its
@@ -4090,6 +4168,16 @@ a.calendar-disconnect-btn.flight-picture-link {
 }
 
 .empty-state--filter button {
+  min-height: 44px;
+  margin-top: var(--space-sm);
+}
+
+/* The Flights empty state's Clear is a link (it works without a script):
+ * the same 44px secondary button the table's picture action uses. */
+.empty-state--filter .calendar-disconnect-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
   margin-top: var(--space-sm);
 }
 
@@ -4552,7 +4640,7 @@ a.airline-card {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 10px;
+  font-size: 12px;
   font-weight: var(--weight-regular);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -4582,12 +4670,12 @@ a.airline-card {
   outline-offset: 1px;
 }
 
-/* HTML <span>, not SVG text: color sets the ink, not fill. 10px matches
- * this file's sub-scale exception tier. line-height: 1.2 is required,
+/* HTML <span>, not SVG text: color sets the ink, not fill. 12px is the
+ * smallest text this file sets. line-height: 1.2 is required,
  * not decorative: health_page.py's vertical-inset math assumes this
  * exact, non-inherited line-height. */
 .sparkline-axis-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: var(--weight-regular);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -4662,7 +4750,7 @@ a.airline-card {
 }
 
 .drawing-axis-label {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: var(--weight-regular);
   line-height: 1.2;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
@@ -5027,8 +5115,9 @@ a.airline-card {
   margin: 0;
 }
 
-.health-row__outcome .mono {
-  margin-left: var(--space-sm);
+.health-row__outcome .tnum {
+  margin-left: auto;
+  padding-left: var(--space-md);
   font-weight: var(--weight-semibold);
 }
 
@@ -5156,6 +5245,12 @@ a.airline-card {
     padding-right: 12rem;
   }
 
+  /* The attention banner under the greeting starts clear of the frame
+   * button, never touching it. */
+  .site-header:has(.frame-menu) ~ .dashboard-main .home-facts {
+    margin-top: var(--space-xl);
+  }
+
   .dashboard-main {
     grid-column: 2;
     grid-row: 1;
@@ -5166,15 +5261,19 @@ a.airline-card {
     padding: var(--space-2xl) var(--space-3xl);
   }
 
+  /* Docked to the foot of the main column: as wide as the content of the
+   * cards (the column's padding off each side, at most 1440px less that),
+   * centred in the column beside the sidebar. */
   .dirty-bar {
-    position: fixed;
-    bottom: var(--space-lg);
     left: calc(240px + var(--space-md) + var(--space-xl) + var(--space-md));
     right: var(--space-md);
-    width: fit-content;
-    max-width: calc(min(1440px, 100%) - var(--space-md) * 2);
+    bottom: var(--space-lg);
+    width: min(
+      calc(1440px - 2 * var(--space-3xl)),
+      calc(100% - 240px - 3 * var(--space-md) - var(--space-xl) - 2 * var(--space-3xl)));
     margin: 0 auto;
-    z-index: 30;
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas: "message cancel save";
   }
 
   .history-cards {
@@ -5784,9 +5883,19 @@ html:not(.map-ready) .place-mode__text .icon {
 }
 
 .place-sheet .runway-card .runway-card__detail {
-  overflow-wrap: anywhere;
   text-align: center;
-  text-wrap: balance;
+}
+
+/* The length and the surface stack on two lines, each kept whole, so no
+ * separator is left dangling at a line end. */
+.place-sheet .runway-card .runway-card__length,
+.place-sheet .runway-card .runway-card__surface {
+  display: block;
+  white-space: nowrap;
+}
+
+.place-sheet .runway-card .runway-card__sep {
+  display: none;
 }
 
 /* The airport's name and codes keep a clear gap above the runway heading. */
@@ -5870,7 +5979,7 @@ html:not(.map-ready) .place-mode__text .icon {
   /* What the floating tab bar covers at the foot of the page (nothing on a
    * wide screen) and the height of the docked Save bar. */
   --place-clear: 0px;
-  --place-bar-h: calc(44px + 2 * var(--space-sm) + 2px);
+  --place-bar-h: var(--save-bar-h);
   /* The map runs under the app bar; everything that floats starts below it. */
   --place-top: calc(52px + var(--safe-top));
   --place-search-bottom: calc(var(--place-top) + var(--place-gutter) + 54px);
@@ -5950,9 +6059,9 @@ html.js-early:has(.place-stage) {
   white-space: nowrap;
 }
 
-/* The privacy line floats under the search field while it is in use, out of
- * the flow so nothing moves when the field loses focus; it gives way to the
- * results. */
+/* The privacy line floats under the empty search field while it has focus,
+ * out of the flow so nothing moves when the field loses focus; as soon as
+ * something is typed it gives way, so it never sits over the suggestions. */
 .map-ready .place-search {
   position: relative;
 }
@@ -5965,7 +6074,7 @@ html.js-early:has(.place-stage) {
   pointer-events: none;
 }
 
-.map-ready .place-search:focus-within .section-caption {
+.map-ready .place-search:focus-within:has(input:placeholder-shown) .section-caption {
   display: block;
   position: absolute;
   top: calc(100% + var(--space-xs));
@@ -6160,7 +6269,7 @@ html.js-early:has(.place-stage) {
 
 /* While Save and Cancel show, the sheet sits above them. */
 .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
-  margin-bottom: calc(var(--place-bar-h) + 2 * var(--space-sm));
+  margin-bottom: calc(var(--place-bar-h) + var(--space-md) + var(--space-sm));
 }
 
 .map-ready .place-hint,
@@ -6275,29 +6384,6 @@ html:not(.map-ready) .place-tap-hint {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-/* Save and Cancel float over the map in the Fleet page's docked bar: above the
- * tab bar on a phone, at the foot of the card's column from 960px. It shows
- * once something changed. */
-.map-ready .place-panel > .dirty-bar.dirty-bar--docked {
-  position: absolute;
-  z-index: 6;
-  left: var(--place-gutter);
-  right: var(--place-gutter);
-  bottom: calc(var(--place-clear) + var(--space-sm));
-  margin: 0;
-  padding: var(--space-sm);
-  /* Solid: the labels must read over any map picture, in both themes. */
-  background: var(--glass-solid);
-}
-
-.map-ready .place-panel > .dirty-bar.dirty-bar--docked[hidden] {
-  display: none;
-}
-
-.map-ready .place-panel > .dirty-bar [data-dirty-count] {
-  padding-left: var(--space-sm);
 }
 
 /* The page title is the page's heading for assistive technology only: the
@@ -6462,20 +6548,6 @@ html:not(.map-ready) .place-tap-hint {
     --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 
-  /* The bar keeps the two buttons on one row; the count is read aloud only. */
-  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
-    grid-template-columns: 1fr 2fr;
-  }
-
-  .map-ready .place-panel > .dirty-bar [data-dirty-count] {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
   /* The sheet is compact here: the readout is one line and the radius is a
    * row and a slider. */
   .map-ready .place-pos {
@@ -6606,15 +6678,6 @@ html:not(.map-ready) .place-tap-hint {
     margin-bottom: 0;
   }
 
-  /* Save and Cancel sit under the card, in its column. */
-  .map-ready .place-panel > .dirty-bar.dirty-bar--docked {
-    right: auto;
-    left: var(--space-md);
-    bottom: var(--space-lg);
-    width: var(--place-card-w);
-    box-sizing: border-box;
-  }
-
   /* The sidebar is frosted glass over the map. */
   .map-ready .dashboard-sidebar {
     z-index: 6;
@@ -6641,6 +6704,11 @@ html:not(.map-ready) .place-tap-hint {
     grid-column: 2;
     grid-row: 4;
     margin: 0 var(--space-md) var(--space-md) 0;
+  }
+
+  /* The bar spans the foot of the column: the map's own controls ride above it. */
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-tools {
+    margin-bottom: calc(var(--space-lg) + var(--save-bar-h) + var(--space-sm));
   }
 
   .map-ready .place-sheet .place-chosen__name {
@@ -7104,6 +7172,14 @@ html.js-early:not(.map-ready) .place-boot .place-boot__fill {
 
 .place-results__list li + li {
   border-top: 1px solid var(--color-border);
+}
+
+/* A group heading in the one suggestion list (airports, then places). */
+.place-results__group {
+  padding: var(--space-xs) var(--space-md);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
 button.place-result {
@@ -7976,6 +8052,11 @@ button.place-result.is-active {
   line-height: 1.2;
 }
 
+.quiet-tile .field-inline-value {
+  display: block;
+  margin-left: 0;
+}
+
 .modal .quiet-timezone-note {
   margin: 0;
 }
@@ -8085,6 +8166,7 @@ button.switch:active {
 .switch__track {
   position: relative;
   display: block;
+  flex: none;
   width: 52px;
   height: 32px;
   border-radius: var(--radius-control);
@@ -8272,35 +8354,6 @@ button.switch:active .switch__thumb {
 input[name="radius_km"] {
   width: 8ch;
   min-width: 96px;
-}
-
-@media (max-width: 959.98px) {
-
-  /* z-index: 30, one value above the tab bar's 20 at every breakpoint:
-   * the save bar is the active task and may cover ambient nav chrome,
-   * never the reverse. The bottom offset already adds the tab bar's
-   * 56px height so the two never overlap in the normal case. */
-  .dirty-bar {
-    position: fixed;
-    left: max(var(--space-md), var(--safe-left));
-    right: max(var(--space-md), var(--safe-right));
-    bottom: calc(var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
-    margin: 0;
-    z-index: 30;
-    flex-wrap: wrap;
-  }
-
-  /* The count reads on its own line and the two buttons share the line under
-   * it, side by side at the same width. */
-  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) [data-dirty-count] {
-    flex: 1 1 100%;
-    min-width: 0;
-  }
-
-  .dirty-bar:not(.dirty-bar--docked):not(.form-bar) button {
-    flex: 1 1 0;
-  }
-
 }
 
 .status-row {
@@ -8700,8 +8753,8 @@ a.calendar-manage--primary:hover {
     z-index: 1;
   }
 
-  /* The pill spans its whole cell horizontally (only the vertical margin),
-   * so a long label such as "Compagnies" keeps the full cell width. */
+  /* The pill spans its whole cell horizontally and keeps a small inset, so a
+   * label never touches the pill's edge. */
   .tab-bar__pill {
     flex: 1 1 auto;
     min-width: 0;
@@ -8711,6 +8764,7 @@ a.calendar-manage--primary:hover {
     justify-content: center;
     gap: var(--space-xs);
     margin: var(--space-xs) 0;
+    padding: 0 var(--tab-bar-pad);
     border-radius: var(--radius-pill);
     transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
@@ -8742,7 +8796,7 @@ a.calendar-manage--primary:hover {
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 68px;
+    flex: 0 0 69px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -9091,21 +9145,12 @@ button.look-frame__open:focus-visible {
   max-width: none;
 }
 
-.look-frame__caption {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  margin: 0;
-}
-
-.look-frame__name,
 .special-row__title {
   margin: 0;
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
 
-.look-frame__sentence,
 .special-row__meta {
   margin: 0;
   font-size: var(--font-label-size);
@@ -9353,6 +9398,15 @@ button.look-sheet__close[hidden] {
   display: none;
 }
 
+.look-sheet__same-note {
+  margin: var(--space-xs) 0 var(--space-sm);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.look-sheet__same-note[hidden] {
+  display: none;
+}
+
 .look-axis {
   min-width: 0;
   margin: 0;
@@ -9386,6 +9440,11 @@ button.look-sheet__close[hidden] {
   text-transform: none;
   font-size: var(--font-label-size);
   color: var(--color-text);
+}
+
+/* An empty value keeps its line, so the label is as tall with or without it. */
+.look-axis__value:empty::before {
+  content: "\200b";
 }
 
 .look-dots {
@@ -9441,6 +9500,7 @@ button.look-sheet__close[hidden] {
   gap: 6px;
   min-width: 0;
   min-height: 44px;
+  margin: 0;
   padding: 0 var(--space-sm);
   border-radius: var(--radius-control);
   font-size: var(--font-label-size);
@@ -9469,6 +9529,24 @@ button.look-sheet__close[hidden] {
   font-size: var(--font-caption-size);
   line-height: 1.4;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* An empty reason takes no room but stays in the page, so a reason that
+ * appears is still announced. */
+.look-axis__why:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+/* The colour row's reason (plain white paper) comes and goes as a background
+ * or stripe is chosen: beside the page, its two lines stay reserved so nothing
+ * below moves. A phone has no room to spare above the tab bar. */
+@media (min-width: 700px) {
+  .look-axis__why[data-look-colour-why]:empty {
+    min-height: 2.8em;
+    min-height: 2lh;
+    margin: var(--space-sm) 0 0;
+  }
 }
 
 .look-sheet__foot {
@@ -9639,6 +9717,44 @@ a.special-row__edit:hover {
   background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
+.special-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* The kind badge sits on its own line and never breaks inside a word. */
+.rule-row .special-row__tag {
+  display: block;
+  width: fit-content;
+  margin: 0 0 var(--space-xs);
+  white-space: nowrap;
+}
+
+/* On a phone the text takes the whole width beside the picture and the two
+ * actions sit under it, side by side. */
+@media (max-width: 699.98px) {
+  .rule-row .special-row__main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: flex-start;
+    gap: var(--space-sm) 14px;
+  }
+
+  .rule-row .special-row__mini {
+    grid-row: 1 / span 2;
+  }
+
+  .rule-row .special-row__actions {
+    grid-column: 2;
+  }
+
+  .rule-row .special-row__actions > * {
+    flex: 1 1 0;
+  }
+}
+
 /* The pages that edit one thing (a special look, the calendar link): the
  * picture on the left, the options in a card on the right, Cancel and Save in
  * the docked bar. One column on a phone, the picture beside its caption. */
@@ -9785,39 +9901,6 @@ a.form-page__danger:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Cancel is a link; Save is the bar's submit button. */
-.form-bar__title {
-  min-width: 0;
-  font-weight: var(--weight-semibold);
-}
-
-a.form-bar__cancel {
-  order: 2;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 44px;
-  padding: 0 var(--space-lg);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  color: var(--color-text);
-  text-decoration: none;
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  border-radius: var(--radius-control);
-}
-
-/* Save wears the same type size as the Cancel link beside it. */
-.dirty-bar.form-bar .dirty-bar__save {
-  min-height: 44px;
-  font-size: var(--font-label-size);
-}
-
-a.form-bar__cancel:hover {
-  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
-}
-
 @media (max-width: 959.98px) {
   .form-page {
     grid-template-columns: minmax(0, 1fr);
@@ -9831,13 +9914,6 @@ a.form-bar__cancel:hover {
     gap: var(--space-md);
   }
 
-  .form-bar__title {
-    display: none;
-  }
-
-  .dirty-bar.form-bar {
-    grid-template-columns: 1fr 2fr;
-  }
 }
 
 /* The add row of the Special looks list ---------------------------- */
@@ -9906,13 +9982,6 @@ button.rule-suggestion-chip {
   /* Without scripts, an open table or add form needs the card's width. */
   .special-looks:has(.look-edit[open]) {
     grid-column: 1 / -1;
-  }
-
-  .look-sheet--calendar {
-    top: 0;
-    right: calc(100% + var(--space-md));
-    left: auto;
-    margin-top: 0;
   }
 }
 
@@ -10636,48 +10705,218 @@ a.fleet-retire__link {
   text-decoration: none;
 }
 
-/* The version history, collapsed to its summary line until opened. */
-.update-all > summary {
+/* The version history: one table (version, state, release date, action), the
+ * action always in view; on a phone each row is a compact card. */
+.update-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.update-table__col {
+  padding: var(--space-xs) var(--space-sm);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-align: left;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-table__col--state { width: 7.5rem; }
+.update-table__col--when { width: 9rem; text-align: left; }
+.update-table__col--action { width: 9rem; }
+
+.update-table__row > * {
+  padding: var(--space-sm);
+  border-top: 1px solid var(--glass-hairline);
+  vertical-align: top;
+}
+
+.update-table__version {
+  min-width: 0;
+  padding-top: var(--space-md);
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.update-table__version .mono {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.update-table__state {
+  padding-top: var(--space-md);
+}
+
+.update-table__when {
+  padding-top: var(--space-md);
+  font-size: var(--font-label-size);
+  text-align: left;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-table__date {
+  display: block;
+  font-size: var(--font-caption-size);
+  white-space: nowrap;
+}
+
+.update-table__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.update-table__chip--newer {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+}
+
+
+/* The action cell holds one 44px button, as wide for Install as for Roll back. */
+.update-table__action {
+  padding-top: var(--space-md);
+  text-align: right;
+}
+
+.update-table__action form {
+  margin: 0;
+}
+
+.update-table__action button[type="submit"] {
+  min-height: 44px;
+  min-width: 7.5rem;
+  padding: 0 var(--space-md);
+}
+
+.update-table__row--running > * {
+  background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
+}
+
+.update-table__row--running > .update-table__version {
+  box-shadow: inset 3px 0 0 var(--color-status-ok);
+}
+
+@media (max-width: 699.98px) {
+  .update-table,
+  .update-table tbody {
+    display: block;
+  }
+
+  .update-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .update-table__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "version state"
+      "when action";
+    align-items: center;
+    column-gap: var(--space-sm);
+    border-top: 1px solid var(--glass-hairline);
+  }
+
+  .update-table__row > * {
+    display: block;
+    border-top: 0;
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .update-table__row--running {
+    background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
+  }
+
+  .update-table__row--running > * {
+    background: none;
+  }
+
+  .update-table__version { grid-area: version; padding-top: var(--space-sm); }
+  .update-table__state { grid-area: state; padding-top: var(--space-sm); text-align: right; }
+  .update-table__when { grid-area: when; padding-top: 0; }
+  .update-table__action { grid-area: action; padding-top: 0; }
+}
+
+.update-table__notes > summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
+  min-height: 44px;
+  font-size: var(--font-label-size);
+  color: var(--color-accent);
+  cursor: pointer;
+}
+
+.update-table__notes ul {
+  margin: 0 0 var(--space-xs);
+  padding-left: var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+/* A quiet outlined action link in a row (Reassign beside the owner). */
+a.row-action {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
   box-sizing: border-box;
   min-height: 44px;
-  color: var(--color-text);
+  min-width: 44px;
+  margin-right: var(--space-md);
+  padding: 0 var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
-  cursor: pointer;
-  list-style: none;
+  text-decoration: none;
 }
 
-.update-all > summary::before {
-  content: none;
+/* A person row: the address takes the line it needs and its action drops
+ * under it on a narrow screen instead of breaking the address. */
+.group > .row.access-person {
+  flex-wrap: wrap;
 }
 
-.update-all > summary::-webkit-details-marker {
-  display: none;
-}
-
-.update-all[open] > summary .update-all__chevron {
-  transform: rotate(90deg);
-}
-
-/* The selected frame's header: its name and owner, and its actions menu. */
-.fleet-detail-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-md);
-  margin: 0 0 var(--space-md);
-}
-
-.fleet-detail-head__text {
+.group > .row.access-person > .row__main {
+  flex: 1 0 14rem;
   min-width: 0;
 }
 
-.fleet-detail-head__text > * {
-  margin: 0;
-  overflow-wrap: anywhere;
+.group > .row.access-person > .row__main + * {
+  margin-left: auto;
+}
+
+.access-add .row__label {
+  font-weight: var(--weight-semibold);
+}
+
+/* The selected frame's header: its personal view and Rename as two link
+ * buttons (the frame's name is the frame button's label). */
+.fleet-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.fleet-detail-head a.row-action {
+  margin-right: 0;
 }
 
 /* The "Manage user" button of a Users row: a 44px bordered text link. */
@@ -10906,7 +11145,6 @@ a.entity-row__button:hover {
 }
 
 .personalisation-card--list .special-list:not(.special-list--add) {
-  overflow: hidden;
   background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -11010,14 +11248,6 @@ a.entity-row__button:hover {
   margin-top: var(--space-lg);
 }
 
-button.look-pick__customise {
-  height: auto;
-  max-width: 100%;
-  padding-block: 6px;
-  white-space: normal;
-  text-align: left;
-}
-
 /* The look views (Departures, Arrivals) ---------------------------------- */
 
 .look-picker {
@@ -11029,8 +11259,7 @@ button.look-pick__customise {
 /* With a script the picker below replaces the look cards, the "Change"
  * table and the "Customise" button; without one they are the way in. */
 .js .look-view .look-pick__grid,
-.js .look-view .look-edit,
-.js .look-view .look-pick__customise {
+.js .look-view .look-edit {
   display: none;
 }
 
@@ -11041,9 +11270,10 @@ button.look-pick__customise {
   align-items: flex-start;
 }
 
-.js .look-view .look-panel > .look-frame > .look-frame__meta,
-.js .look-view .look-pick > .look-frame__meta {
-  margin-top: 0;
+/* With a script the inline picker replaces the "Change" table, so the meta
+ * row under the picture holds nothing. */
+.js .look-view .look-panel > .look-frame > .look-frame__meta {
+  display: none;
 }
 
 .js .look-view .look-panel > .look-frame > .field-error {
@@ -11077,23 +11307,19 @@ button.look-sheet__done[hidden] {
   display: none;
 }
 
-/* On a phone the large picture is smaller and its read-back sits beside it,
- * so the first row of looks is on the first screen. */
+/* On a phone the large picture takes a little over half the width, centred,
+ * so the frame is big enough to judge a look by. */
 @media (max-width: 699.98px) {
   .js .look-view .look-panel > .look-frame {
-    grid-template-columns: 5.25rem minmax(0, 1fr);
+    grid-template-columns: minmax(0, 56%);
+    justify-content: center;
     gap: var(--space-sm) var(--space-md);
   }
 
-  .look-pick {
-    display: grid;
-    grid-template-columns: 5.25rem minmax(0, 1fr);
-    gap: var(--space-md);
-    align-items: flex-start;
-  }
-
-  .look-pick > .look-frame__anchor {
-    max-width: 5.25rem;
+  html:not(.js) .look-pick > .look-frame__anchor {
+    width: 56%;
+    max-width: none;
+    margin: 0 auto var(--space-md);
   }
 
   /* Tighter spacing so the picture and the three controls fit one phone screen. */
@@ -11119,16 +11345,6 @@ button.look-sheet__done[hidden] {
 
   .personalisation-nav {
     margin-bottom: var(--space-md);
-  }
-
-  .look-pick > .look-frame__meta {
-    margin-top: 0;
-    max-width: none;
-  }
-
-  .look-pick > .look-pick__grid,
-  .look-pick > .field-error {
-    grid-column: 1 / -1;
   }
 }
 
@@ -11430,6 +11646,9 @@ button.look-sheet__done[hidden] {
   margin: 0 0 var(--space-lg);
   padding: 0;
   list-style: none;
+  /* The unlock sparks fly past a card's edge; they never widen the page. */
+  overflow-x: clip;
+  overflow-clip-margin: var(--space-lg);
 }
 
 .collection-item {
@@ -11508,7 +11727,8 @@ button.look-sheet__done[hidden] {
   padding-top: var(--space-xs);
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .collection-card__seen {
@@ -11822,9 +12042,7 @@ dialog.access-sheet[open],
 .users-email {
   grid-column: 1 / -1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
   font-weight: var(--weight-semibold);
 }
 
@@ -12043,17 +12261,13 @@ button.row-menu__item--destructive:hover {
     padding-right: var(--space-md);
   }
 
-  .users-cell--frames {
-    white-space: nowrap;
-  }
-
-  .users-col--user { width: 30%; }
-  .users-col--role { width: 20%; }
-  .users-col--frames { width: 16%; }
-  .users-col--seen { width: 12%; }
-  .users-col--active { width: 8%; }
-  .users-col--invite { width: 56px; }
-  .users-col--menu { width: 56px; }
+  .users-col--user { width: 28%; }
+  .users-col--role { width: 23%; }
+  .users-col--frames { width: 11%; }
+  .users-col--seen { width: 13%; }
+  .users-col--active { width: 7%; }
+  .users-col--invite { width: 76px; }
+  .users-col--menu { width: 76px; }
 
   .users-avatar {
     display: inline-grid;
@@ -12174,10 +12388,11 @@ button.row-menu__item--destructive:hover {
 
 .airlines-subrow {
   display: none;
-  grid-template-columns: minmax(0, 1fr) auto 44px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
   grid-template-areas:
-    "name views menu"
+    "name name menu"
     "art art art"
+    "views views views"
     "seen seen seen";
   align-items: center;
   gap: var(--space-sm) var(--space-md);
@@ -12189,6 +12404,11 @@ button.row-menu__item--destructive:hover {
 
 .airline-group:has(details.airlines-expand[open]) .airlines-subrow {
   display: grid;
+}
+
+/* A type row has no prefixes: the empty cell would open a column of its own. */
+.airlines-subrow .airlines-cell--prefixes {
+  display: none;
 }
 
 .airlines-cell {
@@ -12223,6 +12443,19 @@ button.row-menu__item--destructive:hover {
 }
 
 .airlines-cell--art { grid-area: art; }
+
+/* A type row's picture and its state word sit on one line. */
+.airlines-subrow .airlines-cell--art {
+  white-space: nowrap;
+}
+
+.airlines-subrow .airlines-cell--art > * {
+  vertical-align: middle;
+}
+
+.airlines-subrow .airlines-state {
+  margin-left: var(--space-sm);
+}
 
 .airlines-cell--views {
   grid-area: views;
@@ -12578,6 +12811,25 @@ button.row-menu__item--destructive:hover {
     border-bottom: 1px solid var(--glass-hairline);
   }
 
+  /* A type row keeps its empty prefixes and action cells: dropping either
+   * would pull the following cells one column to the left. */
+  .airlines-cell--act:empty,
+  .airlines-subrow .airlines-cell--prefixes {
+    display: table-cell;
+  }
+
+  /* The artwork column is narrower than the thumbnail plus its state word:
+   * the state word stays for assistive technology and the dimming of the
+   * thumbnail says the rest. */
+  .airlines-subrow .airlines-state {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
   /* Counts and dates stay on one line. */
   .airlines-cell--views,
   .airlines-cell--seen,
@@ -12601,7 +12853,7 @@ button.row-menu__item--destructive:hover {
   .airlines-col--name { width: 36%; }
   .airlines-col--prefixes { width: 8%; }
   .airlines-col--art { width: 17%; }
-  .airlines-col--views { width: 8%; }
+  .airlines-col--views { width: 10%; }
   .airlines-col--menu { width: 112px; }
 
   /* The airline name input ends in an ellipsis rather than a hard clip. */
@@ -12770,13 +13022,21 @@ button.row-menu__item--destructive:hover {
   .login-card,
   .look-sheet,
   .info-tip__bubble,
-  .dashboard-sidebar,
-  .dirty-bar {
+  .dashboard-sidebar {
     background: var(--glass-bg);
     border-color: var(--glass-border);
     box-shadow: var(--shadow-glass);
     -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
     backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  }
+
+  /* The save bar floats over anything (the Location map included), so its
+   * surface is opaque in both themes: translucent glass over a pale map left
+   * its light text unreadable. */
+  .dirty-bar {
+    background: var(--glass-solid);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-glass);
   }
 
   /* The popover of the frame button. */
@@ -13152,6 +13412,19 @@ button.row-menu__item--destructive:hover {
  * once and gives a quick spring. */
 .hero__ring.is-ring-done {
   animation: skypane-ring-pop var(--motion-spring-duration) var(--motion-spring);
+}
+
+/* After a minute without a touch (motion.js sets data-ambient="rest") the
+ * ambient loops stop, so a wall tablet's compositor is idle. */
+html[data-ambient="rest"] .home-state__dot--pulse,
+html[data-ambient="rest"] .hero__picture::before,
+html[data-ambient="rest"] .hero__glass::after {
+  animation-iteration-count: 0;
+}
+
+html[data-ambient="rest"] .home-state__dot--pulse::after {
+  animation-iteration-count: 0;
+  opacity: 0;
 }
 
 .hero__ring.is-ring-done .hero__ring-done {
@@ -13700,9 +13973,21 @@ dialog.access-sheet .modal__body {
 
 /* Remove this frame: a quiet danger link set apart under the people group,
  * in regular weight and no surface so it does not compete with Done. */
+.access-sheet .access-rename,
 .access-sheet .access-remove-frame {
   margin: var(--space-sm) 0 0;
   text-align: center;
+}
+
+a.access-rename__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 a.access-remove-frame__link {
@@ -13750,7 +14035,8 @@ dialog.access-sheet .modal__actions {
   }
 }
 
-/* The System view: one glass group per topic, two columns from 1000px. */
+/* The System view: one glass group per topic in one centred column, like the
+ * frame's sections, so an opened card never leaves a gap beside it. */
 .system-topics {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -13760,12 +14046,10 @@ dialog.access-sheet .modal__actions {
 
 .fleet-blocks--system {
   display: block;
-}
-
-@media (min-width: 1000px) {
-  .system-topics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 800px;
+  margin-inline: auto;
 }
 
 /* Cards that hold free content (forms, notes, versions) sit on the same

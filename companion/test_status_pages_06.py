@@ -144,11 +144,12 @@ def test_cache_buster_absent_with_no_state_dir_and_keyed_on_mtime_with_an_overri
     img_srcs = re.findall(r'<img class="airlines-thumb__image" src="([^"]+)"', rendered)
     zoom_srcs = re.findall(r'data-view-panel-src="([^"]+)"', rendered)
     replace_actions = re.findall(r'data-view-panel-replace-action="([^"]+)"', rendered)
-    assert img_srcs.count(expected_busted_url) == 1
+    expected_thumb_url = expected_busted_url + "&w=264"
+    assert img_srcs.count(expected_thumb_url) == 1
     assert zoom_srcs.count(expected_busted_url) == 1, "the row trigger"
     assert replace_actions.count(expected_unbusted_url) == 1
     for src in img_srcs:
-        assert src == expected_busted_url or "?v=" not in src
+        assert src == expected_thumb_url or "?v=" not in src
     for src in zoom_srcs:
         assert src == expected_busted_url or "?v=" not in src
     for action in replace_actions:

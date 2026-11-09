@@ -15,7 +15,7 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.prefs as prefs
 import companion.test_config_page_helpers as cp
-from companion import draw
+from companion import draw, ui_save_bar
 from companion.layout import escape_html
 from companion.pages import config_page
 from companion.settings import form_post
@@ -1446,9 +1446,8 @@ def test_nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_e
         "state_dir": str(tmp_path),
     }
     unsaved_claim_strings_en = (
-        config_page.DIRTY_BAR_INITIAL_TEXT,
-        config_page.DIRTY_UNSAVED_SINGULAR,
-        config_page.DIRTY_UNSAVED_PLURAL,
+        ui_save_bar.UNSAVED_TEXT,
+        ui_save_bar.UNSAVED_IN_TEXT,
     )
     for scope in (config_page.SCOPE_ALL, config_page.SCOPE_DISPLAY, config_page.SCOPE_DEVICE):
         for lang in ("en", "fr"):
@@ -1484,7 +1483,7 @@ def test_nothing_inside_the_bar_is_inert_or_claims_a_dirty_state_that_does_not_e
             # about unsaved changes existing, in EITHER catalogue's
             # wording — a French render must not leak the English claim
             # either, and vice versa.
-            count_start = rendered.index("<span data-dirty-count")
+            count_start = rendered.rindex("<span", 0, rendered.index("data-dirty-count"))
             count_end = rendered.index("</span>", count_start) + len("</span>")
             count_markup = rendered[count_start:count_end]
             for claim_en in unsaved_claim_strings_en:

@@ -231,11 +231,11 @@ def test_connection_page_controls_connected_vs_not_connected():
     how-it-works line and no Disconnect. Save and Cancel are the floating bar"""
     connected = _connect_page(**_STATES["ok"][0])
     submit = connected.select_one(".dirty-bar button[data-pending-label]")
-    assert submit.text().strip() == "Replace" and submit.attrs["data-pending-label"] == "Checking…"
+    assert submit.text().strip() == "Save" and submit.attrs["data-pending-label"] == "Checking…"
     assert submit.attrs["form"] == "calendar-connect-form"
     assert connected.select_one("form#calendar-connect-form").attrs["action"] == (
         "/settings/calendar/connect")
-    assert connected.select_one("a.form-bar__cancel").attrs["href"] == "/display/calendar"
+    assert connected.select_one("a.dirty-bar__cancel").attrs["href"] == "/display/calendar"
     trigger = connected.select_one("a.form-page__danger")
     dialog = connected.select_one("dialog.modal")
     assert trigger.attrs["href"] == "#" + dialog.attrs["id"]
@@ -251,7 +251,7 @@ def test_connection_page_controls_connected_vs_not_connected():
     assert not fresh.select("dialog") and not fresh.select("a.form-page__danger")
     assert "Connect a calendar" in fresh.text()
     assert "does not track" in fresh.text()
-    assert fresh.select_one(".dirty-bar button[data-pending-label]").text().strip() == "Connect"
+    assert fresh.select_one(".dirty-bar button[data-pending-label]").text().strip() == "Save"
 
 
 def test_the_connection_page_names_the_calendar_look_and_follows_the_list():

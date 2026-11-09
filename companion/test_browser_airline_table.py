@@ -194,6 +194,13 @@ def test_the_chevron_expands_the_aircraft_type_sub_rows(new_context, server, nam
         rows = page.locator(subrows)
         assert rows.count() == 2
         first, second = rows.nth(0), rows.nth(1)
+        # A type row keeps the height of the airline row: its picture column is one line,
+        # whether the type has its own picture or shows the airline's.
+        parent_art = page.locator(TRANSAVIA + " .airlines-row .airlines-cell--art")
+        limit = parent_art.bounding_box()["height"] + 8
+        for sub in (first, second):
+            art = sub.locator(".airlines-cell--art")
+            assert art.bounding_box()["height"] <= limit, (name, art.bounding_box(), limit)
         assert first.locator("th").inner_text().startswith("A320")
         assert first.locator("a.airlines-thumb").is_visible()
         assert first.locator(".row-menu__toggle").is_visible()

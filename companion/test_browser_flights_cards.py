@@ -2,7 +2,7 @@
 """Browser checks for the Flights phone list (day groups of flight rows below 960 px): no
 horizontal overflow at 390 and 360 px in both themes and both languages, flat glass day groups
 and centred direction segments, the icon-only picture action at the 44px floor and operable
-from the keyboard into the shared lightbox, the filter hiding rows and day groups and updating
+from the keyboard into the shared lightbox, the search and the direction narrowing the list in place and updating
 the count, the rows working with scripts blocked, and the desktop table unchanged at 1280 px.
 """
 import pytest
@@ -126,29 +126,33 @@ def test_picture_action_is_a_44px_keyboard_operable_lightbox_trigger(new_context
         context.close()
 
 
-def test_filter_hides_cards_and_updates_the_count(new_context, server):
-    """Typing in the filter hides the cards that do not match and the live count reads the
-    visible flights; Clear brings every card back."""
+def test_search_narrows_the_list_in_place_and_updates_the_count(new_context, server):
+    """Typing in the search narrows the list to the matching flights without leaving the page
+    and the count reads how many match; the inline clear brings every card back."""
     context, page = _open_flights(new_context, server, VIEWPORT_PHONE)
     try:
         total = page.locator(CARD).count()
-        page.fill("[data-filter-input]", "obs")
-        visible = page.evaluate(
-            "() => [...document.querySelectorAll('li.history-card')]"
-            ".filter(li => li.offsetParent).map(li =>"
-            " li.querySelector('.history-card__callsign').textContent)")
-        if visible != ["OBS412"]:
-            raise AssertionError("expected only OBS412 to stay visible, got %r" % (visible,))
-        count = page.locator("[data-filter-count]").text_content()
-        if count != "1 of %d shown" % total:
-            raise AssertionError("expected the count to read 1 of %d, got %r" % (total, count))
-        page.click("[data-filter-clear]")
-        shown = page.evaluate(
-            "() => [...document.querySelectorAll('li.history-card')].filter(li => li.offsetParent).length")
-        if shown != total:
-            raise AssertionError("expected Clear to show all %d cards, got %d" % (total, shown))
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        page.fill("[data-flights-search]", "obs")
+        page.wait_for_function(_ONLY_OBS, timeout=10000)
+        page.wait_for_function(
+            "() => document.querySelector('[data-filter-count]').textContent === '1 flight matches'",
+            timeout=10000)
+        page.click(".filter-bar__clear")
+        page.wait_for_function(
+            "(n) => document.querySelectorAll('li.history-card').length === n"
+            " && document.querySelector('[data-flights-search]').value === ''",
+            arg=total, timeout=10000)
+        if page.evaluate("() => window.__marker") != "same document":
+            raise AssertionError("expected the list to change without a page load")
     finally:
         context.close()
+
+
+_ONLY_OBS = (
+    "() => { const rows = [...document.querySelectorAll('li.history-card')];"
+    " return rows.length === 1 && rows[0].querySelector('.history-card__callsign')"
+    ".textContent === 'OBS412'; }")
 
 
 @pytest.fixture(scope="module")
@@ -173,10 +177,13 @@ def test_chip_counts_match_the_visible_cards_after_folding(new_context, folded_s
     context, page = _open_flights(new_context, folded_server, VIEWPORT_PHONE)
     try:
         for chip, kind in (("All", None), ("Departures", "departing"), ("Arrivals", "arriving")):
+            expected = page.evaluate(_COUNTS_VS_CARDS)["chips"]["all" if kind is None else kind]
             page.locator(".filter-chip", has_text=chip).click()
+            page.wait_for_function(
+                "(n) => document.querySelectorAll('li.history-card').length === n",
+                arg=expected, timeout=10000)
             state = page.evaluate(_COUNTS_VS_CARDS)
             shown = [k for k in state["cards"] if kind in (None, k)]
-            expected = state["chips"]["all" if kind is None else kind]
             if len(state["cards"]) != len(shown) or len(shown) != expected:
                 raise AssertionError("expected %s chip count to match the cards, got %r"
                                      % (chip, state))
@@ -201,24 +208,29 @@ def full_server(module_app_server_factory):
 
 def test_chip_counts_equal_the_visible_cards_with_all_fifty_loaded(new_context, full_server):
     """with 50 flights loaded at once, each chip's count equals the cards visible under it, the
-    live count reads 50 of 50, and there is no Show-more control"""
+    count line reads 50 flights, and there is no Show-more control"""
     context, page = _open_flights(new_context, full_server, VIEWPORT_PHONE)
     try:
         if page.locator(CARD).count() != 50 or page.locator(".flights-more").count():
             raise AssertionError("expected 50 cards and no Show-more control")
         for chip, kind in (("All", None), ("Departures", "departing"), ("Arrivals", "arriving")):
+            expected = page.evaluate(_COUNTS_VS_CARDS)["chips"]["all" if kind is None else kind]
             page.locator(".filter-chip", has_text=chip).click()
+            page.wait_for_function(
+                "(n) => document.querySelectorAll('li.history-card').length === n",
+                arg=expected, timeout=10000)
             state = page.evaluate(_COUNTS_VS_CARDS)
-            expected = state["chips"]["all" if kind is None else kind]
             if len(state["cards"]) != expected or any(kind not in (None, k) for k in state["cards"]):
                 raise AssertionError("expected %s chip count to match the cards, got %r"
                                      % (chip, state))
         page.locator(".filter-chip", has_text="All").click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('li.history-card').length === 50", timeout=10000)
         if page.evaluate(_COUNTS_VS_CARDS)["chips"] != {"all": 50, "departing": 40, "arriving": 10}:
             raise AssertionError("expected 50/40/10 chip counts")
         count = page.locator("[data-filter-count]").text_content()
-        if count != "50 of 50 shown":
-            raise AssertionError("expected '50 of 50 shown', got %r" % (count,))
+        if count != "50 flights":
+            raise AssertionError("expected '50 flights', got %r" % (count,))
         failure = _assert_no_page_overflow(page, "50 flights", expected_width=VIEWPORT_PHONE["width"])
         if failure:
             raise AssertionError(failure)
@@ -263,7 +275,7 @@ def test_each_day_is_one_glass_group_and_the_segments_are_centred(
         page.keyboard.press("Tab")
         page.wait_for_function(
             "() => { const e = document.activeElement; return e && e.type === 'radio' || "
-            "e && e.matches('[data-filter-input], a, button'); }")
+            "e && e.matches('[data-flights-search], a, button'); }")
     finally:
         context.close()
 
@@ -342,70 +354,71 @@ def _wait_until_still(page, *selectors):
     page.evaluate(_SETTLE_JS, list(selectors))
 
 
+def _wait_callsigns(page, expected):
+    page.wait_for_function(
+        "(want) => JSON.stringify([...document.querySelectorAll('li.history-card')]"
+        ".filter(li => li.offsetParent).map(li =>"
+        " li.querySelector('.history-card__callsign').textContent)) === JSON.stringify(want)",
+        arg=expected, timeout=10000)
+
+
 def test_direction_chips_filter_count_and_clear(new_context, server):
-    """The chips carry live counts from the rows' own direction, filter the list, combine with
-    the search text, hide a day header left with no flight, and the empty state's Clear resets
-    both the text and the chip."""
+    """The chips carry the counts of the whole history under the search, filter the list in
+    place, combine with the search text, drop a day group left with no flight, and the empty
+    card's Clear resets both the text and the chip."""
     context, page = _open_flights(new_context, server, VIEWPORT_PHONE)
     try:
         counts = page.evaluate(_CHIP_COUNTS)
         if counts != {"all": "5", "departing": "4", "arriving": "1"}:
             raise AssertionError("expected 5/4/1 chip counts, got %r" % (counts,))
         page.locator(".filter-chip", has_text="Arrivals").click()
-        if page.evaluate(_VISIBLE_CALLSIGNS) != ["AFR6152"]:
-            raise AssertionError("expected only the arrival under the Arrivals chip")
+        _wait_callsigns(page, ["AFR6152"])
         heads = page.evaluate(
             "() => [...document.querySelectorAll('section.history-day')]"
             ".filter(li => li.offsetParent).length")
         if heads != 1:
             raise AssertionError("expected one day header to stay, got %d" % heads)
-        count = page.locator("[data-filter-count]").text_content()
-        if count != "1 of 5 shown":
-            raise AssertionError("expected the status count to read 1 of 5, got %r" % (count,))
+        if page.evaluate(_CHIP_COUNTS) != counts:
+            raise AssertionError("expected a chosen direction to leave the counts alone")
         # Text and chip combine: no departure matches "afr", so nothing shows.
         page.locator(".filter-chip", has_text="Departures").click()
-        page.fill("[data-filter-input]", "afr")
-        if page.evaluate(_VISIBLE_CALLSIGNS) != []:
-            raise AssertionError("expected text AND chip to leave no flight")
+        page.fill("[data-flights-search]", "afr")
+        empty = page.locator("[data-flights-empty]")
+        empty.wait_for(state="visible")
+        _wait_callsigns(page, [])
         if page.evaluate(_CHIP_COUNTS) != {"all": "1", "departing": "0", "arriving": "1"}:
             raise AssertionError("expected chip counts to follow the text, got %r"
                                  % (page.evaluate(_CHIP_COUNTS),))
-        empty = page.locator("[data-filter-empty]")
-        empty.wait_for(state="visible")
+        if page.locator("table thead").count() or page.locator(".history-more").count():
+            raise AssertionError("expected no table header and no Load more under the empty card")
         _wait_until_still(page, ".filter-bar__search", ".filter-bar__chips",
-                          "[data-filter-empty] [data-filter-clear]")
-        empty.locator("[data-filter-clear]").click()
-        empty.wait_for(state="hidden")
-        if page.evaluate(_VISIBLE_CALLSIGNS) != page.evaluate(
-                "() => [...document.querySelectorAll('li.history-card .history-card__callsign')]"
-                ".map(e => e.textContent)"):
-            raise AssertionError("expected the empty state's Clear to show every flight")
-        if page.input_value("[data-filter-input]") != "":
+                          "[data-flights-empty] a")
+        empty.locator("a").click()
+        page.wait_for_function(
+            "() => !document.querySelector('[data-flights-empty]')"
+            " && document.querySelectorAll('li.history-card').length === 5", timeout=10000)
+        if page.input_value("[data-flights-search]") != "":
             raise AssertionError("expected Clear to empty the search")
         if not page.locator(".filter-chip input[value='']").is_checked():
             raise AssertionError("expected Clear to put the chip back on All")
-        if empty.is_visible():
-            raise AssertionError("expected the empty state to hide again")
     finally:
         context.close()
 
 
 def test_search_matches_airline_and_airport_text_and_inline_clear(new_context, server):
     """The search finds a flight by airline name and by airport code, and the inline clear
-    (the first of two Clear buttons) empties the field."""
+    empties the field."""
     context, page = _open_flights(new_context, server, VIEWPORT_PHONE)
     try:
         for query, expected in (("transavia", ["TVF72YL"]), ("kef", ["TVF72YL"]),
                                 ("opo", ["OBS412"])):
-            page.fill("[data-filter-input]", query)
-            if page.evaluate(_VISIBLE_CALLSIGNS) != expected:
-                raise AssertionError("expected %r to find %r, got %r" % (
-                    query, expected, page.evaluate(_VISIBLE_CALLSIGNS)))
+            page.fill("[data-flights-search]", query)
+            _wait_callsigns(page, expected)
         page.locator(".filter-bar__clear").click()
-        if page.input_value("[data-filter-input]") != "":
+        if page.input_value("[data-flights-search]") != "":
             raise AssertionError("expected the inline clear to empty the search")
-        if len(page.evaluate(_VISIBLE_CALLSIGNS)) != 5:
-            raise AssertionError("expected the inline clear to show every flight again")
+        page.wait_for_function(
+            "() => document.querySelectorAll('li.history-card').length === 5", timeout=10000)
     finally:
         context.close()
 
@@ -429,10 +442,10 @@ def test_search_collapses_expands_and_keeps_44px_targets(new_context, server, vi
             ".filter-bar__search input", "el => parseFloat(getComputedStyle(el).fontSize)")
         if font < 16:
             raise AssertionError("expected 16px+ search text, got %r" % (font,))
-        page.fill("[data-filter-input]", "tvf")
+        page.fill("[data-flights-search]", "tvf")
         page.locator(".filter-bar__clear").wait_for(state="visible")
         _assert_hit_target(page, ".filter-bar__clear", "inline clear")
-        page.locator("[data-filter-chip]").first.focus()
+        page.locator(".filter-chip input").first.focus()
         page.wait_for_timeout(300)
         width = page.eval_on_selector(
             ".filter-bar__search", "el => el.getBoundingClientRect().width")
@@ -463,14 +476,32 @@ def test_desktop_search_is_always_open_in_the_title_row(new_context, server):
         context.close()
 
 
-def test_filter_chips_stay_hidden_and_search_stays_open_without_scripts(new_context, server):
-    """Without a script the chips (which cannot filter anything) are not shown and the search
-    field is the plain full-width one."""
+def test_the_controls_work_as_a_plain_form_without_scripts(new_context, server):
+    """Without a script the chips, the sort and an Apply button (a 44px target) are shown, the
+    search is the plain full-width field, and sending the form filters the list by the
+    server."""
     with _no_js_page(new_context, server.base_url(), "/flights", viewport=VIEWPORT_PHONE) as page:
-        if page.locator(".filter-bar__chips").is_visible():
-            raise AssertionError("expected the chip group hidden with scripts blocked")
+        for selector in (".filter-bar__chips", ".collection-sort > summary", ".history-controls__apply"):
+            if not page.locator(selector).is_visible():
+                raise AssertionError("expected %s shown with scripts blocked" % selector)
+        if page.locator(".history-controls__apply").bounding_box()["height"] < 44 - 0.5:
+            raise AssertionError("expected a 44px Apply button")
         if page.locator(".filter-bar__search input").bounding_box()["width"] < 250:
             raise AssertionError("expected the plain full-width search without scripts")
+        page.fill("[data-flights-search]", "obs")
+        page.keyboard.press("Enter")
+        page.wait_for_url("**/flights?q=obs*")
+        if page.locator(CARD).count() != 1:
+            raise AssertionError("expected the server to answer the search with one flight")
+        page.locator(".filter-chip", has_text="Arrivals").click()
+        page.click(".history-controls__apply")
+        page.wait_for_url("**kind=arriving*")
+        if page.locator(CARD).count() != 0 or page.locator("[data-flights-empty]").count() != 1:
+            raise AssertionError("expected the empty card for no arrival matching obs")
+        page.click("[data-flights-empty] a")
+        page.wait_for_url("**/flights")
+        if page.locator(CARD).count() != 5:
+            raise AssertionError("expected the plain Clear link to bring every flight back")
 
 
 def test_airlines_search_pill_has_no_chips_and_both_clears_work(new_context, server):
@@ -531,7 +562,7 @@ def test_a_flights_row_has_no_plane_icon_and_no_call_sign(
         for call_sign in [flight[0] for flight in vp.FLIGHT_CARD_FLIGHTS]:
             for row in rows:
                 assert call_sign not in row["text"]
-        page.fill("[data-filter-input]", "obs412")
+        page.fill("[data-flights-search]", "obs412")
         page.wait_for_function(
             """sel => { const rows = [...document.querySelectorAll(sel)];
                         const shown = rows.filter(r => !r.hidden && r.offsetParent !== null);

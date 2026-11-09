@@ -428,23 +428,32 @@ def test_data_table_wrap_scroll_edge_affordance_css(served_css):
     assert "pointer-events" not in override
 
 
-def test_filter_bar_markers_present_once(tmp_path):
-    """Flights' filter bar carries exactly one data-filter-input/-count/-empty marker, and two
-    real-button data-filter-clear markers: the inline clear in the field and the empty state's
-    own Clear (which also resets the chips)"""
+def test_the_search_is_one_named_form_the_chips_and_sort_join(tmp_path):
+    """Flights' search is one GET form with one named, valued field and a link-shaped clear; the
+    direction chips and the sort are fields of that same form (form="..."), so one Enter or one
+    Apply sends them together; no list-filter.js marker (data-filter-input, -empty, -clear) is
+    left on the page for the script to drive the list client-side"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "fb01", "callsign": "FB1"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
-    for marker in ("data-filter-input", "data-filter-count", "data-filter-empty"):
-        assert len(doc.select("[%s]" % marker)) == 1, "expected exactly one %r marker" % marker
-    clears = doc.select("[data-filter-clear]")
-    assert len(clears) == 2
-    assert all(c.tag == "button" and c.attrs.get("type") == "button" for c in clears)
-    assert [c for c in clears if "data-filter-clear-all" in c.attrs] == [clears[1]], (
-        "expected only the empty state's Clear to reset the chips")
+    forms = doc.select("form[data-flights-form]")
+    assert len(forms) == 1
+    form = forms[0]
+    assert form.attrs["method"] == "get" and form.attrs["action"] == "/flights"
+    fields = form.select("[data-flights-search]")
+    assert len(fields) == 1 and fields[0].attrs["name"] == "q"
+    clears = form.select("[data-flights-clear]")
+    assert len(clears) == 1 and clears[0].tag == "a" and clears[0].attrs["href"] == "/flights"
     assert clears[0].attrs.get("aria-label") == "Clear search"
+    joined = [n for n in doc.select("input") + doc.select("select") + doc.select("button")
+              if n.attrs.get("form") == form.attrs["id"]]
+    assert {n.attrs.get("name") for n in joined} == {"kind", "sort", None}
+    assert len([n for n in joined if n.attrs.get("name") == "kind"]) == 3
+    assert [n.tag for n in joined if n.attrs.get("name") is None] == ["button"]
+    for marker in ("data-filter-input", "data-filter-empty", "data-filter-clear"):
+        assert not doc.select("[%s]" % marker), marker
 
 
 def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
@@ -454,41 +463,45 @@ def test_filter_input_carries_safari_autofill_suppression_attributes(tmp_path):
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path))
     doc = parse_html(rendered)
-    filter_input = doc.select_one("[data-filter-input]")
+    filter_input = doc.select_one("[data-flights-search]")
     assert filter_input.attrs.get("autocomplete") == "off"
     assert filter_input.attrs.get("spellcheck") == "false"
     assert filter_input.attrs.get("autocapitalize") == "characters"
 
 
-def test_filter_count_template_attribute_english_and_french(tmp_path):
-    """History's filter bar carries data-filter-count-template="# of # shown" (`#` standing for each %d) under the default language and the French "# sur # affichés" under lang='fr'"""
+def test_the_match_count_reads_in_english_and_french(tmp_path):
+    """with a search typed, Flights tells screen readers how many flights match it, in English
+    and French (singular, plural and none); without a search it counts the flights listed"""
     vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1"},
+        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FC1", "airline": "Air France"},
+        {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FC2", "airline": "Air France"},
+        {"ts": "2026-08-27T08:00:00+00:00", "hex": "fc03", "callsign": "OTHER"},
     ])
-    rendered_en = history_page.render(vp.history_ctx(tmp_path))
-    doc_en = parse_html(rendered_en)
-    template_en = doc_en.select_one("[data-filter-count-template]")
-    assert template_en.attrs.get("data-filter-count-template") == "# of # shown"
 
-    prefs.set_request_prefs(lang="fr")
-    try:
-        rendered_fr = history_page.render(vp.history_ctx(tmp_path))
-    finally:
-        prefs.set_request_prefs(lang="en")
-    doc_fr = parse_html(rendered_fr)
-    template_fr = doc_fr.select_one("[data-filter-count-template]")
-    assert template_fr.attrs.get("data-filter-count-template") == "# sur # affichés"
+    def count(lang, query):
+        prefs.set_request_prefs(lang=lang)
+        try:
+            doc = parse_html(history_page.render(vp.history_ctx(
+                tmp_path, history_query={"q": query})))
+        finally:
+            prefs.set_request_prefs(lang="en")
+        node = doc.select_one("[data-filter-count]")
+        return node.text(), "visually-hidden" in node.attrs["class"]
+
+    assert count("en", "air france") == ("2 flights match", True)
+    assert count("en", "other") == ("1 flight matches", True)
+    assert count("fr", "air france") == ("2 vols correspondent", True)
+    assert count("fr", "other") == ("1 vol correspond", True)
+    assert count("en", "") == ("3 flights", True)
+    assert count("en", "zzz") == ("No flight matches", True)
 
 
-def test_filter_bar_count_sits_in_one_meta_group_with_one_page_agnostic_rule(tmp_path, served_css):
-    """Flights' live count renders inside one .filter-bar__meta group whose page-agnostic rule
-    declares flex/centre/nowrap/auto-left-margin, with no page-scoped fork of the shared
-    filter-bar rules anywhere"""
-    vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fm01", "callsign": "FILTMETA"},
-    ])
-    rendered = history_page.render(vp.history_ctx(tmp_path))
-    doc = parse_html(rendered)
+def test_the_filter_bar_meta_group_keeps_one_page_agnostic_rule(served_css):
+    """the shared filter bar (Airlines and Health's lists still render it) puts its live count
+    in one .filter-bar__meta group whose page-agnostic rule declares flex/centre/nowrap/
+    auto-left-margin, with no page-scoped fork of the shared filter-bar rules anywhere"""
+    doc = parse_html(layout.filter_bar_html(
+        "meta_input", "Filter", "Filter…", "%d of %d shown", 3, 3, "None", "Nothing"))
     group = doc.select_one('[class="filter-bar__meta"]')
     assert group.select("[data-filter-count]")
     assert group.select("[data-filter-count]")[0].attrs.get("role") == "status"
@@ -510,19 +523,21 @@ def test_filter_bar_count_sits_in_one_meta_group_with_one_page_agnostic_rule(tmp
 
 
 def test_clear_control_is_wired_by_the_shared_script_and_styled_once(tmp_path, served_css, filter_js):
-    """every Clear control wears the one shared [data-filter-clear] attribute, list-filter.js
-    wires ALL of them (a loop, never just the first), and the inline clear's reset lives in one
-    class rule, with no other class-keyed Clear rule competing"""
+    """every shared-bar Clear control wears the one [data-filter-clear] attribute and
+    list-filter.js wires ALL of them (a loop, never just the first); Flights' own clear is a
+    link the script intercepts; the inline clear's reset lives in one class rule, with no
+    other class-keyed Clear rule competing"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "ca01", "callsign": "CA1"},
     ])
     doc = parse_html(history_page.render(vp.history_ctx(tmp_path)))
-    assert len(doc.select("[data-filter-clear]")) == 2
+    assert len(doc.select("a[data-flights-clear]")) == 1
 
     js = vp.strip_js_line_and_block_comments(filter_js)
     assert 'querySelectorAll("[data-filter-clear]")' in js, (
         "expected every Clear button to be looked up, not only the first")
     assert 'querySelector("[data-filter-clear]")' not in js
+    assert "a[data-flights-clear]" in js
 
     rules = css_rules(served_css)
     assert any(".filter-bar__clear" in sel for rule in rules for sel in rule.selectors)
@@ -566,7 +581,7 @@ def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
         kinds = [n.attrs["data-filter-kind"] for n in doc.select("%s[data-filter-kind]" % tag)]
         assert kinds == ["departing", "departing", "arriving", ""], (tag, kinds)
     chips = {c.attrs["value"]: c.parent.select_one("[data-filter-chip-count]").text()
-             for c in doc.select("[data-filter-chip]")}
+             for c in doc.select("input") if c.attrs.get("name") == "kind"}
     assert chips == {"": "4", "departing": "2", "arriving": "1"}
 
 
@@ -613,6 +628,7 @@ def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
             assert link.attrs["aria-label"] == "View picture of " + callsign
     doc = parse_html(rendered)
     assert not doc.select("[aria-expanded]")
-    assert not doc.select("summary")
+    assert not [node for node in doc.select("summary")
+                if "collection-sort__toggle" not in node.attrs.get("class", "")]
 
 

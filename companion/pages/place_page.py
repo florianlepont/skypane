@@ -72,7 +72,7 @@ SEARCH_BUTTON = i18n.msg("detection.search_button", "Search places")
 SEARCH_HELP = i18n.msg(
     "detection.search_help",
     "An airport code or name picks that airport. Anything else is sent to "
-    "OpenStreetMap’s search service (Nominatim).")
+    "OpenStreetMap’s search service (Nominatim), after a short pause, as you type.")
 LOCATE_BUTTON = i18n.msg("detection.locate", "Use my position")
 MAP_LOADING = i18n.msg("detection.map_loading", "Loading the map\u2026")
 ABOUT_MAP = i18n.msg("detection.about_map", "About this map")
@@ -126,6 +126,8 @@ MOVE_HINT = i18n.msg("detection.move_hint", "Tap the map to move it")
 # The pin readout is language-neutral: number, hemisphere, number, hemisphere.
 COORDS_TEMPLATE = "%s %s · %s %s"
 RESULT_AIRPORT = i18n.msg("detection.result_airport", "Airport")
+GROUP_AIRPORTS = i18n.msg("detection.group_airports", "Airports")
+GROUP_PLACES = i18n.msg("detection.group_places", "Places and addresses")
 
 SEARCH_MIN_CHARS = 3
 SEARCH_MAX_CHARS = 120
@@ -152,6 +154,8 @@ _MAP_STRINGS = (
     ("nearest", NEAREST_AIRPORT),
     ("follow", FOLLOW_AIRPORT),
     ("result-airport", RESULT_AIRPORT),
+    ("group-airports", GROUP_AIRPORTS),
+    ("group-places", GROUP_PLACES),
 )
 
 AIRPORTS_TITLE = i18n.msg("detection.airports_title", "French airports")
@@ -539,13 +543,11 @@ def _airport_row_html(view, airport):
     href = _href(airport=airport.icao, q=view.q, radius_km=view.carry_radius)
     return (
         '<li class="place-airport" data-filter-text="%s">'
-        '<a class="place-airport__link" href="%s#airport-runways" data-detection-nav data-icao="%s" '
-        'data-iata="%s" data-lat="%s" data-lon="%s" data-name="%s">'
+        '<a class="place-airport__link" href="%s#airport-runways" data-detection-nav data-icao="%s">'
         '<span class="place-airport__name">%s</span>'
         '<span class="place-airport__meta text-label"%s>%s</span></a></li>'
     ) % (
         escape_html(haystack), escape_html(href), escape_html(airport.icao),
-        escape_html(airport.iata), _coord(airport.lat), _coord(airport.lon), escape_html(airport.name),
         escape_html(airport.name), current, escape_html(dp.airport_codes(airport)))
 
 
@@ -628,10 +630,28 @@ def _mode_card_html(view, mode, control_id, text, icon):
         layout.icon_html(icon, 18), escape_html(i18n.t(text)))
 
 
-def _runway_detail(runway, lang):
-    text = "%s m" % dp.format_count(runway.length_m, lang)
+def _runway_parts(runway, lang):
+    """The runway length and, when known, the surface, as two separate texts."""
     surface = dp.SURFACES.get(runway.surface or "")
-    return text + (" · " + i18n.t(surface) if surface is not None else "")
+    return "%s m" % dp.format_count(runway.length_m, lang), (
+        i18n.t(surface) if surface is not None else "")
+
+
+def _runway_detail(runway, lang):
+    length, surface = _runway_parts(runway, lang)
+    return length + (" · " + surface if surface else "")
+
+
+def _runway_detail_html(runway, lang):
+    """The card's detail line. The length and the surface are each unbreakable;
+    the separator shows only where they share a line."""
+    length, surface = _runway_parts(runway, lang)
+    html = '<span class="runway-card__length">%s</span>' % escape_html(length)
+    if surface:
+        html += (
+            '<span class="runway-card__sep"> · </span>'
+            '<span class="runway-card__surface">%s</span>' % escape_html(surface))
+    return html
 
 
 def _runway_card_html(view, airport, runway):
@@ -659,7 +679,7 @@ def _runway_card_html(view, airport, runway):
         escape_html(runway.designator), dp.FORM_ID,
         " checked" if runway.designator == view.runway else "",
         escape_html(runway.designator), pill,
-        escape_html(_runway_detail(runway, view.lang)),
+        _runway_detail_html(runway, view.lang),
         layout.icon_html("icon-check"), escape_html(i18n.t(SELECTED_LABEL)))
 
 
@@ -711,11 +731,12 @@ def _radius_html(view):
     return (
         '<div class="place-radius">'
         '<div class="place-radius__head">'
-        '<label for="place-radius">%s</label>'
+        '<label for="place-radius" id="place-radius-label">%s</label>'
         '<input type="number" id="place-radius" name="radius_km" form="%s" '
         'min="%d" max="%d" step="1" inputmode="numeric" value="%s"%s></div>'
         '<input type="range" id="place-radius-range" class="place-radius__range js-gate" '
-        'min="%d" max="%d" step="1" value="%s" aria-hidden="true" tabindex="-1">'
+        'min="%d" max="%d" step="1" value="%s" aria-labelledby="place-radius-label" '
+        'aria-valuetext="%s km">'
         '<p class="place-radius__scale text-label js-gate" aria-hidden="true">'
         "<span>%d km</span><span>%d km</span><span>%d km</span></p>"
         '<p id="place-radius-help" class="text-label section-caption">%s</p>%s</div>'
@@ -724,6 +745,7 @@ def _radius_html(view):
         detection.RADIUS_KM_MAX, escape_html(view.radius),
         _field_error_attrs(view.errors, "radius_km", "place-radius", "place-radius-help"),
         detection.RADIUS_KM_MIN, detection.RADIUS_KM_MAX, escape_html(view.radius),
+        escape_html(view.radius),
         detection.RADIUS_KM_MIN, (detection.RADIUS_KM_MIN + detection.RADIUS_KM_MAX) // 2,
         detection.RADIUS_KM_MAX,
         escape_html(i18n.t(RADIUS_HELP)),
@@ -886,9 +908,14 @@ def _panel_html(view):
         airports_card_html(view), _runway_group_html(view), _area_block_html(view),
         _nearest_html(),
         escape_html(i18n.t(NO_SCRIPT_MAP)), details_card_html(view),
-        dp.dirty_bar_html(
-            plain_href if view.carried_dirty else None, i18n.t(dp.SAVE_LOCATION)),
+        dp.dirty_bar_html(plain_href if view.carried_dirty else None),
         _credits_html(), _locate_html())
+
+
+# Opens the connection to the tile host while the page is still being
+# parsed, so the first tiles do not wait for a DNS lookup and TLS handshake
+# (the host is the one the page's policy already allows pictures from).
+TILE_PRECONNECT_HTML = '<link rel="preconnect" href="https://tile.openstreetmap.org">'
 
 
 def render(ctx, query=None, errors=None, submitted=None, place=None):
@@ -901,7 +928,8 @@ def render(ctx, query=None, errors=None, submitted=None, place=None):
     ctx = page_context.coerce(ctx)
     view = _View(ctx, query, errors, submitted, place)
     return (
-        layout.page_header(i18n.t(PAGE_TITLE), i18n.t(PAGE_PURPOSE))
+        TILE_PRECONNECT_HTML
+        + layout.page_header(i18n.t(PAGE_TITLE), i18n.t(PAGE_PURPOSE))
         + fail_safe_toast_html(view)
         + _stray_errors_html(view)
         + _form_html(view)

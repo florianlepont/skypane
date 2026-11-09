@@ -167,7 +167,10 @@ def test_the_title_the_nav_and_each_view_come_in_order(rig, who):
 def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(rig):
     _seed(rig)
     root = parse_html(_display(rig))
-    assert "Red, stripe on soft" in root.select_one(".look-pick .look-frame__sentence").text()
+    assert root.select_one(".look-pick img.look-frame__image").attrs["alt"].endswith(
+        "Red, stripe on soft")
+    assert not root.select(".look-frame__caption")
+    assert not root.select(".look-pick__customise")
     assert root.select_one("[data-look-sheet][data-look-inline]") is not None
     assert not root.select("button[data-look-tab]")
     assert root.select_one("[data-look-initial]").attrs["data-look-initial"] == "departures"
@@ -189,7 +192,6 @@ def test_the_page_speaks_french(rig):
         assert nav.attrs["aria-label"] == "Sections de personnalisation"
         assert [a.text() for a in nav.select("a")] == list(FR_TITLES)
         assert root.select_one("div.personalisation__view h2").text() == title
-    assert "Personnaliser le style" in _text(_display(rig, lang="fr"))
 
 
 def test_the_look_cards_are_native_radios_with_a_preview_and_a_selected_word(rig):
@@ -218,7 +220,7 @@ def test_tapping_a_look_then_save_persists_it_and_the_page_names_it(rig):
     assert response["Location"].endswith("/display?flash=saved") or "/display" in response["Location"]
     assert _stored(rig)["theme"] == "black"
     root = parse_html(_display(rig))
-    assert "Black, solid" in root.select_one(".look-pick .look-frame__sentence").text()
+    assert root.select_one(".look-pick img.look-frame__image").attrs["alt"].endswith("Black, solid")
     assert [
         r.attrs["value"] for r in root.select('input[name="theme"][checked]')] == ["black"]
 
@@ -366,8 +368,7 @@ def test_a_rejected_save_redraws_the_view_it_came_from(rig):
         rig, "owner", return_to="/display/calendar", calendar_theme_id="not-a-theme")
     assert status == 200
     root = parse_html(body)
-    assert [c.attrs["id"] for c in root.select("div.personalisation__view > section")] == [
-        "personalisation-calendar"]
+    assert root.select("div.personalisation__view > .form-view form[data-calendar-look]")
     assert _stored(rig)["calendar_theme_id"] == "black"
 
 

@@ -7,6 +7,7 @@ from companion import device_scope, i18n
 from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
+from companion import ui_save_bar
 from companion import screens, user_view
 from companion import wake
 from server import device_config, screen_layouts
@@ -335,7 +336,7 @@ _FIELD_VIEWS = {
     "theme": personalisation_cards.VIEW_DEPARTURES,
     "theme_arriving": personalisation_cards.VIEW_ARRIVALS,
     "layout": personalisation_cards.VIEW_LAYOUT,
-    "calendar_theme_id": personalisation_cards.VIEW_CALENDAR,
+    "calendar_theme_id": personalisation_cards.VIEW_CALENDAR_LOOK,
     "calendar_url": personalisation_cards.VIEW_CALENDAR_CONNECT,
 }
 
@@ -366,33 +367,8 @@ def submitted_return_route(form):
 QUICK_DISPLAY_ROUTE = "/quick/display"
 QUICK_QUIET_HOURS_ROUTE = "/quick/quiet-hours"
 
-# Names the native fallback Save button; companion/static/dirty-state.js
-# does not import this module, so the value must be kept equal by hand
-# (its sibling, DIRTY_SECTION_ATTR, moved to companion.settings.form —
-# imported back below for this module's own remaining group builders).
-STATIC_SAVE_FALLBACK_ATTR = "data-static-save-fallback"
-
-# The words dirty-state.js's updateBar()/dirtySectionLabels() carry as
-# translated data-* attributes on the save bar. Each constant's own
-# English value is also dirty-state.js's documented `|| "English
-# fallback"` literal, so the two can never silently disagree about what
-# the bar renders without the attribute.
-#
-# DIRTY_BAR_INITIAL_TEXT is carried only as a data-* attribute, never
-# used to seed [data-dirty-count]'s markup: the bar itself renders
-# visible (not `hidden`), so seeding the count span with this text
-# would announce a false "Unsaved changes" claim via `role="status"` on
-# every page load before anything changed. dirty-state.js writes it
-# only once it actually finds a difference.
-DIRTY_BAR_INITIAL_TEXT = i18n.msg("display.unsaved_changes", "Unsaved changes")
-DIRTY_CHANGED_SUFFIX = i18n.msg("display.changed", " changed")
-DIRTY_AND = i18n.msg("display.and", " and ")
-DIRTY_LIST_AND = i18n.msg("display.and_2", ", and ")
-DIRTY_UNSAVED_SINGULAR = i18n.msg("display.1_unsaved_change", "1 unsaved change")
-DIRTY_UNSAVED_PLURAL = i18n.msg("display.unsaved_changes_2", " unsaved changes")
-# The ellipsis is the single U+2026 character, matching this module's
-# "Polling…" and layout.py's "Reconnecting…" — never three periods.
-DIRTY_SAVING_TEXT = i18n.msg("display.saving", "Saving…")
+# Names the native fallback Save button (see companion.ui_save_bar).
+STATIC_SAVE_FALLBACK_ATTR = ui_save_bar.SAVE_FALLBACK_ATTR
 
 
 # The flash keys this module's handle_post() can return — the single
@@ -528,22 +504,6 @@ def _next_wake_clock_and_iso(ctx, device_cfg):
     return next_wake_clock, next_wake_iso
 
 
-def _dirty_bar_strings():
-    """The words dirty-state.js's own updateBar()/dirtySectionLabels()
-    carry as translated data-* attributes on the save bar — resolved
-    once here rather than inline in the final HTML assembly.
-    """
-    return {
-        "changed_suffix": escape_html(i18n.t(DIRTY_CHANGED_SUFFIX)),
-        "and_word": escape_html(i18n.t(DIRTY_AND)),
-        "list_and": escape_html(i18n.t(DIRTY_LIST_AND)),
-        "unsaved_singular": escape_html(i18n.t(DIRTY_UNSAVED_SINGULAR)),
-        "unsaved_plural": escape_html(i18n.t(DIRTY_UNSAVED_PLURAL)),
-        "saving": escape_html(i18n.t(DIRTY_SAVING_TEXT)),
-        "initial_text": escape_html(i18n.t(DIRTY_BAR_INITIAL_TEXT)),
-    }
-
-
 def _group_builders(ctx, values, errors, submitted, next_wake_clock):
     """The lazy, scope-independent per-group builder table render()'s
     scope branches read from. screens.GROUP_THEME/GROUP_CALENDAR have
@@ -600,7 +560,9 @@ def _render_display_scope(
             calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
             errors=errors, submitted=submitted, state_dir=ctx.state_dir)
         aspect_section_html = personalisation_cards.page_html(
-            ctx, values, calendar_row_html, calendar_status, errors, submitted, view)
+            ctx, values, calendar_row_html, calendar_status, errors, submitted, view,
+            scope_fields_html=_scope_fields_html(
+                SCOPE_DISPLAY, personalisation_cards.VIEW_ROUTES[personalisation_cards.VIEW_CALENDAR]))
     return {
         "header": header, "frame_strip_section_html": frame_strip_section_html,
         "hidden_html": _scope_fields_html(
@@ -643,63 +605,15 @@ def _render_all_scope(groups, builders):
     }
 
 
-# The dirty-save-bar's own two button labels. The short "Save": the bar names
-# the unsaved changes beside it, and a longer label wraps on a phone.
-SAVE_BUTTON_TEXT = i18n.msg("look.save", "Save")
-# Same id as companion.settings.calendar.CALENDAR_DISCONNECT_CANCEL_TEXT
-# — same English, same French translation, and msg() is idempotent for
-# a repeat id/English pair.
-CANCEL_BUTTON_TEXT = i18n.msg("display.cancel", "Cancel")
-
-
-
-def _dirty_bar_html(dirty_strings, extra_class="", save_text=None):
-    """The save/cancel bar bound to the settings form by `form=`. A native
-    `type="reset"` Cancel and an empty-until-JS count span keep the bar
-    usable with no script; no `hidden` attribute, since it is the only save
-    affordance for a scripts-blocked visitor: dirty-state.js hides it at init
-    and reveals it on real changes. `STATIC_SAVE_FALLBACK_ATTR` must reach
-    the format call below as a bare name, for the AST invariant checked
-    elsewhere.
-    """
-    return (
-        '<div class="dirty-bar%s" data-dirty-bar%s role="status" '
-        'data-dirty-changed-suffix="%s" data-dirty-and="%s" '
-        'data-dirty-list-and="%s" data-dirty-unsaved-singular="%s" '
-        'data-dirty-unsaved-plural="%s" data-dirty-saving="%s" '
-        'data-dirty-initial-text="%s">'
-        "<span data-dirty-count></span>"
-        '<button type="submit" class="dirty-bar__save" form="%s" %s>%s</button>'
-        '<button type="reset" form="%s" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
-        "</div>"
-    ) % (
-        extra_class,
-        " data-dirty-generic" if extra_class else "",
-        dirty_strings["changed_suffix"],
-        dirty_strings["and_word"],
-        dirty_strings["list_and"],
-        dirty_strings["unsaved_singular"],
-        dirty_strings["unsaved_plural"],
-        dirty_strings["saving"],
-        dirty_strings["initial_text"],
-        SETTINGS_FORM_ID,
-        STATIC_SAVE_FALLBACK_ATTR,
-        escape_html(i18n.t(save_text or SAVE_BUTTON_TEXT)),
-        SETTINGS_FORM_ID,
-        escape_html(i18n.t(CANCEL_BUTTON_TEXT)),
-    )
-
-
 def docked_dirty_bar_html():
     """The bar for a settings form embedded in a glass group (the Fleet
-    page): it is rendered by the page after the group, never inside it, because
-    a backdrop-filtered ancestor would become the containing block of any
-    fixed descendant. The `--docked` modifier makes it stick to the bottom of
-    the viewport inside the main column."""
-    return _dirty_bar_html(_dirty_bar_strings(), " dirty-bar--docked")
+    page): rendered by the page after the group, never inside it, because a
+    backdrop-filtered ancestor would become the containing block of the
+    bar's fixed position."""
+    return ui_save_bar.save_bar_html(SETTINGS_FORM_ID)
 
 
-def _settings_page_html(pieces, quick_led_html, dirty_strings, with_bar=True):
+def _settings_page_html(pieces, quick_led_html, with_bar=True):
     """The final HTML assembly: the physical `<form>` (hidden scope
     fields, groups_html), every scope's own extra sections in their
     locked order, and the dirty-bar save affordance last, after
@@ -730,7 +644,7 @@ def _settings_page_html(pieces, quick_led_html, dirty_strings, with_bar=True):
         pieces["display_watches_supersection_html"],
         quick_led_html,
         pieces["display_on_supersection_html"],
-    ) + (_dirty_bar_html(dirty_strings) if with_bar else "")
+    ) + (docked_dirty_bar_html() if with_bar else "")
 
 
 def render(
@@ -756,7 +670,6 @@ def render(
     values = _render_current_values(ctx)
     calendar_status = _render_calendar_context(ctx)
     next_wake_clock, next_wake_iso = _next_wake_clock_and_iso(ctx, values["device_cfg"])
-    dirty_strings = _dirty_bar_strings()
 
     screen_id = screens.current_screen_id(ctx)
     if scope not in SCOPES:
@@ -787,7 +700,7 @@ def render(
     if embedded:
         # The Console Fleet view supplies its own block heading.
         pieces["header"] = ""
-    return _settings_page_html(pieces, quick_led_html, dirty_strings, with_bar=not embedded)
+    return _settings_page_html(pieces, quick_led_html, with_bar=not embedded)
 
 
 def _scope_fields_html(scope, return_route):

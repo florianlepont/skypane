@@ -44,6 +44,19 @@ MESSAGES = {
         "Essayez une autre recherche, ou effacez le filtre pour voir "
         "les %d vols.",
 
+    "flights.sort_by": "Trier par",
+    "flights.sort_newest": "Plus récents d’abord",
+    "flights.sort_oldest": "Plus anciens d’abord",
+    "flights.sort_airline": "Compagnie",
+    "flights.sort_direction": "Sens",
+    "flights.apply_filters": "Appliquer",
+    "flights.matches_many": "%d vols correspondent",
+    "flights.matches_one": "1 vol correspond",
+    "flights.matches_none": "Aucun vol ne correspond",
+    "flights.count_many": "%d vols",
+    "flights.count_one": "1 vol",
+    "flights.count_none": "Aucun vol",
+
     # --- Copy-to-clipboard accessible names -------------------------------
     "flights.no_callsign": "aucun indicatif",
     "flights.no_reading_yet": "aucune mesure pour l’instant",

@@ -96,8 +96,9 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         new_context, app_server_in_process, viewport, releases=True)
     try:
         text = page.locator(COLUMN).inner_text()
-        for fact in (MODEL, "Orly frame"):
-            assert text.count(fact) == 1, (fact, text)
+        assert text.count(MODEL) == 1, text
+        # The frame's name is the frame button's label above the column, not repeated in it.
+        assert text.count("Orly frame") == 0, text
         for heading in ("Wake interval", "Diagnostic LED"):
             assert page.locator(COLUMN).get_by_role("heading", name=heading).count() == 1
         # The owner is named once (the Reassign picker's options are choices, not facts).
@@ -105,38 +106,46 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         assert owners == [fx.ADMIN_EMAIL], owners
         # A firmware version is named once as a fact (the Install button's label repeats the
         # version it installs, and the seeded release note quotes it).
-        facts = page.locator(COLUMN + " .mono").all_inner_texts()
+        facts = page.locator(COLUMN + " .mono:not(.update-table .mono)").all_inner_texts()
         for version in (RELEASE_SEED_RUNNING_VERSION, RELEASE_SEED_AVAILABLE_VERSION):
             assert facts.count(version) == 1, (version, facts)
-        assert text.count(RELEASE_SEED_RUNNING_VERSION) == 1, text
+        # The card names it once as what the frame runs and the version table once as a row.
+        assert text.count(RELEASE_SEED_RUNNING_VERSION) == 2, text
     finally:
         context.close()
 
 
-def test_the_version_history_is_a_collapsed_native_disclosure(
+def test_the_version_history_is_a_table_with_the_action_in_every_row(
         new_context, app_server_in_process):
     context, page, _seed = _open(new_context, app_server_in_process, releases=True)
     try:
-        details = page.locator("details.update-all")
-        assert details.count() == 1 and details.get_attribute("open") is None
-        summary = details.locator("> summary")
-        assert summary.inner_text().strip() == "All versions (2)"
-        assert summary.bounding_box()["height"] >= 44 - 0.5
-        assert page.locator("details.update-all .update-row").first.is_hidden()
-        summary.click()
-        page.wait_for_function(
-            "() => document.querySelector('details.update-all').open", timeout=10000)
-        assert page.locator("details.update-all details.update-row").count() == 2
-        assert page.locator("details.update-all details.update-row").first.is_visible()
+        assert page.locator("details.update-all").count() == 0
+        heading = page.locator(".update-versions .text-heading")
+        assert heading.inner_text().split()[0] == "Versions"
+        assert page.locator(".update-versions__count").inner_text().strip() == "2"
+        rows = page.locator("table.update-table tbody tr")
+        assert rows.count() == 2 and rows.first.is_visible()
+        running, available = (rows.nth(0), rows.nth(1))
+        # The running version has no action; the newer one is installable without opening anything.
+        assert running.locator("form").count() == 0
+        button = available.locator("form button[type=submit]")
+        assert button.is_visible() and button.inner_text() == "Install"
+        assert button.bounding_box()["height"] >= 44 - 0.5
+        # The cells of a row line up on one line: version, date and action share a band.
+        tops = [r.bounding_box() for r in (
+            available.locator("th"), available.locator("td.update-table__when"), button)]
+        centres = [box["y"] + box["height"] / 2 for box in tops]
+        assert max(centres) - min(centres) < 30, centres
     finally:
         context.close()
 
 
-def test_the_version_history_label_is_in_french(new_context, app_server_in_process):
+def test_the_version_table_headings_are_in_french(new_context, app_server_in_process):
     context, page, _seed = _open(new_context, app_server_in_process, lang="fr", releases=True)
     try:
-        assert page.locator("details.update-all > summary").inner_text().strip() == (
-            "Toutes les versions (2)")
+        heads = page.locator("table.update-table thead th").all_inner_texts()
+        assert [h.strip() for h in heads[:3]] == ["Version", "État", "Sortie"]
+        assert page.locator("table.update-table tbody button").last.inner_text() == "Installer"
     finally:
         context.close()
 
@@ -225,13 +234,15 @@ def test_a_phone_keeps_its_three_tabs_with_the_same_sections(
         labels = {"en": ["State", "Settings", "Access"], "fr": ["État", "Réglages", "Accès"]}
         assert page.locator("nav.fleet-tabs a span").all_inner_texts() == labels[lang]
         shown = page.evaluate(_SECTIONS)
-        assert [s["title"] for s in shown] == HEADINGS[lang][:2]
+        # State tab: State, Device and version, and the pending and retired frames.
+        assert [s["title"] for s in shown] == [
+            HEADINGS[lang][0], HEADINGS[lang][1], HEADINGS[lang][4]]
         assert not _assert_no_page_overflow(page, "phone-tabs", PHONE["width"])
         page.locator("nav.fleet-tabs a").nth(2).click()
         page.wait_for_url("**tab=access")
         page.wait_for_function(_SETTLED, timeout=15000)
         shown = page.evaluate(_SECTIONS)
-        assert [s["title"] for s in shown] == HEADINGS[lang][3:]
+        assert [s["title"] for s in shown] == [HEADINGS[lang][3]]
     finally:
         context.close()
 

@@ -124,3 +124,19 @@ dropped or redrawn from a sketch.
 | 61-86 | R9-4 tab bar and More menu, R9-5 Console switch alignment and Journal tab |
 | 61-87 | R9-6 Fleet desktop single column of sections |
 | 61-88 | R9-7 Location full-bleed, loading state, airport pick in place |
+
+## Batch 14 (D49, audit 2)
+
+| Plan | Scope |
+|------|-------|
+| 61-89 | One SaveBar component for all pages (W147, F04, F21) |
+| 61-90 | Flights: empty state, Load more in place, search over all history; Airlines empty search (W142, W143, F02, F03, F18, F19) |
+| 61-91 | Personalisation: Calendar sheet visible, full look matrix, caption removed, looks rows on phone (W145, W146, W148, W153, F01, F06, F07, F12, F23, F24, F25) |
+| 61-92 | Fleet and Users: Access forms and reassign button, versions with direct rollback, pending frames on phone, table overflows (W149, W150, W151, F08-F11, F15, F29, F30 and workflow findings) |
+| 61-93 | Location search and radius, accessibility, naming glossary, tab bar labels, 360 overflows, type scale, time format (W144, F05, F13, F14, F16, F17, F20, F27, F28, F31, F32) |
+| 61-94 | Performance quick wins (PERF P01-P11, P16) |
+| 61-95 | Splash at every site opening, page preloading, session-expiry feedback (W154, W155, workflow findings) |
+| 61-91a | W146: server theme catalogue with all colour x background x stripe combinations (before 61-91) |
+| 61-93b | W152: Location phone map full-bleed (needs a fresh iPhone capture) |
+| 61-90 (add) | Flights sort control (date, airline, direction) |
+| 61-92 (add) | Rename a frame (owner and administrators) via the common SaveBar |

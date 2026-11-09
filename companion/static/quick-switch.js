@@ -34,6 +34,8 @@
   // freshness.js's REQUEST_EVENT name below.
   var REFRESH_ATTR = "data-quick-refresh";
   var REFRESH_REQUEST_EVENT = "skypane-refresh-request";
+  var ACTION_ON_ATTR = "data-quick-action-on";
+  var ACTION_OFF_ATTR = "data-quick-action-off";
   var STATE_ON_ATTR = "data-quick-state-on";
   var STATE_OFF_ATTR = "data-quick-state-off";
   // Must equal companion/ui_base.py's QUICK_TOAST_ATTR and
@@ -96,6 +98,13 @@
     if (stateField) {
       stateField.value = on ? "off" : "on";
     }
+    // A switch whose two states post to two routes (the Users Active
+    // switch) names both in server-rendered attributes: the form always
+    // posts the action that leaves the state now displayed.
+    var nextAction = form.getAttribute(on ? ACTION_ON_ATTR : ACTION_OFF_ATTR);
+    if (nextAction) {
+      form.setAttribute("action", nextAction);
+    }
     var onText = region.querySelector("[" + STATE_ON_ATTR + "]");
     var offText = region.querySelector("[" + STATE_OFF_ATTR + "]");
     if (onText) {
@@ -144,9 +153,30 @@
     document.dispatchEvent(evt);
   }
 
-  function rollBack(control, region, form, wasOn) {
+  // Tells prefetch.js the user changed something, so pages it warmed before
+  // the change are not served after it.
+  function announceMutation() {
+    if (!document.createEvent) {
+      return;
+    }
+    var evt = document.createEvent("Event");
+    evt.initEvent("skypane-mutated", false, false);
+    document.dispatchEvent(evt);
+  }
+
+  function rollBack(control, region, form, wasOn, response) {
     applyState(control, region, form, wasOn);
     region.removeAttribute(PENDING_ATTR);
+    // A refusal because the session ended gets the session guard's own
+    // toast and redirect instead of the generic failure.
+    if (response && window.skypaneSession) {
+      window.skypaneSession.report(response).then(function (ended) {
+        if (!ended) {
+          announceFailure();
+        }
+      });
+      return;
+    }
     announceFailure();
   }
 
@@ -213,6 +243,8 @@
     var wasOn = control.getAttribute("aria-checked") === "true";
     var nextOn = !wasOn;
     var returnTo = fieldValue(form, "return_to");
+    var csrf = fieldValue(form, "csrf_token");
+    var action = form.action;
     applyState(control, region, form, nextOn);
     region.setAttribute(PENDING_ATTR, "");
     // Security: the form's own server-rendered action, never a URL
@@ -221,7 +253,7 @@
     // redirect: "manual" makes an expired-session 303 resolve to an
     // opaque response (status 0, treated as failure below) instead of
     // fetch silently following it to the login page and reporting 200.
-    window.fetch(form.action, {
+    window.fetch(action, {
       method: "POST",
       credentials: "same-origin",
       redirect: "manual",
@@ -231,15 +263,17 @@
       },
       body: "state=" + encodeURIComponent(nextOn ? "on" : "off")
           + "&return_to=" + encodeURIComponent(returnTo)
+          + (csrf ? "&csrf_token=" + encodeURIComponent(csrf) : "")
     }).then(function (response) {
       // 204 and nothing else confirms; every other status (including
       // the opaque redirect above) rolls back.
       if (response.status === 204) {
         region.removeAttribute(PENDING_ATTR);
+        announceMutation();
         requestRefresh(region);
         return;
       }
-      rollBack(control, region, form, wasOn);
+      rollBack(control, region, form, wasOn, response);
     })["catch"](function () {
       // A network-level failure gets the same treatment as a non-OK
       // status. Bracket form because catch is a reserved word in ES3.

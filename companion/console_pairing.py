@@ -336,7 +336,9 @@ def claim_code(h, code, owner_id):
             "SELECT email FROM users WHERE id = ?", (owner_id,)).fetchone()
     finally:
         conn.close()
-    frame = (device["name"] if device is not None and device["name"] else result.device_id)
+    # A frame without a name is shown as "Unnamed frame", never by its id.
+    frame = (device["name"] if device is not None and device["name"]
+             else fleet_page.unnamed_text())
     return result.device_id, frame, owner["email"] if owner is not None else ""
 
 

@@ -62,7 +62,7 @@ def _text(markup):
 
 def _header(page):
     """The selected frame's detail header markup, or None."""
-    match = re.search(r'<div class="fleet-detail-head">.*?</details></div>', page, re.S)
+    match = re.search(r'<div class="fleet-detail-head">.*?</div>', page, re.S)
     return match.group(0) if match else None
 
 
@@ -77,7 +77,10 @@ def test_the_frame_list_is_the_strip_and_the_other_frames_block(fleet):
     rows = _rows(page)
     assert list(rows) == ["New frame", "Attic"]
     header = _header(page)
-    assert "Kitchen" in _text(header)
+    # The frame's name is the frame button's label; the header is two link
+    # buttons (its personal view and Rename) and repeats neither the name nor the owner.
+    assert _text(header) == "Open personal view Rename"
+    assert 'aria-label="Rename Kitchen"' in header
     # The owner is named once, in the Access section, not repeated in the header.
     assert fx.OWNER_EMAIL not in _text(header)
     assert seed.owned_id not in _text(header)
@@ -86,7 +89,7 @@ def test_the_frame_list_is_the_strip_and_the_other_frames_block(fleet):
     assert fx.MAC_PENDING not in page
     retired = rows["Attic"]
     assert "Formerly %s" % fx.OWNER_EMAIL in retired and "/devices/" not in retired
-    other = re.search(r'<section class="group-block fleet-block fleet-block--access '
+    other = re.search(r'<section class="group-block fleet-block fleet-block--state '
                       r'fleet-block--others".*?</section>', page, re.S).group(0)
     assert "Other frames (2)" in other and "dot--hollow" in other
     assert "fleet-other" not in other
@@ -126,24 +129,26 @@ def test_actions_menus_follow_the_frame_state(fleet):
     owned = _header(page)
     prefix = "/devices/%s" % seed.owned_id
     assert "Open frame" not in owned
-    labels = re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', owned)
-    assert labels == ["Open personal view"]
+    assert re.findall(r'class="row-action"[^>]*>([^<]*)<', owned) == [
+        "Open personal view", "Rename"]
     assert 'href="%s/"' % prefix in owned
+    assert 'href="%s/frame/name"' % prefix in owned
     # Health and Device are sections of the page, no menu entries; access, reassign and retire
     # are inline in the Access section (the retire link opens the one confirmation dialog).
     assert "/health" not in owned and '/device"' not in owned
-    assert "dlg-access" not in page and "dlg-reassign" not in page
+    assert "dlg-access" not in page
+    assert 'href="#dlg-reassign-%s" class="row-action"' % _slug(seed.owned_id) in page
     assert 'href="#dlg-retire-%s" class="fleet-retire__link"' % _slug(seed.owned_id) in page
     assert 'action="%s%s%s"' % (
         console_routes.FRAME_ACTION_PREFIX, seed.owned_id,
         console_routes.FRAME_REASSIGN_SUFFIX) in page
-    assert 'aria-label="Actions for Kitchen"' in owned
+    assert 'aria-label="Rename Kitchen"' in owned
     _status, _headers, live_page = fx.get(server, cookie, "/fleet?frame=%s" % seed.live_id)
     live = _header(live_page)
     assert "dlg-retire-%s" % _slug(seed.live_id) not in live_page
     assert "Only the owner changes. Nothing is erased." in live_page
-    assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', live) == [
-        "Open personal view"]
+    assert re.findall(r'class="row-action"[^>]*>([^<]*)<', live) == [
+        "Open personal view", "Rename"]
     assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', rows["New frame"]) == [
         "Pair frame"]
     retired = rows["Attic"]
@@ -176,15 +181,16 @@ def test_dialogs_post_to_the_unchanged_routes_with_csrf(fleet):
     assert "calendar-disconnect-btn" in retire and "Retire frame" in retire
     # A confirm-only dialog focuses its dismiss link, so Enter never confirms.
     assert re.search(r'<a class="modal__dismiss"[^>]* autofocus', retire)
-    # Reassign is a plain form of the Access section, not a dialog.
+    # Reassign is a button beside the owner that opens one confirmation dialog.
     _status, _headers, frame_page = fx.get(server, cookie, "/fleet?frame=" + seed.owned_id)
-    assert _dialog(frame_page, "dlg-reassign-" + _slug(seed.owned_id)) is None
-    form = re.search(
-        r'<form method="post" action="%s"[^>]*>.*?</form>' % re.escape(
-            prefix + seed.owned_id + console_routes.FRAME_REASSIGN_SUFFIX), frame_page, re.S)
-    assert form and 'name="csrf_token"' in form.group(0)
-    assert "%s&#x27;s settings" % fx.OWNER_EMAIL in form.group(0)
-    assert "<select" in form.group(0) and " required" in form.group(0)
+    reassign = _dialog(frame_page, "dlg-reassign-" + _slug(seed.owned_id))
+    assert reassign is not None
+    assert 'action="%s"' % (
+        prefix + seed.owned_id + console_routes.FRAME_REASSIGN_SUFFIX) in reassign
+    assert 'name="csrf_token"' in reassign
+    assert "%s&#x27;s settings" % fx.OWNER_EMAIL in reassign
+    assert "<select" in reassign and " required" in reassign
+    assert "Reassign \u201cKitchen\u201d?" in reassign and "Keep current owner" in reassign
     reactivate = _dialog(page, "dlg-reactivate-" + _slug(seed.retired_id))
     assert "Keep retired" in reactivate and "Re-activate frame" in reactivate
     assert "{owner_email}" not in page
@@ -297,7 +303,7 @@ def test_french_rendering_uses_the_console_terms(fleet):
     for term in ("Flotte", "Ajouter un cadre", "Retiré", "Associer le cadre",
                  "En attente d\u2019association", "Retour \u00e0 la flotte",
                  "Autres cadres (2)", "Garder le cadre", "Laisser retiré",
-                 "Retirer ce cadre", "Actions pour Kitchen",
+                 "Retirer ce cadre", "Renommer Kitchen",
                  "Anciennement", "Nouveau cadre"):
         assert term in page, term
     assert "Pair frame" not in page and "Waiting for pairing" not in page

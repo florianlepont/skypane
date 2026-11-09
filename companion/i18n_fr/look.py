@@ -20,13 +20,14 @@ MESSAGES = {
     "look.arrivals_look": "Allure des arrivées",
     "look.calendar_flights_look": "Allure des vols du calendrier",
     "look.change": "Modifier",
-    "look.customise_look": "Personnaliser le style",
     "look.change_the_look": "Modifier l’allure : %s",
     "look.preview_alt": "Aperçu : %s, %s",
     "look.reset": "Rétablir",
     "look.save": "Enregistrer",
     "look.done": "Terminé",
     "look.close": "Fermer",
+    "look.follows_departures_note": (
+        "Cette allure suit celle des départs. Désactivez pour choisir la vôtre."),
 
     # --- The three choices ---------------------------------------------
     "look.colour": "Couleur principale",
@@ -50,16 +51,20 @@ MESSAGES = {
     "look.style_stripe": "Bande",
     "look.style_soft_stripe": "Bande claire",
     "look.style_stripe_on_soft": "Bande sur fond clair",
+    "look.style_soft_stripe_on_full": "Bande claire sur fond plein",
+    "look.style_stripe_on_full": "Bande sur fond plein",
+    "look.style_soft_stripe_on_soft": "Bande claire sur fond clair",
     "look.plain_paper": "Papier uni",
     "look.not_available": "%s : indisponible",
     "look.colour_and_style": "%s : couleur et style",
+    "look.colour_and_style_stripes": "%s : couleur et style, bandes sur un fond",
     "look.why_some_cells_are_empty": "Pourquoi certaines cases sont vides",
-    "look.a_stripe_would_vanish_on_a_full_background":
-        "Une bande disparaîtrait sur un fond plein.",
-    "look.a_soft_stripe_would_vanish_on_a_soft_background":
-        "Une bande claire disparaîtrait sur un fond clair.",
-    "look.text_on_a_stripe_is_white_unreadable_on_yellow":
-        "Le texte sur une bande est blanc, et le blanc sur du jaune est illisible.",
+    "look.same_rendering_without_solid_stripe_on_full":
+        "Sur un fond plein, une bande pleine est invisible\u00a0: même rendu que sans bande.",
+    "look.same_rendering_without_stripe_on_soft":
+        "Une bande claire sur un fond clair est invisible\u00a0: même rendu que sans bande.",
+    "look.colour_changes_nothing_on_plain_paper":
+        "Sur papier blanc uni, la couleur ne change rien\u00a0: choisissez d’abord un fond ou une bande.",
     "look.the_frame_has_no_theme_for_this_combination":
         "Le cadre n’a pas encore de thème pour cette combinaison.",
 

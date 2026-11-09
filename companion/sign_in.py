@@ -19,7 +19,7 @@ from urllib.parse import parse_qs, urlsplit
 from companion import (
     access, auth, battery, co_managers, console_pairing, device_scope, flash, i18n,
     layout, login_page, oidc, prefs)
-from companion.pages import account_page, co_managers_card
+from companion.pages import account_page, co_managers_card, frame_name_page
 from server import fleet_db, fleet_sessions, hardware, state_store
 
 # Shown as the Email value when the principal carries no address.
@@ -61,7 +61,7 @@ _ACCOUNT_FLASH_KEYS = (
     co_managers_card.FLASH_LEFT, co_managers_card.FLASH_ADD_REFUSED,
     co_managers_card.FLASH_FAILED, co_managers_card.FLASH_LEAVE_NOOP,
     co_managers_card.FLASH_FRAME_REMOVED, co_managers_card.FLASH_FRAME_REMOVE_REFUSED,
-    co_managers_card.FLASH_FRAME_REMOVE_LIVE)
+    co_managers_card.FLASH_FRAME_REMOVE_LIVE, frame_name_page.FLASH_FRAME_RENAMED)
 
 
 def _log(message):

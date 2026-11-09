@@ -301,7 +301,7 @@ def test_a_classic_frame_keeps_the_eighteen_theme_picker(rig):
 
 def test_the_special_looks_and_calendar_pickers_still_offer_every_theme(rig):
     device_config.save_device_config(rig.owner_dir(), layout="b")
-    root = rig.page("/display/calendar")
+    root = rig.page("/display/calendar-look")
     radios = [r for r in root.select('input[name="calendar_theme_id"]') if r.attrs.get("value")]
     assert sorted(r.attrs["value"] for r in radios) == sorted(device_config.THEME_IDS)
 

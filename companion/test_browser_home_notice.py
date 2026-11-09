@@ -229,3 +229,22 @@ def test_the_next_refresh_after_a_check_in_removes_the_notification(
         assert page.evaluate("() => window.__loaded === true"), "the page reloaded"
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_banner_starts_clear_of_the_frame_button_on_desktop(
+        new_context, make_app_server, lang):
+    """The attention banner never touches the frame button that sits level with the greeting."""
+    seed = _seed_for("not_seen")
+    server = make_app_server(seed=seed)
+    context, page = _open(
+        new_context, server, "owner", "/devices/%s/" % seed.fleet.a1, lang, VIEWPORTS[1][1])
+    try:
+        page.wait_for_function("() => " + _ANIMATIONS_DONE, timeout=10000)
+        assert page.evaluate("() => window.scrollY") == 0
+        button = _geometry(page, ".frame-menu")
+        banner = _geometry(page, ".home-facts")
+        assert button["height"] > 0 and banner["height"] > 0, (button, banner)
+        assert banner["top"] >= button["bottom"] + 8, (button, banner)
+    finally:
+        context.close()

@@ -658,15 +658,16 @@ def _dialog_enabled(submitted, current_enabled):
 def _dialog_time_field_html(label, name, control_id, value, errors):
     """One time tile: a small caps label over a large 44px+ time input, the
     whole tile being the label so a tap anywhere focuses the input, with
-    its error paragraph below."""
+    its error paragraph below. A browser that shows a 12-hour clock gets the
+    24-hour time written under the field, as on the Personalisation page."""
     return (
         '<div class="quiet-time-field"><label class="quiet-tile" for="%s">'
         '<span class="quiet-tile__label">%s</span>'
-        '<input type="time" id="%s" name="%s" value="%s" step="%d" required lang="%s"%s></label>%s</div>'
+        '<input type="time" id="%s" name="%s" value="%s" step="%d" required lang="%s"%s>%s</label>%s</div>'
     ) % (
         control_id, escape_html(i18n.t(label)), control_id, name, escape_html(value),
         QUIET_DIALOG_TIME_STEP_S, escape_html(prefs.current_lang()),
-        _field_error_attrs(errors, name, control_id),
+        _field_error_attrs(errors, name, control_id), _normalised_time_html(value),
         _field_error_html(errors, name, control_id))
 
 

@@ -11,6 +11,10 @@ Regenerate the manifest only when a change is proven renderer-neutral by
 re-rendering at the pre-change commit:
 
     server/.venv/bin/python3 -c "import server.test_golden_render as g; g.print_manifest()" > manifest.json
+
+A new case (for example a theme added to the registry) is added by hashing
+only that case and inserting its entry; existing entries are never rewritten,
+so the unchanged ones keep proving the live frame did not move.
 """
 import contextlib
 import hashlib

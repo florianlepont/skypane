@@ -31,12 +31,17 @@ def _page(server, route, lang=None):
     return parse_html(body.decode("utf-8"))
 
 
+def _route_of(url):
+    """The route part of a versioned asset URL (the `?v=` token dropped)."""
+    return url.split("?", 1)[0] if url else url
+
+
 def _script_srcs(doc):
-    return [node.attrs.get("src") for node in doc.select("script[src]")]
+    return [_route_of(node.attrs.get("src")) for node in doc.select("script[src]")]
 
 
 def test_the_detection_page_links_the_library_stylesheet_after_the_shared_one(server):
-    hrefs = [n.attrs.get("href") for n in _page(server, "/detection").select(
+    hrefs = [_route_of(n.attrs.get("href")) for n in _page(server, "/detection").select(
         'link[rel="stylesheet"]')]
     assert hrefs == ["/static/style.css", LEAFLET_CSS]
 
@@ -47,7 +52,7 @@ def test_the_library_loads_before_the_glue_and_both_are_deferred(server):
     assert LEAFLET_JS in srcs and PLACE_MAP_JS in srcs
     assert srcs.index(LEAFLET_JS) < srcs.index(PLACE_MAP_JS)
     for node in doc.select("script[src]"):
-        if node.attrs.get("src") in (LEAFLET_JS, PLACE_MAP_JS):
+        if _route_of(node.attrs.get("src")) in (LEAFLET_JS, PLACE_MAP_JS):
             assert "defer" in node.attrs
 
 
@@ -56,7 +61,7 @@ def test_no_other_page_links_the_map_files(server, route):
     doc = _page(server, route)
     assert LEAFLET_JS not in _script_srcs(doc)
     assert PLACE_MAP_JS not in _script_srcs(doc)
-    hrefs = [n.attrs.get("href") for n in doc.select('link[rel="stylesheet"]')]
+    hrefs = [_route_of(n.attrs.get("href")) for n in doc.select('link[rel="stylesheet"]')]
     assert hrefs == ["/static/style.css"]
 
 

@@ -1092,6 +1092,17 @@ def get_device(conn: sqlite3.Connection, device_id: str) -> sqlite3.Row | None:
     return row
 
 
+def rename_device(conn: sqlite3.Connection, device_id: str, name: str) -> str | None:
+    """Store `name` as the frame's display name and return the previous one
+    (an empty string when it had none); None for an unknown frame. The
+    caller validates the name and holds the transaction."""
+    row = get_device(conn, device_id)
+    if row is None:
+        return None
+    conn.execute("UPDATE devices SET name = ? WHERE id = ?", (name, device_id))
+    return str(row["name"] or "")
+
+
 def get_device_owner(conn: sqlite3.Connection, device_id: str) -> int | None:
     """The owner user id of a device, or None for an unknown id.
 
@@ -1310,6 +1321,7 @@ def dump_logical(conn: sqlite3.Connection) -> list[str]:
 
 _AUDIT_DETAIL_MAX = 1000
 
+ACTION_RENAME = "device.rename"
 ACTION_CO_MANAGER_ADD = "device.co_manager_add"
 ACTION_CO_MANAGER_REMOVE = "device.co_manager_remove"
 

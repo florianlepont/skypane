@@ -35,6 +35,8 @@ from companion.ui_base import (
     NAV_DROPDOWN_SCRIPT_SRC,
     PANEL_LOOKUP_SCRIPT_SRC,
     QUICK_TOAST_TEMPLATE_ATTR,
+    SESSION_EXPIRED_TEMPLATE_ATTR,
+    SESSION_EXPIRED_TEXT,
     QUICK_SWITCH_FAILED_TEXT,
     QUICK_SWITCH_SCRIPT_SRC,
     QUICK_TOAST_ATTR,
@@ -48,6 +50,8 @@ from companion.ui_base import (
     CALENDAR_CONNECT_SCRIPT_SRC,
     MODAL_SCRIPT_SRC,
     MOTION_SCRIPT_SRC,
+    PREFETCH_SCRIPT_SRC,
+    SESSION_GUARD_SCRIPT_SRC,
     SPLASH_BOOT_SCRIPT_SRC,
     SPLASH_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
@@ -146,7 +150,7 @@ def login_shell(body, ui_theme="auto", lang=None):
 # page_shell()'s `scripts` argument only ever widens or narrows which of
 # these are present; it never reorders them.
 SHELL_SCRIPT_ORDER = (
-    SPLASH_SCRIPT_SRC,
+    SESSION_GUARD_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     DIRTY_STATE_SCRIPT_SRC,
     LIST_FILTER_SCRIPT_SRC,
@@ -167,6 +171,7 @@ SHELL_SCRIPT_ORDER = (
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
     PLACE_CARD_SCRIPT_SRC,
+    PREFETCH_SCRIPT_SRC,
 )
 
 # Present on every authenticated page_shell() document regardless of its
@@ -175,7 +180,8 @@ SHELL_SCRIPT_ORDER = (
 # form's submit guard, the nav status line's relative time, and the
 # modal/menu dismissal script (any page can hold a dialog or a menu).
 GLOBAL_PAGE_SCRIPTS = (
-    SPLASH_SCRIPT_SRC,
+    SESSION_GUARD_SCRIPT_SRC,
+    PREFETCH_SCRIPT_SRC,
     NAV_DROPDOWN_SCRIPT_SRC,
     FLASH_CLEANUP_SCRIPT_SRC,
     TOAST_SCRIPT_SRC,
@@ -272,6 +278,12 @@ def _quick_toast_html():
         title, detail, tone=TOAST_TONE_ERROR, role="", dismiss_href=True)
 
 
+def _session_expired_toast_html():
+    """The toast shown just before a lapsed session is sent to sign-in."""
+    title, detail = split_toast_message(i18n.t(SESSION_EXPIRED_TEXT))
+    return toast_html(title, detail, tone=TOAST_TONE_ERROR, role="")
+
+
 # The authenticated document's own named template. Invariants preserved
 # from the pre-template version: the tab bar ({tab_bar}) sits outside
 # .dashboard-shell, a sibling rather than a descendant of the scrolled
@@ -301,7 +313,7 @@ PAGE_SHELL_TEMPLATE = (
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
     "{tab_bar_expect}"
-    '<script src="{splash_boot_src}"></script>\n'
+    '<script src="{splash_boot_src}" data-splash-src="{splash_src}"></script>\n'
     "{favicon_link}\n"
     "</head>\n"
     "<body{body_attrs}>\n"
@@ -325,6 +337,7 @@ PAGE_SHELL_TEMPLATE = (
     "{tab_bar}\n"
     '<div class="toast-region toast-region--live" {quick_toast_attr} role="alert"></div>\n'
     "<template {quick_toast_template_attr}>{quick_toast}</template>\n"
+    "<template {session_expired_template_attr}>{session_expired_toast}</template>\n"
     "{script_tags}"
     "</body>\n"
     "</html>\n"
@@ -544,6 +557,7 @@ def page_shell(
         "icon_defs": ICON_DEFS_HTML,
         "splash": ui_splash.splash_html(),
         "splash_boot_src": SPLASH_BOOT_SCRIPT_SRC,
+        "splash_src": SPLASH_SCRIPT_SRC,
         "sidebar": sidebar_html,
         "sidebar_footer": sidebar_footer_html,
         "sidebar_switch": space_switch_html(active),
@@ -560,5 +574,7 @@ def page_shell(
         "quick_toast_attr": QUICK_TOAST_ATTR,
         "quick_toast_template_attr": QUICK_TOAST_TEMPLATE_ATTR,
         "quick_toast": _quick_toast_html(),
+        "session_expired_template_attr": SESSION_EXPIRED_TEMPLATE_ATTR,
+        "session_expired_toast": _session_expired_toast_html(),
         "script_tags": script_tags_html,
     })

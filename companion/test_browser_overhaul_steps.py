@@ -29,7 +29,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
-    "U4a": 3, "U4b": 3, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
+    "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
     "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
@@ -269,10 +269,13 @@ def test_a4_reassign_a_frame(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
         _access_tab(steps, page, "Kitchen")
-        form = page.locator("form[action$='/reassign']")
-        steps.choose(form.locator("select"), fx.ADMIN_EMAIL + " (admin)", "new owner")
-        steps.tap(form.locator("button[type=submit]"), "Reassign")
-        page.wait_for_url("**/fleet")
+        dialog = page.locator("dialog[id^='dlg-reassign-']")
+        steps.tap(page.locator(".fleet-block--access a.row-action", has_text="Reassign"), "Reassign")
+        page.wait_for_function(
+            "d => d.open", arg=dialog.element_handle(), timeout=10000)
+        steps.choose(dialog.locator("select"), fx.ADMIN_EMAIL + " (admin)", "new owner")
+        steps.tap(dialog.locator("button[type=submit]"), "Confirm reassign")
+        page.wait_for_url("**/fleet?frame=*&tab=access")
         assert world.device(world.seed.owned_id)["owner_user_id"] == world.seed.admin_id
         _report("A4-reassign", steps, 6)
     finally:
@@ -284,12 +287,14 @@ def test_a5_add_a_co_manager(world, new_context):
     try:
         slug = world.seed.owned_id.lower().replace("_", "-")
         _access_tab(steps, page, "Kitchen")
+        steps.tap(page.locator(".fleet-block--access li.access-add a.row__main"), "Add co-manager")
+        dialog = page.locator("#dlg-add-co-manager-%s" % slug)
+        page.wait_for_function(
+            "d => d.open", arg=dialog.element_handle(), timeout=10000)
         steps.choose(
-            page.locator("#access-inline-%s-person" % slug), fx.USER_EMAIL, "person")
-        steps.tap(page.locator(
-            '.fleet-block--access form[action$="/co-managers/add"] button'),
-            "Add co-manager")
-        page.wait_for_url("**/fleet?frame=*")
+            dialog.locator("#co-manager-dialog-%s-person" % slug), fx.USER_EMAIL, "person")
+        steps.tap(dialog.locator('form[action$="/co-managers/add"] button[type="submit"]'), "Add")
+        page.wait_for_url("**/fleet?frame=*&tab=access")
         conn = fleet_db.connect(world.state_dir)
         try:
             members = [r["email"] for r in conn.execute(
@@ -420,7 +425,8 @@ def test_u4a_change_the_quiet_hours_start(world, new_context):
 
 
 def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
-    """Personalisation tab, tap a colour in the picker, Save."""
+    """Personalisation tab, tap a background (the colour row is greyed on plain white paper),
+    tap a colour in the picker, Save."""
     context, page, steps = _owner(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
@@ -428,10 +434,13 @@ def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
         steps.tap(page.locator(
+            '[data-look-sheet][data-look-inline] .look-seg__option:has('
+            'input[data-look-axis="background"][value="full"])'), "a background")
+        steps.tap(page.locator(
             "[data-look-sheet][data-look-inline] .look-dot:has(input:not(:checked))").first, "a look")
         page.locator("[data-static-save-fallback]").wait_for(state="visible")
         _save_and_reload(steps, page)
-        _report_measured("U4b", steps, 3)
+        _report_measured("U4b", steps, 4)
     finally:
         context.close()
 
@@ -618,7 +627,7 @@ def test_a7_a_frames_health_is_its_fleet_view(world, new_context):
         _select_frame(steps, page, "Kitchen")
         state = page.locator("section.fleet-block", has=page.locator("h2.section-label", has_text="State"))
         state.wait_for(state="visible")
-        assert page.locator(".fleet-detail-head h2").inner_text().strip() == "Kitchen"
+        assert "Kitchen" in page.locator("summary.frame-menu__button").inner_text()
         _report_measured("A7", steps, 2)
     finally:
         context.close()

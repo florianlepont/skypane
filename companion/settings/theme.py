@@ -59,6 +59,9 @@ LOOK_RESET_LABEL = i18n.msg("look.reset", "Reset")
 LOOK_DONE_LABEL = i18n.msg("look.done", "Done")
 LOOK_CLOSE_LABEL = i18n.msg("look.close", "Close")
 LOOK_SAVE_LABEL = i18n.msg("look.save", "Save")
+LOOK_FOLLOWS_NOTE = i18n.msg(
+    "look.follows_departures_note",
+    "This look follows the departures look. Switch it off to choose its own.")
 
 # The "Same as departures" option Arrivals and Calendar flights carry,
 # submitting the empty string: the clear signal handle_post() maps to
@@ -145,10 +148,12 @@ def _value_and_picture(effective_value, departures_id, allow_same):
     return False, departures_id if allow_same else device_config.DEFAULT_THEME_ID
 
 
-def look_frame_html(usage, effective_value, departures_id, errors, state):
+def look_frame_html(usage, effective_value, departures_id, errors, state, carries_departures=False):
     """One large framed picture with its caption and "Change" control.
     The picture is the live full-frame preview of the saved (or, after a
-    rejected save, submitted) look.
+    rejected save, submitted) look. `carries_departures` is for a page with no
+    departures look of its own: the target carries the departures theme the
+    "Same as departures" choice follows.
     """
     field_name = LOOK_FIELDS[usage]
     allow_same = usage != COLOUR_USAGE_DEPARTURES
@@ -173,21 +178,17 @@ def look_frame_html(usage, effective_value, departures_id, errors, state):
         '<button type="button" class="look-frame__open" data-look-open hidden '
         'aria-haspopup="dialog" aria-label="%s"></button>'
         "</div></div>"
-        '<div class="look-frame__meta">'
-        '<p class="look-frame__caption"><span class="look-frame__name">%s</span>'
-        '<span class="look-frame__sentence" data-look-sentence>%s</span></p>'
-        "%s"
-        "</div>%s"
+        '<div class="look-frame__meta">%s</div>%s'
         "</div>"
     ) % (
         look_target_attrs(
             usage, field_name, state, theme_preview.FRAME_PREVIEW_SIZE_LARGE, allow_same,
-            title=i18n.t(LOOK_SHEET_TITLES[usage])),
+            title=i18n.t(LOOK_SHEET_TITLES[usage]),
+            departures_id=departures_id if carries_departures else None),
         escape_html(preview(picture_id)), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),
         escape_html(i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
-        escape_html(usage_label), escape_html(sentence),
         look_edit_html(usage, table_html),
         _field_error_html(errors, field_name, field_name.replace("_", "-")),
     )
@@ -225,6 +226,7 @@ def look_sheet_html(inline=False):
         '<button type="button" class="switch" role="switch" aria-checked="false" '
         'aria-labelledby="look-same-label" data-look-same>'
         '<span class="switch__track"><span class="switch__thumb"></span></span></button></div>'
+        '<p class="look-sheet__same-note text-label" data-look-same-note hidden>%s</p>'
         "%s%s"
         "</div>"
     ) % (
@@ -233,6 +235,7 @@ def look_sheet_html(inline=False):
         LOOK_SHEET_TITLE_ID,
         escape_html(i18n.t(LOOK_CLOSE_LABEL)), layout.icon_html("icon-close"),
         escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)),
+        escape_html(i18n.t(LOOK_FOLLOWS_NOTE)),
         look.axes_html("look"), foot,
     )
 
@@ -271,7 +274,6 @@ def look_card_html(
 
 
 
-LOOK_CUSTOMISE_LABEL = i18n.msg("look.customise_look", "Customise look")
 LOOK_GROUP_LABEL = i18n.msg("look.look", "Look")
 
 
@@ -322,8 +324,8 @@ def look_radio_cards_html(effective_id, saved_id, usage_label):
 
 def look_pick_html(current_theme_id, submitted, errors):
     """The Look card's main block: the large live picture of the departures
-    look, its read-back with the "Customise look" opener, and the radio cards
-    that choose it. Everything sits in one look target, so the look sheet and
+    look and the radio cards that choose it (the inline picker replaces them
+    when a script runs). Everything sits in one look target, so the look sheet and
     the live picture follow a card exactly as they follow the sheet."""
     departures_id = departures_safe_theme_id(current_theme_id, submitted)
     effective_id = _submitted_or_current(submitted, "theme", current_theme_id)
@@ -342,12 +344,7 @@ def look_pick_html(current_theme_id, submitted, errors):
         '<button type="button" class="look-frame__open" data-look-open hidden '
         'aria-haspopup="dialog" aria-label="%s"></button>'
         "</div></div>"
-        '<div class="look-frame__meta">'
-        '<p class="look-frame__caption"><span class="look-frame__name">%s</span>'
-        '<span class="look-frame__sentence" data-look-sentence>%s</span></p>'
-        '<button type="button" class="look-edit__summary look-pick__customise" '
-        'data-look-open hidden aria-haspopup="dialog">%s<span>%s</span></button>'
-        "</div>%s%s"
+        "%s%s"
         "</div>"
     ) % (
         look_target_attrs(
@@ -356,9 +353,7 @@ def look_pick_html(current_theme_id, submitted, errors):
         escape_html(theme_preview.frame_preview_src(departures_id, state, size)), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),
-        escape_html(i18n.t(LOOK_CUSTOMISE_LABEL)),
-        escape_html(usage_label), escape_html(sentence),
-        layout.icon_html("icon-pencil"), escape_html(i18n.t(LOOK_CUSTOMISE_LABEL)),
+        escape_html(i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
         look_radio_cards_html(
             effective_id if effective_id in device_config.THEMES else None,
             current_theme_id, usage_label),

@@ -324,7 +324,7 @@ def test_the_charts_area_mark_and_threshold_paint_real_tokens_in_both_themes(pag
 def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(new_context, server):
     """At the 360px floor the battery chart's additions cost nothing they must not: the
     page body does not scroll sideways in either language, the threshold's legend overlaps
-    none of the four axis labels and stays inside its card at the 10px micro-label tier,
+    none of the four axis labels and stays inside its card at the 12px label size,
     its swatch measures a real 12x1 box (which an inline <span> could not), the canvas keeps
     its share of the grid rather than being squeezed by a legend that claimed the Y-label
     column, the mark's edge-hung ink stays inside the card, and the area, mark, threshold
@@ -416,9 +416,9 @@ def test_the_chart_costs_no_width_at_360_in_either_language_and_needs_no_script(
                     "12x1 it declares — an inline <span> ignores width/height, so this "
                     "is what proves the legend's flex context is doing something"
                     % (lang, swatch["w"], swatch["h"]))
-            if boxes["font"] != "10px":
+            if boxes["font"] != "12px":
                 raise AssertionError(
-                    "in %s the legend renders at %s, not the 10px micro-label tier its "
+                    "in %s the legend renders at %s, not the 12px label size its "
                     "neighbours use" % (lang, boxes["font"]))
             if legend["r"] > boxes["card"]["r"] or legend["l"] < boxes["card"]["l"]:
                 raise AssertionError(

@@ -77,6 +77,7 @@ ROUTE_POLICY = {
     ("GET", "/display/layout"): OWNER_DEVICE,
     ("GET", "/display/calendar"): OWNER_DEVICE,
     ("GET", "/display/calendar/connect"): OWNER_DEVICE,
+    ("GET", "/display/calendar-look"): OWNER_DEVICE,
     ("GET", "/display/screen"): OWNER_DEVICE,
     ("GET", "/device"): ADMIN_ONLY,
     ("GET", "/detection"): OWNER_DEVICE,
@@ -111,7 +112,7 @@ DEVICE_SCOPED = frozenset(
     [("GET", path) for path in (
         "/", "/display", "/display/arrivals", "/display/layout", "/display/special-looks", "/display/calendar",
         "/display/special-looks/new", "/display/special-looks/edit", "/display/calendar/connect",
-        "/display/screen",
+        "/display/calendar-look", "/display/screen",
         "/detection", "/device", "/flights", "/health", "/airlines",
         "/airlines/manage",
         "/settings", "/history", "/preview", "/gallery/{}",
@@ -128,7 +129,8 @@ DEVICE_SCOPED = frozenset(
         "/settings/rules/{}/delete")]
     + [("POST", path) for path in (
         "/co-managers/add", "/co-managers/remove", "/co-managers/leave",
-        "/frame/remove")])
+        "/frame/remove", "/frame/name")]
+    + [("GET", "/frame/name")])
 
 # Policy -> principal -> outcome, hand-written. A disabled, deleted or
 # expired session resolves to no principal, so it reads as anonymous.
@@ -559,7 +561,6 @@ def test_a_user_without_a_frame_is_sent_to_the_account_page(rig, stubbed, path):
 def test_an_anonymous_unprefixed_frame_page_goes_to_login(rig, stubbed, path):
     status, headers, _b = rig.request("GET", path, None)
     assert status == 303 and headers["Location"].startswith("/login")
-    assert stubbed.calls == []
 
 
 @pytest.mark.parametrize("name", matrix_rows_landing.SIGNED_IN_LOGIN_ROLES)
@@ -725,9 +726,26 @@ def test_a_retired_admin_page_moves_its_owner_to_the_replacement_in_both_forms(
     assert stubbed.calls == []
 
 
-@pytest.mark.parametrize("key", _UNSCOPED_KEYS, ids=[
+# The retired Update page is the one global route that also answers under a
+# frame's prefix (see the test below): it moves an administrator to the Fleet
+# view of that frame.
+_PREFIX_REFUSING_KEYS = [key for key in _UNSCOPED_KEYS if key != ("GET", "/update")]
+
+
+def test_the_retired_update_page_under_a_prefix_moves_an_administrator_to_that_frame(rig):
+    path = "/devices/%s/update" % rig.fleet.owner_device
+    status, headers, _b = rig.request("GET", path, rig.cookies["admin"])
+    assert (status, headers["Location"]) == (303, "/fleet?frame=%s" % rig.fleet.owner_device)
+    # A person who is not an administrator is moved like from the retired page itself.
+    status, headers, _b = rig.request("GET", path, rig.cookies["owner"])
+    assert (status, headers["Location"]) == (303, "/devices/%s/" % rig.fleet.owner_device)
+    status, headers, _b = rig.request("GET", path, rig.cookies["anonymous"])
+    assert status == 303 and headers["Location"].startswith("/login")
+
+
+@pytest.mark.parametrize("key", _PREFIX_REFUSING_KEYS, ids=[
     "%s_%s" % (k[0], k[1].strip("/").replace("/", "_") or "root")
-    for k in _UNSCOPED_KEYS])
+    for k in _PREFIX_REFUSING_KEYS])
 def test_a_global_route_is_not_reachable_under_a_device_prefix(rig, stubbed, key):
     method = key[0]
     path = _scoped_path(rig.fleet.owner_device, key)

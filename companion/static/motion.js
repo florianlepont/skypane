@@ -411,8 +411,27 @@
         glyph.style.transform = "rotate(" + (offset >= PULL_THRESHOLD ? 180
           : Math.round(Math.min(180, offset * 3.2))) + "deg)";
       }
-      if (!busy) {
-        label.textContent = offset >= PULL_THRESHOLD ? release : hint;
+      var text = offset >= PULL_THRESHOLD ? release : hint;
+      if (!busy && label.textContent !== text) {
+        label.textContent = text;
+      }
+    }
+
+    // pointermove can fire faster than frames: the latest offset is painted
+    // once per frame, and a release paints from the same state.
+    var frame = 0;
+    function schedulePaint() {
+      if (!frame) {
+        frame = window.requestAnimationFrame(function () {
+          frame = 0;
+          paint(pull);
+        });
+      }
+    }
+    function cancelPaint() {
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
       }
     }
 
@@ -547,7 +566,7 @@
         document.body.classList.add("is-pulling");
       }
       pull = Math.max(0, Math.min(dy * 0.5, PULL_MAX));
-      paint(pull);
+      schedulePaint();
       if (evt.cancelable) {
         evt.preventDefault();
       }
@@ -559,6 +578,7 @@
       }
       var wasPulling = pulling;
       var reached = pull >= PULL_THRESHOLD;
+      cancelPaint();
       startY = null;
       pulling = false;
       pull = 0;
@@ -700,4 +720,37 @@
   }
 
   initCardUnlock();
+
+  // ---- Ambient rest ----------------------------------------------------------
+  // Home's slow ambient loops (the status dot, the glow and glint on the
+  // picture) keep the compositor drawing every frame. They run for a minute
+  // after the page is shown or touched, then `data-ambient="rest"` on <html>
+  // switches them off in the stylesheet; any touch, key press or return to the
+  // tab starts them again for another minute.
+  var AMBIENT_MS = 60000;
+  var ambientTimer = 0;
+
+  function ambientRest() {
+    document.documentElement.setAttribute("data-ambient", "rest");
+  }
+
+  function ambientWake() {
+    document.documentElement.removeAttribute("data-ambient");
+    window.clearTimeout(ambientTimer);
+    ambientTimer = window.setTimeout(ambientRest, AMBIENT_MS);
+  }
+
+  if (document.querySelector(".home-state__dot--pulse, .hero__picture")) {
+    ["pointerdown", "keydown"].forEach(function (name) {
+      document.addEventListener(name, ambientWake, {passive: true});
+    });
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible") {
+        ambientWake();
+      } else {
+        ambientRest();
+      }
+    });
+    ambientWake();
+  }
 })();

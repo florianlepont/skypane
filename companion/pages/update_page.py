@@ -44,7 +44,13 @@ TYPE_CHOOSER_LABEL_TEXT = i18n.msg("update.hardware_type", "Hardware type")
 CONFIRM_TYPE_TEMPLATE = i18n.msg("update.for_hardware_type_s", "For %s")
 
 HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
-ALL_VERSIONS_TEXT = i18n.msg("update.all_versions", "All versions (%d)")
+COL_VERSION_TEXT = i18n.msg("update.col_version", "Version")
+COL_RELEASED_TEXT = i18n.msg("update.col_released", "Released")
+COL_STATE_TEXT = i18n.msg("update.col_state", "State")
+STATE_NEWER_TEXT = i18n.msg("update.state_newer", "Newer")
+STATE_OLDER_TEXT = i18n.msg("update.state_older", "Earlier")
+COL_ACTION_TEXT = i18n.msg("update.col_action", "Action")
+NOTES_TEXT = i18n.msg("update.notes_n", "Notes (%d)")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
     "update.no_version_reported_yet", "No version reported yet")
 
@@ -80,7 +86,11 @@ RELEASED_ON_TEMPLATE = i18n.msg("update.released_on_s", "Released %s")
 # "%s" is a past OTA install time of a release the frame no longer runs.
 LAST_INSTALLED_TEMPLATE = i18n.msg("update.last_installed_s", "Last installed %s")
 
-UNKNOWN_TIME_TEXT = i18n.msg("update.unknown_time", "an unknown time")
+# The same sentences without a clock time, for a frame whose next wake cannot
+# be named (overdue, or never seen): no made-up or past time is shown.
+SCHEDULED_SENTENCE_NO_TIME = i18n.msg(
+    "update.scheduled_installs_at_the_next_wake",
+    "Scheduled — installs at the next wake.")
 SCHEDULED_SENTENCE_TEMPLATE = i18n.msg(
     "update.scheduled_installs_at_the_next_wake_around_s",
     "Scheduled — installs at the next wake, around %s.")
@@ -105,6 +115,7 @@ INSTALL_BUTTON_TEXT = i18n.msg("update.install", "Install")
 # older release, which is a rollback; "%s" is the release version.
 INSTALL_VERSION_BUTTON_TEMPLATE = i18n.msg("update.install_version_s", "Install %s")
 ROLLBACK_BUTTON_TEMPLATE = i18n.msg("update.roll_back_to_s", "Roll back to %s")
+ROLLBACK_SHORT_TEXT = i18n.msg("update.roll_back", "Roll back")
 NOT_INSTALLABLE_TEXT = i18n.msg("update.not_installable", "Not installable")
 # publish_release(..., bench=True) admits a non-tag version such as
 # fw-v1.2.0-bench1. It is never listed for installation; the badge
@@ -135,6 +146,11 @@ INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE = i18n.msg(
     "The frame will download and install this version when quiet "
     "hours end, around %s. It will keep the update after one "
     "successful check-in — otherwise it rolls back automatically.")
+INSTALL_CONFIRM_SENTENCE_NO_TIME = i18n.msg(
+    "update.the_frame_will_download_and_install_this_no_time",
+    "The frame will download and install this version at its next "
+    "wake. It will keep the update after one successful check-in — "
+    "otherwise it rolls back automatically.")
 BENCH_CONFIRM_NOTE_TEXT = i18n.msg(
     "update.this_is_a_bench_build", "This is a bench build.")
 
@@ -287,14 +303,17 @@ def _owner_releases(view):
     return [release for release in (view.get("releases") or []) if not release.get("bench")]
 
 
-def _install_form_html(version, label_template=None, quiet=False, type_html=""):
+def _install_form_html(
+        version, label_template=None, quiet=False, type_html="", short_label=None):
     """The Install form for `version`: `data-confirm` misclick guard, the
     hidden `version` field and no `confirm` field (the server
     confirmation page is the real gate).
 
     With no `label_template` the button reads "Install" and carries the
     version in its accessible name; otherwise the label template names
-    the version itself. `quiet` selects the secondary button treatment.
+    the version itself, or `short_label` (a Message without the version) is
+    the visible text while the accessible name still names it. `quiet`
+    selects the secondary button treatment.
     """
     confirm_question = i18n.t(INSTALL_CONFIRM_QUESTION_TEMPLATE) % version
     if label_template is None:
@@ -304,6 +323,9 @@ def _install_form_html(version, label_template=None, quiet=False, type_html=""):
     else:
         label = i18n.t(label_template) % version
         aria_html = ""
+        if short_label is not None:
+            label = i18n.t(short_label)
+            aria_html = ' aria-label="%s"' % escape_html(i18n.t(label_template) % version)
     class_html = ' class="%s"' % _QUIET_BUTTON_CLASS if quiet else ""
     return (
         '<form method="post" action="%s" data-confirm="%s">'
@@ -316,17 +338,20 @@ def _install_form_html(version, label_template=None, quiet=False, type_html=""):
     )
 
 
-def _release_install_form_html(release, with_version_label=False, type_html=""):
+def _release_install_form_html(
+        release, with_version_label=False, type_html="", compact=False):
     """The Install form for `release`, worded and styled by where it sits
     against the running release: a newer one is "Install" on the accent
     primary button; an older one is "Roll back to <version>" on the quiet
-    button; an equal or incomparable one is a quiet "Install".
+    button; an equal or incomparable one is a quiet "Install". `compact`
+    words a rollback "Roll back" (the table row names the version).
     """
     version = release.get("version")
     direction = release.get("direction")
     if direction == _DIRECTION_OLDER:
         return _install_form_html(
-            version, ROLLBACK_BUTTON_TEMPLATE, quiet=True, type_html=type_html)
+            version, ROLLBACK_BUTTON_TEMPLATE, quiet=True, type_html=type_html,
+            short_label=ROLLBACK_SHORT_TEXT if compact else None)
     if direction == _DIRECTION_NEWER:
         return _install_form_html(
             version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None,
@@ -436,7 +461,9 @@ def _cta_for_state(view, releases, now, next_wake_text, wake_held):
     type_html = view.get("type_field_html", "")
     if state == "scheduled" and target:
         template = SCHEDULED_SENTENCE_HELD_TEMPLATE if wake_held else SCHEDULED_SENTENCE_TEMPLATE
-        sentence = i18n.t(template) % (next_wake_text or i18n.t(UNKNOWN_TIME_TEXT))
+        sentence = (
+            i18n.t(template) % next_wake_text if next_wake_text
+            else i18n.t(SCHEDULED_SENTENCE_NO_TIME))
         return (_CTA_TONE_NEUTRAL, "icon-info", CTA_SCHEDULED_TEXT,
                 [_mono_html(target), escape_html(sentence)], _cancel_form_html(view))
     if state == "in_progress" and target:
@@ -496,7 +523,7 @@ def _cta_card_html(ctx, view, releases, next_wake_text, wake_held=False):
 # --- the version list ----------------------------------------------------
 
 
-def _row_action_html(release, view):
+def _row_action_html(release, view, compact=False):
     """What a row's body offers: nothing for the running release, a quiet
     state label for the schedule's target or while any install runs, the
     Install form otherwise, and plain text below the firmware floor."""
@@ -515,7 +542,8 @@ def _row_action_html(release, view):
         return '<span class="text-label">%s</span>' % escape_html(
             i18n.t(STATE_LABELS["scheduled"]))
     if release.get("installable"):
-        return _release_install_form_html(release, type_html=view.get("type_field_html", ""))
+        return _release_install_form_html(
+            release, type_html=view.get("type_field_html", ""), compact=compact)
     return '<span class="text-label">%s</span>' % escape_html(i18n.t(NOT_INSTALLABLE_TEXT))
 
 
@@ -602,16 +630,62 @@ def _versions_card_html(ctx, view, releases, embedded=False):
                 layout.empty_state(
                     i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
                     compact=True))
-    # The running release is already the device card's headline; the full
-    # history stays one disclosure away.
     return (
         '<section class="page-section update-versions" aria-label="%s">'
-        '<details class="update-all"><summary>%s%s</summary>'
-        '<ul class="update-rows">%s</ul></details></section>'
-    ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)),
-         escape_html(i18n.t(ALL_VERSIONS_TEXT) % len(releases)),
-         layout.icon_html("icon-chevron-right", size=16, extra_class="update-all__chevron"),
-         "".join(_row_html(release, view, ctx.now) for release in releases))
+        '<div class="update-versions__head"><h3 class="text-heading">%s'
+        ' <span class="update-versions__count">%d</span></h3></div>'
+        '<table class="update-table"><thead><tr>'
+        '<th scope="col" class="update-table__col">%s</th>'
+        '<th scope="col" class="update-table__col update-table__col--state">%s</th>'
+        '<th scope="col" class="update-table__col update-table__col--when">%s</th>'
+        '<th scope="col" class="update-table__col update-table__col--action">'
+        '<span class="visually-hidden">%s</span></th></tr></thead>'
+        '<tbody>%s</tbody></table></section>'
+    ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), escape_html(i18n.t(HISTORY_HEADING_TEXT)),
+         len(releases), escape_html(i18n.t(COL_VERSION_TEXT)),
+         escape_html(i18n.t(COL_STATE_TEXT)),
+         escape_html(i18n.t(COL_RELEASED_TEXT)), escape_html(i18n.t(COL_ACTION_TEXT)),
+         "".join(_table_row_html(release, view, ctx.now) for release in releases))
+
+
+def _state_cell_html(release):
+    """The row's state as a pill: the running release's badge, "Newer" for a
+    release the frame could install, "Earlier" for one it would roll back to."""
+    if release.get("running"):
+        return '<span class="update-row__badge banner__pill">%s</span>' % escape_html(
+            i18n.t(RUNNING_BADGE_TEXT))
+    direction = release.get("direction")
+    label = {_DIRECTION_NEWER: STATE_NEWER_TEXT, _DIRECTION_OLDER: STATE_OLDER_TEXT}.get(direction)
+    if label is None:
+        return ""
+    return '<span class="update-table__chip update-table__chip--%s">%s</span>' % (
+        direction, escape_html(i18n.t(label)))
+
+
+def _table_row_html(release, view, now):
+    """One release as a table row: the version with any notes behind one
+    disclosure, its state pill, when it was released (the age, the full date
+    under it) and the action that is always in view (Install, Roll back, or a
+    state word)."""
+    notes = [str(note) for note in (release.get("notes") or []) if note]
+    notes_html = (
+        '<details class="update-table__notes"><summary>%s</summary><ul>%s</ul></details>'
+        % (escape_html(i18n.t(NOTES_TEXT) % len(notes)),
+           "".join("<li>%s</li>" % escape_html(note) for note in notes))) if notes else ""
+    released_at = release.get("released_at")
+    date_html = (
+        '<span class="update-table__date">%s</span>' % layout.absolute_time_html(released_at)
+        if released_at else "")
+    return (
+        '<tr class="update-table__row%s"><th scope="row" class="update-table__version">'
+        '%s%s</th><td class="update-table__state">%s</td>'
+        '<td class="update-table__when">%s%s</td>'
+        '<td class="update-table__action">%s</td></tr>'
+    ) % (
+        " update-table__row--running" if release.get("running") else "",
+        _mono_html(release.get("version")), notes_html, _state_cell_html(release),
+        _ago_html(released_at, now), date_html,
+        _row_action_html(release, view, compact=True))
 
 
 def _install_confirm_form_html(version, type_html=""):
@@ -652,12 +726,13 @@ def update_install_confirm_page(
     the Update page of the type.
     """
     ctx = page_context.coerce(ctx)
-    resolved_wake_text = next_wake_text or i18n.t(UNKNOWN_TIME_TEXT)
     heading = i18n.t(INSTALL_CONFIRM_HEADING_TEMPLATE) % version
     template = (
         INSTALL_CONFIRM_SENTENCE_HELD_TEMPLATE if wake_held
         else INSTALL_CONFIRM_SENTENCE_TEMPLATE)
-    sentence = i18n.t(template) % resolved_wake_text
+    sentence = (
+        i18n.t(template) % next_wake_text if next_wake_text
+        else i18n.t(INSTALL_CONFIRM_SENTENCE_NO_TIME))
     bench_note_html = (
         '<p class="text-label">%s</p>' % escape_html(i18n.t(BENCH_CONFIRM_NOTE_TEXT))
     ) if is_bench else ""
@@ -697,7 +772,7 @@ def compute_next_wake_text(ctx):
     `wake.next_wake_at_iso()` call: a wake already overdue
     (`frame_state.STATE_LATE`) or unresolvable
     (`frame_state.STATE_UNKNOWN`) returns "" -- callers fall back to
-    `UNKNOWN_TIME_TEXT` -- instead of quietly formatting a time that has
+    the sentences without a time -- instead of quietly formatting a time that has
     already passed. `wake_held` is `frame_state.STATE_HELD`: the frame is
     deferring into or through quiet hours, so callers can swap in that
     wording instead of "at the next wake".

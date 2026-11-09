@@ -70,11 +70,11 @@ THEME_PREVIEW_CACHE_DIRNAME = "theme_previews"
 THEME_PREVIEW_CACHE_VERSION = 2
 
 # Bound on the cache directory's total file count, oldest evicted first -
-# 18 themes x every layout (90 sample files) plus a handful of
-# concurrently-live_event previews stays well under this; a much larger
+# every theme's sample for every layout plus a couple of concurrently-live_event
+# previews each stays under this, and it grows with the registry; a much larger
 # number would only ever accumulate from a runway with many distinct live
 # events, not from normal Settings-page browsing.
-THEME_PREVIEW_CACHE_MAX_FILES = 256
+THEME_PREVIEW_CACHE_MAX_FILES = 3 * len(device_config.THEMES) * len(screen_layouts.LAYOUT_IDS)
 
 # Cache keys and file names carry a layout segment; `None` (the caller
 # did not choose one) is the classic picture.
@@ -309,9 +309,11 @@ FRAME_PREVIEW_PIXEL_SIZES = {
     for size, factor in FRAME_PREVIEW_REDUCE_FACTORS.items()
 }
 FRAME_PREVIEW_CACHE_DIRNAME = "frame_previews"
-# Every reachable file: 18 themes x 2 states x 2 sizes x 5 layouts (360),
-# with headroom for a registry that grows by a few themes.
-FRAME_PREVIEW_CACHE_MAX_FILES = 480
+# Every reachable file is one of themes x 2 states x 2 sizes x layouts; the bound
+# follows the registry, so adding a theme never evicts live previews.
+FRAME_PREVIEW_CACHE_MAX_FILES = (
+    len(device_config.THEMES) * len(FRAME_PREVIEW_STATES) * len(FRAME_PREVIEW_SIZES)
+    * len(screen_layouts.LAYOUT_IDS))
 FRAME_PREVIEW_CACHE_VERSION = 2
 
 

@@ -839,3 +839,159 @@ full-bleed and loading state (W122, W123, W124).
 Plans (batch 13): 61-85 Home status wording and battery, Quiet hours,
 Flights rows; 61-86 tab bar, More menu, Console switch; 61-87 Fleet desktop
 single column; 61-88 Location full-bleed, loading, in-place airport.
+
+## Round 10 (production review of round 9, desktop; in progress)
+
+- W142 (owner, screenshot) Flights: the page is buggy when the list is empty:
+  header chips read "Tous 0 / Départs 0 / Arrivées 0" while the empty state
+  says "44 vols", the table header is shown under the "Aucun vol
+  correspondant" card, and "44 vols affichés" + "Charger plus" still appear.
+- W143 (owner) "Charger plus" sends him back to the top of the table, which
+  makes no sense (it should keep the position / land on the first new row).
+- W144 (owner, screenshot of Location search) Typing a city ("Arrou"): the
+  hint "Un code ou un nom d'aéroport choisit cet aéroport. Tout le reste est
+  envoyé au service de recherche d'OpenStreetMap (Nominatim)." covers the
+  suggestions; he has to press Enter to see a city name.
+- W145 (owner, screenshot) Personalisation Departures: the caption under the
+  picture ("Départs · Rouge, bande sur fond clair") is useless: remove it.
+- W146 (owner) Generate ALL possible backgrounds in the customisation: for
+  example the light yellow background or the band with light yellow are
+  missing (options with no theme are hidden since 61-76). Every colour x
+  background x band combination should exist as a theme.
+- W147 (owner) The size of the "save the detected changes" popup (floating
+  bar) is never the same: the same component must be used everywhere.
+- W148 (owner, screenshot) Calendar view still broken on desktop: it shows
+  the Departures "Comme les départs" customisation card, clipped at the top,
+  next to an empty panel.
+- W149 (owner, screenshot) Fleet versions table: display bug (the "Toutes
+  les versions (3)" disclosure and its rows overlap / misaligned, the open
+  row's detail not aligned), and the rollback (downgrade) button should be
+  available directly in the view, not inside the toggle.
+- W150 (owner, screenshot of the Fleet Access card) These last two options
+  ("Personne invitée / Ajouter un co-gestionnaire" and "Nouveau propriétaire
+  / Réattribuer") are very ugly (two stacked form rows with a wide select and
+  a heavy button); the reassignment should rather be a button next to the
+  owner (in the owner row). ("rétribution" in his message read as
+  réattribution.)
+- W151 (owner, screenshot) Airline editor, aircraft-type sub-rows (Air France
+  expanded): small display bug: the type rows' cells do not line up with the
+  airline row (the row backgrounds stop short, leaving a pale block at the
+  right; the ⋮ menu column is not aligned with the parent row's; some rows
+  show "Utilise celle de la compagnie" wrapped on two lines while others show
+  the picture).
+- W152 (owner, screenshot) On mobile the Location map is still not full
+  screen. Note: the screenshot's status-bar clock reads 16:54, the same
+  capture as the round 9 one (before plan 61-88, which was deployed on
+  2026-11-07 at 21:37 UTC); a fresh screenshot of the deployed version is
+  needed to tell whether 61-88 changed anything. Grey bands: the status-bar
+  strip at the top and the strip under the tab bar (above Safari's floating
+  toolbar).
+- W153 (owner, fresh iPhone screenshot 12:24, deployed version)
+  Personalisation > Looks spéciaux on phone: the panel is broken: the row's
+  text column is squeezed to about 60 px (the "Compagnie" tag, the name
+  "French Air Force", the call sign and "Jaune, plein" break letter by
+  letter) because the "Modifier" and "Retirer" buttons sit inline beside it
+  (the Modifier link was added in plan 61-79). Stack the actions under the
+  text or move them into a row menu on phone.
+- (owner may have more; not confirmed done.)
+
+## Round 10 grouping (D48)
+
+The owner finished his round 10 feedback (W142-W153) and asked for a detailed
+audit of visual bugs, improvements, performance and end-to-end workflows
+(three read-only agents: audit100, perf101, workflows102). Plan: group his
+items with the audit findings into plan 61-89 (straight fixes) and further
+plans after the audits report; W146 (all theme combinations) needs an
+investigation of how themes are produced before it is planned.
+
+Straight fixes: W142, W143, W144, W145, W147, W148, W149, W150, W151, W152
+(needs a fresh iPhone capture), W153.
+To investigate first: W146.
+
+- W154 (owner) The opening animation is not shown "exactly everywhere as we
+  said": he expects the splash at the opening of the site (each time he opens
+  it), not only on the very first visit or after a stylesheet change (the
+  61-82 rule skipped it whenever the stylesheet came from the cache).
+  Decision: show it once per browser session, at site opening, whatever the
+  cache state; skip on in-session navigation, no JS, reduced motion keeps the
+  static variant.
+- W155 (owner) In general the pages do not seem to be preloaded: navigating
+  between pages should feel instant. To be shaped with the performance audit
+  (what is possible given authenticated, non-cacheable pages and iOS Safari
+  without Speculation Rules: prefetch of tab destinations on touch/hover,
+  warming of static assets and images, view-transition continuity).
+
+## Audit 2 decisions (D49), owner answered
+
+The owner accepted the whole proposed order (audit100 visual/UX 33 findings,
+perf101 performance, workflows102 end-to-end) and the splash stays as is
+(no shortening: it keeps its current ~2 s).
+
+Plans (batch 14): 61-89 one SaveBar component; 61-90 Flights and empty
+states; 61-91 Personalisation (calendar, matrix, caption, looks rows);
+61-92 Fleet and Users; 61-93 Location, accessibility, navigation naming and
+overflow polish; 61-94 performance quick wins; 61-95 splash at every session
+opening, page preloading and session-expiry feedback.
+
+## Coverage check of batch 14 (owner asked: does the plan cover every point?)
+
+Owner W142-W155: all assigned (61-89 W147; 61-90 W142 W143; 61-91 W145 W146
+W148 W153; 61-92 W149 W150 W151; 61-93 W144; 61-95 W154 W155) EXCEPT W152
+(Location phone map full-bleed, still open: moved to a dedicated plan 61-93b).
+W146 (all look combinations) is large enough for its own plan, 61-91a: a
+server-side theme catalogue with all 5 colours x 3 backgrounds x 3 stripe
+states (45, today 18) rendered for the frame, expand-only, live frame
+unchanged; the UI part stays in 61-91.
+
+Audit 2 findings F01-F33: all assigned except F22 (Home banner/greeting
+spacing, now 61-93), F26 (splash dismiss when ready: owner decided to keep
+the current duration) and F33 (/devices/<id>/update 404: now 61-92).
+Workflow findings: all assigned to 61-90..61-95 except the radius field
+showing 999 until Save (now 61-93) and two missing features: rename a frame
+and a Flights sort (owner decision pending).
+Performance: P01-P11 and P16 in 61-94; P12 (backdrop-filter cost) and P14
+(bfcache) need a real phone; P13 (precompressed static in Caddy) is deploy
+config; P15 (CSS split) after P01+P02.
+
+Owner decision on the two missing features: both added. Rename a frame: a
+name field on the frame page for the owner and administrators, saved through
+the common SaveBar (plan 61-92). Sort in Flights: by date, airline or
+direction, like the Airlines collection (plan 61-90). Radius display clamp
+and F22 go to 61-93, F33 to 61-92.
+
+## Decision D50 (look themes, W146), owner answered
+
+Investigation themes91a: 45 combinations, 22 have a theme, 13 readable ones to
+create (all yellow stripes get black text inside the band; 31 themes in
+total), 10 combinations cannot exist (Full background + full stripe, Soft
+background + soft stripe: stripe invisible). Owner chose option A: those 10
+stay visible in the selector but greyed with a reason ("same rendering as
+without stripe"), no extra theme. Plan 61-91a: generate the catalogue with a
+(colour, background, stripe) builder keeping the 18 historical ids frozen,
+add the 13 new ids after them, black text in yellow bands (portrait and
+landscape renderers), cache bounds raised to 4 x number of themes, 13 new
+golden cases without touching the 18 existing hashes, contrast test over the
+catalogue (floor 2.7). Yellow Full/Soft-stripe and Soft/Full-stripe have a
+stripe contrast of 1.12 (nearly invisible): to validate on the real panel.
+Report: scratchpad themes91a/ (planches, report text in the hand-back).
+
+## Round 11 (production review after PR #310, 2026-11-08)
+
+- W156 Flights: the sort select should reuse the Airlines collection filter
+  design (it is a native select styled differently from the chips).
+- W157 Personalisation (look sheet): the segmented tabs (Fond / Bande
+  diagonale) have labels that are not centred inside their pill (swatch and
+  label sit off-centre, uneven cells).
+- W158 Personalisation Calendar: the look popover is still broken/clipped on
+  desktop; the owner wants a dedicated page like the special looks instead of a
+  popover.
+- W159 Location: typing a city or address keeps the airport suggestions until
+  Enter; airports and places must be one grouped search that updates as you type.
+- W160 Location (night mode): the unsaved-changes bar over the map is
+  unreadable (light glass, pale text).
+- W161 Fleet firmware versions table deserves a nicer design.
+- W162 Users: the Active quick switch renders broken (misshapen knob, wrong
+  colours, mixed states across rows) after the in-place switch change.
+- W163 Airlines collection (type rows): "Utilise celle de la compagnie"
+  overlaps the views count and the actions column is misaligned (dark block at
+  the right), after the type row alignment change.

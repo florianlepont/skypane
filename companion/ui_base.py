@@ -33,6 +33,14 @@ VIEWPORT_META = (
     '<meta name="viewport" content="width=device-width, initial-scale=1, '
     'viewport-fit=cover">')
 
+# A page added to the iPhone Home Screen runs without browser bars; the translucent
+# status bar lets the page (the Location map included) paint under it, padded by
+# env(safe-area-inset-top). A normal Safari tab keeps its own status bar.
+WEB_APP_META = (
+    '<meta name="mobile-web-app-capable" content="yes">\n'
+    '<meta name="apple-mobile-web-app-capable" content="yes">\n'
+    '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">')
+
 # The browser-chrome colour per scheme: the top stop of the page background
 # in Light, the ink top stop in Dark (the --sky-top tokens in style.css).
 THEME_COLOR_LIGHT = "#E7EEF7"
@@ -81,6 +89,7 @@ DISPLAY_CALENDAR_ROUTE = DISPLAY_ROUTE + "/calendar"
 DISPLAY_SPECIAL_LOOK_NEW_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/new"
 DISPLAY_SPECIAL_LOOK_EDIT_ROUTE = DISPLAY_SPECIAL_LOOKS_ROUTE + "/edit"
 DISPLAY_CALENDAR_CONNECT_ROUTE = DISPLAY_CALENDAR_ROUTE + "/connect"
+DISPLAY_CALENDAR_LOOK_ROUTE = DISPLAY_ROUTE + "/calendar-look"
 DISPLAY_ARRIVALS_ROUTE = DISPLAY_ROUTE + "/arrivals"
 DISPLAY_LAYOUT_ROUTE = DISPLAY_ROUTE + "/layout"
 # No longer a view: the address still answers, with a redirect to DISPLAY_ROUTE.
@@ -231,10 +240,17 @@ MODAL_SCRIPT_SRC = "/static/modal.js"
 # most have a picture; every page works the same without it.
 MOTION_SCRIPT_SRC = "/static/motion.js"
 
+# Must equal companion/static_files.py's SESSION_GUARD_SCRIPT_ROUTE and
+# PREFETCH_SCRIPT_ROUTE. The first turns a request refused because the
+# session ended into a toast and a redirect to sign-in that keeps the page;
+# the second warms the navigation destinations on idle, touch and hover.
+SESSION_GUARD_SCRIPT_SRC = "/static/session-guard.js"
+PREFETCH_SCRIPT_SRC = "/static/prefetch.js"
+
 # Must equal companion/static_files.py's SPLASH_BOOT_SCRIPT_ROUTE and
 # SPLASH_SCRIPT_ROUTE. The opening splash: a tiny synchronous script in the
 # document head decides, before the first paint, whether the splash shows
-# (once per session, not for cached assets) by putting a class on <html>;
+# (once per browser session) by putting a class on <html>;
 # the deferred script then runs the animation and the real preload. Without
 # scripts the class is never set and the overlay markup stays hidden.
 SPLASH_BOOT_SCRIPT_SRC = "/static/splash-boot.js"
@@ -428,6 +444,12 @@ HEALTH_SOURCE_FAULT_CLASS = "health-source-fault"
 # server-rendered, translated error toast it clones into that region.
 QUICK_TOAST_ATTR = "data-quick-toast"
 QUICK_TOAST_TEMPLATE_ATTR = "data-quick-toast-template"
+# The translated "session ended" toast session-guard.js clones into the same
+# live region before it sends the browser to sign-in.
+SESSION_EXPIRED_TEXT = i18n.msg(
+    "common.session_expired_sign_in_again",
+    "Session expired — sign in again.")
+SESSION_EXPIRED_TEMPLATE_ATTR = "data-session-expired-template"
 # No longer used by frame_strip_html(): the one computed delay
 # sentence below (frame_state.py's DELAY_DUE/DELAY_HELD/DELAY_UNKNOWN)
 # replaces this old static caption. It survives as DELAY_UNKNOWN's own
@@ -1121,5 +1143,5 @@ def escape_html(value):
 
 
 def head_meta_html(ui_theme):
-    """The viewport and theme-color meta tags every page shell carries."""
-    return VIEWPORT_META + "\n" + theme_color_meta(ui_theme)
+    """The viewport, web-app and theme-color meta tags every page shell carries."""
+    return VIEWPORT_META + "\n" + WEB_APP_META + "\n" + theme_color_meta(ui_theme)

@@ -170,7 +170,7 @@ def test_on_a_wide_screen_my_position_offers_the_nearby_airport(new_context, mak
 def test_the_floating_bar_appears_on_a_change_saves_and_cancels(
         new_context, make_app_server, viewport):
     """the bar is hidden until something changes; a changed radius shows it (above the tab bar on
-    a phone, under the card at the foot of its column on a wide screen); Cancel hides it and
+    a phone, at the foot of the main column on a wide screen); Cancel hides it and
     restores the value; Save stores the place and the radius"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(new_context, server, viewport)
@@ -188,8 +188,8 @@ def test_the_floating_bar_appears_on_a_change_saves_and_cancels(
             assert bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)
             assert tab["y"] - (bar["y"] + bar["height"]) <= 24, (bar, tab)
         else:
-            card = page.locator(".place-card").bounding_box()
-            assert abs(bar["x"] - card["x"]) <= 1 and abs(bar["width"] - card["width"]) <= 1
+            sidebar = page.locator(".dashboard-sidebar").bounding_box()
+            assert bar["x"] >= sidebar["x"] + sidebar["width"], (bar, sidebar)
             assert viewport["height"] - (bar["y"] + bar["height"]) <= 32, bar
         for selector in (SAVE, CANCEL):
             box = page.locator(selector).bounding_box()
@@ -282,8 +282,8 @@ def test_the_map_runs_behind_the_opaque_tab_bar_on_a_phone(new_context, make_app
 
 
 def test_without_scripts_save_stays_a_plain_button_in_the_page(new_context, make_app_server):
-    """scripts blocked: the bar is in the page's flow with a normal Save button that posts the
-    form; nothing is hidden"""
+    """scripts blocked: the bar is shown with a normal Save button that posts the form; nothing is
+    hidden"""
     from companion.test_browser_ux_helpers import _no_js_page
 
     server = make_app_server(seed=_seed, fake_providers=True)
@@ -291,7 +291,7 @@ def test_without_scripts_save_stays_a_plain_button_in_the_page(new_context, make
                      viewport=VIEWPORT_DESKTOP) as page:
         assert page.locator(BAR).is_visible()
         assert page.locator(SAVE).is_visible()
-        assert page.locator(BAR).evaluate("e => getComputedStyle(e).position") == "sticky"
+        assert page.locator(BAR).evaluate("e => getComputedStyle(e).position") == "fixed"
         with page.expect_navigation() as info:
             page.click(SAVE)
         assert info.value.status == 200

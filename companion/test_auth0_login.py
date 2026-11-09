@@ -279,7 +279,7 @@ def test_an_admin_lands_on_a_whitelisted_next(auth0_rig):
 @pytest.mark.parametrize("hostile", [
     "//evil.example", "https://evil.example", "/\\evil.example",
     "javascript:alert(1)", "%2F%2Fevil.example", "/health/../x", "/healthx",
-    "/health?x=1", "",
+    "/health?x=1#frag", "/health?x=a;b", "",
 ])
 def test_hostile_next_falls_back_to_the_default_landing(auth0_rig, hostile):
     rig = auth0_rig
@@ -289,6 +289,16 @@ def test_hostile_next_falls_back_to_the_default_landing(auth0_rig, hostile):
         email="admin@example.test")
     assert result.status == 200
     assert _landing_path(result.body) == "/fleet"
+
+
+def test_a_known_page_keeps_its_plain_query_through_sign_in(auth0_rig):
+    rig = auth0_rig
+    rig.invite("admin@example.test", "admin")
+    result = login_via_auth0(
+        rig.server, rig.fake, next_route="/health?x=1", sub="auth0|a",
+        email="admin@example.test")
+    assert result.status == 200
+    assert _landing_path(result.body) == "/health?x=1"
 
 
 def test_a_user_ignores_an_admin_only_next(auth0_rig):

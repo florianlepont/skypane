@@ -32,7 +32,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
-    login_page, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
+    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -336,12 +336,9 @@ _page_freshness_token = freshness._page_freshness_token
 
 def _validated_next_route(candidate):
     """Validate a caller-supplied `next` redirect target against
-    `layout.NAV_TABS`'s known routes. Open-redirect mitigation: an exact
-    membership test, never `startswith`/URL-parsed/regex-matched.
-    Anything not byte-identical to a real route is discarded (`None`).
-    """
-    allowed = {route for route, _ in layout.NAV_TABS}
-    return candidate if candidate in allowed else None
+    `layout.NAV_TABS`'s known routes (see companion/next_route.py)."""
+    return next_route_check.validated_next_route(
+        candidate, {route for route, _ in layout.NAV_TABS})
 
 
 # The flash-text resolution (_resolve_flash_text()) lives in
@@ -457,14 +454,15 @@ class Handler(
         of `set_cookies` becomes its own Set-Cookie header. `policy` is chosen
         by the calling page handler, never derived from the request.
         """
-        body = html_str.encode("utf-8")
+        body = static_files.version_static_urls(html_str).encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         # Every HTML page is either session-gated or a login form — never
         # something a shared cache or the back button should replay
         # after sign-out.
-        self.send_header("Cache-Control", "no-store")
+        for name, value in page_cache.html_cache_headers(self.headers, code, set_cookies):
+            self.send_header(name, value)
         if etag is not None:
             self.send_header("ETag", etag)
         for cookie in set_cookies:
@@ -625,13 +623,13 @@ class Handler(
         # Carries the requested route through login via an allowlisted
         # `next` param, validated by _validated_next_route(); unrecognised
         # values discard silently to the bare LOGIN_ROUTE.
-        requested_path = urlsplit(self.path).path
-        next_route = _validated_next_route(requested_path)
-        if next_route:
+        target = (_validated_next_route(self.path)
+                  or _validated_next_route(urlsplit(self.path).path))
+        if target:
             # safe="" so the value is unambiguously one query token
             # ("/login?next=%2Fhealth", not "/login?next=/health").
             self.redirect(
-                "%s?next=%s" % (LOGIN_ROUTE, quote(next_route, safe="")))
+                "%s?next=%s" % (LOGIN_ROUTE, quote(target, safe="")))
         else:
             self.redirect(LOGIN_ROUTE)
 
@@ -863,7 +861,9 @@ class Handler(
         own STATIC_ROUTES entry and route-table row.
         """
         asset = static_files.STATIC_ROUTES[route]
-        return self._serve_static(asset.path, asset.content_type, asset.cache_control)
+        cache_control = static_files.cache_control_for(
+            route, urlsplit(self.path).query, asset.cache_control)
+        return self._serve_static(asset.path, asset.content_type, cache_control)
 
     def _serve_gallery_image(self, device, requested):
         payload = gallery_bytes(device.state_dir, requested)
@@ -904,11 +904,12 @@ class Handler(
         # lru_cache'd per path+mtime, so a replaced asset is picked up
         # on the very next request, not left stale.
         try:
-            payload = illustration_normalize.cached_normalized_png_bytes(path)
+            payload, content_type, seconds = illustration_normalize.served_illustration(
+                path, urlsplit(self.path).query)
         except Exception:
             # Any decode failure degrades to the same 404, never a 500.
             return self.send_html(404, self._not_found_page())
-        return self.send_bytes(200, "image/png", payload, cache_seconds=300)
+        return self.send_bytes(200, content_type, payload, cache_seconds=seconds)
 
     # _handle_illustration_replace(), _handle_manual_resolve_post(),
     # _handle_manual_resolution_delete(), _handle_rule_add_post(),

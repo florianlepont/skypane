@@ -12,6 +12,7 @@ silently drift on "where does the aircraft end".
 import functools
 import io
 import os
+import urllib.parse
 
 from PIL import Image
 
@@ -91,3 +92,50 @@ def cached_normalized_png_bytes(path):
     """
     mtime_ns = os.stat(path).st_mtime_ns
     return _cached_normalized_png_bytes(path, mtime_ns)
+
+
+# The widths the gallery may ask for with `?w=`: the list rows (88 CSS px
+# at up to 3x) and the collection cards (up to 325 CSS px). Any other value
+# gets the normalized PNG, so a request can never pick an arbitrary size.
+THUMBNAIL_WIDTHS = (264, 450)
+THUMBNAIL_WEBP_QUALITY = 80
+THUMBNAIL_CACHE_SECONDS = 3600
+
+
+@functools.lru_cache(maxsize=NORMALIZED_CACHE_MAX_ENTRIES * len(THUMBNAIL_WIDTHS))
+def _cached_thumbnail(path, mtime_ns, width):
+    # `mtime_ns` keys the cache so a replaced asset is picked up.
+    png = _cached_normalized_png_bytes(path, mtime_ns)
+    image = Image.open(io.BytesIO(png))
+    height = round(width * ILLUSTRATION_TARGET_HEIGHT / ILLUSTRATION_TARGET_WIDTH)
+    if image.size != (width, height):
+        image = image.resize((width, height), Image.LANCZOS)
+    buffer = io.BytesIO()
+    try:
+        image.save(buffer, format="WEBP", quality=THUMBNAIL_WEBP_QUALITY, method=4)
+        return buffer.getvalue(), "image/webp"
+    except (OSError, KeyError, ValueError):
+        # A Pillow build without WebP support: the same size as a PNG.
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG", optimize=True)
+        return buffer.getvalue(), "image/png"
+
+
+def served_illustration(path, query):
+    """`(payload, content_type, cache_seconds)` for the illustration route:
+    a downsized WebP (PNG when WebP is unavailable) when `query` names one
+    of THUMBNAIL_WIDTHS in `w`, the normalized full-size PNG otherwise.
+    Raises OSError for a path that cannot be read, like the PNG helper.
+    """
+    mtime_ns = os.stat(path).st_mtime_ns
+    requested = urllib.parse.parse_qs(query).get("w", [""])[0]
+    if requested.isdigit() and int(requested) in THUMBNAIL_WIDTHS:
+        payload, content_type = _cached_thumbnail(path, mtime_ns, int(requested))
+        return payload, content_type, THUMBNAIL_CACHE_SECONDS
+    return _cached_normalized_png_bytes(path, mtime_ns), "image/png", 300
+
+
+def thumbnail_query(buster, width):
+    """`buster` (a `?v=...` suffix or "") with the `w=` thumbnail request
+    appended, for an <img> that shows the picture small."""
+    return "%s%sw=%d" % (buster, "&" if buster else "?", width)

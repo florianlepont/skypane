@@ -140,6 +140,7 @@ MESSAGES = {
     "airlines.collection_sort_latest": "Les plus récentes",
     "airlines.collection_sort_az": "A à Z",
     "airlines.collection_filter_label": "Filtrer les compagnies",
+    "airlines.collection_filter_placeholder": "Filtrer",
     "airlines.collection_apply": "Appliquer",
     "airlines.collection_count": "Compagnies\u00a0: %d",
     "airlines.collection_count_template": "Compagnies\u00a0: #",

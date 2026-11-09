@@ -47,7 +47,7 @@ _MOTION_TOKENS = ("--motion-fast", "--motion-slow", "--motion-enter", "--motion-
 # blur-up durations, and the number count-up's duration (read by motion.js, spent by no
 # stylesheet rule). The first three are spent by transitions as well as animations.
 _MOTION_LAYER_TOKENS = (
-    "--motion-spring", "--motion-spring-duration", "--motion-press",
+    "--motion-spring", "--motion-spring-duration", "--motion-view-transition", "--motion-press",
     "--motion-shimmer", "--motion-reveal", "--motion-count")
 _MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"

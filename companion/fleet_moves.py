@@ -84,10 +84,16 @@ def retired_frame_page(h, m):
 
 
 def retired_update_page(h, m, serve):
-    """The retired Update page: the Fleet view of the frame named by `?frame=`
+    """The retired Update page: the Fleet view of the frame in a
+    `/devices/<id>/update` path, else of the one named by `?frame=`
     (one of the caller's own), else of the requested
     firmware type; a type with no frame is still served by `serve()`."""
     from companion.pages import update_page
+    if m.device_id is not None:
+        own = device_scope.load_devices_for(h.args.state_dir, h._safe_principal())
+        if m.device_id in {d.id for d in own}:
+            return h.redirect(_carried_flash(frame_url(m.device_id), m.query))
+        return h.send_html(404, h._not_found_page())
     wanted = parse_qs(m.query or "").get(FRAME_PARAM, [""])[0]
     hardware_type = update_page.posted_type(h._requested_update_type())
     frame = wanted if wanted in {d.id for d in device_scope.current_devices()} else (
