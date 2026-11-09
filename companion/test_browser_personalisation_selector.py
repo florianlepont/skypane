@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Browser checks of the Personalisation selector (Departures, Arrivals, Special looks, Calendar):
-one segmented control that fits a 360 px phone in English and French without scrolling sideways or
-clipping a label, four 44px segments inside one track, exactly one current segment, a labelled
+"""Browser checks of the Personalisation selector (Departures, Arrivals, Layout, Special
+looks, Calendar): one segmented control that fits a 360 px phone in English and French without scrolling sideways or
+clipping a label, five 44px segments inside one track, exactly one current segment, a labelled
 navigation of plain links reachable and operable from the keyboard, and the Special looks and
 Calendar views as one group of rows with a dashed add row instead of a titled card.
 """
@@ -18,11 +18,11 @@ pytestmark = pytest.mark.browser
 
 NAV = "nav.personalisation-nav"
 LINK = NAV + " a.personalisation-nav__link"
-ROUTES = (layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE,
+ROUTES = (layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE, layout.DISPLAY_LAYOUT_ROUTE,
           layout.DISPLAY_SPECIAL_LOOKS_ROUTE, layout.DISPLAY_CALENDAR_ROUTE)
 LABELS = {
-    "en": ["Departures", "Arrivals", "Special looks", "Calendar"],
-    "fr": ["Départs", "Arrivées", "Allures spéciales", "Calendrier"],
+    "en": ["Departures", "Arrivals", "Layout", "Special looks", "Calendar"],
+    "fr": ["Départs", "Arrivées", "Disposition", "Allures spéciales", "Calendrier"],
 }
 _SETTLED = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
@@ -70,7 +70,7 @@ def server(make_app_server):
 
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("route", ROUTES, ids=["departures", "arrivals", "looks", "calendar"])
+@pytest.mark.parametrize("route", ROUTES, ids=["departures", "arrivals", "layout", "looks", "calendar"])
 def test_the_selector_fits_a_360px_phone_in_every_view(new_context, server, lang, route, theme):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, lang, route, theme)
     try:
@@ -90,8 +90,8 @@ def test_the_selector_is_a_labelled_navigation_operable_from_the_keyboard(new_co
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, "en", layout.DISPLAY_ROUTE)
     try:
         assert page.locator(NAV).get_attribute("aria-label") == "Personalisation sections"
-        assert page.locator(LINK).count() == 4
-        page.focus(LINK + ":nth-of-type(3)")
+        assert page.locator(LINK).count() == 5
+        page.focus(LINK + ":nth-of-type(4)")
         page.wait_for_function(
             "() => document.activeElement && document.activeElement.textContent.trim()"
             " === 'Special looks'", timeout=5000)
