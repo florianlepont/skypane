@@ -283,7 +283,7 @@ def test_calendar_connection_url_error_never_echoes_the_submitted_secret():
     """
     error_message = form_post.ERROR_CALENDAR_URL_INVALID
     rendered, _title, _submit = config_page.connect_page_html(
-        False, False, None, error_message, "white", "Plain paper")
+        False, False, None, error_message)
     assert escape_html(error_message) in rendered, "expected the calendar_url error message to render"
     assert 'name="calendar_url"' in rendered, "expected the calendar_url field itself to still render"
     after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
@@ -488,10 +488,13 @@ def test_dirty_state_js_beforeunload_guard_reuses_count_differences(dirty_state_
     # registration appears in source.
     listener_marker = 'addEventListener("beforeunload"'
     assert listener_marker in source, "expected dirty-state.js to call addEventListener(\"beforeunload\", ...)"
-    beforeunload_idx = source.index(listener_marker)
-    listener_body = source[beforeunload_idx:beforeunload_idx + 400]
-    assert "countDifferences" in listener_body, (
-        "expected the beforeunload listener's body to reference countDifferences")
+    # The script registers one guard for the settings form (keyed on countDifferences) and one
+    # for a form page's fixture bar: the settings form's must reference countDifferences.
+    bodies = [
+        source[start:start + 400] for start in range(len(source))
+        if source.startswith(listener_marker, start)]
+    assert any("countDifferences" in body for body in bodies), (
+        "expected the settings form's beforeunload listener body to reference countDifferences")
     assert 'addEventListener("submit"' in source, "expected dirty-state.js to register a submit listener on the form"
     for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
         assert forbidden not in source, (

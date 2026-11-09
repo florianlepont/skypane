@@ -119,7 +119,7 @@ MESSAGES = {
     "display.day": "Journée",
     "display.always_on": "Toujours actif",
     "display.personalisation_sections": "Sections de personnalisation",
-    "display.special_looks_none": "Aucun look spécial.",
+    "display.special_looks_none": "Aucune allure spéciale.",
     "display.calendar_not_connected": "Aucun calendrier connecté",
     "display.choose_calendar": "Choisir un calendrier",
     "display.connect_a_calendar": "Connecter un calendrier",

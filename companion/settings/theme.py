@@ -148,12 +148,17 @@ def _value_and_picture(effective_value, departures_id, allow_same):
     return False, departures_id if allow_same else device_config.DEFAULT_THEME_ID
 
 
-def look_frame_html(usage, effective_value, departures_id, errors, state, carries_departures=False):
+_LAZY_ATTRS = ' loading="lazy" decoding="async"'
+
+
+def look_frame_html(usage, effective_value, departures_id, errors, state, carries_departures=False,
+                    lazy=False):
     """One large framed picture with its caption and "Change" control.
     The picture is the live full-frame preview of the saved (or, after a
     rejected save, submitted) look. `carries_departures` is for a page with no
     departures look of its own: the target carries the departures theme the
-    "Same as departures" choice follows.
+    "Same as departures" choice follows. `lazy` is for the picture of a panel the
+    page keeps hidden: it loads only when shown.
     """
     field_name = LOOK_FIELDS[usage]
     allow_same = usage != COLOUR_USAGE_DEPARTURES
@@ -174,7 +179,7 @@ def look_frame_html(usage, effective_value, departures_id, errors, state, carrie
         '<div class="look-frame__anchor" data-look-anchor>'
         '<div class="look-frame__picture">'
         '<img class="look-frame__image" data-look-image src="%s" width="%d" height="%d" '
-        'alt="%s" data-look-alt-template="%s">'
+        'alt="%s" data-look-alt-template="%s"%s>'
         '<button type="button" class="look-frame__open" data-look-open hidden '
         'aria-haspopup="dialog" aria-label="%s"></button>'
         "</div></div>"
@@ -188,6 +193,7 @@ def look_frame_html(usage, effective_value, departures_id, errors, state, carrie
         escape_html(preview(picture_id)), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),
+        _LAZY_ATTRS if lazy else "",
         escape_html(i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
         look_edit_html(usage, table_html),
         _field_error_html(errors, field_name, field_name.replace("_", "-")),
@@ -294,11 +300,14 @@ def look_radio_card_html(theme_id, checked, saved, usage_label):
     badge = (
         ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if saved else "")
+    # The small picture is for a page without a script: with one, the inline
+    # picker replaces these cards and they are never shown, so it must not be
+    # fetched (27 of them are fetched otherwise).
     return (
         '<label class="runway-card look-pick__card%s"%s data-preview-src="%s">'
         '<input type="radio" name="%s" value="%s" class="visually-hidden" form="%s"%s>'
-        '<img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
-        'loading="lazy" decoding="async">'
+        '<noscript><img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
+        'loading="lazy" decoding="async"></noscript>'
         '<span class="runway-card__number look-pick__name">%s</span>'
         '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
@@ -322,7 +331,7 @@ def look_radio_cards_html(effective_id, saved_id, usage_label):
         escape_html(i18n.t(LOOK_GROUP_LABEL)), cards)
 
 
-def look_pick_html(current_theme_id, submitted, errors):
+def look_pick_html(current_theme_id, submitted, errors, lazy=False):
     """The Look card's main block: the large live picture of the departures
     look and the radio cards that choose it (the inline picker replaces them
     when a script runs). Everything sits in one look target, so the look sheet and
@@ -340,7 +349,7 @@ def look_pick_html(current_theme_id, submitted, errors):
         '<div class="look-frame__anchor" data-look-anchor>'
         '<div class="look-frame__picture">'
         '<img class="look-frame__image" data-look-image src="%s" width="%d" height="%d" '
-        'alt="%s" data-look-alt-template="%s">'
+        'alt="%s" data-look-alt-template="%s"%s>'
         '<button type="button" class="look-frame__open" data-look-open hidden '
         'aria-haspopup="dialog" aria-label="%s"></button>'
         "</div></div>"
@@ -353,6 +362,7 @@ def look_pick_html(current_theme_id, submitted, errors):
         escape_html(theme_preview.frame_preview_src(departures_id, state, size)), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),
+        _LAZY_ATTRS if lazy else "",
         escape_html(i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
         look_radio_cards_html(
             effective_id if effective_id in device_config.THEMES else None,
@@ -372,11 +382,13 @@ def look_card_body_html(
     """
     departures_id = departures_safe_theme_id(current_theme_id, submitted)
     effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
-    arrivals_html = look_frame_html(
-        COLOUR_USAGE_ARRIVALS, effective_arriving, departures_id, errors,
-        theme_preview.FRAME_PREVIEW_STATE_ARRIVING)
     hidden = {name: " hidden" if usage not in (None, name) else ""
               for name in (COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS)}
+    # The panel the page keeps hidden loads its picture only when shown.
+    arrivals_html = look_frame_html(
+        COLOUR_USAGE_ARRIVALS, effective_arriving, departures_id, errors,
+        theme_preview.FRAME_PREVIEW_STATE_ARRIVING,
+        lazy=bool(hidden[COLOUR_USAGE_ARRIVALS]))
     return (
         '<div class="look-view" data-look-initial="%s">'
         '<div class="look-stage">'
@@ -388,6 +400,7 @@ def look_card_body_html(
     ) % (
         usage or COLOUR_USAGE_DEPARTURES,
         COLOUR_USAGE_DEPARTURES, hidden[COLOUR_USAGE_DEPARTURES],
-        look_pick_html(current_theme_id, submitted, errors),
+        look_pick_html(
+            current_theme_id, submitted, errors, lazy=bool(hidden[COLOUR_USAGE_DEPARTURES])),
         COLOUR_USAGE_ARRIVALS, hidden[COLOUR_USAGE_ARRIVALS], arrivals_html,
         look_sheet_html(inline=True))

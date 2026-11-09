@@ -31,7 +31,7 @@ the helper, add a state or family to `CATALOGUE` with its French strings in
 | Badges and status | `ui_components.pill_html`, `status_dot`, `battery_charging_pill_html` | neutral pill; ok / warn / error dot with a text label | a status or count beside a title |
 | Toasts and banners | `ui_components.toast_html`, `toast_link_action_html`, `toast_post_action_html`, `anomaly_banner` | five tones; docked banner for a persistent state | an outcome or a standing condition |
 | Empty states | `ui_components.empty_state`, `ui_filter.filter_empty_html` | plain, compact, search with no match (counts stay at the whole history's) | a list with nothing to show |
-| Dialogs, save bar | `ui_modal.dialog_html`, `sections_dialog_html`, `trigger_html`; `ui_save_bar.save_bar_html` | closed with a trigger; save bar primary + secondary buttons | a focused task; unsaved changes |
+| Dialogs, save bar | `ui_modal.dialog_html`, `sections_dialog_html`, `trigger_html`; `ui_save_bar.save_bar_html` | closed with a trigger; save bar primary + secondary buttons; the Flights picture dialog is one opaque card holding the picture, its caption and a secondary Close (never a bare image with controls floating over the page) | a focused task; unsaved changes |
 | Page header | `ui_components.page_header` | title, purpose, action | every page |
 
 ## Rules that came out of unifying the families
@@ -44,5 +44,6 @@ the helper, add a state or family to `CATALOGUE` with its French strings in
   variant any more); a field inside `.modal__field` runs the full card width.
 - A new destructive action is `.btn--danger`; the page's one main action is
   `.btn--primary`; everything else is `.btn--secondary`.
+- A list row of one line centres its status dot on the title; a row with a second line keeps the dot on the title's line.
 - Component colours come from tokens; the `--seg-*` tokens are the only place
   the segmented look changes.

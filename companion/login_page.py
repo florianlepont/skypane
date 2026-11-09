@@ -28,7 +28,7 @@ LOGIN_ROUTE = "/login"
 NOT_FOUND_TITLE = i18n.msg("common.page_not_found", "Page not found.")
 NOT_FOUND_PURPOSE_TEXT = i18n.msg(
     "common.the_page_you_requested_doesn_t_exist_or_may",
-    "The page you requested doesn't exist or may have moved.")
+    "The page you requested doesn\u2019t exist or may have moved.")
 
 # Handler._dispatch()'s own Origin/Sec-Fetch-Site gate's 403 body — see
 # forbidden_page() below.
@@ -53,7 +53,7 @@ UNAVAILABLE_PURPOSE_TEXT = i18n.msg(
 # Messages.
 ADMIN_HINT_PURPOSE_TEXT = i18n.msg(
     "common.this_page_is_missing_or_reserved_for_administrators",
-    "This page doesn't exist, or it is reserved for administrators.")
+    "This page doesn\u2019t exist, or it is reserved for administrators.")
 _BACK_TO_HOME_TEXT = i18n.msg("common.back_to_home", "Back to Home")
 _BACK_TO_ACCOUNT_TEXT = i18n.msg("account.back_to_account", "Back to Account")
 _SIGN_IN_TEXT = i18n.msg("common.sign_in", "Sign in")
@@ -104,6 +104,11 @@ SIGN_IN_ERROR_EXPIRED = "expired"
 SIGN_IN_ERROR_UNAVAILABLE = "unavailable"
 SIGN_IN_ERROR_PROVIDER = "provider_error"
 SIGN_IN_ERROR_THROTTLED = "throttled"
+# Shown on the sign-in card when the visit comes from a session that ended.
+SESSION_EXPIRED_NOTICE = (
+    layout.TOAST_TONE_WARNING,
+    i18n.msg("account.session_expired_title", "Your session expired"),
+    i18n.msg("account.session_expired_detail", "Sign in again to continue where you were."))
 _SIGN_IN_ERROR_TEXT = {
     SIGN_IN_ERROR_INCOMPLETE: (
         layout.TOAST_TONE_ERROR,
@@ -204,7 +209,10 @@ def _login_card_html(next_route, auth0_enabled, notice):
     return "".join(parts)
 
 
-def render_login_page(ui_theme, next_route=None, *, auth0_enabled=False, notice=None):
+def render_login_page(
+        ui_theme, next_route=None, *, auth0_enabled=False, notice=None, expired=False):
+    if expired and notice is None and auth0_enabled:
+        notice = SESSION_EXPIRED_NOTICE
     body = _login_card_html(next_route, auth0_enabled, notice)
     body += '<a class="text-link login-card__link" href="/credits">%s</a>' % (
         layout.escape_html(i18n.t(_CREDITS_LINK_TEXT)))

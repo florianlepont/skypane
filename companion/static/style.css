@@ -802,6 +802,7 @@ h3 {
  * text is the accessible name. */
 .brand {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: var(--space-sm);
   min-height: 44px;
@@ -1952,6 +1953,7 @@ select.visually-hidden {
  * it moves nothing. A row is a whole-row link. */
 .frame-menu {
   position: relative;
+  flex: 0 1 auto;
   min-width: 0;
   margin-left: auto;
 }
@@ -6570,7 +6572,7 @@ html:not(.map-ready) .place-tap-hint {
 }
 
 /* On a small phone the map keeps the room: the nearest-airport offer is not
- * shown. */
+ * shown (it would lift the sheet over the pin the visitor just dropped). */
 @media (max-width: 699.98px) {
   .map-ready .place-nearest {
     display: none;
@@ -6590,14 +6592,10 @@ html:not(.map-ready) .place-tap-hint {
     right: auto;
   }
 
-  /* Only the frame button sits over the map here: the fade is a soft glow at
-   * the top right, away from the search field and the card. */
+  /* Only the frame button sits over the map here, and it carries its own
+   * opaque surface: no fade behind it (a dark glow smudged the light tiles). */
   .map-ready .site-header:has(~ .page-content .place-stage)::before {
-    left: auto;
-    width: 22rem;
-    height: calc(var(--space-2xl) + 44px + var(--space-xl));
-    background: radial-gradient(
-      ellipse at top right, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent 70%);
+    content: none;
   }
 
   .map-ready .place-stage {
@@ -8052,9 +8050,32 @@ button.place-result.is-active {
   line-height: 1.2;
 }
 
-.quiet-tile .field-inline-value {
+.quiet-tile__value {
+  position: relative;
   display: block;
+}
+
+/* A browser with a 12-hour clock paints the 24-hour twin over the field's
+ * own text, so the value is told once; the input stays the control. */
+.quiet-tile .field-inline-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
   margin-left: 0;
+  font-size: 1.5rem;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  pointer-events: none;
+}
+
+.quiet-tile .field-inline-value[hidden] {
+  display: none;
+}
+
+.modal .quiet-tile__value:has(> .field-inline-value:not([hidden])) input[type="time"] {
+  color: transparent;
 }
 
 .modal .quiet-timezone-note {
@@ -8075,7 +8096,8 @@ button.place-result.is-active {
     display: none;
   }
 
-  .modal .quiet-tile input[type="time"] {
+  .modal .quiet-tile input[type="time"],
+  .quiet-tile .field-inline-value {
     font-size: 1.25rem;
   }
 }
@@ -8871,12 +8893,13 @@ a.calendar-manage--primary:hover {
   /* Rotation is inverted from the base chevron rule: this sheet opens
    * upward, so closed points up (toward where it will open) and open
    * points down (back toward the bar). Positioned absolutely against
-   * .tab-bar__more so it costs the 78x56px cell nothing. */
+   * .tab-bar__more so it costs the cell nothing, centred above the "..."
+   * glyph (never in a corner, where it met the active pill's edge). */
   .tab-bar__more > .tab-bar__link::before {
     position: absolute;
-    top: 7px;
-    right: 12px;
-    margin-right: 0;
+    top: 5px;
+    right: 50%;
+    margin-right: -3px;
     transform: rotate(-135deg);
   }
 
@@ -9787,6 +9810,9 @@ a.special-row__edit:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  /* The docked Save bar covers the foot of the form until it is scrolled
+   * clear: room for the bar (title row + 44px buttons + padding). */
+  padding-bottom: 9rem;
 }
 
 .fleet-system-footer {
@@ -10406,6 +10432,12 @@ li.entity-row--no-dot {
   margin-top: 6px;
 }
 
+/* A row of one line (no second line, no pills) centres its dot on the title. */
+li.entity-row:not(:has(.entity-row__meta, .entity-row__pills)) > .entity-row__dot {
+  align-self: center;
+  margin-top: 0;
+}
+
 .entity-row__text {
   display: flex;
   flex-direction: column;
@@ -10528,7 +10560,9 @@ details.row-menu[open] > .row-menu__toggle {
   .entity-row__dot {
     position: absolute;
     left: var(--space-md);
-    top: var(--space-md);
+    top: 50%;
+    margin-top: 0;
+    transform: translateY(-50%);
   }
 
   .entity-row__text {
@@ -10694,8 +10728,6 @@ a.pair-form__cancel {
   .fleet-frame {
     box-sizing: border-box;
     width: 100%;
-    max-width: 800px;
-    margin-inline: auto;
   }
 
   .fleet-blocks:not(.fleet-blocks--system) {
@@ -11703,6 +11735,7 @@ button.look-sheet__done[hidden] {
   box-sizing: border-box;
   min-height: 44px;
   padding: var(--space-lg);
+  position: relative;
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -11728,10 +11761,10 @@ button.look-sheet__done[hidden] {
   background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
-.collection-card__art .rarity-pill--new {
+.collection-card > .rarity-pill--new {
   position: absolute;
-  top: var(--space-xs);
-  right: var(--space-xs);
+  top: var(--space-sm);
+  right: var(--space-sm);
   border-color: transparent;
   background: var(--color-text);
   color: var(--color-dominant);
@@ -12301,10 +12334,10 @@ button.row-menu__item--destructive:hover {
     padding-right: var(--space-md);
   }
 
-  .users-col--user { width: 28%; }
-  .users-col--role { width: 23%; }
-  .users-col--frames { width: 11%; }
-  .users-col--seen { width: 13%; }
+  .users-col--user { width: 29%; }
+  .users-col--role { width: 22%; }
+  .users-col--frames { width: 12%; }
+  .users-col--seen { width: 12%; }
   .users-col--active { width: 7%; }
   .users-col--invite { width: 76px; }
   .users-col--menu { width: 76px; }
@@ -13122,6 +13155,9 @@ button.row-menu__item--destructive:hover {
 .home-greeting__frame {
   display: block;
   margin: 0 0 var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-ui);
   font-size: var(--font-label-size);
   line-height: 1.4;
@@ -13720,8 +13756,7 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
 }
 
 .history-card__route {
-  display: inline-block;
-  margin-left: var(--space-xs);
+  display: block;
   white-space: nowrap;
 }
 
@@ -13781,6 +13816,8 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   height: 40px;
   border-radius: var(--radius-chip);
   background: var(--color-secondary);
+  outline: 1px solid var(--glass-hairline);
+  outline-offset: -1px;
   object-fit: cover;
   object-position: center 35%;
 }
@@ -14542,24 +14579,24 @@ body.is-pulling {
   }
 }
 
-/* The Flights picture dialog shows the picture alone: no card, no border and
- * no glass behind it (the (0,2,0) selector beats the dark-theme .lightbox
- * rules wherever they sit). The picture carries the soft shadow;
- * the caption and the Close button sit under it over the scrim. */
+/* The Flights picture dialog is a standard card: the picture, its dated
+ * caption and the Close button all sit inside one opaque panel over the
+ * scrim, so nothing floats over the page behind it. */
 .lightbox.lightbox--picture {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  box-shadow: none;
-  overflow: visible;
-  width: auto;
+  box-sizing: border-box;
+  padding: var(--space-md);
+  box-shadow: var(--shadow-pop);
+  overflow: auto;
+  width: fit-content;
+  min-width: min(20rem, calc(100vw - var(--space-md) * 2));
   max-width: calc(100vw - var(--space-md) * 2);
+  max-height: calc(100svh - var(--space-md) * 2);
 }
 
 .lightbox.lightbox--picture[open] {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-sm);
 }
 
@@ -14567,30 +14604,19 @@ body.is-pulling {
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: calc(100svh - 10rem);
-  margin: 0;
+  max-height: calc(100svh - 12rem);
+  margin: 0 auto;
   border-radius: var(--radius-frame-pic);
   box-shadow: var(--shadow-pop);
 }
 
 .lightbox--picture .lightbox__caption {
   margin: 0;
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: var(--color-dominant);
-  color: var(--color-text);
+  text-align: center;
 }
 
 .lightbox--picture .lightbox__caption:empty {
   display: none;
-}
-
-.lightbox--picture button[data-view-panel-close] {
-  min-height: 44px;
-  min-width: 44px;
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
 }
 
 /* The shared element of the thumbnail-to-picture transition: whichever of the

@@ -331,8 +331,11 @@ def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
         assert page.url.endswith("sort=oldest&more=1"), page.url
         assert page.evaluate("() => window.__marker") == "same document"
         _choose_sort(page, "airline")
+        # Each group is named by its airline, never by the sort's own name.
         page.wait_for_function(
-            "() => document.querySelector('section.history-day h2').textContent === 'Airline'",
+            "() => { const first = document.querySelector('section.history-day');"
+            " return first.querySelector('h2').textContent"
+            " === first.querySelector('.history-card__airline').textContent; }",
             timeout=10000)
         assert _count(page, CARD) == LIMIT
     finally:

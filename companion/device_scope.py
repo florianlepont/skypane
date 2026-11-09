@@ -364,6 +364,18 @@ def foreign_frame_owner_email():
     return _owner_emails(root, [owner]).get(owner)
 
 
+def viewer_may_rename_current():
+    """Whether this request's viewer may rename this request's frame: an
+    administrator, or the frame's owner (a co-manager may not)."""
+    device, _devices, viewer_id, _root = _SCOPE_CTX.get()
+    principal = prefs.current_principal()
+    if device is None or principal is None:
+        return False
+    if principal[1] == access.ADMIN:
+        return True
+    return viewer_id is not None and device.owner_user_id == viewer_id
+
+
 def _switcher_devices(device, devices, viewer_id, root):
     """The scope's devices the switcher lists, and the co-managed ids. A user's
     scope is already their own frames. An administrator's scope is every frame,

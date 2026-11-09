@@ -9,11 +9,12 @@ corroboration flag flips) is folded into one sighting with the same rule
 Home and Flights use, so "seen n times" counts flights, not stored rows.
 """
 import collections
+import functools
 import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from companion import flight_card
+from companion import flight_card, history_cache
 from companion.pages import airline_sheet
 from server import history_db
 from server.plane import illustrations
@@ -109,8 +110,13 @@ def _curated_index(overrides):
 
 def _sightings(conn):
     """Stored events newest first with repeated passes folded away."""
-    rows = [dict(row) for row in conn.execute(_SELECT_EVENTS).fetchall()]
-    return flight_card.fold_repeated_passes(rows)
+    return history_cache.cached(conn, "sightings", lambda: flight_card.fold_repeated_passes(
+        [dict(row) for row in conn.execute(_SELECT_EVENTS).fetchall()]))
+
+
+# The airline key of a name is a pure function of it, asked for once per stored
+# event: remembered per distinct name.
+_airline_key = functools.lru_cache(maxsize=2048)(illustrations.normalise_airline_key)
 
 
 def _group(rows, aliases):
@@ -120,7 +126,7 @@ def _group(rows, aliases):
         airline = row.get("airline")
         if not isinstance(airline, str) or not airline.strip():
             continue
-        key = illustrations.normalise_airline_key(airline.strip())
+        key = _airline_key(airline.strip())
         if not key:
             continue
         groups.setdefault(aliases.get(key, key), []).append(row)

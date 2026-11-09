@@ -11,6 +11,7 @@ and the live frame's own reads are untouched.
 from collections import namedtuple
 
 import companion.flight_card as flight_card
+import companion.history_cache as history_cache
 from server import history_db
 from server.plane import render as panel_render
 
@@ -91,9 +92,11 @@ def select(conn, view, pages, page_size, airline_names=None):
     direction) and `chip_counts` (the "All" count and the per-direction counts the
     chips show: the search's, or the whole history's when nothing matches) and `total` (every flight stored, whatever the
     search)."""
-    events = history_db.recent_runway_events(
-        conn, limit=SCAN_LIMIT, airline_names=airline_names)
-    flights = flight_card.fold_repeated_passes(events)
+    # The folded history is shared between requests (read only here).
+    flights = history_cache.cached(
+        conn, ("flights", SCAN_LIMIT, tuple(sorted((airline_names or {}).items()))),
+        lambda: flight_card.fold_repeated_passes(history_db.recent_runway_events(
+            conn, limit=SCAN_LIMIT, airline_names=airline_names)))
     words = view.q.lower().split()
     if words:
         found = []

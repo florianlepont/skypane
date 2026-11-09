@@ -21,6 +21,8 @@ import re
 import threading
 from urllib.parse import parse_qs
 
+from companion import js_minify
+
 _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
 STATIC_DIR = os.path.join(_HERE, "static")
 
@@ -234,6 +236,8 @@ def static_entry(abs_path):
     payload = read_static_bytes(abs_path)
     if abs_path == _STYLE_CSS_PATH:
         payload = minify_css(payload)
+    elif abs_path.endswith(".js") and os.path.dirname(abs_path) == STATIC_DIR:
+        payload = js_minify.minify_js(payload)
     mtime_s = int(os.stat(abs_path).st_mtime)
     etag = '"%s"' % hashlib.sha256(payload).hexdigest()[:32]
     last_modified = email.utils.formatdate(mtime_s, usegmt=True)

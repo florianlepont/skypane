@@ -320,10 +320,10 @@ def test_mode_toggle_reveals_dirty_bar_and_cancel_restores(new_context, make_app
 @pytest.mark.parametrize("lang,sections", [("en", "Detection, Place"), ("fr", "Détection, Lieu")])
 def test_changing_both_areas_names_them_after_the_message(new_context, make_app_server, lang,
                                                           sections):
-    """The page name only shows when several areas changed: the same message, a colon and the
-    list of the areas."""
+    """On a wide screen the page name only shows when several areas changed: the same message, a
+    colon and the list of the areas."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
-    page, _dialogs = _open(new_context, server, lang=lang)
+    page, _dialogs = _open(new_context, server, lang=lang, viewport=VIEWPORT_DESKTOP)
     _wait_for_bar_hidden(page)
     page.click(MODE_AREA_LABEL)
     open_details(page)
@@ -332,6 +332,21 @@ def test_changing_both_areas_names_them_after_the_message(new_context, make_app_
     page.wait_for_function(
         "expected => document.querySelector('[data-dirty-count]').textContent === expected",
         arg="%s %s" % (lead, sections), timeout=10000)
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_on_a_phone_changing_both_areas_keeps_the_short_message(new_context, make_app_server, lang):
+    """the one-line message of a phone's bar never holds the list of areas (it would be cut)"""
+    server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
+    page, _dialogs = _open(new_context, server, lang=lang)
+    _wait_for_bar_hidden(page)
+    page.click(MODE_AREA_LABEL)
+    open_details(page)
+    page.fill("#place-lat", "43.1")
+    expected = page.get_attribute("[data-dirty-bar]", "data-dirty-initial-text")
+    page.wait_for_function(
+        "expected => document.querySelector('[data-dirty-count]').textContent === expected",
+        arg=expected, timeout=10000)
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])

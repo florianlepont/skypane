@@ -66,7 +66,7 @@ def _open(new_context, server, viewport=DESKTOP_1280, lang="en", theme="light",
 @pytest.mark.parametrize("scheme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [DESKTOP_1280, DESKTOP_1440], ids=["1280", "1440"])
-def test_the_sections_are_one_centred_column_present_once_and_in_order(
+def test_the_sections_are_one_content_wide_column_present_once_and_in_order(
         new_context, app_server_in_process, viewport, lang, scheme):
     context, page, _seed = _open(new_context, app_server_in_process, viewport, lang, scheme)
     where = "fleet-sections/%d/%s/%s" % (viewport["width"], lang, scheme)
@@ -77,11 +77,15 @@ def test_the_sections_are_one_centred_column_present_once_and_in_order(
         for upper, lower in zip(sections, sections[1:]):
             assert abs(lower["x"] - upper["x"]) < 1 and lower["y"] > upper["y"], (where, sections)
             assert abs(lower["w"] - upper["w"]) < 1, (where, sections)
-        assert 640 <= sections[0]["w"] <= 840, (where, sections[0])
+        assert sections[0]["w"] >= 640, (where, sections[0])
+        # The column runs the width of the page's content: it starts where the title starts and
+        # ends where the frame button ends, like every other page.
         column = page.locator(COLUMN).bounding_box()
-        main = page.locator("main").bounding_box()
-        centre_gap = abs((column["x"] + column["width"] / 2) - (main["x"] + main["width"] / 2))
-        assert centre_gap <= 40, (where, column, main)
+        title = page.locator("main h1").first.bounding_box()
+        button = page.locator("details.frame-menu > summary").bounding_box()
+        assert abs(column["x"] - title["x"]) <= 2, (where, column, title)
+        assert abs(column["x"] + column["width"] - (button["x"] + button["width"])) <= 2, (
+            where, column, button)
         # No summary row and no tab bar of sub-tabs: the groups are on the page.
         assert page.locator("a.fleet-sum").count() == 0
         assert page.locator("nav.fleet-tabs").is_hidden()

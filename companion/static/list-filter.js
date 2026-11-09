@@ -400,7 +400,14 @@
     }
   }
 
-  function refresh() {
+  // What the page shows, as an address: a Back or Forward to another one
+  // shows that state again by reloading it.
+  var shown = window.location.pathname + window.location.search;
+
+  // `commit` is a search the visitor settled (Enter, a chip, the sort, Clear):
+  // it gets a history entry of its own so Back returns to the state before it.
+  // Live typing only replaces the current entry.
+  function refresh(commit) {
     window.clearTimeout(timer);
     var url = currentUrl();
     var mine = ++latest;
@@ -409,7 +416,12 @@
         return;
       }
       swapView(doc);
-      history.replaceState(null, "", url);
+      if (commit === true && url !== shown) {
+        history.pushState(null, "", url);
+      } else {
+        history.replaceState(null, "", url);
+      }
+      shown = url;
     }, function () {
       if (mine === latest) {
         giveUp(url);
@@ -562,6 +574,7 @@
       }
       updateMore(live, fetched, hadFocus, visible(row) ? row : card);
       history.replaceState(null, "", url);
+      shown = url;
       busy = false;
     }, function () {
       busy = false;
@@ -581,7 +594,7 @@
       }
     }
     syncActive();
-    refresh();
+    refresh(true);
     if (!inView && input) {
       input.focus();
     }
@@ -591,19 +604,25 @@
     input.addEventListener("input", function () {
       syncActive();
       window.clearTimeout(timer);
-      timer = window.setTimeout(refresh, SEARCH_DELAY_MS);
+      timer = window.setTimeout(function () { refresh(false); }, SEARCH_DELAY_MS);
     });
   }
 
   form.addEventListener("submit", function (event) {
     event.preventDefault();
-    refresh();
+    refresh(true);
   });
 
   document.addEventListener("change", function (event) {
     var target = event.target;
     if (target && target.hasAttribute && target.hasAttribute("data-flights-auto")) {
-      refresh();
+      refresh(true);
+    }
+  });
+
+  window.addEventListener("popstate", function () {
+    if (window.location.pathname + window.location.search !== shown) {
+      window.location.reload();
     }
   });
 

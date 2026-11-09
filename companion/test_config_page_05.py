@@ -35,7 +35,7 @@ from companion.layout import escape_html
 from companion.pages import config_page, place_page
 from companion import theme_preview
 from companion.settings import form_post, look, wake_interval
-from companion_app_server import get, http_request, login, served_asset, served_stylesheet
+from companion_app_server import get, http_request, login, served_asset, served_stylesheet, with_csrf
 from companion_markup import (
     css_rules, declarations_for, flash_toast, flash_toast_title_detail, parse_html)
 from server import device_config, history_db
@@ -218,7 +218,7 @@ def test_save_round_trip_shows_confirmation_and_new_selection(make_app_server):
     session_cookie = login(server)
     status, headers, _ = http_request(
         server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
-        data="theme=black&tracked_runway=06-24".encode())
+        data=with_csrf(session_cookie, {"theme": "black", "tracked_runway": "06-24"}))
     assert status == 303, "expected a 303 redirect on save, got %d" % status
     location = headers.get("Location", "")
     assert "flash=saved" in location, "expected the saved flash key in the redirect, got %r" % location
@@ -244,7 +244,7 @@ def test_settings_save_redirect_carries_flash_banner_and_cleanup_script(make_app
     session_cookie = login(server)
     status, headers, _ = http_request(
         server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
-        data="theme=black&tracked_runway=06-24".encode())
+        data=with_csrf(session_cookie, {"theme": "black", "tracked_runway": "06-24"}))
     assert status == 303, "expected a 303 redirect on save, got %d" % status
     location = headers.get("Location", "")
     expected_location = "%s?flash=saved" % companion_app.DISPLAY_ROUTE
@@ -273,7 +273,7 @@ def test_settings_post_empty_body_leaves_led_unchanged_and_renders_unchecked(mak
     led_before = False
     status, headers, _ = http_request(
         server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
-        data=b"")
+        data=with_csrf(session_cookie))
     assert status == 303, "expected a 303 redirect on save, got %d" % status
     location = headers.get("Location", "")
     assert "flash=saved" in location, "expected the saved flash key in the redirect, got %r" % location
@@ -294,7 +294,8 @@ def test_settings_form_raw_post_no_js_sets_and_clears_theme_arriving(make_app_se
     session_cookie = login(server)
     status, _headers, _body = http_request(
         server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
-        data="theme=white&tracked_runway=3&theme_arriving=black".encode())
+        data=with_csrf(session_cookie, {
+            "theme": "white", "tracked_runway": "3", "theme_arriving": "black"}))
     assert status == 303, "expected a 303 redirect on the set save, got %d" % status
     on_disk = device_config.load_device_config(server.state_dir)
     assert on_disk["theme_arriving"] == "black", (
@@ -302,7 +303,8 @@ def test_settings_form_raw_post_no_js_sets_and_clears_theme_arriving(make_app_se
 
     status, _headers, _body = http_request(
         server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session_cookie,
-        data="theme=white&tracked_runway=3&theme_arriving=".encode())
+        data=with_csrf(session_cookie, {
+            "theme": "white", "tracked_runway": "3", "theme_arriving": ""}))
     assert status == 303, "expected a 303 redirect on the clearing save, got %d" % status
     on_disk = device_config.load_device_config(server.state_dir)
     assert on_disk["theme_arriving"] is None, (
@@ -523,7 +525,7 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
     ("lang", "titles", "page_title", "nav_label"),
     [
         ("en", ("Look", "Special looks", "Calendar"), "Personalisation", "Personalisation sections"),
-        ("fr", ("Allure", "Looks spéciaux", "Calendrier"), "Personnalisation",
+        ("fr", ("Allure", "Allures spéciales", "Calendrier"), "Personnalisation",
          "Sections de personnalisation"),
     ],
 )

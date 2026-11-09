@@ -336,6 +336,7 @@ _FIELD_VIEWS = {
     "theme_arriving": personalisation_cards.VIEW_ARRIVALS,
     "calendar_theme_id": personalisation_cards.VIEW_CALENDAR_LOOK,
     "calendar_url": personalisation_cards.VIEW_CALENDAR_CONNECT,
+    "rule_key": personalisation_cards.VIEW_LOOK_NEW,
 }
 
 
@@ -703,10 +704,10 @@ def render(
 def _scope_fields_html(scope, return_route):
     return (
         '<input type="hidden" name="%s" value="%s">'
-        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="%s" value="%s">%s'
     ) % (
         SCOPE_FIELD_NAME, escape_html(scope),
-        RETURN_TO_FIELD_NAME, escape_html(return_route),
+        RETURN_TO_FIELD_NAME, escape_html(return_route), layout.csrf_field(),
     )
 
 

@@ -61,7 +61,7 @@ def _open_picture(page):
 
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_picture_dialog_shows_the_picture_alone_and_close_returns_to_the_thumbnail(
+def test_the_picture_dialog_is_one_opaque_panel_and_close_returns_to_the_thumbnail(
         new_context, flights_server, label, viewport, theme):
     context, page = _page(new_context, flights_server.base_url(), "/flights", viewport)
     try:
@@ -73,15 +73,16 @@ def test_the_picture_dialog_shows_the_picture_alone_and_close_returns_to_the_thu
             return {bg: s.backgroundColor, border: s.borderTopWidth, pad: s.paddingTop,
                     radius: img.borderTopLeftRadius};
         }""")
-        assert look["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), look
-        assert look["border"] == "0px" and look["pad"] == "0px", look
+        # One opaque panel (caption and Close live inside it), never a bare picture.
+        assert look["bg"] not in ("rgba(0, 0, 0, 0)", "transparent"), look
+        assert look["border"] == "1px" and look["pad"] == "16px", look
         assert look["radius"] == "5px", look
         box = page.eval_on_selector(DIALOG, """el => {
             const d = el.getBoundingClientRect();
             const i = el.querySelector('img.lightbox__image').getBoundingClientRect();
             return {left: i.left - d.left, right: d.right - i.right, top: i.top - d.top};
         }""")
-        assert box["top"] <= 1 and abs(box["left"] - box["right"]) <= 1, box
+        assert abs(box["top"] - 16) <= 1 and abs(box["left"] - box["right"]) <= 1, box
         for how in ("escape", "button"):
             if how == "escape":
                 page.keyboard.press("Escape")

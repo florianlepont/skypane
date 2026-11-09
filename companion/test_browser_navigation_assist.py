@@ -94,9 +94,10 @@ def test_the_splash_plays_at_each_opening_and_not_on_in_app_navigation(new_conte
         context.close()
 
 
-def test_idle_warms_the_navigation_destinations_only(new_context, server):
-    """after load the tab bar's other destinations are fetched with GET and the prefetch header,
-    never the current page, never a route with side effects, two at a time at most"""
+def test_idle_warms_only_the_two_likeliest_destinations(new_context, server):
+    """after load only the two pages likeliest to be opened next (from Home: Flights and
+    Personalisation) are fetched with GET and the prefetch header, never the current page, the
+    bare root, the heavier pages or a route with side effects, two at a time at most"""
     context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
     try:
         seen = _record_prefetches(page)
@@ -104,10 +105,13 @@ def test_idle_warms_the_navigation_destinations_only(new_context, server):
         hrefs = page.evaluate(
             "() => Array.from(document.querySelectorAll('.tab-bar a[href]'))"
             ".map((a) => new URL(a.href).pathname)")
-        expected = {h for h in hrefs if h != layout.HOME_ROUTE and h.count("/") == 1}
+        expected = {h for h in hrefs if h in (layout.FLIGHTS_ROUTE, layout.DISPLAY_ROUTE)}
         assert expected
         assert _wait_until(
             page, lambda: expected <= {path for _, path in seen["requests"]}), seen["requests"]
+        # Let any further (unwanted) idle request show up before counting.
+        page.wait_for_timeout(1500)
+        assert {path for _, path in seen["requests"]} == expected, seen["requests"]
         assert {method for method, _ in seen["requests"]} == {"GET"}
         assert layout.HOME_ROUTE not in {path for _, path in seen["requests"]}
         assert not [p for _, p in seen["requests"] if p.startswith(("/logout", "/quick", "/login"))]
@@ -207,7 +211,7 @@ def test_a_change_rewrites_the_marker_cookie_that_keys_the_warmed_pages(new_cont
 def test_an_expired_session_says_so_and_leads_to_sign_in_keeping_the_page(
         new_context, server, lang, message):
     """pressing a switch after the session ended shows the message and then opens the sign-in
-    page with the current page as the validated next destination"""
+    page with the current page as the validated next destination, marked as an expiry"""
     context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
     context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
     try:
@@ -220,7 +224,7 @@ def test_an_expired_session_says_so_and_leads_to_sign_in_keeping_the_page(
             ".textContent.indexOf(m) !== -1", arg=message, timeout=10000)
         page.wait_for_url("**/login?next=*", timeout=10000)
         assert urlsplit(page.url).path == "/login"
-        assert urlsplit(page.url).query == "next=%2F"
+        assert urlsplit(page.url).query == "next=%2F&expired=1"
     finally:
         context.close()
 

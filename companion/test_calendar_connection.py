@@ -254,12 +254,14 @@ def test_connection_page_controls_connected_vs_not_connected():
     assert fresh.select_one(".dirty-bar button[data-pending-label]").text().strip() == "Save"
 
 
-def test_the_connection_page_names_the_calendar_look_and_follows_the_list():
-    """the picture is the look calendar flights get (the departures look until one is chosen)"""
+def test_the_connection_page_is_titled_for_the_task_and_follows_the_list():
+    """the page is one card titled for what it does (no look picture over it) and sits under the
+    Calendar tab"""
     doc = _connect_page(**_STATES["ok"][0])
-    assert doc.select_one(".form-page__name").text() == "Look of calendar flights"
+    assert doc.select_one(".form-page__title").text()
+    assert not doc.select(".form-page__preview")
+    assert not doc.select(".look-frame__image")
     assert doc.select_one("a.form-back").attrs["href"] == "/display/calendar"
-    assert doc.select_one(".look-frame__image").attrs["src"].startswith("/frame-preview/")
     assert doc.select_one('nav.personalisation-nav a[aria-current="page"]').attrs[
         "data-pers-view"] == "calendar"
 

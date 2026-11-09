@@ -60,7 +60,11 @@ def test_the_blocks_lay_out_and_nothing_overflows(
         for upper, lower in zip(blocks, blocks[1:]):
             assert abs(lower["x"] - upper["x"]) < 2 and lower["y"] > upper["y"], (where, blocks)
         if viewport["width"] >= 960:
-            assert blocks[0]["w"] <= 800.5, (where, blocks[0])
+            title = page.locator("main h1").first.bounding_box()
+            button = page.locator("details.frame-menu > summary").bounding_box()
+            assert abs(blocks[0]["x"] - title["x"]) <= 2, (where, blocks[0], title)
+            assert abs(blocks[0]["right"] - (button["x"] + button["width"])) <= 2, (
+                where, blocks[0], button)
         for block in blocks:
             assert block["right"] <= viewport["width"] + 0.5, (where, block)
         open_menu(page)

@@ -119,7 +119,9 @@ def test_same_origin_quick_switch_and_settings_save_still_work(app_server, page,
             " redirect: 'manual',"
             " headers: {'Content-Type': 'application/x-www-form-urlencoded',"
             "           'X-Requested-With': '%s'},"
-            " body: 'state=%s&return_to=' + encodeURIComponent('%s')})"
+            " body: 'state=%s&return_to=' + encodeURIComponent('%s')"
+            " + '&csrf_token=' + encodeURIComponent("
+            "document.querySelector('input[name=\"csrf_token\"]').value)})"
             % (app.QUICK_FETCH_HEADER_VALUE, next_state, app.layout.DEVICE_ROUTE),
             app.QUICK_DISPLAY_ROUTE)
     assert response_info.value.status < 400, (

@@ -4,7 +4,6 @@ of the battery-empty hold and the display switch. Everything is asserted on
 served markup (a direct render for the state matrix, a real server for the
 POST round trips)."""
 import re
-import urllib.parse
 from datetime import datetime, timedelta
 
 import pytest
@@ -16,7 +15,7 @@ import companion.prefs as prefs
 import companion.wake as wake
 from companion import auth
 from companion.pages import home_page
-from companion_app_server import http_request, login
+from companion_app_server import http_request, login, with_csrf
 from server import device_config, history_db
 
 NOW = "2026-08-27T12:00:00+00:00"
@@ -336,8 +335,8 @@ def test_post_round_trip_persists_flashes_and_returns_to_home(
     device_config.save_device_config(server.state_dir, quiet_hours_enabled=True)
     for state, flash, text, expected in (
             ("off", flash_off, text_off, False), ("on", flash_on, text_on, True)):
-        body = urllib.parse.urlencode(
-            {layout.QUICK_STATE_FIELD: state, "return_to": layout.HOME_ROUTE}).encode()
+        body = with_csrf(
+            cookie, {layout.QUICK_STATE_FIELD: state, "return_to": layout.HOME_ROUTE})
         status, headers, _ = http_request(
             server.base_url() + action, method="POST", cookie=cookie, data=body)
         assert status == 303
@@ -366,7 +365,7 @@ def test_a_rejected_state_value_changes_nothing(make_app_server):
     server = make_app_server(fake_providers=True)
     cookie = login(server)
     before = device_config.load_device_config(server.state_dir)
-    body = urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode()
+    body = with_csrf(cookie, {"state": "toggle", "return_to": "/"})
     status, headers, _ = http_request(
         server.base_url() + "/quick/display", method="POST", cookie=cookie, data=body)
     assert status == 303 and headers.get("Location") == "/?flash=quick_failed"

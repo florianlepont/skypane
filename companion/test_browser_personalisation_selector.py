@@ -22,7 +22,7 @@ ROUTES = (layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE,
           layout.DISPLAY_SPECIAL_LOOKS_ROUTE, layout.DISPLAY_CALENDAR_ROUTE)
 LABELS = {
     "en": ["Departures", "Arrivals", "Special looks", "Calendar"],
-    "fr": ["Départs", "Arrivées", "Looks spéciaux", "Calendrier"],
+    "fr": ["Départs", "Arrivées", "Allures spéciales", "Calendrier"],
 }
 _SETTLED = (
     "() => document.readyState === 'complete' && document.getAnimations().every("

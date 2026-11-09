@@ -160,11 +160,12 @@ def toast_link_action_html(href, label):
 def toast_post_action_html(action, fields, label, glyph="icon-undo"):
     """A toast action that changes something: a real POST form, so it works
     with scripts blocked. `fields` is a sequence of (name, value) pairs
-    rendered as hidden inputs; every value is escaped here.
+    rendered as hidden inputs; every value is escaped here. The session's
+    anti-forgery token rides along: the actions are the quick switches' undo.
     """
     hidden = "".join(
         '<input type="hidden" name="%s" value="%s">' % (escape_html(name), escape_html(value))
-        for name, value in fields)
+        for name, value in fields) + csrf_field()
     return (
         '<form class="toast__action-form" method="post" action="%s">%s'
         '<button type="submit" class="toast__action">%s%s</button></form>'
@@ -459,13 +460,13 @@ def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None
         '<form method="post" action="%s" class="quick-action__form" data-quick-switch>'
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="return_to" value="%s">'
-        "%s"
+        "%s%s"
         "</form>"
     ) % (
         escape_html(device_scope.scoped(action, "POST")),
         QUICK_STATE_FIELD, escape_html(next_state),
         escape_html(return_to),
-        button_html,
+        csrf_field(), button_html,
     )
 
 

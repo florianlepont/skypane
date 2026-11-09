@@ -46,7 +46,8 @@ def _respond(h, device, status, name, error=""):
 
 def handle_get(h, m):
     prefs.set_request_prefs(lang=h._lang_from_request())
-    return _respond(h, m.device, 200, m.device.name or "")
+    unnamed = m.device.name == m.device.id
+    return _respond(h, m.device, 200, "" if unnamed else m.device.name or "")
 
 
 def _store(h, device, name):

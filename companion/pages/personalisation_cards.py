@@ -20,7 +20,6 @@ import companion.layout as layout
 from companion.layout import escape_html
 
 from companion.settings import calendar as calendar_settings
-from companion.settings import look
 from companion.settings import rules
 from companion.settings.form import DIRTY_SECTION_ATTR
 from companion.settings.rules import SPECIAL_LOOKS_HEADING, special_looks_html
@@ -28,7 +27,6 @@ from companion.settings.theme import (
     COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
     FRAME_COLOURS_ROW_LABELS, departures_safe_theme_id, look_card_body_html, look_frame_html,
     look_sheet_html)
-from server import device_config
 
 PAGE_ID = "personalisation"
 NAV_LABEL = i18n.msg("display.personalisation_sections", "Personalisation sections")
@@ -171,7 +169,7 @@ def _back_html(parent_view):
          layout.icon_html("icon-chevron-right", 18), escape_html(title))
 
 
-def _form_view(ctx, values, view, errors, scope_fields_html):
+def _form_view(ctx, values, view, errors, scope_fields_html, submitted=None):
     """One form page: the link back to its list, the picture and options, and
     the floating bar."""
     parent = PARENT_VIEWS[view]
@@ -183,22 +181,18 @@ def _form_view(ctx, values, view, errors, scope_fields_html):
             scope_fields_html)
         form_id, pending, extra = calendar_settings.LOOK_FORM_ID, None, ""
     elif view == VIEW_CALENDAR_CONNECT:
-        departures_id = departures_safe_theme_id(values["theme_id"], None)
-        chosen = values["calendar_theme_id"]
-        picture_id = chosen if chosen in device_config.THEMES else departures_id
         error_message = (errors or {}).get("calendar_url") or {
             "invalid": calendar_settings.CALENDAR_ERROR_INVALID,
             "unreachable": calendar_settings.CALENDAR_ERROR_UNREACHABLE,
         }.get(ctx.calendar_sheet_error)
         markup, title, _submit = calendar_settings.connect_page_html(
-            ctx.calendar_configured, ctx.calendar_drift, ctx.state_dir, error_message,
-            picture_id, look.look_sentence(picture_id))
+            ctx.calendar_configured, ctx.calendar_drift, ctx.state_dir, error_message)
         form_id = calendar_settings.CONNECT_FORM_ID
         pending = i18n.t(calendar_settings.CALENDAR_CHECKING_TEXT)
         extra = ""
     else:
         edit = rules.edit_target(ctx) if view == VIEW_LOOK_EDIT else None
-        markup, title, _submit = rules.rule_form_html(ctx, edit)
+        markup, title, _submit = rules.rule_form_html(ctx, edit, errors, submitted)
         form_id, pending = rules.RULE_FORM_ID, None
         extra = look_sheet_html()
     return (
@@ -220,7 +214,7 @@ def page_html(
     """
     if view in FORM_VIEWS:
         return '<div class="personalisation">%s<div class="personalisation__view">%s</div></div>' % (
-            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html))
+            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
     sheet_html = look_sheet_html() if view is not None else ""
     usage = LOOK_VIEW_USAGES.get(view)
     parts = {
