@@ -61,6 +61,8 @@ def test_a_user_pairs_a_frame_and_becomes_its_owner(rig):
     assert headers["Location"] == "/devices/%s/?flash=frame_paired" % device["id"]
     status, _headers, home = fx.get(server, cookie, headers["Location"])
     assert status == 200 and "Frame added" in home
+    # The new frame is called "Unnamed frame" wherever it is named, never by its internal id.
+    assert ">%s<" % device["id"] not in home and "Unnamed frame" in home
     ok = [row for row in fx.audit_rows(server.state_dir, "pairing.claim")
           if row["outcome"] == "ok"]
     assert len(ok) == 1 and ok[0]["actor_label"] == fx.USER_EMAIL
@@ -111,37 +113,42 @@ def test_wrong_expired_used_and_malformed_codes_get_one_identical_answer(rig):
     answers = set()
     for code in ("kkkk-2222", fx.OTHER_FAKE_CODE.lower(), "no", fx.FAKE_CODE):
         status, headers, body = _claim(server, cookie, code)
+        # Post/Redirect/Get: the refusal is a redirect, so a reload never re-sends the code.
+        assert status == 303 and headers["Location"] == "/pair-frame?refused=1", (code, status)
+        assert not body
+        status, headers, page = fx.get(server, cookie, headers["Location"])
         assert status == 200 and headers["Cache-Control"] == "no-store"
-        card = _card(body)
-        typed = re.search(r'id="pair-code"[^>]*value="([^"]*)"', card).group(1)
-        assert typed == code.strip().upper()
+        card = _card(page)
+        assert re.search(r'id="pair-code"[^>]*value=""', card)
         assert "Code not recognised" in card
-        answers.add(card.replace(typed, "TYPED"))
+        answers.add(card)
     assert len(answers) == 1
     failed = [row for row in fx.audit_rows(server.state_dir, "pairing.claim")
               if row["outcome"] == "failed"]
     assert len(failed) == 4 and all('"invalid"' in row["detail"] for row in failed)
 
 
-def test_the_guess_is_stored_nowhere_and_echoed_only_into_the_input(rig):
+def test_the_guess_is_stored_nowhere_and_echoed_nowhere(rig):
     server, _seed, cookie = rig
     status, headers, body = _claim(server, cookie, "MMMM3333")
-    assert status == 200 and body.count("MMMM3333") == 1
+    assert status == 303 and "MMMM3333" not in "".join(headers.values())
+    _status, _headers, page = fx.get(server, cookie, headers["Location"])
+    assert "MMMM3333" not in page and "MMMM3333" not in body.decode() if isinstance(
+        body, bytes) else "MMMM3333" not in body
     assert "MMMM3333" not in fx.dump_database_text(server.state_dir)
-    assert "MMMM3333" not in "\n".join(str(v) for v in headers.values())
 
 
 def test_five_failures_lock_a_user_session_and_no_code_is_evaluated_after(rig):
     server, _seed, cookie = rig
     for _ in range(5):
-        assert _claim(server, cookie, WRONG_CODE)[0] == 200
+        assert _claim(server, cookie, WRONG_CODE)[0] == 303
     status, _headers, body = _claim(server, cookie, fx.FAKE_CODE)
     assert status == 429 and "Too many attempts" in body
     assert _device(server.state_dir) is None
     rows = fx.audit_rows(server.state_dir, "pairing.claim")
     assert len([row for row in rows if "throttled" in row["detail"]]) == 1
     other = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
-    assert _claim(server, other, WRONG_CODE)[0] == 200
+    assert _claim(server, other, WRONG_CODE)[0] == 303
 
 
 def test_the_global_throttle_covers_users_and_administrators_alike(rig):
@@ -149,7 +156,7 @@ def test_the_global_throttle_covers_users_and_administrators_alike(rig):
     for index in range(5):
         cookie = fx.user_cookie(server.state_dir, "extra%d@example.test" % index)
         for _ in range(4):
-            assert _claim(server, cookie, WRONG_CODE)[0] == 200
+            assert _claim(server, cookie, WRONG_CODE)[0] == 303
     fresh = fx.user_cookie(server.state_dir, "fresh@example.test")
     assert _claim(server, fresh, fx.FAKE_CODE)[0] == 429
     admin = fx.admin_cookie(server.state_dir)
@@ -163,7 +170,7 @@ def test_an_empty_code_is_a_400_and_is_not_counted(rig, monkeypatch):
         console_pairing, "SESSION_THROTTLE", throttle.LockoutThrottle(1, 300))
     status, _headers, body = _claim(server, cookie, "  ")
     assert status == 400 and "Enter the pairing code." in body
-    assert _claim(server, cookie, WRONG_CODE)[0] == 200
+    assert _claim(server, cookie, WRONG_CODE)[0] == 303
 
 
 def test_a_user_cannot_reach_the_administrator_routes(rig):

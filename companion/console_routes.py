@@ -12,7 +12,8 @@ Navigation links are derived from the live route table, so a link exists
 only while its GET page does.
 """
 from companion import (
-    console_lifecycle, console_locations, console_pairing, console_users, i18n)
+    console_components, console_lifecycle, console_locations, console_pairing, console_users,
+    i18n)
 from companion.ui_base import (
     AIRLINE_EDITOR_LABEL, AIRLINE_EDITOR_ROUTE, DEVICE_ROUTE, HEALTH_ROUTE)
 
@@ -49,6 +50,7 @@ ROUTES = (
     + console_lifecycle.ROUTES
     + console_users.ROUTES
     + console_locations.ROUTES
+    + console_components.ROUTES
 )
 
 ADMINISTRATION_LABEL = i18n.msg("nav.administration", "Administration")

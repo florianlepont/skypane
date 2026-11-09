@@ -461,7 +461,8 @@ def test_gallery_filter_clear_controls_are_real_buttons(tmp_path):
     rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     assert ('<button type="button" class="filter-bar__clear" data-filter-clear '
             'aria-label="Clear search">') in rendered
-    assert '<button type="button" data-filter-clear data-filter-clear-all>Clear</button>' in rendered
+    assert ('<button type="button" class="btn btn--secondary" data-filter-clear '
+            'data-filter-clear-all>Clear</button>') in rendered
 
 
 def test_gallery_filter_label_for_matches_input_id(tmp_path):

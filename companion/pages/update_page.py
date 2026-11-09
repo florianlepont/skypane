@@ -14,6 +14,7 @@ import collections
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
+from companion import ui_segmented
 from companion.layout import csrf_field, escape_html
 import companion.page_context as page_context
 import companion.wake as wake
@@ -186,7 +187,7 @@ EMPTY_RELEASES_BODY_TEXT = i18n.msg(
 # Show-more control and the calendar-disconnect form already share --
 # never the accent-styled primary. The accent primary is spent only on
 # installing a release newer than the one the frame runs.
-_QUIET_BUTTON_CLASS = "calendar-disconnect-btn"
+_QUIET_BUTTON_CLASS = "btn btn--secondary"
 
 # Where a release sits against the running one (`view["releases"][n]
 # ["direction"]`): only "older" is worded as a rollback.
@@ -257,16 +258,13 @@ def _type_chooser_html(choice):
     """The type switch: the app's segmented control (`.theme-form`) as a
     GET form, so it works without script. The active type is marked with
     `aria-pressed`; the full label is also the button's `title`."""
-    buttons = "".join(
-        '<button type="submit" name="%s" value="%s" class="%s" aria-pressed="%s" title="%s">%s</button>'
-        % (TYPE_QUERY_PARAM, escape_html(key),
-           "theme-option theme-option--active" if key == choice.selected else "theme-option",
-           "true" if key == choice.selected else "false",
-           escape_html(_type_label(key)), escape_html(_type_label(key)))
-        for key in choice.relevant)
-    return (
-        '<form class="theme-form update-type-chooser" method="get" action="%s" aria-label="%s">%s</form>'
-    ) % (layout.UPDATE_ROUTE, escape_html(i18n.t(TYPE_CHOOSER_LABEL_TEXT)), buttons)
+    buttons = [
+        (TYPE_QUERY_PARAM, key, _type_label(key), key == choice.selected, "", _type_label(key))
+        for key in choice.relevant]
+    return ui_segmented.segmented_buttons_html(
+        'method="get" action="%s" aria-label="%s"' % (
+            layout.UPDATE_ROUTE, escape_html(i18n.t(TYPE_CHOOSER_LABEL_TEXT))),
+        buttons, "update-type-chooser")
 
 
 def _mono_html(version):

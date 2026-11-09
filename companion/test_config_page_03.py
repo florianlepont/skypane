@@ -283,7 +283,7 @@ def test_calendar_connection_url_error_never_echoes_the_submitted_secret():
     """
     error_message = form_post.ERROR_CALENDAR_URL_INVALID
     rendered, _title, _submit = config_page.connect_page_html(
-        False, False, None, error_message, "white", "Plain paper")
+        False, False, None, error_message)
     assert escape_html(error_message) in rendered, "expected the calendar_url error message to render"
     assert 'name="calendar_url"' in rendered, "expected the calendar_url field itself to still render"
     after_name = rendered.split('name="calendar_url"', 1)[1].split(">", 1)[0]
@@ -488,10 +488,13 @@ def test_dirty_state_js_beforeunload_guard_reuses_count_differences(dirty_state_
     # registration appears in source.
     listener_marker = 'addEventListener("beforeunload"'
     assert listener_marker in source, "expected dirty-state.js to call addEventListener(\"beforeunload\", ...)"
-    beforeunload_idx = source.index(listener_marker)
-    listener_body = source[beforeunload_idx:beforeunload_idx + 400]
-    assert "countDifferences" in listener_body, (
-        "expected the beforeunload listener's body to reference countDifferences")
+    # The script registers one guard for the settings form (keyed on countDifferences) and one
+    # for a form page's fixture bar: the settings form's must reference countDifferences.
+    bodies = [
+        source[start:start + 400] for start in range(len(source))
+        if source.startswith(listener_marker, start)]
+    assert any("countDifferences" in body for body in bodies), (
+        "expected the settings form's beforeunload listener body to reference countDifferences")
     assert 'addEventListener("submit"' in source, "expected dirty-state.js to register a submit listener on the form"
     for forbidden in ("innerHTML", "let ", "const ", "=>", "`"):
         assert forbidden not in source, (
@@ -973,20 +976,21 @@ def test_strong_selected_treatment_is_keyed_to_the_live_checked_radio(served_css
 
 
 def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild(served_css):
-    """the destructive Disconnect control keeps its secondary, element-qualified specificity AND
-    its source-order relationship against button[type="submit"], and the look table's checked
+    """the secondary button variant keeps a doubled-class specificity that outranks
+    button[type="submit"] and no accent fill, and the look table's checked
     cell is keyed to .look-cell:has(input:checked) inside the file's one @supports
     selector(:has(*)) block with a visible focus ring on the hidden radio's label"""
     css = served_css
     submit = rule_indices(css, 'button[type="submit"]', at_rules=())
-    disconnect = rule_indices(css, "button.calendar-disconnect-btn", at_rules=())
+    secondary = rule_indices(css, ".btn.btn--secondary", at_rules=())
+    primary = rule_indices(css, ".btn.btn--primary", at_rules=())
     assert submit, 'expected style.css to declare a top-level button[type="submit"] rule'
-    assert disconnect, (
-        "expected style.css to declare a top-level, element-qualified "
-        "button.calendar-disconnect-btn rule")
-    assert min(disconnect) > max(submit), (
-        "expected every button.calendar-disconnect-btn rule to come AFTER every "
-        'button[type="submit"] rule - at equal (0,1,1) specificity the LATER rule wins')
+    assert secondary and primary, (
+        "expected style.css to declare the doubled .btn.btn--secondary and .btn.btn--primary "
+        "variant rules, which outrank the (0,1,1) button[type=\"submit\"] rule")
+    fill = _declared(css, ".btn.btn--secondary", at_rules=())
+    assert fill.get("background", "").startswith("color-mix"), fill
+    assert fill.get("box-shadow") == "none", fill
     _assert_one_has_feature_query_block(css)
     cell = _declared(css, ".look-cell:has(input:checked)", at_rules=_HAS_QUERY)
     assert cell.get("border-color") == "var(--color-accent)"

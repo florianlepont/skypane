@@ -28,11 +28,11 @@ MESSAGES = {
     "rules.remove": "Retirer",
     "rules.edit": "Modifier",
     "rules.edit_rule_aria": "Modifier l’allure spéciale pour %s",
-    "rules.remove_this_special_look": "Supprimer ce look spécial ?",
+    "rules.remove_this_special_look": "Supprimer cette allure spéciale ?",
     "rules.remove_special_look_body":
-        "%s retrouve votre look habituel. Vous pouvez rajouter le look spécial à tout moment.",
-    "rules.remove_special_look": "Supprimer le look spécial",
-    "rules.keep_special_look": "Garder le look spécial",
-    "rules.remove_rule_aria": "Supprimer le look spécial pour %s",
+        "%s retrouve votre allure habituelle. Vous pouvez rajouter l’allure spéciale à tout moment.",
+    "rules.remove_special_look": "Supprimer l’allure spéciale",
+    "rules.keep_special_look": "Garder l’allure spéciale",
+    "rules.remove_rule_aria": "Supprimer l’allure spéciale pour %s",
     "rules.recent": "Récents :",
 }

@@ -49,7 +49,7 @@ def test_a_rule_row_offers_a_remove_dialog_whose_dismiss_is_named_and_focused(se
     assert form.select_one('input[name="csrf_token"]') is not None
     submit = form.select_one('button[type="submit"]')
     assert submit.text() == "Remove special look"
-    assert "calendar-disconnect-btn" in submit.attrs["class"]
+    assert "btn--danger" in submit.attrs["class"]
     dismiss = form.select_one("a.modal__dismiss")
     assert dismiss.text() == "Keep special look"
     assert "autofocus" in dismiss.attrs
@@ -62,9 +62,9 @@ def test_the_dialog_is_french_in_french(served):
     colour_rules.add_rule(server.state_dir, "callsign", "AFR1234", "white")
     row = _card(_display(server, session, lang="fr")).select_one("li.rule-row")
     dialog = row.select_one("dialog.modal")
-    assert dialog.select_one("h2").text() == "Supprimer ce look spécial ?"
-    assert dialog.select_one('button[type="submit"]').text() == "Supprimer le look spécial"
-    assert dialog.select_one("a.modal__dismiss").text() == "Garder le look spécial"
+    assert dialog.select_one("h2").text() == "Supprimer cette allure spéciale ?"
+    assert dialog.select_one('button[type="submit"]').text() == "Supprimer l’allure spéciale"
+    assert dialog.select_one("a.modal__dismiss").text() == "Garder l’allure spéciale"
 
 
 def test_every_rule_gets_its_own_dialog_with_a_slug_id(served):
@@ -113,7 +113,7 @@ def test_the_card_counts_the_rules_and_leads_with_the_new_special_look_action(se
 
 @pytest.mark.parametrize("lang,heading", [
     ("en", "No special looks yet."),
-    ("fr", "Aucun look spécial."),
+    ("fr", "Aucune allure spéciale."),
 ])
 def test_without_rules_the_card_shows_the_compact_empty_state_and_the_add_action(
         served, lang, heading):

@@ -116,7 +116,12 @@ def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         assert page.locator(".pair-form .toast").count() == 0
         assert page.locator(".pair-form .field-error").count() == 1
         assert text["refused"] in page.locator(".pair-form").inner_text()
-        assert page.input_value("#pair-code") == "KKKK-2222"
+        # Post/Redirect/Get: the refusal is its own page (a reload re-sends nothing) and the
+        # typed code is not kept.
+        assert page.url.endswith("/pair-frame?refused=1")
+        assert page.input_value("#pair-code") == ""
+        page.reload()
+        page.locator(".pair-form .field-error").wait_for(state="visible")
         page.fill("#pair-code", fx.FAKE_CODE)
         page.locator(".pair-form button[type=submit]").click()
         page.wait_for_url(HOME_URL)

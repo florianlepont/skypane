@@ -104,7 +104,8 @@ def test_sign_out_ends_on_the_fixed_login_page(rig, new_context):
     assert page.locator("a.login-signin").count() == 1
     assert _session_cookie(context) == []
     page.goto(base + "/account")
-    assert page.url == base + "/login"
+    # The sign-in page keeps the page asked for (and no expiry mark: no session ended).
+    assert page.url == base + "/login?next=%2Faccount"
     assert rig.fake.calls_to("/v2/logout")
 
 

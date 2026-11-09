@@ -11,7 +11,7 @@ from companion import device_scope, i18n
 from companion import theme_preview
 import companion.layout as layout
 from companion import ui_components
-from companion import ui_modal
+from companion import ui_modal, ui_segmented
 from companion.layout import csrf_field, escape_html
 from server import device_config, history_db
 from server.plane import colour_rules, enrich, name_overrides
@@ -123,39 +123,23 @@ def _rule_delete_action(kind, value):
         RULES_DELETE_ROUTE_PREFIX, kind, value, RULES_DELETE_ROUTE_SUFFIX), "POST"))
 
 
-def _rule_kind_radio_html(kind, checked):
-    """One native radio + `<label>` pair for the "Match by" segmented
-    control. The radio is visually hidden and styled via the adjacent
-    label (`.theme-form input[type="radio"] + label`); the plain-
-    language word is the visible label text, and the technical term is
-    the label's own `title` attribute, so a hovering mouse user still
-    finds the exact vocabulary without it cluttering the visible label.
-    """
-    radio_id = "rule-kind-%s" % kind
-    return (
-        '<input type="radio" name="rule_kind" id="%s" value="%s" '
-        'class="visually-hidden"%s>'
-        '<label for="%s" title="%s">%s</label>'
-    ) % (
-        escape_html(radio_id), escape_html(kind), " checked" if checked else "",
-        escape_html(radio_id), escape_html(i18n.t(RULE_KIND_TITLES[kind])),
-        escape_html(i18n.t(RULE_KIND_LABELS[kind])),
-    )
-
-
 def _rule_kind_segment_html(selected_kind, errors):
     """The "Applies to" segmented control: native radios styled as one
-    control, labelled by its visible heading."""
-    kind_radios = "".join(
-        _rule_kind_radio_html(kind, kind == selected_kind)
-        for kind in colour_rules.RULE_KINDS)
+    control, labelled by its visible heading. The plain-language word is the
+    visible label text, and the technical term is the label's own `title`
+    attribute, so a hovering mouse user still finds the exact vocabulary
+    without it cluttering the visible label."""
+    options = [
+        ("rule-kind-%s" % kind, "rule_kind", kind, i18n.t(RULE_KIND_LABELS[kind]),
+         i18n.t(RULE_KIND_TITLES[kind]), kind == selected_kind)
+        for kind in colour_rules.RULE_KINDS]
     return (
         '<p class="look-axis__label" id="%s">%s</p>'
         '<div class="rule-add-form__field rule-add-form__field--kind" role="radiogroup" '
-        'aria-labelledby="%s"><div class="theme-form">%s</div>%s</div>'
+        'aria-labelledby="%s">%s%s</div>'
     ) % (
         escape_html(RULE_KIND_HEADING_ID), escape_html(i18n.t(RULE_KIND_FIELD_LABEL)),
-        escape_html(RULE_KIND_HEADING_ID), kind_radios,
+        escape_html(RULE_KIND_HEADING_ID), ui_segmented.segmented_radios_html(options),
         _field_error_html(errors, "rule_kind", "rule-kind"))
 
 
@@ -361,7 +345,7 @@ def _rule_remove_html(kind, value):
     subject = "%s %s" % (_rule_kind_label_text(kind), value)
     trigger = ui_modal.trigger_html(
         dialog_id, escape_html(i18n.t(RULE_REMOVE_BUTTON_TEXT)),
-        "special-row__remove calendar-disconnect-btn",
+        "btn btn--secondary special-row__remove",
         i18n.t(RULE_REMOVE_ARIA) % subject)
     dialog = ui_modal.dialog_html(
         dialog_id, i18n.t(RULE_REMOVE_DIALOG_TITLE), _rule_delete_action(kind, value),

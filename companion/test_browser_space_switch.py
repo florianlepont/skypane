@@ -173,6 +173,7 @@ def test_one_tap_on_the_sidebar_switch_moves_between_the_two_spaces(
         page.locator(".space-switch__segment:visible", has_text="Console").click()
         page.wait_for_function(
             "() => location.pathname === '/fleet'"
+            " && !!document.querySelector('.space-switch__segment[aria-current=page]')"
             " && document.querySelector('.space-switch__segment[aria-current=page]')"
             ".textContent.includes('Console')")
         _check_switch(page, "en", "Console", "console/desktop")

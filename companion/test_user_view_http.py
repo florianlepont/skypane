@@ -84,6 +84,8 @@ class Rig:
         headers = dict(extra_headers or {})
         if method == "POST":
             headers["Origin"] = self.server.base_url()
+            if data is not None and self.cookies[who]:
+                data = data + b"&csrf_token=" + _csrf(self.cookies[who])
         return http_request(
             self.server.url(path), method=method, data=data,
             cookie=self.cookies[who], extra_headers=headers or None)
@@ -271,6 +273,11 @@ _ADMIN_LINK_PATHS = (
     "/fleet", "/users", "/audit", "/update", "/device", "/health", "/airlines/manage",
     "/locations")
 _FRAME_PAGES = ("/", "/display", "/flights", "/airlines")
+
+
+def _csrf(cookie):
+    from companion import auth
+    return auth.csrf_token(cookie.split("=", 1)[1]).encode()
 
 
 def _form(**fields):

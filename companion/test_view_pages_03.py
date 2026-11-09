@@ -129,8 +129,8 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
     """the resolve dialog's Save and Close share ONE .lightbox__actions row — quiet Close first,
     primary Save second and re-attached to its form by the native form= attribute — while the
     no-JS fallback keeps its own submit inside its own form, and the row's rule declares
-    flex/centre/space-between with no shared height (C4) and no .btn-- family (B5,
-     Task 1)"""
+    flex/centre/space-between with no shared height (C4) and only the one
+    shared button family's variants"""
     rendered = airlines_page.render({})
     row = re.search(
         r'<div class="%s">(.*?)</div>' % re.escape(airlines_page.LIGHTBOX_ACTIONS_CLASS),
@@ -179,9 +179,10 @@ def test_resolve_dialog_save_and_close_share_one_action_row(tmp_path, served_css
     for forbidden in ("height", "min-height", "border-radius"):
         assert forbidden not in rule, (
             "expected the action row to declare no %r, got %r" % (forbidden, rule))
-    btn_family = [selector for rule in css_rules(served_css) for selector in rule.selectors
-                  if ".btn--" in selector]
-    assert not btn_family, "expected no .btn-- family anywhere in style.css, got %r" % (btn_family,)
+    variants = {match for rule in css_rules(served_css) for selector in rule.selectors
+                for match in re.findall(r"\.btn--([a-z]+)", selector)}
+    assert variants <= {"primary", "secondary", "ghost", "danger", "icon"}, (
+        "expected only the shared button variants in style.css, got %r" % (variants,))
 
 
 def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
@@ -193,7 +194,7 @@ def test_airlines_rows_carry_no_badge_or_per_row_control_but_full_vocabulary():
 
     assert "banner__pill" not in rendered, (
         "expected no Editing badge anywhere — the page-wide editing mode is gone")
-    assert "calendar-disconnect-btn" not in rendered, (
+    assert not re.search(r'class="btn[^"]*"[^>]*data-view-panel-src|data-view-panel-src[^>]*class="btn', rendered), (
         "expected zero per-card Replace controls anywhere — the affordance moved into the "
         "dialog (CFG-81)")
 

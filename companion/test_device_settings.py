@@ -307,8 +307,8 @@ def test_every_timezone_string_renders_in_french(app):
     assert "Fuseau horaire" in page
     assert "Métropole (Paris)" in page and "Nouvelle-Calédonie" in page
     cookie = "%s; %s=fr" % (app.cookie, auth.UI_LANG_COOKIE_NAME)
-    import urllib.parse
-    data = urllib.parse.urlencode(dict(QUIET, timezone="Asia/Nowhere")).encode()
+    from companion_app_server import with_csrf
+    data = with_csrf(cookie, dict(QUIET, timezone="Asia/Nowhere"))
     status, _, body = http_request(
         app.server.base_url() + _prefix(app.fleet.dev_a) + "/settings", method="POST",
         data=data, cookie=cookie)

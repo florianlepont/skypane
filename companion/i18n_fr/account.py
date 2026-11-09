@@ -43,6 +43,8 @@ MESSAGES = {
         "Appuyez sur Se connecter pour réessayer. Si cela se reproduit, "
         "vérifiez que les cookies sont activés.",
     "account.sign_in_took_too_long": "La connexion a pris trop de temps",
+    "account.session_expired_title": "Votre session a expiré",
+    "account.session_expired_detail": "Reconnectez-vous pour reprendre où vous en étiez.",
     "account.press_sign_in_to_start_again":
         "Appuyez sur Se connecter pour recommencer.",
     "account.sign_in_was_cancelled": "La connexion a été annulée",

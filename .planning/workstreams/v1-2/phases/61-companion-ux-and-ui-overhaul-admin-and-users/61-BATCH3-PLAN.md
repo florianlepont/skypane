@@ -140,3 +140,10 @@ dropped or redrawn from a sketch.
 | 61-93b | W152: Location phone map full-bleed (needs a fresh iPhone capture) |
 | 61-90 (add) | Flights sort control (date, airline, direction) |
 | 61-92 (add) | Rename a frame (owner and administrators) via the common SaveBar |
+
+## Batch 15 (D51, audit 3)
+
+| Plan | Content |
+|------|---------|
+| 61-97 | Design system: admin-only Components page (all components, all states, both themes and languages), one component test, unify switch / select / segmented control / chips / buttons / cards / tables / dialogs, fix the audit-3 component-driven findings |
+| 61-98 | Remaining audit-3 visual findings (V01, V02, V05, V08-V25 not covered by 61-97), workflow findings (login ?next= for all routes, session-expired message on login, owner Rename entry, CSRF on settings and quick routes, pairing id, special-look error keeps input, no-JS upload buttons, unsaved-changes guard), performance quick wins (N01 folded-history cache, N03 JS comments, N02 idle prefetch limits, P16 Display previews, N06 ETag) |

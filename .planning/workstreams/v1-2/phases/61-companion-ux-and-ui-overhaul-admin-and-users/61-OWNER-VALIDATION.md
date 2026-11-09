@@ -995,3 +995,16 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - W163 Airlines collection (type rows): "Utilise celle de la compagnie"
   overlaps the views count and the actions column is misaligned (dark block at
   the right), after the type row alignment change.
+
+## Audit 3 and design-system decisions (D51)
+
+- Third audit (visual 29 findings, performance 26, workflows 272 with 14 partial,
+  0 failures) published as an artifact; reports in scratchpad `audit3/`.
+- D51 (owner, "Oui ! ... pas seulement de créer la page, mais aussi de s'en
+  servir pour corriger certains points de l'audit et homogénéiser l'interface"):
+  build an admin-only "Components" reference page showing every shared UI
+  component in all its states, light/dark, EN/FR, with one geometry and
+  contrast browser test, and USE it to replace parallel variants (switches,
+  selects, segmented controls, chips, buttons, cards, tables, dialogs) by one
+  component each, fixing the audit-3 visual findings that come from
+  inconsistent components (V03, V04, V06, V07, V26, V29 and related).

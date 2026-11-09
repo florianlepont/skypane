@@ -17,7 +17,7 @@ from companion import airline_collection as collection
 from companion import device_scope
 from companion import i18n
 from companion import illustration_normalize
-from companion import ui_filter
+from companion import ui_components, ui_filter
 from companion import ui_modal
 import companion.layout as layout
 from companion import prefs
@@ -243,8 +243,8 @@ def _seen_text(times):
 def _card_html(entry, state_dir):
     """A calm card: the picture, the name and, for a seen airline, one line
     with the sighting count and the rarity in words. An airline not seen yet is
-    only dimmed (no text); the New pill sits on the picture and only while it
-    applies."""
+    only dimmed (no text); the New pill sits in the card's corner, outside the picture, and
+    only while it applies."""
     classes = "collection-card" + (
         " collection-card--" + entry.rarity if entry.seen else " collection-card--unseen")
     new = ""
@@ -260,7 +260,7 @@ def _card_html(entry, state_dir):
              escape_html(i18n.t(RARITY_LABELS[entry.rarity])))
     link = ui_modal.trigger_html(
         DIALOG_PREFIX + entry.slug,
-        '<span class="collection-card__art">%s%s</span>'
+        '<span class="collection-card__art">%s</span>%s'
         '<span class="collection-card__name">%s</span>%s' % (
             _picture_html(entry, state_dir), new, escape_html(entry.name), line_html),
         extra_class=classes)
@@ -294,16 +294,15 @@ def _types_html(entry):
     return '<span class="type-chips">%s</span>' % "".join(chips)
 
 
-def _facts_html(entry, now):
-    callsigns = " ".join(
-        '<span class="mono">%s</span>' % escape_html(c) for c in entry.callsigns)
+def _facts_html(entry):
+    callsigns = '<span class="type-chips">%s</span>' % "".join(
+        '<span class="type-chip mono">%s</span>' % escape_html(c) for c in entry.callsigns
+    ) if entry.callsigns else ""
     rows = [
         _fact_html(FACT_TIMES, escape_html(str(entry.times_seen))),
         _fact_html(FACT_RARITY, _rarity_pill_html(entry.rarity)),
         _fact_html(FACT_FIRST, escape_html(_date_text(entry.first_day))),
-        _fact_html(FACT_LAST, "%s (%s)" % (
-            escape_html(_date_text(entry.last_day)),
-            layout.relative_time_html(entry.last_ts, now))),
+        _fact_html(FACT_LAST, escape_html(_date_text(entry.last_day))),
     ]
     if entry.types:
         rows.append(_fact_html(FACT_TYPES, _types_html(entry), wide=True))
@@ -312,14 +311,17 @@ def _facts_html(entry, now):
     return '<dl class="collection-facts">%s</dl>' % "".join(rows)
 
 
-def _sheet_html(entry, state_dir, now):
+def _sheet_html(entry, state_dir):
     if entry.seen:
-        body = _facts_html(entry, now) + '<p class="text-label collection-sheet__note">%s</p>' % (
+        body = _facts_html(entry) + '<p class="text-label collection-sheet__note">%s</p>' % (
             escape_html(i18n.t(RARITY_SENTENCE)))
     else:
         body = '<p class="text-body">%s</p>' % escape_html(i18n.t(NOT_SEEN))
-    sections = '<div class="collection-sheet__art">%s</div>%s' % (
-        _picture_html(entry, state_dir), body)
+    has_picture = illustrations.resolved_illustration_path(
+        entry.picture_key, state_dir) is not None
+    art = '<div class="collection-sheet__art">%s</div>' % _picture_html(
+        entry, state_dir) if has_picture else ""
+    sections = art + body
     return ui_modal.sections_dialog_html(
         DIALOG_PREFIX + entry.slug, entry.name, "", sections,
         i18n.t(CLOSE_TEXT), "#" + GRID_ID, extra_class="collection-sheet")
@@ -469,15 +471,18 @@ def render(ctx, query_string=""):
     if shown:
         # Revealed by list-filter.js when the typed text hides every card.
         parts.append(_no_match_html(
-            '<button type="button" data-filter-clear data-filter-clear-all>%s</button>' %
-            escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT)), "data-filter-empty hidden"))
+            ui_components.button_html(
+                i18n.t(ui_filter.FILTER_CLEAR_TEXT), "secondary",
+                attrs=" data-filter-clear data-filter-clear-all"),
+            "data-filter-empty hidden"))
         parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
             GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
             "".join(_card_html(entry, ctx.state_dir) for entry in shown)))
-        parts.extend(_sheet_html(entry, ctx.state_dir, now) for entry in shown)
+        parts.extend(_sheet_html(entry, ctx.state_dir) for entry in shown)
     else:
         parts.append(_no_match_html(
-            '<a class="calendar-disconnect-btn" href="%s">%s</a>' % (
-                escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
-                escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT))), "data-collection-empty"))
+            ui_components.button_html(
+                i18n.t(ui_filter.FILTER_CLEAR_TEXT), "secondary",
+                href=device_scope.scoped(layout.AIRLINES_ROUTE)),
+            "data-collection-empty"))
     return "".join(parts)

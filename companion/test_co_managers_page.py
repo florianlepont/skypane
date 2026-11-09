@@ -102,7 +102,7 @@ def test_every_co_manager_gets_a_destructive_remove_form_and_the_owner_none():
         assert form.attrs["action"] == PREFIX + card.REMOVE_ROUTE
         button = row.select_one("button")
         assert button.text() == "Remove"
-        assert button.attrs["class"] == "co-manager__remove-btn"
+        assert button.attrs["class"] == "btn btn--ghost co-manager__remove-btn"
         assert button.attrs["aria-label"] == "Remove %s from this frame" % email
         assert _hidden(form) == {
             "csrf_token": TOKEN, "return_to": "/fleet", "user_id": user_id}
@@ -188,7 +188,7 @@ def test_the_leave_dialog_is_confirm_only_destructive_and_posts_no_id():
     assert form.attrs["action"] == PREFIX + card.LEAVE_ROUTE
     assert _hidden(form) == {"csrf_token": TOKEN}
     assert "You will lose access to this frame" in form.text()
-    assert "calendar-disconnect-btn" in form.select_one('button[type="submit"]').attrs["class"]
+    assert "btn--danger" in form.select_one('button[type="submit"]').attrs["class"]
     assert form.select_one('button[type="submit"]').text() == "Leave this frame"
     keep = tree.select_one("a.modal__dismiss")
     assert keep.text() == "Stay on this frame"
