@@ -1,0 +1,341 @@
+{
+  "cases": {
+    "a_blue_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "94add65d9d98a97a72af7b7f7df157e05ff375f960578df8156b253186761e91"
+    },
+    "a_blue_light_departing": {
+      "bytes": 1920000,
+      "sha256": "1a6dd4deb8c899bb98ef11296f9e9c3efdb0f7184a71316fed44678c89ddafaf"
+    },
+    "a_diagonal_blue_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "1bee42c6ed7cf4858f49d7fcfd134965cfbba8c8c4ed5cba561452191a4fb502"
+    },
+    "a_diagonal_blue_light_departing": {
+      "bytes": 1920000,
+      "sha256": "1c04f4e661b92c069e147af057defa443637417cf16a908e4d293c8e55f44790"
+    },
+    "a_diagonal_grey_arriving": {
+      "bytes": 1920000,
+      "sha256": "9f1bcd167db8946f20dba8b01b824ef5a3771edad2a8dfaeffb6fa24c778f37a"
+    },
+    "a_diagonal_grey_departing": {
+      "bytes": 1920000,
+      "sha256": "2a11c060f59d817052dc225b8234ed388256dcc3209b177dcbf6ecc0b786667d"
+    },
+    "a_diagonal_landscape_blue_light": {
+      "bytes": 384000,
+      "sha256": "5900069a3a99dbfe2e4f7b0dcc674b1ae94c97178d56c9d86bb2b0bb7623c253"
+    },
+    "a_diagonal_landscape_white": {
+      "bytes": 384000,
+      "sha256": "90dc55a9f30d6d125fec8c6f8dd0df1d0b35d43987b0badec3d70bdae6f348e5"
+    },
+    "a_diagonal_names_accented": {
+      "bytes": 1920000,
+      "sha256": "538e6e1719ad9d75c078ad491ddab3dcc1de6d6969adb4724cf52671223792be"
+    },
+    "a_diagonal_names_airline_only": {
+      "bytes": 1920000,
+      "sha256": "cc95380e789028266d8730a15d93340cd7f1c487fe98f4e11a40a5c3c57eb679"
+    },
+    "a_diagonal_names_hyphenated": {
+      "bytes": 1920000,
+      "sha256": "bd64c8aaac5b76de59f7b2af93a3915935644ed847e475333f2ed951adc4a6f6"
+    },
+    "a_diagonal_names_long": {
+      "bytes": 1920000,
+      "sha256": "7a8a83b1050594d295854ec876dacca4611f5318bdbde8f8820375be332634af"
+    },
+    "a_diagonal_names_short": {
+      "bytes": 1920000,
+      "sha256": "8affff7d2338fdb36c1f2a87b9aa1064342600b7a3dceee370a2fa25c1c74ab9"
+    },
+    "a_diagonal_red_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "aa1c5f5655bfa7113fd75db4e8ce48d1ff0513ed624550a534daa5c5c4a30723"
+    },
+    "a_diagonal_red_light_departing": {
+      "bytes": 1920000,
+      "sha256": "768a16da4c1eed0f222b1ecff1b0eb0a83dd2982645adfcccb1634a9fdbc4970"
+    },
+    "a_diagonal_white_arriving": {
+      "bytes": 1920000,
+      "sha256": "b557d9d85a9759958374cd3942a00963fe29f4aca033a2f708f1d5c5f038d47d"
+    },
+    "a_diagonal_white_departing": {
+      "bytes": 1920000,
+      "sha256": "0179eb6f3dd994a12b3f0ad78b1f4c0b2623524d3cb71d0a89780ff3a761722e"
+    },
+    "a_diagonal_yellow_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "7735c64fd2f78dc0ea053656a0ceab916f96b7079d6c95a4311b116ff76ba6f6"
+    },
+    "a_diagonal_yellow_light_departing": {
+      "bytes": 1920000,
+      "sha256": "48f8121dbb8641a5bc66ed9151de3ec4ecd6100921c57a526b7b69cd366ea3ed"
+    },
+    "a_grey_arriving": {
+      "bytes": 1920000,
+      "sha256": "b6bab06aad96f67a68de1f1fe5ba346dbc9604f801458000fbeab1f736a5903f"
+    },
+    "a_grey_departing": {
+      "bytes": 1920000,
+      "sha256": "3e0681b6a76c3c6f90f417c1c6791803b76ebd0817dd028edded41a450705137"
+    },
+    "a_landscape_blue_light": {
+      "bytes": 384000,
+      "sha256": "6c0e85aac6c5759aad3ef3ea20d6d492d8ad3dd1bfce6cbb400043154c1055b1"
+    },
+    "a_landscape_white": {
+      "bytes": 384000,
+      "sha256": "fb94f3372313620dc0328d45f6566246a616230dc70e0ceb8d3498797b8dbf7c"
+    },
+    "a_names_accented": {
+      "bytes": 1920000,
+      "sha256": "a90ed3687cc7e1083df62b971bba6bb4371b1f347557938957aa3f7afeca4a45"
+    },
+    "a_names_airline_only": {
+      "bytes": 1920000,
+      "sha256": "735abfe0369cd410c2c8a94655138e2b69e42788385ffd845e446378f2749bd7"
+    },
+    "a_names_hyphenated": {
+      "bytes": 1920000,
+      "sha256": "9425e221fb477f8a28f27d71aa6687c5f4627a1590601835142ee6aacabad171"
+    },
+    "a_names_long": {
+      "bytes": 1920000,
+      "sha256": "54625c7819b654d5061a6f058cce34d045ceafe362513b0064154cfc927bf8e1"
+    },
+    "a_names_short": {
+      "bytes": 1920000,
+      "sha256": "d82a6c81f7415cfe1ee56c2d3a803fad5191640b69e34c9fd764ca79344345fd"
+    },
+    "a_red_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "e12b1fc445d44c62cfdb75a1a71c315e0659e02f07fef2c2e2215bf1a376b3c9"
+    },
+    "a_red_light_departing": {
+      "bytes": 1920000,
+      "sha256": "ac9202f9cd53361e362ac420c67282f4d44fac53fb97216918f2ecb014592fdc"
+    },
+    "a_white_arriving": {
+      "bytes": 1920000,
+      "sha256": "b557d9d85a9759958374cd3942a00963fe29f4aca033a2f708f1d5c5f038d47d"
+    },
+    "a_white_departing": {
+      "bytes": 1920000,
+      "sha256": "0179eb6f3dd994a12b3f0ad78b1f4c0b2623524d3cb71d0a89780ff3a761722e"
+    },
+    "a_yellow_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "3ea6e0f240896e18bb53a38e422381da39cb3751d650bbab865a6055c0ba909e"
+    },
+    "a_yellow_light_departing": {
+      "bytes": 1920000,
+      "sha256": "d74f22972e3734efa0ac23ca6414a193f0e7c2bf12e963f54c9fe920f0db5c14"
+    },
+    "b_blue_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "28e35da89757473d965aabbd290ee57aa95b794336e9fd9c66352370341e7e48"
+    },
+    "b_blue_light_departing": {
+      "bytes": 1920000,
+      "sha256": "b4d0033c9587a2d57b980366bfebbe24cb8d5252d2be590d9eef3e8961d700ac"
+    },
+    "b_grey_arriving": {
+      "bytes": 1920000,
+      "sha256": "c2d8d0378bb03b82fd63f70fd340cda6eed5c737f1820ac3a0f2784905de3bab"
+    },
+    "b_grey_departing": {
+      "bytes": 1920000,
+      "sha256": "65ac6472564091239407fb7933226bbc71f8331623404d79b9690162319d65e8"
+    },
+    "b_landscape_blue_light": {
+      "bytes": 384000,
+      "sha256": "27f2b3200f1e3964ff2864b5738d0a37ec008be0c53f653b9f3f43d48794f46d"
+    },
+    "b_landscape_white": {
+      "bytes": 384000,
+      "sha256": "a0ac4ebe319ef3047f54ee66f439061cbf89637c5098222cde05a33045856bed"
+    },
+    "b_names_accented": {
+      "bytes": 1920000,
+      "sha256": "d0a6af672ae39363e3846f5e9cf2fe8d49cbce772b91efca4e68c11910b1ce76"
+    },
+    "b_names_airline_only": {
+      "bytes": 1920000,
+      "sha256": "807d0a204c3b0fd8ce2a11352e503996daddb8f0cb4009236468d758923b1b48"
+    },
+    "b_names_hyphenated": {
+      "bytes": 1920000,
+      "sha256": "55ab4e18724959f65eb4bdd908c7d27e5880a4870b431a2d9226fcdafb4cc6bd"
+    },
+    "b_names_long": {
+      "bytes": 1920000,
+      "sha256": "c341f17125178c3b48fa0065224b9beec4a285ae4387cfd088a3461f301ac527"
+    },
+    "b_names_short": {
+      "bytes": 1920000,
+      "sha256": "f982a8976a4e2be89badd415f96b38898cbed94ffb913c82c83649d607c3c957"
+    },
+    "b_red_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "d89b889113cd3a0b766753f87e1f038088baf8f6b66b9008d113fabcb4366692"
+    },
+    "b_red_light_departing": {
+      "bytes": 1920000,
+      "sha256": "10a9c95bc39d307462d65a2491a124ed46cd47387f4724995d0a744dbc545b5a"
+    },
+    "b_white_arriving": {
+      "bytes": 1920000,
+      "sha256": "c0742d08b081a22f40a465aefb523c0f4e0e94c833bb8386533a7058ac9aaf99"
+    },
+    "b_white_departing": {
+      "bytes": 1920000,
+      "sha256": "521a8679b5ea4fdcac669397033a7f4fbacedd573d8a915f95df5f9671a53824"
+    },
+    "b_yellow_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "7ef91a7719b350caba02fa9a0220953465825d412645cf5e2dffc21ee729775a"
+    },
+    "b_yellow_light_departing": {
+      "bytes": 1920000,
+      "sha256": "b76116398c50aaa9d0e3761e8e06b501313d23fd5dc4d6ce984f0b55f25446ef"
+    },
+    "c_blue_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "8c982d992063b132a9fe11ce5ef0243b045adcb80ec5cb51dd2433fb02f779fd"
+    },
+    "c_blue_light_departing": {
+      "bytes": 1920000,
+      "sha256": "dd947fe8c7593f8fa3c3f51588d172ed18c41d3c39ad3dd82f75963bf358f5e5"
+    },
+    "c_grey_arriving": {
+      "bytes": 1920000,
+      "sha256": "5c9abfa65aba2eb8aa1f46164676ac5c2bec740d24ecaf624d232002b96babde"
+    },
+    "c_grey_departing": {
+      "bytes": 1920000,
+      "sha256": "ecd00b0a6748ae31039f79ce48fc3b8f7f153af8cf34573236b36abe4ea6ff8b"
+    },
+    "c_landscape_blue_light": {
+      "bytes": 384000,
+      "sha256": "54deac497321bb9ac3065c59299d63016ad57eb201a2533465c9d5914d32f1f5"
+    },
+    "c_landscape_white": {
+      "bytes": 384000,
+      "sha256": "4405073f2fd1def6172b9b4b4ee7aa83cad519d70d22f573ea5d6c64ee3e728e"
+    },
+    "c_names_accented": {
+      "bytes": 1920000,
+      "sha256": "edf26e214da7a2977725fd71ea304533457125c6a0a22d8b1b068ce5af498d3f"
+    },
+    "c_names_airline_only": {
+      "bytes": 1920000,
+      "sha256": "32e1d35bad52e07f12685637f87b4992a079a982c12e1d0ad8ab771f2c13c4bd"
+    },
+    "c_names_hyphenated": {
+      "bytes": 1920000,
+      "sha256": "474e6f91556bb4667e437f555de9e8425bb381abb72c516652b82fbb5119a4cf"
+    },
+    "c_names_long": {
+      "bytes": 1920000,
+      "sha256": "0c8b89ff21a19945da645d9965a2bedcd6ffe9b30e8684920c423a6f96f2fac1"
+    },
+    "c_names_short": {
+      "bytes": 1920000,
+      "sha256": "143b1969689bb2dd4cf0989ef4afea6f40d633f38ffaa0b69f740570dae5fca3"
+    },
+    "c_red_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "f24209920f755b7b69c8fe58d33c82a7d6c9c396e1abd4dc15788f4803361cf3"
+    },
+    "c_red_light_departing": {
+      "bytes": 1920000,
+      "sha256": "de9e7c7ff00c83343fc86673b5fd40026efda39eec3b3acef3db05218a913a24"
+    },
+    "c_white_arriving": {
+      "bytes": 1920000,
+      "sha256": "4298e21ad5371ead48715841968f14f947a251137f764a2d6b46918d5aa4e63c"
+    },
+    "c_white_departing": {
+      "bytes": 1920000,
+      "sha256": "4c0488aaa536f277b06208afbda5aa81e86a7cd90f825cf194e732585a9c39b2"
+    },
+    "c_yellow_light_arriving": {
+      "bytes": 1920000,
+      "sha256": "68711dbc453ccd8ab8b70c27a041db598bdcf2111d17b9feb8838bd5b44e1195"
+    },
+    "c_yellow_light_departing": {
+      "bytes": 1920000,
+      "sha256": "60ece3c18be86c7e90bb1cfc7728204dc8c768caf46e8844aad5e13449bef8c9"
+    },
+    "giant_flat_no_connection": {
+      "bytes": 1920000,
+      "sha256": "471b8d97f8d12005e61af0c98f724c26d7250b53367c297e2b4c40aa9bbcf6dd"
+    },
+    "giant_flat_updating": {
+      "bytes": 1920000,
+      "sha256": "bc0f3fcf452e9073913382d2fe595666c227db001fa9c6f76d78ae81c66f61be"
+    },
+    "status_battery_empty_landscape": {
+      "bytes": 384000,
+      "sha256": "a5c06030724708868dc452b54cd5a7d10e4af9851cc594427053237f82f34760"
+    },
+    "status_battery_empty_portrait": {
+      "bytes": 1920000,
+      "sha256": "b930cf11228236fea0378de5397128c4a1de9b771e68417a9d52b7133c6dd260"
+    },
+    "status_display_off_landscape": {
+      "bytes": 384000,
+      "sha256": "5ada5ef382e31e8bf2334084dca5bd6c5eb548afe6813c6908b98a3e6f5dabad"
+    },
+    "status_display_off_portrait": {
+      "bytes": 1920000,
+      "sha256": "da8b5fcc4b85862974260e0719f5616afdb8b57e71b4fb657bc12f1d04076779"
+    },
+    "status_no_connection_landscape": {
+      "bytes": 384000,
+      "sha256": "c15344d9a5df07bbe55af526d6fe68fa2fda555af6020f12baeaede89085218f"
+    },
+    "status_no_connection_portrait": {
+      "bytes": 1920000,
+      "sha256": "b45e2f678da3fe85409141f0dd1e005149c746f3301787b560ab2202555fdecb"
+    },
+    "status_quiet_hours_landscape": {
+      "bytes": 384000,
+      "sha256": "7295902d84d4a3399e4c1bd6f43194652e9eed5d2c70c45821a17effa9de2272"
+    },
+    "status_quiet_hours_portrait": {
+      "bytes": 1920000,
+      "sha256": "039174bd73dbff716a60844b9bfdae1f55b9322f477795d693bfbc6cce337c4d"
+    },
+    "status_retired_landscape": {
+      "bytes": 384000,
+      "sha256": "ea827e7493d082c9e243e1beaf9c9aeab81594a99cd1f72c962484ff916c62a2"
+    },
+    "status_retired_portrait": {
+      "bytes": 1920000,
+      "sha256": "cd85bd842ba56a555f22b96fb2c512d625d309e97b663f75f26e66a74eab143b"
+    },
+    "status_updating_landscape": {
+      "bytes": 384000,
+      "sha256": "694b76c74a7739645c0393e0c693cd9163bbdda6f8b095a163adaa631c08bd3d"
+    },
+    "status_updating_portrait": {
+      "bytes": 1920000,
+      "sha256": "9388b801f49003dea2422bd306d0095f7a8ecf2ca10e3264ed3b57940db186ef"
+    },
+    "status_watching_landscape": {
+      "bytes": 384000,
+      "sha256": "1093563496b8925037e09dab2878d07b1fcd222cada8675d06ceffa0f4c12d6a"
+    },
+    "status_watching_portrait": {
+      "bytes": 1920000,
+      "sha256": "c41d0a2b6d1cddf01b5152d67807db588b7277a1791c027bed5c29ead02959a8"
+    }
+  },
+  "pillow_version": "13.0.0"
+}
