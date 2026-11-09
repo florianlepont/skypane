@@ -239,13 +239,12 @@ def test_dropdown_survives_with_javascript_disabled():
         "server-rendered <html> tag must never carry the .js marker class")
 
 
-def test_nav_dropdown_js_marks_the_document_before_the_greeting(app02_server):
-    """nav-dropdown.js adds the .js marker class before anything else can bail out, and
-    holds no trace of the removed frame strip fold"""
+def test_nav_dropdown_js_marks_the_document_and_holds_no_greeting_swap(app02_server):
+    """nav-dropdown.js adds the .js marker class unconditionally, and holds no trace of the
+    removed frame strip fold or of the removed Home greeting swap"""
     js = served_asset(app02_server, "/static/nav-dropdown.js")
-    marker_idx = js.index('className += " js"')
-    assert marker_idx < js.index("[data-greeting]")
-    for needle in ("frame-fold", "frameStrip", "matchMedia"):
+    assert 'className += " js"' in js
+    for needle in ("frame-fold", "frameStrip", "matchMedia", "data-greeting", "getHours"):
         assert needle not in js, "nav-dropdown.js still mentions %r" % needle
 
 def _tab_bar_slice(doc):
@@ -1508,8 +1507,8 @@ def test_nav_dropdown_script_public(app02_server):
     assert status == 200, "expected 200, got %d" % status
     assert "text/javascript" in headers.get("Content-Type", ""), (
         "expected a text/javascript content type, got %r" % headers.get("Content-Type", ""))
-    assert b"data-greeting" in body, (
-        "expected the greeting selector in the served body, proving the real file was served")
+    assert b'className += " js"' in body, (
+        "expected the .js marker in the served body, proving the real file was served")
 
 
 @pytest.mark.parametrize(

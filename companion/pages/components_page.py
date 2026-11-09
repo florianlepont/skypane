@@ -132,6 +132,9 @@ _UNSAVED = i18n.msg("components.sample_unsaved", "2 unsaved changes")
 
 _M_STATE_LINK = i18n.msg("components.state_link", "Link")
 _M_STATE_ICON = i18n.msg("components.state_icon", "Icon")
+_M_STATE_ICON_LINK = i18n.msg("components.state_icon_link", "Icon link")
+_M_STATE_TITLE_ACTION = i18n.msg("components.state_title_action", "Title with icon action")
+_RENAME = i18n.msg("components.sample_rename", "Rename frame")
 _M_STATE_QUICK_ON = i18n.msg("components.state_quick_on", "Quick switch, on")
 _M_STATE_QUICK_OFF = i18n.msg("components.state_quick_off", "Quick switch, off")
 _M_STATE_FORM_SWITCH = i18n.msg("components.state_form_switch", "Form field switch")
@@ -254,6 +257,9 @@ def _buttons():
         _M_STATE_ICON,
         ui_components.icon_button_html("icon-close", _t(_CLOSE))
         + ui_components.icon_button_html("icon-close", _t(_CLOSE), "danger")))
+    states.append(State(
+        _M_STATE_ICON_LINK,
+        ui_components.icon_link_html("icon-pencil", _t(_RENAME), COMPONENTS_ROUTE)))
     return states
 
 
@@ -585,16 +591,22 @@ def _headers():
                   _t(_HEADER_TITLE), _t(_HEADER_PURPOSE),
                   action_html=ui_components.button_html(_t(_SAVE), "primary")).replace(
                       ui_components.FLASH_SLOT_MARKER, "")),
+        State(_M_STATE_TITLE_ACTION,
+              ui_components.title_action_html(
+                  _t(_SAMPLE_VALUE),
+                  ui_components.icon_link_html(
+                      "icon-pencil", _t(_RENAME), COMPONENTS_ROUTE))),
     ]
 
 
 CATALOGUE = (
     Family("headers", _M_FAMILY_HEADERS,
            _M_FAMILY_HEADERS_DESC,
-           ("ui_components.page_header",), _headers),
+           ("ui_components.page_header", "ui_components.title_action_html"), _headers),
     Family("buttons", _M_FAMILY_BUTTONS,
            _M_FAMILY_BUTTONS_DESC,
-           ("ui_components.button_html", "ui_components.icon_button_html"), _buttons),
+           ("ui_components.button_html", "ui_components.icon_button_html",
+            "ui_components.icon_link_html"), _buttons),
     Family("switches", _M_FAMILY_SWITCHES,
            _M_FAMILY_SWITCHES_DESC,
            ("ui_components.switch_button_html", "ui_components.quick_switch_html",

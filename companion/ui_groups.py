@@ -90,15 +90,16 @@ def group_panel(content_html, label="", label_id="", extra_class=""):
 
 
 def hero(status_line_html, *, picture_html="", lines_html="", extra_class="",
-         attrs="", status_class="", heading_html=""):
-    """The hero: no surface. A picture (optional) beside the prominent status
-    line (display face, 34/44px, 700, with its status dot) and secondary
-    lines underneath. `heading_html` is an optional visually hidden heading
-    that names the section for assistive technology."""
+         attrs="", status_class="", heading_html="", title_html=""):
+    """The hero: no surface. A picture (optional) beside an optional title
+    row, the status line (a pill with its status dot) and secondary lines
+    underneath. `heading_html` is an optional visually hidden heading
+    that names the section for assistive technology. `title_html` is an
+    optional already-safe title row rendered first in the text column."""
     css = "hero" + (" " + extra_class if extra_class else "")
     picture = ('<div class="hero__picture">%s</div>' % picture_html) if picture_html else ""
     return (
         '<section class="%s"%s>%s%s<div class="hero__body">'
-        '<p class="hero__status%s">%s</p>%s</div></section>'
-    ) % (css, attrs and " " + attrs, picture, heading_html,
+        '%s<p class="hero__status%s">%s</p>%s</div></section>'
+    ) % (css, attrs and " " + attrs, picture, heading_html, title_html,
          " " + status_class if status_class else "", status_line_html, lines_html)

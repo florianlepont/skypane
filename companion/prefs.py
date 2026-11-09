@@ -37,9 +37,8 @@ def current_lang():
 _PRINCIPAL_CTX = contextvars.ContextVar("skypane_principal", default=None)
 
 PRINCIPAL_KINDS = ("user", "admin")
-
-# The signed-in principal's e-mail for this request ("" when unknown). Only
-# the Home greeting reads it, to derive a first name; it is never rendered.
+# The signed-in principal's e-mail for this request ("" when unknown). Read by
+# the account row and to scope per-person browser state.
 _EMAIL_CTX = contextvars.ContextVar("skypane_principal_email", default="")
 
 

@@ -756,18 +756,6 @@ h3 {
   margin: 0 0 var(--space-xs);
 }
 
-/* Home's greeting is a quiet line above the state, which is the visible
- * title; the page's h1 is visually hidden. */
-.page-greeting {
-  margin: 0 0 var(--space-xs);
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-regular);
-  line-height: 1.4;
-  letter-spacing: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 .page-header__purpose {
   margin: 0 0 var(--space-lg);
 }
@@ -5247,10 +5235,10 @@ a.airline-card {
     padding-right: 12rem;
   }
 
-  /* The attention banner under the greeting starts clear of the frame
+  /* The attention banner above the hero starts clear of the frame
    * button, never touching it. */
   .site-header:has(.frame-menu) ~ .dashboard-main .home-facts {
-    margin-top: var(--space-xl);
+    margin-top: calc(var(--space-2xl) + var(--space-sm));
   }
 
   .dashboard-main {
@@ -7641,19 +7629,6 @@ button.place-result.is-active {
 
 /* The micro-label voice the quick-action labels already use (12px
  * uppercase, the sub-scale exception tier). */
-
-/* The state title takes the page-title size in the display face: the
- * header's one display line, so it reads from across the room. */
-.home-state__headline {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  font-family: var(--font-display);
-  font-size: var(--font-page-title-size);
-  font-weight: var(--weight-title);
-  line-height: 1.15;
-  letter-spacing: var(--tracking-title);
-}
 
 /* A solid dot inside a soft halo of the same status colour, so the state
  * reads at a glance without relying on colour alone: the words beside it
@@ -13252,20 +13227,6 @@ button.row-menu__item--destructive:hover {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* Home: the greeting is the page title; the frame name follows it as a calm
- * second line when the person has several frames. */
-.home-greeting__frame {
-  display: block;
-  margin: 0 0 var(--space-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-ui);
-  font-size: var(--font-label-size);
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 /* The cards come in one after the other: the state card, the current
  * frame, then the recent flights. */
 
@@ -13711,14 +13672,73 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
 
 .hero__status {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-sm);
-  font-family: var(--font-display);
-  font-size: clamp(2.125rem, 1.7rem + 1.2vw, 2.75rem);
-  font-weight: var(--weight-title);
+}
+
+/* The frame state as a pill: the status dot and its word on a faint wash of
+ * the state's tone. The word is in the text colour, so contrast never rests
+ * on the tone. */
+.home-state__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md) var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  background: color-mix(in srgb, var(--home-tone) 14%, transparent);
+  color: var(--color-text);
+}
+
+.home-state__pill .home-state__dot {
+  width: 10px;
+  height: 10px;
+  margin: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-tone) 22%, transparent);
+}
+
+/* The frame's name as the page title, with its round action beside it on the
+ * same line. The text takes the room left and wraps inside its own box; the
+ * action never drops under it. */
+.title-action {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.title-action__text {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 28px;
   line-height: 1.1;
-  letter-spacing: var(--tracking-title);
   overflow-wrap: anywhere;
+}
+
+.title-action__action {
+  flex: none;
+}
+
+/* The action is a circle: the 44px icon button rounded to its own half. */
+.title-action__action .btn.btn--icon {
+  border-radius: 50%;
+}
+
+@media (min-width: 700px) {
+  .title-action__text {
+    font-size: 48px;
+  }
+}
+
+@media (max-width: 379.98px) {
+  .title-action__text {
+    font-size: 24px;
+  }
 }
 
 .home-state--warn {
