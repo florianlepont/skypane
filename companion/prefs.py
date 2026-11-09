@@ -38,7 +38,7 @@ _PRINCIPAL_CTX = contextvars.ContextVar("skypane_principal", default=None)
 
 PRINCIPAL_KINDS = ("user", "admin")
 # The signed-in principal's e-mail for this request ("" when unknown). Read by
-# to key per-person browser state; it is never rendered.
+# the account row and to scope per-person browser state.
 _EMAIL_CTX = contextvars.ContextVar("skypane_principal_email", default="")
 
 
