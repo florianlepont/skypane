@@ -74,6 +74,16 @@
     }
   }
 
+  // The last input kind, so focus handed back after a dialog closes shows
+  // the focus ring only for keyboard users.
+  var lastInputWasKeyboard = false;
+  document.addEventListener("keydown", function () {
+    lastInputWasKeyboard = true;
+  }, true);
+  document.addEventListener("pointerdown", function () {
+    lastInputWasKeyboard = false;
+  }, true);
+
   // Where focus goes when a dialog closes: the link that opened it, its
   // row menu's button when the menu has closed, else the page heading
   // (after a reload there is no opener).
@@ -90,7 +100,9 @@
       if (menu && !menu.open) {
         target = menu.querySelector("summary") || target;
       }
-      target.focus();
+      // A dialog closed by pointer or touch hands focus back without the
+      // keyboard ring; one closed from the keyboard keeps it.
+      target.focus(lastInputWasKeyboard ? undefined : {focusVisible: false});
       return;
     }
     var heading = document.querySelector("#main-content h1");
