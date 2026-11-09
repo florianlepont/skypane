@@ -104,6 +104,9 @@ def test_titles_are_on_the_type_scale_in_the_display_face(
         assert read["pageTitles"], (path, "no page title")
         assert read["h1Count"] == 1, (path, "exactly one h1 per page")
         low, high = (30, 34) if viewport["width"] < 960 else (40, 44)
+        if path == "/":
+            # Home's title is the frame name in the hero: 28px on a phone, 48px on a desktop.
+            low, high = (28, 28) if viewport["width"] < 960 else (48, 48)
         for title in read["pageTitles"]:
             assert _same_stack(title["family"], read["display"]), title
             assert low <= title["size"] <= high, (path, viewport["width"], title)

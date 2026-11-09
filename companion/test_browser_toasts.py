@@ -66,6 +66,16 @@ def _goto(page, server, route, key=None):
             ".every(a => a.playState === 'finished'); }", arg=TOAST)
 
 
+def _await_entrances(page):
+    """Wait until every finite animation outside the toast is over: Home's hero slides in on
+    load, and the page title is only at rest afterwards."""
+    page.wait_for_function(
+        "() => document.getAnimations().filter(a => a.effect && a.effect.target"
+        " && !a.effect.target.closest('.toast-region')"
+        " && a.effect.getComputedTiming().iterations !== Infinity)"
+        ".every(a => a.playState === 'finished')")
+
+
 def _rect(page, selector):
     return page.evaluate(
         "s => { const r = document.querySelector(s).getBoundingClientRect();"
@@ -83,8 +93,10 @@ def test_desktop_toast_floats_top_centre_without_moving_the_page(new_context, se
     context, page = _open(new_context, server)
     try:
         _goto(page, server, route)
+        _await_entrances(page)
         title_without = _rect(page, ".page-title")
         _goto(page, server, route, key)
+        _await_entrances(page)
         assert page.evaluate(
             "s => getComputedStyle(document.querySelector(s).parentNode).position",
             TOAST) == "fixed"
@@ -111,8 +123,10 @@ def test_phone_toast_sits_above_the_tab_bar_without_moving_the_page(new_context,
     try:
         route, key = _PENDING_FLASH
         _goto(page, server, route)
+        _await_entrances(page)
         title_without = _rect(page, ".page-title")
         _goto(page, server, route, key)
+        _await_entrances(page)
         toast = _rect(page, TOAST)
         tab_bar = _rect(page, ".tab-bar")
         assert toast["bottom"] <= tab_bar["top"], "the toast must sit above the tab bar"

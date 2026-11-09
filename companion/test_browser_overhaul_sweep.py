@@ -151,7 +151,7 @@ _PERSONAL_BODY = """
 # Airline and airport names are catalogue data, spelled the same in both languages.
 _VISIBLE_TEXT = """
 () => {
-  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-row__name, .frame-menu__name, .frame-rename .row__value';
+  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-row__name, .frame-menu__name, .title-action__text';
   const out = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {
@@ -583,10 +583,10 @@ def test_the_home_notification_holds_the_layout_rules(
         if overflow:
             problems.append(overflow)
         tops = page.evaluate(
-            "(n) => ['h1.page-title', n, '.home-state'].map("
+            "(n) => [n, '.home-state', 'main h1'].map("
             "(s) => document.querySelector(s).getBoundingClientRect().top)", NOTICE)
-        if not tops[0] < tops[1] < tops[2]:
-            problems.append("order is not title, notification, state card: %r" % (tops,))
+        if not tops[0] < tops[1] <= tops[2]:
+            problems.append("order is not notification, state card with title: %r" % (tops,))
         fit = page.evaluate(_NOTICE_FITS, NOTICE)
         if fit["page"] > 0 or fit["clipped"]:
             problems.append("notification overflows or clips text: %r" % (fit,))
@@ -975,6 +975,9 @@ _HEADINGS = """
   };
   const allowed = [tokens.label, tokens.card, tokens.sub];
   for (const h of document.querySelectorAll('main h1')) {
+    // Home's title is the frame name in the hero, sized by its own contract
+    // (48px desktop, 28px phone, 24px under 380px).
+    if (h.classList.contains('title-action__text')) continue;
     if (shown(h) && getComputedStyle(h).fontSize !== tokens.title) {
       bad.push('h1 ' + h.className + ' is ' + getComputedStyle(h).fontSize);
     }
