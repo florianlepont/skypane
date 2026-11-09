@@ -475,8 +475,17 @@ def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
     context, page = _open_home(new_context, server.base_url(), "en", viewport)
     try:
         link = page.locator(".home-switch__window")
-        box = link.bounding_box()
-        assert box["height"] >= 44, box
+        reach = page.evaluate(
+            """() => { const el = document.querySelector('.home-switch__window');
+              const r = el.getBoundingClientRect();
+              const x = r.left + r.width / 2; let up = 0, down = 0;
+              const cy = r.top + r.height / 2;
+              const owns = (y) => { const n = document.elementFromPoint(x, y);
+                return !!n && el.contains(n); };
+              while (up < 64 && owns(cy - up - 1)) up++;
+              while (down < 64 && owns(cy + down + 1)) down++;
+              return up + down + 1; }""")
+        assert reach >= 44, reach
         link.focus()
         page.wait_for_function(
             "() => document.activeElement && document.activeElement.matches('.home-switch__window')")

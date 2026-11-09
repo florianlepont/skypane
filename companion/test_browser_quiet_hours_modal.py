@@ -42,18 +42,23 @@ _ANIMATIONS_DONE = (
     "document.getAnimations().every((a) => a.effect && "
     "a.effect.getComputedTiming().iterations === Infinity || a.playState !== 'running')")
 
-# A control passes when it is at least 44x44 and owns its own centre.
+# A control passes when the browser routes a pointer to it over at least 44x44 around its
+# centre (its box or a pseudo-element reaching past it) and it owns its own centre.
 _HIT_PROBE = """args => args.selectors.map((sel) => {
   const el = document.querySelector(sel);
   if (!el) return [sel, 'missing'];
   const r = el.getBoundingClientRect();
-  if (r.width < args.min || r.height < args.min) {
-    return [sel, 'size ' + r.width.toFixed(1) + 'x' + r.height.toFixed(1)];
-  }
-  const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-  if (!hit || !(el === hit || el.contains(hit))) {
+  const cx = Math.floor(r.left + r.width / 2) + 0.5, cy = Math.floor(r.top + r.height / 2) + 0.5;
+  const owns = (x, y) => { const n = document.elementFromPoint(x, y);
+    return !!n && (n === el || el.contains(n)); };
+  if (!owns(cx, cy)) {
+    const hit = document.elementFromPoint(cx, cy);
     return [sel, 'covered by ' + (hit ? hit.tagName + '.' + hit.className : 'nothing')];
   }
+  const reach = (dx, dy) => { let n = 0;
+    while (n < 64 && owns(cx + dx * (n + 1), cy + dy * (n + 1))) n++; return n; };
+  const w = reach(-1, 0) + reach(1, 0) + 1, h = reach(0, -1) + reach(0, 1) + 1;
+  if (w < args.min || h < args.min) return [sel, 'reach ' + w + 'x' + h];
   return null;
 }).filter(Boolean)"""
 
@@ -137,8 +142,6 @@ def test_link_opens_the_dialog_on_its_title_and_esc_returns_to_the_link(
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), lang, viewport)
     try:
-        box = page.locator(LINK).bounding_box()
-        assert box["height"] >= MIN_PX and box["width"] >= MIN_PX, box
         assert not page.evaluate(_HIT_PROBE, {"selectors": [LINK], "min": MIN_PX})
         _open_dialog(page)
         # Focus is trapped: it is always on a control inside the dialog, never on the page
@@ -497,5 +500,47 @@ def test_a_twelve_hour_browser_shows_each_time_once_in_24_hour_form(
         page.wait_for_function(
             "() => document.querySelector('%s .quiet-tile .field-inline-value')"
             ".textContent.trim() === '21:30'" % DIALOG, timeout=5000)
+    finally:
+        context.close()
+
+
+_RING = """sel => {
+  const el = document.querySelector(sel);
+  if (document.activeElement !== el) return null;
+  const s = getComputedStyle(el), r = el.getBoundingClientRect();
+  const width = s.outlineStyle === 'none' ? 0 : parseFloat(s.outlineWidth);
+  return {width: width, offset: parseFloat(s.outlineOffset), box: [r.width, r.height]};
+}"""
+
+
+@pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_the_ring_hugs_the_link_for_the_keyboard_and_is_absent_after_a_pointer_close(
+        new_context, make_app_server, viewport_name, viewport):
+    """A keyboard-focused schedule link draws a tight 2px ring close to its text (not a tall
+    pill around its tap area); focus handed back after Cancel by pointer shows no ring, after
+    Escape it shows the ring."""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), "en", viewport)
+    try:
+        page.locator(LINK).focus()
+        page.keyboard.press("Shift+Tab")
+        page.keyboard.press("Tab")
+        page.wait_for_function("sel => document.activeElement.matches(sel)", arg=LINK)
+        ring = page.evaluate(_RING, LINK)
+        assert ring["width"] == 2 and ring["offset"] <= 2, ring
+        assert ring["box"][1] <= 28 and ring["box"][0] <= 220, ring
+        _open_dialog(page)
+        page.click(DIALOG + " a.modal__close")
+        page.wait_for_function(
+            "() => !document.querySelector('%s').open"
+            " && document.activeElement.matches('%s')" % (DIALOG, LINK), timeout=10000)
+        assert page.evaluate("sel => !document.querySelector(sel).matches(':focus-visible')", LINK)
+        assert page.evaluate(_RING, LINK)["width"] == 0
+        _open_dialog(page)
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('%s').open"
+            " && document.activeElement.matches('%s')" % (DIALOG, LINK), timeout=10000)
+        assert page.evaluate(_RING, LINK)["width"] == 2
     finally:
         context.close()
