@@ -41,3 +41,4 @@ Real-panel validation; redrawing aircraft illustrations if enlarged ones are too
 ## Execution-time decisions (2026-11-09)
 - Marseille: the owner prefers two lines (MARS / EILLE, the automatic result) over forcing MAR / SEI / LLE; the splitter is not changed.
 - Layout A as rendered by the code did not match the validated mock-up (the cockpit was cut off by the left edge because the nose half's width followed the cut fraction); a follow-up fix keeps the visible nose half at the mock-up width whatever the cut fraction.
+- Direction word: must be displayed on every layout and format (landscape A, B and C had none in the mock-ups). Hyphens in destinations are not kept.

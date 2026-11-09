@@ -29,6 +29,7 @@ Not part of this phase: the pairing screen (typed from close up), any OTA push t
 ### Destination lettering
 - **D-08:** Font is Anton (SIL OFL), vendored under `server/assets/fonts/` with its licence text and a `VENDOR.md` entry. On flight screens each line is stretched to the frame width; status screens use natural proportions.
 - **D-09:** Names are split into 2-3 lines in portrait, never cutting a word where a space or hyphen exists. Exceptions (owner decision): in landscape the destination is one stretched line, and in portrait a name of 3 letters or fewer (Pau, Aix) stays on one line. Rule: spaces and hyphens first, then syllables. The split is 100% automatic: there is no table of manual corrections and no admin editing of splits, so the rule itself has to produce acceptable results for any name.
+- **D-15:** The direction word (DEPARTING / ARRIVING, with the airport or runway tag where the current layout shows one) is always displayed on every flight layout, in portrait and in landscape, including landscape A, B and C which the mock-ups drew without it (owner decision, 2026-11-09). The hyphen of a hyphenated destination is dropped: the owner does not want it kept in the lettering.
 - **D-10:** When the destination is unknown and only the airline is known, the airline name is set in the giant lettering instead of the city.
 
 ### Status screens
