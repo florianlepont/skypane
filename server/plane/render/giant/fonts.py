@@ -13,6 +13,8 @@ ANTON_PATH = os.path.join(
     "assets", "fonts", "Anton-Regular.ttf",
 )
 
+INTER_BOLD_PATH = os.path.join(os.path.dirname(ANTON_PATH), "Inter-Bold.ttf")
+
 # Size at which a stretched line is drawn before being scaled to fit, so the
 # scaled result stays sharp.
 SUPERSAMPLE_PX = 600
@@ -29,6 +31,14 @@ def anton(px):
     if px not in _font_cache:
         _font_cache[px] = ImageFont.truetype(ANTON_PATH, px)
     return _font_cache[px]
+
+
+def inter_bold(px: int) -> ImageFont.FreeTypeFont:
+    """Cached Inter Bold ImageFont at `px` pixels, used for small text."""
+    key = ("inter", px)
+    if key not in _font_cache:
+        _font_cache[key] = ImageFont.truetype(INTER_BOLD_PATH, px)
+    return _font_cache[key]
 
 
 def cap_height(px):
