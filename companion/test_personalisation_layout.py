@@ -137,7 +137,7 @@ def test_the_layout_view_speaks_french(rig):
         "Sections de personnalisation")
     names = [c.select_one(".look-pick__name").text() for c in root.select("#personalisation-layout label")]
     assert names == [name.replace("\u00a0", " ") for name in LAYOUT_CARD_NAMES["fr"]]
-    assert "prochain vol ou à la prochaine transition" in (
+    assert "prochain vol ou à la transition" in (
         root.select_one("#personalisation-layout .section-caption").text())
     assert root.select_one("#personalisation-layout h2").text() == "Disposition"
 
@@ -237,7 +237,7 @@ def test_the_arrivals_view_offers_the_pairings_with_a_nudge_until_one_is_picked(
     assert _checked(root, "theme_arriving") == [""]
     assert not root.select('input[name="theme"]')
     nudge = root.select_one(".look-pairings > .section-caption").text()
-    assert "Pick a colour for arrivals" in nudge
+    assert "Pick an arrivals colour" in nudge
     status, _response, _body = rig.save(return_to="/display/arrivals", theme_arriving="blue_light")
     assert status == 303
     assert rig.stored()["theme_arriving"] == "blue_light"
@@ -250,7 +250,7 @@ def test_the_arrivals_view_offers_the_pairings_with_a_nudge_until_one_is_picked(
 def test_the_arrivals_nudge_is_french_too(rig):
     device_config.save_device_config(rig.owner_dir(), layout="b")
     root = rig.page("/display/arrivals", lang="fr")
-    assert "Choisissez une couleur pour les arrivées" in (
+    assert "Choisissez une couleur d’arrivée" in (
         root.select_one(".look-pairings > .section-caption").text())
 
 

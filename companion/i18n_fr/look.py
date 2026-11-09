@@ -82,8 +82,7 @@ MESSAGES = {
     "look.layout": "Disposition",
     "look.layout_group": "Disposition de l’écran",
     "look.layout_help":
-        "Choisissez la disposition de l’image. Le cadre se redessine au prochain "
-        "vol ou à la prochaine transition, pas tout de suite.",
+        "L’image se redessine au prochain vol ou à la transition.",
     "look.layout_classic": "Classique",
     "look.layout_a": "A : nez et queue",
     "look.layout_b": "B : avion entier",
@@ -92,12 +91,9 @@ MESSAGES = {
     "look.layout_preview_alt": "Aperçu de la disposition : %s",
     "look.pairing_group": "Couleur",
     "look.pairing_help":
-        "Choisissez la couleur du fond. L’image se redessine au prochain vol "
-        "ou à la prochaine transition, pas tout de suite.",
+        "Couleur du fond, redessinée au prochain vol ou à la transition.",
     "look.pairing_arriving_nudge":
-        "Choisissez une couleur pour les arrivées afin qu’un atterrissage se "
-        "distingue d’un décollage. Tant que ce n’est pas fait, les arrivées "
-        "utilisent la couleur des départs.",
+        "Choisissez une couleur d’arrivée, sinon un atterrissage ressemble à un décollage.",
     "look.pairing_grey": "Gris",
     "look.pairing_blue": "Bleu clair",
     "look.pairing_red": "Rouge clair",

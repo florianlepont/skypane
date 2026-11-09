@@ -35,8 +35,7 @@ LAYOUT_TITLE = i18n.msg("look.layout", "Layout")
 LAYOUT_GROUP_LABEL = i18n.msg("look.layout_group", "Screen layout")
 LAYOUT_HELP = i18n.msg(
     "look.layout_help",
-    "Choose how the picture is laid out. The frame repaints at the next "
-    "flight or transition, not straight away.")
+    "The picture repaints at the next flight or transition.")
 LAYOUT_NAMES = {
     "classic": i18n.msg("look.layout_classic", "Classic"),
     "a": i18n.msg("look.layout_a", "A: nose and tail"),
@@ -49,12 +48,10 @@ LAYOUT_PREVIEW_ALT_TEMPLATE = i18n.msg("look.layout_preview_alt", "Layout previe
 PAIRING_GROUP_LABEL = i18n.msg("look.pairing_group", "Colour")
 PAIRING_HELP = i18n.msg(
     "look.pairing_help",
-    "Pick the colour of the field. The picture repaints at the next flight "
-    "or transition, not straight away.")
+    "Pick the field colour. It repaints at the next flight or transition.")
 ARRIVING_NUDGE = i18n.msg(
     "look.pairing_arriving_nudge",
-    "Pick a colour for arrivals so a landing looks different from a take-off. "
-    "Until you do, arrivals use the departures colour.")
+    "Pick an arrivals colour, or landings look like take-offs.")
 PAIRING_NAMES = {
     "grey": i18n.msg("look.pairing_grey", "Grey"),
     "blue_light": i18n.msg("look.pairing_blue", "Light blue"),
