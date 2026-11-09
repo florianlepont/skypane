@@ -78,7 +78,7 @@ split in two as well, accepting very tall letters, because a single small line
 loses the poster effect (`short-names-two-vs-one-line.png`). Known cost: the
 aircraft hides the junction between lines on two-line names, so a short name
 can read as two fragments; the aircraft position may need to follow the number
-of lines.
+of lines. Splitting is fully automatic (no correction table), decided in the phase 62 discussion.
 
 Long names (`long-names-1.png`, `long-names-2.png`, five names on all three
 layouts): layout C keeps every line readable; layouts A and B hide part of the

@@ -17,7 +17,7 @@ Not part of this phase: the pairing screen (typed from close up), any OTA push t
 
 ### Layouts and how a frame picks one
 - **D-01:** Four layouts ship: A (large nose entering from the right edge, smaller rear half entering from the left edge below it), B (whole aircraft, centred), C (whole aircraft in its own band under the lettering), and A with the diagonal band. B and A-with-diagonal were mocked with the band; C was not and keeps its own look, which may need rework to fit the direction.
-- **D-02:** The layout is a per-frame setting in the companion, like the theme today. Default for a frame that chose nothing: B (whole aircraft).
+- **D-02:** The layout is a per-frame setting in the companion's Personalisation tab, next to the theme, as the theme is chosen today (see `companion/pages/personalisation_cards.py` and `config_page.PERSONALISATION_ROUTES`). Default for a frame that chose nothing: B (whole aircraft).
 - **D-03:** The previous-flight card is removed in the new layouts (removed in every mock-up; the old layout keeps it).
 
 ### Colours and arrival
@@ -28,7 +28,7 @@ Not part of this phase: the pairing screen (typed from close up), any OTA push t
 
 ### Destination lettering
 - **D-08:** Font is Anton (SIL OFL), vendored under `server/assets/fonts/` with its licence text and a `VENDOR.md` entry. On flight screens each line is stretched to the frame width; status screens use natural proportions.
-- **D-09:** Names are split into 2-3 lines, never one, never cutting a word where a space or hyphen exists: spaces and hyphens first, then syllables. An admin-editable table of manual corrections overrides the automatic rule for badly split names.
+- **D-09:** Names are split into 2-3 lines, never one, never cutting a word where a space or hyphen exists: spaces and hyphens first, then syllables. The split is 100% automatic: there is no table of manual corrections and no admin editing of splits, so the rule itself has to produce acceptable results for any name.
 - **D-10:** When the destination is unknown and only the airline is known, the airline name is set in the giant lettering instead of the city.
 
 ### Status screens
@@ -81,7 +81,7 @@ Not part of this phase: the pairing screen (typed from close up), any OTA push t
 - Comments and docs in English, no plan or phase ids in comments (`scripts/check_comment_history.py`), function-size gate of 80 lines.
 
 ### Integration Points
-- Companion: a layout setting per frame (English and French strings in `companion/i18n_fr/`).
+- Companion: a layout setting per frame in the Personalisation tab (English and French strings in `companion/i18n_fr/`), following the existing Personalisation cards.
 - Device config: the layout and the pairing ids join the per-device configuration, with conversion of stored theme ids.
 
 </code_context>
