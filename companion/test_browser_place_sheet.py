@@ -157,6 +157,21 @@ def test_on_a_phone_the_airport_offer_is_one_line_and_the_sheet_stays_compact(
         assert page.locator("#place-radius").is_visible()
         assert page.locator("#place-radius-range").is_visible()
         assert page.locator(".place-radius__scale").is_hidden()
+        # The offer does not sit over the pin: it can still be grabbed and moved.
+        grab = page.evaluate(
+            "() => { const r = document.querySelector('#place-map .place-pin')"
+            ".getBoundingClientRect(); return {x: r.left + 22, y: r.top + 32}; }")
+        before = page.input_value("#place-lat")
+        hit = page.evaluate(
+            "p => !!document.elementFromPoint(p.x, p.y).closest('#place-map')", grab)
+        assert hit, grab
+        page.mouse.move(grab["x"], grab["y"])
+        page.mouse.down()
+        page.mouse.move(grab["x"] + 40, grab["y"] - 40, steps=6)
+        page.mouse.up()
+        page.wait_for_function(
+            "before => document.getElementById('place-lat').value !== before", arg=before,
+            timeout=10000)
         button.click()
         page.wait_for_function(
             "() => location.search.indexOf('airport=%s') >= 0" % airport.icao, timeout=10000)

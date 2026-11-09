@@ -6571,15 +6571,29 @@ html:not(.map-ready) .place-tap-hint {
   }
 }
 
-/* On a small phone the nearest-airport offer is one 44px line in the sheet:
- * the follow button alone (the sentence stays for screen readers). A card
- * with a sentence and a button lifted the sheet over the pin just dropped. */
+/* On a small phone the nearest-airport offer is one 44px line over the map,
+ * above the bottom buttons (the script moves it into the tools row): the
+ * follow button alone, the sentence stays for screen readers. In the sheet it
+ * lifted the sheet over the pin the visitor had just dropped. */
 @media (max-width: 699.98px) {
-  .map-ready .place-nearest {
+  .map-ready .place-tools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .map-ready .place-tools .place-nearest {
+    flex: 1 0 100%;
     align-items: center;
     padding: 0;
     border: 0;
     background: none;
+    pointer-events: none;
+  }
+
+  .map-ready .place-tools .place-nearest__button {
+    background: var(--glass-solid);
+    box-shadow: var(--shadow-glass);
+    pointer-events: auto;
   }
 
   .map-ready .place-nearest__icon {
@@ -6587,7 +6601,7 @@ html:not(.map-ready) .place-tap-hint {
   }
 
   .map-ready .place-nearest__body {
-    align-items: stretch;
+    align-items: flex-end;
     gap: 0;
   }
 
@@ -6600,7 +6614,7 @@ html:not(.map-ready) .place-tap-hint {
   }
 
   .map-ready .place-nearest__button {
-    width: 100%;
+    max-width: 100%;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

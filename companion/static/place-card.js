@@ -283,6 +283,33 @@
 
   wireUnifiedSearch();
 
+  // On a phone the nearest-airport offer is one line over the map, above the
+  // bottom buttons, so it never lifts the sheet over the pin just dropped; a
+  // wide screen keeps it as a card in the sheet.
+  function wireNearestPlacement() {
+    var offer = document.getElementById("place-nearest");
+    var tools = document.querySelector(".place-tools");
+    var sheet = offer && offer.parentNode;
+    if (!offer || !tools || !sheet || typeof window.matchMedia !== "function") {
+      return;
+    }
+    var anchor = offer.nextElementSibling;
+    var phone = window.matchMedia("(max-width: 699.98px)");
+    function place() {
+      if (phone.matches) {
+        tools.insertBefore(offer, tools.firstChild);
+      } else {
+        sheet.insertBefore(offer, anchor);
+      }
+    }
+    if (typeof phone.addEventListener === "function") {
+      phone.addEventListener("change", place);
+    }
+    place();
+  }
+
+  wireNearestPlacement();
+
   // An airport's code label that meets the details card, the sheet or a
   // control floating over the map is hidden while it does, so a label never
   // pokes out from under (or over) them.
