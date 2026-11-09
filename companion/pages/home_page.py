@@ -1,7 +1,8 @@
 """The Home page: answers whether the frame is alive, what it is
 showing, and what it has shown recently.
 
-Opens with one hero (the current picture beside one dot and word for the
+Opens with one hero (the current picture beside the frame's name as the
+page title with its rename pencil, a pill with one dot and word for the
 frame state, and the next update), then two glass groups of rows: the
 frame's two native-POST switches (screen and quiet hours) with the
 battery row, and the recent flights.
@@ -31,7 +32,7 @@ import companion.ui_modal as ui_modal
 import companion.ui_time as ui_time
 import companion.user_view as user_view
 import companion.wake as wake
-from companion.pages import home_battery_row, home_greeting, home_notice, home_rename_row
+from companion.pages import home_battery_row, home_notice, home_title
 from companion.layout import escape_html
 from companion.settings import quiet_hours
 from server import device_config, history_db
@@ -627,16 +628,15 @@ def _status_dot_html(status):
 
 def _frame_state_html(ctx, summary, status, picture_html="", say_once=False):
     """The hero, with no surface of its own: the current picture beside the
-    current state as one prominent title with one haloed dot (its colour and
-    word come from the shared frame-status resolver; a sentence follows a
-    held state), the next update with its cadence info and, for an
+    frame's name (the page title, with its rename pencil), a pill holding one
+    haloed dot and the state word (both from the shared frame-status resolver;
+    a sentence follows a held state), the next update with its cadence info and, for an
     administrator, the battery dial. The dot's tone also tints the hero's
     glow; a resting dot stays still, every other one pulses a soft halo.
     `summary` is `_frame_state_summary(ctx)` and `status` the resolver's
     verdict on it, both read once by render()."""
     (_tone, _screen_title, detail), next_triple, base_interval_s = summary
-    # The big title is the dot's own word, so title, dot and notification agree.
-    title = i18n.t(status.word)
+    word = i18n.t(status.word)
     next_iso, interval_s, hold_reason = next_triple
     next_html, _long_overdue = _next_update_html(
         next_iso, interval_s, hold_reason, ctx.now, base_interval_s)
@@ -649,10 +649,11 @@ def _frame_state_html(ctx, summary, status, picture_html="", say_once=False):
     user = user_view.is_personal_view()
     return ui_groups.hero(
         '%s<span class="home-state__title">%s</span>' % (
-            _status_dot_html(status), escape_html(title)),
+            _status_dot_html(status), escape_html(word)),
         picture_html=picture_html,
         lines_html=detail_html + next_html + ("" if user else _battery_pill_html(ctx)),
-        status_class="home-state__headline",
+        status_class="home-state__pill",
+        title_html=home_title.title_html(device_scope.current_device()),
         extra_class="home-state home-state--%s%s reveal" % (
             status.dot_state, " home-state--no-battery" if user else ""),
         attrs='aria-labelledby="home-frame-state"',
@@ -743,9 +744,10 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
     current_flight_row = rows[0] if rows else None
     # The silent marker keeps Home on freshness.js's background refresh
     # without a visible freshness line.
+    # The page's one h1 is the frame name inside the hero.
     header = layout.page_header(
         i18n.t(PAGE_TITLE), freshness_html=layout.refresh_marker_html(now),
-        title_html=home_greeting.title_html(), trail_html=home_greeting.frame_line_html())
+        omit_title=True)
     summary = _frame_state_summary(ctx)
     status = frame_status.frame_status(_status_row(ctx, summary[1]))
     notice = _notice_html(ctx, status)
@@ -758,9 +760,7 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
         + _frame_state_html(
             ctx, summary, status, picture,
             say_once=bool(notice) and status.key == frame_status.KEY_OVERDUE)
-        + _switches_html(
-            ctx.device_config or {},
-            _battery_row_html(ctx, summary[2]) + home_rename_row.row_html())
+        + _switches_html(ctx.device_config or {}, _battery_row_html(ctx, summary[2]))
         + _recent_flights_html(rows, now, ctx.state_dir)
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
     )
