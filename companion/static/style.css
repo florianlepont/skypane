@@ -11123,6 +11123,24 @@ a.entity-row__button:hover {
   box-shadow: none;
 }
 
+/* On a phone five section labels share one track: a slightly smaller label
+ * that may break onto a second line, centred, so none is clipped. */
+@media (max-width: 699px) {
+  .personalisation-nav__link {
+    padding-inline: 1px;
+    font-size: 11px;
+  }
+
+  .personalisation-nav__link > span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    line-height: 1.1;
+    white-space: normal;
+  }
+}
+
 @media (min-width: 700px) {
   .personalisation-nav__link {
     flex: 1 1 0;
