@@ -3,7 +3,9 @@ import pytest
 from PIL import Image, ImageDraw
 
 from server import panel_format as pf
-from server.plane.render.giant import lettering
+from server.pairings import PAIRINGS
+from server.plane.render import layout
+from server.plane.render.giant import field, lettering, palette_check
 
 BOX_W = 600
 SLOT_H = 150
@@ -92,3 +94,69 @@ def test_accents_paint_above_the_slot_top():
 
 
 LINE_GAP = lettering.LINE_GAP_PX
+
+
+SMALL = (200, 200)
+
+
+def _counts(img):
+    return {v: c for c, v in img.getcolors()}
+
+
+@pytest.mark.parametrize("pairing_id", ["grey", "blue_light", "red_light"])
+def test_default_fields_dither_ink_with_white_and_keep_ink_dominant(pairing_id):
+    pairing = PAIRINGS[pairing_id]
+    ink = field.ink_index(pairing.field_ink)
+    counts = _counts(field.field_pattern(pairing, SMALL))
+    assert set(counts) == {ink, pf.IDX_WHITE}
+    assert counts[ink] > counts[pf.IDX_WHITE]
+
+
+def test_yellow_field_is_mostly_white_and_white_field_is_flat():
+    counts = _counts(field.field_pattern(PAIRINGS["yellow_light"], SMALL))
+    assert set(counts) == {pf.IDX_YELLOW, pf.IDX_WHITE}
+    assert counts[pf.IDX_WHITE] > counts[pf.IDX_YELLOW]
+    assert _counts(field.field_pattern(PAIRINGS["white"], SMALL)) == {pf.IDX_WHITE: 200 * 200}
+
+
+def test_yellow_small_text_is_dithered_toward_black_others_are_flat():
+    counts = _counts(field.small_text_ink_pattern(PAIRINGS["yellow_light"], SMALL))
+    assert set(counts) == {pf.IDX_YELLOW, pf.IDX_BLACK}
+    share = counts[pf.IDX_BLACK] / (SMALL[0] * SMALL[1])
+    assert 0.35 < share < 0.55
+    assert _counts(field.small_text_ink_pattern(PAIRINGS["blue_light"], SMALL)) == {pf.IDX_BLUE: 40000}
+    assert _counts(field.small_text_ink_pattern(PAIRINGS["white"], SMALL)) == {pf.IDX_BLACK: 40000}
+
+
+def test_small_text_pattern_is_a_fresh_copy():
+    first = field.small_text_ink_pattern(PAIRINGS["yellow_light"], SMALL)
+    first.paste(pf.IDX_RED, (0, 0, 50, 50))
+    again = field.small_text_ink_pattern(PAIRINGS["yellow_light"], SMALL)
+    assert pf.IDX_RED not in _counts(again)
+
+
+def test_yellow_light_field_passes_the_giant_check_but_not_the_legacy_one():
+    canvas = field.field_pattern(PAIRINGS["yellow_light"], SMALL)
+    palette_check.assert_giant_palette(canvas, pf.IDX_YELLOW)
+    with pytest.raises(AssertionError):
+        layout._assert_legal_palette(canvas, pf.IDX_YELLOW)
+
+
+@pytest.mark.parametrize("pairing_id", list(PAIRINGS))
+def test_every_pairing_field_passes_the_giant_check(pairing_id):
+    pairing = PAIRINGS[pairing_id]
+    palette_check.assert_giant_palette(field.field_pattern(pairing, SMALL),
+                                       field.ink_index(pairing.field_ink))
+
+
+def test_out_of_palette_index_is_rejected():
+    canvas = pf.new_canvas(pf.IDX_WHITE, (20, 20))
+    canvas.paste(9, (0, 0, 5, 5))
+    with pytest.raises(AssertionError, match="illegal"):
+        palette_check.assert_giant_palette(canvas, pf.IDX_WHITE)
+
+
+def test_dominant_index_must_be_field_ink_or_white():
+    canvas = pf.new_canvas(pf.IDX_RED, (20, 20))
+    with pytest.raises(AssertionError, match="dominant"):
+        palette_check.assert_giant_palette(canvas, pf.IDX_BLUE)
