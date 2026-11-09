@@ -442,6 +442,34 @@ def _build_giant_canvas(size, layout_id, flight, state, route, theme_id, state_d
         source_fault=source_fault, battery_low=battery_low)
 
 
+def _hold_kind(flight, state):
+    """The status-screen kind for a hold state, or None for an active flight.
+    Priority as the legacy dispatch: battery empty, display off, quiet hours,
+    then the watching screen (no flight, or state "empty")."""
+    if state in ("battery_empty", "display_off", "quiet_hours"):
+        return state
+    if flight is None or state == "empty":
+        return "watching"
+    return None
+
+
+def _giant_hold_canvas(size, layout_id, flight, state, runway_id, source_fault, battery_low, quiet_hours_until):
+    """The calm status canvas for a hold state under a giant layout, or None
+    when the layout is not giant, the state is an active flight, or the family
+    has no screens for `size`."""
+    kind = _hold_kind(flight, state)
+    if kind is None or layout_id is None or not screen_layouts.is_giant_layout(layout_id):
+        return None
+    if not _giant_supports(size, layout_id):
+        return None
+    from server.plane.render.giant import status
+    if kind == "battery_empty":
+        return status.build_status(kind, size)
+    return status.build_status(
+        kind, size, quiet_hours_until=quiet_hours_until, source_fault=source_fault,
+        battery_low=battery_low, runway_id=runway_id)
+
+
 def build_canvas(
     flight, state, route=None, previous_flight=None, previous_route=None, previous_state=None,
     theme_id=device_config.DEFAULT_THEME_ID, runway_id=device_config.DEFAULT_RUNWAY_ID,
@@ -472,9 +500,11 @@ def build_canvas(
     `layout`: a screen layout id. `None` or `"classic"` is the unchanged
     legacy picture. A giant layout id (normalised; an unknown id becomes the
     default layout, never a path or module name) draws an active flight in
-    the giant-lettering family, with the colour pairing of `theme_id`; hold
-    screens ignore it. A giant layout on a canvas size the family has no
-    compositor for draws the classic picture.
+    the giant-lettering family, with the colour pairing of `theme_id`; the
+    hold states (watching, quiet hours, display off, battery empty) draw the
+    calm status screens of `giant.status`, which ignore the theme. A giant
+    layout on a canvas size the family has no compositor for draws the
+    classic picture.
 
     `"display_off"`/`"quiet_hours"`/`"empty"` are always White/Black.
     `"battery_empty"` ignores every other argument: its bytes/hash must
@@ -487,6 +517,10 @@ def build_canvas(
     if profile is not None:
         theme_id = themes.theme_or_default(theme_id, profile.inks)
         size = (profile.width, profile.height)
+        held = _giant_hold_canvas(
+            size, layout_id, flight, state, runway_id, source_fault, battery_low, quiet_hours_until)
+        if held is not None:
+            return held
         if giant_active and _giant_supports(size, layout_id):
             return _build_giant_canvas(
                 size, layout_id, flight, state, route, theme_id, state_dir, source_fault, battery_low)
@@ -499,6 +533,12 @@ def build_canvas(
                 theme_id=theme_id, runway_id=runway_id, source_fault=source_fault,
                 battery_low=battery_low, quiet_hours_until=quiet_hours_until,
                 state_dir=state_dir)
+    if profile is None:
+        held = _giant_hold_canvas(
+            (WIDTH, HEIGHT), layout_id, flight, state, runway_id, source_fault, battery_low,
+            quiet_hours_until)
+        if held is not None:
+            return held
     if giant_active and profile is None:
         return _build_giant_canvas(
             (WIDTH, HEIGHT), layout_id, flight, state, route, theme_id, state_dir, source_fault, battery_low)

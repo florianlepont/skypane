@@ -1,7 +1,8 @@
 """The two static e-ink screens of the pairing flow: pairing and retired.
 
-Both use the shared hold composition of the other status screens (glyph,
-tracked label, short rule, text), English only. They are byte-deterministic:
+The pairing screen uses the shared hold composition (glyph, tracked label,
+short rule, code, text) and the retired screen the calm status screen, both
+English only. They are byte-deterministic:
 no clock, no countdown, no frame id, no MAC and no randomness. The only
 varying input of the pairing screen is the code, so the frame's content hash
 changes only when the code rotates.
@@ -18,16 +19,12 @@ from PIL import Image
 from server import hardware, pairing_code, panel_format
 from server.plane import dither
 from server.plane.render import glyphs, hold_screens, style
+from server.plane.render.giant import status
 
 _PAIR_LABEL = "PAIR THIS FRAME"
 _PAIR_BODY = (
     "Enter this code on the SkyPane companion page.",
     "It changes about every 30 minutes.",
-)
-_RETIRED_LABEL = "FRAME RETIRED"
-_RETIRED_BODY = (
-    "This frame was removed from SkyPane.",
-    "Ask an administrator to set it up again.",
 )
 
 
@@ -86,13 +83,15 @@ def render_pairing_image(profile: hardware.HardwareProfile, code: str) -> bytes:
 
 
 def render_retired_image(profile: hardware.HardwareProfile) -> bytes:
-    """The retired screen as packed panel nibbles; it carries no code or id."""
-    reference = hold_screens._build_dimmed_hold_canvas(
-        glyphs.draw_power_icon,
-        glyphs.POWER_ICON_BAR_RISE_PX + glyphs.POWER_ICON_DIAMETER_PX,
-        _RETIRED_LABEL,
-        _RETIRED_BODY,
-    )
+    """The retired screen as packed panel nibbles; it carries no code or id.
+
+    It is the calm status screen: landscape profiles get the landscape
+    variant at their own size, portrait profiles the 1200x1600 reference
+    scaled to fit.
+    """
+    if profile.width > profile.height:
+        return _pack(status.build_status("retired", (profile.width, profile.height)))
+    reference = status.build_status("retired", (panel_format.WIDTH, panel_format.HEIGHT))
     field = dither.dithered_state_background(
         style.DIMMED_FIELD_IDX, size=(profile.width, profile.height)
     )
