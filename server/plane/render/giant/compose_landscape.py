@@ -41,16 +41,15 @@ def _footer_x(spec: LandscapeSpec, source_fault: bool, battery_low: bool) -> flo
 
 def _small_text_mask(size: Size, spec: LandscapeSpec, state: str, route: object,
                      hide_airline: bool, footer_x: float) -> Image.Image:
-    """Binary mask of the flight number and airline name (and the direction
-    word when the layout has it)."""
+    """Binary mask of the direction word (top-left), the flight number and
+    the airline name."""
     w, h = size
     foot = spec.footer
     mask = Image.new("L", size, 0)
     draw = ImageDraw.Draw(mask)
-    if spec.direction:
-        draw.text((round(w * MARGIN), round(h * DIRECTION_TOP)),
-                  style.STATE_LABEL_TEXT.get(state, ""),
-                  font=fonts.inter_bold(round(h * DIRECTION_PX)), fill=255)
+    draw.text((round(w * MARGIN), round(h * DIRECTION_TOP)),
+              style.STATE_LABEL_TEXT.get(state, ""),
+              font=fonts.inter_bold(round(h * DIRECTION_PX)), fill=255)
     x = round(w * footer_x)
     anchor = "ra" if foot.align_right else "la"
     room = (x if foot.align_right else w - x) - round(w * MARGIN)

@@ -52,7 +52,6 @@ class LandscapeSpec:
     whole: Optional[Whole] = None
     halves: Optional[Halves] = None
     diagonal: bool = False
-    direction: bool = False
 
 
 MARGIN = 28 / REF_W
@@ -60,6 +59,8 @@ FLIGHT_PX = 64 / REF_H
 AIRLINE_PX = 26 / REF_H
 DIRECTION_PX = 24 / REF_H
 DIRECTION_TOP = 12 / REF_H
+# The lettering starts below the direction word in every layout.
+LETTERING_TOP = 52 / REF_H
 
 _HALVES = Halves(nose_plane=800 / REF_W, rear_plane=540 / REF_W, nose_left=416 / REF_W,
                  rear_right=258 / REF_W, nose_center_y=105 / REF_H, rear_bottom_y=456 / REF_H)
@@ -68,18 +69,18 @@ _RIGHT_FOOTER = Footer(1 - MARGIN, True, 360 / REF_H, FLIGHT_PX, 428 / REF_H, AI
 
 SPECS = {
     "b": LandscapeSpec(
-        box=(16 / REF_W, 24 / REF_H, 1 - 16 / REF_W, 330 / REF_H),
+        box=(16 / REF_W, LETTERING_TOP, 1 - 16 / REF_W, 330 / REF_H),
         footer=Footer(MARGIN, False, 358 / REF_H, FLIGHT_PX, 428 / REF_H, AIRLINE_PX),
         whole=Whole(600 / REF_W, 0.5, 190 / REF_H)),
     "a": LandscapeSpec(
-        box=(16 / REF_W, 24 / REF_H, 1 - 16 / REF_W, 340 / REF_H),
+        box=(16 / REF_W, LETTERING_TOP, 1 - 16 / REF_W, 340 / REF_H),
         footer=Footer(430 / REF_W, False, 356 / REF_H, FLIGHT_PX, 426 / REF_H, AIRLINE_PX),
         halves=_HALVES),
     "c": LandscapeSpec(
-        box=(16 / REF_W, 24 / REF_H, 1 - 16 / REF_W, 330 / REF_H),
+        box=(16 / REF_W, LETTERING_TOP, 1 - 16 / REF_W, 330 / REF_H),
         footer=_LEFT_FOOTER,
         whole=Whole(430 / REF_W, 550 / REF_W, 400 / REF_H)),
     "a_diagonal": LandscapeSpec(
-        box=(16 / REF_W, 52 / REF_H, 1 - 16 / REF_W, 340 / REF_H),
-        footer=_RIGHT_FOOTER, halves=_HALVES, diagonal=True, direction=True),
+        box=(16 / REF_W, LETTERING_TOP, 1 - 16 / REF_W, 340 / REF_H),
+        footer=_RIGHT_FOOTER, halves=_HALVES, diagonal=True),
 }
