@@ -75,7 +75,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **PSR-02**: Anton is vendored under `server/assets/fonts/` with its OFL text and a `VENDOR.md` entry, and flight-screen lettering is stretched per line to the frame width.
 - [x] **PSR-03**: The destination is split into 2-3 lines in portrait by a deterministic automatic rule (one line in landscape and for names of 3 letters or fewer), with no correction table; the airline name replaces an unknown destination.
 - [x] **PSR-04**: Five field / lettering pairings replace the 18 themes for the new layouts; stored theme ids, per-airline rules, the arrival colour and calendar themes resolve to a pairing without rewriting stored values.
-- [ ] **PSR-05**: Four layouts (A, B, C, A with the diagonal band) render in portrait 1200x1600 and landscape 800x480, without the previous-flight card.
+- [x] **PSR-05**: Four layouts (A, B, C, A with the diagonal band) render in portrait 1200x1600 and landscape 800x480, without the previous-flight card.
 - [x] **PSR-06**: The layout is a per-frame setting stored in the device configuration and chosen in the companion's Personalisation tab (English and French), with a preview.
 - [ ] **PSR-07**: Seven status screens (watching, quiet hours, display off, battery empty, no connection, updating, retired) use the calm layout in portrait and landscape, and the firmware masks for no connection and updating are regenerated without a firmware code change or an OTA.
 - [ ] **PSR-08**: New golden fixtures for the new layouts live in a separate manifest, and every rendered output uses only the six legal palette indices.
@@ -149,7 +149,7 @@ Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 | PSR-02 | Phase 62 | Complete |
 | PSR-03 | Phase 62 | Complete |
 | PSR-04 | Phase 62 | Complete |
-| PSR-05 | Phase 62 | Pending |
+| PSR-05 | Phase 62 | Complete |
 | PSR-06 | Phase 62 | Complete |
 | PSR-07 | Phase 62 | Pending |
 | PSR-08 | Phase 62 | Pending |

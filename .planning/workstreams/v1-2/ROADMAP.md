@@ -603,7 +603,7 @@ Plans: 13 plans in 7 waves
 - [x] 62-01-PLAN.md - Anton vendoring, pairing registry, giant package skeleton (wave 1)
 - [x] 62-02-PLAN.md - layout ids and the per-frame layout device-config key (wave 1)
 - [x] 62-03-PLAN.md - automatic destination splitter (wave 2)
-- [ ] 62-04-PLAN.md - aircraft crop points and placement (wave 2)
+- [x] 62-04-PLAN.md - aircraft crop points and placement (wave 2)
 - [ ] 62-05-PLAN.md - stretched binary lettering, pairing fields, giant palette check (wave 3)
 - [ ] 62-06-PLAN.md - portrait layouts B, A, A+diagonal, dispatch, poll-cycle threading (wave 4)
 - [ ] 62-07-PLAN.md - layout C and the landscape family (wave 5)
@@ -632,4 +632,4 @@ Plans: 13 plans in 7 waves
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
-| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 3/13 | In Progress|  |
+| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 4/13 | In Progress|  |
