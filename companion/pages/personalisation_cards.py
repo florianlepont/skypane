@@ -28,7 +28,7 @@ from companion.settings.theme import (
     COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
     FRAME_COLOURS_ROW_LABELS, departures_safe_theme_id, look_card_body_html, look_frame_html,
     look_sheet_html)
-from server import device_config, screen_layouts
+from server import screen_layouts
 
 PAGE_ID = "personalisation"
 NAV_LABEL = i18n.msg("display.personalisation_sections", "Personalisation sections")
