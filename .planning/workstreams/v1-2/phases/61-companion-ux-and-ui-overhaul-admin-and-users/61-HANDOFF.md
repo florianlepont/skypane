@@ -3,12 +3,11 @@
 State when this session ended.
 
 ## Branch and PRs
-- Branch `milestone/v1.2-phase-61-companion-ux`. Merged: #305-#307, #309, #310, #312.
-- Open: PR #313 (draft, "round 12: design system and audit 3 fixes", plans 61-97 and
-  61-98 plus two test-robustness commits). Merge it (squash) when CI is green on the
-  final head: the owner authorised merging. Then try to approve the production
-  deployment; the token gets 403, so the owner clicks "Review deployments -> production
-  -> Approve and deploy". Deploys of #310, #312 and #313 may all be waiting on him.
+- Branch `milestone/v1.2-phase-61-companion-ux`. Merged: #305-#307, #309, #310, #312, #313.
+- PR #313 (round 12: design system and audit 3, plans 61-97 and 61-98) is merged
+  (squash 684980b). No PR is open. The production deployments of #310, #312 and #313
+  may still wait for the owner: he clicks "Review deployments -> production ->
+  Approve and deploy" (the token gets 403).
 - After a squash merge: `git fetch origin main && git merge -s ours origin/main`, then
   `git checkout origin/main -- .` and commit; push normally (force push is denied).
   Open a NEW draft PR for new work and subscribe to it.
