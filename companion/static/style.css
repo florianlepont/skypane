@@ -6021,10 +6021,10 @@ html.js-early:has(.place-stage) {
  * keeps those bars the map's colour instead of the page's sky. Not in an
  * installed web app, which has no browser bars and a translucent status bar. */
 @media (max-width: 699.98px) and (display-mode: browser) {
-  .map-ready .place-stage::before,
-  .map-ready .place-stage::after {
+  .map-ready .place-stage::before {
     content: "";
     position: fixed;
+    top: 0;
     left: 0;
     right: 0;
     z-index: 1;
@@ -6033,12 +6033,16 @@ html.js-early:has(.place-stage) {
     pointer-events: none;
   }
 
-  .map-ready .place-stage::before {
-    top: 0;
-  }
-
   .map-ready .place-stage::after {
+    content: "";
+    position: fixed;
     bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    height: 4px;
+    background: var(--color-secondary);
+    pointer-events: none;
   }
 }
 
