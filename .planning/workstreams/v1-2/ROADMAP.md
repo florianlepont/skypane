@@ -607,7 +607,7 @@ Plans: 13 plans in 7 waves
 - [x] 62-05-PLAN.md - stretched binary lettering, pairing fields, giant palette check (wave 3)
 - [x] 62-06-PLAN.md - portrait layouts B, A, A+diagonal, dispatch, poll-cycle threading (wave 4)
 - [x] 62-07-PLAN.md - layout C and the landscape family (wave 5)
-- [ ] 62-08-PLAN.md - seven calm status screens, portrait and landscape (wave 5)
+- [x] 62-08-PLAN.md - seven calm status screens, portrait and landscape (wave 5)
 - [ ] 62-10-PLAN.md - layout-aware previews and render CLI option (wave 5)
 - [ ] 62-09-PLAN.md - regenerated firmware masks, host tests (wave 6)
 - [ ] 62-11-PLAN.md - companion Layout view, pairing picker, EN/FR (wave 6)
@@ -632,4 +632,4 @@ Plans: 13 plans in 7 waves
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
-| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 8/13 | In Progress|  |
+| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 9/13 | In Progress|  |
