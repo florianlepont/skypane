@@ -54,7 +54,7 @@ def _open(new_context, app, path, viewport, lang="en", theme="light"):
 
 
 @pytest.mark.parametrize("width", [360, 390])
-def test_a_long_frame_name_never_covers_the_logo_and_the_greeting_is_cut_with_an_ellipsis(
+def test_a_long_frame_name_never_covers_the_logo_and_wraps_inside_the_title_column(
         new_context, app, width):
     context, page = _open(new_context, app, "/devices/LIVE/", {"width": width, "height": 800})
     try:
@@ -64,16 +64,23 @@ def test_a_long_frame_name_never_covers_the_logo_and_the_greeting_is_cut_with_an
             " const menu = document.querySelector('.site-header .frame-menu')"
             ".getBoundingClientRect();"
             " const name = document.querySelector('.frame-menu__name');"
-            " const greeting = document.querySelector('.home-greeting__frame');"
+            " const title = document.querySelector('.title-action__text').getBoundingClientRect();"
+            " const pencil = document.querySelector('.title-action .btn--icon')"
+            ".getBoundingClientRect();"
+            " const body = document.querySelector('.hero__body').getBoundingClientRect();"
             " return {brandRight: brand.right, menuLeft: menu.left, menuRight: menu.right,"
             " cut: name.scrollWidth > name.clientWidth,"
-            " greetingCut: greeting.scrollWidth > greeting.clientWidth,"
-            " greetingOverflow: getComputedStyle(greeting).textOverflow,"
-            " viewport: innerWidth}; }")
+            " titleRight: title.right, titleTop: title.top, titleBottom: title.bottom,"
+            " pencilLeft: pencil.left, pencilRight: pencil.right, pencilTop: pencil.top,"
+            " bodyRight: body.right, viewport: innerWidth}; }")
         assert geometry["brandRight"] <= geometry["menuLeft"] + 0.5, geometry
         assert geometry["menuRight"] <= geometry["viewport"], geometry
-        assert geometry["cut"] and geometry["greetingCut"], geometry
-        assert geometry["greetingOverflow"] == "ellipsis", geometry
+        assert geometry["cut"], geometry
+        # The long name wraps inside its own column; the pencil stays beside it, in view.
+        assert geometry["pencilLeft"] >= geometry["titleRight"] - 0.5, geometry
+        assert geometry["pencilTop"] < geometry["titleBottom"], geometry
+        assert geometry["pencilRight"] <= geometry["viewport"], geometry
+        assert geometry["titleRight"] <= geometry["bodyRight"] + 0.5, geometry
     finally:
         context.close()
 

@@ -29,7 +29,7 @@ import companion.layout as layout
 import companion.test_companion_app_helpers as cah
 from companion import auth
 from companion import theme_preview
-from companion_app_server import http_request, login
+from companion_app_server import http_request, login, with_csrf
 from companion_markup import parse_html
 from server import device_config, history_db
 from server.plane import manual_resolutions
@@ -142,7 +142,7 @@ def test_ui_lang_post_round_trip(app04b_server, session_cookie):
     for submitted, expect_cookie in (("fr", True), ("en", True), ("de", False)):
         status, headers, _ = http_request(
             base + "/ui-lang", method="POST", cookie=session_cookie,
-            data=urllib.parse.urlencode({"ui_lang": submitted}).encode())
+            data=with_csrf(session_cookie, {"ui_lang": submitted}))
         assert status == 303, "expected 303 for ui_lang=%s, got %d" % (submitted, status)
         assert headers.get("Location") == "/", (
             "expected a redirect to the referring tab (default /), got %r" % headers.get("Location"))
@@ -213,7 +213,7 @@ def test_ui_lang_cookie_beats_accept_language(app04b_server, session_cookie):
     base = app04b_server.base_url()
     status, headers, _ = http_request(
         base + "/ui-lang", method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({"ui_lang": "en"}).encode())
+        data=with_csrf(session_cookie, {"ui_lang": "en"}))
     lang_cookie = cookie_value(headers)
     assert status == 303 and lang_cookie, (
         "expected a 303 with a sp_ui_lang Set-Cookie, got %d/%r" % (status, headers.get("Set-Cookie")))

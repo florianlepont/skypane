@@ -112,11 +112,11 @@ def _geometry(page, selector):
 
 
 def _assert_order(page, where):
-    """Title, then the notification, then the state card, top to bottom."""
+    """The notification, then the hero that carries the frame-name title, top to bottom."""
     tops = page.evaluate(
-        "() => ['h1.page-title', '%s', '.home-state'].map("
+        "() => ['%s', '.home-state', 'main h1'].map("
         "(s) => document.querySelector(s).getBoundingClientRect().top)" % NOTICE)
-    assert tops[0] < tops[1] < tops[2], (where, tops)
+    assert tops[0] < tops[1] <= tops[2], (where, tops)
     title_word, dot_word = page.evaluate(
         "() => [document.querySelector('.home-state__title').textContent.trim(),"
         " document.querySelector('.home-state__dot').getAttribute('aria-label')]")
@@ -234,7 +234,7 @@ def test_the_next_refresh_after_a_check_in_removes_the_notification(
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_the_banner_starts_clear_of_the_frame_button_on_desktop(
         new_context, make_app_server, lang):
-    """The attention banner never touches the frame button that sits level with the greeting."""
+    """The attention banner never touches the frame button that sits level with the hero."""
     seed = _seed_for("not_seen")
     server = make_app_server(seed=seed)
     context, page = _open(

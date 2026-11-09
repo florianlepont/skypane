@@ -1340,7 +1340,7 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
     """the tab bar is display:none until the 959.98px boundary, then a floating pill: fixed
     inset by the gap from the sides and above the safe-area inset, 68px high, with the pill
     radius and its own glass shadow; its cells are `flex: 1 1 0`; its active
-    state is the inner glass pill with a :not()-scoped hover placed after it; its label is 12px regular
+    state is the inner glass pill with a :not()-scoped hover placed after it; its label is 11px regular
     with no label voice; and .has-tab-bar clears the bar at the page foot
    """
     rules = css_rules(css_text)
@@ -1395,7 +1395,7 @@ def test_tab_bar_css_geometry_surface_and_active_idiom(css_text):
         assert not rules_with_selector(css_text, bad)
 
     label_decls = declarations_for(css_text, ".tab-bar__label", at_rules=_TAB_BAR_MEDIA)
-    assert label_decls.get("font-size") == "12px"
+    assert label_decls.get("font-size") == "11px"
     assert label_decls.get("font-weight") == "var(--weight-regular)"
     for voice in ("text-transform", "letter-spacing"):
         assert voice not in label_decls

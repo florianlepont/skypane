@@ -524,9 +524,9 @@ def test_control_with_both_hint_and_error_carries_both_ids_in_order():
 @pytest.mark.parametrize(
     ("lang", "titles", "page_title", "nav_label"),
     [
-        ("en", ("Look", "Special looks", "Calendar"), "Personalisation", "Personalisation sections"),
-        ("fr", ("Allure", "Allures spéciales", "Calendrier"), "Personnalisation",
-         "Sections de personnalisation"),
+        ("en", ("Look", "Special looks", "Calendar"), "Style", "Style sections"),
+        ("fr", ("Allure", "Allures spéciales", "Calendrier"), "Style",
+         "Sections de style"),
     ],
 )
 def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(

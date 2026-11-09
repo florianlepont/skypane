@@ -756,18 +756,6 @@ h3 {
   margin: 0 0 var(--space-xs);
 }
 
-/* Home's greeting is a quiet line above the state, which is the visible
- * title; the page's h1 is visually hidden. */
-.page-greeting {
-  margin: 0 0 var(--space-xs);
-  font-family: var(--font-ui);
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-regular);
-  line-height: 1.4;
-  letter-spacing: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 .page-header__purpose {
   margin: 0 0 var(--space-lg);
 }
@@ -5247,10 +5235,10 @@ a.airline-card {
     padding-right: 12rem;
   }
 
-  /* The attention banner under the greeting starts clear of the frame
+  /* The attention banner above the hero starts clear of the frame
    * button, never touching it. */
   .site-header:has(.frame-menu) ~ .dashboard-main .home-facts {
-    margin-top: var(--space-xl);
+    margin-top: calc(var(--space-2xl) + var(--space-sm));
   }
 
   .dashboard-main {
@@ -6015,6 +6003,37 @@ html.js-early:has(.place-stage) {
   background: var(--color-secondary);
 }
 
+/* A phone in a browser tab: Safari tints its top and bottom bars from the
+ * page. A thin fixed strip of the map's own colour along each screen edge
+ * (and the theme-color tags, which place-card.js points at the same colour)
+ * keeps those bars the map's colour instead of the page's sky. Not in an
+ * installed web app, which has no browser bars and a translucent status bar. */
+@media (max-width: 699.98px) and (display-mode: browser) {
+  .map-ready .place-stage::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    height: 4px;
+    background: var(--color-secondary);
+    pointer-events: none;
+  }
+
+  .map-ready .place-stage::after {
+    content: "";
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1;
+    height: 4px;
+    background: var(--color-secondary);
+    pointer-events: none;
+  }
+}
+
 /* The one search field floats at the top of the map. Its label is for
  * assistive technology only. */
 .map-ready .place-float {
@@ -6571,11 +6590,53 @@ html:not(.map-ready) .place-tap-hint {
   }
 }
 
-/* On a small phone the map keeps the room: the nearest-airport offer is not
- * shown (it would lift the sheet over the pin the visitor just dropped). */
+/* On a small phone the nearest-airport offer is one 44px line over the map,
+ * above the bottom buttons (the script moves it into the tools row): the
+ * follow button alone, the sentence stays for screen readers. In the sheet it
+ * lifted the sheet over the pin the visitor had just dropped. */
 @media (max-width: 699.98px) {
-  .map-ready .place-nearest {
+  .map-ready .place-tools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .map-ready .place-tools .place-nearest {
+    flex: 1 0 100%;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: none;
+  }
+
+  .map-ready .place-tools .place-nearest__button {
+    background: var(--glass-solid);
+    box-shadow: var(--shadow-glass);
+    pointer-events: auto;
+  }
+
+  .map-ready .place-nearest__icon {
     display: none;
+  }
+
+  .map-ready .place-nearest__body {
+    align-items: flex-end;
+    gap: 0;
+  }
+
+  .map-ready .place-nearest__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .map-ready .place-nearest__button {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 
@@ -7083,6 +7144,12 @@ html.js-early:not(.map-ready) .place-boot .place-boot__fill {
   display: none;
 }
 
+/* Hidden but still measured, so the label returns as soon as it clears the
+ * card or control it met. */
+.place-dot__label.place-dot__label--covered {
+  visibility: hidden;
+}
+
 .place-dot--selected .place-dot__mark {
   width: 22px;
   height: 22px;
@@ -7170,6 +7237,17 @@ html.js-early:not(.map-ready) .place-boot .place-boot__fill {
 
 .place-results__list li + li {
   border-top: 1px solid var(--color-border);
+}
+
+/* The list's last row while a place search runs, and when it found nothing
+ * or failed: a quiet line, with a small spinner while it is pending. */
+.place-results__list .place-results__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: var(--space-xs) var(--space-md);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* A group heading in the one suggestion list (airports, then places). */
@@ -7551,19 +7629,6 @@ button.place-result.is-active {
 
 /* The micro-label voice the quick-action labels already use (12px
  * uppercase, the sub-scale exception tier). */
-
-/* The state title takes the page-title size in the display face: the
- * header's one display line, so it reads from across the room. */
-.home-state__headline {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-md);
-  font-family: var(--font-display);
-  font-size: var(--font-page-title-size);
-  font-weight: var(--weight-title);
-  line-height: 1.15;
-  letter-spacing: var(--tracking-title);
-}
 
 /* A solid dot inside a soft halo of the same status colour, so the state
  * reads at a glance without relying on colour alone: the words beside it
@@ -8830,11 +8895,11 @@ a.calendar-manage--primary:hover {
     transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
 
-  /* 12px sentence case, not the uppercase label voice: a destination is not
-   * a label. The French short labels are chosen so neighbours never touch at
-   * 360px. */
+  /* 11px sentence case, not the uppercase label voice: a destination is not
+   * a label. At 360px the equal cells measure about 52px, which holds the
+   * longest label ("Location") with room to spare; 12px left it no slack. */
   .tab-bar__label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: var(--weight-regular);
     line-height: 1;
     max-width: 100%;
@@ -8857,12 +8922,13 @@ a.calendar-manage--primary:hover {
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 69px;
+    flex: 0 0 76px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__link--switch .tab-bar__pill {
+    padding: 0 var(--space-xs);
     border: 1px solid var(--color-accent);
     background: transparent;
   }
@@ -10954,15 +11020,26 @@ a.row-action {
   text-decoration: none;
 }
 
-/* A person row: the address takes the line it needs and its action drops
- * under it on a narrow screen instead of breaking the address. */
+/* A person row: the action stays on the row's one line; the address gives
+ * way with an ellipsis (its full value is the element's title). */
 .group > .row.access-person {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .group > .row.access-person > .row__main {
-  flex: 1 0 14rem;
+  flex: 1 1 0;
   min-width: 0;
+}
+
+.group > .row.access-person .row__text {
+  min-width: 0;
+}
+
+.group > .row.access-person .co-manager__email {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group > .row.access-person > .row__main + * {
@@ -13150,20 +13227,6 @@ button.row-menu__item--destructive:hover {
   box-shadow: var(--shadow-card-hover);
 }
 
-/* Home: the greeting is the page title; the frame name follows it as a calm
- * second line when the person has several frames. */
-.home-greeting__frame {
-  display: block;
-  margin: 0 0 var(--space-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-family: var(--font-ui);
-  font-size: var(--font-label-size);
-  line-height: 1.4;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 /* The cards come in one after the other: the state card, the current
  * frame, then the recent flights. */
 
@@ -13609,14 +13672,73 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
 
 .hero__status {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-sm);
-  font-family: var(--font-display);
-  font-size: clamp(2.125rem, 1.7rem + 1.2vw, 2.75rem);
-  font-weight: var(--weight-title);
+}
+
+/* The frame state as a pill: the status dot and its word on a faint wash of
+ * the state's tone. The word is in the text colour, so contrast never rests
+ * on the tone. */
+.home-state__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md) var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  background: color-mix(in srgb, var(--home-tone) 14%, transparent);
+  color: var(--color-text);
+}
+
+.home-state__pill .home-state__dot {
+  width: 10px;
+  height: 10px;
+  margin: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--home-tone) 22%, transparent);
+}
+
+/* The frame's name as the page title, with its round action beside it on the
+ * same line. The text takes the room left and wraps inside its own box; the
+ * action never drops under it. */
+.title-action {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+  max-width: 100%;
+}
+
+.title-action__text {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin: 0;
+  font-size: 28px;
   line-height: 1.1;
-  letter-spacing: var(--tracking-title);
   overflow-wrap: anywhere;
+}
+
+.title-action__action {
+  flex: none;
+}
+
+/* The action is a circle: the 44px icon button rounded to its own half. */
+.title-action__action .btn.btn--icon {
+  border-radius: 50%;
+}
+
+@media (min-width: 700px) {
+  .title-action__text {
+    font-size: 48px;
+  }
+}
+
+@media (max-width: 379.98px) {
+  .title-action__text {
+    font-size: 24px;
+  }
 }
 
 .home-state--warn {

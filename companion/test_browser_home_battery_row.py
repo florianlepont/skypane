@@ -228,7 +228,7 @@ def test_the_status_block_reads_as_one_coherent_statement(
         new_context, make_app_server, lang, viewport):
     """The state word is "Online" and the line under it "Next refresh in N min": no "Up to date"
     and no "update" anywhere in the block, the ring's accessible name says refresh too, and the
-    greeting is a smaller, quieter line than the state title."""
+    frame-name title is larger than the state pill beside it."""
     context, page = _open_user_home(new_context, make_app_server, "normal", lang, viewport, "light")
     try:
         words = WORDS[lang]
@@ -239,10 +239,10 @@ def test_the_status_block_reads_as_one_coherent_statement(
         ring = page.locator("[data-cycle-ring]").get_attribute("aria-label")
         assert ("next refresh" if lang == "en" else "prochain rafraîchissement") in ring
         sizes = page.evaluate(
-            """() => ({greeting: parseFloat(getComputedStyle(
-                          document.querySelector('.page-greeting')).fontSize),
-                       title: parseFloat(getComputedStyle(
+            """() => ({title: parseFloat(getComputedStyle(
+                          document.querySelector('main h1')).fontSize),
+                       word: parseFloat(getComputedStyle(
                           document.querySelector('.home-state__title')).fontSize)})""")
-        assert sizes["greeting"] <= 16.5 and sizes["greeting"] < sizes["title"] - 8
+        assert sizes["title"] > sizes["word"] + 8
     finally:
         context.close()

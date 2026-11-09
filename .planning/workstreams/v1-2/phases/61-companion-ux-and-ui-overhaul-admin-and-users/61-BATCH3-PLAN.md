@@ -147,3 +147,10 @@ dropped or redrawn from a sketch.
 |------|---------|
 | 61-97 | Design system: admin-only Components page (all components, all states, both themes and languages), one component test, unify switch / select / segmented control / chips / buttons / cards / tables / dialogs, fix the audit-3 component-driven findings |
 | 61-98 | Remaining audit-3 visual findings (V01, V02, V05, V08-V25 not covered by 61-97), workflow findings (login ?next= for all routes, session-expired message on login, owner Rename entry, CSRF on settings and quick routes, pairing id, special-look error keeps input, no-JS upload buttons, unsaved-changes guard), performance quick wins (N01 folded-history cache, N03 JS comments, N02 idle prefetch limits, P16 Display previews, N06 ETag) |
+
+## Batch 16 (D52, remaining audit points)
+
+| Plan | Content |
+|------|---------|
+| 61-99 | Remaining UX points: V15, V19, V22, V27, V28, nearest-airport offer on phones, /ui-theme and /ui-lang CSRF, naming glossary, Safari band tint on the Location map, 14 partial workflow items |
+| 61-100 | Remaining performance items: P07, P08, P09, P12, P13-P15, N04, N05, N07-N09 |

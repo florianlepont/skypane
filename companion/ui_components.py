@@ -387,6 +387,25 @@ def icon_button_html(icon_id, aria_label, variant="ghost", button_type="button",
     ) % (button_type, variant, escape_html(aria_label), attrs, icon_html(icon_id, 20))
 
 
+def icon_link_html(icon_id, aria_label, href, variant="ghost", attrs=""):
+    """The icon-only link: the same 44px round `.btn--icon` as the button, for
+    an action that navigates. Named by its `aria-label`; `href` is escaped."""
+    return (
+        '<a class="btn btn--%s btn--icon" href="%s" aria-label="%s"%s>%s</a>'
+    ) % (variant, escape_html(href), escape_html(aria_label), attrs, icon_html(icon_id, 20))
+
+
+def title_action_html(title, action_html=""):
+    """A page title with one round icon action beside it, on one line: the
+    `<h1>` (escaped here) and the caller's already-safe `action_html`, such as
+    `icon_link_html()`. A long title wraps inside its own box and never pushes
+    the action under it."""
+    return (
+        '<div class="title-action"><h1 class="page-title title-action__text">%s</h1>%s</div>'
+    ) % (escape_html(title), ('<span class="title-action__action">%s</span>' % action_html)
+         if action_html else "")
+
+
 def text_field_html(field_id, name, label, value="", help_text="", error_html="",
                     input_attrs="", input_type="text"):
     """The one labelled text field: a label above a full-width input, its help
@@ -822,7 +841,7 @@ def empty_state(heading, body, compact=False):
 
 
 def page_header(title, purpose=None, freshness_html=None, action_html=None,
-                trail_html=None, title_html=None):
+                trail_html=None, title_html=None, omit_title=False):
     """The shared page-header component every authenticated page's
     render() opens with, in place of a bare <h1>. This exact signature
     and parameter order is called across many page modules — do not
@@ -837,6 +856,8 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None,
     `trail_html` (already-safe markup) sits after the purpose, inside the
     header. `title_html` (already-safe markup) replaces the `<h1>` element
     entirely; `title` is then only the page's plain name for callers that read it.
+    `omit_title` emits no heading at all, for a page whose one `<h1>` lives
+    elsewhere in its body; the freshness marker and the flash slot remain.
     The returned string ends with FLASH_SLOT_MARKER, which page_shell()
     is the only consumer of.
     """
@@ -851,7 +872,9 @@ def page_header(title, purpose=None, freshness_html=None, action_html=None,
         "</div>"
         "%s"
     ) % (
-        title_html or '<h1 class="page-title">%s</h1>' % escape_html(title), freshness_block, action_block, purpose_html,
+        "" if omit_title else (
+            title_html or '<h1 class="page-title">%s</h1>' % escape_html(title)),
+        freshness_block, action_block, purpose_html,
         trail_html or "", FLASH_SLOT_MARKER,
     )
 

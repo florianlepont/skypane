@@ -105,7 +105,9 @@ def test_status_header_layout_targets_and_keyboard(
                 const r = s => document.querySelector(s).getBoundingClientRect();
                 return {header: r('.home-state'), row: r('.home-state__switches'), title: r('h1')};
             }""")
-        assert geometry["title"]["bottom"] <= geometry["header"]["top"] < geometry["row"]["top"]
+        # The title is the frame name inside the hero, above the Frame group.
+        assert geometry["header"]["top"] <= geometry["title"]["top"] < geometry["row"]["top"]
+        assert geometry["title"]["bottom"] <= geometry["header"]["bottom"] + 1
         _assert_zone_arrangement(page, viewport_name)
         for selector in (SCREEN_BUTTON, QUIET_BUTTON):
             box = page.locator(selector).bounding_box()
@@ -130,7 +132,7 @@ def test_status_header_layout_targets_and_keyboard(
         page.keyboard.press("Space")
         # The switch flips in place and the headline follows without a page load.
         page.wait_for_function(
-            "() => document.querySelector('.home-state__headline')"
+            "() => document.querySelector('.home-state__pill')"
             " && document.querySelector('.home-state__detail')"
             " && document.querySelector('.home-state__detail').textContent.trim() !== ''",
             timeout=15000)
@@ -138,7 +140,7 @@ def test_status_header_layout_targets_and_keyboard(
         assert urlsplit(page.url).path == layout.HOME_ROUTE
         assert device_config.load_device_config(server.state_dir)["display_enabled"] is False
         assert page.locator(SCREEN_BUTTON).get_attribute("aria-checked") == "false"
-        headline = page.locator(".home-state__headline").inner_text()
+        headline = page.locator(".home-state__pill").inner_text()
         dot_word = page.get_attribute(".home-state__dot", "aria-label")
         assert headline.strip() == dot_word
         detail = page.locator(".home-state__detail").inner_text()
@@ -317,8 +319,12 @@ def test_cadence_tooltip_opens_on_hover_and_keyboard_focus(
         assert not _assert_no_page_overflow(page, "tooltip/%s" % viewport_name, viewport["width"])
         page.mouse.move(0, 0)
         assert not bubble.is_visible()
-        page.locator(".home-state__headline").click()
-        page.keyboard.press("Tab")
+        page.locator(".home-state__pill").click()
+        # The rename pencil in the title row comes before the info button in tab order.
+        for _ in range(2):
+            page.keyboard.press("Tab")
+            if page.evaluate("document.activeElement.classList.contains('info-tip__button')"):
+                break
         assert page.evaluate("document.activeElement.classList.contains('info-tip__button')")
         assert bubble.is_visible() and sentence in bubble.inner_text()
         _assert_bubble_inside_viewport(page, viewport["width"])
@@ -581,11 +587,12 @@ def test_user_home_layout_has_the_frame_button_first_and_no_battery_tile(
         assert page.locator(".home-battery").count() == 0
         assert page.locator(".home-action").count() == 0
         tops = page.evaluate(
-            """() => ['details.frame-menu', '.page-greeting', '.home-state',
+            """() => ['details.frame-menu', '.home-state', '.home-state h1',
                       '.home-state__switches', '.home-section[aria-labelledby="home-flights"]']
                 .map(s => document.querySelector(s).getBoundingClientRect().top)""")
-        # On a phone the button is in the bar above the title; on a desktop it is level with it.
-        assert tops[0] <= tops[1] < tops[2] < tops[3] < tops[4]
+        # The title is the frame name inside the hero: the frame button is above or level with
+        # the hero, whose title comes before the Frame group and the recent flights.
+        assert tops[0] <= tops[1] <= tops[2] < tops[3] < tops[4]
         for selector in (SCOPED_SCREEN_BUTTON, SCOPED_QUIET_BUTTON):
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["x"] + box["width"] <= viewport["width"]

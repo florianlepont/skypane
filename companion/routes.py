@@ -375,7 +375,7 @@ CSRF_FIELD = "csrf_token"
 
 # Existing POST routes that need the token: the destructive actions, the
 # release actions, the detection form that changes location data, the settings
-# form and the quick switches. New console routes set `csrf=True` on their own Route.
+# form, the quick switches and the theme and language switches. New console routes set `csrf=True` on their own Route.
 CSRF_ROUTE_KEYS = frozenset((
     ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
     ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
@@ -389,6 +389,8 @@ CSRF_ROUTE_KEYS = frozenset((
     ("POST", Exact(QUICK_DISPLAY_ROUTE)),
     ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
     ("POST", Exact(QUICK_LED_ROUTE)),
+    ("POST", Exact(THEME_ROUTE)),
+    ("POST", Exact(LANG_ROUTE)),
 ))
 
 ROUTES = tuple(

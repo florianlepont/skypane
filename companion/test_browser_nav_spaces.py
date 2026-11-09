@@ -114,7 +114,7 @@ _SIDEBAR_LINKS = (
 CONSOLE_SIDEBAR_LABELS = [
     "Fleet", "Users", "Airline editor", "Audit log", "Account"]
 PERSONAL_SIDEBAR_LABELS = [
-    "Home", "Flight history", "Location and detection", "Personalisation",
+    "Home", "Flight history", "Location and detection", "Style",
     "Airlines", "Account"]
 
 

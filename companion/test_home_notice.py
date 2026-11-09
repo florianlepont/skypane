@@ -89,16 +89,15 @@ def _render_key(state_dir, key, lang="en", name="Orly window"):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("key", ["not_seen", "overdue", "low_battery", "no_contact"])
-def test_notification_sits_under_the_title_and_above_the_state_card(tmp_path, key, lang):
+def test_notification_sits_above_the_hero_that_carries_the_title(tmp_path, key, lang):
     _users(tmp_path, (ADMIN_EMAIL, "admin", False))
     last, _ = _seed(tmp_path, key)
     rendered = _render(tmp_path, lang, last=last,
                        device=_frame(tmp_path) if key == "no_contact" else None)
-    title = rendered.index('<p class="page-greeting"')
     facts = rendered.index('<div class="home-facts">')
     notice = rendered.index("home-notice")
     card = rendered.index('aria-labelledby="home-frame-state"')
-    assert title < facts < notice < card
+    assert facts < notice < card
     assert rendered.index("</div>", notice) < card
 
 

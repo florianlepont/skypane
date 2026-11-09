@@ -175,14 +175,14 @@ def test_the_sheet_holds_the_other_rows_and_the_account_row_names_the_person(
 
 @pytest.mark.parametrize("path", ["/users", "/fleet", "/audit"])
 @pytest.mark.parametrize("lang", ["fr", "en"])
-def test_tab_labels_are_twelve_pixels_whole_and_never_touch_at_360(
+def test_tab_labels_are_eleven_pixels_whole_and_never_touch_at_360(
         new_context, app, path, lang):
     context, page = _open(new_context, app, path, VIEWPORT_MIN_SUPPORTED, lang=lang)
     try:
         labels = page.evaluate(_LABELS)
         assert len(labels) == 6
         for label in labels:
-            assert label["size"] == 12 and not label["clipped"], label
+            assert label["size"] == 11 and not label["clipped"], label
         for left, right in zip(labels, labels[1:]):
             assert right["left"] - left["right"] >= 4, (left["text"], right["text"])
         cells = page.evaluate(
@@ -205,7 +205,8 @@ def test_the_admin_first_cell_has_the_shape_of_the_other_cells(new_context, app)
         assert first["height"] == others[0]["height"]
         # Six cells: the switch is a fixed width a little wider than the equal cells that share
         # the rest of the bar, the same in both spaces.
-        assert abs(first["width"] - sum(o["width"] for o in others) / len(others)) <= 16
+        # (76px against about 52px.)
+        assert 0 < first["width"] - sum(o["width"] for o in others) / len(others) <= 26
     finally:
         context.close()
 

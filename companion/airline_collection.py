@@ -14,7 +14,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from companion import flight_card, history_cache
+from companion import airline_display, flight_card, history_cache
 from companion.pages import airline_sheet
 from server import history_db
 from server.plane import illustrations
@@ -102,7 +102,8 @@ def _curated_index(overrides):
         sheet = airline_sheet.card_sheet(builtin, overrides or {})
         shown = sheet["name"] if sheet else builtin
         picture_key = illustrations.normalise_airline_key(shown) or key
-        order.append((key, render_text.display_airline_name(shown), picture_key))
+        order.append((key, airline_display.shown_name(render_text.display_airline_name(shown)),
+                      picture_key))
         aliases[key] = key
         aliases[picture_key] = key
     return order, aliases
@@ -215,7 +216,8 @@ def collection_from_events(events, now, overrides=None):
         _entry(key, name, picture_key, True, groups.pop(key, []), instant, type_counts)
         for key, name, picture_key in order]
     for slug, rows in groups.items():
-        name = render_text.display_airline_name(rows[0]["airline"].strip())
+        name = airline_display.shown_name(
+            render_text.display_airline_name(rows[0]["airline"].strip()))
         entries.append(_entry(slug, name, slug, False, rows, instant, type_counts))
     spotted = sum(1 for entry in entries if entry.seen)
     return entries, _summary(spotted, len(order))

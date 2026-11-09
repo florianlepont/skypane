@@ -102,6 +102,9 @@ SEARCH_NONE = i18n.msg(
 SEARCH_FAILED = i18n.msg(
     "detection.search_failed",
     "Search is not available right now. Tap the map or type an airport code.")
+ROW_SEARCHING = i18n.msg("detection.row_searching", "Searching\u2026")
+ROW_NONE = i18n.msg("detection.row_none", "No place found")
+ROW_FAILED = i18n.msg("detection.row_failed", "Search unavailable right now")
 SEARCH_SHORT = i18n.msg(
     "detection.search_short", "Type at least 3 characters to search.")
 RESULTS_LABEL = i18n.msg("detection.results_label", "Search results")
@@ -146,6 +149,9 @@ _MAP_STRINGS = (
     ("search-none", SEARCH_NONE),
     ("search-failed", SEARCH_FAILED),
     ("search-short", SEARCH_SHORT),
+    ("row-searching", ROW_SEARCHING),
+    ("row-none", ROW_NONE),
+    ("row-failed", ROW_FAILED),
     ("locating", LOCATING),
     ("located", LOCATED),
     ("locate-denied", LOCATE_DENIED),
@@ -872,7 +878,8 @@ def details_card_html(view):
 
 def _nearest_html():
     """The offer to follow a close airport instead of a position: shown by
-    the map script in My-position mode, never on a phone."""
+    the map script in My-position mode; a phone shows only its button, as
+    one line."""
     return (
         '<div id="place-nearest" class="place-nearest" hidden>'
         '<span class="place-nearest__icon">%s</span>'

@@ -18,6 +18,7 @@ reaches the markup only through `escape_html`.
 """
 from dataclasses import dataclass, field
 
+import companion.airline_display as airline_display
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.illustration_normalize as illustration_normalize
@@ -411,7 +412,7 @@ def _row_facts(page, data, index, builtin_name, shapes):
     entry = data.entries_by_slug.get(illustrations.normalise_airline_key(builtin_name))
     seen = entry is not None and entry.last_ts
     facts = {
-        "index": index, "builtin": builtin_name, "name": name, "key": key, "sheet": sheet,
+        "index": index, "builtin": builtin_name, "name": airline_display.shown_name(name), "key": key, "sheet": sheet,
         "manual_info": manual_info, "manual_fields": manual_fields,
         "needs_artwork": manual_fields[0] == page._VIEW_PANEL_MODE_NEEDS_ARTWORK,
         "has_art": has_builtin or has_override, "state_dir": data.state_dir,
@@ -428,7 +429,9 @@ def _row_facts(page, data, index, builtin_name, shapes):
 
 
 def _filter_text(row):
-    parts = [row["name"].lower()]
+    parts = [row["builtin"].lower()]
+    if row["name"].lower() != parts[0]:
+        parts.append(row["name"].lower())
     parts.extend(sub["code"].lower() + " " + sub["model"].lower() for sub in row["sub_rows"])
     sheet = row["sheet"]
     if sheet is not None:

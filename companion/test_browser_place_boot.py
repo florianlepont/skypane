@@ -122,7 +122,11 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " const probe = document.createElement('i'); probe.style.color = 'var(' + name + ')';"
             " document.body.appendChild(probe); const c = getComputedStyle(probe).color;"
             " probe.remove(); return c.match(/\\d+/g).slice(0, 3).map(Number); })")
-        for corner in ((2, height - 2), (width - 3, height - 2), (2, height - 6)):
+        # The 4px strips along the top and bottom edges are the map's own colour (they tint
+        # Safari's bars; the app bar floats over the top one); the corners are read just past them.
+        map_colour = tuple(int(v) for v in page_colours["map"][4:-1].split(",")[:3])
+        assert image.getpixel((width // 2, height - 2)) == map_colour, map_colour
+        for corner in ((2, height - 8), (width - 3, height - 8), (2, height - 10)):
             pixel = image.getpixel(corner)
             for colour in sky:
                 assert max(abs(a - b) for a, b in zip(pixel, colour)) > 15, (corner, pixel, sky)

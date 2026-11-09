@@ -8,10 +8,10 @@ import urllib.parse
 import pytest
 
 import fleet_console_support as fx
-from companion import device_scope
+from companion import airline_display, device_scope
 from companion_app_server import InProcessAppServer, http_request, with_csrf
 from server import fleet_db
-from server.plane import name_overrides
+from server.plane import illustrations, name_overrides
 
 CO_EMAIL = "co-manager@example.test"
 
@@ -168,3 +168,25 @@ def test_the_collection_ignores_resolve_for_an_owner(rig):
         "owner", rig.prefix(rig.seed.owned_id) + "/airlines?resolve=XYZ")
     assert status == 200
     assert "XYZ" not in with_param
+
+
+
+def test_the_editor_shows_the_accented_name_and_the_key_is_unchanged(rig):
+    prefix = rig.prefix(rig.seed.owned_id)
+    status, _h, body = rig.get("admin", prefix + "/airlines/manage")
+    assert status == 200
+    assert "Air Algérie" in body
+    assert 'name="airline_name" value="Air Algérie"' in body
+    assert 'name="airline_name" value="Air Algerie"' not in body
+    assert 'name="airline" value="Air Algerie"' in body
+    assert illustrations.normalise_airline_key("Air Algerie") == "air-algerie"
+    assert airline_display.builtin_name("Air Algérie") == "Air Algerie"
+
+
+def test_posting_the_shown_name_back_is_a_reset_not_a_rename(rig):
+    prefix = rig.prefix(rig.seed.owned_id)
+    status, _h, _b = rig.post(
+        "admin", prefix + "/airlines/rename",
+        {"airline": "Air Algerie", "airline_name": "Air Algérie"})
+    assert status == 303
+    assert name_overrides.load_name_overrides(rig.owned_dir) == {}

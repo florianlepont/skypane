@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Browser checks for the Location sheet: My position is the first tab and the default for a frame
-with nothing saved; on a phone My position has no nearest-airport offer and the sheet stays within
+with nothing saved; on a phone the nearest-airport offer is a one-line button and the sheet stays within
 28% of the viewport; Save and Cancel are a floating bar that appears on a change (docked above the
 tab bar on a phone, under the card on a wide screen) and that saves or cancels; the pin readout
 follows the pin; and the map runs behind the glass sidebar and the glass tab bar.
@@ -127,26 +127,54 @@ def _pin_near_an_airport(page):
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
-def test_on_a_phone_my_position_has_no_airport_offer_and_a_compact_sheet(
+def test_on_a_phone_the_airport_offer_is_one_line_and_the_sheet_stays_compact(
         new_context, make_app_server, viewport):
-    """with a pin next to an airport the offer is never shown on a phone (more room for the map);
-    the sheet keeps the readout, the radius and nothing else, within 28% of the viewport height,
-    and the radius control is reachable"""
+    """with a pin next to an airport the offer is a single 44px button line in the sheet (the
+    sentence is spoken, not shown); the sheet stays within 28% of the viewport height, keeps the
+    readout and the radius reachable, and does not rise over the pin; tapping the button follows
+    the airport's runway"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(new_context, server, viewport)
     try:
-        _pin_near_an_airport(page)
+        airport = _pin_near_an_airport(page)
         page.evaluate("() => { window.location.hash = 'place-map'; }")
         page.wait_for_function(
             "() => !document.getElementById('place-nearest').hidden", timeout=5000)
-        assert not page.locator("#place-nearest").is_visible()
         page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+        offer = page.locator("#place-nearest")
+        assert offer.is_visible()
+        button = page.locator("#place-nearest button")
+        assert 43.5 <= button.bounding_box()["height"] <= 56
+        assert offer.bounding_box()["height"] <= 56
+        assert button.inner_text() == "Follow %s" % airport.name
+        assert page.locator("#place-nearest .place-nearest__text").bounding_box()["width"] <= 1
         sheet = page.locator(".place-sheet").bounding_box()
         assert sheet["height"] <= viewport["height"] * 0.28 + 1, sheet
+        pin = page.evaluate(
+            "() => document.querySelector('#place-map .place-pin').getBoundingClientRect().toJSON()")
+        assert pin["bottom"] <= sheet["y"] + 1, (pin, sheet)
         assert page.locator("#place-coords").is_visible()
         assert page.locator("#place-radius").is_visible()
         assert page.locator("#place-radius-range").is_visible()
         assert page.locator(".place-radius__scale").is_hidden()
+        # The offer does not sit over the pin: it can still be grabbed and moved.
+        grab = page.evaluate(
+            "() => { const r = document.querySelector('#place-map .place-pin')"
+            ".getBoundingClientRect(); return {x: r.left + 22, y: r.top + 32}; }")
+        before = page.input_value("#place-lat")
+        hit = page.evaluate(
+            "p => !!document.elementFromPoint(p.x, p.y).closest('#place-map')", grab)
+        assert hit, grab
+        page.mouse.move(grab["x"], grab["y"])
+        page.mouse.down()
+        page.mouse.move(grab["x"] + 40, grab["y"] - 40, steps=6)
+        page.mouse.up()
+        page.wait_for_function(
+            "before => document.getElementById('place-lat').value !== before", arg=before,
+            timeout=10000)
+        button.click()
+        page.wait_for_function(
+            "() => location.search.indexOf('airport=%s') >= 0" % airport.icao, timeout=10000)
     finally:
         context.close()
 

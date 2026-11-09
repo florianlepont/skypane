@@ -339,7 +339,7 @@ def test_u2_my_frames_with_one_frame_need_no_action(world, new_context):
     try:
         assert page.locator(FRAMES).count() == 1
         assert page.url.split("?")[0].endswith("/devices/%s/" % world.seed.owned_id)
-        assert page.locator("main h1").inner_text() == "Home"
+        assert page.locator(".tab-bar a[aria-current='page']").inner_text().strip() == "Home"
         _report("U2-one", steps, 0)
     finally:
         context.close()
@@ -429,7 +429,7 @@ def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
     tap a colour in the picker, Save."""
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
+        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Style tab")
         page.wait_for_url("**/display")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")
@@ -609,7 +609,7 @@ def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     try:
         steps.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('My frame')"), "My frame")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
-        assert page.locator("main h1").inner_text() == "Home"
+        assert page.locator(".tab-bar a[aria-current='page']").inner_text().strip() == "Home"
         back = Steps(page)
         back.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('Console')"), "Console")
         page.wait_for_url("**/fleet")
