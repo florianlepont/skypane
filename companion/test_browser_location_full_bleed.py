@@ -8,7 +8,7 @@ from PIL import Image
 
 from companion import auth
 from companion.test_browser_ux_helpers import (
-    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _login, _set_ui_theme)
+    VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _login)
 from place_map_support import Hosts, SETTLED, seed
 from server import airports
 
@@ -29,7 +29,7 @@ _MEASURE = """() => {
 
 
 def _open(new_context, server, viewport, theme=None):
-    context = new_context(viewport=viewport)
+    context = new_context(viewport=viewport, color_scheme=theme or "light")
     Hosts(context)
     context.add_cookies([
         {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
@@ -39,8 +39,6 @@ def _open(new_context, server, viewport, theme=None):
     page.goto(server.base_url() + "/detection?airport=" + icao)
     page.wait_for_function(
         "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
-    if theme is not None:
-        _set_ui_theme(page, theme)
     page.wait_for_function(SETTLED, timeout=10000)
     return context, page
 
@@ -72,13 +70,12 @@ def test_the_phone_map_fills_the_window_and_controls_clear_the_inset(
         shot = Image.open(io.BytesIO(page.screenshot())).convert("RGB")
         floor = page.evaluate("() => getComputedStyle(document.documentElement).backgroundColor")
         floor = tuple(int(v) for v in floor[4:-1].split(","))
-        # Past the thin strips of the map's colour that tint Safari's bars (4px along each
-        # edge), the rows are tiles, never the bare page.
-        for y in (8, 10, shot.height - 11, shot.height - 9):
-            row = [shot.getpixel((x, y)) for x in (3, shot.width // 2, shot.width - 4)]
-            assert any(abs(p[0] - floor[0]) + abs(p[1] - floor[1]) + abs(p[2] - floor[2]) > 8
-                       or p == (204, 204, 204) for p in row), (y, row, floor)
-        for y in (shot.height - 3, shot.height - 1):
+        # The page behind the map and the strips along both edges are the tile ground
+        # colour (the same in both themes), which is what tints Safari's bars.
+        assert floor == (242, 239, 233), floor
+        # The top strip lies under the app bar's fade (computed styles are checked in the
+        # bands tests); the bottom one shows in the gap under the tab bar.
+        for y in (shot.height - 7, shot.height - 2):
             assert shot.getpixel((shot.width // 2, y)) == floor, (y, floor)
     finally:
         context.close()

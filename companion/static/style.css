@@ -47,6 +47,11 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 
+  /* The OpenStreetMap standard tiles' land colour. The tiles are light in
+   * both themes, so this one value serves both: it is what the Location
+   * page shows behind the map on a phone, so the browser's bars tint to it. */
+  --color-map-ground: #F2EFE9;
+
   /* The floating tab bar: its height and the gap to the screen edge; the
    * page clears bar + gap + the home-indicator inset. */
   --tab-bar-h: 68px;
@@ -6005,32 +6010,53 @@ html.js-early:has(.place-stage) {
 }
 
 /* A phone in a browser tab: Safari tints its top and bottom bars from the
- * page. A thin fixed strip of the map's own colour along each screen edge
- * (and the theme-color tags, which place-card.js points at the same colour)
- * keeps those bars the map's colour instead of the page's sky. Not in an
- * installed web app, which has no browser bars and a translucent status bar. */
+ * page. The visible map tiles are light in both themes, so the page behind
+ * the map takes the tile ground colour (html and body), and a fixed strip of
+ * the same colour runs along each screen edge. place-card.js sets
+ * data-bands on <html> from the page address (a: strips and background,
+ * b: background only, c: 1px strips, off: no tint) and points the
+ * theme-color tags at the same colour. Not in an installed web app, which has
+ * no browser bars and a translucent status bar. */
 @media (max-width: 699.98px) and (display-mode: browser) {
-  .map-ready .place-stage::before {
+  html.map-ready[data-bands]:not([data-bands="off"]) {
+    background: var(--color-map-ground);
+  }
+
+  html.map-ready[data-bands]:not([data-bands="off"]) body {
+    background: var(--color-map-ground);
+  }
+
+  html.map-ready[data-bands="a"] {
+    --place-band-top-h: calc(var(--safe-top) + 12px);
+    --place-band-bottom-h: calc(var(--safe-bottom) + 12px);
+  }
+
+  html.map-ready[data-bands="c"] {
+    --place-band-top-h: 1px;
+    --place-band-bottom-h: 1px;
+  }
+
+  html.map-ready[data-bands]:not([data-bands="b"]):not([data-bands="off"]) .place-stage::before {
     content: "";
     position: fixed;
     top: 0;
     left: 0;
     right: 0;
     z-index: 1;
-    height: 4px;
-    background: var(--color-secondary);
+    height: var(--place-band-top-h);
+    background: var(--color-map-ground);
     pointer-events: none;
   }
 
-  .map-ready .place-stage::after {
+  html.map-ready[data-bands]:not([data-bands="b"]):not([data-bands="off"]) .place-stage::after {
     content: "";
     position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     z-index: 1;
-    height: 4px;
-    background: var(--color-secondary);
+    height: var(--place-band-bottom-h);
+    background: var(--color-map-ground);
     pointer-events: none;
   }
 }

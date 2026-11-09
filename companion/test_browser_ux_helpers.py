@@ -350,6 +350,7 @@ _THEME_PROBE = (
     "  const read = () => {"
     "    const s = getComputedStyle(document.body);"
     "    return {canvas: getComputedStyle(html).backgroundColor, text: s.color,"
+    "            token: getComputedStyle(html).getPropertyValue('--color-canvas'),"
     "            attr: html.getAttribute('data-ui-theme')};"
     "  };"
     "  args.themes.forEach(t => {"
@@ -391,7 +392,9 @@ def _set_ui_theme(page, theme):
             "this helper measures nothing" % (missing,))
 
     first, second = UI_THEMES_EXPLICIT[0], UI_THEMES_EXPLICIT[1]
-    for token in ("canvas", "text"):
+    # The theme's canvas token is compared (not the painted canvas): a page may pin the
+    # canvas to a fixed colour in both themes (the Location map's tile ground on a phone).
+    for token in ("token", "text"):
         if sampled[first][token] == sampled[second][token]:
             raise AssertionError(
                 "_set_ui_theme: setting html[data-ui-theme] did not repaint "

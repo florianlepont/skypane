@@ -132,7 +132,8 @@ def test_actions_menus_follow_the_frame_state(fleet):
     assert re.findall(r'class="row-action"[^>]*>([^<]*)<', owned) == [
         "Open personal view", "Rename"]
     assert 'href="%s/"' % prefix in owned
-    assert 'href="%s/frame/name"' % prefix in owned
+    assert 'href="%s/frame/name?return_to=%%2Ffleet%%3Fframe%%3D%s"' % (
+        prefix, seed.owned_id) in owned
     # Health and Device are sections of the page, no menu entries; access, reassign and retire
     # are inline in the Access section (the retire link opens the one confirmation dialog).
     assert "/health" not in owned and '/device"' not in owned

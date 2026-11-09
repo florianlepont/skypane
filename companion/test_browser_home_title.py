@@ -12,7 +12,7 @@ from companion import auth
 import companion.test_view_pages_helpers as vp
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_no_page_overflow,
-    _in_both_themes, _login, seed_state_dir)
+    _in_both_themes, _login, _no_js_page, seed_state_dir)
 from companion.test_device_helpers import start_fleet_app
 from server import fleet_db
 
@@ -169,11 +169,135 @@ def test_the_pencil_shows_a_light_halo_only_on_hover(
         assert halo != rest and halo != "rgba(0, 0, 0, 0)", (rest, halo)
 
 
-def test_the_pencil_opens_the_frame_name_page(new_context, fleet_app):
-    page = _fleet_page(new_context, fleet_app, _live(fleet_app))
-    page.locator(".title-action .btn--icon").click()
-    page.wait_for_url("**/frame/name")
+@pytest.fixture
+def rename_app(module_app_server_factory):
+    """A fleet of its own, so renaming never changes the name other tests read."""
+    holder = start_fleet_app(module_app_server_factory, seed_extra=_seed)
+    holder.cookie = session_cookie_for_state_dir(holder.server.state_dir, OWNER_EMAIL)
+    conn = fleet_db.connect(holder.server.state_dir)
+    try:
+        fleet_db.rename_device(conn, holder.fleet.live.id, "Kitchen")
+    finally:
+        conn.close()
+    return holder
+
+
+def _on_rename_page(page):
+    page.wait_for_url("**/frame/name**")
+    page.wait_for_function(_SETTLED)
     assert page.locator("main h1").inner_text() == "Rename frame"
+
+
+def _is_home(page, app):
+    page.wait_for_url(app.server.base_url() + _live(app) + "**")
+    page.wait_for_function(_SETTLED)
+    assert "/frame/name" not in page.url and "/fleet" not in page.url
+
+
+def test_the_pencil_opens_the_frame_name_page_for_a_return_to_home(new_context, fleet_app):
+    page = _fleet_page(new_context, fleet_app, _live(fleet_app))
+    href = page.locator(".title-action .btn--icon").get_attribute("href")
+    assert "return_to=" in href
+    page.locator(".title-action .btn--icon").click()
+    _on_rename_page(page)
+    assert page.locator("a.form-back").get_attribute("href") == _live(fleet_app)
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_cancel_and_the_back_link_end_on_home_and_leave_the_name(
+        new_context, rename_app, viewport):
+    for leave in ("a.dirty-bar__cancel", "a.form-back"):
+        page = _fleet_page(new_context, rename_app, _live(rename_app), viewport=viewport)
+        page.locator(".title-action .btn--icon").click()
+        _on_rename_page(page)
+        page.locator("#frame-name").fill("Changed")
+        page.locator(leave).click()
+        _is_home(page, rename_app)
+        assert page.locator("main h1").inner_text() == "Kitchen"
+        assert page.locator(".title-action .btn--icon").count() == 1
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_save_ends_on_home_with_the_new_name(
+        new_context, rename_app, viewport):
+    page = _fleet_page(new_context, rename_app, _live(rename_app), viewport=viewport)
+    page.locator(".title-action .btn--icon").click()
+    _on_rename_page(page)
+    page.locator("#frame-name").fill("Den")
+    page.locator(".dirty-bar button.dirty-bar__save").click()
+    _is_home(page, rename_app)
+    page.wait_for_function("() => document.querySelector('main h1').innerText === 'Den'")
+    assert page.locator(".frame-menu").inner_text().count("Den") >= 1
+    assert page.locator("main h1").inner_text() == "Den"
+
+
+def test_browser_back_from_the_rename_page_lands_on_home(new_context, rename_app):
+    page = _fleet_page(new_context, rename_app, _live(rename_app))
+    page.locator(".title-action .btn--icon").click()
+    _on_rename_page(page)
+    page.go_back()
+    _is_home(page, rename_app)
+
+
+def test_an_empty_name_keeps_the_error_and_the_way_back_to_home(new_context, rename_app):
+    page = _fleet_page(new_context, rename_app, _live(rename_app))
+    page.locator(".title-action .btn--icon").click()
+    _on_rename_page(page)
+    page.locator("#frame-name").fill("")
+    page.locator(".dirty-bar button.dirty-bar__save").click()
+    page.wait_for_selector("#frame-name-error")
+    page.locator("a.dirty-bar__cancel").click()
+    _is_home(page, rename_app)
+
+
+def test_a_hostile_return_to_is_ignored_by_the_page(new_context, rename_app):
+    page = _fleet_page(
+        new_context, rename_app,
+        "/devices/%s/frame/name?return_to=https%%3A%%2F%%2Fevil.example%%2F" % rename_app.fleet.live.id)
+    back = page.locator("a.form-back").get_attribute("href")
+    assert back.startswith("/") and not back.startswith("//") and "evil" not in back
+    assert page.locator('input[name="return_to"]').count() == 0
+
+
+def test_without_script_the_pencil_save_and_cancel_return_to_home(new_context, rename_app):
+    base = rename_app.server.base_url()
+    name, value = rename_app.cookie.split("=", 1)
+    cookies = [{"name": name, "value": value, "url": base, "httpOnly": True,
+                "sameSite": "Strict"}]
+    for action in ("save", "cancel"):
+        with _no_js_page(new_context, base, _live(rename_app), sign_in=False,
+                         cookies=cookies, reduced_motion="reduce") as page:
+            with page.expect_navigation():
+                page.locator(".title-action .btn--icon").click()
+            assert "return_to=" in page.url
+            before = page.locator("#frame-name").input_value()
+            page.locator("#frame-name").fill("No script")
+            with page.expect_navigation():
+                page.locator(
+                    ".dirty-bar__save" if action == "save" else ".dirty-bar__cancel").click()
+            assert page.url.split("?")[0] == base + _live(rename_app)
+            expected = "No script" if action == "save" else before
+            assert page.locator("main h1").inner_text() == expected
+
+
+def test_an_administrator_from_fleet_ends_on_fleet(new_context, rename_app):
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    page = context.new_page()
+    _login(page, rename_app.server.base_url())
+    page.goto(rename_app.server.base_url() + "/fleet")
+    page.wait_for_function(_SETTLED)
+    page.locator(".fleet-detail-head a.row-action", has_text="Rename").click()
+    page.wait_for_url("**/frame/name**")
+    page.wait_for_function(_SETTLED)
+    page.locator("a.dirty-bar__cancel").click()
+    page.wait_for_url("**/fleet**")
+    assert "tab=settings" not in page.url
+    page.locator(".fleet-detail-head a.row-action", has_text="Rename").click()
+    page.wait_for_url("**/frame/name**")
+    page.locator("#frame-name").fill("Fleet name")
+    page.locator(".dirty-bar button.dirty-bar__save").click()
+    page.wait_for_url("**/fleet**")
+    assert "/frame/name" not in page.url
 
 
 def test_the_state_pill_holds_the_dot_and_the_state_word(new_context, fleet_app):

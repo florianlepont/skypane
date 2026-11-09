@@ -3,6 +3,7 @@ Update confirmation without a made-up time, the pairing message naming a frame
 without a name, and the retired Update address under a frame prefix. Every
 assertion reads served pages, audit rows and the database."""
 import re
+from urllib.parse import quote
 
 import pytest
 
@@ -45,10 +46,13 @@ def _name_of(server, device_id):
         conn.close()
 
 
-def _rename(server, cookie, device_id, name):
+def _rename(server, cookie, device_id, name, return_to=None):
+    fields = {"name": name}
+    if return_to is not None:
+        fields["return_to"] = return_to
     return http_request(
         server.url("/devices/%s/frame/name" % device_id), method="POST", cookie=cookie,
-        data=with_csrf(cookie, {"name": name}),
+        data=with_csrf(cookie, fields),
         extra_headers={"Origin": server.base_url()})
 
 
@@ -122,9 +126,10 @@ def test_a_hostile_name_is_escaped_where_it_is_shown(rig):
 def test_the_manage_access_dialog_and_the_fleet_header_link_to_the_rename_page(rig):
     server, seed, cookies = rig
     account = fx.get(server, cookies["owner"], "/account")[2]
-    assert 'href="/devices/%s/frame/name"' % seed.owned_id in account
+    assert 'href="/devices/%s/frame/name?return_to=%%2Faccount"' % seed.owned_id in account
     fleet = fx.get(server, cookies["admin"], "/fleet?frame=" + seed.owned_id)[2]
-    assert 'href="/devices/%s/frame/name"' % seed.owned_id in fleet
+    assert 'href="/devices/%s/frame/name?return_to=%%2Ffleet%%3Fframe%%3D%s"' % (
+        seed.owned_id, seed.owned_id) in fleet
 
 
 def test_the_users_active_switch_answers_a_fetch_with_no_content_and_a_form_post_with_a_redirect(rig):
@@ -191,3 +196,67 @@ def test_the_pairing_message_names_an_unnamed_frame_without_its_id(rig):
         cookie=cookie + "; " + headers["Set-Cookie"].split(";")[0])[2].decode("utf-8")
     assert "Unnamed frame now belongs to" in page and "d_" not in re.sub(
         r'(href|id|action|data-[a-z-]+)="[^"]*"', "", page).split("now belongs to")[0][-80:]
+
+
+def _home_of(seed):
+    return "/devices/%s/" % seed.owned_id
+
+
+def test_save_returns_to_the_page_the_person_came_from(rig):
+    server, seed, cookies = rig
+    home = _home_of(seed)
+    for who in ("owner", "admin"):
+        status, headers, _b = _rename(server, cookies[who], seed.owned_id, "Den", home)
+        assert status == 303
+        assert headers["Location"] == home + "?flash=frame_renamed"
+        assert "Set-Cookie" not in headers
+    status, headers, _b = _rename(
+        server, cookies["admin"], seed.owned_id, "Den", "/fleet?frame=%s" % seed.owned_id)
+    assert status == 303
+    assert headers["Location"] == "/fleet?frame=%s" % seed.owned_id
+    assert "Set-Cookie" in headers
+
+
+@pytest.mark.parametrize("hostile", [
+    "https://evil.example/", "//evil.example/", "/\\evil.example", "javascript:alert(1)",
+    "/not-a-page", "/devices/d_00000000/frame/name", "/account#x", ""])
+def test_a_hostile_or_unknown_return_to_is_ignored(rig, hostile):
+    server, seed, cookies = rig
+    status, headers, _b = _rename(server, cookies["owner"], seed.owned_id, "Den", hostile)
+    assert status == 303 and headers["Location"] == "/account?flash=frame_renamed"
+    page_url = "/devices/%s/frame/name?return_to=%s" % (seed.owned_id, quote(hostile, safe=""))
+    body = fx.get(server, cookies["owner"], page_url)[2]
+    tree = parse_html(body)
+    assert tree.select_one("a.dirty-bar__cancel").attrs["href"] == "/account"
+    assert tree.select('input[name="return_to"]') == []
+
+
+def test_the_rename_page_carries_return_to_into_back_cancel_and_the_form(rig):
+    server, seed, cookies = rig
+    home = _home_of(seed)
+    url = "/devices/%s/frame/name?return_to=%s" % (seed.owned_id, quote(home, safe=""))
+    tree = parse_html(fx.get(server, cookies["owner"], url)[2])
+    assert tree.select_one("a.dirty-bar__cancel").attrs["href"] == home
+    assert tree.select_one("a.form-back").attrs["href"] == home
+    assert tree.select_one('input[name="return_to"]').attrs["value"] == home
+
+
+def test_a_refused_name_keeps_the_origin(rig):
+    server, seed, cookies = rig
+    home = _home_of(seed)
+    status, _h, body = _rename(server, cookies["owner"], seed.owned_id, "", home)
+    tree = parse_html(body.decode("utf-8") if isinstance(body, bytes) else body)
+    assert status == 400
+    assert tree.select_one('input[name="return_to"]').attrs["value"] == home
+    assert tree.select_one("a.dirty-bar__cancel").attrs["href"] == home
+
+
+def test_a_normal_user_is_never_sent_to_a_console_page(rig):
+    server, seed, cookies = rig
+    url = "/devices/%s/frame/name?return_to=%s" % (seed.owned_id, quote("/fleet", safe=""))
+    tree = parse_html(fx.get(server, cookies["owner"], url)[2])
+    assert tree.select_one("a.dirty-bar__cancel").attrs["href"] == "/account"
+    status, headers, _b = _rename(server, cookies["owner"], seed.owned_id, "Den", "/fleet")
+    assert status == 303 and headers["Location"] == "/account?flash=frame_renamed"
+    admin = parse_html(fx.get(server, cookies["admin"], url)[2])
+    assert admin.select_one("a.dirty-bar__cancel").attrs["href"] == "/fleet"

@@ -84,7 +84,7 @@ def _shot(page, name):
 def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
         new_context, make_app_server, viewport, theme):
     """the map runs from the top edge to the bottom edge and from side to side (under the status
-    bar area, the tab bar and the bottom safe area); the page behind it is the map's own colour,
+    bar area, the tab bar and the bottom safe area); the page behind it is the tile ground colour,
     the document cannot scroll, and the pixels at the bottom corners and the top row are map"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts = _open_ready(
@@ -106,7 +106,8 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " const html = getComputedStyle(document.documentElement);"
             " return {map: map.backgroundColor, html: html.backgroundColor, image: html.backgroundImage,"
             " scroll: document.scrollingElement.scrollHeight - innerHeight}; }")
-        assert page_colours["html"] == page_colours["map"], page_colours
+        # The page behind the map is the tile ground colour, never the page's sky.
+        assert page_colours["html"] == "rgb(242, 239, 233)", page_colours
         assert page_colours["image"] == "none", page_colours
         assert page_colours["scroll"] <= 0, page_colours
         # The picture itself: the bottom-corner pixels are the map's tile colour, like its middle.
@@ -122,11 +123,11 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " const probe = document.createElement('i'); probe.style.color = 'var(' + name + ')';"
             " document.body.appendChild(probe); const c = getComputedStyle(probe).color;"
             " probe.remove(); return c.match(/\\d+/g).slice(0, 3).map(Number); })")
-        # The 4px strips along the top and bottom edges are the map's own colour (they tint
-        # Safari's bars; the app bar floats over the top one); the corners are read just past them.
-        map_colour = tuple(int(v) for v in page_colours["map"][4:-1].split(",")[:3])
+        # The strips along the top and bottom edges are the tile ground colour (they tint
+        # Safari's bars; the app bar floats over the top one); the corners are read past them.
+        map_colour = (242, 239, 233)
         assert image.getpixel((width // 2, height - 2)) == map_colour, map_colour
-        for corner in ((2, height - 8), (width - 3, height - 8), (2, height - 10)):
+        for corner in ((2, height - 16), (width - 3, height - 16), (2, height - 18)):
             pixel = image.getpixel(corner)
             for colour in sky:
                 assert max(abs(a - b) for a, b in zip(pixel, colour)) > 15, (corner, pixel, sky)

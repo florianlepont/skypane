@@ -48,7 +48,8 @@ def test_the_h1_is_the_frame_name_with_a_rename_pencil(rig, who, lang, label, ho
     assert len(tree.select("h1")) == 1
     assert tree.select_one("main h1").text().strip() == "Kitchen"
     link = tree.select_one(".title-action a.btn--icon")
-    assert link.attrs["href"] == "/devices/%s/frame/name" % seed.owned_id
+    assert link.attrs["href"] == (
+        "/devices/%s/frame/name?return_to=%%2Fdevices%%2F%s%%2F" % (seed.owned_id, seed.owned_id))
     assert link.attrs["aria-label"] == label
     assert tree.select_one("title").text().strip().startswith(home)
 

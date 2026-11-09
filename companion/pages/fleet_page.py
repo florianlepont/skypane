@@ -278,7 +278,7 @@ def detail_header_html(view, frame_id):
         '<a class="row-action" href="%s" aria-label="%s">%s</a></div>' % (
             _esc(frame_id), _esc(i18n.t(_OPEN_PERSONAL_ARIA) % name),
             _t(_ACTION_PERSONAL_VIEW),
-            _esc(frame_name_page.device_route(frame_id)),
+            _esc(frame_name_page.device_route(frame_id, "/fleet?frame=" + frame_id)),
             _esc(i18n.t(frame_name_page.ACTION_ARIA) % name),
             _t(frame_name_page.ACTION_TEXT)))
 

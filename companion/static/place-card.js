@@ -310,15 +310,29 @@
 
   wireNearestPlacement();
 
-  // Safari tints its top bar from the theme-color tags: on a phone in a
-  // browser tab they take the map's own colour while the map runs.
+  // Safari tints its bars from the page: on a phone in a browser tab the page
+  // behind the map, the edge strips and the theme-color tags take the map
+  // tile ground colour. The ?bands= value (a, b, c or off) picks the variant;
+  // anything else is the default, and the value is never written anywhere but
+  // a fixed attribute choice.
+  function bandsVariant() {
+    var found = /[?&]bands=([^&#]*)/.exec(window.location.search);
+    var value = found ? found[1] : "";
+    return ["a", "b", "c", "off"].indexOf(value) >= 0 ? value : "a";
+  }
+
   function wireBarTint() {
     if (typeof window.matchMedia !== "function" ||
         !window.matchMedia("(max-width: 699.98px) and (display-mode: browser)").matches) {
       return;
     }
+    var variant = bandsVariant();
+    document.documentElement.setAttribute("data-bands", variant);
+    if (variant === "off") {
+      return;
+    }
     var colour = window.getComputedStyle(document.documentElement)
-      .getPropertyValue("--color-secondary").replace(/^\s+|\s+$/g, "");
+      .getPropertyValue("--color-map-ground").replace(/^\s+|\s+$/g, "");
     var tags = document.querySelectorAll("meta[name='theme-color']");
     if (!colour) {
       return;

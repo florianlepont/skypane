@@ -8,6 +8,7 @@ document title and the navigation label stay the page's plain name ("Home" /
 """
 import companion.device_scope as device_scope
 import companion.i18n as i18n
+import companion.layout as layout
 import companion.ui_components as ui_components
 from companion.pages import frame_name_page
 from companion.ui_shell import device_display_name
@@ -27,5 +28,6 @@ def title_html(device):
     if device_scope.viewer_may_rename_current():
         action = ui_components.icon_link_html(
             "icon-pencil", i18n.t(RENAME_ACTION_LABEL),
-            frame_name_page.device_route(device.id), variant="secondary")
+            frame_name_page.device_route(
+                device.id, device_scope.scoped(layout.HOME_ROUTE)), variant="secondary")
     return ui_components.title_action_html(device_display_name(device), action)

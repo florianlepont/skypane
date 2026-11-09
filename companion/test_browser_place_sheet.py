@@ -158,6 +158,14 @@ def test_on_a_phone_the_airport_offer_is_one_line_and_the_sheet_stays_compact(
         assert page.locator("#place-radius-range").is_visible()
         assert page.locator(".place-radius__scale").is_hidden()
         # The offer does not sit over the pin: it can still be grabbed and moved.
+        # Grab only once the pin has stopped moving (a pan or marker rebuild may still be
+        # settling on a loaded machine).
+        page.wait_for_function(
+            "() => { const r = document.querySelector('#place-map .place-pin')"
+            ".getBoundingClientRect(); const k = Math.round(r.left) + ':' + Math.round(r.top);"
+            " const same = window.__pinKey === k; window.__pinKey = k;"
+            " window.__pinSame = same ? (window.__pinSame || 0) + 1 : 0;"
+            " return window.__pinSame >= 8; }", polling=50, timeout=10000)
         grab = page.evaluate(
             "() => { const r = document.querySelector('#place-map .place-pin')"
             ".getBoundingClientRect(); return {x: r.left + 22, y: r.top + 32}; }")
