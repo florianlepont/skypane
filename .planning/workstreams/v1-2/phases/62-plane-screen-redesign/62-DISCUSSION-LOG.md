@@ -31,3 +31,9 @@ Margins, spacing, sizes, icon redraw, crop points per aircraft type.
 
 ## Deferred Ideas
 Real-panel validation; redrawing aircraft illustrations if enlarged ones are too soft.
+
+## Planning-time decisions (2026-11-09)
+- Default for unconfigured frames: B for everyone at deploy (rejected: keep the old render until a later decision).
+- One line in landscape and for names of 3 letters or fewer (rejected: always two lines).
+- Layout C: owner states all four layouts were mocked and validated; built as mocked.
+- Defaults assumed, to confirm at plan review: stored green themes map to grey; white / black has no band.
