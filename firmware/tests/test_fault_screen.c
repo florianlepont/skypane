@@ -84,11 +84,12 @@ static void dither_field_is_roughly_forty_percent_white_and_black_dominant(void)
     uint8_t *buf = alloc_buf();
     fp_fault_screen_render(buf, NULL);
 
-    /* Rows 100..299, all columns - well outside the mask bbox
-     * (FP_FAULT_MASK_Y is 625), so this region is pure dithered field. */
+    /* Rows 1400..1599, all columns - below the mask bbox
+     * (FP_FAULT_MASK_Y + FP_FAULT_MASK_H is 1395), so this region is pure
+     * dithered field. */
     long white = 0;
     long total = 0;
-    for (int row = 100; row < 300; row++) {
+    for (int row = FP_FAULT_MASK_Y + FP_FAULT_MASK_H + 5; row < FP_FAULT_SCREEN_HEIGHT; row++) {
         for (int col = 0; col < FP_FAULT_SCREEN_WIDTH; col++) {
             if (nibble_at(buf, row, col)) {
                 white++;
@@ -187,12 +188,11 @@ static uint64_t fnv1a64(const uint8_t *buf, size_t len)
     return h;
 }
 
-/* Recorded from fp_fault_screen_render()'s output BEFORE the dither+mask
- * routine moved out of this file into hold_screen.c. Pinning this proves
- * the refactor left the NO CONNECTION screen's bytes byte-identical - if
- * this test ever fails, the shared renderer changed the output, not just
- * where the code lives. */
-#define FP_FAULT_SCREEN_GOLDEN_DIGEST 0xaafed7ceeac86622ULL
+/* Digest of fp_fault_screen_render()'s output with the committed mask.
+ * It changes whenever fault_screen_mask.h is regenerated or the shared
+ * dither + mask renderer changes; recompute it from a run in the former
+ * case and investigate the renderer in the latter. */
+#define FP_FAULT_SCREEN_GOLDEN_DIGEST 0x507fb0b85c6e7b20ULL
 
 static void render_output_matches_golden_digest(void)
 {
