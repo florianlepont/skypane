@@ -58,6 +58,11 @@ this plan.
 fresh clone. See `server/fixtures/README.md` for exactly which fields are
 real vs. synthetic in each fixture.
 
+## Screen layouts
+
+The layouts, colour pairings, default and golden tests are described in
+[`docs/plane-screen-layouts.md`](../docs/plane-screen-layouts.md).
+
 ## Deployment
 
 This directory (plus `stub-server/`) runs on a real always-on OVH VPS-1
