@@ -1027,3 +1027,11 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   ("Ouvrir la vue personnelle", "Renommer") float on their own row. To rework.
 - W166 Home hero: the round "Rename frame" pencil next to the frame name is too
   large for the title; make it a small, quiet icon (still a >= 44px hit area).
+
+## Round 14 (production review of round 14, 2026-11-09)
+
+- W168 Rename frame: clicking "Rename" (Fleet header, and the Home pencil) takes the
+  person to the console's settings page. A normal user should stay on Home: rename
+  in place (small dialog or sheet with the field and Save), and Back must return to
+  where they came from (Home), never land in console settings. Everything else in the
+  round-14 review is ok.
