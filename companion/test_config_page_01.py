@@ -420,7 +420,7 @@ def test_aspect_card_covers_every_registered_theme_with_own_id_and_label():
     arrivals/calendar carrying exactly one leading Same-as-departures option and departures
     exactly zero; every theme's look read-back is the radio's accessible name"""
     rendered = config_page.render({
-        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "device_config": {"layout": "classic", "theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
