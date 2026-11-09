@@ -8830,11 +8830,11 @@ a.calendar-manage--primary:hover {
     transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
 
-  /* 12px sentence case, not the uppercase label voice: a destination is not
-   * a label. The French short labels are chosen so neighbours never touch at
-   * 360px. */
+  /* 11px sentence case, not the uppercase label voice: a destination is not
+   * a label. At 360px the equal cells measure about 52px, which holds the
+   * longest label ("Location") with room to spare; 12px left it no slack. */
   .tab-bar__label {
-    font-size: 12px;
+    font-size: 11px;
     font-weight: var(--weight-regular);
     line-height: 1;
     max-width: 100%;
@@ -8857,12 +8857,13 @@ a.calendar-manage--primary:hover {
    * the destinations by an accent outline on its pill and a thin divider
    * after it. It names the space it leads to, never the current one. */
   .tab-bar__link--switch {
-    flex: 0 0 69px;
+    flex: 0 0 76px;
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__link--switch .tab-bar__pill {
+    padding: 0 var(--space-xs);
     border: 1px solid var(--color-accent);
     background: transparent;
   }

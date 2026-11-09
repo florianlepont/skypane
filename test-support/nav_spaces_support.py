@@ -1,7 +1,7 @@
 """Shared browser helpers for the navigation tests: signed-in administrator and
 user pages in a chosen viewport, language and theme, and the equal-cells check
-of the phone tab bar (the leading space switch cell is a fixed width, set apart
-from the equal destination cells)."""
+of the phone tab bar (the leading space switch cell is a fixed, wider width, set
+apart from the equal destination cells, which stay within a pixel of each other)."""
 import fleet_console_support as fx
 from locations_page_support import open_locations_page
 from companion import auth
@@ -17,6 +17,9 @@ _CELLS = (
 _LABELS = (
     "() => [...document.querySelectorAll('.tab-bar__label')]"
     ".map(e => ({text: e.textContent, sw: e.scrollWidth, cw: e.clientWidth,"
+    " slack: e.closest('.tab-bar__pill').getBoundingClientRect().width"
+    " - (() => { const r = document.createRange(); r.selectNodeContents(e);"
+    " return r.getBoundingClientRect().width; })(),"
     " lines: new Set([...(() => { const r = document.createRange();"
     " r.selectNodeContents(e); return [...r.getClientRects()]; })()]"
     ".map(x => Math.round(x.top))).size}))")
@@ -69,6 +72,9 @@ def assert_bar(page, expected_cells, where):
     for label in page.evaluate(_LABELS):
         assert label["sw"] <= label["cw"], (where, label)
         assert label["lines"] <= 1, (where, label)
+        # The text keeps at least 3px on each side inside its pill, the switch cell's
+        # outline included, so no label touches an edge.
+        assert label["slack"] >= 6, (where, label)
     assert not _assert_no_page_overflow(page, where, page.viewport_size["width"])
 
 
