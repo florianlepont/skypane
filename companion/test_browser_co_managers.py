@@ -38,7 +38,14 @@ _CONTAINMENT_JS = """
     range.selectNodeContents(email);
     const text = range.getBoundingClientRect();
     const own = box(email);
-    if (text.left < own.left - 1 || text.right > own.right + 1) {
+    // A long address is cut with an ellipsis inside its span, its full value in the title.
+    const cut = email.scrollWidth > email.clientWidth + 1;
+    const style = getComputedStyle(email);
+    if (cut && !(style.textOverflow === 'ellipsis' && style.overflow === 'hidden'
+                 && email.title === email.textContent)) {
+      problems.push('address text outside its span: ' + email.textContent);
+    }
+    if (!cut && (text.left < own.left - 1 || text.right > own.right + 1)) {
       problems.push('address text outside its span: ' + email.textContent);
     }
     if (own.right > rowBox.right + 1 || own.left < rowBox.left - 1) {
@@ -163,19 +170,22 @@ def test_the_section_fits_and_meets_the_tap_targets(
         assert section.evaluate(_CONTAINMENT_JS) == []
         owner_email = section.locator(".co-manager__email", has_text=LONG_OWNER)
         if viewport["width"] == 360:
-            assert owner_email.bounding_box()["height"] > 30, "the long address wraps"
+            assert owner_email.bounding_box()["height"] < 30, "the long address is one line"
+            assert owner_email.get_attribute("title") == owner_email.inner_text() or (
+                LONG_OWNER in owner_email.get_attribute("title"))
         for selector in (
                 "li.access-add a.row__main", "a.row-action", "form.co-manager__remove button"):
             target = section.locator(selector).first
             assert target.bounding_box()["height"] >= MIN_TAP_PX - SUBPIXEL, selector
             assert target.bounding_box()["width"] >= MIN_TAP_PX - SUBPIXEL, selector
-        # The owner's row and its Reassign button never overlap: the button wraps under the
-        # address on a narrow screen and sits beside it on a wide one.
+        # The owner's row and its Reassign button never overlap: the button stays beside the
+        # address on the row's one line, on a narrow screen and on a wide one.
         owner_row = section.locator("li.access-person", has_text=LONG_OWNER).first
         main_box = owner_row.locator(".row__main").bounding_box()
         button_box = owner_row.locator("a.row-action").bounding_box()
-        assert (button_box["y"] >= main_box["y"] + main_box["height"] - SUBPIXEL
-                or button_box["x"] >= main_box["x"] + main_box["width"] - SUBPIXEL)
+        assert button_box["x"] >= main_box["x"] + main_box["width"] - SUBPIXEL
+        assert abs(button_box["y"] + button_box["height"] / 2
+                   - (main_box["y"] + main_box["height"] / 2)) <= 8
         # The picker lives in the dialog, inside the viewport and with 44px controls.
         _open_add_dialog(page, frig)
         for selector in (frig.person, frig.dialog + " " + _ADD_BUTTON):
