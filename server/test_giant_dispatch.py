@@ -67,10 +67,13 @@ def test_portrait_profile_matches_no_profile_for_a_giant_layout():
     assert _canvas(layout="b", profile=LEGACY).tobytes() == _canvas(layout="b").tobytes()
 
 
-def test_giant_layout_on_a_landscape_profile_renders_the_classic_landscape():
+def test_giant_layout_on_a_landscape_profile_renders_natively():
     classic = _canvas(profile=LANDSCAPE)
     assert classic.size == (800, 480)
-    assert _canvas(profile=LANDSCAPE, layout="b").tobytes() == classic.tobytes()
+    giant = _canvas(profile=LANDSCAPE, layout="b")
+    assert giant.size == (800, 480)
+    assert giant.tobytes() != classic.tobytes()
+    assert _canvas(profile=LANDSCAPE, layout="classic").tobytes() == classic.tobytes()
 
 
 def _field_index(canvas):
