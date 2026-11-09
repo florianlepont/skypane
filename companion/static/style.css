@@ -14337,3 +14337,19 @@ html.is-picture-transition .preview-frame__image {
   opacity: 0;
   z-index: 3;
 }
+
+/* The Layout view and the pairing picker use the look cards; only the help
+ * line above them and the rows of the pairing view need spacing. */
+.personalisation-card--list > .section-caption,
+.look-pairings > .section-caption {
+  margin: 0;
+  padding: 0 var(--space-xs);
+}
+
+.look-pairings + .look-pairings {
+  margin-top: var(--space-lg);
+}
+
+.look-pairings > .look-table__options {
+  margin-top: var(--space-md);
+}

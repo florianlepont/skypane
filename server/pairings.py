@@ -7,10 +7,9 @@ validator that accepts a theme id keeps working and stored configuration is
 never rewritten: `pairing_for_theme` is a pure read-time lookup.
 
 Assumed defaults - this module is the single place to adjust them:
-  * the green themes map to the grey pairing (no green pairing exists);
-  * "black" and "band_black" map to the grey pairing (black lettering on a
-    light grey field);
-  * "band_green_light" maps to the grey pairing for the same reason as green.
+  * every green theme maps to the grey pairing (no green pairing exists);
+  * every black theme, plain or striped, maps to the grey pairing (black
+    lettering on a light grey field).
 
 Leaf module: stdlib plus `server.themes` only.
 """
@@ -26,6 +25,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
+from server.panel_format import IDX_BLACK, IDX_BLUE, IDX_GREEN, IDX_RED, IDX_WHITE, IDX_YELLOW
 from server.themes import DEFAULT_THEME_ID, THEMES
 
 # Fraction of the way a field's ink is dithered toward white.
@@ -60,26 +60,36 @@ PAIRINGS: dict[str, Pairing] = {
     "white": Pairing("white", "white", "black", None, False, False),
 }
 
-PAIRING_FOR_THEME: dict[str, str] = {
-    "white": "white",
-    "black": "grey",
-    "grey": "grey",
-    "yellow": "yellow_light",
-    "yellow_light": "yellow_light",
-    "red": "red_light",
-    "red_light": "red_light",
-    "green": "grey",
-    "green_light": "grey",
-    "blue": "blue_light",
-    "blue_light": "blue_light",
-    "band_blue": "blue_light",
-    "band_blue_light": "blue_light",
-    "band_green_light": "grey",
-    "band_red": "red_light",
-    "band_black": "grey",
-    "band_blue_field": "blue_light",
-    "band_red_field": "red_light",
+# Pairing id by the panel palette index of a theme's main colour. Black and
+# green have no pairing of their own and both land on the grey pairing.
+_PAIRING_BY_INDEX: dict[int, str] = {
+    IDX_BLACK: "grey",
+    IDX_YELLOW: "yellow_light",
+    IDX_RED: "red_light",
+    IDX_GREEN: "grey",
+    IDX_BLUE: "blue_light",
 }
+
+
+def _pairing_id(entry: dict[str, object]) -> str:
+    """The pairing id for one registry entry, from its colours alone.
+
+    A theme on a coloured field takes the field's colour; a theme on paper
+    with a stripe takes the stripe's colour; plain paper is the white
+    pairing. Reading the entry (rather than listing ids) keeps every theme
+    the registry gains later mapped.
+    """
+    field = entry["departing_index"]
+    band = entry.get("band_index")
+    colour = band if field == IDX_WHITE and band is not None else field
+    if colour == IDX_WHITE:
+        return "white"
+    assert isinstance(colour, int)
+    return _PAIRING_BY_INDEX[colour]
+
+
+# Every registered theme id and its pairing id, read from the registry.
+PAIRING_FOR_THEME: dict[str, str] = {theme_id: _pairing_id(entry) for theme_id, entry in THEMES.items()}
 
 
 def pairing_for_theme(theme_id: str | None) -> Pairing:

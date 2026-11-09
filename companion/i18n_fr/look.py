@@ -77,4 +77,30 @@ MESSAGES = {
     "look.look": "Allure",
     "look.matching_flights_will_look_like_this":
         "Les vols concernés auront cette allure.",
+
+    # --- Layout view and pairing picker (companion/settings/layout_picker.py)
+    "look.layout": "Disposition",
+    "look.layout_group": "Disposition de l’écran",
+    "look.layout_help":
+        "Choisissez la disposition de l’image. Le cadre se redessine au prochain "
+        "vol ou à la prochaine transition, pas tout de suite.",
+    "look.layout_classic": "Classique",
+    "look.layout_a": "A : nez et queue",
+    "look.layout_b": "B : avion entier",
+    "look.layout_c": "C : lettres en haut, avion en bas",
+    "look.layout_a_diagonal": "A avec bande diagonale",
+    "look.layout_preview_alt": "Aperçu de la disposition : %s",
+    "look.pairing_group": "Couleur",
+    "look.pairing_help":
+        "Choisissez la couleur du fond. L’image se redessine au prochain vol "
+        "ou à la prochaine transition, pas tout de suite.",
+    "look.pairing_arriving_nudge":
+        "Choisissez une couleur pour les arrivées afin qu’un atterrissage se "
+        "distingue d’un décollage. Tant que ce n’est pas fait, les arrivées "
+        "utilisent la couleur des départs.",
+    "look.pairing_grey": "Gris",
+    "look.pairing_blue": "Bleu clair",
+    "look.pairing_red": "Rouge clair",
+    "look.pairing_yellow": "Jaune clair",
+    "look.pairing_white": "Blanc",
 }

@@ -8,7 +8,24 @@ from server.themes import DEFAULT_THEME_ID, THEMES
 
 def test_mapping_covers_every_theme_exactly():
     assert set(PAIRING_FOR_THEME) == set(THEMES)
-    assert len(THEMES) == 18
+    assert set(PAIRING_FOR_THEME.values()) <= set(PAIRINGS)
+
+
+def test_every_registered_theme_has_a_pairing_by_colour():
+    # Whatever the registry holds, a theme maps by its field or stripe colour.
+    for theme_id, entry in THEMES.items():
+        colour = entry["departing_index"]
+        if colour == panel_format.IDX_WHITE:
+            colour = entry.get("band_index", panel_format.IDX_WHITE)
+        expected = {
+            panel_format.IDX_WHITE: "white",
+            panel_format.IDX_BLACK: "grey",
+            panel_format.IDX_GREEN: "grey",
+            panel_format.IDX_BLUE: "blue_light",
+            panel_format.IDX_RED: "red_light",
+            panel_format.IDX_YELLOW: "yellow_light",
+        }[colour]
+        assert pairing_for_theme(theme_id).id == expected, theme_id
 
 
 def test_five_pairings_with_theme_ids():
