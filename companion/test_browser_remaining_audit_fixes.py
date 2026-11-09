@@ -112,9 +112,9 @@ _EDGES = """() => {
             height: s.height, left: s.left, right: s.right, background: s.backgroundColor}; };
   return {before: read('::before'), after: read('::after'),
           map: getComputedStyle(document.getElementById('place-map')).backgroundColor,
-          tags: [...document.querySelectorAll('meta[name=theme-color]')].map(m => m.content),
+          tags: [...document.querySelectorAll('meta[name=theme-color]')].map(m => m.content.toLowerCase()),
           colour: getComputedStyle(document.documentElement)
-                    .getPropertyValue('--color-secondary').trim()};
+                    .getPropertyValue('--color-map-ground').trim().toLowerCase()};
 }"""
 
 
@@ -130,7 +130,7 @@ def _open_map(new_context, server, viewport, scheme):
 
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_on_a_phone_in_a_browser_tab_thin_strips_of_the_map_colour_run_along_both_edges(
+def test_on_a_phone_in_a_browser_tab_strips_of_the_tile_ground_colour_run_along_both_edges(
         new_context, make_app_server, scheme):
     server = make_app_server(seed=seed, fake_providers=True)
     context, page = _open_map(new_context, server, {"width": 390, "height": 844}, scheme)
@@ -140,8 +140,8 @@ def test_on_a_phone_in_a_browser_tab_thin_strips_of_the_map_colour_run_along_bot
             strip = read[side]
             assert strip["position"] == "fixed" and strip[edge] == "0px", strip
             assert strip["left"] == "0px" and strip["right"] == "0px", strip
-            assert 3 <= float(strip["height"][:-2]) <= 8, strip
-            assert strip["background"] == read["map"], (strip, read["map"])
+            assert float(strip["height"][:-2]) == 12, strip
+            assert strip["background"] == "rgb(242, 239, 233)", strip
         # The theme-color tags (what Safari tints its top bar from) name the same colour.
         assert read["tags"] == [read["colour"], read["colour"]], read
     finally:
