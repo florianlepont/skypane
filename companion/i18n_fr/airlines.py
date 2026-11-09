@@ -29,6 +29,7 @@ MESSAGES = {
     "airlines.uses_airline_artwork": "Utilise celle de la compagnie",
     "airlines.expand_types_aria": "Types d’appareil vus pour %s",
     "airlines.row_menu_aria": "Actions pour %s",
+    "airlines.show_all_types": "Afficher les types d’appareil de toutes les compagnies",
     "airlines.reset_original_name": "Revenir au nom d’origine",
     "airlines.resolve_name_aria": "Nom de la compagnie pour le préfixe %s",
     "airlines.resolve_name_placeholder": "Nom de la compagnie",

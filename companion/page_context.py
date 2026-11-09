@@ -60,6 +60,7 @@ EAGER_FIELDS = (
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
     "sheet_key", "rule_edit", "calendar_sheet_error", "history_more", "history_query",
+    "types_open",
 )
 
 # The expensive values, resolved at most once, only if a route's own
@@ -425,6 +426,9 @@ def build_page_context(handler, device):
             # The rule the special look edit page names: only a kind and a
             # key that survive the rule normalisers, never the raw query.
             "rule_edit": _rule_edit_from(params),
+            # The airline editor's script-free "show the aircraft types" view:
+            # only compared with one fixed value.
+            "types_open": params.get(airlines_page.TYPES_QUERY_PARAM, [None])[0],
             # The Flights page's Load more count, a plain integer.
             "history_more": params.get("more", [None])[0],
             # The Flights page's search text, direction and sort, raw: the

@@ -7348,6 +7348,11 @@ button.place-result.is-active {
   border-radius: var(--radius-control);
 }
 
+/* The list the script fills (or, without one, leaves empty) draws no box. */
+.place-airports:empty {
+  display: none;
+}
+
 .place-airport + .place-airport {
   border-top: 1px solid var(--color-border);
 }
@@ -13218,6 +13223,16 @@ button.row-menu__item--destructive:hover {
       border-color: var(--glass-border);
       box-shadow: var(--shadow-glass);
     }
+  }
+}
+
+/* A phone repaints its large group surfaces while it scrolls, and their fill
+ * is already most of the glass: they keep the translucent fill, edge and
+ * shadow but drop the blur (the bars, sheets and menus keep theirs). */
+@media (max-width: 959.98px) {
+  .group {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
   }
 }
 

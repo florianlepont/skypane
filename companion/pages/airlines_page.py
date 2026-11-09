@@ -228,6 +228,7 @@ AIRLINES_ROUTE = "/airlines"
 # The administrator's editing page for the same frame (Console).
 MANAGE_ROUTE = "/airlines/manage"
 RESOLVE_QUERY_PARAM = "resolve"
+TYPES_QUERY_PARAM = airline_table.TYPES_PARAM
 # Re-exported so page_context reads one query-parameter vocabulary here.
 SHEET_QUERY_PARAM = airline_sheet.SHEET_QUERY_PARAM
 RENAME_ROUTE = airline_sheet.RENAME_ROUTE
@@ -1252,14 +1253,17 @@ def render(ctx):
     total = len(gap_shown) + len(pairs)
     lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
     filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
-    table_html = airline_table.table_html(airline_table.TableData(
+    table_data = airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
         manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
         gap_rows=gap_shown, focus_key=focus_key,
-        default_types=airline_default_types.load_default_types(state_dir)))
+        default_types=airline_default_types.load_default_types(state_dir),
+        types_open=ctx.types_open == airline_table.TYPES_ALL)
+    table_html = airline_table.table_html(table_data)
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))
         + filter_html
+        + airline_table.show_types_link_html(table_data)
         + table_html
         + overflow_html
         + lightbox_html

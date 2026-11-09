@@ -263,6 +263,10 @@ PLACE_MAP_SCRIPT_SRC = "/static/place-map.js"
 # The credits popover and details-card wiring of the same page; runs after
 # the glue and does nothing unless the map started.
 PLACE_CARD_SCRIPT_SRC = "/static/place-card.js"
+# Fills the airport list from the map's catalogue; runs before the list filter.
+PLACE_AIRPORT_LIST_SCRIPT_SRC = "/static/place-airport-list.js"
+# Opens an airline's aircraft-type rows in the airline editor.
+AIRLINE_TYPES_SCRIPT_SRC = "/static/airline-types.js"
 LEAFLET_STYLE_HREF = "/static/vendor/leaflet/leaflet.css"
 
 # The registration seam value-controls.js reads, defined here so a page

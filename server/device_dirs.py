@@ -62,11 +62,18 @@ def valid_state_path(state_path: str) -> bool:
     return is_valid_device_id(state_path[len(_DEVICE_PATH_PREFIX):])
 
 
-def resolve_state_dir(root: str, state_path: str) -> str:
+def real_devices_dir(root: str) -> str:
+    """The resolved `<root>/devices` directory; a caller resolving many
+    state paths in a row computes it once and passes it to resolve_state_dir."""
+    return os.path.realpath(os.path.join(root, DEVICES_DIRNAME))
+
+
+def resolve_state_dir(root: str, state_path: str, real_devices: str | None = None) -> str:
     """Return the directory for `state_path` under `root`.
 
     Raises ValueError for a bad shape, a symlinked device directory, or a
-    directory that would resolve outside `<root>/devices`.
+    directory that would resolve outside `<root>/devices`. `real_devices` is
+    `real_devices_dir(root)` when the caller already has it.
     """
     if not valid_state_path(state_path):
         raise ValueError(f"invalid state_path: {state_path!r}")
@@ -74,8 +81,14 @@ def resolve_state_dir(root: str, state_path: str) -> str:
         return root
     device_id = state_path[len(_DEVICE_PATH_PREFIX):]
     candidate = os.path.join(root, DEVICES_DIRNAME, device_id)
-    real_devices = os.path.realpath(os.path.join(root, DEVICES_DIRNAME))
-    real_candidate = os.path.realpath(candidate)
+    if real_devices is None:
+        real_devices = real_devices_dir(root)
+    # The id is one plain path segment (DEVICE_ID_RE), so below the resolved
+    # devices directory the candidate resolves to itself unless it is a link.
+    if os.path.islink(candidate):
+        real_candidate = os.path.realpath(candidate)
+    else:
+        real_candidate = os.path.join(real_devices, device_id)
     if real_candidate != os.path.join(real_devices, device_id):
         raise ValueError(f"state_path escapes the devices directory: {state_path!r}")
     if os.path.commonpath([real_devices, real_candidate]) != real_devices:

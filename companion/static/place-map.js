@@ -50,6 +50,8 @@
   // CLUSTER_MAX_ZOOM + 1 are drawn as one numbered bubble.
   var CLUSTER_CELL_PX = 64;
   var CLUSTER_MAX_ZOOM = 11;
+  // How far past the screen (as a share of its size) pins are kept.
+  var PIN_MARGIN = 0.5;
   var LABEL_MIN_ZOOM = 6;
   var SUGGEST_MAX = 6;
   var SUGGEST_MIN_CHARS = 2;
@@ -831,11 +833,20 @@
     var wanted = {};
     var followed = currentAirportCode();
     var cells = {};
+    // Zoomed in, only the pins near the screen are real elements; the
+    // others are added when a pan or zoom brings them close.
+    var near = map.getBounds().pad(PIN_MARGIN);
     var k;
     for (k = 0; k < airports.length; k++) {
       var airport = airports[k];
-      if (zoom > CLUSTER_MAX_ZOOM || airport.icao === followed) {
+      if (airport.icao === followed) {
         wanted["p:" + airport.icao] = { airport: airport };
+        continue;
+      }
+      if (zoom > CLUSTER_MAX_ZOOM) {
+        if (near.contains([airport.lat, airport.lon])) {
+          wanted["p:" + airport.icao] = { airport: airport };
+        }
         continue;
       }
       var at = map.project(L.latLng(airport.lat, airport.lon), zoom);

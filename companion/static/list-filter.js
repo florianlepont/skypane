@@ -20,16 +20,16 @@
   // A control marked [data-autosubmit] sends its form as soon as it
   // changes (the collection's sort and show chips, the Users role select); without a script the
   // form's own button does the same.
-  var autoControls = document.querySelectorAll("[data-autosubmit]");
+  // Heard on the document, so a control a script adds later (the airline
+  // editor opens its aircraft-type rows on demand) submits too.
   function submitOwnForm(event) {
-    var form = event.target.form;
-    if (form) {
-      form.submit();
+    var target = event.target;
+    if (target && target.hasAttribute && target.hasAttribute("data-autosubmit")
+        && target.form) {
+      target.form.submit();
     }
   }
-  for (var ai = 0; ai < autoControls.length; ai++) {
-    autoControls[ai].addEventListener("change", submitOwnForm);
-  }
+  document.addEventListener("change", submitOwnForm);
 
   var input = document.querySelector("[data-filter-input]");
   if (!input) {

@@ -151,7 +151,8 @@ def test_position_setting_without_a_location_shows_the_warning_and_the_orly_runw
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
     assert "No usable location" in _visible_text(page)
     assert "toast--docked" in page
-    assert "LFPO · ORY · Paris" in _visible_text(page)
+    # The airport list is filled by the page script from the map's catalogue.
+    assert '["LFPO","ORY","Paris-Orly Airport"' in html.unescape(page)
 
 
 def test_position_setting_with_a_location_fills_the_place_fields(rig):
