@@ -354,7 +354,7 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     people = ui_groups.group(
         access_rows_html(view, device_id, return_to, purpose=False),
         label=i18n.t(_HEADING), label_id=label_id)
-    remove_frame = _rename_link_html(device_id, frame_name)
+    remove_frame = _rename_link_html(device_id, frame_name, return_to)
     if view.can_remove_frame:
         remove_frame += _remove_frame_group_html(device_id)
     dialog = ui_modal.sections_dialog_html(
@@ -366,12 +366,14 @@ def manage_access_dialog_html(view, device_id, frame_name, return_to, open_=Fals
     return dialog
 
 
-def _rename_link_html(device_id, frame_name):
-    """The quiet link under the people group to the frame's Rename page."""
+def _rename_link_html(device_id, frame_name, return_to):
+    """The quiet link under the people group to the frame's Rename page,
+    which sends the person back to `return_to`."""
+    from companion.pages import frame_name_page
     return (
         '<p class="access-rename"><a class="access-rename__link" href="%s" '
         'aria-label="%s">%s</a></p>' % (
-            _esc(_frame_route(device_id, "/frame/name")),
+            _esc(frame_name_page.device_route(device_id, return_to)),
             _esc(i18n.t(_RENAME_ARIA) % frame_name), _t(_RENAME_LINK)))
 
 
