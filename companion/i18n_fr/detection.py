@@ -107,6 +107,9 @@ MESSAGES = {
         "Aucun lieu trouvé en France. Essayez une autre orthographe, touchez la carte ou saisissez un code d’aéroport.",
     "detection.search_failed":
         "La recherche n’est pas disponible pour le moment. Touchez la carte ou saisissez un code d’aéroport.",
+    "detection.row_searching": "Recherche en cours…",
+    "detection.row_none": "Aucun lieu trouvé",
+    "detection.row_failed": "Recherche indisponible pour le moment",
     "detection.search_short": "Tapez au moins 3 caractères pour chercher.",
     "detection.results_label": "Résultats de la recherche",
     "detection.locating": "Recherche de votre position…",

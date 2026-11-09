@@ -58,6 +58,21 @@ PAINTED_OVERLAPS = """() => {
 }"""
 
 
+def _settled_read(page):
+    """The map's labels once it has come to rest (a drag's glide starts a beat after the mouse
+    is released): three clean reads in a row, 120ms apart, or the last dirty one."""
+    clean = 0
+    read = None
+    for _ in range(40):
+        page.wait_for_function(IDLE, timeout=10000)
+        page.wait_for_timeout(120)
+        read = page.evaluate(PAINTED_OVERLAPS)
+        clean = clean + 1 if not read["bad"] else 0
+        if clean == 3:
+            return read
+    return read
+
+
 @pytest.mark.parametrize("viewport", [DESKTOP, PHONE], ids=["1280", "390"])
 def test_no_label_pokes_out_from_under_the_card_or_the_floating_controls(
         new_context, make_app_server, viewport):
@@ -75,9 +90,7 @@ def test_no_label_pokes_out_from_under_the_card_or_the_floating_controls(
         box = page.locator("#place-map").bounding_box()
         covered_seen = 0
         for step in range(6):
-            page.wait_for_function(IDLE, timeout=10000)
-            page.wait_for_timeout(150)
-            read = page.evaluate(PAINTED_OVERLAPS)
+            read = _settled_read(page)
             assert not read["bad"], (step, read)
             covered_seen += read["covered"]
             start_x = box["x"] + box["width"] * 0.7
