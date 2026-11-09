@@ -141,3 +141,67 @@ def test_rendering_all_screens_is_fast():
         for size in SIZES:
             status.build_status(kind, size, quiet_hours_until="07:00")
     assert time.monotonic() - start < 10
+
+
+# --- dispatch through layout.build_canvas ---------------------------------
+
+HOLD_STATES = ("empty", "quiet_hours", "display_off", "battery_empty")
+_KIND = {"empty": "watching"}
+
+
+def _build(state, **kwargs):
+    from server.plane.render import layout
+    return layout.build_canvas(None, state, **kwargs)
+
+
+@pytest.mark.parametrize("state", HOLD_STATES)
+def test_giant_layout_hold_states_use_the_calm_screens(state):
+    from server.plane.render import layout
+    kind = _KIND.get(state, state)
+    got = layout.build_canvas(None, state, layout="b", quiet_hours_until="07:00")
+    assert got.tobytes() == status.build_status(kind, PORTRAIT, quiet_hours_until="07:00").tobytes()
+
+
+def test_empty_with_layout_b_equals_watching():
+    assert _build("empty", layout="b").tobytes() == status.build_status("watching", PORTRAIT).tobytes()
+
+
+@pytest.mark.parametrize("state", HOLD_STATES)
+@pytest.mark.parametrize("layout_id", [None, "classic"])
+def test_classic_and_no_layout_keep_the_legacy_bytes(state, layout_id):
+    from server.plane.render import hold_screens
+    legacy = {
+        "empty": hold_screens._build_empty_canvas,
+        "quiet_hours": hold_screens._build_quiet_hours_canvas,
+        "display_off": hold_screens._build_display_off_canvas,
+        "battery_empty": hold_screens._build_battery_empty_canvas,
+    }[state]()
+    assert _build(state, layout=layout_id).tobytes() == legacy.tobytes()
+
+
+@pytest.mark.parametrize("layout_id", ["a", "b", "c", "a_diagonal"])
+def test_battery_empty_ignores_every_other_argument(layout_id):
+    plain = _build("battery_empty", layout=layout_id)
+    noisy = _build(
+        "battery_empty", layout=layout_id, theme_id="blue_light", runway_id="06-24",
+        source_fault=True, battery_low=True, quiet_hours_until="09:00", state_dir="/nonexistent",
+        route={"airline_name": "Air France"})
+    assert plain.tobytes() == noisy.tobytes()
+
+
+def test_landscape_profile_hold_states_use_the_landscape_screens():
+    import server.hardware as hardware
+    from server.plane.render import layout
+    profile = hardware.get_profile(hardware.SIM_LANDSCAPE_KEY, {hardware.SIM_ENV_VAR: "1"})
+    got = layout.build_canvas(None, "display_off", profile=profile, layout="b")
+    assert got.tobytes() == status.build_status("display_off", LANDSCAPE).tobytes()
+    classic = layout.build_canvas(None, "display_off", profile=profile)
+    assert classic.tobytes() != got.tobytes()
+
+
+def test_retired_image_is_the_calm_screen():
+    import server.hardware as hardware
+    from server import pairing_image
+    legacy = hardware.get_profile(hardware.LEGACY_KEY)
+    packed = pairing_image.render_retired_image(legacy)
+    assert packed == pairing_image._pack(status.build_status("retired", PORTRAIT))

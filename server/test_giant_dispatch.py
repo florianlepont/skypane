@@ -57,10 +57,13 @@ def test_previous_flight_does_not_change_a_giant_layout():
 
 
 @pytest.mark.parametrize("state", ["empty", "quiet_hours", "display_off", "battery_empty"])
-def test_hold_screens_ignore_the_layout(state):
-    flight = None
-    base = layout.build_canvas(flight, state, quiet_hours_until="07:00")
-    assert layout.build_canvas(flight, state, quiet_hours_until="07:00", layout="b").tobytes() == base.tobytes()
+def test_hold_screens_follow_the_layout_family(state):
+    classic = layout.build_canvas(None, state, quiet_hours_until="07:00")
+    assert layout.build_canvas(None, state, quiet_hours_until="07:00", layout="classic").tobytes() == classic.tobytes()
+    giant = layout.build_canvas(None, state, quiet_hours_until="07:00", layout="b")
+    assert giant.tobytes() != classic.tobytes()
+    for layout_id in ("a", "c", "a_diagonal"):
+        assert layout.build_canvas(None, state, quiet_hours_until="07:00", layout=layout_id).tobytes() == giant.tobytes()
 
 
 def test_portrait_profile_matches_no_profile_for_a_giant_layout():
