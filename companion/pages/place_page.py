@@ -878,7 +878,8 @@ def details_card_html(view):
 
 def _nearest_html():
     """The offer to follow a close airport instead of a position: shown by
-    the map script in My-position mode, never on a phone."""
+    the map script in My-position mode; a phone shows only its button, as
+    one line."""
     return (
         '<div id="place-nearest" class="place-nearest" hidden>'
         '<span class="place-nearest__icon">%s</span>'
