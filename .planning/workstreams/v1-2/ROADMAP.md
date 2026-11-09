@@ -600,7 +600,7 @@ Plans:
 **Open decisions** (settled in discuss-phase): the three aircraft layouts (A nose and tail, B whole aircraft, C band) and the default; the arrival colour; the status screens in landscape; the real-panel contrast; vendoring the Anton font.
 
 Plans: 13 plans in 7 waves
-- [ ] 62-01-PLAN.md - Anton vendoring, pairing registry, giant package skeleton (wave 1)
+- [x] 62-01-PLAN.md - Anton vendoring, pairing registry, giant package skeleton (wave 1)
 - [ ] 62-02-PLAN.md - layout ids and the per-frame layout device-config key (wave 1)
 - [ ] 62-03-PLAN.md - automatic destination splitter (wave 2)
 - [ ] 62-04-PLAN.md - aircraft crop points and placement (wave 2)
@@ -632,4 +632,4 @@ Plans: 13 plans in 7 waves
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
-| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 0/13 | Planned (13 plans, 7 waves); nothing merged or deployed | - |
+| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 1/13 | In Progress|  |
