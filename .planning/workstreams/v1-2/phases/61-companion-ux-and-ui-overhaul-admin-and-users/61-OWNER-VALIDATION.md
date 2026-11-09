@@ -1019,3 +1019,11 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   performance items not yet done (P07, P08, P09, P12, P13-P15, N04, N05, N07-N09).
   The splash duration stays unchanged (earlier decision). The Home greeting is
   handled in a separate session.
+
+## Round 13 (production review of the Home title, 2026-11-09)
+
+- W165 Fleet (State card, desktop dark): the state card text sits flush against
+  the card's left edge and is clipped (no inner padding); the header actions
+  ("Ouvrir la vue personnelle", "Renommer") float on their own row. To rework.
+- W166 Home hero: the round "Rename frame" pencil next to the frame name is too
+  large for the title; make it a small, quiet icon (still a >= 44px hit area).
