@@ -37,3 +37,7 @@ Real-panel validation; redrawing aircraft illustrations if enlarged ones are too
 - One line in landscape and for names of 3 letters or fewer (rejected: always two lines).
 - Layout C: owner states all four layouts were mocked and validated; built as mocked.
 - Defaults assumed, to confirm at plan review: stored green themes map to grey; white / black has no band.
+
+## Execution-time decisions (2026-11-09)
+- Marseille: the owner prefers two lines (MARS / EILLE, the automatic result) over forcing MAR / SEI / LLE; the splitter is not changed.
+- Layout A as rendered by the code did not match the validated mock-up (the cockpit was cut off by the left edge because the nose half's width followed the cut fraction); a follow-up fix keeps the visible nose half at the mock-up width whatever the cut fraction.
