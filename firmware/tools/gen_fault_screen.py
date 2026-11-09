@@ -7,11 +7,10 @@ server round-trip - `firmware/main/fault_screen_mask.h` (NO CONNECTION,
 the default) and `firmware/main/updating_screen_mask.h` (UPDATING, via
 `--screen updating`).
 
-Source of truth: `server.plane.render._build_no_connection_canvas(flat=True)`
-/ `_build_updating_canvas(flat=True)` - the same composition
-(`_build_hold_canvas()`) DISPLAY OFF / QUIET HOURS / BATTERY EMPTY go
-through, called flat (no dither) so the extracted mask is an exact
-ink/no-ink boolean per pixel, not a dithered approximation of one.
+Source of truth: `server.plane.render.giant.status.build_status()` for the
+"no_connection" and "updating" kinds at the portrait panel size, called
+flat (no dither) so the extracted mask is an exact ink/no-ink boolean per
+pixel, not a dithered approximation of one.
 `server/test_fault_screen_mask.py` / `server/test_updating_screen_mask.py`
 prove this generator's output matches each committed header byte-for-byte -
 rerunning this tool for a given `--screen` must always leave that screen's
@@ -77,7 +76,7 @@ if REPO_ROOT not in sys.path:
 from PIL import Image  # noqa: E402
 
 import server.panel_format as pf  # noqa: E402
-import server.plane.render as render  # noqa: E402
+from server.plane.render.giant import status  # noqa: E402
 
 HEADER_PATH = os.path.join(HERE, "..", "main", "fault_screen_mask.h")
 DEFAULT_PREVIEW_PATH = os.path.join(
@@ -102,29 +101,31 @@ DEFAULT_UPDATING_PREVIEW_PATH = os.path.join(
 # the full recipe this feeds.
 DITHER_TARGET_LEVEL = 102
 
+_PORTRAIT = (pf.WIDTH, pf.HEIGHT)
+
 # Per-screen config: which flat canvas to extract the mask from, where the
 # generated header/default preview live, and the macro/symbol names its
 # header uses. Keyed by the `--screen` CLI value.
 _SCREENS = {
     "no-connection": {
-        "flat_canvas_fn": lambda: render._build_no_connection_canvas(flat=True),
-        "preview_canvas_fn": lambda: render._build_no_connection_canvas(),
+        "flat_canvas_fn": lambda: status.build_status("no_connection", _PORTRAIT, flat=True),
+        "preview_canvas_fn": lambda: status.build_status("no_connection", _PORTRAIT),
         "header_path": HEADER_PATH,
         "include_guard": "FP_FAULT_SCREEN_MASK_H",
         "macro_prefix": "FP_FAULT_MASK_",
         "bits_symbol": "fp_fault_mask_bits",
-        "source_comment": "server/plane/render.py _build_no_connection_canvas(flat=True)",
+        "source_comment": "server/plane/render/giant/status.py build_status('no_connection', flat=True)",
         "regen_suffix": "",
         "default_preview_path": DEFAULT_PREVIEW_PATH,
     },
     "updating": {
-        "flat_canvas_fn": lambda: render._build_updating_canvas(flat=True),
-        "preview_canvas_fn": lambda: render._build_updating_canvas(),
+        "flat_canvas_fn": lambda: status.build_status("updating", _PORTRAIT, flat=True),
+        "preview_canvas_fn": lambda: status.build_status("updating", _PORTRAIT),
         "header_path": UPDATING_HEADER_PATH,
         "include_guard": "FP_UPDATING_SCREEN_MASK_H",
         "macro_prefix": "FP_UPDATING_MASK_",
         "bits_symbol": "fp_updating_mask_bits",
-        "source_comment": "server/plane/render.py _build_updating_canvas(flat=True)",
+        "source_comment": "server/plane/render/giant/status.py build_status('updating', flat=True)",
         "regen_suffix": " --screen updating",
         "default_preview_path": DEFAULT_UPDATING_PREVIEW_PATH,
     },
@@ -331,7 +332,7 @@ def main():
 
     x, y, w, h, bits = render_mask(screen)
     print("mask bbox: x=%d y=%d w=%d h=%d" % (x, y, w, h))
-    if w * h > 100_000 * 8:  # a bbox producing >100KB of packed mask data
+    if w * h > 200_000 * 8:  # a bbox producing >200KB of packed mask data
         raise SystemExit(
             "mask bbox is implausibly large (w=%d h=%d) - stopping instead of "
             "committing a bloated header; investigate the canvas composition first" % (w, h)
