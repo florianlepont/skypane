@@ -17,10 +17,10 @@ import pytest
 
 import fleet_console_support as fx
 from frame_menu_support import ADD, BUTTON, FRAMES
-from companion import auth
+from companion import auth, device_scope
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED
 from place_map_support import CLEAR_BOX, Hosts
-from server import fleet_db, hardware
+from server import device_config, fleet_db, hardware
 
 pytestmark = pytest.mark.browser
 
@@ -427,6 +427,9 @@ def test_u4a_change_the_quiet_hours_start(world, new_context):
 def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
     """Personalisation tab, tap a background (the colour row is greyed on plain white paper),
     tap a colour in the picker, Save."""
+    # This covers the classic look picker; the giant layouts' pairing picker has its own tests.
+    frame_dirs = {d.id: d.state_dir for d in device_scope.load_devices(world.state_dir)}
+    device_config.save_device_config(frame_dirs[world.seed.owned_id], layout="classic")
     context, page, steps = _owner(world, new_context)
     try:
         steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")

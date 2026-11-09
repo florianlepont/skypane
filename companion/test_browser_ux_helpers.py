@@ -147,7 +147,7 @@ def seed_state_dir(state_dir, base_ts=SEED_BASE_TS):
         state_dir, theme=theme_ids[0], tracked_runway=runway_ids[0],
         wake_interval_s=300, quiet_hours_enabled=True,
         quiet_hours_start="23:00", quiet_hours_end="07:00",
-        display_enabled=True,
+        display_enabled=True, layout="classic",
     )
 
     now_iso = base_ts.isoformat()

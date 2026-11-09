@@ -11,7 +11,7 @@ import companion.test_view_pages_helpers as vp
 from companion import auth
 from companion.test_browser_ux_helpers import _assert_no_page_overflow, _login, _set_ui_theme
 from provisioned_fleet import device_dir, mark_checked_in, provision_fleet
-from server import history_db
+from server import device_config, history_db
 
 pytestmark = pytest.mark.browser
 
@@ -26,7 +26,12 @@ FINITE_ANIMATIONS_DONE = (
 
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
-    return module_app_server_factory(seed=vp.seed_home_tile_variety, fake_providers=True)
+    def seed(state_dir):
+        vp.seed_home_tile_variety(state_dir)
+        # The look-seg audit needs the classic look picker, not the giant layouts' pairing picker.
+        device_config.save_device_config(state_dir, layout="classic")
+
+    return module_app_server_factory(seed=seed, fake_providers=True)
 
 
 def _open(new_context, server, path, viewport, lang, scheme):
