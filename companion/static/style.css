@@ -7083,6 +7083,12 @@ html.js-early:not(.map-ready) .place-boot .place-boot__fill {
   display: none;
 }
 
+/* Hidden but still measured, so the label returns as soon as it clears the
+ * card or control it met. */
+.place-dot__label.place-dot__label--covered {
+  visibility: hidden;
+}
+
 .place-dot--selected .place-dot__mark {
   width: 22px;
   height: 22px;

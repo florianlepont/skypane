@@ -236,6 +236,68 @@
 
   wireUnifiedSearch();
 
+  // An airport's code label that meets the details card, the sheet or a
+  // control floating over the map is hidden while it does, so a label never
+  // pokes out from under (or over) them.
+  function wireLabelClearance() {
+    var mapEl = document.getElementById("place-map");
+    var overlays = [".place-card", ".place-sheet", ".place-float", ".place-modes",
+      ".place-tools", ".place-info", ".place-pos"];
+    var queued = false;
+
+    function boxes() {
+      var found = [];
+      overlays.forEach(function (selector) {
+        var list = document.querySelectorAll(selector);
+        for (var n = 0; n < list.length; n++) {
+          var box = list[n].getBoundingClientRect();
+          if (box.width > 0 && box.height > 0) {
+            found.push(box);
+          }
+        }
+      });
+      return found;
+    }
+
+    function meets(a, b) {
+      return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    }
+
+    function sweep() {
+      queued = false;
+      var covers = boxes();
+      var frame = mapEl.getBoundingClientRect();
+      var labels = mapEl.querySelectorAll(".place-dot__label");
+      for (var n = 0; n < labels.length; n++) {
+        var label = labels[n].getBoundingClientRect();
+        var hide = label.left < frame.left || label.right > frame.right ||
+          label.top < frame.top || label.bottom > frame.bottom;
+        for (var k = 0; k < covers.length && !hide; k++) {
+          hide = meets(label, covers[k]);
+        }
+        labels[n].classList.toggle("place-dot__label--covered", hide);
+      }
+    }
+
+    function queue() {
+      if (!queued) {
+        queued = true;
+        window.requestAnimationFrame(sweep);
+      }
+    }
+
+    if (typeof window.MutationObserver === "function") {
+      new window.MutationObserver(queue).observe(mapEl, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"]
+      });
+    }
+    window.addEventListener("resize", queue);
+    document.addEventListener("transitionend", queue);
+    queue();
+  }
+
+  wireLabelClearance();
+
   var detailsSummary = document.querySelector("#details > summary");
   if (detailsSummary) {
     // With the map the details are a card shown by the #details link: its
