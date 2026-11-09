@@ -50,6 +50,7 @@ import server.plane.name_overrides as name_overrides
 import server.plane.render as render
 import server.plane.runway_config as runway_config
 import server.request_budget as request_budget
+import server.screen_layouts as screen_layouts
 import server.state_store as state_store
 import server.wake as wake
 import server.zone_fetch as zone_fetch
@@ -796,11 +797,11 @@ def run_hold_cycle(ctx):
             # consults theme_id/quiet_hours_until/source_fault/
             # battery_low for this state, so none can leak a
             # hash-changing byte into the parked image.
-            canvas = render.build_canvas(None, "battery_empty", profile=ctx.profile)
+            canvas = render.build_canvas(None, "battery_empty", profile=ctx.profile, layout=_layout_id(ctx))
         else:
             canvas = render.build_canvas(
                 None, ctx.hold_kind, theme_id=ctx.theme_id, quiet_hours_until=ctx.quiet_until,
-                source_fault=ctx.source_fault, battery_low=ctx.battery_low, profile=ctx.profile,
+                source_fault=ctx.source_fault, battery_low=ctx.battery_low, profile=ctx.profile, layout=_layout_id(ctx),
             )
         publish_canvas(ctx, canvas)
 
@@ -862,7 +863,7 @@ def run_no_location_cycle(ctx):
     canvas = render.build_canvas(
         None, "empty", theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
         source_fault=ctx.source_fault, battery_low=ctx.battery_low,
-        state_dir=ctx.state_dir, profile=ctx.profile,
+        state_dir=ctx.state_dir, profile=ctx.profile, layout=_layout_id(ctx),
     )
     publish_canvas(ctx, canvas)
     _record_history(
@@ -1146,6 +1147,12 @@ def _enrich_current_flight(ctx):
     ctx.route_source = route_source
 
 
+def _layout_id(ctx):
+    """The frame's stored screen layout id; the default layout when the
+    configuration carries none."""
+    return screen_layouts.normalise_layout_id(ctx.device_cfg.get("layout"))
+
+
 def _resolve_theme(ctx):
     """The single calendar-match site: the first point where all of
     `match_calendar_theme()`'s inputs are settled. The held/repaint
@@ -1209,7 +1216,7 @@ def _render_promoted(ctx):
         ctx.calendar_theme_id = None
         canvas = render.build_canvas(
             None, ctx.render_state, theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
-            source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
+            source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile, layout=_layout_id(ctx),
         )
     else:
         ctx.render_state = shown_state
@@ -1222,7 +1229,7 @@ def _render_promoted(ctx):
             previous_flight=ctx.previous_flight, previous_route=ctx.previous_route,
             previous_state=_previous_display_state(ctx), theme_id=ctx.effective_theme_id,
             runway_id=ctx.tracked_runway_id, source_fault=ctx.source_fault,
-            battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
+            battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile, layout=_layout_id(ctx),
         )
 
     publish_canvas(ctx, canvas)
@@ -1279,12 +1286,12 @@ def _render_held(ctx):
                 previous_flight=ctx.previous_flight, previous_route=ctx.previous_route,
                 previous_state=_previous_display_state(ctx), theme_id=ctx.effective_theme_id,
                 runway_id=ctx.tracked_runway_id, source_fault=ctx.source_fault,
-                battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
+                battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile, layout=_layout_id(ctx),
             )
         else:
             held_canvas = render.build_canvas(
                 None, "empty", theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
-                source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
+                source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile, layout=_layout_id(ctx),
             )
         publish_canvas(ctx, held_canvas)
     if ctx.queue_dirty:
@@ -1312,7 +1319,7 @@ def _render_empty(ctx):
     ctx.route_source = "n/a"
     canvas = render.build_canvas(
         None, ctx.render_state, theme_id=ctx.theme_id, runway_id=ctx.tracked_runway_id,
-        source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile,
+        source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile, layout=_layout_id(ctx),
     )
     publish_canvas(ctx, canvas)
 

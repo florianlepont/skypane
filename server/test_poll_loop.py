@@ -897,6 +897,9 @@ def test_default_config_byte_identity(tmp_path):
     # informational note - see _digest_verdict().
     digest_dir = _mkdir(tmp_path, "digest")
     try:
+        # The pinned digest is the classic picture; an unset layout renders
+        # the default (giant) layout.
+        device_config.save_device_config(digest_dir, layout="classic")
         poll_cycle.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=digest_dir, geofence=GEOFENCE_PATH)
         with open(os.path.join(digest_dir, "panel.bin"), "rb") as fh:
             data = fh.read()
