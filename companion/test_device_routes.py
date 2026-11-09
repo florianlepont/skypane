@@ -22,6 +22,7 @@ EXPECTED_DEVICE_SCOPED = {
     ("GET", "/display/special-looks/edit"),
     ("GET", "/display/calendar/connect"),
     ("GET", "/display/arrivals"),
+    ("GET", "/display/layout"),
     ("GET", "/display/calendar"),
     ("GET", "/display/screen"),
     ("GET", "/detection"),
