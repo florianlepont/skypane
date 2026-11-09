@@ -23,7 +23,7 @@ SUPERSAMPLE_PX = 600
 _UNMAPPED_CHAR = "\U0010FFFF"
 _MEASURE_PX = 64
 
-_font_cache = {}
+_font_cache: dict = {}
 
 
 def anton(px):

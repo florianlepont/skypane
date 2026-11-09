@@ -73,9 +73,22 @@ def test_cut_avoids_a_wide_wing_in_synthetic_art():
 FRAME_SIZES = [(1200, 1600), (800, 480)]
 
 
-def _halves(name, canvas_size, width_frac=aircraft.NOSE_PLANE_WIDTH_FRAC):
-    plane = aircraft.load_content(_illustration_path(name), round(width_frac * canvas_size[0]))
-    return aircraft.split_halves(plane, aircraft.cut_fraction(plane))
+def _nose(name, canvas_size):
+    path = _illustration_path(name)
+    cut = aircraft.cut_fraction_for_path(path)
+    plane = aircraft.load_content(path, aircraft.nose_plane_width(canvas_size[0], cut))
+    return aircraft.split_halves(plane, cut)[0]
+
+
+def _rear(name, canvas_size):
+    path = _illustration_path(name)
+    cut = aircraft.cut_fraction_for_path(path)
+    plane = aircraft.load_content(path, aircraft.rear_plane_width(canvas_size[0], cut))
+    return aircraft.split_halves(plane, cut)[1]
+
+
+def _halves(name, canvas_size):
+    return _nose(name, canvas_size), _rear(name, canvas_size)
 
 
 def _palette_canvas(size):
@@ -100,8 +113,7 @@ def test_cut_columns_lie_outside_the_canvas(size):
 
 def test_rear_half_sits_below_the_nose_half_in_portrait():
     size = (1200, 1600)
-    nose, _ = _halves("generic-a320.png", size)
-    _, rear = _halves("generic-a320.png", size, aircraft.REAR_PLANE_WIDTH_FRAC)
+    nose, rear = _halves("generic-a320.png", size)
     assert aircraft.rear_half(size, rear.size)[1] > aircraft.nose_half(size, nose.size)[3]
 
 
@@ -151,3 +163,27 @@ def test_whole_aircraft_paints_clean_palette():
     canvas = _palette_canvas(size)
     aircraft.paint_aircraft(canvas, plane.resize(fitted, Image.LANCZOS), rect[0], rect[1], aircraft.halo_radius(size))
     assert {i for _, i in canvas.getcolors()} <= set(range(6))
+
+
+PORTRAIT = (1200, 1600)
+
+
+@pytest.mark.parametrize("name", ILLUSTRATIONS)
+def test_halves_have_the_validated_extent_for_every_illustration(name):
+    width = PORTRAIT[0]
+    nose, rear = _halves(name, PORTRAIT)
+    n_left, _, n_right, _ = aircraft.nose_half(PORTRAIT, nose.size)
+    r_left, _, r_right, _ = aircraft.rear_half(PORTRAIT, rear.size)
+    # Cockpit tip near 130 px; the nose half bleeds off the right edge.
+    assert 100 <= n_left <= 200
+    assert n_right > width
+    # The rear half bleeds off the left edge and ends near 600-650 px.
+    assert r_left < 0
+    assert 570 <= r_right <= 700
+    # Nothing is placed outside the intended bleed.
+    assert n_right - width <= 2 * aircraft.overshoot_px(PORTRAIT)
+    assert -r_left <= 2 * aircraft.overshoot_px(PORTRAIT)
+    # The halves do not overlap horizontally on the rows they share.
+    n_top, n_bottom = aircraft.nose_half(PORTRAIT, nose.size)[1::2]
+    r_top, r_bottom = aircraft.rear_half(PORTRAIT, rear.size)[1::2]
+    assert r_top >= n_bottom or r_bottom <= n_top or r_right <= n_left

@@ -36,11 +36,13 @@ _SMOOTH_HALF_WIDTH_FRAC = 0.01
 # width.
 OVERSHOOT_FRAC = 0.025
 
-# Defaults for the halved placement, as fractions of the canvas: opaque width
-# of the whole aircraft the nose half is cut from, the same for the rear half,
-# the vertical centre of the nose half and the bottom edge of the rear half.
-NOSE_PLANE_WIDTH_FRAC = 2200 / 1200
-REAR_PLANE_WIDTH_FRAC = 1250 / 1200
+# Defaults for the halved placement (portrait), as fractions of the canvas
+# width: the painted width of the nose half and of the rear half. Each whole
+# aircraft is sized so its half has that width whatever the cut fraction.
+# Then the vertical centre of the nose half and the bottom edge of the rear
+# half, as fractions of the canvas height.
+NOSE_HALF_WIDTH_FRAC = 1100 / 1200
+REAR_HALF_WIDTH_FRAC = 625 / 1200
 NOSE_CENTER_Y_FRAC = 470 / 1600
 REAR_BOTTOM_Y_FRAC = 1275 / 1600
 
@@ -50,7 +52,7 @@ HALO_RADIUS_FRAC = 0.00625
 # Width the illustration is loaded at when only its shape is being measured.
 _MEASURE_WIDTH_PX = 800
 
-_cut_cache = {}
+_cut_cache: dict = {}
 _CUT_CACHE_MAX_ENTRIES = 256
 
 
@@ -66,7 +68,7 @@ def column_heights(rgba):
     alpha = layout._threshold_alpha(rgba)
     width, height = alpha.size
     groups = max(1, width // _COLUMN_GROUP_PX)
-    means = alpha.resize((groups, 1), Image.BOX).tobytes()
+    means = alpha.resize((groups, 1), Image.Resampling.BOX).tobytes()
     return [value * height / 255 for value in means]
 
 
@@ -139,6 +141,18 @@ def split_halves(rgba, fraction):
         opaque_content(content.crop((0, 0, cut, height))),
         opaque_content(content.crop((cut, 0, width, height))),
     )
+
+
+def nose_plane_width(canvas_width, cut, half_frac=NOSE_HALF_WIDTH_FRAC):
+    """Painted width of the whole aircraft whose nose half, cut at `cut`, is
+    `half_frac` of the canvas width wide."""
+    return max(1, round(canvas_width * half_frac / max(cut, 0.01)))
+
+
+def rear_plane_width(canvas_width, cut, half_frac=REAR_HALF_WIDTH_FRAC):
+    """Painted width of the whole aircraft whose rear half, cut at `cut`, is
+    `half_frac` of the canvas width wide."""
+    return max(1, round(canvas_width * half_frac / max(1 - cut, 0.01)))
 
 
 def overshoot_px(canvas_size):
