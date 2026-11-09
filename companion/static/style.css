@@ -5238,7 +5238,7 @@ a.airline-card {
   /* The attention banner above the hero starts clear of the frame
    * button, never touching it. */
   .site-header:has(.frame-menu) ~ .dashboard-main .home-facts {
-    margin-top: var(--space-xl);
+    margin-top: calc(var(--space-2xl) + var(--space-sm));
   }
 
   .dashboard-main {
@@ -13620,6 +13620,11 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
 
 .title-action__action {
   flex: none;
+}
+
+/* The action is a circle: the 44px icon button rounded to its own half. */
+.title-action__action .btn.btn--icon {
+  border-radius: 50%;
 }
 
 @media (min-width: 700px) {

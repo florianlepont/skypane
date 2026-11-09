@@ -27,5 +27,5 @@ def title_html(device):
     if device_scope.viewer_may_rename_current():
         action = ui_components.icon_link_html(
             "icon-pencil", i18n.t(RENAME_ACTION_LABEL),
-            frame_name_page.device_route(device.id))
+            frame_name_page.device_route(device.id), variant="secondary")
     return ui_components.title_action_html(device_display_name(device), action)
