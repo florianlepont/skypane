@@ -5,6 +5,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from companion import airline_collection as collection
+from companion import airline_display
 from server import history_db
 from server.plane import illustrations
 
@@ -109,7 +110,8 @@ def test_curated_order_is_kept_and_unseen_airlines_are_listed(conn, seed):
     entries, _summary = _collect(conn)
     curated = [entry for entry in entries if entry.curated]
     expected = [
-        collection.render_text.display_airline_name(name) for name in CURATED]
+        airline_display.shown_name(collection.render_text.display_airline_name(name))
+        for name in CURATED]
     assert [entry.name for entry in curated] == expected
     unseen = [entry for entry in curated if not entry.seen]
     assert len(unseen) == len(CURATED) - 3

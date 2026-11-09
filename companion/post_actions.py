@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from PIL import Image
 
-from companion import airline_actions, device_scope, flash, layout
+from companion import airline_actions, airline_display, device_scope, flash, layout
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -440,7 +440,7 @@ class SettingsActionsMixin:
         sheet_key = illustrations.normalise_airline_key(sheet["name"])
         raw_name = form.get("airline_name")
         name, rejection = manual_resolutions.check_name(raw_name)
-        if rejection is None and name == built_in:
+        if rejection is None and airline_display.builtin_name(name) == built_in:
             return self._reset_airline_name(state_dir, prefixes, sheet_key)
         result = name_overrides.set_names(
             state_dir, prefixes, raw_name, own_builtin_name=built_in) if rejection is None else rejection

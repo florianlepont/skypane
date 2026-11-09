@@ -14,6 +14,7 @@ new name's artwork. A rename therefore copies the current artwork to the
 new key when that key has none (`companion/post_actions.py`), and the row
 shows and edits the artwork of the name flights now carry.
 """
+from companion import airline_display
 from server.plane import enrich, illustrations, name_overrides
 
 RENAME_ROUTE = "/airlines/rename"
@@ -94,7 +95,7 @@ def attr_values(sheet, sheet_key, types_value=""):
     if sheet is None:
         return EMPTY_ATTR_VALUES[:-1] + (types_value,)
     return (
-        sheet["builtin"], sheet["name"], " ".join(sheet["prefixes"]),
+        sheet["builtin"], airline_display.shown_name(sheet["name"]), " ".join(sheet["prefixes"]),
         RENAMED_ACTIVE if sheet["renamed"] else "", sheet_key, types_value,
     )
 

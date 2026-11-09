@@ -4,13 +4,36 @@ card, the sheet or a control floating on the Location map, on a wide screen and 
 a label returns once it clears them."""
 import pytest
 
-from companion.test_browser_place_pins import IDLE, READY, TILES, _open
-from place_map_support import seed as _seed
+from companion import auth
+from companion.test_browser_ux_helpers import _login
+from place_map_support import SETTLED, Hosts, seed as _seed
 
 pytestmark = pytest.mark.browser
 
+READY = "() => document.documentElement.classList.contains('map-ready')"
+TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 1"
+IDLE = (
+    "() => document.getAnimations().every((a) => a.playState !== 'running'"
+    " || a.effect.getComputedTiming().iterations === Infinity)")
 PHONE = {"width": 390, "height": 844}
 DESKTOP = {"width": 1280, "height": 800}
+
+
+
+def _open(new_context, server, viewport, route):
+    context = new_context(viewport=viewport)
+    hosts = Hosts(context)
+    context.add_cookies([
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
+    page = context.new_page()
+    _login(page, server.base_url())
+    page.goto(server.base_url() + route)
+    page.wait_for_function(READY, timeout=15000)
+    page.wait_for_function(TILES, timeout=15000)
+    page.wait_for_function(IDLE, timeout=10000)
+    page.wait_for_function(SETTLED, timeout=10000)
+    return context, page, hosts
+
 
 # Every label that paints (not hidden) against the boxes floating over the map and the map's edge.
 PAINTED_OVERLAPS = """() => {
@@ -39,7 +62,7 @@ PAINTED_OVERLAPS = """() => {
 def test_no_label_pokes_out_from_under_the_card_or_the_floating_controls(
         new_context, make_app_server, viewport):
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page, _hosts = _open(new_context, server, viewport=viewport, route="/detection?mode=runway")
+    context, page, _hosts = _open(new_context, server, viewport, route="/detection?mode=runway")
     try:
         page.wait_for_function(
             "() => document.querySelectorAll('#place-map .place-dot').length >= 100", timeout=10000)
