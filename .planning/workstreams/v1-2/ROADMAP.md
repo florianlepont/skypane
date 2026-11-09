@@ -44,7 +44,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
 - [ ] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
-- [ ] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last)
+- [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last) (completed 2026-11-09)
 
 ## Phase Details
 
@@ -610,7 +610,7 @@ Plans: 13 plans in 7 waves
 - [x] 62-08-PLAN.md - seven calm status screens, portrait and landscape (wave 5)
 - [x] 62-10-PLAN.md - layout-aware previews and render CLI option (wave 5)
 - [x] 62-09-PLAN.md - regenerated firmware masks, host tests (wave 6)
-- [ ] 62-11-PLAN.md - companion Layout view, pairing picker, EN/FR (wave 6)
+- [x] 62-11-PLAN.md - companion Layout view, pairing picker, EN/FR (wave 6)
 - [ ] 62-12-PLAN.md - giant golden manifest and docs (wave 6)
 - [ ] 62-13-PLAN.md - owner real-panel check and handoff (wave 7, checkpoint)
 
@@ -632,4 +632,4 @@ Plans: 13 plans in 7 waves
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
-| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 12/13 | In Progress|  |
+| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 13/13 | Complete   | 2026-11-09 |
