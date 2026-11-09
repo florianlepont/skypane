@@ -146,9 +146,9 @@ def test_the_title_the_nav_and_each_view_come_in_order(rig, who):
     expected_links = [rig.scope() + VIEW_PATHS[v] for v in VIEW_PATHS]
     for position, view in enumerate(VIEW_PATHS):
         root = parse_html(_display(rig, who, view=view))
-        assert root.select_one("h1.page-title").text() == "Personalisation"
+        assert root.select_one("h1.page-title").text() == "Style"
         nav = root.select_one("nav.personalisation-nav")
-        assert nav.attrs["aria-label"] == "Personalisation sections"
+        assert nav.attrs["aria-label"] == "Style sections"
         links = nav.select("a")
         assert [a.attrs["href"] for a in links] == expected_links
         assert [a.text() for a in links] == list(SECTIONS)
@@ -183,9 +183,9 @@ def test_the_page_speaks_french(rig):
     for view, title in expected.items():
         page = _display(rig, lang="fr", view=view)
         root = parse_html(page)
-        assert root.select_one("h1.page-title").text() == "Personnalisation"
+        assert root.select_one("h1.page-title").text() == "Style"
         nav = root.select_one("nav.personalisation-nav")
-        assert nav.attrs["aria-label"] == "Sections de personnalisation"
+        assert nav.attrs["aria-label"] == "Sections de style"
         assert [a.text() for a in nav.select("a")] == list(FR_TITLES)
         assert root.select_one("div.personalisation__view h2").text() == title
 

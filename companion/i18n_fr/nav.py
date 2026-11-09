@@ -2,7 +2,7 @@
 """French strings for the nav labels and the nav-footer switches.
 
 The nav labels are fixed: Accueil, Historique des vols, Lieu et détection,
-Personnalisation, Collection de compagnies, État, Appareil, Versions. "FR"/"EN" are identifiers, not
+Style, Compagnies, État, Appareil, Versions. "FR"/"EN" are identifiers, not
 translated, and therefore have no entry here.
 
 Copy follows sentence case, the typographic apostrophe (U+2019,
@@ -26,8 +26,7 @@ MESSAGES = {
     "nav.flights_short": "Vols",
     "nav.detection": "Lieu et détection",
     "nav.detection_short": "Lieu",
-    "nav.personalisation": "Personnalisation",
-    "nav.display_short": "Style",
+    "nav.personalisation": "Style",
     "nav.airline_collection": "Compagnies",
     "nav.airline_editor": "Éditeur de compagnies",
     "nav.frame_tools": "Outils du cadre",

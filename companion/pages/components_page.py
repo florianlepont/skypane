@@ -16,6 +16,7 @@ import companion.layout  # noqa: F401  (loads the navigation before the componen
 from companion import (
     i18n, ui_components, ui_entity_list, ui_filter, ui_groups, ui_modal, ui_save_bar,
     ui_segmented)
+from companion import ui_base
 from companion.ui_base import escape_html
 
 COMPONENTS_ROUTE = "/components"
@@ -191,6 +192,19 @@ _M_FAMILY_EMPTY = i18n.msg("components.family_empty", "Empty states")
 _M_FAMILY_EMPTY_DESC = i18n.msg("components.family_empty_desc", "What a list shows when there is nothing to list.")
 _M_FAMILY_DIALOGS = i18n.msg("components.family_dialogs", "Dialogs and the save bar")
 _M_FAMILY_DIALOGS_DESC = i18n.msg("components.family_dialogs_desc", "Open a dialog to see it; the save bar is shown in flow.")
+_M_FAMILY_NAMES = i18n.msg("components.family_names", "Page names")
+_M_FAMILY_NAMES_DESC = i18n.msg(
+    "components.family_names_desc",
+    "One name per page. The title, the document title, the sidebar and the headings use "
+    "the full name; the phone tab bar shows a word of that name, never another word.")
+_M_STATE_NAMES = i18n.msg("components.state_names", "Tab bar label and page name")
+_M_STATE_SEARCH_STATUS = i18n.msg(
+    "components.state_search_status", "Place search: pending, nothing found, failed")
+_COL_TAB = i18n.msg("components.sample_col_tab", "Tab bar")
+_COL_PAGE = i18n.msg("components.sample_col_page", "Page name")
+_SEARCHING = i18n.msg("components.sample_searching", "Searching\u2026")
+_NO_PLACE = i18n.msg("components.sample_no_place", "No place found")
+_SEARCH_UNAVAILABLE = i18n.msg("components.sample_search_unavailable", "Search unavailable right now")
 _VARIANT_LABELS = {
     "primary": i18n.msg("components.variant_primary", "Primary"),
     "secondary": i18n.msg("components.variant_secondary", "Secondary"),
@@ -440,7 +454,34 @@ def _lists():
         State(_M_STATE_TABLE_LONG, long_table),
         State(_M_STATE_TABLE_EMPTY,
               ui_components.data_table([_t(_COL_AIRLINE)], [])),
+        State(_M_STATE_SEARCH_STATUS, _search_status_html()),
     ]
+
+
+def _search_status_html():
+    """The last row of the Location search's suggestion list, in its three
+    states, in the markup the page script builds."""
+    def row(kind, spinner, message):
+        return (
+            '<li class="place-results__status text-label" role="presentation" data-status="%s">'
+            '%s%s</li>') % (
+                kind, '<span class="place-loading__spinner" aria-hidden="true"></span>'
+                if spinner else "", _esc(_t(message)))
+    return '<ul class="place-results__list">%s%s%s</ul>' % (
+        row("searching", True, _SEARCHING), row("none", False, _NO_PLACE),
+        row("failed", False, _SEARCH_UNAVAILABLE))
+
+
+def _names():
+    """Every personal and frame-tool page with the label its phone tab shows
+    (the full name when it fits) beside its page name, in the current language."""
+    rows = []
+    for _group, entries in ui_base.NAV_GROUPS:
+        for route, label in entries:
+            short = ui_base.NAV_SHORT_LABELS.get(ui_base.nav_slug(route), label)
+            rows.append([_t(short), _t(label)])
+    return [State(_M_STATE_NAMES, ui_components.data_table(
+        [_t(_COL_TAB), _t(_COL_PAGE)], rows))]
 
 
 # --- Badges and pills --------------------------------------------------------------
@@ -594,6 +635,7 @@ CATALOGUE = (
            _M_FAMILY_DIALOGS_DESC,
            ("ui_modal.dialog_html", "ui_modal.sections_dialog_html", "ui_modal.trigger_html",
             "ui_save_bar.save_bar_html"), _dialogs),
+    Family("names", _M_FAMILY_NAMES, _M_FAMILY_NAMES_DESC, (), _names),
 )
 
 # Public helpers of the component modules that are not standalone components,

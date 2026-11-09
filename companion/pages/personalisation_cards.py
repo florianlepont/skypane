@@ -29,7 +29,7 @@ from companion.settings.theme import (
     look_sheet_html)
 
 PAGE_ID = "personalisation"
-NAV_LABEL = i18n.msg("display.personalisation_sections", "Personalisation sections")
+NAV_LABEL = i18n.msg("display.personalisation_sections", "Style sections")
 
 LOOK_TITLE = i18n.msg("look.look", "Look")
 CALENDAR_TITLE = i18n.msg("look.calendar", "Calendar")

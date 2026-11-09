@@ -429,7 +429,7 @@ def test_u4b_changing_the_look_is_one_tap_on_a_look_card(world, new_context):
     tap a colour in the picker, Save."""
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Personalisation tab")
+        steps.tap(page.locator(".tab-bar a[href$='/display']"), "Style tab")
         page.wait_for_url("**/display")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         page.locator("[data-look-sheet][data-look-inline]").wait_for(state="visible")

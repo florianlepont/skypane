@@ -47,3 +47,36 @@ the helper, add a state or family to `CATALOGUE` with its French strings in
 - A list row of one line centres its status dot on the title; a row with a second line keeps the dot on the title's line.
 - Component colours come from tokens; the `--seg-*` tokens are the only place
   the segmented look changes.
+
+- The Location search's suggestion list ends in one status row
+  (`.place-results__status`): a spinner and "Searching…" while the geocoder has
+  not answered, then "No place found" or a short failure line; the answer
+  replaces it. The spinner is the finite `.place-loading__spinner`.
+- On a phone the Location page's nearest-airport offer is a single 44px button
+  over the map above the bottom buttons, never a card in the sheet (a card
+  lifted the sheet over the pin just dropped).
+
+## Page names (glossary)
+
+One name per page. The page title, the document title, the sidebar entry, the
+headings and the Components page use the **full name**. The phone tab bar
+(space-limited) shows a **word of that name** (the short form), never a
+different word. A phone tab label must fit its cell at 360px (about 52px wide
+at 11px: "Location" is the longest). The Components page lists the live table
+(family "Page names").
+
+| Page | Full name (EN / FR) | Tab bar (EN / FR) |
+|------|---------------------|-------------------|
+| Home | Home / Accueil | Home / Accueil |
+| Flights | Flight history / Historique des vols | History / Vols |
+| Location | Location and detection / Lieu et détection | Location / Lieu |
+| Style | Style / Style | Style / Style |
+| Airlines | Airlines / Compagnies | (More sheet) |
+| Airline editor (Console) | Airline editor / Éditeur de compagnies | Editor / Éditeur |
+| Users (Console) | Users / Utilisateurs | Users / Équipe (no shorter form of "Utilisateurs" fits) |
+
+Concept words, EN / FR: frame / cadre (the screen), look / allure (never
+"look" in French; "special look" is "allure spéciale"), airline / compagnie,
+Style (the page holding the looks and the calendar) is never called
+"Personalisation" any more. A new page picks its full name and, only if it must
+fit the tab bar, a word of it.

@@ -109,7 +109,7 @@ DETECTION_ROUTE = "/detection"
 # reword of the English below; declared once here since NAV_GROUPS/
 # NAV_TABS are the one source of these labels for every renderer.
 _NAV_LABEL_HOME = i18n.msg("nav.home", "Home")
-_NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Personalisation")
+_NAV_LABEL_DISPLAY = i18n.msg("nav.personalisation", "Style")
 _NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
 _NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
@@ -118,7 +118,6 @@ _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
 NAV_SHORT_LABELS = {
     "flights": i18n.msg("nav.flights_short", "History"),
     "detection": i18n.msg("nav.detection_short", "Location"),
-    "display": i18n.msg("nav.display_short", "Style"),
 }
 # The Console-only destination for editing airlines.
 AIRLINE_EDITOR_ROUTE = "/airlines/manage"

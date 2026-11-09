@@ -258,7 +258,7 @@ RETURN_TO_FIELD_NAME = "return_to"
 # msg() is idempotent on a repeat (id, English) pair, and a settings
 # page module may not import a page-independent shell module's private
 # constants, so the id is redeclared here rather than imported.
-DISPLAY_PAGE_TITLE = i18n.msg("nav.personalisation", "Personalisation")
+DISPLAY_PAGE_TITLE = i18n.msg("nav.personalisation", "Style")
 DEVICE_PAGE_TITLE = i18n.msg("nav.device", "Device")
 
 # Display has one appearance flow. The base sources come first; flight

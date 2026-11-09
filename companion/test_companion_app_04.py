@@ -371,7 +371,7 @@ def test_both_shells_agree_on_document_language():
 
 @pytest.mark.parametrize(
     "tab_path,heading",
-    [("/", "Home"), ("/display", "Personalisation"), ("/flights", "Flight history"),
+    [("/", "Home"), ("/display", "Style"), ("/flights", "Flight history"),
      ("/airlines", "Airlines"), ("/fleet", "Fleet")])
 def test_authenticated_tab_returns_200_with_its_own_heading(app04_server, session_cookie, tab_path, heading):
     """authenticated GET %s returns 200 and contains its own %r heading"""

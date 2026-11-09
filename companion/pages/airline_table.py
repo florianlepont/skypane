@@ -429,7 +429,9 @@ def _row_facts(page, data, index, builtin_name, shapes):
 
 
 def _filter_text(row):
-    parts = [row["name"].lower(), row["builtin"].lower()]
+    parts = [row["builtin"].lower()]
+    if row["name"].lower() != parts[0]:
+        parts.append(row["name"].lower())
     parts.extend(sub["code"].lower() + " " + sub["model"].lower() for sub in row["sub_rows"])
     sheet = row["sheet"]
     if sheet is not None:
