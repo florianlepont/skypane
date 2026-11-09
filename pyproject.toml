@@ -134,6 +134,7 @@ files = [
     "server/device_policy.py",
     "server/state_store.py",
     "server/themes.py",
+    "server/pairings.py",
     "server/net/safe_fetch.py",
     "server/plane/calendar_rules/ics.py",
     "server/plane/calendar_rules/match.py",
