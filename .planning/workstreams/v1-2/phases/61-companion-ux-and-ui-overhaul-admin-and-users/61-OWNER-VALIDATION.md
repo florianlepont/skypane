@@ -1008,3 +1008,14 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   selects, segmented controls, chips, buttons, cards, tables, dialogs) by one
   component each, fixing the audit-3 visual findings that come from
   inconsistent components (V03, V04, V06, V07, V26, V29 and related).
+
+## Round 12 validation and remaining audit points (D52)
+
+- Owner validated the production build of PRs #310, #312, #313 ("tout est ok").
+- D52 (owner, "Traite tous les points restants"): treat every audit point left
+  open, including those previously set aside as by design: V15, V19, V22, V27,
+  V28 wording, offer of the nearest airport on phones, /ui-theme and /ui-lang CSRF,
+  the naming glossary, tinting the Safari bands around the Location map, and all
+  performance items not yet done (P07, P08, P09, P12, P13-P15, N04, N05, N07-N09).
+  The splash duration stays unchanged (earlier decision). The Home greeting is
+  handled in a separate session.
