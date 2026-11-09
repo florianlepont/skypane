@@ -290,7 +290,7 @@ def test_the_picture_dialog_dims_the_whole_viewport_with_no_blurred_band(
             arg=dialog, timeout=10000)
         surface = page.evaluate(_DIALOG_SURFACE, dialog)
         assert surface["filter"] == "none", surface
-        assert surface["alpha"] == 0, surface
+        assert surface["alpha"] == 1, surface
         assert surface["backdrop"] != "rgba(0, 0, 0, 0)", surface
         # Every pixel row of the viewport, tab bar and caption area included, is dimmed alike:
         # the page behind is light, so a dimmed pixel is clearly darker than the page canvas.

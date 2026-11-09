@@ -190,14 +190,15 @@ def _return_field(return_to):
 
 
 def _pill(message):
-    return '<span class="banner__pill">%s</span>' % _t(message)
+    from companion import ui_components
+    return ui_components.pill_html(i18n.t(message))
 
 
 def _remove_form_html(device_id, user_id, email, return_to):
     return (
         '<form method="post" action="%s" class="co-manager__remove">%s%s'
         '<input type="hidden" name="%s" value="%d">'
-        '<button type="submit" class="co-manager__remove-btn" aria-label="%s">%s</button>'
+        '<button type="submit" class="btn btn--ghost co-manager__remove-btn" aria-label="%s">%s</button>'
         "</form>" % (
             _esc(_frame_route(device_id, REMOVE_ROUTE)), _csrf_field(),
             _return_field(return_to), FIELD_USER_ID, int(user_id),

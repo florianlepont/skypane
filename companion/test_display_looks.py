@@ -17,7 +17,7 @@ from PIL import Image
 from companion import i18n, prefs, theme_preview
 from companion.pages import config_page
 from companion.settings import look
-from companion_app_server import get, http_request, login
+from companion_app_server import get, http_request, login, with_csrf
 from companion_markup import parse_html
 from server import device_config, themes
 from server.plane import colour_rules
@@ -263,7 +263,7 @@ def test_the_look_view_carries_the_picker_in_the_page_with_no_buttons_of_its_own
     ("en", ("Look", "Special looks", "Plain paper", "Stripe on soft",
             "New special look", "Change", "Calendar", "Departures",
             "Arrivals")),
-    ("fr", ("Allure", "Looks spéciaux", "Papier uni",
+    ("fr", ("Allure", "Allures spéciales", "Papier uni",
             "Bande sur fond clair", "Nouvelle allure spéciale", "Modifier",
             "Calendrier", "Départs", "Arrivées")),
 ])
@@ -314,7 +314,7 @@ def test_each_theme_saves_through_the_existing_form_post(make_app_server, theme_
     }
     status, headers, _ = http_request(
         server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session,
-        data=urllib.parse.urlencode(form).encode())
+        data=with_csrf(session, form))
     assert status == 303 and "flash=saved" in headers.get("Location", ""), headers
     saved = device_config.load_device_config(server.state_dir)
     assert (saved["theme"], saved["theme_arriving"], saved["calendar_theme_id"]) == (
@@ -339,7 +339,7 @@ def test_same_as_departures_and_an_unknown_id_keep_their_existing_meaning(make_a
             "tracked_runway": "3", "quiet_hours_start": "23:00", "quiet_hours_end": "07:00"}
 
     def post(extra):
-        data = urllib.parse.urlencode(dict(base, **extra)).encode()
+        data = with_csrf(session, dict(base, **extra))
         return http_request(
             server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session, data=data)
 

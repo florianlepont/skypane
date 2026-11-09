@@ -726,20 +726,16 @@ def test_check_b_the_hide_path_is_gated_on_one_strict_condition(value_controls_j
     raw = value_controls_js
     stripped = re.sub(r"/\*.*?\*/|//[^\n]*", "", raw, flags=re.DOTALL)
 
-    # VACUITY FLOOR. A mangled strip must not let this check pass over
-    # nothing — bounded on BOTH sides, not just a lower floor, since this
-    # specific file is genuinely comment-dense (measured: ~32% code
-    # remains after stripping, because its header alone runs to over a
-    # hundred lines of prose). A ratio near 0% means the strip ate real
-    # code; a ratio near 100% means the strip did nothing at all (this
-    # file's comments quote the very tokens this scan counts, so an
-    # unstripped source could pass by matching its OWN prose rather than
-    # real code).
+    # VACUITY FLOOR. The served script already has its comments removed
+    # (companion/js_minify.py), so this strip leaves it as it is: the ratio
+    # must be near 100%, and a low one means the served script lost real
+    # code. The scan therefore runs over code only, never over prose that
+    # quotes the very tokens it counts.
     ratio = float(len(stripped)) / float(len(raw)) if raw else 0.0
-    assert 0.05 < ratio < 0.95, (
-        "comment-stripped source is %d chars of %d raw (%.0f%%) — outside the "
-        "[5%%, 95%%] band this file's own real comment density should land in; the "
-        "strip looks broken" % (len(stripped), len(raw), ratio * 100.0))
+    assert 0.9 < ratio <= 1.0, (
+        "comment-stripped source is %d chars of %d raw (%.0f%%) — the served script "
+        "should carry no comments and keep all its code"
+        % (len(stripped), len(raw), ratio * 100.0))
     # This file's own convention (WRAPPER_ATTR, FIELD_ATTR, ...) is the
     # raw string literal ONCE, in a `var NAME = "literal";` declaration,
     # then every other reference by the CONSTANT NAME — so the "hook

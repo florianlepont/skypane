@@ -14,14 +14,13 @@ Save bar: a new special look, an edited special look, the calendar connection
 right) and the calendar's look (the settings route, the look picker). Each belongs to the Special looks or Calendar view
 (`PARENT_VIEWS`), which the navigation marks as current.
 """
-from companion import i18n, theme_preview, ui_save_bar
+from companion import i18n, theme_preview, ui_save_bar, ui_segmented
 from companion import device_scope
 import companion.layout as layout
 from companion.layout import escape_html
 
 from companion.settings import calendar as calendar_settings
 from companion.settings import layout_picker
-from companion.settings import look
 from companion.settings import rules
 from companion.settings.form import DIRTY_SECTION_ATTR
 from companion.settings.rules import SPECIAL_LOOKS_HEADING, special_looks_html
@@ -165,16 +164,14 @@ def _nav_html(view):
     (a form page marks the list it belongs to). A script adds the sliding
     highlight over it; the links work without."""
     view = PARENT_VIEWS.get(view, view)
-    links = "".join(
-        '<a class="personalisation-nav__link" href="%s" data-pers-view="%s"%s>%s<span>%s</span></a>' % (
-            escape_html(device_scope.scoped(VIEW_ROUTES[slug])), slug,
-            ' aria-current="page"' if slug == view else "",
-            layout.icon_html(icon), escape_html(i18n.t(title)))
-        for slug, title, icon in _views())
-    return (
-        '<nav class="personalisation-nav" aria-label="%s" data-pers-nav>'
-        '<span class="personalisation-nav__thumb" data-pers-thumb aria-hidden="true"></span>%s</nav>'
-    ) % (escape_html(i18n.t(NAV_LABEL)), links)
+    links = [
+        (escape_html(device_scope.scoped(VIEW_ROUTES[slug])),
+         "%s<span>%s</span>" % (layout.icon_html(icon), escape_html(i18n.t(title))),
+         slug == view, ' data-pers-view="%s"' % slug)
+        for slug, title, icon in _views()]
+    return ui_segmented.segmented_links_html(
+        links, i18n.t(NAV_LABEL), nav_attrs=" data-pers-nav",
+        lead_html='<span class="personalisation-nav__thumb" data-pers-thumb aria-hidden="true"></span>')
 
 
 def _bar_html(title, cancel_href, form_id, pending_label=None):
@@ -196,7 +193,7 @@ def _back_html(parent_view):
          layout.icon_html("icon-chevron-right", 18), escape_html(title))
 
 
-def _form_view(ctx, values, view, errors, scope_fields_html):
+def _form_view(ctx, values, view, errors, scope_fields_html, submitted=None):
     """One form page: the link back to its list, the picture and options, and
     the floating bar."""
     parent = PARENT_VIEWS[view]
@@ -208,22 +205,18 @@ def _form_view(ctx, values, view, errors, scope_fields_html):
             scope_fields_html)
         form_id, pending, extra = calendar_settings.LOOK_FORM_ID, None, ""
     elif view == VIEW_CALENDAR_CONNECT:
-        departures_id = departures_safe_theme_id(values["theme_id"], None)
-        chosen = values["calendar_theme_id"]
-        picture_id = chosen if chosen in device_config.THEMES else departures_id
         error_message = (errors or {}).get("calendar_url") or {
             "invalid": calendar_settings.CALENDAR_ERROR_INVALID,
             "unreachable": calendar_settings.CALENDAR_ERROR_UNREACHABLE,
         }.get(ctx.calendar_sheet_error)
         markup, title, _submit = calendar_settings.connect_page_html(
-            ctx.calendar_configured, ctx.calendar_drift, ctx.state_dir, error_message,
-            picture_id, look.look_sentence(picture_id))
+            ctx.calendar_configured, ctx.calendar_drift, ctx.state_dir, error_message)
         form_id = calendar_settings.CONNECT_FORM_ID
         pending = i18n.t(calendar_settings.CALENDAR_CHECKING_TEXT)
         extra = ""
     else:
         edit = rules.edit_target(ctx) if view == VIEW_LOOK_EDIT else None
-        markup, title, _submit = rules.rule_form_html(ctx, edit)
+        markup, title, _submit = rules.rule_form_html(ctx, edit, errors, submitted)
         form_id, pending = rules.RULE_FORM_ID, None
         extra = look_sheet_html()
     return (
@@ -245,7 +238,7 @@ def page_html(
     """
     if view in FORM_VIEWS:
         return '<div class="personalisation">%s<div class="personalisation__view">%s</div></div>' % (
-            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html))
+            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
     sheet_html = look_sheet_html() if view is not None else ""
     usage = LOOK_VIEW_USAGES.get(view)
     parts = {

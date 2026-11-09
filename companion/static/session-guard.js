@@ -9,7 +9,7 @@
  * (it only answers 200 to a visitor who is signed out), so a refusal for any
  * other reason keeps its own handling. When the session really ended the
  * guard shows the server-rendered, translated "session expired" toast and
- * sends the browser to /login?next=<this page>, which the server validates
+ * sends the browser to /login?next=<this page>&expired=1, which the server validates
  * again against its own list of destinations. No HTML-writing sink; the only
  * URL it builds is the same-origin sign-in route with the current path.
  * ES5-safe subset.
@@ -50,7 +50,8 @@
   function goToSignIn() {
     var target = currentTarget();
     window.location.assign(
-      target ? LOGIN_ROUTE + "?next=" + encodeURIComponent(target) : LOGIN_ROUTE);
+      LOGIN_ROUTE + "?" + (target ? "next=" + encodeURIComponent(target) + "&" : "") +
+      "expired=1");
   }
 
   // Tells the visitor once, then sends them to sign in. Idempotent.

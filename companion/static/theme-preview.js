@@ -400,6 +400,8 @@
     var following = !!follows && checkedValue(current) === "";
     same.setAttribute("aria-checked", following ? "true" : "false");
     setAxesDisabled(following);
+    // Following departures there is nothing to choose: the controls are hidden, not dimmed.
+    sheetAxesBox.hidden = following;
     sameNote.hidden = !following;
     sheetAxes.load(effectiveTheme(current));
   }

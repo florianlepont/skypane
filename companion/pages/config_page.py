@@ -162,7 +162,6 @@ from companion.settings.rules import (
     SPECIAL_LOOKS_HEADING as SPECIAL_LOOKS_HEADING,
     rule_form_html as rule_form_html,
     _rule_delete_action as _rule_delete_action,
-    _rule_kind_radio_html as _rule_kind_radio_html,
     _rule_list_html as _rule_list_html,
     _rule_row_html as _rule_row_html,
     _rule_suggestion_chips_html as _rule_suggestion_chips_html,
@@ -338,6 +337,7 @@ _FIELD_VIEWS = {
     "layout": personalisation_cards.VIEW_LAYOUT,
     "calendar_theme_id": personalisation_cards.VIEW_CALENDAR_LOOK,
     "calendar_url": personalisation_cards.VIEW_CALENDAR_CONNECT,
+    "rule_key": personalisation_cards.VIEW_LOOK_NEW,
 }
 
 
@@ -706,10 +706,10 @@ def render(
 def _scope_fields_html(scope, return_route):
     return (
         '<input type="hidden" name="%s" value="%s">'
-        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="%s" value="%s">%s'
     ) % (
         SCOPE_FIELD_NAME, escape_html(scope),
-        RETURN_TO_FIELD_NAME, escape_html(return_route),
+        RETURN_TO_FIELD_NAME, escape_html(return_route), layout.csrf_field(),
     )
 
 

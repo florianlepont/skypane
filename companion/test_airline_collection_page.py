@@ -191,7 +191,7 @@ def test_a_sheet_per_card_is_read_only_and_reached_by_a_hash_link(rig):
                  "Rarity Regular", "Recent callsigns"):
         assert fact in text
     assert "Rarity depends on how often your frame has seen an airline." in text
-    assert 'class="mono"' in regular
+    assert 'class="type-chip mono"' in regular
 
 
 def test_rare_airlines_and_aircraft_carry_a_tier_class_and_a_word(rig):

@@ -8,7 +8,7 @@ import time
 import zoneinfo
 
 from companion import i18n
-from companion import draw
+from companion import draw, ui_components
 from companion.layout import escape_html, icon_html
 import companion.layout as layout
 from companion import prefs
@@ -659,11 +659,14 @@ def _dialog_time_field_html(label, name, control_id, value, errors):
     """One time tile: a small caps label over a large 44px+ time input, the
     whole tile being the label so a tap anywhere focuses the input, with
     its error paragraph below. A browser that shows a 12-hour clock gets the
-    24-hour time written under the field, as on the Personalisation page."""
+    24-hour time drawn over the field's own text (the input stays the control),
+    so the value is told once, in the form the rest of the page uses."""
     return (
         '<div class="quiet-time-field"><label class="quiet-tile" for="%s">'
         '<span class="quiet-tile__label">%s</span>'
-        '<input type="time" id="%s" name="%s" value="%s" step="%d" required lang="%s"%s>%s</label>%s</div>'
+        '<span class="quiet-tile__value">'
+        '<input type="time" id="%s" name="%s" value="%s" step="%d" required lang="%s"%s>%s'
+        '</span></label>%s</div>'
     ) % (
         control_id, escape_html(i18n.t(label)), control_id, name, escape_html(value),
         QUIET_DIALOG_TIME_STEP_S, escape_html(prefs.current_lang()),
@@ -728,17 +731,16 @@ def quiet_hours_dialog_body_html(cfg, detection_href, errors=None, submitted=Non
     return (
         '<p class="text-label quiet-intro">%s</p>'
         '<div class="js-gate">%s</div>'
-        '<div class="modal__field quiet-enabled-field"><label class="settings-checkbox" for="%s">'
-        '<input type="checkbox" id="%s" name="quiet_hours_enabled" value="on"%s%s> %s</label>%s</div>'
+        '<div class="modal__field quiet-enabled-field">%s%s</div>'
         '<div class="quiet-custom"><p class="quiet-custom__label">%s</p>'
         '<div class="%s">%s%s</div></div>'
         '<p class="text-label quiet-timezone-note">%s</p>'
     ) % (
         escape_html(i18n.t(QUIET_DIALOG_INTRO)),
         _dialog_cards_html(start, end, enabled),
-        QUIET_DIALOG_ENABLED_ID, QUIET_DIALOG_ENABLED_ID, " checked" if enabled else "",
-        _field_error_attrs(errors, "quiet_hours_enabled", QUIET_DIALOG_ENABLED_ID),
-        escape_html(i18n.t(QUIET_DIALOG_ENABLED_LABEL)),
+        ui_components.form_switch_html(
+            QUIET_DIALOG_ENABLED_ID, "quiet_hours_enabled", i18n.t(QUIET_DIALOG_ENABLED_LABEL),
+            enabled, _field_error_attrs(errors, "quiet_hours_enabled", QUIET_DIALOG_ENABLED_ID)),
         _field_error_html(errors, "quiet_hours_enabled", QUIET_DIALOG_ENABLED_ID),
         escape_html(i18n.t(QUIET_DIALOG_CUSTOM_LABEL)),
         QUIET_TIMES_ROW_CLASS,

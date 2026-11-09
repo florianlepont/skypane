@@ -100,7 +100,7 @@ def test_the_chips_count_the_whole_history_under_the_search(state_dir):
 
 def test_a_search_with_no_match_shows_only_the_empty_card(state_dir):
     """no table, no table header, no day groups, no Load more and no shown-count line under
-    the card; the chips count zero for that search, the body quotes the whole history and the
+    the card; the chips show the whole history's counts (never 0 / 0 / 0), the body quotes it and the
     Clear link is a plain address keeping the sort"""
     doc = _doc(state_dir, {"q": "zzzz", "sort": "airline"})
     assert not doc.select("table") and not doc.select("thead") and not doc.select("th")
@@ -110,7 +110,8 @@ def test_a_search_with_no_match_shows_only_the_empty_card(state_dir):
     assert "all %d flights" % (TOTAL + 1) in card.select_one(".empty-state__body").text()
     clear = card.select_one("a")
     assert clear.text() == "Clear" and clear.attrs["href"] == "/flights?sort=airline"
-    assert _chips(doc) == {"all": "0", "departing": "0", "arriving": "0"}
+    chips = _chips(doc)
+    assert chips["all"] == str(TOTAL + 1) and chips["departing"] != "0" and chips["arriving"] != "0"
     assert doc.select_one("[data-filter-count]").text() == "No flight matches"
 
 
@@ -151,14 +152,18 @@ def test_the_date_sorts_order_the_list_by_time(state_dir, sort, first, last):
 
 
 def test_the_airline_sort_groups_by_airline_name(state_dir):
-    """sorted by airline the names run alphabetically in one group named after the sort, each
-    row dates itself and the table has no day separator"""
+    """sorted by airline the names run alphabetically in one group per airline, each named by it,
+    each row dates itself and the table has no day separator"""
     doc = _doc(state_dir, {"sort": "airline"}, more=str(TOTAL // LIMIT))
     names = [li.select_one(".history-card__airline").text() for li in doc.select("li.history-card")]
     assert names == sorted(names, key=str.casefold)
     assert names[0] == "Air France" and names[-1] == "Transavia France"
     groups = doc.select(".history-cards > section")
-    assert len(groups) == 1 and groups[0].select_one("h2").text() == "Airline"
+    titles = [group.select_one("h2").text() for group in groups]
+    assert titles == sorted(set(names), key=str.casefold) and "Airline" not in titles
+    for group in groups:
+        assert {li.select_one(".history-card__airline").text()
+                for li in group.select("li.history-card")} == {group.select_one("h2").text()}
     assert not doc.select("tr.flight-day-row")
     assert "3 Sep" in doc.select_one("li.history-card .history-card__when").text()
 

@@ -370,9 +370,9 @@ def test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterwa
         "expected the logout cookie header to carry Max-Age=0, got %r" % set_cookie)
 
     status, headers, _ = http_request(base + "/display", cookie=session_cookie)
-    assert status == 303 and headers.get("Location") == "/login?next=%2Fdisplay", (
+    assert status == 303 and headers.get("Location") == "/login?next=%2Fdisplay&expired=1", (
         "expected the logged-out session cookie to be rejected with a redirect to "
-        "/login?next=%%2Fdisplay, got %d/%r" % (status, headers.get("Location")))
+        "/login?next=%%2Fdisplay&expired=1, got %d/%r" % (status, headers.get("Location")))
 
     status, _headers, _body = http_request(base + "/logout", cookie=session_cookie)
     assert status == 404, "expected GET /logout to 404 (D-11), got %d" % status

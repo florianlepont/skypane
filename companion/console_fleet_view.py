@@ -15,7 +15,7 @@ Selection is read from the query only to pick one of the frames the request
 scope already lists; a value matching none falls back to the first frame, so
 no request text reaches a path, a query or a filesystem call.
 """
-from companion import device_scope, i18n
+from companion import device_scope, i18n, ui_segmented
 from companion.pages import co_managers_card
 from companion.ui_base import escape_html
 from server import hardware, history_db
@@ -102,13 +102,11 @@ def tabs_html(frame_id, tab):
     labels = (
         (TAB_STATE, _STATE_HEADING), (TAB_SETTINGS, _SETTINGS_HEADING),
         (TAB_ACCESS, _ACCESS_HEADING))
-    links = "".join(
-        '<a class="personalisation-nav__link" href="%s%s&amp;%s=%s"%s><span>%s</span></a>' % (
-            FRAME_HREF_PREFIX, _esc(frame_id), TAB_QUERY, key,
-            ' aria-current="page"' if key == tab else "", _t(label))
-        for key, label in labels)
-    return '<nav class="personalisation-nav fleet-tabs" aria-label="%s">%s</nav>' % (
-        _t(_TABS_LABEL), links)
+    links = [
+        ("%s%s&amp;%s=%s" % (FRAME_HREF_PREFIX, _esc(frame_id), TAB_QUERY, key),
+         "<span>%s</span>" % _t(label), key == tab, "")
+        for key, label in labels]
+    return ui_segmented.segmented_links_html(links, _t(_TABS_LABEL), "fleet-tabs")
 
 
 def frame_menu_html(entries, selected, is_system):
@@ -236,10 +234,14 @@ def system_html(ctx):
     from companion.pages import health_page
     with history_db.connection_scope(ctx.state_dir):
         body = health_page.system_html(ctx)
-    return '<div class="fleet-blocks fleet-blocks--system">%s</div>' % (
-        body or _block(
-            _SYSTEM_HEADING, _item('<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY)),
-            " fleet-block--wide", "system"))
+    from companion.pages import components_page
+    blocks = body or _block(
+        _SYSTEM_HEADING, _item('<p class="text-label">%s</p>' % _t(_SYSTEM_EMPTY)),
+        " fleet-block--wide", "system")
+    return (
+        '<div class="fleet-blocks fleet-blocks--system">%s</div>'
+        '<p class="fleet-system-footer"><a class="text-link" href="%s">%s</a></p>'
+    ) % (blocks, components_page.COMPONENTS_ROUTE, _t(components_page.LINK_TEXT))
 
 
 def _others_alone(view):

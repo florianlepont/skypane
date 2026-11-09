@@ -17,7 +17,6 @@ here too, but test_cross_site_origin_rejected_before_routing_on_unknown_path
 below proves the gate does not actually depend on this list being
 exhaustive, since it runs before any routing decision.
 """
-import urllib.parse
 
 import pytest
 
@@ -195,10 +194,10 @@ def test_quick_switch_cross_site_rejected_then_same_origin_applied(app_server):
     config_path = device_config.device_config_path(app_server.state_dir)
     before = _read_bytes_or_none(config_path)
 
-    form = urllib.parse.urlencode({
+    form = companion_app_server.with_csrf(cookie, {
         app.layout.QUICK_STATE_FIELD: app.layout.QUICK_STATE_OFF,
         "return_to": app.layout.HOME_ROUTE,
-    }).encode()
+    })
 
     cross_site_status, _, _ = _post(
         app_server.url(app.QUICK_DISPLAY_ROUTE),

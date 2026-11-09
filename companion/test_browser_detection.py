@@ -251,7 +251,7 @@ def test_search_button_is_not_accent_and_44px(new_context, make_app_server, view
 def test_accent_budget(new_context, make_app_server):
     """The accent fill (derived from the Save button) is painted only on the Save buttons (and
     the current segment of the space switch an administrator sees, and the selected segment of
-    the mode switch, a graphite pill by the segmented-control rule, the current sidebar item,
+    the mode switch and the theme and language switches, graphite pills by the segmented-control rule, the current sidebar item,
     the current tab bar pill and the icon chip of the frame popover's Add row): never on an airport row, a summary value or a
     runway card."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
@@ -261,7 +261,8 @@ def test_accent_budget(new_context, make_app_server):
         ".map(el => el.tagName.toLowerCase() + '.' + el.className.toString().trim()"
         " + '|' + (el.htmlFor || ''))")
     allowed = ("dirty-bar__save", "skip-link", "space-switch__segment--current", "place-mode",
-               "sidebar-link--active", "frame-row__icon", "tab-bar__pill", "tab-bar__slider")
+               "sidebar-link--active", "frame-row__icon", "tab-bar__pill", "tab-bar__slider",
+               "theme-option--active")
     for route in ("/detection?q=lf", "/detection?airport=%s&mode=runway" % CDG):
         with _no_js_page(new_context, server.base_url(), route,
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
@@ -319,10 +320,10 @@ def test_mode_toggle_reveals_dirty_bar_and_cancel_restores(new_context, make_app
 @pytest.mark.parametrize("lang,sections", [("en", "Detection, Place"), ("fr", "Détection, Lieu")])
 def test_changing_both_areas_names_them_after_the_message(new_context, make_app_server, lang,
                                                           sections):
-    """The page name only shows when several areas changed: the same message, a colon and the
-    list of the areas."""
+    """On a wide screen the page name only shows when several areas changed: the same message, a
+    colon and the list of the areas."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
-    page, _dialogs = _open(new_context, server, lang=lang)
+    page, _dialogs = _open(new_context, server, lang=lang, viewport=VIEWPORT_DESKTOP)
     _wait_for_bar_hidden(page)
     page.click(MODE_AREA_LABEL)
     open_details(page)
@@ -331,6 +332,21 @@ def test_changing_both_areas_names_them_after_the_message(new_context, make_app_
     page.wait_for_function(
         "expected => document.querySelector('[data-dirty-count]').textContent === expected",
         arg="%s %s" % (lead, sections), timeout=10000)
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_on_a_phone_changing_both_areas_keeps_the_short_message(new_context, make_app_server, lang):
+    """the one-line message of a phone's bar never holds the list of areas (it would be cut)"""
+    server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
+    page, _dialogs = _open(new_context, server, lang=lang)
+    _wait_for_bar_hidden(page)
+    page.click(MODE_AREA_LABEL)
+    open_details(page)
+    page.fill("#place-lat", "43.1")
+    expected = page.get_attribute("[data-dirty-bar]", "data-dirty-initial-text")
+    page.wait_for_function(
+        "expected => document.querySelector('[data-dirty-count]').textContent === expected",
+        arg=expected, timeout=10000)
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])

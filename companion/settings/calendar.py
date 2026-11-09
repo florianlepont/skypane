@@ -416,11 +416,10 @@ def _calendar_connection_html(
         state, last_synced_at, now, entry_count))
 
 
-def connect_page_html(configured, drift, state_dir, error_message, picture_id, sentence):
-    """The calendar connection page body: the picture of the look calendar
-    flights get on the left, the options on the right. Returns (markup,
-    title, submit label); the page's floating bar carries the submit. The
-    full feed URL is never in this markup: only the masked host."""
+def connect_page_html(configured, drift, state_dir, error_message):
+    """The calendar connection page body: one card titled for the task
+    (Connect a calendar). Returns (markup, title, submit label); the page's
+    floating bar carries the submit. The full feed URL is never in this markup: only the masked host."""
     secret_url = (
         calendar_rules.configured_calendar_url(state_dir) if (configured and state_dir) else "")
     provider = _provider_name(secret_url)
@@ -437,22 +436,10 @@ def connect_page_html(configured, drift, state_dir, error_message, picture_id, s
         ) % (escape_html(i18n.t(CALENDAR_LINK_LABEL)), escape_html(masked_url),
              escape_html(i18n.t(CALENDAR_PRIVATE_NOTE)))
     disconnect_html = _disconnect_html(provider) if (configured or drift) else ""
-    size = theme_preview.FRAME_PREVIEW_SIZE_LARGE
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[size]
-    picture_html = (
-        '<div class="form-page__preview"><div class="look-frame__anchor">'
-        '<div class="look-frame__picture"><img class="look-frame__image" src="%s" '
-        'width="%d" height="%d" alt=""></div></div>'
-        '<p class="form-page__caption"><span class="form-page__name">%s</span>'
-        '<span class="form-page__sentence">%s</span></p></div>'
-    ) % (
-        escape_html(theme_preview.frame_preview_src(
-            picture_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING, size)),
-        width, height, escape_html(i18n.t(CALENDAR_ROW_TITLE)), escape_html(sentence))
     markup = (
-        '<div class="form-page">%s<div class="form-page__card">'
+        '<div class="form-page"><div class="form-page__card">'
         '<h2 class="form-page__title">%s</h2>%s%s%s</div></div>'
-    ) % (picture_html, escape_html(title), link_html,
+    ) % (escape_html(title), link_html,
          _url_form_html(configured, error_message), disconnect_html)
     return markup, title, i18n.t(
         CALENDAR_REPLACE_BUTTON_TEXT if configured else CALENDAR_CONNECT_BUTTON_TEXT)

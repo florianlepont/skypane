@@ -104,8 +104,12 @@ def test_unauthenticated_device_requests_do_not_reveal_whether_the_id_exists(fle
     unknown = _get(server, "/devices/%s/health" % UNKNOWN_ID)
     plain = _get(server, "/health")
     assert known[0] == unknown[0] == plain[0] == 303
-    assert known[1].get("Location") == unknown[1].get("Location")
-    assert known[1].get("Location", "").startswith("/login")
+    # The sign-in address only echoes the requested page: with the id masked it is the same
+    # for a frame that exists and one that does not.
+    masked = [
+        reply[1].get("Location", "").replace(frame, "ID")
+        for reply, frame in ((known, fleet.dev_a.id), (unknown, UNKNOWN_ID))]
+    assert masked[0] == masked[1] == "/login?next=%2Fdevices%2FID%2Fhealth"
 
 
 def test_gallery_file_is_served_only_under_its_own_device(fleet_app):

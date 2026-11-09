@@ -27,7 +27,7 @@ import companion.i18n as i18n
 import companion.layout as layout
 from companion.pages import config_page
 from companion_app_server import (
-    http_request, login, served_stylesheet)
+    http_request, login, served_stylesheet, with_csrf)
 from companion_markup import at_rule_blocks, css_rules, custom_properties
 from server import device_config
 
@@ -431,7 +431,8 @@ def test_settings_post_redirects_to_display_with_flash(make_app_server):
     server = make_app_server(fake_providers=True)
     session_cookie = login(server)
     status, headers, _ = http_request(
-        server.base_url() + "/settings", method="POST", cookie=session_cookie, data=b"")
+        server.base_url() + "/settings", method="POST", cookie=session_cookie,
+        data=with_csrf(session_cookie))
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert location.startswith("/display?flash="), (
@@ -449,11 +450,11 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
     before = device_config.load_device_config(server.state_dir)
     status, headers, body = http_request(
         server.base_url() + "/settings", method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({
+        data=with_csrf(session_cookie, {
             "scope": "display", "return_to": "/display",
             "theme": "black", "tracked_runway": before["tracked_runway"],
             "theme_arriving": "no-such-look",
-        }).encode())
+        }))
     assert status == 200, "expected a 200 re-render on a rejected save, got %d" % status
     assert not headers.get("Location"), (
         "expected no redirect Location header on a rejected save, got %r" % headers.get("Location"))
@@ -519,7 +520,7 @@ def test_quick_display_toggle_round_trip(make_app_server):
             ("on", app_module.FLASH_KEY_DISPLAY_ON, True)):
         status, headers, _ = http_request(
             server.base_url() + app_module.QUICK_DISPLAY_ROUTE, method="POST",
-            cookie=session_cookie, data=urllib.parse.urlencode({"state": state}).encode())
+            cookie=session_cookie, data=with_csrf(session_cookie, {"state": state}))
         assert status == 303, "expected 303 for state=%s, got %d" % (state, status)
         assert headers.get("Location") == "/display?flash=%s" % expected_flash, (
             "expected a redirect to /display?flash=%s, got %r"
@@ -530,7 +531,7 @@ def test_quick_display_toggle_round_trip(make_app_server):
             % (expected_value, state, on_disk["display_enabled"]))
     status, headers, _ = http_request(
         server.base_url() + app_module.QUICK_DISPLAY_ROUTE, method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({"state": "toggle"}).encode())
+        data=with_csrf(session_cookie, {"state": "toggle"}))
     assert status == 303 and headers.get("Location") == "/display?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED, (
         "expected a crafted state value to redirect with the quick_failed flash, got %d/%r"
         % (status, headers.get("Location")))
@@ -545,7 +546,7 @@ def test_quick_quiet_hours_toggle_round_trip(make_app_server):
     session_cookie = login(server)
     status, headers, _ = http_request(
         server.base_url() + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST",
-        cookie=session_cookie, data=urllib.parse.urlencode({"state": "on"}).encode())
+        cookie=session_cookie, data=with_csrf(session_cookie, {"state": "on"}))
     assert status == 303 and headers.get("Location") == "/display?flash=%s" % app_module.FLASH_KEY_QUIET_ON, (
         "expected a redirect to /display?flash=quiet_on, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
@@ -554,7 +555,7 @@ def test_quick_quiet_hours_toggle_round_trip(make_app_server):
         "expected the quiet-hours toggle to carry display_enabled forward untouched")
     status, headers, _ = http_request(
         server.base_url() + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST",
-        cookie=session_cookie, data=urllib.parse.urlencode({"state": "off"}).encode())
+        cookie=session_cookie, data=with_csrf(session_cookie, {"state": "off"}))
     assert headers.get("Location") == "/display?flash=%s" % app_module.FLASH_KEY_QUIET_OFF, (
         "expected a redirect to /display?flash=quiet_off, got %r" % headers.get("Location"))
     assert device_config.load_device_config(server.state_dir)["quiet_hours_enabled"] is False, (
@@ -577,13 +578,13 @@ def _quick_toggle_return_to_check(server, session_cookie, route, flash_key):
             ("/flights", "/display?flash=%s" % flash_key)):
         status, headers, _ = http_request(
             base + route, method="POST", cookie=session_cookie,
-            data=urllib.parse.urlencode({"state": "on", "return_to": return_to}).encode())
+            data=with_csrf(session_cookie, {"state": "on", "return_to": return_to}))
         assert status == 303 and headers.get("Location") == expected_location, (
             "return_to=%r: expected 303 to %r, got %d/%r"
             % (return_to, expected_location, status, headers.get("Location")))
     status, headers, _ = http_request(
         base + route, method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({"state": "off"}).encode())
+        data=with_csrf(session_cookie, {"state": "off"}))
     expected_off_flash = (
         app_module.FLASH_KEY_DISPLAY_OFF if route == app_module.QUICK_DISPLAY_ROUTE
         else app_module.FLASH_KEY_QUIET_OFF)
@@ -591,7 +592,7 @@ def _quick_toggle_return_to_check(server, session_cookie, route, flash_key):
         "expected an absent return_to to fall back to Display")
     status, headers, _ = http_request(
         base + route, method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode())
+        data=with_csrf(session_cookie, {"state": "toggle", "return_to": "/"}))
     assert status == 303 and headers.get("Location") == "/?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED, (
         "expected the invalid-state early return to honour return_to=/, got %d/%r"
         % (status, headers.get("Location")))
@@ -631,7 +632,7 @@ def test_quick_routes_answer_204_for_a_fetch_and_303_for_a_form(make_app_server)
              app_module.FLASH_KEY_QUIET_ON)):
         status, headers, body = http_request(
             base + route, method="POST", cookie=session_cookie,
-            data=urllib.parse.urlencode({"state": state, "return_to": "/"}).encode())
+            data=with_csrf(session_cookie, {"state": state, "return_to": "/"}))
         assert status == 303 and headers.get("Location") == "/?flash=%s" % flash_key, (
             "%s: a form POST must still answer 303 to /?flash=%s, got %d/%r"
             % (route, flash_key, status, headers.get("Location")))
@@ -639,8 +640,8 @@ def test_quick_routes_answer_204_for_a_fetch_and_303_for_a_form(make_app_server)
             "%s: expected %s %r on disk after the form post" % (route, field, expected_value))
         status, headers, body = http_request(
             base + route, method="POST", cookie=session_cookie,
-            data=urllib.parse.urlencode(
-                {"state": "on" if state == "off" else "off", "return_to": "/"}).encode(),
+            data=with_csrf(
+                session_cookie, {"state": "on" if state == "off" else "off", "return_to": "/"}),
             extra_headers={"X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
         assert status == 204, (
             "%s: a POST identifying itself as a fetch must answer 204, got %d" % (route, status))
@@ -654,7 +655,7 @@ def test_quick_routes_answer_204_for_a_fetch_and_303_for_a_form(make_app_server)
             "never whether the write happens" % route)
         status, headers, _ = http_request(
             base + route, method="POST", cookie=session_cookie,
-            data=urllib.parse.urlencode({"state": "toggle", "return_to": "/"}).encode(),
+            data=with_csrf(session_cookie, {"state": "toggle", "return_to": "/"}),
             extra_headers={"X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
         assert status != 204, (
             "%s: a crafted state value must never answer 204 — the client reads 204 as "
@@ -675,7 +676,7 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
 
     status, headers, _ = http_request(
         base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({"state": "off", "return_to": "/device"}).encode())
+        data=with_csrf(session_cookie, {"state": "off", "return_to": "/device"}))
     assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_LED_OFF, (
         "expected a 303 to /device?flash=led_off, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
@@ -685,7 +686,7 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
 
     status, headers, body = http_request(
         base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({"state": "on", "return_to": "/device"}).encode(),
+        data=with_csrf(session_cookie, {"state": "on", "return_to": "/device"}),
         extra_headers={"X-Requested-With": app_module.QUICK_FETCH_HEADER_VALUE})
     assert status == 204 and not body and not headers.get("Location"), (
         "expected an empty 204 with no Location for the fetch shape, got %d/%r/%r"
@@ -695,7 +696,7 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
 
     status, headers, _ = http_request(
         base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({"state": "toggle", "return_to": "/device"}).encode())
+        data=with_csrf(session_cookie, {"state": "toggle", "return_to": "/device"}))
     assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_QUICK_FAILED, (
         "expected a crafted state value to redirect with the generic quick_failed flash, got "
         "%d/%r" % (status, headers.get("Location")))
@@ -706,7 +707,7 @@ def test_quick_led_route_saves_redirects_and_negotiates(make_app_server):
                     "/device/../flights", "/", "/display"):
         status, headers, _ = http_request(
             base + app_module.QUICK_LED_ROUTE, method="POST", cookie=session_cookie,
-            data=urllib.parse.urlencode({"state": "on", "return_to": hostile}).encode())
+            data=with_csrf(session_cookie, {"state": "on", "return_to": hostile}))
         assert status == 303 and headers.get("Location") == "/device?flash=%s" % app_module.FLASH_KEY_LED_ON, (
             "return_to=%r: expected a fall back to /device, got %d/%r"
             % (hostile, status, headers.get("Location")))
@@ -751,16 +752,16 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
 
     status, _headers, _ = http_request(
         base + "/settings", method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({
+        data=with_csrf(session_cookie, {
             "theme": "white", "tracked_runway": "3", "led_enabled": "on",
-            "display_enabled": "on"}).encode())
+            "display_enabled": "on"}))
     assert status == 303, "expected 303 on the full save, got %d" % status
 
     status, headers, _ = http_request(
         base + "/settings", method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({
+        data=with_csrf(session_cookie, {
             "scope": "display", "return_to": "/display",
-            "theme": "black", "display_enabled": "on"}).encode())
+            "theme": "black", "display_enabled": "on"}))
     assert status == 303 and headers.get("Location") == "/display?flash=saved", (
         "expected a 303 to /display?flash=saved, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
@@ -772,8 +773,8 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
     runway_before = device_config.load_device_config(server.state_dir)["tracked_runway"]
     status, headers, _ = http_request(
         base + "/settings", method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({
-            "scope": "device", "return_to": "/device", "tracked_runway": "06-24"}).encode())
+        data=with_csrf(session_cookie, {
+            "scope": "device", "return_to": "/device", "tracked_runway": "06-24"}))
     assert status == 303 and headers.get("Location") == "/fleet?frame=live&tab=settings&flash=saved", (
         "expected a 303 to the Fleet view of the served frame with flash=saved, got %d/%r" % (status, headers.get("Location")))
     on_disk = device_config.load_device_config(server.state_dir)
@@ -790,8 +791,8 @@ def test_scoped_settings_save_carries_other_page_forward(make_app_server):
 
     status, headers, _ = http_request(
         base + "/settings", method="POST", cookie=session_cookie,
-        data=urllib.parse.urlencode({
-            "scope": "display", "return_to": "https://evil.example", "theme": "white"}).encode())
+        data=with_csrf(session_cookie, {
+            "scope": "display", "return_to": "https://evil.example", "theme": "white"}))
     assert headers.get("Location") == "/display?flash=saved", (
         "expected a crafted return_to to fall back to /display, got %r" % headers.get("Location"))
 

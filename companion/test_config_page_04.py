@@ -58,7 +58,7 @@ def _calendar_connection_call(configured, drift, last_synced_at):
 
 def _connect_page_call(configured, drift, state_dir=None):
     """The calendar connection page's own markup (picture, link form, disconnect dialog)."""
-    return config_page.connect_page_html(configured, drift, state_dir, None, "white", "Plain paper")[0]
+    return config_page.connect_page_html(configured, drift, state_dir, None)[0]
 
 
 def test_rules_suggestion_chips_present_with_data_and_absent_with_no_events(tmp_path):
@@ -122,7 +122,7 @@ def test_rules_section_carries_no_dirty_section_attr():
 
 
 def test_rules_french_render_shows_french_row_label_and_button():
-    """a French render of the special looks shows 'Looks spéciaux', the 'Nouvelle allure
+    """a French render of the special looks shows 'Allures spéciales', the 'Nouvelle allure
     spéciale' action and the new look page's 'Enregistrer' submit button"""
     ctx = {
         "device_config": {"theme": "white", "tracked_runway": "3"},
@@ -134,7 +134,7 @@ def test_rules_french_render_shows_french_row_label_and_button():
             ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     finally:
         prefs.set_request_prefs(lang="en")
-    for text in ("Looks spéciaux", "Nouvelle allure spéciale", "Enregistrer"):
+    for text in ("Allures spéciales", "Nouvelle allure spéciale", "Enregistrer"):
         assert escape_html(text) in rendered, "expected the French %r" % (text,)
 
 

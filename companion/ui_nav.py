@@ -13,6 +13,7 @@ import companion.console_routes as console_routes
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
+from companion import ui_segmented
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
     AIRLINES_ROUTE,
@@ -716,47 +717,31 @@ _THEME_LABEL_TEXT = {
 
 
 def _theme_form_html(resolved_theme):
-    options = []
-    for choice in UI_THEME_CHOICES:
-        is_active = choice == resolved_theme
-        css_class = (
-            "theme-option theme-option--active"
-            if is_active else "theme-option")
-        accessible = _THEME_ACCESSIBLE_TEXT.get(choice)
-        aria_label = (
-            ' aria-label="%s"' % escape_html(i18n.t(accessible))
-            if accessible else "")
-        options.append(
-            '<button type="submit" name="ui_theme" value="%s" class="%s" aria-pressed="%s"%s>%s</button>'
-            % (escape_html(choice), css_class, "true" if is_active else "false", aria_label,
-               # `choice` ("auto"/"light"/"dark") is the form's own value and stays an
-               # untranslated identifier; only the rendered label text goes through i18n.t().
-               escape_html(i18n.t(_THEME_LABEL_TEXT[choice]))))
     # An aria-label disambiguates this segmented group from its siblings below;
     # the theme ids ("Auto"/"Light"/"Dark") are identifiers, so only the group
-    # label is translated.
-    return (
-        '<form class="theme-form" method="post" action="/ui-theme" aria-label="%s">%s</form>'
-        % (escape_html(i18n.t(_THEME_TEXT)), "".join(options)))
+    # label is translated. `choice` is the form's own value and stays an
+    # untranslated identifier; only the rendered label text goes through i18n.t().
+    buttons = []
+    for choice in UI_THEME_CHOICES:
+        accessible = _THEME_ACCESSIBLE_TEXT.get(choice)
+        buttons.append((
+            "ui_theme", choice, i18n.t(_THEME_LABEL_TEXT[choice]), choice == resolved_theme,
+            (' aria-label="%s"' % escape_html(i18n.t(accessible))) if accessible else "", ""))
+    return ui_segmented.segmented_buttons_html(
+        'method="post" action="/ui-theme" aria-label="%s"' % escape_html(i18n.t(_THEME_TEXT)),
+        buttons)
 
 
 def _lang_form_html(resolved_lang):
     """The FR/EN language switch, a sibling of _theme_form_html() in shape.
     "FR"/"EN" are identifiers and are never passed through i18n.t().
     """
-    options = []
-    for choice in prefs.LANG_CHOICES:
-        is_active = choice == resolved_lang
-        css_class = (
-            "theme-option theme-option--active"
-            if is_active else "theme-option")
-        options.append(
-            '<button type="submit" name="ui_lang" value="%s" class="%s" aria-pressed="%s">%s</button>'
-            % (escape_html(choice), css_class, "true" if is_active else "false",
-               escape_html(choice.upper())))
-    return (
-        '<form class="theme-form" method="post" action="/ui-lang" aria-label="%s">%s</form>'
-        % (escape_html(i18n.t(_LANGUAGE_TEXT)), "".join(options)))
+    buttons = [
+        ("ui_lang", choice, choice.upper(), choice == resolved_lang, "", "")
+        for choice in prefs.LANG_CHOICES]
+    return ui_segmented.segmented_buttons_html(
+        'method="post" action="/ui-lang" aria-label="%s"' % escape_html(i18n.t(_LANGUAGE_TEXT)),
+        buttons)
 
 
 def _logout_form_html():

@@ -350,6 +350,7 @@ _SKIP_LINK_TEXT = i18n.msg("nav.skip_to_content", "Skip to content")
 
 # The shared wordings of the frame button's rows (companion/frame_menu.py).
 _DEVICE_DEFAULT_NAME_TEXT = i18n.msg("nav.device_default_name", "Orly frame")
+_UNNAMED_FRAME_TEXT = i18n.msg("admin_fleet.unnamed_frame", "Unnamed frame")
 _TILE_SEEN_TEXT = i18n.msg("nav.frame_tile_seen", "Seen %s")
 
 # The strip shown to an administrator on a personal page of a frame they
@@ -372,8 +373,12 @@ def _device_page_path(active):
 
 
 def device_display_name(device):
+    """The frame's name for the people looking at it: never its internal id (a
+    frame that was never named reads "Unnamed frame")."""
     if device.is_live and device.name == device_scope.LIVE_NAME:
         return i18n.t(_DEVICE_DEFAULT_NAME_TEXT)
+    if device.name == device.id:
+        return i18n.t(_UNNAMED_FRAME_TEXT)
     return device.name
 
 

@@ -7,11 +7,12 @@ needs from the handler (`self.args`, `self.headers`, `self.redirect()`,
 `self.send_html()`, `self._not_found_page()`, `self._safe_principal()`)
 are provided by `Handler`.
 """
+import sqlite3
 from urllib.parse import urlsplit
 
 from companion import access, device_scope, layout, routes
 from companion.sign_in import ACCOUNT_ROUTE
-from server import history_db
+from server import fleet_db, history_db
 
 # Pages that are never under a device prefix.
 _GLOBAL_PAGES = (layout.UPDATE_ROUTE, ACCOUNT_ROUTE)
@@ -30,6 +31,23 @@ def _user_pages():
 
 
 class DeviceDispatchMixin:
+    def _scope_for_chrome(self):
+        """Give an error or public page of a signed-in user the request scope
+        the navigation needs (their frames), so the tab bar and sidebar show
+        the user's pages instead of a dead end. Does nothing when a scope is
+        already set or the caller is not a user."""
+        principal = self._safe_principal()
+        if (principal is None or principal.role != access.USER
+                or device_scope.current_devices()):
+            return
+        root = self.args.state_dir
+        try:
+            devices = device_scope.load_devices_for(root, principal)
+        except (sqlite3.Error, fleet_db.FleetDbError, OSError):
+            return
+        device_scope.set_request_scope(
+            devices[0] if devices else None, devices, principal.user_id, root)
+
     def _dispatch_for_device(self, route, route_match):
         """Resolve the request's device after the access decision, store it
         for this request, and run the handler inside one

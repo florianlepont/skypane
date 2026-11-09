@@ -69,7 +69,7 @@ MESSAGES = {
         "Le cadre n’a pas encore de thème pour cette combinaison.",
 
     # --- Special looks -------------------------------------------------
-    "look.special_looks": "Looks spéciaux",
+    "look.special_looks": "Allures spéciales",
     "look.override_the_look_for_one_airline_flight_or_aircraft":
         "Une allure à part pour une compagnie, un vol ou un avion.",
     "look.most_specific_wins":

@@ -54,6 +54,15 @@
   --tab-bar-side: 8px;
   --tab-bar-pad: 2px;
 
+  /* The one segmented-control contract (theme and language, look kinds,
+   * Departures/Arrivals tabs, filter chips, fleet tabs, map modes): a track
+   * with a visible edge, a solid accent pill for the selected segment and a
+   * muted label for the others. */
+  --seg-edge: color-mix(in srgb, var(--color-text) 20%, transparent);
+  --seg-selected-bg: var(--color-accent);
+  --seg-selected-fg: var(--color-on-accent);
+  --seg-idle-fg: color-mix(in srgb, var(--color-text) 70%, transparent);
+
   /* The height of the floating Cancel and Save bar: one row of 44px
    * targets on a wide screen (the phone block below adds the message line);
    * pages clear it and the map pages lift their own controls over it. */
@@ -793,6 +802,7 @@ h3 {
  * text is the accessible name. */
 .brand {
   display: inline-flex;
+  flex: none;
   align-items: center;
   gap: var(--space-sm);
   min-height: 44px;
@@ -1273,8 +1283,9 @@ select.visually-hidden {
   min-width: 0;
   gap: 2px;
   padding: 2px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--seg-edge);
   border-radius: var(--radius-control);
+  background: var(--color-secondary);
 }
 
 /* Doubled .theme-form .theme-option (0,2,0), not the bare class (0,1,0):
@@ -1282,7 +1293,7 @@ select.visually-hidden {
  * background regardless of source order. box-shadow: none is
  * load-bearing too — it clears the submit rule's own inset highlight. */
 .theme-form .theme-option {
-  height: 28px;
+  height: 44px;
   /* Without flex: 1 1 auto the three intrinsic-width buttons pack to
    * the left instead of filling the bordered container as one control. */
   flex: 1 1 0;
@@ -1297,17 +1308,11 @@ select.visually-hidden {
   border: none;
   box-shadow: none;
   border-radius: var(--radius-control);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: var(--seg-idle-fg);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
   transition: background-color .15s ease, border-color .15s ease, color .15s ease;
-}
-
-/* The Account page holds these controls in its own card, where a tap target
- * must reach 44px; the sidebar footer keeps the compact segments. */
-section[aria-labelledby="account-preferences"] .theme-form .theme-option {
-  height: 44px;
 }
 
 .account-sign-out button,
@@ -1324,8 +1329,9 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
 }
 
 .theme-form .theme-option--active {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
+  background: var(--seg-selected-bg);
+  color: var(--seg-selected-fg);
+  box-shadow: var(--shadow-control);
   font-weight: var(--weight-semibold);
 }
 
@@ -1341,8 +1347,9 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
  * This positive-restore rule reaches (0,3,0) to win, reusing the
  * active rule's own wash values rather than inventing a new one. */
 .theme-form .theme-option--active:hover {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
+  background: var(--seg-selected-bg);
+  color: var(--seg-selected-fg);
+  box-shadow: var(--shadow-control);
 }
 
 /* Matched declaration-for-declaration against .page-section below —
@@ -1946,6 +1953,7 @@ section[aria-labelledby="account-preferences"] .theme-form .theme-option {
  * it moves nothing. A row is a whole-row link. */
 .frame-menu {
   position: relative;
+  flex: 0 1 auto;
   min-width: 0;
   margin-left: auto;
 }
@@ -2493,30 +2501,12 @@ button:not(.value-control__handle):active {
   grid-area: save;
 }
 
-.dirty-bar > :is(button, a) {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 44px;
-  min-width: 44px;
+.dirty-bar > .btn {
   padding: 0 var(--space-lg);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
 }
 
 .dirty-bar__cancel {
   grid-area: cancel;
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.dirty-bar__cancel:hover {
-  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
 }
 
 /* On a phone the message line sits over the buttons. */
@@ -2842,11 +2832,11 @@ button:disabled {
   }
 
   .look-seg__option:has(input:checked) {
-    color: var(--color-on-accent);
+    color: var(--seg-selected-fg);
   }
 
   .look-seg__option:has(input:checked)::before {
-    background: var(--color-accent);
+    background: var(--seg-selected-bg);
     box-shadow: var(--shadow-control);
   }
 
@@ -2940,20 +2930,52 @@ button:disabled {
   min-height: 44px;
 }
 
-/* Undoes the global input/select rule declaration by declaration: both
- * 44px minimums are cleared to zero — load-bearing, since a plain
- * width/height cannot shrink an element below another rule's minimum
- * unless that minimum is itself cleared, or the 16px sizing is inert. */
+/* A native checkbox drawn as the same switch as .switch (track, thumb and
+ * colours), so a form field and a one-tap switch look alike. appearance: none
+ * hands the box to the stylesheet; the global input minimums are cleared to
+ * the track's own size. */
 .settings-checkbox input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  min-height: 0;
-  min-width: 0;
-  padding: 0;
-  background: none;
-  border: none;
-  border-radius: 0;
+  appearance: none;
+  position: relative;
   flex: none;
+  width: 52px;
+  height: 32px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  background: var(--color-switch-off);
+  border: 1px solid var(--color-switch-off);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
+}
+
+.settings-checkbox input[type="checkbox"]::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--color-switch-thumb);
+  box-shadow: 0 1px 3px var(--color-shadow-strong);
+  transition: transform var(--motion-spring-duration) var(--motion-spring);
+}
+
+.settings-checkbox input[type="checkbox"]:checked {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+}
+
+.settings-checkbox input[type="checkbox"]:checked::before {
+  transform: translateX(20px);
+  background: var(--color-switch-thumb-on);
+}
+
+.settings-checkbox input[type="checkbox"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Data table: quiet uppercase label header, one row surface, hover-only
@@ -3266,7 +3288,7 @@ table.data-table--flights .cell-inline-sep {
 
 .update-type-chooser .theme-option {
   height: auto;
-  min-height: 28px;
+  min-height: 44px;
   padding: var(--space-xs) var(--space-sm);
   white-space: normal;
   overflow-wrap: anywhere;
@@ -3599,13 +3621,9 @@ table.data-table--flights .cell-inline-sep {
   display: none;
 }
 
-/* The row-level picture action on the card and in the table: the
- * secondary-button look it inherits from .calendar-disconnect-btn, with
- * the 44px tap floor and no wrapping inside the narrow picture column. */
-a.calendar-disconnect-btn.flight-picture-link {
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
+/* The row-level picture action on the card and in the table never wraps
+ * inside the narrow picture column. */
+.flight-picture-link {
   white-space: nowrap;
 }
 
@@ -3848,7 +3866,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   padding: 0;
   border: 0;
   border-radius: var(--radius-card);
-  box-shadow: inset 0 0 0 1px var(--filter-track-edge, var(--color-border));
+  box-shadow: inset 0 0 0 1px var(--seg-edge);
   background: var(--color-secondary);
 }
 
@@ -3889,7 +3907,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   font-weight: var(--weight-semibold);
   font-variant-numeric: tabular-nums;
   line-height: 1.2;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: var(--seg-idle-fg);
 }
 
 .filter-chip__text {
@@ -3900,21 +3918,24 @@ a.calendar-disconnect-btn.flight-picture-link {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: var(--seg-idle-fg);
 }
 
 .filter-chip:hover .filter-chip__box {
   background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
 }
 
-.filter-chip input:checked + .filter-chip__box {
-  background: var(--color-accent);
+.filter-chip input:checked + .filter-chip__box,
+.filter-chip--current .filter-chip__box {
+  background: var(--seg-selected-bg);
   box-shadow: var(--shadow-control);
 }
 
 .filter-chip input:checked + .filter-chip__box .filter-chip__count,
-.filter-chip input:checked + .filter-chip__box .filter-chip__text {
-  color: var(--color-on-accent);
+.filter-chip input:checked + .filter-chip__box .filter-chip__text,
+.filter-chip.filter-chip--current .filter-chip__box .filter-chip__count,
+.filter-chip.filter-chip--current .filter-chip__box .filter-chip__text {
+  color: var(--seg-selected-fg);
 }
 
 .filter-chip input:focus-visible + .filter-chip__box {
@@ -3924,15 +3945,6 @@ a.calendar-disconnect-btn.flight-picture-link {
 
 .filter-chip.is-zero .filter-chip__count {
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
-}
-
-.filter-chip--current .filter-chip__box {
-  background: var(--color-dominant);
-  box-shadow: inset 0 0 0 1px var(--color-border), var(--shadow-card);
-}
-
-.filter-chip--current .filter-chip__text {
-  color: var(--color-text);
 }
 
 /* The search lives in the page header's title row (.filter-bar--title).
@@ -4167,17 +4179,7 @@ a.calendar-disconnect-btn.flight-picture-link {
   max-width: 36ch;
 }
 
-.empty-state--filter button {
-  min-height: 44px;
-  margin-top: var(--space-sm);
-}
-
-/* The Flights empty state's Clear is a link (it works without a script):
- * the same 44px secondary button the table's picture action uses. */
-.empty-state--filter .calendar-disconnect-btn {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
+.empty-state--filter .btn {
   margin-top: var(--space-sm);
 }
 
@@ -6570,7 +6572,7 @@ html:not(.map-ready) .place-tap-hint {
 }
 
 /* On a small phone the map keeps the room: the nearest-airport offer is not
- * shown. */
+ * shown (it would lift the sheet over the pin the visitor just dropped). */
 @media (max-width: 699.98px) {
   .map-ready .place-nearest {
     display: none;
@@ -6590,14 +6592,10 @@ html:not(.map-ready) .place-tap-hint {
     right: auto;
   }
 
-  /* Only the frame button sits over the map here: the fade is a soft glow at
-   * the top right, away from the search field and the card. */
+  /* Only the frame button sits over the map here, and it carries its own
+   * opaque surface: no fade behind it (a dark glow smudged the light tiles). */
   .map-ready .site-header:has(~ .page-content .place-stage)::before {
-    left: auto;
-    width: 22rem;
-    height: calc(var(--space-2xl) + 44px + var(--space-xl));
-    background: radial-gradient(
-      ellipse at top right, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent 70%);
+    content: none;
   }
 
   .map-ready .place-stage {
@@ -8052,9 +8050,32 @@ button.place-result.is-active {
   line-height: 1.2;
 }
 
-.quiet-tile .field-inline-value {
+.quiet-tile__value {
+  position: relative;
   display: block;
+}
+
+/* A browser with a 12-hour clock paints the 24-hour twin over the field's
+ * own text, so the value is told once; the input stays the control. */
+.quiet-tile .field-inline-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
   margin-left: 0;
+  font-size: 1.5rem;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text);
+  pointer-events: none;
+}
+
+.quiet-tile .field-inline-value[hidden] {
+  display: none;
+}
+
+.modal .quiet-tile__value:has(> .field-inline-value:not([hidden])) input[type="time"] {
+  color: transparent;
 }
 
 .modal .quiet-timezone-note {
@@ -8075,7 +8096,8 @@ button.place-result.is-active {
     display: none;
   }
 
-  .modal .quiet-tile input[type="time"] {
+  .modal .quiet-tile input[type="time"],
+  .quiet-tile .field-inline-value {
     font-size: 1.25rem;
   }
 }
@@ -8342,12 +8364,11 @@ button.switch:active .switch__thumb {
   min-width: 9rem;
 }
 
-/* 8ch is a content-fit width for a 3-4 digit number (one of this file's
- * few off-scale literals); 96px keeps it usable in a condensed font.
+/* Wide enough for the "default" placeholder, not just the 3-4 digit value.
  * Selected by [name=] at equal (0,2,1) specificity to the type=number
  * rule above it, so source order — not a specificity hack — wins. */
 .config-form input[name="wake_interval_s"] {
-  width: 8ch;
+  width: 11rem;
   min-width: 96px;
 }
 
@@ -8430,28 +8451,100 @@ input[name="radius_km"] {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* Equal (0,1,1) specificity to button[type="submit"], but later in
- * source order, so this wins without needing a :where() wrapper (which
- * would drop to (0,0,0) and lose to every other rule). box-shadow: none
- * clears the submit button's inset highlight. */
-button.calendar-disconnect-btn {
-  min-height: 30px;
-  padding: 4px var(--space-sm);
-  font-size: var(--font-caption-size);
-  color: var(--color-text);
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+/* The one button component. .btn carries the geometry (a 44px target, a
+ * centred label); a variant carries the colours: primary (the page's main
+ * action), secondary (the default for every other action), ghost (a quiet
+ * text action), danger (a destructive action) and icon (a square glyph-only
+ * button). A variant is declared at (0,2,0) so it outranks the global
+ * button and button[type="submit"] rules, and its hover at (0,3,0). */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  box-sizing: border-box;
+  height: auto;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid transparent;
   border-radius: var(--radius-control);
-  box-shadow: none;
+  font-family: var(--font-ui);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: normal;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
 }
-/* Same equal-specificity/later-source trick as the base rule, one
- * pseudo-class up on both sides; border-color/box-shadow restated since
- * the primary hover rule declares both. */
-button.calendar-disconnect-btn:hover,
-button.calendar-disconnect-btn:focus-visible {
+
+.btn.btn--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
+}
+
+.btn.btn--primary:hover {
+  background: var(--color-accent-hover);
+  border-color: transparent;
+  box-shadow: var(--shadow-control-hover);
+}
+
+.btn.btn--secondary {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.btn.btn--secondary:hover,
+.btn.btn--secondary:focus-visible {
   background: color-mix(in srgb, var(--color-text) 12%, transparent);
   border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
   box-shadow: none;
+}
+
+.btn.btn--ghost {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.btn.btn--ghost:hover,
+.btn.btn--ghost:focus-visible {
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  box-shadow: none;
+}
+
+.btn.btn--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-status-error) 45%, transparent);
+  box-shadow: none;
+  color: var(--color-status-error);
+}
+
+.btn.btn--danger:hover,
+.btn.btn--danger:focus-visible {
+  background: color-mix(in srgb, var(--color-status-error) 10%, transparent);
+  border-color: color-mix(in srgb, var(--color-status-error) 45%, transparent);
+  box-shadow: none;
+}
+
+.btn.btn--ghost.co-manager__remove-btn {
+  color: var(--color-status-error);
+}
+
+.btn.btn--icon {
+  width: 44px;
+  padding: 0;
+}
+
+a.btn[aria-disabled="true"] {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 /* Manage access: the owner and each co-manager are rows of one glass group;
@@ -8465,48 +8558,10 @@ button.calendar-disconnect-btn:focus-visible {
   margin: 0;
 }
 
-/* Remove is a quiet text button in the danger colour with a 44px target. The
- * selector out-ranks the dialog and submit-button rules, hover and focus
- * included. */
-.co-manager__remove button.co-manager__remove-btn,
-.co-manager__remove button.co-manager__remove-btn:hover,
-.co-manager__remove button.co-manager__remove-btn:focus-visible,
-dialog.modal .co-manager__remove button.co-manager__remove-btn {
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-sm);
-  background: transparent;
-  border: 0;
-  border-radius: var(--radius-control);
-  box-shadow: none;
-  color: var(--color-status-error);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-}
-
 /* The administrator's picker holds full e-mail addresses; a native select
  * sizes to its longest option, so cap it at the dialog's width. */
 .modal__body select {
   max-width: 100%;
-}
-
-/* Targets <a>, not <button> — history_page's Show More link — so there
- * is no button[type="submit"] specificity fight to win here. */
-a.calendar-disconnect-btn {
-  display: inline-block;
-  min-height: 30px;
-  padding: 4px var(--space-sm);
-  font-size: var(--font-caption-size);
-  color: var(--color-text);
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
-  border-radius: var(--radius-control);
-  text-decoration: none;
-}
-a.calendar-disconnect-btn:hover,
-a.calendar-disconnect-btn:focus-visible {
-  background: color-mix(in srgb, var(--color-text) 12%, transparent);
-  border-color: color-mix(in srgb, var(--color-text) 20%, transparent);
 }
 
 .calendar-masked-url {
@@ -8646,7 +8701,12 @@ a.calendar-manage--primary:hover {
 }
 
 .theme-form input[type="radio"] + label {
-  height: 28px;
+  /* A label wider than its segment wraps inside the track, which grows with it. */
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  text-align: center;
+  overflow-wrap: anywhere;
   /* Resets the global label { margin-bottom: var(--space-sm) } that
    * would otherwise add an 8px tail inside this 2px-padded segment. */
   margin-bottom: 0;
@@ -8656,7 +8716,7 @@ a.calendar-manage--primary:hover {
   justify-content: center;
   padding: 0 12px;
   border-radius: var(--radius-control);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: var(--seg-idle-fg);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
@@ -8664,8 +8724,9 @@ a.calendar-manage--primary:hover {
 }
 
 .theme-form input[type="radio"]:checked + label {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
-  color: var(--color-accent);
+  background: var(--seg-selected-bg);
+  color: var(--seg-selected-fg);
+  box-shadow: var(--shadow-control);
   font-weight: var(--weight-semibold);
 }
 
@@ -8832,12 +8893,13 @@ a.calendar-manage--primary:hover {
   /* Rotation is inverted from the base chevron rule: this sheet opens
    * upward, so closed points up (toward where it will open) and open
    * points down (back toward the bar). Positioned absolutely against
-   * .tab-bar__more so it costs the 78x56px cell nothing. */
+   * .tab-bar__more so it costs the cell nothing, centred above the "..."
+   * glyph (never in a corner, where it met the active pill's edge). */
   .tab-bar__more > .tab-bar__link::before {
     position: absolute;
-    top: 7px;
-    right: 12px;
-    margin-right: 0;
+    top: 5px;
+    right: 50%;
+    margin-right: -3px;
     transform: rotate(-135deg);
   }
 
@@ -8891,11 +8953,9 @@ a.calendar-manage--primary:hover {
   .tab-bar__pref .theme-form {
     flex: 1 1 0;
     max-width: 220px;
-    background: var(--glass-solid);
   }
 
   .tab-bar__pref .theme-form .theme-option {
-    height: 44px;
     font-size: var(--font-label-size);
   }
 
@@ -9407,6 +9467,10 @@ button.look-sheet__close[hidden] {
   display: none;
 }
 
+.look-axes[hidden] {
+  display: none;
+}
+
 .look-axis {
   min-width: 0;
   margin: 0;
@@ -9485,7 +9549,7 @@ button.look-sheet__close[hidden] {
   height: 40px;
   gap: 2px;
   padding: 0 3px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--seg-edge);
   border-radius: var(--radius-control);
   background: var(--color-secondary);
 }
@@ -9504,7 +9568,7 @@ button.look-sheet__close[hidden] {
   padding: 0 var(--space-sm);
   border-radius: var(--radius-control);
   font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: var(--seg-idle-fg);
   white-space: nowrap;
   cursor: pointer;
 }
@@ -9672,23 +9736,7 @@ button.look-sheet__done:hover {
 }
 
 a.special-row__remove {
-  display: inline-flex;
   flex: none;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-height: 44px;
-  min-width: 44px;
-  padding: 0 var(--space-md);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  border-color: var(--color-border);
-  background: transparent;
-  color: var(--color-text);
-}
-
-a.special-row__remove:hover {
-  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
 }
 
 .special-looks__order {
@@ -9762,6 +9810,19 @@ a.special-row__edit:hover {
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  /* The docked Save bar covers the foot of the form until it is scrolled
+   * clear: room for the bar (title row + 44px buttons + padding). */
+  padding-bottom: 9rem;
+}
+
+.fleet-system-footer {
+  margin: var(--space-lg) 0 0;
+}
+
+.fleet-system-footer .text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }
 
 a.form-back {
@@ -9882,13 +9943,8 @@ a.form-page__danger:hover {
   font-family: var(--font-mono);
 }
 
-.form-page .theme-form {
-  min-height: 44px;
-}
-
 .form-page .theme-form input[type="radio"] + label {
   flex: 1 1 0;
-  height: 38px;
   font-size: var(--font-label-size);
 }
 
@@ -10065,34 +10121,30 @@ button.rule-suggestion-chip {
   }
 }
 
-/* Audit log: the filter chips as plain links, always visible, on one line that
- * scrolls sideways on a narrow phone; the pager links keep a full touch
- * target. */
-.audit-chips {
+/* Filter chips as plain links (the Audit log), always visible; on a narrow
+ * phone they wrap onto a second row of the same track instead of being cut
+ * at the edge. The pager links keep a full touch target. */
+.filter-bar__chips--links {
   display: flex;
   height: auto;
   padding: 3px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
+  flex-wrap: wrap;
   margin: 0 0 var(--space-md);
 }
 
-.audit-chips .filter-chip {
+.filter-bar__chips--links .filter-chip {
   flex: 1 0 auto;
   min-width: 44px;
   min-height: 0;
   padding: 0;
-  scroll-snap-align: start;
   text-decoration: none;
 }
 
-.audit-chips .filter-chip__box {
+.filter-bar__chips--links .filter-chip__box {
   min-height: 46px;
 }
 
-.audit-chips .filter-chip:focus-visible {
+.filter-bar__chips--links .filter-chip:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
   border-radius: var(--radius-control);
@@ -10380,6 +10432,12 @@ li.entity-row--no-dot {
   margin-top: 6px;
 }
 
+/* A row of one line (no second line, no pills) centres its dot on the title. */
+li.entity-row:not(:has(.entity-row__meta, .entity-row__pills)) > .entity-row__dot {
+  align-self: center;
+  margin-top: 0;
+}
+
 .entity-row__text {
   display: flex;
   flex-direction: column;
@@ -10502,7 +10560,9 @@ details.row-menu[open] > .row-menu__toggle {
   .entity-row__dot {
     position: absolute;
     left: var(--space-md);
-    top: var(--space-md);
+    top: 50%;
+    margin-top: 0;
+    transform: translateY(-50%);
   }
 
   .entity-row__text {
@@ -10630,6 +10690,17 @@ a.pair-form__cancel {
   margin: var(--space-xs) 0 0;
 }
 
+/* A labelled text field always runs the full width of its card or dialog. */
+.modal__field > input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+}
+
+.modal__field + .btn {
+  margin-top: var(--space-md);
+}
+
 /* The State / Settings / Access sub-tabs of a frame: a phone shows one tab's
  * blocks (the server marks the current link and the container); from 960px the
  * control is gone and every block shows, as before. */
@@ -10657,8 +10728,6 @@ a.pair-form__cancel {
   .fleet-frame {
     box-sizing: border-box;
     width: 100%;
-    max-width: 800px;
-    margin-inline: auto;
   }
 
   .fleet-blocks:not(.fleet-blocks--system) {
@@ -10968,7 +11037,7 @@ a.entity-row__button:hover {
   padding: 0;
   border-radius: var(--radius-card);
   background: var(--color-secondary);
-  box-shadow: inset 0 0 0 1px var(--filter-track-edge, var(--color-border));
+  box-shadow: inset 0 0 0 1px var(--seg-edge);
 }
 
 .personalisation-nav__thumb {
@@ -10988,7 +11057,7 @@ a.entity-row__button:hover {
   min-height: 44px;
   padding: 3px;
   background: none;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: var(--seg-idle-fg);
   font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
   line-height: 1.2;
@@ -11027,9 +11096,9 @@ a.entity-row__button:hover {
 }
 
 .personalisation-nav__link[aria-current="page"] > span {
-  background: var(--color-accent);
+  background: var(--seg-selected-bg);
   box-shadow: var(--shadow-control);
-  color: var(--color-on-accent);
+  color: var(--seg-selected-fg);
 }
 
 .personalisation-nav.is-enhanced .personalisation-nav__thumb {
@@ -11040,7 +11109,7 @@ a.entity-row__button:hover {
   display: block;
   width: 0;
   border-radius: var(--radius-control);
-  background: var(--color-accent);
+  background: var(--seg-selected-bg);
   box-shadow: var(--shadow-control);
 }
 
@@ -11488,8 +11557,7 @@ button.look-sheet__done[hidden] {
 }
 
 /* One control bar. Phone: line one is the filter field, the sort menu button and the
- * legend button; line two is the segmented show filter (it scrolls sideways when the
- * labels do not fit). From 700px everything shares one line. Every control is 44px. */
+ * legend button; line two is the segmented show filter (its labels shrink to fit). From 700px everything shares one line. Every control is 44px. */
 .collection-controls {
   position: sticky;
   top: calc(var(--space-sm) + var(--safe-top));
@@ -11524,14 +11592,18 @@ button.look-sheet__done[hidden] {
   flex: 1 1 100%;
   order: 4;
   max-width: 100%;
-  overflow-x: auto;
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
 }
 
+/* The three segments share the line and give way (label ellipsis, no
+ * sideways scroll) rather than being cut at the edge. */
 .collection-controls .filter-chip {
-  flex: 1 0 auto;
-  scroll-snap-align: start;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.collection-controls .filter-chip__box {
+  gap: 2px;
+  padding: 0 2px;
 }
 
 .collection-sort__toggle,
@@ -11663,6 +11735,7 @@ button.look-sheet__done[hidden] {
   box-sizing: border-box;
   min-height: 44px;
   padding: var(--space-lg);
+  position: relative;
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
@@ -11688,10 +11761,10 @@ button.look-sheet__done[hidden] {
   background: color-mix(in srgb, var(--color-text) 5%, transparent);
 }
 
-.collection-card__art .rarity-pill--new {
+.collection-card > .rarity-pill--new {
   position: absolute;
-  top: var(--space-xs);
-  right: var(--space-xs);
+  top: var(--space-sm);
+  right: var(--space-sm);
   border-color: transparent;
   background: var(--color-text);
   color: var(--color-dominant);
@@ -12261,10 +12334,10 @@ button.row-menu__item--destructive:hover {
     padding-right: var(--space-md);
   }
 
-  .users-col--user { width: 28%; }
-  .users-col--role { width: 23%; }
-  .users-col--frames { width: 11%; }
-  .users-col--seen { width: 13%; }
+  .users-col--user { width: 29%; }
+  .users-col--role { width: 22%; }
+  .users-col--frames { width: 12%; }
+  .users-col--seen { width: 12%; }
   .users-col--active { width: 7%; }
   .users-col--invite { width: 76px; }
   .users-col--menu { width: 76px; }
@@ -12983,6 +13056,14 @@ button.row-menu__item--destructive:hover {
  * border-radius here: --radius-card carries it. Modal dialogs are not
  * glass: they sit over a dimmed page on their own opaque surface. */
 @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  /* The segmented tracks are glass too; their edge (--seg-edge) keeps them visible. */
+  .theme-form,
+  .filter-bar__chips,
+  .personalisation-nav,
+  .look-seg {
+    background: var(--glass-bg);
+  }
+
   .page-section,
   .battery-trend-section,
   .health-rows,
@@ -13007,9 +13088,6 @@ button.row-menu__item--destructive:hover {
    * and the other inset controls take the fill and edge without a lift. */
   .runway-card,
   .space-switch,
-  .filter-bar__chips,
-  .personalisation-nav,
-  .look-seg,
   .place-modes,
   .map-ready .place-modes,
   .frame-notice {
@@ -13077,6 +13155,9 @@ button.row-menu__item--destructive:hover {
 .home-greeting__frame {
   display: block;
   margin: 0 0 var(--space-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-family: var(--font-ui);
   font-size: var(--font-label-size);
   line-height: 1.4;
@@ -13675,8 +13756,7 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
 }
 
 .history-card__route {
-  display: inline-block;
-  margin-left: var(--space-xs);
+  display: block;
   white-space: nowrap;
 }
 
@@ -13736,6 +13816,8 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   height: 40px;
   border-radius: var(--radius-chip);
   background: var(--color-secondary);
+  outline: 1px solid var(--glass-hairline);
+  outline-offset: -1px;
   object-fit: cover;
   object-position: center 35%;
 }
@@ -13839,25 +13921,12 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   flex: 0 0 auto;
   max-width: 100%;
   margin: 0 0 0 var(--space-md);
-  background: var(--glass-solid);
 }
 
 .pref-row .theme-form .theme-option {
   flex: 0 1 auto;
   min-width: 44px;
   padding: 0 var(--space-md);
-}
-
-@supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-  .pref-row .theme-form {
-    background: var(--glass-bg);
-  }
-}
-
-.pref-row .theme-form .theme-option--active,
-.pref-row .theme-form .theme-option--active:hover {
-  background: var(--color-accent);
-  color: var(--color-on-accent);
 }
 
 /* Wide enough, the frame's action sits at the right of its row. */
@@ -14510,24 +14579,24 @@ body.is-pulling {
   }
 }
 
-/* The Flights picture dialog shows the picture alone: no card, no border and
- * no glass behind it (the (0,2,0) selector beats the dark-theme .lightbox
- * rules wherever they sit). The picture carries the soft shadow;
- * the caption and the Close button sit under it over the scrim. */
+/* The Flights picture dialog is a standard card: the picture, its dated
+ * caption and the Close button all sit inside one opaque panel over the
+ * scrim, so nothing floats over the page behind it. */
 .lightbox.lightbox--picture {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  box-shadow: none;
-  overflow: visible;
-  width: auto;
+  box-sizing: border-box;
+  padding: var(--space-md);
+  box-shadow: var(--shadow-pop);
+  overflow: auto;
+  width: fit-content;
+  min-width: min(20rem, calc(100vw - var(--space-md) * 2));
   max-width: calc(100vw - var(--space-md) * 2);
+  max-height: calc(100svh - var(--space-md) * 2);
 }
 
 .lightbox.lightbox--picture[open] {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-sm);
 }
 
@@ -14535,30 +14604,19 @@ body.is-pulling {
   width: auto;
   height: auto;
   max-width: 100%;
-  max-height: calc(100svh - 10rem);
-  margin: 0;
+  max-height: calc(100svh - 12rem);
+  margin: 0 auto;
   border-radius: var(--radius-frame-pic);
   box-shadow: var(--shadow-pop);
 }
 
 .lightbox--picture .lightbox__caption {
   margin: 0;
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: var(--color-dominant);
-  color: var(--color-text);
+  text-align: center;
 }
 
 .lightbox--picture .lightbox__caption:empty {
   display: none;
-}
-
-.lightbox--picture button[data-view-panel-close] {
-  min-height: 44px;
-  min-width: 44px;
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
 }
 
 /* The shared element of the thumbnail-to-picture transition: whichever of the
@@ -14636,4 +14694,107 @@ html.is-picture-transition .preview-frame__image {
 
 .look-pairings > .look-table__options {
   margin-top: var(--space-md);
+}
+
+/* Components reference page (administrators): the index of anchors, one
+ * section per component family and one row per state, each state a small
+ * caption over its sample. Everything inside a sample is the real component. */
+.components-index ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  list-style: none;
+}
+
+.components-index__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border: 1px solid var(--seg-edge);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+.components-family {
+  min-width: 0;
+  margin: 0 0 var(--space-xl);
+  scroll-margin-top: var(--space-lg);
+}
+
+.components-helpers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0 0 var(--space-md);
+}
+
+.components-helpers code {
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+}
+
+.components-state {
+  min-width: 0;
+  margin: 0 0 var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--glass-solid);
+}
+
+.components-state__label {
+  margin: 0 0 var(--space-sm);
+}
+
+.components-state__sample {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+.components-state__sample > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.components-state__sample > .theme-form,
+.components-state__sample > .personalisation-nav,
+.components-state__sample > .filter-bar,
+.components-state__sample > .filter-bar__chips,
+.components-state__sample > .data-table-wrap,
+.components-state__sample > .group-block,
+.components-state__sample > .toast,
+.components-state__sample > .modal__field,
+.components-state__sample > .page-header,
+.components-state__sample > .entity-list {
+  flex: 1 1 100%;
+}
+
+.components-menu-host--open {
+  min-height: 12rem;
+}
+
+.components-tiles {
+  display: grid;
+  flex: 1 1 100%;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: var(--space-sm);
+}
+
+.components-triggers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.components-save-bar .dirty-bar {
+  position: static;
 }

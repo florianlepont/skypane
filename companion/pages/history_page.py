@@ -24,6 +24,7 @@ from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
+import companion.ui_components as ui_components
 import companion.ui_filter as ui_filter
 import companion.ui_groups as ui_groups
 from server import history_db
@@ -372,7 +373,7 @@ def _view_panel_link_html(name, iso, row_name):
     The visible text is contained in the accessible name, which adds the
     row's callsign.
     """
-    return '<a class="calendar-disconnect-btn flight-picture-link" %s>%s</a>' % (
+    return '<a class="btn btn--secondary flight-picture-link" %s>%s</a>' % (
         _view_panel_attrs(name, iso, row_name),
         escape_html(i18n.t(VIEW_PICTURE_LABEL)),
     )
@@ -409,7 +410,7 @@ def _lightbox_html():
         '<dialog class="lightbox lightbox--picture" id="%s" aria-label="%s">'
         '<img class="lightbox__image" alt="">'
         '<p class="lightbox__caption text-label mono"></p>'
-        '<button type="button" %s>%s</button>'
+        '<button type="button" class="btn btn--secondary" %s>%s</button>'
         "</dialog>"
     ) % (LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)),
          _VIEW_PANEL_CLOSE_ATTR, escape_html(i18n.t(_CLOSE_TEXT)))
@@ -616,12 +617,14 @@ def _flight_cell_html(row):
 def _chips_html(view, result):
     """The direction chips: radios of the search form (`kind`), each with the
     number of flights of that direction that match the search over the whole
-    history, so the counts stay true while a direction is chosen or the list is
-    empty. "All" counts every match, an overhead pass included."""
+    history, so the counts stay true while a direction is chosen; a search that
+    matches nothing shows the whole history's counts instead of 0 / 0 / 0.
+    "All" counts every match, an overhead pass included."""
+    all_count, counts = result.chip_counts or (result.matched, result.counts)
     chips = (
-        ("", i18n.t(_CHIP_ALL_TEXT), result.matched),
-        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT), result.counts["departing"]),
-        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT), result.counts["arriving"]),
+        ("", i18n.t(_CHIP_ALL_TEXT), all_count),
+        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT), counts["departing"]),
+        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT), counts["arriving"]),
     )
     parts = []
     for kind, text, count in chips:
@@ -685,8 +688,8 @@ def _empty_html(view, result):
     clear = view_href(history_query.View("", "", view.sort))
     return ui_filter.filter_empty_html(
         i18n.t(_FILTER_EMPTY_HEADING), i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % result.total,
-        '<a class="calendar-disconnect-btn" href="%s" data-flights-clear>%s</a>' % (
-            escape_html(clear), escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT))),
+        ui_components.button_html(
+            i18n.t(ui_filter.FILTER_CLEAR_TEXT), "secondary", href=clear, attrs=" data-flights-clear"),
         "data-flights-empty data-flights-view")
 
 
@@ -892,29 +895,49 @@ def _history_card_html(row, index, now, anchor_index=None, dated=True):
         extra_class="history-card", attrs=attrs)
 
 
-def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True, group_label=""):
+def _card_group_key(row, sort):
+    """What a phone group is named by under `sort`: the airline or the direction
+    of its rows, else None (the group is named by the sort itself)."""
+    if sort == history_query.SORT_AIRLINE:
+        label = row["airline_label"]
+        return i18n.t(AIRLINE_FALLBACK_TEXT) if label == AIRLINE_FALLBACK_TEXT else label
+    if sort == history_query.SORT_DIRECTION:
+        return row["confirmed_state"] or None
+    return None
+
+
+def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True, group_label="",
+                        sort=None):
     """The phone representation, built from the same `formatted_rows` list
     `_history_table_html()` consumes. Newest or oldest first it is one glass
-    group per Paris calendar day (the day is its section label); under any
-    other order it is one group named `group_label`. A row whose timestamp
-    cannot be dated joins the open group. Returns "" for an empty list. Must
-    render as a DOM sibling immediately before the desktop table:
-    style.css's `.history-cards ~ .data-table-wrap` breakpoint toggle depends
-    on this order."""
+    group per Paris calendar day (the day is its section label); sorted by
+    airline or direction it is one group per run of rows sharing that value,
+    named by it; under any other order one group named `group_label`. A row
+    whose timestamp cannot be dated joins the open group. Returns "" for an
+    empty list. Must render as a DOM sibling immediately before the desktop
+    table: style.css's `.history-cards ~ .data-table-wrap` breakpoint toggle
+    depends on this order."""
     if not formatted_rows:
         return ""
     today = paris_day(now)
     days = []
     current_day = None
+    current_key = None
     for index, row in enumerate(formatted_rows):
         day = paris_day(row["raw_ts"]) if dated else None
-        if day is not None and day != current_day or not days:
+        key = None if dated else _card_group_key(row, sort)
+        if day is not None and day != current_day or not days or (
+                key is not None and key != current_key):
             current_day = day if day is not None else current_day
-            days.append((day, []))
-        days[-1][1].append(_history_card_html(row, index, now, anchor_index, dated))
+            current_key = key
+            days.append((day, key, []))
+        days[-1][2].append(_history_card_html(row, index, now, anchor_index, dated))
     groups = []
-    for number, (day, items) in enumerate(days):
-        label = day_label(day, today) if day is not None else (group_label or i18n.t(PAGE_TITLE))
+    for number, (day, key, items) in enumerate(days):
+        if day is not None:
+            label = day_label(day, today)
+        else:
+            label = key or group_label or i18n.t(PAGE_TITLE)
         groups.append(ui_groups.group(
             "".join(items), label=label, label_id="history-day-%d" % number,
             extra_class="history-day", attrs="data-filter-day-group"))
@@ -961,7 +984,7 @@ def _list_html(formatted_rows, view, result, pages, now):
         min(pages * HISTORY_ROW_LIMIT, len(formatted_rows) - 1) if pages else None)
     group_label = i18n.t(dict(_SORT_TEXTS)[view.sort])
     return (
-        _history_cards_html(formatted_rows, now, anchor_index, dated, group_label)
+        _history_cards_html(formatted_rows, now, anchor_index, dated, group_label, view.sort)
         + _history_table_html(formatted_rows, now, anchor_index, dated)
         + (_load_more_html(len(formatted_rows), view, pages) if result.has_more else ""))
 

@@ -612,19 +612,24 @@ def test_the_control_bar_sticks_to_the_top_while_the_cards_scroll(
         context.close()
 
 
-def test_the_new_pill_sits_on_the_picture_and_only_a_new_airline_has_one(
+def test_the_new_pill_sits_in_the_card_corner_clear_of_the_picture_and_only_a_new_airline_has_one(
         new_context, make_app_server):
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP)
     try:
         assert page.locator(".rarity-pill--new").count() == 1
-        inside = page.evaluate(
-            "() => { const pill = document.querySelector('.rarity-pill--new').getBoundingClientRect();"
-            " const art = document.querySelector('.rarity-pill--new').closest('.collection-card__art')"
+        clear = page.evaluate(
+            "() => { const pill = document.querySelector('.rarity-pill--new');"
+            " const p = pill.getBoundingClientRect();"
+            " const card = pill.closest('.collection-card').getBoundingClientRect();"
+            " const img = pill.closest('.collection-card').querySelector('.collection-card__image')"
             ".getBoundingClientRect();"
-            " return pill.left >= art.left && pill.right <= art.right && pill.top >= art.top"
-            " && pill.bottom <= art.bottom; }")
-        assert inside
+            " const inCard = p.left >= card.left && p.right <= card.right && p.top >= card.top"
+            " && p.bottom <= card.bottom;"
+            " const overPicture = p.left < img.right && p.right > img.left"
+            " && p.top < img.bottom && p.bottom > img.top;"
+            " return inCard && !overPicture; }")
+        assert clear
         # Each seen card reads on one line: the count, then the rarity in words.
         assert page.locator(SEEN_CARD + " .collection-card__seen").first.inner_text().count(
             "·") == 1

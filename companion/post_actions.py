@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, quote, urlsplit
 
 from PIL import Image
 
-from companion import airline_actions, device_scope, layout
+from companion import airline_actions, device_scope, flash, layout
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -525,8 +525,8 @@ class SettingsActionsMixin:
                 % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(FLASH_KEY_RULE_REPLACED),
                    quote(normalised_value, safe="")))
         if result == colour_rules.ADD_REJECTED_KEY:
-            flash_key = FLASH_KEY_RULE_KEY_INVALID
-        elif result == colour_rules.ADD_REJECTED_FULL:
+            return self._rule_key_refused(device, form)
+        if result == colour_rules.ADD_REJECTED_FULL:
             flash_key = FLASH_KEY_RULE_REGISTRY_FULL
         else:
             # ADD_REJECTED_KIND, ADD_REJECTED_THEME, ADD_FAILED, and any
@@ -534,6 +534,17 @@ class SettingsActionsMixin:
             # a result must never fall through to no flash at all.
             flash_key = FLASH_KEY_RULE_SAVE_FAILED
         return self._scoped_redirect("%s?flash=%s" % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(flash_key)))
+
+    def _rule_key_refused(self, device, form):
+        """A refused special-look key: the New special look form again (400)
+        with the typed kind, key and look kept and the key's own error."""
+        ctx = self.page_context(device)
+        errors = {"rule_key": flash.FLASH_MESSAGES[FLASH_KEY_RULE_KEY_INVALID]}
+        body = config_page.render(
+            ctx, scope=config_page.SCOPE_DISPLAY, errors=errors, submitted=form,
+            view=config_page.error_view(errors, layout.DISPLAY_ROUTE))
+        return self.send_html(
+            400, self._page_shell_for(layout.DISPLAY_ROUTE, body, ctx))
 
     def _handle_rule_delete(self, device, kind, value):
         """POST /settings/rules/{kind}/{value}/delete. `kind` and

@@ -11,6 +11,7 @@ and the live frame's own reads are untouched.
 from collections import namedtuple
 
 import companion.flight_card as flight_card
+import companion.history_cache as history_cache
 from server import history_db
 from server.plane import render as panel_render
 
@@ -32,7 +33,8 @@ DEFAULT_SORT = SORT_NEWEST
 SCAN_LIMIT = 20000
 
 View = namedtuple("View", "q kind sort")
-Result = namedtuple("Result", "rows has_more matched counts total")
+Result = namedtuple(
+    "Result", "rows has_more matched counts total chip_counts", defaults=(None,))
 
 
 def parse_view(raw):
@@ -87,11 +89,14 @@ def select(conn, view, pages, page_size, airline_names=None):
     """The flights page for `view`: `rows` (the first `(pages + 1) *
     page_size` matches in the view's order), `has_more`, `matched` (matches
     of the search in every direction, the "All" chip), `counts` (per
-    direction, for the chips) and `total` (every flight stored, whatever the
+    direction) and `chip_counts` (the "All" count and the per-direction counts the
+    chips show: the search's, or the whole history's when nothing matches) and `total` (every flight stored, whatever the
     search)."""
-    events = history_db.recent_runway_events(
-        conn, limit=SCAN_LIMIT, airline_names=airline_names)
-    flights = flight_card.fold_repeated_passes(events)
+    # The folded history is shared between requests (read only here).
+    flights = history_cache.cached(
+        conn, ("flights", SCAN_LIMIT, tuple(sorted((airline_names or {}).items()))),
+        lambda: flight_card.fold_repeated_passes(history_db.recent_runway_events(
+            conn, limit=SCAN_LIMIT, airline_names=airline_names)))
     words = view.q.lower().split()
     if words:
         found = []
@@ -109,4 +114,15 @@ def select(conn, view, pages, page_size, airline_names=None):
     shown = [e for e in found if not view.kind or _direction(e) == view.kind]
     shown = _ordered(shown, view.sort)
     limit = (pages + 1) * page_size
-    return Result(shown[:limit], len(shown) > limit, len(found), counts, len(flights))
+    chip_counts = (len(found), counts)
+    if words and not found:
+        # A search that matches nothing keeps the chips at the whole history's
+        # counts, so they never read 0 / 0 / 0 beside a hint to clear the search.
+        whole = {kind: 0 for kind in KINDS}
+        for event in flights:
+            kind = _direction(event)
+            if kind:
+                whole[kind] += 1
+        chip_counts = (len(flights), whole)
+    return Result(
+        shown[:limit], len(shown) > limit, len(found), counts, len(flights), chip_counts)

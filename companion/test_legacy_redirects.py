@@ -63,7 +63,7 @@ def test_a_non_admin_is_told_the_page_may_be_reserved_and_the_refusal_stays_unif
                  "/devices/%s/" % seed.live_id):
         status, _location, body = _get(server, owner, path)
         assert status == 404, path
-        assert "This page doesn't exist, or it is reserved for administrators." in body, path
+        assert "This page doesn’t exist, or it is reserved for administrators." in body, path
         bodies.add(body)
     assert len(bodies) == 1, "a refusal must not reveal which kind it was"
 
@@ -72,7 +72,7 @@ def test_an_administrator_still_gets_the_plain_not_found_sentence(fleet):
     server, _seed = fleet
     admin = fx.admin_cookie(server.state_dir)
     _status, _location, body = _get(server, admin, "/no-such-page")
-    assert "The page you requested doesn't exist or may have moved." in body
+    assert "The page you requested doesn’t exist or may have moved." in body
     assert "reserved for administrators" not in body
 
 

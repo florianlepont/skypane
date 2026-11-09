@@ -80,10 +80,10 @@ def test_admin_can_open_account(server, admin_cookie):
     assert "banner__pill" not in body
 
 
-def test_anonymous_account_redirects_to_bare_login(server):
+def test_anonymous_account_redirects_to_login_keeping_the_page(server):
     status, headers, _body = _get(server, "/account")
     assert status == 303
-    assert headers["Location"] == "/login"
+    assert headers["Location"] == "/login?next=%2Faccount"
 
 
 def test_signed_in_user_visiting_login_goes_to_account(server, user_cookie):

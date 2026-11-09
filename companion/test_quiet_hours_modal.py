@@ -243,7 +243,7 @@ def test_home_and_the_toast_reflect_the_saved_window(rig):
 def test_the_quick_switch_route_still_toggles_only_the_flag(rig):
     before = rig.config()
     status, _response, _body = rig.post(
-        "owner", {"state": "off", "return_to": "/"}, csrf=False, path="/quick/quiet-hours")
+        "owner", {"state": "off", "return_to": "/"}, path="/quick/quiet-hours")
     assert status == 303
     after = rig.config()
     assert after["quiet_hours_enabled"] is False

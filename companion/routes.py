@@ -247,8 +247,8 @@ _POST_ROUTES = (
     Route(
         "POST", Exact(QUICK_QUIET_HOURS_WINDOW_ROUTE),
         lambda h, m: h._handle_quiet_hours_window_post(m.device), OWNER_DEVICE, csrf=True),
-    # Session-checked POST only, no CSRF token - SameSite=Strict is the
-    # only control here. return_to whitelist: /device is the LED
+    # Session-checked POST with the per-session token (a quick switch's form
+    # carries it and the script forwards it). return_to whitelist: /device is the LED
     # switch's only page, so it is both the sole allowed value and the
     # fallback.
     Route(
@@ -375,7 +375,8 @@ _DEVICE_SCOPED_KEYS = frozenset(_PAGE_AND_IMAGE_KEYS + _ACTION_KEYS)
 CSRF_FIELD = "csrf_token"
 
 # Existing POST routes that need the token: the destructive actions, the
-# release actions and the detection form that changes location data. New console routes set `csrf=True` on their own Route.
+# release actions, the detection form that changes location data, the settings
+# form and the quick switches. New console routes set `csrf=True` on their own Route.
 CSRF_ROUTE_KEYS = frozenset((
     ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
     ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
@@ -385,6 +386,10 @@ CSRF_ROUTE_KEYS = frozenset((
     ("POST", Exact(UPDATE_INSTALL_ROUTE)),
     ("POST", Exact(UPDATE_CANCEL_ROUTE)),
     ("POST", Exact(DETECTION_ROUTE)),
+    ("POST", Exact(SETTINGS_ROUTE)),
+    ("POST", Exact(QUICK_DISPLAY_ROUTE)),
+    ("POST", Exact(QUICK_QUIET_HOURS_ROUTE)),
+    ("POST", Exact(QUICK_LED_ROUTE)),
 ))
 
 ROUTES = tuple(

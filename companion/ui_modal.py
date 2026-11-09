@@ -142,7 +142,7 @@ def dialog_html(
                 raise ValueError("ui_modal: no control with id %r in the body" % (focus_id,))
         if not found:
             submit_focus = " autofocus"
-    submit_class = ' class="calendar-disconnect-btn"' if destructive else ""
+    submit_class = ' class="btn btn--danger"' if destructive else ""
     subtitle_html = (
         '<p class="modal__subtitle text-label">%s</p>' % escape_html(subtitle)
         if subtitle else "")

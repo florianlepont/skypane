@@ -150,7 +150,7 @@ def test_the_token_never_leaks_into_headers_urls_or_logs(probe, capsys):
 
 from companion.pages import airlines_page, config_page, update_page  # noqa: E402
 from companion_app_server import login, with_csrf  # noqa: E402
-from server import firmware_registry  # noqa: E402
+from server import device_config, firmware_registry  # noqa: E402
 from server.plane import (  # noqa: E402
     calendar_rules, colour_rules, manual_resolutions, name_overrides)
 
@@ -180,6 +180,7 @@ def _state_of(server):
         name_overrides.load_name_overrides(state),
         calendar_rules.calendar_is_configured(state),
         firmware_registry.load_registry(state)["schedule"],
+        device_config.load_device_config(state),
     )
 
 
@@ -199,6 +200,11 @@ PROTECTED = (
     (airlines_page.DEFAULT_TYPE_ROUTE, {"airline_key": "air-france", "type": "A320"}),
     (update_page.INSTALL_ROUTE, {"version": "9.9.9", "confirm": "yes"}),
     (update_page.CANCEL_ROUTE, {}),
+    (config_page.SETTINGS_ROUTE, {
+        "scope": "display", "return_to": "/display", "theme": "blue"}),
+    ("/quick/display", {"state": "off", "return_to": "/display"}),
+    ("/quick/quiet-hours", {"state": "on", "return_to": "/display"}),
+    ("/quick/led", {"state": "off", "return_to": "/device"}),
 )
 
 
@@ -239,6 +245,11 @@ def _form_tokens(page_html, action_fragment):
     ("/display/calendar/connect", config_page.CALENDAR_DISCONNECT_ROUTE),
     ("/airlines/manage", airlines_page.RENAME_RESET_ROUTE),
     ("/airlines/manage", airlines_page.LIGHTBOX_DELETE_CLASS),
+    ("/", "/quick/display"),
+    ("/", "/quick/quiet-hours"),
+    ("/fleet?tab=settings", "/quick/led"),
+    ("/display", 'action="/settings"'),
+    ("/display/calendar-look", 'action="/settings"'),
 ))
 def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
     cookie = login(live)
@@ -254,7 +265,6 @@ def test_other_existing_forms_need_no_token(live):
     cookie = login(live)
     for path, fields in (
             ("/ui-theme", {"theme": "dark"}), ("/ui-lang", {"lang": "fr"}),
-            ("/quick/display", {"state": "on", "return_to": "/display"}),
             (config_page.RULES_ADD_ROUTE, {
                 "rule_kind": "callsign", "rule_key": "ZZN1234", "rule_theme_id": "black"})):
         status, _h, _b = _raw_post(live, path, cookie, fields)
@@ -276,7 +286,7 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     airline_posts = {
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE))}
-    assert len(routes.CSRF_ROUTE_KEYS) == 7
+    assert len(routes.CSRF_ROUTE_KEYS) == 11
     assert flagged == (
         set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post
         | pair_frame_post | airline_posts)

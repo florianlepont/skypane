@@ -39,6 +39,8 @@ class Rig:
             "admin": session_cookie_for_state_dir(state_dir, ADMIN_EMAIL)}
 
     def request(self, method, path, who, data=None):
+        if method == "POST" and data is not None:
+            data = data + b"&csrf_token=" + _csrf(self.cookies[who])
         return http_request(
             self.server.url(path), method=method, data=data, cookie=self.cookies[who],
             extra_headers={"Origin": self.server.base_url()})
@@ -61,6 +63,11 @@ def rig(tmp_path, monkeypatch):
 def _secret(rig, device_id):
     return os.path.join(
         device_dir(rig.state_dir, device_id), calendar_registry.CALENDAR_SECRET_FILENAME)
+
+
+def _csrf(cookie):
+    from companion import auth
+    return auth.csrf_token(cookie.split("=", 1)[1]).encode()
 
 
 def _form(**fields):

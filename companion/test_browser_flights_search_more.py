@@ -287,9 +287,11 @@ def test_a_search_with_no_match_shows_one_coherent_empty_card(new_context, many,
         assert card.locator(".empty-state__heading").inner_text() == (
             "No matching flights" if lang == "en" else "Aucun vol correspondant")
         assert str(TOTAL) in card.locator(".empty-state__body").inner_text()
-        assert page.evaluate(
-            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)"
-        ) == ["0", "0", "0"]
+        # The chips keep the whole history's counts, never 0 / 0 / 0.
+        counts = page.evaluate(
+            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)")
+        assert counts[0] == str(TOTAL), counts
+        assert counts != ["0", "0", "0"], counts
         assert _count(page, "thead") == 0 and _count(page, "table") == 0
         assert _count(page, CARD) == 0 and _count(page, ".history-more") == 0
         assert not _assert_no_page_overflow(page, "empty flights", viewport["width"])
@@ -329,8 +331,11 @@ def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
         assert page.url.endswith("sort=oldest&more=1"), page.url
         assert page.evaluate("() => window.__marker") == "same document"
         _choose_sort(page, "airline")
+        # Each group is named by its airline, never by the sort's own name.
         page.wait_for_function(
-            "() => document.querySelector('section.history-day h2').textContent === 'Airline'",
+            "() => { const first = document.querySelector('section.history-day');"
+            " return first.querySelector('h2').textContent"
+            " === first.querySelector('.history-card__airline').textContent; }",
             timeout=10000)
         assert _count(page, CARD) == LIMIT
     finally:

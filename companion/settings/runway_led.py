@@ -85,11 +85,12 @@ def quick_led_form_html(current_led_enabled):
         '<form method="post" action="%s" id="%s" '
         'class="quick-action__form" data-quick-switch>'
         '<input type="hidden" name="state" value="%s">'
-        '<input type="hidden" name="return_to" value="%s">'
+        '<input type="hidden" name="return_to" value="%s">%s'
         "</form>"
     ) % (
         escape_html(device_scope.scoped("/quick/led", "POST")),
         escape_html(QUICK_LED_FORM_ID),
         escape_html(next_state),
         escape_html(layout.DEVICE_ROUTE),
+        layout.csrf_field(),
     )

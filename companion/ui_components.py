@@ -160,11 +160,12 @@ def toast_link_action_html(href, label):
 def toast_post_action_html(action, fields, label, glyph="icon-undo"):
     """A toast action that changes something: a real POST form, so it works
     with scripts blocked. `fields` is a sequence of (name, value) pairs
-    rendered as hidden inputs; every value is escaped here.
+    rendered as hidden inputs; every value is escaped here. The session's
+    anti-forgery token rides along: the actions are the quick switches' undo.
     """
     hidden = "".join(
         '<input type="hidden" name="%s" value="%s">' % (escape_html(name), escape_html(value))
-        for name, value in fields)
+        for name, value in fields) + csrf_field()
     return (
         '<form class="toast__action-form" method="post" action="%s">%s'
         '<button type="submit" class="toast__action">%s%s</button></form>'
@@ -361,6 +362,76 @@ def stat_tile(caption, content_html, status=None, icon=None, caption_title=None)
     ) % (css_class, title_attr, caption_html, content_html)
 
 
+BUTTON_VARIANTS = ("primary", "secondary", "ghost", "danger")
+
+
+def button_html(label, variant="secondary", href=None, button_type="button", attrs=""):
+    """The one button: a `<button>` (or, with `href`, a link that looks like one)
+    in one of `BUTTON_VARIANTS`. `primary` is the page's main action, `secondary`
+    every other action, `ghost` a quiet text action and `danger` a destructive
+    one. `attrs` is the caller's already-escaped attribute text (a leading
+    space); `label` is escaped here."""
+    css = "btn btn--%s" % variant
+    if href is not None:
+        return '<a class="%s" href="%s"%s>%s</a>' % (
+            css, escape_html(href), attrs, escape_html(label))
+    return '<button type="%s" class="%s"%s>%s</button>' % (
+        button_type, css, attrs, escape_html(label))
+
+
+def icon_button_html(icon_id, aria_label, variant="ghost", button_type="button", attrs=""):
+    """The one icon-only button: a 44px square carrying a glyph, named by its
+    `aria-label`."""
+    return (
+        '<button type="%s" class="btn btn--%s btn--icon" aria-label="%s"%s>%s</button>'
+    ) % (button_type, variant, escape_html(aria_label), attrs, icon_html(icon_id, 20))
+
+
+def text_field_html(field_id, name, label, value="", help_text="", error_html="",
+                    input_attrs="", input_type="text"):
+    """The one labelled text field: a label above a full-width input, its help
+    text and (the caller's already-safe) `error_html` below. `input_attrs` is
+    already-escaped attribute text (a leading space)."""
+    help_html = '<p class="text-label">%s</p>' % escape_html(help_text) if help_text else ""
+    return (
+        '<div class="modal__field"><label for="%s">%s</label>'
+        '<input type="%s" id="%s" name="%s" value="%s"%s>%s%s</div>'
+    ) % (
+        escape_html(field_id), escape_html(label), input_type, escape_html(field_id),
+        escape_html(name), escape_html(value), input_attrs, error_html, help_html)
+
+
+def pill_html(text):
+    """The one small badge: a neutral pill beside a title or inside a row (a
+    status, a count, an outcome). `text` is escaped here."""
+    return '<span class="banner__pill">%s</span>' % escape_html(text)
+
+
+def form_switch_html(field_id, name, label, checked=False, attrs=""):
+    """A switch that is a form field: a native checkbox drawn as the same
+    switch as `switch_button_html`, posted with the form it sits in. `attrs` is
+    already-escaped attribute text (a leading space); `label` is escaped."""
+    return (
+        '<label class="settings-checkbox" for="%s">'
+        '<input type="checkbox" id="%s" name="%s" value="on"%s%s> %s</label>'
+    ) % (
+        escape_html(field_id), escape_html(field_id), escape_html(name),
+        " checked" if checked else "", attrs, escape_html(label))
+
+
+def switch_button_html(is_on, attrs="", button_type="submit"):
+    """The one switch control: a `role="switch"` button whose track and thumb
+    the stylesheet draws. `attrs` is the caller's already-escaped attribute
+    text (a leading space, the accessible name and any script hooks); every
+    switch in the app is built here so its markup and ARIA cannot drift."""
+    return (
+        '<button type="%s" class="switch" role="switch" aria-checked="%s"%s>'
+        '<span class="switch__track" aria-hidden="true">'
+        '<span class="switch__thumb"></span></span>'
+        "</button>"
+    ) % (button_type, "true" if is_on else "false", attrs)
+
+
 def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None):
     """One real `role="switch"` control, shared verbatim by the Frame
     strip's two switches and the Device page's Diagnostic LED, so their
@@ -377,18 +448,11 @@ def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None
     device's prefix; `return_to` stays the un-prefixed whitelisted route, which
     the handler re-prefixes.
     """
-    button_html = (
-        '<button type="submit" class="switch" role="switch" aria-checked="%s"'
-        ' aria-labelledby="%s" aria-describedby="%s" %s%s>'
-        '<span class="switch__track" aria-hidden="true">'
-        '<span class="switch__thumb"></span></span>'
-        "</button>"
-    ) % (
-        "true" if is_on else "false",
-        escape_html(label_id), escape_html(state_id),
-        QUICK_SWITCH_CONTROL_ATTR,
-        (' form="%s"' % escape_html(form_id)) if form_id else "",
-    )
+    button_html = switch_button_html(
+        is_on,
+        ' aria-labelledby="%s" aria-describedby="%s" %s%s' % (
+            escape_html(label_id), escape_html(state_id), QUICK_SWITCH_CONTROL_ATTR,
+            (' form="%s"' % escape_html(form_id)) if form_id else ""))
     if form_id:
         return button_html
     next_state = QUICK_STATE_OFF if is_on else QUICK_STATE_ON
@@ -396,13 +460,13 @@ def quick_switch_html(action, return_to, is_on, label_id, state_id, form_id=None
         '<form method="post" action="%s" class="quick-action__form" data-quick-switch>'
         '<input type="hidden" name="%s" value="%s">'
         '<input type="hidden" name="return_to" value="%s">'
-        "%s"
+        "%s%s"
         "</form>"
     ) % (
         escape_html(device_scope.scoped(action, "POST")),
         QUICK_STATE_FIELD, escape_html(next_state),
         escape_html(return_to),
-        button_html,
+        csrf_field(), button_html,
     )
 
 

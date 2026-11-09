@@ -48,8 +48,8 @@ def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
         return (
             '<div class="dirty-bar" role="region" aria-label="%s">'
             '<span class="dirty-bar__message">%s</span>'
-            '<a class="dirty-bar__cancel" href="%s">%s</a>'
-            '<button type="submit" class="dirty-bar__save" form="%s" %s>%s</button>'
+            '<a class="btn btn--secondary dirty-bar__cancel" href="%s">%s</a>'
+            '<button type="submit" class="btn btn--primary dirty-bar__save" form="%s" %s>%s</button>'
             "</div>"
         ) % (label, label, escape_html(cancel_href), cancel, form, save_attrs, save)
     carried = (
@@ -59,8 +59,8 @@ def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
         '<div class="dirty-bar" data-dirty-bar%s role="region" aria-label="%s" '
         'data-dirty-several="%s" data-dirty-saving="%s" data-dirty-initial-text="%s">'
         '<span class="dirty-bar__message" data-dirty-count role="status"></span>'
-        '<button type="reset" form="%s" class="dirty-bar__cancel" data-dirty-cancel>%s</button>'
-        '<button type="submit" class="dirty-bar__save" form="%s" %s>%s</button>'
+        '<button type="reset" form="%s" class="btn btn--secondary dirty-bar__cancel" data-dirty-cancel>%s</button>'
+        '<button type="submit" class="btn btn--primary dirty-bar__save" form="%s" %s>%s</button>'
         "</div>"
     ) % (
         carried, escape_html(i18n.t(UNSAVED_TEXT)),

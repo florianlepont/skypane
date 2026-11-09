@@ -120,7 +120,7 @@ def test_the_chips_are_plain_links_and_filter(rig):
     _append(server.state_dir, 1, action="release.install", outcome="failed")
     _append(server.state_dir, 1, action="device.retire", outcome="denied")
     html = _page(server, cookie)[2]
-    nav = re.search(r'<nav class="filter-bar__chips audit-chips".*?</nav>', html, re.S).group(0)
+    nav = re.search(r'<nav class="filter-bar__chips filter-bar__chips--links".*?</nav>', html, re.S).group(0)
     for label in ("All", "Pairing", "Frames", "Users", "Locations", "Releases", "Failed"):
         assert ">%s<" % label in nav
     assert "<script" not in nav and "<input" not in nav

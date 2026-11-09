@@ -509,7 +509,7 @@ def test_rules_add_and_delete_forms_sit_outside_settings_form(make_app_server):
 
     status, _headers, _body = http_request(
         base + "/settings", method="POST",
-        data=urllib.parse.urlencode({"tracked_runway": "3"}).encode(), cookie=session)
+        data=with_csrf(session, {"tracked_runway": "3"}), cookie=session)
     assert status == 303, "expected a 303 redirect from the settings save, got %d" % status
     registry = colour_rules.load_colour_rules(server.state_dir)
     assert "AFR9001" in registry.get("callsign", {}), (
@@ -571,10 +571,14 @@ def test_rules_add_route_rejection_paths(make_app_server):
             {"rule_kind": kind, "rule_key": key, "rule_theme_id": theme_id}).encode()
         return http_request(base + config_page.RULES_ADD_ROUTE, method="POST", data=data, cookie=session)
 
-    status, headers, _ = _add("prefix", "TOOLONG", "white")
-    assert status == 303, "expected a 303 redirect, got %d" % status
-    assert "flash=rule_key_invalid" in headers.get("Location", ""), (
-        "expected the key-invalid flash key, got %r" % headers.get("Location"))
+    status, _headers, body = _add("prefix", "TOOLONG", "blue")
+    assert status == 400, "expected the form back with a 400, got %d" % status
+    page = body.decode("utf-8")
+    # The New special look form again, keeping what was typed and chosen, with the key's error.
+    assert 'name="rule_key"' in page and 'value="TOOLONG"' in page
+    assert 'id="rule-key-error"' in page and "doesn" in page
+    assert re.search(r'name="rule_theme_id"[^>]*value="blue"[^>]*checked', page) or re.search(
+        r'name="rule_theme_id"[^>]*checked[^>]*value="blue"', page)
     registry = colour_rules.load_colour_rules(server.state_dir)
     assert not registry.get("prefix"), "expected nothing written for a malformed value"
 
@@ -698,7 +702,7 @@ def test_calendar_connect_reports_plural_count(app_server_in_process):
             cah.fake_public_hostname(hostname):
         status, headers, _b = http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=with_csrf(session, {"calendar_url": url}), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert "flash=calendar_connected" in location, "expected the calendar_connected flash key, got %r" % location
@@ -720,7 +724,7 @@ def test_calendar_connect_reports_singular_count(app_server_in_process):
             cah.fake_public_hostname(hostname):
         status, headers, _b = http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=with_csrf(session, {"calendar_url": url}), cookie=session)
     location = headers.get("Location", "")
     status2, _h2, page_body = http_request(server.base_url() + location, cookie=session)
     assert status2 == 200, "expected 200 following the redirect, got %d" % status2
@@ -741,7 +745,7 @@ def test_calendar_connect_zero_entries_still_succeeds(app_server_in_process):
             cah.fake_public_hostname(hostname):
         status, headers, _b = http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=with_csrf(session, {"calendar_url": url}), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert "flash=calendar_connected" in location, (
@@ -762,7 +766,7 @@ def test_calendar_sync_failure_reports_generic_message_and_still_saves(app_serve
             cah.fake_public_hostname(hostname):
         status, headers, _b = http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=with_csrf(session, {"calendar_url": url}), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert "flash=calendar_sync_failed" in location, (
@@ -797,8 +801,8 @@ def test_calendar_sync_failure_never_leaks_the_url(app_server_in_process):
             cah.fake_public_hostname(hostname):
         status, headers, redirect_body = http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({
-                "calendar_url": url, "return_to": "/display/calendar"}).encode(),
+            data=with_csrf(session, {
+                "calendar_url": url, "return_to": "/display/calendar"}),
             cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
@@ -829,14 +833,13 @@ def test_calendar_disconnect_reports_deletion_and_erases_entries(app_server_in_p
             cah.fake_public_hostname(hostname):
         http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=with_csrf(session, {"calendar_url": url}), cookie=session)
     registry_before = calendar_rules.load_calendar_registry(server.state_dir)
     assert registry_before["entries"], "test setup failure: expected at least one entry before disconnecting"
 
     status, headers, _b = http_request(
         server.base_url() + "/settings", method="POST",
-        data=urllib.parse.urlencode(
-            {"calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE}).encode(),
+        data=with_csrf(session, {"calendar_disconnect": config_page.CALENDAR_DISCONNECT_CHECKBOX_VALUE}),
         cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
@@ -1028,7 +1031,7 @@ def test_calendar_sync_bypasses_the_throttle_via_min_interval_zero(app_server_in
                 cah.fake_public_hostname(hostname):
             status, headers, _b = http_request(
                 server.base_url() + "/settings", method="POST",
-                data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+                data=with_csrf(session, {"calendar_url": url}), cookie=session)
     finally:
         calendar_rules.refresh_calendar_registry = real_refresh
     assert status == 303, "expected a 303 redirect, got %d" % status
@@ -1073,7 +1076,7 @@ def test_calendar_sync_lock_contention_is_honest(app_server_in_process):
                 cah.fake_public_hostname(hostname):
             status, headers, _b = http_request(
                 server.base_url() + "/settings", method="POST",
-                data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+                data=with_csrf(session, {"calendar_url": url}), cookie=session)
     finally:
         poll_lock.release()
     assert status == 303, "expected a 303 redirect, got %d" % status
@@ -1095,7 +1098,7 @@ def test_calendar_sync_lock_is_released_after_a_failed_sync(app_server_in_proces
             cah.fake_public_hostname(hostname):
         http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=with_csrf(session, {"calendar_url": url}), cookie=session)
     poll_lock = device_scope.poll_lock_for(server.state_dir)
     reacquired = poll_lock.acquire(blocking=False)
     if reacquired:
@@ -1118,14 +1121,14 @@ def test_unrelated_settings_save_never_reaches_the_refresh_call(app_server_in_pr
             cah.fake_public_hostname(hostname):
         http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
+            data=with_csrf(session, {"calendar_url": url}), cookie=session)
     registry_before = calendar_rules.load_calendar_registry(server.state_dir)
 
     calls = []
     with cah.stubbed_calendar_transport(cah.make_calendar_transport(calls=calls)):
         status, headers, _b = http_request(
             server.base_url() + "/settings", method="POST",
-            data=urllib.parse.urlencode({"theme": "black"}).encode(), cookie=session)
+            data=with_csrf(session, {"theme": "black"}), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert "flash=saved" in location, "expected the ordinary saved flash key, got %r" % location

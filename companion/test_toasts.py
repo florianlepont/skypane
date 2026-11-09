@@ -15,7 +15,7 @@ import pytest
 
 import companion.app as app_module
 from companion import flash, i18n, layout, prefs
-from companion_app_server import get, http_request, login, served_asset
+from companion_app_server import get, http_request, login, served_asset, with_csrf
 from companion_markup import flash_toast, parse_html, toast_title_detail
 from server import device_config
 
@@ -249,7 +249,9 @@ def test_actions_are_real_controls_that_work_without_scripts(server, session):
         form = toast.select_one("form.toast__action-form")
         assert form.attrs.get("method") == "post" and form.attrs.get("action") == route
         fields = {node.attrs["name"]: node.attrs["value"] for node in form.select("input")}
+        token = fields.pop("csrf_token", "")
         assert fields == {"state": state, "return_to": "/"}, "%s: got %r" % (key, fields)
+        assert len(token) == 64, "%s: the undo form must carry the session's token" % key
     stale = flash_toast(_page(
         server, session, "/airlines?flash=%s" % flash.FLASH_KEY_MANUAL_PREFIX_STALE))
     assert stale.select_one("a.toast__action").attrs.get("href") == "/fleet?view=system"
@@ -264,7 +266,7 @@ def test_undo_round_trip_without_scripts(make_app_server):
     cookie = login(server)
     status, headers, _ = http_request(
         server.base_url() + app_module.QUICK_QUIET_HOURS_ROUTE, method="POST", cookie=cookie,
-        data=urllib.parse.urlencode({"state": "on", "return_to": "/"}).encode())
+        data=with_csrf(cookie, {"state": "on", "return_to": "/"}))
     assert status == 303
     _s, _h, body = get(server, headers["Location"], cookie=cookie)
     form = flash_toast(body.decode("utf-8")).select_one("form.toast__action-form")

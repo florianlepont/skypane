@@ -34,7 +34,7 @@ _MEASURE = """() => {
     return {left: r.left, right: r.right, top: r.top, bottom: r.bottom,
             width: r.width, height: r.height}; };
   const bar = document.querySelector('.dirty-bar');
-  const kids = Array.from(bar.children).map(el => el.className.split(' ')[0]);
+  const kids = Array.from(bar.children).map(el => el.className.split(' ').find(c => c.startsWith('dirty-bar__')));
   const box = rect('.dirty-bar');
   return {
     width: box.width, height: box.height, left: box.left, right: box.right,

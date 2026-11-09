@@ -475,10 +475,11 @@ def test_the_quiet_hours_sheet_fits_a_small_phone_without_scrolling(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_a_twelve_hour_browser_also_gets_the_24_hour_time_under_each_field(
+def test_a_twelve_hour_browser_shows_each_time_once_in_24_hour_form(
         new_context, make_app_server, lang):
-    """The browser here shows a 12-hour clock in its time fields; each tile then writes the
-    24-hour time under the field, the form the rest of the page uses."""
+    """The browser here shows a 12-hour clock in its time fields; each tile then draws the
+    24-hour time over the field's own text (the form the rest of the page uses), so the value
+    is told once, and it follows an edit."""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), lang, VIEWPORT_MIN_SUPPORTED)
     try:
@@ -489,5 +490,12 @@ def test_a_twelve_hour_browser_also_gets_the_24_hour_time_under_each_field(
         assert page.evaluate(
             "() => [...document.querySelectorAll('%s .quiet-tile .field-inline-value')]"
             ".every(e => e.getBoundingClientRect().height > 0)" % DIALOG)
+        assert page.evaluate(
+            "() => [...document.querySelectorAll('%s .quiet-tile input[type=time]')]"
+            ".every(i => getComputedStyle(i).color === 'rgba(0, 0, 0, 0)')" % DIALOG)
+        page.fill(START, "21:30")
+        page.wait_for_function(
+            "() => document.querySelector('%s .quiet-tile .field-inline-value')"
+            ".textContent.trim() === '21:30'" % DIALOG, timeout=5000)
     finally:
         context.close()

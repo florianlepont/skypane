@@ -149,6 +149,7 @@ _UNAUTH_GET_REQUESTS = (
     "/frame/name",
     "/fleet",
     "/audit",
+    "/components",
     "/users",
     "/locations",
     companion_app.SETTINGS_ROUTE,

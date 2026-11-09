@@ -16,6 +16,7 @@ poll process is its one writer and the only consumer of the ADS-B budget.
 `main()` fails closed on an incomplete Auth0 configuration rather than
 starting with sign-in silently unavailable.
 """
+import hashlib
 import os
 import sqlite3
 import sys
@@ -491,18 +492,24 @@ class Handler(
         explicit opt-in, never the default, or a shared cache could
         replay a session-gated response to a different client.
         """
-        self.send_response(code)
-        self.send_header("Content-Type", content_type)
-        self.send_header("Content-Length", str(len(payload)))
-        if cache_seconds > 0:
-            scope = "public" if public else "private"
-            self.send_header(
-                "Cache-Control", "%s, max-age=%d" % (scope, cache_seconds))
+        # A cacheable image carries a strong validator, so an expired copy
+        # the client still holds is answered with a bodiless 304.
+        etag = '"%s"' % hashlib.sha256(payload).hexdigest()[:32] if cache_seconds > 0 else None
+        unchanged = etag is not None and static_files.if_none_match_matches(self.headers, etag)
+        self.send_response(304 if unchanged else code)
+        if not unchanged:
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(payload)))
+        if etag is not None:
+            self.send_header("ETag", etag)
+            self.send_header("Cache-Control", "%s, max-age=%d" % (
+                "public" if public else "private", cache_seconds))
         else:
             self.send_header("Cache-Control", "no-store")
         self._send_hardening_headers()
         self.end_headers()
-        self.wfile.write(payload)
+        if not unchanged:
+            self.wfile.write(payload)
 
     def send_no_content(self):
         """204 with no body and no Location — the fetch half of a
@@ -620,18 +627,11 @@ class Handler(
             return False
 
     def _redirect_to_login(self):
-        # Carries the requested route through login via an allowlisted
-        # `next` param, validated by _validated_next_route(); unrecognised
-        # values discard silently to the bare LOGIN_ROUTE.
-        target = (_validated_next_route(self.path)
-                  or _validated_next_route(urlsplit(self.path).path))
-        if target:
-            # safe="" so the value is unambiguously one query token
-            # ("/login?next=%2Fhealth", not "/login?next=/health").
-            self.redirect(
-                "%s?next=%s" % (LOGIN_ROUTE, quote(target, safe="")))
-        else:
-            self.redirect(LOGIN_ROUTE)
+        # Carries the requested page through sign-in as a validated `next`,
+        # and marks a visit whose session has ended (`expired=1`); an
+        # unrecognised page is dropped silently.
+        self.redirect(next_route_check.login_redirect(
+            self.path, bool(self._raw_session_token())))
 
     def _resolved_ui_theme(self):
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
@@ -732,6 +732,7 @@ class Handler(
         """
         # Pre-session: resolved from the cookie or Accept-Language.
         prefs.set_request_prefs(lang=self._lang_from_request())
+        self._scope_for_chrome()
         health_alert = self._health_alert_for_admin()
         back, home_route = self._back_target()
         principal = self._safe_principal()
@@ -749,6 +750,7 @@ class Handler(
         principal alone, like the 404 page.
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
+        self._scope_for_chrome()
         return self.send_html(200, credits_page.credits_page(
             self._resolved_ui_theme(), self._health_alert_for_admin()))
 
@@ -758,6 +760,7 @@ class Handler(
         markup itself is `companion/login_page.py`'s `forbidden_page()`.
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
+        self._scope_for_chrome()
         health_alert = self._health_alert_for_admin()
         back, home_route = self._back_target()
         return login_page.forbidden_page(
@@ -812,13 +815,13 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.unavailable_page(self._resolved_ui_theme())
 
-    def _render_login_page(self, next_route=None):
+    def _render_login_page(self, next_route=None, expired=False):
         # Pre-session, like _not_found_page() above. The markup itself is
         # companion/login_page.py's render_login_page().
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.render_login_page(
             self._resolved_ui_theme(), next_route=next_route,
-            auth0_enabled=self._auth0_enabled())
+            auth0_enabled=self._auth0_enabled(), expired=expired)
 
     def _serve_static(self, abs_path, content_type, cache_control):
         """Shared body behind `_serve_static_route()` and
@@ -1018,9 +1021,10 @@ class Handler(
         principal = self._safe_principal()
         if principal is not None:
             return self.redirect(self._landing_for(principal))
-        next_route = _validated_next_route(
-            parse_qs(urlsplit(self.path).query).get("next", [None])[0])
-        return self.send_html(200, self._render_login_page(next_route=next_route))
+        query = parse_qs(urlsplit(self.path).query)
+        return self.send_html(200, self._render_login_page(
+            next_route=_validated_next_route(query.get("next", [None])[0]),
+            expired=query.get("expired") == ["1"]))
 
     def _handle_rule_delete_post(self, device, middle):
         """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:

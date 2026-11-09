@@ -54,7 +54,7 @@ _STYLE_VALUES = (
 # The shared button, filter-chip and status-pill classes the console reuses, added to a
 # reference page so their resolved paint counts as already in use.
 _ADD_EXISTING_BUTTONS = (
-    "() => { for (const cls of ['calendar-disconnect-btn']) {"
+    "() => { for (const cls of ['btn btn--secondary']) {"
     " const b = document.createElement('button'); b.type = 'submit';"
     " b.className = cls; b.textContent = 'x';"
     " document.querySelector('main').appendChild(b); }"

@@ -151,7 +151,7 @@ _PERSONAL_BODY = """
 # Airline and airport names are catalogue data, spelled the same in both languages.
 _VISIBLE_TEXT = """
 () => {
-  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-row__name, .frame-menu__name';
+  const CATALOGUE = 'script, style, noscript, .collection-card__name, .place-airport__name, .place-airport__meta, .airlines-name, .frame-row__name, .frame-menu__name, .frame-rename .row__value';
   const out = new Set();
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   for (let n = walker.nextNode(); n; n = walker.nextNode()) {

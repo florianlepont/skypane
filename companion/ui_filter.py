@@ -50,6 +50,24 @@ def _chips_html(chips, legend):
     ) % (escape_html(legend), "".join(parts))
 
 
+def chip_links_html(chips, aria_label):
+    """The segmented chips as plain links (a navigation between filtered
+    views of one list, no script): the same chip look as the filter bar's
+    radios, wrapping onto a second row of the track on a narrow phone.
+    `chips` is a sequence of `(href, label, current)` with `href` already
+    escaped."""
+    parts = []
+    for href, label, current in chips:
+        parts.append(
+            '<a class="filter-chip%s" href="%s"%s>'
+            '<span class="filter-chip__box"><span class="filter-chip__text">%s</span></span>'
+            "</a>" % (
+                " filter-chip--current" if current else "", href,
+                ' aria-current="true"' if current else "", escape_html(label)))
+    return '<nav class="filter-bar__chips filter-bar__chips--links" aria-label="%s">%s</nav>' % (
+        escape_html(aria_label), "".join(parts))
+
+
 def _search_html(input_id, label, placeholder, server=None):
     """The visually-hidden label, the field (a magnifier, the 16px input)
     and its inline clear button: the one search control both bar forms use.
@@ -161,7 +179,7 @@ def filter_bar_html(
         escape_html(count_text),
         filter_empty_html(
             empty_heading, empty_body,
-            '<button type="button" data-filter-clear data-filter-clear-all>%s</button>'
+            '<button type="button" class="btn btn--secondary" data-filter-clear data-filter-clear-all>%s</button>'
             % escape_html(i18n.t(FILTER_CLEAR_TEXT)),
             "data-filter-empty hidden"),
     )

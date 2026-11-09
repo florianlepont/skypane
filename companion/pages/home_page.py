@@ -31,7 +31,7 @@ import companion.ui_modal as ui_modal
 import companion.ui_time as ui_time
 import companion.user_view as user_view
 import companion.wake as wake
-from companion.pages import home_battery_row, home_greeting, home_notice
+from companion.pages import home_battery_row, home_greeting, home_notice, home_rename_row
 from companion.layout import escape_html
 from companion.settings import quiet_hours
 from server import device_config, history_db
@@ -462,8 +462,13 @@ def _switch_row_html(spec, is_on, detail_html):
 
 def _battery_row_html(ctx, interval_s):
     """The Battery row: the latest reading, its level word, and the
-    autonomy figure only while the frame is not charging."""
+    autonomy figure only while the frame is not charging. Empty for a frame
+    that never checked in."""
     percent = _battery_percent(ctx)
+    if percent is None and not ctx.last_checkin_ts:
+        # A frame that never contacted SkyPane has no reading to show: the
+        # state above already says so, once.
+        return ""
     charging = percent is not None and _charging_likely(ctx)
     autonomy = "" if percent is None or charging else home_battery_row.autonomy_text(
         ctx.state_dir, ctx.now, interval_s, page_context.device_curve(ctx.device))
@@ -753,7 +758,9 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
         + _frame_state_html(
             ctx, summary, status, picture,
             say_once=bool(notice) and status.key == frame_status.KEY_OVERDUE)
-        + _switches_html(ctx.device_config or {}, _battery_row_html(ctx, summary[2]))
+        + _switches_html(
+            ctx.device_config or {},
+            _battery_row_html(ctx, summary[2]) + home_rename_row.row_html())
         + _recent_flights_html(rows, now, ctx.state_dir)
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
     )

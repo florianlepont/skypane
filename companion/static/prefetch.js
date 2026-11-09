@@ -8,9 +8,11 @@
  * answer `private, max-age=10` with `Vary: Cookie` instead of its usual
  * `no-store` (companion/page_cache.py). Pages are warmed once the window is
  * idle after load, then again on touchstart, mouse hover and keyboard focus
- * of a link. Never prefetched: a link to the current page, to another
- * origin, with a query or a fragment, to the sign-in or sign-out routes or to
- * a quick-switch route; nothing here sends a POST. Skipped altogether under
+ * of a link. The idle warm-up fetches only the two pages a visitor most likely
+ * opens next. Never prefetched: a link to the current page, to another
+ * origin, with a query or a fragment, to the sign-in or sign-out routes, to
+ * the bare root (a redirect), to the airline editor or to a quick-switch
+ * route; nothing here sends a POST. Skipped altogether under
  * Save-Data, on a 2G-class connection and in a hidden tab. At most two
  * requests run at once. Whenever the user changes something (a form post or a
  * quick switch) a marker cookie is rewritten, which changes the cache key of
@@ -29,8 +31,16 @@
   var MAX_ACTIVE = 2;
   var MAX_QUEUED = 8;
   var MARKER_COOKIE = "sp_mut";
-  // Routes that are not plain pages.
-  var EXCLUDED = /^\/(login|logout|quick|static)(\/|$)/;
+  // Routes that are not plain pages, the bare root (a redirect) and the
+  // airline editor (a heavy page nobody opens on a whim).
+  var EXCLUDED = /^\/(login|logout|quick|static)(\/|$)|^\/$|(^|\/devices\/d_[0-9a-f]{8})\/airlines\/manage$/;
+  // When idle, only the next pages a visitor most likely opens are warmed
+  // (two, by the page they are on); every other link is warmed on intent.
+  var IDLE_LIKELY = {
+    home: ["flights", "display"],
+    flights: ["home", "display"],
+    other: ["flights", "home"]
+  };
 
   var lastFetched = {};
   var queue = [];
@@ -123,10 +133,31 @@
     pump();
   }
 
+  // "home", "flights", "display" or "other" for a path (a frame's own prefix
+  // is ignored).
+  function slugOf(pathname) {
+    var path = pathname.replace(/^\/devices\/d_[0-9a-f]{8}/, "");
+    if (path === "" || path === "/") {
+      return "home";
+    }
+    return path === "/flights" || path === "/display" ? path.slice(1) : "other";
+  }
+
   function warmAll() {
     var anchors = document.querySelectorAll(LINK_SELECTOR);
+    var current = slugOf(window.location.pathname);
+    var order = IDLE_LIKELY[current] || IDLE_LIKELY.other;
+    var chosen = {};
     for (var i = 0; i < anchors.length; i++) {
-      enqueue(targetOf(anchors[i]), false);
+      var url = targetOf(anchors[i]);
+      if (url) {
+        chosen[slugOf(new URL(url).pathname)] = url;
+      }
+    }
+    for (var j = 0; j < order.length; j++) {
+      if (chosen[order[j]]) {
+        enqueue(chosen[order[j]], false);
+      }
     }
   }
 

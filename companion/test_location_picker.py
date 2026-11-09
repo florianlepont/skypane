@@ -3,7 +3,6 @@ assigns a place: the controls are absent for every role, a crafted
 `location_id` posted to the settings form moves nothing and writes no audit
 row, and the frame's place stays reachable on the Location and detection
 page. Every place here is an obviously generic fake."""
-import urllib.parse
 
 import pytest
 
@@ -61,7 +60,7 @@ class Rig:
         form.update(fields)
         return http_request(
             self.server.url("/devices/%s/settings" % device_id), method="POST",
-            data=urllib.parse.urlencode(form).encode(), cookie=self.cookies[who],
+            data=with_csrf(self.cookies[who], form), cookie=self.cookies[who],
             extra_headers={"Origin": self.server.base_url()})
 
     def config(self, device_id):
@@ -188,8 +187,7 @@ def test_the_live_frame_form_is_still_refused_for_a_user(rig):
     mine = rig.add_location("Alpha Place", rig.fleet.a_id)
     status, _headers, _body = http_request(
         rig.server.url("/settings"), method="POST",
-        data=urllib.parse.urlencode(
-            {"scope": "display", "location_id": str(mine)}).encode(),
+        data=with_csrf(rig.cookies["a"], {"scope": "display", "location_id": str(mine)}),
         cookie=rig.cookies["a"], extra_headers={"Origin": rig.server.base_url()})
     assert status == 404
     assert rig.location_of(rig.fleet.live) is None

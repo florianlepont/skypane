@@ -101,7 +101,7 @@ def _position_row(rig):
 
 SECTIONS = ("Departures", "Arrivals", "Layout", "Special looks", "Calendar")
 SECTION_TITLES = ("Look", "Look", "Layout", "Special looks", "Calendar")
-FR_TITLES = ("Départs", "Arrivées", "Disposition", "Looks spéciaux", "Calendrier")
+FR_TITLES = ("Départs", "Arrivées", "Disposition", "Allures spéciales", "Calendrier")
 SEEDED = {
     "quiet_hours_enabled": True, "quiet_hours_start": "21:00", "quiet_hours_end": "05:00",
     "timezone": "America/Martinique", "wake_interval_s": 900, "theme": "band_red_field",
@@ -182,7 +182,7 @@ def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(ri
 def test_the_page_speaks_french(rig):
     expected = {
         "departures": "Allure", "arrivals": "Allure", "layout": "Disposition",
-        "special-looks": "Looks spéciaux",
+        "special-looks": "Allures spéciales",
         "calendar": "Calendrier"}
     for view, title in expected.items():
         page = _display(rig, lang="fr", view=view)

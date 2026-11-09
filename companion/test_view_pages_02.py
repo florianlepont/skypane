@@ -404,8 +404,7 @@ def test_gallery_name_to_iso_fixtures():
 
 def test_view_panel_trigger_reuses_the_small_grey_secondary_treatment(tmp_path, served_css):
     """a rendered History page's desktop picture link carries no icon glyph and reuses
-    .calendar-disconnect-btn's small-grey-secondary treatment, with a 44px tap floor on the
-    link itself"""
+    the shared secondary button, which carries the 44px tap floor on the link itself"""
     names = ["2026-08-27T10-00-00+00-00.png"]
     vp.seed_gallery(tmp_path, names)
     vp.seed_runway_events(tmp_path, [
@@ -414,11 +413,10 @@ def test_view_panel_trigger_reuses_the_small_grey_secondary_treatment(tmp_path, 
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
     link = parse_html(rendered).select_one("tr a[data-view-panel-src]")
     classes = link.attrs["class"].split()
-    assert "calendar-disconnect-btn" in classes and "flight-picture-link" in classes
+    assert {"btn", "btn--secondary", "flight-picture-link"} <= set(classes)
     assert not link.select("svg")
-    assert "btn--" not in rendered, "did not expect a .btn-- family class to be started"
-    assert declarations_for(served_css, "a.calendar-disconnect-btn")
-    assert declarations_for(served_css, "a.calendar-disconnect-btn.flight-picture-link").get("min-height") == "44px"
+    assert declarations_for(served_css, ".btn.btn--secondary")
+    assert declarations_for(served_css, ".btn").get("min-height") == "44px"
 
 
 # ======================================================================

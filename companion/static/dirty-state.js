@@ -67,6 +67,16 @@
   // aria-pressed: a window card is selected when quiet hours are on with
   // exactly its hours, "Always active" when they are off. Re-evaluated
   // after a card tap and whenever a field of the form changes.
+  // A 12-hour browser's time field is read in 24-hour form by the twin the
+  // server draws over it; the twin follows the field's value.
+  function syncTimeTwin(field) {
+    var twin = field && field.parentNode &&
+      field.parentNode.querySelector("[data-normalised-time]");
+    if (twin && field.value && twin.textContent !== field.value) {
+      twin.textContent = field.value;
+    }
+  }
+
   function syncPresetCards(target) {
     var cards = target.querySelectorAll("[data-quiet-card]");
     var enabledField = target.elements["quiet_hours_enabled"];
@@ -76,6 +86,8 @@
     var card;
     var on;
     var pressed;
+    syncTimeTwin(startField);
+    syncTimeTwin(endField);
     if (!cards.length || !enabledField || !startField || !endField) {
       return;
     }
@@ -120,6 +132,91 @@
       updateBar();
     }
   }
+
+  // A form page (New special look, Calendar connect, the calendar look) shows
+  // its Cancel and Save bar as a fixture and has no dirty bar of its own.
+  // Leaving it with values that differ from the ones it loaded with still asks
+  // first, keyed on the form the bar's Save button submits; a submit disarms it.
+  function guardFormPage() {
+    var save = document.querySelector(
+      ".dirty-bar:not([data-dirty-bar]) .dirty-bar__save[form]");
+    var pageForm = save ? document.getElementById(save.getAttribute("form")) : null;
+    if (!pageForm || pageForm.hasAttribute("data-dirty-form")) {
+      return;
+    }
+
+    function values() {
+      var out = {};
+      var els = pageForm.elements;
+      for (var i = 0; i < els.length; i++) {
+        var el = els[i];
+        if (!el.name) {
+          continue;
+        }
+        if (el.type === "checkbox" || el.type === "radio") {
+          if (el.checked) {
+            out[el.name] = el.value;
+          }
+        } else {
+          out[el.name] = el.value;
+        }
+      }
+      return out;
+    }
+
+    // Taken once the page has finished loading: the scripts that enhance the
+    // form (the look picker swapping its controls in) have settled by then, so
+    // only a visitor's own edit differs from it.
+    var snapshot = null;
+    var leaving = false;
+
+    function takeSnapshot() {
+      snapshot = values();
+    }
+
+    if (document.readyState === "complete") {
+      takeSnapshot();
+    } else {
+      window.addEventListener("load", takeSnapshot);
+    }
+
+    function changed() {
+      if (snapshot === null) {
+        return false;
+      }
+      var current = values();
+      var name;
+      for (name in current) {
+        if (Object.prototype.hasOwnProperty.call(current, name) && current[name] !== snapshot[name]) {
+          return true;
+        }
+      }
+      for (name in snapshot) {
+        if (Object.prototype.hasOwnProperty.call(snapshot, name) && !(name in current)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    pageForm.addEventListener("submit", function () {
+      leaving = true;
+    });
+
+    window.addEventListener("pageshow", function (evt) {
+      if (evt.persisted) {
+        leaving = false;
+      }
+    });
+
+    window.addEventListener("beforeunload", function (evt) {
+      if (!leaving && changed()) {
+        evt.preventDefault();
+        evt.returnValue = "";
+      }
+    });
+  }
+  guardFormPage();
 
   if (!form || !bar || !countEl) {
     return;
@@ -281,8 +378,11 @@
     bar.hidden = false;
     // One message for every page, naming the areas only
     // when several of them changed.
+    // A phone's one-line message is too narrow for the list: the short
+    // message stands alone there.
     var labels = dirtySectionLabels();
-    if (labels.length < 2) {
+    var narrow = window.matchMedia && window.matchMedia("(max-width: 959.98px)").matches;
+    if (labels.length < 2 || narrow) {
       setCountText(dirtyInitialText);
       return;
     }
