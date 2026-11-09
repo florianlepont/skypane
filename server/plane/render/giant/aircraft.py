@@ -37,12 +37,15 @@ _SMOOTH_HALF_WIDTH_FRAC = 0.01
 OVERSHOOT_FRAC = 0.025
 
 # Defaults for the halved placement (portrait), as fractions of the canvas
-# width: the painted width of the nose half and of the rear half. Each whole
-# aircraft is sized so its half has that width whatever the cut fraction.
-# Then the vertical centre of the nose half and the bottom edge of the rear
-# half, as fractions of the canvas height.
-NOSE_HALF_WIDTH_FRAC = 1100 / 1200
-REAR_HALF_WIDTH_FRAC = 625 / 1200
+# width: the painted width of the whole aircraft behind the nose half and
+# behind the rear half. The nose half is then anchored by its left (cockpit)
+# end and the rear half by its right (tail) end, both as fractions of the
+# canvas width, and placed vertically by the vertical centre of the nose half
+# and the bottom edge of the rear half, as fractions of the canvas height.
+NOSE_PLANE_WIDTH_FRAC = 2200 / 1200
+REAR_PLANE_WIDTH_FRAC = 1250 / 1200
+NOSE_LEFT_X_FRAC = 130 / 1200
+REAR_RIGHT_X_FRAC = 595 / 1200
 NOSE_CENTER_Y_FRAC = 470 / 1600
 REAR_BOTTOM_Y_FRAC = 1275 / 1600
 
@@ -143,41 +146,46 @@ def split_halves(rgba, fraction):
     )
 
 
-def nose_plane_width(canvas_width, cut, half_frac=NOSE_HALF_WIDTH_FRAC):
-    """Painted width of the whole aircraft whose nose half, cut at `cut`, is
-    `half_frac` of the canvas width wide."""
-    return max(1, round(canvas_width * half_frac / max(cut, 0.01)))
-
-
-def rear_plane_width(canvas_width, cut, half_frac=REAR_HALF_WIDTH_FRAC):
-    """Painted width of the whole aircraft whose rear half, cut at `cut`, is
-    `half_frac` of the canvas width wide."""
-    return max(1, round(canvas_width * half_frac / max(1 - cut, 0.01)))
-
-
 def overshoot_px(canvas_size):
-    """How far past the canvas edge the cut columns sit."""
+    """How far past the canvas edge the cut columns sit at least."""
     return round(canvas_size[0] * OVERSHOOT_FRAC)
 
 
-def nose_half(canvas_size, nose_size, center_y_frac=NOSE_CENTER_Y_FRAC):
-    """Paste rectangle `(left, top, right, bottom)` of the nose half: flush
-    with the right edge, its cut (right-hand) column beyond the canvas."""
+def nose_cut(canvas_size, cut, plane_frac=NOSE_PLANE_WIDTH_FRAC, left_frac=NOSE_LEFT_X_FRAC):
+    """`cut` raised, if needed, so the nose half anchored at `left_frac` of the
+    canvas width still reaches past the right edge."""
+    width = canvas_size[0]
+    needed = (width - round(left_frac * width) + overshoot_px(canvas_size) + 1) / (plane_frac * width)
+    return min(max(cut, needed), 0.99)
+
+
+def rear_cut(canvas_size, cut, plane_frac=REAR_PLANE_WIDTH_FRAC, right_frac=REAR_RIGHT_X_FRAC):
+    """`cut` lowered, if needed, so the rear half ending at `right_frac` of the
+    canvas width still reaches past the left edge."""
+    width = canvas_size[0]
+    needed = 1 - (round(right_frac * width) + overshoot_px(canvas_size) + 1) / (plane_frac * width)
+    return max(min(cut, needed), 0.01)
+
+
+def nose_half(canvas_size, nose_size, center_y_frac=NOSE_CENTER_Y_FRAC, left_frac=NOSE_LEFT_X_FRAC):
+    """Paste rectangle `(left, top, right, bottom)` of the nose half: its
+    cockpit end at `left_frac` of the width, its cut (right-hand) column
+    beyond the canvas."""
     width, height = canvas_size
     nose_w, nose_h = nose_size
-    left = width - nose_w + overshoot_px(canvas_size)
+    left = round(left_frac * width)
     top = round(center_y_frac * height) - nose_h // 2
     return (left, top, left + nose_w, top + nose_h)
 
 
-def rear_half(canvas_size, rear_size, bottom_y_frac=REAR_BOTTOM_Y_FRAC):
-    """Paste rectangle of the rear half: flush with the left edge, its cut
-    (left-hand) column beyond the canvas."""
-    height = canvas_size[1]
+def rear_half(canvas_size, rear_size, bottom_y_frac=REAR_BOTTOM_Y_FRAC, right_frac=REAR_RIGHT_X_FRAC):
+    """Paste rectangle of the rear half: its tail end at `right_frac` of the
+    width, its cut (left-hand) column beyond the canvas."""
+    width, height = canvas_size
     rear_w, rear_h = rear_size
-    left = -overshoot_px(canvas_size)
+    right = round(right_frac * width)
     top = round(bottom_y_frac * height) - rear_h
-    return (left, top, left + rear_w, top + rear_h)
+    return (right - rear_w, top, right, top + rear_h)
 
 
 def whole_aircraft(box, size):

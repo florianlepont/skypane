@@ -75,15 +75,15 @@ FRAME_SIZES = [(1200, 1600), (800, 480)]
 
 def _nose(name, canvas_size):
     path = _illustration_path(name)
-    cut = aircraft.cut_fraction_for_path(path)
-    plane = aircraft.load_content(path, aircraft.nose_plane_width(canvas_size[0], cut))
+    cut = aircraft.nose_cut(canvas_size, aircraft.cut_fraction_for_path(path))
+    plane = aircraft.load_content(path, round(canvas_size[0] * aircraft.NOSE_PLANE_WIDTH_FRAC))
     return aircraft.split_halves(plane, cut)[0]
 
 
 def _rear(name, canvas_size):
     path = _illustration_path(name)
-    cut = aircraft.cut_fraction_for_path(path)
-    plane = aircraft.load_content(path, aircraft.rear_plane_width(canvas_size[0], cut))
+    cut = aircraft.rear_cut(canvas_size, aircraft.cut_fraction_for_path(path))
+    plane = aircraft.load_content(path, round(canvas_size[0] * aircraft.REAR_PLANE_WIDTH_FRAC))
     return aircraft.split_halves(plane, cut)[1]
 
 
@@ -175,14 +175,14 @@ def test_halves_have_the_validated_extent_for_every_illustration(name):
     n_left, _, n_right, _ = aircraft.nose_half(PORTRAIT, nose.size)
     r_left, _, r_right, _ = aircraft.rear_half(PORTRAIT, rear.size)
     # Cockpit tip near 130 px; the nose half bleeds off the right edge.
-    assert 100 <= n_left <= 200
+    assert 110 <= n_left <= 150
     assert n_right > width
-    # The rear half bleeds off the left edge and ends near 600-650 px.
+    # The rear half bleeds off the left edge and its tail ends near 595 px.
     assert r_left < 0
-    assert 570 <= r_right <= 700
-    # Nothing is placed outside the intended bleed.
-    assert n_right - width <= 2 * aircraft.overshoot_px(PORTRAIT)
-    assert -r_left <= 2 * aircraft.overshoot_px(PORTRAIT)
+    assert 570 <= r_right <= 620
+    # The cut columns stay within half a canvas width of the frame.
+    assert n_right - width <= width // 2
+    assert -r_left <= width // 2
     # The halves do not overlap horizontally on the rows they share.
     n_top, n_bottom = aircraft.nose_half(PORTRAIT, nose.size)[1::2]
     r_top, r_bottom = aircraft.rear_half(PORTRAIT, rear.size)[1::2]

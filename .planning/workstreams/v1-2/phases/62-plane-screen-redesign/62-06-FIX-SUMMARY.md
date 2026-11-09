@@ -20,3 +20,32 @@ end 570-700 px, bleed bounded, no overlap. Old width constants removed from test
 
 **Verification:** ruff, mypy, function-size, comment-history, giant tests and
 `test_render.py` pass (576 tests). Renders checked by eye.
+
+# 62-06 Fix 2: whole-aircraft scale fixed, halves anchored on what is seen
+
+**Defect:** with the half width fixed, the whole-aircraft scale varied with the
+heuristic cut, so the nose looked smaller (more wing, smaller logo) and the tail
+larger than in the validated mock-up.
+
+**Fix:** the whole aircraft is sized at the mock-up widths again
+(`NOSE_PLANE_WIDTH_FRAC = 2200/1200`, `REAR_PLANE_WIDTH_FRAC = 1250/1200`) and cut
+at the heuristic fraction. The nose half is anchored by its cockpit end at
+`NOSE_LEFT_X_FRAC = 130/1200` of the width, the rear half by its tail end at
+`REAR_RIGHT_X_FRAC = 595/1200`; vertical fractions unchanged. The half-width
+fractions and `nose_plane_width`/`rear_plane_width` are removed. `nose_cut` raises
+the cut (and `rear_cut` lowers it) only when the half would otherwise end inside
+the frame. All four fractions are parameters of `_paint_halves`/`nose_half`/
+`rear_half` for the landscape plan.
+
+**Clamped files (1200x1600):** nose cut raised to 0.5 for 14 illustrations (cuts
+0.477-0.5, e.g. generic-a350, air-caraibes, klasjet; the rest at exactly 0.5);
+rear cut lowered to 0.499 for 49 illustrations (cuts above 0.499, e.g.
+air-france 0.685). Only invisible parts change.
+
+**Tests:** 52 illustrations assert cockpit left 110-150 px, tail right end 570-620
+px, cuts beyond both edges, bleed at most half a canvas, no overlap.
+
+**Verification:** ruff, mypy, function-size, comment-history, giant tests and
+`test_render.py` pass. Layouts a and a_diagonal (blue_light, AFR1006) compared by
+eye with layouts-departing.png: same aircraft size, large AIRFRANCE logo on the
+nose half, tail bottom-left.

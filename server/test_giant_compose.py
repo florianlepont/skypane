@@ -99,10 +99,10 @@ def test_halves_cut_columns_lie_outside_the_frame():
     path = illustrations.select_illustration(ROUTE, "B738")
     w, h = SIZE
     cut = aircraft.cut_fraction_for_path(path)
-    large = aircraft.load_content(path, aircraft.nose_plane_width(w, cut))
-    small = aircraft.load_content(path, aircraft.rear_plane_width(w, cut))
-    nose, _ = aircraft.split_halves(large, cut)
-    _, rear = aircraft.split_halves(small, cut)
+    large = aircraft.load_content(path, round(w * aircraft.NOSE_PLANE_WIDTH_FRAC))
+    small = aircraft.load_content(path, round(w * aircraft.REAR_PLANE_WIDTH_FRAC))
+    nose, _ = aircraft.split_halves(large, aircraft.nose_cut(SIZE, cut))
+    _, rear = aircraft.split_halves(small, aircraft.rear_cut(SIZE, cut))
     assert aircraft.nose_half(SIZE, nose.size)[2] > w
     assert aircraft.rear_half(SIZE, rear.size)[0] < 0
 
