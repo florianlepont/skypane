@@ -40,7 +40,7 @@ than a single winner; A remains the reference mock-up.
 |---|---|---|
 | A (primary) | Large nose/cockpit entering from the right edge, smaller rear half (wing and tail) entering from the left edge below it | Both halves bleed off the frame. Shows the airline logo on the fuselage and the livery on the tail. |
 | B | Whole aircraft, centred, near full width | Simplest; hides most of the middle text line. |
-| C | Whole aircraft in its own band under the lettering | Lettering is compressed into the top part of the frame. Status unclear: the reviewer found a horizontal band out of step with A and B (three reworks in `band-rework` were not retained) and asked for the diagonal instead; the diagonal was only built on A and B. |
+| C | Lettering compressed at the top, whole aircraft below it, at the bottom of the frame (not a coloured band; unrelated to the diagonal band) | Lettering is compressed into the top part of the frame. Status unclear: the reviewer found a horizontal band out of step with A and B (three reworks in `band-rework` were not retained) and asked for the diagonal instead; the diagonal was only built on A and B. |
 
 Rejected: rotated or climbing aircraft, vertical aircraft, tail-only, white
 disc, runway band, drop shadow, hard cuts inside the frame.
