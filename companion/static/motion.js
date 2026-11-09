@@ -145,8 +145,34 @@
       img.parentNode.classList.remove("is-loading");
     }
     if (ok && !reducedMotion()) {
-      void img.offsetWidth;
-      img.classList.add("is-revealed");
+      revealQueue.push(img);
+      if (!revealFrame) {
+        revealFrame = window.requestAnimationFrame(flushReveals);
+      }
+    }
+  }
+
+  // Pictures that loaded in the same frame fade in together. A picture
+  // that still carries the class from an earlier reveal restarts its
+  // animation; the one forced reflow covers all of them.
+  var revealQueue = [];
+  var revealFrame = 0;
+  function flushReveals() {
+    var batch = revealQueue;
+    var restart = false;
+    revealQueue = [];
+    revealFrame = 0;
+    for (var i = 0; i < batch.length; i++) {
+      if (batch[i].classList.contains("is-revealed")) {
+        batch[i].classList.remove("is-revealed");
+        restart = true;
+      }
+    }
+    if (restart) {
+      void document.documentElement.offsetWidth;
+    }
+    for (var j = 0; j < batch.length; j++) {
+      batch[j].classList.add("is-revealed");
     }
   }
 

@@ -57,6 +57,8 @@ from companion.ui_base import (
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
     PLACE_CARD_SCRIPT_SRC,
+    PLACE_AIRPORT_LIST_SCRIPT_SRC,
+    AIRLINE_TYPES_SCRIPT_SRC,
     escape_html,
     nav_slug,
 )
@@ -171,6 +173,8 @@ SHELL_SCRIPT_ORDER = (
     LEAFLET_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
     PLACE_CARD_SCRIPT_SRC,
+    PLACE_AIRPORT_LIST_SCRIPT_SRC,
+    AIRLINE_TYPES_SCRIPT_SRC,
     PREFETCH_SCRIPT_SRC,
 )
 
@@ -286,7 +290,9 @@ def _session_expired_toast_html():
 
 # The authenticated document's own named template. Invariants preserved
 # from the pre-template version: the tab bar ({tab_bar}) sits outside
-# .dashboard-shell, a sibling rather than a descendant of the scrolled
+# .dashboard-shell, before it in source order so the render-blocking
+# expectation on its end marker waits for ~2 KB of markup rather than the
+# whole page, a sibling rather than a descendant of the scrolled
 # content column, so its `position: fixed` box is not nested inside the
 # shell's own stacking context — "" on a page with no bar. <aside>
 # precedes <header> in source order: at desktop width, where CSS hides
@@ -320,6 +326,7 @@ PAGE_SHELL_TEMPLATE = (
     "{skip_link}\n"
     "{icon_defs}\n"
     "{splash}\n"
+    "{tab_bar}\n"
     '<div class="dashboard-shell">\n'
     '<aside class="dashboard-sidebar">\n'
     '<span class="brand">{brand_inner_sidebar}</span>\n'
@@ -334,7 +341,6 @@ PAGE_SHELL_TEMPLATE = (
     "{frame_notice}{flash}\n{banner}\n{body}\n"
     "</main>\n"
     "</div>\n"
-    "{tab_bar}\n"
     '<div class="toast-region toast-region--live" {quick_toast_attr} role="alert"></div>\n'
     "<template {quick_toast_template_attr}>{quick_toast}</template>\n"
     "<template {session_expired_template_attr}>{session_expired_toast}</template>\n"

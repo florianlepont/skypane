@@ -307,6 +307,7 @@ _PAGE_SCRIPTS = {
     ),
     airlines_page.MANAGE_ROUTE: (
         layout.LIST_FILTER_SCRIPT_SRC,
+        layout.AIRLINE_TYPES_SCRIPT_SRC,
         layout.PANEL_LOOKUP_SCRIPT_SRC,
     ),
     # CONFIRM_SUBMIT_SCRIPT_SRC gates the per-release Install form's

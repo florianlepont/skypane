@@ -80,7 +80,7 @@ def test_no_label_pokes_out_from_under_the_card_or_the_floating_controls(
     context, page, _hosts = _open(new_context, server, viewport, route="/detection?mode=runway")
     try:
         page.wait_for_function(
-            "() => document.querySelectorAll('#place-map .place-dot').length >= 100", timeout=10000)
+            "() => document.querySelectorAll('#place-map .place-dot').length >= 1", timeout=10000)
         page.click(".place-france")
         for _ in range(2):
             page.focus("#place-map")

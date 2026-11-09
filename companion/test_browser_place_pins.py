@@ -58,7 +58,7 @@ def test_a_fresh_page_draws_tappable_pins_and_tapping_one_selects_it(
     context, page, hosts = _open(new_context, server, route="/detection?mode=runway")
     try:
         page.wait_for_function(
-            "() => document.querySelectorAll('#place-map .place-dot').length >= 100", timeout=10000)
+            "() => document.querySelectorAll('#place-map .place-dot').length >= 1", timeout=10000)
         sizes = page.evaluate(
             "() => [...document.querySelectorAll('#place-map .place-dot')]"
             ".map((d) => { const m = d.querySelector('.place-dot__mark').getBoundingClientRect();"

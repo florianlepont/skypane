@@ -306,8 +306,16 @@ def test_tapping_an_airport_pin_picks_it_in_place(new_context, make_app_server):
         if dot is None:
             page.click(".place-france")
             page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+            # The pins are redrawn when the zoom ends: wait until they stop changing.
+            page.wait_for_function(
+                "() => { const key = [...document.querySelectorAll('#place-map .place-dot')]"
+                ".map((d) => { const r = d.getBoundingClientRect(); return r.left + ',' + r.top; })"
+                ".join(';'); const same = window.__dotKey === key;"
+                " window.__dotKey = key; window.__dotSteady = same ? (window.__dotSteady || 0) + 1 : 0;"
+                " return key !== '' && window.__dotSteady >= 6; }", polling=100, timeout=10000)
             dot = page.evaluate(
                 "() => { const r = [...document.querySelectorAll('#place-map .place-dot')]"
+                ".filter((d) => !d.classList.contains('place-dot--selected'))"
                 ".map((d) => d.getBoundingClientRect()).find((r) => r.left > 450 && r.top > 80"
                 " && r.bottom < innerHeight - 20 && r.right < innerWidth - 20);"
                 " return r ? {x: r.left + r.width / 2, y: r.top + r.height / 2} : null; }")
