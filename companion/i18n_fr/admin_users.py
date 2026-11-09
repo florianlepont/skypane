@@ -13,7 +13,10 @@ MESSAGES = {
     "admin_users.role_user": "Utilisateur",
     "admin_users.role_administrator": "Administrateur",
     "admin_users.status_disabled": "Désactivé",
-    "admin_users.status_invited": "Invité",
+    "admin_users.status_invited": "Invité, pas encore connecté",
+    "admin_users.status_invited_help":
+        "Cette personne a été ajoutée mais ne s’est pas encore connectée. La mention "
+        "disparaît à sa première connexion.",
     "admin_users.this_is_you": "C’est vous.",
     "admin_users.the_last_active_administrator_cannot_be_changed":
         "Le dernier administrateur actif ne peut pas être modifié.",

@@ -10961,15 +10961,26 @@ a.row-action {
   text-decoration: none;
 }
 
-/* A person row: the address takes the line it needs and its action drops
- * under it on a narrow screen instead of breaking the address. */
+/* A person row: the action stays on the row's one line; the address gives
+ * way with an ellipsis (its full value is the element's title). */
 .group > .row.access-person {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .group > .row.access-person > .row__main {
-  flex: 1 0 14rem;
+  flex: 1 1 0;
   min-width: 0;
+}
+
+.group > .row.access-person .row__text {
+  min-width: 0;
+}
+
+.group > .row.access-person .co-manager__email {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .group > .row.access-person > .row__main + * {

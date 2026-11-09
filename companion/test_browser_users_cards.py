@@ -116,10 +116,13 @@ def test_status_pills_say_active_invited_and_you_with_readable_ink(
         for row in page.locator(".users-row").all():
             assert row.locator(".users-status .users-pill:visible").count() == 1
         status = {}
-        for email, expected in ((ACTIVE_EMAIL, "Active"), (LONG_EMAIL, "Invited")):
+        for email, expected in ((ACTIVE_EMAIL, "Active"), (LONG_EMAIL, "Invited, not signed in yet")):
             pill = _row(page, email).locator(".users-status .users-pill:visible")
             assert pill.inner_text() == expected
             status[email] = pill
+        invited = status[LONG_EMAIL]
+        assert "has not signed in yet" in invited.get_attribute("title")
+        assert invited.get_attribute("aria-label").startswith("Invited, not signed in yet.")
         own = _row(page, "admin@example.test").locator(".users-pills .users-pill")
         assert own.inner_text() == "You"
         looks = {}
@@ -242,7 +245,7 @@ def test_the_desktop_table_keeps_the_pills_and_the_copy_button_in_their_columns(
         button = row.locator("button.users-copy").bounding_box()
         assert button["x"] >= box["x"] - 0.5
         assert button["x"] + button["width"] <= box["x"] + box["width"] + 0.5
-        assert row.locator(".users-status .users-pill:visible").inner_text() == "Invited"
+        assert row.locator(".users-status .users-pill:visible").inner_text() == "Invited, not signed in yet"
         _assert_no_page_overflow(page, "users")
     finally:
         context.close()

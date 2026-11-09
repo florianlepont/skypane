@@ -53,7 +53,11 @@ _COL_ROLE = i18n.msg("admin_users.role", "Role")
 _ROLE_NAME_USER = i18n.msg("admin_users.role_user", "User")
 _ROLE_NAME_ADMIN = i18n.msg("admin_users.role_administrator", "Administrator")
 _STATUS_DISABLED = i18n.msg("admin_users.status_disabled", "Disabled")
-_STATUS_INVITED = i18n.msg("admin_users.status_invited", "Invited")
+_STATUS_INVITED = i18n.msg("admin_users.status_invited", "Invited, not signed in yet")
+_STATUS_INVITED_HELP = i18n.msg(
+    "admin_users.status_invited_help",
+    "This person was added but has not signed in yet. The mark goes away at their first "
+    "sign-in.")
 _THIS_IS_YOU = i18n.msg("admin_users.this_is_you", "This is you.")
 _LAST_ADMIN = i18n.msg(
     "admin_users.the_last_active_administrator_cannot_be_changed",
@@ -179,9 +183,13 @@ def _status_pill(row):
     (the quick-switch script toggles the two `data-quick-state-*` marks)."""
     enabled = status_of(row._replace(disabled=False))
     off = row.disabled
+    help_attrs = ""
+    if enabled == STATUS_INVITED:
+        spoken = "%s. %s" % (i18n.t(_STATUS_INVITED), i18n.t(_STATUS_INVITED_HELP))
+        help_attrs = ' title="%s" aria-label="%s"' % (_esc(spoken), _esc(spoken))
     return (
         _pill(_t(_STATUS_LABELS[enabled]), enabled,
-              (" hidden" if off else "") + " data-quick-state-on")
+              (" hidden" if off else "") + " data-quick-state-on" + help_attrs)
         + _pill(_t(_STATUS_DISABLED), STATUS_DISABLED,
                 ("" if off else " hidden") + " data-quick-state-off"))
 

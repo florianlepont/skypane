@@ -304,6 +304,11 @@ def add_dialog_html(view, device_id, return_to, dismiss_href, frame_name=""):
         i18n.t(_ADD_BUTTON), i18n.t(_CANCEL), dismiss_href, subtitle=frame_name or None)
 
 
+def _email_html(email):
+    """An address as one ellipsised line whose title holds the full value."""
+    return '<span class="co-manager__email" title="%s">%s</span>' % (_esc(email), _esc(email))
+
+
 def access_rows_html(
         view, device_id, return_to, id_prefix="co-manager", purpose=True,
         owner_action_html="", add_as_dialog=False):
@@ -317,7 +322,7 @@ def access_rows_html(
         i18n.t(_HEADING), detail=i18n.t(_PURPOSE_MANAGE), extra_class="row--purpose")
     ] if purpose else []
     rows.append(ui_groups.row(
-        label_html='<span class="co-manager__email">%s</span>' % _esc(view.owner_email),
+        label_html=_email_html(view.owner_email),
         value_html=_pills_html((_PILL_OWNER,)), trailing_html=owner_action_html,
         extra_class="access-person" if owner_action_html else ""))
     for user_id, email, disabled in view.members:
@@ -327,7 +332,7 @@ def access_rows_html(
         if disabled:
             pills.append(_PILL_DISABLED)
         rows.append(ui_groups.row(
-            label_html='<span class="co-manager__email">%s</span>' % _esc(email),
+            label_html=_email_html(email),
             value_html=_pills_html(pills),
             trailing_html=_inline_remove_html(device_id, user_id, email, return_to),
             extra_class="access-person"))
