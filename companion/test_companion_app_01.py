@@ -799,7 +799,7 @@ def test_ui_theme_and_ui_lang_post_set_byte_exact_cookies_or_none(make_app_serve
         for value in choices:
             status, headers, _ = http_request(
                 base + route, method="POST", cookie=session_cookie,
-                data=urllib.parse.urlencode({field: value}).encode())
+                data=with_csrf(session_cookie, {field: value}))
             assert status == 303, "expected 303 for %s=%s, got %d" % (field, value, status)
             expected = "%s=%s; HttpOnly%s; SameSite=Strict; Path=/; Max-Age=%d" % (
                 cookie_name, value, auth.secure_cookie_flag(), max_age_s)
@@ -809,7 +809,7 @@ def test_ui_theme_and_ui_lang_post_set_byte_exact_cookies_or_none(make_app_serve
 
         status, headers, _ = http_request(
             base + route, method="POST", cookie=session_cookie,
-            data=urllib.parse.urlencode({field: "not-a-real-choice"}).encode())
+            data=with_csrf(session_cookie, {field: "not-a-real-choice"}))
         assert status == 303, (
             "expected 303 for a disallowed %s value too, got %d" % (field, status))
         assert "Set-Cookie" not in headers, (

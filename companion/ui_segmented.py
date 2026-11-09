@@ -28,12 +28,13 @@ def segmented_radios_html(options, extra_class=""):
     return '<div class="%s">%s</div>' % (_classes("theme-form", extra_class), "".join(parts))
 
 
-def segmented_buttons_html(form_attrs, buttons, extra_class=""):
+def segmented_buttons_html(form_attrs, buttons, extra_class="", hidden_html=""):
     """A form whose segments are submit buttons. `form_attrs` is the form's own
     already-escaped attribute text (method, action, aria-label); `buttons` is a
     sequence of `(name, value, label, selected, button_attrs, title)` where
     `button_attrs` is already-escaped extra attribute text ("" for none) and
-    `title` the optional tooltip ("" for none)."""
+    `title` the optional tooltip ("" for none). `hidden_html` is markup placed
+    before the buttons (a hidden anti-forgery input)."""
     parts = []
     for name, value, label, selected, button_attrs, title in buttons:
         parts.append(
@@ -44,7 +45,7 @@ def segmented_buttons_html(form_attrs, buttons, extra_class=""):
                 (' title="%s"' % escape_html(title)) if title else "", button_attrs,
                 escape_html(label)))
     return '<form class="%s" %s>%s</form>' % (
-        _classes("theme-form", extra_class), form_attrs, "".join(parts))
+        _classes("theme-form", extra_class), form_attrs, hidden_html + "".join(parts))
 
 
 def segmented_links_html(links, aria_label, extra_class="", nav_attrs="", lead_html=""):

@@ -205,6 +205,8 @@ PROTECTED = (
     ("/quick/display", {"state": "off", "return_to": "/display"}),
     ("/quick/quiet-hours", {"state": "on", "return_to": "/display"}),
     ("/quick/led", {"state": "off", "return_to": "/device"}),
+    ("/ui-theme", {"ui_theme": "dark"}),
+    ("/ui-lang", {"ui_lang": "fr"}),
 )
 
 
@@ -250,6 +252,8 @@ def _form_tokens(page_html, action_fragment):
     ("/fleet?tab=settings", "/quick/led"),
     ("/display", 'action="/settings"'),
     ("/display/calendar-look", 'action="/settings"'),
+    ("/account", 'action="/ui-theme"'),
+    ("/account", 'action="/ui-lang"'),
 ))
 def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
     cookie = login(live)
@@ -263,12 +267,9 @@ def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
 
 def test_other_existing_forms_need_no_token(live):
     cookie = login(live)
-    for path, fields in (
-            ("/ui-theme", {"theme": "dark"}), ("/ui-lang", {"lang": "fr"}),
-            (config_page.RULES_ADD_ROUTE, {
-                "rule_kind": "callsign", "rule_key": "ZZN1234", "rule_theme_id": "black"})):
-        status, _h, _b = _raw_post(live, path, cookie, fields)
-        assert status == 303, path
+    status, _h, _b = _raw_post(live, config_page.RULES_ADD_ROUTE, cookie, {
+        "rule_kind": "callsign", "rule_key": "ZZN1234", "rule_theme_id": "black"})
+    assert status == 303
     assert _raw_post(live, "/logout", cookie, {})[0] != 403
 
 
@@ -286,7 +287,7 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     airline_posts = {
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE))}
-    assert len(routes.CSRF_ROUTE_KEYS) == 11
+    assert len(routes.CSRF_ROUTE_KEYS) == 13
     assert flagged == (
         set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post
         | pair_frame_post | airline_posts)

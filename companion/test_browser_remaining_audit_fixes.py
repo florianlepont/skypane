@@ -75,3 +75,29 @@ def test_a_long_address_is_cut_with_an_ellipsis_instead_of_pushing_the_action_do
             assert row["email"][2] <= row["action"][2] + 1, row
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("java_script_enabled", [True, False], ids=["script", "no-script"])
+def test_the_theme_and_language_switches_work_with_their_token_with_or_without_script(
+        new_context, app_server_in_process, java_script_enabled):
+    fx.seed_fleet(app_server_in_process.state_dir)
+    context = new_context(
+        viewport={"width": 1280, "height": 900}, java_script_enabled=java_script_enabled)
+    page = context.new_page()
+    try:
+        _login(page, app_server_in_process.base_url())
+        page.goto(app_server_in_process.base_url() + "/account")
+        page.locator("main").wait_for(state="visible")
+        form = page.locator("form[action='/ui-theme']:visible").first
+        assert form.locator("input[name=csrf_token]").count() == 1
+        with page.expect_navigation():
+            form.locator("button[value=dark]").click()
+        cookies = {c["name"]: c["value"] for c in context.cookies()}
+        assert cookies.get(auth.UI_THEME_COOKIE_NAME) == "dark"
+        form = page.locator("form[action='/ui-lang']:visible").first
+        with page.expect_navigation():
+            form.locator("button[value=fr]").click()
+        cookies = {c["name"]: c["value"] for c in context.cookies()}
+        assert cookies.get(auth.UI_LANG_COOKIE_NAME) == "fr"
+    finally:
+        context.close()

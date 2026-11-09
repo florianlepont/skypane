@@ -730,8 +730,10 @@ class Handler(
         reads for an error path. The markup itself is
         `companion/login_page.py`'s `not_found_page()`.
         """
-        # Pre-session: resolved from the cookie or Accept-Language.
+        # Pre-session: resolved from the cookie or Accept-Language. No token
+        # either, so every 404 body is the same whatever was looked up first.
         prefs.set_request_prefs(lang=self._lang_from_request())
+        prefs.set_request_csrf("")
         self._scope_for_chrome()
         health_alert = self._health_alert_for_admin()
         back, home_route = self._back_target()

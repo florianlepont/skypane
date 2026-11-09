@@ -8,10 +8,9 @@ legacy-login flag can be changed under the live server.
 import hashlib
 import os
 import sqlite3
-import urllib.parse
 
 from companion import app, auth, static_files
-from companion_app_server import http_request, login
+from companion_app_server import http_request, login, with_csrf
 from server import fleet_db, fleet_sessions
 
 
@@ -151,7 +150,7 @@ def test_a_user_session_may_use_the_signed_in_routes(app_server_in_process):
     cookie, _user_id = _seed_user_session(server.state_dir, role="user")
     status, headers, _body = http_request(
         server.url("/ui-theme"), method="POST", cookie=cookie,
-        data=urllib.parse.urlencode({"ui_theme": "dark"}).encode(),
+        data=with_csrf(cookie, {"ui_theme": "dark"}),
         extra_headers={"Origin": server.base_url()})
     assert status == 303
     assert headers["Set-Cookie"].startswith("sp_ui_theme=dark")

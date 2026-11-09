@@ -4,14 +4,13 @@ is only ever reached through its real id. Admin behaviour is unchanged.
 """
 import hashlib
 import sqlite3
-import urllib.parse
 
 import pytest
 
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
 from companion import access, app, device_dispatch, device_scope, frame_menu, prefs
-from companion_app_server import http_request
+from companion_app_server import http_request, with_csrf
 from server import device_dirs, fleet_db, fleet_sessions, hardware
 
 _SECRET = "c" * 64
@@ -351,7 +350,7 @@ def _post(server, path, cookie, referer=None):
         extra["Referer"] = server.url(referer)
     return http_request(
         server.url(path), method="POST", cookie=cookie,
-        data=urllib.parse.urlencode({"theme": "dark", "lang": "fr"}).encode(),
+        data=with_csrf(cookie, {"theme": "dark", "lang": "fr"}),
         extra_headers=extra)
 
 

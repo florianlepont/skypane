@@ -6,14 +6,13 @@ import hashlib
 import json
 import os
 import re
-import urllib.parse
 
 import pytest
 
 from access_matrix_support import seed_matrix_fleet
 from companion import app, routes
 from companion.pages import account_page
-from companion_app_server import http_request
+from companion_app_server import http_request, with_csrf
 from companion_markup import parse_html
 from server import device_dirs, fleet_db, fleet_sessions, hardware
 
@@ -61,7 +60,7 @@ def _post(server, path, cookie, form=None, referer=None):
         extra["Referer"] = server.url(referer)
     return http_request(
         server.url(path), method="POST", cookie=cookie,
-        data=urllib.parse.urlencode(form or {}).encode(), extra_headers=extra)
+        data=with_csrf(cookie, form), extra_headers=extra)
 
 
 def test_user_sees_the_account_page_with_email_and_role(server, user_cookie):
@@ -371,7 +370,6 @@ def test_a_co_manager_gets_leave_frame_and_the_server_refuses_them_access_change
     assert [a.text() for a in attic.select("a[data-modal-open]")] == ["Leave frame"]
     assert "Shared by owner@example.test" in attic.text()
     assert not tree.select("dialog#dlg-access-" + second.replace("_", "-"))
-    from companion_app_server import with_csrf
     form = with_csrf(cookies["other"], {"email": "admin@example.com", "return_to": "/account"})
     status, _headers, _body = http_request(
         server.url("/devices/%s/co-managers/add" % second), method="POST",
