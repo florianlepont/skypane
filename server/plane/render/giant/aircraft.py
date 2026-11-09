@@ -12,8 +12,9 @@ continues beyond the frame.
 import os
 import statistics
 
-from PIL import Image
+from PIL import Image, ImageFilter
 
+from server.panel_format import IDX_WHITE
 from server.plane.render import layout
 
 # The cut is searched inside this share of the opaque aircraft width.
@@ -126,3 +127,91 @@ def cut_fraction_for_path(path):
             _cut_cache.clear()
         _cut_cache[key] = value
     return value
+
+
+def split_halves(rgba, fraction):
+    """(nose, rear) pieces of `rgba` cut at `fraction` of its opaque width,
+    each cropped to its own painted pixels."""
+    content = opaque_content(rgba)
+    width, height = content.size
+    cut = min(max(round(width * fraction), 1), max(width - 1, 1))
+    return (
+        opaque_content(content.crop((0, 0, cut, height))),
+        opaque_content(content.crop((cut, 0, width, height))),
+    )
+
+
+def overshoot_px(canvas_size):
+    """How far past the canvas edge the cut columns sit."""
+    return round(canvas_size[0] * OVERSHOOT_FRAC)
+
+
+def nose_half(canvas_size, nose_size, center_y_frac=NOSE_CENTER_Y_FRAC):
+    """Paste rectangle `(left, top, right, bottom)` of the nose half: flush
+    with the right edge, its cut (right-hand) column beyond the canvas."""
+    width, height = canvas_size
+    nose_w, nose_h = nose_size
+    left = width - nose_w + overshoot_px(canvas_size)
+    top = round(center_y_frac * height) - nose_h // 2
+    return (left, top, left + nose_w, top + nose_h)
+
+
+def rear_half(canvas_size, rear_size, bottom_y_frac=REAR_BOTTOM_Y_FRAC):
+    """Paste rectangle of the rear half: flush with the left edge, its cut
+    (left-hand) column beyond the canvas."""
+    height = canvas_size[1]
+    rear_w, rear_h = rear_size
+    left = -overshoot_px(canvas_size)
+    top = round(bottom_y_frac * height) - rear_h
+    return (left, top, left + rear_w, top + rear_h)
+
+
+def whole_aircraft(box, size):
+    """Size and rectangle of a whole aircraft of `size` fitted, centred,
+    inside `box` `(left, top, right, bottom)` keeping its aspect ratio.
+    Returns `((width, height), (left, top, right, bottom))`."""
+    box_w, box_h = box[2] - box[0], box[3] - box[1]
+    width, height = size
+    scale = min(box_w / width, box_h / height)
+    new_w, new_h = max(1, round(width * scale)), max(1, round(height * scale))
+    left = box[0] + (box_w - new_w) // 2
+    top = box[1] + (box_h - new_h) // 2
+    return (new_w, new_h), (left, top, left + new_w, top + new_h)
+
+
+def halo_radius(canvas_size):
+    """Halo radius in pixels for a canvas of `canvas_size`."""
+    return max(1, round(canvas_size[0] * HALO_RADIUS_FRAC))
+
+
+def _padded(rgba, margin):
+    out = Image.new("RGBA", (rgba.size[0] + 2 * margin, rgba.size[1] + 2 * margin), (0, 0, 0, 0))
+    out.paste(rgba, (margin, margin))
+    return out
+
+
+def paint_aircraft(canvas, rgba, left, top, halo):
+    """Paint `rgba` with its top-left at `(left, top)`, over a white halo
+    `halo` pixels wide. Halo and body masks are both hard-thresholded, so the
+    canvas only ever receives palette indices. Offsets may be negative or
+    reach past the canvas; the overhang is clipped."""
+    padded = _padded(rgba, halo)
+    mask = layout._threshold_alpha(padded)
+    grown = mask.filter(ImageFilter.MaxFilter(2 * halo + 1)).point(lambda p: 255 if p > 127 else 0)
+    canvas.paste(IDX_WHITE, (int(left) - halo, int(top) - halo), grown)
+    layout.draw_illustration(canvas, padded, left - halo, top - halo)
+
+
+def load_content(path, content_width):
+    """The illustration at `path` as RGBA cropped to its painted pixels and
+    scaled so those pixels are `content_width` wide; `None` when nothing can
+    be loaded."""
+    probe = layout._load_illustration_safely(path, content_width)
+    if probe is None:
+        return None
+    bbox = layout._opaque_bbox(probe)
+    if not bbox or bbox[2] - bbox[0] == content_width:
+        return opaque_content(probe)
+    target = max(1, round(content_width * probe.size[0] / (bbox[2] - bbox[0])))
+    resized = layout._load_illustration_safely(path, target)
+    return opaque_content(resized) if resized is not None else opaque_content(probe)
