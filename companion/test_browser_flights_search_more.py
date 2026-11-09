@@ -287,9 +287,11 @@ def test_a_search_with_no_match_shows_one_coherent_empty_card(new_context, many,
         assert card.locator(".empty-state__heading").inner_text() == (
             "No matching flights" if lang == "en" else "Aucun vol correspondant")
         assert str(TOTAL) in card.locator(".empty-state__body").inner_text()
-        assert page.evaluate(
-            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)"
-        ) == ["0", "0", "0"]
+        # The chips keep the whole history's counts, never 0 / 0 / 0.
+        counts = page.evaluate(
+            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)")
+        assert counts[0] == str(TOTAL), counts
+        assert counts != ["0", "0", "0"], counts
         assert _count(page, "thead") == 0 and _count(page, "table") == 0
         assert _count(page, CARD) == 0 and _count(page, ".history-more") == 0
         assert not _assert_no_page_overflow(page, "empty flights", viewport["width"])

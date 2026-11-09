@@ -4,7 +4,7 @@ Pure markup: it takes the frame's current name and an optional error and
 reads nothing else. The name is typed text, escaped into the input's value;
 it never reaches a path or an attribute other than that value.
 """
-from companion import i18n, layout, ui_save_bar
+from companion import i18n, layout, ui_components, ui_save_bar
 from companion.ui_base import escape_html, validation_attrs
 
 RENAME_ROUTE = "/frame/name"
@@ -56,16 +56,15 @@ def render(name, form_action, back_href, error=""):
         attrs = ' aria-invalid="true" aria-describedby="frame-name-error"'
         error_html = '<p class="field-error" id="frame-name-error" role="alert">%s</p>' % (
             escape_html(error))
-    field = (
-        '<div class="modal__field"><label for="frame-name">%s</label>'
-        '<input type="text" id="frame-name" name="%s" maxlength="%d" required '
-        'autocomplete="off" spellcheck="false" value="%s"%s%s>%s'
-        '<p class="text-label">%s</p></div>') % (
-            escape_html(i18n.t(_LABEL)), NAME_FIELD, MAX_NAME_CHARS, escape_html(name),
-            attrs, validation_attrs("text"), error_html, escape_html(i18n.t(_HELP)))
+    field = ui_components.text_field_html(
+        "frame-name", NAME_FIELD, i18n.t(_LABEL), name, i18n.t(_HELP), error_html,
+        ' maxlength="%d" required autocomplete="off" spellcheck="false"%s%s' % (
+            MAX_NAME_CHARS, attrs, validation_attrs("text")))
+    save = ui_components.button_html(
+        i18n.t(ui_save_bar.SAVE_TEXT), "primary", button_type="submit")
     form = (
-        '<form id="%s" method="post" action="%s" data-dirty-form novalidate>%s%s</form>' % (
-            FORM_ID, escape_html(form_action), layout.csrf_field(), field))
+        '<form id="%s" method="post" action="%s" data-dirty-form novalidate>%s%s%s</form>' % (
+            FORM_ID, escape_html(form_action), layout.csrf_field(), field, save))
     return (
         layout.page_header(i18n.t(TITLE), purpose=i18n.t(PURPOSE))
         + '<a class="form-back" href="%s">%s<span>%s</span></a>' % (

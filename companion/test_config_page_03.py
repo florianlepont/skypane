@@ -973,20 +973,21 @@ def test_strong_selected_treatment_is_keyed_to_the_live_checked_radio(served_css
 
 
 def test_destructive_disconnect_is_secondary_and_selection_is_free_and_focusable_after_the_accordion_rebuild(served_css):
-    """the destructive Disconnect control keeps its secondary, element-qualified specificity AND
-    its source-order relationship against button[type="submit"], and the look table's checked
+    """the secondary button variant keeps a doubled-class specificity that outranks
+    button[type="submit"] and no accent fill, and the look table's checked
     cell is keyed to .look-cell:has(input:checked) inside the file's one @supports
     selector(:has(*)) block with a visible focus ring on the hidden radio's label"""
     css = served_css
     submit = rule_indices(css, 'button[type="submit"]', at_rules=())
-    disconnect = rule_indices(css, "button.calendar-disconnect-btn", at_rules=())
+    secondary = rule_indices(css, ".btn.btn--secondary", at_rules=())
+    primary = rule_indices(css, ".btn.btn--primary", at_rules=())
     assert submit, 'expected style.css to declare a top-level button[type="submit"] rule'
-    assert disconnect, (
-        "expected style.css to declare a top-level, element-qualified "
-        "button.calendar-disconnect-btn rule")
-    assert min(disconnect) > max(submit), (
-        "expected every button.calendar-disconnect-btn rule to come AFTER every "
-        'button[type="submit"] rule - at equal (0,1,1) specificity the LATER rule wins')
+    assert secondary and primary, (
+        "expected style.css to declare the doubled .btn.btn--secondary and .btn.btn--primary "
+        "variant rules, which outrank the (0,1,1) button[type=\"submit\"] rule")
+    fill = _declared(css, ".btn.btn--secondary", at_rules=())
+    assert fill.get("background", "").startswith("color-mix"), fill
+    assert fill.get("box-shadow") == "none", fill
     _assert_one_has_feature_query_block(css)
     cell = _declared(css, ".look-cell:has(input:checked)", at_rules=_HAS_QUERY)
     assert cell.get("border-color") == "var(--color-accent)"

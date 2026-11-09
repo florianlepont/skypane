@@ -167,13 +167,23 @@ def test_no_overflow_and_every_control_is_44px_and_reachable(
                 assert owns, selector
         page.goto(server.base_url() + layout.DISPLAY_ARRIVALS_ROUTE)
         _ready(page, layout.DISPLAY_ARRIVALS_ROUTE)
-        for selector in (
-                ".personalisation-nav__link", PICKER + " .look-dot", "[data-look-same]"):
+        for selector in (".personalisation-nav__link", "[data-look-same]"):
             measured = _measure(page, selector)
             assert measured, selector
             for box, owns in measured:
                 assert box["width"] >= 44 - 0.5 and box["height"] >= 44 - 0.5, (selector, box)
                 assert owns, selector
+        # Following Departures the colour controls are hidden, not dimmed; they come back
+        # (at full size) once the page has its own look.
+        assert not _measure(page, PICKER + " .look-dot")
+        page.click("[data-look-same]")
+        page.wait_for_function(
+            "() => document.querySelector('[data-look-same]').getAttribute('aria-checked') === 'false'")
+        measured = _measure(page, PICKER + " .look-dot")
+        assert measured
+        for box, owns in measured:
+            assert box["width"] >= 44 - 0.5 and box["height"] >= 44 - 0.5, box
+            assert owns
     finally:
         context.close()
 

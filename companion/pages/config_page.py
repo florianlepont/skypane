@@ -162,7 +162,6 @@ from companion.settings.rules import (
     SPECIAL_LOOKS_HEADING as SPECIAL_LOOKS_HEADING,
     rule_form_html as rule_form_html,
     _rule_delete_action as _rule_delete_action,
-    _rule_kind_radio_html as _rule_kind_radio_html,
     _rule_list_html as _rule_list_html,
     _rule_row_html as _rule_row_html,
     _rule_suggestion_chips_html as _rule_suggestion_chips_html,

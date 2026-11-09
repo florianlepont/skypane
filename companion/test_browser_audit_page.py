@@ -72,7 +72,7 @@ def test_rows_are_compact_expand_and_never_overflow(
         assert _no_sideways_scroll(page)
         head_visible = page.locator(".audit-head").is_visible()
         assert head_visible == (viewport["width"] >= 1000)
-        for selector in (".audit-chips .filter-chip__box", ".audit-pager .text-link"):
+        for selector in (".filter-bar__chips--links .filter-chip__box", ".audit-pager .text-link"):
             assert page.locator(selector).first.bounding_box()["height"] >= MIN_TAP_PX
     finally:
         context.close()

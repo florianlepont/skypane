@@ -17,7 +17,7 @@ from companion import airline_collection as collection
 from companion import device_scope
 from companion import i18n
 from companion import illustration_normalize
-from companion import ui_filter
+from companion import ui_components, ui_filter
 from companion import ui_modal
 import companion.layout as layout
 from companion import prefs
@@ -469,15 +469,18 @@ def render(ctx, query_string=""):
     if shown:
         # Revealed by list-filter.js when the typed text hides every card.
         parts.append(_no_match_html(
-            '<button type="button" data-filter-clear data-filter-clear-all>%s</button>' %
-            escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT)), "data-filter-empty hidden"))
+            ui_components.button_html(
+                i18n.t(ui_filter.FILTER_CLEAR_TEXT), "secondary",
+                attrs=" data-filter-clear data-filter-clear-all"),
+            "data-filter-empty hidden"))
         parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
             GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
             "".join(_card_html(entry, ctx.state_dir) for entry in shown)))
         parts.extend(_sheet_html(entry, ctx.state_dir, now) for entry in shown)
     else:
         parts.append(_no_match_html(
-            '<a class="calendar-disconnect-btn" href="%s">%s</a>' % (
-                escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
-                escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT))), "data-collection-empty"))
+            ui_components.button_html(
+                i18n.t(ui_filter.FILTER_CLEAR_TEXT), "secondary",
+                href=device_scope.scoped(layout.AIRLINES_ROUTE)),
+            "data-collection-empty"))
     return "".join(parts)

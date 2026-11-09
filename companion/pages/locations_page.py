@@ -199,7 +199,7 @@ def _edit_html(row, view, prefix):
         '<details class="fleet-confirm"%s><summary>%s</summary>'
         '<form method="post" action="%s" class="fleet-confirm__form" autocomplete="off">%s%s'
         '<div class="update-actions">'
-        '<button type="submit" class="calendar-disconnect-btn">%s</button>'
+        '<button type="submit" class="btn btn--secondary">%s</button>'
         '<a class="text-link" href="%s">%s</a></div></form></details>' % (
             " open" if is_open else "", _t(_EDIT_SUMMARY),
             _esc(_action_path(row, _routes().LOCATION_EDIT_SUFFIX)), _ui().csrf_field(),
@@ -214,7 +214,7 @@ def _delete_html(row):
         '<form method="post" action="%s" class="fleet-confirm__form">%s'
         '<p class="text-body">%s%s</p>'
         '<div class="update-actions">'
-        '<button type="submit" class="calendar-disconnect-btn">%s</button>'
+        '<button type="submit" class="btn btn--secondary">%s</button>'
         '<a class="text-link" href="%s">%s</a></div></form></details>' % (
             _t(_DELETE_SUMMARY), _esc(_action_path(row, _routes().LOCATION_DELETE_SUFFIX)),
             _ui().csrf_field(), _ui().toast_icon_html("warning"), _t(_DELETE_SENTENCE),

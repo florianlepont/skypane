@@ -24,6 +24,7 @@ from companion.layout import escape_html
 import companion.layout as layout
 import companion.page_context as page_context
 import companion.prefs as prefs
+import companion.ui_components as ui_components
 import companion.ui_filter as ui_filter
 import companion.ui_groups as ui_groups
 from server import history_db
@@ -372,7 +373,7 @@ def _view_panel_link_html(name, iso, row_name):
     The visible text is contained in the accessible name, which adds the
     row's callsign.
     """
-    return '<a class="calendar-disconnect-btn flight-picture-link" %s>%s</a>' % (
+    return '<a class="btn btn--secondary flight-picture-link" %s>%s</a>' % (
         _view_panel_attrs(name, iso, row_name),
         escape_html(i18n.t(VIEW_PICTURE_LABEL)),
     )
@@ -616,12 +617,14 @@ def _flight_cell_html(row):
 def _chips_html(view, result):
     """The direction chips: radios of the search form (`kind`), each with the
     number of flights of that direction that match the search over the whole
-    history, so the counts stay true while a direction is chosen or the list is
-    empty. "All" counts every match, an overhead pass included."""
+    history, so the counts stay true while a direction is chosen; a search that
+    matches nothing shows the whole history's counts instead of 0 / 0 / 0.
+    "All" counts every match, an overhead pass included."""
+    all_count, counts = result.chip_counts or (result.matched, result.counts)
     chips = (
-        ("", i18n.t(_CHIP_ALL_TEXT), result.matched),
-        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT), result.counts["departing"]),
-        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT), result.counts["arriving"]),
+        ("", i18n.t(_CHIP_ALL_TEXT), all_count),
+        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT), counts["departing"]),
+        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT), counts["arriving"]),
     )
     parts = []
     for kind, text, count in chips:
@@ -685,8 +688,8 @@ def _empty_html(view, result):
     clear = view_href(history_query.View("", "", view.sort))
     return ui_filter.filter_empty_html(
         i18n.t(_FILTER_EMPTY_HEADING), i18n.t(_FILTER_EMPTY_BODY_TEMPLATE) % result.total,
-        '<a class="calendar-disconnect-btn" href="%s" data-flights-clear>%s</a>' % (
-            escape_html(clear), escape_html(i18n.t(ui_filter.FILTER_CLEAR_TEXT))),
+        ui_components.button_html(
+            i18n.t(ui_filter.FILTER_CLEAR_TEXT), "secondary", href=clear, attrs=" data-flights-clear"),
         "data-flights-empty data-flights-view")
 
 

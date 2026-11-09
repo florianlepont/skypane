@@ -49,7 +49,7 @@ def test_a_rule_row_offers_a_remove_dialog_whose_dismiss_is_named_and_focused(se
     assert form.select_one('input[name="csrf_token"]') is not None
     submit = form.select_one('button[type="submit"]')
     assert submit.text() == "Remove special look"
-    assert "calendar-disconnect-btn" in submit.attrs["class"]
+    assert "btn--danger" in submit.attrs["class"]
     dismiss = form.select_one("a.modal__dismiss")
     assert dismiss.text() == "Keep special look"
     assert "autofocus" in dismiss.attrs

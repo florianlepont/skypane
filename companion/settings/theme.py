@@ -13,7 +13,7 @@ id (`companion.settings.look`'s colour x style table), so the card works
 with scripts blocked; the picture-first picker is an enhancement.
 """
 from companion import i18n
-from companion import theme_preview
+from companion import theme_preview, ui_components
 from companion.layout import escape_html
 import companion.layout as layout
 from server import device_config
@@ -223,9 +223,7 @@ def look_sheet_html(inline=False):
         "</div>"
         '<div class="look-sheet__same" data-look-same-row hidden>'
         '<span id="look-same-label">%s</span>'
-        '<button type="button" class="switch" role="switch" aria-checked="false" '
-        'aria-labelledby="look-same-label" data-look-same>'
-        '<span class="switch__track"><span class="switch__thumb"></span></span></button></div>'
+        "%s</div>"
         '<p class="look-sheet__same-note text-label" data-look-same-note hidden>%s</p>'
         "%s%s"
         "</div>"
@@ -235,6 +233,8 @@ def look_sheet_html(inline=False):
         LOOK_SHEET_TITLE_ID,
         escape_html(i18n.t(LOOK_CLOSE_LABEL)), layout.icon_html("icon-close"),
         escape_html(i18n.t(SAME_AS_DEPARTURES_LABEL)),
+        ui_components.switch_button_html(
+            False, ' aria-labelledby="look-same-label" data-look-same', "button"),
         escape_html(i18n.t(LOOK_FOLLOWS_NOTE)),
         look.axes_html("look"), foot,
     )

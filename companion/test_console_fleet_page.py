@@ -178,7 +178,7 @@ def test_dialogs_post_to_the_unchanged_routes_with_csrf(fleet):
         assert 'href="%s" data-modal-close' % dismiss in dialog
     retire = _dialog(page, "dlg-retire-" + _slug(seed.owned_id))
     assert "Retire \u201cKitchen\u201d?" in retire and "Keep frame" in retire
-    assert "calendar-disconnect-btn" in retire and "Retire frame" in retire
+    assert "btn--danger" in retire and "Retire frame" in retire
     # A confirm-only dialog focuses its dismiss link, so Enter never confirms.
     assert re.search(r'<a class="modal__dismiss"[^>]* autofocus', retire)
     # Reassign is a button beside the owner that opens one confirmation dialog.

@@ -717,7 +717,7 @@ def test_the_current_badge_reads_a_server_rendered_translated_attribute():
 
 def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_css):
     """the rule-kind segmented control (config_page.py's 'Match by' <div class="theme-form">)
-    keeps its own global label-margin reset and 28px row height, and
+    keeps its own global label-margin reset and the 44px target height, and
     .frame-colours__panel-legend is confirmed retired outright rather than repointed - the usage
     panels and their <legend> elements are gone, the rule-add form's own segmented control never
     had a <legend> to begin with, and this genuinely NARROWS the serif boundary's own documented
@@ -726,8 +726,8 @@ def test_segmented_control_resets_label_margin_and_panel_legend_retired(served_c
     assert decls.get("margin-bottom") == "0", (
         "'.theme-form input[type=\"radio\"] + label' must reset the global label rule's own "
         "margin-bottom (T12), got %r" % (decls,))
-    assert decls.get("height") == "28px", (
-        "'.theme-form input[type=\"radio\"] + label' must keep its own 28px row height (T12), "
+    assert decls.get("min-height") == "44px", (
+        "'.theme-form input[type=\"radio\"] + label' must keep a 44px target height (T12), "
         "got %r" % (decls,))
 
     for rule in css_rules(served_css):
@@ -791,7 +791,7 @@ def test_each_time_input_carries_the_site_language_and_a_visible_24h_sibling():
 def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
     """style.css carries B9's zero-basis runway card (with .runway-row still wrapping for its
     second consumer), B15's content-width left-aligned calendar button with its accent kept, and
-    B7/C3's active-segment hover restore at the register's own 12% accent wash"""
+    B7/C3's active-segment hover restore at the segmented control's own selected pill"""
     css = served_css
 
     runway_card = declarations_for(css, ".runway-card")
@@ -814,9 +814,9 @@ def test_style_css_carries_b9_b15_and_b7_geometry_rules(served_css):
         assert banned not in joined_b15, "the calendar button must declare no full-width treatment, found %r" % (banned,)
 
     b7 = declarations_for(css, ".theme-form .theme-option--active:hover")
-    assert b7.get("background") == "color-mix(in srgb, var(--color-accent) 12%, transparent)", (
-        "expected the register's own 12%% accent wash, not a new percentage, got %r" % (b7,))
-    assert b7.get("color") == "var(--color-accent)", "expected the active segment's accent text to be restored"
+    assert b7.get("background") == "var(--seg-selected-bg)", (
+        "expected the segmented control's own selected pill, not a new colour, got %r" % (b7,))
+    assert b7.get("color") == "var(--seg-selected-fg)", "expected the active segment's text to be restored"
     partner = declarations_for(css, ".theme-form .theme-option:not(.theme-option--active):hover")
     assert partner, "expected the :not()-scoped non-active hover rule to still exist"
 
@@ -842,7 +842,7 @@ def test_the_wake_interval_field_has_a_label_above_it_and_a_content_sized_input(
     assert "title=" not in input_tag, "the unit must not be carried as a title on the control (B17)"
 
     decls = declarations_for(served_css, '.config-form input[name="wake_interval_s"]')
-    assert decls.get("width") == "8ch", "expected a character-based width (B17)"
+    assert decls.get("width") == "11rem", "expected a width that holds the placeholder (B17)"
     assert decls.get("min-width") == "96px", "expected a pixel minimum (B17)"
     assert "height" not in decls, (
         "expected NO height - the global input/select 44px min-height is the touch-target "

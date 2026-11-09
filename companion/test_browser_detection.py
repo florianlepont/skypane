@@ -251,7 +251,7 @@ def test_search_button_is_not_accent_and_44px(new_context, make_app_server, view
 def test_accent_budget(new_context, make_app_server):
     """The accent fill (derived from the Save button) is painted only on the Save buttons (and
     the current segment of the space switch an administrator sees, and the selected segment of
-    the mode switch, a graphite pill by the segmented-control rule, the current sidebar item,
+    the mode switch and the theme and language switches, graphite pills by the segmented-control rule, the current sidebar item,
     the current tab bar pill and the icon chip of the frame popover's Add row): never on an airport row, a summary value or a
     runway card."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
@@ -261,7 +261,8 @@ def test_accent_budget(new_context, make_app_server):
         ".map(el => el.tagName.toLowerCase() + '.' + el.className.toString().trim()"
         " + '|' + (el.htmlFor || ''))")
     allowed = ("dirty-bar__save", "skip-link", "space-switch__segment--current", "place-mode",
-               "sidebar-link--active", "frame-row__icon", "tab-bar__pill", "tab-bar__slider")
+               "sidebar-link--active", "frame-row__icon", "tab-bar__pill", "tab-bar__slider",
+               "theme-option--active")
     for route in ("/detection?q=lf", "/detection?airport=%s&mode=runway" % CDG):
         with _no_js_page(new_context, server.base_url(), route,
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:

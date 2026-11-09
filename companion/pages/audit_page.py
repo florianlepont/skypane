@@ -15,7 +15,7 @@ There is no form and no button on this page.
 import datetime
 from typing import NamedTuple
 
-from companion import i18n, ui_time
+from companion import i18n, ui_filter, ui_time
 from companion.ui_base import LOCAL_TZ, escape_html, icon_html
 
 PAGE_SIZE = 50
@@ -245,7 +245,9 @@ def _target_id_item(event):
 
 def _outcome_html(event):
     label = _OUTCOMES.get(event.outcome, _OUTCOME_FAILED)
-    return '<span class="banner__pill">%s</span>' % _t(label)
+    # Imported on use: this page loads while the navigation is still importing.
+    from companion import ui_components
+    return ui_components.pill_html(i18n.t(label))
 
 
 def _detail_item(label, value_html, extra_class=""):
@@ -310,17 +312,10 @@ def audit_href(category, page):
 
 
 def _chips_html(view):
-    chips = []
-    for key, label in CATEGORY_CHIPS:
-        current = key == view.category
-        chips.append(
-            '<a class="filter-chip%s" href="%s"%s>'
-            '<span class="filter-chip__box"><span class="filter-chip__text">%s</span></span>'
-            "</a>" % (
-                " filter-chip--current" if current else "", _esc(audit_href(key, 1)),
-                ' aria-current="true"' if current else "", _t(label)))
-    return '<nav class="filter-bar__chips audit-chips" aria-label="%s">%s</nav>' % (
-        _t(_CHIPS_LABEL), "".join(chips))
+    return ui_filter.chip_links_html(
+        [(_esc(audit_href(key, 1)), i18n.t(label), key == view.category)
+         for key, label in CATEGORY_CHIPS],
+        i18n.t(_CHIPS_LABEL))
 
 
 def _count_html(total):

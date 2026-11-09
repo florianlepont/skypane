@@ -272,12 +272,9 @@ def _active_cell(row):
     locked = active and (row.is_self or row.is_last_admin)
     explained = (
         ' aria-describedby="%s"' % " ".join(_guard_ids(row)) if locked else "")
-    button = (
-        '<button type="submit" class="switch" role="switch" aria-checked="%s" '
-        'aria-label="%s" data-quick-control%s%s><span class="switch__track" aria-hidden="true">'
-        '<span class="switch__thumb"></span></span></button>' % (
-            "true" if active else "false", _esc(i18n.t(_ACTIVE_ARIA) % row.email),
-            explained, " disabled" if locked else ""))
+    button = _ui().switch_button_html(
+        active, ' aria-label="%s" data-quick-control%s%s' % (
+            _esc(i18n.t(_ACTIVE_ARIA) % row.email), explained, " disabled" if locked else ""))
     label = '<span class="users-active-label text-label" aria-hidden="true">%s</span>' % (
         _t(_COL_ACTIVE))
     on_path = _esc(_action_path(row, _routes().USER_DISABLE_SUFFIX))

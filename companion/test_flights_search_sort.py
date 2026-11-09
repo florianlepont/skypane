@@ -100,7 +100,7 @@ def test_the_chips_count_the_whole_history_under_the_search(state_dir):
 
 def test_a_search_with_no_match_shows_only_the_empty_card(state_dir):
     """no table, no table header, no day groups, no Load more and no shown-count line under
-    the card; the chips count zero for that search, the body quotes the whole history and the
+    the card; the chips show the whole history's counts (never 0 / 0 / 0), the body quotes it and the
     Clear link is a plain address keeping the sort"""
     doc = _doc(state_dir, {"q": "zzzz", "sort": "airline"})
     assert not doc.select("table") and not doc.select("thead") and not doc.select("th")
@@ -110,7 +110,8 @@ def test_a_search_with_no_match_shows_only_the_empty_card(state_dir):
     assert "all %d flights" % (TOTAL + 1) in card.select_one(".empty-state__body").text()
     clear = card.select_one("a")
     assert clear.text() == "Clear" and clear.attrs["href"] == "/flights?sort=airline"
-    assert _chips(doc) == {"all": "0", "departing": "0", "arriving": "0"}
+    chips = _chips(doc)
+    assert chips["all"] == str(TOTAL + 1) and chips["departing"] != "0" and chips["arriving"] != "0"
     assert doc.select_one("[data-filter-count]").text() == "No flight matches"
 
 

@@ -170,7 +170,7 @@ MESSAGES = {
     "display.this_setting_wakes_the_frame_every_min_instead":
         "Ce réglage réveille le cadre toutes les # min au lieu de toutes "
         "les %d min.",
-    "display.uses_server_default": "Utilise la valeur par défaut du serveur",
+    "display.uses_server_default": "Valeur par défaut",
 
     # --- Save --------------------------------------------------------
     # Symbolic notation ("≈" plus a placeholder already localized by its

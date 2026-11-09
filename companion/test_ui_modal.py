@@ -139,7 +139,7 @@ def test_a_dialog_without_fields_focuses_the_submit_button():
 def test_destructive_submit_differs_from_primary():
     destructive = _dialog(destructive=True).select_one('button[type="submit"]')
     primary = _dialog().select_one('button[type="submit"]')
-    assert "calendar-disconnect-btn" in destructive.attrs["class"]
+    assert "btn--danger" in destructive.attrs["class"]
     assert "class" not in primary.attrs
 
 

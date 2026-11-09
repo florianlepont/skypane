@@ -14,7 +14,7 @@ Save bar: a new special look, an edited special look, the calendar connection
 right) and the calendar's look (the settings route, the look picker). Each belongs to the Special looks or Calendar view
 (`PARENT_VIEWS`), which the navigation marks as current.
 """
-from companion import i18n, theme_preview, ui_save_bar
+from companion import i18n, theme_preview, ui_save_bar, ui_segmented
 from companion import device_scope
 import companion.layout as layout
 from companion.layout import escape_html
@@ -142,16 +142,14 @@ def _nav_html(view):
     (a form page marks the list it belongs to). A script adds the sliding
     highlight over it; the links work without."""
     view = PARENT_VIEWS.get(view, view)
-    links = "".join(
-        '<a class="personalisation-nav__link" href="%s" data-pers-view="%s"%s>%s<span>%s</span></a>' % (
-            escape_html(device_scope.scoped(VIEW_ROUTES[slug])), slug,
-            ' aria-current="page"' if slug == view else "",
-            layout.icon_html(icon), escape_html(i18n.t(title)))
-        for slug, title, icon in _views())
-    return (
-        '<nav class="personalisation-nav" aria-label="%s" data-pers-nav>'
-        '<span class="personalisation-nav__thumb" data-pers-thumb aria-hidden="true"></span>%s</nav>'
-    ) % (escape_html(i18n.t(NAV_LABEL)), links)
+    links = [
+        (escape_html(device_scope.scoped(VIEW_ROUTES[slug])),
+         "%s<span>%s</span>" % (layout.icon_html(icon), escape_html(i18n.t(title))),
+         slug == view, ' data-pers-view="%s"' % slug)
+        for slug, title, icon in _views()]
+    return ui_segmented.segmented_links_html(
+        links, i18n.t(NAV_LABEL), nav_attrs=" data-pers-nav",
+        lead_html='<span class="personalisation-nav__thumb" data-pers-thumb aria-hidden="true"></span>')
 
 
 def _bar_html(title, cancel_href, form_id, pending_label=None):
