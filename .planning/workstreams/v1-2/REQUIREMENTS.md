@@ -78,7 +78,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **PSR-05**: Four layouts (A, B, C, A with the diagonal band) render in portrait 1200x1600 and landscape 800x480, without the previous-flight card.
 - [x] **PSR-06**: The layout is a per-frame setting stored in the device configuration and chosen in the companion's Personalisation tab (English and French), with a preview.
 - [ ] **PSR-07**: Seven status screens (watching, quiet hours, display off, battery empty, no connection, updating, retired) use the calm layout in portrait and landscape, and the firmware masks for no connection and updating are regenerated without a firmware code change or an OTA.
-- [ ] **PSR-08**: New golden fixtures for the new layouts live in a separate manifest, and every rendered output uses only the six legal palette indices.
+- [x] **PSR-08**: New golden fixtures for the new layouts live in a separate manifest, and every rendered output uses only the six legal palette indices.
 - [ ] **PSR-09**: The owner checks the new screens on a real panel (non-live unit only) and the result is recorded.
 
 ### Debt
@@ -152,5 +152,5 @@ Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 | PSR-05 | Phase 62 | Complete |
 | PSR-06 | Phase 62 | Complete |
 | PSR-07 | Phase 62 | Pending |
-| PSR-08 | Phase 62 | Pending |
+| PSR-08 | Phase 62 | Complete |
 | PSR-09 | Phase 62 | Pending |
