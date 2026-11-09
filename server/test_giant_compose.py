@@ -122,7 +122,7 @@ def test_status_marks_change_the_picture():
 
 
 def test_unknown_layout_without_compositor_renders_the_default():
-    assert giant_canvas(SIZE, "c", FLIGHT, "departing", route=ROUTE, pairing=PAIRINGS["grey"]).tobytes() == \
+    assert giant_canvas(SIZE, "no-such-layout", FLIGHT, "departing", route=ROUTE, pairing=PAIRINGS["grey"]).tobytes() == \
         giant_canvas(SIZE, "b", FLIGHT, "departing", route=ROUTE, pairing=PAIRINGS["grey"]).tobytes()
 
 

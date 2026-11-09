@@ -98,7 +98,8 @@ def _city(route: object, state: str) -> Optional[str]:
         return None
 
 
-def _drawable(name: Optional[str]) -> Optional[split.Split]:
+def _drawable(name: Optional[str],
+              orientation: str = split.PORTRAIT) -> Optional[split.Split]:
     """The split of `name` when Anton can letter it, trying an accent-free
     spelling when it cannot; None when the name is missing or not drawable."""
     if not name:
@@ -106,25 +107,27 @@ def _drawable(name: Optional[str]) -> Optional[split.Split]:
     for candidate in (name, fonts.ascii_fallback(name)):
         if not candidate:
             continue
-        result = split.split_destination(candidate)
+        result = split.split_destination(candidate, orientation)
         if result.lines and lettering.supported_lines(result.lines):
             return result
     return None
 
 
-def lettering_split(route: object, state: str) -> Tuple[split.Split, bool]:
+def lettering_split(route: object, state: str,
+                    orientation: str = split.PORTRAIT) -> Tuple[split.Split, bool]:
     """The lines to letter and whether they are the airline name.
 
     The destination city (the origin when arriving) comes first, then the
-    airline name, then the unknown-flight wording.
+    airline name, then the unknown-flight wording. `orientation` is the
+    splitter's: landscape keeps every text on one line.
     """
-    by_city = _drawable(_city(route, state))
+    by_city = _drawable(_city(route, state), orientation)
     if by_city is not None:
         return by_city, False
-    by_airline = _drawable(_airline_name(route))
+    by_airline = _drawable(_airline_name(route), orientation)
     if by_airline is not None:
         return by_airline, True
-    fallback = split.split_destination(UNKNOWN_FLIGHT_WORDS)
+    fallback = split.split_destination(UNKNOWN_FLIGHT_WORDS, orientation)
     return fallback, False
 
 
@@ -159,12 +162,19 @@ def _small_text_mask(size: Size, state: str, route: object, hide_airline: bool) 
     return _binary(mask)
 
 
-def _paint_small_text(canvas: Image.Image, pairing: Pairing, state: str, route: object,
-                      hide_airline: bool, band: Optional[Image.Image]) -> None:
+def paint_text_mask(canvas: Image.Image, pairing: Pairing, mask: Image.Image,
+                    band: Optional[Image.Image]) -> None:
+    """Paint the small-text `mask` in the pairing's small-text ink; inside
+    `band` (when given) it takes the field shade."""
     ink = small_text_ink_pattern(pairing, canvas.size)
     if band is not None:
         ink.paste(field_pattern(pairing, canvas.size), (0, 0), band)
-    canvas.paste(ink, (0, 0), _small_text_mask(canvas.size, state, route, hide_airline))
+    canvas.paste(ink, (0, 0), mask)
+
+
+def _paint_small_text(canvas: Image.Image, pairing: Pairing, state: str, route: object,
+                      hide_airline: bool, band: Optional[Image.Image]) -> None:
+    paint_text_mask(canvas, pairing, _small_text_mask(canvas.size, state, route, hide_airline), band)
 
 
 def _marker_ink(pairing: Pairing) -> int:
@@ -188,13 +198,17 @@ def _aircraft_path(flight: object, route: object, state_dir: Optional[str]) -> O
     return illustrations.select_illustration(route, aircraft_type, state_dir=state_dir)
 
 
-def _paint_whole(canvas: Image.Image, path: Optional[str]) -> None:
+def _paint_whole(canvas: Image.Image, path: Optional[str],
+                 width_frac: float = WHOLE_WIDTH_FRAC, center_x_frac: float = 0.5,
+                 center_y_frac: float = WHOLE_CENTER_Y_FRAC) -> None:
+    """Whole aircraft `width_frac` of the canvas width wide, centred on the
+    given fractions of the canvas."""
     w, h = canvas.size
-    content = aircraft.load_content(path, round(w * WHOLE_WIDTH_FRAC)) if path else None
+    content = aircraft.load_content(path, round(w * width_frac)) if path else None
     if content is None:
         return
-    left = (w - content.size[0]) // 2
-    top = round(h * WHOLE_CENTER_Y_FRAC) - content.size[1] // 2
+    left = round(w * center_x_frac) - content.size[0] // 2
+    top = round(h * center_y_frac) - content.size[1] // 2
     aircraft.paint_aircraft(canvas, content, left, top, aircraft.halo_radius(canvas.size))
 
 
@@ -202,12 +216,16 @@ def _paint_halves(canvas: Image.Image, path: Optional[str],
                   nose_plane_frac: float = aircraft.NOSE_PLANE_WIDTH_FRAC,
                   rear_plane_frac: float = aircraft.REAR_PLANE_WIDTH_FRAC,
                   nose_left_frac: float = aircraft.NOSE_LEFT_X_FRAC,
-                  rear_right_frac: float = aircraft.REAR_RIGHT_X_FRAC) -> None:
+                  rear_right_frac: float = aircraft.REAR_RIGHT_X_FRAC,
+                  nose_center_y_frac: float = aircraft.NOSE_CENTER_Y_FRAC,
+                  rear_bottom_y_frac: float = aircraft.REAR_BOTTOM_Y_FRAC) -> None:
     """Nose half entering from the right edge and the smaller rear half
     entering from the left edge below it; both cut columns lie off-canvas.
     The plane fractions are the widths of the whole aircraft behind each half
     as shares of the canvas width; the anchors are where the cockpit tip and
-    the tail end land, as shares of the canvas width."""
+    the tail end land, as shares of the canvas width; the vertical fractions
+    are the nose half's centre and the rear half's bottom as shares of the
+    canvas height."""
     if not path:
         return
     w, _h = canvas.size
@@ -221,9 +239,9 @@ def _paint_halves(canvas: Image.Image, path: Optional[str],
         large, aircraft.nose_cut(canvas.size, cut, nose_plane_frac, nose_left_frac))
     _, rear = aircraft.split_halves(
         small, aircraft.rear_cut(canvas.size, cut, rear_plane_frac, rear_right_frac))
-    nose_box = aircraft.nose_half(canvas.size, nose.size, left_frac=nose_left_frac)
+    nose_box = aircraft.nose_half(canvas.size, nose.size, nose_center_y_frac, nose_left_frac)
     aircraft.paint_aircraft(canvas, nose, nose_box[0], nose_box[1], halo)
-    rear_box = aircraft.rear_half(canvas.size, rear.size, right_frac=rear_right_frac)
+    rear_box = aircraft.rear_half(canvas.size, rear.size, rear_bottom_y_frac, rear_right_frac)
     aircraft.paint_aircraft(canvas, rear, rear_box[0], rear_box[1], halo)
 
 
