@@ -667,9 +667,13 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
         cells, sheet = _personal_bar(active)
         if not cells and is_user_principal():
             return ""
+    # A page that belongs to no bar cell (Credits, the component catalogue, an
+    # error page) is reached through More, so More carries the pill there and
+    # the sliding pill is on every page.
+    in_bar = any("tab-bar__link--active" in cell for cell in cells)
     summary_class = (
         "tab-bar__link tab-bar__link--active"
-        if any(entry.is_active for entry in sheet) else "tab-bar__link")
+        if not in_bar or any(entry.is_active for entry in sheet) else "tab-bar__link")
     cells.append(
         '<details class="tab-bar__more">'
         '<summary class="%s">%s</summary>'

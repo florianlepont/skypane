@@ -39,7 +39,7 @@ VIEW_ROUTES = (
 LOOK_ROUTES = (layout.DISPLAY_ROUTE, layout.DISPLAY_ARRIVALS_ROUTE)
 SAVED_LOOK = "band_red_field"
 PICKER = "[data-look-sheet][data-look-inline]"
-THUMB = "[data-pers-thumb]"
+THUMB = "[data-tabs-thumb]"
 
 _OWNS_CENTRE = (
     "el => { const r = el.getBoundingClientRect();"
@@ -224,7 +224,7 @@ def test_on_a_phone_the_navigation_fits_without_scrolling_and_shows_the_current_
         route=layout.DISPLAY_CALENDAR_ROUTE)
     try:
         assert page.evaluate(
-            "() => { const n = document.querySelector('[data-pers-nav]');"
+            "() => { const n = document.querySelector('[data-tabs=\"display\"]');"
             " return n.scrollWidth <= n.clientWidth; }")
         page.wait_for_function(
             "() => { const l = document.querySelector('.personalisation-nav__link[aria-current]');"
@@ -408,7 +408,7 @@ def test_the_navigation_links_are_plain_links_one_view_each(
 
 def _thumb_covers_current_link(page):
     return page.evaluate(
-        "() => { const t = document.querySelector('[data-pers-thumb]').getBoundingClientRect();"
+        "() => { const t = document.querySelector('[data-tabs-thumb]').getBoundingClientRect();"
         " const l = document.querySelector('.personalisation-nav__link[aria-current]')"
         ".getBoundingClientRect();"
         " return Math.abs(t.left - (l.left + 3)) < 1.5 && Math.abs(t.width - (l.width - 6)) < 1.5; }")
@@ -422,7 +422,7 @@ def test_the_highlight_slides_to_the_current_link(new_context, make_app_server):
         reduced_motion="no-preference")
     try:
         page.wait_for_function(
-            "() => !document.querySelector('[data-pers-thumb]').classList.contains('is-sliding')",
+            "() => !document.querySelector('[data-tabs-thumb]').classList.contains('is-sliding')",
             timeout=5000)
         assert _thumb_covers_current_link(page)
         page.evaluate(
@@ -431,10 +431,10 @@ def test_the_highlight_slides_to_the_current_link(new_context, make_app_server):
             page.click('.personalisation-nav__link[href$="%s"]' % layout.DISPLAY_CALENDAR_ROUTE)
         page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
         page.wait_for_function(
-            "() => document.querySelector('[data-pers-thumb]').classList.contains('is-sliding')",
+            "() => document.querySelector('[data-tabs-thumb]').classList.contains('is-sliding')",
             timeout=5000)
         assert page.evaluate(
-            "() => parseFloat(getComputedStyle(document.querySelector('[data-pers-thumb]'))"
+            "() => parseFloat(getComputedStyle(document.querySelector('[data-tabs-thumb]'))"
             ".transitionDuration) > 0")
         page.wait_for_function(
             "() => document.getAnimations().every(a => a.playState !== 'running'"
@@ -454,9 +454,9 @@ def test_under_reduced_motion_the_highlight_does_not_slide(new_context, make_app
             page.click('.personalisation-nav__link[href$="%s"]' % layout.DISPLAY_CALENDAR_ROUTE)
         _ready(page, layout.DISPLAY_CALENDAR_ROUTE)
         assert not page.evaluate(
-            "() => document.querySelector('[data-pers-thumb]').classList.contains('is-sliding')")
+            "() => document.querySelector('[data-tabs-thumb]').classList.contains('is-sliding')")
         assert page.evaluate(
-            "() => parseFloat(getComputedStyle(document.querySelector('[data-pers-thumb]'))"
+            "() => parseFloat(getComputedStyle(document.querySelector('[data-tabs-thumb]'))"
             ".transitionDuration) < 0.001")
         assert _thumb_covers_current_link(page)
     finally:
