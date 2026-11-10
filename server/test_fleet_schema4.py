@@ -50,9 +50,9 @@ def _dump(conn, tables):
     ]
 
 
-def test_fresh_database_is_at_schema_4_with_new_objects(conn):
-    assert fleet_db.SCHEMA_VERSION == len(fleet_db.MIGRATIONS) == 4
-    assert fleet_db.schema_version(conn) == 4
+def test_fresh_database_has_the_schema_4_objects(conn):
+    assert fleet_db.SCHEMA_VERSION == len(fleet_db.MIGRATIONS) >= 4
+    assert fleet_db.schema_version(conn) == fleet_db.SCHEMA_VERSION
     assert "device_co_managers" in _objects(conn, "table")
     assert "device_co_managers_user" in _objects(conn, "index")
     assert {"device_co_managers_not_owner", "devices_owner_not_co_manager"} <= _objects(
@@ -80,7 +80,7 @@ def test_older_databases_upgrade_without_touching_rows(state_dir, start):
     assert len(before) == len(tables)
     raw.close()
     conn = fleet_db.connect(state_dir)
-    assert fleet_db.schema_version(conn) == 4
+    assert fleet_db.schema_version(conn) == fleet_db.SCHEMA_VERSION
     assert _dump(conn, tables) == before
     assert conn.execute("SELECT count(*) FROM device_co_managers").fetchone()[0] == 0
     conn.close()
@@ -110,7 +110,7 @@ def test_migrating_again_is_a_noop_and_concurrent_upgraders_agree(state_dir):
     for t in threads:
         t.join()
     assert errors == []
-    assert versions == [4, 4, 4]
+    assert versions == [fleet_db.SCHEMA_VERSION] * 3
     c = fleet_db.connect(state_dir)
     before = fleet_db.dump_logical(c)
     fleet_db.migrate_schema(c)
