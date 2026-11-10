@@ -1065,3 +1065,12 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - W174 The page-opening animations are missing on many pages; every page should have
   the same opening animation (respecting reduced motion).
 - Owner asked for another full audit (visual and UX, performance, workflows).
+- W171 update (iPhone, light, after PR #318): the top of the map now goes under the
+  status bar; the bottom band remains (map ends about 8% above the screen bottom, a
+  flat page-background band below the tab bar). Plan B (non-fixed map extending
+  under the bottom bar) is in plan 61-105.
+- W175 Location, airport choice: on a phone the map is still too little visible while
+  choosing an airport (card, runway chips, the unsaved-changes bar and the tab bar
+  cover about 60%). D53 (owner): option 1, "compact sheet": airport name, runways and
+  Cancel/Save in one card (about 130px), no separate unsaved-changes bar, about 55%
+  of the screen left to the map. To be done in plan 61-106 after 61-105.
