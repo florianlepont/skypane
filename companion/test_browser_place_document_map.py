@@ -213,3 +213,28 @@ def test_the_wide_screen_map_stays_a_fixed_layer(new_context, make_app_server):
             "() => getComputedStyle(document.getElementById('place-map')).position") == "fixed"
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
+def test_the_map_reaches_above_the_page_top_by_the_top_safe_area(
+        new_context, make_app_server, viewport):
+    """with a 59px top inset (a phone status bar) the map box starts 59px above the page's top
+    edge and still ends at the bottom of the largest viewport, nothing scrolls, and the floating
+    parts keep their places"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_ready(new_context, server, viewport)
+    try:
+        page.add_style_tag(content=":root { --safe-top: 59px !important; }")
+        page.wait_for_function(
+            "() => Math.round(document.getElementById('place-map').getBoundingClientRect().top)"
+            " === -59", timeout=5000)
+        state = page.evaluate(
+            "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
+            " const r = document.scrollingElement;"
+            " return {top: m.top, bottom: m.bottom, h: innerHeight,"
+            " scrollY: r.scrollHeight - innerHeight, scrollX: r.scrollWidth - innerWidth}; }")
+        assert round(state["top"]) == -59, state
+        assert state["bottom"] >= state["h"], state
+        assert state["scrollY"] <= 0 and state["scrollX"] <= 0, state
+    finally:
+        context.close()
