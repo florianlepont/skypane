@@ -153,8 +153,8 @@ def _page(server, session, path, lang=None):
 
 
 def test_the_new_special_look_is_a_page_with_the_unchanged_fields_and_a_docked_bar(served):
-    """the new look page posts the same fields to the same route, shows the picture and the
-    options, and carries Cancel (a link back to the list) and Save in the docked bar"""
+    """the new look page posts the same fields to the same route, shows the look cards (no
+    separate big picture), and carries Cancel (a link back to the list) and Save in the docked bar"""
     server, session = served
     page = _page(server, session, "/display/special-looks/new")
     form = page.select_one("form#special-look-form")
@@ -163,7 +163,9 @@ def test_the_new_special_look_is_a_page_with_the_unchanged_fields_and_a_docked_b
         "callsign", "hex", "prefix"]
     assert form.select_one('input[name="rule_key"]') is not None
     assert form.select('input[name="rule_theme_id"]')
-    assert form.select_one(".look-frame__image") is not None
+    assert form.select("label.runway-card.look-pick__card")
+    for gone in (".look-frame__image", ".form-page__preview", ".form-page__caption"):
+        assert not form.select(gone), gone
     assert page.select("dialog[open]") == [] and page.select("details.special-add") == []
     bar = page.select_one(".dirty-bar")
     assert bar.select_one("a.dirty-bar__cancel").attrs["href"] == "/display/special-looks"
@@ -193,21 +195,21 @@ def test_editing_a_special_look_keeps_its_key_and_preselects_its_look(served):
     assert form.select_one('input[name="rule_key"]').attrs["value"] == "TVF"
     checked = [r for r in form.select('input[name="rule_theme_id"]') if "checked" in r.attrs]
     assert [r.attrs["value"] for r in checked] == ["green_light"]
-    assert page.select_one(".form-page__name").text() == "Edit special look"
+    assert page.select_one(".dirty-bar__message").text() == "Edit special look"
     assert page.select_one('.dirty-bar button[type="submit"]').text() == "Save"
     unknown = _page(server, session, "/display/special-looks/edit?rule_kind=prefix&rule_key=ZZZ")
-    assert unknown.select_one(".form-page__name").text() == "New special look"
+    assert unknown.select_one(".dirty-bar__message").text() == "New special look"
     hostile = _page(
         server, session, "/display/special-looks/edit?rule_kind=%3Cb%3E&rule_key=%3Cscript%3E")
-    assert hostile.select_one(".form-page__name").text() == "New special look"
+    assert hostile.select_one(".dirty-bar__message").text() == "New special look"
 
 
 def test_the_edit_and_new_pages_are_french_in_french(served):
     server, session = served
     colour_rules.add_rule(server.state_dir, "prefix", "TVF", "green_light")
     new = _page(server, session, "/display/special-looks/new", lang="fr")
-    assert new.select_one(".form-page__name").text() == "Nouvelle allure spéciale"
+    assert new.select_one(".dirty-bar__message").text() == "Nouvelle allure spéciale"
     assert new.select_one('.dirty-bar button[type="submit"]').text() == "Enregistrer"
     edit = _page(
         server, session, "/display/special-looks/edit?rule_kind=prefix&rule_key=TVF", lang="fr")
-    assert edit.select_one(".form-page__name").text() == "Modifier l’allure spéciale"
+    assert edit.select_one(".dirty-bar__message").text() == "Modifier l’allure spéciale"

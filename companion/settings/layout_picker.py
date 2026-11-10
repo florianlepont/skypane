@@ -268,6 +268,28 @@ def pairing_group_html(
         _field_error_html(errors, field, field.replace("_", "-")))
 
 
+def theme_group_html(field, chosen_theme_id, saved_theme_id, usage, state, form_id, errors):
+    """One look card per theme the hardware can show, as a radio group posting
+    `field`, for a frame on the classic layout where a look is a theme rather
+    than a pairing. The same cards as the pairing group; a theme the hardware
+    cannot show selects no card."""
+    usage_label = i18n.t(USAGE_LABELS[usage])
+    cards = "".join(
+        _radio_card_html(
+            field, theme_id, theme_id == chosen_theme_id, theme_id == saved_theme_id,
+            look.look_sentence(theme_id),
+            theme_preview.frame_preview_src(
+                theme_id, state, theme_preview.FRAME_PREVIEW_SIZE_SMALL),
+            i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, look.look_sentence(theme_id)),
+            form_id)
+        for theme_id in look.offered_theme_ids())
+    return (
+        '<div class="look-pairings"><div class="look-pick__grid" role="radiogroup" '
+        'aria-label="%s">%s</div>%s</div>'
+    ) % (escape_html(usage_label), cards,
+         _field_error_html(errors, field, field.replace("_", "-")))
+
+
 def calendar_look_html(layout_id, calendar_theme_id, errors=None, submitted=None):
     """The Calendar look's picker for a frame on a giant layout: "Same as
     departures" and the five pairing cards, all posting `calendar_theme_id`

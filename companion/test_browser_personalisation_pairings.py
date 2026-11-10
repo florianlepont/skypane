@@ -70,11 +70,17 @@ def test_a_special_look_picks_a_pairing_saves_and_shows_it_after_a_reload(
         assert page.locator(CHECKED_RULE).get_attribute("value") == "grey"
         assert page.locator("form#special-look-form table.look-table").count() == 0
         assert page.locator("form#special-look-form [data-look-axes]:visible").count() == 0
+        assert page.locator(
+            "form#special-look-form img.look-frame__image, .form-page__preview, .form-page__caption"
+        ).count() == 0
         assert not _assert_no_page_overflow(page, "special-look-pairings", viewport["width"])
         assert _rule_theme(server.state_dir) == "green"
         page.locator('form#special-look-form label:has(input[value="red_light"])').click()
-        assert "layout=b" in page.locator("form#special-look-form img[data-look-image]").get_attribute("src")
-        assert "red_light" in page.locator("form#special-look-form img[data-look-image]").get_attribute("src")
+        card = page.locator('form#special-look-form label.runway-card:has(input[value="red_light"])')
+        assert page.locator(CHECKED_RULE).get_attribute("value") == "red_light"
+        assert "layout=b" in card.locator("img").get_attribute("src")
+        assert "red_light" in card.locator("img").get_attribute("src")
+        assert card.locator("input").is_checked()
         _save(page)
         assert _rule_theme(server.state_dir) == "red_light"
         assert page.locator("li.rule-row:has(.rule-row__key:text-is('TVF')) p.rule-row__theme").inner_text().strip() == (

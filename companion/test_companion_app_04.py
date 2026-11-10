@@ -831,10 +831,10 @@ def test_display_page_and_fleet_settings_split_the_groups(app04_server, session_
         assert "Screen: Plane frame" not in text, (
             "expected the retired screen-type caption to stay off the %s page" % scope)
     assert "Refresh now" not in device_text, "expected the Device page to carry no Refresh now action"
-    rules_panel_marker = 'data-look-usage="rules"'
+    rules_panel_marker = 'name="rule_theme_id"'
     assert rules_panel_marker not in device_text, (
         "expected the Device page NOT to carry the rules editor (moved to Display, 20-07/D-10)")
-    assert rules_panel_marker in special_text, (
+    assert rules_panel_marker in special_text and "data-special-form" in special_text, (
         "expected the new special look page to carry the rules editor (moved from Device, 20-07/D-10)")
     assert "Manual refresh" not in display_text, (
         "expected the Display page NOT to carry Manual refresh")

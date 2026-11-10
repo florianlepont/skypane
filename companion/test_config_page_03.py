@@ -459,9 +459,9 @@ def test_live_preview_crossfades_through_one_class_shared_by_css_and_js(served_c
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     new_templates = re.findall(r'data-preview-src-template="([^"]+)"', new_look)
-    assert len(new_templates) == 1, (
-        "expected the new special look page to carry one look target, got %r" % (new_templates,))
-    templates += new_templates
+    assert new_templates == [] and "data-look-target" not in new_look, (
+        "expected the new special look page to carry no look target (the selected card is the "
+        "preview), got %r" % (new_templates,))
     for template in templates:
         assert template.startswith(config_page.FRAME_PREVIEW_ROUTE_PREFIX + "__THEME__.png?"), template
     js = cp.strip_js_line_and_block_comments(theme_preview_js)

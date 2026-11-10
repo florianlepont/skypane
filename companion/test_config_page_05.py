@@ -457,8 +457,10 @@ def test_display_scope_has_three_radiogroups_device_has_none():
     tables_per_look = len(look.STYLE_COLUMN_GROUPS)
     assert display_rendered.count('<caption class="visually-hidden">') == 2 * tables_per_look, (
         "expected each table of the two looks (Arrivals, Calendar) to carry its own caption")
-    assert new_look_rendered.count('<caption class="visually-hidden">') == tables_per_look, (
-        "expected each table of the new special look page's look to carry its own caption")
+    assert new_look_rendered.count('<caption') == 0 and new_look_rendered.count(
+        'class="look-pick__grid" role="radiogroup"') == 1, (
+        "expected the new special look page's look to be one labelled radiogroup of radio cards, "
+        "not a table")
     assert display_rendered.count('class="look-pick__grid" role="radiogroup"') == 1, (
         "expected the departures look to be one labelled radiogroup of radio cards")
     device_count = device_rendered.count('role="radiogroup"')
@@ -598,13 +600,19 @@ def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
     full-frame preview in its look's state and size, while the table itself loads no image at
     all (its swatches are inline SVG)"""
     ctx = {"device_config": {"layout": "classic", "theme": "blue"}}
-    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
-        ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
+    rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY)
+    special = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
+    special_cards = parse_html(special).select("form#special-look-form label.look-pick__card")
+    assert sorted(
+        card.select_one("input").attrs["value"] for card in special_cards
+    ) == sorted(device_config.THEME_IDS)
+    for card in special_cards:
+        assert card.select_one("img").attrs["src"].startswith(config_page.FRAME_PREVIEW_ROUTE_PREFIX)
     sources = re.findall(
         r'<label class="(?:look-(?:cell|option)|runway-card look-pick__card)[^"]*"[^>]*?'
         r' ?data-preview-src="([^"]*)"', rendered)
     real = [src for src in sources if src]
-    assert len(real) >= 4 * len(device_config.THEME_IDS), len(real)
+    assert len(real) >= 3 * len(device_config.THEME_IDS), len(real)
     for src in real:
         assert src.startswith(config_page.FRAME_PREVIEW_ROUTE_PREFIX), src
     for table in re.findall(r'<table class="look-table">.*?</table>', rendered, re.S):
@@ -644,16 +652,16 @@ def test_look_card_has_no_caption_or_sample_flight_pill(tmp_path):
 # --- the compact chip grid, the swatch legend and the palette grids ----
 
 def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatch_legend():
-    """Display renders exactly two look tables (arrivals, calendar) and the new special look page
-    one more, each with one radio per registered theme and its gap notes listed after the table,
-    never inside it, plus the departures look as one grid of radio cards with one card per
-    registered theme"""
+    """Display renders exactly two look tables (arrivals, calendar), each with one radio per
+    registered theme and its gap notes listed after the table, never inside it, plus the
+    departures look as one grid of radio cards with one card per registered theme; the new
+    special look page adds no table"""
     ctx = {"device_config": {"layout": "classic", "theme": "white", "tracked_runway": "3"}}
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
         ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     root = parse_html(rendered)
     blocks = root.find_all("div", cls="look-table-block")
-    assert len(blocks) == 3
+    assert len(blocks) == 2
     grid = [
         g for g in root.find_all("div", cls="look-pick__grid")
         if g.find_all("input")[0].attrs["name"] == "theme"][0]

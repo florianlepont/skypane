@@ -443,7 +443,11 @@ def test_the_new_special_look_form_offers_the_five_pairings_on_a_giant_layout(ri
     assert all("form" not in r.attrs for r in radios)
     for card in root.select("form#special-look-form label.look-pick__card"):
         assert "layout=b" in card.select_one("img").attrs["src"]
-    assert "layout=b" in root.select_one("form#special-look-form img[data-look-image]").attrs["src"]
+    assert len(form.select("label.runway-card.look-pick__card")) == len(PAIRING_IDS)
+    for gone in ("img.look-frame__image", "[data-look-image]", ".form-page__preview"):
+        assert not form.select(gone), gone
+    assert not form.select(".form-page__caption")
+    assert "Matching flights will look like this." not in root.text()
 
 
 def test_the_new_special_look_form_offers_every_theme_on_a_classic_frame(rig):
@@ -451,7 +455,13 @@ def test_the_new_special_look_form_offers_every_theme_on_a_classic_frame(rig):
     root = rig.page("/display/special-looks/new")
     radios = root.select('input[name="rule_theme_id"]')
     assert sorted(r.attrs["value"] for r in radios) == sorted(device_config.THEME_IDS)
-    assert root.select("[data-look-axes]")
+    form = root.select_one("form#special-look-form")
+    assert len(form.select("label.runway-card.look-pick__card")) == len(radios)
+    assert len(_checked(root, "rule_theme_id")) == 1
+    for gone in ("[data-look-axes]", "table.look-table", "[data-look-image]", ".form-page__preview"):
+        assert not form.select(gone), gone
+    for card in form.select("label.look-pick__card"):
+        assert "layout=" not in card.select_one("img").attrs["src"]
 
 
 @pytest.mark.parametrize("stored", ["green", "band_blue_on_full", "black"])
