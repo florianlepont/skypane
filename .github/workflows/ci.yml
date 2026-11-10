@@ -201,7 +201,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4]
+        shard: [0, 1, 2, 3]
     concurrency:
       group: test-browser-${{ matrix.shard }}-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
