@@ -1044,11 +1044,8 @@ _WARM_FILLS = """
   for (const e of [document.documentElement, document.body, ...document.querySelectorAll('main *')]) {
     const c = getComputedStyle(e);
     if (e.closest('svg, img, picture, canvas')) continue;
-    // The Location page on a phone shows the map's own tile ground (a warm tone by design)
-    // behind the map so the browser's bars tint to it.
-    const mapGround = document.documentElement.classList.contains('map-ready')
-      && (e === document.documentElement || e === document.body);
-    if (mapGround) continue;
+    // The Location map box shows the map tiles' own ground colour (a warm tone by design).
+    if (e.id === 'place-map') continue;
     if (warm(c.backgroundColor) || warm(c.backgroundImage)) bad.push(e.tagName + '.' + e.className);
   }
   return bad.slice(0, 5);

@@ -84,7 +84,7 @@ def _shot(page, name):
 def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
         new_context, make_app_server, viewport, theme):
     """the map runs from the top edge to the bottom edge and from side to side (under the status
-    bar area, the tab bar and the bottom safe area); the page behind it is the tile ground colour,
+    bar area, the tab bar and the bottom safe area); the page behind it is the theme's secondary surface,
     the document cannot scroll, and the pixels at the bottom corners and the top row are map"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts = _open_ready(
@@ -106,8 +106,13 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " const html = getComputedStyle(document.documentElement);"
             " return {map: map.backgroundColor, html: html.backgroundColor, image: html.backgroundImage,"
             " scroll: document.scrollingElement.scrollHeight - innerHeight}; }")
-        # The page behind the map is the tile ground colour, never the page's sky.
-        assert page_colours["html"] == "rgb(242, 239, 233)", page_colours
+        # The page behind the map is the theme's secondary surface (a placeholder colour, never
+        # the sky); the fixed map box itself shows the tile ground colour.
+        assert page_colours["map"] == "rgb(242, 239, 233)", page_colours
+        assert page_colours["html"] == page.evaluate(
+            "() => { const p = document.createElement('i'); p.style.color = 'var(--color-secondary)';"
+            " document.body.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; }"
+        ), page_colours
         assert page_colours["image"] == "none", page_colours
         assert page_colours["scroll"] <= 0, page_colours
         # The picture itself: the bottom-corner pixels are the map's tile colour, like its middle.
@@ -123,11 +128,7 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " const probe = document.createElement('i'); probe.style.color = 'var(' + name + ')';"
             " document.body.appendChild(probe); const c = getComputedStyle(probe).color;"
             " probe.remove(); return c.match(/\\d+/g).slice(0, 3).map(Number); })")
-        # The strips along the top and bottom edges are the tile ground colour (they tint
-        # Safari's bars; the app bar floats over the top one); the corners are read past them.
-        map_colour = (242, 239, 233)
-        assert image.getpixel((width // 2, height - 2)) == map_colour, map_colour
-        for corner in ((2, height - 16), (width - 3, height - 16), (2, height - 18)):
+        for corner in ((2, height - 2), (width - 3, height - 2), (2, height - 6)):
             pixel = image.getpixel(corner)
             for colour in sky:
                 assert max(abs(a - b) for a, b in zip(pixel, colour)) > 15, (corner, pixel, sky)

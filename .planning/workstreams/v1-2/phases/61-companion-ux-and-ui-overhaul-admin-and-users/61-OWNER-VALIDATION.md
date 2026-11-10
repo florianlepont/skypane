@@ -1050,3 +1050,4 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   map-ground page background, theme-color changes) and accept Safari's bars in a tab;
   the full-bleed map under Safari's bars cannot be achieved from the page (limit of
   iOS 26 Safari). W152 is closed as a platform limit.
+- Superseded: the cause is the fixed map container background; fix tried in 61-104. W152 is not closed as a platform limit.

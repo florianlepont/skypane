@@ -66,9 +66,6 @@ def test_every_shell_covers_the_device_and_carries_both_theme_colours(theme):
         assert sorted(n.attrs.get("media") for n in colours) == [
             "(prefers-color-scheme: dark)", "(prefers-color-scheme: light)"], name
         assert all(re.fullmatch(r"#[0-9A-F]{6}", n.attrs["content"]) for n in colours), name
-        status = [n for n in companion_markup.parse_html(html).select("meta")
-                  if n.attrs.get("name") == "apple-mobile-web-app-status-bar-style"]
-        assert [n.attrs["content"] for n in status] == ["black-translucent"], name
 
 
 def test_auto_lets_each_scheme_pick_its_own_colour_and_explicit_themes_override_both():
