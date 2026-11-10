@@ -12,7 +12,7 @@ from server import fleet_db, hardware, photo_paths, photo_quota, photo_store
 NOW = 1_700_000_000
 # Public functions that are not user-facing store operations. Later work
 # that adds a system-only function must name it here on purpose.
-SYSTEM_ONLY = frozenset({"authorize_manager"})
+SYSTEM_ONLY = frozenset({"authorize_manager", "remove_files", "purge_frame", "sweep"})
 FORBIDDEN_PARAMS = {"role", "admin", "is_admin"}
 
 
@@ -47,6 +47,21 @@ def test_user_facing_functions_take_the_capability_first_and_no_role():
             continue
         assert params[0].name == "manager", name
         assert params[0].annotation in (photo_store.FrameManager, "FrameManager"), name
+
+
+def test_purge_module_is_system_only_and_takes_no_role():
+    from server import photo_purge
+
+    public = {
+        name: fn for name, fn in inspect.getmembers(photo_purge, inspect.isfunction)
+        if not name.startswith("_") and fn.__module__ == photo_purge.__name__
+    }
+    assert set(public) == {"remove_files", "purge_frame", "sweep"}
+    assert set(public) <= SYSTEM_ONLY
+    for name, fn in public.items():
+        names = {p for p in inspect.signature(fn).parameters}
+        assert not FORBIDDEN_PARAMS & names, name
+        assert "manager" not in names, name
 
 
 def test_authorize_matrix(env):
