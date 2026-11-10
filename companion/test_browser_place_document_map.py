@@ -33,21 +33,21 @@ BOXES = (
     " if (!el) return [sel, null]; const r = el.getBoundingClientRect();"
     " return [sel, [r.left, r.top, r.right, r.bottom].map((v) => Math.round(v * 10) / 10)]; }))")
 
-# The positions of the floating parts at a 390x844 and a 360x740 phone, measured before the map
-# left `position: fixed`: left, top, right, bottom of each.
+# The positions of the floating parts at a 390x844 and a 360x740 phone with the compact sheet in
+# My position mode, nothing unsaved: left, top, right, bottom of each.
 FLOATING = {
     390: {
         ".site-header": [0, 0, 390, 52],
         ".place-search__row": [12, 64, 378, 118],
-        ".place-modes": [12, 126, 275.8, 170],
-        ".place-sheet": [12, 570, 378, 762],
+        ".place-modes": [12, 126, None, 170],
+        ".place-sheet": [12, None, 378, 762],
         ".tab-bar": [8, 770, 382, 838],
     },
     360: {
         ".site-header": [0, 0, 360, 52],
         ".place-search__row": [12, 64, 348, 118],
-        ".place-modes": [12, 126, 275.8, 170],
-        ".place-sheet": [12, 466, 348, 658],
+        ".place-modes": [12, 126, None, 170],
+        ".place-sheet": [12, None, 348, 658],
         ".tab-bar": [8, 666, 352, 734],
     },
 }
@@ -116,7 +116,10 @@ def test_the_floating_parts_keep_their_places_over_the_document_map(
         boxes = page.evaluate(BOXES)
         for selector, expected in FLOATING[viewport["width"]].items():
             got = boxes[selector]
-            assert got and all(abs(a - b) <= 1.5 for a, b in zip(got, expected)), (selector, boxes)
+            # A None edge is content dependent (text width of the chips, height of the sheet with
+            # its runway list) and differs between machines; the other edges are layout fixed.
+            assert got and all(
+                b is None or abs(a - b) <= 1.5 for a, b in zip(got, expected)), (selector, boxes)
     finally:
         context.close()
 
