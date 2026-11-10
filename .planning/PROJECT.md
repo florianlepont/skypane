@@ -39,6 +39,22 @@ Runs in parallel with v1.1 (Phase 47, field validation, still open and untouched
 
 **Key context:** small fleet (the owner and a few relatives) on the same OVH VPS; adsb.fi / adsb.lol / adsbdb usage constraints apply (research of 2026-10-28); phases 1–7 are tested against a simulated hardware type, only the second-hardware phase needs a purchase.
 
+## Current Milestone: v1.3 Photo display mode
+
+Runs in parallel with v1.1 (Phase 47 and 47.1 stay untouched) and v1.2. Its planning artifacts live in the `v1-3` workstream (`.planning/workstreams/v1-3/`); phase numbering continues after Phase 63, starting at Phase 64. Source: seed SEED-013 and `.planning/notes/photo-mode-concept.md` (decisions already taken).
+
+**Goal:** A frame can show still photos (the owner's own, then project-provided collections) instead of the plane screen, with a rotation that also saves battery.
+
+**Target features:**
+- One display mode per frame, plane or photos, set in the companion.
+- Upload of the owner's photos; reduced normalised copy only, per-frame quota, real deletion.
+- Photo render path separate from plane rendering: crop to fill by default or bands per photo, contrast and saturation before 6-colour dithering, both panel sizes.
+- Rotation per frame (hourly, 6 h, 12 h, daily; random without repeats or upload order), wake interval following it once the battery-measurement phases are done.
+- Privacy: only the owner and co-managers see photos, never the admin.
+- v1.3.x: provided collections (public domain / CC0 plus one artist collection under a written agreement).
+
+**Key context:** plane-mode rendering and `server/fixtures/golden` are not touched; every merge into `main` deploys to production, so PRs stay drafts until the owner decides.
+
 ## Requirements
 
 ### Validated
@@ -58,6 +74,7 @@ Runs in parallel with v1.1 (Phase 47, field validation, still open and untouched
 - [ ] (v1.1) The companion interface is improved from a focused usability and visual-consistency walkthrough.
 - [ ] (v1.2) Several users each own frames of different hardware types, anywhere in France, each with its own detection mode (airport + runway, or aircraft around a position).
 - [ ] (v1.2) An admin manages the whole fleet remotely from a console; ordinary users see only their own frames with fewer options.
+- [ ] (v1.3) A frame can show the owner's own photos instead of the plane screen, rotating on a chosen interval, visible only to the owner and co-managers.
 - [ ] (v2/later) Companion phone app can push a short message that appears on the frame
 
 ### Out of Scope
