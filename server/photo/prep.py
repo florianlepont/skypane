@@ -36,8 +36,9 @@ class PrepParams:
             raise ValueError(f"saturation must be in [0, {MAX_SATURATION}]")
 
 
-# Provisional defaults: they are fixed by the skin-tone record in
-# docs/PHOTO-RENDERING.md and may change until that record is written.
+# Starting defaults, kept after the skin-tone review recorded in
+# docs/PHOTO-RENDERING.md. Only synthetic faces were tried, so revisit them
+# once real portraits have been tried.
 DEFAULT_PREP = PrepParams(1.0, 0.8, 1.2)
 
 
