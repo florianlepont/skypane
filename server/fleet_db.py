@@ -689,6 +689,7 @@ def delete_user_guarded(
         if owned is not None:
             raise UserOwnsFrame(str(owned["name"] or owned["id"]))
         who = actor or AuditActor(None, "system", None)
+        _purge_user_photos(conn, who, target_user_id)
         conn.execute("DELETE FROM sessions WHERE user_id = ?", (target_user_id,))
         for row in list(conn.execute(
             "SELECT device_id FROM device_co_managers WHERE user_id = ? "
@@ -1168,6 +1169,7 @@ def remove_device(
     with _atomic(conn):
         row = conn.execute("SELECT id FROM devices WHERE mac = ?", (mac,)).fetchone()
         if row is not None:
+            delete_photo_rows(conn, str(row["id"]))
             removed = clear_co_managers(conn, str(row["id"]))
             audit_co_manager_removals(
                 conn, actor or AuditActor(None, "system", None),
@@ -1763,6 +1765,7 @@ def park_retired(conn: sqlite3.Connection, device_id: str, now: int) -> str | No
             return None
         # Membership and photo rows reference the device; clear them before the delete.
         clear_co_managers(conn, device_id)
+        delete_photo_rows(conn, device_id)
         conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
         pending_id = new_pending_id(conn)
         conn.execute(
