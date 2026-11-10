@@ -85,3 +85,52 @@ def test_different_databases_do_not_share_a_cache_entry(tmp_path):
     vp.seed_runway_events(second, [_event(2)])
     assert _rendered_callsigns(first) == {"AFR1"}
     assert _rendered_callsigns(second) == {"AFR2"}
+
+
+def test_concurrent_requests_after_a_write_share_one_computation(tmp_path):
+    import threading
+    import time
+    vp.seed_runway_events(tmp_path, [_event(1)])
+    runs = []
+
+    def loader():
+        runs.append(1)
+        time.sleep(0.15)
+        return "value"
+
+    results = []
+
+    def request():
+        with history_db.open_db(str(tmp_path)) as conn:
+            results.append(history_cache.cached(conn, "slow", loader))
+
+    threads = [threading.Thread(target=request) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert results == ["value"] * 4 and len(runs) == 1
+
+
+def test_the_airline_collection_is_built_once_per_history_and_renames(tmp_path, monkeypatch):
+    vp.seed_runway_events(tmp_path, [_event(1), _event(2, airline="Ryanair")])
+    builds = []
+    real = airline_collection.collection_from_events
+
+    def counting(events, now, overrides=None):
+        builds.append(1)
+        return real(events, now, overrides)
+
+    monkeypatch.setattr(airline_collection, "collection_from_events", counting)
+    now = "2026-09-22T10:00:00+00:00"
+    with history_db.open_db(str(tmp_path)) as conn:
+        first = airline_collection.airline_collection(conn, now)
+        second = airline_collection.airline_collection(conn, now)
+        airline_collection.airline_collection(conn, now, {"x": "y"})
+    assert len(builds) == 2
+    assert [e.slug for e in first[0]] == [e.slug for e in second[0]]
+    later = "2026-12-22T10:00:00+00:00"
+    with history_db.open_db(str(tmp_path)) as conn:
+        aged = airline_collection.airline_collection(conn, later)
+    assert any(e.is_new for e in first[0]) and not any(e.is_new for e in aged[0])
+    assert len(builds) == 2

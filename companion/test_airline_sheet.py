@@ -100,7 +100,7 @@ def test_a_renamed_airline_shows_its_new_name_and_new_artwork_key_without_a_chip
     and carries no status chip"""
     tmp = str(tmp_path)
     name_overrides.set_names(tmp, ["TFV", "TVF"], "Transavia", now="2026-01-01T00:00:00+00:00")
-    rendered = airlines_page.render(shp.ctx(tmp) | {"name_overrides": name_overrides.load_name_overrides(tmp)})
+    rendered = airlines_page.render(shp.ctx(tmp) | {"types_open": "all", "name_overrides": name_overrides.load_name_overrides(tmp)})
     card = _card(rendered, "Transavia")
     assert 'name="airline" value="Transavia France"' in card
     assert 'name="airline_name" value="Transavia"' in card
@@ -126,7 +126,7 @@ def test_a_row_names_the_airframe_and_never_an_any_aircraft_label(tmp_path):
     try:
         for lang, forbidden in (("en", "Any aircraft"), ("fr", "Tout appareil")):
             prefs.set_request_prefs(lang=lang)
-            rendered = airlines_page.render(shp.ctx(str(tmp_path)))
+            rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
             assert forbidden not in rendered
             assert '<span class="airlines-type">A320</span>' in _card(rendered, "Transavia France")
     finally:

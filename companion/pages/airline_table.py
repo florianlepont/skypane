@@ -451,13 +451,32 @@ def _filter_text(row):
     return " ".join(parts)
 
 
+def row_facts(data, index, builtin_name, shapes):
+    """`_row_facts` for the airline at `index` of `data.pairs`."""
+    return _row_facts(_page(), data, index, builtin_name, shapes)
+
+
+def sub_rows_html(row):
+    """The aircraft-type rows of one airline group."""
+    page = _page()
+    return "".join(_sub_row_html(page, sub, row) for sub in row["sub_rows"])
+
+
+def _types_source(row):
+    """The address that serves the group's aircraft-type rows."""
+    return "%s?%s=%d" % (device_scope.scoped(_page().MANAGE_ROUTE), TYPES_PARAM, row["index"])
+
+
 def _airline_group_html(page, row, types_open=False):
     subs = "".join(_sub_row_html(page, sub, row) for sub in row["sub_rows"])
+    source = ""
     if subs and not types_open:
-        subs = '<template class="airlines-types">%s</template>' % subs
+        # The rows are fetched when the airline's chevron first opens.
+        subs = ""
+        source = ' data-types-src="%s"' % escape_html(_types_source(row))
     return (
-        '<tbody class="airline-group" data-filter-text="%s" data-filter-group="%d">%s%s</tbody>'
-    ) % (escape_html(_filter_text(row)), row["index"], _main_row_html(page, row), subs)
+        '<tbody class="airline-group" data-filter-text="%s" data-filter-group="%d"%s>%s%s</tbody>'
+    ) % (escape_html(_filter_text(row)), row["index"], source, _main_row_html(page, row), subs)
 
 
 def known_type_codes():
