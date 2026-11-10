@@ -458,7 +458,8 @@ def test_failsafe_toast_when_the_saved_location_leaves_the_box(rig):
     text = _text(page)
     assert "No usable location" in text
     assert "toast--docked" in page
-    assert "Paris-Orly Airport" in text
+    # The airport list is filled by the page script from the map's catalogue.
+    assert "Paris-Orly Airport" in html.unescape(page)
 
 
 # --- text rules ---------------------------------------------------------------------

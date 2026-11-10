@@ -14,6 +14,7 @@ import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion import ui_segmented
+from companion.ui_components import csrf_field
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
     AIRLINES_ROUTE,
@@ -729,7 +730,7 @@ def _theme_form_html(resolved_theme):
             (' aria-label="%s"' % escape_html(i18n.t(accessible))) if accessible else "", ""))
     return ui_segmented.segmented_buttons_html(
         'method="post" action="/ui-theme" aria-label="%s"' % escape_html(i18n.t(_THEME_TEXT)),
-        buttons)
+        buttons, hidden_html=csrf_field())
 
 
 def _lang_form_html(resolved_lang):
@@ -741,7 +742,7 @@ def _lang_form_html(resolved_lang):
         for choice in prefs.LANG_CHOICES]
     return ui_segmented.segmented_buttons_html(
         'method="post" action="/ui-lang" aria-label="%s"' % escape_html(i18n.t(_LANGUAGE_TEXT)),
-        buttons)
+        buttons, hidden_html=csrf_field())
 
 
 def _logout_form_html():

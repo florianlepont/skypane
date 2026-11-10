@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 import fleet_console_support as fx
-from companion import auth, device_scope
+from companion import airline_display, auth, device_scope
 from companion_app_server import InProcessAppServer, http_request
 from server import fleet_db, history_db
 from server.plane import illustrations
@@ -158,7 +158,7 @@ def test_unseen_cards_are_dimmed_and_say_not_seen_yet(rig):
     assert len(unseen) == len(CURATED) - 3
     for card in unseen:
         text = _text(card)
-        assert text in {name for name in CURATED}, text
+        assert text in {airline_display.shown_name(name) for name in CURATED}, text
         assert "Not seen yet" not in text and "Seen once" not in text
         assert "Rare" not in text and "times" not in text
 

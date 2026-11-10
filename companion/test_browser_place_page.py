@@ -13,6 +13,7 @@ import pytest
 
 from co_manager_browser_support import SUBPIXEL
 from companion import auth
+from companion.pages import place_page
 from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow,
     _login, _no_js_page, _set_ui_theme)
@@ -96,6 +97,13 @@ def test_no_script_save_with_both_external_hosts_aborted(new_context, make_app_s
             raise AssertionError("the no-script explanation is not shown")
         if not page.eval_on_selector("#details", "el => el.open"):
             raise AssertionError("the details card is closed")
+        # Without a script the list opens on the first airports only; the
+        # search field reaches the others.
+        if page.locator("a.place-airport__link").count() != place_page.NOSCRIPT_AIRPORTS:
+            raise AssertionError("the no-script list is not the short one")
+        page.fill("#airport-filter", "roissy")
+        with page.expect_navigation():
+            page.click("#airport-filter-submit")
         with page.expect_navigation():
             page.click("a.place-airport__link[data-icao=%s]" % CDG)
         if "airport=%s" % CDG not in page.url:

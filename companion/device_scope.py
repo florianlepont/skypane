@@ -90,13 +90,13 @@ def _fleet_rows(root):
         conn.close()
 
 
-def _device_from_row(root, row):
+def _device_from_row(root, row, real_devices=None):
     """A Device for the row, or None when its state_path is unusable."""
     state_path = str(row["state_path"])
     if state_path == device_dirs.LIVE_STATE_PATH:
         return _live_from_row(root, row)
     try:
-        state_dir = device_dirs.resolve_state_dir(root, state_path)
+        state_dir = device_dirs.resolve_state_dir(root, state_path, real_devices)
     except ValueError:
         return None
     device_id = str(row["id"])
@@ -120,8 +120,9 @@ def _devices_from_rows(root, rows, with_fallback):
     live entry (no fleet row) is added only when `with_fallback`."""
     live = None
     others = []
+    real_devices = device_dirs.real_devices_dir(root)
     for row in rows:
-        device = _device_from_row(root, row)
+        device = _device_from_row(root, row, real_devices)
         if device is None:
             continue
         if device.is_live:

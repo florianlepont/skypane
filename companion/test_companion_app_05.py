@@ -1192,6 +1192,9 @@ def test_no_companion_module_redefines_the_retired_display_mode_switch():
 # ==========================================================================
 
 
+SAME_IN_FRENCH = frozenset(("Style",))
+
+
 def test_flash_and_title_strings_round_trip_to_french_and_back():
     """every companion.app.FLASH_MESSAGES template and every _PAGE_TITLES value, plus the 404's
     and login shell's own <title> literals, round-trip to French under i18n.t_lang(..., 'fr')
@@ -1202,7 +1205,8 @@ def test_flash_and_title_strings_round_trip_to_french_and_back():
             "expected t_lang(%r, 'en') to be byte-identical to the English source (%s), got %r"
             % (text, label, en_result))
         fr_result = i18n_module.t_lang(text, "fr")
-        assert fr_result != text, (
+        # "Style" is the French word too, spelled identically.
+        assert fr_result != text or text in SAME_IN_FRENCH, (
             "expected t_lang(%r, 'fr') (%s) to be a real French translation, got the English "
             "source back unchanged" % (text, label))
 

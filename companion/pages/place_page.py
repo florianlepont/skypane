@@ -45,13 +45,17 @@ from companion.settings.form import (
 from server import airports, detection, device_config
 
 # The scripts and the extra stylesheet this page alone loads, beyond the
-# shared ones: the form guard, the airport filter, then the map library and
-# the glue that drives it.
+# shared ones: the form guard, the airport list filler, the airport filter,
+# then the map library and the glue that drives it.
 PAGE_SCRIPTS = (
-    layout.DIRTY_STATE_SCRIPT_SRC, layout.LIST_FILTER_SCRIPT_SRC,
+    layout.DIRTY_STATE_SCRIPT_SRC, layout.PLACE_AIRPORT_LIST_SCRIPT_SRC,
+    layout.LIST_FILTER_SCRIPT_SRC,
     layout.LEAFLET_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC,
     layout.PLACE_CARD_SCRIPT_SRC)
 PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
+
+# Airports a browser without scripts lists when no search term narrows it.
+NOSCRIPT_AIRPORTS = 20
 
 PAGE_TITLE = i18n.msg("nav.detection", "Location and detection")
 PAGE_PURPOSE = i18n.msg(
@@ -102,6 +106,9 @@ SEARCH_NONE = i18n.msg(
 SEARCH_FAILED = i18n.msg(
     "detection.search_failed",
     "Search is not available right now. Tap the map or type an airport code.")
+ROW_SEARCHING = i18n.msg("detection.row_searching", "Searching\u2026")
+ROW_NONE = i18n.msg("detection.row_none", "No place found")
+ROW_FAILED = i18n.msg("detection.row_failed", "Search unavailable right now")
 SEARCH_SHORT = i18n.msg(
     "detection.search_short", "Type at least 3 characters to search.")
 RESULTS_LABEL = i18n.msg("detection.results_label", "Search results")
@@ -146,6 +153,9 @@ _MAP_STRINGS = (
     ("search-none", SEARCH_NONE),
     ("search-failed", SEARCH_FAILED),
     ("search-short", SEARCH_SHORT),
+    ("row-searching", ROW_SEARCHING),
+    ("row-none", ROW_NONE),
+    ("row-failed", ROW_FAILED),
     ("locating", LOCATING),
     ("located", LOCATED),
     ("locate-denied", LOCATE_DENIED),
@@ -384,10 +394,12 @@ def _map_strings_attrs():
 def _airports_json():
     """The whole catalogue for the map's pins and the typed suggestions, one
     compact row per airport: ICAO, IATA, name, municipality, latitude,
-    longitude. It does not depend on the search term that filters the list."""
+    longitude, in the order of the airport list. It does not depend on the
+    search term that filters the list. It is the only copy of the catalogue on
+    the page: the list is filled from it (place-airport-list.js)."""
     rows = [
         [a.icao, a.iata, a.name, a.municipality, round(a.lat, 4), round(a.lon, 4)]
-        for a in airports.load_catalogue().values()]
+        for a in _sorted_airports(airports.load_catalogue().values())]
     return json.dumps(rows, ensure_ascii=False, separators=(",", ":"))
 
 
@@ -551,6 +563,10 @@ def _airport_row_html(view, airport):
         escape_html(airport.name), current, escape_html(dp.airport_codes(airport)))
 
 
+def _sorted_airports(found):
+    return sorted(found, key=lambda a: (_fold(a.municipality), _fold(a.name), a.icao))
+
+
 def _listed_airports(view):
     """The airports the list shows, sorted by municipality: all of them, or
     every match of the search term."""
@@ -558,12 +574,13 @@ def _listed_airports(view):
         found, _total = airports.search_airports(view.q, len(airports.load_catalogue()))
     else:
         found = list(airports.load_catalogue().values())
-    return sorted(found, key=lambda a: (_fold(a.municipality), _fold(a.name), a.icao))
+    return _sorted_airports(found)
 
 
 def _count_text(view, listed):
     if not view.q:
-        return i18n.t(FILTER_COUNT_TEMPLATE) % (len(listed), len(listed))
+        return i18n.t(FILTER_COUNT_TEMPLATE) % (
+            min(len(listed), NOSCRIPT_AIRPORTS), len(listed))
     if not listed:
         return i18n.t(dp.COUNT_NONE) % {"query": view.q}
     if len(listed) == 1:
@@ -596,14 +613,34 @@ def _filter_form_html(view, listed):
         escape_html(_count_text(view, listed)))
 
 
+def _airport_list_html(view, listed):
+    """A search term lists its matches in the page; without one the page
+    carries an empty list that place-airport-list.js fills from the map's
+    catalogue, and a <noscript> copy of the first airports (the search field
+    still reaches the others)."""
+    title = escape_html(i18n.t(AIRPORTS_TITLE))
+    if view.q:
+        rows = "".join(_airport_row_html(view, airport) for airport in listed)
+        return '<ul class="place-airports" aria-label="%s">%s</ul>' % (title, rows)
+    current = (
+        view.saved_airport if view.saved_mode == dp.MODE_RUNWAY else "")
+    rows = "".join(
+        _airport_row_html(view, airport) for airport in listed[:NOSCRIPT_AIRPORTS])
+    return (
+        '<ul class="place-airports" aria-label="%s" data-airport-fill '
+        'data-current="%s" data-current-label="%s"></ul>'
+        '<noscript><ul class="place-airports" aria-label="%s">%s</ul></noscript>'
+    ) % (
+        title, escape_html(current or ""), escape_html(i18n.t(CURRENT_BADGE_LABEL)),
+        title, rows)
+
+
 def airports_card_html(view):
     """The French airport list behind its filter field. With the map running
     the list shows only while the filter has focus."""
     listed = _listed_airports(view)
-    rows = "".join(_airport_row_html(view, airport) for airport in listed)
     if listed:
-        listing = '<ul class="place-airports" aria-label="%s">%s</ul>' % (
-            escape_html(i18n.t(AIRPORTS_TITLE)), rows)
+        listing = _airport_list_html(view, listed)
         empty = ""
     else:
         listing = ""
@@ -872,7 +909,8 @@ def details_card_html(view):
 
 def _nearest_html():
     """The offer to follow a close airport instead of a position: shown by
-    the map script in My-position mode, never on a phone."""
+    the map script in My-position mode; a phone shows only its button, as
+    one line."""
     return (
         '<div id="place-nearest" class="place-nearest" hidden>'
         '<span class="place-nearest__icon">%s</span>'

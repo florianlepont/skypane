@@ -17,13 +17,6 @@ never a straight quote), and a non-breaking space (U+00A0) before
 """
 
 MESSAGES = {
-    "home.greeting_default": "Bonjour",
-    "home.greeting_with_name": "%s %s",
-    "home.greeting_morning": "Bonjour",
-    "home.greeting_afternoon": "Bon après-midi",
-    "home.greeting_evening": "Bonsoir",
-    "home.greeting_night": "Bonne nuit",
-
     "home.the_picture_currently_on_the_frame":
         "L’image actuellement affichée sur le cadre",
     "home.the_picture_currently_on_the_frame_flight":
@@ -76,7 +69,7 @@ MESSAGES = {
     "home.quiet_presets_label": "Préréglages des heures calmes",
     "home.quiet_or_choose": "Ou choisir ses heures",
     "home.battery_label": "Batterie",
-    "home.rename_frame_label": "Nom du cadre",
+    "home.rename_frame_action": "Renommer le cadre",
     "home.battery_aria": "Batterie à environ %s",
     "home.battery_low": "Faible",
     "home.battery_critical": "Très faible",

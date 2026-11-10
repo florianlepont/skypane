@@ -108,7 +108,7 @@ SIGN_IN_ERROR_THROTTLED = "throttled"
 SESSION_EXPIRED_NOTICE = (
     layout.TOAST_TONE_WARNING,
     i18n.msg("account.session_expired_title", "Your session expired"),
-    i18n.msg("account.session_expired_detail", "Sign in again to continue where you were."))
+    i18n.msg("account.session_expired_detail", "Sign in again to continue where you were. Changes you had not saved were not kept."))
 _SIGN_IN_ERROR_TEXT = {
     SIGN_IN_ERROR_INCOMPLETE: (
         layout.TOAST_TONE_ERROR,

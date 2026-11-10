@@ -300,8 +300,8 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     assert 'name="tracked_runway"' not in display, "expected no runway field on the Display page"
     assert 'name="tracked_runway"' not in device, "expected no runway field on the Device page"
     assert 'name="quiet_hours_enabled"' not in device, "expected no quiet-hours group on the Device page"
-    assert display.count('<h1 class="page-title">Personalisation</h1>') == 1, (
-        "expected the Personalisation page title")
+    assert display.count('<h1 class="page-title">Style</h1>') == 1, (
+        "expected the Style page title")
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
     rules_row_marker = 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES
     assert rules_row_marker in config_page.render(

@@ -216,7 +216,7 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "detection.location_option",
     # "Administration", "Audit" and "Console" are the French words too,
     # spelled identically: real cognates for the console's nav labels.
-    "nav.administration", "nav.audit_short", "nav.console", "nav.display_short",
+    "nav.administration", "nav.audit_short", "nav.console", "nav.personalisation",
     # The French column heading for a list of row actions is the same word.
     "admin_users.actions", "admin_locations.actions",
     # "Latitude" and "Longitude" are the French words too, spelled identically.
@@ -415,7 +415,7 @@ def _no_format_artefact(body_text):
 
 _FRENCH_PAGE_CASES = (
     ("/", "Accueil", "Home"),
-    ("/display", "Personnalisation", "Display"),
+    ("/display", "Style", "Display"),
     ("/flights", "Vols", "Flights"),
     ("/airlines", "Compagnies", "Airlines"),
     ("/fleet", "Flotte", "Fleet"),

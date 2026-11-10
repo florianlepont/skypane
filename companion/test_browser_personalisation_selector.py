@@ -89,7 +89,7 @@ def test_the_selector_fits_a_360px_phone_in_every_view(new_context, server, lang
 def test_the_selector_is_a_labelled_navigation_operable_from_the_keyboard(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, "en", layout.DISPLAY_ROUTE)
     try:
-        assert page.locator(NAV).get_attribute("aria-label") == "Personalisation sections"
+        assert page.locator(NAV).get_attribute("aria-label") == "Style sections"
         assert page.locator(LINK).count() == 5
         page.focus(LINK + ":nth-of-type(4)")
         page.wait_for_function(

@@ -15,6 +15,7 @@ import pytest
 from access_matrix_support import (
     ADMIN_EMAIL, OTHER_EMAIL, OWNER_EMAIL, seed_matrix_fleet)
 from companion import device_scope, page_policy
+from companion.pages import place_page
 from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
 from server import airports, detection, device_config, fleet_db
@@ -186,24 +187,29 @@ def test_the_summary_line_and_the_saved_settings_disclosure_are_gone(rig):
     assert 'name="latitude"' in page and 'value="48.8566"' in page
 
 
-def test_every_catalogue_airport_is_an_anchor_sorted_by_municipality(rig):
+def test_the_catalogue_travels_once_in_list_order_and_scriptless_browsers_get_a_short_list(rig):
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
-    anchors = re.findall(r'<a class="place-airport__link"[^>]*>', page)
     catalogue = airports.load_catalogue()
-    assert len(anchors) == len(catalogue)
+    # The full list is filled from the map's JSON; the page itself carries
+    # the first airports inside <noscript> and an empty list for the script.
+    assert re.search(r'<ul class="place-airports"[^>]*data-airport-fill[^>]*></ul>', page)
+    noscript = re.search(r"<noscript><ul class=\"place-airports\".*?</ul></noscript>", page, re.S)
+    anchors = re.findall(r'<a class="place-airport__link"[^>]*>', noscript.group(0))
+    assert len(anchors) == place_page.NOSCRIPT_AIRPORTS
+    assert len(re.findall(r'<a class="place-airport__link"', page)) == len(anchors)
     rows = [_attrs(a) for a in anchors]
-    assert {r["data-icao"] for r in rows} == set(catalogue)
-    lfpg = next(r for r in rows if r["data-icao"] == "LFPG")
-    airport = catalogue["LFPG"]
     # The position and name of every airport travel once, in the map's JSON.
-    assert not {"data-lat", "data-lon", "data-name", "data-iata"} & set(lfpg)
+    assert not {"data-lat", "data-lon", "data-name", "data-iata"} & set(rows[0])
     map_rows = json.loads(html.unescape(re.search(r'data-airports="([^"]*)"', page).group(1)))
+    assert {row[0] for row in map_rows} == set(catalogue)
+    airport = catalogue["LFPG"]
     assert ["LFPG", airport.iata, airport.name, airport.municipality,
             round(airport.lat, 4), round(airport.lon, 4)] in map_rows
-    towns = [_fold(catalogue[r["data-icao"]].municipality) for r in rows]
+    towns = [_fold(row[3]) for row in map_rows]
     assert towns == sorted(towns)
-    row = re.search(r'data-icao="LFPG".*?place-airport__meta text-label"[^>]*>([^<]*)<', page, re.S)
-    assert html.unescape(row.group(1)) == "LFPG · CDG · " + airports.find_airport("LFPG").municipality
+    assert [r["data-icao"] for r in rows] == [row[0] for row in map_rows[:len(rows)]]
+    count = re.search(r'data-filter-count[^>]*>([^<]*)<', page).group(1)
+    assert count == "%d of %d shown" % (len(rows), len(catalogue))
 
 
 def test_the_filter_narrows_the_list_server_side_and_script_side_hooks_exist(rig):

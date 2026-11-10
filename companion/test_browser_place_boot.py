@@ -122,7 +122,11 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " const probe = document.createElement('i'); probe.style.color = 'var(' + name + ')';"
             " document.body.appendChild(probe); const c = getComputedStyle(probe).color;"
             " probe.remove(); return c.match(/\\d+/g).slice(0, 3).map(Number); })")
-        for corner in ((2, height - 2), (width - 3, height - 2), (2, height - 6)):
+        # The 4px strips along the top and bottom edges are the map's own colour (they tint
+        # Safari's bars; the app bar floats over the top one); the corners are read just past them.
+        map_colour = tuple(int(v) for v in page_colours["map"][4:-1].split(",")[:3])
+        assert image.getpixel((width // 2, height - 2)) == map_colour, map_colour
+        for corner in ((2, height - 8), (width - 3, height - 8), (2, height - 10)):
             pixel = image.getpixel(corner)
             for colour in sky:
                 assert max(abs(a - b) for a, b in zip(pixel, colour)) > 15, (corner, pixel, sky)
@@ -302,8 +306,16 @@ def test_tapping_an_airport_pin_picks_it_in_place(new_context, make_app_server):
         if dot is None:
             page.click(".place-france")
             page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+            # The pins are redrawn when the zoom ends: wait until they stop changing.
+            page.wait_for_function(
+                "() => { const key = [...document.querySelectorAll('#place-map .place-dot')]"
+                ".map((d) => { const r = d.getBoundingClientRect(); return r.left + ',' + r.top; })"
+                ".join(';'); const same = window.__dotKey === key;"
+                " window.__dotKey = key; window.__dotSteady = same ? (window.__dotSteady || 0) + 1 : 0;"
+                " return key !== '' && window.__dotSteady >= 6; }", polling=100, timeout=10000)
             dot = page.evaluate(
                 "() => { const r = [...document.querySelectorAll('#place-map .place-dot')]"
+                ".filter((d) => !d.classList.contains('place-dot--selected'))"
                 ".map((d) => d.getBoundingClientRect()).find((r) => r.left > 450 && r.top > 80"
                 " && r.bottom < innerHeight - 20 && r.right < innerWidth - 20);"
                 " return r ? {x: r.left + r.width / 2, y: r.top + r.height / 2} : null; }")

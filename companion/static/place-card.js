@@ -94,7 +94,7 @@
     if (!api || !input || !results) {
       return;
     }
-    var DEBOUNCE_MS = 700;
+    var DEBOUNCE_MS = 500;
     var LIMIT = 5;
     var min = parseInt(mapEl.getAttribute("data-search-min"), 10) || 3;
     var max = parseInt(mapEl.getAttribute("data-search-max"), 10) || 120;
@@ -146,20 +146,7 @@
       return li;
     }
 
-    function show(list, query) {
-      if (typed() !== query) {
-        return;
-      }
-      var rows = [];
-      for (var n = 0; n < list.length && rows.length < LIMIT; n++) {
-        var row = api.read(list[n]);
-        if (row) {
-          rows.push(row);
-        }
-      }
-      if (!rows.length) {
-        return;
-      }
+    function listbox() {
       var ul = results.querySelector("ul.place-results__list");
       if (!ul) {
         while (results.firstChild) {
@@ -171,6 +158,55 @@
         ul.setAttribute("aria-label", results.getAttribute("aria-label") || "");
         results.appendChild(ul);
       }
+      return ul;
+    }
+
+    function clearStatus() {
+      var old = results.querySelector("[data-status]");
+      if (old) {
+        old.parentNode.removeChild(old);
+      }
+    }
+
+    // The last row of the list: a spinner and "Searching..." while the request
+    // is pending, then "No place found" or a short error line. The results
+    // replace it.
+    function status(kind) {
+      var ul = listbox();
+      clearStatus();
+      var li = document.createElement("li");
+      li.className = "place-results__status text-label";
+      li.setAttribute("role", "presentation");
+      li.setAttribute("data-status", kind);
+      if (kind === "searching") {
+        var spinner = document.createElement("span");
+        spinner.className = "place-loading__spinner";
+        spinner.setAttribute("aria-hidden", "true");
+        li.appendChild(spinner);
+      }
+      li.appendChild(document.createTextNode(mapEl.getAttribute("data-t-row-" + kind) || ""));
+      ul.appendChild(li);
+      results.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+    }
+
+    function show(list, query) {
+      if (typed().slice(0, max) !== query) {
+        return;
+      }
+      var rows = [];
+      for (var n = 0; n < list.length && rows.length < LIMIT; n++) {
+        var row = api.read(list[n]);
+        if (row) {
+          rows.push(row);
+        }
+      }
+      if (!rows.length) {
+        status("none");
+        return;
+      }
+      var ul = listbox();
+      clearStatus();
       var old = ul.querySelectorAll("[data-place], [data-group]");
       for (var k = 0; k < old.length; k++) {
         ul.removeChild(old[k]);
@@ -194,7 +230,7 @@
       query = query.slice(0, max);
       var key = query.toLowerCase();
       if (Object.prototype.hasOwnProperty.call(cache, key)) {
-        show(cache[key], typed());
+        show(cache[key], query);
         return;
       }
       var wait = lastStart + lockMs - Date.now();
@@ -215,26 +251,153 @@
       }).then(function (list) {
         if (Array.isArray(list)) {
           cache[key] = list;
-          show(list, typed());
+          show(list, query);
         }
       }).then(function () {
         inFlight = false;
       }, function () {
         inFlight = false;
+        if (typed().slice(0, max) === query) {
+          status("failed");
+        }
       });
     }
 
     input.addEventListener("input", function () {
       window.clearTimeout(timer);
       timer = window.setTimeout(run, DEBOUNCE_MS);
+      // place-map.js has just listed the airport matches (its own input
+      // listener runs first): the pending search is shown under them at once.
+      var query = typed().slice(0, max);
+      if (query.length >= min && typeof window.fetch === "function" &&
+          !Object.prototype.hasOwnProperty.call(cache, query.toLowerCase())) {
+        status("searching");
+      }
     });
     // A submitted search runs on its own: the pending suggestion is dropped.
     input.form.addEventListener("submit", function () {
       window.clearTimeout(timer);
+      clearStatus();
     });
   }
 
   wireUnifiedSearch();
+
+  // On a phone the nearest-airport offer is one line over the map, above the
+  // bottom buttons, so it never lifts the sheet over the pin just dropped; a
+  // wide screen keeps it as a card in the sheet.
+  function wireNearestPlacement() {
+    var offer = document.getElementById("place-nearest");
+    var tools = document.querySelector(".place-tools");
+    var sheet = offer && offer.parentNode;
+    if (!offer || !tools || !sheet || typeof window.matchMedia !== "function") {
+      return;
+    }
+    var anchor = offer.nextElementSibling;
+    var phone = window.matchMedia("(max-width: 699.98px)");
+    function place() {
+      if (phone.matches) {
+        tools.insertBefore(offer, tools.firstChild);
+      } else {
+        sheet.insertBefore(offer, anchor);
+      }
+    }
+    if (typeof phone.addEventListener === "function") {
+      phone.addEventListener("change", place);
+    }
+    place();
+  }
+
+  wireNearestPlacement();
+
+  // Safari tints its top bar from the theme-color tags: on a phone in a
+  // browser tab they take the map's own colour while the map runs.
+  function wireBarTint() {
+    if (typeof window.matchMedia !== "function" ||
+        !window.matchMedia("(max-width: 699.98px) and (display-mode: browser)").matches) {
+      return;
+    }
+    var colour = window.getComputedStyle(document.documentElement)
+      .getPropertyValue("--color-secondary").replace(/^\s+|\s+$/g, "");
+    var tags = document.querySelectorAll("meta[name='theme-color']");
+    if (!colour) {
+      return;
+    }
+    for (var n = 0; n < tags.length; n++) {
+      tags[n].setAttribute("content", colour);
+    }
+  }
+
+  wireBarTint();
+
+  // An airport's code label that meets the details card, the sheet or a
+  // control floating over the map is hidden while it does, so a label never
+  // pokes out from under (or over) them.
+  function wireLabelClearance() {
+    var mapEl = document.getElementById("place-map");
+    var overlays = [".place-card", ".place-sheet", ".place-float", ".place-modes",
+      ".place-tools", ".place-info", ".place-pos"];
+    var queued = false;
+
+    function boxes() {
+      var found = [];
+      overlays.forEach(function (selector) {
+        var list = document.querySelectorAll(selector);
+        for (var n = 0; n < list.length; n++) {
+          var box = list[n].getBoundingClientRect();
+          if (box.width > 0 && box.height > 0) {
+            found.push(box);
+          }
+        }
+      });
+      return found;
+    }
+
+    function meets(a, b) {
+      return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    }
+
+    function sweep() {
+      queued = false;
+      var covers = boxes();
+      var frame = mapEl.getBoundingClientRect();
+      var labels = mapEl.querySelectorAll(".place-dot__label");
+      for (var n = 0; n < labels.length; n++) {
+        var label = labels[n].getBoundingClientRect();
+        var hide = label.left < frame.left || label.right > frame.right ||
+          label.top < frame.top || label.bottom > frame.bottom;
+        for (var k = 0; k < covers.length && !hide; k++) {
+          hide = meets(label, covers[k]);
+        }
+        labels[n].classList.toggle("place-dot__label--covered", hide);
+      }
+      // A pan or zoom glides on a CSS transition without touching an
+      // attribute: keep sweeping every frame until it has finished.
+      if (typeof mapEl.getAnimations === "function" &&
+          mapEl.getAnimations({ subtree: true }).length) {
+        queue();
+      }
+    }
+
+    function queue() {
+      if (!queued) {
+        queued = true;
+        window.requestAnimationFrame(sweep);
+      }
+    }
+
+    if (typeof window.MutationObserver === "function") {
+      new window.MutationObserver(queue).observe(mapEl, {
+        childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class"]
+      });
+    }
+    window.addEventListener("resize", queue);
+    document.addEventListener("transitionrun", queue);
+    document.addEventListener("transitionend", queue);
+    queue();
+  }
+
+  wireLabelClearance();
 
   var detailsSummary = document.querySelector("#details > summary");
   if (detailsSummary) {

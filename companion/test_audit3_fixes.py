@@ -79,6 +79,9 @@ def test_the_sign_in_card_explains_an_expired_session_in_both_languages():
     assert "Your session expired" not in plain
     assert "Your session expired" in _login_card("en", expired=True)
     assert "Votre session a expiré" in _login_card("fr", expired=True)
+    # Edits made before the session ended are not kept, and the card says so.
+    assert "had not saved were not kept" in _login_card("en", expired=True)
+    assert "non enregistrées n’ont pas été conservées" in _login_card("fr", expired=True)
     from companion import login_page
     # A sign-in error keeps its own notice: the expiry never replaces it.
     error = login_page.sign_in_error_page("expired", "auto", auth0_enabled=True)

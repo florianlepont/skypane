@@ -26,6 +26,9 @@ MESSAGES = {
     "components.state_closed": "Fermé",
     "components.state_link": "Lien",
     "components.state_icon": "Icône",
+    "components.state_icon_link": "Lien icône",
+    "components.state_title_action": "Titre avec action en icône",
+    "components.sample_rename": "Renommer le cadre",
     "components.state_quick_on": "Interrupteur rapide, activé",
     "components.state_quick_off": "Interrupteur rapide, désactivé",
     "components.state_form_switch": "Interrupteur de formulaire",
@@ -99,6 +102,20 @@ MESSAGES = {
     "components.family_dialogs": "Boîtes de dialogue et barre d’enregistrement",
     "components.family_dialogs_desc":
         "Ouvrez une boîte de dialogue pour la voir ; la barre d’enregistrement est montrée dans la page.",
+
+    "components.family_names": "Noms des pages",
+    "components.family_names_desc":
+        "Un nom par page. Le titre, le titre du document, le menu latéral et les titres de "
+        "section utilisent le nom complet\u00a0; la barre d’onglets du téléphone affiche un mot de ce "
+        "nom, jamais un autre mot.",
+    "components.state_names": "Libellé d’onglet et nom de la page",
+    "components.state_search_status":
+        "Recherche de lieu\u00a0: en cours, rien trouvé, échec",
+    "components.sample_col_tab": "Barre d’onglets",
+    "components.sample_col_page": "Nom de la page",
+    "components.sample_searching": "Recherche en cours…",
+    "components.sample_no_place": "Aucun lieu trouvé",
+    "components.sample_search_unavailable": "Recherche indisponible pour le moment",
 
     "components.sample_save": "Enregistrer les modifications",
     "components.sample_cancel": "Annuler",

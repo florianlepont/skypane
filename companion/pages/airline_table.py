@@ -18,6 +18,7 @@ reaches the markup only through `escape_html`.
 """
 from dataclasses import dataclass, field
 
+import companion.airline_display as airline_display
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.illustration_normalize as illustration_normalize
@@ -73,6 +74,10 @@ UNIDENTIFIED_TEXT = i18n.msg("airlines.unidentified_label", "Unidentified")
 VIEWS_ONE = i18n.msg("airlines.views_one", "1 view")
 VIEWS_MANY = i18n.msg("airlines.views_many", "%d views")
 NOT_SEEN_TEXT = i18n.msg("airlines.table_not_seen", "Not seen yet")
+SHOW_TYPES_TEXT = i18n.msg(
+    "airlines.show_all_types", "Show the aircraft types of every airline")
+TYPES_PARAM = "types"
+TYPES_ALL = "all"
 
 
 @dataclass
@@ -87,6 +92,10 @@ class TableData:
     gap_rows: list = field(default_factory=list)
     focus_key: str = ""
     default_types: dict = field(default_factory=dict)
+    # True when the aircraft-type rows are part of the table itself (the
+    # no-script view, `?types=all`); otherwise they wait inside a <template>
+    # that airline-types.js opens with the airline's chevron.
+    types_open: bool = False
 
 
 def _page():
@@ -411,7 +420,7 @@ def _row_facts(page, data, index, builtin_name, shapes):
     entry = data.entries_by_slug.get(illustrations.normalise_airline_key(builtin_name))
     seen = entry is not None and entry.last_ts
     facts = {
-        "index": index, "builtin": builtin_name, "name": name, "key": key, "sheet": sheet,
+        "index": index, "builtin": builtin_name, "name": airline_display.shown_name(name), "key": key, "sheet": sheet,
         "manual_info": manual_info, "manual_fields": manual_fields,
         "needs_artwork": manual_fields[0] == page._VIEW_PANEL_MODE_NEEDS_ARTWORK,
         "has_art": has_builtin or has_override, "state_dir": data.state_dir,
@@ -428,7 +437,9 @@ def _row_facts(page, data, index, builtin_name, shapes):
 
 
 def _filter_text(row):
-    parts = [row["name"].lower()]
+    parts = [row["builtin"].lower()]
+    if row["name"].lower() != parts[0]:
+        parts.append(row["name"].lower())
     parts.extend(sub["code"].lower() + " " + sub["model"].lower() for sub in row["sub_rows"])
     sheet = row["sheet"]
     if sheet is not None:
@@ -440,8 +451,10 @@ def _filter_text(row):
     return " ".join(parts)
 
 
-def _airline_group_html(page, row):
+def _airline_group_html(page, row, types_open=False):
     subs = "".join(_sub_row_html(page, sub, row) for sub in row["sub_rows"])
+    if subs and not types_open:
+        subs = '<template class="airlines-types">%s</template>' % subs
     return (
         '<tbody class="airline-group" data-filter-text="%s" data-filter-group="%d">%s%s</tbody>'
     ) % (escape_html(_filter_text(row)), row["index"], _main_row_html(page, row), subs)
@@ -517,6 +530,17 @@ def _head_html():
     return '<thead><tr>%s<td class="airlines-col airlines-col--menu"></td></tr></thead>' % cells
 
 
+def show_types_link_html(data):
+    """The script-free way to the aircraft-type rows: a link to the same page
+    with every airline's rows in the table. Nothing when they already are."""
+    if data.types_open or not data.pairs:
+        return ""
+    return (
+        '<noscript><p class="text-label"><a href="%s?%s=%s">%s</a></p></noscript>'
+    ) % (device_scope.scoped(_page().MANAGE_ROUTE), TYPES_PARAM, TYPES_ALL,
+         escape_html(i18n.t(SHOW_TYPES_TEXT)))
+
+
 def table_html(data):
     """The whole editor table for `data`: unidentified rows first, then one
     group per airline."""
@@ -528,7 +552,7 @@ def table_html(data):
     for index, (builtin_name, shapes) in enumerate(data.pairs):
         row = _row_facts(page, data, index, builtin_name, shapes)
         if row is not None:
-            groups.append(_airline_group_html(page, row))
+            groups.append(_airline_group_html(page, row, data.types_open))
     return (
         '<table class="airlines-table"><caption class="visually-hidden">%s</caption>%s%s%s</table>%s'
     ) % (escape_html(i18n.t(CAPTION_TEXT)), _head_html(), gaps, "".join(groups),

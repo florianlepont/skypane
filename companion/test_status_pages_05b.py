@@ -14,7 +14,7 @@ import pytest
 
 import companion.app as app
 import companion.test_status_pages_helpers as shp
-from companion import i18n, illustration_normalize, layout, prefs
+from companion import airline_display, i18n, illustration_normalize, layout, prefs
 from companion.i18n_fr import health as i18n_fr_health
 from companion.pages import airlines_page, health_page, history_page
 import health_page_composition
@@ -49,7 +49,8 @@ def _battery_section_heading(lang="en"):
 def _card_slice(rendered, airline_name):
     """The one `<tbody class="airline-group">` for `airline_name`: the airline's row and its
     aircraft-type sub-rows."""
-    name_index = rendered.index('name="airline_name" value="%s"' % layout.escape_html(airline_name))
+    name_index = rendered.index('name="airline_name" value="%s"' % layout.escape_html(
+        airline_display.shown_name(airline_name)))
     start = rendered.rindex('<tbody class="airline-group"', 0, name_index)
     return rendered[start:rendered.index("</tbody>", start)]
 

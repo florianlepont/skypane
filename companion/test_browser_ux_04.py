@@ -1482,6 +1482,8 @@ def test_every_type_stays_listed_and_reachable_without_scripts(new_context, serv
     overflow."""
     with _no_js_page(new_context, server.base_url(), "/airlines/manage",
                      viewport=VIEWPORT_MIN_SUPPORTED, reduced_motion="reduce") as page:
+        with page.expect_navigation():
+            page.get_by_role("link", name="Show the aircraft types of every airline").click()
         chevron = TYPES_GROUP + " .airlines-expand > summary"
         page.locator(chevron).wait_for(state="visible")
         page.locator(chevron).click()

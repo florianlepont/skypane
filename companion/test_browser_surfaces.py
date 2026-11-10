@@ -72,7 +72,7 @@ def test_home_is_a_hero_over_a_few_groups_and_fits(new_context, server, vp_name,
                 const hero = document.querySelector('.hero').getBoundingClientRect();
                 const groups = [...document.querySelectorAll('main .group')]
                     .map(g => g.getBoundingClientRect());
-                const status = getComputedStyle(document.querySelector('.hero__status'));
+                const status = getComputedStyle(document.querySelector('.hero h1'));
                 return {hero: [hero.top, hero.bottom], groups: groups.map(g => [g.top, g.bottom]),
                         nested: document.querySelectorAll('.group .group').length,
                         size: parseFloat(status.fontSize), weight: status.fontWeight,
@@ -81,7 +81,8 @@ def test_home_is_a_hero_over_a_few_groups_and_fits(new_context, server, vp_name,
         assert 2 <= len(geometry["groups"]) <= 3, geometry
         assert geometry["nested"] == 0 and geometry["cards"] == 0, geometry
         assert all(g[0] >= geometry["hero"][1] - 1 for g in geometry["groups"]), geometry
-        assert 34 <= geometry["size"] <= 44.5 and geometry["weight"] == "700", geometry
+        # The hero's title is the frame name: 24px under 380px, 28px on a phone, 48px beyond.
+        assert 24 <= geometry["size"] <= 48 and geometry["weight"] == "700", geometry
         for row in page.evaluate(_ROWS):
             assert row["h"] >= 54 - 0.5 and row["mh"] >= 44, (where, row)
     finally:
