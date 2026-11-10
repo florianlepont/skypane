@@ -8,8 +8,7 @@ position) is chips under the search on a phone and the top of the card on a
 wide screen; My position is the first switch and the default for a frame
 with no saved detection setting. The panel shows the runway choice in Airport
 mode and the pin readout and detection radius in My-position mode; Save and
-Cancel are the shared bar that shows once something changed, docked on a wide
-screen and, on a phone, the top-right corner of the compact sheet itself. A round
+Cancel float in a docked bar that shows once something changed. A round
 button locates the visitor and a small "i" opens the map credits. The whole
 page is server-rendered and complete without scripts and without any external
 network: choosing an airport is a GET navigation (`?airport=`, `?q=`), the
@@ -727,14 +726,6 @@ def _runway_group_html(view):
     return '<div id="place-runways" class="place-runways">%s</div>' % _runways_inner_html(view)
 
 
-def _codes_html(airport):
-    """The airport's codes ("LFPO · ORY"), then its municipality in a part a
-    phone leaves out of the compact sheet."""
-    codes = " · ".join(code for code in (airport.icao, airport.iata) if code)
-    return '<span class="place-chosen__codes">%s</span><span class="place-chosen__town"> · %s</span>' % (
-        escape_html(codes), escape_html(airport.municipality))
-
-
 def _runways_inner_html(view):
     """The chosen airport's runways as radio cards, or the note asking for an
     airport (an unknown code posted by hand reads as not in the catalogue)."""
@@ -758,7 +749,7 @@ def _runways_inner_html(view):
         "code": airport.iata or airport.icao, "example": detection.tag_text(first_id)}
     return (
         '<div id="airport-runways" class="place-chosen">'
-        '<p><span class="place-chosen__name" title="%s">%s</span> '
+        '<p><span class="place-chosen__name">%s</span> '
         '<span class="text-label section-caption">%s</span></p></div>'
         '<h2 class="place-subtitle" id="runway-group-heading">%s</h2>'
         '<div class="runway-row detection-runways" role="radiogroup" '
@@ -766,7 +757,7 @@ def _runways_inner_html(view):
         '<input type="hidden" name="airport" value="%s" form="%s">'
         '<p class="place-hint text-label section-caption">%s</p>'
     ) % (
-        escape_html(airport.name), escape_html(airport.name), _codes_html(airport),
+        escape_html(airport.name), escape_html(dp.airport_codes(airport)),
         escape_html(i18n.t(RUNWAY_LABEL)), cards,
         _field_error_html(errors, "runway", "place-runway"),
         escape_html(airport.icao), dp.FORM_ID, escape_html(hint)
@@ -955,7 +946,7 @@ def _panel_html(view):
         airports_card_html(view), _runway_group_html(view), _area_block_html(view),
         _nearest_html(),
         escape_html(i18n.t(NO_SCRIPT_MAP)), details_card_html(view),
-        dp.dirty_bar_html(plain_href if view.carried_dirty else None, inline=True),
+        dp.dirty_bar_html(plain_href if view.carried_dirty else None),
         _credits_html(), _locate_html())
 
 

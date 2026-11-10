@@ -90,12 +90,6 @@ def _visible_text(markup):
     return html.unescape(re.sub(r"<[^>]+>", " ", stripped))
 
 
-def _flat_text(markup):
-    """The visible text with every run of white space (the gaps the markup leaves between the
-    airport's codes and its municipality included) reduced to one space."""
-    return re.sub(r"\s+", " ", _visible_text(markup))
-
-
 def _hrefs(markup):
     return [html.unescape(h) for h in re.findall(r'href="([^"]*)"', markup)]
 
@@ -124,7 +118,7 @@ def test_default_orly_page_values(rig):
     status, _h, page = rig.get("owner", rig.scope() + "/detection")
     assert status == 200
     text = _visible_text(page)
-    assert "Paris-Orly" in text and "LFPO · ORY · Paris" in _flat_text(page)
+    assert "Paris-Orly" in text and "LFPO · ORY · Paris" in text
     assert "Runway 3" in text
     assert "detection-summary" not in page and "Saved setting" not in text
 
@@ -145,7 +139,7 @@ def test_catalogue_runway_is_checked_and_has_no_pill(rig):
     _save_lfpg(rig)
     _s, _h, page = rig.get("owner", rig.scope() + "/detection")
     text = _visible_text(page)
-    assert "Charles de Gaulle International Airport" in text and "LFPG · CDG ·" in _flat_text(page)
+    assert "Charles de Gaulle International Airport" in text and "LFPG · CDG ·" in text
     checked = [c for c in _cards(page) if " checked" in c]
     assert len(checked) == 1 and 'value="08L/26R"' in checked[0]
     assert "banner__pill" not in page
@@ -313,7 +307,7 @@ def test_runway_cards_for_orly_carry_the_legacy_pills(rig):
     text = _visible_text(page)
     for pill in ("Runway 3", "Runway 4", "Runway 2"):
         assert pill in text
-    assert "LFPO · ORY · Paris" in _flat_text(page)
+    assert "LFPO · ORY · Paris" in text
 
 
 @pytest.mark.parametrize("code", ["ZZZZ", "..%2Fx", "lfpg", "LFPG%20"])
@@ -510,7 +504,7 @@ def test_french_page_uses_the_catalogue_strings(rig):
     assert "Rechercher des aéroports" in text
     assert "Rechercher un aéroport ou une adresse" in text
     assert "Aéroports français" in text
-    assert "LFPO · ORY · Paris" in _flat_text(page)
+    assert "LFPO · ORY · Paris" in page
     assert re.search(r"\d+ aéroports? trouvés?", text)
 
 
@@ -544,7 +538,7 @@ def test_carried_values_render_as_defaults_with_a_visible_dirty_bar(rig):
     assert status == 200
     assert re.search(r'name="radius_km"[^>]*value="12"', page)
     assert re.search(r'id="place-mode-area" value="position"[^>]*checked', page)
-    bar = re.search(r'<div class="dirty-bar dirty-bar--inline"[^>]*>', page).group(0)
+    bar = re.search(r'<div class="dirty-bar"[^>]*>', page).group(0)
     assert 'data-dirty-carried="%s/detection"' % rig.scope() in bar
     assert " hidden" not in bar
 

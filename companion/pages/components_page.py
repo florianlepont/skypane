@@ -168,8 +168,6 @@ _M_STATE_EMPTY_COMPACT = i18n.msg("components.state_empty_compact", "Compact, in
 _M_STATE_EMPTY_SEARCH = i18n.msg("components.state_empty_search", "Search with no match")
 _M_STATE_DIALOGS = i18n.msg("components.state_dialogs", "Dialogs (open them)")
 _M_STATE_SAVE_BAR = i18n.msg("components.state_save_bar", "Save bar")
-_M_STATE_SAVE_BAR_INLINE = i18n.msg(
-    "components.state_save_bar_inline", "Save bar, inline in a card (phones)")
 _M_STATE_HEADER_FULL = i18n.msg("components.state_header_full", "With purpose and action")
 _M_FAMILY_HEADERS = i18n.msg("components.family_headers", "Page header")
 _M_FAMILY_HEADERS_DESC = i18n.msg("components.family_headers_desc", "The title, the purpose line and the page's main action.")
@@ -573,17 +571,12 @@ def _dialogs():
             "components-sections", _esc(_t(_SAMPLE_DIALOG)), "btn btn--ghost"))
     bar = ui_save_bar.save_bar_html(
         "components-bar-form", cancel_href=COMPONENTS_ROUTE, title=_t(_UNSAVED))
-    inline_bar = ui_save_bar.save_bar_html(
-        "components-bar-form", cancel_href=COMPONENTS_ROUTE, title=_t(_UNSAVED), inline=True)
     return [
         State(_M_STATE_DIALOGS,
               '<div class="components-triggers">%s</div>%s%s%s' % (
                   triggers, dialog, confirm, sections)),
         State(_M_STATE_SAVE_BAR,
               '<div class="components-save-bar">%s</div>' % bar),
-        State(_M_STATE_SAVE_BAR_INLINE,
-              '<div class="components-save-bar components-save-bar--inline">'
-              '<p class="text-body">%s</p>%s</div>' % (_esc(_t(_SAMPLE_VALUE)), inline_bar)),
     ]
 
 

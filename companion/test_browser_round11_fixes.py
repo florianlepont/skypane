@@ -410,21 +410,16 @@ def test_the_save_bar_over_the_map_is_opaque_and_readable(
         page.fill("#place-lat", "45.7578")
         page.locator("[data-dirty-bar]").wait_for(state="visible")
         page.wait_for_function(_ANIMATIONS_DONE, timeout=10000)
-        # On a phone the bar is the two buttons of the compact card: the card is what must be
-        # opaque, and the message is read aloud rather than drawn.
         paint = page.evaluate(
             "() => { const bar = document.querySelector('[data-dirty-bar]');"
             " const c = e => getComputedStyle(e).color;"
             " const bg = e => getComputedStyle(e).backgroundColor;"
-            " const inline = innerWidth < 960;"
-            " return {bar: bg(inline ? document.querySelector('.place-sheet') : bar),"
-            "  message: c(bar.querySelector('.dirty-bar__message')), inline: inline,"
+            " return {bar: bg(bar), message: c(bar.querySelector('.dirty-bar__message')),"
             "  cancel: c(bar.querySelector('.dirty-bar__cancel')),"
             "  save: c(bar.querySelector('.dirty-bar__save')),"
             "  saveBg: bg(bar.querySelector('.dirty-bar__save'))}; }")
         assert _rgba(paint["bar"])[3] == 1.0, paint
-        if not paint["inline"]:
-            assert _contrast(paint["message"], paint["bar"]) >= 4.5, paint
+        assert _contrast(paint["message"], paint["bar"]) >= 4.5, paint
         assert _contrast(paint["cancel"], paint["bar"]) >= 4.5, paint
         assert _contrast(paint["save"], paint["saveBg"]) >= 4.5, paint
     finally:

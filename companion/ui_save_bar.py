@@ -29,18 +29,15 @@ SAVE_FALLBACK_ATTR = "data-static-save-fallback"
 
 
 def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
-                  save_attrs=None, inline=False):
+                  save_attrs=None):
     """The bar markup for the form `form_id`.
 
     `carried_href`: the bar is shown from the start for unsaved values that
     came with the page; Cancel returns there. `cancel_href` and `title`
     select the page mode. `save_attrs` is raw attribute text for the Save
     button (a caller escapes what it passes); the tracked bar defaults to the
-    fallback marker. `inline` adds the modifier that, on a phone, turns the bar
-    into the two buttons of the card that holds it (no strip of its own; the
-    message stays in the page for assistive technology only).
+    fallback marker.
     """
-    modifier = " dirty-bar--inline" if inline else ""
     save = escape_html(i18n.t(SAVE_TEXT))
     cancel = escape_html(i18n.t(CANCEL_TEXT))
     form = escape_html(form_id)
@@ -49,24 +46,24 @@ def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
     if cancel_href is not None:
         label = escape_html(title)
         return (
-            '<div class="dirty-bar%s" role="region" aria-label="%s">'
+            '<div class="dirty-bar" role="region" aria-label="%s">'
             '<span class="dirty-bar__message">%s</span>'
             '<a class="btn btn--secondary dirty-bar__cancel" href="%s">%s</a>'
             '<button type="submit" class="btn btn--primary dirty-bar__save" form="%s" %s>%s</button>'
             "</div>"
-        ) % (modifier, label, label, escape_html(cancel_href), cancel, form, save_attrs, save)
+        ) % (label, label, escape_html(cancel_href), cancel, form, save_attrs, save)
     carried = (
         ' data-dirty-carried="%s"' % escape_html(carried_href)
         if carried_href is not None else "")
     return (
-        '<div class="dirty-bar%s" data-dirty-bar%s role="region" aria-label="%s" '
+        '<div class="dirty-bar" data-dirty-bar%s role="region" aria-label="%s" '
         'data-dirty-several="%s" data-dirty-saving="%s" data-dirty-initial-text="%s">'
         '<span class="dirty-bar__message" data-dirty-count role="status"></span>'
         '<button type="reset" form="%s" class="btn btn--secondary dirty-bar__cancel" data-dirty-cancel>%s</button>'
         '<button type="submit" class="btn btn--primary dirty-bar__save" form="%s" %s>%s</button>'
         "</div>"
     ) % (
-        modifier, carried, escape_html(i18n.t(UNSAVED_TEXT)),
+        carried, escape_html(i18n.t(UNSAVED_TEXT)),
         escape_html(i18n.t(UNSAVED_IN_TEXT)), escape_html(i18n.t(SAVING_TEXT)),
         escape_html(i18n.t(UNSAVED_TEXT)),
         form, cancel, form, save_attrs, save)

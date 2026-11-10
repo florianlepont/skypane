@@ -167,10 +167,9 @@ def location_usable(row):
     return detection.inside_france(row["latitude"], row["longitude"])
 
 
-def dirty_bar_html(carried_href=None, inline=False):
+def dirty_bar_html(carried_href=None):
     """The unsaved-changes bar of the page: visible in the markup so Save
     works with scripts blocked, hidden at init by dirty-state.js.
     `carried_href` marks a bar rendered for unsaved values that came with the
-    page; it is where Cancel returns to the stored setting. `inline` is for
-    the Location page, whose phone sheet carries the buttons itself."""
-    return ui_save_bar.save_bar_html(FORM_ID, carried_href=carried_href, inline=inline)
+    page; it is where Cancel returns to the stored setting."""
+    return ui_save_bar.save_bar_html(FORM_ID, carried_href=carried_href)

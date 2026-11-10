@@ -148,7 +148,7 @@ def test_the_reactivate_menu_item_sits_on_an_opaque_panel_with_readable_ink(
 
 
 @pytest.mark.parametrize("scheme", THEMES)
-def test_the_location_sheet_header_is_one_line_and_the_sheet_stays_compact(
+def test_the_location_sheet_header_wraps_and_the_sheet_stays_compact(
         new_context, make_app_server, scheme):
     server = make_app_server(seed=place_seed, fake_providers=True)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -165,24 +165,17 @@ def test_the_location_sheet_header_is_one_line_and_the_sheet_stays_compact(
         page.wait_for_function(_SETTLED)
         facts = page.evaluate(
             """() => {
-              const cut = (el) => el.scrollWidth > el.clientWidth + 0.5;
-              const name = document.querySelector('.place-sheet .place-chosen__name');
-              const codes = document.querySelector('.place-sheet .place-chosen .section-caption');
+              const cut = (el) => el.scrollWidth > el.clientWidth + 0.5
+                || getComputedStyle(el).textOverflow === 'ellipsis';
+              const parts = [...document.querySelectorAll(
+                '.place-sheet .place-chosen__name, .place-sheet .place-chosen .section-caption')];
               const sheet = document.querySelector('.place-sheet').getBoundingClientRect();
-              const line = (el) => el.getBoundingClientRect().height
-                / parseFloat(getComputedStyle(el).lineHeight);
-              return {codesCut: cut(codes), codes: codes.textContent.trim(),
-                      nameLines: Math.round(line(name)), codeLines: Math.round(line(codes)),
-                      nameTitle: name.title, nameText: name.textContent.trim(),
+              return {cut: parts.filter(cut).length, parts: parts.length,
                       height: sheet.height, limit: window.innerHeight * 0.28,
                       titles: [...document.querySelectorAll('.place-sheet .runway-card')]
                         .map((el) => el.title)}; }""")
-        # The compact card keeps the name on one line (the full name is its tooltip) and the
-        # airport's codes whole under it.
-        assert facts["nameLines"] == 1 and facts["codeLines"] == 1, facts
-        assert facts["nameTitle"] == facts["nameText"] and not facts["codesCut"], facts
-        assert facts["codes"].startswith("LFPO"), facts
-        assert facts["height"] <= facts["limit"] + 0.5, facts
+        assert facts["parts"] == 2 and facts["cut"] == 0
+        assert facts["height"] <= facts["limit"] + 0.5
         assert facts["titles"] and all(" m" in title for title in facts["titles"])
     finally:
         context.close()
