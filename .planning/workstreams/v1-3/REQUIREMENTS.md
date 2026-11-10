@@ -11,8 +11,8 @@ Runs in parallel with v1.1 (Phases 47 and 47.1, untouched) and v1.2. Phase numbe
 ### Photo Pipeline
 
 - [x] **PHOTO-01**: An uploaded photo is validated strictly (size limit, real image decoding, no trusted filename) and reduced to one stored, normalised copy; the original is never kept.
-- [ ] **PHOTO-02**: A stored photo is rendered for a given panel profile (portrait 1200x1600 or landscape 800x480) through a render path separate from the plane screen: crop, contrast and saturation boost, then 6-colour dithering.
-- [ ] **PHOTO-03**: Each photo can be set to crop-to-fill (default) or bands, and its crop can be moved; the same stored photo serves both panel sizes.
+- [x] **PHOTO-02**: A stored photo is rendered for a given panel profile (portrait 1200x1600 or landscape 800x480) through a render path separate from the plane screen: crop, contrast and saturation boost, then 6-colour dithering.
+- [x] **PHOTO-03**: Each photo can be set to crop-to-fill (default) or bands, and its crop can be moved; the same stored photo serves both panel sizes.
 - [ ] **PHOTO-04**: The rendering is tried on skin-tone samples, and the result and any limit are recorded before the rendering is frozen.
 
 ### Storage and Privacy
@@ -57,8 +57,8 @@ Runs in parallel with v1.1 (Phases 47 and 47.1, untouched) and v1.2. Phase numbe
 | Requirement | Phase | Status |
 |---|---|---|
 | PHOTO-01 | Phase 64 | Complete |
-| PHOTO-02 | Phase 64 | Pending |
-| PHOTO-03 | Phase 64 | Pending |
+| PHOTO-02 | Phase 64 | Complete |
+| PHOTO-03 | Phase 64 | Complete |
 | PHOTO-04 | Phase 64 | Pending |
 | PRIV-01 | Phase 65 | Pending |
 | PRIV-02 | Phase 65 | Pending |
