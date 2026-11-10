@@ -569,6 +569,14 @@ logged as drift rather than silently skipped or silently included. Each
 run writes a checksummed `skypane-state-<UTC timestamp>.tar.gz` and keeps
 the newest 14 on the VPS.
 
+**Photos are not archived.** Users' uploaded photos (`photos/`) are
+excluded from every archive and never reported as drift. This is the
+owner's decision: the archives are pulled to the admin's Mac and kept for
+up to a year, and a deleted photo must really disappear. After a restore the
+photo list is empty and users upload their photos again. The admin is also
+the VPS root, so photo privacy is application-level, not cryptographic. See
+[`docs/PHOTO-STORAGE.md`](../docs/PHOTO-STORAGE.md).
+
 **Per-device directories.** Devices beyond the live frame live in
 `<state_dir>/devices/<id>/` (id: `d_` plus 8 lowercase hex characters) with
 the same file set as the root; the live frame stays at the root and is never

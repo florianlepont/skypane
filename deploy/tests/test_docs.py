@@ -150,3 +150,28 @@ def test_retired_password_variables_appear_only_in_the_upgrade_note():
     for name in ("SKYPANE_COMPANION_PASSWORD", "SKYPANE_LEGACY_PASSWORD_LOGIN"):
         assert name in text[start:end]
         assert name not in rest
+
+
+_PHOTO_DOC = _REPO_ROOT / "docs" / "PHOTO-STORAGE.md"
+
+
+def _backups_section():
+    text = _text()
+    start = text.index("\n## Backups")
+    return text[start:text.index("\n## Restore", start)]
+
+
+def test_readme_backups_says_photos_are_excluded_and_links_the_record():
+    section = _backups_section().lower()
+    assert "photos are not archived" in section
+    assert "docs/photo-storage.md" in section
+
+
+def test_photo_storage_record_states_decision_codes_and_limits():
+    text = _PHOTO_DOC.read_text()
+    assert "photos are excluded from backups" in text
+    for code in ("frame_count", "frame_bytes", "server_bytes", "disk_low"):
+        assert code in text
+    assert "application-level" in text
+    assert "not cryptographic" in text
+    assert "VPS" in text and "root" in text
