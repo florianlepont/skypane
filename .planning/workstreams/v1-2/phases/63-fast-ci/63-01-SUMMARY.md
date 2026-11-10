@@ -25,6 +25,6 @@ Measurement harness, group/shard tooling and local entry-point knobs. No workflo
 
 ## Points to note
 
-- Baseline executed count is 12,821 passed, 0 skipped (matches the phase context). The tree now collects 13,602 tests locally; the difference from 12,821 is the Phase 61 and 62 tests merged since that CI run plus the 26 new tests here. Plan 02 must take its floor from a fresh CI run of the branch, not from 12,821.
+- Baseline executed count is 12,821 passed, 0 skipped (matches the phase context). The branch now collects 13,602 tests locally (13,576 without the 26 tests added here), 755 more than the baseline run; the cause was not investigated (the baseline ran on a Phase 61 branch, the tree here is `main`). Plan 02 must take its floor from a fresh CI run of the branch, not from 12,821.
 - `shellcheck scripts/run-all-tests.sh` reports one pre-existing warning (`cd` without `|| exit`, SC2164) on a line this plan did not change. CI does not shellcheck `scripts/`.
 - Not yet done: the real CI run of the unchanged workflow on the draft PR branch (plan verification step).
