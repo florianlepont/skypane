@@ -70,7 +70,7 @@ Progress: [████████░░] 84%
 ### Roadmap Evolution
 
 - Phase 62 added 2026-11-08 at the owner's request: Plane Screen Redesign (giant-lettering design), from `.planning/notes/plane-screen-design-brief.md`. Runs before Phase 59, which stays last.
-- Phase 63 added 2026-11-10 at the owner's request: Fast CI (test job from about 27 minutes to 10 minutes or less, nothing skipped), from measurements of run 42770577886 and a local 4-core run.
+- Phase 63 added 2026-11-10 at the owner's request: Fast CI (test job from about 27 minutes to 10 minutes or less, nothing skipped), from measurements of run 42770577886 and a local 4-core run. Closed 2026-11-10: test check median 9.0 min over five green runs, merged as #320 and #322 (see `phases/63-fast-ci/63-VERIFICATION.md`).
 
 ### Pending Todos
 
