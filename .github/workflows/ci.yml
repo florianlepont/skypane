@@ -242,11 +242,41 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}-headless-shell
 
+      - name: Read the runner image version
+        id: image
+        run: echo "version=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache the operating-system packages Playwright installs
+        # `playwright install --with-deps` installs a few font packages
+        # through apt, and downloading them from the package mirror took
+        # anywhere from seconds to over five minutes. The downloaded .deb
+        # files are kept here, keyed by Playwright version and runner image,
+        # and put back in apt's archive directory before the install, so apt
+        # finds them instead of downloading. The same packages are still
+        # installed; a package whose version changed is downloaded as before.
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/apt-debs
+          key: playwright-os-packages-${{ runner.os }}-${{ runner.arch }}-${{ steps.pw.outputs.version }}-${{ steps.image.outputs.version }}
+
       - name: Download the Chromium headless shell the browser tests drive
         # --only-shell installs just the headless shell binary the browser
         # tests launch (headless by default), not full Chromium; --with-deps
-        # still installs OS packages every run (outside the cache above).
-        run: server/.venv/bin/python -m playwright install --with-deps --only-shell chromium
+        # still installs the OS packages every run.
+        run: |
+          set -euo pipefail
+          if compgen -G "${HOME}/apt-debs/*.deb" > /dev/null; then
+            sudo cp "${HOME}"/apt-debs/*.deb /var/cache/apt/archives/
+          fi
+          list_debs() { find /var/cache/apt/archives -maxdepth 1 -name '*.deb' | sort; }
+          list_debs > "${RUNNER_TEMP}/debs-before.txt"
+          server/.venv/bin/python -m playwright install --with-deps --only-shell chromium
+          mkdir -p "${HOME}/apt-debs"
+          # Only the packages this install had to download are kept.
+          list_debs | comm -13 "${RUNNER_TEMP}/debs-before.txt" - | while read -r deb; do
+            cp "${deb}" "${HOME}/apt-debs/"
+          done
+          ls -l "${HOME}/apt-debs"
 
       - name: Run the browser test files
         # SKYPANE_REQUIRE_BROWSER: a browser test that cannot launch
