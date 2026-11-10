@@ -1458,8 +1458,7 @@ def build_parser():
 
 
 def _sweep_photos_at_start(state_dir):
-    """Reconcile photo files and rows once before serving. A failure only
-    prints one fixed line: the companion must still start."""
+    """Reconcile photo files and rows once; a failure prints one fixed line."""
     try:
         conn = fleet_db.connect(state_dir)
         try:
