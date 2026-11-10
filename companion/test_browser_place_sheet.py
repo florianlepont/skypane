@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Browser checks for the Location sheet: My position is the first tab and the default for a frame
 with nothing saved; on a phone the nearest-airport offer is a one-line button and the sheet stays within
-28% of the viewport; Save and Cancel are a floating bar that appears on a change (docked above the
+28% of the viewport; Save and Cancel are a bar that appears on a change (the top right of the compact card above the
 tab bar on a phone, under the card on a wide screen) and that saves or cancels; the pin readout
 follows the pin; and the map runs behind the glass sidebar and the glass tab bar.
 
@@ -205,7 +205,7 @@ def test_on_a_wide_screen_my_position_offers_the_nearby_airport(new_context, mak
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_the_floating_bar_appears_on_a_change_saves_and_cancels(
         new_context, make_app_server, viewport):
-    """the bar is hidden until something changes; a changed radius shows it (above the tab bar on
+    """the bar is hidden until something changes; a changed radius shows it (in the card above the tab bar on
     a phone, at the foot of the main column on a wide screen); Cancel hides it and
     restores the value; Save stores the place and the radius"""
     server = make_app_server(seed=_seed, fake_providers=True)
@@ -221,8 +221,12 @@ def test_the_floating_bar_appears_on_a_change_saves_and_cancels(
         assert bar["y"] + bar["height"] <= viewport["height"] + 0.5, bar
         if viewport["width"] < 960:
             tab = page.locator(".tab-bar").bounding_box()
-            assert bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)
-            assert tab["y"] - (bar["y"] + bar["height"]) <= 24, (bar, tab)
+            sheet = page.locator(".place-sheet").bounding_box()
+            assert bar["y"] >= sheet["y"] - 0.5, (bar, sheet)
+            assert bar["y"] + bar["height"] <= sheet["y"] + sheet["height"] + 0.5, (bar, sheet)
+            assert bar["x"] + bar["width"] <= sheet["x"] + sheet["width"] + 0.5, (bar, sheet)
+            assert sheet["y"] + sheet["height"] <= tab["y"] + 0.5, (sheet, tab)
+            assert tab["y"] - (sheet["y"] + sheet["height"]) <= 24, (sheet, tab)
         else:
             sidebar = page.locator(".dashboard-sidebar").bounding_box()
             assert bar["x"] >= sidebar["x"] + sidebar["width"], (bar, sidebar)
