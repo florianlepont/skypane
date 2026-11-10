@@ -192,7 +192,7 @@ def test_an_owner_and_an_administrator_see_a_rename_row_on_the_frame_page_and_a_
         owned = fleet_db.get_device_by_mac(conn, fx.MAC_OWNED)["id"]
     finally:
         conn.close()
-    link = 'href="/devices/%s/frame/name"' % owned
+    link = 'href="/devices/%s/frame/name?return_to=' % owned
     for cookie, expected in (
             (fx.user_cookie(server.state_dir, fx.OWNER_EMAIL), True),
             (fx.admin_cookie(server.state_dir), True),

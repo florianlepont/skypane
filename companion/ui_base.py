@@ -33,14 +33,6 @@ VIEWPORT_META = (
     '<meta name="viewport" content="width=device-width, initial-scale=1, '
     'viewport-fit=cover">')
 
-# A page added to the iPhone Home Screen runs without browser bars; the translucent
-# status bar lets the page (the Location map included) paint under it, padded by
-# env(safe-area-inset-top). A normal Safari tab keeps its own status bar.
-WEB_APP_META = (
-    '<meta name="mobile-web-app-capable" content="yes">\n'
-    '<meta name="apple-mobile-web-app-capable" content="yes">\n'
-    '<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">')
-
 # The browser-chrome colour per scheme: the top stop of the page background
 # in Light, the ink top stop in Dark (the --sky-top tokens in style.css).
 THEME_COLOR_LIGHT = "#E7EEF7"
@@ -1146,5 +1138,5 @@ def escape_html(value):
 
 
 def head_meta_html(ui_theme):
-    """The viewport, web-app and theme-color meta tags every page shell carries."""
-    return VIEWPORT_META + "\n" + WEB_APP_META + "\n" + theme_color_meta(ui_theme)
+    """The viewport and theme-color meta tags every page shell carries."""
+    return VIEWPORT_META + "\n" + theme_color_meta(ui_theme)

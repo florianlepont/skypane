@@ -1027,3 +1027,27 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   ("Ouvrir la vue personnelle", "Renommer") float on their own row. To rework.
 - W166 Home hero: the round "Rename frame" pencil next to the frame name is too
   large for the title; make it a small, quiet icon (still a >= 44px hit area).
+
+## Round 14 (production review of round 14, 2026-11-09)
+
+- W168 Rename frame: clicking "Rename" (Fleet header, and the Home pencil) takes the
+  person to the console's settings page. A normal user should stay on Home: rename
+  in place (small dialog or sheet with the field and Save), and Back must return to
+  where they came from (Home), never land in console settings. Everything else in the
+  round-14 review is ok.
+- W169 Location on iPhone (Safari tab, dark theme, iOS 26): the two dark bands above
+  and below the map are still there after the strip/tint change. Probable cause: the
+  strips use the theme's dark secondary colour, while the visible map tiles are light,
+  so Safari tints its bars dark. To fix: tint with the tile ground colour (light, in
+  both themes) and ship temporary `?bands=` variants for on-device comparison.
+
+## Round 15 (iPhone map bands, 2026-11-10)
+
+- W170 Location on iPhone: none of the four `?bands=` variants removes the two bands in
+  a Safari tab (Safari's own bars). From the Home Screen icon it is worse: the bars are
+  bigger and the tab bar moves up, only on the Location view. Decision: revert the
+  iPhone tint experiments (Home Screen web-app meta tags, edge strips, `?bands=` variants,
+  map-ground page background, theme-color changes) and accept Safari's bars in a tab;
+  the full-bleed map under Safari's bars cannot be achieved from the page (limit of
+  iOS 26 Safari). W152 is closed as a platform limit.
+- Superseded: the cause is the fixed map container background; fix tried in 61-104. W152 is not closed as a platform limit.

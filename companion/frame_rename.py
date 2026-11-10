@@ -3,6 +3,8 @@
 Security invariants:
 - Both routes are device-scoped for the frame's owner or an administrator
   (a co-manager cannot rename); the frame id comes from the matched path.
+- `return_to` is only ever followed when it passes the sign-in `next`
+  check (an allow-listed page of this site); anything else is ignored.
 - The name is typed text: trimmed, blanks collapsed, 1 to 40 printable
   characters, otherwise refused with the field's error and nothing stored.
 - The change and its audit row share one transaction. Only the display name
@@ -10,8 +12,10 @@ Security invariants:
   protocol never read it.
 """
 import sqlite3
+from urllib.parse import parse_qsl, quote
 
-from companion import audit, console_flash, i18n, layout, prefs, route_types, ui_base
+from companion import (
+    audit, console_flash, console_routes, i18n, layout, prefs, route_types, ui_base)
 from companion.pages import frame_name_page as page
 from server import fleet_db
 
@@ -28,17 +32,44 @@ def _is_admin(h):
     return principal is not None and principal.role == "admin"
 
 
-def _back_href(h, device):
+def _return_to(h, raw):
+    """`raw` when it is a safe page of this site other than this page, else
+    None."""
+    safe = h._next_route_of(raw) if isinstance(raw, str) and raw else None
+    if safe is None:
+        return None
+    path = safe.partition("?")[0]
+    if path.endswith(page.RENAME_ROUTE):
+        return None
+    if console_routes.is_console_path(path) and not _is_admin(h):
+        return None
+    return safe
+
+
+def _active_slug(h, return_to):
+    """The navigation slug the page is drawn under: the console page the
+    person came from when they are an administrator, else the personal
+    Account tab, so a normal user never sees console chrome."""
+    path = return_to.partition("?")[0] if return_to else ""
+    if _is_admin(h) and console_routes.is_console_path(path):
+        return layout.nav_slug(path)
+    return layout.nav_slug(ACCOUNT_PATH)
+
+
+def _back_href(h, device, return_to):
+    if return_to:
+        return return_to
     if _is_admin(h):
         return "%s?frame=%s&tab=settings" % (FLEET_PATH, device.id)
     return ACCOUNT_PATH
 
 
-def _respond(h, device, status, name, error=""):
+def _respond(h, device, status, name, error="", return_to=None):
     body = page.render(
-        name, page.device_route(device.id), _back_href(h, device), error)
+        name, page.device_route(device.id), _back_href(h, device, return_to), error,
+        return_to)
     html = layout.page_shell(
-        title=i18n.t(page.TITLE), active=layout.nav_slug(ACCOUNT_PATH), body=body,
+        title=i18n.t(page.TITLE), active=_active_slug(h, return_to), body=body,
         ui_theme=h._resolved_ui_theme(), health_alert=None,
         scripts=(ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.SUBMIT_GUARD_SCRIPT_SRC))
     return h.send_html(status, html)
@@ -47,7 +78,10 @@ def _respond(h, device, status, name, error=""):
 def handle_get(h, m):
     prefs.set_request_prefs(lang=h._lang_from_request())
     unnamed = m.device.name == m.device.id
-    return _respond(h, m.device, 200, "" if unnamed else m.device.name or "")
+    query = dict(parse_qsl(m.query or "", keep_blank_values=True))
+    return_to = _return_to(h, query.get(page.RETURN_FIELD, ""))
+    return _respond(
+        h, m.device, 200, "" if unnamed else m.device.name or "", return_to=return_to)
 
 
 def _store(h, device, name):
@@ -66,21 +100,37 @@ def _store(h, device, name):
     return True
 
 
+def _redirect_back(h, return_to):
+    """Send the person back to the page they came from, as a 303 so the form
+    result is not a history entry. Administrators get the console toast, the
+    others the `flash` query the personal pages read."""
+    if _is_admin(h) and console_routes.is_console_path(return_to.partition("?")[0]):
+        return h.redirect(
+            return_to, set_cookie=console_flash.queue_flash(page.FLASH_FRAME_RENAMED))
+    joiner = "&" if "?" in return_to else "?"
+    return h.redirect(
+        "%s%sflash=%s" % (return_to, joiner, quote(page.FLASH_FRAME_RENAMED)))
+
+
 def handle_post(h, m):
     prefs.set_request_prefs(lang=h._lang_from_request())
     device = m.device
-    raw = h.read_form().get(page.NAME_FIELD, "")
+    form = h.read_form()
+    raw = form.get(page.NAME_FIELD, "")
+    return_to = _return_to(h, form.get(page.RETURN_FIELD, ""))
     name = page.normalise_name(raw)
     if name is None:
         return _respond(
             h, device, 400, " ".join(raw.split())[:page.MAX_NAME_CHARS],
-            i18n.t(page.NAME_ERROR))
+            i18n.t(page.NAME_ERROR), return_to)
     try:
         stored = _store(h, device, name)
     except _STORE_ERRORS:
         stored = False
     if not stored:
-        return _respond(h, device, 500, name, i18n.t(page.SAVE_FAILED))
+        return _respond(h, device, 500, name, i18n.t(page.SAVE_FAILED), return_to)
+    if return_to:
+        return _redirect_back(h, return_to)
     if _is_admin(h):
         return h.redirect(
             "%s?frame=%s&tab=settings" % (FLEET_PATH, device.id),

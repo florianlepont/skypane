@@ -134,7 +134,7 @@ def test_an_absent_layout_shows_the_default_selected_and_says_when_it_repaints(r
 def test_the_layout_view_speaks_french(rig):
     root = rig.page("/display/layout", lang="fr")
     assert root.select_one("nav.personalisation-nav").attrs["aria-label"] == (
-        "Sections de personnalisation")
+        "Sections de style")
     names = [c.select_one(".look-pick__name").text() for c in root.select("#personalisation-layout label")]
     assert names == [name.replace("\u00a0", " ") for name in LAYOUT_CARD_NAMES["fr"]]
     assert "prochain vol ou à la transition" in (

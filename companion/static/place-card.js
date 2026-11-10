@@ -310,26 +310,6 @@
 
   wireNearestPlacement();
 
-  // Safari tints its top bar from the theme-color tags: on a phone in a
-  // browser tab they take the map's own colour while the map runs.
-  function wireBarTint() {
-    if (typeof window.matchMedia !== "function" ||
-        !window.matchMedia("(max-width: 699.98px) and (display-mode: browser)").matches) {
-      return;
-    }
-    var colour = window.getComputedStyle(document.documentElement)
-      .getPropertyValue("--color-secondary").replace(/^\s+|\s+$/g, "");
-    var tags = document.querySelectorAll("meta[name='theme-color']");
-    if (!colour) {
-      return;
-    }
-    for (var n = 0; n < tags.length; n++) {
-      tags[n].setAttribute("content", colour);
-    }
-  }
-
-  wireBarTint();
-
   // An airport's code label that meets the details card, the sheet or a
   // control floating over the map is hidden while it does, so a label never
   // pokes out from under (or over) them.

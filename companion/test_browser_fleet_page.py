@@ -148,7 +148,7 @@ def test_the_header_links_work_without_script(new_context, app_server_in_process
                      viewport=VIEWPORT_MIN_SUPPORTED) as page:
         with page.expect_navigation():
             page.locator(".fleet-detail-head a.row-action", has_text="Rename").click()
-        assert page.url.endswith("/devices/%s/frame/name" % seed.owned_id)
+        assert "/devices/%s/frame/name?return_to=" % seed.owned_id in page.url
         assert page.locator('input[name="name"]').input_value() == "Kitchen"
 
 

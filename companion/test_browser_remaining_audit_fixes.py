@@ -6,7 +6,6 @@ import pytest
 import fleet_console_support as fx
 from companion import auth
 from companion.test_browser_ux_helpers import _login
-from place_map_support import Hosts, seed
 
 pytestmark = pytest.mark.browser
 
@@ -100,61 +99,5 @@ def test_the_theme_and_language_switches_work_with_their_token_with_or_without_s
             form.locator("button[value=fr]").click()
         cookies = {c["name"]: c["value"] for c in context.cookies()}
         assert cookies.get(auth.UI_LANG_COOKIE_NAME) == "fr"
-    finally:
-        context.close()
-
-
-_MAP_READY = "() => document.documentElement.classList.contains('map-ready')"
-_EDGES = """() => {
-  const stage = document.querySelector('.place-stage');
-  const read = (which) => { const s = getComputedStyle(stage, which);
-    return {content: s.content, position: s.position, top: s.top, bottom: s.bottom,
-            height: s.height, left: s.left, right: s.right, background: s.backgroundColor}; };
-  return {before: read('::before'), after: read('::after'),
-          map: getComputedStyle(document.getElementById('place-map')).backgroundColor,
-          tags: [...document.querySelectorAll('meta[name=theme-color]')].map(m => m.content),
-          colour: getComputedStyle(document.documentElement)
-                    .getPropertyValue('--color-secondary').trim()};
-}"""
-
-
-def _open_map(new_context, server, viewport, scheme):
-    context = new_context(viewport=viewport, color_scheme=scheme)
-    Hosts(context)
-    page = context.new_page()
-    _login(page, server.base_url())
-    page.goto(server.base_url() + "/detection")
-    page.wait_for_function(_MAP_READY, timeout=15000)
-    page.wait_for_function(_SETTLED, timeout=15000)
-    return context, page
-
-
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-def test_on_a_phone_in_a_browser_tab_thin_strips_of_the_map_colour_run_along_both_edges(
-        new_context, make_app_server, scheme):
-    server = make_app_server(seed=seed, fake_providers=True)
-    context, page = _open_map(new_context, server, {"width": 390, "height": 844}, scheme)
-    try:
-        read = page.evaluate(_EDGES)
-        for side, edge in (("before", "top"), ("after", "bottom")):
-            strip = read[side]
-            assert strip["position"] == "fixed" and strip[edge] == "0px", strip
-            assert strip["left"] == "0px" and strip["right"] == "0px", strip
-            assert 3 <= float(strip["height"][:-2]) <= 8, strip
-            assert strip["background"] == read["map"], (strip, read["map"])
-        # The theme-color tags (what Safari tints its top bar from) name the same colour.
-        assert read["tags"] == [read["colour"], read["colour"]], read
-    finally:
-        context.close()
-
-
-def test_a_wide_screen_gets_no_edge_strips_and_keeps_the_page_theme_colour(
-        new_context, make_app_server):
-    server = make_app_server(seed=seed, fake_providers=True)
-    context, page = _open_map(new_context, server, {"width": 1280, "height": 800}, "light")
-    try:
-        read = page.evaluate(_EDGES)
-        assert read["before"]["content"] == "none" and read["after"]["content"] == "none", read
-        assert read["colour"] not in read["tags"], read
     finally:
         context.close()

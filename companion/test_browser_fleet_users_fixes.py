@@ -99,7 +99,7 @@ def test_the_signed_in_administrators_row_offers_no_delete(new_context, app_serv
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_DESKTOP], ids=["360", "1280"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_rename_page_shows_the_save_bar_on_a_change_and_saves_the_name(
+def test_the_rename_page_shows_the_cancel_and_save_bar_and_saves_the_name(
         new_context, app_server_in_process, viewport, lang):
     server = app_server_in_process
     context, page, seed = _page(
@@ -110,10 +110,8 @@ def test_the_rename_page_shows_the_save_bar_on_a_change_and_saves_the_name(
         assert field.input_value() == "Kitchen"
         bar = page.locator(".dirty-bar")
         page.wait_for_function(
-            "() => document.querySelector('.dirty-bar').hidden", timeout=10000)
-        field.fill("Living room")
-        page.wait_for_function(
             "() => !document.querySelector('.dirty-bar').hidden", timeout=10000)
+        field.fill("Living room")
         assert not _assert_no_page_overflow(page, "rename", viewport["width"])
         save = bar.locator("button.dirty-bar__save")
         assert save.bounding_box()["height"] >= 44 - 0.5
@@ -130,19 +128,20 @@ def test_the_rename_page_shows_the_save_bar_on_a_change_and_saves_the_name(
         context.close()
 
 
-def test_cancel_on_the_rename_page_restores_the_name_and_hides_the_bar(
+def test_cancel_on_the_rename_page_leaves_the_name_unchanged_and_goes_back(
         new_context, app_server_in_process):
     server = app_server_in_process
-    context, page, _seed = _page(
+    context, page, seed = _page(
         new_context, server, "/devices/{owned}/frame/name", VIEWPORT_DESKTOP, who="owner")
     try:
         page.locator("#frame-name").fill("Changed")
-        page.wait_for_function(
-            "() => !document.querySelector('.dirty-bar').hidden", timeout=10000)
-        page.locator(".dirty-bar [data-dirty-cancel]").click()
-        page.wait_for_function(
-            "() => document.querySelector('.dirty-bar').hidden", timeout=10000)
-        assert page.locator("#frame-name").input_value() == "Kitchen"
+        page.locator(".dirty-bar a.dirty-bar__cancel").click()
+        page.wait_for_url("**/account**")
+        conn = fleet_db.connect(server.state_dir)
+        try:
+            assert fleet_db.get_device(conn, seed.owned_id)["name"] == "Kitchen"
+        finally:
+            conn.close()
     finally:
         context.close()
 

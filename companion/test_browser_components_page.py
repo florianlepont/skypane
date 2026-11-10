@@ -268,7 +268,7 @@ def test_the_rename_field_fills_its_card_and_the_page_has_a_visible_save(
         geometry = page.evaluate(
             "() => { const i = document.querySelector('#frame-name').getBoundingClientRect();"
             " const c = document.querySelector('.page-section').getBoundingClientRect();"
-            " const b = document.querySelector('.page-section .btn--primary');"
+            " const b = document.querySelector('.dirty-bar .btn--primary');"
             " return {gap: c.right - i.right, left: i.left - c.left, button: b ? b.getBoundingClientRect().height : 0}; }")
         assert abs(geometry["gap"] - geometry["left"]) <= 2, geometry
         assert geometry["button"] >= 43.5, geometry

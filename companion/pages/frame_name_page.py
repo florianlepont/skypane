@@ -4,11 +4,14 @@ Pure markup: it takes the frame's current name and an optional error and
 reads nothing else. The name is typed text, escaped into the input's value;
 it never reaches a path or an attribute other than that value.
 """
+from urllib.parse import quote
+
 from companion import i18n, layout, ui_components, ui_save_bar
 from companion.ui_base import escape_html, validation_attrs
 
 RENAME_ROUTE = "/frame/name"
 NAME_FIELD = "name"
+RETURN_FIELD = "return_to"
 FORM_ID = "frame-name-form"
 MAX_NAME_CHARS = 40
 
@@ -30,9 +33,14 @@ ACTION_TEXT = i18n.msg("frame_name.action", "Rename")
 ACTION_ARIA = i18n.msg("frame_name.action_aria", "Rename %s")
 
 
-def device_route(device_id):
-    """The frame's own rename page path."""
-    return "/devices/%s%s" % (device_id, RENAME_ROUTE)
+def device_route(device_id, return_to=None):
+    """The frame's own rename page path. `return_to` is the page the person
+    comes from (a caller-built, allow-listed path); the page sends them back
+    there when they leave it."""
+    route = "/devices/%s%s" % (device_id, RENAME_ROUTE)
+    if return_to:
+        route += "?%s=%s" % (RETURN_FIELD, quote(return_to, safe=""))
+    return route
 
 
 def normalise_name(raw):
@@ -48,9 +56,10 @@ def normalise_name(raw):
     return name
 
 
-def render(name, form_action, back_href, error=""):
+def render(name, form_action, back_href, error="", return_to=None):
     """The page body for a frame currently called `name`; `form_action` is
-    the frame's own rename route and `back_href` where Back goes."""
+    the frame's own rename route and `back_href` where Back and Cancel go;
+    `return_to` (already validated) is carried by the form to the POST."""
     attrs, error_html = "", ""
     if error:
         attrs = ' aria-invalid="true" aria-describedby="frame-name-error"'
@@ -60,15 +69,17 @@ def render(name, form_action, back_href, error=""):
         "frame-name", NAME_FIELD, i18n.t(_LABEL), name, i18n.t(_HELP), error_html,
         ' maxlength="%d" required autocomplete="off" spellcheck="false"%s%s' % (
             MAX_NAME_CHARS, attrs, validation_attrs("text")))
-    save = ui_components.button_html(
-        i18n.t(ui_save_bar.SAVE_TEXT), "primary", button_type="submit")
+    carried = (
+        '<input type="hidden" name="%s" value="%s">' % (RETURN_FIELD, escape_html(return_to))
+        if return_to else "")
     form = (
         '<form id="%s" method="post" action="%s" data-dirty-form novalidate>%s%s%s</form>' % (
-            FORM_ID, escape_html(form_action), layout.csrf_field(), field, save))
+            FORM_ID, escape_html(form_action), layout.csrf_field() + carried, field, ""))
     return (
         layout.page_header(i18n.t(TITLE), purpose=i18n.t(PURPOSE))
         + '<a class="form-back" href="%s">%s<span>%s</span></a>' % (
             escape_html(back_href), layout.icon_html("icon-chevron-right", 18),
             escape_html(i18n.t(_BACK)))
         + '<section class="page-section">%s</section>' % form
-        + ui_save_bar.save_bar_html(FORM_ID))
+        + ui_save_bar.save_bar_html(
+            FORM_ID, cancel_href=back_href, title=i18n.t(TITLE)))

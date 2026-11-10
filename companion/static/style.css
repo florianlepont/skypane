@@ -47,6 +47,11 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 
+  /* The OpenStreetMap standard tiles' land colour. The tiles are light in
+   * both themes, so this one value serves both: it is what the fixed map
+   * container shows under and between the tiles. */
+  --color-map-ground: #F2EFE9;
+
   /* The floating tab bar: its height and the gap to the screen edge; the
    * page clears bar + gap + the home-indicator inset. */
   --tab-bar-h: 68px;
@@ -6001,38 +6006,7 @@ html.js-early:has(.place-stage) {
   min-height: 100lvh;
   border: 0;
   border-radius: 0;
-  background: var(--color-secondary);
-}
-
-/* A phone in a browser tab: Safari tints its top and bottom bars from the
- * page. A thin fixed strip of the map's own colour along each screen edge
- * (and the theme-color tags, which place-card.js points at the same colour)
- * keeps those bars the map's colour instead of the page's sky. Not in an
- * installed web app, which has no browser bars and a translucent status bar. */
-@media (max-width: 699.98px) and (display-mode: browser) {
-  .map-ready .place-stage::before {
-    content: "";
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1;
-    height: 4px;
-    background: var(--color-secondary);
-    pointer-events: none;
-  }
-
-  .map-ready .place-stage::after {
-    content: "";
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    z-index: 1;
-    height: 4px;
-    background: var(--color-secondary);
-    pointer-events: none;
-  }
+  background: var(--color-map-ground);
 }
 
 /* The one search field floats at the top of the map. Its label is for
@@ -6486,7 +6460,9 @@ html:not(.map-ready) .place-tap-hint {
 
 /* The app bar floats over the map (the map runs under the status bar and the
  * bar). A soft fade of the canvas colour behind it keeps the logo and the
- * frame button readable without a hard bar. */
+ * frame button readable without a hard bar; it starts a few pixels below the
+ * screen edge so that no dark surface touches the edge a browser samples its
+ * bar colour from. */
 .map-ready .site-header:has(~ .page-content .place-stage) {
   position: absolute;
   top: 0;
@@ -6499,10 +6475,10 @@ html:not(.map-ready) .place-tap-hint {
   content: "";
   position: absolute;
   z-index: -1;
-  top: 0;
+  top: var(--space-xs);
   left: 0;
   right: 0;
-  height: calc(100% + 24px);
+  height: calc(100% + 20px);
   background: linear-gradient(
     to bottom, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent);
   pointer-events: none;

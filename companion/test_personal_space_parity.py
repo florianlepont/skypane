@@ -99,7 +99,7 @@ def _normalise(markup, server):
     markup = re.sub(r"\n\s*\n", "\n", _strip_switch_and_notice(markup))
     for name in ("user", "admin"):
         markup = markup.replace(server.frames[name], "DEVICE")
-    markup = re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}\b", "DEVICE", markup)
+    markup = re.sub(r"(?:(?<![A-Za-z_])|(?<=%2F))d[_-][0-9a-f]{8}\b", "DEVICE", markup)
     markup = markup.replace(USER_EMAIL, "OWNER").replace(ADMIN_EMAIL, "OWNER")
     markup = re.sub(r'(name="csrf_token"[^>]*value=")[^"]*', r"\1TOKEN", markup)
     markup = re.sub(r'(value=")[0-9a-f]{32,}(")', r"\1TOKEN\2", markup)
@@ -121,8 +121,8 @@ def _links(markup):
     markup = _strip_switch_and_notice(markup).replace(
         USER_EMAIL, "OWNER").replace(ADMIN_EMAIL, "OWNER")
     return sorted(
-        (re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}\b", "DEVICE", href),
-         re.sub(r"(?<![A-Za-z_])d[_-][0-9a-f]{8}", "DEVICE",
+        (re.sub(r"(?:(?<![A-Za-z_])|(?<=%2F))d[_-][0-9a-f]{8}\b", "DEVICE", href),
+         re.sub(r"(?:(?<![A-Za-z_])|(?<=%2F))d[_-][0-9a-f]{8}", "DEVICE",
                 re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", inner)).strip()))
         for href, inner in re.findall(r'<a [^>]*href="([^"]+)"[^>]*>(.*?)</a>', markup, re.S))
 
