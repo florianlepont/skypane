@@ -1040,3 +1040,13 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   strips use the theme's dark secondary colour, while the visible map tiles are light,
   so Safari tints its bars dark. To fix: tint with the tile ground colour (light, in
   both themes) and ship temporary `?bands=` variants for on-device comparison.
+
+## Round 15 (iPhone map bands, 2026-11-10)
+
+- W170 Location on iPhone: none of the four `?bands=` variants removes the two bands in
+  a Safari tab (Safari's own bars). From the Home Screen icon it is worse: the bars are
+  bigger and the tab bar moves up, only on the Location view. Decision: revert the
+  iPhone tint experiments (Home Screen web-app meta tags, edge strips, `?bands=` variants,
+  map-ground page background, theme-color changes) and accept Safari's bars in a tab;
+  the full-bleed map under Safari's bars cannot be achieved from the page (limit of
+  iOS 26 Safari). W152 is closed as a platform limit.
