@@ -164,9 +164,9 @@ def orient_for_exif(upright: Image.Image, orientation: int) -> Image.Image:
         3: [Image.Transpose.ROTATE_180],
         4: [Image.Transpose.FLIP_TOP_BOTTOM],
         5: [Image.Transpose.TRANSPOSE],
-        6: [Image.Transpose.ROTATE_270],
+        6: [Image.Transpose.ROTATE_90],
         7: [Image.Transpose.TRANSVERSE],
-        8: [Image.Transpose.ROTATE_90],
+        8: [Image.Transpose.ROTATE_270],
     }[orientation]
     img = upright
     for op in ops:

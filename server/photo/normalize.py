@@ -10,9 +10,10 @@ decoder text) can leak into responses or logs.
 from __future__ import annotations
 
 import io
+import math
 from dataclasses import dataclass
 
-from PIL import Image
+from PIL import Image, ImageCms, ImageOps
 
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 MAX_PIXELS = 50_000_000
@@ -81,22 +82,105 @@ def _open_checked(raw: bytes) -> Image.Image:
     return img
 
 
+def _draft(img: Image.Image) -> None:
+    """Ask the JPEG decoder for a reduced-size decode (before load).
+
+    The target keeps the aspect ratio so the decoder may pick a 1/2, 1/4 or
+    1/8 scale that still covers the stored size; it never upsamples.
+    """
+    if img.format not in ("JPEG", "MPO"):
+        return
+    width, height = img.size
+    scale = STORE_MAX_SIDE / max(width, height)
+    if scale >= 1:
+        return
+    img.draft("RGB", (math.ceil(width * scale), math.ceil(height * scale)))
+
+
 def _decode(img: Image.Image) -> Image.Image:
-    """Fully decode the first frame; truncated or broken data is refused."""
+    """Fully decode the first frame and apply EXIF orientation.
+
+    Truncated or broken data (including unreadable EXIF) is refused.
+    """
     try:
         img.load()
+        return ImageOps.exif_transpose(img)
     except Exception:  # decode boundary: no decoder text may escape
         raise PhotoRejected("corrupt") from None
-    return img
+
+
+def _to_rgb(img: Image.Image) -> Image.Image:
+    """Convert any accepted mode to RGB, flattening transparency onto white."""
+    if img.mode in ("I;16", "I;16L", "I;16B", "I"):
+        # convert() would clip 16-bit values; scale them down to 8 bits.
+        img = img.point(lambda v: v / 256, "L")
+    if "transparency" in img.info or img.mode in ("RGBA", "LA", "PA", "P"):
+        rgba = img.convert("RGBA")
+        flat = Image.new("RGB", rgba.size, (255, 255, 255))
+        flat.paste(rgba, mask=rgba.getchannel("A"))
+        return flat
+    return img.convert("RGB")
+
+
+def _to_srgb(img: Image.Image, icc: bytes | None) -> Image.Image:
+    """Convert from the embedded profile to sRGB; an unusable profile means sRGB."""
+    if not icc:
+        return img
+    try:
+        source = ImageCms.ImageCmsProfile(io.BytesIO(icc))
+        converted = ImageCms.profileToProfile(
+            img, source, ImageCms.createProfile("sRGB"), outputMode="RGB"
+        )
+    except (OSError, ImageCms.PyCMSError):
+        return img
+    return converted if converted is not None else img
+
+
+def _reduce(img: Image.Image, max_side: int) -> Image.Image:
+    """Shrink so the long edge is at most ``max_side``; never upscale."""
+    longest = max(img.size)
+    if longest <= max_side:
+        return img
+    scale = max_side / longest
+    size = (max(1, round(img.width * scale)), max(1, round(img.height * scale)))
+    return img.resize(size, Image.Resampling.LANCZOS)
+
+
+def _encode_within(img: Image.Image) -> tuple[bytes, tuple[int, int]]:
+    """Encode a baseline JPEG no larger than STORE_MAX_BYTES.
+
+    Tries the quality ladder at the current size, then shrinks and repeats.
+    No exif, icc_profile or comment is passed, so none is written.
+    """
+    while True:
+        for quality in QUALITY_LADDER:
+            buf = io.BytesIO()
+            img.save(buf, "JPEG", quality=quality, optimize=True, progressive=False)
+            if buf.tell() <= STORE_MAX_BYTES:
+                return buf.getvalue(), img.size
+        width, height = img.size
+        img = img.resize(
+            (max(1, round(width * SHRINK_FACTOR)), max(1, round(height * SHRINK_FACTOR))),
+            Image.Resampling.LANCZOS,
+        )
 
 
 def normalize_upload(raw: bytes) -> StoredPhoto:
-    """Validate ``raw`` and return the one reduced stored copy."""
+    """Validate ``raw`` and return the one reduced stored copy.
+
+    Raises PhotoRejected with a stable reason code for anything that is not
+    a decodable, reasonably sized JPEG, PNG or WebP still image.
+    """
     if not raw:
         raise PhotoRejected("empty")
     if len(raw) > MAX_UPLOAD_BYTES:
         raise PhotoRejected("too_large")
     if _looks_like_heic(raw):
         raise PhotoRejected("heic_unsupported")
-    _decode(_open_checked(raw))
-    raise NotImplementedError
+    img = _open_checked(raw)
+    icc = img.info.get("icc_profile")
+    _draft(img)
+    img = _decode(img)
+    rgb = _to_srgb(_to_rgb(img), icc if isinstance(icc, bytes) else None)
+    jpeg, (width, height) = _encode_within(_reduce(rgb, STORE_MAX_SIDE))
+    return StoredPhoto(jpeg=jpeg, width=width, height=height)
