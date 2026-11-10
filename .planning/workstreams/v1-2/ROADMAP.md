@@ -45,6 +45,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
 - [ ] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
 - [ ] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 12 of 13 plans built, the owner real-panel check 62-13 is pending)
+- [ ] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 
 ## Phase Details
 
@@ -614,6 +615,32 @@ Plans: 13 plans in 7 waves
 - [x] 62-12-PLAN.md - giant golden manifest and docs (wave 6)
 - [ ] 62-13-PLAN.md - owner real-panel check and handoff (wave 7, checkpoint)
 
+### Phase 63: Fast CI
+
+**Goal**: The `Lint, test, coverage, attribution` check finishes in 10 minutes or less (it takes about 27 minutes today) with every test still running and every existing guard still enforced.
+**Depends on**: Nothing. Runs alongside Phase 61 and Phase 62, and never modifies a Phase 61 test file without the owner's agreement. Touches no file of Phase 47 or `hardware/`, and leaves the production deploy job and its approval step as they are.
+**Requirements**: CIS-01, CIS-02, CIS-03, CIS-04, CIS-05
+**Baseline** (measured 2026-11-10, run 42770577886 and a local 4-core run; the runner has 4 xdist workers):
+- Job 27.5 min, of which the pytest step is 26.5 min and everything else (setup, Playwright, ruff, mypy, guards) about 1 min. 12,821 tests.
+- Browser tests: about 2,800 tests, 17 min 47 s alone on 4 cores (70 min of summed test time). One file, `companion/test_browser_overhaul_sweep.py`, is 739 tests and 11 min summed; `test_browser_components_page.py` is 59 tests and 7.8 min summed.
+- Everything else: about 10,900 tests in 9 min 40 s on 4 cores.
+- Three firmware size-bound tests take about 51 s each; `server/test_golden_giant_render.py` has one test of 22 s.
+- xdist scales almost linearly (3,757-test subset: 478 s with 1 worker, 244 s with 2, 134 s with 4, 120 s with 8). Coverage costs about 1% on server tests and about 12% on browser tests.
+**Success criteria** (what must be TRUE):
+1. The median wall time of the CI test checks over five consecutive pull-request runs is 10 minutes or less.
+2. The number of executed tests is at least 12,821 and no test is skipped, deselected, quarantined or marked slow-optional to get there.
+3. Coverage from every job is combined and the existing `fail_under` floor is applied unchanged to the combined result.
+4. A missing browser still fails CI, the non-loopback network guard stays on in every job, and `companion/test_suite_guards.py` is unchanged and green.
+5. The `deploy` job, its `production` environment approval and its dependency on the test result are unchanged.
+**Plan outline** (detailed plans are made in plan-phase):
+- Split the job into parallel jobs: static checks, non-browser tests, and browser tests in shards; a final aggregate job that keeps the current required check name, combines coverage and applies the floor.
+- Make the slowest non-browser tests cheaper without dropping cases.
+- Reduce the cost of the large browser sweep and components-page files by agreement with the owner and with Phase 61.
+- Record before and after timings in the documentation.
+**Must not break**: every item in success criteria 2-5, plus local `./scripts/run-all-tests.sh` as the single entry point that matches CI.
+
+Plans: 0 plans (not yet planned)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -633,3 +660,4 @@ Plans: 13 plans in 7 waves
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
 | 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 12/13 | Executed (12 of 13 plans); 62-13, the owner real-panel check on a non-live unit, is pending | - |
+| 63. Fast CI | v1.2 | 0/0 | Not started | - |

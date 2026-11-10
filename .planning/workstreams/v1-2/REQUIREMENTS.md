@@ -81,6 +81,14 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **PSR-08**: New golden fixtures for the new layouts live in a separate manifest, and every rendered output uses only the six legal palette indices.
 - [ ] **PSR-09**: The owner checks the new screens on a real panel (non-live unit only) and the result is recorded.
 
+### Test and CI Speed
+
+- [ ] **CIS-01**: The CI test checks finish in 10 minutes or less (median of five consecutive pull-request runs), down from about 27 minutes.
+- [ ] **CIS-02**: Independent test groups (static checks, non-browser tests, browser tests in shards) run as parallel jobs, and one aggregate job keeps the current required check name.
+- [ ] **CIS-03**: Coverage from all jobs is combined and the existing `fail_under` floor applies unchanged to the combined result.
+- [ ] **CIS-04**: No test is skipped, disabled, deselected or quarantined; the executed count stays at or above 12,821; a missing browser fails CI; the network guard and the behaviour-over-source suite guards stay in force.
+- [ ] **CIS-05**: Before and after timings are recorded, and the slowest tests are made cheaper without dropping cases.
+
 ### Debt
 
 - [ ] **DEBT-01**: The comment-history guard debt is cleared (or its baseline only shrinks), and no v1.2 phase adds violations.
@@ -154,3 +162,8 @@ Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 | PSR-07 | Phase 62 | Complete |
 | PSR-08 | Phase 62 | Complete |
 | PSR-09 | Phase 62 | Pending |
+| CIS-01 | Phase 63 | Pending |
+| CIS-02 | Phase 63 | Pending |
+| CIS-03 | Phase 63 | Pending |
+| CIS-04 | Phase 63 | Pending |
+| CIS-05 | Phase 63 | Pending |
