@@ -134,3 +134,24 @@ def test_the_airline_collection_is_built_once_per_history_and_renames(tmp_path, 
         aged = airline_collection.airline_collection(conn, later)
     assert any(e.is_new for e in first[0]) and not any(e.is_new for e in aged[0])
     assert len(builds) == 2
+
+
+def test_a_flights_filter_is_computed_once_per_history_and_search(tmp_path, monkeypatch):
+    from companion import history_query
+    vp.seed_runway_events(tmp_path, [_event(1), _event(2, callsign="BAW2", airline="British Airways")])
+    calls = []
+    real = history_query._filtered
+
+    def counting(flights, view):
+        calls.append(view.q)
+        return real(flights, view)
+
+    monkeypatch.setattr(history_query, "_filtered", counting)
+    for _ in range(3):
+        history_page.render(vp.history_ctx(tmp_path))
+    assert calls == [""]
+    ctx = vp.history_ctx(tmp_path)
+    ctx["history_query"] = {"q": "british", "kind": None, "sort": None}
+    for _ in range(2):
+        rendered = history_page.render(ctx)
+    assert calls == ["", "british"] and "BAW2" in rendered and "AFR1" not in rendered

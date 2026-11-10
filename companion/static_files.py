@@ -317,8 +317,14 @@ ASSET_NOT_FOUND_MAX_AGE_S = 300
 
 
 def looks_like_asset(path):
-    """Whether `path` names a file (a known asset extension on its last
-    segment) rather than a page."""
+    """Whether `path` names a file a browser or scanner asks for on its own:
+    a known asset extension on a path under /static/ or on a single-segment
+    path (/favicon.ico, /robots.txt). Two-segment and device-scoped file
+    routes (/illustration/x.png, /devices/<id>/runway-image/x.png) are
+    excluded: a refused one answers the page 404, and an absent one must
+    not be told apart from it."""
+    if not (path.startswith("/static/") or path.count("/") == 1):
+        return False
     last = path.rsplit("/", 1)[-1]
     dot = last.rfind(".")
     return dot > 0 and last[dot:].lower() in _ASSET_EXTENSIONS
