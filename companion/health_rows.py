@@ -17,7 +17,6 @@ reader.
 """
 
 from companion.layout import escape_html
-import companion.draw as draw
 import companion.i18n as i18n
 import companion.layout as layout
 
@@ -49,10 +48,6 @@ GROUP_CLASS = "health-rows__group"
 ROW_CLASS = "health-row"
 SUMMARY_CLASS = "health-row__summary"
 ROW_ID_PREFIX = "health-row-"
-
-# The ring beside the identification value is the same drawing as the
-# battery ring, at a size that sits on a row's text line.
-RING_SIZE_PX = 24
 
 
 def resolved_state(state):
@@ -111,10 +106,3 @@ def facts_html(facts):
 def note_html(text):
     """A muted explanatory sentence under the facts. `text` is plain."""
     return '<p class="health-row__note">%s</p>' % escape_html(text)
-
-
-def ring_html(fraction):
-    """The small neutral ring: ink-coloured, because the figure it draws
-    is a rate with no pass mark, not a verdict."""
-    return '<span class="health-row__ring">%s</span>' % draw.ring_gauge(
-        fraction, RING_SIZE_PX)

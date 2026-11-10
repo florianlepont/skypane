@@ -11,7 +11,8 @@ Two modes share the markup:
   without script (a plain, always visible Save, the no-script floor);
   dirty-state.js hides it until a field differs and writes the message.
 * page: `cancel_href` makes the bar a fixture of a page that is itself the
-  edit: always shown, Cancel is a link back, the message is the page title.
+  edit: Cancel is a link back, the message is the page title. It is always
+  shown, or with `reveal_on_change` only once a field of the form differs.
 """
 import companion.i18n as i18n
 from companion.ui_base import escape_html
@@ -29,7 +30,7 @@ SAVE_FALLBACK_ATTR = "data-static-save-fallback"
 
 
 def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
-                  save_attrs=None, inline=False):
+                  save_attrs=None, inline=False, reveal_on_change=False, shown=False):
     """The bar markup for the form `form_id`.
 
     `carried_href`: the bar is shown from the start for unsaved values that
@@ -38,7 +39,11 @@ def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
     button (a caller escapes what it passes); the tracked bar defaults to the
     fallback marker. `inline` adds the modifier that, on a phone, turns the bar
     into the two buttons of the card that holds it (no strip of its own; the
-    message stays in the page for assistive technology only).
+    message stays in the page for assistive technology only). `reveal_on_change`
+    makes a page-mode bar appear only once a field of its form differs from the
+    value it loaded with (the bar stays in the page without script, so a visitor
+    without script can still save); `shown` keeps it visible from the start, for a
+    page redrawn with a refused value that has to be corrected and saved.
     """
     modifier = " dirty-bar--inline" if inline else ""
     save = escape_html(i18n.t(SAVE_TEXT))
@@ -48,13 +53,17 @@ def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
         save_attrs = "" if cancel_href is not None else SAVE_FALLBACK_ATTR
     if cancel_href is not None:
         label = escape_html(title)
+        tracking = (
+            " data-dirty-page" + (" data-dirty-keep" if shown else "")
+            if reveal_on_change else "")
         return (
-            '<div class="dirty-bar%s" role="region" aria-label="%s">'
+            '<div class="dirty-bar%s"%s role="region" aria-label="%s">'
             '<span class="dirty-bar__message">%s</span>'
             '<a class="btn btn--secondary dirty-bar__cancel" href="%s">%s</a>'
             '<button type="submit" class="btn btn--primary dirty-bar__save" form="%s" %s>%s</button>'
             "</div>"
-        ) % (modifier, label, label, escape_html(cancel_href), cancel, form, save_attrs, save)
+        ) % (modifier, tracking, label, label, escape_html(cancel_href), cancel, form,
+             save_attrs, save)
     carried = (
         ' data-dirty-carried="%s"' % escape_html(carried_href)
         if carried_href is not None else "")

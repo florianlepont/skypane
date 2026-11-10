@@ -17,7 +17,6 @@ import io
 import os
 import re
 import socket
-import urllib.parse
 
 import pytest
 
@@ -683,8 +682,7 @@ def test_resolve_post_redirects_manual_save_failed_when_state_dir_is_read_only(m
 
     os.chmod(server.state_dir, 0o500)
     try:
-        resolve_data = urllib.parse.urlencode(
-            {"prefix": "FLD", "airline_name": "Unwritable Air"}).encode()
+        resolve_data = with_csrf(cookie, {"prefix": "FLD", "airline_name": "Unwritable Air"})
         status, headers, _ = http_request(
             server.base_url() + "/airlines/resolve", method="POST", data=resolve_data,
             cookie=cookie)

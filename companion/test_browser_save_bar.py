@@ -89,6 +89,18 @@ def _pick_mode(page):
     page.click("label:has(#place-mode-area)")
 
 
+def _type_key(page):
+    page.locator("[name=rule_key]").fill("AFR")
+
+
+def _pick_other_card(page):
+    page.locator("label.look-pick__card:has(input:not(:checked))").first.click()
+
+
+def _type_calendar_url(page):
+    page.locator("#calendar-connect-url").fill("https://calendar.example/feed.ics")
+
+
 def _change_wake(page):
     page.locator("#wake-interval-s").fill("900")
 
@@ -106,10 +118,11 @@ def _fleet_route(server):
 PAGES = [
     ("departures", layout.DISPLAY_ROUTE, ".look-dot", _pick_look),
     ("arrivals", layout.DISPLAY_ARRIVALS_ROUTE, ".look-dot", _pick_arrivals_look),
-    ("special-look-new", layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE, "label.look-pick__card", None),
+    ("special-look-new", layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE, "label.look-pick__card", _type_key),
     ("special-look-edit", layout.DISPLAY_SPECIAL_LOOK_EDIT_ROUTE + "?rule_key=TVF",
-     "label.look-pick__card", None),
-    ("calendar-connect", layout.DISPLAY_CALENDAR_CONNECT_ROUTE, "#calendar-connect-url", None),
+     "label.look-pick__card", _pick_other_card),
+    ("calendar-connect", layout.DISPLAY_CALENDAR_CONNECT_ROUTE, "#calendar-connect-url",
+     _type_calendar_url),
     ("location", "/detection", "#place-mode-area", _pick_mode),
     ("fleet", _fleet_route, "#wake-interval-s", _change_wake),
 ]

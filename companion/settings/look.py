@@ -474,6 +474,7 @@ def axes_html(prefix):
             "look-seg__option")
         for background in BACKGROUNDS)
     why_id = "%s-why" % prefix
+    colour_why_id = "%s-colour-why" % prefix
     stripes = "".join(
         _axis_option_html(
             prefix, AXIS_STRIPE, stripe,
@@ -482,10 +483,10 @@ def axes_html(prefix):
         for stripe in STRIPES)
     return (
         '<div class="look-axes" data-look-axes>'
-        '<fieldset class="look-axis"><legend class="look-axis__label">%s'
+        '<fieldset class="look-axis" aria-describedby="%s"><legend class="look-axis__label">%s'
         ' <span class="look-axis__value" data-look-colour-name></span></legend>'
         '<div class="look-dots">%s</div>'
-        '<p class="look-axis__why" data-look-colour-why aria-live="polite"></p></fieldset>'
+        '<p class="look-axis__why" id="%s" data-look-colour-why aria-live="polite"></p></fieldset>'
         '<fieldset class="look-axis"><legend class="look-axis__label">%s</legend>'
         '<div class="look-seg">%s</div></fieldset>'
         '<fieldset class="look-axis" aria-describedby="%s"><legend class="look-axis__label">%s</legend>'
@@ -493,7 +494,7 @@ def axes_html(prefix):
         '<p class="look-axis__why" id="%s" data-look-why aria-live="polite"></p></fieldset>'
         "</div>"
     ) % (
-        escape_html(i18n.t(COLOUR_AXIS_LABEL)), dots,
+        escape_html(colour_why_id), escape_html(i18n.t(COLOUR_AXIS_LABEL)), dots, escape_html(colour_why_id),
         escape_html(i18n.t(BACKGROUND_AXIS_LABEL)), backgrounds,
         escape_html(why_id), escape_html(i18n.t(STRIPE_AXIS_LABEL)), stripes, escape_html(why_id))
 

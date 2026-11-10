@@ -119,7 +119,7 @@ def _thumb_html(page, key, state_dir):
         return '<span class="airline-card__placeholder" aria-hidden="true"></span>'
     return (
         '<img class="airlines-thumb__image" src="%s%s" width="%d" height="%d" '
-        'loading="lazy" decoding="async" alt="">'
+        'loading="lazy" decoding="async" fetchpriority="low" alt="">'
     ) % (page._illustration_url(key),
          illustration_normalize.thumbnail_query(
              page._illustration_cache_buster(key, state_dir), THUMB_WIDTH),
@@ -488,7 +488,7 @@ def _gap_group_html(page, index, gap_row, now):
     form = (
         '<form class="airlines-resolve" method="post" action="%s">'
         '<input type="hidden" name="prefix" value="%s">'
-        '<input type="hidden" name="inline" value="1">'
+        '<input type="hidden" name="inline" value="1">%s'
         '<p class="airlines-resolve__cap"><span class="airlines-gap-chip">%s</span>'
         '<span class="mono">%s</span><span class="cell-inline-sep">·</span>%s'
         '<span class="cell-inline-sep">·</span>%s</p>'
@@ -499,7 +499,7 @@ def _gap_group_html(page, index, gap_row, now):
         '<button type="submit" class="airlines-resolve__ok">%s</button>'
         '<button type="reset" class="airlines-resolve__skip">%s</button></div></div></form>'
     ) % (
-        device_scope.scoped(page.RESOLVE_ROUTE, "POST"), escape_html(prefix),
+        device_scope.scoped(page.RESOLVE_ROUTE, "POST"), escape_html(prefix), csrf_field(),
         escape_html(i18n.t(UNIDENTIFIED_TEXT)), escape_html(callsign),
         escape_html(_views_text(count)), layout.concise_timestamp_html(last_seen, now, fallback=""),
         KNOWN_NAMES_LIST_ID, escape_html(i18n.t(RESOLVE_NAME_PLACEHOLDER)),

@@ -109,9 +109,11 @@ def test_the_rename_page_shows_the_cancel_and_save_bar_and_saves_the_name(
         page.wait_for_function(_OWNS_CENTRE, arg="#frame-name", timeout=10000)
         assert field.input_value() == "Kitchen"
         bar = page.locator(".dirty-bar")
+        # The bar is in the page but shown only once the name differs from the saved one.
+        assert page.evaluate("() => document.querySelector('.dirty-bar').hidden")
+        field.fill("Living room")
         page.wait_for_function(
             "() => !document.querySelector('.dirty-bar').hidden", timeout=10000)
-        field.fill("Living room")
         assert not _assert_no_page_overflow(page, "rename", viewport["width"])
         save = bar.locator("button.dirty-bar__save")
         assert save.bounding_box()["height"] >= 44 - 0.5

@@ -28,9 +28,9 @@ PERSONAL_SIDEBAR_FR = [
 CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Editor", "Audit"]
 CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Équipe", "Éditeur", "Journal"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
-CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Airline editor", "Audit log", "Account"]
+CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [
-    "Flotte", "Utilisateurs", "Éditeur de compagnies", "Journal d’audit", "Compte"]
+    "Flotte", "Utilisateurs", "Éditeur", "Journal d’audit", "Compte"]
 
 
 @pytest.fixture
@@ -171,7 +171,7 @@ def test_console_frame_pages_render_in_the_console_chrome_for_each_frame(served,
             if re.sub(r"^/devices/[^/]+", "", href) in (
                 "/health", "/device", "/airlines/manage")}
         # Health and Device are folded into the Fleet view; only the editor stays.
-        assert list(tools) == ["Airline editor"]
+        assert list(tools) == ["Editor"]
         # The editor is one global list: its link carries no frame, whichever
         # address the page was opened under.
         assert list(tools.values()) == ["/airlines/manage"]

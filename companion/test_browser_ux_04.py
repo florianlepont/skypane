@@ -1465,7 +1465,7 @@ def test_a_row_expands_to_its_types_and_each_type_has_its_own_replace(new_contex
                 if subrow.all_inner_texts() == [] or not subrow.first.locator("th").inner_text().startswith("A320"):
                     raise AssertionError("unexpected types %r (%s)" % (subrow.all_inner_texts(), where))
                 action = subrow.first.locator("form.airlines-art").get_attribute("action")
-                if action != "/illustration/transavia-france-a320.png":
+                if not action.startswith("/illustration/transavia-france-a320.png"):
                     raise AssertionError("the A320 row targets %r (%s)" % (action, where))
                 _assert_hit_target(page, TYPES_GROUP + " .airlines-subrow .airlines-thumb",
                                    "sub-row artwork " + where)

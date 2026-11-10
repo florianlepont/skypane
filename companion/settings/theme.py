@@ -150,7 +150,7 @@ def _value_and_picture(effective_value, departures_id, allow_same):
     return False, departures_id if allow_same else device_config.DEFAULT_THEME_ID
 
 
-_LAZY_ATTRS = ' loading="lazy" decoding="async"'
+_LAZY_ATTRS = ' loading="lazy" decoding="async" fetchpriority="low"'
 
 
 def look_frame_html(usage, effective_value, departures_id, errors, state, carries_departures=False,
@@ -309,7 +309,7 @@ def look_radio_card_html(theme_id, checked, saved, usage_label):
         '<label class="runway-card look-pick__card%s"%s data-preview-src="%s">'
         '<input type="radio" name="%s" value="%s" class="visually-hidden" form="%s"%s>'
         '<noscript><img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
-        'loading="lazy" decoding="async"></noscript>'
+        'loading="lazy" decoding="async" fetchpriority="low"></noscript>'
         '<span class="runway-card__number look-pick__name">%s</span>'
         '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
