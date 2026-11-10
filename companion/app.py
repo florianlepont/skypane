@@ -47,7 +47,8 @@ from companion.pages import (  # noqa: E402
     update_page,
 )
 from server import (  # noqa: E402
-    device_config, firmware_registry, fleet_db, fleet_sessions, hardware, history_db)
+    device_config, firmware_registry, fleet_db, fleet_sessions, hardware, history_db,
+    photo_purge)
 from server.plane import calendar_rules, illustrations  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
@@ -1456,6 +1457,19 @@ def build_parser():
     return parser
 
 
+def _sweep_photos_at_start(state_dir):
+    """Reconcile photo files and rows once before serving. A failure only
+    prints one fixed line: the companion must still start."""
+    try:
+        conn = fleet_db.connect(state_dir)
+        try:
+            photo_purge.sweep(conn, state_dir)
+        finally:
+            conn.close()
+    except _STORE_ERRORS:
+        print("companion: photo sweep at start did not finish")
+
+
 def main():
     args = build_parser().parse_args()
     try:
@@ -1468,6 +1482,7 @@ def main():
     except _STORE_ERRORS as exc:
         print("companion: cannot open fleet.db (%s)" % type(exc).__name__, file=sys.stderr)
         sys.exit(1)
+    _sweep_photos_at_start(args.state_dir)
 
     # Matches stub-server/byos_server.py's own main(): stdout is fully
     # buffered (not line-buffered) once journald redirects it away from a
