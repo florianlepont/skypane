@@ -224,6 +224,7 @@
   --glass-highlight: rgba(255, 255, 255, 0.9);
   --glass-solid: #FFFFFF;
   --glass-hairline: rgba(23, 25, 31, 0.1);
+  --picture-placeholder: rgba(23, 25, 31, 0.07);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
@@ -297,6 +298,7 @@
     --glass-highlight: rgba(255, 255, 255, 0.18);
     --glass-solid: #1C222D;
     --glass-hairline: rgba(255, 255, 255, 0.1);
+    --picture-placeholder: rgba(255, 255, 255, 0.08);
     --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
     --bar-bg: rgba(20, 24, 34, 0.86);
     --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
@@ -348,6 +350,7 @@ html[data-ui-theme="light"] {
   --glass-highlight: rgba(255, 255, 255, 0.9);
   --glass-solid: #FFFFFF;
   --glass-hairline: rgba(23, 25, 31, 0.1);
+  --picture-placeholder: rgba(23, 25, 31, 0.07);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
   --bar-bg: rgba(255, 255, 255, 0.66);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.12));
@@ -395,6 +398,7 @@ html[data-ui-theme="dark"] {
   --glass-highlight: rgba(255, 255, 255, 0.18);
   --glass-solid: #1C222D;
   --glass-hairline: rgba(255, 255, 255, 0.1);
+  --picture-placeholder: rgba(255, 255, 255, 0.08);
   --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
   --bar-bg: rgba(20, 24, 34, 0.86);
   --bar-sheen: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.01));
@@ -1435,6 +1439,17 @@ select.visually-hidden {
 
 .sidebar-link--active:hover {
   color: var(--color-on-accent);
+}
+
+/* The keyboard ring hugs the item inside its own edge, never larger than the
+ * active pill beside it; on the active pill it takes the ink colour so it
+ * stays visible against the accent. */
+.sidebar-link:focus-visible {
+  outline-offset: -2px;
+}
+
+.sidebar-link--active:focus-visible {
+  outline-color: var(--color-on-accent);
 }
 
 .mobile-nav__link--active:hover {
@@ -2865,10 +2880,11 @@ button:disabled {
     cursor: not-allowed;
   }
 
+  /* The real colours stay visible, dimmed: they are paused, not gone, and the
+   * reason is written under them and tied to the group. */
   .look-dot:has(input:disabled) {
-    opacity: 0.45;
+    opacity: 0.55;
     cursor: not-allowed;
-    filter: grayscale(1);
   }
 }
 
@@ -4541,7 +4557,7 @@ a.airline-card {
   aspect-ratio: 450 / 132;
   border: 1px dashed var(--color-border);
   border-radius: var(--radius-control);
-  background: var(--color-canvas);
+  background: var(--picture-placeholder);
   margin-bottom: var(--space-sm);
   display: block;
 }
@@ -5059,12 +5075,6 @@ a.airline-card {
   font-size: var(--font-label-size);
   font-variant-numeric: tabular-nums;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.health-row__ring {
-  display: inline-grid;
-  flex: none;
-  color: var(--color-text);
 }
 
 .health-row__body {
@@ -6042,6 +6052,21 @@ html.js-early:has(.place-stage) {
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+/* One ring, on the pill that holds the field and its button, not a second one
+ * inside it; the clear glyph takes the same ink as the search button. */
+.map-ready .place-search__row:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.map-ready .place-search__row input[type="search"]:focus-visible {
+  outline: none;
+}
+
+.map-ready .place-search__row input[type="search"]::-webkit-search-cancel-button {
+  filter: grayscale(1);
 }
 
 .map-ready .place-search__go {
@@ -9115,7 +9140,7 @@ a.calendar-manage--primary:hover {
    * glyph (never in a corner, where it met the active pill's edge). */
   .tab-bar__more > .tab-bar__link::before {
     position: absolute;
-    top: 5px;
+    top: 7px;
     right: 50%;
     margin-right: -3px;
     transform: rotate(-135deg);
@@ -9375,7 +9400,7 @@ a.calendar-manage--primary:hover {
   height: auto;
   aspect-ratio: 3 / 4;
   object-fit: contain;
-  background: var(--color-image-backdrop);
+  background: var(--picture-placeholder);
   background-image: linear-gradient(
     110deg,
     color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
@@ -9769,7 +9794,10 @@ button.look-sheet__close[hidden] {
   padding: 0 3px;
   border: 1px solid var(--seg-edge);
   border-radius: var(--radius-control);
-  background: var(--color-secondary);
+  background-color: var(--color-secondary);
+  background-image: linear-gradient(
+    color-mix(in srgb, var(--color-text) 5%, transparent),
+    color-mix(in srgb, var(--color-text) 5%, transparent));
 }
 
 .look-seg__option {
@@ -9914,7 +9942,7 @@ button.look-sheet__done:hover {
   display: block;
   width: 48px;
   height: 64px;
-  background: var(--color-image-backdrop);
+  background: var(--picture-placeholder);
   background-image: linear-gradient(
     110deg,
     color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
@@ -11332,10 +11360,11 @@ a.entity-row__button:hover {
 }
 
 /* On a phone five section labels share one track: a slightly smaller label
- * that may break onto a second line, centred, so none is clipped. */
+ * that may break onto a second line, centred, so none is clipped; the 3px
+ * inset matches the track's other end. */
 @media (max-width: 699px) {
   .personalisation-nav__link {
-    padding-inline: 1px;
+    padding-inline: 3px;
     font-size: 11px;
   }
 
@@ -11531,7 +11560,7 @@ a.entity-row__button:hover {
   aspect-ratio: 3 / 4;
   object-fit: contain;
   border-radius: var(--radius-control);
-  background: var(--color-image-backdrop);
+  background: var(--picture-placeholder);
 }
 
 .look-pick__name {
@@ -11637,7 +11666,7 @@ a.entity-row__button:hover {
     height: 58px;
     object-fit: contain;
     border-radius: var(--radius-control);
-    background: var(--color-image-backdrop);
+    background: var(--picture-placeholder);
   }
 
   .layout-card__meta {
@@ -12136,6 +12165,7 @@ button.look-sheet__done[hidden] {
   display: block;
   width: 100%;
   height: auto;
+  background: var(--picture-placeholder);
 }
 
 .collection-card__blank {
@@ -12556,14 +12586,39 @@ dialog.access-sheet[open],
 }
 
 .users-role-form select {
+  flex: 1 1 auto;
   min-width: 0;
+  width: 100%;
   max-width: 100%;
   padding-inline: var(--space-sm) 28px;
 }
 
+.users-cell--role .users-role-form {
+  width: 100%;
+  max-width: 14rem;
+}
+
 .users-role-fixed {
-  display: block;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   font-weight: var(--weight-semibold);
+}
+
+/* On the narrowest cards the role select needs the room of the switch's text:
+ * the status mark above already says Active, Invited or Disabled. */
+@media (max-width: 26rem) {
+  .users-cell--active .users-active-label {
+    display: none;
+  }
+
+  .users-table .users-row {
+    grid-template-columns: minmax(0, 9fr) minmax(0, 4fr);
+  }
+
+  .users-cell--seen {
+    text-align: right;
+  }
 }
 
 .users-table button.users-role-save {
@@ -12866,7 +12921,6 @@ button.row-menu__item--destructive:hover {
 
 .airlines-namebox {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 0 var(--space-xs);
   min-width: 0;
@@ -12986,9 +13040,13 @@ button.row-menu__item--destructive:hover {
   margin: 0;
 }
 
+/* A name that is not editable in place sits where the editable ones put their
+ * text (their border and padding), beside the badge on one line. */
 .airlines-name--fixed {
   display: block;
-  flex: 1 1 8rem;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: calc(var(--space-sm) + 1px);
   font-weight: var(--weight-semibold);
   overflow-wrap: anywhere;
 }
@@ -13784,13 +13842,16 @@ button.row-menu__item--destructive:hover {
 
 @media (min-width: 700px) {
   .hero:has(.hero__picture) {
-    grid-template-columns: 200px minmax(0, 1fr);
+    grid-template-columns: 212px minmax(0, 1fr);
   }
 }
 
+/* The cycle ring sits 5px outside the picture; the margin keeps it, and its
+ * stroke, inside the page column instead of hanging out beside the cards. */
 .hero__picture {
   position: relative;
   min-width: 0;
+  margin: 6px;
 }
 
 /* The picture sits above the glow behind it. */
@@ -14582,8 +14643,8 @@ dialog.access-sheet .modal__actions {
   }
 }
 
-/* The System view: one glass group per topic in one centred column, like the
- * frame's sections, so an opened card never leaves a gap beside it. */
+/* The System view: one glass group per topic in one column that starts at the
+ * page column, so an opened card never leaves a gap beside it. */
 .system-topics {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -14596,7 +14657,7 @@ dialog.access-sheet .modal__actions {
   box-sizing: border-box;
   width: 100%;
   max-width: 800px;
-  margin-inline: auto;
+  margin-inline: 0;
 }
 
 /* Cards that hold free content (forms, notes, versions) sit on the same
@@ -15197,6 +15258,11 @@ html.is-picture-transition .preview-frame__image {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   text-decoration: none;
+}
+
+/* Each family ends with a link back to the index: the page is long. */
+.components-family__top {
+  margin: var(--space-md) 0 0;
 }
 
 .components-family {

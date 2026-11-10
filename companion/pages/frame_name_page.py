@@ -73,13 +73,14 @@ def render(name, form_action, back_href, error="", return_to=None):
         '<input type="hidden" name="%s" value="%s">' % (RETURN_FIELD, escape_html(return_to))
         if return_to else "")
     form = (
-        '<form id="%s" method="post" action="%s" data-dirty-form novalidate>%s%s%s</form>' % (
+        '<form id="%s" method="post" action="%s" novalidate>%s%s%s</form>' % (
             FORM_ID, escape_html(form_action), layout.csrf_field() + carried, field, ""))
     return (
         layout.page_header(i18n.t(TITLE), purpose=i18n.t(PURPOSE))
-        + '<a class="form-back" href="%s">%s<span>%s</span></a>' % (
+        + '<div class="form-view"><a class="form-back" href="%s">%s<span>%s</span></a>' % (
             escape_html(back_href), layout.icon_html("icon-chevron-right", 18),
             escape_html(i18n.t(_BACK)))
-        + '<section class="page-section">%s</section>' % form
+        + '<section class="page-section">%s</section></div>' % form
         + ui_save_bar.save_bar_html(
-            FORM_ID, cancel_href=back_href, title=i18n.t(TITLE)))
+            FORM_ID, cancel_href=back_href, title=i18n.t(TITLE), reveal_on_change=True,
+            shown=bool(error)))

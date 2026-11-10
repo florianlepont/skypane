@@ -10,6 +10,7 @@ MESSAGES = {
         "Plus pour voir les autres.",
     "components.link": "Composants d’interface",
     "components.index_label": "Familles de composants",
+    "components.to_index": "Retour à l’index",
     "components.helpers_label": "Fonctions",
     "components.close": "Fermer",
     "components.open_dialog": "Ouvrir la boîte de dialogue",
@@ -61,6 +62,7 @@ MESSAGES = {
     "components.state_empty_search": "Recherche sans résultat",
     "components.state_dialogs": "Boîtes de dialogue (à ouvrir)",
     "components.state_save_bar": "Barre d’enregistrement",
+    "components.state_save_bar_revealed": "Barre d’une page de formulaire : masquée tant qu’un champ ne change pas (saisir dans le champ)",
     "components.state_save_bar_inline": "Barre d’enregistrement intégrée à une carte (téléphones)",
     "components.state_header_full": "Avec objectif et action",
 

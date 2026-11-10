@@ -302,14 +302,16 @@ def test_the_calendar_row_links_to_a_look_page_with_its_own_save_bar(
         assert page.locator("[data-look-sheet]").count() == 0
         page.locator("a.special-row__edit").click()
         page.wait_for_url("**" + CALENDAR_LOOK)
-        page.locator(".dirty-bar").wait_for(state="visible")
-        assert page.locator(".dirty-bar__message").inner_text() == title
+        # The Save bar is in the page but waits for an edit.
+        page.wait_for_function("() => document.querySelector('.dirty-bar').hidden")
+        assert page.locator(".dirty-bar__message").text_content() == title
         assert page.locator("a.form-back").inner_text().strip() == back
         assert page.locator(".personalisation-nav__link[aria-current=page]").get_attribute(
             "data-pers-view") == "calendar"
         page.locator("[data-look-same]").click()
         page.locator(
             '.look-seg__option:has(input[data-look-axis="background"][value="full"])').click()
+        page.locator(".dirty-bar").wait_for(state="visible")
         page.locator(".dirty-bar__save").click()
         page.wait_for_url("**/display/calendar")
         saved = device_config.load_device_config(server.state_dir)["calendar_theme_id"]
@@ -317,6 +319,9 @@ def test_the_calendar_row_links_to_a_look_page_with_its_own_save_bar(
         assert saved != device_config.load_device_config(server.state_dir)["theme"], saved
         page.locator("a.special-row__edit").click()
         page.wait_for_url("**" + CALENDAR_LOOK)
+        page.locator("[data-look-same]").click()
+        page.locator("a.dirty-bar__cancel").wait_for(state="visible")
+        page.once("dialog", lambda dialog: dialog.accept())
         page.locator("a.dirty-bar__cancel").click()
         page.wait_for_url("**/display/calendar")
     finally:

@@ -141,7 +141,9 @@ def role_name(role):
 def status_of(row):
     if row.disabled:
         return STATUS_DISABLED
-    return STATUS_ACTIVE if row.has_identity else STATUS_INVITED
+    # A recorded sign-in means the person has signed in, whatever the identity
+    # link says: the invited mark never sits beside a last sign-in time.
+    return STATUS_ACTIVE if row.has_identity or row.last_seen is not None else STATUS_INVITED
 
 
 def _routes():
@@ -356,6 +358,12 @@ def _invite_cell(row, app_url):
             icon_html("icon-copy"), _t(_COPY_INVITE)))
 
 
+def _breakable(email):
+    """The address escaped, with a break opportunity after each "@" and ".":
+    a narrow card wraps it there and never inside a word."""
+    return _esc(email).replace("@", "@<wbr>").replace(".", ".<wbr>")
+
+
 def _row_html(row, view):
     you = _pill(_t(_YOU), "you") if row.is_self else ""
     return (
@@ -372,7 +380,7 @@ def _row_html(row, view):
         '<td class="users-cell users-cell--invite">%s</td>'
         '<td class="users-cell users-cell--menu">%s</td></tr>' % (
             " users-row--menu", row.user_id,
-            _initial(row.email), _esc(row.email), _esc(row.email), _status_pill(row), you,
+            _initial(row.email), _esc(row.email), _breakable(row.email), _status_pill(row), you,
             _role_cell(row), _esc(_frames_cell_text(row)),
             _last_sign_in_html(row, view.now), _active_cell(row),
             _invite_cell(row, view.app_url), _menu_cell(row)))

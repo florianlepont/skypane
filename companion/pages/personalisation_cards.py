@@ -171,14 +171,16 @@ def _nav_html(view):
         links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"')
 
 
-def _bar_html(title, cancel_href, form_id, pending_label=None):
+def _bar_html(title, cancel_href, form_id, pending_label=None, shown=False):
     """The floating Cancel and Save bar of a form page. Cancel is a link back
-    to the list; Save submits the page's form (`form=`). It is always shown:
-    the page is the edit."""
+    to the list; Save submits the page's form (`form=`). It appears once a
+    field differs from the loaded value (always, without script), and from the
+    start on a page redrawn with a refused value (`shown`)."""
     pending = (
         'data-pending-label="%s"' % escape_html(pending_label) if pending_label else "")
     return ui_save_bar.save_bar_html(
-        form_id, cancel_href=cancel_href, title=title, save_attrs=pending)
+        form_id, cancel_href=cancel_href, title=title, save_attrs=pending,
+        reveal_on_change=True, shown=shown)
 
 
 def _back_html(parent_view):
@@ -188,6 +190,11 @@ def _back_html(parent_view):
         '<a class="form-back" href="%s">%s<span>%s</span></a>'
     ) % (escape_html(device_scope.scoped(VIEW_ROUTES[parent_view])),
          layout.icon_html("icon-chevron-right", 18), escape_html(title))
+
+
+def _redrawn_with_error(ctx, errors):
+    """True when the form page shows a refused value the person has to fix."""
+    return bool(errors) or ctx.rule_draft is not None or ctx.calendar_sheet_error is not None
 
 
 def _form_view(ctx, values, view, errors, scope_fields_html, submitted=None):
@@ -213,13 +220,17 @@ def _form_view(ctx, values, view, errors, scope_fields_html, submitted=None):
         extra = ""
     else:
         edit = rules.edit_target(ctx) if view == VIEW_LOOK_EDIT else None
+        if view == VIEW_LOOK_NEW and ctx.rule_draft is not None:
+            from companion import flash  # late: flash imports the page modules
+            errors = {"rule_key": flash.FLASH_MESSAGES[flash.FLASH_KEY_RULE_KEY_INVALID]}
+            submitted = ctx.rule_draft
         markup, title, _submit = rules.rule_form_html(ctx, edit, errors, submitted)
         form_id, pending = rules.RULE_FORM_ID, None
         extra = look_sheet_html()
     return (
         '<div class="form-view">%s%s%s%s</div>'
     ) % (_back_html(parent), markup, extra,
-         _bar_html(title, cancel_href, form_id, pending))
+         _bar_html(title, cancel_href, form_id, pending, shown=_redrawn_with_error(ctx, errors)))
 
 
 def page_html(

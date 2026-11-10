@@ -173,6 +173,17 @@ def toast_post_action_html(action, fields, label, glyph="icon-undo"):
          icon_html(glyph, 16, extra_class="toast__action-glyph"))
 
 
+def csrf_query(url):
+    """`url` with the session's anti-forgery token appended to its query, for a
+    multipart upload whose body the server must not read before the handler
+    does. Unchanged when no session is in scope. Query strings are never
+    logged by the server."""
+    token = prefs.current_csrf()
+    if not token:
+        return url
+    return "%s%scsrf_token=%s" % (url, "&" if "?" in url else "?", escape_html(token))
+
+
 def csrf_field():
     """The hidden anti-forgery input for a protected POST form, carrying the
     current session's token; an empty string when no session is in scope.

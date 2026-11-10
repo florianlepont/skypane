@@ -82,7 +82,7 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_
         '<label class="runway-card look-pick__card%s"%s>'
         '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
         '<img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
-        'loading="lazy" decoding="async">'
+        'loading="lazy" decoding="async" fetchpriority="low">'
         '<span class="runway-card__number look-pick__name">%s</span>'
         '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"

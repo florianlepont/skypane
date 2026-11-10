@@ -533,7 +533,7 @@ def test_identification_row_renders_percentage_and_window(tmp_path):
         "expected the identified percentage in the row's verdict")
     assert ("over the last %d days, 4 events" % health_page.RESOLUTION_WINDOW_DAYS) in row.text(), (
         "expected the window/event-count line")
-    assert row.select(".health-row__ring"), "expected the small ring beside the figure"
+    assert not row.select(".health-row__ring"), "the rate is a figure in text, not a ring"
 
     state_dir_empty = str(tmp_path / "empty")
     rendered_empty = health_page_composition.render(shp.ctx(state_dir_empty))
