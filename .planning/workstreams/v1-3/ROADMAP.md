@@ -66,7 +66,17 @@ Plans:
   3. Uploading past the per-frame quota (starting point: 20 photos, about 1 MB each) or past the server-wide ceiling is refused with a clear reason and stores nothing.
   4. The decision on whether photos are in the backup is recorded in the repository docs, and the backup and restore behave as decided.
 
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+- [ ] 65-01-PLAN.md - photo table (expand-only migration) and row helpers, purge hooks (PRIV-02, PRIV-03)
+- [ ] 65-02-PLAN.md - private per-frame photo store with quota checks, owner and co-manager gate (PRIV-01, PRIV-03)
+- [ ] 65-03-PLAN.md - file purge and orphan sweep (PRIV-02)
+- [ ] 65-04-PLAN.md - purge on retire, reassign and account deletion (PRIV-02)
+- [ ] 65-05-PLAN.md - sweep command and start-up sweep (PRIV-02)
+- [ ] 65-06-PLAN.md - owner-or-co-manager route access kind and the guard (PRIV-01)
+- [ ] 65-07-PLAN.md - photos excluded from the backup, documented and tested (PRIV-04, PRIV-01, PRIV-03)
+- [ ] 65-08-PLAN.md - admin-leak test and phase gate (PRIV-01)
 
 ### Phase 66: Frame Mode, Rotation and Waiting Screen
 

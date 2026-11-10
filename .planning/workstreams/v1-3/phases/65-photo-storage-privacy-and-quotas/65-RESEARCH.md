@@ -42,7 +42,7 @@ The fleet model already gives everything needed except two things. (1) Every exi
 
 Recommended shape: a new leaf module `server/photo_store.py` (stdlib + Pillow-free; uses `fleet_db`, `device_dirs`, `atomic_io`, `server.photo.normalize`) owning a new table `device_photos` (migration v5, expand-only) and files at `<state>/photos/<device_id>/<photo_id>.jpg` with server-generated random ids. Every public operation takes a `FrameManager` capability obtained only from `authorize_manager(conn, device_id, user_id)`; there is no role parameter and no admin path. Quota is checked and the row inserted in one `fleet_db.transaction` (`BEGIN IMMEDIATE`), after normalisation and a same-directory temp write, so concurrent uploads cannot overshoot and a refusal stores nothing.
 
-For backup the recommendation is **exclude photos** (OWNER DECISION, see Open Questions). The backup archives are pulled to the admin's Mac and kept 30 + 12 monthly, so including photos would hand the admin every user photo (violating PRIV-01 in spirit) and would keep "deleted" photos for up to a year (violating PRIV-02 in spirit). The allow-list backup already leaves `photos/` out by default but prints a drift line each night; the change is a `KNOWN_EXCLUDED` entry, a docs paragraph and a test.
+For backup the recommendation is **exclude photos** (OWNER DECISION, see Open Questions (RESOLVED)). The backup archives are pulled to the admin's Mac and kept 30 + 12 monthly, so including photos would hand the admin every user photo (violating PRIV-01 in spirit) and would keep "deleted" photos for up to a year (violating PRIV-02 in spirit). The allow-list backup already leaves `photos/` out by default but prints a drift line each night; the change is a `KNOWN_EXCLUDED` entry, a docs paragraph and a test.
 
 **Primary recommendation:** build `server/photo_store.py` with capability-gated, manager-only operations, a `device_photos` table (v5), `<state>/photos/<device_id>/` storage, transactional quota, explicit purge hooks in `remove_device`, `park_retired`/`retire_frame`, reassign and user deletion, plus a two-way sweep; exclude `photos/` from the backup and record that in `deploy/README.md` and `docs/`.
 
@@ -352,14 +352,20 @@ Nothing version-sensitive here; the work is project-internal. One relevant fact:
 | A5 | Sweep trigger (companion start + CLI) is enough without a timer | Real deletion | Orphans persist until restart after a crash. Low impact. |
 | A6 | Row counts and timestamps in `fleet.db` are acceptable non-content metadata | Storage design | If counts must also be hidden from admin, a different store would be needed. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Quota numbers.** Proposed: 20 photos and 20 MB per frame, 500 MB server-wide, refuse below 2 GB free disk. Confirm or change.
-2. **Backup (OWNER DECISION).** Recommended A (exclude), recorded in `deploy/README.md` and `docs/PHOTO-STORAGE.md`. Needs an explicit owner answer before the doc is written.
-3. **Co-manager uploads on account deletion.** Recommended: delete photos uploaded by the deleted account on frames they co-managed; keep them when the co-manager is only removed.
-4. **Audit and health visibility.** Recommended: no per-photo audit rows; one purge row with a count; no photo numbers on the health page in v1.3.
-5. **Phase 66 hand-off.** Any serving cache derived from a photo (content-addressed `img/` files) must be deleted or ignored when the photo is deleted; the render-for-device reader must return rendered bytes only and be system-only (no user principal).
-6. **Phase 67 hand-off.** All photo routes use `MANAGER_DEVICE`; the matrix policy rows are added with the routes; file input accepts JPEG/PNG/WebP and the body cap is applied while reading (Phase 64 follow-ups).
+1. **Quota numbers.** Proposed: 20 photos and 20 MB per frame, 500 MB server-wide, refuse below 2 GB free disk.
+   RESOLVED: adopted as proposed; encoded in the plans as refusal codes frame_count (20 photos), frame_bytes (20 MB), server_bytes (500 MB) and disk_low (below 2 GB free).
+2. **Backup (OWNER DECISION).** Recommended A (exclude).
+   RESOLVED: the owner chose to EXCLUDE photos from backups; encoded as a KNOWN_EXCLUDED entry, a test, and paragraphs in `deploy/README.md` and `docs/PHOTO-STORAGE.md`.
+3. **Co-manager uploads on account deletion.**
+   RESOLVED: deleting an account removes every photo whose uploaded_by is that user, on any frame; removing a co-manager or a co-manager leaving deletes nothing.
+4. **Audit and health visibility.**
+   RESOLVED: count-only `device.photo_purge` audit row, no per-photo rows, no photo numbers on the health page.
+5. **Sweep trigger.**
+   RESOLVED: three triggers: companion start, a CLI subcommand (`fleet_cli photos sweep`), and after a purge failure; no timer.
+6. **Serving hand-off (later work).** Note only: any serving cache derived from a photo (content-addressed `img/` files) must be deleted or ignored when the photo is deleted; the render-for-device reader must return rendered bytes only and be system-only (no user principal).
+7. **Companion photo UI hand-off (later work).** Note only: all photo routes use `MANAGER_DEVICE`; the matrix policy rows are added with the routes; file input accepts JPEG/PNG/WebP and the body cap is applied while reading.
 
 ## Environment Availability
 
@@ -470,3 +476,7 @@ All tests assert behaviour (filesystem state, HTTP bodies, archive members) per 
 
 **Research date:** 2026-11-10
 **Valid until:** 30 days (internal code; invalidated if `fleet_db` schema moves past v4 before planning)
+
+## Validation waiver
+
+The Validation Architecture section in this file is the validation contract for this phase. Every task in the plans carries an automated pytest command. A separate 65-VALIDATION.md is not produced: the orchestrator waived it (the owner was not asked), as Phase 64 shipped the same way.
