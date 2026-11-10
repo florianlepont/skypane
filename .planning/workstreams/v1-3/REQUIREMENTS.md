@@ -56,4 +56,21 @@ Runs in parallel with v1.1 (Phases 47 and 47.1, untouched) and v1.2. Phase numbe
 
 | Requirement | Phase | Status |
 |---|---|---|
-| (filled by the roadmap) | | |
+| PHOTO-01 | Phase 64 | Pending |
+| PHOTO-02 | Phase 64 | Pending |
+| PHOTO-03 | Phase 64 | Pending |
+| PHOTO-04 | Phase 64 | Pending |
+| PRIV-01 | Phase 65 | Pending |
+| PRIV-02 | Phase 65 | Pending |
+| PRIV-03 | Phase 65 | Pending |
+| PRIV-04 | Phase 65 | Pending |
+| MODE-01 | Phase 66 | Pending |
+| MODE-02 | Phase 66 | Pending |
+| MODE-03 | Phase 66 | Pending |
+| MODE-05 | Phase 66 | Pending |
+| UI-01 | Phase 67 | Pending |
+| UI-02 | Phase 67 | Pending |
+| UI-03 | Phase 67 | Pending |
+| MODE-04 | Phase 68 | Pending |
+
+**Coverage:** 16/16 v1.3 requirements mapped (PHOTO 4, PRIV 4, MODE 5, UI 3), each to exactly one phase.
