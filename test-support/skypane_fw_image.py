@@ -72,8 +72,10 @@ def _body(
     raw = bytes(header) + segment
     checksum_pos = ((len(raw) + 1 + 15) & ~15) - 1
     raw += bytes(checksum_pos - len(raw))
+    # The segment data is the descriptor followed by zero bytes, and XOR with
+    # zero changes nothing, so only the descriptor contributes to the checksum.
     check = 0xEF
-    for byte in data:
+    for byte in descriptor:
         check ^= byte
     raw += bytes([check])
     digest = hashlib.sha256(raw).digest()
@@ -94,6 +96,15 @@ def _signature_sector(prefix: bytes, modulus: bytes, corrupt: str | None) -> byt
     crc = zlib.crc32(bytes(sector[:1196])) & 0xFFFFFFFF
     struct.pack_into("<I", sector, 1196, crc)
     return bytes(sector)
+
+
+def _assembled_length(seg_len: int, signed: bool) -> int:
+    """Length of the image `_assemble` builds for a segment of `seg_len` bytes."""
+    raw_len = 24 + 8 + seg_len
+    body_len = ((raw_len + 1 + 15) & ~15) + 32
+    if not signed:
+        return body_len
+    return ((body_len + SECTOR - 1) & ~(SECTOR - 1)) + SECTOR
 
 
 def _assemble(
@@ -134,10 +145,14 @@ def build_image(
     if len(mod) != MODULUS_BYTES:
         raise ValueError("modulus: must be %d bytes" % MODULUS_BYTES)
     seg_len = 256
+    # The segment grows until the image reaches `size`; the length depends only
+    # on the segment length, so find the final one arithmetically and build
+    # the image once instead of rebuilding it on every step.
+    length = _assembled_length(seg_len, signed)
+    while size is not None and length < size:
+        seg_len += ((size - length) + 3) & ~3
+        length = _assembled_length(seg_len, signed)
     data = _assemble(version, project_name, chip_id, seg_len, signed, mod, corrupt)
-    while size is not None and len(data) < size:
-        seg_len += ((size - len(data)) + 3) & ~3
-        data = _assemble(version, project_name, chip_id, seg_len, signed, mod, corrupt)
     if corrupt == "truncate":
         data = data[:-100]
     return data

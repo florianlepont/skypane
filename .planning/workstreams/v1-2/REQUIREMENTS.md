@@ -162,8 +162,8 @@ Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 | PSR-07 | Phase 62 | Complete |
 | PSR-08 | Phase 62 | Complete |
 | PSR-09 | Phase 62 | Pending |
-| CIS-01 | Phase 63 | Pending |
-| CIS-02 | Phase 63 | Pending |
-| CIS-03 | Phase 63 | Pending |
-| CIS-04 | Phase 63 | Pending |
+| CIS-01 | Phase 63 | Met on the draft PR branch, not merged |
+| CIS-02 | Phase 63 | Met on the draft PR branch, not merged |
+| CIS-03 | Phase 63 | Met on the draft PR branch, not merged |
+| CIS-04 | Phase 63 | Met on the draft PR branch, not merged |
 | CIS-05 | Phase 63 | Pending |
