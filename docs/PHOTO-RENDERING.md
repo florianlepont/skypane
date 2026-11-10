@@ -187,3 +187,12 @@ refuse an output directory inside the repository.
   request, not after.
 - The file input should accept JPEG, PNG and WebP only, with a clear
   message for HEIC.
+
+## Follow-ups for the rendering
+
+- Try real portraits with `python -m server.photo --in <portrait> --out <dir>`
+  (outside the repository) and revisit the defaults from what is seen.
+- Investigate the hue drift of up to 8.8 degrees on tones II to IV in the
+  landscape crop-to-fill render (at most 2.8 degrees elsewhere). The cause
+  is not known; the small face region in the 800x480 render is one
+  suspect that was not tested.

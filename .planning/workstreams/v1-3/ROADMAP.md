@@ -25,7 +25,7 @@ V1.3 adds a second display mode, "photos", next to "plane". The frame stays dumb
 - Integer phases are planned milestone work, continuing from v1.2 (Phase 63).
 - Decimal phases are urgent insertions created only when needed.
 
-- [ ] **Phase 64: Photo Pipeline (Server Only)** - An uploaded photo is validated, reduced to one stored copy, and rendered for either panel profile with crop, boost and dithering, with skin-tone results recorded.
+- [x] **Phase 64: Photo Pipeline (Server Only)** - An uploaded photo is validated, reduced to one stored copy, and rendered for either panel profile with crop, boost and dithering, with skin-tone results recorded.
 - [ ] **Phase 65: Photo Storage, Privacy and Quotas** - Photos are stored per frame, visible only to the owner and co-managers, really deleted, and bounded by quotas.
 - [ ] **Phase 66: Frame Mode, Rotation and Waiting Screen** - Each frame has one display mode and a rotation, and the server serves the current photo or a waiting screen, with plane mode unchanged.
 - [ ] **Phase 67: Companion Photo Management and Settings** - Owners and co-managers upload, preview, list and delete photos and set mode and rotation, in English and French.
@@ -51,7 +51,7 @@ Plans:
 - [x] 64-01-PLAN.md - strict upload validation and one reduced stored copy (PHOTO-01)
 - [x] 64-02-PLAN.md - crop or bands, pre-processing and render for both panel profiles (PHOTO-02, PHOTO-03)
 - [x] 64-03-PLAN.md - skin-tone trial tooling and the rendering document skeleton (PHOTO-04)
-- [ ] 64-04-PLAN.md - owner review of the skin-tone contact sheets, blocking checkpoint (PHOTO-04)
+- [x] 64-04-PLAN.md - owner review of the skin-tone contact sheets, blocking checkpoint (PHOTO-04); the owner could not judge them, defaults kept
 - [x] 64-05-PLAN.md - freeze the rendering parameters, complete the document, phase gate (PHOTO-04)
 
 ### Phase 65: Photo Storage, Privacy and Quotas
@@ -114,7 +114,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 64. Photo Pipeline (Server Only) | 4/5 | In Progress|  |
+| 64. Photo Pipeline (Server Only) | 5/5 | Complete (closed 2026-11-10 with one open point: how real skin looks was never judged) | 2026-11-10 |
 | 65. Photo Storage, Privacy and Quotas | 0/0 | Not started | - |
 | 66. Frame Mode, Rotation and Waiting Screen | 0/0 | Not started | - |
 | 67. Companion Photo Management and Settings | 0/0 | Not started | - |
