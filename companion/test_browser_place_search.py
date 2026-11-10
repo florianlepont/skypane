@@ -60,6 +60,36 @@ def _results_text(page):
     return page.inner_text("#place-results")
 
 
+def _advance_clock_until_search_enabled(page, step_ms=500, attempts=20):
+    """Moves the paused page clock forward until the search button is enabled.
+
+    The lock starts when the search answer arrives, which is real network
+    time. A single large clock jump made before the answer is in would run
+    ahead of a lock timer that is only set afterwards, so the clock moves in
+    steps with a short real wait between them.
+    """
+    for _ in range(attempts):
+        page.clock.run_for(step_ms)
+        if page.evaluate("() => !document.querySelector('form.place-search button').disabled"):
+            return
+        page.wait_for_timeout(50)
+    raise AssertionError("the search button was not enabled after %d ms of page time"
+                         % (step_ms * attempts))
+
+
+def _wait_for_search_requests(page, hosts, count, timeout_ms=5000):
+    """Waits until the route handler has recorded `count` search requests.
+
+    The handler runs when Playwright dispatches the request event, which can
+    be after the page has already disabled its button, so a count read right
+    after a page-side wait may still be behind.
+    """
+    waited = 0
+    while len(hosts.search_requests) < count and waited < timeout_ms:
+        page.wait_for_timeout(25)
+        waited += 25
+
+
 def test_nothing_is_requested_on_load_or_before_typing_pauses_and_a_submit_sends_one(
         new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
@@ -186,10 +216,10 @@ def test_the_lock_holds_for_a_second_and_a_half_and_repeats_come_from_memory(
         page.evaluate(SUBMIT)
         page.wait_for_function(
             "() => document.querySelector('form.place-search button').disabled", timeout=5000)
+        _wait_for_search_requests(page, hosts, 2)
         if len(hosts.search_requests) != 2:
             raise AssertionError("the unlocked search did not run once: %r" % hosts.search_requests)
-        page.clock.run_for(1600)
-        page.wait_for_function(BUTTON_ENABLED, timeout=5000)
+        _advance_clock_until_search_enabled(page)
         page.fill("#place-search", "  lyon ")
         page.evaluate(SUBMIT)
         page.wait_for_function(
