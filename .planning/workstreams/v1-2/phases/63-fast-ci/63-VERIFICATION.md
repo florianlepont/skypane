@@ -22,8 +22,15 @@ Proofs of the failure paths: a failing job fails the aggregate check; a matrix w
 - Merge of #322: tests green, critical path 8.9 min.
 - Across all eight runs measured (the five, the PR run of #322 at 11.3 min, and these two) the median is 9.05 min.
 
-## Open item
+## Follow-up on the open item
 
-Two of the later runs (11.3 and 12.4 min) were above 10 minutes. In both, the cause is the step `playwright install --with-deps` (operating-system packages through apt), which takes between 7 s and 331 s depending on the runner, while the tests themselves take 260 to 330 s per shard. The criterion (median of five runs) is met; the margin is thin until that step is dealt with. Not changed in this phase.
+The slow `playwright install --with-deps` step was addressed after the phase closed (PR 328): the font packages it downloads are cached and put back in apt's archive before the install (details in `63-TIMINGS.md`). Checked on `main` after the merge:
 
-Also left as they were, by decision or by scope: the two large browser files (owner's decision), and two other timing-sensitive tests of `companion/test_browser_place_search.py` that fail only under an extreme local load.
+- First run on `main` (run 42826596562, cache empty): tests green; the step took 8 to 19 s on four browser shards and 226 s on the fifth, where the package mirror was slow; the cache was saved.
+- Run of the branch afterwards (run 42828296713, manual dispatch, cache restored from the one saved on `main`): the step took 7 to 8 s on all five browser shards, no font package downloaded, tests green.
+
+Only two runs have been seen since the change, so the margin below 10 minutes is expected to hold but has not been measured over many runs. A cache miss (a new Playwright version or runner image version) still pays the download once.
+
+## Left as they were
+
+Two other timing-sensitive tests of `companion/test_browser_place_search.py` that fail only under an extreme local load; the two large browser files (owner's decision).
