@@ -21,8 +21,7 @@ from server import fleet_sessions
 
 from companion import oidc, sign_in
 from companion_app_server import (
-    begin_auth0, http_request, http_request_full, login_via_auth0, named_cookie, set_cookie_headers,
-    with_csrf)
+    begin_auth0, http_request, http_request_full, login_via_auth0, named_cookie, set_cookie_headers)
 
 REFRESH_RE = re.compile(r'http-equiv="refresh" content="0;url=([^"]*)"')
 GENERIC_FAILURE_STATUSES = (400, 503)
@@ -343,7 +342,7 @@ def test_user_logout_ends_the_session_then_hops_to_auth0(auth0_rig):
     cookie = _signed_in_user(rig)
     assert http_request(rig.server.url("/users"), cookie=cookie)[0] == 404
     status, headers, body = http_request_full(
-        rig.server.url("/logout"), method="POST", data=with_csrf(cookie), cookie=cookie)
+        rig.server.url("/logout"), method="POST", data=b"", cookie=cookie)
     assert status == 200
     assert any("sp_session=;" in c and "Max-Age=0" in c
                for c in set_cookie_headers(headers))
@@ -363,7 +362,7 @@ def test_a_refused_auth0_hop_does_not_resurrect_the_session(auth0_rig):
     rig = auth0_rig
     cookie = _signed_in_user(rig)
     _, _, body = http_request_full(
-        rig.server.url("/logout"), method="POST", data=with_csrf(cookie), cookie=cookie)
+        rig.server.url("/logout"), method="POST", data=b"", cookie=cookie)
     rig.fake.allowed_logout_urls = []
     assert http_request(_refresh_target(body))[0] == 400
     assert http_request(rig.server.url("/"), cookie=cookie)[0] == 303
@@ -376,7 +375,7 @@ def test_logout_without_auth0_redirects_to_login(auth0_rig):
         "SKYPANE_AUTH0_DOMAIN": None, "SKYPANE_AUTH0_CLIENT_ID": None,
         "SKYPANE_AUTH0_CLIENT_SECRET": None})
     status, headers, _ = http_request(
-        rig.server.url("/logout"), method="POST", data=with_csrf(cookie), cookie=cookie)
+        rig.server.url("/logout"), method="POST", data=b"", cookie=cookie)
     assert status == 303
     assert headers["Location"] == "/login"
     assert rig.session_count() == 0

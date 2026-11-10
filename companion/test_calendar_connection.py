@@ -6,6 +6,7 @@ page's structure, the "the full URL never reaches the browser" guard, and the ro
 replacement link is read BEFORE it is saved, so a refused or unreachable one leaves the working
 link and its flights untouched and returns to the connection page with the error.
 """
+import urllib.parse
 from datetime import datetime, timedelta
 
 import pytest
@@ -326,7 +327,7 @@ def _post_connect(server, session, url, transport):
     with cah.stubbed_calendar_transport(transport), cah.fake_public_hostname("new-calendar.example"):
         return http_request(
             server.base_url() + config_page.CALENDAR_CONNECT_ROUTE, method="POST",
-            data=with_csrf(session, {"calendar_url": url}), cookie=session)
+            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
 
 
 def test_replace_reads_the_new_link_before_anything_is_saved(app_server_in_process):

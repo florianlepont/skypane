@@ -24,7 +24,6 @@ import companion.i18n as i18n
 from companion.layout import csrf_field, escape_html
 import companion.layout as layout
 import companion.page_context as page_context
-import companion.ui_components as ui_components
 from companion import airline_collection
 from companion.pages import airline_sheet, airline_table
 from companion.ui_base import AIRLINE_EDITOR_LABEL
@@ -662,8 +661,8 @@ def _type_trigger_html(card, type_id, type_label, type_key, css_class, inner_htm
     sheet_values = airline_sheet.attr_values(
         sheet, type_key, airline_sheet.types_attr_value(card["types"], type_key))
     return _airline_card_zoom_html(
-        title, mode, inner_html, busted_image_url, _illustration_url(type_key, "POST"),
-        manual_value, resolve_prefix_value, heading_value, upload_action_value, delete_action_value,
+        title, mode, inner_html, busted_image_url, image_url, manual_value,
+        resolve_prefix_value, heading_value, upload_action_value, delete_action_value,
         manual_note_value, first_seen_value, last_seen_value, count_value,
         aria_label=aria_label, css_class=css_class, sheet_values=sheet_values,
         extra_attrs=extra_attrs)
@@ -989,7 +988,7 @@ def _resolve_name_form_html(prefix_value, id_suffix, include_submit=True, hidden
         LIGHTBOX_RESOLVE_NAME_CLASS, MANUAL_RESOLVE_FORM_ID + id_suffix,
         device_scope.scoped(RESOLVE_ROUTE, "POST"),
         escape_html(prefix_value),
-        csrf_field() + hidden_html,
+        hidden_html,
         name_field,
         submit_html,
     )
@@ -1148,9 +1147,8 @@ def _illustration_url(key, method="GET"):
     """The illustration route for `key` (an image source for GET, an upload
     action for POST), under the current device's prefix on a non-live
     device's page."""
-    url = device_scope.scoped(
+    return device_scope.scoped(
         "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key)), method)
-    return ui_components.csrf_query(url) if method == "POST" else url
 
 
 def _manual_resolution_rows(state_dir, registry):

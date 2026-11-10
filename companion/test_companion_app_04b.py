@@ -29,7 +29,7 @@ import companion.layout as layout
 import companion.test_companion_app_helpers as cah
 from companion import auth
 from companion import theme_preview
-from companion_app_server import csrf_url, http_request, login, with_csrf
+from companion_app_server import http_request, login, with_csrf
 from companion_markup import parse_html
 from server import device_config, history_db
 from server.plane import manual_resolutions
@@ -363,7 +363,7 @@ def test_logout_clears_cookie_and_a_replayed_or_absent_cookie_is_refused_afterwa
     status, _headers, _body = http_request(base + "/display", cookie=session_cookie)
     assert status == 200, "expected the fresh session to reach /display before logout, got %d" % status
 
-    status, headers, _ = http_request(base + "/logout", method="POST", data=with_csrf(session_cookie), cookie=session_cookie)
+    status, headers, _ = http_request(base + "/logout", method="POST", cookie=session_cookie)
     assert status == 200, "expected the sign-out interstitial on logout, got %d" % status
     set_cookie = headers.get("Set-Cookie", "")
     assert "Max-Age=0" in set_cookie, (
@@ -616,7 +616,7 @@ def test_illustration_manual_key_post_unregistered_then_registered(make_app_serv
     before_entries = sorted(os.listdir(override_dir)) if os.path.isdir(override_dir) else []
 
     status, _headers, _body = http_request(
-        csrf_url(session, base + "/illustration/%s.png" % manual_key), method="POST", data=body,
+        base + "/illustration/%s.png" % manual_key, method="POST", data=body,
         cookie=session, content_type=content_type)
     assert status == 404, "expected 404 for a never-registered manual key, got %d" % status
     after_entries = sorted(os.listdir(override_dir)) if os.path.isdir(override_dir) else []
@@ -628,7 +628,7 @@ def test_illustration_manual_key_post_unregistered_then_registered(make_app_serv
     assert add_result == manual_resolutions.ADD_OK, (
         "expected add_entry() to succeed for a fresh entry, got %r" % (add_result,))
     status, headers, _body = http_request(
-        csrf_url(session, base + "/illustration/%s.png" % manual_key), method="POST", data=body,
+        base + "/illustration/%s.png" % manual_key, method="POST", data=body,
         cookie=session, content_type=content_type)
     assert status == 303, "expected a 303 redirect once the key is registered, got %d" % status
     assert os.path.isfile(override_path), "expected the override file to now exist at %r" % (override_path,)
@@ -807,7 +807,7 @@ def test_illustration_upload_round_trip_replaces_served_bytes(make_app_server):
     body, content_type = cah.encode_multipart(
         vueling_bytes, filename="../../../etc/passwd", field_name="illustration")
     status, headers, _resp_body = http_request(
-        csrf_url(session_cookie, base + "/illustration/air-france.png"), method="POST", data=body,
+        base + "/illustration/air-france.png", method="POST", data=body,
         cookie=session_cookie, content_type=content_type)
     assert status == 303, "expected a 303 redirect after a valid upload, got %d" % status
     location = headers.get("Location", "")

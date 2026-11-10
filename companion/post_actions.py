@@ -19,11 +19,11 @@ import email.message
 import io
 import os
 import tempfile
-from urllib.parse import parse_qs, quote, urlencode, urlsplit
+from urllib.parse import parse_qs, quote, urlsplit
 
 from PIL import Image
 
-from companion import airline_actions, airline_display, device_scope, layout
+from companion import airline_actions, airline_display, device_scope, flash, layout
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -54,11 +54,12 @@ from companion.flash import (
     FLASH_KEY_RULE_ADDED,
     FLASH_KEY_RULE_DELETE_FAILED,
     FLASH_KEY_RULE_DELETED,
+    FLASH_KEY_RULE_KEY_INVALID,
     FLASH_KEY_RULE_REGISTRY_FULL,
     FLASH_KEY_RULE_REPLACED,
     FLASH_KEY_RULE_SAVE_FAILED,
 )
-from companion import page_context, resolve_dialog
+from companion import resolve_dialog
 from companion.pages import airline_sheet, airlines_page, config_page, home_page
 from companion.settings import form_post
 from companion.pages.airlines_page import unresolved_row_for_prefix
@@ -274,8 +275,8 @@ class SettingsActionsMixin:
         handles. Membership-tests `key` before any path is built or
         body byte is read. Only the server's own Pillow re-encode is
         ever written to disk — the client's original bytes are never
-        stored. The multipart body is read here, so the anti-forgery token
-        travels in the action URL's query and the dispatcher checks it there.
+        stored. No CSRF token: relies on SameSite=Strict, like every
+        other state-changing POST.
         """
         # Airlines unless the action URL names an allow-listed page that
         # opened the dialog (Health).
@@ -496,7 +497,7 @@ class SettingsActionsMixin:
         is the single validation authority; this handler validates
         nothing itself and maps every result to a flash key with an
         explicit branch, so an unrecognised result can never fall
-        through silently. The form carries the per-session anti-forgery token.
+        through silently. No CSRF token, like every state-changing route.
         """
         form = self.read_form()
         state_dir = device.state_dir
@@ -535,13 +536,15 @@ class SettingsActionsMixin:
         return self._scoped_redirect("%s?flash=%s" % (layout.DISPLAY_SPECIAL_LOOKS_ROUTE, quote(flash_key)))
 
     def _rule_key_refused(self, device, form):
-        """A refused special-look key: a redirect to the New special look form,
-        which shows the typed kind, key and look with the key's own error. The
-        refusal is a page of its own, so a reload does not post the form again."""
-        draft = {name: form.get(name, "") for name in page_context.RULE_DRAFT_FIELDS}
-        draft[page_context.RULE_REFUSED_PARAM] = "1"
-        return self._scoped_redirect(
-            "%s?%s" % (layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE, urlencode(draft)))
+        """A refused special-look key: the New special look form again (400)
+        with the typed kind, key and look kept and the key's own error."""
+        ctx = self.page_context(device)
+        errors = {"rule_key": flash.FLASH_MESSAGES[FLASH_KEY_RULE_KEY_INVALID]}
+        body = config_page.render(
+            ctx, scope=config_page.SCOPE_DISPLAY, errors=errors, submitted=form,
+            view=config_page.error_view(errors, layout.DISPLAY_ROUTE))
+        return self.send_html(
+            400, self._page_shell_for(layout.DISPLAY_ROUTE, body, ctx))
 
     def _handle_rule_delete(self, device, kind, value):
         """POST /settings/rules/{kind}/{value}/delete. `kind` and

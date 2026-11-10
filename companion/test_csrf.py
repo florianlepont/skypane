@@ -149,8 +149,7 @@ def test_the_token_never_leaks_into_headers_urls_or_logs(probe, capsys):
 # --- the existing protected routes ---------------------------------------
 
 from companion.pages import airlines_page, config_page, update_page  # noqa: E402
-from companion_app_server import csrf_url, login, with_csrf  # noqa: E402
-import companion.test_companion_app_helpers as cah  # noqa: E402
+from companion_app_server import login, with_csrf  # noqa: E402
 from server import device_config, firmware_registry  # noqa: E402
 from server.plane import (  # noqa: E402
     calendar_rules, colour_rules, manual_resolutions, name_overrides)
@@ -208,11 +207,6 @@ PROTECTED = (
     ("/quick/led", {"state": "off", "return_to": "/device"}),
     ("/ui-theme", {"ui_theme": "dark"}),
     ("/ui-lang", {"ui_lang": "fr"}),
-    (config_page.RULES_ADD_ROUTE, {
-        "rule_kind": "callsign", "rule_key": "ZZN1234", "rule_theme_id": "black"}),
-    (config_page.CALENDAR_CONNECT_ROUTE, {"calendar_url": ""}),
-    (airlines_page.RESOLVE_ROUTE, {"prefix": "QQQ", "airline_name": "Quux Air"}),
-    (airlines_page.RENAME_ROUTE, {"airline": "Air France", "airline_name": "AF Test"}),
 )
 
 
@@ -260,10 +254,6 @@ def _form_tokens(page_html, action_fragment):
     ("/display/calendar-look", 'action="/settings"'),
     ("/account", 'action="/ui-theme"'),
     ("/account", 'action="/ui-lang"'),
-    ("/account", 'action="/logout"'),
-    ("/display/calendar/connect", config_page.CALENDAR_CONNECT_ROUTE),
-    ("/display/special-looks/new", config_page.RULES_ADD_ROUTE),
-    ("/airlines/manage", airlines_page.RENAME_ROUTE),
 ))
 def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
     cookie = login(live)
@@ -275,45 +265,12 @@ def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
     assert all(tokens == [expected] for tokens in found)
 
 
-def test_the_served_upload_actions_carry_the_sessions_token(live):
+def test_other_existing_forms_need_no_token(live):
     cookie = login(live)
-    expected = auth.csrf_token(_token_of(cookie))
-    status, _h, body = http_request(live.url("/airlines/manage"), cookie=cookie)
-    assert status == 200
-    actions = re.findall(r'action="(/illustration/[^"]*)"', body.decode("utf-8"))
-    actions += re.findall(r'data-view-panel-upload-action="(/[^"]*)"', body.decode("utf-8"))
-    assert actions
-    assert [a for a in actions if "csrf_token=%s" % expected not in a] == []
-
-
-def test_logout_needs_the_token_and_ends_the_session_with_it(live):
-    cookie = login(live)
-    status, _h, body = _raw_post(live, "/logout", cookie, {})
-    assert status == 403 and b"This page expired" in body
-    assert http_request(live.url("/account"), cookie=cookie)[0] == 200
-    status, _h, _b = http_request(
-        live.url("/logout"), method="POST", cookie=cookie, data=with_csrf(cookie),
-        extra_headers={"Origin": live.base_url()})
-    assert status in (200, 303)
-    assert http_request(live.url("/account"), cookie=cookie)[0] == 303
-
-
-def test_an_illustration_upload_carries_its_token_in_the_action_url(live):
-    cookie = login(live)
-    body, content_type = cah.encode_multipart(b"not an image", field_name="image")
-    url = live.url("/illustration/air-france.png")
-    status, _h, page = http_request(
-        url, method="POST", cookie=cookie, data=body, content_type=content_type,
-        extra_headers={"Origin": live.base_url()})
-    assert status == 403 and b"This page expired" in page
-    status, _h, _b = http_request(
-        csrf_url(cookie, url), method="POST", cookie=cookie, data=body,
-        content_type=content_type, extra_headers={"Origin": live.base_url()})
+    status, _h, _b = _raw_post(live, config_page.RULES_ADD_ROUTE, cookie, {
+        "rule_kind": "callsign", "rule_key": "ZZN1234", "rule_theme_id": "black"})
     assert status == 303
-    foreign = csrf_url(login(live), url)
-    assert http_request(
-        foreign, method="POST", cookie=cookie, data=body, content_type=content_type,
-        extra_headers={"Origin": live.base_url()})[0] == 403
+    assert _raw_post(live, "/logout", cookie, {})[0] != 403
 
 
 def test_only_the_known_routes_and_the_console_posts_are_flagged():
@@ -330,7 +287,7 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     airline_posts = {
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE))}
-    assert len(routes.CSRF_ROUTE_KEYS) == 19
+    assert len(routes.CSRF_ROUTE_KEYS) == 13
     assert flagged == (
         set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post
         | pair_frame_post | airline_posts)

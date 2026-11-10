@@ -37,7 +37,7 @@ import companion.ui_shell as ui_shell
 from companion.test_config_page_helpers import caption_word_count_text
 from companion import auth, device_scope, frame_state
 from companion.pages import config_page
-from companion_app_server import csrf_url, http_request, login, with_csrf
+from companion_app_server import http_request, login, with_csrf
 from companion_markup import flash_toast_title_detail
 from server import device_config
 import server.state_store as state_store
@@ -94,8 +94,7 @@ def test_illustration_override_effects_after_a_real_upload(make_app_server):
     upload_body, upload_content_type = cah.encode_multipart(
         vueling_bytes, filename="../../../etc/passwd", field_name="illustration")
     upload_status, _upload_headers, _ = http_request(
-        csrf_url(session_cookie, base + "/illustration/air-france.png"), method="POST",
-        data=upload_body,
+        base + "/illustration/air-france.png", method="POST", data=upload_body,
         cookie=session_cookie, content_type=upload_content_type)
     assert upload_status == 303, (
         "expected a 303 redirect after a valid upload, got %d" % upload_status)
@@ -162,8 +161,7 @@ def test_illustration_non_image_upload_is_rejected(make_app_server):
     body, content_type = cah.encode_multipart(
         b"not a real image, just some text bytes", filename="fake.png")
     status, headers, _resp_body = http_request(
-        csrf_url(session_cookie, server.base_url() + "/illustration/easyjet.png"), method="POST",
-        data=body,
+        server.base_url() + "/illustration/easyjet.png", method="POST", data=body,
         cookie=session_cookie, content_type=content_type)
     assert status == 303, "expected a 303 redirect for a non-image upload, got %d" % status
     location = headers.get("Location", "")
@@ -182,8 +180,7 @@ def test_illustration_oversized_upload_is_rejected_and_connection_stays_healthy(
     oversized_payload = b"\x00" * (app_module.MAX_ILLUSTRATION_UPLOAD_BYTES + 4096)
     body, content_type = cah.encode_multipart(oversized_payload, filename="huge.png")
     status, headers, _resp_body = http_request(
-        csrf_url(session_cookie, server.base_url() + "/illustration/corsair.png"), method="POST",
-        data=body,
+        server.base_url() + "/illustration/corsair.png", method="POST", data=body,
         cookie=session_cookie, content_type=content_type)
     assert status == 303, "expected a 303 redirect for an oversized upload, got %d" % status
     location = headers.get("Location", "")
@@ -216,8 +213,7 @@ def test_illustration_post_unknown_and_traversal_keys_returns_404(make_app_serve
     ]
     for adversarial_path in adversarial_paths:
         status, _headers, _body = http_request(
-            csrf_url(session_cookie, server.base_url() + adversarial_path), method="POST",
-            data=small_body,
+            server.base_url() + adversarial_path, method="POST", data=small_body,
             cookie=session_cookie, content_type=small_content_type)
         assert status == 404, "expected 404 for POST %r, got %d" % (adversarial_path, status)
     after_entries = sorted(os.listdir(override_dir)) if os.path.isdir(override_dir) else []
@@ -293,7 +289,7 @@ def test_manual_resolve_post_revalidates_prefix_against_live_registry(make_app_s
     session = login(server)
     manual_resolutions_path = manual_resolutions.manual_resolutions_path(server.state_dir)
 
-    resolve_data = with_csrf(session, {"prefix": "XYZ", "airline_name": "Ghost Air"})
+    resolve_data = urllib.parse.urlencode({"prefix": "XYZ", "airline_name": "Ghost Air"}).encode()
     status, headers, _ = http_request(
         base + "/airlines/resolve", method="POST", data=resolve_data, cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
@@ -340,7 +336,7 @@ def test_manual_resolve_post_rejection_mapping_and_d03_branch(make_app_server):
         cah.seed_unresolved_prefixes(server.state_dir, registry)
 
     def _resolve_post(prefix, airline_name):
-        data = with_csrf(session, {"prefix": prefix, "airline_name": airline_name})
+        data = urllib.parse.urlencode({"prefix": prefix, "airline_name": airline_name}).encode()
         return http_request(base + "/airlines/resolve", method="POST", data=data, cookie=session)
 
     rejection_cases = (
@@ -534,8 +530,8 @@ def test_rules_add_route_no_js_added_then_replaced(make_app_server):
 
     status, headers, _ = http_request(
         base + config_page.RULES_ADD_ROUTE, method="POST",
-        data=with_csrf(
-            session, {"rule_kind": "callsign", "rule_key": "afr1234", "rule_theme_id": "white"}),
+        data=urllib.parse.urlencode(
+            {"rule_kind": "callsign", "rule_key": "afr1234", "rule_theme_id": "white"}).encode(),
         cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     assert "flash=rule_added" in headers.get("Location", ""), (
@@ -543,8 +539,8 @@ def test_rules_add_route_no_js_added_then_replaced(make_app_server):
 
     status, headers, _ = http_request(
         base + config_page.RULES_ADD_ROUTE, method="POST",
-        data=with_csrf(
-            session, {"rule_kind": "callsign", "rule_key": "AFR1234", "rule_theme_id": "blue"}),
+        data=urllib.parse.urlencode(
+            {"rule_kind": "callsign", "rule_key": "AFR1234", "rule_theme_id": "blue"}).encode(),
         cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
@@ -572,24 +568,18 @@ def test_rules_add_route_rejection_paths(make_app_server):
     session = login(server)
 
     def _add(kind, key, theme_id):
-        data = with_csrf(session, {"rule_kind": kind, "rule_key": key, "rule_theme_id": theme_id})
+        data = urllib.parse.urlencode(
+            {"rule_kind": kind, "rule_key": key, "rule_theme_id": theme_id}).encode()
         return http_request(base + config_page.RULES_ADD_ROUTE, method="POST", data=data, cookie=session)
 
-    status, headers, _ = _add("prefix", "TOOLONG", "blue")
-    # Post/Redirect/Get: the refusal is a page of its own, so a reload never posts again.
-    assert status == 303, "expected a redirect to the form, got %d" % status
-    location = headers.get("Location", "")
-    assert location.startswith("/display/special-looks/new?"), location
-    status, _headers, body = http_request(base + location, cookie=session)
-    assert status == 200
+    status, _headers, body = _add("prefix", "TOOLONG", "blue")
+    assert status == 400, "expected the form back with a 400, got %d" % status
     page = body.decode("utf-8")
     # The New special look form again, keeping what was typed and chosen, with the key's error.
     assert 'name="rule_key"' in page and 'value="TOOLONG"' in page
     assert 'id="rule-key-error"' in page and "doesn" in page
     assert re.search(r'name="rule_theme_id"[^>]*value="blue"[^>]*checked', page) or re.search(
         r'name="rule_theme_id"[^>]*checked[^>]*value="blue"', page)
-    status, _headers, clean = http_request(base + "/display/special-looks/new", cookie=session)
-    assert b'id="rule-key-error"' not in clean and b'value="TOOLONG"' not in clean
     registry = colour_rules.load_colour_rules(server.state_dir)
     assert not registry.get("prefix"), "expected nothing written for a malformed value"
 
@@ -969,7 +959,7 @@ def test_calendar_connect_route_valid_url_persists_syncs_once_and_leaves_other_s
             cah.fake_public_hostname(hostname):
         status, headers, _b = http_request(
             server.base_url() + config_page.CALENDAR_CONNECT_ROUTE, method="POST",
-            data=with_csrf(session, {"calendar_url": url}), cookie=session)
+            data=urllib.parse.urlencode({"calendar_url": url}).encode(), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert location.startswith("/display"), "expected a redirect to Display, got %r" % location
@@ -993,7 +983,7 @@ def test_calendar_connect_route_invalid_url_rejects_and_persists_nothing(app_ser
     session = login(server)
     status, headers, _b = http_request(
         server.base_url() + config_page.CALENDAR_CONNECT_ROUTE, method="POST",
-        data=with_csrf(session, {"calendar_url": ""}), cookie=session)
+        data=urllib.parse.urlencode({"calendar_url": ""}).encode(), cookie=session)
     assert status == 303, "expected a 303 redirect, got %d" % status
     location = headers.get("Location", "")
     assert "flash=calendar_connect_invalid" in location, "expected the calendar_connect_invalid flash key, got %r" % location

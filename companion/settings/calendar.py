@@ -357,14 +357,14 @@ def _url_form_html(connected, error_message):
         '<p class="text-label form-page__note">%s</p>'
         % escape_html(i18n.t(CALENDAR_HOW_IT_WORKS_BODY)))
     return (
-        '<form class="form-page__section" id="%s" method="post" action="%s" data-calendar-connect>%s'
+        '<form class="form-page__section" id="%s" method="post" action="%s" data-calendar-connect>'
         '<label for="calendar-connect-url" class="form-page__label">%s</label>'
         '<input type="text" id="calendar-connect-url" name="calendar_url" '
         'autocomplete="off" spellcheck="false" maxlength="%d" placeholder="%s" '
         'aria-describedby="%s"%s>'
         '<p class="text-label section-caption" id="%s">%s</p>%s%s</form>'
     ) % (
-        CONNECT_FORM_ID, device_scope.scoped(CALENDAR_CONNECT_ROUTE, "POST"), csrf_field(),
+        CONNECT_FORM_ID, device_scope.scoped(CALENDAR_CONNECT_ROUTE, "POST"),
         escape_html(i18n.t(label)), CALENDAR_URL_MAX_LEN,
         escape_html(i18n.t(CALENDAR_URL_PLACEHOLDER)), describedby, invalid,
         hint_id, escape_html(i18n.t(hint)), error_html, how_html)
@@ -494,8 +494,7 @@ def special_mini_html(theme_id, opener_label=None, layout_id=None):
             'aria-haspopup="dialog" aria-label="%s"></button>' % escape_html(opener_label))
     return (
         '<span class="special-row__mini">'
-        '<img class="special-row__image" data-look-image src="%s" width="%d" height="%d" alt="" '
-        'loading="lazy" decoding="async" fetchpriority="low">'
+        '<img class="special-row__image" data-look-image src="%s" width="%d" height="%d" alt="">'
         "%s</span>"
     ) % (
         escape_html(theme_preview.frame_preview_src(

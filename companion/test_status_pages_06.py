@@ -1027,7 +1027,7 @@ def test_phase14_task2_new_css_selectors_exhaustive(css_text):
         (".airline-card__placeholder", (
             "border: 1px dashed var(--color-border)",
             "border-radius: var(--radius-control)",
-            "background: var(--picture-placeholder)",
+            "background: var(--color-canvas)",
             "margin-bottom: var(--space-sm)",
             "display: block")),
         (".lightbox__heading:empty", ("display: none",)),

@@ -353,8 +353,6 @@ _SHARED = re.compile(
 def _looks_english(text):
     if "@" in text or not re.search(r"[a-z]{3,}", text):
         return False
-    if re.fullmatch(r"[\w.-]+\.", text):  # the piece of an address that wraps after a dot
-        return False
     if re.fullmatch(r"\S*[\d_]\S*", text):  # an identifier, not a sentence
         return False
     return not _SHARED.match(text)

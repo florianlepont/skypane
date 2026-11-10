@@ -289,7 +289,6 @@ def test_an_administrator_from_fleet_ends_on_fleet(new_context, rename_app):
     page.locator(".fleet-detail-head a.row-action", has_text="Rename").click()
     page.wait_for_url("**/frame/name**")
     page.wait_for_function(_SETTLED)
-    page.locator("#frame-name").fill("Changed")
     page.locator("a.dirty-bar__cancel").click()
     page.wait_for_url("**/fleet**")
     assert "tab=settings" not in page.url

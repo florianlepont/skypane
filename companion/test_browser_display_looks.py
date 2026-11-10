@@ -270,11 +270,6 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
         assert page.locator(
             "[data-look-axes-host], .look-frame__image, .form-page__preview").count() == 0
         assert page.locator("dialog[open]").count() == 0
-        # The Save bar waits for an edit; Cancel is in it once the key is typed.
-        assert page.locator(".dirty-bar").is_hidden()
-        page.fill("[name=rule_key]", "AFR")
-        page.locator(".dirty-bar a.dirty-bar__cancel").wait_for(state="visible")
-        page.once("dialog", lambda dialog: dialog.accept())
         with page.expect_navigation():
             page.click(".dirty-bar a.dirty-bar__cancel")
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
@@ -426,8 +421,6 @@ def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, vi
         first = page.locator("form#special-look-form label.look-pick__card").first.bounding_box()
         assert first["x"] >= card["x"] - 0.5 and first["x"] + first["width"] <= card["x"] + card["width"] + 0.5
         assert first["height"] >= 44 - 0.5
-        page.fill("[name=rule_key]", "AFR")
-        page.locator(".dirty-bar").wait_for(state="visible")
         bar = page.locator(".dirty-bar").bounding_box()
         tab = page.locator(".tab-bar").bounding_box()
         assert bar["y"] >= 0 and bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)

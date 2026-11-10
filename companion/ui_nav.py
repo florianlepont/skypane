@@ -158,11 +158,8 @@ def _console_entries(active):
         slug = nav_slug(path)
         href = device_scope.scoped(path) if key in _CONSOLE_FRAME_KEYS else path
         is_active = slug == active or (key == "fleet" and active in _FLEET_FOLDED_SLUGS)
-        # One full name per page (its title); the sidebar and the tab bar name
-        # the editor with the same single word, so it never wraps.
         entries[key] = _Entry(
-            href, _CONSOLE_BAR_LABELS.get(key, label) if key == "editor" else label, slug,
-            _CONSOLE_ICON_IDS.get(key, ""), is_active)
+            href, label, slug, _CONSOLE_ICON_IDS.get(key, ""), is_active)
     return entries
 
 
@@ -644,9 +641,9 @@ def _more_panel_html(active, sheet, ui_theme):
     return (
         pages_html + separator + '<div class="tab-bar__settings">'
         '<div class="tab-bar__links">%s</div>%s'
-        '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">%s'
+        '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">'
         '<button type="submit">%s</button></form></div>' % (
-            account, preferences, csrf_field(), escape_html(i18n.t(_SIGN_OUT_TEXT))))
+            account, preferences, escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):
@@ -762,7 +759,7 @@ def _logout_form_html():
     ending a session.
     """
     return (
-        '<form method="post" action="/logout" class="logout-form">%s'
+        '<form method="post" action="/logout" class="logout-form">'
         '<button type="submit">%s</button>'
         "</form>"
-    ) % (csrf_field(), escape_html(i18n.t(_SIGN_OUT_TEXT)))
+    ) % escape_html(i18n.t(_SIGN_OUT_TEXT))

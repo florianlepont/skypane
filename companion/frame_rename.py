@@ -11,17 +11,15 @@ Security invariants:
   in fleet.db changes (an existing column); the frame's image, interval and
   protocol never read it.
 """
-import re
 import sqlite3
 from urllib.parse import parse_qsl, quote
 
 from companion import (
-    access, audit, console_components, console_flash, console_routes, i18n, layout, prefs, route_types, ui_base)
+    audit, console_flash, console_routes, i18n, layout, prefs, route_types, ui_base)
 from companion.pages import frame_name_page as page
 from server import fleet_db
 
 _STORE_ERRORS = (sqlite3.Error, fleet_db.FleetDbError, OSError)
-_FRAME_PREFIX = re.compile(r"\A/devices/(d_[0-9a-f]{8})(?=/|\Z)")
 ACCOUNT_PATH = "/account"
 FLEET_PATH = "/fleet"
 
@@ -43,23 +41,9 @@ def _return_to(h, raw):
     path = safe.partition("?")[0]
     if path.endswith(page.RENAME_ROUTE):
         return None
-    if (console_routes.is_console_path(path) or path == console_components.COMPONENTS_PATH) \
-            and not _is_admin(h):
-        return None
-    if not _frame_reachable(h, path):
+    if console_routes.is_console_path(path) and not _is_admin(h):
         return None
     return safe
-
-
-def _frame_reachable(h, path):
-    """False when `path` is a page of a frame the viewer cannot reach, so
-    Cancel and Save never land on the unknown-page answer."""
-    prefixed = _FRAME_PREFIX.match(path)
-    if prefixed is None:
-        return True
-    return access.authorized_device_id(
-        h._safe_principal(), prefixed.group(1), h._owner_lookup,
-        h._co_manager_lookup) is not None
 
 
 def _active_slug(h, return_to):

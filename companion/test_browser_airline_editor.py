@@ -110,7 +110,7 @@ def test_the_editor_is_reached_from_the_sidebar_on_desktop(new_context, server):
     try:
         link = page.locator('nav.sidebar-nav a[href$="/airlines/manage"]')
         link.wait_for(state="visible")
-        assert link.inner_text().strip() == "Editor"
+        assert link.inner_text().strip() == "Airline editor"
         with page.expect_navigation():
             link.click()
         page.wait_for_url("**/airlines/manage")

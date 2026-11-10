@@ -31,7 +31,6 @@ import companion.user_view as user_view
 import companion.i18n as i18n
 import companion.layout as layout
 import companion.page_context as page_context
-import companion.ui_components as ui_components
 import companion.prefs as prefs  # for the resolved language directly:
 # French requires a real U+00A0 before the colon (_label_colon() below),
 # not merely a translated label.
@@ -957,11 +956,9 @@ def _identification_row(stats, unresolved_count):
     name = i18n.t(STATS_SECTION_HEADING)
     if stats is _DB_UNAVAILABLE:
         return _unavailable_row("identification", name)
-    # The pending count is the one small badge, like every other count; with
-    # nothing pending it is plain text.
-    to_resolve = (
-        ui_components.pill_html(i18n.t(_TO_RESOLVE_TEMPLATE) % unresolved_count)
-        if unresolved_count else escape_html(i18n.t(_NOTHING_TO_RESOLVE_TEXT)))
+    to_resolve = escape_html(
+        i18n.t(_TO_RESOLVE_TEMPLATE) % unresolved_count
+        if unresolved_count else i18n.t(_NOTHING_TO_RESOLVE_TEXT))
     link = '<p class="health-row__note"><a class="text-link" href="%s">%s</a></p>' % (
         device_scope.scoped(UNRESOLVED_LINK_HREF), escape_html(i18n.t(UNRESOLVED_SECTION_HEADING)))
     if stats["total"] == 0:
@@ -976,11 +973,12 @@ def _identification_row(stats, unresolved_count):
     # Never "100.0%" beside a count still to resolve: rounding must not
     # contradict the row's own figure.
     shown_percent = min(percent, 99.9) if unresolved_count else percent
-    # The rate is a figure with no pass mark, so its row stays neutral.
+    # The rate is a figure with no pass mark, so its row stays neutral and
+    # its ring is drawn in ink, never in a status colour.
     return health_rows.row_html(
         "identification", "off", name,
         i18n.t(_IDENTIFIED_TEMPLATE) % _percent_text(shown_percent),
-        to_resolve,
+        health_rows.ring_html(percent / 100.0) + to_resolve,
         health_rows.note_html(
             i18n.t(template) % (RESOLUTION_WINDOW_DAYS, stats["total"]))
         + link + _stats_table_html(stats))

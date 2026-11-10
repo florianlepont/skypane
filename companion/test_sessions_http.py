@@ -54,7 +54,7 @@ def test_logout_deletes_the_row_and_the_old_cookie_is_refused(app_server_in_proc
     server = app_server_in_process
     cookie = login(server)
     status, _headers, _body = http_request(
-        server.url("/logout"), method="POST", data=with_csrf(cookie), cookie=cookie,
+        server.url("/logout"), method="POST", data=b"", cookie=cookie,
         extra_headers={"Origin": server.base_url()})
     assert status == 200
     assert _session_hashes(server.state_dir) == set()

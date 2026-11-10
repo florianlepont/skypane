@@ -255,14 +255,14 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:
         with page.expect_navigation():
-            page.locator('form[action^="/illustration/air-france.png"] input[type=file]').set_input_files(png)
+            page.locator('form[action="/illustration/air-france.png"] input[type=file]').set_input_files(png)
         page.locator(".toast").first.wait_for(state="visible")
         assert os.path.isfile(os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png"))
         page.wait_for_function(_SETTLED, timeout=15000)
         _settle(page, TRANSAVIA + " .airlines-expand > summary")
         page.locator(TRANSAVIA + " .airlines-expand > summary").click()
-        slot = 'form[action^="/illustration/transavia-france-a320.png"] input[type=file]'
+        slot = 'form[action="/illustration/transavia-france-a320.png"] input[type=file]'
         page.locator(slot).wait_for(state="attached")
         with page.expect_navigation():
             page.locator(slot).set_input_files(png)
@@ -377,7 +377,7 @@ def test_without_scripts_the_chevron_the_save_button_and_the_upload_button_work(
         page.locator(chevron).click()
         page.locator(TRANSAVIA + " .airlines-subrow").first.wait_for(state="visible")
         save = 'form.airlines-name:has(input[value="Air France"]) .airlines-name__save'
-        upload = 'form[action^="/illustration/air-france.png"] .airlines-art__upload'
+        upload = 'form[action="/illustration/air-france.png"] .airlines-art__upload'
         assert page.locator(save).is_visible()
         assert page.locator(upload).is_hidden()
         page.locator('tbody.airline-group:has(input[value="Air France"]) .airlines-row .row-menu__toggle').click()

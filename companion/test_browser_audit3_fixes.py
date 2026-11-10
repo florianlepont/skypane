@@ -229,42 +229,6 @@ def test_flights_search_and_sort_keep_back_sensible(new_context, app):
         context.close()
 
 
-def test_back_after_two_typed_and_entered_searches_returns_to_the_first(new_context, app):
-    """Enter on a search typed live settles that search; a second search typed after it gets
-    its own entry, so Back returns to the first search and not off the page"""
-    context, page = _open(
-        new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900})
-    try:
-        page.evaluate(
-            "() => { window.__writes = []; ['pushState', 'replaceState'].forEach((name) => {"
-            " const original = history[name].bind(history);"
-            " history[name] = (...args) => { window.__writes.push(name); original(...args); }; }); }")
-        length = page.evaluate("() => history.length")
-
-        def settled(count):
-            page.wait_for_function("(n) => window.__writes.length >= n", arg=count, timeout=10000)
-
-        page.fill("[data-flights-search]", "afr")
-        settled(1)
-        page.press("[data-flights-search]", "Enter")
-        settled(2)
-        assert page.evaluate("() => history.length") == length
-        page.fill("[data-flights-search]", "afr1")
-        settled(3)
-        page.press("[data-flights-search]", "Enter")
-        settled(4)
-        assert page.evaluate("() => window.__writes") == [
-            "replaceState", "replaceState", "pushState", "replaceState"]
-        assert page.evaluate("() => history.length") == length + 1
-        page.go_back()
-        page.wait_for_function(
-            "() => location.search.indexOf('q=afr1') < 0 && location.search.indexOf('q=afr') >= 0"
-            " && document.readyState === 'complete'", timeout=10000)
-        assert "/flights" in page.url
-    finally:
-        context.close()
-
-
 def test_without_scripts_every_artwork_upload_form_has_a_visible_44px_submit_button(
         new_context, make_app_server):
     """with scripts off, once a row's menu is opened each per-illustration upload form offers a

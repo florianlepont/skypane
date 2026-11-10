@@ -210,9 +210,9 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
             _THEME_TEXT, _THEME_HINT, layout._theme_form_html(resolved_theme)))
     sign_out_html = ui_groups.group(
         '<li class="row row--action row--danger">'
-        '<form method="post" action="/logout" class="logout-form account-sign-out">%s'
+        '<form method="post" action="/logout" class="logout-form account-sign-out">'
         '<button type="submit" class="row__main">%s</button></form></li>'
-        % (layout.csrf_field(), layout.escape_html(i18n.t(_SIGN_OUT_TEXT))),
+        % layout.escape_html(i18n.t(_SIGN_OUT_TEXT)),
         extra_class="account-sign-out-group")
     return (
         layout.page_header(i18n.t(ACCOUNT_TITLE), purpose=i18n.t(ACCOUNT_PURPOSE))

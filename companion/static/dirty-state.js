@@ -138,8 +138,8 @@
   // Leaving it with values that differ from the ones it loaded with still asks
   // first, keyed on the form the bar's Save button submits; a submit disarms it.
   function guardFormPage() {
-    var save = document.querySelector(".dirty-bar[data-dirty-page] .dirty-bar__save[form]") ||
-      document.querySelector(".dirty-bar:not([data-dirty-bar]) .dirty-bar__save[form]");
+    var save = document.querySelector(
+      ".dirty-bar:not([data-dirty-bar]) .dirty-bar__save[form]");
     var pageForm = save ? document.getElementById(save.getAttribute("form")) : null;
     if (!pageForm || pageForm.hasAttribute("data-dirty-form")) {
       return;
@@ -198,24 +198,6 @@
       }
       return false;
     }
-
-    // A form page's bar is in the page for a visitor without script; with
-    // script it appears once a field differs from the value the page loaded
-    // with, and goes again when the edit is undone. A page redrawn with a
-    // refused value keeps it from the start.
-    var pageBar = document.querySelector(".dirty-bar[data-dirty-page]");
-    var reveals = !!pageBar && !pageBar.hasAttribute("data-dirty-keep");
-    if (reveals) {
-      pageBar.hidden = true;
-    }
-
-    function syncPageBar() {
-      if (reveals && snapshot !== null) {
-        pageBar.hidden = !changed();
-      }
-    }
-    pageForm.addEventListener("input", syncPageBar);
-    pageForm.addEventListener("change", syncPageBar);
 
     pageForm.addEventListener("submit", function () {
       leaving = true;

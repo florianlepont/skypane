@@ -389,7 +389,7 @@ def _view_panel_thumb_html(name, iso, row_name):
     return (
         '<a class="history-card__thumb" %s>'
         '<img class="history-card__thumb-image" src="%s" alt="" width="40" height="40" '
-        'loading="lazy" decoding="async" fetchpriority="low">'
+        'loading="lazy" decoding="async">'
         '</a>'
     ) % (_view_panel_attrs(name, iso, row_name), src)
 
@@ -409,7 +409,7 @@ def _lightbox_html():
     return (
         '<dialog class="lightbox lightbox--picture" id="%s" aria-label="%s">'
         '<img class="lightbox__image" alt="">'
-        '<p class="lightbox__caption text-label"></p>'
+        '<p class="lightbox__caption text-label mono"></p>'
         '<button type="button" class="btn btn--secondary" %s>%s</button>'
         "</dialog>"
     ) % (LIGHTBOX_DIALOG_ID, escape_html(i18n.t(LIGHTBOX_ARIA_LABEL)),

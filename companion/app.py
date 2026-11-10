@@ -21,7 +21,7 @@ import os
 import sqlite3
 import sys
 import time
-from http.server import BaseHTTPRequestHandler
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, parse_qsl, quote, urlencode, urlsplit
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py, so
@@ -33,7 +33,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
-    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, quiet_server, request_body, routes, sign_in,
+    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, request_body, routes, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -754,10 +754,8 @@ class Handler(
         """
         prefs.set_request_prefs(lang=self._lang_from_request())
         self._scope_for_chrome()
-        health_alert = self._health_alert_for_admin()
-        back, home_route = self._back_target()
         return self.send_html(200, credits_page.credits_page(
-            self._resolved_ui_theme(), health_alert, back=back, home_route=home_route))
+            self._resolved_ui_theme(), self._health_alert_for_admin()))
 
     def _forbidden_page(self, purpose=None):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
@@ -1096,7 +1094,7 @@ class Handler(
         prefs.set_request_csrf(
             auth.csrf_token(raw_session) if raw_session and principal is not None else "")
         if method == "POST" and route.csrf and not auth.csrf_ok(
-                raw_session, routes.submitted_csrf(self, route)):
+                raw_session, self.read_form().get(routes.CSRF_FIELD)):
             return self.send_html(403, self._forbidden_page(login_page.CSRF_EXPIRED_TEXT))
         if route.access.min_role == access.ANONYMOUS:
             # Login, sign-in and static assets: no device.
@@ -1478,7 +1476,7 @@ def main():
     sys.stdout.reconfigure(line_buffering=True)
 
     Handler.args = args
-    server = quiet_server.QuietHTTPServer((args.bind, args.port), Handler)
+    server = ThreadingHTTPServer((args.bind, args.port), Handler)
     print("companion: serving on %s:%d (state_dir=%s)" % (
         args.bind, args.port, args.state_dir))
     server.serve_forever()

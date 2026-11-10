@@ -59,7 +59,7 @@ EAGER_FIELDS = (
     "state_dir", "device", "root_state_dir", "ui_theme", "lang", "device_config",
     "last_checkin_ts", "battery_critical", "wake_interval_env_default",
     "flash", "flash_role", "flash_key", "runway_images", "now", "resolve_prefix",
-    "sheet_key", "rule_edit", "rule_draft", "calendar_sheet_error", "history_more", "history_query",
+    "sheet_key", "rule_edit", "calendar_sheet_error", "history_more", "history_query",
     "types_open",
 )
 
@@ -331,30 +331,6 @@ def _rule_edit_from(params):
     return (kind, key) if key is not None else None
 
 
-# The query fields that carry a refused special look back to its form, and the
-# marker that says the key was refused.
-RULE_DRAFT_FIELDS = ("rule_kind", "rule_key", "rule_theme_id")
-RULE_REFUSED_PARAM = "rule_refused"
-_RULE_DRAFT_KEY_MAX = 80
-
-
-def _rule_draft_from(params):
-    """The typed kind, key and look of a refused special look, from the query
-    the refusal redirected to, or None. Only a known kind and look and a short
-    key survive; the key is shown back as typed and validated again on save."""
-    if params.get(RULE_REFUSED_PARAM, [None])[0] != "1":
-        return None
-    draft = {}
-    kind = colour_rules.normalise_rule_kind(params.get("rule_kind", [None])[0])
-    if kind is not None:
-        draft["rule_kind"] = kind
-    theme_id = params.get("rule_theme_id", [None])[0]
-    if theme_id in device_config.THEME_IDS:
-        draft["rule_theme_id"] = theme_id
-    draft["rule_key"] = (params.get("rule_key", [""])[0] or "")[:_RULE_DRAFT_KEY_MAX]
-    return draft
-
-
 def build_page_context(handler, device):
     """Build the `PageContext` every page module's `render()`/
     `handle_post()` receives — documented in full in
@@ -450,7 +426,6 @@ def build_page_context(handler, device):
             # The rule the special look edit page names: only a kind and a
             # key that survive the rule normalisers, never the raw query.
             "rule_edit": _rule_edit_from(params),
-            "rule_draft": _rule_draft_from(params),
             # The airline editor's script-free "show the aircraft types" view:
             # only compared with one fixed value.
             "types_open": params.get(airlines_page.TYPES_QUERY_PARAM, [None])[0],

@@ -29,7 +29,6 @@ PURPOSE = i18n.msg(
 LINK_TEXT = i18n.msg("components.link", "Interface components")
 _INDEX_LABEL = i18n.msg("components.index_label", "Component families")
 _HELPERS_LABEL = i18n.msg("components.helpers_label", "Helpers")
-_TO_INDEX_LABEL = i18n.msg("components.to_index", "Back to the index")
 
 _DEFAULT = i18n.msg("components.state_default", "Default")
 _DISABLED = i18n.msg("components.state_disabled", "Disabled")
@@ -130,9 +129,6 @@ _HEADER_TITLE = i18n.msg("components.sample_header_title", "Flight history")
 _HEADER_PURPOSE = i18n.msg(
     "components.sample_header_purpose", "Every plane the frame has shown, newest first.")
 _UNSAVED = i18n.msg("components.sample_unsaved", "2 unsaved changes")
-_M_STATE_SAVE_BAR_REVEALED = i18n.msg(
-    "components.state_save_bar_revealed",
-    "Form page bar: hidden until a field changes (type in the field)")
 
 _M_STATE_LINK = i18n.msg("components.state_link", "Link")
 _M_STATE_ICON = i18n.msg("components.state_icon", "Icon")
@@ -608,19 +604,7 @@ def _dialogs():
         "components-bar-form", cancel_href=COMPONENTS_ROUTE, title=_t(_UNSAVED))
     inline_bar = ui_save_bar.save_bar_html(
         "components-bar-form", cancel_href=COMPONENTS_ROUTE, title=_t(_UNSAVED), inline=True)
-    revealed_bar = ui_save_bar.save_bar_html(
-        "components-page-bar-form", cancel_href=COMPONENTS_ROUTE, title=_t(_UNSAVED),
-        reveal_on_change=True)
-    revealed = (
-        '<form id="components-page-bar-form" method="post" action="%s" class="components-page-bar">'
-        '%s%s</form><div class="components-save-bar">%s</div>' % (
-            COMPONENTS_ROUTE, ui_components.csrf_field(),
-            ui_components.text_field_html(
-                "components-page-bar-field", "sample", _t(_SAMPLE_VALUE), "", "",
-                "", ' autocomplete="off"'),
-            revealed_bar))
     return [
-        State(_M_STATE_SAVE_BAR_REVEALED, revealed),
         State(_M_STATE_DIALOGS,
               '<div class="components-triggers">%s</div>%s%s%s' % (
                   triggers, dialog, confirm, sections)),
@@ -709,7 +693,6 @@ CATALOGUE = (
 EXEMPT = {
     "ui_components.card_status_class": "returns a CSS class name for a status, no markup",
     "ui_components.csrf_field": "a hidden form field, used inside the dialogs above",
-    "ui_components.csrf_query": "the same anti-forgery token carried in an upload form action URL; no markup of its own",
     "ui_components.flash_banner": "floats over the page by design; its toast is shown docked",
     "ui_components.frame_strip_html": "needs a live frame context; built from the switches above",
     "ui_components.split_toast_message": "a text splitter for toast copy",
@@ -744,13 +727,11 @@ def _family_html(family):
         '<section class="components-family" id="components-%s" aria-labelledby="components-%s-title">'
         '<h2 class="text-heading" id="components-%s-title">%s</h2>'
         '<p class="text-label section-caption">%s</p>'
-        '<p class="components-helpers text-label"><span>%s</span> %s</p>%s'
-        '<p class="components-family__top"><a class="text-link" href="#components-index">%s</a></p>'
-        "</section>"
+        '<p class="components-helpers text-label"><span>%s</span> %s</p>%s</section>'
     ) % (
         family.slug, family.slug, family.slug, _esc(_t(family.title)),
         _esc(_t(family.description)), _esc(_t(_HELPERS_LABEL)), helpers,
-        "".join(_state_html(state) for state in family.build()), _esc(_t(_TO_INDEX_LABEL)))
+        "".join(_state_html(state) for state in family.build()))
 
 
 def render():
@@ -760,6 +741,6 @@ def render():
             family.slug, _esc(_t(family.title)))
         for family in CATALOGUE)
     return (
-        '<nav class="components-index" id="components-index" aria-label="%s"><ul>%s</ul></nav>' % (
+        '<nav class="components-index" aria-label="%s"><ul>%s</ul></nav>' % (
             _esc(_t(_INDEX_LABEL)), index)
         + "".join(_family_html(family) for family in CATALOGUE))

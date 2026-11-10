@@ -88,15 +88,6 @@ def with_csrf(cookie, form=None):
     return urllib.parse.urlencode(fields).encode()
 
 
-def csrf_url(cookie, url):
-    """`url` with the session's anti-forgery token in its query, the way an
-    illustration upload form carries it (its body is multipart)."""
-    from companion import auth
-    token = urllib.parse.parse_qs(
-        cookie.replace("; ", "&")).get(auth.SESSION_COOKIE_NAME, [""])[0]
-    return "%s%scsrf_token=%s" % (url, "&" if "?" in url else "?", auth.csrf_token(token))
-
-
 def http_request(
         url, method="GET", data=None, cookie=None, timeout=10,
         content_type=None, extra_headers=None):
@@ -492,8 +483,10 @@ class InProcessAppServer:
     def __init__(self, state_dir, env_overrides=None):
         import argparse
         import threading
+        from http.server import ThreadingHTTPServer
+
         import companion.app as app_module
-        from companion import quiet_server, sign_in
+        from companion import sign_in
 
         sign_in.START_THROTTLE.reset()
         os.makedirs(state_dir, exist_ok=True)
@@ -505,7 +498,7 @@ class InProcessAppServer:
         self.apply_env(default_auth0_env())
         app_module.Handler.args = argparse.Namespace(
             state_dir=state_dir, geofence=None)
-        self.server = quiet_server.QuietHTTPServer(("127.0.0.1", self.port), app_module.Handler)
+        self.server = ThreadingHTTPServer(("127.0.0.1", self.port), app_module.Handler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         if env_overrides:
