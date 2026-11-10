@@ -154,3 +154,10 @@ dropped or redrawn from a sketch.
 |------|---------|
 | 61-99 | Remaining UX points: V15, V19, V22, V27, V28, nearest-airport offer on phones, /ui-theme and /ui-lang CSRF, naming glossary, Safari band tint on the Location map, 14 partial workflow items |
 | 61-100 | Remaining performance items: P07, P08, P09, P12, P13-P15, N04, N05, N07-N09 |
+
+## Batch 17 (D54, audit 4 in full)
+
+| Plan | Content |
+|------|---------|
+| 61-108 | Audit 4 visual findings W01-W23 and workflow partials (CSRF, return_to scope, Flights Back history, no-JS image load, broken-pipe, refused special-look PRG) |
+| 61-109 | Audit 4 performance findings R01-R28 still open |

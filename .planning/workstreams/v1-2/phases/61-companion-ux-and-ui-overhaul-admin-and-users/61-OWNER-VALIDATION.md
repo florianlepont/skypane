@@ -1074,3 +1074,14 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   cover about 60%). D53 (owner): option 1, "compact sheet": airport name, runways and
   Cancel/Save in one card (about 130px), no separate unsaved-changes bar, about 55%
   of the screen left to the map. To be done in plan 61-106 after 61-105.
+
+## Audit 4 decision (D54)
+
+- Owner: "je veux que tu traites 100 % de l'audit": every finding of audit 4 is treated:
+  23 visual (W01-W23, including those previously left by design), 5 workflow partials
+  (CSRF on six routes, rename return_to scope, Flights search history, no-JS image
+  load, broken-pipe log noise, refused special-look reload), and every open performance
+  finding (R01 shared place-search limiter, R02/R03 history and collection caches with
+  single flight, R05 editor type templates, R07 deferred map init, R10, R14 CSS split,
+  R15 Flights duplication, R17 cheap freshness token, R18 empty 404 for asset paths,
+  R22 splash preload, R23, R28). The splash duration stays unchanged.
