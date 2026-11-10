@@ -17,7 +17,6 @@ import io
 import os
 import re
 import socket
-import urllib.parse
 
 import pytest
 
