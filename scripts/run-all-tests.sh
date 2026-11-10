@@ -11,6 +11,17 @@
 #   JOBS=1                      serial run
 #   SKYPANE_REQUIRE_BROWSER=1   missing Chromium fails instead of skipping
 #
+# Running part of the suite (for parallel CI jobs); all unset by default:
+#   SKYPANE_TEST_GROUP=core|browser   run only that group's test files
+#                                     (scripts/ci_shards.py defines the groups)
+#   SKYPANE_TEST_SHARD=INDEX/COUNT    run shard INDEX (0-based) of COUNT within
+#                                     the group; default 0/1 = the whole group
+#   SKYPANE_JUNIT_XML=path            also write a JUnit report there
+# A partial run selects whole files by path (nothing is deselected), writes
+# coverage data only and enforces no floor: the floor applies to the
+# combined data of all partial runs, never to one shard. It fails when the
+# selection is empty or the group name is unknown.
+#
 # fail_under is a whole-suite floor: enforced only when no extra pytest
 # arguments are given (what CI runs). Any extra argument adds
 # --cov-fail-under=0 first; pass an explicit --cov-fail-under=N after your
@@ -46,10 +57,47 @@ if [ -z "${COVERAGE_CORE:-}" ]; then
     fi
 fi
 
+group="${SKYPANE_TEST_GROUP:-all}"
+shard="${SKYPANE_TEST_SHARD:-0/1}"
+selection=()
+partial_args=()
+case "${group}" in
+    all) ;;
+    core|browser)
+        if ! [[ "${shard}" =~ ^[0-9]+/[0-9]+$ ]]; then
+            echo "ERROR: SKYPANE_TEST_SHARD must look like INDEX/COUNT, got '${shard}'" >&2
+            exit 2
+        fi
+        while IFS= read -r selected_file; do
+            [ -n "${selected_file}" ] && selection+=("${selected_file}")
+        done < <("${PYTHON}" "${HERE}/ci_shards.py" files "${group}" "${shard%/*}" "${shard#*/}") || exit 2
+        if [ "${#selection[@]}" -eq 0 ]; then
+            echo "ERROR: group '${group}' shard '${shard}' selects no test files" >&2
+            exit 2
+        fi
+        echo "==> Partial run: group ${group}, shard ${shard}, ${#selection[@]} test files; coverage data only, no floor"
+        partial_args=(--cov-fail-under=0 --cov-report=)
+        ;;
+    *)
+        echo "ERROR: SKYPANE_TEST_GROUP must be all, core or browser, got '${group}'" >&2
+        exit 2
+        ;;
+esac
+
+junit_args=()
+if [ -n "${SKYPANE_JUNIT_XML:-}" ]; then
+    junit_args=(--junitxml "${SKYPANE_JUNIT_XML}")
+fi
+
 gate_args=()
 if [ "$#" -gt 0 ]; then
     echo "==> Extra pytest arguments given: coverage gate disabled for this run (full-suite floor)"
     gate_args=(--cov-fail-under=0)
 fi
 
-exec "${PYTHON}" -m pytest -n "${JOBS:-auto}" --cov --cov-report=term-missing:skip-covered --durations=15 ${gate_args[@]+"${gate_args[@]}"} "$@"
+report_args=(--cov-report=term-missing:skip-covered)
+if [ "${#partial_args[@]}" -gt 0 ]; then
+    report_args=()
+fi
+
+exec "${PYTHON}" -m pytest -n "${JOBS:-auto}" --cov ${report_args[@]+"${report_args[@]}"} --durations=15 ${gate_args[@]+"${gate_args[@]}"} ${partial_args[@]+"${partial_args[@]}"} ${junit_args[@]+"${junit_args[@]}"} ${selection[@]+"${selection[@]}"} "$@"

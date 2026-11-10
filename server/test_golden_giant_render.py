@@ -137,21 +137,24 @@ def test_case_matrix_covers_layouts_pairings_states_and_status_screens():
     assert len(names) >= 84
 
 
-def test_every_case_is_legal_and_matches_the_manifest():
+# The cases are listed here without rendering anything (the generator yields
+# closures), so collection stays cheap and each case runs as its own test.
+CASE_PRODUCERS = dict(golden_cases())
+
+
+@pytest.mark.parametrize("name", list(CASE_PRODUCERS))
+def test_every_case_is_legal_and_matches_the_manifest(name):
     manifest = _load_manifest()
     if manifest["pillow_version"] != PIL.__version__:
         pytest.skip(
             "giant golden hashes were recorded with Pillow %s but Pillow %s is installed; "
             "regenerate under the production pin before trusting hashes"
             % (manifest["pillow_version"], PIL.__version__))
-    mismatches = []
-    for name, produce in golden_cases():
-        data = produce()
-        actual = {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
-        if actual != manifest["cases"].get(name):
-            mismatches.append("%s: expected %s, got %s" % (name, manifest["cases"].get(name), actual))
-    assert not mismatches, "giant render changed for %d case(s):\n  %s" % (
-        len(mismatches), "\n  ".join(mismatches))
+    data = CASE_PRODUCERS[name]()
+    actual = {"sha256": hashlib.sha256(data).hexdigest(), "bytes": len(data)}
+    assert actual == manifest["cases"].get(name), (
+        "giant render changed for %s: expected %s, got %s"
+        % (name, manifest["cases"].get(name), actual))
 
 
 def test_legacy_manifest_is_not_a_giant_manifest():

@@ -17,6 +17,28 @@ may take a few days, but issues and pull requests are welcome.
   before opening a pull request; CI runs the same commands. To run a
   subset, use pytest directly:
   `server/.venv/bin/python3 -m pytest <path> -k <expr>`.
+- CI runs these jobs in parallel: static checks (ruff, mypy, guards,
+  shellcheck, systemd scoring, attribution), the non-browser tests in
+  shards, and the browser tests in shards. One aggregate check named
+  `Lint, test, coverage, attribution` needs all of them, combines their
+  coverage data, applies the coverage floor from `pyproject.toml` to the
+  combined result and checks the JUnit totals; it is the check the
+  production `deploy` job waits for. A bare `./scripts/run-all-tests.sh`
+  still runs the whole suite with the coverage gate, as before.
+- To run part of the suite the way a CI shard does, set
+  `SKYPANE_TEST_GROUP` (`core` or `browser`), optionally
+  `SKYPANE_TEST_SHARD=INDEX/COUNT` (0-based) and `SKYPANE_JUNIT_XML=path`.
+  A partial run selects whole test files, writes coverage data only and
+  never enforces the floor. `scripts/ci_shards.py check` fails if any test
+  file would run in no shard.
+- To change how many shards run, edit the matching `shard` list in
+  `.github/workflows/ci.yml` and the `BROWSER_SHARDS` / `CORE_SHARDS`
+  values at the top of that file (the aggregate check fails if they
+  disagree). Shards are balanced from measured per-file times: refresh
+  `scripts/ci_shard_weights.json` with `scripts/ci_shards.py weights
+  <junit files>` (JUnit files come from the artifacts of a CI run).
+  `scripts/ci_run_timing.py jobs <run id>` prints a run's job and step
+  times.
 - Tests must not touch the network — pytest-socket fails any test that
   opens a non-loopback socket. Use the `fake_providers` fixture in place
   of a real ADS-B/adsbdb call, and write only under `tmp_path`.
