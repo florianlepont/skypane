@@ -153,17 +153,22 @@ def test_the_editor_opens_an_airlines_types_on_demand_and_keeps_them_filterable(
     page.locator(group).wait_for(state="attached")
     before = page.evaluate(
         "g => ({rows: document.querySelectorAll('.airlines-subrow').length,"
+        " pending: document.querySelectorAll('tbody[data-types-src]').length,"
         " templates: document.querySelectorAll('template.airlines-types').length,"
         " own: document.querySelector(g).querySelectorAll('.airlines-subrow').length})", group)
-    assert before["rows"] == 0 and before["templates"] > 0 and before["own"] == 0, before
+    assert before["rows"] == 0 and before["templates"] == 0 and before["own"] == 0, before
+    assert before["pending"] > 0, before
+    requested = []
+    page.on("request", lambda request: requested.append(request.url) if "types=" in request.url else None)
     page.locator(group + " .airlines-expand > summary").click()
     page.wait_for_function(
         "g => document.querySelector(g).querySelectorAll('.airlines-subrow').length >= 2", arg=group)
     rows = page.locator(group + " .airlines-subrow")
     rows.first.wait_for(state="visible")
     assert rows.first.locator("th").inner_text().startswith("A320")
-    assert page.locator(group + " template.airlines-types").count() == 0
-    # The filter still finds an airline by the aircraft type held in the template.
+    assert page.locator(group + "[data-types-src]").count() == 0
+    assert len(requested) == 1, requested
+    # The filter still finds an airline by the aircraft types it holds.
     page.locator("[data-filter-input]").fill("b738")
     page.wait_for_function(
         "g => !document.querySelector(g).hidden", arg=group)

@@ -372,15 +372,15 @@ def test_theme_preview_script_tag_exactly_once_and_no_bare_inline_script():
         pytest.fail("expected no inline <script> without a src, found %r" % match.group(0))
 
 
-def test_twenty_four_deferred_scripts_before_closing_body():
+def test_twenty_six_deferred_scripts_before_closing_body():
     """Per-page scripts: a bare page_shell() call emits only
     GLOBAL_PAGE_SCRIPTS' 9 tags before the closing body tag (the splash gate in the head is a
     plain, synchronous script and is not one of them); asking for
     every other SHELL_SCRIPT_ORDER script via `scripts=` still emits all
-    twenty-four together, including panel-lookup.js, flash-cleanup.js, toast.js,
+    twenty-six together, including panel-lookup.js, flash-cleanup.js, toast.js,
     confirm-submit.js, theme-preview.js,
     submit-guard.js, relative-time.js, quick-switch.js,
-    value-controls.js, calendar-connect.js, modal.js, motion.js, session-guard.js, prefetch.js, place-card.js, place-airport-list.js and airline-types.js — and none of submit-guard.js/relative-time.js/
+    value-controls.js, calendar-connect.js, modal.js, motion.js, session-guard.js, prefetch.js, place-card.js, place-search.js, place-start.js, place-airport-list.js and airline-types.js — and none of submit-guard.js/relative-time.js/
     quick-switch.js/value-controls.js on the login shell, which emits no script"""
     bare_doc = layout.page_shell(title="T", active="health", body="<p>b</p>")
     bare_count = bare_doc[:bare_doc.index("</body>")].count(' defer></script>')
@@ -397,7 +397,7 @@ def test_twenty_four_deferred_scripts_before_closing_body():
     body_close = doc.index("</body>")
     head = doc[:body_close]
     count = head.count(' defer></script>')
-    assert count == 24, "expected exactly 24 deferred <script src= tags before </body>, got %d" % count
+    assert count == 26, "expected exactly 26 deferred <script src= tags before </body>, got %d" % count
     for src_const in (
             layout.PANEL_LOOKUP_SCRIPT_SRC, layout.FLASH_CLEANUP_SCRIPT_SRC,
             layout.TOAST_SCRIPT_SRC,

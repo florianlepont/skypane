@@ -1183,32 +1183,19 @@ def _entries_by_slug(ctx, now):
     dirs = [device.state_dir for device in device_scope.current_devices()]
     if ctx.state_dir:
         dirs.append(ctx.state_dir)
-    events = airline_collection.sightings_across(dirs)
-    entries, _summary = airline_collection.collection_from_events(events, now, overrides)
+    entries, _summary = airline_collection.collection_across(dirs, now, overrides)
     return {entry.slug: entry for entry in entries}
 
 
-def render(ctx):
-    """The Airlines editor: page header, the filter bar, then one table with
-    the unidentified prefixes first and one group of rows per airline in
-    `illustrations.target_variants_by_airline()` order plus any injected
-    manual-only airline, the manual resolutions list, the shared lightbox
-    dialog, and the conditional resolve section.
-
-    Reads `state_dir`, `now`, `resolve_prefix` and `manual_resolutions`
-    from the coerced `ctx` by plain attribute access — `render({})` must
-    still render the plain gallery. Opens no database; the filter bar and
-    lightbox render whenever at least one card exists.
-    """
-    # coerce(): test_view_pages.py calls render({}) with a literal empty
-    # dict, and every real caller supplies state_dir.
+def _table_data(ctx):
+    """`(TableData, number of unidentified prefixes beyond the grid)` for
+    the Airlines editor: every input the table and its fragments read."""
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
     # Read once and threaded into every card builder, so the JS path's
     # data-* text and the no-JS path's rendered text come from one value
     # and cannot disagree.
     now = ctx.now
-    resolve_html = _resolve_section_html(ctx)
     pairs = illustrations.target_variants_by_airline()
 
     # Loaded once here and threaded into _gap_rows_for_grid() below, so
@@ -1219,7 +1206,6 @@ def render(ctx):
     manual_rows = _manual_resolution_rows(state_dir, registry)
 
     gap_shown, gap_overflow_count = _gap_rows_for_grid(state_dir, registry)
-    overflow_html = _gap_overflow_html(gap_overflow_count)
 
     # manual_info_by_name maps a card's display name to its own
     # (prefix, superseded, needs_artwork) triple — a superseded row's name
@@ -1252,15 +1238,49 @@ def render(ctx):
     focus_key = (
         ctx.sheet_key if ctx.flash_key in airline_sheet.NAME_REFUSAL_FLASHES else "") or ""
 
-    total = len(gap_shown) + len(pairs)
-    lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
-    filter_html = _filter_bar_html(total) if (pairs or gap_shown) else ""
-    table_data = airline_table.TableData(
+    data = airline_table.TableData(
         pairs=pairs, state_dir=state_dir, now=now, sheets_by_name=sheets_by_name,
         manual_info_by_name=manual_info_by_name, entries_by_slug=_entries_by_slug(ctx, now),
         gap_rows=gap_shown, focus_key=focus_key,
         default_types=airline_default_types.load_default_types(state_dir),
         types_open=ctx.types_open == airline_table.TYPES_ALL)
+    return data, gap_overflow_count
+
+
+def types_fragment(ctx, index):
+    """The aircraft-type rows of the airline group at position `index` of
+    the editor table, as the markup the group holds once opened; empty when
+    there is no such group or it has no rows."""
+    ctx = page_context.coerce(ctx)
+    data, _overflow = _table_data(ctx)
+    if not 0 <= index < len(data.pairs):
+        return ""
+    builtin_name, shapes = data.pairs[index]
+    row = airline_table.row_facts(data, index, builtin_name, shapes)
+    return airline_table.sub_rows_html(row) if row else ""
+
+
+def render(ctx):
+    """The Airlines editor: page header, the filter bar, then one table with
+    the unidentified prefixes first and one group of rows per airline in
+    `illustrations.target_variants_by_airline()` order plus any injected
+    manual-only airline, the manual resolutions list, the shared lightbox
+    dialog, and the conditional resolve section.
+
+    Reads `state_dir`, `now`, `resolve_prefix` and `manual_resolutions`
+    from the coerced `ctx` by plain attribute access — `render({})` must
+    still render the plain gallery. Opens no database; the filter bar and
+    lightbox render whenever at least one card exists.
+    """
+    # coerce(): test_view_pages.py calls render({}) with a literal empty
+    # dict, and every real caller supplies state_dir.
+    ctx = page_context.coerce(ctx)
+    table_data, gap_overflow_count = _table_data(ctx)
+    resolve_html = _resolve_section_html(ctx)
+    overflow_html = _gap_overflow_html(gap_overflow_count)
+    pairs, gap_shown = table_data.pairs, table_data.gap_rows
+    lightbox_html = _lightbox_html() if (pairs or gap_shown) else ""
+    filter_html = _filter_bar_html(len(gap_shown) + len(pairs)) if (pairs or gap_shown) else ""
     table_html = airline_table.table_html(table_data)
     return (
         layout.page_header(i18n.t(AIRLINE_EDITOR_LABEL))

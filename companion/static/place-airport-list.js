@@ -6,7 +6,8 @@
  * airport once. The server renders the rows itself only when a search term
  * narrowed the list, and a short <noscript> list for a browser without
  * scripts. The rows are exactly the ones the server would render: the filter
- * (list-filter.js) reads their data-filter-text. Runs before list-filter.js.
+ * (list-filter.js) reads their data-filter-text each time it runs. Started late
+ * by place-start.js, once the map is up.
  * No network call. ES5-safe subset.
  */
 (function () {
@@ -38,6 +39,19 @@
   var currentIcao = list.getAttribute("data-current") || "";
   var currentLabel = list.getAttribute("data-current-label") || "";
 
+  // Text typed before the rows arrived already narrows them.
+  var typed = document.querySelector("[data-filter-input]");
+  var words = typed && typed.value ? foldText(typed.value).split(" ") : [];
+
+  function matches(text) {
+    for (var w = 0; w < words.length; w++) {
+      if (text.indexOf(words[w]) === -1) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   var fragment = document.createDocumentFragment();
   for (var i = 0; i < rows.length; i++) {
     var row = rows[i];
@@ -51,7 +65,9 @@
 
     var item = document.createElement("li");
     item.className = "place-airport";
-    item.setAttribute("data-filter-text", foldText([name, city, icao, iata].join(" ")));
+    var filterText = foldText([name, city, icao, iata].join(" "));
+    item.setAttribute("data-filter-text", filterText);
+    item.hidden = !matches(filterText);
 
     var link = document.createElement("a");
     link.className = "place-airport__link";

@@ -963,7 +963,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
     for path, heading in (
             ("/fleet", "Fleet"), ("/fleet?view=system", "System"),
             ("/airlines", "Airlines"),
-            ("/airlines/manage", "Airlines"),
+            ("/airlines/manage?types=all", "Airlines"),
             # /history added so the served-HTML twin of the render-level
             # History guard above runs against a real running service,
             # not only an in-process render() call.
@@ -997,7 +997,7 @@ def test_both_tabs_ok_end_to_end(make_app_server):
             assert "data-stale-banner" not in body_text, "expected zero stale-banner markers in the real System view HTTP response body"
             assert health_page.STATS_SECTION_HEADING in body_text
 
-        elif path == "/airlines/manage":
+        elif path == "/airlines/manage?types=all":
             body_text = body.decode("utf-8", errors="replace")
             retired_token = "airline-card__" + "replace"
             assert retired_token not in body_text, "expected zero occurrences of the retired per-card class token in the real /airlines HTTP response body"

@@ -256,6 +256,11 @@ PLACE_MAP_SCRIPT_SRC = "/static/place-map.js"
 # The credits popover and details-card wiring of the same page; runs after
 # the glue and does nothing unless the map started.
 PLACE_CARD_SCRIPT_SRC = "/static/place-card.js"
+# The one gate every address-search request goes through; loaded before the two.
+PLACE_SEARCH_SCRIPT_SRC = "/static/place-search.js"
+# The only map script the Location page links: it starts the others after the
+# first paint (their addresses are data attributes of the map element).
+PLACE_START_SCRIPT_SRC = "/static/place-start.js"
 # Fills the airport list from the map's catalogue; runs before the list filter.
 PLACE_AIRPORT_LIST_SCRIPT_SRC = "/static/place-airport-list.js"
 # Opens an airline's aircraft-type rows in the airline editor.

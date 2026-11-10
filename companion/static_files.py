@@ -27,6 +27,9 @@ _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
 STATIC_DIR = os.path.join(_HERE, "static")
 
 STYLE_ROUTE = "/static/style.css"
+# The page-family stylesheets linked after the core one (see page_styles.py).
+AREA_STYLE_NAMES = ("home", "flights", "airlines", "place", "display", "admin")
+AREA_STYLE_ROUTES = tuple("/static/style-%s.css" % name for name in AREA_STYLE_NAMES)
 # Each *_SCRIPT_ROUTE is the authoritative value a matching
 # *_SCRIPT_SRC constant in companion/layout.py must equal exactly; a
 # test asserts the sync. Most are pre-auth by design (no session data,
@@ -60,6 +63,8 @@ LEAFLET_STYLE_ROUTE = "/static/vendor/leaflet/leaflet.css"
 LEAFLET_LICENSE_ROUTE = "/static/vendor/leaflet/LICENSE"
 PLACE_MAP_SCRIPT_ROUTE = "/static/place-map.js"
 PLACE_CARD_SCRIPT_ROUTE = "/static/place-card.js"
+PLACE_SEARCH_SCRIPT_ROUTE = "/static/place-search.js"
+PLACE_START_SCRIPT_ROUTE = "/static/place-start.js"
 PLACE_AIRPORT_LIST_SCRIPT_ROUTE = "/static/place-airport-list.js"
 AIRLINE_TYPES_SCRIPT_ROUTE = "/static/airline-types.js"
 # Brand icons. Browsers fetch these before any session exists (the login page
@@ -68,6 +73,8 @@ FAVICON_ROUTE = "/static/favicon.svg"
 APPLE_TOUCH_ICON_ROUTE = "/static/apple-touch-icon.png"
 
 _STYLE_CSS_PATH = os.path.join(STATIC_DIR, "style.css")
+_CSS_PATHS = frozenset(
+    [_STYLE_CSS_PATH] + [os.path.join(STATIC_DIR, "style-%s.css" % n) for n in AREA_STYLE_NAMES])
 _BATTERY_TREND_JS_PATH = os.path.join(STATIC_DIR, "battery-trend.js")
 _NAV_DROPDOWN_JS_PATH = os.path.join(STATIC_DIR, "nav-dropdown.js")
 _DIRTY_STATE_JS_PATH = os.path.join(STATIC_DIR, "dirty-state.js")
@@ -96,6 +103,8 @@ _LEAFLET_CSS_PATH = os.path.join(_LEAFLET_DIR, "leaflet.css")
 _LEAFLET_LICENSE_PATH = os.path.join(_LEAFLET_DIR, "LICENSE")
 _PLACE_MAP_JS_PATH = os.path.join(STATIC_DIR, "place-map.js")
 _PLACE_CARD_JS_PATH = os.path.join(STATIC_DIR, "place-card.js")
+_PLACE_SEARCH_JS_PATH = os.path.join(STATIC_DIR, "place-search.js")
+_PLACE_START_JS_PATH = os.path.join(STATIC_DIR, "place-start.js")
 _PLACE_AIRPORT_LIST_JS_PATH = os.path.join(STATIC_DIR, "place-airport-list.js")
 _AIRLINE_TYPES_JS_PATH = os.path.join(STATIC_DIR, "airline-types.js")
 _FAVICON_PATH = os.path.join(STATIC_DIR, "favicon.svg")
@@ -126,6 +135,9 @@ StaticAsset = collections.namedtuple("StaticAsset", "path content_type cache_con
 # the module docstring.
 STATIC_ROUTES = {
     STYLE_ROUTE: StaticAsset(_STYLE_CSS_PATH, "text/css", _PUBLIC_NO_CACHE),
+    **{route: StaticAsset(
+        os.path.join(STATIC_DIR, route.rsplit("/", 1)[1]), "text/css", _PUBLIC_NO_CACHE)
+       for route in AREA_STYLE_ROUTES},
     # text/javascript is the sole current-standard MIME type for
     # JavaScript per RFC 9239 (2022), which obsoletes RFC 4329's older
     # application/-prefixed form - deliberately not used here.
@@ -156,6 +168,10 @@ STATIC_ROUTES = {
     LEAFLET_LICENSE_ROUTE: StaticAsset(_LEAFLET_LICENSE_PATH, "text/plain", _PUBLIC_NO_CACHE),
     PLACE_MAP_SCRIPT_ROUTE: StaticAsset(_PLACE_MAP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     PLACE_CARD_SCRIPT_ROUTE: StaticAsset(_PLACE_CARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    PLACE_SEARCH_SCRIPT_ROUTE: StaticAsset(
+        _PLACE_SEARCH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    PLACE_START_SCRIPT_ROUTE: StaticAsset(
+        _PLACE_START_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     PLACE_AIRPORT_LIST_SCRIPT_ROUTE: StaticAsset(
         _PLACE_AIRPORT_LIST_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     AIRLINE_TYPES_SCRIPT_ROUTE: StaticAsset(
@@ -242,7 +258,7 @@ def static_entry(abs_path):
     if entry is not None:
         return entry
     payload = read_static_bytes(abs_path)
-    if abs_path == _STYLE_CSS_PATH:
+    if abs_path in _CSS_PATHS:
         payload = minify_css(payload)
     elif abs_path.endswith(".js") and os.path.dirname(abs_path) == STATIC_DIR:
         payload = js_minify.minify_js(payload)
@@ -289,3 +305,36 @@ def not_modified(headers, etag, mtime_s):
         return mtime_s <= email.utils.parsedate_to_datetime(ims).timestamp()
     except (TypeError, ValueError, OverflowError, IndexError):
         return False
+
+
+# File extensions a browser, crawler or scanner asks for on its own
+# (favicon, manifest, source maps, images): an unknown one is answered
+# without a page.
+_ASSET_EXTENSIONS = frozenset((
+    ".ico", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".js", ".mjs", ".css",
+    ".map", ".json", ".txt", ".xml", ".webmanifest", ".woff", ".woff2", ".ttf"))
+ASSET_NOT_FOUND_MAX_AGE_S = 300
+
+
+def looks_like_asset(path):
+    """Whether `path` names a file a browser or scanner asks for on its own:
+    a known asset extension on a path under /static/ or on a single-segment
+    path (/favicon.ico, /robots.txt). Two-segment and device-scoped file
+    routes (/illustration/x.png, /devices/<id>/runway-image/x.png) are
+    excluded: a refused one answers the page 404, and an absent one must
+    not be told apart from it."""
+    if not (path.startswith("/static/") or path.count("/") == 1):
+        return False
+    last = path.rsplit("/", 1)[-1]
+    dot = last.rfind(".")
+    return dot > 0 and last[dot:].lower() in _ASSET_EXTENSIONS
+
+
+def send_asset_not_found(handler):
+    """An empty 404 that may be cached briefly, for an asset-like path that
+    matches no route."""
+    handler.send_response(404)
+    handler.send_header("Content-Length", "0")
+    handler.send_header("Cache-Control", "public, max-age=%d" % ASSET_NOT_FOUND_MAX_AGE_S)
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.end_headers()

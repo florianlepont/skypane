@@ -1,0 +1,1651 @@
+
+
+.runway-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+/* Links on this page are 44px tall: inline-flex so the box, not the text
+ * line, is the hit target. */
+.detection-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* Runway cards: the .runway-row flex row becomes a grid here, since an
+ * airport can list many runways and flex would crush them on a phone. */
+.detection-runways {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-sm);
+}
+
+@media (min-width: 600px) {
+  .detection-runways {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }}
+
+.detection-runways .runway-card__detail {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The airport Search button must be type="submit" for the no-script GET,
+ * which would paint it with the primary accent fill; this quiet override
+ * (equal specificity to button[type="submit"], placed after it) keeps the
+ * accent for the page's Save. min-height outranks the 30px and 36px
+ * button heights at every width. */
+button.detection-search {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
+  box-shadow: none;
+  color: var(--color-text);
+  min-height: 44px;
+}
+
+button.detection-search:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  border-color: color-mix(in srgb, var(--color-text) 14%, transparent);
+  box-shadow: none;
+}
+
+/* Location and detection page. Without the map script it is one column in
+ * the order the markup has: the panel (the mode switch, the runway choice or
+ * the radius, the airport list, the fields, Save). With the map running
+ * (html.map-ready) the map fills the page and everything else floats on it:
+ * the one search field at the top, then on a phone the mode chips and a
+ * compact bottom sheet, from 960px a card at the left holding the mode
+ * switch and the sheet. The part of the map the script keeps clear when it
+ * centres a place is the sheet (the card on a wide screen). */
+.place-page {
+  margin-bottom: var(--space-lg);
+}
+
+.place-stage {
+  display: grid;
+  gap: var(--space-md);
+}
+
+.place-stage > * {
+  min-width: 0;
+}
+
+.place-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.place-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.place-search__row button {
+  white-space: nowrap;
+}
+
+.map-ready .place-fallback {
+  display: none;
+}
+
+.place-mode {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  font-family: var(--font-ui);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.place-mode__text {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  text-align: center;
+}
+
+/* The icons belong to the map layout; the plain form needs the room. */
+html:not(.map-ready) .place-mode__text .icon {
+  display: none;
+}
+
+.place-mode:has(input:checked) {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  box-shadow: var(--shadow-control);
+}
+
+.place-mode:has(input:focus-visible) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.place-search__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.place-search__row input[type="search"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.place-locate {
+  --js-gate-display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* The chosen mode decides which block the sheet shows. */
+.place-stage:has(#place-mode-area:checked) .place-panel__runway,
+.place-stage:not(:has(#place-mode-area:checked)) .place-panel__area {
+  display: none;
+}
+
+/* The runway cards sit three to a row, as compact as the sheet needs. */
+.place-sheet .detection-runways {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.place-sheet .runway-card {
+  position: relative;
+  padding: var(--space-sm);
+  padding-top: var(--space-md);
+  text-align: center;
+}
+
+.place-sheet .runway-card .runway-card__detail {
+  text-align: center;
+}
+
+/* The length and the surface stack on two lines, each kept whole, so no
+ * separator is left dangling at a line end. */
+.place-sheet .runway-card .runway-card__length,
+.place-sheet .runway-card .runway-card__surface {
+  display: block;
+  white-space: nowrap;
+}
+
+.place-sheet .runway-card .runway-card__sep {
+  display: none;
+}
+
+/* The airport's name and codes keep a clear gap above the runway heading. */
+.place-sheet #runway-group-heading {
+  margin-top: var(--space-md);
+  font-family: var(--font-ui);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The selected mark straddles the card's top-right corner, so it never sits
+ * over the designator or the length centred in the card. */
+.place-sheet .runway-card .runway-card__check {
+  top: -8px;
+  right: -6px;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--color-accent);
+  border-radius: 50%;
+  background: var(--glass-solid);
+  color: var(--color-accent);
+}
+
+.place-sheet .runway-card .banner__pill {
+  display: block;
+  width: fit-content;
+  margin: var(--space-xs) auto 0;
+}
+
+/* The "Current" badge straddles the card's top edge at the right corner, so
+ * it never sits over the designator in the middle of the card. */
+.place-sheet .runway-card--selected:not(:has(input:checked))::after {
+  top: -9px;
+  right: var(--space-sm);
+  padding: 0 var(--space-sm);
+  line-height: 18px;
+  border-radius: var(--radius-pill);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
+.place-panel__follow {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.place-details__close {
+  align-items: center;
+  min-height: 44px;
+  margin-top: var(--space-sm);
+}
+
+/* The map is running: it fills the stage and everything else floats on it. */
+.map-ready .place-page {
+  margin: 0;
+}
+
+.map-ready .place-stage {
+  position: relative;
+  display: block;
+  flex: 1 1 auto;
+  min-height: 24rem;
+  /* Clipped, never a scroll container: the map is fixed to the window, and a
+   * scroll container would be scrolled when a control of the map takes focus. */
+  overflow: clip;
+  background: var(--color-secondary);
+  --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  /* The one inner padding of the sheet and its rows (20px). */
+  --place-pad: calc(var(--space-md) + var(--space-xs));
+  /* What the floating tab bar covers at the foot of the page (nothing on a
+   * wide screen) and the height of the docked Save bar. */
+  --place-clear: 0px;
+  --place-bar-h: var(--save-bar-h);
+  /* The map runs under the app bar; everything that floats starts below it. */
+  --place-top: calc(52px + var(--safe-top));
+  --place-search-bottom: calc(var(--place-top) + var(--place-gutter) + 54px);
+}
+
+/* The map fills the whole window: it runs behind the glass sidebar and the
+ * glass tab bar as well as behind the app bar. */
+html.map-ready,
+html.js-early:has(.place-stage) {
+  /* The page behind the map is the map's own placeholder colour, so no pale
+   * band can show above or below it, and the page never rubber-bands. */
+  background-color: var(--color-secondary);
+  background-image: none;
+  overscroll-behavior: none;
+}
+
+.map-ready .place-map {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  /* Clipped rather than hidden: a hidden box can be scrolled when one of its
+   * controls takes focus, which would slide the zoom buttons away. */
+  overflow: clip;
+  width: auto;
+  height: auto;
+  /* The largest viewport: the map also runs under the browser's toolbars,
+   * which a fixed box sized to the smallest viewport leaves uncovered. */
+  min-height: 100lvh;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-map-ground);
+}
+
+/* The one search field floats at the top of the map. Its label is for
+ * assistive technology only. */
+.map-ready .place-float {
+  position: absolute;
+  z-index: 3;
+  top: calc(var(--place-top) + var(--place-gutter));
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+}
+
+.map-ready .place-search__row {
+  padding: var(--space-xs) var(--space-xs) var(--space-xs) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-search__row input[type="search"] {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* One ring, on the pill that holds the field and its button, not a second one
+ * inside it; the clear glyph takes the same ink as the search button. */
+.map-ready .place-search__row:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.map-ready .place-search__row input[type="search"]:focus-visible {
+  outline: none;
+}
+
+.map-ready .place-search__row input[type="search"]::-webkit-search-cancel-button {
+  filter: grayscale(1);
+}
+
+.map-ready .place-search__go {
+  flex: none;
+  width: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-ready .place-search__go .icon {
+  display: block;
+}
+
+.map-ready .place-search label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The privacy line floats under the empty search field while it has focus,
+ * out of the flow so nothing moves when the field loses focus; as soon as
+ * something is typed it gives way, so it never sits over the suggestions. */
+.map-ready .place-search {
+  position: relative;
+}
+
+.map-ready .place-search .section-caption {
+  display: none;
+}
+
+.map-ready .place-results:has(.place-results__note) {
+  pointer-events: none;
+}
+
+.map-ready .place-search:focus-within:has(input:placeholder-shown) .section-caption {
+  display: block;
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  left: 0;
+  right: 0;
+  z-index: 3;
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-float:has(.place-results:not([hidden])) .place-search .section-caption {
+  display: none;
+}
+
+/* The suggestion list opens right under the field, over the mode chips: a
+ * glass panel of 52 px rows. A one-line note lets taps through. */
+.map-ready .place-results {
+  margin: var(--space-xs) 0 0;
+  max-height: 40dvh;
+  overflow-y: auto;
+  padding: 0;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.map-ready .place-results__note {
+  padding: var(--space-sm) var(--space-md);
+}
+
+/* The overlay carries the card, the credits button and the locate button
+ * above the map. It lets taps through; its parts take them. */
+.map-ready .place-panel {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  gap: 0;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  padding-top: calc(var(--place-search-bottom) + var(--space-sm));
+  padding-bottom: var(--place-clear);
+  pointer-events: none;
+}
+
+.map-ready .place-panel > *,
+.map-ready .place-card > * {
+  pointer-events: auto;
+}
+
+.map-ready .place-card {
+  display: contents;
+}
+
+.map-ready .place-mode {
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-pill);
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.map-ready .place-mode:has(input:checked) {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.map-ready .place-info__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-dominant) 88%, transparent);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  color: color-mix(in srgb, var(--color-text) 80%, transparent);
+}
+
+.map-ready .place-credits {
+  position: absolute;
+  z-index: 4;
+  top: calc(100% + var(--space-sm));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  width: min(20rem, calc(100vw - 2 * var(--place-gutter)));
+  box-sizing: border-box;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+
+.map-ready .place-credits[hidden] {
+  display: none;
+}
+
+.map-ready .place-credits p {
+  margin: 0;
+}
+
+.map-ready .place-credits a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.map-ready .place-credits__attribution {
+  font-weight: var(--weight-semibold);
+}
+
+.map-ready .place-message[hidden] {
+  display: none;
+}
+
+/* The sheet: a compact bottom sheet that never covers more than about 28% of
+ * the viewport; it scrolls inside when it must. */
+.map-ready .place-sheet {
+  grid-column: 1 / -1;
+  grid-row: 3;
+  box-sizing: border-box;
+  max-height: 28dvh;
+  overflow-y: auto;
+  gap: var(--space-sm);
+  margin: 0 var(--place-gutter) var(--space-sm);
+  padding: var(--space-md) var(--place-pad);
+  background: var(--glass-solid);
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-glass);
+  pointer-events: auto;
+}
+
+.map-ready .place-hint,
+.map-ready .place-picker,
+.map-ready .place-radius > .section-caption,
+.map-ready .place-panel__area .place-subtitle {
+  display: none;
+}
+
+/* The airport header: the name on its own line, its codes and municipality
+ * under it. Both wrap rather than ellipsize, so nothing is cut off. */
+.map-ready .place-sheet .place-chosen p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-sm);
+  margin: 0;
+  min-width: 0;
+}
+
+.map-ready .place-sheet .place-chosen__name {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-display);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.map-ready .place-sheet .place-chosen .section-caption {
+  flex: 1 1 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* The pin's readout: its coordinates, and what a tap does. */
+.place-pos {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+html:not(.map-ready) .place-pos {
+  display: none;
+}
+
+.place-pos__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-dominant);
+}
+
+.place-pos__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+.place-pos__coords {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-pos__coords[hidden],
+.place-pos__hint[hidden] {
+  display: none;
+}
+
+/* The detection radius: its label with the number on one line, the slider
+ * under them and the scale under the slider. */
+.map-ready .place-sheet .place-radius {
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.map-ready .place-sheet .place-radius label {
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.place-tap-hint[hidden],
+html:not(.map-ready) .place-tap-hint {
+  display: none;
+}
+
+/* The page title is the page's heading for assistive technology only: the
+ * map carries the page. The flash banner stays in the flow. */
+.map-ready .page-header {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The details (coordinates, label, time zone) are a card over the map,
+ * shown when the Quiet hours link targets them or a save was refused. */
+.map-ready .place-details {
+  display: none;
+}
+
+.map-ready .place-details:target,
+.map-ready .place-details:has([aria-invalid="true"]) {
+  display: block;
+  position: absolute;
+  z-index: 5;
+  top: calc(var(--place-top) + var(--place-gutter));
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  max-height: calc(
+    100% - var(--place-top) - 28dvh - var(--place-clear) - var(--place-bar-h)
+    - 4 * var(--space-sm) - 2 * var(--place-gutter));
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+  pointer-events: auto;
+}
+
+.map-ready .place-details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-weight: var(--weight-semibold);
+  list-style: none;
+  pointer-events: none;
+}
+
+.map-ready .place-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+/* The page fills the whole window: on a phone the tab bar floats over its
+ * foot, from 960px the sidebar floats over its left edge. The page's own
+ * padding goes. */
+.map-ready .page-content:has(.place-stage) {
+  display: flex;
+  flex-direction: column;
+  max-width: none;
+  height: 100dvh;
+  padding: 0;
+}
+
+.map-ready .page-content:has(.place-stage) > * {
+  flex: none;
+}
+
+.map-ready .page-content:has(.place-stage) > .place-page {
+  display: flex;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* The app bar floats over the map (the map runs under the status bar and the
+ * bar). A soft fade of the canvas colour behind it keeps the logo and the
+ * frame button readable without a hard bar; it starts a few pixels below the
+ * screen edge so that no dark surface touches the edge a browser samples its
+ * bar colour from. */
+.map-ready .site-header:has(~ .page-content .place-stage) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  margin-bottom: 0;
+}
+
+.map-ready .site-header:has(~ .page-content .place-stage)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: var(--space-xs);
+  left: 0;
+  right: 0;
+  height: calc(100% + 20px);
+  background: linear-gradient(
+    to bottom, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent);
+  pointer-events: none;
+}
+
+/* No zoom buttons on a phone (pinch zooms); the keyboard and the wide screen
+ * have them. The runway choice is one row of compact chips: the runway name,
+ * the legacy number below it, the length and surface only in the tooltip
+ * and for assistive technology. More than three runways scroll sideways. */
+@media (max-width: 959.98px) {
+  .map-ready .place-sheet .detection-runways {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: calc((100% - 2 * var(--space-sm)) / 3);
+    overflow: auto hidden;
+    scroll-snap-type: x proximity;
+    padding: var(--space-sm) var(--space-xs) 0 0;
+  }
+
+  .map-ready .place-sheet .runway-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    min-height: 46px;
+    padding: 7px var(--space-sm) 1px;
+    scroll-snap-align: start;
+  }
+
+  .map-ready .place-sheet .runway-card .runway-card__number {
+    line-height: 1.1;
+  }
+
+  /* The "Current" badge is a smaller tab on the chip's top edge. */
+  .map-ready .place-sheet .runway-card--selected:not(:has(input:checked))::after {
+    top: -8px;
+    line-height: 14px;
+  }
+
+  .map-ready .place-sheet .runway-card .runway-card__detail {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .map-ready .place-sheet .runway-card .banner__pill {
+    height: 18px;
+    margin: 0;
+  }
+
+  /* The chips are separate pills over the map: no box behind the pair. */
+  .map-ready .place-stage .place-modes {
+    background: none;
+    border-color: transparent;
+  }
+
+  .map-ready .place-sheet .runway-card .runway-card__check {
+    top: -8px;
+    right: calc(-1 * var(--space-xs));
+  }
+
+  .map-ready .place-sheet #runway-group-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  /* The phone has the tab bar below the page: it floats over the map, and
+   * the sheet and the Save bar sit above it. */
+  .map-ready .place-stage {
+    --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+    /* The room the unsaved-changes actions take at the right of the card's
+     * first row (Cancel and Save in the longer French wording). */
+    --place-actions-w: 182px;
+    /* Not clipped here or by the page container: the map reaches above the
+     * page's top edge by the top inset and is taller than the stage. */
+    overflow: visible;
+  }
+
+  /* The map is document content, not a fixed layer: browsers draw in-flow
+   * content under their translucent bars, but not always a fixed box. The
+   * page container is exactly the largest viewport tall (so the document
+   * never scrolls further than the map), clips what overflows, and shows the
+   * tile ground colour behind everything. The stage keeps the dynamic
+   * viewport's height, so the search, the offer, the sheet and the floating
+   * tab bar sit where they always did, while the map runs on below the stage
+   * to the physical bottom edge. */
+  .map-ready body,
+  html.js-early:not(.map-ready) body:has(.place-stage) {
+    background-color: var(--color-map-ground);
+  }
+
+  .map-ready .page-content:has(.place-stage),
+  html.js-early:not(.map-ready) .page-content:has(.place-stage) {
+    position: relative;
+    box-sizing: border-box;
+    height: 100lvh;
+    padding: 0;
+    overflow: visible;
+  }
+
+  /* The page fills the dynamic viewport, less whatever sits above it in the
+   * flow (a warning), so the card and its actions stay on screen. */
+  .map-ready .page-content:has(.place-stage) > .place-page {
+    max-height: 100dvh;
+  }
+
+  /* The map starts above the page's own top edge by the top safe-area inset:
+   * in a browser tab the document begins below the status bar, and a map
+   * that starts at the document top would leave a pale band under it. The
+   * box and the stage are not clipped, so the extra height is painted. */
+  .map-ready .place-map {
+    position: absolute;
+    inset: calc(-1 * var(--safe-top)) 0 auto;
+    height: calc(100lvh + var(--safe-top));
+    min-height: 0;
+  }
+
+  /* The sheet is one compact card: its first row is the airport (or the
+   * pin readout) with Cancel and Save at the right while something is
+   * unsaved, its second row the runway chips (or the radius). The shared Save
+   * bar is a child of the panel, drawn over the top-right corner of the
+   * sheet so that no separate strip covers the map. */
+  .map-ready .place-sheet {
+    padding: var(--space-sm) var(--space-md);
+    gap: var(--space-sm);
+  }
+
+  .map-ready .place-panel > .dirty-bar {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: end;
+    align-self: start;
+    margin: var(--space-sm) calc(var(--place-gutter) + var(--space-md)) 0 0;
+  }
+
+  .map-ready .place-sheet .place-chosen {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet .place-chosen,
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-pos {
+    padding-right: calc(var(--place-actions-w) + var(--space-sm));
+  }
+
+  .map-ready .place-sheet .place-chosen p {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .map-ready .place-sheet .place-chosen__name {
+    flex: none;
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-ready .place-sheet .place-chosen .section-caption {
+    flex: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-ready .place-sheet .place-chosen__town {
+    display: none;
+  }
+
+  .map-ready .place-pos {
+    gap: 0;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+  }
+
+  .map-ready .place-pos__icon,
+  .map-ready .place-pos__hint,
+  .map-ready .place-radius__scale {
+    display: none;
+  }
+
+  .map-ready .place-sheet .place-radius {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--space-md);
+  }
+
+  .map-ready .place-sheet .place-radius > * {
+    grid-column: 1 / -1;
+  }
+
+  .map-ready .place-sheet .place-radius__head {
+    display: contents;
+  }
+
+  .map-ready .place-sheet .place-radius__head > label {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .map-ready .place-sheet .place-radius__range {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .map-ready .place-sheet .place-radius__head > input[type="number"] {
+    grid-column: 3;
+    grid-row: 1;
+    flex: none;
+    width: 4.5rem;
+  }
+
+  .map-ready .place-map .leaflet-control-zoom {
+    display: none;
+  }}
+
+/* On a small phone the nearest-airport offer is one 44px line over the map,
+ * above the bottom buttons (the script moves it into the tools row): the
+ * follow button alone, the sentence stays for screen readers. In the sheet it
+ * lifted the sheet over the pin the visitor had just dropped. */
+@media (max-width: 699.98px) {
+  .map-ready .place-tools {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .map-ready .place-tools .place-nearest {
+    flex: 1 0 100%;
+    align-items: center;
+    padding: 0;
+    border: 0;
+    background: none;
+    pointer-events: none;
+  }
+
+  .map-ready .place-tools .place-nearest__button {
+    background: var(--glass-solid);
+    box-shadow: var(--shadow-glass);
+    pointer-events: auto;
+  }
+
+  .map-ready .place-nearest__icon {
+    display: none;
+  }
+
+  .map-ready .place-nearest__body {
+    align-items: flex-end;
+    gap: 0;
+  }
+
+  .map-ready .place-nearest__text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .map-ready .place-nearest__button {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }}
+@media (min-width: 960px) {
+  /* The shell's column gap is taken back so the map meets the sidebar. */
+  .map-ready .page-content:has(.place-stage) {
+    width: calc(100% + var(--space-xl));
+    margin: 0 0 0 calc(-1 * var(--space-xl));
+  }
+
+  .map-ready .site-header:has(~ .page-content .place-stage) {
+    position: relative;
+    left: auto;
+    right: auto;
+  }
+
+  /* Only the frame button sits over the map here, and it carries its own
+   * opaque surface: no fade behind it (a dark glow smudged the light tiles). */
+  .map-ready .site-header:has(~ .page-content .place-stage)::before {
+    content: none;
+  }
+
+  .map-ready .place-stage {
+    min-height: 34rem;
+    --place-card-w: 400px;
+    --place-top: 0px;
+    --place-search-bottom: calc(var(--space-md) + 54px);
+  }
+
+  .map-ready .place-float {
+    right: auto;
+    top: var(--space-md);
+    left: var(--space-md);
+    width: var(--place-card-w);
+  }
+
+  .map-ready .place-panel {
+    grid-template-columns: calc(var(--place-card-w) + 2 * var(--space-md)) minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto;
+  }
+
+  /* The mode switch and the sheet are one card at the left. */
+  .map-ready .place-card {
+    display: flex;
+    flex-direction: column;
+    grid-column: 1;
+    grid-row: 1;
+    gap: var(--space-md);
+    padding: var(--place-pad);
+    box-sizing: border-box;
+    margin: 0 var(--space-md);
+    max-height: calc(
+      100dvh - var(--place-search-bottom) - 3 * var(--space-md) - var(--place-bar-h));
+    overflow-y: auto;
+    pointer-events: auto;
+    background: var(--glass-solid);
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  .map-ready .place-mode {
+    border-radius: var(--radius-control);
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .map-ready .place-mode:has(input:checked) {
+    border-radius: var(--radius-control);
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    box-shadow: var(--shadow-control);
+  }
+
+  .map-ready .place-sheet {
+    max-height: none;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+    gap: var(--space-md);
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  /* The sidebar is frosted glass over the map. */
+  .map-ready .dashboard-sidebar {
+    z-index: 6;
+    background: var(--bar-bg);
+    background-image: var(--bar-sheen);
+    border-color: var(--bar-border);
+    -webkit-backdrop-filter: blur(26px) saturate(200%);
+    backdrop-filter: blur(26px) saturate(200%);
+  }
+
+  .map-ready .place-info {
+    grid-column: 2;
+    grid-row: 3;
+    justify-self: end;
+    margin: 0 var(--space-md) var(--space-sm) 0;
+  }
+
+  .map-ready .place-credits {
+    top: auto;
+    bottom: calc(100% + var(--space-sm));
+  }
+
+  .map-ready .place-tools {
+    grid-column: 2;
+    grid-row: 4;
+    margin: 0 var(--space-md) var(--space-md) 0;
+  }
+
+  /* The bar spans the foot of the column: the map's own controls ride above it. */
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-tools {
+    margin-bottom: calc(var(--space-lg) + var(--save-bar-h) + var(--space-sm));
+  }
+
+  .map-ready .place-sheet .place-chosen__name {
+    font-size: var(--font-heading-size);
+  }
+
+  .map-ready .place-details:target,
+  .map-ready .place-details:has([aria-invalid="true"]) {
+    left: calc(var(--place-card-w) + 3 * var(--space-md));
+    right: auto;
+    width: min(28rem, calc(100% - var(--place-card-w) - 4 * var(--space-md)));
+    top: var(--space-md);
+    max-height: calc(100% - 2 * var(--space-md));
+  }}
+
+.place-map__notice[hidden] {
+  display: none;
+}
+
+.place-loading[hidden] {
+  display: none;
+}
+
+/* The Location page's loading state. With scripts on (the head script puts
+ * js-early on <html> before the first paint) the plain form never shows: the
+ * shapes of the search field, the mode chips and the sheet shimmer on the
+ * page's backdrop colour under a thin progress bar and the loading note, until
+ * the map script reports it runs (map-ready). Without scripts nothing of it
+ * shows. Every animation here is finite. */
+.place-boot {
+  display: none;
+}
+
+html.js-early:not(.map-ready) .place-boot {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -1;
+  height: 100%;
+  min-height: 100lvh;
+  background: var(--color-secondary);
+  --place-gutter: calc(var(--space-sm) + var(--space-xs));
+  --place-top: calc(52px + var(--safe-top));
+  --place-boot-search-h: 54px;
+  --place-boot-bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
+}
+
+html.js-early:not(.map-ready) .place-stage > :not(.place-boot),
+html.js-early:not(.map-ready):has(.place-stage) .page-header {
+  display: none;
+}
+
+/* On a phone the placeholder is document content too, in the tile ground
+ * colour: the page container below it is the largest viewport tall. */
+@media (max-width: 959.98px) {
+  html.js-early:not(.map-ready) .place-boot {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 0;
+    height: 100lvh;
+    background: var(--color-map-ground);
+  }
+
+  /* The app bar floats over the placeholder as it floats over the map. */
+  html.js-early:not(.map-ready) .site-header:has(~ .page-content .place-stage) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-bottom: 0;
+  }}
+
+.place-runways {
+  display: contents;
+}
+
+.place-boot .place-boot__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--color-text) 10%, transparent);
+}
+
+html.js-early:not(.map-ready) .place-boot .place-boot__fill {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--color-accent);
+  transform: scaleX(0.04);
+  transform-origin: left center;
+  animation: skypane-boot-progress var(--motion-slow) cubic-bezier(0.1, 0.6, 0.3, 1) 1 forwards;
+}
+
+.place-boot .place-boot__search {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  top: calc(var(--place-top) + var(--place-gutter));
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  height: var(--place-boot-search-h);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.place-boot .place-boot__chip {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  top: calc(var(--place-top) + var(--place-gutter) + var(--place-boot-search-h) + var(--space-sm));
+  left: var(--place-gutter);
+  width: 8.5rem;
+  height: 44px;
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.place-boot .place-boot__chip + .place-boot__chip {
+  left: calc(var(--place-gutter) + 8.5rem + var(--space-sm));
+  width: 7rem;
+}
+
+.place-boot .place-boot__sheet {
+  position: absolute;
+  box-sizing: border-box;
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  left: var(--place-gutter);
+  right: var(--place-gutter);
+  bottom: var(--place-boot-bottom);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  height: 9.5rem;
+  padding: var(--space-md) calc(var(--space-md) + var(--space-xs));
+  border-radius: var(--radius-sheet);
+  box-shadow: var(--shadow-glass);
+}
+
+.place-boot .place-boot__line {
+  display: block;
+  flex: none;
+  width: 100%;
+  height: 52px;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+}
+
+.place-boot .place-boot__line--short {
+  width: 55%;
+  height: 24px;
+}
+
+.place-boot .place-boot__line--thin {
+  height: 12px;
+}
+
+@media (min-width: 960px) {
+  /* The loading state keeps the sidebar's column clear and shows the card's
+   * shape at the left of the map. */
+  html.js-early:not(.map-ready) .place-boot {
+    --place-boot-left: calc(240px + 2 * var(--space-md));
+    --place-boot-card-w: 400px;
+  }
+
+  .place-boot .place-boot__search {
+    top: var(--space-md);
+    left: var(--place-boot-left);
+    right: auto;
+    width: var(--place-boot-card-w);
+  }
+
+  .place-boot .place-boot__chip {
+    display: none;
+  }
+
+  .place-boot .place-boot__note {
+    left: calc(50% + (240px + var(--space-md)) / 2);
+  }
+
+  .place-boot .place-boot__sheet {
+    top: calc(2 * var(--space-md) + var(--place-boot-search-h));
+    bottom: auto;
+    left: var(--place-boot-left);
+    right: auto;
+    width: var(--place-boot-card-w);
+    height: auto;
+    gap: var(--space-md);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card-hover);
+  }}
+
+/* The pin: the sprite glyph in the accent colour, tip at the bottom of its
+ * 44 px hit box. */
+.place-pin {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  color: var(--color-accent);
+}
+
+.place-pin__glyph {
+  width: 36px;
+  height: 36px;
+}
+
+.place-circle {
+  stroke: var(--color-accent);
+  stroke-width: 2px;
+  fill: var(--color-accent);
+  fill-opacity: 0.12;
+}
+
+/* An airport pin: a small round mark inside a 44 px invisible hit box, with
+ * its IATA code beside it from zoom 6, on hover, and always for the airport
+ * the setting follows (bigger, in the accent). */
+.place-dot {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+}
+
+/* The mark is positioned and blockified on purpose: left inline (the library's
+ * marker rule overrides the hit box's display) its size is ignored and only a
+ * sliver of its border is drawn. */
+.place-dot__mark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--color-dominant);
+  background: color-mix(in srgb, var(--color-text) 75%, transparent);
+  box-shadow: var(--shadow-control);
+}
+
+.place-dot__label {
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 11px);
+  transform: translateY(-50%);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--color-text);
+  /* A solid chip, not a halo: the map tiles stay light in the dark theme, so
+   * the label carries its own surface to keep 4.5:1 on any tile. */
+  padding: 3px var(--space-xs);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-chip);
+  pointer-events: none;
+}
+
+.place-map--bare .place-dot:not(.place-dot--selected):not(:hover) .place-dot__label {
+  display: none;
+}
+
+/* Hidden but still measured, so the label returns as soon as it clears the
+ * card or control it met. */
+.place-dot__label.place-dot__label--covered {
+  visibility: hidden;
+}
+
+.place-dot--selected .place-dot__mark {
+  width: 22px;
+  height: 22px;
+  background: var(--color-accent);
+}
+
+.place-dot--selected .place-dot__label {
+  left: calc(50% + 15px);
+}
+
+/* A numbered bubble standing for the airports inside one grid cell; the
+ * mark is positioned and sized in even pixels so it sits on whole pixels. */
+.place-cluster {
+  position: relative;
+  background: transparent;
+  border: 0;
+}
+
+.place-cluster__count {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  margin: -18px 0 0 -18px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 2px solid var(--color-dominant);
+  background: var(--color-text);
+  color: var(--color-dominant);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1;
+  box-shadow: var(--shadow-control);
+}
+
+/* The way back to the whole of France, a pill over the map. */
+.place-france {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font: inherit;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  box-shadow: var(--shadow-card-hover);
+  cursor: pointer;
+  pointer-events: auto;
+  --js-gate-display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+}
+
+.js .place-locate[hidden],
+.place-results[hidden],
+.place-nearest[hidden] {
+  display: none;
+}
+
+.place-results {
+  margin-bottom: var(--space-md);
+}
+
+button.place-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-xs);
+  width: 100%;
+  height: auto;
+  min-height: 52px;
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--font-body-size);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--color-text);
+  text-align: left;
+}
+
+button.place-result:hover {
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+  box-shadow: none;
+}
+
+button.place-result.is-active {
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+  box-shadow: none;
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.place-result__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-result__rest {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.place-nearest {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 14%, transparent);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent) 6%, var(--color-dominant));
+}
+
+.place-nearest__icon {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--color-border);
+  border-radius: 50%;
+  background: var(--color-dominant);
+}
+
+.place-nearest__body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* The airport list scrolls inside its card; each row is one link. */
+.place-airports {
+  list-style: none;
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  max-height: 24rem;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+/* The list the script fills (or, without one, leaves empty) draws no box. */
+.place-airports:empty {
+  display: none;
+}
+
+.place-airport + .place-airport {
+  border-top: 1px solid var(--color-border);
+}
+
+.place-airport__link {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-xs);
+  min-height: 44px;
+  padding: var(--space-sm) var(--space-md);
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.place-airport__link:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--color-dominant));
+}
+
+.place-airport__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-airport__meta[data-current-label]::after {
+  content: " · " attr(data-current-label);
+}
+
+.place-subtitle {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+}
+
+.place-chosen__name {
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.place-radius,
+.place-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.place-panel__area {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.place-panel__area .place-radius {
+  margin-top: 0;
+}
+
+.place-radius__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.place-radius__head label {
+  margin: 0;
+}
+
+.place-radius__head input[type="number"] {
+  flex: 0 0 5.5rem;
+  width: 5.5rem;
+  text-align: center;
+}
+
+.place-radius__range {
+  --js-gate-display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  accent-color: var(--color-accent);
+}
+
+.place-fields input,
+.place-fields select {
+  width: 100%;
+  max-width: 28rem;
+  box-sizing: border-box;
+}
+
+.place-details > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+/* The locate button is a round button on the map. */
+.map-ready .place-locate {
+  width: 48px;
+  height: 48px;
+  min-height: 48px;
+  padding: 0;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card-hover);
+  color: var(--color-accent);
+  pointer-events: auto;
+}
+
+.map-ready .place-locate__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
