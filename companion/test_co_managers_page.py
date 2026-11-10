@@ -9,7 +9,7 @@ import pytest
 import fleet_console_support as fx
 from companion import device_scope, prefs
 from companion.pages import co_managers_card as card
-from companion_app_server import InProcessAppServer, http_request, with_csrf
+from companion_app_server import InProcessAppServer, http_request, served_stylesheet, with_csrf
 from companion_markup import css_rules, declarations_for, parse_html
 from server import fleet_db, hardware
 
@@ -247,11 +247,9 @@ def test_every_other_return_target_is_ignored(value):
 def test_the_dialog_rules_use_existing_tokens_only(tmp_path):
     server = InProcessAppServer(str(tmp_path / "state"))
     try:
-        status, _headers, body = http_request(server.url("/static/style.css"))
+        css = served_stylesheet(server)
     finally:
         server.stop()
-    assert status == 200
-    css = body.decode("utf-8")
     rules = [rule for rule in css_rules(css)
              if any(sel.startswith(".co-manager__") for sel in rule.selectors)]
     selectors = {sel for rule in rules for sel in rule.selectors}
