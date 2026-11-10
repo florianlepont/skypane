@@ -198,6 +198,22 @@ _M_FAMILY_EMPTY_DESC = i18n.msg("components.family_empty_desc", "What a list sho
 _M_FAMILY_DIALOGS = i18n.msg("components.family_dialogs", "Dialogs and the save bar")
 _M_FAMILY_DIALOGS_DESC = i18n.msg("components.family_dialogs_desc", "Open a dialog to see it; the save bar is shown in flow.")
 _M_FAMILY_NAMES = i18n.msg("components.family_names", "Page names")
+_M_FAMILY_MOTION = i18n.msg("components.family_motion", "Page opening and tab strips")
+_M_FAMILY_MOTION_DESC = i18n.msg(
+    "components.family_motion_desc",
+    "Every page opens the same way and every tab strip moves the same way. Both are off "
+    "under reduced motion.")
+_M_STATE_OPENING = i18n.msg("components.state_opening", "Page opening")
+_M_STATE_TAB_STRIP = i18n.msg("components.state_tab_strip", "Tab strip with its sliding thumb")
+_M_STATE_TAB_CONTENT = i18n.msg("components.state_tab_content", "What a tab switch animates")
+_OPENING_NOTE = i18n.msg(
+    "components.sample_opening_note",
+    "The header enters first, then the filters and the first blocks, one short step apart: "
+    "a fade and a small rise. Lists, tables and the map never animate row by row.")
+_TAB_CONTENT_NOTE = i18n.msg(
+    "components.sample_tab_content_note",
+    "A switch that loads another page replays the opening. A switch that changes the list in "
+    "place fades the list once. \u201cLoad more\u201d brings its first new items in the same way.")
 _M_FAMILY_NAMES_DESC = i18n.msg(
     "components.family_names_desc",
     "One name per page. The title, the document title, the sidebar and the headings use "
@@ -480,6 +496,19 @@ def _search_status_html():
         row("failed", False, _SEARCH_UNAVAILABLE))
 
 
+def _motion():
+    """The shared page opening and the shared tab strip, as the pages use them."""
+    links = [
+        ("#components-motion", "<span>%s</span>" % _esc(_t(label)), index == 0, "")
+        for index, label in enumerate((_DEPARTURES, _ARRIVALS, _RELEASES))]
+    return [
+        State(_M_STATE_OPENING, '<p class="text-body">%s</p>' % _esc(_t(_OPENING_NOTE))),
+        State(_M_STATE_TAB_STRIP, ui_segmented.segmented_links_html(
+            links, _t(_INDEX_LABEL), nav_attrs=' data-tabs="components-motion"')),
+        State(_M_STATE_TAB_CONTENT, '<p class="text-body">%s</p>' % _esc(_t(_TAB_CONTENT_NOTE))),
+    ]
+
+
 def _names():
     """Every personal and frame-tool page with the label its phone tab shows
     (the full name when it fits) beside its page name, in the current language."""
@@ -654,6 +683,7 @@ CATALOGUE = (
            _M_FAMILY_DIALOGS_DESC,
            ("ui_modal.dialog_html", "ui_modal.sections_dialog_html", "ui_modal.trigger_html",
             "ui_save_bar.save_bar_html"), _dialogs),
+    Family("motion", _M_FAMILY_MOTION, _M_FAMILY_MOTION_DESC, (), _motion),
     Family("names", _M_FAMILY_NAMES, _M_FAMILY_NAMES_DESC, (), _names),
 )
 
