@@ -45,7 +45,14 @@ V1.3 adds a second display mode, "photos", next to "plane". The frame stays dumb
   3. A photo set to crop-to-fill (default) fills the panel with the chosen crop position, and one set to bands shows the whole photo with bands; changing the crop position changes the rendered result.
   4. Rendering skin-tone samples in both panel sizes has been tried, and the result and any limit are written down before the rendering parameters are frozen.
 
-**Plans**: TBD
+**Plans**: 5 plans
+
+Plans:
+- [ ] 64-01-PLAN.md - strict upload validation and one reduced stored copy (PHOTO-01)
+- [ ] 64-02-PLAN.md - crop or bands, pre-processing and render for both panel profiles (PHOTO-02, PHOTO-03)
+- [ ] 64-03-PLAN.md - skin-tone trial tooling and the rendering document skeleton (PHOTO-04)
+- [ ] 64-04-PLAN.md - owner review of the skin-tone contact sheets, blocking checkpoint (PHOTO-04)
+- [ ] 64-05-PLAN.md - freeze the rendering parameters, complete the document, phase gate (PHOTO-04)
 
 ### Phase 65: Photo Storage, Privacy and Quotas
 
