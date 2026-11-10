@@ -114,3 +114,23 @@ def test_an_unknown_group_or_out_of_range_index_fails():
         result = subprocess.run([sys.executable, str(_SCRIPT), *argv],
                                 capture_output=True, text=True)
         assert result.returncode != 0
+
+
+def test_junit_times_are_summed_per_test_file(tmp_path):
+    junit = tmp_path / "j.xml"
+    junit.write_text(
+        "<testsuites><testsuite>"
+        '<testcase classname="server.test_a" name="t1" time="2.4"/>'
+        '<testcase classname="server.test_a.TestK" name="t2" time="1.2"/>'
+        '<testcase classname="companion.test_plain" name="t3" time="0.1"/>'
+        '<testcase classname="gone.test_missing" name="t4" time="9"/>'
+        "</testsuite></testsuites>", encoding="utf-8")
+    weights = shards_mod.weights_from_junit(
+        [str(junit)], {"server/test_a.py", "companion/test_plain.py"})
+    assert weights == {"companion/test_plain.py": 1, "server/test_a.py": 4}
+
+
+def test_a_weight_for_a_file_that_no_longer_exists_is_ignored():
+    shards = shards_mod.build_shards(
+        PATHS, SOURCES, {"server/test_deleted.py": 999}, {"browser": 2, "core": 2})
+    assert shards_mod.completeness_problems(PATHS, shards) == []

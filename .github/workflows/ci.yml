@@ -56,6 +56,14 @@ on:
 permissions:
   contents: read
 
+# How many shards each test group is split into. Must equal the length of the
+# matching `shard` list in the matrix below: the static job checks that every
+# test file lands in exactly one shard of these counts, and the `test` job
+# fails unless exactly this many shard artifacts arrive.
+env:
+  BROWSER_SHARDS: "5"
+  CORE_SHARDS: "2"
+
 jobs:
   static:
     name: Static checks
@@ -66,9 +74,6 @@ jobs:
     concurrency:
       group: test-static-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-    env:
-      BROWSER_SHARDS: "1"
-      CORE_SHARDS: "1"
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -130,11 +135,16 @@ jobs:
         run: server/.venv/bin/python scripts/ci_shards.py check --browser-shards "$BROWSER_SHARDS" --core-shards "$CORE_SHARDS"
 
   tests-core:
-    name: Tests (non-browser)
+    name: Tests (non-browser) ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
+    strategy:
+      # A failing shard must not hide the others' results.
+      fail-fast: false
+      matrix:
+        shard: [0, 1]
     concurrency:
-      group: test-core-${{ github.ref }}
+      group: test-core-${{ matrix.shard }}-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Check out repository
@@ -166,8 +176,8 @@ jobs:
         env:
           SKYPANE_REQUIRE_BROWSER: "1"
           SKYPANE_TEST_GROUP: core
-          SKYPANE_TEST_SHARD: "0/1"
-          SKYPANE_JUNIT_XML: junit-core.xml
+          SKYPANE_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          SKYPANE_JUNIT_XML: junit-core-${{ matrix.shard }}.xml
         run: ./scripts/run-all-tests.sh
 
       - name: Upload coverage data and JUnit report
@@ -176,20 +186,24 @@ jobs:
         # coverage data is silently left out of the artifact.
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-data-core
+          name: test-data-core-${{ matrix.shard }}
           path: |
             .coverage
-            junit-core.xml
+            junit-core-${{ matrix.shard }}.xml
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 3
 
   tests-browser:
-    name: Tests (browser)
+    name: Tests (browser) ${{ matrix.shard }}
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4]
     concurrency:
-      group: test-browser-${{ github.ref }}
+      group: test-browser-${{ matrix.shard }}-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Check out repository
@@ -238,8 +252,8 @@ jobs:
         env:
           SKYPANE_REQUIRE_BROWSER: "1"
           SKYPANE_TEST_GROUP: browser
-          SKYPANE_TEST_SHARD: "0/1"
-          SKYPANE_JUNIT_XML: junit-browser.xml
+          SKYPANE_TEST_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+          SKYPANE_JUNIT_XML: junit-browser-${{ matrix.shard }}.xml
         run: ./scripts/run-all-tests.sh
 
       - name: Upload coverage data and JUnit report
@@ -248,10 +262,10 @@ jobs:
         # coverage data is silently left out of the artifact.
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: test-data-browser
+          name: test-data-browser-${{ matrix.shard }}
           path: |
             .coverage
-            junit-browser.xml
+            junit-browser-${{ matrix.shard }}.xml
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 3
@@ -309,6 +323,18 @@ jobs:
         with:
           pattern: test-data-*
           path: test-data
+
+      - name: Require one coverage file and one JUnit file per shard
+        # A shard that was dropped from a matrix would otherwise just be
+        # missing from the combined result.
+        run: |
+          set -euo pipefail
+          expected=$((BROWSER_SHARDS + CORE_SHARDS))
+          coverage_files="$(find test-data -name .coverage | wc -l)"
+          junit_files="$(find test-data -name 'junit-*.xml' | wc -l)"
+          echo "expected ${expected} shards; found ${coverage_files} coverage files and ${junit_files} JUnit files"
+          test "${coverage_files}" -eq "${expected}"
+          test "${junit_files}" -eq "${expected}"
 
       - name: Combine coverage and apply the coverage floor
         # No --fail-under here: [tool.coverage.report] fail_under in

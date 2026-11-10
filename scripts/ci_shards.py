@@ -16,11 +16,14 @@ Subcommands:
   files GROUP INDEX COUNT   print the shard's files, one per line
   check [--browser-shards N] [--core-shards M]
                             fail unless every test file is in exactly one shard
+  weights JUNIT_XML...      print the summed test time per test file, as the
+                            JSON map that scripts/ci_shard_weights.json holds
 """
 import argparse
 import fnmatch
 import json
 import os
+import xml.etree.ElementTree as ET
 import subprocess
 import sys
 
@@ -123,6 +126,35 @@ def load_sources(paths, root=REPO_ROOT):
     return {path: read_source(path, root) for path in paths}
 
 
+def path_for_classname(classname, known):
+    """Maps a JUnit classname (dotted module, maybe a class) to a test file."""
+    parts = classname.split(".")
+    while parts:
+        candidate = "/".join(parts) + ".py"
+        if candidate in known:
+            return candidate
+        parts.pop()
+    return None
+
+
+def weights_from_junit(junit_paths, known):
+    """Sums testcase times per known test file over the given JUnit files."""
+    totals = {}
+    for junit in junit_paths:
+        for case in ET.parse(junit).getroot().iter("testcase"):
+            path = path_for_classname(case.get("classname", ""), known)
+            if path is not None:
+                totals[path] = totals.get(path, 0.0) + float(case.get("time", "0"))
+    return {path: max(1, round(seconds)) for path, seconds in sorted(totals.items())}
+
+
+def command_weights(args):
+    weights = weights_from_junit(args.junit, set(tracked_test_files()))
+    json.dump(weights, sys.stdout, indent=1, sort_keys=True)
+    sys.stdout.write("\n")
+    return 0
+
+
 def command_files(args):
     if args.group not in GROUPS:
         raise SystemExit(f"unknown group {args.group!r}; use browser or core")
@@ -161,8 +193,12 @@ def main(argv=None):
     check = sub.add_parser("check")
     check.add_argument("--browser-shards", type=int, default=1)
     check.add_argument("--core-shards", type=int, default=1)
+    weights = sub.add_parser("weights")
+    weights.add_argument("junit", nargs="+")
     args = parser.parse_args(argv)
-    return command_files(args) if args.command == "files" else command_check(args)
+    handlers = {"files": command_files, "check": command_check,
+                "weights": command_weights}
+    return handlers[args.command](args)
 
 
 if __name__ == "__main__":
