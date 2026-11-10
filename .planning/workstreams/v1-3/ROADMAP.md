@@ -48,7 +48,7 @@ V1.3 adds a second display mode, "photos", next to "plane". The frame stays dumb
 **Plans**: 5 plans
 
 Plans:
-- [ ] 64-01-PLAN.md - strict upload validation and one reduced stored copy (PHOTO-01)
+- [x] 64-01-PLAN.md - strict upload validation and one reduced stored copy (PHOTO-01)
 - [ ] 64-02-PLAN.md - crop or bands, pre-processing and render for both panel profiles (PHOTO-02, PHOTO-03)
 - [ ] 64-03-PLAN.md - skin-tone trial tooling and the rendering document skeleton (PHOTO-04)
 - [ ] 64-04-PLAN.md - owner review of the skin-tone contact sheets, blocking checkpoint (PHOTO-04)
@@ -114,7 +114,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 64. Photo Pipeline (Server Only) | 0/0 | Not started | - |
+| 64. Photo Pipeline (Server Only) | 1/5 | In Progress|  |
 | 65. Photo Storage, Privacy and Quotas | 0/0 | Not started | - |
 | 66. Frame Mode, Rotation and Waiting Screen | 0/0 | Not started | - |
 | 67. Companion Photo Management and Settings | 0/0 | Not started | - |
