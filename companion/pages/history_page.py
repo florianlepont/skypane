@@ -614,27 +614,24 @@ def _flight_cell_html(row):
     return cell.replace("<td>", "<td>" + ident, 1)
 
 
-def _chips_html(view, result):
-    """The direction chips: radios of the search form (`kind`), each with the
-    number of flights of that direction that match the search over the whole
-    history, so the counts stay true while a direction is chosen; a search that
-    matches nothing shows the whole history's counts instead of 0 / 0 / 0.
-    "All" counts every match, an overhead pass included."""
-    all_count, counts = result.chip_counts or (result.matched, result.counts)
+def _chips_html(view):
+    """The direction chips: radios of the search form (`kind`), labelled only
+    with the direction. The number of flights stays in the screen-reader line
+    under the controls."""
     chips = (
-        ("", i18n.t(_CHIP_ALL_TEXT), all_count),
-        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT), counts["departing"]),
-        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT), counts["arriving"]),
+        ("", i18n.t(_CHIP_ALL_TEXT)),
+        ("departing", i18n.t(_CHIP_DEPARTURES_TEXT)),
+        ("arriving", i18n.t(_CHIP_ARRIVALS_TEXT)),
     )
     parts = []
-    for kind, text, count in chips:
+    for kind, text in chips:
         parts.append(
-            '<label class="filter-chip%s"><input type="radio" class="visually-hidden" '
+            '<label class="filter-chip"><input type="radio" class="visually-hidden" '
             'name="%s" value="%s" form="%s"%s data-flights-auto data-flights-key="kind-%s">'
-            '<span class="filter-chip__box"><span class="filter-chip__count" data-filter-chip-count>%d</span>'
+            '<span class="filter-chip__box">'
             '<span class="filter-chip__text">%s</span></span></label>' % (
-                "" if count else " is-zero", history_query.KIND_PARAM, kind, _FORM_ID,
-                " checked" if kind == view.kind else "", kind or "all", count,
+                history_query.KIND_PARAM, kind, _FORM_ID,
+                " checked" if kind == view.kind else "", kind or "all",
                 escape_html(text)))
     return ('<fieldset class="filter-bar__chips"><legend class="visually-hidden">%s</legend>'
             "%s</fieldset>") % (escape_html(i18n.t(_FILTER_CHIPS_LEGEND)), "".join(parts))
@@ -653,8 +650,8 @@ def _matches_html(view, result):
     """How many flights the page lists in all (the chosen direction's, when
     one is chosen): "N flights match" while a search is typed, else just
     "N flights". Read out by screen readers only: the sighted reader has the
-    same number in the "All" chip, and a visible line here would push the list
-    down whenever a search opens."""
+    chips carry no number, and a visible line here would push the list down
+    whenever a search opens."""
     many, one, none = (
         (_MATCHES_TEXT, _MATCH_ONE_TEXT, _NO_MATCH_TEXT) if view.q
         else (_TOTAL_TEXT, _TOTAL_ONE_TEXT, _TOTAL_NONE_TEXT))
@@ -676,7 +673,7 @@ def _controls_html(view, result):
         '<div class="filter-bar filter-bar--chips history-controls" data-flights-view>%s%s'
         '<button type="submit" class="history-controls__apply" form="%s">%s</button>'
         "</div>%s"
-    ) % (_chips_html(view, result), _sort_html(view), _FORM_ID,
+    ) % (_chips_html(view), _sort_html(view), _FORM_ID,
          escape_html(i18n.t(_APPLY_TEXT)), _matches_html(view, result))
 
 

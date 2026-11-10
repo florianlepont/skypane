@@ -346,14 +346,14 @@ def test_zero_spotted_is_plural_in_english_and_singular_in_french(rig):
 
 def test_the_progress_sentence_counts_against_every_listed_airline(rig):
     """an airline outside the curated list still counts as spotted, so the progress total is
-    the number of airlines the page lists (the All chip), never fewer than the spotted count"""
+    the number of airlines the page lists (its cards), never fewer than the spotted count"""
     rig.event(RARE_NAME, 30, aircraft_type="A320")
     rig.event("Zzyzx Air Charter", 20, aircraft_type="A320")
     for lang in ("en", "fr"):
-        main = _text(_main(rig.page("owner", lang=lang)))
+        page = _main(rig.page("owner", lang=lang))
+        main = _text(page)
         sentence = re.search(
             r"(\d+) (?:of|compagnies? repérées? sur) (\d+)", main)
-        chip = re.search(r"(\d+)\s*(?:All|Toutes)", main)
-        assert sentence and chip, main
+        assert sentence, main
         spotted, total = int(sentence.group(1)), int(sentence.group(2))
-        assert spotted <= total == int(chip.group(1)) == len(CURATED) + 1
+        assert spotted <= total == len(_cards(page)) == len(CURATED) + 1

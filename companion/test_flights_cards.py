@@ -183,11 +183,18 @@ def _doc_for(make_app_server, events, path="/flights"):
     return parse_html(body.decode("utf-8"))
 
 
-def _chip_counts(doc):
-    return {
-        chip.select_one("input").attrs["value"] or "all":
-            chip.select_one("[data-filter-chip-count]").text()
-        for chip in doc.select(".filter-chip")}
+def _chip_labels(doc):
+    return [chip.text().strip() for chip in doc.select(".filter-chip")]
+
+
+def _assert_chips_carry_no_number(doc):
+    assert _chip_labels(doc) == ["All", "Departures", "Arrivals"]
+    assert not doc.select(".filter-chip__count")
+
+
+def _listed(doc):
+    """the number of flights the screen-reader status line announces"""
+    return int(doc.select_one("[data-filter-count]").text().split()[0])
 
 
 @pytest.mark.parametrize("older_ts,older_state,cards", [
@@ -204,19 +211,19 @@ def test_a_repeated_pass_inside_a_minute_is_one_flight(
         _event(older_ts, state=older_state, corroborated=None)])
     assert len(doc.select(".history-cards li.history-card")) == cards
     assert len(doc.select("tr[data-flight-row]")) == cards
-    assert _chip_counts(doc)["all"] == str(cards)
+    assert _listed(doc) == cards
 
 
-def test_chip_counts_and_day_headers_follow_the_folded_list(make_app_server):
-    """the chip counts, the status count and the day headers count flights, not stored events:
-    a pass stored twice adds nothing to any of them"""
+def test_status_count_and_day_headers_follow_the_folded_list(make_app_server):
+    """the status count and the day headers count flights, not stored events: a pass stored
+    twice adds nothing to either, and the chips stay plain direction labels"""
     doc = _doc_for(make_app_server, [
         _event("2026-09-03T20:55:00+00:00"),
         _event("2026-09-03T20:54:30+00:00", corroborated=None),
         _event("2026-09-03T20:40:00+00:00", callsign="AFR6152", state="arriving", hex_="3c0002"),
         _event("2026-09-02T09:00:00+00:00", callsign="SMR42", hex_="4b0003"),
         _event("2026-09-02T08:59:40+00:00", callsign="SMR42", hex_="4b0003", corroborated=None)])
-    assert _chip_counts(doc) == {"all": "3", "departing": "2", "arriving": "1"}
+    _assert_chips_carry_no_number(doc)
     assert len(doc.select(".history-cards li.history-card")) == 3
     assert len(doc.select(".history-cards h2.section-label")) == 2
     assert len(doc.select("tr.flight-day-row")) == 2
@@ -245,14 +252,14 @@ def _fifty_events(count=50, **extra):
 
 def test_all_fifty_flights_are_in_the_first_response_with_no_paging_step(make_app_server):
     """50 distinct flights render as 50 cards and 50 table rows in the first response, with no
-    Show-more control, and the chips and the status count cover all 50"""
+    Show-more control, and the status count covers all 50"""
     doc = _doc_for(make_app_server, _fifty_events())
     assert len(doc.select(".history-cards li.history-card")) == 50
     assert len(doc.select("tr[data-flight-row]")) == 50
     assert not doc.select(".flights-more")
     assert "show more" not in doc.text().lower()
     assert not [a for a in doc.select("a") if "limit=" in a.attrs.get("href", "")]
-    assert _chip_counts(doc) == {"all": "50", "departing": "40", "arriving": "10"}
+    _assert_chips_carry_no_number(doc)
     assert doc.select_one("[data-filter-count]").text() == "50 flights"
 
 
@@ -267,15 +274,15 @@ def test_a_legacy_limit_query_is_ignored(make_app_server):
         doc = parse_html(body.decode("utf-8"))
         assert len(doc.select(".history-cards li.history-card")) == 50, query
         assert not doc.select(".flights-more"), query
-        assert _chip_counts(doc)["all"] == "50", query
+        assert _listed(doc) == 50, query
     assert plain[0] == 200
 
 
 def test_folded_duplicates_still_reduce_the_full_list(make_app_server):
-    """a pass stored twice among the newest 50 events is one flight: 49 cards, 49 in the chips"""
+    """a pass stored twice among the newest 50 events is one flight: 49 cards, 49 in the status line"""
     events = _fifty_events(49)
     events.append(_event("2026-09-01T06:00:20+00:00", callsign="TVF00", hex_="4b0000",
                          state="arriving", corroborated=None))
     doc = _doc_for(make_app_server, events)
     assert len(doc.select(".history-cards li.history-card")) == 49
-    assert _chip_counts(doc)["all"] == "49"
+    assert _listed(doc) == 49

@@ -34,7 +34,7 @@ MESSAGES = {
     "components.state_form_switch": "Interrupteur de formulaire",
     "components.state_buttons": "Boutons qui envoient",
     "components.state_links": "Liens vers des pages",
-    "components.state_chips": "Filtres avec compteurs",
+    "components.state_chips": "Filtres",
     "components.state_chip_links": "Filtres en liens",
     "components.state_number": "Nombre",
     "components.state_search": "Recherche",
@@ -81,7 +81,7 @@ MESSAGES = {
     "components.family_segmented": "Contrôles segmentés et filtres",
     "components.family_segmented_desc":
         "Une piste, une pastille sélectionnée. Boutons radio d’un formulaire, boutons qui envoient, "
-        "liens entre pages et filtres avec compteurs la partagent tous.",
+        "liens entre pages et filtres la partagent tous.",
     "components.family_inputs": "Champs et recherche",
     "components.family_inputs_desc":
         "Un champ avec son libellé occupe toute la largeur de sa carte ; la recherche s’ouvre depuis la ligne du titre.",

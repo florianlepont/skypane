@@ -568,8 +568,8 @@ def test_filter_text_covers_airline_airport_and_type_but_not_the_fallback(tmp_pa
 
 def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
     """each row (desktop <tr> and phone <li>) carries data-filter-kind equal to its confirmed
-    runway direction, only for the two values the detector writes, and the chip counts are
-    taken from those same rows"""
+    runway direction, only for the two values the detector writes, and the chips
+    carry no number"""
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "k1", "callsign": "K1", "confirmed_state": "departing"},
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "k2", "callsign": "K2", "confirmed_state": "departing"},
@@ -580,9 +580,8 @@ def test_rows_carry_the_direction_kind_the_chips_filter_on(tmp_path):
     for tag in ("tr", "li"):
         kinds = [n.attrs["data-filter-kind"] for n in doc.select("%s[data-filter-kind]" % tag)]
         assert kinds == ["departing", "departing", "arriving", ""], (tag, kinds)
-    chips = {c.attrs["value"]: c.parent.select_one("[data-filter-chip-count]").text()
-             for c in doc.select("input") if c.attrs.get("name") == "kind"}
-    assert chips == {"": "4", "departing": "2", "arriving": "1"}
+    assert [c.text().strip() for c in doc.select(".filter-chip")] == [
+        "All", "Departures", "Arrivals"]
 
 
 def test_filter_text_attribute_on_both_representations(tmp_path):

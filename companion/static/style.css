@@ -3896,14 +3896,6 @@ table.data-table--flights .cell-inline-sep {
   transition: background var(--motion-fast), box-shadow var(--motion-fast), scale var(--motion-spring-duration) var(--motion-spring);
 }
 
-.filter-chip__count {
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-  color: var(--seg-idle-fg);
-}
-
 .filter-chip__text {
   max-width: 100%;
   overflow: hidden;
@@ -3925,9 +3917,7 @@ table.data-table--flights .cell-inline-sep {
   box-shadow: var(--shadow-control);
 }
 
-.filter-chip input:checked + .filter-chip__box .filter-chip__count,
 .filter-chip input:checked + .filter-chip__box .filter-chip__text,
-.filter-chip.filter-chip--current .filter-chip__box .filter-chip__count,
 .filter-chip.filter-chip--current .filter-chip__box .filter-chip__text {
   color: var(--seg-selected-fg);
 }
@@ -3935,10 +3925,6 @@ table.data-table--flights .cell-inline-sep {
 .filter-chip input:focus-visible + .filter-chip__box {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
-}
-
-.filter-chip.is-zero .filter-chip__count {
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 /* The search lives in the page header's title row (.filter-bar--title).
@@ -11791,12 +11777,12 @@ button.look-sheet__done[hidden] {
  * sideways scroll) rather than being cut at the edge. */
 .collection-controls .filter-chip {
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 44px;
 }
 
 .collection-controls .filter-chip__box {
   gap: 2px;
-  padding: 0 2px;
+  padding: 0 var(--space-xs);
 }
 
 .collection-sort__toggle,

@@ -374,18 +374,15 @@ def _status_html(summary, all_curated_seen, total):
          escape_html(_goal_text(summary, all_curated_seen)), _badges_html(summary))
 
 
-def _chips_html(view, entries):
-    seen = sum(1 for entry in entries if entry.seen)
-    counts = {"all": len(entries), "spotted": seen, "unseen": len(entries) - seen}
+def _chips_html(view):
     chips = []
     for value, label in SHOW_VALUES:
         chips.append(
             '<label class="filter-chip"><input type="radio" class="visually-hidden" '
             'name="%s" value="%s"%s data-autosubmit><span class="filter-chip__box">'
-            '<span class="filter-chip__count">%d</span>'
             '<span class="filter-chip__text">%s</span></span></label>' % (
                 SHOW_PARAM, value, " checked" if value == view.show else "",
-                counts[value], escape_html(i18n.t(label))))
+                escape_html(i18n.t(label))))
     return '<fieldset class="filter-bar__chips"><legend class="visually-hidden">%s</legend>%s</fieldset>' % (
         escape_html(i18n.t(SHOW_LEGEND)), "".join(chips))
 
@@ -435,7 +432,7 @@ def _controls_html(view, entries, shown):
         '<button type="submit" class="collection-controls__apply">%s</button></form>'
     ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
          _search_html(view), _sort_html(view), _legend_menu_html(),
-         _chips_html(view, entries), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
+         _chips_html(view), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
 
 
 def _no_match_html(action_html, attrs):
