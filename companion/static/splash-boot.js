@@ -47,6 +47,13 @@
     if (!src) {
       return;
     }
+    // Fetched now, while the document is still being parsed, so the script is
+    // already here when the splash needs it.
+    var hint = document.createElement("link");
+    hint.rel = "preload";
+    hint.as = "script";
+    hint.href = src;
+    document.head.appendChild(hint);
     function add() {
       var script = document.createElement("script");
       script.src = src;
