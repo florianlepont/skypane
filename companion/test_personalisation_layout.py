@@ -20,6 +20,7 @@ from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
 from companion_markup import parse_html
 from server import device_config, pairings, screen_layouts
+from server.plane import colour_rules
 
 PAIRING_IDS = ("grey", "blue_light", "red_light", "yellow_light", "white")
 LAYOUT_CARD_NAMES = {
@@ -352,11 +353,165 @@ def test_a_classic_frame_keeps_the_eighteen_theme_picker(rig):
     assert not root.select(".look-pairings")
 
 
-def test_the_special_looks_and_calendar_pickers_still_offer_every_theme(rig):
-    device_config.save_device_config(rig.owner_dir(), layout="b")
+def _calendar_radios(root):
+    return [r.attrs["value"] for r in root.select('input[name="calendar_theme_id"]')]
+
+
+def test_the_calendar_look_offers_the_five_pairings_on_a_giant_layout(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="b", calendar_theme_id="red_light")
     root = rig.page("/display/calendar-look")
-    radios = [r for r in root.select('input[name="calendar_theme_id"]') if r.attrs.get("value")]
+    assert _calendar_radios(root) == ["", *PAIRING_IDS]
+    assert _checked(root, "calendar_theme_id") == ["red_light"]
+    assert all(r.attrs["form"] == "settings-form" for r in root.select(
+        'input[name="calendar_theme_id"]'))
+    assert not root.select("table.look-table")
+    for card in root.select("label.look-pick__card"):
+        assert "layout=b" in card.select_one("img").attrs["src"]
+
+
+def test_the_calendar_look_offers_every_theme_on_a_classic_frame(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="classic")
+    root = rig.page("/display/calendar-look")
+    radios = [r for r in _calendar_radios(root) if r]
+    assert sorted(radios) == sorted(device_config.THEME_IDS)
+    assert not root.select(".look-pairings")
+
+
+def test_a_stored_calendar_theme_that_is_no_pairing_shows_its_pairing_and_is_not_rewritten(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="b", calendar_theme_id="green")
+    before = rig.stored_file()
+    root = rig.page("/display/calendar-look")
+    assert _checked(root, "calendar_theme_id") == [pairings.pairing_for_theme("green").id]
+    assert rig.stored()["calendar_theme_id"] == "green"
+    assert rig.stored_file() == before
+    rig.page("/display/calendar")
+    assert rig.stored_file() == before
+
+
+def test_the_calendar_pairing_is_saved_as_its_theme_id_and_same_as_departures_clears_it(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="a_diagonal")
+    status, _response, _body = rig.save(return_to="/display/calendar", calendar_theme_id="blue_light")
+    assert status == 303
+    assert rig.stored()["calendar_theme_id"] == "blue_light"
+    assert _checked(rig.page("/display/calendar-look"), "calendar_theme_id") == ["blue_light"]
+    rig.save(return_to="/display/calendar", calendar_theme_id="")
+    assert not rig.stored()["calendar_theme_id"]
+    assert _checked(rig.page("/display/calendar-look"), "calendar_theme_id") == [""]
+
+
+def test_a_rejected_calendar_theme_is_not_echoed_and_keeps_the_pairing_cards(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="b", calendar_theme_id="grey")
+    status, _response, body = rig.save(return_to="/display/calendar", calendar_theme_id="<b>bogus")
+    assert status == 200
+    assert "bogus" not in body
+    root = parse_html(body)
+    assert _calendar_radios(root) == ["", *PAIRING_IDS]
+    assert rig.stored()["calendar_theme_id"] == "grey"
+
+
+@pytest.mark.parametrize("lang,names", [
+    ("en", ["Grey", "Light blue", "Light red", "Light yellow", "White"]),
+    ("fr", ["Gris", "Bleu clair", "Rouge clair", "Jaune clair", "Blanc"]),
+])
+def test_the_calendar_and_special_look_pairings_are_named_in_both_languages(rig, lang, names):
+    device_config.save_device_config(rig.owner_dir(), layout="c")
+    for path in ("/display/calendar-look", "/display/special-looks/new"):
+        root = rig.page(path, lang=lang)
+        assert [c.select_one(".look-pick__name").text()
+                for c in root.select("label.look-pick__card")] == names
+
+
+def _add_rule(rig, theme_id, key="TVF", kind="prefix"):
+    assert colour_rules.add_rule(rig.owner_dir(), kind, key, theme_id) in (
+        colour_rules.ADD_OK_NEW, colour_rules.ADD_OK_REPLACED)
+
+
+def _rules_file(rig):
+    with open(colour_rules.colour_rules_path(rig.owner_dir()), "rb") as handle:
+        return handle.read()
+
+
+def test_the_new_special_look_form_offers_the_five_pairings_on_a_giant_layout(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="b")
+    root = rig.page("/display/special-looks/new")
+    radios = root.select('input[name="rule_theme_id"]')
+    assert [r.attrs["value"] for r in radios] == list(PAIRING_IDS)
+    assert len(_checked(root, "rule_theme_id")) == 1
+    form = root.select_one("form#special-look-form")
+    assert not form.select("table.look-table")
+    assert not form.select("[data-look-axes]")
+    assert all("form" not in r.attrs for r in radios)
+    for card in root.select("form#special-look-form label.look-pick__card"):
+        assert "layout=b" in card.select_one("img").attrs["src"]
+    assert "layout=b" in root.select_one("form#special-look-form img[data-look-image]").attrs["src"]
+
+
+def test_the_new_special_look_form_offers_every_theme_on_a_classic_frame(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="classic")
+    root = rig.page("/display/special-looks/new")
+    radios = root.select('input[name="rule_theme_id"]')
     assert sorted(r.attrs["value"] for r in radios) == sorted(device_config.THEME_IDS)
+    assert root.select("[data-look-axes]")
+
+
+@pytest.mark.parametrize("stored", ["green", "band_blue_on_full", "black"])
+def test_a_stored_rule_theme_that_is_no_pairing_shows_its_pairing_and_is_not_rewritten(rig, stored):
+    device_config.save_device_config(rig.owner_dir(), layout="b")
+    _add_rule(rig, stored)
+    before = _rules_file(rig)
+    root = rig.page("/display/special-looks/edit?rule_kind=prefix&rule_key=TVF")
+    assert _checked(root, "rule_theme_id") == [pairings.pairing_for_theme(stored).id]
+    rig.page("/display/special-looks")
+    assert _rules_file(rig) == before
+    assert colour_rules.rule_rows(colour_rules.load_colour_rules(rig.owner_dir()))[0][2] == stored
+
+
+def test_a_special_look_pairing_is_saved_as_its_theme_id(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="b")
+    _add_rule(rig, "green")
+    status, _response, _body = rig.post(
+        "owner", {"rule_kind": "prefix", "rule_key": "TVF", "rule_theme_id": "red_light"},
+        path="/settings/rules/add")
+    assert status == 303
+    assert colour_rules.rule_rows(colour_rules.load_colour_rules(rig.owner_dir()))[0][2] == "red_light"
+    root = rig.page("/display/special-looks/edit?rule_kind=prefix&rule_key=TVF")
+    assert _checked(root, "rule_theme_id") == ["red_light"]
+
+
+def test_a_rejected_rule_theme_is_not_saved_or_echoed(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="b")
+    status, response, body = rig.post(
+        "owner", {"rule_kind": "prefix", "rule_key": "TVF", "rule_theme_id": "<i>bogus"},
+        path="/settings/rules/add")
+    assert status == 303
+    assert "bogus" not in body and "bogus" not in response.get("Location", "")
+    assert not any(colour_rules.load_colour_rules(rig.owner_dir())[k] for k in colour_rules.RULE_KINDS)
+
+
+def test_the_special_looks_list_names_a_giant_frames_looks_by_their_pairing(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="b", calendar_theme_id="green")
+    _add_rule(rig, "green")
+    _add_rule(rig, "band_red_field", key="AFR1234", kind="callsign")
+    root = rig.page("/display/special-looks")
+    names = sorted(m.text() for m in root.select("p.rule-row__theme"))
+    assert names == ["Grey", "Light red"]
+    for image in root.select("li.special-row img.special-row__image"):
+        assert "layout=b" in image.attrs["src"]
+    assert "Grey" in rig.page("/display/calendar").select_one("li#calendar-row").text()
+    assert "Grey" not in rig.page("/display/special-looks", lang="fr").select_one(
+        "li.rule-row").text()
+
+
+def test_the_special_looks_list_keeps_the_theme_names_on_a_classic_frame(rig):
+    device_config.save_device_config(rig.owner_dir(), layout="classic", calendar_theme_id="green")
+    _add_rule(rig, "green")
+    root = rig.page("/display/special-looks")
+    assert root.select_one("p.rule-row__theme").text() == look.look_sentence("green")
+    calendar_row = rig.page("/display/calendar").select_one("li#calendar-row")
+    assert look.look_sentence("green") in calendar_row.text()
+    assert "layout=" not in calendar_row.select_one("img").attrs["src"]
+    for image in root.select("li.special-row img.special-row__image"):
+        assert "layout=" not in image.attrs["src"]
 
 
 # --- Units ------------------------------------------------------------------

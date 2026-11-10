@@ -357,6 +357,7 @@ def test_a_special_look_posts_through_the_rules_route_with_its_theme(make_app_se
     to the rules route; its extra script-only choices are ignored, and the saved rule shows in
     the list with its look read back"""
     server = make_app_server()
+    device_config.save_device_config(server.state_dir, layout="classic")
     session = login(server)
     form = {
         "rule_kind": colour_rules.RULE_KIND_PREFIX, "rule_key": "vlg",

@@ -1333,7 +1333,7 @@ def test_rules_row_carries_pill_badge_and_confirmed_remove_dialog(tmp_path):
         str(tmp_path), "callsign", "AFR1234", "green_light", now="2026-01-01T00:00:00+00:00")
     assert result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (result,)
     rendered = config_page.render({
-        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "device_config": {"theme": "white", "tracked_runway": "3", "layout": "classic"},
         "colour_rules": colour_rules.load_colour_rules(str(tmp_path)),
         "now": "2026-01-02T00:00:00+00:00",
     }, scope=config_page.SCOPE_DISPLAY)

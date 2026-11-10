@@ -563,6 +563,7 @@ def test_rules_add_route_rejection_paths(make_app_server):
     import itertools
 
     server = make_app_server(fake_providers=True)
+    device_config.save_device_config(server.state_dir, layout="classic")
     base = server.base_url()
     session = login(server)
 

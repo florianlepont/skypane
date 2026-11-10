@@ -9,6 +9,7 @@ import pytest
 from companion.settings import rules as rules_settings
 from companion_app_server import http_request, login, with_csrf
 from companion_markup import parse_html
+from server import device_config
 from server.plane import colour_rules
 
 DELETE_PATH = "/settings/rules/%s/%s/delete"
@@ -178,6 +179,7 @@ def test_editing_a_special_look_keeps_its_key_and_preselects_its_look(served):
     """the edit page names the rule's key as fixed fields, checks the rule's own look, and
     saves through the same add route (which replaces); an unknown rule shows the new look page"""
     server, session = served
+    device_config.save_device_config(server.state_dir, layout="classic")
     colour_rules.add_rule(server.state_dir, "prefix", "TVF", "green_light")
     list_page = _page(server, session, "/display/special-looks")
     edit = list_page.select_one("li.rule-row a.special-row__edit")
