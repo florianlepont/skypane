@@ -558,7 +558,8 @@ def _render_display_scope(
             departures_safe_id, values["calendar_theme_id"], calendar_status["calendar_configured"],
             calendar_status["calendar_drift"], calendar_status["calendar_last_synced_at"],
             calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
-            errors=errors, submitted=submitted, state_dir=ctx.state_dir)
+            errors=errors, submitted=submitted, state_dir=ctx.state_dir,
+            layout_id=values["layout"])
         aspect_section_html = personalisation_cards.page_html(
             ctx, values, calendar_row_html, calendar_status, errors, submitted, view,
             scope_fields_html=_scope_fields_html(

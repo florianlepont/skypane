@@ -200,7 +200,7 @@ def _form_view(ctx, values, view, errors, scope_fields_html, submitted=None):
         markup, title = calendar_settings.look_page_html(
             values["calendar_theme_id"], departures_safe_theme_id(values["theme_id"], None),
             errors, calendar_settings.LOOK_FORM_ID, calendar_settings.SETTINGS_POST_ROUTE,
-            scope_fields_html)
+            scope_fields_html, values["layout"], submitted)
         form_id, pending, extra = calendar_settings.LOOK_FORM_ID, None, ""
     elif view == VIEW_CALENDAR_CONNECT:
         error_message = (errors or {}).get("calendar_url") or {

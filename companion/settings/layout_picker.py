@@ -27,8 +27,8 @@ from companion.settings.form import (
     SETTINGS_FORM_ID,
     _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
-    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_DEPARTURES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL,
-    LOOK_FIELDS, LOOK_PREVIEW_ALT_TEMPLATE, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
+    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
+    COLOUR_USAGE_RULES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL, LOOK_FIELDS, LOOK_PREVIEW_ALT_TEMPLATE, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
 
 LAYOUT_FIELD = "layout"
 
@@ -56,6 +56,10 @@ PAIRING_HELP = i18n.msg(
 ARRIVING_NUDGE = i18n.msg(
     "look.pairing_arriving_nudge",
     "Pick an arrivals colour, or landings look like take-offs.")
+# The group label of each picker: the Departures, Arrivals and Calendar names,
+# and "Look" for a special look.
+USAGE_LABELS = dict(FRAME_COLOURS_ROW_LABELS)
+USAGE_LABELS[COLOUR_USAGE_RULES] = i18n.msg("look.look", "Look")
 PAIRING_NAMES = {
     "grey": i18n.msg("look.pairing_grey", "Grey"),
     "blue_light": i18n.msg("look.pairing_blue", "Light blue"),
@@ -65,17 +69,18 @@ PAIRING_NAMES = {
 }
 
 
-def _radio_card_html(field, value, checked, saved, name, preview_src, alt):
+def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_id=SETTINGS_FORM_ID):
     """One radio card: the small picture, the name and, on the selected one,
     a check. `saved` marks the value stored now, which keeps a quiet marker
-    once another card is picked."""
+    once another card is picked. `form_id` associates the radio with a form it
+    is not nested in; `None` leaves it to its enclosing form."""
     badge = (
         ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if saved else "")
     width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
     return (
         '<label class="runway-card look-pick__card%s"%s>'
-        '<input type="radio" name="%s" value="%s" class="visually-hidden" form="%s"%s>'
+        '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
         '<img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
         'loading="lazy" decoding="async">'
         '<span class="runway-card__number look-pick__name">%s</span>'
@@ -83,7 +88,8 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt):
         "</label>"
     ) % (
         " runway-card--selected" if saved else "", badge,
-        escape_html(field), escape_html(value), escape_html(SETTINGS_FORM_ID),
+        escape_html(field), escape_html(value),
+        ' form="%s"' % escape_html(form_id) if form_id else "",
         " checked" if checked else "",
         escape_html(preview_src), width, height, escape_html(alt),
         escape_html(name), layout.icon_html("icon-check"),
@@ -154,15 +160,43 @@ def pairing_id_for(theme_id):
     return pairings.pairing_for_theme(theme_id).id
 
 
-def _pairing_cards_html(field, selected, saved, usage, layout_id, state):
-    usage_label = i18n.t(FRAME_COLOURS_ROW_LABELS[usage])
+def frame_layout_id(device_cfg):
+    """The screen layout a frame's stored configuration names; a missing or
+    unknown value is the default layout."""
+    return screen_layouts.normalise_layout_id((device_cfg or {}).get("layout"))
+
+
+def offers_pairings(layout_id):
+    """True when a frame on `layout_id` picks colours from the five pairings
+    rather than the eighteen themes."""
+    return layout_id is not None and screen_layouts.is_giant_layout(layout_id)
+
+
+def preview_layout(layout_id):
+    """The `layout` a preview URL carries: the giant layout's id, or None on
+    the classic layout so its preview URLs stay as they always were."""
+    return layout_id if offers_pairings(layout_id) else None
+
+
+def look_label(theme_id, layout_id):
+    """How a stored look is named in a list row: the mapped pairing's name on
+    a giant layout (whatever theme is stored), the theme's own read-back
+    otherwise."""
+    if offers_pairings(layout_id):
+        return i18n.t(PAIRING_NAMES[pairing_id_for(theme_id)])
+    return look.look_sentence(theme_id)
+
+
+def _pairing_cards_html(field, selected, saved, usage, layout_id, state, form_id=SETTINGS_FORM_ID):
+    usage_label = i18n.t(USAGE_LABELS[usage])
     return "".join(
         _radio_card_html(
             field, pairing_id, pairing_id == selected, pairing_id == saved,
             i18n.t(PAIRING_NAMES[pairing_id]),
             theme_preview.frame_preview_src(
                 pairing_id, state, theme_preview.FRAME_PREVIEW_SIZE_SMALL, layout=layout_id),
-            i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, i18n.t(PAIRING_NAMES[pairing_id])))
+            i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, i18n.t(PAIRING_NAMES[pairing_id])),
+            form_id)
         for pairing_id in look.offered_pairing_ids())
 
 
@@ -211,3 +245,36 @@ def pairing_view_html(
     if usage in (None, COLOUR_USAGE_ARRIVALS):
         parts.append(_arrivals_panel_html(layout_id, current_arriving, errors, submitted))
     return '<div class="look-pairing-view">%s</div>' % "".join(parts)
+
+
+def pairing_group_html(
+        field, chosen_theme_id, saved_theme_id, usage, layout_id, state, form_id, errors,
+        leading_html=""):
+    """The five pairing cards for one posted field, as a radio group with
+    `leading_html` (a "Same as departures" radio) above it and the field's
+    error below. The stored theme ids are read as the pairings they map to; a
+    falsy id selects no card. Used where a theme is picked outside the
+    Departures and Arrivals views (a special look, the Calendar look)."""
+    cards = _pairing_cards_html(
+        field, pairing_id_for(chosen_theme_id) if chosen_theme_id else None,
+        pairing_id_for(saved_theme_id) if saved_theme_id else None,
+        usage, layout_id, state, form_id)
+    lead = '<div class="look-table__options">%s</div>' % leading_html if leading_html else ""
+    return (
+        '<div class="look-pairings">%s<div class="look-pick__grid" role="radiogroup" '
+        'aria-label="%s">%s</div>%s</div>'
+    ) % (
+        lead, escape_html(i18n.t(USAGE_LABELS[usage])), cards,
+        _field_error_html(errors, field, field.replace("_", "-")))
+
+
+def calendar_look_html(layout_id, calendar_theme_id, errors=None, submitted=None):
+    """The Calendar look's picker for a frame on a giant layout: "Same as
+    departures" and the five pairing cards, all posting `calendar_theme_id`
+    to the settings form."""
+    field = LOOK_FIELDS[COLOUR_USAGE_CALENDAR]
+    chosen = _submitted_or_current(submitted, field, calendar_theme_id)
+    same = look.same_option_html(field, not chosen, i18n.t(SAME_AS_DEPARTURES_LABEL))
+    return '%s%s' % (_help_html(PAIRING_HELP), pairing_group_html(
+        field, chosen, calendar_theme_id, COLOUR_USAGE_CALENDAR, layout_id,
+        theme_preview.FRAME_PREVIEW_STATE_DEPARTING, SETTINGS_FORM_ID, errors, same))

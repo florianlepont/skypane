@@ -597,10 +597,19 @@
   if (addForm) {
     var axesHost = addForm.querySelector("[data-look-axes-host]");
     var tableHost = addForm.querySelector("[data-look-table-host]");
-    var addAxes = bindAxes(axesHost.querySelector("[data-look-axes]"), function () { return addForm; });
-    axesHost.hidden = false;
-    tableHost.hidden = true;
-    addAxes.load(effectiveTheme(addForm));
+    // A frame on a giant layout picks from five pairing cards: no axes, no table.
+    var addAxes = axesHost
+      ? bindAxes(axesHost.querySelector("[data-look-axes]"), function () { return addForm; })
+      : null;
+    if (axesHost) {
+      axesHost.hidden = false;
+    }
+    if (tableHost) {
+      tableHost.hidden = true;
+    }
+    if (addAxes) {
+      addAxes.load(effectiveTheme(addForm));
+    }
     showSuggestions();
 
     addForm.addEventListener("change", function (evt) {
@@ -680,7 +689,7 @@
       syncLayoutCards();
       renderAll();
       syncSheet();
-      if (addForm) {
+      if (addAxes) {
         addAxes.load(effectiveTheme(addForm));
       }
     }
