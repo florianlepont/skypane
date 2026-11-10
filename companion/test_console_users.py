@@ -10,8 +10,7 @@ import pytest
 
 import fleet_console_support as fx
 from companion import console_routes, console_users, prefs
-from companion_app_server import http_request, login_via_auth0, served_stylesheet
-from companion_markup import declarations_for
+from companion_app_server import http_request, login_via_auth0
 from server import fleet_db, hardware
 
 FAKE_ISS = "https://tenant.example.test/"
@@ -162,10 +161,10 @@ def test_a_hostile_email_is_escaped_and_the_row_is_not_monospace(rig):
     _sql(server.state_dir, "UPDATE users SET email = ? WHERE id = ?", (hostile, seed.user_id))
     body = fx.get(server, cookie, "/users")[2]
     assert hostile not in body and "&lt;img src=x" in body
-    css = served_stylesheet(server)
-    declared = declarations_for(css, ".users-email")
-    assert "monospace" not in str(declared)
-    assert declared.get("overflow-wrap") == "anywhere" and "text-overflow" not in declared
+    css = fx.get(server, cookie, "/static/style.css")[2]
+    rule = re.search(r"\.users-email \{[^}]*\}", css).group(0)
+    assert "monospace" not in rule
+    assert "overflow-wrap: anywhere" in rule and "text-overflow" not in rule
 
 
 def test_own_row_shows_the_guard_in_place_of_the_role_select_and_locks_the_switch(rig):

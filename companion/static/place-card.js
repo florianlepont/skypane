@@ -91,17 +91,18 @@
     var mapEl = document.getElementById("place-map");
     var input = document.getElementById("place-search");
     var results = document.getElementById("place-results");
-    if (!api || !window.skypaneSearchGate || !input || !results) {
+    if (!api || !input || !results) {
       return;
     }
     var DEBOUNCE_MS = 500;
     var LIMIT = 5;
     var min = parseInt(mapEl.getAttribute("data-search-min"), 10) || 3;
     var max = parseInt(mapEl.getAttribute("data-search-max"), 10) || 120;
-    var gate = window.skypaneSearchGate;
+    var lockMs = parseInt(mapEl.getAttribute("data-search-lock-ms"), 10) || 1500;
     var timer = null;
-    // Bumped by a submit: the answer to an earlier suggestion is then not shown.
-    var round = 0;
+    var lastStart = 0;
+    var inFlight = false;
+    var cache = {};
 
     function typed() {
       return input.value.replace(/\s+/g, " ").replace(/^ | $/g, "");
@@ -227,15 +228,35 @@
         return;
       }
       query = query.slice(0, max);
-      var mine = round;
-      gate.search(query, api.url(query), "suggest").then(function (list) {
-        if (mine === round) {
+      var key = query.toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(cache, key)) {
+        show(cache[key], query);
+        return;
+      }
+      var wait = lastStart + lockMs - Date.now();
+      if (inFlight || wait > 0) {
+        timer = window.setTimeout(run, Math.max(wait, 300));
+        return;
+      }
+      inFlight = true;
+      lastStart = Date.now();
+      window.fetch(api.url(query), {
+        credentials: "omit",
+        referrerPolicy: "origin"
+      }).then(function (response) {
+        if (!response.ok) {
+          throw new Error("search failed");
+        }
+        return response.json();
+      }).then(function (list) {
+        if (Array.isArray(list)) {
+          cache[key] = list;
           show(list, query);
         }
-      }, function (error) {
-        if (mine !== round || (error && error.name === "AbortError")) {
-          return;
-        }
+      }).then(function () {
+        inFlight = false;
+      }, function () {
+        inFlight = false;
         if (typed().slice(0, max) === query) {
           status("failed");
         }
@@ -249,13 +270,12 @@
       // listener runs first): the pending search is shown under them at once.
       var query = typed().slice(0, max);
       if (query.length >= min && typeof window.fetch === "function" &&
-          !gate.cached(query)) {
+          !Object.prototype.hasOwnProperty.call(cache, query.toLowerCase())) {
         status("searching");
       }
     });
     // A submitted search runs on its own: the pending suggestion is dropped.
     input.form.addEventListener("submit", function () {
-      round += 1;
       window.clearTimeout(timer);
       clearStatus();
     });

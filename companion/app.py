@@ -1067,11 +1067,8 @@ class Handler(
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
-        prefs.set_request_path(parsed.path)
         result = routes.match(method, parsed.path, parsed.query)
         if result is None:
-            if static_files.looks_like_asset(parsed.path):
-                return static_files.send_asset_not_found(self)
             return self.send_html(404, self._not_found_page())
         route, route_match = result
         route_access, captured = _effective_access(route, route_match)

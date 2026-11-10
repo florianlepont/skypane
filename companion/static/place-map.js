@@ -29,6 +29,7 @@
   var COPYRIGHT_URL = "https://www.openstreetmap.org/copyright";
   // The one search endpoint; moving to another service means changing this line.
   var SEARCH_URL = "https://nominatim.openstreetmap.org/search";
+  var SEARCH_REFERRER_POLICY = "origin";
   var SEARCH_RESULT_LIMIT = 5;
   var STREET_ZOOM = 15;
   var CITY_ZOOM = 12;
@@ -937,6 +938,7 @@
   var searchLockMs = parseInt(mapEl.getAttribute("data-search-lock-ms"), 10) || 1500;
   var searchBusy = false;
   var searchLocked = false;
+  var searchCache = {};
 
   function setSearchDisabled(disabled) {
     var button = searchForm.querySelector("button[type='submit']");
@@ -1201,10 +1203,9 @@
     }).join("&");
   }
 
-  // A submitted query goes through the shared gate (place-search.js): one at
-  // a time, spaced, answered from memory when it was asked before, and the
-  // button stays off for the length the service's policy asks for.
-  function runSearch(query) {
+  // The one place a request leaves for the search service: a submitted query,
+  // one at a time, then a lock for the length the service's policy asks for.
+  function runSearch(query, key) {
     searchBusy = true;
     setSearchDisabled(true);
     var done = function () {
@@ -1218,16 +1219,26 @@
     var failed = function () {
       showResultsNote(text("search-failed"));
     };
-    var gate = window.skypaneSearchGate;
-    if (!gate) {
+    if (typeof window.fetch !== "function") {
       failed();
       done();
       return;
     }
-    gate.search(query, searchUrl(query), "submit").then(function (list) {
+    window.fetch(searchUrl(query), {
+      credentials: "omit",
+      referrerPolicy: SEARCH_REFERRER_POLICY
+    }).then(function (response) {
+      if (!response.ok) {
+        throw new Error("search failed");
+      }
+      return response.json();
+    }).then(function (list) {
+      if (!Array.isArray(list)) {
+        throw new Error("search failed");
+      }
+      searchCache[key] = list;
       renderResults(list);
-      done();
-    }, function () {
+    }).then(done, function () {
       failed();
       done();
     });
@@ -1252,14 +1263,14 @@
       return;
     }
     query = query.slice(0, searchMax);
-    var remembered = window.skypaneSearchGate && window.skypaneSearchGate.cached(query);
-    if (remembered) {
-      renderResults(remembered);
+    var key = query.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(searchCache, key)) {
+      renderResults(searchCache[key]);
       return;
     }
     // The typed suggestions give way to the answer, which replaces them.
     clearResults();
-    runSearch(query);
+    runSearch(query, key);
   }
 
   // --- Use my position --------------------------------------------------------------

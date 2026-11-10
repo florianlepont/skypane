@@ -40,17 +40,6 @@ PRINCIPAL_KINDS = ("user", "admin")
 # The signed-in principal's e-mail for this request ("" when unknown). Read by
 # the account row and to scope per-person browser state.
 _EMAIL_CTX = contextvars.ContextVar("skypane_principal_email", default="")
-_PATH_CTX = contextvars.ContextVar("skypane_request_path", default="")
-
-
-def set_request_path(path):
-    """Store the path of this request (page_styles picks the page's
-    stylesheets from it)."""
-    _PATH_CTX.set(path or "")
-
-
-def current_request_path():
-    return _PATH_CTX.get()
 
 
 def set_request_principal(kind=None, role=None, email=""):

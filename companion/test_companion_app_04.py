@@ -259,15 +259,12 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         for token in _MOTION_EXCEPTION_TOKENS
     ] + [(_DOT_PULSE_TOKEN, (_DOT_PULSE_SELECTOR,), _DOT_PULSE_KEYFRAMES)]
     for token, rules in _AMBIENT_TOKENS.items():
-        # The rules sit in different sheets, so their order is not the source order.
-        spenders = sorted(_spenders(served_css, token))
-        wanted = sorted(rules)
-        assert sorted((sel, prop) for sel, prop, _value in spenders) == sorted(
-            (selectors, "animation") for selectors, _keyframes in rules), (
+        spenders = _spenders(served_css, token)
+        assert [(sel, prop) for sel, prop, _value in spenders] == [
+            (selectors, "animation") for selectors, _keyframes in rules], (
             "expected only %r to spend %s, got %r" % (rules, token, spenders))
-        by_selectors = {selectors: keyframes for selectors, keyframes in wanted}
-        for selectors, _p, value in spenders:
-            assert by_selectors[selectors] in value, (token, value)
+        for (_selectors, keyframes), (_s, _p, value) in zip(rules, spenders):
+            assert keyframes in value, (token, value)
     for token, selectors_expected, keyframes in expected:
         spenders = _spenders(served_css, token)
         assert len(spenders) == 1, (

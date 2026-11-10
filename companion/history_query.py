@@ -85,8 +85,16 @@ def _ordered(events, sort):
     return events
 
 
-def _filtered(flights, view):
-    """`(shown, matched, counts)` of the folded `flights` for `view`."""
+def select(conn, view, pages, page_size, airline_names=None):
+    """The flights page for `view`: `rows` (the first `(pages + 1) *
+    page_size` matches in the view's order), `has_more`, `matched` (matches
+    of the search in every direction, the "All" chip), `counts` (per
+    direction) and `total` (every flight stored, whatever the search)."""
+    # The folded history is shared between requests (read only here).
+    flights = history_cache.cached(
+        conn, ("flights", SCAN_LIMIT, tuple(sorted((airline_names or {}).items()))),
+        lambda: flight_card.fold_repeated_passes(history_db.recent_runway_events(
+            conn, limit=SCAN_LIMIT, airline_names=airline_names)))
     words = view.q.lower().split()
     if words:
         found = []
@@ -102,24 +110,7 @@ def _filtered(flights, view):
         if kind:
             counts[kind] += 1
     shown = [e for e in found if not view.kind or _direction(e) == view.kind]
-    return _ordered(shown, view.sort), len(found), counts
-
-
-def select(conn, view, pages, page_size, airline_names=None):
-    """The flights page for `view`: `rows` (the first `(pages + 1) *
-    page_size` matches in the view's order), `has_more`, `matched` (matches
-    of the search in every direction, the "All" chip), `counts` (per
-    direction) and `total` (every flight stored, whatever the search)."""
-    names = tuple(sorted((airline_names or {}).items()))
-    # The folded history and each filtered view of it are shared between
-    # requests (read only here).
-    flights = history_cache.cached(
-        conn, ("flights", SCAN_LIMIT, names),
-        lambda: flight_card.fold_repeated_passes(history_db.recent_runway_events(
-            conn, limit=SCAN_LIMIT, airline_names=airline_names)))
-    shown, matched, counts = history_cache.cached(
-        conn, ("flights-view", SCAN_LIMIT, names, view.q, view.kind, view.sort),
-        lambda: _filtered(flights, view))
+    shown = _ordered(shown, view.sort)
     limit = (pages + 1) * page_size
     return Result(
-        shown[:limit], len(shown) > limit, matched, counts, len(flights))
+        shown[:limit], len(shown) > limit, len(found), counts, len(flights))

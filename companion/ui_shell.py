@@ -16,7 +16,6 @@ import companion.frame_menu as frame_menu
 import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
-import companion.page_styles as page_styles
 import companion.ui_splash as ui_splash
 from companion.ui_base import (
     AIRLINE_EDITOR_ROUTE,
@@ -56,8 +55,6 @@ from companion.ui_base import (
     SPLASH_BOOT_SCRIPT_SRC,
     SPLASH_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
-    PLACE_SEARCH_SCRIPT_SRC,
-    PLACE_START_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
     PLACE_CARD_SCRIPT_SRC,
     PLACE_AIRPORT_LIST_SCRIPT_SRC,
@@ -174,8 +171,6 @@ SHELL_SCRIPT_ORDER = (
     MODAL_SCRIPT_SRC,
     MOTION_SCRIPT_SRC,
     LEAFLET_SCRIPT_SRC,
-    PLACE_SEARCH_SCRIPT_SRC,
-    PLACE_START_SCRIPT_SRC,
     PLACE_MAP_SCRIPT_SRC,
     PLACE_CARD_SCRIPT_SRC,
     PLACE_AIRPORT_LIST_SCRIPT_SRC,
@@ -564,8 +559,7 @@ def page_shell(
         "favicon_link": FAVICON_LINK_HTML,
         "extra_styles": "".join(
             '<link rel="stylesheet" href="%s">\n' % escape_html(href)
-            for href in (page_styles.area_hrefs(prefs.current_request_path()) if active else ())
-            + tuple(styles)),
+            for href in styles),
         # Decorative: the adjacent site-title text stays the accessible name.
         "brand_inner_sidebar": brand_inner_sidebar,
         "brand_inner_header": brand_inner_header,

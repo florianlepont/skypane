@@ -9,10 +9,9 @@ corroboration flag flips) is folded into one sighting with the same rule
 Home and Flights use, so "seen n times" counts flights, not stored rows.
 """
 import collections
-import contextlib
 import functools
 import sqlite3
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from companion import airline_display, flight_card, history_cache
@@ -224,70 +223,24 @@ def collection_from_events(events, now, overrides=None):
     return entries, _summary(spotted, len(order))
 
 
-def _open_all(state_dirs, stack):
-    """Connections to the history of each distinct directory (an unreadable
-    history contributes none)."""
-    conns = []
+def sightings_across(state_dirs):
+    """The folded sightings of every frame in `state_dirs` merged newest
+    first. A frame whose history cannot be read contributes nothing."""
+    merged = []
     seen_dirs = set()
     for state_dir in state_dirs:
         if not state_dir or state_dir in seen_dirs:
             continue
         seen_dirs.add(state_dir)
         try:
-            conns.append(stack.enter_context(history_db.open_db(state_dir)))
-        except (sqlite3.Error, OSError):
-            continue
-    return conns
-
-
-def _merged_sightings(conns):
-    merged = []
-    for conn in conns:
-        try:
-            merged.extend(_sightings(conn))
+            with history_db.open_db(state_dir) as conn:
+                merged.extend(_sightings(conn))
         except (sqlite3.Error, OSError):
             continue
     merged.sort(key=lambda row: row.get("ts") or "", reverse=True)
     return merged
 
 
-def sightings_across(state_dirs):
-    """The folded sightings of every frame in `state_dirs` merged newest
-    first. A frame whose history cannot be read contributes nothing."""
-    with contextlib.ExitStack() as stack:
-        return _merged_sightings(_open_all(state_dirs, stack))
-
-
-def _overrides_digest(overrides):
-    return tuple(sorted((str(k), repr(v)) for k, v in (overrides or {}).items()))
-
-
-def _refresh_new(collection, now):
-    """The cached collection with each entry's New pill judged at `now`
-    (the only part of an entry that depends on the clock)."""
-    entries, summary = collection
-    instant = _utc_now(now)
-    fresh = [
-        replace(entry, is_new=_is_new(entry.first_ts, instant))
-        if entry.first_ts and entry.is_new != _is_new(entry.first_ts, instant) else entry
-        for entry in entries]
-    return fresh, summary
-
-
-def collection_across(state_dirs, now, overrides=None):
-    """`collection_from_events` over the merged sightings of `state_dirs`,
-    remembered until one of the histories or the rename registry changes."""
-    with contextlib.ExitStack() as stack:
-        conns = _open_all(state_dirs, stack)
-        built = history_cache.cached_many(
-            conns, ("collection", _overrides_digest(overrides)),
-            lambda: collection_from_events(_merged_sightings(conns), now, overrides))
-    return _refresh_new(built, now)
-
-
 def airline_collection(conn, now, overrides=None):
     """`collection_from_events` over the connection's `runway_events`."""
-    built = history_cache.cached(
-        conn, ("collection", _overrides_digest(overrides)),
-        lambda: collection_from_events(_sightings(conn), now, overrides))
-    return _refresh_new(built, now)
+    return collection_from_events(_sightings(conn), now, overrides)

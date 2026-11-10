@@ -57,27 +57,6 @@ def _home(new_context, server, wait_until="commit", **context_args):
     return context, page
 
 
-def test_the_splash_script_is_preloaded_and_fetched_once(new_context, server):
-    """the first visit hints the splash script from the document head, so its request overlaps
-    parsing, and the script is still downloaded exactly once"""
-    context = new_context(splash=True, viewport=VIEWPORT_PHONE)
-    page = context.new_page()
-    fetched = []
-    page.on("request", lambda r: fetched.append(r.url) if "/static/splash.js" in r.url else None)
-    try:
-        _login(page, server.base_url())
-        fetched.clear()
-        page.goto(server.base_url() + layout.HOME_ROUTE)
-        page.wait_for_function(SPLASH_DONE, timeout=6000)
-        hint = page.locator('head link[rel="preload"][as="script"]')
-        assert hint.count() == 1
-        assert hint.get_attribute("href") == page.locator(
-            'script[src*="splash.js"]').get_attribute("src")
-        assert len(fetched) == 1, fetched
-    finally:
-        context.close()
-
-
 def test_splash_plays_once_keeps_the_page_inert_then_opens_it(new_context, server):
     """first visit: the splash covers the page, the page is inert, and when it ends the page is
     interactive; the splash was marked as seen for the session"""

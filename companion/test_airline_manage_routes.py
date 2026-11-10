@@ -190,18 +190,3 @@ def test_posting_the_shown_name_back_is_a_reset_not_a_rename(rig):
         {"airline": "Air Algerie", "airline_name": "Air Algérie"})
     assert status == 303
     assert name_overrides.load_name_overrides(rig.owned_dir) == {}
-
-
-def test_the_editor_serves_one_airlines_type_rows_as_a_bare_fragment_to_an_administrator(rig):
-    page = rig.get("admin", "/airlines/manage")[2]
-    assert "data-types-src=" in page and "airlines-subrow" not in page
-    marker = 'data-types-src="'
-    src = page[page.index(marker) + len(marker):].split('"', 1)[0].replace("&amp;", "&")
-    status, headers, body = rig.get("admin", src)
-    assert status == 200 and "airlines-subrow" in body and "<html" not in body
-    assert "no-store" in headers["Cache-Control"]
-    assert rig.get("admin", "/airlines/manage?types=999999")[0] == 404
-    for who in ("owner", "co"):
-        assert rig.get(who, src)[0] == 404
-    assert rig.get("anonymous", src)[0] == 303
-    assert "airlines-subrow" in rig.get("admin", "/airlines/manage?types=all")[2]

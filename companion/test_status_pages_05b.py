@@ -359,7 +359,7 @@ def test_every_card_image_source_passes_route_membership_test(tmp_path):
     """every rendered card image source, with the route prefix stripped, is a member of
     illustrations.target_filenames() — every rendered URL provably passes the route's own
     membership test"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     targets = set(illustrations.target_filenames())
     prefix = airlines_page.ILLUSTRATION_ROUTE_PREFIX
     sources = re.findall(r'src="([^"]+)"', rendered)
@@ -376,7 +376,7 @@ def test_air_caraibes_row_lists_every_known_type(tmp_path):
     """with no sightings stored, the Air Caraïbes group has one sub-row per secondary type
     (A330, A350-1000, ATR72), each with its own artwork upload to that type's own key, and
     the airline's own row carries the chevron that expands them"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     card_slice = _card_slice(rendered, "Air Caraïbes")
     assert 'class="airlines-expand"' in card_slice
     assert _sub_rows(card_slice) == [
@@ -390,7 +390,7 @@ def test_air_caraibes_row_lists_every_known_type(tmp_path):
 def test_every_airline_lists_each_of_its_types_as_text(tmp_path):
     """every airline's group carries one sub-row per secondary type, labelled with that
     type's designator and uploading to that type's own key; Transavia reads A320"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     for airline_name, shapes in illustrations.target_variants_by_airline():
         card_slice = _card_slice(rendered, airline_name)
         key = illustrations.normalise_airline_key(airline_name)
@@ -434,7 +434,7 @@ def test_illustration_route_prefix_matches_app_constant():
 def test_every_row_image_carries_matching_intrinsic_dimensions(tmp_path):
     """every rendered row image carries width/height attributes matching
     illustration_normalize.ILLUSTRATION_TARGET_WIDTH/HEIGHT exactly"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     tags = re.findall(r'<img class="airlines-thumb__image"[^>]*>', rendered)
     assert len(tags) == sum(1 + len(shapes) for _n, shapes in illustrations.target_variants_by_airline())
     expected_attr = 'width="%d" height="%d"' % (
@@ -666,8 +666,7 @@ def test_airline_table_stylesheet_contract(css_text):
     """the editor table is a block list of cards below 70rem and a real table from it, its
     sub-rows stay hidden until the row's native chevron is open, and the retired carousel
     and list selectors are gone from the served stylesheet"""
-    base = dict([r for r in rules_with_selector(css_text, ".airlines-table")
-                 if not r.at_rules][0].declarations)
+    base = dict(rules_with_selector(css_text, ".airlines-table")[0].declarations)
     assert base.get("display") == "block", base
     sub = dict(rules_with_selector(css_text, ".airlines-subrow")[0].declarations)
     assert sub.get("display") == "none", sub
@@ -732,7 +731,7 @@ def test_replace_form_action_matches_trigger_attribute_membership(tmp_path):
     and every upload action in the
     table (airline rows and type sub-rows), with the route prefix stripped, is a member of
     illustrations.target_filenames() — mirroring the image-source membership check"""
-    rendered = airlines_page.render(shp.ctx(str(tmp_path)) | {"types_open": "all"})
+    rendered = airlines_page.render(shp.ctx(str(tmp_path)))
     form_count = rendered.count('<form class="%s"' % airlines_page.LIGHTBOX_REPLACE_FORM_CLASS)
     assert form_count == 1, "expected exactly one lightbox replace form, got %d" % form_count
     targets = set(illustrations.target_filenames())

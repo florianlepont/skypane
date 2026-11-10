@@ -46,18 +46,13 @@ from companion.settings.form import (
 from server import airports, detection, device_config
 
 # The scripts and the extra stylesheet this page alone loads, beyond the
-# shared ones: the form guard, the airport filter, then the starter that
-# loads the map library and its glue after the first paint (the addresses
-# are the map element's data-*-src attributes, below).
+# shared ones: the form guard, the airport list filler, the airport filter,
+# then the map library and the glue that drives it.
 PAGE_SCRIPTS = (
-    layout.DIRTY_STATE_SCRIPT_SRC, layout.LIST_FILTER_SCRIPT_SRC,
-    layout.PLACE_START_SCRIPT_SRC)
-# `data-*-src` attribute of #place-map -> the script the starter loads, in
-# loading order; the airport list comes last, once the map is up.
-STARTED_SCRIPTS = (
-    ("leaflet", layout.LEAFLET_SCRIPT_SRC), ("search", layout.PLACE_SEARCH_SCRIPT_SRC),
-    ("map", layout.PLACE_MAP_SCRIPT_SRC), ("card", layout.PLACE_CARD_SCRIPT_SRC),
-    ("airports", layout.PLACE_AIRPORT_LIST_SCRIPT_SRC))
+    layout.DIRTY_STATE_SCRIPT_SRC, layout.PLACE_AIRPORT_LIST_SCRIPT_SRC,
+    layout.LIST_FILTER_SCRIPT_SRC,
+    layout.LEAFLET_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC,
+    layout.PLACE_CARD_SCRIPT_SRC)
 PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
 
 # Airports a browser without scripts lists when no search term narrows it.
@@ -392,11 +387,9 @@ def _map_strings_attrs():
     words = " ".join(
         'data-t-%s="%s"' % (name, escape_html(i18n.t(message)))
         for name, message in _MAP_STRINGS)
-    sources = "".join(' data-%s-src="%s"' % pair for pair in STARTED_SCRIPTS)
     return words + (
         ' data-t-coords="%s" data-search-min="%d" data-search-max="%d" data-search-lock-ms="%d"'
-        % (escape_html(COORDS_TEMPLATE), SEARCH_MIN_CHARS, SEARCH_MAX_CHARS, SEARCH_LOCK_MS)
-    ) + sources
+        % (escape_html(COORDS_TEMPLATE), SEARCH_MIN_CHARS, SEARCH_MAX_CHARS, SEARCH_LOCK_MS))
 
 
 def _airports_json():

@@ -1446,7 +1446,7 @@ def test_preview_png_unauth_404_not_login_redirect(app02_server):
     # not exist", exactly like every other unknown path.
     status, _headers, body = http_request(app02_server.base_url() + "/preview.png")
     assert status == 404, "expected 404 for unauthenticated GET /preview.png, got %d" % status
-    assert body == b"", "expected an asset-like unknown path to get an empty 404"
+    assert b"Page not found." in body, "expected the exact 404 copy in the response body"
 
 
 def test_unauth_get_gallery_image_redirects_to_login_without_next(app02_server):

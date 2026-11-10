@@ -36,20 +36,9 @@ FUNCTION_LINE_LIMIT = 80
 # named reason each (never an empty string — test 3 below enforces it).
 TRACKED_FILE_EXCEPTIONS = {
     "companion/static/style.css": (
-        "the core stylesheet every page links; its rules keep one cascade order, "
-        "and a further split would add a render-blocking request to every page"
-    ),
-    "companion/static/style-admin.css": (
-        "an area stylesheet cut from the one cascade by selector family; a page "
-        "links its own area only, so a further split would add a request per page"
-    ),
-    "companion/static/style-display.css": (
-        "an area stylesheet cut from the one cascade by selector family; a page "
-        "links its own area only, so a further split would add a request per page"
-    ),
-    "companion/static/style-place.css": (
-        "an area stylesheet cut from the one cascade by selector family; a page "
-        "links its own area only, so a further split would add a request per page"
+        "one served stylesheet; splitting it adds a <link> to every page's "
+        "<head> and a request per page, a rendered-output change this "
+        "phase forbids"
     ),
 }
 
