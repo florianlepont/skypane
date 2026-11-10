@@ -6564,8 +6564,8 @@ html:not(.map-ready) .place-tap-hint {
     /* The room the unsaved-changes actions take at the right of the card's
      * first row (Cancel and Save in the longer French wording). */
     --place-actions-w: 182px;
-    /* Not clipped here: the map below is taller than the stage. The page
-     * container clips instead. */
+    /* Not clipped here or by the page container: the map reaches above the
+     * page's top edge by the top inset and is taller than the stage. */
     overflow: visible;
   }
 
@@ -6588,7 +6588,7 @@ html:not(.map-ready) .place-tap-hint {
     box-sizing: border-box;
     height: 100lvh;
     padding: 0;
-    overflow: clip;
+    overflow: visible;
   }
 
   /* The page fills the dynamic viewport, less whatever sits above it in the
@@ -6597,10 +6597,14 @@ html:not(.map-ready) .place-tap-hint {
     max-height: 100dvh;
   }
 
+  /* The map starts above the page's own top edge by the top safe-area inset:
+   * in a browser tab the document begins below the status bar, and a map
+   * that starts at the document top would leave a pale band under it. The
+   * box and the stage are not clipped, so the extra height is painted. */
   .map-ready .place-map {
     position: absolute;
-    inset: 0 0 auto;
-    height: 100lvh;
+    inset: calc(-1 * var(--safe-top)) 0 auto;
+    height: calc(100lvh + var(--safe-top));
     min-height: 0;
   }
 
