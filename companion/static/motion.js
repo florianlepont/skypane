@@ -241,11 +241,16 @@
         return false;
       }
       var host = strip.getBoundingClientRect();
-      thumb.style.width = Math.round(box.width) + "px";
-      thumb.style.height = Math.round(box.height) + "px";
-      thumb.style.transform = "translate("
-        + Math.round(box.left - host.left - strip.clientLeft) + "px, "
-        + Math.round(box.top - host.top - strip.clientTop) + "px)";
+      // Both edges are rounded, not the left edge and the width, so the first
+      // and last choices keep the same inset from the track whatever the
+      // fractional layout.
+      var left = Math.round(box.left - host.left - strip.clientLeft);
+      var right = Math.round(box.right - host.left - strip.clientLeft);
+      var top = Math.round(box.top - host.top - strip.clientTop);
+      var bottom = Math.round(box.bottom - host.top - strip.clientTop);
+      thumb.style.width = (right - left) + "px";
+      thumb.style.height = (bottom - top) + "px";
+      thumb.style.transform = "translate(" + left + "px, " + top + "px)";
       strip.classList.add("is-enhanced");
       return true;
     }
@@ -352,6 +357,10 @@
   enhanceTabs(document, null);
 
   var PICTURES = "img.preview-frame__image, img.look-frame__image, img.history-card__thumb-image";
+  // Small pictures that fade in when they arrive but never shimmer their
+  // container (a card, a row or a list of fifty).
+  var QUIET_PICTURES = "img.collection-card__image, img.airlines-thumb__image, " +
+    "img.special-row__image, img.layout-card__thumb, img.look-pick__preview";
 
   function pictureLoading(img) {
     if (img.parentNode) {
@@ -396,7 +405,7 @@
     }
   }
 
-  function bindPicture(img) {
+  function bindPicture(img, quiet) {
     img.addEventListener("load", function () {
       pictureLoaded(img, true);
     });
@@ -406,7 +415,7 @@
     img.addEventListener("animationend", function () {
       img.classList.remove("is-revealed");
     });
-    if (!img.complete) {
+    if (!img.complete && !quiet) {
       pictureLoading(img);
     }
   }
@@ -418,7 +427,11 @@
 
   var pictures = document.querySelectorAll(PICTURES);
   for (var p = 0; p < pictures.length; p++) {
-    bindPicture(pictures[p]);
+    bindPicture(pictures[p], false);
+  }
+  var quietPictures = document.querySelectorAll(QUIET_PICTURES);
+  for (var q = 0; q < quietPictures.length; q++) {
+    bindPicture(quietPictures[q], true);
   }
 
   // The Style preview swaps one picture's src as the choice changes.

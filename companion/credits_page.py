@@ -8,7 +8,7 @@ import json
 import os
 from urllib.parse import urlsplit
 
-from companion import i18n, layout, prefs
+from companion import i18n, layout, login_page, prefs
 
 CREDITS_ROUTE = "/credits"
 
@@ -129,7 +129,20 @@ def _source_card_html(source, lang):
                 "%s: %s" % (i18n.t(_VISIT_TEXT), source["name"]))))
 
 
-def credits_body(sources=None):
+def _back_link_html(back, home_route):
+    """The way out of the page: back to sign-in for a visitor with no session,
+    back to the person's own Home or Account page for a signed-in one."""
+    if back == login_page.BACK_ACCOUNT:
+        route, label = "/account", login_page._BACK_TO_ACCOUNT_TEXT
+    elif back == login_page.BACK_SIGN_IN:
+        route, label = "/login", _BACK_TEXT
+    else:
+        route, label = home_route or layout.HOME_ROUTE, login_page._BACK_TO_HOME_TEXT
+    return '<p class="text-body"><a href="%s">%s</a></p>' % (
+        layout.escape_html(route), layout.escape_html(i18n.t(label)))
+
+
+def credits_body(sources=None, back=login_page.BACK_SIGN_IN, home_route=None):
     """The page body for the request language set through prefs."""
     if sources is None:
         sources = load_credits()
@@ -139,11 +152,11 @@ def credits_body(sources=None):
     return (
         layout.page_header(i18n.t(TITLE_TEXT), purpose=i18n.t(_INTRO_TEXT))
         + "".join(_source_card_html(source, lang) for source in sources)
-        + '<p class="text-body"><a href="/login">%s</a></p>'
-        % layout.escape_html(i18n.t(_BACK_TEXT)))
+        + _back_link_html(back, home_route))
 
 
-def credits_page(ui_theme, health_alert, sources=None):
+def credits_page(ui_theme, health_alert, sources=None, back=login_page.BACK_SIGN_IN,
+                 home_route=None):
     return layout.page_shell(
-        title=i18n.t(TITLE_TEXT), active="", body=credits_body(sources),
+        title=i18n.t(TITLE_TEXT), active="", body=credits_body(sources, back, home_route),
         ui_theme=ui_theme, health_alert=health_alert)

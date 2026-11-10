@@ -27,7 +27,7 @@ import pytest
 
 from companion import access, app, auth, legacy_pages, routes, static_files
 from companion_app_server import (
-    InProcessAppServer, auth0_env, http_request,
+    InProcessAppServer, auth0_env, csrf_url, http_request,
     login_via_auth0)
 from fake_auth0 import FakeAuth0
 from access_matrix_support import (
@@ -423,8 +423,11 @@ class MatrixRig:
         if cookie:
             token = cookie.split("=", 1)[1]
             body = ("%s=%s" % (routes.CSRF_FIELD, auth.csrf_token(token))).encode("ascii")
+        url = self.server.url(path)
+        if cookie and "/illustration/" in path:
+            url = csrf_url(cookie, url)
         return http_request(
-            self.server.url(path), method="POST", data=body, cookie=cookie,
+            url, method="POST", data=body, cookie=cookie,
             extra_headers={"Origin": self.server.base_url()})
 
     def conn(self):

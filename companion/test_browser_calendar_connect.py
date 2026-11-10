@@ -80,6 +80,11 @@ def test_the_button_opens_the_page_and_cancel_returns_to_the_list(new_context, s
         page.wait_for_url("**" + CONNECT_ROUTE)
         page.locator(URL_INPUT).wait_for(state="visible")
         assert page.locator("dialog[open]").count() == 0
+        # The Save bar waits for an edit; Cancel is in it once something is typed.
+        assert page.locator(".dirty-bar").is_hidden()
+        page.locator(URL_INPUT).fill("https://typed.example/")
+        page.locator(CANCEL).wait_for(state="visible")
+        page.once("dialog", lambda dialog: dialog.accept())
         page.locator(CANCEL).click()
         page.wait_for_url("**/display/calendar")
         assert _state(page) == "ok"
@@ -110,6 +115,8 @@ def test_the_page_is_usable_in_both_themes(new_context, server, viewport, lang):
             font_px = page.locator(URL_INPUT).evaluate("e => parseFloat(getComputedStyle(e).fontSize)")
             assert font_px >= 16, (theme, font_px)
             where = "calendar page (%s, %s, %d)" % (lang, theme["theme"], viewport["width"])
+            page.locator(URL_INPUT).fill("https://typed.example/")
+            page.locator(SAVE).wait_for(state="visible")
             for selector in (URL_INPUT, SAVE, CANCEL, DISCONNECT_LINK, "a.form-back"):
                 _assert_hit_target(page, selector, where)
             bar = page.locator(".dirty-bar").bounding_box()

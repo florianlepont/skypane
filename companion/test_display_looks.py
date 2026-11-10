@@ -9,7 +9,6 @@ functions that produce it - never on source text.
 import io
 import json
 import os
-import urllib.parse
 
 import pytest
 from PIL import Image
@@ -366,7 +365,7 @@ def test_a_special_look_posts_through_the_rules_route_with_its_theme(make_app_se
     }
     status, headers, _ = http_request(
         server.base_url() + config_page.RULES_ADD_ROUTE, method="POST", cookie=session,
-        data=urllib.parse.urlencode(form).encode())
+        data=with_csrf(session, form))
     assert status == 303 and "flash=rule_added" in headers.get("Location", ""), headers
     rows = colour_rules.rule_rows(colour_rules.load_colour_rules(server.state_dir))
     assert [row[:3] for row in rows] == [(colour_rules.RULE_KIND_PREFIX, "VLG", "band_blue_light")]

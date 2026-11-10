@@ -367,9 +367,36 @@
   // shows that state again by reloading it.
   var shown = window.location.pathname + window.location.search;
 
+  // What the current history entry holds: "base" the entry the page opened
+  // on, "draft" an entry the live typing is rewriting, "committed" an entry a
+  // settled search owns. Live typing never overwrites a committed entry, so
+  // Back returns to the search that was settled before it.
+  var entryState = "base";
+
   // `commit` is a search the visitor settled (Enter, a chip, the sort, Clear):
-  // it gets a history entry of its own so Back returns to the state before it.
-  // Live typing only replaces the current entry.
+  // a changed address gets a history entry of its own so Back returns to the
+  // state before it, and Enter on text already typed live settles the entry
+  // typing wrote. Live typing rewrites the current entry, or starts a new one
+  // right after a settled search.
+  function record(url, commit) {
+    if (commit === true) {
+      if (url !== shown) {
+        history.pushState(null, "", url);
+      } else {
+        history.replaceState(null, "", url);
+      }
+      entryState = "committed";
+    } else {
+      if (entryState === "committed") {
+        history.pushState(null, "", url);
+      } else {
+        history.replaceState(null, "", url);
+      }
+      entryState = "draft";
+    }
+    shown = url;
+  }
+
   function refresh(commit) {
     window.clearTimeout(timer);
     var url = currentUrl();
@@ -379,12 +406,7 @@
         return;
       }
       swapView(doc);
-      if (commit === true && url !== shown) {
-        history.pushState(null, "", url);
-      } else {
-        history.replaceState(null, "", url);
-      }
-      shown = url;
+      record(url, commit);
     }, function () {
       if (mine === latest) {
         giveUp(url);

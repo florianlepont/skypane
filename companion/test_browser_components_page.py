@@ -265,6 +265,8 @@ def test_the_rename_field_fills_its_card_and_the_page_has_a_visible_save(
         new_context, fleet_server):
     context, page = _admin_page(new_context, fleet_server, "/frame/name")
     try:
+        page.locator("#frame-name").fill("Another name")
+        page.locator(".dirty-bar").wait_for(state="visible")
         geometry = page.evaluate(
             "() => { const i = document.querySelector('#frame-name').getBoundingClientRect();"
             " const c = document.querySelector('.page-section').getBoundingClientRect();"

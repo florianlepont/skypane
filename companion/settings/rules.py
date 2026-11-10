@@ -224,13 +224,13 @@ def rule_form_html(ctx, edit=None, errors=None, submitted=None):
     form_html = (
         '<form method="post" action="%s" id="%s" class="form-page form-page--single rule-add-form" '
         'data-special-form>'
-        '<div class="form-page__card">%s'
+        '%s<div class="form-page__card">%s'
         '<div class="form-page__section">'
         '<p class="look-axis__label" id="%s">%s</p>%s</div></div>'
         "</form>"
     ) % (
         escape_html(device_scope.scoped(RULES_ADD_ROUTE, "POST")), RULE_FORM_ID,
-        who_html,
+        csrf_field(), who_html,
         escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t(RULE_LOOK_LABEL)),
         look_html,
     )

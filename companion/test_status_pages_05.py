@@ -503,7 +503,7 @@ def test_shell_has_no_theme_or_language_form_and_account_has_both_in_order():
 def test_french_shell_nav_reads_the_locked_french_labels():
     """under lang='fr' the personal nav reads Accueil/Historique des vols/Lieu et détection/
     Style/Compagnies and the Console nav reads Flotte/Utilisateurs/
-    Éditeur de compagnies"""
+    Éditeur (the page itself is titled Éditeur de compagnies)"""
     try:
         prefs.set_request_prefs(lang="fr")
         personal = layout.page_shell(title="Home", active="home", body="", ui_theme="auto")
@@ -513,7 +513,7 @@ def test_french_shell_nav_reads_the_locked_french_labels():
     for label in ("Accueil", "Historique des vols", "Lieu et détection", "Style",
                   "Compagnies"):
         assert label in personal, "expected the French nav label %r in the personal shell" % (label,)
-    for label in ("Flotte", "Utilisateurs", "Éditeur de compagnies"):
+    for label in ("Flotte", "Utilisateurs", "Éditeur"):
         assert label in console, "expected the French nav label %r in the Console shell" % (label,)
 
 

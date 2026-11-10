@@ -31,6 +31,7 @@ its own token and never reads the session cookie), and the static assets in
 admin role (every global page and mutation).
 """
 import re
+from urllib.parse import parse_qs, urlsplit
 
 from companion import (
     airline_actions, co_managers, console_routes, device_scope, fleet_moves, frame_rename, user_pairing, layout, page_policy, route_types,
@@ -378,6 +379,12 @@ CSRF_FIELD = "csrf_token"
 # release actions, the detection form that changes location data, the settings
 # form, the quick switches and the theme and language switches. New console routes set `csrf=True` on their own Route.
 CSRF_ROUTE_KEYS = frozenset((
+    ("POST", Exact(RULES_ADD_ROUTE)),
+    ("POST", Exact(CALENDAR_CONNECT_ROUTE)),
+    ("POST", Exact(airlines_page.RESOLVE_ROUTE)),
+    ("POST", Exact(airlines_page.RENAME_ROUTE)),
+    ("POST", PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png")),
+    ("POST", Exact(LOGOUT_ROUTE)),
     ("POST", PrefixSuffix(RULES_DELETE_ROUTE_PREFIX, RULES_DELETE_ROUTE_SUFFIX)),
     ("POST", Exact(CALENDAR_DISCONNECT_ROUTE)),
     ("POST", PrefixSuffix(
@@ -443,3 +450,12 @@ def match(method, path, query):
         return _match_in(
             scoped_routes, method, prefixed.group(2) or "/", query, prefixed.group(1))
     return _match_in(ROUTES, method, path, query, None)
+
+
+def submitted_csrf(handler, route):
+    """The anti-forgery token a POST carries: in the form body, except for an
+    illustration upload, whose multipart body the handler reads itself and
+    whose action URL carries the token in its query instead."""
+    if route.matcher == PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"):
+        return parse_qs(urlsplit(handler.path).query).get(CSRF_FIELD, [None])[0]
+    return handler.read_form().get(CSRF_FIELD)

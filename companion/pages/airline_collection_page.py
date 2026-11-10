@@ -204,7 +204,7 @@ def _picture_html(entry, state_dir):
     buster = airlines_page._illustration_cache_buster(entry.picture_key, state_dir)
     return (
         '<img class="collection-card__image" src="%s%s" width="%d" height="%d" '
-        'loading="lazy" decoding="async" alt="%s">'
+        'loading="lazy" decoding="async" fetchpriority="low" alt="%s">'
     ) % (src, illustration_normalize.thumbnail_query(buster, ILLUSTRATION_TARGET_WIDTH),
          ILLUSTRATION_TARGET_WIDTH, ILLUSTRATION_TARGET_HEIGHT,
          escape_html(entry.name))

@@ -109,8 +109,9 @@ def test_the_rename_page_shows_the_name_the_save_bar_and_french_labels(rig):
     tree = parse_html(fx.get(server, cookies["owner"], path)[2])
     field = tree.select_one('input[name="name"]')
     assert field.attrs["value"] == "Kitchen" and field.attrs["maxlength"] == "40"
-    assert tree.select_one("form[data-dirty-form]").attrs["id"] == "frame-name-form"
-    assert tree.select_one(".dirty-bar") is not None
+    assert tree.select_one("form[novalidate]").attrs["id"] == "frame-name-form"
+    # The Save bar is in the page (the floor without script) and a script shows it on a change.
+    assert tree.select_one(".dirty-bar[data-dirty-page]") is not None
     assert tree.select_one("h1").text() == "Rename frame"
     french = fx.get(server, cookies["owner"], path, headers={"Accept-Language": "fr"})[2]
     assert "Renommer le cadre" in french and "Nom du cadre" in french
@@ -260,3 +261,43 @@ def test_a_normal_user_is_never_sent_to_a_console_page(rig):
     assert status == 303 and headers["Location"] == "/account?flash=frame_renamed"
     admin = parse_html(fx.get(server, cookies["admin"], url)[2])
     assert admin.select_one("a.dirty-bar__cancel").attrs["href"] == "/fleet"
+
+
+def test_a_return_target_the_viewer_cannot_open_is_replaced_by_the_default(rig):
+    server, seed, cookies = rig
+    cancel = "/devices/%s/frame/name" % seed.owned_id
+    for who, hidden in (("owner", "/devices/%s/" % seed.live_id), ("owner", "/components"),
+                        ("co", "/devices/%s/" % seed.live_id)):
+        status, headers, _b = _rename(
+            server, cookies[who], seed.owned_id, "Study", return_to=hidden)
+        if who == "co":
+            assert status == 404
+            continue
+        assert status == 303 and headers["Location"] == "/account?flash=frame_renamed"
+        _s, _h, page = http_request(server.url(cancel + "?return_to=" + quote(hidden, safe="")),
+                                    cookie=cookies[who])
+        text = page.decode("utf-8")
+        assert 'href="%s"' % hidden not in text and 'value="%s"' % hidden not in text
+        assert 'href="/account"' in text
+
+
+def test_a_return_target_the_viewer_can_open_is_kept(rig):
+    server, seed, cookies = rig
+    own_home = "/devices/%s/" % seed.owned_id
+    status, headers, _b = _rename(server, cookies["owner"], seed.owned_id, "Study", return_to=own_home)
+    assert status == 303 and headers["Location"] == own_home + "?flash=frame_renamed"
+    status, headers, _b = _rename(server, cookies["admin"], seed.owned_id, "Study", return_to="/components")
+    assert status == 303 and headers["Location"].startswith("/components")
+    other = "/devices/%s/" % seed.live_id
+    status, headers, _b = _rename(server, cookies["admin"], seed.owned_id, "Study", return_to=other)
+    assert status == 303 and headers["Location"].startswith(other)
+
+
+def test_a_rename_post_without_the_token_is_forbidden_not_redirected(rig):
+    server, seed, cookies = rig
+    status, headers, body = http_request(
+        server.url("/devices/%s/frame/name" % seed.owned_id), method="POST",
+        cookie=cookies["owner"], data=b"name=Study",
+        extra_headers={"Origin": server.base_url()})
+    assert status == 403 and "Location" not in headers
+    assert _name_of(server, seed.owned_id) == "Kitchen"

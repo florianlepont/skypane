@@ -14,7 +14,7 @@ import companion.test_companion_app_helpers as cah
 from companion import device_scope
 from companion.test_device_helpers import (
     SIM_ENV, get, post, snapshot, snapshot_all, start_fleet_app)
-from companion_app_server import InProcessAppServer, http_request, login
+from companion_app_server import InProcessAppServer, csrf_url, http_request, login, with_csrf
 from skypane_two_device_fleet import seed_two_device_fleet
 from server.plane import calendar_rules, colour_rules, manual_resolutions, name_overrides
 from server.plane import illustrations
@@ -60,8 +60,8 @@ def _png_upload():
 def _post_upload(app, path):
     body, content_type = _png_upload()
     return http_request(
-        app.server.base_url() + path, method="POST", data=body, cookie=app.cookie,
-        content_type=content_type)[:2]
+        csrf_url(app.cookie, app.server.base_url() + path), method="POST", data=body,
+        cookie=app.cookie, content_type=content_type)[:2]
 
 
 def _without(snap, ignore):
@@ -260,8 +260,7 @@ class _InProcessFleet:
         with cah.stubbed_calendar_transport(transport), cah.fake_public_hostname(CALENDAR_HOST):
             status, headers, _ = http_request(
                 self.server.base_url() + path + "/settings/calendar/connect", method="POST",
-                data=("calendar_url=" + CALENDAR_URL.replace(":", "%3A").replace("/", "%2F")
-                      .replace("?", "%3F").replace("=", "%3D")).encode(),
+                data=with_csrf(self.cookie, {"calendar_url": CALENDAR_URL}),
                 cookie=self.cookie)
         return status, headers
 
