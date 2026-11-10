@@ -69,12 +69,12 @@ Plans:
 **Plans**: 8 plans
 
 Plans:
-- [ ] 65-01-PLAN.md - photo table (expand-only migration) and row helpers, purge hooks (PRIV-02, PRIV-03)
-- [ ] 65-02-PLAN.md - private per-frame photo store with quota checks, owner and co-manager gate (PRIV-01, PRIV-03)
+- [x] 65-01-PLAN.md - photo table (expand-only migration) and row helpers, purge hooks (PRIV-02, PRIV-03)
+- [x] 65-02-PLAN.md - private per-frame photo store with quota checks, owner and co-manager gate (PRIV-01, PRIV-03)
 - [ ] 65-03-PLAN.md - file purge and orphan sweep (PRIV-02)
 - [ ] 65-04-PLAN.md - purge on retire, reassign and account deletion (PRIV-02)
 - [ ] 65-05-PLAN.md - sweep command and start-up sweep (PRIV-02)
-- [ ] 65-06-PLAN.md - owner-or-co-manager route access kind and the guard (PRIV-01)
+- [x] 65-06-PLAN.md - owner-or-co-manager route access kind and the guard (PRIV-01)
 - [ ] 65-07-PLAN.md - photos excluded from the backup, documented and tested (PRIV-04, PRIV-01, PRIV-03)
 - [ ] 65-08-PLAN.md - admin-leak test and phase gate (PRIV-01)
 
@@ -125,7 +125,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 64. Photo Pipeline (Server Only) | 5/5 | Complete (closed 2026-11-10 with one open point: how real skin looks was never judged) | 2026-11-10 |
-| 65. Photo Storage, Privacy and Quotas | 0/8 | Planned    |  |
+| 65. Photo Storage, Privacy and Quotas | 3/8 | In Progress|  |
 | 66. Frame Mode, Rotation and Waiting Screen | 0/0 | Not started | - |
 | 67. Companion Photo Management and Settings | 0/0 | Not started | - |
 | 68. Photo-Mode Wake Interval | 0/0 | Not started (gated on Phases 47, 47.1, 47.2) | - |
