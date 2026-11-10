@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 51 closed at the owner's request
-last_updated: "2026-10-30T18:02:51.253Z"
+stopped_at: Phase 62 context gathered
+last_updated: "2026-11-09T10:04:45.004Z"
 last_activity: 2026-10-30
 progress:
-  total_phases: 12
-  completed_phases: 4
-  total_plans: 37
-  completed_plans: 31
-  percent: 25
+  total_phases: 15
+  completed_phases: 11
+  total_plans: 151
+  completed_plans: 189
+  percent: 73
 ---
 
 # Project State
@@ -67,6 +67,10 @@ Progress: [████████░░] 84%
 - [Phase 58-01 2026-11-01]: Second-hardware shortlist in hardware/SECOND-HARDWARE.md ranked by landed cost TTC (delivery unconfirmed everywhere): EE04 78.73 (only one near the 100 EUR target), PhotoPainter 90.48, Waveshare raw+ESP32 board >=96.27, HAT(E) >=101.67, E1002 106.14; Good Display page unreadable. Kubii 3000 mAh battery now out of stock.
 - [Phase 58-02 2026-11-01]: Driver spike (tasks 1-2) in hardware/SECOND-HARDWARE-SPIKE.md and firmware/spike-7in3/: all five candidates PASS on paper (controller ED2208 family, init sequence and pin map found); trial driver builds in the ESP-IDF 5.3.1 container (image via mirror.gcr.io, Docker Hub 429). Recommended by cost: Seeed EE04. Owner purchase decision PENDING, Task 3 not executed, nothing bought.
 
+### Roadmap Evolution
+
+- Phase 62 added 2026-11-08 at the owner's request: Plane Screen Redesign (giant-lettering design), from `.planning/notes/plane-screen-design-brief.md`. Runs before Phase 59, which stays last.
+
 ### Pending Todos
 
 None yet.
@@ -78,5 +82,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Phase 51 closed at the owner's request
+**Stopped At:** Phase 62 context gathered
 **Resume File:** None

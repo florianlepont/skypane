@@ -437,7 +437,8 @@ def test_calendar_hostile_stored_url_renders_no_masked_line(tmp_path, hostile):
 # ======================================================================
 
 _TASK3_BASE_CTX = {
-    "device_config": {"theme": "white", "tracked_runway": "3", "led_enabled": True},
+    "device_config": {
+        "theme": "white", "tracked_runway": "3", "led_enabled": True, "layout": "classic"},
 }
 
 
@@ -539,7 +540,7 @@ def test_display_uses_one_bilingual_card_flow_without_duplicate_framing(
     try:
         rendered = config_page.render(
             {
-                "device_config": {"theme": "blue", "tracked_runway": "3"},
+                "device_config": {"layout": "classic", "theme": "blue", "tracked_runway": "3"},
                 "colour_rules": {},
             },
             scope=config_page.SCOPE_DISPLAY,
@@ -580,7 +581,7 @@ def test_aspect_display_render_has_exactly_one_live_preview_figure_eager_with_di
     calendar look the all-views render appends, each an <img> of the saved look's full-frame preview in its own state with explicit width and
     height from the render pipeline's real served size, and loading left eager (the default)"""
     rendered = config_page.render(
-        {"device_config": {"theme": "blue"}},
+        {"device_config": {"layout": "classic", "theme": "blue"}},
         scope=config_page.SCOPE_DISPLAY)
     images = re.findall(r'<img class="look-frame__image"[^>]*>', rendered)
     assert len(images) == 3, images
@@ -596,7 +597,7 @@ def test_every_chip_carries_data_preview_src_ending_in_live_1_chips_stay_lazy():
     """every look-table option's own <label> carries a data-preview-src naming its own theme's
     full-frame preview in its look's state and size, while the table itself loads no image at
     all (its swatches are inline SVG)"""
-    ctx = {"device_config": {"theme": "blue"}}
+    ctx = {"device_config": {"layout": "classic", "theme": "blue"}}
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
         ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     sources = re.findall(
@@ -647,7 +648,7 @@ def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatc
     one more, each with one radio per registered theme and its gap notes listed after the table,
     never inside it, plus the departures look as one grid of radio cards with one card per
     registered theme"""
-    ctx = {"device_config": {"theme": "white", "tracked_runway": "3"}}
+    ctx = {"device_config": {"layout": "classic", "theme": "white", "tracked_runway": "3"}}
     rendered = config_page.render(ctx, scope=config_page.SCOPE_DISPLAY) + config_page.render(
         ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     root = parse_html(rendered)
@@ -1372,7 +1373,7 @@ def test_the_display_page_carries_exactly_one_radio_set_per_theme_field():
     retiring carousel's own equivalent guard so the page can never show one setting in two
     disagreeing places"""
     page = config_page.render({
-        "device_config": {"theme": "black", "tracked_runway": "3", "led_enabled": True},
+        "device_config": {"layout": "classic", "theme": "black", "tracked_runway": "3", "led_enabled": True},
     }, scope=config_page.SCOPE_DISPLAY)
     theme_count = len(device_config.THEME_IDS)
     posted = len(re.findall(r'<input type="radio" name="theme" ', page))

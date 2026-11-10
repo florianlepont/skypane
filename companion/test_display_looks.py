@@ -24,14 +24,15 @@ from server.plane import colour_rules
 
 
 _DISPLAY_CTX = {
-    "device_config": {"theme": "band_red_field", "tracked_runway": "3"},
+    "device_config": {"theme": "band_red_field", "tracked_runway": "3", "layout": "classic"},
     "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
 }
 
 
 @pytest.fixture(scope="module")
 def server(module_app_server_factory):
-    return module_app_server_factory()
+    return module_app_server_factory(
+        seed=lambda state_dir: device_config.save_device_config(state_dir, layout="classic"))
 
 
 @pytest.fixture(scope="module")
@@ -309,7 +310,7 @@ def test_each_theme_saves_through_the_existing_form_post(make_app_server, theme_
     form = {
         "scope": config_page.SCOPE_DISPLAY, "return_to": "/display",
         "theme": theme_id, "theme_arriving": theme_id, "calendar_theme_id": theme_id,
-        "tracked_runway": "3", "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
+        "layout": "classic", "tracked_runway": "3", "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
     }
     status, headers, _ = http_request(
         server.base_url() + config_page.SETTINGS_ROUTE, method="POST", cookie=session,
@@ -412,9 +413,9 @@ def test_frame_preview_cache_writes_once_and_reuses_the_file(tmp_path, monkeypat
     calls = []
     real = theme_preview.frame_preview_png_bytes
 
-    def counting(theme_id, state, size):
+    def counting(theme_id, state, size, layout=None):
         calls.append((theme_id, state, size))
-        return real(theme_id, state, size)
+        return real(theme_id, state, size, layout)
 
     monkeypatch.setattr(theme_preview, "frame_preview_png_bytes", counting)
     state_dir = str(tmp_path)

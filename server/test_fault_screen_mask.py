@@ -4,7 +4,7 @@
 """Byte-for-byte drift test between `firmware/tools/gen_fault_screen.py`'s
 output and the committed `firmware/main/fault_screen_mask.h`. If this
 fails, the header was hand-edited or `server/plane/render.py`'s
-`_build_no_connection_canvas` composition changed without regenerating
+calm status composition changed without regenerating
 it - the fix is always to rerun the generator, never to hand-patch the
 header.
 
@@ -57,3 +57,12 @@ def test_fault_screen_mask_header_matches_generator_output():
             "%d bytes generated) - rerun: server/.venv/bin/python3 firmware/tools/gen_fault_screen.py, "
             "then commit the regenerated header" % (len(actual), len(expected))
         )
+
+
+def test_fault_flat_canvas_has_exactly_two_colours():
+    """the flat canvas the mask is cut from holds only black and white"""
+    from server.plane.render.giant import status
+
+    canvas = status.build_status("no_connection", (1200, 1600), flat=True)
+    used = {idx for _count, idx in canvas.getcolors()}
+    assert len(used) == 2

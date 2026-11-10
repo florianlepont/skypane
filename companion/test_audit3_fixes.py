@@ -123,7 +123,8 @@ def _look_images(view):
     import re
     from companion.pages import config_page
     rendered = config_page.render(
-        {"device_config": {"theme": "blue"}}, scope=config_page.SCOPE_DISPLAY, view=view)
+        {"device_config": {"theme": "blue", "layout": "classic"}}, scope=config_page.SCOPE_DISPLAY,
+        view=view)
     return re.findall(r'<img class="look-frame__image"[^>]*>', rendered), rendered
 
 

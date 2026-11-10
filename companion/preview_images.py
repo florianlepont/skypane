@@ -9,7 +9,7 @@ from the handler (`self.path`, `self.send_html()`, `self.send_bytes()`,
 from urllib.parse import parse_qs, urlsplit
 
 from companion import theme_preview
-from server import device_config, history_db
+from server import device_config, history_db, screen_layouts
 from server.plane import name_overrides
 
 
@@ -34,6 +34,20 @@ def _safe_latest_runway_event(state_dir):
     return rows[0] if rows else None
 
 
+_REFUSED = object()
+
+
+def _requested_layout(query_string):
+    """The `layout` query value when it is a known layout id, `None` when
+    the parameter is absent (classic), `_REFUSED` for anything else.
+    """
+    values = parse_qs(query_string, keep_blank_values=True).get("layout")
+    if values is None:
+        return None
+    value = values[0]
+    return value if value in screen_layouts.LAYOUT_IDS else _REFUSED
+
+
 class PreviewImagesMixin:
     def _serve_theme_preview_image(self, device, theme_id):
         # Membership test first, same shape as _serve_runway_image().
@@ -48,9 +62,12 @@ class PreviewImagesMixin:
         live_event = None
         if live_flag == "1":
             live_event = _safe_latest_runway_event(device.state_dir)
+        layout = _requested_layout(parsed.query)
+        if layout is _REFUSED:
+            return self.send_html(404, self._not_found_page())
         try:
             payload = theme_preview.cached_preview_bytes(
-                device.state_dir, theme_id, live_event=live_event)
+                device.state_dir, theme_id, live_event=live_event, layout=layout)
         except OSError:
             return self.send_html(404, self._not_found_page())
         except Exception:
@@ -72,9 +89,12 @@ class PreviewImagesMixin:
         if (state not in theme_preview.FRAME_PREVIEW_STATES
                 or size not in theme_preview.FRAME_PREVIEW_SIZES):
             return self.send_html(404, self._not_found_page())
+        layout = _requested_layout(urlsplit(self.path).query)
+        if layout is _REFUSED:
+            return self.send_html(404, self._not_found_page())
         try:
             payload = theme_preview.cached_frame_preview_bytes(
-                device.state_dir, theme_id, state, size)
+                device.state_dir, theme_id, state, size, layout)
         except Exception:
             return self.send_html(404, self._not_found_page())
         if payload is None:

@@ -7,7 +7,7 @@ import argparse
 import hashlib
 import sys
 
-from server import device_config, hardware
+from server import device_config, hardware, screen_layouts
 from server import panel_format as pf
 from server.plane import dither, enrich, runway_config
 from server.plane.render import layout
@@ -135,6 +135,17 @@ def _add_hardware_argument(parser):
     )
 
 
+def _add_layout_argument(parser):
+    """--layout: preview one of the screen layouts."""
+    parser.add_argument(
+        "--layout",
+        choices=screen_layouts.LAYOUT_IDS,
+        default=screen_layouts.CLASSIC_LAYOUT_ID,
+        help="Screen layout id from server/screen_layouts.py. The default, classic, is the "
+             "original picture, byte for byte.",
+    )
+
+
 def _add_state_arguments(parser):
     """Theme/runway registry ids plus the device/server-health indicator
     flags and the quiet-hours end-time preview flag.
@@ -176,6 +187,7 @@ def build_parser():
     _add_route_shaping_arguments(parser)
     _add_state_arguments(parser)
     _add_hardware_argument(parser)
+    _add_layout_argument(parser)
     return parser
 
 
@@ -263,6 +275,7 @@ def _render_preview(args, flight, route, previous_flight, previous_route, previo
         battery_low=args.battery_low,
         quiet_hours_until=args.quiet_hours_until,
         profile=profile,
+        layout=args.layout,
     )
     data = pf.pack_panel(canvas)
     expected = pf.IMAGE_BYTES if profile is None else profile.firmware.max_image_bytes

@@ -220,3 +220,32 @@ remains active on the other 4 (grey, red_light, green_light, blue_light).
 See `hardware/BRINGUP-LOG.md`'s Phase 8 on-glass entry, Step B, for the
 full on-glass record. `EMPTY_BODY_FONT` is unchanged by this correction —
 still Regular, still out of scope.
+
+## `Anton-Regular.ttf`
+
+- **Upstream source:** https://github.com/google/fonts
+- **Pinned commit / retrieval date:** commit
+  `5bb28733cec313b63fbd415b574b5ae35c8aa8b8` (HEAD of a shallow, sparse,
+  read-only checkout of `google/fonts` dated 2026-11-08; not a branch
+  download), retrieved 2026-11-09. Files were copied from that checkout, not
+  fetched from a branch ref, so a later upstream change cannot alter them
+  unnoticed.
+- **Upstream paths:** `ofl/anton/Anton-Regular.ttf`, `ofl/anton/OFL.txt`
+  (the licence is vendored here as `Anton-OFL.txt`).
+- **Per-file sha256:**
+  - `Anton-Regular.ttf`:
+    `a4ba3a92350ebb031da0cb47630ac49eb265082ca1bc0450442f4a83ab947cab`
+  - `Anton-OFL.txt`:
+    `ee67e6ee22790b7929f1a3769ca2801d565c64b5a9096942c1adf5596de9c9e4`
+- **Licence:** SIL OFL 1.1 - Copyright 2020 The Anton Project Authors
+  (https://github.com/googlefonts/AntonFont.git). The full OFL 1.1 text is
+  vendored alongside as `server/assets/fonts/Anton-OFL.txt` and is also
+  available at http://scripts.sil.org/OFL. This notice, plus the copyright
+  line above, constitutes the required notice for this repository's copy.
+- **Use:** giant destination lettering on the plane screen.
+- **Family verification:** the TTF loads via `PIL.ImageFont.truetype()` and
+  reports family name `Anton`, style `Regular` via `getname()`.
+
+### Local modifications
+
+None - copied byte-for-byte from the pinned commit's `ofl/anton/` directory.

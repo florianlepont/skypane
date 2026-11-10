@@ -443,7 +443,9 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
     """a POST /settings with a valid theme change and an unknown calendar look returns 200,
     shows the newly-picked theme still selected, shows the field error, carries no
     flash banner, and persists nothing on disk"""
-    server = make_app_server(fake_providers=True)
+    server = make_app_server(
+        fake_providers=True,
+        seed=lambda state_dir: device_config.save_device_config(state_dir, layout="classic"))
     session_cookie = login(server)
     before = device_config.load_device_config(server.state_dir)
     status, headers, body = http_request(

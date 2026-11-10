@@ -69,6 +69,18 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [ ] **UX-03**: An invited user sees only what concerns their own frames, understands the state of each frame at a glance and can change its settings without meeting administrator concepts, validated by the owner on a phone.
 - [ ] **UX-04**: Sign-in and invitation read clearly: a user whose Auth0 email is not verified gets a message that says so, the first arrival of an invited user is guided, and sign-in errors say what to do next.
 
+### Plane Screen Redesign
+
+- [x] **PSR-01**: The classic layout and every golden hash of `legacy_render_baseline.json` stay unchanged; the new layouts are reached only through an explicit layout id.
+- [x] **PSR-02**: Anton is vendored under `server/assets/fonts/` with its OFL text and a `VENDOR.md` entry, and flight-screen lettering is stretched per line to the frame width.
+- [x] **PSR-03**: The destination is split into 2-3 lines in portrait by a deterministic automatic rule (one line in landscape and for names of 3 letters or fewer), with no correction table; the airline name replaces an unknown destination.
+- [x] **PSR-04**: Five field / lettering pairings replace the 18 themes for the new layouts; stored theme ids, per-airline rules, the arrival colour and calendar themes resolve to a pairing without rewriting stored values.
+- [x] **PSR-05**: Four layouts (A, B, C, A with the diagonal band) render in portrait 1200x1600 and landscape 800x480, without the previous-flight card.
+- [x] **PSR-06**: The layout is a per-frame setting stored in the device configuration and chosen in the companion's Personalisation tab (English and French), with a preview.
+- [x] **PSR-07**: Seven status screens (watching, quiet hours, display off, battery empty, no connection, updating, retired) use the calm layout in portrait and landscape, and the firmware masks for no connection and updating are regenerated without a firmware code change or an OTA.
+- [x] **PSR-08**: New golden fixtures for the new layouts live in a separate manifest, and every rendered output uses only the six legal palette indices.
+- [ ] **PSR-09**: The owner checks the new screens on a real panel (non-live unit only) and the result is recorded.
+
 ### Debt
 
 - [ ] **DEBT-01**: The comment-history guard debt is cleared (or its baseline only shrinks), and no v1.2 phase adds violations.
@@ -94,7 +106,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ## Traceability
 
-Coverage: 35/35 v1.2 requirements mapped, each to exactly one phase.
+Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 
 | Requirement | Phase | Status |
 |---|---|---|
@@ -133,3 +145,12 @@ Coverage: 35/35 v1.2 requirements mapped, each to exactly one phase.
 | UX-03 | Phase 61 | Pending |
 | UX-04 | Phase 61 | Pending |
 | DEBT-01 | Phase 59 | Pending |
+| PSR-01 | Phase 62 | Complete |
+| PSR-02 | Phase 62 | Complete |
+| PSR-03 | Phase 62 | Complete |
+| PSR-04 | Phase 62 | Complete |
+| PSR-05 | Phase 62 | Complete |
+| PSR-06 | Phase 62 | Complete |
+| PSR-07 | Phase 62 | Complete |
+| PSR-08 | Phase 62 | Complete |
+| PSR-09 | Phase 62 | Pending |

@@ -74,6 +74,7 @@ ROUTE_POLICY = {
     ("GET", "/display/special-looks/new"): OWNER_DEVICE,
     ("GET", "/display/special-looks/edit"): OWNER_DEVICE,
     ("GET", "/display/arrivals"): OWNER_DEVICE,
+    ("GET", "/display/layout"): OWNER_DEVICE,
     ("GET", "/display/calendar"): OWNER_DEVICE,
     ("GET", "/display/calendar/connect"): OWNER_DEVICE,
     ("GET", "/display/calendar-look"): OWNER_DEVICE,
@@ -109,7 +110,7 @@ ROUTE_POLICY.update({("GET", path): PUBLIC for path in _STATIC_PATHS})
 # `/devices/<id>` prefix. Every other route must refuse the prefix.
 DEVICE_SCOPED = frozenset(
     [("GET", path) for path in (
-        "/", "/display", "/display/arrivals", "/display/special-looks", "/display/calendar",
+        "/", "/display", "/display/arrivals", "/display/layout", "/display/special-looks", "/display/calendar",
         "/display/special-looks/new", "/display/special-looks/edit", "/display/calendar/connect",
         "/display/calendar-look", "/display/screen",
         "/detection", "/device", "/flights", "/health", "/airlines",

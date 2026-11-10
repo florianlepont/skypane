@@ -37,7 +37,7 @@ _REPO_ROOT = os.path.dirname(_HERE)
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import atomic_io, device_policy
+from server import atomic_io, device_policy, screen_layouts
 from server.device_policy import (  # noqa: F401
     BATTERY_CRITICAL_SLEEP_S,
     DEFAULT_QUIET_HOURS_END,
@@ -279,7 +279,7 @@ def normalise_detection(value):
 def load_device_config(state_dir):
     """Read device_config.json; a missing/unreadable/malformed/non-dict
     file falls back to an empty dict, never raises. Always returns all
-    twelve keys with valid values via the normalise_*() functions above,
+    thirteen keys with valid values via the normalise_*() functions above,
     so a hostile or stale value on disk never reaches a caller.
     `theme_arriving`, `calendar_theme_id` are read with
     `.get()` so an older file missing them resolves to their documented
@@ -312,6 +312,7 @@ def load_device_config(state_dir):
         "display_enabled": normalise_display_enabled(data.get("display_enabled")),
         "timezone": normalise_timezone(data.get("timezone")),
         "detection": normalise_detection(data.get("detection")),
+        "layout": screen_layouts.normalise_layout_id(data.get("layout")),
     }
 
 
@@ -323,6 +324,16 @@ def _validate_detection(detection):
         return
     if normalise_detection(detection) is None:
         raise ValueError("invalid detection value %r" % (detection,))
+
+
+def _validate_layout(layout):
+    """`layout`'s own validation: `None` means not supplied; anything else
+    must be a known layout id.
+    """
+    if layout is None:
+        return
+    if not isinstance(layout, str) or layout not in screen_layouts.LAYOUT_IDS:
+        raise ValueError("unknown layout id (expected one of %r)" % (screen_layouts.LAYOUT_IDS,))
 
 
 def _validate_timezone(timezone):
@@ -399,10 +410,11 @@ def _merged_config(
     current, theme=None, theme_arriving=None, calendar_theme_id=None, tracked_runway=None,
     led_enabled=None, quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, timezone=None, detection=None,
+    layout=None,
 ):
     """The dict `save_device_config()` writes (ten keys, plus `timezone`
     only when it differs from `DEFAULT_TIMEZONE` and `detection` only
-    when set): every supplied
+    when set, `layout` only when it differs from the default): every supplied
     (non-`None`) field wins, everything else carries `current`'s value
     forward. `theme_arriving`'s three-state contract (sentinel clears,
     non-None sets, None carries forward) is unchanged from before the
@@ -437,6 +449,9 @@ def _merged_config(
         new_detection = current["detection"]
     if new_detection is not None:
         merged["detection"] = new_detection
+    new_layout = layout if layout is not None else current["layout"]
+    if new_layout != screen_layouts.DEFAULT_LAYOUT_ID:
+        merged["layout"] = new_layout
     return merged
 
 
@@ -444,7 +459,7 @@ def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, calendar_theme_id=None, timezone=None,
-    detection=None,
+    detection=None, layout=None,
 ):
     """Validate and persist any subset of the device settings; `None`
     means "not supplied, carry the current on-disk value forward" for
@@ -462,6 +477,10 @@ def save_device_config(
     object; like `timezone` it is written only when set, so a device that
     never chose one keeps its file bytes. Three states: `None` carries
     forward, `CLEAR_DETECTION` removes the key, an object sets it.
+
+    `layout` is the screen layout id; like `timezone` it is written only
+    when it differs from `screen_layouts.DEFAULT_LAYOUT_ID`, so a device
+    that never chose one keeps its file bytes.
 
     `theme_arriving` has a three-state contract instead of two: `None`
     carries forward, `CLEAR_THEME_ARRIVING` (an identity-compared
@@ -487,6 +506,7 @@ def save_device_config(
     _validate_wake_interval(wake_interval_s)
     _validate_timezone(timezone)
     _validate_detection(detection)
+    _validate_layout(layout)
 
     os.makedirs(state_dir, exist_ok=True)
     with _SAVE_LOCK:
@@ -501,7 +521,7 @@ def save_device_config(
                 led_enabled=led_enabled, quiet_hours_enabled=quiet_hours_enabled,
                 quiet_hours_start=quiet_hours_start, quiet_hours_end=quiet_hours_end,
                 wake_interval_s=wake_interval_s, display_enabled=display_enabled,
-                timezone=timezone, detection=detection,
+                timezone=timezone, detection=detection, layout=layout,
             )
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 

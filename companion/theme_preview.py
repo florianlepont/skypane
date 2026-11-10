@@ -19,7 +19,7 @@ from PIL import Image
 
 import companion.device_scope as device_scope
 import companion.i18n as i18n
-from server import atomic_io, device_config, panel_format
+from server import atomic_io, device_config, panel_format, screen_layouts
 from server.plane import render
 
 THEME_PREVIEW_ROUTE_PREFIX = "/theme-preview/"
@@ -67,14 +67,30 @@ THEME_PREVIEW_SIZE = (320, 120)
 THEME_PREVIEW_CACHE_DIRNAME = "theme_previews"
 # Manual escape hatch for a render-geometry change inside render.py
 # that preview_signature() cannot see on its own.
-THEME_PREVIEW_CACHE_VERSION = 1
+THEME_PREVIEW_CACHE_VERSION = 2
 
 # Bound on the cache directory's total file count, oldest evicted first -
-# every theme's sample plus a couple of concurrently-live_event previews
-# each stays under this, and it grows with the registry; a much larger
+# every theme's sample for every layout plus a couple of concurrently-live_event
+# previews each stays under this, and it grows with the registry; a much larger
 # number would only ever accumulate from a runway with many distinct live
 # events, not from normal Settings-page browsing.
-THEME_PREVIEW_CACHE_MAX_FILES = 3 * len(device_config.THEMES)
+THEME_PREVIEW_CACHE_MAX_FILES = 3 * len(device_config.THEMES) * len(screen_layouts.LAYOUT_IDS)
+
+# Cache keys and file names carry a layout segment; `None` (the caller
+# did not choose one) is the classic picture.
+DEFAULT_PREVIEW_LAYOUT = screen_layouts.CLASSIC_LAYOUT_ID
+
+
+def layout_key(layout):
+    """The allow-listed layout id for `layout`: `None` is classic, a known
+    id is itself, anything else is `None` (the caller refuses it). The
+    result is the only layout text that may reach a cache path.
+    """
+    if layout is None:
+        return DEFAULT_PREVIEW_LAYOUT
+    if isinstance(layout, str) and layout in screen_layouts.LAYOUT_IDS:
+        return layout
+    return None
 
 # Matches cached_preview_bytes()'s own filename shape: a stable
 # "<theme>-<event or 'sample'>" prefix followed by exactly the 12-hex
@@ -118,10 +134,11 @@ def _live_flight_route_state(live_event):
     return flight, route, state
 
 
-def preview_png_bytes(theme_id, live_event=None):
+def preview_png_bytes(theme_id, live_event=None, layout=None):
     """Render the fixed scene, or `live_event` (a `runway_events` row)
     when given, through `render.build_canvas()`, crop, downscale, and
     return PNG bytes. A live render omits the previous-flight card.
+    `layout` is a screen layout id (`None` is classic).
 
     `.convert("RGB")` happens before crop/resize, deliberately:
     `build_canvas()` returns a "P"-mode image, and resizing a "P"-mode
@@ -136,11 +153,13 @@ def preview_png_bytes(theme_id, live_event=None):
             previous_route=THEME_PREVIEW_PREVIOUS_ROUTE,
             previous_state=THEME_PREVIEW_PREVIOUS_STATE,
             theme_id=theme_id,
+            layout=layout_key(layout),
         )
     else:
         flight, route, state = _live_flight_route_state(live_event)
         canvas = render.build_canvas(
             flight, state, route=route, theme_id=theme_id,
+            layout=layout_key(layout),
         )
     rgb = canvas.convert("RGB")
     cropped = rgb.crop(THEME_PREVIEW_CROP_BOX)
@@ -150,13 +169,14 @@ def preview_png_bytes(theme_id, live_event=None):
     return buffer.getvalue()
 
 
-def preview_signature(theme_id, live_event_id=None):
+def preview_signature(theme_id, live_event_id=None, layout=None):
     """A 12-hex-character cache-key discriminator for `theme_id`.
     Folds in the theme's palette (so a real-glass ink re-tune is a
     cache miss, not a stale image forever), the crop/size constants,
     `THEME_PREVIEW_CACHE_VERSION` (the manual escape hatch for a
     render-geometry change this signature can't otherwise see), and
-    `live_event_id` (opaque digest input, never a path component).
+    `live_event_id` (opaque digest input, never a path component) and
+    the layout, so one theme's pictures for two layouts never collide.
     """
     digest_input = repr((
         device_config.THEMES[theme_id],
@@ -165,6 +185,7 @@ def preview_signature(theme_id, live_event_id=None):
         THEME_PREVIEW_SIZE,
         THEME_PREVIEW_CACHE_VERSION,
         live_event_id,
+        layout_key(layout),
     )).encode("utf-8")
     return hashlib.sha256(digest_input).hexdigest()[:12]
 
@@ -179,25 +200,27 @@ def cache_dir(state_dir):
     return os.path.join(state_dir, THEME_PREVIEW_CACHE_DIRNAME)
 
 
-def cache_path(state_dir, theme_id, live_event_id=None):
+def cache_path(state_dir, theme_id, live_event_id=None, layout=None):
     """The on-disk cache path for `theme_id`'s preview, or `None` when
     `state_dir` is falsy or `theme_id` is not a real THEMES key —
     validated at the boundary itself, never trusting an upstream check.
+    A `layout` outside the allow-list is refused the same way.
 
     `live_event_id` is coerced to `int()`; any failure degrades to the
     fixed literal `"sample"`, so no string field from a `runway_events`
     row can ever reach a path component.
     """
-    if not state_dir or theme_id not in device_config.THEMES:
+    layout_id = layout_key(layout)
+    if not state_dir or theme_id not in device_config.THEMES or layout_id is None:
         return None
     try:
         event_id = int(live_event_id)
     except (TypeError, ValueError):
         event_id = None
-    signature = preview_signature(theme_id, event_id)
+    signature = preview_signature(theme_id, event_id, layout_id)
     directory = cache_dir(state_dir)
-    filename = "%s-%s-%s.png" % (
-        theme_id, event_id if event_id is not None else "sample", signature)
+    filename = "%s-%s-%s-%s.png" % (
+        theme_id, event_id if event_id is not None else "sample", layout_id, signature)
     return os.path.join(directory, filename)
 
 
@@ -286,18 +309,20 @@ FRAME_PREVIEW_PIXEL_SIZES = {
     for size, factor in FRAME_PREVIEW_REDUCE_FACTORS.items()
 }
 FRAME_PREVIEW_CACHE_DIRNAME = "frame_previews"
-# Every reachable file is one of themes x 2 states x 2 sizes; the bound
+# Every reachable file is one of themes x 2 states x 2 sizes x layouts; the bound
 # follows the registry, so adding a theme never evicts live previews.
 FRAME_PREVIEW_CACHE_MAX_FILES = (
-    len(device_config.THEMES) * len(FRAME_PREVIEW_STATES) * len(FRAME_PREVIEW_SIZES))
-FRAME_PREVIEW_CACHE_VERSION = 1
+    len(device_config.THEMES) * len(FRAME_PREVIEW_STATES) * len(FRAME_PREVIEW_SIZES)
+    * len(screen_layouts.LAYOUT_IDS))
+FRAME_PREVIEW_CACHE_VERSION = 2
 
 
-def frame_preview_png_bytes(theme_id, state, size):
+def frame_preview_png_bytes(theme_id, state, size, layout=None):
     """The whole canvas for `theme_id` with the fixed scene's main flight
     in `state`, box-reduced to `size`, as PNG bytes. The arriving
     variant swaps the two fixture flights, so each picture shows a
-    flight that really arrives at (or leaves) Orly.
+    flight that really arrives at (or leaves) Orly. `layout` is a screen
+    layout id (`None` is classic).
     """
     if state == FRAME_PREVIEW_STATE_ARRIVING:
         main_flight, main_route = THEME_PREVIEW_PREVIOUS_FLIGHT, THEME_PREVIEW_PREVIOUS_ROUTE
@@ -311,6 +336,7 @@ def frame_preview_png_bytes(theme_id, state, size):
         main_flight, state, route=main_route,
         previous_flight=previous_flight, previous_route=previous_route,
         previous_state=previous_state, theme_id=theme_id,
+        layout=layout_key(layout),
     )
     # RGB before reducing, for the same reason preview_png_bytes() gives.
     reduced = canvas.convert("RGB").reduce(FRAME_PREVIEW_REDUCE_FACTORS[size])
@@ -319,7 +345,7 @@ def frame_preview_png_bytes(theme_id, state, size):
     return buffer.getvalue()
 
 
-def frame_preview_signature(theme_id, state, size):
+def frame_preview_signature(theme_id, state, size, layout=None):
     """Like `preview_signature()`, for one full-frame variant."""
     digest_input = repr((
         device_config.THEMES[theme_id],
@@ -327,30 +353,34 @@ def frame_preview_signature(theme_id, state, size):
         state,
         FRAME_PREVIEW_REDUCE_FACTORS[size],
         FRAME_PREVIEW_CACHE_VERSION,
+        layout_key(layout),
     )).encode("utf-8")
     return hashlib.sha256(digest_input).hexdigest()[:12]
 
 
-def frame_cache_path(state_dir, theme_id, state, size):
+def frame_cache_path(state_dir, theme_id, state, size, layout=None):
     """The on-disk cache path for one full-frame variant, or `None` when
-    any of the three values is outside its allow-list or `state_dir` is
+    any of the four values is outside its allow-list or `state_dir` is
     falsy. Every path component comes from an allow-list member, never
     from request text.
     """
+    layout_id = layout_key(layout)
     if (not state_dir or theme_id not in device_config.THEMES
-            or state not in FRAME_PREVIEW_STATES or size not in FRAME_PREVIEW_SIZES):
+            or state not in FRAME_PREVIEW_STATES or size not in FRAME_PREVIEW_SIZES
+            or layout_id is None):
         return None
-    filename = "%s-%s-%s-%s.png" % (
-        theme_id, state, size, frame_preview_signature(theme_id, state, size))
+    filename = "%s-%s-%s-%s-%s.png" % (
+        theme_id, state, size, layout_id,
+        frame_preview_signature(theme_id, state, size, layout_id))
     return os.path.join(state_dir, FRAME_PREVIEW_CACHE_DIRNAME, filename)
 
 
-def cached_frame_preview_bytes(state_dir, theme_id, state, size):
+def cached_frame_preview_bytes(state_dir, theme_id, state, size, layout=None):
     """`cached_preview_bytes()`'s contract for one full-frame variant:
     disk hit, or render, atomic write and prune on a miss. `None` for
     anything `frame_cache_path()` refuses.
     """
-    path = frame_cache_path(state_dir, theme_id, state, size)
+    path = frame_cache_path(state_dir, theme_id, state, size, layout)
     if path is None:
         return None
     try:
@@ -360,21 +390,25 @@ def cached_frame_preview_bytes(state_dir, theme_id, state, size):
         pass
     directory = os.path.dirname(path)
     os.makedirs(directory, exist_ok=True)
-    payload = frame_preview_png_bytes(theme_id, state, size)
+    payload = frame_preview_png_bytes(theme_id, state, size, layout)
     atomic_io.atomic_write(path, payload)
     _prune_preview_cache(directory, path, max_files=FRAME_PREVIEW_CACHE_MAX_FILES)
     return payload
 
 
-def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_PREVIEW_SIZE_LARGE):
+def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_PREVIEW_SIZE_LARGE, layout=None):
     """The page-side URL for one full-frame variant. Callers pass
-    registry ids only; the route re-validates every part anyway.
+    registry ids only; the route re-validates every part anyway. A
+    `layout` adds the `layout` query parameter; `None` leaves the URL as
+    it always was.
     """
-    return device_scope.scoped(
-        "%s%s.png?state=%s&size=%s" % (FRAME_PREVIEW_ROUTE_PREFIX, theme_id, state, size))
+    url = "%s%s.png?state=%s&size=%s" % (FRAME_PREVIEW_ROUTE_PREFIX, theme_id, state, size)
+    if layout is not None:
+        url += "&layout=%s" % layout
+    return device_scope.scoped(url)
 
 
-def cached_preview_bytes(state_dir, theme_id, live_event=None):
+def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None):
     """Return `theme_id`'s preview PNG bytes: disk cache on a hit,
     render + write on a miss. `None` for anything `cache_path()` refuses.
 
@@ -387,7 +421,7 @@ def cached_preview_bytes(state_dir, theme_id, live_event=None):
     prunes. `OSError` propagates to the caller uncaught.
     """
     live_event_id = live_event.get("id") if isinstance(live_event, dict) else None
-    path = cache_path(state_dir, theme_id, live_event_id)
+    path = cache_path(state_dir, theme_id, live_event_id, layout)
     if path is None:
         return None
     try:
@@ -397,7 +431,7 @@ def cached_preview_bytes(state_dir, theme_id, live_event=None):
         pass
     directory = cache_dir(state_dir)
     os.makedirs(directory, exist_ok=True)
-    payload = preview_png_bytes(theme_id, live_event)
+    payload = preview_png_bytes(theme_id, live_event, layout)
     atomic_io.atomic_write(path, payload)
     _prune_preview_cache(directory, path)
     return payload

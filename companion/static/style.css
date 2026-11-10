@@ -11193,6 +11193,24 @@ a.entity-row__button:hover {
   box-shadow: none;
 }
 
+/* On a phone five section labels share one track: a slightly smaller label
+ * that may break onto a second line, centred, so none is clipped. */
+@media (max-width: 699px) {
+  .personalisation-nav__link {
+    padding-inline: 1px;
+    font-size: 11px;
+  }
+
+  .personalisation-nav__link > span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: visible;
+    line-height: 1.1;
+    white-space: normal;
+  }
+}
+
 @media (min-width: 700px) {
   .personalisation-nav__link {
     flex: 1 1 0;
@@ -14827,6 +14845,22 @@ html.is-picture-transition .preview-frame__image {
   pointer-events: none;
   opacity: 0;
   z-index: 3;
+}
+
+/* The Layout view and the pairing picker use the look cards; only the help
+ * line above them and the rows of the pairing view need spacing. */
+.personalisation-card--list > .section-caption,
+.look-pairings > .section-caption {
+  margin: 0;
+  padding: 0 var(--space-xs);
+}
+
+.look-pairings + .look-pairings {
+  margin-top: var(--space-lg);
+}
+
+.look-pairings > .look-table__options {
+  margin-top: var(--space-md);
 }
 
 /* Components reference page (administrators): the index of anchors, one

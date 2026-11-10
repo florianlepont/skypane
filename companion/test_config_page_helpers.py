@@ -85,7 +85,7 @@ def rules_row_segment(rendered):
 
 
 CALENDAR_BASE_CTX = {
-    "device_config": {"theme": "white", "tracked_runway": "3"},
+    "device_config": {"theme": "white", "tracked_runway": "3", "layout": "classic"},
     "now": "2026-09-07T09:12:04+00:00",
 }
 """33-12-PLAN.md: the render() context every Calendar-card check in this

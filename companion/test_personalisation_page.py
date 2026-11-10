@@ -81,6 +81,9 @@ def rig(tmp_path):
     }
     for state in state_dirs.values():
         os.makedirs(state, exist_ok=True)
+    # These tests cover the classic look picker; the giant layouts' pairing
+    # picker has its own tests.
+    device_config.save_device_config(state_dirs[fleet.owner_device], layout="classic")
     yield Rig(state_dir, server, fleet, cookies, state_dirs)
     server.stop()
 
@@ -96,9 +99,9 @@ def _position_row(rig):
     finally:
         conn.close()
 
-SECTIONS = ("Departures", "Arrivals", "Special looks", "Calendar")
-SECTION_TITLES = ("Look", "Look", "Special looks", "Calendar")
-FR_TITLES = ("Départs", "Arrivées", "Allures spéciales", "Calendrier")
+SECTIONS = ("Departures", "Arrivals", "Layout", "Special looks", "Calendar")
+SECTION_TITLES = ("Look", "Look", "Layout", "Special looks", "Calendar")
+FR_TITLES = ("Départs", "Arrivées", "Disposition", "Allures spéciales", "Calendrier")
 SEEDED = {
     "quiet_hours_enabled": True, "quiet_hours_start": "21:00", "quiet_hours_end": "05:00",
     "timezone": "America/Martinique", "wake_interval_s": 900, "theme": "band_red_field",
@@ -112,11 +115,11 @@ def _seed(rig):
 
 
 VIEW_PATHS = {
-    "departures": "/display", "arrivals": "/display/arrivals",
+    "departures": "/display", "arrivals": "/display/arrivals", "layout": "/display/layout",
     "special-looks": "/display/special-looks", "calendar": "/display/calendar"}
 VIEW_IDS = {
     "departures": "personalisation-look", "arrivals": "personalisation-look",
-    "special-looks": "personalisation-special-looks", "calendar": "personalisation-calendar"}
+    "layout": "personalisation-layout", "special-looks": "personalisation-special-looks", "calendar": "personalisation-calendar"}
 
 
 def _display(rig, who="owner", lang=None, view="departures"):
@@ -178,7 +181,8 @@ def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(ri
 
 def test_the_page_speaks_french(rig):
     expected = {
-        "departures": "Allure", "arrivals": "Allure", "special-looks": "Allures spéciales",
+        "departures": "Allure", "arrivals": "Allure", "layout": "Disposition",
+        "special-looks": "Allures spéciales",
         "calendar": "Calendrier"}
     for view, title in expected.items():
         page = _display(rig, lang="fr", view=view)
@@ -328,8 +332,8 @@ def test_personalisation_holds_no_place_runway_time_zone_or_quiet_hours_control(
     cards = [
         c for root in roots.values() for c in root.select("div.personalisation__view > section")]
     assert [c.attrs["id"] for c in cards] == [
-        "personalisation-look", "personalisation-look", "personalisation-special-looks",
-        "personalisation-calendar"]
+        "personalisation-look", "personalisation-look", "personalisation-layout",
+        "personalisation-special-looks", "personalisation-calendar"]
     titles = [c.select_one("h2").text() for c in cards]
     for word in FORBIDDEN_WORDS[lang]:
         assert word not in titles, (word, titles)

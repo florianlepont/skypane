@@ -33,7 +33,7 @@ if REPO_ROOT not in sys.path:
 
 import server.plane.render as render  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
-from server import panel_format, themes  # noqa: E402
+from server import device_config, panel_format, screen_layouts, themes  # noqa: E402
 from server.plane.render import hold_screens  # noqa: E402
 
 MANIFEST_PATH = os.path.join(
@@ -81,12 +81,15 @@ def _flat(builder):
 def _end_to_end_panel():
     """Hash input for one full poll cycle: the panel.bin run_once writes.
 
-    Route resolution is stubbed so the cycle never reaches a provider, and the
+    The frame is configured for the classic layout. Route resolution is stubbed so the cycle never reaches a provider, and the
     cycle's log line is swallowed so the generator output stays pure JSON.
     """
     with open(os.path.join(FIXTURES_DIR, "geofence_multi_aircraft.json")) as fh:
         snapshot = json.load(fh)
     with tempfile.TemporaryDirectory() as state_dir:
+        # The baseline is the classic picture; a frame that never chose a
+        # layout renders the default (giant) layout.
+        device_config.save_device_config(state_dir, layout=screen_layouts.CLASSIC_LAYOUT_ID)
         with mock.patch.object(poll_cycle.enrich, "resolve_route", return_value=(dict(ROUTE), "fresh_hit")):
             with contextlib.redirect_stdout(io.StringIO()):
                 poll_cycle.run_once(snapshot=snapshot, state_dir=state_dir, geofence=GEOFENCE_PATH)

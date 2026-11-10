@@ -4,7 +4,7 @@
 """Byte-for-byte drift test between `firmware/tools/gen_fault_screen.py
 --screen updating`'s output and the committed
 `firmware/main/updating_screen_mask.h`. If this fails, the header was
-hand-edited or `server/plane/render`'s `_build_updating_canvas` composition
+hand-edited or calm status composition
 changed without regenerating it - the fix is always to rerun the
 generator, never to hand-patch the header. The generator embeds
 Pillow-rendered text, so it must be rerun in a Linux container with
@@ -70,3 +70,12 @@ def test_updating_screen_mask_header_matches_generator_output():
             "(%d bytes committed vs %d bytes generated) - %s"
             % (len(actual), len(expected), _REGEN_HINT)
         )
+
+
+def test_updating_flat_canvas_has_exactly_two_colours():
+    """the flat canvas the mask is cut from holds only black and white"""
+    from server.plane.render.giant import status
+
+    canvas = status.build_status("updating", (1200, 1600), flat=True)
+    used = {idx for _count, idx in canvas.getcolors()}
+    assert len(used) == 2

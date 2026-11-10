@@ -10,7 +10,7 @@ import companion.page_context as page_context
 from companion import ui_save_bar
 from companion import screens, user_view
 from companion import wake
-from server import device_config
+from server import device_config, screen_layouts
 from server.plane import calendar_rules
 
 from companion.pages import personalisation_cards
@@ -334,6 +334,7 @@ def shell_route(route):
 _FIELD_VIEWS = {
     "theme": personalisation_cards.VIEW_DEPARTURES,
     "theme_arriving": personalisation_cards.VIEW_ARRIVALS,
+    "layout": personalisation_cards.VIEW_LAYOUT,
     "calendar_theme_id": personalisation_cards.VIEW_CALENDAR_LOOK,
     "calendar_url": personalisation_cards.VIEW_CALENDAR_CONNECT,
     "rule_key": personalisation_cards.VIEW_LOOK_NEW,
@@ -459,6 +460,7 @@ def _render_current_values(ctx):
         # theme chosen yet), not an oversight.
         "theme_id": device_cfg.get("theme", device_config.DEFAULT_THEME_ID),
         "theme_arriving": device_cfg.get("theme_arriving"),
+        "layout": screen_layouts.normalise_layout_id(device_cfg.get("layout")),
         "led_enabled": device_cfg.get("led_enabled", device_config.DEFAULT_LED_ENABLED),
         "quiet_start": device_cfg.get("quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START),
         "quiet_end": device_cfg.get("quiet_hours_end", device_config.DEFAULT_QUIET_HOURS_END),
@@ -811,6 +813,7 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_calendar_url(calendar_signal, submitted_calendar_url, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
+        lambda: form_post.resolve_layout(form, errors),
         lambda: _resolve_quiet_hours(form, scope, errors, times=True),
         lambda: form_post.resolve_led(form, errors),
         lambda: _resolve_quiet_hours(form, scope, errors, times=False),
