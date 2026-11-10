@@ -648,7 +648,8 @@ def test_the_progress_sentence_reads_coherently_in_both_languages(
         text = page.locator(".collection-progress__headline").inner_text()
         assert text == sentence % TOTAL_SPOTTED, text
         all_chip = page.locator(".filter-chip", has_text="All" if lang == "en" else "Toutes")
-        assert all_chip.locator(".filter-chip__count").inner_text() == "36"
+        assert all_chip.locator(".filter-chip__count").count() == 0
+        assert all_chip.inner_text().strip() == ("All" if lang == "en" else "Toutes")
     finally:
         context.close()
 

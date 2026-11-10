@@ -3,8 +3,7 @@ and Health's unresolved-prefix list share, driven client-side by
 static/list-filter.js's `[data-filter-*]` attribute contract.
 
 The bar is a search field (a magnifier, a 16px input, an inline clear
-button), an optional segmented chip group whose segments carry live
-counts, a count element, and a hidden-until-needed empty state with its
+button), an optional segmented chip group, a count element, and a hidden-until-needed empty state with its
 own Clear button. Everything is inert without a script: the unfiltered
 list stays complete, and the chip group (which cannot filter anything
 without one) stays hidden behind the `.js-gate` rule.
@@ -28,22 +27,21 @@ FILTER_CHIP_GROUP_NAME = "filter_kind"
 
 def _chips_html(chips, legend):
     """The segmented chip group: one visually-hidden radio per segment
-    inside a whole-segment label, a live count and a short label. The
+    inside a whole-segment label and a short label. The
     first chip is checked and carries the empty kind (every row).
-    `chips` is a sequence of `(kind, label_text, count)`.
+    `chips` is a sequence of `(kind, label_text)`.
     """
     parts = []
-    for position, (kind, text, count) in enumerate(chips):
+    for position, (kind, text) in enumerate(chips):
         parts.append(
             '<label class="filter-chip">'
             '<input type="radio" class="visually-hidden" name="%s" '
             'value="%s" data-filter-chip%s>'
             '<span class="filter-chip__box">'
-            '<span class="filter-chip__count" data-filter-chip-count>%d</span>'
             '<span class="filter-chip__text">%s</span>'
             "</span></label>" % (
                 FILTER_CHIP_GROUP_NAME, escape_html(kind),
-                " checked" if position == 0 else "", count, escape_html(text)))
+                " checked" if position == 0 else "", escape_html(text)))
     return (
         '<fieldset class="filter-bar__chips js-gate">'
         '<legend class="visually-hidden">%s</legend>%s</fieldset>'

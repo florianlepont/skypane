@@ -3896,14 +3896,6 @@ table.data-table--flights .cell-inline-sep {
   transition: background var(--motion-fast), box-shadow var(--motion-fast), scale var(--motion-spring-duration) var(--motion-spring);
 }
 
-.filter-chip__count {
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.2;
-  color: var(--seg-idle-fg);
-}
-
 .filter-chip__text {
   max-width: 100%;
   overflow: hidden;
@@ -3925,9 +3917,7 @@ table.data-table--flights .cell-inline-sep {
   box-shadow: var(--shadow-control);
 }
 
-.filter-chip input:checked + .filter-chip__box .filter-chip__count,
 .filter-chip input:checked + .filter-chip__box .filter-chip__text,
-.filter-chip.filter-chip--current .filter-chip__box .filter-chip__count,
 .filter-chip.filter-chip--current .filter-chip__box .filter-chip__text {
   color: var(--seg-selected-fg);
 }
@@ -3935,10 +3925,6 @@ table.data-table--flights .cell-inline-sep {
 .filter-chip input:focus-visible + .filter-chip__box {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
-}
-
-.filter-chip.is-zero .filter-chip__count {
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 /* The search lives in the page header's title row (.filter-bar--title).
@@ -6544,6 +6530,43 @@ html:not(.map-ready) .place-tap-hint {
    * the sheet and the Save bar sit above it. */
   .map-ready .place-stage {
     --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+    /* Not clipped here: the map below is taller than the stage. The page
+     * container clips instead. */
+    overflow: visible;
+  }
+
+  /* The map is document content, not a fixed layer: browsers draw in-flow
+   * content under their translucent bars, but not always a fixed box. The
+   * page container is exactly the largest viewport tall (so the document
+   * never scrolls further than the map), clips what overflows, and shows the
+   * tile ground colour behind everything. The stage keeps the dynamic
+   * viewport's height, so the search, the offer, the sheet and the floating
+   * tab bar sit where they always did, while the map runs on below the stage
+   * to the physical bottom edge. */
+  .map-ready body,
+  html.js-early:not(.map-ready) body:has(.place-stage) {
+    background-color: var(--color-map-ground);
+  }
+
+  .map-ready .page-content:has(.place-stage),
+  html.js-early:not(.map-ready) .page-content:has(.place-stage) {
+    position: relative;
+    box-sizing: border-box;
+    height: 100lvh;
+    padding: 0;
+    overflow: clip;
+  }
+
+  .map-ready .page-content:has(.place-stage) > .place-page {
+    flex: none;
+    height: 100dvh;
+  }
+
+  .map-ready .place-map {
+    position: absolute;
+    inset: 0 0 auto;
+    height: 100lvh;
+    min-height: 0;
   }
 
   /* The sheet is compact here: the readout is one line and the radius is a
@@ -6876,6 +6899,27 @@ html.js-early:not(.map-ready) .place-boot {
 html.js-early:not(.map-ready) .place-stage > :not(.place-boot),
 html.js-early:not(.map-ready):has(.place-stage) .page-header {
   display: none;
+}
+
+/* On a phone the placeholder is document content too, in the tile ground
+ * colour: the page container below it is the largest viewport tall. */
+@media (max-width: 959.98px) {
+  html.js-early:not(.map-ready) .place-boot {
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 0;
+    height: 100lvh;
+    background: var(--color-map-ground);
+  }
+
+  /* The app bar floats over the placeholder as it floats over the map. */
+  html.js-early:not(.map-ready) .site-header:has(~ .page-content .place-stage) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-bottom: 0;
+  }
 }
 
 .place-runways {
@@ -11791,12 +11835,12 @@ button.look-sheet__done[hidden] {
  * sideways scroll) rather than being cut at the edge. */
 .collection-controls .filter-chip {
   flex: 1 1 auto;
-  min-width: 0;
+  min-width: 44px;
 }
 
 .collection-controls .filter-chip__box {
   gap: 2px;
-  padding: 0 2px;
+  padding: 0 var(--space-xs);
 }
 
 .collection-sort__toggle,

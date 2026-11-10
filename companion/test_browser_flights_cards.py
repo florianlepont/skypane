@@ -162,22 +162,20 @@ def folded_server(module_app_server_factory):
 
 
 _COUNTS_VS_CARDS = (
-    "() => ({chips: Object.fromEntries([...document.querySelectorAll('.filter-chip')].map(l =>"
-    " [l.querySelector('input').value || 'all',"
-    "  Number(l.querySelector('[data-filter-chip-count]').textContent)])),"
+    "() => ({labels: [...document.querySelectorAll('.filter-chip')].map(l => l.textContent.trim()),"
     " cards: [...document.querySelectorAll('li.history-card')].filter(li => li.offsetParent)"
     "   .map(li => li.dataset.filterKind),"
     " days: [...document.querySelectorAll('section.history-day')]"
     "   .filter(li => li.offsetParent).length})")
 
 
-def test_chip_counts_match_the_visible_cards_after_folding(new_context, folded_server):
-    """a pass stored twice shows as one card, and each chip's count equals the cards the page
-    then shows under that chip"""
+def test_each_chip_lists_the_folded_cards_of_its_direction(new_context, folded_server):
+    """a pass stored twice shows as one card: each chip then lists exactly the folded cards of its
+    direction (5 / 4 / 1), and the chips themselves carry no number"""
     context, page = _open_flights(new_context, folded_server, VIEWPORT_PHONE)
     try:
-        for chip, kind in (("All", None), ("Departures", "departing"), ("Arrivals", "arriving")):
-            expected = page.evaluate(_COUNTS_VS_CARDS)["chips"]["all" if kind is None else kind]
+        for chip, kind, expected in (
+                ("All", None, 5), ("Departures", "departing", 4), ("Arrivals", "arriving", 1)):
             page.locator(".filter-chip", has_text=chip).click()
             page.wait_for_function(
                 "(n) => document.querySelectorAll('li.history-card').length === n",
@@ -185,10 +183,10 @@ def test_chip_counts_match_the_visible_cards_after_folding(new_context, folded_s
             state = page.evaluate(_COUNTS_VS_CARDS)
             shown = [k for k in state["cards"] if kind in (None, k)]
             if len(state["cards"]) != len(shown) or len(shown) != expected:
-                raise AssertionError("expected %s chip count to match the cards, got %r"
-                                     % (chip, state))
-        if page.evaluate(_COUNTS_VS_CARDS)["chips"] != {"all": 5, "departing": 4, "arriving": 1}:
-            raise AssertionError("expected folded 5/4/1 counts")
+                raise AssertionError("expected %s to list %d folded cards, got %r"
+                                     % (chip, expected, state))
+        if page.evaluate(_COUNTS_VS_CARDS)["labels"] != ["All", "Departures", "Arrivals"]:
+            raise AssertionError("expected plain chip labels")
     finally:
         context.close()
 
@@ -206,28 +204,26 @@ def full_server(module_app_server_factory):
     return module_app_server_factory(seed=seed, fake_providers=True)
 
 
-def test_chip_counts_equal_the_visible_cards_with_all_fifty_loaded(new_context, full_server):
-    """with 50 flights loaded at once, each chip's count equals the cards visible under it, the
-    count line reads 50 flights, and there is no Show-more control"""
+def test_each_chip_lists_its_cards_with_all_fifty_loaded(new_context, full_server):
+    """with 50 flights loaded at once, each chip lists 50 / 40 / 10 cards, the count line reads
+    50 flights, and there is no Show-more control"""
     context, page = _open_flights(new_context, full_server, VIEWPORT_PHONE)
     try:
         if page.locator(CARD).count() != 50 or page.locator(".flights-more").count():
             raise AssertionError("expected 50 cards and no Show-more control")
-        for chip, kind in (("All", None), ("Departures", "departing"), ("Arrivals", "arriving")):
-            expected = page.evaluate(_COUNTS_VS_CARDS)["chips"]["all" if kind is None else kind]
+        for chip, kind, expected in (
+                ("All", None, 50), ("Departures", "departing", 40), ("Arrivals", "arriving", 10)):
             page.locator(".filter-chip", has_text=chip).click()
             page.wait_for_function(
                 "(n) => document.querySelectorAll('li.history-card').length === n",
                 arg=expected, timeout=10000)
             state = page.evaluate(_COUNTS_VS_CARDS)
             if len(state["cards"]) != expected or any(kind not in (None, k) for k in state["cards"]):
-                raise AssertionError("expected %s chip count to match the cards, got %r"
-                                     % (chip, state))
+                raise AssertionError("expected %s to list %d cards, got %r"
+                                     % (chip, expected, state))
         page.locator(".filter-chip", has_text="All").click()
         page.wait_for_function(
             "() => document.querySelectorAll('li.history-card').length === 50", timeout=10000)
-        if page.evaluate(_COUNTS_VS_CARDS)["chips"] != {"all": 50, "departing": 40, "arriving": 10}:
-            raise AssertionError("expected 50/40/10 chip counts")
         count = page.locator("[data-filter-count]").text_content()
         if count != "50 flights":
             raise AssertionError("expected '50 flights', got %r" % (count,))
@@ -320,10 +316,8 @@ _VISIBLE_CALLSIGNS = (
     "() => [...document.querySelectorAll('li.history-card')]"
     ".filter(li => li.offsetParent).map(li =>"
     " li.querySelector('.history-card__callsign').textContent)")
-_CHIP_COUNTS = (
-    "() => Object.fromEntries([...document.querySelectorAll('.filter-chip')].map(l =>"
-    " [l.querySelector('input').value || 'all',"
-    "  l.querySelector('[data-filter-chip-count]').textContent]))")
+_CHIP_LABELS = (
+    "() => [...document.querySelectorAll('.filter-chip')].map(l => l.textContent.trim())")
 
 
 _SETTLE_JS = """async (selectors) => {
@@ -362,15 +356,37 @@ def _wait_callsigns(page, expected):
         arg=expected, timeout=10000)
 
 
-def test_direction_chips_filter_count_and_clear(new_context, server):
-    """The chips carry the counts of the whole history under the search, filter the list in
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_direction_chips_fit_one_row_at_360(new_context, server, lang):
+    """the three chips are plain labels that sit on one row inside the page at 360px, none cut
+    off and each at least 44px tall"""
+    context, page = _open_flights(new_context, server, VIEWPORT_MIN_SUPPORTED, lang)
+    try:
+        page.wait_for_function("() => document.readyState === 'complete'")
+        boxes = page.evaluate(
+            "() => [...document.querySelectorAll('.filter-chip')].map(l => {"
+            " const r = l.getBoundingClientRect(); const t = l.querySelector('.filter-chip__text');"
+            " return {top: r.top, left: r.left, right: r.right, height: r.height,"
+            " cut: t.scrollWidth > t.clientWidth, digits: /[0-9]/.test(l.textContent)}; })")
+        if len(boxes) != 3 or any(b["digits"] or b["cut"] for b in boxes):
+            raise AssertionError("expected three uncut plain chips, got %r" % (boxes,))
+        if len({round(b["top"]) for b in boxes}) != 1 or boxes[-1]["right"] > 360 or boxes[0]["left"] < 0:
+            raise AssertionError("expected one row inside 360px, got %r" % (boxes,))
+        if any(b["height"] < 43.5 for b in boxes):
+            raise AssertionError("expected 44px chip targets, got %r" % (boxes,))
+    finally:
+        context.close()
+
+
+def test_direction_chips_filter_and_clear(new_context, server):
+    """The chips are plain labels (no number, whatever the search), filter the list in
     place, combine with the search text, drop a day group left with no flight, and the empty
     card's Clear resets both the text and the chip."""
     context, page = _open_flights(new_context, server, VIEWPORT_PHONE)
     try:
-        counts = page.evaluate(_CHIP_COUNTS)
-        if counts != {"all": "5", "departing": "4", "arriving": "1"}:
-            raise AssertionError("expected 5/4/1 chip counts, got %r" % (counts,))
+        labels = page.evaluate(_CHIP_LABELS)
+        if labels != ["All", "Departures", "Arrivals"]:
+            raise AssertionError("expected plain chip labels, got %r" % (labels,))
         page.locator(".filter-chip", has_text="Arrivals").click()
         _wait_callsigns(page, ["AFR6152"])
         heads = page.evaluate(
@@ -378,17 +394,17 @@ def test_direction_chips_filter_count_and_clear(new_context, server):
             ".filter(li => li.offsetParent).length")
         if heads != 1:
             raise AssertionError("expected one day header to stay, got %d" % heads)
-        if page.evaluate(_CHIP_COUNTS) != counts:
-            raise AssertionError("expected a chosen direction to leave the counts alone")
+        if page.evaluate(_CHIP_LABELS) != labels:
+            raise AssertionError("expected a chosen direction to leave the labels alone")
         # Text and chip combine: no departure matches "afr", so nothing shows.
         page.locator(".filter-chip", has_text="Departures").click()
         page.fill("[data-flights-search]", "afr")
         empty = page.locator("[data-flights-empty]")
         empty.wait_for(state="visible")
         _wait_callsigns(page, [])
-        if page.evaluate(_CHIP_COUNTS) != {"all": "1", "departing": "0", "arriving": "1"}:
-            raise AssertionError("expected chip counts to follow the text, got %r"
-                                 % (page.evaluate(_CHIP_COUNTS),))
+        if page.evaluate(_CHIP_LABELS) != labels:
+            raise AssertionError("expected plain chip labels under the empty card, got %r"
+                                 % (page.evaluate(_CHIP_LABELS),))
         if page.locator("table thead").count() or page.locator(".history-more").count():
             raise AssertionError("expected no table header and no Load more under the empty card")
         _wait_until_still(page, ".filter-bar__search", ".filter-bar__chips",

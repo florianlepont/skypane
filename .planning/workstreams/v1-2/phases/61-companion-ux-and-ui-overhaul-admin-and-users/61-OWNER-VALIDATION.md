@@ -1051,3 +1051,26 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   the full-bleed map under Safari's bars cannot be achieved from the page (limit of
   iOS 26 Safari). W152 is closed as a platform limit.
 - Superseded: the cause is the fixed map container background; fix tried in 61-104. W152 is not closed as a platform limit.
+
+## Round 16 (production review after PR #318, 2026-11-10)
+
+- W171 Location on iPhone: the two bands are still present after the map container got
+  the tile ground colour (PR #318). Next try: take the map out of `position: fixed`
+  (plan B), and check the `.place-boot` loading placeholder.
+- W172 Flights (and any tab strip): remove the counts inside the filter chips
+  ("Tous 18190 / Départs 7529 / Arrivées 10…") that serve no purpose; on a phone the
+  last chip is cut off.
+- W173 The animation of the Style page's tabs (look views entering) is missing on the
+  other tab strips; one consistent tab content animation everywhere.
+- W174 The page-opening animations are missing on many pages; every page should have
+  the same opening animation (respecting reduced motion).
+- Owner asked for another full audit (visual and UX, performance, workflows).
+- W171 update (iPhone, light, after PR #318): the top of the map now goes under the
+  status bar; the bottom band remains (map ends about 8% above the screen bottom, a
+  flat page-background band below the tab bar). Plan B (non-fixed map extending
+  under the bottom bar) is in plan 61-105.
+- W175 Location, airport choice: on a phone the map is still too little visible while
+  choosing an airport (card, runway chips, the unsaved-changes bar and the tab bar
+  cover about 60%). D53 (owner): option 1, "compact sheet": airport name, runways and
+  Cancel/Save in one card (about 130px), no separate unsaved-changes bar, about 55%
+  of the screen left to the map. To be done in plan 61-106 after 61-105.

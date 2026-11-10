@@ -34,7 +34,7 @@ SCAN_LIMIT = 20000
 
 View = namedtuple("View", "q kind sort")
 Result = namedtuple(
-    "Result", "rows has_more matched counts total chip_counts", defaults=(None,))
+    "Result", "rows has_more matched counts total")
 
 
 def parse_view(raw):
@@ -89,9 +89,7 @@ def select(conn, view, pages, page_size, airline_names=None):
     """The flights page for `view`: `rows` (the first `(pages + 1) *
     page_size` matches in the view's order), `has_more`, `matched` (matches
     of the search in every direction, the "All" chip), `counts` (per
-    direction) and `chip_counts` (the "All" count and the per-direction counts the
-    chips show: the search's, or the whole history's when nothing matches) and `total` (every flight stored, whatever the
-    search)."""
+    direction) and `total` (every flight stored, whatever the search)."""
     # The folded history is shared between requests (read only here).
     flights = history_cache.cached(
         conn, ("flights", SCAN_LIMIT, tuple(sorted((airline_names or {}).items()))),
@@ -114,15 +112,5 @@ def select(conn, view, pages, page_size, airline_names=None):
     shown = [e for e in found if not view.kind or _direction(e) == view.kind]
     shown = _ordered(shown, view.sort)
     limit = (pages + 1) * page_size
-    chip_counts = (len(found), counts)
-    if words and not found:
-        # A search that matches nothing keeps the chips at the whole history's
-        # counts, so they never read 0 / 0 / 0 beside a hint to clear the search.
-        whole = {kind: 0 for kind in KINDS}
-        for event in flights:
-            kind = _direction(event)
-            if kind:
-                whole[kind] += 1
-        chip_counts = (len(flights), whole)
     return Result(
-        shown[:limit], len(shown) > limit, len(found), counts, len(flights), chip_counts)
+        shown[:limit], len(shown) > limit, len(found), counts, len(flights))

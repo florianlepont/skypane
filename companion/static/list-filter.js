@@ -54,8 +54,6 @@
   // Optional segmented chips: radios whose value is a row's
   // data-filter-kind ("" is every row). Absent on a plain search bar.
   var chipInputs = document.querySelectorAll("[data-filter-chip]");
-  var CHIP_COUNT_SELECTOR = "[data-filter-chip-count]";
-  var ZERO_CLASS = "is-zero";
   // Set on the bar while the search holds text, so the collapsed search
   // stays open without a :has() selector.
   var ACTIVE_ATTR = "data-filter-active";
@@ -68,30 +66,6 @@
       }
     }
     return "";
-  }
-
-  // Distinct-group tally for one chip: rows matching the query and the
-  // chip's kind, each logical flight counted once.
-  function tallyChip(rows, query, kind) {
-    var seen = {};
-    var n = 0;
-    for (var r = 0; r < rows.length; r++) {
-      var rowKind = rows[r].getAttribute("data-filter-kind") || "";
-      var text = rows[r].getAttribute("data-filter-text") || "";
-      if (kind !== "" && rowKind !== kind) {
-        continue;
-      }
-      if (query !== "" && text.indexOf(query) === -1) {
-        continue;
-      }
-      var rg = rows[r].getAttribute("data-filter-group");
-      var key = "g" + (rg === null ? "i" + r : rg);
-      if (!seen[key]) {
-        seen[key] = true;
-        n++;
-      }
-    }
-    return n;
   }
 
   // A day header with no visible row under it would read as an empty
@@ -116,25 +90,6 @@
     var days = document.querySelectorAll("[data-filter-day-group]");
     for (var d = 0; d < days.length; d++) {
       days[d].hidden = !days[d].querySelector("[data-filter-text]:not([hidden])");
-    }
-  }
-
-  function paintChips(rows, query) {
-    for (var c = 0; c < chipInputs.length; c++) {
-      var chip = chipInputs[c];
-      var label = chip.closest ? chip.closest("label") : chip.parentNode;
-      var countEl = label ? label.querySelector(CHIP_COUNT_SELECTOR) : null;
-      var n = tallyChip(rows, query, chip.value);
-      if (countEl) {
-        countEl.textContent = String(n);
-      }
-      if (label && label.classList) {
-        if (n === 0) {
-          label.classList.add(ZERO_CLASS);
-        } else {
-          label.classList.remove(ZERO_CLASS);
-        }
-      }
     }
   }
 
@@ -213,9 +168,6 @@
           countEl.classList.add(COUNT_CHANGED_CLASS);
         }
       }
-    }
-    if (chipInputs.length) {
-      paintChips(rows, query);
     }
     syncDayHeaders();
     if (bar) {

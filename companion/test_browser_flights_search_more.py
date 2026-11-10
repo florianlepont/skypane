@@ -4,7 +4,7 @@ icon turns the title row into the field in place, so the direction control and t
 same top at 360 and 390 px in English and French (the field covers exactly the 44px title row);
 the field closes again once empty and blurred. The search covers the whole history (an old call
 sign beyond the first page is found); a search that matches nothing shows the empty card with
-true chip counts, no table header and no Load more, on the phone and the desktop. With more
+plain chips, no table header and no Load more, on the phone and the desktop. With more
 flights stored than one page shows, Load more appends the next flights in place (same document,
 same scroll position, focus on the first new row, the address updated), the sort changes the
 order and survives Load more, and without scripts the plain links still work and land on the
@@ -263,9 +263,8 @@ def test_the_search_finds_a_flight_older_than_the_loaded_page(new_context, many,
         assert OLDEST in page.locator(selector).first.evaluate("e => e.textContent")
         page.wait_for_function(
             "() => document.querySelector('[data-filter-count]').textContent === '1 flight matches'")
-        counts = page.evaluate(
-            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)")
-        assert counts == ["1", "1", "0"], counts
+        assert page.evaluate(
+            "() => document.querySelectorAll('.filter-chip__count').length") == 0
         assert page.locator(MORE).count() == 0
         assert "q=afr100" in page.url
     finally:
@@ -275,7 +274,7 @@ def test_the_search_finds_a_flight_older_than_the_loaded_page(new_context, many,
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
 def test_a_search_with_no_match_shows_one_coherent_empty_card(new_context, many, viewport, lang):
-    """The chips count what the search matches over the whole history (nothing), no table header,
+    """The chips stay plain direction labels, no table header,
     no shown-count line and no Load more stay under the card, whose body quotes the whole
     history and whose Clear brings the list back."""
     context, page = _open(new_context, many, viewport, lang)
@@ -287,11 +286,10 @@ def test_a_search_with_no_match_shows_one_coherent_empty_card(new_context, many,
         assert card.locator(".empty-state__heading").inner_text() == (
             "No matching flights" if lang == "en" else "Aucun vol correspondant")
         assert str(TOTAL) in card.locator(".empty-state__body").inner_text()
-        # The chips keep the whole history's counts, never 0 / 0 / 0.
-        counts = page.evaluate(
-            "() => [...document.querySelectorAll('.filter-chip__count')].map(e => e.textContent)")
-        assert counts[0] == str(TOTAL), counts
-        assert counts != ["0", "0", "0"], counts
+        labels = page.evaluate(
+            "() => [...document.querySelectorAll('.filter-chip')].map(e => e.textContent.trim())")
+        assert not any(ch.isdigit() for label in labels for ch in label), labels
+        assert len(labels) == 3, labels
         assert _count(page, "thead") == 0 and _count(page, "table") == 0
         assert _count(page, CARD) == 0 and _count(page, ".history-more") == 0
         assert not _assert_no_page_overflow(page, "empty flights", viewport["width"])

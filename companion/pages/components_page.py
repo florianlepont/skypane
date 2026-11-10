@@ -140,7 +140,7 @@ _M_STATE_QUICK_OFF = i18n.msg("components.state_quick_off", "Quick switch, off")
 _M_STATE_FORM_SWITCH = i18n.msg("components.state_form_switch", "Form field switch")
 _M_STATE_BUTTONS = i18n.msg("components.state_buttons", "Buttons that post")
 _M_STATE_LINKS = i18n.msg("components.state_links", "Links to pages")
-_M_STATE_CHIPS = i18n.msg("components.state_chips", "Filter chips with counts")
+_M_STATE_CHIPS = i18n.msg("components.state_chips", "Filter chips")
 _M_STATE_CHIP_LINKS = i18n.msg("components.state_chip_links", "Filter chips as links")
 _M_STATE_NUMBER = i18n.msg("components.state_number", "Number")
 _M_SAMPLE_NUMBER_HINT = i18n.msg("components.sample_number_hint", "Default")
@@ -178,7 +178,7 @@ _M_FAMILY_SWITCHES = i18n.msg("components.family_switches", "Switches")
 _M_FAMILY_SWITCHES_DESC = i18n.msg("components.family_switches_desc", "One switch: a button that flips at once, and the same drawing on a form checkbox.")
 _M_FAMILY_SEGMENTED = i18n.msg("components.family_segmented", "Segmented controls and chips")
 _M_FAMILY_SEGMENTED_DESC = i18n.msg("components.family_segmented_desc", "One track, one selected pill. Radios inside a form, buttons that post, links "
-                        "between pages and filter chips with counts all share it.")
+                        "between pages and filter chips all share it.")
 _M_FAMILY_INPUTS = i18n.msg("components.family_inputs", "Inputs and search")
 _M_FAMILY_INPUTS_DESC = i18n.msg("components.family_inputs_desc", "A labelled field runs the full width of its card; search opens from the title row.")
 _M_FAMILY_MENUS = i18n.msg("components.family_menus", "Menus and sort")
@@ -316,7 +316,7 @@ def _segmented():
             ("departures", _DEPARTURES), ("arrivals", _ARRIVALS), ("pairing", _PAIRING),
             ("releases", _RELEASES))]
     chips = [
-        ("", _t(_ALL), 42), ("departing", _t(_DEPARTURES), 30), ("arriving", _t(_ARRIVALS), 0)]
+        ("", _t(_ALL)), ("departing", _t(_DEPARTURES)), ("arriving", _t(_ARRIVALS))]
     return [
         State(_DEFAULT, ui_segmented.segmented_radios_html(radios)),
         State(_LONG, ui_segmented.segmented_radios_html(long_radios)),
