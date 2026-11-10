@@ -485,6 +485,92 @@ class TestFleetDbBackup:
         members = _members(archive_dir / _archive_names(archive_dir)[0])
         assert not any(m == "pairing" or m.startswith("pairing/") for m in members)
 
+    def test_photos_are_never_archived_nor_reported_as_drift(self, tmp_path, capsys):
+        import photo_samples
+        from photo_fleet import seed_photo_fleet
+        from server import photo_quota, photo_store
+
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        fleet = seed_photo_fleet(str(state_dir))
+        conn = fleet_db.connect(str(state_dir))
+        old_floor = photo_quota.MIN_FREE_DISK_BYTES
+        photo_quota.MIN_FREE_DISK_BYTES = 0
+        try:
+            manager = photo_store.authorize_manager(conn, fleet.device_id, fleet.owner_id)
+            photo_store.add(manager, conn, str(state_dir), photo_samples.jpeg_bytes(), 1_700_000_000)
+        finally:
+            photo_quota.MIN_FREE_DISK_BYTES = old_floor
+            conn.close()
+        assert any((state_dir / "photos" / fleet.device_id).iterdir())
+
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+        assert "not in include list" not in capsys.readouterr().out
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert "fleet.db" in members
+        assert not any(m == "photos" or m.startswith("photos/") for m in members)
+
+    def test_restore_without_photo_files_is_reconciled_by_the_sweep(self, tmp_path):
+        import photo_samples
+        from photo_fleet import seed_photo_fleet
+        from server import photo_purge, photo_quota, photo_store
+
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        _seed_minimal_state(state_dir)
+        fleet = seed_photo_fleet(str(state_dir))
+        conn = fleet_db.connect(str(state_dir))
+        old_floor = photo_quota.MIN_FREE_DISK_BYTES
+        photo_quota.MIN_FREE_DISK_BYTES = 0
+        try:
+            manager = photo_store.authorize_manager(conn, fleet.device_id, fleet.owner_id)
+            for _ in range(2):
+                photo_store.add(manager, conn, str(state_dir), photo_samples.jpeg_bytes(), 1_700_000_000)
+        finally:
+            photo_quota.MIN_FREE_DISK_BYTES = old_floor
+            conn.close()
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+
+        restored = tmp_path / "restored"
+        restored.mkdir()
+        with tarfile.open(archive_dir / _archive_names(archive_dir)[0], "r:gz") as tar:
+            tar.extractall(restored, filter="data")
+        assert not (restored / "photos").exists()
+        conn = fleet_db.connect(str(restored))
+        try:
+            assert fleet_db.all_photo_refs(conn)
+            counts = photo_purge.sweep(conn, str(restored))
+            assert counts.missing_rows == 2
+            assert fleet_db.all_photo_refs(conn) == []
+            manager = photo_store.authorize_manager(conn, fleet.device_id, fleet.owner_id)
+            assert photo_store.list_photos(manager, conn) == []
+            assert photo_purge.sweep(conn, str(restored)) == photo_purge.SweepCounts()
+        finally:
+            conn.close()
+
+    def test_symlink_named_photos_is_never_archived(self, tmp_path, capsys):
+        state_dir = tmp_path / "state"
+        archive_dir = tmp_path / "archives"
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        (outside / "secret.jpg").write_bytes(b"private")
+        _seed_minimal_state(state_dir)
+        _seed_fleet_db(state_dir)
+        os.symlink(outside, state_dir / "photos")
+
+        assert skypane_backup.main(
+            ["--state-dir", str(state_dir), "--archive-dir", str(archive_dir)]
+        ) == 0
+        assert "not in include list" not in capsys.readouterr().out
+        members = _members(archive_dir / _archive_names(archive_dir)[0])
+        assert not any(m == "photos" or m.startswith("photos/") for m in members)
+        assert not any("secret.jpg" in m for m in members)
+
     def test_wal_shm_and_status_file_never_archived_nor_drift(self, tmp_path, capsys):
         state_dir = tmp_path / "state"
         archive_dir = tmp_path / "archives"
