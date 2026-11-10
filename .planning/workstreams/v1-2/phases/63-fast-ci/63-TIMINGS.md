@@ -54,3 +54,28 @@ The executed count matches the 12,821 floor in the phase context.
 - xdist scaling on a 3,757-test subset: 478 s (1 worker), 244 s (2), 134 s (4),
   120 s (8). Coverage overhead: 134 s without, 136 s with (server tests);
   63 s without, 71 s with (88 browser tests).
+
+## Split into parallel jobs, no shards (plan 02)
+
+Run 42797272747 (pull request, commit with the split workflow and the cheaper
+firmware tests; all jobs green):
+
+| Job | Wall s |
+|---|---|
+| Static checks | 34 |
+| Tests (non-browser) | 575 (9 min 35 s); pytest 542 s, 11,038 passed |
+| Tests (browser) | 1293 (21 min 33 s); pytest 1248 s, 2,778 passed |
+| Lint, test, coverage, attribution (aggregate) | 39 |
+| **Critical path** | **1349 (22.5 min)** |
+
+- Executed: 13,816 tests, 0 skipped, 0 failed (JUnit totals gate over both reports).
+- Combined coverage: `TOTAL 25771 statements, 951 missed, 96%` = 96.31%, against 96.23% for the baseline run (difference 0.08 points); the floor `fail_under = 93` is applied by `coverage report` on the combined data.
+- The browser job is the critical path; sharding it is the next step.
+
+Proofs:
+
+- Floor: the artifacts of that run, combined locally (with a path mapping in a temporary copy of the configuration, repository untouched), pass `coverage report` with the repository floor (exit 0) and fail `coverage report --fail-under=100` (exit 2).
+- Job failure: run 42800589063 (commit with a deliberate ruff violation and a deliberately failing test, since reverted): Static checks = failure, Tests (non-browser) = failure, Tests (browser) = success, `Lint, test, coverage, attribution` = failure, Deploy to production = skipped. The aggregate check is a failure, not skipped and not green.
+- Missing browser: `SKYPANE_REQUIRE_BROWSER=1 PLAYWRIGHT_BROWSERS_PATH=<empty dir> ./scripts/run-all-tests.sh companion/test_browser_update.py` ends with 49 errors and exit code 1, none skipped.
+- Network guard: both test jobs show `plugins: ... socket-0.8.1 ...` in the pytest header and 4/4 xdist workers; the guard tests in `test-support/test_test_support.py` pass (27).
+- `deploy` job: its text is identical to `origin/main` (checked by comparing the job's lines); `deploy/tests/test_ci_secrets.py` passes.
