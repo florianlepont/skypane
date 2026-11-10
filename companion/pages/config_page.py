@@ -334,7 +334,7 @@ def shell_route(route):
 _FIELD_VIEWS = {
     "theme": personalisation_cards.VIEW_DEPARTURES,
     "theme_arriving": personalisation_cards.VIEW_ARRIVALS,
-    "layout": personalisation_cards.VIEW_LAYOUT,
+    "layout": personalisation_cards.VIEW_DEPARTURES,
     "calendar_theme_id": personalisation_cards.VIEW_CALENDAR_LOOK,
     "calendar_url": personalisation_cards.VIEW_CALENDAR_CONNECT,
     "rule_key": personalisation_cards.VIEW_LOOK_NEW,
@@ -558,7 +558,8 @@ def _render_display_scope(
             departures_safe_id, values["calendar_theme_id"], calendar_status["calendar_configured"],
             calendar_status["calendar_drift"], calendar_status["calendar_last_synced_at"],
             calendar_status["calendar_last_attempt_at"], ctx.now, calendar_status["calendar_entry_count"],
-            errors=errors, submitted=submitted, state_dir=ctx.state_dir)
+            errors=errors, submitted=submitted, state_dir=ctx.state_dir,
+            layout_id=values["layout"])
         aspect_section_html = personalisation_cards.page_html(
             ctx, values, calendar_row_html, calendar_status, errors, submitted, view,
             scope_fields_html=_scope_fields_html(

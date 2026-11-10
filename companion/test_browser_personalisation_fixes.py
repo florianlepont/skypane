@@ -205,8 +205,10 @@ def test_a_special_look_row_gives_its_text_the_width(
                 assert button["height"] >= 44 - 0.5 and button["width"] >= 44, (action, button)
                 assert _inside(button, box), (action, button, box)
                 assert button["y"] >= text["y"] + text["height"] - 1, "actions are under the text"
+        page.locator(".rule-row a.special-row__edit").first.scroll_into_view_if_needed()
         page.wait_for_function(
             _OWNS_CENTRE, arg=".rule-row a.special-row__edit", timeout=10000)
+        page.locator(".rule-row a.special-row__remove").first.scroll_into_view_if_needed()
         page.wait_for_function(
             _OWNS_CENTRE, arg=".rule-row a.special-row__remove", timeout=10000)
     finally:

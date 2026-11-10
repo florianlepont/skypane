@@ -80,12 +80,13 @@ MESSAGES = {
     "look.edit_special_look": "Modifier l’allure spéciale",
     "look.create_look": "Créer l’allure",
     "look.look": "Allure",
-    "look.matching_flights_will_look_like_this":
-        "Les vols concernés auront cette allure.",
 
-    # --- Layout view and pairing picker (companion/settings/layout_picker.py)
+    # --- Layout card and pairing picker (companion/settings/layout_picker.py)
     "look.layout": "Disposition",
     "look.layout_group": "Disposition de l’écran",
+    "look.layout_caption": "S’applique à tout le cadre.",
+    "look.layout_whole_frame": "Tout le cadre",
+    "look.layout_change": "Modifier la disposition",
     "look.layout_help":
         "L’image se redessine au prochain vol ou à la transition.",
     "look.layout_classic": "Classique",

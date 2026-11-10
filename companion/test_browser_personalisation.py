@@ -33,7 +33,6 @@ VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 VIEW_ROUTES = (
     ("look", layout.DISPLAY_ROUTE),
     ("look", layout.DISPLAY_ARRIVALS_ROUTE),
-    ("layout", layout.DISPLAY_LAYOUT_ROUTE),
     ("special-looks", layout.DISPLAY_SPECIAL_LOOKS_ROUTE),
     ("calendar", layout.DISPLAY_CALENDAR_ROUTE),
 )
@@ -110,7 +109,8 @@ def _checked_theme(page):
 def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
         new_context, make_app_server, viewport, lang):
     """after load, with no scrolling, the picture (a little over half the width), the colour swatches, the background and band
-    controls are all inside the viewport and end above the floating tab bar (on a phone as short
+    controls are all inside the viewport and end above the floating tab bar once the frame-level
+    Layout card above the tabs is scrolled out (on a phone as short
     as 740px only the reason under a greyed choice may run below it);
     the swatches are drawn 32px inside their 44px targets"""
     server = make_app_server(seed=_seed)
@@ -121,7 +121,8 @@ def test_the_whole_look_picker_fits_one_phone_screen_above_the_tab_bar(
             "() => { const box = (sel) => document.querySelector(sel).getBoundingClientRect();"
             " const segments = [...document.querySelectorAll('%s .look-seg')];"
             " const dot = document.querySelector('%s .look-dot__ink').getBoundingClientRect();"
-            " return {tab: box('.tab-bar').top, picker: box('%s').bottom,"
+            " const above = box('.personalisation-nav').top - box('#personalisation-layout').top;"
+            " return {tab: box('.tab-bar').top + above, picker: box('%s').bottom,"
             "  segments: segments.map((s) => [s.getBoundingClientRect().bottom,"
             "    s.getBoundingClientRect().height]),"
             "  picture: box('.look-frame__picture').width, ink: dot.width, scroll: window.scrollY}; }"
@@ -194,7 +195,7 @@ def test_no_overflow_and_every_control_is_44px_and_reachable(
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_every_view_fits_the_screen_in_both_languages_and_themes(
         new_context, make_app_server, label, viewport, theme, lang):
-    """none of the five views scrolls sideways, and the navigation holds all five links with the
+    """none of the four views scrolls sideways, and the navigation holds all four links with the
     current view marked"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
@@ -206,7 +207,7 @@ def test_every_view_fits_the_screen_in_both_languages_and_themes(
             overflow = _assert_no_page_overflow(page, slug, viewport["width"])
             assert not overflow, overflow
             links = page.locator(".personalisation-nav__link")
-            assert links.count() == 5
+            assert links.count() == 4
             assert page.locator('.personalisation-nav__link[aria-current="page"]').count() == 1
             assert links.nth(position).get_attribute("aria-current") == "page"
     finally:
@@ -333,7 +334,8 @@ def test_the_views_show_their_own_picture_and_cancel_restores_the_saved_look(
 def test_on_desktop_the_picture_and_the_picker_are_two_columns_that_fit_the_screen(
         new_context, make_app_server):
     """at 1280x800 the picture is on the left and the picker card on the right, side by side, and
-    both end inside the first screen on Departures and on Arrivals; the picture is not tiny"""
+    both end inside the first screen on Departures and on Arrivals once the frame-level Layout card
+    above the tabs is scrolled out; the picture is not tiny"""
     server = make_app_server(seed=_seed)
     viewport = {"width": 1280, "height": 800}
     for route in LOOK_ROUTES:
@@ -342,11 +344,14 @@ def test_on_desktop_the_picture_and_the_picker_are_two_columns_that_fit_the_scre
             boxes = page.evaluate(
                 "() => { const pic = document.querySelector('.look-panel:not([hidden]) .look-frame__picture')"
                 ".getBoundingClientRect(); const pick = document.querySelector('[data-look-sheet]')"
-                ".getBoundingClientRect(); return {pic: [pic.left, pic.right, pic.top, pic.bottom],"
+                ".getBoundingClientRect(); const above = document.querySelector('.personalisation-nav')"
+                ".getBoundingClientRect().top - document.querySelector('#personalisation-layout')"
+                ".getBoundingClientRect().top; return {above: above,"
+                " pic: [pic.left, pic.right, pic.top, pic.bottom],"
                 " pick: [pick.left, pick.right, pick.top, pick.bottom]}; }")
             pic, pick = boxes["pic"], boxes["pick"]
             assert pic[1] <= pick[0] + 1, boxes
-            assert pic[3] <= 800 and pick[3] <= 800, boxes
+            assert pic[3] - boxes["above"] <= 800 and pick[3] - boxes["above"] <= 800, boxes
             assert pic[1] - pic[0] >= 300, boxes
             assert not _assert_no_page_overflow(page, "look", 1280)
         finally:
@@ -382,9 +387,9 @@ def test_the_navigation_links_are_plain_links_one_view_each(
     context, page = _open(new_context, server.base_url(), viewport, theme=None, reduced_motion="reduce")
     try:
         links = page.locator(".personalisation-nav__link")
-        assert [links.nth(i).evaluate("el => el.tagName") for i in range(5)] == ["A"] * 5
-        assert [links.nth(i).inner_text().strip() for i in range(5)] == [
-            "Departures", "Arrivals", "Layout", "Special looks", "Calendar"]
+        assert [links.nth(i).evaluate("el => el.tagName") for i in range(4)] == ["A"] * 4
+        assert [links.nth(i).inner_text().strip() for i in range(4)] == [
+            "Departures", "Arrivals", "Special looks", "Calendar"]
         for position, (slug, route) in enumerate(VIEW_ROUTES):
             if route == layout.DISPLAY_ROUTE:
                 continue

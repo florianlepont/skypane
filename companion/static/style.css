@@ -9861,8 +9861,7 @@ a.special-row__edit:hover {
 }
 
 /* The pages that edit one thing (a special look, the calendar link): the
- * picture on the left, the options in a card on the right, Cancel and Save in
- * the docked bar. One column on a phone, the picture beside its caption. */
+ * options in one card, Cancel and Save in the docked bar. */
 .form-view {
   display: flex;
   flex-direction: column;
@@ -9902,33 +9901,6 @@ a.form-back {
   grid-template-columns: minmax(0, 17rem) minmax(0, 37rem);
   gap: var(--space-xl) var(--space-2xl);
   align-items: flex-start;
-}
-
-.form-page__preview {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-  min-width: 0;
-}
-
-.form-page__caption {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
-  min-width: 0;
-  margin: 0;
-}
-
-.form-page__name {
-  font-family: var(--font-display);
-  font-size: var(--font-card-title-size);
-  font-weight: var(--weight-semibold);
-  overflow-wrap: anywhere;
-}
-
-.form-page__sentence {
-  font-size: var(--font-label-size);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .form-page__card {
@@ -10014,16 +9986,13 @@ a.form-page__danger:hover {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+.form-page--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 @media (max-width: 959.98px) {
   .form-page {
     grid-template-columns: minmax(0, 1fr);
-    gap: var(--space-md);
-  }
-
-  .form-page__preview {
-    display: grid;
-    grid-template-columns: 5.25rem minmax(0, 1fr);
-    align-items: center;
     gap: var(--space-md);
   }
 
@@ -11403,6 +11372,142 @@ a.entity-row__button:hover {
 
 .look-pick__arrivals {
   margin-top: var(--space-lg);
+}
+
+/* The frame's Layout card, above the style tabs of every Personalisation
+ * view. One set of radios: a row of small thumbnails on a wide screen; on a
+ * phone a summary row (thumbnail, current layout, "Change") that reveals the
+ * same radios. Without a script the picker is simply open. */
+.layout-card {
+  box-sizing: border-box;
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-dominant);
+}
+
+.layout-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.layout-card__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.layout-card__title,
+.layout-card__caption {
+  margin: 0;
+}
+
+.layout-card__meta {
+  display: none;
+  margin: 0;
+}
+
+.layout-card__thumb,
+.layout-card__change {
+  display: none;
+}
+
+.layout-card__picker .look-pick__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.layout-card__picker .look-pick__card {
+  flex: 0 0 auto;
+  align-items: center;
+  box-sizing: border-box;
+  width: calc(92px + 2 * var(--space-sm) + 2px);
+  text-align: center;
+}
+
+.layout-card__picker .look-pick__preview {
+  width: 92px;
+  height: auto;
+}
+
+.layout-card__picker .look-pick__name {
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.25;
+}
+
+.layout-card__picker .look-pick__card:has(input:checked) .look-pick__name {
+  font-weight: var(--weight-title);
+}
+
+.layout-card__picker .runway-card__check {
+  top: var(--space-xs);
+  right: var(--space-xs);
+}
+
+.layout-card__picker > .section-caption {
+  margin: var(--space-sm) 0 0;
+}
+
+@media (max-width: 699.98px) {
+  .layout-card {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .layout-card__caption {
+    display: none;
+  }
+
+  .layout-card__thumb {
+    display: block;
+    flex: none;
+    width: 44px;
+    height: 58px;
+    object-fit: contain;
+    border-radius: var(--radius-control);
+    background: var(--color-image-backdrop);
+  }
+
+  .layout-card__meta {
+    display: block;
+    font-size: var(--font-caption-size);
+    overflow-wrap: anywhere;
+  }
+
+  .layout-card__change {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .layout-card__change[hidden] {
+    display: none;
+  }
+
+  .js .layout-card:not(.is-open) .layout-card__picker {
+    display: none;
+  }
+
+  .layout-card__picker .look-pick__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout-card__picker .look-pick__card {
+    width: auto;
+  }
+
+  .layout-card__picker .look-pick__preview {
+    width: 92px;
+    max-width: 100%;
+  }
 }
 
 /* The look views (Departures, Arrivals) ---------------------------------- */

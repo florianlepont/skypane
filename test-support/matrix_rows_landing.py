@@ -18,7 +18,7 @@ FRAME_PAGE_REDIRECTS = (
 # them (an administrator's request is answered by the route itself).
 LEGACY_PAGE_TARGETS = {
     "/settings": "/display", "/history": "/flights", "/preview": "/flights",
-    "/display/screen": "/display",
+    "/display/screen": "/display", "/display/layout": "/display",
     "/health": "/", "/device": "/display", "/update": "/",
 }
 ADMIN_FRAMELESS_TARGET = "/account"

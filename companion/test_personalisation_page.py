@@ -99,9 +99,9 @@ def _position_row(rig):
     finally:
         conn.close()
 
-SECTIONS = ("Departures", "Arrivals", "Layout", "Special looks", "Calendar")
-SECTION_TITLES = ("Look", "Look", "Layout", "Special looks", "Calendar")
-FR_TITLES = ("Départs", "Arrivées", "Disposition", "Allures spéciales", "Calendrier")
+SECTIONS = ("Departures", "Arrivals", "Special looks", "Calendar")
+SECTION_TITLES = ("Look", "Look", "Special looks", "Calendar")
+FR_TITLES = ("Départs", "Arrivées", "Allures spéciales", "Calendrier")
 SEEDED = {
     "quiet_hours_enabled": True, "quiet_hours_start": "21:00", "quiet_hours_end": "05:00",
     "timezone": "America/Martinique", "wake_interval_s": 900, "theme": "band_red_field",
@@ -115,11 +115,11 @@ def _seed(rig):
 
 
 VIEW_PATHS = {
-    "departures": "/display", "arrivals": "/display/arrivals", "layout": "/display/layout",
+    "departures": "/display", "arrivals": "/display/arrivals",
     "special-looks": "/display/special-looks", "calendar": "/display/calendar"}
 VIEW_IDS = {
     "departures": "personalisation-look", "arrivals": "personalisation-look",
-    "layout": "personalisation-layout", "special-looks": "personalisation-special-looks", "calendar": "personalisation-calendar"}
+    "special-looks": "personalisation-special-looks", "calendar": "personalisation-calendar"}
 
 
 def _display(rig, who="owner", lang=None, view="departures"):
@@ -150,6 +150,8 @@ def test_the_title_the_nav_and_each_view_come_in_order(rig, who):
     for position, view in enumerate(VIEW_PATHS):
         root = parse_html(_display(rig, who, view=view))
         assert root.select_one("h1.page-title").text() == "Style"
+        card = root.select("#personalisation-layout")
+        assert len(card) == 1 and card[0].attrs["data-dirty-section"] == "Layout"
         nav = root.select_one("nav.personalisation-nav")
         assert nav.attrs["aria-label"] == "Style sections"
         links = nav.select("a")
@@ -181,7 +183,7 @@ def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(ri
 
 def test_the_page_speaks_french(rig):
     expected = {
-        "departures": "Allure", "arrivals": "Allure", "layout": "Disposition",
+        "departures": "Allure", "arrivals": "Allure",
         "special-looks": "Allures spéciales",
         "calendar": "Calendrier"}
     for view, title in expected.items():
@@ -197,7 +199,7 @@ def test_the_page_speaks_french(rig):
 def test_the_look_cards_are_native_radios_with_a_preview_and_a_selected_word(rig):
     _seed(rig)
     root = parse_html(_display(rig))
-    grid = root.select_one("div.look-pick__grid")
+    grid = root.select_one("#personalisation-look div.look-pick__grid")
     assert grid.attrs["role"] == "radiogroup"
     cards = grid.select("label")
     radios = [c.select_one("input") for c in cards]
@@ -332,7 +334,7 @@ def test_personalisation_holds_no_place_runway_time_zone_or_quiet_hours_control(
     cards = [
         c for root in roots.values() for c in root.select("div.personalisation__view > section")]
     assert [c.attrs["id"] for c in cards] == [
-        "personalisation-look", "personalisation-look", "personalisation-layout",
+        "personalisation-look", "personalisation-look",
         "personalisation-special-looks", "personalisation-calendar"]
     titles = [c.select_one("h2").text() for c in cards]
     for word in FORBIDDEN_WORDS[lang]:

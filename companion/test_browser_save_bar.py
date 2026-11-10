@@ -106,9 +106,9 @@ def _fleet_route(server):
 PAGES = [
     ("departures", layout.DISPLAY_ROUTE, ".look-dot", _pick_look),
     ("arrivals", layout.DISPLAY_ARRIVALS_ROUTE, ".look-dot", _pick_arrivals_look),
-    ("special-look-new", layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE, "[data-look-axes-host]", None),
+    ("special-look-new", layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE, "label.look-pick__card", None),
     ("special-look-edit", layout.DISPLAY_SPECIAL_LOOK_EDIT_ROUTE + "?rule_key=TVF",
-     "[data-look-axes-host]", None),
+     "label.look-pick__card", None),
     ("calendar-connect", layout.DISPLAY_CALENDAR_CONNECT_ROUTE, "#calendar-connect-url", None),
     ("location", "/detection", "#place-mode-area", _pick_mode),
     ("fleet", _fleet_route, "#wake-interval-s", _change_wake),
