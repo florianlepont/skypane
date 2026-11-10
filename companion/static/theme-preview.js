@@ -31,6 +31,53 @@
 (function () {
   "use strict";
 
+  // --- The section navigation -------------------------------------------
+  // A thumb behind the current link. Each view is its own page, so the
+  // thumb starts under the link of the page that was left (kept in
+  // sessionStorage) and slides to the current one, unless the visitor
+  // prefers reduced motion.
+  var nav = document.querySelector("[data-pers-nav]");
+  var NAV_KEY = "skypane-pers-nav";
+  if (nav) {
+    var thumb = nav.querySelector("[data-pers-thumb]");
+    var navLinks = nav.querySelectorAll("[data-pers-view]");
+    var currentLink = nav.querySelector("[aria-current]");
+    var cl;
+    var fromLink = null;
+    var previous = null;
+    try {
+      previous = window.sessionStorage.getItem(NAV_KEY);
+    } catch (err) {
+      previous = null;
+    }
+    for (cl = 0; cl < navLinks.length; cl++) {
+      if (navLinks[cl].getAttribute("data-pers-view") === previous) {
+        fromLink = navLinks[cl];
+      }
+    }
+    var placeThumb = function (link) {
+      // The pill sits 3px inside its segment, like the label's own box.
+      thumb.style.width = (link.offsetWidth - 6) + "px";
+      thumb.style.transform = "translateX(" + (link.offsetLeft + 3) + "px)";
+    };
+    if (thumb && currentLink) {
+      nav.className += " is-enhanced";
+      var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      placeThumb(fromLink && !calm ? fromLink : currentLink);
+      if (fromLink && fromLink !== currentLink && !calm) {
+        // Read the layout so the start position is painted first.
+        thumb.getBoundingClientRect();
+        thumb.className += " is-sliding";
+        placeThumb(currentLink);
+      }
+      try {
+        window.sessionStorage.setItem(NAV_KEY, currentLink.getAttribute("data-pers-view"));
+      } catch (err) {
+        // The slide start is only a nicety.
+      }
+    }
+  }
+
   // --- The Layout card ----------------------------------------------------
   // One set of radios; on a phone the card shows a summary row (picture and
   // name of the checked layout) and a "Change" button that reveals them. The

@@ -37,24 +37,6 @@ import companion.app as app_module
 _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
-# The selectors that spend the card entrance: the one shared definition.
-ENTRANCE_SELECTORS = (".reveal", ".reveal-appended", ".reveal-replay",
-    ".dashboard-main .group-block:not(.history-day):nth-child(-n + 6)",
-    ".dashboard-main .history-day:nth-child(-n + 3)",
-    ".dashboard-main .page-section:nth-child(-n + 6)",
-    ".dashboard-main .personalisation-look")
-# The page header only fades in.
-OPENING_HEADER_SELECTORS = (".dashboard-main[data-page-open] > .page-header",)
-# The controls and blocks that follow the page header enter one stagger step later.
-OPENING_BLOCK_SELECTORS = (
-    ".dashboard-main[data-page-open] > .filter-bar",
-    ".dashboard-main[data-page-open] > .filter-bar__chips",
-    ".dashboard-main[data-page-open] > .home-facts",
-    ".dashboard-main[data-page-open] > .users-section",
-    ".dashboard-main[data-page-open] > .components-index",
-    ".dashboard-main[data-page-open] > .error-actions",
-    ".dashboard-main[data-page-open] .personalisation__view > .form-view")
-
 # The two motion durations, plus the one documented exception: the
 # toast's two dwells (how long a success/info toast and a pending toast
 # stay), which are waits, not movement speeds. Each may only drive its
@@ -233,17 +215,15 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     entrance = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-enter")]
     assert entrance == [
-        (ENTRANCE_SELECTORS, "animation"),
-        (OPENING_HEADER_SELECTORS, "animation"),
-        (OPENING_BLOCK_SELECTORS, "animation"),
+        ((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section",
+          ".dashboard-main .personalisation-look"), "animation"),
         ((".dashboard-main > .empty-state",), "animation"),
         ((".dashboard-main > .data-table-wrap",), "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
-    assert stagger == [
-        (ENTRANCE_SELECTORS, "animation-delay"),
-        (OPENING_BLOCK_SELECTORS, "animation-delay")], (
+    assert stagger == [((".reveal", ".dashboard-main .group-block", ".dashboard-main .page-section",
+                         ".dashboard-main .personalisation-look"), "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.

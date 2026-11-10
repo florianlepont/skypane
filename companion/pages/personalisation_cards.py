@@ -168,7 +168,8 @@ def _nav_html(view):
          slug == view, ' data-pers-view="%s"' % slug)
         for slug, title, icon in _views()]
     return ui_segmented.segmented_links_html(
-        links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"')
+        links, i18n.t(NAV_LABEL), nav_attrs=" data-pers-nav",
+        lead_html='<span class="personalisation-nav__thumb" data-pers-thumb aria-hidden="true"></span>')
 
 
 def _bar_html(title, cancel_href, form_id, pending_label=None):

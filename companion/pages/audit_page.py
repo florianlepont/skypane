@@ -315,7 +315,7 @@ def _chips_html(view):
     return ui_filter.chip_links_html(
         [(_esc(audit_href(key, 1)), i18n.t(label), key == view.category)
          for key, label in CATEGORY_CHIPS],
-        i18n.t(_CHIPS_LABEL), tabs="audit")
+        i18n.t(_CHIPS_LABEL))
 
 
 def _count_html(total):

@@ -383,7 +383,7 @@ def _chips_html(view):
             '<span class="filter-chip__text">%s</span></span></label>' % (
                 SHOW_PARAM, value, " checked" if value == view.show else "",
                 escape_html(i18n.t(label))))
-    return '<fieldset class="filter-bar__chips" data-tabs="airlines"><legend class="visually-hidden">%s</legend>%s</fieldset>' % (
+    return '<fieldset class="filter-bar__chips"><legend class="visually-hidden">%s</legend>%s</fieldset>' % (
         escape_html(i18n.t(SHOW_LEGEND)), "".join(chips))
 
 

@@ -54,11 +54,6 @@ def test_page_title_is_visible_on_every_page_and_close_to_the_app_bar(
         for route in ROUTES:
             page.goto(server.base_url() + route)
             page.locator("main").wait_for(state="visible")
-            # The page header enters with a short rise: measure once it has landed.
-            page.wait_for_function(
-                "() => document.readyState === 'complete' && document.getAnimations().every("
-                "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations"
-                " === Infinity)", timeout=10000)
             state = _title_state(page)
             assert state["count"] == 1 and state["text"], (route, state)
             assert state["width"] > 40 and state["height"] > 20, (route, state)

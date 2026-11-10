@@ -427,7 +427,7 @@ def test_page_shell_renders_dashboard_shell_with_sidebar_and_dropdown_theme():
     for needle in (
         '<div class="dashboard-shell">',
         '<aside class="dashboard-sidebar">',
-        '<main class="page-content dashboard-main" id="main-content" tabindex="-1" data-page-open>',
+        '<main class="page-content dashboard-main" id="main-content" tabindex="-1">',
     ):
         assert needle in rendered, "expected %r in the rendered shell" % needle
     # 06.6.1-05: two nav landmarks now exist - sidebar_nav() and the

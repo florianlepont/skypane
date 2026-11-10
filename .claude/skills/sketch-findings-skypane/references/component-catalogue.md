@@ -34,17 +34,8 @@ the helper, add a state or family to `CATALOGUE` with its French strings in
 | Empty states | `ui_components.empty_state`, `ui_filter.filter_empty_html` | plain, compact, search with no match (counts stay at the whole history's); a compact one inside a flush section card (Fleet State) keeps the card's 16px inner padding | a list with nothing to show |
 | Dialogs, save bar | `ui_modal.dialog_html`, `sections_dialog_html`, `trigger_html`; `ui_save_bar.save_bar_html` | closed with a trigger; save bar primary + secondary buttons (`ui_save_bar.save_bar_html(..., inline=True)` is the phone form for a page whose card carries the buttons itself: static, no surface, message read aloud only, as on the Location sheet); the Flights picture dialog is one opaque card holding the picture, its caption and a secondary Close (never a bare image with controls floating over the page) | a focused task; unsaved changes |
 | Page header | `ui_components.page_header` | title, purpose, action | every page |
-| Page opening | the shell's `<main data-page-open>`; `.reveal` for a block outside the main flow | the page header enters first, then the filter bar, chips, facts and the first blocks one `--motion-stagger` later: `skypane-reveal` (a 12px stepped rise) with `skypane-reveal-fade`, both `--motion-enter`; at most five sections and the first three Flights days; never a row, a table, a list or the map | every page, automatically; a new page needs no markup |
-| Tab strip | any segmented strip with `data-tabs="<name>"` (links, radios or buttons); `data-tabs-content="<selector>"` and `data-tabs-replay="fade"` name the content a switch replays; `data-tabs-thumb="none"` keeps a strip without a thumb | one `.tabs-thumb` behind the segments slides (transform and width, `--motion-fast`) from the segment of the page that was left to the current one; a switch that stays on the page replays the content with `.reveal-replay` (fade and rise) or the fade alone; "Load more" enters its first three new items with `.reveal-appended`; motion.js owns all of it | Style and Fleet tabs, Flights, Airlines and Audit chips, Location modes |
 
 ## Rules that came out of unifying the families
-
-- Motion is opacity and translate only, on at most a screenful of blocks: a
-  tab switch, a filter and a page opening never animate margin, height, filter
-  or a row. Reduced motion turns the whole of it off (the global override), and
-  motion.js adds no class when it is set.
-- A page that belongs to no bar cell (Credits, the component catalogue, an
-  error page) puts the phone bar's pill under More, so the pill is on every page.
 
 - Selected is always a solid pill (>= 3:1 against its track), never a faint
   wash; the track always has a visible edge in light and dark.

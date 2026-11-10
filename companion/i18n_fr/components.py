@@ -104,21 +104,6 @@ MESSAGES = {
     "components.family_dialogs_desc":
         "Ouvrez une boîte de dialogue pour la voir ; la barre d’enregistrement est montrée dans la page.",
 
-    "components.family_motion": "Ouverture de page et barres d’onglets",
-    "components.family_motion_desc":
-        "Chaque page s’ouvre de la même façon et chaque barre d’onglets bouge de la même façon. "
-        "Tout est coupé quand l’utilisateur réduit les animations.",
-    "components.state_opening": "Ouverture de page",
-    "components.state_tab_strip": "Barre d’onglets avec sa pastille glissante",
-    "components.state_tab_content": "Ce qu’anime un changement d’onglet",
-    "components.sample_opening_note":
-        "L’en-tête entre en premier, puis les filtres et les premiers blocs, à un court intervalle "
-        "l’un de l’autre : un fondu et une légère montée. Les listes, les tableaux et la carte "
-        "ne s’animent jamais ligne par ligne.",
-    "components.sample_tab_content_note":
-        "Un changement qui charge une autre page rejoue l’ouverture. Un changement qui modifie la "
-        "liste sur place la fait apparaître en fondu une fois. « Charger plus » fait entrer "
-        "ses premiers nouveaux éléments de la même façon.",
     "components.family_names": "Noms des pages",
     "components.family_names_desc":
         "Un nom par page. Le titre, le titre du document, le menu latéral et les titres de "

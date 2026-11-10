@@ -633,7 +633,7 @@ def _chips_html(view):
                 history_query.KIND_PARAM, kind, _FORM_ID,
                 " checked" if kind == view.kind else "", kind or "all",
                 escape_html(text)))
-    return ('<fieldset class="filter-bar__chips" data-tabs="flights"><legend class="visually-hidden">%s</legend>'
+    return ('<fieldset class="filter-bar__chips"><legend class="visually-hidden">%s</legend>'
             "%s</fieldset>") % (escape_html(i18n.t(_FILTER_CHIPS_LEGEND)), "".join(parts))
 
 

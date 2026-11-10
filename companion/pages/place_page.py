@@ -527,9 +527,7 @@ def _boot_html():
 
 def _mode_switch_html(view):
     return (
-        '<div class="place-modes" role="radiogroup" aria-label="%s" %s="%s" '
-        'data-tabs="place" data-tabs-thumb="none" data-tabs-content=".place-sheet" '
-        'data-tabs-replay="fade">%s%s</div>%s'
+        '<div class="place-modes" role="radiogroup" aria-label="%s" %s="%s">%s%s</div>%s'
     ) % (
         escape_html(i18n.t(MODE_SWITCH_LABEL)), DIRTY_SECTION_ATTR,
         escape_html(i18n.t(dp.SECTION_DETECTION)),
