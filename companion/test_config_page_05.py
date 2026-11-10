@@ -654,7 +654,9 @@ def test_display_renders_one_compact_chip_grid_and_three_palettes_with_one_swatc
     root = parse_html(rendered)
     blocks = root.find_all("div", cls="look-table-block")
     assert len(blocks) == 3
-    grid = root.find("div", cls="look-pick__grid")
+    grid = [
+        g for g in root.find_all("div", cls="look-pick__grid")
+        if g.find_all("input")[0].attrs["name"] == "theme"][0]
     assert sorted(
         node.attrs["value"] for node in grid.find_all("input")) == sorted(device_config.THEME_IDS)
     for block in blocks:

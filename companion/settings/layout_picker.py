@@ -3,8 +3,8 @@
 Two pieces of markup, both native radios that belong to the settings form,
 so they save with scripts blocked:
 
-  * the Layout view: one radio card per screen layout a frame can show,
-    each with a small picture of that layout;
+  * the Layout card above the style tabs: one radio card per screen layout a
+    frame can show, each with a small picture of that layout;
   * the pairing picker: for a frame on a giant-lettering layout, the five
     field / lettering pairings replace the eighteen-theme picker for
     departures and for "theme when arriving".
@@ -23,11 +23,12 @@ from server import pairings, screen_layouts
 
 from companion.settings import look
 from companion.settings.form import (
-    CURRENT_BADGE_ATTR, CURRENT_BADGE_LABEL, SELECTED_LABEL, SETTINGS_FORM_ID,
+    CURRENT_BADGE_ATTR, CURRENT_BADGE_LABEL, DIRTY_SECTION_ATTR, SELECTED_LABEL,
+    SETTINGS_FORM_ID,
     _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
-    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_DEPARTURES, FRAME_COLOURS_ROW_LABELS, LOOK_FIELDS,
-    LOOK_PREVIEW_ALT_TEMPLATE, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
+    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_DEPARTURES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL,
+    LOOK_FIELDS, LOOK_PREVIEW_ALT_TEMPLATE, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
 
 LAYOUT_FIELD = "layout"
 
@@ -36,6 +37,9 @@ LAYOUT_GROUP_LABEL = i18n.msg("look.layout_group", "Screen layout")
 LAYOUT_HELP = i18n.msg(
     "look.layout_help",
     "The picture repaints at the next flight or transition.")
+LAYOUT_CAPTION = i18n.msg("look.layout_caption", "Applies to the whole frame.")
+LAYOUT_WHOLE_FRAME = i18n.msg("look.layout_whole_frame", "Whole frame")
+LAYOUT_CHANGE_ARIA = i18n.msg("look.layout_change", "Change the layout")
 LAYOUT_NAMES = {
     "classic": i18n.msg("look.layout_classic", "Classic"),
     "a": i18n.msg("look.layout_a", "A: nose and tail"),
@@ -90,27 +94,58 @@ def _help_html(message):
     return '<p class="text-label section-caption">%s</p>' % escape_html(i18n.t(message))
 
 
-def layout_view_html(current_layout, current_theme_id, errors=None, submitted=None):
-    """The Layout view's body: the help line, then one card per layout. A
-    rejected submitted value never reaches the markup: the saved layout is
-    shown instead."""
+def layout_card_html(current_layout, current_theme_id, errors=None, submitted=None):
+    """The frame-level Layout card shown above the style tabs of every
+    Personalisation view. One set of radios serves both presentations: a row
+    of thumbnails on a wide screen; on a phone a summary row (thumbnail, the
+    current layout, a "Change" button) that reveals the same radios. A rejected
+    submitted value never reaches the markup: the saved layout is shown
+    instead."""
     saved = screen_layouts.normalise_layout_id(current_layout)
     chosen = _submitted_or_current(submitted, LAYOUT_FIELD, saved)
     if chosen not in screen_layouts.LAYOUT_IDS:
         chosen = saved
     picture_theme = departures_safe_theme_id(current_theme_id, None)
+
+    def preview_src(layout_id):
+        return theme_preview.frame_preview_src(
+            picture_theme, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
+            theme_preview.FRAME_PREVIEW_SIZE_SMALL, layout=layout_id)
+
     cards = "".join(
         _radio_card_html(
             LAYOUT_FIELD, layout_id, layout_id == chosen, layout_id == saved,
-            i18n.t(LAYOUT_NAMES[layout_id]),
-            theme_preview.frame_preview_src(
-                picture_theme, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
-                theme_preview.FRAME_PREVIEW_SIZE_SMALL, layout=layout_id),
+            i18n.t(LAYOUT_NAMES[layout_id]), preview_src(layout_id),
             i18n.t(LAYOUT_PREVIEW_ALT_TEMPLATE) % i18n.t(LAYOUT_NAMES[layout_id]))
         for layout_id in screen_layouts.LAYOUT_IDS)
-    return '%s<div class="look-pick__grid layout-pick__grid" role="radiogroup" aria-label="%s">%s</div>%s' % (
-        _help_html(LAYOUT_HELP), escape_html(i18n.t(LAYOUT_GROUP_LABEL)), cards,
-        _field_error_html(errors, LAYOUT_FIELD, LAYOUT_FIELD))
+    title = escape_html(i18n.t(LAYOUT_TITLE))
+    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    return (
+        '<section class="layout-card" id="personalisation-layout" '
+        'aria-labelledby="personalisation-layout-title" %s="%s" data-layout-card>'
+        '<div class="layout-card__row">'
+        '<img class="layout-card__thumb" src="%s" width="%d" height="%d" alt="" '
+        'data-layout-thumb decoding="async">'
+        '<div class="layout-card__text">'
+        '<h2 class="text-heading layout-card__title" id="personalisation-layout-title">%s</h2>'
+        '<p class="text-label section-caption layout-card__caption">%s</p>'
+        '<p class="layout-card__meta"><span data-layout-name>%s</span> '
+        '<span aria-hidden="true">&middot;</span> %s</p>'
+        "</div>"
+        '<button type="button" class="layout-card__change" data-layout-toggle '
+        'aria-expanded="false" aria-controls="personalisation-layout-picker" '
+        'aria-label="%s" hidden>%s</button>'
+        "</div>"
+        '<div class="layout-card__picker" id="personalisation-layout-picker" data-layout-picker>'
+        '<div class="look-pick__grid layout-pick__grid" role="radiogroup" aria-label="%s">%s</div>'
+        "%s%s</div></section>"
+    ) % (
+        DIRTY_SECTION_ATTR, title, escape_html(preview_src(chosen)), width, height,
+        title, escape_html(i18n.t(LAYOUT_CAPTION)),
+        escape_html(i18n.t(LAYOUT_NAMES[chosen])), escape_html(i18n.t(LAYOUT_WHOLE_FRAME)),
+        escape_html(i18n.t(LAYOUT_CHANGE_ARIA)), escape_html(i18n.t(LOOK_CHANGE_LABEL)),
+        escape_html(i18n.t(LAYOUT_GROUP_LABEL)), cards,
+        _field_error_html(errors, LAYOUT_FIELD, LAYOUT_FIELD), _help_html(LAYOUT_HELP))
 
 
 def pairing_id_for(theme_id):

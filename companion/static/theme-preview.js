@@ -14,6 +14,8 @@
  *   real themes and why the others are not; this file never decides
  *   that itself. A choice checks the matching theme radio and fires a
  *   change event, so dirty-state.js sees it like a click;
+ * - the Layout card: its phone summary follows the checked layout and its
+ *   "Change" button reveals the picker;
  * - the special look form page: the same three choices in the page and
  *   recent-key suggestions.
  *
@@ -76,8 +78,64 @@
     }
   }
 
+  // --- The Layout card ----------------------------------------------------
+  // One set of radios; on a phone the card shows a summary row (picture and
+  // name of the checked layout) and a "Change" button that reveals them. The
+  // button stays hidden without a script, where the radios are simply open.
+  var layoutCards = document.querySelectorAll("[data-layout-card]");
+
+  function syncLayoutCard(card) {
+    var checked = card.querySelector('input[type="radio"]:checked');
+    var thumb = card.querySelector("[data-layout-thumb]");
+    var name = card.querySelector("[data-layout-name]");
+    var label = checked ? checked.parentNode : null;
+    var image = label ? label.querySelector("img") : null;
+    var text = label ? label.querySelector(".look-pick__name") : null;
+    if (thumb && image) {
+      thumb.setAttribute("src", image.getAttribute("src"));
+    }
+    if (name && text) {
+      name.textContent = text.textContent;
+    }
+  }
+
+  function syncLayoutCards() {
+    var i;
+    for (i = 0; i < layoutCards.length; i++) {
+      syncLayoutCard(layoutCards[i]);
+    }
+  }
+
+  function bindLayoutCard(card) {
+    var toggle = card.querySelector("[data-layout-toggle]");
+    if (toggle) {
+      toggle.hidden = false;
+      toggle.addEventListener("click", function () {
+        var open = toggle.getAttribute("aria-expanded") !== "true";
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) {
+          card.className += " is-open";
+        } else {
+          card.className = (" " + card.className + " ").replace(" is-open ", " ")
+            .replace(/^\s+|\s+$/g, "");
+        }
+      });
+    }
+    card.addEventListener("change", function () {
+      syncLayoutCard(card);
+    });
+  }
+
+  var lc;
+  for (lc = 0; lc < layoutCards.length; lc++) {
+    bindLayoutCard(layoutCards[lc]);
+  }
+
   var sheet = document.querySelector("[data-look-sheet]");
   if (!sheet) {
+    // No look sheet on this page (a giant-layout frame): the Layout card is
+    // still refreshed after a Cancel.
+    window.SkyPaneLivePreview = { refresh: syncLayoutCards };
     return;
   }
   var model;
@@ -619,6 +677,7 @@
 
   window.SkyPaneLivePreview = {
     refresh: function () {
+      syncLayoutCards();
       renderAll();
       syncSheet();
       if (addForm) {

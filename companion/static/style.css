@@ -11405,6 +11405,142 @@ a.entity-row__button:hover {
   margin-top: var(--space-lg);
 }
 
+/* The frame's Layout card, above the style tabs of every Personalisation
+ * view. One set of radios: a row of small thumbnails on a wide screen; on a
+ * phone a summary row (thumbnail, current layout, "Change") that reveals the
+ * same radios. Without a script the picker is simply open. */
+.layout-card {
+  box-sizing: border-box;
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-dominant);
+}
+
+.layout-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.layout-card__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.layout-card__title,
+.layout-card__caption {
+  margin: 0;
+}
+
+.layout-card__meta {
+  display: none;
+  margin: 0;
+}
+
+.layout-card__thumb,
+.layout-card__change {
+  display: none;
+}
+
+.layout-card__picker .look-pick__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.layout-card__picker .look-pick__card {
+  flex: 0 0 auto;
+  align-items: center;
+  box-sizing: border-box;
+  width: calc(92px + 2 * var(--space-sm) + 2px);
+  text-align: center;
+}
+
+.layout-card__picker .look-pick__preview {
+  width: 92px;
+  height: auto;
+}
+
+.layout-card__picker .look-pick__name {
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.25;
+}
+
+.layout-card__picker .look-pick__card:has(input:checked) .look-pick__name {
+  font-weight: var(--weight-title);
+}
+
+.layout-card__picker .runway-card__check {
+  top: var(--space-xs);
+  right: var(--space-xs);
+}
+
+.layout-card__picker > .section-caption {
+  margin: var(--space-sm) 0 0;
+}
+
+@media (max-width: 699.98px) {
+  .layout-card {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .layout-card__caption {
+    display: none;
+  }
+
+  .layout-card__thumb {
+    display: block;
+    flex: none;
+    width: 44px;
+    height: 58px;
+    object-fit: contain;
+    border-radius: var(--radius-control);
+    background: var(--color-image-backdrop);
+  }
+
+  .layout-card__meta {
+    display: block;
+    font-size: var(--font-caption-size);
+    overflow-wrap: anywhere;
+  }
+
+  .layout-card__change {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .layout-card__change[hidden] {
+    display: none;
+  }
+
+  .js .layout-card:not(.is-open) .layout-card__picker {
+    display: none;
+  }
+
+  .layout-card__picker .look-pick__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout-card__picker .look-pick__card {
+    width: auto;
+  }
+
+  .layout-card__picker .look-pick__preview {
+    width: 92px;
+    max-width: 100%;
+  }
+}
+
 /* The look views (Departures, Arrivals) ---------------------------------- */
 
 .look-picker {

@@ -1,5 +1,6 @@
-"""The Personalisation tab's Layout view and the pairing picker, over a real
-in-process server: the five layout cards with their saved and selected
+"""The Personalisation tab's Layout card and the pairing picker, over a real
+in-process server: the frame-level Layout card above the style tabs (once on
+every view, not a navigation link, the old address redirecting), the five layout cards with their saved and selected
 state, saving a layout through the settings form (CSRF unchanged), the
 rejected-value path, the five pairing cards a frame on a giant layout is
 offered in place of the eighteen-theme picker, the classic frame's picker
@@ -56,7 +57,7 @@ class Rig:
             cookie=self.cookies[who], extra_headers={"Origin": self.server.base_url()})
         return status, response, body.decode("utf-8", "replace")
 
-    def save(self, who="owner", return_to="/display/layout", **fields):
+    def save(self, who="owner", return_to="/display", **fields):
         form = {"scope": "display", "return_to": return_to}
         form.update(fields)
         return self.post(who, form)
@@ -100,17 +101,32 @@ def _checked(root, name):
     return [r.attrs["value"] for r in root.select('input[name="%s"][checked]' % name)]
 
 
-# --- The Layout view -------------------------------------------------------
+# --- The Layout card --------------------------------------------------------
+
+CARD_VIEWS = ("/display", "/display/arrivals", "/display/special-looks", "/display/calendar")
+
+
+def _card_checks(root):
+    """The card is present once, sits before the navigation, and holds the five radios."""
+    assert len(root.select("section#personalisation-layout")) == 1
+    assert len(root.select("[data-layout-card]")) == 1
+    page = root.select_one("div.personalisation")
+    children = [c for c in page.children if getattr(c, "tag", None)]
+    assert children[0].attrs["id"] == "personalisation-layout"
+    assert children[1].tag == "nav"
+
 
 @pytest.mark.parametrize("who", ["owner", "admin"])
-def test_the_layout_view_offers_the_five_layouts_with_a_preview_each(rig, who):
-    root = rig.page("/display/layout", who)
-    section = root.select_one("div.personalisation__view > section")
-    assert section.attrs["id"] == "personalisation-layout"
+@pytest.mark.parametrize("path", CARD_VIEWS)
+def test_the_layout_card_offers_the_five_layouts_with_a_preview_each(rig, who, path):
+    root = rig.page(path, who)
+    _card_checks(root)
+    section = root.select_one("#personalisation-layout")
     assert section.attrs["data-dirty-section"] == "Layout"
     radios = _layout_radios(root)
     assert [r.attrs["value"] for r in radios] == list(screen_layouts.LAYOUT_IDS)
     assert all(r.attrs["form"] == "settings-form" for r in radios)
+    assert len(_checked(root, "layout")) == 1
     cards = root.select("#personalisation-layout label")
     assert [c.select_one(".look-pick__name").text() for c in cards] == LAYOUT_CARD_NAMES["en"]
     for card, layout_id in zip(cards, screen_layouts.LAYOUT_IDS):
@@ -118,39 +134,75 @@ def test_the_layout_view_offers_the_five_layouts_with_a_preview_each(rig, who):
         assert theme_preview.FRAME_PREVIEW_ROUTE_PREFIX in image.attrs["src"]
         assert "layout=%s" % layout_id in image.attrs["src"]
         assert image.attrs["alt"]
+    assert root.select_one("#personalisation-layout h2").text() == "Layout"
+    assert root.select_one("#personalisation-layout .layout-card__caption").text() == (
+        "Applies to the whole frame.")
+
+
+@pytest.mark.parametrize("path", CARD_VIEWS)
+def test_the_navigation_has_four_links_and_none_is_layout(rig, path):
+    root = rig.page(path)
     nav_links = root.select("nav.personalisation-nav a")
+    assert [a.attrs["href"].split("/devices/")[-1].split("/", 1)[-1] for a in nav_links] == [
+        "display", "display/arrivals", "display/special-looks", "display/calendar"]
     assert [a.attrs.get("aria-current") for a in nav_links].count("page") == 1
-    assert nav_links[2].attrs["aria-current"] == "page"
+    assert not [a for a in root.select("a") if a.attrs.get("href", "").endswith("/display/layout")]
+    assert "Layout" not in [a.text().strip() for a in nav_links]
+
+
+def test_the_retired_layout_address_redirects_to_the_display_page(rig):
+    status, response, _body = http_request(
+        rig.server.url(rig.scope() + "/display/layout"), cookie=rig.cookies["owner"])
+    assert status in (301, 302, 303, 307, 308)
+    assert response["Location"] == rig.scope() + "/display"
 
 
 def test_an_absent_layout_shows_the_default_selected_and_says_when_it_repaints(rig):
     assert "layout" not in rig.stored() or rig.stored()["layout"] == screen_layouts.DEFAULT_LAYOUT_ID
-    root = rig.page("/display/layout")
+    root = rig.page("/display")
     assert _checked(root, "layout") == [screen_layouts.DEFAULT_LAYOUT_ID]
-    help_text = root.select_one("#personalisation-layout .section-caption").text()
+    help_text = root.select_one("#personalisation-layout .layout-card__picker > .section-caption").text()
     assert "next flight or transition" in help_text
 
 
-def test_the_layout_view_speaks_french(rig):
-    root = rig.page("/display/layout", lang="fr")
+def test_the_summary_row_names_the_saved_layout(rig):
+    rig.save(layout="c")
+    root = rig.page("/display/calendar")
+    assert root.select_one("#personalisation-layout [data-layout-name]").text() == (
+        LAYOUT_CARD_NAMES["en"][3])
+    thumb = root.select_one("#personalisation-layout [data-layout-thumb]")
+    assert "layout=c" in thumb.attrs["src"]
+    toggle = root.select_one("#personalisation-layout [data-layout-toggle]")
+    assert "hidden" in toggle.attrs
+    assert toggle.attrs["aria-controls"] == "personalisation-layout-picker"
+
+
+@pytest.mark.parametrize("path", CARD_VIEWS)
+def test_the_layout_card_speaks_french(rig, path):
+    root = rig.page(path, lang="fr")
     assert root.select_one("nav.personalisation-nav").attrs["aria-label"] == (
         "Sections de style")
     names = [c.select_one(".look-pick__name").text() for c in root.select("#personalisation-layout label")]
     assert names == [name.replace("\u00a0", " ") for name in LAYOUT_CARD_NAMES["fr"]]
     assert "prochain vol ou à la transition" in (
-        root.select_one("#personalisation-layout .section-caption").text())
+        root.select_one("#personalisation-layout .layout-card__picker > .section-caption").text())
     assert root.select_one("#personalisation-layout h2").text() == "Disposition"
+    assert root.select_one("#personalisation-layout .layout-card__caption").text() == (
+        "S’applique à tout le cadre.")
+    assert "Tout le cadre" in root.select_one("#personalisation-layout .layout-card__meta").text()
+    assert root.select_one("#personalisation-layout [data-layout-toggle]").text() == "Modifier"
 
 
-def test_saving_a_layout_persists_it_and_the_view_shows_it_selected(rig):
-    status, response, _body = rig.save(layout="a_diagonal")
+def test_saving_a_layout_persists_it_and_every_view_shows_it_selected(rig):
+    status, response, _body = rig.save(layout="a_diagonal", return_to="/display/calendar")
     assert status == 303
-    assert response["Location"].startswith(rig.scope() + "/display/layout")
+    assert response["Location"].startswith(rig.scope() + "/display/calendar")
     assert rig.stored()["layout"] == "a_diagonal"
-    root = rig.page("/display/layout")
-    assert _checked(root, "layout") == ["a_diagonal"]
-    saved = root.select("#personalisation-layout label.runway-card--selected input")
-    assert [r.attrs["value"] for r in saved] == ["a_diagonal"]
+    for path in CARD_VIEWS:
+        root = rig.page(path)
+        assert _checked(root, "layout") == ["a_diagonal"]
+        saved = root.select("#personalisation-layout label.runway-card--selected input")
+        assert [r.attrs["value"] for r in saved] == ["a_diagonal"]
 
 
 def test_saving_classic_is_kept_and_the_default_is_not_written(rig):
@@ -161,15 +213,16 @@ def test_saving_classic_is_kept_and_the_default_is_not_written(rig):
     assert b'"layout"' not in rig.stored_file()
 
 
-def test_a_bogus_layout_is_refused_redrawn_on_the_layout_view_and_not_echoed(rig):
+def test_a_bogus_layout_is_refused_redrawn_with_the_card_and_not_echoed(rig):
     rig.save(layout="a")
     before = rig.stored_file()
     status, _response, body = rig.save(layout="bogus<script>")
     assert status == 200
     assert "bogus" not in body
     root = parse_html(body)
+    _card_checks(root)
     assert [c.attrs["id"] for c in root.select("div.personalisation__view > section")] == [
-        "personalisation-layout"]
+        "personalisation-look"]
     assert root.select_one("#personalisation-layout .field-error") is not None
     assert _checked(root, "layout") == ["a"]
     assert rig.stored_file() == before

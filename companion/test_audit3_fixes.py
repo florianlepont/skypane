@@ -141,6 +141,8 @@ def test_the_small_look_pictures_are_only_for_a_page_without_a_script():
     import re
     _images, rendered = _look_images("departures")
     bare = re.sub(r"<noscript>.*?</noscript>", "", rendered, flags=re.S)
+    # The Layout card's pictures are the picker itself, shown with or without a script.
+    bare = re.sub(r'<section class="layout-card".*?</section>', "", bare, flags=re.S)
     assert "look-pick__preview" not in bare
     assert rendered.count('<noscript><img class="look-pick__preview"') >= 10
 

@@ -1,6 +1,8 @@
-"""The Personalisation page's body: one navigation (Departures, Arrivals,
-Layout, Special looks, Calendar) and the one view it points at. Each view has its own
-address; Departures is the page's own address.
+"""The Personalisation page's body: the frame's Layout card, one navigation
+(Departures, Arrivals, Special looks, Calendar) and the one view it points at.
+Each view has its own address; Departures is the page's own address. The layout
+is one setting per frame, so its card sits above the navigation and shows
+whichever view is open.
 
 Departures and Arrivals are two views of the look picker. Special looks and
 Calendar are one glass group of rows with an add row under it. Every view is a section carrying the
@@ -39,7 +41,6 @@ CALENDAR_TITLE = i18n.msg("look.calendar", "Calendar")
 # One address per view. Departures keeps the page's original address.
 VIEW_DEPARTURES = "departures"
 VIEW_ARRIVALS = "arrivals"
-VIEW_LAYOUT = "layout"
 VIEW_SPECIAL_LOOKS = "special-looks"
 VIEW_CALENDAR = "calendar"
 VIEW_LOOK_NEW = "special-look-new"
@@ -49,7 +50,6 @@ VIEW_CALENDAR_LOOK = "calendar-look"
 VIEW_ROUTES = {
     VIEW_DEPARTURES: layout.DISPLAY_ROUTE,
     VIEW_ARRIVALS: layout.DISPLAY_ARRIVALS_ROUTE,
-    VIEW_LAYOUT: layout.DISPLAY_LAYOUT_ROUTE,
     VIEW_SPECIAL_LOOKS: layout.DISPLAY_SPECIAL_LOOKS_ROUTE,
     VIEW_CALENDAR: layout.DISPLAY_CALENDAR_ROUTE,
     VIEW_LOOK_NEW: layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE,
@@ -71,8 +71,9 @@ LOOK_VIEW_USAGES = {
     VIEW_DEPARTURES: COLOUR_USAGE_DEPARTURES,
     VIEW_ARRIVALS: COLOUR_USAGE_ARRIVALS,
 }
-# The address that used to hold the Screen switch (now on Home) redirects here.
-RETIRED_VIEW_ROUTES = (layout.DISPLAY_SCREEN_ROUTE,)
+# The address that used to hold the Screen switch (now on Home) and the one
+# that held the Layout view (now a card on every view) redirect to Departures.
+RETIRED_VIEW_ROUTES = (layout.DISPLAY_SCREEN_ROUTE, layout.DISPLAY_LAYOUT_ROUTE)
 
 
 def _card_html(slug, title, body_html):
@@ -114,13 +115,11 @@ def _look_body_html(values, errors, submitted, usage):
         values["theme_id"], values["theme_arriving"], errors, submitted, usage)
 
 
-def _layout_view(values, errors, submitted):
-    """The Layout view: one card per screen layout. The title stays for
-    assistive technology and names the section in the save bar."""
-    return _card_html(
-        "layout", i18n.t(layout_picker.LAYOUT_TITLE),
-        layout_picker.layout_view_html(
-            values["layout"], values["theme_id"], errors, submitted))
+def _layout_card(values, errors, submitted):
+    """The frame-level Layout card: a section carrying the dirty-state
+    attribute, so the save bar names it when the layout changed."""
+    return layout_picker.layout_card_html(
+        values["layout"], values["theme_id"], errors, submitted)
 
 
 def _special_looks_card(ctx, sheet_html):
@@ -149,7 +148,6 @@ def _views():
     return (
         (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
         (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane"),
-        (VIEW_LAYOUT, layout_picker.LAYOUT_TITLE, "icon-picture"),
         (VIEW_SPECIAL_LOOKS, SPECIAL_LOOKS_HEADING, "icon-star"),
         (VIEW_CALENDAR, CALENDAR_TITLE, "icon-calendar"))
 
@@ -228,7 +226,8 @@ def _form_view(ctx, values, view, errors, scope_fields_html, submitted=None):
 def page_html(
         ctx, values, calendar_row_html, calendar_status, errors, submitted, view=None,
         scope_fields_html=""):
-    """The Personalisation body: the navigation, then the one view it names.
+    """The Personalisation body: the Layout card, the navigation, then the one
+    view it names.
     `view=None` renders every view in navigation order (one look view holding
     both pictures, one look sheet), for checks against every control at once;
     no route serves that.
@@ -243,13 +242,13 @@ def page_html(
     usage = LOOK_VIEW_USAGES.get(view)
     parts = {
         VIEW_DEPARTURES: lambda: _look_view(values, errors, submitted, usage),
-        VIEW_LAYOUT: lambda: _layout_view(values, errors, submitted),
         VIEW_SPECIAL_LOOKS: lambda: _special_looks_card(ctx, sheet_html),
         VIEW_CALENDAR: lambda: _calendar_card(calendar_row_html) + (
             _calendar_look_controls(values, errors) if view is None else ""),
     }
     parts[VIEW_ARRIVALS] = parts[VIEW_DEPARTURES]
     shown = (view,) if view is not None else (
-        VIEW_DEPARTURES, VIEW_LAYOUT, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
-    return '<div class="personalisation">%s<div class="personalisation__view">%s</div></div>' % (
-        _nav_html(view), "".join(parts[name]() for name in shown))
+        VIEW_DEPARTURES, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
+    return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div></div>' % (
+        _layout_card(values, errors, submitted), _nav_html(view),
+        "".join(parts[name]() for name in shown))
