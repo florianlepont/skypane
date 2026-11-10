@@ -83,7 +83,7 @@ def _shaded_face(tone: str, size: tuple[int, int]) -> Image.Image:
         for x in range(fw):
             d = (((x - cx) ** 2 + (y - cy) ** 2) ** 0.5) / reach
             k = 1.12 - 0.62 * d
-            px[x, y] = tuple(max(0, min(255, round(c * k))) for c in base)  # type: ignore[assignment]
+            px[x, y] = tuple(max(0, min(255, round(c * k))) for c in base)
     return face
 
 
@@ -321,7 +321,7 @@ def render_file(
 
 def format_rows(rows: Sequence[Mapping[str, Any]]) -> str:
     """Plain-text table of the measure rows."""
-    head = "tone scene panel fit params hue_before hue_after fidelity bands_white"
+    head = "tone scene panel fit params hue_before hue_after fidelity white_share"
     lines = [head]
     for r in rows:
         lines.append(
