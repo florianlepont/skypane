@@ -2503,10 +2503,35 @@ button:not(.value-control__handle):active {
   grid-area: cancel;
 }
 
-/* On a phone the message line sits over the buttons. */
+/* On a phone the message line sits over the buttons. The inline form is the
+ * two buttons of the card that holds the bar: no strip of its own, no drawn
+ * message (the live message is still read aloud). */
 @media (max-width: 959.98px) {
   :root {
     --save-bar-h: calc(44px + var(--space-lg) + var(--space-sm) + 2 * var(--space-md) + 2px);
+  }
+
+  /* Two classes: the glass surface rule further down is a single class. */
+  .dirty-bar.dirty-bar--inline {
+    position: static;
+    grid-template-columns: auto auto;
+    grid-template-areas: "cancel save";
+    padding: 0;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .dirty-bar--inline > .btn {
+    padding: 0 var(--space-sm);
+  }
+
+  .dirty-bar--inline .dirty-bar__message {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip-path: inset(50%);
   }
 }
 
@@ -6249,11 +6274,6 @@ html.js-early:has(.place-stage) {
   pointer-events: auto;
 }
 
-/* While Save and Cancel show, the sheet sits above them. */
-.map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
-  margin-bottom: calc(var(--place-bar-h) + var(--space-md) + var(--space-sm));
-}
-
 .map-ready .place-hint,
 .map-ready .place-picker,
 .map-ready .place-radius > .section-caption,
@@ -6479,9 +6499,9 @@ html:not(.map-ready) .place-tap-hint {
     grid-template-columns: none;
     grid-auto-flow: column;
     grid-auto-columns: calc((100% - 2 * var(--space-sm)) / 3);
-    overflow-x: auto;
+    overflow: auto hidden;
     scroll-snap-type: x proximity;
-    padding: var(--space-md) 0 var(--space-xs);
+    padding: var(--space-sm) var(--space-xs) 0 0;
   }
 
   .map-ready .place-sheet .runway-card {
@@ -6489,10 +6509,20 @@ html:not(.map-ready) .place-tap-hint {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: var(--space-xs);
-    min-height: 64px;
-    padding: var(--space-xs) var(--space-sm);
+    gap: 0;
+    min-height: 46px;
+    padding: 7px var(--space-sm) 1px;
     scroll-snap-align: start;
+  }
+
+  .map-ready .place-sheet .runway-card .runway-card__number {
+    line-height: 1.1;
+  }
+
+  /* The "Current" badge is a smaller tab on the chip's top edge. */
+  .map-ready .place-sheet .runway-card--selected:not(:has(input:checked))::after {
+    top: -8px;
+    line-height: 14px;
   }
 
   .map-ready .place-sheet .runway-card .runway-card__detail {
@@ -6504,6 +6534,7 @@ html:not(.map-ready) .place-tap-hint {
   }
 
   .map-ready .place-sheet .runway-card .banner__pill {
+    height: 18px;
     margin: 0;
   }
 
@@ -6514,8 +6545,8 @@ html:not(.map-ready) .place-tap-hint {
   }
 
   .map-ready .place-sheet .runway-card .runway-card__check {
-    top: var(--space-xs);
-    right: var(--space-xs);
+    top: -8px;
+    right: calc(-1 * var(--space-xs));
   }
 
   .map-ready .place-sheet #runway-group-heading {
@@ -6530,6 +6561,9 @@ html:not(.map-ready) .place-tap-hint {
    * the sheet and the Save bar sit above it. */
   .map-ready .place-stage {
     --place-clear: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+    /* The room the unsaved-changes actions take at the right of the card's
+     * first row (Cancel and Save in the longer French wording). */
+    --place-actions-w: 182px;
     /* Not clipped here: the map below is taller than the stage. The page
      * container clips instead. */
     overflow: visible;
@@ -6557,9 +6591,10 @@ html:not(.map-ready) .place-tap-hint {
     overflow: clip;
   }
 
+  /* The page fills the dynamic viewport, less whatever sits above it in the
+   * flow (a warning), so the card and its actions stay on screen. */
   .map-ready .page-content:has(.place-stage) > .place-page {
-    flex: none;
-    height: 100dvh;
+    max-height: 100dvh;
   }
 
   .map-ready .place-map {
@@ -6569,22 +6604,109 @@ html:not(.map-ready) .place-tap-hint {
     min-height: 0;
   }
 
-  /* The sheet is compact here: the readout is one line and the radius is a
-   * row and a slider. */
-  .map-ready .place-pos {
-    gap: var(--space-sm);
+  /* The sheet is one compact card: its first row is the airport (or the
+   * pin readout) with Cancel and Save at the right while something is
+   * unsaved, its second row the runway chips (or the radius). The shared Save
+   * bar is a child of the panel, drawn over the top-right corner of the
+   * sheet so that no separate strip covers the map. */
+  .map-ready .place-sheet {
     padding: var(--space-sm) var(--space-md);
+    gap: var(--space-sm);
   }
 
-  .map-ready .place-pos__icon {
-    width: 32px;
-    height: 32px;
+  .map-ready .place-panel > .dirty-bar {
+    grid-column: 1 / -1;
+    grid-row: 3;
+    justify-self: end;
+    align-self: start;
+    margin: var(--space-sm) calc(var(--place-gutter) + var(--space-md)) 0 0;
   }
 
+  .map-ready .place-sheet .place-chosen {
+    display: flex;
+    align-items: center;
+    min-height: 44px;
+  }
+
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet .place-chosen,
+  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-pos {
+    padding-right: calc(var(--place-actions-w) + var(--space-sm));
+  }
+
+  .map-ready .place-sheet .place-chosen p {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .map-ready .place-sheet .place-chosen__name {
+    flex: none;
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-ready .place-sheet .place-chosen .section-caption {
+    flex: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-ready .place-sheet .place-chosen__town {
+    display: none;
+  }
+
+  .map-ready .place-pos {
+    gap: 0;
+    min-height: 44px;
+    padding: 0;
+    background: none;
+  }
+
+  .map-ready .place-pos__icon,
   .map-ready .place-pos__hint,
   .map-ready .place-radius__scale {
     display: none;
   }
+
+  .map-ready .place-sheet .place-radius {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: var(--space-md);
+  }
+
+  .map-ready .place-sheet .place-radius > * {
+    grid-column: 1 / -1;
+  }
+
+  .map-ready .place-sheet .place-radius__head {
+    display: contents;
+  }
+
+  .map-ready .place-sheet .place-radius__head > label {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .map-ready .place-sheet .place-radius__range {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+  }
+
+  .map-ready .place-sheet .place-radius__head > input[type="number"] {
+    grid-column: 3;
+    grid-row: 1;
+    flex: none;
+    width: 4.5rem;
+  }
+
   .map-ready .place-map .leaflet-control-zoom {
     display: none;
   }
@@ -6730,11 +6852,6 @@ html:not(.map-ready) .place-tap-hint {
     background: none;
     border-radius: 0;
     box-shadow: none;
-  }
-
-  /* The sheet is part of the card here: the bar never lifts it. */
-  .map-ready .place-stage:has(.dirty-bar:not([hidden])) .place-sheet {
-    margin-bottom: 0;
   }
 
   /* The sidebar is frosted glass over the map. */
@@ -15113,4 +15230,16 @@ html.is-picture-transition .preview-frame__image {
 
 .components-save-bar .dirty-bar {
   position: static;
+}
+
+/* The inline sample: a card with a line of text and the two buttons beside it. */
+.components-save-bar--inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
 }
