@@ -50,7 +50,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import byos_server  # noqa: E402 - the sys.path bootstrap above must run first
 from server import (  # noqa: E402
-    device_dirs, fleet_db, fleet_ops, fleet_sessions, hardware,
+    device_dirs, fleet_db, fleet_ops, fleet_sessions, hardware, photo_purge,
 )
 
 CLI_ACTOR = fleet_db.AuditActor(None, "cli", None)
@@ -343,6 +343,8 @@ def cmd_devices_remove(args):
         found = fleet_db.remove_device(conn, mac)
         if found:
             _mirror_remove(args.state_dir, mac)
+    if found:
+        byos_server.sweep_photos_quietly(conn, args.state_dir)
     if not found:
         mirrored = _remove_pending(args, conn, mac)
         if mirrored is None:
@@ -353,6 +355,18 @@ def cmd_devices_remove(args):
         return 0
     print("removed %s" % mac)
     print(RESTART_CAUTION)
+    return 0
+
+
+def cmd_photos_sweep(args):
+    conn = _open(args)
+    try:
+        counts = photo_purge.sweep(conn, args.state_dir)
+    finally:
+        conn.close()
+    print("swept: dirs=%d files=%d temps=%d rows=%d links=%d" % (
+        counts.orphan_dirs, counts.orphan_files, counts.stale_temps,
+        counts.missing_rows, counts.links))
     return 0
 
 
@@ -487,6 +501,11 @@ def build_parser():
     _add_users(sub)
     _add_locations(sub)
     _add_devices(sub)
+    photos = sub.add_parser("photos", help="frame photo storage")
+    photo_verbs = photos.add_subparsers(dest="verb", required=True)
+    photo_verbs.add_parser(
+        "sweep", help="remove orphaned photo files and rows (prints counts only)"
+    ).set_defaults(func=cmd_photos_sweep)
     hw = sub.add_parser("hardware", help="list hardware types")
     hw_verbs = hw.add_subparsers(dest="verb", required=True)
     hw_verbs.add_parser("list", help="list available types").set_defaults(
