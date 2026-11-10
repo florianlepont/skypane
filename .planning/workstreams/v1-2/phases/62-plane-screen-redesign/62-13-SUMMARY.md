@@ -21,6 +21,6 @@ metrics:
 
 The owner ran the real-panel check on a non-live unit and reported it as fine, and confirmed layout B as the default. The judgement was given verbally in the session, so no `62-HANDOFF.md` was written and no tuning constant changed.
 
-## Not covered by this check
+## Firmware flash margin
 
-- The firmware flash margin of the regenerated fault-screen masks was never measured: the masks add 260,950 B to a 0x250000 OTA slot and the real app size is unknown. Measure it before the next firmware flash.
+Measured on 2026-11-10 from the CI build of the merge of PR 311, which carries the regenerated fault-screen masks: `skypane.bin` is 0x150000 bytes in a 0x250000-byte OTA slot, so 0x100000 bytes (43%) stay free. The image is unsigned and was not flashed or pushed over the air by this phase.
