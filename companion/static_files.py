@@ -289,3 +289,30 @@ def not_modified(headers, etag, mtime_s):
         return mtime_s <= email.utils.parsedate_to_datetime(ims).timestamp()
     except (TypeError, ValueError, OverflowError, IndexError):
         return False
+
+
+# File extensions a browser, crawler or scanner asks for on its own
+# (favicon, manifest, source maps, images): an unknown one is answered
+# without a page.
+_ASSET_EXTENSIONS = frozenset((
+    ".ico", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".js", ".mjs", ".css",
+    ".map", ".json", ".txt", ".xml", ".webmanifest", ".woff", ".woff2", ".ttf"))
+ASSET_NOT_FOUND_MAX_AGE_S = 300
+
+
+def looks_like_asset(path):
+    """Whether `path` names a file (a known asset extension on its last
+    segment) rather than a page."""
+    last = path.rsplit("/", 1)[-1]
+    dot = last.rfind(".")
+    return dot > 0 and last[dot:].lower() in _ASSET_EXTENSIONS
+
+
+def send_asset_not_found(handler):
+    """An empty 404 that may be cached briefly, for an asset-like path that
+    matches no route."""
+    handler.send_response(404)
+    handler.send_header("Content-Length", "0")
+    handler.send_header("Cache-Control", "public, max-age=%d" % ASSET_NOT_FOUND_MAX_AGE_S)
+    handler.send_header("X-Content-Type-Options", "nosniff")
+    handler.end_headers()

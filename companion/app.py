@@ -1069,6 +1069,8 @@ class Handler(
         parsed = urlsplit(self.path)
         result = routes.match(method, parsed.path, parsed.query)
         if result is None:
+            if static_files.looks_like_asset(parsed.path):
+                return static_files.send_asset_not_found(self)
             return self.send_html(404, self._not_found_page())
         route, route_match = result
         route_access, captured = _effective_access(route, route_match)
