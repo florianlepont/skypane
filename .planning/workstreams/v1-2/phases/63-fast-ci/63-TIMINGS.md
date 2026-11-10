@@ -137,3 +137,19 @@ everywhere. The slow runs sit at about 9 min only because of that step.
 | Coverage floor | 93 | 93 (unchanged) | |
 
 The executed count rose because the tree changed since the baseline run and this phase added tests (the builder digest matrix, the per-case golden render tests and the tooling tests); nothing was removed or skipped.
+
+## Follow-up: cache for the OS packages of `playwright install --with-deps`
+
+The slow step turned out to be downloading nine font packages (22 MB) from
+the package mirror (5 min 22 s at 68 kB/s in the worst log; every system
+library was already on the runner). The downloaded `.deb` files are now
+cached (key: OS, architecture, Playwright version, runner image version)
+and put back into apt's archive directory before the install, so the same
+packages are installed without the download.
+
+Run 42821744602 (pull request): first attempt, empty cache: step 8 to 18 s
+(mirror fast that time), cache populated with 8 packages. Second attempt of
+the same run, cache restored: step 7 to 10 s on all five browser shards, no
+font package downloaded, all tests green. A cache miss costs what it cost
+before; it happens once per Playwright version or runner image version, and
+caches created on the default branch are readable from pull requests.
