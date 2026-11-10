@@ -99,9 +99,9 @@ def _position_row(rig):
     finally:
         conn.close()
 
-SECTIONS = ("Departures", "Arrivals", "Special looks", "Calendar")
-SECTION_TITLES = ("Look", "Look", "Special looks", "Calendar")
-FR_TITLES = ("Départs", "Arrivées", "Allures spéciales", "Calendrier")
+SECTIONS = ("Departures", "Arrivals", "Layout", "Special looks", "Calendar")
+SECTION_TITLES = ("Look", "Look", "Layout", "Special looks", "Calendar")
+FR_TITLES = ("Départs", "Arrivées", "Disposition", "Allures spéciales", "Calendrier")
 SEEDED = {
     "quiet_hours_enabled": True, "quiet_hours_start": "21:00", "quiet_hours_end": "05:00",
     "timezone": "America/Martinique", "wake_interval_s": 900, "theme": "band_red_field",
@@ -115,11 +115,11 @@ def _seed(rig):
 
 
 VIEW_PATHS = {
-    "departures": "/display", "arrivals": "/display/arrivals",
+    "departures": "/display", "arrivals": "/display/arrivals", "layout": "/display/layout",
     "special-looks": "/display/special-looks", "calendar": "/display/calendar"}
 VIEW_IDS = {
     "departures": "personalisation-look", "arrivals": "personalisation-look",
-    "special-looks": "personalisation-special-looks", "calendar": "personalisation-calendar"}
+    "layout": "personalisation-layout", "special-looks": "personalisation-special-looks", "calendar": "personalisation-calendar"}
 
 
 def _display(rig, who="owner", lang=None, view="departures"):

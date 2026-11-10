@@ -41,6 +41,7 @@ CALENDAR_TITLE = i18n.msg("look.calendar", "Calendar")
 # One address per view. Departures keeps the page's original address.
 VIEW_DEPARTURES = "departures"
 VIEW_ARRIVALS = "arrivals"
+VIEW_LAYOUT = "layout"
 VIEW_SPECIAL_LOOKS = "special-looks"
 VIEW_CALENDAR = "calendar"
 VIEW_LOOK_NEW = "special-look-new"
@@ -50,6 +51,7 @@ VIEW_CALENDAR_LOOK = "calendar-look"
 VIEW_ROUTES = {
     VIEW_DEPARTURES: layout.DISPLAY_ROUTE,
     VIEW_ARRIVALS: layout.DISPLAY_ARRIVALS_ROUTE,
+    VIEW_LAYOUT: layout.DISPLAY_LAYOUT_ROUTE,
     VIEW_SPECIAL_LOOKS: layout.DISPLAY_SPECIAL_LOOKS_ROUTE,
     VIEW_CALENDAR: layout.DISPLAY_CALENDAR_ROUTE,
     VIEW_LOOK_NEW: layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE,
@@ -148,6 +150,7 @@ def _views():
     return (
         (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
         (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane"),
+        (VIEW_LAYOUT, layout_picker.LAYOUT_TITLE, "icon-picture"),
         (VIEW_SPECIAL_LOOKS, SPECIAL_LOOKS_HEADING, "icon-star"),
         (VIEW_CALENDAR, CALENDAR_TITLE, "icon-calendar"))
 
@@ -242,6 +245,7 @@ def page_html(
     usage = LOOK_VIEW_USAGES.get(view)
     parts = {
         VIEW_DEPARTURES: lambda: _look_view(values, errors, submitted, usage),
+        VIEW_LAYOUT: lambda: _layout_view(values, errors, submitted),
         VIEW_SPECIAL_LOOKS: lambda: _special_looks_card(ctx, sheet_html),
         VIEW_CALENDAR: lambda: _calendar_card(calendar_row_html) + (
             _calendar_look_controls(values, errors) if view is None else ""),
