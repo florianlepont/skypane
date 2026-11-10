@@ -18,8 +18,8 @@ Runs in parallel with v1.1 (Phases 47 and 47.1, untouched) and v1.2. Phase numbe
 ### Storage and Privacy
 
 - [ ] **PRIV-01**: Photos are visible only to the frame owner and its co-managers; the admin has no view of user photos and none is built.
-- [ ] **PRIV-02**: Deleting a photo removes its file from disk; deleting an account removes all its photos.
-- [ ] **PRIV-03**: A per-frame quota (starting point: 20 photos, about 1 MB each) and a server-wide ceiling bound the storage.
+- [x] **PRIV-02**: Deleting a photo removes its file from disk; deleting an account removes all its photos.
+- [x] **PRIV-03**: A per-frame quota (starting point: 20 photos, about 1 MB each) and a server-wide ceiling bound the storage.
 - [ ] **PRIV-04**: Whether photos are in the backup is decided explicitly and recorded.
 
 ### Frame Mode and Rotation
@@ -61,8 +61,8 @@ Runs in parallel with v1.1 (Phases 47 and 47.1, untouched) and v1.2. Phase numbe
 | PHOTO-03 | Phase 64 | Complete |
 | PHOTO-04 | Phase 64 | Complete |
 | PRIV-01 | Phase 65 | Pending |
-| PRIV-02 | Phase 65 | Pending |
-| PRIV-03 | Phase 65 | Pending |
+| PRIV-02 | Phase 65 | Complete |
+| PRIV-03 | Phase 65 | Complete |
 | PRIV-04 | Phase 65 | Pending |
 | MODE-01 | Phase 66 | Pending |
 | MODE-02 | Phase 66 | Pending |

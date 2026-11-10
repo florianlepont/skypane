@@ -125,7 +125,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 64. Photo Pipeline (Server Only) | 5/5 | Complete (closed 2026-11-10 with one open point: how real skin looks was never judged) | 2026-11-10 |
-| 65. Photo Storage, Privacy and Quotas | 0/0 | Not started | - |
+| 65. Photo Storage, Privacy and Quotas | 0/8 | Planned    |  |
 | 66. Frame Mode, Rotation and Waiting Screen | 0/0 | Not started | - |
 | 67. Companion Photo Management and Settings | 0/0 | Not started | - |
 | 68. Photo-Mode Wake Interval | 0/0 | Not started (gated on Phases 47, 47.1, 47.2) | - |
