@@ -322,6 +322,8 @@
     var key = active && active.getAttribute ? active.getAttribute("data-flights-key") : null;
     var parent = live[0].parentNode;
     var added = [];
+    var motion = window.SkyPaneMotion;
+    var thumbs = motion ? motion.tabsState(document) : null;
     var i;
     for (i = 0; i < fresh.length; i++) {
       var node = document.importNode(fresh[i], true);
@@ -333,6 +335,15 @@
     }
     for (i = 0; i < added.length; i++) {
       settle(added[i]);
+      if (motion) {
+        // The chips are rendered again: their thumb carries on from where the
+        // old one was. The swapped list fades in again (opacity only); the
+        // one the breakpoint hides has no box and is left alone.
+        motion.enhanceTabs(added[i], thumbs);
+        if (visible(added[i]) && added[i].matches(".history-cards, .data-table-wrap")) {
+          motion.replay(added[i], true);
+        }
+      }
     }
     if (key) {
       var again = document.querySelector('[data-flights-key="' + key + '"]');
@@ -390,6 +401,15 @@
     return map;
   }
 
+  // Only the first few items a "Load more" adds take the entrance; the rest
+  // of a long batch just appears.
+  var ENTER_APPENDED_MAX = 3;
+  function enterAppended(el, position) {
+    if (position < ENTER_APPENDED_MAX && window.SkyPaneMotion) {
+      window.SkyPaneMotion.appended(el);
+    }
+  }
+
   // Appends the phone cards the fetched list holds beyond the live ones: a
   // fetched day group that already exists takes its new rows, any other is
   // added whole. Returns the first appended card.
@@ -423,11 +443,13 @@
           var card = document.importNode(fresh[f], true);
           host.appendChild(card);
           added.push(card);
+          enterAppended(card, f);
         }
       } else {
         var section = document.importNode(groups[g], true);
         liveCards.appendChild(section);
         settle(section);
+        enterAppended(section, 0);
         added = section.querySelectorAll("[" + ID_ATTR + "]");
       }
       first = first || added[0];
@@ -446,6 +468,7 @@
     var present = idMap(liveBody);
     var first = null;
     var day = null;
+    var entered = 0;
     var rows = newBody.children;
     for (var i = 0; i < rows.length; i++) {
       var id = rows[i].getAttribute(ID_ATTR);
@@ -460,6 +483,8 @@
         }
         var row = document.importNode(rows[i], true);
         liveBody.appendChild(row);
+        enterAppended(row, entered);
+        entered++;
         first = first || row;
       }
     }

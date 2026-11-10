@@ -11225,7 +11225,7 @@ a.entity-row__button:hover {
 
 /* One segmented control: four equal-ish segments in a single track that
  * always fits its column (a label gives way with an ellipsis rather than
- * the bar scrolling). A script (theme-preview.js) adds .is-enhanced and
+ * the bar scrolling). A script (motion.js) adds .is-enhanced and
  * slides the thumb under the current link; without one the current link
  * carries the highlight. The track matches the Flights direction chips. */
 .personalisation-nav {
@@ -11238,10 +11238,6 @@ a.entity-row__button:hover {
   border-radius: var(--radius-card);
   background: var(--color-secondary);
   box-shadow: inset 0 0 0 1px var(--seg-edge);
-}
-
-.personalisation-nav__thumb {
-  display: none;
 }
 
 .personalisation-nav__link {
@@ -11301,19 +11297,31 @@ a.entity-row__button:hover {
   color: var(--seg-selected-fg);
 }
 
-.personalisation-nav.is-enhanced .personalisation-nav__thumb {
+/* The shared tab strip thumb: any strip marked data-tabs gets one (motion.js)
+ * that slides under its current segment. It sits behind the segments in the
+ * selected fill and only ever moves by transform and width. */
+[data-tabs]:not([data-tabs-thumb="none"]) {
+  position: relative;
+}
+
+.tabs-thumb {
   position: absolute;
-  top: 3px;
-  bottom: 3px;
+  top: 0;
   left: 0;
-  display: block;
+  display: none;
   width: 0;
+  height: 0;
   border-radius: var(--radius-control);
   background: var(--seg-selected-bg);
   box-shadow: var(--shadow-control);
+  pointer-events: none;
 }
 
-.personalisation-nav.is-enhanced .personalisation-nav__thumb.is-sliding {
+[data-tabs].is-enhanced > .tabs-thumb {
+  display: block;
+}
+
+[data-tabs].is-enhanced > .tabs-thumb.is-sliding {
   transition: transform var(--motion-fast) ease, width var(--motion-fast) ease;
 }
 
@@ -13331,14 +13339,51 @@ button.row-menu__item--destructive:hover {
   }
 }
 
+/* The one page opening. The shell marks <main> with data-page-open; its
+ * header block and the controls and blocks that follow it enter with the
+ * entrance of Home's cards: the header first, the rest one stagger step
+ * later. Only the first screenful is a block: the first six siblings of a
+ * kind and the first three days of the Flights list; lists, tables and the
+ * map are never animated row by row or whole. A card appended by "Load more" or replaying
+ * after a tab switch takes the same entrance (.reveal-appended,
+ * .reveal-replay). */
 .reveal,
-.dashboard-main .group-block,
-.dashboard-main .page-section,
+.reveal-appended,
+.reveal-replay,
+.dashboard-main .group-block:not(.history-day):nth-child(-n + 6),
+.dashboard-main .history-day:nth-child(-n + 3),
+.dashboard-main .page-section:nth-child(-n + 6),
 .dashboard-main .personalisation-look {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
   animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+/* The page header only fades in: a header that rose would paint over the first
+ * 12px of the block under it and cover the controls there. */
+.dashboard-main[data-page-open] > .page-header {
+  animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+}
+
+.dashboard-main[data-page-open] > .filter-bar,
+.dashboard-main[data-page-open] > .filter-bar__chips,
+.dashboard-main[data-page-open] > .home-facts,
+.dashboard-main[data-page-open] > .users-section,
+.dashboard-main[data-page-open] > .components-index,
+.dashboard-main[data-page-open] > .error-actions,
+.dashboard-main[data-page-open] .personalisation__view > .form-view {
+  animation:
+    skypane-reveal var(--motion-enter) steps(12, end) backwards,
+    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: var(--motion-stagger);
+}
+
+/* A filter that only hides rows replays a fade of its list, nothing else:
+ * opacity alone, so a tall list costs the compositor one layer. */
+.dashboard-main .reveal-replay.reveal-replay--fade {
+  animation-name: skypane-reveal-fade;
+  animation-timing-function: var(--ease-out);
 }
 
 .reveal:nth-child(2),

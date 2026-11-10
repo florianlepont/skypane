@@ -48,12 +48,13 @@ def _chips_html(chips, legend):
     ) % (escape_html(legend), "".join(parts))
 
 
-def chip_links_html(chips, aria_label):
+def chip_links_html(chips, aria_label, tabs=""):
     """The segmented chips as plain links (a navigation between filtered
     views of one list, no script): the same chip look as the filter bar's
     radios, wrapping onto a second row of the track on a narrow phone.
     `chips` is a sequence of `(href, label, current)` with `href` already
-    escaped."""
+    escaped. `tabs` names the strip for the shared tab behaviour (the sliding
+    thumb)."""
     parts = []
     for href, label, current in chips:
         parts.append(
@@ -62,8 +63,9 @@ def chip_links_html(chips, aria_label):
             "</a>" % (
                 " filter-chip--current" if current else "", href,
                 ' aria-current="true"' if current else "", escape_html(label)))
-    return '<nav class="filter-bar__chips filter-bar__chips--links" aria-label="%s">%s</nav>' % (
-        escape_html(aria_label), "".join(parts))
+    return '<nav class="filter-bar__chips filter-bar__chips--links" aria-label="%s"%s>%s</nav>' % (
+        escape_html(aria_label), (' data-tabs="%s"' % escape_html(tabs)) if tabs else "",
+        "".join(parts))
 
 
 def _search_html(input_id, label, placeholder, server=None):

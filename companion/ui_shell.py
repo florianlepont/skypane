@@ -337,7 +337,7 @@ PAGE_SHELL_TEMPLATE = (
     '<span class="brand">{brand_inner_header}</span>\n'
     "{frame_menu}"
     "</header>\n"
-    '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1">\n'
+    '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1" data-page-open>\n'
     "{frame_notice}{flash}\n{banner}\n{body}\n"
     "</main>\n"
     "</div>\n"
