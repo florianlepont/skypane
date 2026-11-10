@@ -44,7 +44,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
 - [ ] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
-- [ ] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 12 of 13 plans built, the owner real-panel check 62-13 is pending)
+- [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 13 of 13 plans done; the owner confirmed the real-panel check and kept layout B as the default, 2026-11-10)
 - [ ] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 
 ## Phase Details
@@ -613,7 +613,7 @@ Plans: 13 plans in 7 waves
 - [x] 62-09-PLAN.md - regenerated firmware masks, host tests (wave 6)
 - [x] 62-11-PLAN.md - companion Layout view, pairing picker, EN/FR (wave 6)
 - [x] 62-12-PLAN.md - giant golden manifest and docs (wave 6)
-- [ ] 62-13-PLAN.md - owner real-panel check and handoff (wave 7, checkpoint)
+- [x] 62-13-PLAN.md - owner real-panel check and handoff (wave 7, checkpoint)
 
 ### Phase 63: Fast CI
 
@@ -665,5 +665,5 @@ Plans: 6 plans in 5 waves
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
-| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 12/13 | Executed (12 of 13 plans); 62-13, the owner real-panel check on a non-live unit, is pending | - |
+| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 13/13 | Complete | 2026-11-10 |
 | 63. Fast CI | v1.2 | 5/6 | Executed on the draft PR branch (median 9.0 min against 27.4, nothing skipped); 63-05, the owner decision on the large browser files, is pending; not merged | - |
