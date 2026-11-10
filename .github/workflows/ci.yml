@@ -8,7 +8,10 @@
 #                 exactly one test group;
 #   tests-core    every test file that does not drive a browser;
 #   tests-browser every test file that drives Chromium.
-# Each test job writes its coverage data and a JUnit report as an artifact.
+# The two test jobs are matrices of shards; the shard counts are
+# BROWSER_SHARDS and CORE_SHARDS below, and each shard runs whole test files
+# chosen by scripts/ci_shards.py.
+# Each shard writes its coverage data and a JUnit report as an artifact.
 # `test` (check name "Lint, test, coverage, attribution") fails unless every
 # job above succeeded, combines the coverage data, applies the
 # pyproject.toml coverage floor to the combined result, and checks the
