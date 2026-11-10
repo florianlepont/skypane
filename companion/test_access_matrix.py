@@ -51,6 +51,7 @@ ADMIN_ONLY = "admin-only"
 OWNER_DEVICE = "owner-device"
 OWNER_ONLY = "owner-only-device"
 ADMIN_DEVICE = "admin-only-device"
+MANAGER_DEVICE = "manager-device"
 
 CO_MANAGER_EMAIL = "co-manager@example.test"
 _PUBLIC_PATHS = ("/login", "/login/auth0", "/callback")
@@ -156,6 +157,11 @@ OUTCOMES = {
     OWNER_ONLY: {
         "anonymous": "login", "owner": "allow", "other": "not-found",
         "admin": "allow", "co-manager": "not-found"},
+    # Owner or co-manager only: an admin who is neither is refused like a
+    # stranger (the matrix admin owns and co-manages nothing).
+    MANAGER_DEVICE: {
+        "anonymous": "login", "owner": "allow", "other": "not-found",
+        "admin": "not-found", "co-manager": "allow"},
 }
 # The un-prefixed form of a device-scoped route acts on the live frame and is
 # admin-only for every policy kind.
@@ -168,7 +174,7 @@ PRINCIPAL_NAMES = ("anonymous", "owner", "other", "admin", "co-manager")
 _MIN_ROLE_OF_KIND = {
     PUBLIC: access.ANONYMOUS, SIGNED_IN: access.USER, ADMIN_ONLY: access.ADMIN,
     OWNER_DEVICE: access.USER, OWNER_ONLY: access.USER,
-    ADMIN_DEVICE: access.ADMIN}
+    ADMIN_DEVICE: access.ADMIN, MANAGER_DEVICE: access.USER}
 
 MALFORMED_IDS = (
     "d_ZZZZZZZZ", "..", "d_" + "0" * 40, "a/b", "d_0000000", "D_00000000", "",
@@ -280,7 +286,7 @@ def test_a_prefixed_route_never_has_less_access_than_its_base_route():
         assert prefixed.access.min_role == _MIN_ROLE_OF_KIND[ROUTE_POLICY[key]]
         expected_arg = {
             OWNER_DEVICE: "device", OWNER_ONLY: "device-owner",
-            ADMIN_DEVICE: "device"}.get(
+            ADMIN_DEVICE: "device", MANAGER_DEVICE: "device-manager"}.get(
                 ROUTE_POLICY[key])
         assert prefixed.access.device_arg == expected_arg
         # The un-prefixed form acts on the live frame: admin-only, no id.
@@ -296,6 +302,44 @@ def test_a_dummy_route_without_a_row_is_reported(monkeypatch):
     monkeypatch.setattr(routes, "ROUTES", routes.ROUTES + (dummy,))
     keys = {_route_key(r) for r in routes.ROUTES}
     assert ("GET", "/zz-new-page") in keys - set(ROUTE_POLICY)
+
+
+def _photo_routes_off_the_manager_kind(table):
+    """Templates of routes whose path mentions photos but whose Access is not
+    MANAGER_DEVICE."""
+    return sorted(
+        _template(r) for r in table
+        if "photo" in _template(r).lower() and r.access != routes.MANAGER_DEVICE)
+
+
+def test_every_photo_route_is_manager_only():
+    assert _photo_routes_off_the_manager_kind(routes.ROUTES) == []
+
+
+def test_the_photo_guard_reports_a_mis_gated_photo_route(monkeypatch):
+    for matcher, kind in (
+            (routes.Exact("/photos"), routes.OWNER_DEVICE),
+            (routes.PrefixSuffix("/frame/photos/", "/delete"), routes.ADMIN_DEVICE)):
+        dummy = routes.Route("POST", matcher, lambda h, m: None, kind)
+        monkeypatch.setattr(routes, "ROUTES", _REAL_ROUTES + (dummy,))
+        assert _photo_routes_off_the_manager_kind(routes.ROUTES) == [_template(dummy)]
+    good = routes.Route(
+        "POST", routes.Exact("/photos"), lambda h, m: None, routes.MANAGER_DEVICE)
+    monkeypatch.setattr(routes, "ROUTES", _REAL_ROUTES + (good,))
+    assert _photo_routes_off_the_manager_kind(routes.ROUTES) == []
+
+
+def test_a_manager_route_is_never_public_and_needs_at_least_the_user_role():
+    for route in _REAL_ROUTES:
+        if route.access.device_arg == access.DEVICE_MANAGER_ARG:
+            assert route.access.min_role in (access.USER, access.ADMIN)
+            assert route.access.min_role != access.ANONYMOUS
+
+
+def test_the_manager_kind_vocabulary_is_complete():
+    assert routes.MANAGER_DEVICE == routes.Access(access.USER, "device-manager")
+    assert set(OUTCOMES[MANAGER_DEVICE]) == set(PRINCIPAL_NAMES)
+    assert MANAGER_DEVICE in _MIN_ROLE_OF_KIND
 
 
 def test_a_console_route_without_a_row_is_reported_by_name(monkeypatch):
@@ -399,6 +443,14 @@ def test_the_owner_gate_is_never_asked_about_a_foreign_or_unknown_id_as_owner():
                     _PRINCIPALS[who], key[0],
                     "/devices/%s%s" % (device_id, _sample_path(key)), _owner_one)
                 assert outcome == "not-found"
+
+
+@pytest.mark.parametrize("name", PRINCIPAL_NAMES)
+def test_the_manager_policy_row_matches_decide(name):
+    outcome = _DECISION_WORDS[access.decide(
+        _PRINCIPALS[name], routes.MANAGER_DEVICE, _PURE_DEVICE, _owner_one,
+        _co_manager_four)]
+    assert outcome == OUTCOMES[MANAGER_DEVICE][name]
 
 
 def test_every_templated_route_has_a_sample_middle():
