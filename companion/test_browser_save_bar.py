@@ -162,9 +162,16 @@ def test_every_page_shows_the_same_save_bar(new_context, server, viewport, lang,
         assert m["scrollW"] <= m["clientW"], where
         if name == "location" or "special" not in name and name != "calendar-connect":
             assert m["messageText"] == UNSAVED[lang], (where, m["messageText"])
+        # The Location page on a phone draws the same bar as the actions of its compact card, at
+        # the card's top right, not as a strip of its own.
+        compact = name == "location" and viewport["width"] < 960
         for key in ("width", "height", "left", "right", "fromBottom"):
+            if compact:
+                break
             assert abs(m[key] - reference[key]) <= SUBPIXEL, (
                 where, key, m[key], "differs from the fleet page's", reference[key])
+        if compact:
+            assert m["height"] >= 44 - SUBPIXEL and m["right"] <= viewport["width"], (where, m)
         for key in ("width", "height"):
             for button in ("cancel", "save"):
                 assert abs(m[button][key] - reference[button][key]) <= SUBPIXEL or key == "width", (

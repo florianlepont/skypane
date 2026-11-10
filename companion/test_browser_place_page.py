@@ -223,11 +223,12 @@ def _assert_sheet(page, boxes, width, height):
         "() => { const b = document.querySelector('.place-panel > .dirty-bar');"
         " if (!b || b.hidden) return null; const r = b.getBoundingClientRect();"
         " return {top: r.top, bottom: r.bottom}; }")
-    floor = save_bar["top"] if save_bar else bar
-    if bar is not None and (sheet["bottom"] > floor + SUBPIXEL or floor - sheet["bottom"] > 24):
-        raise AssertionError("the sheet does not float just above the bars: %r vs %r" % (sheet, floor))
-    if save_bar and bar - save_bar["bottom"] > 24:
-        raise AssertionError("the save bar is not just above the tab bar: %r vs %r" % (save_bar, bar))
+    # The unsaved-changes actions are part of the card, so the card alone floats above the tab bar.
+    if bar is not None and (sheet["bottom"] > bar + SUBPIXEL or bar - sheet["bottom"] > 24):
+        raise AssertionError("the sheet does not float just above the bars: %r vs %r" % (sheet, bar))
+    if save_bar and not (
+            save_bar["top"] >= sheet["top"] - SUBPIXEL and save_bar["bottom"] <= sheet["bottom"] + SUBPIXEL):
+        raise AssertionError("the save bar is not inside the sheet: %r vs %r" % (save_bar, sheet))
     if bar is not None and stage["bottom"] < height - SUBPIXEL:
         raise AssertionError("the map does not run under the tab bar: %r vs %r" % (stage, bar))
     tops = page.evaluate(

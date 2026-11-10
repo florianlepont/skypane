@@ -61,6 +61,7 @@ MESSAGES = {
     "components.state_empty_search": "Recherche sans résultat",
     "components.state_dialogs": "Boîtes de dialogue (à ouvrir)",
     "components.state_save_bar": "Barre d’enregistrement",
+    "components.state_save_bar_inline": "Barre d’enregistrement intégrée à une carte (téléphones)",
     "components.state_header_full": "Avec objectif et action",
 
     "components.variant_primary": "Principal",
