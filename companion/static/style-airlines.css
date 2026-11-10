@@ -1,0 +1,992 @@
+
+
+.resolve-name-field {
+  margin-bottom: var(--space-md);
+}
+
+/* Drag-and-drop affordance over the upload zones above. No :hover rule
+ * anywhere: the drag state is carried by [data-upload-drop-active],
+ * which panel-lookup.js sets/removes — a hover-only state is invisible
+ * on a phone. */
+.upload-drop {
+  --js-gate-display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border-radius: var(--radius-control);
+}
+
+.upload-drop[data-upload-drop-active] {
+  background: var(--color-secondary);
+}
+
+/* Restated against tokens rather than reusing .lightbox__replace-hint,
+ * so test_status_pages.py's replace-zone contract still matches exactly
+ * one .lightbox__replace-hint element per zone. */
+.upload-drop__note {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  color: var(--color-text); /* fallback for browsers without color-mix() */
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* aspect-ratio reads --upload-preview-ratio (written inline by the
+ * server from illustration_normalize's target dimensions) with
+ * deliberately NO fallback value — a fallback would mask the inline
+ * property's own disappearance instead of surfacing it. */
+.upload-drop__preview {
+  position: relative;
+  margin: 0;
+  width: 100%;
+  aspect-ratio: var(--upload-preview-ratio);
+  overflow: hidden;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-dominant);
+}
+
+.upload-drop[data-upload-drop-active] .upload-drop__preview {
+  border-style: solid;
+  border-color: var(--color-text);
+}
+
+/* object-fit: contain shows the whole chosen image: the server may crop
+ * differently and this preview is not the authority. */
+.upload-drop__image:not([hidden]) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* The hint lives inside the frame, centred, until a chosen image
+ * fills it. */
+.upload-drop__preview .upload-drop__note {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm);
+  text-align: center;
+}
+
+.upload-drop__image:not([hidden]) ~ .upload-drop__note {
+  display: none;
+}
+
+.upload-drop__message {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-status-error);
+}
+
+.upload-drop__message:empty {
+  display: none;
+}
+
+/* The title keeps its own row; the progress sits under it with room to
+ * breathe, wrapping onto further lines on a narrow screen. */
+.collection-head__status {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-sm) var(--space-md);
+  min-width: 0;
+  margin-top: var(--space-md);
+}
+
+.collection-progress__headline {
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+}
+
+.collection-progress__goal {
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-progress__bar {
+  display: block;
+  flex: 1 1 48px;
+  max-width: 140px;
+  min-width: 48px;
+  height: 6px;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+  overflow: hidden;
+}
+
+.collection-progress__bar::-webkit-progress-bar {
+  background: color-mix(in srgb, var(--color-text) 12%, transparent);
+}
+
+.collection-progress__bar::-webkit-progress-value {
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+}
+
+.collection-progress__bar::-moz-progress-bar {
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+}
+
+.collection-badges {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 32px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 var(--space-sm);
+  border: 1px dashed color-mix(in srgb, var(--color-text) 40%, transparent);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* One control bar. Phone: line one is the filter field, the sort menu button and the
+ * legend button; line two is the segmented show filter (its labels shrink to fit). From 700px everything shares one line. Every control is 44px. */
+.collection-controls {
+  position: sticky;
+  top: calc(var(--space-sm) + var(--safe-top));
+  z-index: 5;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-card);
+  background: var(--glass-solid);
+  box-shadow: var(--shadow-glass);
+}
+
+.collection-controls .filter-bar__search {
+  flex: 1 1 0;
+  order: 1;
+  min-width: 0;
+  max-width: none;
+}
+
+.collection-controls .collection-sort {
+  order: 2;
+}
+
+.collection-controls .collection-legend {
+  order: 3;
+}
+
+.collection-controls .filter-bar__chips {
+  display: flex;
+  flex: 1 1 100%;
+  order: 4;
+  max-width: 100%;
+}
+
+/* The three segments share the line and give way (label ellipsis, no
+ * sideways scroll) rather than being cut at the edge. */
+.collection-controls .filter-chip {
+  flex: 1 1 auto;
+  min-width: 44px;
+}
+
+.collection-controls .filter-chip__box {
+  gap: 2px;
+  padding: 0 var(--space-xs);
+}
+
+.collection-controls__apply {
+  order: 5;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+/* With a script the sort and the chips submit on change. */
+.js .collection-controls__apply {
+  display: none;
+}
+
+@media (min-width: 700px) {
+  .collection-controls .filter-bar__search {
+    flex: 1 1 150px;
+    max-width: 340px;
+  }
+
+  .collection-controls .filter-bar__chips {
+    flex: 0 1 auto;
+    order: 2;
+  }
+
+  .collection-controls .collection-sort {
+    order: 3;
+  }
+
+  .collection-controls .collection-legend {
+    order: 4;
+  }}
+
+.collection-legend__panel {
+  width: max-content;
+  padding: var(--space-sm) var(--space-md);
+}
+
+.rarity-legend {
+  display: grid;
+  gap: var(--space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rarity-legend__tier {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+}
+
+.collection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg);
+  margin: 0 0 var(--space-lg);
+  padding: 0;
+  list-style: none;
+  /* The unlock sparks fly past a card's edge; they never widen the page. */
+  overflow-x: clip;
+  overflow-clip-margin: var(--space-lg);
+}
+
+.collection-item {
+  min-width: 0;
+}
+
+.collection-card__art {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  padding: var(--space-md);
+  overflow: hidden;
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+}
+
+.collection-card > .rarity-pill--new {
+  position: absolute;
+  top: var(--space-sm);
+  right: var(--space-sm);
+  border-color: transparent;
+  background: var(--color-text);
+  color: var(--color-dominant);
+}
+
+.collection-card__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--picture-placeholder);
+}
+
+.collection-card__blank {
+  margin-bottom: 0;
+}
+
+.collection-card--unseen .collection-card__art {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.collection-card--unseen .collection-card__name {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  font-weight: var(--weight-regular);
+}
+
+.collection-card__name {
+  padding-top: var(--space-xs);
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.collection-card__seen {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-card__rarity {
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.collection-card__rarity--occasional {
+  color: var(--color-rarity-occasional);
+}
+
+.collection-card__rarity--rare {
+  color: var(--color-rarity-rare);
+}
+
+.rarity-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid color-mix(in srgb, var(--color-text) 30%, transparent);
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+}
+
+.rarity-pill--occasional {
+  color: var(--color-rarity-occasional);
+  border-color: var(--color-rarity-occasional);
+  background: color-mix(in srgb, var(--color-rarity-occasional) 10%, var(--color-dominant));
+}
+
+.rarity-pill--rare {
+  color: var(--color-rarity-rare);
+  border-color: var(--color-rarity-rare);
+  background: color-mix(in srgb, var(--color-rarity-rare) 10%, var(--color-dominant));
+}
+
+.rarity-pill--occasional .rarity-dot {
+  background: var(--color-rarity-occasional);
+}
+
+.rarity-pill--rare .rarity-dot {
+  background: var(--color-rarity-rare);
+}
+
+.type-chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+}
+
+.type-chip__tag {
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+}
+
+.type-chip--occasional {
+  color: var(--color-rarity-occasional);
+  border-color: var(--color-rarity-occasional);
+}
+
+.type-chip--rare {
+  color: var(--color-rarity-rare);
+  border-color: var(--color-rarity-rare);
+}
+
+.rarity-dots {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.rarity-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text);
+}
+
+.collection-sheet__art {
+  display: flex;
+  justify-content: center;
+}
+
+.collection-sheet__art .collection-card__image {
+  width: auto;
+  max-width: 100%;
+  max-height: 160px;
+}
+
+/* The facts read as rows: the label at the left, the value at the right,
+ * a hairline between them; the wide facts stack. */
+.collection-facts {
+  display: block;
+  margin: 0;
+}
+
+.collection-facts > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  min-width: 0;
+  min-height: 54px;
+  padding: var(--space-xs) 0;
+}
+
+.collection-facts > div + div {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.collection-facts > .collection-facts__wide {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--space-xs);
+}
+
+.collection-facts dt {
+  flex: none;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.collection-facts dd {
+  margin: 0;
+  min-width: 0;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 699.98px) {
+  .collection-sheet__art .collection-card__image {
+    max-height: 72px;
+  }}
+
+.collection-sheet__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+@media (min-width: 700px) {
+  .collection-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }}
+
+.airlines-table thead {
+  display: none;
+}
+
+.airline-group[hidden] {
+  display: none;
+}
+
+.airlines-table .airline-group--gap {
+  background: color-mix(in srgb, var(--color-status-warn) 12%, var(--glass-solid));
+  border-color: var(--color-status-warn);
+}
+
+/* The amber "Unidentified" chip of a prefix the table cannot name yet. */
+.airlines-gap-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-status-warn) 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-status-warn) 60%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  grid-template-areas:
+    "name name menu"
+    "prefixes views views"
+    "art seen seen";
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
+}
+
+/* An unidentified prefix is one cell holding its resolve form. */
+.airlines-row--gap {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "resolve";
+}
+
+.airlines-subrow {
+  display: none;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px;
+  grid-template-areas:
+    "name name menu"
+    "art art art"
+    "views views views"
+    "seen seen seen";
+  align-items: center;
+  gap: var(--space-sm) var(--space-md);
+  padding: var(--space-md);
+  border-top: 1px solid var(--glass-hairline);
+  background: color-mix(in srgb, var(--color-text) 5%, transparent);
+  border-radius: 0 0 var(--radius-card) var(--radius-card);
+}
+
+.airline-group:has(details.airlines-expand[open]) .airlines-subrow {
+  display: grid;
+}
+
+/* A type row has no prefixes: the empty cell would open a column of its own. */
+.airlines-subrow .airlines-cell--prefixes {
+  display: none;
+}
+
+.airlines-cell {
+  min-width: 0;
+  padding: 0;
+  text-align: left;
+  font-weight: var(--weight-regular);
+}
+
+.airlines-cell--name { grid-area: name; }
+
+.airlines-cell--resolve {
+  grid-area: resolve;
+  font-weight: var(--weight-regular);
+}
+
+.airlines-cell--act:empty {
+  display: none;
+}
+
+.airlines-namebox {
+  display: flex;
+  align-items: center;
+  gap: 0 var(--space-xs);
+  min-width: 0;
+}
+.airlines-cell--prefixes {
+  grid-area: prefixes;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--art { grid-area: art; }
+
+/* A type row's picture and its state word sit on one line. */
+.airlines-subrow .airlines-cell--art {
+  white-space: nowrap;
+}
+
+.airlines-subrow .airlines-cell--art > * {
+  vertical-align: middle;
+}
+
+.airlines-subrow .airlines-state {
+  margin-left: var(--space-sm);
+}
+
+.airlines-cell--views {
+  grid-area: views;
+  justify-self: end;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--seen {
+  grid-area: seen;
+  justify-self: end;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+.airlines-cell--menu { grid-area: menu; justify-self: end; }
+
+.airlines-cell--type {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  padding-left: calc(44px + var(--space-xs));
+}
+
+/* An aircraft designator, set like code. */
+.airlines-type {
+  padding: 2px var(--space-sm);
+  border: 1px solid var(--glass-hairline);
+  border-radius: var(--radius-control);
+  background: var(--glass-solid);
+  color: var(--color-text);
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: var(--weight-semibold);
+}
+
+.airlines-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-xs);
+  height: 24px;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-text) 8%, transparent);
+  color: var(--color-text);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+}
+
+.airlines-pill--star {
+  background: color-mix(in srgb, var(--color-status-warn) 20%, transparent);
+}
+
+.airlines-state {
+  display: inline-block;
+  vertical-align: middle;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-cell--art .airlines-thumb {
+  vertical-align: middle;
+}
+
+.airlines-expand {
+  flex: none;
+  width: 44px;
+}
+
+.airlines-expand--none {
+  display: block;
+  height: 44px;
+}
+
+.airlines-expand > summary {
+  justify-content: center;
+  width: 44px;
+  min-height: 44px;
+}
+
+.airlines-expand > summary::before {
+  margin-right: 0;
+}
+
+.airlines-name {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+  margin: 0;
+}
+
+/* A name that is not editable in place sits where the editable ones put their
+ * text (their border and padding), beside the badge on one line. */
+.airlines-name--fixed {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-inline: calc(var(--space-sm) + 1px);
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.airlines-name input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  font-weight: var(--weight-semibold);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+.airlines-name input[type="text"]:hover,
+.airlines-name input[type="text"]:focus {
+  background: var(--color-dominant);
+  border-color: var(--color-border);
+}
+
+.airlines-art {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.airlines-thumb {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 44px;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: var(--space-xs);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border-radius: var(--radius-control);
+  color: var(--color-accent);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.airlines-thumb:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.airlines-thumb .airline-card__placeholder {
+  width: 88px;
+  margin: 0;
+}
+
+.airlines-thumb__image {
+  display: block;
+  width: 88px;
+  height: auto;
+  aspect-ratio: 450 / 132;
+  object-fit: contain;
+}
+
+/* The "Change artwork" menu item is a label around the hidden file input. */
+.airlines-art label.row-menu__item {
+  cursor: pointer;
+}
+
+.airlines-art label.row-menu__item:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.airlines-uses {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* A type that has no picture of its own shows the airline's, dimmed. */
+.airlines-thumb--inherited {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* The inline action of a type row: link-like text with a 44px target. */
+.airlines-act {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 var(--space-sm);
+  background: none;
+  border: 0;
+  border-radius: var(--radius-control);
+  box-shadow: none;
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.airlines-act:hover {
+  background: var(--color-control-wash);
+}
+
+.airlines-act:focus-within {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+/* The in-place resolve form of an unidentified prefix. */
+.airlines-resolve {
+  display: grid;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.airlines-resolve__cap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.airlines-resolve__fields {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.airlines-resolve__fields input[type="text"] {
+  flex: 0 1 280px;
+  min-width: 0;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.airlines-resolve__fields select {
+  flex: 0 1 180px;
+  min-width: 0;
+  min-height: 44px;
+}
+
+.airlines-resolve__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-sm);
+}
+
+.airlines-resolve__ok {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+}
+
+.airlines-resolve__skip {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  background: none;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.airlines-resolve__skip:hover {
+  background: var(--color-control-wash);
+}
+
+@media (max-width: 559.98px) {
+  .airlines-resolve__fields > * {
+    flex: 1 1 100%;
+  }
+
+  .airlines-resolve__fields select {
+    width: 100%;
+  }
+
+  .airlines-resolve__actions > * {
+    flex: 1 1 0;
+  }}
+
+.airlines-name__save,
+.airlines-art__upload {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-sm);
+  font-size: var(--font-label-size);
+}
+
+.airlines-menu__form {
+  margin: 0;
+}
+@media (min-width: 70rem) {
+
+  .airlines-table thead {
+    display: table-header-group;
+  }
+
+  .airlines-table .airline-group--gap {
+    background: color-mix(in srgb, var(--color-status-warn) 18%, transparent);
+  }
+
+  .airlines-row {
+    display: table-row;
+    padding: 0;
+  }
+
+  .airlines-subrow {
+    padding: 0;
+    background: color-mix(in srgb, var(--color-text) 5%, transparent);
+    border: 0;
+  }
+
+  .airline-group:has(details.airlines-expand[open]) .airlines-subrow {
+    display: table-row;
+  }
+
+  .airlines-cell {
+    display: table-cell;
+    vertical-align: middle;
+    height: 56px;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--glass-hairline);
+  }
+
+  /* A type row keeps its empty prefixes and action cells: dropping either
+   * would pull the following cells one column to the left. */
+  .airlines-cell--act:empty,
+  .airlines-subrow .airlines-cell--prefixes {
+    display: table-cell;
+  }
+
+  /* The artwork column is narrower than the thumbnail plus its state word:
+   * the state word stays for assistive technology and the dimming of the
+   * thumbnail says the rest. */
+  .airlines-subrow .airlines-state {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  /* Counts and dates stay on one line. */
+  .airlines-cell--views,
+  .airlines-cell--seen,
+  .airlines-cell--menu {
+    justify-self: auto;
+    white-space: nowrap;
+  }
+
+  .airlines-col {
+    display: table-cell;
+    vertical-align: middle;
+    padding: var(--space-sm) var(--space-md);
+    border-bottom: 1px solid var(--glass-hairline);
+    font-size: 12px;
+    font-weight: var(--weight-semibold);
+    text-transform: none;
+    text-align: left;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  }
+
+  .airlines-col--name { width: 36%; }
+  .airlines-col--prefixes { width: 8%; }
+  .airlines-col--art { width: 17%; }
+  .airlines-col--views { width: 10%; }
+  .airlines-col--menu { width: 112px; }
+
+  /* The airline name input ends in an ellipsis rather than a hard clip. */
+  .airlines-name input[type="text"] {
+    text-overflow: ellipsis;
+  }}
+
+.collection-facts > .collection-facts__wide dd {
+  text-align: left;
+}
+
+/* Airline card unlock: a card the script plays once gets a glint layer and
+ * spark dots; without the script (or with reduced motion) the card is
+ * already shown as it ends up. The item is the perspective stage. */
+.collection-item[data-unlock] {
+  perspective: 900px;
+  position: relative;
+}
+
+.collection-item[data-unlock] .collection-card {
+  position: relative;
+}

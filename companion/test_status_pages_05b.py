@@ -666,7 +666,8 @@ def test_airline_table_stylesheet_contract(css_text):
     """the editor table is a block list of cards below 70rem and a real table from it, its
     sub-rows stay hidden until the row's native chevron is open, and the retired carousel
     and list selectors are gone from the served stylesheet"""
-    base = dict(rules_with_selector(css_text, ".airlines-table")[0].declarations)
+    base = dict([r for r in rules_with_selector(css_text, ".airlines-table")
+                 if not r.at_rules][0].declarations)
     assert base.get("display") == "block", base
     sub = dict(rules_with_selector(css_text, ".airlines-subrow")[0].declarations)
     assert sub.get("display") == "none", sub

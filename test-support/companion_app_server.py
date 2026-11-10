@@ -36,6 +36,10 @@ START_PORT_ATTEMPTS = 5
 # own (heavier) import graph (Pillow, argparse, the full route table) just
 # to resolve one constant string.
 _STYLE_ROUTE = "/static/style.css"
+# Duplicated from companion/static_files.py's AREA_STYLE_NAMES for the same reason.
+_AREA_STYLE_ROUTES = tuple(
+    "/static/style-%s.css" % name
+    for name in ("home", "flights", "airlines", "place", "display", "admin"))
 
 
 def pick_free_port():
@@ -309,18 +313,27 @@ def get(server, path, cookie=None):
     return http_request(server.base_url() + path, cookie=cookie)
 
 
-def served_stylesheet(server):
-    """GET the app's style route and assert a 200 with a text/css
-    Content-Type; return the decoded stylesheet text.
-    """
-    status, headers, body = get(server, _STYLE_ROUTE)
-    assert status == 200, (
-        "expected 200 from %s, got %d" % (_STYLE_ROUTE, status))
+def _served_css(server, route):
+    status, headers, body = get(server, route)
+    assert status == 200, "expected 200 from %s, got %d" % (route, status)
     content_type = headers.get("Content-Type", "")
     assert content_type.startswith("text/css"), (
-        "expected a text/css Content-Type from %s, got %r"
-        % (_STYLE_ROUTE, content_type))
+        "expected a text/css Content-Type from %s, got %r" % (route, content_type))
     return body.decode("utf-8")
+
+
+def served_core_stylesheet(server):
+    """GET the core stylesheet (the one every page links) and return its text."""
+    return _served_css(server, _STYLE_ROUTE)
+
+
+def served_stylesheet(server):
+    """The app's whole served stylesheet: the core sheet followed by every
+    area sheet, each fetched from its route (200, text/css). Rule-level
+    checks read this; a page links the core sheet and its own area only."""
+    return "\n".join(
+        [_served_css(server, _STYLE_ROUTE)]
+        + [_served_css(server, route) for route in _AREA_STYLE_ROUTES])
 
 
 def served_asset(server, path):

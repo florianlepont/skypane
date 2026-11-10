@@ -1,0 +1,1421 @@
+
+
+.rule-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.rule-add-form__field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* align-self: flex-start opts this button out of the column container's
+ * default align-items: stretch (which otherwise stretches it full-
+ * width); width: auto states the resulting intrinsic size explicitly.
+ * Accent fill is kept — this rule is about geometry only. */
+.rule-add-form > button[type="submit"] {
+  align-self: flex-start;
+  width: auto;
+}
+
+.settings-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+/* A wrapping flex line, not a grid row: a grid's auto time-track always
+ * resolves to its own max-content width regardless of the callsign's
+ * needs, starving the callsign to a sliver in French. Flex lets the
+ * time wrap to its own second line only when there is truly no room. */
+
+/* 4. Audit fixes ------------------------------------------------------- */
+
+.config-form input[type="number"],
+.config-form input[type="url"],
+.config-form input[type="text"] {
+  width: 100%;
+  max-width: 28rem;
+}
+
+.config-form input[type="time"] {
+  min-width: 9rem;
+}
+
+/* Wide enough for the "default" placeholder, not just the 3-4 digit value.
+ * Selected by [name=] at equal (0,2,1) specificity to the type=number
+ * rule above it, so source order — not a specificity hack — wins. */
+.config-form input[name="wake_interval_s"] {
+  width: 11rem;
+  min-width: 96px;
+}
+
+.calendar-masked-url {
+  font-family: var(--font-mono);
+  margin: var(--space-sm) 0 0;
+}
+
+/* Calendar connection: one status row on the page (provider tile, status
+ * pill, one-line detail, one button) and the Manage sheet, a <dialog>
+ * that holds every control. The row carries its verdict in words; the
+ * pill's dot is never green beside a failing or stale verdict (the server
+ * picks the tone per state). */
+.calendar-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: var(--space-sm);
+  padding: var(--space-sm) 4px 0;
+}
+
+.calendar-status__tile {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.calendar-status__tile--empty {
+  background: transparent;
+  border-style: dashed;
+}
+
+.calendar-status__main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.calendar-status__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+  margin: 0;
+}
+
+.calendar-status__title b {
+  font-weight: var(--weight-semibold);
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The status line leads the Calendar row; the look of its flights follows
+ * under a hairline. */
+.special-row--calendar > .calendar-status ~ .special-row__main {
+  margin-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--space-sm);
+}
+
+.calendar-status__pill .dot {
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+}
+
+.calendar-status__detail {
+  margin: 2px 0 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The button stays on the right of the row at every width, vertically
+ * centred; in a narrow column the text side wraps instead. */
+a.calendar-manage {
+  display: inline-flex;
+  flex: none;
+  white-space: nowrap;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 20%, transparent);
+  border-radius: var(--radius-control);
+}
+
+a.calendar-manage:hover {
+  background: color-mix(in srgb, var(--color-text) 7.5%, transparent);
+}
+
+/* "Choose calendar" is too wide to sit beside the text on a phone: the button
+ * takes the row's full width under the text instead. */
+@media (max-width: 699.98px) {
+  .calendar-status {
+    flex-wrap: wrap;
+  }
+
+  .calendar-status__main {
+    flex: 1 1 0;
+  }
+
+  a.calendar-manage {
+    flex: 1 1 100%;
+  }}
+
+/* The section's one primary action while nothing is connected. */
+a.calendar-manage--primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: transparent;
+}
+
+a.calendar-manage--primary:hover {
+  background: var(--color-accent-hover);
+}
+
+/* Display: the look card ------------------------------------------------
+ * Two framed live pictures (Departures, Arrivals) and the Special looks
+ * list. Every saved control is a native radio inside a colour x style
+ * table (.look-table); theme-preview.js layers the look sheet over it. */
+
+.look-card__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-lg) var(--space-md);
+}
+
+.look-frame {
+  min-width: 0;
+}
+
+/* Without scripts, an open "Change" table needs the whole card width. */
+.look-frame:has(.look-edit[open]) {
+  grid-column: 1 / -1;
+}
+
+.look-frame__anchor {
+  position: relative;
+  max-width: 17rem;
+}
+
+.look-frame.is-editing .look-frame__picture {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+/* The box is reserved before the render arrives (3:4, the canvas's own
+ * shape) and painted with the same skeleton sheen as Home's picture. */
+.look-frame__image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  background: var(--picture-placeholder);
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
+}
+
+/* The whole picture is the opener; its accessible name says so. */
+button.look-frame__open {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-control);
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+
+button.look-frame__open:hover,
+button.look-frame__open:active {
+  background: transparent;
+  transform: none;
+}
+
+button.look-frame__open:focus-visible {
+  outline: 3px solid var(--color-accent);
+  outline-offset: 4px;
+}
+
+.look-frame__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+  max-width: 17rem;
+}
+
+.look-frame:has(.look-edit[open]) .look-frame__meta {
+  max-width: none;
+}
+
+.special-row__title {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  overflow-wrap: anywhere;
+}
+
+.special-row__meta {
+  margin: 0;
+  font-size: var(--font-label-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.look-edit[open] {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+.look-edit__summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-dominant);
+  color: var(--color-text);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  list-style: none;
+  cursor: pointer;
+}
+
+.look-edit__summary::-webkit-details-marker {
+  display: none;
+}
+
+/* These summaries carry their own icon instead of the global chevron. */
+.look-edit__summary::before {
+  content: none;
+}
+
+.look-edit__summary--icon {
+  justify-content: center;
+  width: 44px;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.look-edit__summary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.look-edit__body {
+  margin-top: var(--space-md);
+}
+
+/* The colour x style table ------------------------------------------- */
+
+.look-table__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.look-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-height: 44px;
+  padding: 4px 14px 4px 6px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-label-size);
+  cursor: pointer;
+}
+
+.look-option__name:first-child {
+  padding-left: 8px;
+}
+
+.look-table__scroll {
+  overflow-x: auto;
+}
+
+.look-table {
+  border-collapse: separate;
+  border-spacing: 2px;
+}
+
+.look-table th {
+  padding: 0 4px;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  text-align: center;
+}
+
+.look-table th[scope="row"] {
+  padding-right: var(--space-sm);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.look-table__ink {
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+
+.look-table td {
+  padding: 0;
+  text-align: center;
+}
+
+.look-cell {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+.look-cell:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.look-swatch {
+  display: block;
+  width: 24px;
+  height: 32px;
+  border-radius: var(--radius-control);
+  box-shadow: 0 0 0 1px var(--color-border);
+}
+
+.look-table__gap-mark {
+  display: inline-grid;
+  place-items: start end;
+  width: 24px;
+  height: 32px;
+  padding: 1px 3px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  font-size: var(--font-caption-size);
+  line-height: 1;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+}
+
+.look-table__notes {
+  margin: var(--space-sm) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--font-caption-size);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The look sheet ----------------------------------------------------- */
+
+/* Catches a click outside an open sheet; dims the page on phones. */
+.look-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: transparent;
+}
+
+.look-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.look-sheet__title,
+.special-looks__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+}
+
+button.look-sheet__close {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+button.look-sheet__close[hidden] {
+  display: none;
+}
+
+.look-sheet__same {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: var(--space-xs);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+}
+
+.look-sheet__same[hidden] {
+  display: none;
+}
+
+.look-sheet__same-note[hidden] {
+  display: none;
+}
+
+.look-axes[hidden] {
+  display: none;
+}
+
+.look-axis {
+  min-width: 0;
+  margin: 0;
+  padding: var(--space-sm) 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.look-axis:first-child {
+  border-top: none;
+}
+
+.look-axis:disabled {
+  opacity: 0.5;
+}
+
+.look-axis__label {
+  display: flex;
+  font-family: var(--font-ui);
+  justify-content: space-between;
+  width: 100%;
+  margin: 0 0 var(--space-sm);
+  padding: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.look-axis__value {
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: var(--font-label-size);
+  color: var(--color-text);
+}
+
+/* An empty value keeps its line, so the label is as tall with or without it. */
+.look-axis__value:empty::before {
+  content: "\200b";
+}
+
+.look-dots {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.look-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: -4px 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.look-dot__ink {
+  display: block;
+  width: 32px;
+  height: 32px;
+}
+
+/* A hairline keeps the black ink visible on the dark theme's surface. */
+.look-dot__ink circle {
+  stroke: var(--color-border);
+  stroke-width: 1;
+}
+
+.look-seg__option {
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 var(--space-sm);
+  border-radius: var(--radius-control);
+  font-size: var(--font-label-size);
+  color: var(--seg-idle-fg);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.look-seg__option::before {
+  content: "";
+  position: absolute;
+  inset: 6px 0;
+  z-index: -1;
+  border-radius: var(--radius-control);
+}
+
+.look-seg__icon {
+  flex: none;
+  border-radius: var(--radius-control);
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+
+.look-axis__why {
+  min-height: 1.4em;
+  margin: var(--space-sm) 0 0;
+  font-size: var(--font-caption-size);
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* An empty reason takes no room but stays in the page, so a reason that
+ * appears is still announced. */
+.look-axis__why:empty {
+  min-height: 0;
+  margin: 0;
+}
+
+/* The colour row's reason (plain white paper) comes and goes as a background
+ * or stripe is chosen: beside the page, its two lines stay reserved so nothing
+ * below moves. A phone has no room to spare above the tab bar. */
+@media (min-width: 700px) {
+  .look-axis__why[data-look-colour-why]:empty {
+    min-height: 2.8em;
+    min-height: 2lh;
+    margin: var(--space-sm) 0 0;
+  }}
+
+.look-sheet__foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-sm);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--color-border);
+}
+
+.look-sheet__foot button {
+  height: 40px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+}
+
+button.look-sheet__reset {
+  border-color: transparent;
+  background: transparent;
+  color: var(--color-accent);
+}
+
+button.look-sheet__reset[hidden] {
+  display: none;
+}
+
+button.look-sheet__done {
+  border-color: transparent;
+  background: var(--color-accent);
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
+}
+
+button.look-sheet__done:hover {
+  background: var(--color-accent-hover);
+}
+
+.special-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.special-row {
+  position: relative;
+  padding: var(--space-sm) var(--space-xs);
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.special-row:last-child {
+  border-bottom: 0;
+}
+
+.special-row__main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+}
+
+.special-row__mini {
+  position: relative;
+  flex: none;
+  padding: 3px;
+  border-radius: var(--radius-control);
+  background: var(--color-frame-bezel);
+}
+
+.special-row__image {
+  display: block;
+  width: 48px;
+  height: 64px;
+  background: var(--picture-placeholder);
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 0 40%,
+    color-mix(in srgb, var(--color-text) 9%, transparent) 50%,
+    color-mix(in srgb, var(--color-text) 4%, transparent) 60% 100%
+  );
+}
+
+.special-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.special-row__tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 2px 6px;
+  border-radius: var(--radius-chip);
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  vertical-align: 1px;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.special-row .look-edit {
+  flex: none;
+}
+
+/* In a row, the open no-script table drops below the row's text. */
+.special-row .look-edit[open] {
+  flex: 1 1 100%;
+}
+
+.special-row__main:has(> .look-edit[open]) {
+  flex-wrap: wrap;
+}
+
+a.special-row__remove {
+  flex: none;
+}
+
+a.special-row__edit {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
+  text-decoration: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+}
+
+a.special-row__edit:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.special-row__actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* The kind badge sits on its own line and never breaks inside a word. */
+.rule-row .special-row__tag {
+  display: block;
+  width: fit-content;
+  margin: 0 0 var(--space-xs);
+  white-space: nowrap;
+}
+
+/* On a phone the text takes the whole width beside the picture and the two
+ * actions sit under it, side by side. */
+@media (max-width: 699.98px) {
+  .rule-row .special-row__main {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: flex-start;
+    gap: var(--space-sm) 14px;
+  }
+
+  .rule-row .special-row__mini {
+    grid-row: 1 / span 2;
+  }
+
+  .rule-row .special-row__actions {
+    grid-column: 2;
+  }
+
+  .rule-row .special-row__actions > * {
+    flex: 1 1 0;
+  }}
+
+.form-page {
+  display: grid;
+  grid-template-columns: minmax(0, 17rem) minmax(0, 37rem);
+  gap: var(--space-xl) var(--space-2xl);
+  align-items: flex-start;
+}
+
+.form-page__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+  padding: calc(var(--space-md) + var(--space-xs));
+  background: var(--color-dominant);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.form-page__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+}
+
+.form-page__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  min-width: 0;
+  margin: 0;
+}
+
+.form-page__section + .form-page__section {
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.form-page__label {
+  margin: 0;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.form-page__fixed {
+  margin: 0;
+}
+
+/* The quiet destructive link: error-coloured, a 44px target. */
+a.form-page__danger {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  color: var(--color-status-error);
+  text-decoration: none;
+  border: 1px solid var(--color-status-error);
+  border-radius: var(--radius-control);
+}
+
+a.form-page__danger:hover {
+  background: color-mix(in srgb, var(--color-status-error) 8%, transparent);
+}
+
+.form-page input[type="text"] {
+  width: 100%;
+}
+
+.form-page input[name="rule_key"] {
+  font-family: var(--font-mono);
+}
+
+.form-page .theme-form input[type="radio"] + label {
+  flex: 1 1 0;
+  font-size: var(--font-label-size);
+}
+
+.form-page__note {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.form-page--single {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 959.98px) {
+  .form-page {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-md);
+  }}
+
+/* The add row of the Special looks list ---------------------------- */
+
+.special-add__summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 64px;
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.special-add__plus {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 54px;
+  height: 70px;
+  border: 1.5px dashed color-mix(in srgb, var(--color-accent) 55%, transparent);
+  border-radius: var(--radius-control);
+}
+
+.rule-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.rule-suggestions[hidden],
+.rule-suggestions__group[hidden] {
+  display: none;
+}
+
+.rule-suggestions__group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+button.rule-suggestion-chip {
+  height: 36px;
+  border-color: transparent;
+  border-radius: var(--radius-card);
+  background: var(--color-secondary);
+  font-weight: var(--weight-regular);
+}
+@media (min-width: 1200px) {
+  .look-card__grid {
+    grid-template-columns: minmax(0, 15rem) minmax(0, 15rem) minmax(17rem, 1fr);
+    gap: var(--space-xl) var(--space-lg);
+  }}
+@media (max-width: 699.98px) {
+  .look-scrim {
+    background: var(--color-scrim);
+  }
+
+  .look-card__grid {
+    gap: var(--space-lg) var(--space-sm);
+  }
+
+  .look-frame__meta {
+    flex-direction: column;
+    gap: var(--space-xs);
+  }
+
+  .look-frame__picture {
+    padding: 5px;
+  }
+
+  /* The colour's name stays for assistive technology; its ink dot names
+   * the row on screen, so five 44px cells fit a 360px phone. */
+  .look-table__colour {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .look-table__ink {
+    margin-right: 0;
+  }
+
+  .look-table th[scope="row"] {
+    padding-right: 2px;
+  }
+
+  .look-table th {
+    padding: 0;
+    font-size: var(--font-caption-size);
+  }
+
+  .look-cell {
+    width: 44px;
+  }}
+
+.personalisation__view {
+  min-width: 0;
+  max-width: 56rem;
+}
+
+.personalisation-card {
+  scroll-margin-top: var(--space-lg);
+}
+
+.personalisation-card__current {
+  margin: 0 0 var(--space-md);
+}
+
+/* The card title already names the Special looks list. */
+.personalisation-card .special-looks__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* In the card, "New special look" is the section's one primary action. */
+.personalisation-card .special-add__summary {
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  gap: var(--space-sm);
+  border-radius: var(--radius-control);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.personalisation-card .special-add__summary:hover {
+  background: var(--color-accent-hover);
+}
+
+.personalisation-card .special-add__plus {
+  width: auto;
+  height: auto;
+  border: 0;
+}
+
+.personalisation-card .special-row--add,
+.personalisation-card .special-row--add:last-child {
+  border: 0;
+  padding-top: var(--space-md);
+}
+
+.personalisation-card--list > .personalisation-card__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.personalisation-card--list .special-looks > .section-caption {
+  margin: 0 0 var(--space-md);
+  padding: 0 var(--space-xs);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) {
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) > .special-row {
+  padding: var(--space-sm) var(--space-md);
+}
+
+.personalisation-card--list .special-list:not(.special-list--add) > .special-row:first-child {
+  border-top: 0;
+}
+
+.personalisation-card--list .special-list--add {
+  margin-top: var(--space-md);
+}
+
+.personalisation-card--list .special-row--add,
+.personalisation-card--list .special-row--add:last-child {
+  padding: 0;
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.personalisation-card--list .special-add__summary {
+  min-height: 56px;
+  border-radius: var(--radius-card);
+  background: none;
+  color: var(--color-text);
+}
+
+.personalisation-card--list .special-add__summary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+  color: var(--color-text);
+}
+
+/* While nothing is connected, "Connect a calendar" is the same dashed add
+ * row; connected, the button stays the quiet "Choose calendar". */
+.personalisation-card--list a.calendar-manage--primary {
+  background: none;
+  color: var(--color-text);
+  border: 1.5px dashed var(--color-border);
+  border-radius: var(--radius-card);
+}
+
+.personalisation-card--list a.calendar-manage--primary::before {
+  content: "+";
+  margin-right: var(--space-sm);
+  font-size: var(--font-body-size);
+  line-height: 1;
+}
+
+.personalisation-card--list a.calendar-manage--primary:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
+}
+
+.personalisation-switch .personalisation-card__current {
+  margin: 0;
+}
+
+.look-pick__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.look-pick__card {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
+  padding: var(--space-sm);
+}
+
+.look-pick__preview {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  border-radius: var(--radius-control);
+  background: var(--picture-placeholder);
+}
+
+.look-pick__name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.look-pick__arrivals {
+  margin-top: var(--space-lg);
+}
+
+/* The frame's Layout card, above the style tabs of every Personalisation
+ * view. One set of radios: a row of small thumbnails on a wide screen; on a
+ * phone a summary row (thumbnail, current layout, "Change") that reveals the
+ * same radios. Without a script the picker is simply open. */
+.layout-card {
+  box-sizing: border-box;
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  background: var(--color-dominant);
+}
+
+.layout-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+}
+
+.layout-card__text {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.layout-card__title,
+.layout-card__caption {
+  margin: 0;
+}
+
+.layout-card__meta {
+  display: none;
+  margin: 0;
+}
+
+.layout-card__thumb,
+.layout-card__change {
+  display: none;
+}
+
+.layout-card__picker .look-pick__grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.layout-card__picker .look-pick__card {
+  flex: 0 0 auto;
+  align-items: center;
+  box-sizing: border-box;
+  width: calc(92px + 2 * var(--space-sm) + 2px);
+  text-align: center;
+}
+
+.layout-card__picker .look-pick__preview {
+  width: 92px;
+  height: auto;
+}
+
+.layout-card__picker .look-pick__name {
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-regular);
+  line-height: 1.25;
+}
+
+.layout-card__picker .look-pick__card:has(input:checked) .look-pick__name {
+  font-weight: var(--weight-title);
+}
+
+.layout-card__picker .runway-card__check {
+  top: var(--space-xs);
+  right: var(--space-xs);
+}
+
+.layout-card__picker > .section-caption {
+  margin: var(--space-sm) 0 0;
+}
+
+@media (max-width: 699.98px) {
+  .layout-card {
+    padding: var(--space-sm) var(--space-md);
+  }
+
+  .layout-card__caption {
+    display: none;
+  }
+
+  .layout-card__thumb {
+    display: block;
+    flex: none;
+    width: 44px;
+    height: 58px;
+    object-fit: contain;
+    border-radius: var(--radius-control);
+    background: var(--picture-placeholder);
+  }
+
+  .layout-card__meta {
+    display: block;
+    font-size: var(--font-caption-size);
+    overflow-wrap: anywhere;
+  }
+
+  .layout-card__change {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .layout-card__change[hidden] {
+    display: none;
+  }
+
+  .js .layout-card:not(.is-open) .layout-card__picker {
+    display: none;
+  }
+
+  .layout-card__picker .look-pick__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .layout-card__picker .look-pick__card {
+    width: auto;
+  }
+
+  .layout-card__picker .look-pick__preview {
+    width: 92px;
+    max-width: 100%;
+  }}
+
+/* The look views (Departures, Arrivals) ---------------------------------- */
+
+.look-picker {
+  --js-gate-display: block;
+  max-width: 35rem;
+  margin-top: var(--space-md);
+}
+
+/* With a script the picker below replaces the look cards, the "Change"
+ * table and the "Customise" button; without one they are the way in. */
+.js .look-view .look-pick__grid,
+.js .look-view .look-edit {
+  display: none;
+}
+
+.js .look-view .look-panel > .look-frame {
+  display: grid;
+  grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
+  gap: var(--space-md);
+  align-items: flex-start;
+}
+
+/* With a script the inline picker replaces the "Change" table, so the meta
+ * row under the picture holds nothing. */
+.js .look-view .look-panel > .look-frame > .look-frame__meta {
+  display: none;
+}
+
+.js .look-view .look-panel > .look-frame > .field-error {
+  grid-column: 1 / -1;
+}
+
+.look-panel[hidden] {
+  display: none;
+}
+
+.look-sheet__head[hidden],
+button.look-sheet__done[hidden] {
+  display: none;
+}
+@media (max-width: 699.98px) {
+  .js .look-view .look-panel > .look-frame {
+    grid-template-columns: minmax(0, 56%);
+    justify-content: center;
+    gap: var(--space-sm) var(--space-md);
+  }
+
+  html:not(.js) .look-pick > .look-frame__anchor {
+    width: 56%;
+    max-width: none;
+    margin: 0 auto var(--space-md);
+  }
+
+  .look-sheet[data-look-inline] .look-axis__label {
+    margin-bottom: var(--space-xs);
+  }
+
+  .look-sheet[data-look-inline] .look-axis {
+    padding: var(--space-xs) 0;
+  }
+
+  .look-view .look-stage {
+    margin-bottom: var(--space-sm);
+  }}
+
+@media (min-width: 700px) {
+  
+
+  .look-pick__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* Inside a card the look sheet opens under the picture it changes. */
+  .personalisation-card .look-sheet {
+    top: 100%;
+    right: auto;
+    left: 0;
+    margin-top: var(--space-sm);
+  }}
+
+/* From 960px a look view is two columns, the picture on the left and the
+ * picker on the right, both on the first screen of a laptop. The picture is
+ * as wide as its column and the screen height allow (3:4). */
+@media (min-width: 960px) {
+  .js .personalisation__view:has(.look-view) {
+    max-width: none;
+  }
+
+  .js .look-view {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
+    gap: var(--space-lg);
+    align-items: flex-start;
+  }
+
+  .js .look-view .look-panel > .look-frame {
+    display: block;
+  }
+
+  .look-view .look-frame__anchor {
+    max-width: min(100%, calc((100svh - 21rem) * 0.75));
+    margin-inline: auto;
+  }
+
+  .look-view .look-frame__meta {
+    max-width: min(100%, calc((100svh - 21rem) * 0.75));
+    margin-inline: auto;
+  }
+
+  .js .look-view .look-picker {
+    max-width: none;
+    margin-top: 0;
+  }}
+
+@media (min-width: 1280px) {
+  .look-pick__grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }}
+
+/* The Layout view and the pairing picker use the look cards; only the help
+ * line above them and the rows of the pairing view need spacing. */
+.personalisation-card--list > .section-caption,
+.look-pairings > .section-caption {
+  margin: 0;
+  padding: 0 var(--space-xs);
+}
+
+.look-pairings + .look-pairings {
+  margin-top: var(--space-lg);
+}
+
+.look-pairings > .look-table__options {
+  margin-top: var(--space-md);
+}

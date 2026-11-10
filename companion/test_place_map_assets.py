@@ -43,17 +43,21 @@ def _script_srcs(doc):
 def test_the_detection_page_links_the_library_stylesheet_after_the_shared_one(server):
     hrefs = [_route_of(n.attrs.get("href")) for n in _page(server, "/detection").select(
         'link[rel="stylesheet"]')]
-    assert hrefs == ["/static/style.css", LEAFLET_CSS]
+    assert hrefs == ["/static/style.css", "/static/style-place.css", LEAFLET_CSS]
 
 
-def test_the_library_loads_before_the_glue_and_both_are_deferred(server):
+def test_the_starter_is_deferred_and_names_the_library_before_the_glue(server):
     doc = _page(server, "/detection")
     srcs = _script_srcs(doc)
-    assert LEAFLET_JS in srcs and PLACE_MAP_JS in srcs
-    assert srcs.index(LEAFLET_JS) < srcs.index(PLACE_MAP_JS)
+    assert layout.PLACE_START_SCRIPT_SRC in srcs
+    assert LEAFLET_JS not in srcs and PLACE_MAP_JS not in srcs
     for node in doc.select("script[src]"):
-        if _route_of(node.attrs.get("src")) in (LEAFLET_JS, PLACE_MAP_JS):
+        if _route_of(node.attrs.get("src")) == layout.PLACE_START_SCRIPT_SRC:
             assert "defer" in node.attrs
+    attrs = doc.select("#place-map")[0].attrs
+    assert _route_of(attrs["data-leaflet-src"]) == LEAFLET_JS
+    assert _route_of(attrs["data-map-src"]) == PLACE_MAP_JS
+    assert list(attrs).index("data-leaflet-src") < list(attrs).index("data-map-src")
 
 
 @pytest.mark.parametrize("route", OTHER_ROUTES)
@@ -62,7 +66,7 @@ def test_no_other_page_links_the_map_files(server, route):
     assert LEAFLET_JS not in _script_srcs(doc)
     assert PLACE_MAP_JS not in _script_srcs(doc)
     hrefs = [_route_of(n.attrs.get("href")) for n in doc.select('link[rel="stylesheet"]')]
-    assert hrefs == ["/static/style.css"]
+    assert hrefs[0] == "/static/style.css" and LEAFLET_CSS not in hrefs
 
 
 def test_the_glue_script_is_served_publicly_as_javascript(server):
@@ -109,6 +113,23 @@ def test_the_container_carries_the_search_limits_and_the_position_words(server):
         "Finding your position took too long. Try again, or search a place.")
     assert attrs["data-t-nearest"] == "Nearest airport: %s, %d km. Follow its runway?"
     assert attrs["data-t-follow"] == "Follow %s"
+
+
+def test_the_page_links_only_the_starter_and_the_map_names_the_scripts_it_starts(server):
+    doc = _page(server, "/detection")
+    linked = [n.attrs["src"].split("?", 1)[0] for n in doc.select("script[src]")]
+    assert layout.PLACE_START_SCRIPT_SRC in linked
+    for late in (layout.LEAFLET_SCRIPT_SRC, layout.PLACE_SEARCH_SCRIPT_SRC,
+                 layout.PLACE_MAP_SCRIPT_SRC, layout.PLACE_CARD_SCRIPT_SRC,
+                 layout.PLACE_AIRPORT_LIST_SCRIPT_SRC):
+        assert late not in linked
+    attrs = doc.select("#place-map")[0].attrs
+    named = [attrs["data-%s-src" % name].split("?", 1)[0]
+             for name in ("leaflet", "search", "map", "card", "airports")]
+    assert named == [
+        layout.LEAFLET_SCRIPT_SRC, layout.PLACE_SEARCH_SCRIPT_SRC, layout.PLACE_MAP_SCRIPT_SRC,
+        layout.PLACE_CARD_SCRIPT_SRC, layout.PLACE_AIRPORT_LIST_SCRIPT_SRC]
+    assert all("?v=" in attrs["data-%s-src" % name] for name in ("leaflet", "map", "airports"))
 
 
 def test_the_position_words_are_french_on_the_french_page(server):

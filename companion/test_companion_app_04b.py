@@ -435,7 +435,7 @@ def test_unauthenticated_404_never_leaks_health_state(app04b_server, seeded_stal
 
 
 def test_preview_png_404_even_with_real_panel(app04b_server, session_cookie):
-    """authenticated GET /preview.png returns 404 with the exact 'Page not found.' copy even
+    """authenticated GET /preview.png returns an empty 404 even
     with a real 960,000-byte panel.bin present — the route is gone, not empty"""
     with open(os.path.join(app04b_server.state_dir, "panel.bin"), "wb") as fh:
         fh.write(b"\x11" * IMAGE_BYTES)
@@ -443,7 +443,7 @@ def test_preview_png_404_even_with_real_panel(app04b_server, session_cookie):
         app04b_server.base_url() + "/preview.png", cookie=session_cookie)
     assert status == 404, (
         "expected 404 for the retired route even with a real panel present, got %d" % status)
-    assert b"Page not found." in body, "expected the exact 404 copy in the response body"
+    assert body == b"", "expected an asset-like unknown path to get an empty 404"
 
 
 # ==========================================================================

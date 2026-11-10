@@ -1067,6 +1067,7 @@ class Handler(
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
+        prefs.set_request_path(parsed.path)
         result = routes.match(method, parsed.path, parsed.query)
         if result is None:
             if static_files.looks_like_asset(parsed.path):

@@ -1,0 +1,181 @@
+
+
+.flight-day-row th {
+  background: var(--color-canvas);
+  text-align: left;
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The row-level picture action on the card and in the table never wraps
+ * inside the narrow picture column. */
+.flight-picture-link {
+  white-space: nowrap;
+}
+
+/* The end of the list: how many flights are shown and the Load more link,
+ * a full-width 44px+ glass button under the last row. */
+.history-more {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0 var(--space-lg);
+  text-align: center;
+}
+
+.history-more__count {
+  margin: 0;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.history-more__link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 48px;
+  padding: 0 var(--space-md);
+  background: var(--glass-solid);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-glass);
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+}
+
+/* One Load more link per representation of the list: the one under the
+ * phone cards by default, the one under the table from 960px. */
+.history-more__link--table {
+  display: none;
+}
+
+.history-more__link:hover {
+  background: color-mix(in srgb, var(--color-text) 4.5%, var(--glass-solid));
+}
+
+.history-more__link:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 960px) {
+  .history-more {
+    max-width: 24rem;
+    margin-inline: auto;
+  }
+
+  .history-more__link--cards {
+    display: none;
+  }
+
+  .history-more__link--table {
+    display: flex;
+  }}
+
+/* Flights: the direction chips and the sort share one row under the title
+ * (the search is in the title row). The Apply button is the no-script way to
+ * send them; with a script they act on change. */
+.history-controls .filter-bar__chips {
+  display: flex;
+}
+
+.history-controls .collection-sort {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.history-controls__apply {
+  min-height: 44px;
+  padding: 0 var(--space-md);
+  font-size: var(--font-body-size);
+}
+
+.js .history-controls__apply {
+  display: none;
+}
+
+/* The filter hides rows with [hidden]: the hairline is drawn between two
+ * visible rows only, so a hidden first row never leaves a stray line. */
+.history-day .group > .row + .row {
+  border-top: 0;
+}
+
+.history-day .group > .row:not([hidden]) ~ .row:not([hidden]) {
+  border-top: 1px solid var(--glass-hairline);
+}
+
+.history-card__airline {
+  overflow-wrap: anywhere;
+}
+
+.history-card__route {
+  display: block;
+  white-space: nowrap;
+}
+
+.history-card__arrow {
+  margin: 0 var(--space-xs);
+}
+
+.history-card__code--home {
+  font-weight: var(--weight-regular, 400);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The detail line wraps to a second line before it clips, so the airline and the
+ * aircraft stay readable on a phone. */
+.history-card .row__detail {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: break-word;
+}
+
+.history-card .row__value {
+  max-width: 38%;
+  font-size: var(--font-label-size);
+}
+
+.history-card__when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.3;
+}
+
+.history-card__when .time-value--primary {
+  font-weight: var(--weight-regular);
+}
+
+.history-card__thumb-image {
+  display: block;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-chip);
+  background: var(--color-secondary);
+  outline: 1px solid var(--glass-hairline);
+  outline-offset: -1px;
+  object-fit: cover;
+  object-position: center 35%;
+}
+
+.history-card__thumb:hover .history-card__thumb-image {
+  opacity: 0.85;
+}
+
+.history-card__thumb:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 0;
+}
+
+.history-card {
+  transition: scale var(--motion-spring-duration) var(--motion-spring);
+}
+
+.history-card__thumb.is-loading {
+  overflow: visible;
+  clip-path: inset(-3px round var(--radius-control));
+}
