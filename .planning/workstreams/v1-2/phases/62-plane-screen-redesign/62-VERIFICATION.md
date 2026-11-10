@@ -11,6 +11,8 @@ verified: 2026-11-10
 - The giant golden suite (84 cases) and the classic golden fixtures pass; the classic render is unchanged.
 - The owner checked the result on a real panel (non-live unit) and kept layout B as the default, 2026-11-10 (plan 62-13).
 
+- The firmware image built by CI with the regenerated masks fits its OTA slot: 0x150000 bytes in 0x250000, 0x100000 bytes (43%) free.
+
 ## Open item
 
-- Firmware flash margin of the regenerated fault-screen masks: not measured.
+None. The image was not flashed or pushed over the air as part of this phase.
