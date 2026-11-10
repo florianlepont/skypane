@@ -1,17 +1,27 @@
 # SkyPane — CI pipeline.
 #
-# `test`: ruff lint + comment-history guard + mypy + function-size gate +
-# shellcheck + offline systemd-unit security scoring + full pytest suite
-# (coverage gate) + vendored-asset attribution check, on Python 3.14
-# (matches production), every push and PR. `deploy` runs only after
-# `test` succeeds, on a push to main or a manual dispatch, and pauses
-# for a human reviewer. A tagged firmware release publishes a GitHub
-# Release, then dispatches this workflow on main itself (see
-# firmware-release.yml) so the reviewed deploy also imports it; the
-# import is idempotent, so an ordinary code-only deploy re-syncs
-# whatever is already published with no extra effect. Firmware builds
-# live in their own file (firmware.yml): path-restricted triggers are
-# workflow-level, not job-level.
+# Every push and PR runs these jobs in parallel on Python 3.14 (matches
+# production), then one aggregate job:
+#   static        ruff, comment-history guard, mypy, function-size gate,
+#                 shellcheck, offline systemd-unit scoring, vendored-asset
+#                 attribution, and a check that every test file belongs to
+#                 exactly one test group;
+#   tests-core    every test file that does not drive a browser;
+#   tests-browser every test file that drives Chromium.
+# Each test job writes its coverage data and a JUnit report as an artifact.
+# `test` (check name "Lint, test, coverage, attribution") fails unless every
+# job above succeeded, combines the coverage data, applies the
+# pyproject.toml coverage floor to the combined result, and checks the
+# JUnit totals (no failures, executed count at or above the floor, skipped
+# count at or below the ceiling in scripts/ci_gates.py).
+# `deploy` runs only after `test` succeeds, on a push to main or a manual
+# dispatch, and pauses for a human reviewer. A tagged firmware release
+# publishes a GitHub Release, then dispatches this workflow on main itself
+# (see firmware-release.yml) so the reviewed deploy also imports it; the
+# import is idempotent, so an ordinary code-only deploy re-syncs whatever
+# is already published with no extra effect. Firmware builds live in their
+# own file (firmware.yml): path-restricted triggers are workflow-level, not
+# job-level.
 name: CI
 
 on:
@@ -47,15 +57,139 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Lint, test, coverage, attribution
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # One group per job so a PR push cancels every in-flight job of the
+    # previous push but the jobs never cancel each other.
+    concurrency:
+      group: test-static-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    env:
+      BROWSER_SHARDS: "1"
+      CORE_SHARDS: "1"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: server/requirements*.txt
+
+      - name: Print resolved Python version
+        run: python3 --version
+
+      - name: Create virtualenv and install dependencies (hash-enforced)
+        # server/requirements-dev.txt is a hash-locked superset of
+        # server/requirements.txt; --require-hashes rejects any package
+        # whose downloaded content doesn't match the lock.
+        run: |
+          python3 -m venv server/.venv
+          server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
+
+      - name: Lint (blocking — rule set lives in pyproject.toml)
+        run: server/.venv/bin/ruff check .
+
+      - name: Comment history guard
+        # Keeps plan/ticket history references out of comments, over the
+        # whole tracked tree.
+        run: server/.venv/bin/python scripts/check_comment_history.py check
+
+      - name: Type check (blocking; module list lives in pyproject.toml)
+        run: server/.venv/bin/mypy
+
+      - name: Function size gate (non-test code in server/ and stub-server/)
+        run: server/.venv/bin/python scripts/check_function_size.py check --max 80 server stub-server
+
+      - name: Shellcheck deploy scripts
+        # Reads each file's own shebang, so the POSIX-sh Mac scripts under
+        # deploy/backup/mac/ are checked against the right dialect too.
+        run: find deploy -name '*.sh' -print0 | xargs -0 shellcheck
+
+      - name: Score systemd units (offline, fail above 2.0)
+        # Independent of deploy/tests/test_units.py's own offline-score
+        # test (which skips when systemd-analyze --offline is
+        # unavailable): this step always has systemd, so a regression
+        # fails the job even where a local sandbox lacks it.
+        run: |
+          set -euo pipefail
+          for u in deploy/*.service; do
+            systemd-analyze security --offline=true --threshold=20 "$u"
+          done
+
+      - name: Check vendored-asset attribution completeness
+        run: ./scripts/check-attribution.sh
+
+      - name: Check every test file is in exactly one test shard
+        # The test jobs select whole files by path; a file in no shard
+        # would never run.
+        run: server/.venv/bin/python scripts/ci_shards.py check --browser-shards "$BROWSER_SHARDS" --core-shards "$CORE_SHARDS"
+
+  tests-core:
+    name: Tests (non-browser)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: test-core-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: server/requirements*.txt
+
+      - name: Print resolved Python version
+        run: python3 --version
+
+      - name: Create virtualenv and install dependencies (hash-enforced)
+        # server/requirements-dev.txt is a hash-locked superset of
+        # server/requirements.txt; --require-hashes rejects any package
+        # whose downloaded content doesn't match the lock.
+        run: |
+          python3 -m venv server/.venv
+          server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
+
+      - name: Run the non-browser test files
+        # SKYPANE_REQUIRE_BROWSER stays on: a non-browser file that wrongly
+        # needs a browser fails here instead of skipping. A partial run
+        # writes coverage data only; the floor is applied to the combined
+        # data by the `test` job.
+        env:
+          SKYPANE_REQUIRE_BROWSER: "1"
+          SKYPANE_TEST_GROUP: core
+          SKYPANE_TEST_SHARD: "0/1"
+          SKYPANE_JUNIT_XML: junit-core.xml
+        run: ./scripts/run-all-tests.sh
+
+      - name: Upload coverage data and JUnit report
+        if: ${{ always() }}
+        # .coverage is a dotfile: include-hidden-files is required or the
+        # coverage data is silently left out of the artifact.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-data-core
+          path: |
+            .coverage
+            junit-core.xml
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+  tests-browser:
+    name: Tests (browser)
     runs-on: ubuntu-latest
     timeout-minutes: 40
-    # Separate group from `deploy`: a deploy paused on reviewer approval
-    # never blocks this job. Only a PR push cancels an in-flight run
-    # here; a push to main never does.
     concurrency:
-      group: test-${{ github.ref }}
+      group: test-browser-${{ github.ref }}
       cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Check out repository
@@ -97,46 +231,104 @@ jobs:
         # still installs OS packages every run (outside the cache above).
         run: server/.venv/bin/python -m playwright install --with-deps --only-shell chromium
 
-      - name: Lint (blocking — rule set lives in pyproject.toml)
-        run: server/.venv/bin/ruff check .
-
-      - name: Comment history guard
-        # Keeps plan/ticket history references out of comments, over the
-        # whole tracked tree.
-        run: server/.venv/bin/python scripts/check_comment_history.py check
-
-      - name: Type check (blocking; module list lives in pyproject.toml)
-        run: server/.venv/bin/mypy
-
-      - name: Function size gate (non-test code in server/ and stub-server/)
-        run: server/.venv/bin/python scripts/check_function_size.py check --max 80 server stub-server
-
-      - name: Shellcheck deploy scripts
-        # Reads each file's own shebang, so the POSIX-sh Mac scripts under
-        # deploy/backup/mac/ are checked against the right dialect too.
-        run: find deploy -name '*.sh' -print0 | xargs -0 shellcheck
-
-      - name: Score systemd units (offline, fail above 2.0)
-        # Independent of deploy/tests/test_units.py's own offline-score
-        # test (which skips when systemd-analyze --offline is
-        # unavailable): this step always has systemd, so a regression
-        # fails the job even where a local sandbox lacks it.
-        run: |
-          set -euo pipefail
-          for u in deploy/*.service; do
-            systemd-analyze security --offline=true --threshold=20 "$u"
-          done
-
-      - name: Run full test suite with coverage threshold
+      - name: Run the browser test files
         # SKYPANE_REQUIRE_BROWSER: a browser test that cannot launch
         # Chromium fails here instead of skipping (same effect as
         # CI=true, made explicit).
         env:
           SKYPANE_REQUIRE_BROWSER: "1"
+          SKYPANE_TEST_GROUP: browser
+          SKYPANE_TEST_SHARD: "0/1"
+          SKYPANE_JUNIT_XML: junit-browser.xml
         run: ./scripts/run-all-tests.sh
 
-      - name: Check vendored-asset attribution completeness
-        run: ./scripts/check-attribution.sh
+      - name: Upload coverage data and JUnit report
+        if: ${{ always() }}
+        # .coverage is a dotfile: include-hidden-files is required or the
+        # coverage data is silently left out of the artifact.
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-data-browser
+          path: |
+            .coverage
+            junit-browser.xml
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 3
+
+  test:
+    name: Lint, test, coverage, attribution
+    needs: [static, tests-core, tests-browser]
+    # always(): a failed or skipped dependency must make this check fail,
+    # not leave it skipped, because `deploy` is gated on this job.
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: test-${{ github.ref }}
+      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    steps:
+      - name: Require every job above to have succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'EOF'
+          import json, os, sys
+          needs = json.loads(os.environ["NEEDS_JSON"])
+          bad = {k: v["result"] for k, v in needs.items() if v["result"] != "success"}
+          for name, result in sorted(needs.items()):
+              print(name, result["result"])
+          if bad:
+              print("not successful:", bad)
+              sys.exit(1)
+          EOF
+
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+          cache: pip
+          cache-dependency-path: server/requirements*.txt
+
+      - name: Print resolved Python version
+        run: python3 --version
+
+      - name: Create virtualenv and install dependencies (hash-enforced)
+        # server/requirements-dev.txt is a hash-locked superset of
+        # server/requirements.txt; --require-hashes rejects any package
+        # whose downloaded content doesn't match the lock.
+        run: |
+          python3 -m venv server/.venv
+          server/.venv/bin/pip install --require-hashes -r server/requirements-dev.txt
+
+      - name: Download coverage data and JUnit reports
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: test-data-*
+          path: test-data
+
+      - name: Combine coverage and apply the coverage floor
+        # No --fail-under here: [tool.coverage.report] fail_under in
+        # pyproject.toml is what applies, and coverage report exits
+        # non-zero below it.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for dir in test-data/*/; do
+            name="$(basename "${dir}")"
+            cp "${dir}.coverage" ".coverage.${name}"
+          done
+          server/.venv/bin/coverage combine
+          server/.venv/bin/coverage report --skip-covered | tee coverage-report.txt
+          grep -E '^TOTAL' coverage-report.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check test totals (no failures, executed floor, skipped ceiling)
+        run: |
+          set -euo pipefail
+          server/.venv/bin/python scripts/ci_gates.py totals test-data/*/junit-*.xml | tee -a "$GITHUB_STEP_SUMMARY"
 
   deploy:
     name: Deploy to production
