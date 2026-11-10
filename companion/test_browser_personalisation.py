@@ -33,7 +33,6 @@ VIEWPORTS = (("360", VIEWPORT_MIN_SUPPORTED), ("1280", VIEWPORT_DESKTOP))
 VIEW_ROUTES = (
     ("look", layout.DISPLAY_ROUTE),
     ("look", layout.DISPLAY_ARRIVALS_ROUTE),
-    ("layout", layout.DISPLAY_LAYOUT_ROUTE),
     ("special-looks", layout.DISPLAY_SPECIAL_LOOKS_ROUTE),
     ("calendar", layout.DISPLAY_CALENDAR_ROUTE),
 )
@@ -196,7 +195,7 @@ def test_no_overflow_and_every_control_is_44px_and_reachable(
 @pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_every_view_fits_the_screen_in_both_languages_and_themes(
         new_context, make_app_server, label, viewport, theme, lang):
-    """none of the five views scrolls sideways, and the navigation holds all five links with the
+    """none of the four views scrolls sideways, and the navigation holds all four links with the
     current view marked"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport, lang=lang, theme=theme)
@@ -208,7 +207,7 @@ def test_every_view_fits_the_screen_in_both_languages_and_themes(
             overflow = _assert_no_page_overflow(page, slug, viewport["width"])
             assert not overflow, overflow
             links = page.locator(".personalisation-nav__link")
-            assert links.count() == 5
+            assert links.count() == 4
             assert page.locator('.personalisation-nav__link[aria-current="page"]').count() == 1
             assert links.nth(position).get_attribute("aria-current") == "page"
     finally:
@@ -388,9 +387,9 @@ def test_the_navigation_links_are_plain_links_one_view_each(
     context, page = _open(new_context, server.base_url(), viewport, theme=None, reduced_motion="reduce")
     try:
         links = page.locator(".personalisation-nav__link")
-        assert [links.nth(i).evaluate("el => el.tagName") for i in range(5)] == ["A"] * 5
-        assert [links.nth(i).inner_text().strip() for i in range(5)] == [
-            "Departures", "Arrivals", "Layout", "Special looks", "Calendar"]
+        assert [links.nth(i).evaluate("el => el.tagName") for i in range(4)] == ["A"] * 4
+        assert [links.nth(i).inner_text().strip() for i in range(4)] == [
+            "Departures", "Arrivals", "Special looks", "Calendar"]
         for position, (slug, route) in enumerate(VIEW_ROUTES):
             if route == layout.DISPLAY_ROUTE:
                 continue

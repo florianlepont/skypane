@@ -324,7 +324,6 @@ _PAGE_AND_IMAGE_KEYS = (
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["calendar-connect"])),
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["calendar-look"])),
     ("GET", Exact(personalisation_cards.VIEW_ROUTES["arrivals"])),
-    ("GET", Exact(personalisation_cards.VIEW_ROUTES["layout"])),
     ("GET", Exact(personalisation_cards.RETIRED_VIEW_ROUTES[0])),
     ("GET", Exact(personalisation_cards.RETIRED_VIEW_ROUTES[1])),
     ("GET", Exact(DETECTION_ROUTE)),
