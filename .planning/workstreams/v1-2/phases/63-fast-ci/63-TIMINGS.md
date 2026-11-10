@@ -79,3 +79,61 @@ Proofs:
 - Missing browser: `SKYPANE_REQUIRE_BROWSER=1 PLAYWRIGHT_BROWSERS_PATH=<empty dir> ./scripts/run-all-tests.sh companion/test_browser_update.py` ends with 49 errors and exit code 1, none skipped.
 - Network guard: both test jobs show `plugins: ... socket-0.8.1 ...` in the pytest header and 4/4 xdist workers; the guard tests in `test-support/test_test_support.py` pass (27).
 - `deploy` job: its text is identical to `origin/main` (checked by comparing the job's lines); `deploy/tests/test_ci_secrets.py` passes.
+
+## Matrix shards: 5 browser + 2 non-browser (plan 03)
+
+Shard counts come from per-file test times of run 42797272747
+(`scripts/ci_shard_weights.json`). Predicted time per shard (summed file
+weight / 4 workers): browser 4.1 min, non-browser 4.3 min with 2 shards;
+other counts evaluated: 4+2 browser 5.1 / core 4.3, 5+3 4.1 / 2.9,
+6+3 3.4 / 2.9. The prediction matched reality: the unsplit runs measured
+1,248 s browser against 1,224 s predicted, and 542 s non-browser against
+516 s predicted. Shards come out within 1% of each other in predicted
+weight.
+
+Proof that a dropped shard is caught: run 42805370904 (second attempt),
+commit with one browser shard removed from the matrix, reverted afterwards:
+`Lint, test, coverage, attribution` = failure with `expected 7 shards;
+found 6 coverage files and 6 JUnit files`; every other job succeeded.
+(The first attempt of that run was cancelled by a concurrency race: the
+group names of the test jobs had just changed, so an older run's aggregate
+job, which was still going, cancelled the newer one's. It does not recur
+with stable names.)
+
+## Five consecutive green runs of the final pipeline (plan 06)
+
+Final pipeline = split jobs, 5 + 2 shards, aggregate gate. All five are
+green, with 13,818 tests executed, 0 skipped, 0 failed, and the combined
+coverage `TOTAL 25771 statements, 951 missed` = 96.31% in every one (the
+same figure as the unsharded run: sharding loses no coverage data).
+
+| Run | Produced by | Commit | Critical path | Aggregate job |
+|---|---|---|---|---|
+| RUN_ID=42804186330 | pull request push | 56129e1 | 451 s (7.5 min) | 27 s |
+| RUN_ID=42807798895 | pull request push | 9a78fae | 547 s (9.1 min) | 25 s |
+| RUN_ID=42809102527 | pull request push | 27a4103 | 543 s (9.1 min) | 34 s |
+| RUN_ID=42810365788 | manual dispatch of the branch | 27a4103 | 541 s (9.0 min) | 26 s |
+| RUN_ID=42811616750 | manual dispatch of the branch | 27a4103 | 369 s (6.2 min) | 26 s |
+
+`scripts/ci_run_timing.py median` over the five: **9.0 min** (minimum 6.2,
+maximum 9.1). Two of the five runs are manual dispatches of the same branch
+because a documentation-only push does not start the workflow; they run the
+same jobs (the production deploy job is skipped outside `main`).
+
+Where the spread comes from: the pytest step of a shard is steady (about
+260-310 s in every run), but the step `playwright install --with-deps`
+(operating-system packages through apt) took between 7 s and 192 s across
+browser shards and runs; the run at 6.2 min is the one where it took 7-9 s
+everywhere. The slow runs sit at about 9 min only because of that step.
+
+## Before and after
+
+| | Before (run 42770577886) | After (median of 5) | Min / max of 5 |
+|---|---|---|---|
+| Test check wall time | 27.4 min | 9.0 min | 6.2 / 9.1 min |
+| Tests executed | 12,821 | 13,818 | 13,818 / 13,818 |
+| Skipped | 0 | 0 | 0 / 0 |
+| Combined coverage | 96.23% | 96.31% | 96.31% / 96.31% |
+| Coverage floor | 93 | 93 (unchanged) | |
+
+The executed count rose because the tree changed since the baseline run and this phase added tests (the builder digest matrix, the per-case golden render tests and the tooling tests); nothing was removed or skipped.

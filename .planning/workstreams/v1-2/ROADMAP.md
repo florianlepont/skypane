@@ -639,7 +639,13 @@ Plans: 13 plans in 7 waves
 - Record before and after timings in the documentation.
 **Must not break**: every item in success criteria 2-5, plus local `./scripts/run-all-tests.sh` as the single entry point that matches CI.
 
-Plans: 0 plans (not yet planned)
+Plans: 6 plans in 5 waves
+- [x] 63-01-PLAN.md - timing script, baseline record, group and shard tooling, partial-run knobs (wave 1)
+- [x] 63-02-PLAN.md - split ci.yml into parallel jobs with an aggregate check, combined coverage floor, totals gate (wave 2)
+- [x] 63-03-PLAN.md - matrix shards, 5 browser and 2 non-browser, balanced from measured file times (wave 3)
+- [x] 63-04-PLAN.md - cheaper slow firmware and golden-render tests, nothing dropped (wave 3)
+- [ ] 63-05-PLAN.md - owner decision on the two large browser files Phase 61 also touches (wave 4, checkpoint)
+- [x] 63-06-PLAN.md - five green runs, before and after record, documentation (wave 5)
 
 ## Progress
 
@@ -660,4 +666,4 @@ Plans: 0 plans (not yet planned)
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
 | 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 12/13 | Executed (12 of 13 plans); 62-13, the owner real-panel check on a non-live unit, is pending | - |
-| 63. Fast CI | v1.2 | 0/0 | Not started | - |
+| 63. Fast CI | v1.2 | 5/6 | Executed on the draft PR branch (median 9.0 min against 27.4, nothing skipped); 63-05, the owner decision on the large browser files, is pending; not merged | - |
