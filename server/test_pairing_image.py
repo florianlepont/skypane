@@ -24,7 +24,7 @@ LEGAL_NIBBLES = {
 }
 # sha256 of the retired screen for the legacy profile; changes only when the
 # retired layout, copy or fonts change on purpose.
-RETIRED_GOLDEN_SHA256 = "315a0852353acdd9849c6cfd1e2fbffe6bbfc792a9df53907e3868a0c5290c05"
+RETIRED_GOLDEN_SHA256 = "7222f198c2ce485f5ab0d67a62d1198bc9259e2a006740eb830c07d2e5d93f04"
 # sha256 of the pairing screen for FAKE_CODE on the legacy profile.
 PAIRING_GOLDEN_SHA256 = "3e5d41f52f68dc506fa4f3e983b597f9382d2c183e8e9bdd47c93a8d55ba7ba0"
 
@@ -78,6 +78,15 @@ def test_determinism_and_golden(legacy: hardware.HardwareProfile) -> None:
     retired = hashlib.sha256(pairing_image.render_retired_image(legacy)).hexdigest()
     assert out[1] == retired
     assert retired == RETIRED_GOLDEN_SHA256
+
+
+def test_pairing_screen_is_byte_identical_to_its_pinned_hash(
+    legacy: hardware.HardwareProfile,
+) -> None:
+    """The pairing code is read up close and typed by hand: the calm status
+    restyle must not touch this screen."""
+    shown = hashlib.sha256(pairing_image.render_pairing_image(legacy, FAKE_CODE)).hexdigest()
+    assert shown == PAIRING_GOLDEN_SHA256
 
 
 def _ink_rows(data: bytes, profile: hardware.HardwareProfile) -> list[tuple[int, int, int]]:

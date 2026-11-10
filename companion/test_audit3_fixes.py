@@ -123,7 +123,8 @@ def _look_images(view):
     import re
     from companion.pages import config_page
     rendered = config_page.render(
-        {"device_config": {"theme": "blue"}}, scope=config_page.SCOPE_DISPLAY, view=view)
+        {"device_config": {"theme": "blue", "layout": "classic"}}, scope=config_page.SCOPE_DISPLAY,
+        view=view)
     return re.findall(r'<img class="look-frame__image"[^>]*>', rendered), rendered
 
 
@@ -140,6 +141,8 @@ def test_the_small_look_pictures_are_only_for_a_page_without_a_script():
     import re
     _images, rendered = _look_images("departures")
     bare = re.sub(r"<noscript>.*?</noscript>", "", rendered, flags=re.S)
+    # The Layout card's pictures are the picker itself, shown with or without a script.
+    bare = re.sub(r'<section class="layout-card".*?</section>', "", bare, flags=re.S)
     assert "look-pick__preview" not in bare
     assert rendered.count('<noscript><img class="look-pick__preview"') >= 10
 

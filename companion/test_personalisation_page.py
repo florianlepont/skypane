@@ -81,6 +81,9 @@ def rig(tmp_path):
     }
     for state in state_dirs.values():
         os.makedirs(state, exist_ok=True)
+    # These tests cover the classic look picker; the giant layouts' pairing
+    # picker has its own tests.
+    device_config.save_device_config(state_dirs[fleet.owner_device], layout="classic")
     yield Rig(state_dir, server, fleet, cookies, state_dirs)
     server.stop()
 
@@ -147,6 +150,8 @@ def test_the_title_the_nav_and_each_view_come_in_order(rig, who):
     for position, view in enumerate(VIEW_PATHS):
         root = parse_html(_display(rig, who, view=view))
         assert root.select_one("h1.page-title").text() == "Style"
+        card = root.select("#personalisation-layout")
+        assert len(card) == 1 and card[0].attrs["data-dirty-section"] == "Layout"
         nav = root.select_one("nav.personalisation-nav")
         assert nav.attrs["aria-label"] == "Style sections"
         links = nav.select("a")
@@ -178,7 +183,8 @@ def test_the_look_view_names_the_saved_look_and_only_the_look_picker_is_on_it(ri
 
 def test_the_page_speaks_french(rig):
     expected = {
-        "departures": "Allure", "arrivals": "Allure", "special-looks": "Allures spéciales",
+        "departures": "Allure", "arrivals": "Allure",
+        "special-looks": "Allures spéciales",
         "calendar": "Calendrier"}
     for view, title in expected.items():
         page = _display(rig, lang="fr", view=view)
@@ -193,7 +199,7 @@ def test_the_page_speaks_french(rig):
 def test_the_look_cards_are_native_radios_with_a_preview_and_a_selected_word(rig):
     _seed(rig)
     root = parse_html(_display(rig))
-    grid = root.select_one("div.look-pick__grid")
+    grid = root.select_one("#personalisation-look div.look-pick__grid")
     assert grid.attrs["role"] == "radiogroup"
     cards = grid.select("label")
     radios = [c.select_one("input") for c in cards]
@@ -328,8 +334,8 @@ def test_personalisation_holds_no_place_runway_time_zone_or_quiet_hours_control(
     cards = [
         c for root in roots.values() for c in root.select("div.personalisation__view > section")]
     assert [c.attrs["id"] for c in cards] == [
-        "personalisation-look", "personalisation-look", "personalisation-special-looks",
-        "personalisation-calendar"]
+        "personalisation-look", "personalisation-look",
+        "personalisation-special-looks", "personalisation-calendar"]
     titles = [c.select_one("h2").text() for c in cards]
     for word in FORBIDDEN_WORDS[lang]:
         assert word not in titles, (word, titles)

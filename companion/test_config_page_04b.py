@@ -303,7 +303,7 @@ def test_aspect_scoped_render_carries_hidden_fields_and_omits_other_groups():
     assert display.count('<h1 class="page-title">Style</h1>') == 1, (
         "expected the Style page title")
     assert device.count('<h1 class="page-title">Device</h1>') == 1, "expected the Device page title"
-    rules_row_marker = 'data-look-usage="%s"' % config_page.COLOUR_USAGE_RULES
+    rules_row_marker = 'name="rule_theme_id"'
     assert rules_row_marker in config_page.render(
         ctx, scope=config_page.SCOPE_DISPLAY, view="special-look-new"), (
         "expected the rules editor on the new special look page (D-11)")

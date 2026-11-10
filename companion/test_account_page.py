@@ -124,7 +124,7 @@ def _admin_post_paths():
 
 FRAME_PAGES_FOR_FRAMELESS = (
     "/", "/display", "/flights", "/airlines", "/detection",
-    "/settings", "/history", "/preview", "/display/screen", "/health", "/device", "/update")
+    "/settings", "/history", "/preview", "/display/screen", "/display/layout", "/health", "/device", "/update")
 
 
 def test_every_admin_get_is_the_same_404_as_an_unknown_path(server, user_cookie):

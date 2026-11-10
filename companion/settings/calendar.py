@@ -23,7 +23,7 @@ from server import device_config
 from server.plane import calendar_rules
 
 from companion import theme_preview
-from companion.settings import look
+from companion.settings import layout_picker
 from companion.settings.form import SETTINGS_FORM_ID, _submitted_or_current
 from companion.settings.theme import (
     COLOUR_USAGE_CALENDAR, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_ARIA_TEMPLATE,
@@ -481,10 +481,10 @@ CALENDAR_TAG = i18n.msg("look.calendar", "Calendar")
 CALENDAR_ROW_TITLE = i18n.msg("look.flights_in_your_calendar", "Look of calendar flights")
 
 
-def special_mini_html(theme_id, opener_label=None):
+def special_mini_html(theme_id, opener_label=None, layout_id=None):
     """The small framed render every Special looks row leads with. With
     `opener_label`, a script-revealed button over it opens the look
-    sheet for that row.
+    sheet for that row. `layout_id` makes the picture the frame's layout.
     """
     width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
     opener_html = ""
@@ -499,19 +499,20 @@ def special_mini_html(theme_id, opener_label=None):
     ) % (
         escape_html(theme_preview.frame_preview_src(
             theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
-            theme_preview.FRAME_PREVIEW_SIZE_SMALL)),
+            theme_preview.FRAME_PREVIEW_SIZE_SMALL, layout=layout_id)),
         width, height, opener_html)
 
 
 def calendar_special_row_html(
         departures_safe_id, current_calendar_theme_id, configured, drift,
         last_synced_at, last_attempt_at, now, entry_count,
-        errors=None, submitted=None, state_dir=None):
+        errors=None, submitted=None, state_dir=None, layout_id=None):
     """The calendar row of the Calendar list: a mini render of the look
     calendar flights get, its read-back and a "Change" link to the page that
     edits that look, preceded by the one-line connection status with its
     "Choose calendar" link. Returns the row's HTML; the connection verdict
-    lives in that status line only, never repeated in the row's meta.
+    lives in that status line only, never repeated in the row's meta. On a
+    giant layout the look is named by its pairing and pictured in that layout.
     """
     effective_calendar = _submitted_or_current(
         submitted, "calendar_theme_id", current_calendar_theme_id)
@@ -519,7 +520,7 @@ def calendar_special_row_html(
     picture_id = (
         departures_safe_id if same_checked or effective_calendar not in device_config.THEMES
         else effective_calendar)
-    sentence = i18n.t(SAME_AS_DEPARTURES_LABEL) if same_checked else look.look_sentence(picture_id)
+    sentence = i18n.t(SAME_AS_DEPARTURES_LABEL) if same_checked else layout_picker.look_label(picture_id, layout_id)
     usage_label = i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_CALENDAR])
     connection_html = _calendar_connection_html(
         configured, drift, last_synced_at, last_attempt_at, now, entry_count,
@@ -540,18 +541,29 @@ def calendar_special_row_html(
         '</div><div class="special-row__actions">%s</div></div>'
         "</li>"
     ) % (
-        connection_html, special_mini_html(picture_id),
+        connection_html, special_mini_html(picture_id, layout_id=layout_picker.preview_layout(layout_id)),
         escape_html(i18n.t(CALENDAR_TAG)), escape_html(i18n.t(CALENDAR_ROW_TITLE)),
         escape_html(sentence), change_html)
 
 
-def look_page_html(calendar_value, departures_id, errors, form_id, post_route, hidden_html):
+def look_page_html(
+        calendar_value, departures_id, errors, form_id, post_route, hidden_html, layout_id=None,
+        submitted=None):
     """The page that edits the calendar's look: the live picture and the
     picker (with a script) or the colour x style table of native radios
     (without), plus a "Same as departures" choice. One form posting to the
-    settings route with the `calendar_theme_id` field only. Returns (markup,
-    title)."""
+    settings route with the `calendar_theme_id` field only. On a giant layout
+    the picker is "Same as departures" and the five pairing cards instead.
+    Returns (markup, title)."""
     title = i18n.t(LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR])
+    if layout_picker.offers_pairings(layout_id):
+        return (
+            '<form class="look-page look-pairing-view" id="%s" method="post" action="%s" '
+            'data-calendar-look>%s%s</form>'
+        ) % (
+            escape_html(form_id), escape_html(device_scope.scoped(post_route, "POST")),
+            hidden_html,
+            layout_picker.calendar_look_html(layout_id, calendar_value, errors, submitted)), title
     frame = look_frame_html(
         COLOUR_USAGE_CALENDAR, calendar_value, departures_id, errors,
         theme_preview.FRAME_PREVIEW_STATE_DEPARTING, carries_departures=True)

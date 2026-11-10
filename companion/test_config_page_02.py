@@ -22,6 +22,7 @@ from companion.settings import form_post
 from companion_app_server import served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for, rule_indices
 from server import device_config
+from server.screen_layouts import DEFAULT_LAYOUT_ID
 
 
 @pytest.fixture(scope="module")
@@ -1561,7 +1562,7 @@ def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
         "theme": "black", "theme_arriving": None, "calendar_theme_id": None,
         "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False,
         "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True,
-        "wake_interval_s": None, "timezone": "Europe/Paris", "detection": None,
+        "wake_interval_s": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID,
     }, "on-disk config does not match the posted values: %r" % (on_disk,)
 
 

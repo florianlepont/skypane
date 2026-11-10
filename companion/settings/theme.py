@@ -89,14 +89,16 @@ def departures_safe_theme_id(current_theme_id, submitted):
 
 
 def look_target_attrs(
-        usage, field_name, state, size, follows_departures, title=None, departures_id=None):
+        usage, field_name, state, size, follows_departures, title=None, departures_id=None,
+        layout_id=None):
     """The data attributes the picker script reads off one look target:
     which radio group it owns, the preview URL pattern, and (for
     Arrivals/Calendar) that an empty value means "same as departures".
     `departures_id` is the departures theme, for a page that holds no
-    departures look of its own for the script to follow.
+    departures look of its own for the script to follow. `layout_id` makes the
+    preview URL pattern layout-aware.
     """
-    template = theme_preview.frame_preview_src(PREVIEW_THEME_TOKEN, state, size)
+    template = theme_preview.frame_preview_src(PREVIEW_THEME_TOKEN, state, size, layout=layout_id)
     attrs = (
         ' data-look-target data-look-usage="%s" data-look-field="%s"'
         ' data-preview-src-template="%s"'

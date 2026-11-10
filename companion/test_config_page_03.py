@@ -254,7 +254,7 @@ def test_render_submitted_theme_id_checked_even_when_differs_from_stored():
     """a submitted theme id is rendered as the CHECKED radio even when it differs from the
     stored theme"""
     rendered = config_page.render(
-        dict(_TASK2_BASE_CTX, device_config={"theme": "white", "tracked_runway": "3"}),
+        dict(_TASK2_BASE_CTX, device_config={"theme": "white", "tracked_runway": "3", "layout": "classic"}),
         submitted={"theme": "black"}, scope=config_page.SCOPE_DISPLAY)
     assert re.search(r'name="theme" value="black"[^>]*checked', rendered), (
         "expected the submitted theme (black) to render checked even though the stored theme is white")
@@ -447,7 +447,7 @@ def test_live_preview_crossfades_through_one_class_shared_by_css_and_js(served_c
     illustrates. `change` is when the selection genuinely changed.
     """
     rendered = config_page.render({
-        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "device_config": {"layout": "classic", "theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     templates = re.findall(r'data-preview-src-template="([^"]+)"', rendered)
@@ -459,9 +459,9 @@ def test_live_preview_crossfades_through_one_class_shared_by_css_and_js(served_c
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY, view="special-look-new")
     new_templates = re.findall(r'data-preview-src-template="([^"]+)"', new_look)
-    assert len(new_templates) == 1, (
-        "expected the new special look page to carry one look target, got %r" % (new_templates,))
-    templates += new_templates
+    assert new_templates == [] and "data-look-target" not in new_look, (
+        "expected the new special look page to carry no look target (the selected card is the "
+        "preview), got %r" % (new_templates,))
     for template in templates:
         assert template.startswith(config_page.FRAME_PREVIEW_ROUTE_PREFIX + "__THEME__.png?"), template
     js = cp.strip_js_line_and_block_comments(theme_preview_js)
@@ -630,7 +630,7 @@ def test_theme_chip_preview_src_points_at_the_real_route_prefix_for_every_theme(
     FRAME_PREVIEW_ROUTE_PREFIX + its own registry id, departing state and large size, and the
     big departures picture's <img src> is that same URL for the saved theme"""
     rendered = config_page.render({
-        "device_config": {"theme": "blue", "tracked_runway": "3"},
+        "device_config": {"layout": "classic", "theme": "blue", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     start, end = cp.aspect_usage_row_bounds(rendered, config_page.COLOUR_USAGE_DEPARTURES)
@@ -708,7 +708,7 @@ def test_aspect_arrivals_override_preselects_the_override_not_same_as_departures
     picture, and leaves the calendar row's own Same-as-departures state unaffected in the same
     render"""
     rendered = config_page.render({
-        "device_config": {
+        "device_config": {"layout": "classic", 
             "theme": "white", "tracked_runway": "3", "theme_arriving": "black"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
@@ -1167,7 +1167,7 @@ def test_aspect_card_full_shape_checklist():
     calendar row, the "New special look" link to the page holding the rules add form, the hidden
     look sheet (a labelled, modal dialog), and none of the retired accordion markup"""
     rendered = config_page.render({
-        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "device_config": {"layout": "classic", "theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     root = parse_html(rendered)
@@ -1333,7 +1333,7 @@ def test_rules_row_carries_pill_badge_and_confirmed_remove_dialog(tmp_path):
         str(tmp_path), "callsign", "AFR1234", "green_light", now="2026-01-01T00:00:00+00:00")
     assert result == colour_rules.ADD_OK_NEW, "test setup failure: add_rule() returned %r" % (result,)
     rendered = config_page.render({
-        "device_config": {"theme": "white", "tracked_runway": "3"},
+        "device_config": {"theme": "white", "tracked_runway": "3", "layout": "classic"},
         "colour_rules": colour_rules.load_colour_rules(str(tmp_path)),
         "now": "2026-01-02T00:00:00+00:00",
     }, scope=config_page.SCOPE_DISPLAY)

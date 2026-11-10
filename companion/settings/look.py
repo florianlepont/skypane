@@ -19,7 +19,7 @@ import json
 
 from companion import device_scope, i18n
 from companion.layout import escape_html
-from server import device_config, panel_format, themes
+from server import device_config, pairings, panel_format, themes
 
 from companion.settings.form import SETTINGS_FORM_ID
 
@@ -174,6 +174,15 @@ def offered_theme_ids(device=None):
     if device is None:
         return device_config.THEME_IDS
     return themes.themes_for_inks(device_scope.profile_for(device).inks)
+
+
+def offered_pairing_ids(device=None):
+    """Pairing ids (grey, light blue, light red, light yellow, white) the
+    device's hardware profile can show, in pairing order. A pairing is a
+    theme id, so the profile filter is `offered_theme_ids()` itself.
+    """
+    offered = set(offered_theme_ids(device))
+    return tuple(pairing_id for pairing_id in pairings.PAIRINGS if pairing_id in offered)
 
 
 def _cells(theme_ids=None):

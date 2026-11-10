@@ -16,12 +16,11 @@ from companion.layout import csrf_field, escape_html
 from server import device_config, history_db
 from server.plane import colour_rules, enrich, name_overrides
 
-from companion.settings import look
+from companion.settings import layout_picker
 from companion.settings.calendar import special_mini_html
 from companion.settings.form import (
     _field_error_attrs, _field_error_html, _submitted_or_current)
-from companion.settings.theme import (
-    COLOUR_USAGE_RULES, LOOK_SAVE_LABEL, look_target_attrs)
+from companion.settings.theme import COLOUR_USAGE_RULES, LOOK_SAVE_LABEL
 
 
 # The per-flight colour-rules editor's routes. Add and delete are
@@ -49,9 +48,6 @@ RULE_EDIT_ARIA = i18n.msg("rules.edit_rule_aria", "Edit the special look for %s"
 SPECIAL_LOOKS_BACK_LABEL = SPECIAL_LOOKS_HEADING
 SPECIAL_LOOKS_EMPTY_HEADING = i18n.msg(
     "display.special_looks_none", "No special looks yet.")
-RULE_PREVIEW_TEXT = i18n.msg(
-    "look.matching_flights_will_look_like_this",
-    "Matching flights will look like this.")
 RULE_LOOK_LABEL = i18n.msg("look.look", "Look")
 # Owned by companion/i18n_fr/display.py, not this module's own
 # rules.py catalogue — shared segmented-control copy that predates the
@@ -179,14 +175,30 @@ def _rule_fixed_key_html(kind, value):
         escape_html(_rule_kind_label_text(kind)), escape_html(value))
 
 
+def _rule_look_picker_html(layout_id, selected_theme_id, saved_theme_id, errors):
+    """The look choice of the rule form, the same large look cards the
+    Departures and Arrivals views show: on a giant layout the five pairing
+    cards (a stored theme that is not one shows the pairing it maps to); on the
+    classic layout one card per theme the hardware can show. The selected card
+    is the preview."""
+    state = theme_preview.FRAME_PREVIEW_STATE_DEPARTING
+    if layout_picker.offers_pairings(layout_id):
+        return layout_picker.pairing_group_html(
+            "rule_theme_id", selected_theme_id, saved_theme_id, COLOUR_USAGE_RULES, layout_id,
+            state, None, errors)
+    return layout_picker.theme_group_html(
+        "rule_theme_id", selected_theme_id, saved_theme_id, COLOUR_USAGE_RULES, state, None,
+        errors)
+
+
 def rule_form_html(ctx, edit=None, errors=None, submitted=None):
-    """The page that creates or edits one rule: the picture on the left, the
-    options on the right, one `<form>` posting to `RULES_ADD_ROUTE` with the
-    unchanged `rule_kind`/`rule_key`/`rule_theme_id` fields (the route replaces
-    a rule that already exists). `edit` is (kind, key, theme_id) of the rule
-    being edited, or None for a new one. Its look is the same colour x style
-    table of native radios the pictures use (scripts swap in the three-choice
-    picker over it); the picture follows the choice.
+    """The page that creates or edits one rule: one column holding the "Applies
+    to" summary and the Look section of large look cards, in one `<form>`
+    posting to `RULES_ADD_ROUTE` with the unchanged
+    `rule_kind`/`rule_key`/`rule_theme_id` fields (the route replaces a rule
+    that already exists). `edit` is (kind, key, theme_id) of the rule being
+    edited, or None for a new one. The cards are native radios, so the form
+    saves with scripts blocked.
 
     Validation errors render under each field, keeping the typed value.
     Returns (form markup, title, submit label).
@@ -206,41 +218,21 @@ def rule_form_html(ctx, edit=None, errors=None, submitted=None):
             _rule_kind_segment_html(selected_kind, errors),
             _rule_value_field_html(submitted_value, errors),
             _rule_suggestion_chips_html(ctx.state_dir))
-    picture_id = (
-        selected_theme_id if selected_theme_id in device_config.THEMES
-        else device_config.DEFAULT_THEME_ID)
-    state = theme_preview.FRAME_PREVIEW_STATE_DEPARTING
-    small = theme_preview.FRAME_PREVIEW_SIZE_SMALL
-    large = theme_preview.FRAME_PREVIEW_SIZE_LARGE
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[large]
-    table_html = look.look_table_html(
-        "rule_theme_id", selected_theme_id, i18n.t(title),
-        lambda theme_id: theme_preview.frame_preview_src(theme_id, state, small),
-        form_id=None)
+    layout_id = layout_picker.frame_layout_id(ctx.device_config)
+    look_html = _rule_look_picker_html(
+        layout_id, selected_theme_id, edit[2] if edit is not None else None, errors)
     form_html = (
-        '<form method="post" action="%s" id="%s" class="form-page rule-add-form" '
-        'data-special-form%s>'
-        '<div class="form-page__preview"><div class="look-frame__anchor">'
-        '<div class="look-frame__picture"><img class="look-frame__image" data-look-image '
-        'src="%s" width="%d" height="%d" alt=""></div></div>'
-        '<p class="form-page__caption"><span class="form-page__name">%s</span>'
-        '<span class="form-page__sentence">%s</span></p></div>'
+        '<form method="post" action="%s" id="%s" class="form-page form-page--single rule-add-form" '
+        'data-special-form>'
         '<div class="form-page__card">%s'
         '<div class="form-page__section">'
-        '<p class="look-axis__label" id="%s">%s</p>'
-        '<div data-look-axes-host hidden>%s</div>'
-        '<div data-look-table-host>%s</div>%s</div></div>'
+        '<p class="look-axis__label" id="%s">%s</p>%s</div></div>'
         "</form>"
     ) % (
         escape_html(device_scope.scoped(RULES_ADD_ROUTE, "POST")), RULE_FORM_ID,
-        look_target_attrs(COLOUR_USAGE_RULES, "rule_theme_id", state, large, False),
-        escape_html(theme_preview.frame_preview_src(picture_id, state, large)), width, height,
-        escape_html(i18n.t(title)), escape_html(i18n.t(RULE_PREVIEW_TEXT)),
         who_html,
         escape_html(RULE_THEME_HEADING_ID), escape_html(i18n.t(RULE_LOOK_LABEL)),
-        look.axes_html("rule_look"),
-        table_html,
-        _field_error_html(errors, "rule_theme_id", "rule-theme"),
+        look_html,
     )
     return form_html, i18n.t(title), i18n.t(submit_text)
 
@@ -356,7 +348,7 @@ def _rule_remove_html(kind, value):
     return trigger, dialog
 
 
-def _rule_row_html(kind, value, theme_id):
+def _rule_row_html(kind, value, theme_id, layout_id=None):
     """One `<li class="special-row rule-row">`: a mini render of the
     rule's look, its kind tag, key and read-back, and a Remove link that
     opens the confirm dialog (a hash link, so it works without script).
@@ -373,22 +365,22 @@ def _rule_row_html(kind, value, theme_id):
         '<p class="special-row__meta rule-row__theme">%s</p></div>'
         '<div class="special-row__actions">%s%s</div></div>%s</li>'
     ) % (
-        special_mini_html(theme_id),
+        special_mini_html(theme_id, layout_id=layout_picker.preview_layout(layout_id)),
         escape_html(_rule_kind_label_text(kind)),
         _rule_title_html(kind, value),
-        escape_html(look.look_sentence(theme_id)),
+        escape_html(layout_picker.look_label(theme_id, layout_id)),
         edit_html, trigger, dialog,
     )
 
 
-def _rule_list_html(rows):
+def _rule_list_html(rows, layout_id=None):
     """One `.rule-row` per rule. `colour_rules.rule_rows()` already
     orders rows most-specific first (callsign, then hex, then prefix)
     and alphabetically within each kind, so no re-sort is needed here.
     Returns "" for an empty list.
     """
     return "".join(
-        _rule_row_html(kind, value, theme_id)
+        _rule_row_html(kind, value, theme_id, layout_id)
         for kind, value, theme_id, _created_at in rows
         if kind in colour_rules.RULE_KINDS
         and colour_rules.normalise_rule_value(kind, value) == value)
@@ -409,7 +401,8 @@ def special_looks_html(ctx, calendar_row_html):
     ) % (
         escape_html(device_scope.scoped(layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE)),
         layout.icon_html("icon-plus"), escape_html(i18n.t(ADD_SPECIAL_LOOK_LABEL)))
-    rows_html = _rule_list_html(colour_rules.rule_rows(registry))
+    rows_html = _rule_list_html(
+        colour_rules.rule_rows(registry), layout_picker.frame_layout_id(ctx.device_config))
     empty_html = "" if rows_html else ui_components.empty_state(
         i18n.t(SPECIAL_LOOKS_EMPTY_HEADING), "", compact=True)
     return (

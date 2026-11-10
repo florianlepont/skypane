@@ -44,6 +44,8 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
 - [ ] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
+- [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 13 of 13 plans done; the owner confirmed the real-panel check and kept layout B as the default, 2026-11-10)
+- [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 
 ## Phase Details
 
@@ -590,6 +592,61 @@ Plans:
 **Notes**: The extent of the structural change (how far navigation and pages may move, and whether the existing companion architecture stays as is) is settled in discuss-phase; no new runtime dependency is assumed. SEED-011 (distinct message for an unverified email) is absorbed by UX-04. SEED-012 (the admin invite creating the Auth0 account) stays an owner decision and is not part of this phase unless the owner brings it in. Phase 44 of v1.1 is the model for the walkthrough method.
 **UI hint**: yes
 
+### Phase 62: Plane Screen Redesign (giant-lettering design)
+
+**Goal**: The e-ink plane screens read from 2-3 m: the destination is set in giant lettering behind the aircraft, a diagonal band and a per-state colour carry the mode, and the generic status screens share one calm layout, in portrait (1200x1600) and landscape (800x480), without changing a pixel of the current layout until the owner chooses.
+**Depends on**: Phase 56 (per-hardware rendering, closed). Runs before Phase 59, which stays last. Touches no file of Phase 47, 47.1 or `hardware/`.
+**Requirements**: PSR-01, PSR-02, PSR-03, PSR-04, PSR-05, PSR-06, PSR-07, PSR-08, PSR-09
+**Source**: `.planning/notes/plane-screen-design-brief.md` (mock-ups in `.planning/notes/plane-screen-design-brief/`, scripts in `design-exploration/plane-screen/`).
+**Open decisions** (settled in discuss-phase): the three aircraft layouts (A nose and tail, B whole aircraft, C band) and the default; the arrival colour; the status screens in landscape; the real-panel contrast; vendoring the Anton font.
+
+Plans: 13 plans in 7 waves
+- [x] 62-01-PLAN.md - Anton vendoring, pairing registry, giant package skeleton (wave 1)
+- [x] 62-02-PLAN.md - layout ids and the per-frame layout device-config key (wave 1)
+- [x] 62-03-PLAN.md - automatic destination splitter (wave 2)
+- [x] 62-04-PLAN.md - aircraft crop points and placement (wave 2)
+- [x] 62-05-PLAN.md - stretched binary lettering, pairing fields, giant palette check (wave 3)
+- [x] 62-06-PLAN.md - portrait layouts B, A, A+diagonal, dispatch, poll-cycle threading (wave 4)
+- [x] 62-07-PLAN.md - layout C and the landscape family (wave 5)
+- [x] 62-08-PLAN.md - seven calm status screens, portrait and landscape (wave 5)
+- [x] 62-10-PLAN.md - layout-aware previews and render CLI option (wave 5)
+- [x] 62-09-PLAN.md - regenerated firmware masks, host tests (wave 6)
+- [x] 62-11-PLAN.md - companion Layout view, pairing picker, EN/FR (wave 6)
+- [x] 62-12-PLAN.md - giant golden manifest and docs (wave 6)
+- [x] 62-13-PLAN.md - owner real-panel check and handoff (wave 7, checkpoint)
+
+### Phase 63: Fast CI
+
+**Goal**: The `Lint, test, coverage, attribution` check finishes in 10 minutes or less (it takes about 27 minutes today) with every test still running and every existing guard still enforced.
+**Depends on**: Nothing. Runs alongside Phase 61 and Phase 62, and never modifies a Phase 61 test file without the owner's agreement. Touches no file of Phase 47 or `hardware/`, and leaves the production deploy job and its approval step as they are.
+**Requirements**: CIS-01, CIS-02, CIS-03, CIS-04, CIS-05
+**Baseline** (measured 2026-11-10, run 42770577886 and a local 4-core run; the runner has 4 xdist workers):
+- Job 27.5 min, of which the pytest step is 26.5 min and everything else (setup, Playwright, ruff, mypy, guards) about 1 min. 12,821 tests.
+- Browser tests: about 2,800 tests, 17 min 47 s alone on 4 cores (70 min of summed test time). One file, `companion/test_browser_overhaul_sweep.py`, is 739 tests and 11 min summed; `test_browser_components_page.py` is 59 tests and 7.8 min summed.
+- Everything else: about 10,900 tests in 9 min 40 s on 4 cores.
+- Three firmware size-bound tests take about 51 s each; `server/test_golden_giant_render.py` has one test of 22 s.
+- xdist scales almost linearly (3,757-test subset: 478 s with 1 worker, 244 s with 2, 134 s with 4, 120 s with 8). Coverage costs about 1% on server tests and about 12% on browser tests.
+**Success criteria** (what must be TRUE):
+1. The median wall time of the CI test checks over five consecutive pull-request runs is 10 minutes or less.
+2. The number of executed tests is at least 12,821 and no test is skipped, deselected, quarantined or marked slow-optional to get there.
+3. Coverage from every job is combined and the existing `fail_under` floor is applied unchanged to the combined result.
+4. A missing browser still fails CI, the non-loopback network guard stays on in every job, and `companion/test_suite_guards.py` is unchanged and green.
+5. The `deploy` job, its `production` environment approval and its dependency on the test result are unchanged.
+**Plan outline** (detailed plans are made in plan-phase):
+- Split the job into parallel jobs: static checks, non-browser tests, and browser tests in shards; a final aggregate job that keeps the current required check name, combines coverage and applies the floor.
+- Make the slowest non-browser tests cheaper without dropping cases.
+- Reduce the cost of the large browser sweep and components-page files by agreement with the owner and with Phase 61.
+- Record before and after timings in the documentation.
+**Must not break**: every item in success criteria 2-5, plus local `./scripts/run-all-tests.sh` as the single entry point that matches CI.
+
+Plans: 6 plans in 5 waves
+- [x] 63-01-PLAN.md - timing script, baseline record, group and shard tooling, partial-run knobs (wave 1)
+- [x] 63-02-PLAN.md - split ci.yml into parallel jobs with an aggregate check, combined coverage floor, totals gate (wave 2)
+- [x] 63-03-PLAN.md - matrix shards, 5 browser and 2 non-browser, balanced from measured file times (wave 3)
+- [x] 63-04-PLAN.md - cheaper slow firmware and golden-render tests, nothing dropped (wave 3)
+- [x] 63-05-PLAN.md - owner decision on the two large browser files Phase 61 also touches: left unchanged (wave 4, checkpoint)
+- [x] 63-06-PLAN.md - five green runs, before and after record, documentation (wave 5)
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -608,3 +665,5 @@ Plans:
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
+| 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 13/13 | Complete | 2026-11-10 |
+| 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |

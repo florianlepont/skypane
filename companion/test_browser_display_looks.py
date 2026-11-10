@@ -255,18 +255,20 @@ def test_save_bar_persists_the_new_look_and_same_as_departures(new_context, make
 
 
 def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_server):
-    """with scripts, "New special look" opens a page (no dialog) whose table gives way to the
-    three choices; a suggestion fills the key, the choices pick the theme, the picture follows,
-    and Save in the floating bar adds the rule with that look; Cancel returns to the list"""
+    """"New special look" opens a page (no dialog) of large look cards with no separate
+    picture; a suggestion fills the key, a card picks the theme (and is the preview), and Save in
+    the floating bar adds the rule with that look; Cancel returns to the list"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
         new_context, server.base_url(), VIEWPORT_DESKTOP, route=layout.DISPLAY_SPECIAL_LOOKS_ROUTE)
+    cards = "form#special-look-form label.look-pick__card"
     try:
         with page.expect_navigation():
             page.click(".special-add__summary")
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE
-        page.locator("[data-look-axes-host]").wait_for(state="visible")
-        assert not page.locator("[data-look-table-host]").is_visible()
+        page.locator(cards).first.wait_for(state="visible")
+        assert page.locator(
+            "[data-look-axes-host], .look-frame__image, .form-page__preview").count() == 0
         assert page.locator("dialog[open]").count() == 0
         with page.expect_navigation():
             page.click(".dirty-bar a.dirty-bar__cancel")
@@ -274,21 +276,12 @@ def test_add_a_special_look_is_a_page_that_posts_a_rule(new_context, make_app_se
         page.locator(".special-add__summary").wait_for(state="visible")
         with page.expect_navigation():
             page.click(".special-add__summary")
-        page.locator("[data-look-axes-host]").wait_for(state="visible")
+        page.locator(cards).first.wait_for(state="visible")
         page.click('label[for="rule-kind-prefix"]')
         page.click('.rule-suggestion-chip[data-kind="prefix"]')
         assert page.input_value("#rule-key") == "AFR"
-        host = "[data-look-axes-host]"
-        assert all(
-            node.is_disabled() for node in page.locator(host + ' input[data-look-axis="colour"]').all())
-        page.click('%s .look-seg__option:has(input[data-look-axis="background"][value="full"])' % host)
-        page.click('%s .look-dot:has(input[value="blue"])' % host)
-        page.click('%s .look-seg__option:has(input[data-look-axis="background"][value="paper"])' % host)
-        page.click('%s .look-seg__option:has(input[data-look-axis="stripe"][value="soft"])' % host)
+        page.click(cards + ':has(input[value="band_blue_light"])')
         assert _checked(page, "rule_theme_id") == "band_blue_light"
-        page.wait_for_function(
-            "() => document.querySelector('.look-frame__image').getAttribute('src')"
-            ".startsWith('/frame-preview/band_blue_light.png')")
         with page.expect_navigation():
             page.click('.dirty-bar button[type="submit"]')
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOKS_ROUTE
@@ -310,18 +303,20 @@ def test_edit_a_special_look_is_a_page_that_replaces_the_rule(new_context, make_
         with page.expect_navigation():
             page.click('li.rule-row a.special-row__edit[href$="rule_key=TVF"]')
         assert urlsplit(page.url).path == layout.DISPLAY_SPECIAL_LOOK_EDIT_ROUTE
-        assert page.locator(".form-page__name").inner_text() == "Edit special look"
+        assert page.locator(".dirty-bar__message").inner_text() == "Edit special look"
         assert page.input_value('input[name="rule_key"]') == "TVF"
         assert _checked(page, "rule_theme_id") == "white"
-        page.locator("[data-look-axes-host]").wait_for(state="visible")
-        page.click('[data-look-axes-host] .look-seg__option:has(input[data-look-axis="background"][value="full"])')
-        page.click('[data-look-axes-host] .look-dot:has(input[value="red"])')
+        assert page.locator(
+            ".form-page__preview, .form-page__caption, [data-look-axes-host], .look-frame__image"
+        ).count() == 0
+        page.click('form#special-look-form label.look-pick__card:has(input[value="green_light"])')
+        assert _checked(page, "rule_theme_id") == "green_light"
         with page.expect_navigation():
             page.click('.dirty-bar button[type="submit"]')
         rows = [row[:3] for row in colour_rules.rule_rows(
             colour_rules.load_colour_rules(server.state_dir))]
         tvf = [row for row in rows if row[:2] == ("prefix", "TVF")]
-        assert len(tvf) == 1 and tvf[0][2] != "white"
+        assert len(tvf) == 1 and tvf[0][2] == "green_light"
     finally:
         context.close()
 
@@ -410,23 +405,22 @@ def test_desktop_layout_has_no_overflow_and_44px_targets(new_context, make_app_s
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
 def test_the_new_special_look_page_fits_a_phone(new_context, make_app_server, viewport):
-    """on a phone the New special look page is one column with its picture beside its caption, the
-    Save button is in a bar floating above the tab bar and on screen without scrolling, and
-    nothing overflows"""
+    """on a phone the New special look page is one column of large look cards with no separate
+    picture, the Save button is in a bar floating above the tab bar and on screen without
+    scrolling, every card is at least 44px tall, and nothing overflows"""
     server = make_app_server(seed=_seed)
     context, page = _open_display(
         new_context, server.base_url(), viewport, route=layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE)
     try:
-        page.locator("[data-look-axes-host]").wait_for(state="visible")
+        page.locator("form#special-look-form label.look-pick__card").first.wait_for(state="visible")
         page.wait_for_function(
             "() => document.readyState === 'complete' && document.getAnimations().every("
             "a => a.playState !== 'running')", timeout=10000)
-        preview = page.locator(".form-page__preview").bounding_box()
+        assert page.locator(".form-page__preview, .form-page__caption").count() == 0
         card = page.locator(".form-page__card").bounding_box()
-        assert preview["y"] + preview["height"] <= card["y"] + 0.5, (preview, card)
-        picture = page.locator(".form-page__preview .look-frame__picture").bounding_box()
-        caption = page.locator(".form-page__caption").bounding_box()
-        assert picture["x"] + picture["width"] <= caption["x"] + 0.5, (picture, caption)
+        first = page.locator("form#special-look-form label.look-pick__card").first.bounding_box()
+        assert first["x"] >= card["x"] - 0.5 and first["x"] + first["width"] <= card["x"] + card["width"] + 0.5
+        assert first["height"] >= 44 - 0.5
         bar = page.locator(".dirty-bar").bounding_box()
         tab = page.locator(".tab-bar").bounding_box()
         assert bar["y"] >= 0 and bar["y"] + bar["height"] <= tab["y"] + 0.5, (bar, tab)

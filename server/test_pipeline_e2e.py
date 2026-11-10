@@ -61,6 +61,7 @@ import server.device_config as device_config  # noqa: E402
 import server.panel_format as panel_format  # noqa: E402
 import server.plane.render as render  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
+from server import screen_layouts  # noqa: E402
 from skypane_test_support import child_env  # noqa: E402
 
 
@@ -405,7 +406,7 @@ def test_full_pipeline_end_to_end_through_the_real_device_protocol(tmp_path, fak
     with open(panel_path, "rb") as fh:
         panel_parked_1 = fh.read()
     expected_hash = hashlib.sha256(
-        panel_format.pack_panel(render.build_canvas(None, "battery_empty"))
+        panel_format.pack_panel(render.build_canvas(None, "battery_empty", layout=screen_layouts.DEFAULT_LAYOUT_ID))
     ).hexdigest()
     assert hashlib.sha256(panel_parked_1).hexdigest() == expected_hash, (
         "panel.bin after the park does not equal pack_panel(build_canvas(None, 'battery_empty'))"

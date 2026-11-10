@@ -89,6 +89,7 @@ import server.plane.colour_rules as colour_rules  # noqa: E402
 import server.plane.enrich as enrich  # noqa: E402
 import server.plane.manual_resolutions as manual_resolutions  # noqa: E402
 import server.state_store as state_store  # noqa: E402
+from server import screen_layouts  # noqa: E402
 from server import history_db  # noqa: E402
 from skypane_test_support import requires_non_root  # noqa: E402
 
@@ -897,6 +898,9 @@ def test_default_config_byte_identity(tmp_path):
     # informational note - see _digest_verdict().
     digest_dir = _mkdir(tmp_path, "digest")
     try:
+        # The pinned digest is the classic picture; an unset layout renders
+        # the default (giant) layout.
+        device_config.save_device_config(digest_dir, layout="classic")
         poll_cycle.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=digest_dir, geofence=GEOFENCE_PATH)
         with open(os.path.join(digest_dir, "panel.bin"), "rb") as fh:
             data = fh.read()
@@ -1466,7 +1470,7 @@ def test_quiet_hours_panel_matches_expected_canvas(tmp_path, clock):
         with open(os.path.join(qh_dir, "panel.bin"), "rb") as fh:
             actual = fh.read()
         expected = poll_cycle.panel_format.pack_panel(
-            poll_cycle.render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00")
+            poll_cycle.render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", layout=screen_layouts.DEFAULT_LAYOUT_ID)
         )
         if actual != expected:
             pytest.fail("panel.bin does not equal panel_format.pack_panel(render.build_canvas(None, 'quiet_hours', quiet_hours_until='07:00'))")
@@ -1591,7 +1595,7 @@ def test_display_off_entry_renders_once_and_matches_canvas(tmp_path, clock):
         with open(os.path.join(off_dir, "panel.bin"), "rb") as fh:
             actual = fh.read()
         expected = poll_cycle.panel_format.pack_panel(
-            poll_cycle.render.build_canvas(None, "display_off")
+            poll_cycle.render.build_canvas(None, "display_off", layout=screen_layouts.DEFAULT_LAYOUT_ID)
         )
         if actual != expected:
             pytest.fail("panel.bin does not equal panel_format.pack_panel(render.build_canvas(None, 'display_off'))")
@@ -1679,7 +1683,7 @@ def test_display_off_wins_over_active_quiet_hours_window(tmp_path, clock):
         with open(os.path.join(overlap_dir, "panel.bin"), "rb") as fh:
             actual = fh.read()
         expected = poll_cycle.panel_format.pack_panel(
-            poll_cycle.render.build_canvas(None, "display_off")
+            poll_cycle.render.build_canvas(None, "display_off", layout=screen_layouts.DEFAULT_LAYOUT_ID)
         )
         if actual != expected:
             pytest.fail("panel.bin does not equal the DISPLAY OFF canvas while toggle-off overlaps an active quiet-hours window")
@@ -1816,7 +1820,7 @@ def test_legacy_poll_state_migrates_without_spurious_repaint(tmp_path, clock):
         # panel.bin is seeded to match what that old code would
         # have rendered for the same window, so a spurious repaint
         # is detectable as a byte change.
-        legacy_canvas = poll_cycle.render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00")
+        legacy_canvas = poll_cycle.render.build_canvas(None, "quiet_hours", quiet_hours_until="07:00", layout=screen_layouts.DEFAULT_LAYOUT_ID)
         legacy_bytes = poll_cycle.panel_format.pack_panel(legacy_canvas)
         with open(os.path.join(mig_dir, "panel.bin"), "wb") as fh:
             fh.write(legacy_bytes)
@@ -2697,7 +2701,7 @@ def test_battery_empty_entry_from_live_board_renders_and_skips_detection(tmp_pat
                 % (on_disk.get(poll_cycle.wake.BATTERY_CRITICAL_STATE_KEY),))
         with open(os.path.join(be_dir, "panel.bin"), "rb") as fh:
             actual = fh.read()
-        expected = poll_cycle.panel_format.pack_panel(poll_cycle.render.build_canvas(None, "battery_empty"))
+        expected = poll_cycle.panel_format.pack_panel(poll_cycle.render.build_canvas(None, "battery_empty", layout=screen_layouts.DEFAULT_LAYOUT_ID))
         if actual != expected:
             pytest.fail("panel.bin does not equal panel_format.pack_panel(render.build_canvas(None, 'battery_empty'))")
         return
@@ -2765,7 +2769,7 @@ def test_battery_empty_entry_from_existing_display_off_hold_repaints(tmp_path, c
             be_bytes = fh.read()
         if be_bytes == off_bytes:
             pytest.fail("panel.bin did not change when crossing from display_off into battery_empty")
-        expected = poll_cycle.panel_format.pack_panel(poll_cycle.render.build_canvas(None, "battery_empty"))
+        expected = poll_cycle.panel_format.pack_panel(poll_cycle.render.build_canvas(None, "battery_empty", layout=screen_layouts.DEFAULT_LAYOUT_ID))
         if be_bytes != expected:
             pytest.fail("panel.bin does not equal render.build_canvas(None, 'battery_empty') after the crossing")
         return
@@ -2900,7 +2904,7 @@ def test_battery_empty_recovery_with_display_off_repaints_display_off(tmp_path, 
                 % (result.get("state"),))
         if not result.get("panel_changed"):
             pytest.fail("recovery into display_off did not repaint: panel_changed=%r" % (result.get("panel_changed"),))
-        expected = poll_cycle.panel_format.pack_panel(poll_cycle.render.build_canvas(None, "display_off"))
+        expected = poll_cycle.panel_format.pack_panel(poll_cycle.render.build_canvas(None, "display_off", layout=screen_layouts.DEFAULT_LAYOUT_ID))
         with open(os.path.join(d, "panel.bin"), "rb") as fh:
             actual = fh.read()
         if actual != expected:

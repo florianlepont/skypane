@@ -29,7 +29,7 @@ def test_concurrent_cold_preview_writes_one_file_no_tmp_leftover(tmp_path, monke
     barrier = threading.Barrier(2, timeout=5)
     fixed_bytes = b"fixed-preview-bytes"
 
-    def fake_preview_png_bytes(theme_id, live_event=None):
+    def fake_preview_png_bytes(theme_id, live_event=None, layout=None):
         barrier.wait()
         return fixed_bytes
 
@@ -67,15 +67,15 @@ def test_stale_signature_pruned_unrelated_files_kept(tmp_path, monkeypatch):
 
     real_sig = theme_preview.preview_signature("white", None)
     stale_sig = "0" * 12 if real_sig != "0" * 12 else "1" * 12
-    stale_name = "white-sample-%s.png" % stale_sig
-    other_event_name = "white-5-%s.png" % theme_preview.preview_signature("white", 5)
-    other_theme_name = "black-sample-%s.png" % theme_preview.preview_signature("black", None)
+    stale_name = "white-sample-classic-%s.png" % stale_sig
+    other_event_name = "white-5-classic-%s.png" % theme_preview.preview_signature("white", 5)
+    other_theme_name = "black-sample-classic-%s.png" % theme_preview.preview_signature("black", None)
 
     for name in (stale_name, other_event_name, other_theme_name):
         with open(os.path.join(directory, name), "wb") as fh:
             fh.write(b"stale-or-unrelated")
 
-    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None: b"new-render")
+    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None, layout=None: b"new-render")
     result = theme_preview.cached_preview_bytes(state_dir, "white")
 
     assert result == b"new-render"
@@ -104,7 +104,7 @@ def test_cache_bound_evicts_oldest_first(tmp_path, monkeypatch):
         os.utime(path, (1_700_000_000 + i, 1_700_000_000 + i))
         prefill_names.append(name)
 
-    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None: b"new-render")
+    monkeypatch.setattr(theme_preview, "preview_png_bytes", lambda theme_id, live_event=None, layout=None: b"new-render")
     theme_preview.cached_preview_bytes(state_dir, "white")
 
     remaining_pngs = _pngs(directory)
@@ -136,7 +136,7 @@ def test_cache_hit_does_not_write_or_prune(tmp_path, monkeypatch):
     # A stale file that stale-signature pruning would remove on a miss -
     # its survival is this test's proof that a hit never prunes.
     stale_sig = "0" * 12 if theme_preview.preview_signature("white", None) != "0" * 12 else "1" * 12
-    stale_name = "white-sample-%s.png" % stale_sig
+    stale_name = "white-sample-classic-%s.png" % stale_sig
     with open(os.path.join(directory, stale_name), "wb") as fh:
         fh.write(b"would-be-pruned-on-a-miss")
 

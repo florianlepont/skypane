@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Browser checks of the Personalisation selector (Departures, Arrivals, Special looks, Calendar):
-one segmented control that fits a 360 px phone in English and French without scrolling sideways or
+"""Browser checks of the Personalisation selector (Departures, Arrivals, Layout, Special
+looks, Calendar): one segmented control that fits a 360 px phone in English and French without scrolling sideways or
 clipping a label, four 44px segments inside one track, exactly one current segment, a labelled
 navigation of plain links reachable and operable from the keyboard, and the Special looks and
 Calendar views as one group of rows with a dashed add row instead of a titled card.

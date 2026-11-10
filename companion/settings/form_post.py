@@ -32,7 +32,7 @@ from companion import i18n
 from companion import screens
 from companion.settings.form import _note_error
 from companion.settings.quiet_hours import CURATED_TIMEZONE_KEYS
-from server import device_config
+from server import device_config, screen_layouts
 from server.plane import calendar_rules
 
 
@@ -120,6 +120,17 @@ def resolve_theme(form, errors):
         return FAILED
     return {"theme": submitted_theme}
 
+
+def resolve_layout(form, errors):
+    """Layout: the submitted screen layout id's allow-list check. Absent
+    means unchanged; a value outside `screen_layouts.LAYOUT_IDS` is refused
+    without being echoed back.
+    """
+    submitted_layout = form.get("layout")
+    if submitted_layout is not None and submitted_layout not in screen_layouts.LAYOUT_IDS:
+        _note_error(errors, "layout", ERROR_INVALID_CHOICE)
+        return FAILED
+    return {"layout": submitted_layout}
 
 
 
