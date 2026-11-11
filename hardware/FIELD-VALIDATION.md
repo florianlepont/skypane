@@ -172,6 +172,18 @@ Effect on the figures. The average currents (8.63 mA at 900 s, 0.99 mA at 3600 s
 
 Reading. The higher counted-wake cost at 900 s widens the gap with run one and run two instead of narrowing it, so quiet hours do not explain why the cost of a wake is not constant. Limits: the 49.5 h window used for the counts is not the 40.5 h edge-median window of the tool; the currents are rough; the runs do not share a firmware (run one predates the Phase 34 work). The daytime-only mean at 900 s is higher than 8.63 mA because about 6.5 h of each day are spent asleep; it is not computed here.
 
+### Final reading of the 3600 s test, 2026-11-11
+
+Label: arithmetic by Claude with `hardware/logtools.py sleep-trend` on an export read on 2026-11-11 (last reading 16:01 UTC, 3892 mV), rated capacity 3000 mAh, rough curve; nothing here is a current measurement.
+
+- Window: from the first wake at 3600 s (2026-10-31, about 12:10 Paris) to the last reading, about 241 h, 242 wakes counted for 241 expected; 52 of those rows carry no battery reading and the cause was not looked into.
+- Average current from 2026-11-01 17:00 UTC to the last reading (233.5 h between end points, 3948 to 3892 mV): 1.29 mA, sensitivity 0.15 mA per 10 mV at the start end point and 0.30 mA at the end one. The later 119.5 h alone also gives 1.29 mA, with a wider sensitivity (about 0.5 mA per 10 mV), so the two windows agree.
+- Cost per counted wake, standing draw included: about 1.28 mAh.
+- Consequence (rated capacities, no self-discharge or ageing): about 97 days on the 3000 mAh pack and about 323 days on a 10000 mAh pack at 3600 s, against the 180-day allowance of 2.31 mA for 10000 mAh. This is the only interval measured that clears six months; intervals between 900 s and 3600 s were not measured.
+- What it does not establish: the new pack was not measured; the 1.29 mA includes this display's redraw cost, so it does not carry over to a smaller screen; the model with one fixed cost per wake still does not fit the 900 s and 3600 s results together (see the two-cadence analysis). Separating the standing draw from the wake energy needs the awake time per wake that Phase 47.1 records.
+
+Owner-reported (2026-11-11): the same small pack is likely to be reused on later frames with much smaller screens. That use is not covered by any figure in this document.
+
 ### Caveats
 
 - The discharge curve and the 3000 mAh are ratings, not measurements, and the top of the curve is its least reliable part.
