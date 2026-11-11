@@ -1,0 +1,100 @@
+/* SkyPane companion — sketch theme for the v1.3 photo screens (sketches
+   007-009). Tokens copied from the LIVE companion/static/style.css
+   (read 2026-11-11): graphite accent (ivory in dark), glass cards, sky
+   background, system sans only (no serif), radii 14/22/32. default.css
+   (the warm serif / orange accent snapshot) is left untouched for
+   sketches 001-006; the photo sketches link this file instead because
+   the shipped stylesheet has moved on from that snapshot.
+   Variables only. Shared component styles live in photo-shell.css. */
+
+:root {
+  --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px;
+  --space-xl: 32px; --space-2xl: 48px; --space-3xl: 64px;
+
+  --font-caption-size: 13px;
+  --font-label-size: 15px;
+  --font-body-size: 16px;
+  --font-heading-size: 22px;
+  --font-card-title-size: 17px;
+  --font-page-title-size: clamp(1.875rem, 1.55rem + 1.4vw, 2.125rem);
+  --weight-regular: 400;
+  --weight-semibold: 600;
+  --weight-title: 700;
+  --tracking-title: -0.03em;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Helvetica, Arial, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --radius-control: 14px;
+  --radius-card: 22px;
+  --radius-pill: 32px;
+  --radius-sheet: 28px;
+  --radius-chip: 9px;
+
+  --motion-fast: 180ms;
+  --tab-bar-h: 68px;
+
+  --sky-top: #E7EEF7; --sky-mid: #F1F3F6; --sky-bottom: #EDF1F6;
+  --glass-solid: #FFFFFF;
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(18, 21, 27, 0.06), 0 14px 32px -16px rgba(18, 21, 27, 0.22);
+  --bar-bg: rgba(255, 255, 255, 0.86);
+  --bar-border: #AEB8C8;
+  --bar-shadow: 0 1px 2px rgba(18, 21, 27, 0.2), 0 -4px 8px -4px rgba(18, 21, 27, 0.22);
+  --color-canvas: #F1F3F6;
+  --color-dominant: #FFFFFF;
+  --color-secondary: #E9EEF5;
+  --color-border: #DAE1EB;
+  --color-accent: #1F2430;
+  --color-accent-hover: #343B4D;
+  --color-on-accent: #FFFFFF;
+  --shadow-card: 0 1px 3px rgba(18, 21, 27, 0.06), 0 1px 2px rgba(18, 21, 27, 0.04);
+  --shadow-control: inset 0 1px 0 rgba(255, 255, 255, .14), 0 1px 2px rgba(18, 21, 27, .14);
+  --shadow-pop: 0 18px 48px rgba(18, 21, 27, 0.18), 0 4px 12px rgba(18, 21, 27, 0.08);
+  --color-text: #17191F;
+  --color-status-ok: #16A34A;
+  --color-status-warn: #D97706;
+  --color-status-error: #BE123C;
+  --color-switch-off: #7C8799;
+  --color-scrim: rgba(0, 0, 0, 0.5);
+  --seg-edge: color-mix(in srgb, var(--color-text) 20%, transparent);
+  --seg-selected-bg: var(--color-accent);
+  --seg-selected-fg: var(--color-on-accent);
+  --seg-idle-fg: color-mix(in srgb, var(--color-text) 70%, transparent);
+
+  --color-toast-bg: #1D2028; --color-toast-fg: #F4F1EC;
+  --color-toast-success: #4ADE80; --color-toast-info: #C3C9D4;
+  --color-toast-warning: #FBBF24; --color-toast-error: #FB7185; --color-toast-pending: #FF9A70;
+
+  /* Real Spectra 6 ink colours (server/panel_format.py PALETTE_RGB). */
+  --ink-black: #000000; --ink-white: #FFFFFF; --ink-yellow: #F0E050;
+  --ink-red: #A02020; --ink-blue: #2D5F9B; --ink-green: #326941;
+
+  --color-text-muted: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --sky-top: #12151D; --sky-mid: #161A24; --sky-bottom: #1A1F2B;
+  --glass-solid: #1C222D;
+  --glass-highlight: rgba(255, 255, 255, 0.18);
+  --shadow-glass: inset 0 1px 0 var(--glass-highlight), 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 32px -16px rgba(0, 0, 0, 0.55);
+  --bar-bg: rgba(20, 24, 34, 0.9);
+  --bar-border: #46506A;
+  --bar-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 -4px 8px -4px rgba(0, 0, 0, 0.6);
+  --color-canvas: #161A24;
+  --color-dominant: #151922;
+  --color-secondary: #1C222D;
+  --color-border: #2A3040;
+  --color-accent: #F2EFE9;
+  --color-accent-hover: #E2DED5;
+  --color-on-accent: #14171F;
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-pop: 0 18px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+  --color-text: #F1F3F6;
+  --color-status-ok: #4ADE80;
+  --color-status-warn: #FBBF24;
+  --color-status-error: #FB7185;
+  --color-switch-off: #6B7589;
+  color-scheme: dark;
+}
