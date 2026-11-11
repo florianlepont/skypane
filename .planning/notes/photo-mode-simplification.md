@@ -168,3 +168,37 @@ message on the real app (read from code only), and the real battery figures.
 
 Later, if wanted: "show photos during quiet hours" as an option of the same
 switch, and a frame kind at pairing when a second device exists.
+
+## Owner decisions of 2026-11-11 (after the real-companion demos)
+
+Adopted:
+- Photos is a segmented switch "Planes | Photos" in the Home page's Frame
+  group (beside Screen and Quiet hours), saved at once with the existing
+  "Applies at the next wake, around HH:MM" message. No pending state, no
+  Cancel, no banner on plane pages, no waiting screen. The Photos option is
+  offered only once the frame has a photo; deleting the last photo while it
+  is on puts the frame back on planes.
+- While Photos is on the frame wakes hourly, whatever the rotation.
+- v1.3 cuts: one shuffled order, Fill / Whole photo plus three position
+  choices instead of dragging, no photo on Home.
+- Menu: the "Flight history" tab is removed from the menu and the bottom
+  bar; the history stays reachable from the recent flights on Home (a
+  "All flights" link). Phone bar becomes Home, Photos, Location and
+  detection, Style; Airlines stays in More.
+
+Proposed, not objected to (confirm when the screens are built):
+- Quiet hours stay active and visible in photo mode (they still save the
+  night wakes, roughly a quarter of the photo-mode wake cost, derived and not
+  measured), with a caption: "In photo mode the frame sleeps through these
+  hours and the photo stays on the glass." Not greyed, not hidden.
+
+Findings from the demo to settle in the build (not yet decided):
+- The "around HH:MM" time uses the new setting's interval, not the interval
+  the frame is actually sleeping on; fixing it needs the last interval sent
+  to the frame remembered.
+- The fallback to planes after the last photo is deleted needs a visible
+  explanation on Home, not only on the Photos page.
+- Adjust page without scripts: saving without "Update preview" saves the
+  previewed framing; prefer one form with two buttons.
+- The Photos menu entry must be hidden for people who cannot open it (the
+  administrator gets a 404 today in the demo).
