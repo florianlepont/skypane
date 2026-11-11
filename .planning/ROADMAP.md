@@ -18,7 +18,7 @@ V1.1 begins by improving the companion through a task-based bilingual usability 
 - [x] **Phase 44: Companion Walkthrough and Focused Bilingual Polish** - Resolve the highest-value observed companion friction without a redesign. (completed 2026-10-04, owner-validated)
 - [x] **Phase 45: Controlled Second Discharge Study** - Produce reproducible, comparable alternate-cadence battery evidence.
 - [x] **Phase 46: Two-Run Battery Analysis and Operating Decision** - Derive the model and select the field cadence and pack policy.
-- [ ] **Phase 47: Integrated Field Validation and Decision Record** - Confirm the policy on the real frame and publish the operating baseline.
+- [x] **Phase 47: Integrated Field Validation and Decision Record** - Confirm the policy on the real frame and publish the operating baseline. Closed 2026-11-11: VAL-01 validated, VAL-02 recorded with the pack validation open, VAL-03 open on purpose.
 
 ## Phase Details
 
@@ -82,9 +82,9 @@ Plans:
 - [x] 47-01-PLAN.md — `logtools.py sleep-trend`: average current from the voltage fall of an owner export (first 24 h ignored, medians, quiet hours handled), printed against the 1.9 mA and 8.6 mA hypotheses and the 180-day allowances, fixed band keys, mandatory bias caveats, refusals, synthetic-data tests (wave 1)
 - [x] 47-02-PLAN.md — `logtools.py checkin-gaps`: healthy cadence against an expected interval with the Phase 45 gates, quiet-hours gaps set aside, `--skip-first-gaps` for display-off; battery-critical park evidence from run-two history and the existing precedence tests (wave 2)
 - [x] 47-03-PLAN.md — `hardware/PACK-ACCEPTANCE.md` (status NOT RECEIVED), `hardware/FIELD-VALIDATION.md` evidence skeleton, plain-French owner steps with one pinned export route (wave 1)
-- [ ] 47-04-PLAN.md — Owner's 900 s export run through `sleep-trend`; VAL-03 finding recorded by the fixed band mapping (wave 3, owner checkpoint, due about 2026-10-28)
-- [ ] 47-05-PLAN.md — Owner chooses the final interval; 24 h cadence trial and display-off window measured with `checkin-gaps` (wave 4, owner checkpoints)
-- [ ] 47-06-PLAN.md — Final decision, pack validation status and per-requirement closing record; final interval in the precedence-test tuples; roadmap criterion and VAL-03 wording amended (wave 5, owner checkpoint)
+- [x] 47-04-PLAN.md — Owner's 900 s export run through `sleep-trend`; VAL-03 finding recorded by the fixed band mapping (wave 3, owner checkpoint, due about 2026-10-28)
+- [x] 47-05-PLAN.md — Owner chooses the final interval; 24 h cadence trial and display-off window measured with `checkin-gaps` (wave 4, owner checkpoints)
+- [x] 47-06-PLAN.md — Final decision, pack validation status and per-requirement closing record; final interval in the precedence-test tuples; roadmap criterion and VAL-03 wording amended (wave 5, owner checkpoint)
 
 ## Progress
 
@@ -93,7 +93,7 @@ Plans:
 | 44. Companion Walkthrough and Focused Bilingual Polish | v1.1 | 12/12 | Complete | 2026-10-04 |
 | 45. Controlled Second Discharge Study | v1.1 | 4/4 | Complete | 2026-10-12 |
 | 46. Two-Run Battery Analysis and Operating Decision | v1.1 | 4/4 | Complete | 2026-10-23 |
-| 47. Integrated Field Validation and Decision Record | v1.1 | 4/6 | In Progress (47-05 and 47-06 wait on the final interval and the new pack) | - |
+| 47. Integrated Field Validation and Decision Record | v1.1 | 6/6 | Complete 2026-11-11 (pack validation and VAL-03 open on purpose, see hardware/FIELD-VALIDATION.md) | 2026-11-11 |
 | 47.1. Wake-energy instrumentation and awake-time reduction | v1.1 | 7/9 | In Progress|  |
 | 47.2. Redraw-wake energy reduction and replacement-pack check | v1.1 | 0/TBD | Not planned (plans written after the 47.1 baseline) | - |
 

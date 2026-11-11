@@ -2,7 +2,7 @@
 
 Purpose: read the current the frame draws while it sleeps between two wakes, with a multimeter. This is the number that decides whether a six-month autonomy is realistic (`hardware/BATTERY-MODEL.md`, "Six-month target").
 
-Status: procedure only. No reading has been taken. Nothing in this file is a measurement.
+Status: procedure only, and optional (the owner declined it on 2026-10-23). No reading has been taken. The route used instead is the battery-voltage trend of the long-interval tests on the real frame, recorded in `hardware/FIELD-VALIDATION.md` (VAL-03, open on purpose). Nothing in this file is a measurement.
 
 ## What the reading will tell you
 
