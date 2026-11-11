@@ -463,7 +463,7 @@ class Handler(
         # Every HTML page is either session-gated or a login form — never
         # something a shared cache or the back button should replay
         # after sign-out.
-        for name, value in page_cache.html_cache_headers(self.headers, code, set_cookies):
+        for name, value in page_cache.html_cache_headers(self.headers, code, set_cookies, html_str):
             self.send_header(name, value)
         if etag is not None:
             self.send_header("ETag", etag)

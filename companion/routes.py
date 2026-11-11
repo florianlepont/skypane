@@ -76,6 +76,9 @@ QUICK_LED_ROUTE = "/quick/led"
 THEME_ROUTE = "/ui-theme"
 LANG_ROUTE = "/ui-lang"
 LOGOUT_ROUTE = "/logout"
+# Answers 204 to a signed-in page that proves its own session (the page's
+# anti-forgery token); session-guard.js asks it before showing a restored page.
+SESSION_CHECK_ROUTE = "/session/check"
 ACCOUNT_ROUTE = "/account"
 EXPORT_ROUTE = "/api/export/battery-history"
 GALLERY_ROUTE_PREFIX = "/gallery/"
@@ -261,6 +264,7 @@ _POST_ROUTES = (
     Route("POST", Exact(THEME_ROUTE), lambda h, m: h._handle_theme_post(), SIGNED_IN),
     Route("POST", Exact(LANG_ROUTE), lambda h, m: h._handle_lang_post(), SIGNED_IN),
     Route("POST", Exact(LOGOUT_ROUTE), lambda h, m: h._handle_logout_post(), SIGNED_IN),
+    Route("POST", Exact(SESSION_CHECK_ROUTE), lambda h, m: h.send_no_content(), SIGNED_IN),
     Route(
         "POST", Exact(airlines_page.RESOLVE_ROUTE),
         lambda h, m: h._handle_manual_resolve_post(m.device), ADMIN_DEVICE),
@@ -399,6 +403,7 @@ CSRF_ROUTE_KEYS = frozenset((
     ("POST", Exact(QUICK_LED_ROUTE)),
     ("POST", Exact(THEME_ROUTE)),
     ("POST", Exact(LANG_ROUTE)),
+    ("POST", Exact(SESSION_CHECK_ROUTE)),
 ))
 
 ROUTES = tuple(
