@@ -16,7 +16,10 @@
   if (!mapEl) {
     return;
   }
-  var MAP_SCRIPTS = ["data-leaflet-src", "data-search-src", "data-map-src", "data-card-src"];
+  var MAP_SCRIPTS = [
+    "data-leaflet-src", "data-search-src", "data-map-src", "data-map-search-src",
+    "data-card-src"
+  ];
   var IDLE_TIMEOUT_MS = 400;
 
   function load(attr, next) {

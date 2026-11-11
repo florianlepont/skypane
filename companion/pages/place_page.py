@@ -56,7 +56,8 @@ PAGE_SCRIPTS = (
 # loading order; the airport list comes last, once the map is up.
 STARTED_SCRIPTS = (
     ("leaflet", layout.LEAFLET_SCRIPT_SRC), ("search", layout.PLACE_SEARCH_SCRIPT_SRC),
-    ("map", layout.PLACE_MAP_SCRIPT_SRC), ("card", layout.PLACE_CARD_SCRIPT_SRC),
+    ("map", layout.PLACE_MAP_SCRIPT_SRC),
+    ("map-search", layout.PLACE_MAP_SEARCH_SCRIPT_SRC), ("card", layout.PLACE_CARD_SCRIPT_SRC),
     ("airports", layout.PLACE_AIRPORT_LIST_SCRIPT_SRC))
 PAGE_STYLES = (layout.LEAFLET_STYLE_HREF,)
 

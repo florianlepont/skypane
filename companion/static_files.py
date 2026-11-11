@@ -62,6 +62,7 @@ LEAFLET_SCRIPT_ROUTE = "/static/vendor/leaflet/leaflet.js"
 LEAFLET_STYLE_ROUTE = "/static/vendor/leaflet/leaflet.css"
 LEAFLET_LICENSE_ROUTE = "/static/vendor/leaflet/LICENSE"
 PLACE_MAP_SCRIPT_ROUTE = "/static/place-map.js"
+PLACE_MAP_SEARCH_SCRIPT_ROUTE = "/static/place-map-search.js"
 PLACE_CARD_SCRIPT_ROUTE = "/static/place-card.js"
 PLACE_SEARCH_SCRIPT_ROUTE = "/static/place-search.js"
 PLACE_START_SCRIPT_ROUTE = "/static/place-start.js"
@@ -102,6 +103,7 @@ _LEAFLET_JS_PATH = os.path.join(_LEAFLET_DIR, "leaflet.js")
 _LEAFLET_CSS_PATH = os.path.join(_LEAFLET_DIR, "leaflet.css")
 _LEAFLET_LICENSE_PATH = os.path.join(_LEAFLET_DIR, "LICENSE")
 _PLACE_MAP_JS_PATH = os.path.join(STATIC_DIR, "place-map.js")
+_PLACE_MAP_SEARCH_JS_PATH = os.path.join(STATIC_DIR, "place-map-search.js")
 _PLACE_CARD_JS_PATH = os.path.join(STATIC_DIR, "place-card.js")
 _PLACE_SEARCH_JS_PATH = os.path.join(STATIC_DIR, "place-search.js")
 _PLACE_START_JS_PATH = os.path.join(STATIC_DIR, "place-start.js")
@@ -167,6 +169,8 @@ STATIC_ROUTES = {
     LEAFLET_STYLE_ROUTE: StaticAsset(_LEAFLET_CSS_PATH, "text/css", _PUBLIC_NO_CACHE),
     LEAFLET_LICENSE_ROUTE: StaticAsset(_LEAFLET_LICENSE_PATH, "text/plain", _PUBLIC_NO_CACHE),
     PLACE_MAP_SCRIPT_ROUTE: StaticAsset(_PLACE_MAP_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
+    PLACE_MAP_SEARCH_SCRIPT_ROUTE: StaticAsset(
+        _PLACE_MAP_SEARCH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     PLACE_CARD_SCRIPT_ROUTE: StaticAsset(_PLACE_CARD_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),
     PLACE_SEARCH_SCRIPT_ROUTE: StaticAsset(
         _PLACE_SEARCH_JS_PATH, "text/javascript", _PUBLIC_NO_CACHE),

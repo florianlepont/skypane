@@ -58,6 +58,9 @@ def test_the_starter_is_deferred_and_names_the_library_before_the_glue(server):
     assert _route_of(attrs["data-leaflet-src"]) == LEAFLET_JS
     assert _route_of(attrs["data-map-src"]) == PLACE_MAP_JS
     assert list(attrs).index("data-leaflet-src") < list(attrs).index("data-map-src")
+    assert _route_of(attrs["data-map-search-src"]) == "/static/place-map-search.js"
+    assert list(attrs).index("data-map-src") < list(attrs).index("data-map-search-src")
+    assert list(attrs).index("data-map-search-src") < list(attrs).index("data-card-src")
 
 
 @pytest.mark.parametrize("route", OTHER_ROUTES)
