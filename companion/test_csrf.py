@@ -330,7 +330,7 @@ def test_only_the_known_routes_and_the_console_posts_are_flagged():
     airline_posts = {
         ("POST", routes.Exact(routes.airlines_page.ARTWORK_DELETE_ROUTE)),
         ("POST", routes.Exact(routes.airlines_page.DEFAULT_TYPE_ROUTE))}
-    assert len(routes.CSRF_ROUTE_KEYS) == 19
+    assert len(routes.CSRF_ROUTE_KEYS) == 20
     assert flagged == (
         set(routes.CSRF_ROUTE_KEYS) | console_posts | co_manager_posts | quiet_window_post
         | pair_frame_post | airline_posts)

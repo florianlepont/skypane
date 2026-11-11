@@ -54,7 +54,7 @@ from datetime import datetime, timedelta
 
 import companion_app_server
 import companion.app as companion_app
-from companion import auth
+from companion import auth, routes
 import companion.health_sections as health_sections
 from companion.pages import airlines_page
 from server import device_config, history_db
@@ -174,6 +174,7 @@ _UNAUTH_POST_REQUESTS = (
     companion_app.THEME_ROUTE,
     companion_app.LANG_ROUTE,
     companion_app.LOGOUT_ROUTE,
+    routes.SESSION_CHECK_ROUTE,
     airlines_page.RESOLVE_ROUTE,
     airlines_page.RENAME_ROUTE,
     airlines_page.RENAME_RESET_ROUTE,

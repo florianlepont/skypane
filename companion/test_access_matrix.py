@@ -68,6 +68,7 @@ ROUTE_POLICY = {
     ("POST", "/ui-theme"): SIGNED_IN,
     ("POST", "/ui-lang"): SIGNED_IN,
     ("POST", "/logout"): SIGNED_IN,
+    ("POST", "/session/check"): SIGNED_IN,
     ("GET", "/"): OWNER_DEVICE,
     ("GET", "/display"): OWNER_DEVICE,
     ("GET", "/display/special-looks"): OWNER_DEVICE,

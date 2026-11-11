@@ -43,7 +43,8 @@ def _script_srcs(doc):
 def test_the_detection_page_links_the_library_stylesheet_after_the_shared_one(server):
     hrefs = [_route_of(n.attrs.get("href")) for n in _page(server, "/detection").select(
         'link[rel="stylesheet"]')]
-    assert hrefs == ["/static/style.css", "/static/style-place.css", LEAFLET_CSS]
+    assert hrefs == [
+        "/static/style.css", "/static/style-c-console.css", "/static/style-place.css", LEAFLET_CSS]
 
 
 def test_the_starter_is_deferred_and_names_the_library_before_the_glue(server):
@@ -58,6 +59,9 @@ def test_the_starter_is_deferred_and_names_the_library_before_the_glue(server):
     assert _route_of(attrs["data-leaflet-src"]) == LEAFLET_JS
     assert _route_of(attrs["data-map-src"]) == PLACE_MAP_JS
     assert list(attrs).index("data-leaflet-src") < list(attrs).index("data-map-src")
+    assert _route_of(attrs["data-map-search-src"]) == "/static/place-map-search.js"
+    assert list(attrs).index("data-map-src") < list(attrs).index("data-map-search-src")
+    assert list(attrs).index("data-map-search-src") < list(attrs).index("data-card-src")
 
 
 @pytest.mark.parametrize("route", OTHER_ROUTES)

@@ -253,6 +253,9 @@ SPLASH_SCRIPT_SRC = "/static/splash.js"
 # library first. LEAFLET_STYLE_HREF is that page's extra stylesheet.
 LEAFLET_SCRIPT_SRC = "/static/vendor/leaflet/leaflet.js"
 PLACE_MAP_SCRIPT_SRC = "/static/place-map.js"
+# Must equal companion/static_files.py's PLACE_MAP_SEARCH_SCRIPT_ROUTE. The search
+# box, suggestions and locate button; loaded right after the map script.
+PLACE_MAP_SEARCH_SCRIPT_SRC = "/static/place-map-search.js"
 # The credits popover and details-card wiring of the same page; runs after
 # the glue and does nothing unless the map started.
 PLACE_CARD_SCRIPT_SRC = "/static/place-card.js"

@@ -118,13 +118,14 @@ _PAIR_FRAME_ROUTES = {
 }
 
 
-def test_signed_in_routes_are_account_the_preference_and_logout_posts_and_locations():
+def test_signed_in_routes_are_account_the_preference_logout_and_session_check_posts_and_locations():
     actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access == routes.SIGNED_IN}
     assert actual == {
         ("GET", routes.Exact("/account")),
         ("POST", routes.Exact(routes.THEME_ROUTE)),
         ("POST", routes.Exact(routes.LANG_ROUTE)),
         ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
+        ("POST", routes.Exact(routes.SESSION_CHECK_ROUTE)),
     } | _LOCATION_ROUTES | _PAIR_FRAME_ROUTES
 
 
@@ -134,6 +135,7 @@ def test_every_other_route_is_admin_only_or_an_owner_device_route():
         ("POST", routes.Exact(routes.THEME_ROUTE)),
         ("POST", routes.Exact(routes.LANG_ROUTE)),
         ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
+        ("POST", routes.Exact(routes.SESSION_CHECK_ROUTE)),
     } | _LOCATION_ROUTES | _PAIR_FRAME_ROUTES
     for r in routes.ROUTES:
         if (r.method, r.matcher) in handwritten_non_admin:

@@ -21,19 +21,28 @@ def _sheets(server, route):
     return [n.attrs["href"].split("?", 1)[0] for n in doc.select('link[rel="stylesheet"]')]
 
 
-@pytest.mark.parametrize("route,areas", [
-    ("/", ["home"]), ("/flights", ["flights"]), ("/airlines", ["airlines"]),
-    ("/airlines/manage", ["airlines"]), ("/display", ["display"]),
-    ("/display/special-looks", ["display"]), ("/account", ["admin"]), ("/users", ["admin"]),
-    ("/fleet", ["display", "admin"]),
+@pytest.mark.parametrize("route,sheets", [
+    ("/", ["home"]),
+    ("/flights", ["c-lists", "flights"]),
+    ("/airlines", ["c-lists", "airlines"]),
+    ("/airlines/manage", ["c-lists", "airlines"]),
+    ("/display", ["c-console", "c-lists", "display"]),
+    ("/display/special-looks", ["c-console", "c-lists", "display"]),
+    ("/account", ["c-console", "c-lists", "admin"]),
+    ("/users", ["c-console", "c-lists", "admin"]),
+    ("/fleet", ["c-console", "c-lists", "display", "admin"]),
 ])
-def test_a_page_links_the_core_sheet_and_its_own_area(server, route, areas):
+def test_a_page_links_the_core_sheet_its_component_sheets_and_its_own_area(server, route, sheets):
     assert _sheets(server, route) == ["/static/style.css"] + [
-        "/static/style-%s.css" % name for name in areas]
+        "/static/style-%s.css" % name for name in sheets]
+
+
+def test_the_home_page_links_no_component_sheet(server):
+    assert not [href for href in _sheets(server, "/") if "/style-c-" in href]
 
 
 def test_a_device_scoped_path_links_the_same_sheets():
-    assert page_styles.areas_for("/devices/d_1234/flights") == ("flights",)
+    assert page_styles.areas_for("/devices/d_1234/flights") == ("c-lists", "flights")
     assert page_styles.areas_for("/devices/d_1234") == ("home",)
 
 
