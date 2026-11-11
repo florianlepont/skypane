@@ -1093,3 +1093,19 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   pageshow session check, keeping the sign-out guarantee), R07 (split place-map.js, the
   map evaluation cost), R14 (go further on the stylesheet split to the 20-25 KB gz
   target). Brotli stays an owner deploy decision (Caddy build).
+
+## Round 23 (owner, Companies tab and last two polish items)
+
+- W176: Companies page, the card shows a double box for the flights (a box inside the
+  card) and the aircraft pictures are now too small.
+- W177: Companies page, tapping a tab of the Companies tab strip reloads the whole page
+  with the page-opening animation replayed, which breaks the app feel; the other tab
+  strips do not do it. Tab changes there must switch in place like the others.
+- W178: The page loading animation: its animated frame is too big, the owner pictured
+  it smaller. The splash duration stays unchanged.
+- W179: The logo, above all the page icon, is still orange and no longer matches the new
+  design; change its colour (mockups first).
+- Location top band on iPhone (Safari tab, address bar at the bottom): still present
+  after the fix that offsets the map by the top safe-area inset; to be investigated by
+  comparing with the last good build, separately from plan 61-110.
+- Queue after plan 61-110: plan 61-111 for W176-W179 and the Location top band.
