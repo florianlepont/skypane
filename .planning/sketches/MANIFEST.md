@@ -23,6 +23,7 @@ Goodreads — warm editorial feel, card-based browsing with visible relief, seri
 | 007 | photo-list-and-upload | Grid, list rows or hybrid for a frame's photo list with upload, quota meter, delete confirm and refusal messages (v1.3)? | pending | photos, upload, quota, mobile, i18n |
 | 008 | photo-preview-and-crop | How are fit (fill/bands), crop position and the 6-colour dithered preview arranged for portrait and landscape panels (v1.3)? | pending | photos, crop, preview, dithering, accessibility |
 | 009 | frame-mode-and-rotation | Segmented controls, cards or accordion for per-frame mode, rotation and order, with the wake-interval note and no-photo state (v1.3)? | pending | photos, settings, mode, rotation, control-density |
+| 010 | photo-mode-flow | Does the whole photo-mode flow work end to end (mode-driven menu, Photos page, upload, crop and preview, refusals, back to planes) as one clickable prototype (v1.3)? | pending | photos, navigation, mode, flow, i18n |
 
 ## Phase 30 note
 
