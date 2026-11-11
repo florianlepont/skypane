@@ -277,3 +277,17 @@ Airlines.
 - Lifecycle: `server/fleet_ops.py:439,499,541`
 - Navigation and banner: `ui_base.py:111,122,141,1022`; `ui_nav.py:63-65,268,278,585`; `app.py:259,341,927`; `ui_shell.py:341,483,528`; `ui_components.py:205,265`
 - Not found in code: any existing photo, mode or `MANAGER_DEVICE` symbol in `companion/`, `stub-server/`, `poll_cycle.py` or `device_config.py` (Phase 64 added only `server/photo/`).
+
+## Decisions of 2026-11-11 (owner)
+
+- The mode switch lives on the companion Home page. The menu stays stable:
+  plane pages stay in the menu and show a banner while the frame is in photo
+  mode. This replaces the earlier "hide plane pages" decision.
+- Quiet hours in photo mode: **keep the photo on the glass** (the frame still
+  sleeps longer). Display-off and battery-empty still win over photo mode.
+- Defaults taken from the recommendations (the owner was not asked each one,
+  and can change them): a pending change is shown with the clock time only
+  ("Applies at the next wake, around 14:32"); the banner on a plane page is a
+  link to Home only, so the switch lives in one place; the frame is skipped
+  for the ADS-B fetch in photo mode, as the lowest-priority hold, in the
+  server-side mode phase; a retired frame's photos are deleted at retire.
