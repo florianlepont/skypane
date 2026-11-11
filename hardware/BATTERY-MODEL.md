@@ -232,7 +232,7 @@ The owner chose 900 s as the final wake interval of Phase 47. Figures below are 
 | Final normal wake interval (seconds) | 900. Claude recommended 3600 (the only measured interval that clears six months); the owner chose 900. No separate value for after the new pack was named. |
 | Autonomy at that interval | About 8.63 mA from the old-pack test at 900 s, so about 48 days on a 10000 mAh pack (rated), against the 180 days of the target. At 3600 s: about 1.29 mA, about 323 days. |
 | Freshness | The median gap measured on the real frame at 900 s is 934 s. |
-| Pack row | Soldered 333290 received, checks pending, not connected: see `hardware/PACK-ACCEPTANCE.md`. |
+| Pack row | Soldered 333290 received and connected on 2026-11-11 at 22:55 Paris time (owner-reported), first charge in progress: see `hardware/PACK-ACCEPTANCE.md`. |
 | Applied on the live Device page | Reported by the owner on 2026-11-11 without a read-back value; the export shows a gap of 933 s at 17:17 Paris time. |
 | Standing draw near 7 mA or lower | Open: see the finding of VAL-03 in `hardware/FIELD-VALIDATION.md` (about 1.29 mA average at 3600 s, which bounds the standing draw above). |
 
