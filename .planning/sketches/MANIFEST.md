@@ -24,6 +24,7 @@ Goodreads — warm editorial feel, card-based browsing with visible relief, seri
 | 008 | photo-preview-and-crop | How are fit (fill/bands), crop position and the 6-colour dithered preview arranged for portrait and landscape panels (v1.3)? | pending | photos, crop, preview, dithering, accessibility |
 | 009 | frame-mode-and-rotation | Segmented controls, cards or accordion for per-frame mode, rotation and order, with the wake-interval note and no-photo state (v1.3)? | pending | photos, settings, mode, rotation, control-density |
 | 010 | photo-mode-flow | Does the whole photo-mode flow work end to end (mode-driven menu, Photos page, upload, crop and preview, refusals, back to planes) as one clickable prototype (v1.3)? | pending | photos, navigation, mode, flow, i18n |
+| 011 | mode-switch-on-home | Does the Home-page mode switch (Planes | Photos) with pending states, a stable menu, a banner on plane pages and a manage-only Photos page work as one clickable prototype (v1.3)? | pending | photos, navigation, mode, home, pending, i18n |
 
 ## Phase 30 note
 
