@@ -576,15 +576,15 @@ def test_the_phone_row_carries_identity_detail_and_a_picture_action(tmp_path):
 
 def test_phone_row_identity_branches_and_the_label_keeps_every_code_readable(tmp_path, served_css):
     """every identity branch (callsign, hex plus note, neither) renders one callsign slot in
-    the row label; the callsign and the route are never cut (the route wraps under the callsign
-    as a unit) and the detail line wraps to two lines before it clips"""
+    the row label; the airline, the route and the detail are each one line cut with an ellipsis,
+    so every card has the same height"""
     label_block = declarations_for(served_css, ".history-card .row__label")
     assert label_block.get("white-space") == "normal"
-    route_block = declarations_for(served_css, ".history-card__route")
-    assert route_block.get("white-space") == "nowrap"
-    detail_block = declarations_for(served_css, ".history-card .row__detail")
-    assert detail_block.get("-webkit-line-clamp") == "2"
-    assert detail_block.get("overflow") == "hidden"
+    for selector in (".history-card__route", ".history-card .row__detail"):
+        block = declarations_for(served_css, selector)
+        assert block.get("white-space") == "nowrap"
+        assert block.get("text-overflow") == "ellipsis"
+        assert block.get("overflow") == "hidden"
 
     branches = (
         ("callsign", {"ts": "2026-09-21T10:00:00+00:00", "callsign": "GRD01"}, "GRD01"),

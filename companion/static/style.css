@@ -8303,10 +8303,13 @@ html[data-ambient="rest"] .hero__glass::after {
   transform: rotate(45deg);
 }
 
-/* The airline is never cut; the route wraps under it as a unit when the line is full. */
+/* Two fixed lines: the airline, then the route (a line is reserved when a
+ * flight has none). Each line is cut with an ellipsis instead of wrapping, so
+ * every card has the one height the Flights sheet declares. */
 .history-card .row__label {
   display: block;
   overflow: visible;
+  min-height: calc(var(--font-body-size) * 2.6);
   white-space: normal;
   font-weight: var(--weight-semibold);
 }

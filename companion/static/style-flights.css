@@ -98,20 +98,19 @@
 
 /* The filter hides rows with [hidden]: the hairline is drawn between two
  * visible rows only, so a hidden first row never leaves a stray line. */
-.history-day .group > .row + .row {
-  border-top: 0;
+.history-day .group > .row {
+  border-top: 1px solid transparent;
 }
 
 .history-day .group > .row:not([hidden]) ~ .row:not([hidden]) {
   border-top: 1px solid var(--glass-hairline);
 }
 
-.history-card__airline {
-  overflow-wrap: anywhere;
-}
-
+.history-card__airline,
 .history-card__route {
   display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -124,14 +123,11 @@
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* The detail line wraps to a second line before it clips, so the airline and the
- * aircraft stay readable on a phone. */
+/* The detail line is one line, cut with an ellipsis. */
 .history-card .row__detail {
-  display: -webkit-box;
   overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow-wrap: break-word;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .history-card .row__value {
@@ -171,8 +167,22 @@
   outline-offset: 0;
 }
 
+/* One height for every card: the two label lines, the detail line, the gap
+ * between them and the row's padding, all from tokens and unitless line
+ * heights, so it is the same at every width and in either language. The
+ * browser may skip the layout and paint of a card that is off screen
+ * (content-visibility) because the size it reserves is the size it has. */
 .history-card {
+  --history-card-height: calc(
+    var(--font-body-size) * 2.6 + var(--font-label-size) * 1.3 + 2px + 2 * var(--space-sm));
+  content-visibility: auto;
+  contain-intrinsic-block-size: var(--history-card-height);
   transition: scale var(--motion-spring-duration) var(--motion-spring);
+}
+
+.history-day .group > .history-card > .row__main {
+  height: var(--history-card-height);
+  min-height: 0;
 }
 
 .history-card__thumb.is-loading {
