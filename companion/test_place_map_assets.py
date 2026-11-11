@@ -43,7 +43,8 @@ def _script_srcs(doc):
 def test_the_detection_page_links_the_library_stylesheet_after_the_shared_one(server):
     hrefs = [_route_of(n.attrs.get("href")) for n in _page(server, "/detection").select(
         'link[rel="stylesheet"]')]
-    assert hrefs == ["/static/style.css", "/static/style-place.css", LEAFLET_CSS]
+    assert hrefs == [
+        "/static/style.css", "/static/style-c-console.css", "/static/style-place.css", LEAFLET_CSS]
 
 
 def test_the_starter_is_deferred_and_names_the_library_before_the_glue(server):

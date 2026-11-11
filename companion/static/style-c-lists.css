@@ -1,0 +1,394 @@
+
+
+/* Numbers that line up (times, counts, readouts) stay in the UI face. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+.mobile-nav__link--active:hover {
+  color: var(--color-accent);
+}
+
+/* A clean bottom edge: the last row carries no trailing separator line. */
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* opacity on --color-text gives a muted read in both themes with no
+ * per-theme value to keep in sync — no --color-text-muted token exists
+ * in this file. 13px/0.75 (up from 12px/0.7): the smaller pair measured
+ * at the edge of comfortable contrast on the dark surface. */
+.cell-primary {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--weight-semibold);
+}
+
+.cell-secondary {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--font-caption-size);
+  opacity: 0.75;
+}
+
+/* [hidden]-vs-author-display collision, the same trap the other
+ * [hidden] guards in this file fix: an author display declaration
+ * always beats the UA [hidden] rule regardless of source order. */
+.resolve-context[hidden] {
+  display: none;
+}
+
+.filter-bar__search input::-webkit-search-cancel-button,
+.filter-bar__search input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.filter-bar .filter-bar__clear:hover {
+  background: color-mix(in srgb, var(--color-text) 7%, transparent);
+  color: var(--color-text);
+}
+
+/* Shown only while the field holds text; no script involved. */
+.filter-bar__search input:placeholder-shown ~ .filter-bar__clear {
+  display: none;
+}
+
+.filter-bar__count {
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  white-space: nowrap;
+}
+
+.filter-chip__text {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-label-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.2;
+  color: var(--seg-idle-fg);
+}
+
+.filter-chip:hover .filter-chip__box {
+  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
+}
+
+.filter-chip input:focus-visible + .filter-chip__box {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.filter-bar--title .filter-bar__search {
+  flex: 1 1 100%;
+  max-width: none;
+}
+@media (min-width: 960px) {
+  .filter-bar--chips {
+    flex-wrap: nowrap;
+    gap: var(--space-md);
+  }
+
+  .filter-bar--chips .filter-bar__chips {
+    flex: 0 0 auto;
+  }
+
+  .filter-bar--chips .filter-chip__box {
+    gap: var(--space-sm);
+    padding: 0 var(--space-md);
+  }
+}
+
+
+/* The no-script Load more lands on the first new row with room above it (the
+ * entrance rise of its group is still moving when the browser scrolls). */
+.history-card[id],
+.data-table--flights tr[id] {
+  scroll-margin-top: var(--space-xl);
+}
+
+.airline-card__chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  background: color-mix(in srgb, var(--color-text) 6%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+@media (min-width: 960px) {
+
+  .history-cards ~ .data-table-wrap {
+    display: block;
+  }
+
+  .data-table tbody tr:hover [data-copy-value],
+  .data-table tbody tr:focus-within [data-copy-value] {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+
+.lightbox__image:not([hidden]) {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: var(--radius-control);
+  margin-bottom: var(--space-sm);
+}
+
+.lightbox__note:empty {
+  display: none;
+}
+
+.lightbox__heading:empty {
+  display: none;
+}
+
+/* The sheet's heading takes the dialog's initial focus (tabindex -1, set by
+   panel-lookup.js); it is not a control, so it carries no ring. */
+.lightbox__heading:focus {
+  outline: none;
+}
+
+.lightbox__manual-note:empty {
+  display: none;
+}
+
+.lightbox::backdrop {
+  background: var(--color-scrim);
+}
+
+/* Equal (0,1,0) specificity to .lightbox, so this must (and does) come
+ * later in source order to win. The 450px cap is pinned to
+ * illustration_normalize.ILLUSTRATION_TARGET_WIDTH by a harness check;
+ * do not bump it "to look bigger" without updating that constant. */
+.lightbox--wide {
+  max-width: 450px;
+}
+
+/* width: auto, not the base rule's width: 100%: combined with the
+ * max-height cap below, 100% + height: auto would squash the image's
+ * aspect ratio once it hits the height cap. */
+.lightbox--wide .lightbox__image {
+  width: auto;
+  max-width: 100%;
+  max-height: 60svh;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lightbox__replace:not([hidden]),
+.lightbox__resolve-name:not([hidden]),
+.lightbox__delete:not([hidden]) {
+  display: block;
+  padding-top: var(--space-md);
+  min-width: 0;
+}
+
+.lightbox__replace-zone:not([hidden]),
+.resolve-upload-zone:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-lg) var(--space-md);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-control);
+  text-align: center;
+  min-width: 0;
+  background: var(--color-secondary); /* fallback for browsers without color-mix() */
+  background: color-mix(in srgb, var(--color-secondary) 55%, var(--color-dominant));
+}
+
+.time-value--primary {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+}
+
+.time-value__age {
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+@media (max-width: 959.98px) {
+
+  .tab-bar__pages .mobile-nav__link--active .tab-bar__nav-icon {
+    background: var(--color-accent);
+    color: var(--color-dominant);
+  }
+}
+
+
+details.row-menu {
+  position: relative;
+}
+
+/* The global summary chevron would sit next to the kebab icon. */
+.row-menu__toggle::before {
+  content: none;
+}
+
+.row-menu__toggle:hover,
+details.row-menu[open] > .row-menu__toggle {
+  background: var(--color-control-wash);
+}
+
+/* Opaque on purpose (it is not part of the glass group): its labels, some in
+ * a status colour, must hold 4.5:1 whatever scrolls behind the menu. */
+.row-menu__panel {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 30;
+  box-sizing: border-box;
+  min-width: 12rem;
+  max-width: calc(100vw - 2 * var(--space-md));
+  padding: var(--space-xs) 0;
+  background: var(--color-dominant);
+  color: var(--color-text);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-pop);
+}
+
+.row-menu__item:hover {
+  background: var(--color-control-wash);
+}
+
+.collection-sort__toggle,
+.collection-legend .row-menu__toggle {
+  border: 1px solid var(--color-border);
+  background: var(--color-dominant);
+}
+
+.collection-sort {
+  position: relative;
+}
+
+.collection-sort__panel {
+  width: max-content;
+  min-width: 11rem;
+  padding: var(--space-xs) 0;
+}
+
+.collection-sort__option input:checked + .collection-sort__row {
+  font-weight: var(--weight-semibold);
+}
+
+.collection-sort__option input:checked + .collection-sort__row .icon {
+  visibility: visible;
+}
+
+.collection-sort__option:hover .collection-sort__row {
+  background: var(--color-control-wash);
+}
+
+.collection-sort__option input:focus-visible + .collection-sort__row {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+}
+
+.collection-sheet .modal__head,
+.access-sheet .modal__head {
+  flex: none;
+}
+
+.access-sheet .modal__body,
+.collection-sheet .modal__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.collection-sheet .modal__actions,
+.access-sheet .modal__actions {
+  flex: none;
+  margin-top: var(--space-sm);
+}
+
+button.row-menu__item:hover {
+  background: var(--color-control-wash);
+  box-shadow: none;
+}
+@media (min-width: 70rem) {
+
+  .airlines-table tbody {
+    display: table-row-group;
+  }
+}
+
+
+/* The glass rule above outranks the cards' own hover shadow: give it back. */
+.collection-card:is(:hover),
+.airline-card:is(:hover) {
+  box-shadow: var(--shadow-card-hover);
+}
+
+.group--panel {
+  padding: var(--space-md);
+}
+
+/* Flights (phone): one glass group per day, one row per flight. The plane
+ * chip is neutral and turns with the direction (nose up for a departure,
+ * down for an arrival); the age and the direction sit at the right. */
+.history-cards {
+  margin: 0;
+}
+
+/* Pull to refresh (Flights, phone). The list follows the finger with a
+ * transform only; the settle back is the spring. pan-up leaves the browser
+ * only an upward pan (scrolling down) so a downward drag at the top reaches
+ * the script, and only while the page sits at the top (.is-pullable). */
+.history-cards.is-pullable {
+  touch-action: pan-down;
+}
+
+.history-cards.is-pull-settling {
+  transition: transform var(--motion-spring-duration) var(--motion-spring);
+}
+
+/* The Flights picture dialog is a standard card: the picture, its dated
+ * caption and the Close button all sit inside one opaque panel over the
+ * scrim, so nothing floats over the page behind it. */
+.lightbox.lightbox--picture {
+  box-sizing: border-box;
+  padding: var(--space-md);
+  box-shadow: var(--shadow-pop);
+  overflow: auto;
+  width: fit-content;
+  min-width: min(20rem, calc(100vw - var(--space-md) * 2));
+  max-width: calc(100vw - var(--space-md) * 2);
+  max-height: calc(100svh - var(--space-md) * 2);
+}
+
+.lightbox.lightbox--picture[open] {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-sm);
+}
+
+.lightbox--picture .lightbox__image:not([hidden]) {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: calc(100svh - 12rem);
+  margin: 0 auto;
+  border-radius: var(--radius-frame-pic);
+  box-shadow: var(--shadow-pop);
+}
+
+.lightbox--picture .lightbox__caption {
+  margin: 0;
+  text-align: center;
+}
+
+.lightbox--picture .lightbox__caption:empty {
+  display: none;
+}

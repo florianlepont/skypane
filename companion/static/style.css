@@ -287,7 +287,6 @@
    * instead of following the OS scheme this default case follows. */
   color-scheme: light dark;
 }
-
 @media (prefers-color-scheme: dark) {
   :root {
     --sky-top: #12151D;
@@ -339,6 +338,7 @@
     --color-toast-pending: #B13F16;
   }
 }
+
 
 /* Explicit theme overrides — take precedence over prefers-color-scheme. */
 html[data-ui-theme="light"] {
@@ -436,9 +436,6 @@ html[data-ui-theme="dark"] {
   --color-toast-pending: #B13F16;
   color-scheme: dark;
 }
-
-/* A single global reduced-motion override every transition in this
- * file inherits for free — no later rule needs its own. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
@@ -448,18 +445,6 @@ html[data-ui-theme="dark"] {
   }
 }
 
-/* `*, *::before, *::after` matches ELEMENTS only — the ::view-transition
- * pseudo-element tree is a separate tree these selectors do not reach,
- * so a view transition needs its own reduced-motion opt-out (below),
- * wrapped so the transition is never set up at all rather than set up
- * and run at a near-zero duration. */
-
-/* Baseline "limited" (2026-09-13): Chrome/Edge 126+, Safari/iOS 18.2+,
- * not Firefox — unsupported browsers just navigate instantly, no
- * fallback needed. Each view-transition-name below must be unique per
- * rendered document or the browser silently drops the whole transition
- * with no error; test_browser_ux.py counts the computed value on every
- * route to guard it. */
 @media (prefers-reduced-motion: no-preference) {
   @view-transition {
     navigation: auto;
@@ -493,6 +478,7 @@ html[data-ui-theme="dark"] {
     object-fit: cover;
   }
 }
+
 
 /* Base state hidden via display (not opacity/visibility), so the
  * hidden copy stays out of the tab order and a11y tree at mobile width
@@ -673,11 +659,6 @@ sup {
 .mono {
   font-family: var(--font-mono);
   font-weight: var(--weight-regular);
-}
-
-/* Numbers that line up (times, counts, readouts) stay in the UI face. */
-.tnum {
-  font-variant-numeric: tabular-nums;
 }
 
 /* Typography roles */
@@ -946,7 +927,6 @@ a:hover {
   background: var(--color-accent);
   color: var(--color-on-accent);
 }
-
 @media (prefers-reduced-motion: reduce) {
   /* The global override would leave a 0.01ms loop running; the halo is
    * switched off instead, so reduced motion shows no animation at all. The
@@ -993,6 +973,7 @@ a:hover {
     animation: none;
   }
 }
+
 
 /* The `.js` progressive-enhancement gate, shared by every script-only
  * control in this file: hidden by default (display: none, never
@@ -1190,10 +1171,6 @@ a:hover {
  * far too narrow for its 60..3600 band. */
 .wake-slider {
   margin-top: var(--space-sm);
-}
-
-.wake-slider__input {
-  width: 100%;
 }
 
 .mobile-nav__link {
@@ -1444,10 +1421,6 @@ select.visually-hidden {
   outline-color: var(--color-on-accent);
 }
 
-.mobile-nav__link--active:hover {
-  color: var(--color-accent);
-}
-
 /* Sides stay at --space-lg (24px), not the wider spec value: 64px of
  * side padding on a 375px phone would leave a 247px content column,
  * contradicting the mobile floor. The wider pair lands on
@@ -1455,17 +1428,12 @@ select.visually-hidden {
 .page-content {
   padding: var(--space-xl) max(var(--space-lg), var(--safe-right)) var(--space-2xl) max(var(--space-lg), var(--safe-left));
 }
-
-/* Phones: the title sits close under the app bar. The gap from the bar to
- * the title is the bar's bottom margin (--space-sm, set on .site-header)
- * plus this top padding (--space-md): 24px in total instead of the 64px
- * the desktop-sized values gave. The breakpoint is the one that shows the
- * app bar and the tab bar. */
 @media (max-width: 959.98px) {
   .page-content {
     padding-top: var(--space-md);
   }
 }
+
 
 /* Status dot: a 12px circle plus a Label-size text description */
 .dot {
@@ -1485,19 +1453,8 @@ select.visually-hidden {
   background: var(--color-status-warn);
 }
 
-.dot--error {
-  background: var(--color-status-error);
-}
-
 .dot--off {
   background: color-mix(in srgb, var(--color-text) 30%, transparent);
-}
-
-/* An outlined ring for a frame without a live device (retired, waiting for
- * pairing): shape, not colour, tells it apart from the filled dots. */
-.dot--hollow {
-  background: transparent;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--color-text) 50%, transparent);
 }
 
 /* Names the MOTION, not the component (a dot in this rule, a <time> in
@@ -1765,9 +1722,6 @@ select.visually-hidden {
 .toast-region--flash {
   margin: 0 0 var(--space-lg);
 }
-
-/* Phone width: the action drops under the text and the dismiss control
- * stays top right, so a long message never squeezes the title. */
 @media (max-width: 699.98px) {
   .toast {
     display: grid;
@@ -1832,12 +1786,6 @@ select.visually-hidden {
   }
 }
 
-/* With scripts running (a media query, not the .js class, so the toast
- * floats from the very first paint and never shifts the page): the flash
- * toast and the quick-switch failure toast float, out of flow, top
- * centre over the content column; on a phone, above the tab bar within
- * thumb reach. The region itself lets clicks through; only the toast
- * takes them. */
 @media (scripting: enabled) {
   .toast-region--flash,
   .toast-region--live {
@@ -1919,6 +1867,7 @@ select.visually-hidden {
     width: 100%;
   }
 }
+
 
 /* Neutral-tinted, not severity-tinted: a row/badge pill outside the
  * toast family. Diverges from .airline-card__chip by one declaration
@@ -2164,14 +2113,6 @@ select.visually-hidden {
   box-shadow: none;
 }
 
-.fleet-group__item .page-section,
-.fleet-group__item .update-cta,
-.fleet-group__item .update-versions,
-.fleet-group__item .theme-status,
-.fleet-group__item .data-card {
-  padding: 0;
-}
-
 .fleet-group .page-section + .page-section,
 .fleet-group .health-rows + .page-section,
 .fleet-group .toast--docked + .health-rows {
@@ -2391,12 +2332,6 @@ button:not(.value-control__handle):active {
   animation: skypane-bar-arrive var(--motion-fast) ease-out;
 }
 
-/* [hidden]-vs-author-display collision: an author display always beats the
- * UA [hidden] { display: none } rule regardless of source order. */
-.dirty-bar[hidden] {
-  display: none;
-}
-
 .dirty-bar__message {
   grid-area: message;
   min-width: 0;
@@ -2407,21 +2342,9 @@ button:not(.value-control__handle):active {
   line-height: var(--space-lg);
 }
 
-.dirty-bar__save {
-  grid-area: save;
-}
-
 .dirty-bar > .btn {
   padding: 0 var(--space-lg);
 }
-
-.dirty-bar__cancel {
-  grid-area: cancel;
-}
-
-/* On a phone the message line sits over the buttons. The inline form is the
- * two buttons of the card that holds the bar: no strip of its own, no drawn
- * message (the live message is still read aloud). */
 @media (max-width: 959.98px) {
   :root {
     --save-bar-h: calc(44px + var(--space-lg) + var(--space-sm) + 2 * var(--space-md) + 2px);
@@ -2450,6 +2373,7 @@ button:not(.value-control__handle):active {
     clip-path: inset(50%);
   }
 }
+
 
 /* .frame-strip__cell button and button[type="submit"] are equal
  * (0,1,1) specificity; placed after it in source order to win, the
@@ -2542,12 +2466,12 @@ button:disabled {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-sm) var(--space-lg);
 }
-
 @media (max-width: 479.98px) {
   .quiet-times-row {
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
 
 .runway-card {
   display: block;
@@ -2595,12 +2519,6 @@ button:disabled {
   transform: scale(1.02);
 }
 
-.runway-card__number {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-}
-
 .runway-card__image {
   display: block;
   max-width: 100%;
@@ -2616,10 +2534,6 @@ button:disabled {
   right: var(--space-sm);
   color: var(--color-accent);
   display: none;
-}
-
-.runway-card--selected .runway-card__check {
-  display: inline-flex;
 }
 
 /* Re-keys selection from --selected (server-computed, never updates on
@@ -2982,16 +2896,6 @@ table.data-table--readings {
   --audit-columns: 11rem minmax(0, 1fr) minmax(0, 1.4fr) 7rem 20px;
 }
 
-.audit-event__chevron {
-  grid-area: chevron;
-  justify-self: end;
-  transform: rotate(90deg);
-}
-
-.audit-event details[open] > summary .audit-event__chevron {
-  transform: rotate(-90deg);
-}
-
 /* Scoped to Flights' own table only. Tokens only (no literal px), so
  * this rule tracks --space-sm/--space-md automatically if either token
  * ever changes. */
@@ -3037,28 +2941,8 @@ table.data-table--flights .cell-inline-sep {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-/* A clean bottom edge: the last row carries no trailing separator line. */
-.data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
 .data-table tbody tr:hover {
   background: color-mix(in srgb, var(--color-text) 4%, transparent);
-}
-
-/* opacity on --color-text gives a muted read in both themes with no
- * per-theme value to keep in sync — no --color-text-muted token exists
- * in this file. 13px/0.75 (up from 12px/0.7): the smaller pair measured
- * at the edge of comfortable contrast on the dark surface. */
-.cell-primary {
-  font-variant-numeric: tabular-nums;
-  font-weight: var(--weight-semibold);
-}
-
-.cell-secondary {
-  font-variant-numeric: tabular-nums;
-  font-size: var(--font-caption-size);
-  opacity: 0.75;
 }
 
 .cell-inline-sep {
@@ -3073,10 +2957,6 @@ table.data-table--flights .cell-inline-sep {
   display: none;
 }
 
-.data-cards ~ .data-table-wrap {
-  display: none;
-}
-
 /* auto 1fr sizes the label column to the longest label once, so every
  * value shares one left edge. Scoped inside .resolve-context so this
  * file still declares no bare dl/dt/dd rule. */
@@ -3086,13 +2966,6 @@ table.data-table--flights .cell-inline-sep {
   gap: var(--space-xs) var(--space-sm);
   align-items: baseline;
   margin: 0 0 var(--space-md);
-}
-
-/* [hidden]-vs-author-display collision, the same trap the other
- * [hidden] guards in this file fix: an author display declaration
- * always beats the UA [hidden] rule regardless of source order. */
-.resolve-context[hidden] {
-  display: none;
 }
 
 .resolve-context dt,
@@ -3142,12 +3015,6 @@ table.data-table--flights .cell-inline-sep {
   padding-right: var(--space-md);
 }
 
-.filter-bar__search input::-webkit-search-cancel-button,
-.filter-bar__search input::-webkit-search-decoration {
-  -webkit-appearance: none;
-  appearance: none;
-}
-
 .filter-bar__search input:focus {
   outline: 2px solid var(--color-accent);
   outline-offset: 1px;
@@ -3183,29 +3050,12 @@ table.data-table--flights .cell-inline-sep {
   cursor: pointer;
 }
 
-.filter-bar .filter-bar__clear:hover {
-  background: color-mix(in srgb, var(--color-text) 7%, transparent);
-  color: var(--color-text);
-}
-
-/* Shown only while the field holds text; no script involved. */
-.filter-bar__search input:placeholder-shown ~ .filter-bar__clear {
-  display: none;
-}
-
 .filter-bar__meta {
   display: flex;
   align-items: center;
   gap: var(--space-sm);
   white-space: nowrap;
   margin-left: auto;
-}
-
-.filter-bar__count {
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  white-space: nowrap;
 }
 
 /* With chips the segments carry the counts, so the count sentence stays
@@ -3272,21 +3122,6 @@ table.data-table--flights .cell-inline-sep {
   transition: background var(--motion-fast), box-shadow var(--motion-fast), scale var(--motion-spring-duration) var(--motion-spring);
 }
 
-.filter-chip__text {
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.2;
-  color: var(--seg-idle-fg);
-}
-
-.filter-chip:hover .filter-chip__box {
-  background: color-mix(in srgb, var(--color-dominant) 55%, transparent);
-}
-
 .filter-chip input:checked + .filter-chip__box,
 .filter-chip--current .filter-chip__box {
   background: var(--seg-selected-bg);
@@ -3296,11 +3131,6 @@ table.data-table--flights .cell-inline-sep {
 .filter-chip input:checked + .filter-chip__box .filter-chip__text,
 .filter-chip.filter-chip--current .filter-chip__box .filter-chip__text {
   color: var(--seg-selected-fg);
-}
-
-.filter-chip input:focus-visible + .filter-chip__box {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
 }
 
 /* The search lives in the page header's title row (.filter-bar--title).
@@ -3324,11 +3154,6 @@ table.data-table--flights .cell-inline-sep {
   flex: 1 1 280px;
   margin: 0 0 0 auto;
   max-width: 560px;
-}
-
-.filter-bar--title .filter-bar__search {
-  flex: 1 1 100%;
-  max-width: none;
 }
 
 .js .filter-bar--title {
@@ -3365,24 +3190,10 @@ table.data-table--flights .cell-inline-sep {
 .js .filter-bar--title[data-filter-active] input::placeholder {
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
-
 @media (min-width: 960px) {
-  .filter-bar--chips {
-    flex-wrap: nowrap;
-    gap: var(--space-md);
-  }
-
-  .filter-bar--chips .filter-bar__chips {
-    flex: 0 0 auto;
-  }
 
   .filter-bar--chips .filter-chip {
     flex: 0 0 auto;
-  }
-
-  .filter-bar--chips .filter-chip__box {
-    gap: var(--space-sm);
-    padding: 0 var(--space-md);
   }
 
   /* In the title row, after the title and clear of the frame button (the
@@ -3411,16 +3222,6 @@ table.data-table--flights .cell-inline-sep {
   }
 }
 
-/* The no-script Load more lands on the first new row with room above it (the
- * entrance rise of its group is still moving when the browser scrolls). */
-.history-card[id],
-.data-table--flights tr[id] {
-  scroll-margin-top: var(--space-xl);
-}
-
-/* Wide enough for the title and the search on one row: the search then sits at
- * the row's right edge, clear of the frame button; below that it wraps under
- * the title, left-aligned with it and with the chips. */
 @media (min-width: 1280px) {
   .page-header:has(> .filter-bar--title) {
     flex-wrap: nowrap;
@@ -3437,6 +3238,7 @@ table.data-table--flights .cell-inline-sep {
     margin-left: auto;
   }
 }
+
 
 /* The empty state: a soft card with a search glyph in a halo and its
  * own Clear action. Sets no display, so [hidden] still hides it. */
@@ -3765,16 +3567,12 @@ details[open] > summary::before {
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--space-lg);
 }
-
-/* Below 960px: minmax(0, 1fr) (never bare 1fr) lets a fixed two-column
- * template shrink below the placeholder's intrinsic width — the
- * auto-fill default collapses to ONE column inside a 342px content
- * column, ballooning page height. */
 @media (max-width: 959.98px) {
   .illustration-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
 
 /* Hairline-at-rest, shadow-on-hover — do not restore a resting shadow. */
 .airline-card {
@@ -3816,19 +3614,6 @@ a.airline-card {
   margin: 0 0 var(--space-xs);
 }
 
-.airline-card__chip {
-  display: inline-flex;
-  align-items: center;
-  height: 20px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  background: color-mix(in srgb, var(--color-text) 6%, transparent);
-  border: 1px solid color-mix(in srgb, var(--color-text) 12%, transparent);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 /* Interactive battery-trend chart hit targets and readout line. */
 
 /* auto first column: the browser measures the real rendered width of
@@ -3856,28 +3641,6 @@ a.airline-card {
   justify-content: space-between;
 }
 
-/* 0.14 fill-opacity is a measured floor: the lowest opacity that
- * visibly separates the area from the card in both themes (dark mode is
- * the binding case). currentColor keeps it in step with the line's own
- * colour; no gradient, since the emitter never emits a url() reference. */
-.sparkline-area {
-  fill: currentColor;
-  fill-opacity: 0.14;
-}
-
-/* One <line> per point pair, not a <polyline>: percentages are not
- * permitted inside a polyline's points list. */
-.sparkline-line {
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  fill: none;
-}
-
-.sparkline-axis {
-  fill: var(--color-border);
-}
-
 /* Never receives pointer events, or it would steal them from the
  * larger .sparkline-hit target painted at the same coordinates. */
 .sparkline-dot {
@@ -3885,66 +3648,10 @@ a.airline-card {
   pointer-events: none;
 }
 
-/* r is a presentation attribute from a Python-side radius constant; a
- * CSS declaration of any specificity would beat and flatten it. No
- * pointer-events here either — it's inherited from the sibling
- * .sparkline-dot; this mark simply paints on top of it (measured). */
-.sparkline-mark {
-  fill: currentColor;
-  pointer-events: none;
-}
-
-.sparkline-threshold {
-  fill: var(--color-status-warn);
-}
-
-/* grid-column: 1 / -1 is load-bearing, not tidy: without it the label
- * auto-places into the auto-sized Y-axis column, which then grows to
- * fit a sentence — measured: the canvas dropped from 230px to ~109px
- * inside the same 278px grid, with no other visible signal. */
-.sparkline__legend {
-  grid-column: 1 / -1;
-}
-
 .sparkline-legend {
   display: inline-flex;
   align-items: center;
   gap: var(--space-xs);
-  font-size: 12px;
-  font-weight: var(--weight-regular);
-  line-height: 1.2;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.sparkline-swatch {
-  width: 12px;
-  height: 1px;
-  background: var(--color-status-warn);
-}
-
-/* A transparent SVG fill is still hit-testable, which is why this
- * enlarged circle works as the real tap/click target. */
-.sparkline-hit {
-  fill: transparent;
-  cursor: pointer;
-}
-
-.sparkline-hit:hover,
-.sparkline-hit--active {
-  fill: var(--color-text);
-  fill-opacity: 0.15;
-}
-
-.sparkline-hit:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-}
-
-/* HTML <span>, not SVG text: color sets the ink, not fill. 12px is the
- * smallest text this file sets. line-height: 1.2 is required,
- * not decorative: health_page.py's vertical-inset math assumes this
- * exact, non-inherited line-height. */
-.sparkline-axis-label {
   font-size: 12px;
   font-weight: var(--weight-regular);
   line-height: 1.2;
@@ -4026,10 +3733,6 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.drawing--ok {
-  color: var(--color-status-ok);
-}
-
 .drawing--warn {
   color: var(--color-status-warn);
 }
@@ -4078,28 +3781,6 @@ a.airline-card {
   color: var(--color-border);
 }
 
-/* Neither rule declares stroke-width, r, cx or cy: draw.ring_gauge()
- * emits them as presentation attributes scaled per call site, and a
- * CSS declaration of any specificity beats a presentation attribute —
- * adding one here would flatten both sizes to one thickness. */
-
-/* --color-border, deliberately NOT currentColor: the track must stay
- * structural even when the value arc's status modifier turns amber or
- * rose, or the ring would read as entirely full in a warning state. */
-.drawing-ring-track {
-  fill: none;
-  stroke: var(--color-border);
-}
-
-/* stroke-linecap: butt is explicit even though it's the SVG initial
- * value: a round cap adds half a stroke-width of ink at each arc end,
- * so at the small size a 5% reading would draw as ~12% of the circle. */
-.drawing-ring-value {
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: butt;
-}
-
 /* The arc gauge (draw.arc_gauge()). Round caps on both strokes: the
  * emitter shortens the value dash by one stroke width to pay for them.
  * The track is a faint wash of the text colour rather than the border
@@ -4136,11 +3817,6 @@ a.airline-card {
   display: inline-flex;
   gap: var(--space-xs);
   margin: 0 0 var(--space-sm);
-}
-
-.battery-unit[hidden],
-.battery-chart__view[hidden] {
-  display: none;
 }
 
 .battery-unit__option {
@@ -4199,14 +3875,6 @@ a.airline-card {
   color: color-mix(in srgb, var(--color-text) 60%, transparent);
 }
 
-.health-row__summary:hover {
-  background: color-mix(in srgb, var(--color-text) 3.5%, transparent);
-}
-
-.health-row__summary:focus-visible {
-  outline-offset: -2px;
-}
-
 .health-row__icon {
   grid-area: icon;
   display: grid;
@@ -4216,14 +3884,6 @@ a.airline-card {
   border-radius: 50%;
   background: color-mix(in srgb, var(--row-tone) 16%, transparent);
   color: var(--row-tone);
-}
-
-.health-row__name {
-  grid-area: name;
-  font-size: var(--font-caption-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.3;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .health-row__verdict {
@@ -4331,15 +3991,7 @@ a.airline-card {
   border-color: var(--color-border);
   box-shadow: none;
 }
-
 @container health-rows (min-width: 600px) {
-
-  /* Indented to the name column, so the evidence reads as belonging to
-   * the row's text and not to its icon. */
-  .health-row__body {
-    padding: 0 var(--space-lg) var(--space-lg)
-      calc(var(--space-lg) + 32px + var(--space-md));
-  }
 
   .health-row__facts > div {
     grid-template-columns: 160px minmax(0, 1fr);
@@ -4348,10 +4000,6 @@ a.airline-card {
   }
 }
 
-/* Desktop dashboard shell, this file's second and last breakpoint.
- * layout.py renders both nav copies (mobile dropdown + sidebar) into
- * every response since a stdlib server has no viewport info; display:
- * none here removes the losing copy from flow, tab order and a11y tree. */
 @media (min-width: 960px) {
   .dashboard-shell {
     display: grid;
@@ -4415,12 +4063,6 @@ a.airline-card {
     max-width: 11rem;
   }
 
-  /* The map fills the content area under the button: its top-right controls
-   * hang below it. */
-  .site-header:has(.frame-menu) ~ .dashboard-main .leaflet-top.leaflet-right {
-    margin-top: calc(var(--space-2xl) + 44px);
-  }
-
   /* The title row keeps clear of the button: its header (title beside any
    * badges) or a bare title. */
   .site-header:has(.frame-menu) ~ .dashboard-main .page-header,
@@ -4463,10 +4105,6 @@ a.airline-card {
     display: none;
   }
 
-  .history-cards ~ .data-table-wrap {
-    display: block;
-  }
-
   /* opacity: 0 + pointer-events: none, never visibility: hidden or
    * display: none: those remove the element from the tab order and a11y
    * tree, so a keyboard user could never focus it to trigger the hover-
@@ -4476,12 +4114,6 @@ a.airline-card {
     opacity: 0;
     pointer-events: none;
     transition: opacity .15s;
-  }
-
-  .data-table tbody tr:hover [data-copy-value],
-  .data-table tbody tr:focus-within [data-copy-value] {
-    opacity: 1;
-    pointer-events: auto;
   }
 
   /* --space-lg (24px) is within this file's target 20-24px range and
@@ -4507,6 +4139,7 @@ a.airline-card {
     gap: var(--space-sm);
   }
 }
+
 
 .login-shell {
   min-height: 100dvh;
@@ -4625,42 +4258,12 @@ a.airline-card {
   }
 }
 
-.lightbox__image:not([hidden]) {
-  width: 100%;
-  height: auto;
-  display: block;
-  border-radius: var(--radius-control);
-  margin-bottom: var(--space-sm);
-}
-
 .lightbox__caption {
   margin: 0 0 var(--space-xs);
 }
 
 .lightbox__note {
   margin: var(--space-sm) 0 0;
-}
-
-.lightbox__note:empty {
-  display: none;
-}
-
-.lightbox__heading:empty {
-  display: none;
-}
-
-/* The sheet's heading takes the dialog's initial focus (tabindex -1, set by
-   panel-lookup.js); it is not a control, so it carries no ring. */
-.lightbox__heading:focus {
-  outline: none;
-}
-
-.lightbox__manual-note:empty {
-  display: none;
-}
-
-.lightbox::backdrop {
-  background: var(--color-scrim);
 }
 
 .lightbox__actions button {
@@ -4673,48 +4276,6 @@ a.airline-card {
   justify-content: space-between;
   gap: var(--space-sm);
   margin-top: var(--space-md);
-}
-
-/* Equal (0,1,0) specificity to .lightbox, so this must (and does) come
- * later in source order to win. The 450px cap is pinned to
- * illustration_normalize.ILLUSTRATION_TARGET_WIDTH by a harness check;
- * do not bump it "to look bigger" without updating that constant. */
-.lightbox--wide {
-  max-width: 450px;
-}
-
-/* width: auto, not the base rule's width: 100%: combined with the
- * max-height cap below, 100% + height: auto would squash the image's
- * aspect ratio once it hits the height cap. */
-.lightbox--wide .lightbox__image {
-  width: auto;
-  max-width: 100%;
-  max-height: 60svh;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.lightbox__replace:not([hidden]),
-.lightbox__resolve-name:not([hidden]),
-.lightbox__delete:not([hidden]) {
-  display: block;
-  padding-top: var(--space-md);
-  min-width: 0;
-}
-
-.lightbox__replace-zone:not([hidden]),
-.resolve-upload-zone:not([hidden]) {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-lg) var(--space-md);
-  border: 1px dashed var(--color-border);
-  border-radius: var(--radius-control);
-  text-align: center;
-  min-width: 0;
-  background: var(--color-secondary); /* fallback for browsers without color-mix() */
-  background: color-mix(in srgb, var(--color-secondary) 55%, var(--color-dominant));
 }
 
 .lightbox__replace-zone .lightbox__replace-icon,
@@ -4783,17 +4344,13 @@ a.airline-card {
   background: var(--color-secondary); /* fallback for browsers without color-mix() */
   background: color-mix(in srgb, var(--color-text) 7%, var(--color-secondary));
 }
-
-/* Bare button at (0,0,1) — not :not()-qualified, which would raise
- * specificity and override every class-scoped control that sizes
- * itself (theme segments, copy-btn, file-selector-button). Source
- * order (placed last) wins the cascade instead; a harness check pins it. */
 @media (max-width: 959.98px) {
   button {
     height: 36px;
     font-size: 14px;
   }
 }
+
 
 .place-card {
   display: flex;
@@ -4811,12 +4368,6 @@ a.airline-card {
   min-width: 0;
 }
 
-/* The fallback explanation stays until place-map.js reports the map is
- * running; a failed script therefore falls back as well. */
-.place-fallback {
-  margin: 0;
-}
-
 /* The mode switch: two segments in one track, each label centred. */
 .place-modes {
   display: grid;
@@ -4826,12 +4377,6 @@ a.airline-card {
   background: var(--color-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-}
-
-.place-search {
-  --js-gate-display: flex;
-  flex-direction: column;
-  gap: var(--space-sm);
 }
 
 .place-search .section-caption {
@@ -4865,44 +4410,6 @@ a.airline-card {
   margin-right: var(--place-gutter);
 }
 
-.map-ready .place-info__button .icon {
-  width: 18px;
-  height: 18px;
-}
-
-.map-ready .place-tools {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  justify-self: end;
-  align-self: end;
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-sm);
-  margin: 0 var(--place-gutter) var(--place-gutter) var(--place-gutter);
-  pointer-events: none;
-}
-
-.map-ready .place-message {
-  max-width: 16rem;
-  margin: 0;
-  padding: var(--space-sm) var(--space-md);
-  background: var(--color-dominant);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  box-shadow: var(--shadow-card-hover);
-  color: var(--color-text);
-  pointer-events: auto;
-}
-
-.place-pos__hint {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* The hint shows until a place is set. */
-.place-tap-hint {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 /* The status line is read aloud; the visible feedback is the pin itself. */
 .map-ready .place-status {
   position: absolute;
@@ -4913,11 +4420,6 @@ a.airline-card {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-
-.map-ready .place-details__close {
-  display: inline-flex;
-}
-
 @media (min-width: 960px) {
 
   .map-ready .place-modes {
@@ -4930,8 +4432,8 @@ a.airline-card {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
   }
-
 }
+
 
 /* The map. Leaflet's own stylesheet comes first on this page; the rules
  * below only size it and put its parts on the tokens. Tiles are shown as
@@ -4948,10 +4450,6 @@ a.airline-card {
   font-family: var(--font-ui);
   font-size: var(--font-label-size);
   overflow: hidden;
-}
-
-.js .place-map[hidden] {
-  display: none;
 }
 
 /* A map that did not start leaves the plain form: nothing script-only shows. */
@@ -5041,25 +4539,6 @@ html:not(.map-ready) .place-details__close {
   font-size: var(--font-heading-size);
 }
 
-.place-map .leaflet-bar {
-  border: 1px solid var(--color-border);
-  box-shadow: none;
-}
-
-.place-map.leaflet-container:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-}
-
-.place-status {
-  margin: var(--space-sm) 0 0;
-}
-
-.place-results__note {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-
 .place-results__list {
   list-style: none;
   margin: 0;
@@ -5070,41 +4549,6 @@ html:not(.map-ready) .place-details__close {
 
 .place-results__list li + li {
   border-top: 1px solid var(--color-border);
-}
-
-/* The list's last row while a place search runs, and when it found nothing
- * or failed: a quiet line, with a small spinner while it is pending. */
-.place-results__list .place-results__status {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  min-height: 44px;
-  padding: var(--space-xs) var(--space-md);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-/* A group heading in the one suggestion list (airports, then places). */
-.place-results__group {
-  padding: var(--space-xs) var(--space-md);
-  font-weight: var(--weight-semibold);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-  background: color-mix(in srgb, var(--color-text) 5%, transparent);
-}
-
-.place-nearest__text {
-  margin: 0;
-}
-
-.place-airport__meta {
-  overflow-wrap: anywhere;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-.place-radius__scale {
-  --js-gate-display: flex;
-  justify-content: space-between;
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 .place-radius .section-caption,
@@ -5295,10 +4739,6 @@ html:not(.map-ready) .place-details__close {
   background: color-mix(in srgb, var(--color-status-ok) 16%, transparent);
 }
 
-.charging-pill .icon {
-  flex: none;
-}
-
 /* The chevron marks the window as openable; it carries no underline. */
 .home-switch__chevron {
   flex: none;
@@ -5472,11 +4912,6 @@ html:not(.map-ready) .place-details__close {
 .modal .quiet-timezone-note {
   margin: 0;
 }
-
-/* On a phone the two presets and the two times each get half the sheet:
- * the check mark gives way (the border and the filled icon already mark the
- * selection) and the times use a smaller size, so "23:00 – 07:00" and a
- * 12-hour "11:00 PM" stay on one line. */
 @media (max-width: 480px) {
   .modal .quiet-card {
     gap: var(--space-sm);
@@ -5492,6 +4927,7 @@ html:not(.map-ready) .place-details__close {
     font-size: 1.25rem;
   }
 }
+
 
 /* The link inside the sentence keeps its place in the line; its ::after
  * gives a 44px target while the focus ring hugs the text. */
@@ -5704,7 +5140,6 @@ button.switch:active .switch__thumb {
 .frame-strip__cell--update {
   flex: 1 1 220px;
 }
-
 @media (max-width: 699.98px) {
   .frame-strip__cells {
     flex-direction: column;
@@ -5715,6 +5150,7 @@ button.switch:active .switch__thumb {
     flex-basis: auto;
   }
 }
+
 
 .now-showing {
   margin: 0;
@@ -5756,13 +5192,13 @@ input[name="radius_km"] {
   font-weight: var(--weight-semibold);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
-
 @media (max-width: 959.98px) {
   /* Below 960px the label wraps freely: no phone-width row has room for a fixed column. */
   .status-row__label {
     min-width: 0;
   }
 }
+
 
 .status-row__verdict {
   font-weight: var(--weight-semibold);
@@ -5775,7 +5211,6 @@ input[name="radius_km"] {
 .preview-frame {
   margin: 0;
 }
-
 @media (min-width: 960px) {
   .preview-frame__image {
     width: min(100%, calc(60svh * 3 / 4));
@@ -5784,6 +5219,7 @@ input[name="radius_km"] {
     margin: 0 auto;
   }
 }
+
 
 .status-card__headline {
   font-size: var(--font-body-size);
@@ -5804,15 +5240,6 @@ input[name="radius_km"] {
   font-variant-numeric: tabular-nums;
   font-size: var(--font-label-size);
   font-weight: var(--weight-regular);
-}
-
-.time-value--primary {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-}
-
-.time-value__age {
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The one button component. .btn carries the geometry (a 44px target, a
@@ -5841,13 +5268,6 @@ input[name="radius_km"] {
   text-align: center;
   text-decoration: none;
   cursor: pointer;
-}
-
-.btn.btn--primary {
-  background: var(--color-accent);
-  border-color: transparent;
-  box-shadow: var(--shadow-control);
-  color: var(--color-on-accent);
 }
 
 .btn.btn--primary:hover {
@@ -5883,13 +5303,6 @@ input[name="radius_km"] {
   box-shadow: none;
 }
 
-.btn.btn--danger {
-  background: transparent;
-  border-color: color-mix(in srgb, var(--color-status-error) 45%, transparent);
-  box-shadow: none;
-  color: var(--color-status-error);
-}
-
 .btn.btn--danger:hover,
 .btn.btn--danger:focus-visible {
   background: color-mix(in srgb, var(--color-status-error) 10%, transparent);
@@ -5915,10 +5328,6 @@ a.btn[aria-disabled="true"] {
  * sizes to its longest option, so cap it at the dialog's width. */
 .modal__body select {
   max-width: 100%;
-}
-
-.special-row--calendar > .empty-state--compact {
-  margin-bottom: var(--space-xs);
 }
 
 .text-link {
@@ -5965,17 +5374,6 @@ a.btn[aria-disabled="true"] {
   outline-offset: 2px;
 }
 
-/* Below 360px three equal columns leave ~73px per card with 32px of
- * padding — too narrow for the longest runway label ("Runway 3
- * (07/25)"), which then overflows the card border (measured). Switches
- * to a single-column list rather than re-wrapping, which would put an
- * orphan card alone on its own row. */
-@media (max-width: 359.98px) {
-  .runway-card {
-    flex: 1 1 100%;
-  }
-}
-
 /* Bottom tab bar (mobile nav). display: none is declared outside the
  * media query below and only lifted under 960px, so a desktop viewport
  * can never show the bar regardless of any later rule order. */
@@ -5985,7 +5383,6 @@ a.btn[aria-disabled="true"] {
    * unchanged image instead of cross-fading it with the page behind. */
   view-transition-name: skypane-tab-bar;
 }
-
 @media (max-width: 959.98px) {
   /* 959.98px matches the fractional breakpoint used elsewhere so no
    * viewport lands in a gap with neither nav visible. 56px is the tab
@@ -6220,11 +5617,6 @@ a.btn[aria-disabled="true"] {
     background: color-mix(in srgb, var(--color-text) 6%, transparent);
   }
 
-  .tab-bar__pages .mobile-nav__link--active .tab-bar__nav-icon {
-    background: var(--color-accent);
-    color: var(--color-dominant);
-  }
-
   .tab-bar__separator {
     flex: none;
     width: 100%;
@@ -6335,8 +5727,8 @@ a.btn[aria-disabled="true"] {
     padding-bottom: calc(
       var(--space-lg) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
-
 }
+
 
 .look-frame__picture {
   position: relative;
@@ -6378,11 +5770,6 @@ a.btn[aria-disabled="true"] {
   margin-top: var(--space-sm);
 }
 
-.look-sheet__same-note {
-  margin: var(--space-xs) 0 var(--space-sm);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 /* The track is 40px tall; each option keeps a 44px target that overflows it by 2px above and
  * below, and its visible pill (the ::before) is inset 3px inside the track. */
 .look-seg {
@@ -6400,21 +5787,8 @@ a.btn[aria-disabled="true"] {
     color-mix(in srgb, var(--color-text) 5%, transparent));
 }
 
-/* Special looks ------------------------------------------------------ */
-
-.special-looks {
-  position: relative;
-  grid-column: 1 / -1;
-  min-width: 0;
-}
-
 .special-looks > .section-caption {
   margin: var(--space-xs) 0 var(--space-md);
-}
-
-.special-looks__order {
-  margin: var(--space-md) 0 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
 /* The pages that edit one thing (a special look, the calendar link): the
@@ -6439,32 +5813,9 @@ a.form-back {
   text-decoration: none;
 }
 
-.form-back .icon {
-  transform: rotate(180deg);
-}
-
 .form-page .section-caption {
   margin: 0;
 }
-
-.rule-suggestions > .text-label {
-  margin: 0;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
-@media (min-width: 1200px) {
-
-  .special-looks {
-    grid-column: auto;
-  }
-
-  /* Without scripts, an open table or add form needs the card's width. */
-  .special-looks:has(.look-edit[open]) {
-    grid-column: 1 / -1;
-  }
-}
-
-/* Phones: the look sheet becomes a bottom sheet over a dimmed page. */
 @media (max-width: 699.98px) {
 
   .look-sheet {
@@ -6500,6 +5851,7 @@ a.form-back {
   }
 }
 
+
 /* Filter chips as plain links (the Audit log), always visible; on a narrow
  * phone they wrap onto a second row of the same track instead of being cut
  * at the edge. The pager links keep a full touch target. */
@@ -6509,24 +5861,6 @@ a.form-back {
   padding: 3px;
   flex-wrap: wrap;
   margin: 0 0 var(--space-md);
-}
-
-.filter-bar__chips--links .filter-chip {
-  flex: 1 0 auto;
-  min-width: 44px;
-  min-height: 0;
-  padding: 0;
-  text-decoration: none;
-}
-
-.filter-bar__chips--links .filter-chip__box {
-  min-height: 46px;
-}
-
-.filter-bar__chips--links .filter-chip:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 1px;
-  border-radius: var(--radius-control);
 }
 
 /* Shared modal dialog (companion/ui_modal.py). One server-rendered
@@ -6598,12 +5932,6 @@ dialog.modal.is-modal[open] {
   overflow-wrap: anywhere;
 }
 
-.modal__subtitle {
-  margin: var(--space-xs) 0 0;
-  overflow-wrap: anywhere;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 a.modal__close {
   display: grid;
   flex: none;
@@ -6663,7 +5991,6 @@ a.modal__dismiss {
   padding: 0 var(--space-md);
   text-align: center;
 }
-
 @media (min-width: 700px) {
   .modal__actions {
     flex-direction: row-reverse;
@@ -6709,6 +6036,7 @@ a.modal__dismiss {
   }
 }
 
+
 /* Bottom-sheet drag to close (modal.js): the grabber's hit area sits over
  * the drawn pill, and the heading strip also starts a drag, so neither lets
  * the browser claim the touch for scrolling. The body keeps native scroll.
@@ -6716,7 +6044,6 @@ a.modal__dismiss {
 .modal__grabber {
   display: none;
 }
-
 @media (max-width: 699.98px) {
   dialog.modal.is-modal .modal__grabber {
     display: block;
@@ -6750,6 +6077,7 @@ a.modal__dismiss {
   }
 }
 
+
 /* A dialog that opens on its heading: the heading is a focus target, not a
  * control, so it draws no ring. */
 .modal__title:focus,
@@ -6767,11 +6095,6 @@ ul.entity-list {
   list-style: none;
 }
 
-.entity-count {
-  margin: 0 0 var(--space-sm);
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 li.entity-row {
   position: relative;
   display: grid;
@@ -6780,10 +6103,6 @@ li.entity-row {
   gap: var(--space-sm);
   padding: var(--space-md);
   border-bottom: 1px solid var(--color-border);
-}
-
-li.entity-row:last-child {
-  border-bottom: 0;
 }
 
 li.entity-row--no-dot {
@@ -6797,12 +6116,6 @@ li.entity-row--no-dot {
   margin-top: 6px;
 }
 
-/* A row of one line (no second line, no pills) centres its dot on the title. */
-li.entity-row:not(:has(.entity-row__meta, .entity-row__pills)) > .entity-row__dot {
-  align-self: center;
-  margin-top: 0;
-}
-
 .entity-row__text {
   display: flex;
   flex-direction: column;
@@ -6810,39 +6123,10 @@ li.entity-row:not(:has(.entity-row__meta, .entity-row__pills)) > .entity-row__do
   min-width: 0;
 }
 
-.entity-row__title {
-  font-size: var(--font-body-size);
-  font-weight: var(--weight-semibold);
-  line-height: 1.5;
-  overflow-wrap: anywhere;
-}
-
-a.entity-row__title {
-  position: relative;
-  color: var(--color-accent);
-}
-
-/* The name link is one text line high; this widens its tap area to 44px
- * without moving anything (the row padding is 16px, so it stays inside the row). */
-a.entity-row__title::before {
-  content: "";
-  position: absolute;
-  inset: -10px 0;
-}
-
-.entity-row__meta {
-  overflow-wrap: anywhere;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
-}
-
 .entity-row__pills {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
-}
-
-details.row-menu {
-  position: relative;
 }
 
 .row-menu__toggle {
@@ -6860,34 +6144,6 @@ details.row-menu {
   display: none;
 }
 
-/* The global summary chevron would sit next to the kebab icon. */
-.row-menu__toggle::before {
-  content: none;
-}
-
-.row-menu__toggle:hover,
-details.row-menu[open] > .row-menu__toggle {
-  background: var(--color-control-wash);
-}
-
-/* Opaque on purpose (it is not part of the glass group): its labels, some in
- * a status colour, must hold 4.5:1 whatever scrolls behind the menu. */
-.row-menu__panel {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 30;
-  box-sizing: border-box;
-  min-width: 12rem;
-  max-width: calc(100vw - 2 * var(--space-md));
-  padding: var(--space-xs) 0;
-  background: var(--color-dominant);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-card);
-  box-shadow: var(--shadow-pop);
-}
-
 .row-menu__item {
   display: flex;
   align-items: center;
@@ -6898,15 +6154,6 @@ details.row-menu[open] > .row-menu__toggle {
   text-decoration: none;
   overflow-wrap: anywhere;
 }
-
-.row-menu__item:hover {
-  background: var(--color-control-wash);
-}
-
-.row-menu__item--destructive {
-  color: var(--color-status-error);
-}
-
 @media (min-width: 960px) {
   ul.entity-list {
     max-width: 56rem;
@@ -6922,14 +6169,6 @@ details.row-menu[open] > .row-menu__toggle {
     padding-left: var(--space-md);
   }
 
-  .entity-row__dot {
-    position: absolute;
-    left: var(--space-md);
-    top: 50%;
-    margin-top: 0;
-    transform: translateY(-50%);
-  }
-
   .entity-row__text {
     display: grid;
     grid-column: 1 / 3;
@@ -6938,14 +6177,11 @@ details.row-menu[open] > .row-menu__toggle {
     align-items: center;
   }
 
-  .entity-row__meta {
-    grid-column: 2;
-  }
-
   .entity-row__pills {
     grid-column: 2;
   }
 }
+
 
 /* Console page header with a primary action: the title and the action
  * share the first row, the purpose line spans both. */
@@ -6958,11 +6194,6 @@ details.row-menu[open] > .row-menu__toggle {
 
 .page-header:has(> .page-header__actions) > .page-header__purpose {
   grid-column: 1 / -1;
-}
-
-.page-header__actions {
-  grid-column: 2;
-  grid-row: 1;
 }
 
 a.page-header__action {
@@ -7114,16 +6345,6 @@ a.entity-row__button:hover {
   display: none;
 }
 
-.personalisation-nav__link:hover {
-  color: var(--color-text);
-}
-
-.personalisation-nav__link:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
-  border-radius: var(--radius-card);
-}
-
 .personalisation-nav__link[aria-current="page"] > span {
   background: var(--seg-selected-bg);
   box-shadow: var(--shadow-control);
@@ -7157,21 +6378,7 @@ a.entity-row__button:hover {
 [data-tabs].is-enhanced > .tabs-thumb.is-sliding {
   transition: transform var(--motion-fast) ease, width var(--motion-fast) ease;
 }
-
-/* The sliding thumb stays under the current link in the same fill, so the
- * current option reads as a pill whether or not the thumb has arrived. */
-.personalisation-nav.is-enhanced .personalisation-nav__link[aria-current="page"] > span {
-  box-shadow: none;
-}
-
-/* On a phone five section labels share one track: a slightly smaller label
- * that may break onto a second line, centred, so none is clipped; the 3px
- * inset matches the track's other end. */
 @media (max-width: 699px) {
-  .personalisation-nav__link {
-    padding-inline: 3px;
-    font-size: 11px;
-  }
 
   .personalisation-nav__link > span {
     display: flex;
@@ -7183,12 +6390,6 @@ a.entity-row__button:hover {
   }
 }
 
-@media (min-width: 700px) {
-  .personalisation-nav__link {
-    flex: 1 1 0;
-    font-size: var(--font-label-size);
-  }
-}
 
 .personalisation-card .special-looks .empty-state--compact {
   margin-bottom: var(--space-sm);
@@ -7213,42 +6414,13 @@ a.entity-row__button:hover {
   justify-content: space-between;
   gap: var(--space-md);
 }
-
-/* The inline picker is the sheet without its dialog behaviour. */
-.look-sheet[data-look-inline] {
-  position: static;
-  z-index: auto;
-  width: auto;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  padding: var(--space-md) 20px;
-  overflow: visible;
-  border-radius: var(--radius-card);
-  box-shadow: none;
-}
-
-.look-sheet[data-look-inline]::before {
-  display: none;
-}
-
-/* On a phone the large picture takes a little over half the width, centred,
- * so the frame is big enough to judge a look by. */
 @media (max-width: 699.98px) {
-
-  /* Tighter spacing so the picture and the three controls fit one phone screen. */
-  .look-sheet[data-look-inline] {
-    padding: var(--space-sm) var(--space-md);
-  }
 
   .page-header:has(+ .personalisation) {
     margin-bottom: var(--space-md);
   }
-
-  .personalisation-nav {
-    margin-bottom: var(--space-md);
-  }
 }
+
 
 /* Airline collection: a header with the page title at the standard size, then
  * the progress on one line (count, a thin bar, the next goal, a compact
@@ -7260,22 +6432,6 @@ a.entity-row__button:hover {
 
 .page-header:has(> .collection-head__status) .page-title {
   margin: 0;
-}
-
-.collection-sort__toggle,
-.collection-legend .row-menu__toggle {
-  border: 1px solid var(--color-border);
-  background: var(--color-dominant);
-}
-
-.collection-sort {
-  position: relative;
-}
-
-.collection-sort__panel {
-  width: max-content;
-  min-width: 11rem;
-  padding: var(--space-xs) 0;
 }
 
 /* One radio row per order: the label at the left, a tick at the right on the chosen one. */
@@ -7296,23 +6452,6 @@ a.entity-row__button:hover {
 .collection-sort__row .icon {
   visibility: hidden;
   color: var(--color-accent);
-}
-
-.collection-sort__option input:checked + .collection-sort__row {
-  font-weight: var(--weight-semibold);
-}
-
-.collection-sort__option input:checked + .collection-sort__row .icon {
-  visibility: visible;
-}
-
-.collection-sort__option:hover .collection-sort__row {
-  background: var(--color-control-wash);
-}
-
-.collection-sort__option input:focus-visible + .collection-sort__row {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -2px;
 }
 
 .collection-card {
@@ -7358,27 +6497,6 @@ dialog.access-sheet[open],
   overflow: hidden;
 }
 
-.collection-sheet .modal__head,
-.access-sheet .modal__head {
-  flex: none;
-}
-
-.access-sheet .modal__body,
-.collection-sheet .modal__body {
-  flex: 1 1 auto;
-  min-height: 0;
-  gap: var(--space-sm);
-  margin-top: var(--space-sm);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.collection-sheet .modal__actions,
-.access-sheet .modal__actions {
-  flex: none;
-  margin-top: var(--space-sm);
-}
-
 /* Users table ----------------------------------------------------------
  * One <table> of users. Below 70rem every row is a card: avatar and
  * email with the "..." menu on top, the role select and the Active switch
@@ -7400,33 +6518,10 @@ button.row-menu__item {
   text-align: left;
   color: var(--color-text);
 }
-
-button.row-menu__item:hover {
-  background: var(--color-control-wash);
-  box-shadow: none;
-}
-
-button.row-menu__item--destructive,
-button.row-menu__item--destructive:hover {
-  color: var(--color-status-error);
-}
-
-/* On a phone the invite action sits under the title at full width, so a long
- * localised title never meets the button; from 700px it shares the title's row. */
 @media (max-width: 699.98px) {
   .page-header:has(> .page-header__actions--stack) {
     grid-template-columns: minmax(0, 1fr);
     row-gap: var(--space-md);
-  }
-
-  .page-header__actions--stack {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .page-header__actions--stack a.page-header__action {
-    display: flex;
-    width: 100%;
   }
 }
 
@@ -7446,6 +6541,7 @@ button.row-menu__item--destructive:hover {
     display: table-row-group;
   }
 }
+
 
 /* Airlines editor table ------------------------------------------------
  * One <tbody> per airline: its row and, behind the native chevron, a
@@ -7467,7 +6563,6 @@ button.row-menu__item--destructive:hover {
   border: 0;
   border-top: 1px solid var(--glass-hairline);
 }
-
 @media (min-width: 70rem) {
   .airlines-table {
     display: table;
@@ -7480,10 +6575,6 @@ button.row-menu__item--destructive:hover {
     border-radius: var(--radius-card);
   }
 
-  .airlines-table tbody {
-    display: table-row-group;
-  }
-
   .airline-group {
     margin: 0;
     background: none;
@@ -7492,17 +6583,12 @@ button.row-menu__item--destructive:hover {
   }
 }
 
-/* ------------------------------------------------------------------
- * Sky and motion language (appended last on purpose: equal-specificity
- * rules here win over the base rules above).
- * ------------------------------------------------------------------ */
-
-/* From the desktop breakpoint the page title grows to 44-48px. */
 @media (min-width: 960px) {
   :root {
     --font-page-title-size: clamp(2.5rem, 2.2rem + 0.9vw, 2.75rem);
   }
 }
+
 
 /* The entrance of a card: a fade and a short rise, finite, painted by the
  * animations only (fill-mode backwards, never forwards), so once they end
@@ -7737,10 +6823,6 @@ button.row-menu__item--destructive:hover {
     }
   }
 }
-
-/* A phone repaints its large group surfaces while it scrolls, and their fill
- * is already most of the glass: they keep the translucent fill, edge and
- * shadow but drop the blur (the bars, sheets and menus keep theirs). */
 @media (max-width: 959.98px) {
   .group {
     -webkit-backdrop-filter: none;
@@ -7748,11 +6830,6 @@ button.row-menu__item--destructive:hover {
   }
 }
 
-/* The glass rule above outranks the cards' own hover shadow: give it back. */
-.collection-card:is(:hover),
-.airline-card:is(:hover) {
-  box-shadow: var(--shadow-card-hover);
-}
 
 /* The cards come in one after the other: the state card, the current
  * frame, then the recent flights. */
@@ -7810,10 +6887,6 @@ button.row-menu__item--destructive:hover {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   box-shadow: var(--shadow-glass);
-}
-
-.group--panel {
-  padding: var(--space-md);
 }
 
 .group > .row {
@@ -7965,12 +7038,12 @@ button.row-menu__item--destructive:hover {
 .hero:has(.hero__picture) {
   grid-template-columns: minmax(96px, 36%) minmax(0, 1fr);
 }
-
 @media (min-width: 700px) {
   .hero:has(.hero__picture) {
     grid-template-columns: 212px minmax(0, 1fr);
   }
 }
+
 
 /* The cycle ring sits 5px outside the picture; the margin keeps it, and its
  * stroke, inside the page column instead of hanging out beside the cards. */
@@ -8209,7 +7282,6 @@ html[data-ambient="rest"] .hero__glass::after {
   background: color-mix(in srgb, var(--color-text) 8%, transparent);
   color: var(--color-text);
 }
-
 @media (min-width: 700px) {
   .title-action {
     --title-size: 48px;
@@ -8226,6 +7298,7 @@ html[data-ambient="rest"] .hero__glass::after {
     height: 18px;
   }
 }
+
 
 /* The docked notification and attention banners: the same glass as every
  * surface, a coloured icon chip for the tone, and the page ink on both
@@ -8252,33 +7325,6 @@ html[data-ambient="rest"] .hero__glass::after {
 
 .toast--docked .toast__action::before {
   display: none;
-}
-
-/* The Fleet State rows: name and verdict stack beside the value, which may
- * wrap but never takes more than half the row, so a long verdict and a long
- * value never overlap. */
-@container health-rows (min-width: 420px) {
-  .health-row__summary {
-    grid-template-columns: 32px minmax(0, 1fr) minmax(0, max-content) 16px;
-    grid-template-areas:
-      "icon name value chevron"
-      "icon verdict value chevron";
-    min-height: 64px;
-    padding: var(--space-sm) var(--space-md);
-  }
-
-  .health-row__value {
-    max-width: 50cqw;
-    justify-content: flex-end;
-    text-align: right;
-  }
-}
-
-/* Flights (phone): one glass group per day, one row per flight. The plane
- * chip is neutral and turns with the direction (nose up for a departure,
- * down for an arrival); the age and the direction sit at the right. */
-.history-cards {
-  margin: 0;
 }
 
 .history-day[hidden],
@@ -8329,19 +7375,6 @@ html[data-ambient="rest"] .hero__glass::after {
   color: var(--color-text);
 }
 
-.account-frame .row__label {
-  font-weight: var(--weight-semibold);
-}
-
-.account-add-frame .row__label {
-  font-weight: var(--weight-semibold);
-}
-
-.group .row--danger .row__main {
-  color: var(--color-status-error);
-  font-weight: var(--weight-semibold);
-}
-
 /* Location: the map sheet and the mode pills keep the glass tier's solid
  * fill: a translucent fill over a light map tile would not hold the text's
  * contrast in the dark theme. */
@@ -8352,54 +7385,6 @@ html[data-ambient="rest"] .hero__glass::after {
 .group > .row > .row__trailing {
   flex: none;
   margin: 0 var(--space-md) 0 0;
-}
-
-.group > .row--purpose .row__label {
-  font-weight: var(--weight-semibold);
-}
-
-.group > .row--form {
-  display: block;
-  padding: var(--space-sm) var(--space-md) var(--space-md);
-}
-
-.row__form {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  align-items: flex-end;
-  margin: 0;
-}
-
-.row__form-field {
-  flex: 1 1 12rem;
-  min-width: 0;
-}
-
-.row__form-field p {
-  margin: 0;
-}
-
-.row__form-field input,
-.row__form-field select {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.row__form > button[type="submit"] {
-  flex: none;
-  min-height: 44px;
-  height: 44px;
-  padding: 0 var(--space-md);
-}
-
-@media (max-width: 699.98px) {
-  dialog.access-sheet,
-  .access-sheet:target:not(.is-modal),
-  .access-sheet[open]:not(.is-modal) {
-    padding-top: var(--radius-sheet);
-  }
 }
 
 /* Cards that hold free content (forms, notes, versions) sit on the same
@@ -8422,19 +7407,6 @@ html[data-ambient="rest"] .hero__glass::after {
 dialog.modal:focus,
 dialog.modal:focus-visible {
   outline: none;
-}
-
-/* The wake interval is typed as a number or dragged on the slider: the
- * browser's own tiny spinner would be a third control for one value. */
-#wake-interval-s {
-  appearance: textfield;
-  -moz-appearance: textfield;
-}
-
-#wake-interval-s::-webkit-outer-spin-button,
-#wake-interval-s::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
 }
 
 /* The one onward link of the error pages: a real primary button. */
@@ -8461,13 +7433,13 @@ dialog.modal:focus-visible {
 .error-home-button:hover {
   background: var(--color-accent-hover);
 }
-
 @media (max-width: 599.98px) {
   .error-home-button {
     display: flex;
     width: 100%;
   }
 }
+
 
 /* Motion. Everything below moves only `transform`, `scale`, `opacity` or a
  * filter, so nothing around it shifts, and the global reduced-motion override
@@ -8632,7 +7604,6 @@ html.splash-on .splash__ink {
   margin: -15px 0 0 -15px;
   color: var(--color-text);
 }
-
 @media (min-width: 960px) {
   .splash .splash__logo {
     width: 36px;
@@ -8640,6 +7611,7 @@ html.splash-on .splash__ink {
     margin: -18px 0 0 -18px;
   }
 }
+
 
 .splash .splash__logo--ghost {
   opacity: 0.35;
@@ -8716,7 +7688,6 @@ html.splash-on .splash__scan {
   display: none;
   view-transition-name: skypane-tab-slider;
 }
-
 @media (max-width: 959.98px) {
   .tab-bar__slider {
     display: block;
@@ -8758,22 +7729,11 @@ html.splash-on .splash__scan {
   }
 }
 
+
 @keyframes skypane-slider-stretch {
   40% {
     scale: 1.1 0.94;
   }
-}
-
-/* Pull to refresh (Flights, phone). The list follows the finger with a
- * transform only; the settle back is the spring. pan-up leaves the browser
- * only an upward pan (scrolling down) so a downward drag at the top reaches
- * the script, and only while the page sits at the top (.is-pullable). */
-.history-cards.is-pullable {
-  touch-action: pan-down;
-}
-
-.history-cards.is-pull-settling {
-  transition: transform var(--motion-spring-duration) var(--motion-spring);
 }
 
 body.is-pulling {
@@ -8813,52 +7773,12 @@ body.is-pulling {
   width: 18px;
   height: 18px;
 }
-
 @media (min-width: 700px) {
   .pull-indicator {
     display: none;
   }
 }
 
-/* The Flights picture dialog is a standard card: the picture, its dated
- * caption and the Close button all sit inside one opaque panel over the
- * scrim, so nothing floats over the page behind it. */
-.lightbox.lightbox--picture {
-  box-sizing: border-box;
-  padding: var(--space-md);
-  box-shadow: var(--shadow-pop);
-  overflow: auto;
-  width: fit-content;
-  min-width: min(20rem, calc(100vw - var(--space-md) * 2));
-  max-width: calc(100vw - var(--space-md) * 2);
-  max-height: calc(100svh - var(--space-md) * 2);
-}
-
-.lightbox.lightbox--picture[open] {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-sm);
-}
-
-.lightbox--picture .lightbox__image:not([hidden]) {
-  width: auto;
-  height: auto;
-  max-width: 100%;
-  max-height: calc(100svh - 12rem);
-  margin: 0 auto;
-  border-radius: var(--radius-frame-pic);
-  box-shadow: var(--shadow-pop);
-}
-
-.lightbox--picture .lightbox__caption {
-  margin: 0;
-  text-align: center;
-}
-
-.lightbox--picture .lightbox__caption:empty {
-  display: none;
-}
 
 /* The shared element of the thumbnail-to-picture transition: whichever of the
  * two pictures carries the class owns the name. The script moves the class

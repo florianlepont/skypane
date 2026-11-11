@@ -39,7 +39,8 @@ _STYLE_ROUTE = "/static/style.css"
 # Duplicated from companion/static_files.py's AREA_STYLE_NAMES for the same reason.
 _AREA_STYLE_ROUTES = tuple(
     "/static/style-%s.css" % name
-    for name in ("home", "flights", "airlines", "place", "display", "admin"))
+    for name in ("c-console", "c-lists",
+                 "home", "flights", "airlines", "place", "display", "admin"))
 
 
 def pick_free_port():

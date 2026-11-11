@@ -27,8 +27,12 @@ _HERE = os.path.dirname(os.path.abspath(__file__))  # companion/
 STATIC_DIR = os.path.join(_HERE, "static")
 
 STYLE_ROUTE = "/static/style.css"
-# The page-family stylesheets linked after the core one (see page_styles.py).
-AREA_STYLE_NAMES = ("home", "flights", "airlines", "place", "display", "admin")
+# The stylesheets linked after the core one (see page_styles.py): first the
+# component sheets, rules that several but not all page families use, then
+# the page-family sheets. Link order is cascade order.
+COMPONENT_STYLE_NAMES = ("c-console", "c-lists")
+AREA_STYLE_NAMES = COMPONENT_STYLE_NAMES + (
+    "home", "flights", "airlines", "place", "display", "admin")
 AREA_STYLE_ROUTES = tuple("/static/style-%s.css" % name for name in AREA_STYLE_NAMES)
 # Each *_SCRIPT_ROUTE is the authoritative value a matching
 # *_SCRIPT_SRC constant in companion/layout.py must equal exactly; a
