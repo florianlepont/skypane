@@ -69,7 +69,6 @@ def _cycle(clock, state_dir, snapshot, advance_s=100):
     poll_cycle.run_once(snapshot=snapshot, state_dir=state_dir, geofence=GEOFENCE_PATH)
 
 
-@pytest.mark.xfail(strict=True, reason="a new aircraft inherits the previous aircraft's state")
 def test_departure_on_take_off_roll_does_not_inherit_arriving(tmp_path, clock, routes):
     """An arrival, then an aircraft whose vertical rate is still ~0 (take-off
     roll) and then climbs: no event may say "arriving" for the second one."""
@@ -85,7 +84,6 @@ def test_departure_on_take_off_roll_does_not_inherit_arriving(tmp_path, clock, r
     assert [r["confirmed_state"] for r in second] == ["departing"]
 
 
-@pytest.mark.xfail(strict=True, reason="a route contradicting the arrival is displayed")
 def test_arrival_with_the_watched_airport_as_origin_shows_no_route(tmp_path, clock, routes):
     """Stale rotating-callsign route ORY -> RVN on an arrival at Orly: the
     origin cannot be Orly, so no city is recorded."""
@@ -107,3 +105,26 @@ def test_flight_without_route_is_recorded_cleanly(tmp_path, clock, routes):
     (row,) = _rows(state_dir)
     assert row["confirmed_state"] == "arriving"
     assert not row["origin"] and not row["destination"]
+
+
+def test_valid_routes_are_kept(tmp_path, clock, routes):
+    """The consistency check only drops contradictions: a real arrival keeps
+    its origin city and a real departure keeps its destination."""
+    state_dir = str(tmp_path)
+    routes["EJU1LIN"] = _route_payload("EJU1LIN", "LIN", "Milan", "ORY", "Paris")
+    routes["EJU2OPO"] = _route_payload("EJU2OPO", "ORY", "Paris", "OPO", "Porto")
+    _cycle(clock, state_dir, _snapshot("aaaaaa", "EJU1LIN", -700))
+    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 1800))
+    arrival, departure = _rows(state_dir)
+    assert (arrival["origin"], arrival["confirmed_state"]) == ("LIN", "arriving")
+    assert (departure["destination"], departure["confirmed_state"]) == ("OPO", "departing")
+
+
+def test_departure_with_the_watched_airport_as_destination_shows_no_route(tmp_path, clock, routes):
+    state_dir = str(tmp_path)
+    routes["TVF7951"] = _route_payload("TVF7951", "RVN", "Rovaniemi", "ORY", "Paris",
+                                       airline="Transavia France")
+    _cycle(clock, state_dir, _snapshot("eeeeee", "TVF7951", 1800))
+    (row,) = _rows(state_dir)
+    assert row["confirmed_state"] == "departing"
+    assert row["destination"] != "ORY"
