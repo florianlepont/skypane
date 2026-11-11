@@ -26,7 +26,7 @@ V1.3 adds a second display mode, "photos", next to "plane". The frame stays dumb
 - Decimal phases are urgent insertions created only when needed.
 
 - [x] **Phase 64: Photo Pipeline (Server Only)** - An uploaded photo is validated, reduced to one stored copy, and rendered for either panel profile with crop, boost and dithering, with skin-tone results recorded.
-- [ ] **Phase 65: Photo Storage, Privacy and Quotas** - Photos are stored per frame, visible only to the owner and co-managers, really deleted, and bounded by quotas.
+- [x] **Phase 65: Photo Storage, Privacy and Quotas** - Photos are stored per frame, visible only to the owner and co-managers, really deleted, and bounded by quotas.
 - [ ] **Phase 66: Frame Mode, Rotation and Waiting Screen** - Each frame has one display mode and a rotation, and the server serves the current photo or a waiting screen, with plane mode unchanged.
 - [ ] **Phase 67: Companion Photo Management and Settings** - Owners and co-managers upload, preview, list and delete photos and set mode and rotation, in English and French.
 - [ ] **Phase 68: Photo-Mode Wake Interval** - In photo mode the frame wakes once per rotation interval. Gated on the battery measurement phases.
@@ -76,7 +76,7 @@ Plans:
 - [x] 65-05-PLAN.md - sweep command and start-up sweep (PRIV-02)
 - [x] 65-06-PLAN.md - owner-or-co-manager route access kind and the guard (PRIV-01)
 - [x] 65-07-PLAN.md - photos excluded from the backup, documented and tested (PRIV-04, PRIV-01, PRIV-03)
-- [ ] 65-08-PLAN.md - admin-leak test and phase gate (PRIV-01)
+- [x] 65-08-PLAN.md - admin-leak test and phase gate (PRIV-01)
 
 ### Phase 66: Frame Mode, Rotation and Waiting Screen
 
@@ -125,7 +125,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 64. Photo Pipeline (Server Only) | 5/5 | Complete (closed 2026-11-10 with one open point: how real skin looks was never judged) | 2026-11-10 |
-| 65. Photo Storage, Privacy and Quotas | 7/8 | In Progress|  |
+| 65. Photo Storage, Privacy and Quotas | 8/8 | Complete (verified 2026-11-11) | 2026-11-11 |
 | 66. Frame Mode, Rotation and Waiting Screen | 0/0 | Not started | - |
 | 67. Companion Photo Management and Settings | 0/0 | Not started | - |
 | 68. Photo-Mode Wake Interval | 0/0 | Not started (gated on Phases 47, 47.1, 47.2) | - |
