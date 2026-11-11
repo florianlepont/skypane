@@ -14,9 +14,9 @@ This is the single evidence record for the integrated field validation. It is a 
 
 | Requirement | Subject | Status |
 |---|---|---|
-| VAL-01 | Healthy check-in behaviour at the selected cadence; battery-critical and display-off overrides still win | pending |
-| VAL-02 | Final field operating decision, conditional pack change and its validation status | pending |
-| VAL-03 | Sleep current against the six-month target of about 1 mA average or less | open: the 2026-10-28 finding (a) is withdrawn because both end points were above 4000 mV, where the curve is not calibrated against a discharge, and the run-one data show about 7 times more charge per mV there than the curve assumes; re-analysis with end medians below 4000 mV about 2026-11-11 |
+| VAL-01 | Healthy check-in behaviour at the selected cadence; battery-critical and display-off overrides still win | validated on 2026-11-11 (900 s cadence PASS, display-off PASS on the real frame, park override from run-two history), see the two sections below |
+| VAL-02 | Final field operating decision, conditional pack change and its validation status | recorded, pack validation open: interval 900 s chosen by the owner on 2026-11-11; the replacement pack is received with checks pending (`hardware/PACK-ACCEPTANCE.md`) |
+| VAL-03 | Sleep current against the six-month target of about 1 mA average or less | open on purpose (outcome (c)): about 1.29 mA average at 3600 s from the voltage trend (rated capacity, rough curve), the tool's band is not applicable; the multimeter route stays optional. See "Final reading of the 3600 s test, 2026-11-11" below |
 
 ## Overrides: battery-critical park
 
@@ -60,9 +60,21 @@ Label: server-side automated test, not the real frame. Re-run in this plan from 
 - `stub-server/test_wake_interval_delivery.py::test_wake_mirror_matches_frame_sleep_s`: the companion's mirror of the wake interval agrees with the frame-facing reply for every precedence case.
 - `server/test_pipeline_e2e.py::test_full_pipeline_end_to_end_through_the_real_device_protocol`: through the real device protocol, a 3290 mV check-in latches BATTERY EMPTY with `sleep_s` 3600, and a 4100 mV check-in's own reply already carries the unparked interval before the park clears.
 
-## Display-off: no real-frame evidence yet
+## Display-off on the real frame
 
-The run-two history contains no period with the display switched off, so there is no real-frame evidence that display-off wins over the normal cadence. The only evidence today is the server-side automated test `stub-server/test_wake_interval_delivery.py::test_safety_pins_win_over_saved_interval` (case `display-off`: 300 s regardless of the saved interval; case `display-off-and-latched`: the park wins). The real-frame check is the owner check in plan 47-05, to be filled there.
+Label: real frame, owner export. Before 2026-11-11 the only evidence was the server-side automated test `stub-server/test_wake_interval_delivery.py::test_safety_pins_win_over_saved_interval` (case `display-off`: 300 s regardless of the saved interval; case `display-off-and-latched`: the park wins), and the run-two history contained no period with the display off.
+
+Owner-reported, 2026-11-11, Paris time: the frame was at 900 s; the owner switched the display off at 17:23 (T0, first given as 18:23 and corrected by the owner to 17:23) and back on at 18:08. The last check-in before T0 was 17:17:08 (T-1, read in the export). The first check-in after T0 was 17:32:42 (T1, read in the export), still at the old interval; the owner did not watch the Health page, Claude read the export.
+
+Command, run on `hardware/logs/val01-display-off-export.jsonl` (sha256 `b0155f2717b2f1a87f82ebf6d8c4d7ab5458ca46dce733fe8227d2ba499b7407`, committed as received), output saved verbatim in `hardware/logs/val01-display-off-cadence.txt`:
+
+`python3 hardware/logtools.py checkin-gaps hardware/logs/val01-display-off-export.jsonl --expect-s 300 --from 2026-11-11T16:17:08+00:00 --skip-first-gaps 1 --no-quiet-hours`
+
+Printed lines: first gap set aside 934 s (the old 900 s interval from T-1 to T1, set aside on purpose); 7 judged gaps; min / median / max gap 299 / 300 / 338 s; median 1.000 times the expected 300 s; gaps above 3 times the expected: 0; `cadence verdict: PASS`. `--no-quiet-hours` is correct because the whole window is between 17:17 and 18:08 Paris time, outside 23:30 to 06:00.
+
+Because the normal interval was 900 s, a 300 s cadence cannot come from the normal setting: the display-off override is seen to take precedence on the real frame. One export row at 17:43:22 Paris time carries no battery reading and no other field, three seconds after the 17:43:19 check-in; it is ignored by the tool and its cause is not known.
+
+Status: PASS, not a pass of the whole of VAL-01 by itself.
 
 ## Sleep current from the voltage trend (VAL-03)
 
@@ -193,12 +205,37 @@ Owner-reported (2026-11-11): the same small pack is likely to be reused on later
 
 ## Healthy check-in cadence at the final interval (VAL-01)
 
-To be filled by plan 47-05.
+Label: real frame, owner export. Interval: 900 s, the final interval chosen by the owner on 2026-11-11.
+
+No new 24 h trial was run after the interval was applied. The cadence is judged on the earlier 900 s test of the old pack, from 2026-10-23 to 2026-10-31 12:02 Paris time (about 8 days on the real frame at 900 s, owner-reported start and end), read from `hardware/logs/val01-final-interval-export.jsonl` (sha256 `c9e29a9115561c30220782023c07d4c1d88c0e4487dd7c1096da45f4da961018`, committed as received). This is a deviation from plan 47-05, which asks for 24 h after the application; the data of the test were judged equivalent by Claude and the owner was told on 2026-11-11.
+
+Command, output saved verbatim in `hardware/logs/val01-final-interval-cadence.txt`:
+
+`python3 hardware/logtools.py checkin-gaps hardware/logs/val01-final-interval-export.jsonl --expect-s 900 --from 2026-10-23T05:00:00+00:00 --to 2026-10-31T11:00:00+00:00 --quiet-start 23:30 --quiet-end 06:00`
+
+Printed lines: 16 quiet-hours gaps set aside; 555 judged gaps; min / median / max gap 301 / 934 / 1253 s; median 934 s, 1.038 times the expected 900 s; gaps within expected to 1.5 times expected 95.7%; gaps above 3 times the expected: 0; `cadence verdict: PASS`.
+
+Two-sided check of plan 47-05: the median is not below the expected interval, so there is no fast-side failure. It is above expected plus 20 s (934 s against 920 s); that is not a failure, it is judged by the printed verdict. The smallest gap of 301 s is the moment the interval changed from 300 s to 900 s at the start of the test, and it is included in the judged gaps.
+
+Battery-critical park: evidence from the run-two history and the automated precedence tests, recorded in the section "Overrides: battery-critical park" above; nothing new was run on the real frame.
+
+Status: PASS at 900 s, with the deviation named above.
 
 ## Final decision and pack status (VAL-02)
 
-To be filled by plan 47-06. The pack checklist is `hardware/PACK-ACCEPTANCE.md`.
+Owner-reported, 2026-11-11 (chat): final wake interval 900 s ("900 s", chosen from the options 3600 s, 900 s, 300 s, other). Claude recommended 3600 s as the only interval measured to clear six months; the owner chose 900 s. The owner also reported having set the frame to 900 s on the live Device page; no read-back value was reported, and the cadence of 933 s observed at 17:17 Paris time in the export confirms the frame runs at about 15 minutes.
+
+Rationale, as far as it was given: none beyond the choice. Evidence, labelled arithmetic by Claude (rated capacity, rough curve): about 8.63 mA at 900 s from the old-pack test, so about 48 days on a 10000 mAh pack; about 1.29 mA at 3600 s, so about 323 days. 900 s does not reach the six-month target of 180 days on any pack of this range; 3600 s is the only measured interval that does. The worst-case data age at 900 s is about the interval plus the awake time (median gap measured 934 s). The owner knows this.
+
+No value for after the new pack was named. The interval of the old pack after the display check was asked of the owner and not answered at the time of writing.
+
+Pack status: RECEIVED, CHECKS PENDING (`hardware/PACK-ACCEPTANCE.md`). Check 1 passed on a photograph; check 2 is partial (pack side only); checks 3 and 4 are not done. The pack is not connected.
 
 ## What stays open
 
-To be filled by plan 47-06.
+- Pack acceptance: the polarity match with the board, the free area, and the first charge. Nothing is connected until they pass.
+- The interval after the new pack is fitted, and whether 900 s is kept on the old pack after the check.
+- The six-month target is not met at 900 s (about 48 days on 10000 mAh, estimate); it is met only at 3600 s in the estimates. The owner chose 900 s.
+- VAL-03: open on purpose; the multimeter measurement stays optional (declined 2026-10-23).
+- A third controlled discharge on the new pack (deferred), and a measurement with the instrumentation firmware of Phase 47.1, which will separate the standing draw from the wake energy.
+- The cause of the row without data at 17:43:22 on 2026-11-11 and of the rows without battery reading in the exports.

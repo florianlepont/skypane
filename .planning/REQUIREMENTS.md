@@ -30,7 +30,7 @@
 
 - [ ] **VAL-01**: The owner can confirm on the real frame that the selected field cadence produces the expected healthy check-in behavior and retains battery-critical and display-off safety overrides.
 - [ ] **VAL-02**: The project records the final field operating decision, including any conditional battery-pack change and its validation status.
-- [ ] **VAL-03**: The owner can measure the frame's sleep current on the real frame and record it against the six-month autonomy target (average current of about 1 mA or less), with the finding of where any excess standing draw comes from or an explicit statement that the measurement settles the question.
+- [ ] **VAL-03**: The owner can establish the frame's sleep current against the six-month autonomy target (average current of about 1 mA or less), by direct measurement or, when the series measurement is declined, estimated from the long-interval battery-voltage trend, with the finding of where any excess standing draw comes from or an explicit statement that the measurement settles the question.
 
 ### Wake Energy
 
@@ -93,4 +93,4 @@
 
 ---
 *Requirements defined: 2026-09-30*
-*Last updated: 2026-10-12 after adding VAL-03 (six-month autonomy target) to Phase 47*
+*Last updated: 2026-11-11 after the Phase 47 closing record (VAL-03 wording aligned with the voltage-trend route)*
