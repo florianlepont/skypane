@@ -48,6 +48,7 @@ import server.plane.enrich as enrich
 import server.plane.manual_resolutions as manual_resolutions
 import server.plane.name_overrides as name_overrides
 import server.plane.render as render
+import server.plane.route_sanity as route_sanity
 import server.plane.runway_config as runway_config
 import server.request_budget as request_budget
 import server.screen_layouts as screen_layouts
@@ -1071,6 +1072,7 @@ def advance_display_queue(ctx):
     # aircraft leaving "current" shifts into "previous" on a paced advance,
     # not on every distinct detection.
     prior_confirmed_state = ctx.current_confirmed_state
+    outgoing_hex = ctx.current_flight.get("hex") if isinstance(ctx.current_flight, dict) else None
     if promoted is not None:
         if ctx.current_flight is not None:
             ctx.previous_flight = ctx.current_flight
@@ -1080,11 +1082,30 @@ def advance_display_queue(ctx):
         ctx.last_advance_at = now
         queue_dirty = True
 
+    # A different aircraft never inherits the previous one's direction: on a
+    # take-off roll its vertical rate is still inside the deadband and the
+    # held state would be the arrival that just left.
+    if promoted is not None and promoted.get("hex") != outgoing_hex:
+        prior_confirmed_state = None
+
     ctx.promoted = promoted
     ctx.refreshed = refreshed
     ctx.dropped = dropped
     ctx.queue_dirty = queue_dirty
     ctx.prior_confirmed_state = prior_confirmed_state
+
+
+def _drop_contradicting_route(ctx, route, route_source):
+    """The adsbdb route unless it cannot be true for the observed direction
+    at the watched airport (a stale rotating-callsign entry): then the
+    airline-only fallback, so the screen shows no wrong city."""
+    if route_source not in ("fresh_hit", "cache_hit"):
+        return route, route_source
+    watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
+    if not route_sanity.route_contradicts(route, ctx.confirmed_state, watched):
+        return route, route_source
+    return enrich.resolve_airline_only(
+        ctx.current_flight.get("callsign"), ctx.manual_registry, ctx.name_overrides)
 
 
 def _enrich_current_flight(ctx):
@@ -1139,6 +1160,7 @@ def _enrich_current_flight(ctx):
     # `current_flight`, so recording `ctx.flight` would write a
     # runway_events row whose hex and route describe two different
     # aircraft.
+    route, route_source = _drop_contradicting_route(ctx, route, route_source)
     ctx.event_recorded = _should_record_event(current_flight, ctx.confirmed_state, poll_state)
     poll_state["last_recorded_hex"] = current_flight.get("hex")
     poll_state["last_recorded_confirmed_state"] = ctx.confirmed_state
