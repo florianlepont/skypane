@@ -227,14 +227,14 @@ Owner-reported, 2026-11-11 (chat): final wake interval 900 s ("900 s", chosen fr
 
 Rationale, as far as it was given: none beyond the choice. Evidence, labelled arithmetic by Claude (rated capacity, rough curve): about 8.63 mA at 900 s from the old-pack test, so about 48 days on a 10000 mAh pack; about 1.29 mA at 3600 s, so about 323 days. 900 s does not reach the six-month target of 180 days on any pack of this range; 3600 s is the only measured interval that does. The worst-case data age at 900 s is about the interval plus the awake time (median gap measured 934 s). The owner knows this.
 
-No value for after the new pack was named. The interval of the old pack after the display check was asked of the owner and not answered at the time of writing.
+No value for after the new pack was named. Owner-reported, 2026-11-11 (chat, after the display-off check): "On garde 900": the frame stays at 900 s on the old pack. Labelled arithmetic by Claude (rated 3000 mAh, curve fraction 0.647 at 3890 mV and 0.059 at 3300 mV, about 1764 mAh to the BATTERY EMPTY park, 7.7 to 12.7 days at 9.6 to 5.8 mA, 8.5 days at 8.63 mA): the old pack is expected to reach the park about one to two weeks after 2026-11-11, after which the frame checks in hourly until the new pack is fitted or the pack is recharged.
 
 Pack status: RECEIVED, CHECKS PENDING (`hardware/PACK-ACCEPTANCE.md`). Check 1 passed on a photograph; check 2 is partial (pack side only); checks 3 and 4 are not done. The pack is not connected.
 
 ## What stays open
 
 - Pack acceptance: the polarity match with the board, the free area, and the first charge. Nothing is connected until they pass.
-- The interval after the new pack is fitted, and whether 900 s is kept on the old pack after the check.
+- The interval after the new pack is fitted (900 s is kept on the old pack, owner-reported 2026-11-11, and reaches the park in about one to two weeks, arithmetic).
 - The six-month target is not met at 900 s (about 48 days on 10000 mAh, estimate); it is met only at 3600 s in the estimates. The owner chose 900 s.
 - VAL-03: open on purpose; the multimeter measurement stays optional (declined 2026-10-23).
 - A third controlled discharge on the new pack (deferred), and a measurement with the instrumentation firmware of Phase 47.1, which will separate the standing draw from the wake energy.
