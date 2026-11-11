@@ -1085,3 +1085,11 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   single flight, R05 editor type templates, R07 deferred map init, R10, R14 CSS split,
   R15 Flights duplication, R17 cheap freshness token, R18 empty 404 for asset paths,
   R22 splash preload, R23, R28). The splash duration stays unchanged.
+
+## Remaining audit-4 points (D55)
+
+- Owner: "Traite les cinq points restants": R10 and R15 (Flights card and table
+  duplication, content-visibility with deterministic card heights), R23 (bfcache with a
+  pageshow session check, keeping the sign-out guarantee), R07 (split place-map.js, the
+  map evaluation cost), R14 (go further on the stylesheet split to the 20-25 KB gz
+  target). Brotli stays an owner deploy decision (Caddy build).
