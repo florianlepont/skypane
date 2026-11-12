@@ -386,3 +386,66 @@ def test_an_in_place_pick_keeps_the_typed_radius_and_cancel_puts_the_page_back(
         assert navigations == []
     finally:
         context.close()
+
+
+# What the map shows: the airport marks in view, the selected one, and the pin.
+MAP_STATE = (
+    "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
+    " const inView = (el) => { const r = el.getBoundingClientRect(); const x = r.left + r.width / 2;"
+    "   const y = r.top + r.height / 2; return x >= m.left && x <= m.right && y >= m.top && y <= m.bottom; };"
+    " const code = (el) => el.querySelector('[data-icao]').getAttribute('data-icao');"
+    " return {"
+    "  pins: document.querySelectorAll('#place-map .place-pin').length,"
+    "  selected: Array.from(document.querySelectorAll('#place-map .place-dot--selected')).map(code),"
+    "  seen: Array.from(document.querySelectorAll('#place-map .place-dot')).filter(inView).map(code),"
+    "  nearest: !document.getElementById('place-nearest').hidden,"
+    "  lat: document.getElementById('place-lat').value,"
+    "  address: location.pathname + location.search}; }")
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP])
+def test_cancel_after_a_pick_puts_the_map_back_on_a_page_opened_without_a_pin(
+        new_context, make_app_server, viewport):
+    """a frame with no stored place opens on its airport with no pin; after an airport picked from
+    the search and Cancel, the pin and its readout are gone, the address is the opened one, the map
+    is back on the frame's airport, and My position shows no pin where the discarded airport was
+    and offers nothing about it"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts = _open_ready(new_context, server, viewport)
+    try:
+        opened = page.evaluate(MAP_STATE)
+        assert opened["pins"] == 0 and opened["lat"] == "", opened
+        assert page.is_checked("#place-mode-area")
+        page.fill("#place-search", "LFLY")
+        page.press("#place-search", "Enter")
+        page.wait_for_function("() => location.search.indexOf('airport=LFLY') >= 0", timeout=10000)
+        page.wait_for_function(
+            "() => document.querySelector('#place-map .place-dot--selected [data-icao=\"LFLY\"]')",
+            timeout=10000)
+        page.wait_for_selector("button.dirty-bar__cancel", state="visible")
+        page.click("button.dirty-bar__cancel")
+        page.wait_for_function(
+            "(url) => location.pathname + location.search === url", arg=opened["address"],
+            timeout=5000)
+        page.wait_for_function(
+            "() => document.getElementById('place-mode-area').checked"
+            " && !document.querySelector('#place-map .place-dot')", timeout=5000)
+        back = page.evaluate(MAP_STATE)
+        assert back["pins"] == 0 and back["lat"] == "" and not back["nearest"], back
+        assert page.is_hidden("#place-coords") and page.is_visible("#place-tap-hint")
+        # Airport mode draws the marks: the map is on the frame's airport again, not on the
+        # discarded one.
+        page.click("label.place-mode:has(#place-mode-runway)")
+        page.wait_for_function(
+            "() => document.querySelector('#place-map .place-dot--selected [data-icao=\"LFPO\"]')"
+            " && !document.querySelector('#place-map .leaflet-zoom-anim, #place-map .leaflet-pan-anim')",
+            timeout=10000)
+        there = page.evaluate(MAP_STATE)
+        assert there["selected"] == ["LFPO"] and "LFPO" in there["seen"], there
+        assert "LFLY" not in there["seen"] and there["pins"] == 0, there
+        page.click("label.place-mode:has(#place-mode-area)")
+        page.wait_for_function("() => document.getElementById('place-mode-area').checked", timeout=5000)
+        after = page.evaluate(MAP_STATE)
+        assert after["pins"] == 0 and after["lat"] == "" and not after["nearest"], after
+    finally:
+        context.close()
