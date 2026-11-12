@@ -1067,6 +1067,14 @@ a.row-action {
   padding-right: var(--space-sm);
 }
 
+/* On a narrow phone the address takes half of the space kept before the
+ * action, which is what a usual address in French needs to show whole. */
+@media (max-width: 26rem) {
+  .group > .row.access-person > .row__main {
+    padding-right: var(--space-xs);
+  }
+}
+
 .group > .row.access-person .row__text {
   flex: 1 1 11rem;
   min-width: 0;
