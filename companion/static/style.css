@@ -6217,16 +6217,6 @@ a.page-header__action:hover {
   background: var(--color-accent-hover);
 }
 
-a.pair-link--primary {
-  background: var(--color-accent);
-  border-color: transparent;
-  color: var(--color-on-accent);
-}
-
-a.pair-link--primary:hover {
-  background: var(--color-accent-hover);
-}
-
 /* A labelled control inside a dialog, with its help or error text below. */
 .modal__field > p {
   margin: var(--space-xs) 0 0;
