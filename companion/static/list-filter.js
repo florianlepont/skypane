@@ -751,6 +751,7 @@
 
   var VIEW = ".collection-grid, .collection-sheet, [data-filter-empty], [data-collection-empty]";
   var DEFAULTS = { show: "all", sort: "most" };
+  var SORT_NAME = "sort";
   var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;
   var shown = window.location.pathname + window.location.search;
@@ -866,9 +867,66 @@
     });
   }
 
+  // Each card carries its place in every order (one number per sort value,
+  // in the menu's order): the sort moves the cards the page already holds.
+  // Must equal RANK_ATTR in companion/pages/airline_collection_page.py.
+  var RANK_ATTR = "data-sort-rank";
+
+  function rankOf(item, column) {
+    var places = (item.getAttribute(RANK_ATTR) || "").split(" ");
+    return column < places.length && places[column] !== "" ? Number(places[column]) : NaN;
+  }
+
+  // Puts the cards in the order of `radio`'s value without a request. False
+  // when the page cannot (no grid, or a card without its places): the server
+  // is asked instead.
+  function sortInPlace(radio) {
+    var grid = document.querySelector(".collection-grid");
+    var radios = form.querySelectorAll('input[type="radio"][name="' + radio.name + '"]');
+    var column = Array.prototype.indexOf.call(radios, radio);
+    if (!grid || column < 0) {
+      return false;
+    }
+    var items = Array.prototype.slice.call(grid.children);
+    for (var i = 0; i < items.length; i++) {
+      if (isNaN(rankOf(items[i], column))) {
+        return false;
+      }
+    }
+    items.sort(function (a, b) { return rankOf(a, column) - rankOf(b, column); });
+    for (var k = 0; k < items.length; k++) {
+      grid.appendChild(items[k]);
+    }
+    nameSort(radio);
+    var url = currentUrl();
+    history.pushState(null, "", url);
+    shown = url;
+    return true;
+  }
+
+  // The menu button names the order chosen: "<menu label>: <option>".
+  function nameSort(radio) {
+    var menu = form.querySelector(".collection-sort");
+    var toggle = form.querySelector(".collection-sort__toggle");
+    var panel = form.querySelector(".collection-sort__panel");
+    var option = radio.parentNode.querySelector(".collection-sort__row > span");
+    if (toggle && panel && option) {
+      var name = panel.getAttribute("aria-label") + ": " + option.textContent;
+      toggle.setAttribute("aria-label", name);
+      toggle.setAttribute("title", name);
+    }
+    if (menu) {
+      menu.removeAttribute("open");
+    }
+  }
+
   document.addEventListener("change", function (event) {
     var target = event.target;
     if (target && target.form === form && target.hasAttribute("data-autosubmit")) {
+      if (target.name === SORT_NAME && sortInPlace(target)) {
+        latest++;
+        return;
+      }
       refresh();
     }
   });
