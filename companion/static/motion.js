@@ -135,9 +135,10 @@
   // Any segmented strip marked data-tabs (the Style and Fleet section links,
   // the Flights, Airlines and Audit filter chips) gets one thumb behind its
   // segments that slides under the current one. A strip whose segments are
-  // links (or radios that send their form) is a page change: the thumb starts under the segment of the page
-  // that was left (sessionStorage, keyed by the strip's name) and slides to
-  // the current one. A strip of radios moves on change. A strip may name the
+  // links is a page change: the thumb is under the current segment from the
+  // start and never slides after the page opened (the page change itself
+  // carries the selection across, see the stylesheet's skypane-strip). A
+  // strip of radios moves on change. A strip may name the
   // content its segments switch (data-tabs-content, a selector) and the
   // content replays the shared entrance, or only a fade with
   // data-tabs-replay="fade". The thumb moves by transform and width alone and
@@ -222,8 +223,6 @@
       return;
     }
     strip.setAttribute("data-tabs-ready", "");
-    var name = strip.getAttribute("data-tabs") || "";
-    var key = "skypane-tabs-" + name;
     var items = stripItems(strip);
     var wantsThumb = strip.getAttribute("data-tabs-thumb") !== "none";
     var thumb = null;
@@ -264,18 +263,6 @@
 
     var index = stripCurrent(items);
     if (thumb && index !== -1) {
-      var from = -1;
-      var navigates = items[index].tagName === "A" || !!strip.querySelector("[data-autosubmit]");
-      try {
-        if (navigates) {
-          from = parseInt(window.sessionStorage.getItem(key), 10);
-          window.sessionStorage.setItem(key, String(index));
-        }
-      } catch (err) {
-        from = -1;
-      }
-      var slide = navigates && from >= 0 && from < items.length && from !== index
-        && !reducedMotion();
       if (carried && !reducedMotion()) {
         thumb.style.width = carried.width;
         thumb.style.height = carried.height;
@@ -284,9 +271,7 @@
         thumb.getBoundingClientRect();
         thumb.classList.add("is-sliding");
         place(index);
-      } else if (place(slide ? from : index) && slide) {
-        thumb.getBoundingClientRect();
-        thumb.classList.add("is-sliding");
+      } else {
         place(index);
       }
       // Re-place the thumb only when the strip's own geometry changed (fonts,

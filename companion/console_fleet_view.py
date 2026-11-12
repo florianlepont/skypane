@@ -107,7 +107,7 @@ def tabs_html(frame_id, tab):
          "<span>%s</span>" % _t(label), key == tab, "")
         for key, label in labels]
     return ui_segmented.segmented_links_html(
-        links, _t(_TABS_LABEL), "fleet-tabs", nav_attrs=' data-tabs="fleet"')
+        links, _t(_TABS_LABEL), "fleet-tabs", nav_attrs=' data-tabs="fleet"', carry=True)
 
 
 def frame_menu_html(entries, selected, is_system):

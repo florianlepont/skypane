@@ -168,7 +168,7 @@ def _nav_html(view):
          slug == view, ' data-pers-view="%s"' % slug)
         for slug, title, icon in _views()]
     return ui_segmented.segmented_links_html(
-        links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"')
+        links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"', carry=True)
 
 
 def _bar_html(title, cancel_href, form_id, pending_label=None, shown=False):

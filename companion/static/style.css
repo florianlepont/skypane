@@ -478,6 +478,21 @@ html[data-ui-theme="dark"] {
     animation-timing-function: var(--motion-spring);
   }
 
+  /* A strip whose segments change page (the Style and Fleet sections, the
+   * Audit categories) hands its selection to the page change: the selected
+   * segment of the page that is left glides to the selected segment of the
+   * page that opens, inside the page change itself. No script slides the
+   * thumb afterwards, and arriving any other way moves nothing. A page shows
+   * one such strip at most (the name must be unique). */
+  [data-tabs-carry] > [aria-current] > span {
+    view-transition-name: skypane-strip;
+  }
+
+  ::view-transition-group(skypane-strip) {
+    animation-duration: var(--motion-view-transition);
+    animation-timing-function: var(--ease-out);
+  }
+
   /* The thumbnail-to-picture transition runs a little longer than a page
    * change and crops both snapshots to the same cover fit. */
   ::view-transition-group(skypane-flight-pic) {

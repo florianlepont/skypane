@@ -8,6 +8,8 @@ its current segment, and the content a strip switches replays the same entrance.
 turns all of it into an instant change. The bottom tab bar's sliding pill is on every page,
 including the ones that belong to no bar cell.
 """
+import json
+
 import pytest
 
 import fleet_console_support as fx
@@ -199,56 +201,125 @@ def _entered_since(page, mark):
         "(m) => window.__anim.slice(m).filter((e) => e.name === 'skypane-reveal-fade')", mark)
 
 
-@pytest.mark.parametrize("viewport", VIEWPORTS)
-def test_the_audit_chips_slide_the_thumb_and_replay_the_opening(new_context, server, viewport):
-    """choosing another audit category loads that page: the thumb starts under the chip that was
-    left and slides to the new one, and the page opening plays again"""
+# What the page change that opened this page animated, and whether a script slid a strip's
+# thumb afterwards. Kept in session storage: the probe runs before the page's own scripts.
+_STRIP_PROBE = """
+window.addEventListener('pagereveal', (event) => {
+  const save = (value) => sessionStorage.setItem('strip-probe', JSON.stringify(value));
+  if (!event.viewTransition) { save({change: 'none', strip: []}); return; }
+  event.viewTransition.ready.then(() => {
+    const strip = document.documentElement.getAnimations({subtree: true})
+      .filter((a) => a.effect && a.effect.pseudoElement
+        && a.effect.pseudoElement.indexOf('(skypane-strip)') > -1)
+      .map((a) => a.effect.pseudoElement.split('(')[0]);
+    save({change: 'ran', strip: strip});
+  }, () => save({change: 'skipped', strip: []}));
+});
+new MutationObserver((records) => {
+  for (const record of records) {
+    if (record.target.matches && record.target.matches('.tabs-thumb.is-sliding')) {
+      sessionStorage.setItem('strip-slid', location.pathname + location.search);
+    }
+  }
+}).observe(document, {attributes: true, attributeFilter: ['class'], subtree: true});
+"""
+_CARRIERS = (
+    "() => [...document.querySelectorAll('*')].filter("
+    "(e) => getComputedStyle(e).viewTransitionName === 'skypane-strip').length")
+
+
+def _strip_context(new_context, server, viewport):
     context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_STRIP_PROBE)
+    return context
+
+
+def _follow(page, selector):
+    """Click a link and wait for the page it opens; the probe of that page change."""
+    page.evaluate("() => { sessionStorage.removeItem('strip-probe');"
+                  " sessionStorage.removeItem('strip-slid'); }")
+    with page.expect_navigation():
+        page.locator(selector).click()
+    page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+    page.wait_for_function("() => sessionStorage.getItem('strip-probe') !== null", timeout=10000)
+    return json.loads(page.evaluate("() => sessionStorage.getItem('strip-probe')"))
+
+
+def _assert_carried(page, probe, strip):
+    """The page change itself glided the selection (old, new and group all animate), the thumb
+    sits under the current segment and no script slid it once the page was there."""
+    assert probe["change"] == "ran", probe
+    for part in ("::view-transition-group", "::view-transition-old", "::view-transition-new"):
+        assert part in probe["strip"], probe
+    assert _thumb_matches_current(page, strip), strip
+    assert page.evaluate("() => sessionStorage.getItem('strip-slid')") is None
+    assert page.evaluate(_CARRIERS) == 1
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+def test_the_audit_chips_carry_the_selection_through_the_page_change(
+        new_context, server, viewport):
+    """choosing another audit category loads that page: the selected chip glides to its new
+    place inside the page change, and no thumb slides afterwards"""
+    context = _strip_context(new_context, server, viewport)
     try:
         page = context.new_page()
         _open(page, server, "/audit")
         strip = '[data-tabs="audit"]'
         assert _thumb_matches_current(page, strip)
-        page.locator(strip + " a.filter-chip:not(.filter-chip--current)").nth(1).click()
-        page.wait_for_function("() => location.search.indexOf('category') >= 0", timeout=10000)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
-        assert _entered_since(page, 0), "the new audit page did not open with the entrance"
+        probe = _follow(page, strip + " a.filter-chip:not(.filter-chip--current) >> nth=1")
+        assert "category" in page.url
+        _assert_carried(page, probe, strip)
     finally:
         context.close()
 
 
-def test_the_fleet_tabs_slide_the_thumb_and_replay_their_blocks(new_context, server):
-    """on a phone the State, Settings and Access tabs slide the thumb like the Style tabs and the
-    blocks of the chosen tab enter"""
-    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
-                             reduced_motion="no-preference")
+def test_the_fleet_tabs_carry_the_selection_through_the_page_change(new_context, server):
+    """on a phone the State, Settings and Access tabs hand the selection over like the Style
+    tabs"""
+    context = _strip_context(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
         _open(page, server, "/fleet")
         strip = '[data-tabs="fleet"]'
         assert _thumb_matches_current(page, strip)
-        page.locator(strip + " a:not([aria-current])").first.click()
-        page.wait_for_function("() => location.search.indexOf('tab=') >= 0", timeout=10000)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
-        assert [e for e in _entered_since(page, 0) if "fleet-block" in e["cls"]]
+        probe = _follow(page, strip + " a:not([aria-current]) >> nth=0")
+        assert "tab=" in page.url
+        _assert_carried(page, probe, strip)
     finally:
         context.close()
 
 
-def test_the_style_tabs_slide_the_thumb(new_context, server):
-    context = _admin_context(new_context, server, VIEWPORT_DESKTOP,
-                             reduced_motion="no-preference")
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+def test_the_style_tabs_carry_the_selection_through_the_page_change(
+        new_context, server, viewport):
+    context = _strip_context(new_context, server, viewport)
     try:
         page = context.new_page()
         _open(page, server, "/display")
         strip = '[data-tabs="display"]'
         assert _thumb_matches_current(page, strip)
-        page.locator(strip + " a:not([aria-current])").nth(1).click()
-        page.wait_for_function("() => location.pathname !== '/display'", timeout=10000)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
+        probe = _follow(page, strip + " a:not([aria-current]) >> nth=1")
+        assert not page.url.endswith("/display")
+        _assert_carried(page, probe, strip)
+    finally:
+        context.close()
+
+
+def test_a_strip_reached_another_way_moves_nothing(new_context, server):
+    """Style on Special looks, Home by the tab bar, Style again by the tab bar: the strip
+    leaves and comes back with its page (a fade in place), nothing glides from one segment
+    to another and the thumb does not slide."""
+    context = _strip_context(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        page = context.new_page()
+        _open(page, server, "/display/special-looks")
+        home = _follow(page, ".tab-bar a.tab-bar__link:not(.tab-bar__link--switch) >> nth=0")
+        assert "::view-transition-new" not in home["strip"], home
+        style = _follow(page, '.tab-bar a.tab-bar__link[href$="/display"]')
+        assert style["change"] == "ran" and "::view-transition-old" not in style["strip"], style
+        assert page.evaluate("() => sessionStorage.getItem('strip-slid')") is None
+        assert _thumb_matches_current(page, '[data-tabs="display"]')
     finally:
         context.close()
 
