@@ -312,10 +312,11 @@ def test_a_new_detection_is_highlighted_and_an_existing_row_is_not(new_context, 
 
 
 def test_a_refresh_keeps_every_picture_action_working(new_context, make_app_server):
-    """A refresh keeps the Flights picture action on every row: after a new detection lands
-    and the loop swaps the list in, every desktop row and phone card still carries exactly one
-    picture link, the new flight at the top has its own, and a link in the swapped markup
-    still opens the shared lightbox (the click handler is delegated, so it survives the swap).
+    """A refresh keeps the Flights picture action working: after a new detection with its own
+    archived render lands and the loop swaps the list in, the rows and cards that had a picture
+    link still carry exactly one, the new flight at the top has its own, every phone card still
+    has exactly one lead (a picture link or a stand-in), and a link in the swapped markup still
+    opens the shared lightbox (the click handler is delegated, so it survives the swap).
     """
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP)
@@ -325,29 +326,44 @@ def test_a_refresh_keeps_every_picture_action_working(new_context, make_app_serv
         _login(page, base_url)
         page.goto(base_url + "/flights")
         page.wait_for_load_state("networkidle")
-        before = page.locator("tr[data-flight-row]").count()
-
-        _record_a_new_detection(
-            server.tmpdir, "OPENSRV", "39fffe", "2026-08-02T00:15:00+00:00")
-        _force_refresh(page)
-        page.wait_for_timeout(REFRESH_SETTLE_MS)
-
-        seen = page.evaluate(
+        counts = (
             "() => ({rows: document.querySelectorAll('tr[data-flight-row]').length,"
             "        cards: document.querySelectorAll('li.history-card').length,"
+            "        leads: [...document.querySelectorAll('li.history-card')].filter("
+            "          li => li.querySelectorAll('.history-card__thumb').length === 1).length,"
             "        rowLinks: document.querySelectorAll("
             "          'tr[data-flight-row] a[data-view-panel-src]').length,"
             "        cardLinks: document.querySelectorAll("
-            "          'li.history-card a[data-view-panel-src]').length,"
-            "        topName: document.querySelector("
-            "          'tr[data-flight-row] a[data-view-panel-src]').getAttribute('aria-label')})")
-        if seen["rows"] != before + 1:
+            "          'li.history-card a[data-view-panel-src]').length})")
+        before = page.evaluate(counts)
+        assert before["rowLinks"] == before["cardLinks"], before
+
+        detected = "2026-08-02T00:15:00+00:00"
+        _record_a_new_detection(server.tmpdir, "OPENSRV", "39fffe", detected)
+        # The poll cycle that records a detection archives the render showing it.
+        from PIL import Image
+        from server import poll_cycle
+        render_ts = (datetime.fromisoformat(detected) - timedelta(seconds=5)).isoformat()
+        poll_cycle._save_to_gallery(server.tmpdir, Image.new("RGB", (60, 80), "white"), render_ts)
+        _force_refresh(page)
+        page.wait_for_timeout(REFRESH_SETTLE_MS)
+
+        seen = page.evaluate(counts)
+        seen["topName"] = page.evaluate(
+            "() => document.querySelector("
+            "'tr[data-flight-row] a[data-view-panel-src]').getAttribute('aria-label')")
+        if seen["rows"] != before["rows"] + 1:
             raise AssertionError(
                 "expected the swapped list to gain the new flight (%d rows before, %d after)"
-                % (before, seen["rows"]))
-        if seen["rowLinks"] != seen["rows"] or seen["cardLinks"] != seen["cards"]:
+                % (before["rows"], seen["rows"]))
+        if seen["rowLinks"] != before["rowLinks"] + 1 or seen["cardLinks"] != seen["rowLinks"]:
             raise AssertionError(
-                "expected one picture link per row and per card after the swap, got %r" % (seen,))
+                "expected the swap to keep every picture link and add the new flight's, "
+                "got %r after %r" % (seen, before))
+        if seen["leads"] != seen["cards"]:
+            raise AssertionError(
+                "expected every phone card to keep exactly one lead after the swap, got %r"
+                % (seen,))
         if seen["topName"] != "View picture of OPENSRV":
             raise AssertionError(
                 "expected the newest flight to head the list with its own picture link, got %r"

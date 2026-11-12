@@ -35,12 +35,21 @@ FLIGHT_CARD_FLIGHTS = (
     ("XYZ9", "Some Very Long Charter Operator Name Limited", None, None, "departing",
      "2026-09-02T20:00:00+00:00"),
 )
-FLIGHT_CARD_GALLERY_NAME = "2026-09-01T08-00-00+00-00.png"
+
+
+def flight_card_gallery_name(ts):
+    """The archived render of the flight stamped `ts`: ten seconds earlier,
+    inside the page's match window, as the poll cycle that records a flight
+    archives the render showing it."""
+    from datetime import datetime, timedelta
+    stamp = datetime.fromisoformat(ts) - timedelta(seconds=10)
+    return stamp.isoformat().replace(":", "-") + ".png"
 
 
 def seed_flight_card_variety(state_dir, with_gallery=True):
     """Seed `FLIGHT_CARD_FLIGHTS` and, when `with_gallery`, one archived
-    render older than all of them, so every flight can open a picture."""
+    render per flight (see `flight_card_gallery_name`), so every flight can
+    open its own picture."""
     seed_runway_events(state_dir, [
         {"ts": ts, "hex": "4b%04x" % index, "callsign": callsign, "airline": airline,
          "origin": origin, "destination": destination, "confirmed_state": state}
@@ -51,8 +60,9 @@ def seed_flight_card_variety(state_dir, with_gallery=True):
         from PIL import Image
         gallery = os.path.join(str(state_dir), "gallery")
         os.makedirs(gallery, exist_ok=True)
-        Image.new("RGB", (60, 80), "white").save(
-            os.path.join(gallery, FLIGHT_CARD_GALLERY_NAME), format="PNG")
+        for flight in FLIGHT_CARD_FLIGHTS:
+            Image.new("RGB", (60, 80), "white").save(
+                os.path.join(gallery, flight_card_gallery_name(flight[5])), format="PNG")
 
 
 # The repeated pass Home folds away: FLIGHT_CARD_FLIGHTS' first flight

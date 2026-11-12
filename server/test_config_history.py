@@ -1355,6 +1355,27 @@ def test_history_db_introduces_no_migration_mechanism(tmp_path):
         pytest.fail("init_schema() stamped a schema version: PRAGMA user_version = %r" % (version,))
 
 
+def test_an_older_runway_events_table_gains_the_gallery_name_column(tmp_path):
+    """init_schema() adds runway_events.gallery_name to a database created without it, leaves the
+    existing rows NULL (unknown) and is a no-op when run again"""
+    path = os.path.join(str(tmp_path), "history.db")
+    conn = sqlite3.connect(path)
+    try:
+        conn.execute(
+            "CREATE TABLE runway_events (id INTEGER PRIMARY KEY, ts TEXT NOT NULL, hex TEXT, "
+            "callsign TEXT, aircraft_type TEXT, confirmed_state TEXT, corroborated TEXT, "
+            "route_source TEXT, airline TEXT, origin TEXT, destination TEXT, tracked_runway TEXT)")
+        conn.execute("INSERT INTO runway_events (ts, callsign) VALUES ('2026-08-01T10:00:00+00:00', 'OLD1')")
+        conn.commit()
+        history_db.init_schema(conn)
+        history_db.init_schema(conn)
+        row = conn.execute("SELECT callsign, gallery_name FROM runway_events").fetchone()
+    finally:
+        conn.close()
+    if tuple(row) != ("OLD1", None):
+        pytest.fail("expected the old row to keep a NULL gallery_name, got %r" % (tuple(row),))
+
+
 def test_classify_check_in_gap_boundaries_on_the_multiplier_path():
     """classify_check_in_gap() is on-cadence below warn_s, late EXACTLY AT warn_s, still late below error_s and missing EXACTLY AT error_s, for a non-default 777 s cadence"""
     # 777 s is off both the 60/300 round numbers a hand-typed default

@@ -28,6 +28,7 @@ import companion.ui_components as ui_components
 import companion.ui_filter as ui_filter
 import companion.ui_groups as ui_groups
 from server import history_db
+from server.plane import illustrations
 from server.plane import name_overrides
 from server.plane import render as panel_render
 
@@ -65,7 +66,7 @@ _GALLERY_TIME_PATTERN = re.compile(
 def _gallery_name_to_iso(name):
     """Reverses `_save_to_gallery()`'s ':' -> '-' filename sanitisation,
     or returns `None` (never raising) on any name that doesn't match the
-    expected shape. `nearest_gallery_entry()` skips any entry it cannot
+    expected shape. `matching_gallery_entry()` skips any entry it cannot
     recover a timestamp from.
     """
     stem = name[:-4] if name.endswith(".png") else name
@@ -269,17 +270,21 @@ def _confirmed_state_label(raw):
     return raw.replace("_", " ").title()
 
 
-def nearest_gallery_entry(entries, row_ts):
-    """Returns the `(filename, iso)` pair from `entries` whose
-    filename-recovered timestamp is the latest one at or before
-    `row_ts`, or `None`. A linear scan over the already-in-memory,
-    already-ordered list, since no true per-flight render relationship
-    exists to store (the panel refreshes on the device's wake/poll
-    cycle, not per detected flight). Comparison is always between
-    parsed timezone-aware `datetime` values, never raw strings: gallery
-    filenames carry a local UTC offset while history timestamps are
-    UTC-suffixed, so a lexicographic compare would mis-rank across an
-    offset boundary.
+# The poll cycle that records a flight is also the one that archives the
+# render showing it, so a render that belongs to a flight is stamped within
+# a few seconds of it. A render outside this window shows some other
+# moment, however close in time it looks.
+GALLERY_MATCH_BEFORE_S = 90
+GALLERY_MATCH_AFTER_S = 10
+
+
+def matching_gallery_entry(entries, row_ts):
+    """The `(filename, iso)` pair from `entries` archived within the match
+    window of `row_ts` (closest first), or `None` when no archived render
+    can belong to that flight. Comparison is always between parsed
+    timezone-aware `datetime` values, never raw strings: gallery filenames
+    carry a local UTC offset while history timestamps are UTC-suffixed, so a
+    lexicographic compare would mis-rank across an offset boundary.
     """
     if not row_ts:
         return None
@@ -289,42 +294,20 @@ def nearest_gallery_entry(entries, row_ts):
         return None
 
     best = None
-    best_dt = None
+    best_gap = None
     for name in entries or []:
         iso = _gallery_name_to_iso(name)
         if iso is None:
             continue
         try:
-            entry_dt = datetime.fromisoformat(iso)
-        except ValueError:
+            gap = (row_dt - datetime.fromisoformat(iso)).total_seconds()
+        except (ValueError, TypeError):
             continue
-        if entry_dt > row_dt:
+        if not -GALLERY_MATCH_AFTER_S <= gap <= GALLERY_MATCH_BEFORE_S:
             continue
-        if best_dt is None or entry_dt > best_dt:
+        if best_gap is None or abs(gap) < best_gap:
             best = (name, iso)
-            best_dt = entry_dt
-    return best
-
-
-def earliest_gallery_entry(entries):
-    """The `(filename, iso)` pair with the earliest recoverable
-    timestamp in `entries`, or `None`. The fallback for a flight older
-    than every archived render, so each flight can still open a picture
-    whenever the gallery holds one.
-    """
-    best = None
-    best_dt = None
-    for name in entries or []:
-        iso = _gallery_name_to_iso(name)
-        if iso is None:
-            continue
-        try:
-            entry_dt = datetime.fromisoformat(iso)
-        except ValueError:
-            continue
-        if best_dt is None or entry_dt < best_dt:
-            best = (name, iso)
-            best_dt = entry_dt
+            best_gap = abs(gap)
     return best
 
 
@@ -392,6 +375,25 @@ def _view_panel_thumb_html(name, iso, row_name):
         'loading="lazy" decoding="async" fetchpriority="low">'
         '</a>'
     ) % (_view_panel_attrs(name, iso, row_name), src)
+
+
+def _stand_in_thumb_html(row, state_dir):
+    """The phone row's lead when no archived render belongs to the flight:
+    the airline's own illustration when it has one, else a neutral plane
+    icon. Neither is a link, so nothing claims to be a picture of the flight."""
+    airline = row.get("airline_raw")
+    key = illustrations.normalise_airline_key(airline) if airline else None
+    if key and illustrations.resolved_illustration_path(key, state_dir):
+        src = escape_html(device_scope.scoped(
+            flight_card.ILLUSTRATION_ROUTE_PREFIX + key + ".png"))
+        return (
+            '<span class="history-card__thumb history-card__thumb--illustration">'
+            '<img class="history-card__thumb-image" src="%s" alt="" width="40" '
+            'height="40" loading="lazy" decoding="async" fetchpriority="low"></span>'
+        ) % src
+    return (
+        '<span class="history-card__thumb history-card__thumb--none" '
+        'aria-hidden="true">%s</span>' % layout.icon_html("icon-plane", 20))
 
 
 # Owned by companion/i18n_fr/airlines.py, not flights.py — the same id
@@ -509,6 +511,9 @@ def format_event_row(row, now=None):
         # flight_card.art_html() resolves on the raw
         # value, never the aliased display name.
         "airline_raw": row.get("airline") or "",
+        # The render stored with the flight: None for a row from before it was
+        # stored, "" when none was archived that cycle, else the file name.
+        "gallery_name": row.get("gallery_name"),
         "route_label": route_label,
         # The two codes on their own, for the phone card's route line.
         "origin": origin or "",
@@ -986,18 +991,31 @@ def _list_html(formatted_rows, view, result, pages, now):
         + (_load_more_html(len(formatted_rows), view, pages) if result.has_more else ""))
 
 
-def _attach_pictures(formatted_rows, gallery_entries):
-    """Stores each row's picture link and thumbnail (the nearest archived
-    render, else the earliest one; the empty string when there is none)."""
+def _picture_for(row, gallery_entries):
+    """The `(filename, iso)` of the render that belongs to this flight, or
+    `None`. A row that stores its render names it (and has none once the
+    gallery has pruned that file, or when its cycle archived none); only a
+    row from before the name was stored falls back to the timestamp window."""
+    stored = row.get("gallery_name")
+    if stored is None:
+        return matching_gallery_entry(gallery_entries, row["raw_ts"])
+    iso = _gallery_name_to_iso(stored) if stored in (gallery_entries or ()) else None
+    return (stored, iso) if iso else None
+
+
+def _attach_pictures(formatted_rows, gallery_entries, state_dir):
+    """Stores each row's picture link and thumbnail. Only the render stored
+    with the flight (or, for an older row, one stamped within the match
+    window) counts as its picture; any other flight gets no link and a
+    stand-in thumbnail (the airline's illustration, else a plane icon)."""
     for row in formatted_rows:
-        match = (
-            nearest_gallery_entry(gallery_entries, row["raw_ts"])
-            or earliest_gallery_entry(gallery_entries))
+        match = _picture_for(row, gallery_entries)
         row_name = _row_name(row["callsign"], row["hex"])
         row["view_panel_html"] = (
             _view_panel_link_html(match[0], match[1], row_name) if match else "")
         row["view_panel_thumb_html"] = (
-            _view_panel_thumb_html(match[0], match[1], row_name) if match else "")
+            _view_panel_thumb_html(match[0], match[1], row_name) if match
+            else _stand_in_thumb_html(row, state_dir))
 
 
 def render(ctx):
@@ -1033,7 +1051,7 @@ def render(ctx):
             i18n.t(heading), i18n.t(text), compact=True))
 
     formatted_rows = [format_event_row(row, now) for row in result.rows]
-    _attach_pictures(formatted_rows, ctx.gallery_entries or [])
+    _attach_pictures(formatted_rows, ctx.gallery_entries or [], ctx.state_dir)
     inner = _controls_html(view, result)
     if formatted_rows:
         inner += _list_html(formatted_rows, view, result, pages, now)

@@ -425,28 +425,35 @@ def test_view_panel_trigger_reuses_the_small_grey_secondary_treatment(tmp_path, 
 # ======================================================================
 
 
-def test_nearest_gallery_entry_behaviour():
-    """nearest_gallery_entry() matches the latest at-or-before entry (inclusive boundary),
-    skips an entry with an unrecoverable filename timestamp, and returns None for an empty
-    entry list, an empty/unparseable row_ts, or when every recoverable entry is strictly
-    after row_ts"""
+def test_matching_gallery_entry_behaviour():
+    """matching_gallery_entry() returns the closest render archived within the match window
+    (up to 90 s before the flight, up to 10 s after it, both inclusive), never a render outside
+    it however near in time, skips an entry with an unrecoverable filename timestamp, and
+    returns None for an empty entry list or an empty/unparseable row_ts"""
     entries = [
         "2026-08-27T10-05-00+00-00.png",
         "2026-08-27T10-02-00+00-00.png",
         "2026-08-27T10-00-00+00-00.png",
         "not-a-real-gallery-name.png",  # unparseable - must be skipped
     ]
-    assert history_page.nearest_gallery_entry(entries, "2026-08-27T10:03:00+00:00") == (
+    match = history_page.matching_gallery_entry
+    assert match(entries, "2026-08-27T10:02:30+00:00") == (
         "2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00")
-    # Exact boundary: row_ts equal to an entry's own recovered timestamp
-    # still matches that entry ("at or before" is inclusive).
-    assert history_page.nearest_gallery_entry(entries, "2026-08-27T10:02:00+00:00") == (
-        "2026-08-27T10-02-00+00-00.png", "2026-08-27T10:02:00+00:00")
-    assert history_page.nearest_gallery_entry(entries, "2026-08-27T09:00:00+00:00") is None
-    assert history_page.nearest_gallery_entry([], "2026-08-27T10:03:00+00:00") is None
-    assert history_page.nearest_gallery_entry(entries, "") is None
-    assert history_page.nearest_gallery_entry(entries, "not-a-real-timestamp") is None
-    assert history_page.nearest_gallery_entry(entries, None) is None
+    # Both window edges are inclusive: 90 s after a render, 10 s before one.
+    assert match(entries, "2026-08-27T10:03:30+00:00") is not None
+    assert match(entries, "2026-08-27T10:03:31+00:00") is None
+    assert match(entries, "2026-08-27T10:04:50+00:00") == (
+        "2026-08-27T10-05-00+00-00.png", "2026-08-27T10:05:00+00:00")
+    assert match(entries, "2026-08-27T10:04:49+00:00") is None
+    # The closest render wins when two are in the window.
+    assert match(["2026-08-27T10-00-00+00-00.png", "2026-08-27T10-00-40+00-00.png"],
+                 "2026-08-27T10:00:50+00:00")[0] == "2026-08-27T10-00-40+00-00.png"
+    assert match(entries, "2026-08-27T09:00:00+00:00") is None
+    assert match(entries, "2026-08-28T10:02:30+00:00") is None
+    assert match([], "2026-08-27T10:03:00+00:00") is None
+    assert match(entries, "") is None
+    assert match(entries, "not-a-real-timestamp") is None
+    assert match(entries, None) is None
 
 
 def test_view_panel_triggers_per_row_full_render(tmp_path):
@@ -460,12 +467,12 @@ def test_view_panel_triggers_per_row_full_render(tmp_path):
         "2026-08-27T10-00-00+00-00.png",
     ]
     vp.seed_gallery(tmp_path, names)
-    # Newest-first row order (history_rows()'s own ordering): VP-C (10:10)
+    # Newest-first row order (history_rows()'s own ordering): VP-C (10:05:30)
     # -> VP-B (10:03) -> VP-A (10:01).
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T10:01:00+00:00", "hex": "vpa01", "callsign": "VPA"},
         {"ts": "2026-08-27T10:03:00+00:00", "hex": "vpb01", "callsign": "VPB"},
-        {"ts": "2026-08-27T10:10:00+00:00", "hex": "vpc01", "callsign": "VPC"},
+        {"ts": "2026-08-27T10:05:30+00:00", "hex": "vpc01", "callsign": "VPC"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
 
@@ -493,20 +500,73 @@ def test_view_panel_triggers_per_row_full_render(tmp_path):
     assert rendered.count('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) == 1
 
 
-def test_a_flight_older_than_every_render_still_gets_a_picture_link(tmp_path):
-    """a flight recorded before the oldest archived render falls back to that earliest render,
-    so every rendered flight carries the picture action whenever the gallery holds anything"""
+def test_a_flight_without_a_render_of_its_own_gets_no_picture_link(tmp_path):
+    """a flight older than every render, or newer than the nearest one by more than the match
+    window, carries no picture link on the desktop row or the phone card (no fallback to the
+    earliest or the latest render), and no lightbox is emitted when no row has a link"""
     names = ["2026-08-27T10-05-00+00-00.png", "2026-08-27T10-02-00+00-00.png"]
     vp.seed_gallery(tmp_path, names)
     vp.seed_runway_events(tmp_path, [
         {"ts": "2026-08-27T09:00:00+00:00", "hex": "old01", "callsign": "OLDER"},
+        {"ts": "2026-08-27T10:30:00+00:00", "hex": "new01", "callsign": "NEWER"},
     ])
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
-    for tag in ("tr", "li"):
-        link = vp.row_block(rendered, tag, 0).select_one("a[data-view-panel-src]")
-        assert link is not None
-        assert link.attrs["data-view-panel-src"] == "/gallery/2026-08-27T10-02-00+00-00.png"
-    assert history_page.earliest_gallery_entry([]) is None
+    assert "data-view-panel-src" not in rendered
+    assert ('id="%s"' % history_page.LIGHTBOX_DIALOG_ID) not in rendered
+    assert "/gallery/" not in rendered
+
+
+def test_a_flight_without_a_render_shows_the_airline_illustration_or_a_plane_icon(tmp_path):
+    """the phone card of a flight with no render leads with its airline's own illustration when
+    the airline has one, else a neutral plane icon; neither is a link and neither is a gallery
+    image"""
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:01:00+00:00", "hex": "ill01", "callsign": "TVF1",
+         "airline": "Transavia France"},
+        {"ts": "2026-08-27T10:02:00+00:00", "hex": "ill02", "callsign": "NOA1",
+         "airline": "Totally Unknown Air"},
+        {"ts": "2026-08-27T10:03:00+00:00", "hex": "ill03", "callsign": "NOA2"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=[]))
+    # Newest first: NOA2 (no airline), NOA1 (unknown airline), TVF1 (illustrated).
+    for index in (0, 1):
+        card = vp.row_block(rendered, "li", index)
+        assert card.select(".history-card__thumb--none svg")
+        assert not card.select("a.history-card__thumb")
+        assert not card.select("img")
+    card = vp.row_block(rendered, "li", 2)
+    image = card.select_one(".history-card__thumb--illustration img")
+    assert image is not None and image.attrs["src"] == "/illustration/transavia-france.png"
+    assert not card.select("a.history-card__thumb")
+    assert "data-view-panel-src" not in rendered
+
+
+def test_a_row_that_stores_its_render_links_exactly_that_one(tmp_path):
+    """a flight stored with a gallery name links that render however far its timestamp is from
+    it; a name whose file the gallery has pruned, or an empty name (no render archived that
+    cycle), gets no link and no window fallback even when another render is right beside it;
+    a row from before the name was stored (NULL) still uses the timestamp window"""
+    names = ["2026-08-27T10-00-00+00-00.png", "2026-08-27T11-00-00+00-00.png"]
+    vp.seed_gallery(tmp_path, names)
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:30+00:00", "hex": "own01", "callsign": "OWNED",
+         "gallery_name": names[1]},
+        {"ts": "2026-08-27T10:01:00+00:00", "hex": "gon01", "callsign": "PRUNED",
+         "gallery_name": "2026-08-26T09-00-00+00-00.png"},
+        {"ts": "2026-08-27T10:02:00+00:00", "hex": "non01", "callsign": "NORENDER",
+         "gallery_name": ""},
+        {"ts": "2026-08-27T10:00:50+00:00", "hex": "old01", "callsign": "OLDROW"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
+    # Newest first: NORENDER (10:02), PRUNED (10:01), OLDROW (10:00:50), OWNED (10:00:30).
+    expected = {0: None, 1: None, 2: names[0], 3: names[1]}
+    for index, name in expected.items():
+        for tag in ("tr", "li"):
+            links = vp.row_block(rendered, tag, index).select("a[data-view-panel-src]")
+            if name is None:
+                assert not links, (index, tag)
+            else:
+                assert [link.attrs["href"] for link in links] == ["/gallery/" + name], (index, tag)
 
 
 def test_view_panel_empty_gallery_zero_triggers_zero_dialog(tmp_path):
