@@ -54,6 +54,9 @@ ADMIN_DEVICE = "admin-only-device"
 
 CO_MANAGER_EMAIL = "co-manager@example.test"
 _PUBLIC_PATHS = ("/login", "/login/auth0", "/callback")
+# Where a request without a session goes when its own address is not a page to return to: a
+# posted form is also told that unsaved changes were not kept (signing out is not).
+_LOGIN_ANSWER = {"GET": "/login", "POST": "/login?expired=1"}
 _STATIC_PATHS = tuple(static_files.STATIC_ROUTES)
 
 ROUTE_POLICY = {
@@ -517,7 +520,8 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
     elif expected == "login":
         assert status == 303
         location = headers.get("Location")
-        assert location == "/login" or location.startswith("/login?next=")
+        plain = "/login" if path == "/logout" else _LOGIN_ANSWER[method]
+        assert location == plain or location.startswith("/login?next=")
         assert stubbed.calls == []
     elif _moves_to_own_frame(key, name):
         assert status == 303
@@ -623,7 +627,7 @@ def test_http_outcome_under_a_device_prefix_matches_the_base_route(
     elif expected == "login":
         assert status == 303
         location = headers.get("Location")
-        assert location == "/login" or location.startswith("/login?next=")
+        assert location == _LOGIN_ANSWER[method] or location.startswith("/login?next=")
         assert stubbed.calls == []
     elif key[1] in legacy_pages.RETIRED_ADMIN_PAGES and name in ("owner", "co-manager"):
         assert status == 303

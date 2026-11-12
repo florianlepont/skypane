@@ -1459,12 +1459,12 @@ def test_unauth_get_gallery_image_redirects_to_login_without_next(app02_server):
 
 
 def test_unauth_post_settings_redirects_to_login_without_next(app02_server):
-    """unauthenticated POST /settings redirects to /login (the write route is not a tab, so
-    no ?next=)"""
+    """unauthenticated POST /settings redirects to /login with the mark that unsaved changes
+    were not kept (the write route is not a page and no form page was named, so no ?next=)"""
     data = urllib.parse.urlencode({"ui_theme": "sky"}).encode()
     status, headers, body = http_request(app02_server.base_url() + "/settings", method="POST", data=data)
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login"
+    assert headers.get("Location") == "/login?expired=1"
     assert not body
 
 

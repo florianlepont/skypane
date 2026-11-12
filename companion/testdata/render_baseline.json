@@ -515,87 +515,87 @@
    "status": 303
   },
   "POST /airlines/artwork/delete": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /airlines/default-type": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /airlines/manual-resolutions/RYR/delete": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /airlines/rename": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /airlines/rename/reset": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /airlines/resolve": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /co-managers/add": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /co-managers/leave": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /co-managers/remove": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /detection": {
-   "location": "/login?next=%2Fdetection",
+   "location": "/login?next=%2Fdetection&expired=1",
    "status": 303
   },
   "POST /fleet/frames/d_00000000/reassign": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /fleet/frames/d_00000000/retire": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /fleet/frames/p_00000000/reactivate": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /fleet/pair": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /fleet/register": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /frame/name": {
-   "location": "/login?next=%2Fframe%2Fname",
+   "location": "/login?next=%2Fframe%2Fname&expired=1",
    "status": 303
   },
   "POST /frame/remove": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /illustration/air-france.png": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /locations/1/delete": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /locations/1/edit": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /locations/add": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /login": {
@@ -607,47 +607,47 @@
    "status": 303
   },
   "POST /pair-frame": {
-   "location": "/login?next=%2Fpair-frame",
+   "location": "/login?next=%2Fpair-frame&expired=1",
    "status": 303
   },
   "POST /quick/display": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /quick/led": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /quick/quiet-hours": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /quick/quiet-hours/window": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /session/check": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /settings": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /settings/calendar/connect": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /settings/calendar/disconnect": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /settings/rules/add": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /settings/rules/callsign/AFR/delete": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /this-page-does-not-exist": {
@@ -655,43 +655,43 @@
    "status": 404
   },
   "POST /ui-lang": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /ui-theme": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /update/cancel": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /update/install": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /users/1/delete": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /users/1/disable": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /users/1/enable": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /users/1/role": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /users/1/unlink": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   },
   "POST /users/invite": {
-   "location": "/login",
+   "location": "/login?expired=1",
    "status": 303
   }
  }
