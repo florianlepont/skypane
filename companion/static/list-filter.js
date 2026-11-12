@@ -22,10 +22,16 @@
   // form's own button does the same.
   // Heard on the document, so a control a script adds later (the airline
   // editor opens its aircraft-type rows on demand) submits too.
+  // The Airlines collection's form is answered in place by the block at the end
+  // of this file when the browser can do that; only then is it not submitted.
+  var inPlace = !!(window.fetch && window.DOMParser && history.replaceState);
   function submitOwnForm(event) {
     var target = event.target;
     if (target && target.hasAttribute && target.hasAttribute("data-autosubmit")
         && target.form) {
+      if (inPlace && target.form.hasAttribute("data-collection-form")) {
+        return;
+      }
       target.form.submit();
     }
   }
@@ -49,8 +55,6 @@
   // freshness.js's post-swap announcement. Listened for, never
   // dispatched from here.
   var SWAPPED_EVENT = "skypane-regions-swapped";
-  var emptyEl = document.querySelector("[data-filter-empty]");
-  var clearButtons = document.querySelectorAll("[data-filter-clear]");
   // Optional segmented chips: radios whose value is a row's
   // data-filter-kind ("" is every row). Absent on a plain search bar.
   var chipInputs = document.querySelectorAll("[data-filter-chip]");
@@ -177,6 +181,8 @@
         bar.removeAttribute(ACTIVE_ATTR);
       }
     }
+    // Looked up fresh: an in-place swap of the list renders the card again.
+    var emptyEl = document.querySelector("[data-filter-empty]");
     if (emptyEl) {
       emptyEl.hidden = !((query !== "" || kind !== "") && visibleCount === 0);
     }
@@ -188,7 +194,7 @@
     chipInputs[ci].addEventListener("change", applyFilter);
   }
 
-  // querySelectorAll: the inline clear and the empty state's own Clear
+  // The inline clear and the empty state's own Clear
   // button are both [data-filter-clear]. The inline one clears the
   // search text; the empty state's (also [data-filter-clear-all]) resets
   // the chips to "All" too, since a chip can be what emptied the list.
@@ -197,22 +203,24 @@
       chipInputs[rc].checked = (chipInputs[rc].value === "");
     }
   }
-  for (var bi = 0; bi < clearButtons.length; bi++) {
-    (function (clearBtn) {
-      clearBtn.addEventListener("click", function () {
-        input.value = "";
-        var clearAll = clearBtn.hasAttribute("data-filter-clear-all");
-        if (clearAll) {
-          resetAllChips();
-        }
-        applyFilter();
-        // Keep the keyboard out of the way after the empty state's reset.
-        if (!clearAll) {
-          input.focus();
-        }
-      });
-    })(clearButtons[bi]);
-  }
+  // Heard on the document so a Clear button the list swap renders again works too.
+  document.addEventListener("click", function (event) {
+    var node = event.target;
+    var clearBtn = node && node.closest ? node.closest("[data-filter-clear]") : null;
+    if (!clearBtn) {
+      return;
+    }
+    input.value = "";
+    var clearAll = clearBtn.hasAttribute("data-filter-clear-all");
+    if (clearAll) {
+      resetAllChips();
+    }
+    applyFilter();
+    // Keep the keyboard out of the way after the empty state's reset.
+    if (!clearAll) {
+      input.focus();
+    }
+  });
 
   // Re-apply the filter after the refresh loop has swapped the list in.
   document.addEventListener(SWAPPED_EVENT, applyFilter);
@@ -636,6 +644,147 @@
       loadMore(link);
     } else {
       clearSearch(link);
+    }
+  });
+})();
+
+/*
+ * The Airlines collection's show chips and sort menu. The server answers the
+ * form (the list is built from the whole history); this block only fetches that
+ * answer and puts the list in the place of the live one, so the page is not
+ * reloaded, its opening is not played again and the scroll position stays.
+ * Without it the controls submit the form as a plain GET.
+ */
+(function () {
+  "use strict";
+
+  var form = document.querySelector("[data-collection-form]");
+  if (!form || !window.fetch || !window.DOMParser || !history.replaceState) {
+    return;
+  }
+
+  var VIEW = ".collection-grid, .collection-sheet, [data-filter-empty], [data-collection-empty]";
+  var DEFAULTS = { show: "all", sort: "most" };
+  var latest = 0;
+  var shown = window.location.pathname + window.location.search;
+
+  function currentUrl() {
+    var parts = [];
+    var fields = form.elements;
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (!field.name || field.type === "submit" || field.type === "button"
+          || (field.type === "radio" && !field.checked)) {
+        continue;
+      }
+      var value = field.name === "q" ? field.value.replace(/^\s+|\s+$/g, "") : field.value;
+      if (value === "" || DEFAULTS[field.name] === value) {
+        continue;
+      }
+      parts.push(encodeURIComponent(field.name) + "=" + encodeURIComponent(value));
+    }
+    var action = form.getAttribute("action");
+    return action + (parts.length ? "?" + parts.join("&") : "");
+  }
+
+  function fetchView(url) {
+    return fetch(url, { credentials: "same-origin" }).then(function (response) {
+      if (response.redirected && window.skypaneSession
+          && /\/login$/.test(new URL(response.url).pathname)) {
+        window.skypaneSession.expire();
+      }
+      if (!response.ok || response.redirected) {
+        throw new Error("collection");
+      }
+      return response.text();
+    }).then(function (text) {
+      var doc = new DOMParser().parseFromString(text, "text/html");
+      if (!doc.querySelector("[data-collection-form]")) {
+        throw new Error("collection");
+      }
+      return doc;
+    });
+  }
+
+  // The menu button names the current order; the fetched page has the new name.
+  function syncSortName(doc) {
+    var live = form.querySelector(".collection-sort__toggle");
+    var fresh = doc.querySelector(".collection-sort__toggle");
+    if (live && fresh) {
+      live.setAttribute("aria-label", fresh.getAttribute("aria-label"));
+      live.setAttribute("title", fresh.getAttribute("title"));
+    }
+    var menu = form.querySelector(".collection-sort");
+    if (menu) {
+      menu.removeAttribute("open");
+    }
+  }
+
+  // The entrance the stylesheet gives the list on a page's first arrival is
+  // finished at once: a tab change is not a new page.
+  function settle(node) {
+    if (!node.getAnimations) {
+      return;
+    }
+    var running = node.getAnimations({ subtree: true });
+    for (var i = 0; i < running.length; i++) {
+      running[i].finish();
+    }
+  }
+
+  function swapView(doc) {
+    var live = document.querySelectorAll(VIEW);
+    var fresh = doc.querySelectorAll(VIEW);
+    var parent = live[0].parentNode;
+    var added = [];
+    var i;
+    for (i = 0; i < fresh.length; i++) {
+      var node = document.importNode(fresh[i], true);
+      parent.insertBefore(node, live[0]);
+      added.push(node);
+    }
+    for (i = 0; i < live.length; i++) {
+      parent.removeChild(live[i]);
+    }
+    for (i = 0; i < added.length; i++) {
+      settle(added[i]);
+    }
+    syncSortName(doc);
+    document.dispatchEvent(new CustomEvent("skypane-regions-swapped"));
+  }
+
+  function refresh() {
+    var url = currentUrl();
+    var mine = ++latest;
+    fetchView(url).then(function (doc) {
+      if (mine !== latest) {
+        return;
+      }
+      swapView(doc);
+      history.pushState(null, "", url);
+      shown = url;
+    }, function () {
+      if (mine === latest && !(window.skypaneSession && window.skypaneSession.ending())) {
+        window.location.assign(url);
+      }
+    });
+  }
+
+  document.addEventListener("change", function (event) {
+    var target = event.target;
+    if (target && target.form === form && target.hasAttribute("data-autosubmit")) {
+      refresh();
+    }
+  });
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    refresh();
+  });
+
+  window.addEventListener("popstate", function () {
+    if (window.location.pathname + window.location.search !== shown) {
+      window.location.reload();
     }
   });
 })();

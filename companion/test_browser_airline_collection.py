@@ -672,3 +672,52 @@ def test_the_aircraft_picture_sits_inside_the_card_with_room_around_it(
         assert sizes["ratio"] <= 0.82, sizes
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+@pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_a_tab_change_swaps_the_list_in_place_without_reloading_or_replaying_the_opening(
+        new_context, make_app_server, label, viewport, lang):
+    """tapping a tab of the strip keeps the document (a marker set on it survives), starts no
+    page-opening entrance, keeps the scroll position, moves the address and swaps the list"""
+    server = make_app_server(seed=_seed)
+    context = new_context(viewport=viewport, reduced_motion="no-preference")
+    context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        page.wait_for_function(_SETTLED, timeout=15000)
+        page.locator(SEEN_CARD).first.wait_for(state="visible")
+        _wait_owns_centre(page, SEEN_CARD)
+        assert page.locator("label.filter-chip").count() == 3
+        page.evaluate(
+            "() => { window.__marker = 'same document'; window.__entrances = [];"
+            " document.addEventListener('animationstart', e => {"
+            " if (e.animationName === 'skypane-reveal-fade') window.__entrances.push("
+            "String(e.target.className)); }, true); }")
+        before = page.locator(CARD).count()
+        for index, expected in ((1, TOTAL_SPOTTED), (2, before - TOTAL_SPOTTED), (0, before)):
+            page.locator("label.filter-chip").nth(index).click()
+            page.wait_for_function(
+                "n => document.querySelectorAll('a.collection-card').length === n"
+                " && document.readyState === 'complete'", arg=expected, timeout=10000)
+            page.wait_for_function(_SETTLED, timeout=15000)
+            assert page.evaluate("() => window.__marker") == "same document"
+            assert page.evaluate("() => window.__entrances") == []
+            assert page.locator("label.filter-chip input").nth(index).is_checked()
+        page.wait_for_function("() => !location.search.includes('show=')", timeout=10000)
+        # The unseen tab leaves the cards dimmed, the spotted tab has none.
+        page.locator("label.filter-chip").nth(2).click()
+        page.wait_for_function(
+            "() => document.querySelectorAll('a.collection-card--unseen').length > 0"
+            " && document.querySelectorAll('a.collection-card:not(.collection-card--unseen)')"
+            ".length === 0", timeout=10000)
+        assert page.evaluate("() => window.__marker") == "same document"
+        page.wait_for_function("() => location.search.includes('show=unseen')", timeout=10000)
+        # A card still opens its sheet after the swap.
+        page.locator(UNSEEN_CARD).first.click()
+        page.wait_for_function(
+            "() => !!document.querySelector('dialog.collection-sheet[open]')", timeout=10000)
+    finally:
+        context.close()
