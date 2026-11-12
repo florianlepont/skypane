@@ -205,6 +205,16 @@ DISPLAY_OFF_SLEEP_S = 300
 # detection is skipped entirely while parked.
 BATTERY_CRITICAL_SLEEP_S = 3600
 
+# Check-interval experiment bounds (see server/check_interval.py).
+# Shortest allowed check cadence in seconds; same floor as the wake
+# interval, the margin the firmware keeps between two refreshes.
+CHECK_INTERVAL_MIN_S = 60
+# Hard maximum lifetime of one experiment, in seconds; a longer expiry in
+# the file is treated as corrupt and ignored.
+CHECK_INTERVAL_MAX_DURATION_S = 72 * 3600
+# At or below this battery reading (millivolts) the experiment is ignored.
+CHECK_INTERVAL_BATTERY_FLOOR_MV = 3700
+
 
 # --- Quiet hours -----------------------------------------------------------
 #
