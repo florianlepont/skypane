@@ -681,9 +681,8 @@ html:not(.map-ready) .place-tap-hint {
 
 /* The app bar floats over the map (the map runs under the status bar and the
  * bar). A soft fade of the canvas colour behind it keeps the logo and the
- * frame button readable without a hard bar; it starts a few pixels below the
- * screen edge so that no dark surface touches the edge a browser samples its
- * bar colour from. */
+ * frame button readable without a hard bar; it starts below the status bar
+ * zone (the top safe area), which stays the bare map. */
 .map-ready .site-header:has(~ .page-content .place-stage) {
   position: absolute;
   top: 0;
@@ -696,10 +695,10 @@ html:not(.map-ready) .place-tap-hint {
   content: "";
   position: absolute;
   z-index: -1;
-  top: var(--space-xs);
+  top: calc(var(--safe-top) + var(--space-xs));
   left: 0;
   right: 0;
-  height: calc(100% + 20px);
+  height: calc(100% - var(--safe-top) + 20px);
   background: linear-gradient(
     to bottom, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent);
   pointer-events: none;
@@ -1109,6 +1108,30 @@ html:not(.map-ready) .place-tap-hint {
   display: none;
 }
 
+/* The strip pinned to the top edge of a phone window while the map or its
+ * loading state fills the page. The map itself is document content there, so
+ * this is the one fixed box at that edge: mobile Safari draws a blurred veil
+ * under its status bar over a page with nothing fixed at the top, and none
+ * (in a tab, the box's own colour continued upwards) with a fixed box there.
+ * It is the tile ground colour, a few pixels high, above the app bar. */
+.place-edge {
+  display: none;
+}
+
+@media (max-width: 959.98px) {
+  .map-ready .place-edge,
+  html.js-early:not(.map-ready) .place-edge {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 16;
+    height: var(--space-xs);
+    background: var(--color-map-ground);
+  }
+}
+
 /* The Location page's loading state. With scripts on (the head script puts
  * js-early on <html> before the first paint) the plain form never shows: the
  * shapes of the search field, the mode chips and the sheet shimmer on the
@@ -1135,7 +1158,7 @@ html.js-early:not(.map-ready) .place-boot {
   --place-boot-bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
 }
 
-html.js-early:not(.map-ready) .place-stage > :not(.place-boot),
+html.js-early:not(.map-ready) .place-stage > :not(.place-boot, .place-edge),
 html.js-early:not(.map-ready):has(.place-stage) .page-header {
   display: none;
 }

@@ -545,6 +545,14 @@ def _boot_html():
     ) % escape_html(i18n.t(MAP_LOADING))
 
 
+def _edge_html():
+    """A thin strip pinned to the top edge of the window on a phone, in the
+    tile ground colour. Mobile Safari treats the zone under its status bar by
+    what is fixed at that edge: with a fixed box there it shows no blurred veil
+    over the map, and in a tab it continues the box's colour."""
+    return '<div class="place-edge" aria-hidden="true"></div>'
+
+
 def _mode_switch_html(view):
     return (
         '<div class="place-modes" role="radiogroup" aria-label="%s" %s="%s" '
@@ -1002,6 +1010,6 @@ def render(ctx, query=None, errors=None, submitted=None, place=None):
         + fail_safe_toast_html(view)
         + _stray_errors_html(view)
         + _form_html(view)
-        + '<div class="place-page"><div class="place-stage">%s%s%s%s%s</div></div>' % (
-            _boot_html(), _map_html(view), _loading_html(), _float_html(), _panel_html(view))
+        + '<div class="place-page"><div class="place-stage">%s%s%s%s%s%s</div></div>' % (
+            _edge_html(), _boot_html(), _map_html(view), _loading_html(), _float_html(), _panel_html(view))
     )
