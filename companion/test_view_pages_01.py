@@ -612,7 +612,7 @@ def test_each_flight_has_one_picture_link_on_desktop_and_card(tmp_path):
         {"ts": "2026-08-27T10:00:00+00:00", "hex": "dr01", "callsign": "DETAIL1"},
         {"ts": "2026-08-27T10:01:00+00:00", "hex": "dr02", "callsign": "DETAIL2"},
     ])
-    entries = ["2026-08-27T11-30-00+02-00.png"]
+    entries = ["2026-08-27T12-00-00+02-00.png"]
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=entries))
     for index, callsign in ((0, "DETAIL2"), (1, "DETAIL1")):
         for tag in ("tr", "li"):
