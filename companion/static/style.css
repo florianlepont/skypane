@@ -5591,6 +5591,9 @@ a.btn[aria-disabled="true"] {
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-sheet);
     box-shadow: var(--bar-sheet-shadow);
+    /* A fade alone: the panel holds 44px targets a person can tap at once,
+     * and a scale would shrink them while it arrives. */
+    animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
   }
 
   .tab-bar__more:not([open]) > .tab-bar__more-panel {
@@ -7028,6 +7031,11 @@ button.row-menu__item {
 /* The other pages in the same language: the same entrance on the blocks that
  * sit straight on the sky, a soft arrival for the active navigation item, and
  * a stacked frame row on a phone. Appended last. */
+/* What a control opens (the frame menu here, the tab bar's More panel with
+ * a plain fade, a dialog) arrives with a short fade on the fast token and
+ * leaves at once. Only what the person moves away themselves (a dragged
+ * sheet, a swiped toast) or what leaves on its own (a toast that times out)
+ * has a leaving motion. */
 @keyframes skypane-soft-in {
   from {
     opacity: 0;

@@ -521,6 +521,48 @@ def test_a_page_reached_through_the_page_change_does_not_also_play_its_entrance(
         context.close()
 
 
+@pytest.mark.parametrize("motion", ["no-preference", "reduce"])
+def test_the_more_panel_fades_in_and_leaves_at_once(new_context, server, motion):
+    """One rule for what a control opens: it fades in on the fast token and leaves at once.
+    The panel never changes size while it arrives (its rows are tap targets from the first
+    frame). Reduced motion shows it at once."""
+    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED, reduced_motion=motion)
+    try:
+        page = context.new_page()
+        _open(page, server, "/")
+        mark = page.evaluate("() => window.__anim.length")
+        page.locator(".tab-bar__more > summary").click()
+        page.locator(".tab-bar__more-panel").wait_for(state="visible")
+        style = page.evaluate(
+            "() => { const s = getComputedStyle(document.querySelector('.tab-bar__more-panel'));"
+            " const root = getComputedStyle(document.documentElement);"
+            " return {name: s.animationName, seconds: parseFloat(s.animationDuration),"
+            " iterations: s.animationIterationCount, easing: s.animationTimingFunction,"
+            " fast: parseFloat(root.getPropertyValue('--motion-fast')) / 1000,"
+            " curve: root.getPropertyValue('--ease-out').trim()}; }")
+        assert style["name"] == "skypane-fade-in" and style["iterations"] == "1", style
+        if motion == "reduce":
+            assert style["seconds"] < 0.001, style
+        else:
+            assert style["seconds"] == style["fast"], style
+            assert style["easing"].replace(" ", "") == style["curve"].replace(" ", ""), style
+            page.wait_for_function(
+                "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-fade-in'"
+                " && e.cls.indexOf('tab-bar__more-panel') > -1)", arg=mark, timeout=5000)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        panel = page.evaluate(
+            "() => { const p = document.querySelector('.tab-bar__more-panel');"
+            " const s = getComputedStyle(p); return [s.opacity, s.transform]; }")
+        assert panel == ["1", "none"], panel
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        assert page.evaluate(
+            "() => document.querySelector('.tab-bar__more-panel').getClientRects().length") == 0
+    finally:
+        context.close()
+
+
 def test_the_style_tabs_do_not_slide_under_reduced_motion(new_context, server):
     context = _admin_context(new_context, server, VIEWPORT_DESKTOP, reduced_motion="reduce")
     try:
