@@ -6658,8 +6658,10 @@ button.row-menu__item {
  * header block and the controls and blocks that follow it enter with the
  * entrance of Home's cards: the header first, the rest one stagger step
  * later. Only the first screenful is a block: the first six siblings of a
- * kind and the first three days of the Flights list; lists, tables and the
- * map are never animated row by row or whole. A card appended by "Load more" or replaying
+ * kind and the first three days of the Flights list. A section inside a
+ * group arrives with the group: a second entrance there would rise twice and
+ * multiply the two fades. A list, a grid or a table is never animated row by
+ * row (it fades as a whole, see below) and the map never moves. A card appended by "Load more" or replaying
  * after a tab switch takes the same entrance (.reveal-appended,
  * .reveal-replay). The opening plays once: motion.js drops data-page-open
  * when its last animation ends, so content swapped in later (a refresh, a
@@ -6669,8 +6671,12 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .reveal,
 .dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6),
 .dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
-.dashboard-main[data-page-open] .page-section:nth-child(-n + 6),
-.dashboard-main[data-page-open] .personalisation-look {
+.dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6),
+.dashboard-main[data-page-open] .personalisation-look,
+.dashboard-main[data-page-open] .personalisation > .layout-card,
+.dashboard-main[data-page-open] .personalisation > .personalisation-nav,
+.dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head,
+.dashboard-main[data-page-open] .fleet-frame > .fleet-tabs {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -6707,16 +6713,28 @@ button.row-menu__item {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
-  animation-delay: var(--motion-stagger);
+  animation-delay: calc(var(--reveal-index, 1) * var(--motion-stagger));
 }
 
 /* A table or an empty state that sits straight on the sky opens like the
- * other cards. */
+ * other cards, after the header and the filter bar. */
 .dashboard-main[data-page-open] > .empty-state,
 .dashboard-main[data-page-open] > .data-table-wrap {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+/* A list, a grid or a table as tall as its data takes part in the opening
+ * as a whole and only fades: opacity alone costs the compositor one layer,
+ * whatever the height, where a rise would repaint every row. */
+.dashboard-main[data-page-open] > .filter-bar__count,
+.dashboard-main[data-page-open] > .audit-cards,
+.dashboard-main[data-page-open] > .collection-grid,
+.dashboard-main[data-page-open] > .airlines-table {
+  animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
 }
 
 /* A filter that only hides rows replays a fade of its list, nothing else:
@@ -6752,6 +6770,123 @@ button.row-menu__item {
 .reveal:nth-child(n + 6),
 .dashboard-main .page-section:nth-child(n + 6) {
   --reveal-index: 5;
+}
+
+/* The order of the opening, the same on every page: the header at once, then
+ * each block one stagger step after the one before it, up to five steps. A
+ * block that sits straight in the page counts from its place there (the
+ * header is first). */
+.dashboard-main[data-page-open] > :nth-child(2) {
+  --reveal-index: 1;
+}
+
+.dashboard-main[data-page-open] > :nth-child(3) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] > :nth-child(4) {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] > :nth-child(5) {
+  --reveal-index: 4;
+}
+
+.dashboard-main[data-page-open] > :nth-child(n + 6) {
+  --reveal-index: 5;
+}
+
+/* Blocks inside a wrapper count from their place in it, the first one a step
+ * after the header. */
+.dashboard-main[data-page-open] > * .group-block:nth-child(1),
+.dashboard-main[data-page-open] > * .page-section:nth-child(1) {
+  --reveal-index: 1;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(2),
+.dashboard-main[data-page-open] > * .page-section:nth-child(2) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(3),
+.dashboard-main[data-page-open] > * .page-section:nth-child(3) {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(4),
+.dashboard-main[data-page-open] > * .page-section:nth-child(4) {
+  --reveal-index: 4;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(n + 5),
+.dashboard-main[data-page-open] > * .page-section:nth-child(n + 5) {
+  --reveal-index: 5;
+}
+
+/* Where controls or other blocks always come first, the blocks count on from
+ * them: the Flights days follow the filter bar, a list follows the header
+ * and its filters, the Style and Fleet blocks follow the two rows above
+ * them. */
+.dashboard-main[data-page-open] > * .history-day:nth-child(1),
+.dashboard-main[data-page-open] > .empty-state,
+.dashboard-main[data-page-open] > .data-table-wrap,
+.dashboard-main[data-page-open] > .collection-grid,
+.dashboard-main[data-page-open] > .airlines-table,
+.dashboard-main[data-page-open] .personalisation > :nth-child(2),
+.dashboard-main[data-page-open] .fleet-frame > :nth-child(2) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] > * .history-day:nth-child(2),
+.dashboard-main[data-page-open] .personalisation > :nth-child(3),
+.dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] > * .history-day:nth-child(3) {
+  --reveal-index: 4;
+}
+
+/* A phone shows the blocks of one Fleet tab: they count among themselves,
+ * after the frame's header row and the tabs. */
+@media (max-width: 959px) {
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(2 of .fleet-block--state),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(2 of .fleet-block--settings),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(2 of .fleet-block--access) {
+    --reveal-index: 4;
+  }
+
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(n + 3 of .fleet-block--state),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(n + 3 of .fleet-block--settings),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(n + 3 of .fleet-block--access) {
+    --reveal-index: 5;
+  }
+}
+
+/* From 960px the tabs are gone and every block shows, one after another
+ * after the frame's header row. */
+@media (min-width: 960px) {
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(1) {
+    --reveal-index: 2;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(3) {
+    --reveal-index: 4;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(n + 4) {
+    --reveal-index: 5;
+  }
+}
+
+.dashboard-main[data-page-open] .personalisation > :nth-child(1),
+.dashboard-main[data-page-open] .fleet-frame > :nth-child(1) {
+  --reveal-index: 1;
+}
+
+/* The content of a Style view takes its wrapper's place. */
+.dashboard-main[data-page-open] > .personalisation > .personalisation__view > * {
+  --reveal-index: inherit;
 }
 
 /* A table or an empty state that sits straight on the sky is a card. Its

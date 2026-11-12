@@ -176,6 +176,140 @@ def test_under_reduced_motion_every_page_opens_at_once(new_context, server, path
         context.close()
 
 
+# The blocks that take the entrance, in page order, read when the document is parsed: the
+# delay of each, whether it rises as well as fades, and whether it sits inside another one.
+_BLOCKS_AT_OPEN = """
+(() => {
+  // Read on every frame from the first one the browser draws: an entrance that has ended
+  // is no longer listed, and a slow load can end the first ones before the document is done.
+  const seen = new Map();
+  const rising = new Set();
+  let frames = 0;
+  const publish = () => {
+    const targets = [...seen.keys()];
+    const blocks = targets.map((el) => {
+      const box = el.getBoundingClientRect();
+      return {el: el, cls: el.tagName.toLowerCase() + '.' + String(el.className),
+              delay: seen.get(el), top: box.top, height: box.height, rises: rising.has(el),
+              nested: targets.some((other) => other !== el && other.contains(el))};
+    });
+    blocks.sort((a, b) => (a.el.compareDocumentPosition(b.el) & 4 ? -1 : 1));
+    window.__taking = (selector) => [...document.querySelectorAll(selector)]
+      .filter((el) => el.getClientRects().length)
+      .map((el) => ({fades: seen.has(el), rises: rising.has(el)}));
+    window.__step = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--motion-stagger'));
+    window.__blocks = blocks.map((b) => { delete b.el; return b; });
+  };
+  const read = () => {
+    for (const a of document.getAnimations()) {
+      if (a.animationName === 'skypane-reveal-fade' && !seen.has(a.effect.target)) {
+        seen.set(a.effect.target, a.effect.getTiming().delay);
+      }
+      if (a.animationName === 'skypane-reveal') { rising.add(a.effect.target); }
+    }
+    if (document.readyState === 'complete' && frames++ > 2) { publish(); return; }
+    requestAnimationFrame(read);
+  };
+  requestAnimationFrame(read);
+})();
+"""
+
+_STEP_PAGES = (
+    "/", "/flights", "/display", "/display/arrivals", "/display/special-looks",
+    "/display/calendar", "/fleet", "/fleet?view=system", "/users", "/audit", "/account",
+    "/airlines", "/airlines/manage", "/credits", "/not-a-page")
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+@pytest.mark.parametrize("path", _STEP_PAGES)
+def test_the_blocks_of_a_page_enter_one_step_after_another(new_context, server, path, viewport):
+    """One opening for every page: the header at once, then each block of the first screen
+    one stagger step after the one before it, in page order, up to five steps. No block
+    enters inside a block that is itself entering."""
+    context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_BLOCKS_AT_OPEN)
+    try:
+        page = context.new_page()
+        _open(page, server, path)
+        page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+        blocks = page.evaluate("() => window.__blocks")
+        step = page.evaluate("() => window.__step")
+        assert step == 60, step
+        assert blocks and "page-header" in blocks[0]["cls"] and blocks[0]["delay"] == 0, blocks
+        assert not [b for b in blocks if b["nested"]], blocks
+        first_screen = [b for b in blocks[1:] if b["top"] < viewport["height"] and b["height"]]
+        assert first_screen, blocks
+        delays = [b["delay"] for b in first_screen]
+        assert delays == [min(k, 5) * step for k in range(1, len(delays) + 1)], (
+            path, [(b["cls"][:44], b["delay"], round(b["top"])) for b in blocks])
+    finally:
+        context.close()
+
+
+def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
+    """Whatever tab a phone shows, the frame's header row, the tabs and then that tab's own
+    blocks enter one step apart: blocks of the hidden tabs take no place in the count."""
+    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
+                             reduced_motion="no-preference")
+    context.add_init_script(_BLOCKS_AT_OPEN)
+    try:
+        page = context.new_page()
+        _open(page, server, "/fleet")
+        hrefs = page.evaluate(
+            "() => [...document.querySelectorAll('[data-tabs=\"fleet\"] a')]"
+            ".map((a) => a.getAttribute('href'))")
+        assert len(hrefs) == 3, hrefs
+        for href in hrefs:
+            _open(page, server, href)
+            page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+            blocks = [b for b in page.evaluate("() => window.__blocks") if b["height"]]
+            delays = [b["delay"] for b in blocks]
+            assert len(delays) >= 4, (href, blocks)
+            assert delays == [min(k, 5) * 60 for k in range(len(delays))], (
+                href, [(b["cls"][:50], b["delay"]) for b in blocks])
+    finally:
+        context.close()
+
+
+# (path, viewport, blocks that rise and fade, lists that only fade): the parts of a first
+# screen that used to stay still while the rest of the page entered.
+_TAKING_PART = (
+    ("/display", VIEWPORT_MIN_SUPPORTED, (".layout-card", ".personalisation-nav"), ()),
+    ("/display", VIEWPORT_DESKTOP, (".layout-card", ".personalisation-nav"), ()),
+    ("/fleet", VIEWPORT_MIN_SUPPORTED, (".fleet-detail-head", ".fleet-tabs"), ()),
+    ("/audit", VIEWPORT_MIN_SUPPORTED, (), (".filter-bar__count", ".audit-cards")),
+    ("/audit", VIEWPORT_DESKTOP, (), (".filter-bar__count", ".audit-cards")),
+    ("/airlines", VIEWPORT_MIN_SUPPORTED, (), ("#collection-grid",)),
+    ("/airlines", VIEWPORT_DESKTOP, (), ("#collection-grid",)),
+    ("/airlines/manage", VIEWPORT_MIN_SUPPORTED, (), (".airlines-table",)),
+    ("/airlines/manage", VIEWPORT_DESKTOP, (), (".airlines-table",)),
+)
+
+
+@pytest.mark.parametrize(
+    "path,viewport,rising,fading", _TAKING_PART,
+    ids=["%s@%d" % (p, v["width"]) for p, v, _r, _f in _TAKING_PART])
+def test_every_block_of_the_first_screen_takes_part_in_the_opening(
+        new_context, server, path, viewport, rising, fading):
+    """A card, a strip or a control row rises and fades. A list, a grid or a table as tall as
+    its data fades as a whole and never rises: opacity alone, one layer."""
+    context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_BLOCKS_AT_OPEN)
+    try:
+        page = context.new_page()
+        _open(page, server, path)
+        page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+        for selector in rising:
+            found = page.evaluate("(s) => window.__taking(s)", selector)
+            assert found and all(f["fades"] and f["rises"] for f in found), (selector, found)
+        for selector in fading:
+            found = page.evaluate("(s) => window.__taking(s)", selector)
+            assert found and all(f["fades"] and not f["rises"] for f in found), (selector, found)
+    finally:
+        context.close()
+
+
 def _thumb_matches_current(page, selector):
     return page.evaluate(
         "(s) => { const strip = document.querySelector(s);"
