@@ -437,8 +437,19 @@ html[data-ui-theme="dark"] {
   color-scheme: dark;
 }
 @media (prefers-reduced-motion: reduce) {
+  /* A transition with almost no duration still shows one frame at the old
+   * value. On a property that lays the page out (a width, a padding, a
+   * flex factor) that frame is a visible jump, and with the default
+   * transition-property (all) every style change would get one. So only
+   * properties that paint without moving anything may transition here, and
+   * none waits for a delay; their transitionend events still fire for the
+   * scripts and the map library that listen for them. */
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    transition-property: opacity, transform, translate, scale, rotate, color,
+      background-color, border-color, outline-color, box-shadow, fill, stroke,
+      filter, backdrop-filter, visibility !important;
     animation-duration: 0.01ms !important;
     animation-delay: 0s !important;
     scroll-behavior: auto !important;

@@ -437,6 +437,66 @@ def test_the_location_mode_switch_replays_the_sheet(new_context, place_server, v
         context.close()
 
 
+# --- Location under reduced motion: the map arriving shifts nothing ---------------------------
+
+_SHIFT_RECORDER = """
+window.__shift = 0;
+window.__shifts = [];
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) {
+    if (!e.hadRecentInput) {
+      window.__shift += e.value;
+      window.__shifts.push([Math.round(e.startTime), e.value, e.sources.map(
+        (x) => x.node && x.node.tagName + '.' + String(x.node.className || '')).join(',')]);
+    }
+  }
+}).observe({type: 'layout-shift', buffered: true});
+"""
+# The largest cumulative layout shift a Location load may show with reduced motion: what the
+# same load shows with motion allowed, with a little room.
+REDUCED_MOTION_SHIFT_LIMIT = 0.03
+_LAYOUT_TRANSITIONS = """() => document.getAnimations()
+  .map((a) => a.transitionProperty || '')
+  .filter((p) => /^(width|height|min-|max-|padding|margin|flex|top|left|right|bottom|inset|gap|grid)/
+    .test(p))"""
+
+
+@pytest.mark.parametrize("viewport", [
+    pytest.param({"width": 768, "height": 1024}, id="768"),
+    pytest.param({"width": 1280, "height": 900}, id="1280")])
+def test_location_under_reduced_motion_shifts_no_layout(new_context, place_server, viewport):
+    """with prefers-reduced-motion the Location page settles into its map layout in one step:
+    the cumulative layout shift of the load stays at what a load with motion shows, and no
+    transition ever runs on a property that lays the page out"""
+    context = new_context(viewport=viewport, reduced_motion="reduce")
+    Hosts(context)
+    context.add_cookies([
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": place_server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, place_server.base_url())
+        context.add_init_script(_SHIFT_RECORDER)
+        context.add_init_script(
+            "window.__layout = [];"
+            "document.addEventListener('transitionrun', (e) => {"
+            " if (/^(width|height|min-|max-|padding|margin|flex|top|left|right|bottom|inset|gap"
+            "|grid)/.test(e.propertyName)) { window.__layout.push(e.propertyName); } }, true);")
+        page.goto(place_server.base_url() + "/detection")
+        page.wait_for_function(
+            "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
+        page.wait_for_function(SETTLED, timeout=10000)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        # Two more frames, so a shift caused by the last style change is reported.
+        page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                      "() => requestAnimationFrame(() => setTimeout(done, 200))))")
+        shift = page.evaluate("() => window.__shift")
+        assert shift <= REDUCED_MOTION_SHIFT_LIMIT, (shift, page.evaluate("() => window.__shifts"))
+        assert page.evaluate("() => window.__layout") == []
+        assert page.evaluate(_LAYOUT_TRANSITIONS) == []
+    finally:
+        context.close()
+
+
 # --- The bottom tab bar's pill ---------------------------------------------------------------
 
 
