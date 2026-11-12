@@ -1109,3 +1109,12 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   after the fix that offsets the map by the top safe-area inset; to be investigated by
   comparing with the last good build, separately from plan 61-110.
 - Queue after plan 61-110: plan 61-111 for W176-W179 and the Location top band.
+
+## Round 24 validation
+
+- Owner: everything is fine except Location (W176-W178 confirmed on device; the graphite
+  logo with a night-mode favicon, W179, confirmed on device).
+- Location top edge on iPhone (Safari tab and Home Screen app) is still not right after
+  plans 61-111 and 61-112. The owner opened a local session with the iOS simulator to
+  debug it on real WebKit; the result will come back as a branch.
+- Brotli stays an owner deploy decision (Caddy), left aside for now.
