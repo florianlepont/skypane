@@ -168,6 +168,52 @@ def test_reduced_motion_leaves_the_countdown_as_text_only(new_context, make_app_
         context.close()
 
 
+_WAITING = COUNTDOWN + ".is-breathing"
+_WAITING_ANIMATIONS = """(sel) => document.getAnimations()
+  .filter((a) => a.effect && a.effect.target === document.querySelector(sel))
+  .map((a) => { const t = a.effect.getComputedTiming();
+    return {name: a.animationName, iterations: t.iterations, end: t.endTime}; })"""
+_ENDLESS = """() => document.getAnimations()
+  .filter((a) => !a.effect || a.effect.getComputedTiming().iterations === Infinity)
+  .map((a) => a.animationName || a.transitionProperty || '')"""
+
+
+def test_an_overdue_refresh_pulses_for_a_while_then_rests(new_context, make_app_server):
+    """Once the countdown has run out the line reads as waiting and pulses; the pulse is a
+    finite run (under a minute), never an endless loop."""
+    server = make_app_server(seed=_seed_checkin(5.2), fake_providers=True)
+    context, page = _open(new_context, server, "/")
+    try:
+        page.goto(server.base_url() + "/")
+        _wait(page, "!!document.querySelector(a)", _WAITING)
+        _wait(page, "document.getAnimations().some(x => x.effect"
+                    " && x.effect.target === document.querySelector(a))", _WAITING)
+        pulses = page.evaluate(_WAITING_ANIMATIONS, _WAITING)
+        assert pulses and all(pulse["name"] == "skypane-pulse" for pulse in pulses), pulses
+        for pulse in pulses:
+            assert pulse["iterations"] is not None and pulse["iterations"] < 100, pulse
+            assert 0 < pulse["end"] <= 60000, pulse
+    finally:
+        context.close()
+
+
+def test_reduced_motion_shows_an_overdue_refresh_without_any_pulse(new_context, make_app_server):
+    """With reduced motion the waiting line is text only: nothing animates on it and no
+    animation on the page loops for ever."""
+    server = make_app_server(seed=_seed_checkin(5.2), fake_providers=True)
+    context, page = _open(new_context, server, "/", reduced=True)
+    try:
+        page.goto(server.base_url() + "/")
+        _wait(page, "document.readyState === 'complete'")
+        _wait(page, "!!document.querySelector(a)", _WAITING)
+        assert page.evaluate(_WAITING_ANIMATIONS, _WAITING) == []
+        assert page.evaluate(_ENDLESS) == []
+        assert _eval(page, "getComputedStyle(document.querySelector(a)).animationName",
+                     _WAITING) == "none"
+    finally:
+        context.close()
+
+
 def _record_a_detection(state_dir, callsign, hex_value, stamp):
     with history_db.open_db(state_dir) as conn:
         history_db.record_runway_event(

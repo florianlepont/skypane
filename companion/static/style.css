@@ -939,7 +939,8 @@ a:hover {
 
   .home-state__dot--pulse,
   .hero__picture::before,
-  .hero__glass::after {
+  .hero__glass::after,
+  .is-breathing {
     animation: none !important;
   }
 
@@ -1459,11 +1460,13 @@ select.visually-hidden {
 
 /* Names the MOTION, not the component (a dot in this rule, a <time> in
  * relative-time.js), so future consumers reuse this class instead of
- * writing a new one. Under reduced motion the global override already
- * zeroes animation-duration; companion/test_companion_app.py pins the
- * file's reduce-block count at two, so no per-rule block is added. */
+ * writing a new one. The pulse is finite: fifteen beats (half a minute at
+ * --motion-slow) say "live" or "waiting", then the element rests, so an
+ * idle page leaves the compositor idle. The element is rendered again by
+ * each refresh, which starts the beats again. Reduced motion switches it
+ * off in the reduce block above. */
 .is-breathing {
-  animation: skypane-pulse var(--motion-slow) ease-in-out infinite;
+  animation: skypane-pulse var(--motion-slow) ease-in-out 15;
 }
 
 /* Added only when the picture's src genuinely changed (freshness.js
@@ -7152,7 +7155,8 @@ button.row-menu__item {
  * ambient loops stop, so a wall tablet's compositor is idle. */
 html[data-ambient="rest"] .home-state__dot--pulse,
 html[data-ambient="rest"] .hero__picture::before,
-html[data-ambient="rest"] .hero__glass::after {
+html[data-ambient="rest"] .hero__glass::after,
+html[data-ambient="rest"] .is-breathing {
   animation-iteration-count: 0;
 }
 
