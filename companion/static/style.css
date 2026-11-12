@@ -165,6 +165,8 @@
    * of a card (.reveal and the page sections) and the delay step between
    * siblings. Both are finite, short, and never block interaction. */
   --motion-enter: 400ms;
+  /* Where the page opening's fade starts: visible enough to read at once. */
+  --opening-opacity: 0.6;
   --motion-stagger: 60ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   /* The spring every settle uses: press release, switch thumb, the sliding
@@ -6614,9 +6616,13 @@ button.row-menu__item {
   }
 }
 
+/* A replayed or appended block fades in from nothing. The page opening
+ * starts from --opening-opacity instead (set under data-page-open below):
+ * the first screenful is readable from the first paint, so the largest
+ * text counts as painted then and not when the fade ends. */
 @keyframes skypane-reveal-fade {
   from {
-    opacity: 0;
+    opacity: var(--reveal-from, 0);
   }
 
   to {
@@ -6645,6 +6651,10 @@ button.row-menu__item {
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
   animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+.dashboard-main[data-page-open] {
+  --reveal-from: var(--opening-opacity);
 }
 
 /* The page header only fades in: a header that rose would paint over the first

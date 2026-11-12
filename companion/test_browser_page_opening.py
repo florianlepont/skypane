@@ -437,6 +437,49 @@ def test_the_location_mode_switch_replays_the_sheet(new_context, place_server, v
         context.close()
 
 
+# --- The opening never holds back the first screenful -----------------------------------------
+
+_PAINT_RECORDER = """
+window.__paint = {fcp: null, lcp: null, element: ''};
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) {
+    if (e.name === 'first-contentful-paint') { window.__paint.fcp = e.startTime; }
+  }
+}).observe({type: 'paint', buffered: true});
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) {
+    window.__paint.lcp = e.startTime;
+    window.__paint.element = e.element ? e.element.tagName + '.' + e.element.className : '';
+  }
+}).observe({type: 'largest-contentful-paint', buffered: true});
+"""
+# The opening fade lasts 400 ms and more with its stagger. A largest paint this close to the
+# first one means the first screenful was readable at once, not when the fade ended.
+LARGEST_PAINT_AFTER_FIRST_MS = 150
+
+
+@pytest.mark.parametrize("path", ["/", "/account", "/users", "/audit"])
+def test_the_largest_text_is_painted_with_the_first_paint(new_context, server, path):
+    """on a phone the page opens from a readable state: the largest text of the first screenful
+    is painted with the first paint, not at the end of the opening fade, and the opening still
+    plays (the header fades in)"""
+    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
+                             reduced_motion="no-preference")
+    context.add_init_script(_PAINT_RECORDER)
+    try:
+        page = context.new_page()
+        _open(page, server, path)
+        page.wait_for_function(_OPENING_OVER, timeout=10000)
+        page.wait_for_function(
+            "() => window.__paint.fcp !== null && window.__paint.lcp !== null", timeout=10000)
+        paint = page.evaluate("() => window.__paint")
+        assert paint["lcp"] - paint["fcp"] <= LARGEST_PAINT_AFTER_FIRST_MS, (path, paint)
+        assert [e for e in page.evaluate("() => window.__anim")
+                if e["name"] == "skypane-reveal-fade" and "page-header" in e["cls"]], path
+    finally:
+        context.close()
+
+
 # --- Location under reduced motion: the map arriving shifts nothing ---------------------------
 
 _SHIFT_RECORDER = """
