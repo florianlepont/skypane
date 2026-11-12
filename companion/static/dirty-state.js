@@ -630,6 +630,23 @@
     }
   });
 
+  // Coming Back to the page, the browser puts the values the visitor left
+  // back into the fields after this file has run and fires no event for it.
+  // Once the page is shown, the bar and what follows the fields (the Layout
+  // card's summary, the value controls) are brought in line with the form.
+  window.addEventListener("pageshow", function () {
+    if (countDifferences() <= 0) {
+      return;
+    }
+    updateBar();
+    if (window.SkyPaneLivePreview && window.SkyPaneLivePreview.refresh) {
+      window.SkyPaneLivePreview.refresh();
+    }
+    if (window.SkyPaneValueControls && window.SkyPaneValueControls.repaintAll) {
+      window.SkyPaneValueControls.repaintAll();
+    }
+  });
+
   // A bar rendered for values carried in the URL counts as one unsaved
   // change and keeps the guard armed; its Cancel returns to the stored
   // setting at the URL the server named, since a native reset would only

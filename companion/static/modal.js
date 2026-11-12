@@ -142,7 +142,17 @@
     resetSheet(dialog);
     resetForms(dialog);
     clearHash();
+    forgetQuestion(dialog);
     returnFocus();
+  }
+
+  // A dialog the address itself opened (one pending confirmation) names the
+  // address that no longer asks: a reload after closing does not ask again.
+  function forgetQuestion(dialog) {
+    var back = dialog.getAttribute("data-modal-return");
+    if (back && back.charAt(0) === "/" && back.charAt(1) !== "/" && history.replaceState) {
+      history.replaceState(null, "", back);
+    }
   }
 
   function openModal(dialog) {

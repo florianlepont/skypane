@@ -1,12 +1,13 @@
 """Real-browser flows of the Users table: invite in a few actions, a duplicate
-email refused with the dialog reopened, a role that saves as soon as it
-changes, the Active switch, unlink and Delete user in the "..." menu, the guard sentences,
+email refused with the dialog reopened, a role change that asks before it
+saves, the Active switch, unlink and Delete user in the "..." menu, the guard sentences,
 keyboard use of the menu, the no-script controls, and table and card geometry
 at 360 and 1280px in both languages and both themes."""
 import pytest
 
 import fleet_console_support as fx
 from companion import auth
+from companion.pages import users_page
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_hit_target,
     _assert_no_page_overflow, _login, _no_js_page, _set_ui_theme)
@@ -118,20 +119,72 @@ def test_a_duplicate_email_reopens_the_dialog_with_a_field_error(
         context.close()
 
 
-def test_change_a_role_saves_as_soon_as_the_select_changes(
-        new_context, app_server_in_process):
+ROLE_DIALOG = "dialog#dlg-role-user-%d"
+DIALOG_SHOWN = (
+    "sel => { const d = document.querySelector(sel);"
+    " if (!d || !d.open) return false; const r = d.getBoundingClientRect();"
+    " return r.width > 0 && r.height > 0 && document.getAnimations().every("
+    "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity); }")
+
+
+def _change_role(page, seed, email, role):
+    """Changes the row's select and waits for the confirmation it lands on."""
+    dialog = ROLE_DIALOG % seed.owner_id
+    row = _row(page, email)
+    assert row.locator(".users-role-save").count() == 0
+    row.locator("select[name=role]").select_option(role)
+    page.wait_for_function("() => document.readyState === 'complete'")
+    page.wait_for_function(DIALOG_SHOWN, arg=dialog, timeout=10000)
+    return dialog
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED])
+def test_a_changed_role_is_saved_only_after_its_confirmation(
+        new_context, app_server_in_process, viewport):
     server = app_server_in_process
-    context, page, seed = _open(new_context, server)
+    context, page, seed = _open(new_context, server, viewport=viewport)
     try:
         _settled(page)
-        row = _row(page, fx.OWNER_EMAIL)
-        assert row.locator(".users-role-save").count() == 0
-        row.locator("select[name=role]").select_option("admin")  # 1
+        dialog = _change_role(page, seed, fx.OWNER_EMAIL, "admin")  # 1
+        assert _user(server, seed.owner_id)[0] == "user"
+        text = page.locator(dialog).inner_text()
+        assert "Make this person an administrator?" in text and fx.OWNER_EMAIL in text
+        # Enter must not grant the rights: the way out holds the focus.
+        page.wait_for_function(
+            "sel => document.activeElement === document.querySelector(sel + ' .modal__dismiss')",
+            arg=dialog, timeout=5000)
+        for control in (dialog + " button[type=submit]", dialog + " .modal__dismiss"):
+            box = page.locator(control).bounding_box()
+            assert box["height"] >= 44 and box["width"] >= 44, (control, box)
+        page.locator(dialog + " button[type=submit]").click()  # 2
         _wait_db(page, server, seed.owner_id, 0, "admin")
         page.wait_for_url("**/users")
         _settled(page)
         assert _row(page, fx.OWNER_EMAIL).locator("select").input_value() == "admin"
         assert "Role saved" in page.locator('[role="status"]').first.inner_text()
+    finally:
+        context.close()
+
+
+def test_backing_out_of_the_role_confirmation_changes_nothing(
+        new_context, app_server_in_process):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=VIEWPORT_MIN_SUPPORTED)
+    try:
+        _settled(page)
+        dialog = _change_role(page, seed, fx.OWNER_EMAIL, "admin")
+        page.locator(dialog + " .modal__dismiss").click()
+        page.wait_for_function(
+            "sel => { const d = document.querySelector(sel); return !d || !d.open; }",
+            arg=dialog, timeout=5000)
+        # The address no longer asks: a reload shows the plain page.
+        page.wait_for_function("() => location.pathname + location.search === '/users'")
+        page.reload()
+        _settled(page)
+        assert page.locator(dialog).count() == 0
+        assert _user(server, seed.owner_id)[0] == "user"
+        assert _row(page, fx.OWNER_EMAIL).locator("select").input_value() == "user"
+        assert _sql(server, "SELECT COUNT(*) FROM audit_log WHERE action = 'user.role'") == [(0,)]
     finally:
         context.close()
 
@@ -242,6 +295,10 @@ def test_invite_and_row_controls_work_without_script(new_context, app_server_in_
         row = _row(page, fx.OWNER_EMAIL)
         row.locator("select[name=role]").select_option("admin")
         row.locator(".users-role-save").click()
+        confirm = page.locator("#dlg-role-user-%d" % seed.owner_id)
+        confirm.wait_for(state="visible")
+        assert _user(server, seed.owner_id)[0] == "user"
+        confirm.locator("button[type=submit]").click()
         _wait_db(page, server, seed.owner_id, 0, "admin")
         page.wait_for_url("**/users")
         _row(page, fx.OWNER_EMAIL).locator("button[role=switch]").click()
@@ -387,4 +444,46 @@ def test_the_users_list_is_one_surface_with_its_count_above_it(
         assert report["countBottom"] <= report["tableTop"] + 0.5, report
         assert report["countBottom"] <= report["firstTop"] + 0.5, report
     finally:
+        context.close()
+
+
+# --- an error no handler expected ---------------------------------------------
+
+ERROR_WORDS = {"en": ("Something went wrong", "Back to Home"),
+               "fr": ("Un problème est survenu", "Retour à l’accueil")}
+
+
+def _boom(*_args, **_kwargs):
+    raise RuntimeError("not for the page")
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_an_unexpected_error_shows_the_app_s_own_page_with_a_way_back(
+        new_context, app_server_in_process, monkeypatch, lang, scheme):
+    """The browser shows the app's page, not its own "this page isn't working": at 360px, in
+    both languages and themes, with the navigation and a 44px link that leads back."""
+    server = app_server_in_process
+    context, page, _seed = _open(
+        new_context, server, viewport=VIEWPORT_MIN_SUPPORTED, lang=lang, scheme=scheme)
+    try:
+        _settled(page)
+        monkeypatch.setattr(users_page, "render", _boom)
+        response = page.goto(server.base_url() + "/users")
+        assert response.status == 500
+        assert page.url.startswith(server.base_url())
+        _set_ui_theme(page, scheme)
+        back = "a.error-home-button"
+        _settled(page, back)
+        title, label = ERROR_WORDS[lang]
+        assert page.locator("h1").inner_text().strip() == title
+        assert page.locator(back).inner_text().strip() == label
+        assert page.locator(".tab-bar").is_visible()
+        _assert_hit_target(page, back, "500 page")
+        assert not _assert_no_page_overflow(page, "500 page", 360)
+        monkeypatch.undo()
+        page.locator(back).click()
+        page.wait_for_function("() => location.pathname === '/'")
+    finally:
+        monkeypatch.undo()
         context.close()

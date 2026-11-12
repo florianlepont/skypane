@@ -18,6 +18,11 @@ from companion.ui_base import escape_html, icon_html
 
 EMAIL_FIELD = "email"
 ROLE_FIELD = "role"
+# Posted by the confirmation dialog: a role change without it only asks.
+CONFIRMED_FIELD = "confirmed"
+CONFIRMED_VALUE = "1"
+# The Users address that opens the confirmation of one user's role change.
+ROLE_CHANGE_PARAM = "role_change"
 ROLE_USER = "user"
 ROLE_ADMIN = "admin"
 
@@ -78,6 +83,20 @@ _UNLINK_HINT = i18n.msg(
     "Signs this person out; they link their sign-in account again next time they sign in.")
 
 _DELETE_BUTTON = i18n.msg("admin_users.delete_user", "Delete user")
+_PROMOTE_TITLE = i18n.msg(
+    "admin_users.promote_title", "Make this person an administrator?")
+_PROMOTE_WHAT = i18n.msg(
+    "admin_users.promote_what",
+    "%s will be able to manage every frame, every user and every setting.")
+_PROMOTE_SUBMIT = i18n.msg("admin_users.promote_submit", "Make administrator")
+_PROMOTE_KEEP = i18n.msg("admin_users.promote_keep", "Keep as user")
+_DEMOTE_TITLE = i18n.msg("admin_users.demote_title", "Remove administrator rights?")
+_DEMOTE_WHAT = i18n.msg(
+    "admin_users.demote_what",
+    "%s will lose the admin console and will only see the frames they own or "
+    "co-manage.")
+_DEMOTE_SUBMIT = i18n.msg("admin_users.demote_submit", "Remove rights")
+_DEMOTE_KEEP = i18n.msg("admin_users.demote_keep", "Keep as administrator")
 _DELETE_TITLE = i18n.msg("admin_users.delete_user_title", "Delete this user?")
 _DELETE_KEEP = i18n.msg("admin_users.delete_user_keep", "Keep this user")
 _DELETE_WHAT = i18n.msg(
@@ -132,6 +151,8 @@ class UsersView(NamedTuple):
     role_error: str = ""
     open_invite_dialog: bool = False
     app_url: str = ""
+    # (user id, new role) of a role change waiting for its confirmation.
+    role_change: tuple | None = None
 
 
 def role_name(role):
@@ -253,8 +274,8 @@ def _guard_html(row):
 
 
 def _role_cell(row):
-    """The role select that saves on change (a Save button shows only
-    without script), or the plain role and the guard sentences for the
+    """The role select that sends its form on change (a Save button shows
+    only without script) and lands on the confirmation dialog, or the plain role and the guard sentences for the
     signed-in administrator and the last active administrator."""
     guard = _guard_html(row)
     if guard:
@@ -310,6 +331,37 @@ def _delete_dialog(row):
         _ui().csrf_field(), body, i18n.t(_DELETE_BUTTON), i18n.t(_DELETE_KEEP),
         _routes().USERS_ROUTE, destructive=True, confirm_only=True,
         subtitle=row.email)
+
+
+def role_dialog_id(user_id):
+    return "dlg-role-user-%d" % user_id
+
+
+def _role_dialog(view):
+    """The confirmation a changed role select lands on, open: granting or
+    removing administrator rights is never one tap. Empty when no change is
+    waiting or its row is gone."""
+    if view.role_change is None:
+        return ""
+    user_id, role = view.role_change
+    row = next((r for r in view.rows if r.user_id == user_id), None)
+    if row is None:
+        return ""
+    promote = role == ROLE_ADMIN
+    title, what, submit, keep = (
+        (_PROMOTE_TITLE, _PROMOTE_WHAT, _PROMOTE_SUBMIT, _PROMOTE_KEEP) if promote
+        else (_DEMOTE_TITLE, _DEMOTE_WHAT, _DEMOTE_SUBMIT, _DEMOTE_KEEP))
+    fields = (
+        '<input type="hidden" name="%s" value="%s">'
+        '<input type="hidden" name="%s" value="%s">' % (
+            ROLE_FIELD, _esc(role), CONFIRMED_FIELD, CONFIRMED_VALUE))
+    body = '<p class="text-body">%s</p>' % _esc(i18n.t(what) % row.email)
+    return ui_modal.dialog_html(
+        role_dialog_id(user_id), i18n.t(title),
+        _action_path(row, _routes().USER_ROLE_SUFFIX),
+        _ui().csrf_field() + fields, body, i18n.t(submit), i18n.t(keep),
+        _routes().USERS_ROUTE, destructive=not promote, confirm_only=True,
+        open_=True, subtitle=row.email, return_on_close=True)
 
 
 def _menu_cell(row):
@@ -454,4 +506,5 @@ def render(view):
         '<section class="users-section" aria-label="%s">%s</section>' % (
             _t(_USERS_TEXT), _table_html(view))
         + _invite_dialog(view)
+        + _role_dialog(view)
         + "".join(_delete_dialog(row) for row in view.rows if not row.is_self))

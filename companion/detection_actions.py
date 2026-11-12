@@ -314,7 +314,9 @@ def _save_location(handler, ctx, device, subject, scope, form):
 # A place is one frame's own position plus what it follows. The mode, airport
 # and runway are validated as the detection form does; the pin is range-checked
 # here and, for the area mode, held to the coarse France box.
-PLACE_LABEL_FALLBACK = "Frame position"
+PLACE_LABEL_FALLBACK = detection_page.DEFAULT_PLACE_LABEL
+# How far, in degrees, a pin may sit from an airport and still carry its name.
+_AIRPORT_PIN_TOLERANCE = 0.0005
 
 
 def _pin_errors(form, errors, required):
@@ -351,6 +353,16 @@ def _place_runway(form, errors):
     return lat, lon, airport.name
 
 
+def _left_airport_label(label, lat, lon):
+    """Whether `label` is the name of a catalogue airport the pin is not on:
+    the name an airport choice left in the field before the pin was moved."""
+    wanted = label.casefold()
+    named = [a for a in airports.load_catalogue().values() if a.name.casefold() == wanted]
+    return bool(named) and not any(
+        abs(a.lat - lat) <= _AIRPORT_PIN_TOLERANCE
+        and abs(a.lon - lon) <= _AIRPORT_PIN_TOLERANCE for a in named)
+
+
 def _place_position(form, errors):
     pin = _pin_errors(form, errors, True)
     radius = form.get("radius_km", "")
@@ -382,6 +394,8 @@ def parse_place(form, current_zone):
     zone = form_post.resolve_timezone(form, errors, current_zone)
     if errors or zone is form_post.FAILED:
         return None, errors
+    if mode == detection_page.MODE_POSITION and _left_airport_label(label, lat, lon):
+        label = ""
     place = {
         "mode": mode, "airport": form.get("airport"), "runway": form.get("runway"),
         "radius_km": form.get("radius_km"), "lat": lat, "lon": lon,

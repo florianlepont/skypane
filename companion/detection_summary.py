@@ -6,7 +6,7 @@ agree. Nothing here reads storage: callers pass the selection
 (`server.detection.current_selection()`) and the name of the device's
 usable location, if it has one.
 """
-from companion import i18n, ui_groups
+from companion import i18n, prefs, ui_groups
 from companion.layout import escape_html
 from companion.pages import detection_page
 from server import airports, detection
@@ -43,6 +43,34 @@ def display_id_for(icao, designator):
 
 def airport_label(airport):
     return "%s (%s)" % (airport.name, airport.iata or airport.icao)
+
+
+def coords_text(lat, lon):
+    """Coordinates as one readout ("48.7262 N · 2.3652 E"), with the decimal
+    comma in French."""
+    def number(value):
+        text = "%.4f" % abs(value)
+        return text.replace(".", ",") if prefs.current_lang() == "fr" else text
+    return "%s %s · %s %s" % (
+        number(lat), "N" if lat >= 0 else "S", number(lon), "E" if lon >= 0 else "W")
+
+
+def followed_text(device_cfg, place):
+    """What the saved setting follows, for the sentence of the saved toast:
+    the airport of a runway setting, or the area of a position setting named
+    by the place's label (its coordinates when it has no label of its own).
+    None when a position setting has no place."""
+    selection = detection.current_selection(device_cfg)
+    if selection["mode"] != detection.POSITION_MODE:
+        airport = airports.find_airport(selection["airport"])
+        return None if airport is None else airport.name
+    if place is None:
+        return None
+    location = place["name"]
+    if not location or location == detection_page.DEFAULT_PLACE_LABEL:
+        location = coords_text(place["latitude"], place["longitude"])
+    return i18n.t(detection_page.FLASH_AREA_TARGET) % {
+        "radius": selection["radius_km"], "location": location}
 
 
 def is_fail_safe(selection, location_name):

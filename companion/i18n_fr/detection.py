@@ -74,6 +74,8 @@ MESSAGES = {
     "detection.place_saved_flash":
         "Lieu enregistré — La détection suit désormais {place}.",
     "detection.place_fallback_name": "le lieu choisi",
+    "detection.flash_area_target":
+        "la zone dans un rayon de %(radius)d km autour de %(location)s",
 
     "detection.error_location_missing": "Choisissez un lieu.",
     "detection.error_location_unavailable":

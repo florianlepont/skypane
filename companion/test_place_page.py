@@ -390,9 +390,10 @@ def test_the_saved_toast_names_the_place_in_both_languages(rig):
     _s, response, _b = rig.post("owner", _position_form(place_label="Marseille"))
     target = response["Location"]
     _s, _h, page = rig.get("owner", target)
-    assert "Location saved" in _text(page) and "Detection now follows Marseille" in _text(page)
+    assert "Location saved" in _text(page) and "Detection now follows the area within" in _text(page)
+    assert "of Marseille." in _text(page)
     _s, _h, page = rig.get("owner", target, lang="fr")
-    assert "Lieu enregistré" in _text(page) and "suit désormais Marseille" in _text(page)
+    assert "Lieu enregistré" in _text(page) and "autour de Marseille." in _text(page)
 
 
 REFUSALS = [

@@ -16,7 +16,7 @@ from companion import device_scope
 from companion_app_server import (
     InProcessAppServer, http_request, session_cookie_for_state_dir, with_csrf)
 import matrix_rows_place
-from server import detection, device_config, fleet_db, hardware
+from server import airports, detection, device_config, fleet_db, hardware
 
 PARIS = "Europe/Paris"
 TOKYO = "Indian/Reunion"
@@ -174,13 +174,53 @@ def test_the_saved_toast_names_the_stored_place_in_both_languages(rig):
     path = rig.scope() + "/detection?flash=place_saved&place=Injected"
     _status, page = rig.get("owner", path)
     text = _text(page)
-    assert "Detection now follows Vieux <Port>." in text
+    assert "Detection now follows the area within 9 km of Vieux <Port>." in text
     assert "Vieux <Port>" not in page and "Injected" not in text
     status, _resp, body = http_request(
         rig.server.url(path), cookie=rig.cookies["owner"],
         extra_headers={"Accept-Language": "fr"})
-    assert "La détection suit désormais Vieux <Port>." in _text(
-        body.decode("utf-8"))
+    assert ("La détection suit désormais la zone dans un rayon de 9 km autour de "
+            "Vieux <Port>.") in _text(body.decode("utf-8"))
+
+
+def _toast(rig, lang="en"):
+    _status, _resp, body = http_request(
+        rig.server.url(rig.scope() + "/detection?flash=place_saved"),
+        cookie=rig.cookies["owner"], extra_headers={"Accept-Language": lang})
+    return _text(body.decode("utf-8"))
+
+
+def test_a_pin_moved_off_an_airport_in_position_mode_drops_the_airport_name(rig):
+    """The label field still carries the airport picked before: the saved
+    place and its toast must not name an airport the pin has left."""
+    bron = airports.find_airport("LFLY")
+    rig.post("owner", _runway_form(airport="LFLY", runway=bron.runways[0].designator))
+    assert "Detection now follows %s." % bron.name in _toast(rig)
+    status, _response, _body = rig.post("owner", _position_form(
+        latitude="45.7325", longitude="4.9191", radius_km="2", place_label=bron.name))
+    assert status == 303
+    assert rig.position(rig.fleet.owner_device)["name"] != bron.name
+    text = _toast(rig)
+    assert bron.name not in text
+    assert "Detection now follows the area within 2 km of 45.7325 N · 4.9191 E." in text
+    assert ("La détection suit désormais la zone dans un rayon de 2 km autour de "
+            "45,7325 N · 4,9191 E.") in _toast(rig, "fr")
+
+
+def test_a_position_pin_left_on_the_airport_keeps_its_name(rig):
+    bron = airports.find_airport("LFLY")
+    rig.post("owner", _position_form(
+        latitude="%.4f" % bron.lat, longitude="%.4f" % bron.lon, radius_km="5",
+        place_label=bron.name))
+    assert rig.position(rig.fleet.owner_device)["name"] == bron.name
+    assert "the area within 5 km of %s." % bron.name in _toast(rig)
+
+
+def test_the_runway_toast_names_the_saved_airport_not_a_typed_label(rig):
+    rig.post("owner", _runway_form(place_label="Grandma's house"))
+    text = _toast(rig)
+    assert "Detection now follows %s." % airports.find_airport("LFPG").name in text
+    assert "Grandma" not in text
 
 
 @pytest.mark.parametrize("override, message", [

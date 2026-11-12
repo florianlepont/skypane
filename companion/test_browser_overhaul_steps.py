@@ -30,7 +30,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 2, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 3, "V1-phone": 2, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -664,6 +664,10 @@ def test_a9_change_a_users_role_in_the_users_table(world, new_context):
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
         select = page.locator("#user-%d select[name=role]" % world.seed.owner_id)
         steps.choose(select, "Administrator", "role")
+        confirm = page.locator("#dlg-role-user-%d button[type=submit]" % world.seed.owner_id)
+        confirm.wait_for(state="visible")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
+        steps.tap(confirm, "Make administrator")
         conn = fleet_db.connect(world.state_dir)
         try:
             for _ in range(100):

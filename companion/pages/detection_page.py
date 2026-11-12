@@ -62,6 +62,10 @@ FLASH_PLACE_SAVED_TEXT = i18n.msg(
     "detection.place_saved_flash",
     "Location saved — Detection now follows {place}.")
 PLACE_FALLBACK_NAME = i18n.msg("detection.place_fallback_name", "the chosen place")
+FLASH_AREA_TARGET = i18n.msg(
+    "detection.flash_area_target", "the area within %(radius)d km of %(location)s")
+# The name a position row is stored under when none was given.
+DEFAULT_PLACE_LABEL = "Frame position"
 
 SECTION_DETECTION = i18n.msg("detection.detection", "Detection")
 

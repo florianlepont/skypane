@@ -82,16 +82,15 @@ def _apart(a, b):
 def test_the_owner_row_of_access_shows_the_address_and_the_whole_pill(
         new_context, rig, viewport):
     """Fleet > a frame > Access, in French on a phone: the owner's address keeps most of the
-    row (whole at 390px; at 360px it may end in an ellipsis, with its title holding the full
-    value), the Owner pill is whole under or beside it, the Reassign action keeps a 44px target
+    row and is whole at 360px and 390px (its title holds the full value too), the Owner pill
+    is whole under or beside it, the Reassign action keeps a 44px target
     on the row's line, none of them covers another and the page does not scroll sideways."""
     context, page = _french_admin(
         new_context, rig, viewport, "/fleet?tab=access&frame=" + rig.seed.live_id)
     try:
         seen = page.evaluate(_OWNER_ROW)
         assert seen["emailText"] == fx.ADMIN_EMAIL and seen["emailTitle"] == fx.ADMIN_EMAIL
-        if viewport["width"] >= VIEWPORT_PHONE["width"]:
-            assert not seen["emailCut"], seen
+        assert not seen["emailCut"], seen
         # The address is no longer squeezed by the pill: it has the row less the action.
         assert seen["email"]["width"] >= 0.45 * seen["row"]["width"], seen
         assert seen["email"]["height"] < 30, seen

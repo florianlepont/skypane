@@ -18,6 +18,7 @@ Security invariants:
 import datetime
 import re
 import sqlite3
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from companion import audit, console_flash, i18n, route_types, ui_base
 from companion.pages import users_page
@@ -191,8 +192,20 @@ def _render(h, status=200, **invite_state):
             ui_base.QUICK_SWITCH_SCRIPT_SRC))
 
 
+def _asked_role_change(h):
+    """(user id, new role) of the role change the address asks to confirm,
+    or None: the id and the role are checked, and a change that would change
+    nothing asks nothing."""
+    query = parse_qs(urlsplit(h.path).query)
+    raw_id = (query.get(users_page.ROLE_CHANGE_PARAM) or [""])[0]
+    role = (query.get(users_page.ROLE_FIELD) or [""])[0]
+    if _USER_ID_RE.match(raw_id) is None or role not in _ROLES:
+        return None
+    return (int(raw_id), role) if _role_would_change(h, int(raw_id), role) else None
+
+
 def handle_users_get(h, m):
-    return _render(h)
+    return _render(h, role_change=_asked_role_change(h))
 
 
 # ---- invite -------------------------------------------------------------
@@ -304,13 +317,30 @@ def _unknown_id(h):
     return h.redirect(USERS_PATH, set_cookie=_back(FLASH_NOT_FOUND))
 
 
+def _role_would_change(h, user_id, role):
+    """Whether the user exists and holds another role than `role`."""
+    conn = fleet_db.connect(h.args.state_dir)
+    try:
+        row = conn.execute("SELECT role FROM users WHERE id = ?", (user_id,)).fetchone()
+    finally:
+        conn.close()
+    return row is not None and row["role"] != role
+
+
 def handle_role(h, m):
     user_id = _target_id(m)
     if user_id is None:
         return _unknown_id(h)
-    role = h.read_form().get(users_page.ROLE_FIELD, "")
+    form = h.read_form()
+    role = form.get(users_page.ROLE_FIELD, "")
     if role not in _ROLES:
         return h.redirect(USERS_PATH, set_cookie=_back(FLASH_BAD_ROLE))
+    confirmed = form.get(users_page.CONFIRMED_FIELD) == users_page.CONFIRMED_VALUE
+    if not confirmed and _role_would_change(h, user_id, role):
+        # Granting or removing administrator rights asks first: the Users
+        # page opens on the confirmation and nothing is written.
+        return h.redirect("%s?%s" % (USERS_PATH, urlencode(
+            {users_page.ROLE_CHANGE_PARAM: user_id, users_page.ROLE_FIELD: role})))
 
     def change(conn, actor_id, row):
         if row["role"] == role:

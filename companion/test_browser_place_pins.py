@@ -10,7 +10,8 @@ import pytest
 from companion import auth
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow, _login)
-from place_map_support import CLEAR_BOX, SETTLED as _SETTLED, Hosts, seed as _seed
+from place_map_support import (
+    CLEAR_BOX, SETTLED as _SETTLED, Hosts, saved_place, seed as _seed, stored)
 from server import airports
 
 pytestmark = pytest.mark.browser
@@ -189,3 +190,55 @@ def test_the_map_runs_under_a_softly_faded_app_bar(new_context, make_app_server)
         assert fade.startswith("linear-gradient"), fade
     finally:
         context.close()
+
+
+# --- My position after an airport pick ----------------------------------------------
+
+SAVE = "button.dirty-bar__save"
+STATUS_IS = "text => document.getElementById('place-status').textContent === text"
+STATUS_LACKS = "text => !document.getElementById('place-status').textContent.includes(text)"
+
+
+@pytest.mark.parametrize("lang,follows", [
+    ("en", "Detection now follows the area within"),
+    ("fr", "La détection suit désormais la zone dans un rayon de")])
+def test_my_position_after_an_airport_pick_stops_naming_the_airport(
+        new_context, make_app_server, lang, follows):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page, _hosts = _open(new_context, server, lang=lang, route="/detection?mode=runway")
+    try:
+        page.click(".place-france")
+        page.wait_for_function(IDLE, timeout=10000)
+        page.wait_for_function(CLEAR_PIN, timeout=10000)
+        dot = page.evaluate(CLEAR_PIN)
+        chosen = airports.find_airport(dot["icao"])
+        page.mouse.click(dot["x"], dot["y"])
+        page.wait_for_function(STATUS_IS, arg=chosen.name, timeout=10000)
+        page.wait_for_function(
+            "name => document.getElementById('place-label').value === name", arg=chosen.name,
+            timeout=5000)
+        page.click(AREA)
+        page.wait_for_function(
+            "() => document.querySelectorAll('#place-map .place-dot').length === 0", timeout=5000)
+        page.wait_for_function(STATUS_LACKS, arg=chosen.name, timeout=5000)
+        page.wait_for_function(IDLE, timeout=10000)
+        before = page.input_value("#place-lat")
+        box = page.evaluate(CLEAR_BOX)
+        page.mouse.click(box["x"] + box["width"] * 0.3, box["y"] + box["height"] * 0.3)
+        page.wait_for_function(
+            "v => document.getElementById('place-lat').value !== v", arg=before, timeout=5000)
+        page.wait_for_function(STATUS_LACKS, arg=chosen.name, timeout=5000)
+        page.locator(SAVE).wait_for(state="visible", timeout=5000)
+        with page.expect_navigation():
+            page.click(SAVE)
+        page.wait_for_function(READY, timeout=15000)
+        page.wait_for_function(
+            "text => [...document.querySelectorAll('.toast')]"
+            ".some((t) => t.textContent.includes(text))", arg=follows, timeout=5000)
+        toast = " ".join(page.locator(".toast").all_text_contents())
+        assert follows in toast, toast
+        assert chosen.name not in toast, toast
+    finally:
+        context.close()
+    assert stored(server)["mode"] == "position"
+    assert saved_place(server)["name"] != chosen.name

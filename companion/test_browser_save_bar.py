@@ -257,3 +257,61 @@ def test_without_scripts_the_save_bar_is_in_the_page(new_context, server):
         assert box and box["height"] >= 44
     finally:
         context.close()
+
+
+_LAYOUT_STATE = """() => {
+  const checked = document.querySelector('input[name=layout]:checked');
+  const stored = [...document.querySelectorAll('input[name=layout]')].find(r => r.defaultChecked);
+  const name = document.querySelector('[data-layout-name]');
+  return {checked: checked.value, stored: stored.value,
+          summary: name ? name.textContent.trim() : null,
+          checkedName: checked.parentNode.querySelector('.look-pick__name').textContent.trim()};
+}"""
+
+
+@pytest.mark.parametrize("viewport", [PHONE, DESKTOP], ids=["390", "1280"])
+def test_back_to_a_page_holding_an_unsaved_choice_shows_it_with_its_save_bar(
+        new_context, server, viewport):
+    """Leaving with an unsaved layout and coming Back, the browser puts the picked radio back
+    without telling any script: the bar and the phone summary must still agree with what the
+    form holds, and Cancel must return to the stored layout."""
+    context = new_context(viewport=viewport)
+    Hosts(context)
+    try:
+        page = context.new_page()
+        page.on("dialog", lambda dialog: dialog.accept())
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.DISPLAY_ROUTE)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        toggle = page.locator("[data-layout-toggle]:visible")
+        if toggle.count():
+            toggle.first.click()
+        page.locator("label:has(input[name=layout]:not(:checked)):visible").first.click()
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+        picked = page.evaluate(_LAYOUT_STATE)
+        assert picked["checked"] != picked["stored"]
+        page.goto(server.base_url() + "/flights")
+        page.wait_for_function(_SETTLED, timeout=20000)
+        page.go_back()
+        page.wait_for_url("**" + layout.DISPLAY_ROUTE)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        page.wait_for_function(
+            "() => { const c = document.querySelector('input[name=layout]:checked');"
+            " return !c.defaultChecked === !document.querySelector('.dirty-bar').hidden; }",
+            timeout=5000)
+        back = page.evaluate(_LAYOUT_STATE)
+        assert back["checked"] == picked["checked"], "the browser did not restore the choice"
+        page.locator(BAR).wait_for(state="visible", timeout=5000)
+        if back["summary"] is not None:
+            assert back["summary"] == back["checkedName"], back
+        page.locator(BAR + " .dirty-bar__cancel").click()
+        page.wait_for_function(
+            "() => document.querySelector('input[name=layout]:checked').defaultChecked"
+            " && document.querySelector('.dirty-bar').hidden", timeout=5000)
+        # The summary follows on the tick after the reset.
+        page.wait_for_function(
+            "() => { const s = (" + _LAYOUT_STATE + ")(); return s.summary === null"
+            " || s.summary === s.checkedName; }", timeout=5000)
+    finally:
+        context.close()
+

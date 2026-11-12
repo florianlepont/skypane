@@ -2,6 +2,7 @@
 states, invite, role change, disable and enable, identity unlink, the
 last-administrator and self-action guards (including two concurrent
 requests), audit rows and the access gates."""
+import html
 import re
 import threading
 import urllib.parse
@@ -356,9 +357,67 @@ def test_an_invited_email_can_sign_in_and_another_cannot(auth0_rig):
 # --- role ---------------------------------------------------------------------
 
 
-def test_promotion_needs_no_confirm_and_is_audited_with_old_and_new_role(rig):
+@pytest.mark.parametrize("lang,target,role,title,submit,keep", [
+    ("en", "user", "admin", "Make this person an administrator?", "Make administrator",
+     "Keep as user"),
+    ("fr", "user", "admin", "Nommer cette personne administrateur\u00a0?",
+     "Nommer administrateur", "Laisser utilisateur"),
+    ("en", "admin2", "user", "Remove administrator rights?", "Remove rights",
+     "Keep as administrator"),
+    ("fr", "admin2", "user", "Retirer les droits d’administrateur\u00a0?",
+     "Retirer les droits", "Laisser administrateur"),
+])
+def test_a_role_change_asks_first_and_changes_nothing_until_confirmed(
+        rig, lang, target, role, title, submit, keep):
     server, seed, cookie = rig
-    status, headers, _ = _act(server, cookie, seed.user_id, "role", role="admin")
+    user_id = {"user": seed.user_id, "admin2": seed.admin2_id}[target]
+    email = {"user": fx.USER_EMAIL, "admin2": fx.SECOND_ADMIN_EMAIL}[target]
+    before = _user(server.state_dir, user_id)
+    status, headers, _body = _act(server, cookie, user_id, "role", role=role)
+    asking = "/users?role_change=%d&role=%s" % (user_id, role)
+    assert (status, headers["Location"]) == (303, asking)
+    status, _headers, body = http_request(
+        server.url(asking), cookie=cookie, extra_headers={"Accept-Language": lang})
+    page = body.decode("utf-8")
+    assert status == 200
+    assert _user(server.state_dir, user_id) == before
+    assert _audit(server.state_dir, "user.role") == []
+    dialog = re.search(
+        r'<dialog class="modal" id="dlg-role-user-%d"[^>]* open.*?</dialog>' % user_id,
+        page, re.S)
+    assert dialog is not None, "no open confirmation dialog"
+    text = html.unescape(re.sub(r"<[^>]+>", " ", dialog.group(0)))
+    for wanted in (title, submit, keep, email):
+        assert wanted in text, (wanted, text)
+    form = dialog.group(0)
+    assert 'action="/users/%d/role"' % user_id in form
+    assert 'name="role" value="%s"' % role in form
+    assert 'name="confirmed" value="1"' in form
+    # Enter never confirms: the way out holds the focus.
+    assert re.search(r'<a class="modal__dismiss" href="/users"[^>]* autofocus', form)
+    # The row still shows the stored role.
+    assert re.search(
+        r'<option value="%s" selected' % before[0], _row_html(page, user_id))
+
+
+@pytest.mark.parametrize("query", [
+    "role_change=%(user)d&role=user",       # nothing would change
+    "role_change=%(user)d&role=root",
+    "role_change=99999&role=admin",
+    "role_change=1x&role=admin",
+    "role_change=%(user)d",
+])
+def test_an_address_that_asks_nothing_real_opens_no_confirmation(rig, query):
+    server, seed, cookie = rig
+    status, _headers, page = fx.get(server, cookie, "/users?" + query % {"user": seed.user_id})
+    assert status == 200
+    assert "dlg-role-user-" not in page
+    assert _user(server.state_dir, seed.user_id)[0] == "user"
+
+
+def test_a_confirmed_promotion_is_audited_with_old_and_new_role(rig):
+    server, seed, cookie = rig
+    status, headers, _ = _act(server, cookie, seed.user_id, "role", role="admin", confirmed="1")
     assert status == 303
     assert _user(server.state_dir, seed.user_id)[0] == "admin"
     rows = _audit(server.state_dir, "user.role")
@@ -371,7 +430,7 @@ def test_demotion_works_while_another_admin_exists_and_takes_effect_next_request
     server, seed, cookie = rig
     second = fx.admin_cookie(server.state_dir, fx.SECOND_ADMIN_EMAIL)
     assert fx.get(server, second, "/users")[0] == 200
-    assert _act(server, cookie, seed.admin2_id, "role", role="user")[0] == 303
+    assert _act(server, cookie, seed.admin2_id, "role", role="user", confirmed="1")[0] == 303
     assert _user(server.state_dir, seed.admin2_id)[0] == "user"
     assert fx.get(server, second, "/users")[0] == 404
 
@@ -468,7 +527,7 @@ class _StubHandler:
         return location, set_cookie
 
 
-@pytest.mark.parametrize("action,form", [("role", {"role": "user"}), ("disable", {})])
+@pytest.mark.parametrize("action,form", [("role", {"role": "user", "confirmed": "1"}), ("disable", {})])
 def test_the_last_active_admin_cannot_be_demoted_or_disabled_by_another_actor(rig, action, form):
     server, seed, _cookie = rig
     _sql(server.state_dir, "UPDATE users SET disabled = 1 WHERE id = ?", (seed.admin2_id,))
@@ -492,7 +551,7 @@ def console_flash_key(value):
     return console_flash._decode(value)["k"]
 
 
-@pytest.mark.parametrize("action,form", [("role", {"role": "user"}), ("disable", {})])
+@pytest.mark.parametrize("action,form", [("role", {"role": "user", "confirmed": "1"}), ("disable", {})])
 def test_nobody_acts_on_themselves(rig, action, form):
     server, seed, cookie = rig
     status, headers, _ = _act(server, cookie, seed.admin_id, action, **form)
@@ -503,7 +562,7 @@ def test_nobody_acts_on_themselves(rig, action, form):
     assert [r["outcome"] for r in _audit(server.state_dir, "user." + action)] == ["denied"]
 
 
-@pytest.mark.parametrize("action,form", [("role", {"role": "user"}), ("disable", {})])
+@pytest.mark.parametrize("action,form", [("role", {"role": "user", "confirmed": "1"}), ("disable", {})])
 def test_two_admins_acting_on_each_other_leave_one_active_admin(rig, action, form):
     server, seed, cookie = rig
     second = fx.admin_cookie(server.state_dir, fx.SECOND_ADMIN_EMAIL)
