@@ -58,6 +58,11 @@ _BACK_TO_HOME_TEXT = i18n.msg("common.back_to_home", "Back to Home")
 _BACK_TO_ACCOUNT_TEXT = i18n.msg("account.back_to_account", "Back to Account")
 _SIGN_IN_TEXT = i18n.msg("common.sign_in", "Sign in")
 _NOT_FOUND_TAB_TITLE_TEXT = i18n.msg("common.not_found", "Not Found")
+SERVER_ERROR_TITLE = i18n.msg("common.server_error_title", "Something went wrong")
+SERVER_ERROR_PURPOSE_TEXT = i18n.msg(
+    "common.server_error_purpose",
+    "SkyPane hit an error and could not finish this request. Go back and try "
+    "again; if it keeps happening, tell the administrator.")
 _CREDITS_LINK_TEXT = i18n.msg("credits.credits", "Credits")
 
 # The Auth0 sign-in start route. A plain GET link, never a form: a form
@@ -381,6 +386,19 @@ def forbidden_page(ui_theme, health_alert, back=BACK_HOME, purpose=None,
     )
     return layout.page_shell(
         title=i18n.t(FORBIDDEN_TITLE), active="", body=body,
+        ui_theme=ui_theme, health_alert=health_alert)
+
+
+def server_error_page(ui_theme, health_alert, back=BACK_HOME, home_route=None):
+    """The 500 body for an error no handler expected. Fixed wording: no
+    error text ever reaches the page."""
+    body = (
+        layout.page_header(
+            i18n.t(SERVER_ERROR_TITLE), purpose=i18n.t(SERVER_ERROR_PURPOSE_TEXT))
+        + _back_link_html(back, home_route)
+    )
+    return layout.page_shell(
+        title=i18n.t(SERVER_ERROR_TITLE), active="", body=body,
         ui_theme=ui_theme, health_alert=health_alert)
 
 

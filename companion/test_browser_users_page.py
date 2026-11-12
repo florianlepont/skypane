@@ -7,6 +7,7 @@ import pytest
 
 import fleet_console_support as fx
 from companion import auth
+from companion.pages import users_page
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_hit_target,
     _assert_no_page_overflow, _login, _no_js_page, _set_ui_theme)
@@ -443,4 +444,46 @@ def test_the_users_list_is_one_surface_with_its_count_above_it(
         assert report["countBottom"] <= report["tableTop"] + 0.5, report
         assert report["countBottom"] <= report["firstTop"] + 0.5, report
     finally:
+        context.close()
+
+
+# --- an error no handler expected ---------------------------------------------
+
+ERROR_WORDS = {"en": ("Something went wrong", "Back to Home"),
+               "fr": ("Un problème est survenu", "Retour à l’accueil")}
+
+
+def _boom(*_args, **_kwargs):
+    raise RuntimeError("not for the page")
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_an_unexpected_error_shows_the_app_s_own_page_with_a_way_back(
+        new_context, app_server_in_process, monkeypatch, lang, scheme):
+    """The browser shows the app's page, not its own "this page isn't working": at 360px, in
+    both languages and themes, with the navigation and a 44px link that leads back."""
+    server = app_server_in_process
+    context, page, _seed = _open(
+        new_context, server, viewport=VIEWPORT_MIN_SUPPORTED, lang=lang, scheme=scheme)
+    try:
+        _settled(page)
+        monkeypatch.setattr(users_page, "render", _boom)
+        response = page.goto(server.base_url() + "/users")
+        assert response.status == 500
+        assert page.url.startswith(server.base_url())
+        _set_ui_theme(page, scheme)
+        back = "a.error-home-button"
+        _settled(page, back)
+        title, label = ERROR_WORDS[lang]
+        assert page.locator("h1").inner_text().strip() == title
+        assert page.locator(back).inner_text().strip() == label
+        assert page.locator(".tab-bar").is_visible()
+        _assert_hit_target(page, back, "500 page")
+        assert not _assert_no_page_overflow(page, "500 page", 360)
+        monkeypatch.undo()
+        page.locator(back).click()
+        page.wait_for_function("() => location.pathname === '/'")
+    finally:
+        monkeypatch.undo()
         context.close()

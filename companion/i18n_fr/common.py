@@ -41,6 +41,11 @@ MESSAGES = {
         "Ouvrez SkyPane directement et réessayez.",
 
     # --- 503 page ------------------------------------------------------
+    "common.server_error_title": "Un problème est survenu",
+    "common.server_error_purpose":
+        "SkyPane a rencontré une erreur et n’a pas pu terminer cette demande. "
+        "Revenez en arrière et réessayez\u00a0; si le problème persiste, prévenez "
+        "l’administrateur.",
     "common.temporarily_unavailable": "Temporairement indisponible",
     "common.sign_in_data_could_not_be_read_please_try_again":
         "SkyPane n’a pas pu vérifier votre session. Réessayez dans un instant.",

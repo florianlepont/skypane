@@ -33,7 +33,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
-    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, quiet_server, request_body, routes, sign_in,
+    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, quiet_server, request_body, routes, server_error, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -421,7 +421,8 @@ def _effective_access(route, route_match):
 class Handler(
         device_dispatch.DeviceDispatchMixin, preview_images.PreviewImagesMixin,
         sign_in.SignInMixin, export_api.ExportMixin,
-        post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
+        post_actions.SettingsActionsMixin, server_error.ErrorPageMixin,
+        BaseHTTPRequestHandler):
     server_version = "skypane-companion"
     args = None
     # socketserver.StreamRequestHandler honours this attribute, so a
@@ -1046,7 +1047,7 @@ class Handler(
     def do_GET(self):
         """Releases the request's fleet connection when dispatch returns."""
         try:
-            return self._dispatch("GET")
+            return self.dispatch_guarded("GET")
         finally:
             self._close_fleet_conn()
 
@@ -1420,7 +1421,7 @@ class Handler(
 
     def do_POST(self):
         try:
-            return self._dispatch("POST")
+            return self.dispatch_guarded("POST")
         finally:
             self._close_fleet_conn()
 
