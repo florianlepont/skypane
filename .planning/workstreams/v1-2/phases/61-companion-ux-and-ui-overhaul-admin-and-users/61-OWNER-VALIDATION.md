@@ -1125,3 +1125,4 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Lot A (61-115) and lot B (61-116) merged and deployed; owner validated all tests of both lots.
 - Owner decision: keep the role-change confirmation on Users (it supersedes the "no confirmation" line of the UI spec).
 - Open: X03 (Users table wrapping) needs a design choice; lot C and lot D follow.
+- Owner decision (X03): Users table option A, e-mail addresses on one line with an ellipsis (full address in the person's detail), so every row has the same height. Goes into lot D.
