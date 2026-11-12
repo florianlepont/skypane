@@ -280,6 +280,8 @@ class _View:
         if device_config.normalise_detection(
                 self.ctx.device_config.get("detection")) is not None:
             return True
+        if not self.ctx.state_dir:
+            return False
         try:
             with open(device_config.device_config_path(self.ctx.state_dir)) as handle:
                 stored = json.load(handle)
