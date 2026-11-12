@@ -654,22 +654,38 @@ def test_the_progress_sentence_reads_coherently_in_both_languages(
         context.close()
 
 
-@pytest.mark.parametrize("label,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_the_aircraft_picture_sits_inside_the_card_with_room_around_it(
+@pytest.mark.parametrize("label,viewport", VIEWPORTS + (("390", {"width": 390, "height": 844}),),
+                         ids=[v[0] for v in VIEWPORTS] + ["390"])
+def test_the_aircraft_picture_uses_the_cards_content_width_with_no_box_inside_the_card(
         new_context, make_app_server, label, viewport):
-    """the picture is inset from its card: at least 28px of card padding and picture-box padding
-    on each side, so it is well under the card's own width"""
+    """the picture spans the card's content box (the card's own padding is the only inset), is at
+    least 60 % of the card's width, keeps its aspect ratio, and no tinted box sits between the card
+    and the picture"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), viewport)
     try:
+        page.wait_for_function(
+            "() => { const i = document.querySelector('a.collection-card:not(.collection-card--unseen)"
+            " .collection-card__image'); return i.complete && i.naturalWidth > 0; }", timeout=10000)
         sizes = page.evaluate(
             "() => { const card = document.querySelector('a.collection-card:not(.collection-card--unseen)');"
-            " const img = card.querySelector('.collection-card__image').getBoundingClientRect();"
+            " const image = card.querySelector('.collection-card__image');"
+            " const img = image.getBoundingClientRect();"
             " const c = card.getBoundingClientRect();"
+            " const cs = getComputedStyle(card);"
+            " const art = getComputedStyle(card.querySelector('.collection-card__art'));"
+            " const clear = css => css === 'rgba(0, 0, 0, 0)';"
             " return {gapLeft: img.left - c.left, gapRight: c.right - img.right,"
-            "  ratio: img.width / c.width}; }")
-        assert sizes["gapLeft"] >= 28 and sizes["gapRight"] >= 28, sizes
-        assert sizes["ratio"] <= 0.82, sizes
+            "  padding: parseFloat(cs.paddingLeft) + parseFloat(cs.borderLeftWidth),"
+            "  ratio: img.width / c.width,"
+            "  aspect: (img.width / img.height) / (image.naturalWidth / image.naturalHeight),"
+            "  artPadding: art.paddingLeft, artClear: clear(art.backgroundColor),"
+            "  imageClear: clear(getComputedStyle(image).backgroundColor)}; }")
+        assert abs(sizes["gapLeft"] - sizes["padding"]) <= 1, sizes
+        assert abs(sizes["gapRight"] - sizes["padding"]) <= 1, sizes
+        assert sizes["ratio"] >= 0.6, sizes
+        assert abs(sizes["aspect"] - 1) <= 0.02, sizes
+        assert sizes["artPadding"] == "0px" and sizes["artClear"] and sizes["imageClear"], sizes
     finally:
         context.close()
 
