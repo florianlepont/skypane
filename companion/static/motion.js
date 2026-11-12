@@ -485,30 +485,56 @@
     return el.animate(frames, options);
   }
 
-  // The "Next update in ..." countdown is rewritten once a second by
-  // relative-time.js; each change gets a short roll so the tick is seen.
+  // The "Next update in ..." countdown is rewritten by relative-time.js. In
+  // its last minute the text changes every second and stays plain text: a
+  // roll a second is a nudge nobody can pause. A coarser change (one minute
+  // less) gets one short roll. A rewrite that leaves the text as it was, the
+  // count-up below and the text a refresh brings with a new hero roll
+  // nothing. The watcher follows the hero across the refresh that replaces it.
   function initCountdownTick() {
-    var host = document.querySelector(".home-state");
-    if (!host || !window.MutationObserver) {
+    if (!window.MutationObserver) {
       return;
     }
     var duration = millis("--motion-fast", 180);
     var ease = token("--ease-out", "ease-out");
-    var watcher = new MutationObserver(function (records) {
-      for (var r = 0; r < records.length; r++) {
-        var target = records[r].target;
-        var el = target.nodeType === 1 ? target : target.parentNode;
-        while (el && !(el.hasAttribute && el.hasAttribute("data-relative-countdown"))) {
-          el = el.parentNode;
-        }
-        if (el) {
-          play(el, [{opacity: 0.4, transform: "translateY(3px)"},
-                    {opacity: 1, transform: "none"}],
-               {duration: duration, easing: ease});
-        }
+    var host = null;
+    var shown = null;
+
+    function lastMinute(el) {
+      var at = new Date(el.getAttribute("datetime") || "").getTime();
+      return isNaN(at) || Math.abs(at - new Date().getTime()) < 60000;
+    }
+
+    var watcher = new MutationObserver(function () {
+      var el = host && host.querySelector("[data-relative-countdown]");
+      if (!el) {
+        return;
+      }
+      var text = el.textContent;
+      var changed = shown !== null && text !== shown;
+      shown = text;
+      if (changed && !countingUp && !lastMinute(el)) {
+        play(el, [{opacity: 0.4, transform: "translateY(3px)"},
+                  {opacity: 1, transform: "none"}],
+             {duration: duration, easing: ease});
       }
     });
-    watcher.observe(host, {childList: true, characterData: true, subtree: true});
+
+    function watch() {
+      var next = document.querySelector(".home-state");
+      if (next === host) {
+        return;
+      }
+      watcher.disconnect();
+      host = next;
+      if (host) {
+        var el = host.querySelector("[data-relative-countdown]");
+        shown = el ? el.textContent : null;
+        watcher.observe(host, {childList: true, characterData: true, subtree: true});
+      }
+    }
+    watch();
+    document.addEventListener("skypane-regions-swapped", watch);
   }
 
   // Numbers on Home count up once, on first render: the leading figure of

@@ -13,6 +13,11 @@
 (function () {
   "use strict";
 
+  // Rendered by the server on a bar that only shows once something changed:
+  // while it is there the stylesheet keeps the bar out of the first paint.
+  // Must equal companion/ui_save_bar.py's WAIT_ATTR.
+  var WAIT_ATTR = "data-dirty-wait";
+
   var form = document.querySelector("form[data-dirty-form]");
 
   var bar = document.querySelector("[data-dirty-bar]");
@@ -236,7 +241,18 @@
   }
   guardFormPage();
 
+  // From here the hidden attribute alone decides whether a bar shows: the
+  // server's mark is taken off, so the stylesheet's before-first-paint rule
+  // lets go. A bar nothing above took over shows as the server rendered it.
+  function release() {
+    var bars = document.querySelectorAll(".dirty-bar[" + WAIT_ATTR + "]");
+    for (var i = 0; i < bars.length; i++) {
+      bars[i].removeAttribute(WAIT_ATTR);
+    }
+  }
+
   if (!form || !bar || !countEl) {
+    release();
     return;
   }
 
@@ -248,6 +264,7 @@
   var carriedCancelHref = bar.getAttribute("data-dirty-carried");
   var carried = carriedCancelHref !== null;
   bar.hidden = !carried;
+  release();
 
   // Words read once off the bar element, server-rendered and translated;
   // each fallback literal is used only when its attribute is absent, so the

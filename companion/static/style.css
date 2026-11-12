@@ -844,7 +844,7 @@ summary:focus-visible {
 
 a {
   color: var(--color-accent);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 a:hover {
@@ -1053,7 +1053,7 @@ a:hover {
   /* Every base-button transitioned property except transform: a
    * handle's position represents a live value and must track
    * --value-fraction instantly, never ease through a stale position. */
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 /* The quiet-hours dial: a server-drawn 24h ring; only the two drag
@@ -1198,7 +1198,7 @@ a:hover {
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .mobile-nav__link--active {
@@ -1300,7 +1300,7 @@ select.visually-hidden {
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .account-sign-out button,
@@ -1390,7 +1390,7 @@ select.visually-hidden {
   text-decoration: none;
   font-size: var(--font-label-size);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .sidebar-link__icon {
@@ -1971,7 +1971,7 @@ select.visually-hidden {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: translateY(-2px) rotate(45deg);
-  transition: transform .15s ease;
+  transition: transform var(--motion-fast) ease;
 }
 
 .frame-menu[open] > .frame-menu__button .frame-menu__chevron {
@@ -2257,7 +2257,7 @@ select {
   /* Every native radio/checkbox site-wide renders with the terracotta
    * accent instead of the browser default blue. */
   accent-color: var(--color-accent);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 /* Touch-target floor register: WCAG 2.5.8 (AA, 24px) is met everywhere
@@ -2279,7 +2279,7 @@ button {
   border: 1px solid var(--color-control-border-subtle); /* fallback for browsers without color-mix() */
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 button[type="submit"] {
@@ -3344,7 +3344,7 @@ summary::before {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform .15s ease;
+  transition: transform var(--motion-fast) ease;
 }
 
 /* Child combinator, not descendant: a nested <details> must never
@@ -3369,7 +3369,7 @@ details[open] > summary::before {
   border-top: 3px solid var(--color-accent);
   border-radius: var(--radius-card);
   box-shadow: none;
-  transition: box-shadow .15s, transform .15s;
+  transition: box-shadow var(--motion-fast), transform var(--motion-fast);
 }
 
 /* :focus-within alongside :hover: several tiles hold focusable children
@@ -4129,7 +4129,7 @@ a.airline-card {
   .data-table tbody tr [data-copy-value] {
     opacity: 0;
     pointer-events: none;
-    transition: opacity .15s;
+    transition: opacity var(--motion-fast);
   }
 
   /* --space-lg (24px) is within this file's target 20-24px range and
@@ -4352,7 +4352,7 @@ a.airline-card {
   border: 1px solid var(--color-border);
   color: var(--color-text);
   cursor: pointer;
-  transition: background-color .15s ease, border-color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
 .lightbox__replace-zone input[type="file"]::file-selector-button:hover,
@@ -5371,7 +5371,7 @@ a.btn[aria-disabled="true"] {
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
-  transition: background-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .theme-form input[type="radio"]:checked + label {
@@ -5466,7 +5466,7 @@ a.btn[aria-disabled="true"] {
     margin: var(--space-xs) 0;
     padding: 0 var(--tab-bar-pad);
     border-radius: var(--radius-pill);
-    transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+    transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
 
   /* 11px sentence case, not the uppercase label voice: a destination is not

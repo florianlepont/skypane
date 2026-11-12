@@ -210,6 +210,28 @@ def test_style_css_honours_the_motion_budget(served_css):
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
 
 
+def test_every_transition_takes_its_duration_from_a_motion_token(served_css):
+    """no live rule gives a transition a duration of its own (150ms here, 180ms there): each
+    one spends a --motion-* token, so a hover, a press and a thumb all answer at the same
+    speeds; `transition: none` and the keyword-only values carry no duration at all"""
+    literal = re.compile(r"(?<![\w.-])\d*\.?\d+m?s(?![\w-])")
+    offenders = []
+    checked = 0
+    for rule in css_rules(served_css):
+        if any("prefers-reduced-motion" in at_rule for at_rule in rule.at_rules):
+            continue
+        for prop, value in rule.declarations:
+            if prop not in ("transition", "transition-duration"):
+                continue
+            checked += 1
+            if literal.search(value):
+                offenders.append((rule.selectors, value))
+            elif value.strip() not in ("none", "inherit", "initial", "unset"):
+                assert "var(--motion-" in value, (rule.selectors, value)
+    assert checked > 10, "the served stylesheet declares almost no transition: %d" % checked
+    assert not offenders, offenders
+
+
 def _spenders(served_css, token):
     return [
         (rule.selectors, prop, value)

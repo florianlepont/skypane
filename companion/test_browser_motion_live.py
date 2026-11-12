@@ -127,9 +127,14 @@ def test_the_countdown_counts_up_once_and_ends_at_the_servers_text(new_context, 
         assert page.locator(COUNTDOWN).inner_text() == served
 
 
-def test_the_countdown_ticks_down_and_rolls_on_each_tick(new_context, make_app_server):
+_ROLLS = "window.__animations.filter(x => x.frames.indexOf('translateY(3px)') >= 0)"
+
+
+def test_the_countdown_ticks_down_in_its_last_minute_without_any_roll(
+        new_context, make_app_server):
     """Within the last minute the countdown loses seconds as the clock runs and never goes back
-    up, and every tick starts a short roll on the countdown."""
+    up, as plain text: no roll plays on a tick, and the info button beside the line does not
+    move while the figure keeps its number of digits."""
     server = make_app_server(seed=_seed_checkin(4.4), fake_providers=True)
     context, page = _open(new_context, server, "/")
     try:
@@ -137,7 +142,16 @@ def test_the_countdown_ticks_down_and_rolls_on_each_tick(new_context, make_app_s
         _wait(page, "window.__texts.length > 0")
         _wait(page, "(() => { const n = window.__texts.map(t => parseInt(t.match(/\\d+/)[0], 10));"
                     " let falls = 0; for (let i = 1; i < n.length; i++) { if (n[i] < n[i - 1]) falls++; }"
-                    " return falls >= 3; })()", timeout=25000)
+                    " return falls >= 1; })()", timeout=25000)
+        info = ".home-state__next-row .info-tip"
+        lefts = []
+        figures = []
+        for _ in range(3):
+            shown = page.locator(COUNTDOWN).inner_text()
+            _wait(page, "document.querySelector(a.sel).textContent !== a.was",
+                  {"sel": COUNTDOWN, "was": shown}, timeout=10000)
+            figures.append(_number(page.locator(COUNTDOWN).inner_text()))
+            lefts.append(_eval(page, "document.querySelector(a).getBoundingClientRect().left", info))
         seen = [_number(text) for text in _eval(page, "window.__texts")]
         first_fall = next(i for i in range(1, len(seen)) if seen[i] < seen[i - 1])
         settled = seen[first_fall - 1:]
@@ -145,9 +159,31 @@ def test_the_countdown_ticks_down_and_rolls_on_each_tick(new_context, make_app_s
         steps = [a - b for a, b in zip(settled, settled[1:])]
         assert all(step >= 0 for step in steps), "the countdown went back up: %r" % (seen,)
         assert any(step >= 1 for step in steps), seen
-        rolls = [a for a in _eval(page, "window.__animations")
-                 if "translateY(3px)" in a["frames"]]
-        assert len(rolls) >= 2, rolls
+        assert _eval(page, _ROLLS) == []
+        if len({len(str(figure)) for figure in figures}) == 1:
+            assert max(lefts) - min(lefts) < 0.01, (figures, lefts)
+    finally:
+        context.close()
+
+
+def test_a_minute_less_rolls_the_countdown_once(new_context, make_app_server):
+    """While more than a minute remains the countdown changes once a minute, and that change
+    gets one short roll; the count-up of the page opening rolls nothing."""
+    server = make_app_server(seed=_seed_checkin(2.8), fake_providers=True)
+    context, page = _open(new_context, server, "/")
+    try:
+        _goto_recorded(page, server.base_url() + "/")
+        _wait(page, "window.__texts.length > 0")
+        served = _served_countdown(page, server.base_url() + "/")
+        _wait(page, "document.querySelector(a.sel).textContent === a.served",
+              {"sel": COUNTDOWN, "served": served})
+        assert _number(served) == 2, served
+        assert _eval(page, _ROLLS) == []
+        _wait(page, "(() => { const m = document.querySelector(a).textContent.match(/\\d+/);"
+                    " return m && parseInt(m[0], 10) === 1; })()", COUNTDOWN, timeout=30000)
+        _wait(page, _ROLLS + ".length > 0")
+        rolls = _eval(page, _ROLLS)
+        assert len(rolls) == 1 and rolls[0]["tag"] == "TIME", rolls
     finally:
         context.close()
 

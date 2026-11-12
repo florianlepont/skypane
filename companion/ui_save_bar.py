@@ -27,6 +27,11 @@ SAVING_TEXT = i18n.msg("display.saving", "Saving…")
 # Marker on the Save button of the tracked bar: the one control a visitor
 # without script saves with.
 SAVE_FALLBACK_ATTR = "data-static-save-fallback"
+# Marker on a bar that only shows once something changed. With scripts on the
+# stylesheet keeps a marked bar out of the first paint and dirty-state.js
+# removes the mark when it takes the bar over; without scripts the bar shows.
+# Must equal static/dirty-state.js's WAIT_ATTR.
+WAIT_ATTR = "data-dirty-wait"
 
 
 def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
@@ -54,7 +59,7 @@ def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
     if cancel_href is not None:
         label = escape_html(title)
         tracking = (
-            " data-dirty-page" + (" data-dirty-keep" if shown else "")
+            " data-dirty-page" + (" data-dirty-keep" if shown else " " + WAIT_ATTR)
             if reveal_on_change else "")
         return (
             '<div class="dirty-bar%s"%s role="region" aria-label="%s">'
@@ -66,7 +71,7 @@ def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
              save_attrs, save)
     carried = (
         ' data-dirty-carried="%s"' % escape_html(carried_href)
-        if carried_href is not None else "")
+        if carried_href is not None else " " + WAIT_ATTR)
     return (
         '<div class="dirty-bar%s" data-dirty-bar%s role="region" aria-label="%s" '
         'data-dirty-several="%s" data-dirty-saving="%s" data-dirty-initial-text="%s">'
