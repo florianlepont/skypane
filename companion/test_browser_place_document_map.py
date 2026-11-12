@@ -215,26 +215,59 @@ def test_the_wide_screen_map_stays_a_fixed_layer(new_context, make_app_server):
         context.close()
 
 
+# What paints the top edge of the phone Location page, pinned to the build whose iPhone status bar
+# showed no pale band: the page element's colour (the surface of each theme), the body and the map
+# in the tile ground colour, and the browser-chrome colours of the two theme-color tags.
+TOP_EDGE_HTML = {"light": "rgb(233, 238, 245)", "dark": "rgb(28, 34, 45)"}
+THEME_COLOURS = ["#E7EEF7", "#12151D"]
+TOP_EDGE_CHAIN = (
+    "() => { const map = document.getElementById('place-map'); const chain = [];"
+    " for (let e = map; e; e = e.parentElement) { const s = getComputedStyle(e);"
+    "  chain.push({tag: e.tagName, top: e.getBoundingClientRect().top, position: s.position,"
+    "   overflow: s.overflow, transform: s.transform, filter: s.filter, contain: s.contain,"
+    "   willChange: s.willChange, bg: s.backgroundColor}); }"
+    " return {chain: chain, root: document.documentElement.getBoundingClientRect().top,"
+    "  chrome: [...document.querySelectorAll('meta[name=theme-color]')].map((m) => m.content),"
+    "  fixedAtTop: [...document.querySelectorAll('*')].filter((e) => {"
+    "   const s = getComputedStyle(e); const r = e.getBoundingClientRect();"
+    "   return s.position === 'fixed' && r.top <= 1 && r.height > 0; }).map((e) => e.className)}; }")
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
-def test_the_map_reaches_above_the_page_top_by_the_top_safe_area(
-        new_context, make_app_server, viewport):
-    """with a 59px top inset (a phone status bar) the map box starts 59px above the page's top
-    edge and still ends at the bottom of the largest viewport, nothing scrolls, and the floating
-    parts keep their places"""
+def test_the_phone_top_edge_is_the_map_from_the_first_pixel_with_nothing_else_painting_it(
+        new_context, make_app_server, viewport, theme):
+    """the surfaces a browser samples its status-bar colour from are the ones of the build that had
+    no band: no fixed box touches the top edge, the map starts at the page's top edge whatever the
+    top inset (a forced 59px inset moves nothing), the page container clips (it is not the map's
+    overflow), no ancestor of the map transforms, filters, contains or will-change, and the page
+    element, the body and the map keep their colours"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_ready(new_context, server, viewport)
+    context, page = _open_ready(new_context, server, viewport, color_scheme=theme)
     try:
         page.add_style_tag(content=":root { --safe-top: 59px !important; }")
         page.wait_for_function(
-            "() => Math.round(document.getElementById('place-map').getBoundingClientRect().top)"
-            " === -59", timeout=5000)
+            "() => getComputedStyle(document.documentElement).getPropertyValue('--safe-top')"
+            ".trim() === '59px'", timeout=5000)
+        got = page.evaluate(TOP_EDGE_CHAIN)
+        chain = {link["tag"]: link for link in reversed(got["chain"])}
+        chain["MAP"] = got["chain"][0]
+        assert got["fixedAtTop"] == [], got
+        assert got["chrome"] == THEME_COLOURS, got
+        assert chain["MAP"]["top"] == 0 and chain["MAP"]["position"] == "absolute", got
+        assert chain["MAP"]["bg"] == GROUND and chain["BODY"]["bg"] == GROUND, got
+        assert chain["HTML"]["bg"] == TOP_EDGE_HTML[theme], got
+        assert chain["MAIN"]["overflow"] == "clip" and chain["MAIN"]["position"] == "relative", got
+        for link in got["chain"]:
+            assert link["top"] == 0, got
+            assert link["transform"] == "none" and link["filter"] == "none", got
+            assert link["contain"] == "none" and link["willChange"] == "auto", got
         state = page.evaluate(
             "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
             " const r = document.scrollingElement;"
             " return {top: m.top, bottom: m.bottom, h: innerHeight,"
             " scrollY: r.scrollHeight - innerHeight, scrollX: r.scrollWidth - innerWidth}; }")
-        assert round(state["top"]) == -59, state
-        assert state["bottom"] >= state["h"], state
+        assert state["top"] == 0 and state["bottom"] >= state["h"], state
         assert state["scrollY"] <= 0 and state["scrollX"] <= 0, state
     finally:
         context.close()

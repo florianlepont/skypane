@@ -7517,6 +7517,8 @@ button:not(.value-control__handle):not(.switch):active,
  * needs an inline style. */
 .splash {
   display: none;
+  /* The frame's height: about 62 % of the viewport share the first design used. */
+  --splash-frame-height: min(29svh, 188px);
 }
 
 html.splash-on {
@@ -7542,7 +7544,7 @@ html.splash-on .splash.splash--opening {
   position: absolute;
   top: 50%;
   left: 50%;
-  height: min(46svh, 300px);
+  height: var(--splash-frame-height);
   aspect-ratio: 3 / 4;
   transform: translate(-50%, -50%);
 }
@@ -7667,7 +7669,7 @@ html.splash-on .splash__scan {
 
 .splash__caption {
   position: absolute;
-  top: calc(50% + min(46svh, 300px) / 2 + var(--space-lg));
+  top: calc(50% + var(--splash-frame-height) / 2 + var(--space-lg));
   right: 0;
   left: 0;
   margin: 0;
