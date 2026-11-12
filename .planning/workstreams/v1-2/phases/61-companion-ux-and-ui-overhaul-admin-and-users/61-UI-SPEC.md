@@ -961,6 +961,9 @@ W43 (locate button bug), W44 (no coordinates line), W45 (no saved-settings discl
   desktop: the map already starts at the viewport top). A soft vertical fade of the canvas colour (`--color-canvas`, 85% at the top, transparent
   24px below the bar) sits behind the bar (`.site-header::before`); on desktop it is a radial glow at the top right behind the frame button.
   The search field and the mode chips float below the bar (`--place-top`: 52px + safe-area on a phone). Tokens only, both themes.
+  Revision (plan 61-112): the fade starts below the top safe area (`top: safe-top + space-xs`), so the status bar zone is the bare map; on a
+  phone one fixed strip (`.place-edge`, `--space-xs` high, `--color-map-ground`, above the app bar) touches the top edge, the map itself
+  being document content there.
 - **Compact sheet (W65):** phone, at most 28dvh. Airport mode: one line with the airport name and its codes (ellipsis), one row of three
   64px runway chips (runway name, the legacy "Runway N" pill; length and surface only in the chip's title and for assistive technology; an
   airport with more than three runways scrolls the row sideways), one full-width 44px Save with Cancel beside it (the dirty bar). My position:

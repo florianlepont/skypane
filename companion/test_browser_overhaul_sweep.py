@@ -1047,8 +1047,10 @@ _WARM_FILLS = """
     const c = getComputedStyle(e);
     if (e.closest('svg, img, picture, canvas')) continue;
     // The Location map box shows the map tiles' own ground colour (a warm tone by design).
-    // So does the page body behind it, so no band shows where the map ends.
-    if (e.id === 'place-map' || (e === document.body && document.querySelector('.place-stage'))) continue;
+    // So does the page body behind it, so no band shows where the map ends, and the thin strip
+    // fixed at the top edge of the phone map.
+    if (e.id === 'place-map' || e.classList.contains('place-edge')) continue;
+    if (e === document.body && document.querySelector('.place-stage')) continue;
     if (warm(c.backgroundColor) || warm(c.backgroundImage)) bad.push(e.tagName + '.' + e.className);
   }
   return bad.slice(0, 5);
