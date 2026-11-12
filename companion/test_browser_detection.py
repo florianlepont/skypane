@@ -362,6 +362,15 @@ def test_editing_a_coordinate_reads_the_one_message(new_context, make_app_server
         raise AssertionError("lang=%s: the bar reads %r" % (lang, _bar_text(page)))
 
 
+def _follow_airport_link(page):
+    """Follow the airport list's link for CDG. The list is built by the page's script, so the
+    link is awaited before it is clicked."""
+    link = ".place-airport__link[data-icao='%s']" % CDG
+    page.wait_for_selector(link, state="attached")
+    with page.expect_navigation():
+        page.evaluate("selector => document.querySelector(selector).click()", link)
+
+
 def _carry_radius_through_a_filter(page):
     """Type a radius in the area mode, then follow the airport list's own link (a page-local
     navigation: the list stays in the page for the plain form and when the map cannot run;
@@ -369,10 +378,7 @@ def _carry_radius_through_a_filter(page):
     page.click(MODE_AREA_LABEL)
     page.fill("#place-radius", "12")
     page.click(MODE_RUNWAY_LABEL)
-    with page.expect_navigation():
-        page.evaluate(
-            "icao => document.querySelector(\".place-airport__link[data-icao='\" + icao + \"']\")"
-            ".click()", CDG)
+    _follow_airport_link(page)
 
 
 def test_filter_and_pick_do_not_raise_leave_guard_and_keep_radius(new_context, make_app_server):
@@ -434,10 +440,7 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
     server = make_app_server(seed=_seed(SAVED_POSITION), fake_providers=True)
     page, dialogs = _open(new_context, server)
     page.click(MODE_RUNWAY_LABEL)
-    with page.expect_navigation():
-        page.evaluate(
-            "icao => document.querySelector(\".place-airport__link[data-icao='\" + icao + \"']\")"
-            ".click()", CDG)
+    _follow_airport_link(page)
     page.go_back()
     page.wait_for_load_state()
     page.click(MODE_RUNWAY_LABEL)
