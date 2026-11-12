@@ -654,7 +654,9 @@ class SettingsActionsMixin:
             echoed = {
                 name: (form.get(name) or "")[:_QUIET_WINDOW_ECHO_CAP]
                 for name in _QUIET_WINDOW_FIELDS if name in form}
-            body = home_page.render(ctx, quiet_errors=errors, quiet_submitted=echoed)
+            body = home_page.render(
+                ctx, quiet_errors=errors, quiet_submitted=echoed,
+                place=self._detection_place(device))
             return self.send_html(400, self._page_shell_for(layout.HOME_ROUTE, body, ctx))
         try:
             device_config.save_device_config(device.state_dir, **window)
