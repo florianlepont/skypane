@@ -471,6 +471,15 @@ html[data-ui-theme="dark"] {
     background-color: var(--sky-bottom);
   }
 
+  /* The whole-page cross-fade runs on the motion tokens, not on the
+   * browser's own 250ms ease. */
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--motion-view-transition);
+    animation-timing-function: var(--ease-out);
+  }
+
   /* The tab bar's slider glides to its new place on the spring while the page
    * changes (it is the one named element of the bar). */
   ::view-transition-group(skypane-tab-slider) {
@@ -6670,6 +6679,16 @@ button.row-menu__item {
 
 .dashboard-main[data-page-open] {
   --reveal-from: var(--opening-opacity);
+}
+
+/* One motion per page change. A page reached through a view transition
+ * arrives by the cross-fade alone (the early script marks <html>): its
+ * entrance takes no time, so nothing rises or fades under the cross-fade.
+ * A page opened any other way (its address, a reload, a browser without
+ * view transitions) plays the entrance. */
+.page-crossfade .dashboard-main[data-page-open] {
+  --motion-enter: 0s;
+  --motion-stagger: 0s;
 }
 
 /* The page header only fades in: a header that rose would paint over the first

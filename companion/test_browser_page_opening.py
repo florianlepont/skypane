@@ -324,6 +324,69 @@ def test_a_strip_reached_another_way_moves_nothing(new_context, server):
         context.close()
 
 
+# What moves while the page change that opened this page runs: the block entrances that
+# take time, and how long and on which curve the whole-page cross-fade runs.
+_ARRIVAL_PROBE = """
+window.addEventListener('pagereveal', (event) => {
+  const save = (value) => sessionStorage.setItem('arrival-probe', JSON.stringify(value));
+  if (!event.viewTransition) { save({change: 'none'}); return; }
+  event.viewTransition.ready.then(() => {
+    const all = document.documentElement.getAnimations({subtree: true});
+    const entrances = all.filter((a) => /^skypane-reveal/.test(a.animationName || '')
+        && a.effect.getComputedTiming().activeDuration + a.effect.getComputedTiming().delay > 1)
+      .map((a) => a.animationName + ' on ' + a.effect.target.className);
+    const root = all.filter((a) => a.effect.pseudoElement
+        && a.effect.pseudoElement.indexOf('(root)') > -1)
+      .map((a) => [a.effect.pseudoElement.split('(')[0], a.effect.getTiming().duration,
+                   getComputedStyle(document.documentElement, a.effect.pseudoElement)
+                     .animationTimingFunction.split('), ')[0].replace(/\\)?$/, ')')]);
+    save({change: 'ran', entrances: entrances, root: root,
+          opening: !!document.querySelector('main[data-page-open]')});
+  }, () => save({change: 'skipped'}));
+});
+"""
+
+
+def _arrive(page, selector):
+    page.evaluate("() => sessionStorage.removeItem('arrival-probe')")
+    with page.expect_navigation():
+        page.locator(selector).click()
+    page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+    page.wait_for_function(
+        "() => sessionStorage.getItem('arrival-probe') !== null", timeout=10000)
+    return json.loads(page.evaluate("() => sessionStorage.getItem('arrival-probe')"))
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+def test_a_page_reached_through_the_page_change_does_not_also_play_its_entrance(
+        new_context, server, viewport):
+    """One motion per page change: the cross-fade. A page opened by a link from another page
+    is in place under it (no block rises or fades on its own); the same page opened by its
+    address still plays the entrance. The cross-fade runs on the motion tokens."""
+    context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_ARRIVAL_PROBE)
+    try:
+        page = context.new_page()
+        _open(page, server, "/")
+        assert _entered_since(page, 0), "a page opened by its address plays the entrance"
+        tokens = page.evaluate(
+            "() => { const s = getComputedStyle(document.documentElement);"
+            " return [parseFloat(s.getPropertyValue('--motion-view-transition')),"
+            " s.getPropertyValue('--ease-out').trim()]; }")
+        link = (".tab-bar" if viewport["width"] < 960 else ".dashboard-sidebar")
+        for href in ("/flights", "/display"):
+            probe = _arrive(page, '%s a[href$="%s"] >> nth=0' % (link, href))
+            assert probe["change"] == "ran", probe
+            assert probe["entrances"] == [], probe
+            assert probe["root"], probe
+            for _part, duration, easing in probe["root"]:
+                assert duration == tokens[0], probe
+                assert easing.replace(" ", "") == tokens[1].replace(" ", ""), (probe, tokens)
+            page.wait_for_function(_OPENING_OVER, timeout=10000)
+    finally:
+        context.close()
+
+
 def test_the_style_tabs_do_not_slide_under_reduced_motion(new_context, server):
     context = _admin_context(new_context, server, VIEWPORT_DESKTOP, reduced_motion="reduce")
     try:
