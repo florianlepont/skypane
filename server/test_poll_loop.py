@@ -1154,6 +1154,39 @@ def test_gallery_archives_only_changed_panels(tmp_path):
         shutil.rmtree(gal_dir, ignore_errors=True)
 
 
+def test_a_flight_row_stores_the_render_archived_in_its_own_cycle(tmp_path):
+    """the cycle that records a flight archives the render showing it and stores that file's
+    name on the runway_events row; the stored name is the one file in the gallery"""
+    state_dir = _mkdir(tmp_path, "gallery-name")
+    try:
+        poll_cycle.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+        files = os.listdir(os.path.join(state_dir, "gallery"))
+        with history_db.open_db(state_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=10)
+        if len(rows) != 1 or files != [rows[0]["gallery_name"]]:
+            pytest.fail("expected the row to store the one archived file %r, got rows %r" % (files, rows))
+        return
+    finally:
+        shutil.rmtree(state_dir, ignore_errors=True)
+
+
+def test_a_flight_row_whose_cycle_archived_nothing_stores_an_empty_name(tmp_path):
+    """_record_history() stores "" (known: none archived) rather than NULL (unknown, an older
+    row) when its cycle archived no render"""
+    state_dir = _mkdir(tmp_path, "gallery-name-none")
+    try:
+        poll_cycle._record_history(
+            state_dir, {"hex": "aaaaaa", "callsign": "FLIGHT1"}, "departing", "adsb", {}, "3",
+            False, True, "2026-11-12T10:00:00+00:00")
+        with history_db.open_db(state_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=10)
+        if len(rows) != 1 or rows[0]["gallery_name"] != "":
+            pytest.fail("expected an empty gallery_name, got %r" % (rows,))
+        return
+    finally:
+        shutil.rmtree(state_dir, ignore_errors=True)
+
+
 def test_gallery_prunes_to_max_entries(tmp_path):
     """the gallery never holds more than GALLERY_MAX_ENTRIES; the oldest entries are removed first"""
     cap_dir = _mkdir(tmp_path, "gallery-cap")

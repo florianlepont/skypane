@@ -94,6 +94,39 @@ def test_the_empty_state_offers_one_44px_primary_action_that_fits(
         context.close()
 
 
+def _luminance(rgb):
+    def part(value):
+        value /= 255
+        return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+    return 0.2126 * part(rgb[0]) + 0.7152 * part(rgb[1]) + 0.0722 * part(rgb[2])
+
+
+def _rgb(css_colour):
+    return tuple(float(n) for n in re.findall(r"[\d.]+", css_colour)[:3])
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_add_your_frame_button_text_is_readable_on_its_fill(
+        new_context, seeded, lang, theme):
+    server, _seed = seeded
+    context, page = _open(new_context, server, fx.USER_EMAIL, "/account", lang, theme)
+    try:
+        selector = "a.pair-link--primary"
+        _owns_the_centre(page, selector)
+        page.wait_for_function(
+            "(sel) => { const s = getComputedStyle(document.querySelector(sel));"
+            " return s.color !== s.backgroundColor"
+            " && document.getAnimations().length === 0; }", arg=selector)
+        colours = page.eval_on_selector(
+            selector, "e => { const s = getComputedStyle(e);"
+            " return [s.color, s.backgroundColor]; }")
+        lighter, darker = sorted((_luminance(_rgb(c)) for c in colours), reverse=True)
+        assert (lighter + 0.05) / (darker + 0.05) >= 4.5, (lang, theme, colours)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         new_context, seeded, lang):

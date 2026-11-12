@@ -365,7 +365,7 @@ def _run_isolated_write(conn, savepoint_name, action):
         conn.execute("RELEASE %s" % savepoint_name)
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
@@ -402,6 +402,10 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     queue this cycle enqueued is a real detection in its own right). The
     last-detection timestamp advances on either signal, so "Last aircraft
     detected" never lags behind a genuinely queued sighting.
+
+    `gallery_name` is stored with the runway event: the render archived in
+    the cycle that recorded the flight, or "" when that cycle archived none
+    (None, the column's default, then means a row from before the column).
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -427,6 +431,7 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                         origin=route.get("origin_iata"),
                         destination=route.get("destination_iata"),
                         tracked_runway=tracked_runway_id,
+                        gallery_name=gallery_name or "",
                     )
                 history_db.set_meta(conn, history_db.META_LAST_PIPELINE_RUN, now_iso)
                 history_db.set_meta(conn, history_db.META_SOURCE_FAULT, str(source_fault))
@@ -487,6 +492,8 @@ def _save_to_gallery(state_dir, canvas, now_iso):
     same-directory-mkstemp-then-os.replace()), so a reader can never see a
     half-written gallery file and a failed encode/write leaves no temp
     file behind.
+
+    Returns the archived file's name, or None when nothing was archived.
     """
     try:
         gallery_dir = _gallery_dir(state_dir)
@@ -496,8 +503,10 @@ def _save_to_gallery(state_dir, canvas, now_iso):
         canvas.convert("RGB").save(buffer, format="PNG")
         atomic_io.atomic_write(os.path.join(gallery_dir, safe_name), buffer.getvalue())
         _prune_gallery(gallery_dir)
+        return safe_name
     except Exception as exc:
         print("poll_loop: gallery archive failed: %s: %s" % (type(exc).__name__, exc))
+    return None
 
 
 @dataclass(slots=True)
@@ -605,6 +614,8 @@ class CycleContext:
     unknown_prefix: str | None = None
     event_recorded: bool = False
     panel_changed: bool = False
+    # File name of the render archived this cycle, or None when none was.
+    gallery_name: str | None = None
 
 
 def _low_thresholds(profile):
@@ -782,8 +793,7 @@ def publish_canvas(ctx, canvas):
     """
     rendered = panel_format.pack_panel(canvas)
     changed = write_panel_atomic(ctx.state_dir, rendered)
-    if changed:
-        _save_to_gallery(ctx.state_dir, canvas, ctx.now_iso)
+    ctx.gallery_name = _save_to_gallery(ctx.state_dir, canvas, ctx.now_iso) if changed else None
     ctx.panel_changed = changed
     return changed
 
@@ -1417,6 +1427,7 @@ def record(ctx):
             ctx.state_dir, ctx.current_flight, ctx.confirmed_state, ctx.route_source, ctx.route,
             ctx.tracked_runway_id, ctx.source_fault, ctx.event_recorded, ctx.now_iso,
             caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
+            gallery_name=ctx.gallery_name,
         )
     elif ctx.branch == "held":
         _record_history(

@@ -511,6 +511,9 @@ def format_event_row(row, now=None):
         # flight_card.art_html() resolves on the raw
         # value, never the aliased display name.
         "airline_raw": row.get("airline") or "",
+        # The render stored with the flight: None for a row from before it was
+        # stored, "" when none was archived that cycle, else the file name.
+        "gallery_name": row.get("gallery_name"),
         "route_label": route_label,
         # The two codes on their own, for the phone card's route line.
         "origin": origin or "",
@@ -988,13 +991,25 @@ def _list_html(formatted_rows, view, result, pages, now):
         + (_load_more_html(len(formatted_rows), view, pages) if result.has_more else ""))
 
 
+def _picture_for(row, gallery_entries):
+    """The `(filename, iso)` of the render that belongs to this flight, or
+    `None`. A row that stores its render names it (and has none once the
+    gallery has pruned that file, or when its cycle archived none); only a
+    row from before the name was stored falls back to the timestamp window."""
+    stored = row.get("gallery_name")
+    if stored is None:
+        return matching_gallery_entry(gallery_entries, row["raw_ts"])
+    iso = _gallery_name_to_iso(stored) if stored in (gallery_entries or ()) else None
+    return (stored, iso) if iso else None
+
+
 def _attach_pictures(formatted_rows, gallery_entries, state_dir):
-    """Stores each row's picture link and thumbnail. Only an archived render
-    stamped within the match window of the flight counts as its picture; any
-    other flight gets no link and a stand-in thumbnail (the airline's
-    illustration, else a plane icon)."""
+    """Stores each row's picture link and thumbnail. Only the render stored
+    with the flight (or, for an older row, one stamped within the match
+    window) counts as its picture; any other flight gets no link and a
+    stand-in thumbnail (the airline's illustration, else a plane icon)."""
     for row in formatted_rows:
-        match = matching_gallery_entry(gallery_entries, row["raw_ts"])
+        match = _picture_for(row, gallery_entries)
         row_name = _row_name(row["callsign"], row["hex"])
         row["view_panel_html"] = (
             _view_panel_link_html(match[0], match[1], row_name) if match else "")
