@@ -383,15 +383,17 @@ def test_the_desktop_search_wraps_left_aligned_under_the_title_when_the_row_is_n
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
-def test_a_phone_row_without_a_picture_leaves_no_empty_gutter(new_context, bare, viewport):
-    """With no archived render a phone row starts with its text at the row's own padding, not
-    after an empty lead column."""
+def test_a_phone_row_without_a_render_leads_with_a_stand_in_and_no_empty_gutter(
+        new_context, bare, viewport):
+    """With no archived render a phone row leads with its stand-in (a 44px box), and its text
+    starts right after it, not after an empty lead column."""
     context, page = _open(new_context, bare, viewport)
     try:
-        gaps = page.evaluate(
-            "() => [...document.querySelectorAll('li.history-card')].map(li =>"
-            " li.querySelector('.row__text').getBoundingClientRect().left"
-            " - li.getBoundingClientRect().left)")
-        assert gaps and all(gap <= 20 for gap in gaps), gaps
+        rows = page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card')].map(li => {"
+            " const lead = li.querySelector('.history-card__thumb').getBoundingClientRect();"
+            " const text = li.querySelector('.row__text').getBoundingClientRect();"
+            " return {lead: lead.width, gap: text.left - lead.right};})")
+        assert rows and all(row["lead"] == 44 and 0 <= row["gap"] <= 16 for row in rows), rows
     finally:
         context.close()

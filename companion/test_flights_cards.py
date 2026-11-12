@@ -14,7 +14,8 @@ from companion.pages import history_page
 from companion_app_server import get, login
 from companion_markup import parse_html
 
-_GALLERY = vp.FLIGHT_CARD_GALLERY_NAME
+_GALLERY_BY_CALLSIGN = {
+    f[0]: vp.flight_card_gallery_name(f[5]) for f in vp.FLIGHT_CARD_FLIGHTS}
 _FLIGHTS = vp.FLIGHT_CARD_FLIGHTS
 
 
@@ -89,7 +90,7 @@ def test_the_route_codes_mute_the_home_end_and_the_direction_reads_at_the_right(
 
 @pytest.mark.parametrize("lang,prefix", [("en", "View picture of "), ("fr", "Voir l’image de ")])
 def test_the_thumbnail_is_the_one_picture_control_named_for_its_flight(pictured, lang, prefix):
-    """with a picture available every row's lead is one real /gallery/ link with the lightbox
+    """with a render of its own every row's lead is one real /gallery/ link to that render with the lightbox
     trigger attributes and a per-flight accessible name, drawn as the picture's thumbnail
     alone (no plane icon on it, no separate image button, no plane chip), in English and
     French"""
@@ -99,7 +100,7 @@ def test_the_thumbnail_is_the_one_picture_control_named_for_its_flight(pictured,
         link = links[0]
         assert link.parent.attrs["class"] == "row__main", callsign
         assert link.attrs["class"] == "history-card__thumb"
-        assert link.attrs["href"] == "/gallery/" + _GALLERY
+        assert link.attrs["href"] == "/gallery/" + _GALLERY_BY_CALLSIGN[callsign]
         assert link.attrs["data-view-panel-src"] == link.attrs["href"]
         assert link.attrs["data-view-panel-caption"]
         assert link.attrs["aria-label"] == prefix + callsign
@@ -110,17 +111,22 @@ def test_the_thumbnail_is_the_one_picture_control_named_for_its_flight(pictured,
         assert len(card.select("a")) == 1 and not card.select("button"), callsign
 
 
-def test_a_flight_with_no_picture_has_no_plane_icon_and_no_control(unpictured):
-    """with no archived render there is no picture link on any row, no lightbox shell, and
-    no plane icon or other lead either"""
+def test_a_flight_with_no_render_leads_with_a_stand_in_and_has_no_control(unpictured):
+    """with no archived render there is no picture link on any row and no lightbox shell; each
+    row leads with a stand-in (the airline's illustration, else a plane icon) that is neither
+    a link nor a button and never a gallery image"""
     doc = _flights_doc(unpictured)
-    assert _cards(doc)
+    cards = doc.select("li.history-card")
+    assert cards
     assert not doc.select("li.history-card a[data-view-panel-src]")
-    assert not doc.select("li.history-card .history-card__thumb")
     assert not doc.select("dialog#panel-lookup-dialog")
-    for card in doc.select("li.history-card"):
-        assert not card.select(".row__chip") and not card.select("svg")
+    for card in cards:
+        stand_in = (card.select(".history-card__thumb--illustration")
+                    + card.select(".history-card__thumb--none"))
+        assert len(stand_in) == 1
+        assert stand_in[0].tag == "span"
         assert not card.select("a") and not card.select("button")
+        assert "/gallery/" not in str(card)
 
 
 @pytest.mark.parametrize("lang,unknown,resolve", [

@@ -12,6 +12,7 @@ import pytest
 
 from place_map_support import Hosts
 
+import companion.test_view_pages_helpers as vp
 from companion import auth
 from server import device_config
 from companion.test_browser_ux_helpers import (
@@ -22,6 +23,13 @@ from companion.test_browser_ux_helpers import (
 )
 
 pytestmark = pytest.mark.browser
+
+
+@pytest.fixture(scope="module")
+def pictured(module_app_server_factory):
+    """Five flights that each have an archived render of their own: the Flights picture
+    action exists only for a flight with a render, so the checks of that action need one."""
+    return module_app_server_factory(seed=vp.seed_flight_card_variety, fake_providers=True)
 
 
 @pytest.fixture(scope="module")
@@ -45,7 +53,7 @@ def _tab_to(page, selector, limit=80):
     raise AssertionError("expected Tab to reach %r within %d presses" % (selector, limit))
 
 
-def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, server):
+def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, pictured):
     """Every Flights row carries one direct "View picture" link: it takes visible keyboard
     focus, Enter opens the shared lightbox dialog with that row's own picture, Escape closes
     it and returns focus to the link, and a pointer click does the same.
@@ -53,8 +61,8 @@ def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, serve
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
-        _login(page, server.base_url())
-        page.goto(server.base_url() + "/flights")
+        _login(page, pictured.base_url())
+        page.goto(pictured.base_url() + "/flights")
         rows = page.locator("table.data-table--flights tr[data-flight-row]")
         links = page.locator("table.data-table--flights a[data-view-panel-src]")
         rows.first.wait_for(state="visible")
@@ -104,7 +112,7 @@ def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, serve
         context.close()
 
 
-def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_context, server):
+def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_context, pictured):
     """At 390 and 360 px every phone card shows its picture thumbnail link (the row's lead
     control) inside the row as a 44px square, named for its flight, with no horizontal page
     scroll, in English and in French.
@@ -114,10 +122,10 @@ def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_con
             context = new_context(viewport=viewport)
             try:
                 context.add_cookies([{
-                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": server.base_url()}])
+                    "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": pictured.base_url()}])
                 page = context.new_page()
-                _login(page, server.base_url())
-                page.goto(server.base_url() + "/flights")
+                _login(page, pictured.base_url())
+                page.goto(pictured.base_url() + "/flights")
                 cards = page.locator("li.history-card")
                 cards.first.wait_for(state="visible")
                 where = "%s at %dpx" % (lang, viewport["width"])
