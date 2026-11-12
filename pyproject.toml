@@ -161,6 +161,7 @@ files = [
     "server/airports.py",
     "server/detection.py",
     "server/wake_stats.py",
+    "server/check_interval.py",
     "server/plane/render/giant/fonts.py",
     "server/plane/render/giant/split.py",
     "server/plane/render/giant/aircraft.py",
@@ -214,6 +215,7 @@ module = [
     "server.airports",
     "server.detection",
     "server.wake_stats",
+    "server.check_interval",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true

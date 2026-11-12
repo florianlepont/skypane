@@ -33,7 +33,9 @@ every enrolment rather than falling back to open. Issued tokens live
 in byos_state.json inside --state-dir, so restarts don't strand frames.
 
 GET /device/v1/display's sleep_s is the companion app's saved
-wake_interval_s (or --sleep), composed with three overrides in order: a
+wake_interval_s (or --sleep; while the opt-in check-interval experiment of
+server/check_interval.py is active, its check_interval_s instead), composed
+with three overrides in order: a
 fixed off-state cadence while display_enabled is false, a fixed parked
 cadence while server/poll_cycle.py's battery-empty hold is active
 (unless this poll's own X-Battery-Mv already reports recovery), and an
@@ -82,7 +84,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import (
-    device_dirs, device_policy, firmware_registry, fleet_db, fleet_ops, hardware,
+    check_interval, device_dirs, device_policy, firmware_registry, fleet_db, fleet_ops, hardware,
     history_db, image_container, pairing_code, pairing_image, state_store,
 )
 from server.panel_format import HEIGHT, WIDTH
@@ -559,6 +561,29 @@ def read_wake_interval_s(state_dir, default):
             and WAKE_INTERVAL_MIN_S <= value <= WAKE_INTERVAL_MAX_S):
         return value
     return default
+
+
+def base_sleep_s(state_dir, default, battery_mv, now=None):
+    """The sleep_s before the display-off, battery-critical and quiet-hours
+    overrides: the check-interval experiment's check_interval_s while it is
+    active, else the saved wake_interval_s (falling back to `default`)
+    exactly as read_wake_interval_s() gives it. `battery_mv` is this poll's
+    reading; when absent the last saved one is used, and an unknown reading
+    leaves the experiment off. Never raises.
+    """
+    if now is None:
+        now = time.time()
+    try:
+        mv = battery_mv
+        if mv is None:
+            mv = state_store.load_battery_state(state_dir)
+        active = check_interval.active_check_interval_s(
+            state_dir, read_wake_interval_s(state_dir, None), mv, now)
+    except Exception:
+        active = None
+    if active is not None:
+        return active
+    return read_wake_interval_s(state_dir, default)
 
 
 # --- Quiet-hours sleep_s extension --------------------------------------
@@ -1684,7 +1709,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.args.image_url_scheme, host, image_path),
             "image_hash": "sha256:" + digest,
             # sleep_s composes, in order: the saved wake_interval_s
-            # (falling back to --sleep), the flat off-state cadence while
+            # (falling back to --sleep; the check-interval experiment's
+            # value while it is active), the flat off-state cadence while
             # display_enabled is false, the flat parked cadence while
             # poll_cycle's battery-empty hold is active (unless this
             # poll's own battery_mv already reports recovery), and the
@@ -1693,7 +1719,7 @@ class Handler(BaseHTTPRequestHandler):
             "sleep_s": quiet_hours_sleep_s(
                 battery_critical_sleep_s(
                     display_off_sleep_s(
-                        read_wake_interval_s(ctx.state_dir, self.args.sleep),
+                        base_sleep_s(ctx.state_dir, self.args.sleep, battery_mv),
                         ctx.state_dir),
                     ctx.state_dir, battery_mv, ctx.recover_mv),
                 ctx.state_dir),
