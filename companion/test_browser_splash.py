@@ -196,6 +196,24 @@ def test_reduced_motion_shows_a_static_logo_with_no_animation(new_context, serve
         context.close()
 
 
+def test_the_planned_sequence_leaves_room_under_two_seconds(new_context, server):
+    """the last step of the plan (the page opening from the frame) is over by 1.75s, so the
+    frames each step waits for still leave the whole splash under two seconds on a calm
+    device; the steps stay in order and none starts before the one it follows"""
+    context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
+    try:
+        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        sequence = page.evaluate("() => window.skypaneSplash.sequence")
+        opening = sequence[-1]
+        assert opening["kind"] == "open", sequence
+        assert opening["at"] + opening["duration"] <= 1750, opening
+        scan = next(step for step in sequence if step["kind"] == "scan")
+        assert opening["at"] >= scan["at"] + scan["duration"], (scan, opening)
+        assert [step["at"] for step in sequence] == sorted(step["at"] for step in sequence)
+    finally:
+        context.close()
+
+
 def test_flash_rate_is_bounded_by_the_sequence(new_context, server):
     """the sequence declares exactly one luminance flash, no window of one second holds more than
     three, and the flashes the run really started respect the same bound"""
