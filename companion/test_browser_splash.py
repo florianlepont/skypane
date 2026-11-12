@@ -268,3 +268,41 @@ def test_map_loading_note_ends_when_the_pictures_cannot_load(new_context, make_a
         page.wait_for_function(LOADING_HIDDEN, timeout=15000)
     finally:
         context.close()
+
+
+# The first animation frame a script gets can carry a timestamp older than the clock the script
+# read when it started (the frame began before the script ran). This hands the splash such a
+# frame, and records the percentage shown after every frame.
+_EARLY_FIRST_FRAME = """
+(() => {
+  const raf = window.requestAnimationFrame.bind(window);
+  let first = true;
+  window.__percents = [];
+  window.requestAnimationFrame = (callback) => raf((stamp) => {
+    callback(first ? stamp - 120 : stamp);
+    first = false;
+    const shown = document.querySelector('.splash__percent');
+    if (shown && shown.textContent) window.__percents.push(shown.textContent);
+  });
+})();
+"""
+
+
+@pytest.mark.parametrize("motion", ["no-preference", "reduce"])
+def test_the_percentage_never_goes_below_zero_or_backwards(new_context, server, motion):
+    """whatever the first frame's timestamp, the count starts at 0, only goes up and ends at
+    100: it never shows a negative value"""
+    context = new_context(splash=True, viewport=VIEWPORT_PHONE, reduced_motion=motion)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        context.add_init_script(_EARLY_FIRST_FRAME)
+        page.goto(server.base_url() + layout.HOME_ROUTE, wait_until="commit")
+        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        shown = page.evaluate("() => window.__percents")
+        values = [int("".join(ch for ch in text if ch.isdigit() or ch == "-")) for text in shown]
+        assert values, "no percentage was shown"
+        assert min(values) >= 0 and max(values) == 100, values
+        assert values == sorted(values), values
+    finally:
+        context.close()
