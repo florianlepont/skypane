@@ -767,7 +767,10 @@ def _day_separator_row_html(day, today):
     ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
 
 
-def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True):
+def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True, first=0):
+    """The desktop table. `first` is the list position of the first row given
+    (0 for a whole list): positions, not the rows given, decide the stripes
+    and the anchor."""
     if not formatted_rows:
         return ui_groups.group_panel(layout.empty_state(
             i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY), compact=True))
@@ -785,7 +788,7 @@ def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True)
     current_day = None
 
     body_rows = []
-    for index, row in enumerate(formatted_rows):
+    for index, row in enumerate(formatted_rows, first):
         # A row whose timestamp cannot be dated takes the ungrouped
         # path: no separator is emitted and the current group stays
         # open, so it never splits a real day in two.
@@ -921,7 +924,7 @@ def _card_group_key(row, sort):
 
 
 def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True, group_label="",
-                        sort=None):
+                        sort=None, first=0):
     """The phone representation, built from the same `formatted_rows` list
     `_history_table_html()` consumes. Newest or oldest first it is one glass
     group per Paris calendar day (the day is its section label); sorted by
@@ -930,14 +933,16 @@ def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True,
     whose timestamp cannot be dated joins the open group. Returns "" for an
     empty list. Must render as a DOM sibling immediately before the desktop
     table: style.css's `.history-cards ~ .data-table-wrap` breakpoint toggle
-    depends on this order."""
+    depends on this order. `first` is the list position of the first row given
+    (0 for a whole list); the group ids start from it, so the groups of a later
+    part of the list never repeat an id of the part before it."""
     if not formatted_rows:
         return ""
     today = paris_day(now)
     days = []
     current_day = None
     current_key = None
-    for index, row in enumerate(formatted_rows):
+    for index, row in enumerate(formatted_rows, first):
         day = paris_day(row["raw_ts"]) if dated else None
         key = None if dated else _card_group_key(row, sort)
         if day is not None and day != current_day or not days or (
@@ -953,7 +958,7 @@ def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True,
         else:
             label = key or group_label or i18n.t(PAGE_TITLE)
         groups.append(ui_groups.group(
-            "".join(items), label=label, label_id="history-day-%d" % number,
+            "".join(items), label=label, label_id="history-day-%d" % (first + number),
             extra_class="history-day", attrs="data-filter-day-group"))
     return '<div class="history-cards" data-flights-view>%s</div>' % "".join(groups)
 
@@ -988,19 +993,22 @@ def _search_form_html(view):
         view_href(history_query.View("", view.kind, view.sort)))
 
 
-def _list_html(formatted_rows, view, result, pages, now):
-    """The cards, the table and the Load more block for the flights shown."""
+def _list_html(formatted_rows, view, result, pages, now, first=0):
+    """The cards, the table and the Load more block for the flights shown.
+    `formatted_rows` is the list from position `first` on (the whole list
+    by default)."""
     dated = view.sort in (history_query.SORT_NEWEST, history_query.SORT_OLDEST)
     # Cards render before the table: style.css's
     # `.history-cards ~ .data-table-wrap` sibling-combinator
     # toggle depends on this DOM order.
-    anchor_index = (
-        min(pages * HISTORY_ROW_LIMIT, len(formatted_rows) - 1) if pages else None)
+    shown = first + len(formatted_rows)
+    anchor_index = min(pages * HISTORY_ROW_LIMIT, shown - 1) if pages else None
     group_label = i18n.t(dict(_SORT_TEXTS)[view.sort])
     return (
-        _history_cards_html(formatted_rows, now, anchor_index, dated, group_label, view.sort)
-        + _history_table_html(formatted_rows, now, anchor_index, dated)
-        + (_load_more_html(len(formatted_rows), view, pages) if result.has_more else ""))
+        _history_cards_html(
+            formatted_rows, now, anchor_index, dated, group_label, view.sort, first)
+        + _history_table_html(formatted_rows, now, anchor_index, dated, first)
+        + (_load_more_html(shown, view, pages) if result.has_more else ""))
 
 
 def _picture_for(row, gallery_entries):
@@ -1030,14 +1038,52 @@ def _attach_pictures(formatted_rows, gallery_entries, state_dir):
             else _stand_in_thumb_html(row, state_dir))
 
 
-def render(ctx):
-    ctx = page_context.coerce(ctx)
+# What a script may ask of the list instead of the whole page (`?part=`):
+# the list as the address describes it, or only the flights of the last
+# Load more step.
+PART_PARAM = "part"
+PART_LIST = "list"
+PART_NEW = "new"
+PARTS = (PART_LIST, PART_NEW)
+
+
+def _query(ctx):
+    """`(now, view, pages, result)` for the request `ctx` carries."""
     now = ctx.now or history_db.utc_now_iso()
     names = name_overrides.names_by_prefix(ctx.name_overrides)
     pages = more_pages(ctx.history_more)
     view = history_query.parse_view(ctx.history_query)
     result = _safe_query(
         ctx.state_dir, lambda conn: history_result(conn, view, pages, names))
+    return now, view, pages, result
+
+
+def render_part(ctx, part):
+    """The list alone, with no page around it, for the script that puts it in
+    the page: every element a filter, a sort or a search replaces
+    (`PART_LIST`), or the flights of the last Load more step with the Load
+    more block (`PART_NEW`). That part starts one flight early, on the last
+    flight the page already shows: the script finds by it the group the next
+    flights continue. "" when there is nothing to answer with; the script
+    then loads the plain page."""
+    ctx = page_context.coerce(ctx)
+    now, view, pages, result = _query(ctx)
+    if result is _DB_UNAVAILABLE or result.total <= 0:
+        return ""
+    first = pages * HISTORY_ROW_LIMIT - 1 if part == PART_NEW and pages else 0
+    formatted_rows = [format_event_row(row, now) for row in result.rows[first:]]
+    _attach_pictures(formatted_rows, ctx.gallery_entries or [], ctx.state_dir)
+    if first:
+        return _list_html(formatted_rows, view, result, pages, now, first) if (
+            len(formatted_rows) > 1) else ""
+    if not formatted_rows:
+        return _controls_html(view, result) + _empty_html(view, result)
+    return _controls_html(view, result) + _list_html(formatted_rows, view, result, pages, now)
+
+
+def render(ctx):
+    ctx = page_context.coerce(ctx)
+    now, view, pages, result = _query(ctx)
     available = result is not _DB_UNAVAILABLE
     has_history = available and result.total > 0
 

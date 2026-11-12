@@ -347,8 +347,17 @@
     return action + (parts.length ? "?" + parts.join("&") : "");
   }
 
-  function fetchView(url) {
-    return fetch(url, { credentials: "same-origin" }).then(function (response) {
+  // The server answers `?part=` with the list alone: PART_LIST is every
+  // element a filter replaces, PART_NEW the flights of the last Load more
+  // step. Must equal PART_PARAM, PART_LIST and PART_NEW in
+  // companion/pages/history_page.py. The address shown never carries it.
+  var PART_PARAM = "part";
+  var PART_LIST = "list";
+  var PART_NEW = "new";
+
+  function fetchView(url, part) {
+    var asked = url + (url.indexOf("?") === -1 ? "?" : "&") + PART_PARAM + "=" + part;
+    return fetch(asked, { credentials: "same-origin" }).then(function (response) {
       if (response.redirected && window.skypaneSession
           && /\/login$/.test(new URL(response.url).pathname)) {
         window.skypaneSession.expire();
@@ -483,7 +492,7 @@
     window.clearTimeout(timer);
     var url = currentUrl();
     var mine = ++latest;
-    fetchView(url).then(function (doc) {
+    fetchView(url, PART_LIST).then(function (doc) {
       if (mine !== latest) {
         return;
       }
@@ -641,7 +650,7 @@
     var url = href.split("#")[0];
     busy = true;
     link.setAttribute("aria-busy", "true");
-    fetchView(url).then(function (doc) {
+    fetchView(url, PART_NEW).then(function (doc) {
       var live = document;
       var fetched = doc;
       var hadFocus = live.querySelector("[data-history-more]").contains(document.activeElement);

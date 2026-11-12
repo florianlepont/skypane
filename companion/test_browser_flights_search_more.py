@@ -487,3 +487,65 @@ def test_a_sort_without_a_connection_goes_back_to_the_order_shown(new_context, m
         assert "sort=" not in page.url
     finally:
         context.close()
+
+
+# --- What a change downloads ------------------------------------------------------------------
+
+def _answer_to(page, part, act):
+    """`(address, size)` of the answer to the list request `act` causes."""
+    with page.expect_response(
+            lambda r: "/flights" in r.url and "part=%s" % part in r.url, timeout=10000) as info:
+        act()
+    response = info.value
+    return response.url, len(response.body())
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_load_more_downloads_only_the_next_flights(new_context, lots, viewport):
+    """each Load more step asks for the next flights alone: the second answer is no heavier than
+    the first, both far lighter than the page, and the address shown stays the plain one"""
+    context, page = _open(new_context, lots, viewport)
+    try:
+        whole = len(page.content())
+        selector = ROW if viewport["width"] >= 960 else CARD
+        _url, first = _answer_to(page, "new", page.locator(MORE).click)
+        _wait_count(page, selector, 2 * LIMIT)
+        _url, second = _answer_to(page, "new", page.locator(MORE).click)
+        _wait_count(page, selector, LOTS)
+        assert second <= first * 1.1 and first < 0.75 * whole, (first, second, whole)
+        assert page.url.endswith("/flights?more=2"), page.url
+        # One day group and one day row, as on the page loaded whole.
+        assert _count(page, "section.history-day") == 1
+        assert _count(page, "tr.flight-day-row") == 1
+        assert len(set(page.evaluate(
+            "() => [...document.querySelectorAll('[id]')].map((e) => e.id)"))) == page.evaluate(
+            "() => document.querySelectorAll('[id]').length"), "an id is repeated"
+    finally:
+        context.close()
+
+
+def test_a_filter_change_downloads_the_list_without_the_page_around_it(new_context, many):
+    """a chip, the sort and a search each ask for the list alone; the address shown never
+    carries the fragment's own parameter and reloading it gives the same list"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        whole = len(page.content())
+        _url, sorted_size = _answer_to(page, "list", lambda: _choose_sort(page, "oldest"))
+        page.wait_for_function(
+            "(c) => document.querySelector('li.history-card .history-card__callsign')"
+            ".textContent === c", arg=OLDEST, timeout=10000)
+        page.click(FIELD)
+        _url, found_size = _answer_to(page, "list", lambda: page.keyboard.type("afr10"))
+        page.wait_for_function("() => location.search.indexOf('q=afr10') >= 0", timeout=10000)
+        assert sorted_size < 0.9 * whole and found_size < sorted_size, (
+            sorted_size, found_size, whole)
+        assert "part=" not in page.url
+        shown = page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card')].map((c) => c.dataset.flightId)")
+        page.reload()
+        page.wait_for_function(_SETTLED, timeout=15000)
+        assert page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card')].map((c) => c.dataset.flightId)"
+        ) == shown
+    finally:
+        context.close()
