@@ -1049,19 +1049,33 @@ a.row-action {
   text-decoration: none;
 }
 
-/* A person row: the action stays on the row's one line; the address gives
- * way with an ellipsis (its full value is the element's title). */
+/* A person row: the action stays on the row's one line. Beside it the
+ * address keeps a readable width: when its pills no longer fit on the same
+ * line they move under the address instead of squeezing it, and they are
+ * never clipped. An address longer than the row still gives way with an
+ * ellipsis (its full value is the element's title). */
 .group > .row.access-person {
   flex-wrap: nowrap;
 }
 
 .group > .row.access-person > .row__main {
   flex: 1 1 0;
+  flex-wrap: wrap;
+  row-gap: var(--space-xs);
   min-width: 0;
+  padding-block: var(--space-sm);
+  padding-right: var(--space-sm);
 }
 
 .group > .row.access-person .row__text {
+  flex: 1 1 11rem;
   min-width: 0;
+}
+
+.group > .row.access-person .row__value {
+  flex: none;
+  max-width: 100%;
+  overflow: visible;
 }
 
 .group > .row.access-person .co-manager__email {
@@ -1275,12 +1289,15 @@ a.row-action {
   margin: 0;
 }
 
+/* The browser draws the select's arrow in room of its own, beside the
+ * padding: the same small padding on both sides leaves the longest role
+ * name whole. */
 .users-role-form select {
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  padding-inline: var(--space-sm) 28px;
+  padding-inline: var(--space-sm);
 }
 
 .users-cell--role .users-role-form {

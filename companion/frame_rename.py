@@ -16,7 +16,8 @@ import sqlite3
 from urllib.parse import parse_qsl, quote
 
 from companion import (
-    access, audit, console_components, console_flash, console_routes, i18n, layout, prefs, route_types, ui_base)
+    access, audit, console_components, console_flash, console_routes, i18n, layout, prefs, route_types,
+    ui_base, ui_shell)
 from companion.pages import frame_name_page as page
 from server import fleet_db
 
@@ -96,8 +97,11 @@ def handle_get(h, m):
     unnamed = m.device.name == m.device.id
     query = dict(parse_qsl(m.query or "", keep_blank_values=True))
     return_to = _return_to(h, query.get(page.RETURN_FIELD, ""))
+    # The name as every other page shows it: the first frame's default name
+    # reads in the viewer's language until someone gives it another.
     return _respond(
-        h, m.device, 200, "" if unnamed else m.device.name or "", return_to=return_to)
+        h, m.device, 200, "" if unnamed else ui_shell.device_display_name(m.device),
+        return_to=return_to)
 
 
 def _store(h, device, name):
