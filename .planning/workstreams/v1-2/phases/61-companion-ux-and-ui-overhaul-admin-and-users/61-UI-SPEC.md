@@ -964,6 +964,28 @@ W43 (locate button bug), W44 (no coordinates line), W45 (no saved-settings discl
   Revision (plan 61-112): the fade starts below the top safe area (`top: safe-top + space-xs`), so the status bar zone is the bare map; on a
   phone one fixed strip (`.place-edge`, `--space-xs` high, `--color-map-ground`, above the app bar) touches the top edge, the map itself
   being document content there.
+  Revision (debug session location-top-status-bar-band): in an iPhone Safari tab (`navigator.standalone === false`) the status bar shows
+  the document above the window and the toolbar the document below it, never a fixed box, and 100lvh stops ~57pt above the screen bottom
+  even with the toolbar collapsed. So the map runs an 80px lead above the page (`html.place-lead`, `--place-lead`) and an 80px tail below it
+  (`--place-tail`); the page opens scrolled past the lead, cannot be scrolled by hand (`overflow: hidden` on `<html>`, so a drag on the
+  sheet never bares the end of the tail or slides the app bar under the clock) and settles back after any script/keyboard/rotation scroll
+  that leaves the lead. The strip is hidden there. Safari's own soft blur covers only the top ~48pt of the status bar and ends in steps
+  across its icons, so the app bar's `::before` becomes one frosted layer from the top of the lead to `--space-2xl` below the bar
+  (backdrop blur 8px; tint `--color-map-ground` 40% at the top to `--color-canvas` 70% at the bar's middle; mask solid to the bar's middle,
+  then eased out), so the blur continues past the status bar and fades out with no edge. The Home Screen app and other browsers keep the
+  strip, the plain fade, and no lead or tail.
+  Dark theme (same session): the tiles are light in both themes, so the frosted app bar is light in both. In the lead case the frost's
+  `::before`, the brand (logo, wordmark) and the frame button (not its popover) carry the light palette's tokens (`--color-canvas`,
+  `--color-text`, `--color-accent`, `--color-border`, status colours, glass tokens), so the band is drawn as in the light theme (the dark
+  canvas stop had turned it into a grey gradient behind the logo, white ink at 4.1:1 worst). Ink on the frost, real tiles: wordmark 8.0:1
+  worst, frame-button name 16.2:1, logo 10.1:1. Safari keeps the look of its status-bar pocket from the page's last scroll; the page
+  scrolls past the lead while the opening splash (dark in the dark theme) still covers it and never scrolls again, so 400ms after the splash
+  has gone `place-map.js` moves the page by 1px for two frames and back.
+  Search field (same session): the app bar (z-index 15) stacks above the search field (`.place-float`, z-index 3), and the frost ran
+  `--space-2xl` below the bar, so its last 36px hazed the field's top (a pale veil on the dark theme's dark field). The frost now ends at
+  the field's top edge, `--space-sm` + `--space-xs` (the stage's gutter) below the bar; its mask still runs solid to the bar's middle and
+  eases out over the 40px from there to the field, so the blur fades out with no edge and never touches the field. Ink on the frost, real
+  tiles: wordmark 7.6:1 worst, frame-button name 16.1:1, logo 8.5:1.
 - **Compact sheet (W65):** phone, at most 28dvh. Airport mode: one line with the airport name and its codes (ellipsis), one row of three
   64px runway chips (runway name, the legacy "Runway N" pill; length and surface only in the chip's title and for assistive technology; an
   airport with more than three runways scrolls the row sideways), one full-width 44px Save with Cancel beside it (the dirty bar). My position:
