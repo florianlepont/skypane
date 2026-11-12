@@ -541,6 +541,34 @@ def test_a_flight_without_a_render_shows_the_airline_illustration_or_a_plane_ico
     assert "data-view-panel-src" not in rendered
 
 
+def test_a_row_that_stores_its_render_links_exactly_that_one(tmp_path):
+    """a flight stored with a gallery name links that render however far its timestamp is from
+    it; a name whose file the gallery has pruned, or an empty name (no render archived that
+    cycle), gets no link and no window fallback even when another render is right beside it;
+    a row from before the name was stored (NULL) still uses the timestamp window"""
+    names = ["2026-08-27T10-00-00+00-00.png", "2026-08-27T11-00-00+00-00.png"]
+    vp.seed_gallery(tmp_path, names)
+    vp.seed_runway_events(tmp_path, [
+        {"ts": "2026-08-27T10:00:30+00:00", "hex": "own01", "callsign": "OWNED",
+         "gallery_name": names[1]},
+        {"ts": "2026-08-27T10:01:00+00:00", "hex": "gon01", "callsign": "PRUNED",
+         "gallery_name": "2026-08-26T09-00-00+00-00.png"},
+        {"ts": "2026-08-27T10:02:00+00:00", "hex": "non01", "callsign": "NORENDER",
+         "gallery_name": ""},
+        {"ts": "2026-08-27T10:00:50+00:00", "hex": "old01", "callsign": "OLDROW"},
+    ])
+    rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
+    # Newest first: NORENDER (10:02), PRUNED (10:01), OLDROW (10:00:50), OWNED (10:00:30).
+    expected = {0: None, 1: None, 2: names[0], 3: names[1]}
+    for index, name in expected.items():
+        for tag in ("tr", "li"):
+            links = vp.row_block(rendered, tag, index).select("a[data-view-panel-src]")
+            if name is None:
+                assert not links, (index, tag)
+            else:
+                assert [link.attrs["href"] for link in links] == ["/gallery/" + name], (index, tag)
+
+
 def test_view_panel_empty_gallery_zero_triggers_zero_dialog(tmp_path):
     """with an empty gallery entry list, History renders zero View-panel triggers and zero
     lightbox dialog elements, never a disabled or broken control"""

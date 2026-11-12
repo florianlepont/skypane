@@ -292,3 +292,19 @@ def test_folded_duplicates_still_reduce_the_full_list(make_app_server):
     doc = _doc_for(make_app_server, events)
     assert len(doc.select(".history-cards li.history-card")) == 49
     assert _listed(doc) == 49
+
+
+def test_a_folded_repeat_pass_keeps_the_picture_of_its_first_sighting():
+    """the newest row of a pass stored twice within the duplicate window takes over the gallery
+    name of the older row it folds away when it has none of its own, and keeps its own when it has one"""
+    from companion import flight_card
+    base = {"hex": "a1", "callsign": "TWICE", "origin": "ORY", "destination": "NCE",
+            "confirmed_state": "departing"}
+    newest = dict(base, ts="2026-08-27T10:00:30+00:00", gallery_name="")
+    oldest = dict(base, ts="2026-08-27T10:00:00+00:00", gallery_name="first.png")
+    kept = flight_card.fold_repeated_passes([newest, oldest])
+    assert [(row["ts"], row["gallery_name"]) for row in kept] == [
+        ("2026-08-27T10:00:30+00:00", "first.png")]
+    own = dict(newest, gallery_name="second.png")
+    assert flight_card.fold_repeated_passes([own, oldest])[0]["gallery_name"] == "second.png"
+    assert newest["gallery_name"] == ""

@@ -60,14 +60,14 @@ META_PROVIDER_LAST_CALL_PREFIX = "provider_last_call:"
 _RUNWAY_EVENT_COLUMNS = (
     "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
     "corroborated", "route_source", "airline", "origin", "destination",
-    "tracked_runway",
+    "tracked_runway", "gallery_name",
 )
 
 _RUNWAY_EVENT_INSERT_SQL = (
     "INSERT INTO runway_events "
     "(ts, hex, callsign, aircraft_type, confirmed_state, corroborated, "
-    "route_source, airline, origin, destination, tracked_runway) "
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "route_source, airline, origin, destination, tracked_runway, gallery_name) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 _DEVICE_HEALTH_OLD_COLUMNS = ("ts", "battery_mv", "fw_version", "boot_reason", "rssi")
@@ -136,7 +136,11 @@ def init_schema(conn):
         "airline TEXT, "
         "origin TEXT, "
         "destination TEXT, "
-        "tracked_runway TEXT"
+        "tracked_runway TEXT, "
+        # The archived render the frame showed for this flight: NULL for a row
+        # written before the column existed (unknown), "" when the cycle that
+        # recorded the flight archived no render, else the gallery file name.
+        "gallery_name TEXT"
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_runway_events_ts ON runway_events(ts)")
@@ -174,6 +178,7 @@ def init_schema(conn):
         ")"
     )
     _add_missing_wake_columns(conn)
+    _add_missing_runway_event_columns(conn)
     conn.commit()
 
 
@@ -195,6 +200,19 @@ def _add_missing_wake_columns(conn):
         except sqlite3.OperationalError as exc:
             if "duplicate column name" not in str(exc):
                 raise
+
+
+def _add_missing_runway_event_columns(conn):
+    """Add `runway_events.gallery_name` to a database created before it
+    existed. Same race handling as `_add_missing_wake_columns`."""
+    present = {row[1] for row in conn.execute("PRAGMA table_info(runway_events)")}
+    if "gallery_name" in present:
+        return
+    try:
+        conn.execute("ALTER TABLE runway_events ADD COLUMN gallery_name TEXT")
+    except sqlite3.OperationalError as exc:
+        if "duplicate column name" not in str(exc):
+            raise
 
 
 class _HistoryConnection(sqlite3.Connection):
