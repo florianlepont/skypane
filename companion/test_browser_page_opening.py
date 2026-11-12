@@ -540,6 +540,61 @@ def test_location_under_reduced_motion_shifts_no_layout(new_context, place_serve
         context.close()
 
 
+@pytest.mark.parametrize("motion", ["reduce", "no-preference"])
+def test_location_opens_on_a_wide_screen_without_moving_anything(new_context, place_server, motion):
+    """the loading state already has the page's map geometry, so when the map takes over nothing
+    that was on screen moves: no layout shift at all, with or without reduced motion"""
+    context = new_context(viewport={"width": 1280, "height": 900}, reduced_motion=motion)
+    Hosts(context)
+    context.add_cookies([
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": place_server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, place_server.base_url())
+        context.add_init_script(_SHIFT_RECORDER)
+        page.goto(place_server.base_url() + "/detection")
+        page.wait_for_function(
+            "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
+        page.wait_for_function(SETTLED, timeout=10000)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                      "() => requestAnimationFrame(() => setTimeout(done, 200))))")
+        assert page.evaluate("() => window.__shifts") == []
+    finally:
+        context.close()
+
+
+def test_map_tiles_do_not_fade_in_under_reduced_motion(new_context, place_server):
+    """with prefers-reduced-motion a map tile shows at once when it arrives: no opacity
+    transition ever runs on a tile"""
+    context = new_context(viewport={"width": 1280, "height": 900}, reduced_motion="reduce")
+    Hosts(context)
+    context.add_cookies([
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": place_server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, place_server.base_url())
+        context.add_init_script(
+            "window.__tileFades = 0;"
+            "document.addEventListener('transitionrun', (e) => {"
+            " if (e.target.classList && e.target.classList.contains('leaflet-tile')) {"
+            " window.__tileFades += 1; } }, true);")
+        page.goto(place_server.base_url() + "/detection")
+        page.wait_for_function(
+            "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
+        page.wait_for_function(
+            "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 4",
+            timeout=15000)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        assert page.evaluate("() => window.__tileFades") == 0
+        shown = page.evaluate(
+            "() => Array.from(document.querySelectorAll('#place-map .leaflet-tile-loaded'))"
+            ".map((t) => getComputedStyle(t).opacity)")
+        assert shown and set(shown) == {"1"}, shown
+    finally:
+        context.close()
+
+
 # --- The bottom tab bar's pill ---------------------------------------------------------------
 
 

@@ -4,6 +4,8 @@ across the pages of one viewport, the same structure (a message, then Cancel, th
 targets) and the same words, at 390 and 1280 px, in both languages and both themes. The numbers
 are read off the rendered pages; the pages are measured one after the other in one browser
 context so the comparison is between pages, never against a hard-coded size."""
+from urllib.parse import quote, urlsplit
+
 import pytest
 
 from co_manager_browser_support import SUBPIXEL
@@ -315,3 +317,30 @@ def test_back_to_a_page_holding_an_unsaved_choice_shows_it_with_its_save_bar(
     finally:
         context.close()
 
+
+
+def test_save_after_the_session_ended_goes_to_sign_in_and_names_the_page_to_return_to(
+        new_context, server):
+    """With the session gone (signed out in another tab), Save on Style is refused: the person
+    lands on the sign-in page, whose address carries the Style page as the way back and the mark
+    that makes sign-in say unsaved changes were not kept."""
+    context = new_context(viewport={"width": 390, "height": 844})
+    Hosts(context)
+    try:
+        page = context.new_page()
+        page.on("dialog", lambda dialog: dialog.accept())
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.DISPLAY_ROUTE)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        style_page = urlsplit(page.url).path
+        toggle = page.locator("[data-layout-toggle]:visible")
+        if toggle.count():
+            toggle.first.click()
+        page.locator("label:has(input[name=layout]:not(:checked)):visible").first.click()
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+        context.clear_cookies(name=auth.SESSION_COOKIE_NAME)
+        page.locator(BAR + " .dirty-bar__save").click()
+        page.wait_for_url("**/login?*", timeout=10000)
+        assert urlsplit(page.url).query == "next=%s&expired=1" % quote(style_page, safe="")
+    finally:
+        context.close()

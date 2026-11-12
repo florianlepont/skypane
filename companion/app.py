@@ -632,8 +632,7 @@ class Handler(
         # Carries the requested page through sign-in as a validated `next`,
         # and marks a visit whose session has ended (`expired=1`); an
         # unrecognised page is dropped silently.
-        self.redirect(next_route_check.login_redirect(
-            self.path, bool(self._raw_session_token())))
+        self.redirect(next_route_check.login_redirect_for(self))
 
     def _resolved_ui_theme(self):
         cookies = auth.parse_cookies(self.headers.get("Cookie"))

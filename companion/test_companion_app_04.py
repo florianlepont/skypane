@@ -34,7 +34,8 @@ from server import device_config
 import companion.app as app_module
 
 # --- The motion budget's own pinned counts. ---------------------------
-_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
+# The global override, the switched-off loops, and the map tiles that show at once.
+_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 3
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # The selectors that spend the card entrance: the one shared definition.
@@ -774,8 +775,8 @@ def test_unauth_post_quick_led_redirects_to_login(app04_server):
         app04_server.base_url() + app_module.QUICK_LED_ROUTE, method="POST",
         data=b"state=off")
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to /login, got %r" % headers.get("Location"))
+    assert headers.get("Location") == "/login?expired=1", (
+        "expected a redirect to /login?expired=1, got %r" % headers.get("Location"))
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 
@@ -785,8 +786,8 @@ def test_unauth_post_quick_display_redirects_to_login(app04_server):
         app04_server.base_url() + app_module.QUICK_DISPLAY_ROUTE, method="POST",
         data=b"state=off")
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to /login, got %r" % headers.get("Location"))
+    assert headers.get("Location") == "/login?expired=1", (
+        "expected a redirect to /login?expired=1, got %r" % headers.get("Location"))
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 

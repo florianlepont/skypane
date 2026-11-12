@@ -185,14 +185,36 @@ def _apply_view(entries, view):
         entry for entry in entries
         if (view.show == "all" or (view.show == "spotted") == entry.seen)
         and view.text.lower() in entry.name.lower()]
-    if view.sort == "latest":
-        return sorted(shown, key=lambda e: e.last_ts, reverse=True)
-    if view.sort == "az":
-        return sorted(shown, key=lambda e: e.name.casefold())
-    if view.sort == "rarest":
+    return _sorted(shown, view.sort)
+
+
+def _sorted(entries, sort):
+    """`entries` in the order `sort` names; entries that compare equal keep
+    the order they came in."""
+    if sort == "latest":
+        return sorted(entries, key=lambda e: e.last_ts, reverse=True)
+    if sort == "az":
+        return sorted(entries, key=lambda e: e.name.casefold())
+    if sort == "rarest":
         # Seen airlines first, the fewest sightings leading; the unseen close the list.
-        return sorted(shown, key=lambda e: (not e.seen, e.times_seen, e.name.casefold()))
-    return sorted(shown, key=lambda e: -e.times_seen)
+        return sorted(entries, key=lambda e: (not e.seen, e.times_seen, e.name.casefold()))
+    return sorted(entries, key=lambda e: -e.times_seen)
+
+
+# The attribute a card carries its place in every order under, one number per
+# entry of SORT_VALUES: list-filter.js reorders the cards by it, so a sort
+# costs no request. Must equal RANK_ATTR in static/list-filter.js.
+RANK_ATTR = "data-sort-rank"
+
+
+def _sort_ranks(entries):
+    """`{slug: "<rank under each SORT_VALUES order>"}` over every entry, so
+    the ranks of any subset give the order the server itself would show."""
+    ranks = {entry.slug: [] for entry in entries}
+    for value, _label in SORT_VALUES:
+        for position, entry in enumerate(_sorted(entries, value)):
+            ranks[entry.slug].append(str(position))
+    return {slug: " ".join(places) for slug, places in ranks.items()}
 
 
 def _picture_html(entry, state_dir):
@@ -240,7 +262,7 @@ def _seen_text(times):
     return i18n.t(SEEN_ONCE) if times == 1 else i18n.t(SEEN_MANY) % times
 
 
-def _card_html(entry, state_dir):
+def _card_html(entry, state_dir, ranks=""):
     """A calm card: the picture, the name and, for a seen airline, one line
     with the sighting count and the rarity in words. An airline not seen yet is
     only dimmed (no text); the New pill sits in the card's corner, outside the picture, and
@@ -265,8 +287,8 @@ def _card_html(entry, state_dir):
             _picture_html(entry, state_dir), new, escape_html(entry.name), line_html),
         extra_class=classes)
     unlock = ' data-unlock="%s"' % escape_html(entry.slug) if entry.seen and entry.is_new else ""
-    return '<li class="collection-item" data-filter-text="%s"%s>%s</li>' % (
-        escape_html(entry.name.lower()), unlock, link)
+    return '<li class="collection-item" data-filter-text="%s" %s="%s"%s>%s</li>' % (
+        escape_html(entry.name.lower()), RANK_ATTR, ranks, unlock, link)
 
 
 def _date_text(day):
@@ -429,10 +451,11 @@ def _controls_html(view, entries, shown):
     return (
         '<form class="filter-bar collection-controls" method="get" action="%s" data-collection-form>'
         '%s%s%s%s%s'
-        '<button type="submit" class="collection-controls__apply">%s</button></form>'
+        '<button type="submit" class="collection-controls__apply">%s</button>%s</form>'
     ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
          _search_html(view), _sort_html(view), _legend_menu_html(),
-         _chips_html(view), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
+         _chips_html(view), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)),
+         ui_filter.list_offline_template_html())
 
 
 def _no_match_html(action_html, attrs):
@@ -466,6 +489,7 @@ def render(ctx, query_string=""):
             i18n.t(EMPTY_HEADING), i18n.t(EMPTY_BODY), compact=True))
     parts.append(_controls_html(view, entries, len(shown)))
     if shown:
+        ranks = _sort_ranks(entries)
         # Revealed by list-filter.js when the typed text hides every card.
         parts.append(_no_match_html(
             ui_components.button_html(
@@ -474,7 +498,7 @@ def render(ctx, query_string=""):
             "data-filter-empty hidden"))
         parts.append('<ul class="collection-grid" id="%s" data-unlock-scope="%s">%s</ul>' % (
             GRID_ID, escape_html(prefs.current_principal_email() or "shared"),
-            "".join(_card_html(entry, ctx.state_dir) for entry in shown)))
+            "".join(_card_html(entry, ctx.state_dir, ranks[entry.slug]) for entry in shown)))
         parts.extend(_sheet_html(entry, ctx.state_dir) for entry in shown)
     else:
         parts.append(_no_match_html(

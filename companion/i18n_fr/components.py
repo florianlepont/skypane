@@ -56,6 +56,7 @@ MESSAGES = {
     "components.state_charging": "Pastille de charge",
     "components.state_toasts": "Notifications par ton",
     "components.state_toast_actions": "Notifications avec une action",
+    "components.state_toast_offline": "Liste non mise à jour (sans connexion)",
     "components.state_banner_error": "Bandeau, erreur",
     "components.state_banner_warn": "Bandeau, avertissement",
     "components.state_empty_compact": "Compact, dans une carte",

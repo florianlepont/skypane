@@ -263,11 +263,13 @@
 
   var runwaysEl = byId("place-runways");
   var pickTicket = 0;
-  // The runway group and the address the page opened with: Cancel
-  // after an in-place pick puts them back.
+  // The runway group, the address and the map view the page opened with:
+  // Cancel after an in-place pick puts them back.
   var openedRunways = [];
   var openedAddress = window.location.pathname + window.location.search;
   var pickedHere = false;
+
+  var openedView = null;
 
   function rememberOpened() {
     for (var k = 0; runwaysEl && k < runwaysEl.childNodes.length; k++) {
@@ -293,13 +295,19 @@
       dotLayer.clearLayers();
       dots = {};
     }
-    drawCircle();
-    refreshDots();
-    showCheckedRunway();
     var point = fieldsPoint();
     if (point) {
-      placePin(point, { fromFields: true, pan: true });
+      placePin(point, { fromFields: true });
+    } else {
+      removePin();
     }
+    drawCircle();
+    if (openedView) {
+      map.setView(openedView.centre, openedView.zoom, { animate: true });
+    }
+    refreshDots();
+    showCheckedRunway();
+    setStatus("");
     if (window.history && typeof window.history.replaceState === "function") {
       try {
         window.history.replaceState(window.history.state, "", openedAddress);
@@ -502,6 +510,11 @@
     map.setView(visibleCentre(point, z), z, { animate: !!animate });
   }
 
+  function reducedMotion() {
+    return !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
   function buildMap() {
     // Without a saved place the map opens on the airport the setting follows
     // (when there is one) rather than on the whole of France.
@@ -517,6 +530,8 @@
       zoomControl: false,
       attributionControl: false,
       maxZoom: MAX_ZOOM,
+      // With reduced motion a tile shows at once instead of fading in.
+      fadeAnimation: !reducedMotion(),
       center: start || FRANCE_CENTRE,
       zoom: zoom
     });
@@ -699,6 +714,27 @@
       centreOn(point, map.getZoom(), true);
     }
     afterPinMoved(point, !!opts.fromFields);
+  }
+
+  // Takes the pin off the map and puts the readout back to "tap the map":
+  // what a page without a saved place shows.
+  function removePin() {
+    if (pin) {
+      map.removeLayer(pin);
+      pin = null;
+    }
+    if (coordsEl) {
+      coordsEl.hidden = true;
+    }
+    if (moveHintEl) {
+      moveHintEl.hidden = true;
+    }
+    if (tapHintEl) {
+      tapHintEl.hidden = false;
+    }
+    if (nearestEl) {
+      nearestEl.hidden = true;
+    }
   }
 
   // --- Nearest airport ----------------------------------------------------------
@@ -1118,6 +1154,7 @@
     if (pin) {
       centreOn(pin.getLatLng(), map.getZoom(), false);
     }
+    openedView = { centre: map.getCenter(), zoom: map.getZoom() };
     keepPinClear();
     exportCore();
   }

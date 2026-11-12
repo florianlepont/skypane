@@ -389,6 +389,80 @@ def test_the_sort_and_the_chips_apply_on_change_with_script(new_context, make_ap
         context.close()
 
 
+_CARD_NAMES = "() => [...document.querySelectorAll('.collection-card__name')].map((n) => n.textContent)"
+
+
+@pytest.mark.parametrize("lang", ("en", "fr"))
+def test_a_sort_reorders_the_cards_already_there_without_asking_the_server(
+        new_context, make_app_server, lang):
+    """choosing another order asks the server for nothing (no page, no picture): the cards on the
+    page are put in that order, the menu names it, the address follows, and for every order the
+    result is the very order the server gives for that address"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED, lang=lang)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        asked = []
+        page.on("request", lambda request: asked.append(request.url) if (
+            "/airlines" in request.url or request.resource_type == "image") else None)
+        orders = {}
+        for value in ("az", "rarest", "latest", "most"):
+            page.locator(".collection-sort > summary").click()
+            option = page.locator('.collection-sort__option:has(input[value="%s"])' % value)
+            words = option.inner_text().strip()
+            option.click()
+            page.wait_for_function(
+                "(v) => (new URLSearchParams(location.search).get('sort') || 'most') === v",
+                arg=value, timeout=10000)
+            page.wait_for_function(
+                "() => !document.querySelector('.collection-sort').open", timeout=5000)
+            assert page.locator(".collection-sort > summary").get_attribute(
+                "aria-label").endswith(": " + words)
+            assert page.locator('.collection-sort input[value="%s"]' % value).is_checked()
+            orders[value] = page.evaluate(_CARD_NAMES)
+        assert asked == [], asked
+        assert page.evaluate("() => window.__marker") == "same document"
+        assert orders["az"] == sorted(orders["az"], key=str.casefold)
+        assert len({tuple(names) for names in orders.values()}) > 1, "no order changed anything"
+        for value, names in orders.items():
+            page.goto(server.base_url() + "/airlines" + ("?sort=" + value if value != "most" else ""))
+            page.wait_for_function(_SETTLED, timeout=15000)
+            assert page.evaluate(_CARD_NAMES) == names, value
+    finally:
+        context.close()
+
+
+def test_a_show_chip_without_a_connection_keeps_the_collection_and_says_so(
+        new_context, make_app_server):
+    """offline, a tap on another show chip keeps the page and its cards, shows an error toast and
+    selects again the chip the cards really belong to; back online the same chip answers and the
+    toast goes"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
+    try:
+        cards = page.locator(CARD).count()
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        context.set_offline(True)
+        page.locator("label.filter-chip", has_text="Spotted").click()
+        toast = page.locator("[data-quick-toast] .toast")
+        toast.wait_for(state="visible", timeout=10000)
+        assert "Couldn't update the list" in toast.inner_text()
+        assert page.url.startswith(server.base_url()) and "show=" not in page.url, page.url
+        assert page.evaluate("() => window.__marker") == "same document"
+        assert page.locator(CARD).count() == cards
+        page.wait_for_function(
+            "() => document.querySelector('input[name=show]:checked').value === 'all'",
+            timeout=5000)
+        context.set_offline(False)
+        toast.locator(".toast__dismiss").click()
+        toast.wait_for(state="hidden", timeout=5000)
+        page.locator("label.filter-chip", has_text="Spotted").click()
+        page.wait_for_url("**show=spotted**", timeout=10000)
+        assert page.evaluate("() => window.__marker") == "same document"
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_word(
         new_context, make_app_server, theme):

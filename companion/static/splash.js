@@ -352,11 +352,14 @@
       return;
     }
     var elapsed = now - startedAt;
-    var dt = Math.min(0.05, (now - last) / 1000);
+    // The first frame can be stamped before the clock read at script start:
+    // a step back in time counts as no time, and the share stays in [0, 1].
+    var dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     pollScripts();
     var goal = elapsed >= FORCE_DONE_MS ? 1 : target();
     shown += (goal - shown) * (1 - Math.exp(-dt * (staticMode ? 60 : 8)));
+    shown = Math.max(0, Math.min(1, shown));
     if (goal >= 1 && (shown > 0.996 || elapsed >= FORCE_DONE_MS)) {
       shown = 1;
     }
