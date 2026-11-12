@@ -223,6 +223,19 @@ Recorded from the owner's chat reply of 2026-10-12, in the owner's own words (Fr
 | Applied on the live Device page (date, read-back value) | The owner wrote "Done c'est bon" on 2026-10-12. On 2026-10-23 the owner read the stored value back as 900 s (set for the 900 s test, so it shows the setting is stored and read back; it is not the 300 s decision). The owner accepted 300 s as provisional and the Soldered 333290 replacement. |
 | Recorded by | The owner decided in chat on 2026-10-12; the entry was written by Claude on the owner's behalf. |
 
+### Update, 2026-11-11 (owner-reported in chat)
+
+The owner chose 900 s as the final wake interval of Phase 47. Figures below are arithmetic by Claude on rated capacities and the old-pack test, not copied from the model JSON; the record and its sources are in `hardware/FIELD-VALIDATION.md`.
+
+| Field | Value |
+|---|---|
+| Final normal wake interval (seconds) | 900. Claude recommended 3600 (the only measured interval that clears six months); the owner chose 900. No separate value for after the new pack was named. |
+| Autonomy at that interval | About 8.63 mA from the old-pack test at 900 s, so about 48 days on a 10000 mAh pack (rated), against the 180 days of the target. At 3600 s: about 1.29 mA, about 323 days. |
+| Freshness | The median gap measured on the real frame at 900 s is 934 s. |
+| Pack row | Soldered 333290 received and connected on 2026-11-11 at 22:55 Paris time (owner-reported), first charge in progress on 2026-11-12, not shown complete: see `hardware/PACK-ACCEPTANCE.md`. |
+| Applied on the live Device page | Reported by the owner on 2026-11-11 without a read-back value; the export shows a gap of 933 s at 17:17 Paris time. |
+| Standing draw near 7 mA or lower | Open: see the finding of VAL-03 in `hardware/FIELD-VALIDATION.md` (about 1.29 mA average at 3600 s, which bounds the standing draw above). |
+
 Consequence to keep in view: the interval was chosen for the current pack. The autonomy figures scale with usable charge, so after the new pack is fitted the interval choice should be looked at again with the new pack's capacity.
 
 ## Replacement pack candidates (web search, 2026-10-12, not verified)

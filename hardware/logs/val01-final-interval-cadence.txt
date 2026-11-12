@@ -1,0 +1,29 @@
+checkin-gaps: check-in cadence against an expected interval
+window: 2026-10-23T05:15:27+00:00 to 2026-10-31T10:55:24+00:00 (572 rows)
+expected interval: 900 s
+quiet hours: 23:30-06:00 Europe/Paris
+quiet gaps set aside: 16
+  quiet gap: 22698 s
+  quiet gap: 896 s
+  quiet gap: 26698 s
+  quiet gap: 896 s
+  quiet gap: 22868 s
+  quiet gap: 897 s
+  quiet gap: 23016 s
+  quiet gap: 897 s
+  quiet gap: 22594 s
+  quiet gap: 897 s
+  quiet gap: 22775 s
+  quiet gap: 897 s
+  quiet gap: 23074 s
+  quiet gap: 896 s
+  quiet gap: 23081 s
+  quiet gap: 896 s
+gaps: 555 judged (coverage and largest gap describe the judged gaps only)
+min / median / max gap: 301 / 934 / 1253 s
+median gap vs expected: 934 s, 1.038 x expected (information only)
+gaps within expected to 1.5 x expected: 95.7%
+gaps above 3 x expected: 0
+PASS coverage is at least 0.95 (judged gaps only)
+PASS no gap between consecutive polls exceeds 3 interval(s) (judged gaps only)
+cadence verdict: PASS
