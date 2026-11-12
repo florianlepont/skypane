@@ -271,11 +271,21 @@ class _View:
         return requested if requested in dp.MODES else self._default_mode()
 
     def _default_mode(self):
-        """The mode a plain visit opens on: the saved one when the frame has a
-        saved detection setting, else My position."""
-        configured = device_config.normalise_detection(
-            self.ctx.device_config.get("detection")) is not None
-        return self.saved_mode if configured else dp.MODE_POSITION
+        """The mode a plain visit opens on: the saved one when the frame has
+        any saved detection setting (the current shape or the older tracked
+        runway), else My position."""
+        return self.saved_mode if self._has_saved_detection() else dp.MODE_POSITION
+
+    def _has_saved_detection(self):
+        if device_config.normalise_detection(
+                self.ctx.device_config.get("detection")) is not None:
+            return True
+        try:
+            with open(device_config.device_config_path(self.ctx.state_dir)) as handle:
+                stored = json.load(handle)
+        except (OSError, ValueError):
+            return False
+        return isinstance(stored, dict) and "tracked_runway" in stored
 
     def _airport_code(self):
         if self.submitted is not None and "airport" in self.submitted:
