@@ -129,6 +129,26 @@ def test_a_flight_with_no_render_leads_with_a_stand_in_and_has_no_control(unpict
         assert "/gallery/" not in str(card)
 
 
+def test_a_stand_in_illustration_is_served_as_the_small_variant(unpictured):
+    """the 44px stand-in asks for the reduced picture (the `w=` variant the route serves as
+    WebP), never the full-size PNG: every such image answers and weighs a fraction of the
+    full picture behind the same path"""
+    doc = _flights_doc(unpictured)
+    sources = [image.attrs["src"] for image in doc.select(
+        ".history-card__thumb--illustration img.history-card__thumb-image")]
+    assert sources
+    cookie = login(unpictured)
+    for src in sources:
+        path, _, query = src.partition("?")
+        assert "w=%d" % history_page.STAND_IN_THUMB_WIDTH in query.split("&"), src
+        status, headers, small = get(unpictured, src, cookie=cookie)
+        assert status == 200, src
+        assert headers.get("Content-Type") == "image/webp", src
+        status, _, full = get(unpictured, path, cookie=cookie)
+        assert status == 200, path
+        assert len(small) * 3 < len(full), (src, len(small), len(full))
+
+
 @pytest.mark.parametrize("lang,unknown,resolve", [
     ("en", "Airline unknown", "Name this airline"),
     ("fr", "Compagnie inconnue", "Nommer cette compagnie"),

@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 import companion.device_scope as device_scope
 import companion.flight_card as flight_card
 import companion.history_query as history_query
+import companion.illustration_normalize as illustration_normalize
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
@@ -377,6 +378,11 @@ def _view_panel_thumb_html(name, iso, row_name):
     ) % (_view_panel_attrs(name, iso, row_name), src)
 
 
+# The stand-in is drawn 44 CSS px wide: the smallest served variant covers a
+# 3x screen with room to spare.
+STAND_IN_THUMB_WIDTH = min(illustration_normalize.THUMBNAIL_WIDTHS)
+
+
 def _stand_in_thumb_html(row, state_dir):
     """The phone row's lead when no archived render belongs to the flight:
     the airline's own illustration when it has one, else a neutral plane
@@ -384,8 +390,14 @@ def _stand_in_thumb_html(row, state_dir):
     airline = row.get("airline_raw")
     key = illustrations.normalise_airline_key(airline) if airline else None
     if key and illustrations.resolved_illustration_path(key, state_dir):
+        # The 44px box never needs the full-size picture: ask for the
+        # small variant, with the override's mtime so a replaced picture
+        # is not served from the browser cache.
         src = escape_html(device_scope.scoped(
-            flight_card.ILLUSTRATION_ROUTE_PREFIX + key + ".png"))
+            flight_card.ILLUSTRATION_ROUTE_PREFIX + key + ".png")
+            + illustration_normalize.thumbnail_query(
+                illustration_normalize.cache_buster(key, state_dir),
+                STAND_IN_THUMB_WIDTH))
         return (
             '<span class="history-card__thumb history-card__thumb--illustration">'
             '<img class="history-card__thumb-image" src="%s" alt="" width="40" '

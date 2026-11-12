@@ -536,7 +536,9 @@ def test_a_flight_without_a_render_shows_the_airline_illustration_or_a_plane_ico
         assert not card.select("img")
     card = vp.row_block(rendered, "li", 2)
     image = card.select_one(".history-card__thumb--illustration img")
-    assert image is not None and image.attrs["src"] == "/illustration/transavia-france.png"
+    # The reduced variant, not the full-size picture.
+    assert image is not None and image.attrs["src"] == (
+        "/illustration/transavia-france.png?w=%d" % history_page.STAND_IN_THUMB_WIDTH)
     assert not card.select("a.history-card__thumb")
     assert "data-view-panel-src" not in rendered
 
