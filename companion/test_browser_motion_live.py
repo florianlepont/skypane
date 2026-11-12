@@ -240,6 +240,50 @@ def test_reduced_motion_brings_a_new_flight_in_without_any_slide(new_context, ma
         context.close()
 
 
+# Every CSS animation the page starts, by name and target class.
+_CSS_RECORDER = """() => {
+  window.__css = [];
+  document.addEventListener('animationstart', (e) => window.__css.push(
+    {name: e.animationName, cls: String(e.target.className || '')}), true);
+}"""
+_ENTRANCES_SINCE = ("window.__css.slice(a).filter(e => e.name.indexOf('skypane-reveal') === 0)")
+_QUIET = "document.getAnimations().every(a => !Number.isFinite(" \
+    "a.effect.getComputedTiming().endTime) || a.playState !== 'running')"
+
+
+def test_a_live_update_of_home_never_replays_the_page_opening(new_context, make_app_server):
+    """Home opens with the shared entrance once. A refresh that swaps its regions in place and
+    a switch flipped in place (which refreshes the headline) bring the new content in without
+    any block fading or rising again."""
+    server = make_app_server(seed=_seed_checkin(1), fake_providers=True)
+    context, page = _open(new_context, server, "/")
+    try:
+        page.context.add_init_script("(" + _CSS_RECORDER + ")()")
+        _goto_recorded(page, server.base_url() + "/")
+        _wait(page, "window.__css.some(e => e.name === 'skypane-reveal-fade')")
+        _wait(page, "!document.querySelector('main[data-page-open]') && " + _QUIET)
+        mark = _eval(page, "window.__css.length")
+        _record_a_detection(server.tmpdir, "NEWDET", "39ffff", "2026-08-01T23:30:00+00:00")
+        _request_refresh(page)
+        _wait(page, "document.querySelector(a).textContent.includes('NEWDET')", HOME_ROWS)
+        _wait(page, _QUIET)
+        assert _eval(page, _ENTRANCES_SINCE, mark) == []
+
+        mark = _eval(page, "window.__css.length")
+        button = page.locator(".home-switch button[role='switch']").first
+        was = button.get_attribute("aria-checked")
+        with page.expect_response(lambda r: r.request.method == "GET"
+                                  and r.url.rstrip("/") == server.base_url()):
+            button.click()
+        _wait(page, "document.querySelector(\".home-switch button[role='switch']\")"
+                    ".getAttribute('aria-checked') !== a"
+                    " && !document.querySelector('[data-quick-region][data-pending]')", was)
+        _wait(page, _QUIET)
+        assert _eval(page, _ENTRANCES_SINCE, mark) == []
+    finally:
+        context.close()
+
+
 # ---- pull to refresh ----------------------------------------------------------------
 
 CARD = "li.history-card"

@@ -6617,14 +6617,16 @@ button.row-menu__item {
  * kind and the first three days of the Flights list; lists, tables and the
  * map are never animated row by row or whole. A card appended by "Load more" or replaying
  * after a tab switch takes the same entrance (.reveal-appended,
- * .reveal-replay). */
-.reveal,
+ * .reveal-replay). The opening plays once: motion.js drops data-page-open
+ * when its last animation ends, so content swapped in later (a refresh, a
+ * filter, a switch) arrives still unless a script asks for a replay. */
 .reveal-appended,
 .reveal-replay,
-.dashboard-main .group-block:not(.history-day):nth-child(-n + 6),
-.dashboard-main .history-day:nth-child(-n + 3),
-.dashboard-main .page-section:nth-child(-n + 6),
-.dashboard-main .personalisation-look {
+.dashboard-main[data-page-open] .reveal,
+.dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6),
+.dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
+.dashboard-main[data-page-open] .page-section:nth-child(-n + 6),
+.dashboard-main[data-page-open] .personalisation-look {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -6650,9 +6652,21 @@ button.row-menu__item {
   animation-delay: var(--motion-stagger);
 }
 
+/* A table or an empty state that sits straight on the sky opens like the
+ * other cards. */
+.dashboard-main[data-page-open] > .empty-state,
+.dashboard-main[data-page-open] > .data-table-wrap {
+  animation:
+    skypane-reveal var(--motion-enter) steps(12, end) backwards,
+    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+}
+
 /* A filter that only hides rows replays a fade of its list, nothing else:
- * opacity alone, so a tall list costs the compositor one layer. */
-.dashboard-main .reveal-replay.reveal-replay--fade {
+ * opacity alone, so a tall list costs the compositor one layer. The
+ * page-opening rules above must not win over it while the page is still
+ * opening, hence the attribute in the second selector. */
+.dashboard-main .reveal-replay.reveal-replay--fade,
+.dashboard-main[data-page-open] .reveal-replay.reveal-replay--fade {
   animation-name: skypane-reveal-fade;
   animation-timing-function: var(--ease-out);
 }
@@ -6685,14 +6699,11 @@ button.row-menu__item {
 /* A table or an empty state that sits straight on the sky is a card. Its
  * solid fill is the fallback of the glass below; the edge covers a scrolling
  * table used to paint in the page colour would show as opaque bands over it,
- * so the card fill replaces them. They enter like the other cards. */
+ * so the card fill replaces them. */
 .dashboard-main > .empty-state {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  animation:
-    skypane-reveal var(--motion-enter) steps(12, end) backwards,
-    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
 /* A compact empty state that sits straight on the sky and is followed by more
@@ -6708,9 +6719,6 @@ button.row-menu__item {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   overflow-x: auto;
-  animation:
-    skypane-reveal var(--motion-enter) steps(12, end) backwards,
-    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
 /* The one glass tier. The tab bar and its More sheet are not part of it: both

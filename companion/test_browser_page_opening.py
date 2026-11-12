@@ -65,6 +65,18 @@ document.addEventListener('animationstart', (e) => {
 }, true);
 """ % _ROW
 
+# The shell marks <main> for the opening and the mark leaves once the opening has played.
+# Read the moment the parser adds <main>: the script may drop the mark before the document is
+# fully loaded (an opening without duration is over at once).
+_MARK_AT_START = """
+window.__opened = null;
+new MutationObserver((records, observer) => {
+  const main = document.querySelector('main');
+  if (main) { window.__opened = main.hasAttribute('data-page-open'); observer.disconnect(); }
+}).observe(document, {childList: true, subtree: true});
+"""
+_OPENING_OVER = "() => !document.querySelector('main[data-page-open]')"
+
 _SETTLED_PAGE = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
     "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
@@ -101,6 +113,7 @@ def _admin_context(new_context, server, viewport, **options):
         {"name": name, "value": value, "url": server.base_url(),
          "httpOnly": True, "sameSite": "Strict"}])
     context.add_init_script(_RECORD)
+    context.add_init_script(_MARK_AT_START)
     Hosts(context)
     return context
 
@@ -115,13 +128,14 @@ def _open(page, server, path):
 @pytest.mark.parametrize("path,tall", PAGES, ids=[p for p, _t in PAGES])
 def test_every_page_opens_with_the_shared_entrance(new_context, server, path, tall, viewport):
     """the shell marks main, the page header enters, no row or table animates, a tall page
-    animates a header and at most five blocks, and the entrance moves nothing but opacity and
-    translate"""
+    animates a header and at most five blocks, the entrance moves nothing but opacity and
+    translate, and the mark leaves when the opening is over"""
     context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
     try:
         page = context.new_page()
         _open(page, server, path)
-        assert page.locator("main[data-page-open]").count() == 1
+        assert page.evaluate("() => window.__opened") is True
+        page.wait_for_function(_OPENING_OVER, timeout=10000)
         events = page.evaluate("() => window.__anim")
         entering = [e for e in events if e["name"] == "skypane-reveal-fade"]
         assert any("page-header" in e["cls"] for e in entering), (path, events)
@@ -147,7 +161,7 @@ def test_under_reduced_motion_every_page_opens_at_once(new_context, server, path
     try:
         page = context.new_page()
         _open(page, server, path)
-        assert page.locator("main[data-page-open]").count() == 1
+        assert page.evaluate("() => window.__opened") is True
         durations = page.evaluate(
             "() => [...document.querySelectorAll('main > *')].map((e) => {"
             " const s = getComputedStyle(e);"
@@ -325,6 +339,42 @@ def test_the_flights_chips_slide_the_thumb_and_the_swapped_list_enters(
         entered = _entered_since(page, mark)
         assert entered and not [e for e in entered if e["row"]], entered
         assert len(entered) <= 3
+    finally:
+        context.close()
+
+
+_SAMPLE_FIRST_ROW = """(ms) => new Promise((resolve) => {
+  const tops = [];
+  const start = performance.now();
+  const step = () => {
+    const row = document.querySelector('.data-table-wrap tbody tr');
+    if (row) { tops.push(row.getBoundingClientRect().top); }
+    if (performance.now() - start < ms) { requestAnimationFrame(step); } else { resolve(tops); }
+  };
+  requestAnimationFrame(step);
+})"""
+
+
+def test_a_filter_change_on_the_desktop_table_fades_without_moving_it(new_context, flights):
+    """choosing another chip swaps the desktop table in place and the new table only fades:
+    its first row stays at one height from the swap until well after the fade, and no rise
+    plays on the swap or once the fade is over"""
+    context, page = _flights_page(new_context, flights, VIEWPORT_DESKTOP)
+    try:
+        page.wait_for_function(_OPENING_OVER, timeout=10000)
+        mark = page.evaluate("() => window.__anim.length")
+        page.locator('[data-tabs="flights"] label.filter-chip').nth(1).click()
+        page.wait_for_function(
+            "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-reveal-fade')",
+            arg=mark, timeout=10000)
+        # The fade is under half a second: 1.5 s covers it and what used to follow it.
+        tops = page.evaluate(_SAMPLE_FIRST_ROW, 1500)
+        assert len(tops) > 20, tops
+        assert max(tops) - min(tops) <= 0.5, (min(tops), max(tops))
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        since = page.evaluate("(m) => window.__anim.slice(m).map((e) => e.name)", mark)
+        assert "skypane-reveal" not in since, since
+        assert since.count("skypane-reveal-fade") == 1, since
     finally:
         context.close()
 

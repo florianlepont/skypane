@@ -162,6 +162,13 @@
       target.setAttribute("data-replay-bound", "");
       target.addEventListener("animationend", function (evt) {
         if (evt.target === target && evt.animationName === "skypane-reveal-fade") {
+          // A replay that ends while the page opening is still marked would
+          // hand the element back to the opening's rule and its rise would
+          // start again under content that is already in place.
+          var main = document.querySelector("main[data-page-open]");
+          if (main && main.contains(target)) {
+            main.removeAttribute("data-page-open");
+          }
           target.classList.remove("reveal-replay", "reveal-replay--fade");
         }
       });
@@ -979,6 +986,51 @@
   }
 
   initCardUnlock();
+
+  // ---- The page opening plays once --------------------------------------------
+  // The stylesheet stages the opening under main[data-page-open]. When the
+  // last of its animations has ended the mark is dropped, so content a
+  // refresh, a filter or a switch puts in later arrives without replaying it.
+  // The animations fill backwards only: dropping the rule changes no pixel.
+  function initPageOpen() {
+    var main = document.querySelector("main[data-page-open]");
+    if (!main || !main.getAnimations) {
+      return;
+    }
+    function opening() {
+      var running = main.getAnimations({ subtree: true });
+      for (var i = 0; i < running.length; i++) {
+        var name = running[i].animationName || "";
+        if (name.indexOf("skypane-reveal") === 0 && running[i].playState !== "finished") {
+          return true;
+        }
+      }
+      return false;
+    }
+    // A page that keeps its header back while it boots (the map) has not
+    // opened yet: the opening plays when the header gets its box.
+    function shown() {
+      var header = main.querySelector(".page-header");
+      return !header || header.getClientRects().length > 0;
+    }
+    function check() {
+      if (!main.hasAttribute("data-page-open") || !shown() || opening()) {
+        return;
+      }
+      main.removeAttribute("data-page-open");
+      main.removeEventListener("animationend", check);
+      main.removeEventListener("animationcancel", check);
+      window.removeEventListener("load", check);
+    }
+    main.addEventListener("animationend", check);
+    main.addEventListener("animationcancel", check);
+    window.addEventListener("load", check);
+    if (document.readyState === "complete") {
+      check();
+    }
+  }
+
+  initPageOpen();
 
   // ---- Ambient rest ----------------------------------------------------------
   // Home's slow ambient loops (the status dot, the glow and glint on the
