@@ -397,3 +397,93 @@ def test_a_phone_row_without_a_render_leads_with_a_stand_in_and_no_empty_gutter(
         assert rows and all(row["lead"] == 44 and 0 <= row["gap"] <= 16 for row in rows), rows
     finally:
         context.close()
+
+
+# --- Without a connection ---------------------------------------------------------------------
+
+_OFFLINE_TOAST = "[data-quick-toast] .toast"
+_OFFLINE_WORDS = {
+    "en": ("Couldn't update the list", "Check your connection and try again."),
+    "fr": ("Impossible de mettre la liste à jour", "Vérifiez votre connexion et réessayez."),
+}
+
+
+def _same_page(page, server):
+    """The document the test opened is still the one shown, on the app's own address."""
+    assert page.url.startswith(server.base_url()), page.url
+    assert page.evaluate("() => window.__marker") == "same document"
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_a_search_without_a_connection_keeps_the_list_and_says_so(new_context, many, lang):
+    """offline, typing in the search leaves the page and its flights where they are and an error
+    toast says the list could not be updated; once back online the same search answers"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE, lang)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        context.set_offline(True)
+        page.click(FIELD)
+        page.keyboard.type(OLDEST.lower())
+        toast = page.locator(_OFFLINE_TOAST)
+        toast.wait_for(state="visible", timeout=10000)
+        title, detail = _OFFLINE_WORDS[lang]
+        assert title in toast.inner_text() and detail in toast.inner_text(), toast.inner_text()
+        _same_page(page, many)
+        assert _count(page, CARD) == LIMIT
+        assert page.input_value(FIELD) == OLDEST.lower()
+        assert "q=" not in page.url
+        context.set_offline(False)
+        page.press(FIELD, "Enter")
+        _wait_count(page, CARD, 1)
+        _same_page(page, many)
+        assert "q=afr100" in page.url
+        # The answer takes the notice back.
+        toast.wait_for(state="detached", timeout=5000)
+    finally:
+        context.close()
+
+
+def test_load_more_without_a_connection_keeps_the_list_and_can_be_tried_again(new_context, many):
+    """offline, Load more adds nothing, stays on the page, shows the toast and is ready again:
+    the same tap appends the next flights once the connection is back"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        link = page.locator(MORE)
+        link.scroll_into_view_if_needed()
+        context.set_offline(True)
+        link.click()
+        page.locator(_OFFLINE_TOAST).wait_for(state="visible", timeout=10000)
+        _same_page(page, many)
+        assert _count(page, CARD) == LIMIT
+        page.wait_for_function(
+            "() => !document.querySelector('a.history-more__link[aria-busy]')", timeout=5000)
+        assert page.url.endswith("/flights"), page.url
+        context.set_offline(False)
+        page.locator(_OFFLINE_TOAST + " .toast__dismiss").click()
+        page.locator(_OFFLINE_TOAST).wait_for(state="hidden", timeout=5000)
+        page.locator(MORE).click()
+        _wait_count(page, CARD, TOTAL)
+        _same_page(page, many)
+    finally:
+        context.close()
+
+
+def test_a_sort_without_a_connection_goes_back_to_the_order_shown(new_context, many):
+    """offline, choosing another order changes nothing: the page stays, the toast shows and the
+    menu names the order the list is really in"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        first = _first_callsign(page)
+        context.set_offline(True)
+        _choose_sort(page, "oldest")
+        page.locator(_OFFLINE_TOAST).wait_for(state="visible", timeout=10000)
+        _same_page(page, many)
+        assert _first_callsign(page) == first
+        page.wait_for_function(
+            "() => document.querySelector('input[name=sort]:checked').value === 'newest'",
+            timeout=5000)
+        assert "sort=" not in page.url
+    finally:
+        context.close()

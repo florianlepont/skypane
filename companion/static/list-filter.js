@@ -230,6 +230,69 @@
 })();
 
 /*
+ * What the two server-answered lists below do when a request gets no answer
+ * (no connection): the page is kept, an error toast says the list could not
+ * be updated, and the chips and the sort go back to what the list shows.
+ */
+(function () {
+  "use strict";
+
+  // Must equal companion/ui_base.py's QUICK_TOAST_ATTR and
+  // companion/ui_filter.py's LIST_OFFLINE_TEMPLATE_ATTR.
+  var REGION_ATTR = "data-quick-toast";
+  var OFFLINE_TEMPLATE_ATTR = "data-list-offline-template";
+  // Marks the notice in the region, so only this notice is taken back.
+  var OFFLINE_MARK_ATTR = "data-list-offline";
+
+  function announce() {
+    var region = document.querySelector("[" + REGION_ATTR + "]");
+    var template = document.querySelector("[" + OFFLINE_TEMPLATE_ATTR + "]");
+    if (!region || !template || !template.content) {
+      return;
+    }
+    while (region.firstChild) {
+      region.removeChild(region.firstChild);
+    }
+    region.appendChild(template.content.cloneNode(true));
+    if (region.firstElementChild) {
+      region.firstElementChild.setAttribute(OFFLINE_MARK_ATTR, "");
+    }
+  }
+
+  // An answer arrived again: the notice has nothing left to say.
+  function clear() {
+    var region = document.querySelector("[" + REGION_ATTR + "]");
+    var shownNotice = region && region.querySelector("[" + OFFLINE_MARK_ATTR + "]");
+    if (shownNotice) {
+      region.removeChild(shownNotice);
+    }
+  }
+
+  // The radios of `form` are checked again as the address `shown` names
+  // them (`defaults` gives the value of a name the address leaves out). The
+  // typed text stays: it is what the visitor will send again.
+  function restore(form, shown, defaults) {
+    var query = new URLSearchParams(shown.split("?")[1] || "");
+    var fields = form.elements;
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (field.type === "radio" && field.name) {
+        var wanted = query.has(field.name) ? query.get(field.name) : (defaults[field.name] || "");
+        field.checked = field.value === wanted;
+      }
+    }
+    var menus = form.querySelectorAll("details[open]");
+    for (var m = 0; m < menus.length; m++) {
+      menus[m].removeAttribute("open");
+    }
+  }
+
+  window.skypaneListOffline = {
+    REASON: {}, announce: announce, clear: clear, restore: restore
+  };
+})();
+
+/*
  * The Flights page's server-driven list. The search, the direction chips and
  * the sort are one GET form the server answers over the whole history; this
  * block only sends that form without leaving the page and swaps the answer in,
@@ -252,6 +315,7 @@
   var CARD_ANCHOR = "flights-new-card";
   var TABLE_ANCHOR = "flights-new";
   var input = form.querySelector("[data-flights-search]");
+  var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;
   var timer = null;
   var busy = false;
@@ -293,6 +357,9 @@
         throw new Error("flights");
       }
       return response.text();
+    }, function () {
+      // The request got no answer at all: there is no connection.
+      throw OFFLINE;
     }).then(function (text) {
       var doc = new DOMParser().parseFromString(text, "text/html");
       if (!doc.querySelector(VIEW)) {
@@ -302,10 +369,17 @@
     });
   }
 
-  // A failed or redirected request (an expired session) falls back to the
-  // plain navigation the same address would have done.
-  function giveUp(url) {
+  // A refused or redirected request (an expired session) falls back to the
+  // plain navigation the same address would have done. Without a connection
+  // that navigation would replace the list with the browser's error page:
+  // the page stays, says so, and its controls show what the list holds.
+  function giveUp(url, reason) {
     if (window.skypaneSession && window.skypaneSession.ending()) {
+      return;
+    }
+    if (reason === OFFLINE) {
+      window.skypaneListOffline.announce();
+      window.skypaneListOffline.restore(form, shown, { sort: DEFAULT_SORT });
       return;
     }
     window.location.assign(url);
@@ -413,11 +487,12 @@
       if (mine !== latest) {
         return;
       }
+      window.skypaneListOffline.clear();
       swapView(doc);
       record(url, commit);
-    }, function () {
+    }, function (reason) {
       if (mine === latest) {
-        giveUp(url);
+        giveUp(url, reason);
       }
     });
   }
@@ -570,6 +645,7 @@
       var live = document;
       var fetched = doc;
       var hadFocus = live.querySelector("[data-history-more]").contains(document.activeElement);
+      window.skypaneListOffline.clear();
       clearAnchors(live);
       var card = appendCards(live, fetched);
       var row = appendRows(live, fetched);
@@ -583,9 +659,10 @@
       history.replaceState(null, "", url);
       shown = url;
       busy = false;
-    }, function () {
+    }, function (reason) {
       busy = false;
-      giveUp(href);
+      link.removeAttribute("aria-busy");
+      giveUp(href, reason);
     });
   }
 
@@ -665,6 +742,7 @@
 
   var VIEW = ".collection-grid, .collection-sheet, [data-filter-empty], [data-collection-empty]";
   var DEFAULTS = { show: "all", sort: "most" };
+  var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;
   var shown = window.location.pathname + window.location.search;
 
@@ -697,6 +775,8 @@
         throw new Error("collection");
       }
       return response.text();
+    }, function () {
+      throw OFFLINE;
     }).then(function (text) {
       var doc = new DOMParser().parseFromString(text, "text/html");
       if (!doc.querySelector("[data-collection-form]")) {
@@ -760,13 +840,20 @@
       if (mine !== latest) {
         return;
       }
+      window.skypaneListOffline.clear();
       swapView(doc);
       history.pushState(null, "", url);
       shown = url;
-    }, function () {
-      if (mine === latest && !(window.skypaneSession && window.skypaneSession.ending())) {
-        window.location.assign(url);
+    }, function (reason) {
+      if (mine !== latest || (window.skypaneSession && window.skypaneSession.ending())) {
+        return;
       }
+      if (reason === OFFLINE) {
+        window.skypaneListOffline.announce();
+        window.skypaneListOffline.restore(form, shown, DEFAULTS);
+        return;
+      }
+      window.location.assign(url);
     });
   }
 

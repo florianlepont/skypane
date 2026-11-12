@@ -429,10 +429,11 @@ def _controls_html(view, entries, shown):
     return (
         '<form class="filter-bar collection-controls" method="get" action="%s" data-collection-form>'
         '%s%s%s%s%s'
-        '<button type="submit" class="collection-controls__apply">%s</button></form>'
+        '<button type="submit" class="collection-controls__apply">%s</button>%s</form>'
     ) % (escape_html(device_scope.scoped(layout.AIRLINES_ROUTE)),
          _search_html(view), _sort_html(view), _legend_menu_html(),
-         _chips_html(view), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)))
+         _chips_html(view), _count_html(shown), escape_html(i18n.t(APPLY_TEXT)),
+         ui_filter.list_offline_template_html())
 
 
 def _no_match_html(action_html, attrs):

@@ -95,6 +95,9 @@ MESSAGES = {
         "Session expirée — reconnectez-vous.",
     "common.couldn_t_change_that_please_try_again":
         "Impossible de modifier ce réglage — réessayez.",
+    "common.couldn_t_update_the_list_check_your_connection":
+        "Impossible de mettre la liste à jour — vérifiez votre connexion et "
+        "réessayez.",
     "common.welcome_to_skypane_this_is_your_frame_s_home":
         "Bienvenue sur SkyPane — Vous êtes connecté. Voici l’accueil de "
         "votre cadre. Son point indique s’il est à jour.",

@@ -389,6 +389,37 @@ def test_the_sort_and_the_chips_apply_on_change_with_script(new_context, make_ap
         context.close()
 
 
+def test_a_show_chip_without_a_connection_keeps_the_collection_and_says_so(
+        new_context, make_app_server):
+    """offline, a tap on another show chip keeps the page and its cards, shows an error toast and
+    selects again the chip the cards really belong to; back online the same chip answers and the
+    toast goes"""
+    server = make_app_server(seed=_seed)
+    context, page = _open(new_context, server.base_url(), VIEWPORT_MIN_SUPPORTED)
+    try:
+        cards = page.locator(CARD).count()
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        context.set_offline(True)
+        page.locator("label.filter-chip", has_text="Spotted").click()
+        toast = page.locator("[data-quick-toast] .toast")
+        toast.wait_for(state="visible", timeout=10000)
+        assert "Couldn't update the list" in toast.inner_text()
+        assert page.url.startswith(server.base_url()) and "show=" not in page.url, page.url
+        assert page.evaluate("() => window.__marker") == "same document"
+        assert page.locator(CARD).count() == cards
+        page.wait_for_function(
+            "() => document.querySelector('input[name=show]:checked').value === 'all'",
+            timeout=5000)
+        context.set_offline(False)
+        toast.locator(".toast__dismiss").click()
+        toast.wait_for(state="hidden", timeout=5000)
+        page.locator("label.filter-chip", has_text="Spotted").click()
+        page.wait_for_url("**show=spotted**", timeout=10000)
+        assert page.evaluate("() => window.__marker") == "same document"
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 def test_rare_and_occasional_airlines_and_aircraft_stand_out_by_colour_and_by_word(
         new_context, make_app_server, theme):
