@@ -510,6 +510,11 @@
     map.setView(visibleCentre(point, z), z, { animate: !!animate });
   }
 
+  function reducedMotion() {
+    return !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
   function buildMap() {
     // Without a saved place the map opens on the airport the setting follows
     // (when there is one) rather than on the whole of France.
@@ -525,6 +530,8 @@
       zoomControl: false,
       attributionControl: false,
       maxZoom: MAX_ZOOM,
+      // With reduced motion a tile shows at once instead of fading in.
+      fadeAnimation: !reducedMotion(),
       center: start || FRANCE_CENTRE,
       zoom: zoom
     });

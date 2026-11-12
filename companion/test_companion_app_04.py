@@ -34,7 +34,8 @@ from server import device_config
 import companion.app as app_module
 
 # --- The motion budget's own pinned counts. ---------------------------
-_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
+# The global override, the switched-off loops, and the map tiles that show at once.
+_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 3
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # The selectors that spend the card entrance: the one shared definition.
