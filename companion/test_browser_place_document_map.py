@@ -6,7 +6,10 @@ they were. Pinch and pan (wheel and drag), the pin drag and the loading state ke
 
 Both external hosts are answered by `page.route`; waits are on the page's own state.
 """
+import io
+
 import pytest
+from PIL import Image
 
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, _login
@@ -215,44 +218,86 @@ def test_the_wide_screen_map_stays_a_fixed_layer(new_context, make_app_server):
         context.close()
 
 
-# What paints the top edge of the phone Location page, pinned to the build whose iPhone status bar
-# showed no pale band: the page element's colour (the surface of each theme), the body and the map
-# in the tile ground colour, and the browser-chrome colours of the two theme-color tags.
+# What sits at the top edge of the phone Location page, as in the build whose iPhone status bar
+# showed the map with no band and no veil: one fixed box in the tile ground colour touching the
+# edge, the body and the map in that colour, the page element's surface colour and the
+# browser-chrome colours of the two theme-color tags.
 TOP_EDGE_HTML = {"light": "rgb(233, 238, 245)", "dark": "rgb(28, 34, 45)"}
 THEME_COLOURS = ["#E7EEF7", "#12151D"]
+SAFE_TOP = 59
 TOP_EDGE_CHAIN = (
     "() => { const map = document.getElementById('place-map'); const chain = [];"
     " for (let e = map; e; e = e.parentElement) { const s = getComputedStyle(e);"
     "  chain.push({tag: e.tagName, top: e.getBoundingClientRect().top, position: s.position,"
     "   overflow: s.overflow, transform: s.transform, filter: s.filter, contain: s.contain,"
     "   willChange: s.willChange, bg: s.backgroundColor}); }"
+    " const top = document.elementFromPoint(innerWidth / 2, 1);"
     " return {chain: chain, root: document.documentElement.getBoundingClientRect().top,"
     "  chrome: [...document.querySelectorAll('meta[name=theme-color]')].map((m) => m.content),"
+    "  width: innerWidth, topmost: top ? top.className : null,"
     "  fixedAtTop: [...document.querySelectorAll('*')].filter((e) => {"
     "   const s = getComputedStyle(e); const r = e.getBoundingClientRect();"
-    "   return s.position === 'fixed' && r.top <= 1 && r.height > 0; }).map((e) => e.className)}; }")
+    "   return s.position === 'fixed' && r.top <= 1 && r.height > 0; }).map((e) => {"
+    "   const s = getComputedStyle(e); const r = e.getBoundingClientRect();"
+    "   return {name: e.className, top: r.top, left: r.left, right: r.right, height: r.height,"
+    "    bg: s.backgroundColor, filter: s.backdropFilter || 'none', opacity: s.opacity}; })}; }")
+# Everything of the app bar that could draw over the status bar zone: the bar and its pseudo
+# elements, with their paint box, fill, picture and blur.
+HEADER_PAINT = (
+    "() => { const h = document.querySelector('.site-header'); const box = h.getBoundingClientRect();"
+    " return [null, '::before', '::after'].map((pseudo) => { const s = getComputedStyle(h, pseudo);"
+    "  if (pseudo && s.content === 'none') return null;"
+    "  return {pseudo: pseudo, top: pseudo ? box.top + parseFloat(s.top) : box.top,"
+    "   bg: s.backgroundColor, image: s.backgroundImage,"
+    "   blur: s.backdropFilter || 'none'}; }).filter(Boolean); }")
+
+
+def _force_safe_top(page):
+    page.add_style_tag(content=":root { --safe-top: %dpx !important; }" % SAFE_TOP)
+    page.wait_for_function(
+        "(px) => getComputedStyle(document.documentElement).getPropertyValue('--safe-top')"
+        ".trim() === px + 'px'", arg=SAFE_TOP, timeout=5000)
+    page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+
+
+def _status_zone(page):
+    """The pixels of the status bar zone (the forced top inset), as rows of RGB tuples."""
+    shot = page.screenshot(clip={"x": 0, "y": 0, "width": page.viewport_size["width"],
+                                 "height": SAFE_TOP})
+    picture = Image.open(io.BytesIO(shot)).convert("RGB")
+    return [[picture.getpixel((x, y)) for x in range(picture.width)]
+            for y in range(picture.height)]
+
+
+def _assert_one_ground_strip_is_fixed_at_the_top(got):
+    assert len(got["fixedAtTop"]) == 1, got
+    edge = got["fixedAtTop"][0]
+    assert edge["name"] == "place-edge" and got["topmost"] == "place-edge", got
+    assert edge["top"] == 0 and edge["left"] == 0 and edge["right"] == got["width"], got
+    assert 2 <= edge["height"] <= 4, got
+    assert edge["bg"] == GROUND and edge["filter"] == "none" and edge["opacity"] == "1", got
+    return edge
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
-def test_the_phone_top_edge_is_the_map_from_the_first_pixel_with_nothing_else_painting_it(
+def test_the_phone_top_edge_is_the_bare_map_under_the_status_bar_with_one_fixed_ground_strip(
         new_context, make_app_server, viewport, theme):
-    """the surfaces a browser samples its status-bar colour from are the ones of the build that had
-    no band: no fixed box touches the top edge, the map starts at the page's top edge whatever the
-    top inset (a forced 59px inset moves nothing), the page container clips (it is not the map's
-    overflow), no ancestor of the map transforms, filters, contains or will-change, and the page
-    element, the body and the map keep their colours"""
+    """with a 59px top inset (a phone whose page reaches under the status bar): one fixed box
+    touches the top edge, a strip of at most 4px in the tile ground colour across the window and
+    on top of everything; below it the status bar zone shows exactly the pixels of the map, with
+    no fill, gradient or blur of the app bar over it (the picture of the zone is the same with the
+    app bar taken away); the map starts at the page's top edge, the page container clips, no
+    ancestor of the map transforms, filters, contains or will-change, and the page element, the
+    body and the map keep their colours"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_ready(new_context, server, viewport, color_scheme=theme)
     try:
-        page.add_style_tag(content=":root { --safe-top: 59px !important; }")
-        page.wait_for_function(
-            "() => getComputedStyle(document.documentElement).getPropertyValue('--safe-top')"
-            ".trim() === '59px'", timeout=5000)
+        _force_safe_top(page)
         got = page.evaluate(TOP_EDGE_CHAIN)
         chain = {link["tag"]: link for link in reversed(got["chain"])}
         chain["MAP"] = got["chain"][0]
-        assert got["fixedAtTop"] == [], got
+        edge = _assert_one_ground_strip_is_fixed_at_the_top(got)
         assert got["chrome"] == THEME_COLOURS, got
         assert chain["MAP"]["top"] == 0 and chain["MAP"]["position"] == "absolute", got
         assert chain["MAP"]["bg"] == GROUND and chain["BODY"]["bg"] == GROUND, got
@@ -262,6 +307,27 @@ def test_the_phone_top_edge_is_the_map_from_the_first_pixel_with_nothing_else_pa
             assert link["top"] == 0, got
             assert link["transform"] == "none" and link["filter"] == "none", got
             assert link["contain"] == "none" and link["willChange"] == "auto", got
+        for part in page.evaluate(HEADER_PAINT):
+            assert part["blur"] == "none", part
+            if part["pseudo"] is None:
+                assert part["bg"] == "rgba(0, 0, 0, 0)" and part["image"] == "none", part
+            else:
+                assert part["top"] >= SAFE_TOP, part
+        with_bar = _status_zone(page)
+        page.add_style_tag(content=".site-header { visibility: hidden !important; }")
+        page.wait_for_function(
+            "() => getComputedStyle(document.querySelector('.site-header')).visibility === 'hidden'",
+            timeout=5000)
+        bare = _status_zone(page)
+        veil = max(abs(a - b) for row_a, row_b in zip(with_bar, bare)
+                   for pixel_a, pixel_b in zip(row_a, row_b) for a, b in zip(pixel_a, pixel_b))
+        # Two levels of 255: the soft shadow of the frame button below the zone, nothing more.
+        assert veil <= 2, "the app bar paints over the status bar zone (%d levels)" % veil
+        strip = int(edge["height"])
+        ground = (242, 239, 233)
+        assert all(pixel == ground for row in with_bar[:strip] for pixel in row), with_bar[0][:4]
+        assert any(pixel != ground for row in with_bar[strip:] for pixel in row), (
+            "the status bar zone shows a flat ground fill, not the map")
         state = page.evaluate(
             "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
             " const r = document.scrollingElement;"
@@ -269,5 +335,33 @@ def test_the_phone_top_edge_is_the_map_from_the_first_pixel_with_nothing_else_pa
             " scrollY: r.scrollHeight - innerHeight, scrollX: r.scrollWidth - innerWidth}; }")
         assert state["top"] == 0 and state["bottom"] >= state["h"], state
         assert state["scrollY"] <= 0 and state["scrollX"] <= 0, state
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+def test_the_ground_strip_is_fixed_at_the_top_while_the_map_loads_and_absent_on_a_wide_screen(
+        new_context, make_app_server, theme):
+    """the fixed strip is there from the first paint on a phone (the loading placeholder is
+    document content too), and a wide screen, whose map is itself the fixed layer, has none"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context = new_context(viewport=VIEWPORT_MIN, color_scheme=theme)
+    Hosts(context)
+    context.route("**/static/place-map.js*", lambda route: route.fulfill(
+        status=200, content_type="text/javascript", body="/* held */"))
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/detection", wait_until="domcontentloaded")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
+        page.wait_for_function("() => document.documentElement.classList.contains('js-early')")
+        page.locator(".place-boot").wait_for(state="visible")
+        _assert_one_ground_strip_is_fixed_at_the_top(page.evaluate(TOP_EDGE_CHAIN))
+    finally:
+        context.close()
+    context, page = _open_ready(new_context, server, VIEWPORT_DESKTOP, color_scheme=theme)
+    try:
+        assert page.evaluate(
+            "() => getComputedStyle(document.querySelector('.place-edge')).display") == "none"
     finally:
         context.close()
