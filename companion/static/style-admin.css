@@ -1137,7 +1137,7 @@ a.row-action {
   box-shadow: var(--shadow-glass);
 }
 
-@media (max-width: 69.99rem) {
+@media (max-width: 79.49rem) {
   .users-section .users-table {
     background: none;
     border: 0;
@@ -1145,7 +1145,7 @@ a.row-action {
   }}
 
 /* The section around the table or the phone cards is plain layout, not a
- * card: the table (from 70rem) or each card is the one glass surface, with the
+ * card: the table (from 79.5rem) or each card is the one glass surface, with the
  * count line above it. */
 .users-section {
   margin: 0 0 var(--space-lg);
@@ -1186,10 +1186,17 @@ a.row-action {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* The last sign-in is one line. */
 .users-cell--seen {
   grid-area: seen;
   font-size: var(--font-label-size);
+  white-space: nowrap;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The frame count and the co-manager mark never break inside themselves. */
+.users-frames__part {
+  white-space: nowrap;
 }
 
 .users-avatar {
@@ -1225,7 +1232,23 @@ a.row-action {
 
 .users-status {
   display: flex;
+  min-width: 0;
 }
+
+/* From a tablet width up an address is one line that ends in an ellipsis
+ * (its title and the row header hold it whole), so rows are equally tall. */
+@media (min-width: 37.5rem) {
+  .users-email {
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The phone card's break opportunities do not apply to a single line. */
+  .users-email wbr {
+    display: none;
+  }}
 
 .users-pills {
   display: flex;
@@ -1327,8 +1350,16 @@ a.row-action {
     display: none;
   }
 
+  /* Three columns, so the last line can split differently from the one above
+   * it: the last sign-in gets the room of its longest wording and the frames
+   * wrap between the count and the co-manager mark. */
   .users-table .users-row {
-    grid-template-columns: minmax(0, 9fr) minmax(0, 4fr);
+    grid-template-columns: minmax(0, 11fr) minmax(0, 7fr) minmax(0, 8fr);
+    grid-template-areas:
+      "user user user"
+      "role role active"
+      "frames seen seen"
+      "invite invite invite";
   }
 
   .users-cell--seen {
@@ -1361,7 +1392,9 @@ a.row-action {
   white-space: nowrap;
   overflow-wrap: normal;
 }
-@media (min-width: 70rem) {
+/* The table needs 79.5rem: beside the sidebar, a narrower one has no room
+ * for the address and its status once every other column is on one line. */
+@media (min-width: 79.5rem) {
 
   .users-table thead {
     display: table-header-group;
@@ -1382,14 +1415,14 @@ a.row-action {
     display: table-cell;
     height: 56px;
     vertical-align: middle;
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-sm);
     border-bottom: 1px solid var(--glass-hairline);
   }
 
   .users-col {
     display: table-cell;
     vertical-align: middle;
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-sm);
     border-bottom: 1px solid var(--glass-hairline);
     font-size: 12px;
     font-weight: var(--weight-semibold);
@@ -1398,23 +1431,53 @@ a.row-action {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
+  /* The last row keeps the hairline's room, so it is as tall as the others. */
   .users-table tbody .users-row:last-child .users-cell {
-    border-bottom: 0;
+    border-bottom-color: transparent;
   }
 
   .users-cell--user,
   .users-row--menu .users-cell--user {
     display: table-cell;
-    padding-right: var(--space-md);
+    padding-right: var(--space-sm);
+    padding-left: var(--space-md);
   }
 
-  .users-col--user { width: 29%; }
-  .users-col--role { width: 22%; }
-  .users-col--frames { width: 12%; }
-  .users-col--seen { width: 12%; }
-  .users-col--active { width: 7%; }
-  .users-col--invite { width: 76px; }
-  .users-col--menu { width: 76px; }
+  /* Each column is as wide as its longest French content needs on one line;
+   * the person takes what is left and gives way with an ellipsis. Nothing in
+   * a row wraps, so every row is as tall as the address and its pills. */
+  .users-col--user { padding-left: var(--space-md); }
+  .users-col--role { width: 165px; }
+  .users-col--frames { width: 132px; }
+  .users-col--seen { width: 136px; }
+  .users-col--active { width: 60px; }
+  .users-col--invite { width: 60px; }
+  .users-col--menu { width: 52px; }
+
+  .users-cell--menu {
+    padding-left: 0;
+  }
+
+  .users-frames__part {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .users-frames__dot {
+    display: none;
+  }
+
+  /* A pill too long for a narrow table is cut the same way; a hidden one
+   * stays hidden. */
+  .users-status .users-pill:not([hidden]) {
+    display: block;
+    max-width: 100%;
+    line-height: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   .users-avatar {
     display: inline-grid;
@@ -1425,7 +1488,7 @@ a.row-action {
    * under it. */
   .users-who {
     display: inline-grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     justify-items: start;
     vertical-align: middle;
     max-width: calc(100% - 48px);

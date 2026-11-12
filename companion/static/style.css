@@ -6504,7 +6504,7 @@ dialog.access-sheet[open],
 }
 
 /* Users table ----------------------------------------------------------
- * One <table> of users. Below 70rem every row is a card: avatar and
+ * One <table> of users. Below 79.5rem every row is a card: avatar and
  * email with the "..." menu on top, the role select and the Active switch
  * under it, frames and last sign-in at the bottom. */
 .users-table,
@@ -6531,7 +6531,7 @@ button.row-menu__item {
   }
 }
 
-@media (min-width: 70rem) {
+@media (min-width: 79.5rem) {
   .users-table {
     display: table;
     table-layout: fixed;
