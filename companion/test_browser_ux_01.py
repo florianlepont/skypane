@@ -104,6 +104,8 @@ def test_flights_picture_action_opens_by_keyboard_and_pointer(new_context, pictu
             raise AssertionError("expected focus to return to the picture link after closing")
 
         links.nth(1).click()
+        # The lightbox opens once its picture has loaded, so wait for it rather than sampling at once.
+        dialog.wait_for(state="visible")
         if not dialog.evaluate("el => el.open"):
             raise AssertionError("expected a pointer click on the picture link to open the dialog")
         if page.url.endswith(".png") or "/gallery/" in page.url:
@@ -158,6 +160,7 @@ def test_flights_mobile_cards_each_carry_a_picture_action_at_390_and_360(new_con
                 if page.locator("li.history-card details, li.history-card summary").count():
                     raise AssertionError("did not expect a card disclosure (%s)" % where)
                 cards.first.locator("a[data-view-panel-src]").click()
+                page.locator(LIGHTBOX).wait_for(state="visible")
                 if not page.locator(LIGHTBOX).evaluate("el => el.open"):
                     raise AssertionError("expected a tap on the card link to open the dialog (%s)" % where)
             finally:
