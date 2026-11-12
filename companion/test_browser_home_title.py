@@ -335,10 +335,10 @@ def test_the_home_cards_come_in_one_after_the_other(new_context, fleet_app):
     page.goto(base + _live(fleet_app))
     page.locator(".home-state").wait_for(state="attached")
     delays = page.evaluate(
-        """() => ['.home-state', '.home-state__switches',
+        """() => ['.home-state', '.home-detection', '.home-state__switches',
                   'section[aria-labelledby="home-flights"]'].map(
             sel => getComputedStyle(document.querySelector(sel)).animationDelay)""")
-    assert delays == ["0s", "0.06s", "0.12s"], delays
+    assert delays == ["0s", "0.06s", "0.12s", "0.18s"], delays
     page.wait_for_function(_SETTLED)
     settled = page.evaluate(
         """() => ['.home-state', '.home-state__switches'].map(sel => {

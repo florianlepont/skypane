@@ -193,6 +193,16 @@ def test_mode_card_is_a_radiogroup_with_the_saved_mode_checked(rig):
     assert re.search(r'id="place-mode-runway" value="runway"[^>]*checked', saved)
 
 
+def test_a_frame_with_only_the_older_tracked_runway_opens_on_airport_and_runway(rig):
+    """A frame that follows Orly runway 3 through the older setting (no
+    detection key) opens on what it follows, not on My position."""
+    device_config.save_device_config(rig.owner_dir(), led_enabled=True)
+    assert "detection" not in (rig.config(rig.owner_dir()) or {})
+    _s, _h, page = rig.get("owner", rig.scope() + "/detection")
+    assert re.search(r'id="place-mode-runway" value="runway"[^>]*checked', page)
+    assert not re.search(r'value="position"[^>]*checked', page)
+
+
 # --- search ---------------------------------------------------------------
 
 

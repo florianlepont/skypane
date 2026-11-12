@@ -18,6 +18,7 @@ from datetime import timezone
 from types import SimpleNamespace
 
 import companion.battery as battery
+import companion.detection_summary as detection_summary
 import companion.device_scope as device_scope
 import companion.draw as draw
 import companion.flight_card as flight_card
@@ -726,13 +727,15 @@ def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
         focus_title=True)
 
 
-def render(ctx, quiet_errors=None, quiet_submitted=None):
+def render(ctx, quiet_errors=None, quiet_submitted=None, place=None):
     """Render Home: the hero (the current picture beside the state, next
     update and battery), then the Frame group (the screen and quiet-hours
     switches, the most used controls, kept near the top) and the Recent
     flights group. An actionable shared health state adds the attention row; daily
     activity belongs to Health. `quiet_errors`/`quiet_submitted` re-render
-    the Quiet hours dialog open after a refused save.
+    the Quiet hours dialog open after a refused save. `place` is the frame's
+    own position row (or None), which the Detection card names in position
+    mode.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -760,6 +763,8 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
         + _frame_state_html(
             ctx, summary, status, picture,
             say_once=bool(notice) and status.key == frame_status.KEY_OVERDUE)
+        + detection_summary.home_card_html(
+            ctx.device_config or {}, place, device_scope.scoped(DETECTION_PATH))
         + _switches_html(ctx.device_config or {}, _battery_row_html(ctx, summary[2]))
         + _recent_flights_html(rows, now, ctx.state_dir)
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)
