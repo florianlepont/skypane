@@ -154,7 +154,7 @@ def test_no_js_typed_coordinates_save_in_area_mode(new_context, make_app_server)
         response = _submit(page, SAVE)
         if response.status != 200 or _inline_errors(page):
             raise AssertionError("the save was refused: %r" % (_inline_errors(page),))
-        if "Detection now follows Marseille" not in page.inner_text("body"):
+        if "Detection now follows the area within 14 km of Marseille" not in page.inner_text("body"):
             raise AssertionError("the saved toast does not name the place")
     if _stored(server) != {"mode": "position", "radius_km": 14}:
         raise AssertionError("disk holds %r" % (_stored(server),))

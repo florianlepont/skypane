@@ -1100,6 +1100,10 @@
       if (event.target && event.target.name === "mode") {
         drawCircle();
         refreshDots();
+        if (areaWanted()) {
+          // The status line stops naming the airport that was being followed.
+          setStatus("");
+        }
         if (pin) {
           pinMoved(pin.getLatLng());
           // The panel changed height: keep the pin in the clear part.

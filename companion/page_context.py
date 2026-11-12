@@ -38,6 +38,7 @@ import os
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
+import companion.detection_summary as detection_summary
 import companion.device_scope as device_scope
 import companion.prefs as prefs
 import companion.user_view as user_view
@@ -246,17 +247,17 @@ def env_wake_interval_default():
     return None
 
 
-def _place_name_for_flash(handler, device, flash_key):
-    """The frame's stored place label for the place-saved toast, else None.
-    Read from fleet.db on this render, never taken from the query string;
-    only looked up when that toast is being shown."""
+def _place_name_for_flash(handler, device, flash_key, device_cfg):
+    """What the place-saved toast says Detection follows, else None. Built
+    from the stored setting and the frame's stored place on this render,
+    never taken from the query string; only looked up for that toast."""
     if flash_key != "place_saved":
         return None
     try:
         position = fleet_db.frame_position(handler._fleet_conn(), device.id)
     except sqlite3.Error:
         return None
-    return None if position is None else position["name"]
+    return detection_summary.followed_text(device_cfg, position)
 
 
 def _safe_last_checkin_ts(state_dir):
@@ -432,7 +433,8 @@ def build_page_context(handler, device):
                 flash_key, state_dir, rule_key=rule_key,
                 last_checkin_ts=last_checkin_ts, device_cfg=device_cfg,
                 battery_critical=battery_critical,
-                place_name=_place_name_for_flash(handler, device, flash_key)),
+                place_name=_place_name_for_flash(
+                    handler, device, flash_key, device_cfg)),
             "flash_role": flash.FLASH_ROLES.get(flash_key, "status"),
             # Only a key from the fixed vocabulary, never the raw query
             # value: it picks the toast's tone, glyph and action.
