@@ -155,6 +155,30 @@ def test_logo_is_small_centred_and_present_from_the_first_frame(
         context.close()
 
 
+@pytest.mark.parametrize("name,viewport", [
+    ("390", VIEWPORT_PHONE), ("360", {"width": 360, "height": 740}), ("1280", VIEWPORT_DESKTOP),
+])
+def test_the_animated_frame_is_a_small_centred_panel(new_context, server, name, viewport):
+    """the frame is 60-65 % of the 300 px (or 46 % of the viewport height) it first had, keeps its
+    3:4 shape and its centre, and the caption sits just under it"""
+    context, page = _home(new_context, server, viewport=viewport)
+    try:
+        page.wait_for_function(LOGO_BOX, timeout=5000, polling="raf")
+        box = page.evaluate(
+            "() => { const f = document.querySelector('.splash__frame').getBoundingClientRect();"
+            " const c = document.querySelector('.splash__caption').getBoundingClientRect();"
+            " return {w: f.width, h: f.height, cx: f.left + f.width / 2, cy: f.top + f.height / 2,"
+            "  gap: c.top - f.bottom, vw: window.innerWidth, vh: window.innerHeight}; }")
+        first_design = min(0.46 * box["vh"], 300)
+        assert 0.60 * first_design <= box["h"] <= 0.65 * first_design, box
+        assert abs(box["w"] / box["h"] - 0.75) < 0.01, box
+        assert abs(box["cx"] - box["vw"] / 2) <= 1.5 and abs(box["cy"] - box["vh"] / 2) <= 1.5, box
+        assert 0 <= box["gap"] <= 48, box
+        page.wait_for_function(SPLASH_DONE, timeout=6000)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_reduced_motion_shows_a_static_logo_with_no_animation(new_context, server, scheme):
     context, page = _home(

@@ -229,7 +229,7 @@ Rationale, as far as it was given: none beyond the choice. Evidence, labelled ar
 
 No value for after the new pack was named. Owner-reported, 2026-11-11 (chat, after the display-off check): "On garde 900": the frame stays at 900 s on the old pack. Labelled arithmetic by Claude (rated 3000 mAh, curve fraction 0.647 at 3890 mV and 0.059 at 3300 mV, about 1764 mAh to the BATTERY EMPTY park, 7.7 to 12.7 days at 9.6 to 5.8 mA, 8.5 days at 8.63 mA): the old pack is expected to reach the park about one to two weeks after 2026-11-11, after which the frame checks in hourly until the new pack is fitted or the pack is recharged.
 
-Pack status: RECEIVED, CHECKS PENDING (`hardware/PACK-ACCEPTANCE.md`). Check 1 passed on a photograph; check 2 is partial (pack side only); checks 3 and 4 are not done. The pack is not connected.
+Pack status: RECEIVED, CHECKS PENDING (`hardware/PACK-ACCEPTANCE.md`; check 4, the first charge, is in progress and not complete). Owner-reported, 2026-11-11: check 1 passed on a photograph, check 2 passed by effect, check 3 passed (the pack lies flat); the pack has been connected since 22:55 Paris time with the old pack disconnected, and check 4, the first charge, is in progress: on 2026-11-12 the LED was steady green (charging, per the EE02 wiki), the Health page read 4088 mV with the USB plugged, nothing was warm; a full charge is not shown. The old-pack measurement ended at about 3886 mV (last reading 22:53).
 
 ## What stays open
 

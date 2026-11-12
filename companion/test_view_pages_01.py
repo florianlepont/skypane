@@ -524,7 +524,7 @@ def test_the_filter_bar_meta_group_keeps_one_page_agnostic_rule(served_css):
 
 def test_clear_control_is_wired_by_the_shared_script_and_styled_once(tmp_path, served_css, filter_js):
     """every shared-bar Clear control wears the one [data-filter-clear] attribute and
-    list-filter.js wires ALL of them (a loop, never just the first); Flights' own clear is a
+    list-filter.js wires ALL of them (one delegated listener, never just the first); Flights' own clear is a
     link the script intercepts; the inline clear's reset lives in one class rule, with no
     other class-keyed Clear rule competing"""
     vp.seed_runway_events(tmp_path, [
@@ -534,8 +534,8 @@ def test_clear_control_is_wired_by_the_shared_script_and_styled_once(tmp_path, s
     assert len(doc.select("a[data-flights-clear]")) == 1
 
     js = vp.strip_js_line_and_block_comments(filter_js)
-    assert 'querySelectorAll("[data-filter-clear]")' in js, (
-        "expected every Clear button to be looked up, not only the first")
+    assert 'closest("[data-filter-clear]")' in js, (
+        "expected every Clear button to be wired, not only the first")
     assert 'querySelector("[data-filter-clear]")' not in js
     assert "a[data-flights-clear]" in js
 

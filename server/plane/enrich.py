@@ -742,6 +742,19 @@ def _resolve_route_unrenamed(callsign, cache, transport, timeout, now, manual_re
     if route is not None:
         corrected = apply_airline_name_correction(normalise_callsign(callsign), route)
         return corrected, ("cache_hit" if from_cache else "fresh_hit")
+    return resolve_airline_only(callsign, manual_registry)
+
+
+def resolve_airline_only(callsign, manual_registry=None, overrides=None):
+    """`(route, source)` from the callsign's ICAO prefix alone, with no
+    adsbdb route: `"airline_only"`, `"manual"` or `"miss"`. The fallback
+    for a callsign adsbdb could not resolve, or whose route was rejected
+    as contradicting the observed direction."""
+    route, source = _airline_only_resolution(callsign, manual_registry)
+    return apply_name_override(callsign, route, overrides), source
+
+
+def _airline_only_resolution(callsign, manual_registry):
     airline_name, airline_source = airline_source_from_callsign(callsign, manual_registry)
     if airline_name:
         source = "airline_only" if airline_source == "static" else "manual"

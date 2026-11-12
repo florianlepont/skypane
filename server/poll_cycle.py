@@ -34,6 +34,7 @@ import time
 from dataclasses import dataclass, field
 
 import server.atomic_io as atomic_io
+import server.check_interval as check_interval
 import server.detection as detection
 import server.device_config as device_config
 import server.device_dirs as device_dirs
@@ -48,6 +49,7 @@ import server.plane.enrich as enrich
 import server.plane.manual_resolutions as manual_resolutions
 import server.plane.name_overrides as name_overrides
 import server.plane.render as render
+import server.plane.route_sanity as route_sanity
 import server.plane.runway_config as runway_config
 import server.request_budget as request_budget
 import server.screen_layouts as screen_layouts
@@ -551,6 +553,11 @@ class CycleContext:
     poll_state: dict = field(default_factory=dict)
     poll_state_baseline: str = ""
     battery_mv: float | None = None
+    # The check-interval experiment's interval while it is active, else None.
+    check_interval_s: int | None = None
+    # True while the experiment holds the flight image until the saved wake
+    # interval has elapsed since the last flight-path panel change.
+    redraw_blocked: bool = False
     battery_critical: bool = False
     battery_low: bool = False
     battery_changed: bool = False
@@ -616,6 +623,29 @@ def _critical_thresholds(profile):
     return {"critical_mv": profile.battery.critical_mv, "recover_mv": profile.battery.critical_recover_mv}
 
 
+def _resolve_check_interval(state_dir, device_cfg, poll_state, battery_mv):
+    """The active check-interval experiment's interval, or None. While
+    inactive the redraw timestamp is removed from `poll_state`, so the
+    persisted key set is exactly what it is without the experiment.
+    """
+    active = check_interval.active_check_interval_s(
+        state_dir, device_cfg["wake_interval_s"], battery_mv, now_s())
+    if active is None:
+        poll_state.pop(check_interval.LAST_FLIGHT_REDRAW_KEY, None)
+    return active
+
+
+def _redraw_blocked(ctx):
+    """Whether the experiment forbids changing the flight image this cycle:
+    it is active and less than the saved wake interval has passed since the
+    last flight-path panel change.
+    """
+    if ctx.check_interval_s is None:
+        return False
+    last = _as_timestamp(ctx.poll_state.get(check_interval.LAST_FLIGHT_REDRAW_KEY))
+    return not check_interval.redraw_due(last, ctx.now, ctx.device_cfg["wake_interval_s"])
+
+
 def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None, route_transport=None, ledger_root=None, profile=None, location=None):
     """Everything a cycle needs before the hold decision can be made:
     ensures `state_dir` exists, loads the manual-resolution and
@@ -656,6 +686,9 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
     # mid-cycle.
     poll_state_baseline = state_store.serialize_poll_state(poll_state)
     battery_mv = state_store.load_battery_state(state_dir)
+    # Resolved before the hold decision so a hold cycle also drops a stale
+    # redraw timestamp left by an experiment that has since ended.
+    check_interval_s = _resolve_check_interval(state_dir, device_cfg, poll_state, battery_mv)
     # Stored back into poll_state immediately, before
     # wake.effective_wake_interval_s() below, so it sees this cycle's own
     # decision, not last cycle's stale one.
@@ -691,7 +724,7 @@ def load_cycle_context(snapshot, state_dir, geofence, caddy_log, zone_fetch=None
         calendar_registry=calendar_registry, colour_rules_registry=colour_rules_registry,
         manual_registry=manual_registry, name_overrides=name_overrides_registry,
         poll_state=poll_state, poll_state_baseline=poll_state_baseline,
-        battery_mv=battery_mv, battery_critical=battery_critical,
+        battery_mv=battery_mv, check_interval_s=check_interval_s, battery_critical=battery_critical,
         # Default assignment, not a resolution: render_state/current_flight
         # aren't settled yet, so the colour_rules/calendar resolvers can't
         # run here without either raising or resolving against stale
@@ -1013,6 +1046,7 @@ def load_display_slots(ctx):
     ctx.pending = normalise_pending(poll_state.get("pending_flights"))
     ctx.last_advance_at = _as_timestamp(poll_state.get("last_advance_at"))
     ctx.now = now_s()
+    ctx.redraw_blocked = _redraw_blocked(ctx)
     # Defined before any branching - the shared log statement needs it
     # even on a cycle that detects nothing.
     ctx.unknown_prefix = None
@@ -1042,7 +1076,12 @@ def advance_display_queue(ctx):
     if flight is not None:
         new_hex = flight.get("hex")
         old_hex = ctx.current_flight.get("hex") if isinstance(ctx.current_flight, dict) else None
-        if ctx.current_flight is None:
+        if ctx.current_flight is None and ctx.redraw_blocked:
+            # The check-interval experiment is holding the flight image: keep
+            # the detection queued until the redraw spacing has elapsed.
+            dropped.extend(enqueue_pending(pending, flight, now))
+            queue_dirty = True
+        elif ctx.current_flight is None:
             # Nothing on screen at all: show it immediately. Pacing exists to
             # stop a flight being overwritten before the device can fetch it;
             # there is nothing to overwrite yet, and deferring the very first
@@ -1062,7 +1101,7 @@ def advance_display_queue(ctx):
     # that detected nothing - without draining on quiet cycles, a queued
     # aircraft would sit there until it expired. `promoted is None` guards
     # the bootstrap case above, which has already advanced.
-    if promoted is None and pending and advance_is_due(ctx.last_advance_at, now):
+    if promoted is None and pending and not ctx.redraw_blocked and advance_is_due(ctx.last_advance_at, now):
         promoted, expired = pop_fresh_pending(pending, now)
         dropped.extend(expired)
         queue_dirty = True
@@ -1071,6 +1110,7 @@ def advance_display_queue(ctx):
     # aircraft leaving "current" shifts into "previous" on a paced advance,
     # not on every distinct detection.
     prior_confirmed_state = ctx.current_confirmed_state
+    outgoing_hex = ctx.current_flight.get("hex") if isinstance(ctx.current_flight, dict) else None
     if promoted is not None:
         if ctx.current_flight is not None:
             ctx.previous_flight = ctx.current_flight
@@ -1080,11 +1120,30 @@ def advance_display_queue(ctx):
         ctx.last_advance_at = now
         queue_dirty = True
 
+    # A different aircraft never inherits the previous one's direction: on a
+    # take-off roll its vertical rate is still inside the deadband and the
+    # held state would be the arrival that just left.
+    if promoted is not None and promoted.get("hex") != outgoing_hex:
+        prior_confirmed_state = None
+
     ctx.promoted = promoted
     ctx.refreshed = refreshed
     ctx.dropped = dropped
     ctx.queue_dirty = queue_dirty
     ctx.prior_confirmed_state = prior_confirmed_state
+
+
+def _drop_contradicting_route(ctx, route, route_source):
+    """The adsbdb route unless it cannot be true for the observed direction
+    at the watched airport (a stale rotating-callsign entry): then the
+    airline-only fallback, so the screen shows no wrong city."""
+    if route_source not in ("fresh_hit", "cache_hit"):
+        return route, route_source
+    watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
+    if not route_sanity.route_contradicts(route, ctx.confirmed_state, watched):
+        return route, route_source
+    return enrich.resolve_airline_only(
+        ctx.current_flight.get("callsign"), ctx.manual_registry, ctx.name_overrides)
 
 
 def _enrich_current_flight(ctx):
@@ -1139,6 +1198,7 @@ def _enrich_current_flight(ctx):
     # `current_flight`, so recording `ctx.flight` would write a
     # runway_events row whose hex and route describe two different
     # aircraft.
+    route, route_source = _drop_contradicting_route(ctx, route, route_source)
     ctx.event_recorded = _should_record_event(current_flight, ctx.confirmed_state, poll_state)
     poll_state["last_recorded_hex"] = current_flight.get("hex")
     poll_state["last_recorded_confirmed_state"] = ctx.confirmed_state
@@ -1234,6 +1294,10 @@ def _render_promoted(ctx):
 
     publish_canvas(ctx, canvas)
     poll_state = ctx.poll_state
+    if ctx.check_interval_s is not None and ctx.panel_changed:
+        # Only a flight-path change restarts the redraw spacing; hold and
+        # badge repaints do not.
+        poll_state[check_interval.LAST_FLIGHT_REDRAW_KEY] = ctx.now
     poll_state["last_flight"] = current_flight
     poll_state["last_confirmed_state"] = confirmed_state
     poll_state["last_route"] = ctx.route
@@ -1331,7 +1395,11 @@ def render_and_publish(ctx):
     most once. The render -> pack -> write -> gallery sequence itself
     exists exactly once, inside `publish_canvas()`.
     """
-    if ctx.promoted is not None or ctx.refreshed:
+    if ctx.redraw_blocked and ctx.promoted is None and ctx.refreshed and ctx.current_flight is not None:
+        # The frame checks in more often than the panel may change, so the
+        # same aircraft's re-render waits for the redraw spacing.
+        _render_held(ctx)
+    elif ctx.promoted is not None or ctx.refreshed:
         _render_promoted(ctx)
     elif ctx.current_flight is not None:
         _render_held(ctx)
