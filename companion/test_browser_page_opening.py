@@ -65,6 +65,18 @@ document.addEventListener('animationstart', (e) => {
 }, true);
 """ % _ROW
 
+# The shell marks <main> for the opening and the mark leaves once the opening has played.
+# Read the moment the parser adds <main>: the script may drop the mark before the document is
+# fully loaded (an opening without duration is over at once).
+_MARK_AT_START = """
+window.__opened = null;
+new MutationObserver((records, observer) => {
+  const main = document.querySelector('main');
+  if (main) { window.__opened = main.hasAttribute('data-page-open'); observer.disconnect(); }
+}).observe(document, {childList: true, subtree: true});
+"""
+_OPENING_OVER = "() => !document.querySelector('main[data-page-open]')"
+
 _SETTLED_PAGE = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
     "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
@@ -101,6 +113,7 @@ def _admin_context(new_context, server, viewport, **options):
         {"name": name, "value": value, "url": server.base_url(),
          "httpOnly": True, "sameSite": "Strict"}])
     context.add_init_script(_RECORD)
+    context.add_init_script(_MARK_AT_START)
     Hosts(context)
     return context
 
@@ -115,13 +128,14 @@ def _open(page, server, path):
 @pytest.mark.parametrize("path,tall", PAGES, ids=[p for p, _t in PAGES])
 def test_every_page_opens_with_the_shared_entrance(new_context, server, path, tall, viewport):
     """the shell marks main, the page header enters, no row or table animates, a tall page
-    animates a header and at most five blocks, and the entrance moves nothing but opacity and
-    translate"""
+    animates a header and at most five blocks, the entrance moves nothing but opacity and
+    translate, and the mark leaves when the opening is over"""
     context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
     try:
         page = context.new_page()
         _open(page, server, path)
-        assert page.locator("main[data-page-open]").count() == 1
+        assert page.evaluate("() => window.__opened") is True
+        page.wait_for_function(_OPENING_OVER, timeout=10000)
         events = page.evaluate("() => window.__anim")
         entering = [e for e in events if e["name"] == "skypane-reveal-fade"]
         assert any("page-header" in e["cls"] for e in entering), (path, events)
@@ -147,7 +161,7 @@ def test_under_reduced_motion_every_page_opens_at_once(new_context, server, path
     try:
         page = context.new_page()
         _open(page, server, path)
-        assert page.locator("main[data-page-open]").count() == 1
+        assert page.evaluate("() => window.__opened") is True
         durations = page.evaluate(
             "() => [...document.querySelectorAll('main > *')].map((e) => {"
             " const s = getComputedStyle(e);"
@@ -329,6 +343,42 @@ def test_the_flights_chips_slide_the_thumb_and_the_swapped_list_enters(
         context.close()
 
 
+_SAMPLE_FIRST_ROW = """(ms) => new Promise((resolve) => {
+  const tops = [];
+  const start = performance.now();
+  const step = () => {
+    const row = document.querySelector('.data-table-wrap tbody tr');
+    if (row) { tops.push(row.getBoundingClientRect().top); }
+    if (performance.now() - start < ms) { requestAnimationFrame(step); } else { resolve(tops); }
+  };
+  requestAnimationFrame(step);
+})"""
+
+
+def test_a_filter_change_on_the_desktop_table_fades_without_moving_it(new_context, flights):
+    """choosing another chip swaps the desktop table in place and the new table only fades:
+    its first row stays at one height from the swap until well after the fade, and no rise
+    plays on the swap or once the fade is over"""
+    context, page = _flights_page(new_context, flights, VIEWPORT_DESKTOP)
+    try:
+        page.wait_for_function(_OPENING_OVER, timeout=10000)
+        mark = page.evaluate("() => window.__anim.length")
+        page.locator('[data-tabs="flights"] label.filter-chip').nth(1).click()
+        page.wait_for_function(
+            "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-reveal-fade')",
+            arg=mark, timeout=10000)
+        # The fade is under half a second: 1.5 s covers it and what used to follow it.
+        tops = page.evaluate(_SAMPLE_FIRST_ROW, 1500)
+        assert len(tops) > 20, tops
+        assert max(tops) - min(tops) <= 0.5, (min(tops), max(tops))
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        since = page.evaluate("(m) => window.__anim.slice(m).map((e) => e.name)", mark)
+        assert "skypane-reveal" not in since, since
+        assert since.count("skypane-reveal-fade") == 1, since
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("viewport", VIEWPORTS)
 def test_load_more_enters_only_the_first_new_items(new_context, flights, viewport):
     """Load more appends in place on the phone and the desktop alike and the first new items
@@ -383,6 +433,109 @@ def test_the_location_mode_switch_replays_the_sheet(new_context, place_server, v
             " && e.cls.indexOf('place-sheet') >= 0)", arg=mark, timeout=10000)
         page.wait_for_function(_SETTLED_PAGE, timeout=10000)
         assert not page.evaluate("() => document.querySelector('.reveal-replay')")
+    finally:
+        context.close()
+
+
+# --- The opening never holds back the first screenful -----------------------------------------
+
+_PAINT_RECORDER = """
+window.__paint = {fcp: null, lcp: null, element: ''};
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) {
+    if (e.name === 'first-contentful-paint') { window.__paint.fcp = e.startTime; }
+  }
+}).observe({type: 'paint', buffered: true});
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) {
+    window.__paint.lcp = e.startTime;
+    window.__paint.element = e.element ? e.element.tagName + '.' + e.element.className : '';
+  }
+}).observe({type: 'largest-contentful-paint', buffered: true});
+"""
+# The opening fade lasts 400 ms and more with its stagger. A largest paint this close to the
+# first one means the first screenful was readable at once, not when the fade ended.
+LARGEST_PAINT_AFTER_FIRST_MS = 150
+
+
+@pytest.mark.parametrize("path", ["/", "/account", "/users", "/audit"])
+def test_the_largest_text_is_painted_with_the_first_paint(new_context, server, path):
+    """on a phone the page opens from a readable state: the largest text of the first screenful
+    is painted with the first paint, not at the end of the opening fade, and the opening still
+    plays (the header fades in)"""
+    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
+                             reduced_motion="no-preference")
+    context.add_init_script(_PAINT_RECORDER)
+    try:
+        page = context.new_page()
+        _open(page, server, path)
+        page.wait_for_function(_OPENING_OVER, timeout=10000)
+        page.wait_for_function(
+            "() => window.__paint.fcp !== null && window.__paint.lcp !== null", timeout=10000)
+        paint = page.evaluate("() => window.__paint")
+        assert paint["lcp"] - paint["fcp"] <= LARGEST_PAINT_AFTER_FIRST_MS, (path, paint)
+        assert [e for e in page.evaluate("() => window.__anim")
+                if e["name"] == "skypane-reveal-fade" and "page-header" in e["cls"]], path
+    finally:
+        context.close()
+
+
+# --- Location under reduced motion: the map arriving shifts nothing ---------------------------
+
+_SHIFT_RECORDER = """
+window.__shift = 0;
+window.__shifts = [];
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) {
+    if (!e.hadRecentInput) {
+      window.__shift += e.value;
+      window.__shifts.push([Math.round(e.startTime), e.value, e.sources.map(
+        (x) => x.node && x.node.tagName + '.' + String(x.node.className || '')).join(',')]);
+    }
+  }
+}).observe({type: 'layout-shift', buffered: true});
+"""
+# The largest cumulative layout shift a Location load may show with reduced motion: what the
+# same load shows with motion allowed, with a little room.
+REDUCED_MOTION_SHIFT_LIMIT = 0.03
+_LAYOUT_TRANSITIONS = """() => document.getAnimations()
+  .map((a) => a.transitionProperty || '')
+  .filter((p) => /^(width|height|min-|max-|padding|margin|flex|top|left|right|bottom|inset|gap|grid)/
+    .test(p))"""
+
+
+@pytest.mark.parametrize("viewport", [
+    pytest.param({"width": 768, "height": 1024}, id="768"),
+    pytest.param({"width": 1280, "height": 900}, id="1280")])
+def test_location_under_reduced_motion_shifts_no_layout(new_context, place_server, viewport):
+    """with prefers-reduced-motion the Location page settles into its map layout in one step:
+    the cumulative layout shift of the load stays at what a load with motion shows, and no
+    transition ever runs on a property that lays the page out"""
+    context = new_context(viewport=viewport, reduced_motion="reduce")
+    Hosts(context)
+    context.add_cookies([
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": place_server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, place_server.base_url())
+        context.add_init_script(_SHIFT_RECORDER)
+        context.add_init_script(
+            "window.__layout = [];"
+            "document.addEventListener('transitionrun', (e) => {"
+            " if (/^(width|height|min-|max-|padding|margin|flex|top|left|right|bottom|inset|gap"
+            "|grid)/.test(e.propertyName)) { window.__layout.push(e.propertyName); } }, true);")
+        page.goto(place_server.base_url() + "/detection")
+        page.wait_for_function(
+            "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
+        page.wait_for_function(SETTLED, timeout=10000)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        # Two more frames, so a shift caused by the last style change is reported.
+        page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                      "() => requestAnimationFrame(() => setTimeout(done, 200))))")
+        shift = page.evaluate("() => window.__shift")
+        assert shift <= REDUCED_MOTION_SHIFT_LIMIT, (shift, page.evaluate("() => window.__shifts"))
+        assert page.evaluate("() => window.__layout") == []
+        assert page.evaluate(_LAYOUT_TRANSITIONS) == []
     finally:
         context.close()
 

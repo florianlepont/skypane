@@ -29,6 +29,16 @@
   display: none;
 }
 
+/* With scripts on (the class is on <html> before the first paint) a bar that
+ * only shows once something changed stays out until dirty-state.js takes it
+ * over, so it never flashes while the page opens: the server marks such a
+ * bar and the script removes the mark once the hidden attribute decides.
+ * Without scripts, or if the script never runs (the class is taken back
+ * after a few seconds), the bar is in the page as rendered. */
+html.js-early .dirty-bar[data-dirty-wait] {
+  display: none;
+}
+
 .dirty-bar__save {
   grid-area: save;
 }

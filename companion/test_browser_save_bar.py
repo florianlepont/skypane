@@ -195,3 +195,65 @@ def test_every_page_shows_the_same_save_bar(new_context, server, viewport, lang,
     else:
         # Docked to the main column, not centred on the window: the sidebar is to its left.
         assert reference["left"] > 240, reference
+
+
+# Whether the bar had a box the moment the parser added it (before any deferred script ran)
+# and on every frame after that, until the test reads the list.
+_WATCH_BAR = """
+window.__bar = {parsed: null, frames: []};
+new MutationObserver((records, observer) => {
+  const bar = document.querySelector('.dirty-bar');
+  if (!bar) { return; }
+  observer.disconnect();
+  window.__bar.parsed = bar.getClientRects().length > 0;
+  const step = () => {
+    window.__bar.frames.push(bar.getClientRects().length > 0);
+    if (!window.__bar.stop) { requestAnimationFrame(step); }
+  };
+  requestAnimationFrame(step);
+}).observe(document, {childList: true, subtree: true});
+"""
+# The pages whose bar appears only once something changed.
+_REVEALING = [page for page in PAGES if page[0] in (
+    "departures", "arrivals", "special-look-new", "calendar-connect", "fleet")]
+
+
+@pytest.mark.parametrize("name,route,ready,edit", _REVEALING, ids=[p[0] for p in _REVEALING])
+def test_the_save_bar_is_out_of_the_page_until_something_changes(
+        new_context, server, name, route, ready, edit):
+    """With scripts on, the bar has no box from the moment it is parsed to the end of the page
+    opening (it never flashes at the bottom of the screen); the first change brings it in."""
+    context = new_context(viewport=PHONE)
+    Hosts(context)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        context.add_init_script(_WATCH_BAR)
+        page.goto(server.base_url() + (route(server) if callable(route) else route))
+        page.locator(ready).first.wait_for(state="attached", timeout=15000)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        page.wait_for_function("() => window.__bar.frames.length > 5", timeout=10000)
+        seen = page.evaluate("() => { window.__bar.stop = true; return window.__bar; }")
+        assert seen["parsed"] is False, name
+        assert not any(seen["frames"]), (name, seen["frames"])
+        assert page.locator(BAR).is_hidden()
+        edit(page)
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+    finally:
+        context.close()
+
+
+def test_without_scripts_the_save_bar_is_in_the_page(new_context, server):
+    """A visitor without scripts has no other way to save: the bar is shown as rendered."""
+    context = new_context(viewport=PHONE, java_script_enabled=False)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.DISPLAY_ROUTE)
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+        box = page.locator(BAR + " .dirty-bar__save").bounding_box()
+        assert box and box["height"] >= 44
+    finally:
+        context.close()

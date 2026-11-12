@@ -343,17 +343,23 @@ def test_personalisation_look_views_enter_like_the_other_views(
         new_context, make_app_server):
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context = new_context(viewport=VIEWPORT_DESKTOP, reduced_motion="no-preference")
+    # The entrance is played once and its rule leaves with the page opening,
+    # so it is read from the animations the block really started.
+    context.add_init_script(
+        "window.__entered = [];"
+        "document.addEventListener('animationstart', (e) => {"
+        " if (e.animationName.indexOf('skypane-reveal') === 0"
+        " && e.target.matches('.personalisation-look, .personalisation-card'))"
+        " { window.__entered.push(e.animationName); } }, true);")
     page = context.new_page()
     _login(page, server.base_url())
     try:
         for route in ("/display", "/display/special-looks"):
             page.goto(server.base_url() + route)
             page.wait_for_function(_COMPLETE, timeout=15000)
-            name = page.evaluate(
-                """() => { const e = document.querySelector(
-                    '.personalisation-look, .personalisation-card');
-                  return getComputedStyle(e).animationName; }""")
-            assert "skypane-reveal" in name, (route, name)
+            page.wait_for_function("() => window.__entered.length > 0", timeout=10000)
+            names = page.evaluate("() => window.__entered")
+            assert "skypane-reveal" in names and "skypane-reveal-fade" in names, (route, names)
     finally:
         context.close()
 

@@ -20,6 +20,7 @@ from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_WIDTH,
 )
 import companion.device_scope as device_scope
+import companion.illustration_normalize as illustration_normalize
 import companion.i18n as i18n
 from companion.layout import csrf_field, escape_html
 import companion.layout as layout
@@ -336,25 +337,9 @@ REPLACE_HINT_TEXT = i18n.msg(
     "Transparent PNG, at least 1200px wide, landscape.")
 
 def _illustration_cache_buster(key, state_dir):
-    """Return a `"?v={mtime}"` query suffix for `key`'s override file, or
-    `""` when there's no `state_dir` or no override yet.
-
-    The illustration route serves `Cache-Control: private, max-age=300`;
-    keying the suffix on the override file's mtime means the URL changes
-    exactly when the bytes change, so a browser cache doesn't show a
-    stale image for up to five minutes after a replace. Degrades to no
-    cache buster on a vanished or unreadable file rather than raising.
-    """
-    if not state_dir:
-        return ""
-    override_path = illustrations.override_path_for_key(key, state_dir)
-    if not override_path:
-        return ""
-    try:
-        mtime = int(os.stat(override_path).st_mtime)
-    except OSError:
-        return ""
-    return "?v=%d" % mtime
+    """The `"?v={mtime}"` suffix that changes an illustration's URL when its
+    override file is replaced (`illustration_normalize.cache_buster`)."""
+    return illustration_normalize.cache_buster(key, state_dir)
 
 
 def _max_upload_bytes():

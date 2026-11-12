@@ -18,7 +18,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from companion import (
     access, auth, battery, co_managers, console_pairing, device_scope, flash, i18n,
-    layout, login_page, oidc, prefs)
+    layout, login_page, oidc, prefs, ui_shell)
 from companion.pages import account_page, co_managers_card, frame_name_page
 from server import fleet_db, fleet_sessions, hardware, state_store
 
@@ -351,7 +351,7 @@ class SignInMixin:
             # scope; the id is not shown on this page.
             name=(
                 i18n.t(account_page.UNNAMED_FRAME_TEXT)
-                if device.name == device.id else device.name),
+                if device.name == device.id else ui_shell.device_display_name(device)),
             hardware=profile.label if profile is not None else device.hardware_type,
             href="/devices/%s/" % device.id,
             device_id=device.id,

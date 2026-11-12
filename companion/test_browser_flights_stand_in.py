@@ -59,3 +59,41 @@ def test_the_stand_in_is_a_44px_non_interactive_lead_in_both_themes(new_context,
             else:
                 assert row["icon"] is True, row
         assert not _assert_no_page_overflow(page, "Flights/%s" % theme, 360)
+
+
+# What one reduced stand-in picture may weigh on the wire. The full-size
+# picture behind the same path is several times that.
+STAND_IN_IMAGE_BUDGET_BYTES = 16 * 1024
+
+
+def test_the_first_screen_of_stand_ins_downloads_small_pictures_only(new_context, server):
+    """On a phone the first screen's stand-in pictures are the reduced variant: each one that
+    the browser downloads is a WebP under the per-picture budget, and together they weigh far
+    less than the same pictures at full size."""
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    page = context.new_page()
+    _login(page, server.base_url())
+    pictures = []
+    page.on("response", lambda response: pictures.append(response)
+            if response.request.resource_type == "image" else None)
+    page.goto(server.base_url() + "/flights")
+    page.locator(CARD).first.wait_for(state="visible")
+    page.wait_for_function(
+        "() => [...document.querySelectorAll('li.history-card img')].every(i => i.complete)")
+    shown = page.evaluate(
+        "() => [...document.querySelectorAll('.history-card__thumb--illustration img')]"
+        ".map(i => i.currentSrc)")
+    assert shown
+    downloaded = {r.url: r for r in pictures if r.url in set(shown)}
+    assert set(downloaded) == set(shown), (sorted(downloaded), shown)
+    small_total = full_total = 0
+    for url, response in downloaded.items():
+        assert response.status == 200, url
+        assert response.headers["content-type"] == "image/webp", url
+        size = len(response.body())
+        assert size <= STAND_IN_IMAGE_BUDGET_BYTES, (url, size)
+        small_total += size
+        full = page.request.get(url.split("?")[0])
+        assert full.status == 200, url
+        full_total += len(full.body())
+    assert small_total * 3 < full_total, (small_total, full_total)

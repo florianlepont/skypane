@@ -755,9 +755,17 @@ THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-f
 # Home's signature is the one other deliberate ambient motion, content-neutral and slow: the
 # dot's and the picture glow's 6s breathing and the 12s cycle of the glass glint. Each is
 # transform/opacity only and switched off under reduced motion; no other page may loop.
+# The allow-list is exact: an endless animation passes only with this name on this element
+# (and pseudo-element), each for the reason given. Anything else that loops for ever fails,
+# whatever it is called.
 AMBIENT_LOOPS = {
-    "skypane-pulse", "skypane-dot-halo",
-    "skypane-dot-breathe", "skypane-picture-breathe", "skypane-glint"}
+    # The status dot read from across a room: a soft halo and a slow breath.
+    ("skypane-dot-halo", ".home-state__dot--pulse", "::after"),
+    ("skypane-dot-breathe", ".home-state__dot--pulse", None),
+    # The frame picture's signature: the glow behind it and the glint over its glass.
+    ("skypane-picture-breathe", ".hero__picture", "::before"),
+    ("skypane-glint", ".hero__glass", "::after"),
+}
 
 
 _SURFACES = """
@@ -780,10 +788,16 @@ _BLURRED = """
   .map((e) => e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0])
 """
 
-_ANIMATIONS = """
-() => document.getAnimations().map((a) => ({
-  name: a.animationName || a.transitionProperty || '',
-  iterations: a.effect ? a.effect.getComputedTiming().iterations : 1}))
+# Every endless animation that is not on the allow-list (name, element, pseudo-element).
+_ENDLESS_OUTSIDE = """
+(allowed) => document.getAnimations()
+  .filter((a) => !a.effect || a.effect.getComputedTiming().iterations === Infinity)
+  .map((a) => ({name: a.animationName || a.transitionProperty || '',
+    target: a.effect && a.effect.target, pseudo: a.effect && a.effect.pseudoElement || null}))
+  .filter((a) => !allowed.some(([name, selector, pseudo]) => a.name === name && a.target
+    && a.target.matches(selector) && a.pseudo === pseudo))
+  .map((a) => ({name: a.name, pseudo: a.pseudo, element: a.target
+    ? a.target.tagName.toLowerCase() + '.' + String(a.target.className) : ''}))
 """
 
 
@@ -810,9 +824,8 @@ def test_every_animation_on_a_page_is_finite_except_the_status_pulse(
     try:
         page.reload(wait_until="commit")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        for animation in page.evaluate(_ANIMATIONS):
-            if animation["iterations"] == float("inf") or animation["iterations"] is None:
-                assert animation["name"] in AMBIENT_LOOPS, (path, animation)
+        endless = page.evaluate(_ENDLESS_OUTSIDE, [list(entry) for entry in AMBIENT_LOOPS])
+        assert not endless, (path, endless)
     finally:
         context.close()
 

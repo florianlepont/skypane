@@ -165,6 +165,8 @@
    * of a card (.reveal and the page sections) and the delay step between
    * siblings. Both are finite, short, and never block interaction. */
   --motion-enter: 400ms;
+  /* Where the page opening's fade starts: visible enough to read at once. */
+  --opening-opacity: 0.6;
   --motion-stagger: 60ms;
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   /* The spring every settle uses: press release, switch thumb, the sliding
@@ -437,8 +439,19 @@ html[data-ui-theme="dark"] {
   color-scheme: dark;
 }
 @media (prefers-reduced-motion: reduce) {
+  /* A transition with almost no duration still shows one frame at the old
+   * value. On a property that lays the page out (a width, a padding, a
+   * flex factor) that frame is a visible jump, and with the default
+   * transition-property (all) every style change would get one. So only
+   * properties that paint without moving anything may transition here, and
+   * none waits for a delay; their transitionend events still fire for the
+   * scripts and the map library that listen for them. */
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
+    transition-delay: 0s !important;
+    transition-property: opacity, transform, translate, scale, rotate, color,
+      background-color, border-color, outline-color, box-shadow, fill, stroke,
+      filter, backdrop-filter, visibility !important;
     animation-duration: 0.01ms !important;
     animation-delay: 0s !important;
     scroll-behavior: auto !important;
@@ -831,7 +844,7 @@ summary:focus-visible {
 
 a {
   color: var(--color-accent);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 a:hover {
@@ -939,7 +952,8 @@ a:hover {
 
   .home-state__dot--pulse,
   .hero__picture::before,
-  .hero__glass::after {
+  .hero__glass::after,
+  .is-breathing {
     animation: none !important;
   }
 
@@ -1039,7 +1053,7 @@ a:hover {
   /* Every base-button transitioned property except transform: a
    * handle's position represents a live value and must track
    * --value-fraction instantly, never ease through a stale position. */
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-fast) ease;
 }
 
 /* The quiet-hours dial: a server-drawn 24h ring; only the two drag
@@ -1184,7 +1198,7 @@ a:hover {
   font-size: var(--font-body-size);
   font-family: var(--font-ui);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .mobile-nav__link--active {
@@ -1286,7 +1300,7 @@ select.visually-hidden {
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .account-sign-out button,
@@ -1376,7 +1390,7 @@ select.visually-hidden {
   text-decoration: none;
   font-size: var(--font-label-size);
   border-radius: var(--radius-control);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 .sidebar-link__icon {
@@ -1459,11 +1473,13 @@ select.visually-hidden {
 
 /* Names the MOTION, not the component (a dot in this rule, a <time> in
  * relative-time.js), so future consumers reuse this class instead of
- * writing a new one. Under reduced motion the global override already
- * zeroes animation-duration; companion/test_companion_app.py pins the
- * file's reduce-block count at two, so no per-rule block is added. */
+ * writing a new one. The pulse is finite: fifteen beats (half a minute at
+ * --motion-slow) say "live" or "waiting", then the element rests, so an
+ * idle page leaves the compositor idle. The element is rendered again by
+ * each refresh, which starts the beats again. Reduced motion switches it
+ * off in the reduce block above. */
 .is-breathing {
-  animation: skypane-pulse var(--motion-slow) ease-in-out infinite;
+  animation: skypane-pulse var(--motion-slow) ease-in-out 15;
 }
 
 /* Added only when the picture's src genuinely changed (freshness.js
@@ -1955,7 +1971,7 @@ select.visually-hidden {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: translateY(-2px) rotate(45deg);
-  transition: transform .15s ease;
+  transition: transform var(--motion-fast) ease;
 }
 
 .frame-menu[open] > .frame-menu__button .frame-menu__chevron {
@@ -2241,7 +2257,7 @@ select {
   /* Every native radio/checkbox site-wide renders with the terracotta
    * accent instead of the browser default blue. */
   accent-color: var(--color-accent);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 /* Touch-target floor register: WCAG 2.5.8 (AA, 24px) is met everywhere
@@ -2263,7 +2279,7 @@ button {
   border: 1px solid var(--color-control-border-subtle); /* fallback for browsers without color-mix() */
   border: 1px solid color-mix(in srgb, var(--color-text) 9%, transparent);
   color: var(--color-text);
-  transition: background-color .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease, transform .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease, color var(--motion-fast) ease, box-shadow var(--motion-fast) ease, transform var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
 }
 
 button[type="submit"] {
@@ -3328,7 +3344,7 @@ summary::before {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(-45deg);
-  transition: transform .15s ease;
+  transition: transform var(--motion-fast) ease;
 }
 
 /* Child combinator, not descendant: a nested <details> must never
@@ -3353,7 +3369,7 @@ details[open] > summary::before {
   border-top: 3px solid var(--color-accent);
   border-radius: var(--radius-card);
   box-shadow: none;
-  transition: box-shadow .15s, transform .15s;
+  transition: box-shadow var(--motion-fast), transform var(--motion-fast);
 }
 
 /* :focus-within alongside :hover: several tiles hold focusable children
@@ -4113,7 +4129,7 @@ a.airline-card {
   .data-table tbody tr [data-copy-value] {
     opacity: 0;
     pointer-events: none;
-    transition: opacity .15s;
+    transition: opacity var(--motion-fast);
   }
 
   /* --space-lg (24px) is within this file's target 20-24px range and
@@ -4336,7 +4352,7 @@ a.airline-card {
   border: 1px solid var(--color-border);
   color: var(--color-text);
   cursor: pointer;
-  transition: background-color .15s ease, border-color .15s ease;
+  transition: background-color var(--motion-fast) ease, border-color var(--motion-fast) ease;
 }
 
 .lightbox__replace-zone input[type="file"]::file-selector-button:hover,
@@ -5355,7 +5371,7 @@ a.btn[aria-disabled="true"] {
   font-size: var(--font-caption-size);
   font-weight: var(--weight-regular);
   cursor: pointer;
-  transition: background-color .15s ease, color .15s ease;
+  transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease;
 }
 
 .theme-form input[type="radio"]:checked + label {
@@ -5450,7 +5466,7 @@ a.btn[aria-disabled="true"] {
     margin: var(--space-xs) 0;
     padding: 0 var(--tab-bar-pad);
     border-radius: var(--radius-pill);
-    transition: background-color .15s ease, color .15s ease, scale var(--motion-spring-duration) var(--motion-spring);
+    transition: background-color var(--motion-fast) ease, color var(--motion-fast) ease, scale var(--motion-spring-duration) var(--motion-spring);
   }
 
   /* 11px sentence case, not the uppercase label voice: a destination is not
@@ -6600,9 +6616,13 @@ button.row-menu__item {
   }
 }
 
+/* A replayed or appended block fades in from nothing. The page opening
+ * starts from --opening-opacity instead (set under data-page-open below):
+ * the first screenful is readable from the first paint, so the largest
+ * text counts as painted then and not when the fade ends. */
 @keyframes skypane-reveal-fade {
   from {
-    opacity: 0;
+    opacity: var(--reveal-from, 0);
   }
 
   to {
@@ -6617,18 +6637,24 @@ button.row-menu__item {
  * kind and the first three days of the Flights list; lists, tables and the
  * map are never animated row by row or whole. A card appended by "Load more" or replaying
  * after a tab switch takes the same entrance (.reveal-appended,
- * .reveal-replay). */
-.reveal,
+ * .reveal-replay). The opening plays once: motion.js drops data-page-open
+ * when its last animation ends, so content swapped in later (a refresh, a
+ * filter, a switch) arrives still unless a script asks for a replay. */
 .reveal-appended,
 .reveal-replay,
-.dashboard-main .group-block:not(.history-day):nth-child(-n + 6),
-.dashboard-main .history-day:nth-child(-n + 3),
-.dashboard-main .page-section:nth-child(-n + 6),
-.dashboard-main .personalisation-look {
+.dashboard-main[data-page-open] .reveal,
+.dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6),
+.dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
+.dashboard-main[data-page-open] .page-section:nth-child(-n + 6),
+.dashboard-main[data-page-open] .personalisation-look {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
   animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+.dashboard-main[data-page-open] {
+  --reveal-from: var(--opening-opacity);
 }
 
 /* The page header only fades in: a header that rose would paint over the first
@@ -6650,9 +6676,21 @@ button.row-menu__item {
   animation-delay: var(--motion-stagger);
 }
 
+/* A table or an empty state that sits straight on the sky opens like the
+ * other cards. */
+.dashboard-main[data-page-open] > .empty-state,
+.dashboard-main[data-page-open] > .data-table-wrap {
+  animation:
+    skypane-reveal var(--motion-enter) steps(12, end) backwards,
+    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+}
+
 /* A filter that only hides rows replays a fade of its list, nothing else:
- * opacity alone, so a tall list costs the compositor one layer. */
-.dashboard-main .reveal-replay.reveal-replay--fade {
+ * opacity alone, so a tall list costs the compositor one layer. The
+ * page-opening rules above must not win over it while the page is still
+ * opening, hence the attribute in the second selector. */
+.dashboard-main .reveal-replay.reveal-replay--fade,
+.dashboard-main[data-page-open] .reveal-replay.reveal-replay--fade {
   animation-name: skypane-reveal-fade;
   animation-timing-function: var(--ease-out);
 }
@@ -6685,14 +6723,11 @@ button.row-menu__item {
 /* A table or an empty state that sits straight on the sky is a card. Its
  * solid fill is the fallback of the glass below; the edge covers a scrolling
  * table used to paint in the page colour would show as opaque bands over it,
- * so the card fill replaces them. They enter like the other cards. */
+ * so the card fill replaces them. */
 .dashboard-main > .empty-state {
   background: var(--color-dominant);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
-  animation:
-    skypane-reveal var(--motion-enter) steps(12, end) backwards,
-    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
 /* A compact empty state that sits straight on the sky and is followed by more
@@ -6708,9 +6743,6 @@ button.row-menu__item {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-card);
   overflow-x: auto;
-  animation:
-    skypane-reveal var(--motion-enter) steps(12, end) backwards,
-    skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
 }
 
 /* The one glass tier. The tab bar and its More sheet are not part of it: both
@@ -7144,7 +7176,8 @@ button.row-menu__item {
  * ambient loops stop, so a wall tablet's compositor is idle. */
 html[data-ambient="rest"] .home-state__dot--pulse,
 html[data-ambient="rest"] .hero__picture::before,
-html[data-ambient="rest"] .hero__glass::after {
+html[data-ambient="rest"] .hero__glass::after,
+html[data-ambient="rest"] .is-breathing {
   animation-iteration-count: 0;
 }
 

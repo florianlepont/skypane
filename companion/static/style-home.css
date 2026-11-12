@@ -61,6 +61,12 @@
   white-space: nowrap;
 }
 
+/* Figures of one width: a second less never moves the info button beside
+ * the line. */
+.home-state__next [data-relative-countdown] {
+  font-variant-numeric: tabular-nums;
+}
+
 .home-state__countdown {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }

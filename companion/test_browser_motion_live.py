@@ -127,9 +127,14 @@ def test_the_countdown_counts_up_once_and_ends_at_the_servers_text(new_context, 
         assert page.locator(COUNTDOWN).inner_text() == served
 
 
-def test_the_countdown_ticks_down_and_rolls_on_each_tick(new_context, make_app_server):
+_ROLLS = "window.__animations.filter(x => x.frames.indexOf('translateY(3px)') >= 0)"
+
+
+def test_the_countdown_ticks_down_in_its_last_minute_without_any_roll(
+        new_context, make_app_server):
     """Within the last minute the countdown loses seconds as the clock runs and never goes back
-    up, and every tick starts a short roll on the countdown."""
+    up, as plain text: no roll plays on a tick, and the info button beside the line does not
+    move while the figure keeps its number of digits."""
     server = make_app_server(seed=_seed_checkin(4.4), fake_providers=True)
     context, page = _open(new_context, server, "/")
     try:
@@ -137,7 +142,16 @@ def test_the_countdown_ticks_down_and_rolls_on_each_tick(new_context, make_app_s
         _wait(page, "window.__texts.length > 0")
         _wait(page, "(() => { const n = window.__texts.map(t => parseInt(t.match(/\\d+/)[0], 10));"
                     " let falls = 0; for (let i = 1; i < n.length; i++) { if (n[i] < n[i - 1]) falls++; }"
-                    " return falls >= 3; })()", timeout=25000)
+                    " return falls >= 1; })()", timeout=25000)
+        info = ".home-state__next-row .info-tip"
+        lefts = []
+        figures = []
+        for _ in range(3):
+            shown = page.locator(COUNTDOWN).inner_text()
+            _wait(page, "document.querySelector(a.sel).textContent !== a.was",
+                  {"sel": COUNTDOWN, "was": shown}, timeout=10000)
+            figures.append(_number(page.locator(COUNTDOWN).inner_text()))
+            lefts.append(_eval(page, "document.querySelector(a).getBoundingClientRect().left", info))
         seen = [_number(text) for text in _eval(page, "window.__texts")]
         first_fall = next(i for i in range(1, len(seen)) if seen[i] < seen[i - 1])
         settled = seen[first_fall - 1:]
@@ -145,9 +159,31 @@ def test_the_countdown_ticks_down_and_rolls_on_each_tick(new_context, make_app_s
         steps = [a - b for a, b in zip(settled, settled[1:])]
         assert all(step >= 0 for step in steps), "the countdown went back up: %r" % (seen,)
         assert any(step >= 1 for step in steps), seen
-        rolls = [a for a in _eval(page, "window.__animations")
-                 if "translateY(3px)" in a["frames"]]
-        assert len(rolls) >= 2, rolls
+        assert _eval(page, _ROLLS) == []
+        if len({len(str(figure)) for figure in figures}) == 1:
+            assert max(lefts) - min(lefts) < 0.01, (figures, lefts)
+    finally:
+        context.close()
+
+
+def test_a_minute_less_rolls_the_countdown_once(new_context, make_app_server):
+    """While more than a minute remains the countdown changes once a minute, and that change
+    gets one short roll; the count-up of the page opening rolls nothing."""
+    server = make_app_server(seed=_seed_checkin(2.8), fake_providers=True)
+    context, page = _open(new_context, server, "/")
+    try:
+        _goto_recorded(page, server.base_url() + "/")
+        _wait(page, "window.__texts.length > 0")
+        served = _served_countdown(page, server.base_url() + "/")
+        _wait(page, "document.querySelector(a.sel).textContent === a.served",
+              {"sel": COUNTDOWN, "served": served})
+        assert _number(served) == 2, served
+        assert _eval(page, _ROLLS) == []
+        _wait(page, "(() => { const m = document.querySelector(a).textContent.match(/\\d+/);"
+                    " return m && parseInt(m[0], 10) === 1; })()", COUNTDOWN, timeout=30000)
+        _wait(page, _ROLLS + ".length > 0")
+        rolls = _eval(page, _ROLLS)
+        assert len(rolls) == 1 and rolls[0]["tag"] == "TIME", rolls
     finally:
         context.close()
 
@@ -164,6 +200,52 @@ def test_reduced_motion_leaves_the_countdown_as_text_only(new_context, make_app_
         seen = _eval(page, "window.__texts")
         assert _number(seen[0]) >= _number(served) - 2, (seen, served)
         assert _eval(page, "window.__animations") == []
+    finally:
+        context.close()
+
+
+_WAITING = COUNTDOWN + ".is-breathing"
+_WAITING_ANIMATIONS = """(sel) => document.getAnimations()
+  .filter((a) => a.effect && a.effect.target === document.querySelector(sel))
+  .map((a) => { const t = a.effect.getComputedTiming();
+    return {name: a.animationName, iterations: t.iterations, end: t.endTime}; })"""
+_ENDLESS = """() => document.getAnimations()
+  .filter((a) => !a.effect || a.effect.getComputedTiming().iterations === Infinity)
+  .map((a) => a.animationName || a.transitionProperty || '')"""
+
+
+def test_an_overdue_refresh_pulses_for_a_while_then_rests(new_context, make_app_server):
+    """Once the countdown has run out the line reads as waiting and pulses; the pulse is a
+    finite run (under a minute), never an endless loop."""
+    server = make_app_server(seed=_seed_checkin(5.2), fake_providers=True)
+    context, page = _open(new_context, server, "/")
+    try:
+        page.goto(server.base_url() + "/")
+        _wait(page, "!!document.querySelector(a)", _WAITING)
+        _wait(page, "document.getAnimations().some(x => x.effect"
+                    " && x.effect.target === document.querySelector(a))", _WAITING)
+        pulses = page.evaluate(_WAITING_ANIMATIONS, _WAITING)
+        assert pulses and all(pulse["name"] == "skypane-pulse" for pulse in pulses), pulses
+        for pulse in pulses:
+            assert pulse["iterations"] is not None and pulse["iterations"] < 100, pulse
+            assert 0 < pulse["end"] <= 60000, pulse
+    finally:
+        context.close()
+
+
+def test_reduced_motion_shows_an_overdue_refresh_without_any_pulse(new_context, make_app_server):
+    """With reduced motion the waiting line is text only: nothing animates on it and no
+    animation on the page loops for ever."""
+    server = make_app_server(seed=_seed_checkin(5.2), fake_providers=True)
+    context, page = _open(new_context, server, "/", reduced=True)
+    try:
+        page.goto(server.base_url() + "/")
+        _wait(page, "document.readyState === 'complete'")
+        _wait(page, "!!document.querySelector(a)", _WAITING)
+        assert page.evaluate(_WAITING_ANIMATIONS, _WAITING) == []
+        assert page.evaluate(_ENDLESS) == []
+        assert _eval(page, "getComputedStyle(document.querySelector(a)).animationName",
+                     _WAITING) == "none"
     finally:
         context.close()
 
@@ -236,6 +318,50 @@ def test_reduced_motion_brings_a_new_flight_in_without_any_slide(new_context, ma
         _request_refresh(page)
         _wait(page, "document.querySelector(a).textContent.includes('NEWDET')", HOME_ROWS)
         assert _eval(page, "window.__animations") == []
+    finally:
+        context.close()
+
+
+# Every CSS animation the page starts, by name and target class.
+_CSS_RECORDER = """() => {
+  window.__css = [];
+  document.addEventListener('animationstart', (e) => window.__css.push(
+    {name: e.animationName, cls: String(e.target.className || '')}), true);
+}"""
+_ENTRANCES_SINCE = ("window.__css.slice(a).filter(e => e.name.indexOf('skypane-reveal') === 0)")
+_QUIET = "document.getAnimations().every(a => !Number.isFinite(" \
+    "a.effect.getComputedTiming().endTime) || a.playState !== 'running')"
+
+
+def test_a_live_update_of_home_never_replays_the_page_opening(new_context, make_app_server):
+    """Home opens with the shared entrance once. A refresh that swaps its regions in place and
+    a switch flipped in place (which refreshes the headline) bring the new content in without
+    any block fading or rising again."""
+    server = make_app_server(seed=_seed_checkin(1), fake_providers=True)
+    context, page = _open(new_context, server, "/")
+    try:
+        page.context.add_init_script("(" + _CSS_RECORDER + ")()")
+        _goto_recorded(page, server.base_url() + "/")
+        _wait(page, "window.__css.some(e => e.name === 'skypane-reveal-fade')")
+        _wait(page, "!document.querySelector('main[data-page-open]') && " + _QUIET)
+        mark = _eval(page, "window.__css.length")
+        _record_a_detection(server.tmpdir, "NEWDET", "39ffff", "2026-08-01T23:30:00+00:00")
+        _request_refresh(page)
+        _wait(page, "document.querySelector(a).textContent.includes('NEWDET')", HOME_ROWS)
+        _wait(page, _QUIET)
+        assert _eval(page, _ENTRANCES_SINCE, mark) == []
+
+        mark = _eval(page, "window.__css.length")
+        button = page.locator(".home-switch button[role='switch']").first
+        was = button.get_attribute("aria-checked")
+        with page.expect_response(lambda r: r.request.method == "GET"
+                                  and r.url.rstrip("/") == server.base_url()):
+            button.click()
+        _wait(page, "document.querySelector(\".home-switch button[role='switch']\")"
+                    ".getAttribute('aria-checked') !== a"
+                    " && !document.querySelector('[data-quick-region][data-pending]')", was)
+        _wait(page, _QUIET)
+        assert _eval(page, _ENTRANCES_SINCE, mark) == []
     finally:
         context.close()
 

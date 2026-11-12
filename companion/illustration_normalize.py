@@ -16,6 +16,7 @@ import urllib.parse
 
 from PIL import Image
 
+from server.plane import illustrations
 from server.plane import render as panel_render
 
 # Width 450: the card image maxes at 325px mobile / 224px desktop, so a
@@ -139,3 +140,23 @@ def thumbnail_query(buster, width):
     """`buster` (a `?v=...` suffix or "") with the `w=` thumbnail request
     appended, for an <img> that shows the picture small."""
     return "%s%sw=%d" % (buster, "&" if buster else "?", width)
+
+
+def cache_buster(key, state_dir):
+    """A `"?v={mtime}"` suffix for `key`'s override file, or `""` when there
+    is no `state_dir`, no override yet, or the file cannot be read.
+
+    The illustration route lets a browser cache its answer; keying the
+    suffix on the override file's mtime changes the URL exactly when the
+    bytes change, so a replaced picture is never shown stale.
+    """
+    if not state_dir:
+        return ""
+    override_path = illustrations.override_path_for_key(key, state_dir)
+    if not override_path:
+        return ""
+    try:
+        mtime = int(os.stat(override_path).st_mtime)
+    except OSError:
+        return ""
+    return "?v=%d" % mtime

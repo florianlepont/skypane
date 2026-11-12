@@ -38,11 +38,16 @@ _EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # The selectors that spend the card entrance: the one shared definition.
-ENTRANCE_SELECTORS = (".reveal", ".reveal-appended", ".reveal-replay",
-    ".dashboard-main .group-block:not(.history-day):nth-child(-n + 6)",
-    ".dashboard-main .history-day:nth-child(-n + 3)",
-    ".dashboard-main .page-section:nth-child(-n + 6)",
-    ".dashboard-main .personalisation-look")
+ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
+    ".dashboard-main[data-page-open] .reveal",
+    ".dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .history-day:nth-child(-n + 3)",
+    ".dashboard-main[data-page-open] .page-section:nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .personalisation-look")
+# A table or an empty state straight on the sky opens like a card, without a stagger step.
+OPENING_CARD_SELECTORS = (
+    ".dashboard-main[data-page-open] > .empty-state",
+    ".dashboard-main[data-page-open] > .data-table-wrap")
 # The page header only fades in.
 OPENING_HEADER_SELECTORS = (".dashboard-main[data-page-open] > .page-header",)
 # The controls and blocks that follow the page header enter one stagger step later.
@@ -205,6 +210,28 @@ def test_style_css_honours_the_motion_budget(served_css):
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
 
 
+def test_every_transition_takes_its_duration_from_a_motion_token(served_css):
+    """no live rule gives a transition a duration of its own (150ms here, 180ms there): each
+    one spends a --motion-* token, so a hover, a press and a thumb all answer at the same
+    speeds; `transition: none` and the keyword-only values carry no duration at all"""
+    literal = re.compile(r"(?<![\w.-])\d*\.?\d+m?s(?![\w-])")
+    offenders = []
+    checked = 0
+    for rule in css_rules(served_css):
+        if any("prefers-reduced-motion" in at_rule for at_rule in rule.at_rules):
+            continue
+        for prop, value in rule.declarations:
+            if prop not in ("transition", "transition-duration"):
+                continue
+            checked += 1
+            if literal.search(value):
+                offenders.append((rule.selectors, value))
+            elif value.strip() not in ("none", "inherit", "initial", "unset"):
+                assert "var(--motion-" in value, (rule.selectors, value)
+    assert checked > 10, "the served stylesheet declares almost no transition: %d" % checked
+    assert not offenders, offenders
+
+
 def _spenders(served_css, token):
     return [
         (rule.selectors, prop, value)
@@ -236,8 +263,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (ENTRANCE_SELECTORS, "animation"),
         (OPENING_HEADER_SELECTORS, "animation"),
         (OPENING_BLOCK_SELECTORS, "animation"),
-        ((".dashboard-main > .empty-state",), "animation"),
-        ((".dashboard-main > .data-table-wrap",), "animation")], (
+        (OPENING_CARD_SELECTORS, "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
