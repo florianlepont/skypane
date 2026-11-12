@@ -762,6 +762,16 @@ a.pair-link {
   text-decoration: none;
 }
 
+a.pair-link--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  color: var(--color-on-accent);
+}
+
+a.pair-link--primary:hover {
+  background: var(--color-accent-hover);
+}
+
 .pair-form {
   display: grid;
   gap: var(--space-md);
