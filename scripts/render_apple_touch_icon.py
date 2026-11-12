@@ -7,7 +7,7 @@ PNG is rendered once here and committed. Run from the repo root:
 
     PLAYWRIGHT_BROWSERS_PATH=<browsers dir> python3 scripts/render_apple_touch_icon.py
 
-The tile is a full-bleed accent square (iOS rounds the corners itself) with the
+The tile is a full-bleed graphite square (iOS rounds the corners itself) with the
 whole mark in white, scaled to 56% so it stays inside the safe zone.
 """
 import os
@@ -23,7 +23,7 @@ OUT = os.path.join(
 # the accent flick drawn in white as well.
 TILE_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" width="180" height="180">'
-    '<rect width="180" height="180" fill="#B13F16"/>'
+    '<rect width="180" height="180" fill="#1F2430"/>'
     '<g transform="translate(39.60 39.60) scale(3.1500)" fill="none" stroke="#FFFFFF" '
     'stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">'
     '<path d="M17 2H10A4 4 0 0 0 6 6V26A4 4 0 0 0 10 30H22A4 4 0 0 0 26 26V15"/>'
