@@ -48,6 +48,8 @@
   // browser form post sends nothing of the sort, keeping the
   // scripts-blocked path unchanged.
   var FETCH_HEADER_VALUE = "quick-switch";
+  // Set by the server on the 200 that answers a switch with its confirmation toast.
+  var RESULT_HEADER = "X-Quick-Switch-Result";
 
   function ancestorWith(el, attr) {
     var node = el;
@@ -140,6 +142,31 @@
       region.removeChild(region.firstChild);
     }
     region.appendChild(template.content.cloneNode(true));
+  }
+
+  function confirmed(region) {
+    region.removeAttribute(PENDING_ATTR);
+    announceMutation();
+    requestRefresh(region);
+  }
+
+  // Shows the server-rendered confirmation toast in the live region, parsed
+  // as a document (never written as markup into the page) and armed for its
+  // auto-hide like the toasts the page arrived with.
+  function announceConfirmation(markup) {
+    var region = document.querySelector("[" + TOAST_ATTR + "]");
+    var toast = new DOMParser().parseFromString(markup, "text/html").querySelector(".toast");
+    if (!region || !toast) {
+      return;
+    }
+    while (region.firstChild) {
+      region.removeChild(region.firstChild);
+    }
+    var shown = document.importNode(toast, true);
+    region.appendChild(shown);
+    if (window.skypaneToasts && shown.hasAttribute("data-toast-autohide")) {
+      window.skypaneToasts.arm(shown);
+    }
   }
 
   // Asks freshness.js for one refresh now. A page without that loop simply
@@ -265,12 +292,18 @@
           + "&return_to=" + encodeURIComponent(returnTo)
           + (csrf ? "&csrf_token=" + encodeURIComponent(csrf) : "")
     }).then(function (response) {
-      // 204 and nothing else confirms; every other status (including
-      // the opaque redirect above) rolls back.
+      // 204, or the 200 that carries the confirmation toast, and nothing
+      // else confirms; every other status (including the opaque redirect
+      // above) rolls back.
       if (response.status === 204) {
-        region.removeAttribute(PENDING_ATTR);
-        announceMutation();
-        requestRefresh(region);
+        confirmed(region);
+        return;
+      }
+      if (response.status === 200 && response.headers.get(RESULT_HEADER) === "toast") {
+        response.text().then(function (markup) {
+          confirmed(region);
+          announceConfirmation(markup);
+        });
         return;
       }
       rollBack(control, region, form, wasOn, response);

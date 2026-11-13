@@ -23,7 +23,7 @@ from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from PIL import Image
 
-from companion import airline_actions, airline_display, device_scope, layout
+from companion import airline_actions, airline_display, device_scope, layout, request_body
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -33,6 +33,10 @@ from companion.flash import (
     FLASH_KEY_CALENDAR_SYNC_FAILED,
     FLASH_KEY_ILLUSTRATION_REJECTED,
     FLASH_KEY_ILLUSTRATION_REPLACE_FAILED,
+    FLASH_KEY_ILLUSTRATION_NOT_PNG,
+    FLASH_KEY_ILLUSTRATION_NOT_TRANSPARENT,
+    FLASH_KEY_ILLUSTRATION_TOO_LARGE,
+    FLASH_KEY_ILLUSTRATION_TOO_SMALL,
     FLASH_KEY_ILLUSTRATION_REPLACED,
     FLASH_KEY_MANUAL_DELETE_FAILED,
     FLASH_KEY_MANUAL_NAME_EMPTY,
@@ -74,6 +78,12 @@ import server.poll_cycle as poll_cycle
 # rebinds this under its historical name — companion/pages/airlines_page.py
 # also imports it from there lazily.
 MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
+_REFUSAL_FLASH = {
+    illustrations.PROBLEM_NOT_PNG: FLASH_KEY_ILLUSTRATION_NOT_PNG,
+    illustrations.PROBLEM_TOO_LARGE: FLASH_KEY_ILLUSTRATION_TOO_LARGE,
+    illustrations.PROBLEM_TOO_SMALL: FLASH_KEY_ILLUSTRATION_TOO_SMALL,
+    illustrations.PROBLEM_NOT_TRANSPARENT: FLASH_KEY_ILLUSTRATION_NOT_TRANSPARENT,
+}
 
 
 def _illustration_filenames(state_dir=None):
@@ -246,6 +256,11 @@ def _quiet_window_from_form(form):
     for name in ("quiet_hours_start", "quiet_hours_end"):
         if form.get(name) is None:
             errors.setdefault(name, form_post.ERROR_QUIET_HOURS_TIME_SHAPE)
+    if not errors and enabled["quiet_hours_enabled"] and (
+            times["quiet_hours_start"] == times["quiet_hours_end"]):
+        # A zero-length window rests the screen never; refusing it keeps the
+        # row's "10:00 - 10:00" from reading as all day.
+        errors["quiet_hours_end"] = form_post.ERROR_QUIET_HOURS_SAME_TIME
     if errors:
         return errors, None
     return None, {
@@ -287,8 +302,10 @@ class SettingsActionsMixin:
 
         raw = self._read_upload_body()
         if raw is None:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
+            # Over the size cap, or a body that could not be read at all.
+            too_large = request_body.parse_content_length(self.headers) > MAX_ILLUSTRATION_UPLOAD_BYTES
+            return self._scoped_redirect(resolve_dialog.with_query(back, "flash=%s" % quote(
+                FLASH_KEY_ILLUSTRATION_TOO_LARGE if too_large else FLASH_KEY_ILLUSTRATION_REJECTED)))
 
         payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
         if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
@@ -325,8 +342,9 @@ class SettingsActionsMixin:
             if problems:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
-                return self._scoped_redirect(
-                    resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
+                return self._scoped_redirect(resolve_dialog.with_query(
+                    back, "flash=%s" % quote(_REFUSAL_FLASH.get(
+                        illustrations.problem_category(problems), FLASH_KEY_ILLUSTRATION_REJECTED))))
 
             with Image.open(raw_tmp_path) as img:
                 rgba = img.convert("RGBA")

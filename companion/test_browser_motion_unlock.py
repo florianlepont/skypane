@@ -194,6 +194,73 @@ def test_a_new_airline_card_plays_the_flip_first_time(new_context, make_app_serv
         context.close()
 
 
+OVERRIDE = (
+    ":root{--motion-unlock:1234ms;--motion-reveal:777ms;--motion-picture:1500ms;"
+    "--motion-spring:cubic-bezier(0.1,0.2,0.3,0.4)}")
+OVERRIDE_SCRIPT = """
+    document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      style.textContent = %r;
+      document.head.appendChild(style);
+    });
+    window.__timings = [];
+    const realAnimate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      window.__timings.push({cls: String(this.getAttribute('class') || ''),
+        duration: options && options.duration, easing: options && options.easing});
+      return realAnimate.call(this, frames, options);
+    };""" % OVERRIDE
+
+
+def test_the_unlock_timings_follow_the_motion_tokens(new_context, make_app_server):
+    """the flip, the glint and the sparks take their lengths and easing from the page's
+    motion tokens, not from numbers of their own"""
+    server = make_app_server(seed=seed_collection)
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
+    context.add_init_script(OVERRIDE_SCRIPT)
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        page.wait_for_function(
+            "() => window.__timings.some(t => t.cls.indexOf('unlock-spark') >= 0)", timeout=10000)
+        timings = page.evaluate("() => window.__timings")
+        flip = [t for t in timings if "collection-card" in t["cls"]][0]
+        assert flip["duration"] == 1234 and flip["easing"] == "cubic-bezier(0.1,0.2,0.3,0.4)", flip
+        for part in ("unlock-glint__sweep", "unlock-spark"):
+            found = [t for t in timings if part in t["cls"] or part.split("__")[0] in t["cls"]]
+            assert found and all(t["duration"] == 777 for t in found), (part, found)
+    finally:
+        context.close()
+
+
+def test_the_picture_transition_takes_its_length_from_the_picture_token(
+        new_context, flights_server):
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": flights_server.base_url()}])
+    context.add_init_script(OVERRIDE_SCRIPT)
+    page = context.new_page()
+    try:
+        _login(page, flights_server.base_url())
+        page.goto(flights_server.base_url() + "/flights")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
+        page.evaluate("""() => { window.__vt = [];
+            const tick = () => { for (const a of document.getAnimations()) {
+              const e = a.effect;
+              if (e && e.pseudoElement === '::view-transition-group(skypane-flight-pic)') {
+                window.__vt.push(e.getTiming().duration); } }
+              requestAnimationFrame(tick); };
+            tick(); }""")
+        _open_picture(page)
+        durations = page.evaluate("() => window.__vt")
+        assert durations and set(durations) == {1500}, durations
+    finally:
+        context.close()
+
+
 def test_under_reduced_motion_the_new_card_is_shown_flipped_without_animation(
         new_context, make_app_server):
     server = make_app_server(seed=seed_collection)

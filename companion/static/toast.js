@@ -388,6 +388,9 @@
     armAutohide(toasts[i]);
   }
 
+  // quick-switch.js shows a confirmation toast after the page has loaded.
+  window.skypaneToasts = { arm: armAutohide };
+
   // No DOMContentLoaded wrapper needed: the <script> tag carries defer,
   // so this file only ever runs after parsing.
 })();

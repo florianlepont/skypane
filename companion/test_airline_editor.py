@@ -2,11 +2,14 @@
 capability with the same validation and refusals, and every edit returns to the
 editor; an owner and a co-manager are refused and nothing is written. Checks run
 over HTTP against a real server and compare the stored files."""
+import html
+import io
 import os
 import re
 import urllib.parse
 
 import pytest
+from PIL import Image
 
 import companion.test_companion_app_helpers as cah
 import companion.test_status_pages_helpers as shp
@@ -148,7 +151,7 @@ def test_a_picture_is_replaced_and_a_bad_file_is_refused(rig):
     path = rig.frame + "/illustration/air-france.png"
     status, headers = rig.upload("admin", path, b"not an image at all")
     assert (status, _query(headers)[0]) == (303, rig.frame + EDITOR)
-    assert _query(headers)[1]["flash"] == ["illustration_rejected"]
+    assert _query(headers)[1]["flash"] == ["illustration_not_png"]
     assert not rig.stored()
     with open(os.path.join(VENDORED, "vueling-airlines.png"), "rb") as handle:
         good = handle.read()
@@ -156,6 +159,60 @@ def test_a_picture_is_replaced_and_a_bad_file_is_refused(rig):
     assert (status, _query(headers)[0]) == (303, rig.frame + EDITOR)
     assert _query(headers)[1]["flash"] == ["illustration_replaced"]
     assert "illustration_overrides/air-france.png" in rig.stored()
+
+
+def _png(size, mode="RGBA", fill=(0, 0, 0, 0)):
+    buffer = io.BytesIO()
+    Image.new(mode, size, fill).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+REFUSALS = {
+    "not_png": ("illustration_not_png", "Couldn't use that file", "isn't a PNG image"),
+    "too_large": ("illustration_too_large", "Couldn't use that image", "too large"),
+    "opaque": ("illustration_not_transparent", "Couldn't use that image", "transparent background"),
+    "too_small": ("illustration_too_small", "Couldn't use that image", "at least 1200 pixels wide"),
+}
+
+
+def _refusal_cases():
+    from companion import post_actions
+    return {
+        "a text file": (b"not an image at all", "not_png"),
+        "a corrupt PNG": (b"\x89PNG\r\n\x1a\n" + b"garbage" * 40, "not_png"),
+        "an opaque PNG": (_png((1200, 500), "RGB", (9, 9, 9)), "opaque"),
+        "a narrow PNG": (_png((600, 300)), "too_small"),
+        "a portrait PNG": (_png((1200, 1300)), "too_small"),
+        "a file over the size cap": (
+            b"\x00" * (post_actions.MAX_ILLUSTRATION_UPLOAD_BYTES + 4096), "too_large"),
+        "a picture over the pixel cap": (_png((8000, 5001), "1", 0), "too_large"),
+    }
+
+
+@pytest.mark.parametrize("case", sorted(_refusal_cases()))
+def test_a_refused_picture_says_which_rule_it_broke(rig, case):
+    payload, reason = _refusal_cases()[case]
+    key, _title, detail = REFUSALS[reason]
+    path = rig.frame + "/illustration/air-france.png"
+    status, headers = rig.upload("admin", path, payload)
+    assert (status, _query(headers)[0]) == (303, rig.frame + EDITOR)
+    assert _query(headers)[1]["flash"] == [key]
+    assert not rig.stored()
+    page = html.unescape(rig.get("admin", rig.frame + EDITOR + "?flash=" + key)[2])
+    assert detail in page
+
+
+def test_each_refusal_reason_is_french_in_french(rig):
+    seen = set()
+    for key, _title, _detail in REFUSALS.values():
+        status, _headers, raw = http_request(
+            rig.server.url(rig.frame + EDITOR + "?flash=" + key),
+            cookie=rig.cookies["admin"], extra_headers={"Accept-Language": "fr"})
+        page = html.unescape(raw.decode("utf-8"))
+        assert status == 200 and "Couldn't use that" not in page
+        assert "Impossible d’utiliser" in page
+        seen.add(key)
+    assert len(seen) == 4
 
 
 def test_deleting_a_manual_resolution_returns_to_the_editor_and_removes_it(rig):

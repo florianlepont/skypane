@@ -305,7 +305,7 @@ def test_replace_zone_markup_and_styling_contract(css_text, tmp_path):
 def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
     """all three upload-form renderings (the no-JS fallback's, the dialog's
     copy, and the lightbox replace form) keep their <input type="file" ...
-    accept="image/png" required>, their single bare <button type="submit">,
+    accept="image/png" required>, their single shared submit button,
     their hint paragraph, their method/enctype/action and exactly one
     <form> byte-identical to their pre-25-07 output - each now also
     carrying its own id and, as the form's LAST child after the submit
@@ -335,7 +335,8 @@ def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
         expected_input = (
             '<input type="file" id="%s" name="image" accept="image/png" required>' % input_id)
         assert markup.count(expected_input) == 1, label
-        assert markup.count('<button type="submit">') == 1, label
+        assert markup.count('<button type="submit" class="btn btn--secondary">') == 1, label
+        assert markup.count("<button") == 1, label
         assert markup.count(hint_html) == 1, label
         assert markup.count("<form") == 1, label
         form_tag = re.search(r"<form\b[^>]*>", markup)
@@ -345,7 +346,7 @@ def test_upload_forms_native_controls_are_unchanged_by_the_drop_zone():
             assert required in form_tag.group(0), "%s: expected %r in %r" % (label, required, form_tag.group(0))
         drop_at = markup.find(airlines_page.UPLOAD_DROP_ATTR)
         assert drop_at != -1, "%s: renders no drop zone at all" % (label,)
-        assert drop_at > markup.index('<button type="submit">'), (
+        assert drop_at > markup.index('<button type="submit" class="btn btn--secondary">'), (
             "%s: the drop zone renders BEFORE the submit button" % (label,))
         expected_hook = '%s="%s"' % (airlines_page.UPLOAD_DROP_INPUT_ATTR, input_id)
         assert expected_hook in markup, label
@@ -508,8 +509,9 @@ def test_gap_row_markup_shape_and_form_vocabulary():
     assert 'list="airlines-known-names"' in field and "required" in field
     assert 'aria-label="Airline name for the prefix XYZ"' in field
     assert '<select name="default_type" aria-label="Default aircraft type for XYZ">' in group_html
-    assert '<button type="submit" class="airlines-resolve__ok">Validate</button>' in group_html
-    assert '<button type="reset" class="airlines-resolve__skip">Ignore</button>' in group_html
+    # Validate and Ignore are the shared buttons: a primary submit and a bordered reset.
+    assert '<button type="submit" class="btn btn--primary">Validate</button>' in group_html
+    assert '<button type="reset" class="btn btn--secondary">Ignore</button>' in group_html
     assert '<span class="mono">XYZ123</span>' in group_html
 
 

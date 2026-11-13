@@ -80,7 +80,7 @@ def test_the_resolve_fields_are_short_and_share_a_row_on_a_wide_screen(new_conte
         boxes = page.evaluate("""args => {
             const r = s => document.querySelector(s).getBoundingClientRect();
             return {name: r(args[0]), select: r(args[1]), ok: r(args[2])};
-        }""", [GAP_NAME, GAP + " select", GAP + " .airlines-resolve__ok"])
+        }""", [GAP_NAME, GAP + " select", GAP + " .airlines-resolve__actions button[type=submit]"])
         assert 200 <= boxes["name"]["width"] <= 281, boxes
         assert 120 <= boxes["select"]["width"] <= 181, boxes
         assert abs(boxes["name"]["top"] - boxes["select"]["top"]) < 2, boxes
@@ -103,8 +103,8 @@ def test_the_table_fits_and_every_control_is_a_44px_target_in_both_themes(
             for selector in (
                     FRANCE_NAME, TRANSAVIA + " .airlines-expand > summary",
                     TRANSAVIA + " .airlines-thumb", TRANSAVIA + " .airlines-row .row-menu__toggle",
-                    GAP_NAME, GAP + " select", GAP + " .airlines-resolve__ok",
-                    GAP + " .airlines-resolve__skip"):
+                    GAP_NAME, GAP + " select", GAP + " .airlines-resolve__actions button[type=submit]",
+                    GAP + " .airlines-resolve__actions button[type=reset]"):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "airlines %s %s" % (name, lang))
     finally:
@@ -126,7 +126,7 @@ def test_the_unidentified_prefix_is_a_highlighted_row_on_top_resolved_in_place(
         page.locator(GAP_NAME).fill("Xyz Wings")
         page.locator(GAP + " select").select_option("A320")
         with page.expect_navigation():
-            page.locator(GAP + " .airlines-resolve__ok").click()
+            page.locator(GAP + " .airlines-resolve__actions button[type=submit]").click()
         page.wait_for_function(
             "() => document.readyState === 'complete' && !document.querySelector("
             "'tbody.airline-group--gap')", timeout=15000)
@@ -148,7 +148,7 @@ def test_ignore_clears_the_row_without_saving(new_context, make_app_server):
     try:
         _settle(page, GAP_NAME)
         page.locator(GAP_NAME).fill("Never Saved Air")
-        page.locator(GAP + " .airlines-resolve__skip").click()
+        page.locator(GAP + " .airlines-resolve__actions button[type=reset]").click()
         page.wait_for_function(
             "sel => document.querySelector(sel).value === ''", arg=GAP_NAME, timeout=5000)
         assert "XYZ" not in manual_resolutions.load_manual_resolutions(server.state_dir)
@@ -540,7 +540,7 @@ def test_naming_a_prefix_is_audited(new_context, make_app_server):
         _settle(page, GAP_NAME)
         page.locator(GAP_NAME).fill("Audit Air")
         with page.expect_navigation():
-            page.locator(GAP + " .airlines-resolve__ok").click()
+            page.locator(GAP + " .airlines-resolve__actions button[type=submit]").click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert "airline.resolve" in _audit_actions(server.state_dir)
     finally:

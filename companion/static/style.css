@@ -183,6 +183,10 @@
    * replaces it. */
   --motion-shimmer: 1.3s;
   --motion-reveal: 900ms;
+  /* The thumbnail-to-picture transition runs a little longer than a page
+   * change; a new airline card's flip is a short flourish of its own. */
+  --motion-picture: 480ms;
+  --motion-unlock: 560ms;
   --motion-count: 600ms;
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
@@ -505,7 +509,7 @@ html[data-ui-theme="dark"] {
   /* The thumbnail-to-picture transition runs a little longer than a page
    * change and crops both snapshots to the same cover fit. */
   ::view-transition-group(skypane-flight-pic) {
-    animation-duration: 480ms;
+    animation-duration: var(--motion-picture);
     animation-timing-function: var(--ease-out);
   }
 

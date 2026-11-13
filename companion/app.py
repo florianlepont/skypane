@@ -759,7 +759,7 @@ class Handler(
         return self.send_html(200, credits_page.credits_page(
             self._resolved_ui_theme(), health_alert, back=back, home_route=home_route))
 
-    def _forbidden_page(self, purpose=None):
+    def _forbidden_page(self, purpose=None, reopen=None):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
         Byte-for-byte the same shape as `_not_found_page()` above. The
         markup itself is `companion/login_page.py`'s `forbidden_page()`.
@@ -770,7 +770,7 @@ class Handler(
         back, home_route = self._back_target()
         return login_page.forbidden_page(
             self._resolved_ui_theme(), health_alert, back=back, purpose=purpose,
-            home_route=home_route)
+            home_route=home_route, reopen=reopen)
 
     def _back_target(self):
         """(which onward link, Home route) an error page offers the current
@@ -820,13 +820,13 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.unavailable_page(self._resolved_ui_theme())
 
-    def _render_login_page(self, next_route=None, expired=False):
+    def _render_login_page(self, next_route=None, expired=False, notice=None):
         # Pre-session, like _not_found_page() above. The markup itself is
         # companion/login_page.py's render_login_page().
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.render_login_page(
             self._resolved_ui_theme(), next_route=next_route,
-            auth0_enabled=self._auth0_enabled(), expired=expired)
+            auth0_enabled=self._auth0_enabled(), expired=expired, notice=notice)
 
     def _serve_static(self, abs_path, content_type, cache_control):
         """Shared body behind `_serve_static_route()` and
@@ -938,7 +938,9 @@ class Handler(
         if flash_html is None:
             flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
-            title=i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
+            title=config_page.page_title(
+                i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
+                prefs.current_request_path()),
             active=layout.nav_slug(route),
             body=body,
             ui_theme=ctx.ui_theme, flash=flash_html,
@@ -1029,7 +1031,8 @@ class Handler(
         query = parse_qs(urlsplit(self.path).query)
         return self.send_html(200, self._render_login_page(
             next_route=_validated_next_route(query.get("next", [None])[0]),
-            expired=query.get("expired") == ["1"]))
+            expired=query.get("expired") == ["1"],
+            notice=login_page.notice_for_error_code(query.get("error", [None])[0])))
 
     def _handle_rule_delete_post(self, device, middle):
         """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:
@@ -1102,7 +1105,8 @@ class Handler(
             auth.csrf_token(raw_session) if raw_session and principal is not None else "")
         if method == "POST" and route.csrf and not auth.csrf_ok(
                 raw_session, routes.submitted_csrf(self, route)):
-            return self.send_html(403, self._forbidden_page(login_page.CSRF_EXPIRED_TEXT))
+            return self.send_html(403, self._forbidden_page(
+                login_page.CSRF_EXPIRED_TEXT, reopen=routes.reopen_address(parsed.path)))
         if route.access.min_role == access.ANONYMOUS:
             # Login, sign-in and static assets: no device.
             device_scope.set_request_scope(None, ())

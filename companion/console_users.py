@@ -308,9 +308,26 @@ def _run_action(h, user_id, action, change, success_flash, audit_by_email=False)
     finally:
         conn.close()
     if h._wants_no_content() and action in (DISABLE_ACTION, ENABLE_ACTION):
-        # The Active switch updates in place: the page already shows the result.
-        return h.send_no_content()
+        # The Active switch updates in place: the page already shows the
+        # result, so the answer is the confirmation the redirect would have shown.
+        return _send_confirmation(h, console_flash.toast_for_key(success_flash, **params))
     return h.redirect(USERS_PATH, set_cookie=_back(success_flash, **params))
+
+
+def _send_confirmation(h, toast_markup):
+    """The switch's fetch answer: the toast, marked so the script knows it is
+    the confirmation (a bare 200 never is one)."""
+    if not toast_markup:
+        return h.send_no_content()
+    body = toast_markup.encode("utf-8")
+    h.send_response(200)
+    h.send_header("Content-Type", "text/html; charset=utf-8")
+    h.send_header("Content-Length", str(len(body)))
+    h.send_header("Cache-Control", "no-store")
+    h.send_header("X-Quick-Switch-Result", "toast")
+    h._send_hardening_headers()
+    h.end_headers()
+    h.wfile.write(body)
 
 
 def _unknown_id(h):

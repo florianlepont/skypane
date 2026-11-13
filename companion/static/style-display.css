@@ -447,8 +447,7 @@ button.look-frame__open:focus-visible {
   gap: var(--space-sm);
 }
 
-.look-sheet__title,
-.special-looks__title {
+.look-sheet__title {
   margin: 0;
   font-family: var(--font-display);
   font-size: var(--font-card-title-size);
@@ -1004,16 +1003,6 @@ button.rule-suggestion-chip {
   margin: 0 0 var(--space-md);
 }
 
-/* The card title already names the Special looks list. */
-.personalisation-card .special-looks__title {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
 
 /* In the card, "New special look" is the section's one primary action. */
 .personalisation-card .special-add__summary {
