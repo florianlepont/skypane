@@ -680,28 +680,15 @@ html:not(.map-ready) .place-tap-hint {
 }
 
 /* The app bar floats over the map (the map runs under the status bar and the
- * bar). A soft fade of the canvas colour behind it keeps the logo and the
- * frame button readable without a hard bar; it starts below the status bar
- * zone (the top safe area), which stays the bare map. */
+ * bar). It draws no backdrop of its own: the logo and the wordmark sit on
+ * the bare map, the frame button on its own surface, and under the status
+ * bar only the browser's own blur shows. */
 .map-ready .site-header:has(~ .page-content .place-stage) {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   margin-bottom: 0;
-}
-
-.map-ready .site-header:has(~ .page-content .place-stage)::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  top: calc(var(--safe-top) + var(--space-xs));
-  left: 0;
-  right: 0;
-  height: calc(100% - var(--safe-top) + 20px);
-  background: linear-gradient(
-    to bottom, color-mix(in srgb, var(--color-canvas) 85%, transparent), transparent);
-  pointer-events: none;
 }
 
 /* No zoom buttons on a phone (pinch zooms); the keyboard and the wide screen
@@ -818,17 +805,17 @@ html:not(.map-ready) .place-tap-hint {
     min-height: 0;
   }
 
-  /* In a Safari tab on an iPhone the status bar and the toolbar are not part
-   * of the page: Safari shows there what of the document lies above and
-   * below the window, and a flat colour where there is none. 100lvh stops
-   * above the collapsed toolbar too. So the map runs on past the page: a
-   * lead above it, which place-map.js scrolls past (it adds place-lead only
-   * in a Safari tab), and a tail below it. Everything else moves down by
-   * the lead, so it sits in the window exactly as without it. Both are
-   * taller than any status bar or collapsed toolbar. The fixed strip would
-   * be a ground line right under the status bar there. A drag on the sheet
-   * does not scroll the page (it would bare the end of the tail under the
-   * toolbar and slide the app bar under the clock); the script still can. */
+  /* On an iPhone, in a Safari tab and in a Home Screen web app alike, the
+   * status bar is not part of the page, nor is a tab's toolbar: iOS shows
+   * there what of the document lies above and below the window, and a flat
+   * colour where there is none. 100lvh stops above the collapsed toolbar
+   * too. So the map runs on past the page: a lead above it, which
+   * place-map.js scrolls past once the map runs, and a tail below it.
+   * Everything else moves down by the lead, so it sits in the window exactly
+   * as without it. Both are taller than any status bar or collapsed toolbar.
+   * A drag on the sheet does not scroll the page (it would bare the end of
+   * the tail under the toolbar and slide the app bar under the clock); the
+   * script still can. */
   html.map-ready.place-lead {
     --place-lead: 80px;
     --place-tail: 80px;
@@ -844,11 +831,11 @@ html:not(.map-ready) .place-tap-hint {
     top: var(--place-lead);
   }
 
-  /* The tiles are light in both themes, so the frosted app bar over them
-   * (below) is light in both, and in the dark theme the logo, the wordmark
-   * and the frame button take the light theme's colours, the values of the
-   * light palette in style.css: the dark theme's light foregrounds would not
-   * read on the frost. The frame button's popover keeps the page's theme. */
+  /* The tiles are light in both themes, and so is the status bar over them,
+   * so in the dark theme the logo, the wordmark and the frame button take
+   * the light theme's colours, the values of the light palette in
+   * style.css: the dark theme's light foregrounds would not read on the
+   * map. The frame button's popover keeps the page's theme. */
   .map-ready.place-lead .site-header:has(~ .page-content .place-stage) > .brand,
   .map-ready.place-lead .site-header:has(~ .page-content .place-stage) .frame-menu__button {
     --color-text: #17191F;
@@ -865,45 +852,9 @@ html:not(.map-ready) .place-tap-hint {
     color: var(--color-text);
   }
 
-  /* Safari blurs only the top of the status bar zone and stops in steps
-   * across its icons. One frosted layer of the page runs from the top of the
-   * lead through the app bar instead, at full strength down to the bar's
-   * middle, then eases out over the gap below the bar, so Safari's own
-   * blur ends on map that is already blurred and no edge shows. The layer
-   * stacks above the search field, so it ends at the field's top edge (the
-   * stage's gutter below the bar): any lower, it would haze the field. Its
-   * tint starts in the tiles' ground colour and turns to the light theme's
-   * canvas colour behind the logo, in both themes (the dark theme's canvas
-   * would turn the bar into a grey band under a pale status bar). */
-  .map-ready.place-lead .site-header:has(~ .page-content .place-stage)::before {
-    --color-canvas: #F1F3F6;
-    --place-solid: calc(var(--place-lead) + var(--space-lg));
-    --place-fade: linear-gradient(
-      to bottom, #000 var(--place-solid),
-      rgb(0 0 0 / .85) calc(var(--place-solid) + (100% - var(--place-solid)) * .25),
-      rgb(0 0 0 / .5) calc(var(--place-solid) + (100% - var(--place-solid)) * .5),
-      rgb(0 0 0 / .15) calc(var(--place-solid) + (100% - var(--place-solid)) * .75),
-      transparent);
-    top: calc(-1 * var(--place-lead));
-    height: calc(var(--place-lead) + 100% + var(--space-sm) + var(--space-xs));
-    background: linear-gradient(
-      to bottom,
-      color-mix(in srgb, var(--color-map-ground) 40%, transparent)
-        calc(var(--place-lead) - var(--space-2xl)),
-      color-mix(in srgb, var(--color-canvas) 70%, transparent) var(--place-solid));
-    -webkit-backdrop-filter: blur(8px);
-    backdrop-filter: blur(8px);
-    -webkit-mask-image: var(--place-fade);
-    mask-image: var(--place-fade);
-  }
-
   .map-ready.place-lead .place-map {
     top: calc(-1 * var(--place-lead));
     height: calc(100lvh + var(--place-lead) + var(--place-tail));
-  }
-
-  .map-ready.place-lead .place-edge {
-    display: none;
   }
 
   /* The sheet is one compact card: its first row is the airport (or the
@@ -1074,12 +1025,6 @@ html:not(.map-ready) .place-tap-hint {
     right: auto;
   }
 
-  /* Only the frame button sits over the map here, and it carries its own
-   * opaque surface: no fade behind it (a dark glow smudged the light tiles). */
-  .map-ready .site-header:has(~ .page-content .place-stage)::before {
-    content: none;
-  }
-
   .map-ready .place-stage {
     min-height: 34rem;
     --place-card-w: 400px;
@@ -1196,18 +1141,17 @@ html:not(.map-ready) .place-tap-hint {
   display: none;
 }
 
-/* The strip pinned to the top edge of a phone window while the map or its
- * loading state fills the page. The map itself is document content there, so
- * this is the one fixed box at that edge, for a page that reaches under the
- * status bar itself (a Home Screen web app). It is the tile ground colour, a
- * few pixels high, above the app bar. In a Safari tab a fixed box sits below
- * the status bar instead, so the map's lead replaces it once the map runs. */
+/* The strip pinned to the top edge of a phone window while the map's loading
+ * state fills the page. The placeholder is document content there, so this
+ * is the one fixed box at that edge, in the tile ground colour, a few pixels
+ * high, above the app bar. Once the map runs, the map's lead lies under the
+ * status bar instead and the strip goes: it would be a ground line right
+ * under the status bar. */
 .place-edge {
   display: none;
 }
 
 @media (max-width: 959.98px) {
-  .map-ready .place-edge,
   html.js-early:not(.map-ready) .place-edge {
     display: block;
     position: fixed;

@@ -12,7 +12,7 @@ import pytest
 
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, _login, _no_js_page
-from place_map_support import SETTLED, Hosts, seed as _seed
+from place_map_support import PAGE_OVERFLOW, SETTLED, Hosts, seed as _seed
 from server import airports, device_config
 
 pytestmark = pytest.mark.browser
@@ -85,7 +85,8 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
         new_context, make_app_server, viewport, theme):
     """the map runs from the top edge to the bottom edge and from side to side (under the status
     bar area, the tab bar and the bottom safe area); the page behind it is the theme's secondary surface,
-    the document cannot scroll, and the pixels at the bottom corners and the top row are map"""
+    nothing but the map runs past the window and the document cannot be scrolled by hand, and the
+    pixels at the bottom corners and the top row are map"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts = _open_ready(
         new_context, server, viewport, color_scheme=theme)
@@ -105,7 +106,7 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             "() => { const map = getComputedStyle(document.getElementById('place-map'));"
             " const html = getComputedStyle(document.documentElement);"
             " return {map: map.backgroundColor, html: html.backgroundColor, image: html.backgroundImage,"
-            " scroll: document.scrollingElement.scrollHeight - innerHeight}; }")
+            " overflow: html.overflow}; }")
         # The page behind the map is the theme's secondary surface (a placeholder colour, never
         # the sky); the fixed map box itself shows the tile ground colour.
         assert page_colours["map"] == "rgb(242, 239, 233)", page_colours
@@ -114,7 +115,8 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " document.body.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; }"
         ), page_colours
         assert page_colours["image"] == "none", page_colours
-        assert page_colours["scroll"] <= 0, page_colours
+        assert page_colours["overflow"] == "hidden", page_colours
+        assert page.evaluate(PAGE_OVERFLOW) <= 0
         # The picture itself: the bottom-corner pixels are the map's tile colour, like its middle.
         png = page.screenshot()
         from PIL import Image

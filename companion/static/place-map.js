@@ -47,8 +47,9 @@
   // Set on the page element by the head script while scripts run: the loading
   // state shows instead of the plain form. A map that cannot start clears it.
   var EARLY_CLASS = "js-early";
-  // Set on the page element in a Safari tab: the stylesheet puts a lead of
-  // map above the page (its size is --place-lead), which the page scrolls past.
+  // Set on the page element once the map runs: on a phone the stylesheet puts
+  // a lead of map above the page (its size is --place-lead), which the page
+  // scrolls past.
   var LEAD_CLASS = "place-lead";
   // How long after the last scroll the page settles back past the lead.
   var LEAD_SETTLE_MS = 250;
@@ -962,17 +963,15 @@
     return parseFloat(value) || 0;
   }
 
-  // In a Safari tab on an iPhone (navigator.standalone is false there, true
-  // in a Home Screen web app and undefined in other browsers) the status bar
-  // shows the part of the document above the window and the toolbar the part
-  // below it. The page starts scrolled past the lead of map the stylesheet
-  // adds, with its tail of map below the window, so both parts are map. A
-  // scroll that ends anywhere else (a drag on the sheet, a rotation) settles
-  // back, never during a touch or while a field is being typed in.
+  // On an iPhone, in a Safari tab and in a Home Screen web app alike, the
+  // status bar shows the part of the document above the window, and a
+  // tab's toolbar the part below it. The page starts scrolled past the lead
+  // of map the stylesheet adds, with its tail of map below the window, so
+  // both parts are map. Other browsers show neither part, so there the page
+  // looks as it would without them. A scroll that ends anywhere else (a drag
+  // on the sheet, a rotation) settles back, never during a touch or while a
+  // field is being typed in.
   function leadUnderStatusBar() {
-    if (window.navigator.standalone !== false) {
-      return;
-    }
     leadApplied = true;
     document.documentElement.className += " " + LEAD_CLASS;
     if ("scrollRestoration" in window.history) {

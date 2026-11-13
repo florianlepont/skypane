@@ -296,13 +296,13 @@ def test_the_map_runs_behind_the_glass_sidebar_on_a_wide_screen(new_context, mak
 
 
 def test_the_map_runs_behind_the_opaque_tab_bar_on_a_phone(new_context, make_app_server):
-    """the map reaches the bottom of the window, the tab bar floats over it as one opaque
-    surface (a solid fill, no blur) and the sheet and the bar sit above the tab bar"""
+    """the map reaches past the top and the bottom of the window, the tab bar floats over it as
+    one opaque surface (a solid fill, no blur) and the sheet and the bar sit above the tab bar"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts, _errors = _open(new_context, server, VIEWPORT_PHONE)
     try:
         box = page.locator(MAP).bounding_box()
-        assert box["y"] == 0 and box["height"] == VIEWPORT_PHONE["height"], box
+        assert box["y"] < 0 and box["y"] + box["height"] > VIEWPORT_PHONE["height"], box
         tab = page.locator(".tab-bar").bounding_box()
         assert box["y"] + box["height"] >= tab["y"] + tab["height"]
         fill = page.evaluate(
