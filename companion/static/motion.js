@@ -637,6 +637,14 @@
   var SPIN_TURNS = 9;
   var PULL_START = 8;
 
+  // One turn of the spinner, from the stylesheet's --motion-spin token.
+  function spinMs() {
+    var raw = window.getComputedStyle(document.documentElement)
+      .getPropertyValue("--motion-spin");
+    var match = /^\s*(\d+(?:\.\d+)?)ms\s*$/.exec(raw || "");
+    return match ? parseFloat(match[1]) : 700;
+  }
+
   function initPullToRefresh() {
     var phone = window.matchMedia("(max-width: 699.98px)");
     // The list is a swap target: looked up fresh, never held.
@@ -765,7 +773,7 @@
       if (glyph) {
         glyph.style.transform = "";
         spin = play(glyph, [{transform: "rotate(0deg)"}, {transform: "rotate(360deg)"}],
-                    {duration: 700, iterations: SPIN_TURNS});
+                    {duration: spinMs(), iterations: SPIN_TURNS});
       }
       paint(PULL_THRESHOLD);
       document.addEventListener("skypane-refresh-done", finish);

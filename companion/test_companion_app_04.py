@@ -28,7 +28,7 @@ import companion.layout as layout
 from companion.pages import config_page
 from companion_app_server import (
     http_request, login, served_stylesheet, with_csrf)
-from companion_markup import at_rule_blocks, css_rules, custom_properties
+from companion_markup import at_rule_blocks, css_rules, custom_properties, declarations_for
 from server import device_config
 
 import companion.app as app_module
@@ -87,6 +87,8 @@ _MOTION_LAYER_TOKENS = (
     "--motion-shimmer", "--motion-reveal", "--motion-count", "--motion-picture",
     "--motion-unlock")
 _MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
+# Read by motion.js (the pull-to-refresh spinner's turn), spent by no CSS rule.
+_SCRIPT_TOKENS = ("--motion-spin",)
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
 _MOTION_EXCEPTION_SELECTORS = {
     "--motion-toast-dwell": (".toast[data-toast-armed] .toast__timer",),
@@ -246,6 +248,36 @@ def test_every_transition_takes_its_duration_from_a_motion_token(served_css):
     assert not offenders, offenders
 
 
+# Entrances and exits all share the one --ease-out curve. The three below are loops or
+# flourishes that keep the plain keyword: the status halo's decay, the switch ring's glow and
+# a press.
+_PLAIN_EASE_OUT_RULES = frozenset((
+    ".home-state__dot--pulse::after", ".hero__ring.is-ring-done .hero__ring-done",
+    ".sidebar-link:active"))
+
+
+def test_every_entrance_and_exit_shares_the_one_ease_out_token(served_css):
+    offenders = []
+    for rule in css_rules(served_css):
+        for prop, value in rule.declarations:
+            if prop in ("transition", "animation", "transition-timing-function",
+                        "animation-timing-function") and re.search(
+                            r"(?<![\w-])ease-out(?![\w-])", value):
+                if not (set(rule.selectors) & _PLAIN_EASE_OUT_RULES) and "view-transition" not in str(
+                        rule.selectors):
+                    offenders.append((rule.selectors, value))
+    assert not offenders, offenders
+
+
+def test_the_tab_bar_and_sidebar_view_transition_groups_spend_the_motion_tokens(served_css):
+    for name in ("skypane-tab-bar", "skypane-sidebar"):
+        decls = declarations_for(
+            served_css, "::view-transition-group(%s)" % name,
+            at_rules=("@media (prefers-reduced-motion: no-preference)",))
+        assert decls.get("animation-duration") == "var(--motion-view-transition)", (name, decls)
+        assert decls.get("animation-timing-function") == "var(--ease-out)", (name, decls)
+
+
 def _spenders(served_css, token):
     return [
         (rule.selectors, prop, value)
@@ -266,7 +298,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     declared = sorted(name for name in root if name.startswith("--motion-"))
     assert declared == sorted(
         _MOTION_TOKENS + _MOTION_LAYER_TOKENS + _MOTION_EXCEPTION_TOKENS
-        + (_DOT_PULSE_TOKEN,) + tuple(_AMBIENT_TOKENS)), (
+        + (_DOT_PULSE_TOKEN,) + _SCRIPT_TOKENS + tuple(_AMBIENT_TOKENS)), (
         "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
     # The card entrance's two tokens: --motion-enter is the animation's duration and

@@ -187,6 +187,8 @@
   /* The cross-document page change: short, so the new page is touchable
    * as soon as it is shown. */
   --motion-view-transition: 260ms;
+  /* The pull-to-refresh spinner's turn; read by motion.js. */
+  --motion-spin: 700ms;
   --motion-press: 90ms;
   /* A loading placeholder's sweep, and the blur-up of the picture that
    * replaces it. */
@@ -497,6 +499,14 @@ html[data-ui-theme="dark"] {
   ::view-transition-group(root),
   ::view-transition-old(root),
   ::view-transition-new(root) {
+    animation-duration: var(--motion-view-transition);
+    animation-timing-function: var(--ease-out);
+  }
+
+  /* The tab bar and the sidebar are named elements too: they morph on the
+   * same duration and curve as the page, not the browser's own 250ms ease. */
+  ::view-transition-group(skypane-tab-bar),
+  ::view-transition-group(skypane-sidebar) {
     animation-duration: var(--motion-view-transition);
     animation-timing-function: var(--ease-out);
   }
@@ -1541,7 +1551,7 @@ select.visually-hidden {
  * .is-breathing above. Reduced motion already zeroes this via the
  * global override; the file's pinned reduce-block count stays at two. */
 .is-fading-in {
-  animation: skypane-fade-in var(--motion-fast) ease-out;
+  animation: skypane-fade-in var(--motion-fast) var(--ease-out);
 }
 
 /* One class, both renderings: Flights renders every flight as both a
@@ -1549,7 +1559,7 @@ select.visually-hidden {
  * the identity, so one rule serves both. Names the MOTION, like
  * .is-breathing/.is-fading-in above. */
 .is-new-row {
-  animation: skypane-row-arrive var(--motion-slow) ease-out;
+  animation: skypane-row-arrive var(--motion-slow) var(--ease-out);
 }
 
 .dot-label {
@@ -1895,7 +1905,7 @@ select.visually-hidden {
   .toast-region--flash .toast.is-returning,
   .toast-region--live .toast.is-returning {
     transition: transform var(--motion-spring-duration) var(--motion-spring),
-      opacity var(--motion-fast) ease-out;
+      opacity var(--motion-fast) var(--ease-out);
   }
 
   .toast-region--flash .toast.is-leaving,
@@ -2419,7 +2429,7 @@ button:not(.value-control__handle):active {
   /* Reuses the existing skypane-bar-arrive @keyframes rather than a new
    * block. Fires when display changes from none, the only way the bar is
    * ever revealed. The global reduced-motion override already zeroes it. */
-  animation: skypane-bar-arrive var(--motion-fast) ease-out;
+  animation: skypane-bar-arrive var(--motion-fast) var(--ease-out);
 }
 
 .dirty-bar__message {
@@ -4339,8 +4349,8 @@ a.airline-card {
    * closed dialog hit-testable and in the tab order meanwhile. */
   opacity: 0;
   transform: scale(0.96);
-  transition: opacity var(--motion-fast) ease-out,
-    transform var(--motion-fast) ease-out;
+  transition: opacity var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
 .lightbox[open] {
@@ -4814,7 +4824,7 @@ html:not(.map-ready) .place-details__close {
   font-weight: var(--weight-regular);
   visibility: hidden;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease-out;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* The estimated "Probably charging" pill, shared by Home and Health. The
@@ -6125,8 +6135,8 @@ dialog.modal::backdrop {
 dialog.modal.is-modal {
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity var(--motion-fast) ease-out,
-    transform var(--motion-fast) ease-out;
+  transition: opacity var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
 dialog.modal.is-modal[open] {
@@ -8158,7 +8168,7 @@ body.is-pulling {
 }
 
 .pull-indicator.is-pull-settling {
-  transition: opacity var(--motion-fast) ease-out,
+  transition: opacity var(--motion-fast) var(--ease-out),
     transform var(--motion-spring-duration) var(--motion-spring);
 }
 
