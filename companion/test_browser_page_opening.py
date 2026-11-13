@@ -952,6 +952,25 @@ def test_the_style_page_opens_on_a_wide_screen_without_the_picture_moving(
         context.close()
 
 
+def test_the_administrators_not_found_page_keeps_the_console_navigation_on_a_desktop(
+        new_context, server):
+    """with no frame in scope the Console is the administrator's only space: the sidebar lists
+    its destinations and the space switch marks the Console, not 'My frame'"""
+    context = _admin_context(new_context, server, {"width": 1280, "height": 900},
+                             reduced_motion="no-preference")
+    try:
+        page = context.new_page()
+        _open(page, server, "/not-a-page")
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        links = page.locator(".sidebar-nav a").count()
+        assert links >= 4, links
+        assert page.locator(".sidebar-nav .sidebar-link--active").count() == 0
+        current = page.locator(".space-switch [aria-current=page]")
+        assert current.count() == 1 and "Console" in current.inner_text()
+    finally:
+        context.close()
+
+
 def test_the_not_found_page_selects_no_cell_and_keeps_a_whole_bar(new_context, server):
     """an error page is in no tab: no cell wears the pill (More included) and the bar still
     offers the destinations instead of a lone More cell"""

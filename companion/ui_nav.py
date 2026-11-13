@@ -137,7 +137,15 @@ def current_space(active):
     """
     if is_user_principal():
         return None
-    return CONSOLE_SPACE if active in _CONSOLE_SLUGS else PERSONAL_SPACE
+    if active in _CONSOLE_SLUGS:
+        return CONSOLE_SPACE
+    # An administrator with no frame in scope has no personal destinations: a
+    # page outside both spaces (the not-found page of an unknown address) is
+    # then shown in the Console, the only space with pages to go to.
+    if (active != ACCOUNT_NAV_SLUG and is_admin_principal()
+            and not _personal_routes(_PERSONAL_SIDEBAR_PAGES)):
+        return CONSOLE_SPACE
+    return PERSONAL_SPACE
 
 
 def _frame_entry(route, active):
