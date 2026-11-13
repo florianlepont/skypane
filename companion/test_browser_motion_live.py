@@ -434,6 +434,42 @@ def test_a_pull_past_the_threshold_refreshes_once_and_the_list_comes_back(
         context.close()
 
 
+def test_a_refreshed_list_plays_one_entrance_not_two(new_context, make_app_server):
+    """after a pull the cards enter one after the other and the group holding them does not
+    replay the page-opening entrance as well; the spinner is a finite animation"""
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    context, page = _open(new_context, server, "/flights")
+    try:
+        x, y = _flights_ready(page, server.base_url())
+        _wait(page, "document.getAnimations().every(a => !Number.isFinite("
+                    "a.effect.getComputedTiming().endTime) || a.playState !== 'running')")
+        page.evaluate("() => { window.__css = [];"
+                      " document.addEventListener('animationstart', (e) => window.__css.push("
+                      "e.animationName + ' ' + e.target.className), true); }")
+        page.evaluate("() => { window.__spins = [];"
+                      " const real = Element.prototype.animate;"
+                      " Element.prototype.animate = function (f, o) {"
+                      "  if (this.classList.contains('pull-indicator__icon')) { window.__spins.push(o); }"
+                      "  return real.call(this, f, o); }; }")
+        # A flight arrives while the page is open, so the refresh swaps the list.
+        with history_db.open_db(server.state_dir) as conn:
+            history_db.record_runway_event(
+                conn, ts=datetime.now(timezone.utc).isoformat(), hex="4c9999",
+                callsign="AFR9999", airline="Air France", origin="ORY", destination="NCE",
+                confirmed_state="departing")
+        _drag(page, x, y, 160).up()
+        _wait(page, "window.__animations.some(x => x.cls.includes('history-card'))")
+        page.wait_for_timeout(600)
+        nested = [s for s in _eval(page, "window.__css") if s.startswith("skypane-reveal")
+                  and ("history-day" in s or "history-cards" in s)]
+        assert nested == [], "the swapped group replays the page entrance"
+        spins = _eval(page, "window.__spins")
+        assert spins and all(spin["iterations"] != "Infinity" and spin["iterations"] < 100
+                             for spin in spins), spins
+    finally:
+        context.close()
+
+
 def test_a_pull_that_starts_scrolled_down_does_not_refresh(new_context, make_app_server):
     server = make_app_server(seed=seed_state_dir, fake_providers=True)
     context, page = _open(new_context, server, "/flights")

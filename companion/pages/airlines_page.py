@@ -197,6 +197,11 @@ FLASH_ILLUSTRATION_REPLACED = "illustration_replaced"
 # landscape, no transparency, or over the size cap) — an expected
 # validation outcome, not a server failure.
 FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
+# The same refusal when the rule that failed is known.
+FLASH_ILLUSTRATION_NOT_PNG = "illustration_not_png"
+FLASH_ILLUSTRATION_TOO_LARGE = "illustration_too_large"
+FLASH_ILLUSTRATION_TOO_SMALL = "illustration_too_small"
+FLASH_ILLUSTRATION_NOT_TRANSPARENT = "illustration_not_transparent"
 # Unlike REJECTED: something unexpected happened server-side while
 # storing an otherwise-acceptable upload.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
@@ -412,7 +417,7 @@ def _lightbox_replace_form_html():
         '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
-        '<button type="submit">%s</button>'
+        "%s"
         "%s"
         "</div>"
         "</form>"
@@ -426,7 +431,7 @@ def _lightbox_replace_form_html():
         REPLACE_HINT_CLASS,
         i18n.t(REPLACE_HINT_TEXT),
         REPLACE_INPUT_ID,
-        i18n.t(REPLACE_BUTTON_TEXT),
+        ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(REPLACE_INPUT_ID),
     )
 
@@ -1000,7 +1005,7 @@ def _resolve_upload_form_html(action, id_suffix):
         '<p class="%s">%s</p>'
         '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
-        '<button type="submit">%s</button>'
+        "%s"
         "%s"
         "</form>"
         "</div>"
@@ -1012,7 +1017,7 @@ def _resolve_upload_form_html(action, id_suffix):
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
         upload_input_id,
-        i18n.t(REPLACE_BUTTON_TEXT),
+        ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),
     )
 
@@ -1029,11 +1034,11 @@ def _manual_delete_form_html(action):
     return (
         '<form class="%s" method="post" action="%s">%s'
         '<p class="text-label section-caption">%s</p>'
-        '<button type="submit">%s</button>'
+        "%s"
         "</form>"
     ) % (
         LIGHTBOX_DELETE_CLASS, action, csrf_field(), i18n.t(MANUAL_DELETE_CAPTION),
-        i18n.t(DELETE_BUTTON_TEXT))
+        ui_components.button_html(i18n.t(DELETE_BUTTON_TEXT), "danger", button_type="submit"))
 
 
 def _resolve_section_html(ctx):

@@ -281,6 +281,42 @@ def test_a_refused_save_writes_nothing_and_reopens_the_dialog(rig, form, field):
         SHAPE_MESSAGE, "That switch sent an unexpected value.")
 
 
+EQUAL_MESSAGE = "Start and end must be different times."
+
+
+def test_equal_times_on_a_switched_on_window_are_refused_at_the_end_field(rig):
+    before = rig.config()
+    status, _response, body = rig.post(
+        "owner", _valid(quiet_hours_start="10:00", quiet_hours_end="10:00"))
+    assert status == 400
+    assert rig.config() == before
+    dialog = _dialog(body)
+    assert "open" in dialog.attrs
+    end = dialog.select_one("#quiet-window-end")
+    assert end.attrs["aria-invalid"] == "true"
+    assert dialog.select_one("#quiet-window-end-error").text() == EQUAL_MESSAGE
+
+
+def test_the_equal_times_message_is_french_in_french(rig):
+    cookie = rig.cookies["owner"] + "; %s=fr" % auth.UI_LANG_COOKIE_NAME
+    data = with_csrf(rig.cookies["owner"], _valid(
+        quiet_hours_start="10:00", quiet_hours_end="10:00"))
+    status, _response, raw = http_request(
+        rig.server.url(rig.scope() + WINDOW_ROUTE), method="POST", data=data,
+        cookie=cookie, extra_headers={"Origin": rig.server.base_url()})
+    assert status == 400
+    error = _dialog(raw.decode("utf-8")).select_one("#quiet-window-end-error").text()
+    assert error == "Le début et la fin doivent être deux heures différentes."
+
+
+def test_equal_times_are_kept_when_the_window_is_switched_off(rig):
+    status, _response, _body = rig.post(
+        "owner", _valid(quiet_hours_enabled=None, quiet_hours_start="10:00",
+                        quiet_hours_end="10:00"))
+    assert status == 303
+    assert rig.config()["quiet_hours_enabled"] is False
+
+
 def test_a_refused_save_echoes_what_was_typed_escaped(rig):
     status, _response, body = rig.post("owner", _valid(quiet_hours_start=HOSTILE))
     assert status == 400

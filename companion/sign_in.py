@@ -14,7 +14,7 @@ import datetime
 import hmac
 import os
 import sqlite3
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from companion import (
     access, auth, battery, co_managers, console_pairing, device_scope, flash, i18n,
@@ -205,6 +205,17 @@ class SignInMixin:
 
     def _sign_in_failed(self, kind, attempt):
         next_route = attempt.next_route if attempt is not None else None
+        if kind == oidc.KIND_PROVIDER_ERROR:
+            # Cancelled at the identity provider: the sign-in page at an
+            # address of its own, so a reload or Back does not replay a
+            # callback whose attempt is already used.
+            query = {"error": login_page.CANCELLED_ERROR_CODE}
+            kept = self._next_route_of(next_route)
+            if kept:
+                query["next"] = kept
+            return self.redirect(
+                "%s?%s" % (login_page.LOGIN_ROUTE, urlencode(query)),
+                set_cookie=auth.oidc_attempt_clear_cookie_header())
         page = login_page.sign_in_error_page(
             kind, self._pre_session_theme(), auth0_enabled=True,
             next_route=self._next_route_of(next_route))

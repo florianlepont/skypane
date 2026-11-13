@@ -1876,6 +1876,13 @@ dialog.access-sheet .modal__actions {
   min-height: 12rem;
 }
 
+/* A menu in the catalogue opens under its toggle at the left of the sample, as
+ * it would from the toggle's own place in a page. */
+.components-menu-host .row-menu__panel {
+  right: auto;
+  left: 0;
+}
+
 .components-tiles {
   display: grid;
   flex: 1 1 100%;
@@ -1891,6 +1898,12 @@ dialog.access-sheet .modal__actions {
 
 .components-save-bar .dirty-bar {
   position: static;
+}
+
+/* The buttons keep the width their labels need, in French too. */
+.components-save-bar .dirty-bar > .btn {
+  flex: none;
+  min-width: max-content;
 }
 
 /* The inline sample: a card with a line of text and the two buttons beside it. */

@@ -528,11 +528,27 @@
   // click-delegated repaint before the reset itself runs, so Cancel
   // harmlessly repaints the quiet-hours dial twice: once too early,
   // once correctly from this deferred tick.
+  // The control the person changed last: Cancel hides the bar its own button
+  // sat in, so focus returns here rather than falling to the page's top.
+  var lastEdited = null;
+  function rememberEdited(evt) {
+    var field = evt.target;
+    if (field && field.tagName !== "BUTTON" && field.closest &&
+        (field.form === form || field.closest("[data-dirty-section]"))) {
+      lastEdited = field;
+    }
+  }
+  document.addEventListener("input", rememberEdited);
+  document.addEventListener("change", rememberEdited);
+
   if (cancelBtn) {
     form.addEventListener("reset", function () {
       bar.hidden = true;
       suppressGuard = true;
       window.setTimeout(function () {
+        if (lastEdited && document.body.contains(lastEdited)) {
+          lastEdited.focus({ preventScroll: true });
+        }
         if (window.SkyPaneLivePreview && window.SkyPaneLivePreview.refresh) {
           window.SkyPaneLivePreview.refresh();
         }

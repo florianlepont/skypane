@@ -211,6 +211,35 @@ def test_the_active_switch_deactivates_then_reactivates_a_user(
         context.close()
 
 
+@pytest.mark.parametrize("lang,disabled,enabled", [
+    ("en", "User disabled", "User enabled"),
+    ("fr", "Utilisateur désactivé", "Utilisateur activé"),
+])
+def test_the_active_switch_confirms_each_change_with_a_toast(
+        new_context, app_server_in_process, lang, disabled, enabled):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, lang=lang)
+    try:
+        _settled(page)
+        switch = "#user-%d button[role=switch]" % seed.owner_id
+        toast = "[data-quick-toast] .toast"
+        page.locator(switch).click()
+        page.wait_for_function(
+            "([s, t]) => { const e = document.querySelector(s);"
+            " return !!e && e.textContent.indexOf(t) >= 0 && e.textContent.indexOf(%r) >= 0; }" %
+            fx.OWNER_EMAIL, arg=[toast, disabled], timeout=10000)
+        assert "toast--success" in page.locator(toast).get_attribute("class")
+        page.locator(switch).click()
+        page.wait_for_function(
+            "([s, t]) => { const e = document.querySelector(s);"
+            " return !!e && e.textContent.indexOf(t) >= 0; }",
+            arg=[toast, enabled], timeout=10000)
+        assert page.locator(toast).count() == 1
+        _wait_db(page, server, seed.owner_id, 1, 0)
+    finally:
+        context.close()
+
+
 def test_unlink_an_identity_from_the_overflow_menu_only_when_one_is_linked(
         new_context, app_server_in_process):
     server = app_server_in_process
