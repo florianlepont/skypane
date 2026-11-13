@@ -78,6 +78,12 @@ def _fill(template, params):
     return _PLACEHOLDER_RE.sub(lambda found: params.get(found.group(1), ""), template)
 
 
+def toast_for_key(key, **params):
+    """The toast markup `key` shows with `params`, as the page after a
+    redirect would show it, or "" when the key is not registered."""
+    return _toast_for({"k": key, "p": {name: str(value) for name, value in params.items()}})
+
+
 def _toast_for(payload):
     """The toast markup for a decoded payload, or "" when its key is not
     registered.
