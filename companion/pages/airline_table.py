@@ -23,6 +23,7 @@ import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.illustration_normalize as illustration_normalize
 import companion.layout as layout
+import companion.ui_components as ui_components
 from companion.layout import csrf_field, escape_html
 from companion.ui_base import validation_attrs
 from companion.pages import airline_sheet
@@ -515,16 +516,16 @@ def _gap_group_html(page, index, gap_row, now):
         '<input type="text" name="airline_name" list="%s" maxlength="100" required '
         'autocomplete="off" placeholder="%s" aria-label="%s"%s>%s'
         '<div class="airlines-resolve__actions">'
-        '<button type="submit" class="airlines-resolve__ok">%s</button>'
-        '<button type="reset" class="airlines-resolve__skip">%s</button></div></div></form>'
+        '%s%s</div></div></form>'
     ) % (
         device_scope.scoped(page.RESOLVE_ROUTE, "POST"), escape_html(prefix), csrf_field(),
         escape_html(i18n.t(UNIDENTIFIED_TEXT)), escape_html(callsign),
         escape_html(_views_text(count)), layout.concise_timestamp_html(last_seen, now, fallback=""),
         KNOWN_NAMES_LIST_ID, escape_html(i18n.t(RESOLVE_NAME_PLACEHOLDER)),
         escape_html(i18n.t(RESOLVE_NAME_ARIA) % prefix), validation_attrs("text"),
-        _type_select_html(prefix), escape_html(i18n.t(RESOLVE_VALIDATE)),
-        escape_html(i18n.t(RESOLVE_IGNORE)))
+        _type_select_html(prefix),
+        ui_components.button_html(i18n.t(RESOLVE_VALIDATE), "primary", button_type="submit"),
+        ui_components.button_html(i18n.t(RESOLVE_IGNORE), "secondary", button_type="reset"))
     return (
         '<tbody class="airline-group airline-group--gap" data-filter-text="%s" '
         'data-filter-group="gap%d"><tr class="airlines-row airlines-row--gap">'

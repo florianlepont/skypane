@@ -1127,3 +1127,8 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Open: X03 (Users table wrapping) needs a design choice; lot C and lot D follow.
 - Owner decision (X03): Users table option A, e-mail addresses on one line with an ellipsis (full address in the person's detail), so every row has the same height. Goes into lot D.
 - Lot C (61-117) merged, deployed and validated by the owner (Flights, Airlines, offline, expired session, Location, splash). Lot D (61-118) in progress.
+
+## Round 26: suggestion, Airlines in the tab bar (non-admin)
+
+- Owner suggestion: for a person who is not an administrator, the Airlines page should be a tab of the bottom bar instead of living in the More panel, since there is room (no console space switch). Queued as plan 61-120 after lot E.
+- Owner decision (tab bar, plan 61-120): the bottom bar is the same for everyone, Accueil, Vols, Compagnies, Style, Lieu, Plus. For an administrator the console switch moves into the Plus panel (no separate cell). Accueil stays first. Lot D validated as deployed.

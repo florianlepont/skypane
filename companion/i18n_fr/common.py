@@ -35,7 +35,11 @@ MESSAGES = {
 
     # --- 403 page ------------------------------------------------------
     "common.request_refused": "Requête refusée",
-    "common.csrf_expired": "Cette page a expiré. Rechargez-la et réessayez.",
+    "common.method_not_allowed":
+        "Cette adresse n’accepte pas ce type de requête.",
+    "common.csrf_expired":
+        "Cette page a expiré. Rouvrez-la et réessayez.",
+    "common.reopen_page": "Rouvrir la page",
     "common.this_request_came_from_another_site_so_it_was":
         "Cette requête venait d’un autre site, elle a donc été refusée. "
         "Ouvrez SkyPane directement et réessayez.",
@@ -118,6 +122,18 @@ MESSAGES = {
         "Impossible d’utiliser cette image — envoyez un PNG "
         "transparent d’au moins 1200 pixels de large, au format "
         "paysage (plus large que haut).",
+    "common.illustration_not_png":
+        "Impossible d’utiliser ce fichier — ce n’est pas une image PNG.",
+    "common.illustration_too_large":
+        "Impossible d’utiliser cette image — elle est trop lourde. "
+        "Gardez-la sous 4 Mo.",
+    "common.illustration_not_transparent":
+        "Impossible d’utiliser cette image — son fond n’est pas "
+        "transparent. Envoyez un PNG à fond transparent.",
+    "common.illustration_too_small":
+        "Impossible d’utiliser cette image — elle doit être au format "
+        "paysage (plus large que haut) et faire au moins 1200 pixels "
+        "de large.",
     "common.couldn_t_replace_the_illustration_please_try":
         "Impossible de remplacer l’illustration — réessayez. Si le "
         "problème persiste, consultez les journaux du service "

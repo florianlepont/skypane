@@ -13,9 +13,37 @@ import sys
 import traceback
 from urllib.parse import urlsplit
 
-from companion import login_page, prefs, quiet_server
+from companion import i18n, login_page, prefs, quiet_server
 
 _PLAIN_BODY = b"Internal Server Error\n"
+
+REFUSED_METHOD_TEXT = i18n.msg(
+    "common.method_not_allowed",
+    "This address does not accept that kind of request.")
+_HEADER_END = b"\r\n\r\n"
+
+
+class _HeadersOnly:
+    """A response stream for HEAD: the status line and headers pass, the body
+    is dropped, so a HEAD answer carries the headers its GET would."""
+
+    def __init__(self, stream):
+        self._stream = stream
+        self._in_headers = True
+
+    def write(self, data):
+        if not self._in_headers:
+            return len(data)
+        end = data.find(_HEADER_END)
+        if end < 0:
+            self._stream.write(data)
+        else:
+            self._stream.write(data[:end + len(_HEADER_END)])
+            self._in_headers = False
+        return len(data)
+
+    def __getattr__(self, name):
+        return getattr(self._stream, name)
 
 
 class ErrorPageMixin:
@@ -35,6 +63,40 @@ class ErrorPageMixin:
         except Exception:
             self._log_unexpected(method)
             return self._answer_unexpected()
+
+    def do_HEAD(self):
+        """Answers like GET, without the body."""
+        real = self.wfile
+        self.wfile = _HeadersOnly(real)
+        try:
+            return self.do_GET()
+        finally:
+            self.wfile = real
+
+    def _refuse_method(self):
+        """405 with the app's own page for a method no address serves."""
+        self.close_connection = True
+        try:
+            prefs.set_request_prefs(lang=self._lang_from_request())
+            prefs.set_request_csrf("")
+            prefs.set_request_principal(None)
+            page = login_page.forbidden_page(
+                self._resolved_ui_theme(), None, back=login_page.BACK_HOME,
+                purpose=REFUSED_METHOD_TEXT)
+        except Exception:
+            page = "<!doctype html><title>405</title><p>Method not allowed</p>"
+        body = page.encode("utf-8")
+        self.send_response(405)
+        self.send_header("Allow", "GET, HEAD, POST")
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self._send_hardening_headers()
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(body)
+
+    do_PUT = do_DELETE = do_PATCH = do_OPTIONS = _refuse_method
 
     def _log_unexpected(self, method):
         """One log entry per failure: never a header, a cookie, a form body

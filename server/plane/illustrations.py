@@ -724,6 +724,32 @@ def select_illustration(route, aircraft_type=None, state_dir=None):
     return None
 
 
+# The rule an upload broke, as `problem_category()` reports it.
+PROBLEM_NOT_PNG = "not_png"
+PROBLEM_TOO_LARGE = "too_large"
+PROBLEM_TOO_SMALL = "too_small"
+PROBLEM_NOT_TRANSPARENT = "not_transparent"
+
+# Leading words of each problem string `validate_illustration_file()` builds,
+# in the order a person should hear about them: a file that is not a PNG
+# says nothing useful about its size or transparency.
+_PROBLEM_PREFIXES = (
+    (PROBLEM_NOT_PNG, ("not a PNG file", "failed to open/parse image", "file does not exist")),
+    (PROBLEM_TOO_LARGE, ("pixel count",)),
+    (PROBLEM_TOO_SMALL, ("width ", "image is not landscape")),
+    (PROBLEM_NOT_TRANSPARENT, ("no alpha channel", "alpha channel is fully opaque")),
+)
+
+
+def problem_category(problems):
+    """The one rule to tell a person about, out of the problem strings
+    `validate_illustration_file()` returned, or None for an empty list."""
+    for category, prefixes in _PROBLEM_PREFIXES:
+        if any(problem.startswith(prefixes) for problem in problems):
+            return category
+    return None
+
+
 def validate_illustration_file(path):
     """Return a list of human-readable problems with the illustration file
     at `path`, empty when the file is acceptable. Reads `.size`/`.format`

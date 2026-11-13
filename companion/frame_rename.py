@@ -86,7 +86,8 @@ def _respond(h, device, status, name, error="", return_to=None):
         name, page.device_route(device.id), _back_href(h, device, return_to), error,
         return_to)
     html = layout.page_shell(
-        title=i18n.t(page.TITLE), active=_active_slug(h, return_to), body=body,
+        title="%s - %s" % (i18n.t(page.TITLE), ui_shell.device_display_name(device)),
+        active=_active_slug(h, return_to), body=body,
         ui_theme=h._resolved_ui_theme(), health_alert=None,
         scripts=(ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.SUBMIT_GUARD_SCRIPT_SRC))
     return h.send_html(status, html)

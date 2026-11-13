@@ -16,7 +16,7 @@ from PIL import Image
 import companion.app as app
 import companion.i18n as i18n
 import companion.test_status_pages_helpers as shp
-from companion import illustration_normalize, layout, prefs
+from companion import illustration_normalize, layout, prefs, ui_base
 from companion.pages import airlines_page, config_page, health_page, home_page
 import health_page_composition
 from companion_app_server import get, login, served_asset, served_stylesheet
@@ -70,11 +70,10 @@ def _frame_strip_ctx(last_checkin_ts, device_config_dict, now):
 # =============================================================================
 
 def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
-    """the .tab-bar__pill's horizontal margin, resolved from style.css's own --space-xs/--space-sm
-    tokens, leaves at least the longest personal bar label's own required width (a measured
-    6.5px/character advance derived from the 2026-09-17 audit's real 'Compagnies' figure, floored
-    at that audit's own 65px) inside the tab cell at the app's 360px floor viewport, while
-    `.tab-bar__link`'s own 56px height and `flex: 1 1 0` width basis stay byte-identical"""
+    """the bar's six cells (five personal destinations and More) each take their label's own
+    width plus the pill's padding, never less than the 44px target floor, and together fit the
+    bar at the app's 360px floor viewport in both languages: `.tab-bar__link` sizes to its label
+    (`flex: 1 1 auto`, `min-width: 44px`, 56px high) and the pill has no horizontal margin"""
     tokens = custom_properties(css_text, ":root")
     pill_decls = declarations_for(css_text, ".tab-bar__pill", at_rules=_TAB_BAR_MEDIA)
     margin_value = pill_decls.get("margin")
@@ -82,68 +81,57 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
     margin_match = re.search(r"var\(--([a-z-]+)\)\s+(0)$", margin_value)
     assert margin_match, "could not parse .tab-bar__pill's margin shorthand: %r" % (margin_value,)
     horizontal_margin_px = 0.0
+    pill_pad = re.fullmatch(r"0 var\(--([a-z-]+)\)", pill_decls.get("padding", ""))
+    assert pill_pad, "could not parse .tab-bar__pill's padding: %r" % (pill_decls.get("padding"),)
+    pill_pad_px = float(tokens["--" + pill_pad.group(1)][:-2])
 
-    # The cell's own resolved box, asserted independently of the margin
-    # above: mutating this must fail on its own, proving the tap-area
-    # invariant is not merely a side effect of the fit math.
+    # The cell's own resolved box, asserted independently of the fit below:
+    # mutating this must fail on its own, proving the tap-area invariant is not
+    # merely a side effect of the fit math.
     link_decls = declarations_for(css_text, ".tab-bar__link", at_rules=_TAB_BAR_MEDIA)
     assert link_decls.get("height") == "56px", (
-        "expected .tab-bar__link's own resolved height to stay 56px (the 78x56px cell, unchanged "
-        "by the pill's margin edit), got %r" % (link_decls,))
-    assert link_decls.get("flex") == "1 1 0", (
-        "expected .tab-bar__link's own width basis (flex: 1 1 0) to stay byte-identical to its "
-        "pre-task value, got %r" % (link_decls,))
+        "expected .tab-bar__link's own resolved height to stay 56px, got %r" % (link_decls,))
+    assert link_decls.get("flex") == "1 1 auto", (
+        "expected .tab-bar__link to size to its label (flex: 1 1 auto), got %r" % (link_decls,))
+    assert link_decls.get("min-width") == "44px", (
+        "expected .tab-bar__link to keep the 44px target floor, got %r" % (link_decls,))
 
     label_decls = declarations_for(css_text, ".tab-bar__label", at_rules=_TAB_BAR_MEDIA)
     assert label_decls.get("font-size") == "11px", (
         "expected .tab-bar__label's font-size to resolve to 11px, got %r" % (label_decls,))
 
-    # The personal bar's four destination cells carry the short form of a
-    # label where one exists; the airline collection lives in the More sheet.
-    unlabelled_entries = [
-        (route, layout.NAV_SHORT_LABELS.get(layout.nav_slug(route), label))
-        for group_label, entries in layout.NAV_GROUPS if not group_label
-        for route, label in entries if route != layout.AIRLINES_ROUTE]
-    cell_count = len(unlabelled_entries) + 1  # the bar destinations plus one "More" cell
+    # The bar's destination labels, then More: the short form of a label where one exists.
+    # Read from the nav tables and the real French translation, never typed literally, so a
+    # future longer label re-runs this same arithmetic rather than silently going unchecked.
+    bar_routes = (
+        ui_base.HOME_ROUTE, ui_base.FLIGHTS_ROUTE, ui_base.AIRLINES_ROUTE,
+        ui_base.DISPLAY_ROUTE, ui_base.DETECTION_ROUTE)
+    labels = dict(layout.NAV_TABS)
+    messages = [
+        layout.NAV_SHORT_LABELS.get(layout.nav_slug(route), labels[route])
+        for route in bar_routes] + [layout.TAB_BAR_MORE_LABEL]
 
     # The app's own contract floor (design_direction: "Minimum supported
-    # viewport width: 360 px") is the tightest case a smaller viewport
-    # gives a smaller cell, so this is the worst width the fit must
-    # survive, not merely the audit's own 390px device.
+    # viewport width: 360 px") is the tightest supported width. The floating bar is inset by
+    # --tab-bar-side on each side and padded by --tab-bar-pad inside.
     FLOOR_VIEWPORT_PX = 360
-    # The floating bar is inset by --tab-bar-gap on each side and padded by --tab-bar-pad inside.
     bar_width_px = (
-        FLOOR_VIEWPORT_PX - 2 * float(tokens["--tab-bar-gap"][:-2])
+        FLOOR_VIEWPORT_PX - 2 * float(tokens["--tab-bar-side"][:-2])
         - 2 * float(tokens["--tab-bar-pad"][:-2]))
-    cell_width_px = bar_width_px / cell_count
-    available_px = cell_width_px - (2 * horizontal_margin_px)
-
-    # The longest label across BOTH shipped languages — read from
-    # layout.NAV_GROUPS and the real i18n.t_lang() French translation,
-    # never typed literally, so a future longer label re-runs this same
-    # arithmetic rather than silently going unchecked.
-    candidate_labels = []
-    for _route, label in unlabelled_entries:
-        candidate_labels.append(label)
-        candidate_labels.append(i18n.t_lang(label, "fr"))
-    candidate_labels.append(layout.TAB_BAR_MORE_LABEL)
-    candidate_labels.append(i18n.t_lang(layout.TAB_BAR_MORE_LABEL, "fr"))
-    longest_label = max(candidate_labels, key=len)
-
-    # Per-character advance: MEASURED, not modelled — the audit's own real
-    # figure for "Compagnies" (10 characters) needing 65px at this label's
-    # 11px font-size gives 65 / 10 = 6.5px/character.
-    PER_CHARACTER_ADVANCE_PX = 7.1  # 71px for 'Compagnies' at the old 12px label size
-    AUDIT_MEASURED_FLOOR_PX = 65  # "Compagnies" at 11px, 2026-09-17 audit
-    modelled_requirement_px = PER_CHARACTER_ADVANCE_PX * len(longest_label)
-    required_px = max(modelled_requirement_px, AUDIT_MEASURED_FLOOR_PX)
-
-    assert available_px >= required_px, (
-        "expected the available label width (%.1fpx = %.1fpx cell [%dpx viewport / %d cells] - "
-        "2x%.1fpx margin) to be at least %.1fpx (the longest label %r's own requirement, floored "
-        "at the audit's measured %dpx) but it was not (CFG-82, 29-02-PLAN.md)"
-        % (available_px, cell_width_px, FLOOR_VIEWPORT_PX, cell_count, horizontal_margin_px,
-           required_px, longest_label, AUDIT_MEASURED_FLOOR_PX))
+    # Per-character advance: a cautious model above the 2026-09-17 audit's real figure
+    # ("Compagnies", 10 characters, 65px at 11px).
+    PER_CHARACTER_ADVANCE_PX = 7.1
+    AUDIT_MEASURED_FLOOR_PX = 65
+    for lang in ("en", "fr"):
+        widths = []
+        for message in messages:
+            text = i18n.t_lang(message, lang)
+            label_px = max(PER_CHARACTER_ADVANCE_PX * len(text), AUDIT_MEASURED_FLOOR_PX
+                           if text == "Compagnies" else 0)
+            widths.append(max(44.0, label_px + 2 * pill_pad_px + 2 * horizontal_margin_px))
+        assert sum(widths) <= bar_width_px, (
+            "expected the six bar cells (%s) to fit the %.0fpx bar at a %dpx viewport in %s, "
+            "needing %.1fpx" % (widths, bar_width_px, FLOOR_VIEWPORT_PX, lang, sum(widths)))
 
 
 def test_tab_bar_more_sheet_opens_upward_and_reuses_the_dropdown_row(css_text):
@@ -187,7 +175,7 @@ def test_french_tab_bar_labels_and_landmark():
         "expected the tab bar's landmark name in French (CFG-29 must not regress), got %r"
         % (bar[:120],))
     for english, french in (
-            ("Home", "Accueil"), ("History", "Vols"), ("Location", "Lieu"),
+            ("Home", "Accueil"), ("Flights", "Vols"), ("Place", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
             ("Airlines", "Compagnies"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (

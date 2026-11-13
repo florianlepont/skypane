@@ -344,7 +344,7 @@ def test_unrecognised_principal_clears_to_default():
 
 
 _SHELL_BASELINE_DIGEST = (
-    "ccd7cdea3e86f9f5e5783b3bfd028e89385ea07dd4e766dfaa76815bd5b37f76")
+    "fdba3eefa648a23dda6675b29f781a35945158465d344a511825d196e6485d78")
 
 
 def test_shell_without_a_principal_is_byte_identical_to_before():

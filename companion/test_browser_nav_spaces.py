@@ -1,6 +1,6 @@
-"""Real-browser checks of the Console and personal navigation: equal destination
-cells (and the leading space switch cell) without wrapped or clipped labels at
-360px in English and French, the space switch, the desktop sidebars, no administrator vocabulary for a user,
+"""Real-browser checks of the Console and personal navigation: destination
+cells that fill the bar without wrapped or clipped labels at 360px in English
+and French, the space switch, the desktop sidebars, no administrator vocabulary for a user,
 and the Locations form fitting its card at 360px. Light and dark themes."""
 import pytest
 
@@ -27,31 +27,13 @@ _FIELD_OVERFLOW = (
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize(
     "path", ["/fleet", "/users", "/audit", "/update", "/health", "/device"])
-def test_console_bar_has_switch_and_equal_cells_at_360(
+def test_console_bar_fills_the_bar_with_five_cells_at_360(
         new_context, app_server_in_process, path, lang, scheme):
     context, page = _admin_page(
         new_context, app_server_in_process, path, VIEWPORT_MIN_SUPPORTED, lang, scheme)
     try:
-        _assert_bar(page, 6, "console%s/%s/%s" % (path, lang, scheme))
+        _assert_bar(page, 5, "console%s/%s/%s" % (path, lang, scheme))
         assert page.locator(".section-subnav").count() == 0
-        page.locator(".tab-bar__more > summary").click()
-        sheet = page.locator(".tab-bar__more-panel a")
-        assert sheet.count() == 1
-        for index in range(sheet.count()):
-            assert sheet.nth(index).bounding_box()["height"] >= MIN_TAP_PX
-    finally:
-        context.close()
-
-
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_admin_personal_bar_has_switch_and_equal_cells_at_360(
-        new_context, app_server_in_process, lang, scheme):
-    context, page = _admin_page(
-        new_context, app_server_in_process, _own_frame_home, VIEWPORT_MIN_SUPPORTED,
-        lang, scheme)
-    try:
-        _assert_bar(page, 6, "personal/%s/%s" % (lang, scheme))
         page.locator(".tab-bar__more > summary").click()
         sheet = page.locator(".tab-bar__more-panel a")
         assert sheet.count() == 2
@@ -63,15 +45,34 @@ def test_admin_personal_bar_has_switch_and_equal_cells_at_360(
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_user_bar_has_five_equal_cells_and_no_admin_words(
+def test_admin_personal_bar_has_six_cells_and_the_switch_in_more_at_360(
+        new_context, app_server_in_process, lang, scheme):
+    context, page = _admin_page(
+        new_context, app_server_in_process, _own_frame_home, VIEWPORT_MIN_SUPPORTED,
+        lang, scheme)
+    try:
+        _assert_bar(page, 6, "personal/%s/%s" % (lang, scheme))
+        assert page.locator(".tab-bar__link--switch").count() == 0
+        page.locator(".tab-bar__more > summary").click()
+        sheet = page.locator(".tab-bar__more-panel a")
+        assert sheet.count() == 2
+        for index in range(sheet.count()):
+            assert sheet.nth(index).bounding_box()["height"] >= MIN_TAP_PX
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_user_bar_has_six_cells_and_no_admin_words(
         new_context, app_server_in_process, lang, scheme):
     context, page = _user_page(
         new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, lang, scheme)
     try:
-        _assert_bar(page, 5, "user/%s/%s" % (lang, scheme))
+        _assert_bar(page, 6, "user/%s/%s" % (lang, scheme))
         assert page.locator(".space-switch").count() == 0
         page.locator(".tab-bar__more > summary").click()
-        assert page.locator(".tab-bar__more-panel a").count() == 2
+        assert page.locator(".tab-bar__more-panel a").count() == 1
         if lang == "en":
             text = page.locator("body").inner_text()
             for word in USER_FORBIDDEN_WORDS:
@@ -81,25 +82,30 @@ def test_user_bar_has_five_equal_cells_and_no_admin_words(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_phone_bar_switch_navigates_both_ways_under_a_slim_header_at_360(
+def test_phone_more_switch_navigates_both_ways_under_a_slim_header_at_360(
         new_context, app_server_in_process, lang):
     context, page = _admin_page(
         new_context, app_server_in_process, "/fleet", VIEWPORT_MIN_SUPPORTED, lang)
     try:
-        switch = page.locator(".tab-bar > .tab-bar__link--switch")
-        assert switch.count() == 1
+        assert page.locator(".tab-bar > .tab-bar__link--switch").count() == 0
         assert page.locator(".space-strip").count() == 0
-        assert switch.bounding_box()["height"] >= MIN_TAP_PX
         assert page.locator("header.site-header").bounding_box()["height"] <= 56
         assert not _assert_no_page_overflow(page, "strip", 360)
+        page.locator(".tab-bar__more > summary").click()
+        switch = page.locator(".tab-bar__space-link")
+        assert switch.count() == 1
+        assert switch.bounding_box()["height"] >= MIN_TAP_PX
         switch.click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
         page.wait_for_function(
-            "() => document.querySelector('.tab-bar > .tab-bar__link--switch')"
-            " && document.querySelector('.tab-bar > .tab-bar__link--switch')"
-            ".getAttribute('href') === '/fleet'")
+            "() => { const r = document.querySelector('.tab-bar__more > summary');"
+            " return !!r && !document.querySelector('.tab-bar__more').open; }")
+        page.locator(".tab-bar__more > summary").click()
+        page.wait_for_function(
+            "() => document.querySelector('.tab-bar__space-link')"
+            " && document.querySelector('.tab-bar__space-link').getAttribute('href') === '/fleet'")
         assert page.locator("header.site-header").bounding_box()["height"] <= 56
-        page.locator(".tab-bar > .tab-bar__link--switch").click()
+        page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => location.pathname.endsWith('/fleet')")
     finally:
         context.close()

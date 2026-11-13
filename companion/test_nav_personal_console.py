@@ -17,17 +17,18 @@ PERSONAL_PAGES = ("/", "/flights", "/detection", "/display", "/airlines")
 ADMIN_WORDS = ("Admin", "Console", "Fleet", "Releases", "Health", "Device", "Update")
 ADMIN_WORDS_FR = ("Flotte", "Versions", "État", "Appareil", "Console", "Administration")
 
-PERSONAL_BAR_EN = ["Home", "History", "Location", "Style"]
-PERSONAL_BAR_FR = ["Accueil", "Vols", "Lieu", "Style"]
+PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Place"]
+PERSONAL_BAR_FR = ["Accueil", "Vols", "Compagnies", "Style", "Lieu"]
 PERSONAL_SIDEBAR_EN = [
     "Home", "Flight history", "Location and detection", "Style",
     "Airlines", "Account"]
 PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Style",
     "Compagnies", "Compte"]
-CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Editor", "Audit"]
-CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Équipe", "Éditeur", "Journal"]
+CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "Audit"]
+CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Journal"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
+SWITCH_TO_PERSONAL = {"en": "My frame", "fr": "Mon cadre"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [
     "Flotte", "Utilisateurs", "Éditeur", "Journal d’audit", "Compte"]
@@ -102,16 +103,15 @@ def test_the_personal_navigation_is_identical_for_an_administrator_and_a_user(
     user_cells, user_sheet, _bar = _bar_parts(user_page)
     admin_cells, admin_sheet, _bar = _bar_parts(admin_page)
     assert [text for _href, text in user_cells] == bar_labels
-    # The administrator's bar differs by the leading space switch cell alone.
-    assert admin_cells[1:] == user_cells
-    assert admin_cells[0] == ("/fleet", SWITCH_TO_CONSOLE[lang])
+    # The two bars are the same six cells; the administrator's More panel
+    # differs by the space switch row alone.
+    assert admin_cells == user_cells
     assert [href for href, _text in user_cells] == [
-        prefix + route for route in ("/", "/flights", "/detection", "/display")]
+        prefix + route for route in ("/", "/flights", "/airlines", "/display", "/detection")]
 
-    airline_row = (prefix + "/airlines", sidebar_labels[4])
     account_row = ("/account", sidebar_labels[5])
-    assert user_sheet == [airline_row, account_row]
-    assert admin_sheet == user_sheet
+    assert user_sheet == [account_row]
+    assert admin_sheet == [account_row, ("/fleet", SWITCH_TO_CONSOLE[lang])]
 
     user_sidebar = _sidebar_anchors(user_page)
     admin_sidebar = _sidebar_anchors(admin_page)
@@ -126,7 +126,10 @@ def test_the_personal_navigation_never_links_console_pages_or_locations(served):
         for page in PERSONAL_PAGES:
             _status, markup = _get(server, cookies[who], prefix + page)
             hrefs = [href for href, _text in _sidebar_anchors(markup)]
-            hrefs += [href for href, _text in _anchors(_nav(markup, '<nav class="tab-bar"'))]
+            bar = re.sub(
+                r'<a class="[^"]*tab-bar__space-link".*?</a>', "", _nav(markup, '<nav class="tab-bar"'),
+                flags=re.S)
+            hrefs += [href for href, _text in _anchors(bar)]
             for href in hrefs:
                 path = re.sub(r"^/devices/[^/]+", "", href)
                 assert path not in ("/health", "/device", "/update", "/locations",
@@ -146,9 +149,9 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
     cells, sheet, _bar = _bar_parts(page)
     assert [text for _href, text in cells] == bar_labels
     assert [href for href, _text in _unscoped(cells)] == [
-        "/", "/fleet", "/users", "/airlines/manage", "/audit"]
-    assert [href for href, _text in _unscoped(sheet)] == ["/account"]
-    assert [text for _href, text in sheet] == [sidebar_labels[4]]
+        "/fleet", "/users", "/airlines/manage", "/audit"]
+    assert [href for href, _text in _unscoped(sheet)] == ["/account", "/"]
+    assert [text for _href, text in sheet] == [sidebar_labels[4], SWITCH_TO_PERSONAL[lang]]
 
     sidebar = _sidebar_anchors(page)
     assert [text for _href, text in sidebar] == sidebar_labels

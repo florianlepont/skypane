@@ -242,7 +242,7 @@ def test_the_location_card_is_opaque_and_its_runway_cards_and_mode_switch_are_ti
 
 @pytest.mark.parametrize("lang", ("en", "fr"))
 @pytest.mark.parametrize("viewport,name", PHONES)
-def test_the_fleet_tab_thumb_fills_its_segment_and_the_tab_bar_switch_label_fits(
+def test_the_fleet_tab_thumb_fills_its_segment_and_every_tab_bar_label_fits_its_pill(
         new_context, app_server_in_process, viewport, name, lang):
     seed = fx.seed_fleet(app_server_in_process.state_dir)
     context, page = _page(
@@ -254,17 +254,18 @@ def test_the_fleet_tab_thumb_fills_its_segment_and_the_tab_bar_switch_label_fits
                 '.fleet-tabs .personalisation-nav__link[aria-current="page"]');
               const l = link.getBoundingClientRect();
               const s = link.querySelector('span').getBoundingClientRect();
-              const label = document.querySelector('.tab-bar__link--switch .tab-bar__label');
-              const pill = document.querySelector('.tab-bar__link--switch .tab-bar__pill');
-              const p = pill.getBoundingClientRect();
+              const labels = [...document.querySelectorAll('.tab-bar__label')].map((label) => ({
+                fits: label.scrollWidth <= label.clientWidth,
+                room: label.closest('.tab-bar__pill').getBoundingClientRect().width
+                  - label.getBoundingClientRect().width}));
               const barStyle = getComputedStyle(document.querySelector('.tab-bar'));
               const bar = {backgroundColor: barStyle.backgroundColor};
               const named = barStyle.viewTransitionName;
-              return {segment: l.width, thumb: s.width, labelFits: label.scrollWidth <= label.clientWidth,
-                      labelWidth: label.getBoundingClientRect().width, pill: p.width,
+              return {segment: l.width, thumb: s.width, labels: labels,
                       fill: bar.backgroundColor, named: named}; }""")
         assert probe["thumb"] >= probe["segment"] - 8, probe
-        assert probe["labelFits"] and probe["labelWidth"] <= probe["pill"] - 4, probe
+        assert len(probe["labels"]) == 5, probe
+        assert all(label["fits"] and label["room"] >= 4 for label in probe["labels"]), probe
         assert probe["fill"].startswith("rgb(") and "rgba" not in probe["fill"], probe
         assert probe["named"] == "skypane-tab-bar", probe
     finally:

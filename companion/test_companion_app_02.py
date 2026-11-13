@@ -196,7 +196,7 @@ def test_nav_script_route_and_styled_nav_classes(app02_server, served_css):
     """companion.app.NAV_SCRIPT_ROUTE names the served shell script, and the nav classes the
     rendered tab bar uses are styled in style.css"""
     for cls in (
-            "mobile-nav__link", "tab-bar", "tab-bar__link", "tab-bar__link--switch",
+            "mobile-nav__link", "tab-bar", "tab-bar__link", "tab-bar__space-link",
             "frame-menu", "frame-menu__button", "frame-menu__panel", "frame-row"):
         assert _class_is_styled(served_css, cls), (
             "DOM contract drift: %r is not styled in style.css" % cls)
@@ -260,9 +260,9 @@ def _tab_bar_slice(doc):
     return doc[start:doc.index("</nav>", start) + len("</nav>")]
 
 
-def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
-    """the bottom tab bar renders five cells from the same personal entries as the sidebar —
-    the same destinations, Home/History/Location/Style as tab links and the rest behind a
+def test_tab_bar_is_six_cells_from_the_one_shared_nav_iteration():
+    """the bottom tab bar renders six cells from the same personal entries as the sidebar —
+    the same destinations, Home/Flights/Airlines/Style/Place as tab links and Account behind a
     native <details> sheet, exactly one aria-current="page" sits on the real link (never on
     the <summary>), the More summary wears the active pill on a sheet page, it carries the
     shared Primary-navigation landmark name, and the whole bar carries no script hook"""
@@ -280,14 +280,14 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
         "expected the personal sidebar order, got %r" % (sidebar_routes,))
 
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
-    assert tab_links == ["/", "/flights", "/detection", "/display"], (
-        "expected Home, History, Location and Style as tab links, got %r" % (tab_links,))
+    assert tab_links == ["/", "/flights", "/airlines", "/display", "/detection"], (
+        "expected Home, Flights, Airlines, Style and Place as tab links, got %r" % (tab_links,))
     assert bar.count("<details class=\"tab-bar__more\">") == 1, "expected exactly one <details> More cell"
     assert bar.count("<summary") == 1, "expected the More cell to be a native <summary>"
     sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
     sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
-    assert sheet_links == ["/airlines", "/account"], (
-        "expected the More sheet to hold the airline collection and Account, got %r"
+    assert sheet_links == ["/account"], (
+        "expected the More sheet to hold Account alone, got %r"
         % (sheet_links,))
 
     assert bar.count('aria-current="page"') == 1, (
@@ -299,20 +299,20 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
         "expected the aria-current link to be the active tab")
 
     advanced_doc = layout.page_shell(
-        title="T", active="airlines", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
+        title="T", active="account", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
     advanced_bar = _tab_bar_slice(advanced_doc)
     summary_start = advanced_bar.index("<summary")
     summary_tag = advanced_bar[summary_start:advanced_bar.index(">", summary_start)]
     assert "tab-bar__link--active" in summary_tag, (
-        "expected the More summary to wear the active pill on an Advanced page, got %r"
+        "expected the More summary to wear the active pill on a sheet page, got %r"
         % (summary_tag,))
     assert 'aria-current="page"' not in summary_tag, (
         "a <summary> is a disclosure control, not the current page — aria-current must "
         "stay on the link")
     assert advanced_bar.count('aria-current="page"') == 1, (
-        "expected exactly one aria-current on an Advanced page too")
+        "expected exactly one aria-current on a sheet page too")
     assert "tab-bar__link--active" not in advanced_bar[:advanced_bar.index("<details")], (
-        "expected none of the four bar tabs to be active on /airlines")
+        "expected none of the five bar tabs to be active on /account")
 
     assert 'aria-label="Primary navigation"' in bar, "expected the landmark name on the tab bar"
     for banned in ("onclick", "data-", "<script"):

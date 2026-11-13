@@ -192,6 +192,10 @@
    * replaces it. */
   --motion-shimmer: 1.3s;
   --motion-reveal: 900ms;
+  /* The thumbnail-to-picture transition runs a little longer than a page
+   * change; a new airline card's flip is a short flourish of its own. */
+  --motion-picture: 480ms;
+  --motion-unlock: 560ms;
   --motion-count: 600ms;
   --motion-slow: 2s;
   --motion-toast-dwell: 6s;
@@ -514,7 +518,7 @@ html[data-ui-theme="dark"] {
   /* The thumbnail-to-picture transition runs a little longer than a page
    * change and crops both snapshots to the same cover fit. */
   ::view-transition-group(skypane-flight-pic) {
-    animation-duration: 480ms;
+    animation-duration: var(--motion-picture);
     animation-timing-function: var(--ease-out);
   }
 
@@ -5497,14 +5501,15 @@ a.btn[aria-disabled="true"] {
     box-shadow: var(--bar-shadow);
   }
 
-  /* The flex: 1 1 0 cells share the bar equally (the space switch aside) at
-   * 56px high, clearing WCAG 2.5.5's
-   * 44px target-size floor directly. color is set
+  /* Each cell is as wide as its own label and the free width is shared out
+   * equally, so the longest label ("Compagnies") is never cut while the
+   * shortest cell still clears WCAG 2.5.5's 44px target-size floor, which
+   * min-width holds at 320px too. Cells are 56px high. color is set
    * explicitly because this element doubles as the "More" <summary>, and
    * the global summary rule's accent colour would otherwise win. */
   .tab-bar__link {
-    flex: 1 1 0;
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: 44px;
     height: 56px;
     display: flex;
     color: var(--color-text);
@@ -5531,8 +5536,8 @@ a.btn[aria-disabled="true"] {
   }
 
   /* 11px sentence case, not the uppercase label voice: a destination is not
-   * a label. At 360px the equal cells measure about 52px, which holds the
-   * longest label ("Location") with room to spare; 12px left it no slack. */
+   * a label. The cells follow their labels (see .tab-bar__link), so the
+   * longest French label, "Compagnies", keeps its room at 360px. */
   .tab-bar__label {
     font-size: 11px;
     font-weight: var(--weight-regular);
@@ -5549,27 +5554,14 @@ a.btn[aria-disabled="true"] {
     font-weight: var(--weight-semibold);
   }
 
+  /* Before the script has placed the slider (the first frame of a page change)
+   * the server-rendered active pill carries the slider's view-transition name,
+   * so the browser glides the old page's pill to the new one natively. Once the
+   * slider exists it owns the name and the pill gives it up: one element holds
+   * the name at any time. */
   .tab-bar__link--active .tab-bar__pill {
     background: var(--color-accent);
-  }
-
-  /* The administrator's space switch, first cell of the bar: set apart from
-   * the destinations by an accent outline on its pill and a thin divider
-   * after it. It names the space it leads to, never the current one. */
-  .tab-bar__link--switch {
-    flex: 0 0 76px;
-    color: var(--color-accent);
-    font-weight: var(--weight-semibold);
-  }
-
-  .tab-bar__link--switch .tab-bar__pill {
-    padding: 0 var(--space-xs);
-    border: 1px solid var(--color-accent);
-    background: transparent;
-  }
-
-  .tab-bar__link--switch:not(.tab-bar__link--active):hover .tab-bar__pill {
-    background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+    view-transition-name: skypane-tab-slider;
   }
 
   /* :not(.tab-bar__link--active) avoids a same-specificity, later-source
@@ -5590,15 +5582,14 @@ a.btn[aria-disabled="true"] {
   /* Not positioned itself: the sheet opens against the whole bar, so it is
    * as wide as the bar. The chevron is placed against the summary. */
   .tab-bar__more {
-    flex: 1 1 0;
-    min-width: 0;
+    flex: 1 1 auto;
+    min-width: 44px;
     display: flex;
   }
 
-  /* A bar with nothing between the space switch and More (the not-found page
-   * of a frame): More keeps a cell's width at the far end instead of
-   * stretching across the bar. */
-  .tab-bar__link--switch + .tab-bar__more {
+  /* A bar with nothing but More (the not-found page of a frame): More keeps a
+   * cell's width at the far end instead of stretching across the bar. */
+  .tab-bar__more--alone {
     max-width: 96px;
     margin-left: auto;
   }
@@ -5680,24 +5671,14 @@ a.btn[aria-disabled="true"] {
     font-size: var(--font-label-size);
   }
 
-  .tab-bar__more-panel > .mobile-nav__link {
-    border-top: 1px solid var(--glass-hairline);
-  }
-
   .tab-bar__links {
     display: flex;
     flex-direction: column;
     margin: 0;
   }
 
-  /* The pages at the top of the sheet continue the tab bar: one row each, an
-   * icon tile then the page name. */
-  .tab-bar__pages {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .tab-bar__pages .tab-bar__nav-link {
+  /* The administrator's space switch row: an icon tile then the space name. */
+  .tab-bar__space-link {
     display: flex;
     align-items: center;
     gap: var(--space-md);
@@ -5712,15 +5693,6 @@ a.btn[aria-disabled="true"] {
     padding: 10px;
     border-radius: 50%;
     background: color-mix(in srgb, var(--color-text) 6%, transparent);
-  }
-
-  .tab-bar__separator {
-    flex: none;
-    width: 100%;
-    height: 0;
-    margin: 0;
-    border: 0;
-    border-top: 1px solid var(--color-border);
   }
 
   .tab-bar__settings {
@@ -7969,19 +7941,10 @@ html.splash-on .splash__scan {
     opacity: 1;
   }
 
-  .tab-bar--slider .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
+  .tab-bar--slider .tab-bar__link--active .tab-bar__pill {
     background: transparent;
     box-shadow: none;
     view-transition-name: none;
-  }
-
-  /* Before the script has placed the slider (the first frame of a page change)
-   * the server-rendered active pill carries the slider's view-transition name,
-   * so the browser glides the old page's pill to the new one natively. Once the
-   * slider exists it owns the name and the pill gives it up: one element holds
-   * the name at any time. */
-  .tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill {
-    view-transition-name: skypane-tab-slider;
   }
 
   .tab-bar__slider--glide {

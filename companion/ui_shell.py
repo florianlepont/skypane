@@ -115,11 +115,11 @@ LOGIN_SHELL_TEMPLATE = (
     "{favicon_link}\n"
     "</head>\n"
     "<body>\n"
-    '<div class="login-shell">\n'
+    '<main class="login-shell">\n'
     '<div class="login-card">\n'
     "{body}\n"
     "</div>\n"
-    "</div>\n"
+    "</main>\n"
     "</body>\n"
     "</html>\n"
 )

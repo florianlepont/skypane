@@ -121,7 +121,7 @@ def test_the_console_tab_bar_labels_sit_inside_their_pills_at_360(
             " const t = range.getBoundingClientRect();"
             " return {text: l.textContent, sw: l.scrollWidth, cw: l.clientWidth,"
             " left: t.left - p.left, right: p.right - t.right}; })")
-        assert len(cells) == 6, cells
+        assert len(cells) == 5, cells
         for cell in cells:
             assert cell["sw"] <= cell["cw"], cell
             assert cell["left"] >= 1.5 and cell["right"] >= 1.5, cell

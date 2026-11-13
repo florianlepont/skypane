@@ -182,6 +182,28 @@ def test_nothing_overflows_the_page_or_its_card(components):
     assert components.evaluate(OVERFLOW) == []
 
 
+def test_open_menu_specimens_stay_inside_the_screen(components):
+    """the open sort menu and the row menu are drawn under their toggle inside the window, not
+    off its left edge"""
+    found = components.evaluate("""() => {
+      const width = document.documentElement.clientWidth;
+      return [...document.querySelectorAll('.components-state details[open] > .row-menu__panel')]
+        .map((panel) => { const r = panel.getBoundingClientRect();
+          return {left: Math.round(r.left), right: Math.round(r.right), width}; }); }""")
+    assert found, "no open menu specimen"
+    for box in found:
+        assert box["left"] >= 0 and box["right"] <= box["width"], box
+
+
+def test_every_button_in_a_specimen_holds_its_label(components):
+    """a button's label never spills over its own box, the save bar specimens included"""
+    spilled = components.evaluate("""() => [...document.querySelectorAll(
+      '.components-state .btn')].filter((b) => b.getBoundingClientRect().width > 0
+      && b.scrollWidth > b.clientWidth + 1).map((b) => b.className + ' ' + b.textContent.trim()
+      + ' ' + b.scrollWidth + '>' + b.clientWidth)""")
+    assert spilled == []
+
+
 def test_segmented_controls_centre_their_labels_and_keep_selected_apart(components):
     rows = components.evaluate(SEGMENTS)
     assert len(rows) >= 12, rows

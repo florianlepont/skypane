@@ -18,7 +18,7 @@ LIVE_PAGES = ("/", "/display", "/flights", "/airlines")
 PERSONAL_NAV_ROUTES = ("/", "/flights", "/detection", "/display", "/airlines")
 # The airline editor is one global list: its address is never frame-scoped.
 GLOBAL_CONSOLE_ADDRESS = "/airlines/manage"
-SPACE_SWITCH_CLASSES = ("space-switch", "tab-bar__link--switch")
+SPACE_SWITCH_CLASSES = ("space-switch", "tab-bar__space-link")
 
 
 @pytest.fixture(scope="module")

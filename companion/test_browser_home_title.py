@@ -370,12 +370,10 @@ def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, vie
                       inks: inactive.map(el => getComputedStyle(el).color),
                       clipped: [...document.querySelectorAll('.tab-bar__label')]
                           .filter(el => el.scrollWidth > el.clientWidth + 0.5).length,
-                      narrow: cells.filter(r => r.width < 44 || r.height < 44).length,
-                      first: cells[0].width};
+                      narrow: cells.filter(r => r.width < 44 || r.height < 44).length};
             }""")
         assert read["inks"], where
         assert read["clipped"] == 0 and read["narrow"] == 0, (where, read)
-        assert read["first"] >= 68 - 0.5, (where, read)
         parts = [float(p) for p in read["bar"][read["bar"].index("(") + 1:-1].split(",")]
         alpha = parts[3] if len(parts) == 4 else 1.0
         # The floating bar has its own fill per theme: legible over a white and a black

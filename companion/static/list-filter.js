@@ -319,6 +319,9 @@
   var latest = 0;
   var timer = null;
   var busy = false;
+  var byKeyboard = false;
+  document.addEventListener("keydown", function () { byKeyboard = true; });
+  document.addEventListener("pointerdown", function () { byKeyboard = false; });
 
   function encode(value) {
     return encodeURIComponent(value);
@@ -411,6 +414,10 @@
     var fresh = doc.querySelectorAll(VIEW);
     var active = document.activeElement;
     var key = active && active.getAttribute ? active.getAttribute("data-flights-key") : null;
+    // An arrow key through the open sort menu keeps the menu open on the
+    // choice it just made; a pointer choice closes it as before.
+    var walking = byKeyboard && active && active.matches && active.matches('input[name="sort"]') ?
+      active.value : null;
     var parent = live[0].parentNode;
     var added = [];
     var motion = window.SkyPaneMotion;
@@ -436,7 +443,12 @@
         }
       }
     }
-    if (key) {
+    var chosen = walking === null ? null :
+      document.querySelector('.collection-sort input[name="sort"][value="' + walking + '"]');
+    if (chosen) {
+      chosen.closest("details").open = true;
+      chosen.focus();
+    } else if (key) {
       var again = document.querySelector('[data-flights-key="' + key + '"]');
       if (again) {
         again.focus();
@@ -467,8 +479,9 @@
   // `commit` is a search the visitor settled (Enter, a chip, the sort, Clear):
   // a changed address gets a history entry of its own so Back returns to the
   // state before it, and Enter on text already typed live settles the entry
-  // typing wrote. Live typing rewrites the current entry, or starts a new one
-  // right after a settled search.
+  // typing wrote. Live typing rewrites the entry it started, and starts a new
+  // one right after a settled search or on the entry the page opened on, so
+  // Back from a first search shows the list as it was.
   function record(url, commit) {
     if (commit === true) {
       if (url !== shown) {
@@ -478,7 +491,7 @@
       }
       entryState = "committed";
     } else {
-      if (entryState === "committed") {
+      if (entryState === "committed" || (entryState === "base" && url !== shown)) {
         history.pushState(null, "", url);
       } else {
         history.replaceState(null, "", url);
@@ -770,6 +783,9 @@
   var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;
   var shown = window.location.pathname + window.location.search;
+  var byKeyboard = false;
+  document.addEventListener("keydown", function () { byKeyboard = true; });
+  document.addEventListener("pointerdown", function () { byKeyboard = false; });
 
   function currentUrl() {
     var parts = [];
@@ -930,7 +946,7 @@
       toggle.setAttribute("aria-label", name);
       toggle.setAttribute("title", name);
     }
-    if (menu) {
+    if (menu && !byKeyboard) {
       menu.removeAttribute("open");
     }
   }

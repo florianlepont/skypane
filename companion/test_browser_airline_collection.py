@@ -577,7 +577,7 @@ def test_a_server_side_search_with_no_match_shows_the_empty_card_with_a_clear_li
         assert page.locator(CARD).count() > 0
 
 
-def test_the_collection_is_two_taps_from_home_on_a_phone_and_one_on_desktop(
+def test_the_collection_is_one_tap_from_home_on_a_phone_and_on_desktop(
         new_context, make_app_server):
     server = make_app_server(seed=_seed)
     context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
@@ -586,8 +586,7 @@ def test_the_collection_is_two_taps_from_home_on_a_phone_and_one_on_desktop(
         _login(page, server.base_url())
         page.goto(server.base_url() + "/")
         page.wait_for_function(_SETTLED, timeout=15000)
-        page.locator(".tab-bar__more > summary").click()
-        link = page.locator(".tab-bar__more-panel a", has_text="Airlines")
+        link = page.locator(".tab-bar > a", has_text="Airlines")
         link.wait_for(state="visible")
         with page.expect_navigation():
             link.click()

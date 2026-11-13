@@ -40,7 +40,7 @@
     return !!(reducedQuery && reducedQuery.matches);
   }
 
-  var ACTIVE = ".tab-bar__link--active:not(.tab-bar__link--switch)";
+  var ACTIVE = ".tab-bar__link--active";
 
   function initTabSlider(bar) {
     var slider = document.createElement("span");
@@ -78,7 +78,7 @@
     }
 
     function setActive(link) {
-      var cells = bar.querySelectorAll(".tab-bar__link:not(.tab-bar__link--switch)");
+      var cells = bar.querySelectorAll(".tab-bar__link");
       for (var i = 0; i < cells.length; i++) {
         cells[i].classList.toggle("tab-bar__link--active", cells[i] === link);
       }
@@ -111,8 +111,7 @@
           && link.classList.contains("tab-bar__link"))) {
         link = link.parentNode;
       }
-      if (!link || link === bar || link.classList.contains("tab-bar__link--switch")
-          || link.classList.contains("tab-bar__link--active")
+      if (!link || link === bar || link.classList.contains("tab-bar__link--active")
           || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey
           || link.hasAttribute("target")) {
         return;
@@ -634,6 +633,8 @@
   // staggered entrance.
   var PULL_THRESHOLD = 56;
   var PULL_MAX = 90;
+  // The spinner turns for as long as the give-up timeout below (6 s at 700 ms a turn).
+  var SPIN_TURNS = 9;
   var PULL_START = 8;
 
   function initPullToRefresh() {
@@ -764,7 +765,7 @@
       if (glyph) {
         glyph.style.transform = "";
         spin = play(glyph, [{transform: "rotate(0deg)"}, {transform: "rotate(360deg)"}],
-                    {duration: 700, iterations: Infinity});
+                    {duration: 700, iterations: SPIN_TURNS});
       }
       paint(PULL_THRESHOLD);
       document.addEventListener("skypane-refresh-done", finish);
@@ -925,12 +926,15 @@
     sweep.className = "unlock-glint__sweep";
     glint.appendChild(sweep);
     card.appendChild(glint);
-    var flip = card.animate(
+    var glintMs = millis("--motion-reveal", 900);
+    var ease = token("--ease-out", "ease-out");
+    card.animate(
       [{transform: "rotateY(90deg)"}, {transform: "rotateY(0deg)"}],
-      {duration: 560, easing: "cubic-bezier(0.34, 1.3, 0.64, 1)"});
+      {duration: millis("--motion-unlock", 560),
+       easing: token("--motion-spring", "cubic-bezier(0.34, 1.56, 0.64, 1)")});
     sweep.animate(
       [{transform: "translateX(-120%)"}, {transform: "translateX(120%)"}],
-      {duration: 900, delay: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both"}
+      {duration: glintMs, delay: 300, easing: ease, fill: "both"}
     ).finished.then(function () {
       glint.remove();
     }, function () {
@@ -944,7 +948,7 @@
       spark.animate(
         [{opacity: 1, transform: "translate(0, 0) scale(1)"},
          {opacity: 0, transform: "translate(" + to[0] + "px, " + to[1] + "px) scale(0.3)"}],
-        {duration: 900, delay: 300 + index * 25, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both"}
+        {duration: glintMs, delay: 300 + index * 25, easing: ease, fill: "both"}
       ).finished.then(function () {
         spark.remove();
       }, function () {

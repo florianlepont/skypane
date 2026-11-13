@@ -15,7 +15,7 @@ this module).
 """
 from urllib.parse import quote
 
-from companion import i18n, layout, prefs
+from companion import i18n, layout, prefs, ui_components
 
 # Literal here, byte-identical to companion/app.py's own LOGIN_ROUTE
 # (and companion/routes.py's), since this module can never import
@@ -40,7 +40,8 @@ FORBIDDEN_PURPOSE_TEXT = i18n.msg(
 
 # The 403 body when a protected form arrives without a valid session token.
 CSRF_EXPIRED_TEXT = i18n.msg(
-    "common.csrf_expired", "This page expired. Reload and try again.")
+    "common.csrf_expired", "This page expired. Open it again and retry.")
+_REOPEN_TEXT = i18n.msg("common.reopen_page", "Open the page again")
 
 # The 503 body when the session store cannot be read.
 UNAVAILABLE_TITLE = i18n.msg("common.temporarily_unavailable", "Temporarily unavailable")
@@ -224,6 +225,19 @@ def render_login_page(
     return layout.login_shell(body, ui_theme=ui_theme)
 
 
+# The sign-in page's `?error=` codes: a closed set, so nothing a caller
+# sends is ever reflected.
+CANCELLED_ERROR_CODE = "cancelled"
+
+
+def notice_for_error_code(code):
+    """The notice a `/login?error=<code>` address shows, or None for any
+    other value."""
+    if code == CANCELLED_ERROR_CODE:
+        return _SIGN_IN_ERROR_TEXT[SIGN_IN_ERROR_PROVIDER]
+    return None
+
+
 def sign_in_error_page(kind, ui_theme, auth0_enabled=True, next_route=None):
     """The login card with one generic, fixed-wording error toast. `kind`
     is a SIGN_IN_ERROR_* value; an unknown kind reads as the incomplete
@@ -334,11 +348,12 @@ BACK_ACCOUNT = "account"
 BACK_SIGN_IN = "sign-in"
 
 
-def _back_link_html(back, home_route=None):
+def _back_link_html(back, home_route=None, reopen=None):
     """The error pages' one onward link: Home for an administrator (or the
     given `home_route`, a user's frame Home), the Account page for a user
     with no frame, the sign-in page for a caller with no session. Any other
-    value reads as Home.
+    value reads as Home. `reopen`, the address of the page a refused form came
+    from, adds a primary link to it ahead of the way back.
     """
     if back == BACK_ACCOUNT:
         route, label = "/account", _BACK_TO_ACCOUNT_TEXT
@@ -346,6 +361,10 @@ def _back_link_html(back, home_route=None):
         route, label = LOGIN_ROUTE, _BACK_TO_SIGN_IN_TEXT
     else:
         route, label = home_route or layout.HOME_ROUTE, _BACK_TO_HOME_TEXT
+    if reopen is not None:
+        return '<p class="error-actions">%s %s</p>' % (
+            ui_components.button_html(i18n.t(_REOPEN_TEXT), "primary", href=reopen),
+            ui_components.button_html(i18n.t(label), "secondary", href=route))
     return '<p class="error-actions"><a class="error-home-button" href="%s">%s</a></p>' % (
         layout.escape_html(route), layout.escape_html(i18n.t(label)))
 
@@ -374,7 +393,7 @@ def not_found_page(ui_theme, health_alert, back=BACK_HOME, home_route=None,
 
 
 def forbidden_page(ui_theme, health_alert, back=BACK_HOME, purpose=None,
-                   home_route=None):
+                   home_route=None, reopen=None):
     """The shared 403 body for the Origin/Sec-Fetch-Site POST gate.
     Byte-for-byte the same shape as not_found_page() above, kept as a
     separate function so a later change can relocate that gate
@@ -382,7 +401,7 @@ def forbidden_page(ui_theme, health_alert, back=BACK_HOME, purpose=None,
     """
     body = (
         layout.page_header(i18n.t(FORBIDDEN_TITLE), purpose=i18n.t(purpose or FORBIDDEN_PURPOSE_TEXT))
-        + _back_link_html(back, home_route)
+        + _back_link_html(back, home_route, reopen)
     )
     return layout.page_shell(
         title=i18n.t(FORBIDDEN_TITLE), active="", body=body,

@@ -448,7 +448,7 @@ def test_a_strip_reached_another_way_moves_nothing(new_context, server):
     try:
         page = context.new_page()
         _open(page, server, "/display/special-looks")
-        home = _follow(page, ".tab-bar a.tab-bar__link:not(.tab-bar__link--switch) >> nth=0")
+        home = _follow(page, ".tab-bar a.tab-bar__link >> nth=0")
         assert "::view-transition-new" not in home["strip"], home
         style = _follow(page, '.tab-bar a.tab-bar__link[href$="/display"]')
         assert style["change"] == "ran" and "::view-transition-old" not in style["strip"], style
@@ -924,7 +924,7 @@ def test_the_tab_bar_pill_is_on_every_page(new_context, server, path):
             "() => { const r = (e) => e.getBoundingClientRect();"
             " const s = r(document.querySelector('.tab-bar__slider'));"
             " const l = r(document.querySelector("
-            "'.tab-bar__link--active:not(.tab-bar__link--switch)'));"
+            "'.tab-bar__link--active'));"
             " return s.width > 0 && s.left >= l.left - 1 && s.right <= l.right + 1"
             " && s.top >= l.top - 1 && s.bottom <= l.bottom + 1; }")
         assert inside, path

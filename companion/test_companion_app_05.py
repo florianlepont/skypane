@@ -167,8 +167,8 @@ def test_illustration_non_image_upload_is_rejected(make_app_server):
         cookie=session_cookie, content_type=content_type)
     assert status == 303, "expected a 303 redirect for a non-image upload, got %d" % status
     location = headers.get("Location", "")
-    assert ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REJECTED) in location, (
-        "expected the rejection flash key in the redirect, got %r" % location)
+    assert "flash=illustration_not_png" in location, (
+        "expected the not-a-PNG flash key in the redirect, got %r" % location)
     override_path = os.path.join(server.state_dir, "illustration_overrides", "easyjet.png")
     assert not os.path.exists(override_path), (
         "expected no override file to be written for a rejected non-image upload")
@@ -187,8 +187,8 @@ def test_illustration_oversized_upload_is_rejected_and_connection_stays_healthy(
         cookie=session_cookie, content_type=content_type)
     assert status == 303, "expected a 303 redirect for an oversized upload, got %d" % status
     location = headers.get("Location", "")
-    assert ("flash=%s" % app_module.FLASH_KEY_ILLUSTRATION_REJECTED) in location, (
-        "expected the rejection flash key in the redirect, got %r" % location)
+    assert "flash=illustration_too_large" in location, (
+        "expected the too-large flash key in the redirect, got %r" % location)
     override_path = os.path.join(server.state_dir, "illustration_overrides", "corsair.png")
     assert not os.path.exists(override_path), (
         "expected no override file to be written for a rejected oversized upload")
