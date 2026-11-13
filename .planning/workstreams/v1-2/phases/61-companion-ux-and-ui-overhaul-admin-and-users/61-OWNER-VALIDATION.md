@@ -1155,3 +1155,4 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Owner decision: redesign the "Device and version" panel on the Fleet device page as in the mockup (frame state on top, one update card with one Install button, a flat version list, quiet Revert buttons, release notes behind the row). Queued as plan 61-126 after 61-125.
 - Owner decision: the Diagnostic LED switch stays as it is (admin only, off by default, part of the frame protocol).
 - Owner test of the Style leave dialog: it opened only for sub-tabs and layout changes; the owner changes page with the bottom tab bar and changes colours. Plan 61-125 widens it to every page with a Save bar and every in-app link.
+- Owner decision: A5-15 (many unlock effects at once) and A5-16 (uneven motion on Location) are left as they are.
