@@ -41,8 +41,12 @@ def _seed_history(state_dir, running="fw-v1.0.3", count=5):
     reported by the frame and installed one day ago."""
     os.makedirs(str(state_dir), exist_ok=True)
     now = datetime.now(timezone.utc)
-    for version, age_days, note_count in _HISTORY[len(_HISTORY) - count:]:
-        released = (now - timedelta(days=age_days)).replace(microsecond=0).isoformat()
+    for index, (version, age_days, note_count) in enumerate(_HISTORY):
+        if index < len(_HISTORY) - count:
+            continue
+        # An hour apart so releases of one day keep a stable order.
+        released = (now - timedelta(days=age_days) + timedelta(hours=index)).replace(
+            microsecond=0).isoformat()
         notes = ["Note %d of %s" % (n, version) for n in range(note_count)]
         if version == "fw-v1.0.4":
             notes = [_RELEASE_TITLE]
@@ -190,3 +194,86 @@ def test_one_update_card_with_one_install_button_when_an_update_is_offered(
                 0 if scenario == "single" else 4)
         finally:
             context.close()
+
+
+_PROBE_ROWS = """() => [...document.querySelectorAll('.fleet-block--device .update-item')].map((li) => {
+  const rect = (el) => { const r = el.getBoundingClientRect(); return [r.x, r.y, r.width, r.height]; };
+  const version = li.querySelector('.update-item__version');
+  const range = document.createRange();
+  range.selectNodeContents(version);
+  const button = li.querySelector('form button[type=submit]');
+  const dot = li.querySelector('.update-item__dot');
+  return {
+    version: version.textContent.trim(),
+    cls: li.className,
+    versionLines: new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size,
+    meta: li.querySelector('.update-item__meta').textContent.replace(/\\s+/g, ' ').trim(),
+    chip: (li.querySelector('.banner__pill') || {textContent: ''}).textContent.trim(),
+    button: button ? {text: button.textContent.trim(), rect: rect(button),
+      bg: getComputedStyle(button).backgroundColor} : null,
+    dotShape: dot ? [dot.getBoundingClientRect().width, getComputedStyle(dot).borderRadius] : null,
+    box: rect(li),
+    shadow: getComputedStyle(li).boxShadow,
+  };
+})"""
+
+
+@pytest.mark.parametrize("theme", THEMES)
+@pytest.mark.parametrize("lang", LANGS)
+@pytest.mark.parametrize("width", WIDTHS)
+def test_history_is_a_flat_list_with_status_chips_and_a_quiet_revert(
+        new_context, servers, width, lang, theme):
+    """The history is a flat list, no table and no card inside the card: a status dot, the
+    version in monospace and a date, age and notes line per row; "Newest" and "Installed"
+    chips; a quiet text-style Revert (still a 44px target) on every older version."""
+    words = {
+        "en": ("Versions", "Newest", "Installed", "Roll back", "Notes (4)"),
+        "fr": ("Versions", "Plus récente", "Installée", "Revenir", "Notes (4)"),
+    }[lang]
+    context, page = open_panel(new_context, servers["update"], width, lang, theme)
+    try:
+        where = "%dpx/%s/%s" % (width, lang, theme)
+        assert page.locator(".fleet-block--device table").count() == 0, where
+        head = page.locator(".fleet-block--device .update-hist__head")
+        assert words[0] in head.text_content() and "5" in head.locator(".banner__pill").inner_text()
+        rows = page.evaluate(_PROBE_ROWS)
+        assert [row["version"] for row in rows] == [
+            "fw-v1.0.4", "fw-v1.0.3", "fw-v1.0.2", "fw-v1.0.1", "fw-v1.0.0"], where
+        accent_bg = page.evaluate(
+            "() => { const p = document.createElement('div');"
+            " p.style.backgroundColor = 'var(--color-accent)'; document.body.appendChild(p);"
+            " const c = getComputedStyle(p).backgroundColor; p.remove(); return c; }")
+        for row in rows:
+            assert row["versionLines"] == 1, "version wrapped at %s: %r" % (where, row)
+            assert row["shadow"] == "none", where
+            assert row["dotShape"][0] == 10, where
+            assert row["box"][0] >= -0.5 and row["box"][0] + row["box"][2] <= width + 0.5, where
+        newest, installed, *older = rows
+        assert newest["chip"] == words[1] and newest["button"] is None, (where, newest)
+        assert installed["chip"] == words[2] and installed["button"] is None, (where, installed)
+        assert "update-item--running" in installed["cls"], where
+        assert words[4] in installed["meta"], (where, installed["meta"])
+        assert installed["meta"].count("·") == 2, (where, installed["meta"])
+        for row in older:
+            assert row["chip"] == "", where
+            button = row["button"]
+            assert button["text"] == words[3], where
+            assert button["rect"][3] >= 44 - 0.5, "revert under 44px at %s" % where
+            assert button["rect"][0] + button["rect"][2] <= width + 0.5, where
+            assert button["bg"] != accent_bg, "revert must stay quiet at %s" % where
+            assert button["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), (
+                "revert is text-style at %s: %r" % (where, button["bg"]))
+        assert no_horizontal_overflow(page), "overflow at %s" % where
+    finally:
+        context.close()
+
+
+def test_a_single_version_is_a_list_of_one_row_without_an_action(new_context, servers):
+    context, page = open_panel(new_context, servers["single"], 360, "en", "light")
+    try:
+        rows = page.evaluate(_PROBE_ROWS)
+        assert [row["version"] for row in rows] == ["fw-v1.0.4"]
+        assert rows[0]["chip"] == "Installed" and rows[0]["button"] is None
+        assert "1" in page.locator(".update-hist__head .banner__pill").inner_text()
+    finally:
+        context.close()

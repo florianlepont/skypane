@@ -46,12 +46,9 @@ TYPE_CHOOSER_LABEL_TEXT = i18n.msg("update.hardware_type", "Hardware type")
 CONFIRM_TYPE_TEMPLATE = i18n.msg("update.for_hardware_type_s", "For %s")
 
 HISTORY_HEADING_TEXT = i18n.msg("update.version_history", "Versions")
-COL_VERSION_TEXT = i18n.msg("update.col_version", "Version")
-COL_RELEASED_TEXT = i18n.msg("update.col_released", "Released")
-COL_STATE_TEXT = i18n.msg("update.col_state", "State")
-STATE_NEWER_TEXT = i18n.msg("update.state_newer", "Newer")
-STATE_OLDER_TEXT = i18n.msg("update.state_older", "Earlier")
-COL_ACTION_TEXT = i18n.msg("update.col_action", "Action")
+# The history's status chips: the newest release, and the one the frame runs.
+STATE_NEWEST_TEXT = i18n.msg("update.state_newest", "Newest")
+STATE_INSTALLED_TEXT = i18n.msg("update.state_installed", "Installed")
 NOTES_TEXT = i18n.msg("update.notes_n", "Notes (%d)")
 NO_VERSION_REPORTED_TEXT = i18n.msg(
     "update.no_version_reported_yet", "No version reported yet")
@@ -194,6 +191,8 @@ EMPTY_RELEASES_BODY_TEXT = i18n.msg(
 # never the accent-styled primary. The accent primary is spent only on
 # installing a release newer than the one the frame runs.
 _QUIET_BUTTON_CLASS = "btn btn--secondary"
+# The text-style variant of it for a rare action in a flat list row.
+_TEXT_BUTTON_CLASS = "btn btn--ghost"
 
 # Where a release sits against the running one (`view["releases"][n]
 # ["direction"]`): only "older" is worded as a rollback.
@@ -308,7 +307,8 @@ def _owner_releases(view):
 
 
 def _install_form_html(
-        version, label_template=None, quiet=False, type_html="", short_label=None):
+        version, label_template=None, quiet=False, type_html="", short_label=None,
+        button_class=_QUIET_BUTTON_CLASS):
     """The Install form for `version`: `data-confirm` misclick guard, the
     hidden `version` field and no `confirm` field (the server
     confirmation page is the real gate).
@@ -330,7 +330,7 @@ def _install_form_html(
         if short_label is not None:
             label = i18n.t(short_label)
             aria_html = ' aria-label="%s"' % escape_html(i18n.t(label_template) % version)
-    class_html = ' class="%s"' % _QUIET_BUTTON_CLASS if quiet else ""
+    class_html = ' class="%s"' % button_class if quiet else ""
     return (
         '<form method="post" action="%s" data-confirm="%s">'
         '<input type="hidden" name="version" value="%s">%s%s'
@@ -355,14 +355,15 @@ def _release_install_form_html(
     if direction == _DIRECTION_OLDER:
         return _install_form_html(
             version, ROLLBACK_BUTTON_TEMPLATE, quiet=True, type_html=type_html,
-            short_label=ROLLBACK_SHORT_TEXT if compact else None)
+            short_label=ROLLBACK_SHORT_TEXT if compact else None,
+            button_class=_TEXT_BUTTON_CLASS if compact else _QUIET_BUTTON_CLASS)
     if direction == _DIRECTION_NEWER:
         return _install_form_html(
             version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None,
             type_html=type_html)
     return _install_form_html(
         version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None, quiet=True,
-        type_html=type_html)
+        type_html=type_html, button_class=_TEXT_BUTTON_CLASS if compact else _QUIET_BUTTON_CLASS)
 
 
 def _cancel_form_html(view):
@@ -715,74 +716,68 @@ def _versions_group_html(ctx, view, releases):
 def _versions_card_html(ctx, view, releases, embedded=False):
     if not embedded:
         return _versions_group_html(ctx, view, releases)
-    offered = _newer_release_to_offer(view, releases)
-    offered_version = offered["version"] if offered else None
+    heading = escape_html(i18n.t(HISTORY_HEADING_TEXT))
     if not releases:
         return (
             '<section class="page-section update-versions" '
-            'aria-labelledby="update-versions-title"><div class="update-versions__head">'
-            '<h2 class="text-heading" id="update-versions-title">%s</h2></div>%s</section>') % (
-                escape_html(i18n.t(HISTORY_HEADING_TEXT)),
+            'aria-labelledby="update-versions-title"><div class="update-hist__head">'
+            '<h3 class="update-hist__title" id="update-versions-title">%s</h3></div>%s</section>') % (
+                heading,
                 layout.empty_state(
                     i18n.t(EMPTY_RELEASES_HEADING_TEXT), i18n.t(EMPTY_RELEASES_BODY_TEXT),
                     compact=True))
+    offered = _newer_release_to_offer(view, releases)
+    offered_version = offered["version"] if offered else None
     return (
-        '<section class="page-section update-versions" aria-label="%s">'
-        '<div class="update-versions__head"><h3 class="text-heading">%s'
-        ' <span class="update-versions__count">%d</span></h3></div>'
-        '<table class="update-table"><thead><tr>'
-        '<th scope="col" class="update-table__col">%s</th>'
-        '<th scope="col" class="update-table__col update-table__col--state">%s</th>'
-        '<th scope="col" class="update-table__col update-table__col--when">%s</th>'
-        '<th scope="col" class="update-table__col update-table__col--action">'
-        '<span class="visually-hidden">%s</span></th></tr></thead>'
-        '<tbody>%s</tbody></table></section>'
-    ) % (escape_html(i18n.t(HISTORY_HEADING_TEXT)), escape_html(i18n.t(HISTORY_HEADING_TEXT)),
-         len(releases), escape_html(i18n.t(COL_VERSION_TEXT)),
-         escape_html(i18n.t(COL_STATE_TEXT)),
-         escape_html(i18n.t(COL_RELEASED_TEXT)), escape_html(i18n.t(COL_ACTION_TEXT)),
-         "".join(_table_row_html(release, view, ctx.now, offered_version)
-                for release in releases))
+        '<section class="page-section update-versions" aria-labelledby="update-versions-title">'
+        '<div class="update-hist__head"><h3 class="update-hist__title" id="update-versions-title">'
+        "%s</h3>%s</div>"
+        '<ul class="update-hist__list">%s</ul></section>'
+    ) % (heading, ui_components.pill_html(str(len(releases))),
+         "".join(_history_row_html(release, view, ctx.now, offered_version, index == 0)
+                 for index, release in enumerate(releases)))
 
 
-def _state_cell_html(release):
-    """The row's state as a pill: the running release's badge, "Newer" for a
-    release the frame could install, "Earlier" for one it would roll back to."""
+def _status_chip_html(release, newest):
+    """The row's chip: "Installed" on the release the frame runs, "Newest" on
+    the latest release otherwise, nothing for the rest."""
     if release.get("running"):
-        return '<span class="update-row__badge banner__pill">%s</span>' % escape_html(
-            i18n.t(RUNNING_BADGE_TEXT))
-    direction = release.get("direction")
-    label = {_DIRECTION_NEWER: STATE_NEWER_TEXT, _DIRECTION_OLDER: STATE_OLDER_TEXT}.get(direction)
-    if label is None:
-        return ""
-    return '<span class="update-table__chip update-table__chip--%s">%s</span>' % (
-        direction, escape_html(i18n.t(label)))
+        return ui_components.pill_html(i18n.t(STATE_INSTALLED_TEXT), tone="ok")
+    if newest:
+        return ui_components.pill_html(i18n.t(STATE_NEWEST_TEXT), tone="info")
+    return ""
 
 
-def _table_row_html(release, view, now, offered_version=None):
-    """One release as a table row: the version with any notes behind one
-    disclosure, its state pill, when it was released (the age, the full date
-    under it) and the action that is always in view (Install, Roll back, or a
-    state word)."""
+def _history_row_html(release, view, now, offered_version, newest):
+    """One release as a flat list row: a status dot, the version, a line with
+    its date, age and notes count, a status chip and, for a rollback, the quiet
+    action. Notes sit behind one disclosure; the action is always in view."""
     notes = [str(note) for note in (release.get("notes") or []) if note]
+    released_at = release.get("released_at")
+    facts = []
+    if released_at:
+        facts.append(layout.absolute_time_html(released_at))
+        facts.append(_ago_html(released_at, now))
+    if notes:
+        facts.append(escape_html(i18n.t(NOTES_TEXT) % len(notes)))
     notes_html = (
-        '<details class="update-table__notes"><summary>%s</summary><ul>%s</ul></details>'
+        '<details class="update-item__notes"><summary>%s</summary><ul>%s</ul></details>'
         % (escape_html(i18n.t(NOTES_TEXT) % len(notes)),
            "".join("<li>%s</li>" % escape_html(note) for note in notes))) if notes else ""
-    released_at = release.get("released_at")
-    date_html = (
-        '<span class="update-table__date">%s</span>' % layout.absolute_time_html(released_at)
-        if released_at else "")
+    action_html = _row_action_html(
+        release, view, compact=True, offered_version=offered_version)
+    classes = "update-item"
+    if release.get("running"):
+        classes += " update-item--running"
+    elif newest:
+        classes += " update-item--newest"
     return (
-        '<tr class="update-table__row%s"><th scope="row" class="update-table__version">'
-        '%s%s</th><td class="update-table__state">%s</td>'
-        '<td class="update-table__when">%s%s</td>'
-        '<td class="update-table__action">%s</td></tr>'
-    ) % (
-        " update-table__row--running" if release.get("running") else "",
-        _mono_html(release.get("version")), notes_html, _state_cell_html(release),
-        _ago_html(released_at, now), date_html,
-        _row_action_html(release, view, compact=True, offered_version=offered_version))
+        '<li class="%s"><span class="update-item__dot"></span>'
+        '<div class="update-item__text"><span class="update-item__version mono">%s</span>'
+        '<span class="update-item__meta">%s</span>%s</div>%s'
+        '<div class="update-item__action">%s</div></li>'
+    ) % (classes, escape_html(release.get("version")), " · ".join(facts), notes_html,
+         _status_chip_html(release, newest), action_html)
 
 
 def _install_confirm_form_html(version, type_html=""):

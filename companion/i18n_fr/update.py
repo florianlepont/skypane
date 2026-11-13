@@ -17,12 +17,8 @@ the app's other nav labels.
 
 MESSAGES = {
     "update.version_history": "Versions",
-    "update.col_version": "Version",
-    "update.col_released": "Sortie",
-    "update.col_state": "État",
-    "update.state_newer": "Plus récente",
-    "update.state_older": "Antérieure",
-    "update.col_action": "Action",
+    "update.state_newest": "Plus récente",
+    "update.state_installed": "Installée",
     "update.notes_n": "Notes (%d)",
     "update.no_version_reported_yet": "Aucune version signalée pour le moment",
 
