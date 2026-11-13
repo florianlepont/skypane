@@ -997,14 +997,36 @@ a.fleet-retire__link {
 .update-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-sm) var(--space-md);
-  min-height: 60px;
-  padding: var(--space-sm) 0;
+  gap: var(--space-sm);
   border-top: 1px solid var(--glass-hairline);
 }
 
 .update-item:first-child {
   border-top: 0;
+}
+
+.update-item__details {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-item__summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  min-height: 60px;
+  padding: var(--space-sm) 0;
+  color: var(--color-text);
+  list-style: none;
+}
+
+.update-item__summary::before,
+.update-item__summary::marker {
+  content: none;
+}
+
+.update-item__summary::-webkit-details-marker {
+  display: none;
 }
 
 .update-item__dot {
@@ -1047,13 +1069,24 @@ a.fleet-retire__link {
   white-space: nowrap;
 }
 
-.update-item > .banner__pill {
+.update-item__summary > .banner__pill {
   margin-top: 4px;
+}
+
+.update-item__chevron {
+  flex: none;
+  margin-top: 6px;
+  transform: rotate(90deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+.update-item__details[open] .update-item__chevron {
+  transform: rotate(-90deg);
 }
 
 .update-item__action {
   flex: none;
-  margin-top: var(--space-xs);
+  margin-top: var(--space-sm);
 }
 
 .update-item__action:empty {
@@ -1073,22 +1106,18 @@ a.fleet-retire__link {
   white-space: nowrap;
 }
 
-.update-item__notes > summary {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
+/* Notes are untrusted release text: long unbroken tokens wrap instead of
+ * widening the panel. */
+.update-item__notes {
+  margin: 0 0 var(--space-sm);
+  padding: 0 0 0 calc(10px + var(--space-md) + var(--space-md));
   font-size: var(--font-label-size);
-  color: var(--color-accent);
-  cursor: pointer;
-}
-
-.update-item__notes ul {
-  margin: 0 0 var(--space-xs);
-  padding-left: var(--space-md);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.update-item__notes li {
+  margin: 0 0 var(--space-xs);
 }
 
 /* A quiet outlined action link in a row (Reassign beside the owner). */

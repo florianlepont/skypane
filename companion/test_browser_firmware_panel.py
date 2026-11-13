@@ -277,3 +277,61 @@ def test_a_single_version_is_a_list_of_one_row_without_an_action(new_context, se
         assert "1" in page.locator(".update-hist__head .banner__pill").inner_text()
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("theme", THEMES)
+@pytest.mark.parametrize("lang", LANGS)
+@pytest.mark.parametrize("width", WIDTHS)
+def test_release_notes_open_from_the_row_by_pointer_and_keyboard(
+        new_context, servers, width, lang, theme):
+    """The row itself is the disclosure: a closed native <details> whose summary (the dot,
+    the version and its date line, the chip, a chevron) is at least 44px tall and keyboard
+    operable. Opening it lists every note, including the full release text the update card
+    trims, inside the viewport, and the Revert button beside it stays outside the summary."""
+    context, page = open_panel(new_context, servers["update"], width, lang, theme)
+    try:
+        where = "%dpx/%s/%s" % (width, lang, theme)
+        newest = page.locator(".update-item").nth(0).locator("details")
+        oldest = page.locator(".update-item").nth(4).locator("details")
+        for details in (newest, oldest):
+            assert details.evaluate("el => el.open") is False, where
+            assert not details.locator("ul").is_visible(), where
+            box = details.locator("summary").bounding_box()
+            assert box["height"] >= 44 - 0.5, "summary under 44px at %s" % where
+        assert newest.locator("summary").get_attribute("aria-label") is None
+        assert newest.locator("summary svg, summary .icon").count() == 1, where
+
+        newest.locator("summary .update-item__version").click()
+        page.wait_for_function("d => d.open", arg=newest.element_handle())
+        assert newest.locator("li").all_inner_texts() == [_RELEASE_TITLE], where
+        newest.locator("summary").focus()
+        page.keyboard.press("Enter")
+        page.wait_for_function("d => !d.open", arg=newest.element_handle())
+
+        oldest.locator("summary").focus()
+        page.keyboard.press("Space")
+        page.wait_for_function("d => d.open", arg=oldest.element_handle())
+        assert oldest.locator("li").count() == 28, where
+        list_box = oldest.locator("ul").bounding_box()
+        assert list_box["x"] >= -0.5 and list_box["x"] + list_box["width"] <= width + 0.5, where
+        assert no_horizontal_overflow(page), "overflow with notes open at %s" % where
+        row_box = page.locator(".update-item").nth(4).locator("form button").bounding_box()
+        assert row_box["x"] + row_box["width"] <= width + 0.5, where
+        assert oldest.locator("form").count() == 0, "the action stays outside the summary"
+        outline = oldest.locator("summary").evaluate(
+            "el => { const s = getComputedStyle(el); return s.outlineStyle; }")
+        assert outline != "none", "no focus ring on the row at %s" % where
+    finally:
+        context.close()
+
+
+def test_release_notes_open_with_scripts_blocked(new_context, servers):
+    from companion.test_browser_ux_helpers import _no_js_page
+    with _no_js_page(
+            new_context, servers["update"].base_url(), FLEET_ROUTE,
+            viewport={"width": 360, "height": 900}, reduced_motion="reduce") as page:
+        oldest = page.locator(".update-item").nth(4).locator("details")
+        assert oldest.evaluate("el => el.open") is False
+        oldest.locator("summary").click()
+        assert oldest.evaluate("el => el.open") is True
+        assert oldest.locator("li").first.is_visible()

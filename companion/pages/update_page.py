@@ -760,10 +760,6 @@ def _history_row_html(release, view, now, offered_version, newest):
         facts.append(_ago_html(released_at, now))
     if notes:
         facts.append(escape_html(i18n.t(NOTES_TEXT) % len(notes)))
-    notes_html = (
-        '<details class="update-item__notes"><summary>%s</summary><ul>%s</ul></details>'
-        % (escape_html(i18n.t(NOTES_TEXT) % len(notes)),
-           "".join("<li>%s</li>" % escape_html(note) for note in notes))) if notes else ""
     action_html = _row_action_html(
         release, view, compact=True, offered_version=offered_version)
     classes = "update-item"
@@ -771,13 +767,23 @@ def _history_row_html(release, view, now, offered_version, newest):
         classes += " update-item--running"
     elif newest:
         classes += " update-item--newest"
-    return (
-        '<li class="%s"><span class="update-item__dot"></span>'
-        '<div class="update-item__text"><span class="update-item__version mono">%s</span>'
-        '<span class="update-item__meta">%s</span>%s</div>%s'
-        '<div class="update-item__action">%s</div></li>'
-    ) % (classes, escape_html(release.get("version")), " · ".join(facts), notes_html,
-         _status_chip_html(release, newest), action_html)
+    head_html = (
+        '<span class="update-item__dot"></span>'
+        '<span class="update-item__text"><span class="update-item__version mono">%s</span>'
+        '<span class="update-item__meta">%s</span></span>%s'
+    ) % (escape_html(release.get("version")), " · ".join(facts),
+         _status_chip_html(release, newest))
+    if notes:
+        row_html = (
+            '<details class="update-item__details"><summary class="update-item__summary">'
+            '%s%s</summary><ul class="update-item__notes">%s</ul></details>'
+        ) % (head_html,
+             layout.icon_html("icon-chevron-right", size=16, extra_class="update-item__chevron"),
+             "".join("<li>%s</li>" % escape_html(note) for note in notes))
+    else:
+        row_html = '<div class="update-item__summary">%s</div>' % head_html
+    return '<li class="%s">%s<div class="update-item__action">%s</div></li>' % (
+        classes, row_html, action_html)
 
 
 def _install_confirm_form_html(version, type_html=""):
