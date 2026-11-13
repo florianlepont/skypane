@@ -262,8 +262,9 @@ html:not(.map-ready) .place-mode__text .icon {
    * wide screen) and the height of the docked Save bar. */
   --place-clear: 0px;
   --place-bar-h: var(--save-bar-h);
-  /* The map runs under the app bar; everything that floats starts below it. */
-  --place-top: calc(52px + var(--safe-top));
+  /* The map runs under the app bar; everything that floats starts below it
+   * (and so moves down with it in a Home Screen web app). */
+  --place-top: calc(52px + var(--safe-top) + var(--app-bar-drop));
   --place-search-bottom: calc(var(--place-top) + var(--place-gutter) + 54px);
 }
 
@@ -1205,7 +1206,7 @@ html.js-early:not(.map-ready) .place-boot {
   min-height: 100lvh;
   background: var(--color-secondary);
   --place-gutter: calc(var(--space-sm) + var(--space-xs));
-  --place-top: calc(52px + var(--safe-top));
+  --place-top: calc(52px + var(--safe-top) + var(--app-bar-drop));
   --place-boot-search-h: 54px;
   --place-boot-bottom: calc(var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom) + var(--space-sm));
 }
