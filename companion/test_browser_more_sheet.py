@@ -329,3 +329,43 @@ def test_the_page_behind_the_open_sheet_is_dimmed_blurred_and_fully_covered(
             "() => !document.querySelector('.tab-bar__more').open", timeout=10000)
     finally:
         context.close()
+
+
+_IN_SHEET = "() => !!document.activeElement && !!document.activeElement.closest('.tab-bar__more')"
+
+
+@pytest.mark.parametrize("backwards", [False, True], ids=["tab", "shift-tab"])
+def test_keyboard_focus_stays_inside_the_open_sheet(new_context, app, backwards):
+    """Tab and Shift+Tab cycle through the sheet's own controls: the focus never reaches the page
+    behind the dimmed scrim while the sheet is open"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        _open_sheet(page)
+        page.locator(".tab-bar__more-panel a, .tab-bar__more-panel button").first.focus()
+        stops = page.locator(
+            ".tab-bar__more-panel a, .tab-bar__more-panel button, .tab-bar__more > summary").count()
+        for _ in range(stops + 3):
+            page.keyboard.press("Shift+Tab" if backwards else "Tab")
+            page.wait_for_function(_IN_SHEET, timeout=5000)
+        assert page.locator(".tab-bar__more").evaluate("el => el.open")
+    finally:
+        context.close()
+
+
+def test_closing_the_sheet_by_escape_or_a_second_tap_returns_the_focus_to_the_more_cell(
+        new_context, app):
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        for how in ("escape", "toggle"):
+            _open_sheet(page)
+            page.locator(".tab-bar__more-panel a, .tab-bar__more-panel button").first.focus()
+            if how == "escape":
+                page.keyboard.press("Escape")
+            else:
+                page.locator(".tab-bar__more > summary").click()
+            page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+            page.wait_for_function(
+                "() => document.activeElement === document.querySelector('.tab-bar__more > summary')",
+                timeout=5000)
+    finally:
+        context.close()
