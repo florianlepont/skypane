@@ -31,13 +31,6 @@
   padding: 0;
 }
 
-.group .fleet-block__fact .row__value {
-  max-width: 65%;
-  white-space: normal;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
 .fleet-group > li + li {
   border-top: 1px solid var(--glass-hairline);
 }
@@ -277,6 +270,110 @@
   padding: var(--space-xs) var(--space-sm);
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* The summary opening the Fleet panel: what the frame runs, large, with its
+ * state chip on the right (under the text when the row is too narrow). */
+.update-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.update-sum__text {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.update-sum__label {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-sum__version {
+  margin: var(--space-xs) 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.update-sum__meta {
+  margin: 0;
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.update-sum time {
+  white-space: nowrap;
+}
+
+/* The one update card: a tinted box inside the panel, never a shadowed card.
+ * Text left and the Install button right where the row is wide; on a phone the
+ * button takes the full width under the text. */
+.update-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.update-offer__text {
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.update-offer__title {
+  margin: 0;
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.update-offer__note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin: var(--space-xs) 0 0;
+  overflow: hidden;
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.update-offer time {
+  white-space: nowrap;
+}
+
+.update-offer .update-actions,
+.update-offer .update-actions form,
+.update-offer .update-actions button[type="submit"] {
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .update-offer .update-actions,
+  .update-offer .update-actions form,
+  .update-offer .update-actions button[type="submit"] {
+    width: auto;
+  }
 }
 
 .update-cta__top {
@@ -871,164 +968,162 @@ a.fleet-retire__link {
   text-decoration: none;
 }
 
-/* The version history: one table (version, state, release date, action), the
- * action always in view; on a phone each row is a compact card. */
-.update-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+/* The version history: a flat list inside the panel, no card of its own. Each
+ * row is a status dot, the version over its date line, a status chip and, for
+ * an older version, a quiet Revert. */
+.update-hist__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-xs);
 }
 
-.update-table__col {
-  padding: var(--space-xs) var(--space-sm);
-  font-size: var(--font-label-size);
+.update-hist__title {
+  margin: 0;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-align: left;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-table__col--state { width: 7.5rem; }
-.update-table__col--when { width: 9rem; text-align: left; }
-.update-table__col--action { width: 9rem; }
+.update-hist__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
-.update-table__row > * {
-  padding: var(--space-sm);
+.update-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
   border-top: 1px solid var(--glass-hairline);
-  vertical-align: top;
 }
 
-.update-table__version {
+.update-item:first-child {
+  border-top: 0;
+}
+
+.update-item__details {
+  flex: 1;
   min-width: 0;
-  padding-top: var(--space-md);
-  text-align: left;
-  font-weight: var(--weight-regular);
 }
 
-.update-table__version .mono {
+.update-item__summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  min-height: 60px;
+  padding: var(--space-sm) 0;
+  color: var(--color-text);
+  list-style: none;
+}
+
+.update-item__summary::before,
+.update-item__summary::marker {
+  content: none;
+}
+
+.update-item__summary::-webkit-details-marker {
+  display: none;
+}
+
+.update-item__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 20%, transparent);
+}
+
+.update-item--newest .update-item__dot {
+  background: var(--color-accent);
+}
+
+.update-item--running .update-item__dot {
+  background: var(--color-status-ok);
+}
+
+.update-item__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-item__version {
+  display: block;
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
-.update-table__state {
-  padding-top: var(--space-md);
-}
-
-.update-table__when {
-  padding-top: var(--space-md);
-  font-size: var(--font-label-size);
-  text-align: left;
+.update-item__meta {
+  display: block;
+  font-size: var(--font-caption-size);
+  line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-table__date {
-  display: block;
-  font-size: var(--font-caption-size);
+.update-item__meta time {
   white-space: nowrap;
 }
 
-.update-table__chip {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
+.update-item__summary > .banner__pill {
+  margin-top: 4px;
+}
+
+.update-item__chevron {
+  flex: none;
+  margin-top: 6px;
+  transform: rotate(90deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+/* A row without notes keeps the chevron's room so the chips share one edge. */
+.update-item__chevron-space {
+  flex: none;
+  width: 16px;
+}
+
+.update-item__details[open] .update-item__chevron {
+  transform: rotate(-90deg);
+}
+
+.update-item__action {
+  flex: none;
+  margin-top: var(--space-sm);
+}
+
+.update-item__action:empty {
+  display: none;
+}
+
+.update-item__action form {
+  margin: 0;
+}
+
+.update-item__action button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-text) 8%, transparent);
-  color: var(--color-text);
-  font-size: var(--font-caption-size);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
-.update-table__chip--newer {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-}
-
-
-/* The action cell holds one 44px button, as wide for Install as for Roll back. */
-.update-table__action {
-  padding-top: var(--space-md);
-  text-align: right;
-}
-
-.update-table__action form {
-  margin: 0;
-}
-
-.update-table__action button[type="submit"] {
-  min-height: 44px;
-  min-width: 7.5rem;
-  padding: 0 var(--space-md);
-}
-
-.update-table__row--running > * {
-  background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
-}
-
-.update-table__row--running > .update-table__version {
-  box-shadow: inset 3px 0 0 var(--color-status-ok);
-}
-
-@media (max-width: 699.98px) {
-  .update-table,
-  .update-table tbody {
-    display: block;
-  }
-
-  .update-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .update-table__row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "version state"
-      "when action";
-    align-items: center;
-    column-gap: var(--space-sm);
-    border-top: 1px solid var(--glass-hairline);
-  }
-
-  .update-table__row > * {
-    display: block;
-    border-top: 0;
-    padding: var(--space-xs) var(--space-sm);
-  }
-
-  .update-table__row--running {
-    background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
-  }
-
-  .update-table__row--running > * {
-    background: none;
-  }
-
-  .update-table__version { grid-area: version; padding-top: var(--space-sm); }
-  .update-table__state { grid-area: state; padding-top: var(--space-sm); text-align: right; }
-  .update-table__when { grid-area: when; padding-top: 0; }
-  .update-table__action { grid-area: action; padding-top: 0; }}
-
-.update-table__notes > summary {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
+/* Notes are untrusted release text: long unbroken tokens wrap instead of
+ * widening the panel. */
+.update-item__notes {
+  margin: 0 0 var(--space-sm);
+  padding: 0 0 0 calc(10px + var(--space-md) + var(--space-md));
   font-size: var(--font-label-size);
-  color: var(--color-accent);
-  cursor: pointer;
-}
-
-.update-table__notes ul {
-  margin: 0 0 var(--space-xs);
-  padding-left: var(--space-md);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.update-item__notes li {
+  margin: 0 0 var(--space-xs);
 }
 
 /* A quiet outlined action link in a row (Reassign beside the owner). */

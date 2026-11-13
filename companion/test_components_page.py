@@ -101,3 +101,9 @@ def test_every_family_renders_at_least_one_state_and_the_page_has_no_raw_error()
     for family in components_page.CATALOGUE:
         assert family.build(), family.slug
     assert "Traceback" not in html and "%s" not in html
+
+
+def test_the_pill_is_catalogued_in_each_status_tone(rig):
+    _status, _headers, html = fx.get(rig, fx.admin_cookie(rig.state_dir), "/components")
+    for tone in ("ok", "info", "warn"):
+        assert 'class="banner__pill banner__pill--%s"' % tone in html

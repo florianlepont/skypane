@@ -888,35 +888,42 @@ def _embedded(view, lang="en"):
         prefs.set_request_prefs(lang="en")
 
 
-def test_the_fleet_versions_are_one_table_with_the_action_always_in_view():
-    """no disclosure hides the actions: every release is a table row with its
-    version, its relative date and its Install or Roll back button"""
+def test_the_fleet_versions_are_a_flat_list_with_the_action_always_in_view():
+    """no table and no hidden action: every release is a list row with its version,
+    date line and status; an older one carries a quiet Revert button, the offered one
+    has its single Install button in the update card, not in the list"""
     view = _view(
-        releases=[_release("fw-v1.0.0", notes=["First", "Second"],
-                           published_at="2026-09-10T09:00:00+00:00"),
+        releases=[_release("fw-v1.2.0"),
                   _release("fw-v1.1.0", installed_at=[_NOW]),
-                  _release("fw-v1.2.0")],
+                  _release("fw-v1.0.0", notes=["First", "Second"],
+                           published_at="2026-09-10T09:00:00+00:00")],
         device_entry=_device("fw-v1.1.0"))
     doc = parse_html(_embedded(view))
-    assert not doc.select("details.update-all") and not doc.select("details.update-row")
-    rows = {row.select_one(".mono").text(): row for row in doc.select("tr.update-table__row")}
-    assert set(rows) == {"fw-v1.0.0", "fw-v1.1.0", "fw-v1.2.0"}
-    assert [c.text() for c in doc.select("thead th")][:3] == ["Version", "State", "Released"]
+    assert not doc.select("table") and not doc.select("details.update-all")
+    rows = {row.select_one(".update-item__version").text(): row
+            for row in doc.select("li.update-item")}
+    assert list(rows) == ["fw-v1.2.0", "fw-v1.1.0", "fw-v1.0.0"]
     assert rows["fw-v1.0.0"].select_one("time") is not None
-    states = {version: [c.text() for c in row.select(".update-table__state > span")]
-              for version, row in rows.items()}
-    assert states == {"fw-v1.0.0": ["Earlier"], "fw-v1.1.0": ["Running"], "fw-v1.2.0": ["Newer"]}
+    chips = {version: [c.text() for c in row.select(".banner__pill")]
+             for version, row in rows.items()}
+    assert chips == {"fw-v1.0.0": [], "fw-v1.1.0": ["Installed"], "fw-v1.2.0": ["Newest"]}
     old = rows["fw-v1.0.0"].select_one("form button")
     assert old.text() == "Roll back" and old.attrs["aria-label"] == "Roll back to fw-v1.0.0"
-    assert rows["fw-v1.2.0"].select_one("form button").text() == "Install"
-    assert not rows["fw-v1.1.0"].select("form")
-    assert "update-table__row--running" in rows["fw-v1.1.0"].attrs["class"]
-    assert [li.text() for li in rows["fw-v1.0.0"].select(".update-table__notes li")] == [
+    assert "btn--ghost" in old.attrs["class"]
+    assert not rows["fw-v1.2.0"].select("form") and not rows["fw-v1.1.0"].select("form")
+    install_forms = doc.select('form[action="/update/install"]')
+    assert len(install_forms) == 2
+    offer = doc.select_one(".update-offer")
+    assert offer.select_one("form button").text() == "Install fw-v1.2.0"
+    assert "update-item--running" in rows["fw-v1.1.0"].attrs["class"]
+    assert [li.text() for li in rows["fw-v1.0.0"].select(".update-item__notes li")] == [
         "First", "Second"]
+    assert not rows["fw-v1.1.0"].select("details")
     fr = parse_html(_embedded(view, "fr"))
-    assert [c.text() for c in fr.select("thead th")][:3] == ["Version", "État", "Sortie"]
-    assert fr.select_one("tr.update-table__row form button").text() in ("Revenir", "Installer")
+    assert [c.text() for r in fr.select("li.update-item") for c in r.select(".banner__pill")] == [
+        "Plus récente", "Installée"]
     assert "Revenir à fw-v1.0.0" in str(_embedded(view, "fr"))
+    assert fr.select_one(".update-sum__label").text() == "Sur le cadre"
 
 
 def test_a_frame_with_no_known_next_wake_gets_a_sentence_without_a_time():

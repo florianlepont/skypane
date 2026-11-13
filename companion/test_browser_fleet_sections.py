@@ -108,48 +108,50 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         # The owner is named once (the Reassign picker's options are choices, not facts).
         owners = page.locator(COLUMN + " .co-manager__email").all_inner_texts()
         assert owners == [fx.ADMIN_EMAIL], owners
-        # A firmware version is named once as a fact (the Install button's label repeats the
-        # version it installs, and the seeded release note quotes it).
-        facts = page.locator(COLUMN + " .mono:not(.update-table .mono)").all_inner_texts()
+        # A firmware version is named once as a fact: what the frame runs in the summary, what
+        # is on offer in the update card (the Install button's label repeats the version it
+        # installs, and the seeded release note quotes it); the history rows list them again.
+        facts = page.locator(COLUMN + " .mono:not(.update-hist__list .mono)").all_inner_texts()
         for version in (RELEASE_SEED_RUNNING_VERSION, RELEASE_SEED_AVAILABLE_VERSION):
             assert facts.count(version) == 1, (version, facts)
-        # The card names it once as what the frame runs and the version table once as a row.
+        # The summary names it once as what the frame runs and the history once as a row.
         assert text.count(RELEASE_SEED_RUNNING_VERSION) == 2, text
     finally:
         context.close()
 
 
-def test_the_version_history_is_a_table_with_the_action_in_every_row(
+def test_the_version_history_is_a_flat_list_with_the_action_in_every_row(
         new_context, app_server_in_process):
     context, page, _seed = _open(new_context, app_server_in_process, releases=True)
     try:
         assert page.locator("details.update-all").count() == 0
-        heading = page.locator(".update-versions .text-heading")
-        assert heading.inner_text().split()[0] == "Versions"
-        assert page.locator(".update-versions__count").inner_text().strip() == "2"
-        rows = page.locator("table.update-table tbody tr")
+        assert page.locator(".fleet-block--device table").count() == 0
+        heading = page.locator(".update-versions .update-hist__title")
+        assert heading.text_content().strip() == "Versions"
+        assert page.locator(".update-hist__head .banner__pill").inner_text().strip() == "2"
+        rows = page.locator("li.update-item")
         assert rows.count() == 2 and rows.first.is_visible()
-        running, available = (rows.nth(0), rows.nth(1))
-        # The running version has no action; the newer one is installable without opening anything.
-        assert running.locator("form").count() == 0
-        button = available.locator("form button[type=submit]")
-        assert button.is_visible() and button.inner_text() == "Install"
-        assert button.bounding_box()["height"] >= 44 - 0.5
-        # The cells of a row line up on one line: version, date and action share a band.
-        tops = [r.bounding_box() for r in (
-            available.locator("th"), available.locator("td.update-table__when"), button)]
-        centres = [box["y"] + box["height"] / 2 for box in tops]
-        assert max(centres) - min(centres) < 30, centres
+        running = page.locator("li.update-item--running")
+        assert running.count() == 1 and running.locator("form").count() == 0
+        # The newer version is installed from the update card above; its row repeats no button.
+        card_button = page.locator(".update-offer form button[type=submit]")
+        assert card_button.is_visible() and card_button.inner_text() == "Install fw-v1.1.0"
+        assert card_button.bounding_box()["height"] >= 44 - 0.5
+        assert page.locator("main form[action='/update/install']").count() == 1
     finally:
         context.close()
 
 
-def test_the_version_table_headings_are_in_french(new_context, app_server_in_process):
+def test_the_version_history_and_summary_are_in_french(new_context, app_server_in_process):
     context, page, _seed = _open(new_context, app_server_in_process, lang="fr", releases=True)
     try:
-        heads = page.locator("table.update-table thead th").all_inner_texts()
-        assert [h.strip() for h in heads[:3]] == ["Version", "État", "Sortie"]
-        assert page.locator("table.update-table tbody button").last.inner_text() == "Installer"
+        assert page.locator(".update-hist__title").text_content().strip() == "Versions"
+        assert page.locator(".update-sum__label").text_content().strip() == "Sur le cadre"
+        chips = page.locator(".update-item .banner__pill").all_inner_texts()
+        # Both releases share one publication time: the one that sorts first is the newest.
+        assert "Installée" in [chip.strip() for chip in chips]
+        assert set(chip.strip() for chip in chips) <= {"Installée", "Plus récente"}
+        assert page.locator(".update-offer form button").inner_text() == "Installer fw-v1.1.0"
     finally:
         context.close()
 

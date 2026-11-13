@@ -153,11 +153,8 @@ def _model_label(device):
     return profile.label if profile is not None else device.hardware_type
 
 
-def _model_html(device):
-    from companion import ui_groups
-    return ui_groups.row(
-        i18n.t(_MODEL_LABEL), value_html=_esc(_model_label(device)),
-        extra_class="fleet-block__fact")
+def _model_text(device):
+    return "%s %s" % (i18n.t(_MODEL_LABEL), _model_label(device))
 
 
 def _access_html(device, access_views, row, view):
@@ -211,7 +208,7 @@ def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
     from companion.pages import config_page, health_page, update_page
     with history_db.connection_scope(device.state_dir):
         device_html, versions_html, _parts = update_page.render_parts(
-            ctx, device.hardware_type)
+            ctx, device.hardware_type, _model_text(device))
         settings_html = config_page.render(
             ctx, scope=config_page.SCOPE_DEVICE, embedded=True)
         blocks = (
@@ -220,7 +217,7 @@ def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
                 " fleet-block--state", "state")
             + _block(
                 _DEVICE_HEADING,
-                _model_html(device) + _item(device_html) + _item(versions_html),
+                _item(device_html) + _item(versions_html),
                 " fleet-block--state fleet-block--device", "device")
             + _block(
                 _SETTINGS_HEADING, _item(settings_html),

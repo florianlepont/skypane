@@ -1948,6 +1948,27 @@ select.visually-hidden {
   min-width: 0;
 }
 
+/* The status tones: the status colour mixed toward the text colour on a tint
+ * of itself, so the small label holds 4.5:1 in both themes. `info` uses the
+ * accent. */
+.banner__pill--ok {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-ok) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-ok) 16%, transparent);
+}
+
+.banner__pill--info {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-accent) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-accent) 16%, transparent);
+}
+
+.banner__pill--warn {
+  border-color: transparent;
+  color: color-mix(in srgb, var(--color-status-warn) 55%, var(--color-text));
+  background: color-mix(in srgb, var(--color-status-warn) 18%, var(--color-dominant));
+}
+
 /* [hidden]-vs-author-display collision (recurring in this file): an
  * author display: inline-flex always beats the UA [hidden] rule
  * regardless of source order. display: none, not visibility: hidden
