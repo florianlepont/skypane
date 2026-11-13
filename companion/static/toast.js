@@ -119,7 +119,7 @@
     this.startedAt = new Date().getTime();
     this.handle = window.setTimeout(function () {
       self.handle = null;
-      removeToast(self.toast);
+      fadeOut(self.toast);
     }, Math.max(this.remaining, 0));
   };
 
@@ -218,6 +218,8 @@
   var SWIPE_DISTANCE = 80;
   var SWIPE_VELOCITY = 0.6;
   var SWIPE_FALLBACK_MS = 500;
+  // The timed-out fade lasts --motion-fast (180ms); this is its safety net.
+  var FADE_FALLBACK_MS = 220;
   var CONTROL_SELECTOR = "a, button, input, select, textarea, summary";
   var swipe = null;
 
@@ -262,7 +264,7 @@
 
   // Runs done when the toast's transform transition ends, or after a
   // fallback delay; at once under reduced motion.
-  function afterTransition(toast, done) {
+  function afterTransition(toast, done, fallbackMs) {
     if (reduced()) {
       done();
       return;
@@ -277,12 +279,13 @@
       done();
     }
     function onEnd(evt) {
-      if (evt.target === toast && evt.propertyName === "transform") {
+      if (evt.target === toast
+          && (evt.propertyName === "transform" || evt.propertyName === "opacity")) {
         finish();
       }
     }
     toast.addEventListener("transitionend", onEnd);
-    window.setTimeout(finish, SWIPE_FALLBACK_MS);
+    window.setTimeout(finish, fallbackMs || SWIPE_FALLBACK_MS);
   }
 
   function setSwipePause(toast, active) {
@@ -343,6 +346,19 @@
     afterTransition(toast, function () {
       removeToast(toast);
     });
+  }
+
+  // A toast that timed out leaves with the short fade a swiped one has, in
+  // place; under reduced motion it just goes.
+  function fadeOut(toast) {
+    if (!toast || !toast.parentNode) {
+      return;
+    }
+    setSwipeState(toast, "is-leaving");
+    toast.style.opacity = "0";
+    afterTransition(toast, function () {
+      removeToast(toast);
+    }, FADE_FALLBACK_MS);
   }
 
   function comeBack(toast) {
