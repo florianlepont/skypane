@@ -168,6 +168,20 @@
     focusTitleIfAsked(dialog);
   }
 
+  // For a script that opens a dialog itself (no opener link): `returnTo` is
+  // the control that takes the focus back when the dialog closes.
+  window.SkyPaneModal = {
+    open: function (dialog, returnTo) {
+      if (!isModalDialog(dialog)) {
+        return false;
+      }
+      opener = returnTo || null;
+      openerHref = "";
+      openModal(dialog);
+      return true;
+    }
+  };
+
   // A dialog marked data-focus-title opens on its heading, so no field
   // raises the keyboard or a native picker unasked.
   function focusTitleIfAsked(dialog) {

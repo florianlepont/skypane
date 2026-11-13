@@ -279,6 +279,6 @@ def page_html(
     parts[VIEW_ARRIVALS] = parts[VIEW_DEPARTURES]
     shown = (view,) if view is not None else (
         VIEW_DEPARTURES, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
-    return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div></div>' % (
+    return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div>%s</div>' % (
         _layout_card(values, errors, submitted), _nav_html(view),
-        "".join(parts[name]() for name in shown))
+        "".join(parts[name]() for name in shown), layout_picker.leave_dialog_html())
