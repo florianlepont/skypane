@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 009: Frame mode and rotation</title>
+<link rel="stylesheet" href="../themes/companion-current.css">
+<link rel="stylesheet" href="../themes/photo-shell.css">
+<style>
+  .variant { max-width: 760px; }
+  .block + .block { margin-top: var(--space-lg); }
+  .block-title { font-size: var(--font-label-size); font-weight: var(--weight-semibold); margin-bottom: 8px; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .block-title small { font-weight: var(--weight-regular); color: var(--color-text-muted); font-size: var(--font-caption-size); }
+  .helper { margin-top: 8px; font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .facts { display: flex; flex-direction: column; gap: 10px; margin-top: var(--space-lg); padding-top: var(--space-md); border-top: 1px solid var(--color-border); }
+  .fact { display: flex; gap: 10px; align-items: flex-start; font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .fact svg { width: 18px; height: 18px; flex: none; margin-top: 1px; }
+  .fact strong { color: var(--color-text); font-weight: var(--weight-semibold); }
+  .seg4 > button { font-size: var(--font-label-size); }
+  .seg-order > button { flex-direction: column; gap: 0; padding: 6px 8px; }
+  .seg-order small { font-size: var(--font-caption-size); font-weight: var(--weight-regular); opacity: .85; }
+  .photo-line { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; padding: 10px 12px; border-radius: var(--radius-control); background: var(--color-secondary); }
+  .photo-line .strip { display: flex; gap: 4px; }
+  .photo-line .strip .thumb { width: 36px; height: 28px; border-radius: 6px; }
+  .sub { margin-top: var(--space-lg); padding-top: var(--space-lg); border-top: 1px solid var(--color-border); }
+
+  /* B: radio cards */
+  .rcards { display: grid; gap: var(--space-md); grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .rcards { grid-template-columns: 1fr 1fr; } }
+  .rcard { position: relative; display: flex; flex-direction: column; gap: 8px; padding: var(--space-md); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-dominant); cursor: pointer; transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+  .rcard:hover { border-color: var(--seg-edge); }
+  .rcard input { position: absolute; opacity: 0; pointer-events: none; }
+  .rcard:has(input:checked) { border-color: var(--color-accent); box-shadow: 0 0 0 1px var(--color-accent); background: color-mix(in srgb, var(--color-accent) 6%, var(--color-dominant)); }
+  .rcard:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+  .rcard__art { height: 86px; border-radius: 10px; overflow: hidden; border: 1px solid var(--color-border); background: #fff; }
+  .rcard__art svg { width: 100%; height: 100%; display: block; }
+  .rcard__title { font-weight: var(--weight-semibold); display: flex; justify-content: space-between; align-items: center; }
+  .rcard__title .chk { width: 22px; height: 22px; border-radius: 50%; background: var(--color-accent); color: var(--color-on-accent); display: none; place-items: center; }
+  .rcard__title .chk svg { width: 14px; height: 14px; }
+  .rcard:has(input:checked) .chk { display: grid; }
+  .rcard__desc { font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .rlist { display: flex; flex-direction: column; border: 1px solid var(--color-border); border-radius: var(--radius-control); overflow: hidden; }
+  .rrow { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 12px; cursor: pointer; border-top: 1px solid var(--color-border); background: var(--color-dominant); }
+  .rrow:first-child { border-top: 0; }
+  .rrow:hover { background: color-mix(in srgb, var(--color-text) 3%, var(--color-dominant)); }
+  .rrow input { width: 20px; height: 20px; accent-color: var(--color-accent); flex: none; margin: 0; }
+  .rrow__main { flex: 1; min-width: 0; }
+  .rrow__main small { display: block; font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .rrow__aside { font-size: var(--font-caption-size); color: var(--color-text-muted); white-space: nowrap; }
+  .rrow:has(input:checked) { background: color-mix(in srgb, var(--color-accent) 7%, var(--color-dominant)); font-weight: var(--weight-semibold); }
+  .rrow:has(input:checked) .rrow__main small { font-weight: var(--weight-regular); }
+
+  /* C: accordion */
+  .acc { border-top: 1px solid var(--color-border); }
+  .acc:first-of-type { border-top: 0; }
+  .acc > summary { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; list-style: none; }
+  .acc > summary::-webkit-details-marker { display: none; }
+  .acc > summary::before { content: ""; width: 9px; height: 9px; flex: none; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(-45deg); transition: transform var(--motion-fast) ease; color: var(--color-text-muted); }
+  .acc[open] > summary::before { transform: rotate(45deg); }
+  .acc__name { font-weight: var(--weight-semibold); flex: 1; }
+  .acc__val { color: var(--color-text-muted); font-size: var(--font-label-size); text-align: right; }
+  .acc__body { padding: 0 0 var(--space-md) 21px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div>
+    <header class="mobile-header" id="mheader"></header>
+    <main class="page-content">
+      <h1 class="page-title" data-i="page.title"></h1>
+      <p class="page-purpose" data-i="page.purpose"></p>
+      <div class="frame-chip"><span class="dot"></span><span id="chip"></span></div>
+      <div style="height:var(--space-lg)"></div>
+      <div class="variant" id="variant-a" hidden></div>
+      <div class="variant" id="variant-b" hidden></div>
+      <div class="variant" id="variant-c" hidden></div>
+      <div class="sk-note sk-only"><b>Sketch notes.</b> Use the State controls to flip the saved mode and the photo count. Switching mode or rotation shows the Cancel/Save bar; Save shows the "saved, reaches the frame at its next wake" toast. The page placement (Device page) is an open question. URL params: <code>?v=a|b|c&amp;mode=planes|photos&amp;interval=1h|6h|12h|24h&amp;order=random|upload&amp;photos=some|none&amp;saved=planes|photos&amp;lang=fr&amp;theme=dark&amp;chrome=0</code>.</div>
+    </main>
+  </div>
+</div>
+<nav class="tab-bar" id="tabbar"></nav>
+<div class="save-bar" id="savebar" hidden role="region">
+  <span class="save-bar__msg" data-i="save.msg"></span>
+  <button class="btn btn--ghost" data-act="cancel" data-i="act.cancel"></button>
+  <button class="btn btn--primary" data-act="save" data-i="act.save"></button>
+</div>
+
+<script src="../themes/photo-shell.js"></script>
+<script>
+SK.add({
+  'page.title': ['Device', 'Appareil'],
+  'page.purpose': ['How this frame behaves. Other settings (wake interval, quiet hours) are further down.', 'Le comportement de ce cadre. Les autres réglages (intervalle de réveil, heures calmes) sont plus bas.'],
+  'chip': ['Salon · portrait 1200×1600', 'Salon · portrait 1200×1600'],
+  'card.title': ['Display mode', 'Mode d’affichage'],
+  'card.caption': ['What the frame shows. One mode at a time.', 'Ce que le cadre affiche. Un seul mode à la fois.'],
+  'mode.planes': ['Planes', 'Avions'], 'mode.photos': ['Photos', 'Photos'],
+  'mode.planes.d': ['The plane taking off or landing near you, live.', 'L’avion qui décolle ou atterrit près de chez vous, en direct.'],
+  'mode.photos.d': ['Your own pictures, one at a time, instead of planes.', 'Vos propres images, une à la fois, à la place des avions.'],
+  'rot.t': ['Change the photo', 'Changer de photo'],
+  'rot.1h': ['Hourly', 'Toutes les heures'], 'rot.6h': ['Every 6 h', 'Toutes les 6 h'], 'rot.12h': ['Every 12 h', 'Toutes les 12 h'], 'rot.24h': ['Daily', 'Chaque jour'],
+  'rot.s.1h': ['Hourly', 'Horaire'], 'rot.s.6h': ['6 h', '6 h'], 'rot.s.12h': ['12 h', '12 h'], 'rot.s.24h': ['Daily', 'Quotidien'],
+  'rot.per.1h': ['24 a day', '24 par jour'], 'rot.per.6h': ['4 a day', '4 par jour'], 'rot.per.12h': ['2 a day', '2 par jour'], 'rot.per.24h': ['1 a day', '1 par jour'],
+  'rot.default': ['Daily is the default.', 'Chaque jour est le réglage par défaut.'],
+  'ord.t': ['Order', 'Ordre'],
+  'ord.random': ['Random', 'Aléatoire'], 'ord.random.d': ['no repeats', 'sans répétition'],
+  'ord.upload': ['Upload order', 'Ordre d’ajout'], 'ord.upload.d': ['oldest first', 'la plus ancienne d’abord'],
+  'ord.random.long': ['Random, no repeats. Every photo is shown once before any comes back.', 'Aléatoire, sans répétition. Chaque photo est montrée une fois avant qu’une revienne.'],
+  'ord.upload.long': ['In the order you added them, then starting over.', 'Dans l’ordre où vous les avez ajoutées, puis on recommence.'],
+  'ord.random.short': ['Random, no repeats', 'Aléatoire, sans répétition'], 'ord.upload.short': ['Upload order', 'Ordre d’ajout'],
+  'rotonly': ['Rotation and order apply in photo mode.', 'La rotation et l’ordre s’appliquent en mode photo.'],
+  'photos.n': ['{n} photos on this frame', '{n} photos sur ce cadre'],
+  'photos.manage': ['Manage photos', 'Gérer les photos'],
+  'none.t': ['No photo yet', 'Pas encore de photo'],
+  'none.d': ['Until you add one, the frame shows a waiting screen instead of a picture.', 'Tant que vous n’en ajoutez pas, le cadre affiche un écran d’attente au lieu d’une image.'],
+  'none.add': ['Add photos', 'Ajouter des photos'],
+  'wake.t': ['The frame wakes {when}', 'Le cadre se réveille {when}'],
+  'wake.photos': ['In photo mode the frame wakes only to change the photo: {when}, instead of every 2 minutes for planes. Changes made here, new photos, and going back to planes reach the frame at its next wake, so up to {within} later.', 'En mode photo, le cadre ne se réveille que pour changer de photo : {when}, au lieu de toutes les 2 minutes pour les avions. Les changements faits ici, les nouvelles photos et le retour aux avions parviennent au cadre à son prochain réveil, donc jusqu’à {within} plus tard.'],
+  'wake.when.1h': ['every hour', 'toutes les heures'], 'wake.when.6h': ['every 6 hours', 'toutes les 6 heures'], 'wake.when.12h': ['every 12 hours', 'toutes les 12 heures'], 'wake.when.24h': ['once a day', 'une fois par jour'],
+  'wake.within.1h': ['1 hour', '1 heure'], 'wake.within.6h': ['6 hours', '6 heures'], 'wake.within.12h': ['12 hours', '12 heures'], 'wake.within.24h': ['a day', 'un jour'],
+  'wake.planes': ['In plane mode the frame wakes every 2 minutes, set under Wake interval below.', 'En mode avions, le cadre se réveille toutes les 2 minutes, réglage « Intervalle de réveil » plus bas.'],
+  'bat.photos': ['Fewer wakes should save battery. There is no battery estimate for photo mode yet: it needs real measurements.', 'Moins de réveils devrait économiser la batterie. Il n’y a pas encore d’estimation pour le mode photo : il faut des mesures réelles.'],
+  'back.warn': ['The frame is asleep for up to {within} in photo mode, so it may take that long to learn about the switch back to planes.', 'Le cadre dort jusqu’à {within} en mode photo : il peut mettre autant de temps à apprendre le retour aux avions.'],
+  'privacy': ['Only you and the people who manage this frame can see its photos. The administrator cannot, and no admin view of photos exists.', 'Seuls vous et les personnes qui gèrent ce cadre peuvent voir ses photos. L’administrateur ne le peut pas, et aucune vue d’administration des photos n’existe.'],
+  'save.msg': ['Unsaved changes', 'Modifications non enregistrées'], 'act.save': ['Save', 'Enregistrer'], 'act.cancel': ['Cancel', 'Annuler'],
+  'saved.t': ['Saved, reaches the frame at its next wake', 'Enregistré, parviendra au cadre à son prochain réveil'],
+  'saved.d.planes': ['Within about 2 minutes.', 'Dans environ 2 minutes.'], 'saved.d.photos': ['Within the frame’s current wake interval.', 'Dans l’intervalle de réveil actuel du cadre.'],
+  'sum.mode': ['Mode', 'Mode'], 'sum.rot': ['Change the photo', 'Changer de photo'], 'sum.ord': ['Order', 'Ordre'],
+});
+const q = SK.q, VALID = { interval: ['1h', '6h', '12h', '24h'], order: ['random', 'upload'] };
+const S = { mode: q.get('mode') === 'photos' ? 'photos' : 'planes', interval: VALID.interval.includes(q.get('interval')) ? q.get('interval') : '24h', order: q.get('order') === 'upload' ? 'upload' : 'random' };
+let saved = { mode: q.get('saved') ? (q.get('saved') === 'photos' ? 'photos' : 'planes') : S.mode === 'photos' ? 'photos' : 'planes', interval: '24h', order: 'random' };
+if (!q.get('saved') && !q.get('mode')) saved.mode = 'planes';
+const IV = ['1h', '6h', '12h', '24h'];
+const count = () => (SK.state.photos === 'none' ? 0 : 7);
+const dirty = () => S.mode !== saved.mode || (S.mode === 'photos' && (S.interval !== saved.interval || S.order !== saved.order));
+const tv = (k, v) => SK.t(k, v);
+
+/* ---------- shared pieces ---------- */
+function wakeFacts() {
+  let h = '';
+  if (S.mode === 'photos') {
+    h += '<div class="fact">' + SK.icon('clock') + '<span>' + SK.t('wake.photos', { when: SK.t('wake.when.' + S.interval), within: SK.t('wake.within.' + S.interval) }) + '</span></div>';
+    h += '<div class="fact">' + SK.icon('about') + '<span>' + SK.t('bat.photos') + '</span></div>';
+  } else {
+    h += '<div class="fact">' + SK.icon('clock') + '<span>' + SK.t('wake.planes') + '</span></div>';
+    if (saved.mode === 'photos') h += '<div class="fact">' + SK.icon('about') + '<span>' + SK.t('back.warn', { within: SK.t('wake.within.' + saved.interval) }) + '</span></div>';
+  }
+  return h;
+}
+function noPhoto() {
+  if (S.mode !== 'photos' || count() > 0) return '';
+  return '<div class="toast toast--warning" role="status" style="margin-top:var(--space-md)"><span class="toast__icon">' + SK.icon('alert') + '</span><span class="toast__text"><span class="toast__title">' + SK.t('none.t') + '</span><span class="toast__detail">' + SK.t('none.d') + '</span>' +
+    '<div class="toast__action"><a class="btn btn--sm" href="#" onclick="return false">' + SK.icon('upload') + SK.t('none.add') + '</a></div></span></div>';
+}
+function photoLine() {
+  if (S.mode !== 'photos' || count() === 0) return '';
+  return '<div class="photo-line" style="margin-top:var(--space-md)"><div class="row" style="gap:12px"><div class="strip">' + [0, 1, 2, 3].map(i => '<div class="thumb">' + SK.scene(i * 2 % 8, { label: '' }) + '</div>').join('') + '</div><span>' + SK.t('photos.n', { n: count() }) + '</span></div><a class="btn btn--sm" href="#" onclick="return false">' + SK.t('photos.manage') + '</a></div>';
+}
+function privacy() { return '<div class="privacy" style="margin-top:var(--space-lg)">' + SK.icon('lock') + '<span>' + SK.t('privacy') + '</span></div>'; }
+function foot() { return '<div class="facts">' + wakeFacts() + '</div>' + privacy(); }
+function segMode() {
+  return '<div class="seg" role="group" aria-label="' + SK.esc(SK.t('card.title')) + '">' + ['planes', 'photos'].map(m => '<button data-act="mode" data-v="' + m + '" aria-pressed="' + (S.mode === m) + '">' + SK.t('mode.' + m) + '</button>').join('') + '</div>';
+}
+function segInterval() {
+  return '<div class="seg seg4" role="group" aria-label="' + SK.esc(SK.t('rot.t')) + '">' + IV.map(v => '<button data-act="interval" data-v="' + v + '" aria-pressed="' + (S.interval === v) + '">' + SK.t('rot.s.' + v) + '</button>').join('') + '</div>';
+}
+function segOrder() {
+  return '<div class="seg seg-order" role="group" aria-label="' + SK.esc(SK.t('ord.t')) + '">' + ['random', 'upload'].map(v => '<button data-act="order" data-v="' + v + '" aria-pressed="' + (S.order === v) + '"><span>' + SK.t('ord.' + v) + '</span><small>' + SK.t('ord.' + v + '.d') + '</small></button>').join('') + '</div>';
+}
+
+/* ---------- A: segmented controls in one card ---------- */
+function buildA() {
+  return '<section class="page-section"><h2 class="card-title">' + SK.t('card.title') + '</h2><p class="section-caption">' + SK.t('card.caption') + '</p>' +
+    segMode() + '<p class="helper">' + SK.t('mode.' + S.mode + '.d') + '</p>' +
+    (S.mode === 'photos' ? '<div class="sub"><div class="block"><div class="block-title">' + SK.t('rot.t') + '</div>' + segInterval() + '<p class="helper">' + SK.t('rot.default') + '</p></div>' +
+      '<div class="block"><div class="block-title">' + SK.t('ord.t') + '</div>' + segOrder() + '<p class="helper">' + SK.t('ord.' + S.order + '.long') + '</p></div>' + photoLine() + '</div>' : '') +
+    noPhoto() + foot() + '</section>';
+}
+
+/* ---------- B: cards for mode, radio lists for rotation and order ---------- */
+const ART = {
+  planes: '<svg viewBox="0 0 200 86" preserveAspectRatio="xMidYMid slice"><rect width="200" height="86" fill="#cfe3f5"/><rect y="62" width="200" height="24" fill="#8a9099"/><rect x="0" y="72" width="200" height="2" fill="#fff" opacity=".7"/><path d="M60 40l60-6-8 8 30 2-30 4 6 8-58-10z" fill="#fff" stroke="#17191F" stroke-width="1.5" stroke-linejoin="round"/></svg>',
+  photos: '<svg viewBox="0 0 200 86" preserveAspectRatio="xMidYMid slice"><rect width="200" height="86" fill="#e9eef5"/><rect x="62" y="8" width="76" height="70" rx="3" fill="#2A2622"/><rect x="67" y="13" width="66" height="60" fill="#f7d98a"/><path d="M67 62l18-20 16 14 12-9 20 15v11H67z" fill="#2b3f66"/><circle cx="118" cy="29" r="6" fill="#fff3c4"/></svg>',
+};
+function rc(name, val, label, desc, checked, extra) {
+  return '<label class="rcard">' + (extra || '') + '<input type="radio" name="' + name + '" value="' + val + '" data-act="' + name + '" ' + (checked ? 'checked' : '') + '><div class="rcard__art">' + ART[val] + '</div><div class="rcard__title"><span>' + label + '</span><span class="chk">' + SK.icon('check') + '</span></div><div class="rcard__desc">' + desc + '</div></label>';
+}
+function buildB() {
+  const rows = IV.map(v => '<label class="rrow"><input type="radio" name="interval" value="' + v + '" data-act="interval" ' + (S.interval === v ? 'checked' : '') + '><span class="rrow__main">' + SK.t('rot.' + v) + '</span><span class="rrow__aside">' + SK.t('rot.per.' + v) + '</span></label>').join('');
+  const ords = ['random', 'upload'].map(v => '<label class="rrow"><input type="radio" name="order" value="' + v + '" data-act="order" ' + (S.order === v ? 'checked' : '') + '><span class="rrow__main">' + SK.t('ord.' + v) + '<small>' + SK.t('ord.' + v + '.long') + '</small></span></label>').join('');
+  return '<section class="page-section"><h2 class="card-title">' + SK.t('card.title') + '</h2><p class="section-caption">' + SK.t('card.caption') + '</p>' +
+    '<div class="rcards" role="radiogroup" aria-label="' + SK.esc(SK.t('card.title')) + '">' + rc('mode', 'planes', SK.t('mode.planes'), SK.t('mode.planes.d'), S.mode === 'planes') + rc('mode', 'photos', SK.t('mode.photos'), SK.t('mode.photos.d'), S.mode === 'photos') + '</div></section>' +
+    (S.mode === 'photos' ? '<section class="page-section"><h2 class="card-title">' + SK.t('rot.t') + '</h2><p class="section-caption">' + SK.t('rot.default') + '</p><div class="rlist" role="radiogroup" aria-label="' + SK.esc(SK.t('rot.t')) + '">' + rows + '</div>' +
+      '<h2 class="card-title" style="margin-top:var(--space-lg);margin-bottom:8px">' + SK.t('ord.t') + '</h2><div class="rlist" role="radiogroup" aria-label="' + SK.esc(SK.t('ord.t')) + '">' + ords + '</div>' + photoLine() + noPhoto() + '</section>' : '') +
+    '<section class="page-section" style="padding-top:0;border:0;box-shadow:none;background:transparent"><div class="facts" style="margin-top:0;border:0;padding-top:0">' + wakeFacts() + '</div>' + (S.mode === 'photos' && count() === 0 ? '' : '') + privacy() + '</section>';
+}
+
+/* ---------- C: accordion with one-line summaries ---------- */
+function acc(name, title, val, body, open) {
+  return '<details class="acc" name="rows" data-key="' + name + '" ' + (open ? 'open' : '') + '><summary><span class="acc__name">' + title + '</span><span class="acc__val">' + val + '</span></summary><div class="acc__body">' + body + '</div></details>';
+}
+let openKey = q.get('open') || 'mode';
+function buildC() {
+  const modeBody = segMode() + '<p class="helper">' + SK.t('mode.' + S.mode + '.d') + '</p>';
+  const rotBody = segInterval() + '<p class="helper">' + SK.t('rot.default') + '</p>';
+  const ordBody = segOrder() + '<p class="helper">' + SK.t('ord.' + S.order + '.long') + '</p>';
+  const photos = S.mode === 'photos';
+  return '<section class="page-section"><h2 class="card-title">' + SK.t('card.title') + '</h2><p class="section-caption" style="margin-bottom:var(--space-sm)">' + SK.t('card.caption') + '</p>' +
+    acc('mode', SK.t('sum.mode'), SK.t('mode.' + S.mode), modeBody, openKey === 'mode') +
+    (photos ? acc('rot', SK.t('sum.rot'), SK.t('rot.' + S.interval), rotBody, openKey === 'rot') + acc('ord', SK.t('sum.ord'), SK.t('ord.' + S.order + '.short'), ordBody, openKey === 'ord') : '<p class="helper" style="border-top:1px solid var(--color-border);padding-top:12px;margin-top:0">' + SK.t('rotonly') + '</p>') +
+    (photos ? photoLine() : '') + noPhoto() + foot() + '</section>';
+}
+
+function build() {
+  document.getElementById('chip').textContent = SK.t('chip');
+  document.getElementById('variant-' + SK.variant).innerHTML = { a: buildA, b: buildB, c: buildC }[SK.variant]();
+  document.getElementById('savebar').hidden = !dirty();
+}
+SK.renderFn = build;
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const a = b.dataset.act, v = b.dataset.v;
+  if (a === 'mode') { S.mode = v; build(); }
+  if (a === 'interval') { S.interval = v; build(); }
+  if (a === 'order') { S.order = v; build(); }
+  if (a === 'cancel') { Object.assign(S, saved); build(); }
+  if (a === 'save') { saved = { mode: S.mode, interval: S.interval, order: S.order }; build(); SK.flash('pending', 'saved.t', 'saved.d.' + S.mode); }
+});
+document.addEventListener('change', e => {
+  const r = e.target.closest('input[type=radio][data-act]'); if (!r) return;
+  S[r.dataset.act] = r.value; build();
+  const nx = document.querySelector('input[data-act="' + r.dataset.act + '"][value="' + r.value + '"]'); if (nx) nx.focus();
+});
+document.addEventListener('toggle', e => { const d = e.target; if (d.matches && d.matches('details.acc') && d.open) openKey = d.dataset.key; }, true);
+
+SK.mountActive = 'device';
+SK.initChrome({
+  title: '009 Mode and rotation',
+  variants: [['a', 'A · Segmented'], ['b', 'B · Cards'], ['c', 'C · Accordion']],
+  states: [{ key: 'photos', label: 'Photos', def: q.get('photos') === 'none' ? 'none' : 'some', options: [['some', '7 photos'], ['none', 'None yet']] },
+           { key: 'saved', label: 'Saved mode', def: saved.mode, options: [['planes', 'Planes'], ['photos', 'Photos']] }],
+});
+const _sS = SK.setState;
+SK.setState = function (k, v) {
+  SK.state[k] = v;
+  if (k === 'saved') { saved.mode = v; S.mode = v; }
+  SK.rerender();
+  document.querySelectorAll('#sk-bar [data-sk^="s|"]').forEach(b => { const [, val, key] = b.dataset.sk.split('|'); b.setAttribute('aria-pressed', String(SK.state[key]) === val); });
+};
+SK.rerender();
+</script>
+</body>
+</html>

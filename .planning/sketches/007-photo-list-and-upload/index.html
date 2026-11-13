@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 007: Photo list and upload</title>
+<link rel="stylesheet" href="../themes/companion-current.css">
+<link rel="stylesheet" href="../themes/photo-shell.css">
+<style>
+  /* ---- quota meter ---- */
+  .meters { display: grid; gap: var(--space-md); }
+  @media (min-width: 640px) { .meters { grid-template-columns: 1fr 1fr; gap: var(--space-lg); } }
+  .meter__head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+  .meter__label { font-size: var(--font-label-size); font-weight: var(--weight-semibold); }
+  .meter__value { font-size: var(--font-label-size); font-variant-numeric: tabular-nums; }
+  .meter__track { height: 10px; border-radius: 6px; background: var(--color-secondary); border: 1px solid var(--seg-edge); overflow: hidden; }
+  .meter__fill { height: 100%; background: var(--color-accent); border-radius: 5px; transition: width var(--motion-fast) ease; }
+  .meter--warn .meter__fill { background: var(--color-status-warn); }
+  .meter--full .meter__fill { background: var(--color-status-error); }
+  .meter__state { font-size: var(--font-caption-size); margin-top: 4px; color: var(--color-text-muted); }
+  .meter--warn .meter__state { color: var(--color-text); font-weight: var(--weight-semibold); }
+  .meter--full .meter__state { color: var(--color-status-error); font-weight: var(--weight-semibold); }
+  .quota-note { margin-top: var(--space-md); }
+  .strip-quota { display: flex; align-items: center; gap: var(--space-md); flex-wrap: wrap; }
+  .strip-quota .meter { flex: 1 1 160px; min-width: 160px; }
+
+  /* ---- drop zone ---- */
+  .drop { border: 2px dashed var(--seg-edge); border-radius: var(--radius-card); padding: var(--space-lg) var(--space-md); text-align: center; background: color-mix(in srgb, var(--color-secondary) 55%, transparent); transition: border-color var(--motion-fast) ease, background-color var(--motion-fast) ease; }
+  .drop.dragging { border-color: var(--color-accent); background: color-mix(in srgb, var(--color-accent) 9%, transparent); }
+  .drop.disabled { opacity: .6; border-style: solid; border-width: 1px; }
+  .drop__icon { width: 36px; height: 36px; margin: 0 auto 6px; color: var(--color-text-muted); }
+  .drop__title { font-weight: var(--weight-semibold); }
+  .drop__or { color: var(--color-text-muted); font-size: var(--font-caption-size); margin: 2px 0 8px; }
+  .drop__hint { margin-top: 10px; font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .drop__desktop { display: none; }
+  @media (min-width: 960px) { .drop__desktop { display: block; } .drop { padding: var(--space-xl) var(--space-lg); } }
+  .upload-progress { margin-top: var(--space-md); display: flex; flex-direction: column; gap: 8px; text-align: left; }
+  .upload-progress__row { font-size: var(--font-caption-size); }
+  .upload-progress__bar { height: 4px; border-radius: 2px; background: var(--color-secondary); overflow: hidden; margin-top: 4px; }
+  .upload-progress__bar i { display: block; height: 100%; width: 0; background: var(--color-accent); transition: width .6s linear; }
+  .msgs { display: flex; flex-direction: column; gap: 8px; margin-top: var(--space-md); }
+  .msgs:empty { display: none; }
+
+  /* ---- photo tiles (grid) ---- */
+  .photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-md); }
+  @media (min-width: 960px) { .photo-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+  .tile { display: flex; flex-direction: column; min-width: 0; border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-dominant); overflow: hidden; }
+  .tile .thumb { aspect-ratio: 4 / 3; }
+  .tile .badges { position: absolute; left: 6px; top: 6px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .tile__body { padding: 8px 8px 4px 10px; min-width: 0; }
+  .tile__title { font-weight: var(--weight-semibold); font-size: var(--font-label-size); }
+  .tile__meta { font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .tile__actions { display: flex; justify-content: flex-end; gap: 0; padding: 0 2px 2px; margin-top: auto; }
+  .tile__actions .btn { min-width: 44px; padding: 0 10px; }
+  .tile__actions .btn--quiet { flex: 1; justify-content: flex-start; }
+  
+  .tile--add { display: flex; flex-direction: column; border: 2px dashed var(--seg-edge); background: color-mix(in srgb, var(--color-secondary) 55%, transparent); align-items: center; justify-content: center; text-align: center; min-height: 190px; padding: var(--space-md); gap: 6px; color: var(--color-text); cursor: pointer; font: inherit; }
+  .tile--add:hover:not(:disabled) { border-color: var(--color-accent); }
+  .tile--add:disabled { opacity: .55; cursor: not-allowed; }
+  .tile--add svg { width: 28px; height: 28px; }
+  .tile--add small { color: var(--color-text-muted); font-size: var(--font-caption-size); }
+  .tile.selectable { cursor: pointer; }
+  .tile.selected { border-color: var(--color-accent); box-shadow: 0 0 0 2px var(--color-accent); }
+  .tile__check { position: absolute; right: 6px; top: 6px; width: 28px; height: 28px; border-radius: 50%; background: var(--color-dominant); border: 2px solid var(--color-accent); display: grid; place-items: center; color: var(--color-on-accent); }
+  .tile.selected .tile__check { background: var(--color-accent); }
+  .tile__check svg { width: 16px; height: 16px; opacity: 0; }
+  .tile.selected .tile__check svg { opacity: 1; }
+
+  /* ---- rows (list) ---- */
+  .rows { list-style: none; margin: 0; padding: 0; }
+  .prow { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: var(--space-sm) 0; border-top: 1px solid var(--color-border); }
+  .prow:first-child { border-top: 0; }
+  .prow .thumb { width: 72px; height: 54px; border-radius: 10px; flex: none; }
+  .prow__text { flex: 1 1 120px; min-width: 0; }
+  .prow__title { font-weight: var(--weight-semibold); font-size: var(--font-label-size); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .prow__meta { font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .prow__actions { display: flex; flex: none; }
+  .prow__confirm { grid-column: 1 / -1; display: flex; gap: var(--space-sm); align-items: center; flex-wrap: wrap; padding: 10px 12px; border-radius: var(--radius-control); background: color-mix(in srgb, var(--color-status-error) 8%, transparent); border: 1px solid color-mix(in srgb, var(--color-status-error) 35%, transparent); }
+  .prow__confirm p { flex: 1 1 200px; font-size: var(--font-label-size); }
+  .rows-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-sm); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-md); flex-wrap: wrap; margin-bottom: var(--space-md); }
+  .card-head .card-title { margin: 0; }
+  .select-bar { display: flex; align-items: center; gap: var(--space-sm); justify-content: space-between; flex-wrap: wrap; padding: 8px 8px 8px var(--space-md); margin-bottom: var(--space-md); border-radius: var(--radius-control); background: var(--color-secondary); border: 1px solid var(--seg-edge); }
+  .sim { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: var(--space-md); padding: 10px; border: 1px dashed var(--seg-edge); border-radius: var(--radius-control); font-size: 12px; }
+  .sim select { min-height: 36px; border-radius: 8px; border: 1px solid var(--seg-edge); background: var(--color-dominant); padding: 0 8px; }
+  .sim button { min-height: 36px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--seg-edge); background: var(--color-secondary); }
+  .variant { max-width: 880px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div>
+    <header class="mobile-header" id="mheader"></header>
+    <main class="page-content">
+      <h1 class="page-title" data-i="page.title">Photos</h1>
+      <p class="page-purpose" data-i="page.purpose"></p>
+      <div class="frame-chip"><span class="dot"></span><span id="chip"></span></div>
+      <div style="height:var(--space-lg)"></div>
+
+      <div class="variant" id="variant-a" hidden></div>
+      <div class="variant" id="variant-b" hidden></div>
+      <div class="variant" id="variant-c" hidden></div>
+
+      <div class="sk-note sk-only">
+        <b>Sketch notes.</b> Thumbnails are procedural SVG scenes. Choose a real file with the buttons to test the real checks (size over 12 MB, HEIC, non-image, GIF, under 200 px); it stays in your browser. Use the "simulate" row to see each server refusal. URL params: <code>?v=a|b|c&amp;lang=fr&amp;theme=dark&amp;state=empty|populated|almost|full&amp;msgs=too_large,heic_unsupported&amp;chrome=0</code>.
+      </div>
+    </main>
+  </div>
+</div>
+<nav class="tab-bar" id="tabbar"></nav>
+<dialog class="confirm" id="dlg" aria-labelledby="dlg-title">
+  <h2 id="dlg-title"></h2><p id="dlg-body"></p>
+  <div class="actions"><button class="btn" id="dlg-cancel"></button><button class="btn btn--danger-solid" id="dlg-ok"></button></div>
+</dialog>
+<input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/*,.heic,.heif" multiple hidden>
+
+<script src="../themes/photo-shell.js"></script>
+<script>
+const MAX_N = 20, MAX_MB = 20, MAX_FILE_MB = 12;
+SK.add({
+  'page.title': ['Photos', 'Photos'],
+  'page.purpose': ['The pictures this frame shows in photo mode. Only you and the people who manage this frame can see them.', 'Les images affichées par ce cadre en mode photo. Seuls vous et les personnes qui gèrent ce cadre peuvent les voir.'],
+  'chip': ['Salon · portrait 1200×1600 · photo mode', 'Salon · portrait 1200×1600 · mode photo'],
+  'quota.title': ['Space used', 'Espace utilisé'],
+  'quota.photos': ['Photos', 'Photos'], 'quota.storage': ['Storage', 'Stockage'],
+  'quota.of': ['{a} of {b}', '{a} sur {b}'],
+  'quota.photos_val': ['{a} of {b}', '{a} sur {b}'],
+  'quota.mb': ['{a} of {b} MB', '{a} sur {b} Mo'],
+  'quota.ok': ['', ''], 'quota.warn': ['Almost full', 'Presque plein'], 'quota.full': ['Full: delete a photo to add another', 'Plein : supprimez une photo pour en ajouter'],
+  'quota.note': ['Each photo is reduced to about 1 MB when it is added. The original is never kept.', 'Chaque photo est réduite à environ 1 Mo à l’ajout. L’original n’est jamais conservé.'],
+  'up.title': ['Add photos', 'Ajouter des photos'],
+  'up.drop': ['Drop photos here', 'Déposez vos photos ici'], 'up.or': ['or', 'ou'],
+  'up.choose': ['Choose photos', 'Choisir des photos'], 'up.add': ['Add photos', 'Ajouter des photos'],
+  'up.hint': ['JPEG, PNG or WebP, up to 12 MB each.', 'JPEG, PNG ou WebP, 12 Mo maximum chacune.'],
+  'up.adding': ['Adding {name}…', 'Ajout de {name}…'],
+  'up.disabled': ['Adding photos is paused until there is room.', 'L’ajout est suspendu tant qu’il n’y a pas de place.'],
+  'up.added1': ['Photo added', 'Photo ajoutée'], 'up.addedN': ['{n} photos added', '{n} photos ajoutées'],
+  'up.added_d': ['It joins the rotation.', 'Elle rejoint la rotation.'], 'up.added_dN': ['They join the rotation.', 'Elles rejoignent la rotation.'],
+  'list.title': ['Your photos', 'Vos photos'],
+  'photo': ['Photo {n}', 'Photo {n}'],
+  'now': ['On the frame', 'Sur le cadre'],
+  'fit.fill': ['Fill', 'Remplir'], 'fit.bands': ['Bands', 'Bandes'],
+  'act.adjust': ['Adjust', 'Ajuster'], 'act.adjust_n': ['Adjust photo {n}', 'Ajuster la photo {n}'],
+  'act.delete': ['Delete', 'Supprimer'], 'act.delete_n': ['Delete photo {n}', 'Supprimer la photo {n}'],
+  'act.cancel': ['Cancel', 'Annuler'], 'act.dismiss': ['Dismiss', 'Fermer'],
+  'act.select': ['Select', 'Sélectionner'], 'act.done': ['Done', 'Terminé'],
+  'act.selected': ['{n} selected', '{n} sélectionnée(s)'],
+  'adj.todo': ['Adjusting a photo is sketch 008.', 'L’ajustement d’une photo est le croquis 008.'],
+  'del.title1': ['Delete this photo?', 'Supprimer cette photo ?'], 'del.titleN': ['Delete {n} photos?', 'Supprimer {n} photos ?'],
+  'del.body1': ['It is removed from the server and cannot be restored.', 'Elle est supprimée du serveur et ne peut pas être récupérée.'],
+  'del.bodyN': ['They are removed from the server and cannot be restored.', 'Elles sont supprimées du serveur et ne peuvent pas être récupérées.'],
+  'del.now': [' It is on the frame right now and stays there until the frame next wakes.', ' Elle est affichée sur le cadre en ce moment et y reste jusqu’à son prochain réveil.'],
+  'del.done1': ['Photo deleted', 'Photo supprimée'], 'del.doneN': ['{n} photos deleted', '{n} photos supprimées'],
+  'del.done_d': ['{used} of {max} MB used.', '{used} sur {max} Mo utilisés.'],
+  'del.inline': ['Delete this photo for good?', 'Supprimer cette photo définitivement ?'],
+  'empty.title': ['No photos yet', 'Pas encore de photos'],
+  'empty.body': ['Add a few photos and this frame will show them in turn. They stay private: the administrator cannot see them.', 'Ajoutez quelques photos et ce cadre les affichera à tour de rôle. Elles restent privées : l’administrateur ne peut pas les voir.'],
+  'sim.label': ['Sketch: simulate an upload result', 'Croquis : simuler un résultat d’ajout'],
+  'sim.go': ['Run', 'Lancer'], 'sim.ok': ['accepted', 'acceptée'],
+  /* refusals: reason codes from server/photo/normalize.py plus the quota / server limits */
+  'r.too_large.t': ['{name} is too large', '{name} est trop volumineuse'],
+  'r.too_large.d': ['A photo can be at most 12 MB; this one is {size} MB. Export a smaller version and try again.', 'Une photo ne peut pas dépasser 12 Mo ; celle-ci fait {size} Mo. Exportez une version plus légère et réessayez.'],
+  'r.not_an_image.t': ['{name} is not an image', '{name} n’est pas une image'],
+  'r.not_an_image.d': ['Choose a JPEG, PNG or WebP photo.', 'Choisissez une photo JPEG, PNG ou WebP.'],
+  'r.unsupported_format.t': ['{name}: format not supported', '{name} : format non pris en charge'],
+  'r.unsupported_format.d': ['Only JPEG, PNG and WebP are accepted. This file is a {fmt}.', 'Seuls JPEG, PNG et WebP sont acceptés. Ce fichier est un {fmt}.'],
+  'r.heic_unsupported.t': ['{name} is a HEIC photo', '{name} est une photo HEIC'],
+  'r.heic_unsupported.d': ['HEIC is not supported. On iPhone, choose Most Compatible in the Camera settings, or export the photo as JPEG.', 'Le format HEIC n’est pas pris en charge. Sur iPhone, choisissez « Le plus compatible » dans les réglages de l’appareil photo, ou exportez la photo en JPEG.'],
+  'r.animated.t': ['{name} is animated', '{name} est animée'],
+  'r.animated.d': ['Animated images are not supported. Use a still photo.', 'Les images animées ne sont pas prises en charge. Utilisez une photo fixe.'],
+  'r.too_small.t': ['{name} is too small', '{name} est trop petite'],
+  'r.too_small.d': ['The shorter side must be at least 200 px; this one is {px} px.', 'Le plus petit côté doit faire au moins 200 px ; celui-ci fait {px} px.'],
+  'r.too_many_pixels.t': ['{name} has too many pixels', '{name} a trop de pixels'],
+  'r.too_many_pixels.d': ['A photo can have at most 50 megapixels; this one has {mp}.', 'Une photo ne peut pas dépasser 50 mégapixels ; celle-ci en compte {mp}.'],
+  'r.frame_count.t': ['This frame already has 20 photos', 'Ce cadre a déjà 20 photos'],
+  'r.frame_count.d': ['{name} was not added. Delete a photo to make room.', '{name} n’a pas été ajoutée. Supprimez une photo pour faire de la place.'],
+  'r.frame_bytes.t': ['This frame is out of photo space', 'Ce cadre n’a plus d’espace pour les photos'],
+  'r.frame_bytes.d': ['{name} was not added: the 20 MB limit would be exceeded. Delete a photo to make room.', '{name} n’a pas été ajoutée : la limite de 20 Mo serait dépassée. Supprimez une photo pour faire de la place.'],
+  'r.server_bytes.t': ['The server has no photo space left', 'Le serveur n’a plus d’espace pour les photos'],
+  'r.server_bytes.d': ['Your photos are fine. The space SkyPane keeps for everyone’s photos is full. Try again later or contact the administrator.', 'Vos photos n’ont aucun problème. L’espace que SkyPane réserve aux photos de tous est plein. Réessayez plus tard ou contactez l’administrateur.'],
+  'r.disk_low.t': ['Adding photos is paused', 'L’ajout de photos est suspendu'],
+  'r.disk_low.d': ['The server is low on disk space. Your existing photos are safe. Try again later.', 'Le serveur manque d’espace disque. Vos photos existantes sont conservées. Réessayez plus tard.'],
+});
+const TONE = { too_large: 'error', not_an_image: 'error', unsupported_format: 'error', heic_unsupported: 'error', animated: 'error', too_small: 'error', too_many_pixels: 'error', frame_count: 'warning', frame_bytes: 'warning', server_bytes: 'error', disk_low: 'error' };
+const SAMPLE = { too_large: { name: 'IMG_4412.jpg', size: 18.4 }, not_an_image: { name: 'holiday.pdf' }, unsupported_format: { name: 'scan.tiff', fmt: 'TIFF' }, heic_unsupported: { name: 'IMG_0873.HEIC' }, animated: { name: 'loop.webp' }, too_small: { name: 'icon.png', px: 160 }, too_many_pixels: { name: 'panorama.jpg', mp: '64' }, frame_count: { name: 'IMG_5120.jpg' }, frame_bytes: { name: 'IMG_5121.jpg' }, server_bytes: { name: 'IMG_5122.jpg' }, disk_low: { name: 'IMG_5123.jpg' } };
+
+/* ---- data ---- */
+let photos = [], msgs = [], uploading = [], selecting = false, selected = new Set(), inlineConfirm = null, nextId = 100;
+const SIZES = [0.9, 0.8, 0.9, 1.0, 0.8, 0.9, 0.9];
+function seed(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const mb = n >= 19 ? (n === 20 ? 1.0 : 1.0) : SIZES[i % SIZES.length];
+    out.push({ id: i + 1, scene: [0, 1, 2, 3, 4, 5, 6, 7][i % 8], bytes: n === 19 && i === 18 ? 1.1 : mb, fit: i % 3 === 1 ? 'bands' : 'fill', day: 9 - (i % 9), now: i === 2 });
+  }
+  return out;
+}
+function applyState() {
+  const st = SK.state.state;
+  photos = seed(st === 'empty' ? 0 : st === 'almost' ? 19 : st === 'full' ? 20 : 7);
+  if (st === 'full') photos.forEach(p => { p.bytes = 1.0; });
+  msgs = []; uploading = []; selecting = false; selected = new Set(); inlineConfirm = null;
+  const m = SK.q.get('msgs');
+  if (m) m.split(',').forEach(c => pushMsg(c));
+}
+const used = () => photos.reduce((a, p) => a + p.bytes, 0);
+function pushMsg(code, extra) { msgs.push({ id: ++nextId, code, vars: Object.assign({}, SAMPLE[code] || {}, extra || {}) }); }
+const full = () => photos.length >= MAX_N || used() >= MAX_MB - 0.05;
+
+/* ---- html pieces ---- */
+function meter(kind) {
+  const n = photos.length, mb = used();
+  const ratio = kind === 'n' ? n / MAX_N : mb / MAX_MB;
+  const level = ratio >= 0.999 ? 'full' : ratio >= 0.8 ? 'warn' : 'ok';
+  const val = kind === 'n' ? SK.t('quota.photos_val', { a: SK.num(n), b: MAX_N }) : SK.t('quota.mb', { a: SK.num(mb, 1), b: MAX_MB });
+  const label = SK.t(kind === 'n' ? 'quota.photos' : 'quota.storage');
+  return '<div class="meter meter--' + level + '"><div class="meter__head"><span class="meter__label">' + label + '</span><span class="meter__value">' + val + '</span></div>' +
+    '<div class="meter__track" role="meter" aria-label="' + SK.esc(label) + '" aria-valuemin="0" aria-valuemax="' + (kind === 'n' ? MAX_N : MAX_MB) + '" aria-valuenow="' + (kind === 'n' ? n : mb.toFixed(1)) + '" aria-valuetext="' + SK.esc(val) + '"><div class="meter__fill" style="width:' + Math.min(100, ratio * 100) + '%"></div></div>' +
+    '<div class="meter__state">' + (level === 'ok' ? '' : SK.t('quota.' + level)) + '</div></div>';
+}
+function msgHtml(m0) {
+  const m = Object.assign({}, m0, { vars: Object.assign({}, m0.vars) }); if (typeof m.vars.size === 'number') m.vars.size = SK.num(m.vars.size, 1);
+  const tone = TONE[m.code] || 'error';
+  return '<div class="toast toast--' + tone + '" role="' + (tone === 'error' ? 'alert' : 'status') + '"><span class="toast__icon">' + SK.icon(tone === 'error' ? 'x' : 'alert') + '</span><span class="toast__text"><span class="toast__title">' + SK.esc(SK.t('r.' + m.code + '.t', m.vars)) + '</span><span class="toast__detail">' + SK.esc(SK.t('r.' + m.code + '.d', m.vars)) + '</span></span>' +
+    '<button class="toast__dismiss" data-act="dismiss" data-id="' + m.id + '" aria-label="' + SK.esc(SK.t('act.dismiss')) + '">' + SK.icon('x') + '</button></div>';
+}
+function msgsHtml() { return '<div class="msgs" aria-live="polite">' + msgs.map(msgHtml).join('') + '</div>'; }
+function progressHtml() {
+  if (!uploading.length) return '';
+  return '<div class="upload-progress" aria-live="polite">' + uploading.map(u => '<div class="upload-progress__row">' + SK.esc(SK.t('up.adding', { name: u.name })) + '<div class="upload-progress__bar"><i style="width:' + (u.go ? 100 : 5) + '%"></i></div></div>').join('') + '</div>';
+}
+function simHtml() {
+  const opts = ['ok'].concat(Object.keys(TONE)).map(c => '<option value="' + c + '">' + (c === 'ok' ? SK.t('sim.ok') : c) + '</option>').join('');
+  return '<div class="sim sk-only"><span>' + SK.esc(SK.t('sim.label')) + '</span><select data-sim aria-label="' + SK.esc(SK.t('sim.label')) + '">' + opts + '</select><button data-act="sim">' + SK.t('sim.go') + '</button></div>';
+}
+function thumb(p, label) {
+  return '<div class="thumb">' + (p.url ? '<img src="' + p.url + '" alt="' + SK.esc(label) + '" style="width:100%;height:100%;object-fit:cover;display:block">' : SK.scene(p.scene, { label })) + '</div>';
+}
+function fmtDay(p) { return new Intl.DateTimeFormat(SK.lang === 'fr' ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'short' }).format(new Date(2026, 10, p.day)); }
+const idx = p => photos.indexOf(p) + 1;
+function metaLine(p) { return fmtDay(p) + ' · ' + SK.num(p.bytes, 1) + (SK.lang === 'fr' ? ' Mo' : ' MB'); }
+function badge(p, withFit) {
+  return (p.now ? '<span class="badge badge--now">' + SK.t('now') + '</span>' : '') + (withFit ? '<span class="badge">' + SK.t('fit.' + p.fit) + '</span>' : '');
+}
+function emptyHtml() {
+  const art = '<svg viewBox="0 0 120 90" preserveAspectRatio="xMidYMid slice"><rect width="120" height="90" fill="currentColor" opacity=".08"/><path d="M0 70l30-26 24 20 18-14 48 30v20H0z" fill="currentColor" opacity=".16"/><circle cx="88" cy="26" r="9" fill="currentColor" opacity=".16"/></svg>';
+  return '<div class="empty-state"><div class="art" style="color:var(--color-text)">' + art + '</div><h2>' + SK.t('empty.title') + '</h2><p>' + SK.t('empty.body') + '</p>' +
+    '<button class="btn btn--primary" data-act="pick">' + SK.icon('upload') + SK.t('up.add') + '</button></div>';
+}
+function dropHtml(compact) {
+  const dis = full();
+  return '<div class="drop' + (dis ? ' disabled' : '') + '" data-drop>' +
+    '<div class="drop__desktop"><div class="drop__icon">' + SK.icon('upload', 36) + '</div><div class="drop__title">' + SK.t('up.drop') + '</div><div class="drop__or">' + SK.t('up.or') + '</div></div>' +
+    '<button class="btn btn--primary" data-act="pick"' + (dis ? ' disabled' : '') + '>' + SK.icon('upload') + SK.t('up.choose') + '</button>' +
+    '<div class="drop__hint">' + SK.t('up.hint') + '</div>' + (dis ? '<div class="drop__hint" style="color:var(--color-text)">' + SK.t('up.disabled') + '</div>' : '') + progressHtml() + '</div>';
+}
+function quotaCard(withNote) {
+  return '<section class="page-section"><h2 class="card-title">' + SK.t('quota.title') + '</h2><div class="meters" style="margin-top:12px">' + meter('n') + meter('b') + '</div>' + (withNote ? '<p class="small muted quota-note">' + SK.t('quota.note') + '</p>' : '') + '</section>';
+}
+function tile(p) {
+  const n = idx(p), label = SK.t('photo', { n });
+  const sel = selected.has(p.id);
+  return '<li class="tile' + (selecting ? ' selectable' : '') + (sel ? ' selected' : '') + '" data-id="' + p.id + '">' +
+    '<div style="position:relative">' + thumb(p, label) + '<div class="badges">' + badge(p, false) + '</div>' + (selecting ? '<span class="tile__check">' + SK.icon('check') + '</span>' : '') + '</div>' +
+    '<div class="tile__body"><div class="tile__title">' + label + '</div><div class="tile__meta">' + metaLine(p) + ' · ' + SK.t('fit.' + p.fit) + '</div></div>' +
+    (SK.variant === 'a' ? '<div class="tile__actions"><button class="btn btn--quiet" data-act="adjust" data-id="' + p.id + '" aria-label="' + SK.esc(SK.t('act.adjust_n', { n })) + '">' + SK.icon('crop') + '<span>' + SK.t('act.adjust') + '</span></button>' +
+      '<button class="btn btn--quiet icon-btn" data-act="del" data-id="' + p.id + '" aria-label="' + SK.esc(SK.t('act.delete_n', { n })) + '">' + SK.icon('trash') + '</button></div>' : '<div style="height:8px"></div>') + '</li>';
+}
+function rowHtml(p) {
+  const n = idx(p), label = SK.t('photo', { n });
+  const confirming = inlineConfirm === p.id;
+  return '<li class="prow">' + thumb(p, label) + '<div class="prow__text"><div class="prow__title">' + label + badge(p, false) + '</div><div class="prow__meta">' + metaLine(p) + ' · ' + SK.t('fit.' + p.fit) + '</div></div>' +
+    '<div class="prow__actions"><button class="btn btn--quiet icon-btn" data-act="adjust" data-id="' + p.id + '" aria-label="' + SK.esc(SK.t('act.adjust_n', { n })) + '" title="' + SK.esc(SK.t('act.adjust')) + '">' + SK.icon('crop') + '</button>' +
+    '<button class="btn btn--quiet icon-btn" data-act="del-inline" data-id="' + p.id + '" aria-label="' + SK.esc(SK.t('act.delete_n', { n })) + '" title="' + SK.esc(SK.t('act.delete')) + '" aria-expanded="' + confirming + '">' + SK.icon('trash') + '</button></div>' +
+    (confirming ? '<div class="prow__confirm" role="group"><p>' + SK.t('del.inline') + (p.now ? SK.t('del.now') : '') + '</p><button class="btn" data-act="del-cancel">' + SK.t('act.cancel') + '</button><button class="btn btn--danger-solid" data-act="del-yes" data-id="' + p.id + '">' + SK.t('act.delete') + '</button></div>' : '') + '</li>';
+}
+
+/* ---- variants ---- */
+function renderA() {
+  document.getElementById('variant-a').innerHTML =
+    quotaCard(true) +
+    '<section class="page-section"><h2 class="card-title">' + SK.t('up.title') + '</h2><div style="margin-top:12px">' + dropHtml() + '</div>' + msgsHtml() + simHtml() + '</section>' +
+    '<section class="page-section"><div class="card-head"><h2 class="card-title">' + SK.t('list.title') + '</h2></div>' +
+    (photos.length ? '<ul class="photo-grid" style="list-style:none;margin:0;padding:0">' + photos.map(tile).join('') + '</ul>' : emptyHtml()) + '</section>';
+}
+function renderB() {
+  document.getElementById('variant-b').innerHTML =
+    '<section class="page-section" data-drop><div class="card-head"><h2 class="card-title">' + SK.t('list.title') + '</h2>' +
+    '<button class="btn btn--primary" data-act="pick"' + (full() ? ' disabled' : '') + '>' + SK.icon('upload') + SK.t('up.add') + '</button></div>' +
+    '<div class="strip-quota" style="margin-bottom:var(--space-md)">' + meter('n') + meter('b') + '</div>' +
+    (full() ? '' : '<p class="small muted" style="margin:-4px 0 var(--space-md)">' + SK.t('up.hint') + '</p>') +
+    progressHtml() + msgsHtml() +
+    (photos.length ? '<ul class="rows" style="margin-top:var(--space-md)">' + photos.map(rowHtml).join('') + '</ul>' : emptyHtml()) + simHtml() + '</section>';
+}
+function renderC() {
+  const addTile = '<li class="tile tile--add" role="presentation" style="padding:0"><button class="tile--add" data-act="pick" style="width:100%;height:100%;border:0;background:transparent"' + (full() ? ' disabled' : '') + '>' + SK.icon('plus') + '<strong>' + SK.t('up.add') + '</strong><small>' + SK.t('up.hint') + '</small></button></li>';
+  document.getElementById('variant-c').innerHTML =
+    '<section class="page-section" data-drop><div class="card-head"><h2 class="card-title">' + SK.t('list.title') + '</h2>' +
+    (photos.length ? '<button class="btn" data-act="toggle-select" aria-pressed="' + selecting + '">' + SK.t(selecting ? 'act.done' : 'act.select') + '</button>' : '') + '</div>' +
+    '<div class="strip-quota" style="margin-bottom:var(--space-md)">' + meter('n') + meter('b') + '</div>' + msgsHtml() + progressHtml() +
+    (selecting ? '<div class="select-bar" style="margin-top:var(--space-md)"><strong>' + SK.t('act.selected', { n: selected.size }) + '</strong><button class="btn btn--danger" data-act="del-sel"' + (selected.size ? '' : ' disabled') + '>' + SK.icon('trash') + SK.t('act.delete') + '</button></div>' : '') +
+    (photos.length ? '<ul class="photo-grid" style="list-style:none;margin:var(--space-md) 0 0;padding:0">' + (selecting ? '' : addTile) + photos.map(tile).join('') + '</ul>' : emptyHtml()) + simHtml() + '</section>';
+}
+function render() {
+  document.getElementById('chip').textContent = SK.t('chip');
+  renderA(); renderB(); renderC();
+}
+SK.renderFn = render;
+
+/* ---- behaviour ---- */
+const dlg = document.getElementById('dlg');
+let pendingDelete = [];
+function askDelete(ids) {
+  pendingDelete = ids;
+  const one = ids.length === 1, p = photos.find(x => x.id === ids[0]);
+  document.getElementById('dlg-title').textContent = one ? SK.t('del.title1') : SK.t('del.titleN', { n: ids.length });
+  document.getElementById('dlg-body').textContent = (one ? SK.t('del.body1') : SK.t('del.bodyN')) + (photos.some(x => ids.includes(x.id) && x.now) ? SK.t('del.now') : '');
+  document.getElementById('dlg-cancel').textContent = SK.t('act.cancel');
+  document.getElementById('dlg-ok').textContent = SK.t('act.delete');
+  dlg.showModal(); document.getElementById('dlg-cancel').focus();
+}
+function doDelete(ids) {
+  photos = photos.filter(p => !ids.includes(p.id)); selected = new Set(); inlineConfirm = null;
+  if (!photos.length) selecting = false;
+  render();
+  SK.flash('success', ids.length === 1 ? 'del.done1' : 'del.doneN', 'del.done_d', { n: ids.length, used: SK.num(used(), 1), max: MAX_MB });
+}
+document.getElementById('dlg-cancel').onclick = () => dlg.close();
+document.getElementById('dlg-ok').onclick = () => { dlg.close(); doDelete(pendingDelete); };
+
+function acceptPhoto(extra) {
+  const base = { id: ++nextId, scene: (photos.length * 3 + 1) % 8, bytes: 0.9, fit: 'fill', day: 11, now: false };
+  photos.push(Object.assign(base, extra || {}));
+}
+function simulate(code) {
+  uploading = [{ name: code === 'ok' ? 'IMG_5201.jpg' : (SAMPLE[code].name), go: false }]; render();
+  requestAnimationFrame(() => { uploading[0].go = true; render(); });
+  setTimeout(() => {
+    uploading = [];
+    if (code === 'ok') { if (full()) pushMsg('frame_count'); else { acceptPhoto(); SK.flash('success', 'up.added1', 'up.added_d'); } }
+    else pushMsg(code);
+    render();
+  }, 700);
+}
+async function handleFiles(files) {
+  let added = 0;
+  for (const f of files) {
+    const name = f.name, ext = (name.split('.').pop() || '').toLowerCase(), mb = f.size / 1048576;
+    let code = null, extra = {};
+    if (f.size > MAX_FILE_MB * 1048576) { code = 'too_large'; extra = { size: SK.num(mb, 1) }; }
+    else if (/heic|heif/.test(f.type) || ['heic', 'heif'].includes(ext)) code = 'heic_unsupported';
+    else if (!f.type.startsWith('image/')) code = 'not_an_image';
+    else if (!['image/jpeg', 'image/png', 'image/webp'].includes(f.type)) { code = 'unsupported_format'; extra = { fmt: (f.type.split('/')[1] || ext).toUpperCase() }; }
+    let url = null;
+    if (!code) {
+      url = URL.createObjectURL(f);
+      const dim = await new Promise(res => { const i = new Image(); i.onload = () => res([i.naturalWidth, i.naturalHeight]); i.onerror = () => res(null); i.src = url; });
+      if (!dim) code = 'not_an_image';
+      else if (Math.min(dim[0], dim[1]) < 200) { code = 'too_small'; extra = { px: Math.min(dim[0], dim[1]) }; }
+    }
+    if (!code && photos.length >= MAX_N) code = 'frame_count';
+    if (!code && used() + Math.min(mb, 1.0) > MAX_MB) code = 'frame_bytes';
+    if (code) pushMsg(code, Object.assign({ name }, extra));
+    else { acceptPhoto({ url, bytes: Math.min(Math.max(mb, 0.2), 1.0) }); added++; }
+  }
+  render();
+  if (added) SK.flash('success', added === 1 ? 'up.added1' : 'up.addedN', added === 1 ? 'up.added_d' : 'up.added_dN', { n: added });
+}
+const fileInput = document.getElementById('file');
+fileInput.onchange = () => { if (fileInput.files.length) handleFiles([...fileInput.files]); fileInput.value = ''; };
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (b) {
+    const act = b.dataset.act, id = Number(b.dataset.id);
+    if (act === 'pick') fileInput.click();
+    if (act === 'dismiss') { msgs = msgs.filter(m => m.id !== id); render(); }
+    if (act === 'del') askDelete([id]);
+    if (act === 'del-inline') { inlineConfirm = inlineConfirm === id ? null : id; render(); const c = document.querySelector('.prow__confirm .btn'); if (c) c.focus(); }
+    if (act === 'del-cancel') { inlineConfirm = null; render(); }
+    if (act === 'del-yes') doDelete([id]);
+    if (act === 'del-sel') askDelete([...selected]);
+    if (act === 'toggle-select') { selecting = !selecting; selected = new Set(); render(); }
+    if (act === 'adjust') SK.flash('info', 'adj.todo');
+    if (act === 'sim') simulate(b.parentElement.querySelector('select').value);
+    return;
+  }
+  const t = e.target.closest('.tile.selectable');
+  if (t) { const id = Number(t.dataset.id); selected.has(id) ? selected.delete(id) : selected.add(id); render(); }
+  else { const tt = e.target.closest('#variant-c .tile[data-id]'); if (tt && !selecting) SK.flash('info', 'adj.todo'); }
+});
+['dragenter', 'dragover'].forEach(ev => document.addEventListener(ev, e => { const d = e.target.closest('[data-drop]'); if (d && !full()) { e.preventDefault(); d.classList.add('dragging'); } }));
+['dragleave', 'drop'].forEach(ev => document.addEventListener(ev, e => { const d = e.target.closest('[data-drop]'); if (d) d.classList.remove('dragging'); }));
+document.addEventListener('drop', e => { const d = e.target.closest('[data-drop]'); if (d) { e.preventDefault(); if (e.dataTransfer.files.length) handleFiles([...e.dataTransfer.files]); } });
+
+SK.mountActive = 'photos';
+SK.initChrome({
+  title: '007 Photo list and upload',
+  variants: [['a', 'A · Grid'], ['b', 'B · List rows'], ['c', 'C · Hybrid grid + select']],
+  states: [{ key: 'state', label: 'State', def: 'populated', options: [['populated', '7 of 20'], ['almost', '19 of 20'], ['full', 'Full'], ['empty', 'Empty']] }],
+});
+const _set = SK.setState;
+SK.setState = function (k, v) { SK.state[k] = v; applyState(); SK.rerender(); document.querySelectorAll('#sk-bar [data-sk^="s|"]').forEach(b => { const [, val, key] = b.dataset.sk.split('|'); b.setAttribute('aria-pressed', String(SK.state[key]) === val); }); };
+applyState(); SK.rerender();
+</script>
+</body>
+</html>

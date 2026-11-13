@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 008: Photo preview and crop</title>
+<link rel="stylesheet" href="../themes/companion-current.css">
+<link rel="stylesheet" href="../themes/photo-shell.css">
+<style>
+  .variant { max-width: 960px; }
+  .back { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--color-text); text-decoration: none; font-size: var(--font-label-size); font-weight: var(--weight-semibold); margin: -8px 0 4px -6px; padding: 0 6px; border-radius: var(--radius-control); }
+  .back:hover { background: color-mix(in srgb, var(--color-text) 6%, transparent); }
+  .back svg { width: 18px; height: 18px; }
+
+  /* preview surfaces */
+  .panel-wrap { margin: 0 auto; }
+  .panel-frame { position: relative; border-radius: 6px; padding: 6px; background: var(--color-frame-bezel, #2A2622); box-shadow: var(--shadow-card); }
+  [data-theme="dark"] .panel-frame { background: #050608; }
+  .panel-frame canvas { display: block; width: 100%; height: auto; background: #fff; image-rendering: auto; }
+  .panel-frame.zoom { overflow: auto; max-height: 420px; }
+  .panel-frame.zoom canvas { width: auto; max-width: none; }
+  .drag-surface { touch-action: none; cursor: grab; outline-offset: 4px; border-radius: 8px; }
+  .drag-surface.dragging { cursor: grabbing; }
+  .drag-hint { text-align: center; font-size: var(--font-caption-size); color: var(--color-text-muted); margin-top: 8px; }
+  .panel-cap { text-align: center; font-size: var(--font-caption-size); color: var(--color-text-muted); margin-top: 8px; }
+  .panel-cap b { color: var(--color-text); }
+  .mine { margin-left: 6px; }
+
+  /* controls */
+  .ctl { margin-bottom: var(--space-lg); }
+  .ctl:last-child { margin-bottom: 0; }
+  .seg--stack > button { flex-direction: column; gap: 0; padding: 6px; }
+  .seg--stack small { font-size: var(--font-caption-size); font-weight: var(--weight-regular); opacity: .8; }
+  .slider { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: var(--space-md); margin-bottom: var(--space-md); }
+  .slider label { font-weight: var(--weight-semibold); font-size: var(--font-label-size); }
+  .slider output { font-variant-numeric: tabular-nums; font-size: var(--font-label-size); }
+  .slider input[type=range] { grid-column: 1 / -1; width: 100%; height: 44px; accent-color: var(--color-accent); margin: 0; }
+  .slider small { grid-column: 1 / -1; color: var(--color-text-muted); font-size: var(--font-caption-size); margin-top: -4px; }
+  .slider.off { opacity: .55; }
+  .note-inline { font-size: var(--font-caption-size); color: var(--color-text-muted); margin-bottom: var(--space-md); }
+  .pad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); gap: 4px; justify-content: start; }
+  .pad .btn { min-height: 44px; width: 48px; height: 48px; padding: 0; }
+  .pad .btn svg { width: 20px; height: 20px; }
+
+  /* honest colour note */
+  .inks { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .ink { display: flex; align-items: center; gap: 6px; font-size: var(--font-caption-size); }
+  .ink i { width: 18px; height: 18px; border-radius: 5px; border: 1px solid var(--seg-edge); display: block; }
+  .honest { border-left: 4px solid var(--color-status-warn); }
+  .honest .card-title { display: flex; gap: 8px; align-items: center; }
+
+  /* layouts */
+  .lay-a { display: block; }
+  .lay-b-previews { display: grid; gap: var(--space-lg); grid-template-columns: minmax(0, 1fr); align-items: start; }
+  .lay-b-controls { display: grid; gap: var(--space-lg); }
+  @media (min-width: 640px) { .lay-b-previews { grid-template-columns: 5fr 7fr; } .lay-b-controls { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 960px) {
+    .lay-a { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: var(--space-xl); align-items: start; }
+    .lay-a .sticky { position: sticky; top: calc(var(--sk-h, 0px) + var(--space-lg)); }
+  }
+  .src-wrap { position: relative; max-width: 640px; margin: 0 auto; aspect-ratio: 3 / 2; border-radius: 10px; overflow: hidden; touch-action: none; cursor: grab; background: #000; }
+  .src-wrap > svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .win { position: absolute; border: 3px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 0 0 9999px rgba(10,12,18,.5); border-radius: 3px; pointer-events: none; }
+  .win--land { border-style: dashed; border-color: #F0E050; box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+  .win__tag { position: absolute; left: 4px; top: 4px; font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 6px; background: #fff; color: #17191F; }
+  .win--land .win__tag { background: #F0E050; top: auto; bottom: 4px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 8px; font-size: var(--font-caption-size); color: var(--color-text-muted); }
+  .legend i { display: inline-block; width: 22px; height: 0; border-top: 3px solid var(--color-text); vertical-align: middle; margin-right: 6px; }
+  .legend i.d { border-top-style: dashed; border-top-color: #C9A400; }
+  .c-prev { display: grid; gap: var(--space-lg); grid-template-columns: 1fr 1fr; align-items: end; margin-top: var(--space-lg); }
+  @media (min-width: 640px) { .c-prev { grid-template-columns: 4fr 7fr; } }
+  .stage-wait { text-align: center; padding: var(--space-2xl); color: var(--color-text-muted); }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div>
+    <header class="mobile-header" id="mheader"></header>
+    <main class="page-content">
+      <a class="back" href="#" onclick="return false">‹ <span data-i="back"></span></a>
+      <h1 class="page-title" data-i="page.title"></h1>
+      <p class="page-purpose" id="sub"></p>
+      <div style="height:var(--space-lg)"></div>
+      <div class="variant" id="variant-a" hidden></div>
+      <div class="variant" id="variant-b" hidden></div>
+      <div class="variant" id="variant-c" hidden></div>
+      <section class="page-section honest" style="margin-top:var(--space-lg)">
+        <h2 class="card-title" data-i="honest.t"></h2>
+        <p class="section-caption" data-i="honest.b" style="margin-top:6px"></p>
+        <div class="inks" id="inks"></div>
+        <p class="small muted" style="margin-top:10px" data-i="honest.c"></p>
+      </section>
+      <div class="sk-note sk-only"><b>Sketch notes.</b> The picture is a procedural scene drawn in code (no photo). Preview rendering here is a browser approximation of the server pipeline: auto-contrast (1% cutoff, strength 0.8), saturation 1.2, Floyd-Steinberg against the real Spectra 6 palette. URL params: <code>?v=a|b|c&amp;fit=fill|bands&amp;px=0.2&amp;py=0.8&amp;panel=portrait|landscape&amp;show=frame|photo&amp;lang=fr&amp;theme=dark&amp;chrome=0</code>.</div>
+    </main>
+  </div>
+</div>
+<nav class="tab-bar" id="tabbar"></nav>
+<div class="save-bar" id="savebar" hidden role="region">
+  <span class="save-bar__msg" data-i="save.msg"></span>
+  <button class="btn btn--ghost" data-act="cancel" data-i="act.cancel"></button>
+  <button class="btn btn--primary" data-act="save" data-i="act.save"></button>
+</div>
+
+<script src="../themes/photo-shell.js"></script>
+<script>
+SK.add({
+  'back': ['Photos', 'Photos'],
+  'page.title': ['Adjust photo', 'Ajuster la photo'],
+  'sub': ['Photo 3 · 7 Nov · 0.9 MB. One stored photo serves both screen shapes; the crop position is shared.', 'Photo 3 · 7 nov. · 0,9 Mo. Une même photo stockée sert pour les deux formats d’écran ; la position du cadrage est commune.'],
+  'panel.portrait': ['Portrait 1200×1600', 'Portrait 1200×1600'], 'panel.landscape': ['Landscape 800×480', 'Paysage 800×480'],
+  'panel.short.portrait': ['Portrait', 'Portrait'], 'panel.short.landscape': ['Landscape', 'Paysage'],
+  'mine': ['Your frame', 'Votre cadre'],
+  'fit.t': ['How the photo fits', 'Cadrage de la photo'],
+  'fit.fill': ['Fill the screen', 'Remplir l’écran'], 'fit.fill.d': ['crops the edges', 'rogne les bords'],
+  'fit.bands': ['Whole photo', 'Photo entière'], 'fit.bands.d': ['white bands', 'bandes blanches'],
+  'pos.t': ['Crop position', 'Position du cadrage'],
+  'pos.x': ['Horizontal', 'Horizontal'], 'pos.y': ['Vertical', 'Vertical'],
+  'pos.x.d': ['Matters on the portrait screen.', 'Compte sur l’écran portrait.'], 'pos.y.d': ['Matters on the landscape screen.', 'Compte sur l’écran paysage.'],
+  'pos.x.off': ['Nothing to move sideways on this screen.', 'Rien à déplacer latéralement sur cet écran.'],
+  'pos.y.off': ['Nothing to move up or down on this screen.', 'Rien à déplacer verticalement sur cet écran.'],
+  'pos.bands': ['With the whole photo shown nothing is cropped, so there is no position to set.', 'Avec la photo entière, rien n’est rogné : il n’y a pas de position à régler.'],
+  'pos.hint': ['Drag the picture or use the arrow keys to move the crop. Shift makes bigger steps.', 'Faites glisser l’image ou utilisez les flèches du clavier pour déplacer le cadrage. Maj pour des pas plus grands.'],
+  'pos.aria': ['Crop position. Arrow keys move the crop.', 'Position du cadrage. Les flèches déplacent le cadrage.'],
+  'pos.left': ['Move the crop left', 'Déplacer le cadrage vers la gauche'], 'pos.right': ['Move the crop right', 'Déplacer le cadrage vers la droite'],
+  'pos.up': ['Move the crop up', 'Déplacer le cadrage vers le haut'], 'pos.down': ['Move the crop down', 'Déplacer le cadrage vers le bas'],
+  'pos.centre': ['Centre the crop', 'Centrer le cadrage'], 'centre': ['Centre', 'Centrer'],
+  'show.t': ['Preview', 'Aperçu'], 'show.frame': ['Frame look', 'Rendu du cadre'], 'show.photo': ['Original photo', 'Photo d’origine'],
+  'zoom': ['Actual pixels', 'Pixels réels'],
+  'prev.t': ['What the frame will show', 'Ce que le cadre affichera'],
+  'prev.note': ['Drawn in your browser; the server’s final render can differ slightly.', 'Dessiné dans votre navigateur ; le rendu final du serveur peut différer légèrement.'],
+  'src.t': ['Whole photo, and the part each screen shows', 'Photo entière, et partie visible sur chaque écran'],
+  'src.portrait': ['Portrait screen', 'Écran portrait'], 'src.landscape': ['Landscape screen', 'Écran paysage'],
+  'src.bands': ['The whole photo is shown, with white bands where the screen is larger.', 'La photo entière est affichée, avec des bandes blanches là où l’écran est plus grand.'],
+  'honest.t': ['Only six colours', 'Seulement six couleurs'],
+  'honest.b': ['The frame’s screen has six inks. Photos are converted with tiny dots of these colours (dithering), so gradients look grainy, colours move toward these six, and skin tones are the hardest. Expect a printed, poster-like look rather than a photo.', 'L’écran du cadre a six encres. Les photos sont converties avec de minuscules points de ces couleurs (tramage) : les dégradés paraissent granuleux, les couleurs se rapprochent de ces six teintes et les tons chair sont les plus difficiles. Attendez-vous à un rendu imprimé, façon affiche, plutôt qu’à une photo.'],
+  'honest.c': ['The preview is close to what the frame shows, but not identical.', 'L’aperçu est proche de ce que montre le cadre, sans être identique.'],
+  'ink.black': ['Black', 'Noir'], 'ink.white': ['White', 'Blanc'], 'ink.yellow': ['Yellow', 'Jaune'], 'ink.red': ['Red', 'Rouge'], 'ink.blue': ['Blue', 'Bleu'], 'ink.green': ['Green', 'Vert'],
+  'save.msg': ['Unsaved changes', 'Modifications non enregistrées'], 'act.save': ['Save', 'Enregistrer'], 'act.cancel': ['Cancel', 'Annuler'],
+  'saved.t': ['Saved', 'Enregistré'], 'saved.d': ['The frame uses it the next time this photo is shown.', 'Le cadre l’utilise la prochaine fois que cette photo s’affiche.'],
+  'rendering': ['Drawing the preview…', 'Dessin de l’aperçu…'],
+});
+
+/* ---------- state ---------- */
+const q = SK.q;
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const S = { fit: q.get('fit') === 'bands' ? 'bands' : 'fill', px: clamp(+(q.get('px') ?? 0.5), 0, 1), py: clamp(+(q.get('py') ?? 0.5), 0, 1), panel: q.get('panel') === 'landscape' ? 'landscape' : 'portrait', show: q.get('show') === 'photo' ? 'photo' : 'frame', zoom: q.get('zoom') === '1' };
+let saved = { fit: 'fill', px: 0.5, py: 0.5 };
+const PANELS = { portrait: { w: 1200, h: 1600 }, landscape: { w: 800, h: 480 } };
+const PALETTE = { black: [0, 0, 0], white: [255, 255, 255], yellow: [240, 224, 80], red: [160, 32, 32], blue: [45, 95, 155], green: [50, 105, 65] };
+const PAL = Object.values(PALETTE);
+let SRC = null, interacting = false, idleTimer = null;
+const SW = 1536, SH = 1024;
+
+/* ---------- rendering (browser approximation of the server pipeline) ---------- */
+function cropRect(panel, fit) {
+  const { w, h } = PANELS[panel];
+  if (fit === 'bands') { const s = Math.min(w / SW, h / SH); return { s, dw: SW * s, dh: SH * s, slackX: 0, slackY: 0 }; }
+  const s = Math.max(w / SW, h / SH), cw = w / s, ch = h / s;
+  return { s, cw, ch, slackX: SW - cw, slackY: SH - ch };
+}
+function drawPanel(panel, scale, withDither) {
+  const { w, h } = PANELS[panel], W = Math.round(w * scale), H = Math.round(h * scale);
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d', { willReadFrequently: true });
+  x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
+  x.imageSmoothingQuality = 'high';
+  let rect;
+  if (S.fit === 'bands') {
+    const r = cropRect(panel, 'bands'), dw = r.dw * scale, dh = r.dh * scale;
+    rect = { x: Math.round((W - dw) / 2), y: Math.round((H - dh) / 2), w: Math.round(dw), h: Math.round(dh) };
+    x.drawImage(SRC, rect.x, rect.y, rect.w, rect.h);
+  } else {
+    const r = cropRect(panel, 'fill');
+    x.drawImage(SRC, r.slackX * S.px, r.slackY * S.py, r.cw, r.ch, 0, 0, W, H);
+    rect = { x: 0, y: 0, w: W, h: H };
+  }
+  if (withDither) { const id = x.getImageData(0, 0, W, H); boost(id, rect); dither(id); x.putImageData(id, 0, 0); }
+  return c;
+}
+function boost(id, r) {
+  const d = id.data, W = id.width, hist = new Uint32Array(256); let n = 0;
+  for (let y = r.y; y < r.y + r.h; y++) for (let xx = r.x; xx < r.x + r.w; xx++) { const i = (y * W + xx) * 4; hist[Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2])]++; n++; }
+  const cut = n * 0.01; let lo = 0, hi = 255, a = 0;
+  for (let i = 0; i < 256; i++) { a += hist[i]; if (a > cut) { lo = i; break; } }
+  a = 0; for (let i = 255; i >= 0; i--) { a += hist[i]; if (a > cut) { hi = i; break; } }
+  const sc = hi > lo ? 255 / (hi - lo) : 1, STR = 0.8, SAT = 1.2;
+  for (let y = r.y; y < r.y + r.h; y++) for (let xx = r.x; xx < r.x + r.w; xx++) {
+    const i = (y * W + xx) * 4, v = [0, 0, 0];
+    for (let c = 0; c < 3; c++) v[c] = d[i + c] * (1 - STR) + clamp((d[i + c] - lo) * sc, 0, 255) * STR;
+    const g = 0.299 * v[0] + 0.587 * v[1] + 0.114 * v[2];
+    for (let c = 0; c < 3; c++) d[i + c] = clamp(g + (v[c] - g) * SAT, 0, 255);
+  }
+}
+function dither(id) {
+  const W = id.width, H = id.height, d = id.data, buf = new Float32Array(W * H * 3);
+  for (let i = 0, j = 0; i < d.length; i += 4, j += 3) { buf[j] = d[i]; buf[j + 1] = d[i + 1]; buf[j + 2] = d[i + 2]; }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const j = (y * W + x) * 3, r = buf[j], g = buf[j + 1], b = buf[j + 2];
+    let best = 0, bd = 1e12;
+    for (let k = 0; k < 6; k++) { const p = PAL[k], dr = r - p[0], dg = g - p[1], db = b - p[2], dd = dr * dr + dg * dg + db * db; if (dd < bd) { bd = dd; best = k; } }
+    const p = PAL[best], er = r - p[0], eg = g - p[1], eb = b - p[2], o = (y * W + x) * 4;
+    d[o] = p[0]; d[o + 1] = p[1]; d[o + 2] = p[2]; d[o + 3] = 255;
+    const spread = (dx, dy, f) => { const xx = x + dx, yy = y + dy; if (xx < 0 || xx >= W || yy >= H) return; const k = (yy * W + xx) * 3; buf[k] += er * f; buf[k + 1] += eg * f; buf[k + 2] += eb * f; };
+    spread(1, 0, 7 / 16); spread(-1, 1, 3 / 16); spread(0, 1, 5 / 16); spread(1, 1, 1 / 16);
+  }
+}
+function paint() {
+  if (!SRC) return;
+  document.querySelectorAll('canvas[data-canvas]').forEach(el => {
+    const panel = el.dataset.canvas, big = panel === 'portrait';
+    const scale = S.zoom && el.dataset.zoomable ? 1 : (big && interacting ? 0.4 : (big ? 0.6 : 1));
+    const c = drawPanel(panel, scale, S.show === 'frame');
+    el.width = c.width; el.height = c.height; el.getContext('2d').drawImage(c, 0, 0);
+    el.closest('.panel-frame').classList.toggle('zoom', !!(S.zoom && el.dataset.zoomable));
+  });
+  sync();
+}
+function kick(interactive) {
+  interacting = !!interactive; paint();
+  clearTimeout(idleTimer); if (interactive) idleTimer = setTimeout(() => { interacting = false; paint(); }, 160);
+}
+
+/* ---------- pieces ---------- */
+const dirty = () => S.fit !== saved.fit || Math.abs(S.px - saved.px) > 1e-6 || Math.abs(S.py - saved.py) > 1e-6;
+function canvasBox(panel, opts) {
+  opts = opts || {};
+  const w = opts.maxW || (panel === 'portrait' ? 300 : 460);
+  return '<div class="panel-wrap" style="max-width:' + w + 'px"><div class="panel-frame"><canvas data-canvas="' + panel + '" ' + (opts.zoomable ? 'data-zoomable="1"' : '') + ' aria-label="' + SK.esc(SK.t('panel.' + panel)) + '" role="img"></canvas></div></div>';
+}
+function dragSurface(inner) { return '<div class="drag-surface" data-drag tabindex="0" role="group" aria-label="' + SK.esc(SK.t('pos.aria')) + '">' + inner + '</div>'; }
+function segFit() {
+  return '<div class="seg seg--stack" role="group" aria-label="' + SK.esc(SK.t('fit.t')) + '">' +
+    ['fill', 'bands'].map(f => '<button data-act="fit" data-v="' + f + '" aria-pressed="' + (S.fit === f) + '"><span>' + SK.t('fit.' + f) + '</span><small>' + SK.t('fit.' + f + '.d') + '</small></button>').join('') + '</div>';
+}
+function segPanel() {
+  return '<div class="seg" role="group" aria-label="' + SK.esc(SK.t('show.t')) + '">' + ['portrait', 'landscape'].map(p => '<button data-act="panel" data-v="' + p + '" aria-pressed="' + (S.panel === p) + '">' + SK.t('panel.' + p) + '</button>').join('') + '</div>';
+}
+function segShow() {
+  return '<div class="seg" role="group" aria-label="' + SK.esc(SK.t('show.t')) + '">' + ['frame', 'photo'].map(p => '<button data-act="show" data-v="' + p + '" aria-pressed="' + (S.show === p) + '">' + SK.t('show.' + p) + '</button>').join('') + '</div>';
+}
+function slider(axis, key) {
+  return '<div class="slider" data-slider="' + axis + '"><label for="s-' + axis + '-' + key + '">' + SK.t('pos.' + axis) + '</label><output data-out="' + axis + '"></output>' +
+    '<input id="s-' + axis + '-' + key + '" type="range" min="0" max="100" step="1" data-axis="' + axis + '" aria-describedby="d-' + axis + '-' + key + '"><small id="d-' + axis + '-' + key + '" data-help="' + axis + '"></small></div>';
+}
+function sliders(key) { return slider('x', key) + slider('y', key) + '<p class="note-inline" data-bandsnote hidden>' + SK.t('pos.bands') + '</p>'; }
+function nudgePad() {
+  const b = (d, ic, k) => '<button class="btn" data-act="nudge" data-d="' + d + '" aria-label="' + SK.esc(SK.t(k)) + '">' + SK.icon(ic) + '</button>';
+  return '<div class="pad" role="group" aria-label="' + SK.esc(SK.t('pos.t')) + '"><span></span>' + b('up', 'up', 'pos.up') + '<span></span>' + b('left', 'left', 'pos.left') +
+    '<button class="btn" data-act="centre" aria-label="' + SK.esc(SK.t('pos.centre')) + '">' + SK.icon('reset') + '</button>' + b('right', 'right', 'pos.right') + '<span></span>' + b('down', 'down', 'pos.down') + '<span></span></div>';
+}
+function zoomToggle() { return '<label class="row small" style="gap:8px;min-height:44px;cursor:pointer"><input type="checkbox" data-act="zoom" ' + (S.zoom ? 'checked' : '') + ' style="width:20px;height:20px;accent-color:var(--color-accent)"> ' + SK.t('zoom') + '</label>'; }
+
+/* ---------- variants ---------- */
+function buildA() {
+  const other = S.panel === 'portrait' ? 'landscape' : 'portrait';
+  return '<div class="lay-a"><div class="sticky"><section class="page-section"><div style="margin-bottom:var(--space-md)">' + segPanel() + '</div>' +
+    dragSurface(canvasBox(S.panel, { zoomable: true, maxW: S.panel === 'portrait' ? 330 : 520 })) +
+    '<p class="drag-hint" data-i="pos.hint">' + SK.t('pos.hint') + '</p>' +
+    '<p class="panel-cap">' + (S.panel === 'portrait' ? '<span class="badge mine">' + SK.t('mine') + '</span>' : '') + '</p></section></div>' +
+    '<div><section class="page-section"><div class="ctl"><h2 class="card-title" style="margin-bottom:8px">' + SK.t('fit.t') + '</h2>' + segFit() + '</div>' +
+    '<div class="ctl"><h2 class="card-title" style="margin-bottom:8px">' + SK.t('pos.t') + '</h2>' + sliders('a') + '<div class="row"><button class="btn" data-act="centre">' + SK.icon('reset') + SK.t('centre') + '</button></div></div>' +
+    '<div class="ctl"><h2 class="card-title" style="margin-bottom:8px">' + SK.t('show.t') + '</h2><div class="row" style="justify-content:space-between">' + segShow() + zoomToggle() + '</div><p class="small muted" style="margin-top:6px">' + SK.t('prev.note') + '</p></div></section></div></div>';
+}
+function buildB() {
+  return '<div class="lay-b-previews"><section class="page-section" style="margin:0"><h2 class="card-title" style="margin-bottom:12px">' + SK.t('panel.short.portrait') + '</h2>' +
+    dragSurface(canvasBox('portrait', { maxW: 260 })) + '<p class="panel-cap"><b>1200×1600</b><span class="badge mine">' + SK.t('mine') + '</span></p></section>' +
+    '<section class="page-section" style="margin:0"><h2 class="card-title" style="margin-bottom:12px">' + SK.t('panel.short.landscape') + '</h2>' +
+    dragSurface(canvasBox('landscape', { maxW: 440 })) + '<p class="panel-cap"><b>800×480</b></p></section></div>' +
+    '<p class="drag-hint" style="margin:var(--space-md) 0 var(--space-lg)">' + SK.t('pos.hint') + '</p>' +
+    '<div class="lay-b-controls"><section class="page-section" style="margin:0"><h2 class="card-title" style="margin-bottom:8px">' + SK.t('fit.t') + '</h2>' + segFit() +
+    '<h2 class="card-title" style="margin:var(--space-lg) 0 8px">' + SK.t('show.t') + '</h2>' + segShow() + '<p class="small muted" style="margin-top:6px">' + SK.t('prev.note') + '</p></section>' +
+    '<section class="page-section" style="margin:0"><h2 class="card-title" style="margin-bottom:8px">' + SK.t('pos.t') + '</h2>' + sliders('b') +
+    '<div class="row" style="align-items:flex-start;gap:var(--space-lg)">' + nudgePad() + '</div></section></div>';
+}
+function buildC() {
+  return '<section class="page-section"><h2 class="card-title" style="margin-bottom:12px">' + SK.t('src.t') + '</h2>' +
+    dragSurface('<div class="src-wrap" data-src>' + SK.scene(0, { label: '', par: 'none' }) + '<div class="win" data-win="portrait"><span class="win__tag">' + SK.t('src.portrait') + '</span></div><div class="win win--land" data-win="landscape"><span class="win__tag">' + SK.t('src.landscape') + '</span></div></div>') +
+    '<div class="legend"><span><i></i>' + SK.t('src.portrait') + '</span><span><i class="d"></i>' + SK.t('src.landscape') + '</span></div>' +
+    '<p class="note-inline" style="text-align:center;margin-top:8px" data-srcbands hidden>' + SK.t('src.bands') + '</p>' +
+    '<p class="drag-hint">' + SK.t('pos.hint') + '</p></section>' +
+    '<section class="page-section"><h2 class="card-title">' + SK.t('prev.t') + '</h2>' +
+    '<div class="c-prev">' + '<div>' + canvasBox('portrait', { maxW: 220 }) + '<p class="panel-cap"><b>' + SK.t('panel.short.portrait') + '</b><span class="badge mine">' + SK.t('mine') + '</span></p></div>' +
+    '<div>' + canvasBox('landscape', { maxW: 400 }) + '<p class="panel-cap"><b>' + SK.t('panel.short.landscape') + '</b></p></div></div>' +
+    '<div class="row" style="margin-top:var(--space-md)">' + segShow() + '</div><p class="small muted" style="margin-top:6px">' + SK.t('prev.note') + '</p></section>' +
+    '<section class="page-section"><div class="lay-b-controls"><div><h2 class="card-title" style="margin-bottom:8px">' + SK.t('fit.t') + '</h2>' + segFit() + '</div><div><h2 class="card-title" style="margin-bottom:8px">' + SK.t('pos.t') + '</h2>' + sliders('c') + '<button class="btn" data-act="centre">' + SK.icon('reset') + SK.t('centre') + '</button></div></div></section>';
+}
+function build() {
+  document.getElementById('sub').textContent = SK.t('sub');
+  document.getElementById('inks').innerHTML = Object.keys(PALETTE).map(k => '<span class="ink"><i style="background:rgb(' + PALETTE[k] + ')"></i>' + SK.t('ink.' + k) + '</span>').join('');
+  document.getElementById('variant-' + SK.variant).innerHTML = { a: buildA, b: buildB, c: buildC }[SK.variant]();
+  paint();
+}
+SK.renderFn = build;
+
+/* ---------- sync controls with state ---------- */
+function sync() {
+  const bands = S.fit === 'bands';
+  const slackX = S.fit === 'fill' && (SK.variant === 'a' ? S.panel === 'portrait' : true);
+  const slackY = S.fit === 'fill' && (SK.variant === 'a' ? S.panel === 'landscape' : true);
+  document.querySelectorAll('[data-slider]').forEach(w => {
+    const ax = w.dataset.slider, val = ax === 'x' ? S.px : S.py, on = ax === 'x' ? slackX : slackY, inp = w.querySelector('input');
+    inp.value = Math.round(val * 100); inp.disabled = !on; w.classList.toggle('off', !on);
+    w.querySelector('output').textContent = SK.pct(val);
+    w.querySelector('small').textContent = bands ? '' : (on ? SK.t('pos.' + ax + '.d') : SK.t('pos.' + ax + '.off'));
+  });
+  document.querySelectorAll('[data-bandsnote]').forEach(n => { n.hidden = !bands; });
+  document.querySelectorAll('[data-srcbands]').forEach(n => { n.hidden = !bands; });
+  document.querySelectorAll('[data-act="fit"]').forEach(b => b.setAttribute('aria-pressed', S.fit === b.dataset.v));
+  document.querySelectorAll('[data-act="show"]').forEach(b => b.setAttribute('aria-pressed', S.show === b.dataset.v));
+  document.querySelectorAll('[data-act="panel"]').forEach(b => b.setAttribute('aria-pressed', S.panel === b.dataset.v));
+  document.querySelectorAll('[data-act="nudge"],[data-act="centre"]').forEach(b => { if (b.dataset.act === 'nudge') b.disabled = bands; });
+  /* crop windows over the source view */
+  ['portrait', 'landscape'].forEach(p => {
+    const el = document.querySelector('[data-win="' + p + '"]'); if (!el) return;
+    if (bands) { el.style.display = 'none'; return; } el.style.display = '';
+    const r = cropRect(p, 'fill'), L = r.slackX * S.px / SW * 100, T = r.slackY * S.py / SH * 100;
+    el.style.left = L + '%'; el.style.top = T + '%'; el.style.width = r.cw / SW * 100 + '%'; el.style.height = r.ch / SH * 100 + '%';
+  });
+  document.getElementById('savebar').hidden = !dirty();
+}
+
+/* ---------- interaction ---------- */
+function setPos(px, py) { S.px = clamp(px, 0, 1); S.py = clamp(py, 0, 1); kick(true); }
+document.addEventListener('input', e => {
+  const a = e.target.dataset && e.target.dataset.axis; if (!a) return;
+  const v = e.target.value / 100; a === 'x' ? setPos(v, S.py) : setPos(S.px, v);
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const act = b.dataset.act;
+  if (act === 'fit') { S.fit = b.dataset.v; kick(false); }
+  if (act === 'panel') { S.panel = b.dataset.v; build(); }
+  if (act === 'show') { S.show = b.dataset.v; kick(false); }
+  if (act === 'zoom') { S.zoom = b.checked; kick(false); }
+  if (act === 'centre') { S.px = S.py = 0.5; kick(false); }
+  if (act === 'nudge') { const st = 0.05, d = b.dataset.d; setPos(S.px + (d === 'right' ? st : d === 'left' ? -st : 0), S.py + (d === 'down' ? st : d === 'up' ? -st : 0)); }
+  if (act === 'cancel') { Object.assign(S, saved); kick(false); }
+  if (act === 'save') { saved = { fit: S.fit, px: S.px, py: S.py }; sync(); SK.flash('success', 'saved.t', 'saved.d'); }
+});
+/* drag the picture (or the source view): the content follows the pointer */
+let drag = null;
+document.addEventListener('pointerdown', e => {
+  const s = e.target.closest('[data-drag]'); if (!s || S.fit === 'bands') return;
+  const isSrc = !!s.querySelector('[data-src]'), box = (isSrc ? s.querySelector('[data-src]') : s.querySelector('canvas')).getBoundingClientRect();
+  const panel = isSrc ? null : s.querySelector('canvas').dataset.canvas;
+  drag = { x: e.clientX, y: e.clientY, px: S.px, py: S.py, box, panel, isSrc, s }; s.classList.add('dragging'); s.setPointerCapture(e.pointerId); s.focus({ preventScroll: true });
+});
+document.addEventListener('pointermove', e => {
+  if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  let nx = drag.px, ny = drag.py;
+  if (drag.isSrc) { /* window follows the pointer over the whole photo */
+    const rp = cropRect('portrait', 'fill'), rl = cropRect('landscape', 'fill');
+    nx = drag.px + (dx / drag.box.width * SW) / rp.slackX; ny = drag.py + (dy / drag.box.height * SH) / rl.slackY;
+  } else { /* the picture follows the pointer, so the crop moves the other way */
+    const r = cropRect(drag.panel, 'fill');
+    if (r.slackX > 0.5) nx = drag.px - (dx / drag.box.width * r.cw) / r.slackX;
+    if (r.slackY > 0.5) ny = drag.py - (dy / drag.box.height * r.ch) / r.slackY;
+  }
+  setPos(nx, ny);
+});
+['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, () => { if (drag) { drag.s.classList.remove('dragging'); drag = null; kick(false); } }));
+document.addEventListener('keydown', e => {
+  const s = e.target.closest && e.target.closest('[data-drag]'); if (!s || e.target.matches('input,button')) return;
+  const st = e.shiftKey ? 0.1 : 0.02; let h = true;
+  if (e.key === 'ArrowLeft') setPos(S.px - st, S.py); else if (e.key === 'ArrowRight') setPos(S.px + st, S.py);
+  else if (e.key === 'ArrowUp') setPos(S.px, S.py - st); else if (e.key === 'ArrowDown') setPos(S.px, S.py + st); else h = false;
+  if (h) e.preventDefault();
+});
+
+/* ---------- boot ---------- */
+SK.mountActive = 'photos';
+SK.initChrome({ title: '008 Preview and crop', variants: [['a', 'A · Preview first'], ['b', 'B · Both screens'], ['c', 'C · Source view']] });
+const img = new Image();
+img.onload = () => {
+  SRC = document.createElement('canvas'); SRC.width = SW; SRC.height = SH; SRC.getContext('2d').drawImage(img, 0, 0, SW, SH);
+  SK.rerender();
+};
+img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(SK.scene(0, { size: [SW, SH], par: 'none' }));
+SK.rerender();
+</script>
+</body>
+</html>
