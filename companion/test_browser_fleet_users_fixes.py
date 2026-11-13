@@ -194,6 +194,8 @@ def test_the_system_view_is_one_column_with_no_overflow(
         widest = page.evaluate(
             "() => Math.max(...[...document.querySelectorAll('.system-topic')]"
             ".map(e => e.getBoundingClientRect().width))")
-        assert widest <= 800.5
+        column = page.evaluate(
+            "() => document.querySelector('.system-topics').getBoundingClientRect().width")
+        assert widest <= column + 0.5
     finally:
         context.close()
