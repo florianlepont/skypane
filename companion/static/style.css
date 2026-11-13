@@ -476,6 +476,14 @@ html[data-ui-theme="dark"] {
     navigation: auto;
   }
 
+  /* A dialog's backdrop fades in with the dialog; closing removes it at
+   * once. Here and not in the global reduced-motion override, which cannot
+   * reach ::backdrop. */
+  dialog.modal::backdrop,
+  .lightbox::backdrop {
+    animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
+  }
+
   /* The page snapshot can be shorter than the area the transition covers (a
    * phone's strip under its bottom toolbar). That strip shows this layer, not
    * the canvas colour, so it carries the colour the page gradient ends on
@@ -5826,6 +5834,8 @@ a.btn[aria-disabled="true"] {
     background: color-mix(in srgb, var(--color-text) 55%, transparent);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
+    /* Arrives with the panel it dims; closing removes it at once. */
+    animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
   }
 
   body:has(.tab-bar__more[open]) .tab-bar {

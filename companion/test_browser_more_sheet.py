@@ -460,3 +460,29 @@ def test_the_theme_and_language_controls_share_one_left_and_right_edge(
         assert fits == [], fits
     finally:
         context.close()
+
+
+def test_the_dim_behind_the_sheet_and_behind_a_dialog_fades_in_with_what_opens(new_context, app):
+    """the scrim and a dialog's backdrop start transparent and reach full strength: the page
+    does not snap to dimmed in one frame while the panel fades in"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        first = page.evaluate("""() => {
+          document.querySelector('.tab-bar__more').open = true;
+          return getComputedStyle(document.body, '::after').opacity; }""")
+        assert float(first) < 0.5, first
+        page.wait_for_function(
+            "() => getComputedStyle(document.body, '::after').opacity === '1'", timeout=5000)
+        page.evaluate("() => { document.querySelector('.tab-bar__more').open = false; }")
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        backdrop = page.evaluate("""() => {
+          const d = document.querySelector('dialog.modal');
+          d.showModal();
+          return getComputedStyle(d, '::backdrop').opacity; }""")
+        assert float(backdrop) < 0.5, backdrop
+        page.wait_for_function(
+            "() => getComputedStyle(document.querySelector('dialog.modal'), '::backdrop')"
+            ".opacity === '1'", timeout=5000)
+    finally:
+        context.close()
