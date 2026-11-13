@@ -20,6 +20,11 @@ Goodreads — warm editorial feel, card-based browsing with visible relief, seri
 | 004 | theme-picker-chips | Do runway-card-style chips with a real rendered theme preview actually read well at 16-theme scale? | B (Chip grid, 160px) | theme-picker, settings, visual-direction |
 | 005 | type-ladder-health-page | Does the new type ladder (32/22/16px + unified sans-uppercase labels + 24px gaps) hold together on a real page? | B (New ladder) | typography, hierarchy, labels, spacing, visual-direction |
 | 006 | aspect-tile-accordion-vs-segments | Accordion or segments — which structure reads best for Aspect's one-tile rebuild (CFG-85)? | A (Accordion) | settings, theme-picker, control-density, visual-direction, phase-30 |
+| 007 | photo-list-and-upload | Grid, list rows or hybrid for a frame's photo list with upload, quota meter, delete confirm and refusal messages (v1.3)? | pending | photos, upload, quota, mobile, i18n |
+| 008 | photo-preview-and-crop | How are fit (fill/bands), crop position and the 6-colour dithered preview arranged for portrait and landscape panels (v1.3)? | pending | photos, crop, preview, dithering, accessibility |
+| 009 | frame-mode-and-rotation | Segmented controls, cards or accordion for per-frame mode, rotation and order, with the wake-interval note and no-photo state (v1.3)? | pending | photos, settings, mode, rotation, control-density |
+| 010 | photo-mode-flow | Does the whole photo-mode flow work end to end (mode-driven menu, Photos page, upload, crop and preview, refusals, back to planes) as one clickable prototype (v1.3)? | pending | photos, navigation, mode, flow, i18n |
+| 011 | mode-switch-on-home | Does the Home-page mode switch (Planes | Photos) with pending states, a stable menu, a banner on plane pages and a manage-only Photos page work as one clickable prototype (v1.3)? | pending | photos, navigation, mode, home, pending, i18n |
 
 ## Phase 30 note
 
@@ -28,3 +33,7 @@ Sketch 006 answers CFG-85's own stated gate: "the direction (accordion vs. segme
 ## 06.6.4.1.1 note
 
 Sketches 004-005 validate the design decisions already locked in `.planning/phases/06.6.4.1.1-settings-theme-picker-and-typography-spacing-direction-pass/06.6.4.1.1-CONTEXT.md` (a `/gsd-discuss-phase` session, not open exploration) — this is a "does it actually look right, rendered" check the developer explicitly required before planning, not a fresh design search. `themes/default.css` was resynced to the current REAL production tokens (`companion/static/style.css`, as of 2026-09-03) for this round — the prior 06.6.1-era snapshot it held is superseded; see the file's own header comment.
+
+## v1.3 photo screens note
+
+Sketches 007-009 explore the companion's photo screens for milestone v1.3 (decisions in `.planning/notes/photo-mode-concept.md`; they are not reopened). They use `themes/companion-current.css` (live `style.css` tokens: graphite accent, glass cards, system sans, no serif) plus the shared mock shell `themes/photo-shell.css` / `photo-shell.js`, because `themes/default.css` is a pre-redesign snapshot. Thumbnails and the preview scene are procedural drawings; no photos. Winners pending.

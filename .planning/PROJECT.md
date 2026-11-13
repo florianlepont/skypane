@@ -46,10 +46,10 @@ Runs in parallel with v1.1 (Phase 47 and 47.1 stay untouched) and v1.2. Its plan
 **Goal:** A frame can show still photos (the owner's own, then project-provided collections) instead of the plane screen, with a rotation that also saves battery.
 
 **Target features:**
-- One display mode per frame, plane or photos, set in the companion.
+- A frame has a type, planes or photos, set only by an administrator from the Console (no switch for users). A photo frame has its own menu and its own Photos page.
 - Upload of the owner's photos; reduced normalised copy only, per-frame quota, real deletion.
 - Photo render path separate from plane rendering: crop to fill by default or bands per photo, contrast and saturation before 6-colour dithering, both panel sizes.
-- Rotation per frame (hourly, 6 h, 12 h, daily; random without repeats or upload order), wake interval following it once the battery-measurement phases are done.
+- Rotation per photo frame (hourly, 6 h, 12 h, daily; shuffled without repeats); photo frames wake every hour, once the battery-measurement phases are done.
 - Privacy: only the owner and co-managers see photos, never the admin.
 - v1.3.x: provided collections (public domain / CC0 plus one artist collection under a written agreement).
 
@@ -74,7 +74,7 @@ Runs in parallel with v1.1 (Phase 47 and 47.1 stay untouched) and v1.2. Its plan
 - [ ] (v1.1) The companion interface is improved from a focused usability and visual-consistency walkthrough.
 - [ ] (v1.2) Several users each own frames of different hardware types, anywhere in France, each with its own detection mode (airport + runway, or aircraft around a position).
 - [ ] (v1.2) An admin manages the whole fleet remotely from a console; ordinary users see only their own frames with fewer options.
-- [ ] (v1.3) A frame can show the owner's own photos instead of the plane screen, rotating on a chosen interval, visible only to the owner and co-managers.
+- [ ] (v1.3) A photo frame (a frame of type photos, set by an administrator) shows the owner's own photos on a chosen rotation, visible only to the owner and co-managers.
 - [ ] (v2/later) Companion phone app can push a short message that appears on the frame
 
 ### Out of Scope
