@@ -560,5 +560,63 @@
     }
   }
 
+  // The phone More sheet dims the page with a fixed scrim. The browser's
+  // status-bar tint is sampled from the page's theme-color, not from that
+  // scrim, so while the sheet is open the tint becomes the page ground under
+  // the same dim and is put back when the sheet closes.
+  var tintSaved = null;
+  var SCRIM_SHARE = 0.55;
+
+  function rgbOf(value) {
+    var m = /rgba?\(([^)]+)\)/.exec(value || "");
+    if (!m) {
+      return null;
+    }
+    var parts = m[1].split(/[ ,\/]+/);
+    return [parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])];
+  }
+
+  function dimmedGround() {
+    var ground = rgbOf(window.getComputedStyle(document.documentElement).backgroundColor);
+    var ink = rgbOf(window.getComputedStyle(document.body).color);
+    if (!ground || !ink) {
+      return "";
+    }
+    var out = "#";
+    for (var i = 0; i < 3; i += 1) {
+      var channel = Math.round(ground[i] * (1 - SCRIM_SHARE) + ink[i] * SCRIM_SHARE);
+      out += ("0" + Math.max(0, Math.min(255, channel)).toString(16)).slice(-2);
+    }
+    return out;
+  }
+
+  function syncStatusTint(open) {
+    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    if (open && !tintSaved) {
+      var dim = dimmedGround();
+      if (!dim) {
+        return;
+      }
+      tintSaved = [];
+      for (var i = 0; i < metas.length; i += 1) {
+        tintSaved.push([metas[i], metas[i].getAttribute("content")]);
+        metas[i].setAttribute("content", dim);
+      }
+    } else if (!open && tintSaved) {
+      for (var j = 0; j < tintSaved.length; j += 1) {
+        tintSaved[j][0].setAttribute("content", tintSaved[j][1]);
+      }
+      tintSaved = null;
+    }
+  }
+
+  // A toggle event does not bubble, so it is caught on the way down.
+  document.addEventListener("toggle", function (evt) {
+    var el = evt.target;
+    if (el && el.classList && el.classList.contains("tab-bar__more")) {
+      syncStatusTint(el.open);
+    }
+  }, true);
+
   upgradeOnLoad();
 })();

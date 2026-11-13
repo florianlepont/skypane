@@ -32,7 +32,7 @@ _PANEL = (
     " const links = [...panel.querySelectorAll('a')].map(a => {"
     " const b = a.getBoundingClientRect();"
     " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
-    " return {text: (a.querySelector('span') || a).textContent.trim(),"
+    " return {text: (a.querySelector('.link-card__title, .tab-bar__account-name') || a).textContent.trim(),"
     " href: a.getAttribute('href'), aria: a.getAttribute('aria-label'),"
     " h: b.height, hit: !!hit && a.contains(hit),"
     " space: a.classList.contains('tab-bar__space-link')}; });"

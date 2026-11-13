@@ -157,7 +157,8 @@ def test_navigation_carries_no_language_or_theme_switch(new_context, server, wid
                 .filter(f => !f.closest('.tab-bar__more-panel')).length""")
         assert outside_sheet == 0
         icons = page.evaluate("""() => [...document.querySelectorAll(
-            'a[href$="/account"] use')].map(u => u.getAttribute('href'))""")
+            'a[href$="/account"] use')].filter(u => !u.closest('.tab-bar__account-chevron'))
+            .map(u => u.getAttribute('href'))""")
         assert icons and set(icons) == {"#icon-person"}, icons
     finally:
         context.close()

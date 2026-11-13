@@ -34,7 +34,7 @@ _OTHER_SPACE = {"console": {"en": "My frame", "fr": "Mon cadre"}, "personal": {"
 _BAR_SWITCH = (
     "() => { const a = document.querySelector('.tab-bar__more-panel .tab-bar__space-link');"
     " if (!a) return null; const links = [...document.querySelectorAll('.tab-bar__more-panel a')];"
-    " const b = a.getBoundingClientRect(); const label = a.querySelector('span');"
+    " const b = a.getBoundingClientRect(); const label = a.querySelector('.link-card__title');"
     " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
     " const range = document.createRange(); range.selectNodeContents(label);"
     " return {second: links[1] === a, text: label.textContent.trim(), w: b.width, h: b.height,"

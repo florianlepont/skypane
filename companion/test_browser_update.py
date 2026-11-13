@@ -373,7 +373,7 @@ def test_full_flow_install_then_scheduled_then_cancel_returns_to_available(
 # The mobile-fit gate: measured, not assumed.
 # ==========================================================================
 
-_MORE_SHEET_LINK_SELECTOR = ".tab-bar__more-panel a.mobile-nav__link"
+_MORE_SHEET_LINK_SELECTOR = ".tab-bar__more-panel .tab-bar__links > a"
 
 # Line count is read from the rendered text's own line boxes
 # (Range.getClientRects(), one rect per line, deduplicated by their
@@ -430,7 +430,7 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
             # syntax -- _assert_hit_target()'s underlying _hit_area() runs
             # this selector through document.querySelector() directly.
             # The Account row and the space switch row are in the settings block.
-            selector = ".tab-bar__links a.mobile-nav__link:nth-child(%d)" % (index + 1)
+            selector = ".tab-bar__links > a:nth-child(%d)" % (index + 1)
             seen = _assert_hit_target(
                 page, selector,
                 "More sheet link %d at %dpx/%s" % (index, viewport["width"], lang))
@@ -439,8 +439,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         # A page row is an icon then its name: the name is what must not wrap or truncate.
         overflow = page.evaluate(
             _OVERFLOW_PROBE,
-            ".tab-bar__more-panel a.mobile-nav__link:not(.tab-bar__nav-link),"
-            " .tab-bar__more-panel a.tab-bar__nav-link > span")
+            ".tab-bar__more-panel .tab-bar__account-name,"
+            " .tab-bar__more-panel .link-card__title")
         for index, entry in enumerate(overflow):
             assert entry["scrollWidth"] <= entry["clientWidth"] + 0.5, (
                 "More sheet link %d truncated at %dpx/%s: scrollWidth %r > "

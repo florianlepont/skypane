@@ -650,7 +650,8 @@ _PAGE_SHAPE = """
   return {
     headings: q('main h1, main h2, main h3').map((e) => e.textContent.trim().replace(/\\s+/g, ' ')),
     nav: q('.tab-bar a, .tab-bar summary, .dashboard-sidebar a, header a').map(
-      (e) => e.textContent.trim().replace(/\\s+/g, ' ') + ' ' + (e.getAttribute('href') || '')),
+      (e) => (e.querySelector('.tab-bar__account-name') || e).textContent.trim().replace(/\\s+/g, ' ')
+        + ' ' + (e.getAttribute('href') || '')),
     controls: q('main input:not([type=hidden]), main select, main textarea, main button').map(
       (e) => e.tagName.toLowerCase() + ':' + (e.name || e.id || e.textContent.trim().slice(0, 30))),
     notice: document.querySelectorAll('.frame-notice').length,

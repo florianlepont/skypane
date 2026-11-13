@@ -110,7 +110,7 @@ def test_language_is_one_tap_in_the_sheet_and_survives_a_reload(new_context, app
         assert page.locator(
             ".tab-bar__more-panel button[name=ui_lang][aria-pressed=true]"
         ).get_attribute("value") == "fr"
-        assert page.locator(".tab-bar__pref-label").first.inner_text() == "Thème"
+        assert page.locator(".tab-bar__pref .row__label").first.inner_text() == "Thème"
         page.locator(".tab-bar__more-panel button[name=ui_lang][value=en]").click()
         page.wait_for_function("() => document.documentElement.lang === 'en'")
     finally:
@@ -155,12 +155,11 @@ def test_the_sheet_holds_the_other_rows_and_the_account_row_names_the_person(
     context, page = _open(new_context, app, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
         _open_sheet(page)
-        links = page.locator(".tab-bar__more-panel a")
-        assert [links.nth(i).inner_text() for i in range(links.count())] == [
+        assert page.eval_on_selector_all(
+            ".tab-bar__more-panel a",
+            "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == [
             "Account", "My frame"]
-        shown = page.locator(".tab-bar__account").evaluate(
-            "el => getComputedStyle(el, '::after').content")
-        assert OWNER_EMAIL in shown
+        assert page.locator(".tab-bar__account-email").inner_text() == OWNER_EMAIL
         for selector in (".tab-bar__more-panel a", ".tab-bar__sign-out button",
                          ".tab-bar__more-panel .theme-option"):
             for index in range(page.locator(selector).count()):
@@ -247,6 +246,7 @@ _ORDER = """() => {
             || document.body).getBoundingClientRect().top,
           signOut: top('.tab-bar__sign-out'),
           firstChild: panel.firstElementChild.className,
+          secondChild: panel.children[1].className,
           icons: [...document.querySelectorAll('.tab-bar__pages a')].map(
             (a) => !!a.querySelector('svg.icon')),
           labels: [...document.querySelectorAll('.tab-bar__pages a')].map((a) => a.textContent.trim())}; }"""
@@ -261,7 +261,8 @@ def test_the_console_sheet_starts_with_account_then_theme_language_and_sign_out(
     try:
         _open_sheet(page)
         order = page.evaluate(_ORDER)
-        assert order["firstChild"] == "tab-bar__settings", order
+        assert order["firstChild"] == "tab-bar__grab", order
+        assert order["secondChild"] == "tab-bar__settings", order
         assert order["labels"] == [] and order["separator"] is None, order
         assert (order["account"] < order["theme"] < order["language"]
                 < order["signOut"]), order
@@ -276,18 +277,21 @@ def test_a_personal_page_sheet_starts_with_account_and_lists_no_page_rows(new_co
     try:
         _open_sheet(page)
         order = page.evaluate(_ORDER)
-        assert order["firstChild"] == "tab-bar__settings", order
+        assert order["firstChild"] == "tab-bar__grab", order
+        assert order["secondChild"] == "tab-bar__settings", order
         assert order["labels"] == [] and order["separator"] is None, order
         assert order["account"] < order["theme"] < order["language"] < order["signOut"], order
-        links = page.locator(".tab-bar__more-panel a")
-        assert [links.nth(i).inner_text() for i in range(links.count())] == ["Account", "Console"]
+        assert page.eval_on_selector_all(
+            ".tab-bar__more-panel a",
+            "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == ["Account", "Console"]
     finally:
         context.close()
 
 
 _SCRIM_HITS = """() => {
   const w = window.innerWidth, h = window.innerHeight;
-  const covered = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  // One pixel of slack: a sheet's box at a fractional offset is painted on whole pixels.
+  const covered = (r, x, y) => x >= r.left - 1 && x <= r.right + 1 && y >= r.top - 1 && y <= r.bottom + 1;
   const panel = document.querySelector('.tab-bar__more-panel').getBoundingClientRect();
   const bar = document.querySelector('.tab-bar').getBoundingClientRect();
   const misses = [];

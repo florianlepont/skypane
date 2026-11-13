@@ -13,8 +13,8 @@ import companion.console_routes as console_routes
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
-from companion import ui_segmented
-from companion.ui_components import csrf_field
+from companion import ui_groups, ui_segmented
+from companion.ui_components import csrf_field, link_card_html
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
     AIRLINES_ROUTE,
@@ -93,6 +93,8 @@ _CONSOLE_BAR_LABELS = {
     "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
 _PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
+_SETTINGS_TEXT = i18n.msg("nav.settings", "Settings")
+_CONSOLE_SUBTITLE = i18n.msg("nav.console_subtitle", "Fleet, users, audit")
 _SWITCH_TO_PERSONAL_TEXT = i18n.msg(
     "nav.switch_to_personal", "Switch to your own frame pages")
 _SWITCH_TO_CONSOLE_TEXT = i18n.msg(
@@ -225,13 +227,11 @@ def _switch_row_html(space):
     if target is None:
         return ""
     href, label, aria = target
-    icon_id = "icon-device" if space == CONSOLE_SPACE else "icon-shield"
-    return (
-        '<a class="mobile-nav__link tab-bar__nav-link tab-bar__space-link" '
-        'href="%s" aria-label="%s">%s<span>%s</span></a>' % (
-            escape_html(href), escape_html(i18n.t(aria)),
-            icon_html(icon_id, extra_class="tab-bar__nav-icon"),
-            escape_html(i18n.t(label))))
+    to_console = space != CONSOLE_SPACE
+    return link_card_html(
+        href, "icon-shield" if to_console else "icon-device", i18n.t(label),
+        i18n.t(_CONSOLE_SUBTITLE) if to_console else "", i18n.t(aria),
+        "tab-bar__space-link")
 
 
 def ui_theme_from_cookie(cookies):
@@ -580,25 +580,34 @@ def _personal_bar(active):
 
 
 def _account_sheet_link(entry):
-    """The More sheet's Account row. It is a sheet link like the others; the
-    signed-in e-mail rides along as a data attribute that the stylesheet shows
-    under the page name, so the link's own text stays the page name."""
+    """The More sheet's Account row: a circle with the person's initial (a
+    person glyph when no e-mail is known), the page name over the signed-in
+    e-mail, and a chevron at the end."""
     css_class = "mobile-nav__link tab-bar__account"
     aria_current = ""
     if entry.is_active:
         css_class += " mobile-nav__link--active"
         aria_current = ' aria-current="page"'
     email = prefs.current_principal_email()
-    detail = ' data-email="%s"' % escape_html(email) if email else ""
-    return '<a class="%s" href="%s"%s%s>%s</a>' % (
-        css_class, escape_html(entry.href), aria_current, detail,
-        escape_html(i18n.t(entry.label)))
-
-
-def _sheet_preference_html(label, form_html):
+    initial = next((ch for ch in email if ch.isalnum()), "") if email else ""
+    avatar = escape_html(initial.upper()) if initial else icon_html("icon-person", 22)
+    detail = (
+        '<span class="tab-bar__account-email">%s</span>' % escape_html(email) if email else "")
     return (
-        '<div class="tab-bar__pref"><span class="tab-bar__pref-label">%s</span>%s</div>'
-        % (escape_html(i18n.t(label)), form_html))
+        '<a class="%s" href="%s"%s><span class="tab-bar__avatar" aria-hidden="true">%s</span>'
+        '<span class="tab-bar__account-text"><span class="tab-bar__account-name">%s</span>%s</span>'
+        '%s</a>' % (
+            css_class, escape_html(entry.href), aria_current, avatar,
+            escape_html(i18n.t(entry.label)), detail,
+            icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
+
+
+def _sheet_preference_row(label, icon_id, form_html):
+    """One Settings row: a small glyph and the label at the start, the
+    segmented control at the end."""
+    lead = '<span class="tab-bar__row-icon">%s</span>' % icon_html(icon_id, 20)
+    return ui_groups.row(
+        i18n.t(label), lead_html=lead, trailing_html=form_html, extra_class="tab-bar__pref")
 
 
 def _more_panel_html(active, sheet, ui_theme, space):
@@ -609,16 +618,20 @@ def _more_panel_html(active, sheet, ui_theme, space):
     sheet holds the links alone and a second Sign out never appears."""
     links = "".join(_account_sheet_link(entry) for entry in sheet) + _switch_row_html(space)
     links_html = '<div class="tab-bar__links">%s</div>' % links
+    grab = '<span class="tab-bar__grab" aria-hidden="true"></span>'
     if active == ACCOUNT_NAV_SLUG:
-        return links_html
-    preferences = (
-        _sheet_preference_html(_THEME_TEXT, _theme_form_html(ui_theme))
-        + _sheet_preference_html(_LANGUAGE_TEXT, _lang_form_html(prefs.current_lang())))
+        return grab + links_html
+    settings = ui_groups.group(
+        _sheet_preference_row(_THEME_TEXT, "icon-sun", _theme_form_html(ui_theme))
+        + _sheet_preference_row(
+            _LANGUAGE_TEXT, "icon-globe", _lang_form_html(prefs.current_lang())),
+        i18n.t(_SETTINGS_TEXT), "tab-bar-settings-label", "tab-bar__prefs", label_tag="p")
     return (
-        '<div class="tab-bar__settings">%s%s'
+        '%s<div class="tab-bar__settings">%s%s'
         '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">%s'
-        '<button type="submit">%s</button></form></div>' % (
-            links_html, preferences, csrf_field(), escape_html(i18n.t(_SIGN_OUT_TEXT))))
+        '<button type="submit">%s%s</button></form></div>' % (
+            grab, links_html, settings, csrf_field(),
+            icon_html("icon-sign-out", 18), escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):

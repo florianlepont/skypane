@@ -5393,6 +5393,70 @@ input[name="radius_km"] {
   padding: 0;
 }
 
+/* The highlighted link card (ui_components.link_card_html): a tinted card with
+ * an accent border, an accent icon tile, a title over an optional subtitle that
+ * wraps rather than being cut, and an accent chevron. */
+.link-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  box-sizing: border-box;
+  min-height: 60px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-card);
+  background: color-mix(in srgb, var(--color-accent) 12%, var(--glass-solid));
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.link-card:hover {
+  background: color-mix(in srgb, var(--color-accent) 18%, var(--glass-solid));
+}
+
+.link-card:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.link-card__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-chip);
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+}
+
+.link-card__text {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.link-card__title {
+  font-size: var(--font-body-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.link-card__subtitle {
+  font-size: var(--font-caption-size);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.link-card__chevron {
+  display: inline-flex;
+  flex: none;
+  color: var(--color-accent);
+}
+
 a.btn[aria-disabled="true"] {
   opacity: 0.5;
   pointer-events: none;
@@ -5645,54 +5709,71 @@ a.btn[aria-disabled="true"] {
     display: none;
   }
 
-  /* Theme and language: the label at the start, the segmented control at the
-   * end of one row. */
-  .tab-bar__pref {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-md);
+  /* Settings: one bordered group; each row has a small glyph and its label at
+   * the start and the segmented control at the end. */
+  .tab-bar__prefs {
+    margin: 0;
   }
 
-  .tab-bar__pref-label {
-    flex: none;
-    padding-left: var(--space-sm);
+  .tab-bar__prefs .section-label {
+    margin: 0 0 var(--space-xs);
+    padding: 0 var(--space-xs);
+    font-size: var(--font-caption-size);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tab-bar__prefs .group {
+    box-shadow: none;
+    background: none;
+    border-radius: var(--radius-card);
+  }
+
+  .tab-bar__prefs .group > .row.tab-bar__pref {
+    min-height: 56px;
+    padding-inline: var(--space-md) var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .tab-bar__prefs .group .row .row__main {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .tab-bar__prefs .row__label {
     font-size: var(--font-label-size);
     font-weight: var(--weight-semibold);
-    color: var(--color-text);
+  }
+
+  .tab-bar__row-icon {
+    display: inline-flex;
+    flex: none;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
   .tab-bar__pref .theme-form {
     flex: 1 1 0;
+    min-width: 0;
     max-width: 220px;
+    margin-left: auto;
   }
 
   .tab-bar__pref .theme-form .theme-option {
+    flex: 1 1 auto;
     font-size: var(--font-label-size);
   }
 
   .tab-bar__links {
     display: flex;
     flex-direction: column;
+    gap: var(--space-sm);
     margin: 0;
   }
 
-  /* The administrator's space switch row: an icon tile then the space name. */
+  /* The Console card sits a little apart from the Account row above it. */
   .tab-bar__space-link {
-    display: flex;
-    align-items: center;
-    gap: var(--space-md);
-    min-height: 56px;
-    border-radius: var(--radius-control);
-    font-weight: var(--weight-semibold);
-  }
-
-  .tab-bar__nav-icon {
-    flex: none;
-    box-sizing: content-box;
-    padding: 10px;
-    border-radius: 50%;
-    background: color-mix(in srgb, var(--color-text) 6%, transparent);
+    margin-top: var(--space-xs);
   }
 
   .tab-bar__settings {
@@ -5719,33 +5800,64 @@ a.btn[aria-disabled="true"] {
     z-index: 46;
   }
 
-  .tab-bar__more-panel .mobile-nav__link {
-    min-height: 48px;
-    padding: 0 var(--space-sm);
-    border-radius: 0;
+  /* The root's own paint shows where the fixed scrim does not reach (the
+   * zones an iPhone draws under the status bar and the bottom toolbar), so
+   * while the sheet is open it carries the same dim. The body then paints the
+   * ground itself, so the scrim dims it once and the zones outside the window
+   * match what is inside it. */
+  html:has(.tab-bar__more[open]) {
+    background-image:
+      linear-gradient(
+        color-mix(in srgb, var(--color-text) 55%, transparent),
+        color-mix(in srgb, var(--color-text) 55%, transparent)),
+      linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
   }
 
-  .tab-bar__more-panel .mobile-nav__link + .mobile-nav__link,
-  .tab-bar__links > * + * {
-    border-top: 1px solid var(--glass-hairline);
+  body:has(.tab-bar__more[open]) {
+    background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
   }
 
-  /* The Account row: the page name over the signed-in e-mail (the link's
-   * data-email), a chevron at the end. */
+  .tab-bar__grab {
+    flex: none;
+    align-self: center;
+    width: 40px;
+    height: 4px;
+    margin-bottom: var(--space-xs);
+    border-radius: 2px;
+    background: var(--color-border);
+  }
+
+  /* The Account row: the person's initial in a circle, the page name over the
+   * signed-in e-mail, a chevron at the end. */
   .tab-bar__more-panel .tab-bar__account {
-    position: relative;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0;
-    min-height: 56px;
-    padding-right: var(--space-lg);
+    gap: var(--space-md);
+    min-height: 64px;
+    padding: 0 var(--space-xs);
+    border-radius: var(--radius-control);
     font-weight: var(--weight-semibold);
   }
 
-  .tab-bar__account[data-email]::after {
-    content: attr(data-email);
-    max-width: 100%;
+  .tab-bar__avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__account-text {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .tab-bar__account-email {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -5754,16 +5866,9 @@ a.btn[aria-disabled="true"] {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .tab-bar__account::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: var(--space-sm);
-    width: 8px;
-    height: 8px;
-    border-top: 2px solid currentColor;
-    border-right: 2px solid currentColor;
-    transform: translateY(-50%) rotate(45deg);
+  .tab-bar__account-chevron {
+    flex: none;
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
   }
 
   .tab-bar__sign-out {
@@ -5773,19 +5878,21 @@ a.btn[aria-disabled="true"] {
   .tab-bar__sign-out button[type="submit"] {
     width: 100%;
     display: flex;
-    text-align: left;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
     min-height: 48px;
-    justify-content: flex-start;
-    padding: 0 var(--space-sm);
-    background: none;
+    padding: 0 var(--space-md);
+    background: color-mix(in srgb, var(--color-status-error) 12%, var(--glass-solid));
     border: 0;
+    border-radius: var(--radius-control);
     box-shadow: none;
     color: var(--color-status-error);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__sign-out button[type="submit"]:hover {
-    background: var(--color-control-wash);
+    background: color-mix(in srgb, var(--color-status-error) 20%, var(--glass-solid));
     box-shadow: none;
   }
 

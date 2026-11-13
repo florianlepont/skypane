@@ -158,6 +158,9 @@ _M_STATE_SECTION_INTRO = i18n.msg("components.state_section_intro", "Section int
 _M_STATE_TILES = i18n.msg("components.state_tiles", "Tiles by status")
 _M_STATE_STATUS_ROWS = i18n.msg("components.state_status_rows", "Status rows")
 _M_STATE_HERO = i18n.msg("components.state_hero", "Hero")
+_M_STATE_LINK_CARD = i18n.msg("components.state_link_card", "Link card")
+_M_STATE_LINK_CARD_PLAIN = i18n.msg("components.state_link_card_plain", "Link card, title only")
+_SAMPLE_LINK_CARD_SUB = i18n.msg("components.sample_link_card_subtitle", "Fleet, users, audit")
 _M_STATE_TABLE = i18n.msg("components.state_table", "Table")
 _M_STATE_TABLE_LONG = i18n.msg("components.state_table_long", "Table, long text")
 _M_STATE_TABLE_EMPTY = i18n.msg("components.state_table_empty", "Table, empty")
@@ -453,6 +456,15 @@ def _cards():
         State(_M_STATE_STATUS_ROWS, status_rows),
         State(_M_STATE_HERO,
               ui_groups.hero(_esc(_t(_HERO_LINE)))),
+        State(_M_STATE_LINK_CARD,
+              ui_components.link_card_html(
+                  COMPONENTS_ROUTE, "icon-shield", _t(_SAMPLE_CARD),
+                  _t(_SAMPLE_LINK_CARD_SUB))
+              + ui_components.link_card_html(
+                  COMPONENTS_ROUTE, "icon-shield", _t(_LONG_LABEL),
+                  _t(_SAMPLE_LONG_VALUE))),
+        State(_M_STATE_LINK_CARD_PLAIN,
+              ui_components.link_card_html(COMPONENTS_ROUTE, "icon-device", _t(_SAMPLE_CARD))),
     ]
 
 
@@ -688,7 +700,8 @@ CATALOGUE = (
            _M_FAMILY_CARDS_DESC,
            ("ui_groups.group", "ui_groups.group_panel", "ui_groups.row", "ui_groups.section_label",
             "ui_groups.chip_html", "ui_groups.hero", "ui_components.section_intro_html",
-            "ui_components.stat_tile", "ui_components.status_row"), _cards),
+            "ui_components.stat_tile", "ui_components.status_row",
+            "ui_components.link_card_html"), _cards),
     Family("lists", _M_FAMILY_LISTS,
            _M_FAMILY_LISTS_DESC,
            ("ui_entity_list.entity_list_html", "ui_entity_list.count_line_html",
