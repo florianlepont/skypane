@@ -64,10 +64,10 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Companion UX
 
-- [ ] **UX-01**: The owner can walk through the companion's main tasks as an administrator and as an invited user, on a phone and a desktop and in English and French; the observed friction is recorded and ranked, and navigation and page structure are reworked for the confirmed findings against an updated design contract.
-- [ ] **UX-02**: An administrator can read the fleet state, invite a user, pair a frame, retire, reassign or re-activate a frame, add a co-manager and read the audit log without help, and the reworked console flows are validated by the owner on the deployed companion.
-- [ ] **UX-03**: An invited user sees only what concerns their own frames, understands the state of each frame at a glance and can change its settings without meeting administrator concepts, validated by the owner on a phone.
-- [ ] **UX-04**: Sign-in and invitation read clearly: a user whose Auth0 email is not verified gets a message that says so, the first arrival of an invited user is guided, and sign-in errors say what to do next.
+- [x] **UX-01**: The owner can walk through the companion's main tasks as an administrator and as an invited user, on a phone and a desktop and in English and French; the observed friction is recorded and ranked, and navigation and page structure are reworked for the confirmed findings against an updated design contract.
+- [x] **UX-02**: An administrator can read the fleet state, invite a user, pair a frame, retire, reassign or re-activate a frame, add a co-manager and read the audit log without help, and the reworked console flows are validated by the owner on the deployed companion.
+- [x] **UX-03**: An invited user sees only what concerns their own frames, understands the state of each frame at a glance and can change its settings without meeting administrator concepts, validated by the owner on a phone.
+- [x] **UX-04**: Sign-in and invitation read clearly: a user whose Auth0 email is not verified gets a message that says so, the first arrival of an invited user is guided, and sign-in errors say what to do next.
 
 ### Plane Screen Redesign
 
@@ -148,10 +148,10 @@ Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 | OTA-04 | Phase 57 | Pending |
 | HW2-01 | Phase 58 | Pending |
 | HW2-02 | Phase 58 | Pending |
-| UX-01 | Phase 61 | Pending |
-| UX-02 | Phase 61 | Pending |
-| UX-03 | Phase 61 | Pending |
-| UX-04 | Phase 61 | Pending |
+| UX-01 | Phase 61 | Complete |
+| UX-02 | Phase 61 | Complete |
+| UX-03 | Phase 61 | Complete |
+| UX-04 | Phase 61 | Complete |
 | DEBT-01 | Phase 59 | Pending |
 | PSR-01 | Phase 62 | Complete |
 | PSR-02 | Phase 62 | Complete |
