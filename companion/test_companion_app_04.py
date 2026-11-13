@@ -56,7 +56,9 @@ OPENING_CARD_SELECTORS = (
 # A list, a grid or a table as tall as its data only fades, as a whole.
 OPENING_LIST_SELECTORS = (
     ".dashboard-main[data-page-open] > .filter-bar__count",
-    ".dashboard-main[data-page-open] > .audit-cards",
+    ".dashboard-main[data-page-open] > .audit-cards")
+# The Airlines grid and the editor table do the same, two steps after the header.
+OPENING_GRID_SELECTORS = (
     ".dashboard-main[data-page-open] > .collection-grid",
     ".dashboard-main[data-page-open] > .airlines-table")
 # The page header only fades in.
@@ -275,7 +277,8 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (OPENING_HEADER_SELECTORS, "animation"),
         (OPENING_BLOCK_SELECTORS, "animation"),
         (OPENING_CARD_SELECTORS, "animation"),
-        (OPENING_LIST_SELECTORS, "animation")], (
+        (OPENING_LIST_SELECTORS, "animation"),
+        (OPENING_GRID_SELECTORS, "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
@@ -283,7 +286,8 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (ENTRANCE_SELECTORS, "animation-delay"),
         (OPENING_BLOCK_SELECTORS, "animation-delay"),
         (OPENING_CARD_SELECTORS, "animation-delay"),
-        (OPENING_LIST_SELECTORS, "animation-delay")], (
+        (OPENING_LIST_SELECTORS, "animation-delay"),
+        (OPENING_GRID_SELECTORS, "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.

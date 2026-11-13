@@ -6771,18 +6771,24 @@ button.row-menu__item {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
-  animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+  animation-delay: calc(2 * var(--motion-stagger));
 }
 
 /* A list, a grid or a table as tall as its data takes part in the opening
  * as a whole and only fades: opacity alone costs the compositor one layer,
  * whatever the height, where a rise would repaint every row. */
 .dashboard-main[data-page-open] > .filter-bar__count,
-.dashboard-main[data-page-open] > .audit-cards,
+.dashboard-main[data-page-open] > .audit-cards {
+  animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+/* The Airlines grid and the editor table always follow the header and the
+ * filter bar: two steps, whatever hidden elements sit between them. */
 .dashboard-main[data-page-open] > .collection-grid,
 .dashboard-main[data-page-open] > .airlines-table {
   animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
-  animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+  animation-delay: calc(2 * var(--motion-stagger));
 }
 
 /* A filter that only hides rows replays a fade of its list, nothing else:
@@ -6872,14 +6878,9 @@ button.row-menu__item {
 }
 
 /* Where controls or other blocks always come first, the blocks count on from
- * them: the Flights days follow the filter bar, a list follows the header
- * and its filters, the Style and Fleet blocks follow the two rows above
- * them. */
+ * them: the Flights days follow the filter bar, the Style and Fleet blocks
+ * follow the two rows above them. */
 .dashboard-main[data-page-open] > * .history-day:nth-child(1),
-.dashboard-main[data-page-open] > .empty-state,
-.dashboard-main[data-page-open] > .data-table-wrap,
-.dashboard-main[data-page-open] > .collection-grid,
-.dashboard-main[data-page-open] > .airlines-table,
 .dashboard-main[data-page-open] .personalisation > :nth-child(2),
 .dashboard-main[data-page-open] .fleet-frame > :nth-child(2) {
   --reveal-index: 2;

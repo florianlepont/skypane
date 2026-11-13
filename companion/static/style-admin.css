@@ -1455,10 +1455,6 @@ a.row-action {
   .users-col--invite { width: 60px; }
   .users-col--menu { width: 52px; }
 
-  .users-cell--menu {
-    padding-left: 0;
-  }
-
   .users-frames__part {
     display: block;
     overflow: hidden;
@@ -1534,6 +1530,7 @@ a.row-action {
 
   .users-cell--menu {
     position: static;
+    padding-left: 0;
   }}
 
 @media (max-width: 599.98px) {
