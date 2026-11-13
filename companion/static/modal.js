@@ -86,14 +86,19 @@
 
   // Where focus goes when a dialog closes: the link that opened it, its
   // row menu's button when the menu has closed, else the page heading
-  // (after a reload there is no opener).
-  function returnFocus() {
+  // (after a reload there is no opener) unless the dialog names a control.
+  function returnFocus(dialog) {
     var target = opener;
     var href = openerHref;
     opener = null;
     openerHref = "";
     if (target && !document.body.contains(target) && href) {
       target = document.querySelector('a[data-modal-open][href="' + href + '"]');
+    }
+    if (!target && dialog) {
+      // A dialog the address opened names the control it came from.
+      var named = dialog.getAttribute("data-modal-return-focus");
+      target = named ? document.getElementById(named) : null;
     }
     if (target && document.body.contains(target)) {
       var menu = closestMenu(target);
@@ -143,7 +148,7 @@
     resetForms(dialog);
     clearHash();
     forgetQuestion(dialog);
-    returnFocus();
+    returnFocus(dialog);
   }
 
   // A dialog the address itself opened (one pending confirmation) names the
