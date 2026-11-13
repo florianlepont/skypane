@@ -8,7 +8,7 @@ from companion_markup import parse_html
 import pytest
 
 import fleet_console_support as fx
-from companion import console_pairing, prefs, throttle
+from companion import auth, console_pairing, prefs, throttle
 from companion_app_server import http_request
 from server import fleet_db, hardware
 
@@ -113,29 +113,106 @@ def test_wrong_expired_used_and_malformed_codes_get_one_identical_answer(rig):
     answers = set()
     for code in ("kkkk-2222", fx.OTHER_FAKE_CODE.lower(), "no", fx.FAKE_CODE):
         status, headers, body = _claim(server, cookie, code)
+        kept = headers.get("Set-Cookie")
         # Post/Redirect/Get: the refusal is a redirect, so a reload never re-sends the code.
         assert status == 303 and headers["Location"] == "/pair-frame?refused=1", (code, status)
         assert not body
-        status, headers, page = fx.get(server, cookie, headers["Location"])
+        status, headers, page = fx.get(
+            server, _with_kept(cookie, kept), headers["Location"])
         assert status == 200 and headers["Cache-Control"] == "no-store"
         card = _card(page)
-        assert re.search(r'id="pair-code"[^>]*value=""', card)
         assert "Code not recognised" in card
-        answers.add(card)
+        # Only the kept code differs between the refusals: the answer is the same.
+        answers.add(re.sub(r'value="[^"]*"', "", card))
     assert len(answers) == 1
     failed = [row for row in fx.audit_rows(server.state_dir, "pairing.claim")
               if row["outcome"] == "failed"]
     assert len(failed) == 4 and all('"invalid"' in row["detail"] for row in failed)
 
 
-def test_the_guess_is_stored_nowhere_and_echoed_nowhere(rig):
+def _with_kept(cookie, set_cookie):
+    """`cookie` plus the cookie a refusal asked the browser to keep."""
+    if not set_cookie:
+        return cookie
+    return "%s; %s" % (cookie, set_cookie.split(";", 1)[0])
+
+
+def _field_value(page):
+    return re.search(r'id="pair-code"[^>]*value="([^"]*)"', _card(page)).group(1)
+
+
+def test_the_guess_is_stored_nowhere_and_never_in_an_address(rig, capsys):
     server, _seed, cookie = rig
     status, headers, body = _claim(server, cookie, "MMMM3333")
-    assert status == 303 and "MMMM3333" not in "".join(headers.values())
-    _status, _headers, page = fx.get(server, cookie, headers["Location"])
-    assert "MMMM3333" not in page and "MMMM3333" not in body.decode() if isinstance(
-        body, bytes) else "MMMM3333" not in body
+    assert status == 303 and "MMMM3333" not in headers["Location"]
+    assert "MMMM3333" not in body
     assert "MMMM3333" not in fx.dump_database_text(server.state_dir)
+    fx.get(server, _with_kept(cookie, headers["Set-Cookie"]), headers["Location"])
+    out = capsys.readouterr()
+    assert "MMMM3333" not in out.out + out.err
+
+
+def test_a_refused_code_comes_back_in_the_field_once(rig):
+    server, _seed, cookie = rig
+    _status, headers, _body = _claim(server, cookie, "kkkk 2222")
+    kept = headers["Set-Cookie"]
+    status, shown, page = fx.get(server, _with_kept(cookie, kept), "/pair-frame?refused=1")
+    assert status == 200 and _field_value(page) == "KKKK2222"
+    assert "Code not recognised" in page
+    cleared = shown["Set-Cookie"]
+    assert cleared.startswith("sp_pair_code=;") and "Max-Age=0" in cleared
+    # The browser dropped the cookie: the second visit has an empty field.
+    status, again, page = fx.get(server, cookie, "/pair-frame?refused=1")
+    assert status == 200 and _field_value(page) == "" and "Set-Cookie" not in again
+
+
+def test_the_kept_code_cookie_is_short_lived_and_scoped(rig):
+    server, _seed, cookie = rig
+    _status, headers, _body = _claim(server, cookie, WRONG_CODE)
+    attributes = [part.strip() for part in headers["Set-Cookie"].split(";")]
+    assert attributes[0].startswith("sp_pair_code=") and WRONG_CODE in attributes[0]
+    assert {"HttpOnly", "SameSite=Strict", "Path=/pair-frame", "Max-Age=120"} <= set(attributes)
+    # The test server runs without TLS, so the Secure flag follows the app's own setting.
+    assert ("Secure" in attributes) == (auth.secure_cookie_flag() != "")
+    # Only a refusal keeps a code.
+    _status, ok_headers, _b = _claim(server, cookie, fx.FAKE_CODE)
+    assert "sp_pair_code=" not in ok_headers.get("Set-Cookie", "")
+
+
+def test_a_very_long_or_odd_value_is_cut_or_not_kept(rig):
+    server, _seed, cookie = rig
+    _status, headers, _body = _claim(server, cookie, "A" * 500)
+    value = headers["Set-Cookie"].split(";")[0].split("=", 1)[1]
+    assert value.endswith("." + "A" * 12) and len(value) == 16 + 1 + 12
+    for odd in ("<script>1</script>", "AB\u00e9D2222", "A;B=C"):
+        _status, headers, _body = _claim(server, cookie, odd)
+        assert headers["Location"] == "/pair-frame?refused=1"
+        assert "Set-Cookie" not in headers, odd
+    forged = "%s; sp_pair_code=%s.%s" % (
+        cookie, console_pairing.session_key(_Handler(cookie)), "<b>x</b>")
+    status, _h, page = fx.get(server, forged, PATH)
+    assert status == 200 and _field_value(page) == "" and "<b>x</b>" not in page
+
+
+class _Handler:
+    """Just enough of a request handler for session_key()."""
+
+    def __init__(self, cookie):
+        self._cookie = cookie
+
+    def _raw_session_token(self):
+        return self._cookie.split("=", 1)[1]
+
+
+def test_another_session_never_sees_the_kept_code(rig):
+    server, _seed, cookie = rig
+    _status, headers, _body = _claim(server, cookie, WRONG_CODE)
+    other = fx.user_cookie(server.state_dir, fx.OWNER_EMAIL)
+    status, shown, page = fx.get(server, _with_kept(other, headers["Set-Cookie"]), PATH)
+    assert status == 200 and _field_value(page) == "" and WRONG_CODE not in page
+    assert "Max-Age=0" in shown["Set-Cookie"]
+    # Nobody signed in gets no page at all.
+    assert fx.get(server, headers["Set-Cookie"].split(";")[0], PATH)[0] in (303, 404)
 
 
 def test_five_failures_lock_a_user_session_and_no_code_is_evaluated_after(rig):

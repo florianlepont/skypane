@@ -4,7 +4,8 @@ primary action of the empty My frames state and the secondary link under a
 list of frames).
 
 Pure markup: it reads nothing but its arguments. The typed code is
-re-rendered only into the input of the immediate refusal response and is
+re-rendered only into the input of the form (a lockout response, or the next
+showing after a refusal) and is
 capped; it never appears in a link, a flash or an attribute other than the
 input's value. The page has no owner field: the frame always belongs to the
 person who submits the form.
