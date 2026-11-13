@@ -126,7 +126,9 @@ def test_broken_sign_in_creates_nothing(auth0_rig, case):
     knob, value = FAILURE_KNOBS[case]
     rig.fake.set_knob(knob, value)
     result = login_via_auth0(rig.server, rig.fake)
-    _assert_refused(rig, result)
+    # A cancelled sign-in moves on to the sign-in page at its own address.
+    statuses = (303,) if case == "provider_error" else GENERIC_FAILURE_STATUSES
+    _assert_refused(rig, result, statuses=statuses)
     assert b"user@example.test" not in result.body
 
 

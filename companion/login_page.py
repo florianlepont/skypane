@@ -225,6 +225,19 @@ def render_login_page(
     return layout.login_shell(body, ui_theme=ui_theme)
 
 
+# The sign-in page's `?error=` codes: a closed set, so nothing a caller
+# sends is ever reflected.
+CANCELLED_ERROR_CODE = "cancelled"
+
+
+def notice_for_error_code(code):
+    """The notice a `/login?error=<code>` address shows, or None for any
+    other value."""
+    if code == CANCELLED_ERROR_CODE:
+        return _SIGN_IN_ERROR_TEXT[SIGN_IN_ERROR_PROVIDER]
+    return None
+
+
 def sign_in_error_page(kind, ui_theme, auth0_enabled=True, next_route=None):
     """The login card with one generic, fixed-wording error toast. `kind`
     is a SIGN_IN_ERROR_* value; an unknown kind reads as the incomplete
