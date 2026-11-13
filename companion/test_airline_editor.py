@@ -203,6 +203,35 @@ def test_a_refused_picture_says_which_rule_it_broke(rig, case):
     assert detail in page
 
 
+def test_a_refused_picture_names_the_airline_and_lands_on_its_row(rig):
+    """the refusal says which airline's picture it was and the address leads to that airline's
+    row; a type's picture names its airline; an unknown or foreign key names nothing"""
+    for path_key, shown in (("air-france", "Air France"),
+                            ("transavia-france-a320", "Transavia France")):
+        status, headers = rig.upload(
+            "admin", "%s/illustration/%s.png" % (rig.frame, path_key), b"not an image at all")
+        location = urllib.parse.urlsplit(headers["Location"])
+        base = path_key.replace("-a320", "")
+        assert status == 303 and location.fragment == "airline-" + base, headers["Location"]
+        page = html.unescape(rig.get("admin", headers["Location"].split("#")[0])[2])
+        assert "%s: Couldn't use that file" % shown in page
+        assert 'id="airline-%s"' % base in page
+    page = html.unescape(rig.get(
+        "admin", rig.frame + EDITOR + "?flash=illustration_not_png&artwork=not-an-airline")[2])
+    assert "Couldn't use that file" in page and ": Couldn't use that file" not in page
+    page = html.unescape(rig.get(
+        "admin", rig.frame + EDITOR + "?flash=illustration_replaced&artwork=air-france")[2])
+    assert "Air France:" not in page
+
+
+def test_the_refusal_naming_the_airline_is_french_in_french(rig):
+    status, _headers, raw = http_request(
+        rig.server.url(rig.frame + EDITOR + "?flash=illustration_not_png&artwork=air-france"),
+        cookie=rig.cookies["admin"], extra_headers={"Accept-Language": "fr"})
+    page = html.unescape(raw.decode("utf-8"))
+    assert status == 200 and "Air France\u00a0: Impossible d’utiliser ce fichier" in page
+
+
 def test_each_refusal_reason_is_french_in_french(rig):
     seen = set()
     for key, _title, _detail in REFUSALS.values():

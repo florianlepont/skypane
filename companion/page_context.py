@@ -38,6 +38,7 @@ import os
 import sqlite3
 from urllib.parse import parse_qs, urlsplit
 
+import companion.artwork_airline as artwork_airline
 import companion.detection_summary as detection_summary
 import companion.device_scope as device_scope
 import companion.prefs as prefs
@@ -434,7 +435,9 @@ def build_page_context(handler, device):
                 last_checkin_ts=last_checkin_ts, device_cfg=device_cfg,
                 battery_critical=battery_critical,
                 place_name=_place_name_for_flash(
-                    handler, device, flash_key, device_cfg)),
+                    handler, device, flash_key, device_cfg),
+                artwork_name=flash.artwork_airline_name(
+                    flash_key, params.get(artwork_airline.QUERY_PARAM, [None])[0], state_dir)),
             "flash_role": flash.FLASH_ROLES.get(flash_key, "status"),
             # Only a key from the fixed vocabulary, never the raw query
             # value: it picks the toast's tone, glyph and action.

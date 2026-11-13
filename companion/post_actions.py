@@ -22,7 +22,9 @@ from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from PIL import Image
 
-from companion import airline_actions, airline_display, device_scope, layout, request_body, upload_form
+from companion import (
+    airline_actions, airline_display, artwork_airline, device_scope, layout, request_body,
+    upload_form)
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -77,6 +79,7 @@ import server.poll_cycle as poll_cycle
 # rebinds this under its historical name — companion/pages/airlines_page.py
 # also imports it from there lazily.
 MAX_ILLUSTRATION_UPLOAD_BYTES = upload_form.MAX_UPLOAD_BYTES
+ARTWORK_QUERY_PARAM = artwork_airline.QUERY_PARAM
 _REFUSAL_FLASH = {
     illustrations.PROBLEM_NOT_PNG: FLASH_KEY_ILLUSTRATION_NOT_PNG,
     illustrations.PROBLEM_TOO_LARGE: FLASH_KEY_ILLUSTRATION_TOO_LARGE,
@@ -253,25 +256,30 @@ class SettingsActionsMixin:
         if not illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
 
+        def refused(flash_key):
+            # Names the artwork's airline (the key was checked above) and leads
+            # to that airline's row of the editor.
+            query = "flash=%s&%s=%s" % (quote(flash_key), ARTWORK_QUERY_PARAM, quote(key))
+            return self._scoped_redirect("%s#airline-%s" % (
+                resolve_dialog.with_query(back, query), artwork_airline.base_key(key)))
+
         raw = self._read_upload_body()
         if raw is None:
             # Over the size cap, or a body that could not be read at all.
             too_large = request_body.parse_content_length(self.headers) > MAX_ILLUSTRATION_UPLOAD_BYTES
-            return self._scoped_redirect(resolve_dialog.with_query(back, "flash=%s" % quote(
-                FLASH_KEY_ILLUSTRATION_TOO_LARGE if too_large else FLASH_KEY_ILLUSTRATION_REJECTED)))
+            return refused(
+                FLASH_KEY_ILLUSTRATION_TOO_LARGE if too_large else FLASH_KEY_ILLUSTRATION_REJECTED)
 
         payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
         if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
+            return refused(FLASH_KEY_ILLUSTRATION_REJECTED)
 
         state_dir = device.state_dir
         override_dir = illustrations.override_dir_for_state_dir(state_dir)
         try:
             os.makedirs(override_dir, exist_ok=True)
         except OSError:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)))
+            return refused(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)
 
         # The raw upload's temp lives in override_dir (mkstemp: a unique
         # name, so two concurrent uploads of the same key can never
@@ -295,9 +303,8 @@ class SettingsActionsMixin:
             if problems:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
-                return self._scoped_redirect(resolve_dialog.with_query(
-                    back, "flash=%s" % quote(_REFUSAL_FLASH.get(
-                        illustrations.problem_category(problems), FLASH_KEY_ILLUSTRATION_REJECTED))))
+                return refused(_REFUSAL_FLASH.get(
+                    illustrations.problem_category(problems), FLASH_KEY_ILLUSTRATION_REJECTED))
 
             with Image.open(raw_tmp_path) as img:
                 rgba = img.convert("RGBA")
@@ -309,8 +316,7 @@ class SettingsActionsMixin:
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED)))
         except Exception:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)))
+            return refused(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)
         finally:
             if raw_tmp_path is not None:
                 try:

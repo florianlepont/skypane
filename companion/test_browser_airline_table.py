@@ -280,6 +280,27 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
         context.close()
 
 
+def test_a_refused_picture_names_its_airline_and_the_page_opens_on_that_row(
+        new_context, make_app_server, tmp_path):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    bad = tmp_path / "notes.txt"
+    bad.write_text("not an image")
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        form = page.locator('form[action^="/illustration/transavia-france.png"]')
+        with page.expect_navigation():
+            form.locator("input[type=file]").set_input_files(str(bad))
+        page.locator(".toast").first.wait_for(state="visible")
+        assert "Transavia France: Couldn't use that file" in page.locator(".toast").first.inner_text()
+        assert page.url.endswith("#airline-transavia-france")
+        page.wait_for_function(
+            "() => { const r = document.querySelector('#airline-transavia-france')"
+            ".getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; }",
+            timeout=10000)
+    finally:
+        context.close()
+
+
 def test_the_menu_holds_only_change_artwork_and_escape_closes_it(new_context, server):
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
     try:

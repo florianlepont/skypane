@@ -122,6 +122,7 @@ MESSAGES = {
         "Impossible d’utiliser cette image — envoyez un PNG "
         "transparent d’au moins 1200 pixels de large, au format "
         "paysage (plus large que haut).",
+    "common.illustration_refused_for_airline": "{name}\u00a0: {reason}",
     "common.illustration_not_png":
         "Impossible d’utiliser ce fichier — ce n’est pas une image PNG.",
     "common.illustration_too_large":
