@@ -122,6 +122,18 @@ MESSAGES = {
         "Impossible d’utiliser cette image — envoyez un PNG "
         "transparent d’au moins 1200 pixels de large, au format "
         "paysage (plus large que haut).",
+    "common.illustration_not_png":
+        "Impossible d’utiliser ce fichier — ce n’est pas une image PNG.",
+    "common.illustration_too_large":
+        "Impossible d’utiliser cette image — elle est trop lourde. "
+        "Gardez-la sous 4 Mo.",
+    "common.illustration_not_transparent":
+        "Impossible d’utiliser cette image — son fond n’est pas "
+        "transparent. Envoyez un PNG à fond transparent.",
+    "common.illustration_too_small":
+        "Impossible d’utiliser cette image — elle doit être au format "
+        "paysage (plus large que haut) et faire au moins 1200 pixels "
+        "de large.",
     "common.couldn_t_replace_the_illustration_please_try":
         "Impossible de remplacer l’illustration — réessayez. Si le "
         "problème persiste, consultez les journaux du service "

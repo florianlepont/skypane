@@ -197,6 +197,11 @@ FLASH_ILLUSTRATION_REPLACED = "illustration_replaced"
 # landscape, no transparency, or over the size cap) — an expected
 # validation outcome, not a server failure.
 FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
+# The same refusal when the rule that failed is known.
+FLASH_ILLUSTRATION_NOT_PNG = "illustration_not_png"
+FLASH_ILLUSTRATION_TOO_LARGE = "illustration_too_large"
+FLASH_ILLUSTRATION_TOO_SMALL = "illustration_too_small"
+FLASH_ILLUSTRATION_NOT_TRANSPARENT = "illustration_not_transparent"
 # Unlike REJECTED: something unexpected happened server-side while
 # storing an otherwise-acceptable upload.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
