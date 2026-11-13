@@ -246,6 +246,11 @@ def _quiet_window_from_form(form):
     for name in ("quiet_hours_start", "quiet_hours_end"):
         if form.get(name) is None:
             errors.setdefault(name, form_post.ERROR_QUIET_HOURS_TIME_SHAPE)
+    if not errors and enabled["quiet_hours_enabled"] and (
+            times["quiet_hours_start"] == times["quiet_hours_end"]):
+        # A zero-length window rests the screen never; refusing it keeps the
+        # row's "10:00 - 10:00" from reading as all day.
+        errors["quiet_hours_end"] = form_post.ERROR_QUIET_HOURS_SAME_TIME
     if errors:
         return errors, None
     return None, {

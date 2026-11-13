@@ -190,6 +190,8 @@ MESSAGES = {
         "Cet interrupteur a envoyé une valeur inattendue.",
     "display.enter_a_whole_number_of_seconds_between_60_and":
         "Entrez un nombre entier de secondes entre 60 et 3600.",
+    "display.quiet_hours_same_time":
+        "Le début et la fin doivent être deux heures différentes.",
     "display.enter_a_time_as_hh_mm_for_example_23_00":
         "Entrez une heure au format HH:MM, par exemple 23:00.",
     "display.that_link_is_too_long_or_conflicts_with_the":
