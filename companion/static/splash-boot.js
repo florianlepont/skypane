@@ -1,7 +1,8 @@
 /* The opening splash's gate. A tiny synchronous script in the document head,
  * right after the stylesheet: it decides, before the first paint, whether the
  * splash shows, by putting `splash-on` on <html>. It also puts `js-early` on
- * <html> whenever scripts run (see below). The overlay markup is
+ * <html> whenever scripts run, and `web-app` in an iPhone Home Screen web
+ * app (see below). The overlay markup is
  * hidden by the stylesheet until then, so there is no flash of the page
  * under it and, without scripts, no splash at all.
  *
@@ -25,6 +26,7 @@
   var KEY = "skypane.splash";
   var HARD_CAP_MS = 3200;
   var EARLY_CLASS = "js-early";
+  var WEB_APP_CLASS = "web-app";
   // How long the Location page's loading state may wait for the map before
   // the plain form shows instead.
   var EARLY_CAP_MS = 6000;
@@ -39,6 +41,16 @@
   window.setTimeout(function () {
     root.classList.remove(EARLY_CLASS);
   }, EARLY_CAP_MS);
+
+  // An iPhone Home Screen web app: navigator.standalone is true there only
+  // (false in a Safari tab, undefined in every other browser; no
+  // display-mode media query matches it, as the site has no manifest). iOS
+  // frosts the top of such a window, below the status bar, and the
+  // stylesheet moves the phone app bar down out of that frost. Set before
+  // the first paint so the bar never jumps.
+  if (window.navigator.standalone === true) {
+    root.classList.add(WEB_APP_CLASS);
+  }
 
   // A page reached through a page change (a view transition) is already
   // arriving by the cross-fade. The mark lets the stylesheet skip the block

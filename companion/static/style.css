@@ -47,6 +47,15 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
 
+  /* How much lower the phone app bar starts in an iPhone Home Screen web
+   * app (html.web-app, set by splash-boot.js; none elsewhere). There iOS 27
+   * draws a frost over the top of the window, fading out about 36px below
+   * the status bar, over the page: with the bar 24px lower every glyph of
+   * the logo, the wordmark and the frame button is clear of it (only the
+   * frame button's top edge still meets its last, faint rows). Everything
+   * placed below the bar adds it too (the Location page's floating parts). */
+  --app-bar-drop: 0px;
+
   /* The OpenStreetMap standard tiles' land colour. The tiles are light in
    * both themes, so this one value serves both: it is what the fixed map
    * container shows under and between the tiles. */
@@ -877,8 +886,9 @@ a:hover {
 
 /* The phone app bar: the logo on the left, the frame button on the right,
  * transparent over the page background (no bar, so Safari tints nothing),
- * padded below the status bar. The desktop layout shows only the frame
- * button of it (the sidebar carries the brand there). */
+ * padded below the status bar, and below iOS's frost in a Home Screen web
+ * app (--app-bar-drop). The desktop layout shows only the frame button of
+ * it (the sidebar carries the brand there). */
 .site-header {
   position: relative;
   z-index: 15;
@@ -886,10 +896,16 @@ a:hover {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
-  min-height: calc(52px + var(--safe-top));
-  padding: calc(var(--space-xs) + var(--safe-top)) max(var(--space-md), var(--safe-right)) var(--space-xs) max(var(--space-md), var(--safe-left));
+  min-height: calc(52px + var(--safe-top) + var(--app-bar-drop));
+  padding: calc(var(--space-xs) + var(--safe-top) + var(--app-bar-drop)) max(var(--space-md), var(--safe-right)) var(--space-xs) max(var(--space-md), var(--safe-left));
   background: transparent;
   margin-bottom: var(--space-sm);
+}
+
+@media (max-width: 959.98px) {
+  html.web-app {
+    --app-bar-drop: 24px;
+  }
 }
 
 /* The admin-only two-segment switch between the Console and the personal
