@@ -66,6 +66,14 @@ PARENT_VIEWS = {
 }
 FORM_VIEWS = tuple(PARENT_VIEWS)
 ROUTE_VIEWS = {route: view for view, route in VIEW_ROUTES.items()}
+# Where a save started from a Style page may return to, so leaving the page
+# through an in-app link can save first and still land where the person
+# tapped: the Style views, the Device page and the navigation tabs. A fixed
+# tuple, membership-tested byte for byte (see config_page), never a parsed or
+# prefix-matched address, so a crafted return value cannot redirect off-site.
+LEAVE_RETURN_ROUTES = tuple(dict.fromkeys(
+    tuple(VIEW_ROUTES.values()) + (layout.DEVICE_ROUTE,)
+    + tuple(route for route, _label in layout.NAV_TABS)))
 # The two views of the look picker, and the picture each one shows first.
 LOOK_VIEW_USAGES = {
     VIEW_DEPARTURES: COLOUR_USAGE_DEPARTURES,
@@ -279,6 +287,13 @@ def page_html(
     parts[VIEW_ARRIVALS] = parts[VIEW_DEPARTURES]
     shown = (view,) if view is not None else (
         VIEW_DEPARTURES, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
-    return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div>%s</div>' % (
+    return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div></div>' % (
         _layout_card(values, errors, submitted), _nav_html(view),
-        "".join(parts[name]() for name in shown), layout_picker.leave_dialog_html())
+        "".join(parts[name]() for name in shown))
+
+
+def scoped_leave_return_routes():
+    """The addresses a Style save may return to, wearing this frame's own
+    prefix: the links on the page wear it, so the list a script matches them
+    against wears it too."""
+    return tuple(device_scope.scoped(route) for route in LEAVE_RETURN_ROUTES)

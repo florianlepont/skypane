@@ -1144,3 +1144,14 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Owner decision (W5-12): keep the current Back behaviour with a dialog open (Back leaves the page); no history entry per dialog.
 - Owner decision (W5-15): option A, a refused pairing code is kept in a very short-lived cookie (outside the address) and put back in the field. Queued with W5-23 (anti-forgery token out of the upload address) as plan 61-124.
 - Owner decision (Console space bar): option 1, the bar keeps its five cells (Fleet, Users, Editor, Audit, More), already in production. All six open owner questions are answered; queued plans: 61-122 (More panel), 61-123 (Style unsaved layout dialog), 61-124 (pairing code cookie and upload token).
+
+## Round 28: audit 5 closed
+
+- All owner decisions on audit 5 are implemented and merged: More panel redesign with the Console card and total blur (61-121, 61-122), Style unsaved layout dialog (61-123), refused pairing code cookie and upload token out of the address (61-124).
+- Waiting on the owner: iPhone checks of the More panel dim on every tab, and of the Style dialog. Then the final validation (plan 61-13).
+
+## Round 29: device page
+
+- Owner decision: redesign the "Device and version" panel on the Fleet device page as in the mockup (frame state on top, one update card with one Install button, a flat version list, quiet Revert buttons, release notes behind the row). Queued as plan 61-126 after 61-125.
+- Owner decision: the Diagnostic LED switch stays as it is (admin only, off by default, part of the frame protocol).
+- Owner test of the Style leave dialog: it opened only for sub-tabs and layout changes; the owner changes page with the bottom tab bar and changes colours. Plan 61-125 widens it to every page with a Save bar and every in-app link.

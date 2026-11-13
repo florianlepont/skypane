@@ -17,6 +17,7 @@ import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
 import companion.page_styles as page_styles
+import companion.ui_save_bar as ui_save_bar
 import companion.ui_segmented as ui_segmented
 import companion.ui_splash as ui_splash
 from companion.ui_base import (
@@ -533,6 +534,11 @@ def page_shell(
     flash_html = flash or ""
     banner_html = banner or ""
     body, flash_html = _splice_flash(body, flash_html)
+    # One unsaved-changes dialog per page that has a save bar, so no page can
+    # forget it and no page carries two (the Components catalogue renders its
+    # own copy as the sample).
+    if "dirty-bar" in body and "data-leave-dialog" not in body:
+        body += ui_save_bar.leave_dialog_html()
     # The sidebar's footer holds only Sign out; language and theme are set on
     # the Account page.
     sidebar_footer_html = (

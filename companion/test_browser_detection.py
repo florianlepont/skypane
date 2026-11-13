@@ -419,20 +419,35 @@ def test_cancel_in_carried_state_returns_to_stored_value(new_context, make_app_s
         raise AssertionError("Cancel did not restore the stored area mode")
 
 
+LEAVE_DIALOG = "dialog[data-leave-dialog]"
+
+
 def _click_another_page(page):
     page.locator("a[href$='/flights']:visible").first.click()
-    page.wait_for_load_state()
 
 
-def test_real_leave_still_prompts(new_context, make_app_server):
-    """An unsaved edit followed by a click on another page's link still raises the prompt."""
+def _wait_leave_dialog(page):
+    page.wait_for_function(
+        "() => { const d = document.querySelector('%s'); return !!d && d.open; }" % LEAVE_DIALOG,
+        timeout=5000)
+
+
+def test_real_leave_asks_in_the_page_dialog(new_context, make_app_server):
+    """An unsaved edit followed by a click on another page's link asks in the page's own
+    unsaved-changes dialog, not the browser's prompt, and Discard then leaves."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     page, dialogs = _open(new_context, server)
+    here = page.url
     page.click(MODE_AREA_LABEL)
     _wait_for_bar(page)
     _click_another_page(page)
-    if "beforeunload" not in dialogs:
-        raise AssertionError("leaving with an unsaved edit raised no prompt: %r" % dialogs)
+    _wait_leave_dialog(page)
+    if page.url != here:
+        raise AssertionError("the page left before the question was answered: %s" % page.url)
+    if dialogs:
+        raise AssertionError("the browser's own prompt appeared as well: %r" % dialogs)
+    page.click(LEAVE_DIALOG + " [data-leave-dialog-secondary]")
+    page.wait_for_url("**/flights", timeout=15000)
 
 
 def test_back_forward_cache_rearms_guard(new_context, make_app_server):
@@ -451,8 +466,9 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
         raise AssertionError("the guard stayed disarmed after returning to the page")
     del dialogs[:]
     _click_another_page(page)
-    if "beforeunload" not in dialogs:
-        raise AssertionError("a later real leave raised no prompt: %r" % dialogs)
+    _wait_leave_dialog(page)
+    if dialogs:
+        raise AssertionError("a later real leave raised the browser's prompt: %r" % dialogs)
 
 
 # A user's Display page no longer holds the place; the Location and detection page does.

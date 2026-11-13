@@ -255,6 +255,10 @@ def _crawl_addresses(body, page=None):
                 found.append((method, value, selector))
             elif name in _ADDRESS_ATTRS:
                 found.append(("GET", value, selector))
+            elif name == "data-leave-returns":
+                # A space-separated list of addresses the page's save may
+                # return to: each one is an address of its own.
+                found.extend((ANY_METHOD, each, selector) for each in value.split())
             elif name.startswith("data-"):
                 found.append((ANY_METHOD, value, selector))
         if node.tag == "input" and node.attrs.get("name") == RETURN_TO_FIELD:
