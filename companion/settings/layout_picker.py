@@ -17,6 +17,7 @@ value changes only when the owner saves a different card.
 """
 from companion import i18n
 from companion import theme_preview
+from companion import ui_modal
 from companion.layout import escape_html
 import companion.layout as layout
 from server import pairings, screen_layouts
@@ -48,6 +49,15 @@ LAYOUT_NAMES = {
     "a_diagonal": i18n.msg("look.layout_a_diagonal", "A with diagonal band"),
 }
 LAYOUT_PREVIEW_ALT_TEMPLATE = i18n.msg("look.layout_preview_alt", "Layout preview: %s")
+
+LEAVE_DIALOG_ID = "layout-leave"
+LEAVE_HOOK = "layout-leave"
+LEAVE_TITLE = i18n.msg("look.layout_leave_title", "Layout not saved")
+LEAVE_TEXT = i18n.msg(
+    "look.layout_leave_text", "You changed the layout. What do you want to do?")
+LEAVE_SAVE = i18n.msg("look.layout_leave_save", "Save and continue")
+LEAVE_DISCARD = i18n.msg("look.layout_leave_discard", "Discard")
+LEAVE_STAY = i18n.msg("look.layout_leave_stay", "Stay here")
 
 PAIRING_GROUP_LABEL = i18n.msg("look.pairing_group", "Colour")
 PAIRING_HELP = i18n.msg(
@@ -152,6 +162,15 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
         escape_html(i18n.t(LAYOUT_CHANGE_ARIA)), escape_html(i18n.t(LOOK_CHANGE_LABEL)),
         escape_html(i18n.t(LAYOUT_GROUP_LABEL)), cards,
         _field_error_html(errors, LAYOUT_FIELD, LAYOUT_FIELD), _help_html(LAYOUT_HELP))
+
+
+def leave_dialog_html():
+    """The closed dialog a script opens when the person taps another Style
+    view while the layout has an unsaved change: save and continue, discard,
+    or stay."""
+    return ui_modal.choice_dialog_html(
+        LEAVE_DIALOG_ID, i18n.t(LEAVE_TITLE), i18n.t(LEAVE_TEXT), i18n.t(LEAVE_SAVE),
+        i18n.t(LEAVE_DISCARD), i18n.t(LEAVE_STAY), LEAVE_HOOK)
 
 
 def pairing_id_for(theme_id):

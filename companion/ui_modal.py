@@ -188,6 +188,46 @@ def dialog_html(
     }
 
 
+def choice_dialog_html(
+        dialog_id, title, text, primary_label, secondary_label, quiet_label, hook_attr):
+    """A modal dialog that asks a question and offers three actions, none of
+    them a form post: a primary, a secondary and a quiet one that closes the
+    dialog and changes nothing.
+
+    The dialog is closed in the markup and only a script opens it (it has no
+    opener link): a page uses it where a script intercepts a navigation, and
+    without script the page keeps its plain links. `hook_attr` is a lowercase
+    slug; the buttons carry `data-<hook_attr>-primary`, `-secondary` and
+    `-quiet` for that script. The quiet button takes the initial focus so
+    Enter never confirms the primary action unasked, and Escape closes the
+    dialog as it does the quiet button."""
+    slug = validated_slug(dialog_id)
+    hook = validated_slug(hook_attr)
+    title_id = slug + "-title"
+    return (
+        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s" data-%(hook)s>'
+        '<header class="modal__head"><div>'
+        '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
+        '</div></header>'
+        '<div class="modal__body"><p class="text-body">%(text)s</p></div>'
+        '<div class="modal__actions">'
+        '<button type="button" data-%(hook)s-primary>%(primary)s</button>'
+        '<button type="button" class="btn btn--secondary" data-%(hook)s-secondary>%(secondary)s</button>'
+        '<button type="button" class="btn btn--ghost" data-%(hook)s-quiet data-modal-close '
+        'autofocus>%(quiet)s</button>'
+        '</div></dialog>\n'
+    ) % {
+        "id": slug,
+        "title_id": title_id,
+        "hook": hook,
+        "title": escape_html(title),
+        "text": escape_html(text),
+        "primary": escape_html(primary_label),
+        "secondary": escape_html(secondary_label),
+        "quiet": escape_html(quiet_label),
+    }
+
+
 def sections_dialog_html(
         dialog_id, title, subtitle, sections_html, dismiss_label, dismiss_href,
         open_=False, extra_class=""):

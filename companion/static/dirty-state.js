@@ -646,6 +646,77 @@
     }
   });
 
+  // The Style page's sub-tab links are page loads. With an unsaved layout, a
+  // tap on one asks first, in the page's own dialog, instead of the browser's
+  // generic leave prompt: Save and continue (the save returns to the tapped
+  // view), Discard (leave without saving) or Stay here (nothing changes, focus
+  // goes back to the tapped link). Only a layout change asks; any other
+  // unsaved value keeps the browser's prompt. Without the dialog or modal.js
+  // the links stay plain links.
+  var leaveDialog = document.querySelector("dialog[data-layout-leave]");
+  var leaveLink = null;
+
+  function layoutIsDirty() {
+    var current = snapshotValues();
+    return "layout" in snapshot && current.layout !== snapshot.layout;
+  }
+
+  function leaveTarget(node) {
+    var link = node;
+    while (link && !(link.hasAttribute && link.hasAttribute("data-pers-view"))) {
+      link = link.parentNode;
+    }
+    return link && link.hasAttribute("href") ? link : null;
+  }
+
+  function leaveSaveAndContinue() {
+    var back = form.elements["return_to"];
+    var saveBtn = bar.querySelector("button[type=submit]");
+    if (back && leaveLink) {
+      back.value = leaveLink.pathname;
+    }
+    leaveDialog.close();
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit(saveBtn || undefined);
+    } else {
+      form.submit();
+    }
+  }
+
+  function leaveDiscard() {
+    var href = leaveLink && leaveLink.href;
+    suppressGuard = true;
+    leaveDialog.close();
+    if (href) {
+      window.location.href = href;
+    }
+  }
+
+  if (leaveDialog) {
+    leaveDialog.querySelector("[data-layout-leave-primary]")
+      .addEventListener("click", leaveSaveAndContinue);
+    leaveDialog.querySelector("[data-layout-leave-secondary]")
+      .addEventListener("click", leaveDiscard);
+    document.addEventListener("click", function (e) {
+      if (e.defaultPrevented || e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      var link = leaveTarget(e.target);
+      if (!link || !layoutIsDirty() || !window.SkyPaneModal) {
+        return;
+      }
+      leaveLink = link;
+      if (window.SkyPaneModal.open(leaveDialog, link)) {
+        e.preventDefault();
+      }
+    });
+    window.addEventListener("pageshow", function (evt) {
+      if (evt.persisted && leaveDialog.open) {
+        leaveDialog.close();
+      }
+    });
+  }
+
   // Coming Back to the page, the browser puts the values the visitor left
   // back into the fields after this file has run and fires no event for it.
   // Once the page is shown, the bar and what follows the fields (the Layout

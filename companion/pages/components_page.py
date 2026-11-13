@@ -76,6 +76,13 @@ _SAMPLE_CONFIRM = i18n.msg("components.sample_confirm_title", "Delete this frame
 _SAMPLE_CONFIRM_BODY = i18n.msg(
     "components.sample_confirm_body", "This cannot be undone.")
 _OPEN_DIALOG = i18n.msg("components.open_dialog", "Open the dialog")
+_SAMPLE_CHOICE_TITLE = i18n.msg("components.sample_choice_title", "Layout not saved")
+_SAMPLE_CHOICE_TEXT = i18n.msg(
+    "components.sample_choice_text", "You changed the layout. What do you want to do?")
+_CHOICE_PRIMARY = i18n.msg("components.sample_choice_primary", "Save and continue")
+_CHOICE_SECONDARY = i18n.msg("components.sample_choice_secondary", "Discard")
+_CHOICE_QUIET = i18n.msg("components.sample_choice_quiet", "Stay here")
+_OPEN_CHOICE = i18n.msg("components.open_choice", "Open the three-way question")
 _OPEN_CONFIRM = i18n.msg("components.open_confirm", "Open the confirmation")
 _CLOSE = i18n.msg("components.close", "Close")
 _SORT = i18n.msg("components.sample_sort", "Sort")
@@ -618,11 +625,16 @@ def _dialogs():
     sections = ui_modal.sections_dialog_html(
         "components-sections", _t(_SAMPLE_DIALOG), "", "<p class=\"text-body\">%s</p>" % _esc(
             _t(_SAMPLE_CONFIRM_BODY)), _t(_CLOSE), COMPONENTS_ROUTE)
+    choice = ui_modal.choice_dialog_html(
+        "components-choice", _t(_SAMPLE_CHOICE_TITLE), _t(_SAMPLE_CHOICE_TEXT),
+        _t(_CHOICE_PRIMARY), _t(_CHOICE_SECONDARY), _t(_CHOICE_QUIET), "components-choice")
     triggers = (
         ui_modal.trigger_html(
             "components-dialog", _esc(_t(_OPEN_DIALOG)), "btn btn--secondary")
         + ui_modal.trigger_html(
             "components-confirm", _esc(_t(_OPEN_CONFIRM)), "btn btn--danger")
+        + ui_modal.trigger_html(
+            "components-choice", _esc(_t(_OPEN_CHOICE)), "btn btn--secondary")
         + ui_modal.trigger_html(
             "components-sections", _esc(_t(_SAMPLE_DIALOG)), "btn btn--ghost"))
     bar = ui_save_bar.save_bar_html(
@@ -643,8 +655,8 @@ def _dialogs():
     return [
         State(_M_STATE_SAVE_BAR_REVEALED, revealed),
         State(_M_STATE_DIALOGS,
-              '<div class="components-triggers">%s</div>%s%s%s' % (
-                  triggers, dialog, confirm, sections)),
+              '<div class="components-triggers">%s</div>%s%s%s%s' % (
+                  triggers, dialog, confirm, choice, sections)),
         State(_M_STATE_SAVE_BAR,
               '<div class="components-save-bar">%s</div>' % bar),
         State(_M_STATE_SAVE_BAR_INLINE,
@@ -720,8 +732,8 @@ CATALOGUE = (
            ("ui_components.empty_state", "ui_filter.filter_empty_html"), _empty_states),
     Family("dialogs", _M_FAMILY_DIALOGS,
            _M_FAMILY_DIALOGS_DESC,
-           ("ui_modal.dialog_html", "ui_modal.sections_dialog_html", "ui_modal.trigger_html",
-            "ui_save_bar.save_bar_html"), _dialogs),
+           ("ui_modal.dialog_html", "ui_modal.choice_dialog_html", "ui_modal.sections_dialog_html",
+            "ui_modal.trigger_html", "ui_save_bar.save_bar_html"), _dialogs),
     Family("motion", _M_FAMILY_MOTION, _M_FAMILY_MOTION_DESC, (), _motion),
     Family("names", _M_FAMILY_NAMES, _M_FAMILY_NAMES_DESC, (), _names),
 )
