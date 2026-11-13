@@ -59,6 +59,9 @@ _MODEL_LABEL = i18n.msg("admin_fleet.block_model", "Model")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
+_UNKNOWN_FRAME = i18n.msg(
+    "admin_fleet.unknown_frame",
+    "That frame was not found \u2014 Showing %s instead.")
 _ADD_FIRST = i18n.msg(
     "admin_fleet.add_screen_first", "Add a frame to see its state and settings.")
 
@@ -251,6 +254,17 @@ def _others_alone(view):
     return '<div class="fleet-blocks">%s</div>' % blocks if blocks else ""
 
 
+def _unknown_frame_notice(query, selected):
+    """A docked warning when the address names a frame that does not exist
+    and another frame is shown in its place; nothing otherwise."""
+    wanted = (query.get(FRAME_QUERY) or [""])[0]
+    if not wanted or selected is None or selected.id == wanted:
+        return ""
+    from companion import ui_components, ui_shell
+    return ui_components.anomaly_banner(
+        i18n.t(_UNKNOWN_FRAME) % ui_shell.device_display_name(selected), "warn")
+
+
 def page_html(h, query, view):
     """The selected view (the frame button goes to the top bar). Sets the request scope to the
     selected frame (the embedded forms post to its own /devices/<id> routes)."""
@@ -269,7 +283,7 @@ def page_html(h, query, view):
         return system_html(h.page_context(device_scope.live_device(root)))
     if selected is None:
         return '<p class="text-label">%s</p>' % _t(_ADD_FIRST) + _others_alone(view)
-    return frame_html(
+    return _unknown_frame_notice(query, selected) + frame_html(
         h.page_context(selected), selected, view,
         fleet_page.detail_header_html(view, selected.id), tab_selection(query))
 

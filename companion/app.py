@@ -1064,6 +1064,8 @@ class Handler(
         self._form_cache = None
         prefs.set_request_principal(None)
         prefs.set_request_csrf("")
+        # Before any handler runs: a message a POST builds is in the reader's language.
+        prefs.set_request_prefs(lang=self._lang_from_request())
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
