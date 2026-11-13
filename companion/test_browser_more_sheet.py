@@ -486,3 +486,28 @@ def test_the_dim_behind_the_sheet_and_behind_a_dialog_fades_in_with_what_opens(n
             ".opacity === '1'", timeout=5000)
     finally:
         context.close()
+
+
+_AMBIENT = """(want) => {
+  const read = [
+    getComputedStyle(document.querySelector('.home-state__dot--pulse')).animationIterationCount,
+    getComputedStyle(
+      document.querySelector('.home-state__dot--pulse'), '::after').animationIterationCount,
+    getComputedStyle(
+      document.querySelector('.hero__picture'), '::before').animationIterationCount];
+  return read.every((v) => v === want); }"""
+
+
+def test_the_home_loops_stand_still_while_the_sheet_is_open_and_resume_after(new_context, app):
+    """nothing animates endlessly under the dimmed, blurred page of an open sheet"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        page.wait_for_function(_AMBIENT, arg="infinite", timeout=5000)
+        _open_sheet(page)
+        page.wait_for_function(_AMBIENT, arg="0", timeout=5000)
+        page.locator(".tab-bar__more > summary").click()
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        page.wait_for_function(_AMBIENT, arg="infinite", timeout=5000)
+    finally:
+        context.close()

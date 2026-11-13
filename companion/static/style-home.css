@@ -290,7 +290,8 @@
   text-decoration-color: currentColor;
 }
 
-html[data-ambient="rest"] .home-state__dot--pulse::after {
+html[data-ambient="rest"] .home-state__dot--pulse::after,
+html:has(.tab-bar__more[open]) .home-state__dot--pulse::after {
   animation-iteration-count: 0;
   opacity: 0;
 }

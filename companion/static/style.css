@@ -7541,6 +7541,15 @@ html[data-ambient="rest"] .is-breathing {
   animation-iteration-count: 0;
 }
 
+/* The same while the More sheet is open: nothing repaints under its blurred
+ * scrim. */
+html:has(.tab-bar__more[open]) .home-state__dot--pulse,
+html:has(.tab-bar__more[open]) .hero__picture::before,
+html:has(.tab-bar__more[open]) .hero__glass::after,
+html:has(.tab-bar__more[open]) .is-breathing {
+  animation-iteration-count: 0;
+}
+
 .hero__ring.is-ring-done .hero__ring-done {
   animation: skypane-ring-glow var(--motion-spring-duration) ease-out;
 }
