@@ -840,6 +840,14 @@ html:not(.map-ready) .place-tap-hint {
    * dim and blur as part of the page, in the page container, above the map
    * and clear of everything else (the page sits between them). Nothing is
    * painted while the sheet is closed. */
+  /* The window's own ground on this page is the map placeholder colour, not
+   * the sky gradient, so there the root carries the dim alone. */
+  html.map-ready:has(.tab-bar__more[open]) {
+    background-image: linear-gradient(
+      color-mix(in srgb, var(--color-text) 55%, transparent),
+      color-mix(in srgb, var(--color-text) 55%, transparent));
+  }
+
   .map-ready.place-lead body:has(.tab-bar__more[open]) .page-content:has(.place-stage)::before {
     content: "";
     position: absolute;

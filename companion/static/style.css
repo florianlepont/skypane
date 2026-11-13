@@ -678,7 +678,8 @@ html[data-ui-theme="dark"] {
 html {
   min-height: 100%;
   background-color: var(--sky-top);
-  background-image: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  --sky-gradient: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+  background-image: var(--sky-gradient);
   background-repeat: no-repeat;
   background-size: 100% 100%;
 }
@@ -5793,6 +5794,25 @@ a.btn[aria-disabled="true"] {
 
   body:has(.tab-bar__more[open]) .tab-bar {
     z-index: 46;
+  }
+
+  /* The root's own paint shows where the fixed scrim does not reach (the
+   * zones an iPhone draws under the status bar and the bottom toolbar), so
+   * while the sheet is open it carries the same dim. The body then paints the
+   * ground itself, so the scrim dims it once and the zones outside the window
+   * match what is inside it. */
+  html:has(.tab-bar__more[open]) {
+    background-image:
+      linear-gradient(
+        color-mix(in srgb, var(--color-text) 55%, transparent),
+        color-mix(in srgb, var(--color-text) 55%, transparent)),
+      var(--sky-gradient);
+  }
+
+  body:has(.tab-bar__more[open]) {
+    background-image: var(--sky-gradient);
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
   }
 
   .tab-bar__grab {

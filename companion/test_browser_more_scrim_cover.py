@@ -22,7 +22,7 @@ SAFE = (
 IPHONE = (
     "Object.defineProperty(Navigator.prototype, 'standalone',"
     " {get: () => false, configurable: true});")
-PAGES = ["/", "/flights", "/detection"]
+PAGES = ["/", "/flights", "/airlines", "/display", "/detection", "/account", "/fleet", "/users", "/audit"]
 PHONES = [{"width": 360, "height": 740}, {"width": 390, "height": 844}]
 
 # The fixed scrim's box, and the box and paint of the layers that dim the map above and below the
@@ -102,6 +102,71 @@ def test_the_open_sheet_dims_and_blurs_the_whole_window_on_every_page(
         page.locator(".tab-bar__more-panel").wait_for(state="visible")
         probe = page.evaluate(COVER)
         assert probe["fixed"]["ok"] and probe["at2"] and probe["atEnd"], probe
+    finally:
+        context.close()
+
+
+# What the window shows beyond the page: the root's own paint (the zones under the status bar and
+# the bottom toolbar on an iPhone) and the status-bar tint the page asks for.
+ROOT = """() => {
+  const root = document.documentElement;
+  const css = getComputedStyle(root);
+  const probe = document.createElement('span');
+  probe.style.color = 'var(--color-text)';
+  document.body.appendChild(probe);
+  const text = getComputedStyle(probe).color;
+  probe.remove();
+  return {image: css.backgroundImage, bodyImage: getComputedStyle(document.body).backgroundImage, bg: css.backgroundColor, text,
+          tints: [...document.querySelectorAll('meta[name=theme-color]')].map((m) => m.getAttribute('content'))};
+}"""
+
+
+def _rgb(value):
+    parts = value.replace("rgba(", "").replace("rgb(", "").rstrip(")").split(",")
+    return [float(p) for p in parts[:3]]
+
+
+def _hex(value):
+    return [int(value[i:i + 2], 16) for i in (1, 3, 5)]
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("path", PAGES)
+@pytest.mark.parametrize("viewport", PHONES, ids=["360", "390"])
+def test_the_open_sheet_dims_the_root_and_the_status_bar_tint_and_closing_restores_them(
+        new_context, server, viewport, path, lang, scheme):
+    """the root's own paint carries the scrim's dim while the sheet is open, the theme-color tint is
+    the page ground dimmed by the same scrim (so the status bar matches the dimmed page), and both
+    return to what they were when the sheet closes"""
+    context, page = _open(new_context, server, path, viewport, lang, scheme, iphone=True)
+    try:
+        before = page.evaluate(ROOT)
+        # The sky gradient is the root's ground everywhere but on Location, where it is the map's
+        # placeholder colour.
+        ground_layers = 0 if path == "/detection" else 1
+        assert len(before["tints"]) == 2 and before["image"].count("gradient") == ground_layers, before
+        page.locator(".tab-bar__more > summary").click()
+        page.locator(".tab-bar__more-panel").wait_for(state="visible")
+        page.wait_for_function(
+            "() => document.querySelector('meta[name=theme-color]').getAttribute('content')"
+            " !== %r" % before["tints"][0], timeout=5000)
+        opened = page.evaluate(ROOT)
+        assert opened["image"].count("gradient") == ground_layers + 1, opened
+        assert opened["bodyImage"].count("gradient") == 1, opened
+        ground = _rgb(opened["bg"])
+        ink = _rgb(opened["text"])
+        expected = [round(g * 0.45 + i * 0.55) for g, i in zip(ground, ink)]
+        for tint in opened["tints"]:
+            assert tint != before["tints"][0] or tint != before["tints"][1], opened
+            assert all(abs(a - b) <= 2 for a, b in zip(_hex(tint), expected)), (tint, expected)
+        assert opened["tints"][0] == opened["tints"][1], opened
+        page.keyboard.press("Escape")
+        page.wait_for_function("() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        page.wait_for_function(
+            "(t) => document.querySelector('meta[name=theme-color]').getAttribute('content') === t",
+            arg=before["tints"][0], timeout=5000)
+        assert page.evaluate(ROOT) == before
     finally:
         context.close()
 
