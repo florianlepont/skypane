@@ -164,6 +164,18 @@ def test_a_refused_code_comes_back_in_the_field_once(rig):
     # The browser dropped the cookie: the second visit has an empty field.
     status, again, page = fx.get(server, cookie, "/pair-frame?refused=1")
     assert status == 200 and _field_value(page) == "" and "Set-Cookie" not in again
+    assert "Code not recognised" not in page
+
+
+def test_a_refusal_with_an_odd_value_also_shows_its_error_once(rig):
+    server, _seed, cookie = rig
+    _status, headers, _body = _claim(server, cookie, "A;B=C")
+    kept = headers["Set-Cookie"]
+    assert kept.split(";")[0].endswith(".") and "A;B" not in kept
+    status, _shown, page = fx.get(server, _with_kept(cookie, kept), "/pair-frame?refused=1")
+    assert status == 200 and "Code not recognised" in page and _field_value(page) == ""
+    status, _again, page = fx.get(server, cookie, "/pair-frame?refused=1")
+    assert status == 200 and "Code not recognised" not in page
 
 
 def test_the_kept_code_cookie_is_short_lived_and_scoped(rig):
@@ -187,7 +199,8 @@ def test_a_very_long_or_odd_value_is_cut_or_not_kept(rig):
     for odd in ("<script>1</script>", "AB\u00e9D2222", "A;B=C"):
         _status, headers, _body = _claim(server, cookie, odd)
         assert headers["Location"] == "/pair-frame?refused=1"
-        assert "Set-Cookie" not in headers, odd
+        # Only a marker that a refusal happened, never any of the odd text.
+        assert headers["Set-Cookie"].split(";")[0].endswith("."), odd
     forged = "%s; sp_pair_code=%s.%s" % (
         cookie, console_pairing.session_key(_Handler(cookie)), "<b>x</b>")
     status, _h, page = fx.get(server, forged, PATH)
