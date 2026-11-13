@@ -30,7 +30,7 @@ MAP_TILES = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').
 # Measured counts, asserted exactly. Targets are in the design record.
 MEASURED = {
     "U4a": 3, "U4b": 4, "U4c": 3, "L1": 4, "L1-pin": 5, "L2": 4, "L3": 5, "L4": 3,
-    "S1": 1, "S2": 2, "A7": 2, "A8": 3, "A9": 3, "V1-phone": 2, "V1-desktop": 1}
+    "S1": 2, "S2": 2, "A7": 2, "A8": 3, "A9": 3, "V1-phone": 1, "V1-desktop": 1}
 _OFFSCREEN = (
     "el => { const r = el.getBoundingClientRect();"
     " return r.top < 0 || r.bottom > window.innerHeight; }")
@@ -610,14 +610,16 @@ def test_u4c_the_administrator_changes_the_refresh_interval(world, new_context):
 def test_s1_the_space_switch_is_one_tap_from_any_page(world, new_context):
     context, page, steps = _admin(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('My frame')"), "My frame")
+        steps.tap(page.locator(".tab-bar__more > summary"), "More")
+        steps.tap(page.locator(".tab-bar__more-panel a.tab-bar__space-link:has-text('My frame')"), "My frame")
         page.wait_for_url(re.compile(".*/devices/[^/]+/$"))
         assert page.locator(".tab-bar a[aria-current='page']").inner_text().strip() == "Home"
         back = Steps(page)
-        back.tap(page.locator(".tab-bar > a.tab-bar__link--switch:has-text('Console')"), "Console")
+        back.tap(page.locator(".tab-bar__more > summary"), "More")
+        back.tap(page.locator(".tab-bar__more-panel a.tab-bar__space-link:has-text('Console')"), "Console")
         page.wait_for_url("**/fleet")
-        assert back.count == 1
-        _report_measured("S1", steps, 1)
+        assert back.count == 2
+        _report_measured("S1", steps, 2)
     finally:
         context.close()
 
@@ -687,12 +689,10 @@ def test_a9_change_a_users_role_in_the_users_table(world, new_context):
 def test_v1_airline_collection_phone_and_desktop(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
-        steps.tap(page.locator(".tab-bar__more > summary"), "More")
-        steps.tap(page.locator(".tab-bar__more-panel a", has_text="Airlines"),
-                  "Airlines")
+        steps.tap(page.locator(".tab-bar > a", has_text="Airlines"), "Airlines")
         page.wait_for_url("**/airlines")
         assert page.locator("main h1").inner_text().strip() == "Airlines"
-        _report_measured("V1-phone", steps, 2)
+        _report_measured("V1-phone", steps, 1)
     finally:
         context.close()
     # Desktop is outside the phone counting rule; the sidebar link is the whole path.

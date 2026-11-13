@@ -40,7 +40,7 @@
     return !!(reducedQuery && reducedQuery.matches);
   }
 
-  var ACTIVE = ".tab-bar__link--active:not(.tab-bar__link--switch)";
+  var ACTIVE = ".tab-bar__link--active";
 
   function initTabSlider(bar) {
     var slider = document.createElement("span");
@@ -78,7 +78,7 @@
     }
 
     function setActive(link) {
-      var cells = bar.querySelectorAll(".tab-bar__link:not(.tab-bar__link--switch)");
+      var cells = bar.querySelectorAll(".tab-bar__link");
       for (var i = 0; i < cells.length; i++) {
         cells[i].classList.toggle("tab-bar__link--active", cells[i] === link);
       }
@@ -111,8 +111,7 @@
           && link.classList.contains("tab-bar__link"))) {
         link = link.parentNode;
       }
-      if (!link || link === bar || link.classList.contains("tab-bar__link--switch")
-          || link.classList.contains("tab-bar__link--active")
+      if (!link || link === bar || link.classList.contains("tab-bar__link--active")
           || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey
           || link.hasAttribute("target")) {
         return;

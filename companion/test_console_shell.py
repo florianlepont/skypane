@@ -184,17 +184,16 @@ def test_a_user_sees_no_administration_navigation_and_no_console_page(served):
     assert refused == unknown and refused[0] == 404
 
 
-def test_the_console_bar_has_switch_fleet_users_airlines_audit_and_more(served):
+def test_the_console_bar_has_fleet_users_airlines_audit_and_more_and_the_switch_in_more(served):
     server, cookies = served
     _status, page = _get(server, cookies["admin"], "/users")
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
-    assert _unscoped(_hrefs(cells)) == [
-        "/", "/fleet", "/users", "/airlines/manage", "/audit"]
+    assert _unscoped(_hrefs(cells)) == ["/fleet", "/users", "/airlines/manage", "/audit"]
     assert "Admin<" not in bar
     assert 'aria-current="page"' in cells.split('href="/users"')[1].split("</a>")[0]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _unscoped(_hrefs(sheet)) == ["/account"]
+    assert _unscoped(_hrefs(sheet)) == ["/account", "/"]
     health_at = cells.index("/fleet")
     health_cell = cells[health_at:cells.index("</a>", health_at)]
     assert health_cell.count("nav-notification") == bar.count("nav-notification") == 1
@@ -209,31 +208,32 @@ def test_my_views_pages_of_an_admin_carry_no_admin_tab(served):
     bar = _tab_bar(page)
     cells = bar.split('<details class="tab-bar__more">')[0]
     assert _hrefs(cells) == [
-        "/fleet", prefix + "/", prefix + "/flights", prefix + "/detection",
-        prefix + "/display"]
+        prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
+        prefix + "/detection"]
     sheet = bar.split('<div class="tab-bar__more-panel">')[1]
-    assert _hrefs(sheet) == [prefix + "/airlines", "/account"]
+    assert _hrefs(sheet) == ["/account", "/fleet"]
     assert "Admin<" not in page and "Administration" not in _sidebar(page)
 
 
-def test_the_switch_leads_the_tab_bar_for_an_admin_and_is_absent_for_a_user(served):
+def test_the_switch_is_a_row_of_the_more_panel_for_an_admin_and_absent_for_a_user(served):
     server, cookies = served
     _status, console = _get(server, cookies["admin"], "/fleet")
     header = console[console.index('<header class="site-header"'):console.index("</header>")]
     assert "space-switch" not in header and "<a " not in header.replace(
         'class="brand__link"', "")
     bar = _tab_bar(console)
-    assert re.search(
-        r'<nav class="tab-bar"[^>]*><a class="tab-bar__link tab-bar__link--switch" href="/"', bar)
-    assert "My frame<" in bar.split("</a>")[0]
+    assert "tab-bar__link--switch" not in bar
+    panel = bar.split('<div class="tab-bar__more-panel">')[1]
+    assert re.search(r'<a class="[^"]*tab-bar__space-link" href="/"[^>]*>', panel)
+    assert "My frame<" in panel
     _status, mine = _get(server, cookies["admin"], server.frame_prefix + "/")
     mine_bar = _tab_bar(mine)
-    assert re.search(
-        r'<nav class="tab-bar"[^>]*><a class="tab-bar__link tab-bar__link--switch" href="/fleet"',
-        mine_bar)
-    assert "Console<" in mine_bar.split("</a>")[0]
+    assert "tab-bar__link--switch" not in mine_bar
+    mine_panel = mine_bar.split('<div class="tab-bar__more-panel">')[1]
+    assert re.search(r'<a class="[^"]*tab-bar__space-link" href="/fleet"', mine_panel)
+    assert "Console<" in mine_panel
     _status, account = _get(server, cookies["owner"], "/account")
-    assert "space-switch" not in account and "tab-bar__link--switch" not in account
+    assert "space-switch" not in account and "tab-bar__space-link" not in account
 
 
 def test_a_user_still_cannot_open_the_console(served):

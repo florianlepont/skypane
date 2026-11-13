@@ -49,7 +49,7 @@ def test_the_pill_glides_on_every_tab_change(new_context, make_app_server):
         for _round in range(6):
             href = page.evaluate(
                 "() => { const links = [...document.querySelectorAll("
-                "'a.tab-bar__link:not(.tab-bar__link--switch):not(.tab-bar__link--active)')];"
+                "'a.tab-bar__link:not(.tab-bar__link--active)')];"
                 " const hrefs = links.map((l) => l.getAttribute('href')).filter((h) => !h.endsWith('/detection'));"
                 " return hrefs[Math.floor(Math.random() * hrefs.length)]; }")
             assert href, (page.url, seen)

@@ -89,15 +89,17 @@ def test_the_switch_labels_and_names_are_french_in_french(served):
     assert segments[1][2] == "Passer aux pages de votre cadre"
 
 
-def test_the_phone_switch_is_the_first_tab_bar_cell_and_the_sidebar_keeps_its_own(served):
+def test_the_phone_switch_is_a_more_panel_row_and_the_sidebar_keeps_its_own(served):
     _status, markup = _get(served, "/fleet", "admin")
     assert "space-strip" not in markup
     header = markup[markup.index("<header"):markup.index("</header>")]
     assert "space-switch" not in header
     bar = markup[markup.index('<nav class="tab-bar"'):]
-    first_cell = bar[bar.index("<a "):bar.index("</a>")]
-    assert "tab-bar__link--switch" in first_cell and 'href="/"' in first_cell
-    assert ">Mon cadre<" in first_cell or ">My frame<" in first_cell
+    assert "tab-bar__link--switch" not in bar
+    panel = bar[bar.index('<div class="tab-bar__more-panel">'):]
+    row = panel[panel.index("tab-bar__space-link"):]
+    row = row[:row.index("</a>")]
+    assert 'href="/"' in row and (">Mon cadre<" in row or ">My frame<" in row)
     sidebar = markup[markup.index("<aside"):markup.index("</aside>")]
     assert sidebar.index('class="space-switch"') < sidebar.index('class="sidebar-nav"')
 

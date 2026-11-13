@@ -157,7 +157,7 @@ def test_the_sheet_holds_the_other_rows_and_the_account_row_names_the_person(
         _open_sheet(page)
         links = page.locator(".tab-bar__more-panel a")
         assert [links.nth(i).inner_text() for i in range(links.count())] == [
-            "Account"]
+            "Account", "My frame"]
         shown = page.locator(".tab-bar__account").evaluate(
             "el => getComputedStyle(el, '::after').content")
         assert OWNER_EMAIL in shown
@@ -180,7 +180,7 @@ def test_tab_labels_are_eleven_pixels_whole_and_never_touch_at_360(
     context, page = _open(new_context, app, path, VIEWPORT_MIN_SUPPORTED, lang=lang)
     try:
         labels = page.evaluate(_LABELS)
-        assert len(labels) == 6
+        assert len(labels) == 5
         for label in labels:
             assert label["size"] == 11 and not label["clipped"], label
         for left, right in zip(labels, labels[1:]):
@@ -189,24 +189,20 @@ def test_tab_labels_are_eleven_pixels_whole_and_never_touch_at_360(
             "() => [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')]"
             ".map((c) => c.getBoundingClientRect().toJSON())")
         assert all(c["width"] >= 44 and c["height"] >= 44 for c in cells)
-        widths = [c["width"] for c in cells[1:]]
-        assert max(widths) - min(widths) <= 1, widths
+        assert abs(sum(c["width"] for c in cells) - (page.locator(".tab-bar").bounding_box()["width"] - 6)) <= 2
     finally:
         context.close()
 
 
-def test_the_admin_first_cell_has_the_shape_of_the_other_cells(new_context, app):
+def test_the_console_bar_cells_share_one_height_and_none_is_a_switch(new_context, app):
     context, page = _open(new_context, app, "/users", VIEWPORT_MIN_SUPPORTED, lang="fr")
     try:
         boxes = page.evaluate(
             "() => [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')]"
             ".map((c) => c.getBoundingClientRect().toJSON())")
-        first, others = boxes[0], boxes[1:]
-        assert first["height"] == others[0]["height"]
-        # Six cells: the switch is a fixed width a little wider than the equal cells that share
-        # the rest of the bar, the same in both spaces.
-        # (76px against about 52px.)
-        assert 0 < first["width"] - sum(o["width"] for o in others) / len(others) <= 26
+        assert len(boxes) == 5
+        assert len({box["height"] for box in boxes}) == 1, boxes
+        assert page.locator(".tab-bar > .tab-bar__link--switch").count() == 0
     finally:
         context.close()
 
@@ -273,17 +269,18 @@ def test_the_console_sheet_starts_with_account_then_theme_language_and_sign_out(
         context.close()
 
 
-def test_a_personal_page_puts_airlines_at_the_top_of_the_sheet(new_context, app):
+def test_a_personal_page_sheet_starts_with_account_and_lists_no_page_rows(new_context, app):
+    """Airlines and Place are bar tabs, so the sheet holds no page rows: Account and the space
+    switch first, then Theme, Language and Sign out"""
     context, page = _open(new_context, app, _home(app), VIEWPORT_PHONE)
     try:
         _open_sheet(page)
         order = page.evaluate(_ORDER)
-        assert order["labels"] == ["Airlines"] and order["firstChild"] == "tab-bar__pages"
-        assert (order["pages"] < order["separator"] < order["account"] < order["theme"]
-                < order["language"] < order["signOut"]), order
-        for row in page.locator(".tab-bar__pages a").all():
-            assert row.bounding_box()["height"] >= 44
-        assert all(order["icons"]), order
+        assert order["firstChild"] == "tab-bar__settings", order
+        assert order["labels"] == [] and order["separator"] is None, order
+        assert order["account"] < order["theme"] < order["language"] < order["signOut"], order
+        links = page.locator(".tab-bar__more-panel a")
+        assert [links.nth(i).inner_text() for i in range(links.count())] == ["Account", "Console"]
     finally:
         context.close()
 

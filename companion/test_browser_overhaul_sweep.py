@@ -97,10 +97,13 @@ _STRUCTURE = """
   if (args.phone) {
     if (bars.length !== 1) bad.push('tab bars: ' + bars.length);
     const cells = q('.tab-bar > a, .tab-bar > details').map((e) => e.getBoundingClientRect());
-    // The leading space switch cell has its own fixed width; the destination cells are equal.
-    const widths = q('.tab-bar > a:not(.tab-bar__link--switch), .tab-bar > details')
-      .map((e) => e.getBoundingClientRect().width);
-    if (widths.length && Math.max(...widths) - Math.min(...widths) > 1) bad.push('unequal cells ' + widths);
+    // Each cell follows its label and the cells together fill the bar.
+    const widths = cells.map((c) => c.width);
+    const bar = bars[0] ? bars[0].getBoundingClientRect() : null;
+    if (bar && widths.length > 1) {
+      const filled = widths.reduce((a, b) => a + b, 0);
+      if (Math.abs(filled - (bar.width - 6)) > 2) bad.push('cells do not fill the bar ' + widths);
+    }
     if (cells.some((c) => c.width < 44 || c.height < 44)) bad.push('bar cell under 44px');
     q('.tab-bar__label').forEach((l) => {
       if (l.scrollWidth > l.clientWidth) bad.push('clipped bar label ' + l.textContent); });
@@ -139,7 +142,7 @@ PERSONAL_ADMIN_PATHS = PERSONAL_PAGES + (
 # notice set aside: the two things an administrator's personal page may add.
 _PERSONAL_BODY = """
 () => {
-  const hidden = [...document.querySelectorAll('.space-switch, .tab-bar__link--switch, .frame-notice')];
+  const hidden = [...document.querySelectorAll('.space-switch, .tab-bar__space-link, .frame-notice')];
   const was = hidden.map((e) => e.style.display);
   hidden.forEach((e) => { e.style.display = 'none'; });
   const text = document.body.innerText;
@@ -640,7 +643,7 @@ def test_the_home_notification_has_a_french_translation(
 # strip names frames, which differ with the person, and are left out.
 _PAGE_SHAPE = """
 () => {
-  const skip = '.tab-bar__link--switch, .space-switch, .frame-notice,'
+  const skip = '.tab-bar__space-link, .space-switch, .frame-notice,'
     + ' .frame-menu, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);

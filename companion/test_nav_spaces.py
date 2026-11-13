@@ -73,11 +73,10 @@ def test_admin_bars_follow_the_spec():
     prefix = "/devices/abc123"
     console = ui_nav._tab_bar_html("fleet", health_alert="warn", device_config={"a": 1})
     cells = console.split('<details class="tab-bar__more">')[0]
-    assert _hrefs(cells) == [
-        "/", "/fleet", "/users", "/airlines/manage", "/audit"]
-    assert "Audit" in console and "Admin<" not in console
+    assert _hrefs(cells) == ["/fleet", "/users", "/airlines/manage", "/audit"]
+    assert "Audit" in console and "Admin<" not in console and "tab-bar__link--switch" not in console
     sheet = console.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == ["/account"]
+    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == ["/account", "/"]
     fleet_cell = cells[cells.index('href="/fleet"'):]
     assert "nav-notification" in fleet_cell[:fleet_cell.index("</a>")]
     summary = console[console.index("<summary"):console.index("</summary>")]
@@ -86,11 +85,11 @@ def test_admin_bars_follow_the_spec():
     mine = ui_nav._tab_bar_html("home", health_alert="warn", device_config={"a": 1})
     cells = mine.split('<details class="tab-bar__more">')[0]
     assert _hrefs(cells) == [
-        "/fleet", prefix + "/", prefix + "/flights", prefix + "/detection",
-        prefix + "/display"]
-    assert "nav-notification" not in mine
+        prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
+        prefix + "/detection"]
+    assert "nav-notification" not in mine and "tab-bar__link--switch" not in mine
     sheet = mine.split('<div class="tab-bar__more-panel">')[1]
-    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == [prefix + "/airlines", "/account"]
+    assert re.findall(r'<a [^>]*href="([^"]+)"', sheet) == ["/account", "/fleet"]
     assert "Admin<" not in mine
 
 

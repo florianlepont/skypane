@@ -193,8 +193,8 @@ def test_the_system_cards_fill_the_page_column(new_context, rig):
 
 @pytest.mark.parametrize("lang", LANGS)
 def test_the_tab_bar_of_an_unknown_frame_keeps_cells_of_one_size(new_context, rig, lang):
-    """The not-found page of a frame that does not exist shows two cells: the wide one must
-    not swallow the bar."""
+    """The not-found page of a frame that does not exist shows More alone: it keeps one
+    cell's width instead of swallowing the bar."""
     context, page = _admin(new_context, rig, VIEWPORT_MIN_SUPPORTED, "/devices/d_nope/", lang)
     try:
         cells = page.evaluate(_CELLS)
