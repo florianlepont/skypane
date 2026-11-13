@@ -5,7 +5,8 @@ The external facts, who owns a device and who co-manages it, are injected as
 `owner_lookup` and `is_co_manager`.
 
 An admin reaches any existing device; a user the ones they own or co-manage;
-the owner-only kind excludes co-managers.
+the owner-only kind excludes co-managers; the manager kind admits only an
+owner or a co-manager, so an admin who is neither is refused.
 
 Interface contract: a device-scoped handler receives a device id that this
 gate has already authorised and must never query devices directly.
@@ -35,6 +36,8 @@ KIND_USER = "user"
 # form admits the owner and an admin but not a co-manager.
 DEVICE_ARG = "device"
 DEVICE_OWNER_ARG = "device-owner"
+# The manager form admits the owner and a co-manager, and no admin shortcut.
+DEVICE_MANAGER_ARG = "device-manager"
 
 Principal = collections.namedtuple("Principal", "kind user_id email role")
 
@@ -48,20 +51,23 @@ def _valid_device_id(value):
 
 
 def authorized_device_id(principal, device_id, owner_lookup,
-                         is_co_manager=None, allow_co_manager=True):
+                         is_co_manager=None, allow_co_manager=True,
+                         allow_admin=True):
     """The validated device id when `principal` may reach it, else None.
 
-    An admin reaches any existing device; a user one they own, or one they
-    co-manage when `allow_co_manager` is true and `is_co_manager(device_id,
-    user_id)` says so. A malformed id is refused without calling either
-    callable, and a principal without a user id is never a co-manager.
+    An admin reaches any existing device when `allow_admin` is true; a user
+    one they own, or one they co-manage when `allow_co_manager` is true and
+    `is_co_manager(device_id, user_id)` says so. With `allow_admin` false an
+    admin is judged like any user, by ownership and membership. A malformed
+    id is refused without calling either callable, and a principal without a
+    user id is never a co-manager.
     """
     if principal is None or not _valid_device_id(device_id):
         return None
     owner = owner_lookup(device_id)
     if owner is None:
         return None
-    if principal.role == ADMIN:
+    if allow_admin and principal.role == ADMIN:
         return device_id
     if principal.user_id is None:
         return None
@@ -87,8 +93,9 @@ def decide(principal, access, captured, owner_lookup, is_co_manager=None):
     if access.device_arg is None:
         return ALLOW
     allow_co_manager = access.device_arg != DEVICE_OWNER_ARG
+    allow_admin = access.device_arg != DEVICE_MANAGER_ARG
     if authorized_device_id(principal, captured, owner_lookup, is_co_manager,
-                            allow_co_manager) is None:
+                            allow_co_manager, allow_admin) is None:
         return NOT_FOUND
     return ALLOW
 

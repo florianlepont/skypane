@@ -253,7 +253,28 @@ def _migrate_v4(conn: sqlite3.Connection) -> None:
     )
 
 
-MIGRATIONS: tuple[Migration, ...] = (_migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4)
+def _migrate_v5(conn: sqlite3.Connection) -> None:
+    # Expand-only: one new table and one index; nothing existing is touched.
+    # uploaded_by has no foreign key so a row can outlive a user row and user
+    # deletion can still find it by that id. Nothing cascades: removing a
+    # frame or a user clears these rows explicitly.
+    conn.execute(
+        "CREATE TABLE device_photos ("
+        " id TEXT PRIMARY KEY CHECK (id GLOB 'ph_*' AND length(id) = 19"
+        " AND substr(id, 4) NOT GLOB '*[^0-9a-f]*'),"
+        " device_id TEXT NOT NULL REFERENCES devices(id),"
+        " size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 1 AND 1000000),"
+        " width INTEGER NOT NULL,"
+        " height INTEGER NOT NULL,"
+        " uploaded_by INTEGER,"
+        " created_at INTEGER NOT NULL,"
+        " seq INTEGER NOT NULL)"
+    )
+    conn.execute("CREATE INDEX device_photos_device ON device_photos (device_id, seq)")
+
+
+MIGRATIONS: tuple[Migration, ...] = (
+    _migrate_v1, _migrate_v2, _migrate_v3, _migrate_v4, _migrate_v5)
 SCHEMA_VERSION = len(MIGRATIONS)
 
 
@@ -652,8 +673,8 @@ def delete_user_guarded(
     Refused with SelfActionError for the actor's own record, LastAdminError
     for the only active administrator and UserOwnsFrame while the user owns a
     frame. Otherwise, in the caller's transaction: the user's sessions go,
-    each co-manager row of theirs goes (one audit row per frame, under
-    `actor`), locations they created become unowned (administrators only see
+    photo rows they uploaded go (one count-only audit row), each co-manager
+    row of theirs goes (one audit row per frame, under `actor`), locations they created become unowned (administrators only see
     them) and the row is deleted. Audit rows keep their actor label and id.
     """
     with _atomic(conn):
@@ -668,6 +689,7 @@ def delete_user_guarded(
         if owned is not None:
             raise UserOwnsFrame(str(owned["name"] or owned["id"]))
         who = actor or AuditActor(None, "system", None)
+        _purge_user_photos(conn, who, target_user_id)
         conn.execute("DELETE FROM sessions WHERE user_id = ?", (target_user_id,))
         for row in list(conn.execute(
             "SELECT device_id FROM device_co_managers WHERE user_id = ? "
@@ -1142,10 +1164,12 @@ def device_coordinates(conn: sqlite3.Connection) -> dict[str, tuple[float, float
 def remove_device(
     conn: sqlite3.Connection, mac: str, actor: AuditActor | None = None
 ) -> bool:
-    """Hard-delete a frame by MAC, clearing and auditing its co-managers first."""
+    """Hard-delete a frame by MAC, clearing its photo rows and auditing its
+    co-managers first. Photo files are the caller's to remove."""
     with _atomic(conn):
         row = conn.execute("SELECT id FROM devices WHERE mac = ?", (mac,)).fetchone()
         if row is not None:
+            delete_photo_rows(conn, str(row["id"]))
             removed = clear_co_managers(conn, str(row["id"]))
             audit_co_manager_removals(
                 conn, actor or AuditActor(None, "system", None),
@@ -1315,6 +1339,160 @@ def find_eligible_co_manager(
 def dump_logical(conn: sqlite3.Connection) -> list[str]:
     """The `iterdump()` statements, for logical-equality assertions."""
     return list(conn.iterdump())
+
+
+# ---- photos ----------------------------------------------------------
+
+ACTION_PHOTO_PURGE = "device.photo_purge"
+
+
+def insert_photo(
+    conn: sqlite3.Connection,
+    photo_id: str,
+    device_id: str,
+    size_bytes: int,
+    width: int,
+    height: int,
+    uploaded_by: int | None,
+    now: int,
+) -> int:
+    """Insert a photo row and return its per-frame upload sequence number.
+
+    The sequence is one more than the frame's current maximum, computed in
+    the caller's transaction (or a new one) so concurrent inserts serialise.
+    """
+    with _atomic(conn):
+        seq = int(conn.execute(
+            "SELECT COALESCE(MAX(seq), 0) + 1 FROM device_photos WHERE device_id = ?",
+            (device_id,),
+        ).fetchone()[0])
+        conn.execute(
+            "INSERT INTO device_photos (id, device_id, size_bytes, width, height, "
+            "uploaded_by, created_at, seq) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (photo_id, device_id, size_bytes, width, height, uploaded_by, now, seq),
+        )
+    return seq
+
+
+def photo_usage(conn: sqlite3.Connection, device_id: str) -> tuple[int, int]:
+    """(photo count, total stored bytes) for one frame."""
+    row = conn.execute(
+        "SELECT count(*), COALESCE(SUM(size_bytes), 0) FROM device_photos "
+        "WHERE device_id = ?", (device_id,),
+    ).fetchone()
+    return int(row[0]), int(row[1])
+
+
+def server_photo_bytes(conn: sqlite3.Connection) -> int:
+    """Total stored photo bytes over every frame."""
+    return int(conn.execute(
+        "SELECT COALESCE(SUM(size_bytes), 0) FROM device_photos").fetchone()[0])
+
+
+def list_photo_rows(conn: sqlite3.Connection, device_id: str) -> list[sqlite3.Row]:
+    """A frame's photo rows in upload order."""
+    return list(conn.execute(
+        "SELECT id, device_id, size_bytes, width, height, uploaded_by, created_at, seq "
+        "FROM device_photos WHERE device_id = ? ORDER BY seq, id", (device_id,),
+    ))
+
+
+def get_photo_row(
+    conn: sqlite3.Connection, device_id: str, photo_id: str
+) -> sqlite3.Row | None:
+    """One photo row, only when it belongs to `device_id`."""
+    row: sqlite3.Row | None = conn.execute(
+        "SELECT id, device_id, size_bytes, width, height, uploaded_by, created_at, seq "
+        "FROM device_photos WHERE device_id = ? AND id = ?", (device_id, photo_id),
+    ).fetchone()
+    return row
+
+
+def delete_photo_row(conn: sqlite3.Connection, device_id: str, photo_id: str) -> bool:
+    """Delete one photo row of a frame; False when there was none."""
+    return conn.execute(
+        "DELETE FROM device_photos WHERE device_id = ? AND id = ?",
+        (device_id, photo_id),
+    ).rowcount > 0
+
+
+def all_photo_refs(conn: sqlite3.Connection) -> list[tuple[str, str]]:
+    """(device id, photo id) for every row, for reconciling against files."""
+    return [
+        (str(r["device_id"]), str(r["id"])) for r in conn.execute(
+            "SELECT device_id, id FROM device_photos ORDER BY device_id, seq, id")
+    ]
+
+
+def is_user_active(conn: sqlite3.Connection, user_id: int) -> bool:
+    """True for an existing user who is not disabled."""
+    row = conn.execute("SELECT disabled FROM users WHERE id = ?", (user_id,)).fetchone()
+    return row is not None and not row["disabled"]
+
+
+def delete_photo_rows(conn: sqlite3.Connection, device_id: str) -> list[str]:
+    """Delete every photo row of a frame; returns the removed photo ids.
+
+    Files are not touched here (this module never uses the filesystem); the
+    caller unlinks them after its transaction commits.
+    """
+    with _atomic(conn):
+        ids = [
+            str(r["id"]) for r in conn.execute(
+                "SELECT id FROM device_photos WHERE device_id = ? ORDER BY seq, id",
+                (device_id,),
+            )
+        ]
+        conn.execute("DELETE FROM device_photos WHERE device_id = ?", (device_id,))
+    return ids
+
+
+def photo_refs_uploaded_by(
+    conn: sqlite3.Connection, user_id: int
+) -> list[tuple[str, str]]:
+    """(device id, photo id) of every photo a user uploaded, on any frame."""
+    return [
+        (str(r["device_id"]), str(r["id"])) for r in conn.execute(
+            "SELECT device_id, id FROM device_photos WHERE uploaded_by = ? "
+            "ORDER BY device_id, seq, id", (user_id,),
+        )
+    ]
+
+
+def delete_photo_rows_uploaded_by(
+    conn: sqlite3.Connection, user_id: int
+) -> list[tuple[str, str]]:
+    """Delete every photo row a user uploaded; returns (device id, photo id)."""
+    with _atomic(conn):
+        refs = photo_refs_uploaded_by(conn, user_id)
+        conn.execute("DELETE FROM device_photos WHERE uploaded_by = ?", (user_id,))
+    return refs
+
+
+def audit_photo_purge(
+    conn: sqlite3.Connection,
+    actor: AuditActor,
+    target_type: str,
+    target_id: str,
+    count: int,
+    cause: str,
+) -> None:
+    """One count-only audit row for a bulk photo removal; nothing when count is 0.
+
+    The detail never carries photo ids: the audit page is an admin surface.
+    """
+    if count > 0:
+        audit_append(
+            conn, actor, ACTION_PHOTO_PURGE, target_type, target_id, "ok",
+            {"count": count, "cause": cause},
+        )
+
+
+def _purge_user_photos(
+    conn: sqlite3.Connection, actor: AuditActor, user_id: int
+) -> None:
+    removed = delete_photo_rows_uploaded_by(conn, user_id)
+    audit_photo_purge(conn, actor, "user", str(user_id), len(removed), "user_deleted")
 
 
 # ---- audit log -------------------------------------------------------
@@ -1585,8 +1763,9 @@ def park_retired(conn: sqlite3.Connection, device_id: str, now: int) -> str | No
         dev = conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
         if dev is None:
             return None
-        # Membership rows reference the device; clear them before the delete.
+        # Membership and photo rows reference the device; clear them before the delete.
         clear_co_managers(conn, device_id)
+        delete_photo_rows(conn, device_id)
         conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
         pending_id = new_pending_id(conn)
         conn.execute(

@@ -168,3 +168,91 @@ def test_no_user_id_is_never_a_co_manager_and_an_admin_skips_membership():
 ])
 def test_home_for(principal, frame_id, expected):
     assert access.home_for(principal, frame_id) == expected
+
+
+# --- the manager kind: owner and co-manager, no admin shortcut ----------------
+
+_MANAGER = "device-manager"
+_OWNED_BY_OTHER = {"d_00000001": 9}.get
+
+
+def test_the_manager_kind_is_exported_with_the_user_floor():
+    assert routes.MANAGER_DEVICE == routes.Access(access.USER, _MANAGER)
+
+
+def test_allow_admin_false_refuses_a_pure_admin_but_keeps_managers():
+    member, _calls = _recording_membership()
+    assert access.authorized_device_id(
+        _ADMIN, "d_00000002", _lookup, member, allow_admin=False) is None
+    assert access.authorized_device_id(
+        _USER, "d_00000001", _lookup, member, allow_admin=False) == "d_00000001"
+    assert access.authorized_device_id(
+        _USER, "d_00000001", _OWNED_BY_OTHER, member,
+        allow_admin=False) == "d_00000001"
+    assert access.authorized_device_id(
+        _USER, "d_00000002", _lookup, member, allow_admin=False) is None
+
+
+def test_an_admin_who_owns_or_co_manages_a_frame_is_admitted_as_manager():
+    owner_admin = access.Principal("user", 9, "oa@example.com", "admin")
+    assert access.authorized_device_id(
+        owner_admin, "d_00000002", _lookup, allow_admin=False) == "d_00000002"
+    comanager_admin = access.Principal("user", 7, "ca@example.com", "admin")
+    member, _calls = _recording_membership()
+    assert access.authorized_device_id(
+        comanager_admin, "d_00000001", _OWNED_BY_OTHER, member,
+        allow_admin=False) == "d_00000001"
+
+
+def test_allow_admin_false_rejects_unknown_malformed_and_missing_principals():
+    owner_calls = []
+    member, member_calls = _recording_membership()
+
+    def owner(device_id):
+        owner_calls.append(device_id)
+        return 9
+
+    for bad in ("d_ZZZZZZZZ", "../x", "", None, 5):
+        assert access.authorized_device_id(
+            _USER, bad, owner, member, allow_admin=False) is None
+    assert owner_calls == [] and member_calls == []
+    assert access.authorized_device_id(
+        _USER, "d_0000ffff", lambda _d: None, member, allow_admin=False) is None
+    assert access.authorized_device_id(
+        None, "d_00000001", _lookup, member, allow_admin=False) is None
+    no_id = access.Principal("user", None, "x@example.com", "admin")
+    assert access.authorized_device_id(
+        no_id, "d_00000001", _lookup, member, allow_admin=False) is None
+
+
+def test_the_default_still_admits_an_admin():
+    assert access.authorized_device_id(_ADMIN, "d_00000002", _lookup) == "d_00000002"
+
+
+def test_decide_with_the_manager_kind_refuses_a_pure_admin_everywhere():
+    scoped = _acc(access.USER, _MANAGER)
+    member, _calls = _recording_membership()
+    for device_id in ("d_00000001", "d_00000002", "d_0000ffff"):
+        assert access.decide(_ADMIN, scoped, device_id, _lookup, member) == access.NOT_FOUND
+    # The admin is refused through decide, not only through the helper.
+    assert access.decide(_ADMIN, _acc(access.USER, "device"), "d_00000002",
+                         _lookup, member) == access.ALLOW
+
+
+def test_decide_with_the_manager_kind_admits_owner_and_co_manager_only():
+    scoped = _acc(access.USER, _MANAGER)
+    member, _calls = _recording_membership()
+    assert access.decide(None, scoped, "d_00000001", _lookup, member) == access.LOGIN
+    assert access.decide(_USER, scoped, "d_00000001", _lookup, member) == access.ALLOW
+    assert access.decide(_USER, scoped, "d_00000001", _OWNED_BY_OTHER, member) == access.ALLOW
+    other = access.Principal("user", 11, "n@example.com", "user")
+    assert access.decide(other, scoped, "d_00000001", _OWNED_BY_OTHER, member) == access.NOT_FOUND
+
+
+def test_the_manager_kind_answers_alike_for_foreign_and_unknown_frames():
+    scoped = _acc(access.USER, _MANAGER)
+    member, _calls = _recording_membership()
+    foreign = access.decide(_USER, scoped, "d_00000002", _lookup, member)
+    unknown = access.decide(_USER, scoped, "d_0000ffff", _lookup, member)
+    malformed = access.decide(_USER, scoped, "nope", _lookup, member)
+    assert foreign == unknown == malformed == access.NOT_FOUND

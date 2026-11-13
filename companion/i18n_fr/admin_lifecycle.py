@@ -56,6 +56,7 @@ MESSAGES = {
     "admin_lifecycle.action_device_reactivate": "Cadre réactivé",
     "admin_lifecycle.action_device_co_manager_add": "Co-gestionnaire ajouté",
     "admin_lifecycle.action_device_co_manager_remove": "Co-gestionnaire retiré",
+    "admin_lifecycle.action_device_photo_purge": "Photos supprimées",
     "admin_lifecycle.audit_person": "Personne",
     "admin_lifecycle.audit_reason": "Raison",
     "admin_lifecycle.exact_date": "Date exacte",

@@ -13,6 +13,8 @@ Security invariants:
   transaction. A delete is refused while the person owns a frame, for the
   signed-in administrator and for the last active administrator, and its
   audit row names the person by e-mail because the id means nothing after.
+- Photos the person uploaded are removed with the row; their files are
+  unlinked after the transaction commits.
 - The page never shows the issuer or subject of a linked identity.
 """
 import datetime
@@ -21,7 +23,7 @@ import sqlite3
 
 from companion import audit, console_flash, i18n, route_types, ui_base
 from companion.pages import users_page
-from server import fleet_db, fleet_sessions
+from server import fleet_db, fleet_ops, fleet_sessions
 
 # Same literals as companion/console_routes.py (which imports this module, so
 # it cannot be imported at module level); a test pins that the two agree.
@@ -256,12 +258,16 @@ def _actor_id(h):
     return None if principal is None else principal.user_id
 
 
-def _run_action(h, user_id, action, change, success_flash, audit_by_email=False):
+def _run_action(
+        h, user_id, action, change, success_flash, audit_by_email=False,
+        after_commit=None):
     """Run `change(conn, actor_id, row)` and write its audit row in one
     transaction. `change` returns (audit detail, flash params) or raises a
     guard error, in which case nothing is kept and a denied row is written.
     `audit_by_email` names the audit target by the person's e-mail instead of
     their id, for an action after which the id means nothing.
+    `after_commit()` runs once the transaction has committed, before the
+    response is sent; it is not called for a refused or rolled-back change.
     Returns the redirect response.
     """
     conn = fleet_db.connect(h.args.state_dir)
@@ -277,6 +283,8 @@ def _run_action(h, user_id, action, change, success_flash, audit_by_email=False)
                 detail, params = change(conn, _actor_id(h), row)
                 if detail is not None:
                     audit.record_in(h, conn, action, "user", target, "ok", detail or None)
+            if after_commit is not None:
+                after_commit()
         except _UnknownUser:
             return h.redirect(USERS_PATH, set_cookie=_back(FLASH_NOT_FOUND))
         except _NotLinked:
@@ -372,13 +380,32 @@ def handle_delete(h, m):
     if user_id is None:
         return _unknown_id(h)
 
+    photo_refs = []
+
     def change(conn, actor_id, row):
+        photo_refs.extend(fleet_db.photo_refs_uploaded_by(conn, user_id))
         fleet_db.delete_user_guarded(
             conn, actor_id, user_id, actor=audit.actor_for(h))
         return {"role": row["role"]}, {"email": row["email"]}
 
     return _run_action(
-        h, user_id, "user.delete", change, FLASH_DELETED, audit_by_email=True)
+        h, user_id, "user.delete", change, FLASH_DELETED, audit_by_email=True,
+        after_commit=lambda: _unlink_deleted_photos(h, photo_refs))
+
+
+def _unlink_deleted_photos(h, photo_refs):
+    """After the delete committed, remove the files of the photos it dropped.
+
+    A rolled-back or refused delete leaves the rows in place, and the removal
+    skips rows that still exist, so nothing is lost in that case.
+    """
+    if not photo_refs:
+        return
+    conn = fleet_db.connect(h.args.state_dir)
+    try:
+        fleet_ops.unlink_photo_files(conn, h.args.state_dir, photo_refs)
+    finally:
+        conn.close()
 
 
 ROUTES = (

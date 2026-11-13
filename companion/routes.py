@@ -59,6 +59,7 @@ ADMIN_ONLY = route_types.ADMIN_ONLY
 OWNER_DEVICE = route_types.OWNER_DEVICE
 ADMIN_DEVICE = route_types.ADMIN_DEVICE
 OWNER_ONLY_DEVICE = route_types.OWNER_ONLY_DEVICE
+MANAGER_DEVICE = route_types.MANAGER_DEVICE
 
 # Literal here, byte-identical to companion/app.py's own constants of the
 # same name, since this module can never import companion.app either.

@@ -38,6 +38,9 @@ OWNER_DEVICE = Access(USER, _access.DEVICE_ARG)
 ADMIN_DEVICE = Access(ADMIN, _access.DEVICE_ARG)
 # Only the owner or an admin passes; a co-manager is refused like a stranger.
 OWNER_ONLY_DEVICE = Access(USER, _access.DEVICE_OWNER_ARG)
+# Device-scoped, manager only: the owner or a co-manager passes; an admin who
+# is neither is refused like a stranger.
+MANAGER_DEVICE = Access(USER, _access.DEVICE_MANAGER_ARG)
 
 
 class Route(collections.namedtuple(

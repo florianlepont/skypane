@@ -83,7 +83,8 @@ if _REPO_ROOT not in sys.path:
 
 from server import (
     device_dirs, device_policy, firmware_registry, fleet_db, fleet_ops, hardware,
-    history_db, image_container, pairing_code, pairing_image, state_store,
+    history_db, image_container, pairing_code, pairing_image, photo_purge,
+    state_store,
 )
 from server.panel_format import HEIGHT, WIDTH
 from server.wake_stats import parse_wake_stats
@@ -460,11 +461,22 @@ def mirror_to_fleet(state_dir, op, mac, secret_sha256=None):
         try:
             with fleet_db.transaction(conn):
                 _apply_mirror(conn, op, mac, secret_sha256)
+            if op == "remove":
+                sweep_photos_quietly(conn, state_dir)
         finally:
             conn.close()
     except (fleet_db.FleetDbError, sqlite3.Error, OSError, ValueError) as exc:
         return type(exc).__name__
     return None
+
+
+def sweep_photos_quietly(conn, state_dir):
+    """Reconcile the photo tree after a frame removal committed. A failure
+    leaves orphans for the next sweep and never fails the removal."""
+    try:
+        photo_purge.sweep(conn, state_dir)
+    except (OSError, sqlite3.Error):
+        pass
 
 
 def _apply_mirror(conn, op, mac, secret_sha256):

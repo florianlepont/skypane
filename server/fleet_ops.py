@@ -38,7 +38,7 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
-from server import device_dirs, fleet_db, hardware, pairing_code  # noqa: E402
+from server import device_dirs, fleet_db, hardware, pairing_code, photo_purge  # noqa: E402
 
 PAIRING_DIRNAME = "pairing"
 
@@ -426,6 +426,40 @@ def _transaction_keeping_directory(
         _discard_aside(pair)
 
 
+def _purge_photo_rows(
+    conn: sqlite3.Connection,
+    actor: fleet_db.AuditActor,
+    device_id: str,
+    cause: str,
+) -> list[tuple[str, str]]:
+    """Inside the caller's transaction: drop a frame's photo rows and audit the
+    count. Returns the refs whose files `unlink_photo_files` removes after COMMIT."""
+    ids = fleet_db.delete_photo_rows(conn, device_id)
+    fleet_db.audit_photo_purge(conn, actor, "device", device_id, len(ids), cause)
+    return [(device_id, photo_id) for photo_id in ids]
+
+
+def unlink_photo_files(
+    conn: sqlite3.Connection, root: str, refs: list[tuple[str, str]]
+) -> None:
+    """After COMMIT: remove the files of photos whose rows are gone.
+
+    Never raises. A failed unlink leaves orphan files, so one sweep runs to
+    finish the job; if that fails too, the next scheduled sweep does.
+    """
+    if not refs:
+        return
+    try:
+        failed = photo_purge.remove_files(conn, root, refs).failed
+    except OSError:
+        failed = 1
+    if failed:
+        try:
+            photo_purge.sweep(conn, root)
+        except OSError:
+            _LOG.warning("photo sweep after a failed unlink did not finish")
+
+
 def _directory_for(state_path: str | None, root: str) -> str | None:
     """The directory a wiping operation touches, None for none or the live frame."""
     if state_path is None or state_path == device_dirs.LIVE_STATE_PATH:
@@ -458,6 +492,7 @@ def reassign_frame(
     _require_owner(conn, new_owner_user_id)
     _require_canonical_path(str(first["state_path"]), device_id)
     moved: list[tuple[str, str] | None] = []
+    photo_refs: list[tuple[str, str]] = []
     with _guarded(busy_guard, _directory_for(str(first["state_path"]), root)):
         with _transaction_keeping_directory(conn, moved):
             dev = fleet_db.get_device(conn, device_id)
@@ -473,6 +508,7 @@ def reassign_frame(
             fleet_db.audit_co_manager_removals(
                 conn, actor, device_id, removed, "reassign"
             )
+            photo_refs = _purge_photo_rows(conn, actor, device_id, "reassign")
             if dev["state_path"] == device_dirs.LIVE_STATE_PATH:
                 conn.execute(
                     "UPDATE devices SET owner_user_id = ? WHERE id = ?",
@@ -491,6 +527,7 @@ def reassign_frame(
                 conn, actor, ACTION_REASSIGN, "device", device_id, "ok",
                 {"old_owner_user_id": old_owner, "new_owner_user_id": new_owner_user_id},
             )
+    unlink_photo_files(conn, root, photo_refs)
 
 
 # ---- retire and re-activate -------------------------------------------
@@ -526,6 +563,7 @@ def retire_frame(
                 current is None or current["owner_user_id"] != owner_user_id):
             raise NotFound("no such frame")
         co_manager_ids = [int(r["user_id"]) for r in fleet_db.list_co_managers(conn, device_id)]
+        photo_refs = _purge_photo_rows(conn, actor, device_id, "retire")
         pending_id = fleet_db.park_retired(conn, device_id, _now(now))
         if pending_id is None:
             raise NotFound("no such frame")
@@ -535,6 +573,7 @@ def retire_frame(
             {"pending_id": pending_id, "owner_user_id": dev["owner_user_id"],
              **({"via": "owner"} if owner_user_id is not None else {})},
         )
+    unlink_photo_files(conn, root, photo_refs)
     return pending_id
 
 

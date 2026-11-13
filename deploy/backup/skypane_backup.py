@@ -73,6 +73,10 @@ KNOWN_EXCLUDED = (
     # Short-lived pairing screens: the displayed code sits in the pixels and
     # the images are regenerated on the next poll, so none is archived.
     "pairing",
+    # User photos are private, and a deleted photo must not live on in
+    # archives that are kept for a year. Listing the name also keeps the
+    # nightly run from reporting it as drift.
+    "photos",
     "*.lock",
     "*.tmp",
     "img",
