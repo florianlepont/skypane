@@ -5765,8 +5765,10 @@ a.btn[aria-disabled="true"] {
     gap: var(--space-sm);
   }
 
+  /* One label width for both rows, so the two segmented controls start at
+   * the same edge whatever the language's label lengths. */
   .tab-bar__prefs .group .row .row__main {
-    flex: 0 0 auto;
+    flex: 0 0 6.5rem;
     min-height: 0;
     padding: 0;
   }

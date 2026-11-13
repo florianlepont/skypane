@@ -438,3 +438,25 @@ def test_the_more_cell_is_one_glyph_like_every_other_cell(new_context, app, sche
         assert page.evaluate(glyphs) in ("none", "normal")
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_the_theme_and_language_controls_share_one_left_and_right_edge(
+        new_context, app, viewport, lang):
+    context, page = _open(new_context, app, _home(app), viewport, lang=lang)
+    try:
+        _open_sheet(page)
+        page.wait_for_function(_SETTLED)
+        edges = page.evaluate("""() => [...document.querySelectorAll(
+          '.tab-bar__pref .theme-form')].map((f) => {
+            const r = f.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)]; })""")
+        assert len(edges) == 2 and edges[0] == edges[1], edges
+        fits = page.evaluate("""() => [...document.querySelectorAll(
+          '.tab-bar__pref .row__label, .tab-bar__pref .theme-option')].filter(
+            (e) => e.classList.contains('row__label')
+              ? e.getClientRects()[0].height > 24 : e.scrollWidth > e.clientWidth + 0.5)
+            .map((e) => e.textContent)""")
+        assert fits == [], fits
+    finally:
+        context.close()
