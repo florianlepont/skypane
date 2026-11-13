@@ -759,7 +759,7 @@ class Handler(
         return self.send_html(200, credits_page.credits_page(
             self._resolved_ui_theme(), health_alert, back=back, home_route=home_route))
 
-    def _forbidden_page(self, purpose=None):
+    def _forbidden_page(self, purpose=None, reopen=None):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
         Byte-for-byte the same shape as `_not_found_page()` above. The
         markup itself is `companion/login_page.py`'s `forbidden_page()`.
@@ -770,7 +770,7 @@ class Handler(
         back, home_route = self._back_target()
         return login_page.forbidden_page(
             self._resolved_ui_theme(), health_alert, back=back, purpose=purpose,
-            home_route=home_route)
+            home_route=home_route, reopen=reopen)
 
     def _back_target(self):
         """(which onward link, Home route) an error page offers the current
@@ -1102,7 +1102,8 @@ class Handler(
             auth.csrf_token(raw_session) if raw_session and principal is not None else "")
         if method == "POST" and route.csrf and not auth.csrf_ok(
                 raw_session, routes.submitted_csrf(self, route)):
-            return self.send_html(403, self._forbidden_page(login_page.CSRF_EXPIRED_TEXT))
+            return self.send_html(403, self._forbidden_page(
+                login_page.CSRF_EXPIRED_TEXT, reopen=routes.reopen_address(parsed.path)))
         if route.access.min_role == access.ANONYMOUS:
             # Login, sign-in and static assets: no device.
             device_scope.set_request_scope(None, ())

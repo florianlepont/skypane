@@ -460,6 +460,15 @@ def match(method, path, query):
     return _match_in(ROUTES, method, path, query, None)
 
 
+def reopen_address(path):
+    """The address a refused form can be opened again at: its own path (never
+    its query) when the same path is a page, else None."""
+    twin = match("GET", path, "")
+    if twin is None or static_files.looks_like_asset(path):
+        return None
+    return path
+
+
 def submitted_csrf(handler, route):
     """The anti-forgery token a POST carries: in the form body, except for an
     illustration upload, whose multipart body the handler reads itself and

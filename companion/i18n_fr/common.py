@@ -37,7 +37,9 @@ MESSAGES = {
     "common.request_refused": "Requête refusée",
     "common.method_not_allowed":
         "Cette adresse n’accepte pas ce type de requête.",
-    "common.csrf_expired": "Cette page a expiré. Rechargez-la et réessayez.",
+    "common.csrf_expired":
+        "Cette page a expiré. Rouvrez-la et réessayez.",
+    "common.reopen_page": "Rouvrir la page",
     "common.this_request_came_from_another_site_so_it_was":
         "Cette requête venait d’un autre site, elle a donc été refusée. "
         "Ouvrez SkyPane directement et réessayez.",
