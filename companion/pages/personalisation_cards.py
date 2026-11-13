@@ -152,6 +152,26 @@ def _views():
         (VIEW_CALENDAR, CALENDAR_TITLE, "icon-calendar"))
 
 
+def _view_titles():
+    return {
+        VIEW_ARRIVALS: FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS],
+        VIEW_SPECIAL_LOOKS: SPECIAL_LOOKS_HEADING,
+        VIEW_CALENDAR: CALENDAR_TITLE,
+        VIEW_LOOK_NEW: rules.NEW_SPECIAL_LOOK_HEADING,
+        VIEW_LOOK_EDIT: rules.EDIT_SPECIAL_LOOK_HEADING,
+        VIEW_CALENDAR_CONNECT: calendar_settings.CALENDAR_SHEET_CONNECT_TITLE,
+        VIEW_CALENDAR_LOOK: calendar_settings.LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR],
+    }
+
+
+def page_title(style_title, path):
+    """The document title of the Style page at `path`: the view's own name
+    ahead of the page's, so history entries and tabs tell the pages apart.
+    Departures, the page's first view, keeps the page's name alone."""
+    message = _view_titles().get(ROUTE_VIEWS.get(device_scope.strip_prefix(path)))
+    return "%s - %s" % (i18n.t(message), style_title) if message else style_title
+
+
 def view_for_route(route):
     """The view an address names: an unknown address is Departures."""
     return ROUTE_VIEWS.get(route, VIEW_DEPARTURES)

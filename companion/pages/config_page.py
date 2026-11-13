@@ -321,6 +321,7 @@ def submitted_scope(form):
 # The four Personalisation addresses (Look keeps /display) and the page
 # route a response on any of them is wrapped as.
 PERSONALISATION_ROUTES = tuple(personalisation_cards.VIEW_ROUTES.values())
+page_title = personalisation_cards.page_title
 
 
 def shell_route(route):

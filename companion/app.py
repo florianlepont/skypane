@@ -938,7 +938,9 @@ class Handler(
         if flash_html is None:
             flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
-            title=i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
+            title=config_page.page_title(
+                i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
+                prefs.current_request_path()),
             active=layout.nav_slug(route),
             body=body,
             ui_theme=ctx.ui_theme, flash=flash_html,

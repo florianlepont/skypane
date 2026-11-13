@@ -407,13 +407,12 @@ def special_looks_html(ctx, calendar_row_html):
         i18n.t(SPECIAL_LOOKS_EMPTY_HEADING), "", compact=True)
     return (
         '<div class="special-looks">'
-        '<h3 class="special-looks__title">%s</h3>'
         '<p class="text-label section-caption">%s</p>'
         '%s%s<ul class="special-list special-list--add">%s</ul>'
         '<p class="text-label special-looks__order">%s</p>'
         "</div>"
     ) % (
-        escape_html(i18n.t(SPECIAL_LOOKS_HEADING)), escape_html(i18n.t(RULES_SECTION_CAPTION)),
+        escape_html(i18n.t(RULES_SECTION_CAPTION)),
         empty_html,
         '<ul class="special-list">%s%s</ul>' % (calendar_row_html, rows_html)
         if (calendar_row_html or rows_html) else "",
