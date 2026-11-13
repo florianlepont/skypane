@@ -395,3 +395,32 @@ def test_no_french_tab_label_loses_its_accent_or_its_descender_to_the_clip(
             assert label["cell"] == 56, label
     finally:
         context.close()
+
+
+def _listener_count(cdp):
+    cdp.send("HeapProfiler.collectGarbage")
+    metrics = {m["name"]: m["value"] for m in cdp.send("Performance.getMetrics")["metrics"]}
+    return int(metrics["JSEventListeners"])
+
+
+@pytest.mark.parametrize("how", ["toggle", "escape"])
+def test_opening_and_closing_the_sheet_leaves_no_event_listener_behind(new_context, app, how):
+    """fifty open and close cycles add no event listener to the page, whichever way the sheet
+    closes: the sheet's scripts bind once, not on every open"""
+    context, page = _open(new_context, app, _home(app) + "flights", VIEWPORT_MIN_SUPPORTED)
+    try:
+        cdp = context.new_cdp_session(page)
+        cdp.send("Performance.enable")
+        page.wait_for_timeout(1000)
+        before = _listener_count(cdp)
+        for _ in range(50):
+            page.locator(".tab-bar__more > summary").click()
+            page.locator(".tab-bar__more-panel").wait_for(state="visible")
+            if how == "escape":
+                page.keyboard.press("Escape")
+            else:
+                page.locator(".tab-bar__more > summary").click()
+            page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+        assert _listener_count(cdp) <= before, (before, _listener_count(cdp))
+    finally:
+        context.close()
