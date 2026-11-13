@@ -3027,23 +3027,24 @@ table.data-table--flights {
 }
 
 table.data-table--flights .col-when {
-  width: 22%;
+  width: 20%;
 }
 
 table.data-table--flights .col-flight {
-  width: 24%;
+  width: 22%;
 }
 
 table.data-table--flights .col-route {
-  width: 24%;
+  width: 22%;
 }
 
 table.data-table--flights .col-state {
-  width: 16%;
+  width: 14%;
 }
 
 table.data-table--flights .col-picture {
-  width: 14%;
+  /* Wide enough for the picture button at its natural width. */
+  width: 9rem;
 }
 
 .update-cta__icon .icon {
