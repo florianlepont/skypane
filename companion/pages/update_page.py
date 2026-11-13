@@ -348,7 +348,8 @@ def _release_install_form_html(
     against the running release: a newer one is "Install" on the accent
     primary button; an older one is "Roll back to <version>" on the quiet
     button; an equal or incomparable one is a quiet "Install". `compact`
-    words a rollback "Roll back" (the table row names the version).
+    (a history row, which names the version itself) words a rollback "Roll back"
+    and makes every action a text-style button.
     """
     version = release.get("version")
     direction = release.get("direction")
@@ -360,7 +361,7 @@ def _release_install_form_html(
     if direction == _DIRECTION_NEWER:
         return _install_form_html(
             version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None,
-            type_html=type_html)
+            quiet=compact, type_html=type_html, button_class=_TEXT_BUTTON_CLASS)
     return _install_form_html(
         version, INSTALL_VERSION_BUTTON_TEMPLATE if with_version_label else None, quiet=True,
         type_html=type_html, button_class=_TEXT_BUTTON_CLASS if compact else _QUIET_BUTTON_CLASS)
@@ -781,7 +782,9 @@ def _history_row_html(release, view, now, offered_version, newest):
              layout.icon_html("icon-chevron-right", size=16, extra_class="update-item__chevron"),
              "".join("<li>%s</li>" % escape_html(note) for note in notes))
     else:
-        row_html = '<div class="update-item__summary">%s</div>' % head_html
+        row_html = (
+            '<div class="update-item__summary">%s'
+            '<span class="update-item__chevron-space"></span></div>') % head_html
     return '<li class="%s">%s<div class="update-item__action">%s</div></li>' % (
         classes, row_html, action_html)
 

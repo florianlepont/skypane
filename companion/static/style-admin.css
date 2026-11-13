@@ -1080,6 +1080,12 @@ a.fleet-retire__link {
   transition: transform var(--motion-fast) ease;
 }
 
+/* A row without notes keeps the chevron's room so the chips share one edge. */
+.update-item__chevron-space {
+  flex: none;
+  width: 16px;
+}
+
 .update-item__details[open] .update-item__chevron {
   transform: rotate(-90deg);
 }
