@@ -345,6 +345,22 @@ BROWSERS = {
 }
 # The clients that define navigator.standalone: the two that get the lead.
 IPHONE = ["safari-tab", "home-screen-app"]
+# How much lower the app bar starts in each client: a Home Screen web app starts it below the
+# frost iOS draws over the top of its window (companion/test_browser_web_app_bar.py), and the
+# search field and the chips move down with it. The sheet and the tab bar stay put.
+BAR_DROP = {"safari-tab": 0, "home-screen-app": 24, "other-browser": 0}
+# Which edges (index into left, top, right, bottom) of each floating part move with the bar.
+MOVES_WITH_THE_BAR = {".site-header": (3,), ".place-search__row": (1, 3), ".place-modes": (1, 3)}
+
+
+def _floating(width, client):
+    """FLOATING at `width`, with the parts below the app bar moved down by the client's drop."""
+    drop = BAR_DROP[client]
+    return {
+        selector: [
+            v + drop if v is not None and i in MOVES_WITH_THE_BAR.get(selector, ()) else v
+            for i, v in enumerate(box)]
+        for selector, box in FLOATING[width].items()}
 LEAD_STATE = (
     "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
     " const edge = document.querySelector('.place-edge');"
@@ -398,8 +414,9 @@ def test_the_page_starts_scrolled_past_a_lead_of_map_under_the_status_bar(
     above the page and a tail below it, and the page opens scrolled past the lead, in a Safari tab
     and in a Home Screen web app alike: the map starts at the document's top and runs the tail past
     the window's bottom, lead and tail are map, the app bar, search, chips, sheet and tab bar sit
-    exactly where they sit without them, no fixed box touches the top edge (the loading state's
-    ground strip is gone), and a scroll that ends in the lead or in the tail settles back"""
+    exactly where they sit without them (in a Home Screen web app the bar, search and chips 24px
+    lower, below iOS's frost), no fixed box touches the top edge (the loading state's ground strip
+    is gone), and a scroll that ends in the lead or in the tail settles back"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_tab(new_context, server, viewport, client, color_scheme=theme)
     try:
@@ -410,7 +427,7 @@ def test_the_page_starts_scrolled_past_a_lead_of_map_under_the_status_bar(
         assert state["scrollMax"] == LEAD + TAIL, state
         assert state["edge"] == "none" and page.evaluate(TOP_EDGE_CHAIN)["fixedAtTop"] == [], state
         boxes = page.evaluate(BOXES)
-        for selector, expected in FLOATING[viewport["width"]].items():
+        for selector, expected in _floating(viewport["width"], client).items():
             got = boxes[selector]
             assert got and all(
                 b is None or abs(a - b) <= 1.5 for a, b in zip(got, expected)), (selector, boxes)
