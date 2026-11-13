@@ -253,11 +253,12 @@ def test_accent_budget(new_context, make_app_server):
     the current segment of the space switch an administrator sees, and the selected segment of
     the mode switch and the theme and language switches, graphite pills by the segmented-control rule, the current sidebar item,
     the current tab bar pill, the icon chip of the frame popover's Add row and the icon tile of the More panel's Console card): never on an airport row, a summary value or a
-    runway card."""
+    runway card. A closed dialog's own primary action (the unsaved-changes question) is not
+    painted and is left out."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     probe = (
         "accent => [...document.querySelectorAll('body *')].filter("
-        " el => getComputedStyle(el).backgroundColor === accent)"
+        " el => !el.closest('dialog') && getComputedStyle(el).backgroundColor === accent)"
         ".map(el => el.tagName.toLowerCase() + '.' + el.className.toString().trim()"
         " + '|' + (el.htmlFor || ''))")
     allowed = ("dirty-bar__save", "skip-link", "space-switch__segment--current", "place-mode",

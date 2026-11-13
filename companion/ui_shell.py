@@ -489,7 +489,7 @@ def _device_scoped_title(title, active):
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
-        refresh_token=None, console_page=False, styles=()):
+        refresh_token=None, console_page=False, styles=(), no_tab=False):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -521,6 +521,9 @@ def page_shell(
 
     `console_page` (default `False`) marks a Console page of a frame (Health,
     Device, the Airline editor), which never carries the foreign-frame strip.
+
+    `no_tab` (default `False`) is set by the error pages: they are in no tab, so
+    the bottom bar selects no cell, not even More.
     """
     script_tags_html = _script_tags_html(scripts)
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
@@ -529,7 +532,7 @@ def page_shell(
         active, health_alert=health_alert, device_config=device_config)
     tab_bar_html = _tab_bar_html(
         active, health_alert=health_alert, device_config=device_config,
-        ui_theme=resolved_theme)
+        ui_theme=resolved_theme, no_tab=no_tab)
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
     flash_html = flash or ""
     banner_html = banner or ""

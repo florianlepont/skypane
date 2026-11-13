@@ -66,14 +66,21 @@ PARENT_VIEWS = {
 }
 FORM_VIEWS = tuple(PARENT_VIEWS)
 ROUTE_VIEWS = {route: view for view, route in VIEW_ROUTES.items()}
-# Where a save started from a Style page may return to, so leaving the page
-# through an in-app link can save first and still land where the person
-# tapped: the Style views, the Device page and the navigation tabs. A fixed
-# tuple, membership-tested byte for byte (see config_page), never a parsed or
-# prefix-matched address, so a crafted return value cannot redirect off-site.
+# The Console pages a person can leave a settings form for. Byte-for-byte
+# copies of console_routes.USERS_ROUTE, AUDIT_ROUTE and FLEET_ROUTE (a page
+# module may not import the console modules); a test asserts they are equal.
+CONSOLE_LEAVE_ROUTES = ("/fleet", "/users", "/audit")
+# Where a save started from a Style page or a Fleet settings tab may return
+# to, so leaving the page through an in-app link can save first and still
+# land where the person tapped: the Style views, the Device page, the
+# navigation tabs, the Account page, the Airline editor and the Console
+# pages. A fixed tuple, membership-tested byte for byte (see config_page),
+# never a parsed or prefix-matched address, so a crafted return value cannot
+# redirect off-site.
 LEAVE_RETURN_ROUTES = tuple(dict.fromkeys(
     tuple(VIEW_ROUTES.values()) + (layout.DEVICE_ROUTE,)
-    + tuple(route for route, _label in layout.NAV_TABS)))
+    + tuple(route for route, _label in layout.NAV_TABS)
+    + (layout.ACCOUNT_ROUTE, layout.AIRLINE_EDITOR_ROUTE) + CONSOLE_LEAVE_ROUTES))
 # The two views of the look picker, and the picture each one shows first.
 LOOK_VIEW_USAGES = {
     VIEW_DEPARTURES: COLOUR_USAGE_DEPARTURES,
@@ -293,7 +300,7 @@ def page_html(
 
 
 def scoped_leave_return_routes():
-    """The addresses a Style save may return to, wearing this frame's own
-    prefix: the links on the page wear it, so the list a script matches them
-    against wears it too."""
+    """The addresses a save may return to, wearing this frame's own prefix:
+    the links on the page wear it, so the list a script matches them against
+    wears it too."""
     return tuple(device_scope.scoped(route) for route in LEAVE_RETURN_ROUTES)

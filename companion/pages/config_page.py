@@ -325,9 +325,11 @@ page_title = personalisation_cards.page_title
 
 
 def shell_route(route):
-    """The tab route a page at `route` is wrapped as: every Personalisation
-    view is the Display tab."""
-    return layout.DISPLAY_ROUTE if route in PERSONALISATION_ROUTES else route
+    """The tab route a rejected settings save is wrapped as: the Device page
+    for its own form, the Display tab for every other return address (the
+    page redrawn is the Style page, whichever page the person was leaving
+    for)."""
+    return layout.DEVICE_ROUTE if route == layout.DEVICE_ROUTE else layout.DISPLAY_ROUTE
 
 
 # The view each saved look field lives on, so a rejected save is redrawn where

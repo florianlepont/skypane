@@ -493,11 +493,12 @@ html[data-ui-theme="dark"] {
     animation-timing-function: var(--ease-out);
   }
 
-  /* The tab bar's slider glides to its new place on the spring while the page
-   * changes (it is the one named element of the bar). */
+  /* The tab bar's slider glides to its new place while the page changes (it is
+   * the one named element of the bar), on the same non-overshooting ease as
+   * its tap glide. */
   ::view-transition-group(skypane-tab-slider) {
     animation-duration: var(--motion-view-transition);
-    animation-timing-function: var(--motion-spring);
+    animation-timing-function: var(--ease-out);
   }
 
   /* A strip whose segments change page (the Style and Fleet sections, the
@@ -5365,6 +5366,20 @@ input[name="radius_km"] {
   cursor: pointer;
 }
 
+.btn.btn--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
+}
+
+.btn.btn--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-status-error) 45%, transparent);
+  box-shadow: none;
+  color: var(--color-status-error);
+}
+
 .btn.btn--primary:hover {
   background: var(--color-accent-hover);
   border-color: transparent;
@@ -5628,6 +5643,11 @@ a.btn[aria-disabled="true"] {
     font-weight: var(--weight-regular);
     line-height: 1;
     max-width: 100%;
+    /* The clip box is as tall as the font's glyph box (a capital accent
+     * reaches above the cap height, p and q below the baseline), and the
+     * negative margin gives the padding back so the cell keeps its height. */
+    padding-block: 2px;
+    margin-block: -2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -8075,8 +8095,10 @@ html.splash-on .splash__scan {
     view-transition-name: none;
   }
 
+  /* A straight glide that settles on the tapped cell and waits there when the
+   * page is late: an overshoot would rest the pill on the next cell. */
   .tab-bar__slider--glide {
-    transition: transform var(--motion-spring-duration) var(--motion-spring);
+    transition: transform var(--motion-spring-duration) var(--ease-out);
   }
 
   .tab-bar__slider--stretch {

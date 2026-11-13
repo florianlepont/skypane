@@ -117,3 +117,28 @@ def test_space_switch_labels_name_the_destination_in_both_languages():
     prefs.set_request_prefs(lang="fr")
     assert ">Mon cadre<" in ui_nav.space_switch_html("fleet")
     assert "Passer à la console d’administration" in ui_nav.space_switch_html("home")
+
+
+def test_a_page_in_no_tab_selects_no_cell_on_an_error_page():
+    _as_admin()
+    def summary(html):
+        return html[html.index("<summary"):html.index(">", html.index("<summary"))]
+
+    error = ui_nav._tab_bar_html("", device_config={"a": 1}, no_tab=True)
+    assert "tab-bar__link--active" not in error
+    # Credits and the catalogue keep More as the cell that carries the pill.
+    credits = ui_nav._tab_bar_html("", device_config={"a": 1})
+    assert "tab-bar__link--active" in summary(credits)
+    # The Account page is in More, so there More is selected even on an error flag.
+    account = ui_nav._tab_bar_html("account", device_config={"a": 1}, no_tab=True)
+    assert "tab-bar__link--active" in summary(account)
+
+
+def test_an_administrator_without_a_frame_in_scope_still_gets_a_bar_of_destinations():
+    prefs.set_request_principal("admin", "admin")
+    device_scope.set_request_scope(None, ())
+    bar = ui_nav._tab_bar_html("", device_config=None, no_tab=True)
+    cells = bar.split('<details class="tab-bar__more')[0]
+    assert _hrefs(cells) == ["/fleet", "/users", "/airlines/manage", "/audit"]
+    assert "tab-bar__link--active" not in bar
+    assert "tab-bar__more--alone" not in bar

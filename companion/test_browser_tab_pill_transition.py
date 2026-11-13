@@ -5,6 +5,8 @@ view-transition name exists in BOTH the old and the new page at the new page's f
 sliding element is created by a deferred script, so on the new page the name must already sit on
 the server-rendered active pill until the script takes over. The check reads the transition's own
 animations on the new page's reveal: the pill's group must animate (old, new and group)."""
+import re
+
 import pytest
 
 from companion.test_browser_ux_helpers import VIEWPORT_MIN_SUPPORTED, _login, seed_state_dir
@@ -65,5 +67,49 @@ def test_the_pill_glides_on_every_tab_change(new_context, make_app_server):
             for part in ("::view-transition-group", "::view-transition-old", "::view-transition-new"):
                 assert part in probe, (href, probe)
         assert len(seen) == 6
+    finally:
+        context.close()
+
+
+_TRACK = """
+() => { const slider = document.querySelector('.tab-bar__slider');
+  const t0 = performance.now();
+  const tick = () => { const r = slider.getBoundingClientRect();
+    window.skypaneTrack(Math.round(performance.now() - t0), r.left + r.width / 2);
+    if (performance.now() - t0 < 1500) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick); }"""
+
+
+@pytest.mark.parametrize("target,travel", [("/display", 1), ("/", -1)], ids=["forward", "back"])
+def test_the_pill_never_overshoots_the_tapped_cell_while_the_page_is_late(
+        new_context, make_app_server, target, travel):
+    """A slow page leaves the old page frozen under the tapped tab: the pill glides straight to
+    that tab and waits there, never swinging past it onto the next cell"""
+    server = make_app_server(seed=seed_state_dir, fake_providers=True)
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    samples = []
+    context.expose_function("skypaneTrack", lambda t, x: samples.append((t, x)))
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + ("/" if travel > 0 else "/display"))
+        _settled(page)
+        held = []
+        page.route(
+            re.compile(r"^https?://[^/]+" + re.escape(target) + r"(\?.*)?$"),
+            lambda route: held.append(route))
+        link = page.locator('.tab-bar__link[href$="%s"]' % target).first
+        box = link.bounding_box()
+        goal = box["x"] + box["width"] / 2
+        page.evaluate(_TRACK)
+        link.click(no_wait_after=True)
+        page.wait_for_timeout(1700)
+        xs = [x for _t, x in samples]
+        assert len(xs) > 10, len(xs)
+        past = [(x - goal) * travel for x in xs]
+        assert max(past) <= 2, ("the pill went past the tapped cell", max(past), goal, xs[::6])
+        assert abs(xs[-1] - goal) <= 2, ("the pill is not on the tapped cell", xs[-1], goal)
+        for route in held:
+            route.abort()
     finally:
         context.close()

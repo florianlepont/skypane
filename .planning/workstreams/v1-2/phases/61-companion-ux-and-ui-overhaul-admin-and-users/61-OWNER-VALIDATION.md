@@ -1155,3 +1155,9 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Owner decision: redesign the "Device and version" panel on the Fleet device page as in the mockup (frame state on top, one update card with one Install button, a flat version list, quiet Revert buttons, release notes behind the row). Queued as plan 61-126 after 61-125.
 - Owner decision: the Diagnostic LED switch stays as it is (admin only, off by default, part of the frame protocol).
 - Owner test of the Style leave dialog: it opened only for sub-tabs and layout changes; the owner changes page with the bottom tab bar and changes colours. Plan 61-125 widens it to every page with a Save bar and every in-app link.
+- Owner validation: the "Unsaved changes" dialog (61-125) and the redesigned Device and version panel (61-126) are deployed and approved by the owner. Audit 6 (last audit) launched: visual and workflows reports received, animation and performance pending.
+
+## Round 30: audit 6 (last audit)
+
+- Audit 6 reports received: visual (11 findings), workflows (10), animation (13). The performance auditor did not hand back a report; the orchestrator read its raw measurements: no regression from the tab bar, More panel and leave dialog work (about +6 KB JS, +1.5 KB CSS, +1.8 KB HTML per page, server CPU unchanged); known heavy spots unchanged (Location JS weight, long Flights lists, Home idle style recalcs); one new low finding: the More sheet adds about 13 listeners per 100 open/close cycles.
+- D57 (owner): fix everything audit 6 found except the points the owner already set aside (A5-15, A5-16, A5-20, A5-21, W5-12, W5-13, W5-17, W5-22, X13, P5-*). Lot 61-127 (bugs and regressions) first, then 61-128 (remaining low findings).

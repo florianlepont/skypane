@@ -186,6 +186,8 @@ MESSAGES = {
     "display.leave_save": "Enregistrer et continuer",
     "display.leave_discard": "Abandonner",
     "display.leave_stay": "Rester ici",
+    "display.leave_save_only": "Enregistrer",
+    "display.leave_stays_note": "Après l’enregistrement, vous restez sur cette page.",
     "display.unsaved_changes_in": "Modifications non enregistrées\u00a0:",
 
     # --- Field-level validation errors ------------------------------

@@ -955,7 +955,6 @@
         spark.remove();
       });
     });
-    return flip;
   }
 
   function initCardUnlock() {

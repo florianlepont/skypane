@@ -320,13 +320,15 @@
     return stops;
   }
 
-  // Tab and Shift+Tab loop inside the open dialog: they never reach the
-  // page behind it nor the browser's own chrome.
+  // Tab and Shift+Tab loop inside the open dialog (or the open More sheet):
+  // they never reach the page behind it nor the browser's own chrome.
   document.addEventListener("keydown", function (evt) {
     if (evt.key !== "Tab" || evt.altKey || evt.ctrlKey || evt.metaKey) {
       return;
     }
-    var dialog = openModalDialog();
+    // The phone More sheet traps the focus too: its panel and its cell are the
+    // only stops while it is open, so Tab never lands on the dimmed page.
+    var dialog = openModalDialog() || document.querySelector("details.tab-bar__more[open]");
     if (!dialog) {
       return;
     }
@@ -629,6 +631,12 @@
     var el = evt.target;
     if (el && el.classList && el.classList.contains("tab-bar__more")) {
       syncStatusTint(el.open);
+      // Closing hides the control that held the focus: it goes back to the
+      // More cell instead of the top of the page.
+      var held = document.activeElement;
+      if (!el.open && (held === document.body || el.contains(held))) {
+        el.querySelector("summary").focus();
+      }
     }
   }, true);
 

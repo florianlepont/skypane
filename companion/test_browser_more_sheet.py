@@ -329,3 +329,98 @@ def test_the_page_behind_the_open_sheet_is_dimmed_blurred_and_fully_covered(
             "() => !document.querySelector('.tab-bar__more').open", timeout=10000)
     finally:
         context.close()
+
+
+_IN_SHEET = "() => !!document.activeElement && !!document.activeElement.closest('.tab-bar__more')"
+
+
+@pytest.mark.parametrize("backwards", [False, True], ids=["tab", "shift-tab"])
+def test_keyboard_focus_stays_inside_the_open_sheet(new_context, app, backwards):
+    """Tab and Shift+Tab cycle through the sheet's own controls: the focus never reaches the page
+    behind the dimmed scrim while the sheet is open"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        _open_sheet(page)
+        page.locator(".tab-bar__more-panel a, .tab-bar__more-panel button").first.focus()
+        stops = page.locator(
+            ".tab-bar__more-panel a, .tab-bar__more-panel button, .tab-bar__more > summary").count()
+        for _ in range(stops + 3):
+            page.keyboard.press("Shift+Tab" if backwards else "Tab")
+            page.wait_for_function(_IN_SHEET, timeout=5000)
+        assert page.locator(".tab-bar__more").evaluate("el => el.open")
+    finally:
+        context.close()
+
+
+def test_closing_the_sheet_by_escape_or_a_second_tap_returns_the_focus_to_the_more_cell(
+        new_context, app):
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        for how in ("escape", "toggle"):
+            _open_sheet(page)
+            page.locator(".tab-bar__more-panel a, .tab-bar__more-panel button").first.focus()
+            if how == "escape":
+                page.keyboard.press("Escape")
+            else:
+                page.locator(".tab-bar__more > summary").click()
+            page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+            page.wait_for_function(
+                "() => document.activeElement === document.querySelector('.tab-bar__more > summary')",
+                timeout=5000)
+    finally:
+        context.close()
+
+
+_GLYPH_BOXES = """() => [...document.querySelectorAll('.tab-bar__label')].map((el) => {
+  const range = document.createRange(); range.selectNodeContents(el);
+  const glyphs = range.getBoundingClientRect();
+  const clip = el.getBoundingClientRect();
+  return {text: el.textContent, glyphTop: glyphs.top, glyphBottom: glyphs.bottom,
+          clipTop: clip.top, clipBottom: clip.bottom, cell: el.closest('.tab-bar__link,summary')
+            .getBoundingClientRect().height}; })"""
+
+
+@pytest.mark.parametrize("path", ["/users", "/fleet"])
+def test_no_french_tab_label_loses_its_accent_or_its_descender_to_the_clip(
+        new_context, app, path):
+    """the glyph box of every label (a capital accent above the cap height, the tail of p and q
+    below the baseline) lies inside the box that clips it, and the bar keeps its cell height"""
+    context, page = _open(new_context, app, path, VIEWPORT_MIN_SUPPORTED, lang="fr")
+    try:
+        labels = page.evaluate(_GLYPH_BOXES)
+        assert {label["text"] for label in labels} >= {"Équipe", "Éditeur"}, labels
+        for label in labels:
+            assert label["glyphTop"] >= label["clipTop"] - 0.5, label
+            assert label["glyphBottom"] <= label["clipBottom"] + 0.5, label
+            assert label["cell"] == 56, label
+    finally:
+        context.close()
+
+
+def _listener_count(cdp):
+    cdp.send("HeapProfiler.collectGarbage")
+    metrics = {m["name"]: m["value"] for m in cdp.send("Performance.getMetrics")["metrics"]}
+    return int(metrics["JSEventListeners"])
+
+
+@pytest.mark.parametrize("how", ["toggle", "escape"])
+def test_opening_and_closing_the_sheet_leaves_no_event_listener_behind(new_context, app, how):
+    """fifty open and close cycles add no event listener to the page, whichever way the sheet
+    closes: the sheet's scripts bind once, not on every open"""
+    context, page = _open(new_context, app, _home(app) + "flights", VIEWPORT_MIN_SUPPORTED)
+    try:
+        cdp = context.new_cdp_session(page)
+        cdp.send("Performance.enable")
+        page.wait_for_timeout(1000)
+        before = _listener_count(cdp)
+        for _ in range(50):
+            page.locator(".tab-bar__more > summary").click()
+            page.locator(".tab-bar__more-panel").wait_for(state="visible")
+            if how == "escape":
+                page.keyboard.press("Escape")
+            else:
+                page.locator(".tab-bar__more > summary").click()
+            page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+        assert _listener_count(cdp) <= before, (before, _listener_count(cdp))
+    finally:
+        context.close()

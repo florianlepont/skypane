@@ -908,10 +908,10 @@ def test_map_tiles_do_not_fade_in_under_reduced_motion(new_context, place_server
 # --- The bottom tab bar's pill ---------------------------------------------------------------
 
 
-@pytest.mark.parametrize("path", ["/credits", "/components", "/not-a-page", "/", "/account"])
+@pytest.mark.parametrize("path", ["/credits", "/components", "/", "/account"])
 def test_the_tab_bar_pill_is_on_every_page(new_context, server, path):
-    """the sliding pill sits under an active cell on every page: a page that belongs to no bar
-    cell is reached through More, which carries the pill there"""
+    """the sliding pill sits under an active cell on every page but the error pages: a page that
+    belongs to no bar cell is reached through More, which carries the pill there"""
     context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
                              reduced_motion="no-preference")
     try:
@@ -928,5 +928,41 @@ def test_the_tab_bar_pill_is_on_every_page(new_context, server, path):
             " return s.width > 0 && s.left >= l.left - 1 && s.right <= l.right + 1"
             " && s.top >= l.top - 1 && s.bottom <= l.bottom + 1; }")
         assert inside, path
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("motion", ["reduce", "no-preference"])
+@pytest.mark.parametrize("path", ["/display", "/display/arrivals"])
+def test_the_style_page_opens_on_a_wide_screen_without_the_picture_moving(
+        new_context, server, path, motion):
+    """the picture column and the picker are placed once, before the entrance: the layout shift of
+    a Style load stays under 0.01, with or without reduced motion"""
+    context = _admin_context(
+        new_context, server, {"width": 1280, "height": 900}, reduced_motion=motion)
+    context.add_init_script(_SHIFT_RECORDER)
+    try:
+        page = context.new_page()
+        page.goto(server.base_url() + path)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                      "() => requestAnimationFrame(() => setTimeout(done, 400))))")
+        assert page.evaluate("() => window.__shift") <= 0.01, page.evaluate("() => window.__shifts")
+    finally:
+        context.close()
+
+
+def test_the_not_found_page_selects_no_cell_and_keeps_a_whole_bar(new_context, server):
+    """an error page is in no tab: no cell wears the pill (More included) and the bar still
+    offers the destinations instead of a lone More cell"""
+    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
+                             reduced_motion="no-preference")
+    try:
+        page = context.new_page()
+        _open(page, server, "/not-a-page")
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        assert page.locator(".tab-bar__link--active").count() == 0
+        assert page.locator(".tab-bar > a").count() >= 3
+        assert page.locator(".tab-bar__more--alone").count() == 0
     finally:
         context.close()

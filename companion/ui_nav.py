@@ -634,7 +634,7 @@ def _more_panel_html(active, sheet, ui_theme, space):
             icon_html("icon-sign-out", 18), escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
-def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):
+def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto", no_tab=False):
     """Bottom tab bar shown below 960px, the sub-960px nav.
 
     The destination cells and a "More" overflow are chosen by the caller's
@@ -642,6 +642,8 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
     is a row of the overflow. The overflow uses a native <details>/<summary>
     so it works with scripts blocked. The Fleet severity dot is drawn on the
     Fleet cell, never on More.
+    `no_tab` marks a page that is in no tab and is not reached through More
+    either (an error page): no cell is selected there.
     Returns "" when there is no session context: no device_config and no
     signed-in administrator (login pages, or a 404 before sign-in). An
     administrator's own Account page carries no device_config but still needs
@@ -657,13 +659,19 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
         cells, sheet = _personal_bar(active)
         if not cells and is_user_principal():
             return ""
+        if not cells:
+            # No frame in scope (the not-found page of an unknown address): the
+            # Console's destinations need none, so the bar is not just More. Such
+            # a page carries no Health dot.
+            space = CONSOLE_SPACE
+            cells, sheet = _console_bar(active, None)
     # A page that belongs to no bar cell (Credits, the component catalogue, an
     # error page) is reached through More, so More carries the pill there and
     # the sliding pill is on every page.
     in_bar = any("tab-bar__link--active" in cell for cell in cells)
+    more_selected = any(entry.is_active for entry in sheet) or (not in_bar and not no_tab)
     summary_class = (
-        "tab-bar__link tab-bar__link--active"
-        if not in_bar or any(entry.is_active for entry in sheet) else "tab-bar__link")
+        "tab-bar__link tab-bar__link--active" if more_selected else "tab-bar__link")
     # A bar that holds nothing else (the not-found page of a frame) marks More so the
     # stylesheet keeps it one cell wide instead of the whole bar.
     alone = " tab-bar__more--alone" if not cells else ""

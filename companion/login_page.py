@@ -389,7 +389,7 @@ def not_found_page(ui_theme, health_alert, back=BACK_HOME, home_route=None,
         # NOT_FOUND_TITLE above (the page heading's longer sentence) —
         # needs its own Message so the browser tab is translated too.
         title=i18n.t(_NOT_FOUND_TAB_TITLE_TEXT), active="", body=body,
-        ui_theme=ui_theme, health_alert=health_alert)
+        ui_theme=ui_theme, health_alert=health_alert, no_tab=True)
 
 
 def forbidden_page(ui_theme, health_alert, back=BACK_HOME, purpose=None,
@@ -405,7 +405,7 @@ def forbidden_page(ui_theme, health_alert, back=BACK_HOME, purpose=None,
     )
     return layout.page_shell(
         title=i18n.t(FORBIDDEN_TITLE), active="", body=body,
-        ui_theme=ui_theme, health_alert=health_alert)
+        ui_theme=ui_theme, health_alert=health_alert, no_tab=True)
 
 
 def server_error_page(ui_theme, health_alert, back=BACK_HOME, home_route=None):
@@ -418,7 +418,7 @@ def server_error_page(ui_theme, health_alert, back=BACK_HOME, home_route=None):
     )
     return layout.page_shell(
         title=i18n.t(SERVER_ERROR_TITLE), active="", body=body,
-        ui_theme=ui_theme, health_alert=health_alert)
+        ui_theme=ui_theme, health_alert=health_alert, no_tab=True)
 
 
 def unavailable_page(ui_theme):

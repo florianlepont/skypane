@@ -47,6 +47,11 @@ LEAVE_TEXT = i18n.msg(
 LEAVE_SAVE = i18n.msg("display.leave_save", "Save and continue")
 LEAVE_DISCARD = i18n.msg("display.leave_discard", "Discard")
 LEAVE_STAY = i18n.msg("display.leave_stay", "Stay here")
+# Where the save cannot land on the tapped address the question says so: the
+# primary reads plain "Save" and a note tells the page stays open.
+LEAVE_SAVE_ONLY = i18n.msg("display.leave_save_only", "Save")
+LEAVE_STAYS_NOTE = i18n.msg(
+    "display.leave_stays_note", "After saving you stay on this page.")
 
 
 def leave_dialog_html():
@@ -54,7 +59,8 @@ def leave_dialog_html():
     through an in-app link while something on it is unsaved."""
     return ui_modal.choice_dialog_html(
         LEAVE_DIALOG_ID, i18n.t(LEAVE_TITLE), i18n.t(LEAVE_TEXT), i18n.t(LEAVE_SAVE),
-        i18n.t(LEAVE_DISCARD), i18n.t(LEAVE_STAY), LEAVE_DIALOG_HOOK)
+        i18n.t(LEAVE_DISCARD), i18n.t(LEAVE_STAY), LEAVE_DIALOG_HOOK,
+        alt_primary_label=i18n.t(LEAVE_SAVE_ONLY), note=i18n.t(LEAVE_STAYS_NOTE))
 
 
 def save_bar_html(form_id, carried_href=None, cancel_href=None, title=None,
