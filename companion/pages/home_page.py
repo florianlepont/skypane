@@ -205,7 +205,8 @@ def _flight_secondary_text(row):
     airline = panel_render.display_airline_name(row.get("airline")) or ""
     route = _route_text(row)
     direction_raw = _direction_text(row.get("confirmed_state"))
-    direction = i18n.t(direction_raw) if direction_raw else ""
+    # A no-break space keeps a state such as "Au départ" whole when the line wraps.
+    direction = i18n.t(direction_raw).replace(" ", "\u00a0") if direction_raw else ""
     return " · ".join(part for part in (airline, route, direction) if part)
 
 
