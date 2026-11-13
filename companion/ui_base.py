@@ -703,6 +703,13 @@ ICON_IDS = ICON_IDS + (
 # The SkyPane brand mark (32x32 viewBox, unlike the 20x20 glyphs): an "S"
 # in a portrait pane whose top-right corner is open, with one accent flick
 # leaving through the gap.
+# Two more, for the More panel's rows: a globe (Language) and a door with an
+# arrow (Sign out).
+ICON_IDS = ICON_IDS + (
+    "icon-globe",
+    "icon-sign-out",
+)
+
 ICON_IDS = ICON_IDS + (
     "icon-logo",
 )
@@ -1004,6 +1011,14 @@ ICON_DEFS_HTML = (
     '<path fill-rule="evenodd" d="M10 1.2a6.3 6.3 0 0 0-6.3 6.3c0 4.3 5.1 9.6 5.8 '
     '10.3a.7.7 0 0 0 1 0c.7-.7 5.8-6 5.8-10.3A6.3 6.3 0 0 0 10 1.2zm0 3.6a2.7 2.7 '
     '0 1 1 0 5.4 2.7 2.7 0 0 1 0-5.4z"/>'
+    "</symbol>"
+    '<symbol id="icon-globe" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<circle cx="10" cy="10" r="7.5"/><path d="M2.5 10h15M10 2.5c2.6 2.8 2.6 12.2 0 15M10 2.5c-2.6 2.8-2.6 12.2 0 15"/>'
+    "</symbol>"
+    '<symbol id="icon-sign-out" viewBox="0 0 20 20" fill="none" '
+    'stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">'
+    '<path d="M8 3.5H4.5v13H8M13 6.5l3.5 3.5-3.5 3.5M16.5 10H8"/>'
     "</symbol>"
     '<symbol id="icon-logo" viewBox="0 0 32 32">%s</symbol>'
     "</defs>"

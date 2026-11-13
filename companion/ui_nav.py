@@ -13,7 +13,7 @@ import companion.console_routes as console_routes
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
-from companion import ui_segmented
+from companion import ui_groups, ui_segmented
 from companion.ui_components import csrf_field, link_card_html
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
@@ -93,6 +93,7 @@ _CONSOLE_BAR_LABELS = {
     "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
 _PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
+_SETTINGS_TEXT = i18n.msg("nav.settings", "Settings")
 _CONSOLE_SUBTITLE = i18n.msg("nav.console_subtitle", "Fleet, users, audit")
 _SWITCH_TO_PERSONAL_TEXT = i18n.msg(
     "nav.switch_to_personal", "Switch to your own frame pages")
@@ -601,10 +602,12 @@ def _account_sheet_link(entry):
             icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
 
 
-def _sheet_preference_html(label, form_html):
-    return (
-        '<div class="tab-bar__pref"><span class="tab-bar__pref-label">%s</span>%s</div>'
-        % (escape_html(i18n.t(label)), form_html))
+def _sheet_preference_row(label, icon_id, form_html):
+    """One Settings row: a small glyph and the label at the start, the
+    segmented control at the end."""
+    lead = '<span class="tab-bar__row-icon">%s</span>' % icon_html(icon_id, 20)
+    return ui_groups.row(
+        i18n.t(label), lead_html=lead, trailing_html=form_html, extra_class="tab-bar__pref")
 
 
 def _more_panel_html(active, sheet, ui_theme, space):
@@ -618,14 +621,17 @@ def _more_panel_html(active, sheet, ui_theme, space):
     grab = '<span class="tab-bar__grab" aria-hidden="true"></span>'
     if active == ACCOUNT_NAV_SLUG:
         return grab + links_html
-    preferences = (
-        _sheet_preference_html(_THEME_TEXT, _theme_form_html(ui_theme))
-        + _sheet_preference_html(_LANGUAGE_TEXT, _lang_form_html(prefs.current_lang())))
+    settings = ui_groups.group(
+        _sheet_preference_row(_THEME_TEXT, "icon-sun", _theme_form_html(ui_theme))
+        + _sheet_preference_row(
+            _LANGUAGE_TEXT, "icon-globe", _lang_form_html(prefs.current_lang())),
+        i18n.t(_SETTINGS_TEXT), "tab-bar-settings-label", "tab-bar__prefs")
     return (
         '%s<div class="tab-bar__settings">%s%s'
         '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">%s'
-        '<button type="submit">%s</button></form></div>' % (
-            grab, links_html, preferences, csrf_field(), escape_html(i18n.t(_SIGN_OUT_TEXT))))
+        '<button type="submit">%s%s</button></form></div>' % (
+            grab, links_html, settings, csrf_field(),
+            icon_html("icon-sign-out", 18), escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):

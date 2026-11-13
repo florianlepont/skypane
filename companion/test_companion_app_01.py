@@ -493,13 +493,14 @@ def test_icon_sprite_integrity():
     # navigation spaces' glyphs), then to 47 (icon-pin, the map's pin), then to 48 (icon-person, the Account glyph), then to 50 (icon-sun and
     # icon-infinity, the Quiet hours dialog's preset cards), then to 52 (icon-palette
     # and icon-calendar, Personalisation's section navigation), then back to 51
-    # (icon-gear removed with the header toggle it drew).
-    assert len(layout.ICON_IDS) == 52
-    assert len(set(layout.ICON_IDS)) == 52, "expected ICON_IDS to have no duplicates"
+    # (icon-gear removed with the header toggle it drew), then to 54 (icon-globe and
+    # icon-sign-out, the More panel's Language and Sign out rows).
+    assert len(layout.ICON_IDS) == 54
+    assert len(set(layout.ICON_IDS)) == 54, "expected ICON_IDS to have no duplicates"
     symbol_ids = re.findall(r'<symbol[^>]*id="([^"]+)"', layout.ICON_DEFS_HTML)
     assert sorted(symbol_ids) == sorted(layout.ICON_IDS), (
         "sprite symbol ids %r do not match ICON_IDS %r" % (symbol_ids, layout.ICON_IDS))
-    assert layout.ICON_DEFS_HTML.count("<symbol") == 52
+    assert layout.ICON_DEFS_HTML.count("<symbol") == 54
     assert 'stroke="currentColor"' in layout.ICON_DEFS_HTML
     assert 'fill="#' not in layout.ICON_DEFS_HTML, "a hard-coded hex fill would defeat the per-status tint"
 
@@ -542,7 +543,7 @@ def test_page_shell_emits_sprite_once_no_inline_styles():
     # (icon-more). : 22 -> 23 (icon-gear). : 23 -> 24 (icon-nav-update).
     # 24 -> 26 (icon-warning, icon-chevron-right). 26 -> 34 (the toasts).
     # 34 -> 36 (icon-pencil, icon-plus).
-    assert doc.count("<symbol") == 52
+    assert doc.count("<symbol") == 54
     assert doc.index("icon-defs") < doc.index("dashboard-shell"), (
         "expected the sprite to precede the dashboard-shell div")
     assert ' style="' not in doc, "page_shell() must emit no inline styles"

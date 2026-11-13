@@ -110,7 +110,7 @@ def test_language_is_one_tap_in_the_sheet_and_survives_a_reload(new_context, app
         assert page.locator(
             ".tab-bar__more-panel button[name=ui_lang][aria-pressed=true]"
         ).get_attribute("value") == "fr"
-        assert page.locator(".tab-bar__pref-label").first.inner_text() == "Thème"
+        assert page.locator(".tab-bar__pref .row__label").first.inner_text() == "Thème"
         page.locator(".tab-bar__more-panel button[name=ui_lang][value=en]").click()
         page.wait_for_function("() => document.documentElement.lang === 'en'")
     finally:

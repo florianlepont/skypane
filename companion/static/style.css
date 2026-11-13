@@ -5709,29 +5709,58 @@ a.btn[aria-disabled="true"] {
     display: none;
   }
 
-  /* Theme and language: the label at the start, the segmented control at the
-   * end of one row. */
-  .tab-bar__pref {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-md);
+  /* Settings: one bordered group; each row has a small glyph and its label at
+   * the start and the segmented control at the end. */
+  .tab-bar__prefs {
+    margin: 0;
   }
 
-  .tab-bar__pref-label {
-    flex: none;
-    padding-left: var(--space-sm);
+  .tab-bar__prefs .section-label {
+    margin: 0 0 var(--space-xs);
+    padding: 0 var(--space-xs);
+    font-size: var(--font-caption-size);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .tab-bar__prefs .group {
+    box-shadow: none;
+    background: none;
+    border-radius: var(--radius-card);
+  }
+
+  .tab-bar__prefs .group > .row.tab-bar__pref {
+    min-height: 56px;
+    padding-inline: var(--space-md) var(--space-sm);
+    gap: var(--space-sm);
+  }
+
+  .tab-bar__prefs .group .row .row__main {
+    flex: 0 0 auto;
+    min-height: 0;
+    padding: 0;
+  }
+
+  .tab-bar__prefs .row__label {
     font-size: var(--font-label-size);
     font-weight: var(--weight-semibold);
-    color: var(--color-text);
+  }
+
+  .tab-bar__row-icon {
+    display: inline-flex;
+    flex: none;
+    color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
   .tab-bar__pref .theme-form {
     flex: 1 1 0;
+    min-width: 0;
     max-width: 220px;
+    margin-left: auto;
   }
 
   .tab-bar__pref .theme-form .theme-option {
+    flex: 1 1 auto;
     font-size: var(--font-label-size);
   }
 
@@ -5825,19 +5854,21 @@ a.btn[aria-disabled="true"] {
   .tab-bar__sign-out button[type="submit"] {
     width: 100%;
     display: flex;
-    text-align: left;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
     min-height: 48px;
-    justify-content: flex-start;
-    padding: 0 var(--space-sm);
-    background: none;
+    padding: 0 var(--space-md);
+    background: color-mix(in srgb, var(--color-status-error) 12%, var(--glass-solid));
     border: 0;
+    border-radius: var(--radius-control);
     box-shadow: none;
     color: var(--color-status-error);
     font-weight: var(--weight-semibold);
   }
 
   .tab-bar__sign-out button[type="submit"]:hover {
-    background: var(--color-control-wash);
+    background: color-mix(in srgb, var(--color-status-error) 20%, var(--glass-solid));
     box-shadow: none;
   }
 

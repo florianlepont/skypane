@@ -206,3 +206,90 @@ def test_the_account_row_opens_the_account_page(new_context, app_server_in_proce
         page.wait_for_url("**/account")
     finally:
         context.close()
+
+
+_SETTINGS = """() => {
+  const panel = document.querySelector('.tab-bar__more-panel');
+  const css = (el) => getComputedStyle(el);
+  const label = panel.querySelector('.section-label');
+  const group = panel.querySelector('.group');
+  const rows = [...panel.querySelectorAll('.group > .row')];
+  const out = panel.querySelector('.tab-bar__sign-out button');
+  const probe = document.createElement('span');
+  probe.style.color = 'var(--color-status-error)';
+  document.body.appendChild(probe);
+  const alert = css(probe).color;
+  probe.remove();
+  const pb = panel.getBoundingClientRect();
+  const gb = group.getBoundingClientRect();
+  const ob = out.getBoundingClientRect();
+  const hitOf = (el) => { const b = el.getBoundingClientRect();
+    const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);
+    return !!hit && el.contains(hit); };
+  return {
+    label: label.textContent.trim(), labelTransform: css(label).textTransform,
+    labelAboveGroup: label.getBoundingClientRect().bottom <= gb.top + 1,
+    groupBorder: css(group).borderTopWidth, groupInPanel: gb.left >= pb.left && gb.right <= pb.right,
+    rows: rows.map((row) => {
+      const rb = row.getBoundingClientRect();
+      const text = row.querySelector('.row__label');
+      const form = row.querySelector('form');
+      const icon = row.querySelector('.tab-bar__row-icon use');
+      const tb = text.getBoundingClientRect(), fb = form.getBoundingClientRect();
+      return {h: rb.height, text: text.textContent.trim(),
+        icon: icon ? icon.getAttribute('href') : '', formAction: form.getAttribute('action'),
+        labelLeftOfControl: tb.right <= fb.left + 1, controlInside: fb.right <= rb.right + 0.5 && fb.left >= rb.left,
+        labelWhole: text.scrollWidth <= text.clientWidth + 1,
+        options: [...form.querySelectorAll('button')].map((b) => b.getBoundingClientRect().height),
+        optionsWhole: [...form.querySelectorAll('button')].every((b) => b.scrollWidth <= b.clientWidth + 0.5),
+        optionsHit: [...form.querySelectorAll('button')].every(hitOf)}; }),
+    out: {text: out.textContent.trim(), h: ob.height, w: ob.width, panelW: pb.width,
+      color: css(out).color, alert, background: css(out).backgroundColor,
+      icon: !!out.querySelector('svg use[href$="icon-sign-out"]'), hit: hitOf(out),
+      belowGroup: ob.top >= gb.bottom + 8, inside: ob.right <= pb.right && ob.left >= pb.left,
+      whole: out.scrollWidth <= out.clientWidth + 1}};
+}"""
+_SIGN_OUT_TEXT = {"en": "Sign out", "fr": "Se déconnecter"}
+_ROWS = {
+    "en": [("Theme", "icon-sun", "/ui-theme"), ("Language", "icon-globe", "/ui-lang")],
+    "fr": [("Thème", "icon-sun", "/ui-theme"), ("Langue", "icon-globe", "/ui-lang")],
+}
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("role", ["admin", "user"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_the_settings_group_and_the_sign_out_button(
+        new_context, app_server_in_process, viewport, role, lang, scheme):
+    context, page = _page(role, new_context, app_server_in_process, viewport, lang, scheme)
+    try:
+        _open_panel(page)
+        data = page.evaluate(_SETTINGS)
+        assert data["label"] == _SETTINGS_LABEL[lang] and data["labelTransform"] == "uppercase", data
+        assert data["labelAboveGroup"] and data["groupBorder"] == "1px" and data["groupInPanel"], data
+        assert [(r["text"], r["icon"].split("#")[-1], r["formAction"]) for r in data["rows"]] == [
+            (text, icon, action) for text, icon, action in _ROWS[lang]], data
+        for row in data["rows"]:
+            assert row["h"] == 56, data
+            assert row["labelLeftOfControl"] and row["controlInside"] and row["labelWhole"], data
+            assert all(h >= MIN_TAP_PX for h in row["options"]) and row["optionsHit"], data
+            assert row["optionsWhole"], data
+        out = data["out"]
+        assert out["text"] == _SIGN_OUT_TEXT[lang] and out["h"] == 48, data
+        assert out["w"] >= out["panelW"] - 2 * 24 - 2 and out["inside"] and out["belowGroup"], data
+        assert out["color"] == out["alert"] and out["icon"] and out["hit"] and out["whole"], data
+        assert out["background"] not in ("rgba(0, 0, 0, 0)", "transparent"), data
+    finally:
+        context.close()
+
+
+def test_sign_out_button_is_still_the_post_logout_form(new_context, app_server_in_process):
+    context, page = _page("user", new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, "en", "light")
+    try:
+        _open_panel(page)
+        assert page.locator("form.tab-bar__sign-out").get_attribute("method") == "post"
+        assert page.locator("form.tab-bar__sign-out").get_attribute("action") == "/logout"
+        assert page.locator("form.tab-bar__sign-out button[type=submit]").count() == 1
+    finally:
+        context.close()
