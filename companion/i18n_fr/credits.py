@@ -13,4 +13,12 @@ MESSAGES = {
     "credits.license": "Licence",
     "credits.attribution_required": "Mention obligatoire",
     "credits.back_to_sign_in": "Retour à la connexion",
+    "credits.licence_open_data_non_commercial":
+        "Données ouvertes, usage non commercial",
+    "credits.licence_free_crowdsourced": "Gratuit, alimenté par la communauté",
+    "credits.licence_public_domain": "Domaine public",
+    "credits.licence_osm_map_data":
+        "Données cartographiques © contributeurs d’OpenStreetMap, ODbL",
+    "credits.licence_osm_search_data":
+        "Données de recherche © contributeurs d’OpenStreetMap, ODbL",
 }

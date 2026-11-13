@@ -125,6 +125,20 @@ def test_language_selects_the_description():
     assert sources[0]["description"]["fr"][:30] not in english
 
 
+def test_every_licence_line_is_in_the_page_language():
+    """a French page names no licence in English (only the licence identifiers, which are the
+    same in every language), and the English page keeps the data file's own text"""
+    sources = credits_page.load_credits()
+    english, french = _render("en"), _render("fr")
+    for source in sources:
+        assert source["licence"].replace("©", "&copy;") in english or source["licence"] in english
+    for phrase in ("Open data", "Free, crowdsourced", "Public domain", "Map data", "Search data",
+                   "contributors"):
+        assert phrase not in french, phrase
+    for phrase in ("Données ouvertes", "domaine public", "contributeurs"):
+        assert phrase.lower() in french.lower(), phrase
+
+
 def test_text_is_escaped(tmp_path):
     data = _shipped()
     _source(data, "adsbdb")["description"]["en"] = "<script>alert(1)</script>"
