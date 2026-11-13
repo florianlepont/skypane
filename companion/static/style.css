@@ -187,6 +187,8 @@
   /* The cross-document page change: short, so the new page is touchable
    * as soon as it is shown. */
   --motion-view-transition: 260ms;
+  /* The pull-to-refresh spinner's turn; read by motion.js. */
+  --motion-spin: 700ms;
   --motion-press: 90ms;
   /* A loading placeholder's sweep, and the blur-up of the picture that
    * replaces it. */
@@ -476,6 +478,14 @@ html[data-ui-theme="dark"] {
     navigation: auto;
   }
 
+  /* A dialog's backdrop fades in with the dialog; closing removes it at
+   * once. Here and not in the global reduced-motion override, which cannot
+   * reach ::backdrop. */
+  dialog.modal::backdrop,
+  .lightbox::backdrop {
+    animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
+  }
+
   /* The page snapshot can be shorter than the area the transition covers (a
    * phone's strip under its bottom toolbar). That strip shows this layer, not
    * the canvas colour, so it carries the colour the page gradient ends on
@@ -489,6 +499,14 @@ html[data-ui-theme="dark"] {
   ::view-transition-group(root),
   ::view-transition-old(root),
   ::view-transition-new(root) {
+    animation-duration: var(--motion-view-transition);
+    animation-timing-function: var(--ease-out);
+  }
+
+  /* The tab bar and the sidebar are named elements too: they morph on the
+   * same duration and curve as the page, not the browser's own 250ms ease. */
+  ::view-transition-group(skypane-tab-bar),
+  ::view-transition-group(skypane-sidebar) {
     animation-duration: var(--motion-view-transition);
     animation-timing-function: var(--ease-out);
   }
@@ -1533,7 +1551,7 @@ select.visually-hidden {
  * .is-breathing above. Reduced motion already zeroes this via the
  * global override; the file's pinned reduce-block count stays at two. */
 .is-fading-in {
-  animation: skypane-fade-in var(--motion-fast) ease-out;
+  animation: skypane-fade-in var(--motion-fast) var(--ease-out);
 }
 
 /* One class, both renderings: Flights renders every flight as both a
@@ -1541,7 +1559,7 @@ select.visually-hidden {
  * the identity, so one rule serves both. Names the MOTION, like
  * .is-breathing/.is-fading-in above. */
 .is-new-row {
-  animation: skypane-row-arrive var(--motion-slow) ease-out;
+  animation: skypane-row-arrive var(--motion-slow) var(--ease-out);
 }
 
 .dot-label {
@@ -1887,7 +1905,7 @@ select.visually-hidden {
   .toast-region--flash .toast.is-returning,
   .toast-region--live .toast.is-returning {
     transition: transform var(--motion-spring-duration) var(--motion-spring),
-      opacity var(--motion-fast) ease-out;
+      opacity var(--motion-fast) var(--ease-out);
   }
 
   .toast-region--flash .toast.is-leaving,
@@ -2411,7 +2429,7 @@ button:not(.value-control__handle):active {
   /* Reuses the existing skypane-bar-arrive @keyframes rather than a new
    * block. Fires when display changes from none, the only way the bar is
    * ever revealed. The global reduced-motion override already zeroes it. */
-  animation: skypane-bar-arrive var(--motion-fast) ease-out;
+  animation: skypane-bar-arrive var(--motion-fast) var(--ease-out);
 }
 
 .dirty-bar__message {
@@ -3238,7 +3256,7 @@ table.data-table--flights .cell-inline-sep {
   max-width: 560px;
 }
 
-.js .filter-bar--title {
+:is(.js, .js-early) .filter-bar--title {
   position: absolute;
   top: 0;
   right: 0;
@@ -3248,28 +3266,28 @@ table.data-table--flights .cell-inline-sep {
   margin: 0;
 }
 
-.js .filter-bar--title .filter-bar__search input {
+:is(.js, .js-early) .filter-bar--title .filter-bar__search input {
   padding: 0;
   cursor: pointer;
 }
 
-.js .filter-bar--title .filter-bar__search input::placeholder {
+:is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
   color: transparent;
 }
 
-.js .filter-bar--title:focus-within,
-.js .filter-bar--title[data-filter-active] {
+:is(.js, .js-early) .filter-bar--title:focus-within,
+:is(.js, .js-early) .filter-bar--title[data-filter-active] {
   width: 100%;
 }
 
-.js .filter-bar--title:focus-within input,
-.js .filter-bar--title[data-filter-active] input {
+:is(.js, .js-early) .filter-bar--title:focus-within input,
+:is(.js, .js-early) .filter-bar--title[data-filter-active] input {
   padding: 0 52px 0 46px;
   cursor: text;
 }
 
-.js .filter-bar--title:focus-within input::placeholder,
-.js .filter-bar--title[data-filter-active] input::placeholder {
+:is(.js, .js-early) .filter-bar--title:focus-within input::placeholder,
+:is(.js, .js-early) .filter-bar--title[data-filter-active] input::placeholder {
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 @media (min-width: 960px) {
@@ -3281,9 +3299,9 @@ table.data-table--flights .cell-inline-sep {
   /* In the title row, after the title and clear of the frame button (the
    * header keeps that space free); it wraps under the title when the row is
    * too narrow for both. */
-  .js .filter-bar--title,
-  .js .filter-bar--title:focus-within,
-  .js .filter-bar--title[data-filter-active] {
+  :is(.js, .js-early) .filter-bar--title,
+  :is(.js, .js-early) .filter-bar--title:focus-within,
+  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
     position: relative;
     top: auto;
     right: auto;
@@ -3293,13 +3311,13 @@ table.data-table--flights .cell-inline-sep {
     margin: 0;
   }
 
-  .js .filter-bar--title .filter-bar__search input,
-  .js .filter-bar--title:focus-within input {
+  :is(.js, .js-early) .filter-bar--title .filter-bar__search input,
+  :is(.js, .js-early) .filter-bar--title:focus-within input {
     padding: 0 52px 0 46px;
     cursor: text;
   }
 
-  .js .filter-bar--title .filter-bar__search input::placeholder {
+  :is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
     color: color-mix(in srgb, var(--color-text) 55%, transparent);
   }
 }
@@ -3313,9 +3331,9 @@ table.data-table--flights .cell-inline-sep {
     flex: none;
   }
 
-  .js .filter-bar--title,
-  .js .filter-bar--title:focus-within,
-  .js .filter-bar--title[data-filter-active] {
+  :is(.js, .js-early) .filter-bar--title,
+  :is(.js, .js-early) .filter-bar--title:focus-within,
+  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
     min-width: 260px;
     margin-left: auto;
   }
@@ -3417,6 +3435,13 @@ summary::before {
  * rotate its parent's own marker. (0,1,2) against the (0,0,2) base. */
 details[open] > summary::before {
   transform: rotate(45deg);
+}
+
+/* What a disclosure reveals fades in on the short motion token, like the
+ * menus and sheets. Zero specificity on the details part, so a disclosure
+ * with its own entrance (a menu panel) keeps it. */
+:where(details[open]) > :not(summary) {
+  animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
 }
 
 /* min-width: 0 must be first and is load-bearing: a grid item's default
@@ -4324,8 +4349,8 @@ a.airline-card {
    * closed dialog hit-testable and in the tab order meanwhile. */
   opacity: 0;
   transform: scale(0.96);
-  transition: opacity var(--motion-fast) ease-out,
-    transform var(--motion-fast) ease-out;
+  transition: opacity var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
 .lightbox[open] {
@@ -4799,7 +4824,7 @@ html:not(.map-ready) .place-details__close {
   font-weight: var(--weight-regular);
   visibility: hidden;
   opacity: 0;
-  transition: opacity var(--motion-fast) ease-out;
+  transition: opacity var(--motion-fast) var(--ease-out);
 }
 
 /* The estimated "Probably charging" pill, shared by Home and Health. The
@@ -5704,21 +5729,10 @@ a.btn[aria-disabled="true"] {
     position: relative;
   }
 
-  /* Rotation is inverted from the base chevron rule: this sheet opens
-   * upward, so closed points up (toward where it will open) and open
-   * points down (back toward the bar). Positioned absolutely against
-   * .tab-bar__more so it costs the cell nothing, centred above the "..."
-   * glyph (never in a corner, where it met the active pill's edge). */
+  /* The cell is its three dots alone, like every other cell's single glyph:
+   * the base summary chevron is not drawn here (the open sheet is the hint). */
   .tab-bar__more > .tab-bar__link::before {
-    position: absolute;
-    top: 7px;
-    right: 50%;
-    margin-right: -3px;
-    transform: rotate(-135deg);
-  }
-
-  .tab-bar__more[open] > .tab-bar__link::before {
-    transform: rotate(45deg);
+    content: none;
   }
 
   /* The More sheet: a sheet as wide as the bar, floating just above it, opaque
@@ -5776,8 +5790,10 @@ a.btn[aria-disabled="true"] {
     gap: var(--space-sm);
   }
 
+  /* One label width for both rows, so the two segmented controls start at
+   * the same edge whatever the language's label lengths. */
   .tab-bar__prefs .group .row .row__main {
-    flex: 0 0 auto;
+    flex: 0 0 6.5rem;
     min-height: 0;
     padding: 0;
   }
@@ -5835,6 +5851,8 @@ a.btn[aria-disabled="true"] {
     background: color-mix(in srgb, var(--color-text) 55%, transparent);
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
+    /* Arrives with the panel it dims; closing removes it at once. */
+    animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
   }
 
   body:has(.tab-bar__more[open]) .tab-bar {
@@ -6117,8 +6135,8 @@ dialog.modal::backdrop {
 dialog.modal.is-modal {
   opacity: 0;
   transform: translateY(8px);
-  transition: opacity var(--motion-fast) ease-out,
-    transform var(--motion-fast) ease-out;
+  transition: opacity var(--motion-fast) var(--ease-out),
+    transform var(--motion-fast) var(--ease-out);
 }
 
 dialog.modal.is-modal[open] {
@@ -7540,6 +7558,15 @@ html[data-ambient="rest"] .is-breathing {
   animation-iteration-count: 0;
 }
 
+/* The same while the More sheet is open: nothing repaints under its blurred
+ * scrim. */
+html:has(.tab-bar__more[open]) .home-state__dot--pulse,
+html:has(.tab-bar__more[open]) .hero__picture::before,
+html:has(.tab-bar__more[open]) .hero__glass::after,
+html:has(.tab-bar__more[open]) .is-breathing {
+  animation-iteration-count: 0;
+}
+
 .hero__ring.is-ring-done .hero__ring-done {
   animation: skypane-ring-glow var(--motion-spring-duration) ease-out;
 }
@@ -8141,7 +8168,7 @@ body.is-pulling {
 }
 
 .pull-indicator.is-pull-settling {
-  transition: opacity var(--motion-fast) ease-out,
+  transition: opacity var(--motion-fast) var(--ease-out),
     transform var(--motion-spring-duration) var(--motion-spring);
 }
 

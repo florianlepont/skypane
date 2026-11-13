@@ -49,7 +49,9 @@ def handle_get(h, m):
     code, clear = pair_code_cookie.take(
         h.headers.get("Cookie"), console_pairing.session_key(h))
     error = ""
-    if parse_qs(m.query or "").get("refused") == ["1"]:
+    # The refusal is shown with the code it blames, once: a reload carries no
+    # cookie, so it shows a plain form instead of an error about an empty field.
+    if parse_qs(m.query or "").get("refused") == ["1"] and clear:
         error = fleet_page.claim_refused_error()
     return _respond(
         h, 200, pair_frame_page.PairView(code_value=code, code_error=error),

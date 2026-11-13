@@ -271,6 +271,35 @@ def test_the_bottom_tab_bar_asks_before_leaving_and_saves_on_continue(
         context.close()
 
 
+@pytest.mark.parametrize("name,viewport,lang", PHONE_CASES[:1], ids=PHONE_IDS[:1])
+def test_the_tab_pill_stays_put_while_the_dialog_holds_the_navigation(
+        new_context, make_app_server, name, viewport, lang):
+    """a tab tapped with unsaved changes asks first: the pill never travels toward the tapped
+    cell and back, it stays under the page the person is still on"""
+    server = make_app_server(seed=_seed_with_look)
+    context, page = _open(new_context, server, viewport, lang)
+    try:
+        _pick_a_colour(page)
+        page.wait_for_function("() => !!document.querySelector('.tab-bar--slider')", timeout=10000)
+        page.evaluate("""() => {
+          const slider = document.querySelector('.tab-bar__slider');
+          const x0 = slider.getBoundingClientRect().left;
+          window.__pill = {x0: x0, far: 0, frames: 0};
+          const tick = () => {
+            window.__pill.far = Math.max(
+              window.__pill.far, Math.abs(slider.getBoundingClientRect().left - x0));
+            window.__pill.frames += 1;
+            requestAnimationFrame(tick); };
+          requestAnimationFrame(tick); }""")
+        _tap_bottom_tab(page, layout.FLIGHTS_ROUTE)
+        _wait_dialog_open(page)
+        page.wait_for_function("() => window.__pill.frames > 60", timeout=10000)
+        far = page.evaluate("() => window.__pill.far")
+        assert far <= 1, far
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("name,viewport,lang", PHONE_CASES, ids=PHONE_IDS)
 def test_discard_on_a_bottom_tab_leaves_without_saving(
         new_context, make_app_server, name, viewport, lang):

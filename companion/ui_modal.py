@@ -105,7 +105,7 @@ def dialog_html(
         dialog_id, title, form_action, csrf_html, body_html, submit_label,
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
         open_=False, subtitle=None, focus_id=None, focus_title=False,
-        return_on_close=False):
+        return_on_close=False, return_focus_id=None):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -122,6 +122,9 @@ def dialog_html(
     picker unasked); an invalid control still takes the focus.
     `return_on_close` is for a dialog the address itself opened: closed in
     place, the address becomes `dismiss_href` so a reload does not ask again.
+    `return_focus_id` names the control (by its `id`) that takes the focus when
+    the dialog closes with no opener of its own to return to (a dialog the
+    address opened).
     """
     slug = validated_slug(dialog_id)
     title_id = slug + "-title"
@@ -147,6 +150,8 @@ def dialog_html(
             submit_focus = " autofocus"
     if return_on_close:
         dialog_attrs += ' data-modal-return="%s"' % escape_html(dismiss_href)
+    if return_focus_id:
+        dialog_attrs += ' data-modal-return-focus="%s"' % escape_html(return_focus_id)
     submit_class = ' class="btn btn--danger"' if destructive else ""
     subtitle_html = (
         '<p class="modal__subtitle text-label">%s</p>' % escape_html(subtitle)

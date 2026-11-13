@@ -254,7 +254,7 @@ def test_nav_dot_shows_warn_on_flights_and_equals_the_health_banner(app_server_i
 
 def test_404_severity_is_authenticated_only_and_never_builds_markup(
         app_server_in_process, monkeypatch):
-    """authenticated GET /no-such-page -> 404 (personal chrome, so no dot) whose severity is
+    """authenticated GET /no-such-page -> 404 (Console navigation, so the dot) whose severity is
     sourced from health_signals() alone (health_state_from_signals() never runs for an error page); unauthenticated -> 404,
     health_signals() never runs either, so Health's warn/error state never leaks pre-auth"""
     server = app_server_in_process
@@ -284,8 +284,9 @@ def test_404_severity_is_authenticated_only_and_never_builds_markup(
 
     status, _headers, body = http_request(server.url("/no-such-page"), cookie=session)
     assert status == 404, "expected 404 from an authenticated unknown route, got %d" % status
-    assert _NAV_DOT_RE.search(body) is None, (
-        "expected an authenticated 404 (personal chrome) to carry no Health dot")
+    assert _NAV_DOT_RE.search(body) is not None, (
+        "expected an authenticated administrator 404 to keep the Console navigation, "
+        "with its Health dot")
     assert len(signals_calls) == 1, (
         "expected exactly one health_signals() call for an authenticated 404, got %d"
         % len(signals_calls))

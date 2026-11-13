@@ -365,7 +365,8 @@ def _role_dialog(view):
         _action_path(row, _routes().USER_ROLE_SUFFIX),
         _ui().csrf_field() + fields, body, i18n.t(submit), i18n.t(keep),
         _routes().USERS_ROUTE, destructive=not promote, confirm_only=True,
-        open_=True, subtitle=row.email, return_on_close=True)
+        open_=True, subtitle=row.email, return_on_close=True,
+        return_focus_id="role-%d" % user_id)
 
 
 def _menu_cell(row):

@@ -189,6 +189,28 @@ def test_backing_out_of_the_role_confirmation_changes_nothing(
         context.close()
 
 
+@pytest.mark.parametrize("how", ["escape", "keep"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_closing_the_role_confirmation_returns_the_focus_to_that_roles_select(
+        new_context, app_server_in_process, how, lang):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=VIEWPORT_MIN_SUPPORTED, lang=lang)
+    try:
+        _settled(page)
+        dialog = _change_role(page, seed, fx.OWNER_EMAIL, "admin")
+        if how == "escape":
+            page.keyboard.press("Escape")
+        else:
+            page.locator(dialog + " .modal__dismiss").click()
+        page.wait_for_function(
+            "id => !document.querySelector('dialog[open]')"
+            " && document.activeElement && document.activeElement.id === id",
+            arg="role-%d" % seed.owner_id, timeout=5000)
+        assert page.locator("#role-%d" % seed.owner_id).input_value() == "user"
+    finally:
+        context.close()
+
+
 def test_the_active_switch_deactivates_then_reactivates_a_user(
         new_context, app_server_in_process):
     server = app_server_in_process

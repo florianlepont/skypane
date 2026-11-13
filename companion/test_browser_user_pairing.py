@@ -156,8 +156,11 @@ def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         assert "KKKK" not in page.url
         # It comes back once: the cookie is gone, so the next showing starts empty.
         assert [c for c in context.cookies() if c["name"] == "sp_pair_code"] == []
+        # A reload shows a plain form: the error went with the code it blamed.
         page.reload()
-        page.locator(".pair-form .field-error").wait_for(state="visible")
+        page.wait_for_function("() => document.readyState === 'complete'")
+        page.locator("#pair-code").wait_for(state="visible")
+        assert page.locator(".pair-form .field-error").count() == 0
         assert page.input_value("#pair-code") == ""
         page.fill("#pair-code", fx.FAKE_CODE)
         page.locator(".pair-form button[type=submit]").click()

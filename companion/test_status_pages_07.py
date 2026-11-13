@@ -175,7 +175,7 @@ def test_french_tab_bar_labels_and_landmark():
         "expected the tab bar's landmark name in French (CFG-29 must not regress), got %r"
         % (bar[:120],))
     for english, french in (
-            ("Home", "Accueil"), ("Flights", "Vols"), ("Place", "Lieu"),
+            ("Home", "Accueil"), ("Flights", "Vols"), ("Location", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
             ("Airlines", "Compagnies"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
@@ -249,9 +249,8 @@ def test_style_css_carries_no_stray_comment_terminator(css_text):
 
 def test_every_disclosure_has_a_marker_and_no_header_claims_to_stick(css_text):
     """every <details> carries an explicit summary::before chevron that rotates on [open] through a
-    child combinator — including the bottom tab bar's More summary, where it is taken out of flow
-    so a marker cannot narrow the cell, and with its own inverted rotation because that sheet opens
-    upward — with the global reduced-motion override covering it and no redundant per-rule block
+    child combinator — except the bottom tab bar's More summary, which draws no marker so the cell
+    stays one glyph — with the global reduced-motion override covering it and no redundant per-rule block
     added; and no .data-table-wrap th rule survives to claim sticky positioning a wrapper with no
     height could never provide"""
     # --- T3: the marker exists, and it rotates ------------------------
@@ -268,17 +267,15 @@ def test_every_disclosure_has_a_marker_and_no_header_claims_to_stick(css_text):
         "expected a CHILD combinator on the open-state rule — a descendant one rotates a parent "
         "disclosure's marker when a nested one opens (T3)")
 
-    # The marker reaches the tab bar's "More" summary too, where it is
-    # taken out of flow so a 6px marker cannot narrow a 78x56px cell's
-    # centred icon-and-label stack.
+    # The bottom tab bar's "More" summary draws no marker: its cell is its
+    # three dots alone, so the base chevron is switched off there and no
+    # open-state rotation is needed.
     tab_marker = declarations_for(
         css_text, ".tab-bar__more > .tab-bar__link::before", at_rules=_TAB_BAR_MEDIA)
-    assert tab_marker.get("position") == "absolute", (
-        "expected the tab bar's More marker to be positioned out of flow — in flow it is a flex "
-        "item beside .tab-bar__pill and compresses the cell (T3)")
-    assert rules_with_selector(css_text, ".tab-bar__more[open] > .tab-bar__link::before"), (
-        "expected the tab bar's More marker to have its own open state — the sheet opens UPWARD, "
-        "so the global right-closed/down-open convention points away from it (T3)")
+    assert tab_marker.get("content") == "none", (
+        "expected the tab bar's More cell to draw no disclosure marker over its glyph (T3)")
+    assert not rules_with_selector(css_text, ".tab-bar__more[open] > .tab-bar__link::before"), (
+        "expected no open-state rotation for a marker the More cell does not draw (T3)")
 
     # The rotation is a transform and the fade is a transition, both
     # already covered by the single global reduced-motion override — the

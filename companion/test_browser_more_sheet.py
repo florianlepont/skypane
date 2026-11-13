@@ -424,3 +424,90 @@ def test_opening_and_closing_the_sheet_leaves_no_event_listener_behind(new_conte
         assert _listener_count(cdp) <= before, (before, _listener_count(cdp))
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_the_more_cell_is_one_glyph_like_every_other_cell(new_context, app, scheme):
+    """the More cell draws its three dots alone, open or closed: no second chevron glyph sits
+    over them close to the pill's edge"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED, scheme=scheme)
+    try:
+        glyphs = "() => getComputedStyle(document.querySelector('.tab-bar__more > summary'), '::before').content"
+        assert page.evaluate(glyphs) in ("none", "normal")
+        _open_sheet(page)
+        assert page.evaluate(glyphs) in ("none", "normal")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_the_theme_and_language_controls_share_one_left_and_right_edge(
+        new_context, app, viewport, lang):
+    context, page = _open(new_context, app, _home(app), viewport, lang=lang)
+    try:
+        _open_sheet(page)
+        page.wait_for_function(_SETTLED)
+        edges = page.evaluate("""() => [...document.querySelectorAll(
+          '.tab-bar__pref .theme-form')].map((f) => {
+            const r = f.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)]; })""")
+        assert len(edges) == 2 and edges[0] == edges[1], edges
+        fits = page.evaluate("""() => [...document.querySelectorAll(
+          '.tab-bar__pref .row__label, .tab-bar__pref .theme-option')].filter(
+            (e) => e.classList.contains('row__label')
+              ? e.getClientRects()[0].height > 24 : e.scrollWidth > e.clientWidth + 0.5)
+            .map((e) => e.textContent)""")
+        assert fits == [], fits
+    finally:
+        context.close()
+
+
+def test_the_dim_behind_the_sheet_and_behind_a_dialog_fades_in_with_what_opens(new_context, app):
+    """the scrim and a dialog's backdrop start transparent and reach full strength: the page
+    does not snap to dimmed in one frame while the panel fades in"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        first = page.evaluate("""() => {
+          document.querySelector('.tab-bar__more').open = true;
+          return getComputedStyle(document.body, '::after').opacity; }""")
+        assert float(first) < 0.5, first
+        page.wait_for_function(
+            "() => getComputedStyle(document.body, '::after').opacity === '1'", timeout=5000)
+        page.evaluate("() => { document.querySelector('.tab-bar__more').open = false; }")
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        backdrop = page.evaluate("""() => {
+          const d = document.querySelector('dialog.modal');
+          d.showModal();
+          return getComputedStyle(d, '::backdrop').opacity; }""")
+        assert float(backdrop) < 0.5, backdrop
+        page.wait_for_function(
+            "() => getComputedStyle(document.querySelector('dialog.modal'), '::backdrop')"
+            ".opacity === '1'", timeout=5000)
+    finally:
+        context.close()
+
+
+_AMBIENT = """(want) => {
+  const read = [
+    getComputedStyle(document.querySelector('.home-state__dot--pulse')).animationIterationCount,
+    getComputedStyle(
+      document.querySelector('.home-state__dot--pulse'), '::after').animationIterationCount,
+    getComputedStyle(
+      document.querySelector('.hero__picture'), '::before').animationIterationCount];
+  return read.every((v) => v === want); }"""
+
+
+def test_the_home_loops_stand_still_while_the_sheet_is_open_and_resume_after(new_context, app):
+    """nothing animates endlessly under the dimmed, blurred page of an open sheet"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        page.wait_for_function(_AMBIENT, arg="infinite", timeout=5000)
+        _open_sheet(page)
+        page.wait_for_function(_AMBIENT, arg="0", timeout=5000)
+        page.locator(".tab-bar__more > summary").click()
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        page.wait_for_function(_AMBIENT, arg="infinite", timeout=5000)
+    finally:
+        context.close()

@@ -14,7 +14,7 @@ from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, VIEWPORT_MIN_SUP
 pytestmark = pytest.mark.browser
 
 _BAR_LABELS = {
-    "en": ["Home", "Flights", "Airlines", "Style", "Place", "More"],
+    "en": ["Home", "Flights", "Airlines", "Style", "Location", "More"],
     "fr": ["Accueil", "Vols", "Compagnies", "Style", "Lieu", "Plus"],
 }
 _SWITCH_LABEL = {

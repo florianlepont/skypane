@@ -64,6 +64,25 @@ def lots(module_app_server_factory):
     return module_app_server_factory(seed=lambda d: _seed_flights(d, LOTS), fake_providers=True)
 
 
+def _seed_two_days(state_dir):
+    """LIMIT flights on 4 Sep and six older ones on 3 Sep: Load more adds a new day."""
+    events = [
+        {"ts": "2026-09-04T%02d:%02d:00+00:00" % (n // 12, n % 12 * 5),
+         "hex": "4d%04x" % n, "callsign": "AFR%d" % (200 + n), "airline": "Air France",
+         "origin": "ORY", "destination": "NCE", "confirmed_state": "departing"}
+        for n in range(LIMIT)]
+    events += [
+        {"ts": "2026-09-03T10:%02d:00+00:00" % (n * 5), "hex": "4e%04x" % n,
+         "callsign": "AFR%d" % (900 + n), "airline": "Air France", "origin": "ORY",
+         "destination": "NCE", "confirmed_state": "departing"} for n in range(6)]
+    vp.seed_runway_events(state_dir, events)
+
+
+@pytest.fixture(scope="module")
+def two_days(module_app_server_factory):
+    return module_app_server_factory(seed=_seed_two_days, fake_providers=True)
+
+
 @pytest.fixture(scope="module")
 def few(module_app_server_factory):
     return module_app_server_factory(seed=vp.seed_flight_card_variety, fake_providers=True)
@@ -216,6 +235,33 @@ def test_load_more_appends_in_place_keeping_the_scroll_and_the_focus(
         # The new rows continue the day group and the table instead of repeating them.
         assert _count(page, "section.history-day") == 1
         assert _count(page, "tr.flight-day-row") == 1
+    finally:
+        context.close()
+
+
+def test_load_more_animates_the_new_rows_never_a_whole_day_section(new_context, two_days):
+    """a day that Load more adds is not lifted as one tall block: only its first rows enter"""
+    context, page = _open(new_context, two_days, VIEWPORT_PHONE)
+    try:
+        page.evaluate("""() => {
+          window.__entered = [];
+          new MutationObserver((records) => {
+            for (const r of records) {
+              if (r.target.classList.contains('reveal-appended')) {
+                window.__entered.push(r.target.tagName + '.' + r.target.className);
+              }
+            }
+          }).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['class']});
+        }""")
+        link = page.locator(MORE)
+        link.scroll_into_view_if_needed()
+        link.click()
+        _wait_count(page, CARD, LIMIT + 6)
+        page.wait_for_function(_SETTLED, timeout=10000)
+        entered = page.evaluate("() => window.__entered")
+        assert entered, "the new rows should enter with the short entrance"
+        assert not [name for name in entered if "history-day" in name or "SECTION" in name], entered
+        assert all(name.startswith("LI.") for name in entered), entered
     finally:
         context.close()
 

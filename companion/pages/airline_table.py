@@ -476,8 +476,9 @@ def _airline_group_html(page, row, types_open=False):
         subs = ""
         source = ' data-types-src="%s"' % escape_html(_types_source(row))
     return (
-        '<tbody class="airline-group" data-filter-text="%s" data-filter-group="%d"%s>%s%s</tbody>'
-    ) % (escape_html(_filter_text(row)), row["index"], source, _main_row_html(page, row), subs)
+        '<tbody class="airline-group" id="airline-%s" data-filter-text="%s" data-filter-group="%d"%s>%s%s</tbody>'
+    ) % (escape_html(row["key"]), escape_html(_filter_text(row)), row["index"], source,
+         _main_row_html(page, row), subs)
 
 
 def known_type_codes():

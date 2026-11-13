@@ -446,6 +446,8 @@ def test_a_refreshed_list_plays_one_entrance_not_two(new_context, make_app_serve
         page.evaluate("() => { window.__css = [];"
                       " document.addEventListener('animationstart', (e) => window.__css.push("
                       "e.animationName + ' ' + e.target.className), true); }")
+        # The turn comes from the --motion-spin token, not a number in the script.
+        page.evaluate("() => document.documentElement.style.setProperty('--motion-spin', '1234ms')")
         page.evaluate("() => { window.__spins = [];"
                       " const real = Element.prototype.animate;"
                       " Element.prototype.animate = function (f, o) {"
@@ -466,6 +468,7 @@ def test_a_refreshed_list_plays_one_entrance_not_two(new_context, make_app_serve
         spins = _eval(page, "window.__spins")
         assert spins and all(spin["iterations"] != "Infinity" and spin["iterations"] < 100
                              for spin in spins), spins
+        assert all(spin["duration"] == 1234 for spin in spins), spins
     finally:
         context.close()
 

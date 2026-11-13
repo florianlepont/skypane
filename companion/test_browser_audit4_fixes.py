@@ -164,14 +164,13 @@ def test_system_cards_start_at_the_page_column(new_context, app_server_in_proces
         context.close()
 
 
-def test_the_phone_tab_bar_caret_sits_clear_of_the_bar_edge(new_context, app_server_in_process):
+def test_the_phone_tab_bar_more_glyph_sits_clear_of_the_bar_edge(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, _seed = _open(new_context, server, "/users", VIEWPORT_PHONE)
     try:
         gap = page.evaluate("""() => { const bar = document.querySelector('.tab-bar');
-            const link = document.querySelector('.tab-bar__more > .tab-bar__link');
-            return link.getBoundingClientRect().top + parseFloat(
-              getComputedStyle(link, '::before').top) - bar.getBoundingClientRect().top; }""")
+            const icon = document.querySelector('.tab-bar__more svg');
+            return icon.getBoundingClientRect().top - bar.getBoundingClientRect().top; }""")
         assert gap >= 8, gap
     finally:
         context.close()

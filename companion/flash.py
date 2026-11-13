@@ -14,7 +14,7 @@ this module).
 """
 from urllib.parse import parse_qsl, urlencode, urlsplit
 
-from companion import device_scope, frame_state, i18n, layout, routes, wake
+from companion import artwork_airline, device_scope, frame_state, i18n, layout, routes, wake
 from companion.pages import (
     airline_sheet, airlines_page, co_managers_card, config_page, detection_page, frame_name_page, pair_frame_page,
     update_page)
@@ -529,9 +529,26 @@ def flash_toast_html(flash_key, text, request_path):
         glyph=_FLASH_GLYPHS.get(flash_key))
 
 
+# A refused or failed picture upload names the airline it was for.
+_ARTWORK_FLASH_KEYS = frozenset((
+    FLASH_KEY_ILLUSTRATION_REJECTED, FLASH_KEY_ILLUSTRATION_NOT_PNG,
+    FLASH_KEY_ILLUSTRATION_TOO_LARGE, FLASH_KEY_ILLUSTRATION_NOT_TRANSPARENT,
+    FLASH_KEY_ILLUSTRATION_TOO_SMALL, FLASH_KEY_ILLUSTRATION_REPLACE_FAILED))
+_ARTWORK_NAMED_TEXT = i18n.msg("common.illustration_refused_for_airline", "{name}: {reason}")
+
+
+def artwork_airline_name(flash_key, artwork_key, state_dir):
+    """The airline a picture refusal is about, or None: only for the refusal
+    keys, and only when `artwork_key` (from the address) is the artwork key of
+    an airline the editor lists."""
+    if flash_key not in _ARTWORK_FLASH_KEYS or not artwork_key:
+        return None
+    return artwork_airline.airline_name_for_key(state_dir, artwork_key)
+
+
 def resolve_flash_text(
         flash_key, state_dir, rule_key=None, last_checkin_ts=None, device_cfg=None,
-        battery_critical=False, place_name=None):
+        battery_critical=False, place_name=None, artwork_name=None):
     """Build this flash's already-translated message text, or None if
     flash_key is unknown.
 
@@ -542,6 +559,8 @@ def resolve_flash_text(
     other reader shares, so they can never disagree.
     place_name: the frame's stored place label, read by the caller from
     fleet.db and never from the request; only FLASH_KEY_PLACE_SAVED uses it.
+    artwork_name: the airline a picture refusal is about, from
+    artwork_airline_name(); the refusal keys then start with it.
     """
     if flash_key not in FLASH_MESSAGES:
         return None
@@ -585,6 +604,8 @@ def resolve_flash_text(
     if flash_key == FLASH_KEY_PLACE_SAVED:
         return template.format(
             place=place_name or i18n.t(detection_page.PLACE_FALLBACK_NAME))
+    if artwork_name and flash_key in _ARTWORK_FLASH_KEYS:
+        return i18n.t(_ARTWORK_NAMED_TEXT).format(name=artwork_name, reason=template)
     if flash_key == FLASH_KEY_RULE_REPLACED:
         normalised_key = colour_rules.normalise_rule_callsign(rule_key)
         if normalised_key is None:
