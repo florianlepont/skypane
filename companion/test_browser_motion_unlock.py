@@ -175,6 +175,29 @@ def test_a_new_airline_card_flips_once_and_not_on_reload(new_context, make_app_s
         context.close()
 
 
+@pytest.mark.parametrize("width", (390, 1280))
+def test_the_first_airlines_visit_unlocks_cards_without_any_page_error(
+        new_context, make_app_server, width):
+    server = make_app_server(seed=seed_collection)
+    context = new_context(viewport={"width": width, "height": 844})
+    context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
+    page = context.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.on("console", lambda msg: errors.append(msg.text) if msg.type == "error" else None)
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
+        page.wait_for_function(
+            "() => Object.keys(localStorage).some(k => k.indexOf('skypane.unlocked.') === 0)",
+            timeout=10000)
+        _wait_flip_settled(page)
+        assert errors == []
+    finally:
+        context.close()
+
+
 def test_a_new_airline_card_plays_the_flip_first_time(new_context, make_app_server):
     server = make_app_server(seed=seed_collection)
     context = new_context(viewport=VIEWPORT_DESKTOP)
