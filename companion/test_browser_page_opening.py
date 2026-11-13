@@ -952,6 +952,25 @@ def test_the_style_page_opens_on_a_wide_screen_without_the_picture_moving(
         context.close()
 
 
+@pytest.mark.parametrize("width", [768, 1024])
+@pytest.mark.parametrize("motion", ["reduce", "no-preference"])
+def test_the_flights_filter_bar_opens_in_its_final_layout(new_context, server, width, motion):
+    """the search field and the chips beside it are placed before the first paint: opening
+    Flights at tablet and small desktop widths shifts nothing by more than 0.01"""
+    context = _admin_context(
+        new_context, server, {"width": width, "height": 900}, reduced_motion=motion)
+    context.add_init_script(_SHIFT_RECORDER)
+    try:
+        page = context.new_page()
+        page.goto(server.base_url() + "/flights")
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                      "() => requestAnimationFrame(() => setTimeout(done, 600))))")
+        assert page.evaluate("() => window.__shift") <= 0.01, page.evaluate("() => window.__shifts")
+    finally:
+        context.close()
+
+
 def test_the_administrators_not_found_page_keeps_the_console_navigation_on_a_desktop(
         new_context, server):
     """with no frame in scope the Console is the administrator's only space: the sidebar lists

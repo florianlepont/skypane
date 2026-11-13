@@ -3238,7 +3238,7 @@ table.data-table--flights .cell-inline-sep {
   max-width: 560px;
 }
 
-.js .filter-bar--title {
+:is(.js, .js-early) .filter-bar--title {
   position: absolute;
   top: 0;
   right: 0;
@@ -3248,28 +3248,28 @@ table.data-table--flights .cell-inline-sep {
   margin: 0;
 }
 
-.js .filter-bar--title .filter-bar__search input {
+:is(.js, .js-early) .filter-bar--title .filter-bar__search input {
   padding: 0;
   cursor: pointer;
 }
 
-.js .filter-bar--title .filter-bar__search input::placeholder {
+:is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
   color: transparent;
 }
 
-.js .filter-bar--title:focus-within,
-.js .filter-bar--title[data-filter-active] {
+:is(.js, .js-early) .filter-bar--title:focus-within,
+:is(.js, .js-early) .filter-bar--title[data-filter-active] {
   width: 100%;
 }
 
-.js .filter-bar--title:focus-within input,
-.js .filter-bar--title[data-filter-active] input {
+:is(.js, .js-early) .filter-bar--title:focus-within input,
+:is(.js, .js-early) .filter-bar--title[data-filter-active] input {
   padding: 0 52px 0 46px;
   cursor: text;
 }
 
-.js .filter-bar--title:focus-within input::placeholder,
-.js .filter-bar--title[data-filter-active] input::placeholder {
+:is(.js, .js-early) .filter-bar--title:focus-within input::placeholder,
+:is(.js, .js-early) .filter-bar--title[data-filter-active] input::placeholder {
   color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 @media (min-width: 960px) {
@@ -3281,9 +3281,9 @@ table.data-table--flights .cell-inline-sep {
   /* In the title row, after the title and clear of the frame button (the
    * header keeps that space free); it wraps under the title when the row is
    * too narrow for both. */
-  .js .filter-bar--title,
-  .js .filter-bar--title:focus-within,
-  .js .filter-bar--title[data-filter-active] {
+  :is(.js, .js-early) .filter-bar--title,
+  :is(.js, .js-early) .filter-bar--title:focus-within,
+  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
     position: relative;
     top: auto;
     right: auto;
@@ -3293,13 +3293,13 @@ table.data-table--flights .cell-inline-sep {
     margin: 0;
   }
 
-  .js .filter-bar--title .filter-bar__search input,
-  .js .filter-bar--title:focus-within input {
+  :is(.js, .js-early) .filter-bar--title .filter-bar__search input,
+  :is(.js, .js-early) .filter-bar--title:focus-within input {
     padding: 0 52px 0 46px;
     cursor: text;
   }
 
-  .js .filter-bar--title .filter-bar__search input::placeholder {
+  :is(.js, .js-early) .filter-bar--title .filter-bar__search input::placeholder {
     color: color-mix(in srgb, var(--color-text) 55%, transparent);
   }
 }
@@ -3313,9 +3313,9 @@ table.data-table--flights .cell-inline-sep {
     flex: none;
   }
 
-  .js .filter-bar--title,
-  .js .filter-bar--title:focus-within,
-  .js .filter-bar--title[data-filter-active] {
+  :is(.js, .js-early) .filter-bar--title,
+  :is(.js, .js-early) .filter-bar--title:focus-within,
+  :is(.js, .js-early) .filter-bar--title[data-filter-active] {
     min-width: 260px;
     margin-left: auto;
   }
