@@ -369,3 +369,29 @@ def test_closing_the_sheet_by_escape_or_a_second_tap_returns_the_focus_to_the_mo
                 timeout=5000)
     finally:
         context.close()
+
+
+_GLYPH_BOXES = """() => [...document.querySelectorAll('.tab-bar__label')].map((el) => {
+  const range = document.createRange(); range.selectNodeContents(el);
+  const glyphs = range.getBoundingClientRect();
+  const clip = el.getBoundingClientRect();
+  return {text: el.textContent, glyphTop: glyphs.top, glyphBottom: glyphs.bottom,
+          clipTop: clip.top, clipBottom: clip.bottom, cell: el.closest('.tab-bar__link,summary')
+            .getBoundingClientRect().height}; })"""
+
+
+@pytest.mark.parametrize("path", ["/users", "/fleet"])
+def test_no_french_tab_label_loses_its_accent_or_its_descender_to_the_clip(
+        new_context, app, path):
+    """the glyph box of every label (a capital accent above the cap height, the tail of p and q
+    below the baseline) lies inside the box that clips it, and the bar keeps its cell height"""
+    context, page = _open(new_context, app, path, VIEWPORT_MIN_SUPPORTED, lang="fr")
+    try:
+        labels = page.evaluate(_GLYPH_BOXES)
+        assert {label["text"] for label in labels} >= {"Équipe", "Éditeur"}, labels
+        for label in labels:
+            assert label["glyphTop"] >= label["clipTop"] - 0.5, label
+            assert label["glyphBottom"] <= label["clipBottom"] + 0.5, label
+            assert label["cell"] == 56, label
+    finally:
+        context.close()

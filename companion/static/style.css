@@ -5628,6 +5628,11 @@ a.btn[aria-disabled="true"] {
     font-weight: var(--weight-regular);
     line-height: 1;
     max-width: 100%;
+    /* The clip box is as tall as the font's glyph box (a capital accent
+     * reaches above the cap height, p and q below the baseline), and the
+     * negative margin gives the padding back so the cell keeps its height. */
+    padding-block: 2px;
+    margin-block: -2px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

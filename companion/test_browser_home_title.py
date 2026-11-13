@@ -260,7 +260,8 @@ def test_a_hostile_return_to_is_ignored_by_the_page(new_context, rename_app):
         "/devices/%s/frame/name?return_to=https%%3A%%2F%%2Fevil.example%%2F" % rename_app.fleet.live.id)
     back = page.locator("a.form-back").get_attribute("href")
     assert back.startswith("/") and not back.startswith("//") and "evil" not in back
-    assert page.locator('input[name="return_to"]').count() == 0
+    assert page.locator('input[name="return_to"]').evaluate_all(
+        "els => els.map(el => el.value)") == [""]
 
 
 def test_without_script_the_pencil_save_and_cancel_return_to_home(new_context, rename_app):
