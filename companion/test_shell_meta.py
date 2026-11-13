@@ -100,6 +100,18 @@ def test_a_page_with_a_tab_bar_holds_its_first_paint_until_the_bar_is_parsed():
     assert html.count('id="tab-bar-end"') == 1
 
 
+def test_a_page_with_a_tab_bar_holds_its_first_paint_until_all_its_content_is_parsed():
+    """a browser may paint a page that is still arriving, which moves the table cells and the
+    frame button as the rest is parsed: the head waits for a marker that follows the whole page
+    content; a page with no bar asks for nothing"""
+    html = layout.page_shell("T", "home", "<p>b</p>", ui_theme="light", device_config={"a": 1})
+    assert html.count('<link rel="expect" href="#page-end" blocking="render">') == 1
+    assert html.index('href="#page-end"') < html.index("</head>")
+    assert html.count('id="page-end"') == 1
+    assert html.index("<p>b</p>") < html.index('id="page-end"') < html.index("</main>")
+    assert 'href="#page-end"' not in layout.page_shell("T", "home", "<p>b</p>", ui_theme="light")
+
+
 def test_a_page_with_a_section_strip_holds_its_first_paint_until_the_strip_is_parsed():
     """a strip that carries its selection across a page change ends with a marker and the head
     waits for it, so the new page's first frame always holds the strip; a strip that does not

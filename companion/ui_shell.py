@@ -295,6 +295,10 @@ def _session_expired_toast_html():
     return toast_html(title, detail, tone=TOAST_TONE_ERROR, role="")
 
 
+# Marks the end of the page content: the first frame is held until it is parsed.
+PAGE_END_ID = "page-end"
+PAGE_END_HTML = '<span id="%s" hidden></span>' % PAGE_END_ID
+
 # The authenticated document's own named template. Invariants preserved
 # from the pre-template version: the tab bar ({tab_bar}) sits outside
 # .dashboard-shell, before it in source order so the render-blocking
@@ -325,7 +329,7 @@ PAGE_SHELL_TEMPLATE = (
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
-    "{tab_bar_expect}{strip_expect}"
+    "{tab_bar_expect}{page_expect}{strip_expect}"
     '<script src="{splash_boot_src}" data-splash-src="{splash_src}"></script>\n'
     "{favicon_link}\n"
     "</head>\n"
@@ -345,7 +349,7 @@ PAGE_SHELL_TEMPLATE = (
     "{frame_menu}"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1" data-page-open>\n'
-    "{frame_notice}{flash}\n{banner}\n{body}\n"
+    "{frame_notice}{flash}\n{banner}\n{body}\n{page_end}"
     "</main>\n"
     "</div>\n"
     '<div class="toast-region toast-region--live" {quick_toast_attr} role="alert"></div>\n'
@@ -486,6 +490,12 @@ def _device_scoped_title(title, active):
     return "%s - %s" % (title, device_display_name(current))
 
 
+def _expect_link(marker_id, wanted):
+    """The head link that holds the first frame until the element `marker_id` is parsed; ""
+    when `wanted` is false."""
+    return '<link rel="expect" href="#%s" blocking="render">\n' % marker_id if wanted else ""
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
@@ -595,13 +605,15 @@ def page_shell(
         "banner": banner_html,
         "body": body,
         "tab_bar": tab_bar_html + TAB_BAR_END_HTML if tab_bar_html else "",
-        "tab_bar_expect": (
-            '<link rel="expect" href="#%s" blocking="render">\n' % TAB_BAR_END_ID
-            if tab_bar_html else ""),
+        "tab_bar_expect": _expect_link(TAB_BAR_END_ID, tab_bar_html),
+        # A browser may paint a document that is still arriving: the cells of a table, the
+        # frame button and the blocks of a page then move as the rest is parsed. Hold the
+        # first frame until the whole page content is in.
+        "page_expect": _expect_link(PAGE_END_ID, tab_bar_html),
+        "page_end": PAGE_END_HTML,
         # Hold the first frame until the page's carried strip, if any, is parsed.
-        "strip_expect": (
-            '<link rel="expect" href="#%s" blocking="render">\n' % ui_segmented.CARRY_END_ID
-            if 'id="%s"' % ui_segmented.CARRY_END_ID in body else ""),
+        "strip_expect": _expect_link(
+            ui_segmented.CARRY_END_ID, 'id="%s"' % ui_segmented.CARRY_END_ID in body),
         "quick_toast_attr": QUICK_TOAST_ATTR,
         "quick_toast_template_attr": QUICK_TOAST_TEMPLATE_ATTR,
         "quick_toast": _quick_toast_html(),

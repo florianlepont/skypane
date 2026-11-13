@@ -767,6 +767,14 @@ def _day_separator_row_html(day, today):
     ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
 
 
+# One <col> per column (When, Flight, Route, State, Picture). The stylesheet gives them fixed
+# widths, so the columns are placed from this first element and never re-flow while the rows
+# stream in or change.
+_COLGROUP_HTML = (
+    '<colgroup><col class="col-when"><col class="col-flight"><col class="col-route">'
+    '<col class="col-state"><col class="col-picture"></colgroup>')
+
+
 def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True, first=0):
     """The desktop table. `first` is the list position of the first row given
     (0 for a whole list): positions, not the rows given, decide the stripes
@@ -820,11 +828,12 @@ def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True,
         '<div class="data-table-wrap" data-flights-view tabindex="0" role="region" '
         'aria-label="%s">'
         '<table class="data-table data-table--flights">'
-        "<thead><tr>%s</tr></thead>"
+        "%s<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
         "</div>"
-    ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
+    ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), _COLGROUP_HTML, header_cells,
+           "".join(body_rows))
 
 
 def _row_ident_html(row):

@@ -176,6 +176,28 @@ def test_signature_shifts_no_layout_and_adds_no_scroll(new_context, make_app_ser
         context.close()
 
 
+def test_home_opens_without_a_shift_on_a_slow_processor(new_context, make_app_server):
+    """a slow processor parses the page in several slices: the first frame still holds the whole
+    page, so the frame button and the blocks beside it move by nothing after it"""
+    server = make_app_server(seed=_seed_checkin(2), fake_providers=True)
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.add_init_script(
+            "window.__shift = 0; new PerformanceObserver((list) => { for (const e of list.getEntries())"
+            " if (!e.hadRecentInput) window.__shift += e.value; })"
+            ".observe({type: 'layout-shift', buffered: true});")
+        context.new_cdp_session(page).send("Emulation.setCPUThrottlingRate", {"rate": 20})
+        for _ in range(8):
+            page.goto(server.base_url() + layout.HOME_ROUTE)
+            page.wait_for_function("() => document.readyState === 'complete'", timeout=30000)
+            page.wait_for_timeout(1200)
+            assert page.evaluate("() => window.__shift") < 0.0005
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_ring_sits_just_outside_the_picture(new_context, make_app_server, scheme):
     """the ring is a frame of the picture's own box, 5px outside it, in either theme"""

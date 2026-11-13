@@ -3018,6 +3018,34 @@ table.data-table--flights .cell-inline-sep {
   display: none;
 }
 
+/* Fixed column widths: with automatic widths every row that streams in
+ * re-divides the table between its columns, so the cells jump after the
+ * first paint. The cells wrap inside their column instead. */
+table.data-table--flights {
+  table-layout: fixed;
+  min-width: 0;
+}
+
+table.data-table--flights .col-when {
+  width: 22%;
+}
+
+table.data-table--flights .col-flight {
+  width: 24%;
+}
+
+table.data-table--flights .col-route {
+  width: 24%;
+}
+
+table.data-table--flights .col-state {
+  width: 16%;
+}
+
+table.data-table--flights .col-picture {
+  width: 14%;
+}
+
 .update-cta__icon .icon {
   width: 22px;
   height: 22px;
