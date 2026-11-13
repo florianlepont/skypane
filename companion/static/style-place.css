@@ -834,6 +834,38 @@ html:not(.map-ready) .place-tap-hint {
     top: var(--place-lead);
   }
 
+  /* The More sheet's scrim is a fixed layer the size of the window, and iOS
+   * draws only the document, not a fixed box, above and below the window.
+   * While the sheet is open the lead and the tail therefore carry the same
+   * dim and blur as part of the page, in the page container, above the map
+   * and clear of everything else (the page sits between them). Nothing is
+   * painted while the sheet is closed. */
+  .map-ready.place-lead body:has(.tab-bar__more[open]) .page-content:has(.place-stage)::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: var(--place-lead);
+    z-index: 1;
+    background: color-mix(in srgb, var(--color-text) 55%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
+  .map-ready.place-lead body:has(.tab-bar__more[open]) .page-content:has(.place-stage)::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: var(--place-tail);
+    z-index: 1;
+    background: color-mix(in srgb, var(--color-text) 55%, transparent);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+
   /* The tiles are light in both themes, and so is an iPhone's status bar
    * over them, so on a phone the logo, the wordmark and the frame button
    * take the light theme's colours, the values of the light palette in
