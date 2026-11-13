@@ -331,20 +331,6 @@ html.js-early .dirty-bar[data-dirty-wait] {
   flex: none;
 }
 
-.btn.btn--primary {
-  background: var(--color-accent);
-  border-color: transparent;
-  box-shadow: var(--shadow-control);
-  color: var(--color-on-accent);
-}
-
-.btn.btn--danger {
-  background: transparent;
-  border-color: color-mix(in srgb, var(--color-status-error) 45%, transparent);
-  box-shadow: none;
-  color: var(--color-status-error);
-}
-
 .special-row--calendar > .empty-state--compact {
   margin-bottom: var(--space-xs);
 }

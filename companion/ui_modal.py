@@ -221,7 +221,7 @@ def choice_dialog_html(
         '</div></header>'
         '<div class="modal__body"><p class="text-body">%(text)s</p>%(note)s</div>'
         '<div class="modal__actions">'
-        '<button type="button" data-%(hook)s-primary%(alt)s>%(primary)s</button>'
+        '<button type="button" class="btn btn--primary" data-%(hook)s-primary%(alt)s>%(primary)s</button>'
         '<button type="button" class="btn btn--secondary" data-%(hook)s-secondary>%(secondary)s</button>'
         '<button type="button" class="btn btn--ghost" data-%(hook)s-quiet data-modal-close '
         'autofocus>%(quiet)s</button>'

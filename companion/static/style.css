@@ -5365,6 +5365,20 @@ input[name="radius_km"] {
   cursor: pointer;
 }
 
+.btn.btn--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  box-shadow: var(--shadow-control);
+  color: var(--color-on-accent);
+}
+
+.btn.btn--danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-status-error) 45%, transparent);
+  box-shadow: none;
+  color: var(--color-status-error);
+}
+
 .btn.btn--primary:hover {
   background: var(--color-accent-hover);
   border-color: transparent;
