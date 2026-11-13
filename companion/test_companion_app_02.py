@@ -25,6 +25,7 @@ import companion.draw as draw
 import companion.layout as layout
 import companion.test_companion_app_helpers as cah
 import companion.theme_preview as theme_preview
+import companion.upload_form as upload_form
 from companion.pages import health_page
 from companion_app_server import http_request, served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for
@@ -385,6 +386,37 @@ def test_parser_two_parts_returns_none():
     content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
     result = app_module.parse_single_uploaded_file(content_type, body)
     assert result is None, "expected None for a two-part body, got %r" % (result,)
+
+
+def test_parser_accepts_a_leading_token_part_and_returns_both():
+    """parse_upload_form() returns the file bytes and the token of a body that opens with
+    the token text part; parse_single_uploaded_file() still returns just the file bytes"""
+    body, content_type = cah.encode_multipart(_VALID_UPLOAD_PAYLOAD)
+    boundary = content_type.split("boundary=")[1].encode()
+    body = (
+        b"--" + boundary + b'\r\nContent-Disposition: form-data; name="csrf_token"'
+        b"\r\n\r\nabc123DEF-_\r\n" + body)
+    assert upload_form.parse_upload_form(content_type, body) == (
+        _VALID_UPLOAD_PAYLOAD, "abc123DEF-_")
+    assert app_module.parse_single_uploaded_file(content_type, body) == _VALID_UPLOAD_PAYLOAD
+    assert upload_form.parse_upload_form(
+        *reversed(cah.encode_multipart(_VALID_UPLOAD_PAYLOAD))) == (_VALID_UPLOAD_PAYLOAD, None)
+
+
+def test_parser_refuses_a_second_file_part_next_to_the_token():
+    """a token part followed by two file parts, or by none, is not an upload"""
+    boundary = b"SkyPaneTokenBoundary3x"
+    token = (
+        b"--" + boundary + b'\r\nContent-Disposition: form-data; name="csrf_token"'
+        b"\r\n\r\nabc\r\n")
+    file_part = (
+        b"--" + boundary + b'\r\nContent-Disposition: form-data; name="f"; filename="f.png"'
+        b"\r\n\r\nAAAA\r\n")
+    closing = b"--" + boundary + b"--\r\n"
+    content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
+    assert upload_form.parse_upload_form(content_type, token + file_part + closing) == (b"AAAA", "abc")
+    assert upload_form.parse_upload_form(content_type, token + file_part + file_part + closing) is None
+    assert upload_form.parse_upload_form(content_type, token + closing) is None
 
 
 def test_parser_urlencoded_media_type_returns_none():

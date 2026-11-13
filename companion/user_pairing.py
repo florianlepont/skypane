@@ -10,13 +10,15 @@ Security invariants (the shared ones live in companion/console_pairing.py):
   code is evaluated, and every refusal gives the one identical answer.
 - The typed code is never stored, audited, put in a URL or a flash. A refused
   code is answered with a redirect back to the form (Post/Redirect/Get, so a
-  reload or Back never re-sends it) and the code is not echoed.
+  reload or Back never re-sends it); the code comes back into the field once
+  from a two-minute cookie (companion/pair_code_cookie.py), never from the
+  address.
 - The audit entry is the pairing event with the signed-in person as actor.
 """
 from urllib.parse import parse_qs
 
 from companion import (
-    console_pairing, i18n, layout, prefs, route_types)
+    console_pairing, i18n, layout, pair_code_cookie, prefs, route_types)
 from companion.pages import fleet_page, pair_frame_page
 from server import fleet_ops
 
@@ -26,12 +28,12 @@ _MAX_ECHOED_CODE = 32
 REFUSED_QUERY = "refused=1"
 
 
-def _respond(h, status, view):
+def _respond(h, status, view, set_cookies=()):
     theme = h._resolved_ui_theme()
     page = layout.page_shell(
         title=i18n.t(pair_frame_page.PAIR_TITLE), active=layout.nav_slug(ACCOUNT_ROUTE),
         body=pair_frame_page.render(view), ui_theme=theme, health_alert=None)
-    return h.send_html(status, page)
+    return h.send_html(status, page, set_cookies=set_cookies)
 
 
 def _echoed(code):
@@ -43,10 +45,15 @@ def handle_get(h, m):
     principal = h._safe_principal()
     if principal is None or principal.user_id is None:
         return h.send_html(404, h._not_found_page())
+    # The kept code is put back once: the cookie is ended by this response.
+    code, clear = pair_code_cookie.take(
+        h.headers.get("Cookie"), console_pairing.session_key(h))
+    error = ""
     if parse_qs(m.query or "").get("refused") == ["1"]:
-        return _respond(h, 200, pair_frame_page.PairView(
-            code_error=fleet_page.claim_refused_error()))
-    return _respond(h, 200, pair_frame_page.PairView())
+        error = fleet_page.claim_refused_error()
+    return _respond(
+        h, 200, pair_frame_page.PairView(code_value=code, code_error=error),
+        set_cookies=(clear,) if clear else ())
 
 
 def handle_post(h, m):
@@ -70,7 +77,9 @@ def handle_post(h, m):
         device_id, _name, _email = console_pairing.claim_code(h, code, principal.user_id)
     except fleet_ops.ClaimRefused:
         console_pairing.record_refused_attempt(h, key)
-        return h.redirect("%s?%s" % (PAIR_FRAME_ROUTE, REFUSED_QUERY))
+        return h.redirect(
+            "%s?%s" % (PAIR_FRAME_ROUTE, REFUSED_QUERY),
+            set_cookie=pair_code_cookie.keep_header(key, code))
     except fleet_ops.OwnerUnavailable:
         return h.send_html(404, h._not_found_page())
     console_pairing.SESSION_THROTTLE.record_success(key)

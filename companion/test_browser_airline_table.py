@@ -253,9 +253,15 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
     server = make_app_server(seed=_seed, fake_providers=True)
     png = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
+    requested = []
+    page.on("request", lambda request: requested.append(request.url))
     try:
+        form = page.locator('form[action^="/illustration/air-france.png"]')
+        assert "csrf_token" not in form.get_attribute("action")
+        assert form.locator('input[name="csrf_token"]').get_attribute("value")
         with page.expect_navigation():
-            page.locator('form[action^="/illustration/air-france.png"] input[type=file]').set_input_files(png)
+            form.locator("input[type=file]").set_input_files(png)
+        assert [url for url in requested if "csrf_token" in url] == []
         page.locator(".toast").first.wait_for(state="visible")
         assert os.path.isfile(os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png"))

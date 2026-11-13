@@ -31,11 +31,10 @@ its own token and never reads the session cookie), and the static assets in
 admin role (every global page and mutation).
 """
 import re
-from urllib.parse import parse_qs, urlsplit
 
 from companion import (
     airline_actions, co_managers, console_routes, device_scope, fleet_moves, frame_rename, user_pairing, layout, page_policy, route_types,
-    static_files, theme_preview)
+    static_files, theme_preview, upload_form)
 from companion.pages import (
     airline_collection_page, airline_types_fragment, airlines_page, co_managers_card, config_page, detection_page, place_page,
     history_fragment, home_page, personalisation_cards, update_page)
@@ -471,8 +470,8 @@ def reopen_address(path):
 
 def submitted_csrf(handler, route):
     """The anti-forgery token a POST carries: in the form body, except for an
-    illustration upload, whose multipart body the handler reads itself and
-    whose action URL carries the token in its query instead."""
+    illustration upload, whose multipart body opens with the token as a text
+    part (read here, ahead of the file; the query string is never consulted)."""
     if route.matcher == PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"):
-        return parse_qs(urlsplit(handler.path).query).get(CSRF_FIELD, [None])[0]
+        return upload_form.read_upload(handler, upload_form.MAX_UPLOAD_BYTES)
     return handler.read_form().get(CSRF_FIELD)

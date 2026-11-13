@@ -14,7 +14,7 @@ import companion.test_companion_app_helpers as cah
 from companion import device_scope
 from companion.test_device_helpers import (
     SIM_ENV, get, post, snapshot, snapshot_all, start_fleet_app)
-from companion_app_server import InProcessAppServer, csrf_url, http_request, login, with_csrf
+from companion_app_server import InProcessAppServer, http_request, login, with_csrf, with_csrf_part
 from skypane_two_device_fleet import seed_two_device_fleet
 from server.plane import calendar_rules, colour_rules, manual_resolutions, name_overrides
 from server.plane import illustrations
@@ -58,9 +58,9 @@ def _png_upload():
 
 
 def _post_upload(app, path):
-    body, content_type = _png_upload()
+    body, content_type = with_csrf_part(app.cookie, *_png_upload())
     return http_request(
-        csrf_url(app.cookie, app.server.base_url() + path), method="POST", data=body,
+        app.server.base_url() + path, method="POST", data=body,
         cookie=app.cookie, content_type=content_type)[:2]
 
 

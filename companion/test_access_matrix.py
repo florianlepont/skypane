@@ -25,9 +25,10 @@ import time
 
 import pytest
 
+import companion.test_companion_app_helpers as cah
 from companion import access, app, auth, legacy_pages, routes, static_files
 from companion_app_server import (
-    InProcessAppServer, auth0_env, csrf_url, http_request,
+    InProcessAppServer, auth0_env, http_request, with_csrf_part,
     login_via_auth0)
 from fake_auth0 import FakeAuth0
 from access_matrix_support import (
@@ -424,15 +425,16 @@ class MatrixRig:
         if method == "GET":
             return http_request(self.server.url(path), cookie=cookie)
         body = b""
+        content_type = None
         if cookie:
             token = cookie.split("=", 1)[1]
             body = ("%s=%s" % (routes.CSRF_FIELD, auth.csrf_token(token))).encode("ascii")
-        url = self.server.url(path)
         if cookie and "/illustration/" in path:
-            url = csrf_url(cookie, url)
+            body, content_type = with_csrf_part(
+                cookie, *cah.encode_multipart(b"not an image"))
         return http_request(
-            url, method="POST", data=body, cookie=cookie,
-            extra_headers={"Origin": self.server.base_url()})
+            self.server.url(path), method="POST", data=body, cookie=cookie,
+            content_type=content_type, extra_headers={"Origin": self.server.base_url()})
 
     def conn(self):
         return fleet_db.connect(self.state_dir)

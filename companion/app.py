@@ -424,6 +424,8 @@ class Handler(
         post_actions.SettingsActionsMixin, server_error.ErrorPageMixin,
         BaseHTTPRequestHandler):
     server_version = "skypane-companion"
+    # (body, over_cap) of the upload being handled; see upload_form.read_upload().
+    upload_body = (None, False)
     args = None
     # socketserver.StreamRequestHandler honours this attribute, so a
     # stalled read (e.g. the unauthenticated POST /login body) raises
@@ -691,18 +693,12 @@ class Handler(
         return {key: values[0] for key, values in parsed.items() if values}
 
     def _read_upload_body(self):
-        """Read the POST body for an illustration-replace request,
-        bounded by `MAX_ILLUSTRATION_UPLOAD_BYTES`. Returns `None` for
-        an absent/unparseable/non-positive/over-cap length or a
-        `socket.timeout`; an over-cap body's remainder is still drained
-        first (via `request_body.drain_capped_body()`) so the connection
-        isn't left mid-body.
-        """
-        length = request_body.parse_content_length(self.headers)
-        if length <= 0:
-            return None
-        raw, _over_cap = request_body.drain_capped_body(
-            self.rfile, length, MAX_ILLUSTRATION_UPLOAD_BYTES)
+        """The illustration upload's body, as read while the anti-forgery
+        token was checked: `None` for an over-cap, unreadable or absent body
+        (an over-cap body was drained so the connection is not left
+        mid-body)."""
+        raw, _over_cap = self.upload_body
+        self.upload_body = (None, False)
         return raw
 
     def page_context(self, device=None):

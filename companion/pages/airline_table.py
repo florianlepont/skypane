@@ -133,13 +133,13 @@ def _change_art_form(page, key, text=None, css="row-menu__item"):
     on change; without one the Upload button sends it."""
     return (
         '<form class="airlines-art" method="post" '
-        'enctype="multipart/form-data" action="%s">'
+        'enctype="multipart/form-data" action="%s">%s'
         '<label class="%s">%s'
         '<input type="file" name="image" accept="image/png" class="visually-hidden" '
         'required data-autosubmit></label>'
         '<noscript><button type="submit" class="airlines-art__upload">%s</button></noscript>'
         "</form>"
-    ) % (page._illustration_url(key, "POST"), css,
+    ) % (page._illustration_url(key, "POST"), csrf_field(), css,
          escape_html(text or i18n.t(MENU_CHANGE_ART)), escape_html(i18n.t(ART_UPLOAD_TEXT)))
 
 

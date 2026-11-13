@@ -37,7 +37,7 @@ import companion.ui_shell as ui_shell
 from companion.test_config_page_helpers import caption_word_count_text
 from companion import auth, device_scope, frame_state
 from companion.pages import config_page
-from companion_app_server import csrf_url, http_request, login, with_csrf
+from companion_app_server import http_request, login, with_csrf, with_csrf_part
 from companion_markup import flash_toast_title_detail
 from server import device_config
 import server.state_store as state_store
@@ -93,8 +93,10 @@ def test_illustration_override_effects_after_a_real_upload(make_app_server):
 
     upload_body, upload_content_type = cah.encode_multipart(
         vueling_bytes, filename="../../../etc/passwd", field_name="illustration")
+    upload_body, upload_content_type = with_csrf_part(
+        session_cookie, upload_body, upload_content_type)
     upload_status, _upload_headers, _ = http_request(
-        csrf_url(session_cookie, base + "/illustration/air-france.png"), method="POST",
+        base + "/illustration/air-france.png", method="POST",
         data=upload_body,
         cookie=session_cookie, content_type=upload_content_type)
     assert upload_status == 303, (
@@ -161,8 +163,9 @@ def test_illustration_non_image_upload_is_rejected(make_app_server):
     session_cookie = login(server)
     body, content_type = cah.encode_multipart(
         b"not a real image, just some text bytes", filename="fake.png")
+    body, content_type = with_csrf_part(session_cookie, body, content_type)
     status, headers, _resp_body = http_request(
-        csrf_url(session_cookie, server.base_url() + "/illustration/easyjet.png"), method="POST",
+        server.base_url() + "/illustration/easyjet.png", method="POST",
         data=body,
         cookie=session_cookie, content_type=content_type)
     assert status == 303, "expected a 303 redirect for a non-image upload, got %d" % status
@@ -181,8 +184,9 @@ def test_illustration_oversized_upload_is_rejected_and_connection_stays_healthy(
     session_cookie = login(server)
     oversized_payload = b"\x00" * (app_module.MAX_ILLUSTRATION_UPLOAD_BYTES + 4096)
     body, content_type = cah.encode_multipart(oversized_payload, filename="huge.png")
+    body, content_type = with_csrf_part(session_cookie, body, content_type)
     status, headers, _resp_body = http_request(
-        csrf_url(session_cookie, server.base_url() + "/illustration/corsair.png"), method="POST",
+        server.base_url() + "/illustration/corsair.png", method="POST",
         data=body,
         cookie=session_cookie, content_type=content_type)
     assert status == 303, "expected a 303 redirect for an oversized upload, got %d" % status
@@ -214,9 +218,11 @@ def test_illustration_post_unknown_and_traversal_keys_returns_404(make_app_serve
         "/illustration/../../../etc/passwd.png",
         "/illustration/style.png",
     ]
+    small_body, small_content_type = with_csrf_part(
+        session_cookie, small_body, small_content_type)
     for adversarial_path in adversarial_paths:
         status, _headers, _body = http_request(
-            csrf_url(session_cookie, server.base_url() + adversarial_path), method="POST",
+            server.base_url() + adversarial_path, method="POST",
             data=small_body,
             cookie=session_cookie, content_type=small_content_type)
         assert status == 404, "expected 404 for POST %r, got %d" % (adversarial_path, status)
