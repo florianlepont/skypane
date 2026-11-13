@@ -115,7 +115,7 @@ def test_the_flights_picture_dialog_is_one_panel_holding_the_picture_caption_and
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_phone_tab_bar_caret_is_centred_over_the_dots_and_every_label_is_whole(
+def test_the_phone_tab_bar_more_dots_are_centred_and_every_label_is_whole(
         new_context, app, lang):
     context, page = _open(
         new_context, app, "/fleet?frame=LIVE", {"width": 360, "height": 800}, lang=lang)
@@ -125,14 +125,12 @@ def test_the_phone_tab_bar_caret_is_centred_over_the_dots_and_every_label_is_who
             ".some(l => l.scrollWidth > l.clientWidth);"
             " const summary = document.querySelector('.tab-bar__more > summary');"
             " const box = summary.getBoundingClientRect();"
-            " const caret = getComputedStyle(summary, '::before');"
-            " return {cut: cut, position: caret.position,"
-            " right: parseFloat(caret.right), width: box.width,"
-            " caretWidth: parseFloat(caret.width) + parseFloat(caret.borderRightWidth)}; }")
+            " const icon = summary.querySelector('svg').getBoundingClientRect();"
+            " return {cut: cut, marker: getComputedStyle(summary, '::before').content,"
+            " offset: (icon.left + icon.width / 2) - (box.left + box.width / 2)}; }")
         assert not facts["cut"], facts
-        assert facts["position"] == "absolute", facts
-        # Centred: the caret's right edge sits at (or within a pixel or two of) half the cell.
-        assert abs(facts["right"] - facts["width"] / 2 + 3) < 6, facts
+        assert facts["marker"] in ("none", "normal"), facts
+        assert abs(facts["offset"]) < 2, facts
     finally:
         context.close()
 
