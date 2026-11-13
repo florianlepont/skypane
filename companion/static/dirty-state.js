@@ -269,6 +269,10 @@
       var submitter = pendingSubmitter;
       disarm();
       dialog.close();
+      // The edit is thrown away for good: the form returns to its saved
+      // values before the page is left, so the browser's Back (which restores
+      // the form as it stood on leaving) shows the saved page, not the edit.
+      guardedForm.reset();
       if (href) {
         window.location.href = href;
         return;

@@ -15,6 +15,7 @@ from companion.test_browser_ux_helpers import (
     _login,
     _set_ui_theme,
     _wait_for_bar,
+    _wait_for_bar_hidden,
     seed_state_dir,
 )
 from server import device_config
@@ -286,6 +287,38 @@ def test_discard_on_a_bottom_tab_leaves_without_saving(
         page.wait_for_url("**" + layout.FLIGHTS_ROUTE, timeout=15000)
         assert _stored_theme(server) == "band_red_field"
         assert prompts == []
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("how", ["back", "history"])
+def test_discard_then_the_browsers_back_shows_the_saved_values_and_no_bar(
+        new_context, make_app_server, how):
+    """Back after Discard returns to the Style page as it was saved: the colour the person threw
+    away is not restored and the Unsaved changes bar stays hidden"""
+    server = make_app_server(seed=_seed_with_look)
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED, "en")
+    try:
+        saved = page.evaluate(
+            "() => Array.from(document.querySelectorAll('form input:checked'))"
+            ".map(i => i.name + '=' + i.value).sort()")
+        _pick_a_colour(page)
+        _tap_bottom_tab(page, layout.FLIGHTS_ROUTE)
+        _wait_dialog_open(page)
+        page.click(SECONDARY)
+        page.wait_for_url("**" + layout.FLIGHTS_ROUTE, timeout=15000)
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
+        if how == "back":
+            page.go_back()
+        else:
+            page.evaluate("() => history.back()")
+        page.wait_for_url("**" + layout.DISPLAY_ROUTE, timeout=15000)
+        page.wait_for_function(SETTLED, timeout=15000)
+        _wait_for_bar_hidden(page)
+        page.wait_for_function(
+            "(saved) => JSON.stringify(Array.from(document.querySelectorAll('form input:checked'))"
+            ".map(i => i.name + '=' + i.value).sort()) === JSON.stringify(saved)",
+            arg=saved, timeout=5000)
     finally:
         context.close()
 
