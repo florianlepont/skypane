@@ -149,7 +149,7 @@ def test_the_token_never_leaks_into_headers_urls_or_logs(probe, capsys):
 # --- the existing protected routes ---------------------------------------
 
 from companion.pages import airlines_page, config_page, update_page  # noqa: E402
-from companion_app_server import csrf_url, login, with_csrf  # noqa: E402
+from companion_app_server import csrf_token_of, login, with_csrf, with_csrf_part  # noqa: E402
 import companion.test_companion_app_helpers as cah  # noqa: E402
 from server import device_config, firmware_registry  # noqa: E402
 from server.plane import (  # noqa: E402
@@ -275,15 +275,22 @@ def test_served_forms_carry_the_requesting_sessions_token(live, page, action):
     assert all(tokens == [expected] for tokens in found)
 
 
-def test_the_served_upload_actions_carry_the_sessions_token(live):
+def test_the_served_upload_forms_carry_the_token_in_a_field_never_in_the_address(live):
     cookie = login(live)
     expected = auth.csrf_token(_token_of(cookie))
     status, _h, body = http_request(live.url("/airlines/manage"), cookie=cookie)
+    page = body.decode("utf-8")
     assert status == 200
-    actions = re.findall(r'action="(/illustration/[^"]*)"', body.decode("utf-8"))
-    actions += re.findall(r'data-view-panel-upload-action="(/[^"]*)"', body.decode("utf-8"))
+    actions = re.findall(r'action="(/illustration/[^"]*)"', page)
+    actions += re.findall(r'data-view-panel-upload-action="(/[^"]*)"', page)
     assert actions
-    assert [a for a in actions if "csrf_token=%s" % expected not in a] == []
+    assert [a for a in actions if "csrf_token" in a or expected in a] == []
+    assert expected not in "".join(actions)
+    forms = re.findall(r'<form[^>]*multipart/form-data[^>]*>.*?</form>', page, re.S)
+    assert forms
+    for form in forms:
+        assert form.count('name="csrf_token" value="%s"' % expected) == 1, form[:200]
+        assert form.index('name="csrf_token"') < form.index('type="file"')
 
 
 def test_logout_needs_the_token_and_ends_the_session_with_it(live):
@@ -298,22 +305,70 @@ def test_logout_needs_the_token_and_ends_the_session_with_it(live):
     assert http_request(live.url("/account"), cookie=cookie)[0] == 303
 
 
-def test_an_illustration_upload_carries_its_token_in_the_action_url(live):
+def _upload(live, url, cookie, body, content_type):
+    return http_request(
+        url, method="POST", cookie=cookie, data=body, content_type=content_type,
+        extra_headers={"Origin": live.base_url()})
+
+
+def test_an_illustration_upload_carries_its_token_as_a_leading_text_part(live):
     cookie = login(live)
     body, content_type = cah.encode_multipart(b"not an image", field_name="image")
     url = live.url("/illustration/air-france.png")
-    status, _h, page = http_request(
-        url, method="POST", cookie=cookie, data=body, content_type=content_type,
-        extra_headers={"Origin": live.base_url()})
+    status, _h, page = _upload(live, url, cookie, body, content_type)
     assert status == 403 and b"This page expired" in page
-    status, _h, _b = http_request(
-        csrf_url(cookie, url), method="POST", cookie=cookie, data=body,
-        content_type=content_type, extra_headers={"Origin": live.base_url()})
-    assert status == 303
-    foreign = csrf_url(login(live), url)
-    assert http_request(
-        foreign, method="POST", cookie=cookie, data=body, content_type=content_type,
-        extra_headers={"Origin": live.base_url()})[0] == 403
+    good = with_csrf_part(cookie, body, content_type)
+    assert _upload(live, url, cookie, *good)[0] == 303
+    foreign = with_csrf_part(login(live), body, content_type)
+    assert _upload(live, url, cookie, *foreign)[0] == 403
+
+
+def test_a_token_left_in_the_old_address_is_ignored_and_the_upload_refused(live):
+    cookie = login(live)
+    body, content_type = cah.encode_multipart(b"not an image", field_name="image")
+    url = live.url("/illustration/air-france.png?csrf_token=" + csrf_token_of(cookie))
+    status, _h, page = _upload(live, url, cookie, body, content_type)
+    assert status == 403 and b"This page expired" in page
+
+
+def test_the_upload_token_part_is_strict(live):
+    cookie = login(live)
+    url = live.url("/illustration/air-france.png")
+    body, content_type = cah.encode_multipart(b"not an image", field_name="image")
+    boundary = content_type.split("boundary=")[1].encode()
+    token = csrf_token_of(cookie).encode()
+    head = b"--" + boundary + b"\r\n"
+    text = b'Content-Disposition: form-data; name="csrf_token"\r\n\r\n'
+    cases = {
+        "token after the file": body[: body.rindex(b"--" + boundary + b"--")]
+        + head + text + token + b"\r\n--" + boundary + b"--\r\n",
+        "token with a filename": head + b'Content-Disposition: form-data; name="csrf_token";'
+        b' filename="t"\r\n\r\n' + token + b"\r\n" + body,
+        "wrong field name": head + b'Content-Disposition: form-data; name="other"\r\n\r\n'
+        + token + b"\r\n" + body,
+        "token twice": head + text + token + b"\r\n" + head + text + token + b"\r\n" + body,
+        "oversized token": head + text + token * 3 + b"\r\n" + body,
+        "token with odd characters": head + text + b"../../x\r\n" + body,
+    }
+    # A second token part passes the check (the first is good) but is not
+    # an upload: the body is refused after it, with the generic message.
+    twice = cases.pop("token twice")
+    for name, payload in cases.items():
+        status = _upload(live, url, cookie, payload, content_type)[0]
+        assert status == 403, name
+    status, headers, _b = _upload(live, url, cookie, twice, content_type)
+    assert status == 303 and "flash=illustration_rejected" in headers["Location"]
+
+
+def test_an_oversized_upload_with_a_good_token_is_still_told_it_is_too_large(live):
+    cookie = login(live)
+    big = b"\x00" * (app.MAX_ILLUSTRATION_UPLOAD_BYTES + 4096)
+    good = with_csrf_part(cookie, *cah.encode_multipart(big, field_name="image"))
+    status, headers, _b = _upload(
+        live, live.url("/illustration/air-france.png"), cookie, *good)
+    assert status == 303 and "illustration_too_large" in headers.get("Location", "")
+    bad = cah.encode_multipart(big, field_name="image")
+    assert _upload(live, live.url("/illustration/air-france.png"), cookie, *bad)[0] == 403
 
 
 def test_only_the_known_routes_and_the_console_posts_are_flagged():

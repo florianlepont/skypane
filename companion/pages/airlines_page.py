@@ -412,6 +412,7 @@ def _lightbox_replace_form_html():
     icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
     return (
         '<form class="%s" id="%s" method="post" enctype="multipart/form-data" action="">'
+        "%s"
         '<div class="%s">'
         "%s"
         '<label for="%s">%s</label>'
@@ -424,6 +425,7 @@ def _lightbox_replace_form_html():
     ) % (
         LIGHTBOX_REPLACE_FORM_CLASS,
         REPLACE_FORM_ID,
+        csrf_field(),
         LIGHTBOX_REPLACE_ZONE_CLASS,
         icon_html,
         REPLACE_INPUT_ID,
@@ -1004,6 +1006,7 @@ def _resolve_upload_form_html(action, id_suffix):
         '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
         '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
+        "%s"
         '<input type="file" id="%s" name="image" accept="image/png" required>'
         "%s"
         "%s"
@@ -1016,6 +1019,7 @@ def _resolve_upload_form_html(action, id_suffix):
         REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
+        csrf_field(),
         upload_input_id,
         ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),
@@ -1140,7 +1144,7 @@ def _illustration_url(key, method="GET"):
     device's page."""
     url = device_scope.scoped(
         "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key)), method)
-    return ui_components.csrf_query(url) if method == "POST" else url
+    return url
 
 
 def _manual_resolution_rows(state_dir, registry):

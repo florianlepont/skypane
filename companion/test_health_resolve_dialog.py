@@ -10,7 +10,7 @@ import pytest
 
 import companion.test_status_pages_helpers as shp
 from companion import resolve_dialog
-from companion_app_server import csrf_url, http_request, login, with_csrf
+from companion_app_server import http_request, login, with_csrf, with_csrf_part
 from server.plane import manual_resolutions
 
 PANEL_ATTR = re.compile(r'(data-view-panel-[a-z-]+)="([^"]*)"')
@@ -154,12 +154,13 @@ def test_an_upload_started_from_health_returns_to_health(served):
     """the artwork step's return target rides on the upload action: a refused upload lands on
     Health when it says so and on Airlines otherwise"""
     server, session = served
-    multipart = "multipart/form-data; boundary=zz"
+    body, multipart = with_csrf_part(
+        session, b"--zz--\r\n", "multipart/form-data; boundary=zz")
     for suffix, route in (("?return=health", "/fleet"), ("?return=evil", "/airlines/manage"), ("", "/airlines/manage")):
         status, headers, _ = http_request(
-            csrf_url(session, server.base_url() + "/illustration/air-france.png" + suffix),
+            server.base_url() + "/illustration/air-france.png" + suffix,
             method="POST",
-            cookie=session, data=b"x", content_type=multipart)
+            cookie=session, data=body, content_type=multipart)
         path, query = _location(headers)
         assert (status, path) == (303, route), suffix
         assert query["flash"] == ["illustration_rejected"]

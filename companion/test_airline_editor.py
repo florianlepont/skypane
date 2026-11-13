@@ -15,7 +15,7 @@ import companion.test_companion_app_helpers as cah
 import companion.test_status_pages_helpers as shp
 import fleet_console_support as fx
 from companion import device_scope
-from companion_app_server import InProcessAppServer, csrf_url, http_request, with_csrf
+from companion_app_server import InProcessAppServer, http_request, with_csrf, with_csrf_part
 from server import fleet_db
 from server.plane import airline_default_types, manual_resolutions, name_overrides
 
@@ -49,9 +49,10 @@ class Rig:
         return status, headers, body.decode("utf-8", "replace")
 
     def upload(self, who, path, payload):
-        body, content_type = cah.encode_multipart(payload, field_name="illustration")
+        body, content_type = with_csrf_part(
+            self.cookies.get(who), *cah.encode_multipart(payload, field_name="illustration"))
         status, headers, _b = http_request(
-            csrf_url(self.cookies.get(who), self.server.url(path)), method="POST", data=body,
+            self.server.url(path), method="POST", data=body,
             cookie=self.cookies.get(who), content_type=content_type,
             extra_headers={"Origin": self.server.base_url()})
         return status, headers
@@ -336,9 +337,10 @@ def test_a_refused_caller_writes_nothing_and_reads_nothing(rig, who):
     for path, form in posts:
         status, _h, body = rig.post(who, rig.frame + path, form)
         assert status == 404 and body == unknown[2]
-    body, content_type = cah.encode_multipart(b"x", field_name="illustration")
+    body, content_type = with_csrf_part(
+        rig.cookies[who], *cah.encode_multipart(b"x", field_name="illustration"))
     status, _h, page = http_request(
-        csrf_url(rig.cookies[who], rig.server.url(rig.frame + "/illustration/air-france.png")),
+        rig.server.url(rig.frame + "/illustration/air-france.png"),
         method="POST", data=body,
         cookie=rig.cookies[who], content_type=content_type,
         extra_headers={"Origin": rig.server.base_url()})

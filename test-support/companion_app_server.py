@@ -93,13 +93,23 @@ def with_csrf(cookie, form=None):
     return urllib.parse.urlencode(fields).encode()
 
 
-def csrf_url(cookie, url):
-    """`url` with the session's anti-forgery token in its query, the way an
-    illustration upload form carries it (its body is multipart)."""
+def csrf_token_of(cookie):
+    """The anti-forgery token of the session in `cookie`."""
     from companion import auth
     token = urllib.parse.parse_qs(
         cookie.replace("; ", "&")).get(auth.SESSION_COOKIE_NAME, [""])[0]
-    return "%s%scsrf_token=%s" % (url, "&" if "?" in url else "?", auth.csrf_token(token))
+    return auth.csrf_token(token)
+
+
+def with_csrf_part(cookie, body, content_type):
+    """`(body, content_type)` of a multipart upload with the session's
+    anti-forgery token added as the leading text part, the way the
+    illustration upload form sends it."""
+    boundary = content_type.split("boundary=", 1)[1].encode("ascii")
+    part = (
+        b"--" + boundary + b"\r\nContent-Disposition: form-data; name=\"csrf_token\""
+        b"\r\n\r\n" + csrf_token_of(cookie).encode("ascii") + b"\r\n")
+    return part + body, content_type
 
 
 def http_request(

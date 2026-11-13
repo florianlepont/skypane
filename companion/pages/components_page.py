@@ -744,7 +744,6 @@ CATALOGUE = (
 EXEMPT = {
     "ui_components.card_status_class": "returns a CSS class name for a status, no markup",
     "ui_components.csrf_field": "a hidden form field, used inside the dialogs above",
-    "ui_components.csrf_query": "the same anti-forgery token carried in an upload form action URL; no markup of its own",
     "ui_components.flash_banner": "floats over the page by design; its toast is shown docked",
     "ui_components.frame_strip_html": "needs a live frame context; built from the switches above",
     "ui_components.split_toast_message": "a text splitter for toast copy",

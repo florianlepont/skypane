@@ -15,7 +15,6 @@ poll cycle with the same per-device lock (`device_scope.poll_lock_for`).
 Never imports `companion.app` (that would be a cycle — app.py imports
 this module).
 """
-import email.message
 import io
 import os
 import tempfile
@@ -23,7 +22,7 @@ from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from PIL import Image
 
-from companion import airline_actions, airline_display, device_scope, layout, request_body
+from companion import airline_actions, airline_display, device_scope, layout, request_body, upload_form
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -77,7 +76,7 @@ import server.poll_cycle as poll_cycle
 # Handler), not by parse_single_uploaded_file(). companion/app.py
 # rebinds this under its historical name — companion/pages/airlines_page.py
 # also imports it from there lazily.
-MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
+MAX_ILLUSTRATION_UPLOAD_BYTES = upload_form.MAX_UPLOAD_BYTES
 _REFUSAL_FLASH = {
     illustrations.PROBLEM_NOT_PNG: FLASH_KEY_ILLUSTRATION_NOT_PNG,
     illustrations.PROBLEM_TOO_LARGE: FLASH_KEY_ILLUSTRATION_TOO_LARGE,
@@ -189,54 +188,7 @@ _RENAME_FLASH_BY_RESULT = {
 }
 
 
-def parse_single_uploaded_file(content_type, body):
-    """Parse a `multipart/form-data` body known to hold exactly one file
-    part, returning its raw payload `bytes`, or `None` for anything that
-    doesn't match that exact shape. Never raises. The header block
-    (filename, field name, media type) is discarded and never parsed —
-    the destination path and the "is this an image" check both come
-    from elsewhere, never from this body's own claims.
-    """
-    try:
-        message = email.message.Message()
-        message["content-type"] = content_type
-        if message.get_content_type() != "multipart/form-data":
-            return None
-        boundary = message.get_param("boundary")
-        if not isinstance(boundary, str) or not boundary:
-            return None
-        boundary_bytes = boundary.encode("ascii")
-        if len(boundary_bytes) > 70:  # RFC 2046 boundary length ceiling.
-            return None
-
-        delimiter = b"--" + boundary_bytes
-        segments = body.split(delimiter)
-        # Exactly one part: a preamble, the part itself, and an epilogue.
-        # Zero parts, two-or-more parts, and a missing closing delimiter
-        # all produce a different segment count and are rejected here.
-        if len(segments) != 3:
-            return None
-        preamble, part, epilogue = segments
-        if preamble.strip(b"\r\n \t") != b"":
-            return None
-        if not epilogue.startswith(b"--"):
-            return None
-
-        if not part.startswith(b"\r\n"):
-            return None
-        part = part[2:]
-        header_block, separator, payload = part.partition(b"\r\n\r\n")
-        if not separator:
-            return None
-        del header_block  # discarded — see docstring above.
-
-        if payload.endswith(b"\r\n"):
-            payload = payload[:-2]
-        if not payload:
-            return None
-        return payload
-    except Exception:
-        return None
+parse_single_uploaded_file = upload_form.parse_single_uploaded_file
 
 
 # The only fields the Quiet hours dialog posts; each echoed value is capped
@@ -289,8 +241,9 @@ class SettingsActionsMixin:
         handles. Membership-tests `key` before any path is built or
         body byte is read. Only the server's own Pillow re-encode is
         ever written to disk — the client's original bytes are never
-        stored. The multipart body is read here, so the anti-forgery token
-        travels in the action URL's query and the dispatcher checks it there.
+        stored. The multipart body opens with the anti-forgery token part, which
+        the dispatcher reads and checks (companion/upload_form.py) before this
+        runs; the body it read is the one used here.
         """
         # Airlines unless the action URL names an allow-listed page that
         # opened the dialog (Health).
