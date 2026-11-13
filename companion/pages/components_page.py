@@ -76,9 +76,9 @@ _SAMPLE_CONFIRM = i18n.msg("components.sample_confirm_title", "Delete this frame
 _SAMPLE_CONFIRM_BODY = i18n.msg(
     "components.sample_confirm_body", "This cannot be undone.")
 _OPEN_DIALOG = i18n.msg("components.open_dialog", "Open the dialog")
-_SAMPLE_CHOICE_TITLE = i18n.msg("components.sample_choice_title", "Layout not saved")
+_SAMPLE_CHOICE_TITLE = i18n.msg("components.sample_choice_title", "Unsaved changes")
 _SAMPLE_CHOICE_TEXT = i18n.msg(
-    "components.sample_choice_text", "You changed the layout. What do you want to do?")
+    "components.sample_choice_text", "You have changes that are not saved. What do you want to do?")
 _CHOICE_PRIMARY = i18n.msg("components.sample_choice_primary", "Save and continue")
 _CHOICE_SECONDARY = i18n.msg("components.sample_choice_secondary", "Discard")
 _CHOICE_QUIET = i18n.msg("components.sample_choice_quiet", "Stay here")

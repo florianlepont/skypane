@@ -646,34 +646,64 @@
     }
   });
 
-  // The Style page's sub-tab links are page loads. With an unsaved layout, a
-  // tap on one asks first, in the page's own dialog, instead of the browser's
-  // generic leave prompt: Save and continue (the save returns to the tapped
-  // view), Discard (leave without saving) or Stay here (nothing changes, focus
-  // goes back to the tapped link). Only a layout change asks; any other
-  // unsaved value keeps the browser's prompt. Without the dialog or modal.js
-  // the links stay plain links.
-  var leaveDialog = document.querySelector("dialog[data-layout-leave]");
+  // Every in-app link on a Style page is a page load that would drop the
+  // unsaved values: the sub-tabs, the bottom tab bar and what the More sheet
+  // holds, the frame menu, a back link, the brand link. While any value on
+  // the page differs from its stored one (the same count the bar shows,
+  // carried values included), a tap on one asks first, in the page's own
+  // dialog, instead of the browser's generic leave prompt: Save and continue,
+  // Discard (leave without saving) or Stay here (nothing changes, focus goes
+  // back to the tapped link). Form posts (sign out, the theme and language
+  // switches) are left alone and keep the browser's own prompt. Without the
+  // dialog or modal.js the links stay plain links.
+  var leaveDialog = document.querySelector("dialog[data-style-leave]");
   var leaveLink = null;
+  // The addresses the server accepts as this save's return target.
+  var leaveReturns = leaveDialog
+    ? (leaveDialog.getAttribute("data-style-leave-returns") || "").split(" ") : [];
 
-  function layoutIsDirty() {
-    var current = snapshotValues();
-    return "layout" in snapshot && current.layout !== snapshot.layout;
+  function styleIsDirty() {
+    return countDifferences() > 0;
   }
 
+  // The link a click lands on when it would leave this page for another
+  // address of the app, else null: not the page's own save bar or dialog, a
+  // link that opens or closes a dialog, a page-local navigation, a link into
+  // this same page, a new-tab or download link, or another site.
   function leaveTarget(node) {
     var link = node;
-    while (link && !(link.hasAttribute && link.hasAttribute("data-pers-view"))) {
+    while (link && !(link.tagName === "A" && link.hasAttribute("href"))) {
       link = link.parentNode;
     }
-    return link && link.hasAttribute("href") ? link : null;
+    if (!link || link.hasAttribute("target") || link.hasAttribute("download")
+        || link.hasAttribute("data-modal-open") || link.hasAttribute("data-modal-close")
+        || link.hasAttribute("data-detection-nav")
+        || link.closest("dialog, [data-dirty-bar]")) {
+      return null;
+    }
+    if (link.origin !== window.location.origin || link.protocol.indexOf("http") !== 0) {
+      return null;
+    }
+    var samePage = link.pathname === window.location.pathname
+      && link.search === window.location.search;
+    return samePage && link.hash !== "" ? null : link;
+  }
+
+  // The address a save may land on by itself: one the server listed, asked
+  // for plainly (a query of its own is not part of what it whitelists). For
+  // any other destination the save keeps the page's own return value, so it
+  // saves and stays here with the saved confirmation rather than guessing.
+  function leaveReturnPath(link) {
+    return link && link.search === "" && leaveReturns.indexOf(link.pathname) >= 0
+      ? link.pathname : null;
   }
 
   function leaveSaveAndContinue() {
     var back = form.elements["return_to"];
     var saveBtn = bar.querySelector("button[type=submit]");
-    if (back && leaveLink) {
-      back.value = leaveLink.pathname;
+    var destination = leaveReturnPath(leaveLink);
+    if (back && destination) {
+      back.value = destination;
     }
     leaveDialog.close();
     if (typeof form.requestSubmit === "function") {
@@ -693,16 +723,16 @@
   }
 
   if (leaveDialog) {
-    leaveDialog.querySelector("[data-layout-leave-primary]")
+    leaveDialog.querySelector("[data-style-leave-primary]")
       .addEventListener("click", leaveSaveAndContinue);
-    leaveDialog.querySelector("[data-layout-leave-secondary]")
+    leaveDialog.querySelector("[data-style-leave-secondary]")
       .addEventListener("click", leaveDiscard);
     document.addEventListener("click", function (e) {
       if (e.defaultPrevented || e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
         return;
       }
       var link = leaveTarget(e.target);
-      if (!link || !layoutIsDirty() || !window.SkyPaneModal) {
+      if (!link || !styleIsDirty() || !window.SkyPaneModal) {
         return;
       }
       leaveLink = link;

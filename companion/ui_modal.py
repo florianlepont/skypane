@@ -189,7 +189,8 @@ def dialog_html(
 
 
 def choice_dialog_html(
-        dialog_id, title, text, primary_label, secondary_label, quiet_label, hook_attr):
+        dialog_id, title, text, primary_label, secondary_label, quiet_label, hook_attr,
+        data_name=None, data_value=""):
     """A modal dialog that asks a question and offers three actions, none of
     them a form post: a primary, a secondary and a quiet one that closes the
     dialog and changes nothing.
@@ -200,12 +201,19 @@ def choice_dialog_html(
     slug; the buttons carry `data-<hook_attr>-primary`, `-secondary` and
     `-quiet` for that script. The quiet button takes the initial focus so
     Enter never confirms the primary action unasked, and Escape closes the
-    dialog as it does the quiet button."""
+    dialog as it does the quiet button.
+
+    `data_name` is an optional extra lowercase slug the dialog carries as
+    `data-<data_name>="<data_value>"`, for a script that needs one
+    server-decided list alongside the question."""
     slug = validated_slug(dialog_id)
     hook = validated_slug(hook_attr)
     title_id = slug + "-title"
+    extra = (
+        ' data-%s="%s"' % (validated_slug(data_name), escape_html(data_value))
+        if data_name else "")
     return (
-        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s" data-%(hook)s>'
+        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s" data-%(hook)s%(extra)s>'
         '<header class="modal__head"><div>'
         '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
         '</div></header>'
@@ -220,6 +228,7 @@ def choice_dialog_html(
         "id": slug,
         "title_id": title_id,
         "hook": hook,
+        "extra": extra,
         "title": escape_html(title),
         "text": escape_html(text),
         "primary": escape_html(primary_label),
