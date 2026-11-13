@@ -5,18 +5,19 @@
 - [x] **v1.0 — MVP** — shipped and archived on 2026-09-30 (see the root `.planning/milestones/`).
 - [ ] **v1.1 — Battery and Companion!** — Phases 44–47, tracked in the root `.planning/ROADMAP.md`. Phases 47, 47.1 and 47.2 (battery measurement on the live frame) are not touched by this roadmap.
 - [ ] **v1.2 — Fleet platform** — Phases 48–63, tracked in the `v1-2` workstream.
-- [ ] **v1.3 — Photo display mode** — Phases 64–68 (this workstream, `v1-3`). A frame can show the owner's own photos instead of the flight screen, with per-frame mode and rotation.
+- [ ] **v1.3 — Photo display mode** — Phases 64–68 (this workstream, `v1-3`). A frame has a type, planes or photos, set by an administrator; a photo frame shows the owner's own photos with a rotation interval.
 
 ## Overview
 
-V1.3 adds a second display mode, "photos", next to "plane". The frame stays dumb: the server prepares a dithered image and the frame downloads it, exactly as today. The work is a separate photo render path (strict upload normalisation, crop, contrast and saturation boost, 6-colour dithering), private per-frame storage with quotas and real deletion, a per-frame mode and rotation served by the existing BYOS, and the companion screens to manage it. There is no new runtime dependency and no new daemon. Provided collections (COLL-01, COLL-02) are v1.3.x and are not in any phase here.
+V1.3 adds a second frame type, "photos", next to "planes" (see `.planning/notes/photo-frame-types.md`). Photo mode is treated as a second product on the same hardware and stack. The frame stays dumb: the server prepares a dithered image and the frame downloads it, exactly as today. The work is a separate photo render path (strict upload normalisation, crop, contrast and saturation boost, 6-colour dithering), private per-frame storage with quotas and real deletion, a per-frame type (set only by an administrator) and rotation served by the existing BYOS, and the companion screens to manage it. There is no user-facing mode switch. There is no new runtime dependency and no new daemon. Provided collections (COLL-01, COLL-02) are v1.3.x and are not in any phase here.
 
 ## Coordination
 
-- **Battery measurement (Phases 47, 47.1, 47.2):** Phase 68 (MODE-04, wake interval follows the rotation interval) changes the device wake policy shared with the energy-measurement work. It must not start until Phases 47, 47.1 and 47.2 are finished, or the owner explicitly releases it. Phases 64–67 do not touch the wake policy and may proceed now.
-- **Plane rendering is never modified.** The plane screen render path and `server/fixtures/golden` stay untouched in every phase (MODE-05). Photo mode is a separate render path; any change that would alter a golden fixture is a defect, not an update.
-- **Production deploys:** every merge to `main` deploys to production by CI. The owner decides when to merge, so the owner decides when each phase reaches production. Each phase must be safe to deploy on its own: forward-only, expand-only, with the live frame's plane-mode behaviour unchanged (no frame is in photo mode until the owner sets it).
-- **Privacy:** the admin never sees user photos, in any phase. No admin view of photos is built, and admin routes and the backup/health pages must not expose photo content or names.
+- **Battery measurement (Phases 47, 47.1, 47.2):** Phase 68 (MODE-04, photo frames wake every hour) changes the device wake policy shared with the energy-measurement work. It must not start until Phases 47, 47.1 and 47.2 are finished, or the owner explicitly releases it. Phases 64–67 do not touch the wake policy and may proceed now.
+- **Plane rendering is never modified.** The plane screen render path and `server/fixtures/golden` stay untouched in every phase (MODE-05). Photo rendering is a separate render path and never goes through the gallery or `publish_canvas` path (SRV-01); any change that would alter a golden fixture is a defect, not an update.
+- **Production deploys:** every merge to `main` deploys to production by CI. The owner decides when to merge, so the owner decides when each phase reaches production. Each phase must be safe to deploy on its own: forward-only, expand-only, with the live frame's plane behaviour unchanged (every frame is a plane frame until an administrator sets it otherwise).
+- **Privacy:** the admin never sees user photos, in any phase. No admin view of photos is built, admin routes and the backup/health pages must not expose photo content or names, and the Photos entry is hidden from an administrator who is not a manager of the frame.
+- **Companion prototype:** the maintenance rule in `photo-frame-types.md` (update `docs/prototype/` or state "prototype unchanged") is PENDING; once in force, Phase 67 verification checks it.
 
 ## Phases
 
@@ -27,9 +28,9 @@ V1.3 adds a second display mode, "photos", next to "plane". The frame stays dumb
 
 - [x] **Phase 64: Photo Pipeline (Server Only)** - An uploaded photo is validated, reduced to one stored copy, and rendered for either panel profile with crop, boost and dithering, with skin-tone results recorded.
 - [x] **Phase 65: Photo Storage, Privacy and Quotas** - Photos are stored per frame, visible only to the owner and co-managers, really deleted, and bounded by quotas.
-- [ ] **Phase 66: Frame Mode, Rotation and Waiting Screen** - Each frame has one display mode and a rotation, and the server serves the current photo or a waiting screen, with plane mode unchanged.
-- [ ] **Phase 67: Companion Photo Management and Settings** - Owners and co-managers upload, preview, list and delete photos and set mode and rotation, in English and French.
-- [ ] **Phase 68: Photo-Mode Wake Interval** - In photo mode the frame wakes once per rotation interval. Gated on the battery measurement phases.
+- [ ] **Phase 66: Frame Type, Rotation and Waiting Screen** - A frame has a type (planes or photos) stored as a registered setting; the server serves the photo of the moment or a waiting screen to photo frames, skips them for ADS-B, and keeps plane output unchanged.
+- [ ] **Phase 67: Companion Photo Frames** - The menu follows the frame type, owners and co-managers manage photos and rotation, and an administrator sets the type in the Console, in English and French.
+- [ ] **Phase 68: Photo-Frame Wake Interval** - Photo frames wake every hour with mode-aware health thresholds. Gated on the battery measurement phases.
 
 ## Phase Details
 
@@ -78,45 +79,49 @@ Plans:
 - [x] 65-07-PLAN.md - photos excluded from the backup, documented and tested (PRIV-04, PRIV-01, PRIV-03)
 - [x] 65-08-PLAN.md - admin-leak test and phase gate (PRIV-01)
 
-### Phase 66: Frame Mode, Rotation and Waiting Screen
+### Phase 66: Frame Type, Rotation and Waiting Screen
 
-**Goal**: Each frame has exactly one display mode and, in photo mode, the server serves the right photo for the rotation, while plane mode stays byte-for-byte as it is.
+**Goal**: A frame has a type, and a photo frame is served the right photo for its rotation (or a waiting screen) without touching plane output or the gallery.
 **Depends on**: Phase 64, Phase 65
-**Requirements**: MODE-01, MODE-02, MODE-03, MODE-05
+**Requirements**: MODE-01, MODE-02, MODE-03, MODE-05, SRV-01
 **Success Criteria** (what must be TRUE):
 
-  1. A frame has exactly one mode, plane or photos, stored per device and defaulting to plane; the mode can be changed through the server and companion data layer (the companion screen comes in Phase 67).
-  2. A photo-mode frame is served the current photo for its rotation interval (hourly, 6 h, 12 h or daily, default daily) in the chosen order; random order never repeats a photo before all have been shown, and upload order follows upload time.
-  3. A photo-mode frame with no photo is served a defined waiting screen in both panel sizes, and the frame's image hash stays unchanged between rotations so no redraw is triggered.
-  4. Plane-mode output is unchanged: the `server/fixtures/golden` fixtures and plane render tests pass without modification, and the live frame's responses are identical before and after.
+  1. A frame has exactly one type, planes or photos, stored as a registered `device_config` key (a later save does not erase it), defaulting to planes; it can be changed only through an administrator path, never by the owner or a co-manager.
+  2. A photo frame is served the photo of the moment for its rotation interval (hourly, 6 h, 12 h or daily, default daily), shuffled without repeats before all photos have been shown.
+  3. A photo frame with no photo is served a defined waiting screen in both panel sizes, and the image hash stays unchanged between rotations so no redraw is triggered; quiet hours still apply; the "around HH:MM" next-wake time uses the interval the frame is actually sleeping on.
+  4. Photo frames are skipped for the ADS-B fetch (lowest-priority hold kind, heartbeat kept), and a photo render never goes through the gallery or `publish_canvas` path.
+  5. Plane output is unchanged: the `server/fixtures/golden` fixtures and plane render tests pass without modification, and the live frame's responses are identical before and after.
 
 **Plans**: TBD
 
-### Phase 67: Companion Photo Management and Settings
+### Phase 67: Companion Photo Frames
 
-**Goal**: A frame owner or co-manager can manage the frame's photos and its mode and rotation entirely from the companion, in English and French.
+**Goal**: Each frame type has its own companion menu, owners and co-managers manage a photo frame's photos and rotation, and an administrator sets the frame type in the Console, in English and French.
 **Depends on**: Phase 66
-**Requirements**: UI-01, UI-02, UI-03
+**Requirements**: UI-01, UI-02, UI-03, UI-04, UI-05
 **Success Criteria** (what must be TRUE):
 
-  1. The owner or a co-manager can upload a photo, see the frame's photo list, and delete a photo, and a user with no management right on the frame cannot see or reach any of it.
-  2. Before saving an upload, the user sees the dithered result for the frame's panel and can move the crop or choose crop-to-fill or bands; what is saved matches what was shown.
-  3. The owner or a co-manager can set the frame's mode (plane or photos), rotation interval and order, and the next image the frame fetches reflects the change.
-  4. Every new screen and message is available in English and French, and works on a phone and a desktop.
+  1. A plane frame keeps today's menu (Home, Flight history, Location and detection, Style, Airlines) with no Photos entry; a photo frame shows Home, Photos, Style, Account and no plane pages; the menu follows the frame chosen in the frame picker.
+  2. The owner or a co-manager can upload, list and delete photos and set the rotation interval; a user who cannot manage the frame cannot see or reach any of it, and the Photos entry is hidden from an administrator who is not a manager.
+  3. Before saving, the user sees the dithered preview for the frame's panel and can choose Fill the screen or Whole photo with one of three positions (one form, Update preview and Save); what is saved matches what was shown.
+  4. A photo frame's Home shows a neutral "Showing your photos" card with the next-photo time, battery and last check-in, and no photo image.
+  5. An administrator changes a frame's type in the Console frame settings with a confirmation, extra when the frame holds photos (they are kept, not shown while planes, never visible to the admin); the Console shows "type changes at the next wake" and the change lands at the next wake.
+  6. Every new screen and message is available in English and French, and works on a phone and a desktop.
 
 **Plans**: TBD
 **UI hint**: yes
 
-### Phase 68: Photo-Mode Wake Interval
+### Phase 68: Photo-Frame Wake Interval
 
-**Goal**: A photo-mode frame wakes only about once per rotation interval, so it lasts much longer on battery than in plane mode, without changing plane-mode cadence.
+**Goal**: A photo frame wakes about once an hour whatever its rotation interval, so it lasts much longer on battery than a plane frame, without changing plane-frame cadence.
 **Depends on**: Phase 66; Phases 47, 47.1 and 47.2 (battery measurement) finished or explicitly released by the owner
 **Requirements**: MODE-04
 **Success Criteria** (what must be TRUE):
 
-  1. A photo-mode frame is told to wake at its rotation interval (hourly, 6 h, 12 h or daily), and the interval changes when the rotation setting changes.
-  2. A plane-mode frame, including the live frame, receives exactly the same wake interval as before the change, proven by a test on the wake policy.
-  3. The change lands only after the battery measurement phases are finished or released by the owner, and the battery numbers it relies on (`hardware/BATTERY-MODEL.md`) are marked as measured or still derived.
+  1. A photo frame is told to wake every hour, independent of its rotation interval.
+  2. A plane frame, including the live frame, receives exactly the same wake interval as before, proven by a test on the wake policy.
+  3. Health thresholds are mode-aware: "No contact" is 2x the frame's wake interval with a ceiling of 3600 s, so an hourly photo frame is not shown as lost.
+  4. The change lands only after the battery measurement phases are finished or released by the owner, and the battery numbers it relies on (`hardware/BATTERY-MODEL.md`) are marked as measured or still derived.
 
 **Plans**: TBD
 
@@ -126,6 +131,6 @@ Plans:
 |-------|----------------|--------|-----------|
 | 64. Photo Pipeline (Server Only) | 5/5 | Complete (closed 2026-11-10 with one open point: how real skin looks was never judged) | 2026-11-10 |
 | 65. Photo Storage, Privacy and Quotas | 8/8 | Complete (verified 2026-11-11) | 2026-11-11 |
-| 66. Frame Mode, Rotation and Waiting Screen | 0/0 | Not started | - |
-| 67. Companion Photo Management and Settings | 0/0 | Not started | - |
-| 68. Photo-Mode Wake Interval | 0/0 | Not started (gated on Phases 47, 47.1, 47.2) | - |
+| 66. Frame Type, Rotation and Waiting Screen | 0/0 | Not started | - |
+| 67. Companion Photo Frames | 0/0 | Not started | - |
+| 68. Photo-Frame Wake Interval | 0/0 | Not started (gated on Phases 47, 47.1, 47.2) | - |

@@ -1,3 +1,5 @@
+> Superseded on 2026-11-13 by photo-frame-types.md for the mode switch and the menu. Kept as history.
+
 # Photo mode: mode-switch workflow (companion Home)
 
 Status: proposal for the owner, 2026-11-11. Based on a read of the real code on

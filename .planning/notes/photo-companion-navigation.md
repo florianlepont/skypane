@@ -1,3 +1,5 @@
+> Superseded on 2026-11-13 by photo-frame-types.md for the mode switch and the menu. Kept as history.
+
 # Photo mode: companion navigation (decisions of 2026-11-11)
 
 Input for the companion phase of milestone v1.3. The mockups are in

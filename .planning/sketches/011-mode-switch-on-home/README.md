@@ -6,6 +6,8 @@ winner: null
 tags: [photos, navigation, mode, home, pending, banner, mobile, desktop, i18n, v1.3]
 ---
 
+> Superseded on 2026-11-13 by `.planning/notes/photo-frame-types.md` for the mode switch and the menu. Kept as history.
+
 # Sketch 011: Mode switch on Home, stable menu (clickable)
 
 Rebuild of 010 for the workflow in `.planning/notes/photo-mode-workflow.md` (4 states, "Decisions of 2026-11-11"). One self-contained `index.html`, inline CSS/JS, no network, procedural art only. 010 is untouched. Photo adjust page (crop, bands, dithered preview), refusals (12 MB per file), delete confirm and privacy line are carried over from 010.

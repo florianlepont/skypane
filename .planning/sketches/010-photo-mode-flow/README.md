@@ -6,6 +6,8 @@ winner: null
 tags: [photos, navigation, mode, flow, mobile, desktop, i18n, v1.3]
 ---
 
+> Superseded on 2026-11-13 by `.planning/notes/photo-frame-types.md` for the mode switch and the menu. Kept as history.
+
 # Sketch 010: Photo-mode flow (clickable)
 
 One self-contained file, `index.html` (all CSS and JS inline, no network). It

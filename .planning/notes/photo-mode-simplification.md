@@ -1,3 +1,5 @@
+> Superseded on 2026-11-13 by photo-frame-types.md for the mode switch and the menu. Kept as history.
+
 # Photo mode: where the simplification is
 
 Status: critical rethink for the owner, 2026-11-11. Read-only on code. It
