@@ -625,7 +625,7 @@ def _more_panel_html(active, sheet, ui_theme, space):
         _sheet_preference_row(_THEME_TEXT, "icon-sun", _theme_form_html(ui_theme))
         + _sheet_preference_row(
             _LANGUAGE_TEXT, "icon-globe", _lang_form_html(prefs.current_lang())),
-        i18n.t(_SETTINGS_TEXT), "tab-bar-settings-label", "tab-bar__prefs")
+        i18n.t(_SETTINGS_TEXT), "tab-bar-settings-label", "tab-bar__prefs", label_tag="p")
     return (
         '%s<div class="tab-bar__settings">%s%s'
         '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">%s'
