@@ -1139,3 +1139,4 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Location top edge on iPhone: confirmed fixed by the owner (Safari tab and Home Screen app).
 - Lot E and the single tab bar: owner says everything is fine.
 - New feedback on the More panel: (1) the blur behind the panel does not cover the whole page (on Location the map stays sharp in a strip at the top and at the bottom edge); (2) the Console row should be more prominent. Queued as plan 61-121; (1) is a bug fix, (2) goes through a mockup first.
+- Owner decisions on the More panel: Console row option B (tinted card with an accent icon and a subtitle "Fleet, users, audit"); and the proposed redesign accepted (grab handle, account with initial, Console card, a "Settings" group with Theme and Language, Sign out as a soft alert button). Queued as plan 61-122 after 61-121 (blur coverage).
