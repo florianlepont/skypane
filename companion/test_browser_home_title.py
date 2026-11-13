@@ -212,6 +212,10 @@ def test_cancel_and_the_back_link_end_on_home_and_leave_the_name(
         _on_rename_page(page)
         page.locator("#frame-name").fill("Changed")
         page.locator(leave).click()
+        if leave == "a.form-back":
+            # The back link is an in-app link: with an unsaved name the page
+            # asks first, and Discard leaves without saving it.
+            page.locator("dialog[data-leave-dialog] [data-leave-dialog-secondary]").click()
         _is_home(page, rename_app)
         assert page.locator("main h1").inner_text() == "Kitchen"
         assert page.locator(".title-action .btn--icon").count() == 1
