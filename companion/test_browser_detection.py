@@ -252,7 +252,7 @@ def test_accent_budget(new_context, make_app_server):
     """The accent fill (derived from the Save button) is painted only on the Save buttons (and
     the current segment of the space switch an administrator sees, and the selected segment of
     the mode switch and the theme and language switches, graphite pills by the segmented-control rule, the current sidebar item,
-    the current tab bar pill and the icon chip of the frame popover's Add row): never on an airport row, a summary value or a
+    the current tab bar pill, the icon chip of the frame popover's Add row and the icon tile of the More panel's Console card): never on an airport row, a summary value or a
     runway card."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     probe = (
@@ -262,7 +262,7 @@ def test_accent_budget(new_context, make_app_server):
         " + '|' + (el.htmlFor || ''))")
     allowed = ("dirty-bar__save", "skip-link", "space-switch__segment--current", "place-mode",
                "sidebar-link--active", "frame-row__icon", "tab-bar__pill", "tab-bar__slider",
-               "theme-option--active")
+               "theme-option--active", "link-card__icon")
     for route in ("/detection?q=lf", "/detection?airport=%s&mode=runway" % CDG):
         with _no_js_page(new_context, server.base_url(), route,
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:

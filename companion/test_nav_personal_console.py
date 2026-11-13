@@ -70,7 +70,8 @@ def _anchors(markup):
     """(href, visible text) of every link in `markup`, tags stripped."""
     return [
         (href, re.sub(r"<[^>]+>", "", re.sub(
-            r'<span class="visually-hidden">.*?</span>', "", inner)).strip())
+            r'<span class="(?:visually-hidden|tab-bar__avatar|tab-bar__account-email'
+            r'|link-card__subtitle)"[^>]*>.*?</span>', "", inner)).strip())
         for href, inner in re.findall(r'<a class="[^"]*" href="([^"]+)"[^>]*>(.*?)</a>', markup, re.S)]
 
 

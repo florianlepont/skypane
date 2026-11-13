@@ -290,7 +290,8 @@ def test_a_personal_page_sheet_starts_with_account_and_lists_no_page_rows(new_co
 
 _SCRIM_HITS = """() => {
   const w = window.innerWidth, h = window.innerHeight;
-  const covered = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  // One pixel of slack: a sheet's box at a fractional offset is painted on whole pixels.
+  const covered = (r, x, y) => x >= r.left - 1 && x <= r.right + 1 && y >= r.top - 1 && y <= r.bottom + 1;
   const panel = document.querySelector('.tab-bar__more-panel').getBoundingClientRect();
   const bar = document.querySelector('.tab-bar').getBoundingClientRect();
   const misses = [];

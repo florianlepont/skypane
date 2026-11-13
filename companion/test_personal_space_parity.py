@@ -90,7 +90,9 @@ def _strip_switch_and_notice(markup):
         r'<a class="[^"]*tab-bar__space-link[^"]*"[^>]*>.*?</a>', "", markup, flags=re.S)
     markup = re.sub(
         r'<div class="[^"]*frame-notice[^"]*".*?</div>', "", markup, flags=re.S)
-    return markup
+    # The initial in the Account row's circle belongs to the person, as the e-mail does.
+    return re.sub(
+        r'(<span class="tab-bar__avatar"[^>]*>)[^<]*', r"\1INITIAL", markup)
 
 
 def _normalise(markup, server):
