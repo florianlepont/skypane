@@ -10,6 +10,7 @@ is the real, server-side install-confirmation gate -- `companion/app.py`'s
 live POST handlers for the forms this module renders.
 """
 import collections
+import re
 
 import companion.frame_state as frame_state
 import companion.i18n as i18n
@@ -570,25 +571,57 @@ def _summary_html(ctx, view, releases, model_text):
          _summary_chip_html(view, releases))
 
 
+_DRAFT_SUFFIX = re.compile(r"\s*\((?:draft|wip)\b[^)]*\)\s*$", re.IGNORECASE)
+
+
+def _release_title(release):
+    """The release's first note as a title: a trailing "(DRAFT ...)" tag that
+    GitHub release text carries is dropped here; the notes keep the full text."""
+    note = _first_note(release)
+    return _DRAFT_SUFFIX.sub("", note) or note
+
+
+def _offer_card_html(ctx, release, type_html):
+    """The one update card: the offered version and its release age, the
+    release title and the single primary Install button."""
+    title = _release_title(release)
+    note_html = '<p class="update-offer__note">%s</p>' % escape_html(title) if title else ""
+    return (
+        '<section class="update-offer" aria-labelledby="update-offer-title">'
+        '<div class="update-offer__text"><h3 class="update-offer__title" id="update-offer-title">'
+        "%s · %s</h3>%s</div>"
+        '<div class="update-actions">%s</div></section>'
+    ) % (_mono_html(release["version"]),
+         _fill_html(RELEASED_AGO_TEMPLATE, _ago_html(release.get("released_at"), ctx.now)),
+         note_html,
+         _release_install_form_html(release, with_version_label=True, type_html=type_html))
+
+
 def _embedded_cta_html(ctx, view, releases, next_wake_text, wake_held):
     """The card under the summary: only while something is going on (an
     update on offer, scheduled, installing or failed); "" when the frame is
     up to date, which the summary's chip already says."""
     in_flight = (view.get("state") in _STATES_WITH_A_TARGET_VERSION
                  and view.get("target_version"))
-    if not in_flight and _newer_release_to_offer(view, releases) is None:
+    offered = _newer_release_to_offer(view, releases)
+    if not in_flight and offered is None:
         return ""
+    if not in_flight:
+        return _offer_card_html(ctx, offered, view.get("type_field_html", ""))
     return _cta_card_html(ctx, view, releases, next_wake_text, wake_held, summarised=True)
 
 
 # --- the version list ----------------------------------------------------
 
 
-def _row_action_html(release, view, compact=False):
-    """What a row's body offers: nothing for the running release, a quiet
-    state label for the schedule's target or while any install runs, the
-    Install form otherwise, and plain text below the firmware floor."""
+def _row_action_html(release, view, compact=False, offered_version=None):
+    """What a row's body offers: nothing for the running release or for the
+    release the update card already offers, a quiet state label for the
+    schedule's target or while any install runs, the Install form otherwise,
+    and plain text below the firmware floor."""
     version = release.get("version")
+    if version == offered_version:
+        return ""
     is_target = bool(view.get("target_version")) and version == view.get("target_version")
     if release.get("running"):
         return ""
@@ -682,6 +715,8 @@ def _versions_group_html(ctx, view, releases):
 def _versions_card_html(ctx, view, releases, embedded=False):
     if not embedded:
         return _versions_group_html(ctx, view, releases)
+    offered = _newer_release_to_offer(view, releases)
+    offered_version = offered["version"] if offered else None
     if not releases:
         return (
             '<section class="page-section update-versions" '
@@ -706,7 +741,8 @@ def _versions_card_html(ctx, view, releases, embedded=False):
          len(releases), escape_html(i18n.t(COL_VERSION_TEXT)),
          escape_html(i18n.t(COL_STATE_TEXT)),
          escape_html(i18n.t(COL_RELEASED_TEXT)), escape_html(i18n.t(COL_ACTION_TEXT)),
-         "".join(_table_row_html(release, view, ctx.now) for release in releases))
+         "".join(_table_row_html(release, view, ctx.now, offered_version)
+                for release in releases))
 
 
 def _state_cell_html(release):
@@ -723,7 +759,7 @@ def _state_cell_html(release):
         direction, escape_html(i18n.t(label)))
 
 
-def _table_row_html(release, view, now):
+def _table_row_html(release, view, now, offered_version=None):
     """One release as a table row: the version with any notes behind one
     disclosure, its state pill, when it was released (the age, the full date
     under it) and the action that is always in view (Install, Roll back, or a
@@ -746,7 +782,7 @@ def _table_row_html(release, view, now):
         " update-table__row--running" if release.get("running") else "",
         _mono_html(release.get("version")), notes_html, _state_cell_html(release),
         _ago_html(released_at, now), date_html,
-        _row_action_html(release, view, compact=True))
+        _row_action_html(release, view, compact=True, offered_version=offered_version))
 
 
 def _install_confirm_form_html(version, type_html=""):

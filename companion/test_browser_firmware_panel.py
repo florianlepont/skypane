@@ -143,3 +143,50 @@ def test_summary_names_what_is_on_the_frame_and_its_state(
             assert colours[0] != colours[1], where
         finally:
             context.close()
+
+
+@pytest.mark.parametrize("theme", THEMES)
+@pytest.mark.parametrize("lang", LANGS)
+@pytest.mark.parametrize("width", WIDTHS)
+def test_one_update_card_with_one_install_button_when_an_update_is_offered(
+        new_context, servers, width, lang, theme):
+    """An offered update is one card: version and release age, the release title without the
+    raw GitHub draft text, and the only Install button of the panel (the list row carries
+    none). The button is a full-width 44px target on a phone. A frame that is up to date has
+    no card at all."""
+    install = {"en": "Install fw-v1.0.4", "fr": "Installer fw-v1.0.4"}[lang]
+    released = {"en": "Released", "fr": "Sortie"}[lang]
+    context, page = open_panel(new_context, servers["update"], width, lang, theme)
+    try:
+        where = "%dpx/%s/%s" % (width, lang, theme)
+        card = page.locator(".fleet-block--device .update-offer")
+        assert card.count() == 1 and card.is_visible(), where
+        title = card.locator(".update-offer__title")
+        assert "fw-v1.0.4" in title.inner_text() and released in title.inner_text(), where
+        assert card.locator("time").count() == 1, where
+        note = card.locator(".update-offer__note").inner_text()
+        assert note == "Plane screen design exploration", (where, note)
+        assert "DRAFT" not in card.inner_text(), where
+        buttons = page.locator(
+            'main form[action="/update/install"] input[value="fw-v1.0.4"] ~ button')
+        assert buttons.count() == 1, "one Install button for the offered version at %s" % where
+        button = card.locator("form button[type=submit]")
+        assert button.inner_text().strip() == install, where
+        box = button.bounding_box()
+        assert box["height"] >= 44 - 0.5, where
+        if width <= 360:
+            card_box = card.bounding_box()
+            assert box["width"] >= card_box["width"] - 2 * 24 - 1, (
+                "button not full width at %s: %r in %r" % (where, box, card_box))
+        assert box["x"] >= -0.5 and box["x"] + box["width"] <= width + 0.5, where
+        assert no_horizontal_overflow(page), "overflow at %s" % where
+    finally:
+        context.close()
+    for scenario in ("current", "single"):
+        context, page = open_panel(new_context, servers[scenario], width, lang, theme)
+        try:
+            assert page.locator(".fleet-block--device .update-offer").count() == 0
+            assert page.locator("main form[action='/update/install']").count() == (
+                0 if scenario == "single" else 4)
+        finally:
+            context.close()
