@@ -1287,13 +1287,17 @@ button.rule-suggestion-chip {
 }
 
 /* With a script the picker below replaces the look cards, the "Change"
- * table and the "Customise" button; without one they are the way in. */
-.js .look-view .look-pick__grid,
-.js .look-view .look-edit {
+ * table and the "Customise" button; without one they are the way in.
+ * The look view takes its final layout as soon as the head script has put
+ * `js-early` on <html>, the same moment as the first paint, so the picture
+ * is not laid out once as a block and again as a column when the deferred
+ * scripts add `js`. */
+:is(.js, .js-early) .look-view .look-pick__grid,
+:is(.js, .js-early) .look-view .look-edit {
   display: none;
 }
 
-.js .look-view .look-panel > .look-frame {
+:is(.js, .js-early) .look-view .look-panel > .look-frame {
   display: grid;
   grid-template-columns: minmax(0, 15rem) minmax(0, 1fr);
   gap: var(--space-md);
@@ -1302,11 +1306,11 @@ button.rule-suggestion-chip {
 
 /* With a script the inline picker replaces the "Change" table, so the meta
  * row under the picture holds nothing. */
-.js .look-view .look-panel > .look-frame > .look-frame__meta {
+:is(.js, .js-early) .look-view .look-panel > .look-frame > .look-frame__meta {
   display: none;
 }
 
-.js .look-view .look-panel > .look-frame > .field-error {
+:is(.js, .js-early) .look-view .look-panel > .look-frame > .field-error {
   grid-column: 1 / -1;
 }
 
@@ -1319,7 +1323,7 @@ button.look-sheet__done[hidden] {
   display: none;
 }
 @media (max-width: 699.98px) {
-  .js .look-view .look-panel > .look-frame {
+  :is(.js, .js-early) .look-view .look-panel > .look-frame {
     grid-template-columns: minmax(0, 56%);
     justify-content: center;
     gap: var(--space-sm) var(--space-md);
@@ -1362,18 +1366,18 @@ button.look-sheet__done[hidden] {
  * picker on the right, both on the first screen of a laptop. The picture is
  * as wide as its column and the screen height allow (3:4). */
 @media (min-width: 960px) {
-  .js .personalisation__view:has(.look-view) {
+  :is(.js, .js-early) .personalisation__view:has(.look-view) {
     max-width: none;
   }
 
-  .js .look-view {
+  :is(.js, .js-early) .look-view {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 28rem);
     gap: var(--space-lg);
     align-items: flex-start;
   }
 
-  .js .look-view .look-panel > .look-frame {
+  :is(.js, .js-early) .look-view .look-panel > .look-frame {
     display: block;
   }
 
@@ -1387,7 +1391,7 @@ button.look-sheet__done[hidden] {
     margin-inline: auto;
   }
 
-  .js .look-view .look-picker {
+  :is(.js, .js-early) .look-view .look-picker {
     max-width: none;
     margin-top: 0;
   }}

@@ -930,3 +930,23 @@ def test_the_tab_bar_pill_is_on_every_page(new_context, server, path):
         assert inside, path
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("motion", ["reduce", "no-preference"])
+@pytest.mark.parametrize("path", ["/display", "/display/arrivals"])
+def test_the_style_page_opens_on_a_wide_screen_without_the_picture_moving(
+        new_context, server, path, motion):
+    """the picture column and the picker are placed once, before the entrance: the layout shift of
+    a Style load stays under 0.01, with or without reduced motion"""
+    context = _admin_context(
+        new_context, server, {"width": 1280, "height": 900}, reduced_motion=motion)
+    context.add_init_script(_SHIFT_RECORDER)
+    try:
+        page = context.new_page()
+        page.goto(server.base_url() + path)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                      "() => requestAnimationFrame(() => setTimeout(done, 400))))")
+        assert page.evaluate("() => window.__shift") <= 0.01, page.evaluate("() => window.__shifts")
+    finally:
+        context.close()
