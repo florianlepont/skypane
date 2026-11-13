@@ -93,7 +93,7 @@ content), complete and correct with scripts blocked, 360px without horizontal sc
   single primary Install; a flat version list of native `<details>` rows (dot, version, date, age,
   Installed/Newest chip, notes) with a ghost "Revenir" action. The standalone `/update` page
   keeps its older markup. Test: `test_browser_firmware_panel.py`.
-- Users (`pages/users_page.py`, `style-admin.css`): a glass table from 70rem, cards below.
+- Users (`pages/users_page.py`, `style-admin.css`): a glass table from 79.5rem, cards below.
   E-mail on one line with ellipsis; the Active switch acts in place with a toast; a role change
   asks for confirmation; invite button under the title on a phone; the role select clears its
   French label at 360px.

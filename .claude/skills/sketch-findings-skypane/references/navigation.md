@@ -13,10 +13,9 @@ earlier hamburger design lives only in `sources/002-mobile-hamburger-nav.html`
 
 ## Phone: one floating tab bar for everyone
 
-A glass pill, `position: fixed`, `left/right: max(8px, safe)`, `bottom: 6px + safe-bottom`,
-68px high (`--tab-bar-h`), `--radius-pill`, z-index 20. Its glass is a `.tab-bar::before`
-layer (`blur(26px) saturate(200%)`) behind the cells, so the More sheet inside can blur the
-page itself. `view-transition-name: skypane-tab-bar` carries the bar across a page change as
+An opaque pill (`--glass-solid`, no blur), `position: fixed`, `left/right: max(8px, safe)`, `bottom: 6px + safe-bottom`,
+68px high (`--tab-bar-h`), `--radius-pill`, z-index 20. Its edge shadow sits on a `.tab-bar::before`
+layer behind the cells so the More sheet inside never inherits it. `view-transition-name: skypane-tab-bar` carries the bar across a page change as
 one image. The cells are `flex: 1 1 auto; min-width: 44px` (unequal widths, fit measured at
 360 and 320px), 56px high, icon over an 11px sentence-case label (no uppercase). The active
 cell is an inner pill; one `.tab-bar__slider` moved by `motion.js` (view-transition-name

@@ -44,7 +44,7 @@ Executable, not prose. Modules and tests:
 - Known, accepted: warn as body text on a white card is 3.19:1 (`STATUS_WARN_ON_CARD_PAIRS`); the state
   is carried by wording and a dot. The accent-versus-status separation floors were designed for a
   terracotta accent; with graphite and ivory they are met trivially and not revisited.
-- Inks on the glass: the tab bar and sheets are nearly opaque so labels hold 4.5:1 over a white
+- Inks on the glass: the tab bar and sheets are opaque so labels hold 4.5:1 over a white
   picture or a black card scrolling beneath.
 
 ## Forms and HTTP

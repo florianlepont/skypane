@@ -36,7 +36,7 @@ Rendering helpers: `ui_base.py`, `ui_shell.py`, `ui_nav.py`, `ui_components.py`,
   border `#2A3040`, text `#F1F3F6`, accent ivory `#F2EFE9` (hover `#E2DED5`, on-accent `#14171F`).
   Status ok/warn/error `#16A34A/#D97706/#BE123C` (Dark `#4ADE80/#FBBF24/#FB7185`).
 - **Sky + glass:** sky `#E7EEF7 > #F1F3F6 > #EDF1F6` (Dark `#12151D > #161A24 > #1A1F2B`);
-  `--glass-bg` white .72 / .09, blur 22px (bars 26px), all blur inside one `@supports` block.
+  `--glass-bg` white .72 / .09, blur 22px (tab bar and More sheet are opaque; only the More scrim blurs, 8px), all blur inside one `@supports` block.
 - **Radii:** control 14, card 22, sheet 28 (top corners), pill 32; portrait frame picture 5.
 - **Type:** page title clamp 30-34px phone / 40-44px desktop, 700, tracking -0.03em; section/sub-page
   22px 600; card title 17px 600; body 16; secondary 15; caption and section label 13; tab 11, chart 10.

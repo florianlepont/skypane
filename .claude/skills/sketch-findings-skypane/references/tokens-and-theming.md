@@ -67,7 +67,7 @@ Rules:
   of `style.css`; the one exception is the More sheet's page scrim (`blur(8px)`, z-index 44).
   Outside the block each surface keeps its solid fill. Repeated cards and
   tracks take fill, edge and shadow without blur (a backdrop-filter traps fixed or absolute
-  descendants and costs a layer). The tab bar and More sheet use `blur(26px) saturate(200%)`.
+  descendants and costs a layer). The tab bar and More sheet are opaque (`--glass-solid`); the scrim behind an open More sheet blurs 8px.
 - Dialogs are not glass: an opaque surface over a dimmed page.
 - The old "at most six blurred elements per page" budget is guidance only: the test that
   held it is gone and round 35 added a scrim blur on every page. Keep blur to bars, sheets,
@@ -107,7 +107,7 @@ tabular numerals); mono is for identifiers.
 Spacing tokens `--space-xs..3xl` = 4, 8, 16, 24, 32, 48, 64px. Sibling-card gap
 `--space-lg`. Minimum width 360px (320px is out of contract; keep the 320px tab-bar fit
 that is measured). Breakpoints: phone below 960px (`959.98px` in media queries), desktop
-from 960px; also `700px`, `70rem` (Users table), `79.5rem`.
+from 960px; also `700px`, `70rem` (Airlines and list sheets), `79.5rem` (Users table).
 
 Safe areas: `--safe-top/right/bottom/left` (every shell sets `viewport-fit=cover`); fixed
 bars, sheets, dialogs and toasts pad themselves with them. Floating tab bar tokens:
