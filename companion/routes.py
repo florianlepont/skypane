@@ -38,7 +38,7 @@ from companion import (
     static_files, theme_preview)
 from companion.pages import (
     airline_collection_page, airline_types_fragment, airlines_page, co_managers_card, config_page, detection_page, place_page,
-    history_page, home_page, personalisation_cards, update_page)
+    history_fragment, home_page, personalisation_cards, update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
 # DOTALL keep a newline from slipping into the id or the remainder.
@@ -185,7 +185,7 @@ _GET_ROUTES = (
             fleet_moves.retired_frame_page, ADMIN_ONLY),
         Route(
             "GET", Exact(FLIGHTS_ROUTE),
-            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), OWNER_DEVICE),
+            lambda h, m: history_fragment.get(h, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(HEALTH_ROUTE),
             fleet_moves.retired_frame_page, ADMIN_DEVICE),

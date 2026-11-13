@@ -8,6 +8,8 @@ its current segment, and the content a strip switches replays the same entrance.
 turns all of it into an instant change. The bottom tab bar's sliding pill is on every page,
 including the ones that belong to no bar cell.
 """
+import json
+
 import pytest
 
 import fleet_console_support as fx
@@ -174,6 +176,140 @@ def test_under_reduced_motion_every_page_opens_at_once(new_context, server, path
         context.close()
 
 
+# The blocks that take the entrance, in page order, read when the document is parsed: the
+# delay of each, whether it rises as well as fades, and whether it sits inside another one.
+_BLOCKS_AT_OPEN = """
+(() => {
+  // Read on every frame from the first one the browser draws: an entrance that has ended
+  // is no longer listed, and a slow load can end the first ones before the document is done.
+  const seen = new Map();
+  const rising = new Set();
+  let frames = 0;
+  const publish = () => {
+    const targets = [...seen.keys()];
+    const blocks = targets.map((el) => {
+      const box = el.getBoundingClientRect();
+      return {el: el, cls: el.tagName.toLowerCase() + '.' + String(el.className),
+              delay: seen.get(el), top: box.top, height: box.height, rises: rising.has(el),
+              nested: targets.some((other) => other !== el && other.contains(el))};
+    });
+    blocks.sort((a, b) => (a.el.compareDocumentPosition(b.el) & 4 ? -1 : 1));
+    window.__taking = (selector) => [...document.querySelectorAll(selector)]
+      .filter((el) => el.getClientRects().length)
+      .map((el) => ({fades: seen.has(el), rises: rising.has(el)}));
+    window.__step = parseFloat(getComputedStyle(document.documentElement)
+      .getPropertyValue('--motion-stagger'));
+    window.__blocks = blocks.map((b) => { delete b.el; return b; });
+  };
+  const read = () => {
+    for (const a of document.getAnimations()) {
+      if (a.animationName === 'skypane-reveal-fade' && !seen.has(a.effect.target)) {
+        seen.set(a.effect.target, a.effect.getTiming().delay);
+      }
+      if (a.animationName === 'skypane-reveal') { rising.add(a.effect.target); }
+    }
+    if (document.readyState === 'complete' && frames++ > 2) { publish(); return; }
+    requestAnimationFrame(read);
+  };
+  requestAnimationFrame(read);
+})();
+"""
+
+_STEP_PAGES = (
+    "/", "/flights", "/display", "/display/arrivals", "/display/special-looks",
+    "/display/calendar", "/fleet", "/fleet?view=system", "/users", "/audit", "/account",
+    "/airlines", "/airlines/manage", "/credits", "/not-a-page")
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+@pytest.mark.parametrize("path", _STEP_PAGES)
+def test_the_blocks_of_a_page_enter_one_step_after_another(new_context, server, path, viewport):
+    """One opening for every page: the header at once, then each block of the first screen
+    one stagger step after the one before it, in page order, up to five steps. No block
+    enters inside a block that is itself entering."""
+    context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_BLOCKS_AT_OPEN)
+    try:
+        page = context.new_page()
+        _open(page, server, path)
+        page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+        blocks = page.evaluate("() => window.__blocks")
+        step = page.evaluate("() => window.__step")
+        assert step == 60, step
+        assert blocks and "page-header" in blocks[0]["cls"] and blocks[0]["delay"] == 0, blocks
+        assert not [b for b in blocks if b["nested"]], blocks
+        first_screen = [b for b in blocks[1:] if b["top"] < viewport["height"] and b["height"]]
+        assert first_screen, blocks
+        delays = [b["delay"] for b in first_screen]
+        assert delays == [min(k, 5) * step for k in range(1, len(delays) + 1)], (
+            path, [(b["cls"][:44], b["delay"], round(b["top"])) for b in blocks])
+    finally:
+        context.close()
+
+
+def test_each_fleet_tab_opens_in_the_same_order_on_a_phone(new_context, server):
+    """Whatever tab a phone shows, the frame's header row, the tabs and then that tab's own
+    blocks enter one step apart: blocks of the hidden tabs take no place in the count."""
+    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
+                             reduced_motion="no-preference")
+    context.add_init_script(_BLOCKS_AT_OPEN)
+    try:
+        page = context.new_page()
+        _open(page, server, "/fleet")
+        hrefs = page.evaluate(
+            "() => [...document.querySelectorAll('[data-tabs=\"fleet\"] a')]"
+            ".map((a) => a.getAttribute('href'))")
+        assert len(hrefs) == 3, hrefs
+        for href in hrefs:
+            _open(page, server, href)
+            page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+            blocks = [b for b in page.evaluate("() => window.__blocks") if b["height"]]
+            delays = [b["delay"] for b in blocks]
+            assert len(delays) >= 4, (href, blocks)
+            assert delays == [min(k, 5) * 60 for k in range(len(delays))], (
+                href, [(b["cls"][:50], b["delay"]) for b in blocks])
+    finally:
+        context.close()
+
+
+# (path, viewport, blocks that rise and fade, lists that only fade): the parts of a first
+# screen that used to stay still while the rest of the page entered.
+_TAKING_PART = (
+    ("/display", VIEWPORT_MIN_SUPPORTED, (".layout-card", ".personalisation-nav"), ()),
+    ("/display", VIEWPORT_DESKTOP, (".layout-card", ".personalisation-nav"), ()),
+    ("/fleet", VIEWPORT_MIN_SUPPORTED, (".fleet-detail-head", ".fleet-tabs"), ()),
+    ("/audit", VIEWPORT_MIN_SUPPORTED, (), (".filter-bar__count", ".audit-cards")),
+    ("/audit", VIEWPORT_DESKTOP, (), (".filter-bar__count", ".audit-cards")),
+    ("/airlines", VIEWPORT_MIN_SUPPORTED, (), ("#collection-grid",)),
+    ("/airlines", VIEWPORT_DESKTOP, (), ("#collection-grid",)),
+    ("/airlines/manage", VIEWPORT_MIN_SUPPORTED, (), (".airlines-table",)),
+    ("/airlines/manage", VIEWPORT_DESKTOP, (), (".airlines-table",)),
+)
+
+
+@pytest.mark.parametrize(
+    "path,viewport,rising,fading", _TAKING_PART,
+    ids=["%s@%d" % (p, v["width"]) for p, v, _r, _f in _TAKING_PART])
+def test_every_block_of_the_first_screen_takes_part_in_the_opening(
+        new_context, server, path, viewport, rising, fading):
+    """A card, a strip or a control row rises and fades. A list, a grid or a table as tall as
+    its data fades as a whole and never rises: opacity alone, one layer."""
+    context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_BLOCKS_AT_OPEN)
+    try:
+        page = context.new_page()
+        _open(page, server, path)
+        page.wait_for_function("() => window.__blocks !== undefined", timeout=10000)
+        for selector in rising:
+            found = page.evaluate("(s) => window.__taking(s)", selector)
+            assert found and all(f["fades"] and f["rises"] for f in found), (selector, found)
+        for selector in fading:
+            found = page.evaluate("(s) => window.__taking(s)", selector)
+            assert found and all(f["fades"] and not f["rises"] for f in found), (selector, found)
+    finally:
+        context.close()
+
+
 def _thumb_matches_current(page, selector):
     return page.evaluate(
         "(s) => { const strip = document.querySelector(s);"
@@ -199,56 +335,230 @@ def _entered_since(page, mark):
         "(m) => window.__anim.slice(m).filter((e) => e.name === 'skypane-reveal-fade')", mark)
 
 
-@pytest.mark.parametrize("viewport", VIEWPORTS)
-def test_the_audit_chips_slide_the_thumb_and_replay_the_opening(new_context, server, viewport):
-    """choosing another audit category loads that page: the thumb starts under the chip that was
-    left and slides to the new one, and the page opening plays again"""
+# What the page change that opened this page animated, and whether a script slid a strip's
+# thumb afterwards. Kept in session storage: the probe runs before the page's own scripts.
+_STRIP_PROBE = """
+window.addEventListener('pagereveal', (event) => {
+  const save = (value) => sessionStorage.setItem('strip-probe', JSON.stringify(value));
+  if (!event.viewTransition) { save({change: 'none', strip: []}); return; }
+  event.viewTransition.ready.then(() => {
+    const strip = document.documentElement.getAnimations({subtree: true})
+      .filter((a) => a.effect && a.effect.pseudoElement
+        && a.effect.pseudoElement.indexOf('(skypane-strip)') > -1)
+      .map((a) => a.effect.pseudoElement.split('(')[0]);
+    save({change: 'ran', strip: strip});
+  }, () => save({change: 'skipped', strip: []}));
+});
+new MutationObserver((records) => {
+  for (const record of records) {
+    if (record.target.matches && record.target.matches('.tabs-thumb.is-sliding')) {
+      sessionStorage.setItem('strip-slid', location.pathname + location.search);
+    }
+  }
+}).observe(document, {attributes: true, attributeFilter: ['class'], subtree: true});
+"""
+_CARRIERS = (
+    "() => [...document.querySelectorAll('*')].filter("
+    "(e) => getComputedStyle(e).viewTransitionName === 'skypane-strip').length")
+
+
+def _strip_context(new_context, server, viewport):
     context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_STRIP_PROBE)
+    return context
+
+
+def _follow(page, selector):
+    """Click a link and wait for the page it opens; the probe of that page change."""
+    page.evaluate("() => { sessionStorage.removeItem('strip-probe');"
+                  " sessionStorage.removeItem('strip-slid'); }")
+    with page.expect_navigation():
+        page.locator(selector).click()
+    page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+    page.wait_for_function("() => sessionStorage.getItem('strip-probe') !== null", timeout=10000)
+    return json.loads(page.evaluate("() => sessionStorage.getItem('strip-probe')"))
+
+
+def _assert_carried(page, probe, strip):
+    """The page change itself glided the selection (old, new and group all animate), the thumb
+    sits under the current segment and no script slid it once the page was there."""
+    assert probe["change"] == "ran", probe
+    for part in ("::view-transition-group", "::view-transition-old", "::view-transition-new"):
+        assert part in probe["strip"], probe
+    assert _thumb_matches_current(page, strip), strip
+    assert page.evaluate("() => sessionStorage.getItem('strip-slid')") is None
+    assert page.evaluate(_CARRIERS) == 1
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+def test_the_audit_chips_carry_the_selection_through_the_page_change(
+        new_context, server, viewport):
+    """choosing another audit category loads that page: the selected chip glides to its new
+    place inside the page change, and no thumb slides afterwards"""
+    context = _strip_context(new_context, server, viewport)
     try:
         page = context.new_page()
         _open(page, server, "/audit")
         strip = '[data-tabs="audit"]'
         assert _thumb_matches_current(page, strip)
-        page.locator(strip + " a.filter-chip:not(.filter-chip--current)").nth(1).click()
-        page.wait_for_function("() => location.search.indexOf('category') >= 0", timeout=10000)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
-        assert _entered_since(page, 0), "the new audit page did not open with the entrance"
+        probe = _follow(page, strip + " a.filter-chip:not(.filter-chip--current) >> nth=1")
+        assert "category" in page.url
+        _assert_carried(page, probe, strip)
     finally:
         context.close()
 
 
-def test_the_fleet_tabs_slide_the_thumb_and_replay_their_blocks(new_context, server):
-    """on a phone the State, Settings and Access tabs slide the thumb like the Style tabs and the
-    blocks of the chosen tab enter"""
-    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED,
-                             reduced_motion="no-preference")
+def test_the_fleet_tabs_carry_the_selection_through_the_page_change(new_context, server):
+    """on a phone the State, Settings and Access tabs hand the selection over like the Style
+    tabs"""
+    context = _strip_context(new_context, server, VIEWPORT_MIN_SUPPORTED)
     try:
         page = context.new_page()
         _open(page, server, "/fleet")
         strip = '[data-tabs="fleet"]'
         assert _thumb_matches_current(page, strip)
-        page.locator(strip + " a:not([aria-current])").first.click()
-        page.wait_for_function("() => location.search.indexOf('tab=') >= 0", timeout=10000)
-        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
-        assert [e for e in _entered_since(page, 0) if "fleet-block" in e["cls"]]
+        probe = _follow(page, strip + " a:not([aria-current]) >> nth=0")
+        assert "tab=" in page.url
+        _assert_carried(page, probe, strip)
     finally:
         context.close()
 
 
-def test_the_style_tabs_slide_the_thumb(new_context, server):
-    context = _admin_context(new_context, server, VIEWPORT_DESKTOP,
-                             reduced_motion="no-preference")
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+def test_the_style_tabs_carry_the_selection_through_the_page_change(
+        new_context, server, viewport):
+    context = _strip_context(new_context, server, viewport)
     try:
         page = context.new_page()
         _open(page, server, "/display")
         strip = '[data-tabs="display"]'
         assert _thumb_matches_current(page, strip)
-        page.locator(strip + " a:not([aria-current])").nth(1).click()
-        page.wait_for_function("() => location.pathname !== '/display'", timeout=10000)
+        probe = _follow(page, strip + " a:not([aria-current]) >> nth=1")
+        assert not page.url.endswith("/display")
+        _assert_carried(page, probe, strip)
+    finally:
+        context.close()
+
+
+def test_a_strip_reached_another_way_moves_nothing(new_context, server):
+    """Style on Special looks, Home by the tab bar, Style again by the tab bar: the strip
+    leaves and comes back with its page (a fade in place), nothing glides from one segment
+    to another and the thumb does not slide."""
+    context = _strip_context(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        page = context.new_page()
+        _open(page, server, "/display/special-looks")
+        home = _follow(page, ".tab-bar a.tab-bar__link:not(.tab-bar__link--switch) >> nth=0")
+        assert "::view-transition-new" not in home["strip"], home
+        style = _follow(page, '.tab-bar a.tab-bar__link[href$="/display"]')
+        assert style["change"] == "ran" and "::view-transition-old" not in style["strip"], style
+        assert page.evaluate("() => sessionStorage.getItem('strip-slid')") is None
+        assert _thumb_matches_current(page, '[data-tabs="display"]')
+    finally:
+        context.close()
+
+
+# What moves while the page change that opened this page runs: the block entrances that
+# take time, and how long and on which curve the whole-page cross-fade runs.
+_ARRIVAL_PROBE = """
+window.addEventListener('pagereveal', (event) => {
+  const save = (value) => sessionStorage.setItem('arrival-probe', JSON.stringify(value));
+  if (!event.viewTransition) { save({change: 'none'}); return; }
+  event.viewTransition.ready.then(() => {
+    const all = document.documentElement.getAnimations({subtree: true});
+    const entrances = all.filter((a) => /^skypane-reveal/.test(a.animationName || '')
+        && a.effect.getComputedTiming().activeDuration + a.effect.getComputedTiming().delay > 1)
+      .map((a) => a.animationName + ' on ' + a.effect.target.className);
+    const root = all.filter((a) => a.effect.pseudoElement
+        && a.effect.pseudoElement.indexOf('(root)') > -1)
+      .map((a) => [a.effect.pseudoElement.split('(')[0], a.effect.getTiming().duration,
+                   getComputedStyle(document.documentElement, a.effect.pseudoElement)
+                     .animationTimingFunction.split('), ')[0].replace(/\\)?$/, ')')]);
+    save({change: 'ran', entrances: entrances, root: root,
+          opening: !!document.querySelector('main[data-page-open]')});
+  }, () => save({change: 'skipped'}));
+});
+"""
+
+
+def _arrive(page, selector):
+    page.evaluate("() => sessionStorage.removeItem('arrival-probe')")
+    with page.expect_navigation():
+        page.locator(selector).click()
+    page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+    page.wait_for_function(
+        "() => sessionStorage.getItem('arrival-probe') !== null", timeout=10000)
+    return json.loads(page.evaluate("() => sessionStorage.getItem('arrival-probe')"))
+
+
+@pytest.mark.parametrize("viewport", VIEWPORTS)
+def test_a_page_reached_through_the_page_change_does_not_also_play_its_entrance(
+        new_context, server, viewport):
+    """One motion per page change: the cross-fade. A page opened by a link from another page
+    is in place under it (no block rises or fades on its own); the same page opened by its
+    address still plays the entrance. The cross-fade runs on the motion tokens."""
+    context = _admin_context(new_context, server, viewport, reduced_motion="no-preference")
+    context.add_init_script(_ARRIVAL_PROBE)
+    try:
+        page = context.new_page()
+        _open(page, server, "/")
+        assert _entered_since(page, 0), "a page opened by its address plays the entrance"
+        tokens = page.evaluate(
+            "() => { const s = getComputedStyle(document.documentElement);"
+            " return [parseFloat(s.getPropertyValue('--motion-view-transition')),"
+            " s.getPropertyValue('--ease-out').trim()]; }")
+        link = (".tab-bar" if viewport["width"] < 960 else ".dashboard-sidebar")
+        for href in ("/flights", "/display"):
+            probe = _arrive(page, '%s a[href$="%s"] >> nth=0' % (link, href))
+            assert probe["change"] == "ran", probe
+            assert probe["entrances"] == [], probe
+            assert probe["root"], probe
+            for _part, duration, easing in probe["root"]:
+                assert duration == tokens[0], probe
+                assert easing.replace(" ", "") == tokens[1].replace(" ", ""), (probe, tokens)
+            page.wait_for_function(_OPENING_OVER, timeout=10000)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("motion", ["no-preference", "reduce"])
+def test_the_more_panel_fades_in_and_leaves_at_once(new_context, server, motion):
+    """One rule for what a control opens: it fades in on the fast token and leaves at once.
+    The panel never changes size while it arrives (its rows are tap targets from the first
+    frame). Reduced motion shows it at once."""
+    context = _admin_context(new_context, server, VIEWPORT_MIN_SUPPORTED, reduced_motion=motion)
+    try:
+        page = context.new_page()
+        _open(page, server, "/")
+        mark = page.evaluate("() => window.__anim.length")
+        page.locator(".tab-bar__more > summary").click()
+        page.locator(".tab-bar__more-panel").wait_for(state="visible")
+        style = page.evaluate(
+            "() => { const s = getComputedStyle(document.querySelector('.tab-bar__more-panel'));"
+            " const root = getComputedStyle(document.documentElement);"
+            " return {name: s.animationName, seconds: parseFloat(s.animationDuration),"
+            " iterations: s.animationIterationCount, easing: s.animationTimingFunction,"
+            " fast: parseFloat(root.getPropertyValue('--motion-fast')) / 1000,"
+            " curve: root.getPropertyValue('--ease-out').trim()}; }")
+        assert style["name"] == "skypane-fade-in" and style["iterations"] == "1", style
+        if motion == "reduce":
+            assert style["seconds"] < 0.001, style
+        else:
+            assert style["seconds"] == style["fast"], style
+            assert style["easing"].replace(" ", "") == style["curve"].replace(" ", ""), style
+            page.wait_for_function(
+                "(m) => window.__anim.slice(m).some((e) => e.name === 'skypane-fade-in'"
+                " && e.cls.indexOf('tab-bar__more-panel') > -1)", arg=mark, timeout=5000)
         page.wait_for_function(_SETTLED_PAGE, timeout=10000)
-        _wait_sliding(page, strip)
+        panel = page.evaluate(
+            "() => { const p = document.querySelector('.tab-bar__more-panel');"
+            " const s = getComputedStyle(p); return [s.opacity, s.transform]; }")
+        assert panel == ["1", "none"], panel
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        assert page.evaluate(
+            "() => document.querySelector('.tab-bar__more-panel').getClientRects().length") == 0
     finally:
         context.close()
 
@@ -536,6 +846,61 @@ def test_location_under_reduced_motion_shifts_no_layout(new_context, place_serve
         assert shift <= REDUCED_MOTION_SHIFT_LIMIT, (shift, page.evaluate("() => window.__shifts"))
         assert page.evaluate("() => window.__layout") == []
         assert page.evaluate(_LAYOUT_TRANSITIONS) == []
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("motion", ["reduce", "no-preference"])
+def test_location_opens_on_a_wide_screen_without_moving_anything(new_context, place_server, motion):
+    """the loading state already has the page's map geometry, so when the map takes over nothing
+    that was on screen moves: no layout shift at all, with or without reduced motion"""
+    context = new_context(viewport={"width": 1280, "height": 900}, reduced_motion=motion)
+    Hosts(context)
+    context.add_cookies([
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": place_server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, place_server.base_url())
+        context.add_init_script(_SHIFT_RECORDER)
+        page.goto(place_server.base_url() + "/detection")
+        page.wait_for_function(
+            "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
+        page.wait_for_function(SETTLED, timeout=10000)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        page.evaluate("() => new Promise((done) => requestAnimationFrame("
+                      "() => requestAnimationFrame(() => setTimeout(done, 200))))")
+        assert page.evaluate("() => window.__shifts") == []
+    finally:
+        context.close()
+
+
+def test_map_tiles_do_not_fade_in_under_reduced_motion(new_context, place_server):
+    """with prefers-reduced-motion a map tile shows at once when it arrives: no opacity
+    transition ever runs on a tile"""
+    context = new_context(viewport={"width": 1280, "height": 900}, reduced_motion="reduce")
+    Hosts(context)
+    context.add_cookies([
+        {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": place_server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, place_server.base_url())
+        context.add_init_script(
+            "window.__tileFades = 0;"
+            "document.addEventListener('transitionrun', (e) => {"
+            " if (e.target.classList && e.target.classList.contains('leaflet-tile')) {"
+            " window.__tileFades += 1; } }, true);")
+        page.goto(place_server.base_url() + "/detection")
+        page.wait_for_function(
+            "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
+        page.wait_for_function(
+            "() => document.querySelectorAll('#place-map .leaflet-tile-loaded').length >= 4",
+            timeout=15000)
+        page.wait_for_function(_SETTLED_PAGE, timeout=10000)
+        assert page.evaluate("() => window.__tileFades") == 0
+        shown = page.evaluate(
+            "() => Array.from(document.querySelectorAll('#place-map .leaflet-tile-loaded'))"
+            ".map((t) => getComputedStyle(t).opacity)")
+        assert shown and set(shown) == {"1"}, shown
     finally:
         context.close()
 

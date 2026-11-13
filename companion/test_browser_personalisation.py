@@ -414,32 +414,35 @@ def _thumb_covers_current_link(page):
         " return Math.abs(t.left - (l.left + 3)) < 1.5 && Math.abs(t.width - (l.width - 6)) < 1.5; }")
 
 
-def test_the_highlight_slides_to_the_current_link(new_context, make_app_server):
-    """after a click the new page starts the highlight under the link that was left and slides it
-    to the current one (a transition on the thumb), ending exactly under the current link"""
+def test_the_highlight_is_under_the_current_link_and_never_slides_after_a_page_change(
+        new_context, make_app_server):
+    """after a click the new page shows the highlight under the current link from the start:
+    the page change carries the selection, so no script slides the thumb afterwards"""
     server = make_app_server(seed=_seed)
     context, page = _open(new_context, server.base_url(), VIEWPORT_DESKTOP, theme=None,
         reduced_motion="no-preference")
+    context.add_init_script(
+        "new MutationObserver((records) => { for (const r of records) {"
+        " if (r.target.matches && r.target.matches('.tabs-thumb.is-sliding')) {"
+        " sessionStorage.setItem('thumb-slid', '1'); } } }).observe(document,"
+        " {attributes: true, attributeFilter: ['class'], subtree: true});")
     try:
-        page.wait_for_function(
-            "() => !document.querySelector('[data-tabs-thumb]').classList.contains('is-sliding')",
-            timeout=5000)
         assert _thumb_covers_current_link(page)
-        page.evaluate(
-            "() => { window.__slid = false; }")
         with page.expect_navigation():
             page.click('.personalisation-nav__link[href$="%s"]' % layout.DISPLAY_CALENDAR_ROUTE)
         page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
         page.wait_for_function(
-            "() => document.querySelector('[data-tabs-thumb]').classList.contains('is-sliding')",
+            "() => !!document.querySelector('[data-tabs].is-enhanced [data-tabs-thumb]')",
             timeout=5000)
-        assert page.evaluate(
-            "() => parseFloat(getComputedStyle(document.querySelector('[data-tabs-thumb]'))"
-            ".transitionDuration) > 0")
         page.wait_for_function(
             "() => document.getAnimations().every(a => a.playState !== 'running'"
             " || a.effect.getTiming().iterations === Infinity)", timeout=10000)
         assert _thumb_covers_current_link(page)
+        assert page.evaluate("() => sessionStorage.getItem('thumb-slid')") is None
+        assert page.evaluate(
+            "() => getComputedStyle(document.querySelector("
+            "'.personalisation-nav__link[aria-current] > span')).viewTransitionName"
+        ) == "skypane-strip"
     finally:
         context.close()
 

@@ -484,10 +484,19 @@ def recent_runway_events(conn, limit=50, airline_names=None):
     events = [dict(row) for row in rows]
     if airline_names:
         for event in events:
-            match = _CALLSIGN_PREFIX_RE.match(str(event.get("callsign") or "").strip().upper())
-            if match and match.group(1) in airline_names:
-                event["airline"] = airline_names[match.group(1)]
+            name = override_airline_name(event, airline_names)
+            if name is not None:
+                event["airline"] = name
     return events
+
+
+def override_airline_name(event, airline_names):
+    """The owner's name for `event`'s callsign prefix in `airline_names`
+    (`{3-letter prefix: name}`), or None when the prefix has none."""
+    match = _CALLSIGN_PREFIX_RE.match(str(event.get("callsign") or "").strip().upper())
+    if match and match.group(1) in airline_names:
+        return airline_names[match.group(1)]
+    return None
 
 
 def route_source_counts(conn, since=None):

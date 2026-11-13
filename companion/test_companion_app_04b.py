@@ -118,7 +118,7 @@ def test_ui_theme_post_without_session_redirects_to_login(app04b_server):
     cookie"""
     status, headers, _ = http_request(
         app04b_server.base_url() + "/ui-theme", method="POST", data=b"ui_theme=dark")
-    assert status == 303 and headers.get("Location") == "/login", (
+    assert status == 303 and headers.get("Location") == "/login?expired=1", (
         "expected an unauthenticated POST /ui-theme to redirect to /login, got %d/%r"
         % (status, headers.get("Location")))
     set_cookie = headers.get("Set-Cookie", "")
@@ -164,7 +164,7 @@ def test_ui_lang_post_without_session_redirects_to_login(app04b_server):
     cookie"""
     status, headers, _ = http_request(
         app04b_server.base_url() + "/ui-lang", method="POST", data=b"ui_lang=fr")
-    assert status == 303 and headers.get("Location") == "/login", (
+    assert status == 303 and headers.get("Location") == "/login?expired=1", (
         "expected an unauthenticated POST /ui-lang to redirect to /login, got %d/%r"
         % (status, headers.get("Location")))
     set_cookie = headers.get("Set-Cookie", "")

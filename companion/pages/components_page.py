@@ -166,6 +166,8 @@ _M_STATE_DOTS = i18n.msg("components.state_dots", "Status dots")
 _M_STATE_CHARGING = i18n.msg("components.state_charging", "Charging pill")
 _M_STATE_TOASTS = i18n.msg("components.state_toasts", "Toasts by tone")
 _M_STATE_TOAST_ACTIONS = i18n.msg("components.state_toast_actions", "Toasts with an action")
+_M_STATE_TOAST_OFFLINE = i18n.msg(
+    "components.state_toast_offline", "List not updated (no connection)")
 _M_STATE_BANNER_ERROR = i18n.msg("components.state_banner_error", "Banner, error")
 _M_STATE_BANNER_WARN = i18n.msg("components.state_banner_warn", "Banner, warning")
 _M_STATE_EMPTY_COMPACT = i18n.msg("components.state_empty_compact", "Compact, inside a card")
@@ -554,9 +556,16 @@ def _messages():
         _t(_SAMPLE_TOAST_TITLE), _t(_SAMPLE_TOAST_DETAIL), role="", docked=True,
         action_html=ui_components.toast_post_action_html(
             COMPONENTS_ROUTE, (("components", "1"),), _t(_SAMPLE_ACTION)))
+    # What a server-answered list shows when its request gets no answer: the
+    # toast its hidden template holds, shown docked here.
+    offline_title, offline_detail = ui_components.split_toast_message(
+        _t(ui_filter.LIST_OFFLINE_TEXT))
+    offline = toast(
+        offline_title, offline_detail, tone=ui_components.TOAST_TONE_ERROR, role="", docked=True)
     return [
         State(_M_STATE_TOASTS, tones),
         State(_M_STATE_TOAST_ACTIONS, link_action + post_action),
+        State(_M_STATE_TOAST_OFFLINE, offline + ui_filter.list_offline_template_html()),
         State(_M_STATE_BANNER_ERROR,
               ui_components.anomaly_banner(_t(_BANNER))),
         State(_M_STATE_BANNER_WARN,
@@ -691,7 +700,8 @@ CATALOGUE = (
     Family("messages", _M_FAMILY_MESSAGES,
            _M_FAMILY_MESSAGES_DESC,
            ("ui_components.toast_html", "ui_components.toast_link_action_html",
-            "ui_components.toast_post_action_html", "ui_components.anomaly_banner"), _messages),
+            "ui_components.toast_post_action_html", "ui_filter.list_offline_template_html",
+            "ui_components.anomaly_banner"), _messages),
     Family("empty", _M_FAMILY_EMPTY,
            _M_FAMILY_EMPTY_DESC,
            ("ui_components.empty_state", "ui_filter.filter_empty_html"), _empty_states),

@@ -17,6 +17,7 @@ import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
 import companion.page_styles as page_styles
+import companion.ui_segmented as ui_segmented
 import companion.ui_splash as ui_splash
 from companion.ui_base import (
     AIRLINE_EDITOR_ROUTE,
@@ -323,7 +324,7 @@ PAGE_SHELL_TEMPLATE = (
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
-    "{tab_bar_expect}"
+    "{tab_bar_expect}{strip_expect}"
     '<script src="{splash_boot_src}" data-splash-src="{splash_src}"></script>\n'
     "{favicon_link}\n"
     "</head>\n"
@@ -588,6 +589,10 @@ def page_shell(
         "tab_bar_expect": (
             '<link rel="expect" href="#%s" blocking="render">\n' % TAB_BAR_END_ID
             if tab_bar_html else ""),
+        # Hold the first frame until the page's carried strip, if any, is parsed.
+        "strip_expect": (
+            '<link rel="expect" href="#%s" blocking="render">\n' % ui_segmented.CARRY_END_ID
+            if 'id="%s"' % ui_segmented.CARRY_END_ID in body else ""),
         "quick_toast_attr": QUICK_TOAST_ATTR,
         "quick_toast_template_attr": QUICK_TOAST_TEMPLATE_ATTR,
         "quick_toast": _quick_toast_html(),

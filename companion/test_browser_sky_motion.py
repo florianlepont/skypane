@@ -139,8 +139,9 @@ def test_cards_enter_in_a_short_stagger_and_end_in_their_layout_state(
     # A whole-pixel rise and a smooth fade, two finite animations of one duration.
     assert {item["name"] for item in motion} == {"skypane-reveal, skypane-reveal-fade"}
     assert {item["duration"] for item in motion} == {"0.4s, 0.4s"}
-    # Home's hero (not a section or a group) enters first, so its groups start one step in.
-    assert [item["delay"] for item in motion[:2]] == ["0.06s", "0.12s"]
+    # Home's facts row and hero (neither a section nor a group) come first, each a step after
+    # the one before, so the groups start three steps in.
+    assert [item["delay"] for item in motion[:2]] == ["0.18s", "0.24s"]
     page.wait_for_timeout(1200)
     settled = page.evaluate(
         """() => Array.from(document.querySelectorAll('.dashboard-main .page-section, .dashboard-main .group-block')).map(el => {

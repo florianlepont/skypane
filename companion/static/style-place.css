@@ -1028,6 +1028,23 @@ html:not(.map-ready) .place-tap-hint {
     right: auto;
   }
 
+  /* The loading state takes the map layout's page box and app bar from the
+   * first paint, so nothing on screen moves when the map takes over. */
+  html.js-early:not(.map-ready) .page-content:has(.place-stage) {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    width: calc(100% + var(--space-xl));
+    max-width: none;
+    height: 100dvh;
+    margin: 0 0 0 calc(-1 * var(--space-xl));
+    padding: 0;
+  }
+
+  html.js-early:not(.map-ready) .site-header:has(~ .page-content .place-stage) {
+    margin-bottom: 0;
+  }
+
   .map-ready .place-stage {
     min-height: 34rem;
     --place-card-w: 400px;
@@ -1220,6 +1237,15 @@ html.js-early:not(.map-ready):has(.place-stage) .page-header {
 
 .place-runways {
   display: contents;
+}
+
+/* The map library shows a tile by a class change; with reduced motion that
+ * change takes effect at once rather than through a near-zero transition
+ * per tile. Nothing waits for a tile's transitionend. */
+@media (prefers-reduced-motion: reduce) {
+  .leaflet-container .leaflet-tile {
+    transition-property: none !important;
+  }
 }
 
 .place-boot .place-boot__progress {

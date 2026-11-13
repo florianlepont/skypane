@@ -43,7 +43,7 @@
     { name: "sweep-3", kind: "sweep", at: 880, duration: 520 },
     { name: "sweep-4", kind: "sweep", at: 950, duration: 520 },
     { name: "scan", kind: "scan", at: 950, duration: 320 },
-    { name: "open", kind: "open", at: 1370, duration: 520 }
+    { name: "open", kind: "open", at: 1330, duration: 400 }
   ];
   SEQUENCE.forEach(Object.freeze);
   Object.freeze(SEQUENCE);
@@ -352,11 +352,14 @@
       return;
     }
     var elapsed = now - startedAt;
-    var dt = Math.min(0.05, (now - last) / 1000);
+    // The first frame can be stamped before the clock read at script start:
+    // a step back in time counts as no time, and the share stays in [0, 1].
+    var dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     pollScripts();
     var goal = elapsed >= FORCE_DONE_MS ? 1 : target();
     shown += (goal - shown) * (1 - Math.exp(-dt * (staticMode ? 60 : 8)));
+    shown = Math.max(0, Math.min(1, shown));
     if (goal >= 1 && (shown > 0.996 || elapsed >= FORCE_DONE_MS)) {
       shown = 1;
     }
@@ -386,7 +389,8 @@
       phaseAt = elapsed + SEQUENCE[6].duration;
     } else if (phase === 3 && elapsed >= phaseAt && shown >= 1) {
       phase = 4;
-      phaseAt = elapsed + 100;
+      // A short hold on the finished picture before the page opens.
+      phaseAt = elapsed + 60;
     } else if (phase === 4 && elapsed >= phaseAt) {
       startOpening();
       phase = 5;

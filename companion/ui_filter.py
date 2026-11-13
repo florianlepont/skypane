@@ -9,10 +9,20 @@ list stays complete, and the chip group (which cannot filter anything
 without one) stays hidden behind the `.js-gate` rule.
 """
 import companion.i18n as i18n
+import companion.ui_segmented as ui_segmented
 from companion.ui_base import escape_html, icon_html
 
 FILTER_CLEAR_LABEL = i18n.msg("common.clear_search", "Clear search")
 FILTER_CLEAR_TEXT = i18n.msg("health.clear", "Clear")
+
+# What a list says when the server could not be reached for a search, a
+# filter, a sort or Load more: the page stays as it is.
+LIST_OFFLINE_TEXT = i18n.msg(
+    "common.couldn_t_update_the_list_check_your_connection",
+    "Couldn't update the list — check your connection and try again.")
+# The template list-filter.js clones into the page's alert region. Must
+# equal OFFLINE_TEMPLATE_ATTR in static/list-filter.js.
+LIST_OFFLINE_TEMPLATE_ATTR = "data-list-offline-template"
 
 # The quantity placeholder the script substitutes in the count template
 # attribute. Not "%d": the template is rendered unformatted for the
@@ -54,7 +64,8 @@ def chip_links_html(chips, aria_label, tabs=""):
     radios, wrapping onto a second row of the track on a narrow phone.
     `chips` is a sequence of `(href, label, current)` with `href` already
     escaped. `tabs` names the strip for the shared tab behaviour (the sliding
-    thumb)."""
+    thumb) and marks it as the page's own strip, whose selection the page
+    change carries across (a page shows one such strip at most)."""
     parts = []
     for href, label, current in chips:
         parts.append(
@@ -63,9 +74,10 @@ def chip_links_html(chips, aria_label, tabs=""):
             "</a>" % (
                 " filter-chip--current" if current else "", href,
                 ' aria-current="true"' if current else "", escape_html(label)))
-    return '<nav class="filter-bar__chips filter-bar__chips--links" aria-label="%s"%s>%s</nav>' % (
-        escape_html(aria_label), (' data-tabs="%s"' % escape_html(tabs)) if tabs else "",
-        "".join(parts))
+    strip = (' data-tabs="%s"%s' % (escape_html(tabs), ui_segmented.CARRY_ATTR)) if tabs else ""
+    return '<nav class="filter-bar__chips filter-bar__chips--links" aria-label="%s"%s>%s%s</nav>' % (
+        escape_html(aria_label), strip, "".join(parts),
+        ui_segmented.CARRY_END_HTML if tabs else "")
 
 
 def _search_html(input_id, label, placeholder, server=None):
@@ -107,6 +119,17 @@ def _search_html(input_id, label, placeholder, server=None):
         icon_html("icon-search", 20), clear)
 
 
+def list_offline_template_html():
+    """The translated error toast a list that asks the server for its rows
+    shows when the request never got an answer. It has no role of its own:
+    the live region it is cloned into announces it."""
+    # Imported here: ui_components reaches this module again through layout.
+    from companion.ui_components import TOAST_TONE_ERROR, split_toast_message, toast_html
+    title, detail = split_toast_message(i18n.t(LIST_OFFLINE_TEXT))
+    return "<template %s>%s</template>" % (LIST_OFFLINE_TEMPLATE_ATTR, toast_html(
+        title, detail, tone=TOAST_TONE_ERROR, role="", dismiss_href=True))
+
+
 def filter_title_search_html(input_id, label, placeholder):
     """The search field for a page header's title row: a magnifier at the
     row's right edge that opens into the field in place, over the title and
@@ -124,9 +147,9 @@ def filter_title_search_form_html(
     search together with them and the page works without a script."""
     return (
         '<form class="filter-bar filter-bar--title" id="%s" method="get" action="%s" '
-        'role="search" data-flights-form%s>%s</form>'
+        'role="search" data-flights-form%s>%s%s</form>'
     ) % (escape_html(form_id), escape_html(action), " data-filter-active" if value else "", _search_html(
-        input_id, label, placeholder, (name, value, clear_href)))
+        input_id, label, placeholder, (name, value, clear_href)), list_offline_template_html())
 
 
 def filter_empty_html(heading, body, action_html, attrs):

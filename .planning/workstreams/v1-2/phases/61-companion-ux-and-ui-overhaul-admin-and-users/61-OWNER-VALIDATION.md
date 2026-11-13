@@ -1118,3 +1118,12 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   plans 61-111 and 61-112. The owner opened a local session with the iOS simulator to
   debug it on real WebKit; the result will come back as a branch.
 - Brotli stays an owner deploy decision (Caddy), left aside for now.
+
+## Round 25: audit 5 fixes (D56)
+
+- D56: all 84 audit-5 findings are treated, in lots A to D, by sequential executors.
+- Lot A (61-115) and lot B (61-116) merged and deployed; owner validated all tests of both lots.
+- Owner decision: keep the role-change confirmation on Users (it supersedes the "no confirmation" line of the UI spec).
+- Open: X03 (Users table wrapping) needs a design choice; lot C and lot D follow.
+- Owner decision (X03): Users table option A, e-mail addresses on one line with an ellipsis (full address in the person's detail), so every row has the same height. Goes into lot D.
+- Lot C (61-117) merged, deployed and validated by the owner (Flights, Airlines, offline, expired session, Location, splash). Lot D (61-118) in progress.

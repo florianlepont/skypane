@@ -32,7 +32,7 @@ MESSAGES = {
 
     # --- The table's filter bar -----------------------------------------
     "flights.filter_flights": "Filtrer les vols",
-    "flights.search_placeholder": "Indicatif, compagnie, aéroport…",
+    "flights.search_placeholder": "Rechercher…",
     "flights.filter_direction": "Filtrer par sens",
     "flights.chip_all": "Tous",
     "flights.chip_departures": "Départs",

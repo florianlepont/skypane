@@ -120,6 +120,50 @@ def test_idle_warms_only_the_two_likeliest_destinations(new_context, server):
         context.close()
 
 
+def _idle_requests(page, seen, expected):
+    """Waits past the idle delay (a marker timer started by the page itself) and returns the
+    warm-up requests seen since the list was last emptied."""
+    page.evaluate(
+        "() => { window.__idlePassed = false;"
+        " setTimeout(() => { window.__idlePassed = true; }, 4500); }")
+    if expected:
+        _wait_until(page, lambda: len(seen["requests"]) >= expected)
+    page.wait_for_function("() => window.__idlePassed === true", timeout=15000)
+    return list(seen["requests"])
+
+
+def test_idle_warming_runs_on_a_new_page_view_only_not_on_back_forward_or_reload(
+        new_context, server):
+    """a page the visitor opens warms its two likeliest destinations; the same page reached again
+    by Back, by Forward or by a reload does not ask for them a second time, while a tap on a link
+    there is still warmed at once"""
+    context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
+    try:
+        seen = _record_prefetches(page)
+        page.goto(server.base_url() + layout.HOME_ROUTE)
+        page.wait_for_function("() => document.readyState === 'complete'")
+        assert len(_idle_requests(page, seen, 2)) == 2
+        page.goto(server.base_url() + "/account")
+        page.wait_for_function("() => document.readyState === 'complete'")
+        assert len(_idle_requests(page, seen, 3)) >= 3, "a new page view warms its own"
+        del seen["requests"][:]
+        page.go_back()
+        page.wait_for_function("() => document.readyState === 'complete'")
+        assert _idle_requests(page, seen, 0) == [], "Back warmed pages again"
+        page.go_forward()
+        page.wait_for_function("() => document.readyState === 'complete'")
+        assert _idle_requests(page, seen, 0) == [], "Forward warmed pages again"
+        page.reload()
+        page.wait_for_function("() => document.readyState === 'complete'")
+        assert _idle_requests(page, seen, 0) == [], "a reload warmed pages again"
+        # Intent still warms: a hover-less phone sends touchstart on the link.
+        link = page.locator('.tab-bar a[href$="/flights"]').first
+        link.dispatch_event("touchstart")
+        _wait_until(page, lambda: any(path.endswith("/flights") for _m, path in seen["requests"]))
+    finally:
+        context.close()
+
+
 def test_intent_warms_a_link_at_once_and_side_effect_routes_are_never_warmed(
         new_context, server):
     """a touch or a hover on a link warms its page before the idle pass; a link to the sign-out

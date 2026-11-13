@@ -40,6 +40,16 @@
     root.classList.remove(EARLY_CLASS);
   }, EARLY_CAP_MS);
 
+  // A page reached through a page change (a view transition) is already
+  // arriving by the cross-fade. The mark lets the stylesheet skip the block
+  // entrance, so one motion plays, not two. The event fires before the first
+  // frame, which is why the listener lives in this early script.
+  window.addEventListener("pagereveal", function (event) {
+    if (event.viewTransition) {
+      root.classList.add("page-crossfade");
+    }
+  });
+
   // The splash script reads the overlay markup, so it is added once the
   // document has been parsed (what `defer` did when the page linked it).
   function loadSplashScript() {

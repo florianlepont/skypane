@@ -227,7 +227,7 @@ def test_every_gated_route_redirects_an_anonymous_request(route_table_server, ro
     origin gate), answers with the same status and Location the
     committed pre-refactor baseline recorded for that exact path - and
     that status is always a 303 to LOGIN_ROUTE, with `?next=` where
-    require_session() adds one.
+    require_session() adds one and `?expired=1` for a posted form.
     """
     path = _sample_path(route.matcher)
     baseline = companion_render_snapshot.load_baseline()["unauthenticated"]
@@ -247,7 +247,10 @@ def test_every_gated_route_redirects_an_anonymous_request(route_table_server, ro
     assert location == expected["location"], (
         "%s: Location %r does not match the committed baseline's %r"
         % (key, location, expected["location"]))
-    assert location == routes.LOGIN_ROUTE or location.startswith(routes.LOGIN_ROUTE + "?next="), (
+    # A posted form is also told that unsaved changes were not kept; signing out is not.
+    plain = (routes.LOGIN_ROUTE + "?expired=1"
+             if route.method == "POST" and path != routes.LOGOUT_ROUTE else routes.LOGIN_ROUTE)
+    assert location == plain or location.startswith(routes.LOGIN_ROUTE + "?next="), (
         "%s: expected a redirect to LOGIN_ROUTE, got %r" % (key, location))
 
 

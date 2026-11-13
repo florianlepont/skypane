@@ -34,7 +34,8 @@ from server import device_config
 import companion.app as app_module
 
 # --- The motion budget's own pinned counts. ---------------------------
-_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
+# The global override, the switched-off loops, and the map tiles that show at once.
+_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 3
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # The selectors that spend the card entrance: the one shared definition.
@@ -42,15 +43,27 @@ ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
     ".dashboard-main[data-page-open] .reveal",
     ".dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6)",
     ".dashboard-main[data-page-open] .history-day:nth-child(-n + 3)",
-    ".dashboard-main[data-page-open] .page-section:nth-child(-n + 6)",
-    ".dashboard-main[data-page-open] .personalisation-look")
-# A table or an empty state straight on the sky opens like a card, without a stagger step.
+    ".dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .personalisation-look",
+    ".dashboard-main[data-page-open] .personalisation > .layout-card",
+    ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head",
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-tabs")
+# A table or an empty state straight on the sky opens like a card, in its place in the order.
 OPENING_CARD_SELECTORS = (
     ".dashboard-main[data-page-open] > .empty-state",
     ".dashboard-main[data-page-open] > .data-table-wrap")
+# A list, a grid or a table as tall as its data only fades, as a whole.
+OPENING_LIST_SELECTORS = (
+    ".dashboard-main[data-page-open] > .filter-bar__count",
+    ".dashboard-main[data-page-open] > .audit-cards")
+# The Airlines grid and the editor table do the same, two steps after the header.
+OPENING_GRID_SELECTORS = (
+    ".dashboard-main[data-page-open] > .collection-grid",
+    ".dashboard-main[data-page-open] > .airlines-table")
 # The page header only fades in.
 OPENING_HEADER_SELECTORS = (".dashboard-main[data-page-open] > .page-header",)
-# The controls and blocks that follow the page header enter one stagger step later.
+# The controls and blocks that follow the page header enter in their place in the page.
 OPENING_BLOCK_SELECTORS = (
     ".dashboard-main[data-page-open] > .filter-bar",
     ".dashboard-main[data-page-open] > .filter-bar__chips",
@@ -263,13 +276,18 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (ENTRANCE_SELECTORS, "animation"),
         (OPENING_HEADER_SELECTORS, "animation"),
         (OPENING_BLOCK_SELECTORS, "animation"),
-        (OPENING_CARD_SELECTORS, "animation")], (
+        (OPENING_CARD_SELECTORS, "animation"),
+        (OPENING_LIST_SELECTORS, "animation"),
+        (OPENING_GRID_SELECTORS, "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
     assert stagger == [
         (ENTRANCE_SELECTORS, "animation-delay"),
-        (OPENING_BLOCK_SELECTORS, "animation-delay")], (
+        (OPENING_BLOCK_SELECTORS, "animation-delay"),
+        (OPENING_CARD_SELECTORS, "animation-delay"),
+        (OPENING_LIST_SELECTORS, "animation-delay"),
+        (OPENING_GRID_SELECTORS, "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.
@@ -774,8 +792,8 @@ def test_unauth_post_quick_led_redirects_to_login(app04_server):
         app04_server.base_url() + app_module.QUICK_LED_ROUTE, method="POST",
         data=b"state=off")
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to /login, got %r" % headers.get("Location"))
+    assert headers.get("Location") == "/login?expired=1", (
+        "expected a redirect to /login?expired=1, got %r" % headers.get("Location"))
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 
@@ -785,8 +803,8 @@ def test_unauth_post_quick_display_redirects_to_login(app04_server):
         app04_server.base_url() + app_module.QUICK_DISPLAY_ROUTE, method="POST",
         data=b"state=off")
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to /login, got %r" % headers.get("Location"))
+    assert headers.get("Location") == "/login?expired=1", (
+        "expected a redirect to /login?expired=1, got %r" % headers.get("Location"))
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 

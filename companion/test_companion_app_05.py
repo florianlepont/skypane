@@ -938,7 +938,7 @@ def test_calendar_disconnect_route_unauthenticated_redirects_to_login(app_server
             config_page.CALENDAR_DISCONNECT_CONFIRM_FIELD: config_page.CALENDAR_DISCONNECT_CONFIRM_VALUE,
         }).encode())
     assert status == 303, "expected a 303 redirect for an unauthenticated POST, got %d" % status
-    assert headers.get("Location") == "/login", "expected a redirect to /login, got %r" % headers.get("Location")
+    assert headers.get("Location") == "/login?expired=1", "expected a redirect to /login?expired=1, got %r" % headers.get("Location")
     assert calendar_rules.calendar_is_configured(server.state_dir), (
         "expected the calendar to remain connected — nothing should be written")
 
@@ -1008,7 +1008,7 @@ def test_calendar_connect_route_unauthenticated_redirects_to_login(app_server_in
         server.base_url() + config_page.CALENDAR_CONNECT_ROUTE, method="POST",
         data=urllib.parse.urlencode({"calendar_url": "https://unauth-connect.example/feed.ics"}).encode())
     assert status == 303, "expected a 303 redirect for an unauthenticated POST, got %d" % status
-    assert headers.get("Location") == "/login", "expected a redirect to /login, got %r" % headers.get("Location")
+    assert headers.get("Location") == "/login?expired=1", "expected a redirect to /login?expired=1, got %r" % headers.get("Location")
     assert not calendar_rules.calendar_is_configured(server.state_dir), (
         "expected nothing to be written for an unauthenticated POST")
 

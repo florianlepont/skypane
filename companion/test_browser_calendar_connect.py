@@ -283,7 +283,8 @@ def test_a_signed_out_post_never_reaches_the_connection(new_context, server):
         response = page.request.post(
             server.base_url() + "/settings/calendar/connect", form={"calendar_url": NEW_URL},
             max_redirects=0)
-        assert response.status == 303 and response.headers["location"] == "/login"
+        assert response.status == 303
+        assert response.headers["location"] == "/login?expired=1"
         assert not calendar_rules.calendar_is_configured(server.state_dir)
     finally:
         context.close()

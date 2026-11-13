@@ -369,22 +369,3 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   color: var(--color-status-warn);
 }
 
-.home-state.reveal {
-  --reveal-index: 0;
-}
-
-.dashboard-main .home-state__switches {
-  --reveal-index: 2;
-}
-
-.dashboard-main .group-block.home-section {
-  --reveal-index: 3;
-}
-
-.dashboard-main .home-state__switches.home-section {
-  --reveal-index: 2;
-}
-
-.dashboard-main .home-detection.home-section {
-  --reveal-index: 1;
-}
