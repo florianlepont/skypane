@@ -2,10 +2,11 @@
 """Browser checks that, on a phone, the Location map is document content rather than a fixed layer:
 the map sits inside the page container from above the window's top edge to below its bottom edge,
 and the header, search, chips, offer, sheet and tab bar stay where they were. Pinch and pan (wheel
-and drag), the pin drag and the loading state keep working. The map runs a lead above the page,
-which the page opens scrolled past, and a tail below it, so that an iPhone's status bar and a
-Safari tab's toolbar show map; a Safari tab, a Home Screen web app and every other browser get the
-same layout. The app bar draws nothing of its own over the map, and a drag does not scroll the
+and drag), the pin drag and the loading state keep working. In an iPhone browser (a Safari tab or a
+Home Screen web app, where navigator.standalone exists) the map runs a lead above the page, which
+the page opens scrolled past, and a tail below it, so that an iPhone's status bar and a Safari tab's
+toolbar show map. Every other browser gets neither, nor the scroll lock, and the map spans exactly
+the window. The app bar draws nothing of its own over the map, and a drag does not scroll the
 page.
 
 Both external hosts are answered by `page.route`; waits are on the page's own state.
@@ -88,9 +89,10 @@ def _open_ready(new_context, server, viewport, **options):
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
 def test_the_phone_map_is_document_content_spanning_the_window(
         new_context, make_app_server, viewport, theme):
-    """the map is not fixed: it lies inside the page container, which is exactly as tall as the
-    map; it runs from above the top edge to below the bottom edge, the document is no wider than
-    the window, and the page body behind it is the tile ground colour in both themes"""
+    """in a browser with no lead the map is not fixed: it lies inside the page container, which is
+    exactly as tall as the map, and both span the window from its top edge to its bottom edge, the
+    document does not scroll, is no wider than the window, and the page body behind it is the tile
+    ground colour in both themes (the iPhone lead and tail are checked further down)"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_ready(new_context, server, viewport, color_scheme=theme)
     try:
@@ -108,10 +110,11 @@ def test_the_phone_map_is_document_content_spanning_the_window(
             " mapColour: getComputedStyle(map).backgroundColor}; }")
         assert state["position"] == "absolute", state
         assert state["inside"], state
-        assert state["mapTop"] < 0 and state["mapBottom"] > state["h"], state
+        assert abs(state["mapTop"]) < 1 and abs(state["mapBottom"] - state["h"]) < 1, state
         assert state["mapLeft"] <= 0 and state["mapRight"] >= state["w"], state
         assert state["hostTop"] == state["mapTop"], state
         assert state["hostBottom"] == state["mapBottom"], state
+        assert state["scrollY"] <= 0, state
         assert state["scrollX"] <= 0, state
         assert state["body"] == GROUND and state["mapColour"] == GROUND, state
         assert state["bodyBottom"] >= state["h"], state
@@ -141,7 +144,7 @@ def test_the_floating_parts_keep_their_places_over_the_document_map(
 
 def test_the_map_still_pans_zooms_and_moves_the_pin_on_a_phone(new_context, make_app_server):
     """a tap drops the pin and dragging the pin moves it, a drag on the map pans it and a wheel
-    step zooms it, with the document at rest past the lead afterwards"""
+    step zooms it, with the document at rest afterwards"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_ready(new_context, server, VIEWPORT_PHONE)
     try:
@@ -329,7 +332,8 @@ def test_the_ground_strip_is_fixed_at_the_top_while_the_map_loads_and_absent_on_
 
 # What navigator.standalone says in each browser the page meets: false in a Safari tab on an
 # iPhone, true in a Home Screen web app, undefined in every other browser (Chromium as it is). The
-# page lays itself out the same in all three.
+# page keys its lead on navigator.standalone existing, so a Safari tab and a Home Screen web app
+# get it alike, and every other browser gets none.
 BROWSERS = {
     "safari-tab": (
         "Object.defineProperty(Navigator.prototype, 'standalone',"
@@ -339,6 +343,8 @@ BROWSERS = {
         " {get: () => true, configurable: true});"),
     "other-browser": "",
 }
+# The clients that define navigator.standalone: the two that get the lead.
+IPHONE = ["safari-tab", "home-screen-app"]
 LEAD_STATE = (
     "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
     " const edge = document.querySelector('.place-edge');"
@@ -382,18 +388,18 @@ def _open_tab(new_context, server, viewport, client="safari-tab", **options):
     return context, page
 
 
-@pytest.mark.parametrize("client", list(BROWSERS))
+@pytest.mark.parametrize("client", IPHONE)
 @pytest.mark.parametrize("theme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
 def test_the_page_starts_scrolled_past_a_lead_of_map_under_the_status_bar(
         new_context, make_app_server, viewport, theme, client):
     """on an iPhone the status bar shows the document above the window, in a Safari tab and in a
     Home Screen web app alike, and a tab's toolbar the document below it, so the map runs a lead
-    above the page and a tail below it, and the page opens scrolled past the lead, whatever the
-    browser: the map starts at the document's top and runs the tail past the window's bottom, lead
-    and tail are map, the app bar, search, chips, sheet and tab bar sit exactly where they sit
-    without them, no fixed box touches the top edge (the loading state's ground strip is gone), and
-    a scroll that ends in the lead or in the tail settles back"""
+    above the page and a tail below it, and the page opens scrolled past the lead, in a Safari tab
+    and in a Home Screen web app alike: the map starts at the document's top and runs the tail past
+    the window's bottom, lead and tail are map, the app bar, search, chips, sheet and tab bar sit
+    exactly where they sit without them, no fixed box touches the top edge (the loading state's
+    ground strip is gone), and a scroll that ends in the lead or in the tail settles back"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_tab(new_context, server, viewport, client, color_scheme=theme)
     try:
@@ -418,12 +424,47 @@ def test_the_page_starts_scrolled_past_a_lead_of_map_under_the_status_bar(
         context.close()
 
 
-@pytest.mark.parametrize("client", list(BROWSERS))
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
+def test_a_browser_without_navigator_standalone_gets_no_lead(
+        new_context, make_app_server, viewport, theme):
+    """a browser other than an iPhone's leaves navigator.standalone undefined, so it gets no lead,
+    tail or scroll lock: its own scrolling (Android Chrome's toolbar) is left untouched, and the
+    floating parts sit where they sit with a lead"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_tab(new_context, server, viewport, "other-browser", color_scheme=theme)
+    try:
+        page.wait_for_function(AT_REST, timeout=5000)
+        state = page.evaluate(LEAD_STATE)
+        assert not state["lead"], state
+        assert state["scrollY"] == 0, state
+        assert state["mapTop"] == 0 and state["mapBottom"] == state["h"], state
+        assert state["scrollMax"] <= 0, state
+        assert state["position"] == "absolute", state
+        assert state["edge"] == "none", state
+        root_state = page.evaluate(
+            "() => ({overflow: getComputedStyle(document.documentElement).overflow,"
+            " lead: getComputedStyle(document.documentElement)"
+            ".getPropertyValue('--place-lead').trim(),"
+            " restoration: window.history.scrollRestoration})")
+        assert root_state["overflow"] != "hidden", root_state
+        assert root_state["lead"] == "", root_state
+        assert root_state["restoration"] == "auto", root_state
+        boxes = page.evaluate(BOXES)
+        for selector, expected in FLOATING[viewport["width"]].items():
+            got = boxes[selector]
+            assert got and all(
+                b is None or abs(a - b) <= 1.5 for a, b in zip(got, expected)), (selector, boxes)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("client", IPHONE)
 def test_the_page_does_not_scroll_by_hand_over_the_sheet(new_context, make_app_server, client):
-    """the page under the map does not scroll by hand, whatever the browser: through a wheel over
-    the sheet the page never leaves the lead, not even for a frame (a scroll there would bare the
-    end of the tail under the toolbar and slide the app bar under the status bar until it settled
-    back)"""
+    """the page under the map does not scroll by hand, in a Safari tab and in a Home Screen web
+    app alike: through a wheel over the sheet the page never leaves the lead, not even for a frame
+    (a scroll there would bare the end of the tail under the toolbar and slide the app bar under
+    the status bar until it settled back)"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_tab(new_context, server, VIEWPORT_PHONE, client)
     try:
@@ -565,14 +606,10 @@ NO_SPLASH = "() => !document.documentElement.classList.contains('splash-on')"
 SPLASH_GONE_MS = 300
 
 
-@pytest.mark.parametrize("client", list(BROWSERS))
-def test_the_page_nudges_its_scroll_once_the_opening_splash_has_gone(
-        new_context, make_app_server, client):
-    """an iPhone's status bar keeps the look it took from the page at its last scroll, and the page
-    scrolls past the lead while the opening splash still covers it (a dark splash in the dark
-    theme left a grey veil under the clock): once the splash has gone, and not before, the page
-    moves by one pixel for a moment and comes back to the lead, whatever the browser"""
-    server = make_app_server(seed=_seed, fake_providers=True)
+def _frames_through_the_splash(new_context, server, client):
+    """Opens `client` with the opening splash and the dark theme, then waits for the splash to
+    clear and 1500ms past it. Returns `window.__frames`: every frame's time, scroll position and
+    whether the splash still covers the page."""
     context = new_context(viewport=VIEWPORT_PHONE, splash=True, color_scheme="dark")
     if BROWSERS[client]:
         context.add_init_script(BROWSERS[client])
@@ -587,19 +624,45 @@ def test_the_page_nudges_its_scroll_once_the_opening_splash_has_gone(
         page.wait_for_function(READY, timeout=15000)
         page.wait_for_function(NO_SPLASH, timeout=15000)
         page.wait_for_timeout(1500)
-        frames = page.evaluate("() => window.__frames")
-        under = [y for _, y, splash in frames if splash]
-        last_splash = max(i for i, (_, _, splash) in enumerate(frames) if splash)
-        after = [y for _, y, _ in frames[last_splash + 1:]]
-        assert under and set(under) <= {0, LEAD} and under[-1] == LEAD, sorted(set(under))
-        assert set(after) == {LEAD, LEAD - 1} and after[-1] == LEAD, after
-        assert 1 <= after.count(LEAD - 1) <= 4, after
-        # Not in the splash's last frames: Safari takes the look of the screen as it settles, and
-        # a nudge right as the splash goes still caught part of it.
-        nudged = next(t for t, y, _ in frames[last_splash + 1:] if y == LEAD - 1)
-        assert SPLASH_GONE_MS <= nudged - frames[last_splash][0] <= 1500, nudged - frames[last_splash][0]
+        return page.evaluate("() => window.__frames")
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("client", IPHONE)
+def test_the_page_nudges_its_scroll_once_the_opening_splash_has_gone(
+        new_context, make_app_server, client):
+    """an iPhone's status bar keeps the look it took from the page at its last scroll, and the page
+    scrolls past the lead while the opening splash still covers it (a dark splash in the dark
+    theme left a grey veil under the clock): once the splash has gone, and not before, the page
+    moves by one pixel for a moment and comes back to the lead, in a Safari tab and in a Home
+    Screen web app alike"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    frames = _frames_through_the_splash(new_context, server, client)
+    under = [y for _, y, splash in frames if splash]
+    last_splash = max(i for i, (_, _, splash) in enumerate(frames) if splash)
+    after = [y for _, y, _ in frames[last_splash + 1:]]
+    assert under and set(under) <= {0, LEAD} and under[-1] == LEAD, sorted(set(under))
+    assert set(after) == {LEAD, LEAD - 1} and after[-1] == LEAD, after
+    assert 1 <= after.count(LEAD - 1) <= 4, after
+    # Not in the splash's last frames: Safari takes the look of the screen as it settles, and
+    # a nudge right as the splash goes still caught part of it.
+    nudged = next(t for t, y, _ in frames[last_splash + 1:] if y == LEAD - 1)
+    assert SPLASH_GONE_MS <= nudged - frames[last_splash][0] <= 1500, nudged - frames[last_splash][0]
+
+
+def test_a_browser_without_navigator_standalone_never_scrolls_or_nudges(
+        new_context, make_app_server):
+    """a browser other than an iPhone's leaves navigator.standalone undefined, so it gets no lead
+    and no nudge: every frame through and past the opening splash has the page at the very top"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    frames = _frames_through_the_splash(new_context, server, "other-browser")
+    under = [y for _, y, splash in frames if splash]
+    after = [y for _, y, splash in frames if not splash]
+    assert under, frames
+    assert after, frames
+    assert set(under) == {0}, sorted(set(under))
+    assert set(after) == {0}, sorted(set(after))
 
 
 def test_the_lead_does_not_pull_the_page_back_while_a_field_is_typed_in(

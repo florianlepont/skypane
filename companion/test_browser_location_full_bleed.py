@@ -132,21 +132,17 @@ _EDGE_SCAN = """() => {
 @pytest.mark.parametrize("theme", ["light", "dark"])
 def test_the_map_container_shows_the_tile_ground_colour_and_no_dark_surface_touches_an_edge(
         new_context, make_app_server, viewport, theme):
-    """on a phone the map box (document content spanning the full page height and the map's lead
-    above it and tail below it, edge to edge) is the light tile land colour in both themes (a
-    browser tints its bars from such a box), and no other fixed or absolute element or
+    """on a phone the map box (document content spanning the full page height, edge to edge) is
+    the light tile land colour in both themes (a browser tints its bars from such a box), and no
+    other fixed or absolute element or
     pseudo-element touching the top or bottom edge paints a dark opaque or gradient surface"""
     server = make_app_server(seed=seed, fake_providers=True)
     context, page = _open(new_context, server, viewport, theme=theme)
     try:
         got = page.evaluate(
             "() => { const m = getComputedStyle(document.getElementById('place-map'));"
-            " const root = getComputedStyle(document.documentElement);"
-            " return {bg: m.backgroundColor, pos: m.position, top: m.top, bottom: m.bottom,"
-            "  lead: '-' + root.getPropertyValue('--place-lead').trim(),"
-            "  tail: '-' + root.getPropertyValue('--place-tail').trim()}; }")
-        assert got["bg"] == "rgb(242, 239, 233)" and got["pos"] == "absolute", got
-        assert got["top"] == got["lead"] and got["bottom"] == got["tail"] != "-", got
+            " return {bg: m.backgroundColor, pos: m.position, top: m.top, bottom: m.bottom}; }")
+        assert got == {"bg": "rgb(242, 239, 233)", "pos": "absolute", "top": "0px", "bottom": "0px"}, got
         found = page.evaluate(_EDGE_SCAN)
         assert found == [], found
     finally:
