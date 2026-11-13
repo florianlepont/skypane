@@ -84,7 +84,8 @@ _MOTION_TOKENS = ("--motion-fast", "--motion-slow", "--motion-enter", "--motion-
 # stylesheet rule). The first three are spent by transitions as well as animations.
 _MOTION_LAYER_TOKENS = (
     "--motion-spring", "--motion-spring-duration", "--motion-view-transition", "--motion-press",
-    "--motion-shimmer", "--motion-reveal", "--motion-count")
+    "--motion-shimmer", "--motion-reveal", "--motion-count", "--motion-picture",
+    "--motion-unlock")
 _MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
 _MOTION_EXCEPTION_SELECTORS = {
@@ -256,7 +257,7 @@ def _spenders(served_css, token):
 
 def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
     """the served :root declares exactly --motion-fast, --motion-slow, the card entrance's
-    --motion-enter/--motion-stagger, the motion layer's spring/press/shimmer/reveal tokens and
+    --motion-enter/--motion-stagger, the motion layer's spring/press/shimmer/reveal/picture/unlock tokens and
     the documented exceptions (the two toast dwells and the status dot pulse); each exception is spent by
     exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
     animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a

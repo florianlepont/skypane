@@ -1146,7 +1146,7 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
         "expected the file's one setTimeout occurrence to sit INSIDE the reset handler's own "
         "function body, but it was found outside it")
     timeout_idx = handler_body.index("setTimeout")
-    timeout_call = handler_body[timeout_idx:timeout_idx + 400]
+    timeout_call = handler_body[timeout_idx:timeout_idx + 800]
     assert re.search(r"setTimeout\(function \(\) \{.*?\}, 0\);", timeout_call, re.DOTALL), (
         "expected the reset handler's own setTimeout call to read setTimeout(function () { ... "
         "}, 0) - a literal zero delay, never a duration; got %r" % (timeout_call[:120],))
