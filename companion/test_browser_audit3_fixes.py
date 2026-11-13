@@ -204,7 +204,7 @@ def test_a_typed_form_view_arms_the_leave_guard_and_a_pristine_one_does_not(
 
 def test_flights_search_and_sort_keep_back_sensible(new_context, app):
     """a committed sort adds a history entry and Back returns to the list as it was before;
-    live typing only replaces the current entry"""
+    the first live typing starts an entry of its own and the typing after it only replaces it"""
     context, page = _open(
         new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900})
     try:
@@ -221,17 +221,22 @@ def test_flights_search_and_sort_keep_back_sensible(new_context, app):
             "() => document.readyState === 'complete' && !document.querySelector("
             "'input[name=\"sort\"][value=\"airline\"]:checked')", timeout=10000)
         assert page.url == start
-        before = page.evaluate("() => history.length")
         page.fill("[data-flights-search]", "afr")
         page.wait_for_function("() => location.search.indexOf('q=afr') >= 0", timeout=10000)
-        assert page.evaluate("() => history.length") == before
+        page.fill("[data-flights-search]", "afr1")
+        page.wait_for_function("() => location.search.indexOf('q=afr1') >= 0", timeout=10000)
+        page.go_back()
+        page.wait_for_function(
+            "() => location.search.indexOf('q=') < 0 && document.readyState === 'complete'",
+            timeout=10000)
+        assert page.url == start
     finally:
         context.close()
 
 
 def test_back_after_two_typed_and_entered_searches_returns_to_the_first(new_context, app):
-    """Enter on a search typed live settles that search; a second search typed after it gets
-    its own entry, so Back returns to the first search and not off the page"""
+    """a first search gets an entry of its own and Enter settles it; a second search typed after it
+    gets one too, so Back returns to the first search and then to the list, not off the page"""
     context, page = _open(
         new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900})
     try:
@@ -248,14 +253,14 @@ def test_back_after_two_typed_and_entered_searches_returns_to_the_first(new_cont
         settled(1)
         page.press("[data-flights-search]", "Enter")
         settled(2)
-        assert page.evaluate("() => history.length") == length
+        assert page.evaluate("() => history.length") == length + 1
         page.fill("[data-flights-search]", "afr1")
         settled(3)
         page.press("[data-flights-search]", "Enter")
         settled(4)
         assert page.evaluate("() => window.__writes") == [
-            "replaceState", "replaceState", "pushState", "replaceState"]
-        assert page.evaluate("() => history.length") == length + 1
+            "pushState", "replaceState", "pushState", "replaceState"]
+        assert page.evaluate("() => history.length") == length + 2
         page.go_back()
         page.wait_for_function(
             "() => location.search.indexOf('q=afr1') < 0 && location.search.indexOf('q=afr') >= 0"

@@ -115,6 +115,33 @@ def _choose_sort(page, value):
     page.locator('.collection-sort__option:has(input[value="%s"])' % value).click()
 
 
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["phone", "desktop"])
+def test_back_after_a_first_search_shows_the_full_list(new_context, many, viewport):
+    """the first search gets a history entry of its own, so Back returns to the list as it
+    was and does not leave Flights"""
+    context, page = _open(new_context, many, viewport)
+    try:
+        start = page.url
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        page.locator(FIELD).evaluate("el => el.closest('form').scrollIntoView()")
+        if viewport["width"] < 960:
+            page.locator(FIELD).click()
+        page.fill(FIELD, "AFR1")
+        page.wait_for_function("() => location.search.indexOf('q=AFR1') >= 0", timeout=10000)
+        page.press(FIELD, "Enter")
+        page.wait_for_function("() => location.search.indexOf('q=AFR1') >= 0", timeout=10000)
+        page.go_back()
+        page.wait_for_function(
+            "() => location.search.indexOf('q=') < 0 && document.readyState === 'complete'",
+            timeout=10000)
+        assert page.url == start
+        page.wait_for_function(
+            "(n) => document.querySelectorAll('li.history-card, tr[data-flight-row]').length >= n",
+            arg=10, timeout=10000)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_search_opens_in_the_title_row_without_moving_the_list(new_context, few, viewport, lang):
@@ -336,6 +363,68 @@ def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
             " === first.querySelector('.history-card__airline').textContent; }",
             timeout=10000)
         assert _count(page, CARD) == LIMIT
+    finally:
+        context.close()
+
+
+def test_arrow_keys_walk_the_sort_menu_without_closing_it(new_context, many):
+    """with the keyboard the menu stays open on the radio just chosen, so the next arrow reaches
+    the third order in the same visit; the list follows each step"""
+    context, page = _open(new_context, many, VIEWPORT_DESKTOP)
+    try:
+        page.locator(".collection-sort > summary").click()
+        page.locator('.collection-sort__option input[value="newest"]').focus()
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function("() => location.search.indexOf('sort=oldest') >= 0", timeout=10000)
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.value === 'oldest'"
+            " && a.closest('details').open; }", timeout=10000)
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function("() => location.search.indexOf('sort=airline') >= 0", timeout=10000)
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.value === 'airline'"
+            " && a.closest('details').open; }", timeout=10000)
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('.collection-sort').open", timeout=5000)
+    finally:
+        context.close()
+
+
+def test_arrow_keys_walk_the_airlines_sort_menu_without_closing_it(new_context, few):
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    page = context.new_page()
+    _login(page, few.base_url())
+    page.goto(few.base_url() + "/airlines")
+    page.wait_for_function(_SETTLED, timeout=15000)
+    try:
+        page.locator(".collection-sort > summary").click()
+        first = page.locator('.collection-sort__option input[name="sort"]:checked')
+        first.focus()
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.checked"
+            " && a.closest('details').open; }", timeout=10000)
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.checked"
+            " && a.closest('details').open && "
+            "document.querySelectorAll('input[name=sort]:checked').length === 1; }", timeout=10000)
+    finally:
+        context.close()
+
+
+def test_a_pointer_choice_still_closes_the_sort_menu(new_context, many):
+    context, page = _open(new_context, many, VIEWPORT_DESKTOP)
+    try:
+        _choose_sort(page, "oldest")
+        page.wait_for_function("() => location.search.indexOf('sort=oldest') >= 0", timeout=10000)
+        page.wait_for_function(
+            "() => !document.querySelector('.collection-sort').open", timeout=5000)
     finally:
         context.close()
 
