@@ -591,8 +591,11 @@
         var section = document.importNode(groups[g], true);
         liveCards.appendChild(section);
         settle(section);
-        enterAppended(section, 0);
+        // The day's block never moves as one: only its first rows enter.
         added = section.querySelectorAll("[" + ID_ATTR + "]");
+        for (var n = 0; n < added.length; n++) {
+          enterAppended(added[n], n);
+        }
       }
       first = first || added[0];
     }
