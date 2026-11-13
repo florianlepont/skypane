@@ -110,7 +110,7 @@ _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
 # one of six equal cells.
 NAV_SHORT_LABELS = {
     "flights": i18n.msg("nav.flights_short", "Flights"),
-    "detection": i18n.msg("nav.detection_short", "Place"),
+    "detection": i18n.msg("nav.detection_short", "Location"),
 }
 # The Console-only destination for editing airlines.
 AIRLINE_EDITOR_ROUTE = "/airlines/manage"

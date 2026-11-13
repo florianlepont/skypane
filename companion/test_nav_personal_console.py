@@ -17,7 +17,7 @@ PERSONAL_PAGES = ("/", "/flights", "/detection", "/display", "/airlines")
 ADMIN_WORDS = ("Admin", "Console", "Fleet", "Releases", "Health", "Device", "Update")
 ADMIN_WORDS_FR = ("Flotte", "Versions", "État", "Appareil", "Console", "Administration")
 
-PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Place"]
+PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Location"]
 PERSONAL_BAR_FR = ["Accueil", "Vols", "Compagnies", "Style", "Lieu"]
 PERSONAL_SIDEBAR_EN = [
     "Home", "Flight history", "Location and detection", "Style",
@@ -219,6 +219,17 @@ def test_flight_history_is_the_navigation_label_and_the_page_title(served):
         _status, page = _get(server, cookies[who], server.frame_prefix + "/flights", "fr")
         assert "Historique des vols" in [text for _href, text in _sidebar_anchors(page)]
         assert "<title>Historique des vols" in page
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_location_tab_is_named_by_the_first_word_of_its_page_title(served, lang):
+    """the short tab label is the page's own name cut short, not another word for it"""
+    server, cookies = served
+    _status, page = _get(server, cookies["owner"], server.frame_prefix + "/detection", lang)
+    title = re.search(r"<title>([^<]*?) -", page).group(1)
+    bar = _nav(page, '<nav class="tab-bar"')
+    labels = [text for _href, text in _anchors(bar.split('<div class="tab-bar__more-panel">')[0])]
+    assert any(title.startswith(label) and label != title for label in labels), (title, labels)
 
 
 def test_a_user_with_no_frame_has_no_bar_and_an_account_only_sidebar(served):

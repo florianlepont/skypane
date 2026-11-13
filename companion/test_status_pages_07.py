@@ -175,7 +175,7 @@ def test_french_tab_bar_labels_and_landmark():
         "expected the tab bar's landmark name in French (CFG-29 must not regress), got %r"
         % (bar[:120],))
     for english, french in (
-            ("Home", "Accueil"), ("Flights", "Vols"), ("Place", "Lieu"),
+            ("Home", "Accueil"), ("Flights", "Vols"), ("Location", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
             ("Airlines", "Compagnies"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
