@@ -265,7 +265,7 @@ def test_a_hostile_or_unknown_return_to_is_ignored(rig, hostile):
     body = fx.get(server, cookies["owner"], page_url)[2]
     tree = parse_html(body)
     assert tree.select_one("a.dirty-bar__cancel").attrs["href"] == "/account"
-    assert tree.select('input[name="return_to"]') == []
+    assert [node.attrs["value"] for node in tree.select('input[name="return_to"]')] == [""]
 
 
 def test_the_rename_page_carries_return_to_into_back_cancel_and_the_form(rig):
