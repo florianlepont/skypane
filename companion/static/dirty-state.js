@@ -154,6 +154,8 @@
   // would otherwise ask twice.
   var leaveGuardInstalled = false;
 
+  var FRAME_PREFIX = /^\/devices\/d_[0-9a-f]{8}(?=\/|$)/;
+
   function installLeaveGuard(isDirty, guardedForm, saveButton, bar, disarm) {
     var dialog = document.querySelector("dialog[data-leave-dialog]");
     if (!dialog || !guardedForm || leaveGuardInstalled) {
@@ -194,21 +196,62 @@
     // The address the save may land on itself: one the page listed, asked for
     // plainly (an address with a query of its own is not what a save handler
     // whitelists).
+    // A Console link to a frame's page names the frame in its query and wears
+    // no /devices/<id> prefix, so the list is also matched without its prefixes;
+    // the save checks the unprefixed address against its own list.
+    function listed(path) {
+      for (var i = 0; i < returns.length; i++) {
+        if (returns[i] === path || returns[i].replace(FRAME_PREFIX, "") === path) {
+          return true;
+        }
+      }
+      return false;
+    }
+
     function returnPath(link) {
-      return link && link.search === "" && returns.indexOf(link.pathname) >= 0
-        ? link.pathname : null;
+      return link && link.search === "" && listed(link.pathname) ? link.pathname : null;
+    }
+
+    // The address the save will carry the person to, or null when it cannot:
+    // the form names any page of the app through the server's own check
+    // (`data-leave-any` on its return field), else the page's list of
+    // addresses decides.
+    function destinationFor(link) {
+      var back = guardedForm.elements["return_to"];
+      if (link && back && back.hasAttribute("data-leave-any")) {
+        return link.pathname + link.search;
+      }
+      return returnPath(link);
+    }
+
+    var primary = dialog.querySelector("[data-leave-dialog-primary]");
+    var note = dialog.querySelector("[data-leave-dialog-note]");
+    var continueLabel = primary ? primary.textContent : "";
+
+    // Says what the save will do: where it cannot land on the tapped address
+    // the primary reads plain "Save" and a note says the page stays open.
+    function describe(link) {
+      var lands = destinationFor(link) !== null;
+      var alt = primary ? primary.getAttribute("data-leave-dialog-primary-alt") : null;
+      if (primary && alt) {
+        primary.textContent = lands ? continueLabel : alt;
+      }
+      if (note) {
+        note.hidden = lands;
+      }
     }
 
     function ask(opener) {
       if (!window.SkyPaneModal) {
         return false;
       }
+      describe(pendingLink);
       return window.SkyPaneModal.open(dialog, opener || null);
     }
 
     function saveAndContinue() {
       var back = guardedForm.elements["return_to"];
-      var destination = returnPath(pendingLink);
+      var destination = destinationFor(pendingLink);
       if (back && destination) {
         back.value = destination;
       }
@@ -246,7 +289,7 @@
       }
     }
 
-    dialog.querySelector("[data-leave-dialog-primary]").addEventListener("click", saveAndContinue);
+    primary.addEventListener("click", saveAndContinue);
     dialog.querySelector("[data-leave-dialog-secondary]").addEventListener("click", discard);
 
     document.addEventListener("click", function (e) {

@@ -37,6 +37,11 @@ WORDS = {
            "Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?",
            "Enregistrer et continuer", "Abandonner", "Rester ici"),
 }
+# What the primary says, and the note under the question, where the save cannot land on the
+# tapped page: the person is told the page stays open instead of being sent somewhere else.
+SAVE_ONLY = {"en": ("Save", "After saving you stay on this page."),
+             "fr": ("Enregistrer", "Après l’enregistrement, vous restez sur cette page.")}
+NOTE = DIALOG + " [data-leave-dialog-note]"
 SETTLED = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
     "a => !a.effect || a.effect.getTiming().iterations === Infinity || a.playState !== 'running')")
@@ -94,7 +99,9 @@ def _pick_mode(page):
 
 
 def _change_wake(page):
-    page.locator("#wake-interval-s").fill("900")
+    """A value that differs from the stored one, whatever earlier tests saved."""
+    field = page.locator("#wake-interval-s")
+    field.fill(str(int(field.input_value()) + 60))
 
 
 # name, route (or a callable of the server), element to wait for, the edit, the
@@ -107,7 +114,7 @@ PAGES = [
     ("calendar-connect", layout.DISPLAY_CALENDAR_CONNECT_ROUTE, "#calendar-connect-url",
      _type_calendar_url, "/flights", False),
     ("location", "/detection", "#place-mode-area", _pick_mode, "/flights", False),
-    ("fleet", _fleet_route, "#wake-interval-s", _change_wake, "/users", False),
+    ("fleet", _fleet_route, "#wake-interval-s", _change_wake, "/users", True),
 ]
 PAGE_IDS = [case[0] for case in PAGES]
 
@@ -183,8 +190,13 @@ def test_every_save_bar_page_asks_before_an_in_app_link(
         assert prompts == []
         title, text, primary, secondary, quiet = WORDS[lang]
         assert page.locator(DIALOG + " .modal__title").inner_text() == title
-        assert page.locator(DIALOG + " .modal__body").inner_text() == text
-        assert page.locator(PRIMARY).inner_text() == primary
+        assert page.locator(DIALOG + " .modal__body p").first.inner_text() == text
+        if page_case[5]:
+            assert page.locator(PRIMARY).inner_text() == primary
+            assert page.locator(NOTE).is_hidden()
+        else:
+            assert page.locator(PRIMARY).inner_text() == SAVE_ONLY[lang][0]
+            assert page.locator(NOTE).inner_text() == SAVE_ONLY[lang][1]
         assert page.locator(SECONDARY).inner_text() == secondary
         assert page.locator(QUIET).inner_text() == quiet
         page.wait_for_function(
@@ -278,6 +290,92 @@ def test_a_post_of_another_form_asks_and_discard_lets_it_through(new_context, se
         assert page.get_attribute("html", "lang") == "en"
         page.click(SECONDARY)
         page.wait_for_function("() => document.documentElement.lang === 'fr'", timeout=15000)
+        assert prompts == []
+    finally:
+        context.close()
+
+
+# (page, the address the person taps on a wide screen, where the save has to land)
+ELSEWHERE = [
+    ("style", "/account"),
+    ("fleet", "/audit"),
+    ("fleet", "/airlines/manage"),
+]
+
+
+@pytest.mark.parametrize("target", ELSEWHERE, ids=["%s-%s" % case for case in ELSEWHERE])
+def test_save_and_continue_lands_on_the_account_and_console_pages_too(
+        new_context, server, target):
+    """a Style or Fleet settings save carries the person to the Account page, the Users page,
+    the Audit log or the Airline editor, not back to where they were"""
+    name, destination = target
+    case = [c for c in PAGES if c[0] == name][0]
+    case = case[:4] + (destination, True)
+    context, page, prompts = _open(new_context, server, case, VIEWPORT_DESKTOP)
+    try:
+        _press(page, _leave_link(case))
+        _wait_dialog_open(page)
+        assert page.locator(PRIMARY).inner_text() == WORDS["en"][2]
+        with page.expect_navigation(timeout=20000):
+            page.click(PRIMARY)
+        page.wait_for_url("**" + destination + "*", timeout=15000)
+        assert prompts == []
+    finally:
+        context.close()
+
+
+def test_a_destination_the_save_cannot_reach_says_so_before_saving(new_context, server):
+    """the Console's frame tab carries a query of its own, which no save accepts as a return
+    address: the question then offers a plain Save and says the page stays open"""
+    case = [c for c in PAGES if c[0] == "fleet"][0]
+    context, page, _prompts = _open(new_context, server, case, VIEWPORT_DESKTOP)
+    try:
+        page.evaluate(
+            "() => { const a = document.createElement('a'); a.id = 'probe-link';"
+            " a.href = '/fleet?frame=d_00000000'; a.textContent = 'Fleet frame';"
+            " document.querySelector('main').appendChild(a); }")
+        _press(page, "#probe-link")
+        _wait_dialog_open(page)
+        assert page.locator(PRIMARY).inner_text() == SAVE_ONLY["en"][0]
+        assert page.locator(NOTE).is_visible()
+        page.click(QUIET)
+        page.wait_for_function(
+            "() => !document.querySelector('%s').open" % DIALOG, timeout=5000)
+        _press(page, _leave_link(case))
+        _wait_dialog_open(page)
+        assert page.locator(PRIMARY).inner_text() == WORDS["en"][2]
+        assert page.locator(NOTE).is_hidden()
+    finally:
+        context.close()
+
+
+def _rename_route(server):
+    conn = fleet_db.connect(server.state_dir)
+    try:
+        frame = conn.execute("SELECT id FROM devices LIMIT 1").fetchone()[0]
+    finally:
+        conn.close()
+    return "/devices/%s/frame/name" % frame
+
+
+def test_the_rename_page_saves_and_continues_to_the_tapped_page(new_context, server):
+    """opened without a page to return to, the rename page still saves the name and then lands
+    on the page the person tapped, not on the Account page"""
+    case = ("rename", _rename_route, "#frame-name",
+            lambda page: page.locator("#frame-name").fill("Kitchen wall"), "/flights", True)
+    context, page, prompts = _open(new_context, server, case, VIEWPORT_DESKTOP)
+    try:
+        _press(page, _leave_link(case))
+        _wait_dialog_open(page)
+        assert page.locator(PRIMARY).inner_text() == WORDS["en"][2]
+        with page.expect_navigation(timeout=20000):
+            page.click(PRIMARY)
+        page.wait_for_url("**/flights*", timeout=15000)
+        conn = fleet_db.connect(server.state_dir)
+        try:
+            assert conn.execute("SELECT name FROM devices LIMIT 1").fetchone()[0] == "Kitchen wall"
+        finally:
+            conn.close()
         assert prompts == []
     finally:
         context.close()
