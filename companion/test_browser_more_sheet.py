@@ -424,3 +424,17 @@ def test_opening_and_closing_the_sheet_leaves_no_event_listener_behind(new_conte
         assert _listener_count(cdp) <= before, (before, _listener_count(cdp))
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_the_more_cell_is_one_glyph_like_every_other_cell(new_context, app, scheme):
+    """the More cell draws its three dots alone, open or closed: no second chevron glyph sits
+    over them close to the pill's edge"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED, scheme=scheme)
+    try:
+        glyphs = "() => getComputedStyle(document.querySelector('.tab-bar__more > summary'), '::before').content"
+        assert page.evaluate(glyphs) in ("none", "normal")
+        _open_sheet(page)
+        assert page.evaluate(glyphs) in ("none", "normal")
+    finally:
+        context.close()

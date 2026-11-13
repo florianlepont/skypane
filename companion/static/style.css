@@ -5704,21 +5704,10 @@ a.btn[aria-disabled="true"] {
     position: relative;
   }
 
-  /* Rotation is inverted from the base chevron rule: this sheet opens
-   * upward, so closed points up (toward where it will open) and open
-   * points down (back toward the bar). Positioned absolutely against
-   * .tab-bar__more so it costs the cell nothing, centred above the "..."
-   * glyph (never in a corner, where it met the active pill's edge). */
+  /* The cell is its three dots alone, like every other cell's single glyph:
+   * the base summary chevron is not drawn here (the open sheet is the hint). */
   .tab-bar__more > .tab-bar__link::before {
-    position: absolute;
-    top: 7px;
-    right: 50%;
-    margin-right: -3px;
-    transform: rotate(-135deg);
-  }
-
-  .tab-bar__more[open] > .tab-bar__link::before {
-    transform: rotate(45deg);
+    content: none;
   }
 
   /* The More sheet: a sheet as wide as the bar, floating just above it, opaque
