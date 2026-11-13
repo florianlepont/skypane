@@ -579,19 +579,26 @@ def _personal_bar(active):
 
 
 def _account_sheet_link(entry):
-    """The More sheet's Account row. It is a sheet link like the others; the
-    signed-in e-mail rides along as a data attribute that the stylesheet shows
-    under the page name, so the link's own text stays the page name."""
+    """The More sheet's Account row: a circle with the person's initial (a
+    person glyph when no e-mail is known), the page name over the signed-in
+    e-mail, and a chevron at the end."""
     css_class = "mobile-nav__link tab-bar__account"
     aria_current = ""
     if entry.is_active:
         css_class += " mobile-nav__link--active"
         aria_current = ' aria-current="page"'
     email = prefs.current_principal_email()
-    detail = ' data-email="%s"' % escape_html(email) if email else ""
-    return '<a class="%s" href="%s"%s%s>%s</a>' % (
-        css_class, escape_html(entry.href), aria_current, detail,
-        escape_html(i18n.t(entry.label)))
+    initial = next((ch for ch in email if ch.isalnum()), "") if email else ""
+    avatar = escape_html(initial.upper()) if initial else icon_html("icon-person", 22)
+    detail = (
+        '<span class="tab-bar__account-email">%s</span>' % escape_html(email) if email else "")
+    return (
+        '<a class="%s" href="%s"%s><span class="tab-bar__avatar" aria-hidden="true">%s</span>'
+        '<span class="tab-bar__account-text"><span class="tab-bar__account-name">%s</span>%s</span>'
+        '%s</a>' % (
+            css_class, escape_html(entry.href), aria_current, avatar,
+            escape_html(i18n.t(entry.label)), detail,
+            icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
 
 
 def _sheet_preference_html(label, form_html):
@@ -608,16 +615,17 @@ def _more_panel_html(active, sheet, ui_theme, space):
     sheet holds the links alone and a second Sign out never appears."""
     links = "".join(_account_sheet_link(entry) for entry in sheet) + _switch_row_html(space)
     links_html = '<div class="tab-bar__links">%s</div>' % links
+    grab = '<span class="tab-bar__grab" aria-hidden="true"></span>'
     if active == ACCOUNT_NAV_SLUG:
-        return links_html
+        return grab + links_html
     preferences = (
         _sheet_preference_html(_THEME_TEXT, _theme_form_html(ui_theme))
         + _sheet_preference_html(_LANGUAGE_TEXT, _lang_form_html(prefs.current_lang())))
     return (
-        '<div class="tab-bar__settings">%s%s'
+        '%s<div class="tab-bar__settings">%s%s'
         '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">%s'
         '<button type="submit">%s</button></form></div>' % (
-            links_html, preferences, csrf_field(), escape_html(i18n.t(_SIGN_OUT_TEXT))))
+            grab, links_html, preferences, csrf_field(), escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
 def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):

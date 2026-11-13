@@ -5766,29 +5766,45 @@ a.btn[aria-disabled="true"] {
     z-index: 46;
   }
 
-  .tab-bar__more-panel .mobile-nav__link {
-    min-height: 48px;
-    padding: 0 var(--space-sm);
-    border-radius: 0;
+  .tab-bar__grab {
+    flex: none;
+    align-self: center;
+    width: 40px;
+    height: 4px;
+    margin-bottom: var(--space-xs);
+    border-radius: 2px;
+    background: var(--color-border);
   }
 
-
-  /* The Account row: the page name over the signed-in e-mail (the link's
-   * data-email), a chevron at the end. */
+  /* The Account row: the person's initial in a circle, the page name over the
+   * signed-in e-mail, a chevron at the end. */
   .tab-bar__more-panel .tab-bar__account {
-    position: relative;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: 0;
-    min-height: 56px;
-    padding-right: var(--space-lg);
+    gap: var(--space-md);
+    min-height: 64px;
+    padding: 0 var(--space-xs);
+    border-radius: var(--radius-control);
     font-weight: var(--weight-semibold);
   }
 
-  .tab-bar__account[data-email]::after {
-    content: attr(data-email);
-    max-width: 100%;
+  .tab-bar__avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--color-text) 8%, transparent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .tab-bar__account-text {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .tab-bar__account-email {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -5797,16 +5813,9 @@ a.btn[aria-disabled="true"] {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
-  .tab-bar__account::before {
-    content: "";
-    position: absolute;
-    top: 50%;
-    right: var(--space-sm);
-    width: 8px;
-    height: 8px;
-    border-top: 2px solid currentColor;
-    border-right: 2px solid currentColor;
-    transform: translateY(-50%) rotate(45deg);
+  .tab-bar__account-chevron {
+    flex: none;
+    color: color-mix(in srgb, var(--color-text) 55%, transparent);
   }
 
   .tab-bar__sign-out {

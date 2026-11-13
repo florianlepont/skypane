@@ -142,3 +142,67 @@ def test_the_link_card_is_on_the_components_page_at_desktop_width(
         assert card.locator(".link-card__subtitle").inner_text().strip()
     finally:
         context.close()
+
+
+_TOP = """() => {
+  const panel = document.querySelector('.tab-bar__more-panel');
+  const css = (el) => getComputedStyle(el);
+  const grab = panel.querySelector('.tab-bar__grab');
+  const row = panel.querySelector('.tab-bar__account');
+  const avatar = row.querySelector('.tab-bar__avatar');
+  const email = row.querySelector('.tab-bar__account-email');
+  const name = row.querySelector('.tab-bar__account-name');
+  const gb = grab ? grab.getBoundingClientRect() : null;
+  const pb = panel.getBoundingClientRect();
+  const ab = avatar ? avatar.getBoundingClientRect() : null;
+  const rb = row.getBoundingClientRect();
+  const hit = document.elementFromPoint(rb.left + rb.width / 2, rb.top + rb.height / 2);
+  return {
+    grabFirst: panel.firstElementChild === grab, grabHidden: !!grab && grab.getAttribute('aria-hidden') === 'true',
+    grabW: gb && gb.width, grabH: gb && gb.height, grabCentred: gb && Math.abs((gb.left + gb.width / 2) - (pb.left + pb.width / 2)) < 1.5,
+    grabBg: grab ? css(grab).backgroundColor : '',
+    initial: avatar ? avatar.textContent.trim() : null, avatarW: ab && ab.width, avatarH: ab && ab.height,
+    avatarRadius: avatar ? css(avatar).borderTopLeftRadius : '',
+    avatarBg: avatar ? css(avatar).backgroundColor : '',
+    name: name ? name.textContent.trim() : null, email: email ? email.textContent.trim() : null,
+    emailWhole: !email || (email.scrollWidth <= email.clientWidth + 1 && email.getBoundingClientRect().right <= rb.right + 0.5),
+    href: row.getAttribute('href'), h: rb.height, hit: !!hit && row.contains(hit),
+    chevron: !!row.querySelector('svg use[href$="icon-chevron-right"]'),
+    nameBeforeEmail: !!name && !!email && name.getBoundingClientRect().bottom <= email.getBoundingClientRect().top + 1};
+}"""
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("role", ["admin", "user"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_the_panel_opens_with_a_grab_handle_and_the_account_row(
+        new_context, app_server_in_process, viewport, role, lang, scheme):
+    context, page = _page(role, new_context, app_server_in_process, viewport, lang, scheme)
+    try:
+        _open_panel(page)
+        top = page.evaluate(_TOP)
+        assert top["grabFirst"] and top["grabHidden"], top
+        assert 36 <= top["grabW"] <= 44 and 3 <= top["grabH"] <= 5 and top["grabCentred"], top
+        assert top["grabBg"] not in ("rgba(0, 0, 0, 0)", "transparent"), top
+        assert top["name"] == _ACCOUNT_LABEL[lang], top
+        assert top["email"] and "@" in top["email"], top
+        assert top["initial"] == top["email"][0].upper(), top
+        assert top["avatarW"] == 44 and top["avatarH"] == 44, top
+        assert top["avatarRadius"] in ("50%", "22px"), top
+        assert top["avatarBg"] not in ("rgba(0, 0, 0, 0)", "transparent"), top
+        assert top["h"] >= 64 and top["hit"] and top["chevron"], top
+        assert top["emailWhole"] and top["nameBeforeEmail"], top
+        assert top["href"].rstrip("/").endswith("/account"), top
+    finally:
+        context.close()
+
+
+def test_the_account_row_opens_the_account_page(new_context, app_server_in_process):
+    context, page = _page("user", new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, "en", "light")
+    try:
+        _open_panel(page)
+        page.locator(".tab-bar__account").click()
+        page.wait_for_url("**/account")
+    finally:
+        context.close()
