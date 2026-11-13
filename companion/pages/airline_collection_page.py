@@ -220,7 +220,9 @@ def _sort_ranks(entries):
 def _picture_html(entry, state_dir):
     """The airline picture, or the dashed placeholder when it has none."""
     if illustrations.resolved_illustration_path(entry.picture_key, state_dir) is None:
-        return '<span class="airline-card__placeholder collection-card__blank" aria-hidden="true"></span>'
+        return (
+            '<span class="airline-card__placeholder collection-card__blank" aria-hidden="true">'
+            "%s</span>" % layout.icon_html("icon-plane", size=24))
     src = device_scope.scoped("%s%s.png" % (
         airlines_page.ILLUSTRATION_ROUTE_PREFIX, escape_html(entry.picture_key)))
     buster = airlines_page._illustration_cache_buster(entry.picture_key, state_dir)

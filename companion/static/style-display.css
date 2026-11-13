@@ -934,7 +934,7 @@ a.form-page__danger:hover {
 }
 
 button.rule-suggestion-chip {
-  height: 36px;
+  min-height: 44px;
   border-color: transparent;
   border-radius: var(--radius-card);
   background: var(--color-secondary);

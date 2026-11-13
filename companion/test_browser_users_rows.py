@@ -22,6 +22,11 @@ WIDTHS = (
     pytest.param({"width": TABLE_FROM, "height": 900}, id="1272"),
     pytest.param({"width": 1280, "height": 900}, id="1280"))
 
+PHONES = (
+    pytest.param({"width": 360, "height": 844}, id="360"),
+    pytest.param({"width": 390, "height": 844}, id="390"))
+ALL_WIDTHS = PHONES + WIDTHS
+
 _READY = (
     "() => document.readyState === 'complete' && document.getAnimations().every("
     "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
@@ -108,7 +113,7 @@ def test_every_address_is_one_line_and_a_long_one_ends_in_an_ellipsis(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("viewport", WIDTHS)
+@pytest.mark.parametrize("viewport", ALL_WIDTHS)
 def test_the_last_sign_in_is_one_line_and_the_frames_never_break_inside_a_part(
         new_context, rig, viewport, lang):
     """The frame count and the co-manager mark are whole, each on one line: side by side on
@@ -168,11 +173,6 @@ _INK = """() => [...document.querySelectorAll('.users-table .users-row')].map((r
           left: card.left, right: card.right, pill: pill.textContent,
           pillCut: pill.scrollWidth > pill.clientWidth};
 })"""
-
-ALL_WIDTHS = (
-    pytest.param({"width": 360, "height": 844}, id="360"),
-    pytest.param({"width": 390, "height": 844}, id="390")) + WIDTHS
-
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", ALL_WIDTHS)
