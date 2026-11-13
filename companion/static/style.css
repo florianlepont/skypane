@@ -3427,6 +3427,13 @@ details[open] > summary::before {
   transform: rotate(45deg);
 }
 
+/* What a disclosure reveals fades in on the short motion token, like the
+ * menus and sheets. Zero specificity on the details part, so a disclosure
+ * with its own entrance (a menu panel) keeps it. */
+:where(details[open]) > :not(summary) {
+  animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
+}
+
 /* min-width: 0 must be first and is load-bearing: a grid item's default
  * min size is its content's intrinsic width, and a .data-table inside
  * (min-width: max-content) would otherwise stretch this tile's whole
