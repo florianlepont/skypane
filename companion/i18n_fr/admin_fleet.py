@@ -95,6 +95,8 @@ MESSAGES = {
     "admin_fleet.block_model": "Modèle",
     "admin_fleet.system_unavailable":
         "Aucune information système n’est disponible pour l’instant.",
+    "admin_fleet.unknown_frame":
+        "Ce cadre est introuvable \u2014 Affichage de %s à la place.",
     "admin_fleet.add_screen_first":
         "Ajoutez un cadre pour voir son état et ses réglages.",
     "admin_fleet.retire_this_frame": "Retirer ce cadre",

@@ -9,6 +9,7 @@ list stays complete, and the chip group (which cannot filter anything
 without one) stays hidden behind the `.js-gate` rule.
 """
 import companion.i18n as i18n
+import companion.ui_segmented as ui_segmented
 from companion.ui_base import escape_html, icon_html
 
 FILTER_CLEAR_LABEL = i18n.msg("common.clear_search", "Clear search")
@@ -63,7 +64,8 @@ def chip_links_html(chips, aria_label, tabs=""):
     radios, wrapping onto a second row of the track on a narrow phone.
     `chips` is a sequence of `(href, label, current)` with `href` already
     escaped. `tabs` names the strip for the shared tab behaviour (the sliding
-    thumb)."""
+    thumb) and marks it as the page's own strip, whose selection the page
+    change carries across (a page shows one such strip at most)."""
     parts = []
     for href, label, current in chips:
         parts.append(
@@ -72,9 +74,10 @@ def chip_links_html(chips, aria_label, tabs=""):
             "</a>" % (
                 " filter-chip--current" if current else "", href,
                 ' aria-current="true"' if current else "", escape_html(label)))
-    return '<nav class="filter-bar__chips filter-bar__chips--links" aria-label="%s"%s>%s</nav>' % (
-        escape_html(aria_label), (' data-tabs="%s"' % escape_html(tabs)) if tabs else "",
-        "".join(parts))
+    strip = (' data-tabs="%s"%s' % (escape_html(tabs), ui_segmented.CARRY_ATTR)) if tabs else ""
+    return '<nav class="filter-bar__chips filter-bar__chips--links" aria-label="%s"%s>%s%s</nav>' % (
+        escape_html(aria_label), strip, "".join(parts),
+        ui_segmented.CARRY_END_HTML if tabs else "")
 
 
 def _search_html(input_id, label, placeholder, server=None):

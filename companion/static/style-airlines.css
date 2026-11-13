@@ -295,8 +295,13 @@
   height: auto;
 }
 
+/* No picture yet: a plane in the placeholder, so the block reads as "none"
+ * and not as a picture that failed to load. */
 .collection-card__blank {
+  display: grid;
+  place-items: center;
   margin-bottom: 0;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
 }
 
 .collection-card--unseen .collection-card__art {

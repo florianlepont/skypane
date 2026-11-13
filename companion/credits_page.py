@@ -138,7 +138,7 @@ def _back_link_html(back, home_route):
         route, label = "/login", _BACK_TEXT
     else:
         route, label = home_route or layout.HOME_ROUTE, login_page._BACK_TO_HOME_TEXT
-    return '<p class="text-body"><a href="%s">%s</a></p>' % (
+    return '<p class="text-body credits-back"><a class="text-link" href="%s">%s</a></p>' % (
         layout.escape_html(route), layout.escape_html(i18n.t(label)))
 
 

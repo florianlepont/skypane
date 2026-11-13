@@ -221,12 +221,16 @@ def _frames_text(count):
     return i18n.t(_FRAMES_ONE) if count == 1 else i18n.t(_FRAMES_MANY) % count
 
 
-def _frames_cell_text(row):
-    """Owned plus co-managed frames; a co-manager is named as such."""
-    text = _frames_text(row.frame_count + row.co_managed_count)
-    if row.co_managed_count:
-        text += " \u00b7 " + i18n.t(_CO_MANAGER_SUFFIX)
-    return text
+def _frames_cell_html(row):
+    """Owned plus co-managed frames; a co-manager is named as such. The count
+    and the mark are two parts the table stacks and a card joins with a dot."""
+    count = '<span class="users-frames__part">%s</span>' % _esc(
+        _frames_text(row.frame_count + row.co_managed_count))
+    if not row.co_managed_count:
+        return count
+    return (
+        '%s<span class="users-frames__dot"> \u00b7 </span>'
+        '<span class="users-frames__part">%s</span>' % (count, _t(_CO_MANAGER_SUFFIX)))
 
 
 def _count_text(count):
@@ -412,7 +416,8 @@ def _invite_cell(row, app_url):
 
 def _breakable(email):
     """The address escaped, with a break opportunity after each "@" and ".":
-    a narrow card wraps it there and never inside a word."""
+    a narrow phone card wraps it there and never inside a word. Wider layouts
+    keep it on one line and end it with an ellipsis; the title holds it all."""
     return _esc(email).replace("@", "@<wbr>").replace(".", ".<wbr>")
 
 
@@ -433,7 +438,7 @@ def _row_html(row, view):
         '<td class="users-cell users-cell--menu">%s</td></tr>' % (
             " users-row--menu", row.user_id,
             _initial(row.email), _esc(row.email), _breakable(row.email), _status_pill(row), you,
-            _role_cell(row), _esc(_frames_cell_text(row)),
+            _role_cell(row), _frames_cell_html(row),
             _last_sign_in_html(row, view.now), _active_cell(row),
             _invite_cell(row, view.app_url), _menu_cell(row)))
 

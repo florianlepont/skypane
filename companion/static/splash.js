@@ -43,7 +43,7 @@
     { name: "sweep-3", kind: "sweep", at: 880, duration: 520 },
     { name: "sweep-4", kind: "sweep", at: 950, duration: 520 },
     { name: "scan", kind: "scan", at: 950, duration: 320 },
-    { name: "open", kind: "open", at: 1370, duration: 520 }
+    { name: "open", kind: "open", at: 1330, duration: 400 }
   ];
   SEQUENCE.forEach(Object.freeze);
   Object.freeze(SEQUENCE);
@@ -389,7 +389,8 @@
       phaseAt = elapsed + SEQUENCE[6].duration;
     } else if (phase === 3 && elapsed >= phaseAt && shown >= 1) {
       phase = 4;
-      phaseAt = elapsed + 100;
+      // A short hold on the finished picture before the page opens.
+      phaseAt = elapsed + 60;
     } else if (phase === 4 && elapsed >= phaseAt) {
       startOpening();
       phase = 5;

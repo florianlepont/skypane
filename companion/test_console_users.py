@@ -10,7 +10,7 @@ import urllib.parse
 import pytest
 
 import fleet_console_support as fx
-from companion import console_routes, console_users, prefs
+from companion import auth, console_routes, console_users, prefs
 from companion_app_server import http_request, login_via_auth0, served_stylesheet
 from companion_markup import declarations_for
 from server import fleet_db, hardware
@@ -665,3 +665,29 @@ def test_the_action_routes_are_admin_only_and_need_the_csrf_token(rig, template,
     assert _sql(
         server.state_dir, "SELECT id, role, disabled, iss, sub FROM users ORDER BY id") == before
     assert _sql(server.state_dir, "SELECT COUNT(*) FROM audit_log") == [(0,)]
+
+
+# --- the French console answers in French ---------------------------------------
+
+
+def _french(cookie):
+    return "%s; %s=fr" % (cookie, auth.UI_LANG_COOKIE_NAME)
+
+
+def test_a_duplicate_invite_is_refused_in_the_language_of_the_page(rig):
+    server, _seed, cookie = rig
+    status, _headers, body = fx.post(
+        server, _french(cookie), "/users/invite", {"email": fx.USER_EMAIL, "role": "user"})
+    assert status == 400
+    assert "Cet e-mail est déjà invité." in body
+    assert "That email is already invited." not in body
+
+
+def test_the_role_toast_names_the_role_in_the_language_of_the_page(rig):
+    server, seed, cookie = rig
+    status, headers, _ = _act(
+        server, _french(cookie), seed.user_id, "role", role="admin", confirmed="1")
+    assert status == 303
+    text = _flash_text(server, _french(cookie), headers)
+    assert "est maintenant Administrateur." in text
+    assert "Administrator" not in text

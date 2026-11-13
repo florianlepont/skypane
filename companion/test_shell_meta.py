@@ -7,7 +7,7 @@ import re
 import pytest
 
 import companion_markup
-from companion import layout, login_page, prefs
+from companion import layout, login_page, prefs, ui_filter, ui_segmented
 from companion_app_server import served_stylesheet
 from companion_markup import custom_properties
 
@@ -98,3 +98,23 @@ def test_a_page_with_a_tab_bar_holds_its_first_paint_until_the_bar_is_parsed():
     assert html.index('rel="expect"') < html.index("</head>")
     assert html.index("</nav><span id=\"tab-bar-end\" hidden></span>") > html.index('class="tab-bar"')
     assert html.count('id="tab-bar-end"') == 1
+
+
+def test_a_page_with_a_section_strip_holds_its_first_paint_until_the_strip_is_parsed():
+    """a strip that carries its selection across a page change ends with a marker and the head
+    waits for it, so the new page's first frame always holds the strip; a strip that does not
+    carry, or a page without one, asks for nothing"""
+    links = [("/a", "<span>A</span>", True, ""), ("/b", "<span>B</span>", False, "")]
+    carried = ui_segmented.segmented_links_html(
+        links, "Sections", nav_attrs=' data-tabs="sections"', carry=True)
+    html = layout.page_shell("T", "home", carried, ui_theme="light")
+    assert html.count('<link rel="expect" href="#tabs-carry-end" blocking="render">') == 1
+    assert html.index('href="#tabs-carry-end"') < html.index("</head>")
+    assert html.count('id="tabs-carry-end"') == 1
+    assert '</a><span id="tabs-carry-end" hidden></span></nav>' in html
+    assert ' data-tabs="sections" data-tabs-carry>' in html
+    plain = ui_segmented.segmented_links_html(links, "Sections", nav_attrs=' data-tabs="sections"')
+    assert "tabs-carry" not in layout.page_shell("T", "home", plain, ui_theme="light")
+    chips = ui_filter.chip_links_html([("/a", "A", True), ("/b", "B", False)], "Kinds", tabs="kinds")
+    assert layout.page_shell("T", "home", chips, ui_theme="light").count(
+        '<link rel="expect" href="#tabs-carry-end" blocking="render">') == 1

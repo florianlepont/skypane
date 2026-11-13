@@ -471,11 +471,35 @@ html[data-ui-theme="dark"] {
     background-color: var(--sky-bottom);
   }
 
+  /* The whole-page cross-fade runs on the motion tokens, not on the
+   * browser's own 250ms ease. */
+  ::view-transition-group(root),
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: var(--motion-view-transition);
+    animation-timing-function: var(--ease-out);
+  }
+
   /* The tab bar's slider glides to its new place on the spring while the page
    * changes (it is the one named element of the bar). */
   ::view-transition-group(skypane-tab-slider) {
     animation-duration: var(--motion-view-transition);
     animation-timing-function: var(--motion-spring);
+  }
+
+  /* A strip whose segments change page (the Style and Fleet sections, the
+   * Audit categories) hands its selection to the page change: the selected
+   * segment of the page that is left glides to the selected segment of the
+   * page that opens, inside the page change itself. No script slides the
+   * thumb afterwards, and arriving any other way moves nothing. A page shows
+   * one such strip at most (the name must be unique). */
+  [data-tabs-carry] > [aria-current] > span {
+    view-transition-name: skypane-strip;
+  }
+
+  ::view-transition-group(skypane-strip) {
+    animation-duration: var(--motion-view-transition);
+    animation-timing-function: var(--ease-out);
   }
 
   /* The thumbnail-to-picture transition runs a little longer than a page
@@ -4944,6 +4968,20 @@ html:not(.map-ready) .place-details__close {
   }
 }
 
+/* On the narrowest phones the two presets are 160px wide: a smaller icon and
+ * gap leave the time range clear of the card's edge. */
+@media (max-width: 23.75rem) {
+  .modal .quiet-card {
+    gap: var(--space-xs);
+    padding-inline: var(--space-sm);
+  }
+
+  .quiet-card__icon {
+    width: 32px;
+    height: 32px;
+  }
+}
+
 
 /* The link inside the sentence keeps its place in the line; its ::after
  * gives a 44px target while the focus ring hugs the text. */
@@ -5351,6 +5389,13 @@ a.btn[aria-disabled="true"] {
   text-decoration: underline;
 }
 
+/* A link that stands alone under a page is a 44px target. */
+.credits-back .text-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
 .theme-form input[type="radio"] + label {
   /* A label wider than its segment wraps inside the track, which grows with it. */
   min-width: 44px;
@@ -5517,12 +5562,29 @@ a.btn[aria-disabled="true"] {
     background: color-mix(in srgb, var(--color-text) 4.5%, transparent);
   }
 
+  /* The notification dot sits at the icon's upper corner, out of the flow:
+   * as a third line under the label it pushed the cell's icon and label up. */
+  .tab-bar__pill > .nav-notification {
+    position: absolute;
+    top: 8px;
+    left: calc(50% + 8px);
+    margin: 0;
+  }
+
   /* Not positioned itself: the sheet opens against the whole bar, so it is
    * as wide as the bar. The chevron is placed against the summary. */
   .tab-bar__more {
     flex: 1 1 0;
     min-width: 0;
     display: flex;
+  }
+
+  /* A bar with nothing between the space switch and More (the not-found page
+   * of a frame): More keeps a cell's width at the far end instead of
+   * stretching across the bar. */
+  .tab-bar__link--switch + .tab-bar__more {
+    max-width: 96px;
+    margin-left: auto;
   }
 
   .tab-bar__more > .tab-bar__link {
@@ -5567,6 +5629,9 @@ a.btn[aria-disabled="true"] {
     border: 1px solid var(--bar-border);
     border-radius: var(--radius-sheet);
     box-shadow: var(--bar-sheet-shadow);
+    /* A fade alone: the panel holds 44px targets a person can tap at once,
+     * and a scale would shrink them while it arrives. */
+    animation: skypane-fade-in var(--motion-fast) var(--ease-out) backwards;
   }
 
   .tab-bar__more:not([open]) > .tab-bar__more-panel {
@@ -5742,6 +5807,13 @@ a.btn[aria-disabled="true"] {
   .has-tab-bar .page-content {
     padding-bottom: calc(
       var(--space-lg) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
+  }
+
+  /* A control that takes the focus is scrolled clear of the floating bar,
+   * never left under it. */
+  html:has(.has-tab-bar) {
+    scroll-padding-bottom: calc(
+      var(--space-md) + var(--tab-bar-h) + var(--tab-bar-gap) + var(--safe-bottom));
   }
 }
 
@@ -6504,7 +6576,7 @@ dialog.access-sheet[open],
 }
 
 /* Users table ----------------------------------------------------------
- * One <table> of users. Below 70rem every row is a card: avatar and
+ * One <table> of users. Below 79.5rem every row is a card: avatar and
  * email with the "..." menu on top, the role select and the Active switch
  * under it, frames and last sign-in at the bottom. */
 .users-table,
@@ -6531,7 +6603,7 @@ button.row-menu__item {
   }
 }
 
-@media (min-width: 70rem) {
+@media (min-width: 79.5rem) {
   .users-table {
     display: table;
     table-layout: fixed;
@@ -6634,8 +6706,10 @@ button.row-menu__item {
  * header block and the controls and blocks that follow it enter with the
  * entrance of Home's cards: the header first, the rest one stagger step
  * later. Only the first screenful is a block: the first six siblings of a
- * kind and the first three days of the Flights list; lists, tables and the
- * map are never animated row by row or whole. A card appended by "Load more" or replaying
+ * kind and the first three days of the Flights list. A section inside a
+ * group arrives with the group: a second entrance there would rise twice and
+ * multiply the two fades. A list, a grid or a table is never animated row by
+ * row (it fades as a whole, see below) and the map never moves. A card appended by "Load more" or replaying
  * after a tab switch takes the same entrance (.reveal-appended,
  * .reveal-replay). The opening plays once: motion.js drops data-page-open
  * when its last animation ends, so content swapped in later (a refresh, a
@@ -6645,8 +6719,12 @@ button.row-menu__item {
 .dashboard-main[data-page-open] .reveal,
 .dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6),
 .dashboard-main[data-page-open] .history-day:nth-child(-n + 3),
-.dashboard-main[data-page-open] .page-section:nth-child(-n + 6),
-.dashboard-main[data-page-open] .personalisation-look {
+.dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6),
+.dashboard-main[data-page-open] .personalisation-look,
+.dashboard-main[data-page-open] .personalisation > .layout-card,
+.dashboard-main[data-page-open] .personalisation > .personalisation-nav,
+.dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head,
+.dashboard-main[data-page-open] .fleet-frame > .fleet-tabs {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
@@ -6655,6 +6733,16 @@ button.row-menu__item {
 
 .dashboard-main[data-page-open] {
   --reveal-from: var(--opening-opacity);
+}
+
+/* One motion per page change. A page reached through a view transition
+ * arrives by the cross-fade alone (the early script marks <html>): its
+ * entrance takes no time, so nothing rises or fades under the cross-fade.
+ * A page opened any other way (its address, a reload, a browser without
+ * view transitions) plays the entrance. */
+.page-crossfade .dashboard-main[data-page-open] {
+  --motion-enter: 0s;
+  --motion-stagger: 0s;
 }
 
 /* The page header only fades in: a header that rose would paint over the first
@@ -6673,16 +6761,34 @@ button.row-menu__item {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
-  animation-delay: var(--motion-stagger);
+  animation-delay: calc(var(--reveal-index, 1) * var(--motion-stagger));
 }
 
 /* A table or an empty state that sits straight on the sky opens like the
- * other cards. */
+ * other cards, after the header and the filter bar. */
 .dashboard-main[data-page-open] > .empty-state,
 .dashboard-main[data-page-open] > .data-table-wrap {
   animation:
     skypane-reveal var(--motion-enter) steps(12, end) backwards,
     skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: calc(2 * var(--motion-stagger));
+}
+
+/* A list, a grid or a table as tall as its data takes part in the opening
+ * as a whole and only fades: opacity alone costs the compositor one layer,
+ * whatever the height, where a rise would repaint every row. */
+.dashboard-main[data-page-open] > .filter-bar__count,
+.dashboard-main[data-page-open] > .audit-cards {
+  animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: calc(var(--reveal-index, 0) * var(--motion-stagger));
+}
+
+/* The Airlines grid and the editor table always follow the header and the
+ * filter bar: two steps, whatever hidden elements sit between them. */
+.dashboard-main[data-page-open] > .collection-grid,
+.dashboard-main[data-page-open] > .airlines-table {
+  animation: skypane-reveal-fade var(--motion-enter) var(--ease-out) backwards;
+  animation-delay: calc(2 * var(--motion-stagger));
 }
 
 /* A filter that only hides rows replays a fade of its list, nothing else:
@@ -6718,6 +6824,118 @@ button.row-menu__item {
 .reveal:nth-child(n + 6),
 .dashboard-main .page-section:nth-child(n + 6) {
   --reveal-index: 5;
+}
+
+/* The order of the opening, the same on every page: the header at once, then
+ * each block one stagger step after the one before it, up to five steps. A
+ * block that sits straight in the page counts from its place there (the
+ * header is first). */
+.dashboard-main[data-page-open] > :nth-child(2) {
+  --reveal-index: 1;
+}
+
+.dashboard-main[data-page-open] > :nth-child(3) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] > :nth-child(4) {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] > :nth-child(5) {
+  --reveal-index: 4;
+}
+
+.dashboard-main[data-page-open] > :nth-child(n + 6) {
+  --reveal-index: 5;
+}
+
+/* Blocks inside a wrapper count from their place in it, the first one a step
+ * after the header. */
+.dashboard-main[data-page-open] > * .group-block:nth-child(1),
+.dashboard-main[data-page-open] > * .page-section:nth-child(1) {
+  --reveal-index: 1;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(2),
+.dashboard-main[data-page-open] > * .page-section:nth-child(2) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(3),
+.dashboard-main[data-page-open] > * .page-section:nth-child(3) {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(4),
+.dashboard-main[data-page-open] > * .page-section:nth-child(4) {
+  --reveal-index: 4;
+}
+
+.dashboard-main[data-page-open] > * .group-block:nth-child(n + 5),
+.dashboard-main[data-page-open] > * .page-section:nth-child(n + 5) {
+  --reveal-index: 5;
+}
+
+/* Where controls or other blocks always come first, the blocks count on from
+ * them: the Flights days follow the filter bar, the Style and Fleet blocks
+ * follow the two rows above them. */
+.dashboard-main[data-page-open] > * .history-day:nth-child(1),
+.dashboard-main[data-page-open] .personalisation > :nth-child(2),
+.dashboard-main[data-page-open] .fleet-frame > :nth-child(2) {
+  --reveal-index: 2;
+}
+
+.dashboard-main[data-page-open] > * .history-day:nth-child(2),
+.dashboard-main[data-page-open] .personalisation > :nth-child(3),
+.dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block {
+  --reveal-index: 3;
+}
+
+.dashboard-main[data-page-open] > * .history-day:nth-child(3) {
+  --reveal-index: 4;
+}
+
+/* A phone shows the blocks of one Fleet tab: they count among themselves,
+ * after the frame's header row and the tabs. */
+@media (max-width: 959px) {
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(2 of .fleet-block--state),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(2 of .fleet-block--settings),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(2 of .fleet-block--access) {
+    --reveal-index: 4;
+  }
+
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--state:nth-child(n + 3 of .fleet-block--state),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--settings:nth-child(n + 3 of .fleet-block--settings),
+  .dashboard-main[data-page-open] .fleet-blocks > .fleet-block--access:nth-child(n + 3 of .fleet-block--access) {
+    --reveal-index: 5;
+  }
+}
+
+/* From 960px the tabs are gone and every block shows, one after another
+ * after the frame's header row. */
+@media (min-width: 960px) {
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(1) {
+    --reveal-index: 2;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(3) {
+    --reveal-index: 4;
+  }
+
+  .dashboard-main[data-page-open] .fleet-frame .fleet-blocks > .group-block:nth-child(n + 4) {
+    --reveal-index: 5;
+  }
+}
+
+.dashboard-main[data-page-open] .personalisation > :nth-child(1),
+.dashboard-main[data-page-open] .fleet-frame > :nth-child(1) {
+  --reveal-index: 1;
+}
+
+/* The content of a Style view takes its wrapper's place. */
+.dashboard-main[data-page-open] > .personalisation > .personalisation__view > * {
+  --reveal-index: inherit;
 }
 
 /* A table or an empty state that sits straight on the sky is a card. Its
@@ -6859,6 +7077,11 @@ button.row-menu__item {
 /* The other pages in the same language: the same entrance on the blocks that
  * sit straight on the sky, a soft arrival for the active navigation item, and
  * a stacked frame row on a phone. Appended last. */
+/* What a control opens (the frame menu here, the tab bar's More panel with
+ * a plain fade, a dialog) arrives with a short fade on the fast token and
+ * leaves at once. Only what the person moves away themselves (a dragged
+ * sheet, a swiped toast) or what leaves on its own (a toast that times out)
+ * has a leaving motion. */
 @keyframes skypane-soft-in {
   from {
     opacity: 0;

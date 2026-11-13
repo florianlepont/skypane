@@ -549,3 +549,44 @@ def test_a_filter_change_downloads_the_list_without_the_page_around_it(new_conte
         ) == shown
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_the_list_says_it_is_busy_while_a_slow_search_is_out(new_context, many, viewport):
+    """on a slow network the list the search will replace is marked busy from the moment the
+    request leaves until its answer is shown; an offline failure clears the mark too"""
+    context, page = _open(new_context, many, viewport)
+    try:
+        held = []
+
+        released = []
+
+        def slow(route):
+            if released:
+                route.continue_()
+            else:
+                held.append(route)
+
+        busy = ("() => [...document.querySelectorAll('.history-cards, .data-table-wrap')]"
+                ".filter((e) => e.getClientRects().length)"
+                ".map((e) => e.getAttribute('aria-busy'))")
+        assert page.evaluate(busy) == [None]
+        page.route("**/flights?*part=list*", slow)
+        page.click(FIELD)
+        page.keyboard.type(OLDEST.lower())
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('.history-cards, .data-table-wrap')]"
+            ".some((e) => e.getClientRects().length && e.getAttribute('aria-busy') === 'true')",
+            timeout=10000)
+        for _wait in range(100):
+            if held:
+                break
+            page.wait_for_timeout(50)
+        assert held, "the request was held"
+        released.append(True)
+        for route in held:
+            route.continue_()
+        _wait_count(page, ROW if viewport["width"] >= 960 else CARD, 1)
+        assert page.evaluate(busy) == [None]
+    finally:
+        context.close()
