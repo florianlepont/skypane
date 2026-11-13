@@ -493,11 +493,12 @@ html[data-ui-theme="dark"] {
     animation-timing-function: var(--ease-out);
   }
 
-  /* The tab bar's slider glides to its new place on the spring while the page
-   * changes (it is the one named element of the bar). */
+  /* The tab bar's slider glides to its new place while the page changes (it is
+   * the one named element of the bar), on the same non-overshooting ease as
+   * its tap glide. */
   ::view-transition-group(skypane-tab-slider) {
     animation-duration: var(--motion-view-transition);
-    animation-timing-function: var(--motion-spring);
+    animation-timing-function: var(--ease-out);
   }
 
   /* A strip whose segments change page (the Style and Fleet sections, the
@@ -8094,8 +8095,10 @@ html.splash-on .splash__scan {
     view-transition-name: none;
   }
 
+  /* A straight glide that settles on the tapped cell and waits there when the
+   * page is late: an overshoot would rest the pill on the next cell. */
   .tab-bar__slider--glide {
-    transition: transform var(--motion-spring-duration) var(--motion-spring);
+    transition: transform var(--motion-spring-duration) var(--ease-out);
   }
 
   .tab-bar__slider--stretch {
