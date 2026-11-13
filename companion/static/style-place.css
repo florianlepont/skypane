@@ -815,7 +815,9 @@ html:not(.map-ready) .place-tap-hint {
    * as without it. Both are taller than any status bar or collapsed toolbar.
    * A drag on the sheet does not scroll the page (it would bare the end of
    * the tail under the toolbar and slide the app bar under the clock); the
-   * script still can. */
+   * script still can. place-map.js sets this class only in an iPhone browser
+   * (one where navigator.standalone exists); every other browser gets none
+   * of the lead, the tail or the scroll lock. */
   html.map-ready.place-lead {
     --place-lead: 80px;
     --place-tail: 80px;
@@ -831,13 +833,14 @@ html:not(.map-ready) .place-tap-hint {
     top: var(--place-lead);
   }
 
-  /* The tiles are light in both themes, and so is the status bar over them,
-   * so in the dark theme the logo, the wordmark and the frame button take
-   * the light theme's colours, the values of the light palette in
-   * style.css: the dark theme's light foregrounds would not read on the
-   * map. The frame button's popover keeps the page's theme. */
-  .map-ready.place-lead .site-header:has(~ .page-content .place-stage) > .brand,
-  .map-ready.place-lead .site-header:has(~ .page-content .place-stage) .frame-menu__button {
+  /* The tiles are light in both themes, and so is an iPhone's status bar
+   * over them, so on a phone the logo, the wordmark and the frame button
+   * take the light theme's colours, the values of the light palette in
+   * style.css, in every browser, with or without the lead: the dark theme's
+   * light foregrounds would not read on the map. The frame button's popover
+   * keeps the page's theme. */
+  .map-ready .site-header:has(~ .page-content .place-stage) > .brand,
+  .map-ready .site-header:has(~ .page-content .place-stage) .frame-menu__button {
     --color-text: #17191F;
     --color-accent: #1F2430;
     --color-border: #DAE1EB;

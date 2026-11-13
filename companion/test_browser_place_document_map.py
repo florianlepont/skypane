@@ -564,15 +564,16 @@ def _hex(css_colour):
     return "#%02X%02X%02X" % tuple(round(float(c)) for c in channels)
 
 
+@pytest.mark.parametrize("client", list(BROWSERS))
 @pytest.mark.parametrize("theme", ["light", "dark"])
-def test_the_app_bar_reads_on_the_map_in_both_themes(new_context, make_app_server, theme):
+def test_the_app_bar_reads_on_the_map_in_both_themes(new_context, make_app_server, theme, client):
     """over the bare map the wordmark and the frame button's name keep text contrast, and the logo
-    the contrast of a graphic, against every pixel drawn behind them, in both themes (the light
-    tiles under the dark theme's light ink would not read)"""
+    the contrast of a graphic, against every pixel drawn behind them, in every browser and in both
+    themes (the light tiles under the dark theme's light ink would not read)"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_tab(new_context, server, VIEWPORT_PHONE, color_scheme=theme)
+    context, page = _open_tab(new_context, server, VIEWPORT_PHONE, client, color_scheme=theme)
     try:
-        page.wait_for_function(AT_LEAD, arg=LEAD, timeout=5000)
+        page.wait_for_function(AT_REST, timeout=5000)
         parts = page.evaluate(BAR_PARTS)
         page.add_style_tag(content=BARE_PARTS)
         page.wait_for_function(
