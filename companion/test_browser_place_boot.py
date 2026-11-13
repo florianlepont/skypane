@@ -12,7 +12,7 @@ import pytest
 
 from companion import auth
 from companion.test_browser_ux_helpers import VIEWPORT_DESKTOP, _login, _no_js_page
-from place_map_support import SETTLED, Hosts, seed as _seed
+from place_map_support import PAGE_OVERFLOW, SETTLED, Hosts, seed as _seed
 from server import airports, device_config
 
 pytestmark = pytest.mark.browser
@@ -104,8 +104,7 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
         page_colours = page.evaluate(
             "() => { const map = getComputedStyle(document.getElementById('place-map'));"
             " const html = getComputedStyle(document.documentElement);"
-            " return {map: map.backgroundColor, html: html.backgroundColor, image: html.backgroundImage,"
-            " scroll: document.scrollingElement.scrollHeight - innerHeight}; }")
+            " return {map: map.backgroundColor, html: html.backgroundColor, image: html.backgroundImage}; }")
         # The page behind the map is the theme's secondary surface (a placeholder colour, never
         # the sky); the fixed map box itself shows the tile ground colour.
         assert page_colours["map"] == "rgb(242, 239, 233)", page_colours
@@ -114,7 +113,7 @@ def test_the_map_covers_the_whole_phone_viewport_with_no_pale_band(
             " document.body.appendChild(p); const c = getComputedStyle(p).color; p.remove(); return c; }"
         ), page_colours
         assert page_colours["image"] == "none", page_colours
-        assert page_colours["scroll"] <= 0, page_colours
+        assert page.evaluate(PAGE_OVERFLOW) <= 0
         # The picture itself: the bottom-corner pixels are the map's tile colour, like its middle.
         png = page.screenshot()
         from PIL import Image
