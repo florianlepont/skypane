@@ -177,17 +177,17 @@ def test_a_submitted_address_is_looked_up_once_listed_and_chosen_as_the_position
         context.close()
 
 
-def test_the_map_runs_under_a_softly_faded_app_bar(new_context, make_app_server):
+def test_the_map_runs_under_an_app_bar_with_no_backdrop_of_its_own(new_context, make_app_server):
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page, _hosts = _open(new_context, server, PHONE)
     try:
         top = page.evaluate("() => document.getElementById('place-map').getBoundingClientRect().top")
         bar = page.evaluate("() => document.querySelector('.site-header').getBoundingClientRect()")
         assert top <= 0.5 and bar["height"] > 40, (top, bar)
-        fade = page.evaluate(
-            "() => getComputedStyle(document.querySelector('.site-header'), '::before')"
-            ".backgroundImage")
-        assert fade.startswith("linear-gradient"), fade
+        backdrop = page.evaluate(
+            "() => { const s = getComputedStyle(document.querySelector('.site-header'), '::before');"
+            " return [s.content, s.backgroundImage]; }")
+        assert backdrop == ["none", "none"], backdrop
     finally:
         context.close()
 

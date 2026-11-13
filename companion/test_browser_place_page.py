@@ -18,8 +18,8 @@ from companion.test_browser_ux_helpers import (
     UI_THEMES_EXPLICIT, VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _assert_no_page_overflow,
     _login, _no_js_page, _set_ui_theme)
 from place_map_support import (
-    HIT_PROBE as _HIT_PROBE, MIN_PX, SETTLED as _SETTLED, Hosts, open_details, seed as _seed,
-    stored as _stored)
+    HIT_PROBE as _HIT_PROBE, MIN_PX, PAGE_OVERFLOW, SETTLED as _SETTLED, Hosts, open_details,
+    seed as _seed, stored as _stored)
 from server import airports
 
 pytestmark = pytest.mark.browser
@@ -38,11 +38,15 @@ AIRPORT_MODE = "label.place-mode:has(#place-mode-runway)"
 PARTS = (".place-stage", ".place-float", ".place-panel", "#place-map", ".place-sheet",
          ".place-modes", ".place-card")
 
+# Each part's box in the page, measured from the top of the window with the page at rest (on a
+# phone scrolled past the map's lead), wherever the page is scrolled now.
 _BOX_PROBE = (
-    "sels => Object.fromEntries(sels.map((sel) => {"
+    "sels => { const rest = window.scrollY - (parseFloat(getComputedStyle(document.documentElement)"
+    " .getPropertyValue('--place-lead')) || 0);"
+    " return Object.fromEntries(sels.map((sel) => {"
     " const r = document.querySelector(sel).getBoundingClientRect();"
-    " return [sel, {top: r.top + window.scrollY, bottom: r.bottom + window.scrollY,"
-    " left: r.left, right: r.right, width: r.width, height: r.height}]; }))")
+    " return [sel, {top: r.top + rest, bottom: r.bottom + rest,"
+    " left: r.left, right: r.right, width: r.width, height: r.height}]; })); }")
 
 
 def _settle(page, scripts_on=True):
@@ -196,11 +200,12 @@ def _assert_plain_column(boxes, width):
 def _assert_sheet(page, boxes, width, height):
     stage, float_box, panel, map_box = (boxes[sel] for sel in PARTS[:4])
     sheet, modes = boxes[".place-sheet"], boxes[".place-modes"]
-    if abs(map_box["width"] - stage["width"]) > 2 or abs(map_box["height"] - stage["height"]) > 2:
+    if (abs(map_box["width"] - stage["width"]) > 2 or map_box["top"] > stage["top"] + SUBPIXEL
+            or map_box["bottom"] < stage["bottom"] - SUBPIXEL):
         raise AssertionError("the map does not fill the stage: %r" % boxes)
     if abs(stage["width"] - width) > 1:
         raise AssertionError("the map is not edge to edge: %r" % boxes)
-    if stage["top"] > SUBPIXEL:
+    if stage["top"] > SUBPIXEL or map_box["top"] > SUBPIXEL:
         raise AssertionError("the map does not run under the status bar and app bar: %r" % boxes)
     header = page.evaluate(
         "() => document.querySelector('.site-header').getBoundingClientRect().bottom")
@@ -215,7 +220,7 @@ def _assert_sheet(page, boxes, width, height):
         raise AssertionError("the sheet covers more than 28%% of the viewport: %r" % boxes)
     if panel["bottom"] > height + SUBPIXEL:
         raise AssertionError("the sheet is cut by the viewport foot: %r" % boxes)
-    if page.evaluate("() => document.documentElement.scrollHeight") > height + 1:
+    if page.evaluate(PAGE_OVERFLOW) > 1:
         raise AssertionError("the page scrolls: the map does not fit between the bars")
     bar = page.evaluate(
         "() => { const t = document.querySelector('.tab-bar'); return t ? t.getBoundingClientRect().top : null; }")

@@ -986,6 +986,20 @@ W43 (locate button bug), W44 (no coordinates line), W45 (no saved-settings discl
   the field's top edge, `--space-sm` + `--space-xs` (the stage's gutter) below the bar; its mask still runs solid to the bar's middle and
   eases out over the 40px from there to the field, so the blur fades out with no edge and never touches the field. Ink on the frost, real
   tiles: wordmark 7.6:1 worst, frame-button name 16.1:1, logo 8.5:1.
+  Revision (debug session map-fills-header-footer, owner decision): supersedes the frost and the fade above, and the Safari-tab-only
+  gate. (1) The app bar draws no backdrop of its own on the Location page: no `::before` (neither the frost nor the canvas fade), on a
+  phone or a wide screen; the logo and the wordmark sit on the bare map, the frame button on its own surface, and under the status bar
+  only iOS's own blur shows. The owner accepts the visible cut where that blur stops over sharp map. The light-palette tokens on the brand
+  and the frame button stay (the tiles and the status bar over them are light in both themes). (2) The lead, the tail, the scroll lock,
+  the settle-back and the post-splash nudge apply on every phone, with no `navigator.standalone` test: in iOS 27 a Home Screen web app
+  without a status-bar-style meta also has the status bar as an obscured inset above the window (safe-area top 0, innerHeight 812 of
+  874pt), so it had the flat band too; its window reaches the screen bottom, so the tail is off screen there. The 4px `.place-edge` strip
+  now shows only while the map loads. iOS draws its blur taller in a web app (to ~104pt, over the top of the app bar) than in a tab
+  (~30-48pt).
+  Revision (owner decision, 2026-11-13): narrows point (2) above. The lead, the tail, the scroll lock, the settle-back and the
+  post-splash nudge apply only where `navigator.standalone` exists (a Safari tab or a Home Screen web app, false or true alike). Every
+  other phone browser (Android Chrome) gets none of them, so its own toolbar-hiding scroll is left untouched. The light-palette ink on
+  the brand and the frame button no longer depends on the lead and applies on every phone, with or without it.
 - **Compact sheet (W65):** phone, at most 28dvh. Airport mode: one line with the airport name and its codes (ellipsis), one row of three
   64px runway chips (runway name, the legacy "Runway N" pill; length and surface only in the chip's title and for assistive technology; an
   airport with more than three runways scrolls the row sideways), one full-width 44px Save with Cancel beside it (the dirty bar). My position:

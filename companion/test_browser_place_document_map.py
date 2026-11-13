@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """Browser checks that, on a phone, the Location map is document content rather than a fixed layer:
-the page container is exactly the largest viewport tall, the map sits inside it from the top edge to
-the bottom edge, nothing scrolls, and the header, search, chips, offer, sheet and tab bar stay where
-they were. Pinch and pan (wheel and drag), the pin drag and the loading state keep working. In a
-Safari tab on an iPhone the map also runs a lead above the page, which the page opens scrolled past,
-and a tail below it, so that the status bar and the toolbar show map; a frosted layer runs from the
-lead down past the app bar to the search field's top edge, never over the field, and a drag does not
-scroll the page.
+the map sits inside the page container from above the window's top edge to below its bottom edge,
+and the header, search, chips, offer, sheet and tab bar stay where they were. Pinch and pan (wheel
+and drag), the pin drag and the loading state keep working. In an iPhone browser (a Safari tab or a
+Home Screen web app, where navigator.standalone exists) the map runs a lead above the page, which
+the page opens scrolled past, and a tail below it, so that an iPhone's status bar and a Safari tab's
+toolbar show map. Every other browser gets neither, nor the scroll lock, and the map spans exactly
+the window. The app bar draws nothing of its own over the map, and a drag does not scroll the
+page.
 
 Both external hosts are answered by `page.route`; waits are on the page's own state.
 """
@@ -29,8 +30,15 @@ TILES_LOADED = "() => document.querySelectorAll('#place-map .leaflet-tile-loaded
 ANIMATIONS_DONE = (
     "() => document.getAnimations().every("
     "(a) => a.playState !== 'running' || a.effect.getComputedTiming().iterations === Infinity)")
+# The page at rest: on a phone scrolled exactly past the map's lead, on a wide screen at the top.
+AT_REST = (
+    "() => Math.abs(window.scrollY - (parseFloat(getComputedStyle(document.documentElement)"
+    ".getPropertyValue('--place-lead')) || 0)) < 1")
 # The ground colour of the tiles, which the page shows behind and below the map.
 GROUND = "rgb(242, 239, 233)"
+# The map above and below the page on a phone, in CSS pixels.
+LEAD = 80
+TAIL = 80
 PIN_BOX = (
     "() => { const r = document.querySelector('#place-map .place-pin').getBoundingClientRect();"
     " return {x: r.left + 22, y: r.top + 42}; }")
@@ -73,6 +81,7 @@ def _open_ready(new_context, server, viewport, **options):
     page.wait_for_function(TILES_LOADED, timeout=15000)
     page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
     page.wait_for_function(SETTLED, timeout=10000)
+    page.wait_for_function(AT_REST, timeout=5000)
     return context, page
 
 
@@ -80,9 +89,10 @@ def _open_ready(new_context, server, viewport, **options):
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
 def test_the_phone_map_is_document_content_spanning_the_window(
         new_context, make_app_server, viewport, theme):
-    """the map is not fixed: it lies inside the page container, which is as tall as the window; it
-    runs from the top edge to the bottom edge, the document cannot scroll or be wider than the
-    window, and the page body behind it is the tile ground colour in both themes"""
+    """in a browser with no lead the map is not fixed: it lies inside the page container, which is
+    exactly as tall as the map, and both span the window from its top edge to its bottom edge, the
+    document does not scroll, is no wider than the window, and the page body behind it is the tile
+    ground colour in both themes (the iPhone lead and tail are checked further down)"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_ready(new_context, server, viewport, color_scheme=theme)
     try:
@@ -100,14 +110,14 @@ def test_the_phone_map_is_document_content_spanning_the_window(
             " mapColour: getComputedStyle(map).backgroundColor}; }")
         assert state["position"] == "absolute", state
         assert state["inside"], state
-        assert state["mapTop"] <= 0 and state["mapBottom"] >= state["h"], state
+        assert abs(state["mapTop"]) < 1 and abs(state["mapBottom"] - state["h"]) < 1, state
         assert state["mapLeft"] <= 0 and state["mapRight"] >= state["w"], state
-        assert state["hostTop"] == 0 and state["hostBottom"] == state["h"], state
-        assert state["scrollY"] <= 0 and state["scrollX"] <= 0, state
+        assert state["hostTop"] == state["mapTop"], state
+        assert state["hostBottom"] == state["mapBottom"], state
+        assert state["scrollY"] <= 0, state
+        assert state["scrollX"] <= 0, state
         assert state["body"] == GROUND and state["mapColour"] == GROUND, state
         assert state["bodyBottom"] >= state["h"], state
-        page.mouse.wheel(0, 400)
-        page.wait_for_function("() => window.scrollY === 0")
     finally:
         context.close()
 
@@ -134,7 +144,7 @@ def test_the_floating_parts_keep_their_places_over_the_document_map(
 
 def test_the_map_still_pans_zooms_and_moves_the_pin_on_a_phone(new_context, make_app_server):
     """a tap drops the pin and dragging the pin moves it, a drag on the map pans it and a wheel
-    step zooms it, with the document still unscrolled afterwards"""
+    step zooms it, with the document at rest afterwards"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_ready(new_context, server, VIEWPORT_PHONE)
     try:
@@ -173,7 +183,7 @@ def test_the_map_still_pans_zooms_and_moves_the_pin_on_a_phone(new_context, make
         page.wait_for_function(
             "n => document.querySelector('#place-map .leaflet-tile-pane').innerHTML.length !== n",
             arg=tiles_before, timeout=10000)
-        assert page.evaluate("() => document.scrollingElement.scrollHeight - innerHeight") <= 0
+        page.wait_for_function(AT_REST, timeout=5000)
     finally:
         context.close()
 
@@ -223,55 +233,29 @@ def test_the_wide_screen_map_stays_a_fixed_layer(new_context, make_app_server):
         context.close()
 
 
-# What sits at the top edge of the phone Location page when the page reaches under the status bar
-# itself (a Home Screen web app; a Safari tab has the lead tested further down): one fixed box in
-# the tile ground colour touching the edge, the body and the map in that colour, the page
-# element's surface colour and the browser-chrome colours of the two theme-color tags.
-TOP_EDGE_HTML = {"light": "rgb(233, 238, 245)", "dark": "rgb(28, 34, 45)"}
-THEME_COLOURS = ["#E7EEF7", "#12151D"]
-SAFE_TOP = 59
+# The fixed boxes touching the top edge of the window, as when the loading placeholder shows: the
+# one ground-coloured strip there.
 TOP_EDGE_CHAIN = (
-    "() => { const map = document.getElementById('place-map'); const chain = [];"
-    " for (let e = map; e; e = e.parentElement) { const s = getComputedStyle(e);"
-    "  chain.push({tag: e.tagName, top: e.getBoundingClientRect().top, position: s.position,"
-    "   overflow: s.overflow, transform: s.transform, filter: s.filter, contain: s.contain,"
-    "   willChange: s.willChange, bg: s.backgroundColor}); }"
-    " const top = document.elementFromPoint(innerWidth / 2, 1);"
-    " return {chain: chain, root: document.documentElement.getBoundingClientRect().top,"
-    "  chrome: [...document.querySelectorAll('meta[name=theme-color]')].map((m) => m.content),"
-    "  width: innerWidth, topmost: top ? top.className : null,"
+    "() => { const top = document.elementFromPoint(innerWidth / 2, 1);"
+    " return {width: innerWidth, topmost: top ? top.className : null,"
     "  fixedAtTop: [...document.querySelectorAll('*')].filter((e) => {"
     "   const s = getComputedStyle(e); const r = e.getBoundingClientRect();"
     "   return s.position === 'fixed' && r.top <= 1 && r.height > 0; }).map((e) => {"
     "   const s = getComputedStyle(e); const r = e.getBoundingClientRect();"
     "   return {name: e.className, top: r.top, left: r.left, right: r.right, height: r.height,"
     "    bg: s.backgroundColor, filter: s.backdropFilter || 'none', opacity: s.opacity}; })}; }")
-# Everything of the app bar that could draw over the status bar zone: the bar and its pseudo
-# elements, with their paint box, fill, picture and blur.
+# Everything of the app bar that could draw over the map behind it: the bar and its pseudo
+# elements, with their fill, picture, blur and mask.
 HEADER_PAINT = (
-    "() => { const h = document.querySelector('.site-header'); const box = h.getBoundingClientRect();"
+    "() => { const h = document.querySelector('.site-header');"
     " return [null, '::before', '::after'].map((pseudo) => { const s = getComputedStyle(h, pseudo);"
     "  if (pseudo && s.content === 'none') return null;"
-    "  return {pseudo: pseudo, top: pseudo ? box.top + parseFloat(s.top) : box.top,"
-    "   bg: s.backgroundColor, image: s.backgroundImage,"
-    "   blur: s.backdropFilter || 'none'}; }).filter(Boolean); }")
-
-
-def _force_safe_top(page):
-    page.add_style_tag(content=":root { --safe-top: %dpx !important; }" % SAFE_TOP)
-    page.wait_for_function(
-        "(px) => getComputedStyle(document.documentElement).getPropertyValue('--safe-top')"
-        ".trim() === px + 'px'", arg=SAFE_TOP, timeout=5000)
-    page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
-
-
-def _status_zone(page):
-    """The pixels of the status bar zone (the forced top inset), as rows of RGB tuples."""
-    shot = page.screenshot(clip={"x": 0, "y": 0, "width": page.viewport_size["width"],
-                                 "height": SAFE_TOP})
-    picture = Image.open(io.BytesIO(shot)).convert("RGB")
-    return [[picture.getpixel((x, y)) for x in range(picture.width)]
-            for y in range(picture.height)]
+    "  return {pseudo: pseudo, bg: s.backgroundColor, image: s.backgroundImage,"
+    "   blur: s.backdropFilter || 'none', mask: s.maskImage || 'none'}; }).filter(Boolean); }")
+# The window from its top edge down to the search field's top edge, over the full width.
+ABOVE_FIELD = (
+    "() => ({x: 0, y: 0, width: innerWidth,"
+    " height: document.querySelector('.place-search__row').getBoundingClientRect().top})")
 
 
 def _assert_one_ground_strip_is_fixed_at_the_top(got):
@@ -284,62 +268,36 @@ def _assert_one_ground_strip_is_fixed_at_the_top(got):
     return edge
 
 
+def _shot(page, clip, css):
+    """A screenshot of `clip` with `css` added to the page (each call adds its own style tag)."""
+    page.add_style_tag(content=css)
+    page.wait_for_function(ANIMATIONS_DONE, timeout=10000)
+    return Image.open(io.BytesIO(page.screenshot(clip=clip))).convert("RGB")
+
+
 @pytest.mark.parametrize("theme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
-def test_the_phone_top_edge_is_the_bare_map_under_the_status_bar_with_one_fixed_ground_strip(
+def test_the_app_bar_draws_nothing_of_its_own_over_the_map(
         new_context, make_app_server, viewport, theme):
-    """with a 59px top inset (a phone whose page reaches under the status bar): one fixed box
-    touches the top edge, a strip of at most 4px in the tile ground colour across the window and
-    on top of everything; below it the status bar zone shows exactly the pixels of the map, with
-    no fill, gradient or blur of the app bar over it (the picture of the zone is the same with the
-    app bar taken away); the map starts at the page's top edge, the page container clips, no
-    ancestor of the map transforms, filters, contains or will-change, and the page element, the
-    body and the map keep their colours"""
+    """over the map the app bar is only its parts (the logo with the wordmark, and the frame
+    button on its own surface): the bar and its pseudo elements carry no fill, gradient, blur or
+    mask, and from the window's top edge down to the search field the picture with the parts
+    hidden is exactly the bare map, the picture with the whole bar hidden (under an iPhone's status
+    bar only the browser's own blur shows)"""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_ready(new_context, server, viewport, color_scheme=theme)
     try:
-        _force_safe_top(page)
-        got = page.evaluate(TOP_EDGE_CHAIN)
-        chain = {link["tag"]: link for link in reversed(got["chain"])}
-        chain["MAP"] = got["chain"][0]
-        edge = _assert_one_ground_strip_is_fixed_at_the_top(got)
-        assert got["chrome"] == THEME_COLOURS, got
-        assert chain["MAP"]["top"] == 0 and chain["MAP"]["position"] == "absolute", got
-        assert chain["MAP"]["bg"] == GROUND and chain["BODY"]["bg"] == GROUND, got
-        assert chain["HTML"]["bg"] == TOP_EDGE_HTML[theme], got
-        assert chain["MAIN"]["overflow"] == "clip" and chain["MAIN"]["position"] == "relative", got
-        for link in got["chain"]:
-            assert link["top"] == 0, got
-            assert link["transform"] == "none" and link["filter"] == "none", got
-            assert link["contain"] == "none" and link["willChange"] == "auto", got
-        for part in page.evaluate(HEADER_PAINT):
-            assert part["blur"] == "none", part
-            if part["pseudo"] is None:
-                assert part["bg"] == "rgba(0, 0, 0, 0)" and part["image"] == "none", part
-            else:
-                assert part["top"] >= SAFE_TOP, part
-        with_bar = _status_zone(page)
-        page.add_style_tag(content=".site-header { visibility: hidden !important; }")
-        page.wait_for_function(
-            "() => getComputedStyle(document.querySelector('.site-header')).visibility === 'hidden'",
-            timeout=5000)
-        bare = _status_zone(page)
-        veil = max(abs(a - b) for row_a, row_b in zip(with_bar, bare)
-                   for pixel_a, pixel_b in zip(row_a, row_b) for a, b in zip(pixel_a, pixel_b))
-        # Two levels of 255: the soft shadow of the frame button below the zone, nothing more.
-        assert veil <= 2, "the app bar paints over the status bar zone (%d levels)" % veil
-        strip = int(edge["height"])
-        ground = (242, 239, 233)
-        assert all(pixel == ground for row in with_bar[:strip] for pixel in row), with_bar[0][:4]
-        assert any(pixel != ground for row in with_bar[strip:] for pixel in row), (
-            "the status bar zone shows a flat ground fill, not the map")
-        state = page.evaluate(
-            "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
-            " const r = document.scrollingElement;"
-            " return {top: m.top, bottom: m.bottom, h: innerHeight,"
-            " scrollY: r.scrollHeight - innerHeight, scrollX: r.scrollWidth - innerWidth}; }")
-        assert state["top"] == 0 and state["bottom"] >= state["h"], state
-        assert state["scrollY"] <= 0 and state["scrollX"] <= 0, state
+        page.wait_for_function(ALL_TILES, timeout=10000)
+        paint = page.evaluate(HEADER_PAINT)
+        assert [part["pseudo"] for part in paint] == [None], paint
+        assert paint[0]["bg"] == "rgba(0, 0, 0, 0)" and paint[0]["image"] == "none", paint
+        assert paint[0]["blur"] == "none" and paint[0]["mask"] == "none", paint
+        clip = page.evaluate(ABOVE_FIELD)
+        assert clip["height"] > 52, clip
+        bar = _shot(page, clip, NO_MARKS + " .site-header * { visibility: hidden !important; }")
+        bare = _shot(page, clip, ".site-header { visibility: hidden !important; }")
+        high = max(band[1] for band in ImageChops.difference(bar, bare).getextrema())
+        assert high <= 2, "the app bar draws over the map (%d levels)" % high
     finally:
         context.close()
 
@@ -372,15 +330,21 @@ def test_the_ground_strip_is_fixed_at_the_top_while_the_map_loads_and_absent_on_
         context.close()
 
 
-# The page keys its status bar lead on navigator.standalone: false in a Safari tab on an iPhone,
-# true in a Home Screen web app, undefined in every other browser (Chromium here).
-SAFARI_TAB = (
-    "Object.defineProperty(Navigator.prototype, 'standalone',"
-    " {get: () => false, configurable: true});")
-HOME_SCREEN_APP = SAFARI_TAB.replace("false", "true")
-# The map above and below the page in a Safari tab, in CSS pixels.
-LEAD = 80
-TAIL = 80
+# What navigator.standalone says in each browser the page meets: false in a Safari tab on an
+# iPhone, true in a Home Screen web app, undefined in every other browser (Chromium as it is). The
+# page keys its lead on navigator.standalone existing, so a Safari tab and a Home Screen web app
+# get it alike, and every other browser gets none.
+BROWSERS = {
+    "safari-tab": (
+        "Object.defineProperty(Navigator.prototype, 'standalone',"
+        " {get: () => false, configurable: true});"),
+    "home-screen-app": (
+        "Object.defineProperty(Navigator.prototype, 'standalone',"
+        " {get: () => true, configurable: true});"),
+    "other-browser": "",
+}
+# The clients that define navigator.standalone: the two that get the lead.
+IPHONE = ["safari-tab", "home-screen-app"]
 LEAD_STATE = (
     "() => { const m = document.getElementById('place-map').getBoundingClientRect();"
     " const edge = document.querySelector('.place-edge');"
@@ -405,19 +369,12 @@ TAIL_IS_MAP = (
     "  .map((y) => { const hit = document.elementFromPoint(2, y);"
     "  return !!hit && map.contains(hit); })); }")
 AT_LEAD = "(lead) => Math.abs(window.scrollY - lead) < 1"
-# The free middle of the app bar, between the brand at the left and the frame button at the right
-# (with room for the button's shadow), so a probe there sees only the bar's fade over the map.
-HEADER_GAP = (
-    "() => { const h = document.querySelector('.site-header'); const w = innerWidth; let l = 0, r = w;"
-    " for (const e of h.querySelectorAll('*')) { const b = e.getBoundingClientRect();"
-    "  if (!b.width || !b.height || b.top > h.getBoundingClientRect().bottom) continue;"
-    "  if (b.right <= w / 2) l = Math.max(l, b.right); else if (b.left >= w / 2) r = Math.min(r, b.left); }"
-    " return {x: l + 16, width: r - l - 32}; }")
 
 
-def _open_tab(new_context, server, viewport, script=SAFARI_TAB, **options):
+def _open_tab(new_context, server, viewport, client="safari-tab", **options):
     context = new_context(viewport=viewport, **options)
-    context.add_init_script(script)
+    if BROWSERS[client]:
+        context.add_init_script(BROWSERS[client])
     Hosts(context)
     context.add_cookies([
         {"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
@@ -431,18 +388,20 @@ def _open_tab(new_context, server, viewport, script=SAFARI_TAB, **options):
     return context, page
 
 
+@pytest.mark.parametrize("client", IPHONE)
 @pytest.mark.parametrize("theme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
-def test_in_a_safari_tab_the_page_starts_scrolled_past_a_lead_of_map_under_the_status_bar(
-        new_context, make_app_server, viewport, theme):
-    """in a Safari tab the status bar shows the document above the window and the toolbar the
-    document below it, so the map runs a lead above the page and a tail below it, and the page
-    opens scrolled past the lead: the map starts at the document's top and runs the tail past the
-    window's bottom, lead and tail are map, the app bar, search, chips, sheet and tab bar sit
-    exactly where they sit without them, no fixed box touches the top edge (the ground strip is
-    gone), and a scroll that ends in the lead or in the tail settles back"""
+def test_the_page_starts_scrolled_past_a_lead_of_map_under_the_status_bar(
+        new_context, make_app_server, viewport, theme, client):
+    """on an iPhone the status bar shows the document above the window, in a Safari tab and in a
+    Home Screen web app alike, and a tab's toolbar the document below it, so the map runs a lead
+    above the page and a tail below it, and the page opens scrolled past the lead, in a Safari tab
+    and in a Home Screen web app alike: the map starts at the document's top and runs the tail past
+    the window's bottom, lead and tail are map, the app bar, search, chips, sheet and tab bar sit
+    exactly where they sit without them, no fixed box touches the top edge (the loading state's
+    ground strip is gone), and a scroll that ends in the lead or in the tail settles back"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_tab(new_context, server, viewport, color_scheme=theme)
+    context, page = _open_tab(new_context, server, viewport, client, color_scheme=theme)
     try:
         page.wait_for_function(AT_LEAD, arg=LEAD, timeout=5000)
         state = page.evaluate(LEAD_STATE)
@@ -465,13 +424,49 @@ def test_in_a_safari_tab_the_page_starts_scrolled_past_a_lead_of_map_under_the_s
         context.close()
 
 
-def test_in_a_safari_tab_the_page_does_not_scroll_by_hand_over_the_sheet(
-        new_context, make_app_server):
-    """the page under the map does not scroll by hand: through a wheel over the sheet the page
-    never leaves the lead, not even for a frame (a scroll there would bare the end of the tail
-    under the toolbar and slide the app bar under the status bar until it settled back)"""
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
+def test_a_browser_without_navigator_standalone_gets_no_lead(
+        new_context, make_app_server, viewport, theme):
+    """a browser other than an iPhone's leaves navigator.standalone undefined, so it gets no lead,
+    tail or scroll lock: its own scrolling (Android Chrome's toolbar) is left untouched, and the
+    floating parts sit where they sit with a lead"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_tab(new_context, server, VIEWPORT_PHONE)
+    context, page = _open_tab(new_context, server, viewport, "other-browser", color_scheme=theme)
+    try:
+        page.wait_for_function(AT_REST, timeout=5000)
+        state = page.evaluate(LEAD_STATE)
+        assert not state["lead"], state
+        assert state["scrollY"] == 0, state
+        assert state["mapTop"] == 0 and state["mapBottom"] == state["h"], state
+        assert state["scrollMax"] <= 0, state
+        assert state["position"] == "absolute", state
+        assert state["edge"] == "none", state
+        root_state = page.evaluate(
+            "() => ({overflow: getComputedStyle(document.documentElement).overflow,"
+            " lead: getComputedStyle(document.documentElement)"
+            ".getPropertyValue('--place-lead').trim(),"
+            " restoration: window.history.scrollRestoration})")
+        assert root_state["overflow"] != "hidden", root_state
+        assert root_state["lead"] == "", root_state
+        assert root_state["restoration"] == "auto", root_state
+        boxes = page.evaluate(BOXES)
+        for selector, expected in FLOATING[viewport["width"]].items():
+            got = boxes[selector]
+            assert got and all(
+                b is None or abs(a - b) <= 1.5 for a, b in zip(got, expected)), (selector, boxes)
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("client", IPHONE)
+def test_the_page_does_not_scroll_by_hand_over_the_sheet(new_context, make_app_server, client):
+    """the page under the map does not scroll by hand, in a Safari tab and in a Home Screen web
+    app alike: through a wheel over the sheet the page never leaves the lead, not even for a frame
+    (a scroll there would bare the end of the tail under the toolbar and slide the app bar under
+    the status bar until it settled back)"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_tab(new_context, server, VIEWPORT_PHONE, client)
     try:
         page.wait_for_function(AT_LEAD, arg=LEAD, timeout=5000)
         # Every frame's scroll position from here on.
@@ -492,128 +487,23 @@ def test_in_a_safari_tab_the_page_does_not_scroll_by_hand_over_the_sheet(
         context.close()
 
 
-# A test-only picture on the map in place of the flat test tiles: a dark line every 6px, so a
-# blur over the map shows as lost contrast, row band by row band.
-LINES = (
-    "#place-map .leaflet-pane { visibility: hidden !important; }"
-    " #place-map { background: repeating-linear-gradient("
-    "to bottom, #000 0 1px, #fff 1px 6px) !important; }")
-BAND = 6
-# Where the app bar's backdrop layer starts and ends, in document pixels, its blur, and where the
-# bar ends and the search field starts.
-FROST = (
-    "() => { const h = document.querySelector('.site-header'); const s = getComputedStyle(h, '::before');"
-    " const top = h.getBoundingClientRect().top + window.scrollY + parseFloat(s.top);"
-    " return {top: top, bottom: top + parseFloat(s.height), blur: s.backdropFilter,"
-    "  barBottom: h.getBoundingClientRect().bottom + window.scrollY,"
-    "  field: document.querySelector('.place-search__row').getBoundingClientRect().top"
-    "   + window.scrollY}; }")
-
-
-def _contrast_bands(page, clip):
-    """The contrast (brightest less darkest, 0 to 1) of each BAND-row band of `clip`, averaged
-    over its columns."""
-    picture = Image.open(io.BytesIO(page.screenshot(clip=clip))).convert("L")
-    bands = []
-    for top in range(0, picture.height - BAND + 1, BAND):
-        spans = []
-        for x in range(picture.width):
-            column = [picture.getpixel((x, y)) for y in range(top, top + BAND)]
-            spans.append(max(column) - min(column))
-        bands.append(sum(spans) / len(spans) / 255)
-    return bands
-
-
-@pytest.mark.parametrize("theme", ["light", "dark"])
-def test_a_frosted_layer_runs_from_the_status_bar_down_past_the_app_bar_in_a_safari_tab(
-        new_context, make_app_server, theme):
-    """Safari blurs only the top of the status bar zone and stops across its icons; the app bar's
-    own frosted layer covers the whole lead (all that the status bar can show) and runs on past the
-    bar down to the search field's top edge (it lies above the field, so no further). In the
-    window, the map is blurred right under the status bar, then grows sharp row by row with no
-    step, and is untouched below the layer"""
-    server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_tab(new_context, server, VIEWPORT_PHONE, color_scheme=theme)
-    try:
-        page.wait_for_function(AT_LEAD, arg=LEAD, timeout=5000)
-        frost = page.evaluate(FROST)
-        assert frost["top"] <= 0 and frost["blur"].startswith("blur("), frost
-        assert frost["barBottom"] < frost["field"] - 1 <= frost["bottom"] <= frost["field"], frost
-        page.add_style_tag(content=LINES)
-        page.wait_for_function(
-            "() => getComputedStyle(document.querySelector('#place-map .leaflet-pane'))"
-            ".visibility === 'hidden'", timeout=5000)
-        # The left gutter, clear of the brand, the search row and the chips all the way down.
-        height = frost["bottom"] - LEAD + 2 * BAND
-        clip = {"x": 2, "y": 0, "width": 8, "height": height}
-        frosted = _contrast_bands(page, clip)
-        page.add_style_tag(content=".site-header { visibility: hidden !important; }")
-        page.wait_for_function(
-            "() => getComputedStyle(document.querySelector('.site-header')).visibility === 'hidden'",
-            timeout=5000)
-        bare = _contrast_bands(page, clip)
-        assert min(bare) >= 0.9, bare
-        seen = [f / b for f, b in zip(frosted, bare)]
-        assert seen[0] <= 0.2, seen
-        assert seen[-1] >= 0.95, seen
-        steps = [b - a for a, b in zip(seen, seen[1:])]
-        assert min(steps) >= -0.05 and max(steps) <= 0.3, seen
-    finally:
-        context.close()
-
-
-# The search field's box in the window, its full height between its rounded ends (the map shows
-# through the corners' edge pixels), and the app bar with no frosted layer.
-FIELD_BOX = (
-    "() => { const e = document.querySelector('.place-search__row'); const r = e.getBoundingClientRect();"
-    " const end = Math.ceil(Math.min(parseFloat(getComputedStyle(e).borderTopLeftRadius), r.height / 2));"
-    " return {x: r.left + end, y: r.top, width: r.width - 2 * end, height: r.height}; }")
-NO_FROST = ".site-header::before { display: none !important; }"
-
-
-@pytest.mark.parametrize("theme", ["light", "dark"])
-@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN], ids=["390", "360"])
-def test_in_a_safari_tab_the_frost_never_falls_on_the_search_field(
-        new_context, make_app_server, viewport, theme):
-    """the frosted layer lies above the search field, so it ends at the field's top edge: every
-    pixel of the field, its top rows included, is drawn exactly as with no frost at all (a layer
-    reaching into the field hazed its top, a pale veil over the dark theme's dark field)"""
-    server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_tab(new_context, server, viewport, color_scheme=theme)
-    try:
-        page.wait_for_function(AT_LEAD, arg=LEAD, timeout=5000)
-        clip = page.evaluate(FIELD_BOX)
-        frosted = Image.open(io.BytesIO(page.screenshot(clip=clip))).convert("RGB")
-        page.add_style_tag(content=NO_FROST)
-        page.wait_for_function(
-            "() => getComputedStyle(document.querySelector('.site-header'), '::before')"
-            ".display === 'none'", timeout=5000)
-        bare = Image.open(io.BytesIO(page.screenshot(clip=clip))).convert("RGB")
-        high = max(band[1] for band in ImageChops.difference(frosted, bare).getextrema())
-        assert high <= 2, (clip, high)
-    finally:
-        context.close()
-
-
 # The map's own marks (the pin and the area circle) follow the theme; the band compared below is
 # the app bar over the bare tiles.
 NO_MARKS = (
     "#place-map .leaflet-overlay-pane, #place-map .leaflet-marker-pane,"
     " #place-map .leaflet-shadow-pane { visibility: hidden !important; }")
-# The colour tokens the app bar's parts carry over the map (on the frame button, its frost's tint
-# on the bar's backdrop layer), next to the page's own values.
+# The colour tokens the app bar's parts carry over the map (on the frame button and the brand),
+# next to the page's own values.
 BAR_TOKENS = (
     "() => { const names = ['--color-text', '--color-accent', '--color-border', '--color-status-ok',"
     " '--color-status-warn', '--color-status-error', '--glass-bg', '--glass-border',"
     " '--glass-highlight', '--glass-solid', '--shadow-glass'];"
     " const button = getComputedStyle(document.querySelector('.site-header .frame-menu__button'));"
     " const brand = getComputedStyle(document.querySelector('.site-header > .brand'));"
-    " const frost = getComputedStyle(document.querySelector('.site-header'), '::before');"
     " const root = getComputedStyle(document.documentElement);"
     " const read = (s, list) => list.map((n) => n + ': ' + s.getPropertyValue(n).trim());"
-    " return [read(button, names).concat(read(brand, ['--color-text', '--color-accent']),"
-    "  read(frost, ['--color-canvas'])),"
-    "  read(root, names).concat(read(root, ['--color-text', '--color-accent', '--color-canvas']))]; }")
+    " return [read(button, names).concat(read(brand, ['--color-text', '--color-accent'])),"
+    "  read(root, names).concat(read(root, ['--color-text', '--color-accent']))]; }")
 ALL_TILES = (
     "() => { const tiles = document.querySelectorAll('#place-map .leaflet-tile');"
     " return tiles.length > 0 && [...tiles].every((t) => t.classList.contains('leaflet-tile-loaded')"
@@ -632,11 +522,11 @@ def _bar_band(page):
     return Image.open(io.BytesIO(page.screenshot(clip=clip))).convert("RGB")
 
 
-def test_in_a_safari_tab_the_app_bar_over_the_map_is_drawn_the_same_in_both_themes(
+def test_the_app_bar_over_the_map_is_drawn_the_same_in_both_themes(
         new_context, make_app_server):
-    """the tiles are light in both themes, so the frosted app bar over them is too: in the dark
-    theme the app bar (the frost, the logo, the wordmark and the frame button) is drawn exactly as
-    in the light theme, with no turn to a dark tint behind it"""
+    """the tiles are light in both themes, and so is an iPhone's status bar over them, so the app
+    bar is too: in the dark theme its parts (the logo, the wordmark and the frame button) are drawn
+    over the map exactly as in the light theme"""
     server = make_app_server(seed=_seed, fake_providers=True)
     bands = {}
     for theme in ("light", "dark"):
@@ -650,8 +540,11 @@ def test_in_a_safari_tab_the_app_bar_over_the_map_is_drawn_the_same_in_both_them
             bands[theme] = _bar_band(page)
         finally:
             context.close()
-    low, high = ImageChops.difference(bands["light"], bands["dark"]).convert("L").getextrema()
-    assert high <= 2, (low, high)
+    # The logo's edges are smoothed a little differently from one theme to the other (about 15
+    # pixels of the band, by up to 15 levels); a tint behind the bar would change most of it.
+    diff = ImageChops.difference(bands["light"], bands["dark"]).convert("L")
+    changed = sum(diff.histogram()[3:])
+    assert changed <= diff.width * diff.height // 200, (changed, diff.getbbox(), diff.getextrema())
 
 
 # What sits on the app bar: each part's box in the window and its own colour (the text colour of
@@ -671,16 +564,16 @@ def _hex(css_colour):
     return "#%02X%02X%02X" % tuple(round(float(c)) for c in channels)
 
 
+@pytest.mark.parametrize("client", list(BROWSERS))
 @pytest.mark.parametrize("theme", ["light", "dark"])
-def test_in_a_safari_tab_the_app_bar_reads_on_its_frost_in_both_themes(
-        new_context, make_app_server, theme):
-    """on the frosted band the wordmark and the frame button's name keep text contrast, and the
-    logo the contrast of a graphic, against every pixel drawn behind them, in both themes (a light
-    frost under the dark theme's light ink would not read)"""
+def test_the_app_bar_reads_on_the_map_in_both_themes(new_context, make_app_server, theme, client):
+    """over the bare map the wordmark and the frame button's name keep text contrast, and the logo
+    the contrast of a graphic, against every pixel drawn behind them, in every browser and in both
+    themes (the light tiles under the dark theme's light ink would not read)"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_tab(new_context, server, VIEWPORT_PHONE, color_scheme=theme)
+    context, page = _open_tab(new_context, server, VIEWPORT_PHONE, client, color_scheme=theme)
     try:
-        page.wait_for_function(AT_LEAD, arg=LEAD, timeout=5000)
+        page.wait_for_function(AT_REST, timeout=5000)
         parts = page.evaluate(BAR_PARTS)
         page.add_style_tag(content=BARE_PARTS)
         page.wait_for_function(
@@ -714,15 +607,13 @@ NO_SPLASH = "() => !document.documentElement.classList.contains('splash-on')"
 SPLASH_GONE_MS = 300
 
 
-def test_in_a_safari_tab_the_page_nudges_its_scroll_once_the_opening_splash_has_gone(
-        new_context, make_app_server):
-    """Safari's status bar keeps the look it took from the page at its last scroll, and the page
-    scrolls past the lead while the opening splash still covers it (a dark splash in the dark
-    theme left a grey veil under the clock): once the splash has gone, and not before, the page
-    moves by one pixel for a moment and comes back to the lead"""
-    server = make_app_server(seed=_seed, fake_providers=True)
+def _frames_through_the_splash(new_context, server, client):
+    """Opens `client` with the opening splash and the dark theme, then waits for the splash to
+    clear and 1500ms past it. Returns `window.__frames`: every frame's time, scroll position and
+    whether the splash still covers the page."""
     context = new_context(viewport=VIEWPORT_PHONE, splash=True, color_scheme="dark")
-    context.add_init_script(SAFARI_TAB)
+    if BROWSERS[client]:
+        context.add_init_script(BROWSERS[client])
     context.add_init_script(FRAMES)
     Hosts(context)
     context.add_cookies([
@@ -734,19 +625,45 @@ def test_in_a_safari_tab_the_page_nudges_its_scroll_once_the_opening_splash_has_
         page.wait_for_function(READY, timeout=15000)
         page.wait_for_function(NO_SPLASH, timeout=15000)
         page.wait_for_timeout(1500)
-        frames = page.evaluate("() => window.__frames")
-        under = [y for _, y, splash in frames if splash]
-        last_splash = max(i for i, (_, _, splash) in enumerate(frames) if splash)
-        after = [y for _, y, _ in frames[last_splash + 1:]]
-        assert under and set(under) <= {0, LEAD} and under[-1] == LEAD, sorted(set(under))
-        assert set(after) == {LEAD, LEAD - 1} and after[-1] == LEAD, after
-        assert 1 <= after.count(LEAD - 1) <= 4, after
-        # Not in the splash's last frames: Safari takes the look of the screen as it settles, and
-        # a nudge right as the splash goes still caught part of it.
-        nudged = next(t for t, y, _ in frames[last_splash + 1:] if y == LEAD - 1)
-        assert SPLASH_GONE_MS <= nudged - frames[last_splash][0] <= 1500, nudged - frames[last_splash][0]
+        return page.evaluate("() => window.__frames")
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("client", IPHONE)
+def test_the_page_nudges_its_scroll_once_the_opening_splash_has_gone(
+        new_context, make_app_server, client):
+    """an iPhone's status bar keeps the look it took from the page at its last scroll, and the page
+    scrolls past the lead while the opening splash still covers it (a dark splash in the dark
+    theme left a grey veil under the clock): once the splash has gone, and not before, the page
+    moves by one pixel for a moment and comes back to the lead, in a Safari tab and in a Home
+    Screen web app alike"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    frames = _frames_through_the_splash(new_context, server, client)
+    under = [y for _, y, splash in frames if splash]
+    last_splash = max(i for i, (_, _, splash) in enumerate(frames) if splash)
+    after = [y for _, y, _ in frames[last_splash + 1:]]
+    assert under and set(under) <= {0, LEAD} and under[-1] == LEAD, sorted(set(under))
+    assert set(after) == {LEAD, LEAD - 1} and after[-1] == LEAD, after
+    assert 1 <= after.count(LEAD - 1) <= 4, after
+    # Not in the splash's last frames: Safari takes the look of the screen as it settles, and
+    # a nudge right as the splash goes still caught part of it.
+    nudged = next(t for t, y, _ in frames[last_splash + 1:] if y == LEAD - 1)
+    assert SPLASH_GONE_MS <= nudged - frames[last_splash][0] <= 1500, nudged - frames[last_splash][0]
+
+
+def test_a_browser_without_navigator_standalone_never_scrolls_or_nudges(
+        new_context, make_app_server):
+    """a browser other than an iPhone's leaves navigator.standalone undefined, so it gets no lead
+    and no nudge: every frame through and past the opening splash has the page at the very top"""
+    server = make_app_server(seed=_seed, fake_providers=True)
+    frames = _frames_through_the_splash(new_context, server, "other-browser")
+    under = [y for _, y, splash in frames if splash]
+    after = [y for _, y, splash in frames if not splash]
+    assert under, frames
+    assert after, frames
+    assert set(under) == {0}, sorted(set(under))
+    assert set(after) == {0}, sorted(set(after))
 
 
 def test_the_lead_does_not_pull_the_page_back_while_a_field_is_typed_in(
@@ -767,18 +684,10 @@ def test_the_lead_does_not_pull_the_page_back_while_a_field_is_typed_in(
         context.close()
 
 
-def test_a_home_screen_app_and_a_wide_screen_have_no_lead(new_context, make_app_server):
-    """a Home Screen web app draws under the status bar itself: no lead, nothing scrolled, the
-    ground strip at the top edge as before; a wide screen in a Safari tab keeps its fixed map with
-    no lead either"""
+def test_a_wide_screen_has_no_lead(new_context, make_app_server):
+    """a wide screen, even in a Safari tab, keeps its fixed map with no lead and nothing
+    scrolled"""
     server = make_app_server(seed=_seed, fake_providers=True)
-    context, page = _open_tab(new_context, server, VIEWPORT_PHONE, script=HOME_SCREEN_APP)
-    try:
-        state = page.evaluate(LEAD_STATE)
-        assert not state["lead"] and state["scrollY"] == 0 and state["scrollMax"] <= 0, state
-        assert state["mapTop"] == 0 and state["edge"] == "block", state
-    finally:
-        context.close()
     context, page = _open_tab(new_context, server, VIEWPORT_DESKTOP)
     try:
         state = page.evaluate(LEAD_STATE)
