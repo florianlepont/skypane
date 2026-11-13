@@ -488,10 +488,24 @@
     shown = url;
   }
 
+  // The lists say they are being updated for as long as a request is out
+  // (the answer replaces them, and with them the mark).
+  function markBusy(on) {
+    var lists = document.querySelectorAll(".history-cards, .data-table-wrap");
+    for (var i = 0; i < lists.length; i++) {
+      if (on) {
+        lists[i].setAttribute("aria-busy", "true");
+      } else {
+        lists[i].removeAttribute("aria-busy");
+      }
+    }
+  }
+
   function refresh(commit) {
     window.clearTimeout(timer);
     var url = currentUrl();
     var mine = ++latest;
+    markBusy(true);
     fetchView(url, PART_LIST).then(function (doc) {
       if (mine !== latest) {
         return;
@@ -501,6 +515,7 @@
       record(url, commit);
     }, function (reason) {
       if (mine === latest) {
+        markBusy(false);
         giveUp(url, reason);
       }
     });
