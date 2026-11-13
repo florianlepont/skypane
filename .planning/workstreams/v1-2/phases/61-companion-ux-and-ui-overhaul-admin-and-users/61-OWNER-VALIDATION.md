@@ -1161,3 +1161,15 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 
 - Audit 6 reports received: visual (11 findings), workflows (10), animation (13). The performance auditor did not hand back a report; the orchestrator read its raw measurements: no regression from the tab bar, More panel and leave dialog work (about +6 KB JS, +1.5 KB CSS, +1.8 KB HTML per page, server CPU unchanged); known heavy spots unchanged (Location JS weight, long Flights lists, Home idle style recalcs); one new low finding: the More sheet adds about 13 listeners per 100 open/close cycles.
 - D57 (owner): fix everything audit 6 found except the points the owner already set aside (A5-15, A5-16, A5-20, A5-21, W5-12, W5-13, W5-17, W5-22, X13, P5-*). Lot 61-127 (bugs and regressions) first, then 61-128 (remaining low findings).
+
+## Round 31: final validation (2026-11-13)
+
+Owner tested the deployed companion after audit 6 lots F (61-127) and G (61-128) and the
+layout-shift fix (61-129): six checks (Style "Save and continue", Discard then Back, More
+sheet, Flights page and columns, refused pairing code, French console labels). Result:
+"Tout est ok". Phase 61 (plan 61-13, the owner checkpoint) is validated.
+
+Left open on purpose, no change: W6-09 (tapping the active tab), V6-10 (More sheet width on a
+tablet), A6-09 (grab handle), A6-11 (page-change frame drops at 4x CPU), W6-08 naming
+("Flights" versus "Flight history"), V6-07 (44 px box for the quiet-hours link), plus the points
+set aside earlier (A5-15, A5-16, A5-20, A5-21, W5-12, W5-13, W5-17, W5-22, X13, P5-*).
