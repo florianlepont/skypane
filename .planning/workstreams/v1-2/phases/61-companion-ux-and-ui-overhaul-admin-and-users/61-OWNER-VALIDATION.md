@@ -1142,3 +1142,4 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Owner decisions on the More panel: Console row option B (tinted card with an accent icon and a subtitle "Fleet, users, audit"); and the proposed redesign accepted (grab handle, account with initial, Console card, a "Settings" group with Theme and Language, Sign out as a soft alert button). Queued as plan 61-122 after 61-121 (blur coverage).
 - Owner decision (W5-18): changing Style sub-tab with an unsaved layout opens a dialog (Save and continue / Discard / Stay here). Queued as plan 61-123 after 61-122.
 - Owner decision (W5-12): keep the current Back behaviour with a dialog open (Back leaves the page); no history entry per dialog.
+- Owner decision (W5-15): option A, a refused pairing code is kept in a very short-lived cookie (outside the address) and put back in the field. Queued with W5-23 (anti-forgery token out of the upload address) as plan 61-124.
