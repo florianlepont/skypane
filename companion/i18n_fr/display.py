@@ -181,6 +181,11 @@ MESSAGES = {
     # "Enregistrer" verb and the "Vérification en cours…" ellipsis style above.
     "display.saving": "Enregistrement…",
     "display.unsaved_changes": "Modifications non enregistrées",
+    "display.leave_title": "Modifications non enregistrées",
+    "display.leave_text": "Tu as des modifications non enregistrées. Que veux-tu faire\u00a0?",
+    "display.leave_save": "Enregistrer et continuer",
+    "display.leave_discard": "Abandonner",
+    "display.leave_stay": "Rester ici",
     "display.unsaved_changes_in": "Modifications non enregistrées\u00a0:",
 
     # --- Field-level validation errors ------------------------------

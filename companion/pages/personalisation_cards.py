@@ -287,14 +287,13 @@ def page_html(
     parts[VIEW_ARRIVALS] = parts[VIEW_DEPARTURES]
     shown = (view,) if view is not None else (
         VIEW_DEPARTURES, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
-    return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div>%s</div>' % (
+    return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div></div>' % (
         _layout_card(values, errors, submitted), _nav_html(view),
-        "".join(parts[name]() for name in shown), _style_leave_dialog_html())
+        "".join(parts[name]() for name in shown))
 
 
-def _style_leave_dialog_html():
-    """The unsaved-changes dialog, carrying this frame's own addresses: the
-    links on the page wear the device prefix, so the list the script matches
-    them against wears it too."""
-    return layout_picker.style_leave_dialog_html(
-        tuple(device_scope.scoped(route) for route in LEAVE_RETURN_ROUTES))
+def scoped_leave_return_routes():
+    """The addresses a Style save may return to, wearing this frame's own
+    prefix: the links on the page wear it, so the list a script matches them
+    against wears it too."""
+    return tuple(device_scope.scoped(route) for route in LEAVE_RETURN_ROUTES)

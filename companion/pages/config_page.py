@@ -613,7 +613,9 @@ def docked_dirty_bar_html():
     page): rendered by the page after the group, never inside it, because a
     backdrop-filtered ancestor would become the containing block of the
     bar's fixed position."""
-    return ui_save_bar.save_bar_html(SETTINGS_FORM_ID)
+    return ui_save_bar.save_bar_html(
+        SETTINGS_FORM_ID,
+        return_routes=personalisation_cards.scoped_leave_return_routes())
 
 
 def _settings_page_html(pieces, quick_led_html, with_bar=True):

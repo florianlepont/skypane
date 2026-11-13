@@ -138,6 +138,162 @@
     }
   }
 
+  // The one unsaved-changes question, shared by every page that has a save
+  // bar: the shell renders the dialog once (companion/ui_save_bar.py) and
+  // this installs it for the page's own form. Every in-app link asks while
+  // `isDirty()` holds - the sub-tabs, the bottom tab bar, the More sheet, the
+  // sidebar, the frame menu, back and brand links - and so does a post of
+  // another form on the page (the theme and language switches, sign out),
+  // which would leave just as surely. Save and continue saves through the
+  // bar's own Save button and names the tapped address as the save's return
+  // target when the page listed it, else the save stays here with its usual
+  // confirmation; Discard leaves without saving; Stay here changes nothing
+  // and the focus goes back to what was tapped. Without the dialog or
+  // modal.js the page keeps its plain links and the browser's own prompt.
+  // One guard per page: a page with both a tracked bar and a form-page bar
+  // would otherwise ask twice.
+  var leaveGuardInstalled = false;
+
+  function installLeaveGuard(isDirty, guardedForm, saveButton, bar, disarm) {
+    var dialog = document.querySelector("dialog[data-leave-dialog]");
+    if (!dialog || !guardedForm || leaveGuardInstalled) {
+      return;
+    }
+    leaveGuardInstalled = true;
+    var returns = ((bar && bar.getAttribute("data-leave-returns")) || "").split(" ");
+    var pendingLink = null;
+    var pendingForm = null;
+    var pendingSubmitter = null;
+    // Set for the one post this guard lets through after Discard, so the
+    // question is not asked again about the post it just allowed.
+    var passThrough = false;
+
+    // The link a click lands on when it would leave this page for another
+    // address of the app, else null: not the page's own save bar or a dialog,
+    // a link that opens or closes one, a page-local navigation, a link into
+    // this same page, a new-tab or download link, or another site.
+    function leaveTarget(node) {
+      var link = node;
+      while (link && !(link.tagName === "A" && link.hasAttribute("href"))) {
+        link = link.parentNode;
+      }
+      if (!link || link.hasAttribute("target") || link.hasAttribute("download")
+          || link.hasAttribute("data-modal-open") || link.hasAttribute("data-modal-close")
+          || link.hasAttribute("data-detection-nav")
+          || link.closest("dialog, .dirty-bar")) {
+        return null;
+      }
+      if (link.origin !== window.location.origin || link.protocol.indexOf("http") !== 0) {
+        return null;
+      }
+      var samePage = link.pathname === window.location.pathname
+        && link.search === window.location.search;
+      return samePage && link.hash !== "" ? null : link;
+    }
+
+    // The address the save may land on itself: one the page listed, asked for
+    // plainly (an address with a query of its own is not what a save handler
+    // whitelists).
+    function returnPath(link) {
+      return link && link.search === "" && returns.indexOf(link.pathname) >= 0
+        ? link.pathname : null;
+    }
+
+    function ask(opener) {
+      if (!window.SkyPaneModal) {
+        return false;
+      }
+      return window.SkyPaneModal.open(dialog, opener || null);
+    }
+
+    function saveAndContinue() {
+      var back = guardedForm.elements["return_to"];
+      var destination = returnPath(pendingLink);
+      if (back && destination) {
+        back.value = destination;
+      }
+      dialog.close();
+      if (typeof guardedForm.requestSubmit === "function") {
+        guardedForm.requestSubmit(saveButton || undefined);
+      } else {
+        guardedForm.submit();
+      }
+    }
+
+    function discard() {
+      var href = pendingLink && pendingLink.href;
+      var other = pendingForm;
+      var submitter = pendingSubmitter;
+      disarm();
+      dialog.close();
+      if (href) {
+        window.location.href = href;
+        return;
+      }
+      if (!other) {
+        return;
+      }
+      passThrough = true;
+      // Through the button the person pressed where there was one: a switch
+      // posts its choice as that button's own name and value, which a bare
+      // submit would drop.
+      if (submitter && other.contains(submitter)) {
+        submitter.click();
+      } else if (typeof other.requestSubmit === "function") {
+        other.requestSubmit();
+      } else {
+        other.submit();
+      }
+    }
+
+    dialog.querySelector("[data-leave-dialog-primary]").addEventListener("click", saveAndContinue);
+    dialog.querySelector("[data-leave-dialog-secondary]").addEventListener("click", discard);
+
+    document.addEventListener("click", function (e) {
+      if (e.defaultPrevented || e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
+        return;
+      }
+      var link = leaveTarget(e.target);
+      if (!link || !isDirty()) {
+        return;
+      }
+      pendingLink = link;
+      pendingForm = null;
+      pendingSubmitter = null;
+      if (ask(link)) {
+        e.preventDefault();
+      }
+    });
+
+    // A post of another form on the page leaves it too. The page's own form,
+    // a frame-strip switch and a page-local navigation have already said so
+    // themselves and are left alone.
+    document.addEventListener("submit", function (e) {
+      var other = e.target;
+      if (passThrough) {
+        passThrough = false;
+        return;
+      }
+      if (e.defaultPrevented || !other || other === guardedForm
+          || other.hasAttribute("data-quick-switch")
+          || other.hasAttribute("data-detection-nav") || !isDirty()) {
+        return;
+      }
+      pendingLink = null;
+      pendingForm = other;
+      pendingSubmitter = e.submitter || null;
+      if (ask(e.submitter || null)) {
+        e.preventDefault();
+      }
+    });
+
+    window.addEventListener("pageshow", function (evt) {
+      if (evt.persisted && dialog.open) {
+        dialog.close();
+      }
+    });
+  }
+
   // A form page (New special look, Calendar connect, the calendar look) shows
   // its Cancel and Save bar as a fixture and has no dirty bar of its own.
   // Leaving it with values that differ from the ones it loaded with still asks
@@ -238,6 +394,10 @@
         evt.returnValue = "";
       }
     });
+
+    installLeaveGuard(
+      function () { return !leaving && changed(); },
+      pageForm, save, pageBar, function () { leaving = true; });
   }
   guardFormPage();
 
@@ -646,106 +806,10 @@
     }
   });
 
-  // Every in-app link on a Style page is a page load that would drop the
-  // unsaved values: the sub-tabs, the bottom tab bar and what the More sheet
-  // holds, the frame menu, a back link, the brand link. While any value on
-  // the page differs from its stored one (the same count the bar shows,
-  // carried values included), a tap on one asks first, in the page's own
-  // dialog, instead of the browser's generic leave prompt: Save and continue,
-  // Discard (leave without saving) or Stay here (nothing changes, focus goes
-  // back to the tapped link). Form posts (sign out, the theme and language
-  // switches) are left alone and keep the browser's own prompt. Without the
-  // dialog or modal.js the links stay plain links.
-  var leaveDialog = document.querySelector("dialog[data-style-leave]");
-  var leaveLink = null;
-  // The addresses the server accepts as this save's return target.
-  var leaveReturns = leaveDialog
-    ? (leaveDialog.getAttribute("data-style-leave-returns") || "").split(" ") : [];
-
-  function styleIsDirty() {
-    return countDifferences() > 0;
-  }
-
-  // The link a click lands on when it would leave this page for another
-  // address of the app, else null: not the page's own save bar or dialog, a
-  // link that opens or closes a dialog, a page-local navigation, a link into
-  // this same page, a new-tab or download link, or another site.
-  function leaveTarget(node) {
-    var link = node;
-    while (link && !(link.tagName === "A" && link.hasAttribute("href"))) {
-      link = link.parentNode;
-    }
-    if (!link || link.hasAttribute("target") || link.hasAttribute("download")
-        || link.hasAttribute("data-modal-open") || link.hasAttribute("data-modal-close")
-        || link.hasAttribute("data-detection-nav")
-        || link.closest("dialog, [data-dirty-bar]")) {
-      return null;
-    }
-    if (link.origin !== window.location.origin || link.protocol.indexOf("http") !== 0) {
-      return null;
-    }
-    var samePage = link.pathname === window.location.pathname
-      && link.search === window.location.search;
-    return samePage && link.hash !== "" ? null : link;
-  }
-
-  // The address a save may land on by itself: one the server listed, asked
-  // for plainly (a query of its own is not part of what it whitelists). For
-  // any other destination the save keeps the page's own return value, so it
-  // saves and stays here with the saved confirmation rather than guessing.
-  function leaveReturnPath(link) {
-    return link && link.search === "" && leaveReturns.indexOf(link.pathname) >= 0
-      ? link.pathname : null;
-  }
-
-  function leaveSaveAndContinue() {
-    var back = form.elements["return_to"];
-    var saveBtn = bar.querySelector("button[type=submit]");
-    var destination = leaveReturnPath(leaveLink);
-    if (back && destination) {
-      back.value = destination;
-    }
-    leaveDialog.close();
-    if (typeof form.requestSubmit === "function") {
-      form.requestSubmit(saveBtn || undefined);
-    } else {
-      form.submit();
-    }
-  }
-
-  function leaveDiscard() {
-    var href = leaveLink && leaveLink.href;
-    suppressGuard = true;
-    leaveDialog.close();
-    if (href) {
-      window.location.href = href;
-    }
-  }
-
-  if (leaveDialog) {
-    leaveDialog.querySelector("[data-style-leave-primary]")
-      .addEventListener("click", leaveSaveAndContinue);
-    leaveDialog.querySelector("[data-style-leave-secondary]")
-      .addEventListener("click", leaveDiscard);
-    document.addEventListener("click", function (e) {
-      if (e.defaultPrevented || e.button || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) {
-        return;
-      }
-      var link = leaveTarget(e.target);
-      if (!link || !styleIsDirty() || !window.SkyPaneModal) {
-        return;
-      }
-      leaveLink = link;
-      if (window.SkyPaneModal.open(leaveDialog, link)) {
-        e.preventDefault();
-      }
-    });
-    window.addEventListener("pageshow", function (evt) {
-      if (evt.persisted && leaveDialog.open) {
-        leaveDialog.close();
-      }
-    });
-  }
+  installLeaveGuard(
+    function () { return !suppressGuard && countDifferences() > 0; },
+    form, bar.querySelector("button[type=submit]"), bar,
+    function () { suppressGuard = true; });
 
   // Coming Back to the page, the browser puts the values the visitor left
   // back into the fields after this file has run and fires no event for it.

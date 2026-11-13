@@ -84,11 +84,6 @@ MESSAGES = {
     # --- Layout card and pairing picker (companion/settings/layout_picker.py)
     "look.layout": "Disposition",
     "look.layout_group": "Disposition de l’écran",
-    "look.style_leave_title": "Modifications non enregistrées",
-    "look.style_leave_text": "Tu as des modifications non enregistrées. Que veux-tu faire\u00a0?",
-    "look.style_leave_save": "Enregistrer et continuer",
-    "look.style_leave_discard": "Abandonner",
-    "look.style_leave_stay": "Rester ici",
     "look.layout_caption": "S’applique à tout le cadre.",
     "look.layout_whole_frame": "Tout le cadre",
     "look.layout_change": "Modifier la disposition",

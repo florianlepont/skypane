@@ -17,7 +17,6 @@ value changes only when the owner saves a different card.
 """
 from companion import i18n
 from companion import theme_preview
-from companion import ui_modal
 from companion.layout import escape_html
 import companion.layout as layout
 from server import pairings, screen_layouts
@@ -49,17 +48,6 @@ LAYOUT_NAMES = {
     "a_diagonal": i18n.msg("look.layout_a_diagonal", "A with diagonal band"),
 }
 LAYOUT_PREVIEW_ALT_TEMPLATE = i18n.msg("look.layout_preview_alt", "Layout preview: %s")
-
-STYLE_LEAVE_DIALOG_ID = "style-leave"
-STYLE_LEAVE_HOOK = "style-leave"
-# The attribute the dialog lists the save's allowed return addresses in.
-STYLE_LEAVE_RETURNS_ATTR = "style-leave-returns"
-STYLE_LEAVE_TITLE = i18n.msg("look.style_leave_title", "Unsaved changes")
-STYLE_LEAVE_TEXT = i18n.msg(
-    "look.style_leave_text", "You have changes that are not saved. What do you want to do?")
-STYLE_LEAVE_SAVE = i18n.msg("look.style_leave_save", "Save and continue")
-STYLE_LEAVE_DISCARD = i18n.msg("look.style_leave_discard", "Discard")
-STYLE_LEAVE_STAY = i18n.msg("look.style_leave_stay", "Stay here")
 
 PAIRING_GROUP_LABEL = i18n.msg("look.pairing_group", "Colour")
 PAIRING_HELP = i18n.msg(
@@ -164,20 +152,6 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
         escape_html(i18n.t(LAYOUT_CHANGE_ARIA)), escape_html(i18n.t(LOOK_CHANGE_LABEL)),
         escape_html(i18n.t(LAYOUT_GROUP_LABEL)), cards,
         _field_error_html(errors, LAYOUT_FIELD, LAYOUT_FIELD), _help_html(LAYOUT_HELP))
-
-
-def style_leave_dialog_html(return_routes=()):
-    """The closed dialog a script opens when the person leaves a Style page
-    through an in-app link while any value on it differs from its stored one:
-    save and continue, discard, or stay.
-
-    `return_routes` are the addresses the server accepts as the save's return
-    target, so the script only names one of those and a save that ends
-    anywhere else simply stays on the page."""
-    return ui_modal.choice_dialog_html(
-        STYLE_LEAVE_DIALOG_ID, i18n.t(STYLE_LEAVE_TITLE), i18n.t(STYLE_LEAVE_TEXT),
-        i18n.t(STYLE_LEAVE_SAVE), i18n.t(STYLE_LEAVE_DISCARD), i18n.t(STYLE_LEAVE_STAY),
-        STYLE_LEAVE_HOOK, STYLE_LEAVE_RETURNS_ATTR, " ".join(return_routes))
 
 
 def pairing_id_for(theme_id):

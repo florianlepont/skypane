@@ -21,10 +21,10 @@ from server import device_config
 
 pytestmark = pytest.mark.browser
 
-DIALOG = "dialog[data-style-leave]"
-PRIMARY = DIALOG + " [data-style-leave-primary]"
-SECONDARY = DIALOG + " [data-style-leave-secondary]"
-QUIET = DIALOG + " [data-style-leave-quiet]"
+DIALOG = "dialog[data-leave-dialog]"
+PRIMARY = DIALOG + " [data-leave-dialog-primary]"
+SECONDARY = DIALOG + " [data-leave-dialog-secondary]"
+QUIET = DIALOG + " [data-leave-dialog-quiet]"
 CHECKED_LAYOUT = "#personalisation-layout input[name=layout]:checked"
 GREEN = '[data-look-sheet][data-look-inline] input[data-look-axis="colour"][value="green"]'
 WORDS = {
@@ -164,7 +164,7 @@ def test_tapping_a_sub_tab_with_an_unsaved_change_opens_the_dialog(
         assert page.locator(SECONDARY).inner_text() == secondary
         assert page.locator(QUIET).inner_text() == quiet
         page.wait_for_function(
-            "() => document.activeElement && document.activeElement.hasAttribute('data-style-leave-quiet')",
+            "() => document.activeElement && document.activeElement.hasAttribute('data-leave-dialog-quiet')",
             timeout=5000)
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
@@ -415,7 +415,7 @@ def test_stay_here_and_escape_change_nothing_and_return_the_focus(
         _tap_tab(page, "arrivals")
         _wait_dialog_open(page)
         page.wait_for_function(
-            "() => document.activeElement && document.activeElement.hasAttribute('data-style-leave-quiet')",
+            "() => document.activeElement && document.activeElement.hasAttribute('data-leave-dialog-quiet')",
             timeout=5000)
         if how == "button":
             page.click(QUIET)

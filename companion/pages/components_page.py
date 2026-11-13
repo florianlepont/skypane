@@ -637,6 +637,7 @@ def _dialogs():
             "components-choice", _esc(_t(_OPEN_CHOICE)), "btn btn--secondary")
         + ui_modal.trigger_html(
             "components-sections", _esc(_t(_SAMPLE_DIALOG)), "btn btn--ghost"))
+    leave = ui_save_bar.leave_dialog_html()
     bar = ui_save_bar.save_bar_html(
         "components-bar-form", cancel_href=COMPONENTS_ROUTE, title=_t(_UNSAVED))
     inline_bar = ui_save_bar.save_bar_html(
@@ -655,8 +656,8 @@ def _dialogs():
     return [
         State(_M_STATE_SAVE_BAR_REVEALED, revealed),
         State(_M_STATE_DIALOGS,
-              '<div class="components-triggers">%s</div>%s%s%s%s' % (
-                  triggers, dialog, confirm, choice, sections)),
+              '<div class="components-triggers">%s</div>%s%s%s%s%s' % (
+                  triggers, dialog, confirm, choice, sections, leave)),
         State(_M_STATE_SAVE_BAR,
               '<div class="components-save-bar">%s</div>' % bar),
         State(_M_STATE_SAVE_BAR_INLINE,
@@ -733,7 +734,8 @@ CATALOGUE = (
     Family("dialogs", _M_FAMILY_DIALOGS,
            _M_FAMILY_DIALOGS_DESC,
            ("ui_modal.dialog_html", "ui_modal.choice_dialog_html", "ui_modal.sections_dialog_html",
-            "ui_modal.trigger_html", "ui_save_bar.save_bar_html"), _dialogs),
+            "ui_modal.trigger_html", "ui_save_bar.save_bar_html",
+            "ui_save_bar.leave_dialog_html"), _dialogs),
     Family("motion", _M_FAMILY_MOTION, _M_FAMILY_MOTION_DESC, (), _motion),
     Family("names", _M_FAMILY_NAMES, _M_FAMILY_NAMES_DESC, (), _names),
 )
