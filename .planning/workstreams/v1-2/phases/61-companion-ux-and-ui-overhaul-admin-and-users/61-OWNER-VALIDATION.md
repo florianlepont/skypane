@@ -1133,3 +1133,9 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
 - Owner suggestion: for a person who is not an administrator, the Airlines page should be a tab of the bottom bar instead of living in the More panel, since there is room (no console space switch). Queued as plan 61-120 after lot E.
 - Owner decision (tab bar, plan 61-120): the bottom bar is the same for everyone, Accueil, Vols, Compagnies, Style, Lieu, Plus. For an administrator the console switch moves into the Plus panel (no separate cell). Accueil stays first. Lot D validated as deployed.
 - Lot E (61-119) and the single bottom tab bar (61-120) merged and deployed; the owner approved the deployment. Open owner questions: Console-space bar (five cells kept), Style Save bar on sub-tab change (W5-18), Location top edge on iPhone, W5-23 as its own plan.
+
+## Round 27: owner validation of lot E, tab bar and Location
+
+- Location top edge on iPhone: confirmed fixed by the owner (Safari tab and Home Screen app).
+- Lot E and the single tab bar: owner says everything is fine.
+- New feedback on the More panel: (1) the blur behind the panel does not cover the whole page (on Location the map stays sharp in a strip at the top and at the bottom edge); (2) the Console row should be more prominent. Queued as plan 61-121; (1) is a bug fix, (2) goes through a mockup first.
