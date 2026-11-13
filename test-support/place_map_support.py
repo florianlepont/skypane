@@ -106,25 +106,41 @@ DETAILS_SHOWN = (
     " return d.open && getComputedStyle(d).display !== 'none'"
     " && d.getBoundingClientRect().height > 0; }")
 
+# Scrolls an element `el` to the middle, as scrollIntoView does, except the window itself when the
+# page has the map's lead (a phone): that page is one window resting scrolled past the lead, which
+# it would only settle back to a moment later; the boxes inside it still scroll.
+_TO_MIDDLE = (
+    " const lead = parseFloat(getComputedStyle(document.documentElement)"
+    "   .getPropertyValue('--place-lead')) || 0;"
+    " const rest = window.scrollY; el.scrollIntoView({block: 'center'});"
+    " if (lead) window.scrollTo(0, rest);")
+
 # Whether the page is at rest and a known control owns its own centre: the search field with the
 # map running, the airport filter of the plain form without it.
 SETTLED = (
     "() => {"
     " if (document.getAnimations().some((a) => a.playState === 'running')) return false;"
-    " const e = ['#place-search', '#airport-filter'].map((s) => document.querySelector(s))"
-    "   .find((el) => el && el.getBoundingClientRect().width > 0);"
-    " if (!e) return false;"
-    " e.scrollIntoView({block: 'center'});"
-    " const r = e.getBoundingClientRect();"
-    " return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === e; }")
+    " const el = ['#place-search', '#airport-filter'].map((s) => document.querySelector(s))"
+    "   .find((e) => e && e.getBoundingClientRect().width > 0);"
+    " if (!el) return false;" + _TO_MIDDLE +
+    " const r = el.getBoundingClientRect();"
+    " return document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) === el; }")
 
-# For each selector, the first matching element is scrolled to the middle and measured; a control
-# fails when it is smaller than the floor or something else owns its centre.
+# How much taller the document is than the window, less the map's lead above the page and its tail
+# below it (none where the page has no lead): above 0, something else than the map runs past the
+# window.
+PAGE_OVERFLOW = (
+    "() => { const s = getComputedStyle(document.documentElement);"
+    " const extra = (name) => parseFloat(s.getPropertyValue(name)) || 0;"
+    " return document.scrollingElement.scrollHeight - innerHeight"
+    "  - extra('--place-lead') - extra('--place-tail'); }")
+
+# For each selector, the first matching element is scrolled to the middle (_TO_MIDDLE) and
+# measured; a control fails when it is smaller than the floor or something else owns its centre.
 HIT_PROBE = (
     "args => args.selectors.map((sel) => {"
     " const el = document.querySelector(sel);"
-    " if (!el) return [sel, 'missing'];"
-    " el.scrollIntoView({block: 'center'});"
+    " if (!el) return [sel, 'missing'];" + _TO_MIDDLE +
     " const r = el.getBoundingClientRect();"
     " if (r.width < args.min || r.height < args.min) {"
     "   return [sel, 'size ' + r.width.toFixed(1) + 'x' + r.height.toFixed(1)]; }"
