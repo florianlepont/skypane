@@ -31,13 +31,6 @@
   padding: 0;
 }
 
-.group .fleet-block__fact .row__value {
-  max-width: 65%;
-  white-space: normal;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
 .fleet-group > li + li {
   border-top: 1px solid var(--glass-hairline);
 }
@@ -277,6 +270,52 @@
   padding: var(--space-xs) var(--space-sm);
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* The summary opening the Fleet panel: what the frame runs, large, with its
+ * state chip on the right (under the text when the row is too narrow). */
+.update-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.update-sum__text {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.update-sum__label {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-sum__version {
+  margin: var(--space-xs) 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.update-sum__meta {
+  margin: 0;
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.update-sum time {
+  white-space: nowrap;
 }
 
 .update-cta__top {

@@ -14,7 +14,7 @@ import collections
 import companion.frame_state as frame_state
 import companion.i18n as i18n
 import companion.layout as layout
-from companion import ui_segmented
+from companion import ui_components, ui_segmented
 from companion.layout import csrf_field, escape_html
 import companion.page_context as page_context
 import companion.wake as wake
@@ -60,6 +60,11 @@ STATE_LABELS = {
     "scheduled": i18n.msg("update.scheduled", "Scheduled"),
     "in_progress": i18n.msg("update.in_progress", "In progress"),
 }
+
+# The summary that opens the Fleet panel: the label over the installed
+# version, and the state chip beside it when no update is on offer.
+ON_THE_FRAME_LABEL_TEXT = i18n.msg("update.on_the_frame", "On the frame")
+UP_TO_DATE_CHIP_TEXT = i18n.msg("update.up_to_date", "Up to date")
 
 # The call-to-action card's headline, one per situation.
 CTA_UP_TO_DATE_TEXT = i18n.msg("update.cta_up_to_date", "The frame is up to date")
@@ -498,13 +503,13 @@ def _on_the_frame_html(view, now):
     return '<p class="update-cta__on">%s</p>' % line
 
 
-def _cta_card_html(ctx, view, releases, next_wake_text, wake_held=False):
+def _cta_card_html(ctx, view, releases, next_wake_text, wake_held=False, summarised=False):
     tone, icon_id, headline, details, action_html = _cta_for_state(
         view, releases, ctx.now, next_wake_text, wake_held)
     details_html = "".join('<p class="update-cta__detail">%s</p>' % line for line in details)
     action_block = '<div class="update-actions">%s</div>' % action_html if action_html else ""
     # "Up to date" and "failed" already name the running release.
-    shows_running = (
+    shows_running = not summarised and (
         view.get("running_version") and tone in (_CTA_TONE_NEUTRAL, _CTA_TONE_WARN))
     return (
         '<section class="page-section update-cta update-cta--%s" aria-labelledby="update-cta-title">'
@@ -516,6 +521,64 @@ def _cta_card_html(ctx, view, releases, next_wake_text, wake_held=False):
     ) % (tone, layout.icon_html(icon_id, size=22), escape_html(i18n.t(headline)),
          details_html, action_block,
          _on_the_frame_html(view, ctx.now) if shows_running else "")
+
+
+# --- the Fleet panel's summary --------------------------------------------
+
+def _summary_chip_html(view, releases):
+    """The one state chip of the summary: what the frame is doing about an
+    update, an update on offer, or a calm "Up to date". "" when no version
+    has been reported."""
+    state = view.get("state")
+    if state in _STATES_WITH_A_TARGET_VERSION and view.get("target_version"):
+        headline, tone = {
+            "scheduled": (CTA_SCHEDULED_TEXT, "info"),
+            "in_progress": (CTA_INSTALLING_TEXT, "info"),
+            "failed": (CTA_FAILED_TEXT, "warn"),
+        }[state]
+    elif _newer_release_to_offer(view, releases) is not None:
+        headline, tone = CTA_AVAILABLE_TEXT, "info"
+    elif view.get("running_version"):
+        headline, tone = UP_TO_DATE_CHIP_TEXT, "ok"
+    else:
+        return ""
+    return ui_components.pill_html(i18n.t(headline), tone=tone)
+
+
+def _summary_html(ctx, view, releases, model_text):
+    """What is on the frame, large: the label, the installed version in
+    monospace, when it was installed and the model, with the state chip on
+    the right. `model_text` is the model line ("" when not known)."""
+    running = next((release for release in view.get("releases") or []
+                    if release.get("running")), {})
+    meta = []
+    if running.get("installed_now_at"):
+        meta.append(_fill_html(INSTALLED_AGO_TEMPLATE, _ago_html(running["installed_now_at"], ctx.now)))
+    if model_text:
+        meta.append(escape_html(model_text))
+    if view.get("running_version"):
+        version_html = '<p class="update-sum__version">%s</p>' % _running_line_html(view)
+    else:
+        version_html = '<p class="update-sum__version">%s</p>' % escape_html(
+            i18n.t(NO_VERSION_REPORTED_TEXT))
+    meta_html = '<p class="update-sum__meta">%s</p>' % " · ".join(meta) if meta else ""
+    return (
+        '<section class="update-sum" aria-labelledby="update-sum-label">'
+        '<div class="update-sum__text"><h3 class="update-sum__label" id="update-sum-label">%s</h3>'
+        "%s%s</div>%s</section>"
+    ) % (escape_html(i18n.t(ON_THE_FRAME_LABEL_TEXT)), version_html, meta_html,
+         _summary_chip_html(view, releases))
+
+
+def _embedded_cta_html(ctx, view, releases, next_wake_text, wake_held):
+    """The card under the summary: only while something is going on (an
+    update on offer, scheduled, installing or failed); "" when the frame is
+    up to date, which the summary's chip already says."""
+    in_flight = (view.get("state") in _STATES_WITH_A_TARGET_VERSION
+                 and view.get("target_version"))
+    if not in_flight and _newer_release_to_offer(view, releases) is None:
+        return ""
+    return _cta_card_html(ctx, view, releases, next_wake_text, wake_held, summarised=True)
 
 
 # --- the version list ----------------------------------------------------
@@ -791,7 +854,8 @@ def compute_next_wake_text(ctx):
 
 
 def update_parts(
-        ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False):
+        ctx, view, next_wake_text, wake_held=False, type_choice=None, embedded=False,
+        model_text=""):
     """(device section html, versions section html, summary) of the page: the
     type chooser, the rollback warning and the call-to-action card, then the
     Versions card. `summary` is (running version or None, number of releases
@@ -804,9 +868,12 @@ def update_parts(
             view = dict(view, type_field_html=_type_field_html(type_choice.selected))
         if type_choice.chooser:
             chooser_html = _type_chooser_html(type_choice)
-    device_html = (
-        chooser_html + _rollback_banner_html(view)
-        + _cta_card_html(ctx, view, releases, next_wake_text, wake_held))
+    if embedded:
+        cards_html = _summary_html(ctx, view, releases, model_text) + _embedded_cta_html(
+            ctx, view, releases, next_wake_text, wake_held)
+    else:
+        cards_html = _cta_card_html(ctx, view, releases, next_wake_text, wake_held)
+    device_html = chooser_html + _rollback_banner_html(view) + cards_html
     return (
         device_html, _versions_card_html(ctx, view, releases, embedded),
         (view.get("running_version"), len(releases)))
@@ -834,7 +901,7 @@ def update_page(
         device_html + versions_html)
 
 
-def _loaded_parts(ctx, requested_type, embedded):
+def _loaded_parts(ctx, requested_type, embedded, model_text=""):
     ctx = page_context.coerce(ctx)
     state_dir = ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
@@ -843,13 +910,14 @@ def _loaded_parts(ctx, requested_type, embedded):
     registry = firmware_registry.load_registry(state_dir, choice.selected)
     view = firmware_registry.update_view(registry, device_report, now)
     next_wake_text, wake_held = compute_next_wake_text(ctx)
-    return update_parts(ctx, view, next_wake_text, wake_held, choice, embedded)
+    return update_parts(ctx, view, next_wake_text, wake_held, choice, embedded, model_text)
 
 
-def render_parts(ctx, requested_type=None):
+def render_parts(ctx, requested_type=None, model_text=""):
     """The embedded page as (device html, versions html, summary): the Fleet
-    page places the device card and the version history in one section."""
-    return _loaded_parts(ctx, requested_type, True)
+    page places the summary, the update card and the version history in one
+    section. `model_text` is the model line the summary shows."""
+    return _loaded_parts(ctx, requested_type, True, model_text)
 
 
 def render(ctx, requested_type=None, embedded=False):

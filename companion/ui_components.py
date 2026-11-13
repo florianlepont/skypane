@@ -439,10 +439,15 @@ def text_field_html(field_id, name, label, value="", help_text="", error_html=""
         escape_html(name), escape_html(value), input_attrs, error_html, help_html)
 
 
-def pill_html(text):
+PILL_TONES = ("ok", "info", "warn")
+
+
+def pill_html(text, tone=None):
     """The one small badge: a neutral pill beside a title or inside a row (a
-    status, a count, an outcome). `text` is escaped here."""
-    return '<span class="banner__pill">%s</span>' % escape_html(text)
+    status, a count, an outcome). `tone` (one of `PILL_TONES`) tints it with a
+    status colour; any other value leaves it neutral. `text` is escaped here."""
+    tone_class = " banner__pill--%s" % tone if tone in PILL_TONES else ""
+    return '<span class="banner__pill%s">%s</span>' % (tone_class, escape_html(text))
 
 
 def form_switch_html(field_id, name, label, checked=False, attrs=""):

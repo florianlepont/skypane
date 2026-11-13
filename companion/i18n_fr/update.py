@@ -29,6 +29,8 @@ MESSAGES = {
     "update.scheduled": "Planifiée",
     "update.in_progress": "En cours",
 
+    "update.on_the_frame": "Sur le cadre",
+    "update.up_to_date": "À jour",
     "update.cta_up_to_date": "Le cadre est à jour",
     "update.cta_available": "Mise à jour disponible",
     "update.cta_scheduled": "Mise à jour planifiée",

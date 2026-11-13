@@ -172,6 +172,9 @@ _M_STATE_TABLE = i18n.msg("components.state_table", "Table")
 _M_STATE_TABLE_LONG = i18n.msg("components.state_table_long", "Table, long text")
 _M_STATE_TABLE_EMPTY = i18n.msg("components.state_table_empty", "Table, empty")
 _M_STATE_PILL = i18n.msg("components.state_pill", "Pill")
+_M_STATE_PILL_TONES = i18n.msg("components.state_pill_tones", "Pill, status tones")
+_SAMPLE_PILL_INFO = i18n.msg("components.sample_pill_info", "Update available")
+_SAMPLE_PILL_WARN = i18n.msg("components.sample_pill_warn", "Install failed")
 _M_STATE_DOTS = i18n.msg("components.state_dots", "Status dots")
 _M_STATE_CHARGING = i18n.msg("components.state_charging", "Charging pill")
 _M_STATE_TOASTS = i18n.msg("components.state_toasts", "Toasts by tone")
@@ -555,6 +558,11 @@ def _badges():
     return [
         State(_M_STATE_PILL,
               ui_components.pill_html(_t(_SAMPLE_PILL))),
+        State(_M_STATE_PILL_TONES, "".join(
+            ui_components.pill_html(_t(label), tone=tone)
+            for tone, label in (
+                ("ok", _SAMPLE_PILL), ("info", _SAMPLE_PILL_INFO),
+                ("warn", _SAMPLE_PILL_WARN)))),
         State(_M_STATE_DOTS, dots),
         State(_M_STATE_CHARGING,
               ui_components.battery_charging_pill_html()),
