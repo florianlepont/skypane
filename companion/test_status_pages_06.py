@@ -508,8 +508,9 @@ def test_gap_row_markup_shape_and_form_vocabulary():
     assert 'list="airlines-known-names"' in field and "required" in field
     assert 'aria-label="Airline name for the prefix XYZ"' in field
     assert '<select name="default_type" aria-label="Default aircraft type for XYZ">' in group_html
-    assert '<button type="submit" class="airlines-resolve__ok">Validate</button>' in group_html
-    assert '<button type="reset" class="airlines-resolve__skip">Ignore</button>' in group_html
+    # Validate and Ignore are the shared buttons: a primary submit and a bordered reset.
+    assert '<button type="submit" class="btn btn--primary">Validate</button>' in group_html
+    assert '<button type="reset" class="btn btn--secondary">Ignore</button>' in group_html
     assert '<span class="mono">XYZ123</span>' in group_html
 
 
