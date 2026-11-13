@@ -155,8 +155,9 @@ def test_the_sheet_holds_the_other_rows_and_the_account_row_names_the_person(
     context, page = _open(new_context, app, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
         _open_sheet(page)
-        links = page.locator(".tab-bar__more-panel a")
-        assert [links.nth(i).inner_text() for i in range(links.count())] == [
+        assert page.eval_on_selector_all(
+            ".tab-bar__more-panel a",
+            "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == [
             "Account", "My frame"]
         shown = page.locator(".tab-bar__account").evaluate(
             "el => getComputedStyle(el, '::after').content")
@@ -279,8 +280,9 @@ def test_a_personal_page_sheet_starts_with_account_and_lists_no_page_rows(new_co
         assert order["firstChild"] == "tab-bar__settings", order
         assert order["labels"] == [] and order["separator"] is None, order
         assert order["account"] < order["theme"] < order["language"] < order["signOut"], order
-        links = page.locator(".tab-bar__more-panel a")
-        assert [links.nth(i).inner_text() for i in range(links.count())] == ["Account", "Console"]
+        assert page.eval_on_selector_all(
+            ".tab-bar__more-panel a",
+            "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == ["Account", "Console"]
     finally:
         context.close()
 

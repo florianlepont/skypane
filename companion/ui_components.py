@@ -406,6 +406,25 @@ def icon_link_html(icon_id, aria_label, href, variant="ghost", attrs=""):
     ) % (variant, escape_html(href), escape_html(aria_label), attrs, icon_html(icon_id, 20))
 
 
+def link_card_html(href, icon_id, title, subtitle="", aria_label="", extra_class=""):
+    """The highlighted link card: one tinted, accent-bordered link across its
+    whole width with an accent icon tile, a title, an optional subtitle that
+    wraps instead of being cut, and an accent chevron. For the one destination
+    a surface wants to stand out from its plain rows. `href`, `title`,
+    `subtitle` and `aria_label` are escaped here; `extra_class` is trusted."""
+    css = "link-card" + (" " + extra_class if extra_class else "")
+    label = ' aria-label="%s"' % escape_html(aria_label) if aria_label else ""
+    sub = ('<span class="link-card__subtitle">%s</span>' % escape_html(subtitle)
+           if subtitle else "")
+    return (
+        '<a class="%s" href="%s"%s>'
+        '<span class="link-card__icon">%s</span>'
+        '<span class="link-card__text"><span class="link-card__title">%s</span>%s</span>'
+        '<span class="link-card__chevron">%s</span></a>'
+    ) % (css, escape_html(href), label, icon_html(icon_id, 22), escape_html(title), sub,
+         icon_html("icon-chevron-right", 20))
+
+
 def title_action_html(title, action_html=""):
     """A page title with one round icon action beside it, on one line: the
     `<h1>` (escaped here) and the caller's already-safe `action_html`, such as

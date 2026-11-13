@@ -14,7 +14,7 @@ import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
 from companion import ui_segmented
-from companion.ui_components import csrf_field
+from companion.ui_components import csrf_field, link_card_html
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
     AIRLINES_ROUTE,
@@ -93,6 +93,7 @@ _CONSOLE_BAR_LABELS = {
     "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
 _PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
+_CONSOLE_SUBTITLE = i18n.msg("nav.console_subtitle", "Fleet, users, audit")
 _SWITCH_TO_PERSONAL_TEXT = i18n.msg(
     "nav.switch_to_personal", "Switch to your own frame pages")
 _SWITCH_TO_CONSOLE_TEXT = i18n.msg(
@@ -225,13 +226,11 @@ def _switch_row_html(space):
     if target is None:
         return ""
     href, label, aria = target
-    icon_id = "icon-device" if space == CONSOLE_SPACE else "icon-shield"
-    return (
-        '<a class="mobile-nav__link tab-bar__nav-link tab-bar__space-link" '
-        'href="%s" aria-label="%s">%s<span>%s</span></a>' % (
-            escape_html(href), escape_html(i18n.t(aria)),
-            icon_html(icon_id, extra_class="tab-bar__nav-icon"),
-            escape_html(i18n.t(label))))
+    to_console = space != CONSOLE_SPACE
+    return link_card_html(
+        href, "icon-shield" if to_console else "icon-device", i18n.t(label),
+        i18n.t(_CONSOLE_SUBTITLE) if to_console else "", i18n.t(aria),
+        "tab-bar__space-link")
 
 
 def ui_theme_from_cookie(cookies):

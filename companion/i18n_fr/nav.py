@@ -46,6 +46,7 @@ MESSAGES = {
     "nav.users_short": "Équipe",
     "nav.my_frame": "Mon cadre",
     "nav.console": "Console",
+    "nav.console_subtitle": "Flotte, utilisateurs, audit",
     "nav.space": "Espace",
     "nav.switch_to_personal": "Passer aux pages de votre cadre",
     "nav.switch_to_console": "Passer à la console d’administration",
