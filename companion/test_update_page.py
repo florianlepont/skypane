@@ -731,9 +731,8 @@ def test_console_sidebar_holds_fleet_users_editor_and_audit_and_no_per_frame_ent
 
 
 def test_tab_bar_more_sheets_list_the_overflow_destinations():
-    """the personal More sheet holds the airline collection and Account, the Console More sheet
-    holds only Account (the space switch aside); the personal bar has four destination
-    cells and the Console bar four of its own"""
+    """the personal More sheet holds Account alone (the space switch aside), as does the Console
+    More sheet; the personal bar has five destination cells and the Console bar four of its own"""
     device_cfg = {"display_enabled": True, "quiet_hours_enabled": False}
     doc = layout.page_shell(
         title="T", active="flights", body="<p>b</p>", device_config=device_cfg)
@@ -742,10 +741,11 @@ def test_tab_bar_more_sheets_list_the_overflow_destinations():
     sheet_start = bar.index('<div class="tab-bar__more-panel">')
     sheet = bar[sheet_start:]
     sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
-    assert sheet_links == [layout.AIRLINES_ROUTE, layout.ACCOUNT_ROUTE]
+    assert sheet_links == [layout.ACCOUNT_ROUTE]
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
     assert tab_links == [
-        layout.HOME_ROUTE, layout.FLIGHTS_ROUTE, "/detection", layout.DISPLAY_ROUTE]
+        layout.HOME_ROUTE, layout.FLIGHTS_ROUTE, layout.AIRLINES_ROUTE, layout.DISPLAY_ROUTE,
+        "/detection"]
 
     console = layout.page_shell(
         title="T", active="fleet", body="<p>b</p>", device_config=device_cfg)

@@ -87,7 +87,7 @@ def _get(server, who, path, lang="en"):
 def _strip_switch_and_notice(markup):
     markup = re.sub(r'<nav class="space-switch".*?</nav>', "", markup, flags=re.S)
     markup = re.sub(
-        r'<a class="[^"]*tab-bar__link--switch[^"]*"[^>]*>.*?</a>', "", markup, flags=re.S)
+        r'<a class="[^"]*tab-bar__space-link[^"]*"[^>]*>.*?</a>', "", markup, flags=re.S)
     markup = re.sub(
         r'<div class="[^"]*frame-notice[^"]*".*?</div>', "", markup, flags=re.S)
     return markup

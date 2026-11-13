@@ -107,10 +107,10 @@ _NAV_LABEL_FLIGHTS = i18n.msg("nav.flight_history", "Flight history")
 _NAV_LABEL_DETECTION = i18n.msg("nav.detection", "Location and detection")
 _NAV_LABEL_AIRLINES = i18n.msg("nav.airline_collection", "Airlines")
 # The short forms the phone tab bar uses where the full label would not fit
-# one of five equal cells.
+# one of six equal cells.
 NAV_SHORT_LABELS = {
-    "flights": i18n.msg("nav.flights_short", "History"),
-    "detection": i18n.msg("nav.detection_short", "Location"),
+    "flights": i18n.msg("nav.flights_short", "Flights"),
+    "detection": i18n.msg("nav.detection_short", "Place"),
 }
 # The Console-only destination for editing airlines.
 AIRLINE_EDITOR_ROUTE = "/airlines/manage"

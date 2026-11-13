@@ -213,13 +213,6 @@
 .time-value__age {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
-@media (max-width: 959.98px) {
-
-  .tab-bar__pages .mobile-nav__link--active .tab-bar__nav-icon {
-    background: var(--color-accent);
-    color: var(--color-dominant);
-  }
-}
 
 
 details.row-menu {

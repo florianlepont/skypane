@@ -398,8 +398,8 @@ _OVERFLOW_PROBE = (
 def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         new_context, server, viewport, lang):
     """At 375px and 390px, in English and French: the Console tab bar's More
-    sheet on the Releases page holds exactly the Account row (every Console page is
-    in the bar), with a measured hit box
+    sheet on the Releases page holds exactly the Account row and the switch back to
+    the personal space (every Console page is in the bar), with a measured hit box
     at least 44px tall, no wrapping or truncated text, the "More" summary
     cell's own box unchanged from another tab-bar cell's, and the header
     dropdown's preferences panel gains no /update link.
@@ -420,8 +420,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
 
         links = page.locator(_MORE_SHEET_LINK_SELECTOR)
         count = links.count()
-        assert count == 1, (
-            "expected exactly 1 link (Account) in "
+        assert count == 2, (
+            "expected exactly 2 links (Account, the space switch) in "
             "the More sheet at %dpx/%s, got %d" % (viewport["width"], lang, count))
 
         heights = []
@@ -429,8 +429,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
             # :nth-of-type (1-based), not Playwright's ">> nth=" chaining
             # syntax -- _assert_hit_target()'s underlying _hit_area() runs
             # this selector through document.querySelector() directly.
-            # The Account row is in the settings block; the Console has no page rows.
-            selector = ".tab-bar__links a.mobile-nav__link"
+            # The Account row and the space switch row are in the settings block.
+            selector = ".tab-bar__links a.mobile-nav__link:nth-child(%d)" % (index + 1)
             seen = _assert_hit_target(
                 page, selector,
                 "More sheet link %d at %dpx/%s" % (index, viewport["width"], lang))

@@ -1,9 +1,8 @@
 """Real-browser proof of the Console / My frame switch. Desktop: the two-segment
 switch at the top of the sidebar, both segments 44px high and hit-testable, the
 current one marked by aria-current and a different fill, no wrapping and no
-horizontal overflow. Phone: the first cell of the tab bar, naming the space it
-leads to, set apart by an accent outline and a divider, at least 44px, legible
-at 360 px. Both in English and French, light and dark; one tap moves between
+horizontal overflow. Phone: a row of the More panel beside Account, naming the
+space it leads to, at least 44px, legible at 360 px. Both in English and French, light and dark; one tap moves between
 the spaces; a user never sees it."""
 import time
 import pytest
@@ -33,42 +32,39 @@ _VIEWPORTS = (("phone", VIEWPORT_MIN_SUPPORTED), ("desktop", VIEWPORT_DESKTOP))
 _DESKTOP = (("desktop", VIEWPORT_DESKTOP),)
 _OTHER_SPACE = {"console": {"en": "My frame", "fr": "Mon cadre"}, "personal": {"en": "Console", "fr": "Console"}}
 _BAR_SWITCH = (
-    "() => { const a = document.querySelector('.tab-bar > .tab-bar__link--switch');"
-    " if (!a) return null; const all = [...document.querySelectorAll('.tab-bar > a, .tab-bar > details')];"
-    " const b = a.getBoundingClientRect(); const label = a.querySelector('.tab-bar__label');"
-    " const pill = a.querySelector('.tab-bar__pill');"
+    "() => { const a = document.querySelector('.tab-bar__more-panel .tab-bar__space-link');"
+    " if (!a) return null; const links = [...document.querySelectorAll('.tab-bar__more-panel a')];"
+    " const b = a.getBoundingClientRect(); const label = a.querySelector('span');"
     " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
     " const range = document.createRange(); range.selectNodeContents(label);"
-    " return {first: all[0] === a, text: label.textContent.trim(), w: b.width, h: b.height,"
-    " left: b.left, hit: !!hit && a.contains(hit), href: a.getAttribute('href'),"
-    " dividerPx: parseFloat(getComputedStyle(a).borderRightWidth),"
-    " pillBorder: getComputedStyle(pill).borderTopColor,"
-    " pillBorderPx: parseFloat(getComputedStyle(pill).borderTopWidth),"
-    " color: getComputedStyle(a).color, sw: label.scrollWidth, cw: label.clientWidth,"
+    " return {second: links[1] === a, text: label.textContent.trim(), w: b.width, h: b.height,"
+    " left: b.left, right: b.right, hit: !!hit && a.contains(hit), href: a.getAttribute('href'),"
+    " sw: label.scrollWidth, cw: label.clientWidth,"
     " lines: new Set([...range.getClientRects()].map(r => Math.round(r.top))).size,"
-    " icon: !!a.querySelector('svg'),"
+    " icon: !!a.querySelector('svg'), aria: a.getAttribute('aria-label'),"
     " big: !!document.querySelector('.space-strip'),"
-    " moreHasSwitch: !!document.querySelector('.tab-bar__more-panel .mobile-nav__link--space')}; }")
+    " inBar: !!document.querySelector('.tab-bar > .tab-bar__link--switch')}; }")
 
 
 def _check_bar_switch(page, lang, space, where):
-    """The tab bar's leading switch cell, read once it owns its centre."""
+    """The switch row of the More panel, opened and read once it owns its centre."""
+    if not page.evaluate("() => document.querySelector('.tab-bar__more').open"):
+        page.locator(".tab-bar__more > summary").click()
     page.wait_for_function(
         "() => { if (document.readyState !== 'complete') return false;"
-        " const a = document.querySelector('.tab-bar > .tab-bar__link--switch'); if (!a) return false;"
+        " const a = document.querySelector('.tab-bar__more-panel .tab-bar__space-link'); if (!a) return false;"
         " if (document.getAnimations().some((x) => x.playState === 'running' && x.effect.getComputedTiming().iterations !== Infinity)) return false;"
         " const b = a.getBoundingClientRect();"
         " const hit = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2);"
         " return !!hit && a.contains(hit); }")
     cell = page.evaluate(_BAR_SWITCH)
-    assert cell["first"], (where, cell)
+    assert cell["second"], (where, cell)
     assert cell["text"] == _OTHER_SPACE[space][lang], (where, cell)
     assert cell["h"] >= MIN_TAP_PX and cell["w"] >= MIN_TAP_PX, (where, cell)
-    assert cell["hit"] and cell["icon"], (where, cell)
+    assert cell["hit"] and cell["icon"] and cell["aria"], (where, cell)
     assert cell["sw"] <= cell["cw"] and cell["lines"] <= 1, (where, cell)
-    assert cell["pillBorderPx"] >= 1, (where, cell)
-    assert cell["pillBorder"] == cell["color"], (where, cell)
-    assert not cell["big"] and not cell["moreHasSwitch"], (where, cell)
+    assert cell["left"] >= 0 and cell["right"] <= page.viewport_size["width"], (where, cell)
+    assert not cell["big"] and not cell["inBar"], (where, cell)
     assert not _assert_no_page_overflow(page, where, page.viewport_size["width"])
     return cell
 _LABELS = {"en": ("Console", "My frame"), "fr": ("Console", "Mon cadre")}
@@ -142,7 +138,7 @@ def test_the_sidebar_switch_shows_both_spaces_and_marks_the_current_one(
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("space", ["console", "personal"])
-def test_the_phone_tab_bar_leads_with_the_switch_to_the_other_space(
+def test_the_phone_more_panel_holds_the_switch_to_the_other_space(
         new_context, app_server_in_process, space, lang, scheme):
     path = "/fleet" if space == "console" else _own_frame_home
     context, page = _admin_page(
@@ -153,7 +149,7 @@ def test_the_phone_tab_bar_leads_with_the_switch_to_the_other_space(
         assert cell["href"] == ("/" if space == "console" else "/fleet"), cell
         assert page.locator(".space-switch:visible").count() == 0
         assert page.locator("header.site-header").bounding_box()["height"] <= 56
-        _assert_bar(page, 6, where)
+        _assert_bar(page, 6 if space == "personal" else 5, where)
     finally:
         context.close()
 
@@ -181,18 +177,20 @@ def test_one_tap_on_the_sidebar_switch_moves_between_the_two_spaces(
         context.close()
 
 
-def test_one_tap_on_the_tab_bar_switch_moves_between_the_two_spaces(
+def test_one_tap_on_the_more_panel_switch_moves_between_the_two_spaces(
         new_context, app_server_in_process):
-    """The cell is a plain link to the other space."""
+    """The row is a plain link to the other space."""
     context, page = _admin_page(
         new_context, app_server_in_process, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
         _check_bar_switch(page, "en", "console", "console/phone")
-        page.locator(".tab-bar > .tab-bar__link--switch").click()
+        page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => !location.pathname.endsWith('/fleet')")
+        page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
         _check_bar_switch(page, "en", "personal", "personal/phone")
-        page.locator(".tab-bar > .tab-bar__link--switch").click()
+        page.locator(".tab-bar__space-link").click()
         page.wait_for_function("() => location.pathname === '/fleet'")
+        page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
         _check_bar_switch(page, "en", "console", "console/phone-again")
     finally:
         context.close()
@@ -209,7 +207,7 @@ def test_a_user_never_sees_the_switch(
                       else app_server_in_process.base_url() + path)
             page.locator("main").wait_for(state="visible")
         assert page.locator(".space-switch").count() == 0
-        assert page.locator(".tab-bar__link--switch").count() == 0
+        assert page.locator(".tab-bar__link--switch, .tab-bar__space-link").count() == 0
         assert page.locator(".space-strip").count() == 0
     finally:
         context.close()

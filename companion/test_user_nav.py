@@ -99,8 +99,9 @@ def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
     prefix = "/devices/abc123"
     cells, sheet = bar.split('<div class="tab-bar__more-panel">')
     assert _hrefs(cells) == [
-        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display"]
-    assert _hrefs(sheet) == [prefix + "/airlines", "/account"]
+        prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
+        prefix + "/detection"]
+    assert _hrefs(sheet) == ["/account"]
     assert 'aria-current="page"' in bar
     for label in ADMIN_ONLY_LABELS:
         assert label not in bar
