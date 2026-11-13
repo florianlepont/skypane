@@ -15,7 +15,7 @@ MESSAGES = {
     "components.close": "Fermer",
     "components.open_dialog": "Ouvrir la boîte de dialogue",
     "components.sample_choice_title": "Modifications non enregistrées",
-    "components.sample_choice_text": "Tu as des modifications non enregistrées. Que veux-tu faire\u00a0?",
+    "components.sample_choice_text": "Vous avez des modifications non enregistrées. Que souhaitez-vous faire\u00a0?",
     "components.sample_choice_primary": "Enregistrer et continuer",
     "components.sample_choice_secondary": "Abandonner",
     "components.sample_choice_quiet": "Rester ici",

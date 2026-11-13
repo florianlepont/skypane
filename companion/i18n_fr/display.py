@@ -182,7 +182,7 @@ MESSAGES = {
     "display.saving": "Enregistrement…",
     "display.unsaved_changes": "Modifications non enregistrées",
     "display.leave_title": "Modifications non enregistrées",
-    "display.leave_text": "Tu as des modifications non enregistrées. Que veux-tu faire\u00a0?",
+    "display.leave_text": "Vous avez des modifications non enregistrées. Que souhaitez-vous faire\u00a0?",
     "display.leave_save": "Enregistrer et continuer",
     "display.leave_discard": "Abandonner",
     "display.leave_stay": "Rester ici",

@@ -31,7 +31,7 @@ WORDS = {
     "en": ("Unsaved changes", "You have changes that are not saved. What do you want to do?",
            "Save and continue", "Discard", "Stay here"),
     "fr": ("Modifications non enregistrées",
-           "Tu as des modifications non enregistrées. Que veux-tu faire\u00a0?",
+           "Vous avez des modifications non enregistrées. Que souhaitez-vous faire\u00a0?",
            "Enregistrer et continuer", "Abandonner", "Rester ici"),
 }
 CASES = [(name, viewport, lang)

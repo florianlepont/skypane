@@ -34,7 +34,7 @@ WORDS = {
     "en": ("Unsaved changes", "You have changes that are not saved. What do you want to do?",
            "Save and continue", "Discard", "Stay here"),
     "fr": ("Modifications non enregistrées",
-           "Tu as des modifications non enregistrées. Que veux-tu faire ?",
+           "Vous avez des modifications non enregistrées. Que souhaitez-vous faire ?",
            "Enregistrer et continuer", "Abandonner", "Rester ici"),
 }
 SETTLED = (
