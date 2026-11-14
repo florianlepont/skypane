@@ -78,9 +78,18 @@ def _read_all(state_dir):
         conn.close()
 
 
-def _percent(millivolts):
+def _percent(millivolts, curve=None):
+    """Battery percent of `millivolts` on `curve` (None: the legacy curve)."""
     from companion import battery
-    return None if millivolts is None else battery.battery_percent(millivolts)
+    return None if millivolts is None else battery.percent(millivolts, curve)
+
+
+def _stored_type_curve(key):
+    """The discharge curve of the stored hardware type `key`, read from the
+    registry whatever the production switch says, so a pending frame of a
+    hidden type still shows its own curve. An unknown type reads as legacy."""
+    profile = hardware.REGISTRY.get(key) if isinstance(key, str) else None
+    return None if profile is None else profile.battery.curve
 
 
 def _hardware_label(key):
@@ -100,6 +109,8 @@ def frame_signals(device, now_iso):
 
 
 def _device_rows(state_dir, device_rows, now):
+    # Imported on use: page_context loads modules that import this one.
+    from companion import page_context
     by_id = {str(row["id"]): row for row in device_rows}
     rows = []
     for device in device_scope.load_devices(state_dir):
@@ -115,7 +126,8 @@ def _device_rows(state_dir, device_rows, now):
             hardware=_hardware_label(device.hardware_type),
             last_seen=device_scope.last_check_in_epoch(device.state_dir),
             battery_percent=0 if critical else _percent(
-                state_store.load_battery_state(device.state_dir)),
+                state_store.load_battery_state(device.state_dir),
+                page_context.device_curve(device)),
             is_live_frame=device.state_path == device_dirs.LIVE_STATE_PATH,
             offline=status == device_scope.STATUS_OFFLINE,
             state=state, screen_off=screen_off))
@@ -139,7 +151,8 @@ def _pending_rows(pending_rows, emails):
             previous_owner=retired,
             hardware=_hardware_label(str(row["hardware_type"])),
             last_seen=row["last_seen_at"],
-            battery_percent=_percent(row["battery_mv"]),
+            battery_percent=_percent(
+                row["battery_mv"], _stored_type_curve(str(row["hardware_type"]))),
             is_live_frame=False, offline=False))
     return rows
 
