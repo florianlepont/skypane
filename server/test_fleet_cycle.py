@@ -197,7 +197,7 @@ def test_state_dirs_never_come_from_unvalidated_paths(fleet, tmp_path):
 import shutil
 import threading
 
-from server import poll_cycle, request_budget, state_store, zone_fetch
+from server import firmware_registry, poll_cycle, request_budget, state_store, zone_fetch
 from server.plane import detect
 
 GEOFENCE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -821,3 +821,65 @@ def test_load_fleet_reads_each_devices_own_location(fleet, tmp_path):
     assert by_id[fleet.dev_a.id].location == (48.8566, 2.3522)
     assert by_id[fleet.dev_b.id].location is None
     assert by_id[fleet.live.id].location != by_id[fleet.dev_a.id].location
+
+
+# --- type-level firmware reconcile -------------------------------------------
+
+
+def _seed_second_type(root):
+    import hashlib
+    key = hardware.SIM_CLONE_KEY
+    sha = hashlib.sha256(b"img").hexdigest()
+    doc = firmware_registry._default_registry(key)
+    doc["releases"] = [{
+        "version": "fw-v1.1.0", "sha256": sha, "size": 3, "released_at": "d",
+        "published_at": "2026-09-28T12:00:00+00:00", "commit": "a" * 40, "notes": [],
+        "bench": False, "installed_at": [],
+    }]
+    doc["schedule"] = {
+        "id": "sid-b", "version": "fw-v1.1.0", "sha256": sha,
+        "scheduled_at": "2026-09-28T12:00:00+00:00", "state": "scheduled",
+        "attempts": 0, "failed_at": None, "last_result": None,
+    }
+    with firmware_registry.registry_lock(root):
+        firmware_registry._save_registry(root, doc, key)
+    report = {"schema": 1, "next_seq": 2, "devices": {"b": {
+        "fw_version": "fw-v1.0.0", "reported_at": "2026-09-28T12:00:00+00:00",
+        "hardware_type": key, "events": [{
+            "seq": 1, "at": "2026-09-28T12:00:00+00:00", "kind": "result",
+            "schedule_id": "sid-b", "token": "installed", "version": "fw-v1.1.0"}]}}}
+    with open(firmware_registry.device_report_path(root), "w") as fh:
+        json.dump(report, fh)
+    return key
+
+
+def test_run_fleet_records_second_type_result_even_when_the_live_cycle_raises(monkeypatch, tmp_path):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    root = _fleet(monkeypatch, tmp_path, [])
+    key = _seed_second_type(root)
+
+    def boom(**kwargs):
+        raise poll_cycle.PollBusy("live", 1.0)
+
+    rec = Recorder()
+    fleet_cycle.run_fleet(
+        root, GEOFENCE, "caddy.log", ledger=FakeLedger(), runner=boom,
+        fetcher=rec.fetcher, route_transport="transport", environ={},
+        resolver=_resolver({}))
+    doc = firmware_registry.load_registry(root, key)
+    assert doc["last_outcome"]["kind"] == "installed"
+    assert doc["releases"][0]["installed_at"]
+
+
+def test_run_fleet_reconcile_error_never_breaks_polling(monkeypatch, tmp_path, capsys):
+    root = _fleet(monkeypatch, tmp_path, ["a"])
+
+    def boom(state_dir, now=None):
+        raise RuntimeError("secret-detail")
+
+    monkeypatch.setattr(firmware_registry, "apply_reconcile_other_types", boom)
+    rec = Recorder()
+    _run(root, rec)
+    assert len(rec.runs) == 2
+    err = capsys.readouterr().err
+    assert "RuntimeError" in err and "secret-detail" not in err

@@ -250,3 +250,122 @@ def test_reconcile_can_be_skipped_for_a_per_device_directory(tmp_path):
     _save_cfg(reconciled, _DISPLAY_OFF)
     poll_cycle.run_once(state_dir=reconciled)
     assert os.path.isdir(os.path.join(reconciled, "firmware"))
+
+
+# --- type-level reconcile independent of the live cycle -----------------------
+
+
+def _seed_type_registry(state, key, schedule_id="sid-b"):
+    sha = hashlib.sha256(b"img").hexdigest()
+    doc = firmware_registry._default_registry(key)
+    doc["releases"] = [{
+        "version": NEXT_VERSION, "sha256": sha, "size": 3, "released_at": "d",
+        "published_at": NOW, "commit": "a" * 40, "notes": [], "bench": False,
+        "installed_at": [],
+    }]
+    doc["schedule"] = {
+        "id": schedule_id, "version": NEXT_VERSION, "sha256": sha, "scheduled_at": NOW,
+        "state": "scheduled", "attempts": 0, "failed_at": None, "last_result": None,
+    }
+    with firmware_registry.registry_lock(state):
+        firmware_registry._save_registry(state, doc, key)
+
+
+def _report_for(state, key, tokens, schedule_id="sid-b"):
+    events = [
+        {"seq": i + 1, "at": NOW, "kind": "result", "schedule_id": schedule_id,
+         "token": token, "version": NEXT_VERSION}
+        for i, token in enumerate(tokens)
+    ]
+    report = {"schema": 1, "next_seq": len(events) + 1, "devices": {"b": {
+        "fw_version": RUNNING_VERSION, "reported_at": NOW, "hardware_type": key,
+        "events": events}}}
+    with open(firmware_registry.device_report_path(state), "w") as fh:
+        json.dump(report, fh)
+
+
+def _read(path):
+    with open(path, "rb") as fh:
+        return fh.read()
+
+
+def test_other_types_install_is_recorded_and_legacy_bytes_are_untouched(tmp_path, monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    state, key = str(tmp_path), hardware.SIM_CLONE_KEY
+    _seed_type_registry(state, hardware.LEGACY_KEY, "sid-legacy")
+    _seed_type_registry(state, key)
+    _report_for(state, key, ["installed"])
+    legacy = firmware_registry.registry_path(state)
+    before = _read(legacy)
+
+    firmware_registry.apply_reconcile_other_types(state, NOW)
+
+    doc = firmware_registry.load_registry(state, key)
+    assert doc["last_outcome"]["kind"] == "installed"
+    assert doc["schedule"] is None
+    assert doc["releases"][0]["installed_at"]
+    assert _read(legacy) == before
+
+    typed = firmware_registry.registry_path(state, key)
+    after_first = _read(typed)
+    firmware_registry.apply_reconcile_other_types(state, NOW)
+    assert _read(typed) == after_first
+    assert _read(legacy) == before
+
+
+def test_other_types_failure_records_attempts_and_never_installs(tmp_path, monkeypatch):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    state, key = str(tmp_path), hardware.SIM_CLONE_KEY
+    _seed_type_registry(state, key)
+    _report_for(state, key, ["rollback"])
+
+    firmware_registry.apply_reconcile_other_types(state, NOW)
+
+    doc = firmware_registry.load_registry(state, key)
+    assert doc["schedule"]["attempts"] == 1
+    assert doc["last_outcome"]["kind"] == "rollback"
+    assert doc["releases"][0]["installed_at"] == []
+
+
+def test_other_types_closed_switch_and_missing_file_touch_nothing(tmp_path, monkeypatch):
+    state, key = str(tmp_path), hardware.SIM_CLONE_KEY
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    _seed_type_registry(state, key)
+    _report_for(state, key, ["installed"])
+    typed = firmware_registry.registry_path(state, key)
+    before = _read(typed)
+
+    monkeypatch.delenv(hardware.SIM_ENV_VAR)
+    monkeypatch.delenv(hardware.SECOND_ENV_VAR, raising=False)
+    firmware_registry.apply_reconcile_other_types(state, NOW)
+    assert _read(typed) == before
+
+    os.remove(typed)
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    firmware_registry.apply_reconcile_other_types(state, NOW)
+    assert not os.path.exists(typed)
+
+
+def test_other_types_one_failure_is_logged_by_type_only_and_others_continue(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
+    state = str(tmp_path)
+    keys = [k for k in hardware.available_types() if k != hardware.LEGACY_KEY]
+    assert len(keys) >= 2
+    for key in keys:
+        _seed_type_registry(state, key)
+    real = firmware_registry.apply_reconcile
+    called = []
+
+    def flaky(state_dir, now=None, hardware_type=hardware.LEGACY_KEY):
+        called.append(hardware_type)
+        if hardware_type == keys[0]:
+            raise RuntimeError("secret-detail aa:bb:cc")
+        return real(state_dir, now, hardware_type)
+
+    monkeypatch.setattr(firmware_registry, "apply_reconcile", flaky)
+    firmware_registry.apply_reconcile_other_types(state, NOW)
+
+    assert called == keys
+    err = capsys.readouterr().err
+    assert keys[0] in err
+    assert "RuntimeError" not in err and "secret-detail" not in err and "aa:bb" not in err
