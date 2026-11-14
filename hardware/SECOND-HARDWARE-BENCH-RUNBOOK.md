@@ -204,6 +204,11 @@ print(fleet_ops.claim_pairing_code(conn, state, "<code shown on the panel>", int
 EOF
 ```
 
+Type the real code in place of the placeholder. A refusal (`pairing code not accepted`) is
+the same for a wrong code, an expired one and a replaced one, so it does not say which:
+check the pending list (`devices pending-list`), wait for the panel to redraw if the frame
+was just re-registered, and read the code again. Claim attempts that fail are limited.
+
 Retire and re-activate with the ids that the commands print (`d_...` for a claimed
 frame, `p_...` for a pending or retired one). Stop the bench server first, as these two
 commands wipe a directory without the busy guard that the console has:
