@@ -8,7 +8,7 @@ target_milestone: v1.4
 scope: medium
 ---
 
-# SEED-014: A proper enclosure for the back of the frame
+# SEED-014: Enclosure for the back of the frame and admin tool for initial setup and flashing
 
 ## Why This Matters
 
@@ -48,6 +48,30 @@ design, prototypes and tests, not code. Points to settle at milestone start:
 - **Identity:** a place for a label with the device identifier or a code for
   pairing (the pairing by code exists since Phase 55).
 
+**Admin tool for initial setup and flashing** (added by the owner on
+2026-11-14). The milestone also covers a tool for the administrator (the owner)
+that makes preparing a new frame quick and repeatable. Today this is several
+manual steps: build or pick the firmware (`firmware/build.sh`), flash it over
+USB (`firmware/flash.sh`), write the per-device enrolment secret, Wi-Fi and
+server address into the secret partition (`firmware/provision.sh`), then
+register the device on the server (`stub-server/fleet_cli.py devices
+register-pending --mac M --secret-sha256 H`). The tool should chain them in one
+command or one small screen on the owner's machine:
+
+- pick the hardware type (EE02 or EE04) and the firmware version;
+- flash, provision and register in one go, with the secret generated locally and
+  never written in clear text to the repository or the logs;
+- check first contact: the frame reaches the server and shows its pairing code;
+- print or export the identity label (device identifier and pairing code or QR)
+  for the enclosure (see Identity above);
+- optionally prepare several frames in a row (a small batch).
+
+The first image of a board is always cable-flashed (`firmware/SIGNING.md`);
+later updates go over the air. It is tooling for the owner, not a customer
+feature, and it feeds the production section of SEED-015. It also relates to the
+Wi-Fi setup of v1.3 (SEED-013, item 6): the tool may still write a first
+network, which the frame can later change without a cable.
+
 ## Breadcrumbs
 
 - `hardware/BOM.md` (bill of materials; the enclosure is listed as not included)
@@ -55,6 +79,8 @@ design, prototypes and tests, not code. Points to settle at milestone start:
 - `hardware/BRINGUP-LOG.md` (how the first frame was assembled)
 - `hardware/BATTERY-MODEL.md` (battery and autonomy figures)
 - `firmware/provision.sh` (provisioning needs access to the serial port)
+- `firmware/build.sh`, `firmware/flash.sh`, `firmware/SIGNING.md` (build, flash, first-image rule)
+- `stub-server/fleet_cli.py`, `stub-server/devices_cli.py` (device registration on the server)
 
 ## Notes
 
