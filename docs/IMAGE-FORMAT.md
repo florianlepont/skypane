@@ -128,17 +128,37 @@ The Python decoder tests and the C host tests read the same files. The
 full-size 1200x1600 image is not committed; the manifest carries its payload
 CRC-32 and the SHA-256 of the whole container for both sides to compare.
 
-## Adoption notes for the firmware release that wires the reader
+## Firmware adoption (as built)
 
-Nothing in this change is wired into the device firmware, built for release,
-published or flashed. The pure C reader and its host test exist only. When a
-firmware release adopts it:
+The reader is linked into the device firmware and runs on every download.
+Nothing here has been published or flashed yet; it ships with the next
+signed firmware release.
 
-- The download buffer and the length gate in `api_client.c` (currently exactly
-  `FP_IMAGE_BYTES`) must grow by `header_len` (24 bytes for v1, more when a
-  future extension is announced).
-- The SHA-256 covers the whole body, header included, so the hash is computed
-  over everything received, not just the payload.
-- The frame sends `X-Img-Fmt` on the display poll only when it carries the
-  reader, then validates with the reader before any display buffer access.
-- A frame that switches format sees one extra full refresh.
+- Download buffer and length gate: the buffer is 960,256 bytes (the raw
+  image plus 256 bytes of header room). A body is accepted only when its
+  length is exactly the raw size or a plausible container length within that
+  cap; anything else is rejected before the hash is compared.
+- The SHA-256 covers every received byte, header included, and must match
+  the advertised `image_hash`.
+- After the radio is off and before any pixel reaches the panel, the frame
+  runs the reader over the received body. A reader failure frees the buffer,
+  keeps the last image on the glass, leaves the stored hash untouched,
+  reports step `verify` and sets the sticky `imgfmt_bad` flag.
+- Announcement: the frame sends `X-Img-Fmt: 1` on the display request only,
+  and only while the `imgfmt_bad` flag is clear. A fully received body that
+  fails the length gate or the hash after the container was announced sets
+  the flag too; a network failure or truncated transfer never does. While
+  the flag is set the frame sends no `X-Img-Fmt` and receives the raw image.
+  Only an NVS erase or a later firmware release clears it.
+- Hardware claim: the frame also sends `X-Hw-Type: <key>` (for the EE02
+  build, `xiao-ee02-13in3-spectra6`) on the display request only. The server
+  treats it as a claim, never as identity: the type always comes from the
+  fleet database. A well-formed claim that differs from the assigned type
+  withdraws both the firmware offer and the container, so the frame gets the
+  raw image and no offer. A missing or malformed header is served exactly as
+  before, and the claim is never stored.
+- A frame that switches format sees one extra full refresh, on the first
+  wake that downloads a container (the hash of the served bytes changes);
+  afterwards the hash-skip applies again.
+- A refused token or enrolment (`auth`, `enrol`) no longer draws the NO
+  CONNECTION screen; the last image stays and the frame backs off.
