@@ -486,7 +486,7 @@ def special_mini_html(theme_id, opener_label=None, layout_id=None):
     `opener_label`, a script-revealed button over it opens the look
     sheet for that row. `layout_id` makes the picture the frame's layout.
     """
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     opener_html = ""
     if opener_label is not None:
         opener_html = (

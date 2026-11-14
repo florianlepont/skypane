@@ -207,6 +207,10 @@ menu "SkyPane"
             range 30 86400
             default 60
             help
+              Applies to both panels: the 13.3" GDEP133C02 described below
+              and the 7.3" panel of the second hardware profile. The 7.3"
+              panel's own minimum spacing is unmeasured until a bench
+              measurement lands; 60 s is carried over as the working value.
               (a) The physical panel is the Good Display GDEP133C02 - the
               part behind Seeed SKU E-6569, the 13.3" Spectra 6 panel in
               the XIAO ePaper DIY Kit EE02 this project uses. That

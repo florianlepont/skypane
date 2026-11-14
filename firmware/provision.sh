@@ -40,6 +40,22 @@
 # re-running for an already-provisioned device means the registry entry
 # must be replaced (--replace below).
 #
+# Live-frame guard (same rules and exit code as flash-second.sh): the live
+# frame is a different board on the same kind of USB cable, and writing a new
+# enrolment secret to it would lock it out of the server. Outside --dry-run
+# the script reads the chip MAC, prints it, and
+#   - refuses (exit 3) when the serial port equals SKYPANE_LIVE_FRAME_PORT,
+#     before any esptool call and before the password prompt;
+#   - refuses (exit 3) when the MAC equals SKYPANE_LIVE_FRAME_MAC, compared
+#     case-insensitively;
+#   - otherwise requires that MAC typed back at the prompt (any case); a
+#     wrong or empty answer exits 3 with nothing written.
+# Both variables are optional and owner-declared: the silicon cannot tell
+# which board type it is, so only the declared values and the typed MAC
+# protect the live frame. Unsetting them is the deliberate override for
+# provisioning the live frame itself; the typed MAC is still required.
+# --dry-run <mac> applies only the live-MAC refusal: no prompt, no hardware.
+#
 # Works from any working directory: resolves its own location first.
 
 set -eu
@@ -189,6 +205,13 @@ if [ "${STATIC_COUNT}" -ne 0 ] && [ "${STATIC_COUNT}" -ne 4 ]; then
     echo "ERROR: --static-ip/--static-mask/--static-gw/--static-dns must" \
          "all be given together, or not at all" >&2
     exit 2
+fi
+
+if [ "${DRY_RUN}" -eq 0 ] && [ -n "${SKYPANE_LIVE_FRAME_PORT:-}" ] \
+        && [ "${PORT}" = "${SKYPANE_LIVE_FRAME_PORT}" ]; then
+    echo "REFUSED: ${PORT} is declared as the live frame's port" >&2
+    echo "(SKYPANE_LIVE_FRAME_PORT). Nothing was read or written." >&2
+    exit 3
 fi
 
 # --- 2. Credential validation --------------------------------------------
@@ -416,6 +439,31 @@ MAC=$(printf '%s' "${MAC}" | tr 'A-F' 'a-f')
 if ! printf '%s' "${MAC}" | grep -Eq '^[0-9a-f]{2}(:[0-9a-f]{2}){5}$'; then
     echo "ERROR: '${MAC}' is not a MAC address (aa:bb:cc:dd:ee:ff)" >&2
     exit 1
+fi
+
+# Live-frame guard: runs before the work directory, Docker and any write.
+if [ "${DRY_RUN}" -eq 0 ]; then
+    echo "Port: ${PORT}"
+    echo "Chip MAC: ${MAC}"
+fi
+if [ -n "${SKYPANE_LIVE_FRAME_MAC:-}" ]; then
+    LIVE_MAC=$(printf '%s' "${SKYPANE_LIVE_FRAME_MAC}" | tr 'A-F' 'a-f')
+    if [ "${MAC}" = "${LIVE_MAC}" ]; then
+        echo "REFUSED: ${MAC} is the live frame (SKYPANE_LIVE_FRAME_MAC). Nothing was written." >&2
+        exit 3
+    fi
+fi
+if [ "${DRY_RUN}" -eq 0 ]; then
+    echo "This will overwrite the enrolment secret of the device above."
+    echo "It must not be the live frame."
+    printf 'Type the MAC shown above to confirm: '
+    CONFIRM=""
+    read -r CONFIRM || true
+    CONFIRM=$(printf '%s' "${CONFIRM}" | tr 'A-F' 'a-f')
+    if [ "${CONFIRM}" != "${MAC}" ]; then
+        echo "REFUSED: confirmation did not match. Nothing was written." >&2
+        exit 3
+    fi
 fi
 
 # --- 7. Private, self-cleaning work directory ----------------------------

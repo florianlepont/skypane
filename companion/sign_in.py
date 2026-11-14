@@ -368,7 +368,9 @@ class SignInMixin:
             device_id=device.id,
             last_seen=device_scope.last_check_in_epoch(device.state_dir),
             battery_percent=0 if critical else (
-                None if millivolts is None else battery.battery_percent(millivolts)),
+                None if millivolts is None else battery.percent(
+                    millivolts,
+                    None if profile is None else profile.battery.curve)),
             offline=status == device_scope.STATUS_OFFLINE,
             state=state, screen_off=screen_off,
             shared=shared, owner_email=owner_email, access=access_view)

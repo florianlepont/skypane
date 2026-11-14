@@ -36,6 +36,35 @@ def test_other_gate_values_leave_sim_types_out(value: str) -> None:
     assert hardware.EVALUATION_KEY not in keys
 
 
+SECOND_ON = {hardware.SECOND_ENV_VAR: "1"}
+
+
+def test_second_switch_exposes_only_the_real_gated_type() -> None:
+    keys = hardware.available_types(SECOND_ON)
+    assert keys == (hardware.LEGACY_KEY, hardware.EVALUATION_KEY)
+    assert not any(k.startswith("sim-") for k in keys)
+    assert hardware.get_profile(hardware.EVALUATION_KEY, SECOND_ON).key == hardware.EVALUATION_KEY
+    for key in (hardware.SIM_CLONE_KEY, hardware.SIM_LANDSCAPE_KEY):
+        with pytest.raises(hardware.UnknownHardwareType):
+            hardware.get_profile(key, SECOND_ON)
+
+
+def test_both_switches_change_nothing_beyond_sim() -> None:
+    both = {**SIM_ON, **SECOND_ON}
+    assert hardware.available_types(both) == hardware.available_types(SIM_ON)
+    assert set(hardware.available_types(both)) == set(hardware.REGISTRY)
+
+
+@pytest.mark.parametrize("value", ["0", "true", "", "11", " 1"])
+def test_other_second_switch_values_leave_it_hidden(value: str) -> None:
+    keys = hardware.available_types({hardware.SECOND_ENV_VAR: value})
+    assert keys == (hardware.LEGACY_KEY,)
+
+
+def test_second_type_stays_gated_in_the_profile() -> None:
+    assert hardware.REGISTRY[hardware.EVALUATION_KEY].gated is True
+
+
 def test_gate_is_read_at_call_time(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
     assert hardware.SIM_CLONE_KEY not in hardware.available_types()
@@ -125,6 +154,17 @@ def _unit_environment_keys() -> set[str]:
                 elif line.startswith("EnvironmentFile="):
                     keys.add("FILE:" + line.partition("=")[2])
     return keys
+
+
+def test_production_config_never_enables_second_type() -> None:
+    # The second type must stay closed in every committed file; it is lifted only by a hand edit of the production env file after the owner's written confirmation. An owner who decides to commit the switch changes this test deliberately.
+    env = _env_example_assignments()
+    assert hardware.SECOND_ENV_VAR not in env
+    assert hardware.SECOND_ENV_VAR not in _unit_environment_keys()
+    for path in glob.glob(os.path.join(REPO_ROOT, "deploy", "*.service")):
+        with open(path, encoding="utf-8") as f:
+            assert hardware.SECOND_ENV_VAR not in f.read()
+    assert hardware.available_types(env) == (hardware.LEGACY_KEY,)
 
 
 def test_production_config_never_enables_sim_types() -> None:
@@ -258,7 +298,9 @@ def test_planned_slot_has_no_numbers_and_provisional_registration() -> None:
 
 
 def test_evaluation_type_is_hidden_without_the_gate() -> None:
+    # Extended deliberately: a second, narrower switch now exists and the type must stay hidden whenever neither switch is on.
     assert hardware.available_types({}) == (hardware.LEGACY_KEY,)
+    assert hardware.available_types({hardware.SECOND_ENV_VAR: "0"}) == (hardware.LEGACY_KEY,)
     assert hardware.EVALUATION_KEY not in hardware.available_types({})
     assert hardware.EVALUATION_KEY in hardware.available_types(SIM_ON)
     with pytest.raises(hardware.UnknownHardwareType):

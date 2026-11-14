@@ -150,6 +150,28 @@ compiled in:
 firmware/provision.sh <serial-port> --wifi-ssid <ssid> --api-base <url>
 ```
 
+### Second board
+
+A second hardware type is supported: the Seeed XIAO ePaper EE04 (XIAO
+ESP32-S3 Plus with a 7.3" E Ink Spectra 6 panel, 800x480). It uses a
+different panel driver and layout but the same server, protocol, signing
+key and companion. Build it with the board selector, which writes to its
+own directory:
+
+```bash
+SKYPANE_BOARD=second firmware/build.sh
+```
+
+`SKYPANE_BOARD` defaults to `ee02`, the live frame. CI builds the second
+board in a separate job and checks the result against the board. In
+production the type is closed by default: the server only offers it when
+the owner sets `SKYPANE_ENABLE_SECOND_HARDWARE=1` in the production env
+file, and only the owner does that (`deploy/README.md`, "Lifting the
+second-hardware switch"). The values of this board are partly provisional
+until the owner's bench measurements land. The build, provisioning,
+flashing and enrolment procedure is in
+`hardware/SECOND-HARDWARE-SUPPORT.md`.
+
 ## Deployment
 
 In production, the poll loop, the device server and the companion app run

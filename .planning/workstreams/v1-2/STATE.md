@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 62 complete
-last_updated: "2026-11-09T10:04:45.004Z"
+stopped_at: Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
+last_updated: "2026-11-14T20:16:40.837Z"
 last_activity: 2026-10-30
 progress:
-  total_phases: 15
-  completed_phases: 11
-  total_plans: 151
-  completed_plans: 189
-  percent: 73
+  total_phases: 17
+  completed_phases: 14
+  total_plans: 179
+  completed_plans: 275
+  percent: 82
 ---
 
 # Project State
@@ -86,5 +86,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Phase 62 complete (owner real-panel check done, layout B default)
-**Resume File:** None
+**Stopped At:** Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
+**Resume File:** .planning/workstreams/v1-2/phases/64-second-hardware-in-production-build-release-deploy-and-parit/64-12-PLAN.md

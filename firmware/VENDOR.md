@@ -352,6 +352,26 @@ Upstream `main/` sources this project does not carry, and why:
   Contract covers its observability needs via the serial console
   instead.
 
+## Panel drivers and the panel-diff gate
+
+The tree carries two panel drivers behind one entry point, `fp_panel_draw`
+in `main/panel.c`:
+
+- `main/epd13in3e.c`: the 13.3" driver of the live board (Seeed XIAO ePaper
+  EE02), derived from the FlightPortrait upstream. It is the default for
+  every configuration.
+- `main/epd7in3e.c`: the 7.3" driver of the second board, original to this
+  repository (see "Second hardware driver" below). Selected only by
+  `CONFIG_FP_PANEL_7IN3E`.
+
+`firmware/tests/check_panel_diff.sh` pins exactly two files against the
+base commit: `main/epd13in3e.c` and `main/panel.c`. Their diff may add
+only timer reads and the `panel_driver.h` include that selects the
+driver, so the live frame's refresh behaviour cannot change by accident.
+`main/epd7in3e.c` is not pinned by that gate; it is a new file and is
+covered by its own host tests and by never being compiled into the
+EE02 build.
+
 ## Second hardware driver
 
 `main/epd7in3e.c` drives the single-controller 7.3" E Ink Spectra 6 panel

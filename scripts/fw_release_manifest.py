@@ -18,6 +18,7 @@ uses. `--check-only` runs that validation alone and writes nothing.
 import argparse
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -179,11 +180,28 @@ def _hash_and_size(image_path):
     return digest.hexdigest(), size
 
 
+def _release_environ():
+    """Environment mapping used to resolve hardware profiles. A copy of the
+    process environment with the second-hardware switch forced on and the
+    simulation switch off: release tooling accepts every registered real
+    type whatever the host exports, and never a simulated one. The process
+    environment itself is not modified.
+    """
+    env = dict(os.environ)
+    env[hardware.SECOND_ENV_VAR] = "1"
+    env.pop(hardware.SIM_ENV_VAR, None)
+    return env
+
+
+def _profile(hardware_type):
+    return hardware.get_profile(hardware_type, _release_environ())
+
+
 def size_bound(hardware_type):
     """Largest image, in bytes, the declared type's OTA slot holds. The
     hardware profile is the only place this number lives.
     """
-    return hardware.get_profile(hardware_type).firmware.max_app_bytes
+    return _profile(hardware_type).firmware.max_app_bytes
 
 
 def check_image(image_path, hardware_type, version=None):
@@ -192,7 +210,7 @@ def check_image(image_path, hardware_type, version=None):
     `version` when given, signature sector, size bound). Returns the
     parsed image; raises ValueError naming the offending field.
     """
-    profile = hardware.get_profile(hardware_type)
+    profile = _profile(hardware_type)
     with open(image_path, "rb") as fh:
         data = fh.read()
     require_signature, expected_modulus = firmware_image.signing_policy(profile.firmware)

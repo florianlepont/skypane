@@ -670,7 +670,24 @@ Plans: 6 plans in 5 waves
 **Open decisions** (for discuss-phase): how the gate is lifted (a dedicated switch, or flipping the profile's `gated` flag), whether the first signed image of the second type is published before or after the Phase 57 release, and whether the live-frame guard of `provision.sh` is typed or by port.
 **Must not break**: the live frame's release path and its signed image, every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, and the legacy production image, which must stay identical at section level (the identity proof used in Phase 58).
 
-Plans: TBD
+**Plans:** 15 plans in 6 waves
+
+Plans:
+- [ ] 64-01-PLAN.md - dedicated production switch (closed by default) and its pin tests
+- [ ] 64-02-PLAN.md - CI build of the second board, board-aware built check, size gate
+- [ ] 64-03-PLAN.md - typed live-frame guard in provision.sh
+- [ ] 64-04-PLAN.md - profile-aware theme and frame previews
+- [ ] 64-05-PLAN.md - battery curve per frame at three companion call sites
+- [ ] 64-06-PLAN.md - warning marks on landscape hold screens
+- [ ] 64-07-PLAN.md - second-profile wake budget, texts and host tests
+- [ ] 64-08-PLAN.md - import-dir skip semantics, switch-independent manifest tool
+- [ ] 64-09-PLAN.md - typed asset download in ci.yml, switch forwarding in activate.sh
+- [ ] 64-10-PLAN.md - type-level reconcile in the fleet run
+- [ ] 64-11-PLAN.md - documents for both boards
+- [ ] 64-12-PLAN.md - owner-measured firmware values (checkpoint)
+- [ ] 64-13-PLAN.md - firmware-release.yml typed second board (blocked on the live-frame release)
+- [ ] 64-14-PLAN.md - owner lift, first typed release, real OTA (checkpoints)
+- [ ] 64-15-PLAN.md - owner EN/FR walk-through (checkpoints)
 
 ## Progress
 

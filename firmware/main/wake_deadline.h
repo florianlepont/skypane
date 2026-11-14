@@ -21,7 +21,17 @@
 #define FP_WAKE_STAGE_SETUP_S    15u /* api_client.c .timeout_ms = 15000, only first wake / re-enrol */
 #define FP_WAKE_STAGE_DISPLAY_S  20u /* api_client.c .timeout_ms = 20000 */
 #define FP_WAKE_STAGE_DOWNLOAD_S 30u /* api_client.c .timeout_ms = 30000 */
-#define FP_WAKE_STAGE_BLIT_S     70u /* epd13in3e.c: send_half x2 + PON/DRF/POF busy-waits */
+/* Panel blit stage. 13.3" (epd13in3e.c): send_half x2 plus the PON, DRF
+ * and POF busy waits, 70 s. 7.3" (epd7in3e.c): three busy waits of up to
+ * BUSY_TIMEOUT_MS (60 s) each, for init power-on, refresh and power-off
+ * in sleep, plus a 10 s SPI margin: 3 * 60 + 10 = 190 s. The 7.3" figure
+ * is formula-derived and unmeasured; it moves once a bench measurement
+ * replaces the driver's busy timeout. */
+#if defined(CONFIG_FP_PANEL_7IN3E)
+#define FP_WAKE_STAGE_BLIT_S     190u
+#else
+#define FP_WAKE_STAGE_BLIT_S     70u
+#endif
 /* ota.c's esp_https_ota download of one full firmware image into the
  * inactive OTA slot, assuming a conservative minimum throughput of
  * about 12 KB/s over the ISRG-only certificate bundle for a ~1.05 MB

@@ -552,6 +552,77 @@ bench image (marked `bench=True`, with a generated
 session, never run by a deploy. Add `--hardware-type <key>` to publish
 it for another type; bench images are exempt from the build check.
 
+#### Typed release assets and the production switch
+
+Only the type's own key appears in these names. The second hardware
+type's key is `seeed-ee04-7in3-spectra6`; the live frame's pair keeps
+its original names.
+
+| Type | Image | Manifest |
+|------|-------|----------|
+| live frame (legacy) | `skypane-<tag>.bin` | `release.json` |
+| every other type | `skypane-<key>-<tag>.bin` | `release-<key>.json` |
+
+The deploy job's download step asks `scripts/fw_release_assets.py` which
+asset names to fetch for each `fw-v*` release: the legacy pair plus every
+typed pair whose key matches `[a-z0-9-]{1,64}`. Nothing else is
+downloaded, and a release that carries only the legacy pair is
+downloaded exactly as before.
+
+A second hardware type is available to the running servers only when
+`SKYPANE_ENABLE_SECOND_HARDWARE` is set to exactly `1` in the production
+env file. `activate.sh` reads that one line from
+`/opt/skypane/skypane.env` with its own strict parser (the file is never
+sourced) and forwards the switch to the `import-dir` step, which runs as
+the `skypane` user, only when the value is exactly `1`. An absent,
+empty, `0`, `true`, quoted, commented or otherwise different value
+means closed.
+
+While the switch is closed, `import-dir` skips every typed release of
+that type, exits 0 and prints one notice per skipped release on stderr:
+
+```
+skipped <tag> [<key>]: hardware type not available here
+```
+
+That notice is expected and not an error: the release stays published
+on GitHub and is imported by a later deploy once the type is available.
+A typed item with a malformed key, or one that names the legacy key, is
+still a failure.
+
+Status: the first typed release is not yet published, and the switch is
+closed in production. Nothing in this repository changes that by itself.
+
+#### Lifting the second-hardware switch
+
+The switch is lifted only by the owner, after written confirmation that
+the second board has been measured on the bench and the owner accepts
+serving it. There is no agent step and no automated job for these steps,
+and none may be added to a workflow: no agent performs them.
+
+1. Get the owner's written confirmation and keep it with the release
+   records.
+2. On the VPS, edit the production env file by hand
+   (`sudo -e /opt/skypane/skypane.env`) and add the line
+   `SKYPANE_ENABLE_SECOND_HARDWARE=1`, with no quotes and no trailing
+   space.
+3. Restart the services that read it: `skypane-byos`,
+   `skypane-companion` and the poll units (`skypane-poll.service` and
+   `skypane-poll.timer`).
+4. Run one deploy through `workflow_dispatch` of `ci.yml` (Actions,
+   "Run workflow" on `main`, then approve the `production` environment).
+   The deploy job downloads every published release again and
+   `import-dir` now imports the typed releases published earlier, which
+   it had skipped while the switch was closed. Restarting alone does not
+   import them.
+5. Check with `server.firmware_cli list` (see above) that the typed
+   type now lists its releases, and that no `skipped` notice remains
+   for it in the deploy log.
+
+To close the switch again, remove the `SKYPANE_ENABLE_SECOND_HARDWARE`
+line (or set it to anything but `1`), restart the same services and deploy once more. Releases already
+imported stay in the state directory and nothing is deleted.
+
 ## Backups
 
 A nightly systemd timer (`skypane-backup.timer`, 03:15 UTC,

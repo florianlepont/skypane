@@ -405,14 +405,15 @@ def _switcher_status_row(device, now):
     empty), so one frame shows one status word everywhere."""
     # Imported on use: console_pairing loads the Console view modules.
     import datetime
-    from companion import battery, console_pairing
+    from companion import battery, console_pairing, page_context
     from server import state_store
     millivolts = state_store.load_battery_state(device.state_dir)
     state, screen_off, critical = console_pairing.frame_signals(
         device, datetime.datetime.fromtimestamp(
             now, datetime.timezone.utc).isoformat(timespec="seconds"))
     percent = 0 if critical else (
-        None if millivolts is None else battery.battery_percent(millivolts))
+        None if millivolts is None else battery.percent(
+            millivolts, page_context.device_curve(device)))
     status = device_scope.device_status(device, now)
     return SimpleNamespace(
         kind=frame_status.KIND_LIVE,

@@ -190,13 +190,22 @@ def _typed_keys(subdir):
 
 
 def _typed_key_error(key):
+    """An error for a key that can never be published as a typed item (bad
+    shape, or the legacy key), else None. Availability is separate: see
+    _typed_key_unavailable.
+    """
     if not _TYPE_KEY_RE.match(key):
         return "invalid hardware type key %r" % (key,)
-    if not hardware.is_known(key) or key not in hardware.available_types():
-        return "unknown hardware type %r" % (key,)
     if key == hardware.LEGACY_KEY:
         return "hardware type %r is published through release.json" % (key,)
     return None
+
+
+def _typed_key_unavailable(key):
+    """True for a well-formed key whose type is unknown to the registry or
+    not offered by this server. Such a release is skipped, not failed.
+    """
+    return not hardware.is_known(key) or key not in hardware.available_types()
 
 
 def _import_typed_pair(args, name, subdir, key):
@@ -255,6 +264,13 @@ def _import_tag_dir(args, name, subdir, cache):
         outcome, error = _import_legacy_pair(args, name, subdir)
         ok = not _report_item(name, outcome, error, is_new)
     for key in typed:
+        if _typed_key_error(key) is None and _typed_key_unavailable(key):
+            # Built for hardware this server does not offer: it must not
+            # block a code deploy, and a later deploy imports it once the
+            # type is available. The key is never turned into a path here.
+            print("skipped %s [%s]: hardware type not available here" % (name, key),
+                  file=sys.stderr)
+            continue
         # A key that cannot name a registry has no registered tags.
         known = _typed_key_error(key) is None
         is_new = not known or name not in _registered_versions(args.state_dir, key, cache)

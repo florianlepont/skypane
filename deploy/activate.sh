@@ -121,6 +121,13 @@ SKYPANE_BYOS_PORT="$(_extract_env SKYPANE_BYOS_PORT)"
 SKYPANE_COMPANION_PORT="$(_extract_env SKYPANE_COMPANION_PORT)"
 # Optional: only the first fleet migration needs it.
 SKYPANE_BOOTSTRAP_ADMIN_EMAIL="$(_extract_env SKYPANE_BOOTSTRAP_ADMIN_EMAIL)"
+# Optional second-hardware switch: only the exact value 1 counts, anything
+# else (empty, 0, true, quoted text) is treated as unset. It is forwarded
+# to the import step below because runuser runs it without this file.
+SKYPANE_ENABLE_SECOND_HARDWARE="$(_extract_env SKYPANE_ENABLE_SECOND_HARDWARE)"
+if [ "${SKYPANE_ENABLE_SECOND_HARDWARE}" != "1" ]; then
+    SKYPANE_ENABLE_SECOND_HARDWARE=""
+fi
 
 for _host in "${SKYPANE_PUBLIC_HOST}" "${SKYPANE_COMPANION_HOST}"; do
     if [ -z "${_host}" ] || ! [[ "${_host}" =~ ^[A-Za-z0-9.-]+$ ]]; then
@@ -222,8 +229,12 @@ echo "==> Firmware import"
 # it accepted, so nothing is lost by discarding the source directory.
 if [ -d "${FIRMWARE_RELEASES_DIR}" ]; then
     IMPORT_RC=0
+    IMPORT_ENV=()
+    if [ "${SKYPANE_ENABLE_SECOND_HARDWARE}" = "1" ]; then
+        IMPORT_ENV=(env SKYPANE_ENABLE_SECOND_HARDWARE=1)
+    fi
     ( cd "${RELEASE_DIR}" \
-        && runuser -u skypane -- "${VENV}/bin/python3" -m server.firmware_cli \
+        && runuser -u skypane -- "${IMPORT_ENV[@]}" "${VENV}/bin/python3" -m server.firmware_cli \
             --state-dir "${STATE_DIR}" import-dir "${FIRMWARE_RELEASES_DIR}" ) || IMPORT_RC=$?
     rm -rf "${FIRMWARE_RELEASES_DIR}"
     if [ "${IMPORT_RC}" -ne 0 ]; then

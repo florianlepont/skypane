@@ -27,6 +27,7 @@ from server import (
     detection,
     device_config,
     device_dirs,
+    firmware_registry,
     fleet_db,
     fleet_zones,
     hardware,
@@ -472,6 +473,20 @@ class _FleetRun:
         return [plan.zones[zone.key] for zone in fleet_zones.order_zones(entries, last_served)]
 
 
+def _reconcile_other_types(state_root: str) -> None:
+    """Record second-type OTA outcomes in their own registries, once per
+    run, whether or not the live frame's cycle gets that far. Never
+    raises: a reconcile failure must not break polling.
+    """
+    try:
+        firmware_registry.apply_reconcile_other_types(state_root)
+    except Exception as exc:
+        print(
+            "fleet_cycle: firmware reconcile failed: %s" % type(exc).__name__,
+            file=sys.stderr,
+        )
+
+
 def run_fleet(
     state_root: str,
     geofence_path: str | None,
@@ -507,6 +522,7 @@ def run_fleet(
         fetcher if fetcher is not None else zone_fetch.fetch_zone,
         route_transport if route_transport is not None else SharedRouteTransport(state_root),
     )
+    _reconcile_other_types(state_root)
     devices, skipped = runnable_devices(load_fleet(state_root, wall()), wall(), environ)
     for device_id, reason in skipped:
         run.result.outcomes.append(DeviceOutcome(device_id, False, STATUS_SKIPPED, reason))

@@ -9,9 +9,10 @@ the two cannot drift apart.
 
 Simulated types exist for development and tests. Gated types are real
 hardware that stays hidden until the owner lifts the gate. Both kinds are
-visible only when SKYPANE_SIM_HARDWARE equals the string "1"; the gate is
-read at call time so tests can toggle it, and no production unit or env
-template sets it. Only simulated types are labelled "(simulated)" and
+visible when SKYPANE_SIM_HARDWARE equals the string "1". The narrower
+SKYPANE_ENABLE_SECOND_HARDWARE, also exactly "1", exposes only the real
+gated type and never a simulated one. Both are read at call time so tests
+can toggle them, and no env template or unit file sets either. Only simulated types are labelled "(simulated)" and
 exempt from battery provenance validation.
 """
 from __future__ import annotations
@@ -29,6 +30,7 @@ SIM_CLONE_KEY = "sim-ee02-clone"
 SIM_LANDSCAPE_KEY = "sim-landscape-800x480"
 EVALUATION_KEY = "seeed-ee04-7in3-spectra6"
 SIM_ENV_VAR = "SKYPANE_SIM_HARDWARE"
+SECOND_ENV_VAR = "SKYPANE_ENABLE_SECOND_HARDWARE"
 
 # Repo-relative path of the public key release images are checked against.
 COMMITTED_SIGNING_PUBKEY = "firmware/signing/skypane-signing-pubkey.pem"
@@ -279,17 +281,28 @@ REGISTRY: Mapping[str, HardwareProfile] = types.MappingProxyType(
 )
 
 
-def _sim_enabled(environ: Mapping[str, str] | None) -> bool:
+def _flag_enabled(environ: Mapping[str, str] | None, name: str) -> bool:
     env = os.environ if environ is None else environ
-    return env.get(SIM_ENV_VAR) == "1"
+    return env.get(name) == "1"
+
+
+def _sim_enabled(environ: Mapping[str, str] | None) -> bool:
+    return _flag_enabled(environ, SIM_ENV_VAR)
 
 
 def available_types(environ: Mapping[str, str] | None = None) -> tuple[str, ...]:
-    """Keys usable in this environment; simulated and gated ones only when on."""
+    """Keys usable in this environment.
+
+    Simulated and gated types appear with the simulation flag; gated real
+    types alone also appear with the second-hardware flag.
+    """
     sim = _sim_enabled(environ)
+    second = _flag_enabled(environ, SECOND_ENV_VAR)
     return tuple(
         k for k, p in REGISTRY.items()
-        if sim or not (p.simulated or p.gated))
+        if sim
+        or not (p.simulated or p.gated)
+        or (second and p.gated and not p.simulated))
 
 
 def get_profile(key: str, environ: Mapping[str, str] | None = None) -> HardwareProfile:

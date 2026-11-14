@@ -5,11 +5,30 @@ states go to the flight card, every other state to the hold-screen
 builders. No dimension is named here; the canvas size comes from the
 profile.
 """
+from types import SimpleNamespace
+
 from server import device_config, hardware
-from server.plane.render import landscape_card, landscape_hold
+from server.plane.render import landscape_card, landscape_common, landscape_hold, style
 
 ACTIVE_STATES = ("departing", "arriving", "overhead")
 HOLD_STATES = ("empty", "quiet_hours", "display_off", "battery_empty")
+# The source-fault caption may extend to this fraction of the canvas width.
+FAULT_CAPTION_RIGHT = 0.5
+
+
+def _with_marks(canvas, size, ink, source_fault, battery_low):
+    """Draw the battery-low glyph and source-fault badge in the bottom-left
+    corner, in the hold's own ink, after the hold canvas is built (the hold
+    builders cannot import the card geometry)."""
+    if battery_low:
+        landscape_card.draw_battery_low(canvas, size, ink)
+    if source_fault:
+        geom = SimpleNamespace(
+            margin=landscape_common.margin_for(size),
+            overlay_right=round(size[0] * FAULT_CAPTION_RIGHT),
+        )
+        landscape_card.draw_source_fault(canvas, size, geom, ink, "bold")
+    return canvas
 
 
 def build_landscape_canvas(
@@ -36,11 +55,17 @@ def build_landscape_canvas(
     if state == "battery_empty":
         return landscape_hold.build_battery_empty_canvas(size)
     if state == "display_off":
-        return landscape_hold.build_display_off_canvas(size)
+        return _with_marks(
+            landscape_hold.build_display_off_canvas(size), size, style.DIMMED_INK,
+            source_fault, battery_low)
     if state == "quiet_hours":
-        return landscape_hold.build_quiet_hours_canvas(size, quiet_hours_until)
+        return _with_marks(
+            landscape_hold.build_quiet_hours_canvas(size, quiet_hours_until), size,
+            style.DIMMED_INK, source_fault, battery_low)
     if flight is None or state == "empty":
-        return landscape_hold.build_empty_canvas(size, runway_id)
+        return _with_marks(
+            landscape_hold.build_empty_canvas(size, runway_id), size, style.EMPTY_INK,
+            source_fault, battery_low)
     return landscape_card.build_card_canvas(
         size, flight, state, route=route, previous_flight=previous_flight,
         previous_route=previous_route, previous_state=previous_state, theme_id=theme_id,

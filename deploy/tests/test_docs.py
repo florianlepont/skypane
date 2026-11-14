@@ -150,3 +150,62 @@ def test_retired_password_variables_appear_only_in_the_upgrade_note():
     for name in ("SKYPANE_COMPANION_PASSWORD", "SKYPANE_LEGACY_PASSWORD_LOGIN"):
         assert name in text[start:end]
         assert name not in rest
+
+
+def _typed_release_section():
+    text = _text()
+    start = text.index("### Per-hardware-type releases")
+    return text[start:text.index("## Backups", start)]
+
+
+def test_deploy_readme_documents_typed_release_layout_and_switch():
+    section = _typed_release_section()
+    for name in (
+        "release-<key>.json",
+        "skypane-<key>-<tag>.bin",
+        "SKYPANE_ENABLE_SECOND_HARDWARE",
+        "exactly `1`",
+        "skipped <tag> [<key>]: hardware type not available here",
+    ):
+        assert name in section, name
+
+
+def test_deploy_readme_lift_runbook_is_owner_only_and_ends_in_a_deploy():
+    section = _typed_release_section()
+    start = section.index("#### Lifting the second-hardware switch")
+    runbook = section[start:]
+    assert runbook.count("SKYPANE_ENABLE_SECOND_HARDWARE") >= 2
+    for phrase in (
+        "only by the owner",
+        "written confirmation",
+        "workflow_dispatch",
+        "`ci.yml`",
+        "no agent",
+    ):
+        assert phrase in runbook, phrase
+
+
+def test_deploy_readme_claims_no_published_typed_release():
+    section = _typed_release_section()
+    assert "not yet published" in section
+    assert "switch is closed" in section
+
+
+def _signing_text():
+    return (_REPO_ROOT / "firmware" / "SIGNING.md").read_text()
+
+
+def test_signing_md_has_per_type_release_section():
+    text = _signing_text()
+    start = text.index("## Per-type releases")
+    section = text[start:text.index("\n## ", start + 5)]
+    for name in (
+        "skypane-<key>-<tag>.bin",
+        "release-<key>.json",
+        "one RSA signing key",
+        "build-ee02",
+        "build-second",
+        "check_production_config.sh built",
+        "not yet published",
+    ):
+        assert name in section, name

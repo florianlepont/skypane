@@ -697,7 +697,7 @@ def test_import_dir_typed_rerun_reports_every_item_as_existing(tmp_path, capsys,
     assert out.count("exists fw-v1.2.0") == 2
 
 
-@pytest.mark.parametrize("key", ["no-such-type", "BAD_KEY", "x" * 65])
+@pytest.mark.parametrize("key", ["BAD_KEY", "x" * 65, "a.b", hardware.LEGACY_KEY])
 def test_import_dir_bad_type_key_is_an_item_error_and_others_still_import(tmp_path, capsys, key):
     base = tmp_path / "releases"
     state_dir = tmp_path / "state"
@@ -713,17 +713,45 @@ def test_import_dir_bad_type_key_is_an_item_error_and_others_still_import(tmp_pa
     assert _versions(state_dir) == ["fw-v1.2.0"]
 
 
-def test_import_dir_simulated_type_is_refused_when_simulation_is_off(tmp_path, capsys, monkeypatch):
+# A release built for hardware this server does not offer must not block a
+# code deploy: it is skipped with a notice, and the first deploy after the
+# type becomes available imports it.
+@pytest.mark.parametrize("key", ["no-such-type", hardware.SIM_CLONE_KEY])
+def test_import_dir_unavailable_type_is_skipped_without_failing(tmp_path, capsys, monkeypatch, key):
+    monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
+    monkeypatch.delenv(hardware.SECOND_ENV_VAR, raising=False)
+    base = tmp_path / "releases"
+    state_dir = tmp_path / "state"
+    _write_release_subdir(base, "fw-v1.2.0", hardware_type=hardware.LEGACY_KEY)
+    _write_typed_files(base, "fw-v1.2.0", key)
+    argv = ["--state-dir", str(state_dir), "import-dir", str(base)]
+
+    rc = firmware_cli.main(argv)
+    out = capsys.readouterr()
+
+    assert rc == 0
+    assert "added fw-v1.2.0" in out.out
+    assert "skipped fw-v1.2.0 [%s]: hardware type not available here" % key in out.err
+    assert _versions(state_dir) == ["fw-v1.2.0"]
+    assert not os.path.exists(str(state_dir / "firmware" / ("registry.%s.json" % key)))
+
+    assert firmware_cli.main(argv) == 0
+    assert "skipped fw-v1.2.0 [%s]" % key in capsys.readouterr().err
+
+
+def test_import_dir_skipped_type_imports_once_it_is_available(tmp_path, capsys, monkeypatch):
     monkeypatch.delenv(hardware.SIM_ENV_VAR, raising=False)
     base = tmp_path / "releases"
     state_dir = tmp_path / "state"
     _write_typed_files(base, "fw-v1.2.0", hardware.SIM_CLONE_KEY)
+    argv = ["--state-dir", str(state_dir), "import-dir", str(base)]
+    assert firmware_cli.main(argv) == 0
+    capsys.readouterr()
 
-    rc = firmware_cli.main(["--state-dir", str(state_dir), "import-dir", str(base)])
+    monkeypatch.setenv(hardware.SIM_ENV_VAR, "1")
 
-    assert rc == 1
-    assert hardware.SIM_CLONE_KEY in capsys.readouterr().err
-    assert not os.path.exists(str(state_dir / "firmware" / ("registry.%s.json" % hardware.SIM_CLONE_KEY)))
+    assert firmware_cli.main(argv) == 0
+    assert _versions(state_dir, hardware.SIM_CLONE_KEY) == ["fw-v1.2.0"]
 
 
 @pytest.mark.parametrize("which", ["image", "manifest"])

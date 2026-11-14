@@ -38,6 +38,7 @@ import json
 import os
 import re
 import secrets
+import sys
 import time
 from datetime import datetime, timezone
 
@@ -1060,6 +1061,27 @@ def apply_reconcile_all(state_dir, now=None):
             continue
         outcomes.extend(apply_reconcile(state_dir, now, hardware_type))
     return outcomes
+
+
+def apply_reconcile_other_types(state_dir, now=None):
+    """Reconcile every available non-legacy type that has a document on
+    disk, leaving the legacy document alone. A failure for one type is
+    logged by type name only (never the error text or a device
+    identifier) and the remaining types still run.
+    """
+    now = now if now is not None else _utc_now_iso()
+    for hardware_type in hardware.available_types():
+        if hardware_type == hardware.LEGACY_KEY:
+            continue
+        if not os.path.exists(registry_path(state_dir, hardware_type)):
+            continue
+        try:
+            apply_reconcile(state_dir, now, hardware_type)
+        except Exception:
+            print(
+                "firmware_registry: reconcile failed for type %s" % hardware_type,
+                file=sys.stderr,
+            )
 
 
 def relevant_types(state_dir, device_report):

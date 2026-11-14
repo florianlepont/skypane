@@ -8,14 +8,19 @@
 #
 #   static            - checks the committed config files, no Docker/IDF
 #                        needed. Runs first in CI, and locally in seconds.
-#   built <build-dir>  - checks a completed idf.py build's generated
+#   built <build-dir> [ee02|second]
+#                      - checks a completed idf.py build's generated
 #                        sdkconfig and image. Runs after firmware.yml's
-#                        build step, against firmware/build-ee02.
+#                        build steps, against firmware/build-ee02 and
+#                        firmware/build-second. The optional board word also
+#                        asserts the panel driver, buffer size, hardware key
+#                        and revision that identify that board; without it
+#                        only the board-independent checks run.
 #
 # A production build failing either mode is a release blocker,
 # not a warning.
 #
-# Usage: ./check_production_config.sh [static|built <build-dir>]
+# Usage: ./check_production_config.sh [static|built <build-dir> [ee02|second]]
 
 set -eu
 
@@ -28,6 +33,8 @@ MODE="${1:-static}"
 # mirror).
 FP_X1="96:BC:EC:06:26:49:76:F3:74:60:77:9A:CF:28:C5:A7:CF:E8:A3:C0:AA:E1:1A:8F:FC:EE:05:C0:BD:DF:08:C6"
 FP_X2="69:72:9B:8E:15:A8:6E:FC:17:7A:57:AF:B7:17:1D:FC:64:AD:D2:8C:2F:CA:8C:F1:50:7E:34:45:3C:CB:14:70"
+
+REPO_ROOT=$(CDPATH= cd -- "${FIRMWARE_DIR}/.." && pwd)
 
 FAIL=0
 
@@ -144,8 +151,47 @@ check_static() {
     fi
 }
 
+# Hardware key exported by server.hardware (LEGACY_KEY or EVALUATION_KEY),
+# so the key is never written a second time here.
+server_hw_key() {
+    python3 -I -c "import sys; sys.path.insert(0, sys.argv[1]); import server.hardware as h; print(getattr(h, sys.argv[2]))" "${REPO_ROOT}" "$1"
+}
+
+# Board identity assertions on a resolved sdkconfig.
+check_board() {
+    sdkconfig="$1"
+    board="$2"
+    case "${board}" in
+        second)
+            want_key=$(server_hw_key EVALUATION_KEY)
+            for line in \
+                'CONFIG_FP_PANEL_7IN3E=y' \
+                'CONFIG_FP_PANEL_BUFFER_BYTES=192000' \
+                'CONFIG_FP_HW_REV="proto-ee04"' \
+            ; do
+                if ! grep -qxF "${line}" "${sdkconfig}"; then
+                    fail "second-board sdkconfig is missing: ${line}"
+                fi
+            done
+            ;;
+        ee02)
+            want_key=$(server_hw_key LEGACY_KEY)
+            if ! grep -qxF '# CONFIG_FP_PANEL_7IN3E is not set' "${sdkconfig}"; then
+                fail "ee02 sdkconfig does not have the 7.3 inch panel option unset"
+            fi
+            ;;
+    esac
+    got_key=$(sed -n 's/^CONFIG_SKYPANE_HW_TYPE="\(.*\)"$/\1/p' "${sdkconfig}")
+    if [ -z "${got_key}" ]; then
+        fail "CONFIG_SKYPANE_HW_TYPE is missing or empty in the built sdkconfig"
+    elif [ "${got_key}" != "${want_key}" ]; then
+        fail "CONFIG_SKYPANE_HW_TYPE '${got_key}' != server key '${want_key}' for board ${board}"
+    fi
+}
+
 check_built() {
     build_dir="$1"
+    board="${2:-}"
     sdkconfig="${build_dir}/sdkconfig"
     image="${build_dir}/skypane.bin"
     proj_desc="${build_dir}/project_description.json"
@@ -175,6 +221,10 @@ check_built() {
             fail "built sdkconfig is missing: ${line}"
         fi
     done
+
+    if [ -n "${board}" ]; then
+        check_board "${sdkconfig}" "${board}"
+    fi
 
     # The resolved OTA/signing chain, logged for auditability -- this is
     # what actually shipped in the image, not just what the committed
@@ -207,13 +257,20 @@ case "${MODE}" in
     built)
         build_dir="${2:-}"
         if [ -z "${build_dir}" ]; then
-            echo "usage: $0 built <build-dir>" >&2
+            echo "usage: $0 built <build-dir> [ee02|second]" >&2
             exit 2
         fi
-        check_built "${build_dir}"
+        case "${3:-}" in
+            ""|ee02|second) ;;
+            *)
+                echo "usage: $0 built <build-dir> [ee02|second]" >&2
+                exit 2
+                ;;
+        esac
+        check_built "${build_dir}" "${3:-}"
         ;;
     *)
-        echo "usage: $0 [static|built <build-dir>]" >&2
+        echo "usage: $0 [static|built <build-dir> [ee02|second]]" >&2
         exit 2
         ;;
 esac

@@ -105,6 +105,11 @@ if ! sh "${SCRIPT_DIR}/check_bench_floor_option.sh"; then
     FAIL=1
 fi
 
+echo "== check_provision_guard =="
+if ! sh "${SCRIPT_DIR}/check_provision_guard.sh"; then
+    FAIL=1
+fi
+
 echo "== check_panel_diff =="
 if ! sh "${SCRIPT_DIR}/check_panel_diff.sh"; then
     FAIL=1
