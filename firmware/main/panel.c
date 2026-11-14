@@ -13,6 +13,7 @@
 #include "sdkconfig.h"
 
 #include "epd13in3e.h"
+#include "panel_driver.h"
 #include "wake_guard.h"
 
 static const char *TAG = "fp_panel";

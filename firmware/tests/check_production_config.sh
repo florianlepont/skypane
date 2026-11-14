@@ -39,6 +39,7 @@ fail() {
 check_static() {
     defaults="${FIRMWARE_DIR}/sdkconfig.defaults"
     ee02="${FIRMWARE_DIR}/sdkconfig.ee02.defaults"
+    second="${FIRMWARE_DIR}/sdkconfig.second.defaults"
     dev="${FIRMWARE_DIR}/sdkconfig.dev.defaults"
     partitions="${FIRMWARE_DIR}/partitions.csv"
     certs_dir="${FIRMWARE_DIR}/main/certs"
@@ -48,12 +49,20 @@ check_static() {
     # "# CONFIG_X is not set" convention) are not a violation.
     # sdkconfig.dev.defaults is deliberately excluded from this loop: its
     # whole purpose is turning CONFIG_SKYPANE_ALLOW_HTTP on for the bench.
-    for f in "${defaults}" "${ee02}"; do
+    for f in "${defaults}" "${ee02}" "${second}"; do
         if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_SKYPANE_ALLOW_HTTP=y'; then
             fail "${f} enables CONFIG_SKYPANE_ALLOW_HTTP"
         fi
         if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_SKYPANE_FAULT_INJECT_(PANIC|TASK_WDT|INT_WDT|SLOW_WAKE|NVS)=y'; then
             fail "${f} enables a CONFIG_SKYPANE_FAULT_INJECT_* option"
+        fi
+    done
+
+    # The live frame's profile keeps the 13.3" driver: only the second
+    # hardware profile may select another panel driver.
+    for f in "${defaults}" "${ee02}" "${dev}"; do
+        if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_FP_PANEL_7IN3E=y'; then
+            fail "${f} selects the 7.3 inch panel driver"
         fi
     done
 
@@ -63,7 +72,7 @@ check_static() {
     # anti-rollback or build-time signing are all forbidden; the
     # signed-app-without-secure-boot chain this project uses instead
     # burns no eFuse, confirmed in firmware/SIGNING.md.
-    for f in "${defaults}" "${ee02}" "${dev}"; do
+    for f in "${defaults}" "${ee02}" "${second}" "${dev}"; do
         if grep -vE '^[[:space:]]*#' "${f}" | grep -qE '^CONFIG_(SECURE_BOOT|SECURE_FLASH_ENC_ENABLED|FLASH_ENCRYPTION_ENABLED|NVS_ENCRYPTION|BOOTLOADER_APP_ANTI_ROLLBACK|SECURE_BOOT_BUILD_SIGNED_BINARIES|EFUSE_VIRTUAL)=y'; then
             fail "${f} enables an eFuse-burning option (forbidden)"
         fi

@@ -171,6 +171,29 @@ menu "SkyPane"
     endmenu
 
     menu "Panel"
+        choice FP_PANEL
+            prompt "Panel driver"
+            default FP_PANEL_13IN3E
+            help
+                Selects the driver fp_panel_draw() calls. The default is the
+                13.3" dual-controller driver of the EE02 and E1004 frames;
+                every other choice is for a second hardware type and must
+                never be set in sdkconfig.defaults or sdkconfig.ee02.defaults.
+
+            config FP_PANEL_13IN3E
+                bool "13.3 inch Spectra 6, dual controller (EE02, E1004)"
+            config FP_PANEL_7IN3E
+                bool "7.3 inch Spectra 6, single controller, 800x480"
+        endchoice
+
+        config FP_PANEL_BUFFER_BYTES
+            int "Packed frame size of the selected panel (bytes)"
+            default 960000
+            help
+                1200x1600 at 4 bits per pixel for the 13.3" panel; 192000
+                for the 800x480 7.3" panel. The selected driver checks at
+                compile time that this matches its own frame size.
+
         config FP_MIN_REFRESH_SPACING_S
             int "Minimum seconds between panel refreshes"
             range 30 86400

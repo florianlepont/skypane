@@ -55,13 +55,13 @@ changes it still needs, and re-run the host tests
 | `CMakeLists.txt` | `CMakeLists.txt` | no | `project(flightportrait)` renamed to `project(skypane)`. `PROJECT_VER` no longer hardcoded — `firmware/build.sh` resolves `git describe --tags --always --dirty` on the host and passes it in, so every image reports the exact commit it was built from. |
 | `main/epd13in3e.c` | `main/epd13in3e.c` | no | `epd_init`'s GPIO/SPI setup no longer calls `ESP_ERROR_CHECK`; each failure now returns `ESP_FAIL` through the function's own `esp_err_t` path, freeing the SPI bus first if it was already initialised. `epd_sleep` tracks which setup steps actually completed so it can never touch an uninitialised handle. `busy_wait()`'s poll loop and `send_half()`'s periodic yield feed the task watchdog. `epd_blit()` now checks its busy-wait timeout and returns `ESP_FAIL` instead of silently ignoring it. The 800 µs per-row pacing is unchanged — see "Operational notes" below for why. Two `esp_timer_get_time()` reads around the two `send_half()` calls, one static and an accessor `epd_spi_ms()` report the SPI transfer time; nothing else changed, enforced by `tests/check_panel_diff.sh`. |
 | `main/epd13in3e.h` | `main/epd13in3e.h` | no | Declares `epd_spi_ms()`. |
-| `main/panel.c` | `main/panel.c` | no | The refresh-spacing wait now light-sleeps (radio and panel both already down at this point) instead of busy-waiting the full duration. |
+| `main/panel.c` | `main/panel.c` | no | The refresh-spacing wait now light-sleeps (radio and panel both already down at this point) instead of busy-waiting the full duration. One added line, `#include "panel_driver.h"`, which selects the 7.3" driver at compile time (see "Second hardware driver" below); with the default configuration it defines nothing and the file compiles as before. `tests/check_panel_diff.sh` allows exactly that one include. |
 | `main/panel.h` | `main/panel.h` | yes | none |
 | `main/panel_guard.c` | `main/panel_guard.c` | yes | none |
 | `main/panel_guard.h` | `main/panel_guard.h` | no | Doc comment only: the refresh-spacing guard's rationale was corrected to match the verified GDEP133C02 datasheet finding (no documented refresh-rate or endurance limit; refresh at least every 24 h). No declaration changed. |
 | `tests/test_panel_guard.c` | `tests/test_panel_guard.c` | yes | none |
 | `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | no | Appended two SkyPane blocks after the upstream content, which is otherwise untouched: battery-sense pins and the bring-up LED pins/polarity. |
-| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Top-level menu renamed from "FlightPortrait" to "SkyPane". The API base Kconfig option is removed entirely, not defaulted to a placeholder — see the `sdkconfig.defaults` row above; the base URL is now a provisioned, runtime value, so no Kconfig prompt for it exists to misconfigure. Trimmed to the options this project actually compiles against: the hardware revision choice, the full 8-pin panel-pins menu, and the panel-timing menu. Removed the BLE-provisioning timeout and factory-prep options, since neither has any code behind it. Retained the button-controls menu (pin values are measured hardware fact from a real EE02 key-sweep) with a comment explaining why it stays without a compiled consumer yet. Added five project-specific options: an HTTP-allowed dev-only switch, the whole-wake budget in seconds (raised from 300 to 360 to cover an OTA wake's extra stages, then to 460 so a failed update can also re-fetch and redraw the picture in the same wake, see `main/wake_deadline.h`), the oldest release tag this device accepts over OTA (`SKYPANE_OTA_FLOOR_VERSION`, must match the server's own registry floor), TLS session persistence, and a bench-only fault-injection choice. |
+| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Top-level menu renamed from "FlightPortrait" to "SkyPane". The API base Kconfig option is removed entirely, not defaulted to a placeholder — see the `sdkconfig.defaults` row above; the base URL is now a provisioned, runtime value, so no Kconfig prompt for it exists to misconfigure. Trimmed to the options this project actually compiles against: the hardware revision choice, the full 8-pin panel-pins menu, and the panel-timing menu. Removed the BLE-provisioning timeout and factory-prep options, since neither has any code behind it. Retained the button-controls menu (pin values are measured hardware fact from a real EE02 key-sweep) with a comment explaining why it stays without a compiled consumer yet. Added five project-specific options: an HTTP-allowed dev-only switch, the whole-wake budget in seconds (raised from 300 to 360 to cover an OTA wake's extra stages, then to 460 so a failed update can also re-fetch and redraw the picture in the same wake, see `main/wake_deadline.h`), the oldest release tag this device accepts over OTA (`SKYPANE_OTA_FLOOR_VERSION`, must match the server's own registry floor), TLS session persistence, and a bench-only fault-injection choice. Added the `FP_PANEL` choice (default `FP_PANEL_13IN3E`, alternative `FP_PANEL_7IN3E`) and `FP_PANEL_BUFFER_BYTES` (default 960000) in the Panel menu; with the defaults the only change to a resolved sdkconfig is those new symbols. |
 | `main/wifi.c` | `main/wifi.c` | no | Credential source changed from NVS written by a BLE provisioning flow this project doesn't compile to NVS written by `firmware/provision.sh` over USB instead (`fp_device_creds_load`, `main/enrol_secret.c`) — the compiled image carries no credential of its own. Dropped the BLE-provisioning-adoption branch and the NVS-backed fast-connect helper, since this project's trimmed `nvs_schema.h` no longer defines those keys. Kept: the join/retry logic, the SNTP time sync (a TLS prerequisite after any power loss — the device has no RTC battery), RSSI read, and radio-off-before-sleep. The optional static-IP fallback is now a runtime branch on the loaded credentials' `has_static` flag rather than a compile-time macro set. Counts association attempts (`fp_wifi_attempts()`); the retry behaviour is unchanged. |
 | `main/wifi.h` | `main/wifi.h` | no | Trimmed to the four functions the above still implements: `fp_wifi_platform_init`, `fp_wifi_connect`, `fp_wifi_rssi`, `fp_wifi_stop`. Removed the credential-store/-load and factory-reset declarations, since nothing compiled here calls them. Declares `fp_wifi_attempts()`. |
 | `main/api_client.c` | `main/api_client.c` | no | Trimmed to the three endpoints this project uses. Removed: upstream's own OTA partition-writing loop, pairing registration and signature computation, and the versioned target-blob (BYOS override) resolution chain. Base-URL resolution now reads the device's provisioned `secret` NVS partition (`fp_device_creds_load`) instead of resolving an NVS target blob or a compiled-in macro. Kept, with local re-implementations since upstream's validators aren't vendored: display-response field validation, the streamed download with SHA-256 + exact-byte-count verification before any buffer is returned to the caller, and the setup call's token-shape check. All four telemetry headers are now sent unconditionally on every request, rather than upstream's conditional RSSI header; the battery header reports a real measured value. Every inline validation rule was replaced by calls to the pure `validate.c` functions, and every failure is classified into a Log Line Contract step token instead of a single generic error. One shared `esp_http_client` handle is reused for every request of a wake — setup, display and a same-origin download share one TCP+TLS connection — with header hygiene between requests, a retry-once-on-stale-connection rule, and the download bounded by the whole-wake budget. `tls_session.c` best-effort persists the TLS session across deep sleep. NVS access goes through `nvs_util.c` instead of hand-rolled sequences. A 401/403 on an authenticated call now erases the stored bearer token so the next wake re-enrols with no reflash. Re-added, on top of what upstream had: the display response's optional `"firmware"` object is parsed into `fp_display_t.fw` field-by-field (`validate.c`'s `fp_fw_version_valid`/`fp_fw_size_parse` plus the existing hash/URL validators, the URL forced https regardless of the dev-only http override), permissively — a missing, null or malformed offer never rejects the poll, only logs which field failed. `X-Ota-Result` is sent whenever an OTA outcome is pending (`ota.c`'s `fp_ota_result_pending`) and cleared only once a display response actually parses at 200. Wake telemetry: one `X-Wake-Stats` header (counters and durations only, built by `wake_telemetry.c` from the current wake and the previous wake's RTC record) is set on the display request only and deleted by `clear_request_headers()` with the other per-request headers; the first TLS connect time is kept in an accessor that outlives `fp_api_release()`. No request, retry or TLS setting changed. |
@@ -89,7 +89,9 @@ Files in `firmware/` that are not vendored from upstream at all:
   `PROJECT_VER` instead of `git describe`'s output — validated before
   Docker even starts (a clean, tagged `HEAD`) so a release image can
   never carry a `-dirty`/ahead-of-tag suffix; `SKYPANE_VERSION_LABEL`
-  covers the separate bench-image case. See `firmware/SIGNING.md` for
+  covers the separate bench-image case. `SKYPANE_BOARD=second` selects
+  `sdkconfig.second.defaults` and the `build-second*` directories; the
+  default (`ee02`) resolves to the same defaults and directories as before. See `firmware/SIGNING.md` for
   the signing step this feeds into (CI-only, never local).
 - `tests/run_host_tests.sh` — discovers every `test_<name>.c` in
   `tests/` by naming convention (compiling it against the matching
@@ -271,6 +273,33 @@ Files in `firmware/` that are not vendored from upstream at all:
   spec, two implementations) to produce a firmware-equivalent
   side-by-side preview PNG per screen.
 
+- `main/panel_driver.h` — compile-time panel driver selection included by
+  `main/panel.c`: with `CONFIG_FP_PANEL_13IN3E` (the default) it defines
+  nothing; with `CONFIG_FP_PANEL_7IN3E` it maps the three driver calls
+  `panel.c` makes onto `main/epd7in3e.c` and checks the configured frame
+  size at compile time.
+- `main/epd7in3e.h` / `main/epd7in3e.c` — single-controller 800x480
+  Spectra 6 driver (see "Second hardware driver" below for provenance).
+  The init command table, the pin validator and the 4-bit pixel packer
+  are pure and host-tested; the SPI/GPIO layer is compiled only when
+  `CONFIG_FP_PANEL_7IN3E` is set, so the default image carries none of it.
+- `tests/test_epd7in3e.c` — host test of the pure parts above: packed
+  size and nibble order, init table order and lengths, the resolution
+  bytes, rejection of a wrong length, a short output buffer, null
+  pointers and invalid colour codes (nothing written on rejection), and
+  the pin validator.
+- `sdkconfig.second.defaults` — board profile of the second hardware type
+  (Seeed XIAO ePaper EE04), layered on `sdkconfig.defaults` only; a
+  source comment per pin; the signed-app lines are inherited, not copied.
+- `flash-second.sh` — cable flash for the second hardware type: reads and
+  prints the chip MAC before anything is written, refuses a port or MAC
+  declared as the live frame's (`SKYPANE_LIVE_FRAME_PORT`,
+  `SKYPANE_LIVE_FRAME_MAC`), needs the MAC typed back at a prompt, then
+  verifies the image signature, writes and reads the app region back.
+- `spike-7in3/` — the paper-spike trial of the same driver and its build
+  scripts, kept as the evidence behind `hardware/SECOND-HARDWARE-SPIKE.md`;
+  not part of any shipped image.
+
 ## Deliberately Not Vendored
 
 Upstream `main/` sources this project does not carry, and why:
@@ -292,6 +321,43 @@ Upstream `main/` sources this project does not carry, and why:
   endpoint is not one of this project's success criteria; the Log Line
   Contract covers its observability needs via the serial console
   instead.
+
+## Second hardware driver
+
+`main/epd7in3e.c` drives the single-controller 7.3" E Ink Spectra 6 panel
+(800x480, controller ED2208 according to Seeed) of the Seeed XIAO ePaper EE04.
+It is **not** derived from the FlightPortrait upstream above.
+
+- **Source of the init table:** Seeed_GFX2,
+  `src/driver/epaper/Driver_ED2208.cpp`, `Driver_ED2208::init()`
+  (https://github.com/Seeed-Studio/Seeed_GFX2), raw file read on branch
+  `main` on 2026-11-01, sha256 `7350cf3dc95d7116...` (first 16 hex digits;
+  re-read and matched on the day the driver was promoted). No commit SHA was
+  readable (the GitHub API was denied), so the pin is branch name, date and
+  hash of the file as fetched.
+- **What was taken:** the command order, the data bytes of the 20 table
+  entries and the register numbers of power-on, power-off, deep sleep, data
+  start and refresh, re-typed by hand. No code was copied; the SPI/GPIO layer
+  is written for ESP-IDF 5.3.1.
+- **Licence of that source:** MIT, "Copyright (c) 2026 Seeed Studio" (file
+  `LICENSE` of Seeed_GFX2, which begins "This library is original work by
+  Seeed Studio."). The full notice is reproduced in the header of
+  `main/epd7in3e.c`, as the licence requires for copied material, even though
+  only constants were taken. MIT is compatible with the Apache-2.0 licence of
+  this directory.
+- **Cross-reference, not copied:** the Waveshare `EPD_7in3e.c`
+  (https://github.com/waveshareteam/e-Paper, MIT-style permission notice in
+  the file header) uses a shorter init for the same panel with some different
+  values; both are listed in `hardware/SECOND-HARDWARE-SPIKE.md`. The
+  Waveshare ESP32-S3-PhotoPainter repository has no licence file and nothing
+  was taken from it.
+- **Pins:** Seeed_GFX2 `src/board/configs/XIAO_ePaper_Board_Configs.h`
+  (sha256 `6e28ce93004d8f24...`), as cited in the comments of
+  `sdkconfig.second.defaults`. Facts about a board, not code.
+- **Status:** compiled in the pinned container, never run against a panel.
+  Selected only by `CONFIG_FP_PANEL_7IN3E` (set in
+  `sdkconfig.second.defaults`); the default configuration and the EE02
+  profile keep the 13.3" driver.
 
 ## Log Line Contract
 

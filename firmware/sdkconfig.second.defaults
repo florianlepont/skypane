@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 Florian Lepont
+# SPDX-License-Identifier: Apache-2.0
+#
+# Second hardware board profile (Seeed XIAO ePaper EE04: XIAO ESP32-S3 Plus
+# with the 7.3" E Ink Spectra 6 panel, 800x480), layered on top of
+# sdkconfig.defaults only (firmware/build.sh with SKYPANE_BOARD=second).
+# Never layered on sdkconfig.ee02.defaults. NOT yet verified on hardware:
+# every value below is a paper source until a unit refreshes a panel.
+#
+# The signed-app and rollback lines (CONFIG_SECURE_SIGNED_APPS_NO_SECURE_BOOT,
+# CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT, CONFIG_SECURE_SIGNED_APPS_RSA_SCHEME,
+# CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE, build-time signing off) are inherited
+# from sdkconfig.defaults and deliberately not repeated: one signing key and
+# one project name for every hardware type (firmware/SIGNING.md, option S).
+
+# --- Identity ---
+# Reported to the server during setup; without it this board would
+# inherit sdkconfig.defaults' "proto-e1004" and misreport itself.
+CONFIG_FP_HW_REV="proto-ee04"
+
+# --- Panel driver ---
+# Selects main/epd7in3e.c behind fp_panel_draw (main/panel.c). The 13.3"
+# driver stays the default for every other profile.
+CONFIG_FP_PANEL_7IN3E=y
+# 800 x 480 at 4 bits per pixel, two pixels per byte. The driver checks this
+# equals its own frame size at compile time.
+CONFIG_FP_PANEL_BUFFER_BYTES=192000
+
+# --- Panel pins ---
+# Source for all seven: Seeed_GFX2 src/board/configs/XIAO_ePaper_Board_Configs.h,
+# Config_XIAO_ePaper_EE04_Board::pins() = esp32DisplayPins(10, -1), raw file
+# read on 2026-11-01 (sha256 6e28ce93004d8f24...); hardware/SECOND-HARDWARE-SPIKE.md
+# "Candidate 1". The panel has a single controller: one chip select, so the
+# 13.3" slave chip select is not used by this driver.
+# Not measured on an EE04. The same seven numbers are the EE02 values
+# (sdkconfig.ee02.defaults) that were measured on a real EE02.
+# SCK: sclk = D8 = GPIO7
+CONFIG_FP_PIN_EPD_SCK=7
+# MOSI: mosi = D10 = GPIO9
+CONFIG_FP_PIN_EPD_MOSI=9
+# CS: cs = 44 (the driver uses the master chip-select setting for it)
+CONFIG_FP_PIN_EPD_CS_M=44
+# DC: esp32DisplayPins(dc = 10, ...)
+CONFIG_FP_PIN_EPD_DC=10
+# RST: rst = 38
+CONFIG_FP_PIN_EPD_RST=38
+# BUSY: busy = 4, high when idle
+CONFIG_FP_PIN_EPD_BUSY=4
+# EN: enable = 43, panel supply switch, active high
+CONFIG_FP_PIN_EPD_EN=43
+
+# CS=44 and EN=43 are UART0 RX/TX on this SoC; console output must route to
+# USB Serial/JTAG or it would drive the chip select and the panel supply.
+# The XIAO ESP32-S3 Plus exposes native USB Serial/JTAG.
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_UART_DEFAULT=n
+
+# --- Controls, battery sense and LED ---
+# Source: inherited from sdkconfig.ee02.defaults, same XIAO ESP32-S3 Plus
+# module and the same Seeed driver-board family (the battery-sense cookbook
+# banner covers EE02..EE05). Nothing here is measured on an EE04: the key
+# GPIOs, the sense divider and the User LED must be checked on the unit
+# before they are relied on. KEY1=GPIO4 of the E1004 default would clash
+# with BUSY=4, hence the EE02 mapping.
+CONFIG_FP_PIN_KEY0=5
+CONFIG_FP_PIN_KEY1=3
+CONFIG_FP_PIN_KEY2=2
+CONFIG_FP_PIN_BATTERY_ADC=1
+CONFIG_FP_PIN_BATTERY_ADC_EN=6
+CONFIG_FP_PIN_LED=21
+CONFIG_FP_LED_ACTIVE_LOW=y
