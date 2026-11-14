@@ -100,6 +100,11 @@ for test_src in "${SCRIPT_DIR}"/test_*.c; do
     fi
 done
 
+echo "== check_bench_floor_option =="
+if ! sh "${SCRIPT_DIR}/check_bench_floor_option.sh"; then
+    FAIL=1
+fi
+
 echo "== check_panel_diff =="
 if ! sh "${SCRIPT_DIR}/check_panel_diff.sh"; then
     FAIL=1

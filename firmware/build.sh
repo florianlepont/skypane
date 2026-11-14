@@ -23,6 +23,12 @@
 # nvs -- selects one fault-injection Kconfig choice for bench verification.
 # Refused outside SKYPANE_PROFILE=dev; a production image can never carry one.
 #
+# SKYPANE_BENCH_FLOOR: unset (default) | a version matching fw-vX.Y.Z.
+# Raises the oldest release this image accepts over OTA
+# (CONFIG_SKYPANE_OTA_FLOOR_VERSION) so a bench unit can refuse an offer that
+# the server still serves. Refused outside SKYPANE_PROFILE=dev; a production
+# image always keeps the committed floor.
+#
 # SKYPANE_RELEASE_TAG: unset (default) | a release tag matching fw-vX.Y.Z.
 # When set, HEAD must already carry exactly that tag on a clean tree, and
 # the reported version is the tag itself, not a git-describe string -- a
@@ -43,6 +49,7 @@ IMAGE="espressif/idf:v5.3.1"
 
 SKYPANE_PROFILE="${SKYPANE_PROFILE:-prod}"
 SKYPANE_FAULT="${SKYPANE_FAULT:-none}"
+SKYPANE_BENCH_FLOOR="${SKYPANE_BENCH_FLOOR:-}"
 SKYPANE_BOARD="${SKYPANE_BOARD:-ee02}"
 
 case "${SKYPANE_BOARD}" in
@@ -74,6 +81,18 @@ if [ "${SKYPANE_PROFILE}" = "prod" ] && [ "${SKYPANE_FAULT}" != "none" ]; then
     exit 2
 fi
 
+if [ -n "${SKYPANE_BENCH_FLOOR}" ]; then
+    if [ "${SKYPANE_PROFILE}" != "dev" ]; then
+        echo "ERROR: SKYPANE_BENCH_FLOOR is dev-only; set SKYPANE_PROFILE=dev to use it" >&2
+        exit 2
+    fi
+    if ! printf '%s' "${SKYPANE_BENCH_FLOOR}" \
+        | grep -Eq '^fw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})$'; then
+        echo "ERROR: SKYPANE_BENCH_FLOOR '${SKYPANE_BENCH_FLOOR}' does not match fw-vMAJOR.MINOR.PATCH" >&2
+        exit 2
+    fi
+fi
+
 SKYPANE_RELEASE_TAG="${SKYPANE_RELEASE_TAG:-}"
 SKYPANE_VERSION_LABEL="${SKYPANE_VERSION_LABEL:-}"
 
@@ -101,6 +120,11 @@ if [ "${SKYPANE_PROFILE}" = "dev" ]; then
         mkdir -p "${SCRIPT_DIR}/${BUILD_DIR}"
         echo "CONFIG_SKYPANE_FAULT_INJECT_${FAULT_UPPER}=y" > "${SCRIPT_DIR}/${BUILD_DIR}/sdkconfig.fault.defaults"
         SDKCONFIG_DEFAULTS="${SDKCONFIG_DEFAULTS};${BUILD_DIR}/sdkconfig.fault.defaults"
+    fi
+    if [ -n "${SKYPANE_BENCH_FLOOR}" ]; then
+        mkdir -p "${SCRIPT_DIR}/${BUILD_DIR}"
+        echo "CONFIG_SKYPANE_OTA_FLOOR_VERSION=\"${SKYPANE_BENCH_FLOOR}\"" > "${SCRIPT_DIR}/${BUILD_DIR}/sdkconfig.floor.defaults"
+        SDKCONFIG_DEFAULTS="${SDKCONFIG_DEFAULTS};${BUILD_DIR}/sdkconfig.floor.defaults"
     fi
 else
     BUILD_DIR="build-${SKYPANE_BOARD}"
