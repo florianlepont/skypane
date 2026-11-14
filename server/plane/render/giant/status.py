@@ -49,6 +49,12 @@ _LINES = {
     "updating": ("FIRMWARE", "UPDATE"),
     "retired": ("FRAME", "RETIRED"),
 }
+PAIRING_LEAD = "PAIR"
+PAIRING_LABEL = "PAIRING CODE"
+PAIRING_BODY_LINES = (
+    "Enter this code on the SkyPane companion page.",
+    "It changes about every 30 minutes.",
+)
 _BODIES = {
     "display_off": style.DISPLAY_OFF_BODY_LINES,
     "battery_empty": style.BATTERY_EMPTY_BODY_LINES,
@@ -229,4 +235,27 @@ def build_status(kind: str, size: Size, *, quiet_hours_until: Optional[str] = No
     _paint_text(canvas, geom, size, lines, label, _body_lines(kind, runway_id, quiet_hours_until), ink)
     if kind in _MARKED:
         _paint_marks(canvas, size, ink, source_fault, battery_low)
+    return canvas
+
+
+def build_pairing(size: Size, code: str, *, flat: bool = False) -> Image.Image:
+    """"P"-mode pairing canvas of `size` showing `code` (already in its
+    XXXX-XXXX display form), in the calm status composition: the link glyph,
+    a small label, a giant lead word, the code as the second giant line (sized
+    to the width like every giant line) and the instructions bottom-left.
+
+    `flat` gives the two-colour canvas of `build_status`. Not a status kind:
+    `build_status` still refuses "pairing", and the portrait pairing screen
+    keeps its own pinned composition in `pairing_image`.
+    """
+    size = (int(size[0]), int(size[1]))
+    if flat:
+        canvas = pf.new_canvas(style.DIMMED_FIELD_IDX, size)
+    else:
+        canvas = dither.dithered_state_background(style.DIMMED_FIELD_IDX, size=size)
+    geom = _geometry(size)
+    ink = style.DIMMED_INK
+    canvas.paste(ink, (geom.margin, geom.icon_top), icons.icon_mask("pairing", geom.icon_h))
+    _paint_text(canvas, geom, size, (PAIRING_LEAD, code), PAIRING_LABEL,
+                PAIRING_BODY_LINES, ink)
     return canvas

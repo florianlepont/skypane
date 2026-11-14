@@ -7,10 +7,14 @@ no clock, no countdown, no frame id, no MAC and no randomness. The only
 varying input of the pairing screen is the code, so the frame's content hash
 changes only when the code rotates.
 
-The composition is drawn on the 1200x1600 reference canvas. Other hardware
-profiles get that canvas scaled by min(w/1200, h/1600) with nearest-neighbour
-sampling (palette indices stay exact) and centred on a field of the same
-kind, so nothing is clipped and the text is never re-flowed.
+The portrait composition is drawn on the 1200x1600 reference canvas. A
+portrait profile of another size gets that canvas scaled by
+min(w/1200, h/1600) with nearest-neighbour sampling (palette indices stay
+exact) and centred on a field of the same kind, so nothing is clipped and the
+text is never re-flowed. A landscape profile gets the calm status composition
+at its own size instead, like the retired screen: the dithered dark field, the
+link glyph, a small label, a giant lead word and the code as the second giant
+line.
 """
 from __future__ import annotations
 
@@ -22,10 +26,7 @@ from server.plane.render import glyphs, hold_screens, style
 from server.plane.render.giant import status
 
 _PAIR_LABEL = "PAIR THIS FRAME"
-_PAIR_BODY = (
-    "Enter this code on the SkyPane companion page.",
-    "It changes about every 30 minutes.",
-)
+_PAIR_BODY = status.PAIRING_BODY_LINES
 
 
 def _pack(image: Image.Image) -> bytes:
@@ -66,6 +67,8 @@ def _fit_to_profile(
 def render_pairing_image(profile: hardware.HardwareProfile, code: str) -> bytes:
     """The pairing screen for `code` (raw or formatted) as packed panel nibbles."""
     shown = pairing_code.format_code(code.replace("-", "").upper())
+    if profile.width > profile.height:
+        return _pack(status.build_pairing((profile.width, profile.height), shown))
     reference = hold_screens._build_hold_canvas(
         glyphs.draw_link_icon,
         glyphs.LINK_ICON_HEIGHT_PX,
