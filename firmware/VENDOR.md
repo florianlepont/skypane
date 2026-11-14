@@ -288,6 +288,26 @@ Files in `firmware/` that are not vendored from upstream at all:
   bytes, rejection of a wrong length, a short output buffer, null
   pointers and invalid colour codes (nothing written on rejection), and
   the pin validator.
+- `main/panel_geometry.h` — pure-C width, height and packed byte count of
+  the selected panel (1200x1600 by default, 800x480 under
+  `CONFIG_FP_PANEL_7IN3E`), with compile-time checks against
+  `CONFIG_FP_PANEL_BUFFER_BYTES`; the single source of the download size
+  and the fault-screen canvas.
+- `main/fault_screen_mask_800x480.h` / `main/updating_screen_mask_800x480.h`
+  — generated (never hand-edited — a server test proves each matches its
+  generator byte-for-byte) 1-bpp ink masks of the NO CONNECTION and
+  UPDATING compositions at 800x480, produced by
+  `tools/gen_fault_screen.py --panel 800x480` (add `--screen updating`
+  for the second). Selected by `fault_screen.c` / `updating_screen.c`
+  under `CONFIG_FP_PANEL_7IN3E`; the portrait masks are not linked then.
+- `tools/gen_fault_screen.py --panel` — `1200x1600` (default, output
+  unchanged) or `800x480`.
+- `tests/test_panel_geometry.c` — host test of `panel_geometry.h` for both
+  panel profiles (run through `HOST_TEST_PROFILES` in `run_host_tests.sh`).
+- Changed shared files (compile-time selection only, identical object code
+  for the default profile): `main/api_client.h`, `main/state_machine.c`,
+  `main/app_main.c`, `main/fault_screen.[ch]`, `main/updating_screen.c`,
+  `main/hold_screen.h`.
 - `sdkconfig.second.defaults` — board profile of the second hardware type
   (Seeed XIAO ePaper EE04), layered on `sdkconfig.defaults` only; a
   source comment per pin; the signed-app lines are inherited, not copied.
