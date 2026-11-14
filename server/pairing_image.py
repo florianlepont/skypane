@@ -1,20 +1,17 @@
 """The two static e-ink screens of the pairing flow: pairing and retired.
 
-The pairing screen uses the shared hold composition (glyph, tracked label,
-short rule, code, text) and the retired screen the calm status screen, both
-English only. They are byte-deterministic:
+Both use the calm status composition at the profile's own size, portrait or
+landscape: the dithered dark field, a glyph, a small label and giant lines. The
+pairing screen shows PAIR and then the code as its second giant line; the
+retired screen shows FRAME RETIRED. Both are English only and byte-deterministic:
 no clock, no countdown, no frame id, no MAC and no randomness. The only
 varying input of the pairing screen is the code, so the frame's content hash
 changes only when the code rotates.
 
-The portrait composition is drawn on the 1200x1600 reference canvas. A
-portrait profile of another size gets that canvas scaled by
-min(w/1200, h/1600) with nearest-neighbour sampling (palette indices stay
-exact) and centred on a field of the same kind, so nothing is clipped and the
-text is never re-flowed. A landscape profile gets the calm status composition
-at its own size instead, like the retired screen: the dithered dark field, the
-link glyph, a small label, a giant lead word and the code as the second giant
-line.
+A portrait profile of a size other than 1200x1600 gets the retired screen
+scaled by min(w/1200, h/1600) with nearest-neighbour sampling (palette indices
+stay exact) and centred on a field of the same kind, so nothing is clipped and
+the text is never re-flowed.
 """
 from __future__ import annotations
 
@@ -22,11 +19,8 @@ from PIL import Image
 
 from server import hardware, pairing_code, panel_format
 from server.plane import dither
-from server.plane.render import glyphs, hold_screens, style
+from server.plane.render import style
 from server.plane.render.giant import status
-
-_PAIR_LABEL = "PAIR THIS FRAME"
-_PAIR_BODY = status.PAIRING_BODY_LINES
 
 
 def _pack(image: Image.Image) -> bytes:
@@ -67,22 +61,7 @@ def _fit_to_profile(
 def render_pairing_image(profile: hardware.HardwareProfile, code: str) -> bytes:
     """The pairing screen for `code` (raw or formatted) as packed panel nibbles."""
     shown = pairing_code.format_code(code.replace("-", "").upper())
-    if profile.width > profile.height:
-        return _pack(status.build_pairing((profile.width, profile.height), shown))
-    reference = hold_screens._build_hold_canvas(
-        glyphs.draw_link_icon,
-        glyphs.LINK_ICON_HEIGHT_PX,
-        _PAIR_LABEL,
-        _PAIR_BODY,
-        panel_format.IDX_WHITE,
-        panel_format.IDX_BLACK,
-        False,
-        code_text=shown,
-    )
-    field = panel_format.new_canvas(
-        panel_format.IDX_WHITE, (profile.width, profile.height)
-    )
-    return _pack(_fit_to_profile(reference, profile, field))
+    return _pack(status.build_pairing((profile.width, profile.height), shown))
 
 
 def render_retired_image(profile: hardware.HardwareProfile) -> bytes:
