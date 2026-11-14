@@ -707,10 +707,11 @@ esp_err_t fp_api_download(const char *url, const char *expected_hash,
     if (complete_out) {
         *complete_out = false;
     }
-    /* The legacy body is exactly FP_IMAGE_BYTES (960000: 1200*1600 pixels,
-     * two nibble-packed pixels per byte, PROTOCOL.md section 1); a container
-     * adds a header of up to FP_IMAGE_MAX_HEADER - 1 bytes. The length gate
-     * below refuses anything else before the buffer reaches the parser. */
+    /* The legacy body is exactly FP_IMAGE_BYTES, the packed frame size of
+     * the selected panel (960000 for the 1200*1600 EE02: two nibble-packed
+     * pixels per byte, PROTOCOL.md section 1); a container adds a header of
+     * up to FP_IMAGE_MAX_HEADER - 1 bytes. The length gate below refuses
+     * anything else before the buffer reaches the parser. */
     if (!buf || !body_len_out || !complete_out || cap < FP_IMAGE_BUF_BYTES ||
         !fp_url_valid(url, sizeof(((fp_display_t *)0)->image_url), s_allow_http) ||
         !fp_image_hash_valid(expected_hash)) {

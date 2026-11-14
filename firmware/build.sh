@@ -15,6 +15,10 @@
 # and layers sdkconfig.dev.defaults (CONFIG_SKYPANE_ALLOW_HTTP=y), so a
 # dev image can never be confused with a production one.
 #
+# SKYPANE_BOARD: ee02 (default, the live frame's board) | second. second
+# layers sdkconfig.second.defaults (7.3" panel, Seeed EE04) instead of the
+# EE02 profile and uses build-second / build-second-dev directories.
+#
 # SKYPANE_FAULT: none (default) | panic | task_wdt | int_wdt | slow_wake |
 # nvs -- selects one fault-injection Kconfig choice for bench verification.
 # Refused outside SKYPANE_PROFILE=dev; a production image can never carry one.
@@ -39,6 +43,15 @@ IMAGE="espressif/idf:v5.3.1"
 
 SKYPANE_PROFILE="${SKYPANE_PROFILE:-prod}"
 SKYPANE_FAULT="${SKYPANE_FAULT:-none}"
+SKYPANE_BOARD="${SKYPANE_BOARD:-ee02}"
+
+case "${SKYPANE_BOARD}" in
+    ee02|second) ;;
+    *)
+        echo "ERROR: SKYPANE_BOARD must be 'ee02' or 'second' (got '${SKYPANE_BOARD}')" >&2
+        exit 2
+        ;;
+esac
 
 case "${SKYPANE_PROFILE}" in
     prod|dev) ;;
@@ -81,8 +94,8 @@ if [ -n "${SKYPANE_VERSION_LABEL}" ]; then
 fi
 
 if [ "${SKYPANE_PROFILE}" = "dev" ]; then
-    BUILD_DIR="build-ee02-dev"
-    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ee02.defaults;sdkconfig.dev.defaults"
+    BUILD_DIR="build-${SKYPANE_BOARD}-dev"
+    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.${SKYPANE_BOARD}.defaults;sdkconfig.dev.defaults"
     if [ "${SKYPANE_FAULT}" != "none" ]; then
         FAULT_UPPER=$(printf '%s' "${SKYPANE_FAULT}" | tr '[:lower:]' '[:upper:]')
         mkdir -p "${SCRIPT_DIR}/${BUILD_DIR}"
@@ -90,8 +103,8 @@ if [ "${SKYPANE_PROFILE}" = "dev" ]; then
         SDKCONFIG_DEFAULTS="${SDKCONFIG_DEFAULTS};${BUILD_DIR}/sdkconfig.fault.defaults"
     fi
 else
-    BUILD_DIR="build-ee02"
-    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ee02.defaults"
+    BUILD_DIR="build-${SKYPANE_BOARD}"
+    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.${SKYPANE_BOARD}.defaults"
 fi
 
 if [ "${ACTION}" = "build" ]; then
@@ -132,7 +145,7 @@ else
 fi
 
 echo "Firmware version: ${VER}"
-echo "Profile: ${SKYPANE_PROFILE} fault=${SKYPANE_FAULT}"
+echo "Profile: ${SKYPANE_PROFILE} board=${SKYPANE_BOARD} fault=${SKYPANE_FAULT}"
 
 docker run --rm \
     -v "${SCRIPT_DIR}:/project" \

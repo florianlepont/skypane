@@ -10,6 +10,7 @@
  *      tests/test_fault_screen.c -o /tmp/tfs && /tmp/tfs
  */
 /* HOST_TEST_DEPS: hold_screen.c */
+/* HOST_TEST_PROFILES: second */
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,7 +19,11 @@
 #include <string.h>
 
 #include "../main/fault_screen.h"
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+#include "../main/fault_screen_mask_800x480.h"
+#else
 #include "../main/fault_screen_mask.h"
+#endif
 
 static uint8_t *alloc_buf(void)
 {
@@ -84,9 +89,9 @@ static void dither_field_is_roughly_forty_percent_white_and_black_dominant(void)
     uint8_t *buf = alloc_buf();
     fp_fault_screen_render(buf, NULL);
 
-    /* Rows 1400..1599, all columns - below the mask bbox
-     * (FP_FAULT_MASK_Y + FP_FAULT_MASK_H is 1395), so this region is pure
-     * dithered field. */
+    /* Every row from five below the mask bbox to the bottom edge, all
+     * columns (the mask ends at row 1395 on the 1200x1600 panel and at row
+     * 451 on the 800x480 panel), so this region is pure dithered field. */
     long white = 0;
     long total = 0;
     for (int row = FP_FAULT_MASK_Y + FP_FAULT_MASK_H + 5; row < FP_FAULT_SCREEN_HEIGHT; row++) {
@@ -195,10 +200,28 @@ static uint64_t fnv1a64(const uint8_t *buf, size_t len)
 }
 
 /* Digest of fp_fault_screen_render()'s output with the committed mask.
- * It changes whenever fault_screen_mask.h is regenerated or the shared
+ * It changes whenever the selected mask header is regenerated or the shared
  * dither + mask renderer changes; recompute it from a run in the former
- * case and investigate the renderer in the latter. */
+ * case and investigate the renderer in the latter. The 800x480 value is
+ * the FNV-1a 64 of the generator's firmware_equivalent_image("no-connection",
+ * "800x480") packed two pixels per byte, left pixel in the high nibble
+ * (Black 0x0, White 0x1). */
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+#define FP_FAULT_SCREEN_GOLDEN_DIGEST 0x84464bd56530b5d5ULL
+#else
 #define FP_FAULT_SCREEN_GOLDEN_DIGEST 0x507fb0b85c6e7b20ULL
+#endif
+
+static void screen_geometry_follows_the_selected_panel(void)
+{
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+    assert(FP_FAULT_SCREEN_WIDTH == 800 && FP_FAULT_SCREEN_HEIGHT == 480);
+    assert(FP_FAULT_SCREEN_BYTES == 192000);
+#else
+    assert(FP_FAULT_SCREEN_WIDTH == 1200 && FP_FAULT_SCREEN_HEIGHT == 1600);
+    assert(FP_FAULT_SCREEN_BYTES == 960000);
+#endif
+}
 
 static void render_output_matches_golden_digest(void)
 {
@@ -211,6 +234,7 @@ static void render_output_matches_golden_digest(void)
 
 int main(void)
 {
+    screen_geometry_follows_the_selected_panel();
     every_nibble_is_black_or_white();
     masked_pixels_are_always_white();
     dither_field_is_roughly_forty_percent_white_and_black_dominant();

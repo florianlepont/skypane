@@ -12,6 +12,7 @@
  * screens' masks are not accidentally swapped.
  */
 /* HOST_TEST_DEPS: hold_screen.c fault_screen.c */
+/* HOST_TEST_PROFILES: second */
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -21,7 +22,11 @@
 
 #include "../main/fault_screen.h"
 #include "../main/updating_screen.h"
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+#include "../main/updating_screen_mask_800x480.h"
+#else
 #include "../main/updating_screen_mask.h"
+#endif
 
 static uint8_t *alloc_buf(void)
 {
@@ -139,8 +144,42 @@ static void hash_sentinel_is_not_a_server_hash_shape(void)
     assert(strncmp(FP_UPDATING_SCREEN_HASH, "sha256:", 7) != 0);
 }
 
+static uint64_t fnv1a64(const uint8_t *buf, size_t len)
+{
+    uint64_t h = 0xcbf29ce484222325ULL;
+    for (size_t i = 0; i < len; i++) {
+        h ^= buf[i];
+        h *= 0x100000001b3ULL;
+    }
+    return h;
+}
+
+/* FNV-1a 64 of the generator's firmware_equivalent_image("updating", panel)
+ * packed two pixels per byte, left pixel in the high nibble (Black 0x0,
+ * White 0x1). It changes whenever the selected mask header is regenerated or
+ * the shared dither + mask renderer changes. */
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+#define FP_UPDATING_SCREEN_GOLDEN_DIGEST 0xee1cfad06f63fbf4ULL
+#else
+#define FP_UPDATING_SCREEN_GOLDEN_DIGEST 0x1db87d2c3218d65aULL
+#endif
+
+static void render_output_matches_golden_digest(void)
+{
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+    assert(FP_UPDATING_SCREEN_BYTES == 192000);
+#else
+    assert(FP_UPDATING_SCREEN_BYTES == 960000);
+#endif
+    uint8_t *buf = alloc_buf();
+    fp_updating_screen_render(buf, NULL);
+    assert(fnv1a64(buf, FP_UPDATING_SCREEN_BYTES) == FP_UPDATING_SCREEN_GOLDEN_DIGEST);
+    free(buf);
+}
+
 int main(void)
 {
+    render_output_matches_golden_digest();
     render_is_deterministic_and_fully_overwrites();
     every_nibble_is_black_or_white();
     masked_pixels_are_always_white();

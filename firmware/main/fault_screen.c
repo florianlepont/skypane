@@ -9,7 +9,11 @@
 
 #include <string.h>
 
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+#include "fault_screen_mask_800x480.h"
+#else
 #include "fault_screen_mask.h"
+#endif
 #include "hold_screen.h"
 
 _Static_assert(FP_FAULT_MASK_X + FP_FAULT_MASK_W <= FP_FAULT_SCREEN_WIDTH,

@@ -22,16 +22,18 @@
 
 #include "esp_err.h"
 
+#include "panel_geometry.h"
 #include "validate.h"
 #include "wake_telemetry.h"
 
-/* 1200*1600 pixels, two nibble-packed pixels per byte — PROTOCOL.md §1. */
-#define FP_IMAGE_BYTES 960000u
+/* Packed frame size of the selected panel (two nibble-packed pixels per
+ * byte, PROTOCOL.md §1): 960000 for the default 1200*1600 panel. */
+#define FP_IMAGE_BYTES ((unsigned)FP_PANEL_BYTES)
 
 /* Panel size in pixels, and the room the download buffer keeps for the
  * container header that may precede the pixel payload. */
-#define FP_PANEL_W 1200u
-#define FP_PANEL_H 1600u
+#define FP_PANEL_W ((unsigned)FP_PANEL_WIDTH)
+#define FP_PANEL_H ((unsigned)FP_PANEL_HEIGHT)
 #define FP_IMAGE_MAX_HEADER 256u
 #define FP_IMAGE_BUF_BYTES (FP_IMAGE_BYTES + FP_IMAGE_MAX_HEADER)
 _Static_assert(FP_PANEL_W * FP_PANEL_H / 2 == FP_IMAGE_BYTES,
