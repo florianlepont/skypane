@@ -29,7 +29,8 @@ typedef enum {
  * is bounded by `max_wait_s`: past that the answer is still AFTER_WAIT with
  * wait_s clamped, because the caller holds the image in PSRAM and PSRAM does
  * not survive deep sleep — dropping the image to sleep it out would mean
- * downloading 960 KB again for the same picture. */
+ * downloading the frame again for the same picture (960000 bytes on the
+ * 13.3" panel, 192000 on the 7.3"). */
 fp_panel_draw_plan_t fp_panel_guard_plan(uint32_t remaining_s, bool drawing,
                                          uint32_t max_wait_s,
                                          uint32_t *wait_s);

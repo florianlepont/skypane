@@ -75,3 +75,11 @@ CONFIG_FP_PIN_BATTERY_ADC=1
 CONFIG_FP_PIN_BATTERY_ADC_EN=6
 CONFIG_FP_PIN_LED=21
 CONFIG_FP_LED_ACTIVE_LOW=y
+
+# --- Wake budget ---
+# The 7.3" blit stage is 190 s (three bounded 60 s busy waits plus margin,
+# unmeasured; main/wake_deadline.h), so the worst legitimate wakes with the
+# default 90 s guard wait are: normal 180 + B = 370 s, OTA 285 + 2B = 665 s.
+# 700 s clears both (wake_guard.c asserts it at compile time) and stays
+# inside the 900 s Kconfig cap.
+CONFIG_SKYPANE_WAKE_BUDGET_S=700

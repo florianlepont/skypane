@@ -48,6 +48,7 @@ static void a_zero_slice_max_means_unsliced(void)
     assert(fp_wake_slice_s(20, 0) == 20);
 }
 
+#ifndef CONFIG_FP_PANEL_7IN3E
 static void worst_case_macro_matches_the_stacked_stage_budgets(void)
 {
     /* 15 + 10 + 15 + 20 + 30 + 70 = 160, plus the guard wait. */
@@ -81,6 +82,7 @@ static void ota_worst_case_macro_matches_its_own_stacked_stage_budgets(void)
     assert(FP_WAKE_OTA_WORST_CASE_S(90) < 460);
     assert(FP_WAKE_WORST_CASE_S(90) < 460);
 }
+#endif
 
 #ifdef CONFIG_FP_PANEL_7IN3E
 /* The 7.3" driver bounds three busy waits at 60 s each, plus an SPI
@@ -109,12 +111,12 @@ int main(void)
     a_zero_budget_expires_immediately();
     wake_slice_caps_at_the_max_and_passes_through_below_it();
     a_zero_slice_max_means_unsliced();
-    worst_case_macro_matches_the_stacked_stage_budgets();
-    ota_worst_case_macro_matches_its_own_stacked_stage_budgets();
 #ifdef CONFIG_FP_PANEL_7IN3E
     second_profile_worst_cases_fit_its_budget();
 #else
     assert(FP_WAKE_STAGE_BLIT_S == 70);
+    worst_case_macro_matches_the_stacked_stage_budgets();
+    ota_worst_case_macro_matches_its_own_stacked_stage_budgets();
 #endif
     printf("wake_deadline: all cases pass\n");
     return 0;
