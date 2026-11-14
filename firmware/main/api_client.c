@@ -581,7 +581,7 @@ static void parse_fw_offer(const cJSON *json, fp_fw_offer_t *out)
     if (!cJSON_IsString(version) || !fp_fw_version_valid(version->valuestring)) {
         bad_field = "version";
     } else if (!cJSON_IsString(url) ||
-               !fp_url_valid(url->valuestring, sizeof(out->url), false)) {
+               !fp_url_valid(url->valuestring, sizeof(out->url), s_allow_http)) {
         bad_field = "url";
     } else if (!cJSON_IsString(sha256) || !fp_image_hash_valid(sha256->valuestring)) {
         bad_field = "sha256";
