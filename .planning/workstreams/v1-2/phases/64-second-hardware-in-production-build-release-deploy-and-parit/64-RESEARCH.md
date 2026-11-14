@@ -359,16 +359,21 @@ Same job, appended after the live-frame steps and before "Publish": build with `
 | A5 | 7.3 inch refresh time is in the tens of seconds; no number exists in the repo | Firmware assumptions | Budget/spacing sized wrong; must be measured |
 | A6 | Switch name `SKYPANE_ENABLE_SECOND_HARDWARE` (free choice under discretion) | Switch | Rename only |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **"refuse the live frame's MAC or type" in provision.sh**
    - Known: both boards are ESP32-S3, the chip cannot tell its type; flash-second.sh uses declared port/MAC.
    - Unclear: whether the owner wants refusal also when the MAC is registered as a live-type row on the server (needs network), or only declared env values.
    - Recommendation: declared `SKYPANE_LIVE_FRAME_PORT`/`SKYPANE_LIVE_FRAME_MAC` plus mandatory typed MAC, identical to flash-second.sh; state the limit in the docs.
+   - RESOLVED: implemented in 64-03 (declared env values plus typed MAC; limit documented).
 2. **Atomic release job vs second job** (Pattern release). Recommendation: one job; owner to confirm that a second-board build failure may block a live release.
+   - RESOLVED: decided at the 64-13 Task 1 checkpoint; default is a single job.
 3. **Does provisioning the live frame itself ever need to be possible again?** With the guard it is refused when the env declares it; document that unsetting the variable is the deliberate override.
+   - RESOLVED: 64-03 (guard and override documented) and 64-11 (support guide).
 4. **Lifting order:** the owner needs a deploy (workflow_dispatch of ci.yml) after the lift to import typed releases already published; document it.
+   - RESOLVED: 64-03 and 64-11 document the post-lift deploy.
 5. **Phase 58 bench state:** STATE.md says 58 waits for the unit, but `hardware/SECOND-HARDWARE-VALIDATION.md` records a unit flashed, enrolled and paired on 2026-11-14 without refresh timing, battery, LED or key checks. Criteria 5, 7, 9 remain owner steps either way.
+   - RESOLVED: left to the owner steps 64-12, 64-14 and 64-15.
 
 ## Environment Availability
 
