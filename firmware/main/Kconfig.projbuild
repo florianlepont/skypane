@@ -14,6 +14,14 @@ menu "SkyPane"
             TLS-verified. The dev overlay (sdkconfig.dev.defaults) turns
             it on for the LAN stub server, which has no certificate.
 
+    config SKYPANE_HW_TYPE
+        string "Hardware key announced in the display request"
+        default "xiao-ee02-13in3-spectra6"
+        help
+            Sent as X-Hw-Type on the display request. Must equal the
+            server's hardware vocabulary key for this board; a value that
+            is not [a-z0-9-]{1,64} sends no header.
+
     config SKYPANE_WAKE_BUDGET_S
         int "Whole-wake time budget (seconds)"
         range 180 900

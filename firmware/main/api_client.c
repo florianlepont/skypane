@@ -83,6 +83,8 @@ static void clear_request_headers(esp_http_client_handle_t http)
     esp_http_client_delete_header(http, "X-Boot-Reason");
     esp_http_client_delete_header(http, "X-Ota-Result");
     esp_http_client_delete_header(http, "X-Wake-Stats");
+    esp_http_client_delete_header(http, "X-Img-Fmt");
+    esp_http_client_delete_header(http, "X-Hw-Type");
 }
 
 /* Extracts "scheme://host[:port]" from url, stopping at the first '/'
@@ -297,6 +299,22 @@ static void wake_stats_header(esp_http_client_handle_t http)
                                      fp_wake_record_previous(), false);
     if (n > 0) {
         esp_http_client_set_header(http, "X-Wake-Stats", buf);
+    }
+}
+
+/* Display request only: announces the container image format (unless an
+ * earlier container failure latched the sticky flag) and the compiled-in
+ * hardware key. A key that fails the grammar sends no header, so a bad
+ * build configuration never puts a malformed value on the wire. */
+static void capability_headers(esp_http_client_handle_t http)
+{
+    char flag[4] = "";
+    bool imgfmt_bad = fp_nvs_get_str(FP_NVS_IMGFMT_BAD, flag, sizeof(flag)) == ESP_OK;
+    if (fp_imgfmt_announce(imgfmt_bad)) {
+        esp_http_client_set_header(http, "X-Img-Fmt", "1");
+    }
+    if (fp_hw_type_valid(CONFIG_SKYPANE_HW_TYPE)) {
+        esp_http_client_set_header(http, "X-Hw-Type", CONFIG_SKYPANE_HW_TYPE);
     }
 }
 
@@ -604,6 +622,7 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
     auth_header(http);
     telemetry_headers(http, boot_reason);
     wake_stats_header(http);
+    capability_headers(http);
 
     char resp[RESP_MAX];
     int n = 0;
@@ -678,17 +697,32 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
 /* --------------------------------------------------------------- download */
 
 esp_err_t fp_api_download(const char *url, const char *expected_hash,
-                          uint8_t *buf)
+                          uint8_t *buf, size_t cap, size_t *body_len_out,
+                          bool *complete_out)
 {
-    /* FP_IMAGE_BYTES (api_client.h) is exactly 960000 — 1200*1600 pixels,
-     * two nibble-packed pixels per byte, PROTOCOL.md §1. The size check
-     * below (`got != FP_IMAGE_BYTES`) is the gate that refuses to hand
-     * `buf` to panel.c unless the download is exactly 960000 bytes. */
-    if (!buf ||
+    /* Outputs are valid on every return path, including early ones. */
+    if (body_len_out) {
+        *body_len_out = 0;
+    }
+    if (complete_out) {
+        *complete_out = false;
+    }
+    /* The legacy body is exactly FP_IMAGE_BYTES (960000: 1200*1600 pixels,
+     * two nibble-packed pixels per byte, PROTOCOL.md section 1); a container
+     * adds a header of up to FP_IMAGE_MAX_HEADER - 1 bytes. The length gate
+     * below refuses anything else before the buffer reaches the parser. */
+    if (!buf || !body_len_out || !complete_out || cap < FP_IMAGE_BUF_BYTES ||
         !fp_url_valid(url, sizeof(((fp_display_t *)0)->image_url), s_allow_http) ||
         !fp_image_hash_valid(expected_hash)) {
         return ESP_ERR_INVALID_ARG;
     }
+
+    esp_err_t result = ESP_OK;
+    size_t got = 0;
+    bool oversize = false;
+    bool read_err = false;
+    bool complete = false;
+    int status = 0;
 
     char origin[API_BASE_MAX];
     url_origin(url, origin, sizeof(origin));
@@ -748,24 +782,33 @@ open_again:
         maybe_save_tls_session();
     }
 
-    uint32_t got = 0;
-    while (got < FP_IMAGE_BYTES) {
-        int n = esp_http_client_read(http, (char *)buf + got,
-                                     FP_IMAGE_BYTES - got);
+    while (got < cap) {
+        int n = esp_http_client_read(http, (char *)buf + got, cap - got);
         /* Bounds a trickling transfer by the whole-wake budget, not
          * just this read's own per-call timeout - a download that
          * dribbles in a few bytes at a time, just under the timeout on
          * every single read, would otherwise never end. */
         fp_wake_checkpoint();
-        if (n <= 0) {
+        if (n < 0) {
+            read_err = true;
             break;
         }
-        got += n;
+        if (n == 0) {
+            break;
+        }
+        got += (size_t)n;
     }
-    /* Anything beyond the expected size is a protocol violation. */
-    char extra;
-    bool oversize = esp_http_client_read(http, &extra, 1) > 0;
-    int status = esp_http_client_get_status_code(http);
+    /* A byte past the buffer capacity is a protocol violation. */
+    if (got == cap) {
+        char extra;
+        oversize = esp_http_client_read(http, &extra, 1) > 0;
+    }
+    status = esp_http_client_get_status_code(http);
+    /* Complete means the server delivered a whole 200 response (an
+     * oversize one counts: the network did its job) with no read error or
+     * timeout; only then may a rejected body be blamed on the format. */
+    complete = status == 200 && !read_err &&
+               (oversize || esp_http_client_is_complete_data_received(http));
     if (!shared) {
         esp_http_client_cleanup(http);
     }
@@ -775,28 +818,35 @@ open_again:
      * about to spend effort saving for nothing. */
 
     /* Compute the digest only once the transfer itself checks out -
-     * hashing 960000 bytes is wasted work when the transfer is already
-     * going to be rejected. fp_download_verdict re-checks the same
-     * transfer facts regardless, so a BAD_TRANSFER verdict never
-     * depends on hex being meaningful. */
+     * hashing the body is wasted work when the transfer is already
+     * going to be rejected. The hash covers every received byte, header
+     * included. */
     unsigned char digest[32] = {0};
     char hex[FP_IMAGE_HASH_BUF] = "";
-    bool transfer_ok = status == 200 && got == FP_IMAGE_BYTES && !oversize;
+    bool length_ok = fp_body_len_plausible(got, FP_IMAGE_BYTES, FP_IMAGE_MAX_HEADER);
+    bool transfer_ok = status == 200 && length_ok && !oversize;
     if (transfer_ok) {
-        mbedtls_sha256(buf, FP_IMAGE_BYTES, digest, 0);
+        mbedtls_sha256(buf, got, digest, 0);
         fp_sha256_to_image_hash(digest, hex);
     }
-    fp_download_verdict_t verdict = fp_download_verdict(
-        status, got, FP_IMAGE_BYTES, oversize, hex, expected_hash);
+    /* A plausible length is passed for both length arguments so the
+     * verdict keeps checking status, oversize and hash; an implausible
+     * length is a bad transfer. */
+    fp_download_verdict_t verdict = transfer_ok
+        ? fp_download_verdict(status, (uint32_t)got, (uint32_t)got, oversize,
+                              hex, expected_hash)
+        : FP_DOWNLOAD_BAD_TRANSFER;
 
     if (verdict == FP_DOWNLOAD_BAD_TRANSFER) {
         ESP_LOGW(TAG, "download bad: HTTP %d, %lu bytes%s", status,
                  (unsigned long)got, oversize ? " (oversize)" : "");
-        return ESP_FAIL;
-    }
-    if (verdict == FP_DOWNLOAD_HASH_MISMATCH) {
+        result = ESP_FAIL;
+    } else if (verdict == FP_DOWNLOAD_HASH_MISMATCH) {
         ESP_LOGW(TAG, "sha256 MISMATCH, dropping image");
-        return FP_ERR_IMAGE_VERIFY; /* never blit an unverified buffer */
+        result = FP_ERR_IMAGE_VERIFY; /* never hand an unverified buffer on */
     }
-    return ESP_OK;
+
+    *body_len_out = got;
+    *complete_out = complete;
+    return result;
 }
