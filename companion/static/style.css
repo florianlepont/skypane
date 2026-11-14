@@ -67,6 +67,8 @@
   --tab-bar-gap: 6px;
   --tab-bar-side: 8px;
   --tab-bar-pad: 2px;
+  /* Widest the bar and its More sheet grow on a tablet; centred. */
+  --tab-bar-max: 460px;
 
   /* The one segmented-control contract (theme and language, look kinds,
    * Departures/Arrivals tabs, filter chips, fleet tabs, map modes): a track
@@ -5630,6 +5632,10 @@ a.btn[aria-disabled="true"] {
     position: fixed;
     left: max(var(--tab-bar-side), var(--safe-left));
     right: max(var(--tab-bar-side), var(--safe-right));
+    /* Both insets are set, so auto side margins centre a bar that the cap
+     * keeps narrower than the space between them. */
+    max-width: var(--tab-bar-max);
+    margin-inline: auto;
     bottom: calc(var(--tab-bar-gap) + var(--safe-bottom));
     height: var(--tab-bar-h);
     z-index: 20;
