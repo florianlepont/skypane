@@ -62,6 +62,12 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **HW2-01**: The owner can choose a second hardware type from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, within the hardware budget.
 - [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
 
+### Second Hardware in Production
+
+- [ ] **HW2-03**: The second board is built in production by CI and published by the release pipeline as a signed image with a per-type manifest, the production deploy imports it, and it is offered, installed and reported over the air on a second-type frame in production, with the result recorded in its own registry and the live frame's release path unchanged.
+- [ ] **HW2-04**: The second type is available in production through its own switch, lifted only on the owner's written confirmation, and every companion view that shows a picture or a battery number follows the frame's hardware profile.
+- [ ] **HW2-05**: The second panel's firmware assumptions (wake-stage budget, refresh spacing, battery sense and pins) are settled with measured values, and the documents describe both boards, with provisioning guarded against the live frame.
+
 ### Companion UX
 
 - [x] **UX-01**: The owner can walk through the companion's main tasks as an administrator and as an invited user, on a phone and a desktop and in English and French; the observed friction is recorded and ranked, and navigation and page structure are reworked for the confirmed findings against an updated design contract.
@@ -114,7 +120,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ## Traceability
 
-Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
+Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 
 | Requirement | Phase | Status |
 |---|---|---|
@@ -148,6 +154,9 @@ Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 | OTA-04 | Phase 57 | Pending |
 | HW2-01 | Phase 58 | Complete |
 | HW2-02 | Phase 58 | Pending |
+| HW2-03 | Phase 64 | Pending |
+| HW2-04 | Phase 64 | Pending |
+| HW2-05 | Phase 64 | Pending |
 | UX-01 | Phase 61 | Complete |
 | UX-02 | Phase 61 | Complete |
 | UX-03 | Phase 61 | Complete |

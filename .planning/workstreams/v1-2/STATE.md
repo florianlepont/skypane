@@ -73,6 +73,7 @@ Progress: [████████░░] 84%
 
 - Phase 62 added 2026-11-08 at the owner's request: Plane Screen Redesign (giant-lettering design), from `.planning/notes/plane-screen-design-brief.md`. Runs before Phase 59, which stays last.
 - Phase 63 added 2026-11-10 at the owner's request: Fast CI (test job from about 27 minutes to 10 minutes or less, nothing skipped), from measurements of run 42770577886 and a local 4-core run. Closed 2026-11-10: test check median 9.0 min over five green runs, merged as #320 and #322 (see `phases/63-fast-ci/63-VERIFICATION.md`).
+- Phase 64 added 2026-11-14 at the owner's request: Second Hardware in Production (build, release, deploy and parity with the first type), HW2-03 to HW2-05. The owner asked whether the second screen could be managed as the first one is; two read-only audits (server and companion, firmware and release pipeline) found the gap in the plan: Phase 57 releases the live frame only and Phase 58 validates the board with throwaway-key bench images, so nothing builds, publishes or deploys a release for the second type. Findings, re-checked against `main`, in `64-AUDIT.md`. Runs before Phase 59, which stays last.
 
 ### Pending Todos
 
