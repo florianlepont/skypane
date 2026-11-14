@@ -402,7 +402,7 @@ Plans:
   2. The evaluation unit is cable-flashed, receives a real OTA, and shows a native layout. Before it takes any role in the fleet, the `firmware/SIGNING.md` bench procedure is run on it (carried from Phase 49): a correctly signed image is accepted, a wrongly signed image is refused with the unit keeping its firmware and the next poll reporting `fail-image`, and the `fail-image` / `fail-floor` tokens and a wrong-hardware rollback are seen to round-trip into the right type's registry.
   3. A measured battery sample is recorded and the battery model for the new type is rebuilt from it.
 
-**Plans**: 4 plans (58-01 and 58-02 done; the evaluation unit was ordered on 2026-11-07; 58-03 and 58-04 wait for the unit on the bench, 58-03 Task 1 is code only)
+**Plans**: 4 plans (58-01 and 58-02 done; the evaluation unit was ordered on 2026-11-07; 58-03 and 58-04 wait for the unit on the bench, 58-03 Task 1 is code only and done 2026-11-14: driver promoted behind a Kconfig choice, second board profile, flash-second.sh, ee02 image proven unchanged)
 Plans:
 **Wave 1**
 
