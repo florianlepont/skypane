@@ -18,6 +18,7 @@
 #include "battery.h"
 #include "epd13in3e.h"
 #include "fault_inject.h"
+#include "image_container.h"
 #include "led.h"
 #include "nvs_schema.h"
 #include "nvs_util.h"
@@ -85,7 +86,7 @@ static void draw_updating_screen(void)
         ESP_LOGW(TAG, "ota updating screen skipped: no PSRAM");
     } else {
         fp_updating_screen_render(buf, fp_wake_feed);
-        esp_err_t err = fp_panel_draw(buf);
+        esp_err_t err = fp_panel_draw(view.payload);
         heap_caps_free(buf);
         if (err == ESP_OK) {
             ESP_LOGI(TAG, "ota updating screen drawn");
@@ -282,19 +283,33 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
         return FP_POLL_OK_UNCHANGED;
     }
 
-    uint8_t *buf = heap_caps_malloc(FP_IMAGE_BYTES,
+    uint8_t *buf = heap_caps_malloc(FP_IMAGE_BUF_BYTES,
                                     MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!buf) {
         ESP_LOGE(TAG, "no PSRAM for framebuffer");
         *fail_step_out = "download";
         return FP_POLL_FAILED;
     }
+    /* Whether this wake announced the container format; decided before the
+     * request is made, exactly as the display request did. */
+    char bad_flag[4] = "";
+    bool announced = fp_imgfmt_announce(
+        fp_nvs_get_str(FP_NVS_IMGFMT_BAD, bad_flag, sizeof(bad_flag)) == ESP_OK);
+    size_t body_len = 0;
+    bool complete = false;
     int64_t t_download = esp_timer_get_time();
-    err = fp_api_download(disp.image_url, disp.image_hash, buf);
+    err = fp_api_download(disp.image_url, disp.image_hash, buf,
+                          FP_IMAGE_BUF_BYTES, &body_len, &complete);
     if (timing_out) {
         timing_out->download_ms = elapsed_ms_since(t_download);
     }
     if (err != ESP_OK) {
+        /* A fully received body that the length gate or hash rejected,
+         * after the container was announced, stops further announcing so
+         * the next wake gets the raw image. Network failures never latch. */
+        if (fp_imgfmt_latch_bad(announced, complete, body_len, FP_IMAGE_BYTES)) {
+            fp_nvs_set_str(FP_NVS_IMGFMT_BAD, "1");
+        }
         heap_caps_free(buf);
         *fail_step_out = err == FP_ERR_IMAGE_VERIFY ? "verify" : "download";
         return FP_POLL_FAILED;
@@ -310,6 +325,23 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     fp_api_release();
     fp_wifi_stop();
     fp_wake_checkpoint();
+
+    /* Validate the body (legacy raw or container) before any pixel reaches
+     * the panel. A failure keeps the last image on the glass, stops
+     * announcing the container, and backs off; the stored hash stays
+     * untouched so the same picture is fetched again. */
+    imgc_view_t view;
+    int64_t t_parse = esp_timer_get_time();
+    imgc_status_t parse_st = imgc_parse(buf, body_len, FP_PANEL_W, FP_PANEL_H, &view);
+    ESP_LOGI("fp_diag", "image format=%s status=%d crc_ms=%u",
+             parse_st == IMGC_OK ? "container" : "legacy", (int)parse_st,
+             (unsigned)elapsed_ms_since(t_parse));
+    if (parse_st != IMGC_OK && parse_st != IMGC_LEGACY_OK) {
+        heap_caps_free(buf);
+        fp_nvs_set_str(FP_NVS_IMGFMT_BAD, "1");
+        *fail_step_out = "verify";
+        return FP_POLL_FAILED;
+    }
 
     int64_t t_draw = esp_timer_get_time();
     err = fp_panel_draw(buf);
