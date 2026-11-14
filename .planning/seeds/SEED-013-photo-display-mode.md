@@ -57,6 +57,22 @@ The owner's plan for milestone v1.3 now contains all of the following:
    rotation of the rendered image is enough (the panel keeps its native size,
    so the firmware would not change) or whether the firmware or image format
    must carry an orientation. To be checked before planning.
+
+   **A 180 degree turn per frame** (added by the owner on 2026-11-14, after the
+   second-hardware bench showed the 7.3 inch test picture upside down with the
+   panel's cable tail at the top). Next to portrait and landscape, a frame can
+   be set to be mounted upside down. The idea: turn the finished canvas by 180
+   degrees on the server just before it is packed. The panel size, the driver
+   and the image format do not change, and every screen the server draws
+   follows: the flight screens, the calm status screens, the pairing code and
+   the retired screen. Points to settle: the two screens the firmware draws
+   itself from compiled masks (no connection and updating) would stay upright
+   unless the firmware gets a flag or the masks are drawn turned, which is a
+   firmware change that reaches frames only over the air and needs the identity
+   proof of the live frame's image; the content hash changes when the setting
+   changes, so the frame redraws once; the companion setting needs both
+   languages; and a 90 degree turn (portrait or landscape of the same panel) is
+   a different case because the canvas size changes.
 3. **Two configurations per frame: plane or photo.** The existing decision
    stands: one mode per frame, chosen in the companion, no automatic switch.
 4. **A getting-started wizard** in the companion: pair a frame, choose its
