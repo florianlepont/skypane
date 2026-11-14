@@ -423,17 +423,21 @@ The mismatch value needs a key `hardware.is_known` does not have to know: the cl
 | A6 | EE04 bench unit can run the OTA mechanics of an image built by this project | Rollback | Bench step may need a Phase 58 build; plan needs a contingency |
 | A7 | CPU clock is the IDF default for S3 (not read from a build) | Q1 | Timing estimate shifts |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should the NO CONNECTION screen also stay off for other token classes?**
    - What we know: D-04 covers only repeated 401.
    - What's unclear: whether `secret`/`config` (provisioning defects) should keep drawing.
    - Recommendation: change only `auth` and `enrol`; leave the rest.
+   - RESOLVED: D-09. Only `auth` and `enrol` are removed from the NO CONNECTION allow-list; every other failure kind keeps the screen.
 2. **Which exact version does the live frame run, and is the 47.1 window already running?**
    - Not readable from the repository. Read `firmware_cli list` and the report entry before any publication decision; owner-only.
+   - RESOLVED: carried to the owner gates in 57-RELEASE-INSTRUCTIONS.md (preconditions: read the running version and install date with `firmware_cli list`).
 3. **Does the server D-06 change need to be deployed before the firmware?**
    - It is a BYOS deploy, which the roadmap gates on Phase 47 for frame-touching production deploys. The change is a no-op for the header-less live frame (freeze test), so the owner may release it earlier; the firmware works against an older server (unknown headers ignored, container not served, raw accepted).
+   - RESOLVED: per the planned design, plan 02 ships the server rule, which is a no-op for header-less frames; 57-RELEASE-INSTRUCTIONS.md lists the server deploy as a precondition before the firmware.
 4. **Bench unit.** EE04 build compatibility for the rollback scenarios depends on Phase 58.
+   - RESOLVED: carried to the owner gate in 57-BENCH-CHECKLIST.md (dependency note on the Phase 58 unit and build; items stay open if no compatible build exists).
 
 ## Environment Availability
 
