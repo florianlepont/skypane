@@ -402,7 +402,7 @@ Plans:
   2. The evaluation unit is cable-flashed, receives a real OTA, and shows a native layout. Before it takes any role in the fleet, the `firmware/SIGNING.md` bench procedure is run on it (carried from Phase 49): a correctly signed image is accepted, a wrongly signed image is refused with the unit keeping its firmware and the next poll reporting `fail-image`, and the `fail-image` / `fail-floor` tokens and a wrong-hardware rollback are seen to round-trip into the right type's registry.
   3. A measured battery sample is recorded and the battery model for the new type is rebuilt from it.
 
-**Plans**: 4 plans (58-01 and 58-02 executable now; 58-03 and 58-04 blocked on the owner's written purchase agreement)
+**Plans**: 4 plans (58-01 and 58-02 done; the evaluation unit was ordered on 2026-11-07; 58-03 and 58-04 wait for the unit on the bench, 58-03 Task 1 is code only)
 Plans:
 **Wave 1**
 
@@ -410,7 +410,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 58-02-PLAN.md — 1-day driver spike, trial driver in the IDF container, owner purchase decision checkpoint (HW2-01)
+- [x] 58-02-PLAN.md — 1-day driver spike, trial driver in the IDF container, owner purchase decision checkpoint (HW2-01)
 
 **Wave 3** *(BLOCKED: owner purchase agreement)*
 
@@ -661,7 +661,7 @@ Plans: 6 plans in 5 waves
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Complete: merged and deployed 2026-10-31, verified in code and by the owner in production; real-panel pairing test waits for the second hardware (see 55-HANDOFF.md) | 2026-11-01 |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete, merged (#257) and deployed 2026-10-31; verification passed, two owner follow-ups open (see 56-VERIFICATION.md) | 2026-10-31 |
 | 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
-| 58. Second Hardware | v1.2 | 1/4 | In progress (58-01 done 2026-11-01): 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
+| 58. Second Hardware | v1.2 | 2/4 | In progress (part 1 done; one Seeed EE04 unit ordered 2026-11-07): 58-03/58-04 wait for the unit on the bench | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | Complete | Complete (owner validated on the deployed companion, 2026-11-13; follow-up plans 61-100 to 61-129 recorded in the validation ledger) | 2026-11-13 |
