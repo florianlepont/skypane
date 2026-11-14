@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 62 complete
-last_updated: "2026-11-09T10:04:45.004Z"
+stopped_at: Phase 64 context gathered
+last_updated: "2026-11-14T19:39:26.036Z"
 last_activity: 2026-10-30
 progress:
-  total_phases: 15
-  completed_phases: 11
-  total_plans: 151
-  completed_plans: 189
-  percent: 73
+  total_phases: 17
+  completed_phases: 14
+  total_plans: 164
+  completed_plans: 264
+  percent: 82
 ---
 
 # Project State
@@ -86,5 +86,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Phase 62 complete (owner real-panel check done, layout B default)
-**Resume File:** None
+**Stopped At:** Phase 64 context gathered
+**Resume File:** .planning/workstreams/v1-2/phases/64-second-hardware-in-production-build-release-deploy-and-parit/64-CONTEXT.md
