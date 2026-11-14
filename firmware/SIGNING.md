@@ -427,22 +427,26 @@ Fail when:
 
 | Field | Value |
 |-------|-------|
-| Date | 2026-10-30 (deferral recorded; no bench run) |
-| Bench unit (hardware type, serial) | none available |
-| Firmware versions (flashed / correctly signed / wrongly signed) | not run |
-| Correctly signed image installed (yes/no, reported version) | not run |
-| Wrongly signed image rejected on the device (yes/no) | not run |
-| Result token seen (`fail-image` expected) | not run |
-| Running firmware kept working after the rejection (yes/no) | not run |
-| Verdict (pass/fail/deferred) | DEFERRED |
+| Date | 2026-11-14 |
+| Bench unit (hardware type, serial) | `seeed-ee04-7in3-spectra6`, MAC 84:c7:bb:70:b2:7c (no serial number) |
+| Firmware versions (flashed / correctly signed / wrongly signed) | `fw-v1.0.4-71-gd495d240-dev` / `fw-v1.0.6-bench1` (bench key) / `fw-v1.0.7-bench2` (a second throwaway key) |
+| Correctly signed image installed (yes/no, reported version) | yes, `fw-v1.0.6-bench1`: `trial;fw-v1.0.6-bench1`, then `installed;fw-v1.0.6-bench1` at the next wake |
+| Wrongly signed image rejected on the device (yes/no) | yes: downloaded, not installed, no boot loop |
+| Result token seen (`fail-image` expected) | `fail-image;fw-v1.0.7-bench2` |
+| Running firmware kept working after the rejection (yes/no) | yes: the unit kept reporting `fw-v1.0.6-bench1` and kept polling |
+| Verdict (pass/fail/deferred) | pass for steps 3 to 7 as written above |
 
-Status: DEFERRED, not passed. On 2026-10-30 the owner (Florian Lepont)
-reported that no bench unit is available and deferred the on-device
-rejection test to the first second-hardware session. No result is recorded
-because none was observed. Consequence: no second non-simulated hardware may
-be provisioned until the bench procedure has been run and its result
-recorded in the table above.
+Status: the two pass conditions above were observed on 2026-11-14. The unsigned image
+was refused by the server (`signature: image is not signed`, exit 1), as step 7
+describes. The evidence is the bench server's telemetry lines and
+`firmware/device_report.json`; no serial log was captured, because the unit's native USB
+console disappears while it deep-sleeps. Two further checks of the second-hardware
+phase are not run and are not part of this procedure's pass conditions: a version below
+the unit's compiled floor must be refused with `fail-floor`, and the wrong-hardware
+check is an open owner decision (see `hardware/SECOND-HARDWARE-VALIDATION.md`). The
+result is for one unit on one date and for dev-profile images signed with throwaway keys.
 
-Until the table holds observed results, the device-side accept and reject behaviour
-for a second hardware type is unproven, and no second non-simulated hardware
-may be provisioned.
+The condition for the Phase 57 release gating, a pass recorded in this table, is met
+for the signature procedure. Whether the two open checks must also pass first is the
+owner's call. The second hardware type takes no fleet role (pairing, a production
+registry entry) until the owner confirms the remaining checks of the phase.
