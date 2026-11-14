@@ -1,5 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 Florian Lepont
  * SPDX-License-Identifier: Apache-2.0 */
+/* HOST_TEST_PROFILES: second */
 /* Host-side unit test for the whole-wake deadline arithmetic: expiry at
  * the microsecond boundary and the worst-case-wake macro.
  *
@@ -81,6 +82,26 @@ static void ota_worst_case_macro_matches_its_own_stacked_stage_budgets(void)
     assert(FP_WAKE_WORST_CASE_S(90) < 460);
 }
 
+#ifdef CONFIG_FP_PANEL_7IN3E
+/* The 7.3" driver bounds three busy waits at 60 s each, plus an SPI
+ * margin (formula-derived, unmeasured): B = 3 * 60 + 10 = 190 s. */
+static void second_profile_worst_cases_fit_its_budget(void)
+{
+    const unsigned second_budget_s = 700; /* sdkconfig.second.defaults */
+
+    assert(FP_WAKE_STAGE_BLIT_S == 190);
+    /* normal = 180 + B, OTA = 285 + 2B, with the default guard wait 90. */
+    assert(FP_WAKE_WORST_CASE_S(90) == 180 + 190 + 0 + 0);
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) == 285 + 2 * 190);
+    assert(FP_WAKE_WORST_CASE_S(90) < second_budget_s);
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) < second_budget_s);
+    assert(second_budget_s <= 900);
+    /* Above the legacy values. */
+    assert(FP_WAKE_WORST_CASE_S(90) > 250);
+    assert(FP_WAKE_OTA_WORST_CASE_S(90) > 425);
+}
+#endif
+
 int main(void)
 {
     expiry_is_exact_at_the_microsecond_boundary();
@@ -90,6 +111,11 @@ int main(void)
     a_zero_slice_max_means_unsliced();
     worst_case_macro_matches_the_stacked_stage_budgets();
     ota_worst_case_macro_matches_its_own_stacked_stage_budgets();
+#ifdef CONFIG_FP_PANEL_7IN3E
+    second_profile_worst_cases_fit_its_budget();
+#else
+    assert(FP_WAKE_STAGE_BLIT_S == 70);
+#endif
     printf("wake_deadline: all cases pass\n");
     return 0;
 }
