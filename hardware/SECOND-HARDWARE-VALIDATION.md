@@ -53,8 +53,10 @@ not filled for that reason.
   rotated by exactly 180 degrees as seen with the panel's cable tail at the top.
   A pure rotation, not a mirror: the strip order, the two markers and the band
   order all agree. With the tail at the bottom the picture reads as designed.
-  Whether to turn the panel or reverse the scan direction in the driver is an
-  owner decision tied to the mounting (open).
+  Decided on 2026-11-14: the owner will mount the unit with the cable tail at the
+  bottom of the frame, so the picture reads as designed and the scan direction of
+  the driver is not changed. Only that mounting is supported; the same panel
+  mounted tail-up shows the picture upside down.
 - No pixel-pair mix-up and no offset were visible in the photo.
 
 ## Defects found on the bench and fixed
