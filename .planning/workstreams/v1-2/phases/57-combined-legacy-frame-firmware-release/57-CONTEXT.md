@@ -52,6 +52,14 @@ registry import, no companion schedule, no `fw-v*` tag pushed, no merge to main.
   started on fw-v1.0.4, installing the combined version restarts it. Phase 47.2
   will need its own later firmware release.
 
+### Container failure fallback
+- **D-08:** If the new container fails validation, the frame remembers the failure
+  (sticky flag), stops announcing the format on later wakes and so receives the
+  raw image again. It keeps its last image meanwhile.
+- **D-09:** To honour D-04, the "NO CONNECTION" fault screen drawn on the second
+  consecutive `auth` / `enrol` failure is removed from the allow-list; those
+  failures keep the last image.
+
 ### Claude's Discretion
 - Header name, backoff schedule, host-test design, release instructions layout.
 
