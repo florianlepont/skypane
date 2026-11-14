@@ -77,19 +77,31 @@ reported.
 | Unsigned image | The unsigned build of `fw-v1.0.7-bench2` | Refused by the server: `firmware_cli: signature: image is not signed`, exit 1, nothing published. A first attempt with a wrong file was refused for a version mismatch instead; that is not counted as evidence |
 | Raised floor | `fw-v1.0.9-bench4` built with a raised compiled floor `fw-v1.0.8` (dev-only `SKYPANE_BENCH_FLOOR`) | Installed and confirmed: `installed;fw-v1.0.9-bench4` |
 | Floor refusal | `fw-v1.0.7-bench5`, above the server's floor and below the unit's | **Not run yet.** The image was prepared; the expected result is `fail-floor;fw-v1.0.7-bench5` with no download and the version unchanged |
-| Wrong hardware | The live frame's image offered to the unit | **Not run.** Open owner decision, see below |
+| Wrong hardware | The live frame's image | **Not done on the panel, by the owner's decision (2026-11-14).** Shown on the server side instead, see below |
 
 The pass conditions written in SIGNING.md (the correctly signed image installs and
 the unit keeps polling; the wrongly signed image is rejected with `fail-image` and
 the running firmware is kept) were observed. The floor refusal and the wrong-hardware
-check are further criteria of the phase and are still open.
+check are further criteria of the phase: the floor refusal is open, the wrong-hardware
+check is shown on the server side only.
 
-Wrong-hardware check, open: the live frame's firmware and the unit's share the chip
+Wrong-hardware check, decided: the live frame's firmware and the unit's share the chip
 and the project name, so the unit's own checks would accept that image and run the
-13.3 inch panel driver on the 7.3 inch panel, which could damage it. The proposal is
-not to do it on the panel and instead to show on the server side that the live frame's
-image is never offered to this unit's type, which tests already cover. The owner has
-not decided.
+13.3 inch panel driver on the 7.3 inch panel, which could damage it. On 2026-11-14 the
+owner decided not to do it on the panel. What was shown instead, in a scratch server
+state directory with no panel involved:
+
+- A legacy-type image (a build of the live frame's profile, signed with a throwaway key)
+  was published to the legacy registry and scheduled there.
+- The unit was registered as the evaluation type and polled four times: three polls
+  announcing its own type, one announcing the legacy type. Every answer carried
+  `firmware: null`. The server never offered the live frame's image to this unit.
+- The legacy registry file was byte-identical before and after the polls, and no
+  registry document of the evaluation type was created by them.
+
+This shows that the server withholds a legacy image from this unit. It does not show
+what the unit would do if it were given one: that device-side behaviour is not tested,
+by choice, and the server's separation is what protects it.
 
 Phase 57 does not start its release gating before the SIGNING.md table shows a pass,
 and the unit takes no fleet role (no pairing, no production registry entry) before it.

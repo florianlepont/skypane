@@ -170,8 +170,13 @@ Order and results are in the validation record. Rules that cost time on the benc
   Then an image `fw-v1.0.7-bench5`. Expected: no download and no updating screen, and
   `fail-floor;fw-v1.0.7-bench5`, the version unchanged. `SKYPANE_BENCH_FLOOR` is
   refused for the production profile.
-- **Wrong hardware.** Do not run this on the panel: see the open decision in the
-  validation record.
+- **Wrong hardware.** Not done on the panel, by the owner's decision: the live frame's
+  image shares the chip and project name with the unit's and could drive the 13.3 inch
+  panel driver on the 7.3 inch panel. The server side is shown in a scratch state
+  directory: import a signed legacy-type build with `import-bench` (no
+  `--hardware-type`), schedule it with `schedule_release(..., hardware_type="xiao-ee02-13in3-spectra6")`,
+  register the unit as the evaluation type and poll as it. Every answer carries
+  `firmware: null`, and the legacy `registry.json` keeps the same SHA-256.
 
 ## Pairing test
 
