@@ -78,14 +78,14 @@ reported.
 | Wrong signature | `fw-v1.0.7-bench2`, signed with a second throwaway key | Downloaded, then rejected: the unit kept reporting `fw-v1.0.6-bench1` and the next poll carried `X-Ota-Result=fail-image;fw-v1.0.7-bench2`. It did not install, did not boot-loop, and kept polling |
 | Unsigned image | The unsigned build of `fw-v1.0.7-bench2` | Refused by the server: `firmware_cli: signature: image is not signed`, exit 1, nothing published. A first attempt with a wrong file was refused for a version mismatch instead; that is not counted as evidence |
 | Raised floor | `fw-v1.0.9-bench4` built with a raised compiled floor `fw-v1.0.8` (dev-only `SKYPANE_BENCH_FLOOR`) | Installed and confirmed: `installed;fw-v1.0.9-bench4` |
-| Floor refusal | `fw-v1.0.7-bench5`, above the server's floor and below the unit's | **Not run yet.** The image was prepared; the expected result is `fail-floor;fw-v1.0.7-bench5` with no download and the version unchanged |
+| Floor refusal | `fw-v1.0.7-bench5`, above the server's floor and below the unit's (`fw-v1.0.8`) | Refused without a download: no `GET /fw/...` line and no updating screen, and the next poll carried `X-Ota-Result=fail-floor;fw-v1.0.7-bench5` with the unit still on `fw-v1.0.9-bench4`, still polling. The token was resent at each following wake until the bench server stopped offering it, as the firmware does until a poll answers. The refusal happened at a reading of 4176 mV, above the 3500 mV battery refusal that comes first |
 | Wrong hardware | The live frame's image | **Not done on the panel, by the owner's decision (2026-11-14).** Shown on the server side instead, see below |
 
 The pass conditions written in SIGNING.md (the correctly signed image installs and
 the unit keeps polling; the wrongly signed image is rejected with `fail-image` and
-the running firmware is kept) were observed. The floor refusal and the wrong-hardware
-check are further criteria of the phase: the floor refusal is open, the wrong-hardware
-check is shown on the server side only.
+the running firmware is kept) were observed, and so was the floor refusal. The
+wrong-hardware check, a further criterion of the phase, is shown on the server side
+only.
 
 Wrong-hardware check, decided: the live frame's firmware and the unit's share the chip
 and the project name, so the unit's own checks would accept that image and run the
@@ -116,37 +116,53 @@ are not measurements of a cell. The unit refuses an OTA at 3500 mV or less, so a
 floating reading that falls under that value would make it answer `deferred-battery`
 instead of the expected token. A real battery is needed for the battery work.
 
-## Native layout (open)
+## Native layout (recorded, no measurements)
 
-Not yet observed on the physical panel. Before the pairing screen was reworked, a
-preview of the portrait composition scaled to the landscape panel had a code about 8
-mm tall and instruction text about 2 mm tall. The pairing screen of both
-orientations was reworked to follow the status-screen charter (pull request #397, not
-merged at the time of writing). To record here: whether the text, the plane screens and the status screens are
-legible and not cropped or rotated on the glass, the refresh time measured on the
-panel, and any difference between preview and panel.
+Observed on 2026-11-14 on the physical panel, mounted flat on the bench: the six-colour
+test frame (see above), the pairing screen and the retired screen were displayed at
+the panel's own size. The owner reported the pairing code readable and unambiguous from
+4 metres, the pairing screen legible, and the retired screen shown as designed.
 
-## Pairing test on the panel (open)
+Owner's overall judgement, stated afterwards on 2026-11-14: everything seen on the panel
+in this session was good. That covers what was not itemised: the screen after the claim,
+the small instruction text under the code, any cropping or offset, and the look of the
+panel compared with the previews. It is a judgement, not a measurement. No distance was
+given for the small text, and the refresh time was not timed, so no number is recorded
+for either. The plane screens (flight screens) were not shown on the unit in this
+session.
 
-The four checks are run on the unit against a throwaway fleet database, never the
-production fleet. Each is recorded under its own heading with the date.
+## Pairing test on the panel (2026-11-14)
+
+The four checks were run on the unit against a throwaway fleet database, never the
+production fleet, with the pairing screen as merged in pull request #397 (the status
+charter composition: the glyph, a label, a giant `PAIR` and the code as the second
+giant line). Each is recorded under its own heading.
 
 ### Code legible
 
-Open. Read the 8-symbol code from wall-reading distance (state the distance) and note
-any ambiguous symbol.
+Passed. The 8-symbol code on the panel was read from 4 metres, the screen was legible
+and no symbol was ambiguous, according to the owner. It was then typed and accepted by the claim, which
+confirms it was read correctly.
 
 ### Claimed
 
-Open. Claim the frame with the code and record the screen seen after the claim.
+Passed. The frame was claimed with the code shown on the panel and the claim returned
+the new device and its owner. Two earlier claim attempts were refused: one for a reason
+that was not established (it is not known whether the real code was typed) and one
+because the script was run with its placeholder text instead of the code. The refusal
+message is the same for every cause, so it does not say which. The screen shown on the
+panel after the claim was not itemised (the owner judged what was seen good); a white
+panel is what the bench server sends a claimed frame.
 
 ### Retired
 
-Open. Retire the frame and record the retired screen seen on the panel.
+Passed. After the frame was retired, the panel showed the retired screen (FRAME RETIRED)
+at the next wake.
 
 ### Re-activated
 
-Open. Re-activate the frame and record the screen seen, which must show a new code.
+Passed. After the frame was re-activated, the panel showed the pairing screen again with
+a new code (`M9FPRVY7`), different from the first (`XNSE-SKZD`).
 
 The server side of this sequence (register as pending, serve the 192000-byte pairing
 frame, claim with a typed code in any case, retire, re-activate) was run in a

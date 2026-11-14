@@ -440,12 +440,11 @@ Status: the two pass conditions above were observed on 2026-11-14. The unsigned 
 was refused by the server (`signature: image is not signed`, exit 1), as step 7
 describes. The evidence is the bench server's telemetry lines and
 `firmware/device_report.json`; no serial log was captured, because the unit's native USB
-console disappears while it deep-sleeps. Two further checks of the second-hardware
-phase are not part of this procedure's pass conditions: a version below
-the unit's compiled floor must be refused with `fail-floor`, and the wrong-hardware
-check was not run on the panel by the owner's decision, and is shown on the server side
-only (see `hardware/SECOND-HARDWARE-VALIDATION.md`). The
-result is for one unit on one date and for dev-profile images signed with throwaway keys.
+console disappears while it deep-sleeps. The floor refusal was also observed (`fail-floor;fw-v1.0.7-bench5`, no download, the
+firmware kept). The wrong-hardware check was not run on the panel by the owner's
+decision, and is shown on the server side only (see
+`hardware/SECOND-HARDWARE-VALIDATION.md`). The result is for one unit on one date and for
+dev-profile images signed with throwaway keys.
 
 The condition for the Phase 57 release gating, a pass recorded in this table, is met
 for the signature procedure. Whether the two open checks must also pass first is the
