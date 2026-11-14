@@ -12,10 +12,12 @@ on:
   push:
     paths:
       - 'firmware/**'
+      - 'server/hardware.py'
       - '.github/workflows/firmware.yml'
   pull_request:
     paths:
       - 'firmware/**'
+      - 'server/hardware.py'
       - '.github/workflows/firmware.yml'
 
 # Least privilege: read-only GITHUB_TOKEN (repo default already is; kept
@@ -56,6 +58,9 @@ jobs:
       - name: Check Log Line Contract
         run: sh firmware/tests/check_log_contract.sh
 
+      - name: Check hardware key matches the server
+        run: bash firmware/tests/check_hw_type_key.sh
+
       - name: Build firmware image
         # Same containerised invocation used locally; the container
         # image, toolchain setup and sdkconfig flags stay owned by the
@@ -67,3 +72,11 @@ jobs:
 
       - name: Check built image is a production build
         run: sh firmware/tests/check_production_config.sh built firmware/build-ee02
+
+      - name: Check image fits the OTA slot with margin
+        # The OTA slot is 0x250000 bytes; fail above 90 percent of it.
+        run: |
+          size=$(stat -c %s firmware/build-ee02/skypane.bin)
+          limit=$(( 0x250000 * 90 / 100 ))
+          echo "skypane.bin: ${size} bytes (limit ${limit})"
+          test "${size}" -le "${limit}"
