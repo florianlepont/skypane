@@ -65,7 +65,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 ### Second Hardware in Production
 
 - [ ] **HW2-03**: The second board is built in production by CI and published by the release pipeline as a signed image with a per-type manifest, the production deploy imports it, and it is offered, installed and reported over the air on a second-type frame in production, with the result recorded in its own registry and the live frame's release path unchanged.
-- [ ] **HW2-04**: The second type is available in production through its own switch, lifted only on the owner's written confirmation, and every companion view that shows a picture or a battery number follows the frame's hardware profile.
+- [ ] **HW2-04**: The second type is available in production through its own switch, lifted only on the owner's written confirmation, and every companion view that shows a picture or a battery number follows the frame's hardware profile. The owner can pair, administer and manage a second-type frame in the companion as they manage the live frame, validated on a real frame in production as an administrator and as an invited user.
 - [ ] **HW2-05**: The second panel's firmware assumptions (wake-stage budget, refresh spacing, battery sense and pins) are settled with measured values, and the documents describe both boards, with provisioning guarded against the live frame.
 
 ### Companion UX
