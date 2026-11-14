@@ -55,6 +55,12 @@ CONFIG_FP_PIN_EPD_EN=43
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
 CONFIG_ESP_CONSOLE_UART_DEFAULT=n
 
+# --- Hardware key announced to the server ---
+# Must equal the server's evaluation hardware key (checked in CI by
+# tests/check_hw_type_key.sh). A mismatch with the type the server assigned
+# to this unit makes the server withhold every firmware offer.
+CONFIG_SKYPANE_HW_TYPE="seeed-ee04-7in3-spectra6"
+
 # --- Controls, battery sense and LED ---
 # Source: inherited from sdkconfig.ee02.defaults, same XIAO ESP32-S3 Plus
 # module and the same Seeed driver-board family (the battery-sense cookbook

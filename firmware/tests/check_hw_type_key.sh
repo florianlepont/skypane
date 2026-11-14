@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # The hardware key compiled into the firmware (Kconfig default and the EE02
-# defaults file) must equal the server's LEGACY_KEY, or the frame would
-# announce a type the server does not know. Needs python3 and no ESP-IDF.
+# defaults file) must equal the server's LEGACY_KEY, and the second profile's
+# defaults file must equal the server's EVALUATION_KEY, or the device would
+# announce a type that contradicts the one the server assigned it and the
+# server would withhold its firmware offers. Needs python3 and no ESP-IDF.
 set -euo pipefail
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -13,6 +15,8 @@ REPO_ROOT=$(CDPATH= cd -- "${FIRMWARE_DIR}/.." && pwd)
 
 defaults_key=$(sed -n 's/^CONFIG_SKYPANE_HW_TYPE="\(.*\)"$/\1/p' \
     "${FIRMWARE_DIR}/sdkconfig.ee02.defaults")
+second_key=$(sed -n 's/^CONFIG_SKYPANE_HW_TYPE="\(.*\)"$/\1/p' \
+    "${FIRMWARE_DIR}/sdkconfig.second.defaults")
 kconfig_key=$(awk '
     /^[[:space:]]*config SKYPANE_HW_TYPE[[:space:]]*$/ { in_cfg = 1; next }
     in_cfg && /^[[:space:]]*config / { in_cfg = 0 }
@@ -20,6 +24,8 @@ kconfig_key=$(awk '
         sub(/^[[:space:]]*default "/, ""); sub(/".*$/, ""); print; exit
     }' "${FIRMWARE_DIR}/main/Kconfig.projbuild")
 server_key=$(python3 -I -c "import sys; sys.path.insert(0, sys.argv[1]); from server.hardware import LEGACY_KEY; print(LEGACY_KEY)" "${REPO_ROOT}")
+
+evaluation_key=$(python3 -I -c "import sys; sys.path.insert(0, sys.argv[1]); from server.hardware import EVALUATION_KEY; print(EVALUATION_KEY)" "${REPO_ROOT}")
 
 fail=0
 if ! printf '%s' "${server_key}" | grep -Eq '^[a-z0-9-]{1,64}$'; then
@@ -34,5 +40,9 @@ if [ "${kconfig_key}" != "${server_key}" ]; then
     echo "FAIL: Kconfig default '${kconfig_key}' != server LEGACY_KEY '${server_key}'"
     fail=1
 fi
+if [ "${second_key}" != "${evaluation_key}" ]; then
+    echo "FAIL: sdkconfig.second.defaults key '${second_key}' != server EVALUATION_KEY '${evaluation_key}'"
+    fail=1
+fi
 [ "${fail}" -eq 0 ] || exit 1
-echo "PASS: hardware key '${server_key}' agrees in Kconfig, defaults and server"
+echo "PASS: hardware key '${server_key}' agrees in Kconfig, defaults and server; second profile announces '${evaluation_key}'"
