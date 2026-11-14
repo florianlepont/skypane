@@ -110,6 +110,49 @@ commit already on `main`. The first OTA-capable release is `fw-v1.0.0`,
 which is also the compiled-in version floor: no device ever accepts, and
 the server never offers, anything older.
 
+## Per-type releases
+
+Two hardware types are built from this tree: the live frame (board
+`ee02`) and the second board (board `second`). They share:
+
+- one RSA signing key. The public half is
+  `firmware/signing/skypane-signing-pubkey.pem`; the private half stays
+  in the `firmware-signing` environment. Rotation (below) applies to
+  both types at once.
+- one project name and one app descriptor format.
+
+The descriptor carries the chip id, project name and version, not the
+board. An image built for one board therefore passes the structure
+checks of the other, and a signed image of the wrong board is accepted
+by the signature check. What prevents it is procedure, in this order:
+
+1. Each board builds in its own directory: `SKYPANE_BOARD=ee02
+   firmware/build.sh` writes `firmware/build-ee02`, and
+   `SKYPANE_BOARD=second firmware/build.sh` writes
+   `firmware/build-second` (`-dev` suffix for the dev profile).
+2. The built-mode check reads the generated configuration of that
+   directory and takes the board as an argument:
+   `sh firmware/tests/check_production_config.sh built
+   firmware/build-second second` (or `firmware/build-ee02 ee02`). It
+   fails if the hardware type key or the panel options in the build do
+   not match the board named.
+3. A release manifest is generated only from the matching build
+   directory, with the type's own key
+   (`scripts/fw_release_manifest.py`), so the manifest's
+   `hardware_type`, size and SHA-256 describe that image.
+
+Published assets: the live frame keeps `skypane-<tag>.bin` and
+`release.json`; every other type is published as
+`skypane-<key>-<tag>.bin` and `release-<key>.json` in the same
+GitHub Release (see "Per-hardware-type releases" in
+`deploy/README.md`). The server imports a typed pair only when that type
+is available in its environment.
+
+Status: the first typed release is not yet published, and the release
+workflow does not build the second board yet. The second board's image
+has been built and size-checked in CI only; it has never run on a
+panel.
+
 ## One-time key generation (human only)
 
 Run this once, by hand, inside the pinned `espressif/idf:v5.3.1`
