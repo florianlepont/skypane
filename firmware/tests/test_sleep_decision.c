@@ -77,6 +77,27 @@ static void deferred_keeps_the_server_interval_when_the_wait_is_not_shorter(void
     assert(not_shorter.sleep_s == 3600); /* equal, not "shorter" - not adjusted */
 }
 
+static void repeated_failures_grow_to_the_cap_and_one_ok_resets(void)
+{
+    uint8_t n = 0;
+    uint32_t prev = 0;
+    for (int i = 0; i < 12; i++) {
+        fp_sleep_plan_t p = fp_sleep_decide(FP_WAKE_OUTCOME_FAILED, n, 300, 0);
+        if (i == 0) {
+            assert(p.sleep_s == 300);
+        }
+        assert(p.sleep_s >= prev);
+        assert(p.sleep_s <= 21600);
+        assert(p.next_backoff_n == (uint8_t)(n + 1));
+        prev = p.sleep_s;
+        n = p.next_backoff_n;
+    }
+    assert(prev == 21600);
+    fp_sleep_plan_t ok = fp_sleep_decide(FP_WAKE_OUTCOME_OK, n, 300, 0);
+    assert(ok.sleep_s == 300);
+    assert(ok.next_backoff_n == 0);
+}
+
 int main(void)
 {
     failure_backs_off_from_zero();
@@ -86,6 +107,7 @@ int main(void)
     deferred_shortens_to_the_panel_wait_plus_five();
     deferred_keeps_the_server_interval_when_the_wait_is_zero();
     deferred_keeps_the_server_interval_when_the_wait_is_not_shorter();
+    repeated_failures_grow_to_the_cap_and_one_ok_resets();
     printf("sleep_decision: all cases pass\n");
     return 0;
 }

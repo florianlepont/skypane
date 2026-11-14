@@ -74,3 +74,9 @@
 #define FP_NVS_STATIC_MASK "static_mask"
 #define FP_NVS_STATIC_GW "static_gw"
 #define FP_NVS_STATIC_DNS "static_dns"
+
+/* String key, set to "1" once after a container validation failure.
+ * Absent means the frame announces the container format in its display
+ * request; present means it asks for the raw image only. Cleared only by
+ * an NVS erase or by a later release. */
+#define FP_NVS_IMGFMT_BAD "imgfmt_bad"

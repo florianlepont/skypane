@@ -245,6 +245,49 @@ static void http_status_classify_cases(void)
     assert(fp_http_status_classify(302) == FP_HTTP_CLASS_OTHER);
 }
 
+static void body_len_plausible_cases(void)
+{
+    assert(fp_body_len_plausible(960000, 960000, 256));
+    assert(!fp_body_len_plausible(959999, 960000, 256));
+    assert(!fp_body_len_plausible(960001, 960000, 256));
+    assert(!fp_body_len_plausible(960023, 960000, 256));
+    assert(fp_body_len_plausible(960024, 960000, 256));
+    assert(fp_body_len_plausible(960255, 960000, 256));
+    assert(!fp_body_len_plausible(960256, 960000, 256));
+    assert(!fp_body_len_plausible(0, 960000, 256));
+}
+
+static void hw_type_valid_cases(void)
+{
+    char buf[80];
+    assert(fp_hw_type_valid("xiao-ee02-13in3-spectra6"));
+    assert(!fp_hw_type_valid(""));
+    assert(!fp_hw_type_valid(NULL));
+    assert(!fp_hw_type_valid("Xiao"));
+    assert(!fp_hw_type_valid("a;b"));
+    assert(!fp_hw_type_valid("a b"));
+    memset(buf, 'a', 64);
+    buf[64] = '\0';
+    assert(fp_hw_type_valid(buf));
+    buf[64] = 'a';
+    buf[65] = '\0';
+    assert(!fp_hw_type_valid(buf));
+}
+
+static void imgfmt_cases(void)
+{
+    assert(!fp_imgfmt_announce(true));
+    assert(fp_imgfmt_announce(false));
+    assert(fp_imgfmt_latch_bad(true, true, 960024, 960000));
+    assert(!fp_imgfmt_latch_bad(true, true, 960000, 960000));
+    assert(!fp_imgfmt_latch_bad(true, true, 0, 960000));
+    assert(!fp_imgfmt_latch_bad(true, false, 960024, 960000));
+    assert(!fp_imgfmt_latch_bad(true, false, 500000, 960000));
+    assert(!fp_imgfmt_latch_bad(true, false, 0, 960000));
+    assert(!fp_imgfmt_latch_bad(false, true, 960024, 960000));
+    assert(!fp_imgfmt_latch_bad(false, true, 0, 960000));
+}
+
 int main(void)
 {
     hex_lower_valid_cases();
@@ -259,6 +302,9 @@ int main(void)
     download_verdict_cases();
     sha256_to_image_hash_cases();
     http_status_classify_cases();
+    body_len_plausible_cases();
+    hw_type_valid_cases();
+    imgfmt_cases();
     printf("validate: all cases pass\n");
     return 0;
 }
