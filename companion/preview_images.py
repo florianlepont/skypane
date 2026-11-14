@@ -8,7 +8,7 @@ from the handler (`self.path`, `self.send_html()`, `self.send_bytes()`,
 """
 from urllib.parse import parse_qs, urlsplit
 
-from companion import theme_preview
+from companion import device_scope, theme_preview
 from server import device_config, history_db, screen_layouts
 from server.plane import name_overrides
 
@@ -67,7 +67,8 @@ class PreviewImagesMixin:
             return self.send_html(404, self._not_found_page())
         try:
             payload = theme_preview.cached_preview_bytes(
-                device.state_dir, theme_id, live_event=live_event, layout=layout)
+                device.state_dir, theme_id, live_event=live_event, layout=layout,
+                profile=device_scope.profile_for(device))
         except OSError:
             return self.send_html(404, self._not_found_page())
         except Exception:
@@ -94,7 +95,8 @@ class PreviewImagesMixin:
             return self.send_html(404, self._not_found_page())
         try:
             payload = theme_preview.cached_frame_preview_bytes(
-                device.state_dir, theme_id, state, size, layout)
+                device.state_dir, theme_id, state, size, layout,
+                profile=device_scope.profile_for(device))
         except Exception:
             return self.send_html(404, self._not_found_page())
         if payload is None:

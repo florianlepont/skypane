@@ -95,6 +95,13 @@ def _is_legacy_profile(profile):
     return profile is None or profile.key == hardware.LEGACY_KEY
 
 
+def _is_portrait_canvas(profile):
+    """True when `profile`'s canvas is the portrait 1200x1600 one (a
+    simulated clone of the legacy frame has it too): such a frame keeps the
+    portrait crop box, reduction factors and picture sizes."""
+    return profile is None or (profile.width, profile.height) == FRAME_PREVIEW_CANVAS_SIZE
+
+
 def _canvas_profile(profile):
     """The `profile` argument for `render.build_canvas()`: `None` (its
     unchanged legacy path) for the legacy profile, else the profile."""
@@ -115,7 +122,7 @@ def _profile_segment(profile):
 
 def chip_crop_box(profile=None):
     """The theme chip's crop box inside `profile`'s canvas."""
-    if _is_legacy_profile(profile):
+    if _is_portrait_canvas(profile):
         return THEME_PREVIEW_CROP_BOX
     return THEME_PREVIEW_CROP_BOX_LANDSCAPE
 
@@ -378,7 +385,7 @@ FRAME_PREVIEW_CACHE_VERSION = 2
 
 def frame_preview_reduce_factor(profile, size):
     """The box-reduction factor of `size` for `profile`'s canvas."""
-    if _is_legacy_profile(profile):
+    if _is_portrait_canvas(profile):
         return FRAME_PREVIEW_REDUCE_FACTORS[size]
     return FRAME_PREVIEW_REDUCE_FACTORS_LANDSCAPE[size]
 
@@ -386,9 +393,9 @@ def frame_preview_reduce_factor(profile, size):
 def frame_preview_pixel_size(profile, size):
     """The (width, height) of the `size` frame preview for `profile`
     (`None` is the legacy portrait frame): the profile's canvas divided by
-    its reduction factor. For the legacy profile this is exactly
+    its reduction factor. For a portrait-canvas profile this is exactly
     `FRAME_PREVIEW_PIXEL_SIZES[size]`."""
-    if _is_legacy_profile(profile):
+    if _is_portrait_canvas(profile):
         return FRAME_PREVIEW_PIXEL_SIZES[size]
     factor = frame_preview_reduce_factor(profile, size)
     return (profile.width // factor, profile.height // factor)
@@ -482,6 +489,15 @@ def cached_frame_preview_bytes(state_dir, theme_id, state, size, layout=None, pr
     atomic_io.atomic_write(path, payload)
     _prune_preview_cache(directory, path, max_files=FRAME_PREVIEW_CACHE_MAX_FILES)
     return payload
+
+
+def current_frame_preview_pixel_size(size):
+    """`frame_preview_pixel_size()` for the frame this request is about:
+    its profile from the request scope. No frame in scope, or a frame
+    whose type is unknown or switched off, reads as the legacy portrait
+    frame."""
+    return frame_preview_pixel_size(
+        device_scope.profile_for(device_scope.current_device()), size)
 
 
 def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_PREVIEW_SIZE_LARGE, layout=None):

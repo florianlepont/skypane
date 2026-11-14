@@ -77,7 +77,7 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_
     badge = (
         ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if saved else "")
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     return (
         '<label class="runway-card look-pick__card%s"%s>'
         '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
@@ -125,7 +125,7 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
             i18n.t(LAYOUT_PREVIEW_ALT_TEMPLATE) % i18n.t(LAYOUT_NAMES[layout_id]))
         for layout_id in screen_layouts.LAYOUT_IDS)
     title = escape_html(i18n.t(LAYOUT_TITLE))
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     return (
         '<section class="layout-card" id="personalisation-layout" '
         'aria-labelledby="personalisation-layout-title" %s="%s" data-layout-card>'

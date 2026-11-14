@@ -65,6 +65,14 @@ def test_pixel_size_for_legacy_is_the_old_table(size):
 
 
 @pytest.mark.parametrize("size", theme_preview.FRAME_PREVIEW_SIZES)
+def test_a_portrait_clone_keeps_the_portrait_shape(size):
+    clone = hardware.REGISTRY[hardware.SIM_CLONE_KEY]
+    assert theme_preview.frame_preview_pixel_size(clone, size) == (
+        theme_preview.FRAME_PREVIEW_PIXEL_SIZES[size])
+    assert theme_preview.chip_crop_box(clone) == theme_preview.THEME_PREVIEW_CROP_BOX
+
+
+@pytest.mark.parametrize("size", theme_preview.FRAME_PREVIEW_SIZES)
 @pytest.mark.parametrize("state", theme_preview.FRAME_PREVIEW_STATES)
 def test_landscape_frame_preview_png_has_the_landscape_size(size, state):
     width, height = theme_preview.frame_preview_pixel_size(LANDSCAPE, size)
@@ -122,3 +130,67 @@ def test_a_profile_outside_the_registry_is_refused(tmp_path):
     assert theme_preview.frame_cache_path(
         str(tmp_path), "white", "departing", "small", profile=Fake()) is None
     assert theme_preview.cache_path(str(tmp_path), "white", profile=Fake()) is None
+
+
+# --- routes and settings pages -----------------------------------------------
+
+def _png(app, path):
+    from companion.test_device_helpers import http_request
+    status, _headers, body = http_request(app.server.base_url() + path, cookie=app.cookie)
+    return status, body
+
+
+def _fleet_app(make_app_server):
+    from companion.test_device_helpers import start_fleet_app
+    return start_fleet_app(make_app_server)
+
+
+def test_preview_routes_follow_the_stored_frame_type(make_app_server):
+    """a landscape frame gets landscape pictures, a portrait one is unchanged"""
+    app = _fleet_app(make_app_server)
+    portrait = "/devices/%s" % app.fleet.dev_a.id
+    landscape = "/devices/%s" % app.fleet.landscape.id
+    path = "/frame-preview/white.png?state=departing&size=%s"
+    for size in theme_preview.FRAME_PREVIEW_SIZES:
+        status, body = _png(app, portrait + path % size)
+        assert status == 200
+        assert _size(body) == theme_preview.FRAME_PREVIEW_PIXEL_SIZES[size]
+        status, body = _png(app, landscape + path % size)
+        assert status == 200
+        assert _size(body) == theme_preview.frame_preview_pixel_size(
+            hardware.REGISTRY[hardware.SIM_LANDSCAPE_KEY], size)
+    _status, chip_portrait = _png(app, portrait + "/theme-preview/white.png")
+    _status, chip_landscape = _png(app, landscape + "/theme-preview/white.png")
+    assert _size(chip_portrait) == _size(chip_landscape) == theme_preview.THEME_PREVIEW_SIZE
+    assert chip_portrait != chip_landscape
+    assert _sha(chip_portrait) == LEGACY_GOLDEN["chip"]
+
+
+def _frame_images(body):
+    import re
+    import urllib.parse
+    found = []
+    for tag in re.findall(r"<img[^>]*>", body):
+        src = re.search(r'src="([^"]*)"', tag)
+        width = re.search(r'width="(\d+)"', tag)
+        height = re.search(r'height="(\d+)"', tag)
+        if not (src and width and height) or "frame-preview" not in src.group(1):
+            continue
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(src.group(1).replace("&amp;", "&")).query)
+        found.append((query.get("size", ["large"])[0], (int(width.group(1)), int(height.group(1)))))
+    return found
+
+
+@pytest.mark.parametrize("page", ["/display", "/display/calendar", "/display/special-looks"])
+def test_settings_pages_size_pictures_from_the_frame_profile(make_app_server, page):
+    app = _fleet_app(make_app_server)
+    from companion.test_device_helpers import get
+    landscape_profile = hardware.REGISTRY[hardware.SIM_LANDSCAPE_KEY]
+    for device, profile in ((app.fleet.dev_a, hardware.REGISTRY[hardware.SIM_CLONE_KEY]),
+                            (app.fleet.landscape, landscape_profile)):
+        status, _headers, body = get(app, "/devices/%s%s" % (device.id, page))
+        assert status == 200
+        images = _frame_images(body)
+        assert images, page
+        for size, dims in images:
+            assert dims == theme_preview.frame_preview_pixel_size(profile, size), (page, size)

@@ -175,7 +175,7 @@ def look_frame_html(usage, effective_value, departures_id, errors, state, carrie
     table_html = look.look_table_html(
         field_name, "" if same_checked else effective_value, usage_label, preview,
         leading_html=leading)
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_LARGE]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_LARGE)
     return (
         '<div class="look-frame"%s>'
         '<div class="look-frame__anchor" data-look-anchor>'
@@ -294,7 +294,7 @@ def look_radio_card_html(theme_id, checked, saved, usage_label):
     preview = theme_preview.frame_preview_src(
         theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
         theme_preview.FRAME_PREVIEW_SIZE_SMALL)
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     # The big picture this look shows once selected.
     picture = theme_preview.frame_preview_src(
         theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
@@ -345,7 +345,7 @@ def look_pick_html(current_theme_id, submitted, errors, lazy=False):
     field_name = LOOK_FIELDS[COLOUR_USAGE_DEPARTURES]
     usage_label = i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES])
     sentence = look.look_sentence(departures_id)
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[size]
+    width, height = theme_preview.current_frame_preview_pixel_size(size)
     return (
         '<div class="look-frame look-pick"%s>'
         '<div class="look-frame__anchor" data-look-anchor>'
