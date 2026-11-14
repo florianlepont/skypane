@@ -13,6 +13,8 @@ import shutil
 import time
 from pathlib import Path
 
+import pytest
+
 _REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 
 
@@ -703,3 +705,76 @@ def test_failing_migrate_smoke_blocks_swap(fake_root, fake_release, run_activate
     assert r.returncode != 0
     assert "smoke check failed" in r.stderr
     assert not fake_root.current_link.exists()
+
+
+_ENV_RECORDING_CLI = (
+    "#!/usr/bin/env python3\n"
+    "import os, sys\n"
+    "with open(os.environ['FAKE_IMPORT_ENV_LOG'], 'a') as f:\n"
+    "    f.write(repr(os.environ.get('SKYPANE_ENABLE_SECOND_HARDWARE')) + chr(10))\n"
+)
+
+
+def _import_sees_switch(fake_root, fake_release, run_activate, monkeypatch, env_line):
+    """Run activate.sh with `env_line` appended to skypane.env and return
+    what the import step saw in SKYPANE_ENABLE_SECOND_HARDWARE (None when
+    unset), or the sentinel "<no import>" when it did not run.
+    """
+    monkeypatch.delenv("SKYPANE_ENABLE_SECOND_HARDWARE", raising=False)
+    if env_line is not None:
+        with fake_root.env_file.open("a") as f:
+            f.write(env_line + "\n")
+    incoming = fake_release("e0e0001")
+    _add_firmware_releases(incoming, "fw-v1.0.0")
+    cli = incoming / "server" / "firmware_cli.py"
+    cli.write_text(_ENV_RECORDING_CLI)
+    env_log = fake_root.path / "import-env.log"
+    result = run_activate("e0e0001", FAKE_IMPORT_ENV_LOG=env_log)
+    assert result.returncode == 0, result.stderr
+    if not env_log.exists():
+        return "<no import>"
+    seen = env_log.read_text().splitlines()
+    assert len(seen) == 1
+    return None if seen[0] == "None" else seen[0].strip("'")
+
+
+def test_second_hardware_switch_is_forwarded_when_exactly_1(
+    fake_root, fake_release, run_activate, monkeypatch
+):
+    seen = _import_sees_switch(
+        fake_root, fake_release, run_activate, monkeypatch, "SKYPANE_ENABLE_SECOND_HARDWARE=1")
+    assert seen == "1"
+    assert not (fake_root.path / "pwned").exists()
+
+
+@pytest.mark.parametrize(
+    "env_line",
+    [
+        None,
+        "SKYPANE_ENABLE_SECOND_HARDWARE=",
+        "SKYPANE_ENABLE_SECOND_HARDWARE=0",
+        "SKYPANE_ENABLE_SECOND_HARDWARE=true",
+        "SKYPANE_ENABLE_SECOND_HARDWARE=11",
+        "SKYPANE_ENABLE_SECOND_HARDWARE=\"1\"",
+        "SKYPANE_ENABLE_SECOND_HARDWARE=1 ",
+        "SKYPANE_ENABLE_SECOND_HARDWARE=$(touch /nonexistent-marker)",
+        "#SKYPANE_ENABLE_SECOND_HARDWARE=1",
+        " SKYPANE_ENABLE_SECOND_HARDWARE=1",
+    ],
+)
+def test_second_hardware_switch_stays_unset_for_anything_but_1(
+    fake_root, fake_release, run_activate, monkeypatch, env_line
+):
+    seen = _import_sees_switch(fake_root, fake_release, run_activate, monkeypatch, env_line)
+    assert seen is None
+
+
+def test_env_file_content_is_never_evaluated_by_the_switch_parser(
+    fake_root, fake_release, run_activate, monkeypatch
+):
+    marker = fake_root.path / "switch-pwned"
+    seen = _import_sees_switch(
+        fake_root, fake_release, run_activate, monkeypatch,
+        f"SKYPANE_ENABLE_SECOND_HARDWARE=$(touch {marker})")
+    assert seen is None
+    assert not marker.exists()
