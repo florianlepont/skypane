@@ -23,6 +23,7 @@ def test_available_types_without_gate_is_legacy_only() -> None:
 
 def test_available_types_with_gate_adds_both_sim_types() -> None:
     keys = hardware.available_types(SIM_ON)
+    assert hardware.EVALUATION_KEY in keys
     assert hardware.LEGACY_KEY in keys
     assert hardware.SIM_CLONE_KEY in keys
     assert hardware.SIM_LANDSCAPE_KEY in keys
@@ -32,6 +33,7 @@ def test_available_types_with_gate_adds_both_sim_types() -> None:
 def test_other_gate_values_leave_sim_types_out(value: str) -> None:
     keys = hardware.available_types({hardware.SIM_ENV_VAR: value})
     assert all(not hardware.REGISTRY[k].simulated for k in keys)
+    assert hardware.EVALUATION_KEY not in keys
 
 
 def test_gate_is_read_at_call_time(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -132,6 +134,7 @@ def test_production_config_never_enables_sim_types() -> None:
     for environ in ({}, env):
         keys = hardware.available_types(environ)
         assert all(not hardware.REGISTRY[k].simulated for k in keys)
+        assert hardware.EVALUATION_KEY not in keys
 
 
 def test_firmware_bound_is_separate_from_display_bound() -> None:
@@ -139,7 +142,8 @@ def test_firmware_bound_is_separate_from_display_bound() -> None:
 
     import server.firmware_image as firmware_image
 
-    for key in (hardware.LEGACY_KEY, hardware.SIM_CLONE_KEY, hardware.SIM_LANDSCAPE_KEY):
+    for key in (hardware.LEGACY_KEY, hardware.SIM_CLONE_KEY, hardware.SIM_LANDSCAPE_KEY,
+                hardware.EVALUATION_KEY):
         assert hardware.REGISTRY[key].firmware.max_app_bytes == 0x250000
     assert hardware.REGISTRY[hardware.LEGACY_KEY].firmware.max_image_bytes == 960000
     assert hardware.REGISTRY[hardware.SIM_LANDSCAPE_KEY].firmware.max_image_bytes == 192000
@@ -241,9 +245,53 @@ def test_validation_rejects_final_without_measurement_source() -> None:
         hardware.REGISTRY = original
 
 
-def test_planned_slot_has_no_numbers_and_is_not_registered() -> None:
-    slot = hardware.PLANNED_BATTERY_SLOTS["seeed-ee04-7in3-spectra6"]
+def test_planned_slot_has_no_numbers_and_provisional_registration() -> None:
+    slot = hardware.PLANNED_BATTERY_SLOTS[hardware.EVALUATION_KEY]
     assert slot.status == "unmeasured"
     assert [n for n, _ in slot.values] == list(hardware.BATTERY_VALUE_NAMES)
     assert all(v is None for _, v in slot.values)
-    assert not set(hardware.PLANNED_BATTERY_SLOTS) & set(hardware.REGISTRY)
+    for key in set(hardware.PLANNED_BATTERY_SLOTS) & set(hardware.REGISTRY):
+        battery = hardware.REGISTRY[key].battery
+        assert all(
+            battery.provenance_for(name).status == "provisional"
+            for name in hardware.BATTERY_VALUE_NAMES)
+
+
+def test_evaluation_type_is_hidden_without_the_gate() -> None:
+    assert hardware.available_types({}) == (hardware.LEGACY_KEY,)
+    assert hardware.EVALUATION_KEY not in hardware.available_types({})
+    assert hardware.EVALUATION_KEY in hardware.available_types(SIM_ON)
+    with pytest.raises(hardware.UnknownHardwareType):
+        hardware.get_profile(hardware.EVALUATION_KEY, {})
+    assert hardware.get_profile(hardware.EVALUATION_KEY, SIM_ON).key == hardware.EVALUATION_KEY
+    assert hardware.is_known(hardware.EVALUATION_KEY)
+
+
+def test_evaluation_profile_geometry_and_firmware() -> None:
+    p = hardware.get_profile(hardware.EVALUATION_KEY, SIM_ON)
+    legacy = _legacy()
+    assert hardware.EVALUATION_KEY == "seeed-ee04-7in3-spectra6"
+    assert (p.width, p.height) == (800, 480)
+    assert p.layout_family == hardware.LAYOUT_LANDSCAPE
+    assert "EE04" in p.label and "7.3" in p.label and "Spectra 6" in p.label
+    assert p.image_format == hardware.IMAGE_FORMAT_SPECTRA6_NIBBLE
+    assert len(p.inks) == 6
+    assert p.firmware.max_image_bytes == 192000
+    assert p.firmware.idf_target == legacy.firmware.idf_target
+    assert p.firmware.project_name == legacy.firmware.project_name == "skypane"
+    assert p.firmware.require_signature is True
+    assert p.firmware.signing_pubkey == hardware.COMMITTED_SIGNING_PUBKEY
+    assert p.simulated is False
+    assert p.gated is True
+    assert legacy.gated is False
+
+
+def test_evaluation_battery_is_copied_and_provisional() -> None:
+    battery = hardware.REGISTRY[hardware.EVALUATION_KEY].battery
+    legacy = _legacy().battery
+    for name in hardware.BATTERY_VALUE_NAMES:
+        assert getattr(battery, name) == getattr(legacy, name)
+        entry = battery.provenance_for(name)
+        assert entry.status == "provisional"
+        assert "not a measurement" in entry.source
+    assert hardware.registry_problems() == []
