@@ -8,7 +8,7 @@ target_milestone: v1.3
 scope: large
 ---
 
-# SEED-013: Photo display mode (user photos, then provided collections)
+# SEED-013: Photo display mode (user photos, provided collections, messages, orientation, getting-started wizard)
 
 ## Why This Matters
 
@@ -25,8 +25,10 @@ the milestone can go straight to requirements and phases.
 
 ## Scope Estimate
 
-**Large**, in two parts: v1.3 (own photos: upload, per-frame mode, rotation)
-and v1.3.x (provided collections).
+**Large.** The concept brief of 2026-11-10 split it into v1.3 (own photos:
+upload, per-frame mode, rotation) and v1.3.x (provided collections). **The owner
+widened v1.3 on 2026-11-14**; see "Owner update, 2026-11-14" below, which
+supersedes that split.
 
 Full decisions, risks, visual trials and a five-phase outline are in
 `.planning/notes/photo-mode-concept.md`. In short:
@@ -39,6 +41,45 @@ Full decisions, risks, visual trials and a five-phase outline are in
   Reduced copies only, real deletion, a quota.
 - Collections: public domain or CC0 only, plus one artist collection that needs
   a written agreement.
+
+## Owner update, 2026-11-14
+
+The owner's plan for milestone v1.3 now contains all of the following:
+
+1. **Photo frames with messages.** A frame in photo mode can show a short
+   message with its pictures. This is the existing future requirement MSG-01
+   ("the companion sends a short message to the frame"); how a message is laid
+   over or beside a photo, and who may send one, are open questions.
+2. **Portrait and landscape for both frame types.** Both hardware types (the
+   13.3 inch portrait frame and the 7.3 inch landscape frame under study) can
+   be used in portrait or landscape, in both configurations (plane or photo).
+   Orientation becomes a per-frame setting. Open question: whether a server-side
+   rotation of the rendered image is enough (the panel keeps its native size,
+   so the firmware would not change) or whether the firmware or image format
+   must carry an orientation. To be checked before planning.
+3. **Two configurations per frame: plane or photo.** The existing decision
+   stands: one mode per frame, chosen in the companion, no automatic switch.
+4. **A getting-started wizard** in the companion: pair a frame, choose its
+   mode and orientation, set its location or runway, and for photo mode add the
+   first pictures. It builds on the pairing by code (Phase 55) and the
+   refreshed companion (Phase 61). SEED-012 (an admin invite that also creates
+   the Auth0 account) belongs next to it.
+5. **A photo collection system, in v1.3, not v1.3.x.** Collections come from
+   two kinds of source: **public** (public domain or CC0 only, as decided on
+   2026-11-10) and **partnerships** (for example the artist collection that has
+   a written agreement). Each image keeps source, author and licence; a
+   partnership needs a written agreement kept with the tracking file. How
+   collections are published, enabled per frame and credited on or beside the
+   picture is open.
+
+## Prerequisites to check at milestone start
+
+- Phase 58 (second hardware) validated, since "both frame types" needs the
+  7.3 inch type working on a real unit.
+- Phase 47.1 (wake-energy measurement) finished before changing the wake
+  interval per mode (see Notes).
+- Phase 57 (combined firmware release) sequenced, if photo mode needs any
+  firmware change.
 
 ## Breadcrumbs
 
