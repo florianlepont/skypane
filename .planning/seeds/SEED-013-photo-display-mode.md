@@ -71,6 +71,27 @@ The owner's plan for milestone v1.3 now contains all of the following:
    partnership needs a written agreement kept with the tracking file. How
    collections are published, enabled per frame and credited on or beside the
    picture is open.
+6. **A simplified Wi-Fi setup** (added by the owner on 2026-11-14). Today the
+   Wi-Fi network name and password are written onto the frame **over a USB
+   cable** by `firmware/provision.sh`, into the "secret" storage partition,
+   together with the enrolment secret and the server address. Moving a frame to
+   another network therefore needs a cable and a computer. The upstream
+   firmware has options for an on-device re-provision hold and a pairing QR
+   (`FP_REPROVISION_HOLD_MS` and the E1004 controls in
+   `firmware/main/Kconfig.projbuild`), but nothing in this project's firmware
+   uses them, and the XIAO boards of both frame types have no such buttons.
+   Ways to evaluate: a setup mode where the frame opens its own temporary
+   network and a phone enters the home network on a small page, a Bluetooth
+   provisioning flow (the ESP32-S3 has Bluetooth), or both. Points to settle:
+   how a frame enters setup mode without a button (for example after several
+   failed connections, or on first boot when unprovisioned); what the e-ink
+   panel shows during setup (instructions and a QR code to join the temporary
+   network; each redraw takes 20 to 25 seconds); a timeout so setup mode cannot
+   drain the battery; storing more than one network; and security: **the Wi-Fi
+   password stays between the phone and the frame and is never sent to the
+   server.** It fits the getting-started wizard (item 4) and the pairing code
+   shown by an unclaimed frame (Phase 55). It is a firmware change, so it
+   reaches existing frames only by an over-the-air update (see Prerequisites).
 
 ## Prerequisites to check at milestone start
 
@@ -78,8 +99,8 @@ The owner's plan for milestone v1.3 now contains all of the following:
   7.3 inch type working on a real unit.
 - Phase 47.1 (wake-energy measurement) finished before changing the wake
   interval per mode (see Notes).
-- Phase 57 (combined firmware release) sequenced, if photo mode needs any
-  firmware change.
+- Phase 57 (combined firmware release) sequenced, if photo mode or the
+  Wi-Fi setup needs any firmware change. The Wi-Fi setup certainly does.
 
 ## Breadcrumbs
 
@@ -90,6 +111,8 @@ The owner's plan for milestone v1.3 now contains all of the following:
 - `server/detection.py` (per-device mode as a model for a display mode)
 - `stub-server/byos_server.py` (content-addressed image serving)
 - `hardware/BATTERY-MODEL.md`, `hardware/SECOND-HARDWARE.md` (energy figures, landscape panel)
+- `firmware/provision.sh`, `firmware/main/enrol_secret.c` (how Wi-Fi and the enrolment secret are written today)
+- `firmware/main/Kconfig.projbuild` (unused upstream re-provision and pairing-QR options)
 
 ## Notes
 
