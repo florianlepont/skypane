@@ -46,6 +46,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
 - [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 13 of 13 plans done; the owner confirmed the real-panel check and kept layout B as the default, 2026-11-10)
 - [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
+- [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
 
 ## Phase Details
 
@@ -648,6 +649,29 @@ Plans: 6 plans in 5 waves
 - [x] 63-05-PLAN.md - owner decision on the two large browser files Phase 61 also touches: left unchanged (wave 4, checkpoint)
 - [x] 63-06-PLAN.md - five green runs, before and after record, documentation (wave 5)
 
+### Phase 64: Second Hardware in Production
+
+**Goal**: The second hardware type (the Seeed EE04 with the 7.3 inch panel) is built, released, deployed, updated over the air and managed in production the way the live frame's type is, so the owner can run both kinds of frame side by side.
+**Depends on**: Phase 58 (the unit validated and the mounting decided), Phase 62 (landscape status screens). It extends the release channel that Phase 57 uses for the live frame and both change `.github/workflows/firmware-release.yml`, so they are sequenced, not run at once. Runs before Phase 59, which stays last.
+**Requirements**: HW2-03, HW2-04, HW2-05
+**Why this phase exists**: Phase 58 proves the board on a bench with throwaway-key images. The audit of 2026-11-14 (`64-AUDIT.md`, claims re-checked against `main`) found that the live frame has a CI build, a signed release, a deploy import, a production gate and an update page, and that for the second type the release workflow, the deploy download and the CI build are written for the live frame only, and the type is invisible in production behind the simulation switch.
+**Success Criteria** (what must be TRUE):
+
+  1. CI builds the second board in the production profile and runs the production-configuration check in built mode and a size gate on that image, so a break in its defaults, its driver or its hardware key fails CI.
+  2. One release tag builds, signs, verifies and publishes an image and a manifest for each board, with the typed asset names the server already reads; the live frame's assets and release path stay unchanged, and a release that carries only the live frame's assets still imports.
+  3. The production deploy fetches and imports the typed assets of a release, and an unknown or not-yet-available type no longer fails the whole activation.
+  4. The second type is available in production through a switch of its own that does not expose the simulated types, lifted only on the owner's written confirmation; the tests that pin the gate off are changed on purpose and say why.
+  5. A second-type frame enrolled in production receives a real signed update over https from the production channel and reports it; its result is recorded in its own type's registry by the production poll, not only by the live frame's cycle; a frame that fails the update stays on its previous firmware.
+  6. The companion follows the frame's hardware profile wherever it shows a picture or a battery number: theme and frame previews have the frame's shape and crop, the landscape hold screens of the classic layout carry the battery-low and source-fault marks, and battery percentages use the frame's own curve.
+  7. The 7.3 inch panel's firmware assumptions are settled with measured values: the wake-stage blit budget against the driver's busy waits, the minimum refresh spacing and its explanation, and the battery sense, LED and button pins checked on the unit; the battery profile takes the measured values of Phase 58.
+  8. The documents describe both boards: the release and signing process per type, the deploy README, the vendoring notes and provisioning, with `firmware/provision.sh` refusing the live frame as `flash-second.sh` does. No file of Phase 47 or 47.1 is touched.
+  9. The owner can pair, administer and manage a second-type frame in the companion as they manage the live frame: on a real second-type frame in production, as an administrator and as an invited user, they pair it, assign it, change its layout, display on or off, quiet hours and detection, read its health and battery, schedule an update, retire it and re-activate it, and each of these works. The owner validates this walk-through on the deployed companion, in English and French, as Phase 61 was validated. This is where the pages the audit did not walk through are checked.
+**Not in this phase**: a 180 degree or 90 degree turn of the frame and the photo mode (seed for v1.3), and battery numbers beyond what Phase 58 measures (they stay provisional until it does).
+**Open decisions** (for discuss-phase): how the gate is lifted (a dedicated switch, or flipping the profile's `gated` flag), whether the first signed image of the second type is published before or after the Phase 57 release, and whether the live-frame guard of `provision.sh` is typed or by port.
+**Must not break**: the live frame's release path and its signed image, every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, and the legacy production image, which must stay identical at section level (the identity proof used in Phase 58).
+
+Plans: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -668,3 +692,4 @@ Plans: 6 plans in 5 waves
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | Complete | Complete (owner validated on the deployed companion, 2026-11-13; follow-up plans 61-100 to 61-129 recorded in the validation ledger) | 2026-11-13 |
 | 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 13/13 | Complete | 2026-11-10 |
 | 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |
+| 64. Second Hardware in Production | v1.2 | 0/0 | Added 2026-11-14, not planned yet | - |
