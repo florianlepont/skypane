@@ -13,9 +13,13 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#define FP_FAULT_SCREEN_WIDTH 1200
-#define FP_FAULT_SCREEN_HEIGHT 1600
-#define FP_FAULT_SCREEN_BYTES (FP_FAULT_SCREEN_WIDTH * FP_FAULT_SCREEN_HEIGHT / 2) /* 960,000 */
+#include "panel_geometry.h"
+
+/* The hold screens fill the whole selected panel: 1200x1600 (960,000 bytes)
+ * or 800x480 (192,000 bytes), chosen at compile time by panel_geometry.h. */
+#define FP_FAULT_SCREEN_WIDTH FP_PANEL_WIDTH
+#define FP_FAULT_SCREEN_HEIGHT FP_PANEL_HEIGHT
+#define FP_FAULT_SCREEN_BYTES (FP_FAULT_SCREEN_WIDTH * FP_FAULT_SCREEN_HEIGHT / 2)
 
 /* Sentinel written to FP_NVS_IMAGE_HASH once this screen has been drawn -
  * deliberately never of the "sha256:<64 hex>" shape a real server hash
@@ -36,8 +40,9 @@
 typedef void (*fp_fault_screen_tick_fn)(void);
 
 /* Renders the NO CONNECTION hold screen into `buf`
- * (FP_FAULT_SCREEN_BYTES, PROTOCOL.md §1 packed format: 1600 rows x 600
- * bytes, left pixel of each byte in the high nibble, Black = 0x0,
+ * (FP_FAULT_SCREEN_BYTES, PROTOCOL.md §1 packed format: one row after
+ * another, FP_FAULT_SCREEN_WIDTH / 2 bytes per row, left pixel of each byte
+ * in the high nibble, Black = 0x0,
  * White = 0x1). Fully overwrites every byte - deterministic, so two
  * renders into two differently-pre-filled buffers are byte-identical.
  * `tick` is called (if non-NULL) roughly every 64 rows. */
