@@ -86,7 +86,7 @@ static void draw_updating_screen(void)
         ESP_LOGW(TAG, "ota updating screen skipped: no PSRAM");
     } else {
         fp_updating_screen_render(buf, fp_wake_feed);
-        esp_err_t err = fp_panel_draw(view.payload);
+        esp_err_t err = fp_panel_draw(buf);
         heap_caps_free(buf);
         if (err == ESP_OK) {
             ESP_LOGI(TAG, "ota updating screen drawn");
@@ -344,7 +344,7 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     }
 
     int64_t t_draw = esp_timer_get_time();
-    err = fp_panel_draw(buf);
+    err = fp_panel_draw(view.payload);
     if (timing_out) {
         timing_out->draw_ms = elapsed_ms_since(t_draw);
         timing_out->spi_ms = epd_spi_ms();
