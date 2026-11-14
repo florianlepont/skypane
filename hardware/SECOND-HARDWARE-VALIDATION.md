@@ -116,18 +116,20 @@ are not measurements of a cell. The unit refuses an OTA at 3500 mV or less, so a
 floating reading that falls under that value would make it answer `deferred-battery`
 instead of the expected token. A real battery is needed for the battery work.
 
-## Native layout (partly recorded)
+## Native layout (recorded, no measurements)
 
 Observed on 2026-11-14 on the physical panel, mounted flat on the bench: the six-colour
 test frame (see above), the pairing screen and the retired screen were displayed at
 the panel's own size. The owner reported the pairing code readable and unambiguous from
 4 metres, the pairing screen legible, and the retired screen shown as designed.
 
-Not recorded, so not claimed: whether any screen was cropped, offset or rotated beyond
-the 180 degree turn explained above, whether "legible" also covers the small instruction
-text under the code and from how far, the refresh time measured on the panel, and any
-difference between the previews and the glass. The plane screens (flight screens) were not shown on
-the unit in this session.
+Owner's overall judgement, stated afterwards on 2026-11-14: everything seen on the panel
+in this session was good. That covers what was not itemised: the screen after the claim,
+the small instruction text under the code, any cropping or offset, and the look of the
+panel compared with the previews. It is a judgement, not a measurement. No distance was
+given for the small text, and the refresh time was not timed, so no number is recorded
+for either. The plane screens (flight screens) were not shown on the unit in this
+session.
 
 ## Pairing test on the panel (2026-11-14)
 
@@ -149,8 +151,8 @@ the new device and its owner. Two earlier claim attempts were refused: one for a
 that was not established (it is not known whether the real code was typed) and one
 because the script was run with its placeholder text instead of the code. The refusal
 message is the same for every cause, so it does not say which. The screen shown on the
-panel after the claim was not recorded; a white panel is what the bench server sends a
-claimed frame.
+panel after the claim was not itemised (the owner judged what was seen good); a white
+panel is what the bench server sends a claimed frame.
 
 ### Retired
 
