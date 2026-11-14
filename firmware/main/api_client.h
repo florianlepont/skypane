@@ -22,11 +22,13 @@
 
 #include "esp_err.h"
 
+#include "panel_geometry.h"
 #include "validate.h"
 #include "wake_telemetry.h"
 
-/* 1200*1600 pixels, two nibble-packed pixels per byte — PROTOCOL.md §1. */
-#define FP_IMAGE_BYTES 960000u
+/* Packed frame size of the selected panel (two nibble-packed pixels per
+ * byte, PROTOCOL.md §1): 960000 for the default 1200*1600 panel. */
+#define FP_IMAGE_BYTES ((unsigned)FP_PANEL_BYTES)
 
 /* Distinct failure classifications the Log Line Contract's step tokens
  * need (firmware/VENDOR.md § Log Line Contract): api_client.c already

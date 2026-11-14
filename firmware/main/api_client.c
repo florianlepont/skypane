@@ -680,10 +680,10 @@ esp_err_t fp_api_get_display(const char *boot_reason, fp_display_t *out)
 esp_err_t fp_api_download(const char *url, const char *expected_hash,
                           uint8_t *buf)
 {
-    /* FP_IMAGE_BYTES (api_client.h) is exactly 960000 — 1200*1600 pixels,
-     * two nibble-packed pixels per byte, PROTOCOL.md §1. The size check
-     * below (`got != FP_IMAGE_BYTES`) is the gate that refuses to hand
-     * `buf` to panel.c unless the download is exactly 960000 bytes. */
+    /* FP_IMAGE_BYTES (api_client.h) is the packed frame size of the
+     * selected panel, PROTOCOL.md §1. The size check below
+     * (`got != FP_IMAGE_BYTES`) is the gate that refuses to hand `buf`
+     * to panel.c unless the download is exactly that many bytes. */
     if (!buf ||
         !fp_url_valid(url, sizeof(((fp_display_t *)0)->image_url), s_allow_http) ||
         !fp_image_hash_valid(expected_hash)) {
@@ -775,7 +775,7 @@ open_again:
      * about to spend effort saving for nothing. */
 
     /* Compute the digest only once the transfer itself checks out -
-     * hashing 960000 bytes is wasted work when the transfer is already
+     * hashing FP_IMAGE_BYTES is wasted work when the transfer is already
      * going to be rejected. fp_download_verdict re-checks the same
      * transfer facts regardless, so a BAD_TRANSFER verdict never
      * depends on hex being meaningful. */

@@ -342,7 +342,11 @@ fp_poll_result_t fp_poll_once(const char *boot_reason, uint32_t *sleep_s_out,
     if (timing_out) {
         timing_out->redraw = 1;
     }
+#if CONFIG_FP_PANEL_BUFFER_BYTES == 960000
     ESP_LOGI(TAG, "blit ok bytes=960000 sha256_ok=1");
+#else
+    ESP_LOGI(TAG, "blit ok bytes=%u sha256_ok=1", (unsigned)FP_IMAGE_BYTES);
+#endif
 
     /* Persist the new hash only after a successful blit — a blit that
      * never happened cannot cause the next wake to skip. */

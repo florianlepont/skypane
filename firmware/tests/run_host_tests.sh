@@ -7,6 +7,15 @@
 # declare `/* HOST_TEST_DEPS: other.c another.c */` on one line; those extra
 # files (resolved against main/) are compiled in alongside it.
 #
+# Two more opt-in markers, each on one line of the test source and read the
+# same way; a suite without them runs exactly as before:
+#   HOST_TEST_HEADER_ONLY       the suite tests a header and has no main/<name>.c
+#   HOST_TEST_PROFILES: second  after the normal run, compile and run the suite
+#                               again with the macros an ESP-IDF build of the
+#                               second panel profile takes from sdkconfig.h;
+#                               that run is reported as <name>_second and
+#                               counted as a suite of its own
+#
 # No ESP-IDF, no Docker, no hardware required - that property is the whole
 # point: it is an automated feedback signal available even without the
 # EE02 kit in hand.
@@ -54,7 +63,11 @@ for test_src in "${SCRIPT_DIR}"/test_*.c; do
     module=${name#test_}
     impl_src="${MAIN_DIR}/${module}.c"
 
-    if [ ! -f "${impl_src}" ]; then
+    header_only=0
+    if grep -q 'HOST_TEST_HEADER_ONLY' "${test_src}" 2>/dev/null; then
+        header_only=1
+    fi
+    if [ "${header_only}" -eq 0 ] && [ ! -f "${impl_src}" ]; then
         echo "${name}: MISSING main/${module}.c"
         FAIL=1
         continue
@@ -70,8 +83,21 @@ for test_src in "${SCRIPT_DIR}"/test_*.c; do
         done
     fi
 
-    # shellcheck disable=SC2086  # $extra is a deliberately word-split list
-    run_suite "${name}" "${test_src}" "${impl_src}" ${extra}
+    impl_args=""
+    if [ "${header_only}" -eq 0 ]; then
+        impl_args="${impl_src}"
+    fi
+
+    # shellcheck disable=SC2086  # $impl_args and $extra are word-split lists
+    run_suite "${name}" "${test_src}" ${impl_args} ${extra}
+
+    if grep -q 'HOST_TEST_PROFILES:[[:space:]]*second' "${test_src}" 2>/dev/null; then
+        COUNT=$((COUNT + 1))
+        # shellcheck disable=SC2086
+        run_suite "${name}_second" "${test_src}" \
+            -DCONFIG_FP_PANEL_7IN3E=1 -DCONFIG_FP_PANEL_BUFFER_BYTES=192000 \
+            ${impl_args} ${extra}
+    fi
 done
 
 echo "== check_panel_diff =="

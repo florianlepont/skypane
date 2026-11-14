@@ -54,7 +54,7 @@
  * byte count exactly - if either side's dimensions ever drift, this
  * catches it at compile time rather than as a corrupted blit on real
  * glass. */
-_Static_assert(FP_FAULT_SCREEN_BYTES == EPD_BYTES, "fault screen buffer size must match EPD_BYTES");
+_Static_assert(FP_FAULT_SCREEN_BYTES == FP_PANEL_BYTES, "fault screen buffer size must match the panel byte count");
 
 /* reset_reason.h's FP_RST_* enum mirrors esp_reset_reason_t
  * (ESP-IDF v5.3.1, components/esp_system/include/esp_system.h)
