@@ -162,14 +162,20 @@ static void should_draw_matches_the_spec_table(void)
     assert(fp_fault_screen_should_draw("bogus", 2, false) == false);
 
     static const char *const kIncluded[] = {
-        "wifi", "http", "status", "json", "auth",
-        "enrol", "secret", "config", "download", "verify",
+        "wifi", "http", "status", "json",
+        "secret", "config", "download", "verify",
     };
     for (size_t i = 0; i < sizeof(kIncluded) / sizeof(kIncluded[0]); i++) {
         assert(fp_fault_screen_should_draw(kIncluded[i], 2, false) == true);
     }
 
     assert(fp_fault_screen_should_draw("wifi", 0, false) == false);
+
+    static const uint8_t kCounts[] = {0, 2, 5, 255};
+    for (size_t i = 0; i < sizeof(kCounts); i++) {
+        assert(fp_fault_screen_should_draw("auth", kCounts[i], false) == false);
+        assert(fp_fault_screen_should_draw("enrol", kCounts[i], false) == false);
+    }
 }
 
 static void hash_sentinel_is_not_a_server_hash_shape(void)
