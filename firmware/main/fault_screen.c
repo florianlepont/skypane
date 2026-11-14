@@ -40,8 +40,8 @@ bool fp_fault_screen_should_draw(const char *step, uint8_t next_backoff_n, bool 
         return false;
     }
     static const char *const kAllowed[] = {
-        "wifi", "http", "status", "json", "auth",
-        "enrol", "secret", "config", "download", "verify",
+        "wifi", "http", "status", "json",
+        "secret", "config", "download", "verify",
     };
     for (size_t i = 0; i < sizeof(kAllowed) / sizeof(kAllowed[0]); i++) {
         if (strcmp(step, kAllowed[i]) == 0) {

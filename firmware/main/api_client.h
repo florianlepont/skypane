@@ -28,6 +28,15 @@
 /* 1200*1600 pixels, two nibble-packed pixels per byte — PROTOCOL.md §1. */
 #define FP_IMAGE_BYTES 960000u
 
+/* Panel size in pixels, and the room the download buffer keeps for the
+ * container header that may precede the pixel payload. */
+#define FP_PANEL_W 1200u
+#define FP_PANEL_H 1600u
+#define FP_IMAGE_MAX_HEADER 256u
+#define FP_IMAGE_BUF_BYTES (FP_IMAGE_BYTES + FP_IMAGE_MAX_HEADER)
+_Static_assert(FP_PANEL_W * FP_PANEL_H / 2 == FP_IMAGE_BYTES,
+               "panel size must match the packed image size");
+
 /* Distinct failure classifications the Log Line Contract's step tokens
  * need (firmware/VENDOR.md § Log Line Contract): api_client.c already
  * knows exactly where a request failed, so it reports that here instead
@@ -110,9 +119,16 @@ void fp_api_set_wake_current(const fp_wake_current_t *cur);
  * resets its own counter; 0 when no connect was timed. */
 uint32_t fp_api_first_connect_ms(void);
 
-/* Stream image_url into buf (FP_IMAGE_BYTES). Returns ESP_OK only when
- * the response is exactly FP_IMAGE_BYTES long AND its SHA-256 matches
- * expected_hash ("sha256:<hex>") — the gate that keeps an unverified
- * buffer from ever reaching panel.c. */
+/* Stream image_url into buf (capacity cap, FP_IMAGE_BUF_BYTES). The body
+ * is either the legacy raw image (FP_IMAGE_BYTES) or a container whose
+ * length is within the window fp_body_len_plausible accepts; the SHA-256
+ * is computed over every received byte. Returns ESP_OK only when the
+ * length gate passes AND the hash matches expected_hash ("sha256:<hex>")
+ * - the gate that keeps an unverified buffer from ever reaching the
+ * parser or panel.c. *body_len_out is the number of bytes received.
+ * *complete_out is true only when the status was 200 and the whole
+ * response was received without a read error or timeout; both outputs are
+ * set on every return path. */
 esp_err_t fp_api_download(const char *url, const char *expected_hash,
-                          uint8_t *buf);
+                          uint8_t *buf, size_t cap, size_t *body_len_out,
+                          bool *complete_out);
