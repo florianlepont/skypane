@@ -19,7 +19,7 @@ from PIL import Image
 
 import companion.device_scope as device_scope
 import companion.i18n as i18n
-from server import atomic_io, device_config, panel_format, screen_layouts
+from server import atomic_io, device_config, hardware, panel_format, screen_layouts
 from server.plane import render
 
 THEME_PREVIEW_ROUTE_PREFIX = "/theme-preview/"
@@ -59,6 +59,15 @@ THEME_PREVIEW_PREVIOUS_STATE = "arriving"
 # mid-caption); still pairwise-distinct across all 18 themes' mean RGB.
 THEME_PREVIEW_CROP_BOX = (0, 390, 1200, 840)
 
+# The landscape frame's chip crop, in its 800x480 canvas: 300px tall, the
+# same 8:3 shape as THEME_PREVIEW_SIZE so the chip is never distorted. The
+# rendered card keeps its status line and runway tag in the top 90px and
+# is empty below y=390; this box keeps the aircraft illustration and the
+# flight text (callsign, destination, airline) and drops the header
+# strip, which a 160x60 chip cannot show legibly. The look of this crop is
+# for the owner to confirm in the companion walk-through.
+THEME_PREVIEW_CROP_BOX_LANDSCAPE = (0, 90, 800, 390)
+
 # 2x the chip's ~160x60 display size, so it stays crisp on Retina-class
 # displays. Downscaled (1200 -> 320, LANCZOS); never grow past the
 # source crop's resolution — an upscaled thumbnail looks worse.
@@ -79,6 +88,36 @@ THEME_PREVIEW_CACHE_MAX_FILES = 3 * len(device_config.THEMES) * len(screen_layou
 # Cache keys and file names carry a layout segment; `None` (the caller
 # did not choose one) is the classic picture.
 DEFAULT_PREVIEW_LAYOUT = screen_layouts.CLASSIC_LAYOUT_ID
+
+
+def _is_legacy_profile(profile):
+    """True for `None` and the legacy portrait profile."""
+    return profile is None or profile.key == hardware.LEGACY_KEY
+
+
+def _canvas_profile(profile):
+    """The `profile` argument for `render.build_canvas()`: `None` (its
+    unchanged legacy path) for the legacy profile, else the profile."""
+    return None if _is_legacy_profile(profile) else profile
+
+
+def _profile_segment(profile):
+    """The text a non-legacy profile adds to cache keys and file names,
+    or `None` for the legacy profile (whose names never changed) and for
+    anything that is not a registry profile. Only a registry key, which
+    is `[a-z0-9-]`, can reach a path."""
+    if _is_legacy_profile(profile):
+        return None
+    if hardware.REGISTRY.get(profile.key) is not profile:
+        return False
+    return profile.key
+
+
+def chip_crop_box(profile=None):
+    """The theme chip's crop box inside `profile`'s canvas."""
+    if _is_legacy_profile(profile):
+        return THEME_PREVIEW_CROP_BOX
+    return THEME_PREVIEW_CROP_BOX_LANDSCAPE
 
 
 def layout_key(layout):
@@ -134,11 +173,12 @@ def _live_flight_route_state(live_event):
     return flight, route, state
 
 
-def preview_png_bytes(theme_id, live_event=None, layout=None):
+def preview_png_bytes(theme_id, live_event=None, layout=None, profile=None):
     """Render the fixed scene, or `live_event` (a `runway_events` row)
     when given, through `render.build_canvas()`, crop, downscale, and
     return PNG bytes. A live render omits the previous-flight card.
-    `layout` is a screen layout id (`None` is classic).
+    `layout` is a screen layout id (`None` is classic). `profile` is the
+    frame's hardware profile (`None` is the legacy portrait frame).
 
     `.convert("RGB")` happens before crop/resize, deliberately:
     `build_canvas()` returns a "P"-mode image, and resizing a "P"-mode
@@ -154,31 +194,34 @@ def preview_png_bytes(theme_id, live_event=None, layout=None):
             previous_state=THEME_PREVIEW_PREVIOUS_STATE,
             theme_id=theme_id,
             layout=layout_key(layout),
+            profile=_canvas_profile(profile),
         )
     else:
         flight, route, state = _live_flight_route_state(live_event)
         canvas = render.build_canvas(
             flight, state, route=route, theme_id=theme_id,
-            layout=layout_key(layout),
+            layout=layout_key(layout), profile=_canvas_profile(profile),
         )
     rgb = canvas.convert("RGB")
-    cropped = rgb.crop(THEME_PREVIEW_CROP_BOX)
+    cropped = rgb.crop(chip_crop_box(profile))
     resized = cropped.resize(THEME_PREVIEW_SIZE, Image.LANCZOS)
     buffer = io.BytesIO()
     resized.save(buffer, format="PNG")
     return buffer.getvalue()
 
 
-def preview_signature(theme_id, live_event_id=None, layout=None):
+def preview_signature(theme_id, live_event_id=None, layout=None, profile=None):
     """A 12-hex-character cache-key discriminator for `theme_id`.
     Folds in the theme's palette (so a real-glass ink re-tune is a
     cache miss, not a stale image forever), the crop/size constants,
     `THEME_PREVIEW_CACHE_VERSION` (the manual escape hatch for a
     render-geometry change this signature can't otherwise see), and
     `live_event_id` (opaque digest input, never a path component) and
-    the layout, so one theme's pictures for two layouts never collide.
+    the layout, so one theme's pictures for two layouts never collide. A
+    non-legacy `profile` adds its key (and its own crop box); the legacy
+    profile leaves the digest as it always was.
     """
-    digest_input = repr((
+    parts = (
         device_config.THEMES[theme_id],
         panel_format.PALETTE_RGB,
         THEME_PREVIEW_CROP_BOX,
@@ -186,7 +229,11 @@ def preview_signature(theme_id, live_event_id=None, layout=None):
         THEME_PREVIEW_CACHE_VERSION,
         live_event_id,
         layout_key(layout),
-    )).encode("utf-8")
+    )
+    segment = _profile_segment(profile)
+    if segment:
+        parts += (segment, chip_crop_box(profile))
+    digest_input = repr(parts).encode("utf-8")
     return hashlib.sha256(digest_input).hexdigest()[:12]
 
 
@@ -200,27 +247,32 @@ def cache_dir(state_dir):
     return os.path.join(state_dir, THEME_PREVIEW_CACHE_DIRNAME)
 
 
-def cache_path(state_dir, theme_id, live_event_id=None, layout=None):
+def cache_path(state_dir, theme_id, live_event_id=None, layout=None, profile=None):
     """The on-disk cache path for `theme_id`'s preview, or `None` when
     `state_dir` is falsy or `theme_id` is not a real THEMES key —
     validated at the boundary itself, never trusting an upstream check.
-    A `layout` outside the allow-list is refused the same way.
+    A `layout` outside the allow-list is refused the same way, and so is a
+    `profile` that is not a registry profile. A non-legacy profile adds its
+    key to the file name; the legacy name is unchanged.
 
     `live_event_id` is coerced to `int()`; any failure degrades to the
     fixed literal `"sample"`, so no string field from a `runway_events`
     row can ever reach a path component.
     """
     layout_id = layout_key(layout)
-    if not state_dir or theme_id not in device_config.THEMES or layout_id is None:
+    segment = _profile_segment(profile)
+    if (not state_dir or theme_id not in device_config.THEMES or layout_id is None
+            or segment is False):
         return None
     try:
         event_id = int(live_event_id)
     except (TypeError, ValueError):
         event_id = None
-    signature = preview_signature(theme_id, event_id, layout_id)
+    signature = preview_signature(theme_id, event_id, layout_id, profile)
     directory = cache_dir(state_dir)
-    filename = "%s-%s-%s-%s.png" % (
-        theme_id, event_id if event_id is not None else "sample", layout_id, signature)
+    filename = "%s-%s-%s-%s%s.png" % (
+        theme_id, event_id if event_id is not None else "sample", layout_id,
+        "%s-" % segment if segment else "", signature)
     return os.path.join(directory, filename)
 
 
@@ -308,21 +360,47 @@ FRAME_PREVIEW_PIXEL_SIZES = {
     size: (FRAME_PREVIEW_CANVAS_SIZE[0] // factor, FRAME_PREVIEW_CANVAS_SIZE[1] // factor)
     for size, factor in FRAME_PREVIEW_REDUCE_FACTORS.items()
 }
+# The landscape frame's own reduction factors: 800x480 reduces to 400x240
+# (large) and 160x96 (small); a factor of 10 would leave a 80x48 thumbnail.
+FRAME_PREVIEW_REDUCE_FACTORS_LANDSCAPE = {
+    FRAME_PREVIEW_SIZE_LARGE: 2,
+    FRAME_PREVIEW_SIZE_SMALL: 5,
+}
 FRAME_PREVIEW_CACHE_DIRNAME = "frame_previews"
-# Every reachable file is one of themes x 2 states x 2 sizes x layouts; the bound
-# follows the registry, so adding a theme never evicts live previews.
+# Every reachable file is one of themes x 2 states x 2 sizes x layouts x
+# hardware profiles; the bound follows the registries, so adding a theme or
+# a profile never evicts live previews.
 FRAME_PREVIEW_CACHE_MAX_FILES = (
     len(device_config.THEMES) * len(FRAME_PREVIEW_STATES) * len(FRAME_PREVIEW_SIZES)
-    * len(screen_layouts.LAYOUT_IDS))
+    * len(screen_layouts.LAYOUT_IDS) * len(hardware.REGISTRY))
 FRAME_PREVIEW_CACHE_VERSION = 2
 
 
-def frame_preview_png_bytes(theme_id, state, size, layout=None):
+def frame_preview_reduce_factor(profile, size):
+    """The box-reduction factor of `size` for `profile`'s canvas."""
+    if _is_legacy_profile(profile):
+        return FRAME_PREVIEW_REDUCE_FACTORS[size]
+    return FRAME_PREVIEW_REDUCE_FACTORS_LANDSCAPE[size]
+
+
+def frame_preview_pixel_size(profile, size):
+    """The (width, height) of the `size` frame preview for `profile`
+    (`None` is the legacy portrait frame): the profile's canvas divided by
+    its reduction factor. For the legacy profile this is exactly
+    `FRAME_PREVIEW_PIXEL_SIZES[size]`."""
+    if _is_legacy_profile(profile):
+        return FRAME_PREVIEW_PIXEL_SIZES[size]
+    factor = frame_preview_reduce_factor(profile, size)
+    return (profile.width // factor, profile.height // factor)
+
+
+def frame_preview_png_bytes(theme_id, state, size, layout=None, profile=None):
     """The whole canvas for `theme_id` with the fixed scene's main flight
     in `state`, box-reduced to `size`, as PNG bytes. The arriving
     variant swaps the two fixture flights, so each picture shows a
     flight that really arrives at (or leaves) Orly. `layout` is a screen
-    layout id (`None` is classic).
+    layout id (`None` is classic). `profile` is the frame's hardware
+    profile (`None` is the legacy portrait frame).
     """
     if state == FRAME_PREVIEW_STATE_ARRIVING:
         main_flight, main_route = THEME_PREVIEW_PREVIOUS_FLIGHT, THEME_PREVIEW_PREVIOUS_ROUTE
@@ -336,51 +414,58 @@ def frame_preview_png_bytes(theme_id, state, size, layout=None):
         main_flight, state, route=main_route,
         previous_flight=previous_flight, previous_route=previous_route,
         previous_state=previous_state, theme_id=theme_id,
-        layout=layout_key(layout),
+        layout=layout_key(layout), profile=_canvas_profile(profile),
     )
     # RGB before reducing, for the same reason preview_png_bytes() gives.
-    reduced = canvas.convert("RGB").reduce(FRAME_PREVIEW_REDUCE_FACTORS[size])
+    reduced = canvas.convert("RGB").reduce(frame_preview_reduce_factor(profile, size))
     buffer = io.BytesIO()
     reduced.save(buffer, format="PNG", optimize=True)
     return buffer.getvalue()
 
 
-def frame_preview_signature(theme_id, state, size, layout=None):
+def frame_preview_signature(theme_id, state, size, layout=None, profile=None):
     """Like `preview_signature()`, for one full-frame variant."""
-    digest_input = repr((
+    parts = (
         device_config.THEMES[theme_id],
         panel_format.PALETTE_RGB,
         state,
-        FRAME_PREVIEW_REDUCE_FACTORS[size],
+        frame_preview_reduce_factor(None, size),
         FRAME_PREVIEW_CACHE_VERSION,
         layout_key(layout),
-    )).encode("utf-8")
+    )
+    segment = _profile_segment(profile)
+    if segment:
+        parts += (segment, frame_preview_reduce_factor(profile, size))
+    digest_input = repr(parts).encode("utf-8")
     return hashlib.sha256(digest_input).hexdigest()[:12]
 
 
-def frame_cache_path(state_dir, theme_id, state, size, layout=None):
+def frame_cache_path(state_dir, theme_id, state, size, layout=None, profile=None):
     """The on-disk cache path for one full-frame variant, or `None` when
-    any of the four values is outside its allow-list or `state_dir` is
-    falsy. Every path component comes from an allow-list member, never
-    from request text.
+    any of the four values is outside its allow-list, `profile` is not a
+    registry profile, or `state_dir` is falsy. Every path component comes
+    from an allow-list member, never from request text. A non-legacy
+    profile adds its key to the file name; the legacy name is unchanged.
     """
     layout_id = layout_key(layout)
+    segment = _profile_segment(profile)
     if (not state_dir or theme_id not in device_config.THEMES
             or state not in FRAME_PREVIEW_STATES or size not in FRAME_PREVIEW_SIZES
-            or layout_id is None):
+            or layout_id is None or segment is False):
         return None
-    filename = "%s-%s-%s-%s-%s.png" % (
+    filename = "%s-%s-%s-%s-%s%s.png" % (
         theme_id, state, size, layout_id,
-        frame_preview_signature(theme_id, state, size, layout_id))
+        "%s-" % segment if segment else "",
+        frame_preview_signature(theme_id, state, size, layout_id, profile))
     return os.path.join(state_dir, FRAME_PREVIEW_CACHE_DIRNAME, filename)
 
 
-def cached_frame_preview_bytes(state_dir, theme_id, state, size, layout=None):
+def cached_frame_preview_bytes(state_dir, theme_id, state, size, layout=None, profile=None):
     """`cached_preview_bytes()`'s contract for one full-frame variant:
     disk hit, or render, atomic write and prune on a miss. `None` for
     anything `frame_cache_path()` refuses.
     """
-    path = frame_cache_path(state_dir, theme_id, state, size, layout)
+    path = frame_cache_path(state_dir, theme_id, state, size, layout, profile)
     if path is None:
         return None
     try:
@@ -390,7 +475,10 @@ def cached_frame_preview_bytes(state_dir, theme_id, state, size, layout=None):
         pass
     directory = os.path.dirname(path)
     os.makedirs(directory, exist_ok=True)
-    payload = frame_preview_png_bytes(theme_id, state, size, layout)
+    if _is_legacy_profile(profile):
+        payload = frame_preview_png_bytes(theme_id, state, size, layout)
+    else:
+        payload = frame_preview_png_bytes(theme_id, state, size, layout, profile)
     atomic_io.atomic_write(path, payload)
     _prune_preview_cache(directory, path, max_files=FRAME_PREVIEW_CACHE_MAX_FILES)
     return payload
@@ -408,7 +496,7 @@ def frame_preview_src(theme_id, state=FRAME_PREVIEW_STATE_DEPARTING, size=FRAME_
     return device_scope.scoped(url)
 
 
-def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None):
+def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None, profile=None):
     """Return `theme_id`'s preview PNG bytes: disk cache on a hit,
     render + write on a miss. `None` for anything `cache_path()` refuses.
 
@@ -421,7 +509,7 @@ def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None):
     prunes. `OSError` propagates to the caller uncaught.
     """
     live_event_id = live_event.get("id") if isinstance(live_event, dict) else None
-    path = cache_path(state_dir, theme_id, live_event_id, layout)
+    path = cache_path(state_dir, theme_id, live_event_id, layout, profile)
     if path is None:
         return None
     try:
@@ -431,7 +519,10 @@ def cached_preview_bytes(state_dir, theme_id, live_event=None, layout=None):
         pass
     directory = cache_dir(state_dir)
     os.makedirs(directory, exist_ok=True)
-    payload = preview_png_bytes(theme_id, live_event, layout)
+    if _is_legacy_profile(profile):
+        payload = preview_png_bytes(theme_id, live_event, layout)
+    else:
+        payload = preview_png_bytes(theme_id, live_event, layout, profile)
     atomic_io.atomic_write(path, payload)
     _prune_preview_cache(directory, path)
     return payload
