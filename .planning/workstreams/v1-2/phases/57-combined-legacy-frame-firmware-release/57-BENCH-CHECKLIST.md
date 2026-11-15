@@ -54,10 +54,10 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B6. 401 loop
 
-- [ ] B6. Revoke the bench unit's token on the server and watch several wakes.
+- [x] B6. Revoke the bench unit's token on the server and watch several wakes.
   - Expected observation: the token is erased, the unit re-enrols on the next wake, repeated failures space out at 5, 10, 20 minutes (growth), the last image stays on the panel, and no NO CONNECTION screen is drawn.
-  - Result:
-  - Date:
+  - Result: PARTIAL, accepted by the owner as validated (decision of 2026-11-15): recovery seen, the 5/10/20-minute growth was NOT observed. Bench unit seeed-ee04-7in3-spectra6 (MAC 84:c7:bb:70:b2:7c) running `fw-v1.0.12-bench8`. The unit's token was revoked in the bench fleet database with `fleet_cli.py devices revoke-token` (the legacy `devices_cli.py` answered `has no issued token`; the database read afterwards showed the token column empty). Serial log after a reset: `HTTP 401`, `device token rejected; erased, re-enrolling on the next wake`, `poll fail step=auth backoff_n=0 sleep_s=300`, `wake timing ... draw_ms=0 out=auth` (nothing drawn, so no NO CONNECTION screen after the first refusal). After a second reset the bench server logged at 11:28:22 `setup: 84:c7:bb:70:b2:7c enrolled (hw_rev=proto-ee04)`, `POST /device/v1/setup`, then `GET /device/v1/display`. Not observed: several refusals in a row (the enrolment itself refused) and therefore the spacing growth, and the panel content during the refusals was not reported. A reset restarts the back-off counter, which the unit's own growth test does not allow. Ticked by the assistant at the owner's explicit request on 2026-11-15.
+  - Date: 2026-11-15
 
 ### B7. Sticky fallback
 
