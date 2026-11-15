@@ -252,6 +252,18 @@ def _extract_aircraft(snapshot):
     return []
 
 
+def _state_source(flight, prior_state, state):
+    """Log-only: `_classify_state_source()`, plus "trend" when the state came
+    from the altitude trend because the vertical rate and the held state gave
+    none.
+    """
+    source = _classify_state_source(flight.get("vertical_rate_fpm"))
+    if source == "held" and prior_state is None and state is not None \
+            and state == runway_config.altitude_trend_state(flight):
+        return "trend"
+    return source
+
+
 def _classify_state_source(vertical_rate_fpm):
     """Log-only: was this cycle's state newly inferred from a vertical-rate
     reading that crossed a threshold, or held over (deadband/missing/
@@ -1077,6 +1089,43 @@ def load_display_slots(ctx):
     ctx.event_recorded = False
 
 
+def _earlier_sighting(ctx, hex_code):
+    """The queued or on-screen record of the same aircraft, or None."""
+    for entry in ctx.pending:
+        if entry["flight"].get("hex") == hex_code:
+            return entry["flight"]
+    current = ctx.current_flight
+    if isinstance(current, dict) and current.get("hex") == hex_code:
+        return current
+    return None
+
+
+def _track_altitude(ctx, flight):
+    """Tag `flight` with `altitude_ref_ft`, the altitude at which this
+    aircraft was first tracked. Each detection replaces the stored record in
+    place, so the reference is carried from the earlier record of the same
+    aircraft; a first sighting is its own reference. The runway state can then
+    be inferred from the altitude trend when the vertical rate gives none.
+    """
+    earlier = _earlier_sighting(ctx, flight.get("hex"))
+    reference = None
+    if earlier is not None:
+        reference = earlier.get("altitude_ref_ft")
+        if reference is None:
+            reference = earlier.get("altitude_ft")
+    if reference is None:
+        reference = flight.get("altitude_ft")
+    flight["altitude_ref_ft"] = reference
+
+
+def _state_deferral(ctx):
+    """Predicate for aircraft that have no direction to show yet. Such an
+    aircraft waits in the queue until its vertical rate or altitude trend
+    gives one, or it goes stale, rather than blanking the frame.
+    """
+    return lambda candidate: runway_config.awaits_state(candidate, _position_mode(ctx))
+
+
 def advance_display_queue(ctx):
     """Which detection (if any) advances the "current" display slot this
     cycle: `ctx.flight` is what this poll detected, not necessarily what
@@ -1095,12 +1144,10 @@ def advance_display_queue(ctx):
     dropped = []          # hexes this cycle discarded - the residual loss
     queue_dirty = False   # pending/last_advance_at changed -> must persist
 
-    # An aircraft on the ground has no direction to show yet; it waits in the
-    # queue until it climbs or descends rather than blanking the frame.
-    def defer(candidate):
-        return runway_config.awaits_state(candidate, _position_mode(ctx))
+    defer = _state_deferral(ctx)
 
     if flight is not None:
+        _track_altitude(ctx, flight)
         new_hex = flight.get("hex")
         old_hex = ctx.current_flight.get("hex") if isinstance(ctx.current_flight, dict) else None
         if ctx.current_flight is None and (ctx.redraw_blocked or defer(flight)):
@@ -1116,6 +1163,7 @@ def advance_display_queue(ctx):
             # there is nothing to overwrite yet, and deferring the very first
             # detection would only leave the frame empty for longer.
             promoted = flight
+            pending[:] = [e for e in pending if e["flight"].get("hex") != new_hex]
         elif new_hex == old_hex:
             # Re-detecting the SAME aircraft is not a new one - nothing
             # shifts, nothing queues. Its record is refreshed in place so
@@ -1292,7 +1340,7 @@ def _render_promoted(ctx):
     # stays departing/arriving/None.
     shown_state = runway_config.display_state(current_flight, confirmed_state, _position_mode(ctx))
     ctx.confirmed_state = shown_state
-    ctx.state_source = _classify_state_source(current_flight.get("vertical_rate_fpm"))
+    ctx.state_source = _state_source(current_flight, ctx.prior_confirmed_state, shown_state)
 
     if shown_state is None:
         # No direction can be inferred (an airborne aircraft inside the
@@ -1417,6 +1465,11 @@ def _render_empty(ctx):
         source_fault=ctx.source_fault, battery_low=ctx.battery_low, state_dir=ctx.state_dir, profile=ctx.profile, layout=_layout_id(ctx),
     )
     publish_canvas(ctx, canvas)
+    if ctx.queue_dirty:
+        # A detection queued with nothing on screen yet must survive to the
+        # next cycle, which is a new process with no memory of it.
+        ctx.poll_state["pending_flights"] = ctx.pending
+        ctx.poll_state["last_advance_at"] = ctx.last_advance_at
 
 
 def render_and_publish(ctx):

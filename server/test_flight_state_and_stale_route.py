@@ -91,9 +91,9 @@ def test_departure_on_take_off_roll_does_not_inherit_arriving(tmp_path, clock, r
     routes["EJU1LIN"] = _route_payload("EJU1LIN", "LIN", "Milan", "ORY", "Paris")
     routes["EJU2OPO"] = _route_payload("EJU2OPO", "ORY", "Paris", "OPO", "Porto")
     _cycle(clock, state_dir, _snapshot("aaaaaa", "EJU1LIN", -700))
-    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 0, alt=300, gs=90.0))
-    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 0, alt=300, gs=90.0))
-    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 1800, alt=900, gs=160.0))
+    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 0, alt=300, gs=90.0), advance_s=40)
+    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 0, alt=300, gs=90.0), advance_s=40)
+    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 1800, alt=900, gs=160.0), advance_s=40)
     second = [r for r in _rows(state_dir) if r["hex"] == "bbbbbb"]
     assert second, "the departing aircraft was never recorded"
     assert [r["confirmed_state"] for r in second] == ["departing"]
@@ -185,3 +185,67 @@ def test_first_ever_aircraft_on_the_ground_waits_for_a_state(tmp_path, clock, ro
     assert _shown(state_dir) == (None, None)
     _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 1800, alt=900, gs=160.0))
     assert _shown(state_dir) == ("bbbbbb", "departing")
+
+
+def _approach(hex_code, callsign, alt):
+    """An aircraft on final approach whose vertical rate is not reported."""
+    return {"ac": [{
+        "hex": hex_code, "flight": callsign, "lat": 48.7233, "lon": 2.3794,
+        "alt_baro": alt, "gs": 140.0, "seen_pos": 1.0}]}
+
+
+def _departure_roll(hex_code, callsign, alt):
+    """An aircraft climbing out whose vertical rate reads level."""
+    return {"ac": [{
+        "hex": hex_code, "flight": callsign, "lat": 48.7233, "lon": 2.3794,
+        "alt_baro": alt, "gs": 150.0, "baro_rate": 0, "seen_pos": 1.0}]}
+
+
+def test_arrival_without_a_vertical_rate_takes_its_direction_from_the_altitude(tmp_path, clock, routes):
+    """The frame is never blanked for a detected aircraft: with no vertical
+    rate, its falling altitude says it is arriving once it has been seen twice."""
+    state_dir = str(tmp_path)
+    _cycle(clock, state_dir, _approach("aaaaaa", "EJU1LIN", 1200))
+    assert _shown(state_dir) == (None, None)
+    _cycle(clock, state_dir, _approach("aaaaaa", "EJU1LIN", 1000), advance_s=30)
+    assert _shown(state_dir) == ("aaaaaa", "arriving")
+    (row,) = _rows(state_dir)
+    assert row["confirmed_state"] == "arriving"
+
+
+def test_departure_with_a_level_vertical_rate_takes_its_direction_from_the_altitude(tmp_path, clock, routes):
+    """Right after an arrival, a climbing aircraft whose vertical rate reads 0
+    is shown as departing, never as the previous arrival's direction."""
+    state_dir = str(tmp_path)
+    _cycle(clock, state_dir, _snapshot("aaaaaa", "EJU1LIN", -700))
+    _cycle(clock, state_dir, _departure_roll("bbbbbb", "EJU2OPO", 400))
+    assert _shown(state_dir) == ("aaaaaa", "arriving")
+    _cycle(clock, state_dir, _departure_roll("bbbbbb", "EJU2OPO", 650), advance_s=40)
+    assert _shown(state_dir) == ("bbbbbb", "departing")
+    assert [r["confirmed_state"] for r in _rows(state_dir) if r["hex"] == "bbbbbb"] == ["departing"]
+
+
+def test_aircraft_whose_altitude_does_not_move_keeps_the_current_flight(tmp_path, clock, routes):
+    """No rate and a flat altitude give no direction: the arrival stays on
+    screen and the aircraft is dropped once stale."""
+    state_dir = str(tmp_path)
+    _cycle(clock, state_dir, _snapshot("aaaaaa", "EJU1LIN", -700))
+    for _ in range(3):
+        _cycle(clock, state_dir, _approach("bbbbbb", "EJU2OPO", 600), advance_s=60)
+    assert _shown(state_dir) == ("aaaaaa", "arriving")
+    _cycle(clock, state_dir, {"ac": []}, advance_s=200)
+    assert _shown(state_dir) == ("aaaaaa", "arriving")
+    assert state_store.load_poll_state(state_dir).get("pending_flights") in ([], None)
+
+
+def test_altitude_reference_survives_a_restart_between_cycles(tmp_path, clock, routes):
+    """Every cycle is a fresh process: the first altitude must come back from
+    poll_state.json, and the refreshed record of the shown aircraft keeps it."""
+    state_dir = str(tmp_path)
+    _cycle(clock, state_dir, _approach("aaaaaa", "EJU1LIN", 1200))
+    reference = [e["flight"]["altitude_ref_ft"] for e in state_store.load_poll_state(state_dir)["pending_flights"]]
+    assert reference == [1200.0]
+    _cycle(clock, state_dir, _approach("aaaaaa", "EJU1LIN", 1000), advance_s=30)
+    assert state_store.load_poll_state(state_dir)["last_flight"]["altitude_ref_ft"] == 1200.0
+    _cycle(clock, state_dir, _approach("aaaaaa", "EJU1LIN", 800), advance_s=30)
+    assert state_store.load_poll_state(state_dir)["last_flight"]["altitude_ref_ft"] == 1200.0

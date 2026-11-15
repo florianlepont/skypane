@@ -5,7 +5,8 @@ now departing or arriving?
 Inferred from the ADS-B vertical-rate field via a **deadband**, not a
 zero crossing: >= +200 ft/min climbs ("departing"), <= -200 ft/min
 descends ("arriving"), anything between - or a missing/non-numeric
-reading - **holds the last confirmed state**.
+reading - **holds the last confirmed state**. An aircraft with no state to
+hold falls back to its altitude trend (see `altitude_trend_state()`).
 
 Asymmetric evidence: `DESCEND_THRESHOLD_FPM` is backed by a real capture
 (server/fixtures/track_arrival_440cb1.json), whose landing flare shows
@@ -32,6 +33,11 @@ from __future__ import annotations
 CLIMB_THRESHOLD_FPM = 200
 DESCEND_THRESHOLD_FPM = -200
 
+# Altitude change, between the first and the latest sighting of one aircraft,
+# that reads as a climb or a descent when its vertical rate gives no direction.
+# Reported altitudes step by 25 ft, so this is several steps clear of noise.
+ALTITUDE_TREND_FT = 100
+
 STATE_DEPARTING = "departing"
 STATE_ARRIVING = "arriving"
 STATE_OVERHEAD = "overhead"
@@ -57,37 +63,59 @@ def infer_runway_config(vertical_rate_fpm: object, last_confirmed_state: object)
     return last_confirmed_state
 
 
+def _number(value: object) -> float | None:
+    """`value` as a float when it is a real (non-bool) number, else None."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return float(value)
+
+
+def altitude_trend_state(flight: object) -> object:
+    """STATE_ARRIVING or STATE_DEPARTING from how far the aircraft's altitude
+    moved since it was first tracked (`altitude_ref_ft`), or None when it
+    moved less than ALTITUDE_TREND_FT or either altitude is unreadable.
+    """
+    if not isinstance(flight, dict):
+        return None
+    altitude = _number(flight.get("altitude_ft"))
+    reference = _number(flight.get("altitude_ref_ft"))
+    if altitude is None or reference is None:
+        return None
+    change = altitude - reference
+    if change >= ALTITUDE_TREND_FT:
+        return STATE_DEPARTING
+    if change <= -ALTITUDE_TREND_FT:
+        return STATE_ARRIVING
+    return None
+
+
 def infer_from_flight(flight: object, last_confirmed_state: object) -> object:
     """Delegate to infer_runway_config() using `flight["vertical_rate_fpm"]`,
     so poll_loop never has to reach into raw aggregator fields itself.
+
+    A vertical rate outside the deadband, or a held state, decides as before.
+    Only when neither exists does the altitude trend (altitude_trend_state())
+    give the direction, so an aircraft without a usable vertical rate is not
+    left without a state.
     """
     vertical_rate_fpm = None
     if isinstance(flight, dict):
         vertical_rate_fpm = flight.get("vertical_rate_fpm")
-    return infer_runway_config(vertical_rate_fpm, last_confirmed_state)
-
-
-def is_on_ground(flight: object) -> bool:
-    """True for a record flagged on the ground, or reporting an altitude of
-    exactly zero. Never raises."""
-    if not isinstance(flight, dict):
-        return False
-    if flight.get("on_ground") is True:
-        return True
-    altitude = flight.get("altitude_ft")
-    return not isinstance(altitude, bool) and isinstance(altitude, (int, float)) and altitude == 0
+    state = infer_runway_config(vertical_rate_fpm, last_confirmed_state)
+    if state is not None:
+        return state
+    return altitude_trend_state(flight)
 
 
 def awaits_state(flight: object, position_mode: bool) -> bool:
-    """True for an aircraft on the ground that has no direction to show yet.
+    """True for an aircraft that has no direction to show yet.
 
-    On the pavement the vertical rate sits inside the deadband for a landing
-    roll-out and for a take-off roll alike, so no state can be inferred and
-    the previous aircraft's state would be wrong for one of them. Such an
-    aircraft is not worth drawing until it climbs or descends.
+    A different aircraft starts without a held state, and its vertical rate
+    can sit inside the deadband (a landing roll-out, a take-off roll, the
+    flare) or be missing. Until its altitude trend gives a direction there is
+    nothing correct to draw: the previous aircraft's state would be wrong for
+    one of the two, and the empty screen hides a detected aircraft.
     """
-    if not is_on_ground(flight):
-        return False
     return display_state(flight, infer_from_flight(flight, None), position_mode) is None
 
 
