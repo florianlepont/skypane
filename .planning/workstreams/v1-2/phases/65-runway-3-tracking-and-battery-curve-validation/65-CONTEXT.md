@@ -1,4 +1,4 @@
-# Phase 65: Runway 3 Tracking Validation - Context
+# Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation) - Context
 
 **Gathered:** 2026-11-15
 **Status:** Ready for planning
@@ -6,7 +6,7 @@
 <domain>
 ## Phase Boundary
 
-Check that the detection follows the right aircraft on Paris-Orly runway 3 (TRK-01). Not in this phase: anything about the battery (SEED-019, v1.4), the wake interval, a new detection mode, enclosure or hardware changes.
+Check that the detection algorithm follows the right aircraft: on Paris-Orly runway 3 (TRK-01), then on the other Orly runways and on other French airports (TRK-02, added 2026-11-15 at the owner's request). Not in this phase: anything about the battery (SEED-019, v1.4), the wake interval, a new detection mode, enclosure or hardware changes.
 
 </domain>
 
@@ -22,6 +22,12 @@ Check that the detection follows the right aircraft on Paris-Orly runway 3 (TRK-
 
 ### Battery (moved out)
 - **D-06:** On 2026-11-15 the owner removed everything about battery discharges, curves, thresholds and battery tests from this phase. It is planted as SEED-019 (a dedicated phase for v1.4, requirement BAT-01). This phase does not edit or plan any battery work. The earlier answers about the second frame's discharge and who runs the measurements now belong to SEED-019.
+
+### Widened scope (2026-11-15)
+- **D-07:** The owner wants the whole detection algorithm tested for robustness on several airports, not only runway 3. Scope: Orly's three runways (3, 06/24, 02/20) plus two other French airports, one with parallel runways and one with a single runway. The owner names the two airports.
+- **D-08:** Other airports are tested on simulated fleet devices, one per airport, following the chosen runway or position. The live frame's configuration and the second frame are not touched.
+- **D-09:** Findings F-01 to F-06 of runway 3 stay in this phase as they are. TRK-02 is added for the multi-site check. The rule stays: no detection change without the owner's agreement; every fix starts from a failing test built from the recorded case.
+- **D-10:** Live sessions: the owner watches Flightradar24 and names aircraft, origin and touch-down time; Claude compares with the production or simulated device export. Departures must be observed (none were seen on 2026-11-15, arrivals only).
 
 ### Claude's Discretion
 - Test layout, the export format kept in the phase directory, how mismatches are classified.

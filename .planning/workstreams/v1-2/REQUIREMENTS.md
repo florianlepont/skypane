@@ -95,9 +95,10 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **CIS-04**: No test is skipped, disabled, deselected or quarantined; the executed count stays at or above 12,821; a missing browser fails CI; the network guard and the behaviour-over-source suite guards stay in force.
 - [x] **CIS-05**: Before and after timings are recorded, and the slowest tests are made cheaper without dropping cases.
 
-### Runway 3 Tracking and Battery Curves
+### Detection Robustness (Runway 3 and Multi-Airport)
 
 - [ ] **TRK-01**: On Paris-Orly runway 3, the aircraft shown as departing or arriving match an independent source over a recorded period, and every mismatch is fixed or recorded with its cause, with the owner's agreement before any detection change.
+- [ ] **TRK-02**: On the other Paris-Orly runways (06/24 and 02/20) and on at least two other French airports (one with parallel runways, one with a single runway), tested on simulated fleet devices and not on the live frame, the aircraft shown as departing or arriving match an independent source during live sessions, and every mismatch is fixed or recorded with its cause, with the owner's agreement before any detection change.
 - [ ] **BAT-01** (moved to SEED-019, milestone v1.4, on 2026-11-15; no longer in v1.2): The battery tests prove what they claim, and the voltage-to-percentage curve and low-battery threshold of each of the two batteries are checked against a measured discharge, or marked provisional with the gap listed.
 
 ### Security and Quality
@@ -168,6 +169,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | HW2-04 | Phase 64 | Pending |
 | HW2-05 | Phase 64 | Pending |
 | TRK-01 | Phase 65 | Pending |
+| TRK-02 | Phase 65 | Pending |
 | BAT-01 | SEED-019 (v1.4) | Moved out of Phase 65 on 2026-11-15 |
 | SEC-AUD-01 | Phase 66 | Pending |
 | QUAL-01 | Phase 67 | Pending |
