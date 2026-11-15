@@ -15,7 +15,7 @@ The agent must not proceed to lift anything without this.
 | Date | 2026-11-15 | given by the owner |
 | Measured values behind the confirmation | Full refresh time 25 / 27 / 27 s and flash size 16 MB measured on the unit; battery sense, LED, buttons and the separate panel busy waits still provisional (hardware/SECOND-HARDWARE-MEASUREMENTS.md) | recorded by the agent |
 | Checked first: no second-type row in the production fleet database that should not start being served | | open |
-| Lifted by the owner by hand (one line `SKYPANE_ENABLE_SECOND_HARDWARE=1` in the production env file, units restarted) | | open |
+| Lifted by the owner by hand (one line `SKYPANE_ENABLE_SECOND_HARDWARE=1` in the production env file, units restarted) | Owner reported "oui, c'est fait" (line added and services restarted), 2026-11-15; the deploy log that follows shows the switch was read (typed release imported) | owner-reported, consistent with the deploy log |
 
 ## B. First typed release (criterion 2 and 3)
 
@@ -26,8 +26,8 @@ The agent must not proceed to lift anything without this.
 | Live frame assets present (`skypane-fw-v1.2.0.bin`, `release.json`) | yes | observed by the agent |
 | Second board assets present (`skypane-seeed-ee04-7in3-spectra6-fw-v1.2.0.bin`, `release-seeed-ee04-7in3-spectra6.json`) | yes | observed by the agent |
 | Deploy run after the release (workflow_dispatch of ci.yml) | run 43711943313, conclusion success | observed by the agent |
-| Import log line for the second type (a "skipped" notice while the switch is closed, none after the lift and a new deploy) | | open |
-| `registry.seeed-ee04-7in3-spectra6.json` exists on the VPS after the first deploy following the lift | | open |
+| Import log line for the second type (a "skipped" notice while the switch is closed, none after the lift and a new deploy) | Deploy job "Deploy to production" of CI run 43715715341 (workflow_dispatch, 2026-11-15 12:59 UTC, success): `added fw-v1.2.0 seeed-ee04-7in3-spectra6`; no "skipped" line for the second type | observed by the agent in the job log |
+| `registry.seeed-ee04-7in3-spectra6.json` exists on the VPS after the first deploy following the lift | Not seen directly; the import line above implies it. Owner to confirm with `server.firmware_cli list` | open |
 
 ## B2. Frame prepared for production
 
