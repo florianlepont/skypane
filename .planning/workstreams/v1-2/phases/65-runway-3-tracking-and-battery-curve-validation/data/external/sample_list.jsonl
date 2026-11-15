@@ -1,0 +1,150 @@
+{"ts": "2026-11-01T05:49:21+00:00", "hex": "4952c6", "callsign": "TAP441", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-01T05:53:26+00:00", "hex": "39e5c4", "callsign": "CRL959", "confirmed_state": "arriving", "origin": "MRU", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-01T05:58:36+00:00", "hex": "348204", "callsign": "VLG8066", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Vueling Airlines"}
+{"ts": "2026-11-01T07:10:06+00:00", "hex": "39ae95", "callsign": "CRL927", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-01T07:27:37+00:00", "hex": "0200f8", "callsign": "RAM777Z", "confirmed_state": "departing", "origin": "ORY", "destination": "CMN", "airline": "Royal Air Maroc"}
+{"ts": "2026-11-01T10:14:53+00:00", "hex": "440062", "callsign": "EJU198X", "confirmed_state": "departing", "origin": "ORY", "destination": "TLS", "airline": "easyJet Europe"}
+{"ts": "2026-11-01T14:04:53+00:00", "hex": "39cea3", "callsign": "TVF90SZ", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-01T15:53:32+00:00", "hex": "39ceb4", "callsign": "TVF30HE", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-01T17:00:59+00:00", "hex": "39cc8a", "callsign": "CRL907", "confirmed_state": "arriving", "origin": "RUN", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-01T20:20:40+00:00", "hex": "3964eb", "callsign": "TVF89DT", "confirmed_state": "departing", "origin": "ORY", "destination": "NCE", "airline": "Transavia France"}
+{"ts": "2026-11-02T05:10:48+00:00", "hex": "39c912", "callsign": "FWI41D", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-02T05:27:48+00:00", "hex": "39ceb4", "callsign": "TVF17PM", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-02T07:20:01+00:00", "hex": "399264", "callsign": "CRL985", "confirmed_state": "arriving", "origin": "ABJ", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-02T11:13:11+00:00", "hex": "0200ec", "callsign": "RAM749G", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Royal Air Maroc"}
+{"ts": "2026-11-02T12:05:38+00:00", "hex": "39d307", "callsign": "TVF11KV", "confirmed_state": "departing", "origin": "OUD", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-02T17:14:01+00:00", "hex": "39dd02", "callsign": null, "confirmed_state": "departing", "origin": null, "destination": null, "airline": null}
+{"ts": "2026-11-02T17:46:54+00:00", "hex": "3475d9", "callsign": "VLG1GD", "confirmed_state": "arriving", "origin": "BCN", "destination": "ORY", "airline": "Vueling Airlines"}
+{"ts": "2026-11-02T17:51:02+00:00", "hex": "4caddd", "callsign": "ITY3LO", "confirmed_state": "arriving", "origin": "LIN", "destination": "ORY", "airline": "ITA Airways"}
+{"ts": "2026-11-02T19:04:36+00:00", "hex": "4caddd", "callsign": "ITY353", "confirmed_state": "departing", "origin": "ORY", "destination": "LIN", "airline": "ITA Airways"}
+{"ts": "2026-11-02T21:11:37+00:00", "hex": "440090", "callsign": "EJU93RE", "confirmed_state": "departing", "origin": "ORY", "destination": "MXP", "airline": "easyJet Europe"}
+{"ts": "2026-11-02T21:39:24+00:00", "hex": "440031", "callsign": "EJU31HY", "confirmed_state": "arriving", "origin": "LYS", "destination": "AGP", "airline": "easyJet Europe"}
+{"ts": "2026-11-03T05:11:19+00:00", "hex": "39c912", "callsign": "FWI41D", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-03T05:51:28+00:00", "hex": "4952c7", "callsign": "TAP441", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-03T08:09:26+00:00", "hex": "39ab12", "callsign": "CRL925", "confirmed_state": "arriving", "origin": "FDF", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-03T10:15:31+00:00", "hex": "440031", "callsign": "EJU75DJ", "confirmed_state": "departing", "origin": "ORY", "destination": "LIN", "airline": "easyJet Europe"}
+{"ts": "2026-11-03T12:13:54+00:00", "hex": "0a00e5", "callsign": "DAH1011", "confirmed_state": "departing", "origin": "ORY", "destination": "ALG", "airline": "Air Algerie"}
+{"ts": "2026-11-03T18:21:57+00:00", "hex": "39de43", "callsign": "TVF10YA", "confirmed_state": "departing", "origin": "ORY", "destination": "DUB", "airline": "Transavia France"}
+{"ts": "2026-11-03T19:24:12+00:00", "hex": "393f0c", "callsign": "CLG8106", "confirmed_state": "departing", "origin": "ORY", "destination": "DCM", "airline": "Chalair Aviation"}
+{"ts": "2026-11-03T22:06:53+00:00", "hex": "39de43", "callsign": "TVF78TJ", "confirmed_state": "arriving", "origin": "DUB", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-04T05:44:58+00:00", "hex": "49514e", "callsign": "TAP441", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-04T05:59:22+00:00", "hex": "39d315", "callsign": "TVF32FK", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Transavia France"}
+{"ts": "2026-11-04T07:53:39+00:00", "hex": "39ae97", "callsign": "CRL925", "confirmed_state": "arriving", "origin": "FDF", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-04T08:11:40+00:00", "hex": "39de57", "callsign": "TVF94RV", "confirmed_state": "departing", "origin": "ORY", "destination": "OPO", "airline": "Transavia France"}
+{"ts": "2026-11-04T12:48:04+00:00", "hex": "39de44", "callsign": "TVF8336", "confirmed_state": "departing", "origin": "ORY", "destination": "TUN", "airline": "Transavia France"}
+{"ts": "2026-11-04T14:05:17+00:00", "hex": "39de57", "callsign": "TVF47ZP", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-04T15:11:10+00:00", "hex": "3985a7", "callsign": "AFR4114", "confirmed_state": "departing", "origin": "ORY", "destination": "BIA", "airline": "Air France"}
+{"ts": "2026-11-04T17:09:32+00:00", "hex": "440090", "callsign": "EJU61WC", "confirmed_state": "arriving", "origin": "MXP", "destination": "ORY", "airline": "easyJet Europe"}
+{"ts": "2026-11-04T18:55:04+00:00", "hex": "3964eb", "callsign": "TVF28TR", "confirmed_state": "departing", "origin": "MAD", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-05T05:21:00+00:00", "hex": "440090", "callsign": "EJU4901", "confirmed_state": "departing", "origin": "TLS", "destination": "LIL", "airline": "easyJet Europe"}
+{"ts": "2026-11-05T05:27:09+00:00", "hex": "02008b", "callsign": "RAM641B", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Royal Air Maroc"}
+{"ts": "2026-11-05T05:56:28+00:00", "hex": "39ab12", "callsign": "CRL985", "confirmed_state": "arriving", "origin": "ABJ", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-05T06:53:06+00:00", "hex": "399264", "callsign": "CRL927", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-05T07:31:08+00:00", "hex": "39d318", "callsign": "TVF29WY", "confirmed_state": "arriving", "origin": "MAD", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-05T09:43:25+00:00", "hex": "39c498", "callsign": null, "confirmed_state": "departing", "origin": null, "destination": null, "airline": null}
+{"ts": "2026-11-05T10:37:28+00:00", "hex": "39d30b", "callsign": "TVF34BL", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-05T13:24:11+00:00", "hex": "4401dc", "callsign": "EJU35YG", "confirmed_state": "arriving", "origin": "ORY", "destination": "MXP", "airline": "easyJet Europe"}
+{"ts": "2026-11-05T14:41:23+00:00", "hex": "39dd05", "callsign": "TVF8392", "confirmed_state": "departing", "origin": "ORY", "destination": "DJE", "airline": "Transavia France"}
+{"ts": "2026-11-05T19:01:47+00:00", "hex": "393f0a", "callsign": "CLG1556", "confirmed_state": "departing", "origin": "ORY", "destination": "AUR", "airline": "Chalair Aviation"}
+{"ts": "2026-11-05T19:39:53+00:00", "hex": "39ceaa", "callsign": "TVF73ZQ", "confirmed_state": "departing", "origin": "ORY", "destination": "MPL", "airline": "Transavia France"}
+{"ts": "2026-11-06T05:05:21+00:00", "hex": "39ceab", "callsign": "TVF46TR", "confirmed_state": "departing", "origin": "NTE", "destination": "LIL", "airline": "Transavia France"}
+{"ts": "2026-11-06T10:52:43+00:00", "hex": "49514e", "callsign": "TAP432", "confirmed_state": "arriving", "origin": "LIS", "destination": "ORY", "airline": "TAP Portugal"}
+{"ts": "2026-11-06T11:53:59+00:00", "hex": "3a4578", "callsign": "FWI64Y", "confirmed_state": "departing", "origin": "ORY", "destination": "PUJ", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-06T13:07:32+00:00", "hex": "39de42", "callsign": "TVF119W", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-06T15:39:57+00:00", "hex": "399264", "callsign": "CRL984", "confirmed_state": "departing", "origin": "ORY", "destination": "ABJ", "airline": "Corsair"}
+{"ts": "2026-11-06T18:23:38+00:00", "hex": "3985a9", "callsign": "AFR364Y", "confirmed_state": "arriving", "origin": "CDG", "destination": "ORY", "airline": "Air France"}
+{"ts": "2026-11-06T18:50:55+00:00", "hex": "0201b5", "callsign": "RAM664Y", "confirmed_state": "arriving", "origin": "AGA", "destination": "ORY", "airline": "Royal Air Maroc"}
+{"ts": "2026-11-06T19:01:13+00:00", "hex": "39b101", "callsign": "FBU70A", "confirmed_state": "departing", "origin": "ORY", "destination": "ORY", "airline": "French Bee"}
+{"ts": "2026-11-06T21:29:57+00:00", "hex": "3451d3", "callsign": "VLG62QM", "confirmed_state": "arriving", "origin": "BCN", "destination": "ORY", "airline": "Vueling Airlines"}
+{"ts": "2026-11-07T05:18:50+00:00", "hex": "345107", "callsign": "VLG54QD", "confirmed_state": "departing", "origin": "ORY", "destination": "AGP", "airline": "Vueling Airlines"}
+{"ts": "2026-11-07T05:26:01+00:00", "hex": "39dd04", "callsign": "TVF747", "confirmed_state": "arriving", "origin": "ORY", "destination": "RIX", "airline": "Transavia France"}
+{"ts": "2026-11-07T05:49:11+00:00", "hex": "39ae95", "callsign": "CRL773", "confirmed_state": "arriving", "origin": "RUN", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-07T05:52:48+00:00", "hex": "495152", "callsign": "TAP441", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-07T09:55:09+00:00", "hex": "39de45", "callsign": "TVF8230", "confirmed_state": "departing", "origin": "ORY", "destination": "TUN", "airline": "Transavia France"}
+{"ts": "2026-11-07T10:11:06+00:00", "hex": "39de50", "callsign": "TVF10NK", "confirmed_state": "arriving", "origin": "BER", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-07T10:31:11+00:00", "hex": "398699", "callsign": "DJT100", "confirmed_state": "departing", "origin": "ORY", "destination": "EWR", "airline": "La Compagnie"}
+{"ts": "2026-11-07T11:46:49+00:00", "hex": "3985a7", "callsign": "AFR78HY", "confirmed_state": "arriving", "origin": "AJA", "destination": "ORY", "airline": "Air France"}
+{"ts": "2026-11-07T13:33:21+00:00", "hex": "39d306", "callsign": "TVF85SM", "confirmed_state": "arriving", "origin": "TLS", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-07T20:38:29+00:00", "hex": "39ae95", "callsign": "CRL958", "confirmed_state": "departing", "origin": "ORY", "destination": "MRU", "airline": "Corsair"}
+{"ts": "2026-11-07T21:43:51+00:00", "hex": "3964f8", "callsign": "TVF55XB", "confirmed_state": "arriving", "origin": "KEF", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-08T05:31:43+00:00", "hex": "39cdce", "callsign": "FWI41D", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-08T05:45:37+00:00", "hex": "39de47", "callsign": "TVF32FK", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Transavia France"}
+{"ts": "2026-11-08T05:59:31+00:00", "hex": "39d307", "callsign": null, "confirmed_state": "departing", "origin": null, "destination": null, "airline": null}
+{"ts": "2026-11-08T10:56:29+00:00", "hex": "39d30d", "callsign": "TVF72HT", "confirmed_state": "departing", "origin": "ORY", "destination": "MAD", "airline": "Transavia France"}
+{"ts": "2026-11-08T11:40:16+00:00", "hex": "39de40", "callsign": "TVF87XA", "confirmed_state": "arriving", "origin": "SVQ", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-08T12:14:45+00:00", "hex": "02a191", "callsign": "TAR719", "confirmed_state": "departing", "origin": "ORY", "destination": "TUN", "airline": "Tunisair"}
+{"ts": "2026-11-08T14:37:22+00:00", "hex": "39dd49", "callsign": "CCM24VN", "confirmed_state": "arriving", "origin": "BIA", "destination": "ORY", "airline": "Air Corsica"}
+{"ts": "2026-11-08T14:46:39+00:00", "hex": "39d318", "callsign": "TVF52JH", "confirmed_state": "arriving", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-08T14:54:22+00:00", "hex": "44017c", "callsign": "EJU49EA", "confirmed_state": "departing", "origin": "ORY", "destination": "TLS", "airline": "easyJet Europe"}
+{"ts": "2026-11-08T15:36:02+00:00", "hex": "39d30d", "callsign": "TVF25BV", "confirmed_state": "arriving", "origin": "MAD", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-08T19:58:33+00:00", "hex": "39de58", "callsign": "TVF22KR", "confirmed_state": "arriving", "origin": "ORY", "destination": "RVN", "airline": "Transavia France"}
+{"ts": "2026-11-08T20:57:46+00:00", "hex": "39cea2", "callsign": "TVF22BF", "confirmed_state": "departing", "origin": "ORY", "destination": "TLS", "airline": "Transavia France"}
+{"ts": "2026-11-08T21:38:26+00:00", "hex": "3985a7", "callsign": "AFR7559", "confirmed_state": "arriving", "origin": "FSC", "destination": "ORY", "airline": "Air France"}
+{"ts": "2026-11-09T05:38:13+00:00", "hex": "39dd03", "callsign": "TVF32FK", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Transavia France"}
+{"ts": "2026-11-09T05:50:34+00:00", "hex": "4952cf", "callsign": "TAP441", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-09T07:02:36+00:00", "hex": "39c912", "callsign": "FWI11B", "confirmed_state": "arriving", "origin": "FDF", "destination": "ORY", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-09T07:57:08+00:00", "hex": "39d314", "callsign": "TVF94RV", "confirmed_state": "departing", "origin": "ORY", "destination": "OPO", "airline": "Transavia France"}
+{"ts": "2026-11-09T17:02:38+00:00", "hex": "3964f3", "callsign": null, "confirmed_state": "departing", "origin": null, "destination": null, "airline": null}
+{"ts": "2026-11-09T17:11:24+00:00", "hex": "39ceaf", "callsign": "TVF83UR", "confirmed_state": "departing", "origin": "ORY", "destination": "NCE", "airline": "Transavia France"}
+{"ts": "2026-11-09T18:29:39+00:00", "hex": "39cea2", "callsign": "TVF63NF", "confirmed_state": "departing", "origin": "ORY", "destination": "TLS", "airline": "Transavia France"}
+{"ts": "2026-11-09T22:19:39+00:00", "hex": "60003c", "callsign": "FIE4001", "confirmed_state": "arriving", "origin": null, "destination": null, "airline": null}
+{"ts": "2026-11-10T05:00:30+00:00", "hex": "39cdce", "callsign": "FWI41D", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-10T05:29:19+00:00", "hex": "39dd01", "callsign": "TVF27ZA", "confirmed_state": "departing", "origin": "ORY", "destination": "ALG", "airline": "Transavia France"}
+{"ts": "2026-11-10T05:54:03+00:00", "hex": "495153", "callsign": "TAP441", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-10T06:40:53+00:00", "hex": "39ae95", "callsign": "CRL927", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-10T08:05:49+00:00", "hex": "39ceb9", "callsign": "TVF56GC", "confirmed_state": "departing", "origin": "NTE", "destination": "MRS", "airline": "Transavia France"}
+{"ts": "2026-11-10T09:19:55+00:00", "hex": "39ceaf", "callsign": "TVF26KS", "confirmed_state": "arriving", "origin": "TLS", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-10T11:10:06+00:00", "hex": "02a260", "callsign": "TAR719", "confirmed_state": "departing", "origin": "ORY", "destination": "TUN", "airline": "Tunisair"}
+{"ts": "2026-11-10T12:17:01+00:00", "hex": "0a00e3", "callsign": "DAH1011", "confirmed_state": "departing", "origin": "ORY", "destination": "ALG", "airline": "Air Algerie"}
+{"ts": "2026-11-10T14:09:15+00:00", "hex": "0a0077", "callsign": "DAH1004", "confirmed_state": "arriving", "origin": "ALG", "destination": "ORY", "airline": "Air Algerie"}
+{"ts": "2026-11-10T14:50:26+00:00", "hex": "39de45", "callsign": "TVF967R", "confirmed_state": "arriving", "origin": "IST", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-10T16:44:43+00:00", "hex": "344099", "callsign": "VLG8039", "confirmed_state": "departing", "origin": "ORY", "destination": "AGP", "airline": "Vueling Airlines"}
+{"ts": "2026-11-10T20:44:29+00:00", "hex": "39de47", "callsign": "TVF6411", "confirmed_state": "arriving", "origin": "DJE", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-10T20:50:40+00:00", "hex": "3463c6", "callsign": "VOE2797", "confirmed_state": "departing", "origin": "ORY", "destination": "RDZ", "airline": "Volotea"}
+{"ts": "2026-11-10T21:06:05+00:00", "hex": "346147", "callsign": "IBE05DH", "confirmed_state": "arriving", "origin": "MAD", "destination": "ORY", "airline": "Iberia Airlines"}
+{"ts": "2026-11-11T05:02:38+00:00", "hex": "39cdce", "callsign": "FWI41D", "confirmed_state": "arriving", "origin": "PTP", "destination": "ORY", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-11T05:13:27+00:00", "hex": "39de53", "callsign": "TVF28VH", "confirmed_state": "arriving", "origin": "ORY", "destination": "IST", "airline": "Transavia France"}
+{"ts": "2026-11-11T05:25:16+00:00", "hex": "020104", "callsign": "RAM641B", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Royal Air Maroc"}
+{"ts": "2026-11-11T06:49:08+00:00", "hex": "4400ec", "callsign": "EJU58AP", "confirmed_state": "departing", "origin": "ORY", "destination": "VCE", "airline": "easyJet Europe"}
+{"ts": "2026-11-11T08:37:46+00:00", "hex": "345215", "callsign": "AEA90EH", "confirmed_state": "arriving", "origin": "MAD", "destination": "ORY", "airline": "Air Europa"}
+{"ts": "2026-11-11T10:27:22+00:00", "hex": "39cdce", "callsign": "FWI40J", "confirmed_state": "departing", "origin": "ORY", "destination": "PTP", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-11T11:01:52+00:00", "hex": "344692", "callsign": "VLG50K", "confirmed_state": "arriving", "origin": "SVQ", "destination": "LGW", "airline": "Vueling Airlines"}
+{"ts": "2026-11-11T13:44:32+00:00", "hex": "39dd05", "callsign": "TVF78JL", "confirmed_state": "arriving", "origin": "AGA", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-11T14:31:20+00:00", "hex": "39de50", "callsign": "TVF6410", "confirmed_state": "departing", "origin": "ORY", "destination": "DJE", "airline": "Transavia France"}
+{"ts": "2026-11-11T14:51:24+00:00", "hex": "4952cd", "callsign": "TAP454", "confirmed_state": "arriving", "origin": "OPO", "destination": "ORY", "airline": "TAP Portugal"}
+{"ts": "2026-11-11T17:21:43+00:00", "hex": "39de4c", "callsign": "TVF40GH", "confirmed_state": "arriving", "origin": "TLV", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-11T18:49:16+00:00", "hex": "39dd42", "callsign": "CCM10TY", "confirmed_state": "arriving", "origin": "BIA", "destination": "ORY", "airline": "Air Corsica"}
+{"ts": "2026-11-11T21:11:47+00:00", "hex": "3985a3", "callsign": "AFR4116", "confirmed_state": "departing", "origin": "ORY", "destination": "AJA", "airline": "Air France"}
+{"ts": "2026-11-12T05:41:11+00:00", "hex": "3964f0", "callsign": "TVF57DQ", "confirmed_state": "departing", "origin": "ORY", "destination": "PRG", "airline": "Transavia France"}
+{"ts": "2026-11-12T05:51:29+00:00", "hex": "39ab12", "callsign": "CRL985", "confirmed_state": "arriving", "origin": "ABJ", "destination": "ORY", "airline": "Corsair"}
+{"ts": "2026-11-12T05:54:35+00:00", "hex": "49514f", "callsign": "TAP441", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-12T06:49:38+00:00", "hex": "39d313", "callsign": "TVF21UW", "confirmed_state": "arriving", "origin": "BIQ", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-12T09:06:29+00:00", "hex": "0a008b", "callsign": "DAH1060", "confirmed_state": "arriving", "origin": "ORN", "destination": "ORY", "airline": "Air Algerie"}
+{"ts": "2026-11-12T11:22:53+00:00", "hex": "399264", "callsign": "CRL784", "confirmed_state": "departing", "origin": "ORY", "destination": "ABJ", "airline": "Corsair"}
+{"ts": "2026-11-12T13:00:43+00:00", "hex": "495292", "callsign": "TAP433", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-12T15:58:19+00:00", "hex": "39de45", "callsign": "TVF8284", "confirmed_state": "departing", "origin": "ORY", "destination": "TUN", "airline": "Transavia France"}
+{"ts": "2026-11-12T17:02:09+00:00", "hex": "39dd00", "callsign": "TVF36QJ", "confirmed_state": "departing", "origin": "ORY", "destination": "VCE", "airline": "Transavia France"}
+{"ts": "2026-11-12T18:44:01+00:00", "hex": "3964e1", "callsign": "TVF89KG", "confirmed_state": "departing", "origin": "ORY", "destination": "BCN", "airline": "Transavia France"}
+{"ts": "2026-11-12T22:05:46+00:00", "hex": "495148", "callsign": "TAP43RV", "confirmed_state": "departing", "origin": "ORY", "destination": "LIS", "airline": "TAP Portugal"}
+{"ts": "2026-11-12T22:21:13+00:00", "hex": "3964f1", "callsign": "TVF20CJ", "confirmed_state": "arriving", "origin": "BIQ", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-13T05:25:50+00:00", "hex": "020072", "callsign": "RAM641B", "confirmed_state": "departing", "origin": "ORY", "destination": "RAK", "airline": "Royal Air Maroc"}
+{"ts": "2026-11-13T05:56:42+00:00", "hex": "39de55", "callsign": "TVF80KQ", "confirmed_state": "departing", "origin": "ORY", "destination": "VIE", "airline": "Transavia France"}
+{"ts": "2026-11-13T06:12:08+00:00", "hex": "39de4a", "callsign": "TVF19RK", "confirmed_state": "departing", "origin": "ORY", "destination": "ESU", "airline": "Transavia France"}
+{"ts": "2026-11-13T09:52:22+00:00", "hex": "02a196", "callsign": "TAR635", "confirmed_state": "departing", "origin": "ORY", "destination": "DJE", "airline": "Tunisair"}
+{"ts": "2026-11-13T13:22:21+00:00", "hex": "44046d", "callsign": "EJU178G", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "easyJet"}
+{"ts": "2026-11-13T17:11:21+00:00", "hex": "39c495", "callsign": "FBU91S", "confirmed_state": "departing", "origin": "ORY", "destination": "YUL", "airline": "French Bee"}
+{"ts": "2026-11-13T19:27:14+00:00", "hex": "34568c", "callsign": "VOE2393", "confirmed_state": "departing", "origin": "ORY", "destination": "LIG", "airline": "Volotea"}
+{"ts": "2026-11-13T21:44:08+00:00", "hex": "39de45", "callsign": "TVF84WU", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-14T05:43:15+00:00", "hex": "39cea5", "callsign": "TVF23TW", "confirmed_state": "departing", "origin": "ORY", "destination": "SID", "airline": "Transavia France"}
+{"ts": "2026-11-14T09:10:10+00:00", "hex": "471d63", "callsign": "WMT1313", "confirmed_state": "departing", "origin": "ORY", "destination": "FCO", "airline": "Wizz Air Malta"}
+{"ts": "2026-11-14T13:59:24+00:00", "hex": "39de41", "callsign": "TVF74TL", "confirmed_state": "departing", "origin": "ORY", "destination": "ALG", "airline": "Transavia France"}
+{"ts": "2026-11-14T18:52:47+00:00", "hex": "39c48d", "callsign": "FBU30M", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "French Bee"}
+{"ts": "2026-11-14T19:13:53+00:00", "hex": "39d318", "callsign": "TVF72YJ", "confirmed_state": "departing", "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-14T21:00:23+00:00", "hex": "39de4a", "callsign": "TVF69MB", "confirmed_state": "arriving", "origin": "RAK", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-15T07:56:01+00:00", "hex": "39de47", "callsign": "TVF48QU", "confirmed_state": "departing", "origin": "ORY", "destination": "ATH", "airline": "Transavia France"}
+{"ts": "2026-11-15T08:01:11+00:00", "hex": "4402f1", "callsign": "EJU92WC", "confirmed_state": "departing", "origin": "ORY", "destination": "OPO", "airline": "easyJet Europe"}
+{"ts": "2026-11-15T08:38:13+00:00", "hex": "39ceb8", "callsign": "TVF89CH", "confirmed_state": "arriving", "origin": "RAK", "destination": "ORY", "airline": "Transavia France"}
+{"ts": "2026-11-15T08:43:23+00:00", "hex": "02a181", "callsign": "TAR718", "confirmed_state": "arriving", "origin": "TUN", "destination": "ORY", "airline": "Tunisair"}
+{"ts": "2026-11-15T12:13:50+00:00", "hex": "39de41", "callsign": "TVF22UT", "confirmed_state": null, "origin": null, "destination": null, "airline": "Transavia France"}
+{"ts": "2026-11-15T12:57:20+00:00", "hex": "39ce24", "callsign": "FWI57Q", "confirmed_state": "departing", "origin": "ORY", "destination": "CAY", "airline": "Air Cara\u00efbes"}
+{"ts": "2026-11-15T13:02:30+00:00", "hex": "3964f7", "callsign": "TVF8939", "confirmed_state": "arriving", "origin": "MIR", "destination": "ORY", "airline": "Transavia France"}
