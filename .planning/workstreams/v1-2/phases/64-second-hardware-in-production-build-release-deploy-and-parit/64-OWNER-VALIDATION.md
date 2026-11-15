@@ -1,0 +1,67 @@
+# Phase 64: owner validation record (production steps)
+
+Filled from the owner's own reports only. A row is `validated` only with owner
+evidence (date and the evidence itself); everything else stays `open`. The agent
+never lifts the production switch, never edits the production env file, never
+merges and never approves a deploy.
+
+## A. Written lift confirmation (criterion 4)
+
+The agent must not proceed to lift anything without this.
+
+| Field | Value | Status |
+|-------|-------|--------|
+| Owner's exact words | "Je lève le verrou du second type en production" (French, as typed in the session; recorded verbatim) | given by the owner |
+| Date | 2026-11-15 | given by the owner |
+| Measured values behind the confirmation | Full refresh time 25 / 27 / 27 s and flash size 16 MB measured on the unit; battery sense, LED, buttons and the separate panel busy waits still provisional (hardware/SECOND-HARDWARE-MEASUREMENTS.md) | recorded by the agent |
+| Checked first: no second-type row in the production fleet database that should not start being served | | open |
+| Lifted by the owner by hand (one line `SKYPANE_ENABLE_SECOND_HARDWARE=1` in the production env file, units restarted) | Owner reported "oui, c'est fait" (line added and services restarted), 2026-11-15; the deploy log that follows shows the switch was read (typed release imported) | owner-reported, consistent with the deploy log |
+
+## B. First typed release (criterion 2 and 3)
+
+| Field | Value | Status |
+|-------|-------|--------|
+| Tag | fw-v1.2.0 | observed by the agent on GitHub, 2026-11-15 |
+| Release URL | https://github.com/florianlepont/skypane/releases/tag/fw-v1.2.0 | observed by the agent |
+| Live frame assets present (`skypane-fw-v1.2.0.bin`, `release.json`) | yes | observed by the agent |
+| Second board assets present (`skypane-seeed-ee04-7in3-spectra6-fw-v1.2.0.bin`, `release-seeed-ee04-7in3-spectra6.json`) | yes | observed by the agent |
+| Deploy run after the release (workflow_dispatch of ci.yml) | run 43711943313, conclusion success | observed by the agent |
+| Import log line for the second type (a "skipped" notice while the switch is closed, none after the lift and a new deploy) | Deploy job "Deploy to production" of CI run 43715715341 (workflow_dispatch, 2026-11-15 12:59 UTC, success): `added fw-v1.2.0 seeed-ee04-7in3-spectra6`; no "skipped" line for the second type | observed by the agent in the job log |
+| `registry.seeed-ee04-7in3-spectra6.json` exists on the VPS after the first deploy following the lift | Not seen directly; the import line above implies it. Owner to confirm with `server.firmware_cli list` | open |
+
+## B2. Frame prepared for production
+
+Bench images use throwaway keys and would reject a production-signed OTA.
+
+| Field | Value | Status |
+|-------|-------|--------|
+| Frame MAC | 84:c7:bb:70:b2:7c | owner-reported (flash-second.sh and provision.sh output) |
+| Image flashed carries the production firmware key (how it was obtained and flashed) | Production-signed `skypane-seeed-ee04-7in3-spectra6-fw-v1.2.0.bin` of release fw-v1.2.0 copied over the local build's skypane.bin, flashed with `firmware/flash-second.sh /dev/cu.usbmodem101` (prod profile, verifies against `firmware/signing/skypane-signing-pubkey.pem`); owner reported `SUCCESS 84:c7:bb:70:b2:7c`, 2026-11-15 | owner-reported |
+| Production server trusts that key | Not applicable on the server side (the frame verifies the image against the public key built into its firmware); the production-signed image passed the pre-flash signature check and the frame woke, enrolled and paired | owner-reported |
+| Guarded `provision.sh` run (no refusal, live frame's port and MAC untouched) | Owner ran `firmware/provision.sh /dev/cu.usbmodem101 --wifi-ssid ... --api-base https://vps-1440bce3.vps.ovh.net` with the live frame unplugged; output: "Provisioned 84:c7:bb:70:b2:7c ... Secret partition verified byte-for-byte"; the live-frame variables were not set (typed MAC only) | owner-reported |
+| Paired on the production server; shown as a second-type row in the production fleet database | Registered as pending on the VPS with `fleet_cli devices register-pending --hardware seeed-ee04-7in3-spectra6` ("registered 84:c7:bb:70:b2:7c as pending, pending id p_1e8a1894"; the console has no register form, so the CLI was used); the owner then paired it in the companion with the code shown on the panel ("j'ai apparié avec le code") | owner-reported |
+
+## C. Real signed OTA over https (criterion 5)
+
+| Field | Value | Status |
+|-------|-------|--------|
+| Frame firmware before | | open |
+| Version offered and scheduled on the Update page | | open |
+| https channel confirmed | | open |
+| Frame firmware after | | open |
+| Registry `last_outcome` and `installed_at` in `registry.seeed-ee04-7in3-spectra6.json` | | open |
+| Result recorded by the production poll (not only by the live frame's cycle) | | open |
+
+## D. Failing update keeps the previous firmware (criterion 5)
+
+| Field | Value | Status |
+|-------|-------|--------|
+| How the failure was provoked (bench method) | | open |
+| Frame stayed on the previous firmware | | open |
+| Registry shows the attempt and no `installed_at` | | open |
+
+## E. Open items
+
+- The deploy README (Device enrolment, and Pairing, retiring and re-activating a frame) tells the administrator to use the console's "Register a frame" form, which the current console does not offer (only the POST route `/fleet/register` exists). The frame was registered with `fleet_cli devices register-pending`. The README needs a correction.
+- `fleet_cli` reads the second-hardware switch from its own environment: it needs `SKYPANE_ENABLE_SECOND_HARDWARE=1` on the command line to accept the type. To be written in the README.
+- Real signed OTA (section C) and failing update (section D) are not done yet.
