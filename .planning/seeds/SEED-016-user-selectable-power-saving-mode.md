@@ -3,8 +3,8 @@ id: SEED-016
 status: dormant
 planted: 2026-11-15
 planted_during: "v1.2, owner's roadmap discussion (idea forgotten from the v1.3 and v1.4 planning of 2026-11-14)"
-trigger_when: "Milestone to be chosen by the owner. Natural fit: v1.3, next to the per-mode wake interval of photo mode (SEED-013); surface it at /gsd-new-milestone for v1.3, and only after Phase 47.1 (wake-energy measurement) has finished."
-target_milestone: to be decided (candidate v1.3)
+trigger_when: "Milestone v1.3, confirmed by the owner on 2026-11-15; surface it at /gsd-new-milestone, and only after Phase 47.1 (wake-energy measurement) has finished."
+target_milestone: v1.3
 scope: small
 ---
 
@@ -20,7 +20,7 @@ set by the owner, not by the user.
 
 ## When to Surface
 
-**Trigger:** the milestone that touches wake timing. Candidate: v1.3, because
+**Trigger:** milestone v1.3 (confirmed by the owner on 2026-11-15), because
 photo mode (SEED-013) already needs a wake interval per mode. Do not start
 before Phase 47.1 has produced its wake-energy measurements: the saving of
 each setting has to be shown with real numbers, not guessed.
