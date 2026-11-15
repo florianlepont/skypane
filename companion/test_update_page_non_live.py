@@ -123,7 +123,7 @@ def test_live_frame_page_has_no_chooser_and_only_its_own_type(tmp_path, second_t
     root, _frame_dir = _two_type_root(tmp_path)
     text = _served(root, root, hardware.LEGACY_KEY)
     doc = parse_html(text)
-    assert doc.select_one(".update-type-chooser") is None
+    assert doc.select(".update-type-chooser") == []
     assert hardware.get_profile(_SECOND_TYPE).label not in text
     assert _versions(text) == ["fw-v1.0.0", "fw-v1.1.0"]
     assert doc.select_one(".update-sum__version").text() == "fw-v1.1.0"
@@ -137,7 +137,7 @@ def test_second_type_frame_page_has_no_chooser_and_only_its_own_type(
     root, frame_dir = _two_type_root(tmp_path)
     text = _served(root, frame_dir, _SECOND_TYPE)
     doc = parse_html(text)
-    assert doc.select_one(".update-type-chooser") is None
+    assert doc.select(".update-type-chooser") == []
     assert hardware.get_profile(hardware.LEGACY_KEY).label not in text
     assert _versions(text) == ["fw-v1.2.0", "fw-v1.2.1"]
     assert doc.select_one(".update-sum__version").text() == "fw-v1.2.0"
@@ -154,4 +154,22 @@ def test_frame_whose_type_has_no_releases_shows_its_own_empty_state(
     text = _served(root, frame_dir, _SECOND_TYPE)
     assert "No releases yet" in text
     assert _versions(text) == []
-    assert parse_html(text).select_one(".update-type-chooser") is None
+    assert parse_html(text).select(".update-type-chooser") == []
+
+
+@pytest.mark.parametrize("lang,label", [("en", "Hardware type"), ("fr", "Type de matériel")])
+def test_standalone_page_keeps_the_chooser_with_two_types(
+        tmp_path, second_type_enabled, lang, label):
+    """the standalone Update page still offers one tab per relevant type"""
+    root, _frame_dir = _two_type_root(tmp_path)
+    ctx = page_context.coerce({"state_dir": root, "root_state_dir": root, "now": _NOW})
+    try:
+        prefs.set_request_prefs(lang=lang)
+        text = update_page.render(ctx, None)
+    finally:
+        prefs.set_request_prefs(lang="en")
+    doc = parse_html(text)
+    tabs = [(b.attrs["value"], b.attrs["aria-pressed"])
+            for b in doc.select('form[method="get"] button[name="type"]')]
+    assert tabs == [(hardware.LEGACY_KEY, "true"), (_SECOND_TYPE, "false")]
+    assert label in text
