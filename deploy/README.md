@@ -853,6 +853,24 @@ at most 400 days old and at most a day ahead; any other query parameter is
 refused with 400. More than 100000 matching rows answers 413. Ten failed
 attempts in a minute from one client address answer 429 for that client.
 
+### Debugging exports
+
+The same token also opens three more read-only routes under `/api/export/`,
+so a missed flight or an odd screen can be explained without SSH. They share
+the token, the throttle and the 400/401/413/429/503 answers above, and the
+cloud-environment secret (path prefix `/api/export/`) already covers them.
+
+| Route | Answers |
+|-------|---------|
+| `GET /api/export/flights?since=<UTC time>` | JSON Lines of `runway_events`: `ts`, `hex`, `callsign`, `aircraft_type`, `confirmed_state`, `corroborated`, `route_source`, `airline`, `origin`, `destination`, `tracked_runway`, `gallery_name`. Only flights that reached the display have a row. |
+| `GET /api/export/poll-cycles?since=<UTC time>` | JSON Lines of the `poll_cycles` trace: one row for each cycle that saw, queued, dropped or drew an aircraft (`detected_*`, `shown_*`, `confirmed_state`, `render_state`, `state_source`, `pending`, `pending_hexes`, `dropped`, `redraw_blocked`, `panel_changed`, `source_fault`, `tracked_runway`; booleans as 0 or 1). Kept for 14 days. |
+| `GET /api/export/status` | One JSON object, no parameter: the flight on the panel and its state, the display queue with each entry's age, the previous flight, `last_advance_at`, `last_flight_redraw_at`, a few settings (`wake_interval_s`, `tracked_runway`, `display_enabled`, quiet hours, `timezone`), the check-interval experiment (`null` when inactive) and the pipeline heartbeat. |
+
+None of them exposes a location, a name, a path or a secret: `status` copies
+a fixed list of fields, never whole files. `poll_cycles` appears after the
+first poll cycle that runs the new release; until then `poll-cycles` answers
+with no lines.
+
 ### Enable
 
 1. On your own machine, generate a token (never on a shared screen, never

@@ -9,7 +9,9 @@ Leaf module: stdlib only, must never import `device_config`,
 Cadence rule: `runway_events` rows are written only on a real transition,
 never once per 30-second cycle - the always-changing "pipeline last ran"
 signal lives in the fixed-size `meta` table instead, so keep-forever
-retention doesn't turn into unbounded per-cycle row growth.
+retention doesn't turn into unbounded per-cycle row growth. The one
+per-cycle trace, `poll_cycles`, only records cycles that saw, queued,
+dropped or drew an aircraft and is pruned to `POLL_CYCLE_RETENTION_DAYS`.
 
 Concurrency: `connection_scope(state_dir)` gives every `open_db()` call on
 the same thread inside it one lazily-opened connection, closed only once
@@ -28,7 +30,7 @@ import re
 import sqlite3
 import sys
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py.
@@ -56,6 +58,19 @@ META_LAST_POLL_TRIGGER = "last_poll_trigger"
 # share the same bookkeeping across process boundaries without perturbing
 # poll_state.json's own "only write when content changes" contract.
 META_PROVIDER_LAST_CALL_PREFIX = "provider_last_call:"
+
+# `poll_cycles` keeps this many days: a few hundred rows a day, enough to
+# explain a missed flight after the weekend without growing without bound.
+POLL_CYCLE_RETENTION_DAYS = 14
+
+# Columns of one `poll_cycles` row, in storage order after `id` and `ts`.
+POLL_CYCLE_COLUMNS = (
+    "branch", "detected_hex", "detected_callsign", "detected_altitude_ft",
+    "detected_rate_fpm", "detected_on_ground", "shown_hex", "shown_callsign",
+    "confirmed_state", "render_state", "state_source", "pending",
+    "pending_hexes", "dropped", "redraw_blocked", "panel_changed",
+    "source_fault", "tracked_runway",
+)
 
 _RUNWAY_EVENT_COLUMNS = (
     "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
@@ -116,7 +131,7 @@ def history_db_path(state_dir):
 
 
 def init_schema(conn):
-    """Create all four tables with IF NOT EXISTS, safe to call on every
+    """Create all five tables with IF NOT EXISTS, safe to call on every
     connection. There is no schema version stamp: a new table is free via
     IF NOT EXISTS, and an additive nullable column is added by a guarded
     ALTER TABLE (`_add_missing_wake_columns`).
@@ -177,6 +192,31 @@ def init_schema(conn):
         "wake_interval_s INTEGER"
         ")"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS poll_cycles ("
+        "id INTEGER PRIMARY KEY, "
+        "ts TEXT NOT NULL, "
+        "branch TEXT, "
+        "detected_hex TEXT, "
+        "detected_callsign TEXT, "
+        "detected_altitude_ft REAL, "
+        "detected_rate_fpm REAL, "
+        "detected_on_ground INTEGER, "
+        "shown_hex TEXT, "
+        "shown_callsign TEXT, "
+        "confirmed_state TEXT, "
+        "render_state TEXT, "
+        "state_source TEXT, "
+        "pending INTEGER, "
+        "pending_hexes TEXT, "
+        "dropped TEXT, "
+        "redraw_blocked INTEGER, "
+        "panel_changed INTEGER, "
+        "source_fault INTEGER, "
+        "tracked_runway TEXT"
+        ")"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_poll_cycles_ts ON poll_cycles(ts)")
     _add_missing_wake_columns(conn)
     _add_missing_runway_event_columns(conn)
     conn.commit()
@@ -460,6 +500,39 @@ def record_wake_epoch(conn, ts, wake_interval_s):
     return 1
 
 
+def record_poll_cycle(conn, ts, values):
+    """Insert one `poll_cycles` row from `values`, a dict keyed by
+    `POLL_CYCLE_COLUMNS` (a missing key stores NULL, an unknown key is
+    ignored). Booleans are stored as 0/1. Returns 1.
+    """
+    row = [ts]
+    for column in POLL_CYCLE_COLUMNS:
+        value = values.get(column)
+        row.append(int(value) if isinstance(value, bool) else value)
+    conn.execute(
+        "INSERT INTO poll_cycles (ts, " + ", ".join(POLL_CYCLE_COLUMNS) + ") VALUES ("
+        + ", ".join("?" * (len(POLL_CYCLE_COLUMNS) + 1)) + ")",
+        row,
+    )
+    _commit(conn)
+    return 1
+
+
+def prune_poll_cycles(conn, now_iso):
+    """Delete `poll_cycles` rows older than `POLL_CYCLE_RETENTION_DAYS`
+    before `now_iso`. An unparseable `now_iso` prunes nothing. Returns the
+    number of rows deleted.
+    """
+    try:
+        now = datetime.fromisoformat(now_iso)
+    except (TypeError, ValueError):
+        return 0
+    cutoff = (now - timedelta(days=POLL_CYCLE_RETENTION_DAYS)).isoformat(timespec="seconds")
+    deleted = conn.execute("DELETE FROM poll_cycles WHERE ts < ?", (cutoff,)).rowcount
+    _commit(conn)
+    return deleted
+
+
 # --- Readers ---------------------------------------------------------------
 
 
@@ -592,6 +665,80 @@ def export_device_health(state_dir, since, max_rows):
     if len(rows) > max_rows:
         raise TooManyRows()
     return rows
+
+
+# Tables the read-only exports may name, with the columns each exposes, in
+# output order. Fixed here so no caller-supplied text ever reaches a query.
+EXPORT_TABLES = {
+    "runway_events": (
+        "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
+        "corroborated", "route_source", "airline", "origin", "destination",
+        "tracked_runway", "gallery_name",
+    ),
+    "poll_cycles": ("ts",) + POLL_CYCLE_COLUMNS,
+}
+
+# `meta` keys the status export shows: pipeline heartbeat and provider calls,
+# never an offset or anything a caller could use to read other files.
+_STATUS_META_KEYS = (
+    META_LAST_PIPELINE_RUN, META_LAST_DETECTION, META_SOURCE_FAULT,
+    META_LAST_POLL_TRIGGER,
+)
+
+
+def _open_read_only(state_dir):
+    path = os.path.abspath(history_db_path(state_dir))
+    conn = sqlite3.connect(pathlib.Path(path).as_uri() + "?mode=ro", uri=True, timeout=5.0)
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA query_only=ON")
+    return conn
+
+
+def export_table_rows(state_dir, table, since, max_rows):
+    """The rows of `table` (a key of `EXPORT_TABLES`) with `ts >= since`,
+    oldest first, as tuples of that table's export columns. A table or
+    column the database does not have yet (a poll oneshot has not run since
+    a deploy) reads as no rows or NULL, never as an error.
+
+    Opens history.db read-only like `export_device_health()`; raises
+    `TooManyRows` rather than truncating, `sqlite3.Error` when the database
+    is missing or unreadable, and `KeyError` for a table not in
+    `EXPORT_TABLES`.
+    """
+    columns = EXPORT_TABLES[table]
+    conn = _open_read_only(state_dir)
+    try:
+        present = {row[1] for row in conn.execute("PRAGMA table_info(" + table + ")")}
+        if not present:
+            return []
+        select = ", ".join(c if c in present else "NULL" for c in columns)
+        rows = conn.execute(
+            "SELECT " + select + " FROM " + table + " WHERE ts >= ? ORDER BY ts, id LIMIT ?",
+            (_stored_since(since), max_rows + 1)).fetchall()
+    finally:
+        conn.close()
+    if len(rows) > max_rows:
+        raise TooManyRows()
+    return rows
+
+
+def export_status_meta(state_dir):
+    """`{key: {"value", "updated_at"}}` for the heartbeat keys the status
+    export shows plus every per-provider last-call key. Read-only.
+    """
+    conn = _open_read_only(state_dir)
+    try:
+        try:
+            rows = conn.execute("SELECT key, value, updated_at FROM meta").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+    finally:
+        conn.close()
+    return {
+        key: {"value": value, "updated_at": updated_at}
+        for key, value, updated_at in rows
+        if key in _STATUS_META_KEYS or key.startswith(META_PROVIDER_LAST_CALL_PREFIX)
+    }
 
 
 def latest_device_health(conn):

@@ -389,7 +389,12 @@ def _run_isolated_write(conn, savepoint_name, action):
         conn.execute("RELEASE %s" % savepoint_name)
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None):
+def _write_trace(conn, now_iso, trace):
+    history_db.record_poll_cycle(conn, now_iso, trace)
+    history_db.prune_poll_cycles(conn, now_iso)
+
+
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None, trace=None):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
@@ -430,6 +435,10 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     `gallery_name` is stored with the runway event: the render archived in
     the cycle that recorded the flight, or "" when that cycle archived none
     (None, the column's default, then means a row from before the column).
+
+    `trace`, when given, is this cycle's `poll_cycles` row (see
+    `_cycle_trace()`); like the Caddy ingest it is written in its own
+    SAVEPOINT, so a fault in it never rolls back the heartbeat or the event.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -468,6 +477,8 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                         lambda: history_db.apply_caddy_battery_log(conn, readings, new_offset))
                 if wake_interval_s is not _NO_WAKE_EPOCH:
                     history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
+                if trace is not None:
+                    _run_isolated_write(conn, "poll_cycle_trace", lambda: _write_trace(conn, now_iso, trace))
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -1491,6 +1502,37 @@ def render_and_publish(ctx):
         _render_empty(ctx)
 
 
+def _cycle_trace(ctx):
+    """The `poll_cycles` row for this cycle, or None. Only a cycle that saw,
+    queued, dropped or drew an aircraft is traced, so a missed flight can be
+    explained after the fact without a row for every idle cycle.
+    """
+    detected = ctx.flight if isinstance(ctx.flight, dict) else {}
+    shown = ctx.current_flight if isinstance(ctx.current_flight, dict) else {}
+    if not (detected or ctx.dropped or ctx.promoted is not None or ctx.panel_changed):
+        return None
+    return {
+        "branch": ctx.branch,
+        "detected_hex": detected.get("hex"),
+        "detected_callsign": detected.get("callsign"),
+        "detected_altitude_ft": detected.get("altitude_ft"),
+        "detected_rate_fpm": detected.get("vertical_rate_fpm"),
+        "detected_on_ground": detected.get("on_ground"),
+        "shown_hex": shown.get("hex"),
+        "shown_callsign": shown.get("callsign"),
+        "confirmed_state": ctx.confirmed_state,
+        "render_state": ctx.render_state,
+        "state_source": ctx.state_source,
+        "pending": len(ctx.pending),
+        "pending_hexes": ",".join(str(e["flight"].get("hex")) for e in ctx.pending) or None,
+        "dropped": ",".join(str(h) for h in ctx.dropped) or None,
+        "redraw_blocked": ctx.redraw_blocked,
+        "panel_changed": ctx.panel_changed,
+        "source_fault": ctx.source_fault,
+        "tracked_runway": ctx.tracked_runway_id,
+    }
+
+
 def record(ctx):
     """The single live `_record_history()` call, its arguments derived
     from `ctx.branch` exactly as each former branch passed them - see
@@ -1501,7 +1543,7 @@ def record(ctx):
             ctx.state_dir, ctx.current_flight, ctx.confirmed_state, ctx.route_source, ctx.route,
             ctx.tracked_runway_id, ctx.source_fault, ctx.event_recorded, ctx.now_iso,
             caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
-            gallery_name=ctx.gallery_name,
+            gallery_name=ctx.gallery_name, trace=_cycle_trace(ctx),
         )
     elif ctx.branch == "held":
         _record_history(
@@ -1512,13 +1554,14 @@ def record(ctx):
             # reached the display (`ctx.current_flight`, unchanged here) -
             # a distinct aircraft that only got queued is still a real
             # detection.
-            detected=ctx.flight is not None,
+            detected=ctx.flight is not None, trace=_cycle_trace(ctx),
         )
     else:
         _record_history(
             ctx.state_dir, None, None, None, None,
             ctx.tracked_runway_id, ctx.source_fault, False, ctx.now_iso,
             caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
+            trace=_cycle_trace(ctx),
         )
 
 
