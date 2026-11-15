@@ -104,6 +104,28 @@
   color: var(--color-text);
 }
 
+/* A landscape frame's picture is wider than tall, so beside the text it leaves
+ * a narrow column. On a phone the picture takes the full width and the name,
+ * the state and the next-refresh line stack under it. A portrait frame keeps
+ * the picture beside the text. */
+@media (max-width: 699.98px) {
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .hero__body {
+    align-items: stretch;
+  }
+
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .hero__status {
+    align-self: flex-start;
+  }
+
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .home-state__next-row {
+    align-items: center;
+  }
+}
+
 .info-tip:hover .info-tip__bubble,
 .info-tip:focus-within .info-tip__bubble {
   visibility: visible;
