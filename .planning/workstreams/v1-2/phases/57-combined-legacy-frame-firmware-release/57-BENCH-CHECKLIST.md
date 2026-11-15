@@ -19,10 +19,10 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B1. SIGNING.md bench
 
-- [ ] B1. Run every step and every pass/fail row of "Bench procedure" in `firmware/SIGNING.md` as written there (do not rewrite it here): correctly signed image accepted and the new version reported; wrongly signed image refused with the previous firmware kept and `X-Ota-Result: fail-image;<version>` on the next poll; unsigned image refused (server side); fail-floor token round trip.
+- [x] B1. Run every step and every pass/fail row of "Bench procedure" in `firmware/SIGNING.md` as written there (do not rewrite it here): correctly signed image accepted and the new version reported; wrongly signed image refused with the previous firmware kept and `X-Ota-Result: fail-image;<version>` on the next poll; unsigned image refused (server side); fail-floor token round trip.
   - Expected observation: the Pass-when conditions of SIGNING.md, and none of its Fail-when conditions.
-  - Result:
-  - Date:
+  - Result: PASS, taken from the owner's own record in the "Bench results" table of `firmware/SIGNING.md` (dated 2026-11-14, merged on main); the assistant did not run it. Bench unit seeed-ee04-7in3-spectra6, MAC 84:c7:bb:70:b2:7c, flashed with `fw-v1.0.4-71-gd495d240-dev`. A correctly signed image `fw-v1.0.6-bench1` (bench key) was installed (`trial;fw-v1.0.6-bench1` then `installed;fw-v1.0.6-bench1`). A wrongly signed image `fw-v1.0.7-bench2` (a second throwaway key) was downloaded and not installed, no boot loop, the unit kept reporting `fw-v1.0.6-bench1` and kept polling, and the next poll carried `fail-image;fw-v1.0.7-bench2`. The floor refusal was also seen (`fail-floor;fw-v1.0.7-bench5`, no download). An unsigned image was refused by the server (`signature: image is not signed`). Limits recorded there: no serial log (the evidence is the bench server telemetry and `firmware/device_report.json`), one unit, one date, dev-profile images with throwaway keys; the wrong-hardware check was shown on the server side only. Ticked by the assistant at the owner's explicit request on 2026-11-15.
+  - Date: 2026-11-14 (bench), ticked 2026-11-15
 
 ### B2. Unconfirmed-trial rollback
 
