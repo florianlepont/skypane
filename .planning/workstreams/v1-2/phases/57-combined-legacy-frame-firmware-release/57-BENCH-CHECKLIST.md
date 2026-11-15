@@ -68,10 +68,10 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B8. Size and wake time
 
-- [ ] B8. On a container wake, record the image size against the slot size and the total wake duration (monitor log timestamps).
+- [x] B8. On a container wake, record the image size against the slot size and the total wake duration (monitor log timestamps).
   - Expected observation: the image fits its slot with margin; wake duration is within the battery profile budget.
-  - Result (image size, slot size, wake seconds):
-  - Date:
+  - Result (image size, slot size, wake seconds): PASS on the figures below; one comparison missing. Bench unit seeed-ee04-7in3-spectra6 (MAC 84:c7:bb:70:b2:7c), build `fw-v1.0.12-bench8`. Image size: the signed bench image is 1114112 bytes against a slot of 0x250000 (2424832 bytes), about 46 percent, so it fits with margin. Container wake with a redraw (serial log): `wake timing total_ms=37176 wifi_ms=5016 download_ms=778 draw_ms=31204`, `crc_ms=21` for the 192000-byte payload. Unchanged-image wakes: total_ms 4721, 2056, 2138 and 6285 (`hash_skip=1`, no download, no draw). Not measured: a raw-image redraw wake to compare against (the raw redraw of B4 was not captured on serial), the CRC time on the 960000-byte EE02 payload (an estimate of about five times 21 ms, not measured), and the battery profile budget itself. Ticked by the assistant at the owner's explicit request on 2026-11-15.
+  - Date: 2026-11-15
 
 ### B9. Owner sign-off
 
