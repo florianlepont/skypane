@@ -61,3 +61,7 @@ looks; visual work waits for v1.3.
   frame ("Le Petit Cadre", "Anciennement <owner e-mail>") is listed although the
   owner is on the view of another frame. It is unclear which frame the page is
   about when other frames are listed on it. To settle with the list above.
+- 2026-11-15, owner, with a screenshot: on the Fleet page the row menu of the last
+  frame of the "Autres cadres" list is clipped at the bottom, so its actions (for
+  example Re-activate) cannot be reached. Also recorded as a gap of the Phase 64
+  walk-through.
