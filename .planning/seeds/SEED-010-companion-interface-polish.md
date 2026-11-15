@@ -1,6 +1,7 @@
 ---
 id: SEED-010
-status: dormant
+status: fulfilled
+resolved_date: 2026-11-15
 planted: 2026-09-30
 planted_during: "V1.0 close-out"
 trigger_when: "Milestone v1.1 — alongside the retained battery studies, when the companion interface is next deliberately scoped."

@@ -1,6 +1,7 @@
 ---
 id: SEED-008
-status: dormant
+status: fulfilled
+resolved_date: 2026-11-15
 planted: 2026-09-15
 planted_during: Phase 5 (05-low-battery-indicator) — DEVICE-05 battery discharge run, Task 3 write-up
 trigger_when: "Milestone v1.1 — earmarked by the developer on 2026-09-24, together with SEED-007, SEED-008 and SEED-009."
