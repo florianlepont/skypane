@@ -209,22 +209,34 @@ def enqueue_pending(pending: list[dict], flight: dict, now: float, max_entries: 
     return evicted
 
 
-def pop_fresh_pending(pending: list[dict], now: float, max_staleness_s: float | None = None) -> tuple[dict | None, list]:
+def pop_fresh_pending(
+    pending: list[dict], now: float, max_staleness_s: float | None = None, defer=None,
+) -> tuple[dict | None, list]:
     """Pop the oldest still-fresh entry (FIFO), dropping any entry that
     exceeded `max_staleness_s` on the way. Returns `(flight_or_None,
     dropped_hexes)`; mutates `pending` in place. A negative age (clock
     step) reads as fresh - the safe direction.
+
+    An entry for which `defer(flight)` is true is skipped but stays queued,
+    ahead of everything that was behind the entry popped, so it can still be
+    shown once `defer` stops holding for it (or be dropped as stale).
     """
     if max_staleness_s is None:
         max_staleness_s = MAX_STALENESS_S
     dropped: list = []
+    deferred: list = []
+    chosen = None
     while pending:
         entry = pending.pop(0)
         if (now - entry["first_seen"]) > max_staleness_s:
             dropped.append(entry["flight"].get("hex"))
-            continue
-        return entry["flight"], dropped
-    return None, dropped
+        elif defer is not None and defer(entry["flight"]):
+            deferred.append(entry)
+        else:
+            chosen = entry["flight"]
+            break
+    pending[:0] = deferred
+    return chosen, dropped
 
 
 def _extract_aircraft(snapshot):
@@ -1083,12 +1095,19 @@ def advance_display_queue(ctx):
     dropped = []          # hexes this cycle discarded - the residual loss
     queue_dirty = False   # pending/last_advance_at changed -> must persist
 
+    # An aircraft on the ground has no direction to show yet; it waits in the
+    # queue until it climbs or descends rather than blanking the frame.
+    def defer(candidate):
+        return runway_config.awaits_state(candidate, _position_mode(ctx))
+
     if flight is not None:
         new_hex = flight.get("hex")
         old_hex = ctx.current_flight.get("hex") if isinstance(ctx.current_flight, dict) else None
-        if ctx.current_flight is None and ctx.redraw_blocked:
-            # The check-interval experiment is holding the flight image: keep
-            # the detection queued until the redraw spacing has elapsed.
+        if ctx.current_flight is None and (ctx.redraw_blocked or defer(flight)):
+            # Either the check-interval experiment is holding the flight
+            # image, or the aircraft is not displayable yet: keep the
+            # detection queued until the redraw spacing has elapsed or a
+            # state can be inferred.
             dropped.extend(enqueue_pending(pending, flight, now))
             queue_dirty = True
         elif ctx.current_flight is None:
@@ -1112,7 +1131,7 @@ def advance_display_queue(ctx):
     # aircraft would sit there until it expired. `promoted is None` guards
     # the bootstrap case above, which has already advanced.
     if promoted is None and pending and not ctx.redraw_blocked and advance_is_due(ctx.last_advance_at, now):
-        promoted, expired = pop_fresh_pending(pending, now)
+        promoted, expired = pop_fresh_pending(pending, now, defer=defer)
         dropped.extend(expired)
         queue_dirty = True
 
@@ -1276,8 +1295,10 @@ def _render_promoted(ctx):
     ctx.state_source = _classify_state_source(current_flight.get("vertical_rate_fpm"))
 
     if shown_state is None:
-        # A first-ever detection inside the deadband: render Empty rather
-        # than guess a colour.
+        # No direction can be inferred (an airborne aircraft inside the
+        # deadband): render Empty rather than guess a colour. An aircraft on
+        # the ground in that situation is deferred in the queue and never
+        # reaches this branch.
         ctx.render_state = "empty"
         ctx.route_source = "n/a"
         ctx.route = None

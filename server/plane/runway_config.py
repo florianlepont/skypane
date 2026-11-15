@@ -67,6 +67,30 @@ def infer_from_flight(flight: object, last_confirmed_state: object) -> object:
     return infer_runway_config(vertical_rate_fpm, last_confirmed_state)
 
 
+def is_on_ground(flight: object) -> bool:
+    """True for a record flagged on the ground, or reporting an altitude of
+    exactly zero. Never raises."""
+    if not isinstance(flight, dict):
+        return False
+    if flight.get("on_ground") is True:
+        return True
+    altitude = flight.get("altitude_ft")
+    return not isinstance(altitude, bool) and isinstance(altitude, (int, float)) and altitude == 0
+
+
+def awaits_state(flight: object, position_mode: bool) -> bool:
+    """True for an aircraft on the ground that has no direction to show yet.
+
+    On the pavement the vertical rate sits inside the deadband for a landing
+    roll-out and for a take-off roll alike, so no state can be inferred and
+    the previous aircraft's state would be wrong for one of them. Such an
+    aircraft is not worth drawing until it climbs or descends.
+    """
+    if not is_on_ground(flight):
+        return False
+    return display_state(flight, infer_from_flight(flight, None), position_mode) is None
+
+
 def display_state(flight: object, held_state: object, position_mode: bool) -> object:
     """The state to draw: STATE_OVERHEAD for a level aircraft in position
     mode, otherwise `held_state` unchanged.
