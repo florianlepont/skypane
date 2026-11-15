@@ -47,6 +47,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 13 of 13 plans done; the owner confirmed the real-panel check and kept layout B as the default, 2026-11-10)
 - [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 - [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
+- [ ] **Phase 65: Runway 3 Tracking and Battery Curve Validation** - The detection tracks the right aircraft on Paris-Orly runway 3, and the battery tests and percentage curve are right for both frame types and their two different batteries. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 
 ## Phase Details
 
@@ -689,6 +690,26 @@ Plans:
 - [ ] 64-14-PLAN.md - owner lift, first typed release, real OTA (checkpoints)
 - [ ] 64-15-PLAN.md - owner EN/FR walk-through (checkpoints)
 
+### Phase 65: Runway 3 Tracking and Battery Curve Validation
+
+**Goal**: The owner can trust two things before v1.2 closes: the detection follows the right aircraft on Paris-Orly (ORY) runway 3, and the battery tests and the battery percentage curve are correct for both frame types, which carry two different batteries.
+**Depends on**: Phase 53 (detection modes), Phase 56 (battery profiles), Phase 47.1 (wake-energy baseline), Phase 58 (measurements on the second unit). Runs before Phase 59, which stays last.
+**Requirements**: TRK-01, BAT-01
+**Why this phase exists**: the owner's request of 2026-11-15. Two wrong displays seen on 2026-11-11 (a held arrival or departure state carried from one aircraft to the next, and a stale route) show that the runway 3 logic needs a check against real recorded traffic, not only against the unit tests. The battery percentage was calibrated once for the live frame (SEED-006); the second frame has a different battery and nothing yet shows that its curve, or the tests behind both, are right.
+**Success Criteria** (what must be TRUE):
+
+  1. Over a recorded period of real runway 3 traffic, the aircraft the system shows as departing or arriving are compared with an independent source (for example a flight-tracking site), and every mismatch is explained, fixed or written down with its cause. The comparison covers the runway box, the vertical-rate hold state, arrival versus departure direction, and callsign and route enrichment (stale and rotating callsigns).
+  2. Any fix to the detection is made only with the owner's agreement, keeps the existing golden hashes and the freeze test, and comes with a test built from the recorded case that failed.
+  3. The battery tests are reviewed: what each test proves, what it does not, and any test that passes without checking the curve is corrected or replaced.
+  4. For each of the two batteries, the voltage-to-percentage curve and the low-battery threshold are checked against a measured discharge (the live frame from its recorded run, the second frame from the Phase 58 unit), and the battery profile of each hardware type holds those values. Where a measurement is missing, the value stays marked provisional and the gap is listed with what it would take to close it.
+  5. The companion shows the same percentage as the frame's profile gives, for each type.
+
+**Not in this phase**: changing the wake interval (Phase 47.2 and the v1.3 power-saving mode), a new detection mode, and any enclosure or hardware change.
+**Open decisions** (for discuss-phase): which independent source and which recording period are used for the comparison, whether a second discharge run on the second frame is part of this phase or waits for the unit's battery to be long enough, and who runs the physical measurements.
+**Must not break**: every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, the live frame's current battery display until a corrected curve is agreed.
+
+Plans: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -710,3 +731,4 @@ Plans:
 | 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 13/13 | Complete | 2026-11-10 |
 | 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |
 | 64. Second Hardware in Production | v1.2 | 0/0 | Added 2026-11-14, not planned yet | - |
+| 65. Runway 3 Tracking and Battery Curve Validation | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
