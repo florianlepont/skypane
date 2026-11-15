@@ -4,9 +4,9 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
+stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, 2026-11-15); criteria 6, 7 and 9 open, owner actions pending
 last_updated: "2026-11-14T20:16:40.837Z"
-last_activity: 2026-10-30
+last_activity: 2026-11-15
 progress:
   total_phases: 17
   completed_phases: 14
