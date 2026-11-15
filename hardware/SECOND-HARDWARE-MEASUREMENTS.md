@@ -50,11 +50,11 @@ Filled by the owner. Leave a row empty if the item was not measured.
 
 | Item | Value | Date | Unit MAC | Method | Status (measured or provisional) |
 |------|-------|------|----------|--------|----------------------------------|
-| 1 Refresh time (min / median / max) | | | | | |
+| 1 Refresh time (min / median / max) | 25 s / 27 s / 27 s (five refreshes: 25, 27, 27, 27, 27) | 2026-11-15 | 84:c7:bb:70:b2:7c | Stopwatch from the panel starting to flash to it going fully still, on the bench server with a changing image at every wake (firmware fw-v1.0.12-bench8, dev profile, solid-colour test images) | measured |
 | 2 Busy wait after init (min / median / max) | | | | | |
 | 3 Busy wait after refresh (min / median / max) | | | | | |
 | 4 Busy wait after power-off (min / median / max) | | | | | |
-| 5 Flash size | | | | | |
+| 5 Flash size | 16 MB (quad, 3.3 V, manufacturer 0x85, device 0x2018); chip ESP32-S3 (QFN56) v0.2, 8 MB embedded PSRAM | 2026-11-15 | 84:c7:bb:70:b2:7c | `esptool --chip esp32s3 --port /dev/cu.usbmodem101 flash-id` (esptool v5.4.0), "Detected flash size" line | measured |
 | 6 Battery sense GPIO and ratio | | | | | |
 | 7 Battery ADC enable pin | | | | | |
 | 8 LED pin and polarity | | | | | |
