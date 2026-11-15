@@ -283,3 +283,53 @@ def test_display_state_unreadable_rate_holds(rate):
 def test_display_state_runway_mode_always_holds(rate):
     assert runway_config.display_state({"vertical_rate_fpm": rate}, "arriving", False) == "arriving"
     assert runway_config.display_state({"vertical_rate_fpm": rate}, None, False) is None
+
+
+@pytest.mark.parametrize("flight", [
+    {"on_ground": True, "vertical_rate_fpm": 0},
+    {"altitude_ft": 0.0, "vertical_rate_fpm": 48},
+    {"on_ground": True},
+])
+def test_ground_aircraft_without_a_direction_awaits_a_state(flight):
+    assert runway_config.awaits_state(flight, False) is True
+
+
+@pytest.mark.parametrize("flight", [
+    {"on_ground": True, "vertical_rate_fpm": 900},
+    {"on_ground": True, "vertical_rate_fpm": -700},
+    {"on_ground": False, "altitude_ft": 450.0, "vertical_rate_fpm": 0},
+    {"altitude_ft": True, "vertical_rate_fpm": 0},
+    {"vertical_rate_fpm": 0},
+    None,
+    "not a flight",
+])
+def test_other_aircraft_do_not_await_a_state(flight):
+    assert runway_config.awaits_state(flight, False) is False
+
+
+def test_level_ground_aircraft_in_position_mode_is_shown_as_overhead():
+    assert runway_config.awaits_state({"on_ground": True, "vertical_rate_fpm": 0}, True) is False
+
+
+def _entry(hex_code, first_seen, on_ground=False):
+    return {"flight": {"hex": hex_code, "on_ground": on_ground}, "first_seen": first_seen}
+
+
+def test_pop_fresh_pending_skips_deferred_entries_but_keeps_them_queued():
+    import server.poll_cycle as poll_cycle
+    pending = [_entry("g1", 0.0, True), _entry("a1", 1.0), _entry("a2", 2.0)]
+    flight, dropped = poll_cycle.pop_fresh_pending(
+        pending, 10.0, defer=lambda f: f["on_ground"])
+    assert flight["hex"] == "a1"
+    assert dropped == []
+    assert [e["flight"]["hex"] for e in pending] == ["g1", "a2"]
+
+
+def test_pop_fresh_pending_still_drops_deferred_entries_once_stale():
+    import server.poll_cycle as poll_cycle
+    pending = [_entry("g1", 0.0, True)]
+    flight, dropped = poll_cycle.pop_fresh_pending(
+        pending, 1000.0, defer=lambda f: f["on_ground"])
+    assert flight is None
+    assert dropped == ["g1"]
+    assert pending == []
