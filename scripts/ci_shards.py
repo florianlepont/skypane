@@ -29,7 +29,7 @@ import sys
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEST_PATHS = ("server", "stub-server", "companion", "test-support", "deploy",
-              "hardware")
+              "hardware", "scripts")
 TEST_PATTERNS = ("test_*.py", "*_test.py")
 WEIGHTS_FILE = os.path.join(REPO_ROOT, "scripts", "ci_shard_weights.json")
 GROUPS = ("browser", "core")
