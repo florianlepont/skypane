@@ -61,10 +61,10 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B7. Sticky fallback
 
-- [ ] B7. From a bench server, force one invalid container (for example a corrupted CRC) and let the unit wake twice more.
+- [x] B7. From a bench server, force one invalid container (for example a corrupted CRC) and let the unit wake twice more.
   - Expected observation: the first wake keeps the last image, sets the `imgfmt_bad` NVS flag and backs off without writing the hash; the next wake does not send `X-Img-Fmt`; the raw image is then accepted and drawn.
-  - Result:
-  - Date:
+  - Result: PASS with two limits. Bench unit seeed-ee04-7in3-spectra6 (MAC 84:c7:bb:70:b2:7c), build `fw-v1.0.12-bench8`. A throwaway bench server (a script kept outside the repository that wraps `byos_server` and flips the last payload byte of every container, so the digest matches the served bytes but the CRC is wrong) served one invalid container. First wake (serial log): `fp_diag image format=legacy status=13 crc_ms=21` (status 13 is the CRC error; the label `format=legacy` is only the log text, printed whenever the parse is not a success), `poll fail step=verify backoff_n=0 sleep_s=300`, `draw_ms=0 out=verify`, download 938 ms; the panel kept its previous picture. Second wake after a reset: the bench server log shows a different digest downloaded (`2971c453…`, the first was `2f7099aa…`) and the panel then showed the new picture (blue band), which only the raw image can produce once the unit no longer announces the format. Limits: the serial log of the second wake was not captured, so the absence of `X-Img-Fmt` and `format=legacy status=1` are deduced, and the sha256 of the bench `panel.bin` was not compared with `2971c453…`. Afterwards the unit stays on raw images until its main NVS partition is erased (`esptool erase-region 0x9000 0x6000`); the owner was given the bench cleanup steps. Ticked by the assistant at the owner's explicit request on 2026-11-15.
+  - Date: 2026-11-15
 
 ### B8. Size and wake time
 
