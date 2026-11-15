@@ -48,6 +48,8 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 - [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
 - [ ] **Phase 65: Runway 3 Tracking and Battery Curve Validation** - The detection tracks the right aircraft on Paris-Orly runway 3, and the battery tests and percentage curve are right for both frame types and their two different batteries. (added 2026-11-15 at the owner's request; Phase 59 stays last)
+- [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
+- [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 
 ## Phase Details
 
@@ -710,6 +712,46 @@ Plans:
 
 Plans: TBD
 
+### Phase 66: Security Audit
+
+**Goal**: Before v1.2 closes, the whole platform has had one structured security audit, and every finding is either fixed or accepted by the owner in writing.
+**Depends on**: Phases 54, 55, 60 (access and roles), 57 and 64 (firmware update and release path). Runs after the feature phases, before Phase 67 and Phase 59.
+**Requirements**: SEC-AUD-01
+**Why this phase exists**: the owner's request of 2026-11-15. The platform now holds accounts (Auth0 sign-in), several roles, enrolment secrets, signed firmware updates, a public VPS and, later, customers' photos. Earlier phases carried their own threat checks; none looked at the whole.
+**Scope to cover** (starting list, to be confirmed at discuss-phase): sign-in and session handling; roles and default-deny access (route x role x owner matrix); the device protocol and enrolment secrets; firmware signing, update and rollback; the companion's input handling (uploads, forms, headers, cross-site and injection risks); the server and the deploy pipeline (systemd units, Caddy, secrets, CI permissions, the approval step); dependencies and their pinned hashes; backups and what they contain; logs and what they leak; the privacy rule that the administrator never sees users' photos (prepared for v1.3); data-source terms that touch security.
+**Success Criteria** (what must be TRUE):
+
+  1. A written audit records what was checked, how, and the result, for each area of the scope.
+  2. Each finding has a severity, and every high one is fixed and covered by a test, or accepted by the owner in writing with its reason.
+  3. Fixes keep the golden hashes, the freeze test and the live frame's release path intact, and are deployed through the normal gated pipeline.
+  4. Secrets are checked: none in the repository or its history, the rotation steps are written down, and the scope of each token is the smallest that works.
+  5. The remaining risks and the follow-ups for v1.3 (photo privacy, Wi-Fi setup, update policy) are listed in the audit.
+
+**Not in this phase**: legal and regulatory review (SEED-015), a third-party penetration test (listed as an option to decide), and new features.
+**Open decisions** (for discuss-phase): audit by Claude only or with an outside reviewer, how far a test against the live production host may go, and which findings may wait for v1.3.
+
+Plans: TBD
+
+### Phase 67: Project and Code Optimisation for a Clean, Industrial Result
+
+**Goal**: The repository reads, builds, tests and ships like an industrial product: consistent, documented, free of dead code and drift, so a new maintainer can work on it and the owner can show it to others.
+**Depends on**: Phase 66 (so cleanups do not reopen audited code), Phase 65. Runs before Phase 59, which stays last.
+**Requirements**: QUAL-01
+**Why this phase exists**: the owner's request of 2026-11-15. The project grew over several milestones and many parallel phases; the planning documents, the code and the tests carry leftovers of that history.
+**Scope to cover** (starting list, to be confirmed at discuss-phase): dead code and unused modules; duplicated helpers; the largest files and functions (the function-size gate already caps functions at 80 lines); naming and structure of `server/`, `stub-server/` and `companion/`; type coverage (the mypy module list); the test suite (flaky, slow or redundant tests, without dropping a case); build, deploy and CI scripts; dependency review; the README, deploy guide and architecture notes (CLAUDE.md says the architecture is not yet mapped); the repository tree (stale branches, stray files, planning notes); lint, format and licence headers.
+**Success Criteria** (what must be TRUE):
+
+  1. A before and after record shows the measured change (lines, modules, largest functions, type coverage, test time) so the benefit is visible, not asserted.
+  2. No behaviour change: the golden hashes, the freeze test and the full test suite pass unchanged, and nothing is deleted from a test only to make it pass.
+  3. An architecture document describes the real modules, the data flow from the ADS-B sources to the frame, and the deploy path.
+  4. Every cleanup is a small, reviewable change with its own check; no change mixes a cleanup with a feature.
+  5. The CI gates (lint, types, function size, comment history, coverage floor) are not weakened; where a floor can be raised safely, it is.
+
+**Not in this phase**: new features, the comment-history debt (Phase 59, which follows), and anything that changes the firmware image of the live frame.
+**Open decisions** (for discuss-phase): which areas to clean first by value, how much structural change is acceptable before v1.3, and whether to raise the coverage floor.
+
+Plans: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -732,3 +774,5 @@ Plans: TBD
 | 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |
 | 64. Second Hardware in Production | v1.2 | 0/0 | Added 2026-11-14, not planned yet | - |
 | 65. Runway 3 Tracking and Battery Curve Validation | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |

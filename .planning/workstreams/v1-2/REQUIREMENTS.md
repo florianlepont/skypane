@@ -100,6 +100,11 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [ ] **TRK-01**: On Paris-Orly runway 3, the aircraft shown as departing or arriving match an independent source over a recorded period, and every mismatch is fixed or recorded with its cause, with the owner's agreement before any detection change.
 - [ ] **BAT-01**: The battery tests prove what they claim, and the voltage-to-percentage curve and low-battery threshold of each of the two batteries are checked against a measured discharge, or marked provisional with the gap listed.
 
+### Security and Quality
+
+- [ ] **SEC-AUD-01**: The whole platform is audited for security (sign-in, roles, device protocol, firmware update, companion inputs, server and deploy, dependencies, secrets, backups, logs); every finding is fixed and tested, or accepted by the owner in writing.
+- [ ] **QUAL-01**: The repository, code, tests and documents are cleaned and made consistent, with a measured before and after record, an architecture document, no behaviour change, and no weakened CI gate.
+
 ### Debt
 
 - [ ] **DEBT-01**: The comment-history guard debt is cleared (or its baseline only shrinks), and no v1.2 phase adds violations.
@@ -164,6 +169,8 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | HW2-05 | Phase 64 | Pending |
 | TRK-01 | Phase 65 | Pending |
 | BAT-01 | Phase 65 | Pending |
+| SEC-AUD-01 | Phase 66 | Pending |
+| QUAL-01 | Phase 67 | Pending |
 | UX-01 | Phase 61 | Complete |
 | UX-02 | Phase 61 | Complete |
 | UX-03 | Phase 61 | Complete |
