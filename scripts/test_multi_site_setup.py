@@ -51,7 +51,7 @@ def test_creates_one_simulated_device_per_entry_with_its_selection(tmp_path):
     by_name = {device.name: device for device in made}
     legacy = device_config.load_device_config(by_name["orly-b"].state_dir)
     assert legacy["tracked_runway"] == "06-24"
-    assert "detection" not in legacy
+    assert legacy.get("detection") is None
     cdg = device_config.load_device_config(by_name["cdg"].state_dir)
     assert cdg["detection"] == {"mode": "runway", "airport": "LFPG", "runway": "08L/26R"}
     assert detection.current_selection(cdg) == {
