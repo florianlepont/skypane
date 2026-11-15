@@ -1,6 +1,6 @@
 # Second hardware: battery measurement
 
-Status: **not measured.** This file holds the method and will hold the raw sample
+Status: **not measured; Phase 58 closed with the model provisional (2026-11-15).** This file holds the method and will hold the raw sample
 and the derived values. No number below is a measurement of a cell. The legacy
 frame's measurement files (`BATTERY-MODEL.md`, `BATTERY-RUN.md`, `SLEEP-CURRENT.md`,
 `logtools.py`) are read-only for this work and are not rewritten.
@@ -111,11 +111,16 @@ fail, as they should for so short a run. No real run exists yet.
 
 ## Raw sample
 
-None yet.
+None. One discharge run was attempted and gave no valid sample: it started on
+2026-11-15 at 09:08 with the USB cable unplugged and a first reading of 4064 mV (low for a
+full cell, not checked with a multimeter), on a cell the owner gave as about 3000 mAh from
+memory. It was interrupted by USB plugs and by the bench server stopping, and the log was
+not kept. The owner closed Phase 58 on 2026-11-15 with the model provisional; battery data
+is expected later from production use (Phase 64, Phase 65).
 
 ## Derived values
 
-None yet. Each value will be listed with its name from `BATTERY_VALUE_NAMES`, the way
+None. Each value will be listed with its name from `BATTERY_VALUE_NAMES`, the way
 it was derived, the date, and whether it is measured or provisional.
 
 ## Caveats to keep

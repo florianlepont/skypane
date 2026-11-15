@@ -131,6 +131,13 @@ given for the small text, and the refresh time was not timed, so no number is re
 for either. The plane screens (flight screens) were not shown on the unit in this
 session.
 
+## Battery attempt (2026-11-15)
+
+A discharge run started on 2026-11-15 at 09:08 (first reading 4064 mV). USB plugs and bench
+server stops interrupted it and no log was kept, so no sample is valid and no battery value
+was measured. The owner accepted the provisional model on 2026-11-15 and closed Phase 58;
+see `SECOND-HARDWARE-BATTERY.md`.
+
 ## Pairing test on the panel (2026-11-14)
 
 The four checks were run on the unit against a throwaway fleet database, never the
