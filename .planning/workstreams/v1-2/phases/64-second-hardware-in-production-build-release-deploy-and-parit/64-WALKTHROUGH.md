@@ -13,7 +13,7 @@ FR = French UI. FR cells also check strings, accents and clipped text on the sec
 
 | # | Step | Expected result | A EN | A FR | U EN | U FR | Notes |
 |---|------|-----------------|------|------|------|------|-------|
-| 1 | Pair | The code on the panel is accepted, the frame appears under the chosen owner | pass (language not stated) | open | n/a | n/a | Done 2026-11-15 by the owner: registered with `fleet_cli register-pending`, then paired with the panel code. Language not stated |
+| 1 | Pair | The code on the panel is accepted, the frame appears under the chosen owner | pass (language not stated) | open | n/a | n/a | Done 2026-11-15 by the owner: registered with `fleet_cli register-pending`, then paired with the panel code. Language not stated. After the retire and re-activation the owner paired the frame again from the phone, this time to a user (the account and its role were not stated; to be confirmed before the invited-user columns are filled) |
 | 2 | Assign | The frame can be assigned to another owner, and its page follows | open | pass | n/a | n/a | Owner-reported 2026-11-15: done in French as administrator |
 | 3 | Change the layout | The layout picker and its previews have the frame's landscape shape; the saved layout shows on the panel | open | pass | open | open | Owner-reported 2026-11-15: done in French as administrator |
 | 4 | Display on or off | Off: the panel shows the off screen at its next wake; on: it draws again | open | pass (off screen) | open | open | Owner-reported 2026-11-15: in French as administrator, the off screen shows on the panel after switching off; switched back on, the redraw at the next wake was not yet reported |
