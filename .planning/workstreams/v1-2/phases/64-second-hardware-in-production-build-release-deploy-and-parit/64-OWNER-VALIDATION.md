@@ -11,8 +11,9 @@ The agent must not proceed to lift anything without this.
 
 | Field | Value | Status |
 |-------|-------|--------|
-| Owner's exact words | | open |
-| Date | | open |
+| Owner's exact words | "Je lève le verrou du second type en production" (French, as typed in the session; recorded verbatim) | given by the owner |
+| Date | 2026-11-15 | given by the owner |
+| Measured values behind the confirmation | Full refresh time 25 / 27 / 27 s and flash size 16 MB measured on the unit; battery sense, LED, buttons and the separate panel busy waits still provisional (hardware/SECOND-HARDWARE-MEASUREMENTS.md) | recorded by the agent |
 | Checked first: no second-type row in the production fleet database that should not start being served | | open |
 | Lifted by the owner by hand (one line `SKYPANE_ENABLE_SECOND_HARDWARE=1` in the production env file, units restarted) | | open |
 
