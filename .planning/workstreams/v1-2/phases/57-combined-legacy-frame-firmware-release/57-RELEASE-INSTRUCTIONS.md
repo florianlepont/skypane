@@ -141,12 +141,74 @@ modulus, but never verifies the signature itself.
 - Voluntary rollback: schedule an older, already-published release that is at
   or above the version floor (`fw-v1.0.0`). `firmware/SIGNING.md` states this
   stays allowed; the lower-build refusal applies at publish time only.
-- Last resort: a USB flash of the signed factory image (bootloader, partition
-  table, `ota_data_initial` and `skypane-<tag>.bin`, all attached to the
-  release) with `firmware/flash.sh`, which refuses an unsigned image. This
-  needs physical access to the frame. The exact flash sequence for the live
-  frame was not re-derived here; follow `firmware/SIGNING.md` and
-  `hardware/BRINGUP-LOG.md`.
+- Last resort: a USB flash of a signed release over the cable. This needs
+  physical access to the frame. The sequence below is the one used on the live
+  frame on 2026-09-29 (`hardware/BRINGUP-LOG.md`, H42-04), adapted to a
+  recovery release; it has **not** been re-run for a recent tag, so re-derive
+  the offsets first (step 2) and read the cautions at the end.
+
+  What it does not touch: the `secret` partition (the enrolment secret and
+  Wi-Fi credentials) is not written by this flash, and neither is the main
+  `nvs` partition (bearer token, image hash).
+
+  1. Download the five assets of the release to flash back to (the last
+     known good one, for example `fw-v1.0.4`) and check the image before
+     anything is written. An unsigned or wrongly signed image aborts at every
+     boot and can then only be fixed by another USB flash:
+     ```
+     REL=~/skypane-recovery/rel-fw-v1.0.4
+     mkdir -p "$REL" && gh release download fw-v1.0.4 --dir "$REL"
+     espsecure.py verify_signature --version 2 --keyfile firmware/signing/skypane-signing-pubkey.pem "$REL/skypane-fw-v1.0.4.bin"
+     shasum -a 256 "$REL/skypane-fw-v1.0.4.bin"
+     python3 -c "import json,sys; print(json.load(open(sys.argv[1]))['sha256'])" "$REL/release.json"
+     ```
+     The signature must verify and the two SHA-256 values must match
+     (ignoring a `sha256:` prefix).
+  2. Re-derive the offsets from the partition table before writing:
+     ```
+     awk -F, '/^[a-z_0-9]+,/ {gsub(/ /,""); print $1, $4, $5}' firmware/partitions.csv
+     ```
+     At the time of writing: `otadata` 0xf000, `factory` 0x20000 (size
+     0x250000), `ota_0` right after `factory` at 0x270000. The bootloader is
+     at 0x0 and the partition table at 0x8000.
+  3. Find the port (`ls /dev/cu.*` before and after plugging in the cable),
+     then write the five files. The same app image goes into `factory` and
+     `ota_0`:
+     ```
+     PORT=/dev/cu.usbmodemXXXX
+     esptool --chip esp32s3 --port "$PORT" write-flash \
+         --flash-mode dio --flash-freq 80m --flash-size keep \
+         0x0      "$REL/bootloader-fw-v1.0.4.bin" \
+         0x8000   "$REL/partition-table-fw-v1.0.4.bin" \
+         0xf000   "$REL/ota_data_initial-fw-v1.0.4.bin" \
+         0x20000  "$REL/skypane-fw-v1.0.4.bin" \
+         0x270000 "$REL/skypane-fw-v1.0.4.bin"
+     ```
+  4. Read both app regions back and compare them with the image, then reset
+     so the firmware runs:
+     ```
+     SIZE=$(stat -f%z "$REL/skypane-fw-v1.0.4.bin")
+     for OFF in 0x20000 0x270000; do
+         esptool --chip esp32s3 --port "$PORT" --after no-reset read-flash $OFF $SIZE /tmp/readback.bin &&
+         cmp /tmp/readback.bin "$REL/skypane-fw-v1.0.4.bin" && echo "$OFF matches"
+     done
+     esptool --chip esp32s3 --port "$PORT" --after hard-reset read-mac
+     ```
+     Both offsets must print `matches`.
+  5. Check that the frame polls: the companion Update page (or the bench or
+     production telemetry) must show `X-Fw-Version` equal to the flashed tag
+     and the next wake on the usual cadence.
+
+  Cautions: (a) the frame's USB port exists only while it is awake, because
+  deep sleep powers it off; press RESET, then start the command at once, and
+  retry if esptool reports no port. This is from the bring-up notes, not
+  re-verified here. (b) Do not use `firmware/flash.sh` for this: it flashes the
+  local build directory, not release assets. (c) Never burn an eFuse; no step
+  here needs one. (d) If the frame was running the combined release and its
+  sticky `imgfmt_bad` flag is set, a USB flash does not clear it; erasing the
+  main `nvs` partition does (`esptool --chip esp32s3 --port "$PORT"
+  erase-region 0x9000 0x6000`), after which the frame re-enrols with its own
+  secret.
 
 ## 7. Post-install checks
 
