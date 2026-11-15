@@ -45,10 +45,10 @@ Bench images use throwaway keys and would reject a production-signed OTA.
 
 | Field | Value | Status |
 |-------|-------|--------|
-| Frame firmware before | | open |
-| Version offered and scheduled on the Update page | | open |
+| Frame firmware before | fw-v1.2.0 (the production-signed image cable-flashed; shown on the frame's Fleet page) | owner-reported |
+| Version offered and scheduled on the Update page | fw-v1.2.1 (published and imported 2026-11-15; no firmware change, version number only), scheduled by the owner for the second-type frame and, by the owner's choice, for the 13.3 inch live frame too | owner-reported |
 | https channel confirmed | | open |
-| Frame firmware after | | open |
+| Frame firmware after | fw-v1.2.1 on the second-type frame ("C'est bon il est à jour aussi") and on the live frame ("Cadre 13 pouces installé"), 2026-11-15, after the Update-page fix of the Fleet view was deployed | owner-reported |
 | Registry `last_outcome` and `installed_at` in `registry.seeed-ee04-7in3-spectra6.json` | | open |
 | Result recorded by the production poll (not only by the live frame's cycle) | | open |
 
@@ -64,4 +64,7 @@ Bench images use throwaway keys and would reject a production-signed OTA.
 
 - The deploy README (Device enrolment, and Pairing, retiring and re-activating a frame) tells the administrator to use the console's "Register a frame" form, which the current console does not offer (only the POST route `/fleet/register` exists). The frame was registered with `fleet_cli devices register-pending`. The README needs a correction.
 - `fleet_cli` reads the second-hardware switch from its own environment: it needs `SKYPANE_ENABLE_SECOND_HARDWARE=1` on the command line to accept the type. To be written in the README.
-- Real signed OTA (section C) and failing update (section D) are not done yet.
+- Section C: the registry values (`last_outcome`, `installed_at` in `registry.seeed-ee04-7in3-spectra6.json`), the https channel and the production poll's recording are not yet seen directly; only the owner's report that both frames show fw-v1.2.1.
+- The live frame also installed fw-v1.2.0 and fw-v1.2.1 by OTA from the production channel (owner-scheduled), which is a further observation for the live frame's release path.
+- Section D (failing update) is not done yet.
+- Two defects of the Fleet view for a non-live frame were found and fixed while preparing this step: the Update card read the per-frame directory instead of the root state dir, and a frame's page showed the other type's tab (PR #430).
