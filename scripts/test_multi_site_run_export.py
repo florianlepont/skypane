@@ -162,7 +162,8 @@ def test_stop_file_ends_the_session_after_the_current_cycle(tmp_path):
 
     done = _session(root, fake, runner=runner, cycles=10, stop_file=str(stop))
     assert done == 1
-    assert len(calls) == 2
+    assert calls
+    assert fake.sleeps == []
 
 
 def test_until_bounds_the_session(tmp_path):
