@@ -159,3 +159,26 @@ def test_thresholds_come_from_runway_config():
 
     assert runway_compare.CLIMB_THRESHOLD_FPM == runway_config.CLIMB_THRESHOLD_FPM
     assert runway_compare.DESCEND_THRESHOLD_FPM == runway_config.DESCEND_THRESHOLD_FPM
+
+
+def test_route_direction_mismatch(tmp_path):
+    events = [
+        _event("2026-11-02T05:00:00+00:00", "A", "departing", "OK1", "ORY", "NCE"),
+        _event("2026-11-02T06:00:00+00:00", "B", "departing", "BAD1", "DBV", "ORY"),
+        _event("2026-11-02T07:00:00+00:00", "C", "arriving", "BAD2", "ORY", "NCE"),
+        _event("2026-11-02T08:00:00+00:00", "D", "arriving", "OK2", "NCE", "ORY"),
+        _event("2026-11-02T09:00:00+00:00", "E", "departing", "NOR", "", ""),
+    ]
+    report = _run(tmp_path, events, [])
+    found = report["classes"]["route-direction-mismatch"]
+    assert found["count"] == 2
+    assert {row["callsign"] for row in found["rows"]} == {"BAD1", "BAD2"}
+
+
+def test_pending_contradiction_is_reported_separately(tmp_path):
+    cycles = [
+        dict(_cycle("2026-11-15T12:00:00+00:00", "B", "departing", -900.0), shown_hex="A"),
+        dict(_cycle("2026-11-15T12:00:30+00:00", "A", "departing", 900.0), shown_hex="A"),
+    ]
+    report = _run(tmp_path, [], cycles)
+    assert report["supplementary"]["pending-rate-contradicts-shown-state"]["count"] == 1

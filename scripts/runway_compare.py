@@ -27,6 +27,17 @@ Classes:
                        days than that.
   flip-flop            one hex recorded as departing and as arriving within
                        FLIP_FLOP_WINDOW_S seconds.
+  route-direction-mismatch
+                       a row with a complete route that does not fit its state:
+                       departing needs origin AIRPORT and a different
+                       destination, arriving needs destination AIRPORT and a
+                       different origin. Points at a stale or reused-callsign
+                       route.
+
+Supplementary (not a class): pending-rate-contradicts-shown-state counts
+poll_cycles rows whose detected (pending) aircraft has a vertical rate that
+contradicts the state of the aircraft on screen. That is expected while an
+aircraft waits in the queue and is reported only to size the effect.
 
 The report's "coverage" field gives the first and last ts and the row count
 of each input, so a class that needs poll_cycles is visibly limited to it.
@@ -47,6 +58,7 @@ from server.plane.runway_config import (  # noqa: E402
     DESCEND_THRESHOLD_FPM,
 )
 
+AIRPORT = "ORY"
 JOIN_WINDOW_S = 120
 FLIP_FLOP_WINDOW_S = 600
 NO_ROUTE_MIN_DAYS = 30
@@ -58,6 +70,7 @@ CLASS_NAMES = (
     "rotating-route",
     "no-route",
     "flip-flop",
+    "route-direction-mismatch",
 )
 
 
@@ -265,6 +278,51 @@ def _flip_flop(events):
     return _result(found)
 
 
+def _route_fits(event):
+    origin, destination = event.get("origin"), event.get("destination")
+    if not (origin and destination):
+        return True
+    state = event.get("confirmed_state")
+    if state == "departing":
+        return origin == AIRPORT and destination != AIRPORT
+    if state == "arriving":
+        return destination == AIRPORT and origin != AIRPORT
+    return True
+
+
+def _route_direction_mismatch(events):
+    rows = [
+        {
+            "hex": e.get("hex"),
+            "ts": e["ts"],
+            "callsign": e.get("callsign"),
+            "state": e["confirmed_state"],
+            "route": "%s-%s" % (e["origin"], e["destination"]),
+            "route_source": e.get("route_source"),
+        }
+        for e in events
+        if not _route_fits(e)
+    ]
+    return _result(rows)
+
+
+def _pending_contradiction(cycles):
+    rows = [
+        {
+            "hex": c["detected_hex"],
+            "ts": c["ts"],
+            "callsign": c.get("detected_callsign"),
+            "state": c.get("confirmed_state"),
+            "rate_fpm": c["detected_rate_fpm"],
+        }
+        for c in sorted(cycles, key=lambda row: row["ts"])
+        if c.get("detected_hex")
+        and c.get("detected_hex") != c.get("shown_hex")
+        and _contradicts(c.get("confirmed_state"), c.get("detected_rate_fpm"))
+    ]
+    return _result(rows)
+
+
 def analyse(data_dir, no_route_min_days=NO_ROUTE_MIN_DAYS):
     """Return the JSON-serialisable report for the snapshot in data_dir."""
     events = _read_jsonl(os.path.join(data_dir, "runway_events.jsonl"))
@@ -277,6 +335,7 @@ def analyse(data_dir, no_route_min_days=NO_ROUTE_MIN_DAYS):
         "rotating-route": _rotating_route(events),
         "no-route": _no_route(events, no_route_min_days),
         "flip-flop": _flip_flop(events),
+        "route-direction-mismatch": _route_direction_mismatch(events),
     }
     return {
         "coverage": {
@@ -285,6 +344,9 @@ def analyse(data_dir, no_route_min_days=NO_ROUTE_MIN_DAYS):
         },
         "per_day": _per_day(events),
         "classes": classes,
+        "supplementary": {
+            "pending-rate-contradicts-shown-state": _pending_contradiction(cycles)
+        },
     }
 
 
