@@ -941,12 +941,18 @@ def update_page(
         device_html + versions_html)
 
 
-def _loaded_parts(ctx, requested_type, embedded, model_text=""):
+def _loaded_parts(ctx, requested_type, embedded, model_text="", pinned=False):
     ctx = page_context.coerce(ctx)
-    state_dir = ctx.state_dir
+    # The registry and the device report are fleet-wide documents kept in the
+    # root state directory; a non-live frame's own directory does not hold them.
+    state_dir = ctx.root_state_dir or ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
     device_report = firmware_registry.load_device_report(state_dir)
-    choice = resolve_type_choice(state_dir, device_report, requested_type)
+    if pinned and requested_type in hardware.available_types():
+        # One frame has exactly one hardware type: no chooser, only its releases.
+        choice = TypeChoice(requested_type, (requested_type,), False)
+    else:
+        choice = resolve_type_choice(state_dir, device_report, requested_type)
     registry = firmware_registry.load_registry(state_dir, choice.selected)
     view = firmware_registry.update_view(registry, device_report, now)
     next_wake_text, wake_held = compute_next_wake_text(ctx)
@@ -956,8 +962,9 @@ def _loaded_parts(ctx, requested_type, embedded, model_text=""):
 def render_parts(ctx, requested_type=None, model_text=""):
     """The embedded page as (device html, versions html, summary): the Fleet
     page places the summary, the update card and the version history in one
-    section. `model_text` is the model line the summary shows."""
-    return _loaded_parts(ctx, requested_type, True, model_text)
+    section. `model_text` is the model line the summary shows. `requested_type`
+    is the frame's own hardware type and is always honoured, without a chooser."""
+    return _loaded_parts(ctx, requested_type, True, model_text, pinned=True)
 
 
 def render(ctx, requested_type=None, embedded=False):

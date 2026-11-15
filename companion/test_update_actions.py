@@ -458,19 +458,6 @@ def test_one_relevant_type_shows_no_chooser_and_no_type_field(server, cookie):
     assert _type_buttons(other.decode("utf-8")) == []
 
 
-def test_chooser_lists_each_relevant_type_and_defaults_to_legacy(
-        two_type_server, two_type_cookie):
-    status, _headers, body = get(two_type_server, _FLEET_LIVE, cookie=two_type_cookie)
-    assert status == 200
-    html = body.decode("utf-8")
-    labels = {key: fr.hardware.get_profile(key, _SIM_ENV).label for key in (_LEGACY, _OTHER)}
-    assert _type_buttons(html) == [
-        (_LEGACY, "true", labels[_LEGACY]), (_OTHER, "false", labels[_OTHER])]
-    assert _RUNNING_VERSION in html
-    assert _OTHER_RUNNING not in html
-    assert set(_hidden_types(html)) == {_LEGACY}
-
-
 def test_other_type_page_shows_only_that_types_releases_and_schedule(
         two_type_server, two_type_cookie):
     fr.schedule_release(
@@ -590,13 +577,13 @@ def test_older_release_above_the_floor_can_be_scheduled_in_each_type(
     assert fr.load_registry(state_dir, _OTHER)["schedule"]["version"] == _OTHER_ROLLBACK
 
 
-def test_chooser_renders_in_french(two_type_server, two_type_cookie):
-    fr_cookie = two_type_cookie + "; %s=fr" % auth.UI_LANG_COOKIE_NAME
-    status, _headers, body = get(two_type_server, _FLEET_LIVE, cookie=fr_cookie)
+def test_fleet_view_of_a_frame_has_no_chooser(two_type_server, two_type_cookie):
+    status, _headers, body = get(two_type_server, _FLEET_LIVE, cookie=two_type_cookie)
     html = body.decode("utf-8")
     assert status == 200
-    assert "Hardware type" not in html
-    assert "Type de matériel" in html
+    assert _type_buttons(html) == []
+    assert _RUNNING_VERSION in html
+    assert _OTHER_RUNNING not in html
 
 
 # ==========================================================================

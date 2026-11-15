@@ -859,6 +859,15 @@ def two_type_server(make_app_server, monkeypatch):
     return make_app_server(seed=_seed_two_types, env_overrides=_SIM_ENV)
 
 
+def _standalone_update_url(base_url):
+    """The standalone Update page. A frame's own Fleet page is pinned to its type and has
+    no chooser; the chooser is served only here, and only for a requested type that no frame
+    of the viewer uses (otherwise GET /update redirects to that frame's Fleet page). The
+    two-type fixture has no frame of the second type, so that type is requested."""
+    return "%s%s?%s=%s" % (
+        base_url, layout.UPDATE_ROUTE, update_page.TYPE_QUERY_PARAM, _OTHER_TYPE)
+
+
 def test_single_type_page_has_no_chooser(new_context, server):
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
@@ -871,6 +880,22 @@ def test_single_type_page_has_no_chooser(new_context, server):
         context.close()
 
 
+def test_frame_fleet_page_is_pinned_to_its_type_even_with_two_types_released(
+        new_context, two_type_server):
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        base_url = two_type_server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + FLEET_ROUTE)
+        _reveal(page, "versions")
+        assert page.locator(_CHOOSER).count() == 0
+        assert page.locator('input[name="%s"]' % update_page.TYPE_FORM_FIELD).count() <= 1
+        assert page.locator("main").inner_text().count(_OTHER_AVAILABLE_VERSION) == 0
+    finally:
+        context.close()
+
+
 def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         new_context, two_type_server):
     server = two_type_server
@@ -879,15 +904,11 @@ def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         page = context.new_page()
         base_url = server.base_url()
         _login(page, base_url)
-        page.goto(base_url + FLEET_ROUTE)
+        page.goto(_standalone_update_url(base_url))
         other_label = fr.hardware.get_profile(_OTHER_TYPE, _SIM_ENV).label
         assert page.locator(_CHOOSER + " button").count() == 2
         assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').count() == 1
 
-        page.locator(_CHOOSER + " button", has_text=other_label).click()
-        page.wait_for_load_state("networkidle")
-        assert page.url == "%s%s?%s=%s" % (
-            base_url, layout.UPDATE_ROUTE, update_page.TYPE_QUERY_PARAM, _OTHER_TYPE)
         assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').inner_text() == other_label
         assert page.locator("section.update-cta").inner_text().count(_OTHER_AVAILABLE_VERSION) >= 1
 
@@ -903,9 +924,13 @@ def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         assert fr.load_registry(server.state_dir)["schedule"] is None
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 1
 
+        # The legacy type has a frame, so choosing it lands on that frame's Fleet page, which
+        # is pinned to its own type: no chooser, and the other type's schedule is not shown.
         page.locator(_CHOOSER + " button", has_text=fr.hardware.get_profile(
             fr.hardware.LEGACY_KEY).label).click()
         page.wait_for_load_state("networkidle")
+        assert page.url.startswith(base_url + FLEET_ROUTE)
+        assert page.locator(_CHOOSER).count() == 0
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 0
         assert page.locator("section.update-offer, section.update-cta").inner_text().count(_AVAILABLE_VERSION) >= 1
     finally:
@@ -918,7 +943,7 @@ def test_chooser_is_keyboard_operable(new_context, two_type_server):
         page = context.new_page()
         base_url = two_type_server.base_url()
         _login(page, base_url)
-        page.goto(base_url + FLEET_ROUTE)
+        page.goto(_standalone_update_url(base_url))
         for _ in range(40):
             page.keyboard.press("Tab")
             if page.evaluate(
@@ -948,7 +973,7 @@ def test_chooser_fits_without_horizontal_overflow(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + FLEET_ROUTE)
+        page.goto(_standalone_update_url(base_url))
         _reveal(page, "device")
         assert page.locator(_CHOOSER).count() == 1
         sizes = page.evaluate(
