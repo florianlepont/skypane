@@ -66,3 +66,4 @@ looks; visual work waits for v1.3.
   example Re-activate) cannot be reached. Also recorded as a gap of the Phase 64
   walk-through.
 - 2026-11-15, owner, with a screenshot: on the Flight history page, when the browser is narrowed, the search field drops under the title at some width, which looks odd.
+- 2026-11-15, owner: on the theme page, switching tab reloads all the frame previews, even those of the other tab. The preview images carry a 5-minute cache, so check whether each tab change is a full navigation or whether the preview URLs change at each render.
