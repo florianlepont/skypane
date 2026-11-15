@@ -39,7 +39,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix. (closed 2026-10-31 by the owner after production tests; the real per-device rows of the matrix, AUTH-03, are carried to Phase 55)
 - [x] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
 - [x] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (closed 2026-10-31; 11/11 plans, criteria 1-3 verified, merged in #257. Owner follow-ups, not gaps: send the adsb.fi / adsb.lol contact draft once the fleet exceeds 10 users, non-blocking landscape preview follow-up)
-- [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47 and on the OTA signing bench check passing on a non-live unit. (code, tests, release instructions and bench checklist done and merged in #391, CI green including the first ESP-IDF compile, 2026-11-14; no tag, nothing published; waiting on the EE04 bench B1-B9 and the owner's release gesture, see 57-VERIFICATION.md)
+- [x] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47 and on the OTA signing bench check passing on a non-live unit. (code merged in #391, CI green; EE04 bench B1-B9 done 2026-11-14/15 with limits; release `fw-v1.1.0` published and installed on the live frame 2026-11-15, owner reports everything ok; see 57-VERIFICATION.md)
 - [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
@@ -390,7 +390,7 @@ Plans:
   2. After the OTA, the live frame still wakes on its cadence and displays a correct image, and it is served the new container only after announcing support.
   3. A frame that fails the update stays on the previous working firmware.
 
-**Plans**: TBD
+**Plans**: 6 plans (57-01 to 57-06), all complete; see `phases/57-combined-legacy-frame-firmware-release/57-VERIFICATION.md`
 
 ### Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)
 
@@ -702,7 +702,7 @@ Plans:
 | 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Complete, closed by the owner after production tests (2026-10-30 and 2026-10-31); AUTH-03 per-device matrix rows carried to Phase 55 (see 54-HANDOFF.md) | 2026-10-31 |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Complete: merged and deployed 2026-10-31, verified in code and by the owner in production; real-panel pairing test waits for the second hardware (see 55-HANDOFF.md) | 2026-11-01 |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete, merged (#257) and deployed 2026-10-31; verification passed, two owner follow-ups open (see 56-VERIFICATION.md) | 2026-10-31 |
-| 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
+| 57. Combined Legacy-Frame Firmware Release | v1.2 | 6/6 | Complete: code merged (#391); EE04 bench B1-B9 done with stated limits; `fw-v1.1.0` released and installed on the live frame by the owner; verification passed | 2026-11-15 |
 | 58. Second Hardware | v1.2 | 3/5 | In progress (part 1 done; one Seeed EE04 unit ordered 2026-11-07): 58-03/58-04 wait for the unit on the bench | - |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
