@@ -26,10 +26,10 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B2. Unconfirmed-trial rollback
 
-- [ ] B2. Build dev-profile images with `SKYPANE_PROFILE=dev SKYPANE_FAULT=nvs ./build.sh` and with `SKYPANE_PROFILE=dev SKYPANE_FAULT=slow_wake ./build.sh`, each with a higher bench version, signed with the bench key, imported and scheduled to the bench unit only. Let the unit install each in turn, watching `firmware/monitor.sh`.
+- [x] B2. Build dev-profile images with `SKYPANE_PROFILE=dev SKYPANE_FAULT=nvs ./build.sh` and with `SKYPANE_PROFILE=dev SKYPANE_FAULT=slow_wake ./build.sh`, each with a higher bench version, signed with the bench key, imported and scheduled to the bench unit only. Let the unit install each in turn, watching `firmware/monitor.sh`.
   - Expected observation: the new image boots but fails (nvs fault, then slow wake), goes to the failure sleep, never confirms, the bootloader rolls back across the deep sleep, the next poll carries `X-Ota-Result` reporting the rollback, and the old version is running again.
-  - Result:
-  - Date:
+  - Result: PASS on the bench unit (seeed-ee04-7in3-spectra6, MAC 84:c7:bb:70:b2:7c), observed by the owner on the bench server telemetry; no serial log captured. Image A `fw-v1.0.10-bench6` (`SKYPANE_FAULT=nvs`): downloaded 09:50:50, the unit reported `fw-v1.0.9-bench4` with `X-Ota-Result=rollback;fw-v1.0.10-bench6` at 09:56:50. Image B `fw-v1.0.11-bench7` (`SKYPANE_FAULT=slow_wake`): downloaded 10:05:43, reported `fw-v1.0.9-bench4` with `X-Ota-Result=rollback;fw-v1.0.11-bench7` at 10:23:21, and was retried (second attempt 10:23:54). No boot loop in either case. Not observed: the trial boot itself (inferred from the rollback token and the version returning). Ticked by the assistant at the owner's explicit request on 2026-11-15, from the telemetry the owner pasted.
+  - Date: 2026-11-15
 
 ### B3. Container wake
 
