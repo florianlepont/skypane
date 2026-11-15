@@ -33,10 +33,10 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B3. Container wake
 
-- [ ] B3. Serve the bench unit a container image from a bench server using the combined build. Capture with `firmware/monitor.sh`.
+- [x] B3. Serve the bench unit a container image from a bench server using the combined build. Capture with `firmware/monitor.sh`.
   - Expected observation: the log shows `fp_diag image format=container status=0 crc_ms=<n>`, the picture on the panel is correct, and the next wake hash-skips (no redraw).
-  - Result (crc_ms value):
-  - Date:
+  - Result (crc_ms value): PASS for the serial log, crc_ms=21. Bench unit seeed-ee04-7in3-spectra6 (MAC 84:c7:bb:70:b2:7c) running the combined build `fw-v1.0.12-bench8` (installed through OTA: `trial` at 10:48:04, `installed` at 10:53:39). Serial capture of one wake after the served image was changed on the bench server: `fp_diag image format=container status=0 crc_ms=21`, `blit ok bytes=192000 sha256_ok=1`, `refreshed to sha256:4822139f…`, `poll ok sleep_s=300 hash_skip=0`, `wake timing total_ms=37176 download_ms=778 draw_ms=31204`. An earlier wake with the image unchanged logged `image unchanged, skipping download` and `hash_skip=1` (total_ms=4721 and 2056), which is the no-redraw half of this check. Not recorded here: the owner's visual check of the panel (the changed image has a red band at the top). Ticked by the assistant at the owner's explicit request on 2026-11-15.
+  - Date: 2026-11-15
 
 ### B4. Legacy fallback
 
