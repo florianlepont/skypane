@@ -184,7 +184,8 @@ def _paint_text(canvas: Image.Image, geom: _Geometry, size: Size, lines: Tuple[s
 
 def _paint_marks(canvas: Image.Image, size: Size, ink: int, source_fault: bool,
                  battery_low: bool) -> None:
-    """Battery-low glyph and source-fault badge, drawn in the screen's ink."""
+    """Battery-low glyph and source-fault badge, drawn in the screen's ink:
+    bottom of the portrait canvas, top right of the landscape one."""
     if size[0] < size[1]:
         draw = ImageDraw.Draw(canvas)
         if source_fault:
@@ -192,12 +193,16 @@ def _paint_marks(canvas: Image.Image, size: Size, ink: int, source_fault: bool,
         if battery_low:
             glyphs.draw_battery_icon(canvas, draw, ink)
         return
+    # Top right, right-aligned to the margin, stacked: the corner above the
+    # giant lines is the only free area; the bottom left holds the body text.
+    margin = landscape_common.margin_for(size)
+    right, y = size[0] - margin, margin
     if battery_low:
-        landscape_card.draw_battery_low(canvas, size, ink)
+        landscape_card.draw_battery_low(canvas, size, ink, top_right=(right, y))
+        y += landscape_card.battery_low_extent(size)[1] + margin // 2
     if source_fault:
-        geom = SimpleNamespace(margin=landscape_common.margin_for(size),
-                               overlay_right=round(size[0] * 0.5))
-        landscape_card.draw_source_fault(canvas, size, geom, ink, "bold")
+        geom = SimpleNamespace(margin=margin, overlay_right=right)
+        landscape_card.draw_source_fault(canvas, size, geom, ink, "bold", top_right=(right, y))
 
 
 def build_status(kind: str, size: Size, *, quiet_hours_until: Optional[str] = None,
