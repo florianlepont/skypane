@@ -107,3 +107,13 @@ def test_other_runway_reference_rows_are_ignored():
     got, out = _verdict([_ev()], refs)
     assert got == ["unverifiable-no-reference"]
     assert out["missed"] == []
+
+
+def test_reference_can_be_read_from_csv(tmp_path):
+    path = tmp_path / "ref.csv"
+    path.write_text("callsign,ts,direction,runway,source\n"
+                    "AFR1,2026-11-01T10:05:00Z,departing,3,example.org\n"
+                    "AFR2,2026-11-01T11:05:00Z,arriving,,example.org\n", encoding="utf-8")
+    rows = rec._read_jsonl(str(path))
+    assert rows[0]["callsign"] == "AFR1"
+    assert "runway" not in rows[1]

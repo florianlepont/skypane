@@ -13,6 +13,7 @@ recorded event are reported separately as missed-aircraft.
 """
 import argparse
 import collections
+import csv
 import datetime
 import json
 import random
@@ -65,7 +66,7 @@ def build_events(rows):
 
 
 def _stratum(event):
-    return (event["ts"][:10], event.get("confirmed_state"),
+    return (event["ts"][:10], event.get("confirmed_state") or "",
             hour_band(event["ts"]), airline_family(event.get("airline")))
 
 
@@ -181,6 +182,11 @@ def classify(sample, refs, all_events, window_min=DEFAULT_WINDOW_MIN):
 
 
 def _read_jsonl(path):
+    """Reads JSON Lines, or a CSV with a header row when the path ends in .csv."""
+    if path.endswith(".csv"):
+        with open(path, encoding="utf-8", newline="") as handle:
+            return [{k: v for k, v in row.items() if v not in (None, "")}
+                    for row in csv.DictReader(handle)]
     with open(path, encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
