@@ -35,11 +35,11 @@ Bench images use throwaway keys and would reject a production-signed OTA.
 
 | Field | Value | Status |
 |-------|-------|--------|
-| Frame MAC | | open |
-| Image flashed carries the production firmware key (how it was obtained and flashed) | | open |
-| Production server trusts that key | | open |
-| Guarded `provision.sh` run (no refusal, live frame's port and MAC untouched) | | open |
-| Paired on the production server; shown as a second-type row in the production fleet database | | open |
+| Frame MAC | 84:c7:bb:70:b2:7c | owner-reported (flash-second.sh and provision.sh output) |
+| Image flashed carries the production firmware key (how it was obtained and flashed) | Production-signed `skypane-seeed-ee04-7in3-spectra6-fw-v1.2.0.bin` of release fw-v1.2.0 copied over the local build's skypane.bin, flashed with `firmware/flash-second.sh /dev/cu.usbmodem101` (prod profile, verifies against `firmware/signing/skypane-signing-pubkey.pem`); owner reported `SUCCESS 84:c7:bb:70:b2:7c`, 2026-11-15 | owner-reported |
+| Production server trusts that key | Not applicable on the server side (the frame verifies the image against the public key built into its firmware); the production-signed image passed the pre-flash signature check and the frame woke, enrolled and paired | owner-reported |
+| Guarded `provision.sh` run (no refusal, live frame's port and MAC untouched) | Owner ran `firmware/provision.sh /dev/cu.usbmodem101 --wifi-ssid ... --api-base https://vps-1440bce3.vps.ovh.net` with the live frame unplugged; output: "Provisioned 84:c7:bb:70:b2:7c ... Secret partition verified byte-for-byte"; the live-frame variables were not set (typed MAC only) | owner-reported |
+| Paired on the production server; shown as a second-type row in the production fleet database | Registered as pending on the VPS with `fleet_cli devices register-pending --hardware seeed-ee04-7in3-spectra6` ("registered 84:c7:bb:70:b2:7c as pending, pending id p_1e8a1894"; the console has no register form, so the CLI was used); the owner then paired it in the companion with the code shown on the panel ("j'ai apparié avec le code") | owner-reported |
 
 ## C. Real signed OTA over https (criterion 5)
 
@@ -62,4 +62,6 @@ Bench images use throwaway keys and would reject a production-signed OTA.
 
 ## E. Open items
 
-(To be listed when the owner reports.)
+- The deploy README (Device enrolment, and Pairing, retiring and re-activating a frame) tells the administrator to use the console's "Register a frame" form, which the current console does not offer (only the POST route `/fleet/register` exists). The frame was registered with `fleet_cli devices register-pending`. The README needs a correction.
+- `fleet_cli` reads the second-hardware switch from its own environment: it needs `SKYPANE_ENABLE_SECOND_HARDWARE=1` on the command line to accept the type. To be written in the README.
+- Real signed OTA (section C) and failing update (section D) are not done yet.
