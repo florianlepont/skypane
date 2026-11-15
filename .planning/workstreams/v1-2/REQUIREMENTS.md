@@ -60,7 +60,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 ### Second Hardware
 
 - [x] **HW2-01**: The owner can choose a second hardware type from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, within the hardware budget.
-- [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
+- [x] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
 
 ### Second Hardware in Production
 
@@ -163,7 +163,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | HWR-02 | Phase 56 | Complete (contact deferred by the owner until more than 10 users) |
 | OTA-04 | Phase 57 | Complete |
 | HW2-01 | Phase 58 | Complete |
-| HW2-02 | Phase 58 | Pending |
+| HW2-02 | Phase 58 | Complete, with one exception accepted by the owner on 2026-11-15: the battery sample and rebuilt model were not obtained, the model stays provisional (see 58-04-SUMMARY.md) |
 | HW2-03 | Phase 64 | Pending |
 | HW2-04 | Phase 64 | Pending |
 | HW2-05 | Phase 64 | Pending |
