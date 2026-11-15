@@ -40,17 +40,17 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B4. Legacy fallback
 
-- [ ] B4. Make the bench server serve a raw (legacy) image to the combined build.
+- [x] B4. Make the bench server serve a raw (legacy) image to the combined build.
   - Expected observation: the log shows `fp_diag image format=legacy` with a legacy-ok status, the image is drawn correctly, and no sticky flag is set.
-  - Result:
-  - Date:
+  - Result: PASS on server evidence and the panel; the serial line `fp_diag image format=legacy` was not captured. Bench unit seeed-ee04-7in3-spectra6 (MAC 84:c7:bb:70:b2:7c) running `fw-v1.0.12-bench8`. With the bench server returning the raw image (type contradiction, see B5), the unit polled after a reset at 11:18:40, downloaded `/img/d_0f7b6d33/77f7ffbb…bin` and the panel showed the new picture (green band at the top). The sha256 of the bench `panel.bin` is `77f7ffbb6eb9d9082aa5295bf075038eda4244be579a4f2457352dd1901ba82b`, equal to the served digest, so the served body was the raw file, not a container. No sticky flag was involved. Ticked by the assistant at the owner's explicit request on 2026-11-15.
+  - Date: 2026-11-15
 
 ### B5. Hardware claim
 
-- [ ] B5. With the unit's type matching its fleet record, poll and check the offer. Then change the type in the bench fleet record so it contradicts the unit's claimed type and poll again.
+- [x] B5. With the unit's type matching its fleet record, poll and check the offer. Then change the type in the bench fleet record so it contradicts the unit's claimed type and poll again.
   - Expected observation: matching type is offered the container and any scheduled firmware; the contradiction yields the raw image and no firmware offer, and the frame still polls normally.
-  - Result:
-  - Date:
+  - Result: PASS for the server side and the frame still polling; one direction only on the panel. Bench fleet record changed from `seeed-ee04-7in3-spectra6` to `sim-landscape-800x480` (same image size, 192000 bytes; server started with `SKYPANE_SIM_HARDWARE=1`) while the unit kept claiming `seeed-ee04-7in3-spectra6`. Server log: `ota: 84:c7:bb:70:b2:7c claim mismatch (seeed-ee04-7in3-spectra6); no firmware offer`; the poll was answered 200 with the raw image (see B4) and the unit kept polling every wake. Matching case: container served and scheduled firmware offered and installed (B3, and the OTA of `fw-v1.0.12-bench8` at 10:47-10:53). The first reset after the record change showed `image unchanged`: the unit had probably already fetched the raw image on an unobserved timer wake. The bench record was to be restored by the owner after the check (not confirmed here). Ticked by the assistant at the owner's explicit request on 2026-11-15.
+  - Date: 2026-11-15
 
 ### B6. 401 loop
 
