@@ -90,3 +90,68 @@ def test_live_frame_output_is_the_same_whichever_directory_is_named(tmp_path):
     without_root = "".join(update_page.render_parts(ctx, hardware.LEGACY_KEY, "Model X")[:2])
     assert same == without_root
     assert "fw-v1.1.0" in same
+
+
+def _write_two_type_report(root, live_version, second_version):
+    fr._ensure_firmware_dir(root)
+    report = {"schema": 1, "next_seq": 0, "devices": {
+        "live": {"fw_version": live_version, "reported_at": _NOW, "events": [],
+                 "hardware_type": hardware.LEGACY_KEY},
+        "frame2": {"fw_version": second_version, "reported_at": _NOW, "events": [],
+                   "hardware_type": _SECOND_TYPE}}}
+    atomic_io.atomic_write(fr.device_report_path(root), json.dumps(report))
+
+
+def _two_type_root(tmp_path):
+    root = str(tmp_path)
+    frame_dir = os.path.join(root, "devices", "frame2")
+    os.makedirs(frame_dir)
+    _write_registry(root, hardware.LEGACY_KEY, ["fw-v1.0.0", "fw-v1.1.0"])
+    _write_registry(root, _SECOND_TYPE, ["fw-v1.2.0", "fw-v1.2.1"])
+    _write_two_type_report(root, "fw-v1.1.0", "fw-v1.2.0")
+    return root, frame_dir
+
+
+def _versions(text):
+    doc = parse_html(text)
+    return sorted(node.text() for node in doc.select("li.update-item .update-item__version"))
+
+
+def test_live_frame_page_has_no_chooser_and_only_its_own_type(tmp_path, second_type_enabled):
+    """with releases and reports for two types the live frame's page names no second
+    type, lists only its releases and shows its own reported version"""
+    root, _frame_dir = _two_type_root(tmp_path)
+    text = _served(root, root, hardware.LEGACY_KEY)
+    doc = parse_html(text)
+    assert doc.select_one(".update-type-chooser") is None
+    assert hardware.get_profile(_SECOND_TYPE).label not in text
+    assert _versions(text) == ["fw-v1.0.0", "fw-v1.1.0"]
+    assert doc.select_one(".update-sum__version").text() == "fw-v1.1.0"
+    assert "fw-v1.2.0" not in text
+
+
+def test_second_type_frame_page_has_no_chooser_and_only_its_own_type(
+        tmp_path, second_type_enabled):
+    """a non-live second-type frame shows only its own releases and no tab for the
+    first type"""
+    root, frame_dir = _two_type_root(tmp_path)
+    text = _served(root, frame_dir, _SECOND_TYPE)
+    doc = parse_html(text)
+    assert doc.select_one(".update-type-chooser") is None
+    assert hardware.get_profile(hardware.LEGACY_KEY).label not in text
+    assert _versions(text) == ["fw-v1.2.0", "fw-v1.2.1"]
+    assert doc.select_one(".update-sum__version").text() == "fw-v1.2.0"
+    assert "fw-v1.1.0" not in text
+
+
+def test_frame_whose_type_has_no_releases_shows_its_own_empty_state(
+        tmp_path, second_type_enabled):
+    """a second-type frame without releases shows the empty state, not the first type's list"""
+    root = str(tmp_path)
+    frame_dir = os.path.join(root, "devices", "frame2")
+    os.makedirs(frame_dir)
+    _write_registry(root, hardware.LEGACY_KEY, ["fw-v1.0.0", "fw-v1.1.0"])
+    text = _served(root, frame_dir, _SECOND_TYPE)
+    assert "No releases yet" in text
+    assert _versions(text) == []
+    assert parse_html(text).select_one(".update-type-chooser") is None
