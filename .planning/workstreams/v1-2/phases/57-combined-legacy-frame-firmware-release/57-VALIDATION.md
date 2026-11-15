@@ -1,9 +1,9 @@
 ---
 phase: 57
 slug: combined-legacy-frame-firmware-release
-status: draft
+status: complete
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-11-14
 ---
 
@@ -54,9 +54,9 @@ created: 2026-11-14
 
 ## Wave 0 Requirements
 
-- [ ] `stub-server/test_hw_claim.py` (created in 57-02 before implementation)
-- [ ] New cases in test_image_container.c, test_validate.c, test_fault_screen.c, test_sleep_decision.c (57-01)
-- [ ] `firmware/tests/check_hw_type_key.sh` (57-03)
+- [x] `stub-server/test_hw_claim.py` (created in 57-02 before implementation)
+- [x] New cases in test_image_container.c, test_validate.c, test_fault_screen.c, test_sleep_decision.c (57-01)
+- [x] `firmware/tests/check_hw_type_key.sh` (57-03)
 
 ## Manual-Only Verifications (owner, EE04 unit, never ticked by an agent)
 
