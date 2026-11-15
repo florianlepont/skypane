@@ -35,6 +35,9 @@ ASPECT_HEADING_ID = "aspect-heading"
 # saved field names are the values of LOOK_FIELDS.
 COLOUR_USAGE_DEPARTURES = "departures"
 COLOUR_USAGE_ARRIVALS = "arrivals"
+# The look of a position-mode frame: one look for every aircraft. It has no
+# field of its own; it edits `theme`.
+COLOUR_USAGE_POSITION = "position"
 COLOUR_USAGE_CALENDAR = "calendar"
 COLOUR_USAGE_RULES = "rules"
 LOOK_FIELDS = {
@@ -45,6 +48,7 @@ LOOK_FIELDS = {
 FRAME_COLOURS_ROW_LABELS = {
     COLOUR_USAGE_DEPARTURES: i18n.msg("display.departures", "Departures"),
     COLOUR_USAGE_ARRIVALS: i18n.msg("display.arrivals", "Arrivals"),
+    COLOUR_USAGE_POSITION: i18n.msg("look.look", "Look"),
     COLOUR_USAGE_CALENDAR: i18n.msg("display.calendar_flights", "Calendar flights"),
 }
 LOOK_SHEET_TITLES = {
@@ -52,6 +56,11 @@ LOOK_SHEET_TITLES = {
     COLOUR_USAGE_ARRIVALS: i18n.msg("look.arrivals_look", "Arrivals look"),
     COLOUR_USAGE_CALENDAR: i18n.msg("look.calendar_flights_look", "Calendar flights look"),
 }
+# What the look of a position-mode frame covers.
+POSITION_LOOK_HELP = i18n.msg(
+    "look.position_help",
+    "This look applies to every aircraft near you. An aircraft flying level over you "
+    "is labelled Overhead and shows the city it is flying to.")
 LOOK_CHANGE_LABEL = i18n.msg("look.change", "Change")
 LOOK_CHANGE_ARIA_TEMPLATE = i18n.msg("look.change_the_look", "Change the look: %s")
 LOOK_PREVIEW_ALT_TEMPLATE = i18n.msg("look.preview_alt", "Preview: %s, %s")
@@ -333,14 +342,14 @@ def look_radio_cards_html(effective_id, saved_id, usage_label):
         escape_html(i18n.t(LOOK_GROUP_LABEL)), cards)
 
 
-def look_pick_html(current_theme_id, submitted, errors, lazy=False):
+def look_pick_html(current_theme_id, submitted, errors, lazy=False, state=None):
     """The Look card's main block: the large live picture of the departures
     look and the radio cards that choose it (the inline picker replaces them
     when a script runs). Everything sits in one look target, so the look sheet and
     the live picture follow a card exactly as they follow the sheet."""
     departures_id = departures_safe_theme_id(current_theme_id, submitted)
     effective_id = _submitted_or_current(submitted, "theme", current_theme_id)
-    state = theme_preview.FRAME_PREVIEW_STATE_DEPARTING
+    state = state or theme_preview.FRAME_PREVIEW_STATE_DEPARTING
     size = theme_preview.FRAME_PREVIEW_SIZE_LARGE
     field_name = LOOK_FIELDS[COLOUR_USAGE_DEPARTURES]
     usage_label = i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES])
@@ -372,6 +381,11 @@ def look_pick_html(current_theme_id, submitted, errors, lazy=False):
         _field_error_html(errors, field_name, field_name.replace("_", "-")))
 
 
+def position_help_html():
+    """The sentence that says what the one look of a position frame covers."""
+    return '<p class="text-label section-caption">%s</p>' % escape_html(i18n.t(POSITION_LOOK_HELP))
+
+
 def look_card_body_html(
         current_theme_id, current_theme_arriving, errors=None, submitted=None, usage=None):
     """What a look view holds. With a script: the live picture of the chosen
@@ -380,8 +394,13 @@ def look_card_body_html(
     type, exactly as before. `usage` (departures or arrivals) names the type
     shown; None shows both. The other type's picture and radios stay in the
     markup, hidden, so the form posts the same fields and the picker can
-    resolve "Same as departures".
+    resolve "Same as departures". `usage` Position is the one look of a
+    position-mode frame: the departures picker (it edits `theme`) with the
+    picture of an overhead aircraft and a help sentence.
     """
+    single = usage == COLOUR_USAGE_POSITION
+    if single:
+        usage = COLOUR_USAGE_DEPARTURES
     departures_id = departures_safe_theme_id(current_theme_id, submitted)
     effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
     hidden = {name: " hidden" if usage not in (None, name) else ""
@@ -392,6 +411,7 @@ def look_card_body_html(
         theme_preview.FRAME_PREVIEW_STATE_ARRIVING,
         lazy=bool(hidden[COLOUR_USAGE_ARRIVALS]))
     return (
+        "%s"
         '<div class="look-view" data-look-initial="%s">'
         '<div class="look-stage">'
         '<div class="look-panel" data-look-panel="%s"%s>%s</div>'
@@ -400,9 +420,11 @@ def look_card_body_html(
         '<div class="look-picker js-gate">%s</div>'
         "</div>"
     ) % (
+        position_help_html() if single else "",
         usage or COLOUR_USAGE_DEPARTURES,
         COLOUR_USAGE_DEPARTURES, hidden[COLOUR_USAGE_DEPARTURES],
         look_pick_html(
-            current_theme_id, submitted, errors, lazy=bool(hidden[COLOUR_USAGE_DEPARTURES])),
+            current_theme_id, submitted, errors, lazy=bool(hidden[COLOUR_USAGE_DEPARTURES]),
+            state=theme_preview.FRAME_PREVIEW_STATE_OVERHEAD if single else None),
         COLOUR_USAGE_ARRIVALS, hidden[COLOUR_USAGE_ARRIVALS], arrivals_html,
         look_sheet_html(inline=True))

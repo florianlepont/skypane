@@ -425,13 +425,14 @@ def lookup_route(callsign, cache, transport=None, timeout=DEFAULT_TIMEOUT, now=N
 
 def city_for_state(route, state):
     """Return the city that matters for `state`: the destination city for
-    departing, the origin city for arriving - so render.py never has to
+    departing and for overhead (an aircraft with no direction shows where it
+    is going), the origin city for arriving - so render.py never has to
     re-derive which end of the route to show. Returns None if `route` is
     None.
     """
     if route is None:
         return None
-    if state == runway_config.STATE_DEPARTING:
+    if state in (runway_config.STATE_DEPARTING, runway_config.STATE_OVERHEAD):
         return route.get("destination_city")
     if state == runway_config.STATE_ARRIVING:
         return route.get("origin_city")

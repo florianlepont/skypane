@@ -1,5 +1,7 @@
 """The Personalisation page's body: the frame's Layout card, one navigation
 (Departures, Arrivals, Special looks, Calendar) and the one view it points at.
+A frame that tracks a position has one look for every aircraft, so its
+navigation holds a single Look view in place of Departures and Arrivals.
 Each view has its own address; Departures is the page's own address. The layout
 is one setting per frame, so its card sits above the navigation and shows
 whichever view is open.
@@ -27,10 +29,10 @@ from companion.settings import rules
 from companion.settings.form import DIRTY_SECTION_ATTR
 from companion.settings.rules import SPECIAL_LOOKS_HEADING, special_looks_html
 from companion.settings.theme import (
-    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
+    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_POSITION,
     FRAME_COLOURS_ROW_LABELS, departures_safe_theme_id, look_card_body_html, look_frame_html,
     look_sheet_html)
-from server import screen_layouts
+from server import detection, screen_layouts
 
 PAGE_ID = "personalisation"
 NAV_LABEL = i18n.msg("display.personalisation_sections", "Style sections")
@@ -158,11 +160,24 @@ def _calendar_look_controls(values, errors):
         theme_preview.FRAME_PREVIEW_STATE_DEPARTING, carries_departures=True)
 
 
-def _views():
-    """(slug, title message, icon id) of the four views in navigation order."""
-    return (
-        (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
-        (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane"),
+def watches_position(values):
+    """True when the frame tracks a position rather than a runway: it has one
+    look for every aircraft, so there are no separate Departures and Arrivals
+    looks to choose."""
+    selection = detection.current_selection((values or {}).get("device_cfg") or {})
+    return selection["mode"] == detection.POSITION_MODE
+
+
+def _views(position=False):
+    """(slug, title message, icon id) of the views in navigation order: the
+    one Look view for a frame tracking a position, Departures and Arrivals
+    for a runway frame."""
+    looks = (
+        ((VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_POSITION], "icon-plane"),)
+        if position else (
+            (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
+            (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane")))
+    return looks + (
         (VIEW_SPECIAL_LOOKS, SPECIAL_LOOKS_HEADING, "icon-star"),
         (VIEW_CALENDAR, CALENDAR_TITLE, "icon-calendar"))
 
@@ -192,16 +207,17 @@ def view_for_route(route):
     return ROUTE_VIEWS.get(route, VIEW_DEPARTURES)
 
 
-def _nav_html(view):
+def _nav_html(view, position=False):
     """The section navigation: one plain link per view, the current one marked
     (a form page marks the list it belongs to). A script adds the sliding
-    highlight over it; the links work without."""
+    highlight over it; the links work without. `position` is a frame tracking
+    a position: one Look view instead of Departures and Arrivals."""
     view = PARENT_VIEWS.get(view, view)
     links = [
         (escape_html(device_scope.scoped(VIEW_ROUTES[slug])),
          "%s<span>%s</span>" % (layout.icon_html(icon), escape_html(i18n.t(title))),
          slug == view, ' data-pers-view="%s"' % slug)
-        for slug, title, icon in _views()]
+        for slug, title, icon in _views(position)]
     return ui_segmented.segmented_links_html(
         links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"', carry=True)
 
@@ -280,11 +296,14 @@ def page_html(
     The Special looks and Calendar views carry the hidden look sheet their
     openers use; the look views' own sheet is the inline picker.
     """
+    position = watches_position(values)
+    if position and view == VIEW_ARRIVALS:
+        view = VIEW_DEPARTURES  # a position frame has no separate arrivals look
     if view in FORM_VIEWS:
         return '<div class="personalisation">%s<div class="personalisation__view">%s</div></div>' % (
-            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
+            _nav_html(view, position), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
     sheet_html = look_sheet_html() if view is not None else ""
-    usage = LOOK_VIEW_USAGES.get(view)
+    usage = COLOUR_USAGE_POSITION if position and view == VIEW_DEPARTURES else LOOK_VIEW_USAGES.get(view)
     parts = {
         VIEW_DEPARTURES: lambda: _look_view(values, errors, submitted, usage),
         VIEW_SPECIAL_LOOKS: lambda: _special_looks_card(ctx, sheet_html),
@@ -295,7 +314,7 @@ def page_html(
     shown = (view,) if view is not None else (
         VIEW_DEPARTURES, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
     return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div></div>' % (
-        _layout_card(values, errors, submitted), _nav_html(view),
+        _layout_card(values, errors, submitted), _nav_html(view, position),
         "".join(parts[name]() for name in shown))
 
 

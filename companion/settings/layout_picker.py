@@ -28,7 +28,8 @@ from companion.settings.form import (
     _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
     COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
-    COLOUR_USAGE_RULES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL, LOOK_FIELDS, LOOK_PREVIEW_ALT_TEMPLATE, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
+    COLOUR_USAGE_POSITION, COLOUR_USAGE_RULES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL, LOOK_FIELDS,
+    LOOK_PREVIEW_ALT_TEMPLATE, POSITION_LOOK_HELP, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
 
 LAYOUT_FIELD = "layout"
 
@@ -200,18 +201,23 @@ def _pairing_cards_html(field, selected, saved, usage, layout_id, state, form_id
         for pairing_id in look.offered_pairing_ids())
 
 
-def _departures_panel_html(layout_id, current_theme_id, errors, submitted):
+def _departures_panel_html(layout_id, current_theme_id, errors, submitted, overhead=False):
+    """The pairing panel of `theme`. `overhead` draws the one look of a
+    position-mode frame: the same field, drawn as an overhead aircraft."""
     field = LOOK_FIELDS[COLOUR_USAGE_DEPARTURES]
     chosen = _submitted_or_current(submitted, field, current_theme_id)
+    state = (theme_preview.FRAME_PREVIEW_STATE_OVERHEAD if overhead
+             else theme_preview.FRAME_PREVIEW_STATE_DEPARTING)
     cards = _pairing_cards_html(
         field, pairing_id_for(chosen), pairing_id_for(current_theme_id),
-        COLOUR_USAGE_DEPARTURES, layout_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING)
+        COLOUR_USAGE_DEPARTURES, layout_id, state)
     return (
         '<div class="look-pairings" data-look-panel="%s">%s'
         '<div class="look-pick__grid" role="radiogroup" aria-label="%s">%s</div>%s</div>'
     ) % (
-        COLOUR_USAGE_DEPARTURES, _help_html(PAIRING_HELP),
-        escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES])), cards,
+        COLOUR_USAGE_DEPARTURES, _help_html(POSITION_LOOK_HELP if overhead else PAIRING_HELP),
+        escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[
+            COLOUR_USAGE_POSITION if overhead else COLOUR_USAGE_DEPARTURES])), cards,
         _field_error_html(errors, field, field.replace("_", "-")))
 
 
@@ -237,11 +243,13 @@ def _arrivals_panel_html(layout_id, current_arriving, errors, submitted):
 def pairing_view_html(
         layout_id, current_theme_id, current_arriving, errors=None, submitted=None, usage=None):
     """What a look view holds for a frame on a giant-lettering layout: the
-    pairing cards of the type `usage` names (departures or arrivals), or of
+    pairing cards of the type `usage` names (departures, arrivals, or
+    position: the departures field for a position-mode frame), or of
     both when `usage` is None. Only the shown type's field is posted."""
     parts = []
-    if usage in (None, COLOUR_USAGE_DEPARTURES):
-        parts.append(_departures_panel_html(layout_id, current_theme_id, errors, submitted))
+    if usage in (None, COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_POSITION):
+        parts.append(_departures_panel_html(
+            layout_id, current_theme_id, errors, submitted, usage == COLOUR_USAGE_POSITION))
     if usage in (None, COLOUR_USAGE_ARRIVALS):
         parts.append(_arrivals_panel_html(layout_id, current_arriving, errors, submitted))
     return '<div class="look-pairing-view">%s</div>' % "".join(parts)

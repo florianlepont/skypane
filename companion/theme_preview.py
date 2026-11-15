@@ -348,10 +348,14 @@ def _prune_preview_cache(directory, keep_path, max_files=THEME_PREVIEW_CACHE_MAX
 # They always render the fixed fictional scene, so the same theme looks
 # the same everywhere on the page: a departing main flight with an
 # arriving previous card, or the mirror image for the arrivals picture.
+# The overhead picture is the departing scene's flight drawn as a level
+# aircraft over the frame.
 FRAME_PREVIEW_ROUTE_PREFIX = "/frame-preview/"
 FRAME_PREVIEW_STATE_DEPARTING = "departing"
 FRAME_PREVIEW_STATE_ARRIVING = "arriving"
-FRAME_PREVIEW_STATES = (FRAME_PREVIEW_STATE_DEPARTING, FRAME_PREVIEW_STATE_ARRIVING)
+FRAME_PREVIEW_STATE_OVERHEAD = "overhead"
+FRAME_PREVIEW_STATES = (
+    FRAME_PREVIEW_STATE_DEPARTING, FRAME_PREVIEW_STATE_ARRIVING, FRAME_PREVIEW_STATE_OVERHEAD)
 FRAME_PREVIEW_SIZE_LARGE = "large"
 FRAME_PREVIEW_SIZE_SMALL = "small"
 # Integer box-reduction factors of the 1200x1600 canvas. A box filter
@@ -374,7 +378,7 @@ FRAME_PREVIEW_REDUCE_FACTORS_LANDSCAPE = {
     FRAME_PREVIEW_SIZE_SMALL: 5,
 }
 FRAME_PREVIEW_CACHE_DIRNAME = "frame_previews"
-# Every reachable file is one of themes x 2 states x 2 sizes x layouts x
+# Every reachable file is one of themes x 3 states x 2 sizes x layouts x
 # hardware profiles; the bound follows the registries, so adding a theme or
 # a profile never evicts live previews.
 FRAME_PREVIEW_CACHE_MAX_FILES = (

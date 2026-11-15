@@ -347,3 +347,22 @@ def test_pipeline_position_level_aircraft_with_theme_overrides_renders(tmp_path)
                   theme="white", theme_arriving="black")
     result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=0)])
     assert result["state"] == "overhead"
+
+
+def test_pipeline_position_frame_draws_every_state_in_its_one_look(tmp_path):
+    for name, rate, expected_state in (("level", 0, "overhead"), ("down", -600, "arriving"),
+                                       ("up", 900, "departing")):
+        state_dir = tmp_path / name
+        _write_config(state_dir, detection={"mode": "position", "radius_km": 9},
+                      theme="white", theme_arriving="red")
+        result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=rate)])
+        assert (result["state"], result["effective_theme"]) == (expected_state, "white")
+
+
+def test_pipeline_position_frame_keeps_its_stored_arrivals_look(tmp_path):
+    from server import device_config
+    state_dir = tmp_path / "kept"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9},
+                  theme="white", theme_arriving="red")
+    _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=-600)])
+    assert device_config.load_device_config(str(state_dir))["theme_arriving"] == "red"
