@@ -1,9 +1,9 @@
 ---
 phase: 57-combined-legacy-frame-firmware-release
 verified: 2026-11-14
-status: human_needed
-score: 0/3 roadmap criteria fully verified; code-side parts of 1 and 2 verified, 3 not verified on a device
-re_verification: false
+status: passed
+score: 3/3 roadmap criteria verified, with the limits listed below (device evidence is one EE04 bench unit plus the owner's observation of the live frame)
+re_verification: true
 gaps:
   - severity: warning
     item: "ESP-IDF-only glue (state_machine.c download/parse/draw/latch ordering, api_client.c capability_headers, NVS flag read/write) has no host test; the first compile was CI, the first execution is the bench"
@@ -70,3 +70,48 @@ All of B1 to B9 in `57-BENCH-CHECKLIST.md` are unticked and have empty Result fi
 4. **Info:** container CRC time and wake duration against the battery profile are unmeasured.
 
 No blocker was found in the code. Nothing here is marked passed: the phase stays `human_needed` until the EE04 bench and owner sign-off.
+
+## Live frame installation (recorded 2026-11-15)
+
+Release `fw-v1.1.0` (tag on `807007a0`, the merge commit of the phase 57 pull
+request; the phase 58 and 64 firmware commits that came after it on `main` are
+not in it).
+
+| Step | Evidence |
+|------|----------|
+| Tag pushed, run "Firmware release" (run 43706849646) | success, 2026-11-15 11:01 to 11:03 UTC; signing approved by the owner |
+| Signature and hash checked by the owner on the downloaded assets | 5 assets; `Signature block 0 verification successful` with the committed public key; sha256 `aea79ab8281995ece8422294c0dcda01b41f2c94671679f90fe8e4694492db59` equal to `release.json` |
+| Server release deployed first (hardware-claim rule) | "Deploy to production" success, 2026-11-15 10:25 UTC, on a commit that contains the rule |
+| Imported in the registry | `firmware_cli list`: `fw-v1.1.0`, size 1380352, imported 2026-11-15 11:13 UTC |
+| Scheduled by the owner on the live frame (type `xiao-ee02-13in3-spectra6`, "Frame of The City") | the companion Update page showed it proposed, then installed |
+| Result on the server | `firmware_cli list`: `fw-v1.1.0` with 1 install; `device_report.json`: `fw_version` `fw-v1.1.0`, last events `trial` then `installed`, no recent `rollback` or `fail-` in the last lines read |
+| Owner's observation afterwards | the owner reports that everything is ok after the install; the update screen itself was not seen (the frame showed another plane at the wake where it installed) |
+
+Running version before the install: `fw-v1.0.4`, installed 2026-11-13 14:24 UTC
+(`fw-v1.0.3` 2026-11-12 05:30 UTC). The 47.1 measurement window was interrupted
+after about two days on `fw-v1.0.4` by the owner's decision.
+
+Criteria after the install:
+
+1. Verified: one release carrying the reader, the hardware header and the 401
+   behaviour was published only after the bench checks B1 to B9 and the owner's
+   go-ahead.
+2. Verified by the server record and the owner's report: the live frame
+   installed the release and the owner reports that everything is ok. The wake
+   cadence and the picture after the install were not checked beyond that
+   statement. The container is served only to a frame that announces it
+   (server tests and bench B3 to B5).
+3. Verified on the bench, not on the live frame: an unconfirmed trial image rolls
+   back (B2, two images on the EE04 unit). The live frame's own update succeeded,
+   so its rollback path was not exercised.
+
+## Not observed on the live frame
+
+- No serial log of the install or of the first container wake.
+- The first container wake redraws once and the next one hash-skips: seen on the
+  EE04 bench (B3), not captured on the live frame.
+- The battery reading after the install was not recorded here.
+- The wake-time cost of the container on the live frame (the container payload is
+  960000 bytes there) is not measured; the CRC time on the EE04 was 21 ms for 192000 bytes.
+- The `imgfmt_bad` flag is never cleared by code (gap kept from the first
+  verification); the live frame has not set it.
