@@ -337,12 +337,25 @@ administrators only) or with `fleet_cli.py`. Nothing here deploys anything.
 
 1. **Provision the frame** over USB with `firmware/provision.sh
    <serial-port>`. It prints the frame's MAC and the SHA-256 of its secret.
-2. **Register it as pending**, in the console (Fleet, "Register a frame": MAC,
-   SHA-256, hardware type) or with
+2. **Register it as pending** on the VPS with
    `$FLEET devices register-pending --mac <mac> --secret-sha256 <hash>
-   [--hardware <type>]`. The frame has no owner yet and no legacy file is
+   [--hardware <type>]`. The console has no form for this step (it only
+   pairs frames that are already registered); only the command line
+   registers a frame. The frame has no owner yet and no legacy file is
    written for it. `$FLEET devices pending-list` shows pending and retired
    frames.
+
+   For a second hardware type, `fleet_cli.py` reads the second-hardware
+   switch from its own environment, not from `skypane.env`. Add the
+   variable on the command line, or the command refuses the type:
+
+   ```bash
+   ssh <ssh-target> "sudo -u skypane env SKYPANE_ENABLE_SECOND_HARDWARE=1 /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/fleet_cli.py --state-dir /opt/skypane/state devices register-pending --mac <mac> --secret-sha256 <hash> --hardware seeed-ee04-7in3-spectra6"
+   ```
+
+   Run it on the VPS, as the example does through `ssh`: the `skypane`
+   user does not exist on a laptop. The switch itself is lifted only as
+   described under "Lifting the second-hardware switch".
 3. **Power the frame.** On its first wake it shows a pairing code on the
    panel and wakes again every 5 minutes. The panel is redrawn only when the
    code changes: a code is valid for 30 minutes and rotates at the next
