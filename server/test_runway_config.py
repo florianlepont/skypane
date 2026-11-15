@@ -286,29 +286,61 @@ def test_display_state_runway_mode_always_holds(rate):
 
 
 @pytest.mark.parametrize("flight", [
-    {"on_ground": True, "vertical_rate_fpm": 0},
-    {"altitude_ft": 0.0, "vertical_rate_fpm": 48},
-    {"on_ground": True},
+    {"vertical_rate_fpm": 0, "altitude_ft": 600.0, "altitude_ref_ft": 600.0},
+    {"vertical_rate_fpm": 48, "altitude_ft": 575.0, "altitude_ref_ft": 625.0},
+    {"altitude_ft": 0.0, "altitude_ref_ft": 0.0},
+    {"vertical_rate_fpm": 0},
+    {"vertical_rate_fpm": 0, "altitude_ft": 600.0, "altitude_ref_ft": True},
+    {},
 ])
-def test_ground_aircraft_without_a_direction_awaits_a_state(flight):
+def test_aircraft_without_a_direction_awaits_a_state(flight):
     assert runway_config.awaits_state(flight, False) is True
 
 
 @pytest.mark.parametrize("flight", [
-    {"on_ground": True, "vertical_rate_fpm": 900},
-    {"on_ground": True, "vertical_rate_fpm": -700},
-    {"on_ground": False, "altitude_ft": 450.0, "vertical_rate_fpm": 0},
-    {"altitude_ft": True, "vertical_rate_fpm": 0},
-    {"vertical_rate_fpm": 0},
-    None,
-    "not a flight",
+    {"vertical_rate_fpm": 900},
+    {"vertical_rate_fpm": -700},
+    {"vertical_rate_fpm": 0, "altitude_ft": 500.0, "altitude_ref_ft": 700.0},
+    {"altitude_ft": 900.0, "altitude_ref_ft": 700.0},
 ])
-def test_other_aircraft_do_not_await_a_state(flight):
+def test_aircraft_with_a_direction_does_not_await_a_state(flight):
     assert runway_config.awaits_state(flight, False) is False
 
 
-def test_level_ground_aircraft_in_position_mode_is_shown_as_overhead():
-    assert runway_config.awaits_state({"on_ground": True, "vertical_rate_fpm": 0}, True) is False
+def test_level_aircraft_in_position_mode_is_shown_as_overhead():
+    assert runway_config.awaits_state({"vertical_rate_fpm": 0}, True) is False
+
+
+@pytest.mark.parametrize("altitude, reference, expected", [
+    (500.0, 700.0, "arriving"),
+    (575.0, 675.0, "arriving"),
+    (900.0, 700.0, "departing"),
+    (675.0, 575.0, "departing"),
+    (600.0, 650.0, None),
+    (650.0, 600.0, None),
+    (0.0, 0.0, None),
+    (None, 600.0, None),
+    (600.0, None, None),
+    ("x", 600.0, None),
+    (float("nan"), 600.0, None),
+])
+def test_altitude_trend_state(altitude, reference, expected):
+    flight = {"altitude_ft": altitude, "altitude_ref_ft": reference}
+    assert runway_config.altitude_trend_state(flight) == expected
+
+
+@pytest.mark.parametrize("flight", [None, "x", 3, []])
+def test_altitude_trend_state_ignores_non_flights(flight):
+    assert runway_config.altitude_trend_state(flight) is None
+
+
+def test_infer_from_flight_uses_the_trend_only_when_nothing_else_decides():
+    falling = {"vertical_rate_fpm": 0, "altitude_ft": 500.0, "altitude_ref_ft": 700.0}
+    assert runway_config.infer_from_flight(falling, None) == "arriving"
+    assert runway_config.infer_from_flight(falling, "departing") == "departing"
+    assert runway_config.infer_from_flight({**falling, "vertical_rate_fpm": 900}, None) == "departing"
+    assert runway_config.infer_from_flight({**falling, "vertical_rate_fpm": None}, None) == "arriving"
+    assert runway_config.infer_from_flight({"vertical_rate_fpm": 0}, None) is None
 
 
 def _entry(hex_code, first_seen, on_ground=False):
