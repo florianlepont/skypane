@@ -129,7 +129,7 @@ def _plain_get_paths():
     for route in routes.ROUTES:
         if route.method != "GET" or not isinstance(route.matcher, route_types.Exact):
             continue
-        if route.matcher.path in ("/detection", "/api/export/battery-history"):
+        if route.matcher.path in ("/detection", "/api/export/battery-history", *routes.EXPORT_EXTRA_ROUTES):
             continue
         paths.append(route.matcher.path)
     return sorted(paths)

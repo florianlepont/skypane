@@ -1488,8 +1488,8 @@ def test_the_verdict_vocabulary_is_observed_never_honoured():
                 pytest.fail("%s uses the word %r, which this data cannot support" % (rel, banned))
 
 
-def test_every_create_table_is_guarded_and_there_are_exactly_four():
-    """every CREATE TABLE in history_db.py is guarded by IF NOT EXISTS and there are exactly four - the fourth (wake_epochs) is the whole migration story for this phase"""
+def test_every_create_table_is_guarded_and_there_are_exactly_five():
+    """every CREATE TABLE in history_db.py is guarded by IF NOT EXISTS and there are exactly five - wake_epochs is the whole migration story for its phase, poll_cycles is the bounded per-cycle trace"""
     src_path = os.path.join(REPO_ROOT, "server", "history_db.py")
     with open(src_path) as fh:
         src = fh.read()
@@ -1498,9 +1498,9 @@ def test_every_create_table_is_guarded_and_there_are_exactly_four():
     if guarded != total:
         pytest.fail("%d of history_db.py's %d CREATE TABLE statements are not guarded by IF NOT EXISTS - "
             "an unguarded one raises on the second connection" % (total - guarded, total))
-    if total != 4:
-        pytest.fail("expected exactly four CREATE TABLE IF NOT EXISTS statements (runway_events, "
-            "device_health, meta, wake_epochs), found %d" % (total,))
+    if total != 5:
+        pytest.fail("expected exactly five CREATE TABLE IF NOT EXISTS statements (runway_events, "
+            "device_health, meta, wake_epochs, poll_cycles), found %d" % (total,))
 
 
 def test_an_old_schema_database_gains_wake_epochs_without_losing_a_row(tmp_path):
