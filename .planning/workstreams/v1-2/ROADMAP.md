@@ -709,7 +709,21 @@ Plans:
 **Must not break**: every golden hash of the legacy render and `stub-server/test_phase47_freeze.py`.
 **Decisions from discuss-phase (2026-11-15)**: Orly's three runways plus two other airports; simulated fleet devices, not the live frame or the second frame; findings F-01 to F-06 kept, with TRK-02 added.
 
-Plans: 6 plans for TRK-01 (65-01 to 65-06, 3 done); plans for TRK-02 to be added.
+**Plans:** 14 plans in 8 waves (65-01 to 65-06 for TRK-01, 3 done; 65-07 to 65-14 for TRK-02)
+
+Plans:
+- [x] 65-01 to 65-03: snapshot, internal comparison, external comparison tool (TRK-01)
+- [ ] 65-04-PLAN.md - TRK-01 finding register and owner decisions
+- [ ] 65-05-PLAN.md - TRK-01 agreed fixes, test-first
+- [ ] 65-07-PLAN.md - TRK-02 read-only feasibility of simulated devices, owner decision on where they run
+- [ ] 65-08-PLAN.md - scratch fleet setup, recording runner and per-device export (scripts only)
+- [ ] 65-09-PLAN.md - owner picks the two airports, scratch fleet created
+- [ ] 65-10-PLAN.md - live sessions on Orly 06/24 and 02/20 against Flightradar24 (checkpoint)
+- [ ] 65-11-PLAN.md - live sessions on the parallel-runway and single-runway airports (checkpoint)
+- [ ] 65-12-PLAN.md - inventory of recorded traffic and offline replay of every mismatch
+- [ ] 65-13-PLAN.md - TRK-02 finding register and owner decisions
+- [ ] 65-14-PLAN.md - TRK-02 agreed fixes, test-first, Orly runway 3 pinned
+- [ ] 65-06-PLAN.md - evidence table for the four success criteria, gates, draft pull request
 
 ### Phase 66: Security Audit
 
