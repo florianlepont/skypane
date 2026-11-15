@@ -105,8 +105,8 @@ This shows that the server withholds a legacy image from this unit. It does not 
 what the unit would do if it were given one: that device-side behaviour is not tested,
 by choice, and the server's separation is what protects it.
 
-Phase 57 does not start its release gating before the SIGNING.md table shows a pass,
-and the unit takes no fleet role (no pairing, no production registry entry) before it.
+The SIGNING.md table shows a pass (2026-11-14). The unit has no role in the production
+fleet (no production registry entry); that belongs to Phase 64.
 
 ## Battery readings seen (2026-11-14)
 
