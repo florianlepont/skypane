@@ -41,7 +41,7 @@ Progress: [████████░░] 84%
 ### Decisions
 
 - Phase numbering continues from v1.1 (Phase 47). Phase 47 is open and untouched by this workstream.
-- Production deploys touching the live frame and the combined firmware OTA (Phase 57) wait for Phase 47 to close, or for an explicit owner release.
+- Production deploys touching the live frame and the combined firmware OTA (Phase 57) wait for Phase 47 to close, or for an explicit owner release. Done: the combined firmware `fw-v1.1.0` was released and installed on the live frame on 2026-11-15 by the owner (Phase 57, see its verification).
 - Phases 48–57 use simulated hardware types; only Phase 58 needs a purchase, after its driver spike.
 - [Phase 61 added 2026-11-02]: companion UX and UI overhaul for administrators and invited users, at the owner's request ("the companion is a mess"). Owner's problem areas: navigation and structure, the admin console, the user view, sign-in and invitation. Placed in v1.2 as Phase 61, before Phase 59, which stays last.
 - Registry rewrite lives in Phase 49, not Phase 48. Auth is split: Phase 54 gate, Phase 55 pairing and console.
