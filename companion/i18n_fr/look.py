@@ -18,6 +18,9 @@ MESSAGES = {
     # --- Card -----------------------------------------------------------
     "look.departures_look": "Allure des départs",
     "look.arrivals_look": "Allure des arrivées",
+    "look.position_help":
+        "Cette allure s’applique à tous les avions près de chez vous. Un avion en palier "
+        "au-dessus de vous est affiché « Au-dessus » avec la ville vers laquelle il vole.",
     "look.calendar_flights_look": "Allure des vols du calendrier",
     "look.change": "Modifier",
     "look.change_the_look": "Modifier l’allure : %s",

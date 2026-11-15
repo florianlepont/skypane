@@ -1263,3 +1263,8 @@ def test_static_prefixes_for_name_lists_every_prefix_of_a_built_in_airline():
     assert enrich.static_prefixes_for_name("Air France") == ["AFR"]
     assert enrich.static_prefixes_for_name("Nobody Air") == []
     assert enrich.static_prefixes_for_name(None) == []
+
+def test_city_for_state_overhead_reads_the_destination_city():
+    """An aircraft with no direction shows where it is going."""
+    route = {"origin_city": "Paris", "destination_city": "Palma de Mallorca"}
+    assert enrich.city_for_state(route, "overhead") == "Palma de Mallorca"

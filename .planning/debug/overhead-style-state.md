@@ -1,5 +1,5 @@
 ---
-status: awaiting_owner_decision
+status: resolved
 trigger: "DATA_START Overhead (detection mode 'ma position') style bugs found by the owner. (1) By default overhead is drawn in the white style; to change the style the companion forces choosing departing or arriving, although overhead has neither. (2) In overhead mode, once the style has been changed, the frame shows the arriving style and the word 'arriving' instead of 'overhead'. (3) Question: which city (destination/origin/none) does each layout show for overhead? Giant layout _city treats overhead as departing, so destination is shown. DATA_END"
 created: 2026-11-15
 updated: 2026-11-15
@@ -7,10 +7,10 @@ updated: 2026-11-15
 
 ## Current Focus
 
-hypothesis: Confirmed in part. Overhead has no look setting of its own: it silently follows the Departures look (device_config "theme"), and the companion only offers Departures and Arrivals pictures, which render DEPARTING / ARRIVING. The server render does NOT fall back to arriving (disproved).
-test: Add an independent Overhead look (theme_overhead, "Same as departures" by default) end to end.
-expecting: Overhead look choosable on its own view; overhead frame drawn with it and labelled OVERHEAD.
-next_action: owner decides the overhead city rule (item 3); then align giant/compose._city and classic text.flight_line1 and write the rule in the Overhead view help
+hypothesis: Resolved. Overhead had no look of its own and the companion only offered Departures and Arrivals pictures; the server render never fell back to arriving.
+test: n/a
+expecting: n/a
+next_action: none
 reasoning_checkpoint:
 tdd_checkpoint:
 
@@ -64,7 +64,7 @@ started: found by chance by the owner; unknown whether it ever worked.
 
 ## Resolution
 
-root_cause: The overhead state had no look setting of its own. colour_rules.resolve_effective_theme_id fell through to the Departures look ("theme"), theme_arriving applied to arriving only, and the companion offered only Departures and Arrivals views whose pictures render DEPARTING / ARRIVING. So changing "the style" meant editing one of those two; editing Arrivals showed an ARRIVING picture and left the real overhead frame on the Departures look (white by default). The server render itself always drew OVERHEAD (symptom 2 not reproducible on the frame).
-fix: New per-frame setting theme_overhead (device_config, stored only when set, CLEAR_THEME_OVERHEAD sentinel, None = same as departures so nothing changes for existing frames). colour_rules applies it for state "overhead" only (after calendar and rules, like the arrivals override). Companion gets an Overhead view (/display/overhead) on position-mode frames: classic look picker and giant pairing cards, "Same as departures" default, help text, overhead frame preview state, EN/FR strings.
-verification: Reproduction script now shows ('overhead', theme_overhead). New tests server/test_device_config_overhead.py, two pipeline tests in server/test_detection_pipeline.py, companion/test_personalisation_overhead.py (served HTML + rendered preview images). Item 3 (city) left unchanged pending owner decision.
-files_changed: server/device_config.py, server/plane/colour_rules.py, companion/theme_preview.py, companion/settings/theme.py, companion/settings/layout_picker.py, companion/settings/form_post.py, companion/pages/personalisation_cards.py, companion/pages/config_page.py, companion/routes.py, companion/ui_base.py, companion/layout.py, companion/static/style-display.css, companion/i18n_fr/display.py, companion/i18n_fr/look.py, tests.
+root_cause: The companion only offered Departures and Arrivals looks, whose pictures draw DEPARTING and ARRIVING, while a position-mode frame draws a level aircraft as overhead with the Departures look. Editing Arrivals showed an ARRIVING picture and left the real overhead frame on the Departures look (white by default). The server render itself always drew OVERHEAD (symptom 2 not reproducible on the frame).
+fix: Owner decision, a frame that tracks a position has ONE look for every aircraft. Companion: its Style page lists a single Look view (departures field `theme`, picture drawn as an overhead aircraft, help sentence saying it applies to every aircraft and that an overhead aircraft shows the city it is flying to) in place of Departures and Arrivals; the Arrivals address opens that view. A runway frame keeps Departures and Arrivals, no Overhead tab. Server: poll_cycle passes single_look for position frames so colour_rules ignores the stored arrivals look (kept on disk). City rule, decided by the owner: destination for overhead in every layout (enrich.city_for_state, render/text.py, giant/compose._city). The intermediate design (a theme_overhead setting, an Overhead tab, greyed-out tabs) was built and removed.
+verification: companion/test_position_look.py (served HTML EN/FR, preview images), server/test_detection_pipeline.py, test_colour_rules.py, test_enrich.py, test_giant_compose.py, test_render.py. No browser available: the picker script was not exercised.
+files_changed: companion/pages/personalisation_cards.py, companion/settings/theme.py, companion/settings/layout_picker.py, companion/theme_preview.py, companion/i18n_fr/look.py, server/plane/colour_rules.py, server/poll_cycle.py, server/plane/enrich.py, server/plane/render/text.py, server/plane/render/giant/compose.py, tests.

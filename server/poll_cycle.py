@@ -1351,7 +1351,8 @@ def _resolve_theme(ctx):
     ctx.calendar_theme_id = calendar_theme_id
     ctx.effective_theme_id = colour_rules.resolve_effective_theme_id(
         ctx.render_state, ctx.current_flight, ctx.device_cfg,
-        calendar_theme_id=calendar_theme_id, rules=ctx.colour_rules_registry)
+        calendar_theme_id=calendar_theme_id, rules=ctx.colour_rules_registry,
+        single_look=_position_mode(ctx))
 
 
 def _position_mode(ctx):
@@ -1465,7 +1466,8 @@ def _render_held(ctx):
             # display, silently changing colour mid-hold.
             ctx.effective_theme_id = colour_rules.resolve_effective_theme_id(
                 ctx.render_state, ctx.current_flight, ctx.device_cfg,
-                calendar_theme_id=ctx.current_calendar_theme_id, rules=ctx.colour_rules_registry)
+                calendar_theme_id=ctx.current_calendar_theme_id, rules=ctx.colour_rules_registry,
+                single_look=_position_mode(ctx))
             held_canvas = render.build_canvas(
                 ctx.current_flight, ctx.render_state, route=ctx.current_route,
                 previous_flight=ctx.previous_flight, previous_route=ctx.previous_route,
