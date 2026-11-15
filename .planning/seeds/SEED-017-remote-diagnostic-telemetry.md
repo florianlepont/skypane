@@ -64,5 +64,4 @@ redrawn, and an outcome token.
 - `firmware/main/api_client.c` (telemetry headers), `firmware/main/wake_telemetry.c`, `firmware/main/wake_record.c`
 - `firmware/main/app_main.c` (boot reason handling, fault screen)
 - `server/wake_stats.py`, `server/history_db.py` (`device_health`)
-- `stub-server/PROTOCOL.md` (header contract, if present)
 - `.planning/seeds/on-device-fault-icon.md` (on-screen fault icon, fulfilled)
