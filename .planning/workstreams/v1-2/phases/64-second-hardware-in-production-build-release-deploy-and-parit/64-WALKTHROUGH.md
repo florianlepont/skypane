@@ -22,7 +22,7 @@ FR = French UI. FR cells also check strings, accents and clipped text on the sec
 | 7 | Health | Connection, battery and flight data rows show the frame's own state | open | pass | open | open | Owner-reported 2026-11-15: "santé et batterie: fait" in French as administrator; the screenshots seen earlier showed connection, battery and flight data rows in a normal state for the second-type frame |
 | 8 | Battery | A percentage and a voltage show; the percentage uses the frame's own curve | open | pass | open | open | Provisional values. Owner-reported 2026-11-15 in French as administrator; an earlier screenshot showed 99 % and 4106 mV with "probablement en charge" while plugged in |
 | 9 | Schedule an update | The Update card lists this frame's own releases only (no other type tab) and installs | pass (language not stated) | open | n/a | n/a | Done 2026-11-15: fw-v1.2.1 installed, see `64-OWNER-VALIDATION.md` section C |
-| 10 | Retire | The frame shows the retired image and leaves the active list | open | open | n/a | n/a | |
+| 10 | Retire | The frame shows the retired image and leaves the active list | open | open | n/a | n/a | Owner retired the frame on 2026-11-15 (screenshot: "Le Petit Cadre", "Anciennement florian.lepont@yahoo.fr", grey hollow marker, listed on the Fleet page of the other frame). The retired image on the panel was not reported yet |
 | 11 | Re-activate | The frame is wiped of its previous owner's data and shows a new code | open | open | n/a | n/a | |
 | 12 | Theme and frame previews | Previews have the frame's shape and the landscape chip crop (the crop is a design choice to be confirmed by eye) | open | open | open | open | Owner to confirm the crop |
 | 13 | Landscape hold marks | The classic layout's landscape hold screens carry the battery-low and the source-fault marks | open | open | open | open | Needs a frame at a low battery or a source fault, or the preview |
@@ -30,4 +30,4 @@ FR = French UI. FR cells also check strings, accents and clipped text on the sec
 
 ## Gaps found
 
-(To be listed from the owner's reports.)
+- 2026-11-15, owner: a retired frame is listed on the Fleet page while the owner is on the view of another frame (here the 13.3 inch frame's view), so it is unclear which frame the page is about. Not a failure of the second type; recorded as an input of `.planning/seeds/SEED-019-console-visual-improvements.md`.

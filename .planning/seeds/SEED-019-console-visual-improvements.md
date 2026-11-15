@@ -54,3 +54,10 @@ Points to settle:
 
 Phase 67 (project and code optimisation, v1.2) must not change how the console
 looks; visual work waits for v1.3.
+
+## Items noted during the Phase 64 walk-through
+
+- 2026-11-15, owner, with a screenshot: on the Fleet page of a frame, a retired
+  frame ("Le Petit Cadre", "Anciennement <owner e-mail>") is listed although the
+  owner is on the view of another frame. It is unclear which frame the page is
+  about when other frames are listed on it. To settle with the list above.
