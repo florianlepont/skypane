@@ -32,6 +32,7 @@ import sqlite3
 import sys
 import time
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 import server.atomic_io as atomic_io
 import server.check_interval as check_interval
@@ -157,7 +158,9 @@ def _as_timestamp(value):
 
 def normalise_pending(value: object) -> list[dict]:
     """Coerce poll_state.json's "pending_flights" into a list of
-    `{"flight": dict, "first_seen": float}` entries, dropping anything
+    `{"flight": dict, "first_seen": float, "last_seen": float}` entries
+    (`last_seen` falls back to `first_seen` for an entry saved before it
+    existed), dropping anything
     malformed rather than raising.
     """
     if not isinstance(value, list):
@@ -170,7 +173,10 @@ def normalise_pending(value: object) -> list[dict]:
         first_seen = _as_timestamp(entry.get("first_seen"))
         if not isinstance(flight, dict) or first_seen is None:
             continue
-        entries.append({"flight": flight, "first_seen": first_seen})
+        last_seen = _as_timestamp(entry.get("last_seen"))
+        entries.append({
+            "flight": flight, "first_seen": first_seen,
+            "last_seen": first_seen if last_seen is None else last_seen})
     return entries
 
 
@@ -189,11 +195,15 @@ def advance_is_due(last_advance_at: float | None, now: float, min_interval_s: fl
     return elapsed >= min_interval_s
 
 
-def enqueue_pending(pending: list[dict], flight: dict, now: float, max_entries: int | None = None) -> list:
+def enqueue_pending(
+    pending: list[dict], flight: dict, now: float, max_entries: int | None = None, evicted_entries: list | None = None,
+) -> list:
     """Append `flight` to the pending queue; return hexes evicted by the
     depth cap. Re-detecting an already-queued aircraft refreshes its
-    record but leaves `first_seen` untouched (it measures wait time, and
-    must not be reset by re-detection). Eviction is oldest-first.
+    record and its `last_seen` but leaves `first_seen` untouched (it
+    measures wait time, and must not be reset by re-detection). Eviction is
+    oldest-first; the evicted entries are also appended to `evicted_entries`
+    when given.
     """
     if max_entries is None:
         max_entries = MAX_PENDING_FLIGHTS
@@ -201,42 +211,53 @@ def enqueue_pending(pending: list[dict], flight: dict, now: float, max_entries: 
     for entry in pending:
         if entry["flight"].get("hex") == hex_code:
             entry["flight"] = flight
+            entry["last_seen"] = float(now)
             return []
-    pending.append({"flight": flight, "first_seen": float(now)})
+    pending.append({"flight": flight, "first_seen": float(now), "last_seen": float(now)})
     evicted = []
     while len(pending) > max_entries:
-        evicted.append(pending.pop(0)["flight"].get("hex"))
+        entry = pending.pop(0)
+        evicted.append(entry["flight"].get("hex"))
+        if evicted_entries is not None:
+            evicted_entries.append(entry)
     return evicted
 
 
 def pop_fresh_pending(
     pending: list[dict], now: float, max_staleness_s: float | None = None, defer=None,
+    dropped_entries: list | None = None,
 ) -> tuple[dict | None, list]:
-    """Pop the oldest still-fresh entry (FIFO), dropping any entry that
+    """Pop the most recently seen still-fresh entry, dropping any entry that
     exceeded `max_staleness_s` on the way. Returns `(flight_or_None,
     dropped_hexes)`; mutates `pending` in place. A negative age (clock
     step) reads as fresh - the safe direction.
 
-    An entry for which `defer(flight)` is true is skipped but stays queued,
-    ahead of everything that was behind the entry popped, so it can still be
-    shown once `defer` stops holding for it (or be dropped as stale).
+    The frame is a "right now" board: of the aircraft waiting, the one seen
+    last is the one worth drawing. The other fresh entries stay queued, in
+    their order, until they are drawn or go stale. An entry for which
+    `defer(flight)` is true is skipped the same way, so it can still be
+    shown once `defer` stops holding for it. The dropped entries are also
+    appended to `dropped_entries` when given.
     """
     if max_staleness_s is None:
         max_staleness_s = MAX_STALENESS_S
     dropped: list = []
-    deferred: list = []
-    chosen = None
-    while pending:
-        entry = pending.pop(0)
+    fresh: list = []
+    for entry in pending:
         if (now - entry["first_seen"]) > max_staleness_s:
             dropped.append(entry["flight"].get("hex"))
-        elif defer is not None and defer(entry["flight"]):
-            deferred.append(entry)
+            if dropped_entries is not None:
+                dropped_entries.append(entry)
         else:
-            chosen = entry["flight"]
-            break
-    pending[:0] = deferred
-    return chosen, dropped
+            fresh.append(entry)
+    chosen = None
+    for entry in fresh:
+        if defer is not None and defer(entry["flight"]):
+            continue
+        if chosen is None or entry.get("last_seen", entry["first_seen"]) >= chosen.get("last_seen", chosen["first_seen"]):
+            chosen = entry
+    pending[:] = [entry for entry in fresh if entry is not chosen]
+    return (chosen["flight"] if chosen is not None else None), dropped
 
 
 def _extract_aircraft(snapshot):
@@ -389,12 +410,17 @@ def _run_isolated_write(conn, savepoint_name, action):
         conn.execute("RELEASE %s" % savepoint_name)
 
 
+def _write_unshown(conn, rows):
+    for row in rows:
+        history_db.record_unshown_event(conn, **row)
+
+
 def _write_trace(conn, now_iso, trace):
     history_db.record_poll_cycle(conn, now_iso, trace)
     history_db.prune_poll_cycles(conn, now_iso)
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None, trace=None):
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None, trace=None, unshown_rows=()):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
@@ -437,8 +463,10 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     (None, the column's default, then means a row from before the column).
 
     `trace`, when given, is this cycle's `poll_cycles` row (see
-    `_cycle_trace()`); like the Caddy ingest it is written in its own
-    SAVEPOINT, so a fault in it never rolls back the heartbeat or the event.
+    `_cycle_trace()`), and `unshown_rows` the aircraft dropped from the
+    display queue this cycle (see `_unshown_event_rows()`); like the Caddy
+    ingest each is written in its own SAVEPOINT, so a fault in it never rolls
+    back the heartbeat or the event.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -479,6 +507,8 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                     history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
                 if trace is not None:
                     _run_isolated_write(conn, "poll_cycle_trace", lambda: _write_trace(conn, now_iso, trace))
+                if unshown_rows:
+                    _run_isolated_write(conn, "unshown_events", lambda: _write_unshown(conn, unshown_rows))
     except (sqlite3.Error, OSError) as exc:
         print("poll_loop: history write failed: %s: %s" % (type(exc).__name__, exc))
 
@@ -634,6 +664,7 @@ class CycleContext:
     promoted: dict | None = None
     refreshed: bool = False
     dropped: list = field(default_factory=list)
+    dropped_entries: list = field(default_factory=list)
     queue_dirty: bool = False
     prior_confirmed_state: str | None = None
 
@@ -1166,7 +1197,7 @@ def advance_display_queue(ctx):
             # image, or the aircraft is not displayable yet: keep the
             # detection queued until the redraw spacing has elapsed or a
             # state can be inferred.
-            dropped.extend(enqueue_pending(pending, flight, now))
+            dropped.extend(enqueue_pending(pending, flight, now, evicted_entries=ctx.dropped_entries))
             queue_dirty = True
         elif ctx.current_flight is None:
             # Nothing on screen at all: show it immediately. Pacing exists to
@@ -1182,7 +1213,7 @@ def advance_display_queue(ctx):
             ctx.current_flight = flight
             refreshed = True
         else:
-            dropped.extend(enqueue_pending(pending, flight, now))
+            dropped.extend(enqueue_pending(pending, flight, now, evicted_entries=ctx.dropped_entries))
             queue_dirty = True
 
     # Drain the queue when the device is due for a redraw, even on a cycle
@@ -1190,7 +1221,7 @@ def advance_display_queue(ctx):
     # aircraft would sit there until it expired. `promoted is None` guards
     # the bootstrap case above, which has already advanced.
     if promoted is None and pending and not ctx.redraw_blocked and advance_is_due(ctx.last_advance_at, now):
-        promoted, expired = pop_fresh_pending(pending, now, defer=defer)
+        promoted, expired = pop_fresh_pending(pending, now, defer=defer, dropped_entries=ctx.dropped_entries)
         dropped.extend(expired)
         queue_dirty = True
 
@@ -1533,17 +1564,45 @@ def _cycle_trace(ctx):
     }
 
 
+def _unshown_event_rows(ctx):
+    """`runway_events` rows for the aircraft this cycle dropped from the
+    display queue unseen, so every detected aircraft leaves a record. Each
+    carries what the cycle knew: the airline from the callsign prefix alone,
+    a direction only if the vertical rate or altitude trend gave one, and no
+    route lookup.
+    """
+    rows = []
+    for entry in ctx.dropped_entries:
+        flight = entry["flight"]
+        route, source = enrich.resolve_airline_only(
+            flight.get("callsign"), ctx.manual_registry, ctx.name_overrides)
+        route = route if isinstance(route, dict) else {}
+        rows.append({
+            "ts": datetime.fromtimestamp(entry["first_seen"], timezone.utc).isoformat(timespec="seconds"),
+            "hex": flight.get("hex"),
+            "callsign": flight.get("callsign"),
+            "aircraft_type": flight.get("aircraft_type"),
+            "confirmed_state": runway_config.infer_from_flight(flight, None),
+            "corroborated": flight.get("corroborated"),
+            "route_source": source,
+            "airline": route.get("airline_name"),
+            "tracked_runway": ctx.tracked_runway_id,
+        })
+    return rows
+
+
 def record(ctx):
     """The single live `_record_history()` call, its arguments derived
     from `ctx.branch` exactly as each former branch passed them - see
     `_record_history()`'s own docstring for what each write means.
     """
+    extras = {"trace": _cycle_trace(ctx), "unshown_rows": _unshown_event_rows(ctx)}
     if ctx.branch == "promoted":
         _record_history(
             ctx.state_dir, ctx.current_flight, ctx.confirmed_state, ctx.route_source, ctx.route,
             ctx.tracked_runway_id, ctx.source_fault, ctx.event_recorded, ctx.now_iso,
             caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
-            gallery_name=ctx.gallery_name, trace=_cycle_trace(ctx),
+            gallery_name=ctx.gallery_name, **extras,
         )
     elif ctx.branch == "held":
         _record_history(
@@ -1554,14 +1613,13 @@ def record(ctx):
             # reached the display (`ctx.current_flight`, unchanged here) -
             # a distinct aircraft that only got queued is still a real
             # detection.
-            detected=ctx.flight is not None, trace=_cycle_trace(ctx),
+            detected=ctx.flight is not None, **extras,
         )
     else:
         _record_history(
             ctx.state_dir, None, None, None, None,
             ctx.tracked_runway_id, ctx.source_fault, False, ctx.now_iso,
-            caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s,
-            trace=_cycle_trace(ctx),
+            caddy_log=ctx.caddy_log, wake_interval_s=ctx.effective_wake_interval_s, **extras,
         )
 
 
