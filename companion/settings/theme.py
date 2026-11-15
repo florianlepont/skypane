@@ -72,7 +72,7 @@ LOOK_FOLLOWS_NOTE = i18n.msg(
 OVERHEAD_LOOK_HELP = i18n.msg(
     "look.overhead_help",
     "An aircraft flying level over your position is shown as Overhead, "
-    "neither a departure nor an arrival.")
+    "neither a departure nor an arrival. It shows the city it is flying to.")
 
 # The "Same as departures" option Arrivals, Overhead and Calendar flights carry,
 # submitting the empty string: the clear signal handle_post() maps to

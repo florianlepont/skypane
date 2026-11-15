@@ -153,11 +153,12 @@ def _flight_line1_text(flight, state, route):
     if not isinstance(city, str) or not city.strip():
         city = None
 
+    towards = state in (runway_config.STATE_DEPARTING, runway_config.STATE_OVERHEAD)
     if identifier and city:
-        direction_lower = "to" if state == runway_config.STATE_DEPARTING else "from"
+        direction_lower = "to" if towards else "from"
         return "%s %s %s" % (identifier, direction_lower, city)
     if city:
-        direction_title = "To" if state == runway_config.STATE_DEPARTING else "From"
+        direction_title = "To" if towards else "From"
         return "%s %s" % (direction_title, city)
 
     try:
