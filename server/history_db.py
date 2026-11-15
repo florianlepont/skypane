@@ -6,8 +6,9 @@ permitted path to device battery telemetry.
 Leaf module: stdlib only, must never import `device_config`,
 `server.plane.detect`, `server.plane.render`, or `server.poll_loop`.
 
-Cadence rule: `runway_events` rows are written only on a real transition,
-never once per 30-second cycle - the always-changing "pipeline last ran"
+Cadence rule: `runway_events` rows are written only on a real transition (an
+aircraft drawn, or detected and dropped before it could be), never once per
+30-second cycle - the always-changing "pipeline last ran"
 signal lives in the fixed-size `meta` table instead, so keep-forever
 retention doesn't turn into unbounded per-cycle row growth.
 
@@ -28,7 +29,7 @@ import re
 import sqlite3
 import sys
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py.
@@ -419,6 +420,36 @@ def record_runway_event(conn, **fields):
             values.append(fields.get(column))
     conn.execute(_RUNWAY_EVENT_INSERT_SQL, values)
     _commit(conn)
+
+
+# A detected aircraft that never reached the display is recorded once; a
+# second record for the same hex within this window is the same pass.
+UNSHOWN_DEDUPE_WINDOW_S = 1800
+
+
+def record_unshown_event(conn, ts, **fields):
+    """Insert a `runway_events` row for an aircraft the poll cycle detected
+    but dropped from the display queue before it was drawn, stamped `ts`
+    (when it was first seen). It has no archived render (`gallery_name` is
+    "") and whatever the cycle knew: no route lookup is made for it.
+
+    Skipped, returning 0, when the same hex already has a row within
+    `UNSHOWN_DEDUPE_WINDOW_S` before `ts`, so re-detection of one pass after
+    it was dropped does not add a second row. Returns 1 when a row is added.
+    """
+    hex_code = fields.get("hex")
+    if hex_code:
+        try:
+            earliest = (datetime.fromisoformat(ts) - timedelta(seconds=UNSHOWN_DEDUPE_WINDOW_S)).isoformat(timespec="seconds")
+        except (TypeError, ValueError):
+            earliest = ts
+        if conn.execute(
+            "SELECT 1 FROM runway_events WHERE hex = ? AND ts >= ? LIMIT 1", (hex_code, earliest),
+        ).fetchone():
+            return 0
+    fields.pop("gallery_name", None)
+    record_runway_event(conn, ts=ts, gallery_name="", **fields)
+    return 1
 
 
 def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason=None, rssi=None,

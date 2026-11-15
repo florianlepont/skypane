@@ -347,21 +347,59 @@ def _entry(hex_code, first_seen, on_ground=False):
     return {"flight": {"hex": hex_code, "on_ground": on_ground}, "first_seen": first_seen}
 
 
-def test_pop_fresh_pending_skips_deferred_entries_but_keeps_them_queued():
+def test_pop_fresh_pending_takes_the_newest_and_skips_deferred_entries():
     import server.poll_cycle as poll_cycle
-    pending = [_entry("g1", 0.0, True), _entry("a1", 1.0), _entry("a2", 2.0)]
+    pending = [_entry("g1", 0.0, True), _entry("a1", 1.0), _entry("a2", 2.0), _entry("g2", 3.0, True)]
     flight, dropped = poll_cycle.pop_fresh_pending(
         pending, 10.0, defer=lambda f: f["on_ground"])
-    assert flight["hex"] == "a1"
+    assert flight["hex"] == "a2"
     assert dropped == []
-    assert [e["flight"]["hex"] for e in pending] == ["g1", "a2"]
+    assert [e["flight"]["hex"] for e in pending] == ["g1", "a1", "g2"]
+
+
+def test_pop_fresh_pending_orders_by_last_seen_not_first_seen():
+    import server.poll_cycle as poll_cycle
+    older_but_refreshed = {"flight": {"hex": "r1"}, "first_seen": 0.0, "last_seen": 9.0}
+    newer_first_sighting = {"flight": {"hex": "n1"}, "first_seen": 5.0, "last_seen": 5.0}
+    pending = [older_but_refreshed, newer_first_sighting]
+    flight, _dropped = poll_cycle.pop_fresh_pending(pending, 10.0)
+    assert flight["hex"] == "r1"
+    assert pending == [newer_first_sighting]
+
+
+def test_pop_fresh_pending_reads_an_entry_saved_without_last_seen():
+    import server.poll_cycle as poll_cycle
+    pending = [{"flight": {"hex": "o1"}, "first_seen": 1.0}, {"flight": {"hex": "o2"}, "first_seen": 2.0}]
+    flight, _dropped = poll_cycle.pop_fresh_pending(pending, 10.0)
+    assert flight["hex"] == "o2"
 
 
 def test_pop_fresh_pending_still_drops_deferred_entries_once_stale():
     import server.poll_cycle as poll_cycle
     pending = [_entry("g1", 0.0, True)]
+    dropped_entries = []
     flight, dropped = poll_cycle.pop_fresh_pending(
-        pending, 1000.0, defer=lambda f: f["on_ground"])
+        pending, 1000.0, defer=lambda f: f["on_ground"], dropped_entries=dropped_entries)
     assert flight is None
     assert dropped == ["g1"]
+    assert [e["flight"]["hex"] for e in dropped_entries] == ["g1"]
     assert pending == []
+
+
+def test_enqueue_refreshes_last_seen_and_keeps_first_seen():
+    import server.poll_cycle as poll_cycle
+    pending = []
+    poll_cycle.enqueue_pending(pending, {"hex": "a1", "altitude_ft": 500}, 100.0)
+    poll_cycle.enqueue_pending(pending, {"hex": "a1", "altitude_ft": 300}, 130.0)
+    (entry,) = pending
+    assert (entry["first_seen"], entry["last_seen"], entry["flight"]["altitude_ft"]) == (100.0, 130.0, 300)
+
+
+def test_normalise_pending_fills_last_seen_from_first_seen():
+    import server.poll_cycle as poll_cycle
+    saved = [{"flight": {"hex": "a1"}, "first_seen": 5.0},
+             {"flight": {"hex": "b2"}, "first_seen": 6.0, "last_seen": 8.5},
+             {"flight": "bad", "first_seen": 1.0}]
+    entries = poll_cycle.normalise_pending(saved)
+    assert [(e["flight"]["hex"], e["first_seen"], e["last_seen"]) for e in entries] == [
+        ("a1", 5.0, 5.0), ("b2", 6.0, 8.5)]
