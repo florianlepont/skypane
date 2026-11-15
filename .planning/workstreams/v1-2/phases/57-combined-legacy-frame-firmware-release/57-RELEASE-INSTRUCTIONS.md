@@ -28,11 +28,13 @@ None of these is ticked. Tick each one yourself, in order, before section 4.
       window decision in section 3 is made).
 - [ ] The signing bench in `firmware/SIGNING.md` ("Bench procedure") passed on
       the EE04 unit, with the observed results written into its "Bench results"
-      table and into `57-BENCH-CHECKLIST.md`. The table currently says
-      DEFERRED; that is not a pass.
-- [ ] The new-code draft pull request for the firmware work (not the
-      planning-docs pull request) is reviewed, CI is green including the
-      firmware compile and size step, and you have merged it.
+      table and into `57-BENCH-CHECKLIST.md`. The table records a pass on
+      2026-11-14 (one EE04 unit, dev images signed with throwaway keys, no
+      serial log); confirm that this is enough for you, and that items B1 to
+      B8 of the checklist are ticked and B9 is yours to sign.
+- [ ] The firmware code is merged to `main` with CI green, including the
+      firmware compile and size step (done: merged in #391; re-check that
+      nothing newer touched `firmware/` since).
 - [ ] The server release containing the hardware-claim rule is deployed first.
       It is safe for frames that send no `X-Hw-Type` header, so deploying it
       ahead of the firmware changes nothing for the live frame.
@@ -166,7 +168,9 @@ modulus, but never verifies the signature itself.
 - The sticky `imgfmt_bad` flag is cleared only by an NVS erase or a later
   release; until then the frame receives raw images (functional, just no
   container).
-- The C changes were first compiled in CI, not locally, and have not run on
-  hardware before the bench in section 2.
-- The wrong-signature rejection on a real device is still unproven
-  (`firmware/SIGNING.md` bench results: DEFERRED).
+- The C changes were first compiled in CI, not locally. They have run on one
+  EE04 bench unit (checklist items B1 to B8, 2026-11-14 and 2026-11-15), not
+  on the live frame, which is a different board.
+- The wrong-signature rejection was seen on one EE04 bench unit with
+  throwaway keys, without a serial log (`firmware/SIGNING.md` bench results:
+  pass of 2026-11-14), and not on the live frame itself.
