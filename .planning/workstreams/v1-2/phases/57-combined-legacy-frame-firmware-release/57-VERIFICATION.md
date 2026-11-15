@@ -85,7 +85,7 @@ not in it).
 | Imported in the registry | `firmware_cli list`: `fw-v1.1.0`, size 1380352, imported 2026-11-15 11:13 UTC |
 | Scheduled by the owner on the live frame (type `xiao-ee02-13in3-spectra6`, "Frame of The City") | the companion Update page showed it proposed, then installed |
 | Result on the server | `firmware_cli list`: `fw-v1.1.0` with 1 install; `device_report.json`: `fw_version` `fw-v1.1.0`, last events `trial` then `installed`, no recent `rollback` or `fail-` in the last lines read |
-| Owner's observation afterwards | the owner reports that everything is ok after the install; the update screen itself was not seen (the frame showed another plane at the wake where it installed) |
+| Owner's observation afterwards | the owner reports that everything is ok after the install and that the frame keeps its 5-minute wake interval; the update screen itself was not seen (the frame showed another plane at the wake where it installed) |
 
 Running version before the install: `fw-v1.0.4`, installed 2026-11-13 14:24 UTC
 (`fw-v1.0.3` 2026-11-12 05:30 UTC). The 47.1 measurement window was interrupted
@@ -97,9 +97,9 @@ Criteria after the install:
    behaviour was published only after the bench checks B1 to B9 and the owner's
    go-ahead.
 2. Verified by the server record and the owner's report: the live frame
-   installed the release and the owner reports that everything is ok. The wake
-   cadence and the picture after the install were not checked beyond that
-   statement. The container is served only to a frame that announces it
+   installed the release, the owner reports that everything is ok and that the
+   frame keeps its 5-minute wake interval. The picture after the install was
+   not checked beyond that statement. The container is served only to a frame that announces it
    (server tests and bench B3 to B5).
 3. Verified on the bench, not on the live frame: an unconfirmed trial image rolls
    back (B2, two images on the EE04 unit). The live frame's own update succeeded,
