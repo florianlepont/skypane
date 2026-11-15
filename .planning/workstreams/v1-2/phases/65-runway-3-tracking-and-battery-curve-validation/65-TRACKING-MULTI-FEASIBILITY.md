@@ -1,6 +1,6 @@
 # Phase 65: TRK-02 multi-device feasibility (read-only)
 
-**Date:** 2026-11-15 | **Plan:** 65-07 | **Status:** options ready, owner decision pending
+**Date:** 2026-11-15 | **Plan:** 65-07 | **Status:** owner decision recorded (option A, scratch-local)
 
 Evidence tags: [observed] = read in code or run here; [hypothesis] = inferred, not run.
 Nothing under server/, stub-server/, companion/, deploy/ or firmware/ was edited. The spike ran in a scratchpad directory and never touched the repository state or production.
@@ -104,4 +104,29 @@ D. **No live multi-site sessions**: TRK-02 is recorded as not met, with the caus
 
 Option A, running here. The proof shows the existing code already plans and serves several simulated airports from a scratch root with no server change, the providers and adsbdb answered from this environment, and the scratch history.db files can be read with the existing read-only helper. Caveats: this sandbox may go down between sessions, and adsb.lol reachability looked intermittent; if either fails during a session, fall back to the owner's machine (still option A) rather than B or C.
 
-Owner decision: pending. Task 2 appends the decision and its consequence once the owner replies.
+## Owner decision
+
+**Date:** 2026-11-15 (given by the owner in chat)
+**Option:** A, scratch-local (scratch state root outside production).
+
+The owner's decision, quoted: "option A, scratch state root outside production, run in this cloud environment (fall back to the owner's machine, still option A, if the sandbox or a provider fails during a session)."
+
+## Consequence
+
+Option A needs no server, deploy or production change, so every later plan of the phase runs as written; none is skipped or blocked.
+
+| Plan | Outcome | Note |
+|------|---------|------|
+| 08 | runs | tooling only: scripts/multi_site_setup.py, multi_site_run.py, multi_site_export.py with tests |
+| 09 | runs | the owner names the two airports from the catalogue; the scratch fleet is created in a root under the scratchpad (this environment) |
+| 10 | runs | Orly 06/24 and 02/20 sessions on simulated devices, run here |
+| 11 | runs | sessions at the two airports the owner named, run here |
+| 12 | runs | replay of the recorded payloads and re-examination of every TRK-02 mismatch |
+| 13 | runs | finding register and the owner's decision per proposed change |
+| 14 | runs | applies only the findings the owner agreed in plan 13; if none, no source file changes |
+
+Conditions that stay in force:
+- Scratch roots live outside production and outside the repository; `SKYPANE_SIM_HARDWARE=1` is set only in the session process.
+- If the sandbox or a provider fails during a session, the session continues on the owner's machine with the same scripts, still option A. Option B (VPS) and option C (production fleet) are not used.
+- Each device's export is read from its own `history.db` with scripts/multi_site_export.py; the production export API is not used for simulated devices.
+
