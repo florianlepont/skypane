@@ -1559,7 +1559,7 @@ def test_valid_save_writes_both_and_returns_saved_key(tmp_path):
     # absence now means "leave unchanged" unconditionally, so on a fresh
     # state directory it falls through to DEFAULT_LED_ENABLED.
     assert on_disk == {
-        "theme": "black", "theme_arriving": None, "calendar_theme_id": None,
+        "theme": "black", "theme_arriving": None, "theme_overhead": None, "calendar_theme_id": None,
         "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False,
         "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "display_enabled": True,
         "wake_interval_s": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID,

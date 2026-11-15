@@ -347,3 +347,26 @@ def test_pipeline_position_level_aircraft_with_theme_overrides_renders(tmp_path)
                   theme="white", theme_arriving="black")
     result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=0)])
     assert result["state"] == "overhead"
+
+
+def test_pipeline_position_level_aircraft_is_drawn_in_the_overhead_look(tmp_path):
+    state_dir = tmp_path / "overhead_look"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9},
+                  theme="white", theme_arriving="red", theme_overhead="blue")
+    result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=0)])
+    assert (result["state"], result["effective_theme"]) == ("overhead", "blue")
+    descending = tmp_path / "overhead_look_arriving"
+    _write_config(descending, detection={"mode": "position", "radius_km": 9},
+                  theme="white", theme_arriving="red", theme_overhead="blue")
+    result = _run_position(descending, [_position_aircraft("aaa111", 0.02, 2500, rate=-600)])
+    assert (result["state"], result["effective_theme"]) == ("arriving", "red")
+
+
+def test_pipeline_held_overhead_repaint_keeps_the_overhead_look(tmp_path):
+    state_dir = tmp_path / "overhead_held"
+    _write_config(state_dir, detection={"mode": "position", "radius_km": 9},
+                  theme_overhead="blue")
+    _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=0)])
+    _write_config(state_dir, theme_overhead="green")
+    result = _run_position(state_dir, [_position_aircraft("aaa111", 0.02, 2500, rate=0)])
+    assert (result["state"], result["effective_theme"]) == ("overhead", "green")

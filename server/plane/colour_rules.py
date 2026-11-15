@@ -54,6 +54,16 @@ RULE_KINDS = (RULE_KIND_CALLSIGN, RULE_KIND_HEX, RULE_KIND_PREFIX)
 
 # The one render state the arrivals override applies to.
 ARRIVING_STATE = "arriving"
+# The one render state the overhead override applies to: a level aircraft
+# over a position-mode frame.
+OVERHEAD_STATE = "overhead"
+
+# Per-state look overrides, each consulted only for its own state; unset
+# means the state follows `device_cfg["theme"]`.
+_STATE_OVERRIDE_FIELDS = {
+    ARRIVING_STATE: "theme_arriving",
+    OVERHEAD_STATE: "theme_overhead",
+}
 
 # Positive-allowlist regexes, defence against a hand-edited/corrupted
 # file smuggling a crafted key into a live comparison.
@@ -332,7 +342,8 @@ def resolve_effective_theme_id(
 
     Order: `calendar_theme_id`, then exact callsign rule, hex rule,
     prefix rule, then the arrivals override (only when `state ==
-    ARRIVING_STATE`), then `device_cfg["theme"]`. A calendar match
+    ARRIVING_STATE`) or the overhead override (only when `state ==
+    OVERHEAD_STATE`), then `device_cfg["theme"]`. A calendar match
     intentionally beats even an exact-callsign rule: a calendar entry
     designates one specific flight, and that is the point of the feature.
 
@@ -369,10 +380,11 @@ def resolve_effective_theme_id(
     if rule_theme is not None and rule_theme in device_config.THEMES:
         return rule_theme
 
-    if isinstance(device_cfg, dict) and state == ARRIVING_STATE:
-        arriving = device_cfg.get("theme_arriving")
-        if isinstance(arriving, str) and arriving in device_config.THEMES:
-            return arriving
+    override_field = _STATE_OVERRIDE_FIELDS.get(state) if isinstance(state, str) else None
+    if isinstance(device_cfg, dict) and override_field is not None:
+        override = device_cfg.get(override_field)
+        if isinstance(override, str) and override in device_config.THEMES:
+            return override
 
     base_theme = device_cfg.get("theme") if isinstance(device_cfg, dict) else None
     if isinstance(base_theme, str) and base_theme in device_config.THEMES:

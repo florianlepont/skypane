@@ -58,6 +58,7 @@ MESSAGES = {
     "display.aspect": "L’allure de votre cadre",
     "display.departures": "Départs",
     "display.arrivals": "Arrivées",
+    "display.overhead": "Au-dessus",
     "display.calendar_flights": "Vols du calendrier",
     "display.same_as_departures": "Comme les départs",
 

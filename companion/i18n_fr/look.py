@@ -18,6 +18,10 @@ MESSAGES = {
     # --- Card -----------------------------------------------------------
     "look.departures_look": "Allure des départs",
     "look.arrivals_look": "Allure des arrivées",
+    "look.overhead_look": "Allure au-dessus",
+    "look.overhead_help":
+        "Un avion en palier au-dessus de votre position est affiché « Au-dessus », "
+        "ni départ ni arrivée.",
     "look.calendar_flights_look": "Allure des vols du calendrier",
     "look.change": "Modifier",
     "look.change_the_look": "Modifier l’allure : %s",

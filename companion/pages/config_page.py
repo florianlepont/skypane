@@ -337,6 +337,7 @@ def shell_route(route):
 _FIELD_VIEWS = {
     "theme": personalisation_cards.VIEW_DEPARTURES,
     "theme_arriving": personalisation_cards.VIEW_ARRIVALS,
+    "theme_overhead": personalisation_cards.VIEW_OVERHEAD,
     "layout": personalisation_cards.VIEW_DEPARTURES,
     "calendar_theme_id": personalisation_cards.VIEW_CALENDAR_LOOK,
     "calendar_url": personalisation_cards.VIEW_CALENDAR_CONNECT,
@@ -464,6 +465,7 @@ def _render_current_values(ctx):
         # theme chosen yet), not an oversight.
         "theme_id": device_cfg.get("theme", device_config.DEFAULT_THEME_ID),
         "theme_arriving": device_cfg.get("theme_arriving"),
+        "theme_overhead": device_cfg.get("theme_overhead"),
         "layout": screen_layouts.normalise_layout_id(device_cfg.get("layout")),
         "led_enabled": device_cfg.get("led_enabled", device_config.DEFAULT_LED_ENABLED),
         "quiet_start": device_cfg.get("quiet_hours_start", device_config.DEFAULT_QUIET_HOURS_START),
@@ -820,6 +822,7 @@ def handle_post(form, ctx, errors=None):
         lambda: form_post.resolve_calendar_url(calendar_signal, submitted_calendar_url, errors),
         lambda: form_post.resolve_calendar_theme_id(form, errors),
         lambda: form_post.resolve_theme_arriving(form, in_scope, errors),
+        lambda: form_post.resolve_theme_overhead(form, in_scope, errors),
         lambda: form_post.resolve_layout(form, errors),
         lambda: _resolve_quiet_hours(form, scope, errors, times=True),
         lambda: form_post.resolve_led(form, errors),

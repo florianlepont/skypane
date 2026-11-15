@@ -180,33 +180,42 @@ def resolve_calendar_theme_id(form, errors):
     return {"calendar_theme_id": submitted_calendar_theme_id}
 
 
-def resolve_theme_arriving(form, in_scope, errors):
-    """Theme group, step 2: theme_arriving's own membership check, plus
-    its final resolved value — the resolution half never fails (every
-    value it can produce here has already passed the membership check
-    above), so combining it with the check does not change which field
-    an invalid submission reports.
+def _resolve_following_theme(form, in_scope, errors, field, clear):
+    """A look that can follow departures (`theme_arriving`,
+    `theme_overhead`): its own membership check, plus its final resolved
+    value - the resolution half never fails (every value it can produce
+    here has already passed the membership check), so combining it with
+    the check does not change which field an invalid submission reports.
 
-    Out of scope or genuinely absent -> unchanged; "" -> CLEAR_THEME_ARRIVING;
-    anything else has already passed the membership gate above, so it is a
-    real theme id.
+    Out of scope or genuinely absent -> unchanged; "" -> `clear`;
+    anything else has already passed the membership gate, so it is a real
+    theme id.
     """
-    submitted_theme_arriving = form.get("theme_arriving")
-    if (
-        submitted_theme_arriving is not None
-        and submitted_theme_arriving not in ("",) + device_config.THEME_IDS
-    ):
-        _note_error(errors, "theme_arriving", ERROR_INVALID_CHOICE)
+    submitted = form.get(field)
+    if submitted is not None and submitted not in ("",) + device_config.THEME_IDS:
+        _note_error(errors, field, ERROR_INVALID_CHOICE)
         return FAILED
-    if screens.GROUP_THEME not in in_scope:
-        theme_arriving = None
-    elif submitted_theme_arriving is None:
-        theme_arriving = None
-    elif submitted_theme_arriving == "":
-        theme_arriving = device_config.CLEAR_THEME_ARRIVING
+    if screens.GROUP_THEME not in in_scope or submitted is None:
+        value = None
+    elif submitted == "":
+        value = clear
     else:
-        theme_arriving = submitted_theme_arriving
-    return {"theme_arriving": theme_arriving}
+        value = submitted
+    return {field: value}
+
+
+def resolve_theme_arriving(form, in_scope, errors):
+    """Theme group, step 2: theme_arriving ("" clears it to
+    CLEAR_THEME_ARRIVING)."""
+    return _resolve_following_theme(
+        form, in_scope, errors, "theme_arriving", device_config.CLEAR_THEME_ARRIVING)
+
+
+def resolve_theme_overhead(form, in_scope, errors):
+    """Theme group, step 3: theme_overhead ("" clears it to
+    CLEAR_THEME_OVERHEAD)."""
+    return _resolve_following_theme(
+        form, in_scope, errors, "theme_overhead", device_config.CLEAR_THEME_OVERHEAD)
 
 
 def resolve_quiet_hours_times(form, errors):
