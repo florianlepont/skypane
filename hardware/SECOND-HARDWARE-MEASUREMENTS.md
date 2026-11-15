@@ -50,7 +50,7 @@ Filled by the owner. Leave a row empty if the item was not measured.
 
 | Item | Value | Date | Unit MAC | Method | Status (measured or provisional) |
 |------|-------|------|----------|--------|----------------------------------|
-| 1 Refresh time (min / median / max) | | | | | |
+| 1 Refresh time (min / median / max) | 25 s / 27 s / 27 s (five refreshes: 25, 27, 27, 27, 27) | 2026-11-15 | 84:c7:bb:70:b2:7c | Stopwatch from the panel starting to flash to it going fully still, on the bench server with a changing image at every wake (firmware fw-v1.0.12-bench8, dev profile, solid-colour test images) | measured |
 | 2 Busy wait after init (min / median / max) | | | | | |
 | 3 Busy wait after refresh (min / median / max) | | | | | |
 | 4 Busy wait after power-off (min / median / max) | | | | | |
