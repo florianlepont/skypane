@@ -30,3 +30,33 @@ status: complete
 `companion/app.py` POST install/cancel handlers already use `self.args.state_dir` (root) for
 the registry, device report and `post_choice`; no change needed. No other module under
 `companion/` (console_fleet_view, home, health) reads the registry or device report.
+
+## Part 2: the per-frame page shows only the frame's own hardware type
+
+Observed after Part 1: with registries for two types in the root state dir, the Fleet page of a
+frame showed a type chooser (EE02 and EE04 tabs).
+
+- `update_page.render_parts` (the Fleet view's entry) now pins the frame's own hardware type
+  (`_loaded_parts(..., pinned=True)`): the choice is that type alone, no chooser; a type with no
+  releases shows the empty state for itself. The standalone `update_page.render` keeps the
+  chooser. A single relevant type renders byte for byte as before (goldens untouched).
+- `GET /update` redirects to a frame's Fleet view whenever a frame of the type exists, so the
+  chooser is reachable only on the standalone render; the two server tests that expected the
+  chooser on the Fleet view were replaced by a Fleet test asserting no chooser, plus a render
+  test of the standalone chooser (English and French).
+
+### device_report.json
+
+One document keyed by device id; every entry carries `hardware_type` (an entry without the field
+reads as the legacy type), and `update_view` already reads only the entry of the registry's own
+type (`_most_recent_device_entry`). So frames of different types share the file but never each
+other's entries on a page; no display rule was needed. The "fw-v1.2.0, installed 3 min ago" on the
+live frame was a real install (confirmed by the owner), not a leak. Residual note: an entry written
+before the stamp existed counts as legacy; none was seen in tests.
+
+### Commits and verification
+
+- Tests (failing first): the new test commit; fix commit follows it.
+- 114 passed: test_update_page.py, test_update_page_non_live.py, test_update_actions.py,
+  test_console_fleet_view*.py. Function-size gate, ruff, mypy, comment-history guard clean.
+- companion/test_browser_update.py: 49 skipped, Chromium not installed here (not run).
