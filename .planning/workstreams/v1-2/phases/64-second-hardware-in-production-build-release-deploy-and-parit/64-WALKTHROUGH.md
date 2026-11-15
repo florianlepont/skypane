@@ -16,9 +16,9 @@ FR = French UI. FR cells also check strings, accents and clipped text on the sec
 | 1 | Pair | The code on the panel is accepted, the frame appears under the chosen owner | pass (language not stated) | open | n/a | n/a | Done 2026-11-15 by the owner: registered with `fleet_cli register-pending`, then paired with the panel code. Language not stated |
 | 2 | Assign | The frame can be assigned to another owner, and its page follows | open | pass | n/a | n/a | Owner-reported 2026-11-15: done in French as administrator |
 | 3 | Change the layout | The layout picker and its previews have the frame's landscape shape; the saved layout shows on the panel | open | pass | open | open | Owner-reported 2026-11-15: done in French as administrator |
-| 4 | Display on or off | Off: the panel shows the off screen at its next wake; on: it draws again | open | open | open | open | |
+| 4 | Display on or off | Off: the panel shows the off screen at its next wake; on: it draws again | open | pass (off screen) | open | open | Owner-reported 2026-11-15: in French as administrator, the off screen shows on the panel after switching off; switched back on, the redraw at the next wake was not yet reported |
 | 5 | Quiet hours | Saved hours take effect; the hold screen shows | open | pass | open | open | Owner-reported 2026-11-15: done in French as administrator and in the personal view of the owner's own frame (the owner is also its administrator; this is not the invited-user case, which needs a non-admin account) |
-| 6 | Detection mode | The chosen mode saves and the next image follows it | open | open | open | open | |
+| 6 | Detection mode | The chosen mode saves and the next image follows it | open | pass | open | open | Owner-reported 2026-11-15: "détection: fait" in French as administrator; the mode chosen and the image that followed were not described |
 | 7 | Health | Connection, battery and flight data rows show the frame's own state | open | open | open | open | |
 | 8 | Battery | A percentage and a voltage show; the percentage uses the frame's own curve | open | open | open | open | Provisional values |
 | 9 | Schedule an update | The Update card lists this frame's own releases only (no other type tab) and installs | pass (language not stated) | open | n/a | n/a | Done 2026-11-15: fw-v1.2.1 installed, see `64-OWNER-VALIDATION.md` section C |
