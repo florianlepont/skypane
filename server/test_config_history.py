@@ -56,7 +56,7 @@ def test_missing_state_dir_yields_defaults(tmp_path):
     tmpdir = tmp_path
     missing = os.path.join(tmpdir, "does-not-exist")
     config = device_config.load_device_config(missing)
-    if config != {"theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
         pytest.fail("expected defaults, got %r" % (config,))
 
 
@@ -68,7 +68,7 @@ def test_malformed_file_yields_defaults(tmp_path):
         with open(path, "w") as fh:
             fh.write(bad_content)
         config = device_config.load_device_config(tmpdir)
-        if config != {"theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
+        if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
             pytest.fail("content %r produced %r, expected defaults" % (bad_content, config))
 
 
@@ -79,7 +79,7 @@ def test_hostile_values_yield_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "../../etc/passwd", "tracked_runway": 7}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
         pytest.fail("hostile input produced %r, expected defaults for both keys" % (config,))
 
 
@@ -88,7 +88,7 @@ def test_save_then_load_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, theme="black", tracked_runway="02-20")
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "black", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
+    if config != {"theme": "black", "theme_arriving": None, "tracked_runway": "02-20", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -125,7 +125,7 @@ def test_hostile_hand_edit_after_a_real_save_still_yields_defaults(tmp_path):
     with open(path, "w") as fh:
         fh.write('{"theme": "black/../x", "tracked_runway": "3; DROP TABLE"}')
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
         pytest.fail("hand-edited hostile file produced %r, expected defaults for both keys" % (config,))
 
 
@@ -146,7 +146,7 @@ def test_save_led_enabled_false_round_trips(tmp_path):
     tmpdir = tmp_path
     device_config.save_device_config(tmpdir, led_enabled=False)
     config = device_config.load_device_config(tmpdir)
-    if config != {"theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
+    if config != {"theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": False, "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00", "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID}:
         pytest.fail("round-trip produced %r" % (config,))
 
 
@@ -466,7 +466,7 @@ def test_save_quiet_hours_round_trips(tmp_path):
         tmpdir, quiet_hours_enabled=True, quiet_hours_start="22:30", quiet_hours_end="06:15")
     config = device_config.load_device_config(tmpdir)
     if config != {
-        "theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": True,
+        "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": True, "quiet_hours_start": "22:30", "quiet_hours_end": "06:15",
         "wake_interval_s": None, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID,
     }:
@@ -612,7 +612,7 @@ def test_save_wake_interval_s_round_trips(tmp_path):
     device_config.save_device_config(tmpdir, wake_interval_s=120)
     config = device_config.load_device_config(tmpdir)
     if config != {
-        "theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": True,
+        "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
         "wake_interval_s": 120, "display_enabled": True, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID,
     }:
@@ -815,7 +815,7 @@ def test_save_display_enabled_false_round_trips_and_carries_forward(tmp_path):
     device_config.save_device_config(tmpdir, display_enabled=False)
     config = device_config.load_device_config(tmpdir)
     if config != {
-        "theme": "white", "theme_arriving": None, "theme_overhead": None, "tracked_runway": "3", "led_enabled": True,
+        "theme": "white", "theme_arriving": None, "tracked_runway": "3", "led_enabled": True,
         "quiet_hours_enabled": False, "quiet_hours_start": "23:00", "quiet_hours_end": "07:00",
         "wake_interval_s": None, "display_enabled": False, "calendar_theme_id": None, "timezone": "Europe/Paris", "detection": None, "layout": DEFAULT_LAYOUT_ID,
     }:

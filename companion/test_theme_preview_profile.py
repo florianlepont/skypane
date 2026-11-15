@@ -41,10 +41,8 @@ def test_legacy_output_is_byte_identical(profile):
     assert _sha(theme_preview.preview_png_bytes("white", **kwargs)) == LEGACY_GOLDEN["chip"]
     assert _sha(theme_preview.preview_png_bytes("white", layout="b", **kwargs)) == (
         LEGACY_GOLDEN["chip_layout_b"])
-    # The overhead picture came later and has no pre-profile bytes.
     for size in theme_preview.FRAME_PREVIEW_SIZES:
-        for state in (theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
-                      theme_preview.FRAME_PREVIEW_STATE_ARRIVING):
+        for state in theme_preview.FRAME_PREVIEW_STATES:
             payload = theme_preview.frame_preview_png_bytes("white", state, size, **kwargs)
             assert _sha(payload) == LEGACY_GOLDEN[(size, state)]
 

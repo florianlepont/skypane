@@ -7,7 +7,7 @@ so they save with scripts blocked:
     frame can show, each with a small picture of that layout;
   * the pairing picker: for a frame on a giant-lettering layout, the five
     field / lettering pairings replace the eighteen-theme picker for
-    departures, for "theme when arriving" and for the overhead look.
+    departures and for "theme when arriving".
 
 A pairing is stored as the theme id it shares its name with, so every
 validator that accepts a theme id still accepts it and nothing stored is
@@ -28,9 +28,7 @@ from companion.settings.form import (
     _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
     COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
-    COLOUR_USAGE_OVERHEAD, COLOUR_USAGE_RULES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL,
-    LOOK_FIELDS, LOOK_PREVIEW_ALT_TEMPLATE, OVERHEAD_LOOK_HELP, SAME_AS_DEPARTURES_LABEL,
-    departures_safe_theme_id)
+    COLOUR_USAGE_RULES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL, LOOK_FIELDS, LOOK_PREVIEW_ALT_TEMPLATE, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
 
 LAYOUT_FIELD = "layout"
 
@@ -217,54 +215,35 @@ def _departures_panel_html(layout_id, current_theme_id, errors, submitted):
         _field_error_html(errors, field, field.replace("_", "-")))
 
 
-def _following_panel_html(usage, help_message, state, layout_id, current, errors, submitted):
-    """The pairing panel of a look that can follow departures (Arrivals,
-    Overhead): "Same as departures", then the five pairing cards."""
-    field = LOOK_FIELDS[usage]
-    chosen = _submitted_or_current(submitted, field, current)
-    saved_follows = not current
+def _arrivals_panel_html(layout_id, current_arriving, errors, submitted):
+    field = LOOK_FIELDS[COLOUR_USAGE_ARRIVALS]
+    chosen = _submitted_or_current(submitted, field, current_arriving)
+    saved_follows = not current_arriving
     follows = not chosen
     cards = _pairing_cards_html(
         field, None if follows else pairing_id_for(chosen),
-        None if saved_follows else pairing_id_for(current),
-        usage, layout_id, state)
+        None if saved_follows else pairing_id_for(current_arriving),
+        COLOUR_USAGE_ARRIVALS, layout_id, theme_preview.FRAME_PREVIEW_STATE_ARRIVING)
     same = look.same_option_html(field, follows, i18n.t(SAME_AS_DEPARTURES_LABEL))
     return (
         '<div class="look-pairings" data-look-panel="%s">%s<div class="look-table__options">%s</div>'
         '<div class="look-pick__grid" role="radiogroup" aria-label="%s">%s</div>%s</div>'
     ) % (
-        usage, _help_html(help_message), same,
-        escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[usage])), cards,
+        COLOUR_USAGE_ARRIVALS, _help_html(ARRIVING_NUDGE), same,
+        escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS])), cards,
         _field_error_html(errors, field, field.replace("_", "-")))
 
 
-def _arrivals_panel_html(layout_id, current_arriving, errors, submitted):
-    return _following_panel_html(
-        COLOUR_USAGE_ARRIVALS, ARRIVING_NUDGE, theme_preview.FRAME_PREVIEW_STATE_ARRIVING,
-        layout_id, current_arriving, errors, submitted)
-
-
-def _overhead_panel_html(layout_id, current_overhead, errors, submitted):
-    return _following_panel_html(
-        COLOUR_USAGE_OVERHEAD, OVERHEAD_LOOK_HELP, theme_preview.FRAME_PREVIEW_STATE_OVERHEAD,
-        layout_id, current_overhead, errors, submitted)
-
-
 def pairing_view_html(
-        layout_id, current_theme_id, current_arriving, errors=None, submitted=None, usage=None,
-        current_overhead=None, overhead=False):
+        layout_id, current_theme_id, current_arriving, errors=None, submitted=None, usage=None):
     """What a look view holds for a frame on a giant-lettering layout: the
-    pairing cards of the type `usage` names (departures, arrivals or
-    overhead), or of every type when `usage` is None (overhead only when
-    `overhead`, the frame offering that look). Only the shown type's field
-    is posted."""
+    pairing cards of the type `usage` names (departures or arrivals), or of
+    both when `usage` is None. Only the shown type's field is posted."""
     parts = []
     if usage in (None, COLOUR_USAGE_DEPARTURES):
         parts.append(_departures_panel_html(layout_id, current_theme_id, errors, submitted))
     if usage in (None, COLOUR_USAGE_ARRIVALS):
         parts.append(_arrivals_panel_html(layout_id, current_arriving, errors, submitted))
-    if usage == COLOUR_USAGE_OVERHEAD or (usage is None and overhead):
-        parts.append(_overhead_panel_html(layout_id, current_overhead, errors, submitted))
     return '<div class="look-pairing-view">%s</div>' % "".join(parts)
 
 

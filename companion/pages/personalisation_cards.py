@@ -1,11 +1,10 @@
 """The Personalisation page's body: the frame's Layout card, one navigation
-(Departures, Arrivals, Overhead on a position-mode frame, Special looks, Calendar)
-and the one view it points at.
+(Departures, Arrivals, Special looks, Calendar) and the one view it points at.
 Each view has its own address; Departures is the page's own address. The layout
 is one setting per frame, so its card sits above the navigation and shows
 whichever view is open.
 
-Departures, Arrivals and Overhead are views of the look picker. Special looks and
+Departures and Arrivals are two views of the look picker. Special looks and
 Calendar are one glass group of rows with an add row under it. Every view is a section carrying the
 dirty-state attribute, so the save bar names the sections that changed. The
 views only compose markup built by the settings modules; none of them decides
@@ -28,10 +27,10 @@ from companion.settings import rules
 from companion.settings.form import DIRTY_SECTION_ATTR
 from companion.settings.rules import SPECIAL_LOOKS_HEADING, special_looks_html
 from companion.settings.theme import (
-    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_OVERHEAD,
+    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
     FRAME_COLOURS_ROW_LABELS, departures_safe_theme_id, look_card_body_html, look_frame_html,
     look_sheet_html)
-from server import detection, screen_layouts
+from server import screen_layouts
 
 PAGE_ID = "personalisation"
 NAV_LABEL = i18n.msg("display.personalisation_sections", "Style sections")
@@ -42,7 +41,6 @@ CALENDAR_TITLE = i18n.msg("look.calendar", "Calendar")
 # One address per view. Departures keeps the page's original address.
 VIEW_DEPARTURES = "departures"
 VIEW_ARRIVALS = "arrivals"
-VIEW_OVERHEAD = "overhead"
 VIEW_SPECIAL_LOOKS = "special-looks"
 VIEW_CALENDAR = "calendar"
 VIEW_LOOK_NEW = "special-look-new"
@@ -52,7 +50,6 @@ VIEW_CALENDAR_LOOK = "calendar-look"
 VIEW_ROUTES = {
     VIEW_DEPARTURES: layout.DISPLAY_ROUTE,
     VIEW_ARRIVALS: layout.DISPLAY_ARRIVALS_ROUTE,
-    VIEW_OVERHEAD: layout.DISPLAY_OVERHEAD_ROUTE,
     VIEW_SPECIAL_LOOKS: layout.DISPLAY_SPECIAL_LOOKS_ROUTE,
     VIEW_CALENDAR: layout.DISPLAY_CALENDAR_ROUTE,
     VIEW_LOOK_NEW: layout.DISPLAY_SPECIAL_LOOK_NEW_ROUTE,
@@ -84,11 +81,10 @@ LEAVE_RETURN_ROUTES = tuple(dict.fromkeys(
     tuple(VIEW_ROUTES.values()) + (layout.DEVICE_ROUTE,)
     + tuple(route for route, _label in layout.NAV_TABS)
     + (layout.ACCOUNT_ROUTE, layout.AIRLINE_EDITOR_ROUTE) + CONSOLE_LEAVE_ROUTES))
-# The views of the look picker, and the picture each one shows first.
+# The two views of the look picker, and the picture each one shows first.
 LOOK_VIEW_USAGES = {
     VIEW_DEPARTURES: COLOUR_USAGE_DEPARTURES,
     VIEW_ARRIVALS: COLOUR_USAGE_ARRIVALS,
-    VIEW_OVERHEAD: COLOUR_USAGE_OVERHEAD,
 }
 # The address that used to hold the Screen switch (now on Home) and the one
 # that held the Layout view (now a card on every view) redirect to Departures.
@@ -123,31 +119,15 @@ def _look_view(values, errors, submitted, usage):
         _look_body_html(values, errors, submitted, usage))
 
 
-# Shown on hover over the greyed-out Overhead segment of a runway frame.
-OVERHEAD_UNAVAILABLE = i18n.msg(
-    "look.overhead_unavailable",
-    "Overhead is not available while tracking a runway.")
-
-
-def offers_overhead(values):
-    """True when the frame can draw the Overhead state: only a frame that
-    watches a position (not a runway) shows a level aircraft as overhead."""
-    selection = detection.current_selection(values.get("device_cfg") or {})
-    return selection["mode"] == detection.POSITION_MODE
-
-
 def _look_body_html(values, errors, submitted, usage):
     """The picker a frame's layout calls for: the five pairing cards on a
     giant-lettering layout, the three-axis look picker on the classic one."""
     layout_id = screen_layouts.normalise_layout_id(values["layout"])
-    overhead = offers_overhead(values)
     if screen_layouts.is_giant_layout(layout_id):
         return layout_picker.pairing_view_html(
-            layout_id, values["theme_id"], values["theme_arriving"], errors, submitted, usage,
-            current_overhead=values.get("theme_overhead"), overhead=overhead)
+            layout_id, values["theme_id"], values["theme_arriving"], errors, submitted, usage)
     return look_card_body_html(
-        values["theme_id"], values["theme_arriving"], errors, submitted, usage,
-        current_theme_overhead=values.get("theme_overhead"), overhead=overhead)
+        values["theme_id"], values["theme_arriving"], errors, submitted, usage)
 
 
 def _layout_card(values, errors, submitted):
@@ -179,12 +159,10 @@ def _calendar_look_controls(values, errors):
 
 
 def _views():
-    """(slug, title message, icon id) of the views in navigation order. Overhead
-    is always listed; a frame that never draws it shows it greyed out."""
+    """(slug, title message, icon id) of the four views in navigation order."""
     return (
         (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
         (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane"),
-        (VIEW_OVERHEAD, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_OVERHEAD], "icon-plane"),
         (VIEW_SPECIAL_LOOKS, SPECIAL_LOOKS_HEADING, "icon-star"),
         (VIEW_CALENDAR, CALENDAR_TITLE, "icon-calendar"))
 
@@ -192,7 +170,6 @@ def _views():
 def _view_titles():
     return {
         VIEW_ARRIVALS: FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS],
-        VIEW_OVERHEAD: FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_OVERHEAD],
         VIEW_SPECIAL_LOOKS: SPECIAL_LOOKS_HEADING,
         VIEW_CALENDAR: CALENDAR_TITLE,
         VIEW_LOOK_NEW: rules.NEW_SPECIAL_LOOK_HEADING,
@@ -215,19 +192,15 @@ def view_for_route(route):
     return ROUTE_VIEWS.get(route, VIEW_DEPARTURES)
 
 
-def _nav_html(view, overhead=False):
+def _nav_html(view):
     """The section navigation: one plain link per view, the current one marked
     (a form page marks the list it belongs to). A script adds the sliding
-    highlight over it; the links work without. Without `overhead` (a runway
-    frame) the Overhead segment is greyed out with an explanation, unless it
-    is the view being shown."""
+    highlight over it; the links work without."""
     view = PARENT_VIEWS.get(view, view)
-    unavailable = escape_html(i18n.t(OVERHEAD_UNAVAILABLE))
     links = [
         (escape_html(device_scope.scoped(VIEW_ROUTES[slug])),
          "%s<span>%s</span>" % (layout.icon_html(icon), escape_html(i18n.t(title))),
-         slug == view, ' data-pers-view="%s"' % slug,
-         unavailable if slug == VIEW_OVERHEAD and not (overhead or view == VIEW_OVERHEAD) else "")
+         slug == view, ' data-pers-view="%s"' % slug)
         for slug, title, icon in _views()]
     return ui_segmented.segmented_links_html(
         links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"', carry=True)
@@ -307,10 +280,9 @@ def page_html(
     The Special looks and Calendar views carry the hidden look sheet their
     openers use; the look views' own sheet is the inline picker.
     """
-    overhead = offers_overhead(values)
     if view in FORM_VIEWS:
         return '<div class="personalisation">%s<div class="personalisation__view">%s</div></div>' % (
-            _nav_html(view, overhead), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
+            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
     sheet_html = look_sheet_html() if view is not None else ""
     usage = LOOK_VIEW_USAGES.get(view)
     parts = {
@@ -320,11 +292,10 @@ def page_html(
             _calendar_look_controls(values, errors) if view is None else ""),
     }
     parts[VIEW_ARRIVALS] = parts[VIEW_DEPARTURES]
-    parts[VIEW_OVERHEAD] = parts[VIEW_DEPARTURES]
     shown = (view,) if view is not None else (
         VIEW_DEPARTURES, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
     return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div></div>' % (
-        _layout_card(values, errors, submitted), _nav_html(view, overhead),
+        _layout_card(values, errors, submitted), _nav_html(view),
         "".join(parts[name]() for name in shown))
 
 

@@ -90,8 +90,6 @@ DEFAULT_DISPLAY_ENABLED = True  # An explicit boolean following the
 # companion/pages/health_page.py's `_DB_UNAVAILABLE` idiom. Compared by
 # identity, never equality.
 CLEAR_THEME_ARRIVING = object()
-# Same idiom for the overhead look.
-CLEAR_THEME_OVERHEAD = object()
 
 # Same idiom for the detection setting: `None` carries the stored value
 # forward, this sentinel removes the key, an object sets it.
@@ -169,13 +167,6 @@ def normalise_theme_arriving(value):
     if isinstance(value, str) and value in THEMES:
         return value
     return None
-
-
-def normalise_theme_overhead(value):
-    """The overhead look: `value` unchanged if it's a string member of
-    `THEMES`, else None ("same as `theme`"). Never raises.
-    """
-    return normalise_theme_arriving(value)
 
 
 def normalise_calendar_theme_id(value):
@@ -288,13 +279,13 @@ def normalise_detection(value):
 def load_device_config(state_dir):
     """Read device_config.json; a missing/unreadable/malformed/non-dict
     file falls back to an empty dict, never raises. Always returns all
-    fourteen keys with valid values via the normalise_*() functions above,
+    thirteen keys with valid values via the normalise_*() functions above,
     so a hostile or stale value on disk never reaches a caller.
-    `theme_arriving`, `theme_overhead`, `calendar_theme_id` are read with
+    `theme_arriving`, `calendar_theme_id` are read with
     `.get()` so an older file missing them resolves to their documented
-    default. `wake_interval_s`, `theme_arriving`, `theme_overhead`,
-    `calendar_theme_id` are the four keys whose valid value set includes
-    `None`; `detection` (a shape-checked object or `None`) is a fifth.
+    default. `wake_interval_s`, `theme_arriving`, `calendar_theme_id` are
+    the three keys whose valid value set includes `None`; `detection`
+    (a shape-checked object or `None`) is a fourth.
 
     The loader returns only the registry's own keys, so a key an older
     file still carries (one a removed feature left behind) never reaches
@@ -311,7 +302,6 @@ def load_device_config(state_dir):
     return {
         "theme": normalise_theme_id(data.get("theme")),
         "theme_arriving": normalise_theme_arriving(data.get("theme_arriving")),
-        "theme_overhead": normalise_theme_overhead(data.get("theme_overhead")),
         "calendar_theme_id": normalise_calendar_theme_id(data.get("calendar_theme_id")),
         "tracked_runway": normalise_runway_id(data.get("tracked_runway")),
         "led_enabled": normalise_led_enabled(data.get("led_enabled")),
@@ -360,8 +350,8 @@ def _validate_timezone(timezone):
         raise ValueError("unknown timezone %r (expected an IANA zone name such as %r)" % (timezone, DEFAULT_TIMEZONE))
 
 
-def _validate_theme_fields(theme, theme_arriving, calendar_theme_id, theme_overhead=None):
-    """`theme`/`theme_arriving`/`calendar_theme_id`/`theme_overhead`'s own validation,
+def _validate_theme_fields(theme, theme_arriving, calendar_theme_id):
+    """`theme`/`theme_arriving`/`calendar_theme_id`'s own validation,
     extracted from `save_device_config()` verbatim - same messages, same
     order. See `save_device_config()`'s docstring for the three-state
     `theme_arriving` contract this depends on.
@@ -370,8 +360,6 @@ def _validate_theme_fields(theme, theme_arriving, calendar_theme_id, theme_overh
         raise ValueError("unknown theme id %r (expected one of %r)" % (theme, THEME_IDS))
     if theme_arriving is not None and theme_arriving is not CLEAR_THEME_ARRIVING and theme_arriving not in THEMES:
         raise ValueError("unknown theme_arriving id %r (expected None, CLEAR_THEME_ARRIVING, or one of %r)" % (theme_arriving, THEME_IDS))
-    if theme_overhead is not None and theme_overhead is not CLEAR_THEME_OVERHEAD and theme_overhead not in THEMES:
-        raise ValueError("unknown theme_overhead id %r (expected None, CLEAR_THEME_OVERHEAD, or one of %r)" % (theme_overhead, THEME_IDS))
     # The empty string is a third valid write-time value (carry-forward
     # None, set to a real id, or clear via "") - the Frame colours card's
     # "Same as departures" chip submits it, and this gate must accept it.
@@ -422,12 +410,11 @@ def _merged_config(
     current, theme=None, theme_arriving=None, calendar_theme_id=None, tracked_runway=None,
     led_enabled=None, quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, timezone=None, detection=None,
-    layout=None, theme_overhead=None,
+    layout=None,
 ):
     """The dict `save_device_config()` writes (ten keys, plus `timezone`
-    only when it differs from `DEFAULT_TIMEZONE`, `detection` and
-    `theme_overhead` only when set, `layout` only when it differs from the
-    default): every supplied
+    only when it differs from `DEFAULT_TIMEZONE` and `detection` only
+    when set, `layout` only when it differs from the default): every supplied
     (non-`None`) field wins, everything else carries `current`'s value
     forward. `theme_arriving`'s three-state contract (sentinel clears,
     non-None sets, None carries forward) is unchanged from before the
@@ -465,14 +452,6 @@ def _merged_config(
     new_layout = layout if layout is not None else current["layout"]
     if new_layout != screen_layouts.DEFAULT_LAYOUT_ID:
         merged["layout"] = new_layout
-    if theme_overhead is CLEAR_THEME_OVERHEAD:
-        new_theme_overhead = None
-    elif theme_overhead is not None:
-        new_theme_overhead = theme_overhead
-    else:
-        new_theme_overhead = current["theme_overhead"]
-    if new_theme_overhead is not None:
-        merged["theme_overhead"] = new_theme_overhead
     return merged
 
 
@@ -480,7 +459,7 @@ def save_device_config(
     state_dir, theme=None, theme_arriving=None, tracked_runway=None, led_enabled=None,
     quiet_hours_enabled=None, quiet_hours_start=None, quiet_hours_end=None,
     wake_interval_s=None, display_enabled=None, calendar_theme_id=None, timezone=None,
-    detection=None, layout=None, theme_overhead=None,
+    detection=None, layout=None,
 ):
     """Validate and persist any subset of the device settings; `None`
     means "not supplied, carry the current on-disk value forward" for
@@ -509,12 +488,6 @@ def save_device_config(
     THEMES member. `calendar_theme_id` needs no sentinel - the empty
     string is itself a genuine "clear" value, distinct from `None`.
 
-    `theme_overhead` is the look of an aircraft flying level over a
-    position-mode frame. Same three states as `theme_arriving`, with
-    `CLEAR_THEME_OVERHEAD`; `None` on disk means it follows `theme`. Like
-    `detection` it is written only when set, so a device that never chose
-    one keeps its file bytes.
-
     The whole load-merge-write sequence runs under a module
     `threading.Lock` (same-process fast path) and then
     `atomic_io.exclusive_lock(<state_dir>/device_config.lock)`
@@ -527,7 +500,7 @@ def save_device_config(
     `atomic_io.atomic_write`, which itself uses a unique per-call temp
     name and leaves no leftover file on failure.
     """
-    _validate_theme_fields(theme, theme_arriving, calendar_theme_id, theme_overhead)
+    _validate_theme_fields(theme, theme_arriving, calendar_theme_id)
     _validate_runway_and_flags(tracked_runway, led_enabled, display_enabled)
     _validate_quiet_hours(quiet_hours_enabled, quiet_hours_start, quiet_hours_end)
     _validate_wake_interval(wake_interval_s)
@@ -549,7 +522,6 @@ def save_device_config(
                 quiet_hours_start=quiet_hours_start, quiet_hours_end=quiet_hours_end,
                 wake_interval_s=wake_interval_s, display_enabled=display_enabled,
                 timezone=timezone, detection=detection, layout=layout,
-                theme_overhead=theme_overhead,
             )
             atomic_io.atomic_write(device_config_path(state_dir), json.dumps(new_config, indent=1))
 

@@ -6612,12 +6612,6 @@ a.entity-row__button:hover {
   display: none;
 }
 
-/* A segment the frame cannot use: greyed, not a destination. */
-.personalisation-nav__link.is-unavailable {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
 .personalisation-nav__link[aria-current="page"] > span {
   background: var(--seg-selected-bg);
   box-shadow: var(--shadow-control);

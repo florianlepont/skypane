@@ -23,7 +23,6 @@ EXPECTED_DEVICE_SCOPED = {
     ("GET", "/display/calendar/connect"),
     ("GET", "/display/calendar-look"),
     ("GET", "/display/arrivals"),
-    ("GET", "/display/overhead"),
     ("GET", "/display/layout"),
     ("GET", "/display/calendar"),
     ("GET", "/display/screen"),
@@ -85,7 +84,7 @@ def _spec_of(route):
 class TestPrefixMatching:
     def test_flagged_routes_equal_the_explicit_list(self):
         flagged = {(r.method, _spec_of(r)) for r in routes.ROUTES if r.device_scoped}
-        assert len(EXPECTED_DEVICE_SCOPED) == 48
+        assert len(EXPECTED_DEVICE_SCOPED) == 47
         assert flagged == EXPECTED_DEVICE_SCOPED
 
     @pytest.mark.parametrize("method,spec", sorted(EXPECTED_DEVICE_SCOPED, key=str))

@@ -35,25 +35,21 @@ ASPECT_HEADING_ID = "aspect-heading"
 # saved field names are the values of LOOK_FIELDS.
 COLOUR_USAGE_DEPARTURES = "departures"
 COLOUR_USAGE_ARRIVALS = "arrivals"
-COLOUR_USAGE_OVERHEAD = "overhead"
 COLOUR_USAGE_CALENDAR = "calendar"
 COLOUR_USAGE_RULES = "rules"
 LOOK_FIELDS = {
     COLOUR_USAGE_DEPARTURES: "theme",
     COLOUR_USAGE_ARRIVALS: "theme_arriving",
-    COLOUR_USAGE_OVERHEAD: "theme_overhead",
     COLOUR_USAGE_CALENDAR: "calendar_theme_id",
 }
 FRAME_COLOURS_ROW_LABELS = {
     COLOUR_USAGE_DEPARTURES: i18n.msg("display.departures", "Departures"),
     COLOUR_USAGE_ARRIVALS: i18n.msg("display.arrivals", "Arrivals"),
-    COLOUR_USAGE_OVERHEAD: i18n.msg("display.overhead", "Overhead"),
     COLOUR_USAGE_CALENDAR: i18n.msg("display.calendar_flights", "Calendar flights"),
 }
 LOOK_SHEET_TITLES = {
     COLOUR_USAGE_DEPARTURES: i18n.msg("look.departures_look", "Departures look"),
     COLOUR_USAGE_ARRIVALS: i18n.msg("look.arrivals_look", "Arrivals look"),
-    COLOUR_USAGE_OVERHEAD: i18n.msg("look.overhead_look", "Overhead look"),
     COLOUR_USAGE_CALENDAR: i18n.msg("look.calendar_flights_look", "Calendar flights look"),
 }
 LOOK_CHANGE_LABEL = i18n.msg("look.change", "Change")
@@ -67,14 +63,7 @@ LOOK_FOLLOWS_NOTE = i18n.msg(
     "look.follows_departures_note",
     "This look follows the departures look. Switch it off to choose its own.")
 
-# What the Overhead look is for: a position-mode frame draws a level
-# aircraft as "overhead", neither departing nor arriving.
-OVERHEAD_LOOK_HELP = i18n.msg(
-    "look.overhead_help",
-    "An aircraft flying level over your position is shown as Overhead, "
-    "neither a departure nor an arrival. It shows the city it is flying to.")
-
-# The "Same as departures" option Arrivals, Overhead and Calendar flights carry,
+# The "Same as departures" option Arrivals and Calendar flights carry,
 # submitting the empty string: the clear signal handle_post() maps to
 # device_config.CLEAR_THEME_ARRIVING / no calendar override.
 SAME_AS_DEPARTURES_LABEL = i18n.msg("display.same_as_departures", "Same as departures")
@@ -383,50 +372,30 @@ def look_pick_html(current_theme_id, submitted, errors, lazy=False):
         _field_error_html(errors, field_name, field_name.replace("_", "-")))
 
 
-def overhead_help_html():
-    """The sentence that says what the Overhead look applies to."""
-    return '<p class="text-label section-caption">%s</p>' % escape_html(i18n.t(OVERHEAD_LOOK_HELP))
-
-
 def look_card_body_html(
-        current_theme_id, current_theme_arriving, errors=None, submitted=None, usage=None,
-        current_theme_overhead=None, overhead=False):
+        current_theme_id, current_theme_arriving, errors=None, submitted=None, usage=None):
     """What a look view holds. With a script: the live picture of the chosen
     type and the inline picker (colour, background, diagonal band, Reset,
     Save). Without one: the picture and native radio table of the chosen
-    type, exactly as before. `usage` (departures, arrivals or overhead) names
-    the type shown; None shows them all. The other types' pictures and radios
-    stay in the markup, hidden, so the form posts the same fields and the
-    picker can resolve "Same as departures". `overhead` is whether the frame
-    offers the Overhead look (a position-mode frame); the Overhead view
-    always carries it.
+    type, exactly as before. `usage` (departures or arrivals) names the type
+    shown; None shows both. The other type's picture and radios stay in the
+    markup, hidden, so the form posts the same fields and the picker can
+    resolve "Same as departures".
     """
     departures_id = departures_safe_theme_id(current_theme_id, submitted)
     effective_arriving = _submitted_or_current(submitted, "theme_arriving", current_theme_arriving)
-    with_overhead = overhead or usage == COLOUR_USAGE_OVERHEAD
     hidden = {name: " hidden" if usage not in (None, name) else ""
-              for name in (COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_OVERHEAD)}
+              for name in (COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_ARRIVALS)}
     # The panel the page keeps hidden loads its picture only when shown.
     arrivals_html = look_frame_html(
         COLOUR_USAGE_ARRIVALS, effective_arriving, departures_id, errors,
         theme_preview.FRAME_PREVIEW_STATE_ARRIVING,
         lazy=bool(hidden[COLOUR_USAGE_ARRIVALS]))
-    overhead_html = ""
-    if with_overhead:
-        effective_overhead = _submitted_or_current(
-            submitted, "theme_overhead", current_theme_overhead)
-        overhead_html = '<div class="look-panel" data-look-panel="%s"%s>%s%s</div>' % (
-            COLOUR_USAGE_OVERHEAD, hidden[COLOUR_USAGE_OVERHEAD], overhead_help_html(),
-            look_frame_html(
-                COLOUR_USAGE_OVERHEAD, effective_overhead, departures_id, errors,
-                theme_preview.FRAME_PREVIEW_STATE_OVERHEAD,
-                lazy=bool(hidden[COLOUR_USAGE_OVERHEAD])))
     return (
         '<div class="look-view" data-look-initial="%s">'
         '<div class="look-stage">'
         '<div class="look-panel" data-look-panel="%s"%s>%s</div>'
         '<div class="look-panel look-pick__arrivals" data-look-panel="%s"%s>%s</div>'
-        "%s"
         "</div>"
         '<div class="look-picker js-gate">%s</div>'
         "</div>"
@@ -436,5 +405,4 @@ def look_card_body_html(
         look_pick_html(
             current_theme_id, submitted, errors, lazy=bool(hidden[COLOUR_USAGE_DEPARTURES])),
         COLOUR_USAGE_ARRIVALS, hidden[COLOUR_USAGE_ARRIVALS], arrivals_html,
-        overhead_html,
         look_sheet_html(inline=True))
