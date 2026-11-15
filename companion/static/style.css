@@ -587,6 +587,11 @@ html[data-ui-theme="dark"] {
   object-fit: contain;
 }
 
+/* A landscape frame's picture keeps its own 5:3 shape (the 800x480 canvas). */
+.preview-frame__image[data-frame-shape="landscape"] {
+  aspect-ratio: 5 / 3;
+}
+
 /* The app's only @keyframes block for an ambient pulse, shared by two
  * consumers rather than duplicated (test_companion_app.py fails if a
  * second near-identical block appears). Cycles opacity only, never

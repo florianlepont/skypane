@@ -315,6 +315,10 @@ html:has(.tab-bar__more[open]) .home-state__dot--pulse::after {
   text-align: center;
 }
 
+.preview-empty[data-frame-shape="landscape"] {
+  aspect-ratio: 5 / 3;
+}
+
 .preview-empty__heading {
   margin: 0;
   font-size: var(--font-caption-size);

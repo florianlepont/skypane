@@ -232,11 +232,14 @@ def _current_picture_html(ctx, current_flight_row):
             else NO_PANEL_BODY)
         return (
             '<figure class="preview-frame preview-frame--empty">'
-            '<div class="preview-empty">%s<p class="preview-empty__heading">%s</p></div>'
+            '<div class="preview-empty"%s>%s<p class="preview-empty__heading">%s</p></div>'
             '<figcaption class="visually-hidden">%s</figcaption></figure>' % (
+                device_scope.current_frame_shape_attr(),
                 layout.icon_html("icon-device", 32, "preview-empty__glyph"),
                 escape_html(i18n.t(DEVICE_NO_IMAGE_HEADING)), escape_html(i18n.t(body))))
 
+    profile = device_scope.profile_for(device_scope.current_device())
+    width, height = (profile.width, profile.height) if profile.width > profile.height else (600, 800)
     alt = i18n.t(PANEL_ALT_TEXT)
     if current_flight_row:
         callsign = current_flight_row.get("callsign") or current_flight_row.get("hex") or "—"
@@ -247,11 +250,11 @@ def _current_picture_html(ctx, current_flight_row):
     return (
         '<figure class="preview-frame">'
         '<img class="preview-frame__image" src="%s" alt="%s" '
-        'width="600" height="800" decoding="async" fetchpriority="high">'
+        'width="%d" height="%d" decoding="async" fetchpriority="high"%s>'
         "</figure>"
     ) % (
         escape_html(device_scope.scoped(GALLERY_ROUTE_PREFIX + newest)),
-        escape_html(alt))
+        escape_html(alt), width, height, device_scope.frame_shape_attr(profile))
 
 
 def _cycle_ring_html(ctx, next_triple):
