@@ -123,6 +123,12 @@ def _look_view(values, errors, submitted, usage):
         _look_body_html(values, errors, submitted, usage))
 
 
+# Shown on hover over the greyed-out Overhead segment of a runway frame.
+OVERHEAD_UNAVAILABLE = i18n.msg(
+    "look.overhead_unavailable",
+    "Overhead is not available while tracking a runway.")
+
+
 def offers_overhead(values):
     """True when the frame can draw the Overhead state: only a frame that
     watches a position (not a runway) shows a level aircraft as overhead."""
@@ -172,15 +178,13 @@ def _calendar_look_controls(values, errors):
         theme_preview.FRAME_PREVIEW_STATE_DEPARTING, carries_departures=True)
 
 
-def _views(overhead=False):
-    """(slug, title message, icon id) of the views in navigation order:
-    four, or five with Overhead on a frame that offers it."""
-    looks = (
+def _views():
+    """(slug, title message, icon id) of the views in navigation order. Overhead
+    is always listed; a frame that never draws it shows it greyed out."""
+    return (
         (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
-        (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane"))
-    if overhead:
-        looks += ((VIEW_OVERHEAD, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_OVERHEAD], "icon-plane"),)
-    return looks + (
+        (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane"),
+        (VIEW_OVERHEAD, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_OVERHEAD], "icon-plane"),
         (VIEW_SPECIAL_LOOKS, SPECIAL_LOOKS_HEADING, "icon-star"),
         (VIEW_CALENDAR, CALENDAR_TITLE, "icon-calendar"))
 
@@ -214,15 +218,17 @@ def view_for_route(route):
 def _nav_html(view, overhead=False):
     """The section navigation: one plain link per view, the current one marked
     (a form page marks the list it belongs to). A script adds the sliding
-    highlight over it; the links work without. `overhead` adds the Overhead
-    view (a position-mode frame); the Overhead view itself always lists it."""
+    highlight over it; the links work without. Without `overhead` (a runway
+    frame) the Overhead segment is greyed out with an explanation, unless it
+    is the view being shown."""
     view = PARENT_VIEWS.get(view, view)
-    overhead = overhead or view == VIEW_OVERHEAD
+    unavailable = escape_html(i18n.t(OVERHEAD_UNAVAILABLE))
     links = [
         (escape_html(device_scope.scoped(VIEW_ROUTES[slug])),
          "%s<span>%s</span>" % (layout.icon_html(icon), escape_html(i18n.t(title))),
-         slug == view, ' data-pers-view="%s"' % slug)
-        for slug, title, icon in _views(overhead)]
+         slug == view, ' data-pers-view="%s"' % slug,
+         unavailable if slug == VIEW_OVERHEAD and not (overhead or view == VIEW_OVERHEAD) else "")
+        for slug, title, icon in _views()]
     return ui_segmented.segmented_links_html(
         links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"', carry=True)
 

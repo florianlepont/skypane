@@ -22,6 +22,8 @@ MESSAGES = {
     "look.overhead_help":
         "Un avion en palier au-dessus de votre position est affiché « Au-dessus », "
         "ni départ ni arrivée. Il affiche la ville vers laquelle il vole.",
+    "look.overhead_unavailable":
+        "« Au-dessus » n’est pas disponible pendant le suivi d’une piste.",
     "look.calendar_flights_look": "Allure des vols du calendrier",
     "look.change": "Modifier",
     "look.change_the_look": "Modifier l’allure : %s",

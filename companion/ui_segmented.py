@@ -63,10 +63,18 @@ def segmented_links_html(links, aria_label, extra_class="", nav_attrs="", lead_h
     """A navigation whose segments are links. `links` is a sequence of
     `(href, inner_html, current, link_attrs)`: `href` and `link_attrs` are
     already escaped, `inner_html` is the segment's own already-safe markup
-    (a `<span>` carrying the label). `lead_html` sits first in the track.
+    (a `<span>` carrying the label). A fifth item, an already-escaped
+    explanation, turns the segment into a greyed, non-navigating one that
+    shows the explanation on hover and focus. `lead_html` sits first in the track.
     `carry` marks the page's own section strip (see `CARRY_ATTR`)."""
     parts = []
-    for href, inner_html, current, link_attrs in links:
+    for href, inner_html, current, link_attrs, *unavailable in links:
+        if unavailable and unavailable[0]:
+            parts.append(
+                '<span class="personalisation-nav__link is-unavailable" role="link" '
+                'aria-disabled="true" tabindex="0" title="%s"%s>%s</span>' % (
+                    unavailable[0], link_attrs, inner_html))
+            continue
         parts.append(
             '<a class="personalisation-nav__link" href="%s"%s%s>%s</a>' % (
                 href, link_attrs, ' aria-current="page"' if current else "", inner_html))

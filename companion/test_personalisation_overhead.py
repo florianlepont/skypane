@@ -82,11 +82,23 @@ def test_a_position_frame_lists_the_overhead_view(rig):
     assert [a.attrs.get("aria-current") for a in links].index("page") == 2
 
 
-def test_a_runway_frame_lists_no_overhead_view(rig):
+def test_a_runway_frame_greys_out_the_overhead_view_with_an_explanation(rig):
     device_config.save_device_config(rig.state_dir, detection=RUNWAY)
     root = rig.page("/display")
     assert _nav(root) == ["Departures", "Arrivals", "Special looks", "Calendar"]
+    greyed = root.select("nav.personalisation-nav .is-unavailable")
+    assert [g.text() for g in greyed] == ["Overhead"]
+    assert greyed[0].attrs["aria-disabled"] == "true"
+    assert "href" not in greyed[0].attrs
+    assert greyed[0].attrs["title"] == "Overhead is not available while tracking a runway."
+    french = rig.page("/display", lang="fr").select("nav.personalisation-nav .is-unavailable")
+    assert [g.text() for g in french] == ["Au-dessus"]
+    assert "piste" in french[0].attrs["title"]
     assert not root.select('input[name="theme_overhead"]')
+
+
+def test_a_position_frame_greys_out_nothing(rig):
+    assert not rig.page("/display").select("nav.personalisation-nav .is-unavailable")
 
 
 def test_the_overhead_view_shows_an_overhead_picture_following_departures(rig):
