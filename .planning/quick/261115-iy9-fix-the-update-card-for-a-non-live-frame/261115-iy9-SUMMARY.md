@@ -60,3 +60,20 @@ before the stamp existed counts as legacy; none was seen in tests.
 - 114 passed: test_update_page.py, test_update_page_non_live.py, test_update_actions.py,
   test_console_fleet_view*.py. Function-size gate, ruff, mypy, comment-history guard clean.
 - companion/test_browser_update.py: 49 skipped, Chromium not installed here (not run).
+
+## Part 3: browser chooser tests after the chooser left the Fleet page
+
+CI failed 8 tests in companion/test_browser_update.py that looked for the chooser on /fleet.
+
+- Case (a) applied: the chooser is still reachable in a real browser. GET /update serves the
+  standalone render (with chooser) when the requested type has no frame of the viewer's; with a
+  frame of that type it redirects to that frame's Fleet page. The tests now load
+  /update?type=<second type> (no frame of that type in the fixture) with the same assertions
+  (keyboard operation; no horizontal overflow at 360/375/1280, EN and FR). The switching test
+  now ends by choosing the legacy type, which lands on that frame's Fleet page with no chooser
+  and without the other type's schedule, keeping the "scheduling is independent" intent.
+- Added test_frame_fleet_page_is_pinned_to_its_type_even_with_two_types_released.
+- Dead-UI flag: the chooser is now reachable only for a type with a registry but no frame.
+  Once every released type has a frame it is effectively dead UI. No product code removed.
+- Commit: 470d18a1. Chromium was available (/opt/pw-browsers): all 50 tests of the module passed
+  locally; ruff and the comment-history guard are clean.
