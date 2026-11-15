@@ -65,3 +65,4 @@ looks; visual work waits for v1.3.
   frame of the "Autres cadres" list is clipped at the bottom, so its actions (for
   example Re-activate) cannot be reached. Also recorded as a gap of the Phase 64
   walk-through.
+- 2026-11-15, owner, with a screenshot: on the Flight history page, when the browser is narrowed, the search field drops under the title at some width, which looks odd.
