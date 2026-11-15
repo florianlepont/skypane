@@ -47,7 +47,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 13 of 13 plans done; the owner confirmed the real-panel check and kept layout B as the default, 2026-11-10)
 - [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 - [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
-- [ ] **Phase 65: Runway 3 Tracking Validation** - The detection tracks the right aircraft on Paris-Orly runway 3: what the frame shows matches an independent source over a recorded period. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; Phase 59 stays last)
+- [ ] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; Phase 59 stays last)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 
@@ -692,21 +692,24 @@ Plans:
 - [ ] 64-14-PLAN.md - owner lift, first typed release, real OTA (checkpoints)
 - [ ] 64-15-PLAN.md - owner EN/FR walk-through (checkpoints)
 
-### Phase 65: Runway 3 Tracking Validation
+### Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)
 
-**Goal**: The owner can trust that the detection follows the right aircraft on Paris-Orly (ORY) runway 3.
+**Goal**: The owner can trust that the detection algorithm follows the right aircraft, on Paris-Orly runway 3 first and then on the other Orly runways and on other French airports.
 **Depends on**: Phase 53 (detection modes). Runs before Phase 59, which stays last.
-**Requirements**: TRK-01
-**Why this phase exists**: the owner's request of 2026-11-15. Two wrong displays seen on 2026-11-11 (a held arrival or departure state carried from one aircraft to the next, and a stale route) show that the runway 3 logic needs a check against real recorded traffic, not only against the unit tests.
+**Requirements**: TRK-01, TRK-02
+**Why this phase exists**: the owner's request of 2026-11-15. Two wrong displays seen on 2026-11-11 (a held arrival or departure state carried from one aircraft to the next, and a stale route) show that the runway logic needs a check against real traffic, not only against the unit tests. A live session on 2026-11-15 (arrivals on runway 3, compared with Flightradar24) found further issues (`65-TRACKING-FINDINGS.md`). The owner then widened the goal: the algorithm must work on several airports, not only on runway 3.
 **Success Criteria** (what must be TRUE):
 
-  1. Over a recorded period of real runway 3 traffic (2026-11-01 to 2026-11-15), the aircraft the system shows as departing or arriving are compared with an independent source (a flight-tracking site and the ORY timetables), and every mismatch is explained, fixed or written down with its cause. The comparison covers the runway box, the vertical-rate hold state, arrival versus departure direction, and callsign and route enrichment (stale and rotating callsigns).
-  2. Any fix to the detection is made only with the owner's agreement, keeps the existing golden hashes and the freeze test, and comes with a test built from the recorded case that failed.
+  1. Runway 3 (TRK-01): over the recorded period (2026-11-01 to 2026-11-15) and live sessions compared with an independent source, every mismatch is explained, fixed or written down with its cause. The comparison covers the runway box, the vertical-rate hold state, arrival versus departure direction, the display queue (aircraft detected but not drawn), and callsign and route enrichment (stale and rotating callsigns).
+  2. Other runways and airports (TRK-02): the other Orly runways (06/24 and 02/20) and at least two other French airports (one with parallel runways, one with a single runway, chosen by the owner) are observed live on simulated fleet devices, with departures and arrivals, and compared with an independent source; every mismatch is explained, fixed or written down with its cause.
+  3. Any fix to the detection is made only with the owner's agreement, keeps the existing golden hashes and the freeze test, and comes with a test built from the recorded case that failed.
+  4. The live frame's configuration is not changed during any session.
 
-**Not in this phase**: everything about the battery (discharges, curves, thresholds, battery tests): moved on 2026-11-15 at the owner's request to SEED-019 (a dedicated phase for v1.4, requirement BAT-01). Also not here: changing the wake interval, a new detection mode, and any enclosure or hardware change.
+**Not in this phase**: everything about the battery (moved on 2026-11-15 to SEED-019, v1.4, requirement BAT-01), changing the wake interval (Phase 47.2 and the v1.3 power-saving mode), a new detection mode, and any enclosure or hardware change.
 **Must not break**: every golden hash of the legacy render and `stub-server/test_phase47_freeze.py`.
+**Decisions from discuss-phase (2026-11-15)**: Orly's three runways plus two other airports; simulated fleet devices, not the live frame or the second frame; findings F-01 to F-06 kept, with TRK-02 added.
 
-Plans: TBD
+Plans: 6 plans for TRK-01 (65-01 to 65-06, 3 done); plans for TRK-02 to be added.
 
 ### Phase 66: Security Audit
 
