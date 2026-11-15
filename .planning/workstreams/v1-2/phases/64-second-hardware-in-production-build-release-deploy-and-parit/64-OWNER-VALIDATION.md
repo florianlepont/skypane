@@ -47,10 +47,10 @@ Bench images use throwaway keys and would reject a production-signed OTA.
 |-------|-------|--------|
 | Frame firmware before | fw-v1.2.0 (the production-signed image cable-flashed; shown on the frame's Fleet page) | owner-reported |
 | Version offered and scheduled on the Update page | fw-v1.2.1 (published and imported 2026-11-15; no firmware change, version number only), scheduled by the owner for the second-type frame and, by the owner's choice, for the 13.3 inch live frame too | owner-reported |
-| https channel confirmed | | open |
+| https channel confirmed | Not observed directly. The frame was provisioned with `--api-base https://vps-1440bce3.vps.ovh.net` and a production image refuses an http offer, so the install over that channel implies https | inferred, open |
 | Frame firmware after | fw-v1.2.1 on the second-type frame ("C'est bon il est à jour aussi") and on the live frame ("Cadre 13 pouces installé"), 2026-11-15, after the Update-page fix of the Fleet view was deployed | owner-reported |
-| Registry `last_outcome` and `installed_at` in `registry.seeed-ee04-7in3-spectra6.json` | | open |
-| Result recorded by the production poll (not only by the live frame's cycle) | | open |
+| Registry `last_outcome` and `installed_at` in `registry.seeed-ee04-7in3-spectra6.json` | Owner pasted the file from the VPS: `last_outcome` = {kind: installed, version: fw-v1.2.1, at: 2026-11-15T15:00:20.569685+00:00}; release fw-v1.2.1 has `installed_at` = [2026-11-15T15:00:20.569685+00:00]; `schedule` null; fw-v1.2.0 has no `installed_at` (it was cable-flashed) | owner-reported, seen in the pasted registry |
+| Result recorded by the production poll (not only by the live frame's cycle) | The result is in the second type's own registry file (`reconciled_seq` 54); which cycle wrote it is not visible in the file | open |
 
 ## D. Failing update keeps the previous firmware (criterion 5)
 
