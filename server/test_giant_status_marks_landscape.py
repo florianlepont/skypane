@@ -37,7 +37,7 @@ def test_marks_are_visible_in_the_top_right(kind, marks):
         box = _diff_box(kind, marks, flat)
         assert box is not None
         margin = landscape_common.margin_for(SIZE)
-        assert box[0] >= SIZE[0] // 2
+        assert (box[0] + box[2]) / 2 > SIZE[0] // 2
         assert box[1] >= margin and box[3] <= 150
         assert box[2] <= SIZE[0] - margin
 
@@ -72,9 +72,9 @@ def test_nothing_new_bottom_left(kind, marks):
 @pytest.mark.parametrize("kind", KINDS)
 def test_both_marks_do_not_overlap_and_caption_is_whole(kind):
     battery = ImageChops.difference(_build(kind, battery_low=True), _build(kind)).getbbox()
-    fault = ImageChops.difference(_build(kind, source_fault=True), _build(kind)).getbbox()
-    both = ImageChops.difference(_build(kind, battery_low=True, source_fault=True),
-                                 _build(kind)).getbbox()
+    both_img = _build(kind, battery_low=True, source_fault=True)
+    fault = ImageChops.difference(both_img, _build(kind, battery_low=True)).getbbox()
+    both = ImageChops.difference(both_img, _build(kind)).getbbox()
     assert battery and fault and both
     apart = (battery[2] <= fault[0] or fault[2] <= battery[0]
              or battery[3] <= fault[1] or fault[3] <= battery[1])

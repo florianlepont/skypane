@@ -7,6 +7,7 @@ full canvas, slanted like the portrait band; the flight text is centred
 inside it in white ink and the aircraft illustration is drawn over it. Every dimension derives from the canvas size passed in, so any landscape
 panel renders natively.
 """
+import math
 from typing import NamedTuple
 
 from PIL import Image, ImageDraw
@@ -288,10 +289,21 @@ def _battery_box(size, margin):
     return (margin, bottom - body_h, margin + body_w, bottom), max(3, body_h // 4)
 
 
-def draw_battery_low(canvas, size, ink):
-    """Bottom-left low-battery glyph: outlined body, nub and a short fill."""
+def battery_low_extent(size):
+    """(width, height) of the low-battery glyph including its nub."""
+    box, nub_w = _battery_box(size, common.margin_for(size))
+    return box[2] - box[0] + nub_w + 1, box[3] - box[1]
+
+
+def draw_battery_low(canvas, size, ink, top_right=None):
+    """Low-battery glyph: outlined body, nub and a short fill. Bottom-left by
+    default; with `top_right` (x, y) its nub ends just left of x, top at y."""
     margin = common.margin_for(size)
     box, nub_w = _battery_box(size, margin)
+    if top_right is not None:
+        width, height = battery_low_extent(size)
+        box = (top_right[0] - width, top_right[1],
+               top_right[0] - width + box[2] - box[0], top_right[1] + height)
     left, top, right, bottom = box
     stroke = max(2, (bottom - top) // 10)
     draw = ImageDraw.Draw(canvas)
@@ -303,24 +315,37 @@ def draw_battery_low(canvas, size, ink):
     draw.rectangle((left + stroke, top + stroke, left + stroke + fill_w, bottom - stroke), fill=ink)
 
 
-def draw_source_fault(canvas, size, geom, ink, weight):
+def source_fault_height(size):
+    """Height of the source-fault badge."""
+    return max(16, round(size[1] * 0.06))
+
+
+def draw_source_fault(canvas, size, geom, ink, weight, top_right=None):
     """Alert triangle and caption in the bottom-left corner, right of the
-    battery slot, clear of the text column and the band."""
+    battery slot, clear of the text column and the band. With `top_right`
+    (x, y) the badge is right-aligned to x with its top at y and the caption
+    is never shortened (the caller guarantees the room)."""
     draw = ImageDraw.Draw(canvas)
     box, nub_w = _battery_box(size, geom.margin)
-    side = max(16, round(size[1] * 0.06))
+    side = source_fault_height(size)
     gap = max(6, round(size[1] * 0.015))
-    left = box[2] + nub_w + 2 * gap
-    bottom = size[1] - geom.margin
+    font = text._font((text._role_weight_path(weight), max(10, round(size[1] * 0.03)), None))
+    if top_right is None:
+        left = box[2] + nub_w + 2 * gap
+        bottom = size[1] - geom.margin
+        caption = _ellipsize(font, style.SOURCE_FAULT_TEXT,
+                             geom.overlay_right - gap - (left + side + gap))
+    else:
+        caption = style.SOURCE_FAULT_TEXT
+        left = top_right[0] - side - gap - math.ceil(font.getlength(caption))
+        bottom = top_right[1] + side
     top = bottom - side
     stroke = max(2, side // 12)
     draw.polygon([(left + side // 2, top), (left + side, bottom), (left, bottom)], outline=ink, width=stroke)
     mid = left + side // 2
     draw.line((mid, top + side // 3, mid, bottom - side // 3), fill=ink, width=stroke)
     draw.rectangle((mid - stroke // 2, bottom - side // 4, mid + stroke // 2, bottom - side // 4 + stroke), fill=ink)
-    font = text._font((text._role_weight_path(weight), max(10, round(size[1] * 0.03)), None))
     caption_left = left + side + gap
-    caption = _ellipsize(font, style.SOURCE_FAULT_TEXT, geom.overlay_right - gap - caption_left)
     ascent, descent = font.getmetrics()
     caption_top = bottom - side // 2 - (ascent + descent) // 2
     bbox = draw.textbbox((caption_left, caption_top), caption, font=font)
