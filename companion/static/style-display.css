@@ -226,6 +226,11 @@ a.calendar-manage--primary:hover {
   );
 }
 
+/* A landscape frame's picture and its bezel take the canvas's 5:3 shape. */
+.look-frame__image[data-frame-shape="landscape"] {
+  aspect-ratio: 5 / 3;
+}
+
 /* The whole picture is the opener; its accessible name says so. */
 button.look-frame__open {
   position: absolute;
@@ -700,6 +705,11 @@ button.look-sheet__done:hover {
   );
 }
 
+.special-row__image[data-frame-shape="landscape"] {
+  width: 80px;
+  height: 48px;
+}
+
 .special-row__text {
   flex: 1 1 auto;
   min-width: 0;
@@ -1134,6 +1144,10 @@ button.rule-suggestion-chip {
   background: var(--picture-placeholder);
 }
 
+.look-pick__preview[data-frame-shape="landscape"] {
+  aspect-ratio: 5 / 3;
+}
+
 .look-pick__name {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1238,6 +1252,11 @@ button.rule-suggestion-chip {
     object-fit: contain;
     border-radius: var(--radius-control);
     background: var(--picture-placeholder);
+  }
+
+  .layout-card__thumb[data-frame-shape="landscape"] {
+    width: 72px;
+    height: 43px;
   }
 
   .layout-card__meta {

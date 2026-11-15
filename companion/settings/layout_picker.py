@@ -15,7 +15,7 @@ rewritten. A stored theme that is not a pairing (green, black, a band
 theme) is read as the pairing it maps to and shown selected; the stored
 value changes only when the owner saves a different card.
 """
-from companion import i18n
+from companion import device_scope, i18n
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
@@ -83,7 +83,7 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_
         '<label class="runway-card look-pick__card%s"%s>'
         '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
         '<img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
-        'loading="lazy" decoding="async" fetchpriority="low">'
+        'loading="lazy" decoding="async" fetchpriority="low"%s>'
         '<span class="runway-card__number look-pick__name">%s</span>'
         '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
@@ -93,6 +93,7 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_
         ' form="%s"' % escape_html(form_id) if form_id else "",
         " checked" if checked else "",
         escape_html(preview_src), width, height, escape_html(alt),
+        device_scope.current_frame_shape_attr(),
         escape_html(name), layout.icon_html("icon-check"),
         escape_html(i18n.t(SELECTED_LABEL)))
 
@@ -132,7 +133,7 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
         'aria-labelledby="personalisation-layout-title" %s="%s" data-layout-card>'
         '<div class="layout-card__row">'
         '<img class="layout-card__thumb" src="%s" width="%d" height="%d" alt="" '
-        'data-layout-thumb decoding="async">'
+        'data-layout-thumb decoding="async"%s>'
         '<div class="layout-card__text">'
         '<h2 class="text-heading layout-card__title" id="personalisation-layout-title">%s</h2>'
         '<p class="text-label section-caption layout-card__caption">%s</p>'
@@ -148,6 +149,7 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
         "%s%s</div></section>"
     ) % (
         DIRTY_SECTION_ATTR, title, escape_html(preview_src(chosen)), width, height,
+        device_scope.current_frame_shape_attr(),
         title, escape_html(i18n.t(LAYOUT_CAPTION)),
         escape_html(i18n.t(LAYOUT_NAMES[chosen])), escape_html(i18n.t(LAYOUT_WHOLE_FRAME)),
         escape_html(i18n.t(LAYOUT_CHANGE_ARIA)), escape_html(i18n.t(LOOK_CHANGE_LABEL)),

@@ -12,7 +12,7 @@ Every value a person can save is a native radio carrying a real theme
 id (`companion.settings.look`'s colour x style table), so the card works
 with scripts blocked; the picture-first picker is an enhancement.
 """
-from companion import i18n
+from companion import device_scope, i18n
 from companion import theme_preview, ui_components
 from companion.layout import escape_html
 import companion.layout as layout
@@ -190,7 +190,7 @@ def look_frame_html(usage, effective_value, departures_id, errors, state, carrie
         '<div class="look-frame__anchor" data-look-anchor>'
         '<div class="look-frame__picture">'
         '<img class="look-frame__image" data-look-image src="%s" width="%d" height="%d" '
-        'alt="%s" data-look-alt-template="%s"%s>'
+        'alt="%s" data-look-alt-template="%s"%s%s>'
         '<button type="button" class="look-frame__open" data-look-open hidden '
         'aria-haspopup="dialog" aria-label="%s"></button>'
         "</div></div>"
@@ -204,7 +204,7 @@ def look_frame_html(usage, effective_value, departures_id, errors, state, carrie
         escape_html(preview(picture_id)), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),
-        _LAZY_ATTRS if lazy else "",
+        _LAZY_ATTRS if lazy else "", device_scope.current_frame_shape_attr(),
         escape_html(i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
         look_edit_html(usage, table_html),
         _field_error_html(errors, field_name, field_name.replace("_", "-")),
@@ -318,7 +318,7 @@ def look_radio_card_html(theme_id, checked, saved, usage_label):
         '<label class="runway-card look-pick__card%s"%s data-preview-src="%s">'
         '<input type="radio" name="%s" value="%s" class="visually-hidden" form="%s"%s>'
         '<noscript><img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
-        'loading="lazy" decoding="async" fetchpriority="low"></noscript>'
+        'loading="lazy" decoding="async" fetchpriority="low"%s></noscript>'
         '<span class="runway-card__number look-pick__name">%s</span>'
         '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
@@ -328,6 +328,7 @@ def look_radio_card_html(theme_id, checked, saved, usage_label):
         escape_html(SETTINGS_FORM_ID), " checked" if checked else "",
         escape_html(preview), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
+        device_scope.current_frame_shape_attr(),
         escape_html(sentence), layout.icon_html("icon-check"),
         escape_html(i18n.t(SELECTED_LABEL)))
 
@@ -360,7 +361,7 @@ def look_pick_html(current_theme_id, submitted, errors, lazy=False, state=None):
         '<div class="look-frame__anchor" data-look-anchor>'
         '<div class="look-frame__picture">'
         '<img class="look-frame__image" data-look-image src="%s" width="%d" height="%d" '
-        'alt="%s" data-look-alt-template="%s"%s>'
+        'alt="%s" data-look-alt-template="%s"%s%s>'
         '<button type="button" class="look-frame__open" data-look-open hidden '
         'aria-haspopup="dialog" aria-label="%s"></button>'
         "</div></div>"
@@ -373,7 +374,7 @@ def look_pick_html(current_theme_id, submitted, errors, lazy=False, state=None):
         escape_html(theme_preview.frame_preview_src(departures_id, state, size)), width, height,
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, sentence)),
         escape_html(i18n.t(LOOK_PREVIEW_ALT_TEMPLATE) % (usage_label, PREVIEW_SENTENCE_TOKEN)),
-        _LAZY_ATTRS if lazy else "",
+        _LAZY_ATTRS if lazy else "", device_scope.current_frame_shape_attr(),
         escape_html(i18n.t(LOOK_CHANGE_ARIA_TEMPLATE) % usage_label),
         look_radio_cards_html(
             effective_id if effective_id in device_config.THEMES else None,
