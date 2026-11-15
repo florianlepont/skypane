@@ -1,0 +1,22 @@
+{
+  "base_url": "https://skypane.algernon.is",
+  "fetched_at": "2026-11-15T13:41:13Z",
+  "files": {
+    "poll_cycles.jsonl": {
+      "route": "/api/export/poll-cycles",
+      "rows": 75,
+      "sha256": "f43009e85d89d1aa2bb06ee7b194723bba9585b018aeb37e4ed6bad73635ee7b"
+    },
+    "runway_events.jsonl": {
+      "route": "/api/export/flights",
+      "rows": 5031,
+      "sha256": "d4e81942975749262e658002a1d4bb4f1a7ad09bb5b36af72b69379f559133dc"
+    },
+    "status.json": {
+      "route": "/api/export/status",
+      "rows": 1,
+      "sha256": "6157d69c69b1ca98512659fe11e50395e9e207b57c676561fd8cd87a3d5e01b2"
+    }
+  },
+  "since": "2026-11-01T00:00:00Z"
+}
