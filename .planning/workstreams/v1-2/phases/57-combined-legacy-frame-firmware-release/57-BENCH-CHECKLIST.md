@@ -75,6 +75,6 @@ Every item needs the Phase 58 evaluation unit (plan 58-03 cable-flashes it) and 
 
 ### B9. Owner sign-off
 
-- [ ] B9. The `firmware/SIGNING.md` "Bench results" table is filled with observed results (not "deferred"), and B1 to B8 are ticked by the owner. Only then may the instructions in `57-RELEASE-INSTRUCTIONS.md` be started.
-  - Result:
-  - Date:
+- [x] B9. The `firmware/SIGNING.md` "Bench results" table is filled with observed results (not "deferred"), and B1 to B8 are ticked by the owner. Only then may the instructions in `57-RELEASE-INSTRUCTIONS.md` be started.
+  - Result: Go-ahead to start the procedure of `57-RELEASE-INSTRUCTIONS.md`: "Feu vert pour commencer la procedure d'envoi de 57-RELEASE-INSTRUCTIONS.md", given by the owner in the session on 2026-11-15 and written here by the assistant at the owner's explicit request. State when ticked: B1 to B8 ticked (with the limits written in each Result) and merged on main (#407); the "Bench results" table of `firmware/SIGNING.md` holds the owner's observed pass of 2026-11-14. This go-ahead publishes, tags, schedules and flashes nothing. The owner still has to take the decisions of section 2 of the instructions (47.1 measurement window, release name, read the live frame's version with `firmware_cli list`, deployment of the server release) and to run the procedure of section 4 themselves.
+  - Date: 2026-11-15
