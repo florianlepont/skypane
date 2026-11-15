@@ -315,6 +315,11 @@ def draw_battery_low(canvas, size, ink, top_right=None):
     draw.rectangle((left + stroke, top + stroke, left + stroke + fill_w, bottom - stroke), fill=ink)
 
 
+# Caption of the top-right badge on landscape screens; shorter than the
+# portrait `style.SOURCE_FAULT_TEXT` so it fits beside the other marks.
+LANDSCAPE_SOURCE_FAULT_TEXT = "Check the companion page"
+
+
 def source_fault_height(size):
     """Height of the source-fault badge."""
     return max(16, round(size[1] * 0.06))
@@ -336,7 +341,7 @@ def draw_source_fault(canvas, size, geom, ink, weight, top_right=None):
         caption = _ellipsize(font, style.SOURCE_FAULT_TEXT,
                              geom.overlay_right - gap - (left + side + gap))
     else:
-        caption = style.SOURCE_FAULT_TEXT
+        caption = LANDSCAPE_SOURCE_FAULT_TEXT
         left = top_right[0] - side - gap - math.ceil(font.getlength(caption))
         bottom = top_right[1] + side
     top = bottom - side

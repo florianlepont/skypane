@@ -86,8 +86,25 @@ def test_both_marks_do_not_overlap_and_caption_is_whole(kind):
     # The caption is not cut short: its full text width is painted.
     from server.plane.render import text
     font = text._font((text._role_weight_path("bold"), max(10, round(SIZE[1] * 0.03)), None))
-    caption_w = font.getlength(style.SOURCE_FAULT_TEXT)
+    caption_w = font.getlength("Check the companion page")
     assert fault[2] - fault[0] >= caption_w
+    # The landscape caption is the short one, not the long portrait text.
+    assert fault[2] - fault[0] < font.getlength(style.SOURCE_FAULT_TEXT)
+
+
+def test_landscape_caption_reads_check_the_companion_page(monkeypatch):
+    from PIL import ImageDraw
+    drawn = []
+    real = ImageDraw.ImageDraw.text
+
+    def spy(self, xy, text, *args, **kwargs):
+        drawn.append(text)
+        return real(self, xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", spy)
+    _build("watching", source_fault=True)
+    assert "Check the companion page" in drawn
+    assert style.SOURCE_FAULT_TEXT not in drawn
 
 
 @pytest.mark.parametrize("kind", KINDS)
