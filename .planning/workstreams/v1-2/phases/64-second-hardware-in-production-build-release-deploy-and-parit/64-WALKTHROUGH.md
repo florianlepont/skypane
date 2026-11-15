@@ -25,8 +25,16 @@ FR = French UI. FR cells also check strings, accents and clipped text on the sec
 | 10 | Retire | The frame shows the retired image and leaves the active list | open | pass | n/a | n/a | Owner-reported 2026-11-15, French, administrator: the panel shows the retired image ("l'écran affiche bien le retrait"). Owner retired the frame on 2026-11-15 (screenshot: "Le Petit Cadre", "Anciennement florian.lepont@yahoo.fr", grey hollow marker, listed on the Fleet page of the other frame). The panel's look in landscape was not described |
 | 11 | Re-activate | The frame is wiped of its previous owner's data and shows a new code | open | pass (phone); desktop menu fail, fixed in PR #434, to re-check after its deploy | n/a | n/a | Owner-reported 2026-11-15: re-activated and re-paired from the phone, where the menu was reachable (no further detail given). Desktop, French, administrator: the row menu of the retired frame, last row of "Autres cadres (1)", opens but is clipped at the bottom, so the Re-activate option cannot be reached (screenshot). Gap 1 below |
 | 12 | Theme and frame previews | Previews have the frame's shape and the landscape chip crop (the crop is a design choice to be confirmed by eye) | fail | open | open | open | Owner-reported 2026-11-15, English, administrator, with screenshots: the images are landscape but the container around them is portrait, on the frame page (the bezel around the preview) and on the theme page (each look is a portrait tile with a landscape picture inside). Gaps 2 and 3 below |
-| 13 | Landscape hold marks | The classic layout's landscape hold screens carry the battery-low and the source-fault marks | open | open | open | open | Needs a frame at a low battery or a source fault, or the preview |
-| 14 | Sign-in and console percentages | The account page and the console rows show the battery percentage of the frame's own curve | open | open | open | open | Provisional values |
+| 13 | Landscape hold marks | The classic layout's landscape hold screens carry the battery-low and the source-fault marks | open | open | open | open | Owner, 2026-11-15: not seen on a real frame (no frame at a low battery or in a source fault). Covered only by the automated render tests of the marks (landscape empty, quiet-hours and display-off holds, byte-identical for battery-empty) |
+| 14 | Sign-in and console percentages | The account page and the console rows show the battery percentage of the frame's own curve | open | open | open | open | Provisional values. Owner, 2026-11-15: not verified. Covered by the automated tests of the call sites |
+
+## Open at the time of writing (owner, 2026-11-15)
+
+- Invited user in English: not done yet.
+- Landscape hold marks on a real frame: not seen.
+- Console and account battery percentages: not verified.
+- Landscape chip crop of the theme previews: waiting for the owner's opinion, and the previews' portrait containers (gaps 2 and 3) are being fixed.
+- Desktop re-activation menu: to re-check after the deploy of PR #434.
 
 ## Gaps found
 
