@@ -1,14 +1,14 @@
 ---
-id: SEED-019
+id: SEED-020
 status: dormant
 planted: 2026-11-15
 planted_during: "v1.2, owner's roadmap discussion of 2026-11-15"
-trigger_when: "Milestone v1.3, confirmed by the owner on 2026-11-15; surface it at /gsd-new-milestone."
+trigger_when: "Milestone v1.3, set by the owner on 2026-11-15 when v1.3 and v1.4 were split; it covers the screens added by photo mode; surface it at /gsd-new-milestone."
 target_milestone: v1.3
 scope: medium
 ---
 
-# SEED-019: Console improvements (visual)
+# SEED-020: Console improvements (visual)
 
 ## Why This Matters
 

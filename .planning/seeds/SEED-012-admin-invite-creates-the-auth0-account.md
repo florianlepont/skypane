@@ -3,8 +3,8 @@ id: SEED-012
 status: dormant
 planted: 2026-10-31
 planted_during: "v1.2 Phase 54 (Auth0 sign-in), owner's production test"
-trigger_when: "Milestone v1.2 — earmarked by the owner on 2026-10-31; surface it when the admin Users page and its Invite card (Phase 55) are built or revisited."
-target_milestone: v1.2
+trigger_when: "Milestone v1.4, set by the owner on 2026-11-15 when v1.3 and v1.4 were split; it belongs to the getting-started flow of the ready-to-give frame; surface it at /gsd-new-milestone."
+target_milestone: v1.4
 scope: medium
 ---
 

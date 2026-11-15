@@ -3,7 +3,7 @@ id: SEED-016
 status: dormant
 planted: 2026-11-15
 planted_during: "v1.2, owner's roadmap discussion (idea forgotten from the v1.3 and v1.4 planning of 2026-11-14)"
-trigger_when: "Milestone v1.3, confirmed by the owner on 2026-11-15; surface it at /gsd-new-milestone, and only after Phase 47.1 (wake-energy measurement) has finished."
+trigger_when: "Milestone v1.3, set by the owner on 2026-11-15 when v1.3 and v1.4 were split; it follows the wake interval per mode of photo mode; surface it at /gsd-new-milestone."
 target_milestone: v1.3
 scope: small
 ---

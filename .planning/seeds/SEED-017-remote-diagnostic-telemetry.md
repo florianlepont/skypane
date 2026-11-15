@@ -3,8 +3,8 @@ id: SEED-017
 status: dormant
 planted: 2026-11-15
 planted_during: "v1.2, owner's question of 2026-11-15: does the firmware report enough to investigate a frame remotely?"
-trigger_when: "Milestone v1.3, confirmed by the owner on 2026-11-15, because the simplified Wi-Fi setup (SEED-013, item 6) already needs a firmware release; surface it at /gsd-new-milestone."
-target_milestone: v1.3
+trigger_when: "Milestone v1.4, set by the owner on 2026-11-15 when v1.3 and v1.4 were split; it becomes critical once frames sit in other homes; surface it at /gsd-new-milestone."
+target_milestone: v1.4
 scope: medium
 ---
 
