@@ -73,11 +73,11 @@ Progress: [████████░░] 84%
 
 - Phase 62 added 2026-11-08 at the owner's request: Plane Screen Redesign (giant-lettering design), from `.planning/notes/plane-screen-design-brief.md`. Runs before Phase 59, which stays last.
 - Phase 63 added 2026-11-10 at the owner's request: Fast CI (test job from about 27 minutes to 10 minutes or less, nothing skipped), from measurements of run 42770577886 and a local 4-core run. Closed 2026-11-10: test check median 9.0 min over five green runs, merged as #320 and #322 (see `phases/63-fast-ci/63-VERIFICATION.md`).
-- Phase 65 added 2026-11-15 at the owner's request: Runway 3 Tracking and Battery Curve Validation (detection check on ORY runway 3, battery tests and curves for both frame types). Runs before Phase 59, which stays last.
+- Phase 65 added 2026-11-15 at the owner's request: Runway 3 Tracking Validation (detection check on ORY runway 3). Its battery half (BAT-01: discharges, curves, thresholds, battery tests) was moved the same day to SEED-019 for v1.4. Runs before Phase 59, which stays last.
 - Phases 66 and 67 added 2026-11-15 at the owner's request: Security Audit, and Project and Code Optimisation for a clean, industrial result. Both run before Phase 59, which stays last.
 - Phase 64 added 2026-11-14 at the owner's request: Second Hardware in Production (build, release, deploy and parity with the first type), HW2-03 to HW2-05. The owner asked whether the second screen could be managed as the first one is; two read-only audits (server and companion, firmware and release pipeline) found the gap in the plan: Phase 57 releases the live frame only and Phase 58 validates the board with throwaway-key bench images, so nothing builds, publishes or deploys a release for the second type. Findings, re-checked against `main`, in `64-AUDIT.md`. Runs before Phase 59, which stays last.
 
-- Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64, Phase 65). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
+- Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64); the discharge validation is SEED-019 (v1.4). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
 
 ### Pending Todos
 
