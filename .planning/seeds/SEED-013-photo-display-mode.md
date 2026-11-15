@@ -109,6 +109,15 @@ The owner's plan for milestone v1.3 now contains all of the following:
    shown by an unclaimed frame (Phase 55). It is a firmware change, so it
    reaches existing frames only by an over-the-air update (see Prerequisites).
 
+## Split of v1.3 and v1.4 (owner, 2026-11-15)
+
+SEED-013 is split between two milestones. **v1.3 "Photo"** keeps items 1, 2, 3
+and 5: messages, portrait and landscape for both frames, plane or photo, and the
+photo collection system. **v1.4 "Ready to give"** takes item 4 (the
+getting-started wizard) and item 6 (the simplified Wi-Fi setup), with the
+invitation that creates the Auth0 account (SEED-012). See
+`.planning/notes/milestone-plan-v1-3-v1-4.md`.
+
 ## Prerequisites to check at milestone start
 
 - Phase 58 (second hardware) validated, since "both frame types" needs the

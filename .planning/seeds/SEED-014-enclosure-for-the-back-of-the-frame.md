@@ -25,6 +25,15 @@ anyone else, including the later go-to-market study (SEED-015).
 hardware types being settled, so surface it when Phase 58 (second hardware) is
 done and the types to be supported are known.
 
+## Milestone v1.4 "Ready to give" (owner, 2026-11-15)
+
+This seed is the physical core of v1.4. The milestone also carries the
+getting-started wizard and the simplified Wi-Fi setup (SEED-013, items 4 and 6),
+the invitation that creates the Auth0 account (SEED-012), remote diagnostic
+telemetry (SEED-017), the firmware update policy (SEED-018) and the battery
+discharge and curve validation (SEED-019). See
+`.planning/notes/milestone-plan-v1-3-v1-4.md`.
+
 ## Scope Estimate
 
 **Medium, and mostly physical rather than software.** The deliverables are a
