@@ -80,6 +80,12 @@ LOGOUT_ROUTE = "/logout"
 SESSION_CHECK_ROUTE = "/session/check"
 ACCOUNT_ROUTE = "/account"
 EXPORT_ROUTE = "/api/export/battery-history"
+# Read-only debugging exports behind the same bearer token as EXPORT_ROUTE.
+EXPORT_EXTRA_ROUTES = (
+    "/api/export/flights",
+    "/api/export/poll-cycles",
+    "/api/export/status",
+)
 GALLERY_ROUTE_PREFIX = "/gallery/"
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
@@ -156,6 +162,11 @@ _GET_ROUTES = (
         Route(
             "GET", Exact(EXPORT_ROUTE),
             lambda h, m: h._handle_export_get(m.query), PUBLIC),
+    ) + tuple(
+        Route(
+            "GET", Exact(path),
+            lambda h, m, path=path: h._handle_export_get(m.query, path), PUBLIC)
+        for path in EXPORT_EXTRA_ROUTES
     )
     + _static_get_routes()
     + (

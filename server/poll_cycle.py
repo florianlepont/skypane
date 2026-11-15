@@ -415,7 +415,12 @@ def _write_unshown(conn, rows):
         history_db.record_unshown_event(conn, **row)
 
 
-def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None, unshown_rows=()):
+def _write_trace(conn, now_iso, trace):
+    history_db.record_poll_cycle(conn, now_iso, trace)
+    history_db.prune_poll_cycles(conn, now_iso)
+
+
+def _record_history(state_dir, flight, confirmed_state, route_source, route, tracked_runway_id, source_fault, record_event, now_iso, caddy_log=None, wake_interval_s=_NO_WAKE_EPOCH, detected=False, gallery_name=None, trace=None, unshown_rows=()):
     """Write this cycle's durable signals into `history.db` in one
     connection and one transaction: every write below runs inside one
     `history_db.write_batch(conn)`, committed once as this function
@@ -457,10 +462,11 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
     the cycle that recorded the flight, or "" when that cycle archived none
     (None, the column's default, then means a row from before the column).
 
-    `unshown_rows` are the aircraft dropped from the display queue this cycle
-    (see `_unshown_event_rows()`); like the Caddy ingest they are written in
-    their own SAVEPOINT, so a fault there never rolls back the heartbeat or
-    the event.
+    `trace`, when given, is this cycle's `poll_cycles` row (see
+    `_cycle_trace()`), and `unshown_rows` the aircraft dropped from the
+    display queue this cycle (see `_unshown_event_rows()`); like the Caddy
+    ingest each is written in its own SAVEPOINT, so a fault in it never rolls
+    back the heartbeat or the event.
     """
     route = route if isinstance(route, dict) else {}
     try:
@@ -499,6 +505,8 @@ def _record_history(state_dir, flight, confirmed_state, route_source, route, tra
                         lambda: history_db.apply_caddy_battery_log(conn, readings, new_offset))
                 if wake_interval_s is not _NO_WAKE_EPOCH:
                     history_db.record_wake_epoch(conn, now_iso, wake_interval_s)
+                if trace is not None:
+                    _run_isolated_write(conn, "poll_cycle_trace", lambda: _write_trace(conn, now_iso, trace))
                 if unshown_rows:
                     _run_isolated_write(conn, "unshown_events", lambda: _write_unshown(conn, unshown_rows))
     except (sqlite3.Error, OSError) as exc:
@@ -1525,6 +1533,37 @@ def render_and_publish(ctx):
         _render_empty(ctx)
 
 
+def _cycle_trace(ctx):
+    """The `poll_cycles` row for this cycle, or None. Only a cycle that saw,
+    queued, dropped or drew an aircraft is traced, so a missed flight can be
+    explained after the fact without a row for every idle cycle.
+    """
+    detected = ctx.flight if isinstance(ctx.flight, dict) else {}
+    shown = ctx.current_flight if isinstance(ctx.current_flight, dict) else {}
+    if not (detected or ctx.dropped or ctx.promoted is not None or ctx.panel_changed):
+        return None
+    return {
+        "branch": ctx.branch,
+        "detected_hex": detected.get("hex"),
+        "detected_callsign": detected.get("callsign"),
+        "detected_altitude_ft": detected.get("altitude_ft"),
+        "detected_rate_fpm": detected.get("vertical_rate_fpm"),
+        "detected_on_ground": detected.get("on_ground"),
+        "shown_hex": shown.get("hex"),
+        "shown_callsign": shown.get("callsign"),
+        "confirmed_state": ctx.confirmed_state,
+        "render_state": ctx.render_state,
+        "state_source": ctx.state_source,
+        "pending": len(ctx.pending),
+        "pending_hexes": ",".join(str(e["flight"].get("hex")) for e in ctx.pending) or None,
+        "dropped": ",".join(str(h) for h in ctx.dropped) or None,
+        "redraw_blocked": ctx.redraw_blocked,
+        "panel_changed": ctx.panel_changed,
+        "source_fault": ctx.source_fault,
+        "tracked_runway": ctx.tracked_runway_id,
+    }
+
+
 def _unshown_event_rows(ctx):
     """`runway_events` rows for the aircraft this cycle dropped from the
     display queue unseen, so every detected aircraft leaves a record. Each
@@ -1557,7 +1596,7 @@ def record(ctx):
     from `ctx.branch` exactly as each former branch passed them - see
     `_record_history()`'s own docstring for what each write means.
     """
-    extras = {"unshown_rows": _unshown_event_rows(ctx)}
+    extras = {"trace": _cycle_trace(ctx), "unshown_rows": _unshown_event_rows(ctx)}
     if ctx.branch == "promoted":
         _record_history(
             ctx.state_dir, ctx.current_flight, ctx.confirmed_state, ctx.route_source, ctx.route,

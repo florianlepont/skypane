@@ -68,6 +68,9 @@ ROUTE_POLICY = {
     # Self-authenticating: the handler checks its own bearer token and never
     # looks at a session cookie, so the cookie gate has nothing to add.
     ("GET", "/api/export/battery-history"): PUBLIC,
+    ("GET", "/api/export/flights"): PUBLIC,
+    ("GET", "/api/export/poll-cycles"): PUBLIC,
+    ("GET", "/api/export/status"): PUBLIC,
     ("GET", "/account"): SIGNED_IN,
     ("POST", "/ui-theme"): SIGNED_IN,
     ("POST", "/ui-lang"): SIGNED_IN,
@@ -322,16 +325,18 @@ def test_the_console_row_modules_are_merged_into_the_matrix():
             assert SAMPLE_MIDDLE[template] == middle
 
 
-def test_the_export_route_is_the_only_api_route_and_is_public_and_global():
-    export_key = ("GET", "/api/export/battery-history")
+def test_the_export_routes_are_the_only_api_routes_and_are_public_and_global():
+    export_keys = {("GET", path) for path in (
+        "/api/export/battery-history", *routes.EXPORT_EXTRA_ROUTES)}
     api_keys = {key for key in _REAL_KEYS if key[1].startswith("/api/")}
-    assert api_keys == {export_key}
-    route = next(r for r in _REAL_ROUTES if _route_key(r) == export_key)
-    assert route.access == routes.PUBLIC
-    assert not route.device_scoped
-    assert export_key not in DEVICE_SCOPED
-    assert routes.match("GET", "/devices/d_00000000" + export_key[1], "") is None
-    assert routes.match("POST", export_key[1], "") is None
+    assert api_keys == export_keys
+    for export_key in export_keys:
+        route = next(r for r in _REAL_ROUTES if _route_key(r) == export_key)
+        assert route.access == routes.PUBLIC
+        assert not route.device_scoped
+        assert export_key not in DEVICE_SCOPED
+        assert routes.match("GET", "/devices/d_00000000" + export_key[1], "") is None
+        assert routes.match("POST", export_key[1], "") is None
 
 
 def test_the_probe_family_is_not_in_the_production_table():
