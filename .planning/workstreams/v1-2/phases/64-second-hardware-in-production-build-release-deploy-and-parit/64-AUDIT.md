@@ -27,7 +27,7 @@ Date: 2026-11-14. Two read-only audits (server, companion and deploy; firmware, 
 
 - **Wake budget** (partly checked): `firmware/main/wake_deadline.h` sets `FP_WAKE_STAGE_BLIT_S` to 70 s, written for the 13.3 inch driver, while the 7.3 inch driver waits up to `BUSY_TIMEOUT_MS` = 60000 ms several times in one blit; the 7.3 inch refresh time is unmeasured. The wake budget default is 460 s.
 - **Refresh spacing**: `FP_MIN_REFRESH_SPACING_S` is 60 s with help text citing the 13.3 inch panel; the second profile does not override it. 60 s is a conservative margin, but nothing is validated for the second panel and the text is wrong for it.
-- **Battery sense, LED and buttons**: the pins and the divider are inherited from the live frame's board and unmeasured on the second (`sdkconfig.second.defaults`); the server's battery profile for the type is a provisional copy. Phase 58's battery sample is the input.
+- **Battery sense, LED and buttons**: the pins and the divider are inherited from the live frame's board and unmeasured on the second (`sdkconfig.second.defaults`); the server's battery profile for the type is a provisional copy. Phase 58 closed without a valid discharge sample, so the battery values are to come from production use (see the Phase 64 section of the roadmap).
 - `panel_guard.h` still says the image is 960 KB; cosmetic.
 - Unverified: that `partitions.csv` and the flash size are right for the second board, and `provision.sh` lines 300-527. (The second dev build compiles and the unit ran it, so the unconditional `epd13in3e.h` includes are not a build break.)
 - Simulated types appear together with the gated one under the single switch (see gap 4); `companion/device_scope.profile_for` falls back to the legacy profile when a type is gated off, so a second-type row would show portrait previews while byos refuses it.
@@ -38,4 +38,4 @@ The hardware profile (800x480, six inks, validated, provenance provisional); ren
 
 ## What this means for the plan
 
-Phase 57 releases the live frame only, and Phase 58 validates the board on throwaway-key bench images; neither builds, publishes, deploys or enables the second type in production. Phase 64 covers gaps 1 to 7, the partials that matter once the type is live (reconcile, battery curve, `import-dir`), and the firmware risks, with measured values from Phase 58.
+Phase 57 releases the live frame only, and Phase 58 validates the board on throwaway-key bench images; neither builds, publishes, deploys or enables the second type in production. Phase 64 covers gaps 1 to 7, the partials that matter once the type is live (reconcile, battery curve, `import-dir`), and the firmware risks, with the values measured so far (full refresh time and flash size); the battery values stay provisional until production use provides them.
