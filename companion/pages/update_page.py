@@ -943,7 +943,9 @@ def update_page(
 
 def _loaded_parts(ctx, requested_type, embedded, model_text=""):
     ctx = page_context.coerce(ctx)
-    state_dir = ctx.state_dir
+    # The registry and the device report are fleet-wide documents kept in the
+    # root state directory; a non-live frame's own directory does not hold them.
+    state_dir = ctx.root_state_dir or ctx.state_dir
     now = ctx.now or history_db.utc_now_iso()
     device_report = firmware_registry.load_device_report(state_dir)
     choice = resolve_type_choice(state_dir, device_report, requested_type)
