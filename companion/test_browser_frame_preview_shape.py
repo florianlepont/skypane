@@ -16,6 +16,7 @@ from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_PHONE, _set_ui_theme)
 from companion.test_device_helpers import start_fleet_app
 from server import device_config
+from server.plane import colour_rules
 
 pytestmark = pytest.mark.browser
 
@@ -50,6 +51,7 @@ def _seeder(layout_id):
         _write_gallery_picture(fleet.live.state_dir, (1200, 1600))
         for device in (fleet.landscape, fleet.live):
             device_config.save_device_config(device.state_dir, layout=layout_id)
+            colour_rules.add_rule(device.state_dir, "prefix", "TVF", "white")
     return seed
 
 
@@ -116,11 +118,13 @@ REQUIRED = {
         "/": [".preview-frame__image"],
         "/display": [".look-pick__preview"],
         "/display/arrivals": [".look-pick__preview"],
+        "/display/special-looks": [".special-row__image"],
     },
     "classic": {
         "/": [".preview-frame__image"],
         "/display": [".look-frame__picture", ".look-frame__image", ".look-pick__preview"],
         "/display/arrivals": [".look-frame__picture", ".look-frame__image"],
+        "/display/special-looks": [".special-row__image"],
     },
 }
 THUMB = ".layout-card__thumb"
@@ -130,7 +134,7 @@ THUMB = ".layout-card__thumb"
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["phone", "desktop"])
 @pytest.mark.parametrize("frame,landscape", FRAMES)
-@pytest.mark.parametrize("route", ["/", "/display", "/display/arrivals"])
+@pytest.mark.parametrize("route", list(REQUIRED["b"]))
 def test_the_picture_containers_follow_the_frame_shape(
         new_context, app, route, frame, landscape, viewport, lang, scheme):
     context, page = _open(
