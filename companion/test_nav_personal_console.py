@@ -19,13 +19,13 @@ ADMIN_WORDS = ("Admin", "Console", "Fleet", "Releases", "Health", "Device", "Upd
 ADMIN_WORDS_FR = ("Flotte", "Versions", "État", "Appareil", "Console", "Administration")
 
 PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Location"]
-PERSONAL_BAR_FR = ["Accueil", "Vols", "Compagnies", "Style", "Lieu"]
+PERSONAL_BAR_FR = ["Accueil", "Vols", "Airlines", "Style", "Lieu"]
 PERSONAL_SIDEBAR_EN = [
     "Home", "Flight history", "Location and detection", "Style",
     "Airlines", "Account"]
 PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Style",
-    "Compagnies", "Compte"]
+    "Airlines", "Compte"]
 CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "Audit"]
 CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Journal"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
