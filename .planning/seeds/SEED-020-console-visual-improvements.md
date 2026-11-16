@@ -1,10 +1,10 @@
 ---
 id: SEED-020
-status: dormant
+status: promoted
 planted: 2026-11-15
 planted_during: "v1.2, owner's roadmap discussion of 2026-11-15"
-trigger_when: "Milestone v1.3, set by the owner on 2026-11-15 when v1.3 and v1.4 were split; it covers the screens added by photo mode; surface it at /gsd-new-milestone."
-target_milestone: v1.3
+trigger_when: "Promoted to Phase 68 of v1.2 by the owner on 2026-11-16 (visual work before the security audit and the code cleanup); the screens of photo mode, the wizard and the Wi-Fi setup are built later to the same design system."
+target_milestone: v1.2
 scope: medium
 ---
 
