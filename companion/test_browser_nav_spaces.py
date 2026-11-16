@@ -71,8 +71,9 @@ def test_user_bar_has_six_cells_and_no_admin_words(
     try:
         _assert_bar(page, 6, "user/%s/%s" % (lang, scheme))
         assert page.locator(".space-switch").count() == 0
-        page.locator(".tab-bar__more > summary").click()
-        assert page.locator(".tab-bar__more-panel a").count() == 1
+        # The sixth cell is the Account page itself, not a More sheet.
+        assert page.locator(".tab-bar__more").count() == 0
+        assert page.locator(".tab-bar > a").last.get_attribute("href") == "/account"
         if lang == "en":
             text = page.locator("body").inner_text()
             for word in USER_FORBIDDEN_WORDS:

@@ -2,8 +2,8 @@
 the account row with the person's initial, for an administrator a Console card
 (tinted, accent border, accent icon tile, title, subtitle, accent chevron), a
 Settings group holding theme and language, and Sign out as a full-width soft
-alert button. A person who is not an administrator sees the same panel without
-the Console card."""
+alert button. The panel is the administrator's overflow; a person who is not an
+administrator has an Account tab instead and no panel."""
 import pytest
 
 from nav_spaces_support import (
@@ -121,8 +121,8 @@ def test_a_person_who_is_not_an_administrator_has_no_console_card(
         new_context, app_server_in_process, lang):
     context, page = _page("user", new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, lang, "light")
     try:
-        _open_panel(page)
-        assert page.evaluate(_CARD) is None
+        assert page.locator(".tab-bar__more").count() == 0
+        assert page.locator(".tab-bar__more-panel").count() == 0
         assert page.locator(".tab-bar__space-link").count() == 0
     finally:
         context.close()
@@ -174,7 +174,7 @@ _TOP = """() => {
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("role", ["admin", "user"])
+@pytest.mark.parametrize("role", ["admin"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_the_panel_opens_with_a_grab_handle_and_the_account_row(
         new_context, app_server_in_process, viewport, role, lang, scheme):
@@ -199,7 +199,7 @@ def test_the_panel_opens_with_a_grab_handle_and_the_account_row(
 
 
 def test_the_account_row_opens_the_account_page(new_context, app_server_in_process):
-    context, page = _page("user", new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, "en", "light")
+    context, page = _page("admin", new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, "en", "light")
     try:
         _open_panel(page)
         page.locator(".tab-bar__account").click()
@@ -258,7 +258,7 @@ _ROWS = {
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
-@pytest.mark.parametrize("role", ["admin", "user"])
+@pytest.mark.parametrize("role", ["admin"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
 def test_the_settings_group_and_the_sign_out_button(
         new_context, app_server_in_process, viewport, role, lang, scheme):
@@ -285,7 +285,7 @@ def test_the_settings_group_and_the_sign_out_button(
 
 
 def test_sign_out_button_is_still_the_post_logout_form(new_context, app_server_in_process):
-    context, page = _page("user", new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, "en", "light")
+    context, page = _page("admin", new_context, app_server_in_process, VIEWPORT_MIN_SUPPORTED, "en", "light")
     try:
         _open_panel(page)
         assert page.locator("form.tab-bar__sign-out").get_attribute("method") == "post"

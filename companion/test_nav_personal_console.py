@@ -1,6 +1,7 @@
 """Behaviour tests of the two navigation sets over real in-process requests: the
 personal navigation is the same for an administrator and a user looking at the
-same frame, and the Console holds Fleet, Users, Health, Device and the airline
+same frame (apart from the bar's last cell: Account for a user, More for an
+administrator), and the Console holds Fleet, Users, Health, Device and the airline
 editor for the frame in view. Bar cells, More sheet rows and sidebar links are
 read from the served HTML in English and French."""
 import hashlib
@@ -101,17 +102,19 @@ def test_the_personal_navigation_is_identical_for_an_administrator_and_a_user(
     status, admin_page = _get(server, cookies["admin"], prefix + "/flights", lang)
     assert status == 200
 
-    user_cells, user_sheet, _bar = _bar_parts(user_page)
+    user_bar = _nav(user_page, '<nav class="tab-bar"')
+    user_cells = _anchors(user_bar)
     admin_cells, admin_sheet, _bar = _bar_parts(admin_page)
-    assert [text for _href, text in user_cells] == bar_labels
-    # The two bars are the same six cells; the administrator's More panel
-    # differs by the space switch row alone.
-    assert admin_cells == user_cells
-    assert [href for href, _text in user_cells] == [
-        prefix + route for route in ("/", "/flights", "/airlines", "/display", "/detection")]
-
+    # Both bars start with the same five destinations. A user's sixth cell is the
+    # Account page, with no More sheet; an administrator's More panel holds
+    # Account and the space switch row.
     account_row = ("/account", sidebar_labels[5])
-    assert user_sheet == [account_row]
+    assert [text for _href, text in user_cells] == bar_labels + [sidebar_labels[5]]
+    assert "tab-bar__more" not in user_bar
+    assert user_cells[:5] == admin_cells
+    assert user_cells[5] == account_row
+    assert [href for href, _text in admin_cells] == [
+        prefix + route for route in ("/", "/flights", "/airlines", "/display", "/detection")]
     assert admin_sheet == [account_row, ("/fleet", SWITCH_TO_CONSOLE[lang])]
 
     user_sidebar = _sidebar_anchors(user_page)

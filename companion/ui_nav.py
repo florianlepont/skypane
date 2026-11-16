@@ -647,7 +647,8 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
 
     The destination cells and a "More" overflow are chosen by the caller's
     space (see current_space()); an administrator's switch to the other space
-    is a row of the overflow. The overflow uses a native <details>/<summary>
+    is a row of the overflow. A plain user gets an Account cell instead of the
+    overflow. The overflow uses a native <details>/<summary>
     so it works with scripts blocked. The Fleet severity dot is drawn on the
     Fleet cell, never on More.
     `no_tab` marks a page that is in no tab and is not reached through More
@@ -673,6 +674,11 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
             # a page carries no Health dot.
             space = CONSOLE_SPACE
             cells, sheet = _console_bar(active, None)
+    if is_user_principal():
+        # A plain user's overflow would hold only Account (theme, language and
+        # Sign out live on the Account page), so the last cell is Account itself.
+        cells.append(_tab_bar_cell_link(sheet[0]))
+        return _tab_bar_nav_html(cells)
     # A page that belongs to no bar cell (Credits, the component catalogue, an
     # error page) is reached through More, so More carries the pill there and
     # the sliding pill is on every page.
@@ -692,6 +698,10 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
            _tab_bar_cell_body(
                TAB_BAR_MORE_ICON_ID, escape_html(i18n.t(TAB_BAR_MORE_LABEL))),
            _more_panel_html(active, sheet, ui_theme, space)))
+    return _tab_bar_nav_html(cells)
+
+
+def _tab_bar_nav_html(cells):
     return (
         '<nav class="tab-bar" aria-label="%s">%s</nav>'
     ) % (
