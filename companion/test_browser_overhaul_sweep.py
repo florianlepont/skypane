@@ -640,11 +640,12 @@ def test_the_home_notification_has_a_french_translation(
 
 # What a person can find on a page, set apart from the data of the frame: headings, the
 # navigation entries (outside the space switch), and the names of the controls. The frame
-# strip names frames, which differ with the person, and are left out.
+# strip names frames, which differ with the person, and are left out, as is the bar's last
+# cell: More with its sheet for an administrator, Account for a user.
 _PAGE_SHAPE = """
 () => {
   const skip = '.tab-bar__space-link, .space-switch, .frame-notice,'
-    + ' .frame-menu, script, style, template';
+    + ' .tab-bar > details, .tab-bar > a:last-child, .frame-menu, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);
   return {

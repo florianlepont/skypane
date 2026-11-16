@@ -1,9 +1,11 @@
-"""Real-browser proof of the phone tab bar's content. The bar is the same for
-every person in the personal space: Home, Flights, Airlines, Style, Place, More
-(Accueil, Vols, Compagnies, Style, Lieu, Plus), Home first, and an
-administrator's space switch has no cell of its own: it is a row of the More
-panel beside Account, theme, language and Sign out. Airlines and Place are bar
-tabs, so the panel no longer lists them. At 1280px the bar is not shown."""
+"""Real-browser proof of the phone tab bar's content. The personal bar is Home,
+Flights, Airlines, Style, Place and then, for an administrator, More (Accueil,
+Vols, Compagnies, Style, Lieu, Plus) or, for a plain user, Account (Compte): a
+direct link to the Account page, which carries theme, language and Sign out
+itself, so a user has no More sheet. An administrator's space switch has no
+cell of its own: it is a row of the More panel beside Account, theme, language
+and Sign out. Airlines and Place are bar tabs, so the panel no longer lists
+them. At 1280px the bar is not shown."""
 import pytest
 
 from nav_spaces_support import (
@@ -17,6 +19,15 @@ _BAR_LABELS = {
     "en": ["Home", "Flights", "Airlines", "Style", "Location", "More"],
     "fr": ["Accueil", "Vols", "Compagnies", "Style", "Lieu", "Plus"],
 }
+_USER_BAR_LABELS = {
+    "en": ["Home", "Flights", "Airlines", "Style", "Location", "Account"],
+    "fr": ["Accueil", "Vols", "Compagnies", "Style", "Lieu", "Compte"],
+}
+
+
+def _bar_labels(role, lang):
+    return (_USER_BAR_LABELS if role == "user" else _BAR_LABELS)[lang]
+
 _SWITCH_LABEL = {
     "personal": {"en": "Console", "fr": "Console"},
     "console": {"en": "My frame", "fr": "Mon cadre"},
@@ -77,13 +88,13 @@ def _open_panel(page):
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("role", ["admin", "user"])
-def test_the_personal_bar_is_the_same_six_cells_for_every_person(
+def test_the_personal_bar_is_six_cells_ending_in_more_or_account(
         new_context, app_server_in_process, role, lang, scheme):
     context, page = _page(
         role, new_context, app_server_in_process, "personal", VIEWPORT_MIN_SUPPORTED, lang, scheme)
     try:
         cells = _settled_cells(page)
-        assert [cell["label"] for cell in cells] == _BAR_LABELS[lang], cells
+        assert [cell["label"] for cell in cells] == _bar_labels(role, lang), cells
         assert not any(cell["switchCell"] for cell in cells), cells
         assert [cell["active"] for cell in cells] == [True, False, False, False, False, False], cells
         assert page.locator(".tab-bar__link--switch").count() == 0
@@ -145,16 +156,26 @@ def test_an_administrators_plus_panel_holds_the_space_switch_beside_account(
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_a_users_plus_panel_holds_account_and_no_switch(
+def test_a_users_last_tab_is_account_and_opens_the_account_page_directly(
         new_context, app_server_in_process, lang):
     context, page = _page(
         "user", new_context, app_server_in_process, "personal", VIEWPORT_MIN_SUPPORTED, lang, "dark")
     try:
         _settled_cells(page)
-        panel = _open_panel(page)
-        assert [link["text"] for link in panel["links"]] == [_ACCOUNT_LABEL[lang]], panel
-        assert "/ui-theme" in panel["forms"] and "/ui-lang" in panel["forms"], panel
-        assert panel["signOut"], panel
+        assert page.locator(".tab-bar__more").count() == 0
+        last = page.locator(".tab-bar > a").last
+        assert last.locator(".tab-bar__label").inner_text().strip() == _ACCOUNT_LABEL[lang]
+        last.click()
+        page.wait_for_function("() => location.pathname.endsWith('/account')")
+        cells = _settled_cells(page)
+        assert [cell["active"] for cell in cells] == [False] * 5 + [True], cells
+        assert page.locator(".tab-bar > a").last.get_attribute("aria-current") == "page"
+        assert page.locator(".tab-bar__more").count() == 0
+        # What the old sheet held stays reachable from the page itself.
+        main = page.locator("main")
+        assert main.locator('form[action="/ui-theme"]').count() == 1
+        assert main.locator('form[action="/ui-lang"]').count() == 1
+        assert main.locator('form[action="/logout"] button[type=submit]').is_visible()
     finally:
         context.close()
 
@@ -204,7 +225,7 @@ def test_every_bar_label_is_whole_and_every_cell_a_44px_target(
     try:
         page.wait_for_function(_OWN_CELL_AT_CENTRE)
         cells = page.evaluate(_FIT)
-        assert [cell["label"] for cell in cells] == _BAR_LABELS[lang], cells
+        assert [cell["label"] for cell in cells] == _bar_labels(role, lang), cells
         for cell in cells:
             where = (role, width, lang, scheme, cell)
             assert not cell["clipped"] and cell["lines"] <= 1, where
