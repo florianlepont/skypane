@@ -34,6 +34,16 @@ telemetry (SEED-017), the firmware update policy (SEED-018) and the battery
 discharge and curve validation (SEED-019). See
 `.planning/notes/milestone-plan-v1-3-v1-4.md`.
 
+## Design work started (owner, 2026-11-16)
+
+The owner has begun the 3D design: four parts (tray, lid with wall hooks and
+hinge, folding stand, centring shim) to fit an IKEA RÖDALM 13 x 18 cm frame, in
+Blender, for a Bambu Lab printer (purchase not decided). Nothing is printed
+yet. The record, with dimensions, decisions and open questions, is in
+`hardware/ENCLOSURE-3D-DESIGN.md`. Points in the list below that this design
+already answers (frames covered, antenna, access) are to be rechecked against it
+at milestone start.
+
 ## Scope Estimate
 
 **Medium, and mostly physical rather than software.** The deliverables are a
@@ -83,6 +93,7 @@ network, which the frame can later change without a cable.
 
 ## Breadcrumbs
 
+- `hardware/ENCLOSURE-3D-DESIGN.md` (3D design record of 2026-11-16: parts, dimensions, decisions)
 - `hardware/BOM.md` (bill of materials; the enclosure is listed as not included)
 - `hardware/SECOND-HARDWARE.md` (second hardware candidate and its dimensions)
 - `hardware/BRINGUP-LOG.md` (how the first frame was assembled)
