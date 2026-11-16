@@ -29,6 +29,8 @@ Check that the detection algorithm follows the right aircraft: on Paris-Orly run
 - **D-09:** Findings F-01 to F-06 of runway 3 stay in this phase as they are. TRK-02 is added for the multi-site check. The rule stays: no detection change without the owner's agreement; every fix starts from a failing test built from the recorded case.
 - **D-10:** Live sessions: the owner watches Flightradar24 and names aircraft, origin and touch-down time; Claude compares with the production or simulated device export. Departures must be observed (none were seen on 2026-11-15, arrivals only).
 
+- **D-11:** (owner, chat, 2026-11-15) Three airports instead of two, one simple case and two stress cases: Nantes LFRS (single runway, the simple case), Lyon LFLL (parallel runways, stress 1), Paris-Charles de Gaulle LFPG (four runways, two parallel pairs, stress 2). "At least two other airports" in TRK-02 is still met. One session per airport, at least 3 arrivals and 3 departures per runway or airport, Nantes first, then Lyon, then Roissy. This refines D-07: the owner named the airports and no short list was needed.
+
 ### Claude's Discretion
 - Test layout, the export format kept in the phase directory, how mismatches are classified.
 
