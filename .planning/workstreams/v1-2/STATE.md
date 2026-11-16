@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, 2026-11-15); criteria 6, 7 and 9 open, owner actions pending
+stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, updated 2026-11-16); criterion 6 validated on the owner's reports of 2026-11-16, criteria 7 and 9 still open
 last_updated: "2026-11-14T20:16:40.837Z"
 last_activity: 2026-11-15
 progress:
@@ -27,7 +27,7 @@ progress:
 Phase: 49 (per-hardware-ota-registry) — ready for verification
 Plan: 11 of 11 (all plans complete)
 Status: Phase complete — ready for verification
-Last activity: 2026-10-30
+Last activity: 2026-11-16 - Phase 64 owner validations recorded (criterion 6 validated; 7 and 9 open)
 
 Progress: [████████░░] 84%
 
