@@ -13,8 +13,8 @@ Theme: the frame can show photos, not only planes.
   domain or CC0, and partnerships).
 - SEED-016: a power-saving mode chosen by the user (it follows the wake interval
   per mode of photo mode; needs the Phase 47.1 measurements).
-- SEED-020: visual improvements to the console, including the screens added by
-  photo mode.
+- SEED-020 (moved to v1.2 as Phase 68 on 2026-11-16): the visual improvements of
+  the console. The screens added by photo mode follow the same design system.
 
 ## v1.4 "Ready to give": a frame someone else can use
 

@@ -101,6 +101,10 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [ ] **TRK-02**: On the other Paris-Orly runways (06/24 and 02/20) and on at least two other French airports (one with parallel runways, one with a single runway), tested on simulated fleet devices and not on the live frame, the aircraft shown as departing or arriving match an independent source during live sessions, and every mismatch is fixed or recorded with its cause, with the owner's agreement before any detection change.
 - [ ] **BAT-01** (moved to SEED-019, milestone v1.4, on 2026-11-15; no longer in v1.2): The battery tests prove what they claim, and the voltage-to-percentage curve and low-battery threshold of each of the two batteries are checked against a measured discharge, or marked provisional with the gap listed.
 
+### Console and Companion Visual Improvements
+
+- [ ] **CON-01**: The visual improvements the owner lists for the console and the companion are made within the design system, in English and French and at phone width, with mockups approved first and no behaviour change beyond the list.
+
 ### Security and Quality
 
 - [ ] **SEC-AUD-01**: The whole platform is audited for security (sign-in, roles, device protocol, firmware update, companion inputs, server and deploy, dependencies, secrets, backups, logs); every finding is fixed and tested, or accepted by the owner in writing.
@@ -171,6 +175,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | TRK-01 | Phase 65 | Pending |
 | TRK-02 | Phase 65 | Pending |
 | BAT-01 | SEED-019 (v1.4) | Moved out of Phase 65 on 2026-11-15 |
+| CON-01 | Phase 68 | Pending |
 | SEC-AUD-01 | Phase 66 | Pending |
 | QUAL-01 | Phase 67 | Pending |
 | UX-01 | Phase 61 | Complete |

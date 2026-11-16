@@ -48,6 +48,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 - [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
 - [ ] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; Phase 59 stays last)
+- [ ] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.3 SEED-020; runs before Phase 66)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 
@@ -725,10 +726,32 @@ Plans:
 - [ ] 65-14-PLAN.md - TRK-02 agreed fixes, test-first, Orly runway 3 pinned
 - [ ] 65-06-PLAN.md - evidence table for the four success criteria, gates, draft pull request
 
+### Phase 68: Console and Companion Visual Improvements
+
+**Goal**: The visual improvements the owner has identified for the administrator console and the companion are made, in the existing design system, so that the security audit (Phase 66) and the code cleanup (Phase 67) work on the code as it will stay.
+**Depends on**: Phase 61 (the companion overhaul and its validation ledger), Phase 62, Phase 64 (its walk-through record holds the display remarks already collected). Runs after Phase 65, before Phase 66, Phase 67 and Phase 59.
+**Requirements**: CON-01
+**Why this phase exists**: the owner's request of 2026-11-16. Visual work touches many companion files; cleaning or auditing them first would be wasted. This takes the visual part of SEED-020 out of v1.3.
+**Source of the list** (to be confirmed at discuss-phase): the owner's walk-through of the deployed console, with screenshots; the display remarks and gaps recorded in `64-WALKTHROUGH.md` that are not yet fixed; the follow-up plans of Phase 61 not done (validation ledger, plans 61-100 to 61-129).
+**Success Criteria** (what must be TRUE):
+
+  1. The owner's list of visual changes is written down with screenshots and sorted by value, and the phase takes the items the owner selects; nothing outside the list is added.
+  2. Mockups are approved by the owner before the code, as for the active-mode card.
+  3. Every change follows the design system (tokens, contrast, spacing, density), and any new pattern is added to it (`sketch-findings-skypane`).
+  4. English and French both work, and so does phone width; browser tests cover what changes visually, in line with the behaviour-over-source rule, and the accessibility checks still pass.
+  5. No behaviour change beyond what the list asks: the full test suite and the golden hashes pass, and the route x role x owner matrix is unchanged.
+  6. The owner validates the result on the deployed companion, in English and French.
+
+**Not in this phase**: the screens of photo mode, the getting-started wizard and the Wi-Fi setup (they are built later, in v1.3 and v1.4, to the same design system); new features; the security audit and the code cleanup, which follow.
+**Open decisions** (for discuss-phase): how large the list is allowed to grow before v1.2 closes, and whether the administrator console and the companion pages for users are both in scope.
+**Must not break**: every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, the access rules of Phases 54, 55 and 60.
+
+Plans: TBD
+
 ### Phase 66: Security Audit
 
 **Goal**: Before v1.2 closes, the whole platform has had one structured security audit, and every finding is either fixed or accepted by the owner in writing.
-**Depends on**: Phases 54, 55, 60 (access and roles), 57 and 64 (firmware update and release path). Runs after the feature phases, before Phase 67 and Phase 59.
+**Depends on**: Phases 54, 55, 60 (access and roles), 57 and 64 (firmware update and release path), Phase 68 (the visual changes of the companion, so the audit sees the final pages). Runs after the feature phases, before Phase 67 and Phase 59.
 **Requirements**: SEC-AUD-01
 **Why this phase exists**: the owner's request of 2026-11-15. The platform now holds accounts (Auth0 sign-in), several roles, enrolment secrets, signed firmware updates, a public VPS and, later, customers' photos. Earlier phases carried their own threat checks; none looked at the whole.
 **Scope to cover** (starting list, to be confirmed at discuss-phase): sign-in and session handling; roles and default-deny access (route x role x owner matrix); the device protocol and enrolment secrets; firmware signing, update and rollback; the companion's input handling (uploads, forms, headers, cross-site and injection risks); the server and the deploy pipeline (systemd units, Caddy, secrets, CI permissions, the approval step); dependencies and their pinned hashes; backups and what they contain; logs and what they leak; the privacy rule that the administrator never sees users' photos (prepared for v1.3); data-source terms that touch security.
@@ -787,5 +810,6 @@ Plans: TBD
 | 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |
 | 64. Second Hardware in Production | v1.2 | 13/15 | Verified with open points (64-VERIFICATION.md, 2026-11-15): criteria 1-4 and 8 validated, 5 validated (failing update by Phase 58 bench evidence), 6, 7 and 9 open on owner actions; not complete | - |
 | 65. Runway 3 Tracking and Battery Curve Validation | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 68. Console and Companion Visual Improvements | v1.2 | 0/0 | Added 2026-11-16, not planned yet | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
