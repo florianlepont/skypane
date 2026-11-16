@@ -83,6 +83,10 @@ None of the three is ever printed negative. A standing draw near zero is a resul
 
 `--capacity-mah` is the pack rating, not a measurement. Exit code 0 is a fit, 2 is a refusal, 1 is a usage or file error. `--out` writes a deterministic JSON report (sorted keys, no run time, no absolute path).
 
+### Device filter
+
+An export can mix devices (the owner frame has `wake_seq` around 21000 to 22000, a second device is below 1000). `fit` and `rates` take `--seq-min`, `--seq-max`, `--since` and `--until` (ISO 8601; a time without an offset means UTC; `--since` is inclusive, `--until` exclusive). As soon as any of the four is given, a row with no integer `wake_seq` is dropped, because it cannot be placed on a device. Each dropped row is counted once and the output prints "device filter: kept N of M rows; X outside the wake_seq range, Y with null wake_seq, Z outside the time range". A filter that leaves no row is a refusal; a bad time or an inverted range is a usage error (exit 1). Without a filter option nothing changes: same output, same JSON.
+
 ### Refusals
 
 The tool refuses, prints the reason and "No wake energy figure is given.", and still prints the device-reported awake-time breakdown (a direct measurement) when:
@@ -122,3 +126,75 @@ Rollback: the previous release stays offerable from the Update page, above the v
 ### Fixtures
 
 `hardware/fixtures/wakemodel-synthetic.jsonl` and `wakemodel-collinear.jsonl` are synthetic. The truth values (standing draw, no-change and redraw energy, pack rating) are in the builder in `hardware/test_wakemodel.py`, which also regenerates both fixtures and `wakemodel-synthetic-output.json` byte for byte in a test. `python3 hardware/wakemodel.py selftest` runs the tool on the two fixtures.
+
+The relative mode has three more synthetic fixtures, written by the generator `build_rates_export` in the same test file (its docstring gives the generator rules; the truth is s = 0.05 mV/h, C = 0.01 mV per check, R = 0.06 mV per redraw): `wakemodel-rates-3regime.jsonl` (three regimes at two check intervals, a power-on and a firmware change inside windows a and b), `wakemodel-rates-collinear.jsonl` (one check interval, three redraw cadences, which the tool refuses) and `wakemodel-two-device.jsonl` (the 3-regime rows mixed with a second device and rows without `wake_seq`, for the device filter). A test reproduces each file byte for byte.
+
+## Relative mode
+
+`python3 hardware/wakemodel.py rates` is for the case where `fit` has to refuse: the battery sits above 4000 mV, where the rated curve is uncalibrated, and no rated capacity is trusted. It compares regimes by the slope of the raw voltage. It takes no capacity and uses no curve.
+
+    python3 hardware/wakemodel.py rates EXPORT --window NAME=START,END [--window ...] [--reference NAME] [--out FILE.json]
+
+### What it computes
+
+For each window (a regime held for 24 to 72 h):
+
+- usable hours: UTC hours holding at least 3 polls (`--min-hour-polls`), outside the quiet window and outside the restart exclusion;
+- each usable hour is one sample: the median voltage of its polls at the median time of those polls (the median blunts the whole-millivolt quantisation);
+- the voltage fall in mV per hour, from an ordinary least-squares line through those samples, with an approximate 95 percent range;
+- check wakes and redraw wakes per hour, from the device-reported previous-wake fields. A check is a wake with no panel draw (no-change, deferred or failed), a redraw is a wake that drew. The time base is wall-clock time with the quiet hours included, because the battery drains through them; the quiet window only leaves polls out of the voltage samples. Unknown wakes are counted, printed and left out;
+- the median voltage of the usable polls.
+
+A restart (a `boot_reason` other than a timer or button wake, or a change of `fw_version`) excludes `--reset-hours` (3 h by default) after it from that window, and the excluded hours are printed.
+
+With three or more windows the tool solves, by the same exact non-negative least squares as `fit`:
+
+    fall (mV/h) = s + C x checks per hour + R x redraws per hour
+
+`s` is in mV per hour (the standing draw), `C` and `R` are in mV per wake. It also prints R/C and R over the fall of the reference window (the first window unless `--reference` says otherwise), each with an approximate 95 percent range. The ranges propagate the per-window slope errors through the unconstrained least-squares map; with three windows the solve has no spare degrees of freedom, so they ignore model error.
+
+### Refusals
+
+Exit code 0 is a solve, 2 is a refusal (with the reason and the data that would fix it), 1 is a usage or file error. The tool refuses when:
+
+| Reason | Default limit | What fixes it |
+|--------|---------------|---------------|
+| fewer than three windows | 3 | more regimes, each held 24 to 72 h |
+| a window has too few usable hours | at least 24 (`--min-usable-hours`) | hold the regime longer, or fewer restarts |
+| the median voltages of the windows are far apart | within 60 mV (`--band-mv`) | windows closer in time or voltage |
+| a slope is not resolved (its range is wider than its value) | none | a longer window |
+| the design is rank-deficient or ill-conditioned | condition number at most 100 (`--max-condition`) | a window at another check interval |
+
+The 60 mV band keeps the windows on one part of the curve, where a slope in mV per hour means roughly the same thing. It is an option, and the band in force is printed in the Inputs of every output. Consecutive 48 h windows can drift past it as the battery falls; widening it is allowed and is visible in the output.
+
+### What two windows give
+
+With exactly two windows the tool prints both falls, their ratio with an approximate 95 percent range, and says that C, R and the standing draw cannot be separated. It exits 2.
+
+### Windows at one check interval cannot be separated
+
+If every window uses the same check interval, every wake is either a check or a redraw, so checks plus redraws per hour is the same in all windows. The standing draw, the check cost and the redraw cost then cannot be told apart: the three-window solve is rank-deficient and the tool refuses it. What such a schedule supports is each window's slope and the ratio between two windows. Separating the three needs a window at another check interval, for example the 60 s experiment cleared so that the frame wakes every 5 minutes and redraws at every wake.
+
+### Reading the output
+
+Every output states that these are relative voltage-slope comparisons on the rated, uncalibrated top-of-charge region of the curve, in mV per hour, and that they are not mAh and not a current measurement. A slope says which regime drains faster and by what ratio; it does not say how much charge a wake costs.
+
+### The owner's two windows
+
+The owner confirmed two windows, both at a 60 s check interval:
+
+| Window | Regime | Period |
+|--------|--------|--------|
+| 1 | check 60 s, redraw 5 min | from 2026-11-15T07:55Z, 48 h |
+| 2 | check 60 s, redraw 60 min | from about 2026-11-17T08:00Z, 48 h |
+
+A third window is a requirement for separating the three unknowns, not an agreed schedule. If wanted, a window at another check interval (see above) supplies it. An earlier stretch (check 60 s, redraw 15 min, 2026-11-13T17:45Z to 2026-11-15T07:55Z) exists in the export and can be added as a further window at the same check interval; it adds a slope, not separation.
+
+Points to handle in the data: the first hours after the 2026-11-12 charge are relaxation, so windows start later; firmware versions changed on 2026-11-15 at 11:19, 13:33 and 14:51 UTC, and the restart exclusion removes those hours when `fw_version` changes (or pick windows on one version); the second device is filtered out with `--seq-min` and `--seq-max`. Example for window 1 against window 2, once window 2 has run:
+
+    python3 hardware/wakemodel.py rates EXPORT.jsonl \
+        --seq-min 20000 --seq-max 30000 \
+        --window w1=2026-11-15T07:55Z,2026-11-17T07:55Z \
+        --window w2=2026-11-17T08:00Z,2026-11-19T08:00Z
+
+With two windows this exits 2 by design and prints the two falls and their ratio.

@@ -131,3 +131,12 @@ Plans:
 
 Plans:
 - [ ] TBD (run /gsd-plan-phase 47.2 after the 47.1 baseline is recorded)
+
+## Backlog
+
+### Phase 999.1: Full-discharge percentage-curve study (BACKLOG)
+
+**Goal**: One constant regime held for the whole discharge, with the time-fraction method (fraction of elapsed time to the cut-off as a percentage curve).
+**Known constraints**: `server/check_interval.py` caps an experiment at 72 h and refuses at or below 3700 mV, so a full-discharge run needs a production interval or a server change.
+**Status**: deferred by the owner on 2026-11-16 in favour of the regime comparison (`wakemodel.py rates`).
+**Plans**: 0 plans (promote with /gsd-review-backlog when ready)
