@@ -513,7 +513,58 @@ def _load(raw_text):
     return rows, polls, dropped
 
 
-def build_report(raw, name, capacity_mah, overrides=None):
+def _parse_utc(text):
+    """Aware UTC datetime from an ISO 8601 text; a naive value means UTC."""
+    value = datetime.datetime.fromisoformat(text)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.timezone.utc)
+    return value.astimezone(datetime.timezone.utc)
+
+
+def filter_rows(rows, polls, flt):
+    """Keep one device's rows. `flt` holds seq_min, seq_max, since, until (None
+    when unset). In filter mode a row without an integer wake_seq cannot be
+    placed and is dropped. Each dropped row is counted once, under the first
+    rule it fails. Returns (rows, polls, info), rows and polls parallel.
+    """
+    kept_rows, kept_polls = [], []
+    null_seq = outside_seq = outside_time = 0
+    for row, poll in zip(rows, polls):
+        seq = row.get("wake_seq")
+        if not _is_int(seq):
+            null_seq += 1
+        elif ((flt["seq_min"] is not None and seq < flt["seq_min"])
+              or (flt["seq_max"] is not None and seq > flt["seq_max"])):
+            outside_seq += 1
+        elif ((flt["since"] is not None and poll.ts < flt["since"])
+              or (flt["until"] is not None and poll.ts >= flt["until"])):
+            outside_time += 1
+        else:
+            kept_rows.append(row)
+            kept_polls.append(poll)
+    info = {
+        "rows_before": len(rows), "rows_kept": len(kept_rows),
+        "null_wake_seq": null_seq, "outside_seq_range": outside_seq,
+        "outside_time_range": outside_time,
+        "seq_min": flt["seq_min"], "seq_max": flt["seq_max"],
+        "since": flt["since"].isoformat() if flt["since"] else None,
+        "until": flt["until"].isoformat() if flt["until"] else None,
+    }
+    return kept_rows, kept_polls, info
+
+
+NO_ROW_AFTER_FILTER = ("no row left after the device filter; check "
+                       "--seq-min/--seq-max/--since/--until against the export")
+
+
+def _apply_filter(rows, polls, device_filter, report):
+    """Filter in place of _load's result; records the counts in the report."""
+    rows, polls, info = filter_rows(rows, polls, device_filter)
+    report["inputs"]["device_filter"] = info
+    return rows, polls
+
+
+def build_report(raw, name, capacity_mah, overrides=None, device_filter=None):
     """The full report dict for an export (bytes). Never raises for data
     that cannot be fitted: `refused` is true and `reasons` says why.
     """
@@ -529,6 +580,11 @@ def build_report(raw, name, capacity_mah, overrides=None):
     except Refusal as exc:
         report["reasons"] = exc.reasons
         return report
+    if device_filter is not None:
+        rows, polls = _apply_filter(rows, polls, device_filter, report)
+        if not rows:
+            report["reasons"] = [NO_ROW_AFTER_FILTER]
+            return report
     report["inputs"]["rows"] = len(rows)
     report["inputs"]["rows_dropped"] = dropped_rows
     breakdown = awake_breakdown(rows)
@@ -581,6 +637,13 @@ def _fmt_range(item, unit, digits=4):
         digits, item["point"], unit, digits, item["low"], digits, item["high"])
 
 
+def _filter_line(flt):
+    return ("  device filter: kept %d of %d rows; %d outside the wake_seq range, %d with "
+            "null wake_seq, %d outside the time range" % (
+                flt["rows_kept"], flt["rows_before"], flt["outside_seq_range"],
+                flt["null_wake_seq"], flt["outside_time_range"]))
+
+
 def _print_inputs(report, out):
     inp = report["inputs"]
     out("Inputs")
@@ -589,6 +652,9 @@ def _print_inputs(report, out):
     p = inp["parameters"]
     out("  segments: %g h each, end windows %g h, first %g h ignored" % (
         p["segment_hours"], p["edge_hours"], p["ignore_hours"]))
+    flt = inp.get("device_filter")
+    if flt is not None:
+        out(_filter_line(flt))
     out("Assumptions")
     for line in assumptions(p):
         out("  - " + line)
@@ -654,6 +720,38 @@ def print_report(report, out=print):
 # --- CLI --------------------------------------------------------------------------
 
 
+def _add_filter_args(parser):
+    parser.add_argument("--seq-min", type=int, default=None,
+                        help="keep rows with wake_seq at least this (one device)")
+    parser.add_argument("--seq-max", type=int, default=None,
+                        help="keep rows with wake_seq at most this")
+    parser.add_argument("--since", default=None,
+                        help="keep rows at or after this time (ISO 8601, naive means UTC)")
+    parser.add_argument("--until", default=None,
+                        help="keep rows before this time (ISO 8601, naive means UTC)")
+
+
+def _filter_from_args(args):
+    """(filter dict or None when no option is set, error text or None)."""
+    if (args.seq_min is None and args.seq_max is None
+            and args.since is None and args.until is None):
+        return None, None
+    flt = {"seq_min": args.seq_min, "seq_max": args.seq_max, "since": None, "until": None}
+    try:
+        for key in ("since", "until"):
+            text = getattr(args, key)
+            flt[key] = _parse_utc(text) if text is not None else None
+    except ValueError:
+        return None, "--since and --until must be ISO 8601 times, got %r and %r" % (
+            args.since, args.until)
+    if flt["since"] and flt["until"] and flt["since"] >= flt["until"]:
+        return None, "--since must be before --until"
+    if (flt["seq_min"] is not None and flt["seq_max"] is not None
+            and flt["seq_min"] > flt["seq_max"]):
+        return None, "--seq-min must not exceed --seq-max"
+    return flt, None
+
+
 def cmd_fit(args):
     if args.capacity_mah < 1:
         print("--capacity-mah must be at least 1", file=sys.stderr)
@@ -669,8 +767,13 @@ def cmd_fit(args):
     except lt.RunReportError as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    flt, error = _filter_from_args(args)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
     overrides = {k: getattr(args, k) for k in DEFAULTS}
-    report = build_report(raw, os.path.basename(args.export), args.capacity_mah, overrides)
+    report = build_report(raw, os.path.basename(args.export), args.capacity_mah, overrides,
+                          flt)
     print_report(report)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
@@ -709,6 +812,7 @@ def build_parser():
                       ("max_redraw_ma", float), ("quiet_start", str), ("quiet_end", str)):
         fit.add_argument("--" + key.replace("_", "-"), dest=key, type=kind,
                          default=DEFAULTS[key])
+    _add_filter_args(fit)
     sub.add_parser("selftest", help="run fit on the committed fixtures")
     return parser
 

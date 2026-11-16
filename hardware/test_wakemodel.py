@@ -57,7 +57,7 @@ def _mv_for_fraction(fraction):
 
 
 def build_export(plan, truth=None, hours_total=None, ignore_cadence=60,
-                 telemetry=True, start=T0):
+                 telemetry=True, start=T0, seq_start=100):
     """JSON Lines text of one export row per wake.
 
     The first 24 h run at `ignore_cadence` minutes with no redraws, then each
@@ -70,7 +70,7 @@ def build_export(plan, truth=None, hours_total=None, ignore_cadence=60,
     rows = []
     charge = 0.0  # mAh used so far
     now = start
-    seq = 100
+    seq = seq_start
     acc = 0
     prev = None
     end = None if hours_total is None else start + datetime.timedelta(hours=hours_total)
@@ -94,6 +94,13 @@ def build_export(plan, truth=None, hours_total=None, ignore_cadence=60,
             charge += truth["redraw_mah" if redraw else "nochange_mah"]
             charge += truth["standing_ma"] * cadence / 60.0
             now += datetime.timedelta(minutes=cadence)
+    return "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows)
+
+
+def merge_exports(*texts):
+    """One export from several: rows stable-sorted by timestamp."""
+    rows = [json.loads(line) for text in texts for line in text.splitlines()]
+    rows.sort(key=lambda r: datetime.datetime.fromisoformat(r["ts"]))
     return "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows)
 
 
@@ -464,3 +471,93 @@ def test_hostile_rows_are_refused_not_crashed(tmp_path):
     proc = fit_text(tmp_path, "not json\n[1,2]\n{\"ts\": 5}\n")
     assert proc.returncode == 2
     assert wm.NO_FIGURE_LINE in proc.stdout
+
+
+# --- device filter ------------------------------------------------------------
+
+
+def two_device_text():
+    """The owner frame (wake_seq from 21000) mixed with a second device (wake_seq
+    from 500, voltage shifted) and a few rows with no wake_seq and no
+    previous-wake block.
+    """
+    owner = build_export(MIXED_PLAN, seq_start=21000)
+    other_rows = [json.loads(line) for line in build_export(
+        COLLINEAR_PLAN, seq_start=500, start=T0 + datetime.timedelta(minutes=7)
+    ).splitlines()]
+    for row in other_rows:
+        row["battery_mv"] -= 150
+    other = "".join(json.dumps(r, sort_keys=True) + "\n" for r in other_rows)
+    owner_rows = [json.loads(line) for line in owner.splitlines()]
+    nulls = []
+    for row in owner_rows[100:400:100]:
+        nulls.append({"ts": (datetime.datetime.fromisoformat(row["ts"])
+                             + datetime.timedelta(minutes=3)).isoformat(),
+                      "battery_mv": 3900, "fw_version": "fw-other", "boot_reason": "rtc",
+                      "rssi": "-70", "wake_seq": None, "prev_seq": None,
+                      "prev_redraw": None, "prev_outcome": None})
+    null_text = "".join(json.dumps(r, sort_keys=True) + "\n" for r in nulls)
+    return merge_exports(owner, other, null_text), len(owner_rows), len(other_rows), len(nulls)
+
+
+def test_seq_filter_keeps_one_device_and_counts_the_rest():
+    text, kept, other, nulls = two_device_text()
+    flt = {"seq_min": 20000, "seq_max": 30000, "since": None, "until": None}
+    alone = report_for(build_export(MIXED_PLAN, seq_start=21000))
+    report = wm.build_report(text.encode(), "export.jsonl", CAPACITY_MAH, None, flt)
+    assert not report["refused"], report["reasons"]
+    assert report["fit"]["redraw_mah"]["point"] == alone["fit"]["redraw_mah"]["point"]
+    assert report["fit"]["standing_ma"]["point"] == alone["fit"]["standing_ma"]["point"]
+    info = report["inputs"]["device_filter"]
+    assert info["rows_before"] == kept + other + nulls
+    assert info["rows_kept"] == kept == report["inputs"]["rows"]
+    assert info["outside_seq_range"] == other
+    assert info["null_wake_seq"] == nulls
+    assert info["outside_time_range"] == 0
+
+
+def test_without_a_filter_the_mixed_export_is_not_the_owner_export():
+    text, *_ = two_device_text()
+    report = report_for(text)
+    assert "device_filter" not in report["inputs"]
+    assert report["refused"] or report["fit"] != report_for(
+        build_export(MIXED_PLAN, seq_start=21000))["fit"]
+
+
+def test_time_filter_keeps_since_inclusive_until_exclusive():
+    text = build_export(MIXED_PLAN, seq_start=21000)
+    since = T0 + datetime.timedelta(hours=10)
+    until = T0 + datetime.timedelta(hours=20)
+    rows = [json.loads(line) for line in text.splitlines()]
+    polls = _polls(rows)
+    flt = {"seq_min": None, "seq_max": None, "since": since, "until": until}
+    kept_rows, kept_polls, info = wm.filter_rows(rows, polls, flt)
+    assert all(since <= p.ts < until for p in kept_polls)
+    assert len(kept_rows) == len(kept_polls) == info["rows_kept"] == 10
+    assert info["outside_time_range"] == len(rows) - 10
+    assert info["outside_seq_range"] == 0 and info["null_wake_seq"] == 0
+
+
+def test_filter_that_leaves_no_row_refuses(tmp_path):
+    proc = fit_text(tmp_path, build_export(MIXED_PLAN, seq_start=21000),
+                    ["--seq-min", "1", "--seq-max", "5"])
+    assert proc.returncode == 2
+    assert "no row left after the device filter" in proc.stdout
+
+
+def test_cli_filter_prints_counts_and_fits(tmp_path):
+    text, kept, other, nulls = two_device_text()
+    proc = fit_text(tmp_path, text, ["--seq-min", "20000", "--seq-max", "30000"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "device filter: kept %d of %d rows" % (kept, kept + other + nulls) in proc.stdout
+    assert "%d outside the wake_seq range, %d with null wake_seq" % (other, nulls) in proc.stdout
+
+
+@pytest.mark.parametrize("args", [
+    ["--since", "not-a-date"],
+    ["--since", "2026-03-03T00:00:00Z", "--until", "2026-03-02T00:00:00Z"],
+    ["--seq-min", "9", "--seq-max", "3"],
+])
+def test_bad_filter_values_are_usage_errors(tmp_path, args):
+    proc = fit_text(tmp_path, build_export(MIXED_PLAN), args)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
