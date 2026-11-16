@@ -147,7 +147,7 @@ def test_actions_menus_follow_the_frame_state(fleet):
     _status, _headers, live_page = fx.get(server, cookie, "/fleet?frame=%s" % seed.live_id)
     live = _header(live_page)
     assert "dlg-retire-%s" % _slug(seed.live_id) not in live_page
-    assert "Only the owner changes. Nothing is erased." in live_page
+    assert "Nothing is erased." in live_page
     assert re.findall(r'class="row-action"[^>]*>([^<]*)<', live) == [
         "Open personal view", "Rename"]
     assert re.findall(r'class="row-menu__item[^"]*"[^>]*>([^<]*)<', rows["New frame"]) == [
@@ -191,7 +191,8 @@ def test_dialogs_post_to_the_unchanged_routes_with_csrf(fleet):
     assert 'name="csrf_token"' in reassign
     assert "%s&#x27;s settings" % fx.OWNER_EMAIL in reassign
     assert "<select" in reassign and " required" in reassign
-    assert "Reassign \u201cKitchen\u201d?" in reassign and "Keep current owner" in reassign
+    assert "Reassign \u201cKitchen\u201d?" in reassign and "Cancel" in reassign
+    assert "Keep current owner" not in reassign and "modal__subtitle" not in reassign
     reactivate = _dialog(page, "dlg-reactivate-" + _slug(seed.retired_id))
     assert "Keep retired" in reactivate and "Re-activate frame" in reactivate
     assert "{owner_email}" not in page

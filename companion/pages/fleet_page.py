@@ -60,7 +60,7 @@ _TITLE_REACTIVATE = i18n.msg(
     "admin_fleet.re_activate_frame_title", "Re-activate “%s”?")
 _NEW_OWNER = i18n.msg("admin_fleet.new_owner", "New owner")
 _TITLE_REASSIGN = i18n.msg("admin_fleet.reassign_frame_title", "Reassign “%s”?")
-_KEEP_OWNER = i18n.msg("admin_fleet.keep_owner", "Keep current owner")
+_CANCEL = i18n.msg("admin_fleet.cancel", "Cancel")
 _REASSIGN_ARIA = i18n.msg("admin_fleet.reassign_aria", "Reassign %s to another owner")
 _RETIRE_SENTENCE = i18n.msg(
     "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating",
@@ -75,7 +75,7 @@ _REASSIGN_SENTENCE = i18n.msg(
     "restarts like a new one.")
 _REASSIGN_LIVE_SENTENCE = i18n.msg(
     "admin_fleet.only_the_owner_changes_nothing_is_erased",
-    "Only the owner changes. Nothing is erased.")
+    "Nothing is erased.")
 _THIS_OWNER = i18n.msg("admin_fleet.the_current_owner", "The current owner")
 _RETIRE_THIS_FRAME = i18n.msg("admin_fleet.retire_this_frame", "Retire this frame")
 _RETIRE_HINT = i18n.msg(
@@ -348,7 +348,8 @@ def _add_dialog(view):
 
 
 def _frame_dialog(
-        row, dialog_id, suffix, title, sentence, body_extra, submit, dismiss, **flags):
+        row, dialog_id, suffix, title, sentence, body_extra, submit, dismiss,
+        with_hardware=True, **flags):
     return ui_modal.dialog_html(
         dialog_id, title % _display_name(row),
         _routes().FRAME_ACTION_PREFIX + row.frame_id + suffix, _ui().csrf_field(),
@@ -356,7 +357,8 @@ def _frame_dialog(
         i18n.t(submit), i18n.t(dismiss),
         _routes().FLEET_ROUTE if row.kind != KIND_LIVE else "%s?frame=%s&tab=access" % (
             _routes().FLEET_ROUTE, row.frame_id),
-        subtitle="%s · %s" % (row.hardware, row.mono_id), **flags)
+        subtitle="%s · %s" % (row.hardware, row.mono_id) if with_hardware else None,
+        **flags)
 
 
 def reassign_action_html(row):
@@ -387,8 +389,8 @@ def reassign_dialog_html(row, view):
             validation_attrs("select"), _owner_options(view._replace(owner_selected=""))))
     return _frame_dialog(
         row, _slug("dlg-reassign", row.frame_id), _routes().FRAME_REASSIGN_SUFFIX,
-        i18n.t(_TITLE_REASSIGN), sentence, field, _ACTION_REASSIGN, _KEEP_OWNER,
-        destructive=not row.is_live_frame)
+        i18n.t(_TITLE_REASSIGN), sentence, field, _ACTION_REASSIGN, _CANCEL,
+        with_hardware=False, secondary_dismiss=True, destructive=not row.is_live_frame)
 
 
 def retire_row_html(row):

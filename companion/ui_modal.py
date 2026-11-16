@@ -105,7 +105,7 @@ def dialog_html(
         dialog_id, title, form_action, csrf_html, body_html, submit_label,
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
         open_=False, subtitle=None, focus_id=None, focus_title=False,
-        return_on_close=False, return_focus_id=None):
+        return_on_close=False, return_focus_id=None, secondary_dismiss=False):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -125,8 +125,12 @@ def dialog_html(
     `return_focus_id` names the control (by its `id`) that takes the focus when
     the dialog closes with no opener of its own to return to (a dialog the
     address opened).
+    `secondary_dismiss` draws the dismiss link as a secondary button under
+    the submit button instead of a plain text link.
     """
     slug = validated_slug(dialog_id)
+    dismiss_class = (
+        "modal__dismiss modal__dismiss--button" if secondary_dismiss else "modal__dismiss")
     title_id = slug + "-title"
     submit_focus = ""
     dismiss_focus = ""
@@ -169,7 +173,7 @@ def dialog_html(
         '<div class="modal__body">%(body)s</div>'
         '<div class="modal__actions">'
         '<button type="submit"%(submit_class)s%(submit_focus)s>%(submit)s</button>'
-        '<a class="modal__dismiss" href="%(href)s" data-modal-close%(dismiss_focus)s>%(dismiss)s</a>'
+        '<a class="%(dismiss_class)s" href="%(href)s" data-modal-close%(dismiss_focus)s>%(dismiss)s</a>'
         '</div></form></dialog>\n'
     ) % {
         "id": slug,
@@ -189,6 +193,7 @@ def dialog_html(
         "submit_focus": submit_focus,
         "submit": escape_html(submit_label),
         "dismiss_focus": dismiss_focus,
+        "dismiss_class": dismiss_class,
         "dismiss": escape_html(dismiss_label),
     }
 
