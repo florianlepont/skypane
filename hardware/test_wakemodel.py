@@ -57,7 +57,7 @@ def _mv_for_fraction(fraction):
 
 
 def build_export(plan, truth=None, hours_total=None, ignore_cadence=60,
-                 telemetry=True, start=T0):
+                 telemetry=True, start=T0, seq_start=100):
     """JSON Lines text of one export row per wake.
 
     The first 24 h run at `ignore_cadence` minutes with no redraws, then each
@@ -70,7 +70,7 @@ def build_export(plan, truth=None, hours_total=None, ignore_cadence=60,
     rows = []
     charge = 0.0  # mAh used so far
     now = start
-    seq = 100
+    seq = seq_start
     acc = 0
     prev = None
     end = None if hours_total is None else start + datetime.timedelta(hours=hours_total)
@@ -94,6 +94,13 @@ def build_export(plan, truth=None, hours_total=None, ignore_cadence=60,
             charge += truth["redraw_mah" if redraw else "nochange_mah"]
             charge += truth["standing_ma"] * cadence / 60.0
             now += datetime.timedelta(minutes=cadence)
+    return "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows)
+
+
+def merge_exports(*texts):
+    """One export from several: rows stable-sorted by timestamp."""
+    rows = [json.loads(line) for text in texts for line in text.splitlines()]
+    rows.sort(key=lambda r: datetime.datetime.fromisoformat(r["ts"]))
     return "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows)
 
 
@@ -464,3 +471,380 @@ def test_hostile_rows_are_refused_not_crashed(tmp_path):
     proc = fit_text(tmp_path, "not json\n[1,2]\n{\"ts\": 5}\n")
     assert proc.returncode == 2
     assert wm.NO_FIGURE_LINE in proc.stdout
+
+
+# --- device filter ------------------------------------------------------------
+
+
+def two_device_text():
+    """The owner frame (wake_seq from 21000) mixed with a second device (wake_seq
+    from 500, voltage shifted) and a few rows with no wake_seq and no
+    previous-wake block.
+    """
+    owner = build_export(MIXED_PLAN, seq_start=21000)
+    other_rows = [json.loads(line) for line in build_export(
+        COLLINEAR_PLAN, seq_start=500, start=T0 + datetime.timedelta(minutes=7)
+    ).splitlines()]
+    for row in other_rows:
+        row["battery_mv"] -= 150
+    other = "".join(json.dumps(r, sort_keys=True) + "\n" for r in other_rows)
+    owner_rows = [json.loads(line) for line in owner.splitlines()]
+    nulls = []
+    for row in owner_rows[100:400:100]:
+        nulls.append({"ts": (datetime.datetime.fromisoformat(row["ts"])
+                             + datetime.timedelta(minutes=3)).isoformat(),
+                      "battery_mv": 3900, "fw_version": "fw-other", "boot_reason": "rtc",
+                      "rssi": "-70", "wake_seq": None, "prev_seq": None,
+                      "prev_redraw": None, "prev_outcome": None})
+    null_text = "".join(json.dumps(r, sort_keys=True) + "\n" for r in nulls)
+    return merge_exports(owner, other, null_text), len(owner_rows), len(other_rows), len(nulls)
+
+
+def test_seq_filter_keeps_one_device_and_counts_the_rest():
+    text, kept, other, nulls = two_device_text()
+    flt = {"seq_min": 20000, "seq_max": 30000, "since": None, "until": None}
+    alone = report_for(build_export(MIXED_PLAN, seq_start=21000))
+    report = wm.build_report(text.encode(), "export.jsonl", CAPACITY_MAH, None, flt)
+    assert not report["refused"], report["reasons"]
+    assert report["fit"]["redraw_mah"]["point"] == alone["fit"]["redraw_mah"]["point"]
+    assert report["fit"]["standing_ma"]["point"] == alone["fit"]["standing_ma"]["point"]
+    info = report["inputs"]["device_filter"]
+    assert info["rows_before"] == kept + other + nulls
+    assert info["rows_kept"] == kept == report["inputs"]["rows"]
+    assert info["outside_seq_range"] == other
+    assert info["null_wake_seq"] == nulls
+    assert info["outside_time_range"] == 0
+
+
+def test_without_a_filter_the_mixed_export_is_not_the_owner_export():
+    text, *_ = two_device_text()
+    report = report_for(text)
+    assert "device_filter" not in report["inputs"]
+    assert report["refused"] or report["fit"] != report_for(
+        build_export(MIXED_PLAN, seq_start=21000))["fit"]
+
+
+def test_time_filter_keeps_since_inclusive_until_exclusive():
+    text = build_export(MIXED_PLAN, seq_start=21000)
+    since = T0 + datetime.timedelta(hours=10)
+    until = T0 + datetime.timedelta(hours=20)
+    rows = [json.loads(line) for line in text.splitlines()]
+    polls = _polls(rows)
+    flt = {"seq_min": None, "seq_max": None, "since": since, "until": until}
+    kept_rows, kept_polls, info = wm.filter_rows(rows, polls, flt)
+    assert all(since <= p.ts < until for p in kept_polls)
+    assert len(kept_rows) == len(kept_polls) == info["rows_kept"] == 10
+    assert info["outside_time_range"] == len(rows) - 10
+    assert info["outside_seq_range"] == 0 and info["null_wake_seq"] == 0
+
+
+def test_filter_that_leaves_no_row_refuses(tmp_path):
+    proc = fit_text(tmp_path, build_export(MIXED_PLAN, seq_start=21000),
+                    ["--seq-min", "1", "--seq-max", "5"])
+    assert proc.returncode == 2
+    assert "no row left after the device filter" in proc.stdout
+
+
+def test_cli_filter_prints_counts_and_fits(tmp_path):
+    text, kept, other, nulls = two_device_text()
+    proc = fit_text(tmp_path, text, ["--seq-min", "20000", "--seq-max", "30000"])
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "device filter: kept %d of %d rows" % (kept, kept + other + nulls) in proc.stdout
+    assert "%d outside the wake_seq range, %d with null wake_seq" % (other, nulls) in proc.stdout
+
+
+@pytest.mark.parametrize("args", [
+    ["--since", "not-a-date"],
+    ["--since", "2026-03-03T00:00:00Z", "--until", "2026-03-02T00:00:00Z"],
+    ["--seq-min", "9", "--seq-max", "3"],
+])
+def test_bad_filter_values_are_usage_errors(tmp_path, args):
+    proc = fit_text(tmp_path, build_export(MIXED_PLAN), args)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+
+
+# --- relative mode ------------------------------------------------------------
+
+RATES_TRUTH = {"s": 0.05, "C": 0.01, "R": 0.06}  # mV per hour, mV per check, mV per redraw
+RATES_REGIMES = [("a", 300, 10, 48), ("b", 300, 60, 48), ("c", 600, 30, 48)]
+RATES_COLLINEAR = [("a", 300, 10, 48), ("b", 300, 60, 48), ("c", 300, 30, 48)]
+RATES_RESETS = [(20, "poweron"), (78, "ota")]
+
+
+def build_rates_export(regimes, truth, start, seq_start=21000, start_mv=4120, resets=()):
+    """JSON Lines text for the relative mode, one compact row per wake.
+
+    `regimes` is a list of (name, check_s, redraw_min, hours); redraw_min None
+    means no redraw. A wake every check_s seconds is a redraw when it is the first
+    wake at or after each redraw_min boundary (counted from the regime start),
+    otherwise a check. The true voltage falls truth["s"] mV per hour,
+    truth["C"] mV after each check wake and truth["R"] mV after each redraw
+    wake. The written battery_mv is round(v) + ((seq * 37) % 7) - 3, a
+    deterministic quantisation-like jitter of +-3 mV. A closing row at the end of the
+    last regime reports the last wake. `resets` is a list of (hours from start,
+    kind): "poweron" sets boot_reason "poweron" on the first row at or after that
+    time, "ota" changes fw_version from that row on; both drop that row's
+    previous-wake block.
+    """
+    rows = []
+    volts = float(start_mv)
+    now = start
+    seq = seq_start
+    prev = None
+    pending = sorted(resets)
+    fw = "fw-synthetic"
+    total = sum(r[3] for r in regimes)
+    end = start + datetime.timedelta(hours=total)
+    boundaries = []
+    t = start
+    for _, check_s, redraw_min, hours in regimes:
+        boundaries.append((t, t + datetime.timedelta(hours=hours), check_s, redraw_min))
+        t += datetime.timedelta(hours=hours)
+    for lo, hi, check_s, redraw_min in boundaries:
+        step = datetime.timedelta(seconds=check_s)
+        next_redraw = lo
+        now = lo
+        last_regime = hi == end
+        while now < hi or (last_regime and now == end):
+            boot, block = "rtc", prev
+            while pending and now >= start + datetime.timedelta(hours=pending[0][0]):
+                _, kind = pending.pop(0)
+                block = None
+                if kind == "poweron":
+                    boot = "poweron"
+                else:
+                    fw = fw + "-2"
+            row = {"ts": now.isoformat(), "battery_mv": round(volts) + ((seq * 37) % 7) - 3,
+                   "fw_version": fw, "boot_reason": boot, "rssi": "-60", "wake_seq": seq,
+                   "prev_seq": None, "prev_redraw": None, "prev_outcome": None,
+                   "prev_awake_ms": None}
+            if block is not None:
+                row.update({"prev_seq": block[0], "prev_redraw": block[1],
+                            "prev_outcome": "ok",
+                            "prev_awake_ms": REDRAW_AWAKE_MS if block[1] else NOCHANGE_AWAKE_MS})
+            rows.append(row)
+            if now == end:
+                break
+            redraw = redraw_min is not None and now >= next_redraw
+            if redraw:
+                while next_redraw <= now:
+                    next_redraw += datetime.timedelta(minutes=redraw_min)
+            prev = (seq, 1 if redraw else 0)
+            seq += 1
+            volts -= truth["s"] * check_s / 3600.0 + (truth["R"] if redraw else truth["C"])
+            now += step
+    return "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows)
+
+
+def rates_text(kind="3regime"):
+    if kind == "collinear":
+        return build_rates_export(RATES_COLLINEAR, RATES_TRUTH, T0)
+    owner = build_rates_export(RATES_REGIMES, RATES_TRUTH, T0, resets=RATES_RESETS)
+    if kind == "3regime":
+        return owner
+    other = build_rates_export([("x", 600, None, 144)], RATES_TRUTH,
+                               T0 + datetime.timedelta(minutes=3), seq_start=500, start_mv=3950)
+    nulls = "".join(json.dumps({
+        "ts": (T0 + datetime.timedelta(hours=h, minutes=1)).isoformat(), "battery_mv": 4000,
+        "fw_version": "fw-other", "boot_reason": "rtc", "rssi": "-70", "wake_seq": None,
+        "prev_seq": None, "prev_redraw": None, "prev_outcome": None, "prev_awake_ms": None},
+        sort_keys=True) + "\n" for h in range(6, 144, 6))
+    return merge_exports(owner, other, nulls)
+
+
+def write_rates_fixtures():
+    """Regenerate the committed relative-mode fixtures (called by a test)."""
+    os.makedirs(FIXTURES, exist_ok=True)
+    for name, kind in (("wakemodel-rates-3regime.jsonl", "3regime"),
+                       ("wakemodel-rates-collinear.jsonl", "collinear"),
+                       ("wakemodel-two-device.jsonl", "two-device")):
+        with open(os.path.join(FIXTURES, name), "w", encoding="utf-8") as fh:
+            fh.write(rates_text(kind))
+
+
+def window_args(names=("a", "b", "c"), starts=(0, 48, 96), length=48):
+    out = []
+    for name, h in zip(names, starts):
+        lo = T0 + datetime.timedelta(hours=h)
+        out += ["--window", "%s=%s,%s" % (
+            name, lo.isoformat(), (lo + datetime.timedelta(hours=length)).isoformat())]
+    return out
+
+
+def rates_cli(tmp_path, text, extra=None, windows=None, name="rates.jsonl"):
+    path = tmp_path / name
+    path.write_text(text)
+    return run_cli(["rates", str(path)] + (window_args() if windows is None else windows)
+                   + (extra or []))
+
+
+def check_wording(out):
+    assert wm.RELATIVE_SENTENCE in out
+    assert "measured current" not in out.lower()
+    for line in out.splitlines():
+        if line == wm.RELATIVE_SENTENCE:
+            continue
+        assert "mAh" not in line and " mA" not in line and "capacity" not in line, line
+
+
+def rates_json(tmp_path, text, extra=None, windows=None):
+    out = tmp_path / "rates-out.json"
+    proc = rates_cli(tmp_path, text, (extra or []) + ["--out", str(out)], windows)
+    return proc, json.loads(out.read_text())
+
+
+def test_rates_recovers_the_three_regime_truth(tmp_path):
+    proc, report = rates_json(tmp_path, rates_text())
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    fit = report["fit"]
+    for key, name in (("standing_mv_per_h", "s"), ("check_mv_per_wake", "C"),
+                      ("redraw_mv_per_wake", "R")):
+        item = fit[key]
+        assert item["low"] <= RATES_TRUTH[name] <= item["high"], (key, item)
+    assert abs(fit["standing_mv_per_h"]["point"] - RATES_TRUTH["s"]) <= 0.03
+    assert within(fit["check_mv_per_wake"]["point"], RATES_TRUTH["C"], 0.15)
+    assert within(fit["redraw_mv_per_wake"]["point"], RATES_TRUTH["R"], 0.15)
+    for key in ("redraw_over_check", "redraw_over_reference"):
+        assert fit[key]["low"] <= fit[key]["point"] <= fit[key]["high"]
+    assert within(fit["redraw_over_check"]["point"], RATES_TRUTH["R"] / RATES_TRUTH["C"], 0.25)
+    assert "R/C:" in proc.stdout and "R / fall of window a:" in proc.stdout
+    check_wording(proc.stdout)
+
+
+def test_rates_windows_table_has_the_per_window_figures(tmp_path):
+    proc = rates_cli(tmp_path, rates_text())
+    for name in "abc":
+        line = next(ln for ln in proc.stdout.splitlines() if ln.startswith("  %s: " % name))
+        for part in ("usable hours", "fall ", "95% range", "checks ", "redraws ",
+                     "unknown ", "median "):
+            assert part in line, line
+    assert "voltage band: 60 mV" in proc.stdout
+
+
+def test_rates_collinear_check_interval_is_refused(tmp_path):
+    proc = rates_cli(tmp_path, rates_text("collinear"))
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert "REFUSED" in proc.stdout
+    assert "rank-deficient or ill-conditioned" in proc.stdout
+    assert "a window at another check interval is needed" in proc.stdout
+    assert wm.NO_RATES_FIGURE_LINE in proc.stdout
+    assert "Fit (mV per hour" not in proc.stdout
+    assert "R/C" not in proc.stdout
+    check_wording(proc.stdout)
+
+
+def test_rates_two_windows_give_the_ratio_and_say_nothing_can_be_separated(tmp_path):
+    proc, report = rates_json(tmp_path, rates_text(), windows=window_args(("a", "b"), (0, 48)))
+    assert proc.returncode == 2, proc.stdout + proc.stderr
+    assert wm.NO_SEPARATION_LINE in proc.stdout
+    assert "ratio of fall a to fall b" in proc.stdout and "95% range" in proc.stdout
+    ratio = report["two_window_ratio"]
+    assert ratio["low"] < ratio["point"] < ratio["high"]
+    assert within(ratio["point"], 0.467 / 0.222, 0.1)
+    assert report["fit"] is None
+    check_wording(proc.stdout)
+
+
+def test_rates_windows_apart_in_voltage_are_refused_naming_the_band(tmp_path):
+    rows = [json.loads(line) for line in rates_text().splitlines()]
+    cut = T0 + datetime.timedelta(hours=96)
+    for row in rows:
+        if datetime.datetime.fromisoformat(row["ts"]) >= cut:
+            row["battery_mv"] -= 100
+    text = "".join(json.dumps(r, sort_keys=True) + "\n" for r in rows)
+    proc = rates_cli(tmp_path, text)
+    assert proc.returncode == 2
+    assert "more than the 60 mV band" in proc.stdout
+    assert "windows closer in time or voltage are needed" in proc.stdout
+    wide = rates_cli(tmp_path, text, ["--band-mv", "200"])
+    assert wide.returncode == 0, wide.stdout
+    assert "voltage band: 200 mV" in wide.stdout
+
+
+def test_rates_short_window_and_unresolved_slope_are_refused(tmp_path):
+    proc = rates_cli(tmp_path, rates_text(), windows=window_args(("a", "b", "c"), (0, 48, 96), 10))
+    assert proc.returncode == 2
+    assert "usable hours, at least 24 needed" in proc.stdout
+
+
+def test_rates_filter_selects_one_device(tmp_path):
+    flt = ["--seq-min", "20000", "--seq-max", "30000"]
+    alone, alone_report = rates_json(tmp_path, rates_text(), flt)
+    both, both_report = rates_json(tmp_path, rates_text("two-device"), flt)
+    assert alone.returncode == both.returncode == 0, both.stdout
+    assert both_report["windows"] == alone_report["windows"]
+    assert both_report["fit"] == alone_report["fit"]
+    info = both_report["inputs"]["device_filter"]
+    assert info["outside_seq_range"] > 0 and info["null_wake_seq"] == 23
+    assert "device filter: kept" in both.stdout and "with null wake_seq" in both.stdout
+    unfiltered = rates_cli(tmp_path, rates_text("two-device"))
+    assert unfiltered.stdout != both.stdout
+
+
+def test_rates_restart_rows_exclude_reset_hours(tmp_path):
+    _, report = rates_json(tmp_path, rates_text())
+    excluded = {w["name"]: w["reset_excluded_hours"] for w in report["windows"]}
+    assert excluded == {"a": 3.0, "b": 3.0, "c": 0.0}
+    _, none = rates_json(tmp_path, rates_text(), ["--reset-hours", "0"])
+    assert all(w["reset_excluded_hours"] == 0.0 for w in none["windows"])
+
+
+def test_rates_output_is_deterministic_and_has_no_path(tmp_path):
+    export = tmp_path / "e.jsonl"
+    export.write_text(rates_text())
+    other = tmp_path / "elsewhere"
+    other.mkdir()
+    first, second = tmp_path / "a.json", tmp_path / "b.json"
+    args = ["rates", str(export)] + window_args()
+    assert run_cli(args + ["--out", str(first)]).returncode == 0
+    assert run_cli(args + ["--out", str(second)], cwd=str(other)).returncode == 0
+    assert first.read_bytes() == second.read_bytes()
+    assert str(tmp_path) not in first.read_text()
+
+
+def test_rates_export_without_telemetry_refuses(tmp_path):
+    rows = [json.loads(line) for line in rates_text().splitlines()]
+    for row in rows:
+        row.update({"wake_seq": None, "prev_seq": None, "prev_redraw": None,
+                    "prev_outcome": None})
+    proc = rates_cli(tmp_path, "".join(json.dumps(r) + "\n" for r in rows))
+    assert proc.returncode == 2
+    assert wm.NO_TELEMETRY in proc.stdout
+    check_wording(proc.stdout)
+
+
+def test_rates_hostile_rows_are_refused_not_crashed(tmp_path):
+    proc = rates_cli(tmp_path, "not json\n[1,2]\n{\"ts\": 5}\n")
+    assert proc.returncode == 2
+    assert wm.RELATIVE_SENTENCE in proc.stdout
+
+
+@pytest.mark.parametrize("extra,windows", [
+    ([], ["--window", "a"]),
+    ([], ["--window", "a=2026-03-03T00:00:00Z,2026-03-02T00:00:00Z"]),
+    ([], ["--window", "a=2026-03-02T00:00:00Z,2026-03-03T00:00:00Z",
+          "--window", "a=2026-03-03T00:00:00Z,2026-03-04T00:00:00Z"]),
+    (["--reference", "zzz"], ["--window", "a=2026-03-02T00:00:00Z,2026-03-03T00:00:00Z"]),
+    ([], ["--window", "a=nope,2026-03-03T00:00:00Z"]),
+    (["--quiet-start", "25:00"], ["--window", "a=2026-03-02T00:00:00Z,2026-03-03T00:00:00Z"]),
+])
+def test_rates_usage_errors_exit_one(tmp_path, extra, windows):
+    proc = rates_cli(tmp_path, rates_text(), extra, windows)
+    assert proc.returncode == 1, proc.stdout + proc.stderr
+
+
+def test_rates_unreadable_file_is_a_usage_error(tmp_path):
+    proc = run_cli(["rates", str(tmp_path / "none.jsonl")] + window_args())
+    assert proc.returncode == 1
+
+
+def test_committed_rates_fixtures_are_reproduced_by_the_builder():
+    for name, kind in (("wakemodel-rates-3regime.jsonl", "3regime"),
+                       ("wakemodel-rates-collinear.jsonl", "collinear"),
+                       ("wakemodel-two-device.jsonl", "two-device")):
+        with open(os.path.join(FIXTURES, name), encoding="utf-8") as fh:
+            assert fh.read() == rates_text(kind), name
+
+
+def test_fit_and_selftest_are_unaffected_by_the_rates_mode():
+    assert "rates" not in wm.DEFAULTS and "band_mv" not in wm.DEFAULTS
