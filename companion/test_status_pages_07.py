@@ -119,7 +119,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
         FLOOR_VIEWPORT_PX - 2 * float(tokens["--tab-bar-side"][:-2])
         - 2 * float(tokens["--tab-bar-pad"][:-2]))
     # Per-character advance: a cautious model above the 2026-09-17 audit's real figure
-    # ("Compagnies", 10 characters, 65px at 11px).
+    # ("Compagnies", the former label, 10 characters, 65px at 11px).
     PER_CHARACTER_ADVANCE_PX = 7.1
     AUDIT_MEASURED_FLOOR_PX = 65
     for lang in ("en", "fr"):
@@ -127,7 +127,7 @@ def test_tab_bar_pill_horizontal_margin_lets_the_longest_label_fit(css_text):
         for message in messages:
             text = i18n.t_lang(message, lang)
             label_px = max(PER_CHARACTER_ADVANCE_PX * len(text), AUDIT_MEASURED_FLOOR_PX
-                           if text == "Compagnies" else 0)
+                           if text == "Airlines" else 0)
             widths.append(max(44.0, label_px + 2 * pill_pad_px + 2 * horizontal_margin_px))
         assert sum(widths) <= bar_width_px, (
             "expected the six bar cells (%s) to fit the %.0fpx bar at a %dpx viewport in %s, "
@@ -177,7 +177,7 @@ def test_french_tab_bar_labels_and_landmark():
     for english, french in (
             ("Home", "Accueil"), ("Flights", "Vols"), ("Location", "Lieu"),
             ("Style", "Style"), ("More", "Plus"),
-            ("Airlines", "Compagnies"), ("Account", "Compte")):
+            ("Airlines", "Airlines"), ("Account", "Compte")):
         assert ">%s<" % french in bar, (
             "expected the %r cell to read %r in French, got %r" % (english, french, bar))
         if english != french:

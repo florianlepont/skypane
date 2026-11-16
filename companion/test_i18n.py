@@ -224,6 +224,9 @@ _UNCHANGED_IN_FRENCH = frozenset({
     "admin_locations.latitude_longitude",
     # "Action" is the French word too, for the audit table's column heading.
     "admin_lifecycle.action",
+    # The French UI keeps the English word "Airlines" for the nav entry and the
+    # page it names: "Compagnies" does not fit the six-tab phone bar.
+    "nav.airline_collection", "airlines.table_caption",
 })
 
 
@@ -417,7 +420,7 @@ _FRENCH_PAGE_CASES = (
     ("/", "Accueil", "Home"),
     ("/display", "Style", "Display"),
     ("/flights", "Vols", "Flights"),
-    ("/airlines", "Compagnies", "Airlines"),
+    ("/airlines", "Airlines", "Airlines"),
     ("/fleet", "Flotte", "Fleet"),
     ("/fleet?view=system", "Système", "System"),
 )

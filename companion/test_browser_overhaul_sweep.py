@@ -349,7 +349,7 @@ def test_the_fleet_page_is_not_called_cadres_in_french(new_context, server, lang
 _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
-    r"Actions|Style|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
+    r"Actions|Style|Airlines|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
     r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
 
 

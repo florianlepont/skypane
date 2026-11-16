@@ -154,7 +154,7 @@ MESSAGES = {
         "Illustration supprimée — l’illustration par défaut est de retour.",
     "common.that_artwork_can_t_be_removed_anymore":
         "Cette illustration ne peut plus être supprimée ici — rechargez la "
-        "page Compagnies et réessayez.",
+        "page Airlines et réessayez.",
     "common.couldn_t_remove_that_artwork":
         "Impossible de supprimer cette illustration — le dossier d’état du "
         "cadre n’est peut-être pas accessible en écriture.",
@@ -164,7 +164,7 @@ MESSAGES = {
         "Impossible d’enregistrer le type d’appareil par défaut — réessayez.",
     "common.that_airline_can_t_be_renamed_anymore":
         "Cette compagnie ne peut plus être renommée ici — rechargez la "
-        "page Compagnies et réessayez.",
+        "page Airlines et réessayez.",
     "common.the_renamed_airlines_list_is_full_200_entries":
         "La liste des compagnies renommées est pleine (200 entrées) — "
         "rétablissez-en une avant d’en renommer une autre.",
