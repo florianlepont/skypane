@@ -1,0 +1,235 @@
+<title>SkyPane Accueil Final</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: three 360px phone mockups (online, sleeping, offline). One set of styles only; tokens follow the companion design system. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --paper:#F7F5EF;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.72); --tab:#fff;
+  --ok:#16A34A; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D; --paper:#E9E6DE;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D; --paper:#E9E6DE;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;
+  padding-block:32px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-variant-numeric:tabular-nums}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* page chrome */
+.top{max-width:1240px;margin:0 auto 32px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:62ch}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.board{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:48px 32px;justify-items:center}
+.col{width:100%;max-width:392px;min-width:0;display:flex;flex-direction:column;gap:16px}
+.col h2{margin:0;font-size:22px;font-weight:600}
+.col p{margin:0;color:var(--muted);font-size:15px}
+
+/* phone */
+.phone{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:36px;background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12)}
+.screen{padding:24px 16px 104px;display:flex;flex-direction:column;gap:24px}
+.title{margin:0 0 4px;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.state{margin:0;display:flex;align-items:center;gap:8px;font-weight:600}
+.state2{margin:2px 0 0;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.dot.idle{background:var(--muted)}.dot.err{background:var(--err)}
+.label{margin:0;font-size:13px;font-weight:600;color:var(--muted)}
+.sechead{display:flex;align-items:center;justify-content:space-between;min-height:44px;padding:0 4px}
+.more{display:inline-flex;align-items:center;gap:4px;min-height:44px;font-size:14px;color:var(--text);text-decoration:none}
+.card{background:var(--glass);border:1px solid var(--border);border-radius:22px;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);overflow:hidden}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.chev{color:var(--muted);font-size:16px}
+
+/* alert, hero */
+.alert{border-color:var(--err);display:flex;gap:12px;align-items:center;padding:12px 16px}
+.alert .ic{width:24px;height:24px;stroke:none;fill:var(--err)}
+.alert small{display:block;font-size:13px;color:var(--muted)}
+.hero{padding:16px;display:flex;gap:16px}
+.hero .meta{min-width:0;display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted)}
+.hero .call{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
+.hero .airline{font-size:15px;color:var(--text)}
+.badge{align-self:flex-start;display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 12px 0 8px;border-radius:32px;background:var(--chip);font-size:13px;color:var(--text)}
+.badge .ic{width:16px;height:16px}
+.eink{position:relative;flex:none;width:132px;aspect-ratio:3/4;background:var(--paper);border:1px solid rgba(0,0,0,.18);border-radius:5px;box-shadow:0 6px 18px rgba(20,30,50,.18);overflow:hidden}
+.eink svg{position:absolute;inset:0;width:100%;height:100%}
+.off .eink{filter:grayscale(1);opacity:.6}
+
+/* pills */
+.pills{display:flex;gap:8px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:0 14px;border-radius:32px;background:var(--glass);border:1px solid var(--border);font-size:14px;text-decoration:none;cursor:pointer;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.pill>.ic{color:var(--muted)}
+.pill.static{cursor:default}
+.mini{width:34px;height:20px;border-radius:20px;background:var(--border);position:relative}
+.mini::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff}
+.pill.on .mini{background:var(--ok)}.pill.on .mini::after{left:16px}
+
+/* statistics */
+.seg.sm{margin-bottom:8px}.seg.sm button{font-size:14px;padding:0 14px}
+.stats{padding:16px}
+.stats [hidden]{display:none}
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+.big{font-size:56px;line-height:1;font-weight:700;letter-spacing:-.04em}
+.cap{font-size:15px;color:var(--muted)}
+.split{text-align:right;font-size:13px;color:var(--muted)}
+.tl{position:relative;height:64px;margin-top:12px}
+.tl .axis{position:absolute;left:0;right:0;top:32px;height:2px;background:var(--border)}
+.tl .quiet{position:absolute;top:8px;bottom:8px;background:var(--chip);border-radius:8px}
+.tl .tick{position:absolute;width:4px;border-radius:2px;background:var(--accent);transform:translateX(-2px)}
+.tl .tick.u{bottom:32px;height:20px}.tl .tick.d{top:32px;height:20px;opacity:.55}
+.tl .now{position:absolute;top:0;bottom:0;width:2px;background:var(--err)}
+.hours{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:4px}
+.bars{display:flex;align-items:flex-end;gap:8px;height:96px;margin-top:16px}
+.bars .b{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:4px;height:100%;font-size:11px;color:var(--muted)}
+.bars .bar{width:100%;border-radius:8px 8px 4px 4px;background:var(--chip);border:1px solid var(--border)}
+.bars .v{color:var(--text)}
+.bars .today{color:var(--text);font-weight:600}.bars .today .bar{background:var(--accent);border-color:var(--accent)}
+.facts{display:flex;gap:16px;margin-top:16px;padding-top:12px;border-top:1px solid var(--border);font-size:13px;color:var(--muted)}
+.facts b{display:block;color:var(--text);font-size:16px;font-weight:600}
+
+/* recent flights */
+.strip{display:flex;gap:12px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.strip figure{margin:0;flex:none}
+.strip .eink{width:112px}
+.strip figcaption{margin-top:6px;font-size:13px}
+.strip figcaption span{display:block;color:var(--muted)}
+
+/* tab bar */
+.tabs{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-around;padding:8px 4px;background:var(--tab);border:1px solid var(--border);border-radius:32px;box-shadow:0 6px 20px rgba(20,30,50,.12)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:48px;font-size:11px;color:var(--muted)}
+.tab i{width:22px;height:22px;border-radius:7px;background:var(--border)}
+.tab.on{color:var(--text);font-weight:600}.tab.on i{background:var(--accent)}
+
+/* quiet-hours dialog */
+.scrim{position:absolute;inset:0;z-index:5;display:flex;align-items:flex-start;justify-content:center;padding:96px 16px 16px;background:rgba(10,14,22,.45)}
+.scrim[hidden]{display:none}
+.dlg{width:100%;display:flex;flex-direction:column;gap:16px;padding:20px;background:var(--tab);border:1px solid var(--border);border-radius:28px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+.dlg h4{margin:0;font-size:22px;font-weight:600}
+.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.preset{min-height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid var(--border);border-radius:14px;background:var(--chip);font-size:14px;cursor:pointer}
+.preset small{font-size:11px;color:var(--muted)}
+.preset[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.preset[aria-pressed="true"] small{color:inherit;opacity:.75}
+.times{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{padding:8px 12px;border:1px solid var(--border);border-radius:14px;background:var(--chip)}
+.tile small{display:block;font-size:13px;color:var(--muted)}.tile b{font-size:22px;font-weight:600}
+.dial{width:168px;height:168px;align-self:center}
+.btns{display:flex;gap:8px}
+.btn{flex:1;min-height:44px;border:0;border-radius:14px;background:var(--accent);color:var(--on-accent);font-size:15px;font-weight:600;cursor:pointer}
+.btn.ghost{background:var(--chip);color:var(--text)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol>
+  <symbol id="render" viewBox="0 0 120 160">
+    <rect y="118" width="120" height="42" fill="#1F2430"/><rect y="112" width="120" height="6" fill="#C0392B"/>
+    <g transform="translate(60 58) rotate(-32)"><use href="#plane" x="-36" y="-36" width="72" height="72" fill="#1F2430"/></g>
+    <text x="10" y="138" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="#F7F5EF">AFR1234</text>
+    <text x="10" y="151" font-family="system-ui,sans-serif" font-size="8" fill="#C9CED8">ORY → TLS</text>
+  </symbol>
+</svg>
+
+<div class="top">
+  <div>
+    <h1>Accueil final</h1>
+    <p>La batterie est une pastille, prête à devenir cliquable pour un mode économie d'énergie. Un seul jeu de styles : aucune règle de l'ancien accueil n'est conservée.</p>
+  </div>
+  <div class="seg" id="theme" role="group" aria-label="Thème">
+    <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+    <button type="button" data-t="light" aria-pressed="false">Clair</button>
+    <button type="button" data-t="dark" aria-pressed="false">Sombre</button>
+  </div>
+</div>
+
+<div class="board">
+  <section class="col"><h2>En ligne</h2><p>Cas normal.</p><div class="mount" data-state="on"></div></section>
+  <section class="col"><h2>En veille</h2><p>Heures calmes : volontaire, sans alerte.</p><div class="mount" data-state="sleep"></div></section>
+  <section class="col"><h2>Hors ligne</h2><p>Alerte avec la marche à suivre, image grisée.</p><div class="mount" data-state="off"></div></section>
+</div>
+
+<script>
+(function(){
+  var ICON={
+    screen:'<rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>',
+    moon:'<path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/>',
+    pin:'<path d="M12 21s7-6.2 7-11.5A7 7 0 0 0 5 9.5C5 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
+    batt:'<rect x="2" y="7" width="17" height="10" rx="2"/><path d="M22 11v2M6 10v4M9 10v4M12 10v4"/>',
+    up:'<path d="M7 17 17 7M9 7h8v8"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+  };
+  function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">'+ICON[n]+'</svg>';}
+  var STATES={
+    on:{dot:'dot',word:'En ligne',line:ic('clock')+'Prochaine mise à jour <span class="num">0:22</span>',meta:'Détecté il y a 4 min',alert:false},
+    sleep:{dot:'dot idle',word:'En veille',line:ic('clock')+'Reprise dans <span class="num">2 h 10</span>',meta:'Détecté à 22 h 41',alert:false},
+    off:{dot:'dot err',word:'Hors ligne',line:ic('clock')+'Vu il y a 3 h',meta:'Détecté il y a 4 h',alert:true}
+  };
+  var SVG_RENDER='<div class="eink"><svg viewBox="0 0 120 160"><use href="#render"/></svg></div>';
+  function fig(c,s){return '<figure>'+SVG_RENDER+'<figcaption>'+c+'<span>'+s+'</span></figcaption></figure>';}
+  var TABS=['Accueil','Vols','Compagnies','Style','Lieu','Plus'].map(function(t,i){return '<div class="tab'+(i?'':' on')+'"><i></i>'+t+'</div>';}).join('');
+  var DIAL='<svg class="dial" viewBox="0 0 140 140" aria-hidden="true"><circle cx="70" cy="70" r="60" fill="none" stroke="var(--border)" stroke-width="12"/><circle cx="70" cy="70" r="60" fill="none" stroke="var(--accent)" stroke-width="12" stroke-dasharray="110 267" transform="rotate(75 70 70)"/><circle cx="54.5" cy="12" r="9" fill="var(--tab)" stroke="var(--accent)" stroke-width="3"/><circle cx="130" cy="70" r="9" fill="var(--tab)" stroke="var(--accent)" stroke-width="3"/><text x="70" y="76" text-anchor="middle" font-size="18" font-weight="600" fill="var(--text)" font-family="system-ui,sans-serif">7 h</text></svg>';
+  function build(k){
+    var s=STATES[k];
+    return '<div class="phone'+(s.alert?' off':'')+'"><div class="screen">'+
+      '<div><h3 class="title">Salon</h3><p class="state"><span class="'+s.dot+'"></span>'+s.word+'</p><p class="state2">'+s.line+'</p></div>'+
+      (s.alert?'<div class="card alert"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm1 15h-2v-2h2v2zm0-4h-2V9h2v4z"/></svg><div><div>Pas de nouvelles du cadre</div><small>Vérifiez qu’il est allumé et connecté au Wi-Fi.</small></div></div>':'')+
+      '<div class="card hero">'+SVG_RENDER+'<div class="meta"><span class="badge">'+ic('up')+'Décollage</span><div class="call num">AFR1234</div><div class="airline">Air France</div><div>vers Toulouse<br>Airbus A320 · 2 400 ft</div><div style="margin-top:auto">'+s.meta+'</div></div></div>'+
+      '<div class="pills">'+
+        '<button type="button" class="pill on" data-toggle aria-pressed="true">'+ic('screen')+'Écran <span class="mini"></span></button>'+
+        '<button type="button" class="pill" data-open>'+ic('moon')+'Veille 23 h – 6 h <span class="chev">›</span></button>'+
+        '<a class="pill" href="#">'+ic('pin')+'Orly · piste 3 <span class="chev">›</span></a>'+
+        '<span class="pill static">'+ic('batt')+'Batterie 82 %</span>'+
+      '</div>'+
+      '<div><div class="seg sm" role="group" aria-label="Période"><button type="button" data-p="day" aria-pressed="true">Jour</button><button type="button" data-p="week" aria-pressed="false">Semaine</button></div>'+
+      '<div class="card stats">'+
+        '<div data-panel="day"><div class="head"><div><div class="big num">14</div><div class="cap">vols aujourd’hui</div></div><div class="split num">8 arrivées<br>6 départs</div></div>'+
+          '<div class="tl"><div class="quiet" style="left:0;width:25%"></div><div class="quiet" style="left:95.8%;width:4.2%"></div><div class="axis"></div><div class="now" style="left:62.5%"></div></div>'+
+          '<div class="hours num"><span>0 h</span><span>6 h</span><span>12 h</span><span>18 h</span><span>24 h</span></div></div>'+
+        '<div data-panel="week" hidden><div class="head"><div><div class="big num">269</div><div class="cap">vols en 7 jours</div></div><div class="split num">153 arrivées<br>116 départs</div></div>'+
+          '<div class="bars"></div><div class="facts"><div><b>Air France</b>la plus vue · 41</div><div><b class="num">+2</b>nouvelles compagnies</div></div></div>'+
+      '</div></div>'+
+      '<div><div class="sechead"><p class="label">Derniers vols</p><a class="more" href="#">Voir tous les vols <span class="chev">›</span></a></div><div class="strip">'+fig('EZY27QL','Arrivée · 12 min')+fig('TVF8412','Décollage · 31 min')+fig('AFR6104','Arrivée · 48 min')+'</div></div>'+
+    '</div><div class="tabs">'+TABS+'</div>'+
+    '<div class="scrim" hidden><div class="dlg" role="dialog" aria-label="Heures calmes"><h4>Heures calmes</h4>'+
+      '<div class="presets"><button type="button" class="preset" aria-pressed="true">Nuit<small>23 h – 6 h</small></button><button type="button" class="preset" aria-pressed="false">Jour<small>9 h – 18 h</small></button><button type="button" class="preset" aria-pressed="false">Toujours allumé<small>aucune</small></button></div>'+
+      '<div class="times"><div class="tile"><small>Début</small><b class="num">23:00</b></div><div class="tile"><small>Fin</small><b class="num">06:00</b></div></div>'+DIAL+
+      '<div class="btns"><button type="button" class="btn ghost" data-close>Annuler</button><button type="button" class="btn" data-close>Enregistrer</button></div></div></div></div>';
+  }
+  var flights=[[6.4,'d'],[7.1,'u'],[8.3,'d'],[8.9,'u'],[10.2,'u'],[11,'d'],[12.4,'u'],[13.1,'d'],[13.8,'u'],[14.5,'u'],[14.9,'d'],[7.7,'u'],[9.6,'d'],[12.0,'u']];
+  var week=[['Mar',52],['Mer',38],['Jeu',47],['Ven',58],['Sam',29],['Dim',31],['Lun',14]];
+  document.querySelectorAll('.mount').forEach(function(m){
+    m.innerHTML=build(m.dataset.state);
+    var tl=m.querySelector('.tl');
+    flights.forEach(function(x){var d=document.createElement('div');d.className='tick '+x[1];d.style.left=(x[0]/24*100)+'%';tl.appendChild(d);});
+    week.forEach(function(w,i){var b=document.createElement('div');b.className='b'+(i===6?' today':'');b.innerHTML='<span class="v num">'+w[1]+'</span><span class="bar" style="height:'+Math.round(w[1]/58*60)+'px"></span>'+w[0];m.querySelector('.bars').appendChild(b);});
+    var pb=m.querySelectorAll('[data-p]');
+    pb.forEach(function(b){b.addEventListener('click',function(){
+      pb.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+      m.querySelectorAll('[data-panel]').forEach(function(p){p.hidden=p.dataset.panel!==b.dataset.p;});
+    });});
+    var dlg=m.querySelector('.scrim');
+    m.querySelector('[data-open]').addEventListener('click',function(){dlg.hidden=false;});
+    m.querySelectorAll('[data-close]').forEach(function(b){b.addEventListener('click',function(){dlg.hidden=true;});});
+    var pre=m.querySelectorAll('.preset');
+    pre.forEach(function(p){p.addEventListener('click',function(){pre.forEach(function(q){q.setAttribute('aria-pressed',String(q===p));});});});
+    m.querySelector('[data-toggle]').addEventListener('click',function(e){var b=e.currentTarget;var on=b.classList.toggle('on');b.setAttribute('aria-pressed',String(on));});
+  });
+  var tb=document.querySelectorAll('#theme button');
+  tb.forEach(function(b){b.addEventListener('click',function(){
+    var r=document.documentElement;
+    if(b.dataset.t==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',b.dataset.t);
+    tb.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+  });});
+})();
+</script>
