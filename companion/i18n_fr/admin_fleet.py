@@ -38,7 +38,7 @@ MESSAGES = {
     "admin_fleet.keep_frame": "Garder le cadre",
     "admin_fleet.new_owner": "Nouveau propriétaire",
     "admin_fleet.reassign_frame_title": "Réattribuer «\u00a0%s\u00a0»\u00a0?",
-    "admin_fleet.keep_owner": "Garder le propriétaire",
+    "admin_fleet.cancel": "Annuler",
     "admin_fleet.reassign_aria": "Réattribuer %s à un autre propriétaire",
     "admin_fleet.this_frame_will_show_a_retired_screen_and_stop_updating":
         "Ce cadre affichera un écran « retiré » et ne se mettra plus à jour. "
@@ -50,7 +50,7 @@ MESSAGES = {
         "Les réglages, l’historique et la galerie de %s sur ce cadre sont "
         "effacés. Le cadre redémarre comme un neuf.",
     "admin_fleet.only_the_owner_changes_nothing_is_erased":
-        "Seul le propriétaire change. Rien n’est effacé.",
+        "Rien n’est effacé.",
     "admin_fleet.the_current_owner": "Le propriétaire actuel",
     "admin_fleet.enter_the_code_shown_on_the_frame_s_screen_and_choose":
         "Saisissez le code affiché sur l’écran du cadre et choisissez à qui il "
