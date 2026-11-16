@@ -808,7 +808,7 @@ Plans: TBD
 | 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | Complete | Complete (owner validated on the deployed companion, 2026-11-13; follow-up plans 61-100 to 61-129 recorded in the validation ledger) | 2026-11-13 |
 | 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 13/13 | Complete | 2026-11-10 |
 | 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |
-| 64. Second Hardware in Production | v1.2 | 13/15 | Verified with open points (64-VERIFICATION.md, 2026-11-15): criteria 1-4, 6 and 8 validated (6 on 2026-11-16, hold marks on rendered images only), 5 validated (failing update by Phase 58 bench evidence), 7 and 9 open; not complete | - |
+| 64. Second Hardware in Production | v1.2 | 13/15 | Verified with open points (64-VERIFICATION.md, 2026-11-15): criteria 1-6, 8 and 9 validated (6 and 9 on 2026-11-16: hold marks on rendered images only; 9 partly by owner decision for rows 2, 9, 10, 11), 5 with the failing update on Phase 58 bench evidence; criterion 7 open (partly measured; battery profile, LED, buttons and busy waits provisional and moved to production use and Phase 65; wake-stage blit 190 s and 700 s budget formula-derived); not complete | - |
 | 65. Runway 3 Tracking and Battery Curve Validation | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 68. Console and Companion Visual Improvements | v1.2 | 0/0 | Added 2026-11-16, not planned yet | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
