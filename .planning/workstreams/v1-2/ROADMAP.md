@@ -726,6 +726,16 @@ Plans:
 - [ ] 65-14-PLAN.md - TRK-02 agreed fixes, test-first, Orly runway 3 pinned
 - [ ] 65-06-PLAN.md - evidence table for the four success criteria, gates, draft pull request
 
+### Phase 65.1: Route coverage and leg accuracy (OpenSky as a second source of the real leg) (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 65
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 65.1 to break down)
+
 ### Phase 68: Console and Companion Visual Improvements
 
 **Goal**: The visual improvements the owner has identified for the administrator console and the companion are made, in the existing design system, so that the security audit (Phase 66) and the code cleanup (Phase 67) work on the code as it will stay.

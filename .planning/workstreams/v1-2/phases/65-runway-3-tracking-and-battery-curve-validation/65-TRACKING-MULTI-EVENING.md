@@ -40,7 +40,7 @@ Reading: the detection finds the aircraft at the three airport types (simple, pa
 - Evidence [observed]: AF6733 (ORD>CDG shown, real PIK), FDX3 (CDG>EWR, real FRA), TAR634 (DJE>ORY, real MIR). About 2 % of routes.
 - Cause: adsbdb stores one route per callsign and a rotating callsign returns another leg. G-02 cannot see these (the watched airport is present).
 - Measured: the rule "the same aircraft's earlier sighting must match the route" cannot be tested at four airports: 1 aircraft of 196 was seen at two watched airports (that single case agreed). It would not have caught any of the three.
-- Decision: none now. Recorded as SEED-020 (OpenSky first), with the 20 % of flights that have no route.
+- Decision (owner, 2026-11-17): handled now, not deferred. OpenSky as a second source of the real leg, with the 25 % of flights that have no route, in its own phase (Phase 65.1). The seed first planted for it was deleted the same day.
 
 ## Not covered in these sessions
 - Orly runway 06/24: no movement observed, not in use that evening. Untested is not passed. Roissy's runway side cannot be checked: the lists have no runway column. At Lyon every arrival was drawn by the 17L/35R device and every departure by the 17R/35L one (as in the morning); TK1810 was drawn by both devices 30 s apart, the one ambiguity.
