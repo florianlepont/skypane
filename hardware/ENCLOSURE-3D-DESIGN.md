@@ -113,13 +113,16 @@ masses.
 
 ## Files
 
-On the owner's computer, not in this repository (`~/Projects/skypane/hardware/cad/`):
+In this repository, `hardware/cad/` (added by the owner on 2026-11-17):
 
-- `ee04_board.stl`: the board, converted from the GrabCAD STEP file.
-- `ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame.
+- `skypane_cassette.blend`: the Blender file with the four parts and the generating
+  script `skypane_cassette.py` (renamed from "Sans titre.blend"; about 5.5 MB). It
+  may still contain the Father Christmas test figurine and the abandoned
+  versions; the owner has not checked that it is the saved, current version.
+- `ee04_board.stl`: the board, converted from the GrabCAD STEP file (about 12.5 MB).
+- `ikea_rodalm_13x18_noir.glb`: the IKEA 3D model of the frame (about 0.14 MB).
 
-Not existing yet: any STL, STEP or 3MF file of the parts to print. The Blender
-file with the generating script is not in the repository either.
+Not existing yet: any STL, STEP or 3MF file of the parts to print.
 
 ## Notes for the planning
 
