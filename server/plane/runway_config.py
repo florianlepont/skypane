@@ -101,6 +101,10 @@ def infer_from_flight(flight: object, last_confirmed_state: object) -> object:
     vertical_rate_fpm = None
     if isinstance(flight, dict):
         vertical_rate_fpm = flight.get("vertical_rate_fpm")
+        # An aircraft on the pavement that was just arriving is on its landing
+        # roll-out: a small positive vertical rate there is noise, not a climb.
+        if flight.get("on_ground") is True and last_confirmed_state == STATE_ARRIVING:
+            return STATE_ARRIVING
     state = infer_runway_config(vertical_rate_fpm, last_confirmed_state)
     if state is not None:
         return state

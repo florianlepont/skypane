@@ -403,3 +403,19 @@ def test_normalise_pending_fills_last_seen_from_first_seen():
     entries = poll_cycle.normalise_pending(saved)
     assert [(e["flight"]["hex"], e["first_seen"], e["last_seen"]) for e in entries] == [
         ("a1", 5.0, 5.0), ("b2", 6.0, 8.5)]
+
+
+def test_roll_out_after_an_arrival_holds_arriving_whatever_the_vertical_rate():
+    flight = {"on_ground": True, "vertical_rate_fpm": 320}
+    assert runway_config.infer_from_flight(flight, runway_config.STATE_ARRIVING) == "arriving"
+
+
+def test_on_the_ground_without_a_held_arrival_keeps_the_usual_inference():
+    flight = {"on_ground": True, "vertical_rate_fpm": 320}
+    assert runway_config.infer_from_flight(flight, None) == "departing"
+    assert runway_config.infer_from_flight(flight, runway_config.STATE_DEPARTING) == "departing"
+
+
+def test_airborne_climb_after_an_arrival_is_still_a_departure():
+    flight = {"on_ground": False, "vertical_rate_fpm": 1800}
+    assert runway_config.infer_from_flight(flight, runway_config.STATE_ARRIVING) == "departing"
