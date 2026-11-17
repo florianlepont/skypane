@@ -19,3 +19,15 @@ Nantes: 1 movement of the 3 arrivals and 3 departures targeted. Lyon: 1 arrival,
 
 ## What would close TRK-02
 The owner decisions above, the fixes marked "agree" (plan 65-14, test first), and either more sessions on the uncovered runways or their recording as "coverage not achieved" with the cause.
+
+## Decisions taken by the owner on 2026-11-17
+
+| Finding | Decision | Where |
+|---|---|---|
+| G-02 (route without the watched airport) | Fix, test first | PR #457, merged |
+| H-02 (landing roll-out drawn as a departure) | Fix, test first | PR #458 |
+| H-01 (aircraft detected but not drawn) | Keep the screen pace; enrich the recent-flights row with route and direction | PR #458 |
+| H-04 and the 20 % of flights with no route | Not now; OpenSky and other sources recorded for later | SEED-020 |
+| F-01..F-06, G-01, G-03, G-04, H-03 | Still open: decision pending | this file |
+
+Evidence for H-01..H-04: `65-TRACKING-MULTI-EVENING.md`.

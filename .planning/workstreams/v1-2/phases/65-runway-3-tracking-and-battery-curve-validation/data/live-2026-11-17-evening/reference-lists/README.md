@@ -1,0 +1,1 @@
+Reference lists pasted by the owner from the Flightradar24 airport pages (Chrome extension side panel), 2026-11-17, 17:30 to 19:30 Paris time (16:30 to 18:30 UTC). Format: `ARR|DEP, time (Paris), flight, type, other airport`. Lyon and Nantes lists are in 65-TRACKING-MULTI-EVENING.md (short).
