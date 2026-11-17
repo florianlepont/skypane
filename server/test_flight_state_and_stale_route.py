@@ -249,3 +249,38 @@ def test_altitude_reference_survives_a_restart_between_cycles(tmp_path, clock, r
     assert state_store.load_poll_state(state_dir)["last_flight"]["altitude_ref_ft"] == 1200.0
     _cycle(clock, state_dir, _approach("aaaaaa", "EJU1LIN", 800), advance_s=30)
     assert state_store.load_poll_state(state_dir)["last_flight"]["altitude_ref_ft"] == 1200.0
+
+
+def test_arrival_whose_route_does_not_end_at_the_watched_airport_shows_no_route(
+        tmp_path, clock, routes):
+    """Recorded at Nantes: easyJet callsign EZS1345 resolved to GVA -> LRH
+    for an arrival. The route has neither end at the watched airport, so it
+    belongs to another leg of that callsign and no city is recorded."""
+    state_dir = str(tmp_path)
+    routes["EZS1345"] = _route_payload("EZS1345", "GVA", "Geneva", "LRH", "La Rochelle")
+    _cycle(clock, state_dir, _snapshot("ffffff", "EZS1345", -700))
+    (row,) = _rows(state_dir)
+    assert row["confirmed_state"] == "arriving"
+    assert not row["origin"] and not row["destination"]
+
+
+def test_departure_whose_route_does_not_start_at_the_watched_airport_shows_no_route(
+        tmp_path, clock, routes):
+    """Recorded at Nantes: EZY9448 resolved to BFS -> BRS for a departure."""
+    state_dir = str(tmp_path)
+    routes["EZY9448"] = _route_payload("EZY9448", "BFS", "Belfast", "BRS", "Bristol")
+    _cycle(clock, state_dir, _snapshot("999999", "EZY9448", 1800))
+    (row,) = _rows(state_dir)
+    assert row["confirmed_state"] == "departing"
+    assert not row["origin"] and not row["destination"]
+
+
+def test_route_with_a_missing_end_is_kept_when_the_other_end_is_the_watched_airport(
+        tmp_path, clock, routes):
+    """Only a route that excludes the watched airport is dropped: one whose
+    other end is unknown stays as long as it is consistent."""
+    state_dir = str(tmp_path)
+    routes["EJU3XXX"] = _route_payload("EJU3XXX", "LIN", "Milan", "ORY", "Paris")
+    _cycle(clock, state_dir, _snapshot("abcabc", "EJU3XXX", -700))
+    (row,) = _rows(state_dir)
+    assert row["origin"] == "LIN"

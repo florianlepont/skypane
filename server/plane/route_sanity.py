@@ -64,14 +64,18 @@ def watched_iata_codes(spec, tracked_runway_id):
 
 
 def route_contradicts(route, state, watched):
-    """True when `route` cannot belong to an aircraft seen in `state`: an
-    arrival whose origin is a watched airport, or a departure whose
-    destination is one. Any other state (including the position-mode
-    "overhead", which has no direction) never contradicts."""
+    """True when `route` cannot belong to an aircraft seen in `state` at a
+    watched airport: an arrival whose origin is a watched airport or whose
+    known destination is not one; a departure whose destination is a watched
+    airport or whose known origin is not one. A route with a missing end is
+    only judged on the end it has. Any other state (including the
+    position-mode "overhead", which has no direction) never contradicts."""
     if not watched or not isinstance(route, dict):
         return False
+    origin = route.get("origin_iata")
+    destination = route.get("destination_iata")
     if state == runway_config.STATE_ARRIVING:
-        return route.get("origin_iata") in watched
+        return origin in watched or (bool(destination) and destination not in watched)
     if state == runway_config.STATE_DEPARTING:
-        return route.get("destination_iata") in watched
+        return destination in watched or (bool(origin) and origin not in watched)
     return False
