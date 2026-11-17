@@ -51,14 +51,38 @@ Filled by the owner. Leave a row empty if the item was not measured.
 | Item | Value | Date | Unit MAC | Method | Status (measured or provisional) |
 |------|-------|------|----------|--------|----------------------------------|
 | 1 Refresh time (min / median / max) | 25 s / 27 s / 27 s (five refreshes: 25, 27, 27, 27, 27) | 2026-11-15 | 84:c7:bb:70:b2:7c | Stopwatch from the panel starting to flash to it going fully still, on the bench server with a changing image at every wake (firmware fw-v1.0.12-bench8, dev profile, solid-colour test images) | measured |
-| 2 Busy wait after init (min / median / max) | | | | | |
-| 3 Busy wait after refresh (min / median / max) | | | | | |
-| 4 Busy wait after power-off (min / median / max) | | | | | |
+| 2 Busy wait after init (min / median / max) | 0.17 s / 0.17 s / 0.17 s | 2026-11-17 | 84:c7:bb:70:b2:7c | Throwaway instrumented build kept out of the repository (ESP-IDF v5.3.1, the production driver `firmware/main/epd7in3e.c` copied with one change: the BUSY wait logs its duration with `esp_timer`, polling every 1 ms after a 10 ms pause; the figure runs from the command to BUSY idle and includes that 10 ms pause). Bench program only: awake, USB-C only, no battery, no Wi-Fi; five cycles (init, draw plus refresh, power-off) with solid black, white, red, blue, green (n=5) | measured |
+| 3 Busy wait after refresh (min / median / max) | 30.35 s / 30.36 s / 30.62 s | 2026-11-17 | 84:c7:bb:70:b2:7c | Same instrumented build and five cycles as item 2; BUSY wait after the refresh command | measured |
+| 4 Busy wait after power-off (min / median / max) | 0.15 s / 0.15 s / 0.15 s | 2026-11-17 | 84:c7:bb:70:b2:7c | Same instrumented build and five cycles as item 2; BUSY wait after the power-off command | measured |
 | 5 Flash size | 16 MB (quad, 3.3 V, manufacturer 0x85, device 0x2018); chip ESP32-S3 (QFN56) v0.2, 8 MB embedded PSRAM | 2026-11-15 | 84:c7:bb:70:b2:7c | `esptool --chip esp32s3 --port /dev/cu.usbmodem101 flash-id` (esptool v5.4.0), "Detected flash size" line | measured |
 | 6 Battery sense GPIO and ratio | | | | | |
 | 7 Battery ADC enable pin | | | | | |
-| 8 LED pin and polarity | | | | | |
-| 9a KEY0 GPIO | | | | | |
-| 9b KEY1 GPIO | | | | | |
-| 9c KEY2 GPIO | | | | | |
+| 8 LED pin and polarity | GPIO21, lit when the pin is LOW (active low) | 2026-11-17 | 84:c7:bb:70:b2:7c | Visual check on the unit with the pin level printed in the log (same throwaway bench build) | measured |
+| 9a KEY0 GPIO | GPIO5 (right arrow key); idle high, pressed low | 2026-11-17 | 84:c7:bb:70:b2:7c | Pressed the three keys in turn, left to right, with the log showing each GPIO going 1 -> 0 then 0 -> 1 (internal pull-up, idle high). Silkscreen symbols read by the owner, left to right: circular arrow, left arrow, right arrow | measured |
+| 9b KEY1 GPIO | GPIO3 (left arrow key); idle high, pressed low | 2026-11-17 | 84:c7:bb:70:b2:7c | Same key test as 9a | measured |
+| 9c KEY2 GPIO | GPIO2 (circular arrow key); idle high, pressed low | 2026-11-17 | 84:c7:bb:70:b2:7c | Same key test as 9a | measured |
 | 10 Battery discharge profile | | | | | |
+
+## Notes on the 2026-11-17 readings
+
+- Unit MAC: the instrumented build did not print the MAC. The owner reports
+  that the only EE04 plugged in was the unit of the rows above, so the MAC is
+  recorded as reported by the owner, not read from this run.
+- Items 2 to 4 are bench readings (awake, USB-C only, no battery, no Wi-Fi,
+  no image download). They measure the driver's BUSY waits, not a full wake.
+- Item 3 (30.35 / 30.36 / 30.62 s) and item 1 (25 / 27 / 27 s, stopwatch,
+  2026-11-15) are both kept. They are different measurements: BUSY covers the
+  whole refresh command, including the panel's power ramp before the visible
+  flashing, while the stopwatch covers only the visible part.
+- The measured waits (0.17 s, 30.62 s at most, 0.15 s) are far below
+  `BUSY_TIMEOUT_MS` (60000) and within the current 190 s blit stage and 700 s
+  wake budget. Applying or tightening any of these values, or setting
+  `FP_MIN_REFRESH_SPACING_S`, is a separate firmware decision (a new release)
+  and is not done here. The 190 s and 700 s figures are still not measured as
+  a full wake.
+- Items 8 and 9 equal the repository values (`CONFIG_FP_PIN_LED=21`,
+  `CONFIG_FP_LED_ACTIVE_LOW=y`, `CONFIG_FP_PIN_KEY0=5`, `CONFIG_FP_PIN_KEY1=3`,
+  `CONFIG_FP_PIN_KEY2=2`): they are confirmed unchanged. A stray GPIO1 change
+  during the key test was the floating battery sense pin with no cell and is
+  not a key.
+- Items 6, 7 and 10 are not measured and stay provisional.

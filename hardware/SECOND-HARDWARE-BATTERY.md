@@ -116,7 +116,7 @@ None. One discharge run was attempted and gave no valid sample: it started on
 full cell, not checked with a multimeter), on a cell the owner gave as about 3000 mAh from
 memory. It was interrupted by USB plugs and by the bench server stopping, and the log was
 not kept. The owner closed Phase 58 on 2026-11-15 with the model provisional; battery data
-is expected later from production use (Phase 64, Phase 65).
+is expected later from production use and is carried to SEED-019 (v1.4).
 
 ## Derived values
 

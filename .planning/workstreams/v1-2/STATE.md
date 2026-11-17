@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, updated 2026-11-16); criteria 6 and 9 validated on the owner's reports and decisions of 2026-11-16, criterion 7 still open (partly measured; provisional values moved to production use and Phase 65)
+stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, updated 2026-11-16); criteria 6 and 9 validated on the owner's reports and decisions of 2026-11-16, criterion 7 still open (more measured on 2026-11-17: busy waits, LED and keys; battery values moved to production use and SEED-019, v1.4)
 last_updated: "2026-11-14T20:16:40.837Z"
 last_activity: 2026-11-15
 progress:
