@@ -783,6 +783,8 @@ Plans: TBD
   4. Every cleanup is a small, reviewable change with its own check; no change mixes a cleanup with a feature.
   5. The CI gates (lint, types, function size, comment history, coverage floor) are not weakened; where a floor can be raised safely, it is.
 
+**Known items to include** (recorded when found):
+- Flaky browser test, seen once on 2026-11-17 on PR #454 (docs and CAD files only, so unrelated to its diff): `companion/test_browser_ux_03.py::test_a_refresh_keeps_every_picture_action_working[chromium]` failed with "expected a swapped-in picture link to open the lightbox" in browser shard 4, and passed on one re-run of the failed jobs. `main` was green on its recent runs. Find the race (probably the test clicking before the swapped-in link is bound) and fix the test or the code; do not skip or quarantine it.
 **Not in this phase**: new features, the comment-history debt (Phase 59, which follows), and anything that changes the firmware image of the live frame.
 **Open decisions** (for discuss-phase): which areas to clean first by value, how much structural change is acceptable before v1.3, and whether to raise the coverage floor.
 
