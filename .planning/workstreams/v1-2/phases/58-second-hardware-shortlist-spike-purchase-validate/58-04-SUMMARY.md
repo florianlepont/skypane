@@ -11,7 +11,7 @@ Closed 2026-11-15 by the owner, with the battery part not delivered.
 
 - A discharge run started on 2026-11-15 at 09:08 (USB unplugged, first reading 4064 mV, rated capacity about 3000 mAh from the owner's memory). It was interrupted by USB plugs and by the bench server stopping, and the owner could not keep the computer on for days. The log was not provided. No valid sample exists.
 - No battery value was measured. The values of the evaluation type in `server/hardware.py` stay what they were: copied from the legacy profile, marked provisional. Nothing was derived or estimated.
-- Accepted by the owner on 2026-11-15 ("clôture la 58 avec le modèle provisoire"). Real battery data is expected from production use of the unit; Phase 64 (criterion 7) and Phase 65 (battery curves) carry it.
+- Accepted by the owner on 2026-11-15 ("clôture la 58 avec le modèle provisoire"). Real battery data is expected from production use of the unit; Phase 64 (criterion 7) and SEED-019 (v1.4; battery work moved out of Phase 65 on 2026-11-15) carry it.
 - The 4064 mV first reading looks low for a full cell; a multimeter check was not done.
 
 ## Method kept
