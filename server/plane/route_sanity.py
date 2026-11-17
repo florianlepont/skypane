@@ -79,3 +79,19 @@ def route_contradicts(route, state, watched):
     if state == runway_config.STATE_DEPARTING:
         return destination in watched or (bool(origin) and origin not in watched)
     return False
+
+
+def direction_from_route(route, watched):
+    """The state a route gives at a watched airport: STATE_DEPARTING when the
+    route starts there, STATE_ARRIVING when it ends there, None when the
+    route is missing, the airports are unknown, or it touches the watched
+    airports at both ends or at neither."""
+    if not watched or not isinstance(route, dict):
+        return None
+    starts = route.get("origin_iata") in watched
+    ends = route.get("destination_iata") in watched
+    if starts and not ends:
+        return runway_config.STATE_DEPARTING
+    if ends and not starts:
+        return runway_config.STATE_ARRIVING
+    return None

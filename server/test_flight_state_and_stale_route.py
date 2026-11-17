@@ -284,3 +284,37 @@ def test_route_with_a_missing_end_is_kept_when_the_other_end_is_the_watched_airp
     _cycle(clock, state_dir, _snapshot("abcabc", "EJU3XXX", -700))
     (row,) = _rows(state_dir)
     assert row["origin"] == "LIN"
+
+
+def _ground_roll_snapshot(hex_code, callsign, baro_rate):
+    """A record on the runway pavement reporting a small positive vertical
+    rate while rolling out after touchdown."""
+    return {"ac": [{
+        "hex": hex_code, "flight": callsign, "lat": 48.7233, "lon": 2.3794,
+        "alt_baro": "ground", "gs": 60.0, "baro_rate": baro_rate, "seen_pos": 1.0}]}
+
+
+def test_landing_roll_out_with_a_positive_vertical_rate_stays_an_arrival(
+        tmp_path, clock, routes):
+    """Recorded at Roissy: KAL901 (B777) descends, lands, and one minute later
+    the pavement record reports +320 ft/min. The aircraft is still the one that
+    just landed: no 'departing' event may follow its arrival."""
+    state_dir = str(tmp_path)
+    routes["KAL901"] = _route_payload("KAL901", "ICN", "Seoul", "ORY", "Paris", airline="Korean Air")
+    _cycle(clock, state_dir, _snapshot("71c009", "KAL901", -640, alt=1400))
+    _cycle(clock, state_dir, _snapshot("71c009", "KAL901", -896, alt=1150), advance_s=30)
+    _cycle(clock, state_dir, _ground_roll_snapshot("71c009", "KAL901", 320), advance_s=30)
+    _cycle(clock, state_dir, _ground_roll_snapshot("71c009", "KAL901", 320), advance_s=30)
+    states = [r["confirmed_state"] for r in _rows(state_dir) if r["hex"] == "71c009"]
+    assert states and set(states) == {"arriving"}
+
+
+def test_take_off_with_a_positive_vertical_rate_still_departs_after_a_landing(
+        tmp_path, clock, routes):
+    """The landing roll-out rule never blocks a real take-off: once the
+    aircraft is airborne and climbing, it is a departure."""
+    state_dir = str(tmp_path)
+    routes["EJU2OPO"] = _route_payload("EJU2OPO", "ORY", "Paris", "OPO", "Porto")
+    _cycle(clock, state_dir, _snapshot("bbbbbb", "EJU2OPO", 1800, alt=900))
+    (row,) = _rows(state_dir)
+    assert row["confirmed_state"] == "departing"

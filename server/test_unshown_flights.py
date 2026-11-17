@@ -14,6 +14,7 @@ if REPO_ROOT not in sys.path:
     sys.path.insert(0, REPO_ROOT)
 
 import server.history_db as history_db  # noqa: E402
+import server.plane.enrich as enrich  # noqa: E402
 import server.poll_cycle as poll_cycle  # noqa: E402
 import server.state_store as state_store  # noqa: E402
 
@@ -145,3 +146,72 @@ def test_recording_a_dropped_aircraft_never_fails_the_cycle(tmp_path, clock, mon
     _cycle(clock, state_dir, {"ac": []}, advance_s=300)
     assert _shown(state_dir) == "aaaaaa"
     assert [r["hex"] for r in _rows(state_dir)] == ["aaaaaa"]
+
+
+def _route_payload(callsign, origin, dest):
+    def airport(iata):
+        return {"iata_code": iata, "icao_code": "X" + iata, "municipality": iata, "name": iata}
+    return {"response": {"flightroute": {
+        "callsign": callsign, "callsign_icao": callsign, "callsign_iata": callsign,
+        "airline": {"name": "easyJet Europe", "icao": callsign[:3], "iata": "XX", "country": "France"},
+        "origin": airport(origin), "destination": airport(dest)}}}
+
+
+@pytest.fixture
+def routes(monkeypatch):
+    table = {}
+
+    def transport(callsign, timeout=None):
+        payload = table.get(callsign)
+        return (200, payload) if payload else (404, None)
+
+    monkeypatch.setattr(enrich, "default_transport", transport)
+    return table
+
+
+def _drop_second_aircraft(clock, state_dir, callsign, hex_code="bbbbbb"):
+    """A first aircraft on screen, a second one queued behind it with a level
+    vertical rate (no direction of its own), then dropped unseen."""
+    _cycle(clock, state_dir, _snapshot("aaaaaa", "TVF1AA", -700))
+    _cycle(clock, state_dir, _snapshot(hex_code, callsign, 0, alt=450), advance_s=10)
+    _cycle(clock, state_dir, {"ac": []}, advance_s=300)
+    (row,) = [r for r in _rows(state_dir) if r["hex"] == hex_code]
+    return row
+
+
+def test_a_dropped_aircraft_gets_its_route_and_the_direction_the_route_gives(
+        tmp_path, clock, routes):
+    """Recorded at Lyon: a departure queued behind another one and dropped
+    unseen had no route and no direction. adsbdb gives ORY -> OPO: the watched
+    airport is the origin, so it is a departure."""
+    routes["EJU2OPO"] = _route_payload("EJU2OPO", "ORY", "OPO")
+    row = _drop_second_aircraft(clock, str(tmp_path), "EJU2OPO")
+    assert (row["origin"], row["destination"]) == ("ORY", "OPO")
+    assert row["confirmed_state"] == "departing"
+    assert row["route_source"] == "fresh_hit"
+    assert row["gallery_name"] == ""
+
+
+def test_a_dropped_arrival_gets_arriving_from_its_route(tmp_path, clock, routes):
+    routes["EJU1LIN"] = _route_payload("EJU1LIN", "LIN", "ORY")
+    row = _drop_second_aircraft(clock, str(tmp_path), "EJU1LIN")
+    assert (row["origin"], row["destination"], row["confirmed_state"]) == ("LIN", "ORY", "arriving")
+
+
+def test_a_dropped_aircraft_whose_route_excludes_the_watched_airport_keeps_no_route(
+        tmp_path, clock, routes):
+    routes["EZY9448"] = _route_payload("EZY9448", "BFS", "BRS")
+    row = _drop_second_aircraft(clock, str(tmp_path), "EZY9448")
+    assert not row["origin"] and not row["destination"]
+    assert row["confirmed_state"] in (None, "")
+
+
+def test_a_dropped_aircraft_with_its_own_direction_keeps_it_when_the_route_agrees(
+        tmp_path, clock, routes):
+    routes["TVF87XA"] = _route_payload("TVF87XA", "ORY", "OPO")
+    state_dir = str(tmp_path)
+    _cycle(clock, state_dir, _snapshot("aaaaaa", "TVF1AA", -700))
+    _cycle(clock, state_dir, _snapshot("bbbbbb", "TVF87XA", 1800, alt=900), advance_s=10)
+    _cycle(clock, state_dir, {"ac": []}, advance_s=300)
+    (row,) = [r for r in _rows(state_dir) if r["hex"] == "bbbbbb"]
+    assert (row["confirmed_state"], row["origin"], row["destination"]) == ("departing", "ORY", "OPO")
