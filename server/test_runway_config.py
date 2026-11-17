@@ -419,3 +419,25 @@ def test_on_the_ground_without_a_held_arrival_keeps_the_usual_inference():
 def test_airborne_climb_after_an_arrival_is_still_a_departure():
     flight = {"on_ground": False, "vertical_rate_fpm": 1800}
     assert runway_config.infer_from_flight(flight, runway_config.STATE_ARRIVING) == "departing"
+
+
+def test_a_climb_rate_the_altitude_contradicts_does_not_flip_a_held_arrival():
+    """Recorded at Roissy: UAE7V at 1000 ft, first seen at 1450 ft, reported
+    +608 ft/min while its altitude had fallen 325 ft in 30 s."""
+    flight = {"on_ground": False, "vertical_rate_fpm": 608, "altitude_ft": 1000, "altitude_ref_ft": 1450}
+    assert runway_config.infer_from_flight(flight, runway_config.STATE_ARRIVING) == "arriving"
+
+
+def test_a_real_climb_back_above_the_first_altitude_flips_a_held_arrival():
+    flight = {"on_ground": False, "vertical_rate_fpm": 1800, "altitude_ft": 1500, "altitude_ref_ft": 1450}
+    assert runway_config.infer_from_flight(flight, runway_config.STATE_ARRIVING) == "departing"
+
+
+def test_a_descent_after_a_climb_still_flips_a_held_departure():
+    flight = {"on_ground": False, "vertical_rate_fpm": -700, "altitude_ft": 1200, "altitude_ref_ft": 3000}
+    assert runway_config.infer_from_flight(flight, runway_config.STATE_DEPARTING) == "arriving"
+
+
+def test_without_a_reference_altitude_the_rate_decides_as_before():
+    flight = {"on_ground": False, "vertical_rate_fpm": 608, "altitude_ft": 1000}
+    assert runway_config.infer_from_flight(flight, runway_config.STATE_ARRIVING) == "departing"

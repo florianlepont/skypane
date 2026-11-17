@@ -107,6 +107,13 @@ def infer_from_flight(flight: object, last_confirmed_state: object) -> object:
             return STATE_ARRIVING
     state = infer_runway_config(vertical_rate_fpm, last_confirmed_state)
     if state is not None:
+        # A climb rate that would turn a held arrival into a departure is not
+        # believed when the altitude since the first sighting says it is
+        # still descending: a bad barometric rate sample near the ground
+        # would otherwise turn a landing into a departure.
+        if (last_confirmed_state == STATE_ARRIVING and state == STATE_DEPARTING
+                and altitude_trend_state(flight) == STATE_ARRIVING):
+            return STATE_ARRIVING
         return state
     return altitude_trend_state(flight)
 
