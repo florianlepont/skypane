@@ -28,6 +28,13 @@ MESSAGES = {
     "detection.summary_position_detail":
         "En vol, le plus bas d’abord.",
     "detection.legacy_runway_pill": "Piste %(number)s",
+    "detection.card_position_title": "Mode position",
+    "detection.card_runway_title": "Mode aéroport et piste",
+    "detection.card_no_place_title": "Aucun lieu défini",
+    "detection.card_no_place_detail":
+        "Le mode position a besoin d’un lieu. En attendant, le cadre suit la "
+        "piste %(runway)s à %(airport)s.",
+    "detection.card_edit_hint": "Modifier la détection",
     "detection.fail_safe_toast":
         "Aucun lieu utilisable — le cadre continue de suivre la piste 3 "
         "d’Orly jusqu’à ce que vous choisissiez un lieu en France.",
@@ -67,6 +74,8 @@ MESSAGES = {
     "detection.place_saved_flash":
         "Lieu enregistré — La détection suit désormais {place}.",
     "detection.place_fallback_name": "le lieu choisi",
+    "detection.flash_area_target":
+        "la zone dans un rayon de %(radius)d km autour de %(location)s",
 
     "detection.error_location_missing": "Choisissez un lieu.",
     "detection.error_location_unavailable":

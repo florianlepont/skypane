@@ -278,7 +278,11 @@ def test_submitted_scope_and_return_route_are_allowlisted():
         "expected a crafted scope to degrade to the all-scope, never be echoed")
     assert config_page.submitted_return_route({"return_to": "/device"}) == "/device", (
         "expected /device to be an allowed return route")
-    for hostile in ("https://evil.example", "//evil.example", "/settings", "/login", ""):
+    for page in ("/account", "/users", "/audit", "/fleet", "/airlines/manage", "/flights"):
+        assert config_page.submitted_return_route({"return_to": page}) == page, (
+            "expected %s to be an allowed return route" % page)
+    for hostile in ("https://evil.example", "//evil.example", "/settings", "/login", "",
+                    "/users/", "/account?x=1", "/users/../login", "/audit%2f"):
         assert config_page.submitted_return_route({"return_to": hostile}) == "/display", (
             "expected %r to fall back to /display" % hostile)
 
@@ -418,3 +422,12 @@ def test_retired_screen_field_cannot_block_a_valid_settings_save(tmp_path):
     saved = device_config.load_device_config(str(tmp_path))
     assert saved["theme"] == "black"
     assert "screen_id" not in saved
+
+
+def test_the_console_return_routes_equal_the_console_routes():
+    """the Console addresses a settings save may return to are byte-for-byte copies of the
+    console's own route constants"""
+    from companion import console_routes
+    from companion.pages import personalisation_cards
+    assert personalisation_cards.CONSOLE_LEAVE_ROUTES == (
+        console_routes.FLEET_ROUTE, console_routes.USERS_ROUTE, console_routes.AUDIT_ROUTE)

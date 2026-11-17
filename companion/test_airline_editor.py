@@ -2,17 +2,20 @@
 capability with the same validation and refusals, and every edit returns to the
 editor; an owner and a co-manager are refused and nothing is written. Checks run
 over HTTP against a real server and compare the stored files."""
+import html
+import io
 import os
 import re
 import urllib.parse
 
 import pytest
+from PIL import Image
 
 import companion.test_companion_app_helpers as cah
 import companion.test_status_pages_helpers as shp
 import fleet_console_support as fx
 from companion import device_scope
-from companion_app_server import InProcessAppServer, csrf_url, http_request, with_csrf
+from companion_app_server import InProcessAppServer, http_request, with_csrf, with_csrf_part
 from server import fleet_db
 from server.plane import airline_default_types, manual_resolutions, name_overrides
 
@@ -46,9 +49,10 @@ class Rig:
         return status, headers, body.decode("utf-8", "replace")
 
     def upload(self, who, path, payload):
-        body, content_type = cah.encode_multipart(payload, field_name="illustration")
+        body, content_type = with_csrf_part(
+            self.cookies.get(who), *cah.encode_multipart(payload, field_name="illustration"))
         status, headers, _b = http_request(
-            csrf_url(self.cookies.get(who), self.server.url(path)), method="POST", data=body,
+            self.server.url(path), method="POST", data=body,
             cookie=self.cookies.get(who), content_type=content_type,
             extra_headers={"Origin": self.server.base_url()})
         return status, headers
@@ -148,7 +152,7 @@ def test_a_picture_is_replaced_and_a_bad_file_is_refused(rig):
     path = rig.frame + "/illustration/air-france.png"
     status, headers = rig.upload("admin", path, b"not an image at all")
     assert (status, _query(headers)[0]) == (303, rig.frame + EDITOR)
-    assert _query(headers)[1]["flash"] == ["illustration_rejected"]
+    assert _query(headers)[1]["flash"] == ["illustration_not_png"]
     assert not rig.stored()
     with open(os.path.join(VENDORED, "vueling-airlines.png"), "rb") as handle:
         good = handle.read()
@@ -156,6 +160,89 @@ def test_a_picture_is_replaced_and_a_bad_file_is_refused(rig):
     assert (status, _query(headers)[0]) == (303, rig.frame + EDITOR)
     assert _query(headers)[1]["flash"] == ["illustration_replaced"]
     assert "illustration_overrides/air-france.png" in rig.stored()
+
+
+def _png(size, mode="RGBA", fill=(0, 0, 0, 0)):
+    buffer = io.BytesIO()
+    Image.new(mode, size, fill).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+REFUSALS = {
+    "not_png": ("illustration_not_png", "Couldn't use that file", "isn't a PNG image"),
+    "too_large": ("illustration_too_large", "Couldn't use that image", "too large"),
+    "opaque": ("illustration_not_transparent", "Couldn't use that image", "transparent background"),
+    "too_small": ("illustration_too_small", "Couldn't use that image", "at least 1200 pixels wide"),
+}
+
+
+def _refusal_cases():
+    from companion import post_actions
+    return {
+        "a text file": (b"not an image at all", "not_png"),
+        "a corrupt PNG": (b"\x89PNG\r\n\x1a\n" + b"garbage" * 40, "not_png"),
+        "an opaque PNG": (_png((1200, 500), "RGB", (9, 9, 9)), "opaque"),
+        "a narrow PNG": (_png((600, 300)), "too_small"),
+        "a portrait PNG": (_png((1200, 1300)), "too_small"),
+        "a file over the size cap": (
+            b"\x00" * (post_actions.MAX_ILLUSTRATION_UPLOAD_BYTES + 4096), "too_large"),
+        "a picture over the pixel cap": (_png((8000, 5001), "1", 0), "too_large"),
+    }
+
+
+@pytest.mark.parametrize("case", sorted(_refusal_cases()))
+def test_a_refused_picture_says_which_rule_it_broke(rig, case):
+    payload, reason = _refusal_cases()[case]
+    key, _title, detail = REFUSALS[reason]
+    path = rig.frame + "/illustration/air-france.png"
+    status, headers = rig.upload("admin", path, payload)
+    assert (status, _query(headers)[0]) == (303, rig.frame + EDITOR)
+    assert _query(headers)[1]["flash"] == [key]
+    assert not rig.stored()
+    page = html.unescape(rig.get("admin", rig.frame + EDITOR + "?flash=" + key)[2])
+    assert detail in page
+
+
+def test_a_refused_picture_names_the_airline_and_lands_on_its_row(rig):
+    """the refusal says which airline's picture it was and the address leads to that airline's
+    row; a type's picture names its airline; an unknown or foreign key names nothing"""
+    for path_key, shown in (("air-france", "Air France"),
+                            ("transavia-france-a320", "Transavia France")):
+        status, headers = rig.upload(
+            "admin", "%s/illustration/%s.png" % (rig.frame, path_key), b"not an image at all")
+        location = urllib.parse.urlsplit(headers["Location"])
+        base = path_key.replace("-a320", "")
+        assert status == 303 and location.fragment == "airline-" + base, headers["Location"]
+        page = html.unescape(rig.get("admin", headers["Location"].split("#")[0])[2])
+        assert "%s: Couldn't use that file" % shown in page
+        assert 'id="airline-%s"' % base in page
+    page = html.unescape(rig.get(
+        "admin", rig.frame + EDITOR + "?flash=illustration_not_png&artwork=not-an-airline")[2])
+    assert "Couldn't use that file" in page and ": Couldn't use that file" not in page
+    page = html.unescape(rig.get(
+        "admin", rig.frame + EDITOR + "?flash=illustration_replaced&artwork=air-france")[2])
+    assert "Air France:" not in page
+
+
+def test_the_refusal_naming_the_airline_is_french_in_french(rig):
+    status, _headers, raw = http_request(
+        rig.server.url(rig.frame + EDITOR + "?flash=illustration_not_png&artwork=air-france"),
+        cookie=rig.cookies["admin"], extra_headers={"Accept-Language": "fr"})
+    page = html.unescape(raw.decode("utf-8"))
+    assert status == 200 and "Air France\u00a0: Impossible d’utiliser ce fichier" in page
+
+
+def test_each_refusal_reason_is_french_in_french(rig):
+    seen = set()
+    for key, _title, _detail in REFUSALS.values():
+        status, _headers, raw = http_request(
+            rig.server.url(rig.frame + EDITOR + "?flash=" + key),
+            cookie=rig.cookies["admin"], extra_headers={"Accept-Language": "fr"})
+        page = html.unescape(raw.decode("utf-8"))
+        assert status == 200 and "Couldn't use that" not in page
+        assert "Impossible d’utiliser" in page
+        seen.add(key)
+    assert len(seen) == 4
 
 
 def test_deleting_a_manual_resolution_returns_to_the_editor_and_removes_it(rig):
@@ -279,9 +366,10 @@ def test_a_refused_caller_writes_nothing_and_reads_nothing(rig, who):
     for path, form in posts:
         status, _h, body = rig.post(who, rig.frame + path, form)
         assert status == 404 and body == unknown[2]
-    body, content_type = cah.encode_multipart(b"x", field_name="illustration")
+    body, content_type = with_csrf_part(
+        rig.cookies[who], *cah.encode_multipart(b"x", field_name="illustration"))
     status, _h, page = http_request(
-        csrf_url(rig.cookies[who], rig.server.url(rig.frame + "/illustration/air-france.png")),
+        rig.server.url(rig.frame + "/illustration/air-france.png"),
         method="POST", data=body,
         cookie=rig.cookies[who], content_type=content_type,
         extra_headers={"Origin": rig.server.base_url()})

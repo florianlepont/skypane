@@ -97,10 +97,11 @@ def test_user_phone_tab_bar_needs_a_frame(monkeypatch):
     _as_user_with_frame()
     bar = ui_nav._tab_bar_html("home", device_config={})
     prefix = "/devices/abc123"
-    cells, sheet = bar.split('<div class="tab-bar__more-panel">')
-    assert _hrefs(cells) == [
-        prefix + "/", prefix + "/flights", prefix + "/detection", prefix + "/display"]
-    assert _hrefs(sheet) == [prefix + "/airlines", "/account"]
+    # A user's last cell is the Account page itself: no More cell, no sheet.
+    assert "tab-bar__more" not in bar
+    assert _hrefs(bar) == [
+        prefix + "/", prefix + "/flights", prefix + "/airlines", prefix + "/display",
+        prefix + "/detection", "/account"]
     assert 'aria-current="page"' in bar
     for label in ADMIN_ONLY_LABELS:
         assert label not in bar

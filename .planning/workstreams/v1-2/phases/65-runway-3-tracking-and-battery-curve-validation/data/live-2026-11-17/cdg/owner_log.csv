@@ -1,0 +1,6 @@
+session,local_time_paris,callsign,direction,runway_end,origin_or_destination,note
+cdg,07:26,AFR357K,arrival,unknown by owner (data: 27R axis),YYZ,landing 07:26 Paris; NOT DETECTED: feed lost it 5-6 km out at about 2100 ft
+cdg,07:27,EJU78AN,departure,unknown by owner (data: 27L axis),LON,lift-off about 07:27 Paris; NOT DETECTED: first report at 3300 ft above the 3000 ft ceiling
+cdg,07:27,HOP56LF,arrival,south pair per data (26L axis); owner screenshot shows final over the south runway,TRN,landing 07:27 Paris; NOT DETECTED: last real fix 06:26:05 UTC at 1700 ft, 3.7 km out; later records stale (seen_pos 33 s)
+cdg,07:27,SIA336,arrival,north pair per data (27R axis); owner screenshot shows final over N104 side,SIN,landing about 07:28 Paris; NOT DETECTED: last real fix 06:27:11 UTC at 1800 ft, 3.9 km out (seen_pos 10 s then 40 s stale)
+cdg,07:28,AFR57NL,departure,south pair per owner screenshot (data: 26R axis),FLR,lift-off about 07:28 Paris; DETECTED at 06:28:41 UTC by LFPG:08L/26R at 2800 ft, route CDG>FLR correct

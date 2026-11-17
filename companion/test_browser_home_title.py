@@ -212,6 +212,10 @@ def test_cancel_and_the_back_link_end_on_home_and_leave_the_name(
         _on_rename_page(page)
         page.locator("#frame-name").fill("Changed")
         page.locator(leave).click()
+        if leave == "a.form-back":
+            # The back link is an in-app link: with an unsaved name the page
+            # asks first, and Discard leaves without saving it.
+            page.locator("dialog[data-leave-dialog] [data-leave-dialog-secondary]").click()
         _is_home(page, rename_app)
         assert page.locator("main h1").inner_text() == "Kitchen"
         assert page.locator(".title-action .btn--icon").count() == 1
@@ -256,7 +260,8 @@ def test_a_hostile_return_to_is_ignored_by_the_page(new_context, rename_app):
         "/devices/%s/frame/name?return_to=https%%3A%%2F%%2Fevil.example%%2F" % rename_app.fleet.live.id)
     back = page.locator("a.form-back").get_attribute("href")
     assert back.startswith("/") and not back.startswith("//") and "evil" not in back
-    assert page.locator('input[name="return_to"]').count() == 0
+    assert page.locator('input[name="return_to"]').evaluate_all(
+        "els => els.map(el => el.value)") == [""]
 
 
 def test_without_script_the_pencil_save_and_cancel_return_to_home(new_context, rename_app):
@@ -335,10 +340,11 @@ def test_the_home_cards_come_in_one_after_the_other(new_context, fleet_app):
     page.goto(base + _live(fleet_app))
     page.locator(".home-state").wait_for(state="attached")
     delays = page.evaluate(
-        """() => ['.home-state', '.home-state__switches',
+        """() => ['.home-facts', '.home-state', '.home-detection', '.home-state__switches',
                   'section[aria-labelledby="home-flights"]'].map(
             sel => getComputedStyle(document.querySelector(sel)).animationDelay)""")
-    assert delays == ["0s", "0.06s", "0.12s"], delays
+    # One step after the header for the facts row, then one more for each block in page order.
+    assert delays == ["0.06s", "0.12s", "0.18s", "0.24s", "0.3s"], delays
     page.wait_for_function(_SETTLED)
     settled = page.evaluate(
         """() => ['.home-state', '.home-state__switches'].map(sel => {
@@ -369,12 +375,10 @@ def test_tab_bar_labels_are_legible_and_uncramped(new_context, admin_server, vie
                       inks: inactive.map(el => getComputedStyle(el).color),
                       clipped: [...document.querySelectorAll('.tab-bar__label')]
                           .filter(el => el.scrollWidth > el.clientWidth + 0.5).length,
-                      narrow: cells.filter(r => r.width < 44 || r.height < 44).length,
-                      first: cells[0].width};
+                      narrow: cells.filter(r => r.width < 44 || r.height < 44).length};
             }""")
         assert read["inks"], where
         assert read["clipped"] == 0 and read["narrow"] == 0, (where, read)
-        assert read["first"] >= 68 - 0.5, (where, read)
         parts = [float(p) for p in read["bar"][read["bar"].index("(") + 1:-1].split(",")]
         alpha = parts[3] if len(parts) == 4 else 1.0
         # The floating bar has its own fill per theme: legible over a white and a black

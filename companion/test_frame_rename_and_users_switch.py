@@ -117,6 +117,38 @@ def test_the_rename_page_shows_the_name_the_save_bar_and_french_labels(rig):
     assert "Renommer le cadre" in french and "Nom du cadre" in french
 
 
+@pytest.mark.parametrize("lang,shown", [("en", "Orly frame"), ("fr", "Cadre d’Orly")])
+def test_the_first_frames_default_name_reads_one_way_on_every_page(rig, lang, shown):
+    """the first frame keeps its default name until someone renames it, and that name reads
+    in the viewer's language everywhere it is shown: Home's title, the frame list of Account
+    and the Rename field all say the same thing"""
+    server, seed, cookies = rig
+    headers = {"Accept-Language": lang}
+    live = "/devices/%s" % seed.live_id
+    home = parse_html(fx.get(server, cookies["admin"], live + "/", headers=headers)[2])
+    assert home.select_one("h1").text().strip() == shown
+    account = parse_html(fx.get(server, cookies["admin"], "/account", headers=headers)[2])
+    rows = [link.text() for link in account.select('.account-frame a[href="%s/"]' % live)]
+    assert rows and all(shown in row for row in rows), rows
+    other = "Cadre d’Orly" if lang == "en" else "Orly frame"
+    assert other not in account.text()
+    rename = parse_html(fx.get(server, cookies["admin"], live + "/frame/name", headers=headers)[2])
+    assert rename.select_one('input[name="name"]').attrs["value"] == shown
+
+
+def test_a_name_someone_gave_is_never_translated(rig):
+    """once renamed, even to the English default wording of another frame, a name is shown as
+    typed in every language"""
+    server, seed, cookies = rig
+    assert _rename(server, cookies["owner"], seed.owned_id, "Orly frame")[0] == 303
+    path = "/devices/%s/frame/name" % seed.owned_id
+    french = parse_html(fx.get(
+        server, cookies["owner"], path, headers={"Accept-Language": "fr"})[2])
+    assert french.select_one('input[name="name"]').attrs["value"] == "Orly frame"
+    account = fx.get(server, cookies["owner"], "/account", headers={"Accept-Language": "fr"})[2]
+    assert "Orly frame" in parse_html(account).text() and "Cadre d’Orly" not in account
+
+
 def test_a_hostile_name_is_escaped_where_it_is_shown(rig):
     server, seed, cookies = rig
     _rename(server, cookies["owner"], seed.owned_id, "<b>x</b>")
@@ -133,15 +165,19 @@ def test_the_manage_access_dialog_and_the_fleet_header_link_to_the_rename_page(r
         seed.owned_id, seed.owned_id) in fleet
 
 
-def test_the_users_active_switch_answers_a_fetch_with_no_content_and_a_form_post_with_a_redirect(rig):
+def test_the_users_active_switch_answers_a_fetch_with_its_toast_and_a_form_post_with_a_redirect(rig):
     server, seed, cookies = rig
     cookie = cookies["admin"]
     form = with_csrf(cookie, {"state": "off"})
-    status, _h, _b = http_request(
+    status, headers, body = http_request(
         server.url("/users/%d/disable" % seed.user_id), method="POST", cookie=cookie,
         data=form, extra_headers={
             "Origin": server.base_url(), "X-Requested-With": "quick-switch"})
-    assert status == 204
+    assert status == 200
+    assert headers["X-Quick-Switch-Result"] == "toast"
+    assert "no-store" in headers["Cache-Control"]
+    text = body.decode("utf-8")
+    assert "User disabled" in text and fx.USER_EMAIL in text and "<script" not in text
     conn = fleet_db.connect(server.state_dir)
     try:
         assert conn.execute(
@@ -229,7 +265,7 @@ def test_a_hostile_or_unknown_return_to_is_ignored(rig, hostile):
     body = fx.get(server, cookies["owner"], page_url)[2]
     tree = parse_html(body)
     assert tree.select_one("a.dirty-bar__cancel").attrs["href"] == "/account"
-    assert tree.select('input[name="return_to"]') == []
+    assert [node.attrs["value"] for node in tree.select('input[name="return_to"]')] == [""]
 
 
 def test_the_rename_page_carries_return_to_into_back_cancel_and_the_form(rig):

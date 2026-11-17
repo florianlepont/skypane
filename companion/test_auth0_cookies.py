@@ -72,7 +72,7 @@ def test_failed_callback_clears_the_prelogin_cookie_and_sets_no_session(
     rig = auth0_subprocess_rig
     rig.fake.set_knob("redirect_error", "access_denied")
     result = login_via_auth0(rig.server, rig.fake)
-    assert result.status == 400
+    assert result.status == 303
     assert named_cookie(result.headers, "sp_session") is None
     assert _attributes(_raw_cookie(result.headers, "sp_oidc"))["max-age"] == "0"
 

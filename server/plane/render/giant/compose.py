@@ -91,9 +91,8 @@ def _airline_name(route: object) -> Optional[str]:
 def _city(route: object, state: str) -> Optional[str]:
     if not isinstance(route, dict):
         return None
-    lookup_state = "departing" if state == "overhead" else state
     try:
-        return _clean(enrich.city_for_state(route, lookup_state))
+        return _clean(enrich.city_for_state(route, state))
     except Exception:
         return None
 

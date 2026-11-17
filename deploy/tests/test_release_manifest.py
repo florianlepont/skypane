@@ -456,3 +456,52 @@ def test_script_runs_without_pillow(two_release_repo, tmp_path):
         capture_output=True, text=True, timeout=60, env=env)
     assert result.returncode == 0, result.stderr
     assert out.exists()
+
+
+def _clean_switch_env():
+    env = dict(os.environ, PYTHONPATH=str(_REPO_ROOT))
+    env.pop(hardware.SIM_ENV_VAR, None)
+    env.pop(hardware.SECOND_ENV_VAR, None)
+    return env
+
+
+def test_evaluation_type_manifest_builds_without_the_production_switch(
+        two_release_repo, tmp_path):
+    # Release tooling resolves profiles itself, so CI can build the second
+    # type's manifest while the host exports neither switch.
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--tag", "fw-v1.1.0", "--image", str(image),
+         "--out", str(out), "--repo", str(two_release_repo),
+         "--hardware-type", hardware.EVALUATION_KEY],
+        capture_output=True, text=True, timeout=60, env=_clean_switch_env())
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads(out.read_text())
+    assert manifest["hardware_type"] == hardware.EVALUATION_KEY
+    assert manifest["size"] == image.stat().st_size
+
+
+def test_evaluation_type_size_bound_is_its_profile_bound():
+    import scripts.fw_release_manifest as fw_release_manifest
+
+    expected = hardware.get_profile(
+        hardware.EVALUATION_KEY, {hardware.SECOND_ENV_VAR: "1"}).firmware.max_app_bytes
+    assert fw_release_manifest.size_bound(hardware.EVALUATION_KEY) == expected
+
+
+@pytest.mark.parametrize("sim_flag", [None, "1"])
+def test_simulated_type_is_refused_even_with_the_simulation_switch_exported(
+        two_release_repo, tmp_path, sim_flag):
+    image = _make_image(tmp_path / "skypane.bin")
+    out = tmp_path / "release.json"
+    env = _clean_switch_env()
+    if sim_flag:
+        env[hardware.SIM_ENV_VAR] = sim_flag
+    result = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--tag", "fw-v1.1.0", "--image", str(image),
+         "--out", str(out), "--repo", str(two_release_repo),
+         "--hardware-type", hardware.SIM_CLONE_KEY],
+        capture_output=True, text=True, timeout=60, env=env)
+    assert result.returncode == 2
+    assert not out.exists()

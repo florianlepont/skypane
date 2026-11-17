@@ -11,7 +11,7 @@ import pytest
 
 from companion import auth
 from companion.test_browser_ux_helpers import _login
-from place_map_support import CLEAR_BOX, SETTLED, Hosts, seed as _seed
+from place_map_support import CLEAR_BOX, PAGE_OVERFLOW, SETTLED, Hosts, seed as _seed
 
 pytestmark = pytest.mark.browser
 
@@ -168,7 +168,7 @@ def test_the_airport_sheet_is_one_compact_card_with_its_actions(
             _inside(chip, sheet, "chip in card")
         assert not boxes["runwayClipped"], boxes
         assert _clear_share(boxes) >= share, (_clear_share(boxes), boxes)
-        assert page.evaluate("() => document.scrollingElement.scrollHeight - innerHeight") <= 0
+        assert page.evaluate(PAGE_OVERFLOW) <= 0
     finally:
         context.close()
 

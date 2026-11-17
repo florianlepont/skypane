@@ -324,7 +324,7 @@ def _rule_theme_from_cache(cache: RuleRegistry, kind: str, key: str | None) -> s
 
 def resolve_effective_theme_id(
     state: object, flight: object, device_cfg: object,
-    calendar_theme_id: object = None, rules: object = None,
+    calendar_theme_id: object = None, rules: object = None, single_look: bool = False,
 ) -> str:
     """The single resolver that decides what colour the panel is. Reads
     only its `rules` argument, never touches disk. Never raises; always
@@ -332,7 +332,9 @@ def resolve_effective_theme_id(
 
     Order: `calendar_theme_id`, then exact callsign rule, hex rule,
     prefix rule, then the arrivals override (only when `state ==
-    ARRIVING_STATE`), then `device_cfg["theme"]`. A calendar match
+    ARRIVING_STATE` and not `single_look`), then `device_cfg["theme"]`.
+    `single_look` is a frame that tracks a position: one look serves every
+    aircraft, so a stored arrivals look is ignored (and kept on disk). A calendar match
     intentionally beats even an exact-callsign rule: a calendar entry
     designates one specific flight, and that is the point of the feature.
 
@@ -369,7 +371,7 @@ def resolve_effective_theme_id(
     if rule_theme is not None and rule_theme in device_config.THEMES:
         return rule_theme
 
-    if isinstance(device_cfg, dict) and state == ARRIVING_STATE:
+    if isinstance(device_cfg, dict) and state == ARRIVING_STATE and not single_look:
         arriving = device_cfg.get("theme_arriving")
         if isinstance(arriving, str) and arriving in device_config.THEMES:
             return arriving

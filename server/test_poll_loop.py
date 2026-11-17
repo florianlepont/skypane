@@ -15,9 +15,9 @@ and reads `None` on a covered cycle.
 It also covers the BOUNDED-AGE PENDING QUEUE (mechanism-C mitigation) that
 paces how fast the "current" slot advances: the server re-renders every
 30s but the frame physically cannot redraw faster than ~90s, so distinct
-detections are queued rather than overwriting each other, promoted
-oldest-first, and discarded once they would be more than `MAX_STALENESS_S`
-stale.
+detections are queued rather than overwriting each other, the one seen
+last is promoted first, and an entry is discarded once it would be more
+than `MAX_STALENESS_S` stale.
 
 WHAT THE TESTS ARE FOR - three distinct roles, kept explicit so a later
 reader cannot mistake one for another and quietly relax it:
@@ -553,7 +553,7 @@ def test_prefix_burst_loses_an_aircraft_entirely_pre_fix(tmp_path, monkeypatch, 
 
 
 def test_paced_burst_shows_every_undropped_aircraft(tmp_path, clock):
-    """REGRESSION (a): a burst of 4 distinct detections inside one ~90s device window puts every non-discarded aircraft on the glass, in first-detected (FIFO) order"""
+    """REGRESSION (a): a burst of 4 distinct detections inside one ~90s device window puts every non-discarded aircraft on the glass, the most recently seen first"""
     cycles, frames = _drive(clock, str(tmp_path), BURST, BURST_UNTIL)
     on_glass = _ever_on_glass(frames)
     discarded = {h for c in cycles for h in c["dropped"]}
@@ -561,12 +561,12 @@ def test_paced_burst_shows_every_undropped_aircraft(tmp_path, clock):
     missing = expected - on_glass
     assert not missing, "aircraft never reached the glass despite never being discarded: %r (frames=%r)" % (
         sorted(missing), frames)
-    # FIFO: the order aircraft reach the "current" slot must be the order
-    # they were first detected.
+    # Newest first: when the gate opens at t=90 the aircraft waiting are b2,
+    # c3 and d4; d4, seen last, is drawn, then c3 (b2 has gone stale by the
+    # next advance).
     order = [h for _, h in _promotions(cycles) if h in BURST.values()]
-    detection_order = [BURST[t] for t in sorted(BURST)]
-    expected_order = [h for h in detection_order if h in order]
-    assert order == expected_order, "promotion order %r is not the detection (FIFO) order %r" % (order, expected_order)
+    assert order == ["a1a1a1", "d4d4d4", "c3c3c3"], (
+        "promotion order %r is not the most-recent-first order" % (order,))
     assert len(on_glass & set(BURST.values())) >= 3, (
         "only %d of the burst's aircraft ever reached the glass, expected at least 3" % len(on_glass & set(BURST.values())))
 
@@ -615,7 +615,7 @@ def test_expired_entries_are_skipped_not_stalled_behind(tmp_path, clock):
 
 
 def test_sustained_burst_caps_the_queue_and_drops_oldest_first(tmp_path, clock):
-    """REGRESSION (b): a sustained 12-aircraft burst never grows the pending queue past MAX_PENDING_FLIGHTS and never raises - it saturates at the cap and discards the OLDEST entries first"""
+    """REGRESSION (b): a sustained 12-aircraft burst never grows the pending queue past MAX_PENDING_FLIGHTS and never raises - it saturates at the cap and discards the OLDEST entries first (the depth cap itself is exercised directly by test_the_depth_cap_evicts_the_oldest_entries)"""
     cycles, _ = _drive(clock, str(tmp_path), SUSTAINED, SUSTAINED_UNTIL)
     for c in cycles:
         assert len(c["pending"]) <= poll_cycle.MAX_PENDING_FLIGHTS, (
@@ -644,18 +644,21 @@ def test_sustained_burst_caps_the_queue_and_drops_oldest_first(tmp_path, clock):
             "(oldest first detected t=%d) - eviction is not oldest-first"
             % (c["t"], c["dropped"], newest_dropped, c["pending"], oldest_kept))
 
-    # ...and prove the DEPTH CAP itself fired, not just the staleness
-    # bound: a discard while the queue was saturated and no entry could
-    # yet have expired.
-    cap_evictions = [
-        c for c in cycles
-        if c["dropped"] and c["t"] <= max(SUSTAINED)
-        and all(c["t"] - detected_at[h] <= poll_cycle.MAX_STALENESS_S for h in c["dropped"])
-    ]
-    assert cap_evictions, (
-        "no discard happened while every dropped entry was still within the staleness bound - the "
-        "depth cap never fired, so this test is only exercising the TTL. cycles=%r"
-        % ([(c["t"], c["pending"], c["dropped"]) for c in cycles if c["dropped"]],))
+
+def test_the_depth_cap_evicts_the_oldest_entries():
+    """The depth cap, exercised directly: drawing the newest entry first leaves
+    older ones to go stale before the queue can fill in a timed burst, so the
+    cap is proven on the queue itself."""
+    pending = []
+    evicted_entries = []
+    evicted = []
+    for index in range(poll_cycle.MAX_PENDING_FLIGHTS + 2):
+        evicted += poll_cycle.enqueue_pending(
+            pending, {"hex": "x%d" % index}, float(index), evicted_entries=evicted_entries)
+    assert evicted == ["x0", "x1"]
+    assert [e["flight"]["hex"] for e in evicted_entries] == ["x0", "x1"]
+    assert len(pending) == poll_cycle.MAX_PENDING_FLIGHTS
+    assert [e["flight"]["hex"] for e in pending] == ["x2", "x3", "x4", "x5", "x6"]
 
 
 def test_light_traffic_is_identical_to_pre_fix(tmp_path, clock):
@@ -1152,6 +1155,39 @@ def test_gallery_archives_only_changed_panels(tmp_path):
         return
     finally:
         shutil.rmtree(gal_dir, ignore_errors=True)
+
+
+def test_a_flight_row_stores_the_render_archived_in_its_own_cycle(tmp_path):
+    """the cycle that records a flight archives the render showing it and stores that file's
+    name on the runway_events row; the stored name is the one file in the gallery"""
+    state_dir = _mkdir(tmp_path, "gallery-name")
+    try:
+        poll_cycle.run_once(snapshot=_snapshot("aaaaaa", "FLIGHT1 ", CLIMB), state_dir=state_dir, geofence=GEOFENCE_PATH)
+        files = os.listdir(os.path.join(state_dir, "gallery"))
+        with history_db.open_db(state_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=10)
+        if len(rows) != 1 or files != [rows[0]["gallery_name"]]:
+            pytest.fail("expected the row to store the one archived file %r, got rows %r" % (files, rows))
+        return
+    finally:
+        shutil.rmtree(state_dir, ignore_errors=True)
+
+
+def test_a_flight_row_whose_cycle_archived_nothing_stores_an_empty_name(tmp_path):
+    """_record_history() stores "" (known: none archived) rather than NULL (unknown, an older
+    row) when its cycle archived no render"""
+    state_dir = _mkdir(tmp_path, "gallery-name-none")
+    try:
+        poll_cycle._record_history(
+            state_dir, {"hex": "aaaaaa", "callsign": "FLIGHT1"}, "departing", "adsb", {}, "3",
+            False, True, "2026-11-12T10:00:00+00:00")
+        with history_db.open_db(state_dir) as conn:
+            rows = history_db.recent_runway_events(conn, limit=10)
+        if len(rows) != 1 or rows[0]["gallery_name"] != "":
+            pytest.fail("expected an empty gallery_name, got %r" % (rows,))
+        return
+    finally:
+        shutil.rmtree(state_dir, ignore_errors=True)
 
 
 def test_gallery_prunes_to_max_entries(tmp_path):

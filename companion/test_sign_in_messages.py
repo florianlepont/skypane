@@ -135,12 +135,14 @@ def test_provider_error_text_is_never_echoed(auth0_rig):
     hostile = "<script>alert(1)</script>"
     rig.fake.set_knob("redirect_error", hostile)
     result = login_via_auth0(rig.server, rig.fake)
-    assert result.status == 400
+    assert result.status == 303
     assert result.session_cookie is None
-    assert _toast(result.body) == (
+    assert "alert" not in result.headers["Location"]
+    _status, _headers, page = http_request_full(rig.server.url(result.headers["Location"]))
+    assert _toast(page) == (
         "Sign-in was cancelled", "Press Sign in whenever you are ready.")
-    assert b"alert(1)" not in result.body
-    assert b"user@example.test" not in result.body
+    assert b"alert(1)" not in page
+    assert b"user@example.test" not in page
 
 
 def test_only_the_login_prompt_reaches_the_identity_provider(auth0_rig):

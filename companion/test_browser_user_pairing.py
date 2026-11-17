@@ -94,6 +94,39 @@ def test_the_empty_state_offers_one_44px_primary_action_that_fits(
         context.close()
 
 
+def _luminance(rgb):
+    def part(value):
+        value /= 255
+        return value / 12.92 if value <= 0.03928 else ((value + 0.055) / 1.055) ** 2.4
+    return 0.2126 * part(rgb[0]) + 0.7152 * part(rgb[1]) + 0.0722 * part(rgb[2])
+
+
+def _rgb(css_colour):
+    return tuple(float(n) for n in re.findall(r"[\d.]+", css_colour)[:3])
+
+
+@pytest.mark.parametrize("theme", ["light", "dark"])
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_add_your_frame_button_text_is_readable_on_its_fill(
+        new_context, seeded, lang, theme):
+    server, _seed = seeded
+    context, page = _open(new_context, server, fx.USER_EMAIL, "/account", lang, theme)
+    try:
+        selector = "a.pair-link--primary"
+        _owns_the_centre(page, selector)
+        page.wait_for_function(
+            "(sel) => { const s = getComputedStyle(document.querySelector(sel));"
+            " return s.color !== s.backgroundColor"
+            " && document.getAnimations().length === 0; }", arg=selector)
+        colours = page.eval_on_selector(
+            selector, "e => { const s = getComputedStyle(e);"
+            " return [s.color, s.backgroundColor]; }")
+        lighter, darker = sorted((_luminance(_rgb(c)) for c in colours), reverse=True)
+        assert (lighter + 0.05) / (darker + 0.05) >= 4.5, (lang, theme, colours)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         new_context, seeded, lang):
@@ -116,12 +149,19 @@ def test_a_user_pairs_a_frame_from_the_empty_state_and_lands_on_its_home(
         assert page.locator(".pair-form .toast").count() == 0
         assert page.locator(".pair-form .field-error").count() == 1
         assert text["refused"] in page.locator(".pair-form").inner_text()
-        # Post/Redirect/Get: the refusal is its own page (a reload re-sends nothing) and the
-        # typed code is not kept.
+        # Post/Redirect/Get: the refusal is its own page (a reload re-sends nothing), the
+        # typed code is back in the field from a short-lived cookie and never in the address.
         assert page.url.endswith("/pair-frame?refused=1")
-        assert page.input_value("#pair-code") == ""
+        assert page.input_value("#pair-code") == "KKKK-2222"
+        assert "KKKK" not in page.url
+        # It comes back once: the cookie is gone, so the next showing starts empty.
+        assert [c for c in context.cookies() if c["name"] == "sp_pair_code"] == []
+        # A reload shows a plain form: the error went with the code it blamed.
         page.reload()
-        page.locator(".pair-form .field-error").wait_for(state="visible")
+        page.wait_for_function("() => document.readyState === 'complete'")
+        page.locator("#pair-code").wait_for(state="visible")
+        assert page.locator(".pair-form .field-error").count() == 0
+        assert page.input_value("#pair-code") == ""
         page.fill("#pair-code", fx.FAKE_CODE)
         page.locator(".pair-form button[type=submit]").click()
         page.wait_for_url(HOME_URL)
@@ -169,6 +209,27 @@ def test_the_flow_works_with_scripts_blocked(new_context, seeded):
         page.locator("a.pair-link--primary").click()
         page.wait_for_url("**/pair-frame")
         page.fill("#pair-code", fx.FAKE_CODE)
+        page.locator(".pair-form button[type=submit]").click()
+        page.wait_for_url(HOME_URL)
+        assert _device(server)["owner_user_id"] == seed.user_id
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scripts", [True, False])
+def test_a_refused_code_is_kept_so_only_the_typo_is_corrected(new_context, seeded, scripts):
+    server, seed = seeded
+    context, page = _open(
+        new_context, server, fx.USER_EMAIL, "/pair-frame", java_script_enabled=scripts)
+    try:
+        wrong = fx.FAKE_CODE[:-1] + ("2" if fx.FAKE_CODE[-1] != "2" else "3")
+        page.fill("#pair-code", wrong)
+        page.locator(".pair-form button[type=submit]").click()
+        page.locator(".pair-form .field-error").wait_for(state="visible")
+        assert page.input_value("#pair-code") == wrong
+        assert wrong not in page.url
+        # Correcting the last symbol is all it takes.
+        page.fill("#pair-code", page.input_value("#pair-code")[:-1] + fx.FAKE_CODE[-1])
         page.locator(".pair-form button[type=submit]").click()
         page.wait_for_url(HOME_URL)
         assert _device(server)["owner_user_id"] == seed.user_id

@@ -9,7 +9,8 @@
  * `no-store` (companion/page_cache.py). Pages are warmed once the window is
  * idle after load, then again on touchstart, mouse hover and keyboard focus
  * of a link. The idle warm-up fetches only the two pages a visitor most likely
- * opens next. Never prefetched: a link to the current page, to another
+ * opens next, and only on a new page view (not after Back, Forward or a
+ * reload). Never prefetched: a link to the current page, to another
  * origin, with a query or a fragment, to the sign-in or sign-out routes, to
  * the bare root (a redirect), to the airline editor or to a quick-switch
  * route; nothing here sends a POST. Skipped altogether under
@@ -212,16 +213,31 @@
     }, IDLE_DELAY_MS);
   }
 
-  if (document.readyState === "complete") {
-    whenIdle();
-  } else {
-    window.addEventListener("load", whenIdle);
+  // Whether this document was opened by a link or an address: not by Back,
+  // Forward or a reload, which show a page the visitor has already been on.
+  function newPageView() {
+    var entries = window.performance && window.performance.getEntriesByType
+      ? window.performance.getEntriesByType("navigation") : [];
+    var type = entries.length ? entries[0].type : "navigate";
+    return type !== "back_forward" && type !== "reload";
   }
-  // A page restored from the back/forward cache starts its own idle warm-up.
+
+  // Only a new page view warms its likeliest destinations when idle. A page
+  // reached again by Back, Forward or a reload already did: asking again
+  // would download the same two pages for a visit that itself cost nothing.
+  // A link there is still warmed on intent.
+  if (newPageView()) {
+    if (document.readyState === "complete") {
+      whenIdle();
+    } else {
+      window.addEventListener("load", whenIdle);
+    }
+  }
+  // A page restored from the back/forward cache forgets what it warmed (the
+  // copies have expired) but starts no idle warm-up of its own.
   window.addEventListener("pageshow", function (evt) {
     if (evt.persisted) {
       lastFetched = {};
-      whenIdle();
     }
   });
 })();

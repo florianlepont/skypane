@@ -14,11 +14,11 @@ import datetime
 import hmac
 import os
 import sqlite3
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 from companion import (
     access, auth, battery, co_managers, console_pairing, device_scope, flash, i18n,
-    layout, login_page, oidc, prefs)
+    layout, login_page, oidc, prefs, ui_shell)
 from companion.pages import account_page, co_managers_card, frame_name_page
 from server import fleet_db, fleet_sessions, hardware, state_store
 
@@ -205,6 +205,17 @@ class SignInMixin:
 
     def _sign_in_failed(self, kind, attempt):
         next_route = attempt.next_route if attempt is not None else None
+        if kind == oidc.KIND_PROVIDER_ERROR:
+            # Cancelled at the identity provider: the sign-in page at an
+            # address of its own, so a reload or Back does not replay a
+            # callback whose attempt is already used.
+            query = {"error": login_page.CANCELLED_ERROR_CODE}
+            kept = self._next_route_of(next_route)
+            if kept:
+                query["next"] = kept
+            return self.redirect(
+                "%s?%s" % (login_page.LOGIN_ROUTE, urlencode(query)),
+                set_cookie=auth.oidc_attempt_clear_cookie_header())
         page = login_page.sign_in_error_page(
             kind, self._pre_session_theme(), auth0_enabled=True,
             next_route=self._next_route_of(next_route))
@@ -351,13 +362,15 @@ class SignInMixin:
             # scope; the id is not shown on this page.
             name=(
                 i18n.t(account_page.UNNAMED_FRAME_TEXT)
-                if device.name == device.id else device.name),
+                if device.name == device.id else ui_shell.device_display_name(device)),
             hardware=profile.label if profile is not None else device.hardware_type,
             href="/devices/%s/" % device.id,
             device_id=device.id,
             last_seen=device_scope.last_check_in_epoch(device.state_dir),
             battery_percent=0 if critical else (
-                None if millivolts is None else battery.battery_percent(millivolts)),
+                None if millivolts is None else battery.percent(
+                    millivolts,
+                    None if profile is None else profile.battery.curve)),
             offline=status == device_scope.STATUS_OFFLINE,
             state=state, screen_off=screen_off,
             shared=shared, owner_email=owner_email, access=access_view)

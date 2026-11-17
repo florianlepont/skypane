@@ -16,7 +16,8 @@ import sqlite3
 from urllib.parse import parse_qsl, quote
 
 from companion import (
-    access, audit, console_components, console_flash, console_routes, i18n, layout, prefs, route_types, ui_base)
+    access, audit, console_components, console_flash, console_routes, i18n, layout, prefs, route_types,
+    ui_base, ui_shell)
 from companion.pages import frame_name_page as page
 from server import fleet_db
 
@@ -85,7 +86,8 @@ def _respond(h, device, status, name, error="", return_to=None):
         name, page.device_route(device.id), _back_href(h, device, return_to), error,
         return_to)
     html = layout.page_shell(
-        title=i18n.t(page.TITLE), active=_active_slug(h, return_to), body=body,
+        title="%s - %s" % (i18n.t(page.TITLE), ui_shell.device_display_name(device)),
+        active=_active_slug(h, return_to), body=body,
         ui_theme=h._resolved_ui_theme(), health_alert=None,
         scripts=(ui_base.DIRTY_STATE_SCRIPT_SRC, ui_base.SUBMIT_GUARD_SCRIPT_SRC))
     return h.send_html(status, html)
@@ -96,8 +98,11 @@ def handle_get(h, m):
     unnamed = m.device.name == m.device.id
     query = dict(parse_qsl(m.query or "", keep_blank_values=True))
     return_to = _return_to(h, query.get(page.RETURN_FIELD, ""))
+    # The name as every other page shows it: the first frame's default name
+    # reads in the viewer's language until someone gives it another.
     return _respond(
-        h, m.device, 200, "" if unnamed else m.device.name or "", return_to=return_to)
+        h, m.device, 200, "" if unnamed else ui_shell.device_display_name(m.device),
+        return_to=return_to)
 
 
 def _store(h, device, name):

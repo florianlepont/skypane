@@ -23,7 +23,7 @@ key-files:
 key-decisions:
   - "Front-runner for the trial driver is the Seeed EE04 route (cheapest PASS); its pin map equals the EE02 values already in sdkconfig.ee02.defaults"
   - "Init table re-typed from MIT-licensed Seeed_GFX2 Driver_ED2208.cpp (constants only); PhotoPainter repo has no licence file so nothing taken from it"
-status: tasks 1-2 complete; owner decision PENDING; Task 3 not executed
+status: complete; owner decision taken 2026-11-07 (one Seeed EE04 evaluation unit, ordered by the owner)
 requirements-completed: []
 duration: ~10 min session clock
 completed: 2026-11-01
@@ -31,7 +31,7 @@ completed: 2026-11-01
 
 # Phase 58 Plan 02: Driver spike Summary
 
-**Owner decision PENDING; Task 3 not executed.** Tasks 1 and 2 are done. Nothing was bought, carted, ordered or paid, and nothing was flashed. HW2-01 is not marked complete: its second half is the owner's purchase decision.
+**Owner decision taken on 2026-11-07 (Task 3 resolved):** the owner agreed in writing to buy one Seeed XIAO ePaper EE04 bundle kit as the 7.3" evaluation unit and ordered it from Seeed Studio (paid 68.56 EUR, see `58-SUPPLIER-TRACKING.md`). Tasks 1 and 2 were done in part 1; nothing was flashed. HW2-01 is met.
 
 ## Per-candidate verdict
 

@@ -337,12 +337,25 @@ administrators only) or with `fleet_cli.py`. Nothing here deploys anything.
 
 1. **Provision the frame** over USB with `firmware/provision.sh
    <serial-port>`. It prints the frame's MAC and the SHA-256 of its secret.
-2. **Register it as pending**, in the console (Fleet, "Register a frame": MAC,
-   SHA-256, hardware type) or with
+2. **Register it as pending** on the VPS with
    `$FLEET devices register-pending --mac <mac> --secret-sha256 <hash>
-   [--hardware <type>]`. The frame has no owner yet and no legacy file is
+   [--hardware <type>]`. The console has no form for this step (it only
+   pairs frames that are already registered); only the command line
+   registers a frame. The frame has no owner yet and no legacy file is
    written for it. `$FLEET devices pending-list` shows pending and retired
    frames.
+
+   For a second hardware type, `fleet_cli.py` reads the second-hardware
+   switch from its own environment, not from `skypane.env`. Add the
+   variable on the command line, or the command refuses the type:
+
+   ```bash
+   ssh <ssh-target> "sudo -u skypane env SKYPANE_ENABLE_SECOND_HARDWARE=1 /opt/skypane/venv/bin/python3 /opt/skypane/current/stub-server/fleet_cli.py --state-dir /opt/skypane/state devices register-pending --mac <mac> --secret-sha256 <hash> --hardware seeed-ee04-7in3-spectra6"
+   ```
+
+   Run it on the VPS, as the example does through `ssh`: the `skypane`
+   user does not exist on a laptop. The switch itself is lifted only as
+   described under "Lifting the second-hardware switch".
 3. **Power the frame.** On its first wake it shows a pairing code on the
    panel and wakes again every 5 minutes. The panel is redrawn only when the
    code changes: a code is valid for 30 minutes and rotates at the next
@@ -551,6 +564,77 @@ bench image (marked `bench=True`, with a generated
 "Bench image (not a release)" note) — reserved for the hardware
 session, never run by a deploy. Add `--hardware-type <key>` to publish
 it for another type; bench images are exempt from the build check.
+
+#### Typed release assets and the production switch
+
+Only the type's own key appears in these names. The second hardware
+type's key is `seeed-ee04-7in3-spectra6`; the live frame's pair keeps
+its original names.
+
+| Type | Image | Manifest |
+|------|-------|----------|
+| live frame (legacy) | `skypane-<tag>.bin` | `release.json` |
+| every other type | `skypane-<key>-<tag>.bin` | `release-<key>.json` |
+
+The deploy job's download step asks `scripts/fw_release_assets.py` which
+asset names to fetch for each `fw-v*` release: the legacy pair plus every
+typed pair whose key matches `[a-z0-9-]{1,64}`. Nothing else is
+downloaded, and a release that carries only the legacy pair is
+downloaded exactly as before.
+
+A second hardware type is available to the running servers only when
+`SKYPANE_ENABLE_SECOND_HARDWARE` is set to exactly `1` in the production
+env file. `activate.sh` reads that one line from
+`/opt/skypane/skypane.env` with its own strict parser (the file is never
+sourced) and forwards the switch to the `import-dir` step, which runs as
+the `skypane` user, only when the value is exactly `1`. An absent,
+empty, `0`, `true`, quoted, commented or otherwise different value
+means closed.
+
+While the switch is closed, `import-dir` skips every typed release of
+that type, exits 0 and prints one notice per skipped release on stderr:
+
+```
+skipped <tag> [<key>]: hardware type not available here
+```
+
+That notice is expected and not an error: the release stays published
+on GitHub and is imported by a later deploy once the type is available.
+A typed item with a malformed key, or one that names the legacy key, is
+still a failure.
+
+Status: the first typed release is not yet published, and the switch is
+closed in production. Nothing in this repository changes that by itself.
+
+#### Lifting the second-hardware switch
+
+The switch is lifted only by the owner, after written confirmation that
+the second board has been measured on the bench and the owner accepts
+serving it. There is no agent step and no automated job for these steps,
+and none may be added to a workflow: no agent performs them.
+
+1. Get the owner's written confirmation and keep it with the release
+   records.
+2. On the VPS, edit the production env file by hand
+   (`sudo -e /opt/skypane/skypane.env`) and add the line
+   `SKYPANE_ENABLE_SECOND_HARDWARE=1`, with no quotes and no trailing
+   space.
+3. Restart the services that read it: `skypane-byos`,
+   `skypane-companion` and the poll units (`skypane-poll.service` and
+   `skypane-poll.timer`).
+4. Run one deploy through `workflow_dispatch` of `ci.yml` (Actions,
+   "Run workflow" on `main`, then approve the `production` environment).
+   The deploy job downloads every published release again and
+   `import-dir` now imports the typed releases published earlier, which
+   it had skipped while the switch was closed. Restarting alone does not
+   import them.
+5. Check with `server.firmware_cli list` (see above) that the typed
+   type now lists its releases, and that no `skipped` notice remains
+   for it in the deploy log.
+
+To close the switch again, remove the `SKYPANE_ENABLE_SECOND_HARDWARE`
+line (or set it to anything but `1`), restart the same services and deploy once more. Releases already
+imported stay in the state directory and nothing is deleted.
 
 ## Backups
 
@@ -781,6 +865,24 @@ cookie never grants access. `since` must be a UTC time in that exact format,
 at most 400 days old and at most a day ahead; any other query parameter is
 refused with 400. More than 100000 matching rows answers 413. Ten failed
 attempts in a minute from one client address answer 429 for that client.
+
+### Debugging exports
+
+The same token also opens three more read-only routes under `/api/export/`,
+so a missed flight or an odd screen can be explained without SSH. They share
+the token, the throttle and the 400/401/413/429/503 answers above, and the
+cloud-environment secret (path prefix `/api/export/`) already covers them.
+
+| Route | Answers |
+|-------|---------|
+| `GET /api/export/flights?since=<UTC time>` | JSON Lines of `runway_events`: `ts`, `hex`, `callsign`, `aircraft_type`, `confirmed_state`, `corroborated`, `route_source`, `airline`, `origin`, `destination`, `tracked_runway`, `gallery_name`. Only flights that reached the display have a row. |
+| `GET /api/export/poll-cycles?since=<UTC time>` | JSON Lines of the `poll_cycles` trace: one row for each cycle that saw, queued, dropped or drew an aircraft (`detected_*`, `shown_*`, `confirmed_state`, `render_state`, `state_source`, `pending`, `pending_hexes`, `dropped`, `redraw_blocked`, `panel_changed`, `source_fault`, `tracked_runway`; booleans as 0 or 1). Kept for 14 days. |
+| `GET /api/export/status` | One JSON object, no parameter: the flight on the panel and its state, the display queue with each entry's age, the previous flight, `last_advance_at`, `last_flight_redraw_at`, a few settings (`wake_interval_s`, `tracked_runway`, `display_enabled`, quiet hours, `timezone`), the check-interval experiment (`null` when inactive) and the pipeline heartbeat. |
+
+None of them exposes a location, a name, a path or a secret: `status` copies
+a fixed list of fields, never whole files. `poll_cycles` appears after the
+first poll cycle that runs the new release; until then `poll-cycles` answers
+with no lines.
 
 ### Enable
 

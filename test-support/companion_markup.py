@@ -424,7 +424,19 @@ def _tokenize_css_top_level(text):
 
 
 def _split_selector_list(prelude):
-    return tuple(_normalise(part) for part in prelude.split(",") if part.strip())
+    """Split on the commas that separate selectors, not on those inside parentheses
+    (`:is(.a, .b)` is one selector)."""
+    parts, depth, start = [], 0, 0
+    for index, char in enumerate(prelude):
+        if char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "," and depth == 0:
+            parts.append(prelude[start:index])
+            start = index + 1
+    parts.append(prelude[start:])
+    return tuple(_normalise(part) for part in parts if part.strip())
 
 
 def _parse_declarations(body):

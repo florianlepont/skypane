@@ -1,0 +1,18 @@
+{
+  "device": "d_c898bf3f",
+  "fetched_at": "2026-11-17T06:30:19Z",
+  "files": {
+    "poll_cycles.jsonl": {
+      "route": "/api/export/poll-cycles",
+      "rows": 1,
+      "sha256": "c30a100608a82bc3d9a95c4ffdd871c99ec1586159979b61eb315a11b52be4ee"
+    },
+    "runway_events.jsonl": {
+      "route": "/api/export/flights",
+      "rows": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "since": "1970-01-01T00:00:00Z",
+  "source": "scratch-root"
+}

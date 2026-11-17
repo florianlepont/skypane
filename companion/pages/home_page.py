@@ -18,6 +18,7 @@ from datetime import timezone
 from types import SimpleNamespace
 
 import companion.battery as battery
+import companion.detection_summary as detection_summary
 import companion.device_scope as device_scope
 import companion.draw as draw
 import companion.flight_card as flight_card
@@ -204,7 +205,8 @@ def _flight_secondary_text(row):
     airline = panel_render.display_airline_name(row.get("airline")) or ""
     route = _route_text(row)
     direction_raw = _direction_text(row.get("confirmed_state"))
-    direction = i18n.t(direction_raw) if direction_raw else ""
+    # A no-break space keeps a state such as "Au départ" whole when the line wraps.
+    direction = i18n.t(direction_raw).replace(" ", "\u00a0") if direction_raw else ""
     return " · ".join(part for part in (airline, route, direction) if part)
 
 
@@ -230,11 +232,14 @@ def _current_picture_html(ctx, current_flight_row):
             else NO_PANEL_BODY)
         return (
             '<figure class="preview-frame preview-frame--empty">'
-            '<div class="preview-empty">%s<p class="preview-empty__heading">%s</p></div>'
+            '<div class="preview-empty"%s>%s<p class="preview-empty__heading">%s</p></div>'
             '<figcaption class="visually-hidden">%s</figcaption></figure>' % (
+                device_scope.current_frame_shape_attr(),
                 layout.icon_html("icon-device", 32, "preview-empty__glyph"),
                 escape_html(i18n.t(DEVICE_NO_IMAGE_HEADING)), escape_html(i18n.t(body))))
 
+    profile = device_scope.profile_for(device_scope.current_device())
+    width, height = (profile.width, profile.height) if profile.width > profile.height else (600, 800)
     alt = i18n.t(PANEL_ALT_TEXT)
     if current_flight_row:
         callsign = current_flight_row.get("callsign") or current_flight_row.get("hex") or "—"
@@ -245,11 +250,11 @@ def _current_picture_html(ctx, current_flight_row):
     return (
         '<figure class="preview-frame">'
         '<img class="preview-frame__image" src="%s" alt="%s" '
-        'width="600" height="800" decoding="async" fetchpriority="high">'
+        'width="%d" height="%d" decoding="async" fetchpriority="high"%s>'
         "</figure>"
     ) % (
         escape_html(device_scope.scoped(GALLERY_ROUTE_PREFIX + newest)),
-        escape_html(alt))
+        escape_html(alt), width, height, device_scope.frame_shape_attr(profile))
 
 
 def _cycle_ring_html(ctx, next_triple):
@@ -726,13 +731,15 @@ def quiet_hours_dialog_html(ctx, errors=None, submitted=None):
         focus_title=True)
 
 
-def render(ctx, quiet_errors=None, quiet_submitted=None):
+def render(ctx, quiet_errors=None, quiet_submitted=None, place=None):
     """Render Home: the hero (the current picture beside the state, next
     update and battery), then the Frame group (the screen and quiet-hours
     switches, the most used controls, kept near the top) and the Recent
     flights group. An actionable shared health state adds the attention row; daily
     activity belongs to Health. `quiet_errors`/`quiet_submitted` re-render
-    the Quiet hours dialog open after a refused save.
+    the Quiet hours dialog open after a refused save. `place` is the frame's
+    own position row (or None), which the Detection card names in position
+    mode.
     """
     ctx = page_context.coerce(ctx)
     now = ctx.now
@@ -760,6 +767,8 @@ def render(ctx, quiet_errors=None, quiet_submitted=None):
         + _frame_state_html(
             ctx, summary, status, picture,
             say_once=bool(notice) and status.key == frame_status.KEY_OVERDUE)
+        + detection_summary.home_card_html(
+            ctx.device_config or {}, place, device_scope.scoped(DETECTION_PATH))
         + _switches_html(ctx.device_config or {}, _battery_row_html(ctx, summary[2]))
         + _recent_flights_html(rows, now, ctx.state_dir)
         + quiet_hours_dialog_html(ctx, quiet_errors, quiet_submitted)

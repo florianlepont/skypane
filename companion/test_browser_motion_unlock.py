@@ -175,6 +175,29 @@ def test_a_new_airline_card_flips_once_and_not_on_reload(new_context, make_app_s
         context.close()
 
 
+@pytest.mark.parametrize("width", (390, 1280))
+def test_the_first_airlines_visit_unlocks_cards_without_any_page_error(
+        new_context, make_app_server, width):
+    server = make_app_server(seed=seed_collection)
+    context = new_context(viewport={"width": width, "height": 844})
+    context.add_cookies([{"name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
+    page = context.new_page()
+    errors = []
+    page.on("pageerror", lambda error: errors.append(str(error)))
+    page.on("console", lambda msg: errors.append(msg.text) if msg.type == "error" else None)
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
+        page.wait_for_function(
+            "() => Object.keys(localStorage).some(k => k.indexOf('skypane.unlocked.') === 0)",
+            timeout=10000)
+        _wait_flip_settled(page)
+        assert errors == []
+    finally:
+        context.close()
+
+
 def test_a_new_airline_card_plays_the_flip_first_time(new_context, make_app_server):
     server = make_app_server(seed=seed_collection)
     context = new_context(viewport=VIEWPORT_DESKTOP)
@@ -190,6 +213,73 @@ def test_a_new_airline_card_plays_the_flip_first_time(new_context, make_app_serv
         page.goto(server.base_url() + "/airlines")
         page.wait_for_function("() => window.__sparked === true", timeout=10000)
         _wait_flip_settled(page)
+    finally:
+        context.close()
+
+
+OVERRIDE = (
+    ":root{--motion-unlock:1234ms;--motion-reveal:777ms;--motion-picture:1500ms;"
+    "--motion-spring:cubic-bezier(0.1,0.2,0.3,0.4)}")
+OVERRIDE_SCRIPT = """
+    document.addEventListener('DOMContentLoaded', () => {
+      const style = document.createElement('style');
+      style.textContent = %r;
+      document.head.appendChild(style);
+    });
+    window.__timings = [];
+    const realAnimate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      window.__timings.push({cls: String(this.getAttribute('class') || ''),
+        duration: options && options.duration, easing: options && options.easing});
+      return realAnimate.call(this, frames, options);
+    };""" % OVERRIDE
+
+
+def test_the_unlock_timings_follow_the_motion_tokens(new_context, make_app_server):
+    """the flip, the glint and the sparks take their lengths and easing from the page's
+    motion tokens, not from numbers of their own"""
+    server = make_app_server(seed=seed_collection)
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
+    context.add_init_script(OVERRIDE_SCRIPT)
+    page = context.new_page()
+    try:
+        _login(page, server.base_url())
+        page.goto(server.base_url() + "/airlines")
+        page.wait_for_function(
+            "() => window.__timings.some(t => t.cls.indexOf('unlock-spark') >= 0)", timeout=10000)
+        timings = page.evaluate("() => window.__timings")
+        flip = [t for t in timings if "collection-card" in t["cls"]][0]
+        assert flip["duration"] == 1234 and flip["easing"] == "cubic-bezier(0.1,0.2,0.3,0.4)", flip
+        for part in ("unlock-glint__sweep", "unlock-spark"):
+            found = [t for t in timings if part in t["cls"] or part.split("__")[0] in t["cls"]]
+            assert found and all(t["duration"] == 777 for t in found), (part, found)
+    finally:
+        context.close()
+
+
+def test_the_picture_transition_takes_its_length_from_the_picture_token(
+        new_context, flights_server):
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": flights_server.base_url()}])
+    context.add_init_script(OVERRIDE_SCRIPT)
+    page = context.new_page()
+    try:
+        _login(page, flights_server.base_url())
+        page.goto(flights_server.base_url() + "/flights")
+        page.wait_for_function("() => document.readyState === 'complete'", timeout=15000)
+        page.evaluate("""() => { window.__vt = [];
+            const tick = () => { for (const a of document.getAnimations()) {
+              const e = a.effect;
+              if (e && e.pseudoElement === '::view-transition-group(skypane-flight-pic)') {
+                window.__vt.push(e.getTiming().duration); } }
+              requestAnimationFrame(tick); };
+            tick(); }""")
+        _open_picture(page)
+        durations = page.evaluate("() => window.__vt")
+        assert durations and set(durations) == {1500}, durations
     finally:
         context.close()
 

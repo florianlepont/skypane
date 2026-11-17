@@ -30,6 +30,9 @@
  * exceed what a slot can hold. */
 #define FP_FW_MAX_IMAGE_BYTES 0x250000u
 
+/* Smallest valid container header, in bytes. */
+#define FP_CONTAINER_MIN_HEADER 24u
+
 /* True iff s is exactly expected_len lowercase hex characters (0-9, a-f).
  * NULL, wrong length, or any uppercase/non-hex byte is false. The one
  * hex-shape check every other validator in this module is built from. */
@@ -107,3 +110,20 @@ typedef enum {
  * because only AUTH means "this credential is dead" - a 5xx or 404 says
  * nothing about the credential and must never erase it. */
 fp_http_class_t fp_http_status_classify(int status);
+
+/* True iff got is the legacy raw size, or a framed size: legacy_len plus a
+ * header of FP_CONTAINER_MIN_HEADER up to (excluding) max_header bytes. */
+bool fp_body_len_plausible(size_t got, size_t legacy_len, size_t max_header);
+
+/* True iff s matches [a-z0-9-]{1,64}; NULL is false. */
+bool fp_hw_type_valid(const char *s);
+
+/* True iff the frame may announce the container format (the sticky
+ * failure flag is clear). */
+bool fp_imgfmt_announce(bool imgfmt_bad);
+
+/* True iff the sticky failure flag should latch: the container was
+ * announced, the whole transfer completed, and a non-empty body of a size
+ * other than legacy_len was rejected. Incomplete transfers never latch. */
+bool fp_imgfmt_latch_bad(bool announced, bool transport_complete, size_t got,
+                         size_t legacy_len);

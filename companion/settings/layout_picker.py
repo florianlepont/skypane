@@ -15,7 +15,7 @@ rewritten. A stored theme that is not a pairing (green, black, a band
 theme) is read as the pairing it maps to and shown selected; the stored
 value changes only when the owner saves a different card.
 """
-from companion import i18n
+from companion import device_scope, i18n
 from companion import theme_preview
 from companion.layout import escape_html
 import companion.layout as layout
@@ -28,7 +28,8 @@ from companion.settings.form import (
     _field_error_html, _submitted_or_current)
 from companion.settings.theme import (
     COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
-    COLOUR_USAGE_RULES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL, LOOK_FIELDS, LOOK_PREVIEW_ALT_TEMPLATE, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
+    COLOUR_USAGE_POSITION, COLOUR_USAGE_RULES, FRAME_COLOURS_ROW_LABELS, LOOK_CHANGE_LABEL, LOOK_FIELDS,
+    LOOK_PREVIEW_ALT_TEMPLATE, POSITION_LOOK_HELP, SAME_AS_DEPARTURES_LABEL, departures_safe_theme_id)
 
 LAYOUT_FIELD = "layout"
 
@@ -77,12 +78,12 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_
     badge = (
         ' %s="%s"' % (CURRENT_BADGE_ATTR, escape_html(i18n.t(CURRENT_BADGE_LABEL)))
         if saved else "")
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     return (
         '<label class="runway-card look-pick__card%s"%s>'
         '<input type="radio" name="%s" value="%s" class="visually-hidden"%s%s>'
         '<img class="look-pick__preview" src="%s" width="%d" height="%d" alt="%s" '
-        'loading="lazy" decoding="async" fetchpriority="low">'
+        'loading="lazy" decoding="async" fetchpriority="low"%s>'
         '<span class="runway-card__number look-pick__name">%s</span>'
         '<span class="runway-card__check">%s<span class="visually-hidden">%s</span></span>'
         "</label>"
@@ -92,6 +93,7 @@ def _radio_card_html(field, value, checked, saved, name, preview_src, alt, form_
         ' form="%s"' % escape_html(form_id) if form_id else "",
         " checked" if checked else "",
         escape_html(preview_src), width, height, escape_html(alt),
+        device_scope.current_frame_shape_attr(),
         escape_html(name), layout.icon_html("icon-check"),
         escape_html(i18n.t(SELECTED_LABEL)))
 
@@ -125,13 +127,13 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
             i18n.t(LAYOUT_PREVIEW_ALT_TEMPLATE) % i18n.t(LAYOUT_NAMES[layout_id]))
         for layout_id in screen_layouts.LAYOUT_IDS)
     title = escape_html(i18n.t(LAYOUT_TITLE))
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     return (
         '<section class="layout-card" id="personalisation-layout" '
         'aria-labelledby="personalisation-layout-title" %s="%s" data-layout-card>'
         '<div class="layout-card__row">'
         '<img class="layout-card__thumb" src="%s" width="%d" height="%d" alt="" '
-        'data-layout-thumb decoding="async">'
+        'data-layout-thumb decoding="async"%s>'
         '<div class="layout-card__text">'
         '<h2 class="text-heading layout-card__title" id="personalisation-layout-title">%s</h2>'
         '<p class="text-label section-caption layout-card__caption">%s</p>'
@@ -147,6 +149,7 @@ def layout_card_html(current_layout, current_theme_id, errors=None, submitted=No
         "%s%s</div></section>"
     ) % (
         DIRTY_SECTION_ATTR, title, escape_html(preview_src(chosen)), width, height,
+        device_scope.current_frame_shape_attr(),
         title, escape_html(i18n.t(LAYOUT_CAPTION)),
         escape_html(i18n.t(LAYOUT_NAMES[chosen])), escape_html(i18n.t(LAYOUT_WHOLE_FRAME)),
         escape_html(i18n.t(LAYOUT_CHANGE_ARIA)), escape_html(i18n.t(LOOK_CHANGE_LABEL)),
@@ -200,18 +203,23 @@ def _pairing_cards_html(field, selected, saved, usage, layout_id, state, form_id
         for pairing_id in look.offered_pairing_ids())
 
 
-def _departures_panel_html(layout_id, current_theme_id, errors, submitted):
+def _departures_panel_html(layout_id, current_theme_id, errors, submitted, overhead=False):
+    """The pairing panel of `theme`. `overhead` draws the one look of a
+    position-mode frame: the same field, drawn as an overhead aircraft."""
     field = LOOK_FIELDS[COLOUR_USAGE_DEPARTURES]
     chosen = _submitted_or_current(submitted, field, current_theme_id)
+    state = (theme_preview.FRAME_PREVIEW_STATE_OVERHEAD if overhead
+             else theme_preview.FRAME_PREVIEW_STATE_DEPARTING)
     cards = _pairing_cards_html(
         field, pairing_id_for(chosen), pairing_id_for(current_theme_id),
-        COLOUR_USAGE_DEPARTURES, layout_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING)
+        COLOUR_USAGE_DEPARTURES, layout_id, state)
     return (
         '<div class="look-pairings" data-look-panel="%s">%s'
         '<div class="look-pick__grid" role="radiogroup" aria-label="%s">%s</div>%s</div>'
     ) % (
-        COLOUR_USAGE_DEPARTURES, _help_html(PAIRING_HELP),
-        escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES])), cards,
+        COLOUR_USAGE_DEPARTURES, _help_html(POSITION_LOOK_HELP if overhead else PAIRING_HELP),
+        escape_html(i18n.t(FRAME_COLOURS_ROW_LABELS[
+            COLOUR_USAGE_POSITION if overhead else COLOUR_USAGE_DEPARTURES])), cards,
         _field_error_html(errors, field, field.replace("_", "-")))
 
 
@@ -237,11 +245,13 @@ def _arrivals_panel_html(layout_id, current_arriving, errors, submitted):
 def pairing_view_html(
         layout_id, current_theme_id, current_arriving, errors=None, submitted=None, usage=None):
     """What a look view holds for a frame on a giant-lettering layout: the
-    pairing cards of the type `usage` names (departures or arrivals), or of
+    pairing cards of the type `usage` names (departures, arrivals, or
+    position: the departures field for a position-mode frame), or of
     both when `usage` is None. Only the shown type's field is posted."""
     parts = []
-    if usage in (None, COLOUR_USAGE_DEPARTURES):
-        parts.append(_departures_panel_html(layout_id, current_theme_id, errors, submitted))
+    if usage in (None, COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_POSITION):
+        parts.append(_departures_panel_html(
+            layout_id, current_theme_id, errors, submitted, usage == COLOUR_USAGE_POSITION))
     if usage in (None, COLOUR_USAGE_ARRIVALS):
         parts.append(_arrivals_panel_html(layout_id, current_arriving, errors, submitted))
     return '<div class="look-pairing-view">%s</div>' % "".join(parts)

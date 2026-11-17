@@ -157,3 +157,32 @@ def test_display_shows_no_freshness_line_but_keeps_the_refresh_marker(
         assert not marker.is_visible()
     finally:
         context.close()
+
+
+_STATE_LINES = """() => {
+  const out = [];
+  for (const el of document.querySelectorAll('li.recent-flight .row__detail')) {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      const m = /(Au[\\s\\u00a0]d\\u00e9part|\\u00c0[\\s\\u00a0]l\\u2019arriv\\u00e9e)/.exec(n.data);
+      if (!m) continue;
+      const range = document.createRange();
+      range.setStart(n, m.index); range.setEnd(n, m.index + m[0].length);
+      const tops = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
+      out.push({text: m[0], lines: tops.size});
+    }
+  }
+  return out; }"""
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
+def test_a_french_state_phrase_is_never_split_across_two_lines(new_context, server, viewport):
+    """"Au départ" and "À l'arrivée" stay whole on one line of a recent-flight detail"""
+    context, page = _open_home(new_context, server, viewport, "fr")
+    try:
+        page.wait_for_function("() => document.readyState === 'complete'")
+        found = page.evaluate(_STATE_LINES)
+        assert found, "no state phrase in the seeded rows"
+        assert all(item["lines"] == 1 for item in found), found
+    finally:
+        context.close()

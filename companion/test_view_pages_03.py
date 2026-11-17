@@ -551,11 +551,11 @@ def test_the_phone_row_carries_identity_detail_and_a_picture_action(tmp_path):
     (age and direction), with the picture thumbnail as its lead control; it carries no naming link for any
     airline, and has no disclosure, summary or copy control"""
     vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:00:00+00:00", "hex": "fc01", "callsign": "FACEONE",
+        {"ts": "2026-08-27T10:01:00+00:00", "hex": "fc01", "callsign": "FACEONE",
          "airline": "Air France"},
-        {"ts": "2026-08-27T09:00:00+00:00", "hex": "fc02", "callsign": "FACETWO"},
+        {"ts": "2026-08-27T10:00:30+00:00", "hex": "fc02", "callsign": "FACETWO"},
     ])
-    names = ["2026-08-27T08-00-00+00-00.png"]
+    names = ["2026-08-27T10-00-00+00-00.png"]
     rendered = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
     li = vp.row_block(rendered, "li", 0)
     assert li is not None, "could not locate the phone row"

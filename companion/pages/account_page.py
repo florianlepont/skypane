@@ -177,8 +177,8 @@ def _frame_dialog_html(frame, open_access):
 
 def _frames_card(frames, open_access, now, show_hardware):
     """The My frames group: the empty state with no frames, else one row per
-    frame ordered by name, then the Add a frame row, followed by the row
-    dialogs."""
+    frame ordered by name, then the Add a frame row. The rows' dialogs come
+    from `_frame_dialogs` and sit after the page's last group."""
     if not frames:
         return ui_groups.group_panel(
             pair_frame_page.empty_state_html(), label=i18n.t(_MY_FRAMES_TEXT),
@@ -189,8 +189,14 @@ def _frames_card(frames, open_access, now, show_hardware):
         href=pair_frame_page.PAIR_FRAME_ROUTE, extra_class="account-add-frame")
     return ui_groups.group(
         "".join(_frame_row_html(f, now, show_hardware) for f in rows) + add_row,
-        label=i18n.t(_MY_FRAMES_TEXT), label_id="account-frames"
-    ) + "".join(_frame_dialog_html(f, open_access) for f in rows)
+        label=i18n.t(_MY_FRAMES_TEXT), label_id="account-frames")
+
+
+def _frame_dialogs(frames, open_access):
+    """The dialogs behind the frame rows, in the rows' order. They follow the
+    page's groups, so the groups are siblings one after another."""
+    rows = sorted(frames, key=lambda frame: (frame.name.casefold(), frame.href))
+    return "".join(_frame_dialog_html(f, open_access) for f in rows)
 
 
 def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
@@ -224,4 +230,5 @@ def render(identity, ui_theme="auto", frames=(), open_access="", now=None):
             extra_class="account-identity")
         + ui_groups.group(
             preferences_html, label=i18n.t(_PREFERENCES_TEXT), label_id="account-preferences")
-        + sign_out_html)
+        + sign_out_html
+        + _frame_dialogs(frames, open_access))

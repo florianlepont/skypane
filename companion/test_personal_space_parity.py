@@ -1,7 +1,9 @@
 """The personal space is identical for an administrator and a user: for the same
 frame state, every personal page carries the same navigation links, the same
 form controls and the same body, whoever looks at it. The space switch and the
-foreign-frame notice are the only things an administrator adds. Real in-process
+foreign-frame notice are the only things an administrator adds, and the bar's
+last cell differs by design: More (with its sheet) for an administrator,
+Account for a user. Real in-process
 requests, no browser."""
 import hashlib
 import re
@@ -87,10 +89,17 @@ def _get(server, who, path, lang="en"):
 def _strip_switch_and_notice(markup):
     markup = re.sub(r'<nav class="space-switch".*?</nav>', "", markup, flags=re.S)
     markup = re.sub(
-        r'<a class="[^"]*tab-bar__link--switch[^"]*"[^>]*>.*?</a>', "", markup, flags=re.S)
+        r'<a class="[^"]*tab-bar__space-link[^"]*"[^>]*>.*?</a>', "", markup, flags=re.S)
     markup = re.sub(
         r'<div class="[^"]*frame-notice[^"]*".*?</div>', "", markup, flags=re.S)
-    return markup
+    # The bar's last cell: an administrator's More with its sheet, a user's Account tab.
+    markup = re.sub(r'<details class="tab-bar__more.*?</details>', "", markup, flags=re.S)
+    markup = re.sub(
+        r'<a class="tab-bar__link[^"]*" href="[^"]*/account"[^>]*>.*?</a>', "", markup,
+        flags=re.S)
+    # The initial in the Account row's circle belongs to the person, as the e-mail does.
+    return re.sub(
+        r'(<span class="tab-bar__avatar"[^>]*>)[^<]*', r"\1INITIAL", markup)
 
 
 def _normalise(markup, server):

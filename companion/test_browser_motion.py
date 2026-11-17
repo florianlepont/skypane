@@ -28,7 +28,7 @@ _PILL_GEOMETRY = """() => {
     return {left: r.left, top: r.top, width: r.width, height: r.height}; };
   const slider = document.querySelector('.tab-bar__slider');
   const active = document.querySelector(
-    '.tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill');
+    '.tab-bar__link--active .tab-bar__pill');
   return {slider: rect(slider), active: active ? rect(active) : null,
           on: document.querySelector('.tab-bar').classList.contains('tab-bar--slider')};
 }"""
@@ -123,7 +123,7 @@ def test_without_the_script_the_active_tab_keeps_its_own_pill(new_context, serve
           on: document.querySelector('.tab-bar').classList.contains('tab-bar--slider'),
           slider: document.querySelector('.tab-bar__slider') === null,
           paint: getComputedStyle(document.querySelector(
-            '.tab-bar__link--active:not(.tab-bar__link--switch) .tab-bar__pill'
+            '.tab-bar__link--active .tab-bar__pill'
           )).backgroundColor})""")
         assert seen["on"] is False and seen["slider"] is True, seen
         assert seen["paint"] != "rgba(0, 0, 0, 0)", seen
@@ -260,7 +260,7 @@ def test_hit_targets_settle_on_the_swept_pages(new_context, server, route):
         page.goto(server.base_url() + route)
         _wait_ready(page)
         _assert_hit_target(
-            page, ".tab-bar a.tab-bar__link:not(.tab-bar__link--switch)", route)
+            page, ".tab-bar a.tab-bar__link", route)
         _assert_hit_target(page, ".tab-bar__more > summary", route)
     finally:
         context.close()

@@ -2,7 +2,8 @@
 # Panel safety check: against the last commit before the wake instrumentation,
 # the changes to the panel driver (epd13in3e.c) and panel.c may only be
 # added timer reads, the SPI time variable and its accessor, an esp_timer.h
-# include, and bare braces or blank lines. Any removed line or any other
+# include, the panel_driver.h include that selects the driver at compile
+# time, and bare braces or blank lines. Any removed line or any other
 # added line fails, so the register sequence, delays, SPI writes, sleep
 # logic and power rails stay exactly as they were.
 #
@@ -35,7 +36,7 @@ if [ "${READS}" -lt 2 ]; then
     exit 1
 fi
 
-BAD=$(printf '%s\n' "${DIFF}" | grep -Ev '^\+.*(esp_timer_get_time|spi_us|spi_ms)|^\+[[:space:]]*#include[[:space:]]+"esp_timer\.h"[[:space:]]*$|^\+[[:space:]]*[{}]?[[:space:]]*$' || true)
+BAD=$(printf '%s\n' "${DIFF}" | grep -Ev '^\+.*(esp_timer_get_time|spi_us|spi_ms)|^\+[[:space:]]*#include[[:space:]]+"(esp_timer|panel_driver)\.h"[[:space:]]*$|^\+[[:space:]]*[{}]?[[:space:]]*$' || true)
 if [ -n "${BAD}" ]; then
     echo "panel-diff: FAIL: panel files changed beyond timer reads:"
     printf '%s\n' "${BAD}"

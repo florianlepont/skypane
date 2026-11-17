@@ -59,6 +59,9 @@ _MODEL_LABEL = i18n.msg("admin_fleet.block_model", "Model")
 _SYSTEM_EMPTY = i18n.msg(
     "admin_fleet.system_unavailable",
     "No system information is available yet.")
+_UNKNOWN_FRAME = i18n.msg(
+    "admin_fleet.unknown_frame",
+    "That frame was not found \u2014 Showing %s instead.")
 _ADD_FIRST = i18n.msg(
     "admin_fleet.add_screen_first", "Add a frame to see its state and settings.")
 
@@ -107,7 +110,7 @@ def tabs_html(frame_id, tab):
          "<span>%s</span>" % _t(label), key == tab, "")
         for key, label in labels]
     return ui_segmented.segmented_links_html(
-        links, _t(_TABS_LABEL), "fleet-tabs", nav_attrs=' data-tabs="fleet"')
+        links, _t(_TABS_LABEL), "fleet-tabs", nav_attrs=' data-tabs="fleet"', carry=True)
 
 
 def frame_menu_html(entries, selected, is_system):
@@ -150,11 +153,8 @@ def _model_label(device):
     return profile.label if profile is not None else device.hardware_type
 
 
-def _model_html(device):
-    from companion import ui_groups
-    return ui_groups.row(
-        i18n.t(_MODEL_LABEL), value_html=_esc(_model_label(device)),
-        extra_class="fleet-block__fact")
+def _model_text(device):
+    return "%s %s" % (i18n.t(_MODEL_LABEL), _model_label(device))
 
 
 def _access_html(device, access_views, row, view):
@@ -208,7 +208,7 @@ def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
     from companion.pages import config_page, health_page, update_page
     with history_db.connection_scope(device.state_dir):
         device_html, versions_html, _parts = update_page.render_parts(
-            ctx, device.hardware_type)
+            ctx, device.hardware_type, _model_text(device))
         settings_html = config_page.render(
             ctx, scope=config_page.SCOPE_DEVICE, embedded=True)
         blocks = (
@@ -217,7 +217,7 @@ def frame_html(ctx, device, view, header_html="", tab=TAB_STATE):
                 " fleet-block--state", "state")
             + _block(
                 _DEVICE_HEADING,
-                _model_html(device) + _item(device_html) + _item(versions_html),
+                _item(device_html) + _item(versions_html),
                 " fleet-block--state fleet-block--device", "device")
             + _block(
                 _SETTINGS_HEADING, _item(settings_html),
@@ -251,6 +251,17 @@ def _others_alone(view):
     return '<div class="fleet-blocks">%s</div>' % blocks if blocks else ""
 
 
+def _unknown_frame_notice(query, selected):
+    """A docked warning when the address names a frame that does not exist
+    and another frame is shown in its place; nothing otherwise."""
+    wanted = (query.get(FRAME_QUERY) or [""])[0]
+    if not wanted or selected is None or selected.id == wanted:
+        return ""
+    from companion import ui_components, ui_shell
+    return ui_components.anomaly_banner(
+        i18n.t(_UNKNOWN_FRAME) % ui_shell.device_display_name(selected), "warn")
+
+
 def page_html(h, query, view):
     """The selected view (the frame button goes to the top bar). Sets the request scope to the
     selected frame (the embedded forms post to its own /devices/<id> routes)."""
@@ -269,7 +280,7 @@ def page_html(h, query, view):
         return system_html(h.page_context(device_scope.live_device(root)))
     if selected is None:
         return '<p class="text-label">%s</p>' % _t(_ADD_FIRST) + _others_alone(view)
-    return frame_html(
+    return _unknown_frame_notice(query, selected) + frame_html(
         h.page_context(selected), selected, view,
         fleet_page.detail_header_html(view, selected.id), tab_selection(query))
 

@@ -271,11 +271,23 @@ class _View:
         return requested if requested in dp.MODES else self._default_mode()
 
     def _default_mode(self):
-        """The mode a plain visit opens on: the saved one when the frame has a
-        saved detection setting, else My position."""
-        configured = device_config.normalise_detection(
-            self.ctx.device_config.get("detection")) is not None
-        return self.saved_mode if configured else dp.MODE_POSITION
+        """The mode a plain visit opens on: the saved one when the frame has
+        any saved detection setting (the current shape or the older tracked
+        runway), else My position."""
+        return self.saved_mode if self._has_saved_detection() else dp.MODE_POSITION
+
+    def _has_saved_detection(self):
+        if device_config.normalise_detection(
+                self.ctx.device_config.get("detection")) is not None:
+            return True
+        if not self.ctx.state_dir:
+            return False
+        try:
+            with open(device_config.device_config_path(self.ctx.state_dir)) as handle:
+                stored = json.load(handle)
+        except (OSError, ValueError):
+            return False
+        return isinstance(stored, dict) and "tracked_runway" in stored
 
     def _airport_code(self):
         if self.submitted is not None and "airport" in self.submitted:
@@ -531,6 +543,14 @@ def _boot_html():
         '<span class="place-boot__line place-boot__line--thin is-loading"></span>'
         "</div></div>"
     ) % escape_html(i18n.t(MAP_LOADING))
+
+
+def _edge_html():
+    """A thin strip pinned to the top edge of the window on a phone, in the
+    tile ground colour. Mobile Safari treats the zone under its status bar by
+    what is fixed at that edge: with a fixed box there it shows no blurred veil
+    over the map, and in a tab it continues the box's colour."""
+    return '<div class="place-edge" aria-hidden="true"></div>'
 
 
 def _mode_switch_html(view):
@@ -990,6 +1010,6 @@ def render(ctx, query=None, errors=None, submitted=None, place=None):
         + fail_safe_toast_html(view)
         + _stray_errors_html(view)
         + _form_html(view)
-        + '<div class="place-page"><div class="place-stage">%s%s%s%s%s</div></div>' % (
-            _boot_html(), _map_html(view), _loading_html(), _float_html(), _panel_html(view))
+        + '<div class="place-page"><div class="place-stage">%s%s%s%s%s%s</div></div>' % (
+            _edge_html(), _boot_html(), _map_html(view), _loading_html(), _float_html(), _panel_html(view))
     )

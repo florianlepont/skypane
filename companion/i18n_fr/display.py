@@ -181,6 +181,13 @@ MESSAGES = {
     # "Enregistrer" verb and the "Vérification en cours…" ellipsis style above.
     "display.saving": "Enregistrement…",
     "display.unsaved_changes": "Modifications non enregistrées",
+    "display.leave_title": "Modifications non enregistrées",
+    "display.leave_text": "Vous avez des modifications non enregistrées. Que souhaitez-vous faire\u00a0?",
+    "display.leave_save": "Enregistrer et continuer",
+    "display.leave_discard": "Abandonner",
+    "display.leave_stay": "Rester ici",
+    "display.leave_save_only": "Enregistrer",
+    "display.leave_stays_note": "Après l’enregistrement, vous restez sur cette page.",
     "display.unsaved_changes_in": "Modifications non enregistrées\u00a0:",
 
     # --- Field-level validation errors ------------------------------
@@ -190,6 +197,8 @@ MESSAGES = {
         "Cet interrupteur a envoyé une valeur inattendue.",
     "display.enter_a_whole_number_of_seconds_between_60_and":
         "Entrez un nombre entier de secondes entre 60 et 3600.",
+    "display.quiet_hours_same_time":
+        "Le début et la fin doivent être deux heures différentes.",
     "display.enter_a_time_as_hh_mm_for_example_23_00":
         "Entrez une heure au format HH:MM, par exemple 23:00.",
     "display.that_link_is_too_long_or_conflicts_with_the":

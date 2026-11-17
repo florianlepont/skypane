@@ -110,6 +110,49 @@ commit already on `main`. The first OTA-capable release is `fw-v1.0.0`,
 which is also the compiled-in version floor: no device ever accepts, and
 the server never offers, anything older.
 
+## Per-type releases
+
+Two hardware types are built from this tree: the live frame (board
+`ee02`) and the second board (board `second`). They share:
+
+- one RSA signing key. The public half is
+  `firmware/signing/skypane-signing-pubkey.pem`; the private half stays
+  in the `firmware-signing` environment. Rotation (below) applies to
+  both types at once.
+- one project name and one app descriptor format.
+
+The descriptor carries the chip id, project name and version, not the
+board. An image built for one board therefore passes the structure
+checks of the other, and a signed image of the wrong board is accepted
+by the signature check. What prevents it is procedure, in this order:
+
+1. Each board builds in its own directory: `SKYPANE_BOARD=ee02
+   firmware/build.sh` writes `firmware/build-ee02`, and
+   `SKYPANE_BOARD=second firmware/build.sh` writes
+   `firmware/build-second` (`-dev` suffix for the dev profile).
+2. The built-mode check reads the generated configuration of that
+   directory and takes the board as an argument:
+   `sh firmware/tests/check_production_config.sh built
+   firmware/build-second second` (or `firmware/build-ee02 ee02`). It
+   fails if the hardware type key or the panel options in the build do
+   not match the board named.
+3. A release manifest is generated only from the matching build
+   directory, with the type's own key
+   (`scripts/fw_release_manifest.py`), so the manifest's
+   `hardware_type`, size and SHA-256 describe that image.
+
+Published assets: the live frame keeps `skypane-<tag>.bin` and
+`release.json`; every other type is published as
+`skypane-<key>-<tag>.bin` and `release-<key>.json` in the same
+GitHub Release (see "Per-hardware-type releases" in
+`deploy/README.md`). The server imports a typed pair only when that type
+is available in its environment.
+
+Status: the first typed release is not yet published, and the release
+workflow does not build the second board yet. The second board's image
+has been built and size-checked in CI only; it has never run on a
+panel.
+
 ## One-time key generation (human only)
 
 Run this once, by hand, inside the pinned `espressif/idf:v5.3.1`
@@ -427,22 +470,26 @@ Fail when:
 
 | Field | Value |
 |-------|-------|
-| Date | 2026-10-30 (deferral recorded; no bench run) |
-| Bench unit (hardware type, serial) | none available |
-| Firmware versions (flashed / correctly signed / wrongly signed) | not run |
-| Correctly signed image installed (yes/no, reported version) | not run |
-| Wrongly signed image rejected on the device (yes/no) | not run |
-| Result token seen (`fail-image` expected) | not run |
-| Running firmware kept working after the rejection (yes/no) | not run |
-| Verdict (pass/fail/deferred) | DEFERRED |
+| Date | 2026-11-14 |
+| Bench unit (hardware type, serial) | `seeed-ee04-7in3-spectra6`, MAC 84:c7:bb:70:b2:7c (no serial number) |
+| Firmware versions (flashed / correctly signed / wrongly signed) | `fw-v1.0.4-71-gd495d240-dev` / `fw-v1.0.6-bench1` (bench key) / `fw-v1.0.7-bench2` (a second throwaway key) |
+| Correctly signed image installed (yes/no, reported version) | yes, `fw-v1.0.6-bench1`: `trial;fw-v1.0.6-bench1`, then `installed;fw-v1.0.6-bench1` at the next wake |
+| Wrongly signed image rejected on the device (yes/no) | yes: downloaded, not installed, no boot loop |
+| Result token seen (`fail-image` expected) | `fail-image;fw-v1.0.7-bench2` |
+| Running firmware kept working after the rejection (yes/no) | yes: the unit kept reporting `fw-v1.0.6-bench1` and kept polling |
+| Verdict (pass/fail/deferred) | pass for steps 3 to 7 as written above |
 
-Status: DEFERRED, not passed. On 2026-10-30 the owner (Florian Lepont)
-reported that no bench unit is available and deferred the on-device
-rejection test to the first second-hardware session. No result is recorded
-because none was observed. Consequence: no second non-simulated hardware may
-be provisioned until the bench procedure has been run and its result
-recorded in the table above.
+Status: the two pass conditions above were observed on 2026-11-14. The unsigned image
+was refused by the server (`signature: image is not signed`, exit 1), as step 7
+describes. The evidence is the bench server's telemetry lines and
+`firmware/device_report.json`; no serial log was captured, because the unit's native USB
+console disappears while it deep-sleeps. The floor refusal was also observed (`fail-floor;fw-v1.0.7-bench5`, no download, the
+firmware kept). The wrong-hardware check was not run on the panel by the owner's
+decision, and is shown on the server side only (see
+`hardware/SECOND-HARDWARE-VALIDATION.md`). The result is for one unit on one date and for
+dev-profile images signed with throwaway keys.
 
-Until the table holds observed results, the device-side accept and reject behaviour
-for a second hardware type is unproven, and no second non-simulated hardware
-may be provisioned.
+The condition for the Phase 57 release gating, a pass recorded in this table, is met
+for the signature procedure. Whether the two open checks must also pass first is the
+owner's call. The second hardware type takes no fleet role (pairing, a production
+registry entry) until the owner confirms the remaining checks of the phase.

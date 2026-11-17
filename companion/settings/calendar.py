@@ -486,7 +486,7 @@ def special_mini_html(theme_id, opener_label=None, layout_id=None):
     `opener_label`, a script-revealed button over it opens the look
     sheet for that row. `layout_id` makes the picture the frame's layout.
     """
-    width, height = theme_preview.FRAME_PREVIEW_PIXEL_SIZES[theme_preview.FRAME_PREVIEW_SIZE_SMALL]
+    width, height = theme_preview.current_frame_preview_pixel_size(theme_preview.FRAME_PREVIEW_SIZE_SMALL)
     opener_html = ""
     if opener_label is not None:
         opener_html = (
@@ -495,13 +495,13 @@ def special_mini_html(theme_id, opener_label=None, layout_id=None):
     return (
         '<span class="special-row__mini">'
         '<img class="special-row__image" data-look-image src="%s" width="%d" height="%d" alt="" '
-        'loading="lazy" decoding="async" fetchpriority="low">'
+        'loading="lazy" decoding="async" fetchpriority="low"%s>'
         "%s</span>"
     ) % (
         escape_html(theme_preview.frame_preview_src(
             theme_id, theme_preview.FRAME_PREVIEW_STATE_DEPARTING,
             theme_preview.FRAME_PREVIEW_SIZE_SMALL, layout=layout_id)),
-        width, height, opener_html)
+        width, height, device_scope.current_frame_shape_attr(), opener_html)
 
 
 def calendar_special_row_html(

@@ -13,8 +13,8 @@ import companion.console_routes as console_routes
 import companion.device_scope as device_scope
 import companion.i18n as i18n
 import companion.prefs as prefs
-from companion import ui_segmented
-from companion.ui_components import csrf_field
+from companion import ui_groups, ui_segmented
+from companion.ui_components import csrf_field, link_card_html
 from companion.auth import UI_THEME_COOKIE_NAME
 from companion.ui_base import (
     AIRLINES_ROUTE,
@@ -56,13 +56,14 @@ USER_NAV = (
 
 USER_ROLE = "user"
 
-# The personal space's frame pages, in order: the sidebar lists all of them,
-# the phone bar carries the first four and the More sheet the rest. One
+# The personal space's frame pages, in order: the sidebar lists all of them
+# and the phone bar carries the same five, in its own order, before More. One
 # table serves an administrator and a user alike. Health and Device are
 # Console pages and never appear here.
 _PERSONAL_SIDEBAR_PAGES = (
     HOME_ROUTE, FLIGHTS_ROUTE, DETECTION_ROUTE, DISPLAY_ROUTE, AIRLINES_ROUTE)
-_PERSONAL_BAR_PAGES = (HOME_ROUTE, FLIGHTS_ROUTE, DETECTION_ROUTE, DISPLAY_ROUTE)
+_PERSONAL_BAR_PAGES = (
+    HOME_ROUTE, FLIGHTS_ROUTE, AIRLINES_ROUTE, DISPLAY_ROUTE, DETECTION_ROUTE)
 
 
 def is_user_principal():
@@ -92,6 +93,8 @@ _CONSOLE_BAR_LABELS = {
     "editor": _AIRLINES_BAR_LABEL, "audit": _AUDIT_BAR_LABEL, "users": _USERS_BAR_LABEL}
 _PERSONAL_LABEL = i18n.msg("nav.my_frame", "My frame")
 _CONSOLE_LABEL = i18n.msg("nav.console", "Console")
+_SETTINGS_TEXT = i18n.msg("nav.settings", "Settings")
+_CONSOLE_SUBTITLE = i18n.msg("nav.console_subtitle", "Fleet, users, audit")
 _SWITCH_TO_PERSONAL_TEXT = i18n.msg(
     "nav.switch_to_personal", "Switch to your own frame pages")
 _SWITCH_TO_CONSOLE_TEXT = i18n.msg(
@@ -134,7 +137,15 @@ def current_space(active):
     """
     if is_user_principal():
         return None
-    return CONSOLE_SPACE if active in _CONSOLE_SLUGS else PERSONAL_SPACE
+    if active in _CONSOLE_SLUGS:
+        return CONSOLE_SPACE
+    # An administrator with no frame in scope has no personal destinations: a
+    # page outside both spaces (the not-found page of an unknown address) is
+    # then shown in the Console, the only space with pages to go to.
+    if (active != ACCOUNT_NAV_SLUG and is_admin_principal()
+            and not _personal_routes(_PERSONAL_SIDEBAR_PAGES)):
+        return CONSOLE_SPACE
+    return PERSONAL_SPACE
 
 
 def _frame_entry(route, active):
@@ -216,18 +227,19 @@ def space_switch_html(active):
         escape_html(i18n.t(_SPACE_NAV_LABEL)), segments)
 
 
-def _switch_cell_html(space):
-    """The tab bar's first cell for an administrator: a plain GET link to the
-    other space, with that space's glyph and short label. "" for everyone
-    else and when the destination page does not exist."""
+def _switch_row_html(space):
+    """The More panel's space switch row for an administrator: a plain GET
+    link to the other space, with that space's glyph and name. "" for
+    everyone else and when the destination page does not exist."""
     target = _switch_target(space) if is_admin_principal() else None
     if target is None:
         return ""
     href, label, aria = target
-    icon_id = "icon-device" if space == CONSOLE_SPACE else "icon-shield"
-    return '<a class="tab-bar__link tab-bar__link--switch" href="%s" aria-label="%s">%s</a>' % (
-        escape_html(href), escape_html(i18n.t(aria)),
-        _tab_bar_cell_body(icon_id, escape_html(i18n.t(label))))
+    to_console = space != CONSOLE_SPACE
+    return link_card_html(
+        href, "icon-shield" if to_console else "icon-device", i18n.t(label),
+        i18n.t(_CONSOLE_SUBTITLE) if to_console else "", i18n.t(aria),
+        "tab-bar__space-link")
 
 
 def ui_theme_from_cookie(cookies):
@@ -515,6 +527,7 @@ REFRESH_SWAP_SELECTORS_BY_PAGE = {
         ".page-header__freshness",
         "figure.preview-frame",
         'section[aria-labelledby="home-flights"]',
+        'section[aria-labelledby="home-detection"]',
         'section[aria-labelledby="home-frame-state"]',
         'section[aria-labelledby="home-frame-controls"]',
         ".home-facts",
@@ -550,113 +563,96 @@ def _tab_bar_cell_link(entry, label=None, extra_html=""):
             entry.icon, escape_html(i18n.t(label or entry.label)), extra_html))
 
 
-def _tab_bar_sheet_link(entry):
-    """One More-sheet navigation row: the page's icon then its name. Reuses
-    .mobile-nav__link, so the rows share its 44px/16px tap-target geometry
-    instead of duplicating the numbers.
-    """
-    css_class = (
-        "mobile-nav__link tab-bar__nav-link mobile-nav__link--active"
-        if entry.is_active else "mobile-nav__link tab-bar__nav-link")
-    aria_current = ' aria-current="page"' if entry.is_active else ""
-    return '<a class="%s" href="%s"%s>%s<span>%s</span></a>' % (
-        css_class, escape_html(entry.href), aria_current,
-        icon_html(entry.icon, extra_class="tab-bar__nav-icon"),
-        escape_html(i18n.t(entry.label)))
-
-
-def _switch_cells(space):
-    cell = _switch_cell_html(space)
-    return [cell] if cell else []
-
-
 def _console_bar(active, health_alert):
-    """(cells, sheet entries) of the Console bar: the space switch, Fleet
-    (carrying the severity dot), Users, the airline editor and the audit log,
-    with Account in More. Six cells, like the personal bar of an
-    administrator, so the switch and every cell keep the same width."""
+    """(cells, sheet entries) of the Console bar: Fleet (carrying the severity
+    dot), Users, the airline editor and the audit log, with Account and the
+    switch back to the personal space in More."""
     entries = _console_entries(active)
-    cells = _switch_cells(CONSOLE_SPACE) + [
+    cells = [
         _tab_bar_cell_link(
             entries[key], _CONSOLE_BAR_LABELS.get(key),
             extra_html=_health_dot(health_alert) if key == "fleet" else "")
         for key in ("fleet", "users", "editor", "audit") if key in entries]
-    sheet = [_account_entry(active)]
-    return cells, sheet
+    return cells, [_account_entry(active)]
 
 
 def _personal_bar(active):
     """(cells, sheet entries) of the personal bar, identical for an
-    administrator and a user apart from the space switch cell that leads an
-    administrator's: Home, History, Location and Style, with the airline
-    collection and Account in More."""
-    cells = _switch_cells(PERSONAL_SPACE) + [
+    administrator and a user: Home, Flights, Airlines, Style and Place, with
+    Account in More."""
+    cells = [
         _tab_bar_cell_link(
             _frame_entry(route, active), NAV_SHORT_LABELS.get(nav_slug(route)))
         for route in _personal_routes(_PERSONAL_BAR_PAGES)]
-    sheet = [
-        _frame_entry(route, active)
-        for route in _personal_routes((AIRLINES_ROUTE,))]
-    sheet.append(_account_entry(active))
-    return cells, sheet
+    return cells, [_account_entry(active)]
 
 
 def _account_sheet_link(entry):
-    """The More sheet's Account row. It is a sheet link like the others; the
-    signed-in e-mail rides along as a data attribute that the stylesheet shows
-    under the page name, so the link's own text stays the page name."""
+    """The More sheet's Account row: a circle with the person's initial (a
+    person glyph when no e-mail is known), the page name over the signed-in
+    e-mail, and a chevron at the end."""
     css_class = "mobile-nav__link tab-bar__account"
     aria_current = ""
     if entry.is_active:
         css_class += " mobile-nav__link--active"
         aria_current = ' aria-current="page"'
     email = prefs.current_principal_email()
-    detail = ' data-email="%s"' % escape_html(email) if email else ""
-    return '<a class="%s" href="%s"%s%s>%s</a>' % (
-        css_class, escape_html(entry.href), aria_current, detail,
-        escape_html(i18n.t(entry.label)))
-
-
-def _sheet_preference_html(label, form_html):
+    initial = next((ch for ch in email if ch.isalnum()), "") if email else ""
+    avatar = escape_html(initial.upper()) if initial else icon_html("icon-person", 22)
+    detail = (
+        '<span class="tab-bar__account-email">%s</span>' % escape_html(email) if email else "")
     return (
-        '<div class="tab-bar__pref"><span class="tab-bar__pref-label">%s</span>%s</div>'
-        % (escape_html(i18n.t(label)), form_html))
+        '<a class="%s" href="%s"%s><span class="tab-bar__avatar" aria-hidden="true">%s</span>'
+        '<span class="tab-bar__account-text"><span class="tab-bar__account-name">%s</span>%s</span>'
+        '%s</a>' % (
+            css_class, escape_html(entry.href), aria_current, avatar,
+            escape_html(i18n.t(entry.label)), detail,
+            icon_html("icon-chevron-right", 20, "tab-bar__account-chevron")))
 
 
-def _more_panel_html(active, sheet, ui_theme):
-    """The More sheet, top to bottom: the pages that do not fit the bar (a
-    continuation of the bar), a separator, then the settings block: the
-    Account row, theme and language (one tap each, plain POST forms) and Sign
-    out.
+def _sheet_preference_row(label, icon_id, form_html):
+    """One Settings row: a small glyph and the label at the start, the
+    segmented control at the end."""
+    lead = '<span class="tab-bar__row-icon">%s</span>' % icon_html(icon_id, 20)
+    return ui_groups.row(
+        i18n.t(label), lead_html=lead, trailing_html=form_html, extra_class="tab-bar__pref")
+
+
+def _more_panel_html(active, sheet, ui_theme, space):
+    """The More sheet, top to bottom: the Account row and, for an
+    administrator, the row that switches to the other space; theme and
+    language (one tap each, plain POST forms); Sign out.
     The Account page already carries all of its own controls, so there the
     sheet holds the links alone and a second Sign out never appears."""
-    pages = "".join(
-        _tab_bar_sheet_link(entry) for entry in sheet if entry.slug != ACCOUNT_NAV_SLUG)
-    account = "".join(
-        _account_sheet_link(entry) for entry in sheet if entry.slug == ACCOUNT_NAV_SLUG)
-    pages_html = '<div class="tab-bar__pages">%s</div>' % pages if pages else ""
-    separator = '<hr class="tab-bar__separator">' if pages else ""
+    links = "".join(_account_sheet_link(entry) for entry in sheet) + _switch_row_html(space)
+    links_html = '<div class="tab-bar__links">%s</div>' % links
+    grab = '<span class="tab-bar__grab" aria-hidden="true"></span>'
     if active == ACCOUNT_NAV_SLUG:
-        return pages_html + separator + account
-    preferences = (
-        _sheet_preference_html(_THEME_TEXT, _theme_form_html(ui_theme))
-        + _sheet_preference_html(_LANGUAGE_TEXT, _lang_form_html(prefs.current_lang())))
+        return grab + links_html
+    settings = ui_groups.group(
+        _sheet_preference_row(_THEME_TEXT, "icon-sun", _theme_form_html(ui_theme))
+        + _sheet_preference_row(
+            _LANGUAGE_TEXT, "icon-globe", _lang_form_html(prefs.current_lang())),
+        i18n.t(_SETTINGS_TEXT), "tab-bar-settings-label", "tab-bar__prefs", label_tag="p")
     return (
-        pages_html + separator + '<div class="tab-bar__settings">'
-        '<div class="tab-bar__links">%s</div>%s'
+        '%s<div class="tab-bar__settings">%s%s'
         '<form method="post" action="/logout" class="logout-form tab-bar__sign-out">%s'
-        '<button type="submit">%s</button></form></div>' % (
-            account, preferences, csrf_field(), escape_html(i18n.t(_SIGN_OUT_TEXT))))
+        '<button type="submit">%s%s</button></form></div>' % (
+            grab, links_html, settings, csrf_field(),
+            icon_html("icon-sign-out", 18), escape_html(i18n.t(_SIGN_OUT_TEXT))))
 
 
-def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"):
+def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto", no_tab=False):
     """Bottom tab bar shown below 960px, the sub-960px nav.
 
-    For an administrator the first cell is the space switch, a plain link to
-    the other space. Then the destination cells and a "More" overflow, chosen
-    by the caller's space (see current_space()). The overflow uses a native
-    <details>/<summary> so it works with scripts blocked. The Health
-    severity dot is drawn on the Health cell, never on More.
+    The destination cells and a "More" overflow are chosen by the caller's
+    space (see current_space()); an administrator's switch to the other space
+    is a row of the overflow. A plain user gets an Account cell instead of the
+    overflow. The overflow uses a native <details>/<summary>
+    so it works with scripts blocked. The Fleet severity dot is drawn on the
+    Fleet cell, never on More.
+    `no_tab` marks a page that is in no tab and is not reached through More
+    either (an error page): no cell is selected there.
     Returns "" when there is no session context: no device_config and no
     signed-in administrator (login pages, or a 404 before sign-in). An
     administrator's own Account page carries no device_config but still needs
@@ -664,28 +660,48 @@ def _tab_bar_html(active, health_alert=None, device_config=None, ui_theme="auto"
     """
     if not device_config and not is_admin_principal() and not is_user_principal():
         return ""
-    if current_space(active) == CONSOLE_SPACE:
+    space = current_space(active)
+    if space == CONSOLE_SPACE:
         cells, sheet = _console_bar(active, health_alert)
     else:
+        space = PERSONAL_SPACE
         cells, sheet = _personal_bar(active)
         if not cells and is_user_principal():
             return ""
+        if not cells:
+            # No frame in scope (the not-found page of an unknown address): the
+            # Console's destinations need none, so the bar is not just More. Such
+            # a page carries no Health dot.
+            space = CONSOLE_SPACE
+            cells, sheet = _console_bar(active, None)
+    if is_user_principal():
+        # A plain user's overflow would hold only Account (theme, language and
+        # Sign out live on the Account page), so the last cell is Account itself.
+        cells.append(_tab_bar_cell_link(sheet[0]))
+        return _tab_bar_nav_html(cells)
     # A page that belongs to no bar cell (Credits, the component catalogue, an
     # error page) is reached through More, so More carries the pill there and
     # the sliding pill is on every page.
     in_bar = any("tab-bar__link--active" in cell for cell in cells)
+    more_selected = any(entry.is_active for entry in sheet) or (not in_bar and not no_tab)
     summary_class = (
-        "tab-bar__link tab-bar__link--active"
-        if not in_bar or any(entry.is_active for entry in sheet) else "tab-bar__link")
+        "tab-bar__link tab-bar__link--active" if more_selected else "tab-bar__link")
+    # A bar that holds nothing else (the not-found page of a frame) marks More so the
+    # stylesheet keeps it one cell wide instead of the whole bar.
+    alone = " tab-bar__more--alone" if not cells else ""
     cells.append(
-        '<details class="tab-bar__more">'
+        '<details class="tab-bar__more%s">'
         '<summary class="%s">%s</summary>'
         '<div class="tab-bar__more-panel">%s</div>'
         "</details>"
-        % (summary_class,
+        % (alone, summary_class,
            _tab_bar_cell_body(
                TAB_BAR_MORE_ICON_ID, escape_html(i18n.t(TAB_BAR_MORE_LABEL))),
-           _more_panel_html(active, sheet, ui_theme)))
+           _more_panel_html(active, sheet, ui_theme, space)))
+    return _tab_bar_nav_html(cells)
+
+
+def _tab_bar_nav_html(cells):
     return (
         '<nav class="tab-bar" aria-label="%s">%s</nav>'
     ) % (

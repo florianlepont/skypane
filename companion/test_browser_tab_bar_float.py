@@ -130,7 +130,7 @@ def test_the_last_content_clears_the_bar_at_the_end_of_the_page(
 
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 @pytest.mark.parametrize("viewport", VIEWPORTS, ids=VIEWPORT_IDS)
-def test_the_space_switch_stays_first_set_apart_and_the_active_item_is_an_inner_pill(
+def test_no_cell_is_a_space_switch_and_the_active_item_is_an_inner_pill(
         new_context, app, viewport, scheme):
     context, page = _open(new_context, app, _home(app), viewport, scheme)
     try:
@@ -143,12 +143,10 @@ def test_the_space_switch_stays_first_set_apart_and_the_active_item_is_an_inner_
             """() => {
               const cells = [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')];
               const first = cells[0];
-              const pill = first.querySelector('.tab-bar__pill');
               const active = document.querySelector('.tab-bar__slider');
               const bar = document.querySelector('.tab-bar').getBoundingClientRect();
               return {firstIsSwitch: first.classList.contains('tab-bar__link--switch'),
-                      outline: getComputedStyle(pill).borderTopWidth,
-                      outlineColour: getComputedStyle(pill).borderTopColor,
+                      switchCells: document.querySelectorAll('.tab-bar__link--switch').length,
                       accent: getComputedStyle(document.documentElement)
                           .getPropertyValue('--color-accent'),
                       activeBg: getComputedStyle(active).backgroundColor,
@@ -161,7 +159,7 @@ def test_the_space_switch_stays_first_set_apart_and_the_active_item_is_an_inner_
                       clipped: [...document.querySelectorAll('.tab-bar__label')]
                           .filter(el => el.scrollWidth > el.clientWidth + 0.5).length};
             }""")
-        assert facts["firstIsSwitch"] and facts["outline"] == "1px"
+        assert not facts["firstIsSwitch"] and facts["switchCells"] == 0
         assert facts["activeBg"] not in ("rgba(0, 0, 0, 0)", "transparent")
         assert facts["activeRadius"] >= 16
         box, bar = facts["activeBox"], facts["bar"]
@@ -185,7 +183,7 @@ def test_the_bar_ink_and_active_pill_hold_their_contrast(
             """() => {
               const bar = getComputedStyle(document.querySelector('.tab-bar'), '::before');
               const labels = [...document.querySelectorAll(
-                  '.tab-bar__link:not(.tab-bar__link--active):not(.tab-bar__link--switch)'
+                  '.tab-bar__link:not(.tab-bar__link--active)'
                   + ' .tab-bar__label')];
               const active = document.querySelector(
                   '.tab-bar__link--active .tab-bar__label');

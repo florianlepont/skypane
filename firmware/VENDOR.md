@@ -55,23 +55,28 @@ changes it still needs, and re-run the host tests
 | `CMakeLists.txt` | `CMakeLists.txt` | no | `project(flightportrait)` renamed to `project(skypane)`. `PROJECT_VER` no longer hardcoded — `firmware/build.sh` resolves `git describe --tags --always --dirty` on the host and passes it in, so every image reports the exact commit it was built from. |
 | `main/epd13in3e.c` | `main/epd13in3e.c` | no | `epd_init`'s GPIO/SPI setup no longer calls `ESP_ERROR_CHECK`; each failure now returns `ESP_FAIL` through the function's own `esp_err_t` path, freeing the SPI bus first if it was already initialised. `epd_sleep` tracks which setup steps actually completed so it can never touch an uninitialised handle. `busy_wait()`'s poll loop and `send_half()`'s periodic yield feed the task watchdog. `epd_blit()` now checks its busy-wait timeout and returns `ESP_FAIL` instead of silently ignoring it. The 800 µs per-row pacing is unchanged — see "Operational notes" below for why. Two `esp_timer_get_time()` reads around the two `send_half()` calls, one static and an accessor `epd_spi_ms()` report the SPI transfer time; nothing else changed, enforced by `tests/check_panel_diff.sh`. |
 | `main/epd13in3e.h` | `main/epd13in3e.h` | no | Declares `epd_spi_ms()`. |
-| `main/panel.c` | `main/panel.c` | no | The refresh-spacing wait now light-sleeps (radio and panel both already down at this point) instead of busy-waiting the full duration. |
+| `main/panel.c` | `main/panel.c` | no | The refresh-spacing wait now light-sleeps (radio and panel both already down at this point) instead of busy-waiting the full duration. One added line, `#include "panel_driver.h"`, which selects the 7.3" driver at compile time (see "Second hardware driver" below); with the default configuration it defines nothing and the file compiles as before. `tests/check_panel_diff.sh` allows exactly that one include. |
 | `main/panel.h` | `main/panel.h` | yes | none |
 | `main/panel_guard.c` | `main/panel_guard.c` | yes | none |
 | `main/panel_guard.h` | `main/panel_guard.h` | no | Doc comment only: the refresh-spacing guard's rationale was corrected to match the verified GDEP133C02 datasheet finding (no documented refresh-rate or endurance limit; refresh at least every 24 h). No declaration changed. |
 | `tests/test_panel_guard.c` | `tests/test_panel_guard.c` | yes | none |
 | `sdkconfig.ee02.defaults` | `sdkconfig.ee02.defaults` | no | Appended two SkyPane blocks after the upstream content, which is otherwise untouched: battery-sense pins and the bring-up LED pins/polarity. |
-| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Top-level menu renamed from "FlightPortrait" to "SkyPane". The API base Kconfig option is removed entirely, not defaulted to a placeholder — see the `sdkconfig.defaults` row above; the base URL is now a provisioned, runtime value, so no Kconfig prompt for it exists to misconfigure. Trimmed to the options this project actually compiles against: the hardware revision choice, the full 8-pin panel-pins menu, and the panel-timing menu. Removed the BLE-provisioning timeout and factory-prep options, since neither has any code behind it. Retained the button-controls menu (pin values are measured hardware fact from a real EE02 key-sweep) with a comment explaining why it stays without a compiled consumer yet. Added five project-specific options: an HTTP-allowed dev-only switch, the whole-wake budget in seconds (raised from 300 to 360 to cover an OTA wake's extra stages, then to 460 so a failed update can also re-fetch and redraw the picture in the same wake, see `main/wake_deadline.h`), the oldest release tag this device accepts over OTA (`SKYPANE_OTA_FLOOR_VERSION`, must match the server's own registry floor), TLS session persistence, and a bench-only fault-injection choice. |
+| `main/Kconfig.projbuild` | `main/Kconfig.projbuild` | no | Top-level menu renamed from "FlightPortrait" to "SkyPane". The API base Kconfig option is removed entirely, not defaulted to a placeholder — see the `sdkconfig.defaults` row above; the base URL is now a provisioned, runtime value, so no Kconfig prompt for it exists to misconfigure. Trimmed to the options this project actually compiles against: the hardware revision choice, the full 8-pin panel-pins menu, and the panel-timing menu. Removed the BLE-provisioning timeout and factory-prep options, since neither has any code behind it. Retained the button-controls menu (pin values are measured hardware fact from a real EE02 key-sweep) with a comment explaining why it stays without a compiled consumer yet. Added five project-specific options: an HTTP-allowed dev-only switch, the whole-wake budget in seconds (raised from 300 to 360 to cover an OTA wake's extra stages, then to 460 so a failed update can also re-fetch and redraw the picture in the same wake, see `main/wake_deadline.h`), the oldest release tag this device accepts over OTA (`SKYPANE_OTA_FLOOR_VERSION`, must match the server's own registry floor), TLS session persistence, and a bench-only fault-injection choice. Added the `FP_PANEL` choice (default `FP_PANEL_13IN3E`, alternative `FP_PANEL_7IN3E`) and `FP_PANEL_BUFFER_BYTES` (default 960000) in the Panel menu; with the defaults the only change to a resolved sdkconfig is those new symbols. |
 | `main/wifi.c` | `main/wifi.c` | no | Credential source changed from NVS written by a BLE provisioning flow this project doesn't compile to NVS written by `firmware/provision.sh` over USB instead (`fp_device_creds_load`, `main/enrol_secret.c`) — the compiled image carries no credential of its own. Dropped the BLE-provisioning-adoption branch and the NVS-backed fast-connect helper, since this project's trimmed `nvs_schema.h` no longer defines those keys. Kept: the join/retry logic, the SNTP time sync (a TLS prerequisite after any power loss — the device has no RTC battery), RSSI read, and radio-off-before-sleep. The optional static-IP fallback is now a runtime branch on the loaded credentials' `has_static` flag rather than a compile-time macro set. Counts association attempts (`fp_wifi_attempts()`); the retry behaviour is unchanged. |
 | `main/wifi.h` | `main/wifi.h` | no | Trimmed to the four functions the above still implements: `fp_wifi_platform_init`, `fp_wifi_connect`, `fp_wifi_rssi`, `fp_wifi_stop`. Removed the credential-store/-load and factory-reset declarations, since nothing compiled here calls them. Declares `fp_wifi_attempts()`. |
-| `main/api_client.c` | `main/api_client.c` | no | Trimmed to the three endpoints this project uses. Removed: upstream's own OTA partition-writing loop, pairing registration and signature computation, and the versioned target-blob (BYOS override) resolution chain. Base-URL resolution now reads the device's provisioned `secret` NVS partition (`fp_device_creds_load`) instead of resolving an NVS target blob or a compiled-in macro. Kept, with local re-implementations since upstream's validators aren't vendored: display-response field validation, the streamed download with SHA-256 + exact-byte-count verification before any buffer is returned to the caller, and the setup call's token-shape check. All four telemetry headers are now sent unconditionally on every request, rather than upstream's conditional RSSI header; the battery header reports a real measured value. Every inline validation rule was replaced by calls to the pure `validate.c` functions, and every failure is classified into a Log Line Contract step token instead of a single generic error. One shared `esp_http_client` handle is reused for every request of a wake — setup, display and a same-origin download share one TCP+TLS connection — with header hygiene between requests, a retry-once-on-stale-connection rule, and the download bounded by the whole-wake budget. `tls_session.c` best-effort persists the TLS session across deep sleep. NVS access goes through `nvs_util.c` instead of hand-rolled sequences. A 401/403 on an authenticated call now erases the stored bearer token so the next wake re-enrols with no reflash. Re-added, on top of what upstream had: the display response's optional `"firmware"` object is parsed into `fp_display_t.fw` field-by-field (`validate.c`'s `fp_fw_version_valid`/`fp_fw_size_parse` plus the existing hash/URL validators, the URL forced https regardless of the dev-only http override), permissively — a missing, null or malformed offer never rejects the poll, only logs which field failed. `X-Ota-Result` is sent whenever an OTA outcome is pending (`ota.c`'s `fp_ota_result_pending`) and cleared only once a display response actually parses at 200. Wake telemetry: one `X-Wake-Stats` header (counters and durations only, built by `wake_telemetry.c` from the current wake and the previous wake's RTC record) is set on the display request only and deleted by `clear_request_headers()` with the other per-request headers; the first TLS connect time is kept in an accessor that outlives `fp_api_release()`. No request, retry or TLS setting changed. |
-| `main/api_client.h` | `main/api_client.h` | no | Trimmed to match: upstream's OTA partition-writing and pairing-ack fields, structs and functions are all removed, since they exist only to serve machinery this project doesn't compile. Added `fp_api_has_token()`, `fp_api_release()`, and error sentinels for every Log Line Contract step token an authenticated call can fail on. Re-added `fp_fw_offer_t` and `fp_display_t.fw` — the offer shape `ota.c`/`state_machine.c` consume, not upstream's own OTA fields (this project's offer wire format and validation are its own, see `main/ota_policy.h`). Added `fp_api_set_wake_current()` and `fp_api_first_connect_ms()` for the wake telemetry header and timing record. |
+| `main/api_client.c` | `main/api_client.c` | no | Trimmed to the three endpoints this project uses. Removed: upstream's own OTA partition-writing loop, pairing registration and signature computation, and the versioned target-blob (BYOS override) resolution chain. Base-URL resolution now reads the device's provisioned `secret` NVS partition (`fp_device_creds_load`) instead of resolving an NVS target blob or a compiled-in macro. Kept, with local re-implementations since upstream's validators aren't vendored: display-response field validation, the streamed download with SHA-256 + exact-byte-count verification before any buffer is returned to the caller, and the setup call's token-shape check. All four telemetry headers are now sent unconditionally on every request, rather than upstream's conditional RSSI header; the battery header reports a real measured value. Every inline validation rule was replaced by calls to the pure `validate.c` functions, and every failure is classified into a Log Line Contract step token instead of a single generic error. One shared `esp_http_client` handle is reused for every request of a wake — setup, display and a same-origin download share one TCP+TLS connection — with header hygiene between requests, a retry-once-on-stale-connection rule, and the download bounded by the whole-wake budget. `tls_session.c` best-effort persists the TLS session across deep sleep. NVS access goes through `nvs_util.c` instead of hand-rolled sequences. A 401/403 on an authenticated call now erases the stored bearer token so the next wake re-enrols with no reflash. Re-added, on top of what upstream had: the display response's optional `"firmware"` object is parsed into `fp_display_t.fw` field-by-field (`validate.c`'s `fp_fw_version_valid`/`fp_fw_size_parse` plus the existing hash/URL validators, the URL accepts plain http only when the dev-only `CONFIG_SKYPANE_ALLOW_HTTP` override is on, so a LAN bench server can offer an OTA image; a production image, where that override is off, still forces https), permissively — a missing, null or malformed offer never rejects the poll, only logs which field failed. `X-Ota-Result` is sent whenever an OTA outcome is pending (`ota.c`'s `fp_ota_result_pending`) and cleared only once a display response actually parses at 200. Wake telemetry: one `X-Wake-Stats` header (counters and durations only, built by `wake_telemetry.c` from the current wake and the previous wake's RTC record) is set on the display request only and deleted by `clear_request_headers()` with the other per-request headers; the first TLS connect time is kept in an accessor that outlives `fp_api_release()`. No request, retry or TLS setting changed. Image container wiring: the download buffer is `FP_IMAGE_BUF_BYTES` (960256 bytes, the raw image plus 256 bytes of header room), a body is accepted only when `fp_body_len_plausible` says its length is the raw size or a container length, the SHA-256 runs over every received byte (header included), and `fp_api_download` reports the received length and whether the transfer completed. The display request, and only that request, carries `X-Img-Fmt: 1` while the sticky `imgfmt_bad` flag is clear and `X-Hw-Type` (the `SKYPANE_HW_TYPE` Kconfig string, sent only when `fp_hw_type_valid` accepts it); both names are deleted in `clear_request_headers()`. A 401/403 on an authenticated call still erases the token, but no longer produces a NO CONNECTION screen (see `fault_screen.c`). |
+| `main/api_client.h` | `main/api_client.h` | no | Trimmed to match: upstream's OTA partition-writing and pairing-ack fields, structs and functions are all removed, since they exist only to serve machinery this project doesn't compile. Added `fp_api_has_token()`, `fp_api_release()`, and error sentinels for every Log Line Contract step token an authenticated call can fail on. Re-added `fp_fw_offer_t` and `fp_display_t.fw` — the offer shape `ota.c`/`state_machine.c` consume, not upstream's own OTA fields (this project's offer wire format and validation are its own, see `main/ota_policy.h`). Added `fp_api_set_wake_current()` and `fp_api_first_connect_ms()` for the wake telemetry header and timing record. `fp_api_download` gained `body_len_out` and `complete_out`; `FP_IMAGE_BUF_BYTES` sizes the download buffer. |
 | `main/ota.c` | `main/ota.c` | no | Upstream's OTA glue was removed at this project's initial vendoring (it had no OTA path until this phase) and is re-derived here from the pinned commit's call-site ordering — apply before the hash-skip, confirm-before-deep-sleep on the same wake, never deferred — rewritten onto `esp_https_ota_begin/perform/finish` instead of upstream's own hand-rolled `esp_http_client_read` loop into `esp_ota_write`. Adds what upstream never had: the downloaded image's descriptor is checked against the offer and the compiled-in version floor before a byte is written, a read-back SHA-256 of the written OTA slot is compared against the offer's hash, and `esp_https_ota_finish()` is the single commit point where `esp_ota_end()` verifies the signature (`CONFIG_SECURE_SIGNED_ON_UPDATE_NO_SECURE_BOOT`) and switches the boot partition — every earlier check can only abort, never switch. Every actual OTA decision (start/refuse, image verdict, boot classification, the confirm rule, result tokens) is a call into `main/ota_policy.c`, never re-derived here. |
 | `main/ota.h` | `main/ota.h` | no | Upstream's own removed header, re-derived to declare this project's glue contract: `fp_ota_apply`, `fp_ota_boot_check`, `fp_ota_trial_pending`, `fp_ota_confirm_if_pending`, `fp_ota_record_result`, `fp_ota_mark_try`, `fp_ota_result_pending`/`fp_ota_result_clear`, `fp_ota_running_version` — the contract `main/state_machine.c` and `main/app_main.c` call. |
-| `main/nvs_schema.h` | `main/nvs_schema.h` | no | Trimmed from roughly thirty keys (BLE provisioning, pairing, OTA tracking, shipping mode, QR state) to twelve: the bearer token, the last blitted image hash, the failure counter and the boot counter on the default `nvs` partition, plus the per-device enrolment secret and the seven provisioned device-credential keys (Wi-Fi SSID/password, API base, optional static-IP set) on their own dedicated `secret` partition (read-only from the application's side, so neither a factory-reset nor an application bug can erase the one copy of a device's credentials). Re-added two keys on the default `nvs` partition for this project's own OTA tracking (`ota_try`: the version currently being attempted; `ota_result`: the outcome still waiting to be reported over `X-Ota-Result`) — not upstream's own removed OTA-tracking keys, a fresh pair sized to this project's `ota.c`/`ota_policy.c`. |
-| `main/state_machine.c` | `main/state_machine.c` | no | Trimmed to the walking-skeleton path only: connect Wi-Fi, ensure a bearer token exists, poll the display endpoint, hash-skip or download+verify+blit, persist the hash only after a successful blit. Removed the signed re-pair branch, the remote-reset branch, the button-wake/QR branches, and the whole provisioning/repair/factory-reset surface. Preserved the deferred-vs-failed distinction and the ordering rule that the image hash is written only after a successful blit. Added whole-wake budget checkpoints at each stage boundary, a table mapping every failure to its Log Line Contract token, per-stage wall-clock timing, and a bench-only fault-injection call site compiled to nothing in production. Re-added an OTA branch, between the LED preference and the hash-skip so an offer lands even on a wake where the picture is unchanged: `fp_ota_decide()` skips a same-version offer, continues normally past a battery or floor refusal (recording the outcome, not a failure), and on a start draws the on-device UPDATING screen before downloading — a real `esp_restart()` into the trial image on success. A failed attempt records its result token, clears the try marker and then falls through into the normal image path in the same wake (hash check, download, blit, or the deferred draw), so the UPDATING screen is replaced by the current picture with no failure backoff; step token `ota` is returned only when the radio cannot be brought back for that fetch. Not upstream's own OTA-evaluation branch — this project's offer gating, UPDATING screen and result reporting are its own. Passes the current wake's values to the API client before the display request and copies the SPI transfer time and first TLS connect time into the timing record after the draw; no control-flow change. |
+| `main/nvs_schema.h` | `main/nvs_schema.h` | no | Trimmed from roughly thirty keys (BLE provisioning, pairing, OTA tracking, shipping mode, QR state) to twelve: the bearer token, the last blitted image hash, the failure counter and the boot counter on the default `nvs` partition, plus the per-device enrolment secret and the seven provisioned device-credential keys (Wi-Fi SSID/password, API base, optional static-IP set) on their own dedicated `secret` partition (read-only from the application's side, so neither a factory-reset nor an application bug can erase the one copy of a device's credentials). Re-added two keys on the default `nvs` partition for this project's own OTA tracking (`ota_try`: the version currently being attempted; `ota_result`: the outcome still waiting to be reported over `X-Ota-Result`) — not upstream's own removed OTA-tracking keys, a fresh pair sized to this project's `ota.c`/`ota_policy.c`. A thirteenth key, `imgfmt_bad` (`FP_NVS_IMGFMT_BAD`), on the default `nvs` partition: a sticky flag set when an announced container fails the length gate, the hash or the reader; while it is set the frame stops announcing the container and receives the raw image. Only an NVS erase or a later release clears it. |
+| `main/state_machine.c` | `main/state_machine.c` | no | Trimmed to the walking-skeleton path only: connect Wi-Fi, ensure a bearer token exists, poll the display endpoint, hash-skip or download+verify+blit, persist the hash only after a successful blit. Removed the signed re-pair branch, the remote-reset branch, the button-wake/QR branches, and the whole provisioning/repair/factory-reset surface. Preserved the deferred-vs-failed distinction and the ordering rule that the image hash is written only after a successful blit. Added whole-wake budget checkpoints at each stage boundary, a table mapping every failure to its Log Line Contract token, per-stage wall-clock timing, and a bench-only fault-injection call site compiled to nothing in production. Re-added an OTA branch, between the LED preference and the hash-skip so an offer lands even on a wake where the picture is unchanged: `fp_ota_decide()` skips a same-version offer, continues normally past a battery or floor refusal (recording the outcome, not a failure), and on a start draws the on-device UPDATING screen before downloading — a real `esp_restart()` into the trial image on success. A failed attempt records its result token, clears the try marker and then falls through into the normal image path in the same wake (hash check, download, blit, or the deferred draw), so the UPDATING screen is replaced by the current picture with no failure backoff; step token `ota` is returned only when the radio cannot be brought back for that fetch. Not upstream's own OTA-evaluation branch — this project's offer gating, UPDATING screen and result reporting are its own. Passes the current wake's values to the API client before the display request and copies the SPI transfer time and first TLS connect time into the timing record after the draw; no control-flow change. Image container wiring: after the radio is off and before `fp_panel_draw`, the downloaded body goes through `imgc_parse` (legacy raw or container, CRC-32 checked) and the panel is drawn from the validated payload pointer. A parse failure frees the buffer, sets `imgfmt_bad`, reports step `verify`, leaves the stored hash untouched and keeps the last image on the glass; a complete body rejected by the length gate or the hash after the container was announced sets the same flag (`fp_imgfmt_latch_bad`), a network failure never does. An `fp_diag` line reports the format, the reader status and the CRC time. |
 | `main/state_machine.h` | `main/state_machine.h` | no | Trimmed to the one function this project's `app_main.c` calls, `fp_poll_once()`. Added a `fail_step_out` parameter so the caller can emit the Log Line Contract's failure line without re-deriving the step token, and a `timing_out` parameter carrying five per-stage millisecond fields for the diagnostic wake-timing line. `fp_poll_timing_t` gained `boot_ms`, `wifi_attempts`, `spi_ms`, `tls_ms` and `seq` for the previous-wake record and the telemetry header. |
 | `main/app_main.c` | `main/app_main.c` | no | Replaces upstream's BLE-provisioning dispatch, shipping-mode state machine, button actions, signed re-pair and factory-reset branches with the real wake dispatcher: init NVS, classify the wake reason, call `fp_poll_once()`, then either reset the failure counter and sleep for the server-supplied interval or back off on failure — every branch ends in `esp_deep_sleep_start()`. Added: nine compile-time assertions tying the local reset-reason mirror to the real ESP-IDF enum; the whole-wake budget timer and task watchdog armed before anything that could hang; an abnormal reset routes straight to a failure sleep before the radio starts; the battery is read before Wi-Fi; a diagnostic wake-timing line and a reset-reason line outside the frozen five-line contract; and, on the 2nd+ consecutive failure of an allow-listed step, a firmware-local NO CONNECTION hold screen drawn with zero server round-trip. The `poll fail step=…` contract line itself is byte-for-byte unchanged. Re-added, in this project's own shape rather than upstream's: `fp_ota_boot_check()` classifies the previous OTA attempt as early as NVS is usable, before the reset-reason failure exit, so a crash-induced rollback is recorded even on a wake that never reaches `fp_poll_once()`; `fp_ota_confirm_if_pending()` is the last call before the healthy path's `enter_deep_sleep()` — the rollback-safety ordering this whole phase exists to get right (see "Operational notes" below). Writes the previous-wake record into RTC memory at the single deep-sleep exit (`wake_record.c`, no flash write) and sets the wake's boot counter in the timing record. |
+| `main/Kconfig.projbuild` (hardware key) | `main/Kconfig.projbuild` | no | Added `SKYPANE_HW_TYPE`, the hardware key sent as `X-Hw-Type` on the display request, default `xiao-ee02-13in3-spectra6`. `firmware/tests/check_hw_type_key.sh` fails CI if the default drifts from the server's registry key in `server/hardware.py`. |
+| `sdkconfig.ee02.defaults` (hardware key) | `sdkconfig.ee02.defaults` | no | Sets `CONFIG_SKYPANE_HW_TYPE="xiao-ee02-13in3-spectra6"` for the EE02 build. |
+| `main/validate.c` / `main/validate.h` (image gates) | none (original, see below) | no | Four pure gates added: `fp_body_len_plausible` (raw size or container length within the 960256-byte buffer), `fp_hw_type_valid` (header grammar), `fp_imgfmt_announce` (announce only while the sticky flag is clear) and `fp_imgfmt_latch_bad` (latch only on a complete, rejected, announced body). |
+| `main/fault_screen.c` / `main/fault_screen.h` (allow-list) | none (original, see below) | no | The NO CONNECTION allow-list no longer contains `auth` and `enrol`: a refused token or enrolment keeps the last image and backs off (300 s up to 21600 s over the failure sequence, reset by one success) instead of drawing the screen. |
+| `main/image_container.c` (CRC) | none (original, see below) | no | `imgc_crc32` is table-driven (256-entry table built once) instead of bitwise, so checking a 960000-byte payload fits the wake budget; a host test compares it against the bitwise reference. |
 
 ## Original To This Repository
 
@@ -89,7 +94,9 @@ Files in `firmware/` that are not vendored from upstream at all:
   `PROJECT_VER` instead of `git describe`'s output — validated before
   Docker even starts (a clean, tagged `HEAD`) so a release image can
   never carry a `-dirty`/ahead-of-tag suffix; `SKYPANE_VERSION_LABEL`
-  covers the separate bench-image case. See `firmware/SIGNING.md` for
+  covers the separate bench-image case. `SKYPANE_BOARD=second` selects
+  `sdkconfig.second.defaults` and the `build-second*` directories; the
+  default (`ee02`) resolves to the same defaults and directories as before. See `firmware/SIGNING.md` for
   the signing step this feeds into (CI-only, never local).
 - `tests/run_host_tests.sh` — discovers every `test_<name>.c` in
   `tests/` by naming convention (compiling it against the matching
@@ -99,9 +106,10 @@ Files in `firmware/` that are not vendored from upstream at all:
   extras in a `HOST_TEST_DEPS:` comment.
 - `main/image_container.[ch]` — pure-C reader for the image container the
   server sends (magic, version, panel dimensions, lengths, CRC-32), plus
-  the legacy raw form. Nothing calls it yet and it is not linked into the
-  shipped binary until a later release, although `SRC_DIRS "."` in
-  `main/CMakeLists.txt` still compiles it.
+  the legacy raw form. It is linked into the shipped binary and called by
+  `main/state_machine.c` after the download and before the panel draw
+  (`imgc_parse`); a failure sets the sticky `imgfmt_bad` flag and keeps the
+  last image on the glass. The CRC-32 is table-driven.
 - `tests/test_image_container.c` — host test running the reader over the
   shared fixtures, the CRC-32 check value, full-size panel sizes and
   hostile buffers; needs `FIXTURE_DIR`, which `run_host_tests.sh` exports.
@@ -205,6 +213,9 @@ Files in `firmware/` that are not vendored from upstream at all:
   exactly ESP-IDF v5.3.1's layout — every public function is a no-op
   outside that exact pinned version, so a device on that path just pays
   a full handshake every wake.
+- `tests/check_hw_type_key.sh` — fails when the `SKYPANE_HW_TYPE` default
+  in `main/Kconfig.projbuild` differs from the hardware key in
+  `server/hardware.py`; run in `.github/workflows/firmware.yml`.
 - `tests/test_battery_math.c`, `tests/test_reset_reason.c`,
   `tests/test_wake_deadline.c`, `tests/test_sleep_decision.c`,
   `tests/test_nvs_boot.c`, `tests/test_validate.c`, `tests/test_creds.c`,
@@ -251,7 +262,8 @@ Files in `firmware/` that are not vendored from upstream at all:
   screen: a thin call into `hold_screen.c` with the committed
   `fault_screen_mask.h` mask, plus the allow-listed
   step/counter/already-shown gate deciding whether to draw at all.
-  Wired into `main/app_main.c`'s failure path.
+  Wired into `main/app_main.c`'s failure path. The `auth` and `enrol`
+  steps are deliberately not on the allow-list.
 - `main/fault_screen_mask.h` — generated (never hand-edited — a server
   test proves it matches its generator byte-for-byte) 1-bpp ink mask of
   the server's own NO CONNECTION composition, produced by
@@ -270,6 +282,53 @@ Files in `firmware/` that are not vendored from upstream at all:
   `hold_screen.c`'s exact integer Floyd-Steinberg dither spec (one
   spec, two implementations) to produce a firmware-equivalent
   side-by-side preview PNG per screen.
+
+- `main/panel_driver.h` — compile-time panel driver selection included by
+  `main/panel.c`: with `CONFIG_FP_PANEL_13IN3E` (the default) it defines
+  nothing; with `CONFIG_FP_PANEL_7IN3E` it maps the three driver calls
+  `panel.c` makes onto `main/epd7in3e.c` and checks the configured frame
+  size at compile time.
+- `main/epd7in3e.h` / `main/epd7in3e.c` — single-controller 800x480
+  Spectra 6 driver (see "Second hardware driver" below for provenance).
+  The init command table, the pin validator and the 4-bit pixel packer
+  are pure and host-tested; the SPI/GPIO layer is compiled only when
+  `CONFIG_FP_PANEL_7IN3E` is set, so the default image carries none of it.
+- `tests/test_epd7in3e.c` — host test of the pure parts above: packed
+  size and nibble order, init table order and lengths, the resolution
+  bytes, rejection of a wrong length, a short output buffer, null
+  pointers and invalid colour codes (nothing written on rejection), and
+  the pin validator.
+- `main/panel_geometry.h` — pure-C width, height and packed byte count of
+  the selected panel (1200x1600 by default, 800x480 under
+  `CONFIG_FP_PANEL_7IN3E`), with compile-time checks against
+  `CONFIG_FP_PANEL_BUFFER_BYTES`; the single source of the download size
+  and the fault-screen canvas.
+- `main/fault_screen_mask_800x480.h` / `main/updating_screen_mask_800x480.h`
+  — generated (never hand-edited — a server test proves each matches its
+  generator byte-for-byte) 1-bpp ink masks of the NO CONNECTION and
+  UPDATING compositions at 800x480, produced by
+  `tools/gen_fault_screen.py --panel 800x480` (add `--screen updating`
+  for the second). Selected by `fault_screen.c` / `updating_screen.c`
+  under `CONFIG_FP_PANEL_7IN3E`; the portrait masks are not linked then.
+- `tools/gen_fault_screen.py --panel` — `1200x1600` (default, output
+  unchanged) or `800x480`.
+- `tests/test_panel_geometry.c` — host test of `panel_geometry.h` for both
+  panel profiles (run through `HOST_TEST_PROFILES` in `run_host_tests.sh`).
+- Changed shared files (compile-time selection only, identical object code
+  for the default profile): `main/api_client.h`, `main/state_machine.c`,
+  `main/app_main.c`, `main/fault_screen.[ch]`, `main/updating_screen.c`,
+  `main/hold_screen.h`.
+- `sdkconfig.second.defaults` — board profile of the second hardware type
+  (Seeed XIAO ePaper EE04), layered on `sdkconfig.defaults` only; a
+  source comment per pin; the signed-app lines are inherited, not copied.
+- `flash-second.sh` — cable flash for the second hardware type: reads and
+  prints the chip MAC before anything is written, refuses a port or MAC
+  declared as the live frame's (`SKYPANE_LIVE_FRAME_PORT`,
+  `SKYPANE_LIVE_FRAME_MAC`), needs the MAC typed back at a prompt, then
+  verifies the image signature, writes and reads the app region back.
+- `spike-7in3/` — the paper-spike trial of the same driver and its build
+  scripts, kept as the evidence behind `hardware/SECOND-HARDWARE-SPIKE.md`;
+  not part of any shipped image.
 
 ## Deliberately Not Vendored
 
@@ -292,6 +351,63 @@ Upstream `main/` sources this project does not carry, and why:
   endpoint is not one of this project's success criteria; the Log Line
   Contract covers its observability needs via the serial console
   instead.
+
+## Panel drivers and the panel-diff gate
+
+The tree carries two panel drivers behind one entry point, `fp_panel_draw`
+in `main/panel.c`:
+
+- `main/epd13in3e.c`: the 13.3" driver of the live board (Seeed XIAO ePaper
+  EE02), derived from the FlightPortrait upstream. It is the default for
+  every configuration.
+- `main/epd7in3e.c`: the 7.3" driver of the second board, original to this
+  repository (see "Second hardware driver" below). Selected only by
+  `CONFIG_FP_PANEL_7IN3E`.
+
+`firmware/tests/check_panel_diff.sh` pins exactly two files against the
+base commit: `main/epd13in3e.c` and `main/panel.c`. Their diff may add
+only timer reads and the `panel_driver.h` include that selects the
+driver, so the live frame's refresh behaviour cannot change by accident.
+`main/epd7in3e.c` is not pinned by that gate; it is a new file and is
+covered by its own host tests and by never being compiled into the
+EE02 build.
+
+## Second hardware driver
+
+`main/epd7in3e.c` drives the single-controller 7.3" E Ink Spectra 6 panel
+(800x480, controller ED2208 according to Seeed) of the Seeed XIAO ePaper EE04.
+It is **not** derived from the FlightPortrait upstream above.
+
+- **Source of the init table:** Seeed_GFX2,
+  `src/driver/epaper/Driver_ED2208.cpp`, `Driver_ED2208::init()`
+  (https://github.com/Seeed-Studio/Seeed_GFX2), raw file read on branch
+  `main` on 2026-11-01, sha256 `7350cf3dc95d7116...` (first 16 hex digits;
+  re-read and matched on the day the driver was promoted). No commit SHA was
+  readable (the GitHub API was denied), so the pin is branch name, date and
+  hash of the file as fetched.
+- **What was taken:** the command order, the data bytes of the 20 table
+  entries and the register numbers of power-on, power-off, deep sleep, data
+  start and refresh, re-typed by hand. No code was copied; the SPI/GPIO layer
+  is written for ESP-IDF 5.3.1.
+- **Licence of that source:** MIT, "Copyright (c) 2026 Seeed Studio" (file
+  `LICENSE` of Seeed_GFX2, which begins "This library is original work by
+  Seeed Studio."). The full notice is reproduced in the header of
+  `main/epd7in3e.c`, as the licence requires for copied material, even though
+  only constants were taken. MIT is compatible with the Apache-2.0 licence of
+  this directory.
+- **Cross-reference, not copied:** the Waveshare `EPD_7in3e.c`
+  (https://github.com/waveshareteam/e-Paper, MIT-style permission notice in
+  the file header) uses a shorter init for the same panel with some different
+  values; both are listed in `hardware/SECOND-HARDWARE-SPIKE.md`. The
+  Waveshare ESP32-S3-PhotoPainter repository has no licence file and nothing
+  was taken from it.
+- **Pins:** Seeed_GFX2 `src/board/configs/XIAO_ePaper_Board_Configs.h`
+  (sha256 `6e28ce93004d8f24...`), as cited in the comments of
+  `sdkconfig.second.defaults`. Facts about a board, not code.
+- **Status:** compiled in the pinned container, never run against a panel.
+  Selected only by `CONFIG_FP_PANEL_7IN3E` (set in
+  `sdkconfig.second.defaults`); the default configuration and the EE02
+  profile keep the 13.3" driver.
 
 ## Log Line Contract
 

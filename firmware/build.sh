@@ -15,9 +15,19 @@
 # and layers sdkconfig.dev.defaults (CONFIG_SKYPANE_ALLOW_HTTP=y), so a
 # dev image can never be confused with a production one.
 #
+# SKYPANE_BOARD: ee02 (default, the live frame's board) | second. second
+# layers sdkconfig.second.defaults (7.3" panel, Seeed EE04) instead of the
+# EE02 profile and uses build-second / build-second-dev directories.
+#
 # SKYPANE_FAULT: none (default) | panic | task_wdt | int_wdt | slow_wake |
 # nvs -- selects one fault-injection Kconfig choice for bench verification.
 # Refused outside SKYPANE_PROFILE=dev; a production image can never carry one.
+#
+# SKYPANE_BENCH_FLOOR: unset (default) | a version matching fw-vX.Y.Z.
+# Raises the oldest release this image accepts over OTA
+# (CONFIG_SKYPANE_OTA_FLOOR_VERSION) so a bench unit can refuse an offer that
+# the server still serves. Refused outside SKYPANE_PROFILE=dev; a production
+# image always keeps the committed floor.
 #
 # SKYPANE_RELEASE_TAG: unset (default) | a release tag matching fw-vX.Y.Z.
 # When set, HEAD must already carry exactly that tag on a clean tree, and
@@ -39,6 +49,16 @@ IMAGE="espressif/idf:v5.3.1"
 
 SKYPANE_PROFILE="${SKYPANE_PROFILE:-prod}"
 SKYPANE_FAULT="${SKYPANE_FAULT:-none}"
+SKYPANE_BENCH_FLOOR="${SKYPANE_BENCH_FLOOR:-}"
+SKYPANE_BOARD="${SKYPANE_BOARD:-ee02}"
+
+case "${SKYPANE_BOARD}" in
+    ee02|second) ;;
+    *)
+        echo "ERROR: SKYPANE_BOARD must be 'ee02' or 'second' (got '${SKYPANE_BOARD}')" >&2
+        exit 2
+        ;;
+esac
 
 case "${SKYPANE_PROFILE}" in
     prod|dev) ;;
@@ -61,6 +81,18 @@ if [ "${SKYPANE_PROFILE}" = "prod" ] && [ "${SKYPANE_FAULT}" != "none" ]; then
     exit 2
 fi
 
+if [ -n "${SKYPANE_BENCH_FLOOR}" ]; then
+    if [ "${SKYPANE_PROFILE}" != "dev" ]; then
+        echo "ERROR: SKYPANE_BENCH_FLOOR is dev-only; set SKYPANE_PROFILE=dev to use it" >&2
+        exit 2
+    fi
+    if ! printf '%s' "${SKYPANE_BENCH_FLOOR}" \
+        | grep -Eq '^fw-v(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]{0,3})$'; then
+        echo "ERROR: SKYPANE_BENCH_FLOOR '${SKYPANE_BENCH_FLOOR}' does not match fw-vMAJOR.MINOR.PATCH" >&2
+        exit 2
+    fi
+fi
+
 SKYPANE_RELEASE_TAG="${SKYPANE_RELEASE_TAG:-}"
 SKYPANE_VERSION_LABEL="${SKYPANE_VERSION_LABEL:-}"
 
@@ -81,17 +113,22 @@ if [ -n "${SKYPANE_VERSION_LABEL}" ]; then
 fi
 
 if [ "${SKYPANE_PROFILE}" = "dev" ]; then
-    BUILD_DIR="build-ee02-dev"
-    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ee02.defaults;sdkconfig.dev.defaults"
+    BUILD_DIR="build-${SKYPANE_BOARD}-dev"
+    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.${SKYPANE_BOARD}.defaults;sdkconfig.dev.defaults"
     if [ "${SKYPANE_FAULT}" != "none" ]; then
         FAULT_UPPER=$(printf '%s' "${SKYPANE_FAULT}" | tr '[:lower:]' '[:upper:]')
         mkdir -p "${SCRIPT_DIR}/${BUILD_DIR}"
         echo "CONFIG_SKYPANE_FAULT_INJECT_${FAULT_UPPER}=y" > "${SCRIPT_DIR}/${BUILD_DIR}/sdkconfig.fault.defaults"
         SDKCONFIG_DEFAULTS="${SDKCONFIG_DEFAULTS};${BUILD_DIR}/sdkconfig.fault.defaults"
     fi
+    if [ -n "${SKYPANE_BENCH_FLOOR}" ]; then
+        mkdir -p "${SCRIPT_DIR}/${BUILD_DIR}"
+        echo "CONFIG_SKYPANE_OTA_FLOOR_VERSION=\"${SKYPANE_BENCH_FLOOR}\"" > "${SCRIPT_DIR}/${BUILD_DIR}/sdkconfig.floor.defaults"
+        SDKCONFIG_DEFAULTS="${SDKCONFIG_DEFAULTS};${BUILD_DIR}/sdkconfig.floor.defaults"
+    fi
 else
-    BUILD_DIR="build-ee02"
-    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.ee02.defaults"
+    BUILD_DIR="build-${SKYPANE_BOARD}"
+    SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.${SKYPANE_BOARD}.defaults"
 fi
 
 if [ "${ACTION}" = "build" ]; then
@@ -132,7 +169,7 @@ else
 fi
 
 echo "Firmware version: ${VER}"
-echo "Profile: ${SKYPANE_PROFILE} fault=${SKYPANE_FAULT}"
+echo "Profile: ${SKYPANE_PROFILE} board=${SKYPANE_BOARD} fault=${SKYPANE_FAULT}"
 
 docker run --rm \
     -v "${SCRIPT_DIR}:/project" \

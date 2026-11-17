@@ -153,6 +153,25 @@ def test_success_and_info_hide_after_the_dwell(new_context, server, route, key):
         context.close()
 
 
+def test_a_toast_that_times_out_fades_out_before_it_goes(new_context, server):
+    """at the end of the dwell the toast starts leaving (it is not yet gone and not yet at full
+    opacity) and is removed once its short fade is over"""
+    route, key = _SUCCESS_FLASH
+    context, page = _open(new_context, server, clock=True)
+    try:
+        _goto(page, server, route, key)
+        page.clock.run_for(DWELL_MS + 20)
+        assert _toast_count(page) == 1, "the toast must not vanish without a leaving motion"
+        page.wait_for_function(
+            "s => { const t = document.querySelector(s);"
+            " return !!t && t.classList.contains('is-leaving')"
+            " && parseFloat(getComputedStyle(t).opacity) < 1; }", arg=TOAST, timeout=5000)
+        page.clock.run_for(400)
+        assert _toast_count(page) == 0, "expected the toast gone once its fade is over"
+    finally:
+        context.close()
+
+
 def test_auto_hide_pauses_on_hover_focus_and_hidden_document(new_context, server):
     """hovering the toast, focusing a control inside it, or hiding the document each pause the
     countdown; it resumes with the time that was left once the cause ends"""

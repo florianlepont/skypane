@@ -465,6 +465,42 @@ def test_dark_theme_unchecked_switch_thumb_stands_out_from_its_track(new_context
         context.close()
 
 
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
+def test_the_quiet_hours_link_owns_a_44px_square_around_it_at_every_width(
+        new_context, make_app_server, lang, viewport_name, viewport):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    context, page = _open_home(new_context, server.base_url(), lang, viewport)
+    try:
+        link = page.locator(".home-switch__window")
+        link.wait_for(state="visible")
+        link.scroll_into_view_if_needed()
+        page.wait_for_function(
+            """() => { if (document.readyState !== 'complete') return false;
+              const el = document.querySelector('.home-switch__window');
+              const r = el.getBoundingClientRect();
+              const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              return hit === el || el.contains(hit); }""", timeout=10000)
+        page.wait_for_function(
+            "() => document.getAnimations().every((a) => a.playState !== 'running'"
+            " || a.effect.getComputedTiming().iterations === Infinity)")
+        reach = page.evaluate(
+            """() => { const el = document.querySelector('.home-switch__window');
+              const r = el.getBoundingClientRect();
+              const x = r.left + r.width / 2, cy = r.top + r.height / 2;
+              const owns = (px, py) => { const n = document.elementFromPoint(px, py);
+                return !!n && el.contains(n); };
+              let up = 0, down = 0, left = 0, right = 0;
+              while (up < 64 && owns(x, cy - up - 1)) up++;
+              while (down < 64 && owns(x, cy + down + 1)) down++;
+              while (left < 64 && owns(r.left - left - 1, cy)) left++;
+              while (right < 64 && owns(r.right + right, cy)) right++;
+              return {height: up + down + 1, width: r.width + left + right}; }""")
+        assert reach["height"] >= 44 and reach["width"] >= 44, (viewport_name, lang, reach)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("viewport_name,viewport", [VIEWPORTS[0], VIEWPORTS[-2]], ids=["1280", "390"])
 def test_quiet_hours_window_link_opens_the_dialog_without_toggling(
         new_context, make_app_server, viewport_name, viewport):

@@ -34,6 +34,25 @@ _ATTRIBUTION_TEXT = i18n.msg(
     "credits.attribution_required", "Attribution required")
 _BACK_TEXT = i18n.msg("credits.back_to_sign_in", "Back to sign in")
 
+# The data file holds one English licence line per source. A line that is plain
+# words (not a licence identifier such as CC0 or BSD-2-Clause) is translated
+# here, keyed by its exact text; any other text is shown as written.
+_LICENCE_LINE_TEXTS = {
+    "Open data, non-commercial use": i18n.msg(
+        "credits.licence_open_data_non_commercial", "Open data, non-commercial use"),
+    "Free, crowdsourced": i18n.msg("credits.licence_free_crowdsourced", "Free, crowdsourced"),
+    "Public domain": i18n.msg("credits.licence_public_domain", "Public domain"),
+    "Map data © OpenStreetMap contributors, ODbL": i18n.msg(
+        "credits.licence_osm_map_data", "Map data © OpenStreetMap contributors, ODbL"),
+    "Search data © OpenStreetMap contributors, ODbL": i18n.msg(
+        "credits.licence_osm_search_data", "Search data © OpenStreetMap contributors, ODbL"),
+}
+
+
+def _licence_line(licence):
+    message = _LICENCE_LINE_TEXTS.get(licence)
+    return i18n.t(message) if message is not None else licence
+
 
 def _fail(message):
     raise ValueError("credits file: " + message)
@@ -122,7 +141,7 @@ def _source_card_html(source, lang):
             layout.escape_html(source["name"]),
             layout.escape_html(source["description"][lang]),
             layout.escape_html(i18n.t(_LICENCE_TEXT)),
-            layout.escape_html(source["licence"]),
+            layout.escape_html(_licence_line(source["licence"])),
             pill,
             layout.escape_html(source["url"]),
             layout.escape_html(
@@ -138,7 +157,7 @@ def _back_link_html(back, home_route):
         route, label = "/login", _BACK_TEXT
     else:
         route, label = home_route or layout.HOME_ROUTE, login_page._BACK_TO_HOME_TEXT
-    return '<p class="text-body"><a href="%s">%s</a></p>' % (
+    return '<p class="text-body credits-back"><a class="text-link" href="%s">%s</a></p>' % (
         layout.escape_html(route), layout.escape_html(i18n.t(label)))
 
 

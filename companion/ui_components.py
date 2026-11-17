@@ -173,17 +173,6 @@ def toast_post_action_html(action, fields, label, glyph="icon-undo"):
          icon_html(glyph, 16, extra_class="toast__action-glyph"))
 
 
-def csrf_query(url):
-    """`url` with the session's anti-forgery token appended to its query, for a
-    multipart upload whose body the server must not read before the handler
-    does. Unchanged when no session is in scope. Query strings are never
-    logged by the server."""
-    token = prefs.current_csrf()
-    if not token:
-        return url
-    return "%s%scsrf_token=%s" % (url, "&" if "?" in url else "?", escape_html(token))
-
-
 def csrf_field():
     """The hidden anti-forgery input for a protected POST form, carrying the
     current session's token; an empty string when no session is in scope.
@@ -406,6 +395,25 @@ def icon_link_html(icon_id, aria_label, href, variant="ghost", attrs=""):
     ) % (variant, escape_html(href), escape_html(aria_label), attrs, icon_html(icon_id, 20))
 
 
+def link_card_html(href, icon_id, title, subtitle="", aria_label="", extra_class=""):
+    """The highlighted link card: one tinted, accent-bordered link across its
+    whole width with an accent icon tile, a title, an optional subtitle that
+    wraps instead of being cut, and an accent chevron. For the one destination
+    a surface wants to stand out from its plain rows. `href`, `title`,
+    `subtitle` and `aria_label` are escaped here; `extra_class` is trusted."""
+    css = "link-card" + (" " + extra_class if extra_class else "")
+    label = ' aria-label="%s"' % escape_html(aria_label) if aria_label else ""
+    sub = ('<span class="link-card__subtitle">%s</span>' % escape_html(subtitle)
+           if subtitle else "")
+    return (
+        '<a class="%s" href="%s"%s>'
+        '<span class="link-card__icon">%s</span>'
+        '<span class="link-card__text"><span class="link-card__title">%s</span>%s</span>'
+        '<span class="link-card__chevron">%s</span></a>'
+    ) % (css, escape_html(href), label, icon_html(icon_id, 22), escape_html(title), sub,
+         icon_html("icon-chevron-right", 20))
+
+
 def title_action_html(title, action_html=""):
     """A page title with one round icon action beside it, on one line: the
     `<h1>` (escaped here) and the caller's already-safe `action_html`, such as
@@ -431,10 +439,15 @@ def text_field_html(field_id, name, label, value="", help_text="", error_html=""
         escape_html(name), escape_html(value), input_attrs, error_html, help_html)
 
 
-def pill_html(text):
+PILL_TONES = ("ok", "info", "warn")
+
+
+def pill_html(text, tone=None):
     """The one small badge: a neutral pill beside a title or inside a row (a
-    status, a count, an outcome). `text` is escaped here."""
-    return '<span class="banner__pill">%s</span>' % escape_html(text)
+    status, a count, an outcome). `tone` (one of `PILL_TONES`) tints it with a
+    status colour; any other value leaves it neutral. `text` is escaped here."""
+    tone_class = " banner__pill--%s" % tone if tone in PILL_TONES else ""
+    return '<span class="banner__pill%s">%s</span>' % (tone_class, escape_html(text))
 
 
 def form_switch_html(field_id, name, label, checked=False, attrs=""):

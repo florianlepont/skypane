@@ -15,7 +15,7 @@ import sqlite3
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta, timezone
 
-from companion import airline_display, flight_card, history_cache
+from companion import airline_display, history_cache, history_query
 from companion.pages import airline_sheet
 from server import history_db
 from server.plane import illustrations
@@ -38,10 +38,6 @@ RARITY_OCCASIONAL = "occasional"
 RARITY_RARE = "rare"
 # Not seen yet: no rarity.
 RARITY_NONE = ""
-
-_SELECT_EVENTS = (
-    "SELECT id, ts, hex, callsign, aircraft_type, confirmed_state, origin, "
-    "destination, airline FROM runway_events ORDER BY ts DESC, id DESC")
 
 
 @dataclass(frozen=True)
@@ -111,9 +107,9 @@ def _curated_index(overrides):
 
 
 def _sightings(conn):
-    """Stored events newest first with repeated passes folded away."""
-    return history_cache.cached(conn, "sightings", lambda: flight_card.fold_repeated_passes(
-        [dict(row) for row in conn.execute(_SELECT_EVENTS).fetchall()]))
+    """Stored events newest first with repeated passes folded away: the
+    one fold Flights reads too."""
+    return history_query.folded_history(conn).rows
 
 
 # The airline key of a name is a pure function of it, asked for once per stored

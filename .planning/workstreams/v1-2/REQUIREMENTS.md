@@ -21,7 +21,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **OTA-01**: The owner can publish and schedule firmware releases per hardware type, and a frame is only ever offered a release of its own server-assigned type.
 - [x] **OTA-02**: An uploaded binary whose app descriptor or chip target does not match the declared hardware type is rejected, and downgrades are refused by a monotonic build number.
 - [ ] **OTA-03**: The owner can decide whether OTA images are signed, record the decision (including any one-time cable flash it needs) before the second hardware is provisioned, and the chosen integrity mechanism is verified on the device side.
-- [ ] **OTA-04**: All firmware changes needed on the current frame (image-header reader, any hardware header, recovery after repeated 401) ship in one release, only once Phase 47 allows it and the OTA signing bench procedure of `firmware/SIGNING.md` has passed on a non-live unit.
+- [x] **OTA-04**: All firmware changes needed on the current frame (image-header reader, any hardware header, recovery after repeated 401) ship in one release, only once Phase 47 allows it and the OTA signing bench procedure of `firmware/SIGNING.md` has passed on a non-live unit.
 
 ### Image Format
 
@@ -59,15 +59,21 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ### Second Hardware
 
-- [ ] **HW2-01**: The owner can choose a second hardware type from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, within the hardware budget.
-- [ ] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
+- [x] **HW2-01**: The owner can choose a second hardware type from a documented shortlist after a time-boxed ESP-IDF panel-driver spike, within the hardware budget.
+- [x] **HW2-02**: The chosen board is validated on an evaluation unit: cable flash, a real OTA, the OTA signing bench procedure of `firmware/SIGNING.md` (the device-side half of OTA-03), a native layout, a measured battery sample and a rebuilt battery model.
+
+### Second Hardware in Production
+
+- [ ] **HW2-03**: The second board is built in production by CI and published by the release pipeline as a signed image with a per-type manifest, the production deploy imports it, and it is offered, installed and reported over the air on a second-type frame in production, with the result recorded in its own registry and the live frame's release path unchanged.
+- [ ] **HW2-04**: The second type is available in production through its own switch, lifted only on the owner's written confirmation, and every companion view that shows a picture or a battery number follows the frame's hardware profile. The owner can pair, administer and manage a second-type frame in the companion as they manage the live frame, validated on a real frame in production as an administrator and as an invited user.
+- [ ] **HW2-05**: The second panel's firmware assumptions (wake-stage budget, refresh spacing, battery sense and pins) are settled with measured values, and the documents describe both boards, with provisioning guarded against the live frame.
 
 ### Companion UX
 
-- [ ] **UX-01**: The owner can walk through the companion's main tasks as an administrator and as an invited user, on a phone and a desktop and in English and French; the observed friction is recorded and ranked, and navigation and page structure are reworked for the confirmed findings against an updated design contract.
-- [ ] **UX-02**: An administrator can read the fleet state, invite a user, pair a frame, retire, reassign or re-activate a frame, add a co-manager and read the audit log without help, and the reworked console flows are validated by the owner on the deployed companion.
-- [ ] **UX-03**: An invited user sees only what concerns their own frames, understands the state of each frame at a glance and can change its settings without meeting administrator concepts, validated by the owner on a phone.
-- [ ] **UX-04**: Sign-in and invitation read clearly: a user whose Auth0 email is not verified gets a message that says so, the first arrival of an invited user is guided, and sign-in errors say what to do next.
+- [x] **UX-01**: The owner can walk through the companion's main tasks as an administrator and as an invited user, on a phone and a desktop and in English and French; the observed friction is recorded and ranked, and navigation and page structure are reworked for the confirmed findings against an updated design contract.
+- [x] **UX-02**: An administrator can read the fleet state, invite a user, pair a frame, retire, reassign or re-activate a frame, add a co-manager and read the audit log without help, and the reworked console flows are validated by the owner on the deployed companion.
+- [x] **UX-03**: An invited user sees only what concerns their own frames, understands the state of each frame at a glance and can change its settings without meeting administrator concepts, validated by the owner on a phone.
+- [x] **UX-04**: Sign-in and invitation read clearly: a user whose Auth0 email is not verified gets a message that says so, the first arrival of an invited user is guided, and sign-in errors say what to do next.
 
 ### Plane Screen Redesign
 
@@ -88,6 +94,21 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 - [x] **CIS-03**: Coverage from all jobs is combined and the existing `fail_under` floor applies unchanged to the combined result.
 - [x] **CIS-04**: No test is skipped, disabled, deselected or quarantined; the executed count stays at or above 12,821; a missing browser fails CI; the network guard and the behaviour-over-source suite guards stay in force.
 - [x] **CIS-05**: Before and after timings are recorded, and the slowest tests are made cheaper without dropping cases.
+
+### Detection Robustness (Runway 3 and Multi-Airport)
+
+- [ ] **TRK-01**: On Paris-Orly runway 3, the aircraft shown as departing or arriving match an independent source over a recorded period, and every mismatch is fixed or recorded with its cause, with the owner's agreement before any detection change.
+- [ ] **TRK-02**: On the other Paris-Orly runways (06/24 and 02/20) and on at least two other French airports (one with parallel runways, one with a single runway), tested on simulated fleet devices and not on the live frame, the aircraft shown as departing or arriving match an independent source during live sessions, and every mismatch is fixed or recorded with its cause, with the owner's agreement before any detection change.
+- [ ] **BAT-01** (moved to SEED-019, milestone v1.4, on 2026-11-15; no longer in v1.2): The battery tests prove what they claim, and the voltage-to-percentage curve and low-battery threshold of each of the two batteries are checked against a measured discharge, or marked provisional with the gap listed.
+
+### Console and Companion Visual Improvements
+
+- [ ] **CON-01**: The visual improvements the owner lists for the console and the companion are made within the design system, in English and French and at phone width, with mockups approved first and no behaviour change beyond the list.
+
+### Security and Quality
+
+- [ ] **SEC-AUD-01**: The whole platform is audited for security (sign-in, roles, device protocol, firmware update, companion inputs, server and deploy, dependencies, secrets, backups, logs); every finding is fixed and tested, or accepted by the owner in writing.
+- [ ] **QUAL-01**: The repository, code, tests and documents are cleaned and made consistent, with a measured before and after record, an architecture document, no behaviour change, and no weakened CI gate.
 
 ### Debt
 
@@ -114,7 +135,7 @@ Runs in parallel with v1.1 Phase 47 (open, untouched). Phase numbering continues
 
 ## Traceability
 
-Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
+Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 
 | Requirement | Phase | Status |
 |---|---|---|
@@ -145,13 +166,22 @@ Coverage: 44/44 v1.2 requirements mapped, each to exactly one phase.
 | AUTH-05 | Phase 55 | Complete (verified in code and in production by the owner, 2026-11-01; the real-panel pairing test waits for the second hardware, Phase 58) |
 | HWR-01 | Phase 56 | Complete |
 | HWR-02 | Phase 56 | Complete (contact deferred by the owner until more than 10 users) |
-| OTA-04 | Phase 57 | Pending |
-| HW2-01 | Phase 58 | Pending |
-| HW2-02 | Phase 58 | Pending |
-| UX-01 | Phase 61 | Pending |
-| UX-02 | Phase 61 | Pending |
-| UX-03 | Phase 61 | Pending |
-| UX-04 | Phase 61 | Pending |
+| OTA-04 | Phase 57 | Complete |
+| HW2-01 | Phase 58 | Complete |
+| HW2-02 | Phase 58 | Complete, with one exception accepted by the owner on 2026-11-15: the battery sample and rebuilt model were not obtained, the model stays provisional (see 58-04-SUMMARY.md) |
+| HW2-03 | Phase 64 | Pending |
+| HW2-04 | Phase 64 | Pending |
+| HW2-05 | Phase 64 | Pending |
+| TRK-01 | Phase 65 | Pending |
+| TRK-02 | Phase 65 | Pending |
+| BAT-01 | SEED-019 (v1.4) | Moved out of Phase 65 on 2026-11-15 |
+| CON-01 | Phase 68 | Pending |
+| SEC-AUD-01 | Phase 66 | Pending |
+| QUAL-01 | Phase 67 | Pending |
+| UX-01 | Phase 61 | Complete |
+| UX-02 | Phase 61 | Complete |
+| UX-03 | Phase 61 | Complete |
+| UX-04 | Phase 61 | Complete |
 | DEBT-01 | Phase 59 | Pending |
 | PSR-01 | Phase 62 | Complete |
 | PSR-02 | Phase 62 | Complete |

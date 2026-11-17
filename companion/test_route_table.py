@@ -74,6 +74,7 @@ _PUBLIC_EXEMPTIONS = {
     ("GET", routes.Exact(routes.CREDITS_ROUTE)),
     ("GET", routes.Exact("/api/export/battery-history")),
 }
+_PUBLIC_EXEMPTIONS |= {("GET", routes.Exact(route)) for route in routes.EXPORT_EXTRA_ROUTES}
 _PUBLIC_EXEMPTIONS |= {("GET", routes.Exact(route)) for route in static_files.STATIC_ROUTES}
 
 _GATED_ROUTES = [r for r in routes.ROUTES if (r.method, r.matcher) not in _PUBLIC_EXEMPTIONS]
@@ -85,8 +86,8 @@ _GATED_ROUTE_IDS = [
 
 def test_public_routes_are_exactly_login_and_static_assets():
     """The only routes with a PUBLIC access are GET /login, the
-    GET sign-in start and callback, the credits page, the bearer-token export (which
-    authenticates itself), and one GET per companion/static_files.py STATIC_ROUTES entry - nothing
+    GET sign-in start and callback, the credits page, the bearer-token exports (which
+    authenticate themselves), and one GET per companion/static_files.py STATIC_ROUTES entry - nothing
     else in the table ever grants pre-session access.
     """
     actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access.min_role == routes.ANONYMOUS}
@@ -97,6 +98,7 @@ def test_public_routes_are_exactly_login_and_static_assets():
         ("GET", routes.Exact(routes.CREDITS_ROUTE)),
         ("GET", routes.Exact("/api/export/battery-history")),
     }
+    expected |= {("GET", routes.Exact(route)) for route in routes.EXPORT_EXTRA_ROUTES}
     expected |= {("GET", routes.Exact(route)) for route in static_files.STATIC_ROUTES}
     assert actual == expected
 
@@ -227,7 +229,7 @@ def test_every_gated_route_redirects_an_anonymous_request(route_table_server, ro
     origin gate), answers with the same status and Location the
     committed pre-refactor baseline recorded for that exact path - and
     that status is always a 303 to LOGIN_ROUTE, with `?next=` where
-    require_session() adds one.
+    require_session() adds one and `?expired=1` for a posted form.
     """
     path = _sample_path(route.matcher)
     baseline = companion_render_snapshot.load_baseline()["unauthenticated"]
@@ -247,7 +249,10 @@ def test_every_gated_route_redirects_an_anonymous_request(route_table_server, ro
     assert location == expected["location"], (
         "%s: Location %r does not match the committed baseline's %r"
         % (key, location, expected["location"]))
-    assert location == routes.LOGIN_ROUTE or location.startswith(routes.LOGIN_ROUTE + "?next="), (
+    # A posted form is also told that unsaved changes were not kept; signing out is not.
+    plain = (routes.LOGIN_ROUTE + "?expired=1"
+             if route.method == "POST" and path != routes.LOGOUT_ROUTE else routes.LOGIN_ROUTE)
+    assert location == plain or location.startswith(routes.LOGIN_ROUTE + "?next="), (
         "%s: expected a redirect to LOGIN_ROUTE, got %r" % (key, location))
 
 

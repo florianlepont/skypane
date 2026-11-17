@@ -25,6 +25,7 @@ import companion.draw as draw
 import companion.layout as layout
 import companion.test_companion_app_helpers as cah
 import companion.theme_preview as theme_preview
+import companion.upload_form as upload_form
 from companion.pages import health_page
 from companion_app_server import http_request, served_asset, served_stylesheet
 from companion_markup import css_rules, declarations_for
@@ -196,7 +197,7 @@ def test_nav_script_route_and_styled_nav_classes(app02_server, served_css):
     """companion.app.NAV_SCRIPT_ROUTE names the served shell script, and the nav classes the
     rendered tab bar uses are styled in style.css"""
     for cls in (
-            "mobile-nav__link", "tab-bar", "tab-bar__link", "tab-bar__link--switch",
+            "mobile-nav__link", "tab-bar", "tab-bar__link", "tab-bar__space-link",
             "frame-menu", "frame-menu__button", "frame-menu__panel", "frame-row"):
         assert _class_is_styled(served_css, cls), (
             "DOM contract drift: %r is not styled in style.css" % cls)
@@ -260,9 +261,9 @@ def _tab_bar_slice(doc):
     return doc[start:doc.index("</nav>", start) + len("</nav>")]
 
 
-def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
-    """the bottom tab bar renders five cells from the same personal entries as the sidebar —
-    the same destinations, Home/History/Location/Style as tab links and the rest behind a
+def test_tab_bar_is_six_cells_from_the_one_shared_nav_iteration():
+    """the bottom tab bar renders six cells from the same personal entries as the sidebar —
+    the same destinations, Home/Flights/Airlines/Style/Place as tab links and Account behind a
     native <details> sheet, exactly one aria-current="page" sits on the real link (never on
     the <summary>), the More summary wears the active pill on a sheet page, it carries the
     shared Primary-navigation landmark name, and the whole bar carries no script hook"""
@@ -280,14 +281,14 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
         "expected the personal sidebar order, got %r" % (sidebar_routes,))
 
     tab_links = re.findall(r'<a class="tab-bar__link[^"]*" href="([^"]+)"', bar)
-    assert tab_links == ["/", "/flights", "/detection", "/display"], (
-        "expected Home, History, Location and Style as tab links, got %r" % (tab_links,))
+    assert tab_links == ["/", "/flights", "/airlines", "/display", "/detection"], (
+        "expected Home, Flights, Airlines, Style and Place as tab links, got %r" % (tab_links,))
     assert bar.count("<details class=\"tab-bar__more\">") == 1, "expected exactly one <details> More cell"
     assert bar.count("<summary") == 1, "expected the More cell to be a native <summary>"
     sheet = bar[bar.index('<div class="tab-bar__more-panel">'):]
     sheet_links = re.findall(r'<a class="mobile-nav__link[^"]*" href="([^"]+)"', sheet)
-    assert sheet_links == ["/airlines", "/account"], (
-        "expected the More sheet to hold the airline collection and Account, got %r"
+    assert sheet_links == ["/account"], (
+        "expected the More sheet to hold Account alone, got %r"
         % (sheet_links,))
 
     assert bar.count('aria-current="page"') == 1, (
@@ -299,20 +300,20 @@ def test_tab_bar_is_five_cells_from_the_one_shared_nav_iteration():
         "expected the aria-current link to be the active tab")
 
     advanced_doc = layout.page_shell(
-        title="T", active="airlines", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
+        title="T", active="account", body="<p>b</p>", device_config=_TAB_BAR_DEVICE_CFG)
     advanced_bar = _tab_bar_slice(advanced_doc)
     summary_start = advanced_bar.index("<summary")
     summary_tag = advanced_bar[summary_start:advanced_bar.index(">", summary_start)]
     assert "tab-bar__link--active" in summary_tag, (
-        "expected the More summary to wear the active pill on an Advanced page, got %r"
+        "expected the More summary to wear the active pill on a sheet page, got %r"
         % (summary_tag,))
     assert 'aria-current="page"' not in summary_tag, (
         "a <summary> is a disclosure control, not the current page — aria-current must "
         "stay on the link")
     assert advanced_bar.count('aria-current="page"') == 1, (
-        "expected exactly one aria-current on an Advanced page too")
+        "expected exactly one aria-current on a sheet page too")
     assert "tab-bar__link--active" not in advanced_bar[:advanced_bar.index("<details")], (
-        "expected none of the four bar tabs to be active on /airlines")
+        "expected none of the five bar tabs to be active on /account")
 
     assert 'aria-label="Primary navigation"' in bar, "expected the landmark name on the tab bar"
     for banned in ("onclick", "data-", "<script"):
@@ -385,6 +386,37 @@ def test_parser_two_parts_returns_none():
     content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
     result = app_module.parse_single_uploaded_file(content_type, body)
     assert result is None, "expected None for a two-part body, got %r" % (result,)
+
+
+def test_parser_accepts_a_leading_token_part_and_returns_both():
+    """parse_upload_form() returns the file bytes and the token of a body that opens with
+    the token text part; parse_single_uploaded_file() still returns just the file bytes"""
+    body, content_type = cah.encode_multipart(_VALID_UPLOAD_PAYLOAD)
+    boundary = content_type.split("boundary=")[1].encode()
+    body = (
+        b"--" + boundary + b'\r\nContent-Disposition: form-data; name="csrf_token"'
+        b"\r\n\r\nabc123DEF-_\r\n" + body)
+    assert upload_form.parse_upload_form(content_type, body) == (
+        _VALID_UPLOAD_PAYLOAD, "abc123DEF-_")
+    assert app_module.parse_single_uploaded_file(content_type, body) == _VALID_UPLOAD_PAYLOAD
+    assert upload_form.parse_upload_form(
+        *reversed(cah.encode_multipart(_VALID_UPLOAD_PAYLOAD))) == (_VALID_UPLOAD_PAYLOAD, None)
+
+
+def test_parser_refuses_a_second_file_part_next_to_the_token():
+    """a token part followed by two file parts, or by none, is not an upload"""
+    boundary = b"SkyPaneTokenBoundary3x"
+    token = (
+        b"--" + boundary + b'\r\nContent-Disposition: form-data; name="csrf_token"'
+        b"\r\n\r\nabc\r\n")
+    file_part = (
+        b"--" + boundary + b'\r\nContent-Disposition: form-data; name="f"; filename="f.png"'
+        b"\r\n\r\nAAAA\r\n")
+    closing = b"--" + boundary + b"--\r\n"
+    content_type = "multipart/form-data; boundary=%s" % boundary.decode("ascii")
+    assert upload_form.parse_upload_form(content_type, token + file_part + closing) == (b"AAAA", "abc")
+    assert upload_form.parse_upload_form(content_type, token + file_part + file_part + closing) is None
+    assert upload_form.parse_upload_form(content_type, token + closing) is None
 
 
 def test_parser_urlencoded_media_type_returns_none():
@@ -1459,12 +1491,12 @@ def test_unauth_get_gallery_image_redirects_to_login_without_next(app02_server):
 
 
 def test_unauth_post_settings_redirects_to_login_without_next(app02_server):
-    """unauthenticated POST /settings redirects to /login (the write route is not a tab, so
-    no ?next=)"""
+    """unauthenticated POST /settings redirects to /login with the mark that unsaved changes
+    were not kept (the write route is not a page and no form page was named, so no ?next=)"""
     data = urllib.parse.urlencode({"ui_theme": "sky"}).encode()
     status, headers, body = http_request(app02_server.base_url() + "/settings", method="POST", data=data)
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login"
+    assert headers.get("Location") == "/login?expired=1"
     assert not body
 
 

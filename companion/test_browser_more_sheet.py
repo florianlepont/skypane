@@ -110,7 +110,7 @@ def test_language_is_one_tap_in_the_sheet_and_survives_a_reload(new_context, app
         assert page.locator(
             ".tab-bar__more-panel button[name=ui_lang][aria-pressed=true]"
         ).get_attribute("value") == "fr"
-        assert page.locator(".tab-bar__pref-label").first.inner_text() == "Thème"
+        assert page.locator(".tab-bar__pref .row__label").first.inner_text() == "Thème"
         page.locator(".tab-bar__more-panel button[name=ui_lang][value=en]").click()
         page.wait_for_function("() => document.documentElement.lang === 'en'")
     finally:
@@ -155,12 +155,11 @@ def test_the_sheet_holds_the_other_rows_and_the_account_row_names_the_person(
     context, page = _open(new_context, app, "/fleet", VIEWPORT_MIN_SUPPORTED)
     try:
         _open_sheet(page)
-        links = page.locator(".tab-bar__more-panel a")
-        assert [links.nth(i).inner_text() for i in range(links.count())] == [
-            "Account"]
-        shown = page.locator(".tab-bar__account").evaluate(
-            "el => getComputedStyle(el, '::after').content")
-        assert OWNER_EMAIL in shown
+        assert page.eval_on_selector_all(
+            ".tab-bar__more-panel a",
+            "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == [
+            "Account", "My frame"]
+        assert page.locator(".tab-bar__account-email").inner_text() == OWNER_EMAIL
         for selector in (".tab-bar__more-panel a", ".tab-bar__sign-out button",
                          ".tab-bar__more-panel .theme-option"):
             for index in range(page.locator(selector).count()):
@@ -180,7 +179,7 @@ def test_tab_labels_are_eleven_pixels_whole_and_never_touch_at_360(
     context, page = _open(new_context, app, path, VIEWPORT_MIN_SUPPORTED, lang=lang)
     try:
         labels = page.evaluate(_LABELS)
-        assert len(labels) == 6
+        assert len(labels) == 5
         for label in labels:
             assert label["size"] == 11 and not label["clipped"], label
         for left, right in zip(labels, labels[1:]):
@@ -189,24 +188,20 @@ def test_tab_labels_are_eleven_pixels_whole_and_never_touch_at_360(
             "() => [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')]"
             ".map((c) => c.getBoundingClientRect().toJSON())")
         assert all(c["width"] >= 44 and c["height"] >= 44 for c in cells)
-        widths = [c["width"] for c in cells[1:]]
-        assert max(widths) - min(widths) <= 1, widths
+        assert abs(sum(c["width"] for c in cells) - (page.locator(".tab-bar").bounding_box()["width"] - 6)) <= 2
     finally:
         context.close()
 
 
-def test_the_admin_first_cell_has_the_shape_of_the_other_cells(new_context, app):
+def test_the_console_bar_cells_share_one_height_and_none_is_a_switch(new_context, app):
     context, page = _open(new_context, app, "/users", VIEWPORT_MIN_SUPPORTED, lang="fr")
     try:
         boxes = page.evaluate(
             "() => [...document.querySelectorAll('.tab-bar > :not(.tab-bar__slider)')]"
             ".map((c) => c.getBoundingClientRect().toJSON())")
-        first, others = boxes[0], boxes[1:]
-        assert first["height"] == others[0]["height"]
-        # Six cells: the switch is a fixed width a little wider than the equal cells that share
-        # the rest of the bar, the same in both spaces.
-        # (76px against about 52px.)
-        assert 0 < first["width"] - sum(o["width"] for o in others) / len(others) <= 26
+        assert len(boxes) == 5
+        assert len({box["height"] for box in boxes}) == 1, boxes
+        assert page.locator(".tab-bar > .tab-bar__link--switch").count() == 0
     finally:
         context.close()
 
@@ -251,6 +246,7 @@ _ORDER = """() => {
             || document.body).getBoundingClientRect().top,
           signOut: top('.tab-bar__sign-out'),
           firstChild: panel.firstElementChild.className,
+          secondChild: panel.children[1].className,
           icons: [...document.querySelectorAll('.tab-bar__pages a')].map(
             (a) => !!a.querySelector('svg.icon')),
           labels: [...document.querySelectorAll('.tab-bar__pages a')].map((a) => a.textContent.trim())}; }"""
@@ -265,7 +261,8 @@ def test_the_console_sheet_starts_with_account_then_theme_language_and_sign_out(
     try:
         _open_sheet(page)
         order = page.evaluate(_ORDER)
-        assert order["firstChild"] == "tab-bar__settings", order
+        assert order["firstChild"] == "tab-bar__grab", order
+        assert order["secondChild"] == "tab-bar__settings", order
         assert order["labels"] == [] and order["separator"] is None, order
         assert (order["account"] < order["theme"] < order["language"]
                 < order["signOut"]), order
@@ -273,24 +270,28 @@ def test_the_console_sheet_starts_with_account_then_theme_language_and_sign_out(
         context.close()
 
 
-def test_a_personal_page_puts_airlines_at_the_top_of_the_sheet(new_context, app):
+def test_a_personal_page_sheet_starts_with_account_and_lists_no_page_rows(new_context, app):
+    """Airlines and Place are bar tabs, so the sheet holds no page rows: Account and the space
+    switch first, then Theme, Language and Sign out"""
     context, page = _open(new_context, app, _home(app), VIEWPORT_PHONE)
     try:
         _open_sheet(page)
         order = page.evaluate(_ORDER)
-        assert order["labels"] == ["Airlines"] and order["firstChild"] == "tab-bar__pages"
-        assert (order["pages"] < order["separator"] < order["account"] < order["theme"]
-                < order["language"] < order["signOut"]), order
-        for row in page.locator(".tab-bar__pages a").all():
-            assert row.bounding_box()["height"] >= 44
-        assert all(order["icons"]), order
+        assert order["firstChild"] == "tab-bar__grab", order
+        assert order["secondChild"] == "tab-bar__settings", order
+        assert order["labels"] == [] and order["separator"] is None, order
+        assert order["account"] < order["theme"] < order["language"] < order["signOut"], order
+        assert page.eval_on_selector_all(
+            ".tab-bar__more-panel a",
+            "els => els.map(e => (e.querySelector('.link-card__title, .tab-bar__account-name') || e).textContent.trim())") == ["Account", "Console"]
     finally:
         context.close()
 
 
 _SCRIM_HITS = """() => {
   const w = window.innerWidth, h = window.innerHeight;
-  const covered = (r, x, y) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+  // One pixel of slack: a sheet's box at a fractional offset is painted on whole pixels.
+  const covered = (r, x, y) => x >= r.left - 1 && x <= r.right + 1 && y >= r.top - 1 && y <= r.bottom + 1;
   const panel = document.querySelector('.tab-bar__more-panel').getBoundingClientRect();
   const bar = document.querySelector('.tab-bar').getBoundingClientRect();
   const misses = [];
@@ -326,5 +327,187 @@ def test_the_page_behind_the_open_sheet_is_dimmed_blurred_and_fully_covered(
         page.mouse.click(8, 8)
         page.wait_for_function(
             "() => !document.querySelector('.tab-bar__more').open", timeout=10000)
+    finally:
+        context.close()
+
+
+_IN_SHEET = "() => !!document.activeElement && !!document.activeElement.closest('.tab-bar__more')"
+
+
+@pytest.mark.parametrize("backwards", [False, True], ids=["tab", "shift-tab"])
+def test_keyboard_focus_stays_inside_the_open_sheet(new_context, app, backwards):
+    """Tab and Shift+Tab cycle through the sheet's own controls: the focus never reaches the page
+    behind the dimmed scrim while the sheet is open"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        _open_sheet(page)
+        page.locator(".tab-bar__more-panel a, .tab-bar__more-panel button").first.focus()
+        stops = page.locator(
+            ".tab-bar__more-panel a, .tab-bar__more-panel button, .tab-bar__more > summary").count()
+        for _ in range(stops + 3):
+            page.keyboard.press("Shift+Tab" if backwards else "Tab")
+            page.wait_for_function(_IN_SHEET, timeout=5000)
+        assert page.locator(".tab-bar__more").evaluate("el => el.open")
+    finally:
+        context.close()
+
+
+def test_closing_the_sheet_by_escape_or_a_second_tap_returns_the_focus_to_the_more_cell(
+        new_context, app):
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        for how in ("escape", "toggle"):
+            _open_sheet(page)
+            page.locator(".tab-bar__more-panel a, .tab-bar__more-panel button").first.focus()
+            if how == "escape":
+                page.keyboard.press("Escape")
+            else:
+                page.locator(".tab-bar__more > summary").click()
+            page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+            page.wait_for_function(
+                "() => document.activeElement === document.querySelector('.tab-bar__more > summary')",
+                timeout=5000)
+    finally:
+        context.close()
+
+
+_GLYPH_BOXES = """() => [...document.querySelectorAll('.tab-bar__label')].map((el) => {
+  const range = document.createRange(); range.selectNodeContents(el);
+  const glyphs = range.getBoundingClientRect();
+  const clip = el.getBoundingClientRect();
+  return {text: el.textContent, glyphTop: glyphs.top, glyphBottom: glyphs.bottom,
+          clipTop: clip.top, clipBottom: clip.bottom, cell: el.closest('.tab-bar__link,summary')
+            .getBoundingClientRect().height}; })"""
+
+
+@pytest.mark.parametrize("path", ["/users", "/fleet"])
+def test_no_french_tab_label_loses_its_accent_or_its_descender_to_the_clip(
+        new_context, app, path):
+    """the glyph box of every label (a capital accent above the cap height, the tail of p and q
+    below the baseline) lies inside the box that clips it, and the bar keeps its cell height"""
+    context, page = _open(new_context, app, path, VIEWPORT_MIN_SUPPORTED, lang="fr")
+    try:
+        labels = page.evaluate(_GLYPH_BOXES)
+        assert {label["text"] for label in labels} >= {"Équipe", "Éditeur"}, labels
+        for label in labels:
+            assert label["glyphTop"] >= label["clipTop"] - 0.5, label
+            assert label["glyphBottom"] <= label["clipBottom"] + 0.5, label
+            assert label["cell"] == 56, label
+    finally:
+        context.close()
+
+
+def _listener_count(cdp):
+    cdp.send("HeapProfiler.collectGarbage")
+    metrics = {m["name"]: m["value"] for m in cdp.send("Performance.getMetrics")["metrics"]}
+    return int(metrics["JSEventListeners"])
+
+
+@pytest.mark.parametrize("how", ["toggle", "escape"])
+def test_opening_and_closing_the_sheet_leaves_no_event_listener_behind(new_context, app, how):
+    """fifty open and close cycles add no event listener to the page, whichever way the sheet
+    closes: the sheet's scripts bind once, not on every open"""
+    context, page = _open(new_context, app, _home(app) + "flights", VIEWPORT_MIN_SUPPORTED)
+    try:
+        cdp = context.new_cdp_session(page)
+        cdp.send("Performance.enable")
+        page.wait_for_timeout(1000)
+        before = _listener_count(cdp)
+        for _ in range(50):
+            page.locator(".tab-bar__more > summary").click()
+            page.locator(".tab-bar__more-panel").wait_for(state="visible")
+            if how == "escape":
+                page.keyboard.press("Escape")
+            else:
+                page.locator(".tab-bar__more > summary").click()
+            page.wait_for_function("() => !document.querySelector('.tab-bar__more').open")
+        assert _listener_count(cdp) <= before, (before, _listener_count(cdp))
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_the_more_cell_is_one_glyph_like_every_other_cell(new_context, app, scheme):
+    """the More cell draws its three dots alone, open or closed: no second chevron glyph sits
+    over them close to the pill's edge"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED, scheme=scheme)
+    try:
+        glyphs = "() => getComputedStyle(document.querySelector('.tab-bar__more > summary'), '::before').content"
+        assert page.evaluate(glyphs) in ("none", "normal")
+        _open_sheet(page)
+        assert page.evaluate(glyphs) in ("none", "normal")
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
+def test_the_theme_and_language_controls_share_one_left_and_right_edge(
+        new_context, app, viewport, lang):
+    context, page = _open(new_context, app, _home(app), viewport, lang=lang)
+    try:
+        _open_sheet(page)
+        page.wait_for_function(_SETTLED)
+        edges = page.evaluate("""() => [...document.querySelectorAll(
+          '.tab-bar__pref .theme-form')].map((f) => {
+            const r = f.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.right)]; })""")
+        assert len(edges) == 2 and edges[0] == edges[1], edges
+        fits = page.evaluate("""() => [...document.querySelectorAll(
+          '.tab-bar__pref .row__label, .tab-bar__pref .theme-option')].filter(
+            (e) => e.classList.contains('row__label')
+              ? e.getClientRects()[0].height > 24 : e.scrollWidth > e.clientWidth + 0.5)
+            .map((e) => e.textContent)""")
+        assert fits == [], fits
+    finally:
+        context.close()
+
+
+def test_the_dim_behind_the_sheet_and_behind_a_dialog_fades_in_with_what_opens(new_context, app):
+    """the scrim and a dialog's backdrop start transparent and reach full strength: the page
+    does not snap to dimmed in one frame while the panel fades in"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        first = page.evaluate("""() => {
+          document.querySelector('.tab-bar__more').open = true;
+          return getComputedStyle(document.body, '::after').opacity; }""")
+        assert float(first) < 0.5, first
+        page.wait_for_function(
+            "() => getComputedStyle(document.body, '::after').opacity === '1'", timeout=5000)
+        page.evaluate("() => { document.querySelector('.tab-bar__more').open = false; }")
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        backdrop = page.evaluate("""() => {
+          const d = document.querySelector('dialog.modal');
+          d.showModal();
+          return getComputedStyle(d, '::backdrop').opacity; }""")
+        assert float(backdrop) < 0.5, backdrop
+        page.wait_for_function(
+            "() => getComputedStyle(document.querySelector('dialog.modal'), '::backdrop')"
+            ".opacity === '1'", timeout=5000)
+    finally:
+        context.close()
+
+
+_AMBIENT = """(want) => {
+  const read = [
+    getComputedStyle(document.querySelector('.home-state__dot--pulse')).animationIterationCount,
+    getComputedStyle(
+      document.querySelector('.home-state__dot--pulse'), '::after').animationIterationCount,
+    getComputedStyle(
+      document.querySelector('.hero__picture'), '::before').animationIterationCount];
+  return read.every((v) => v === want); }"""
+
+
+def test_the_home_loops_stand_still_while_the_sheet_is_open_and_resume_after(new_context, app):
+    """nothing animates endlessly under the dimmed, blurred page of an open sheet"""
+    context, page = _open(new_context, app, _home(app), VIEWPORT_MIN_SUPPORTED)
+    try:
+        page.wait_for_function(_AMBIENT, arg="infinite", timeout=5000)
+        _open_sheet(page)
+        page.wait_for_function(_AMBIENT, arg="0", timeout=5000)
+        page.locator(".tab-bar__more > summary").click()
+        page.wait_for_function(
+            "() => !document.querySelector('.tab-bar__more').open", timeout=5000)
+        page.wait_for_function(_AMBIENT, arg="infinite", timeout=5000)
     finally:
         context.close()

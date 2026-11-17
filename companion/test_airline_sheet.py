@@ -9,9 +9,10 @@ import re
 import urllib.parse
 
 import companion.prefs as prefs
+import companion.test_companion_app_helpers as cah
 import companion.test_status_pages_helpers as shp
 from companion.pages import airline_sheet, airlines_page
-from companion_app_server import http_request, login, with_csrf
+from companion_app_server import http_request, login, with_csrf, with_csrf_part
 from server.plane import illustrations, manual_resolutions, name_overrides
 
 
@@ -174,9 +175,11 @@ def test_rename_post_stores_every_prefix_and_carries_the_artwork(make_app_server
         assert os.path.isfile(illustrations.illustration_path_for_key("transavia-france" + suffix))
     status, _, body = http_request(server.base_url() + "/illustration/transavia.png", cookie=session)
     assert status == 200 and body.startswith(b"\x89PNG")
+    upload, upload_type = with_csrf_part(
+        session, *cah.encode_multipart(b"x"))
     status, _, _ = http_request(
         server.base_url() + "/illustration/transavia-a320.png", method="POST", cookie=session,
-        data=b"x", content_type="multipart/form-data; boundary=zz")
+        data=upload, content_type=upload_type)
     assert status != 404
     page = http_request(server.base_url() + "/airlines/manage", cookie=session)[2].decode()
     assert "Reset to the original name" in _card(page, "Transavia")

@@ -1,0 +1,7 @@
+session,local_time_paris,callsign,direction,runway_end,origin_or_destination,note
+lyon,07:11,AFR65MZ,departure,17R (same runway as EJU67BQ per owner screenshot),CDG,lift-off 07:11 Paris; owner first wrote NTE by mistake
+lyon,07:13,EJU67BQ,departure,17R (owner screenshot, long west runway),AGA,rolling at 06:12:46 UTC; lift-off about 07:13 Paris
+lyon,07:15,EJU9790,departure,17R,NTE,owner lift-off 07:15 Paris
+lyon,07:16,ITI21KZ,arrival,17L,SXB,touchdown 07:16 Paris
+lyon,07:22,EJU74TA,departure,17R,TNG,lift-off 07:22 Paris
+lyon,07:22,EJU74TA,departure,17R,TNG,lift-off 07:22 Paris; NOT DETECTED: first report by adsb.fi at 3775 ft (above the 3000 ft ceiling), hex 4402e8 probable

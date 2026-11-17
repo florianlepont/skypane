@@ -219,6 +219,37 @@ def test_reassign_is_a_button_beside_the_owner_with_one_confirmation(
         context.close()
 
 
+_PHONE = {"width": 390, "height": 844}
+_REASSIGN_LABELS = {"en": ("Reassign", "Cancel"), "fr": ("Réattribuer", "Annuler")}
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_reassign_sheet_is_short_with_a_cancel_button(
+        lang, new_context, app_server_in_process):
+    server = app_server_in_process
+    context, page, seed = _open(new_context, server, viewport=_PHONE, lang=lang)
+    try:
+        submit_label, cancel_label = _REASSIGN_LABELS[lang]
+        page.locator(".fleet-block--access li.row", has_text=fx.OWNER_EMAIL).first.locator(
+            "a.row-action").click()
+        dialog = page.locator("#dlg-reassign-%s" % _slug(seed.owned_id))
+        page.wait_for_function("d => d.open", arg=dialog.element_handle(), timeout=10000)
+        assert dialog.locator("select").count() == 1
+        assert dialog.locator("button[type=submit]").inner_text() == submit_label
+        cancel = dialog.locator("a.modal__dismiss")
+        assert cancel.inner_text() == cancel_label
+        assert cancel.bounding_box()["height"] >= MIN_TAP_PX - 0.5
+        text = dialog.inner_text()
+        assert "XIAO" not in text and "Spectra" not in text
+        assert seed.owned_id not in text
+        assert dialog.locator(".modal__subtitle").count() == 0
+        cancel.click()
+        assert not dialog.evaluate("d => d.open")
+        assert _device(server, seed.owned_id)["owner_user_id"] == seed.owner_id
+    finally:
+        context.close()
+
+
 def test_reactivate_from_the_other_frames_section(new_context, app_server_in_process):
     server = app_server_in_process
     context, page, seed = _open(new_context, server)

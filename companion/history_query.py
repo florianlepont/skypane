@@ -32,6 +32,10 @@ DEFAULT_SORT = SORT_NEWEST
 # above what a frame stores in years (a few dozen flights a day).
 SCAN_LIMIT = 20000
 
+# The whole stored history folded once: `rows` newest first, and `scanned`,
+# the ids of the newest SCAN_LIMIT stored events when more than that are
+# stored (else None: every row is within the scan).
+Folded = namedtuple("Folded", "rows scanned")
 View = namedtuple("View", "q kind sort")
 Result = namedtuple(
     "Result", "rows has_more matched counts total")
@@ -105,6 +109,35 @@ def _filtered(flights, view):
     return _ordered(shown, view.sort), len(found), counts
 
 
+def folded_history(conn):
+    """Every stored event newest first with repeated passes folded away,
+    under the stored airline names. Flights and the Airlines collection both
+    read this one cached fold (read only), so a new flight costs one fold
+    whatever pages are asked for."""
+    def load():
+        events = history_db.recent_runway_events(conn, limit=-1)
+        scanned = (frozenset(event["id"] for event in events[:SCAN_LIMIT])
+                   if len(events) > SCAN_LIMIT else None)
+        return Folded(flight_card.fold_repeated_passes(events), scanned)
+    return history_cache.cached(conn, ("folded", SCAN_LIMIT), load)
+
+
+def _flights(conn, airline_names):
+    """The folded flights the scan covers, shown under the owner's airline
+    names. A renamed row is a copy: the shared fold is never written."""
+    folded = folded_history(conn)
+    rows = folded.rows
+    if folded.scanned is not None:
+        rows = [row for row in rows if row["id"] in folded.scanned]
+    if not airline_names:
+        return rows
+    shown = []
+    for row in rows:
+        name = history_db.override_airline_name(row, airline_names)
+        shown.append(row if name is None else dict(row, airline=name))
+    return shown
+
+
 def select(conn, view, pages, page_size, airline_names=None):
     """The flights page for `view`: `rows` (the first `(pages + 1) *
     page_size` matches in the view's order), `has_more`, `matched` (matches
@@ -114,9 +147,7 @@ def select(conn, view, pages, page_size, airline_names=None):
     # The folded history and each filtered view of it are shared between
     # requests (read only here).
     flights = history_cache.cached(
-        conn, ("flights", SCAN_LIMIT, names),
-        lambda: flight_card.fold_repeated_passes(history_db.recent_runway_events(
-            conn, limit=SCAN_LIMIT, airline_names=airline_names)))
+        conn, ("flights", SCAN_LIMIT, names), lambda: _flights(conn, airline_names))
     shown, matched, counts = history_cache.cached(
         conn, ("flights-view", SCAN_LIMIT, names, view.q, view.kind, view.sort),
         lambda: _filtered(flights, view))

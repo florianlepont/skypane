@@ -154,7 +154,7 @@ def test_no_js_typed_coordinates_save_in_area_mode(new_context, make_app_server)
         response = _submit(page, SAVE)
         if response.status != 200 or _inline_errors(page):
             raise AssertionError("the save was refused: %r" % (_inline_errors(page),))
-        if "Detection now follows Marseille" not in page.inner_text("body"):
+        if "Detection now follows the area within 14 km of Marseille" not in page.inner_text("body"):
             raise AssertionError("the saved toast does not name the place")
     if _stored(server) != {"mode": "position", "radius_km": 14}:
         raise AssertionError("disk holds %r" % (_stored(server),))
@@ -252,17 +252,18 @@ def test_accent_budget(new_context, make_app_server):
     """The accent fill (derived from the Save button) is painted only on the Save buttons (and
     the current segment of the space switch an administrator sees, and the selected segment of
     the mode switch and the theme and language switches, graphite pills by the segmented-control rule, the current sidebar item,
-    the current tab bar pill and the icon chip of the frame popover's Add row): never on an airport row, a summary value or a
-    runway card."""
+    the current tab bar pill, the icon chip of the frame popover's Add row and the icon tile of the More panel's Console card): never on an airport row, a summary value or a
+    runway card. A closed dialog's own primary action (the unsaved-changes question) is not
+    painted and is left out."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     probe = (
         "accent => [...document.querySelectorAll('body *')].filter("
-        " el => getComputedStyle(el).backgroundColor === accent)"
+        " el => !el.closest('dialog') && getComputedStyle(el).backgroundColor === accent)"
         ".map(el => el.tagName.toLowerCase() + '.' + el.className.toString().trim()"
         " + '|' + (el.htmlFor || ''))")
     allowed = ("dirty-bar__save", "skip-link", "space-switch__segment--current", "place-mode",
                "sidebar-link--active", "frame-row__icon", "tab-bar__pill", "tab-bar__slider",
-               "theme-option--active")
+               "theme-option--active", "link-card__icon")
     for route in ("/detection?q=lf", "/detection?airport=%s&mode=runway" % CDG):
         with _no_js_page(new_context, server.base_url(), route,
                          viewport=VIEWPORT_MIN_SUPPORTED) as page:
@@ -362,6 +363,15 @@ def test_editing_a_coordinate_reads_the_one_message(new_context, make_app_server
         raise AssertionError("lang=%s: the bar reads %r" % (lang, _bar_text(page)))
 
 
+def _follow_airport_link(page):
+    """Follow the airport list's link for CDG. The list is built by the page's script, so the
+    link is awaited before it is clicked."""
+    link = ".place-airport__link[data-icao='%s']" % CDG
+    page.wait_for_selector(link, state="attached")
+    with page.expect_navigation():
+        page.evaluate("selector => document.querySelector(selector).click()", link)
+
+
 def _carry_radius_through_a_filter(page):
     """Type a radius in the area mode, then follow the airport list's own link (a page-local
     navigation: the list stays in the page for the plain form and when the map cannot run;
@@ -369,10 +379,7 @@ def _carry_radius_through_a_filter(page):
     page.click(MODE_AREA_LABEL)
     page.fill("#place-radius", "12")
     page.click(MODE_RUNWAY_LABEL)
-    with page.expect_navigation():
-        page.evaluate(
-            "icao => document.querySelector(\".place-airport__link[data-icao='\" + icao + \"']\")"
-            ".click()", CDG)
+    _follow_airport_link(page)
 
 
 def test_filter_and_pick_do_not_raise_leave_guard_and_keep_radius(new_context, make_app_server):
@@ -413,20 +420,35 @@ def test_cancel_in_carried_state_returns_to_stored_value(new_context, make_app_s
         raise AssertionError("Cancel did not restore the stored area mode")
 
 
+LEAVE_DIALOG = "dialog[data-leave-dialog]"
+
+
 def _click_another_page(page):
     page.locator("a[href$='/flights']:visible").first.click()
-    page.wait_for_load_state()
 
 
-def test_real_leave_still_prompts(new_context, make_app_server):
-    """An unsaved edit followed by a click on another page's link still raises the prompt."""
+def _wait_leave_dialog(page):
+    page.wait_for_function(
+        "() => { const d = document.querySelector('%s'); return !!d && d.open; }" % LEAVE_DIALOG,
+        timeout=5000)
+
+
+def test_real_leave_asks_in_the_page_dialog(new_context, make_app_server):
+    """An unsaved edit followed by a click on another page's link asks in the page's own
+    unsaved-changes dialog, not the browser's prompt, and Discard then leaves."""
     server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
     page, dialogs = _open(new_context, server)
+    here = page.url
     page.click(MODE_AREA_LABEL)
     _wait_for_bar(page)
     _click_another_page(page)
-    if "beforeunload" not in dialogs:
-        raise AssertionError("leaving with an unsaved edit raised no prompt: %r" % dialogs)
+    _wait_leave_dialog(page)
+    if page.url != here:
+        raise AssertionError("the page left before the question was answered: %s" % page.url)
+    if dialogs:
+        raise AssertionError("the browser's own prompt appeared as well: %r" % dialogs)
+    page.click(LEAVE_DIALOG + " [data-leave-dialog-secondary]")
+    page.wait_for_url("**/flights", timeout=15000)
 
 
 def test_back_forward_cache_rearms_guard(new_context, make_app_server):
@@ -434,10 +456,7 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
     server = make_app_server(seed=_seed(SAVED_POSITION), fake_providers=True)
     page, dialogs = _open(new_context, server)
     page.click(MODE_RUNWAY_LABEL)
-    with page.expect_navigation():
-        page.evaluate(
-            "icao => document.querySelector(\".place-airport__link[data-icao='\" + icao + \"']\")"
-            ".click()", CDG)
+    _follow_airport_link(page)
     page.go_back()
     page.wait_for_load_state()
     page.click(MODE_RUNWAY_LABEL)
@@ -448,8 +467,9 @@ def test_back_forward_cache_rearms_guard(new_context, make_app_server):
         raise AssertionError("the guard stayed disarmed after returning to the page")
     del dialogs[:]
     _click_another_page(page)
-    if "beforeunload" not in dialogs:
-        raise AssertionError("a later real leave raised no prompt: %r" % dialogs)
+    _wait_leave_dialog(page)
+    if dialogs:
+        raise AssertionError("a later real leave raised the browser's prompt: %r" % dialogs)
 
 
 # A user's Display page no longer holds the place; the Location and detection page does.

@@ -69,9 +69,10 @@ def render(name, form_action, back_href, error="", return_to=None):
         "frame-name", NAME_FIELD, i18n.t(_LABEL), name, i18n.t(_HELP), error_html,
         ' maxlength="%d" required autocomplete="off" spellcheck="false"%s%s' % (
             MAX_NAME_CHARS, attrs, validation_attrs("text")))
-    carried = (
-        '<input type="hidden" name="%s" value="%s">' % (RETURN_FIELD, escape_html(return_to))
-        if return_to else "")
+    # Always present: the unsaved-changes question fills it with the page the person
+    # tapped, which the server checks like any other return address.
+    carried = '<input type="hidden" name="%s" value="%s" data-leave-any>' % (
+        RETURN_FIELD, escape_html(return_to or ""))
     form = (
         '<form id="%s" method="post" action="%s" novalidate>%s%s%s</form>' % (
             FORM_ID, escape_html(form_action), layout.csrf_field() + carried, field, ""))

@@ -80,7 +80,7 @@ def test_the_resolve_fields_are_short_and_share_a_row_on_a_wide_screen(new_conte
         boxes = page.evaluate("""args => {
             const r = s => document.querySelector(s).getBoundingClientRect();
             return {name: r(args[0]), select: r(args[1]), ok: r(args[2])};
-        }""", [GAP_NAME, GAP + " select", GAP + " .airlines-resolve__ok"])
+        }""", [GAP_NAME, GAP + " select", GAP + " .airlines-resolve__actions button[type=submit]"])
         assert 200 <= boxes["name"]["width"] <= 281, boxes
         assert 120 <= boxes["select"]["width"] <= 181, boxes
         assert abs(boxes["name"]["top"] - boxes["select"]["top"]) < 2, boxes
@@ -103,8 +103,8 @@ def test_the_table_fits_and_every_control_is_a_44px_target_in_both_themes(
             for selector in (
                     FRANCE_NAME, TRANSAVIA + " .airlines-expand > summary",
                     TRANSAVIA + " .airlines-thumb", TRANSAVIA + " .airlines-row .row-menu__toggle",
-                    GAP_NAME, GAP + " select", GAP + " .airlines-resolve__ok",
-                    GAP + " .airlines-resolve__skip"):
+                    GAP_NAME, GAP + " select", GAP + " .airlines-resolve__actions button[type=submit]",
+                    GAP + " .airlines-resolve__actions button[type=reset]"):
                 _settle(page, selector)
                 _assert_hit_target(page, selector, "airlines %s %s" % (name, lang))
     finally:
@@ -126,7 +126,7 @@ def test_the_unidentified_prefix_is_a_highlighted_row_on_top_resolved_in_place(
         page.locator(GAP_NAME).fill("Xyz Wings")
         page.locator(GAP + " select").select_option("A320")
         with page.expect_navigation():
-            page.locator(GAP + " .airlines-resolve__ok").click()
+            page.locator(GAP + " .airlines-resolve__actions button[type=submit]").click()
         page.wait_for_function(
             "() => document.readyState === 'complete' && !document.querySelector("
             "'tbody.airline-group--gap')", timeout=15000)
@@ -148,7 +148,7 @@ def test_ignore_clears_the_row_without_saving(new_context, make_app_server):
     try:
         _settle(page, GAP_NAME)
         page.locator(GAP_NAME).fill("Never Saved Air")
-        page.locator(GAP + " .airlines-resolve__skip").click()
+        page.locator(GAP + " .airlines-resolve__actions button[type=reset]").click()
         page.wait_for_function(
             "sel => document.querySelector(sel).value === ''", arg=GAP_NAME, timeout=5000)
         assert "XYZ" not in manual_resolutions.load_manual_resolutions(server.state_dir)
@@ -253,9 +253,15 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
     server = make_app_server(seed=_seed, fake_providers=True)
     png = os.path.join(illustrations.ILLUSTRATION_DIR, "vueling-airlines.png")
     context, page = _open(new_context, server, VIEWPORT_DESKTOP)
+    requested = []
+    page.on("request", lambda request: requested.append(request.url))
     try:
+        form = page.locator('form[action^="/illustration/air-france.png"]')
+        assert "csrf_token" not in form.get_attribute("action")
+        assert form.locator('input[name="csrf_token"]').get_attribute("value")
         with page.expect_navigation():
-            page.locator('form[action^="/illustration/air-france.png"] input[type=file]').set_input_files(png)
+            form.locator("input[type=file]").set_input_files(png)
+        assert [url for url in requested if "csrf_token" in url] == []
         page.locator(".toast").first.wait_for(state="visible")
         assert os.path.isfile(os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME, "air-france.png"))
@@ -270,6 +276,27 @@ def test_the_artwork_uploads_through_the_real_routes_for_an_airline_and_a_type(
         assert os.path.isfile(os.path.join(
             server.state_dir, illustrations.ILLUSTRATION_OVERRIDE_DIRNAME,
             "transavia-france-a320.png"))
+    finally:
+        context.close()
+
+
+def test_a_refused_picture_names_its_airline_and_the_page_opens_on_that_row(
+        new_context, make_app_server, tmp_path):
+    server = make_app_server(seed=_seed, fake_providers=True)
+    bad = tmp_path / "notes.txt"
+    bad.write_text("not an image")
+    context, page = _open(new_context, server, VIEWPORT_MIN_SUPPORTED)
+    try:
+        form = page.locator('form[action^="/illustration/transavia-france.png"]')
+        with page.expect_navigation():
+            form.locator("input[type=file]").set_input_files(str(bad))
+        page.locator(".toast").first.wait_for(state="visible")
+        assert "Transavia France: Couldn't use that file" in page.locator(".toast").first.inner_text()
+        assert page.url.endswith("#airline-transavia-france")
+        page.wait_for_function(
+            "() => { const r = document.querySelector('#airline-transavia-france')"
+            ".getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight; }",
+            timeout=10000)
     finally:
         context.close()
 
@@ -540,7 +567,7 @@ def test_naming_a_prefix_is_audited(new_context, make_app_server):
         _settle(page, GAP_NAME)
         page.locator(GAP_NAME).fill("Audit Air")
         with page.expect_navigation():
-            page.locator(GAP + " .airlines-resolve__ok").click()
+            page.locator(GAP + " .airlines-resolve__actions button[type=submit]").click()
         page.wait_for_function(_SETTLED, timeout=15000)
         assert "airline.resolve" in _audit_actions(server.state_dir)
     finally:

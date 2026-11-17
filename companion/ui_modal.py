@@ -104,7 +104,8 @@ def _autofocus_invalid_control(body_html):
 def dialog_html(
         dialog_id, title, form_action, csrf_html, body_html, submit_label,
         dismiss_label, dismiss_href, destructive=False, confirm_only=False,
-        open_=False, subtitle=None, focus_id=None, focus_title=False):
+        open_=False, subtitle=None, focus_id=None, focus_title=False,
+        return_on_close=False, return_focus_id=None, secondary_dismiss=False):
     """One modal dialog wrapping a POST form.
 
     `dismiss_href` is the host page path: the close and dismiss links go
@@ -119,8 +120,17 @@ def dialog_html(
     ValueError. `focus_title` opens the dialog on its title instead of a
     field (a time or text field would raise the keyboard or the native
     picker unasked); an invalid control still takes the focus.
+    `return_on_close` is for a dialog the address itself opened: closed in
+    place, the address becomes `dismiss_href` so a reload does not ask again.
+    `return_focus_id` names the control (by its `id`) that takes the focus when
+    the dialog closes with no opener of its own to return to (a dialog the
+    address opened).
+    `secondary_dismiss` draws the dismiss link as a secondary button under
+    the submit button instead of a plain text link.
     """
     slug = validated_slug(dialog_id)
+    dismiss_class = (
+        "modal__dismiss modal__dismiss--button" if secondary_dismiss else "modal__dismiss")
     title_id = slug + "-title"
     submit_focus = ""
     dismiss_focus = ""
@@ -142,6 +152,10 @@ def dialog_html(
                 raise ValueError("ui_modal: no control with id %r in the body" % (focus_id,))
         if not found:
             submit_focus = " autofocus"
+    if return_on_close:
+        dialog_attrs += ' data-modal-return="%s"' % escape_html(dismiss_href)
+    if return_focus_id:
+        dialog_attrs += ' data-modal-return-focus="%s"' % escape_html(return_focus_id)
     submit_class = ' class="btn btn--danger"' if destructive else ""
     subtitle_html = (
         '<p class="modal__subtitle text-label">%s</p>' % escape_html(subtitle)
@@ -159,7 +173,7 @@ def dialog_html(
         '<div class="modal__body">%(body)s</div>'
         '<div class="modal__actions">'
         '<button type="submit"%(submit_class)s%(submit_focus)s>%(submit)s</button>'
-        '<a class="modal__dismiss" href="%(href)s" data-modal-close%(dismiss_focus)s>%(dismiss)s</a>'
+        '<a class="%(dismiss_class)s" href="%(href)s" data-modal-close%(dismiss_focus)s>%(dismiss)s</a>'
         '</div></form></dialog>\n'
     ) % {
         "id": slug,
@@ -179,7 +193,60 @@ def dialog_html(
         "submit_focus": submit_focus,
         "submit": escape_html(submit_label),
         "dismiss_focus": dismiss_focus,
+        "dismiss_class": dismiss_class,
         "dismiss": escape_html(dismiss_label),
+    }
+
+
+def choice_dialog_html(
+        dialog_id, title, text, primary_label, secondary_label, quiet_label, hook_attr,
+        alt_primary_label=None, note=None):
+    """A modal dialog that asks a question and offers three actions, none of
+    them a form post: a primary, a secondary and a quiet one that closes the
+    dialog and changes nothing.
+
+    The dialog is closed in the markup and only a script opens it (it has no
+    opener link): a page uses it where a script intercepts a navigation, and
+    without script the page keeps its plain links. `hook_attr` is a lowercase
+    slug; the buttons carry `data-<hook_attr>-primary`, `-secondary` and
+    `-quiet` for that script. The quiet button takes the initial focus so
+    Enter never confirms the primary action unasked, and Escape closes the
+    dialog as it does the quiet button.
+
+    `alt_primary_label` and `note` are for a script that sometimes cannot do
+    what the primary promises: the primary carries the alternative label as
+    `data-<hook_attr>-primary-alt` and the hidden note paragraph is
+    `data-<hook_attr>-note`; the script swaps the label and shows the note."""
+    slug = validated_slug(dialog_id)
+    hook = validated_slug(hook_attr)
+    title_id = slug + "-title"
+    alt = (' data-%s-primary-alt="%s"' % (hook, escape_html(alt_primary_label))
+           if alt_primary_label else "")
+    note_html = ('<p class="text-label" data-%s-note hidden>%s</p>' % (hook, escape_html(note))
+                 if note else "")
+    return (
+        '<dialog class="modal" id="%(id)s" aria-labelledby="%(title_id)s" data-%(hook)s>'
+        '<header class="modal__head"><div>'
+        '<h2 class="modal__title text-heading" id="%(title_id)s">%(title)s</h2>'
+        '</div></header>'
+        '<div class="modal__body"><p class="text-body">%(text)s</p>%(note)s</div>'
+        '<div class="modal__actions">'
+        '<button type="button" class="btn btn--primary" data-%(hook)s-primary%(alt)s>%(primary)s</button>'
+        '<button type="button" class="btn btn--secondary" data-%(hook)s-secondary>%(secondary)s</button>'
+        '<button type="button" class="btn btn--ghost" data-%(hook)s-quiet data-modal-close '
+        'autofocus>%(quiet)s</button>'
+        '</div></dialog>\n'
+    ) % {
+        "id": slug,
+        "title_id": title_id,
+        "hook": hook,
+        "title": escape_html(title),
+        "text": escape_html(text),
+        "alt": alt,
+        "note": note_html,
+        "primary": escape_html(primary_label),
+        "secondary": escape_html(secondary_label),
+        "quiet": escape_html(quiet_label),
     }
 
 

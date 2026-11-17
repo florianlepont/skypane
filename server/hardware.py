@@ -7,10 +7,13 @@ Adding a type is a code change, never a database row. The legacy EE02
 entry is built from the constants the rest of the server already uses, so
 the two cannot drift apart.
 
-Simulated types exist for development and tests. They are visible only
-when SKYPANE_SIM_HARDWARE equals the string "1"; the gate is read at call
-time so tests can toggle it, and no production unit or env template sets
-it.
+Simulated types exist for development and tests. Gated types are real
+hardware that stays hidden until the owner lifts the gate. Both kinds are
+visible when SKYPANE_SIM_HARDWARE equals the string "1". The narrower
+SKYPANE_ENABLE_SECOND_HARDWARE, also exactly "1", exposes only the real
+gated type and never a simulated one. Both are read at call time so tests
+can toggle them, and no env template or unit file sets either. Only simulated types are labelled "(simulated)" and
+exempt from battery provenance validation.
 """
 from __future__ import annotations
 
@@ -25,7 +28,9 @@ from server import device_policy, panel_format
 LEGACY_KEY = "xiao-ee02-13in3-spectra6"
 SIM_CLONE_KEY = "sim-ee02-clone"
 SIM_LANDSCAPE_KEY = "sim-landscape-800x480"
+EVALUATION_KEY = "seeed-ee04-7in3-spectra6"
 SIM_ENV_VAR = "SKYPANE_SIM_HARDWARE"
+SECOND_ENV_VAR = "SKYPANE_ENABLE_SECOND_HARDWARE"
 
 # Repo-relative path of the public key release images are checked against.
 COMMITTED_SIGNING_PUBKEY = "firmware/signing/skypane-signing-pubkey.pem"
@@ -124,6 +129,8 @@ class HardwareProfile:
     battery: BatteryProfile
     firmware: FirmwareTarget
     simulated: bool
+    # Real hardware that is hidden unless the simulation gate is on.
+    gated: bool = False
     inks: frozenset[int] = ALL_SPECTRA6_INKS
     layout_family: str = LAYOUT_PORTRAIT
 
@@ -235,20 +242,67 @@ _SIM_LANDSCAPE = HardwareProfile(
     layout_family=LAYOUT_LANDSCAPE,
 )
 
+_EVALUATION = HardwareProfile(
+    key=EVALUATION_KEY,
+    label="Seeed EE04 7.3in Spectra 6 (800x480)",
+    width=800,
+    height=480,
+    palette=_PALETTE,
+    image_format=IMAGE_FORMAT_SPECTRA6_NIBBLE,
+    battery=BatteryProfile(
+        curve=_LEGACY_BATTERY.curve,
+        low_mv=_LEGACY_BATTERY.low_mv,
+        low_clear_mv=_LEGACY_BATTERY.low_clear_mv,
+        critical_mv=_LEGACY_BATTERY.critical_mv,
+        critical_recover_mv=_LEGACY_BATTERY.critical_recover_mv,
+        provenance=tuple(
+            BatteryProvenance(
+                p.value,
+                "copied from the legacy profile until the evaluation unit is "
+                "measured; not a measurement",
+                "provisional",
+                p.date,
+            )
+            for p in _LEGACY_PROVENANCE
+        ),
+    ),
+    firmware=FirmwareTarget(
+        idf_target=_LEGACY.firmware.idf_target,
+        project_name=_LEGACY.firmware.project_name,
+        max_image_bytes=_packed_image_bytes(800, 480),
+    ),
+    simulated=False,
+    gated=True,
+    layout_family=LAYOUT_LANDSCAPE,
+)
+
 REGISTRY: Mapping[str, HardwareProfile] = types.MappingProxyType(
-    {p.key: p for p in (_LEGACY, _SIM_CLONE, _SIM_LANDSCAPE)}
+    {p.key: p for p in (_LEGACY, _SIM_CLONE, _SIM_LANDSCAPE, _EVALUATION)}
 )
 
 
-def _sim_enabled(environ: Mapping[str, str] | None) -> bool:
+def _flag_enabled(environ: Mapping[str, str] | None, name: str) -> bool:
     env = os.environ if environ is None else environ
-    return env.get(SIM_ENV_VAR) == "1"
+    return env.get(name) == "1"
+
+
+def _sim_enabled(environ: Mapping[str, str] | None) -> bool:
+    return _flag_enabled(environ, SIM_ENV_VAR)
 
 
 def available_types(environ: Mapping[str, str] | None = None) -> tuple[str, ...]:
-    """Keys usable in this environment; simulated ones only when gated on."""
+    """Keys usable in this environment.
+
+    Simulated and gated types appear with the simulation flag; gated real
+    types alone also appear with the second-hardware flag.
+    """
     sim = _sim_enabled(environ)
-    return tuple(k for k, p in REGISTRY.items() if sim or not p.simulated)
+    second = _flag_enabled(environ, SECOND_ENV_VAR)
+    return tuple(
+        k for k, p in REGISTRY.items()
+        if sim
+        or not (p.simulated or p.gated)
+        or (second and p.gated and not p.simulated))
 
 
 def get_profile(key: str, environ: Mapping[str, str] | None = None) -> HardwareProfile:
@@ -263,13 +317,15 @@ def is_known(key: str) -> bool:
     return key in REGISTRY
 
 
-# Hardware planned but not measured. Deliberately outside REGISTRY: it
-# cannot be selected and carries no numbers.
+# Hardware whose battery numbers are not measured. The slot itself carries
+# no numbers; a registered profile of the same key must keep every value
+# provisional until a measurement replaces it.
 PLANNED_BATTERY_SLOTS: Mapping[str, BatterySlot] = types.MappingProxyType({
-    "seeed-ee04-7in3-spectra6": BatterySlot(
+    EVALUATION_KEY: BatterySlot(
         label="Seeed EE04 7.3in, 800x480",
         status="unmeasured",
-        note="to be measured when the hardware is validated",
+        note="registered with provisional values copied from the legacy "
+             "profile; the numbers come from a measurement of this unit",
         values=tuple((name, None) for name in BATTERY_VALUE_NAMES),
     ),
 })

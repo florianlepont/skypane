@@ -31,15 +31,15 @@
   padding: 0;
 }
 
-.group .fleet-block__fact .row__value {
-  max-width: 65%;
-  white-space: normal;
-  text-align: right;
-  overflow-wrap: anywhere;
-}
-
 .fleet-group > li + li {
   border-top: 1px solid var(--glass-hairline);
+}
+
+/* The Other frames group holds only rows with an actions menu whose popover opens below
+ * the row: the group must not clip it, or the last row's options cannot be reached. The
+ * rows paint no background, so nothing needs the card's rounded clip. */
+.fleet-block--others > .group {
+  overflow: visible;
 }
 
 .fleet-group ul.data-cards {
@@ -277,6 +277,110 @@
   padding: var(--space-xs) var(--space-sm);
   white-space: normal;
   overflow-wrap: anywhere;
+}
+
+/* The summary opening the Fleet panel: what the frame runs, large, with its
+ * state chip on the right (under the text when the row is too narrow). */
+.update-sum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.update-sum__text {
+  min-width: 0;
+  flex: 1 1 14rem;
+}
+
+.update-sum__label {
+  margin: 0;
+  font-size: var(--font-caption-size);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+.update-sum__version {
+  margin: var(--space-xs) 0;
+  font-family: var(--font-mono);
+  font-size: var(--font-heading-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.update-sum__meta {
+  margin: 0;
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.update-sum time {
+  white-space: nowrap;
+}
+
+/* The one update card: a tinted box inside the panel, never a shadowed card.
+ * Text left and the Install button right where the row is wide; on a phone the
+ * button takes the full width under the text. */
+.update-offer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+  border-radius: var(--radius-control);
+  background: color-mix(in srgb, var(--color-accent) 8%, transparent);
+}
+
+.update-offer__text {
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.update-offer__title {
+  margin: 0;
+  font-size: var(--font-card-title-size);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.update-offer__note {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  margin: var(--space-xs) 0 0;
+  overflow: hidden;
+  font-size: var(--font-label-size);
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  overflow-wrap: anywhere;
+}
+
+.update-offer time {
+  white-space: nowrap;
+}
+
+.update-offer .update-actions,
+.update-offer .update-actions form,
+.update-offer .update-actions button[type="submit"] {
+  width: 100%;
+}
+
+@media (min-width: 600px) {
+  .update-offer .update-actions,
+  .update-offer .update-actions form,
+  .update-offer .update-actions button[type="submit"] {
+    width: auto;
+  }
 }
 
 .update-cta__top {
@@ -720,7 +824,8 @@
   margin: var(--space-lg) 0 0;
 }
 
-.fleet-system-footer .text-link {
+.fleet-system-footer .text-link,
+.health-row__note > .text-link {
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -760,6 +865,16 @@ a.pair-link {
   font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   text-decoration: none;
+}
+
+a.pair-link--primary {
+  background: var(--color-accent);
+  border-color: transparent;
+  color: var(--color-on-accent);
+}
+
+a.pair-link--primary:hover {
+  background: var(--color-accent-hover);
 }
 
 .pair-form {
@@ -860,164 +975,162 @@ a.fleet-retire__link {
   text-decoration: none;
 }
 
-/* The version history: one table (version, state, release date, action), the
- * action always in view; on a phone each row is a compact card. */
-.update-table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+/* The version history: a flat list inside the panel, no card of its own. Each
+ * row is a status dot, the version over its date line, a status chip and, for
+ * an older version, a quiet Revert. */
+.update-hist__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding-bottom: var(--space-xs);
 }
 
-.update-table__col {
-  padding: var(--space-xs) var(--space-sm);
-  font-size: var(--font-label-size);
+.update-hist__title {
+  margin: 0;
+  font-size: var(--font-caption-size);
   font-weight: var(--weight-semibold);
-  text-align: left;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-table__col--state { width: 7.5rem; }
-.update-table__col--when { width: 9rem; text-align: left; }
-.update-table__col--action { width: 9rem; }
+.update-hist__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
-.update-table__row > * {
-  padding: var(--space-sm);
+.update-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
   border-top: 1px solid var(--glass-hairline);
-  vertical-align: top;
 }
 
-.update-table__version {
+.update-item:first-child {
+  border-top: 0;
+}
+
+.update-item__details {
+  flex: 1;
   min-width: 0;
-  padding-top: var(--space-md);
-  text-align: left;
-  font-weight: var(--weight-regular);
 }
 
-.update-table__version .mono {
+.update-item__summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  min-height: 60px;
+  padding: var(--space-sm) 0;
+  color: var(--color-text);
+  list-style: none;
+}
+
+.update-item__summary::before,
+.update-item__summary::marker {
+  content: none;
+}
+
+.update-item__summary::-webkit-details-marker {
+  display: none;
+}
+
+.update-item__dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 8px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--color-text) 20%, transparent);
+}
+
+.update-item--newest .update-item__dot {
+  background: var(--color-accent);
+}
+
+.update-item--running .update-item__dot {
+  background: var(--color-status-ok);
+}
+
+.update-item__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.update-item__version {
+  display: block;
   font-size: var(--font-body-size);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
-.update-table__state {
-  padding-top: var(--space-md);
-}
-
-.update-table__when {
-  padding-top: var(--space-md);
-  font-size: var(--font-label-size);
-  text-align: left;
+.update-item__meta {
+  display: block;
+  font-size: var(--font-caption-size);
+  line-height: 1.5;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
-.update-table__date {
-  display: block;
-  font-size: var(--font-caption-size);
+.update-item__meta time {
   white-space: nowrap;
 }
 
-.update-table__chip {
-  display: inline-flex;
-  align-items: center;
-  height: 24px;
+.update-item__summary > .banner__pill {
+  margin-top: 4px;
+}
+
+.update-item__chevron {
+  flex: none;
+  margin-top: 6px;
+  transform: rotate(90deg);
+  transition: transform var(--motion-fast) ease;
+}
+
+/* A row without notes keeps the chevron's room so the chips share one edge. */
+.update-item__chevron-space {
+  flex: none;
+  width: 16px;
+}
+
+.update-item__details[open] .update-item__chevron {
+  transform: rotate(-90deg);
+}
+
+.update-item__action {
+  flex: none;
+  margin-top: var(--space-sm);
+}
+
+.update-item__action:empty {
+  display: none;
+}
+
+.update-item__action form {
+  margin: 0;
+}
+
+.update-item__action button[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
   padding: 0 var(--space-sm);
-  border-radius: var(--radius-pill);
-  background: color-mix(in srgb, var(--color-text) 8%, transparent);
-  color: var(--color-text);
-  font-size: var(--font-caption-size);
+  font-size: var(--font-label-size);
   font-weight: var(--weight-semibold);
   white-space: nowrap;
 }
 
-.update-table__chip--newer {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-}
-
-
-/* The action cell holds one 44px button, as wide for Install as for Roll back. */
-.update-table__action {
-  padding-top: var(--space-md);
-  text-align: right;
-}
-
-.update-table__action form {
-  margin: 0;
-}
-
-.update-table__action button[type="submit"] {
-  min-height: 44px;
-  min-width: 7.5rem;
-  padding: 0 var(--space-md);
-}
-
-.update-table__row--running > * {
-  background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
-}
-
-.update-table__row--running > .update-table__version {
-  box-shadow: inset 3px 0 0 var(--color-status-ok);
-}
-
-@media (max-width: 699.98px) {
-  .update-table,
-  .update-table tbody {
-    display: block;
-  }
-
-  .update-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-
-  .update-table__row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "version state"
-      "when action";
-    align-items: center;
-    column-gap: var(--space-sm);
-    border-top: 1px solid var(--glass-hairline);
-  }
-
-  .update-table__row > * {
-    display: block;
-    border-top: 0;
-    padding: var(--space-xs) var(--space-sm);
-  }
-
-  .update-table__row--running {
-    background: color-mix(in srgb, var(--color-status-ok) 9%, transparent);
-  }
-
-  .update-table__row--running > * {
-    background: none;
-  }
-
-  .update-table__version { grid-area: version; padding-top: var(--space-sm); }
-  .update-table__state { grid-area: state; padding-top: var(--space-sm); text-align: right; }
-  .update-table__when { grid-area: when; padding-top: 0; }
-  .update-table__action { grid-area: action; padding-top: 0; }}
-
-.update-table__notes > summary {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
+/* Notes are untrusted release text: long unbroken tokens wrap instead of
+ * widening the panel. */
+.update-item__notes {
+  margin: 0 0 var(--space-sm);
+  padding: 0 0 0 calc(10px + var(--space-md) + var(--space-md));
   font-size: var(--font-label-size);
-  color: var(--color-accent);
-  cursor: pointer;
-}
-
-.update-table__notes ul {
-  margin: 0 0 var(--space-xs);
-  padding-left: var(--space-md);
-  font-size: var(--font-label-size);
-  font-weight: var(--weight-regular);
   line-height: 1.5;
   overflow-wrap: anywhere;
+}
+
+.update-item__notes li {
+  margin: 0 0 var(--space-xs);
 }
 
 /* A quiet outlined action link in a row (Reassign beside the owner). */
@@ -1039,19 +1152,41 @@ a.row-action {
   text-decoration: none;
 }
 
-/* A person row: the action stays on the row's one line; the address gives
- * way with an ellipsis (its full value is the element's title). */
+/* A person row: the action stays on the row's one line. Beside it the
+ * address keeps a readable width: when its pills no longer fit on the same
+ * line they move under the address instead of squeezing it, and they are
+ * never clipped. An address longer than the row still gives way with an
+ * ellipsis (its full value is the element's title). */
 .group > .row.access-person {
   flex-wrap: nowrap;
 }
 
 .group > .row.access-person > .row__main {
   flex: 1 1 0;
+  flex-wrap: wrap;
+  row-gap: var(--space-xs);
   min-width: 0;
+  padding-block: var(--space-sm);
+  padding-right: var(--space-sm);
+}
+
+/* On a narrow phone the address takes half of the space kept before the
+ * action, which is what a usual address in French needs to show whole. */
+@media (max-width: 26rem) {
+  .group > .row.access-person > .row__main {
+    padding-right: var(--space-xs);
+  }
 }
 
 .group > .row.access-person .row__text {
+  flex: 1 1 11rem;
   min-width: 0;
+}
+
+.group > .row.access-person .row__value {
+  flex: none;
+  max-width: 100%;
+  overflow: visible;
 }
 
 .group > .row.access-person .co-manager__email {
@@ -1105,7 +1240,7 @@ a.row-action {
   box-shadow: var(--shadow-glass);
 }
 
-@media (max-width: 69.99rem) {
+@media (max-width: 79.49rem) {
   .users-section .users-table {
     background: none;
     border: 0;
@@ -1113,7 +1248,7 @@ a.row-action {
   }}
 
 /* The section around the table or the phone cards is plain layout, not a
- * card: the table (from 70rem) or each card is the one glass surface, with the
+ * card: the table (from 79.5rem) or each card is the one glass surface, with the
  * count line above it. */
 .users-section {
   margin: 0 0 var(--space-lg);
@@ -1154,10 +1289,17 @@ a.row-action {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
 
+/* The last sign-in is one line. */
 .users-cell--seen {
   grid-area: seen;
   font-size: var(--font-label-size);
+  white-space: nowrap;
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
+}
+
+/* The frame count and the co-manager mark never break inside themselves. */
+.users-frames__part {
+  white-space: nowrap;
 }
 
 .users-avatar {
@@ -1193,7 +1335,23 @@ a.row-action {
 
 .users-status {
   display: flex;
+  min-width: 0;
 }
+
+/* From a tablet width up an address is one line that ends in an ellipsis
+ * (its title and the row header hold it whole), so rows are equally tall. */
+@media (min-width: 37.5rem) {
+  .users-email {
+    overflow: hidden;
+    overflow-wrap: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* The phone card's break opportunities do not apply to a single line. */
+  .users-email wbr {
+    display: none;
+  }}
 
 .users-pills {
   display: flex;
@@ -1265,12 +1423,15 @@ a.row-action {
   margin: 0;
 }
 
+/* The browser draws the select's arrow in room of its own, beside the
+ * padding: the same small padding on both sides leaves the longest role
+ * name whole. */
 .users-role-form select {
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;
   max-width: 100%;
-  padding-inline: var(--space-sm) 28px;
+  padding-inline: var(--space-sm);
 }
 
 .users-cell--role .users-role-form {
@@ -1292,8 +1453,16 @@ a.row-action {
     display: none;
   }
 
+  /* Three columns, so the last line can split differently from the one above
+   * it: the last sign-in gets the room of its longest wording and the frames
+   * wrap between the count and the co-manager mark. */
   .users-table .users-row {
-    grid-template-columns: minmax(0, 9fr) minmax(0, 4fr);
+    grid-template-columns: minmax(0, 11fr) minmax(0, 7fr) minmax(0, 8fr);
+    grid-template-areas:
+      "user user user"
+      "role role active"
+      "frames seen seen"
+      "invite invite invite";
   }
 
   .users-cell--seen {
@@ -1326,7 +1495,9 @@ a.row-action {
   white-space: nowrap;
   overflow-wrap: normal;
 }
-@media (min-width: 70rem) {
+/* The table needs 79.5rem: beside the sidebar, a narrower one has no room
+ * for the address and its status once every other column is on one line. */
+@media (min-width: 79.5rem) {
 
   .users-table thead {
     display: table-header-group;
@@ -1347,14 +1518,14 @@ a.row-action {
     display: table-cell;
     height: 56px;
     vertical-align: middle;
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-sm);
     border-bottom: 1px solid var(--glass-hairline);
   }
 
   .users-col {
     display: table-cell;
     vertical-align: middle;
-    padding: var(--space-sm) var(--space-md);
+    padding: var(--space-sm);
     border-bottom: 1px solid var(--glass-hairline);
     font-size: 12px;
     font-weight: var(--weight-semibold);
@@ -1363,23 +1534,49 @@ a.row-action {
     color: color-mix(in srgb, var(--color-text) 70%, transparent);
   }
 
+  /* The last row keeps the hairline's room, so it is as tall as the others. */
   .users-table tbody .users-row:last-child .users-cell {
-    border-bottom: 0;
+    border-bottom-color: transparent;
   }
 
   .users-cell--user,
   .users-row--menu .users-cell--user {
     display: table-cell;
-    padding-right: var(--space-md);
+    padding-right: var(--space-sm);
+    padding-left: var(--space-md);
   }
 
-  .users-col--user { width: 29%; }
-  .users-col--role { width: 22%; }
-  .users-col--frames { width: 12%; }
-  .users-col--seen { width: 12%; }
-  .users-col--active { width: 7%; }
-  .users-col--invite { width: 76px; }
-  .users-col--menu { width: 76px; }
+  /* Each column is as wide as its longest French content needs on one line;
+   * the person takes what is left and gives way with an ellipsis. Nothing in
+   * a row wraps, so every row is as tall as the address and its pills. */
+  .users-col--user { padding-left: var(--space-md); }
+  .users-col--role { width: 165px; }
+  .users-col--frames { width: 132px; }
+  .users-col--seen { width: 136px; }
+  .users-col--active { width: 60px; }
+  .users-col--invite { width: 60px; }
+  .users-col--menu { width: 52px; }
+
+  .users-frames__part {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .users-frames__dot {
+    display: none;
+  }
+
+  /* A pill too long for a narrow table is cut the same way; a hidden one
+   * stays hidden. */
+  .users-status .users-pill:not([hidden]) {
+    display: block;
+    max-width: 100%;
+    line-height: 18px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   .users-avatar {
     display: inline-grid;
@@ -1390,7 +1587,7 @@ a.row-action {
    * under it. */
   .users-who {
     display: inline-grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
     justify-items: start;
     vertical-align: middle;
     max-width: calc(100% - 48px);
@@ -1435,6 +1632,7 @@ a.row-action {
 
   .users-cell--menu {
     position: static;
+    padding-left: 0;
   }}
 
 @media (max-width: 599.98px) {
@@ -1630,7 +1828,8 @@ a.access-remove-frame__link {
   width: 100%;
 }
 
-.access-sheet a.modal__dismiss {
+.access-sheet a.modal__dismiss,
+a.modal__dismiss--button {
   background: var(--glass-solid);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-control);
@@ -1655,7 +1854,6 @@ dialog.access-sheet .modal__actions {
   display: block;
   box-sizing: border-box;
   width: 100%;
-  max-width: 800px;
   margin-inline: 0;
 }
 
@@ -1781,6 +1979,13 @@ dialog.access-sheet .modal__actions {
   min-height: 12rem;
 }
 
+/* A menu in the catalogue opens under its toggle at the left of the sample, as
+ * it would from the toggle's own place in a page. */
+.components-menu-host .row-menu__panel {
+  right: auto;
+  left: 0;
+}
+
 .components-tiles {
   display: grid;
   flex: 1 1 100%;
@@ -1796,6 +2001,12 @@ dialog.access-sheet .modal__actions {
 
 .components-save-bar .dirty-bar {
   position: static;
+}
+
+/* The buttons keep the width their labels need, in French too. */
+.components-save-bar .dirty-bar > .btn {
+  flex: none;
+  min-width: max-content;
 }
 
 /* The inline sample: a card with a line of text and the two buttons beside it. */

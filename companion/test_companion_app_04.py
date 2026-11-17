@@ -28,24 +28,42 @@ import companion.layout as layout
 from companion.pages import config_page
 from companion_app_server import (
     http_request, login, served_stylesheet, with_csrf)
-from companion_markup import at_rule_blocks, css_rules, custom_properties
+from companion_markup import at_rule_blocks, css_rules, custom_properties, declarations_for
 from server import device_config
 
 import companion.app as app_module
 
 # --- The motion budget's own pinned counts. ---------------------------
-_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 2
+# The global override, the switched-off loops, and the map tiles that show at once.
+_EXPECTED_REDUCED_MOTION_REDUCE_BLOCKS = 3
 _EXPECTED_REDUCED_MOTION_NO_PREFERENCE_BLOCKS = 1
 
 # The selectors that spend the card entrance: the one shared definition.
-ENTRANCE_SELECTORS = (".reveal", ".reveal-appended", ".reveal-replay",
-    ".dashboard-main .group-block:not(.history-day):nth-child(-n + 6)",
-    ".dashboard-main .history-day:nth-child(-n + 3)",
-    ".dashboard-main .page-section:nth-child(-n + 6)",
-    ".dashboard-main .personalisation-look")
+ENTRANCE_SELECTORS = (".reveal-appended", ".reveal-replay",
+    ".dashboard-main[data-page-open] .reveal",
+    ".dashboard-main[data-page-open] .group-block:not(.history-day):nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .history-day:nth-child(-n + 3)",
+    ".dashboard-main[data-page-open] .page-section:not(.group-block .page-section):nth-child(-n + 6)",
+    ".dashboard-main[data-page-open] .personalisation-look",
+    ".dashboard-main[data-page-open] .personalisation > .layout-card",
+    ".dashboard-main[data-page-open] .personalisation > .personalisation-nav",
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-detail-head",
+    ".dashboard-main[data-page-open] .fleet-frame > .fleet-tabs")
+# A table or an empty state straight on the sky opens like a card, in its place in the order.
+OPENING_CARD_SELECTORS = (
+    ".dashboard-main[data-page-open] > .empty-state",
+    ".dashboard-main[data-page-open] > .data-table-wrap")
+# A list, a grid or a table as tall as its data only fades, as a whole.
+OPENING_LIST_SELECTORS = (
+    ".dashboard-main[data-page-open] > .filter-bar__count",
+    ".dashboard-main[data-page-open] > .audit-cards")
+# The Airlines grid and the editor table do the same, two steps after the header.
+OPENING_GRID_SELECTORS = (
+    ".dashboard-main[data-page-open] > .collection-grid",
+    ".dashboard-main[data-page-open] > .airlines-table")
 # The page header only fades in.
 OPENING_HEADER_SELECTORS = (".dashboard-main[data-page-open] > .page-header",)
-# The controls and blocks that follow the page header enter one stagger step later.
+# The controls and blocks that follow the page header enter in their place in the page.
 OPENING_BLOCK_SELECTORS = (
     ".dashboard-main[data-page-open] > .filter-bar",
     ".dashboard-main[data-page-open] > .filter-bar__chips",
@@ -66,8 +84,11 @@ _MOTION_TOKENS = ("--motion-fast", "--motion-slow", "--motion-enter", "--motion-
 # stylesheet rule). The first three are spent by transitions as well as animations.
 _MOTION_LAYER_TOKENS = (
     "--motion-spring", "--motion-spring-duration", "--motion-view-transition", "--motion-press",
-    "--motion-shimmer", "--motion-reveal", "--motion-count")
+    "--motion-shimmer", "--motion-reveal", "--motion-count", "--motion-picture",
+    "--motion-unlock")
 _MOTION_EXCEPTION_TOKENS = ("--motion-toast-dwell", "--motion-toast-dwell-long")
+# Read by motion.js (the pull-to-refresh spinner's turn), spent by no CSS rule.
+_SCRIPT_TOKENS = ("--motion-spin",)
 _MOTION_EXCEPTION_KEYFRAMES = "skypane-toast-dwell"
 _MOTION_EXCEPTION_SELECTORS = {
     "--motion-toast-dwell": (".toast[data-toast-armed] .toast__timer",),
@@ -205,6 +226,58 @@ def test_style_css_honours_the_motion_budget(served_css):
                     "limited, use grid-template-rows: 0fr -> 1fr instead" % (banned, rule.selectors))
 
 
+def test_every_transition_takes_its_duration_from_a_motion_token(served_css):
+    """no live rule gives a transition a duration of its own (150ms here, 180ms there): each
+    one spends a --motion-* token, so a hover, a press and a thumb all answer at the same
+    speeds; `transition: none` and the keyword-only values carry no duration at all"""
+    literal = re.compile(r"(?<![\w.-])\d*\.?\d+m?s(?![\w-])")
+    offenders = []
+    checked = 0
+    for rule in css_rules(served_css):
+        if any("prefers-reduced-motion" in at_rule for at_rule in rule.at_rules):
+            continue
+        for prop, value in rule.declarations:
+            if prop not in ("transition", "transition-duration"):
+                continue
+            checked += 1
+            if literal.search(value):
+                offenders.append((rule.selectors, value))
+            elif value.strip() not in ("none", "inherit", "initial", "unset"):
+                assert "var(--motion-" in value, (rule.selectors, value)
+    assert checked > 10, "the served stylesheet declares almost no transition: %d" % checked
+    assert not offenders, offenders
+
+
+# Entrances and exits all share the one --ease-out curve. The three below are loops or
+# flourishes that keep the plain keyword: the status halo's decay, the switch ring's glow and
+# a press.
+_PLAIN_EASE_OUT_RULES = frozenset((
+    ".home-state__dot--pulse::after", ".hero__ring.is-ring-done .hero__ring-done",
+    ".sidebar-link:active"))
+
+
+def test_every_entrance_and_exit_shares_the_one_ease_out_token(served_css):
+    offenders = []
+    for rule in css_rules(served_css):
+        for prop, value in rule.declarations:
+            if prop in ("transition", "animation", "transition-timing-function",
+                        "animation-timing-function") and re.search(
+                            r"(?<![\w-])ease-out(?![\w-])", value):
+                if not (set(rule.selectors) & _PLAIN_EASE_OUT_RULES) and "view-transition" not in str(
+                        rule.selectors):
+                    offenders.append((rule.selectors, value))
+    assert not offenders, offenders
+
+
+def test_the_tab_bar_and_sidebar_view_transition_groups_spend_the_motion_tokens(served_css):
+    for name in ("skypane-tab-bar", "skypane-sidebar"):
+        decls = declarations_for(
+            served_css, "::view-transition-group(%s)" % name,
+            at_rules=("@media (prefers-reduced-motion: no-preference)",))
+        assert decls.get("animation-duration") == "var(--motion-view-transition)", (name, decls)
+        assert decls.get("animation-timing-function") == "var(--ease-out)", (name, decls)
+
+
 def _spenders(served_css, token):
     return [
         (rule.selectors, prop, value)
@@ -216,7 +289,7 @@ def _spenders(served_css, token):
 
 def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_css):
     """the served :root declares exactly --motion-fast, --motion-slow, the card entrance's
-    --motion-enter/--motion-stagger, the motion layer's spring/press/shimmer/reveal tokens and
+    --motion-enter/--motion-stagger, the motion layer's spring/press/shimmer/reveal/picture/unlock tokens and
     the documented exceptions (the two toast dwells and the status dot pulse); each exception is spent by
     exactly one live declaration (an armed toast timer hairline's skypane-toast-dwell
     animation, the status dot halo's skypane-dot-halo animation) and nowhere else, not even a
@@ -225,7 +298,7 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
     declared = sorted(name for name in root if name.startswith("--motion-"))
     assert declared == sorted(
         _MOTION_TOKENS + _MOTION_LAYER_TOKENS + _MOTION_EXCEPTION_TOKENS
-        + (_DOT_PULSE_TOKEN,) + tuple(_AMBIENT_TOKENS)), (
+        + (_DOT_PULSE_TOKEN,) + _SCRIPT_TOKENS + tuple(_AMBIENT_TOKENS)), (
         "expected the motion budget's two tokens plus the documented exceptions, got %r"
         % (declared,))
     # The card entrance's two tokens: --motion-enter is the animation's duration and
@@ -236,14 +309,18 @@ def test_motion_tokens_are_two_durations_plus_the_documented_exceptions(served_c
         (ENTRANCE_SELECTORS, "animation"),
         (OPENING_HEADER_SELECTORS, "animation"),
         (OPENING_BLOCK_SELECTORS, "animation"),
-        ((".dashboard-main > .empty-state",), "animation"),
-        ((".dashboard-main > .data-table-wrap",), "animation")], (
+        (OPENING_CARD_SELECTORS, "animation"),
+        (OPENING_LIST_SELECTORS, "animation"),
+        (OPENING_GRID_SELECTORS, "animation")], (
         "--motion-enter must drive only the card entrance animation, got %r" % (entrance,))
     stagger = [
         (selectors, prop) for selectors, prop, _value in _spenders(served_css, "--motion-stagger")]
     assert stagger == [
         (ENTRANCE_SELECTORS, "animation-delay"),
-        (OPENING_BLOCK_SELECTORS, "animation-delay")], (
+        (OPENING_BLOCK_SELECTORS, "animation-delay"),
+        (OPENING_CARD_SELECTORS, "animation-delay"),
+        (OPENING_LIST_SELECTORS, "animation-delay"),
+        (OPENING_GRID_SELECTORS, "animation-delay")], (
         "--motion-stagger must scale only the card entrance delay, got %r" % (stagger,))
     # The placeholder sweep and the blur-up are each spent by one animation, on the rule that
     # marks the loading container and the one that fades the arrived picture in.
@@ -748,8 +825,8 @@ def test_unauth_post_quick_led_redirects_to_login(app04_server):
         app04_server.base_url() + app_module.QUICK_LED_ROUTE, method="POST",
         data=b"state=off")
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to /login, got %r" % headers.get("Location"))
+    assert headers.get("Location") == "/login?expired=1", (
+        "expected a redirect to /login?expired=1, got %r" % headers.get("Location"))
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 
@@ -759,8 +836,8 @@ def test_unauth_post_quick_display_redirects_to_login(app04_server):
         app04_server.base_url() + app_module.QUICK_DISPLAY_ROUTE, method="POST",
         data=b"state=off")
     assert status == 303, "expected 303, got %d" % status
-    assert headers.get("Location") == "/login", (
-        "expected a redirect to /login, got %r" % headers.get("Location"))
+    assert headers.get("Location") == "/login?expired=1", (
+        "expected a redirect to /login?expired=1, got %r" % headers.get("Location"))
     assert not body, "expected an empty redirect body, got %d bytes of content" % len(body)
 
 

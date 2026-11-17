@@ -155,6 +155,30 @@ def test_logo_is_small_centred_and_present_from_the_first_frame(
         context.close()
 
 
+@pytest.mark.parametrize("name,viewport", [
+    ("390", VIEWPORT_PHONE), ("360", {"width": 360, "height": 740}), ("1280", VIEWPORT_DESKTOP),
+])
+def test_the_animated_frame_is_a_small_centred_panel(new_context, server, name, viewport):
+    """the frame is 60-65 % of the 300 px (or 46 % of the viewport height) it first had, keeps its
+    3:4 shape and its centre, and the caption sits just under it"""
+    context, page = _home(new_context, server, viewport=viewport)
+    try:
+        page.wait_for_function(LOGO_BOX, timeout=5000, polling="raf")
+        box = page.evaluate(
+            "() => { const f = document.querySelector('.splash__frame').getBoundingClientRect();"
+            " const c = document.querySelector('.splash__caption').getBoundingClientRect();"
+            " return {w: f.width, h: f.height, cx: f.left + f.width / 2, cy: f.top + f.height / 2,"
+            "  gap: c.top - f.bottom, vw: window.innerWidth, vh: window.innerHeight}; }")
+        first_design = min(0.46 * box["vh"], 300)
+        assert 0.60 * first_design <= box["h"] <= 0.65 * first_design, box
+        assert abs(box["w"] / box["h"] - 0.75) < 0.01, box
+        assert abs(box["cx"] - box["vw"] / 2) <= 1.5 and abs(box["cy"] - box["vh"] / 2) <= 1.5, box
+        assert 0 <= box["gap"] <= 48, box
+        page.wait_for_function(SPLASH_DONE, timeout=6000)
+    finally:
+        context.close()
+
+
 @pytest.mark.parametrize("scheme", ["light", "dark"])
 def test_reduced_motion_shows_a_static_logo_with_no_animation(new_context, server, scheme):
     context, page = _home(
@@ -168,6 +192,24 @@ def test_reduced_motion_shows_a_static_logo_with_no_animation(new_context, serve
         page.wait_for_function(SPLASH_DONE, timeout=4000)
         assert page.evaluate("() => window.skypaneSplash.finishedAt") < 1500
         assert page.evaluate("() => document.querySelectorAll('[inert]').length") == 0
+    finally:
+        context.close()
+
+
+def test_the_planned_sequence_leaves_room_under_two_seconds(new_context, server):
+    """the last step of the plan (the page opening from the frame) is over by 1.75s, so the
+    frames each step waits for still leave the whole splash under two seconds on a calm
+    device; the steps stay in order and none starts before the one it follows"""
+    context, page = _home(new_context, server, viewport=VIEWPORT_PHONE)
+    try:
+        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        sequence = page.evaluate("() => window.skypaneSplash.sequence")
+        opening = sequence[-1]
+        assert opening["kind"] == "open", sequence
+        assert opening["at"] + opening["duration"] <= 1750, opening
+        scan = next(step for step in sequence if step["kind"] == "scan")
+        assert opening["at"] >= scan["at"] + scan["duration"], (scan, opening)
+        assert [step["at"] for step in sequence] == sorted(step["at"] for step in sequence)
     finally:
         context.close()
 
@@ -242,5 +284,43 @@ def test_map_loading_note_ends_when_the_pictures_cannot_load(new_context, make_a
         _login(page, server.base_url())
         page.goto(server.base_url() + "/detection")
         page.wait_for_function(LOADING_HIDDEN, timeout=15000)
+    finally:
+        context.close()
+
+
+# The first animation frame a script gets can carry a timestamp older than the clock the script
+# read when it started (the frame began before the script ran). This hands the splash such a
+# frame, and records the percentage shown after every frame.
+_EARLY_FIRST_FRAME = """
+(() => {
+  const raf = window.requestAnimationFrame.bind(window);
+  let first = true;
+  window.__percents = [];
+  window.requestAnimationFrame = (callback) => raf((stamp) => {
+    callback(first ? stamp - 120 : stamp);
+    first = false;
+    const shown = document.querySelector('.splash__percent');
+    if (shown && shown.textContent) window.__percents.push(shown.textContent);
+  });
+})();
+"""
+
+
+@pytest.mark.parametrize("motion", ["no-preference", "reduce"])
+def test_the_percentage_never_goes_below_zero_or_backwards(new_context, server, motion):
+    """whatever the first frame's timestamp, the count starts at 0, only goes up and ends at
+    100: it never shows a negative value"""
+    context = new_context(splash=True, viewport=VIEWPORT_PHONE, reduced_motion=motion)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        context.add_init_script(_EARLY_FIRST_FRAME)
+        page.goto(server.base_url() + layout.HOME_ROUTE, wait_until="commit")
+        page.wait_for_function(SPLASH_DONE, timeout=6000)
+        shown = page.evaluate("() => window.__percents")
+        values = [int("".join(ch for ch in text if ch.isdigit() or ch == "-")) for text in shown]
+        assert values, "no percentage was shown"
+        assert min(values) >= 0 and max(values) == 100, values
+        assert values == sorted(values), values
     finally:
         context.close()

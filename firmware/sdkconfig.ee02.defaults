@@ -67,3 +67,8 @@ CONFIG_FP_PIN_BATTERY_ADC_EN=6
 # that promotes this from an inherited claim to measured hardware fact.
 CONFIG_FP_PIN_LED=21
 CONFIG_FP_LED_ACTIVE_LOW=y
+
+# --- Hardware key announced to the server ---
+# Must equal the server's hardware vocabulary key (checked in CI by
+# tests/check_hw_type_key.sh).
+CONFIG_SKYPANE_HW_TYPE="xiao-ee02-13in3-spectra6"

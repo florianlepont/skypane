@@ -3,6 +3,7 @@
 when it cannot. Standard library only.
 
     python3 hardware/wakemodel.py fit EXPORT.jsonl --capacity-mah 3000 [--out FILE]
+    python3 hardware/wakemodel.py rates EXPORT --window NAME=START,END ... [--out FILE]
     python3 hardware/wakemodel.py selftest
 
 Every figure is an energy estimate from voltage and timing on a rated
@@ -21,6 +22,9 @@ median end points (logtools supplies the curve, the quiet-hour test and the
 band limit). The three unknowns are fitted by exact non-negative least
 squares. The tool exits 0 for a fit and 2 for a refusal; a refusal prints the
 reason and the data that would separate the unknowns, and no wake energy.
+
+`rates` compares the voltage fall of regime windows in mV per hour. It uses no
+capacity and no curve, so it works above 4000 mV; its figures are relative.
 """
 import argparse
 import datetime
@@ -513,7 +517,58 @@ def _load(raw_text):
     return rows, polls, dropped
 
 
-def build_report(raw, name, capacity_mah, overrides=None):
+def _parse_utc(text):
+    """Aware UTC datetime from an ISO 8601 text; a naive value means UTC."""
+    value = datetime.datetime.fromisoformat(text)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.timezone.utc)
+    return value.astimezone(datetime.timezone.utc)
+
+
+def filter_rows(rows, polls, flt):
+    """Keep one device's rows. `flt` holds seq_min, seq_max, since, until (None
+    when unset). In filter mode a row without an integer wake_seq cannot be
+    placed and is dropped. Each dropped row is counted once, under the first
+    rule it fails. Returns (rows, polls, info), rows and polls parallel.
+    """
+    kept_rows, kept_polls = [], []
+    null_seq = outside_seq = outside_time = 0
+    for row, poll in zip(rows, polls):
+        seq = row.get("wake_seq")
+        if not _is_int(seq):
+            null_seq += 1
+        elif ((flt["seq_min"] is not None and seq < flt["seq_min"])
+              or (flt["seq_max"] is not None and seq > flt["seq_max"])):
+            outside_seq += 1
+        elif ((flt["since"] is not None and poll.ts < flt["since"])
+              or (flt["until"] is not None and poll.ts >= flt["until"])):
+            outside_time += 1
+        else:
+            kept_rows.append(row)
+            kept_polls.append(poll)
+    info = {
+        "rows_before": len(rows), "rows_kept": len(kept_rows),
+        "null_wake_seq": null_seq, "outside_seq_range": outside_seq,
+        "outside_time_range": outside_time,
+        "seq_min": flt["seq_min"], "seq_max": flt["seq_max"],
+        "since": flt["since"].isoformat() if flt["since"] else None,
+        "until": flt["until"].isoformat() if flt["until"] else None,
+    }
+    return kept_rows, kept_polls, info
+
+
+NO_ROW_AFTER_FILTER = ("no row left after the device filter; check "
+                       "--seq-min/--seq-max/--since/--until against the export")
+
+
+def _apply_filter(rows, polls, device_filter, report):
+    """Filter in place of _load's result; records the counts in the report."""
+    rows, polls, info = filter_rows(rows, polls, device_filter)
+    report["inputs"]["device_filter"] = info
+    return rows, polls
+
+
+def build_report(raw, name, capacity_mah, overrides=None, device_filter=None):
     """The full report dict for an export (bytes). Never raises for data
     that cannot be fitted: `refused` is true and `reasons` says why.
     """
@@ -529,6 +584,11 @@ def build_report(raw, name, capacity_mah, overrides=None):
     except Refusal as exc:
         report["reasons"] = exc.reasons
         return report
+    if device_filter is not None:
+        rows, polls = _apply_filter(rows, polls, device_filter, report)
+        if not rows:
+            report["reasons"] = [NO_ROW_AFTER_FILTER]
+            return report
     report["inputs"]["rows"] = len(rows)
     report["inputs"]["rows_dropped"] = dropped_rows
     breakdown = awake_breakdown(rows)
@@ -581,6 +641,13 @@ def _fmt_range(item, unit, digits=4):
         digits, item["point"], unit, digits, item["low"], digits, item["high"])
 
 
+def _filter_line(flt):
+    return ("  device filter: kept %d of %d rows; %d outside the wake_seq range, %d with "
+            "null wake_seq, %d outside the time range" % (
+                flt["rows_kept"], flt["rows_before"], flt["outside_seq_range"],
+                flt["null_wake_seq"], flt["outside_time_range"]))
+
+
 def _print_inputs(report, out):
     inp = report["inputs"]
     out("Inputs")
@@ -589,6 +656,9 @@ def _print_inputs(report, out):
     p = inp["parameters"]
     out("  segments: %g h each, end windows %g h, first %g h ignored" % (
         p["segment_hours"], p["edge_hours"], p["ignore_hours"]))
+    flt = inp.get("device_filter")
+    if flt is not None:
+        out(_filter_line(flt))
     out("Assumptions")
     for line in assumptions(p):
         out("  - " + line)
@@ -651,7 +721,421 @@ def print_report(report, out=print):
     out(ESTIMATE_SENTENCE)
 
 
+# --- Relative mode: voltage slopes per window ---------------------------------------
+
+RATES_DEFAULTS = {
+    "reset_hours": 3.0,
+    "min_usable_hours": 24.0,
+    "band_mv": 60.0,
+    "min_hour_polls": 3,
+    "max_condition": DEFAULTS["max_condition"],
+    "quiet_start": DEFAULTS["quiet_start"],
+    "quiet_end": DEFAULTS["quiet_end"],
+}
+RELATIVE_SENTENCE = (
+    "These are relative voltage-slope comparisons in mV per hour on the rated, "
+    "uncalibrated top-of-charge region of the curve; they are not mAh and not a "
+    "current measurement.")
+NO_SEPARATION_LINE = (
+    "With two windows C, R and the standing draw cannot be separated; only the two "
+    "slopes and their ratio are given.")
+NO_RATES_FIGURE_LINE = "No C, R or standing-draw figure is given."
+HOUR = datetime.timedelta(hours=1)
+
+
+def parse_window(text):
+    """(name, start, end) from NAME=START,END; ValueError with a plain message."""
+    name, sep, rest = text.partition("=")
+    parts = rest.split(",")
+    if not name or not sep or len(parts) != 2:
+        raise ValueError("--window must look like NAME=START,END, got %r" % text)
+    try:
+        start, end = _parse_utc(parts[0]), _parse_utc(parts[1])
+    except ValueError:
+        raise ValueError("--window %s: START and END must be ISO 8601 times" % name)
+    if end <= start:
+        raise ValueError("--window %s: END must be after START" % name)
+    return name, start, end
+
+
+def reset_times(rows, polls):
+    """Times of rows that follow a restart: a boot reason other than a timer or
+    button wake (power-on, any other reset, the restart after an update) or a
+    changed firmware version.
+    """
+    out = []
+    for k, row in enumerate(rows):
+        reason = row.get("boot_reason")
+        changed = False
+        if k > 0:
+            now, before = row.get("fw_version"), rows[k - 1].get("fw_version")
+            changed = isinstance(now, str) and isinstance(before, str) and now != before
+        if changed or (isinstance(reason, str) and reason not in ("", "rtc", "button")):
+            out.append(polls[k].ts)
+    return sorted(out)
+
+
+def _excluded_intervals(start, end, resets, hours):
+    span = datetime.timedelta(hours=hours)
+    spans = sorted((max(r, start), min(r + span, end))
+                   for r in resets if start - span < r < end)
+    merged = []
+    for lo, hi in spans:
+        if merged and lo <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], hi))
+        else:
+            merged.append((lo, hi))
+    return merged
+
+
+def _inside(ts, intervals):
+    return any(lo <= ts < hi for lo, hi in intervals)
+
+
+def _hour_bins(polls, start, quiet, excluded, min_polls):
+    """(hours from start, median mV) for each UTC hour holding enough usable polls."""
+    bins = {}
+    for q in polls:
+        if lt.is_trend_quiet(q.ts, quiet) or _inside(q.ts, excluded):
+            continue
+        key = q.ts.astimezone(datetime.timezone.utc).replace(minute=0, second=0, microsecond=0)
+        bins.setdefault(key, []).append(q)
+    out = []
+    for key in sorted(bins):
+        members = bins[key]
+        if len(members) >= min_polls:
+            x = statistics.median((m.ts - start) / HOUR for m in members)
+            out.append((x, statistics.median(m.mv for m in members)))
+    return out
+
+
+def _slope(points):
+    """(fall mV/h, standard error, degrees of freedom) of an OLS line; fall is
+    positive when the voltage falls. None with fewer than 3 points.
+    """
+    n = len(points)
+    if n < 3:
+        return None
+    mx = sum(x for x, _ in points) / n
+    my = sum(y for _, y in points) / n
+    sxx = sum((x - mx) ** 2 for x, _ in points)
+    if sxx <= 0:
+        return None
+    slope = sum((x - mx) * (y - my) for x, y in points) / sxx
+    rss = sum((y - my - slope * (x - mx)) ** 2 for x, y in points)
+    return -slope, math.sqrt(rss / (n - 2) / sxx), n - 2
+
+
+def _wake_rates(wakes, start, end, excluded, span_hours):
+    counts = dict.fromkeys(CLASSES, 0)
+    for w in wakes:
+        if start <= w["ts"] < end and not _inside(w["ts"], excluded):
+            counts[w["cls"]] += 1
+    checks = counts["nochange"] + counts["deferred"] + counts["failed"]
+    per_hour = (lambda n: n / span_hours) if span_hours > 0 else (lambda n: 0.0)
+    return counts, per_hour(checks), per_hour(counts["redraw"])
+
+
+def window_stats(polls, wakes, window, resets, p):
+    """Figures of one window; `fall` is None when fewer than 3 usable hours exist."""
+    name, start, end = window
+    quiet = (p["quiet_start"], p["quiet_end"])
+    excluded = _excluded_intervals(start, end, resets, p["reset_hours"])
+    excluded_hours = sum(((hi - lo) / HOUR for lo, hi in excluded), 0.0)
+    span_hours = (end - start) / HOUR - excluded_hours
+    inside = [q for q in polls if start <= q.ts < end]
+    bins = _hour_bins(inside, start, quiet, excluded, p["min_hour_polls"])
+    usable = [q.mv for q in inside
+              if not lt.is_trend_quiet(q.ts, quiet) and not _inside(q.ts, excluded)]
+    counts, checks_per_h, redraws_per_h = _wake_rates(wakes, start, end, excluded, span_hours)
+    fit = _slope(bins)
+    out = {
+        "name": name, "start": start.isoformat(), "end": end.isoformat(),
+        "usable_hours": len(bins), "reset_excluded_hours": excluded_hours,
+        "resets": [r.isoformat() for r in resets if start - datetime.timedelta(
+            hours=p["reset_hours"]) < r < end],
+        "fall": None, "se": None, "dof": None, "half_width": None,
+        "wakes": counts, "checks_per_h": checks_per_h, "redraws_per_h": redraws_per_h,
+        "median_mv": statistics.median(usable) if usable else None,
+    }
+    if fit is not None:
+        out["fall"], out["se"], out["dof"] = fit
+        out["half_width"] = t_quantile(fit[2]) * fit[1]
+    return out
+
+
+def _window_reasons(windows, p):
+    reasons = []
+    for w in windows:
+        if w["usable_hours"] < p["min_usable_hours"] or w["fall"] is None:
+            reasons.append(
+                "window %s has %d usable hours, at least %g needed; hold that regime longer "
+                "or reduce the excluded hours" % (
+                    w["name"], w["usable_hours"], p["min_usable_hours"]))
+        elif w["half_width"] > abs(w["fall"]):
+            reasons.append(
+                "the slope of window %s is not resolved: its 95 percent interval is wider "
+                "than its value; a longer window is needed" % w["name"])
+    medians = [w["median_mv"] for w in windows if w["median_mv"] is not None]
+    if medians and max(medians) - min(medians) > p["band_mv"]:
+        reasons.append(
+            "windows differ by %.0f mV in median voltage, more than the %g mV band "
+            "(--band-mv); windows closer in time or voltage are needed" % (
+                max(medians) - min(medians), p["band_mv"]))
+    return reasons
+
+
+def pseudo_segments(windows):
+    """One row per window for the shared solver: unit hours, wake rates per hour,
+    voltage fall per hour as the response.
+    """
+    return [{"hours": 1.0, "nochange": w["checks_per_h"], "redraw": w["redraws_per_h"],
+             "charge_mah": w["fall"]} for w in windows]
+
+
+def rates_reasons(windows, p):
+    """Refusal reasons, each naming what would fix it (empty when a solve is possible)."""
+    reasons = []
+    if len(windows) < 3:
+        reasons.append(
+            "only %d window(s): at least three windows, each one regime held 24 to 72 h, "
+            "are needed" % len(windows))
+    reasons += _window_reasons(windows, p)
+    if len(windows) >= 3 and not reasons:
+        cond = condition_number(pseudo_segments(windows))
+        if cond > p["max_condition"]:
+            reasons.append(
+                "the design is rank-deficient or ill-conditioned (scaled condition number "
+                "%s, at most %g allowed): check and redraw rates move together across "
+                "windows; a window at another check interval is needed (with a fixed check "
+                "interval every wake is a check or a redraw, so checks plus redraws per "
+                "hour is the same in every window)" % (
+                    "infinite" if math.isinf(cond) else "%.0f" % cond, p["max_condition"]))
+    return reasons
+
+
+def _ratio(num, den, var_num, var_den, cov, t):
+    """Delta-method ratio with a 95 percent interval, or 'not resolved'."""
+    if num <= 0 or den <= 0:
+        return "not resolved"
+    value = num / den
+    var = value ** 2 * (var_num / num ** 2 + var_den / den ** 2 - 2 * cov / (num * den))
+    return _interval(value, math.sqrt(max(var, 0.0)), t)
+
+
+def rates_intervals(windows, coef, ref_index):
+    """Approximate 95 percent intervals from the per-window slope errors
+    propagated through the unconstrained least-squares map (the fit has no
+    residual degrees of freedom with three windows), and the two ratios.
+    """
+    x = [[1.0, w["checks_per_h"], w["redraws_per_h"]] for w in windows]
+    gram = [[sum(r[i] * r[j] for r in x) for j in range(3)] for i in range(3)]
+    inv = invert(gram)
+    if inv is None:
+        return None
+    a = [[sum(inv[i][m] * x[k][m] for m in range(3)) for k in range(len(x))] for i in range(3)]
+    var_w = [w["se"] ** 2 for w in windows]
+    cov = [[sum(a[i][k] * a[j][k] * var_w[k] for k in range(len(x))) for j in range(3)]
+           for i in range(3)]
+    t = t_quantile(min(w["dof"] for w in windows))
+    out = {name: _interval(coef[j], math.sqrt(max(cov[j][j], 0.0)), t)
+           for j, name in enumerate(("standing_mv_per_h", "check_mv_per_wake",
+                                     "redraw_mv_per_wake"))}
+    ref = windows[ref_index]
+    out["redraw_over_check"] = _ratio(coef[2], coef[1], cov[2][2], cov[1][1], cov[1][2], t)
+    out["redraw_over_reference"] = _ratio(
+        coef[2], ref["fall"], cov[2][2], var_w[ref_index], a[2][ref_index] * var_w[ref_index], t)
+    out["reference"] = ref["name"]
+    return out
+
+
+def two_window_ratio(windows):
+    """First fall over second with a 95 percent interval; None when not computable."""
+    a, b = windows
+    if a["fall"] is None or b["fall"] is None or a["fall"] <= 0 or b["fall"] <= 0:
+        return None
+    t = t_quantile(min(a["dof"], b["dof"]))
+    ratio = a["fall"] / b["fall"]
+    se = ratio * math.sqrt((a["se"] / a["fall"]) ** 2 + (b["se"] / b["fall"]) ** 2)
+    out = _interval(ratio, se, t)
+    out.update({"numerator": a["name"], "denominator": b["name"]})
+    return out
+
+
+def _rates_fit(windows, reference):
+    solved = fit_nonnegative(pseudo_segments(windows))
+    if solved is None:
+        return None
+    names = [w["name"] for w in windows]
+    return rates_intervals(windows, solved[0], names.index(reference))
+
+
+def build_rates_report(raw, name, windows_spec, reference, overrides=None, device_filter=None):
+    """Report dict for the rates mode. Never raises for data: `refused` is true
+    and `reasons` says why. `windows_spec` is a list of (name, start, end).
+    """
+    p = dict(RATES_DEFAULTS)
+    p.update(overrides or {})
+    reference = reference or windows_spec[0][0]
+    report = {
+        "inputs": {
+            "export": name, "export_sha256": hashlib.sha256(raw).hexdigest(),
+            "parameters": p, "reference": reference,
+            "windows": [{"name": n, "start": s.isoformat(), "end": e.isoformat()}
+                        for n, s, e in windows_spec]},
+        "refused": True, "reasons": [], "windows": [], "fit": None,
+    }
+    try:
+        rows, polls, dropped_rows = _load(raw.decode("utf-8", errors="replace"))
+    except Refusal as exc:
+        report["reasons"] = exc.reasons
+        return report
+    if device_filter is not None:
+        rows, polls = _apply_filter(rows, polls, device_filter, report)
+        if not rows:
+            report["reasons"] = [NO_ROW_AFTER_FILTER]
+            return report
+    report["inputs"]["rows"] = len(rows)
+    report["inputs"]["rows_dropped"] = dropped_rows
+    if not any(_prev_block(r) is not None for r in rows):
+        report["reasons"] = [NO_TELEMETRY + ": no row carries a previous-wake record; a "
+                             "window from a frame that reports wake telemetry is needed"]
+        return report
+    wakes = join_wakes(rows, polls)
+    resets = reset_times(rows, polls)
+    windows = [window_stats(polls, wakes, w, resets, p) for w in windows_spec]
+    report["windows"] = windows
+    reasons = rates_reasons(windows, p)
+    if len(windows) == 2:
+        report["two_window_ratio"] = two_window_ratio(windows)
+    if not reasons:
+        fit = _rates_fit(windows, reference)
+        if fit is None:
+            reasons = ["the least-squares problem is singular; a window at another check "
+                       "interval is needed"]
+        else:
+            report["fit"] = fit
+    report["reasons"] = reasons
+    report["refused"] = bool(reasons)
+    return report
+
+
+def _rates_assumptions(p):
+    return (
+        "the quiet window %s to %s (Europe/Paris) is left out of the voltage samples; "
+        "wake rates use the full wall-clock time" % (p["quiet_start"], p["quiet_end"]),
+        "each usable UTC hour (at least %d polls) is one median voltage sample" % p["min_hour_polls"],
+        "after a restart (power-on, other reset, firmware change) %g h are excluded" % p["reset_hours"],
+        "unknown wakes (no previous-wake record) are counted and left out of the rates",
+        "the 95 percent ranges are approximate: slope errors propagated through the "
+        "unconstrained least squares, model error ignored",
+    )
+
+
+def _print_rates_inputs(report, out):
+    inp = report["inputs"]
+    p = inp["parameters"]
+    out("Inputs")
+    out("  export: %s (sha256 %s)" % (inp["export"], inp["export_sha256"]))
+    out("  voltage band: %g mV (--band-mv), at least %g usable hours per window "
+        "(--min-usable-hours), condition limit %g" % (
+            p["band_mv"], p["min_usable_hours"], p["max_condition"]))
+    out("  reference window: %s" % inp["reference"])
+    if "device_filter" in inp:
+        out(_filter_line(inp["device_filter"]))
+    out("Assumptions")
+    for line in _rates_assumptions(p):
+        out("  - " + line)
+
+
+def _print_rates_windows(report, out):
+    out("Windows")
+    for w in report["windows"]:
+        if w["fall"] is None:
+            fall = "fall not available"
+        else:
+            fall = "fall %.3f mV/h (95%% range %.3f to %.3f)" % (
+                w["fall"], w["fall"] - w["half_width"], w["fall"] + w["half_width"])
+        median = "none" if w["median_mv"] is None else "%.0f" % w["median_mv"]
+        out("  %s: %s to %s; usable hours %d; reset-excluded %.1f h; %s; checks %.3f/h, "
+            "redraws %.3f/h; unknown %d; median %s mV" % (
+                w["name"], w["start"], w["end"], w["usable_hours"],
+                w["reset_excluded_hours"], fall, w["checks_per_h"], w["redraws_per_h"],
+                w["wakes"]["unknown"], median))
+
+
+def _fmt_ratio(item):
+    if isinstance(item, str):
+        return item
+    return "%.2f (95%% range %.2f to %.2f)" % (item["point"], item["low"], item["high"])
+
+
+def _print_rates_fit(fit, out):
+    out("Fit (mV per hour and mV per wake)")
+    for label, key, unit in (("standing draw s", "standing_mv_per_h", "mV/h"),
+                             ("check wake C", "check_mv_per_wake", "mV per wake"),
+                             ("redraw wake R", "redraw_mv_per_wake", "mV per wake")):
+        item = fit[key]
+        out("  %s: %.4f %s (95%% range %.4f to %.4f)" % (
+            label, item["point"], unit, item["low"], item["high"]))
+    out("  R/C: " + _fmt_ratio(fit["redraw_over_check"]))
+    out("  R / fall of window %s: %s" % (
+        fit["reference"], _fmt_ratio(fit["redraw_over_reference"])))
+
+
+def print_rates_report(report, out=print):
+    _print_rates_inputs(report, out)
+    if report["windows"]:
+        _print_rates_windows(report, out)
+    if report["refused"]:
+        out("REFUSED")
+        for reason in report["reasons"]:
+            out("  - " + reason)
+        ratio = report.get("two_window_ratio")
+        if len(report["windows"]) == 2:
+            if ratio:
+                out("  ratio of fall %s to fall %s: %s" % (
+                    ratio["numerator"], ratio["denominator"], _fmt_ratio(ratio)))
+            out(NO_SEPARATION_LINE)
+        out(NO_RATES_FIGURE_LINE)
+    else:
+        _print_rates_fit(report["fit"], out)
+    out(RELATIVE_SENTENCE)
+
+
 # --- CLI --------------------------------------------------------------------------
+
+
+def _add_filter_args(parser):
+    parser.add_argument("--seq-min", type=int, default=None,
+                        help="keep rows with wake_seq at least this (one device)")
+    parser.add_argument("--seq-max", type=int, default=None,
+                        help="keep rows with wake_seq at most this")
+    parser.add_argument("--since", default=None,
+                        help="keep rows at or after this time (ISO 8601, naive means UTC)")
+    parser.add_argument("--until", default=None,
+                        help="keep rows before this time (ISO 8601, naive means UTC)")
+
+
+def _filter_from_args(args):
+    """(filter dict or None when no option is set, error text or None)."""
+    if (args.seq_min is None and args.seq_max is None
+            and args.since is None and args.until is None):
+        return None, None
+    flt = {"seq_min": args.seq_min, "seq_max": args.seq_max, "since": None, "until": None}
+    try:
+        for key in ("since", "until"):
+            text = getattr(args, key)
+            flt[key] = _parse_utc(text) if text is not None else None
+    except ValueError:
+        return None, "--since and --until must be ISO 8601 times, got %r and %r" % (
+            args.since, args.until)
+    if flt["since"] and flt["until"] and flt["since"] >= flt["until"]:
+        return None, "--since must be before --until"
+    if (flt["seq_min"] is not None and flt["seq_max"] is not None
+            and flt["seq_min"] > flt["seq_max"]):
+        return None, "--seq-min must not exceed --seq-max"
+    return flt, None
 
 
 def cmd_fit(args):
@@ -669,9 +1153,52 @@ def cmd_fit(args):
     except lt.RunReportError as exc:
         print(str(exc), file=sys.stderr)
         return 1
+    flt, error = _filter_from_args(args)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
     overrides = {k: getattr(args, k) for k in DEFAULTS}
-    report = build_report(raw, os.path.basename(args.export), args.capacity_mah, overrides)
+    report = build_report(raw, os.path.basename(args.export), args.capacity_mah, overrides,
+                          flt)
     print_report(report)
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as fh:
+            fh.write(report_json(report))
+    return 2 if report["refused"] else 0
+
+
+def cmd_rates(args):
+    try:
+        windows = [parse_window(text) for text in args.window]
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    names = [w[0] for w in windows]
+    if len(set(names)) != len(names):
+        print("--window names must be unique", file=sys.stderr)
+        return 1
+    if args.reference is not None and args.reference not in names:
+        print("--reference %s is not one of the windows" % args.reference, file=sys.stderr)
+        return 1
+    try:
+        with open(args.export, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        print("cannot read %s: %s" % (args.export, exc), file=sys.stderr)
+        return 1
+    try:
+        lt.check_trend_quiet_window(args.quiet_start, args.quiet_end)
+    except lt.RunReportError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    flt, error = _filter_from_args(args)
+    if error:
+        print(error, file=sys.stderr)
+        return 1
+    overrides = {k: getattr(args, k) for k in RATES_DEFAULTS}
+    report = build_rates_report(raw, os.path.basename(args.export), windows, args.reference,
+                                overrides, flt)
+    print_rates_report(report)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
             fh.write(report_json(report))
@@ -709,6 +1236,20 @@ def build_parser():
                       ("max_redraw_ma", float), ("quiet_start", str), ("quiet_end", str)):
         fit.add_argument("--" + key.replace("_", "-"), dest=key, type=kind,
                          default=DEFAULTS[key])
+    _add_filter_args(fit)
+    rates = sub.add_parser("rates", help="compare voltage slopes of regime windows "
+                                         "(relative, no capacity, no curve)")
+    rates.add_argument("export")
+    rates.add_argument("--window", action="append", required=True, metavar="NAME=START,END",
+                       help="one regime window, ISO 8601 times (naive means UTC); repeatable")
+    rates.add_argument("--reference", default=None, help="window for the R ratio (default: first)")
+    rates.add_argument("--out", help="write the deterministic report JSON here")
+    for key, kind in (("reset_hours", float), ("min_usable_hours", float), ("band_mv", float),
+                      ("min_hour_polls", int), ("max_condition", float),
+                      ("quiet_start", str), ("quiet_end", str)):
+        rates.add_argument("--" + key.replace("_", "-"), dest=key, type=kind,
+                           default=RATES_DEFAULTS[key])
+    _add_filter_args(rates)
     sub.add_parser("selftest", help="run fit on the committed fixtures")
     return parser
 
@@ -717,6 +1258,8 @@ def main(argv=None):
     args = build_parser().parse_args(argv)
     if args.command == "fit":
         return cmd_fit(args)
+    if args.command == "rates":
+        return cmd_rates(args)
     return cmd_selftest(args)
 
 

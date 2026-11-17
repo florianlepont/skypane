@@ -53,6 +53,9 @@ def fold_repeated_passes(rows, limit=None):
         if previous is not None and _pass_key(row) == _pass_key(previous):
             gap = _seconds_between(previous.get("ts"), row.get("ts"))
             if gap is not None and gap < DUPLICATE_WINDOW_S:
+                # The kept (newest) row keeps the picture of the pass's first sighting.
+                if row.get("gallery_name") and not kept[-1].get("gallery_name"):
+                    kept[-1] = dict(kept[-1], gallery_name=row["gallery_name"])
                 previous = row
                 continue
         previous = row

@@ -31,14 +31,13 @@ its own token and never reads the session cookie), and the static assets in
 admin role (every global page and mutation).
 """
 import re
-from urllib.parse import parse_qs, urlsplit
 
 from companion import (
     airline_actions, co_managers, console_routes, device_scope, fleet_moves, frame_rename, user_pairing, layout, page_policy, route_types,
-    static_files, theme_preview)
+    static_files, theme_preview, upload_form)
 from companion.pages import (
     airline_collection_page, airline_types_fragment, airlines_page, co_managers_card, config_page, detection_page, place_page,
-    history_page, home_page, personalisation_cards, update_page)
+    history_fragment, home_page, personalisation_cards, update_page)
 
 # Anchored on the raw path (never percent-decoded); `\Z` and the absence of
 # DOTALL keep a newline from slipping into the id or the remainder.
@@ -81,6 +80,12 @@ LOGOUT_ROUTE = "/logout"
 SESSION_CHECK_ROUTE = "/session/check"
 ACCOUNT_ROUTE = "/account"
 EXPORT_ROUTE = "/api/export/battery-history"
+# Read-only debugging exports behind the same bearer token as EXPORT_ROUTE.
+EXPORT_EXTRA_ROUTES = (
+    "/api/export/flights",
+    "/api/export/poll-cycles",
+    "/api/export/status",
+)
 GALLERY_ROUTE_PREFIX = "/gallery/"
 ILLUSTRATION_IMAGE_ROUTE_PREFIX = "/illustration/"
 
@@ -157,13 +162,21 @@ _GET_ROUTES = (
         Route(
             "GET", Exact(EXPORT_ROUTE),
             lambda h, m: h._handle_export_get(m.query), PUBLIC),
+    ) + tuple(
+        Route(
+            "GET", Exact(path),
+            lambda h, m, path=path: h._handle_export_get(m.query, path), PUBLIC)
+        for path in EXPORT_EXTRA_ROUTES
     )
     + _static_get_routes()
     + (
         Route("GET", Exact(ACCOUNT_ROUTE), lambda h, m: h._handle_account_get(), SIGNED_IN),
         Route(
             "GET", Exact(HOME_ROUTE),
-            lambda h, m: h._render_tab(HOME_ROUTE, home_page.render, m.device),
+            lambda h, m: h._render_tab(
+                HOME_ROUTE,
+                lambda ctx: home_page.render(ctx, place=h._detection_place(m.device)),
+                m.device),
             OWNER_DEVICE),
     )
     + _personalisation_get_routes()
@@ -182,7 +195,7 @@ _GET_ROUTES = (
             fleet_moves.retired_frame_page, ADMIN_ONLY),
         Route(
             "GET", Exact(FLIGHTS_ROUTE),
-            lambda h, m: h._render_tab(FLIGHTS_ROUTE, history_page.render, m.device), OWNER_DEVICE),
+            lambda h, m: history_fragment.get(h, m.device), OWNER_DEVICE),
         Route(
             "GET", Exact(HEALTH_ROUTE),
             fleet_moves.retired_frame_page, ADMIN_DEVICE),
@@ -457,10 +470,19 @@ def match(method, path, query):
     return _match_in(ROUTES, method, path, query, None)
 
 
+def reopen_address(path):
+    """The address a refused form can be opened again at: its own path (never
+    its query) when the same path is a page, else None."""
+    twin = match("GET", path, "")
+    if twin is None or static_files.looks_like_asset(path):
+        return None
+    return path
+
+
 def submitted_csrf(handler, route):
     """The anti-forgery token a POST carries: in the form body, except for an
-    illustration upload, whose multipart body the handler reads itself and
-    whose action URL carries the token in its query instead."""
+    illustration upload, whose multipart body opens with the token as a text
+    part (read here, ahead of the file; the query string is never consulted)."""
     if route.matcher == PrefixSuffix(ILLUSTRATION_IMAGE_ROUTE_PREFIX, ".png"):
-        return parse_qs(urlsplit(handler.path).query).get(CSRF_FIELD, [None])[0]
+        return upload_form.read_upload(handler, upload_form.MAX_UPLOAD_BYTES)
     return handler.read_form().get(CSRF_FIELD)

@@ -94,14 +94,46 @@ def test_the_favicon_is_a_cacheable_svg_with_the_shared_static_policy(server):
 
 
 def test_the_favicon_is_self_contained_and_carries_nothing_sensitive(server):
-    """No script, no external reference, no style or font dependency: it must render the same
-    on any tab strip, in Safari (which ignores prefers-color-scheme in an SVG icon) included."""
+    """No script, no external reference, no font dependency: the only embedded code is the one
+    style block that switches the tile between its light and dark colours."""
     _, _, body = get(server, FAVICON)
     text = body.decode("utf-8")
-    for forbidden in ("<script", "<style", "<text", "<image", "https://",
+    for forbidden in ("<script", "<text", "<image", "https://",
                       "href=", "password", "secret", "@import", "url("):
         assert forbidden not in text, forbidden
-    assert "#B13F16" in text, "the tile is the accent colour"
+    assert text.count("<style>") == 1
+
+
+def _favicon_rules(server):
+    """The favicon's style rules as {scheme: {selector: {property: value}}}."""
+    _, _, body = get(server, FAVICON)
+    css = ET.fromstring(body).find("{http://www.w3.org/2000/svg}style").text
+    media_at = css.index("@media")
+    base, dark = css[:media_at], css[media_at:]
+    dark = dark[dark.index("{") + 1:dark.rindex("}")]
+
+    def parse(block):
+        rules = {}
+        for selector, declarations in re.findall(r"([.\w]+)\{([^}]*)\}", block):
+            rules[selector] = dict(d.split(":") for d in declarations.split(";") if d)
+        return rules
+    assert "prefers-color-scheme:dark" in css.replace(" ", "")
+    return {"light": parse(base), "dark": parse(dark)}
+
+
+def test_the_favicon_tile_is_graphite_in_light_and_ivory_in_dark(server):
+    rules = _favicon_rules(server)
+    assert rules["light"][".tile"]["fill"] == "#1F2430"
+    assert rules["light"][".glyph"]["stroke"] == "#FFFFFF"
+    assert rules["dark"][".tile"]["fill"] == "#F2EFE9"
+    assert rules["dark"][".glyph"]["stroke"] == "#1F2430"
+    _, _, body = get(server, FAVICON)
+    assert b"#B13F16" not in body, "the old orange tile is gone"
+    root = ET.fromstring(body)
+    classes = {el.attrib.get("class") for el in root.iter() if el.attrib.get("class")}
+    assert classes == {"tile", "glyph"}, "colours come from the classes only"
+    for el in root.iter():
+        assert "fill" not in el.attrib and "stroke" not in el.attrib, el.tag
 
 
 def _png_header(data):
@@ -121,10 +153,11 @@ def test_the_apple_touch_icon_is_a_180px_opaque_png(server):
     assert len(body) > 500
 
 
-def test_the_apple_touch_icon_is_the_accent_tile_with_a_white_glyph(server):
+def test_the_apple_touch_icon_is_the_graphite_tile_with_a_white_glyph(server):
     _, _, body = get(server, APPLE_TOUCH_ICON)
     image = Image.open(BytesIO(body)).convert("RGB")
-    assert image.getpixel((4, 4)) == (0xB1, 0x3F, 0x16), "full-bleed accent corner"
+    assert image.getpixel((4, 4)) == (0x1F, 0x24, 0x30), "full-bleed graphite corner"
+    assert image.getpixel((90, 8)) == (0x1F, 0x24, 0x30), "graphite at a tile point"
     colours = {colour for _, colour in image.getcolors(maxcolors=100000)}
     assert any(min(c) > 240 for c in colours), "a white glyph is drawn"
 

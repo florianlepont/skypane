@@ -1109,3 +1109,67 @@ Report: scratchpad themes91a/ (planches, report text in the hand-back).
   after the fix that offsets the map by the top safe-area inset; to be investigated by
   comparing with the last good build, separately from plan 61-110.
 - Queue after plan 61-110: plan 61-111 for W176-W179 and the Location top band.
+
+## Round 24 validation
+
+- Owner: everything is fine except Location (W176-W178 confirmed on device; the graphite
+  logo with a night-mode favicon, W179, confirmed on device).
+- Location top edge on iPhone (Safari tab and Home Screen app) is still not right after
+  plans 61-111 and 61-112. The owner opened a local session with the iOS simulator to
+  debug it on real WebKit; the result will come back as a branch.
+- Brotli stays an owner deploy decision (Caddy), left aside for now.
+
+## Round 25: audit 5 fixes (D56)
+
+- D56: all 84 audit-5 findings are treated, in lots A to D, by sequential executors.
+- Lot A (61-115) and lot B (61-116) merged and deployed; owner validated all tests of both lots.
+- Owner decision: keep the role-change confirmation on Users (it supersedes the "no confirmation" line of the UI spec).
+- Open: X03 (Users table wrapping) needs a design choice; lot C and lot D follow.
+- Owner decision (X03): Users table option A, e-mail addresses on one line with an ellipsis (full address in the person's detail), so every row has the same height. Goes into lot D.
+- Lot C (61-117) merged, deployed and validated by the owner (Flights, Airlines, offline, expired session, Location, splash). Lot D (61-118) in progress.
+
+## Round 26: suggestion, Airlines in the tab bar (non-admin)
+
+- Owner suggestion: for a person who is not an administrator, the Airlines page should be a tab of the bottom bar instead of living in the More panel, since there is room (no console space switch). Queued as plan 61-120 after lot E.
+- Owner decision (tab bar, plan 61-120): the bottom bar is the same for everyone, Accueil, Vols, Compagnies, Style, Lieu, Plus. For an administrator the console switch moves into the Plus panel (no separate cell). Accueil stays first. Lot D validated as deployed.
+- Lot E (61-119) and the single bottom tab bar (61-120) merged and deployed; the owner approved the deployment. Open owner questions: Console-space bar (five cells kept), Style Save bar on sub-tab change (W5-18), Location top edge on iPhone, W5-23 as its own plan.
+
+## Round 27: owner validation of lot E, tab bar and Location
+
+- Location top edge on iPhone: confirmed fixed by the owner (Safari tab and Home Screen app).
+- Lot E and the single tab bar: owner says everything is fine.
+- New feedback on the More panel: (1) the blur behind the panel does not cover the whole page (on Location the map stays sharp in a strip at the top and at the bottom edge); (2) the Console row should be more prominent. Queued as plan 61-121; (1) is a bug fix, (2) goes through a mockup first.
+- Owner decisions on the More panel: Console row option B (tinted card with an accent icon and a subtitle "Fleet, users, audit"); and the proposed redesign accepted (grab handle, account with initial, Console card, a "Settings" group with Theme and Language, Sign out as a soft alert button). Queued as plan 61-122 after 61-121 (blur coverage).
+- Owner decision (W5-18): changing Style sub-tab with an unsaved layout opens a dialog (Save and continue / Discard / Stay here). Queued as plan 61-123 after 61-122.
+- Owner decision (W5-12): keep the current Back behaviour with a dialog open (Back leaves the page); no history entry per dialog.
+- Owner decision (W5-15): option A, a refused pairing code is kept in a very short-lived cookie (outside the address) and put back in the field. Queued with W5-23 (anti-forgery token out of the upload address) as plan 61-124.
+- Owner decision (Console space bar): option 1, the bar keeps its five cells (Fleet, Users, Editor, Audit, More), already in production. All six open owner questions are answered; queued plans: 61-122 (More panel), 61-123 (Style unsaved layout dialog), 61-124 (pairing code cookie and upload token).
+
+## Round 28: audit 5 closed
+
+- All owner decisions on audit 5 are implemented and merged: More panel redesign with the Console card and total blur (61-121, 61-122), Style unsaved layout dialog (61-123), refused pairing code cookie and upload token out of the address (61-124).
+- Waiting on the owner: iPhone checks of the More panel dim on every tab, and of the Style dialog. Then the final validation (plan 61-13).
+
+## Round 29: device page
+
+- Owner decision: redesign the "Device and version" panel on the Fleet device page as in the mockup (frame state on top, one update card with one Install button, a flat version list, quiet Revert buttons, release notes behind the row). Queued as plan 61-126 after 61-125.
+- Owner decision: the Diagnostic LED switch stays as it is (admin only, off by default, part of the frame protocol).
+- Owner test of the Style leave dialog: it opened only for sub-tabs and layout changes; the owner changes page with the bottom tab bar and changes colours. Plan 61-125 widens it to every page with a Save bar and every in-app link.
+- Owner validation: the "Unsaved changes" dialog (61-125) and the redesigned Device and version panel (61-126) are deployed and approved by the owner. Audit 6 (last audit) launched: visual and workflows reports received, animation and performance pending.
+
+## Round 30: audit 6 (last audit)
+
+- Audit 6 reports received: visual (11 findings), workflows (10), animation (13). The performance auditor did not hand back a report; the orchestrator read its raw measurements: no regression from the tab bar, More panel and leave dialog work (about +6 KB JS, +1.5 KB CSS, +1.8 KB HTML per page, server CPU unchanged); known heavy spots unchanged (Location JS weight, long Flights lists, Home idle style recalcs); one new low finding: the More sheet adds about 13 listeners per 100 open/close cycles.
+- D57 (owner): fix everything audit 6 found except the points the owner already set aside (A5-15, A5-16, A5-20, A5-21, W5-12, W5-13, W5-17, W5-22, X13, P5-*). Lot 61-127 (bugs and regressions) first, then 61-128 (remaining low findings).
+
+## Round 31: final validation (2026-11-13)
+
+Owner tested the deployed companion after audit 6 lots F (61-127) and G (61-128) and the
+layout-shift fix (61-129): six checks (Style "Save and continue", Discard then Back, More
+sheet, Flights page and columns, refused pairing code, French console labels). Result:
+"Tout est ok". Phase 61 (plan 61-13, the owner checkpoint) is validated.
+
+Left open on purpose, no change: W6-09 (tapping the active tab), V6-10 (More sheet width on a
+tablet), A6-09 (grab handle), A6-11 (page-change frame drops at 4x CPU), W6-08 naming
+("Flights" versus "Flight history"), V6-07 (44 px box for the quiet-hours link), plus the points
+set aside earlier (A5-15, A5-16, A5-20, A5-21, W5-12, W5-13, W5-17, W5-22, X13, P5-*).

@@ -1093,7 +1093,7 @@ def test_both_dialogs_arrive_through_one_starting_style_entrance(tmp_path, serve
     names = ["2026-08-27T10-00-00+00-00.png"]
     vp.seed_gallery(tmp_path, names)
     vp.seed_runway_events(tmp_path, [
-        {"ts": "2026-08-27T10:03:00+00:00", "hex": "dlgent1", "callsign": "DLGENT"},
+        {"ts": "2026-08-27T10:01:00+00:00", "hex": "dlgent1", "callsign": "DLGENT"},
     ])
     history_html = history_page.render(vp.history_ctx(tmp_path, gallery_entries=names))
     airlines_html = airlines_page.render({})

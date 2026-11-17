@@ -11,6 +11,7 @@ import pytest
 from companion import auth
 from companion.test_device_helpers import get, start_fleet_app
 from companion_app_server import http_request
+import companion.test_view_pages_helpers as vp
 from server import history_db
 
 CALLSIGN_A = "ZZA1111"
@@ -205,6 +206,11 @@ def test_live_frame_flights_keep_their_own_empty_wording(bare_device):
 def test_flights_links_stay_inside_the_device(two_devices):
     app = two_devices
     prefix = "/devices/%s" % app.fleet.dev_a.id
+    # A render archived with the flight is the flight's own picture; the fixture's fixed
+    # gallery names are far from it and would rightly get no link on Flights.
+    with history_db.open_db(app.fleet.dev_a.state_dir) as conn:
+        flight_ts = history_db.recent_runway_events(conn, limit=1)[0]["ts"]
+    _seed_gallery(app.fleet.dev_a.state_dir, vp.flight_card_gallery_name(flight_ts))
     page = _page(app, app.fleet.dev_a, "flights")
     gallery = [h for h in _hrefs(page) if "/gallery/" in h]
     assert gallery and all(h.startswith(prefix + "/gallery/") for h in gallery)

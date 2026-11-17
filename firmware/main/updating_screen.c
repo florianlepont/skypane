@@ -7,7 +7,11 @@
  * fault_screen.c; this file is just the UPDATING mask. */
 #include "updating_screen.h"
 
+#if defined(CONFIG_FP_PANEL_7IN3E) && CONFIG_FP_PANEL_7IN3E
+#include "updating_screen_mask_800x480.h"
+#else
 #include "updating_screen_mask.h"
+#endif
 
 _Static_assert(FP_UPDATING_MASK_X + FP_UPDATING_MASK_W <= FP_FAULT_SCREEN_WIDTH,
                "updating screen mask exceeds screen width");

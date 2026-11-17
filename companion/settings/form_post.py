@@ -60,6 +60,9 @@ ERROR_WAKE_INTERVAL_RANGE = i18n.msg(
 ERROR_QUIET_HOURS_TIME_SHAPE = i18n.msg(
     "display.enter_a_time_as_hh_mm_for_example_23_00",
     "Enter a time as HH:MM, for example 23:00.")
+ERROR_QUIET_HOURS_SAME_TIME = i18n.msg(
+    "display.quiet_hours_same_time",
+    "Start and end must be different times.")
 ERROR_TIMEZONE_INVALID = i18n.msg(
     "display.timezone_invalid", "Pick a time zone from the list.")
 # Shown as a toast when a rejected time zone aborts the whole save; the

@@ -162,3 +162,18 @@ def test_the_settings_save_returns_to_the_frames_fleet_view(fleet):
     assert status == 303
     assert headers["Location"].startswith(
         "/fleet?frame=%s&tab=settings&flash=" % seed.owned_id)
+
+
+@pytest.mark.parametrize("lang,words", [
+    ("en", "That frame was not found"), ("fr", "Ce cadre est introuvable")])
+def test_an_address_naming_a_frame_that_does_not_exist_says_so(fleet, lang, words):
+    """a stale or mistyped link shows another frame: the page says which one, in the reader's
+    language; a real frame's address and the plain Fleet address say nothing"""
+    server, seed, cookie = fleet
+    cookie = "%s; %s=%s" % (cookie, auth.UI_LANG_COOKIE_NAME, lang)
+    status, _headers, page = fx.get(server, cookie, "/fleet?frame=d_nope")
+    assert status == 200
+    notice = re.search(r'<div class="toast[^"]*toast--docked[^"]*"[^>]*role="status".*?</div>', page, re.S)
+    assert notice and words in notice.group(0), page[:200]
+    for path in ("/fleet", "/fleet?frame=%s" % seed.owned_id, "/fleet?view=system"):
+        assert words not in fx.get(server, cookie, path)[2], path

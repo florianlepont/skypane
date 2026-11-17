@@ -12,9 +12,10 @@ unusable (`None`), and the caller falls back to the plain sign-in.
 """
 
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 LOGIN_ROUTE = "/login"
+LOGOUT_ROUTE = "/logout"
 MAX_NEXT_LENGTH = 200
 # Page routes that only redirect elsewhere (and the retired Update page): a
 # sign-in has nothing to gain from carrying them.
@@ -62,6 +63,39 @@ def validated_next_route(candidate, allowed_paths):
     if separator and not _QUERY_PATTERN.fullmatch(query):
         return None
     return candidate
+
+
+def _own_page(referer, host):
+    """The path and query of `referer` when it names a page of this very
+    host and passes the same check as any `next`, else None. Only the host
+    the request itself was sent to counts, and a fragment or anything that
+    does not parse as an http(s) address is refused."""
+    if not referer or not host or "#" in referer:
+        return None
+    try:
+        parts = urlsplit(referer)
+    except ValueError:
+        return None
+    if parts.scheme not in ("http", "https") or parts.netloc != host:
+        return None
+    return validated_next_route(
+        parts.path + ("?" + parts.query if parts.query else ""), ())
+
+
+def login_redirect_for(handler):
+    """The sign-in address for the request `handler` is refusing. A page
+    visit carries its own address. A posted form carries the page it was
+    sent from (its same-host Referer, checked like any `next`) and is always
+    marked `expired=1`: the person was signed in when the form was drawn, so
+    sign-in says that unsaved changes were not kept and returns to the page."""
+    session_ended = bool(handler._raw_session_token())
+    if handler.command != "POST":
+        return login_redirect(handler.path, session_ended)
+    if handler.path.partition("?")[0] == LOGOUT_ROUTE:
+        # Signing out when already signed out: nothing was lost.
+        return LOGIN_ROUTE
+    page = _own_page(handler.headers.get("Referer"), handler.headers.get("Host"))
+    return login_redirect(page or handler.path, True)
 
 
 def login_redirect(request_path, session_ended):

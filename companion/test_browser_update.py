@@ -192,11 +192,11 @@ FLEET_ROUTE = "/fleet"
 
 
 def _reveal(page, which):
-    """The Fleet page shows the update card and the version table inline: nothing to open.
-    The table waits for its first row so a read right after navigation is settled."""
+    """The Fleet page shows the update card and the version list inline: nothing to open.
+    The list waits for its first row so a read right after navigation is settled."""
     if which == "versions":
         page.wait_for_function(
-            "() => document.querySelectorAll('tr.update-table__row').length > 0", timeout=10000)
+            "() => document.querySelectorAll('li.update-item').length > 0", timeout=10000)
 
 
 def _dismiss(page):
@@ -373,7 +373,7 @@ def test_full_flow_install_then_scheduled_then_cancel_returns_to_available(
 # The mobile-fit gate: measured, not assumed.
 # ==========================================================================
 
-_MORE_SHEET_LINK_SELECTOR = ".tab-bar__more-panel a.mobile-nav__link"
+_MORE_SHEET_LINK_SELECTOR = ".tab-bar__more-panel .tab-bar__links > a"
 
 # Line count is read from the rendered text's own line boxes
 # (Range.getClientRects(), one rect per line, deduplicated by their
@@ -398,8 +398,8 @@ _OVERFLOW_PROBE = (
 def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         new_context, server, viewport, lang):
     """At 375px and 390px, in English and French: the Console tab bar's More
-    sheet on the Releases page holds exactly the Account row (every Console page is
-    in the bar), with a measured hit box
+    sheet on the Releases page holds exactly the Account row and the switch back to
+    the personal space (every Console page is in the bar), with a measured hit box
     at least 44px tall, no wrapping or truncated text, the "More" summary
     cell's own box unchanged from another tab-bar cell's, and the header
     dropdown's preferences panel gains no /update link.
@@ -420,8 +420,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
 
         links = page.locator(_MORE_SHEET_LINK_SELECTOR)
         count = links.count()
-        assert count == 1, (
-            "expected exactly 1 link (Account) in "
+        assert count == 2, (
+            "expected exactly 2 links (Account, the space switch) in "
             "the More sheet at %dpx/%s, got %d" % (viewport["width"], lang, count))
 
         heights = []
@@ -429,8 +429,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
             # :nth-of-type (1-based), not Playwright's ">> nth=" chaining
             # syntax -- _assert_hit_target()'s underlying _hit_area() runs
             # this selector through document.querySelector() directly.
-            # The Account row is in the settings block; the Console has no page rows.
-            selector = ".tab-bar__links a.mobile-nav__link"
+            # The Account row and the space switch row are in the settings block.
+            selector = ".tab-bar__links > a:nth-child(%d)" % (index + 1)
             seen = _assert_hit_target(
                 page, selector,
                 "More sheet link %d at %dpx/%s" % (index, viewport["width"], lang))
@@ -439,8 +439,8 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
         # A page row is an icon then its name: the name is what must not wrap or truncate.
         overflow = page.evaluate(
             _OVERFLOW_PROBE,
-            ".tab-bar__more-panel a.mobile-nav__link:not(.tab-bar__nav-link),"
-            " .tab-bar__more-panel a.tab-bar__nav-link > span")
+            ".tab-bar__more-panel .tab-bar__account-name,"
+            " .tab-bar__more-panel .link-card__title")
         for index, entry in enumerate(overflow):
             assert entry["scrollWidth"] <= entry["clientWidth"] + 0.5, (
                 "More sheet link %d truncated at %dpx/%s: scrollWidth %r > "
@@ -480,9 +480,9 @@ def test_more_sheet_fits_the_console_overflow_links_at_phone_widths(
 def test_version_rows_fit_at_phone_widths_with_no_overflow(
         new_context, make_app_server, viewport, lang):
     """At 375px and 390px, in English and French, with three releases and two realistic
-    notes each: the table renders one row per release, nothing overflows the viewport
+    notes each: the list renders one row per release, nothing overflows the viewport
     horizontally, every row's action button is a full-size target inside the viewport, and
-    the call-to-action Install button is fully inside the viewport and enabled.
+    the update card's Install button is fully inside the viewport and enabled.
     """
     server = make_app_server(seed=_seed_three_releases_with_realistic_notes)
     context = new_context(viewport=viewport)
@@ -497,7 +497,7 @@ def test_version_rows_fit_at_phone_widths_with_no_overflow(
         assert page.locator("details.update-all").count() == 0
         _reveal(page, "versions")
 
-        rows = page.locator("tr.update-table__row")
+        rows = page.locator("li.update-item")
         assert rows.count() == 3, "expected 3 release rows at %s, got %d" % (where, rows.count())
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
         for index in range(rows.count()):
@@ -509,11 +509,11 @@ def test_version_rows_fit_at_phone_widths_with_no_overflow(
                     "row %d action is %r tall at %s" % (index, button_box["height"], where))
                 assert button_box["x"] + button_box["width"] <= viewport["width"] + 0.5
 
-        install_button = page.locator(".update-cta form button[type=submit]")
+        install_button = page.locator(".update-offer form button[type=submit]")
         box = install_button.bounding_box()
         assert box is not None and install_button.is_enabled()
         assert box["x"] >= -0.5 and box["x"] + box["width"] <= viewport["width"] + 0.5
-        _assert_hit_target(page, ".update-cta form button[type=submit]", where)
+        _assert_hit_target(page, ".update-offer form button[type=submit]", where)
     finally:
         context.close()
 
@@ -524,9 +524,9 @@ def test_version_rows_fit_at_phone_widths_with_no_overflow(
 def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         new_context, make_app_server, viewport, lang):
     """At 375x812 and 1280x900, in English and French, with a running release carrying about
-    30 notes, an earlier bench install and a newer release: the Running badge is visible on
-    the running row only, its notes sit behind one disclosure that is at least 44px tall and
-    closed, opening it lists all 30 notes inside the viewport, nothing overflows
+    30 notes, an earlier bench install and a newer release: the Installed chip is visible on
+    the running row only, its notes sit behind the row's disclosure that is at least 44px tall
+    and closed, opening it lists all 30 notes inside the viewport, nothing overflows
     horizontally and the card's Install button stays visible and enabled.
     """
     server = make_app_server(seed=_seed_running_bench_and_newer)
@@ -541,13 +541,15 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         _reveal(page, "versions")
         where = "%dpx/%s" % (viewport["width"], lang)
 
-        badge = page.locator(".update-row__badge:visible")
-        assert badge.count() == 1, "expected one visible Running badge at %s" % where
-        assert badge.inner_text().strip().lower() == ("running" if lang == "en" else "en cours")
-        row = page.locator("tr.update-table__row--running")
+        installed = {"en": "installed", "fr": "installée"}[lang]
+        badge = page.locator("li.update-item--running .banner__pill:visible")
+        assert badge.count() == 1, "expected one visible Installed chip at %s" % where
+        assert badge.inner_text().strip().lower() == installed
+        assert page.locator("li.update-item .banner__pill--ok").count() == 1
+        row = page.locator("li.update-item--running")
         assert row.count() == 1 and row.locator(".mono").first.inner_text() == _RUNNING_VERSION
 
-        notes = row.locator("details.update-table__notes")
+        notes = row.locator("details")
         assert notes.evaluate("el => el.open") is False
         notes_list = notes.locator("ul")
         assert not notes_list.is_visible(), "notes list should start closed at %s" % where
@@ -564,7 +566,7 @@ def test_running_row_and_its_notes_work_at_phone_and_desktop_widths(
         assert list_box["x"] >= -0.5 and list_box["x"] + list_box["width"] <= viewport["width"] + 0.5
         assert row.locator("time").count() >= 1
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
-        install_button = page.locator(".update-cta form button[type=submit]")
+        install_button = page.locator(".update-offer form button[type=submit]")
         install_box = install_button.bounding_box()
         assert install_box is not None and install_button.is_enabled()
         assert install_box["x"] + install_box["width"] <= viewport["width"] + 0.5
@@ -599,9 +601,9 @@ def test_card_and_eligible_releases_at_every_width(
         _reveal(page, "device")
         where = "%dpx/%s" % (viewport["width"], lang)
 
-        card = page.locator("section.update-cta")
+        card = page.locator("section.update-offer")
         assert card.count() == 1 and card.is_visible()
-        assert card.locator(".update-cta__title").inner_text() == (
+        assert page.locator(".update-sum .banner__pill").inner_text() == (
             "Update available" if lang == "en" else "Mise à jour disponible")
         assert _AVAILABLE_VERSION in card.inner_text()
         assert card.locator("time").count() >= 1, "relative dates at %s" % where
@@ -610,7 +612,7 @@ def test_card_and_eligible_releases_at_every_width(
         assert page.locator('input[name="version"][value="%s"]' % _BENCH_VERSION).count() == 0
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
 
-        selector = ".update-cta form button[type=submit]"
+        selector = ".update-offer form button[type=submit]"
         install = page.locator(selector)
         _assert_hit_target(page, selector, where)
         # A key press first: after the pointer opened the dialog, a script focus alone does
@@ -648,7 +650,7 @@ def many_server(module_app_server_factory):
 def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targets(
         new_context, many_server, width, lang):
     """With twelve releases (one carrying an unbroken 90-character token in its note) at 360,
-    390, 700, 1024 and 1280px in both languages: the whole history is one table, nothing
+    390, 700, 1024 and 1280px in both languages: the whole history is one list, nothing
     overflows horizontally, no version ever wraps mid-token, every Install/rollback button
     measures at least 44px tall and sits inside the viewport, and an opened notes
     disclosure keeps its notes inside the viewport.
@@ -664,21 +666,21 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
         _reveal(page, "versions")
         where = "%dpx/%s" % (width, lang)
 
-        rows = page.locator("tr.update-table__row")
+        rows = page.locator("li.update-item")
         assert rows.count() == 12, "the full history must be listed at %s" % where
-        assert page.locator(".update-versions__count").inner_text().strip() == "12"
+        assert page.locator(".update-hist__head .banner__pill").inner_text().strip() == "12"
         assert _page_has_no_horizontal_overflow(page), "overflow at %s" % where
 
         wrapped = page.evaluate(_WRAPPED_VERSION_PROBE)
         assert wrapped == [], "versions wrapped mid-token at %s: %r" % (where, wrapped)
-        for button in page.locator(".update-table form button[type=submit]").all():
+        for button in page.locator(".update-item form button[type=submit]").all():
             button_box = button.bounding_box()
             assert button_box["height"] >= 44 - 0.5, "button %r at %s" % (button_box, where)
             assert button_box["x"] + button_box["width"] <= width + 0.5, (
                 "action outside the viewport at %s: %r" % (where, button_box))
 
         for index in (0, 3, 11):
-            details = rows.nth(index).locator("details.update-table__notes")
+            details = rows.nth(index).locator("details")
             if not details.count():
                 continue
             page.wait_for_function("() => document.getAnimations().length === 0")
@@ -692,11 +694,11 @@ def test_twelve_releases_fit_at_every_width_with_unbroken_versions_and_full_targ
         context.close()
 
 
-def test_older_release_rollback_button_is_quiet_and_only_newer_installs_use_the_accent(
+def test_older_release_rollback_button_is_quiet_and_only_the_update_card_uses_the_accent(
         new_context, many_server):
-    """In the browser, "Roll back to ..." renders on the quiet secondary button (the accent
-    fill is not used for it), while the call-to-action Install and a newer release's own row
-    button are the one accent-filled primary, in French wording."""
+    """In the browser, "Revenir" renders as a quiet text-style button (no fill), the other
+    newer releases' rows too, while the update card's Install is the one accent-filled
+    primary button of the panel, in French wording."""
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
@@ -708,28 +710,31 @@ def test_older_release_rollback_button_is_quiet_and_only_newer_installs_use_the_
         accent = page.evaluate(_ACCENT_PROBE)
 
         _reveal(page, "device")
-        primary = page.locator(".update-cta form button[type=submit]")
+        primary = page.locator(".update-offer form button[type=submit]")
         assert primary.inner_text() == "Installer %s" % _MANY_NEWEST
         assert _background(primary) == accent
         _dismiss(page)
 
         _reveal(page, "versions")
-        older = page.locator("tr.update-table__row").nth(11)
+        older = page.locator("li.update-item").nth(11)
         rollback = older.locator("form button[type=submit]")
         assert rollback.inner_text() == "Revenir"
         assert rollback.get_attribute("aria-label") == "Revenir à %s" % _MANY_OLDEST
-        assert _background(rollback) != accent
+        assert _background(rollback) == "rgba(0, 0, 0, 0)"
 
-        newer = page.locator("tr.update-table__row").nth(0)
-        assert _background(newer.locator("form button[type=submit]")) == accent
-        assert newer.locator("form button[type=submit]").inner_text() == "Installer"
+        newest = page.locator("li.update-item").nth(0)
+        assert newest.locator("form").count() == 0, "the offered release has no second button"
+        filled = page.locator(".update-item form button[type=submit]").evaluate_all(
+            "(els, accent) => els.filter(e => getComputedStyle(e).backgroundColor === accent).length",
+            accent)
+        assert filled == 0
     finally:
         context.close()
 
 
 def test_rows_open_and_the_install_flow_works_with_scripts_blocked(
         new_context, make_app_server):
-    """With scripts blocked every action is already in view, a notes disclosure still opens
+    """With scripts blocked every action is already in view, a row's notes still open
     on a click (native <details>) and lists every note, and the rollback button reaches the
     server confirmation page, which is the real gate; nothing depends on script."""
     server = make_app_server(seed=_seed_many_releases)
@@ -737,20 +742,20 @@ def test_rows_open_and_the_install_flow_works_with_scripts_blocked(
     with _no_js_page(
             new_context, base_url, FLEET_ROUTE, viewport=VIEWPORT_PHONE,
             reduced_motion="reduce") as page:
-        rows = page.locator("tr.update-table__row")
+        rows = page.locator("li.update-item")
         assert rows.count() == 12
         oldest = rows.nth(11)
-        notes = oldest.locator("details.update-table__notes")
+        notes = oldest.locator("details")
         assert notes.evaluate("el => el.open") is False
         notes.locator("summary").click()
         assert notes.evaluate("el => el.open") is True
-        assert oldest.locator(".update-table__notes li").first.is_visible()
+        assert oldest.locator(".update-item__notes li").first.is_visible()
         button = oldest.locator("form button[type=submit]")
         assert button.is_visible() and button.inner_text() == "Roll back"
         assert button.get_attribute("aria-label") == "Roll back to %s" % _MANY_OLDEST
         with page.expect_navigation():
             page.evaluate(
-                _CLICK_FORM_SUBMIT_PROBE_IN, ".update-table tbody tr:last-child form")
+                _CLICK_FORM_SUBMIT_PROBE_IN, ".update-hist__list li:last-child form")
         assert page.url == base_url + update_page.INSTALL_ROUTE
         assert _MANY_OLDEST in page.locator("main").inner_text()
         assert fr.load_registry(server.state_dir)["schedule"] is None, (
@@ -854,6 +859,15 @@ def two_type_server(make_app_server, monkeypatch):
     return make_app_server(seed=_seed_two_types, env_overrides=_SIM_ENV)
 
 
+def _standalone_update_url(base_url):
+    """The standalone Update page. A frame's own Fleet page is pinned to its type and has
+    no chooser; the chooser is served only here, and only for a requested type that no frame
+    of the viewer uses (otherwise GET /update redirects to that frame's Fleet page). The
+    two-type fixture has no frame of the second type, so that type is requested."""
+    return "%s%s?%s=%s" % (
+        base_url, layout.UPDATE_ROUTE, update_page.TYPE_QUERY_PARAM, _OTHER_TYPE)
+
+
 def test_single_type_page_has_no_chooser(new_context, server):
     context = new_context(viewport=VIEWPORT_PHONE)
     try:
@@ -866,6 +880,22 @@ def test_single_type_page_has_no_chooser(new_context, server):
         context.close()
 
 
+def test_frame_fleet_page_is_pinned_to_its_type_even_with_two_types_released(
+        new_context, two_type_server):
+    context = new_context(viewport=VIEWPORT_PHONE)
+    try:
+        page = context.new_page()
+        base_url = two_type_server.base_url()
+        _login(page, base_url)
+        page.goto(base_url + FLEET_ROUTE)
+        _reveal(page, "versions")
+        assert page.locator(_CHOOSER).count() == 0
+        assert page.locator('input[name="%s"]' % update_page.TYPE_FORM_FIELD).count() <= 1
+        assert page.locator("main").inner_text().count(_OTHER_AVAILABLE_VERSION) == 0
+    finally:
+        context.close()
+
+
 def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         new_context, two_type_server):
     server = two_type_server
@@ -874,15 +904,11 @@ def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         page = context.new_page()
         base_url = server.base_url()
         _login(page, base_url)
-        page.goto(base_url + FLEET_ROUTE)
+        page.goto(_standalone_update_url(base_url))
         other_label = fr.hardware.get_profile(_OTHER_TYPE, _SIM_ENV).label
         assert page.locator(_CHOOSER + " button").count() == 2
         assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').count() == 1
 
-        page.locator(_CHOOSER + " button", has_text=other_label).click()
-        page.wait_for_load_state("networkidle")
-        assert page.url == "%s%s?%s=%s" % (
-            base_url, layout.UPDATE_ROUTE, update_page.TYPE_QUERY_PARAM, _OTHER_TYPE)
         assert page.locator(_CHOOSER + ' button[aria-pressed="true"]').inner_text() == other_label
         assert page.locator("section.update-cta").inner_text().count(_OTHER_AVAILABLE_VERSION) >= 1
 
@@ -898,11 +924,15 @@ def test_switching_type_shows_that_types_schedule_and_scheduling_is_independent(
         assert fr.load_registry(server.state_dir)["schedule"] is None
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 1
 
+        # The legacy type has a frame, so choosing it lands on that frame's Fleet page, which
+        # is pinned to its own type: no chooser, and the other type's schedule is not shown.
         page.locator(_CHOOSER + " button", has_text=fr.hardware.get_profile(
             fr.hardware.LEGACY_KEY).label).click()
         page.wait_for_load_state("networkidle")
+        assert page.url.startswith(base_url + FLEET_ROUTE)
+        assert page.locator(_CHOOSER).count() == 0
         assert page.locator('form[action="%s"]' % update_page.CANCEL_ROUTE).count() == 0
-        assert page.locator("section.update-cta").inner_text().count(_AVAILABLE_VERSION) >= 1
+        assert page.locator("section.update-offer, section.update-cta").inner_text().count(_AVAILABLE_VERSION) >= 1
     finally:
         context.close()
 
@@ -913,7 +943,7 @@ def test_chooser_is_keyboard_operable(new_context, two_type_server):
         page = context.new_page()
         base_url = two_type_server.base_url()
         _login(page, base_url)
-        page.goto(base_url + FLEET_ROUTE)
+        page.goto(_standalone_update_url(base_url))
         for _ in range(40):
             page.keyboard.press("Tab")
             if page.evaluate(
@@ -943,7 +973,7 @@ def test_chooser_fits_without_horizontal_overflow(
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         _login(page, base_url)
-        page.goto(base_url + FLEET_ROUTE)
+        page.goto(_standalone_update_url(base_url))
         _reveal(page, "device")
         assert page.locator(_CHOOSER).count() == 1
         sizes = page.evaluate(

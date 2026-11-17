@@ -475,3 +475,10 @@ def test_no_setter_or_module_global_remains():
 def test_overhead_state_falls_back_to_the_base_theme():
     cfg = {"theme": device_config.DEFAULT_THEME_ID, "theme_arriving": "black"}
     assert c.resolve_effective_theme_id("overhead", {}, cfg) == device_config.DEFAULT_THEME_ID
+
+def test_resolver_single_look_ignores_the_arrivals_look(tmp_path_factory):
+    """A frame tracking a position has one look: theme_arriving does not apply."""
+    cfg = {"theme": "white", "theme_arriving": "blue"}
+    assert _resolver_with(tmp_path_factory, None, "arriving", FLIGHT_AFR, cfg) == "blue"
+    single = c.resolve_effective_theme_id("arriving", FLIGHT_AFR, cfg, single_look=True)
+    assert single == "white"

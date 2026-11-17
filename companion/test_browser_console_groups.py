@@ -68,8 +68,8 @@ _FLEET = """() => {
     }).map((e) => e.className);
     if (inner.length) bad.push('card surface inside a group: ' + inner.slice(0, 3));
   });
-  const model = document.querySelector('.fleet-block__fact');
-  if (!model || model.getBoundingClientRect().height < 54) bad.push('model row under 54px');
+  const summary = document.querySelector('.fleet-block--device .update-sum');
+  if (!summary || !summary.checkVisibility()) bad.push('no firmware summary');
   return {bad: bad, count: blocks.length};
 }"""
 

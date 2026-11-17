@@ -115,7 +115,7 @@ def test_the_flights_picture_dialog_is_one_panel_holding_the_picture_caption_and
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_the_phone_tab_bar_caret_is_centred_over_the_dots_and_every_label_is_whole(
+def test_the_phone_tab_bar_more_dots_are_centred_and_every_label_is_whole(
         new_context, app, lang):
     context, page = _open(
         new_context, app, "/fleet?frame=LIVE", {"width": 360, "height": 800}, lang=lang)
@@ -125,14 +125,12 @@ def test_the_phone_tab_bar_caret_is_centred_over_the_dots_and_every_label_is_who
             ".some(l => l.scrollWidth > l.clientWidth);"
             " const summary = document.querySelector('.tab-bar__more > summary');"
             " const box = summary.getBoundingClientRect();"
-            " const caret = getComputedStyle(summary, '::before');"
-            " return {cut: cut, position: caret.position,"
-            " right: parseFloat(caret.right), width: box.width,"
-            " caretWidth: parseFloat(caret.width) + parseFloat(caret.borderRightWidth)}; }")
+            " const icon = summary.querySelector('svg').getBoundingClientRect();"
+            " return {cut: cut, marker: getComputedStyle(summary, '::before').content,"
+            " offset: (icon.left + icon.width / 2) - (box.left + box.width / 2)}; }")
         assert not facts["cut"], facts
-        assert facts["position"] == "absolute", facts
-        # Centred: the caret's right edge sits at (or within a pixel or two of) half the cell.
-        assert abs(facts["right"] - facts["width"] / 2 + 3) < 6, facts
+        assert facts["marker"] in ("none", "normal"), facts
+        assert abs(facts["offset"]) < 2, facts
     finally:
         context.close()
 
@@ -204,7 +202,7 @@ def test_a_typed_form_view_arms_the_leave_guard_and_a_pristine_one_does_not(
 
 def test_flights_search_and_sort_keep_back_sensible(new_context, app):
     """a committed sort adds a history entry and Back returns to the list as it was before;
-    live typing only replaces the current entry"""
+    the first live typing starts an entry of its own and the typing after it only replaces it"""
     context, page = _open(
         new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900})
     try:
@@ -221,17 +219,22 @@ def test_flights_search_and_sort_keep_back_sensible(new_context, app):
             "() => document.readyState === 'complete' && !document.querySelector("
             "'input[name=\"sort\"][value=\"airline\"]:checked')", timeout=10000)
         assert page.url == start
-        before = page.evaluate("() => history.length")
         page.fill("[data-flights-search]", "afr")
         page.wait_for_function("() => location.search.indexOf('q=afr') >= 0", timeout=10000)
-        assert page.evaluate("() => history.length") == before
+        page.fill("[data-flights-search]", "afr1")
+        page.wait_for_function("() => location.search.indexOf('q=afr1') >= 0", timeout=10000)
+        page.go_back()
+        page.wait_for_function(
+            "() => location.search.indexOf('q=') < 0 && document.readyState === 'complete'",
+            timeout=10000)
+        assert page.url == start
     finally:
         context.close()
 
 
 def test_back_after_two_typed_and_entered_searches_returns_to_the_first(new_context, app):
-    """Enter on a search typed live settles that search; a second search typed after it gets
-    its own entry, so Back returns to the first search and not off the page"""
+    """a first search gets an entry of its own and Enter settles it; a second search typed after it
+    gets one too, so Back returns to the first search and then to the list, not off the page"""
     context, page = _open(
         new_context, app, "/devices/LIVE/flights", {"width": 1280, "height": 900})
     try:
@@ -248,14 +251,14 @@ def test_back_after_two_typed_and_entered_searches_returns_to_the_first(new_cont
         settled(1)
         page.press("[data-flights-search]", "Enter")
         settled(2)
-        assert page.evaluate("() => history.length") == length
+        assert page.evaluate("() => history.length") == length + 1
         page.fill("[data-flights-search]", "afr1")
         settled(3)
         page.press("[data-flights-search]", "Enter")
         settled(4)
         assert page.evaluate("() => window.__writes") == [
-            "replaceState", "replaceState", "pushState", "replaceState"]
-        assert page.evaluate("() => history.length") == length + 1
+            "pushState", "replaceState", "pushState", "replaceState"]
+        assert page.evaluate("() => history.length") == length + 2
         page.go_back()
         page.wait_for_function(
             "() => location.search.indexOf('q=afr1') < 0 && location.search.indexOf('q=afr') >= 0"

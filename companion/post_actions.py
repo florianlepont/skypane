@@ -15,7 +15,6 @@ poll cycle with the same per-device lock (`device_scope.poll_lock_for`).
 Never imports `companion.app` (that would be a cycle — app.py imports
 this module).
 """
-import email.message
 import io
 import os
 import tempfile
@@ -23,7 +22,9 @@ from urllib.parse import parse_qs, quote, urlencode, urlsplit
 
 from PIL import Image
 
-from companion import airline_actions, airline_display, device_scope, layout
+from companion import (
+    airline_actions, airline_display, artwork_airline, device_scope, layout, request_body,
+    upload_form)
 from companion.flash import (
     FLASH_KEY_CALENDAR_CONNECT_FAILED,
     FLASH_KEY_CALENDAR_CONNECT_INVALID,
@@ -33,6 +34,10 @@ from companion.flash import (
     FLASH_KEY_CALENDAR_SYNC_FAILED,
     FLASH_KEY_ILLUSTRATION_REJECTED,
     FLASH_KEY_ILLUSTRATION_REPLACE_FAILED,
+    FLASH_KEY_ILLUSTRATION_NOT_PNG,
+    FLASH_KEY_ILLUSTRATION_NOT_TRANSPARENT,
+    FLASH_KEY_ILLUSTRATION_TOO_LARGE,
+    FLASH_KEY_ILLUSTRATION_TOO_SMALL,
     FLASH_KEY_ILLUSTRATION_REPLACED,
     FLASH_KEY_MANUAL_DELETE_FAILED,
     FLASH_KEY_MANUAL_NAME_EMPTY,
@@ -73,7 +78,14 @@ import server.poll_cycle as poll_cycle
 # Handler), not by parse_single_uploaded_file(). companion/app.py
 # rebinds this under its historical name — companion/pages/airlines_page.py
 # also imports it from there lazily.
-MAX_ILLUSTRATION_UPLOAD_BYTES = 4 * 1024 * 1024
+MAX_ILLUSTRATION_UPLOAD_BYTES = upload_form.MAX_UPLOAD_BYTES
+ARTWORK_QUERY_PARAM = artwork_airline.QUERY_PARAM
+_REFUSAL_FLASH = {
+    illustrations.PROBLEM_NOT_PNG: FLASH_KEY_ILLUSTRATION_NOT_PNG,
+    illustrations.PROBLEM_TOO_LARGE: FLASH_KEY_ILLUSTRATION_TOO_LARGE,
+    illustrations.PROBLEM_TOO_SMALL: FLASH_KEY_ILLUSTRATION_TOO_SMALL,
+    illustrations.PROBLEM_NOT_TRANSPARENT: FLASH_KEY_ILLUSTRATION_NOT_TRANSPARENT,
+}
 
 
 def _illustration_filenames(state_dir=None):
@@ -179,54 +191,7 @@ _RENAME_FLASH_BY_RESULT = {
 }
 
 
-def parse_single_uploaded_file(content_type, body):
-    """Parse a `multipart/form-data` body known to hold exactly one file
-    part, returning its raw payload `bytes`, or `None` for anything that
-    doesn't match that exact shape. Never raises. The header block
-    (filename, field name, media type) is discarded and never parsed —
-    the destination path and the "is this an image" check both come
-    from elsewhere, never from this body's own claims.
-    """
-    try:
-        message = email.message.Message()
-        message["content-type"] = content_type
-        if message.get_content_type() != "multipart/form-data":
-            return None
-        boundary = message.get_param("boundary")
-        if not isinstance(boundary, str) or not boundary:
-            return None
-        boundary_bytes = boundary.encode("ascii")
-        if len(boundary_bytes) > 70:  # RFC 2046 boundary length ceiling.
-            return None
-
-        delimiter = b"--" + boundary_bytes
-        segments = body.split(delimiter)
-        # Exactly one part: a preamble, the part itself, and an epilogue.
-        # Zero parts, two-or-more parts, and a missing closing delimiter
-        # all produce a different segment count and are rejected here.
-        if len(segments) != 3:
-            return None
-        preamble, part, epilogue = segments
-        if preamble.strip(b"\r\n \t") != b"":
-            return None
-        if not epilogue.startswith(b"--"):
-            return None
-
-        if not part.startswith(b"\r\n"):
-            return None
-        part = part[2:]
-        header_block, separator, payload = part.partition(b"\r\n\r\n")
-        if not separator:
-            return None
-        del header_block  # discarded — see docstring above.
-
-        if payload.endswith(b"\r\n"):
-            payload = payload[:-2]
-        if not payload:
-            return None
-        return payload
-    except Exception:
-        return None
+parse_single_uploaded_file = upload_form.parse_single_uploaded_file
 
 
 # The only fields the Quiet hours dialog posts; each echoed value is capped
@@ -246,6 +211,11 @@ def _quiet_window_from_form(form):
     for name in ("quiet_hours_start", "quiet_hours_end"):
         if form.get(name) is None:
             errors.setdefault(name, form_post.ERROR_QUIET_HOURS_TIME_SHAPE)
+    if not errors and enabled["quiet_hours_enabled"] and (
+            times["quiet_hours_start"] == times["quiet_hours_end"]):
+        # A zero-length window rests the screen never; refusing it keeps the
+        # row's "10:00 - 10:00" from reading as all day.
+        errors["quiet_hours_end"] = form_post.ERROR_QUIET_HOURS_SAME_TIME
     if errors:
         return errors, None
     return None, {
@@ -274,8 +244,9 @@ class SettingsActionsMixin:
         handles. Membership-tests `key` before any path is built or
         body byte is read. Only the server's own Pillow re-encode is
         ever written to disk — the client's original bytes are never
-        stored. The multipart body is read here, so the anti-forgery token
-        travels in the action URL's query and the dispatcher checks it there.
+        stored. The multipart body opens with the anti-forgery token part, which
+        the dispatcher reads and checks (companion/upload_form.py) before this
+        runs; the body it read is the one used here.
         """
         # Airlines unless the action URL names an allow-listed page that
         # opened the dialog (Health).
@@ -285,23 +256,30 @@ class SettingsActionsMixin:
         if not illustration_filename_known(filename, device.state_dir):
             return self.send_html(404, self._not_found_page())
 
+        def refused(flash_key):
+            # Names the artwork's airline (the key was checked above) and leads
+            # to that airline's row of the editor.
+            query = "flash=%s&%s=%s" % (quote(flash_key), ARTWORK_QUERY_PARAM, quote(key))
+            return self._scoped_redirect("%s#airline-%s" % (
+                resolve_dialog.with_query(back, query), artwork_airline.base_key(key)))
+
         raw = self._read_upload_body()
         if raw is None:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
+            # Over the size cap, or a body that could not be read at all.
+            too_large = request_body.parse_content_length(self.headers) > MAX_ILLUSTRATION_UPLOAD_BYTES
+            return refused(
+                FLASH_KEY_ILLUSTRATION_TOO_LARGE if too_large else FLASH_KEY_ILLUSTRATION_REJECTED)
 
         payload = parse_single_uploaded_file(self.headers.get("Content-Type"), raw)
         if payload is None or len(payload) > MAX_ILLUSTRATION_UPLOAD_BYTES:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
+            return refused(FLASH_KEY_ILLUSTRATION_REJECTED)
 
         state_dir = device.state_dir
         override_dir = illustrations.override_dir_for_state_dir(state_dir)
         try:
             os.makedirs(override_dir, exist_ok=True)
         except OSError:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)))
+            return refused(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)
 
         # The raw upload's temp lives in override_dir (mkstemp: a unique
         # name, so two concurrent uploads of the same key can never
@@ -325,8 +303,8 @@ class SettingsActionsMixin:
             if problems:
                 for problem in problems:
                     print("illustration replace rejected for %r: %s" % (key, problem))
-                return self._scoped_redirect(
-                    resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REJECTED)))
+                return refused(_REFUSAL_FLASH.get(
+                    illustrations.problem_category(problems), FLASH_KEY_ILLUSTRATION_REJECTED))
 
             with Image.open(raw_tmp_path) as img:
                 rgba = img.convert("RGBA")
@@ -338,8 +316,7 @@ class SettingsActionsMixin:
             return self._scoped_redirect(
                 resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACED)))
         except Exception:
-            return self._scoped_redirect(
-                resolve_dialog.with_query(back, "flash=%s" % quote(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)))
+            return refused(FLASH_KEY_ILLUSTRATION_REPLACE_FAILED)
         finally:
             if raw_tmp_path is not None:
                 try:
@@ -654,7 +631,9 @@ class SettingsActionsMixin:
             echoed = {
                 name: (form.get(name) or "")[:_QUIET_WINDOW_ECHO_CAP]
                 for name in _QUIET_WINDOW_FIELDS if name in form}
-            body = home_page.render(ctx, quiet_errors=errors, quiet_submitted=echoed)
+            body = home_page.render(
+                ctx, quiet_errors=errors, quiet_submitted=echoed,
+                place=self._detection_place(device))
             return self.send_html(400, self._page_shell_for(layout.HOME_ROUTE, body, ctx))
         try:
             device_config.save_device_config(device.state_dir, **window)

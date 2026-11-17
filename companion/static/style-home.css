@@ -61,6 +61,12 @@
   white-space: nowrap;
 }
 
+/* Figures of one width: a second less never moves the info button beside
+ * the line. */
+.home-state__next [data-relative-countdown] {
+  font-variant-numeric: tabular-nums;
+}
+
 .home-state__countdown {
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
 }
@@ -96,6 +102,28 @@
 .info-tip__button:hover,
 .info-tip:focus-within .info-tip__button {
   color: var(--color-text);
+}
+
+/* A landscape frame's picture is wider than tall, so beside the text it leaves
+ * a narrow column. On a phone the picture takes the full width and the name,
+ * the state and the next-refresh line stack under it. A portrait frame keeps
+ * the picture beside the text. */
+@media (max-width: 699.98px) {
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .hero__body {
+    align-items: stretch;
+  }
+
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .hero__status {
+    align-self: flex-start;
+  }
+
+  .hero:has(.preview-frame__image[data-frame-shape="landscape"]) .home-state__next-row {
+    align-items: center;
+  }
 }
 
 .info-tip:hover .info-tip__bubble,
@@ -284,7 +312,8 @@
   text-decoration-color: currentColor;
 }
 
-html[data-ambient="rest"] .home-state__dot--pulse::after {
+html[data-ambient="rest"] .home-state__dot--pulse::after,
+html:has(.tab-bar__more[open]) .home-state__dot--pulse::after {
   animation-iteration-count: 0;
   opacity: 0;
 }
@@ -306,6 +335,10 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   background: var(--color-secondary);
   color: color-mix(in srgb, var(--color-text) 70%, transparent);
   text-align: center;
+}
+
+.preview-empty[data-frame-shape="landscape"] {
+  aspect-ratio: 5 / 3;
 }
 
 .preview-empty__heading {
@@ -363,18 +396,3 @@ html[data-ambient="rest"] .home-state__dot--pulse::after {
   color: var(--color-status-warn);
 }
 
-.home-state.reveal {
-  --reveal-index: 0;
-}
-
-.dashboard-main .home-state__switches {
-  --reveal-index: 1;
-}
-
-.dashboard-main .group-block.home-section {
-  --reveal-index: 2;
-}
-
-.dashboard-main .home-state__switches.home-section {
-  --reveal-index: 1;
-}

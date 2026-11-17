@@ -10,7 +10,6 @@ airlines_page already reads.
 """
 import companion.device_scope as device_scope
 import companion.i18n as i18n
-import companion.ui_components as ui_components
 from companion.layout import escape_html
 from companion.pages import airline_sheet, airlines_page as ap
 from server.plane import enrich, illustrations, manual_resolutions
@@ -98,10 +97,10 @@ def step_b_trigger_html(state_dir, prefix_raw, return_target):
     if not key or illustrations.resolved_illustration_path(key, state_dir) is not None:
         return ""
     query = _return_query(return_target)
-    upload_action = ui_components.csrf_query(device_scope.scoped(
+    upload_action = device_scope.scoped(
         "%s%s.png%s" % (
             ap.ILLUSTRATION_ROUTE_PREFIX, escape_html(key), "?" + query if query else ""),
-        "POST"))
+        "POST")
     heading = i18n.t(ap.STEP_B_HEADING_TEMPLATE) % escape_html(name)
     attrs = _trigger_attrs_html({
         ap._VIEW_PANEL_HEADING_ATTR: heading,

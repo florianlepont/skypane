@@ -51,6 +51,29 @@ both aggregators' 1 req/s limit given one call per cycle. It is invoked as a
 systemd-timer oneshot script — the timer unit itself lands in plan 02-05, not
 this plan.
 
+## Check-interval experiment
+
+An opt-in, self-expiring experiment that separates how often the frame
+checks in from how often the flight image is replaced. While it runs, the
+frame wakes every `check_interval_s` (at least 60 s) and the flight image
+changes at most once per the device's saved `wake_interval_s`; between
+changes the served image hash is the same, so the firmware leaves the panel
+alone. Hold screens (display off, battery empty, quiet hours) are never
+delayed, and those overrides keep their own `sleep_s`.
+
+```
+python3 -m server.check_interval set --check-interval-s 60 --hours 24
+python3 -m server.check_interval set --state-dir server/state/devices/d_xxxxxxxx
+python3 -m server.check_interval status
+python3 -m server.check_interval clear
+```
+
+Without `--state-dir` the command acts on the live frame
+(`server/state`). The experiment needs a `wake_interval_s` saved in the
+companion that is longer than `check_interval_s`, lasts at most 72 hours
+(`--hours`, default 24) and is ignored whenever the last battery reading is
+unknown or at or below 3700 mV. With no experiment file nothing changes.
+
 ## Fixture provenance
 
 `server/fixtures/` holds real ADS-B/enrichment records extracted from Phase

@@ -436,45 +436,39 @@ def test_the_save_bar_over_the_map_is_opaque_and_readable(
         context.close()
 
 
-# --- Fleet: the firmware versions table -------------------------------------------------
+# --- Fleet: the firmware version history ------------------------------------------------
 
 
-@pytest.mark.parametrize("lang,heads", [
-    ("en", ["Version", "State", "Released"]), ("fr", ["Version", "État", "Sortie"])])
+@pytest.mark.parametrize("lang,installed", [("en", "Installed"), ("fr", "Installée")])
 @pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED], ids=["1280", "360"])
-def test_the_firmware_table_has_a_column_per_fact_and_aligned_buttons(
-        new_context, app_server_in_process, viewport, lang, heads):
+def test_the_firmware_history_lines_up_its_dot_version_and_chip_down_the_list(
+        new_context, app_server_in_process, viewport, lang, installed):
     seed = fx.seed_fleet(app_server_in_process.state_dir)
     seed_two_releases(app_server_in_process.state_dir)
     context, page = _open(
         new_context, app_server_in_process, "/fleet?frame=" + seed.live_id, viewport, lang=lang)
     try:
-        table = page.locator("table.update-table")
-        table.scroll_into_view_if_needed()
+        page.locator("ul.update-hist__list").scroll_into_view_if_needed()
         rows = page.evaluate(
-            "() => [...document.querySelectorAll('tr.update-table__row')].map(r => {"
+            "() => [...document.querySelectorAll('li.update-item')].map(r => {"
             " const box = s => { const e = r.querySelector(s); if (!e) return null;"
             "  const b = e.getBoundingClientRect(); return {l: b.left, r: b.right, t: b.top, b: b.bottom}; };"
-            " return {version: box('.update-table__version .mono'), state: box('.update-table__state > span'),"
-            "  when: box('.update-table__when time'), date: box('.update-table__date'),"
-            "  action: box('.update-table__action button'), row: box('.update-table__version')}; })")
+            " return {dot: box('.update-item__dot'), version: box('.update-item__version'),"
+            "  chip: box('.banner__pill'), row: box(':scope'), meta: box('.update-item__meta'),"
+            "  summary: box('.update-item__summary')}; })")
         assert len(rows) == 2, rows
-        running, available = rows
-        assert running["state"] and available["state"] and running["date"] and available["date"]
-        assert available["action"] and available["action"]["b"] - available["action"]["t"] >= 43.5
-        if viewport["width"] >= 700:
-            assert [h.strip() for h in page.locator("table.update-table thead th").all_inner_texts()
-                    ][:3] == heads
-            # Column per fact: the cells of one kind share a left edge down the table.
-            assert abs(running["state"]["l"] - available["state"]["l"]) <= 1, rows
-            assert abs(running["when"]["l"] - available["when"]["l"]) <= 1, rows
-            assert running["version"]["r"] <= running["state"]["l"], rows
-            assert available["state"]["r"] <= available["when"]["l"] + 1, rows
-            assert available["when"]["r"] <= available["action"]["l"] + 1, rows
-        else:
-            page_width = page.evaluate("() => document.documentElement.clientWidth")
-            assert available["action"]["r"] <= page_width and available["action"]["l"] >= 0, rows
-        badge = page.locator("tr.update-table__row--running .update-row__badge")
-        assert badge.is_visible()
+        first, second = rows
+        assert abs(first["dot"]["l"] - second["dot"]["l"]) <= 1, rows
+        assert abs(first["version"]["l"] - second["version"]["l"]) <= 1, rows
+        chips = [row["chip"] for row in rows if row["chip"]]
+        assert chips and all(chip["r"] <= row["summary"]["r"] + 1
+                             for row in rows if row["chip"] for chip in [row["chip"]]), rows
+        # Chips sit on one right edge down the list.
+        assert max(chip["r"] for chip in chips) - min(chip["r"] for chip in chips) <= 1, rows
+        assert all(row["dot"]["r"] <= row["version"]["l"] for row in rows), rows
+        page_width = page.evaluate("() => document.documentElement.clientWidth")
+        assert all(0 <= row["summary"]["l"] and row["summary"]["r"] <= page_width for row in rows), rows
+        badge = page.locator("li.update-item--running .banner__pill")
+        assert badge.is_visible() and badge.text_content().strip() == installed
     finally:
         context.close()

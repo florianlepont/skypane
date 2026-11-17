@@ -5,10 +5,13 @@
 its own on-device dithered dark field to draw a hold screen with zero
 server round-trip - `firmware/main/fault_screen_mask.h` (NO CONNECTION,
 the default) and `firmware/main/updating_screen_mask.h` (UPDATING, via
-`--screen updating`).
+`--screen updating`). With `--panel 800x480` the same two screens are cut at
+the second panel's size into `fault_screen_mask_800x480.h` and
+`updating_screen_mask_800x480.h`; the default `--panel 1200x1600` output is
+unchanged.
 
 Source of truth: `server.plane.render.giant.status.build_status()` for the
-"no_connection" and "updating" kinds at the portrait panel size, called
+"no_connection" and "updating" kinds at the selected panel size, called
 flat (no dither) so the extracted mask is an exact ink/no-ink boolean per
 pixel, not a dithered approximation of one.
 `server/test_fault_screen_mask.py` / `server/test_updating_screen_mask.py`
@@ -59,7 +62,7 @@ spec instead:
 
 This module's own dither is deliberately NOT vectorised (no numpy) -
 correctness against the spec above matters far more than speed for an
-offline 1200x1600-pixel one-shot preview tool, and staying in plain
+offline one-shot preview tool at either panel size, and staying in plain
 Python keeps this file trivially auditable against the C it mirrors.
 """
 import argparse
@@ -103,13 +106,25 @@ DITHER_TARGET_LEVEL = 102
 
 _PORTRAIT = (pf.WIDTH, pf.HEIGHT)
 
+# Panel sizes the masks can be generated for, keyed by the `--panel` CLI
+# value. The default is the portrait panel; its headers keep their original
+# file names and include guards. Every other size appends its own suffix to
+# the file name and the guard, while the macro and array names stay the same,
+# so including two sizes in one translation unit is a compile error rather
+# than a silent pick.
+DEFAULT_PANEL = "%dx%d" % _PORTRAIT
+_PANELS = {
+    DEFAULT_PANEL: {"size": _PORTRAIT, "file_suffix": "", "guard_suffix": ""},
+    "800x480": {"size": (800, 480), "file_suffix": "_800x480", "guard_suffix": "_800X480"},
+}
+
 # Per-screen config: which flat canvas to extract the mask from, where the
 # generated header/default preview live, and the macro/symbol names its
 # header uses. Keyed by the `--screen` CLI value.
 _SCREENS = {
     "no-connection": {
-        "flat_canvas_fn": lambda: status.build_status("no_connection", _PORTRAIT, flat=True),
-        "preview_canvas_fn": lambda: status.build_status("no_connection", _PORTRAIT),
+        "flat_canvas_fn": lambda size: status.build_status("no_connection", size, flat=True),
+        "preview_canvas_fn": lambda size: status.build_status("no_connection", size),
         "header_path": HEADER_PATH,
         "include_guard": "FP_FAULT_SCREEN_MASK_H",
         "macro_prefix": "FP_FAULT_MASK_",
@@ -119,8 +134,8 @@ _SCREENS = {
         "default_preview_path": DEFAULT_PREVIEW_PATH,
     },
     "updating": {
-        "flat_canvas_fn": lambda: status.build_status("updating", _PORTRAIT, flat=True),
-        "preview_canvas_fn": lambda: status.build_status("updating", _PORTRAIT),
+        "flat_canvas_fn": lambda size: status.build_status("updating", size, flat=True),
+        "preview_canvas_fn": lambda size: status.build_status("updating", size),
         "header_path": UPDATING_HEADER_PATH,
         "include_guard": "FP_UPDATING_SCREEN_MASK_H",
         "macro_prefix": "FP_UPDATING_MASK_",
@@ -132,17 +147,33 @@ _SCREENS = {
 }
 
 
-def render_mask(screen="no-connection"):
-    """Render `screen`'s flat canvas (`_SCREENS[screen]["flat_canvas_fn"]`),
+def _panel_size(panel):
+    return _PANELS[panel]["size"]
+
+
+def _header_path(screen, panel):
+    """Header path for `screen` at `panel`: the screen's own path for the
+    default panel, otherwise the same name with the panel's file suffix."""
+    path = _SCREENS[screen]["header_path"]
+    suffix = _PANELS[panel]["file_suffix"]
+    if not suffix:
+        return path
+    root, ext = os.path.splitext(path)
+    return root + suffix + ext
+
+
+def render_mask(screen="no-connection", panel=DEFAULT_PANEL):
+    """Render `screen`'s flat canvas (`_SCREENS[screen]["flat_canvas_fn"]`)
+    at `panel`'s size,
     extract the boolean ink mask (`pixel index == pf.IDX_WHITE`), crop to
     its bounding box via `Image.getbbox()`, and pack it MSB-first, one bit
     per pixel, row stride `(w + 7) // 8`, padding bits zero. Returns
     `(x, y, w, h, bits)`.
 
-    `screen` defaults to `"no-connection"`, matching every call site that
-    predates the `--screen` option.
+    `screen` defaults to `"no-connection"` and `panel` to the portrait
+    panel, matching every call site that predates those options.
     """
-    canvas = _SCREENS[screen]["flat_canvas_fn"]()
+    canvas = _SCREENS[screen]["flat_canvas_fn"](_panel_size(panel))
     # A 1-bit "1" mode image where ink (White) pixels are 255 (truthy) is
     # exactly what Image.getbbox() needs to find the tightest ink-only
     # bounding box - .point() with a 256-entry LUT is a vectorised
@@ -171,7 +202,7 @@ def render_mask(screen="no-connection"):
     return x0, y0, w, h, bytes(bits)
 
 
-def render_header_text(screen="no-connection"):
+def render_header_text(screen="no-connection", panel=DEFAULT_PANEL):
     """Return the deterministic generated-header text for `screen`: SPDX +
     GENERATED banner, the include guard, `#include <stdint.h>`, the
     `<PREFIX>X/Y/W/H/STRIDE` macros, and the packed bits array, 16 bytes
@@ -181,10 +212,15 @@ def render_header_text(screen="no-connection"):
     `server/test_updating_screen_mask.py`'s drift tests rely on.
     """
     cfg = _SCREENS[screen]
-    x, y, w, h, bits = render_mask(screen)
+    x, y, w, h, bits = render_mask(screen, panel)
     stride = (w + 7) // 8
     prefix = cfg["macro_prefix"]
     guard = cfg["include_guard"]
+    if _PANELS[panel]["guard_suffix"]:
+        guard = guard[: -len("_H")] + _PANELS[panel]["guard_suffix"] + "_H"
+    regen_suffix = cfg["regen_suffix"]
+    if panel != DEFAULT_PANEL:
+        regen_suffix += " --panel %s" % (panel,)
     bits_symbol = cfg["bits_symbol"]
 
     lines = []
@@ -194,7 +230,7 @@ def render_header_text(screen="no-connection"):
     lines.append(" * %s - DO NOT EDIT;" % (cfg["source_comment"],))
     lines.append(
         " * regenerate with: server/.venv/bin/python3 firmware/tools/gen_fault_screen.py%s */"
-        % (cfg["regen_suffix"],)
+        % (regen_suffix,)
     )
     lines.append("#pragma once")
     lines.append("#ifndef %s" % (guard,))
@@ -232,15 +268,15 @@ def _trunc16(numerator):
     return -((-numerator) // 16)
 
 
-def firmware_equivalent_image(screen="no-connection"):
+def firmware_equivalent_image(screen="no-connection", panel=DEFAULT_PANEL):
     """Python port of the exact C dither algorithm (see the module
-    docstring's shared spec) plus the mask stamp - a 1200x1600 "1"-mode
+    docstring's shared spec) plus the mask stamp - a "1"-mode
     (Black/White only) `PIL.Image` reproducing exactly what
     `firmware/main/hold_screen.c`'s `fp_hold_screen_render()` would blit
-    for `screen`, for the side-by-side preview.
+    for `screen` at `panel`'s size, for the side-by-side preview.
     """
-    width, height = pf.WIDTH, pf.HEIGHT
-    x0, y0, w, h, bits = render_mask(screen)
+    width, height = _panel_size(panel)
+    x0, y0, w, h, bits = render_mask(screen, panel)
     stride = (w + 7) // 8
 
     def mask_bit_set(col, row):
@@ -285,7 +321,7 @@ def firmware_equivalent_image(screen="no-connection"):
     return img.convert("1")
 
 
-def _write_preview(preview_path, screen="no-connection"):
+def _write_preview(preview_path, screen="no-connection", panel=DEFAULT_PANEL):
     """Write the firmware-equivalent image side by side with the server's
     own dithered canvas for `screen`, following this project's
     side-by-side preview convention (server preview left, firmware
@@ -293,16 +329,16 @@ def _write_preview(preview_path, screen="no-connection"):
     server's hold-screen renderer, with dithering on the firmware side.
     """
     cfg = _SCREENS[screen]
-    server_canvas = cfg["preview_canvas_fn"]()
-    from server import panel_format as _pf
+    width, height = _panel_size(panel)
+    server_canvas = cfg["preview_canvas_fn"]((width, height))
 
     server_rgb = server_canvas.convert("RGB")
-    fw_rgb = firmware_equivalent_image(screen).convert("RGB")
+    fw_rgb = firmware_equivalent_image(screen, panel).convert("RGB")
 
     gutter = 40
-    combined = Image.new("RGB", (_pf.WIDTH * 2 + gutter, _pf.HEIGHT), (200, 200, 200))
+    combined = Image.new("RGB", (width * 2 + gutter, height), (200, 200, 200))
     combined.paste(server_rgb, (0, 0))
-    combined.paste(fw_rgb, (_pf.WIDTH + gutter, 0))
+    combined.paste(fw_rgb, (width + gutter, 0))
     os.makedirs(os.path.dirname(preview_path), exist_ok=True)
     combined.save(preview_path)
     return preview_path
@@ -317,6 +353,12 @@ def main():
         help="Which hold screen's mask to generate (default: no-connection)",
     )
     parser.add_argument(
+        "--panel",
+        choices=sorted(_PANELS),
+        default=DEFAULT_PANEL,
+        help="Panel size to cut the mask for (default: %s)" % (DEFAULT_PANEL,),
+    )
+    parser.add_argument(
         "--preview",
         default=None,
         help="Where to write the server-vs-firmware side-by-side preview PNG "
@@ -328,9 +370,10 @@ def main():
     args = parser.parse_args()
 
     screen = args.screen
+    panel = args.panel
     cfg = _SCREENS[screen]
 
-    x, y, w, h, bits = render_mask(screen)
+    x, y, w, h, bits = render_mask(screen, panel)
     print("mask bbox: x=%d y=%d w=%d h=%d" % (x, y, w, h))
     if w * h > 200_000 * 8:  # a bbox producing >200KB of packed mask data
         raise SystemExit(
@@ -338,8 +381,8 @@ def main():
             "committing a bloated header; investigate the canvas composition first" % (w, h)
         )
 
-    header_text = render_header_text(screen)
-    header_path = os.path.normpath(cfg["header_path"])
+    header_text = render_header_text(screen, panel)
+    header_path = os.path.normpath(_header_path(screen, panel))
     with open(header_path, "w", encoding="utf-8") as f:
         f.write(header_text)
     header_bytes = len(header_text.encode("utf-8"))
@@ -347,7 +390,13 @@ def main():
 
     if not args.no_preview:
         preview_path = args.preview or cfg["default_preview_path"]
-        preview_path = _write_preview(preview_path, screen)
+        if panel != DEFAULT_PANEL and not args.preview:
+            # Scratch output outside the repo tree, as for the updating screen.
+            root, ext = os.path.splitext(os.path.basename(preview_path))
+            preview_path = os.path.join(
+                tempfile.gettempdir(), root + _PANELS[panel]["file_suffix"] + ext
+            )
+        preview_path = _write_preview(preview_path, screen, panel)
         print("wrote %s" % (preview_path,))
 
 

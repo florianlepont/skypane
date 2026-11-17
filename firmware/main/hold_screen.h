@@ -37,8 +37,9 @@ typedef void (*fp_hold_screen_tick_fn)(void);
 
 /* Renders `mask` onto a Floyd-Steinberg dithered dark field (target level
  * DITHER_TARGET_LEVEL, hold_screen.c) into `buf`
- * (FP_FAULT_SCREEN_BYTES, PROTOCOL.md §1 packed format: 1600 rows x 600
- * bytes, left pixel of each byte in the high nibble, Black = 0x0,
+ * (FP_FAULT_SCREEN_BYTES, PROTOCOL.md §1 packed format: one row after
+ * another, FP_FAULT_SCREEN_WIDTH / 2 bytes per row, left pixel of each byte
+ * in the high nibble, Black = 0x0,
  * White = 0x1). Fully overwrites every byte - deterministic, so two
  * renders into two differently pre-filled buffers are byte-identical.
  * `tick` is called (if non-NULL) roughly every 64 rows. No-op if `buf` or

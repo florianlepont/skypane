@@ -40,7 +40,7 @@
     return !!(reducedQuery && reducedQuery.matches);
   }
 
-  var ACTIVE = ".tab-bar__link--active:not(.tab-bar__link--switch)";
+  var ACTIVE = ".tab-bar__link--active";
 
   function initTabSlider(bar) {
     var slider = document.createElement("span");
@@ -78,7 +78,7 @@
     }
 
     function setActive(link) {
-      var cells = bar.querySelectorAll(".tab-bar__link:not(.tab-bar__link--switch)");
+      var cells = bar.querySelectorAll(".tab-bar__link");
       for (var i = 0; i < cells.length; i++) {
         cells[i].classList.toggle("tab-bar__link--active", cells[i] === link);
       }
@@ -111,22 +111,21 @@
           && link.classList.contains("tab-bar__link"))) {
         link = link.parentNode;
       }
-      if (!link || link === bar || link.classList.contains("tab-bar__link--switch")
-          || link.classList.contains("tab-bar__link--active")
+      if (!link || link === bar || link.classList.contains("tab-bar__link--active")
           || evt.button !== 0 || evt.metaKey || evt.ctrlKey || evt.shiftKey || evt.altKey
           || link.hasAttribute("target")) {
         return;
       }
-      var from = bar.querySelector(ACTIVE);
-      setActive(link);
-      place(link, true);
-      // Another handler may still cancel the navigation (an unsaved-changes
-      // guard): then the pill returns to the tab the page really is on.
+      // The glide waits until every other click handler has run: an
+      // unsaved-changes guard cancels the navigation after this one, and a
+      // pill that had already set off would travel toward a page the person
+      // has not reached and then come back.
       window.setTimeout(function () {
         if (evt.defaultPrevented) {
-          setActive(from);
-          place(from, true);
+          return;
         }
+        setActive(link);
+        place(link, true);
       }, 0);
     });
   }
@@ -135,9 +134,10 @@
   // Any segmented strip marked data-tabs (the Style and Fleet section links,
   // the Flights, Airlines and Audit filter chips) gets one thumb behind its
   // segments that slides under the current one. A strip whose segments are
-  // links (or radios that send their form) is a page change: the thumb starts under the segment of the page
-  // that was left (sessionStorage, keyed by the strip's name) and slides to
-  // the current one. A strip of radios moves on change. A strip may name the
+  // links is a page change: the thumb is under the current segment from the
+  // start and never slides after the page opened (the page change itself
+  // carries the selection across, see the stylesheet's skypane-strip). A
+  // strip of radios moves on change. A strip may name the
   // content its segments switch (data-tabs-content, a selector) and the
   // content replays the shared entrance, or only a fade with
   // data-tabs-replay="fade". The thumb moves by transform and width alone and
@@ -162,6 +162,13 @@
       target.setAttribute("data-replay-bound", "");
       target.addEventListener("animationend", function (evt) {
         if (evt.target === target && evt.animationName === "skypane-reveal-fade") {
+          // A replay that ends while the page opening is still marked would
+          // hand the element back to the opening's rule and its rise would
+          // start again under content that is already in place.
+          var main = document.querySelector("main[data-page-open]");
+          if (main && main.contains(target)) {
+            main.removeAttribute("data-page-open");
+          }
           target.classList.remove("reveal-replay", "reveal-replay--fade");
         }
       });
@@ -215,8 +222,6 @@
       return;
     }
     strip.setAttribute("data-tabs-ready", "");
-    var name = strip.getAttribute("data-tabs") || "";
-    var key = "skypane-tabs-" + name;
     var items = stripItems(strip);
     var wantsThumb = strip.getAttribute("data-tabs-thumb") !== "none";
     var thumb = null;
@@ -257,18 +262,6 @@
 
     var index = stripCurrent(items);
     if (thumb && index !== -1) {
-      var from = -1;
-      var navigates = items[index].tagName === "A" || !!strip.querySelector("[data-autosubmit]");
-      try {
-        if (navigates) {
-          from = parseInt(window.sessionStorage.getItem(key), 10);
-          window.sessionStorage.setItem(key, String(index));
-        }
-      } catch (err) {
-        from = -1;
-      }
-      var slide = navigates && from >= 0 && from < items.length && from !== index
-        && !reducedMotion();
       if (carried && !reducedMotion()) {
         thumb.style.width = carried.width;
         thumb.style.height = carried.height;
@@ -277,9 +270,7 @@
         thumb.getBoundingClientRect();
         thumb.classList.add("is-sliding");
         place(index);
-      } else if (place(slide ? from : index) && slide) {
-        thumb.getBoundingClientRect();
-        thumb.classList.add("is-sliding");
+      } else {
         place(index);
       }
       // Re-place the thumb only when the strip's own geometry changed (fonts,
@@ -478,30 +469,56 @@
     return el.animate(frames, options);
   }
 
-  // The "Next update in ..." countdown is rewritten once a second by
-  // relative-time.js; each change gets a short roll so the tick is seen.
+  // The "Next update in ..." countdown is rewritten by relative-time.js. In
+  // its last minute the text changes every second and stays plain text: a
+  // roll a second is a nudge nobody can pause. A coarser change (one minute
+  // less) gets one short roll. A rewrite that leaves the text as it was, the
+  // count-up below and the text a refresh brings with a new hero roll
+  // nothing. The watcher follows the hero across the refresh that replaces it.
   function initCountdownTick() {
-    var host = document.querySelector(".home-state");
-    if (!host || !window.MutationObserver) {
+    if (!window.MutationObserver) {
       return;
     }
     var duration = millis("--motion-fast", 180);
     var ease = token("--ease-out", "ease-out");
-    var watcher = new MutationObserver(function (records) {
-      for (var r = 0; r < records.length; r++) {
-        var target = records[r].target;
-        var el = target.nodeType === 1 ? target : target.parentNode;
-        while (el && !(el.hasAttribute && el.hasAttribute("data-relative-countdown"))) {
-          el = el.parentNode;
-        }
-        if (el) {
-          play(el, [{opacity: 0.4, transform: "translateY(3px)"},
-                    {opacity: 1, transform: "none"}],
-               {duration: duration, easing: ease});
-        }
+    var host = null;
+    var shown = null;
+
+    function lastMinute(el) {
+      var at = new Date(el.getAttribute("datetime") || "").getTime();
+      return isNaN(at) || Math.abs(at - new Date().getTime()) < 60000;
+    }
+
+    var watcher = new MutationObserver(function () {
+      var el = host && host.querySelector("[data-relative-countdown]");
+      if (!el) {
+        return;
+      }
+      var text = el.textContent;
+      var changed = shown !== null && text !== shown;
+      shown = text;
+      if (changed && !countingUp && !lastMinute(el)) {
+        play(el, [{opacity: 0.4, transform: "translateY(3px)"},
+                  {opacity: 1, transform: "none"}],
+             {duration: duration, easing: ease});
       }
     });
-    watcher.observe(host, {childList: true, characterData: true, subtree: true});
+
+    function watch() {
+      var next = document.querySelector(".home-state");
+      if (next === host) {
+        return;
+      }
+      watcher.disconnect();
+      host = next;
+      if (host) {
+        var el = host.querySelector("[data-relative-countdown]");
+        shown = el ? el.textContent : null;
+        watcher.observe(host, {childList: true, characterData: true, subtree: true});
+      }
+    }
+    watch();
+    document.addEventListener("skypane-regions-swapped", watch);
   }
 
   // Numbers on Home count up once, on first render: the leading figure of
@@ -616,7 +633,17 @@
   // staggered entrance.
   var PULL_THRESHOLD = 56;
   var PULL_MAX = 90;
+  // The spinner turns for as long as the give-up timeout below (6 s at 700 ms a turn).
+  var SPIN_TURNS = 9;
   var PULL_START = 8;
+
+  // One turn of the spinner, from the stylesheet's --motion-spin token.
+  function spinMs() {
+    var raw = window.getComputedStyle(document.documentElement)
+      .getPropertyValue("--motion-spin");
+    var match = /^\s*(\d+(?:\.\d+)?)ms\s*$/.exec(raw || "");
+    return match ? parseFloat(match[1]) : 700;
+  }
 
   function initPullToRefresh() {
     var phone = window.matchMedia("(max-width: 699.98px)");
@@ -746,7 +773,7 @@
       if (glyph) {
         glyph.style.transform = "";
         spin = play(glyph, [{transform: "rotate(0deg)"}, {transform: "rotate(360deg)"}],
-                    {duration: 700, iterations: Infinity});
+                    {duration: spinMs(), iterations: SPIN_TURNS});
       }
       paint(PULL_THRESHOLD);
       document.addEventListener("skypane-refresh-done", finish);
@@ -907,12 +934,15 @@
     sweep.className = "unlock-glint__sweep";
     glint.appendChild(sweep);
     card.appendChild(glint);
-    var flip = card.animate(
+    var glintMs = millis("--motion-reveal", 900);
+    var ease = token("--ease-out", "ease-out");
+    card.animate(
       [{transform: "rotateY(90deg)"}, {transform: "rotateY(0deg)"}],
-      {duration: 560, easing: "cubic-bezier(0.34, 1.3, 0.64, 1)"});
+      {duration: millis("--motion-unlock", 560),
+       easing: token("--motion-spring", "cubic-bezier(0.34, 1.56, 0.64, 1)")});
     sweep.animate(
       [{transform: "translateX(-120%)"}, {transform: "translateX(120%)"}],
-      {duration: 900, delay: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both"}
+      {duration: glintMs, delay: 300, easing: ease, fill: "both"}
     ).finished.then(function () {
       glint.remove();
     }, function () {
@@ -926,14 +956,13 @@
       spark.animate(
         [{opacity: 1, transform: "translate(0, 0) scale(1)"},
          {opacity: 0, transform: "translate(" + to[0] + "px, " + to[1] + "px) scale(0.3)"}],
-        {duration: 900, delay: 300 + index * 25, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "both"}
+        {duration: glintMs, delay: 300 + index * 25, easing: ease, fill: "both"}
       ).finished.then(function () {
         spark.remove();
       }, function () {
         spark.remove();
       });
     });
-    return flip;
   }
 
   function initCardUnlock() {
@@ -979,6 +1008,51 @@
   }
 
   initCardUnlock();
+
+  // ---- The page opening plays once --------------------------------------------
+  // The stylesheet stages the opening under main[data-page-open]. When the
+  // last of its animations has ended the mark is dropped, so content a
+  // refresh, a filter or a switch puts in later arrives without replaying it.
+  // The animations fill backwards only: dropping the rule changes no pixel.
+  function initPageOpen() {
+    var main = document.querySelector("main[data-page-open]");
+    if (!main || !main.getAnimations) {
+      return;
+    }
+    function opening() {
+      var running = main.getAnimations({ subtree: true });
+      for (var i = 0; i < running.length; i++) {
+        var name = running[i].animationName || "";
+        if (name.indexOf("skypane-reveal") === 0 && running[i].playState !== "finished") {
+          return true;
+        }
+      }
+      return false;
+    }
+    // A page that keeps its header back while it boots (the map) has not
+    // opened yet: the opening plays when the header gets its box.
+    function shown() {
+      var header = main.querySelector(".page-header");
+      return !header || header.getClientRects().length > 0;
+    }
+    function check() {
+      if (!main.hasAttribute("data-page-open") || !shown() || opening()) {
+        return;
+      }
+      main.removeAttribute("data-page-open");
+      main.removeEventListener("animationend", check);
+      main.removeEventListener("animationcancel", check);
+      window.removeEventListener("load", check);
+    }
+    main.addEventListener("animationend", check);
+    main.addEventListener("animationcancel", check);
+    window.addEventListener("load", check);
+    if (document.readyState === "complete") {
+      check();
+    }
+  }
+
+  initPageOpen();
 
   // ---- Ambient rest ----------------------------------------------------------
   // Home's slow ambient loops (the status dot, the glow and glint on the

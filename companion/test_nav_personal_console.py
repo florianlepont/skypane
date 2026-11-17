@@ -1,6 +1,7 @@
 """Behaviour tests of the two navigation sets over real in-process requests: the
 personal navigation is the same for an administrator and a user looking at the
-same frame, and the Console holds Fleet, Users, Health, Device and the airline
+same frame (apart from the bar's last cell: Account for a user, More for an
+administrator), and the Console holds Fleet, Users, Health, Device and the airline
 editor for the frame in view. Bar cells, More sheet rows and sidebar links are
 read from the served HTML in English and French."""
 import hashlib
@@ -17,17 +18,18 @@ PERSONAL_PAGES = ("/", "/flights", "/detection", "/display", "/airlines")
 ADMIN_WORDS = ("Admin", "Console", "Fleet", "Releases", "Health", "Device", "Update")
 ADMIN_WORDS_FR = ("Flotte", "Versions", "État", "Appareil", "Console", "Administration")
 
-PERSONAL_BAR_EN = ["Home", "History", "Location", "Style"]
-PERSONAL_BAR_FR = ["Accueil", "Vols", "Lieu", "Style"]
+PERSONAL_BAR_EN = ["Home", "Flights", "Airlines", "Style", "Location"]
+PERSONAL_BAR_FR = ["Accueil", "Vols", "Airlines", "Style", "Lieu"]
 PERSONAL_SIDEBAR_EN = [
     "Home", "Flight history", "Location and detection", "Style",
     "Airlines", "Account"]
 PERSONAL_SIDEBAR_FR = [
     "Accueil", "Historique des vols", "Lieu et détection", "Style",
-    "Compagnies", "Compte"]
-CONSOLE_BAR_EN = ["My frame", "Fleet", "Users", "Editor", "Audit"]
-CONSOLE_BAR_FR = ["Mon cadre", "Flotte", "Équipe", "Éditeur", "Journal"]
+    "Airlines", "Compte"]
+CONSOLE_BAR_EN = ["Fleet", "Users", "Editor", "Audit"]
+CONSOLE_BAR_FR = ["Flotte", "Équipe", "Éditeur", "Journal"]
 SWITCH_TO_CONSOLE = {"en": "Console", "fr": "Console"}
+SWITCH_TO_PERSONAL = {"en": "My frame", "fr": "Mon cadre"}
 CONSOLE_SIDEBAR_EN = ["Fleet", "Users", "Editor", "Audit log", "Account"]
 CONSOLE_SIDEBAR_FR = [
     "Flotte", "Utilisateurs", "Éditeur", "Journal d’audit", "Compte"]
@@ -69,7 +71,8 @@ def _anchors(markup):
     """(href, visible text) of every link in `markup`, tags stripped."""
     return [
         (href, re.sub(r"<[^>]+>", "", re.sub(
-            r'<span class="visually-hidden">.*?</span>', "", inner)).strip())
+            r'<span class="(?:visually-hidden|tab-bar__avatar|tab-bar__account-email'
+            r'|link-card__subtitle)"[^>]*>.*?</span>', "", inner)).strip())
         for href, inner in re.findall(r'<a class="[^"]*" href="([^"]+)"[^>]*>(.*?)</a>', markup, re.S)]
 
 
@@ -99,19 +102,20 @@ def test_the_personal_navigation_is_identical_for_an_administrator_and_a_user(
     status, admin_page = _get(server, cookies["admin"], prefix + "/flights", lang)
     assert status == 200
 
-    user_cells, user_sheet, _bar = _bar_parts(user_page)
+    user_bar = _nav(user_page, '<nav class="tab-bar"')
+    user_cells = _anchors(user_bar)
     admin_cells, admin_sheet, _bar = _bar_parts(admin_page)
-    assert [text for _href, text in user_cells] == bar_labels
-    # The administrator's bar differs by the leading space switch cell alone.
-    assert admin_cells[1:] == user_cells
-    assert admin_cells[0] == ("/fleet", SWITCH_TO_CONSOLE[lang])
-    assert [href for href, _text in user_cells] == [
-        prefix + route for route in ("/", "/flights", "/detection", "/display")]
-
-    airline_row = (prefix + "/airlines", sidebar_labels[4])
+    # Both bars start with the same five destinations. A user's sixth cell is the
+    # Account page, with no More sheet; an administrator's More panel holds
+    # Account and the space switch row.
     account_row = ("/account", sidebar_labels[5])
-    assert user_sheet == [airline_row, account_row]
-    assert admin_sheet == user_sheet
+    assert [text for _href, text in user_cells] == bar_labels + [sidebar_labels[5]]
+    assert "tab-bar__more" not in user_bar
+    assert user_cells[:5] == admin_cells
+    assert user_cells[5] == account_row
+    assert [href for href, _text in admin_cells] == [
+        prefix + route for route in ("/", "/flights", "/airlines", "/display", "/detection")]
+    assert admin_sheet == [account_row, ("/fleet", SWITCH_TO_CONSOLE[lang])]
 
     user_sidebar = _sidebar_anchors(user_page)
     admin_sidebar = _sidebar_anchors(admin_page)
@@ -126,7 +130,10 @@ def test_the_personal_navigation_never_links_console_pages_or_locations(served):
         for page in PERSONAL_PAGES:
             _status, markup = _get(server, cookies[who], prefix + page)
             hrefs = [href for href, _text in _sidebar_anchors(markup)]
-            hrefs += [href for href, _text in _anchors(_nav(markup, '<nav class="tab-bar"'))]
+            bar = re.sub(
+                r'<a class="[^"]*tab-bar__space-link".*?</a>', "", _nav(markup, '<nav class="tab-bar"'),
+                flags=re.S)
+            hrefs += [href for href, _text in _anchors(bar)]
             for href in hrefs:
                 path = re.sub(r"^/devices/[^/]+", "", href)
                 assert path not in ("/health", "/device", "/update", "/locations",
@@ -146,9 +153,9 @@ def test_the_console_navigation_lists_the_console_pages_for_the_frame_in_view(
     cells, sheet, _bar = _bar_parts(page)
     assert [text for _href, text in cells] == bar_labels
     assert [href for href, _text in _unscoped(cells)] == [
-        "/", "/fleet", "/users", "/airlines/manage", "/audit"]
-    assert [href for href, _text in _unscoped(sheet)] == ["/account"]
-    assert [text for _href, text in sheet] == [sidebar_labels[4]]
+        "/fleet", "/users", "/airlines/manage", "/audit"]
+    assert [href for href, _text in _unscoped(sheet)] == ["/account", "/"]
+    assert [text for _href, text in sheet] == [sidebar_labels[4], SWITCH_TO_PERSONAL[lang]]
 
     sidebar = _sidebar_anchors(page)
     assert [text for _href, text in sidebar] == sidebar_labels
@@ -215,6 +222,17 @@ def test_flight_history_is_the_navigation_label_and_the_page_title(served):
         _status, page = _get(server, cookies[who], server.frame_prefix + "/flights", "fr")
         assert "Historique des vols" in [text for _href, text in _sidebar_anchors(page)]
         assert "<title>Historique des vols" in page
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_the_location_tab_is_named_by_the_first_word_of_its_page_title(served, lang):
+    """the short tab label is the page's own name cut short, not another word for it"""
+    server, cookies = served
+    _status, page = _get(server, cookies["owner"], server.frame_prefix + "/detection", lang)
+    title = re.search(r"<title>([^<]*?) -", page).group(1)
+    bar = _nav(page, '<nav class="tab-bar"')
+    labels = [text for _href, text in _anchors(bar.split('<div class="tab-bar__more-panel">')[0])]
+    assert any(title.startswith(label) and label != title for label in labels), (title, labels)
 
 
 def test_a_user_with_no_frame_has_no_bar_and_an_account_only_sidebar(served):

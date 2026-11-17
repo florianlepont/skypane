@@ -146,3 +146,30 @@ def test_the_tab_icon_links_resolve_in_a_real_browser(new_context, server):
         assert types == {"image/svg+xml", "image/png"}
     finally:
         context.close()
+
+
+@pytest.mark.parametrize("scheme,tile,glyph", [
+    ("light", (0x1F, 0x24, 0x30), (0xFF, 0xFF, 0xFF)),
+    ("dark", (0xF2, 0xEF, 0xE9), (0x1F, 0x24, 0x30)),
+])
+@pytest.mark.parametrize("size", [16, 32])
+def test_the_favicon_renders_in_both_colour_schemes(new_context, server, scheme, tile, glyph, size):
+    """the served SVG paints as an image at tab-strip sizes: a tile of the scheme's colour
+    carrying a glyph of the contrasting colour"""
+    context = new_context(viewport={"width": 64, "height": 64}, color_scheme=scheme)
+    try:
+        page = context.new_page()
+        page.goto(server.base_url() + "/login")
+        page.wait_for_load_state("load")
+        page.set_content(
+            "<body style='margin:0;background:#808080'><img id=f width=%d height=%d "
+            "src='%s/static/favicon.svg'></body>" % (size, size, server.base_url()))
+        page.wait_for_function(
+            "() => { const i = document.getElementById('f'); return i.complete && i.naturalWidth > 0; }")
+        shot = page.locator("#f").screenshot()
+        image = Image.open(io.BytesIO(shot)).convert("RGB")
+        colours = [colour for _, colour in image.getcolors(maxcolors=100000)]
+        assert any(_near(c, tile, 6) for c in colours), (scheme, size, "tile")
+        assert any(_near(c, glyph, 12) for c in colours), (scheme, size, "glyph")
+    finally:
+        context.close()

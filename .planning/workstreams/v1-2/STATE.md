@@ -4,15 +4,15 @@ milestone: v1.2
 milestone_name: Fleet platform
 current_plan: 11
 status: verifying
-stopped_at: Phase 62 complete
-last_updated: "2026-11-09T10:04:45.004Z"
-last_activity: 2026-10-30
+stopped_at: Phase 64 verified with open points (64-VERIFICATION.md, updated 2026-11-16); criteria 6 and 9 validated on the owner's reports and decisions of 2026-11-16, criterion 7 still open (partly measured; provisional values moved to production use and Phase 65)
+last_updated: "2026-11-14T20:16:40.837Z"
+last_activity: 2026-11-15
 progress:
-  total_phases: 15
-  completed_phases: 11
-  total_plans: 151
-  completed_plans: 189
-  percent: 73
+  total_phases: 17
+  completed_phases: 14
+  total_plans: 179
+  completed_plans: 275
+  percent: 82
 ---
 
 # Project State
@@ -27,7 +27,7 @@ progress:
 Phase: 49 (per-hardware-ota-registry) — ready for verification
 Plan: 11 of 11 (all plans complete)
 Status: Phase complete — ready for verification
-Last activity: 2026-10-30
+Last activity: 2026-11-16 - Phase 64 criterion 9 closed in the records (partly by owner decision for rows 2, 9, 10, 11); criterion 7 open
 
 Progress: [████████░░] 84%
 
@@ -41,7 +41,7 @@ Progress: [████████░░] 84%
 ### Decisions
 
 - Phase numbering continues from v1.1 (Phase 47). Phase 47 is open and untouched by this workstream.
-- Production deploys touching the live frame and the combined firmware OTA (Phase 57) wait for Phase 47 to close, or for an explicit owner release.
+- Production deploys touching the live frame and the combined firmware OTA (Phase 57) wait for Phase 47 to close, or for an explicit owner release. Done: the combined firmware `fw-v1.1.0` was released and installed on the live frame on 2026-11-15 by the owner (Phase 57, see its verification).
 - Phases 48–57 use simulated hardware types; only Phase 58 needs a purchase, after its driver spike.
 - [Phase 61 added 2026-11-02]: companion UX and UI overhaul for administrators and invited users, at the owner's request ("the companion is a mess"). Owner's problem areas: navigation and structure, the admin console, the user view, sign-in and invitation. Placed in v1.2 as Phase 61, before Phase 59, which stays last.
 - Registry rewrite lives in Phase 49, not Phase 48. Auth is split: Phase 54 gate, Phase 55 pairing and console.
@@ -66,11 +66,19 @@ Progress: [████████░░] 84%
 - [Phase 53 deployment 2026-10-31/11-01]: merging to `main` runs the CI `deploy` job (no reviewer pause was observed), so the merge of PR #265 deployed Phase 53 on 2026-10-31 at 20:20 UTC (run 41237444594); the earlier note that nothing was deployed was wrong. The owner checked the live Orly frame afterwards: image and rhythm unchanged. The owner validated the policy numbers (50 m corridor floor, 5 degree parallel threshold, France box, radius, ceiling) on 2026-11-01 and chose, for position mode, no altitude ceiling, a 2 to 28 km radius and an `OVERHEAD` state for level aircraft (PR #268, merged 2026-11-01 17:50 UTC, deployed by its own run 41333550343). Review findings LW-01, LW-03, LW-04 and LW-06 fixed in the same PR; LW-04 also narrows the Phase 55 Display-form location picker to the frame owner's and ownerless locations. `SKYPANE_LEGACY_ORLY_GEOFENCE=1` remains the kill switch for the Orly frame. Phase 53 closed 2026-11-01: the owner saw the CDG 08L/26R runway render on the real panel and confirmed the live frame is back on Orly 07/25; the owner also tested the position mode on the real panel the same day and reports that it works and saw the `OVERHEAD` state on the panel (the `SET A LOCATION` screen was not reported as seen).
 - [Phase 58-01 2026-11-01]: Second-hardware shortlist in hardware/SECOND-HARDWARE.md ranked by landed cost TTC (delivery unconfirmed everywhere): EE04 78.73 (only one near the 100 EUR target), PhotoPainter 90.48, Waveshare raw+ESP32 board >=96.27, HAT(E) >=101.67, E1002 106.14; Good Display page unreadable. Kubii 3000 mAh battery now out of stock.
 - [Phase 58-02 2026-11-01]: Driver spike (tasks 1-2) in hardware/SECOND-HARDWARE-SPIKE.md and firmware/spike-7in3/: all five candidates PASS on paper (controller ED2208 family, init sequence and pin map found); trial driver builds in the ESP-IDF 5.3.1 container (image via mirror.gcr.io, Docker Hub 429). Recommended by cost: Seeed EE04. Owner purchase decision PENDING, Task 3 not executed, nothing bought.
+- [Phase 58-03 Task 1 2026-11-14]: Code-only part done (commit dc27263, evidence in 58-03-TASK1-SUMMARY.md): 7.3" driver promoted to firmware/main/epd7in3e.c behind the Kconfig choice FP_PANEL (default stays 13.3"), firmware/sdkconfig.second.defaults, SKYPANE_BOARD=second in build.sh, firmware/flash-second.sh (MAC printed, typed confirmation, live-frame refusal). The ee02 resolved sdkconfig differs only by the three new default-valued symbols and its code/data sections are byte-identical; the second profile builds in the pinned container. Never run on a panel. Open: the 800x480 data path (device and server still use 1200x1600/960000 bytes) before Task 2's first refresh. Tasks 2 and 3 still wait for the unit.
+- [Phase 58-05 2026-11-14]: 800x480 data path done, code only (commits 2efbebc, 499ff4b, fd4028c, 15913c7; evidence in 58-05-SUMMARY.md): evaluation unit profile behind SKYPANE_SIM_HARDWARE=1 serving 192000 bytes, FP_IMAGE_BYTES from the panel Kconfig value, 800x480 fault and updating masks. ee02 build before/after identical (sdkconfig, size, nm, four section dumps); second profile builds at 192000. Browser tests were skipped locally (no Playwright shell). 58-03 Tasks 2 and 3 and 58-04 still wait for the unit.
 
 ### Roadmap Evolution
 
 - Phase 62 added 2026-11-08 at the owner's request: Plane Screen Redesign (giant-lettering design), from `.planning/notes/plane-screen-design-brief.md`. Runs before Phase 59, which stays last.
 - Phase 63 added 2026-11-10 at the owner's request: Fast CI (test job from about 27 minutes to 10 minutes or less, nothing skipped), from measurements of run 42770577886 and a local 4-core run. Closed 2026-11-10: test check median 9.0 min over five green runs, merged as #320 and #322 (see `phases/63-fast-ci/63-VERIFICATION.md`).
+- Phase 65 added 2026-11-15 at the owner's request: Detection Robustness (runway 3, then the other Orly runways and other French airports; widened the same day). Its battery half (BAT-01: discharges, curves, thresholds, battery tests) was moved the same day to SEED-019 for v1.4. Runs before Phase 59, which stays last.
+- Phases 66 and 67 added 2026-11-15 at the owner's request: Security Audit, and Project and Code Optimisation for a clean, industrial result. Both run before Phase 59, which stays last.
+- Phase 68 added 2026-11-16 at the owner's request: Console and Companion Visual Improvements, moved up from v1.3 (SEED-020) so that the security audit (Phase 66) and the code cleanup (Phase 67) work on the final code. It runs after Phase 65 and before Phase 66.
+- Phase 64 added 2026-11-14 at the owner's request: Second Hardware in Production (build, release, deploy and parity with the first type), HW2-03 to HW2-05. The owner asked whether the second screen could be managed as the first one is; two read-only audits (server and companion, firmware and release pipeline) found the gap in the plan: Phase 57 releases the live frame only and Phase 58 validates the board with throwaway-key bench images, so nothing builds, publishes or deploys a release for the second type. Findings, re-checked against `main`, in `64-AUDIT.md`. Runs before Phase 59, which stays last.
+
+- Phase 58 closed 2026-11-15 by the owner with the battery model provisional: the unit passed cable flash, signed OTA bench, floor refusal and the four pairing checks; no valid discharge sample exists, so no battery value was measured. Real battery data is expected from production use (Phase 64); the discharge validation is SEED-019 (v1.4). Evidence in `58-03-SUMMARY.md`, `58-04-SUMMARY.md` and `hardware/SECOND-HARDWARE-VALIDATION.md`.
 
 ### Pending Todos
 
@@ -83,5 +91,5 @@ None yet.
 
 ## Session Continuity
 
-**Stopped At:** Phase 62 complete (owner real-panel check done, layout B default)
-**Resume File:** None
+**Stopped At:** Phase 64 waves 1-3 executed (plans 64-01..64-11); waves 4-6 are owner-validated or blocked on Phase 57
+**Resume File:** .planning/workstreams/v1-2/phases/64-second-hardware-in-production-build-release-deploy-and-parit/64-12-PLAN.md

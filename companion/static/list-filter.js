@@ -22,10 +22,16 @@
   // form's own button does the same.
   // Heard on the document, so a control a script adds later (the airline
   // editor opens its aircraft-type rows on demand) submits too.
+  // The Airlines collection's form is answered in place by the block at the end
+  // of this file when the browser can do that; only then is it not submitted.
+  var inPlace = !!(window.fetch && window.DOMParser && history.replaceState);
   function submitOwnForm(event) {
     var target = event.target;
     if (target && target.hasAttribute && target.hasAttribute("data-autosubmit")
         && target.form) {
+      if (inPlace && target.form.hasAttribute("data-collection-form")) {
+        return;
+      }
       target.form.submit();
     }
   }
@@ -49,8 +55,6 @@
   // freshness.js's post-swap announcement. Listened for, never
   // dispatched from here.
   var SWAPPED_EVENT = "skypane-regions-swapped";
-  var emptyEl = document.querySelector("[data-filter-empty]");
-  var clearButtons = document.querySelectorAll("[data-filter-clear]");
   // Optional segmented chips: radios whose value is a row's
   // data-filter-kind ("" is every row). Absent on a plain search bar.
   var chipInputs = document.querySelectorAll("[data-filter-chip]");
@@ -177,6 +181,8 @@
         bar.removeAttribute(ACTIVE_ATTR);
       }
     }
+    // Looked up fresh: an in-place swap of the list renders the card again.
+    var emptyEl = document.querySelector("[data-filter-empty]");
     if (emptyEl) {
       emptyEl.hidden = !((query !== "" || kind !== "") && visibleCount === 0);
     }
@@ -188,7 +194,7 @@
     chipInputs[ci].addEventListener("change", applyFilter);
   }
 
-  // querySelectorAll: the inline clear and the empty state's own Clear
+  // The inline clear and the empty state's own Clear
   // button are both [data-filter-clear]. The inline one clears the
   // search text; the empty state's (also [data-filter-clear-all]) resets
   // the chips to "All" too, since a chip can be what emptied the list.
@@ -197,28 +203,93 @@
       chipInputs[rc].checked = (chipInputs[rc].value === "");
     }
   }
-  for (var bi = 0; bi < clearButtons.length; bi++) {
-    (function (clearBtn) {
-      clearBtn.addEventListener("click", function () {
-        input.value = "";
-        var clearAll = clearBtn.hasAttribute("data-filter-clear-all");
-        if (clearAll) {
-          resetAllChips();
-        }
-        applyFilter();
-        // Keep the keyboard out of the way after the empty state's reset.
-        if (!clearAll) {
-          input.focus();
-        }
-      });
-    })(clearButtons[bi]);
-  }
+  // Heard on the document so a Clear button the list swap renders again works too.
+  document.addEventListener("click", function (event) {
+    var node = event.target;
+    var clearBtn = node && node.closest ? node.closest("[data-filter-clear]") : null;
+    if (!clearBtn) {
+      return;
+    }
+    input.value = "";
+    var clearAll = clearBtn.hasAttribute("data-filter-clear-all");
+    if (clearAll) {
+      resetAllChips();
+    }
+    applyFilter();
+    // Keep the keyboard out of the way after the empty state's reset.
+    if (!clearAll) {
+      input.focus();
+    }
+  });
 
   // Re-apply the filter after the refresh loop has swapped the list in.
   document.addEventListener(SWAPPED_EVENT, applyFilter);
 
   // No DOMContentLoaded wrapper needed: the <script> tag carries defer,
   // so this file only ever runs after parsing.
+})();
+
+/*
+ * What the two server-answered lists below do when a request gets no answer
+ * (no connection): the page is kept, an error toast says the list could not
+ * be updated, and the chips and the sort go back to what the list shows.
+ */
+(function () {
+  "use strict";
+
+  // Must equal companion/ui_base.py's QUICK_TOAST_ATTR and
+  // companion/ui_filter.py's LIST_OFFLINE_TEMPLATE_ATTR.
+  var REGION_ATTR = "data-quick-toast";
+  var OFFLINE_TEMPLATE_ATTR = "data-list-offline-template";
+  // Marks the notice in the region, so only this notice is taken back.
+  var OFFLINE_MARK_ATTR = "data-list-offline";
+
+  function announce() {
+    var region = document.querySelector("[" + REGION_ATTR + "]");
+    var template = document.querySelector("[" + OFFLINE_TEMPLATE_ATTR + "]");
+    if (!region || !template || !template.content) {
+      return;
+    }
+    while (region.firstChild) {
+      region.removeChild(region.firstChild);
+    }
+    region.appendChild(template.content.cloneNode(true));
+    if (region.firstElementChild) {
+      region.firstElementChild.setAttribute(OFFLINE_MARK_ATTR, "");
+    }
+  }
+
+  // An answer arrived again: the notice has nothing left to say.
+  function clear() {
+    var region = document.querySelector("[" + REGION_ATTR + "]");
+    var shownNotice = region && region.querySelector("[" + OFFLINE_MARK_ATTR + "]");
+    if (shownNotice) {
+      region.removeChild(shownNotice);
+    }
+  }
+
+  // The radios of `form` are checked again as the address `shown` names
+  // them (`defaults` gives the value of a name the address leaves out). The
+  // typed text stays: it is what the visitor will send again.
+  function restore(form, shown, defaults) {
+    var query = new URLSearchParams(shown.split("?")[1] || "");
+    var fields = form.elements;
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (field.type === "radio" && field.name) {
+        var wanted = query.has(field.name) ? query.get(field.name) : (defaults[field.name] || "");
+        field.checked = field.value === wanted;
+      }
+    }
+    var menus = form.querySelectorAll("details[open]");
+    for (var m = 0; m < menus.length; m++) {
+      menus[m].removeAttribute("open");
+    }
+  }
+
+  window.skypaneListOffline = {
+    REASON: {}, announce: announce, clear: clear, restore: restore
+  };
 })();
 
 /*
@@ -244,9 +315,13 @@
   var CARD_ANCHOR = "flights-new-card";
   var TABLE_ANCHOR = "flights-new";
   var input = form.querySelector("[data-flights-search]");
+  var OFFLINE = window.skypaneListOffline.REASON;
   var latest = 0;
   var timer = null;
   var busy = false;
+  var byKeyboard = false;
+  document.addEventListener("keydown", function () { byKeyboard = true; });
+  document.addEventListener("pointerdown", function () { byKeyboard = false; });
 
   function encode(value) {
     return encodeURIComponent(value);
@@ -275,8 +350,17 @@
     return action + (parts.length ? "?" + parts.join("&") : "");
   }
 
-  function fetchView(url) {
-    return fetch(url, { credentials: "same-origin" }).then(function (response) {
+  // The server answers `?part=` with the list alone: PART_LIST is every
+  // element a filter replaces, PART_NEW the flights of the last Load more
+  // step. Must equal PART_PARAM, PART_LIST and PART_NEW in
+  // companion/pages/history_page.py. The address shown never carries it.
+  var PART_PARAM = "part";
+  var PART_LIST = "list";
+  var PART_NEW = "new";
+
+  function fetchView(url, part) {
+    var asked = url + (url.indexOf("?") === -1 ? "?" : "&") + PART_PARAM + "=" + part;
+    return fetch(asked, { credentials: "same-origin" }).then(function (response) {
       if (response.redirected && window.skypaneSession
           && /\/login$/.test(new URL(response.url).pathname)) {
         window.skypaneSession.expire();
@@ -285,6 +369,9 @@
         throw new Error("flights");
       }
       return response.text();
+    }, function () {
+      // The request got no answer at all: there is no connection.
+      throw OFFLINE;
     }).then(function (text) {
       var doc = new DOMParser().parseFromString(text, "text/html");
       if (!doc.querySelector(VIEW)) {
@@ -294,10 +381,17 @@
     });
   }
 
-  // A failed or redirected request (an expired session) falls back to the
-  // plain navigation the same address would have done.
-  function giveUp(url) {
+  // A refused or redirected request (an expired session) falls back to the
+  // plain navigation the same address would have done. Without a connection
+  // that navigation would replace the list with the browser's error page:
+  // the page stays, says so, and its controls show what the list holds.
+  function giveUp(url, reason) {
     if (window.skypaneSession && window.skypaneSession.ending()) {
+      return;
+    }
+    if (reason === OFFLINE) {
+      window.skypaneListOffline.announce();
+      window.skypaneListOffline.restore(form, shown, { sort: DEFAULT_SORT });
       return;
     }
     window.location.assign(url);
@@ -320,6 +414,10 @@
     var fresh = doc.querySelectorAll(VIEW);
     var active = document.activeElement;
     var key = active && active.getAttribute ? active.getAttribute("data-flights-key") : null;
+    // An arrow key through the open sort menu keeps the menu open on the
+    // choice it just made; a pointer choice closes it as before.
+    var walking = byKeyboard && active && active.matches && active.matches('input[name="sort"]') ?
+      active.value : null;
     var parent = live[0].parentNode;
     var added = [];
     var motion = window.SkyPaneMotion;
@@ -345,7 +443,12 @@
         }
       }
     }
-    if (key) {
+    var chosen = walking === null ? null :
+      document.querySelector('.collection-sort input[name="sort"][value="' + walking + '"]');
+    if (chosen) {
+      chosen.closest("details").open = true;
+      chosen.focus();
+    } else if (key) {
       var again = document.querySelector('[data-flights-key="' + key + '"]');
       if (again) {
         again.focus();
@@ -376,8 +479,9 @@
   // `commit` is a search the visitor settled (Enter, a chip, the sort, Clear):
   // a changed address gets a history entry of its own so Back returns to the
   // state before it, and Enter on text already typed live settles the entry
-  // typing wrote. Live typing rewrites the current entry, or starts a new one
-  // right after a settled search.
+  // typing wrote. Live typing rewrites the entry it started, and starts a new
+  // one right after a settled search or on the entry the page opened on, so
+  // Back from a first search shows the list as it was.
   function record(url, commit) {
     if (commit === true) {
       if (url !== shown) {
@@ -387,7 +491,7 @@
       }
       entryState = "committed";
     } else {
-      if (entryState === "committed") {
+      if (entryState === "committed" || (entryState === "base" && url !== shown)) {
         history.pushState(null, "", url);
       } else {
         history.replaceState(null, "", url);
@@ -397,19 +501,35 @@
     shown = url;
   }
 
+  // The lists say they are being updated for as long as a request is out
+  // (the answer replaces them, and with them the mark).
+  function markBusy(on) {
+    var lists = document.querySelectorAll(".history-cards, .data-table-wrap");
+    for (var i = 0; i < lists.length; i++) {
+      if (on) {
+        lists[i].setAttribute("aria-busy", "true");
+      } else {
+        lists[i].removeAttribute("aria-busy");
+      }
+    }
+  }
+
   function refresh(commit) {
     window.clearTimeout(timer);
     var url = currentUrl();
     var mine = ++latest;
-    fetchView(url).then(function (doc) {
+    markBusy(true);
+    fetchView(url, PART_LIST).then(function (doc) {
       if (mine !== latest) {
         return;
       }
+      window.skypaneListOffline.clear();
       swapView(doc);
       record(url, commit);
-    }, function () {
+    }, function (reason) {
       if (mine === latest) {
-        giveUp(url);
+        markBusy(false);
+        giveUp(url, reason);
       }
     });
   }
@@ -471,8 +591,11 @@
         var section = document.importNode(groups[g], true);
         liveCards.appendChild(section);
         settle(section);
-        enterAppended(section, 0);
+        // The day's block never moves as one: only its first rows enter.
         added = section.querySelectorAll("[" + ID_ATTR + "]");
+        for (var n = 0; n < added.length; n++) {
+          enterAppended(added[n], n);
+        }
       }
       first = first || added[0];
     }
@@ -558,10 +681,11 @@
     var url = href.split("#")[0];
     busy = true;
     link.setAttribute("aria-busy", "true");
-    fetchView(url).then(function (doc) {
+    fetchView(url, PART_NEW).then(function (doc) {
       var live = document;
       var fetched = doc;
       var hadFocus = live.querySelector("[data-history-more]").contains(document.activeElement);
+      window.skypaneListOffline.clear();
       clearAnchors(live);
       var card = appendCards(live, fetched);
       var row = appendRows(live, fetched);
@@ -575,9 +699,10 @@
       history.replaceState(null, "", url);
       shown = url;
       busy = false;
-    }, function () {
+    }, function (reason) {
       busy = false;
-      giveUp(href);
+      link.removeAttribute("aria-busy");
+      giveUp(href, reason);
     });
   }
 
@@ -636,6 +761,218 @@
       loadMore(link);
     } else {
       clearSearch(link);
+    }
+  });
+})();
+
+/*
+ * The Airlines collection's show chips and sort menu. The server answers the
+ * form (the list is built from the whole history); this block only fetches that
+ * answer and puts the list in the place of the live one, so the page is not
+ * reloaded, its opening is not played again and the scroll position stays.
+ * Without it the controls submit the form as a plain GET.
+ */
+(function () {
+  "use strict";
+
+  var form = document.querySelector("[data-collection-form]");
+  if (!form || !window.fetch || !window.DOMParser || !history.replaceState) {
+    return;
+  }
+
+  var VIEW = ".collection-grid, .collection-sheet, [data-filter-empty], [data-collection-empty]";
+  var DEFAULTS = { show: "all", sort: "most" };
+  var SORT_NAME = "sort";
+  var OFFLINE = window.skypaneListOffline.REASON;
+  var latest = 0;
+  var shown = window.location.pathname + window.location.search;
+  var byKeyboard = false;
+  document.addEventListener("keydown", function () { byKeyboard = true; });
+  document.addEventListener("pointerdown", function () { byKeyboard = false; });
+
+  function currentUrl() {
+    var parts = [];
+    var fields = form.elements;
+    for (var i = 0; i < fields.length; i++) {
+      var field = fields[i];
+      if (!field.name || field.type === "submit" || field.type === "button"
+          || (field.type === "radio" && !field.checked)) {
+        continue;
+      }
+      var value = field.name === "q" ? field.value.replace(/^\s+|\s+$/g, "") : field.value;
+      if (value === "" || DEFAULTS[field.name] === value) {
+        continue;
+      }
+      parts.push(encodeURIComponent(field.name) + "=" + encodeURIComponent(value));
+    }
+    var action = form.getAttribute("action");
+    return action + (parts.length ? "?" + parts.join("&") : "");
+  }
+
+  function fetchView(url) {
+    return fetch(url, { credentials: "same-origin" }).then(function (response) {
+      if (response.redirected && window.skypaneSession
+          && /\/login$/.test(new URL(response.url).pathname)) {
+        window.skypaneSession.expire();
+      }
+      if (!response.ok || response.redirected) {
+        throw new Error("collection");
+      }
+      return response.text();
+    }, function () {
+      throw OFFLINE;
+    }).then(function (text) {
+      var doc = new DOMParser().parseFromString(text, "text/html");
+      if (!doc.querySelector("[data-collection-form]")) {
+        throw new Error("collection");
+      }
+      return doc;
+    });
+  }
+
+  // The menu button names the current order; the fetched page has the new name.
+  function syncSortName(doc) {
+    var live = form.querySelector(".collection-sort__toggle");
+    var fresh = doc.querySelector(".collection-sort__toggle");
+    if (live && fresh) {
+      live.setAttribute("aria-label", fresh.getAttribute("aria-label"));
+      live.setAttribute("title", fresh.getAttribute("title"));
+    }
+    var menu = form.querySelector(".collection-sort");
+    if (menu) {
+      menu.removeAttribute("open");
+    }
+  }
+
+  // The entrance the stylesheet gives the list on a page's first arrival is
+  // finished at once: a tab change is not a new page.
+  function settle(node) {
+    if (!node.getAnimations) {
+      return;
+    }
+    var running = node.getAnimations({ subtree: true });
+    for (var i = 0; i < running.length; i++) {
+      running[i].finish();
+    }
+  }
+
+  function swapView(doc) {
+    var live = document.querySelectorAll(VIEW);
+    var fresh = doc.querySelectorAll(VIEW);
+    var parent = live[0].parentNode;
+    var added = [];
+    var i;
+    for (i = 0; i < fresh.length; i++) {
+      var node = document.importNode(fresh[i], true);
+      parent.insertBefore(node, live[0]);
+      added.push(node);
+    }
+    for (i = 0; i < live.length; i++) {
+      parent.removeChild(live[i]);
+    }
+    for (i = 0; i < added.length; i++) {
+      settle(added[i]);
+    }
+    syncSortName(doc);
+    document.dispatchEvent(new CustomEvent("skypane-regions-swapped"));
+  }
+
+  function refresh() {
+    var url = currentUrl();
+    var mine = ++latest;
+    fetchView(url).then(function (doc) {
+      if (mine !== latest) {
+        return;
+      }
+      window.skypaneListOffline.clear();
+      swapView(doc);
+      history.pushState(null, "", url);
+      shown = url;
+    }, function (reason) {
+      if (mine !== latest || (window.skypaneSession && window.skypaneSession.ending())) {
+        return;
+      }
+      if (reason === OFFLINE) {
+        window.skypaneListOffline.announce();
+        window.skypaneListOffline.restore(form, shown, DEFAULTS);
+        return;
+      }
+      window.location.assign(url);
+    });
+  }
+
+  // Each card carries its place in every order (one number per sort value,
+  // in the menu's order): the sort moves the cards the page already holds.
+  // Must equal RANK_ATTR in companion/pages/airline_collection_page.py.
+  var RANK_ATTR = "data-sort-rank";
+
+  function rankOf(item, column) {
+    var places = (item.getAttribute(RANK_ATTR) || "").split(" ");
+    return column < places.length && places[column] !== "" ? Number(places[column]) : NaN;
+  }
+
+  // Puts the cards in the order of `radio`'s value without a request. False
+  // when the page cannot (no grid, or a card without its places): the server
+  // is asked instead.
+  function sortInPlace(radio) {
+    var grid = document.querySelector(".collection-grid");
+    var radios = form.querySelectorAll('input[type="radio"][name="' + radio.name + '"]');
+    var column = Array.prototype.indexOf.call(radios, radio);
+    if (!grid || column < 0) {
+      return false;
+    }
+    var items = Array.prototype.slice.call(grid.children);
+    for (var i = 0; i < items.length; i++) {
+      if (isNaN(rankOf(items[i], column))) {
+        return false;
+      }
+    }
+    items.sort(function (a, b) { return rankOf(a, column) - rankOf(b, column); });
+    for (var k = 0; k < items.length; k++) {
+      grid.appendChild(items[k]);
+    }
+    nameSort(radio);
+    var url = currentUrl();
+    history.pushState(null, "", url);
+    shown = url;
+    return true;
+  }
+
+  // The menu button names the order chosen: "<menu label>: <option>".
+  function nameSort(radio) {
+    var menu = form.querySelector(".collection-sort");
+    var toggle = form.querySelector(".collection-sort__toggle");
+    var panel = form.querySelector(".collection-sort__panel");
+    var option = radio.parentNode.querySelector(".collection-sort__row > span");
+    if (toggle && panel && option) {
+      var name = panel.getAttribute("aria-label") + ": " + option.textContent;
+      toggle.setAttribute("aria-label", name);
+      toggle.setAttribute("title", name);
+    }
+    if (menu && !byKeyboard) {
+      menu.removeAttribute("open");
+    }
+  }
+
+  document.addEventListener("change", function (event) {
+    var target = event.target;
+    if (target && target.form === form && target.hasAttribute("data-autosubmit")) {
+      if (target.name === SORT_NAME && sortInPlace(target)) {
+        latest++;
+        return;
+      }
+      refresh();
+    }
+  });
+
+  form.addEventListener("submit", function (event) {
+    event.preventDefault();
+    refresh();
+  });
+
+  window.addEventListener("popstate", function () {
+    if (window.location.pathname + window.location.search !== shown) {
+      window.location.reload();
     }
   });
 })();

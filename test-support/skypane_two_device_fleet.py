@@ -93,8 +93,15 @@ def _simulated_device(
         state_dir=directory, fill=fill, hardware_type=hardware_type)
 
 
-def seed_two_device_fleet(state_dir: str, with_landscape: bool = False) -> SimpleNamespace:
-    """Seed the live frame plus two simulated devices; see module docstring."""
+def seed_two_device_fleet(
+    state_dir: str,
+    with_landscape: bool = False,
+    landscape_type: str = hardware.SIM_LANDSCAPE_KEY,
+) -> SimpleNamespace:
+    """Seed the live frame plus two simulated devices; see module docstring.
+
+    `landscape_type` is the hardware type of the optional third device.
+    """
     seeded = live_state.seed_live_like_state(state_dir)
     fleet_migrate.migrate(state_dir, OWNER_EMAIL, dry_run=False)
     conn = fleet_db.connect(state_dir)
@@ -116,7 +123,7 @@ def seed_two_device_fleet(state_dir: str, with_landscape: bool = False) -> Simpl
             landscape = None
             if with_landscape:
                 landscape = _simulated_device(
-                    state_dir, conn, owner_id, 3, hardware.SIM_LANDSCAPE_KEY,
+                    state_dir, conn, owner_id, 3, landscape_type,
                     FILL_LANDSCAPE)
     finally:
         conn.close()

@@ -17,6 +17,8 @@ import companion.frame_status as frame_status
 import companion.i18n as i18n
 import companion.prefs as prefs
 import companion.page_styles as page_styles
+import companion.ui_save_bar as ui_save_bar
+import companion.ui_segmented as ui_segmented
 import companion.ui_splash as ui_splash
 from companion.ui_base import (
     AIRLINE_EDITOR_ROUTE,
@@ -114,11 +116,11 @@ LOGIN_SHELL_TEMPLATE = (
     "{favicon_link}\n"
     "</head>\n"
     "<body>\n"
-    '<div class="login-shell">\n'
+    '<main class="login-shell">\n'
     '<div class="login-card">\n'
     "{body}\n"
     "</div>\n"
-    "</div>\n"
+    "</main>\n"
     "</body>\n"
     "</html>\n"
 )
@@ -293,6 +295,10 @@ def _session_expired_toast_html():
     return toast_html(title, detail, tone=TOAST_TONE_ERROR, role="")
 
 
+# Marks the end of the page content: the first frame is held until it is parsed.
+PAGE_END_ID = "page-end"
+PAGE_END_HTML = '<span id="%s" hidden></span>' % PAGE_END_ID
+
 # The authenticated document's own named template. Invariants preserved
 # from the pre-template version: the tab bar ({tab_bar}) sits outside
 # .dashboard-shell, before it in source order so the render-blocking
@@ -323,7 +329,7 @@ PAGE_SHELL_TEMPLATE = (
     "<title>{title} - {site_title}</title>\n"
     '<link rel="stylesheet" href="/static/style.css">\n'
     "{extra_styles}"
-    "{tab_bar_expect}"
+    "{tab_bar_expect}{page_expect}{strip_expect}"
     '<script src="{splash_boot_src}" data-splash-src="{splash_src}"></script>\n'
     "{favicon_link}\n"
     "</head>\n"
@@ -343,7 +349,7 @@ PAGE_SHELL_TEMPLATE = (
     "{frame_menu}"
     "</header>\n"
     '<main class="page-content dashboard-main" id="{main_id}" tabindex="-1" data-page-open>\n'
-    "{frame_notice}{flash}\n{banner}\n{body}\n"
+    "{frame_notice}{flash}\n{banner}\n{body}\n{page_end}"
     "</main>\n"
     "</div>\n"
     '<div class="toast-region toast-region--live" {quick_toast_attr} role="alert"></div>\n'
@@ -399,14 +405,15 @@ def _switcher_status_row(device, now):
     empty), so one frame shows one status word everywhere."""
     # Imported on use: console_pairing loads the Console view modules.
     import datetime
-    from companion import battery, console_pairing
+    from companion import battery, console_pairing, page_context
     from server import state_store
     millivolts = state_store.load_battery_state(device.state_dir)
     state, screen_off, critical = console_pairing.frame_signals(
         device, datetime.datetime.fromtimestamp(
             now, datetime.timezone.utc).isoformat(timespec="seconds"))
     percent = 0 if critical else (
-        None if millivolts is None else battery.battery_percent(millivolts))
+        None if millivolts is None else battery.percent(
+            millivolts, page_context.device_curve(device)))
     status = device_scope.device_status(device, now)
     return SimpleNamespace(
         kind=frame_status.KIND_LIVE,
@@ -484,10 +491,16 @@ def _device_scoped_title(title, active):
     return "%s - %s" % (title, device_display_name(current))
 
 
+def _expect_link(marker_id, wanted):
+    """The head link that holds the first frame until the element `marker_id` is parsed; ""
+    when `wanted` is false."""
+    return '<link rel="expect" href="#%s" blocking="render">\n' % marker_id if wanted else ""
+
+
 def page_shell(
         title, active, body, ui_theme="auto", flash=None, banner=None,
         health_alert=None, lang=None, device_config=None, scripts=(),
-        refresh_token=None, console_page=False, styles=()):
+        refresh_token=None, console_page=False, styles=(), no_tab=False):
     """Return a complete HTML5 document wrapping `body` in the shared shell.
 
     `title` and nav labels are escaped here. `body`, `flash` and `banner` are
@@ -519,6 +532,9 @@ def page_shell(
 
     `console_page` (default `False`) marks a Console page of a frame (Health,
     Device, the Airline editor), which never carries the foreign-frame strip.
+
+    `no_tab` (default `False`) is set by the error pages: they are in no tab, so
+    the bottom bar selects no cell, not even More.
     """
     script_tags_html = _script_tags_html(scripts)
     resolved_theme = ui_theme if ui_theme in UI_THEME_CHOICES else "auto"
@@ -527,11 +543,16 @@ def page_shell(
         active, health_alert=health_alert, device_config=device_config)
     tab_bar_html = _tab_bar_html(
         active, health_alert=health_alert, device_config=device_config,
-        ui_theme=resolved_theme)
+        ui_theme=resolved_theme, no_tab=no_tab)
     body_attrs = _body_attrs_html(active, tab_bar_html, refresh_token)
     flash_html = flash or ""
     banner_html = banner or ""
     body, flash_html = _splice_flash(body, flash_html)
+    # One unsaved-changes dialog per page that has a save bar, so no page can
+    # forget it and no page carries two (the Components catalogue renders its
+    # own copy as the sample).
+    if "dirty-bar" in body and "data-leave-dialog" not in body:
+        body += ui_save_bar.leave_dialog_html()
     # The sidebar's footer holds only Sign out; language and theme are set on
     # the Account page.
     sidebar_footer_html = (
@@ -585,9 +606,15 @@ def page_shell(
         "banner": banner_html,
         "body": body,
         "tab_bar": tab_bar_html + TAB_BAR_END_HTML if tab_bar_html else "",
-        "tab_bar_expect": (
-            '<link rel="expect" href="#%s" blocking="render">\n' % TAB_BAR_END_ID
-            if tab_bar_html else ""),
+        "tab_bar_expect": _expect_link(TAB_BAR_END_ID, tab_bar_html),
+        # A browser may paint a document that is still arriving: the cells of a table, the
+        # frame button and the blocks of a page then move as the rest is parsed. Hold the
+        # first frame until the whole page content is in.
+        "page_expect": _expect_link(PAGE_END_ID, tab_bar_html),
+        "page_end": PAGE_END_HTML,
+        # Hold the first frame until the page's carried strip, if any, is parsed.
+        "strip_expect": _expect_link(
+            ui_segmented.CARRY_END_ID, 'id="%s"' % ui_segmented.CARRY_END_ID in body),
         "quick_toast_attr": QUICK_TOAST_ATTR,
         "quick_toast_template_attr": QUICK_TOAST_TEMPLATE_ATTR,
         "quick_toast": _quick_toast_html(),

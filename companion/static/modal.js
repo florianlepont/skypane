@@ -86,14 +86,19 @@
 
   // Where focus goes when a dialog closes: the link that opened it, its
   // row menu's button when the menu has closed, else the page heading
-  // (after a reload there is no opener).
-  function returnFocus() {
+  // (after a reload there is no opener) unless the dialog names a control.
+  function returnFocus(dialog) {
     var target = opener;
     var href = openerHref;
     opener = null;
     openerHref = "";
     if (target && !document.body.contains(target) && href) {
       target = document.querySelector('a[data-modal-open][href="' + href + '"]');
+    }
+    if (!target && dialog) {
+      // A dialog the address opened names the control it came from.
+      var named = dialog.getAttribute("data-modal-return-focus");
+      target = named ? document.getElementById(named) : null;
     }
     if (target && document.body.contains(target)) {
       var menu = closestMenu(target);
@@ -142,7 +147,17 @@
     resetSheet(dialog);
     resetForms(dialog);
     clearHash();
-    returnFocus();
+    forgetQuestion(dialog);
+    returnFocus(dialog);
+  }
+
+  // A dialog the address itself opened (one pending confirmation) names the
+  // address that no longer asks: a reload after closing does not ask again.
+  function forgetQuestion(dialog) {
+    var back = dialog.getAttribute("data-modal-return");
+    if (back && back.charAt(0) === "/" && back.charAt(1) !== "/" && history.replaceState) {
+      history.replaceState(null, "", back);
+    }
   }
 
   function openModal(dialog) {
@@ -157,6 +172,20 @@
     dialog.showModal();
     focusTitleIfAsked(dialog);
   }
+
+  // For a script that opens a dialog itself (no opener link): `returnTo` is
+  // the control that takes the focus back when the dialog closes.
+  window.SkyPaneModal = {
+    open: function (dialog, returnTo) {
+      if (!isModalDialog(dialog)) {
+        return false;
+      }
+      opener = returnTo || null;
+      openerHref = "";
+      openModal(dialog);
+      return true;
+    }
+  };
 
   // A dialog marked data-focus-title opens on its heading, so no field
   // raises the keyboard or a native picker unasked.
@@ -296,13 +325,15 @@
     return stops;
   }
 
-  // Tab and Shift+Tab loop inside the open dialog: they never reach the
-  // page behind it nor the browser's own chrome.
+  // Tab and Shift+Tab loop inside the open dialog (or the open More sheet):
+  // they never reach the page behind it nor the browser's own chrome.
   document.addEventListener("keydown", function (evt) {
     if (evt.key !== "Tab" || evt.altKey || evt.ctrlKey || evt.metaKey) {
       return;
     }
-    var dialog = openModalDialog();
+    // The phone More sheet traps the focus too: its panel and its cell are the
+    // only stops while it is open, so Tab never lands on the dimmed page.
+    var dialog = openModalDialog() || document.querySelector("details.tab-bar__more[open]");
     if (!dialog) {
       return;
     }
@@ -549,6 +580,70 @@
       openModal(targeted);
     }
   }
+
+  // The phone More sheet dims the page with a fixed scrim. The browser's
+  // status-bar tint is sampled from the page's theme-color, not from that
+  // scrim, so while the sheet is open the tint becomes the page ground under
+  // the same dim and is put back when the sheet closes.
+  var tintSaved = null;
+  var SCRIM_SHARE = 0.55;
+
+  function rgbOf(value) {
+    var m = /rgba?\(([^)]+)\)/.exec(value || "");
+    if (!m) {
+      return null;
+    }
+    var parts = m[1].split(/[ ,\/]+/);
+    return [parseFloat(parts[0]), parseFloat(parts[1]), parseFloat(parts[2])];
+  }
+
+  function dimmedGround() {
+    var ground = rgbOf(window.getComputedStyle(document.documentElement).backgroundColor);
+    var ink = rgbOf(window.getComputedStyle(document.body).color);
+    if (!ground || !ink) {
+      return "";
+    }
+    var out = "#";
+    for (var i = 0; i < 3; i += 1) {
+      var channel = Math.round(ground[i] * (1 - SCRIM_SHARE) + ink[i] * SCRIM_SHARE);
+      out += ("0" + Math.max(0, Math.min(255, channel)).toString(16)).slice(-2);
+    }
+    return out;
+  }
+
+  function syncStatusTint(open) {
+    var metas = document.querySelectorAll('meta[name="theme-color"]');
+    if (open && !tintSaved) {
+      var dim = dimmedGround();
+      if (!dim) {
+        return;
+      }
+      tintSaved = [];
+      for (var i = 0; i < metas.length; i += 1) {
+        tintSaved.push([metas[i], metas[i].getAttribute("content")]);
+        metas[i].setAttribute("content", dim);
+      }
+    } else if (!open && tintSaved) {
+      for (var j = 0; j < tintSaved.length; j += 1) {
+        tintSaved[j][0].setAttribute("content", tintSaved[j][1]);
+      }
+      tintSaved = null;
+    }
+  }
+
+  // A toggle event does not bubble, so it is caught on the way down.
+  document.addEventListener("toggle", function (evt) {
+    var el = evt.target;
+    if (el && el.classList && el.classList.contains("tab-bar__more")) {
+      syncStatusTint(el.open);
+      // Closing hides the control that held the focus: it goes back to the
+      // More cell instead of the top of the page.
+      var held = document.activeElement;
+      if (!el.open && (held === document.body || el.contains(held))) {
+        el.querySelector("summary").focus();
+      }
+    }
+  }, true);
 
   upgradeOnLoad();
 })();

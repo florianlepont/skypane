@@ -39,13 +39,18 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 54: Auth0 Sign-In, Local Roles and Default-Deny Access** - Invite-only sign-in with local roles and a proven route and ownership matrix. (closed 2026-10-31 by the owner after production tests; the real per-device rows of the matrix, AUTH-03, are carried to Phase 55)
 - [x] **Phase 55: Frame Pairing, Admin Console and Reduced User View** - Admins pair frames to users and manage the fleet; users see only their own frames with fewer options.
 - [x] **Phase 56: Per-Hardware Rendering, Battery Profiles, Health and Credits** - Rendering and health follow the hardware profile; credits page published. (closed 2026-10-31; 11/11 plans, criteria 1-3 verified, merged in #257. Owner follow-ups, not gaps: send the adsb.fi / adsb.lol contact draft once the fleet exceeds 10 users, non-blocking landscape preview follow-up)
-- [ ] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47 and on the OTA signing bench check passing on a non-live unit.
-- [ ] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit.
+- [x] **Phase 57: Combined Legacy-Frame Firmware Release** - One OTA release gives the live frame the new image reader and 401 recovery. Gated on Phase 47 and on the OTA signing bench check passing on a non-live unit. (code merged in #391, CI green; EE04 bench B1-B9 done 2026-11-14/15 with limits; release `fw-v1.1.0` published and installed on the live frame 2026-11-15, owner reports everything ok; see 57-VERIFICATION.md)
+- [x] **Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)** - A second hardware type chosen after a driver spike and validated on a real unit. (closed 2026-11-15 by the owner with the battery model left provisional: no valid discharge sample; carried to Phase 64 and Phase 65)
 - [ ] **Phase 59: Comment-History Debt** - The comment-history guard debt is cleared or only shrinks.
 - [x] **Phase 60: Device Co-Management** - A frame keeps one primary owner and gains co-managers whom the owner or an admin can add. (9 plans, merged (#276, #277, #279, #282) and deployed by CI 2026-11-02; production checks reported done by the owner, see 60-HANDOFF.md)
-- [ ] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
+- [x] **Phase 61: Companion UX and UI Overhaul (Admin and Users)** - Navigation, page structure, the admin console, the user view and the sign-in and invitation flows are reworked from observed friction and validated by the owner on a phone and a desktop, in English and French. (added 2026-11-02 at the owner's request; Phase 59 stays last)
 - [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 13 of 13 plans done; the owner confirmed the real-panel check and kept layout B as the default, 2026-11-10)
 - [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
+- [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
+- [ ] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; Phase 59 stays last)
+- [ ] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.3 SEED-020; runs before Phase 66)
+- [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
+- [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
 
 ## Phase Details
 
@@ -389,7 +394,7 @@ Plans:
   2. After the OTA, the live frame still wakes on its cadence and displays a correct image, and it is served the new container only after announcing support.
   3. A frame that fails the update stays on the previous working firmware.
 
-**Plans**: TBD
+**Plans**: 6 plans (57-01 to 57-06), all complete; see `phases/57-combined-legacy-frame-firmware-release/57-VERIFICATION.md`
 
 ### Phase 58: Second Hardware (Shortlist, Spike, Purchase, Validate)
 
@@ -402,7 +407,7 @@ Plans:
   2. The evaluation unit is cable-flashed, receives a real OTA, and shows a native layout. Before it takes any role in the fleet, the `firmware/SIGNING.md` bench procedure is run on it (carried from Phase 49): a correctly signed image is accepted, a wrongly signed image is refused with the unit keeping its firmware and the next poll reporting `fail-image`, and the `fail-image` / `fail-floor` tokens and a wrong-hardware rollback are seen to round-trip into the right type's registry.
   3. A measured battery sample is recorded and the battery model for the new type is rebuilt from it.
 
-**Plans**: 4 plans (58-01 and 58-02 executable now; 58-03 and 58-04 blocked on the owner's written purchase agreement)
+**Plans**: 5 plans (58-01, 58-02 and 58-05 done, 58-05 code only on 2026-11-14: gated 800x480 profile, image size from the panel Kconfig value, 800x480 screens, ee02 section-level identical; the evaluation unit was ordered on 2026-11-07; 58-03 and 58-04 wait for the unit on the bench, 58-03 Task 1 is code only and done 2026-11-14: driver promoted behind a Kconfig choice, second board profile, flash-second.sh, ee02 image proven unchanged)
 Plans:
 **Wave 1**
 
@@ -410,15 +415,16 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 58-02-PLAN.md — 1-day driver spike, trial driver in the IDF container, owner purchase decision checkpoint (HW2-01)
+- [x] 58-02-PLAN.md — 1-day driver spike, trial driver in the IDF container, owner purchase decision checkpoint (HW2-01)
 
 **Wave 3** *(BLOCKED: owner purchase agreement)*
 
-- [ ] 58-03-PLAN.md — Cable flash of the evaluation unit, real OTA, full SIGNING.md bench before any fleet role (HW2-02)
+- [x] 58-03-PLAN.md — Cable flash of the evaluation unit, real OTA, full SIGNING.md bench before any fleet role (HW2-02)
+- [x] 58-05-PLAN.md — 800x480 data path (code only, no hardware): the unit's gated hardware profile, device image size from the panel Kconfig value, 800x480 fault and updating screens, EE02 unchanged proof; run BEFORE 58-03 Task 2/3 and 58-04 (HW2-02)
 
 **Wave 4** *(BLOCKED)*
 
-- [ ] 58-04-PLAN.md — Native landscape layout, Phase 55 real-panel pairing test, battery sample and rebuilt model (HW2-02)
+- [x] 58-04-PLAN.md — Native landscape layout, Phase 55 real-panel pairing test, battery sample and rebuilt model (HW2-02)
 
 ### Phase 59: Comment-History Debt
 
@@ -587,7 +593,7 @@ Plans:
 
 **Revision 2, wave 18**
 
-- [ ] 61-13-PLAN.md — Owner validation on the deployed companion, both rounds (checkpoint, no deploy step) (UX-01..UX-04)
+- [x] 61-13-PLAN.md — Owner validation on the deployed companion, both rounds (checkpoint, no deploy step) (UX-01..UX-04)
 
 **Notes**: The extent of the structural change (how far navigation and pages may move, and whether the existing companion architecture stays as is) is settled in discuss-phase; no new runtime dependency is assumed. SEED-011 (distinct message for an unverified email) is absorbed by UX-04. SEED-012 (the admin invite creating the Auth0 account) stays an owner decision and is not part of this phase unless the owner brings it in. Phase 44 of v1.1 is the model for the walkthrough method.
 **UI hint**: yes
@@ -647,6 +653,143 @@ Plans: 6 plans in 5 waves
 - [x] 63-05-PLAN.md - owner decision on the two large browser files Phase 61 also touches: left unchanged (wave 4, checkpoint)
 - [x] 63-06-PLAN.md - five green runs, before and after record, documentation (wave 5)
 
+### Phase 64: Second Hardware in Production
+
+**Goal**: The second hardware type (the Seeed EE04 with the 7.3 inch panel) is built, released, deployed, updated over the air and managed in production the way the live frame's type is, so the owner can run both kinds of frame side by side.
+**Depends on**: Phase 58 (the unit validated and the mounting decided), Phase 62 (landscape status screens). It extends the release channel that Phase 57 uses for the live frame and both change `.github/workflows/firmware-release.yml`, so they are sequenced, not run at once. Runs before Phase 59, which stays last.
+**Requirements**: HW2-03, HW2-04, HW2-05
+**Why this phase exists**: Phase 58 proves the board on a bench with throwaway-key images. The audit of 2026-11-14 (`64-AUDIT.md`, claims re-checked against `main`) found that the live frame has a CI build, a signed release, a deploy import, a production gate and an update page, and that for the second type the release workflow, the deploy download and the CI build are written for the live frame only, and the type is invisible in production behind the simulation switch.
+**Success Criteria** (what must be TRUE):
+
+  1. CI builds the second board in the production profile and runs the production-configuration check in built mode and a size gate on that image, so a break in its defaults, its driver or its hardware key fails CI.
+  2. One release tag builds, signs, verifies and publishes an image and a manifest for each board, with the typed asset names the server already reads; the live frame's assets and release path stay unchanged, and a release that carries only the live frame's assets still imports.
+  3. The production deploy fetches and imports the typed assets of a release, and an unknown or not-yet-available type no longer fails the whole activation.
+  4. The second type is available in production through a switch of its own that does not expose the simulated types, lifted only on the owner's written confirmation; the tests that pin the gate off are changed on purpose and say why.
+  5. A second-type frame enrolled in production receives a real signed update over https from the production channel and reports it; its result is recorded in its own type's registry by the production poll, not only by the live frame's cycle; a frame that fails the update stays on its previous firmware.
+  6. The companion follows the frame's hardware profile wherever it shows a picture or a battery number: theme and frame previews have the frame's shape and crop, the landscape hold screens of the classic layout carry the battery-low and source-fault marks, and battery percentages use the frame's own curve.
+  7. The 7.3 inch panel's firmware assumptions are settled with measured values where a measurement exists: the full refresh time (measured on the unit, #420), the wake-stage blit budget against the driver's busy waits, the minimum refresh spacing and its explanation, and the battery sense, LED and button pins checked on the unit. The battery profile stays provisional: Phase 58 closed without a valid discharge sample, so no battery value was measured. Battery values come from the frame's use in production (the wake history in `device_health`); this phase records them when they exist (capture method in `hardware/SECOND-HARDWARE-BATTERY.md`) and Phase 65 validates the curves. Nothing is estimated or copied from the live frame in the meantime.
+  8. The documents describe both boards: the release and signing process per type, the deploy README, the vendoring notes and provisioning, with `firmware/provision.sh` refusing the live frame as `flash-second.sh` does. No file of Phase 47 or 47.1 is touched.
+  9. The owner can pair, administer and manage a second-type frame in the companion as they manage the live frame: on a real second-type frame in production, as an administrator and as an invited user, they pair it, assign it, change its layout, display on or off, quiet hours and detection, read its health and battery, schedule an update, retire it and re-activate it, and each of these works. The owner validates this walk-through on the deployed companion, in English and French, as Phase 61 was validated. This is where the pages the audit did not walk through are checked.
+**Not in this phase**: a 180 degree or 90 degree turn of the frame and the photo mode (seed for v1.3), and battery numbers: they stay provisional until measured from production use, and Phase 65 validates the battery curves.
+**Open decisions** (for discuss-phase): how the gate is lifted (a dedicated switch, or flipping the profile's `gated` flag), whether the first signed image of the second type is published before or after the Phase 57 release, and whether the live-frame guard of `provision.sh` is typed or by port.
+**Must not break**: the live frame's release path and its signed image, every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, and the legacy production image, which must stay identical at section level (the identity proof used in Phase 58).
+
+**Plans:** 15 plans in 6 waves
+
+Plans:
+- [ ] 64-01-PLAN.md - dedicated production switch (closed by default) and its pin tests
+- [ ] 64-02-PLAN.md - CI build of the second board, board-aware built check, size gate
+- [ ] 64-03-PLAN.md - typed live-frame guard in provision.sh
+- [ ] 64-04-PLAN.md - profile-aware theme and frame previews
+- [ ] 64-05-PLAN.md - battery curve per frame at three companion call sites
+- [ ] 64-06-PLAN.md - warning marks on landscape hold screens
+- [ ] 64-07-PLAN.md - second-profile wake budget, texts and host tests
+- [ ] 64-08-PLAN.md - import-dir skip semantics, switch-independent manifest tool
+- [ ] 64-09-PLAN.md - typed asset download in ci.yml, switch forwarding in activate.sh
+- [ ] 64-10-PLAN.md - type-level reconcile in the fleet run
+- [ ] 64-11-PLAN.md - documents for both boards
+- [ ] 64-12-PLAN.md - owner-measured firmware values (checkpoint)
+- [ ] 64-13-PLAN.md - firmware-release.yml typed second board (blocked on the live-frame release)
+- [ ] 64-14-PLAN.md - owner lift, first typed release, real OTA (checkpoints)
+- [ ] 64-15-PLAN.md - owner EN/FR walk-through (checkpoints)
+
+### Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)
+
+**Goal**: The owner can trust that the detection algorithm follows the right aircraft, on Paris-Orly runway 3 first and then on the other Orly runways and on other French airports.
+**Depends on**: Phase 53 (detection modes). Runs before Phase 59, which stays last.
+**Requirements**: TRK-01, TRK-02
+**Why this phase exists**: the owner's request of 2026-11-15. Two wrong displays seen on 2026-11-11 (a held arrival or departure state carried from one aircraft to the next, and a stale route) show that the runway logic needs a check against real traffic, not only against the unit tests. A live session on 2026-11-15 (arrivals on runway 3, compared with Flightradar24) found further issues (`65-TRACKING-FINDINGS.md`). The owner then widened the goal: the algorithm must work on several airports, not only on runway 3.
+**Success Criteria** (what must be TRUE):
+
+  1. Runway 3 (TRK-01): over the recorded period (2026-11-01 to 2026-11-15) and live sessions compared with an independent source, every mismatch is explained, fixed or written down with its cause. The comparison covers the runway box, the vertical-rate hold state, arrival versus departure direction, the display queue (aircraft detected but not drawn), and callsign and route enrichment (stale and rotating callsigns).
+  2. Other runways and airports (TRK-02): the other Orly runways (06/24 and 02/20) and at least two other French airports (one with parallel runways, one with a single runway, chosen by the owner) are observed live on simulated fleet devices, with departures and arrivals, and compared with an independent source; every mismatch is explained, fixed or written down with its cause.
+  3. Any fix to the detection is made only with the owner's agreement, keeps the existing golden hashes and the freeze test, and comes with a test built from the recorded case that failed.
+  4. The live frame's configuration is not changed during any session.
+
+**Not in this phase**: everything about the battery (moved on 2026-11-15 to SEED-019, v1.4, requirement BAT-01), changing the wake interval (Phase 47.2 and the v1.3 power-saving mode), a new detection mode, and any enclosure or hardware change.
+**Must not break**: every golden hash of the legacy render and `stub-server/test_phase47_freeze.py`.
+**Decisions from discuss-phase (2026-11-15)**: Orly's three runways plus two other airports; simulated fleet devices, not the live frame or the second frame; findings F-01 to F-06 kept, with TRK-02 added.
+
+**Plans:** 14 plans in 8 waves (65-01 to 65-06 for TRK-01, 3 done; 65-07 to 65-14 for TRK-02)
+
+Plans:
+- [x] 65-01 to 65-03: snapshot, internal comparison, external comparison tool (TRK-01)
+- [ ] 65-04-PLAN.md - TRK-01 finding register and owner decisions
+- [ ] 65-05-PLAN.md - TRK-01 agreed fixes, test-first
+- [ ] 65-07-PLAN.md - TRK-02 read-only feasibility of simulated devices, owner decision on where they run
+- [ ] 65-08-PLAN.md - scratch fleet setup, recording runner and per-device export (scripts only)
+- [ ] 65-09-PLAN.md - owner picks the two airports, scratch fleet created
+- [ ] 65-10-PLAN.md - live sessions on Orly 06/24 and 02/20 against Flightradar24 (checkpoint)
+- [ ] 65-11-PLAN.md - live sessions on the parallel-runway and single-runway airports (checkpoint)
+- [ ] 65-12-PLAN.md - inventory of recorded traffic and offline replay of every mismatch
+- [ ] 65-13-PLAN.md - TRK-02 finding register and owner decisions
+- [ ] 65-14-PLAN.md - TRK-02 agreed fixes, test-first, Orly runway 3 pinned
+- [ ] 65-06-PLAN.md - evidence table for the four success criteria, gates, draft pull request
+
+### Phase 68: Console and Companion Visual Improvements
+
+**Goal**: The visual improvements the owner has identified for the administrator console and the companion are made, in the existing design system, so that the security audit (Phase 66) and the code cleanup (Phase 67) work on the code as it will stay.
+**Depends on**: Phase 61 (the companion overhaul and its validation ledger), Phase 62, Phase 64 (its walk-through record holds the display remarks already collected). Runs after Phase 65, before Phase 66, Phase 67 and Phase 59.
+**Requirements**: CON-01
+**Why this phase exists**: the owner's request of 2026-11-16. Visual work touches many companion files; cleaning or auditing them first would be wasted. This takes the visual part of SEED-020 out of v1.3.
+**Source of the list** (to be confirmed at discuss-phase): the owner's walk-through of the deployed console, with screenshots; the display remarks and gaps recorded in `64-WALKTHROUGH.md` that are not yet fixed; the follow-up plans of Phase 61 not done (validation ledger, plans 61-100 to 61-129).
+**Success Criteria** (what must be TRUE):
+
+  1. The owner's list of visual changes is written down with screenshots and sorted by value, and the phase takes the items the owner selects; nothing outside the list is added.
+  2. Mockups are approved by the owner before the code, as for the active-mode card.
+  3. Every change follows the design system (tokens, contrast, spacing, density), and any new pattern is added to it (`sketch-findings-skypane`).
+  4. English and French both work, and so does phone width; browser tests cover what changes visually, in line with the behaviour-over-source rule, and the accessibility checks still pass.
+  5. No behaviour change beyond what the list asks: the full test suite and the golden hashes pass, and the route x role x owner matrix is unchanged.
+  6. The owner validates the result on the deployed companion, in English and French.
+
+**Not in this phase**: the screens of photo mode, the getting-started wizard and the Wi-Fi setup (they are built later, in v1.3 and v1.4, to the same design system); new features; the security audit and the code cleanup, which follow.
+**Open decisions** (for discuss-phase): how large the list is allowed to grow before v1.2 closes, and whether the administrator console and the companion pages for users are both in scope.
+**Must not break**: every golden hash of the legacy render, `stub-server/test_phase47_freeze.py`, the access rules of Phases 54, 55 and 60.
+
+Plans: TBD
+
+### Phase 66: Security Audit
+
+**Goal**: Before v1.2 closes, the whole platform has had one structured security audit, and every finding is either fixed or accepted by the owner in writing.
+**Depends on**: Phases 54, 55, 60 (access and roles), 57 and 64 (firmware update and release path), Phase 68 (the visual changes of the companion, so the audit sees the final pages). Runs after the feature phases, before Phase 67 and Phase 59.
+**Requirements**: SEC-AUD-01
+**Why this phase exists**: the owner's request of 2026-11-15. The platform now holds accounts (Auth0 sign-in), several roles, enrolment secrets, signed firmware updates, a public VPS and, later, customers' photos. Earlier phases carried their own threat checks; none looked at the whole.
+**Scope to cover** (starting list, to be confirmed at discuss-phase): sign-in and session handling; roles and default-deny access (route x role x owner matrix); the device protocol and enrolment secrets; firmware signing, update and rollback; the companion's input handling (uploads, forms, headers, cross-site and injection risks); the server and the deploy pipeline (systemd units, Caddy, secrets, CI permissions, the approval step); dependencies and their pinned hashes; backups and what they contain; logs and what they leak; the privacy rule that the administrator never sees users' photos (prepared for v1.3); data-source terms that touch security.
+**Success Criteria** (what must be TRUE):
+
+  1. A written audit records what was checked, how, and the result, for each area of the scope.
+  2. Each finding has a severity, and every high one is fixed and covered by a test, or accepted by the owner in writing with its reason.
+  3. Fixes keep the golden hashes, the freeze test and the live frame's release path intact, and are deployed through the normal gated pipeline.
+  4. Secrets are checked: none in the repository or its history, the rotation steps are written down, and the scope of each token is the smallest that works.
+  5. The remaining risks and the follow-ups for v1.3 (photo privacy, Wi-Fi setup, update policy) are listed in the audit.
+
+**Not in this phase**: legal and regulatory review (SEED-015), a third-party penetration test (listed as an option to decide), and new features.
+**Open decisions** (for discuss-phase): audit by Claude only or with an outside reviewer, how far a test against the live production host may go, and which findings may wait for v1.3.
+
+Plans: TBD
+
+### Phase 67: Project and Code Optimisation for a Clean, Industrial Result
+
+**Goal**: The repository reads, builds, tests and ships like an industrial product: consistent, documented, free of dead code and drift, so a new maintainer can work on it and the owner can show it to others.
+**Depends on**: Phase 66 (so cleanups do not reopen audited code), Phase 65. Runs before Phase 59, which stays last.
+**Requirements**: QUAL-01
+**Why this phase exists**: the owner's request of 2026-11-15. The project grew over several milestones and many parallel phases; the planning documents, the code and the tests carry leftovers of that history.
+**Scope to cover** (starting list, to be confirmed at discuss-phase): dead code and unused modules; duplicated helpers; the largest files and functions (the function-size gate already caps functions at 80 lines); naming and structure of `server/`, `stub-server/` and `companion/`; type coverage (the mypy module list); the test suite (flaky, slow or redundant tests, without dropping a case); build, deploy and CI scripts; dependency review; the README, deploy guide and architecture notes (CLAUDE.md says the architecture is not yet mapped); the repository tree (stale branches, stray files, planning notes); lint, format and licence headers.
+**Success Criteria** (what must be TRUE):
+
+  1. A before and after record shows the measured change (lines, modules, largest functions, type coverage, test time) so the benefit is visible, not asserted.
+  2. No behaviour change: the golden hashes, the freeze test and the full test suite pass unchanged, and nothing is deleted from a test only to make it pass.
+  3. An architecture document describes the real modules, the data flow from the ADS-B sources to the frame, and the deploy path.
+  4. Every cleanup is a small, reviewable change with its own check; no change mixes a cleanup with a feature.
+  5. The CI gates (lint, types, function size, comment history, coverage floor) are not weakened; where a floor can be raised safely, it is.
+
+**Known items to include** (recorded when found):
+- Flaky browser test, seen once on 2026-11-17 on PR #454 (docs and CAD files only, so unrelated to its diff): `companion/test_browser_ux_03.py::test_a_refresh_keeps_every_picture_action_working[chromium]` failed with "expected a swapped-in picture link to open the lightbox" in browser shard 4, and passed on one re-run of the failed jobs. `main` was green on its recent runs. Find the race (probably the test clicking before the swapped-in link is bound) and fix the test or the code; do not skip or quarantine it.
+**Not in this phase**: new features, the comment-history debt (Phase 59, which follows), and anything that changes the firmware image of the live frame.
+**Open decisions** (for discuss-phase): which areas to clean first by value, how much structural change is acceptable before v1.3, and whether to raise the coverage floor.
+
+Plans: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -660,10 +803,15 @@ Plans: 6 plans in 5 waves
 | 54. Auth0 Sign-In, Local Roles and Default-Deny Access | v1.2 | 9/9 | Complete, closed by the owner after production tests (2026-10-30 and 2026-10-31); AUTH-03 per-device matrix rows carried to Phase 55 (see 54-HANDOFF.md) | 2026-10-31 |
 | 55. Frame Pairing, Admin Console and Reduced User View | v1.2 | 14/14 | Complete: merged and deployed 2026-10-31, verified in code and by the owner in production; real-panel pairing test waits for the second hardware (see 55-HANDOFF.md) | 2026-11-01 |
 | 56. Per-Hardware Rendering, Battery Profiles, Health and Credits | v1.2 | 11/11 | Complete, merged (#257) and deployed 2026-10-31; verification passed, two owner follow-ups open (see 56-VERIFICATION.md) | 2026-10-31 |
-| 57. Combined Legacy-Frame Firmware Release | v1.2 | 0/0 | Not started (gated on Phase 47 and on the OTA signing bench check) | - |
-| 58. Second Hardware | v1.2 | 1/4 | In progress (58-01 done 2026-11-01): 58-01/58-02 executable, 58-03/58-04 blocked on purchase agreement | - |
+| 57. Combined Legacy-Frame Firmware Release | v1.2 | 6/6 | Complete: code merged (#391); EE04 bench B1-B9 done with stated limits; `fw-v1.1.0` released and installed on the live frame by the owner; verification passed | 2026-11-15 |
+| 58. Second Hardware | v1.2 | 5/5 | Complete, closed by the owner with the battery model provisional (no valid discharge sample; real battery data carried to Phase 64 and Phase 65) | 2026-11-15 |
 | 59. Comment-History Debt | v1.2 | 0/0 | Not started | - |
 | 60. Device Co-Management | v1.2 | 9/9 | Complete: merged (#276, #277, #279, #282) and deployed 2026-11-02; production checks reported done by the owner (see 60-HANDOFF.md) | 2026-11-02 |
-| 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | 33/34 | Executed (rounds 1 and 2: 33 plans); 61-13, the owner validation on the deployed companion, is pending | - |
+| 61. Companion UX and UI Overhaul (Admin and Users) | v1.2 | Complete | Complete (owner validated on the deployed companion, 2026-11-13; follow-up plans 61-100 to 61-129 recorded in the validation ledger) | 2026-11-13 |
 | 62. Plane Screen Redesign (giant-lettering design) | v1.2 | 13/13 | Complete | 2026-11-10 |
 | 63. Fast CI | v1.2 | 6/6 | Complete: merged (#319, #320, #322); test check median 9.0 min against 27.4 over five green runs, nothing skipped; the large browser files were left unchanged by the owner's decision (63-05) | 2026-11-10 |
+| 64. Second Hardware in Production | v1.2 | 13/15 | Verified with open points (64-VERIFICATION.md, 2026-11-15): criteria 1-6, 8 and 9 validated (6 and 9 on 2026-11-16: hold marks on rendered images only; 9 partly by owner decision for rows 2, 9, 10, 11), 5 with the failing update on Phase 58 bench evidence; criterion 7 open (partly measured; battery profile, LED, buttons and busy waits provisional and moved to production use and Phase 65; wake-stage blit 190 s and 700 s budget formula-derived); not complete | - |
+| 65. Runway 3 Tracking and Battery Curve Validation | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 68. Console and Companion Visual Improvements | v1.2 | 0/0 | Added 2026-11-16, not planned yet | - |
+| 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |

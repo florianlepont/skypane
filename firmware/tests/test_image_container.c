@@ -292,6 +292,70 @@ static void full_size_legacy_and_container(void)
     free(pattern);
 }
 
+static uint32_t ref_crc32(const uint8_t *data, size_t len)
+{
+    uint32_t crc = 0xFFFFFFFFu;
+    for (size_t i = 0; i < len; i++) {
+        crc ^= data[i];
+        for (int bit = 0; bit < 8; bit++) {
+            crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
+        }
+    }
+    return crc ^ 0xFFFFFFFFu;
+}
+
+static void table_crc_matches_bitwise_reference(void)
+{
+    const uint8_t digits[] = "123456789";
+    assert(imgc_crc32(digits, 9) == 0xCBF43926u);
+    assert(ref_crc32(digits, 9) == 0xCBF43926u);
+
+    uint8_t *body = malloc(FULL_PAYLOAD);
+    if (body == NULL) {
+        die("out of memory", NULL);
+    }
+    uint32_t x = 0x12345678u;
+    for (size_t i = 0; i < FULL_PAYLOAD; i++) {
+        x = x * 1664525u + 1013904223u;
+        body[i] = (uint8_t)(x >> 24);
+    }
+    assert(imgc_crc32(body, FULL_PAYLOAD) == ref_crc32(body, FULL_PAYLOAD));
+    assert(imgc_crc32(body, 1) == ref_crc32(body, 1));
+    assert(imgc_crc32(body + 1, FULL_PAYLOAD - 1) ==
+           ref_crc32(body + 1, FULL_PAYLOAD - 1));
+    free(body);
+}
+
+static void larger_header_len_values_parse(void)
+{
+    static const size_t header_lens[] = {24, 255};
+    uint8_t *pattern = malloc(FULL_PAYLOAD);
+    if (pattern == NULL) {
+        die("out of memory", NULL);
+    }
+    fill_full_pattern(pattern);
+    uint32_t crc = imgc_crc32(pattern, FULL_PAYLOAD);
+    for (size_t k = 0; k < 2; k++) {
+        size_t hl = header_lens[k];
+        uint8_t *framed = calloc(hl + FULL_PAYLOAD, 1);
+        if (framed == NULL) {
+            die("out of memory", NULL);
+        }
+        write_header(framed, FULL_PAYLOAD, crc);
+        framed[5] = (uint8_t)hl;
+        memcpy(framed + hl, pattern, FULL_PAYLOAD);
+        uint8_t *exact = exact_copy(framed, hl + FULL_PAYLOAD);
+        imgc_view_t v;
+        assert(imgc_parse(exact, hl + FULL_PAYLOAD, PANEL_W, PANEL_H, &v) ==
+               IMGC_OK);
+        assert(!v.legacy && v.payload == exact + hl &&
+               v.payload_len == FULL_PAYLOAD);
+        free(exact);
+        free(framed);
+    }
+    free(pattern);
+}
+
 static void hostile_headers_never_read_past_the_buffer(void)
 {
     imgc_view_t v;
@@ -394,6 +458,8 @@ int main(void)
     manifest_cases_match_the_declared_class();
     crc32_matches_the_standard_check_value();
     full_size_legacy_and_container();
+    table_crc_matches_bitwise_reference();
+    larger_header_len_values_parse();
     hostile_headers_never_read_past_the_buffer();
     every_prefix_of_a_valid_fixture_is_rejected_safely();
     odd_pixel_count_pads_one_nibble();

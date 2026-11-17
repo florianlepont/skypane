@@ -64,6 +64,25 @@ def lots(module_app_server_factory):
     return module_app_server_factory(seed=lambda d: _seed_flights(d, LOTS), fake_providers=True)
 
 
+def _seed_two_days(state_dir):
+    """LIMIT flights on 4 Sep and six older ones on 3 Sep: Load more adds a new day."""
+    events = [
+        {"ts": "2026-09-04T%02d:%02d:00+00:00" % (n // 12, n % 12 * 5),
+         "hex": "4d%04x" % n, "callsign": "AFR%d" % (200 + n), "airline": "Air France",
+         "origin": "ORY", "destination": "NCE", "confirmed_state": "departing"}
+        for n in range(LIMIT)]
+    events += [
+        {"ts": "2026-09-03T10:%02d:00+00:00" % (n * 5), "hex": "4e%04x" % n,
+         "callsign": "AFR%d" % (900 + n), "airline": "Air France", "origin": "ORY",
+         "destination": "NCE", "confirmed_state": "departing"} for n in range(6)]
+    vp.seed_runway_events(state_dir, events)
+
+
+@pytest.fixture(scope="module")
+def two_days(module_app_server_factory):
+    return module_app_server_factory(seed=_seed_two_days, fake_providers=True)
+
+
 @pytest.fixture(scope="module")
 def few(module_app_server_factory):
     return module_app_server_factory(seed=vp.seed_flight_card_variety, fake_providers=True)
@@ -113,6 +132,33 @@ def _choose_sort(page, value):
     """Open the sort menu and pick one order, the way a finger does."""
     page.locator(".collection-sort > summary").click()
     page.locator('.collection-sort__option:has(input[value="%s"])' % value).click()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["phone", "desktop"])
+def test_back_after_a_first_search_shows_the_full_list(new_context, many, viewport):
+    """the first search gets a history entry of its own, so Back returns to the list as it
+    was and does not leave Flights"""
+    context, page = _open(new_context, many, viewport)
+    try:
+        start = page.url
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        page.locator(FIELD).evaluate("el => el.closest('form').scrollIntoView()")
+        if viewport["width"] < 960:
+            page.locator(FIELD).click()
+        page.fill(FIELD, "AFR1")
+        page.wait_for_function("() => location.search.indexOf('q=AFR1') >= 0", timeout=10000)
+        page.press(FIELD, "Enter")
+        page.wait_for_function("() => location.search.indexOf('q=AFR1') >= 0", timeout=10000)
+        page.go_back()
+        page.wait_for_function(
+            "() => location.search.indexOf('q=') < 0 && document.readyState === 'complete'",
+            timeout=10000)
+        assert page.url == start
+        page.wait_for_function(
+            "(n) => document.querySelectorAll('li.history-card, tr[data-flight-row]').length >= n",
+            arg=10, timeout=10000)
+    finally:
+        context.close()
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
@@ -189,6 +235,33 @@ def test_load_more_appends_in_place_keeping_the_scroll_and_the_focus(
         # The new rows continue the day group and the table instead of repeating them.
         assert _count(page, "section.history-day") == 1
         assert _count(page, "tr.flight-day-row") == 1
+    finally:
+        context.close()
+
+
+def test_load_more_animates_the_new_rows_never_a_whole_day_section(new_context, two_days):
+    """a day that Load more adds is not lifted as one tall block: only its first rows enter"""
+    context, page = _open(new_context, two_days, VIEWPORT_PHONE)
+    try:
+        page.evaluate("""() => {
+          window.__entered = [];
+          new MutationObserver((records) => {
+            for (const r of records) {
+              if (r.target.classList.contains('reveal-appended')) {
+                window.__entered.push(r.target.tagName + '.' + r.target.className);
+              }
+            }
+          }).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['class']});
+        }""")
+        link = page.locator(MORE)
+        link.scroll_into_view_if_needed()
+        link.click()
+        _wait_count(page, CARD, LIMIT + 6)
+        page.wait_for_function(_SETTLED, timeout=10000)
+        entered = page.evaluate("() => window.__entered")
+        assert entered, "the new rows should enter with the short entrance"
+        assert not [name for name in entered if "history-day" in name or "SECTION" in name], entered
+        assert all(name.startswith("LI.") for name in entered), entered
     finally:
         context.close()
 
@@ -340,6 +413,68 @@ def test_the_sort_changes_the_order_and_survives_load_more(new_context, many):
         context.close()
 
 
+def test_arrow_keys_walk_the_sort_menu_without_closing_it(new_context, many):
+    """with the keyboard the menu stays open on the radio just chosen, so the next arrow reaches
+    the third order in the same visit; the list follows each step"""
+    context, page = _open(new_context, many, VIEWPORT_DESKTOP)
+    try:
+        page.locator(".collection-sort > summary").click()
+        page.locator('.collection-sort__option input[value="newest"]').focus()
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function("() => location.search.indexOf('sort=oldest') >= 0", timeout=10000)
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.value === 'oldest'"
+            " && a.closest('details').open; }", timeout=10000)
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function("() => location.search.indexOf('sort=airline') >= 0", timeout=10000)
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.value === 'airline'"
+            " && a.closest('details').open; }", timeout=10000)
+        page.keyboard.press("Escape")
+        page.wait_for_function(
+            "() => !document.querySelector('.collection-sort').open", timeout=5000)
+    finally:
+        context.close()
+
+
+def test_arrow_keys_walk_the_airlines_sort_menu_without_closing_it(new_context, few):
+    context = new_context(viewport=VIEWPORT_DESKTOP)
+    page = context.new_page()
+    _login(page, few.base_url())
+    page.goto(few.base_url() + "/airlines")
+    page.wait_for_function(_SETTLED, timeout=15000)
+    try:
+        page.locator(".collection-sort > summary").click()
+        first = page.locator('.collection-sort__option input[name="sort"]:checked')
+        first.focus()
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.checked"
+            " && a.closest('details').open; }", timeout=10000)
+        page.keyboard.press("ArrowDown")
+        page.wait_for_function(
+            "() => { const a = document.activeElement;"
+            " return !!a && a.matches('input[name=sort]') && a.checked"
+            " && a.closest('details').open && "
+            "document.querySelectorAll('input[name=sort]:checked').length === 1; }", timeout=10000)
+    finally:
+        context.close()
+
+
+def test_a_pointer_choice_still_closes_the_sort_menu(new_context, many):
+    context, page = _open(new_context, many, VIEWPORT_DESKTOP)
+    try:
+        _choose_sort(page, "oldest")
+        page.wait_for_function("() => location.search.indexOf('sort=oldest') >= 0", timeout=10000)
+        page.wait_for_function(
+            "() => !document.querySelector('.collection-sort').open", timeout=5000)
+    finally:
+        context.close()
+
+
 def test_the_sort_works_without_scripts(new_context, many):
     with _no_js_page(new_context, many.base_url(), "/flights", viewport=VIEWPORT_PHONE) as page:
         _choose_sort(page, "oldest")
@@ -383,15 +518,210 @@ def test_the_desktop_search_wraps_left_aligned_under_the_title_when_the_row_is_n
 
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE], ids=["360", "390"])
-def test_a_phone_row_without_a_picture_leaves_no_empty_gutter(new_context, bare, viewport):
-    """With no archived render a phone row starts with its text at the row's own padding, not
-    after an empty lead column."""
+def test_a_phone_row_without_a_render_leads_with_a_stand_in_and_no_empty_gutter(
+        new_context, bare, viewport):
+    """With no archived render a phone row leads with its stand-in (a 44px box), and its text
+    starts right after it, not after an empty lead column."""
     context, page = _open(new_context, bare, viewport)
     try:
-        gaps = page.evaluate(
-            "() => [...document.querySelectorAll('li.history-card')].map(li =>"
-            " li.querySelector('.row__text').getBoundingClientRect().left"
-            " - li.getBoundingClientRect().left)")
-        assert gaps and all(gap <= 20 for gap in gaps), gaps
+        rows = page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card')].map(li => {"
+            " const lead = li.querySelector('.history-card__thumb').getBoundingClientRect();"
+            " const text = li.querySelector('.row__text').getBoundingClientRect();"
+            " return {lead: lead.width, gap: text.left - lead.right};})")
+        assert rows and all(row["lead"] == 44 and 0 <= row["gap"] <= 16 for row in rows), rows
+    finally:
+        context.close()
+
+
+# --- Without a connection ---------------------------------------------------------------------
+
+_OFFLINE_TOAST = "[data-quick-toast] .toast"
+_OFFLINE_WORDS = {
+    "en": ("Couldn't update the list", "Check your connection and try again."),
+    "fr": ("Impossible de mettre la liste à jour", "Vérifiez votre connexion et réessayez."),
+}
+
+
+def _same_page(page, server):
+    """The document the test opened is still the one shown, on the app's own address."""
+    assert page.url.startswith(server.base_url()), page.url
+    assert page.evaluate("() => window.__marker") == "same document"
+
+
+@pytest.mark.parametrize("lang", ["en", "fr"])
+def test_a_search_without_a_connection_keeps_the_list_and_says_so(new_context, many, lang):
+    """offline, typing in the search leaves the page and its flights where they are and an error
+    toast says the list could not be updated; once back online the same search answers"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE, lang)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        context.set_offline(True)
+        page.click(FIELD)
+        page.keyboard.type(OLDEST.lower())
+        toast = page.locator(_OFFLINE_TOAST)
+        toast.wait_for(state="visible", timeout=10000)
+        title, detail = _OFFLINE_WORDS[lang]
+        assert title in toast.inner_text() and detail in toast.inner_text(), toast.inner_text()
+        _same_page(page, many)
+        assert _count(page, CARD) == LIMIT
+        assert page.input_value(FIELD) == OLDEST.lower()
+        assert "q=" not in page.url
+        context.set_offline(False)
+        page.press(FIELD, "Enter")
+        _wait_count(page, CARD, 1)
+        _same_page(page, many)
+        assert "q=afr100" in page.url
+        # The answer takes the notice back.
+        toast.wait_for(state="detached", timeout=5000)
+    finally:
+        context.close()
+
+
+def test_load_more_without_a_connection_keeps_the_list_and_can_be_tried_again(new_context, many):
+    """offline, Load more adds nothing, stays on the page, shows the toast and is ready again:
+    the same tap appends the next flights once the connection is back"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        link = page.locator(MORE)
+        link.scroll_into_view_if_needed()
+        context.set_offline(True)
+        link.click()
+        page.locator(_OFFLINE_TOAST).wait_for(state="visible", timeout=10000)
+        _same_page(page, many)
+        assert _count(page, CARD) == LIMIT
+        page.wait_for_function(
+            "() => !document.querySelector('a.history-more__link[aria-busy]')", timeout=5000)
+        assert page.url.endswith("/flights"), page.url
+        context.set_offline(False)
+        page.locator(_OFFLINE_TOAST + " .toast__dismiss").click()
+        page.locator(_OFFLINE_TOAST).wait_for(state="hidden", timeout=5000)
+        page.locator(MORE).click()
+        _wait_count(page, CARD, TOTAL)
+        _same_page(page, many)
+    finally:
+        context.close()
+
+
+def test_a_sort_without_a_connection_goes_back_to_the_order_shown(new_context, many):
+    """offline, choosing another order changes nothing: the page stays, the toast shows and the
+    menu names the order the list is really in"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        page.evaluate("() => { window.__marker = 'same document'; }")
+        first = _first_callsign(page)
+        context.set_offline(True)
+        _choose_sort(page, "oldest")
+        page.locator(_OFFLINE_TOAST).wait_for(state="visible", timeout=10000)
+        _same_page(page, many)
+        assert _first_callsign(page) == first
+        page.wait_for_function(
+            "() => document.querySelector('input[name=sort]:checked').value === 'newest'",
+            timeout=5000)
+        assert "sort=" not in page.url
+    finally:
+        context.close()
+
+
+# --- What a change downloads ------------------------------------------------------------------
+
+def _answer_to(page, part, act):
+    """`(address, size)` of the answer to the list request `act` causes."""
+    with page.expect_response(
+            lambda r: "/flights" in r.url and "part=%s" % part in r.url, timeout=10000) as info:
+        act()
+    response = info.value
+    return response.url, len(response.body())
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_load_more_downloads_only_the_next_flights(new_context, lots, viewport):
+    """each Load more step asks for the next flights alone: the second answer is no heavier than
+    the first, both far lighter than the page, and the address shown stays the plain one"""
+    context, page = _open(new_context, lots, viewport)
+    try:
+        whole = len(page.content())
+        selector = ROW if viewport["width"] >= 960 else CARD
+        _url, first = _answer_to(page, "new", page.locator(MORE).click)
+        _wait_count(page, selector, 2 * LIMIT)
+        _url, second = _answer_to(page, "new", page.locator(MORE).click)
+        _wait_count(page, selector, LOTS)
+        assert second <= first * 1.1 and first < 0.75 * whole, (first, second, whole)
+        assert page.url.endswith("/flights?more=2"), page.url
+        # One day group and one day row, as on the page loaded whole.
+        assert _count(page, "section.history-day") == 1
+        assert _count(page, "tr.flight-day-row") == 1
+        assert len(set(page.evaluate(
+            "() => [...document.querySelectorAll('[id]')].map((e) => e.id)"))) == page.evaluate(
+            "() => document.querySelectorAll('[id]').length"), "an id is repeated"
+    finally:
+        context.close()
+
+
+def test_a_filter_change_downloads_the_list_without_the_page_around_it(new_context, many):
+    """a chip, the sort and a search each ask for the list alone; the address shown never
+    carries the fragment's own parameter and reloading it gives the same list"""
+    context, page = _open(new_context, many, VIEWPORT_PHONE)
+    try:
+        whole = len(page.content())
+        _url, sorted_size = _answer_to(page, "list", lambda: _choose_sort(page, "oldest"))
+        page.wait_for_function(
+            "(c) => document.querySelector('li.history-card .history-card__callsign')"
+            ".textContent === c", arg=OLDEST, timeout=10000)
+        page.click(FIELD)
+        _url, found_size = _answer_to(page, "list", lambda: page.keyboard.type("afr10"))
+        page.wait_for_function("() => location.search.indexOf('q=afr10') >= 0", timeout=10000)
+        assert sorted_size < 0.9 * whole and found_size < sorted_size, (
+            sorted_size, found_size, whole)
+        assert "part=" not in page.url
+        shown = page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card')].map((c) => c.dataset.flightId)")
+        page.reload()
+        page.wait_for_function(_SETTLED, timeout=15000)
+        assert page.evaluate(
+            "() => [...document.querySelectorAll('li.history-card')].map((c) => c.dataset.flightId)"
+        ) == shown
+    finally:
+        context.close()
+
+
+@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_DESKTOP], ids=["390", "1280"])
+def test_the_list_says_it_is_busy_while_a_slow_search_is_out(new_context, many, viewport):
+    """on a slow network the list the search will replace is marked busy from the moment the
+    request leaves until its answer is shown; an offline failure clears the mark too"""
+    context, page = _open(new_context, many, viewport)
+    try:
+        held = []
+
+        released = []
+
+        def slow(route):
+            if released:
+                route.continue_()
+            else:
+                held.append(route)
+
+        busy = ("() => [...document.querySelectorAll('.history-cards, .data-table-wrap')]"
+                ".filter((e) => e.getClientRects().length)"
+                ".map((e) => e.getAttribute('aria-busy'))")
+        assert page.evaluate(busy) == [None]
+        page.route("**/flights?*part=list*", slow)
+        page.click(FIELD)
+        page.keyboard.type(OLDEST.lower())
+        page.wait_for_function(
+            "() => [...document.querySelectorAll('.history-cards, .data-table-wrap')]"
+            ".some((e) => e.getClientRects().length && e.getAttribute('aria-busy') === 'true')",
+            timeout=10000)
+        for _wait in range(100):
+            if held:
+                break
+            page.wait_for_timeout(50)
+        assert held, "the request was held"
+        released.append(True)
+        for route in held:
+            route.continue_()
+        _wait_count(page, ROW if viewport["width"] >= 960 else CARD, 1)
+        assert page.evaluate(busy) == [None]
     finally:
         context.close()

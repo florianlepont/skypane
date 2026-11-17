@@ -3500,3 +3500,12 @@ def test_overhead_renders_on_landscape_and_dithered_themes():
     assert over.size == arr.size and over.tobytes() != arr.tobytes()
     for theme_id in render.device_config.THEME_IDS:
         render.build_canvas(TEST_FLIGHT, "overhead", route=TEST_ROUTE, theme_id=theme_id)
+
+def test_overhead_line_names_the_destination_city_like_departing():
+    """The classic layout's overhead frame draws the same text as a departing one
+    for the city line: "to <destination>" (the label differs, so compare the
+    text the line is built from)."""
+    from server.plane.render import text
+    over = text._flight_line1_text(TEST_FLIGHT, "overhead", TEST_ROUTE)
+    assert over == text._flight_line1_text(TEST_FLIGHT, "departing", TEST_ROUTE)
+    assert over.endswith("to Palma de Mallorca")

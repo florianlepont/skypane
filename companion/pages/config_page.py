@@ -321,12 +321,15 @@ def submitted_scope(form):
 # The four Personalisation addresses (Look keeps /display) and the page
 # route a response on any of them is wrapped as.
 PERSONALISATION_ROUTES = tuple(personalisation_cards.VIEW_ROUTES.values())
+page_title = personalisation_cards.page_title
 
 
 def shell_route(route):
-    """The tab route a page at `route` is wrapped as: every Personalisation
-    view is the Display tab."""
-    return layout.DISPLAY_ROUTE if route in PERSONALISATION_ROUTES else route
+    """The tab route a rejected settings save is wrapped as: the Device page
+    for its own form, the Display tab for every other return address (the
+    page redrawn is the Style page, whichever page the person was leaving
+    for)."""
+    return layout.DEVICE_ROUTE if route == layout.DEVICE_ROUTE else layout.DISPLAY_ROUTE
 
 
 # The view each saved look field lives on, so a rejected save is redrawn where
@@ -351,12 +354,13 @@ def error_view(errors, return_route):
 
 
 def submitted_return_route(form):
-    """Where a settings POST redirects back to: the page it came from,
-    validated byte-for-byte against the two scoped page routes, else
-    the Display page. Never a raw form value.
+    """Where a settings POST redirects back to: the page it came from, or the
+    page the person was leaving for when the save answered an unsaved-changes
+    question. Validated byte-for-byte against a fixed tuple of app addresses,
+    else the Display page. Never a raw form value.
     """
     value = form.get(RETURN_TO_FIELD_NAME)
-    if value in PERSONALISATION_ROUTES or value == layout.DEVICE_ROUTE:
+    if value in personalisation_cards.LEAVE_RETURN_ROUTES:
         return value
     return layout.DISPLAY_ROUTE
 
@@ -611,7 +615,9 @@ def docked_dirty_bar_html():
     page): rendered by the page after the group, never inside it, because a
     backdrop-filtered ancestor would become the containing block of the
     bar's fixed position."""
-    return ui_save_bar.save_bar_html(SETTINGS_FORM_ID)
+    return ui_save_bar.save_bar_html(
+        SETTINGS_FORM_ID,
+        return_routes=personalisation_cards.scoped_leave_return_routes())
 
 
 def _settings_page_html(pieces, quick_led_html, with_bar=True):

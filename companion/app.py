@@ -33,7 +33,7 @@ if _REPO_ROOT not in sys.path:
 
 from companion import (  # noqa: E402
     access, audit, auth, console_flash, console_routes, credits_page, detection_actions, device_dispatch, device_scope, export_api, flash, fleet_moves, freshness, i18n, illustration_normalize, layout, legacy_pages,
-    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, quiet_server, request_body, routes, sign_in,
+    login_page, next_route as next_route_check, page_cache, page_context, page_policy, post_actions, preview_images, prefs, quiet_server, request_body, routes, server_error, sign_in,
     sign_in_config, static_files, theme_preview, user_view)
 from companion.pages import (  # noqa: E402
     # airlines_page is unused by this module's own code; kept so
@@ -421,8 +421,11 @@ def _effective_access(route, route_match):
 class Handler(
         device_dispatch.DeviceDispatchMixin, preview_images.PreviewImagesMixin,
         sign_in.SignInMixin, export_api.ExportMixin,
-        post_actions.SettingsActionsMixin, BaseHTTPRequestHandler):
+        post_actions.SettingsActionsMixin, server_error.ErrorPageMixin,
+        BaseHTTPRequestHandler):
     server_version = "skypane-companion"
+    # (body, over_cap) of the upload being handled; see upload_form.read_upload().
+    upload_body = (None, False)
     args = None
     # socketserver.StreamRequestHandler honours this attribute, so a
     # stalled read (e.g. the unauthenticated POST /login body) raises
@@ -631,8 +634,7 @@ class Handler(
         # Carries the requested page through sign-in as a validated `next`,
         # and marks a visit whose session has ended (`expired=1`); an
         # unrecognised page is dropped silently.
-        self.redirect(next_route_check.login_redirect(
-            self.path, bool(self._raw_session_token())))
+        self.redirect(next_route_check.login_redirect_for(self))
 
     def _resolved_ui_theme(self):
         cookies = auth.parse_cookies(self.headers.get("Cookie"))
@@ -691,18 +693,12 @@ class Handler(
         return {key: values[0] for key, values in parsed.items() if values}
 
     def _read_upload_body(self):
-        """Read the POST body for an illustration-replace request,
-        bounded by `MAX_ILLUSTRATION_UPLOAD_BYTES`. Returns `None` for
-        an absent/unparseable/non-positive/over-cap length or a
-        `socket.timeout`; an over-cap body's remainder is still drained
-        first (via `request_body.drain_capped_body()`) so the connection
-        isn't left mid-body.
-        """
-        length = request_body.parse_content_length(self.headers)
-        if length <= 0:
-            return None
-        raw, _over_cap = request_body.drain_capped_body(
-            self.rfile, length, MAX_ILLUSTRATION_UPLOAD_BYTES)
+        """The illustration upload's body, as read while the anti-forgery
+        token was checked: `None` for an over-cap, unreadable or absent body
+        (an over-cap body was drained so the connection is not left
+        mid-body)."""
+        raw, _over_cap = self.upload_body
+        self.upload_body = (None, False)
         return raw
 
     def page_context(self, device=None):
@@ -759,7 +755,7 @@ class Handler(
         return self.send_html(200, credits_page.credits_page(
             self._resolved_ui_theme(), health_alert, back=back, home_route=home_route))
 
-    def _forbidden_page(self, purpose=None):
+    def _forbidden_page(self, purpose=None, reopen=None):
         """The shared 403 body for do_POST()'s Origin/Sec-Fetch-Site gate.
         Byte-for-byte the same shape as `_not_found_page()` above. The
         markup itself is `companion/login_page.py`'s `forbidden_page()`.
@@ -770,7 +766,7 @@ class Handler(
         back, home_route = self._back_target()
         return login_page.forbidden_page(
             self._resolved_ui_theme(), health_alert, back=back, purpose=purpose,
-            home_route=home_route)
+            home_route=home_route, reopen=reopen)
 
     def _back_target(self):
         """(which onward link, Home route) an error page offers the current
@@ -820,13 +816,13 @@ class Handler(
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.unavailable_page(self._resolved_ui_theme())
 
-    def _render_login_page(self, next_route=None, expired=False):
+    def _render_login_page(self, next_route=None, expired=False, notice=None):
         # Pre-session, like _not_found_page() above. The markup itself is
         # companion/login_page.py's render_login_page().
         prefs.set_request_prefs(lang=self._lang_from_request())
         return login_page.render_login_page(
             self._resolved_ui_theme(), next_route=next_route,
-            auth0_enabled=self._auth0_enabled(), expired=expired)
+            auth0_enabled=self._auth0_enabled(), expired=expired, notice=notice)
 
     def _serve_static(self, abs_path, content_type, cache_control):
         """Shared body behind `_serve_static_route()` and
@@ -938,7 +934,9 @@ class Handler(
         if flash_html is None:
             flash_html = flash.flash_toast_html(ctx.flash_key, ctx.flash, self.path)
         return layout.page_shell(
-            title=i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
+            title=config_page.page_title(
+                i18n.t(_CHILD_PAGE_TITLES.get(route) or _PAGE_TITLES[route]),
+                prefs.current_request_path()),
             active=layout.nav_slug(route),
             body=body,
             ui_theme=ctx.ui_theme, flash=flash_html,
@@ -1029,7 +1027,8 @@ class Handler(
         query = parse_qs(urlsplit(self.path).query)
         return self.send_html(200, self._render_login_page(
             next_route=_validated_next_route(query.get("next", [None])[0]),
-            expired=query.get("expired") == ["1"]))
+            expired=query.get("expired") == ["1"],
+            notice=login_page.notice_for_error_code(query.get("error", [None])[0])))
 
     def _handle_rule_delete_post(self, device, middle):
         """POST RULES_DELETE_ROUTE_PREFIX/{kind}/{value}/RULES_DELETE_ROUTE_SUFFIX:
@@ -1046,7 +1045,7 @@ class Handler(
     def do_GET(self):
         """Releases the request's fleet connection when dispatch returns."""
         try:
-            return self._dispatch("GET")
+            return self.dispatch_guarded("GET")
         finally:
             self._close_fleet_conn()
 
@@ -1064,6 +1063,8 @@ class Handler(
         self._form_cache = None
         prefs.set_request_principal(None)
         prefs.set_request_csrf("")
+        # Before any handler runs: a message a POST builds is in the reader's language.
+        prefs.set_request_prefs(lang=self._lang_from_request())
         if method == "POST" and not auth.post_origin_ok(self.headers):
             return self.send_html(403, self._forbidden_page())
         parsed = urlsplit(self.path)
@@ -1100,7 +1101,8 @@ class Handler(
             auth.csrf_token(raw_session) if raw_session and principal is not None else "")
         if method == "POST" and route.csrf and not auth.csrf_ok(
                 raw_session, routes.submitted_csrf(self, route)):
-            return self.send_html(403, self._forbidden_page(login_page.CSRF_EXPIRED_TEXT))
+            return self.send_html(403, self._forbidden_page(
+                login_page.CSRF_EXPIRED_TEXT, reopen=routes.reopen_address(parsed.path)))
         if route.access.min_role == access.ANONYMOUS:
             # Login, sign-in and static assets: no device.
             device_scope.set_request_scope(None, ())
@@ -1420,7 +1422,7 @@ class Handler(
 
     def do_POST(self):
         try:
-            return self._dispatch("POST")
+            return self.dispatch_guarded("POST")
         finally:
             self._close_fleet_conn()
 

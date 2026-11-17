@@ -1,5 +1,7 @@
 """The Personalisation page's body: the frame's Layout card, one navigation
 (Departures, Arrivals, Special looks, Calendar) and the one view it points at.
+A frame that tracks a position has one look for every aircraft, so its
+navigation holds a single Look view in place of Departures and Arrivals.
 Each view has its own address; Departures is the page's own address. The layout
 is one setting per frame, so its card sits above the navigation and shows
 whichever view is open.
@@ -27,10 +29,10 @@ from companion.settings import rules
 from companion.settings.form import DIRTY_SECTION_ATTR
 from companion.settings.rules import SPECIAL_LOOKS_HEADING, special_looks_html
 from companion.settings.theme import (
-    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES,
+    COLOUR_USAGE_ARRIVALS, COLOUR_USAGE_CALENDAR, COLOUR_USAGE_DEPARTURES, COLOUR_USAGE_POSITION,
     FRAME_COLOURS_ROW_LABELS, departures_safe_theme_id, look_card_body_html, look_frame_html,
     look_sheet_html)
-from server import screen_layouts
+from server import detection, screen_layouts
 
 PAGE_ID = "personalisation"
 NAV_LABEL = i18n.msg("display.personalisation_sections", "Style sections")
@@ -66,6 +68,21 @@ PARENT_VIEWS = {
 }
 FORM_VIEWS = tuple(PARENT_VIEWS)
 ROUTE_VIEWS = {route: view for view, route in VIEW_ROUTES.items()}
+# The Console pages a person can leave a settings form for. Byte-for-byte
+# copies of console_routes.USERS_ROUTE, AUDIT_ROUTE and FLEET_ROUTE (a page
+# module may not import the console modules); a test asserts they are equal.
+CONSOLE_LEAVE_ROUTES = ("/fleet", "/users", "/audit")
+# Where a save started from a Style page or a Fleet settings tab may return
+# to, so leaving the page through an in-app link can save first and still
+# land where the person tapped: the Style views, the Device page, the
+# navigation tabs, the Account page, the Airline editor and the Console
+# pages. A fixed tuple, membership-tested byte for byte (see config_page),
+# never a parsed or prefix-matched address, so a crafted return value cannot
+# redirect off-site.
+LEAVE_RETURN_ROUTES = tuple(dict.fromkeys(
+    tuple(VIEW_ROUTES.values()) + (layout.DEVICE_ROUTE,)
+    + tuple(route for route, _label in layout.NAV_TABS)
+    + (layout.ACCOUNT_ROUTE, layout.AIRLINE_EDITOR_ROUTE) + CONSOLE_LEAVE_ROUTES))
 # The two views of the look picker, and the picture each one shows first.
 LOOK_VIEW_USAGES = {
     VIEW_DEPARTURES: COLOUR_USAGE_DEPARTURES,
@@ -143,13 +160,46 @@ def _calendar_look_controls(values, errors):
         theme_preview.FRAME_PREVIEW_STATE_DEPARTING, carries_departures=True)
 
 
-def _views():
-    """(slug, title message, icon id) of the four views in navigation order."""
-    return (
-        (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
-        (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane"),
+def watches_position(values):
+    """True when the frame tracks a position rather than a runway: it has one
+    look for every aircraft, so there are no separate Departures and Arrivals
+    looks to choose."""
+    selection = detection.current_selection((values or {}).get("device_cfg") or {})
+    return selection["mode"] == detection.POSITION_MODE
+
+
+def _views(position=False):
+    """(slug, title message, icon id) of the views in navigation order: the
+    one Look view for a frame tracking a position, Departures and Arrivals
+    for a runway frame."""
+    looks = (
+        ((VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_POSITION], "icon-plane"),)
+        if position else (
+            (VIEW_DEPARTURES, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_DEPARTURES], "icon-plane"),
+            (VIEW_ARRIVALS, FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS], "icon-plane")))
+    return looks + (
         (VIEW_SPECIAL_LOOKS, SPECIAL_LOOKS_HEADING, "icon-star"),
         (VIEW_CALENDAR, CALENDAR_TITLE, "icon-calendar"))
+
+
+def _view_titles():
+    return {
+        VIEW_ARRIVALS: FRAME_COLOURS_ROW_LABELS[COLOUR_USAGE_ARRIVALS],
+        VIEW_SPECIAL_LOOKS: SPECIAL_LOOKS_HEADING,
+        VIEW_CALENDAR: CALENDAR_TITLE,
+        VIEW_LOOK_NEW: rules.NEW_SPECIAL_LOOK_HEADING,
+        VIEW_LOOK_EDIT: rules.EDIT_SPECIAL_LOOK_HEADING,
+        VIEW_CALENDAR_CONNECT: calendar_settings.CALENDAR_SHEET_CONNECT_TITLE,
+        VIEW_CALENDAR_LOOK: calendar_settings.LOOK_SHEET_TITLES[COLOUR_USAGE_CALENDAR],
+    }
+
+
+def page_title(style_title, path):
+    """The document title of the Style page at `path`: the view's own name
+    ahead of the page's, so history entries and tabs tell the pages apart.
+    Departures, the page's first view, keeps the page's name alone."""
+    message = _view_titles().get(ROUTE_VIEWS.get(device_scope.strip_prefix(path)))
+    return "%s - %s" % (i18n.t(message), style_title) if message else style_title
 
 
 def view_for_route(route):
@@ -157,18 +207,19 @@ def view_for_route(route):
     return ROUTE_VIEWS.get(route, VIEW_DEPARTURES)
 
 
-def _nav_html(view):
+def _nav_html(view, position=False):
     """The section navigation: one plain link per view, the current one marked
     (a form page marks the list it belongs to). A script adds the sliding
-    highlight over it; the links work without."""
+    highlight over it; the links work without. `position` is a frame tracking
+    a position: one Look view instead of Departures and Arrivals."""
     view = PARENT_VIEWS.get(view, view)
     links = [
         (escape_html(device_scope.scoped(VIEW_ROUTES[slug])),
          "%s<span>%s</span>" % (layout.icon_html(icon), escape_html(i18n.t(title))),
          slug == view, ' data-pers-view="%s"' % slug)
-        for slug, title, icon in _views()]
+        for slug, title, icon in _views(position)]
     return ui_segmented.segmented_links_html(
-        links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"')
+        links, i18n.t(NAV_LABEL), nav_attrs=' data-tabs="display"', carry=True)
 
 
 def _bar_html(title, cancel_href, form_id, pending_label=None, shown=False):
@@ -245,11 +296,14 @@ def page_html(
     The Special looks and Calendar views carry the hidden look sheet their
     openers use; the look views' own sheet is the inline picker.
     """
+    position = watches_position(values)
+    if position and view == VIEW_ARRIVALS:
+        view = VIEW_DEPARTURES  # a position frame has no separate arrivals look
     if view in FORM_VIEWS:
         return '<div class="personalisation">%s<div class="personalisation__view">%s</div></div>' % (
-            _nav_html(view), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
+            _nav_html(view, position), _form_view(ctx, values, view, errors, scope_fields_html, submitted))
     sheet_html = look_sheet_html() if view is not None else ""
-    usage = LOOK_VIEW_USAGES.get(view)
+    usage = COLOUR_USAGE_POSITION if position and view == VIEW_DEPARTURES else LOOK_VIEW_USAGES.get(view)
     parts = {
         VIEW_DEPARTURES: lambda: _look_view(values, errors, submitted, usage),
         VIEW_SPECIAL_LOOKS: lambda: _special_looks_card(ctx, sheet_html),
@@ -260,5 +314,12 @@ def page_html(
     shown = (view,) if view is not None else (
         VIEW_DEPARTURES, VIEW_SPECIAL_LOOKS, VIEW_CALENDAR)
     return '<div class="personalisation">%s%s<div class="personalisation__view">%s</div></div>' % (
-        _layout_card(values, errors, submitted), _nav_html(view),
+        _layout_card(values, errors, submitted), _nav_html(view, position),
         "".join(parts[name]() for name in shown))
+
+
+def scoped_leave_return_routes():
+    """The addresses a save may return to, wearing this frame's own prefix:
+    the links on the page wear it, so the list a script matches them against
+    wears it too."""
+    return tuple(device_scope.scoped(route) for route in LEAVE_RETURN_ROUTES)

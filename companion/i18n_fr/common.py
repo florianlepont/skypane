@@ -35,12 +35,21 @@ MESSAGES = {
 
     # --- 403 page ------------------------------------------------------
     "common.request_refused": "Requête refusée",
-    "common.csrf_expired": "Cette page a expiré. Rechargez-la et réessayez.",
+    "common.method_not_allowed":
+        "Cette adresse n’accepte pas ce type de requête.",
+    "common.csrf_expired":
+        "Cette page a expiré. Rouvrez-la et réessayez.",
+    "common.reopen_page": "Rouvrir la page",
     "common.this_request_came_from_another_site_so_it_was":
         "Cette requête venait d’un autre site, elle a donc été refusée. "
         "Ouvrez SkyPane directement et réessayez.",
 
     # --- 503 page ------------------------------------------------------
+    "common.server_error_title": "Un problème est survenu",
+    "common.server_error_purpose":
+        "SkyPane a rencontré une erreur et n’a pas pu terminer cette demande. "
+        "Revenez en arrière et réessayez\u00a0; si le problème persiste, prévenez "
+        "l’administrateur.",
     "common.temporarily_unavailable": "Temporairement indisponible",
     "common.sign_in_data_could_not_be_read_please_try_again":
         "SkyPane n’a pas pu vérifier votre session. Réessayez dans un instant.",
@@ -90,6 +99,9 @@ MESSAGES = {
         "Session expirée — reconnectez-vous.",
     "common.couldn_t_change_that_please_try_again":
         "Impossible de modifier ce réglage — réessayez.",
+    "common.couldn_t_update_the_list_check_your_connection":
+        "Impossible de mettre la liste à jour — vérifiez votre connexion et "
+        "réessayez.",
     "common.welcome_to_skypane_this_is_your_frame_s_home":
         "Bienvenue sur SkyPane — Vous êtes connecté. Voici l’accueil de "
         "votre cadre. Son point indique s’il est à jour.",
@@ -110,6 +122,19 @@ MESSAGES = {
         "Impossible d’utiliser cette image — envoyez un PNG "
         "transparent d’au moins 1200 pixels de large, au format "
         "paysage (plus large que haut).",
+    "common.illustration_refused_for_airline": "{name}\u00a0: {reason}",
+    "common.illustration_not_png":
+        "Impossible d’utiliser ce fichier — ce n’est pas une image PNG.",
+    "common.illustration_too_large":
+        "Impossible d’utiliser cette image — elle est trop lourde. "
+        "Gardez-la sous 4 Mo.",
+    "common.illustration_not_transparent":
+        "Impossible d’utiliser cette image — son fond n’est pas "
+        "transparent. Envoyez un PNG à fond transparent.",
+    "common.illustration_too_small":
+        "Impossible d’utiliser cette image — elle doit être au format "
+        "paysage (plus large que haut) et faire au moins 1200 pixels "
+        "de large.",
     "common.couldn_t_replace_the_illustration_please_try":
         "Impossible de remplacer l’illustration — réessayez. Si le "
         "problème persiste, consultez les journaux du service "
@@ -129,7 +154,7 @@ MESSAGES = {
         "Illustration supprimée — l’illustration par défaut est de retour.",
     "common.that_artwork_can_t_be_removed_anymore":
         "Cette illustration ne peut plus être supprimée ici — rechargez la "
-        "page Compagnies et réessayez.",
+        "page Airlines et réessayez.",
     "common.couldn_t_remove_that_artwork":
         "Impossible de supprimer cette illustration — le dossier d’état du "
         "cadre n’est peut-être pas accessible en écriture.",
@@ -139,7 +164,7 @@ MESSAGES = {
         "Impossible d’enregistrer le type d’appareil par défaut — réessayez.",
     "common.that_airline_can_t_be_renamed_anymore":
         "Cette compagnie ne peut plus être renommée ici — rechargez la "
-        "page Compagnies et réessayez.",
+        "page Airlines et réessayez.",
     "common.the_renamed_airlines_list_is_full_200_entries":
         "La liste des compagnies renommées est pleine (200 entrées) — "
         "rétablissez-en une avant d’en renommer une autre.",

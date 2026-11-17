@@ -158,6 +158,23 @@
   object-position: center 35%;
 }
 
+/* A flight with no archived render of its own: the airline's illustration
+ * (shown whole, on the image backdrop) or a neutral plane icon in a dashed
+ * outline. Neither is a link. */
+.history-card__thumb--illustration .history-card__thumb-image {
+  object-fit: contain;
+  object-position: center;
+  background: var(--color-image-backdrop);
+}
+
+.history-card__thumb--none {
+  display: grid;
+  place-items: center;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  outline: 1px dashed color-mix(in srgb, var(--color-text) 35%, transparent);
+  outline-offset: -3px;
+}
+
 .history-card__thumb:hover .history-card__thumb-image {
   opacity: 0.85;
 }

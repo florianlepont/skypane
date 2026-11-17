@@ -19,11 +19,14 @@ def _attr(name, value):
     return ' %s="%s"' % (name, escape_html(value)) if value else ""
 
 
-def section_label(text, label_id="", extra_class=""):
+def section_label(text, label_id="", extra_class="", tag="h2"):
     """The small heading above a group: 13px, secondary ink, weight 600.
-    It is the group's `<h2>`, so the page outline keeps it."""
+    It is the group's `<h2>`, so the page outline keeps it. A group that sits
+    before the page's own heading (the More panel) passes `tag="p"` so the
+    page's h1 stays its first heading."""
     css = "section-label" + (" " + extra_class if extra_class else "")
-    return '<h2 class="%s"%s>%s</h2>' % (css, _attr("id", label_id), escape_html(text))
+    return '<%s class="%s"%s>%s</%s>' % (
+        tag, css, _attr("id", label_id), escape_html(text), tag)
 
 
 def chip_html(icon_id):
@@ -68,11 +71,11 @@ def row(label="", *, label_html="", icon="", detail="", detail_html="",
     return '<li class="%s"%s>%s%s</li>' % (css, attrs and " " + attrs, main, trailing_html)
 
 
-def group(rows_html, label="", label_id="", extra_class="", attrs=""):
+def group(rows_html, label="", label_id="", extra_class="", attrs="", label_tag="h2"):
     """A section label (when `label` is given) above one glass surface that
     holds `rows_html` (a run of `row()` items). A group never contains
     another group."""
-    heading = section_label(label, label_id) if label else ""
+    heading = section_label(label, label_id, tag=label_tag) if label else ""
     css = "group-block" + (" " + extra_class if extra_class else "")
     labelled = ' aria-labelledby="%s"' % escape_html(label_id) if label and label_id else ""
     return '<section class="%s"%s%s>%s<ul class="group">%s</ul></section>' % (
@@ -94,12 +97,13 @@ def hero(status_line_html, *, picture_html="", lines_html="", extra_class="",
     """The hero: no surface. A picture (optional) beside an optional title
     row, the status line (a pill with its status dot) and secondary lines
     underneath. `heading_html` is an optional visually hidden heading
-    that names the section for assistive technology. `title_html` is an
+    that names the section for assistive technology; it follows the title row,
+    so a page's h1 stays its first heading. `title_html` is an
     optional already-safe title row rendered first in the text column."""
     css = "hero" + (" " + extra_class if extra_class else "")
     picture = ('<div class="hero__picture">%s</div>' % picture_html) if picture_html else ""
     return (
-        '<section class="%s"%s>%s%s<div class="hero__body">'
-        '%s<p class="hero__status%s">%s</p>%s</div></section>'
-    ) % (css, attrs and " " + attrs, picture, heading_html, title_html,
+        '<section class="%s"%s>%s<div class="hero__body">'
+        '%s%s<p class="hero__status%s">%s</p>%s</div></section>'
+    ) % (css, attrs and " " + attrs, picture, title_html, heading_html,
          " " + status_class if status_class else "", status_line_html, lines_html)

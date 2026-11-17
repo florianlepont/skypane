@@ -4,6 +4,8 @@ across the pages of one viewport, the same structure (a message, then Cancel, th
 targets) and the same words, at 390 and 1280 px, in both languages and both themes. The numbers
 are read off the rendered pages; the pages are measured one after the other in one browser
 context so the comparison is between pages, never against a hard-coded size."""
+from urllib.parse import quote, urlsplit
+
 import pytest
 
 from co_manager_browser_support import SUBPIXEL
@@ -195,3 +197,150 @@ def test_every_page_shows_the_same_save_bar(new_context, server, viewport, lang,
     else:
         # Docked to the main column, not centred on the window: the sidebar is to its left.
         assert reference["left"] > 240, reference
+
+
+# Whether the bar had a box the moment the parser added it (before any deferred script ran)
+# and on every frame after that, until the test reads the list.
+_WATCH_BAR = """
+window.__bar = {parsed: null, frames: []};
+new MutationObserver((records, observer) => {
+  const bar = document.querySelector('.dirty-bar');
+  if (!bar) { return; }
+  observer.disconnect();
+  window.__bar.parsed = bar.getClientRects().length > 0;
+  const step = () => {
+    window.__bar.frames.push(bar.getClientRects().length > 0);
+    if (!window.__bar.stop) { requestAnimationFrame(step); }
+  };
+  requestAnimationFrame(step);
+}).observe(document, {childList: true, subtree: true});
+"""
+# The pages whose bar appears only once something changed.
+_REVEALING = [page for page in PAGES if page[0] in (
+    "departures", "arrivals", "special-look-new", "calendar-connect", "fleet")]
+
+
+@pytest.mark.parametrize("name,route,ready,edit", _REVEALING, ids=[p[0] for p in _REVEALING])
+def test_the_save_bar_is_out_of_the_page_until_something_changes(
+        new_context, server, name, route, ready, edit):
+    """With scripts on, the bar has no box from the moment it is parsed to the end of the page
+    opening (it never flashes at the bottom of the screen); the first change brings it in."""
+    context = new_context(viewport=PHONE)
+    Hosts(context)
+    context.add_cookies([{
+        "name": auth.UI_LANG_COOKIE_NAME, "value": "en", "url": server.base_url()}])
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        context.add_init_script(_WATCH_BAR)
+        page.goto(server.base_url() + (route(server) if callable(route) else route))
+        page.locator(ready).first.wait_for(state="attached", timeout=15000)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        page.wait_for_function("() => window.__bar.frames.length > 5", timeout=10000)
+        seen = page.evaluate("() => { window.__bar.stop = true; return window.__bar; }")
+        assert seen["parsed"] is False, name
+        assert not any(seen["frames"]), (name, seen["frames"])
+        assert page.locator(BAR).is_hidden()
+        edit(page)
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+    finally:
+        context.close()
+
+
+def test_without_scripts_the_save_bar_is_in_the_page(new_context, server):
+    """A visitor without scripts has no other way to save: the bar is shown as rendered."""
+    context = new_context(viewport=PHONE, java_script_enabled=False)
+    try:
+        page = context.new_page()
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.DISPLAY_ROUTE)
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+        box = page.locator(BAR + " .dirty-bar__save").bounding_box()
+        assert box and box["height"] >= 44
+    finally:
+        context.close()
+
+
+_LAYOUT_STATE = """() => {
+  const checked = document.querySelector('input[name=layout]:checked');
+  const stored = [...document.querySelectorAll('input[name=layout]')].find(r => r.defaultChecked);
+  const name = document.querySelector('[data-layout-name]');
+  return {checked: checked.value, stored: stored.value,
+          summary: name ? name.textContent.trim() : null,
+          checkedName: checked.parentNode.querySelector('.look-pick__name').textContent.trim()};
+}"""
+
+
+@pytest.mark.parametrize("viewport", [PHONE, DESKTOP], ids=["390", "1280"])
+def test_back_to_a_page_holding_an_unsaved_choice_shows_it_with_its_save_bar(
+        new_context, server, viewport):
+    """Leaving with an unsaved layout and coming Back, the browser puts the picked radio back
+    without telling any script: the bar and the phone summary must still agree with what the
+    form holds, and Cancel must return to the stored layout."""
+    context = new_context(viewport=viewport)
+    Hosts(context)
+    try:
+        page = context.new_page()
+        page.on("dialog", lambda dialog: dialog.accept())
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.DISPLAY_ROUTE)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        toggle = page.locator("[data-layout-toggle]:visible")
+        if toggle.count():
+            toggle.first.click()
+        page.locator("label:has(input[name=layout]:not(:checked)):visible").first.click()
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+        picked = page.evaluate(_LAYOUT_STATE)
+        assert picked["checked"] != picked["stored"]
+        page.goto(server.base_url() + "/flights")
+        page.wait_for_function(_SETTLED, timeout=20000)
+        page.go_back()
+        page.wait_for_url("**" + layout.DISPLAY_ROUTE)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        page.wait_for_function(
+            "() => { const c = document.querySelector('input[name=layout]:checked');"
+            " return !c.defaultChecked === !document.querySelector('.dirty-bar').hidden; }",
+            timeout=5000)
+        back = page.evaluate(_LAYOUT_STATE)
+        assert back["checked"] == picked["checked"], "the browser did not restore the choice"
+        page.locator(BAR).wait_for(state="visible", timeout=5000)
+        if back["summary"] is not None:
+            assert back["summary"] == back["checkedName"], back
+        page.locator(BAR + " .dirty-bar__cancel").click()
+        page.wait_for_function(
+            "() => document.querySelector('input[name=layout]:checked').defaultChecked"
+            " && document.querySelector('.dirty-bar').hidden", timeout=5000)
+        # The summary follows on the tick after the reset.
+        page.wait_for_function(
+            "() => { const s = (" + _LAYOUT_STATE + ")(); return s.summary === null"
+            " || s.summary === s.checkedName; }", timeout=5000)
+    finally:
+        context.close()
+
+
+
+def test_save_after_the_session_ended_goes_to_sign_in_and_names_the_page_to_return_to(
+        new_context, server):
+    """With the session gone (signed out in another tab), Save on Style is refused: the person
+    lands on the sign-in page, whose address carries the Style page as the way back and the mark
+    that makes sign-in say unsaved changes were not kept."""
+    context = new_context(viewport={"width": 390, "height": 844})
+    Hosts(context)
+    try:
+        page = context.new_page()
+        page.on("dialog", lambda dialog: dialog.accept())
+        _login(page, server.base_url())
+        page.goto(server.base_url() + layout.DISPLAY_ROUTE)
+        page.wait_for_function(_SETTLED, timeout=20000)
+        style_page = urlsplit(page.url).path
+        toggle = page.locator("[data-layout-toggle]:visible")
+        if toggle.count():
+            toggle.first.click()
+        page.locator("label:has(input[name=layout]:not(:checked)):visible").first.click()
+        page.locator(BAR).wait_for(state="visible", timeout=10000)
+        context.clear_cookies(name=auth.SESSION_COOKIE_NAME)
+        page.locator(BAR + " .dirty-bar__save").click()
+        page.wait_for_url("**/login?*", timeout=10000)
+        assert urlsplit(page.url).query == "next=%s&expired=1" % quote(style_page, safe="")
+    finally:
+        context.close()

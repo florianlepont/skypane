@@ -233,6 +233,24 @@ def poll_lock_for(state_dir):
 
 # --- capability and status ---------------------------------------------------
 
+FRAME_SHAPE_ATTR = "data-frame-shape"
+FRAME_SHAPE_LANDSCAPE = "landscape"
+
+
+def frame_shape_attr(profile):
+    """The attribute text (leading space included) a frame picture's markup
+    carries so its container takes the frame's shape: `data-frame-shape` for a
+    profile wider than tall, nothing for a portrait one."""
+    if profile.width > profile.height:
+        return ' %s="%s"' % (FRAME_SHAPE_ATTR, FRAME_SHAPE_LANDSCAPE)
+    return ""
+
+
+def current_frame_shape_attr():
+    """`frame_shape_attr()` for the frame this request is about (the legacy
+    portrait frame when none is in scope)."""
+    return frame_shape_attr(profile_for(current_device()))
+
 def profile_for(device):
     """The hardware profile of `device`. Never raises: an unknown or
     gated-off hardware type, None or a malformed value reads as the

@@ -20,6 +20,7 @@ from companion.illustration_normalize import (
     ILLUSTRATION_TARGET_WIDTH,
 )
 import companion.device_scope as device_scope
+import companion.illustration_normalize as illustration_normalize
 import companion.i18n as i18n
 from companion.layout import csrf_field, escape_html
 import companion.layout as layout
@@ -196,6 +197,11 @@ FLASH_ILLUSTRATION_REPLACED = "illustration_replaced"
 # landscape, no transparency, or over the size cap) — an expected
 # validation outcome, not a server failure.
 FLASH_ILLUSTRATION_REJECTED = "illustration_rejected"
+# The same refusal when the rule that failed is known.
+FLASH_ILLUSTRATION_NOT_PNG = "illustration_not_png"
+FLASH_ILLUSTRATION_TOO_LARGE = "illustration_too_large"
+FLASH_ILLUSTRATION_TOO_SMALL = "illustration_too_small"
+FLASH_ILLUSTRATION_NOT_TRANSPARENT = "illustration_not_transparent"
 # Unlike REJECTED: something unexpected happened server-side while
 # storing an otherwise-acceptable upload.
 FLASH_ILLUSTRATION_REPLACE_FAILED = "illustration_replace_failed"
@@ -336,25 +342,9 @@ REPLACE_HINT_TEXT = i18n.msg(
     "Transparent PNG, at least 1200px wide, landscape.")
 
 def _illustration_cache_buster(key, state_dir):
-    """Return a `"?v={mtime}"` query suffix for `key`'s override file, or
-    `""` when there's no `state_dir` or no override yet.
-
-    The illustration route serves `Cache-Control: private, max-age=300`;
-    keying the suffix on the override file's mtime means the URL changes
-    exactly when the bytes change, so a browser cache doesn't show a
-    stale image for up to five minutes after a replace. Degrades to no
-    cache buster on a vanished or unreadable file rather than raising.
-    """
-    if not state_dir:
-        return ""
-    override_path = illustrations.override_path_for_key(key, state_dir)
-    if not override_path:
-        return ""
-    try:
-        mtime = int(os.stat(override_path).st_mtime)
-    except OSError:
-        return ""
-    return "?v=%d" % mtime
+    """The `"?v={mtime}"` suffix that changes an illustration's URL when its
+    override file is replaced (`illustration_normalize.cache_buster`)."""
+    return illustration_normalize.cache_buster(key, state_dir)
 
 
 def _max_upload_bytes():
@@ -422,18 +412,20 @@ def _lightbox_replace_form_html():
     icon_html = layout.icon_html("icon-upload", extra_class=REPLACE_ICON_CLASS)
     return (
         '<form class="%s" id="%s" method="post" enctype="multipart/form-data" action="">'
+        "%s"
         '<div class="%s">'
         "%s"
         '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
         '<input type="file" id="%s" name="image" accept="image/png" required>'
-        '<button type="submit">%s</button>'
+        "%s"
         "%s"
         "</div>"
         "</form>"
     ) % (
         LIGHTBOX_REPLACE_FORM_CLASS,
         REPLACE_FORM_ID,
+        csrf_field(),
         LIGHTBOX_REPLACE_ZONE_CLASS,
         icon_html,
         REPLACE_INPUT_ID,
@@ -441,7 +433,7 @@ def _lightbox_replace_form_html():
         REPLACE_HINT_CLASS,
         i18n.t(REPLACE_HINT_TEXT),
         REPLACE_INPUT_ID,
-        i18n.t(REPLACE_BUTTON_TEXT),
+        ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(REPLACE_INPUT_ID),
     )
 
@@ -1014,8 +1006,9 @@ def _resolve_upload_form_html(action, id_suffix):
         '<label for="%s">%s</label>'
         '<p class="%s">%s</p>'
         '<form id="%s" method="post" enctype="multipart/form-data" action="%s">'
+        "%s"
         '<input type="file" id="%s" name="image" accept="image/png" required>'
-        '<button type="submit">%s</button>'
+        "%s"
         "%s"
         "</form>"
         "</div>"
@@ -1026,8 +1019,9 @@ def _resolve_upload_form_html(action, id_suffix):
         REPLACE_HINT_CLASS, i18n.t(REPLACE_HINT_TEXT),
         MANUAL_UPLOAD_FORM_ID + id_suffix,
         action,
+        csrf_field(),
         upload_input_id,
-        i18n.t(REPLACE_BUTTON_TEXT),
+        ui_components.button_html(i18n.t(REPLACE_BUTTON_TEXT), "secondary", button_type="submit"),
         _upload_drop_html(upload_input_id),
     )
 
@@ -1044,11 +1038,11 @@ def _manual_delete_form_html(action):
     return (
         '<form class="%s" method="post" action="%s">%s'
         '<p class="text-label section-caption">%s</p>'
-        '<button type="submit">%s</button>'
+        "%s"
         "</form>"
     ) % (
         LIGHTBOX_DELETE_CLASS, action, csrf_field(), i18n.t(MANUAL_DELETE_CAPTION),
-        i18n.t(DELETE_BUTTON_TEXT))
+        ui_components.button_html(i18n.t(DELETE_BUTTON_TEXT), "danger", button_type="submit"))
 
 
 def _resolve_section_html(ctx):
@@ -1150,7 +1144,7 @@ def _illustration_url(key, method="GET"):
     device's page."""
     url = device_scope.scoped(
         "%s%s.png" % (ILLUSTRATION_ROUTE_PREFIX, escape_html(key)), method)
-    return ui_components.csrf_query(url) if method == "POST" else url
+    return url
 
 
 def _manual_resolution_rows(state_dir, registry):

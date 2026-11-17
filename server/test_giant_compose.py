@@ -131,3 +131,7 @@ def test_render_time_is_far_below_the_poll_period():
     for layout in LAYOUTS:
         _render(layout, "red_light")
     assert time.monotonic() - start < RENDER_BUDGET_S
+
+def test_overhead_uses_the_destination_city():
+    lines, _ = compose.lettering_split(ROUTE, "overhead")
+    assert "".join(lines.lines) == "MARSEILLE"

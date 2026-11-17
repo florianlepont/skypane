@@ -159,3 +159,39 @@ fp_http_class_t fp_http_status_classify(int status)
     }
     return FP_HTTP_CLASS_OTHER;
 }
+
+bool fp_body_len_plausible(size_t got, size_t legacy_len, size_t max_header)
+{
+    if (got == legacy_len) {
+        return true;
+    }
+    return got >= legacy_len + FP_CONTAINER_MIN_HEADER &&
+           got < legacy_len + max_header;
+}
+
+bool fp_hw_type_valid(const char *s)
+{
+    if (s == NULL) {
+        return false;
+    }
+    size_t n = 0;
+    for (; s[n] != '\0'; n++) {
+        char c = s[n];
+        bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '-';
+        if (!ok || n >= 64) {
+            return false;
+        }
+    }
+    return n >= 1;
+}
+
+bool fp_imgfmt_announce(bool imgfmt_bad)
+{
+    return !imgfmt_bad;
+}
+
+bool fp_imgfmt_latch_bad(bool announced, bool transport_complete, size_t got,
+                         size_t legacy_len)
+{
+    return announced && transport_complete && got > 0 && got != legacy_len;
+}

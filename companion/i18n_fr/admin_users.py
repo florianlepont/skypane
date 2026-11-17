@@ -23,6 +23,17 @@ MESSAGES = {
     "admin_users.save_role": "Enregistrer le rôle",
     "admin_users.unlink_identity": "Réinitialiser la connexion",
     "admin_users.delete_user": "Supprimer l’utilisateur",
+    "admin_users.promote_title": "Nommer cette personne administrateur\u00a0?",
+    "admin_users.promote_what":
+        "%s pourra gérer tous les cadres, tous les utilisateurs et tous les réglages.",
+    "admin_users.promote_submit": "Nommer administrateur",
+    "admin_users.promote_keep": "Laisser utilisateur",
+    "admin_users.demote_title": "Retirer les droits d’administrateur\u00a0?",
+    "admin_users.demote_what":
+        "%s perdra la console d’administration et ne verra plus que les cadres "
+        "qu’il possède ou co-gère.",
+    "admin_users.demote_submit": "Retirer les droits",
+    "admin_users.demote_keep": "Laisser administrateur",
     "admin_users.delete_user_title": "Supprimer cet utilisateur\u00a0?",
     "admin_users.delete_user_keep": "Garder cet utilisateur",
     "admin_users.delete_user_what":

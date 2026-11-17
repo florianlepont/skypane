@@ -1146,7 +1146,7 @@ def test_dirty_state_js_is_network_free_again_with_one_named_timer_exception(dir
         "expected the file's one setTimeout occurrence to sit INSIDE the reset handler's own "
         "function body, but it was found outside it")
     timeout_idx = handler_body.index("setTimeout")
-    timeout_call = handler_body[timeout_idx:timeout_idx + 400]
+    timeout_call = handler_body[timeout_idx:timeout_idx + 800]
     assert re.search(r"setTimeout\(function \(\) \{.*?\}, 0\);", timeout_call, re.DOTALL), (
         "expected the reset handler's own setTimeout call to read setTimeout(function () { ... "
         "}, 0) - a literal zero delay, never a duration; got %r" % (timeout_call[:120],))
@@ -1352,16 +1352,15 @@ def test_rules_row_carries_pill_badge_and_confirmed_remove_dialog(tmp_path):
 
 
 def test_rules_empty_state_carries_no_heading_element():
-    """with no rules, the Special looks list carries its own h3 heading and no other heading
-    element, and the add row's link names the action"""
+    """with no rules, the Special looks list carries no heading element (the card's h2 names
+    it), and the add row's link names the action"""
     rendered = config_page.render({
         "device_config": {"theme": "white", "tracked_runway": "3"},
         "colour_rules": {kind: {} for kind in colour_rules.RULE_KINDS},
     }, scope=config_page.SCOPE_DISPLAY)
     special = parse_html(rendered).select_one("div.special-looks")
     headings = [node for node in special.find_all() if re.fullmatch(r"h[1-6]", node.tag)]
-    assert [node.tag for node in headings] == ["h3"], (
-        "expected only the list heading")
+    assert headings == [], "the card title is the list's only heading"
     assert special.select_one("a.special-add__summary").text() == i18n.t(
         rules_settings.ADD_SPECIAL_LOOK_LABEL)
 

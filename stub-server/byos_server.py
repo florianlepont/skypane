@@ -33,7 +33,9 @@ every enrolment rather than falling back to open. Issued tokens live
 in byos_state.json inside --state-dir, so restarts don't strand frames.
 
 GET /device/v1/display's sleep_s is the companion app's saved
-wake_interval_s (or --sleep), composed with three overrides in order: a
+wake_interval_s (or --sleep; while the opt-in check-interval experiment of
+server/check_interval.py is active, its check_interval_s instead), composed
+with three overrides in order: a
 fixed off-state cadence while display_enabled is false, a fixed parked
 cadence while server/poll_cycle.py's battery-empty hold is active
 (unless this poll's own X-Battery-Mv already reports recovery), and an
@@ -82,7 +84,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from server import (
-    device_dirs, device_policy, firmware_registry, fleet_db, fleet_ops, hardware,
+    check_interval, device_dirs, device_policy, firmware_registry, fleet_db, fleet_ops, hardware,
     history_db, image_container, pairing_code, pairing_image, state_store,
 )
 from server.panel_format import HEIGHT, WIDTH
@@ -561,6 +563,29 @@ def read_wake_interval_s(state_dir, default):
     return default
 
 
+def base_sleep_s(state_dir, default, battery_mv, now=None):
+    """The sleep_s before the display-off, battery-critical and quiet-hours
+    overrides: the check-interval experiment's check_interval_s while it is
+    active, else the saved wake_interval_s (falling back to `default`)
+    exactly as read_wake_interval_s() gives it. `battery_mv` is this poll's
+    reading; when absent the last saved one is used, and an unknown reading
+    leaves the experiment off. Never raises.
+    """
+    if now is None:
+        now = time.time()
+    try:
+        mv = battery_mv
+        if mv is None:
+            mv = state_store.load_battery_state(state_dir)
+        active = check_interval.active_check_interval_s(
+            state_dir, read_wake_interval_s(state_dir, None), mv, now)
+    except Exception:
+        active = None
+    if active is not None:
+        return active
+    return read_wake_interval_s(state_dir, default)
+
+
 # --- Quiet-hours sleep_s extension --------------------------------------
 #
 # The shared arithmetic core: seconds remaining until the daily
@@ -901,6 +926,7 @@ def _resolve_device_id(state, presented_token):
 # Returned by _fleet_device_type() when identity must come from the
 # legacy files (fleet.db absent, unmigrated or faulted).
 _FLEET_UNAVAILABLE = object()
+_UNSET = object()
 _unresolved_logged = set()
 _unresolved_logged_lock = threading.Lock()
 
@@ -931,6 +957,34 @@ def _fleet_device_type(state_dir, mac):
         conn.close()
     stored = row["hardware_type"] if row is not None else None
     return stored if isinstance(stored, str) else None
+
+
+# A hardware type claim a frame sends in X-Hw-Type: lower-case key shape only.
+_HW_TYPE_CLAIM_RE = re.compile(r"\A[a-z0-9-]{1,64}\Z")
+_claim_mismatch_logged = set()
+_claim_mismatch_lock = threading.Lock()
+
+
+def claim_contradicts(raw_claim, resolved_type):
+    """True when a well-formed claim differs from the server-assigned type.
+
+    The claim can only withdraw the firmware offer and the container; it
+    never selects a type. Absent, malformed or unresolvable cases are False.
+    """
+    if not isinstance(raw_claim, str) or resolved_type is None:
+        return False
+    if _HW_TYPE_CLAIM_RE.match(raw_claim) is None:
+        return False
+    return raw_claim != resolved_type
+
+
+def _log_claim_mismatch_once(mac, claim):
+    """One line per (mac, claim); the claim is regex-validated by the caller."""
+    with _claim_mismatch_lock:
+        first = (mac, claim) not in _claim_mismatch_logged
+        _claim_mismatch_logged.add((mac, claim))
+    if first:
+        print("ota: %s claim mismatch (%s); no firmware offer" % (mac, claim))
 
 
 def _log_unresolved_type_once(mac, stored):
@@ -1210,7 +1264,8 @@ def _write_device_report(state_dir, doc):
 
 
 def _record_device_report_and_offer(
-        state_dir, state, headers, image_url_scheme, host, device_state_dir=None):
+        state_dir, state, headers, image_url_scheme, host, device_state_dir=None,
+        hardware_type=_UNSET, withhold_offer=False):
     """The single call GET /device/v1/display makes for the whole OTA
     offer contract: parse this request's X-Fw-Version/X-Ota-Result,
     resolve which device sent it, update firmware/device_report.json
@@ -1223,7 +1278,9 @@ def _record_device_report_and_offer(
     this function makes are already tolerant and never raise. The OTA
     registry and device report always live under `state_dir`;
     `device_state_dir` (default `state_dir`) only supplies the device's
-    own battery-low flag.
+    own battery-low flag. `hardware_type` (default: resolved here) lets the
+    display path resolve it once; `withhold_offer` skips the offer while
+    still recording the report.
     """
     fw_version = parse_fw_version_header(headers.get("X-Fw-Version"))
     ota_result = parse_ota_result_header(headers.get("X-Ota-Result"))
@@ -1235,7 +1292,8 @@ def _record_device_report_and_offer(
         return None
     # Resolved once per poll, before any lock is taken: the SQLite read
     # must not run while registry_lock or the report lock is held.
-    hardware_type = resolve_hardware_type(state_dir, device_id)
+    if hardware_type is _UNSET:
+        hardware_type = resolve_hardware_type(state_dir, device_id)
     base_url = "%s://%s" % (image_url_scheme, host)
 
     # registry_lock is taken first, _device_report_lock second -- the
@@ -1300,7 +1358,8 @@ def _record_device_report_and_offer(
             })
             changed = True
 
-        offer = _offer_for_type(registry, entry, battery_low_active, base_url, hardware_type)
+        offer = None if withhold_offer else _offer_for_type(
+            registry, entry, battery_low_active, base_url, hardware_type)
         if offer is not None:
             next_seq += 1
             entry["events"].append({
@@ -1431,8 +1490,10 @@ def _pending_response(args, headers, row):
     if panel is None:
         return 503, {"detail": "device state unavailable"}
     image, sleep_s = panel
-    served = _served_image(
-        headers.get("X-Img-Fmt"), image, profile.width, profile.height)
+    announced = headers.get("X-Img-Fmt")
+    if claim_contradicts(headers.get("X-Hw-Type"), row["hardware_type"]):
+        announced = None
+    served = _served_image(announced, image, profile.width, profile.height)
     digest = hashlib.sha256(served).hexdigest()
     directory = fleet_ops.pairing_dir(args.state_dir, row["id"])
     try:
@@ -1657,8 +1718,13 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(503, {"detail": "image unreadable"})
         if len(image) != ctx.expected_bytes:
             return self.send_json(503, {"detail": "image wrong size"})
-        served = _served_image(
-            self.headers.get("X-Img-Fmt"), image, ctx.width, ctx.height)
+        resolved = resolve_hardware_type(self.args.state_dir, ctx.mac)
+        contradiction = claim_contradicts(self.headers.get("X-Hw-Type"), resolved)
+        announced = self.headers.get("X-Img-Fmt")
+        if contradiction:
+            announced = None
+            _log_claim_mismatch_once(ctx.mac, self.headers.get("X-Hw-Type"))
+        served = _served_image(announced, image, ctx.width, ctx.height)
         digest = hashlib.sha256(served).hexdigest()
         try:
             _publish_image(ctx.state_dir, digest, served)
@@ -1668,7 +1734,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             offer = _record_device_report_and_offer(
                 self.args.state_dir, self.state, self.headers,
-                self.args.image_url_scheme, host, ctx.state_dir)
+                self.args.image_url_scheme, host, ctx.state_dir,
+                hardware_type=resolved, withhold_offer=contradiction)
         except OSError:
             # A full or read-only state dir degrades to "no offer",
             # never a 500 - the panel poll above already succeeded
@@ -1684,7 +1751,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.args.image_url_scheme, host, image_path),
             "image_hash": "sha256:" + digest,
             # sleep_s composes, in order: the saved wake_interval_s
-            # (falling back to --sleep), the flat off-state cadence while
+            # (falling back to --sleep; the check-interval experiment's
+            # value while it is active), the flat off-state cadence while
             # display_enabled is false, the flat parked cadence while
             # poll_cycle's battery-empty hold is active (unless this
             # poll's own battery_mv already reports recovery), and the
@@ -1693,7 +1761,7 @@ class Handler(BaseHTTPRequestHandler):
             "sleep_s": quiet_hours_sleep_s(
                 battery_critical_sleep_s(
                     display_off_sleep_s(
-                        read_wake_interval_s(ctx.state_dir, self.args.sleep),
+                        base_sleep_s(ctx.state_dir, self.args.sleep, battery_mv),
                         ctx.state_dir),
                     ctx.state_dir, battery_mv, ctx.recover_mv),
                 ctx.state_dir),

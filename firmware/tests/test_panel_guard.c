@@ -1,5 +1,6 @@
 /* SPDX-FileCopyrightText: 2026 YODE PTE LTD
  * SPDX-License-Identifier: Apache-2.0 */
+/* HOST_TEST_PROFILES: second */
 /* Host-side unit test for the panel's refresh-spacing arithmetic.
  *
  * The panel is the part of this device that wears out, and this math is what
@@ -100,6 +101,18 @@ static void presses_cannot_walk_the_guard_down(void)
     assert(remaining == 40);        /* 60 - 5*4, not 0 */
 }
 
+#ifdef CONFIG_FP_PANEL_7IN3E
+/* The guard works on seconds, not frame bytes, so the 7.3" profile
+ * (192000-byte frame) gets the same spacing decisions as the 13.3". */
+static void second_profile_frame_size_and_guard_agree(void)
+{
+    uint32_t wait = 0;
+    assert(CONFIG_FP_PANEL_BUFFER_BYTES == 800 * 480 / 2);
+    assert(fp_panel_guard_plan(40, false, 90, &wait) == FP_PANEL_DRAW_AFTER_WAIT);
+    assert(wait == 40);
+}
+#endif
+
 int main(void)
 {
     plan_now_when_the_guard_is_clear();
@@ -109,6 +122,9 @@ int main(void)
     awake_time_counts_down_and_saturates();
     only_a_timer_wake_may_claim_the_planned_sleep();
     presses_cannot_walk_the_guard_down();
+#ifdef CONFIG_FP_PANEL_7IN3E
+    second_profile_frame_size_and_guard_agree();
+#endif
     printf("panel_guard: all cases pass\n");
     return 0;
 }

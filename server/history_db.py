@@ -6,10 +6,13 @@ permitted path to device battery telemetry.
 Leaf module: stdlib only, must never import `device_config`,
 `server.plane.detect`, `server.plane.render`, or `server.poll_loop`.
 
-Cadence rule: `runway_events` rows are written only on a real transition,
-never once per 30-second cycle - the always-changing "pipeline last ran"
+Cadence rule: `runway_events` rows are written only on a real transition (an
+aircraft drawn, or detected and dropped before it could be), never once per
+30-second cycle - the always-changing "pipeline last ran"
 signal lives in the fixed-size `meta` table instead, so keep-forever
-retention doesn't turn into unbounded per-cycle row growth.
+retention doesn't turn into unbounded per-cycle row growth. The one
+per-cycle trace, `poll_cycles`, only records cycles that saw, queued,
+dropped or drew an aircraft and is pruned to `POLL_CYCLE_RETENTION_DAYS`.
 
 Concurrency: `connection_scope(state_dir)` gives every `open_db()` call on
 the same thread inside it one lazily-opened connection, closed only once
@@ -28,7 +31,7 @@ import re
 import sqlite3
 import sys
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 # Same repo-root sys.path bootstrap as server/poll_loop.py.
@@ -57,17 +60,30 @@ META_LAST_POLL_TRIGGER = "last_poll_trigger"
 # poll_state.json's own "only write when content changes" contract.
 META_PROVIDER_LAST_CALL_PREFIX = "provider_last_call:"
 
+# `poll_cycles` keeps this many days: a few hundred rows a day, enough to
+# explain a missed flight after the weekend without growing without bound.
+POLL_CYCLE_RETENTION_DAYS = 14
+
+# Columns of one `poll_cycles` row, in storage order after `id` and `ts`.
+POLL_CYCLE_COLUMNS = (
+    "branch", "detected_hex", "detected_callsign", "detected_altitude_ft",
+    "detected_rate_fpm", "detected_on_ground", "shown_hex", "shown_callsign",
+    "confirmed_state", "render_state", "state_source", "pending",
+    "pending_hexes", "dropped", "redraw_blocked", "panel_changed",
+    "source_fault", "tracked_runway",
+)
+
 _RUNWAY_EVENT_COLUMNS = (
     "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
     "corroborated", "route_source", "airline", "origin", "destination",
-    "tracked_runway",
+    "tracked_runway", "gallery_name",
 )
 
 _RUNWAY_EVENT_INSERT_SQL = (
     "INSERT INTO runway_events "
     "(ts, hex, callsign, aircraft_type, confirmed_state, corroborated, "
-    "route_source, airline, origin, destination, tracked_runway) "
-    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    "route_source, airline, origin, destination, tracked_runway, gallery_name) "
+    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 )
 
 _DEVICE_HEALTH_OLD_COLUMNS = ("ts", "battery_mv", "fw_version", "boot_reason", "rssi")
@@ -116,7 +132,7 @@ def history_db_path(state_dir):
 
 
 def init_schema(conn):
-    """Create all four tables with IF NOT EXISTS, safe to call on every
+    """Create all five tables with IF NOT EXISTS, safe to call on every
     connection. There is no schema version stamp: a new table is free via
     IF NOT EXISTS, and an additive nullable column is added by a guarded
     ALTER TABLE (`_add_missing_wake_columns`).
@@ -136,7 +152,11 @@ def init_schema(conn):
         "airline TEXT, "
         "origin TEXT, "
         "destination TEXT, "
-        "tracked_runway TEXT"
+        "tracked_runway TEXT, "
+        # The archived render the frame showed for this flight: NULL for a row
+        # written before the column existed (unknown), "" when the cycle that
+        # recorded the flight archived no render, else the gallery file name.
+        "gallery_name TEXT"
         ")"
     )
     conn.execute("CREATE INDEX IF NOT EXISTS idx_runway_events_ts ON runway_events(ts)")
@@ -173,7 +193,33 @@ def init_schema(conn):
         "wake_interval_s INTEGER"
         ")"
     )
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS poll_cycles ("
+        "id INTEGER PRIMARY KEY, "
+        "ts TEXT NOT NULL, "
+        "branch TEXT, "
+        "detected_hex TEXT, "
+        "detected_callsign TEXT, "
+        "detected_altitude_ft REAL, "
+        "detected_rate_fpm REAL, "
+        "detected_on_ground INTEGER, "
+        "shown_hex TEXT, "
+        "shown_callsign TEXT, "
+        "confirmed_state TEXT, "
+        "render_state TEXT, "
+        "state_source TEXT, "
+        "pending INTEGER, "
+        "pending_hexes TEXT, "
+        "dropped TEXT, "
+        "redraw_blocked INTEGER, "
+        "panel_changed INTEGER, "
+        "source_fault INTEGER, "
+        "tracked_runway TEXT"
+        ")"
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_poll_cycles_ts ON poll_cycles(ts)")
     _add_missing_wake_columns(conn)
+    _add_missing_runway_event_columns(conn)
     conn.commit()
 
 
@@ -195,6 +241,19 @@ def _add_missing_wake_columns(conn):
         except sqlite3.OperationalError as exc:
             if "duplicate column name" not in str(exc):
                 raise
+
+
+def _add_missing_runway_event_columns(conn):
+    """Add `runway_events.gallery_name` to a database created before it
+    existed. Same race handling as `_add_missing_wake_columns`."""
+    present = {row[1] for row in conn.execute("PRAGMA table_info(runway_events)")}
+    if "gallery_name" in present:
+        return
+    try:
+        conn.execute("ALTER TABLE runway_events ADD COLUMN gallery_name TEXT")
+    except sqlite3.OperationalError as exc:
+        if "duplicate column name" not in str(exc):
+            raise
 
 
 class _HistoryConnection(sqlite3.Connection):
@@ -403,6 +462,36 @@ def record_runway_event(conn, **fields):
     _commit(conn)
 
 
+# A detected aircraft that never reached the display is recorded once; a
+# second record for the same hex within this window is the same pass.
+UNSHOWN_DEDUPE_WINDOW_S = 1800
+
+
+def record_unshown_event(conn, ts, **fields):
+    """Insert a `runway_events` row for an aircraft the poll cycle detected
+    but dropped from the display queue before it was drawn, stamped `ts`
+    (when it was first seen). It has no archived render (`gallery_name` is
+    "") and whatever the cycle knew: no route lookup is made for it.
+
+    Skipped, returning 0, when the same hex already has a row within
+    `UNSHOWN_DEDUPE_WINDOW_S` before `ts`, so re-detection of one pass after
+    it was dropped does not add a second row. Returns 1 when a row is added.
+    """
+    hex_code = fields.get("hex")
+    if hex_code:
+        try:
+            earliest = (datetime.fromisoformat(ts) - timedelta(seconds=UNSHOWN_DEDUPE_WINDOW_S)).isoformat(timespec="seconds")
+        except (TypeError, ValueError):
+            earliest = ts
+        if conn.execute(
+            "SELECT 1 FROM runway_events WHERE hex = ? AND ts >= ? LIMIT 1", (hex_code, earliest),
+        ).fetchone():
+            return 0
+    fields.pop("gallery_name", None)
+    record_runway_event(conn, ts=ts, gallery_name="", **fields)
+    return 1
+
+
 def record_device_health(conn, ts, battery_mv=None, fw_version=None, boot_reason=None, rssi=None,
                          wake_stats=None):
     """Insert one `device_health` row, `INSERT OR IGNORE` against
@@ -442,6 +531,39 @@ def record_wake_epoch(conn, ts, wake_interval_s):
     return 1
 
 
+def record_poll_cycle(conn, ts, values):
+    """Insert one `poll_cycles` row from `values`, a dict keyed by
+    `POLL_CYCLE_COLUMNS` (a missing key stores NULL, an unknown key is
+    ignored). Booleans are stored as 0/1. Returns 1.
+    """
+    row = [ts]
+    for column in POLL_CYCLE_COLUMNS:
+        value = values.get(column)
+        row.append(int(value) if isinstance(value, bool) else value)
+    conn.execute(
+        "INSERT INTO poll_cycles (ts, " + ", ".join(POLL_CYCLE_COLUMNS) + ") VALUES ("
+        + ", ".join("?" * (len(POLL_CYCLE_COLUMNS) + 1)) + ")",
+        row,
+    )
+    _commit(conn)
+    return 1
+
+
+def prune_poll_cycles(conn, now_iso):
+    """Delete `poll_cycles` rows older than `POLL_CYCLE_RETENTION_DAYS`
+    before `now_iso`. An unparseable `now_iso` prunes nothing. Returns the
+    number of rows deleted.
+    """
+    try:
+        now = datetime.fromisoformat(now_iso)
+    except (TypeError, ValueError):
+        return 0
+    cutoff = (now - timedelta(days=POLL_CYCLE_RETENTION_DAYS)).isoformat(timespec="seconds")
+    deleted = conn.execute("DELETE FROM poll_cycles WHERE ts < ?", (cutoff,)).rowcount
+    _commit(conn)
+    return deleted
+
+
 # --- Readers ---------------------------------------------------------------
 
 
@@ -466,10 +588,19 @@ def recent_runway_events(conn, limit=50, airline_names=None):
     events = [dict(row) for row in rows]
     if airline_names:
         for event in events:
-            match = _CALLSIGN_PREFIX_RE.match(str(event.get("callsign") or "").strip().upper())
-            if match and match.group(1) in airline_names:
-                event["airline"] = airline_names[match.group(1)]
+            name = override_airline_name(event, airline_names)
+            if name is not None:
+                event["airline"] = name
     return events
+
+
+def override_airline_name(event, airline_names):
+    """The owner's name for `event`'s callsign prefix in `airline_names`
+    (`{3-letter prefix: name}`), or None when the prefix has none."""
+    match = _CALLSIGN_PREFIX_RE.match(str(event.get("callsign") or "").strip().upper())
+    if match and match.group(1) in airline_names:
+        return airline_names[match.group(1)]
+    return None
 
 
 def route_source_counts(conn, since=None):
@@ -565,6 +696,80 @@ def export_device_health(state_dir, since, max_rows):
     if len(rows) > max_rows:
         raise TooManyRows()
     return rows
+
+
+# Tables the read-only exports may name, with the columns each exposes, in
+# output order. Fixed here so no caller-supplied text ever reaches a query.
+EXPORT_TABLES = {
+    "runway_events": (
+        "ts", "hex", "callsign", "aircraft_type", "confirmed_state",
+        "corroborated", "route_source", "airline", "origin", "destination",
+        "tracked_runway", "gallery_name",
+    ),
+    "poll_cycles": ("ts",) + POLL_CYCLE_COLUMNS,
+}
+
+# `meta` keys the status export shows: pipeline heartbeat and provider calls,
+# never an offset or anything a caller could use to read other files.
+_STATUS_META_KEYS = (
+    META_LAST_PIPELINE_RUN, META_LAST_DETECTION, META_SOURCE_FAULT,
+    META_LAST_POLL_TRIGGER,
+)
+
+
+def _open_read_only(state_dir):
+    path = os.path.abspath(history_db_path(state_dir))
+    conn = sqlite3.connect(pathlib.Path(path).as_uri() + "?mode=ro", uri=True, timeout=5.0)
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.execute("PRAGMA query_only=ON")
+    return conn
+
+
+def export_table_rows(state_dir, table, since, max_rows):
+    """The rows of `table` (a key of `EXPORT_TABLES`) with `ts >= since`,
+    oldest first, as tuples of that table's export columns. A table or
+    column the database does not have yet (a poll oneshot has not run since
+    a deploy) reads as no rows or NULL, never as an error.
+
+    Opens history.db read-only like `export_device_health()`; raises
+    `TooManyRows` rather than truncating, `sqlite3.Error` when the database
+    is missing or unreadable, and `KeyError` for a table not in
+    `EXPORT_TABLES`.
+    """
+    columns = EXPORT_TABLES[table]
+    conn = _open_read_only(state_dir)
+    try:
+        present = {row[1] for row in conn.execute("PRAGMA table_info(" + table + ")")}
+        if not present:
+            return []
+        select = ", ".join(c if c in present else "NULL" for c in columns)
+        rows = conn.execute(
+            "SELECT " + select + " FROM " + table + " WHERE ts >= ? ORDER BY ts, id LIMIT ?",
+            (_stored_since(since), max_rows + 1)).fetchall()
+    finally:
+        conn.close()
+    if len(rows) > max_rows:
+        raise TooManyRows()
+    return rows
+
+
+def export_status_meta(state_dir):
+    """`{key: {"value", "updated_at"}}` for the heartbeat keys the status
+    export shows plus every per-provider last-call key. Read-only.
+    """
+    conn = _open_read_only(state_dir)
+    try:
+        try:
+            rows = conn.execute("SELECT key, value, updated_at FROM meta").fetchall()
+        except sqlite3.OperationalError:
+            return {}
+    finally:
+        conn.close()
+    return {
+        key: {"value": value, "updated_at": updated_at}
+        for key, value, updated_at in rows
+        if key in _STATUS_META_KEYS or key.startswith(META_PROVIDER_LAST_CALL_PREFIX)
+    }
 
 
 def latest_device_health(conn):

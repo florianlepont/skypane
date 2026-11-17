@@ -25,9 +25,10 @@ import time
 
 import pytest
 
+import companion.test_companion_app_helpers as cah
 from companion import access, app, auth, legacy_pages, routes, static_files
 from companion_app_server import (
-    InProcessAppServer, auth0_env, csrf_url, http_request,
+    InProcessAppServer, auth0_env, http_request, with_csrf_part,
     login_via_auth0)
 from fake_auth0 import FakeAuth0
 from access_matrix_support import (
@@ -54,6 +55,9 @@ ADMIN_DEVICE = "admin-only-device"
 
 CO_MANAGER_EMAIL = "co-manager@example.test"
 _PUBLIC_PATHS = ("/login", "/login/auth0", "/callback")
+# Where a request without a session goes when its own address is not a page to return to: a
+# posted form is also told that unsaved changes were not kept (signing out is not).
+_LOGIN_ANSWER = {"GET": "/login", "POST": "/login?expired=1"}
 _STATIC_PATHS = tuple(static_files.STATIC_ROUTES)
 
 ROUTE_POLICY = {
@@ -64,6 +68,9 @@ ROUTE_POLICY = {
     # Self-authenticating: the handler checks its own bearer token and never
     # looks at a session cookie, so the cookie gate has nothing to add.
     ("GET", "/api/export/battery-history"): PUBLIC,
+    ("GET", "/api/export/flights"): PUBLIC,
+    ("GET", "/api/export/poll-cycles"): PUBLIC,
+    ("GET", "/api/export/status"): PUBLIC,
     ("GET", "/account"): SIGNED_IN,
     ("POST", "/ui-theme"): SIGNED_IN,
     ("POST", "/ui-lang"): SIGNED_IN,
@@ -318,16 +325,18 @@ def test_the_console_row_modules_are_merged_into_the_matrix():
             assert SAMPLE_MIDDLE[template] == middle
 
 
-def test_the_export_route_is_the_only_api_route_and_is_public_and_global():
-    export_key = ("GET", "/api/export/battery-history")
+def test_the_export_routes_are_the_only_api_routes_and_are_public_and_global():
+    export_keys = {("GET", path) for path in (
+        "/api/export/battery-history", *routes.EXPORT_EXTRA_ROUTES)}
     api_keys = {key for key in _REAL_KEYS if key[1].startswith("/api/")}
-    assert api_keys == {export_key}
-    route = next(r for r in _REAL_ROUTES if _route_key(r) == export_key)
-    assert route.access == routes.PUBLIC
-    assert not route.device_scoped
-    assert export_key not in DEVICE_SCOPED
-    assert routes.match("GET", "/devices/d_00000000" + export_key[1], "") is None
-    assert routes.match("POST", export_key[1], "") is None
+    assert api_keys == export_keys
+    for export_key in export_keys:
+        route = next(r for r in _REAL_ROUTES if _route_key(r) == export_key)
+        assert route.access == routes.PUBLIC
+        assert not route.device_scoped
+        assert export_key not in DEVICE_SCOPED
+        assert routes.match("GET", "/devices/d_00000000" + export_key[1], "") is None
+        assert routes.match("POST", export_key[1], "") is None
 
 
 def test_the_probe_family_is_not_in_the_production_table():
@@ -421,15 +430,16 @@ class MatrixRig:
         if method == "GET":
             return http_request(self.server.url(path), cookie=cookie)
         body = b""
+        content_type = None
         if cookie:
             token = cookie.split("=", 1)[1]
             body = ("%s=%s" % (routes.CSRF_FIELD, auth.csrf_token(token))).encode("ascii")
-        url = self.server.url(path)
         if cookie and "/illustration/" in path:
-            url = csrf_url(cookie, url)
+            body, content_type = with_csrf_part(
+                cookie, *cah.encode_multipart(b"not an image"))
         return http_request(
-            url, method="POST", data=body, cookie=cookie,
-            extra_headers={"Origin": self.server.base_url()})
+            self.server.url(path), method="POST", data=body, cookie=cookie,
+            content_type=content_type, extra_headers={"Origin": self.server.base_url()})
 
     def conn(self):
         return fleet_db.connect(self.state_dir)
@@ -517,7 +527,8 @@ def test_http_outcome_matches_the_policy_table(rig, stubbed, key, name):
     elif expected == "login":
         assert status == 303
         location = headers.get("Location")
-        assert location == "/login" or location.startswith("/login?next=")
+        plain = "/login" if path == "/logout" else _LOGIN_ANSWER[method]
+        assert location == plain or location.startswith("/login?next=")
         assert stubbed.calls == []
     elif _moves_to_own_frame(key, name):
         assert status == 303
@@ -623,7 +634,7 @@ def test_http_outcome_under_a_device_prefix_matches_the_base_route(
     elif expected == "login":
         assert status == 303
         location = headers.get("Location")
-        assert location == "/login" or location.startswith("/login?next=")
+        assert location == _LOGIN_ANSWER[method] or location.startswith("/login?next=")
         assert stubbed.calls == []
     elif key[1] in legacy_pages.RETIRED_ADMIN_PAGES and name in ("owner", "co-manager"):
         assert status == 303

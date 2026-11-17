@@ -30,6 +30,7 @@ ICONS: Dict[str, Tuple[Callable, int]] = {
     "updating": (glyphs.draw_updating_icon, glyphs.UPDATING_ICON_DIAMETER_PX),
     "retired": (glyphs.draw_power_icon,
                 glyphs.POWER_ICON_BAR_RISE_PX + glyphs.POWER_ICON_DIAMETER_PX),
+    "pairing": (glyphs.draw_link_icon, glyphs.LINK_ICON_LOOP_HEIGHT_PX),
 }
 
 

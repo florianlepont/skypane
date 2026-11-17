@@ -76,6 +76,13 @@ _SAMPLE_CONFIRM = i18n.msg("components.sample_confirm_title", "Delete this frame
 _SAMPLE_CONFIRM_BODY = i18n.msg(
     "components.sample_confirm_body", "This cannot be undone.")
 _OPEN_DIALOG = i18n.msg("components.open_dialog", "Open the dialog")
+_SAMPLE_CHOICE_TITLE = i18n.msg("components.sample_choice_title", "Unsaved changes")
+_SAMPLE_CHOICE_TEXT = i18n.msg(
+    "components.sample_choice_text", "You have changes that are not saved. What do you want to do?")
+_CHOICE_PRIMARY = i18n.msg("components.sample_choice_primary", "Save and continue")
+_CHOICE_SECONDARY = i18n.msg("components.sample_choice_secondary", "Discard")
+_CHOICE_QUIET = i18n.msg("components.sample_choice_quiet", "Stay here")
+_OPEN_CHOICE = i18n.msg("components.open_choice", "Open the three-way question")
 _OPEN_CONFIRM = i18n.msg("components.open_confirm", "Open the confirmation")
 _CLOSE = i18n.msg("components.close", "Close")
 _SORT = i18n.msg("components.sample_sort", "Sort")
@@ -158,14 +165,22 @@ _M_STATE_SECTION_INTRO = i18n.msg("components.state_section_intro", "Section int
 _M_STATE_TILES = i18n.msg("components.state_tiles", "Tiles by status")
 _M_STATE_STATUS_ROWS = i18n.msg("components.state_status_rows", "Status rows")
 _M_STATE_HERO = i18n.msg("components.state_hero", "Hero")
+_M_STATE_LINK_CARD = i18n.msg("components.state_link_card", "Link card")
+_M_STATE_LINK_CARD_PLAIN = i18n.msg("components.state_link_card_plain", "Link card, title only")
+_SAMPLE_LINK_CARD_SUB = i18n.msg("components.sample_link_card_subtitle", "Fleet, users, audit")
 _M_STATE_TABLE = i18n.msg("components.state_table", "Table")
 _M_STATE_TABLE_LONG = i18n.msg("components.state_table_long", "Table, long text")
 _M_STATE_TABLE_EMPTY = i18n.msg("components.state_table_empty", "Table, empty")
 _M_STATE_PILL = i18n.msg("components.state_pill", "Pill")
+_M_STATE_PILL_TONES = i18n.msg("components.state_pill_tones", "Pill, status tones")
+_SAMPLE_PILL_INFO = i18n.msg("components.sample_pill_info", "Update available")
+_SAMPLE_PILL_WARN = i18n.msg("components.sample_pill_warn", "Install failed")
 _M_STATE_DOTS = i18n.msg("components.state_dots", "Status dots")
 _M_STATE_CHARGING = i18n.msg("components.state_charging", "Charging pill")
 _M_STATE_TOASTS = i18n.msg("components.state_toasts", "Toasts by tone")
 _M_STATE_TOAST_ACTIONS = i18n.msg("components.state_toast_actions", "Toasts with an action")
+_M_STATE_TOAST_OFFLINE = i18n.msg(
+    "components.state_toast_offline", "List not updated (no connection)")
 _M_STATE_BANNER_ERROR = i18n.msg("components.state_banner_error", "Banner, error")
 _M_STATE_BANNER_WARN = i18n.msg("components.state_banner_warn", "Banner, warning")
 _M_STATE_EMPTY_COMPACT = i18n.msg("components.state_empty_compact", "Compact, inside a card")
@@ -451,6 +466,15 @@ def _cards():
         State(_M_STATE_STATUS_ROWS, status_rows),
         State(_M_STATE_HERO,
               ui_groups.hero(_esc(_t(_HERO_LINE)))),
+        State(_M_STATE_LINK_CARD,
+              ui_components.link_card_html(
+                  COMPONENTS_ROUTE, "icon-shield", _t(_SAMPLE_CARD),
+                  _t(_SAMPLE_LINK_CARD_SUB))
+              + ui_components.link_card_html(
+                  COMPONENTS_ROUTE, "icon-shield", _t(_LONG_LABEL),
+                  _t(_SAMPLE_LONG_VALUE))),
+        State(_M_STATE_LINK_CARD_PLAIN,
+              ui_components.link_card_html(COMPONENTS_ROUTE, "icon-device", _t(_SAMPLE_CARD))),
     ]
 
 
@@ -534,6 +558,11 @@ def _badges():
     return [
         State(_M_STATE_PILL,
               ui_components.pill_html(_t(_SAMPLE_PILL))),
+        State(_M_STATE_PILL_TONES, "".join(
+            ui_components.pill_html(_t(label), tone=tone)
+            for tone, label in (
+                ("ok", _SAMPLE_PILL), ("info", _SAMPLE_PILL_INFO),
+                ("warn", _SAMPLE_PILL_WARN)))),
         State(_M_STATE_DOTS, dots),
         State(_M_STATE_CHARGING,
               ui_components.battery_charging_pill_html()),
@@ -554,9 +583,16 @@ def _messages():
         _t(_SAMPLE_TOAST_TITLE), _t(_SAMPLE_TOAST_DETAIL), role="", docked=True,
         action_html=ui_components.toast_post_action_html(
             COMPONENTS_ROUTE, (("components", "1"),), _t(_SAMPLE_ACTION)))
+    # What a server-answered list shows when its request gets no answer: the
+    # toast its hidden template holds, shown docked here.
+    offline_title, offline_detail = ui_components.split_toast_message(
+        _t(ui_filter.LIST_OFFLINE_TEXT))
+    offline = toast(
+        offline_title, offline_detail, tone=ui_components.TOAST_TONE_ERROR, role="", docked=True)
     return [
         State(_M_STATE_TOASTS, tones),
         State(_M_STATE_TOAST_ACTIONS, link_action + post_action),
+        State(_M_STATE_TOAST_OFFLINE, offline + ui_filter.list_offline_template_html()),
         State(_M_STATE_BANNER_ERROR,
               ui_components.anomaly_banner(_t(_BANNER))),
         State(_M_STATE_BANNER_WARN,
@@ -597,13 +633,19 @@ def _dialogs():
     sections = ui_modal.sections_dialog_html(
         "components-sections", _t(_SAMPLE_DIALOG), "", "<p class=\"text-body\">%s</p>" % _esc(
             _t(_SAMPLE_CONFIRM_BODY)), _t(_CLOSE), COMPONENTS_ROUTE)
+    choice = ui_modal.choice_dialog_html(
+        "components-choice", _t(_SAMPLE_CHOICE_TITLE), _t(_SAMPLE_CHOICE_TEXT),
+        _t(_CHOICE_PRIMARY), _t(_CHOICE_SECONDARY), _t(_CHOICE_QUIET), "components-choice")
     triggers = (
         ui_modal.trigger_html(
             "components-dialog", _esc(_t(_OPEN_DIALOG)), "btn btn--secondary")
         + ui_modal.trigger_html(
             "components-confirm", _esc(_t(_OPEN_CONFIRM)), "btn btn--danger")
         + ui_modal.trigger_html(
+            "components-choice", _esc(_t(_OPEN_CHOICE)), "btn btn--secondary")
+        + ui_modal.trigger_html(
             "components-sections", _esc(_t(_SAMPLE_DIALOG)), "btn btn--ghost"))
+    leave = ui_save_bar.leave_dialog_html()
     bar = ui_save_bar.save_bar_html(
         "components-bar-form", cancel_href=COMPONENTS_ROUTE, title=_t(_UNSAVED))
     inline_bar = ui_save_bar.save_bar_html(
@@ -622,8 +664,8 @@ def _dialogs():
     return [
         State(_M_STATE_SAVE_BAR_REVEALED, revealed),
         State(_M_STATE_DIALOGS,
-              '<div class="components-triggers">%s</div>%s%s%s' % (
-                  triggers, dialog, confirm, sections)),
+              '<div class="components-triggers">%s</div>%s%s%s%s%s' % (
+                  triggers, dialog, confirm, choice, sections, leave)),
         State(_M_STATE_SAVE_BAR,
               '<div class="components-save-bar">%s</div>' % bar),
         State(_M_STATE_SAVE_BAR_INLINE,
@@ -679,7 +721,8 @@ CATALOGUE = (
            _M_FAMILY_CARDS_DESC,
            ("ui_groups.group", "ui_groups.group_panel", "ui_groups.row", "ui_groups.section_label",
             "ui_groups.chip_html", "ui_groups.hero", "ui_components.section_intro_html",
-            "ui_components.stat_tile", "ui_components.status_row"), _cards),
+            "ui_components.stat_tile", "ui_components.status_row",
+            "ui_components.link_card_html"), _cards),
     Family("lists", _M_FAMILY_LISTS,
            _M_FAMILY_LISTS_DESC,
            ("ui_entity_list.entity_list_html", "ui_entity_list.count_line_html",
@@ -691,14 +734,16 @@ CATALOGUE = (
     Family("messages", _M_FAMILY_MESSAGES,
            _M_FAMILY_MESSAGES_DESC,
            ("ui_components.toast_html", "ui_components.toast_link_action_html",
-            "ui_components.toast_post_action_html", "ui_components.anomaly_banner"), _messages),
+            "ui_components.toast_post_action_html", "ui_filter.list_offline_template_html",
+            "ui_components.anomaly_banner"), _messages),
     Family("empty", _M_FAMILY_EMPTY,
            _M_FAMILY_EMPTY_DESC,
            ("ui_components.empty_state", "ui_filter.filter_empty_html"), _empty_states),
     Family("dialogs", _M_FAMILY_DIALOGS,
            _M_FAMILY_DIALOGS_DESC,
-           ("ui_modal.dialog_html", "ui_modal.sections_dialog_html", "ui_modal.trigger_html",
-            "ui_save_bar.save_bar_html"), _dialogs),
+           ("ui_modal.dialog_html", "ui_modal.choice_dialog_html", "ui_modal.sections_dialog_html",
+            "ui_modal.trigger_html", "ui_save_bar.save_bar_html",
+            "ui_save_bar.leave_dialog_html"), _dialogs),
     Family("motion", _M_FAMILY_MOTION, _M_FAMILY_MOTION_DESC, (), _motion),
     Family("names", _M_FAMILY_NAMES, _M_FAMILY_NAMES_DESC, (), _names),
 )
@@ -709,7 +754,6 @@ CATALOGUE = (
 EXEMPT = {
     "ui_components.card_status_class": "returns a CSS class name for a status, no markup",
     "ui_components.csrf_field": "a hidden form field, used inside the dialogs above",
-    "ui_components.csrf_query": "the same anti-forgery token carried in an upload form action URL; no markup of its own",
     "ui_components.flash_banner": "floats over the page by design; its toast is shown docked",
     "ui_components.frame_strip_html": "needs a live frame context; built from the switches above",
     "ui_components.split_toast_message": "a text splitter for toast copy",

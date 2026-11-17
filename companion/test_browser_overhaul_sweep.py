@@ -97,10 +97,13 @@ _STRUCTURE = """
   if (args.phone) {
     if (bars.length !== 1) bad.push('tab bars: ' + bars.length);
     const cells = q('.tab-bar > a, .tab-bar > details').map((e) => e.getBoundingClientRect());
-    // The leading space switch cell has its own fixed width; the destination cells are equal.
-    const widths = q('.tab-bar > a:not(.tab-bar__link--switch), .tab-bar > details')
-      .map((e) => e.getBoundingClientRect().width);
-    if (widths.length && Math.max(...widths) - Math.min(...widths) > 1) bad.push('unequal cells ' + widths);
+    // Each cell follows its label and the cells together fill the bar.
+    const widths = cells.map((c) => c.width);
+    const bar = bars[0] ? bars[0].getBoundingClientRect() : null;
+    if (bar && widths.length > 1) {
+      const filled = widths.reduce((a, b) => a + b, 0);
+      if (Math.abs(filled - (bar.width - 6)) > 2) bad.push('cells do not fill the bar ' + widths);
+    }
     if (cells.some((c) => c.width < 44 || c.height < 44)) bad.push('bar cell under 44px');
     q('.tab-bar__label').forEach((l) => {
       if (l.scrollWidth > l.clientWidth) bad.push('clipped bar label ' + l.textContent); });
@@ -139,7 +142,7 @@ PERSONAL_ADMIN_PATHS = PERSONAL_PAGES + (
 # notice set aside: the two things an administrator's personal page may add.
 _PERSONAL_BODY = """
 () => {
-  const hidden = [...document.querySelectorAll('.space-switch, .tab-bar__link--switch, .frame-notice')];
+  const hidden = [...document.querySelectorAll('.space-switch, .tab-bar__space-link, .frame-notice')];
   const was = hidden.map((e) => e.style.display);
   hidden.forEach((e) => { e.style.display = 'none'; });
   const text = document.body.innerText;
@@ -346,7 +349,7 @@ def test_the_fleet_page_is_not_called_cadres_in_french(new_context, server, lang
 _SHARED = re.compile(
     r"^(SkyPane|Orly|Kitchen|Attic|Orly frame|Console|Audit|Distance|Station|Local|Total|"
     r"Version|Versions|Image|Plus|Type|Description|Original|Information|Document|Action|"
-    r"Actions|Style|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
+    r"Actions|Style|Airlines|Contact|Standard|Message|Notes?|Auto|Latitude|Longitude|XIAO ePaper|"
     r"Air France|easyJet|Transavia|Ryanair|Confirmed|Rare|test)\b|^[A-Z0-9]{4} · |^(Paris-Orly Airport|Watching Runway)")
 
 
@@ -637,17 +640,19 @@ def test_the_home_notification_has_a_french_translation(
 
 # What a person can find on a page, set apart from the data of the frame: headings, the
 # navigation entries (outside the space switch), and the names of the controls. The frame
-# strip names frames, which differ with the person, and are left out.
+# strip names frames, which differ with the person, and are left out, as is the bar's last
+# cell: More with its sheet for an administrator, Account for a user.
 _PAGE_SHAPE = """
 () => {
-  const skip = '.tab-bar__link--switch, .space-switch, .frame-notice,'
-    + ' .frame-menu, script, style, template';
+  const skip = '.tab-bar__space-link, .space-switch, .frame-notice,'
+    + ' .tab-bar > details, .tab-bar > a:last-child, .frame-menu, script, style, template';
   const keep = (e) => !e.closest(skip);
   const q = (s) => [...document.querySelectorAll(s)].filter(keep);
   return {
     headings: q('main h1, main h2, main h3').map((e) => e.textContent.trim().replace(/\\s+/g, ' ')),
     nav: q('.tab-bar a, .tab-bar summary, .dashboard-sidebar a, header a').map(
-      (e) => e.textContent.trim().replace(/\\s+/g, ' ') + ' ' + (e.getAttribute('href') || '')),
+      (e) => (e.querySelector('.tab-bar__account-name') || e).textContent.trim().replace(/\\s+/g, ' ')
+        + ' ' + (e.getAttribute('href') || '')),
     controls: q('main input:not([type=hidden]), main select, main textarea, main button').map(
       (e) => e.tagName.toLowerCase() + ':' + (e.name || e.id || e.textContent.trim().slice(0, 30))),
     notice: document.querySelectorAll('.frame-notice').length,
@@ -755,9 +760,17 @@ THREE_PAGES = [c for c in PAGES if c.id in ("user-home", "user-account", "user-f
 # Home's signature is the one other deliberate ambient motion, content-neutral and slow: the
 # dot's and the picture glow's 6s breathing and the 12s cycle of the glass glint. Each is
 # transform/opacity only and switched off under reduced motion; no other page may loop.
+# The allow-list is exact: an endless animation passes only with this name on this element
+# (and pseudo-element), each for the reason given. Anything else that loops for ever fails,
+# whatever it is called.
 AMBIENT_LOOPS = {
-    "skypane-pulse", "skypane-dot-halo",
-    "skypane-dot-breathe", "skypane-picture-breathe", "skypane-glint"}
+    # The status dot read from across a room: a soft halo and a slow breath.
+    ("skypane-dot-halo", ".home-state__dot--pulse", "::after"),
+    ("skypane-dot-breathe", ".home-state__dot--pulse", None),
+    # The frame picture's signature: the glow behind it and the glint over its glass.
+    ("skypane-picture-breathe", ".hero__picture", "::before"),
+    ("skypane-glint", ".hero__glass", "::after"),
+}
 
 
 _SURFACES = """
@@ -780,10 +793,16 @@ _BLURRED = """
   .map((e) => e.tagName.toLowerCase() + '.' + String(e.className).split(' ')[0])
 """
 
-_ANIMATIONS = """
-() => document.getAnimations().map((a) => ({
-  name: a.animationName || a.transitionProperty || '',
-  iterations: a.effect ? a.effect.getComputedTiming().iterations : 1}))
+# Every endless animation that is not on the allow-list (name, element, pseudo-element).
+_ENDLESS_OUTSIDE = """
+(allowed) => document.getAnimations()
+  .filter((a) => !a.effect || a.effect.getComputedTiming().iterations === Infinity)
+  .map((a) => ({name: a.animationName || a.transitionProperty || '',
+    target: a.effect && a.effect.target, pseudo: a.effect && a.effect.pseudoElement || null}))
+  .filter((a) => !allowed.some(([name, selector, pseudo]) => a.name === name && a.target
+    && a.target.matches(selector) && a.pseudo === pseudo))
+  .map((a) => ({name: a.name, pseudo: a.pseudo, element: a.target
+    ? a.target.tagName.toLowerCase() + '.' + String(a.target.className) : ''}))
 """
 
 
@@ -810,9 +829,8 @@ def test_every_animation_on_a_page_is_finite_except_the_status_pulse(
     try:
         page.reload(wait_until="commit")
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        for animation in page.evaluate(_ANIMATIONS):
-            if animation["iterations"] == float("inf") or animation["iterations"] is None:
-                assert animation["name"] in AMBIENT_LOOPS, (path, animation)
+        endless = page.evaluate(_ENDLESS_OUTSIDE, [list(entry) for entry in AMBIENT_LOOPS])
+        assert not endless, (path, endless)
     finally:
         context.close()
 
@@ -1047,8 +1065,10 @@ _WARM_FILLS = """
     const c = getComputedStyle(e);
     if (e.closest('svg, img, picture, canvas')) continue;
     // The Location map box shows the map tiles' own ground colour (a warm tone by design).
-    // So does the page body behind it, so no band shows where the map ends.
-    if (e.id === 'place-map' || (e === document.body && document.querySelector('.place-stage'))) continue;
+    // So does the page body behind it, so no band shows where the map ends, and the thin strip
+    // fixed at the top edge of the phone map.
+    if (e.id === 'place-map' || e.classList.contains('place-edge')) continue;
+    if (e === document.body && document.querySelector('.place-stage')) continue;
     if (warm(c.backgroundColor) || warm(c.backgroundImage)) bad.push(e.tagName + '.' + e.className);
   }
   return bad.slice(0, 5);

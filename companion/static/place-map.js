@@ -47,6 +47,17 @@
   // Set on the page element by the head script while scripts run: the loading
   // state shows instead of the plain form. A map that cannot start clears it.
   var EARLY_CLASS = "js-early";
+  // Set on the page element once the map runs, in an iPhone browser (a
+  // Safari tab or a Home Screen web app): the stylesheet puts a lead of map
+  // above the page (its size is --place-lead), which the page scrolls past.
+  var LEAD_CLASS = "place-lead";
+  // How long after the last scroll the page settles back past the lead.
+  var LEAD_SETTLE_MS = 250;
+  // Set on the page element while the opening splash covers the page.
+  var SPLASH_CLASS = "splash-on";
+  // How long after the splash has gone the page waits for its last frames
+  // under the splash to leave the screen before it nudges its scroll.
+  var SPLASH_SETTLE_MS = 400;
   var MESSAGE_MS = 8000;
 
   var mapEl = document.getElementById("place-map");
@@ -253,11 +264,13 @@
 
   var runwaysEl = byId("place-runways");
   var pickTicket = 0;
-  // The runway group and the address the page opened with: Cancel
-  // after an in-place pick puts them back.
+  // The runway group, the address and the map view the page opened with:
+  // Cancel after an in-place pick puts them back.
   var openedRunways = [];
   var openedAddress = window.location.pathname + window.location.search;
   var pickedHere = false;
+
+  var openedView = null;
 
   function rememberOpened() {
     for (var k = 0; runwaysEl && k < runwaysEl.childNodes.length; k++) {
@@ -283,13 +296,19 @@
       dotLayer.clearLayers();
       dots = {};
     }
-    drawCircle();
-    refreshDots();
-    showCheckedRunway();
     var point = fieldsPoint();
     if (point) {
-      placePin(point, { fromFields: true, pan: true });
+      placePin(point, { fromFields: true });
+    } else {
+      removePin();
     }
+    drawCircle();
+    if (openedView) {
+      map.setView(openedView.centre, openedView.zoom, { animate: true });
+    }
+    refreshDots();
+    showCheckedRunway();
+    setStatus("");
     if (window.history && typeof window.history.replaceState === "function") {
       try {
         window.history.replaceState(window.history.state, "", openedAddress);
@@ -450,6 +469,7 @@
 
   var tilesLoaded = false;
   var tileErrors = 0;
+  var leadApplied = false;
 
   function isDesktop() {
     return !!(window.matchMedia && window.matchMedia(DESKTOP_QUERY).matches);
@@ -491,6 +511,11 @@
     map.setView(visibleCentre(point, z), z, { animate: !!animate });
   }
 
+  function reducedMotion() {
+    return !!(window.matchMedia &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+
   function buildMap() {
     // Without a saved place the map opens on the airport the setting follows
     // (when there is one) rather than on the whole of France.
@@ -506,6 +531,8 @@
       zoomControl: false,
       attributionControl: false,
       maxZoom: MAX_ZOOM,
+      // With reduced motion a tile shows at once instead of fading in.
+      fadeAnimation: !reducedMotion(),
       center: start || FRANCE_CENTRE,
       zoom: zoom
     });
@@ -688,6 +715,27 @@
       centreOn(point, map.getZoom(), true);
     }
     afterPinMoved(point, !!opts.fromFields);
+  }
+
+  // Takes the pin off the map and puts the readout back to "tap the map":
+  // what a page without a saved place shows.
+  function removePin() {
+    if (pin) {
+      map.removeLayer(pin);
+      pin = null;
+    }
+    if (coordsEl) {
+      coordsEl.hidden = true;
+    }
+    if (moveHintEl) {
+      moveHintEl.hidden = true;
+    }
+    if (tapHintEl) {
+      tapHintEl.hidden = false;
+    }
+    if (nearestEl) {
+      nearestEl.hidden = true;
+    }
   }
 
   // --- Nearest airport ----------------------------------------------------------
@@ -942,13 +990,116 @@
     window.skypanePlaceMapCore = core;
   }
 
+  // --- Status bar lead ----------------------------------------------------------
+
+  // The lead in pixels while the stylesheet applies it (a phone layout with
+  // the map running), else 0.
+  function leadSize() {
+    var value = window.getComputedStyle(document.documentElement).getPropertyValue("--place-lead");
+    return parseFloat(value) || 0;
+  }
+
+  // navigator.standalone exists only in Safari/WebKit on iOS: false in a
+  // Safari tab, true in a Home Screen web app. In both, the status bar shows
+  // the part of the document above the window, and a tab's toolbar the part
+  // below it. The page starts scrolled past the lead of map the stylesheet
+  // adds, with its tail of map below the window, so both parts are map.
+  // Every other browser leaves navigator.standalone undefined: it shows
+  // neither part, and its own scrolling (Android Chrome hides its toolbar as
+  // the page scrolls) would be fought by the scroll lock and settle-back, so
+  // it gets no lead and the page is laid out as it would be without one. A
+  // scroll that ends anywhere else (a drag on the sheet, a rotation) settles
+  // back, never during a touch or while a field is being typed in.
+  function leadUnderStatusBar() {
+    if (typeof window.navigator.standalone === "undefined") {
+      return;
+    }
+    leadApplied = true;
+    document.documentElement.className += " " + LEAD_CLASS;
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+    window.scrollTo(0, leadSize());
+    var touches = 0;
+    var timer = null;
+    function settle(smooth) {
+      var lead = leadSize();
+      var active = document.activeElement;
+      var typing = !!active && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName) &&
+        active.type !== "range" && active.type !== "radio" && active.type !== "checkbox";
+      if (!lead || touches || typing || Math.abs(window.scrollY - lead) <= 1) {
+        return;
+      }
+      window.scrollTo({ top: lead, behavior: smooth ? "smooth" : "auto" });
+    }
+    function later() {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(function () {
+        settle(true);
+      }, LEAD_SETTLE_MS);
+    }
+    function onTouch(event) {
+      touches = event.touches.length;
+      if (!touches) {
+        later();
+      }
+    }
+    window.addEventListener("scroll", later, { passive: true });
+    window.addEventListener("resize", function () {
+      settle(false);
+    });
+    document.addEventListener("focusout", later);
+    document.addEventListener("touchstart", onTouch, { passive: true });
+    document.addEventListener("touchend", onTouch, { passive: true });
+    document.addEventListener("touchcancel", onTouch, { passive: true });
+    afterSplash(nudge);
+  }
+
+  // Safari's status bar keeps the look it took from what the page showed at
+  // its last scroll. The scroll past the lead happens while the opening
+  // splash may still cover the page (dark in the dark theme, which then
+  // stays as a grey veil under the clock), and the page does not scroll
+  // again; so once the splash has gone it moves by one pixel for a frame and
+  // back, and the status bar takes the look of the map.
+  function nudge() {
+    var lead = leadSize();
+    if (!lead || Math.abs(window.scrollY - lead) > 1) {
+      return;
+    }
+    window.scrollTo(0, lead - 1);
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        window.scrollTo(0, lead);
+      });
+    });
+  }
+
+  // Runs `callback` once the opening splash has gone (and the screen has
+  // caught up), if it covers the page now; nothing to wait for otherwise.
+  function afterSplash(callback) {
+    var root = document.documentElement;
+    if (root.className.split(" ").indexOf(SPLASH_CLASS) < 0 ||
+        typeof window.MutationObserver !== "function") {
+      return;
+    }
+    var watch = new window.MutationObserver(function () {
+      if (root.className.split(" ").indexOf(SPLASH_CLASS) < 0) {
+        watch.disconnect();
+        window.setTimeout(callback, SPLASH_SETTLE_MS);
+      }
+    });
+    watch.observe(root, { attributes: true, attributeFilter: ["class"] });
+  }
+
   // --- Start ------------------------------------------------------------------
 
   function start() {
     // The ready class comes first: the stylesheet lays the map out as the
     // page's backdrop, and the library measures it when it is built. A
-    // failure below removes the class again.
+    // failure below removes the class again. The lead is in place before
+    // the library measures the map too.
     document.documentElement.className += " " + READY_CLASS;
+    leadUnderStatusBar();
     buildMap();
     dotLayer = L.layerGroup().addTo(map);
     wireFranceButton();
@@ -990,6 +1141,10 @@
       if (event.target && event.target.name === "mode") {
         drawCircle();
         refreshDots();
+        if (areaWanted()) {
+          // The status line stops naming the airport that was being followed.
+          setStatus("");
+        }
         if (pin) {
           pinMoved(pin.getLatLng());
           // The panel changed height: keep the pin in the clear part.
@@ -1004,6 +1159,7 @@
     if (pin) {
       centreOn(pin.getLatLng(), map.getZoom(), false);
     }
+    openedView = { centre: map.getCenter(), zoom: map.getZoom() };
     keepPinClear();
     exportCore();
   }
@@ -1062,5 +1218,10 @@
     setLoading(false);
     giveUp();
     removeRootClass(READY_CLASS);
+    // Without the map there is no lead: the plain form starts at its top.
+    if (leadApplied) {
+      removeRootClass(LEAD_CLASS);
+      window.scrollTo(0, 0);
+    }
   }
 }());

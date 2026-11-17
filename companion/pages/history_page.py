@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 import companion.device_scope as device_scope
 import companion.flight_card as flight_card
 import companion.history_query as history_query
+import companion.illustration_normalize as illustration_normalize
 import companion.i18n as i18n
 from companion.layout import escape_html
 import companion.layout as layout
@@ -28,6 +29,7 @@ import companion.ui_components as ui_components
 import companion.ui_filter as ui_filter
 import companion.ui_groups as ui_groups
 from server import history_db
+from server.plane import illustrations
 from server.plane import name_overrides
 from server.plane import render as panel_render
 
@@ -65,7 +67,7 @@ _GALLERY_TIME_PATTERN = re.compile(
 def _gallery_name_to_iso(name):
     """Reverses `_save_to_gallery()`'s ':' -> '-' filename sanitisation,
     or returns `None` (never raising) on any name that doesn't match the
-    expected shape. `nearest_gallery_entry()` skips any entry it cannot
+    expected shape. `matching_gallery_entry()` skips any entry it cannot
     recover a timestamp from.
     """
     stem = name[:-4] if name.endswith(".png") else name
@@ -269,17 +271,21 @@ def _confirmed_state_label(raw):
     return raw.replace("_", " ").title()
 
 
-def nearest_gallery_entry(entries, row_ts):
-    """Returns the `(filename, iso)` pair from `entries` whose
-    filename-recovered timestamp is the latest one at or before
-    `row_ts`, or `None`. A linear scan over the already-in-memory,
-    already-ordered list, since no true per-flight render relationship
-    exists to store (the panel refreshes on the device's wake/poll
-    cycle, not per detected flight). Comparison is always between
-    parsed timezone-aware `datetime` values, never raw strings: gallery
-    filenames carry a local UTC offset while history timestamps are
-    UTC-suffixed, so a lexicographic compare would mis-rank across an
-    offset boundary.
+# The poll cycle that records a flight is also the one that archives the
+# render showing it, so a render that belongs to a flight is stamped within
+# a few seconds of it. A render outside this window shows some other
+# moment, however close in time it looks.
+GALLERY_MATCH_BEFORE_S = 90
+GALLERY_MATCH_AFTER_S = 10
+
+
+def matching_gallery_entry(entries, row_ts):
+    """The `(filename, iso)` pair from `entries` archived within the match
+    window of `row_ts` (closest first), or `None` when no archived render
+    can belong to that flight. Comparison is always between parsed
+    timezone-aware `datetime` values, never raw strings: gallery filenames
+    carry a local UTC offset while history timestamps are UTC-suffixed, so a
+    lexicographic compare would mis-rank across an offset boundary.
     """
     if not row_ts:
         return None
@@ -289,42 +295,20 @@ def nearest_gallery_entry(entries, row_ts):
         return None
 
     best = None
-    best_dt = None
+    best_gap = None
     for name in entries or []:
         iso = _gallery_name_to_iso(name)
         if iso is None:
             continue
         try:
-            entry_dt = datetime.fromisoformat(iso)
-        except ValueError:
+            gap = (row_dt - datetime.fromisoformat(iso)).total_seconds()
+        except (ValueError, TypeError):
             continue
-        if entry_dt > row_dt:
+        if not -GALLERY_MATCH_AFTER_S <= gap <= GALLERY_MATCH_BEFORE_S:
             continue
-        if best_dt is None or entry_dt > best_dt:
+        if best_gap is None or abs(gap) < best_gap:
             best = (name, iso)
-            best_dt = entry_dt
-    return best
-
-
-def earliest_gallery_entry(entries):
-    """The `(filename, iso)` pair with the earliest recoverable
-    timestamp in `entries`, or `None`. The fallback for a flight older
-    than every archived render, so each flight can still open a picture
-    whenever the gallery holds one.
-    """
-    best = None
-    best_dt = None
-    for name in entries or []:
-        iso = _gallery_name_to_iso(name)
-        if iso is None:
-            continue
-        try:
-            entry_dt = datetime.fromisoformat(iso)
-        except ValueError:
-            continue
-        if best_dt is None or entry_dt < best_dt:
-            best = (name, iso)
-            best_dt = entry_dt
+            best_gap = abs(gap)
     return best
 
 
@@ -392,6 +376,36 @@ def _view_panel_thumb_html(name, iso, row_name):
         'loading="lazy" decoding="async" fetchpriority="low">'
         '</a>'
     ) % (_view_panel_attrs(name, iso, row_name), src)
+
+
+# The stand-in is drawn 44 CSS px wide: the smallest served variant covers a
+# 3x screen with room to spare.
+STAND_IN_THUMB_WIDTH = min(illustration_normalize.THUMBNAIL_WIDTHS)
+
+
+def _stand_in_thumb_html(row, state_dir):
+    """The phone row's lead when no archived render belongs to the flight:
+    the airline's own illustration when it has one, else a neutral plane
+    icon. Neither is a link, so nothing claims to be a picture of the flight."""
+    airline = row.get("airline_raw")
+    key = illustrations.normalise_airline_key(airline) if airline else None
+    if key and illustrations.resolved_illustration_path(key, state_dir):
+        # The 44px box never needs the full-size picture: ask for the
+        # small variant, with the override's mtime so a replaced picture
+        # is not served from the browser cache.
+        src = escape_html(device_scope.scoped(
+            flight_card.ILLUSTRATION_ROUTE_PREFIX + key + ".png")
+            + illustration_normalize.thumbnail_query(
+                illustration_normalize.cache_buster(key, state_dir),
+                STAND_IN_THUMB_WIDTH))
+        return (
+            '<span class="history-card__thumb history-card__thumb--illustration">'
+            '<img class="history-card__thumb-image" src="%s" alt="" width="40" '
+            'height="40" loading="lazy" decoding="async" fetchpriority="low"></span>'
+        ) % src
+    return (
+        '<span class="history-card__thumb history-card__thumb--none" '
+        'aria-hidden="true">%s</span>' % layout.icon_html("icon-plane", 20))
 
 
 # Owned by companion/i18n_fr/airlines.py, not flights.py — the same id
@@ -509,6 +523,9 @@ def format_event_row(row, now=None):
         # flight_card.art_html() resolves on the raw
         # value, never the aliased display name.
         "airline_raw": row.get("airline") or "",
+        # The render stored with the flight: None for a row from before it was
+        # stored, "" when none was archived that cycle, else the file name.
+        "gallery_name": row.get("gallery_name"),
         "route_label": route_label,
         # The two codes on their own, for the phone card's route line.
         "origin": origin or "",
@@ -750,7 +767,18 @@ def _day_separator_row_html(day, today):
     ) % (_TABLE_COLUMN_COUNT, escape_html(day_label(day, today)))
 
 
-def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True):
+# One <col> per column (When, Flight, Route, State, Picture). The stylesheet gives them fixed
+# widths, so the columns are placed from this first element and never re-flow while the rows
+# stream in or change.
+_COLGROUP_HTML = (
+    '<colgroup><col class="col-when"><col class="col-flight"><col class="col-route">'
+    '<col class="col-state"><col class="col-picture"></colgroup>')
+
+
+def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True, first=0):
+    """The desktop table. `first` is the list position of the first row given
+    (0 for a whole list): positions, not the rows given, decide the stripes
+    and the anchor."""
     if not formatted_rows:
         return ui_groups.group_panel(layout.empty_state(
             i18n.t(_NO_FLIGHTS_HEADING), i18n.t(_NO_FLIGHTS_BODY), compact=True))
@@ -768,7 +796,7 @@ def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True)
     current_day = None
 
     body_rows = []
-    for index, row in enumerate(formatted_rows):
+    for index, row in enumerate(formatted_rows, first):
         # A row whose timestamp cannot be dated takes the ungrouped
         # path: no separator is emitted and the current group stays
         # open, so it never splits a real day in two.
@@ -800,11 +828,12 @@ def _history_table_html(formatted_rows, now=None, anchor_index=None, dated=True)
         '<div class="data-table-wrap" data-flights-view tabindex="0" role="region" '
         'aria-label="%s">'
         '<table class="data-table data-table--flights">'
-        "<thead><tr>%s</tr></thead>"
+        "%s<thead><tr>%s</tr></thead>"
         "<tbody>%s</tbody>"
         "</table>"
         "</div>"
-    ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), header_cells, "".join(body_rows))
+    ) % (escape_html(i18n.t(SCROLLER_ARIA_LABEL)), _COLGROUP_HTML, header_cells,
+           "".join(body_rows))
 
 
 def _row_ident_html(row):
@@ -904,7 +933,7 @@ def _card_group_key(row, sort):
 
 
 def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True, group_label="",
-                        sort=None):
+                        sort=None, first=0):
     """The phone representation, built from the same `formatted_rows` list
     `_history_table_html()` consumes. Newest or oldest first it is one glass
     group per Paris calendar day (the day is its section label); sorted by
@@ -913,14 +942,16 @@ def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True,
     whose timestamp cannot be dated joins the open group. Returns "" for an
     empty list. Must render as a DOM sibling immediately before the desktop
     table: style.css's `.history-cards ~ .data-table-wrap` breakpoint toggle
-    depends on this order."""
+    depends on this order. `first` is the list position of the first row given
+    (0 for a whole list); the group ids start from it, so the groups of a later
+    part of the list never repeat an id of the part before it."""
     if not formatted_rows:
         return ""
     today = paris_day(now)
     days = []
     current_day = None
     current_key = None
-    for index, row in enumerate(formatted_rows):
+    for index, row in enumerate(formatted_rows, first):
         day = paris_day(row["raw_ts"]) if dated else None
         key = None if dated else _card_group_key(row, sort)
         if day is not None and day != current_day or not days or (
@@ -936,7 +967,7 @@ def _history_cards_html(formatted_rows, now=None, anchor_index=None, dated=True,
         else:
             label = key or group_label or i18n.t(PAGE_TITLE)
         groups.append(ui_groups.group(
-            "".join(items), label=label, label_id="history-day-%d" % number,
+            "".join(items), label=label, label_id="history-day-%d" % (first + number),
             extra_class="history-day", attrs="data-filter-day-group"))
     return '<div class="history-cards" data-flights-view>%s</div>' % "".join(groups)
 
@@ -971,43 +1002,97 @@ def _search_form_html(view):
         view_href(history_query.View("", view.kind, view.sort)))
 
 
-def _list_html(formatted_rows, view, result, pages, now):
-    """The cards, the table and the Load more block for the flights shown."""
+def _list_html(formatted_rows, view, result, pages, now, first=0):
+    """The cards, the table and the Load more block for the flights shown.
+    `formatted_rows` is the list from position `first` on (the whole list
+    by default)."""
     dated = view.sort in (history_query.SORT_NEWEST, history_query.SORT_OLDEST)
     # Cards render before the table: style.css's
     # `.history-cards ~ .data-table-wrap` sibling-combinator
     # toggle depends on this DOM order.
-    anchor_index = (
-        min(pages * HISTORY_ROW_LIMIT, len(formatted_rows) - 1) if pages else None)
+    shown = first + len(formatted_rows)
+    anchor_index = min(pages * HISTORY_ROW_LIMIT, shown - 1) if pages else None
     group_label = i18n.t(dict(_SORT_TEXTS)[view.sort])
     return (
-        _history_cards_html(formatted_rows, now, anchor_index, dated, group_label, view.sort)
-        + _history_table_html(formatted_rows, now, anchor_index, dated)
-        + (_load_more_html(len(formatted_rows), view, pages) if result.has_more else ""))
+        _history_cards_html(
+            formatted_rows, now, anchor_index, dated, group_label, view.sort, first)
+        + _history_table_html(formatted_rows, now, anchor_index, dated, first)
+        + (_load_more_html(shown, view, pages) if result.has_more else ""))
 
 
-def _attach_pictures(formatted_rows, gallery_entries):
-    """Stores each row's picture link and thumbnail (the nearest archived
-    render, else the earliest one; the empty string when there is none)."""
+def _picture_for(row, gallery_entries):
+    """The `(filename, iso)` of the render that belongs to this flight, or
+    `None`. A row that stores its render names it (and has none once the
+    gallery has pruned that file, or when its cycle archived none); only a
+    row from before the name was stored falls back to the timestamp window."""
+    stored = row.get("gallery_name")
+    if stored is None:
+        return matching_gallery_entry(gallery_entries, row["raw_ts"])
+    iso = _gallery_name_to_iso(stored) if stored in (gallery_entries or ()) else None
+    return (stored, iso) if iso else None
+
+
+def _attach_pictures(formatted_rows, gallery_entries, state_dir):
+    """Stores each row's picture link and thumbnail. Only the render stored
+    with the flight (or, for an older row, one stamped within the match
+    window) counts as its picture; any other flight gets no link and a
+    stand-in thumbnail (the airline's illustration, else a plane icon)."""
     for row in formatted_rows:
-        match = (
-            nearest_gallery_entry(gallery_entries, row["raw_ts"])
-            or earliest_gallery_entry(gallery_entries))
+        match = _picture_for(row, gallery_entries)
         row_name = _row_name(row["callsign"], row["hex"])
         row["view_panel_html"] = (
             _view_panel_link_html(match[0], match[1], row_name) if match else "")
         row["view_panel_thumb_html"] = (
-            _view_panel_thumb_html(match[0], match[1], row_name) if match else "")
+            _view_panel_thumb_html(match[0], match[1], row_name) if match
+            else _stand_in_thumb_html(row, state_dir))
 
 
-def render(ctx):
-    ctx = page_context.coerce(ctx)
+# What a script may ask of the list instead of the whole page (`?part=`):
+# the list as the address describes it, or only the flights of the last
+# Load more step.
+PART_PARAM = "part"
+PART_LIST = "list"
+PART_NEW = "new"
+PARTS = (PART_LIST, PART_NEW)
+
+
+def _query(ctx):
+    """`(now, view, pages, result)` for the request `ctx` carries."""
     now = ctx.now or history_db.utc_now_iso()
     names = name_overrides.names_by_prefix(ctx.name_overrides)
     pages = more_pages(ctx.history_more)
     view = history_query.parse_view(ctx.history_query)
     result = _safe_query(
         ctx.state_dir, lambda conn: history_result(conn, view, pages, names))
+    return now, view, pages, result
+
+
+def render_part(ctx, part):
+    """The list alone, with no page around it, for the script that puts it in
+    the page: every element a filter, a sort or a search replaces
+    (`PART_LIST`), or the flights of the last Load more step with the Load
+    more block (`PART_NEW`). That part starts one flight early, on the last
+    flight the page already shows: the script finds by it the group the next
+    flights continue. "" when there is nothing to answer with; the script
+    then loads the plain page."""
+    ctx = page_context.coerce(ctx)
+    now, view, pages, result = _query(ctx)
+    if result is _DB_UNAVAILABLE or result.total <= 0:
+        return ""
+    first = pages * HISTORY_ROW_LIMIT - 1 if part == PART_NEW and pages else 0
+    formatted_rows = [format_event_row(row, now) for row in result.rows[first:]]
+    _attach_pictures(formatted_rows, ctx.gallery_entries or [], ctx.state_dir)
+    if first:
+        return _list_html(formatted_rows, view, result, pages, now, first) if (
+            len(formatted_rows) > 1) else ""
+    if not formatted_rows:
+        return _controls_html(view, result) + _empty_html(view, result)
+    return _controls_html(view, result) + _list_html(formatted_rows, view, result, pages, now)
+
+
+def render(ctx):
+    ctx = page_context.coerce(ctx)
+    now, view, pages, result = _query(ctx)
     available = result is not _DB_UNAVAILABLE
     has_history = available and result.total > 0
 
@@ -1033,7 +1118,7 @@ def render(ctx):
             i18n.t(heading), i18n.t(text), compact=True))
 
     formatted_rows = [format_event_row(row, now) for row in result.rows]
-    _attach_pictures(formatted_rows, ctx.gallery_entries or [])
+    _attach_pictures(formatted_rows, ctx.gallery_entries or [], ctx.state_dir)
     inner = _controls_html(view, result)
     if formatted_rows:
         inner += _list_html(formatted_rows, view, result, pages, now)

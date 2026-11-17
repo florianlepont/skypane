@@ -380,7 +380,7 @@ def test_an_invalid_request_with_a_valid_token_does_not_count_as_a_failure(seede
 
 # --- methods ---------------------------------------------------------------------
 
-@pytest.mark.parametrize("method", ["POST", "PUT", "DELETE", "HEAD", "PATCH"])
+@pytest.mark.parametrize("method", ["POST", "PUT", "DELETE", "PATCH"])
 def test_only_get_serves_the_export(seeded, token, method):
     server, _rows, _base = seeded
     status, _h, body = http_request(
@@ -388,6 +388,17 @@ def test_only_get_serves_the_export(seeded, token, method):
         extra_headers={**_bearer(token), "Origin": server.base_url()})
     assert status in (404, 405, 501)
     assert b"battery_mv" not in body
+
+
+def test_head_answers_the_headers_of_the_export_and_never_its_rows(seeded, token):
+    server, _rows, _base = seeded
+    url = server.url(PATH + "?since=" + _valid_since())
+    got_status, got_headers, _got_body = http_request(url, extra_headers=_bearer(token))
+    status, headers, body = http_request(url, method="HEAD", extra_headers=_bearer(token))
+    assert (status, headers["Content-Type"]) == (got_status, got_headers["Content-Type"])
+    assert body == b""
+    status, _h, body = http_request(url, method="HEAD")
+    assert status in (401, 403, 404) and body == b""
 
 
 # --- the row cap -------------------------------------------------------------------
