@@ -1566,28 +1566,57 @@ def _cycle_trace(ctx):
     }
 
 
+def _unshown_route(ctx, flight):
+    """`(route, source, state)` for an aircraft dropped unseen: the adsbdb
+    route when it fits the watched airport, the airline-only fallback
+    otherwise. The state is the aircraft's own direction when it has one,
+    else the one the route gives."""
+    state = runway_config.infer_from_flight(flight, None)
+    callsign = flight.get("callsign")
+    airline_only = enrich.resolve_airline_only(callsign, ctx.manual_registry, ctx.name_overrides)
+    if not callsign:
+        return airline_only + (state,)
+    cache = ctx.poll_state.get("enrichment_cache")
+    if not isinstance(cache, dict):
+        cache = {}
+    route, source = enrich.resolve_route(
+        callsign, cache, now=now_s(), manual_registry=ctx.manual_registry,
+        name_overrides=ctx.name_overrides, transport=ctx.route_transport)
+    enrich.trim_cache(cache)
+    ctx.poll_state["enrichment_cache"] = cache
+    if source not in ("fresh_hit", "cache_hit"):
+        return route, source, state
+    watched = route_sanity.watched_iata_codes(ctx.spec, ctx.tracked_runway_id)
+    state = state or route_sanity.direction_from_route(route, watched)
+    if watched and (state is None or route_sanity.route_contradicts(route, state, watched)):
+        return airline_only + (state,)
+    return route, source, state
+
+
 def _unshown_event_rows(ctx):
     """`runway_events` rows for the aircraft this cycle dropped from the
     display queue unseen, so every detected aircraft leaves a record. Each
-    carries what the cycle knew: the airline from the callsign prefix alone,
-    a direction only if the vertical rate or altitude trend gave one, and no
-    route lookup.
+    carries what the cycle knew: the route when adsbdb has one that fits the
+    watched airport (see `_unshown_route()`), the airline from the callsign
+    prefix otherwise, and a direction from the vertical rate, the altitude
+    trend or the route.
     """
     rows = []
     for entry in ctx.dropped_entries:
         flight = entry["flight"]
-        route, source = enrich.resolve_airline_only(
-            flight.get("callsign"), ctx.manual_registry, ctx.name_overrides)
+        route, source, state = _unshown_route(ctx, flight)
         route = route if isinstance(route, dict) else {}
         rows.append({
             "ts": datetime.fromtimestamp(entry["first_seen"], timezone.utc).isoformat(timespec="seconds"),
             "hex": flight.get("hex"),
             "callsign": flight.get("callsign"),
             "aircraft_type": flight.get("aircraft_type"),
-            "confirmed_state": runway_config.infer_from_flight(flight, None),
+            "confirmed_state": state,
             "corroborated": flight.get("corroborated"),
             "route_source": source,
             "airline": route.get("airline_name"),
+            "origin": route.get("origin_iata"),
+            "destination": route.get("destination_iata"),
             "tracked_runway": ctx.tracked_runway_id,
         })
     return rows

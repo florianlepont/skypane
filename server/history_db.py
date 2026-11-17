@@ -471,7 +471,7 @@ def record_unshown_event(conn, ts, **fields):
     """Insert a `runway_events` row for an aircraft the poll cycle detected
     but dropped from the display queue before it was drawn, stamped `ts`
     (when it was first seen). It has no archived render (`gallery_name` is
-    "") and whatever the cycle knew: no route lookup is made for it.
+    "") and whatever the cycle knew: its route when one fits, its direction.
 
     Skipped, returning 0, when the same hex already has a row within
     `UNSHOWN_DEDUPE_WINDOW_S` before `ts`, so re-detection of one pass after
