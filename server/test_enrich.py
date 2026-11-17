@@ -1268,3 +1268,40 @@ def test_city_for_state_overhead_reads_the_destination_city():
     """An aircraft with no direction shows where it is going."""
     route = {"origin_city": "Paris", "destination_city": "Palma de Mallorca"}
     assert enrich.city_for_state(route, "overhead") == "Palma de Mallorca"
+
+
+# Names resolved from the callsign prefix for airlines with no vendored artwork
+# (the owner's live comparison of 2026-11-17: these prefixes showed no airline).
+_NAME_ONLY_PREFIXES = {
+    "THY": "Turkish Airlines",
+    "KLM": "KLM Royal Dutch Airlines",
+    "FDX": "FedEx Express",
+    "FIN": "Finnair",
+    "KAL": "Korean Air",
+    "UAE": "Emirates",
+}
+
+
+@pytest.mark.parametrize("prefix,name", sorted(_NAME_ONLY_PREFIXES.items()))
+def test_airline_known_from_the_prefix_without_artwork(prefix, name):
+    callsign = prefix + "9FC"
+    assert enrich.airline_from_callsign(callsign) == name
+    route, source = enrich.resolve_airline_only(callsign)
+    assert source == "airline_only"
+    assert route["airline_name"] == name
+    assert not route.get("origin_iata") and not route.get("destination_iata")
+
+
+def test_a_name_only_prefix_never_overrides_the_artwork_table():
+    assert not set(enrich._ICAO_AIRLINE_NAMES_WITHOUT_ARTWORK) & set(enrich._ICAO_AIRLINE_PREFIXES)
+
+
+def test_name_only_prefix_keys_are_three_uppercase_letters():
+    bad = [k for k in enrich._ICAO_AIRLINE_NAMES_WITHOUT_ARTWORK
+           if not (len(k) == 3 and k.isalpha() and k == k.upper())]
+    assert not bad
+
+
+def test_an_unverified_prefix_is_still_a_miss():
+    for callsign in ("OCN7DS", "ITI21KZ", "CMA730"):
+        assert enrich.resolve_airline_only(callsign) == (None, "miss")
