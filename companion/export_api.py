@@ -7,7 +7,8 @@
                    pacing state, the pipeline heartbeat and a few settings
 
 The two JSON Lines routes and battery-history take exactly one `since` parameter; `status`
-takes none. None exposes a location, a name, a secret or a path.
+takes none. battery-history alone also accepts one optional `device=<id>`
+that reads that registered frame's own history.db (see `resolve_device_state_dir`). None exposes a location, a name, a secret or a path.
 
 Packaged as an `ExportMixin` that `Handler` inherits, like `SignInMixin`.
 Never imports `companion.app`. The handler provides `send_html()`,
@@ -24,6 +25,10 @@ Security invariants:
   written to a log, a response or an exception message.
 - Failed attempts count against a per-client throttle that is checked
   before the token is compared, so a blocked client cannot test guesses.
+- `device` is checked against the strict fleet id format before anything
+  else, then looked up in fleet.db (registered, or retired with its data
+  kept); the directory is built from the stored state path through
+  `device_dirs.resolve_state_dir`, never from the raw parameter.
 - The data comes from `history_db.export_device_health`, which opens
   history.db read-only.
 """
@@ -37,7 +42,7 @@ from datetime import datetime, timedelta, timezone
 from urllib.parse import parse_qsl
 
 from companion import oidc
-from server import check_interval, device_config, history_db, state_store
+from server import check_interval, device_config, device_dirs, fleet_db, history_db, state_store
 from server.wake_stats import WAKE_COLUMNS
 
 EXPORT_ROUTE = "/api/export/battery-history"
@@ -70,6 +75,8 @@ _BAD_REQUEST_BODY = (
     b"Use exactly one parameter, since=<UTC time like 2026-10-23T04:25:00Z>, "
     b"within the last 400 days\n")
 _TOO_MANY_BODY = b"Too many rows; use a later since\n"
+_BAD_DEVICE_BODY = b"Invalid device\n"
+_UNKNOWN_DEVICE_BODY = b"Unknown device\n"
 _UNAVAILABLE_BODY = b"History unavailable\n"
 _STATUS_BAD_REQUEST_BODY = b"This route takes no parameter\n"
 _JSON = "application/json; charset=utf-8"
@@ -127,7 +134,10 @@ def parse_since(query, now):
         return None
     if len(pairs) != 1 or pairs[0][0] != "since":
         return None
-    since = pairs[0][1]
+    return _valid_since(pairs[0][1], now)
+
+
+def _valid_since(since, now):
     if _SINCE_RE.fullmatch(since) is None:
         return None
     try:
@@ -137,6 +147,68 @@ def parse_since(query, now):
     if moment < now - MAX_AGE or moment > now + MAX_FUTURE:
         return None
     return since
+
+
+def parse_since_and_device(query, now):
+    """`(since, device)` for a query of exactly one `since` and one `device`
+    (either order, neither repeated), or None. `since` follows `parse_since`;
+    `device` is only checked for the fleet id format here.
+    """
+    try:
+        pairs = parse_qsl(query, keep_blank_values=True, max_num_fields=4)
+    except ValueError:
+        return None
+    values = dict(pairs)
+    if len(pairs) != 2 or set(values) != {"since", "device"}:
+        return None
+    since = _valid_since(values["since"], now)
+    if since is None or not device_dirs.is_valid_device_id(values["device"]):
+        return None
+    return since, values["device"]
+
+
+def _has_device_parameter(query):
+    try:
+        return any(name == "device" for name, _ in parse_qsl(
+            query, keep_blank_values=True, max_num_fields=4))
+    except ValueError:
+        return False
+
+
+def _registered_state_path(conn, device_id):
+    """The stored state path of a registered or retired frame, else None."""
+    row = fleet_db.get_device(conn, device_id)
+    if row is not None:
+        return row["state_path"]
+    row = conn.execute(
+        "SELECT previous_state_path FROM pending_devices "
+        "WHERE previous_device_id = ? AND status = ? ORDER BY retired_at DESC LIMIT 1",
+        (device_id, fleet_db.PENDING_STATUS_RETIRED)).fetchone()
+    return None if row is None else row["previous_state_path"]
+
+
+def resolve_device_state_dir(root, device_id):
+    """The state directory of the frame `device_id` (already format-checked),
+    or None when fleet.db does not know it. A retired frame stays readable
+    while its data is kept. Raises sqlite3.Error when fleet.db is unreadable.
+    """
+    try:
+        conn = fleet_db.connect_readonly(root)
+    except fleet_db.FleetDbAbsent:
+        return None
+    try:
+        conn.row_factory = sqlite3.Row
+        state_path = _registered_state_path(conn, device_id)
+    finally:
+        conn.close()
+    if state_path is None:
+        return None
+    if state_path != device_dirs.LIVE_STATE_PATH and state_path != device_dirs.state_path_for(device_id):
+        return None
+    try:
+        return device_dirs.resolve_state_dir(root, state_path)
+    except ValueError:
+        return None
 
 
 def _render_lines(rows, columns=_COLUMNS):
@@ -245,11 +317,25 @@ class ExportMixin:
 
     def _serve_export(self, query, route=EXPORT_ROUTE):
         columns, reader = _LINE_EXPORTS[route]
-        since = parse_since(query, datetime.now(timezone.utc))
-        if since is None:
-            return self._send_export(400, _PLAIN, _BAD_REQUEST_BODY)
+        state_dir = self.args.state_dir
+        now = datetime.now(timezone.utc)
+        if route == EXPORT_ROUTE and _has_device_parameter(query):
+            parsed = parse_since_and_device(query, now)
+            if parsed is None:
+                return self._send_export(400, _PLAIN, _BAD_DEVICE_BODY)
+            since = parsed[0]
+            try:
+                state_dir = resolve_device_state_dir(state_dir, parsed[1])
+            except (sqlite3.Error, OSError):
+                return self._send_export(503, _PLAIN, _UNAVAILABLE_BODY)
+            if state_dir is None:
+                return self._send_export(404, _PLAIN, _UNKNOWN_DEVICE_BODY)
+        else:
+            since = parse_since(query, now)
+            if since is None:
+                return self._send_export(400, _PLAIN, _BAD_REQUEST_BODY)
         try:
-            rows = reader(self.args.state_dir, since, MAX_ROWS)
+            rows = reader(state_dir, since, MAX_ROWS)
         except history_db.TooManyRows:
             return self._send_export(413, _PLAIN, _TOO_MANY_BODY)
         except (sqlite3.Error, OSError):
