@@ -8,7 +8,7 @@
 -r requirements.in
 
 # Lint.
-ruff==0.17.2
+ruff==0.17.4
 # Coverage measurement/gate (pytest-cov bridges to this).
 coverage==7.17.2
 # Browser driver companion/test_browser_ux.py uses to prove defects a
