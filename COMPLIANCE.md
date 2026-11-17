@@ -8,7 +8,7 @@ It uses the same per-source shape `server/assets/fonts/VENDOR.md` and
 source, upstream link, the date the terms were checked, what the terms
 require, and a verdict.
 
-Ten sources are covered, not the three originally scoped by D-14 —
+Eleven sources are covered, not the three originally scoped by D-14 —
 `server/plane/enrich.py` reaches a fourth aggregator in production
 (adsbdb.com) that predates this document, `server/plane/detect.py` gained
 a fifth (adsb.lol, 2026-08-27) as a second default ADS-B source, the
@@ -253,6 +253,39 @@ document.
   not applicable.
 - **Status:** not used, no open item.
 
+## OpenSky Network
+
+- **Used in shipped code:** **No.** Researched on 2026-11-17 as a source of the
+  real leg (origin of an arrival, destination of a departure) for flights that
+  adsbdb has no route for, and **deliberately not used**.
+- **Upstream:** https://opensky-network.org (REST API at
+  https://openskynetwork.github.io/opensky-api/rest.html).
+- **Terms checked:** 2026-11-17. The terms page refuses automated fetches
+  (HTTP 403 and 503), so the owner read it in a browser and pasted the
+  Acceptable Use Policy and Data License Agreement to this project's
+  session.
+- **What the terms say** (section 1 and section 3 (vi) of the agreement): the
+  data is licensed "solely for the purpose of non-profit research and
+  non-profit education"; any use by a for-profit or commercial entity needs a
+  written licence; and "operational use of the REST API in any live product,
+  service, or automated system also requires a written license, regardless of
+  the entity's non-profit status." Redistribution to anyone outside the
+  licensee's institute is also forbidden (section 3 (iii)).
+- **Verdict:** this project polls its sources from a server, shows the result
+  on a product and is meant to grow into a fleet. That is operational use of a
+  live product, so OpenSky's REST API may not be used without a written
+  licence from OpenSky Network (contact@opensky-network.org). No account was
+  created, no key was provisioned and no request is made by shipped code. The
+  research tests of 2026-11-17 were a handful of anonymous requests, outside
+  the project's code.
+- **Technical note, recorded so it need not be redone:** an anonymous test
+  showed an arrival's origin appears 10 to 35 minutes after landing, and the
+  destination of a departure was empty in 40 to 100 % of the rows (Roissy
+  48 %, Orly 40 %, Nantes 100 %). It could only have completed the recent-flights
+  list afterwards, never the screen.
+- **Status:** not used. Reopen only with a written licence from OpenSky
+  Network.
+
 ## OpenStreetMap tile server
 
 - **Used in shipped code:** the headers are in place; the map code that
@@ -447,6 +480,7 @@ is relaxed.
 | OurAirports | Yes, build-time only | Confirmed (public domain) | None |
 | PRIM / Île-de-France Mobilités | No | Not applicable (unused in v1) | Revisit at v2 planning, when RER-01/02/03 are picked back up |
 | AeroDataBox | No | Not applicable (unused) | None |
+| OpenSky Network | No | Read 2026-11-17: operational REST API use needs a written licence | None — not used; reopen only with a written licence |
 | OpenStreetMap tile server | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements Referer, attribution and no-prefetch behaviour |
 | Nominatim | Browser-side, Location and detection page only | Confirmed (usage policy fetched 2026-11-03) | Map plan implements user-triggered, rate-limited search with Referer |
 | Leaflet | Yes, vendored | Confirmed (BSD-2-Clause) | None |
