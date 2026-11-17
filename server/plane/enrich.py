@@ -604,6 +604,23 @@ def apply_name_override(callsign, route, overrides):
     return renamed
 
 
+# Airlines whose name is known from the callsign prefix but that have no
+# vendored artwork, so they are not in `_ICAO_AIRLINE_PREFIXES` (every value
+# there needs an illustration target). The frame draws a generic illustration
+# with this name. Each name was checked against adsbdb's airline endpoint; a
+# prefix adsbdb does not know, or resolves to an unrelated carrier, is left
+# to the owner's manual registry instead. A prefix here never overrides one
+# in `_ICAO_AIRLINE_PREFIXES`.
+_ICAO_AIRLINE_NAMES_WITHOUT_ARTWORK = {
+    "THY": "Turkish Airlines",
+    "KLM": "KLM Royal Dutch Airlines",
+    "FDX": "FedEx Express",
+    "FIN": "Finnair",
+    "KAL": "Korean Air",
+    "UAE": "Emirates",
+}
+
+
 def airline_source_from_callsign(callsign, manual_registry=None):
     """Return `(airline_name, source)` for `callsign`'s ICAO prefix,
     where `source` is `"static"`, `"manual"`, or `None`.
@@ -614,7 +631,7 @@ def airline_source_from_callsign(callsign, manual_registry=None):
          registry read.
       3. `_ICAO_AIRLINE_PREFIXES.get(prefix)` — a hit wins immediately
          and always (a prefix present in both tables can never report
-         `"manual"`).
+         `"manual"`), then `_ICAO_AIRLINE_NAMES_WITHOUT_ARTWORK`.
       4. Only on a static miss,
          `manual_resolutions.airline_name_for_prefix(prefix, manual_registry)`.
       5. Otherwise `(None, None)`.
@@ -636,6 +653,9 @@ def airline_source_from_callsign(callsign, manual_registry=None):
     static_name = _ICAO_AIRLINE_PREFIXES.get(prefix)
     if static_name:
         return static_name, "static"
+    name_only = _ICAO_AIRLINE_NAMES_WITHOUT_ARTWORK.get(prefix)
+    if name_only:
+        return name_only, "static"
     manual_name = manual_resolutions.airline_name_for_prefix(prefix, manual_registry)
     if manual_name:
         return manual_name, "manual"
