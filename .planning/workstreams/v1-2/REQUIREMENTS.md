@@ -173,7 +173,7 @@ Coverage: 47/47 v1.2 requirements mapped, each to exactly one phase.
 | HW2-04 | Phase 64 | Pending |
 | HW2-05 | Phase 64 | Pending |
 | TRK-01 | Phase 65 | Complete |
-| TRK-02 | Phase 65 | Complete (Orly 06/24 not in use, untested) |
+| TRK-02 | Phase 65 | Complete (Orly 06/24 not in use, left untested by the owner's decision of 2026-11-18) |
 | BAT-01 | SEED-019 (v1.4) | Moved out of Phase 65 on 2026-11-15 |
 | CON-01 | Phase 68 | Pending |
 | SEC-AUD-01 | Phase 66 | Pending |
