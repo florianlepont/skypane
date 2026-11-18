@@ -39,7 +39,7 @@ _LABELS = {
     "battery_empty": "CHARGE ME",
     "no_connection": "OFFLINE",
     "updating": "INSTALLING",
-    "retired": "SKYPANE",
+    "retired": "",
 }
 _LINES = {
     "quiet_hours": ("QUIET", "HOURS"),
@@ -181,9 +181,10 @@ def _paint_text(canvas: Image.Image, geom: _Geometry, size: Size, lines: Tuple[s
         left, top, _right, _bottom = _ink_box(font, line)
         draw.text((geom.margin - left, round(geom.giant_top + slot * i) - top),
                   line, font=font, fill=ink)
-    label_font = fonts.inter_bold(geom.label_px)
-    draw.text((geom.margin - _ink_box(label_font, label)[0], geom.label_y),
-              label, font=label_font, fill=ink)
+    if label:
+        label_font = fonts.inter_bold(geom.label_px)
+        draw.text((geom.margin - _ink_box(label_font, label)[0], geom.label_y),
+                  label, font=label_font, fill=ink)
     body_font = fonts.inter_bold(geom.body_px)
     for i, line in enumerate(body):
         draw.text((geom.margin, geom.body_y + i * geom.body_step), line, font=body_font, fill=ink)

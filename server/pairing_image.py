@@ -26,7 +26,7 @@ from server.plane.render.giant import status
 # Bumped whenever the retired screen's copy or layout changes on purpose; the
 # server caches the retired panel under a name that carries it, so frames that
 # are already retired pick the new screen up at their next wake.
-RETIRED_SCREEN_REVISION = 2
+RETIRED_SCREEN_REVISION = 3
 
 
 def _pack(image: Image.Image) -> bytes:

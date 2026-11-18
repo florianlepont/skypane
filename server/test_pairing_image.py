@@ -26,9 +26,9 @@ LEGAL_NIBBLES = {
 }
 # sha256 of the retired screen for the legacy profile; changes only when the
 # retired layout, copy or fonts change on purpose.
-RETIRED_GOLDEN_SHA256 = "7251991eb3a15a3f90ea8df180ab26c58e446660391d12bddf2df079e82a919a"
+RETIRED_GOLDEN_SHA256 = "2edb16d8b4c9cd8f4d5faceed39a561027915f317bccce41ce00c5d8f9fa86e2"
 # Same, for the simulated landscape profile.
-RETIRED_LANDSCAPE_GOLDEN_SHA256 = "f6fd51ea5e4bdbf04e67e371161c26e67607a2de1e73e80f49889b908920c997"
+RETIRED_LANDSCAPE_GOLDEN_SHA256 = "c7f0783acbb85e76b3f48150bd7a22816edfe188bcddae563941b5c9861451e0"
 # sha256 of the pairing screen for FAKE_CODE on the legacy profile.
 PAIRING_GOLDEN_SHA256 = "aeee7b8f620102c9441569ccebf3650f0a45fd5bc74e4c29c1307372884df4ea"
 
