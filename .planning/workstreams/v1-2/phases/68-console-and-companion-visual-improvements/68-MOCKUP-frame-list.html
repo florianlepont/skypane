@@ -213,7 +213,7 @@ a{color:inherit;text-decoration:none}
       onframe:'ON THE FRAME',model:'Model XIAO ePaper EE02 13.3in Spectra 6',uptodate:'Up to date',
       interval:'Wake interval',intervalh:'How often the frame checks for new flight data',secs:'seconds · 15 min',led:'Diagnostic LED',ledh:'Flashes briefly at each check',off:'Off',
       owner:'Owner',co:'Co-manager',reassign:'Reassign',addp:'Add a co-manager',retire:'Retire this frame…',retireh:'The frame stops showing anything.',
-      openpers:'Open personal view',rename:'Rename',contacts:'Last contacts',c3:'just now · 15 min · 30 min ago',days:'Last 7 days',prev:'Previous versions',revert:'Revert',allv:'All versions',signout:'Sign out',admin:'Administration',
+      openpers:'Open personal view',rename:'Rename',healthd:'Health details',healths:'Data sources, check-in times, identification, backup, battery readings',contacts:'Last contacts',c3:'just now · 15 min · 30 min ago',days:'Last 7 days',prev:'Previous versions',revert:'Revert',allv:'All versions',signout:'Sign out',admin:'Administration',
       nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],tabs:['Fleet','Team','Editor','Journal','More'],
       codeShown:'Code shown 5 min ago',retiredOn:'Retired 12 Oct',react:'Re-activate',
       wake:'The frame shows its pairing code at its next wake (up to 24 h). Press Reset to restart it now.',
@@ -226,7 +226,7 @@ a{color:inherit;text-decoration:none}
       onframe:'SUR LE CADRE',model:'Modèle XIAO ePaper EE02 13.3in Spectra 6',uptodate:'À jour',
       interval:'Intervalle de réveil',intervalh:'À quelle fréquence le cadre cherche de nouvelles données de vol',secs:'secondes · 15 mn',led:'LED de diagnostic',ledh:'S’allume brièvement à chaque vérification',off:'Éteint',
       owner:'Propriétaire',co:'Cogestionnaire',reassign:'Réattribuer',addp:'Ajouter un cogestionnaire',retire:'Retirer ce cadre…',retireh:'Le cadre n’affiche plus rien.',
-      openpers:'Ouvrir la vue personnelle',rename:'Renommer',contacts:'Derniers contacts',c3:'à l’instant · 15 min · 30 min',days:'7 derniers jours',prev:'Versions précédentes',revert:'Revenir',allv:'Toutes les versions',signout:'Se déconnecter',admin:'Administration',
+      openpers:'Ouvrir la vue personnelle',rename:'Renommer',healthd:'Détails de santé',healths:'Sources de données, heures de contact, identification, sauvegarde, relevés de batterie',contacts:'Derniers contacts',c3:'à l’instant · 15 min · 30 min',days:'7 derniers jours',prev:'Versions précédentes',revert:'Revenir',allv:'Toutes les versions',signout:'Se déconnecter',admin:'Administration',
       nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],
       codeShown:'Code affiché il y a 5 min',retiredOn:'Retiré le 12 oct.',react:'Réactiver',
       wake:'Le cadre affichera son code à son prochain réveil (24 h au plus). Appuyez sur Reset pour le relancer tout de suite.',
@@ -292,7 +292,7 @@ a{color:inherit;text-decoration:none}
     return '<div class="blk" data-sec="state"><p class="label">'+t.state+'</p><div class="card">'+
       statusRow('check',t.conn,t.connv,t.connt,true,'<span>'+t.contacts+' : '+t.c3+'</span>')+
       statusRow('check',t.batt,t.battv,t.battt,true,'<span>'+t.days+'</span>'+spark())+
-      statusRow('info',t.fdata,t.fdatav,t.fdatat,false,'')+'</div></div>';
+      statusRow('info',t.fdata,t.fdatav,t.fdatat,false,'')+'<a class="vrow" href="#" style="min-height:60px"><span class="who"><b>'+t.healthd+'</b><small style="color:var(--muted);font-size:13px;display:block">'+t.healths+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
   }
   function deviceBlock(t){
     function v(n,note){return '<div class="vrow"><span class="who"><b class="num">'+n+'</b></span><span class="val">'+note+'</span><a class="btn quiet" href="#">'+t.revert+'</a></div>';}
@@ -344,7 +344,7 @@ a{color:inherit;text-decoration:none}
   function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
   var html='';
   html+=section('1. Phone: the list of frames and a frame page',
-    'Real shell: top bar with the logo and the floating tab bar of the console. Left, the list of frames (<code>/fleet</code>): rows, problems first; pending and retired frames only here; tapping a row opens it. Right, a frame page: chip row of live frames (never a retired one), then the real sections (State, Device and version, Settings, Access) stacked, with sticky anchors. Details are shown directly, nothing hides behind an arrow: the battery curve over 7 days, the last contacts, and the previous firmware versions with their Revert buttons are on the page; \u201cAll versions\u201d is the only link, for the long list.',
+    'Real shell: top bar with the logo and the floating tab bar of the console. Left, the list of frames (<code>/fleet</code>): rows, problems first; pending and retired frames only here; tapping a row opens it. Right, a frame page: chip row of live frames (never a retired one), then the real sections (State, Device and version, Settings, Access) stacked, with sticky anchors. The key details are shown directly (no arrow on every row): the battery curve over 7 days, the last contacts, and the previous firmware versions with their Revert buttons are on the page; \u201cAll versions\u201d is the link for the long list. Nothing is lost: the full health page (data sources, check-in times, identification, backup, battery readings) stays as it is today, reached by one explicit \u201cHealth details\u201d row in the State card.',
     '<div class="row2">'+mock('phone','List of frames','The list scrolls inside the phone',listPhone)+mock('phone','A frame page','Scroll inside the phone; try the anchors',phoneFrame)+'</div>',
     '<p class="note"><b>Today:</b> the first frame opens by default, a dropdown in the top bar lists every frame (retired included), and an "Other frames" block repeats pending and retired frames at the bottom of every frame page. <b>Removed from Access:</b> the introduction, the empty-state body, the helper line and the long Reassign / Retire sentences (they stay in the confirmation dialogs).</p>');
   html+=section('2. Desktop: the list as a panel next to the navigation, the frame on the rest of the screen',
