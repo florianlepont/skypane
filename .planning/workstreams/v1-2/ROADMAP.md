@@ -47,7 +47,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [x] **Phase 62: Plane Screen Redesign (giant-lettering design)** - The flight screens and the generic status screens use the giant-lettering design in portrait and landscape, from the validated design brief. (added 2026-11-08 at the owner's request; Phase 59 stays last; 13 of 13 plans done; the owner confirmed the real-panel check and kept layout B as the default, 2026-11-10)
 - [x] **Phase 63: Fast CI** - The CI test job drops from about 27 minutes to 10 minutes or less by running independent test groups in parallel jobs and trimming the slowest tests, with no test skipped, disabled or weakened.
 - [ ] **Phase 64: Second Hardware in Production** - The second hardware type is built, released, deployed, updated over the air and managed in production the way the first type is, so a second kind of frame is a supported product and not only a bench unit. (added 2026-11-14 at the owner's request, after the Phase 58 bench showed that nothing builds, publishes or deploys a release for it; Phase 59 stays last)
-- [ ] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; Phase 59 stays last)
+- [x] **Phase 65: Detection Robustness (Runway 3 and Multi-Airport Validation)** - The detection tracks the right aircraft on Paris-Orly runway 3, on the other Orly runways and on other French airports: what a device shows matches an independent source. (added 2026-11-15 at the owner's request; battery work moved out to SEED-019 for v1.4 on 2026-11-15; scope widened to several runways and airports on 2026-11-15; completed 2026-11-18, Orly 06/24 left untested by the owner's decision; Phase 59 stays last)
 - [ ] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.3 SEED-020; runs before Phase 66)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
@@ -710,21 +710,21 @@ Plans:
 **Must not break**: every golden hash of the legacy render and `stub-server/test_phase47_freeze.py`.
 **Decisions from discuss-phase (2026-11-15)**: Orly's three runways plus two other airports; simulated fleet devices, not the live frame or the second frame; findings F-01 to F-06 kept, with TRK-02 added.
 
-**Plans:** 14 plans in 8 waves (65-01 to 65-06 for TRK-01, 3 done; 65-07 to 65-14 for TRK-02)
+**Plans:** 14 plans in 8 waves (65-01 to 65-06 for TRK-01; 65-07 to 65-14 for TRK-02); all done 2026-11-18, verified with open points in `65-VERIFICATION.md`
 
 Plans:
 - [x] 65-01 to 65-03: snapshot, internal comparison, external comparison tool (TRK-01)
-- [ ] 65-04-PLAN.md - TRK-01 finding register and owner decisions
-- [ ] 65-05-PLAN.md - TRK-01 agreed fixes, test-first
-- [ ] 65-07-PLAN.md - TRK-02 read-only feasibility of simulated devices, owner decision on where they run
-- [ ] 65-08-PLAN.md - scratch fleet setup, recording runner and per-device export (scripts only)
-- [ ] 65-09-PLAN.md - owner picks the two airports, scratch fleet created
-- [ ] 65-10-PLAN.md - live sessions on Orly 06/24 and 02/20 against Flightradar24 (checkpoint)
-- [ ] 65-11-PLAN.md - live sessions on the parallel-runway and single-runway airports (checkpoint)
-- [ ] 65-12-PLAN.md - inventory of recorded traffic and offline replay of every mismatch
-- [ ] 65-13-PLAN.md - TRK-02 finding register and owner decisions
-- [ ] 65-14-PLAN.md - TRK-02 agreed fixes, test-first, Orly runway 3 pinned
-- [ ] 65-06-PLAN.md - evidence table for the four success criteria, gates, draft pull request
+- [x] 65-04-PLAN.md - TRK-01 finding register and owner decisions
+- [x] 65-05-PLAN.md - TRK-01 agreed fixes, test-first
+- [x] 65-07-PLAN.md - TRK-02 read-only feasibility of simulated devices, owner decision on where they run
+- [x] 65-08-PLAN.md - scratch fleet setup, recording runner and per-device export (scripts only)
+- [x] 65-09-PLAN.md - owner picks the two airports, scratch fleet created
+- [x] 65-10-PLAN.md - live sessions on Orly 06/24 and 02/20 against Flightradar24 (checkpoint)
+- [x] 65-11-PLAN.md - live sessions on the parallel-runway and single-runway airports (checkpoint)
+- [x] 65-12-PLAN.md - inventory of recorded traffic and offline replay of every mismatch
+- [x] 65-13-PLAN.md - TRK-02 finding register and owner decisions
+- [x] 65-14-PLAN.md - TRK-02 agreed fixes, test-first, Orly runway 3 pinned
+- [x] 65-06-PLAN.md - evidence table for the four success criteria, gates, draft pull request
 
 ### Phase 68: Console and Companion Visual Improvements
 
