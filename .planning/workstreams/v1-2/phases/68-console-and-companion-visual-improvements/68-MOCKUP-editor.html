@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en" data-lang="en" data-view="phone">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkyPane Airlines editor - mockup (Phase 68, R27 to R31, D-15)</title>
+<style>
+/* Standalone mockup, no production code. Tokens follow the companion design system (sketch-findings-skypane).
+   Controls at the top switch viewport (phone 360 px / desktop 1280 px page, content column 1040 px), language and theme. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.72); --tab:#fff;
+  --ok:#16A34A; --warn:#D97706; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 64px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+html[data-lang="en"] [data-lang="fr"],html[data-lang="fr"] [data-lang="en"]{display:none!important}
+html[data-view="phone"] [data-viewport="desktop"],html[data-view="desktop"] [data-viewport="phone"]{display:none!important}
+
+/* page chrome */
+.top{max-width:1240px;margin:0 auto 32px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:32px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:70ch;font-size:15px}
+.ctl{display:flex;flex-wrap:wrap;gap:8px}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.scene{max-width:1240px;margin:0 auto 56px}
+.scene>h2{margin:0 0 4px;font-size:22px;font-weight:600}
+.scene>.why{margin:0 0 16px;color:var(--muted);font-size:15px;max-width:80ch}
+.row2{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.row2>*{max-width:100%;min-width:0}
+.cap{margin:0 0 8px;font-size:13px;font-weight:600;color:var(--muted)}
+
+/* the two page widths */
+.mock{border:1px solid var(--border);background:var(--sky) var(--canvas);box-shadow:0 12px 40px rgba(20,30,50,.12);padding:16px;min-width:0}
+.mock[data-viewport="phone"]{width:360px;max-width:100%;border-radius:36px;padding:20px 16px}
+.mock[data-viewport="desktop"]{width:1040px;max-width:100%;border-radius:22px;padding:24px 32px}
+.mock .pt{margin:0 0 16px;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.mock[data-viewport="desktop"] .pt{font-size:40px}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:14px;border:1px solid var(--border);background:var(--chip);cursor:pointer;font-size:15px;white-space:nowrap}
+.btn.pri{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
+.btn.ico{width:44px;padding:0}
+.ic{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* filter */
+.filter{display:flex;flex-direction:column;gap:8px}
+.search{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:14px;background:var(--glass)}
+.search input{flex:1;min-width:0;border:0;background:none;outline:0;font-size:16px}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.mock[data-viewport="desktop"] .chips{flex-wrap:wrap;overflow:visible}
+.chip{flex:none;min-height:44px;padding:0 14px;border-radius:32px;border:1px solid var(--border);background:var(--glass);cursor:pointer;font-size:14px}
+.chip[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.chip small{color:inherit;opacity:.7;margin-left:4px}
+.count{font-size:13px;color:var(--muted);margin:0}
+
+/* group and rows */
+.sec{margin:8px 0 0;display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.sec h3{margin:0;font-size:17px;font-weight:600}
+.sec span{font-size:13px;color:var(--muted)}
+.grp{background:var(--glass);border:1px solid var(--border);border-radius:22px;overflow:hidden}
+.grp>.r+.r,.grp>.r+.px,.grp>.px+.r,.grp>.mn+.r{border-top:1px solid var(--border)}
+.r{display:grid;align-items:center;gap:4px 12px;padding:8px 12px;min-height:60px}
+.mock[data-viewport="phone"] .r{grid-template-columns:40px minmax(0,1fr) auto}
+.mock[data-viewport="phone"] .r .vw{display:none}
+.mock[data-viewport="phone"] .nm b{white-space:normal}
+.mock[data-viewport="phone"] .r .th{grid-column:1;grid-row:1}
+.mock[data-viewport="phone"] .r .nm{grid-column:2;grid-row:1}
+.mock[data-viewport="phone"] .r .ac{grid-column:3;grid-row:1}
+.mock[data-viewport="phone"] .r .st{grid-column:2/-1;grid-row:2}
+.mock[data-viewport="phone"] .r .st:empty{display:none}
+.mock[data-viewport="desktop"] .r{grid-template-columns:44px minmax(0,2fr) minmax(0,1.3fr) 150px auto;padding:8px 16px}
+.th{width:40px;height:40px;border-radius:10px;background:var(--chip);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;color:var(--muted)}
+.th.own{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.th.u{border-style:dashed}
+.nm{min-width:0}
+.nm b{display:block;font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nm small{display:block;font-size:13px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vw{font-size:13px;color:var(--muted)}
+.vw b{display:block;color:var(--text);font-weight:600;font-size:15px}
+.st{display:flex;gap:6px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:0 10px;border-radius:32px;background:var(--chip);font-size:13px}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.warn i{background:var(--warn)}.pill.ok i{background:var(--ok)}
+.ac{display:flex;gap:4px;justify-content:flex-end}
+.r.known{opacity:.92}
+.r.known .th{border-style:dotted}
+.px{padding:12px;background:color-mix(in srgb,var(--chip) 55%,transparent);display:flex;flex-direction:column;gap:12px}
+.mock[data-viewport="desktop"] .px{padding:16px 16px 16px 76px}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:13px;font-weight:600;color:var(--muted)}
+.fld input,.fld select{min-height:44px;padding:0 12px;border:1px solid var(--border);border-radius:14px;background:var(--tab);font-size:16px;width:100%}
+.mock[data-viewport="desktop"] .fl{display:grid;grid-template-columns:2fr 1fr auto;gap:12px;align-items:end}
+.mock[data-viewport="phone"] .fl{display:flex;flex-direction:column;gap:12px}
+.mock[data-viewport="phone"] .fl .btn{width:100%}
+.hint{margin:0;font-size:13px;color:var(--muted)}
+
+/* aircraft type sub-rows: one 44 px line each, never overlapping the next airline */
+.sub{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;min-height:44px;padding:0 0 0 4px}
+.sub+.sub{border-top:1px dashed var(--border)}
+.sub .nm b{font-size:15px;font-weight:500}
+.sub .nm small{font-size:13px}
+.sub .lnk{border:0;background:none;min-height:44px;padding:0 10px;font-size:14px;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.subhead{margin:0;font-size:13px;font-weight:600;color:var(--muted)}
+
+/* menu: in flow here so nothing overlaps; the build anchors it to the button with the same padding */
+.mn{display:flex;justify-content:flex-end;padding:4px 12px 12px}
+.menu{width:min(100%,280px);padding:8px;background:var(--tab);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 32px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.menu button{min-height:44px;padding:0 12px;border:0;border-radius:12px;background:none;text-align:left;cursor:pointer;font-size:15px}
+.menu button:hover{background:var(--chip)}
+.menu hr{border:0;border-top:1px solid var(--border);margin:4px 0;width:100%}
+.menu .danger{color:var(--err)}
+.menu [hidden]{display:none}
+.menu small{display:block;font-size:12px;color:var(--muted)}
+
+/* policy table */
+.pol{width:100%;border-collapse:collapse;font-size:14px;background:var(--glass);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.pol th,.pol td{padding:8px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+.pol th{font-size:13px;color:var(--muted);font-weight:600}
+.pol td.no{color:var(--muted)}
+.opt{flex:1 1 min(100%,420px);min-width:0;padding:16px;background:var(--glass);border:1px solid var(--border);border-radius:22px}
+.opt h3{margin:0 0 8px;font-size:17px}
+.note{margin:8px 0 0;font-size:13px;color:var(--muted)}
+.sheet{padding:16px;border:1px solid var(--border);border-radius:22px;background:var(--tab);display:flex;flex-direction:column;gap:12px}
+.sheet h4{margin:0;font-size:22px;font-weight:600}
+.drop{min-height:96px;border:2px dashed var(--border);border-radius:14px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:15px;text-align:center;padding:8px}
+
+/* questions */
+.q{max-width:1240px;margin:0 auto;padding:24px;background:var(--glass);border:1px solid var(--accent);border-radius:22px}
+.q h2{margin:0 0 12px;font-size:22px}
+.q ol{margin:0;padding-left:24px;display:flex;flex-direction:column;gap:12px}
+.q em{color:var(--muted);font-style:normal}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div>
+    <h1><span data-lang="en">Airlines editor: mockup</span><span data-lang="fr">Éditeur des compagnies : maquette</span></h1>
+    <p><span data-lang="en">Administrator console, /airlines/manage. Items R27 to R31 and D-15. 36 named airlines, 6 unidentified prefixes, 10 known by name only. Mockup only: no production code. Phase 64 owns airlines_page.py and airline_table.py; plans 14 and 23 touch them later.</span><span data-lang="fr">Console administrateur, /airlines/manage. Points R27 à R31 et D-15. 36 compagnies nommées, 6 préfixes non identifiés, 10 connues par leur nom seulement. Maquette seule : aucun code de production. La phase 64 possède airlines_page.py et airline_table.py ; les plans 14 et 23 les modifieront plus tard.</span></p>
+  </div>
+  <div class="ctl">
+    <div class="seg" id="vp" role="group" aria-label="Viewport">
+      <button type="button" data-v="phone" aria-pressed="true">Phone 360</button>
+      <button type="button" data-v="desktop" aria-pressed="false">Desktop 1280</button>
+    </div>
+    <div class="seg" id="lg" role="group" aria-label="Language">
+      <button type="button" data-l="en" aria-pressed="true">EN</button>
+      <button type="button" data-l="fr" aria-pressed="false">FR</button>
+    </div>
+    <div class="seg" id="th" role="group" aria-label="Theme">
+      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</header>
+
+<main id="board"></main>
+
+<section class="q" id="questions">
+  <h2>Questions for the owner <span data-lang="fr">(questions pour le propriétaire)</span></h2>
+  <ol>
+    <li data-lang="en">placeholder</li>
+  </ol>
+</section>
+
+<script>
+(function(){
+'use strict';
+/* i18n helper: both languages in the DOM, CSS shows one. */
+function T(en,fr){return '<span data-lang="en">'+en+'</span><span data-lang="fr">'+fr+'</span>';}
+var L={
+  complete:T('Complete','Compléter'), edit:T('Edit','Modifier'), rename:T('Rename','Renommer'),
+  validate:T('Validate','Valider'), changeArt:T('Change illustration','Changer l’illustration'),
+  delArt:T('Delete the illustration','Supprimer l’illustration'), backDef:T('Back to the default','Revenir à celle par défaut'),
+  resetName:T('Reset to the original name','Revenir au nom d’origine'), addArt:T('Add artwork','Ajouter une illustration'),
+  save:T('Save','Enregistrer'), unid:T('Unidentified','Non identifiée'), byHand:T('Named by hand','Nommée à la main'),
+  ownArt:T('Own artwork','Illustration perso'), sameAs:T('Same as the airline','Comme la compagnie'),
+  known:T('Known by name','Connue par son nom'), noArt:T('no artwork','sans illustration'),
+  views:function(n){return T(n+' views',n+' vues');}
+};
+var IC={
+  dots:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/></svg>',
+  search:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4-4"/></svg>',
+  up:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6"/></svg>',
+  down:'<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>'
+};
+function aria(en,fr){return en;}
+
+/* sample data: public airline names only */
+var NAMED=[
+  {n:'Air France',p:'AFR',art:'own',v:412,s:T('today','aujourd’hui'),types:[['A320','Airbus A320-214','own',188,true],['A321','Airbus A321-212','airline',96],['B77W','Boeing 777-328ER','airline',41],['A359','Airbus A350-941','own',23]]},
+  {n:'easyJet',p:'EZY, EJU',art:'airline',v:268,s:T('today','aujourd’hui')},
+  {n:'Transavia France',p:'TVF',art:'own',v:231,s:T('yesterday','hier'),hand:true},
+  {n:'Vueling',p:'VLG',art:'airline',v:174,s:T('2 days ago','il y a 2 jours')},
+  {n:'Iberia Express',p:'IBS',art:'airline',v:96,s:T('3 days ago','il y a 3 jours')}
+];
+var UNID=[['BCS','BCS1234'],['ABR','ABR5X'],['CKS','CKS482'],['SWT','SWT603']];
+var KNOWN=[['Aegean Airlines','AEE'],['Swiss','SWR'],['Lufthansa CityLine','CLH'],['Wizz Air Malta','WMT']];
+
+function th(a){return a.art==='own'?'<div class="th own" aria-hidden="true">'+a.n.slice(0,2)+'</div>':'<div class="th" aria-hidden="true">'+a.n.slice(0,2)+'</div>';}
+function artPill(a){
+  if(a.hand)return '';
+  return a.art==='own'?'<span class="pill ok"><i></i>'+L.ownArt+'</span>':'<span class="pill"><i></i>'+L.sameAs+'</span>';
+}
+function stPills(a){
+  var h=a.hand?'<span class="pill"><i></i>'+L.byHand+'</span>':'';
+  return h+artPill(a);
+}
+function namedRow(a,o){
+  o=o||{};
+  return '<div class="r" data-name="'+a.n.toLowerCase()+'" data-kind="named'+(a.hand?' hand':'')+(a.art==='own'?' own':'')+'">'+th(a)+
+    '<div class="nm"><b>'+a.n+'</b><small>'+a.p+'</small></div>'+
+    '<div class="st">'+stPills(a)+'</div>'+
+    '<div class="vw"><b>'+L.views(a.v)+'</b>'+a.s+'</div>'+
+    '<div class="ac"><button type="button" class="btn" data-open="'+(o.id||'')+'" aria-expanded="'+(o.open?'true':'false')+'">'+L.edit+'</button>'+
+    '<button type="button" class="btn ico" data-menu="'+(o.id||'')+'" aria-label="Actions for '+a.n+'">'+IC.dots+'</button></div></div>';
+}
+function unidRow(u,open,id){
+  return '<div class="r" data-kind="unid" data-name="'+u[0].toLowerCase()+' '+u[1].toLowerCase()+'"><div class="th u" aria-hidden="true">?</div>'+
+    '<div class="nm"><b>'+u[0]+'</b><small>'+T('callsign','indicatif')+' '+u[1]+'</small></div>'+
+    '<div class="st"><span class="pill warn"><i></i>'+L.unid+'</span></div><div class="vw"></div>'+
+    '<div class="ac"><button type="button" class="btn pri" data-open="'+(id||'')+'" aria-expanded="'+(open?'true':'false')+'">'+(open?IC.up:'')+L.complete+'</button></div></div>';
+}
+function unidForm(u){
+  return '<div class="px"><div class="fl">'+
+    '<div class="fld"><label>'+T('Airline name','Nom de la compagnie')+'</label><input value="" placeholder="'+'Airline name'+'" aria-label="Airline name for the prefix '+u[0]+'"></div>'+
+    '<div class="fld"><label>'+T('Default aircraft type (optional)','Type d’appareil par défaut (facultatif)')+'</label><select><option>Aircraft type / Type d’appareil</option><option>A320</option></select></div>'+
+    '<button type="button" class="btn pri">'+L.validate+'</button></div>'+
+    '<p class="hint">'+T('Seen as '+u[1]+'. Tap Complete again to fold this row; nothing is cleared or hidden.','Vu comme '+u[1]+'. Touchez à nouveau Compléter pour replier la ligne ; rien n’est effacé ni masqué.')+'</p></div>';
+}
+function knownRow(k){
+  return '<div class="r known" data-kind="known" data-name="'+k[0].toLowerCase()+'"><div class="th" aria-hidden="true">'+k[0].slice(0,2)+'</div>'+
+    '<div class="nm"><b>'+k[0]+'</b><small>'+k[1]+'</small></div>'+
+    '<div class="st"><span class="pill"><i></i>'+T('Known by name, no artwork','Connue par son nom, sans illustration')+'</span></div><div class="vw"></div>'+
+    '<div class="ac"><button type="button" class="btn">'+L.addArt+'</button></div></div>';
+}
+function menu(items){
+  return '<div class="mn"><div class="menu" role="menu">'+items.map(function(i){
+    return i==='-'?'<hr>':'<button type="button" role="menuitem"'+(i[1]?' class="danger"':'')+'>'+i[0]+'</button>';}).join('')+'</div></div>';
+}
+function filterBar(active){
+  var c=[['all',T('All','Tout'),52],['unid',T('Unidentified','Non identifiées'),6],['hand',L.byHand,9],['own',L.ownArt,14],['known',L.known,10]];
+  return '<div class="filter"><label class="search">'+IC.search+'<input type="search" placeholder="Filter by airline or callsign" aria-label="Filter"></label>'+
+    '<div class="chips" role="group" aria-label="Filter">'+c.map(function(x){return '<button type="button" class="chip" data-chip="'+x[0]+'" aria-pressed="'+(x[0]===active?'true':'false')+'">'+x[1]+'<small>'+x[2]+'</small></button>';}).join('')+'</div>'+
+    '<p class="count">'+T('52 airlines shown','52 compagnies affichées')+'</p></div>';
+}
+function mock(vp,title,inner){
+  return '<div class="mock" data-viewport="'+vp+'"><h1 class="pt">'+title+'</h1><div class="stack">'+inner+'</div></div>';
+}
+var TITLE=T('Airlines','Compagnies');
+function both(inner){return mock('phone',TITLE,inner)+mock('desktop',TITLE,inner);}
+function scene(num,h,why,body){
+  return '<section class="scene"><h2>'+num+'. '+h+'</h2><p class="why">'+why+'</p>'+body+'</section>';
+}
+
+/* 1. whole list */
+var s1=scene(1,T('The list: filter, chips, collapsed rows','La liste : filtre, pastilles, lignes repliées'),
+  T('R27, R29, R31. Unidentified prefixes are one compact row with a Complete button (no open fields). Named airlines show Edit plus a "..." menu. The filter field and chips reuse the filter bar of Users and Audit. Tap Complete, Edit or "..." to try it.','R27, R29, R31. Un préfixe non identifié tient sur une ligne compacte avec un bouton Compléter (plus de champs ouverts). Les compagnies nommées ont Modifier et un menu « ... ». Le champ de filtre et les pastilles reprennent la barre de filtre des Utilisateurs et de l’Audit. Touchez Compléter, Modifier ou « ... » pour essayer.'),
+  both(
+    filterBar('all')+
+    '<div class="sec"><h3>'+T('To identify','À identifier')+'</h3><span>'+T('6 prefixes','6 préfixes')+'</span></div>'+
+    '<div class="grp">'+unidRow(UNID[0],false,'u1')+unidRow(UNID[1],false,'u2')+unidRow(UNID[2],false,'u3')+'</div>'+
+    '<p class="count">'+T('3 more prefixes','3 autres préfixes')+'</p>'+
+    '<div class="sec"><h3>'+T('Airlines','Compagnies')+'</h3><span>'+T('36 named','36 nommées')+'</span></div>'+
+    '<div class="grp">'+namedRow(NAMED[0],{id:'n1'})+namedRow(NAMED[1],{id:'n2'})+namedRow(NAMED[2],{id:'n3'})+namedRow(NAMED[3],{id:'n4'})+'</div>'+
+    '<div class="sec"><h3>'+T('Known by name, no artwork','Connues par leur nom, sans illustration')+'</h3><span>'+T('10, read-only','10, lecture seule')+'</span></div>'+
+    '<div class="grp">'+knownRow(KNOWN[0])+knownRow(KNOWN[1])+'</div>'));
+
+/* 2. unidentified collapsed / expanded */
+var s2=scene(2,T('Unidentified airline: collapsed, then Complete','Compagnie non identifiée : repliée, puis Compléter'),
+  T('R27, R28. Name, optional default aircraft type and one Validate button. The Ignore button is gone: it only cleared the fields, and the owner reported an "ignored" airline that could no longer be edited. A row stays until it is named.','R27, R28. Nom, type d’appareil par défaut facultatif et un seul bouton Valider. Le bouton Ignorer disparaît : il ne faisait que vider les champs, et le propriétaire a signalé une compagnie « ignorée » impossible à modifier. Une ligne reste tant qu’elle n’est pas nommée.'),
+  both('<div class="grp">'+unidRow(UNID[3],false,'x1')+'</div>'+
+       '<div class="grp">'+unidRow(UNID[0],true,'x2')+unidForm(UNID[0])+'</div>'));
+
+/* 3. known airline: Edit + Rename via menu, phone "..." menu */
+var menuNamed=[[L.rename],[L.changeArt],'-',[L.resetName]];
+var s3=scene(3,T('Known airline: Edit and an explicit Rename','Compagnie connue : Modifier et un Renommer explicite'),
+  T('R27, R29. The name is no longer an open field in the row. Edit opens the details (aircraft types, illustrations); Rename sits in the "..." menu and opens a single name field. The menu has 8 px padding, 44 px items, a divider before the rarely used entry, and is anchored under its button (shown in flow here).','R27, R29. Le nom n’est plus un champ ouvert dans la ligne. Modifier ouvre le détail (types d’appareil, illustrations) ; Renommer est dans le menu « ... » et ouvre un seul champ de nom. Le menu a 8 px de marge, des entrées de 44 px, un séparateur avant l’entrée rare, et s’ancre sous son bouton (montré dans le flux ici).'),
+  '<div class="row2">'+
+  '<div><p class="cap">'+T('Menu open','Menu ouvert')+'</p>'+both('<div class="grp">'+namedRow(NAMED[2],{id:'m1'})+menu(menuNamed)+'</div>')+'</div>'+
+  '<div><p class="cap">'+T('After Rename','Après Renommer')+'</p>'+both('<div class="grp">'+namedRow(NAMED[2],{id:'m2'})+
+    '<div class="px"><div class="fl"><div class="fld"><label>'+T('Airline name','Nom de la compagnie')+'</label><input value="Transavia France"></div><div></div><button type="button" class="btn pri">'+L.save+'</button></div></div></div>')+'</div></div>');
+
+/* 4. expanded airline, compact sub-rows, next airline below not overlapped */
+function typeRows(a){
+  return a.types.map(function(t){
+    var own=t[2]==='own';
+    return '<div class="sub"><div class="nm"><b>'+t[0]+' <span style="font-weight:400;color:var(--muted)">'+t[1]+'</span></b><small>'+L.views(t[3])+' · '+(own?L.ownArt:L.sameAs)+(t[4]?' · '+T('Default type','Type par défaut'):'')+'</small></div>'+
+      '<div class="ac"><button type="button" class="btn ico" aria-label="Actions for '+t[0]+'">'+IC.dots+'</button></div></div>';
+  }).join('');
+}
+var s4=scene(4,T('Opened airline: compact aircraft types','Compagnie ouverte : types d’appareil compacts'),
+  T('R29, R31. Each type is one 44 px line with a "..." menu (no inline Customise button), so a 4-type airline adds about 190 px instead of the old tall rows. The panel is a normal block in the grid, so the next airline starts below it: no overlap. The types are fetched when Edit is opened (as today), only the rows already on the page are drawn.','R29, R31. Chaque type tient sur une ligne de 44 px avec un menu « ... » (plus de bouton Personnaliser en ligne) : une compagnie de 4 types ajoute environ 190 px au lieu des anciennes lignes hautes. Le panneau est un bloc normal de la grille, la compagnie suivante commence en dessous : pas de chevauchement. Les types sont chargés à l’ouverture de Modifier (comme aujourd’hui).'),
+  both('<div class="grp">'+namedRow(NAMED[0],{id:'e1',open:true})+
+    '<div class="px"><p class="subhead">'+T('Aircraft types seen','Types d’appareil vus')+'</p><div>'+typeRows(NAMED[0])+'</div></div>'+
+    namedRow(NAMED[1],{id:'e2'})+'</div>'));
+
+/* 5. illustration policy A / B */
+function pol(rows,head){
+  return '<table class="pol"><thead><tr><th>'+T('State of the aircraft type','État du type d’appareil')+'</th><th>'+head+'</th></tr></thead><tbody>'+rows.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td></tr>';}).join('')+'</tbody></table>';
+}
+var sA=pol([
+  [T('Uses the airline’s artwork (no override)','Utilise l’illustration de la compagnie (aucune personnalisation)'),L.changeArt],
+  [T('Own uploaded picture, no built-in picture','Image envoyée, pas d’image intégrée'),L.changeArt+' · '+L.delArt],
+  [T('Own uploaded picture, built-in picture beneath','Image envoyée, image intégrée en dessous'),L.changeArt+' · '+L.delArt+' · '+L.backDef]
+],T('Menu entries (policy A)','Entrées du menu (politique A)'));
+var sB=pol([
+  [T('Uses the airline’s artwork (no override)','Utilise l’illustration de la compagnie (aucune personnalisation)'),L.changeArt],
+  [T('Own uploaded picture (any case)','Image envoyée (tous les cas)'),L.changeArt+' · '+T('Remove my illustration','Retirer mon illustration')]
+],T('Menu entries (policy B)','Entrées du menu (politique B)'));
+var s5=scene(5,T('Illustration actions: policy A (proposed) or B','Actions sur l’illustration : politique A (proposée) ou B'),
+  T('R30. Today Customise and Change illustration are the same upload control, and Back to the default and Delete the illustration are the same change worded twice. Since the owner supplies every picture, "default" usually does not exist, so the entry must not appear then.','R30. Aujourd’hui Personnaliser et Changer l’illustration sont le même contrôle d’envoi, et Revenir à celle par défaut et Supprimer l’illustration sont le même changement dit deux fois. Comme le propriétaire fournit toutes les images, le « défaut » n’existe en général pas : l’entrée ne doit alors pas apparaître.'),
+  '<div class="row2"><div class="opt"><h3>'+T('A. Proposed: three precise entries','A. Proposée : trois entrées précises')+'</h3>'+sA+
+  '<p class="note">'+T('One upload entry, Customise dropped. Delete only when a picture was uploaded. Back to the default only when a built-in picture exists beneath. Needs the has_builtin flag checked per aircraft type.','Une seule entrée d’envoi, Personnaliser supprimé. Supprimer seulement si une image a été envoyée. Revenir à celle par défaut seulement s’il existe une image intégrée en dessous. Il faut vérifier l’indicateur has_builtin par type d’appareil.')+'</p>'+
+  both('<div class="grp"><div class="sub" style="padding:0 12px"><div class="nm"><b>A320 <span style="font-weight:400;color:var(--muted)">Airbus A320-214</span></b><small>'+L.ownArt+'</small></div><div class="ac"><button type="button" class="btn ico">'+IC.dots+'</button></div></div>'+
+    menu([[L.changeArt],[L.delArt,1]])+'</div>')+
+  '</div>'+
+  '<div class="opt"><h3>'+T('B. Alternative: always two entries','B. Alternative : toujours deux entrées')+'</h3>'+sB+
+  '<p class="note">'+T('The word "default" is never shown. The removal entry says what it does for the owner: the airline’s own picture (or the generic one) comes back. Simpler wording, same server action.','Le mot « défaut » n’apparaît jamais. L’entrée de retrait dit ce qu’elle fait : l’illustration de la compagnie (ou l’image générique) revient. Libellé plus simple, même action serveur.')+'</p>'+
+  both('<div class="grp"><div class="sub" style="padding:0 12px"><div class="nm"><b>A320 <span style="font-weight:400;color:var(--muted)">Airbus A320-214</span></b><small>'+L.ownArt+'</small></div><div class="ac"><button type="button" class="btn ico">'+IC.dots+'</button></div></div>'+
+    menu([[L.changeArt],[T('Remove my illustration','Retirer mon illustration'),1]])+'</div>')+
+  '</div></div>');
+
+/* 6. known by name, read-only */
+var s6=scene(6,T('Known by name, no artwork: read-only rows','Connues par leur nom, sans illustration : lignes en lecture seule'),
+  T('D-15. These airlines are named by the server but have no picture. They are listed so the owner sees what is missing: no Edit, no Rename, no menu. Add artwork opens the same add-artwork step as the Add airline button, with the name and prefix filled in and not editable. They are not counted in the 36 named airlines.','D-15. Ces compagnies sont nommées par le serveur mais n’ont pas d’image. Elles sont listées pour voir ce qui manque : pas de Modifier, pas de Renommer, pas de menu. Ajouter une illustration ouvre la même étape d’ajout que le bouton Ajouter une compagnie, nom et préfixe déjà remplis et non modifiables. Elles ne comptent pas dans les 36 compagnies nommées.'),
+  '<div class="row2"><div>'+both('<div class="grp">'+KNOWN.map(knownRow).join('')+'</div><p class="count">'+T('6 more, shown by the filter chip "Known by name"','6 autres, visibles avec la pastille « Connue par son nom »')+'</p>')+'</div>'+
+  '<div><p class="cap">'+T('After Add artwork (existing step)','Après Ajouter une illustration (étape existante)')+'</p>'+
+  '<div class="sheet" style="width:min(100%,360px)"><h4>'+T('Add an illustration for Aegean Airlines','Ajouter une illustration pour Aegean Airlines')+'</h4><div class="fld"><label>'+T('Prefix','Préfixe')+'</label><input value="AEE" disabled></div>'+
+  '<div class="drop">'+T('Drop an image in the frame, or choose one.','Déposez une image dans le cadre, ou choisissez-en une.')+'</div><button type="button" class="btn pri">'+T('Upload','Envoyer')+'</button></div></div></div>');
+
+document.getElementById('board').innerHTML=s1+s2+s3+s4+s5+s6;
+
+/* questions, both languages */
+document.querySelector('#questions ol').innerHTML=[
+  [T('What does "marchand" mean in your R29 note ("rows not optimised")? I read it as "Marque" (brand) or "marchands" (merchants/types), or a typo. Recommendation: treat it as "lignes" (rows) and keep what is shown here; tell me if you meant a column or label.','Que veut dire « marchand » dans votre remarque R29 (« lignes pas optimisées ») ? Je lis « Marque », « marchands » ou une faute de frappe. Recommandation : le lire comme « lignes » et garder ce qui est montré ici ; dites-moi si vous pensiez à une colonne ou une étiquette.')],
+  [T('Illustration policy (R30): A (three precise entries, Back to the default only if a built-in picture exists) or B (always two entries, never the word "default")? Recommendation: A, it matches today’s server behaviour exactly; B if you never expect built-in pictures.','Politique d’illustration (R30) : A (trois entrées précises, Revenir à celle par défaut seulement s’il existe une image intégrée) ou B (toujours deux entrées, jamais le mot « défaut ») ? Recommandation : A, elle colle au comportement serveur actuel ; B si vous n’attendez jamais d’images intégrées.')],
+  [T('Words: Complete / Edit / Rename in English, Compléter / Modifier / Renommer in French. Right? Recommendation: keep these three.','Mots : Complete / Edit / Rename en anglais, Compléter / Modifier / Renommer en français. Bon ? Recommandation : garder ces trois mots.')],
+  [T('Filter chips: All, Unidentified, Named by hand, Own artwork, Known by name (EN) / Tout, Non identifiées, Nommées à la main, Illustration perso, Connues par leur nom (FR), with counts. Right? Recommendation: yes, with counts.','Pastilles de filtre : Tout, Non identifiées, Nommées à la main, Illustration perso, Connues par leur nom, avec compteurs. Bon ? Recommandation : oui, avec compteurs.')],
+  [T('Remove Ignore (R28) and let an unidentified row fold with the Complete button only. Right? Recommendation: yes, nothing is stored by Ignore today.','Supprimer Ignorer (R28) et replier une ligne non identifiée avec le seul bouton Compléter. Bon ? Recommandation : oui, Ignorer ne stocke rien aujourd’hui.')],
+  [T('Known-by-name rows (D-15): grouped at the bottom, read-only, with Add artwork only, 4 shown and a "show more" link. Right? Recommendation: yes.','Lignes « connues par leur nom » (D-15) : groupées en bas, lecture seule, avec Ajouter une illustration seulement, 4 visibles et un lien « Voir plus ». Bon ? Recommandation : oui.')]
+].map(function(q){return '<li>'+q[0]+'</li>';}).join('');
+
+/* interactions: expand, menu, chip, controls */
+document.getElementById('board').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  if(b.dataset.chip){b.parentNode.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(c===b));});}
+  if(b.hasAttribute('aria-expanded')){var on=b.getAttribute('aria-expanded')!=='true';b.setAttribute('aria-expanded',String(on));}
+});
+function seg(id,key,attr,fn){
+  var bs=document.querySelectorAll('#'+id+' button');
+  bs.forEach(function(b){b.addEventListener('click',function(){fn(b.dataset[key]);bs.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+}
+var R=document.documentElement;
+seg('vp','v','',function(v){R.setAttribute('data-view',v);});
+seg('lg','l','',function(l){R.setAttribute('data-lang',l);R.lang=l;});
+seg('th','t','',function(t){if(t==='auto')R.removeAttribute('data-theme');else R.setAttribute('data-theme',t);});
+})();
+</script>
+</body>
+</html>
