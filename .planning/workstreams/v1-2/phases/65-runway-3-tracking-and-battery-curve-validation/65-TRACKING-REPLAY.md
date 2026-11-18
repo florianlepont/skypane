@@ -20,8 +20,8 @@ Every aircraft found in the recorded session is found in the replay; no aircraft
 
 - Evidence [observed]: UAE7V (A380) at Roissy, 18:20:26 to 18:21:57 UTC. Altitude 1450, 1325, **1000 ft** with the reported vertical rate -640, -704, then **+608 ft/min** at 1000 ft (the altitude fell 325 ft in 30 s, so the sign is wrong), then on the ground at +608. The replay with the H-02 fix still draws `departing` at 18:21:26, because the aircraft is airborne at that sample (`on_ground` false); H-02 only covers the ground.
 - Cause [hypothesis, supported by the altitude]: a bad barometric rate sample near the ground. The first-seen altitude of the aircraft (1450 ft) is 450 ft above its current altitude, so the altitude trend says `arriving` while the rate says `departing`.
-- Proposal (needs the owner's agreement, D-04): a held state is not flipped by a vertical rate that the altitude trend since the first sighting contradicts. Test first, from the recorded UAE7V sequence; the KAL901 and take-off tests stay.
-- Not started.
+- Decision (owner, 2026-11-17): fix, test first. PR #466 (merged): a vertical rate that would turn a held arrival into a departure is not believed when the altitude trend since the first sighting still says descending. Only that transition is covered: a first version that also covered departure to arrival moved one Lyon row after the go-around of OCN71Q, so it was narrowed to the observed case.
+- Replay after the fix: Roissy 96 rows to 95, only UAE7V's false departure removed; Lyon, Nantes (morning and evening) and Orly unchanged.
 
 ## Not replayed
 Lyon, Roissy and Orly sessions recorded after the fixes of #458 could only show that the fixes do not move anything else; the morning Nantes session and the Roissy session carry the evidence. The Orly runway 3 traffic (live frame) has no recorded payloads in this repository.
