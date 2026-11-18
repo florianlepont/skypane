@@ -34,9 +34,7 @@ def test_the_aggregator_holds_the_pairing_routes_and_nav_follows_them():
         ("POST", console_routes.FLEET_PAIR_ROUTE),
         ("GET", console_routes.USERS_ROUTE),
         ("POST", console_routes.USERS_INVITE_ROUTE),
-        ("GET", console_routes.AUDIT_ROUTE),
-        ("GET", console_routes.LOCATIONS_ROUTE),
-        ("POST", console_routes.LOCATIONS_ADD_ROUTE)} <= served_routes
+        ("GET", console_routes.AUDIT_ROUTE)} <= served_routes
     assert [entry[1] for entry in console_routes.available_nav_entries()] == [
         "/fleet", "/users", "/health", "/device", "/airlines/manage", "/audit", "/update"]
 

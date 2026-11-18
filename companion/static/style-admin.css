@@ -82,7 +82,7 @@
     grid-column: 1 / -1;
   }}
 
-/* Console forms (Locations and the other fleet forms): a text input or
+/* Console forms (the fleet forms): a text input or
  * select never grows past its card, whatever its longest option or value. */
 .fleet-form input,
 .fleet-form select,

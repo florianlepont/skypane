@@ -14,7 +14,6 @@ import pytest
 
 import fleet_console_support as fx
 from frame_menu_support import click_add, click_add_without_script, open_menu
-from locations_page_support import open_locations_page
 from companion import auth, legacy_pages
 from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, _in_both_themes, _login,
@@ -178,11 +177,6 @@ def test_forms_and_confirm_controls_meet_the_touch_target(
         for selector in (
                 "#invite-email", "#invite-role", 'form[action="/users/invite"] button'):
             assert _height(page, selector) >= MIN_TAP_PX, selector
-        open_locations_page(page, server.base_url())
-        for selector in (
-                "#new-name", "#new-lat", "#new-lon", "#new-tz",
-                'form[action="/locations/add"] button'):
-            assert _height(page, selector) >= MIN_TAP_PX, selector
     finally:
         context.close()
 
@@ -233,10 +227,6 @@ def test_console_works_with_scripts_blocked(new_context, app_server_in_process):
         page.wait_for_url("**/users")
         assert _flash(page).is_visible()
         assert "invited@example.test" in page.content()
-
-        # The Locations list is gone: its address is a plain redirect to Fleet.
-        page.goto(server.base_url() + "/locations")
-        assert page.url.endswith("/fleet")
     finally:
         context.close()
 

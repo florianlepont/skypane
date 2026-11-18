@@ -27,7 +27,6 @@ import pytest
 
 import fleet_console_support as fx
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
-from locations_page_support import open_locations_page
 from place_map_support import Hosts
 from companion import auth
 from companion.test_browser_ux_helpers import (
@@ -222,7 +221,6 @@ CASES = (
     _case("admin", "/fleet", "dlg-retire-{slug}", "fleet-retire-dialog"),
     _case("admin", "/users", None, "users"),
     _case("admin", "/users", "dlg-invite-user", "users-invite-dialog"),
-    _case("admin", "/locations", None, "locations"),
     _case("admin", "/audit", None, "audit"),
     _case("admin", "/update", None, "releases"),
     _case("admin", "/account", None, "admin-account"),
@@ -274,10 +272,7 @@ def _open(new_context, server, persona, path, dialog, viewport, lang, scheme):
     url = server.base_url() + path.format(**ids)
     if dialog:
         url += "#" + dialog.format(**ids)
-    if path == "/locations":
-        open_locations_page(page, server.base_url())
-    else:
-        page.goto(url)
+    page.goto(url)
     page.locator("main").wait_for(state="visible")
     if dialog:
         page.locator("dialog[open]").wait_for(state="visible")

@@ -136,7 +136,7 @@ def test_the_personal_navigation_never_links_console_pages_or_locations(served):
             hrefs += [href for href, _text in _anchors(bar)]
             for href in hrefs:
                 path = re.sub(r"^/devices/[^/]+", "", href)
-                assert path not in ("/health", "/device", "/update", "/locations",
+                assert path not in ("/health", "/device", "/update",
                                     "/airlines/manage", "/users", "/audit"), (who, page, href)
             assert "nav-notification" not in markup
 

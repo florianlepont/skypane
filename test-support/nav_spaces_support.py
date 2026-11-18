@@ -2,7 +2,6 @@
 user pages in a chosen viewport, language and theme, and the equal-cells check
 of the phone tab bar (each cell follows its label and the cells together fill the bar)."""
 import fleet_console_support as fx
-from locations_page_support import open_locations_page
 from companion import auth
 from companion.test_browser_ux_helpers import _assert_no_page_overflow, _login, _set_ui_theme
 
@@ -38,10 +37,7 @@ def admin_page(new_context, server, path, viewport, lang="en", scheme="light"):
     context = context_for(new_context, server, viewport, lang, scheme)
     page = context.new_page()
     _login(page, server.base_url())
-    if path == "/locations":
-        open_locations_page(page, server.base_url())
-    else:
-        page.goto(server.base_url() + path)
+    page.goto(server.base_url() + path)
     page.locator("main").wait_for(state="visible")
     _set_ui_theme(page, scheme)
     return context, page

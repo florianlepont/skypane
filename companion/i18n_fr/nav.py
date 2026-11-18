@@ -33,7 +33,6 @@ MESSAGES = {
     "nav.health": "État",
     "nav.device": "Appareil",
     "nav.update": "Versions",
-    "nav.locations": "Lieux",
 
     # The bottom tab bar's fifth cell; its <details> sheet holds the
     # destinations that do not fit in the bar.

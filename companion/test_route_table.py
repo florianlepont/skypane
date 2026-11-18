@@ -36,8 +36,6 @@ _SAMPLE_MIDDLE = {
     routes.PrefixSuffix("/users/", "/enable"): "1",
     routes.PrefixSuffix("/users/", "/unlink"): "1",
     routes.PrefixSuffix("/users/", "/delete"): "1",
-    routes.PrefixSuffix("/locations/", "/edit"): "1",
-    routes.PrefixSuffix("/locations/", "/delete"): "1",
 }
 
 
@@ -107,20 +105,13 @@ def test_no_post_route_exists_for_login():
     assert not _all_matches("POST", routes.LOGIN_ROUTE)
 
 
-_LOCATION_ROUTES = {
-    ("POST", routes.Exact("/locations/add")),
-    ("POST", routes.PrefixSuffix("/locations/", "/edit")),
-    ("POST", routes.PrefixSuffix("/locations/", "/delete")),
-}
-
-
 _PAIR_FRAME_ROUTES = {
     ("GET", routes.Exact("/pair-frame")),
     ("POST", routes.Exact("/pair-frame")),
 }
 
 
-def test_signed_in_routes_are_account_the_preference_logout_and_session_check_posts_and_locations():
+def test_signed_in_routes_are_account_the_preference_logout_and_session_check_posts():
     actual = {(r.method, r.matcher) for r in routes.ROUTES if r.access == routes.SIGNED_IN}
     assert actual == {
         ("GET", routes.Exact("/account")),
@@ -128,7 +119,7 @@ def test_signed_in_routes_are_account_the_preference_logout_and_session_check_po
         ("POST", routes.Exact(routes.LANG_ROUTE)),
         ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
         ("POST", routes.Exact(routes.SESSION_CHECK_ROUTE)),
-    } | _LOCATION_ROUTES | _PAIR_FRAME_ROUTES
+    } | _PAIR_FRAME_ROUTES
 
 
 def test_every_other_route_is_admin_only_or_an_owner_device_route():
@@ -138,7 +129,7 @@ def test_every_other_route_is_admin_only_or_an_owner_device_route():
         ("POST", routes.Exact(routes.LANG_ROUTE)),
         ("POST", routes.Exact(routes.LOGOUT_ROUTE)),
         ("POST", routes.Exact(routes.SESSION_CHECK_ROUTE)),
-    } | _LOCATION_ROUTES | _PAIR_FRAME_ROUTES
+    } | _PAIR_FRAME_ROUTES
     for r in routes.ROUTES:
         if (r.method, r.matcher) in handwritten_non_admin:
             continue
@@ -256,6 +247,12 @@ def test_every_gated_route_redirects_an_anonymous_request(route_table_server, ro
         "%s: expected a redirect to LOGIN_ROUTE, got %r" % (key, location))
 
 
+# Routes the committed baseline still records but the app no longer serves.
+_REMOVED_ROUTES = frozenset({
+    "GET /locations", "POST /locations/add", "POST /locations/1/edit",
+    "POST /locations/1/delete"})
+
+
 def test_every_baseline_route_is_in_the_table():
     """Every 'METHOD path' the committed baseline's unauthenticated map
     records is matched by exactly one ROUTES entry - except the
@@ -268,6 +265,9 @@ def test_every_baseline_route_is_in_the_table():
     for key, expected in baseline.items():
         method, path = key.split(" ", 1)
         matches = _all_matches(method, path)
+        if key in _REMOVED_ROUTES:
+            assert not matches, "%r was removed but still matches a ROUTES entry" % (key,)
+            continue
         if not matches:
             assert expected["status"] == 404 and expected["location"] is None, (
                 "baseline route %r matched no ROUTES entry and is not the "

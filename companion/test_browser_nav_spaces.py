@@ -165,21 +165,3 @@ def test_desktop_personal_sidebar_lists_the_spec_links(
         assert page.locator(".sidebar-nav .nav-group__label").count() == 0
     finally:
         context.close()
-
-
-@pytest.mark.parametrize("scheme", ["light", "dark"])
-@pytest.mark.parametrize("lang", ["en", "fr"])
-def test_locations_fields_fit_their_card_at_360(
-        new_context, app_server_in_process, lang, scheme):
-    context, page = _admin_page(
-        new_context, app_server_in_process, "/locations", VIEWPORT_MIN_SUPPORTED,
-        lang, scheme)
-    try:
-        fields = page.evaluate(_FIELD_OVERFLOW)
-        assert fields
-        for field in fields:
-            assert field["inside"], field
-            assert field["sw"] <= field["cw"] + 1, field
-        assert not _assert_no_page_overflow(page, "locations", 360)
-    finally:
-        context.close()
