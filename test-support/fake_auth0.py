@@ -32,7 +32,15 @@ KNOBS = (
     "reuse_code",        # do not consume codes on use
     "wrong_redirect_uri",  # remember a different redirect_uri for the code
     "issuer_host",       # host written into iss, when it differs from `domain`
+    "mgmt_token_status",   # HTTP status for the Management token request
+    "mgmt_users_status",   # HTTP status for POST /api/v2/users
+    "mgmt_users_body",     # raw body for POST /api/v2/users
+    "mgmt_ticket_status",  # HTTP status for POST /api/v2/tickets/password-change
+    "mgmt_ticket_body",    # raw body for POST /api/v2/tickets/password-change
+    "mgmt_delay_s",        # sleep before answering any Management call
 )
+
+MGMT_TOKEN = "fake-mgmt-access-token"
 
 
 def _b64url(raw):
@@ -58,6 +66,7 @@ class FakeAuth0:
                           "email_verified": True}
         self._server = None
         self._thread = None
+        self.mgmt = None
 
     # --- lifecycle ---
 
@@ -112,6 +121,29 @@ class FakeAuth0:
         })
         return merged
 
+    def enable_management(self, client_id, client_secret, connection,
+                          connection_id, scopes=("create:users",
+                                                 "create:user_tickets")):
+        """Turn on the Management endpoints with a machine-to-machine
+        application. Requests are recorded in `mgmt.requests` (path, JSON
+        body, bearer token seen) for assertions."""
+        self.mgmt = _Management(client_id, client_secret, connection,
+                                connection_id, tuple(scopes), self)
+        return self.mgmt
+
+    def mgmt_env(self, env=None):
+        """`env` plus the Management variables pointing at this fake."""
+        merged = dict(env or {})
+        merged.update({
+            "SKYPANE_AUTH0_DOMAIN": self.domain,
+            "SKYPANE_AUTH0_MGMT_CLIENT_ID": self.mgmt.client_id,
+            "SKYPANE_AUTH0_MGMT_CLIENT_SECRET": self.mgmt.client_secret,
+            "SKYPANE_AUTH0_DB_CONNECTION": self.mgmt.connection,
+            "SKYPANE_AUTH0_DB_CONNECTION_ID": self.mgmt.connection_id,
+            "SKYPANE_AUTH0_ALLOW_INSECURE_LOOPBACK": "1",
+        })
+        return merged
+
     def calls_to(self, path):
         return [c for c in self.calls if c[1] == path]
 
@@ -161,6 +193,10 @@ class FakeAuth0:
 
     def token(self, form):
         """Return (status, body_text, extra_headers)."""
+        if form.get("grant_type") == "client_credentials":
+            if self.mgmt is None:
+                return 400, json.dumps({"error": "unsupported_grant_type"}), {}
+            return self.mgmt.token(form)
         delay = self.knob("token_delay_s", 0)
         if delay:
             time.sleep(delay)
@@ -242,6 +278,91 @@ class FakeAuth0:
         return 400, "returnTo is not in the allowed logout URLs"
 
 
+class _Management:
+    """Management API stand-in: client-credentials token, user creation and
+    password-change tickets. Placeholder values only."""
+
+    def __init__(self, client_id, client_secret, connection, connection_id,
+                 scopes, fake):
+        self.client_id = client_id
+        self.client_secret = client_secret
+        self.connection = connection
+        self.connection_id = connection_id
+        self.scopes = scopes
+        self.fake = fake
+        self.users = {}
+        self.requests = []
+        self.token_forms = []
+
+    def _pause(self):
+        delay = self.fake.knob("mgmt_delay_s", 0)
+        if delay:
+            time.sleep(delay)
+
+    def token(self, form):
+        self._pause()
+        self.token_forms.append(dict(form))
+        status = self.fake.knob("mgmt_token_status", 200)
+        if status != 200:
+            return status, json.dumps({"error": "access_denied"}), {}
+        good = (form.get("client_id") == self.client_id
+                and hmac.compare_digest(
+                    form.get("client_secret", "").encode("utf-8"),
+                    self.client_secret.encode("utf-8"))
+                and form.get("audience") == "http://%s/api/v2/" % self.fake.domain)
+        if not good:
+            return 401, json.dumps({"error": "access_denied"}), {}
+        return 200, json.dumps({
+            "access_token": MGMT_TOKEN, "token_type": "Bearer",
+            "expires_in": 86400, "scope": " ".join(self.scopes)}), {}
+
+    def call(self, path, bearer, body):
+        """Return (status, body_text) for POST /api/v2/users or
+        /api/v2/tickets/password-change."""
+        self._pause()
+        self.requests.append((path, body, bearer))
+        if bearer != "Bearer " + MGMT_TOKEN or not isinstance(body, dict):
+            return 401, json.dumps({"error": "Unauthorized"})
+        if path == "/api/v2/users":
+            return self._create_user(body)
+        if path == "/api/v2/tickets/password-change":
+            return self._ticket(body)
+        return 404, "not found"
+
+    def _create_user(self, body):
+        if "create:users" not in self.scopes:
+            return 403, json.dumps({"error": "Forbidden"})
+        status = self.fake.knob("mgmt_users_status")
+        if status:
+            return status, self.fake.knob("mgmt_users_body", "{}")
+        if body.get("connection") != self.connection:
+            return 400, json.dumps({"error": "bad connection"})
+        email = str(body.get("email", "")).lower()
+        if not email or not body.get("password"):
+            return 400, json.dumps({"error": "bad payload"})
+        if email in self.users:
+            return 409, json.dumps({"error": "The user already exists."})
+        user_id = "auth0|" + secrets.token_hex(12)
+        self.users[email] = user_id
+        return 201, json.dumps({"user_id": user_id, "email": email})
+
+    def _ticket(self, body):
+        if "create:user_tickets" not in self.scopes:
+            return 403, json.dumps({"error": "Forbidden"})
+        status = self.fake.knob("mgmt_ticket_status")
+        if status:
+            return status, self.fake.knob("mgmt_ticket_body", "{}")
+        known = set(self.users.values())
+        by_id = body.get("user_id") in known
+        by_email = (str(body.get("email", "")).lower() in self.users
+                    and body.get("connection_id") == self.connection_id)
+        if not (by_id or by_email):
+            return 400, json.dumps({"error": "unknown user"})
+        ticket = "http://%s/lo/reset?ticket=%s" % (
+            self.fake.domain, secrets.token_urlsafe(16))
+        return 201, json.dumps({"ticket": ticket})
+
+
 def _make_handler(fake):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
@@ -273,11 +394,32 @@ def _make_handler(fake):
             else:
                 self._send(404, "not found")
 
-        def do_POST(self):
+        def _read_body(self):
             length = int(self.headers.get("Content-Length") or 0)
-            form = dict(urllib.parse.parse_qsl(
-                self.rfile.read(length).decode("utf-8")))
+            raw = self.rfile.read(length).decode("utf-8")
+            if "json" in (self.headers.get("Content-Type") or ""):
+                try:
+                    doc = json.loads(raw)
+                except ValueError:
+                    return {}
+                return doc if isinstance(doc, dict) else {}
+            return dict(urllib.parse.parse_qsl(raw))
+
+        def _management(self, path, body):
+            fake.record("POST", path, {})
+            if fake.mgmt is None:
+                self._send(404, "not found")
+                return
+            status, text = fake.mgmt.call(
+                path, self.headers.get("Authorization"), body)
+            self._send(status, text, {"Content-Type": "application/json"})
+
+        def do_POST(self):
+            form = self._read_body()
             parts = urllib.parse.urlsplit(self.path)
+            if parts.path.startswith("/api/v2/"):
+                self._management(parts.path, form)
+                return
             if parts.path != "/oauth/token":
                 fake.record("POST", parts.path, {})
                 self._send(404, "not found")

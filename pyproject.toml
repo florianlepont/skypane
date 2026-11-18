@@ -181,6 +181,7 @@ files = [
     # annotated, but the orchestration steps over CycleContext stay
     # partially annotated.
     "server/poll_cycle.py",
+    "companion/auth0_management.py",
 ]
 
 # mypy's own `strict` preset is a global-only switch; these per-flag
@@ -216,6 +217,7 @@ module = [
     "server.detection",
     "server.wake_stats",
     "server.check_interval",
+    "companion.auth0_management",
 ]
 disallow_untyped_defs = true
 disallow_incomplete_defs = true
