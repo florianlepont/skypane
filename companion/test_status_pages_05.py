@@ -137,7 +137,7 @@ def test_23_06_home_declares_the_regions_it_actually_renders(tmp_path):
         "a region that silently never refreshes" % (missing,))
     home_list = registry[layout.REFRESH_PAGE_HOME]
     for needle in (
-            "preview-frame", "home-flights", "home-facts", "home-frame-state",
+            "home-flight", "home-flights", "home-facts", "home-frame-state",
             "page-header__freshness"):
         assert any(needle in selector for selector in home_list), (
             "expected Home's swap regions to cover %r, got %r" % (needle, home_list))

@@ -94,7 +94,7 @@ def _quiet_seed(state_dir):
 
 
 def _open_quiet_dialog(page):
-    link = "a.home-switch__window"
+    link = "a.home-pill--quiet"
     page.locator(link).wait_for(state="visible")
     page.wait_for_function(_ANIMATIONS_DONE, timeout=15000)
     page.eval_on_selector(link, "el => el.scrollIntoView({block: 'center'})")

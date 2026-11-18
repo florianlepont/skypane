@@ -583,10 +583,10 @@ def test_the_home_notification_holds_the_layout_rules(
         if overflow:
             problems.append(overflow)
         tops = page.evaluate(
-            "(n) => [n, '.home-state', 'main h1'].map("
+            "(n) => ['main h1', n, '.home-flight'].map("
             "(s) => document.querySelector(s).getBoundingClientRect().top)", NOTICE)
-        if not tops[0] < tops[1] <= tops[2]:
-            problems.append("order is not notification, state card with title: %r" % (tops,))
+        if not tops[0] < tops[1] < tops[2]:
+            problems.append("order is not title block, notification, flight card: %r" % (tops,))
         fit = page.evaluate(_NOTICE_FITS, NOTICE)
         if fit["page"] > 0 or fit["clipped"]:
             problems.append("notification overflows or clips text: %r" % (fit,))
@@ -603,8 +603,10 @@ def test_the_home_notification_holds_the_layout_rules(
             text = page.inner_text(NOTICE)
             for word in PERSONAL_FORBIDDEN.findall(text):
                 problems.append("console word in the notification: " + word)
+            # The title block says when contact was lost; the notification does not repeat it.
+            figures_in = text + " " + page.inner_text(".home-state")
             for figure in NOTICE_FIGURES[state]:
-                if not re.search(figure, text):
+                if not re.search(figure, figures_in):
                     problems.append("missing figure: " + figure)
             if len(text) > 230:
                 problems.append("the notification is not short: %d characters" % len(text))

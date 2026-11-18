@@ -22,7 +22,9 @@ import companion.i18n as i18n
 import companion.layout as layout
 import companion.test_view_pages_helpers as vp
 import companion.wake as wake
-from companion.pages import airlines_page, health_page, history_page, home_page
+from companion.pages import (
+    airlines_page, health_page, history_page, home_battery_row, home_flight_card, home_page,
+    home_recent_strip)
 import health_page_composition
 from companion_app_server import get, login, served_stylesheet
 from companion_markup import declarations_for, parse_html, rules_with_selector
@@ -175,9 +177,9 @@ def test_home_attention_row_is_reserved_for_actionable_state(tmp_path):
     assert "toast--error" in parse_html(errored).select_one(".home-action").attrs["class"].split()
 
 
-def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
-    """the recent-flight row carries the clock in its detail line and the relative age as its
-    value, with no monospace class on either (B18)"""
+def test_home_flight_times_are_plain_text_and_the_detected_age_is_live(tmp_path):
+    """the flight card carries the detection age as a live relative time and the strip tile's
+    caption is plain text, with no monospace class on either (B18)"""
     with history_db.open_db(tmp_path) as conn:
         history_db.record_runway_event(
             conn, ts="2026-08-27T11:35:00+00:00", hex="3c6444", callsign="AFR1380",
@@ -187,15 +189,13 @@ def test_home_recent_flight_time_one_line_no_mono_class(tmp_path):
         "state_dir": str(tmp_path), "now": "2026-08-27T12:00:00+00:00", "gallery_entries": [],
         "health_state": {}, "device_config": {},
     }
-    rendered = home_page.render(ctx)
-    start = rendered.index('class="row__text"', rendered.index("recent-flight"))
-    end = rendered.index("</li>", start)
-    cell = rendered[start:end]
-    detail = cell[cell.index('class="row__detail"'):]
-    value = cell[cell.index('class="row__value"'):]
-    assert "mono" not in detail and "mono" not in value
-    assert "12:35" not in detail and detail.startswith('class="row__detail">')
-    assert "<time" in value and "data-relative" in value
+    doc = parse_html(home_page.render(ctx))
+    detected = doc.select_one(".home-flight__detected")
+    assert detected.select_one("time[data-relative]") is not None
+    assert "mono" not in detected.text()
+    caption = doc.select_one("figure.home-strip__tile figcaption")
+    assert caption.text() == "AFR1380 Departure · 25 min"
+    assert "mono" not in str(caption.attrs) and not caption.select(".mono")
 
 
 # --- CSS-only checks: the served stylesheet's parsed rules, never a disk
@@ -286,7 +286,8 @@ def test_home_page_render_degrades_with_nothing():
     """home_page.render({}) degrades to its empty states without raising, battery.battery_percent()
     clamps and rejects bad input, """
     rendered = home_page.render({})
-    for needle in (home_page.NO_FLIGHTS_HEADING, home_page.DEVICE_NO_IMAGE_HEADING, home_page.NO_READING_TEXT):
+    for needle in (home_recent_strip.NO_FLIGHTS_HEADING, home_flight_card.DEVICE_NO_IMAGE_HEADING,
+                   home_battery_row.NONE_TEXT):
         assert needle in rendered, "expected %r for an empty ctx" % needle
     assert (
         battery.battery_percent(battery.BATTERY_FULL_MV) == 100
@@ -621,8 +622,8 @@ def test_health_reads_no_per_day_check_in_rows_for_a_band(tmp_path):
 # --- Health's drawings are the shared emitters' ---
 
 def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
-    """Health holds exactly one battery ring and no check-in regularity grid; Home draws neither (its one drawing is the battery's open arc dial, not the ring)
-    and no activity band"""
+    """Health holds exactly one battery ring and no check-in regularity grid; Home draws neither and no activity band (its battery is a pill, and its
+    statistics are plain SVG of its own)"""
     now = "2026-08-27T12:00:00+00:00"
     ctx = _health_band_ctx(tmp_path / "health", now, [
         "2026-08-27T06:00:00+00:00",
@@ -639,8 +640,8 @@ def test_health_carries_one_ring_and_no_grid_and_home_carries_neither(tmp_path):
     for needle in (draw.DRAWING_RING_VALUE_CLASS, draw.DRAWING_RING_TRACK_CLASS,
                    draw.DRAWING_CANVAS_CLASS, draw.DRAWING_CELL_CLASS, "day-band"):
         assert needle not in home_rendered, "Home must not draw %r" % (needle,)
-    assert home_rendered.count(draw.DRAWING_FIGURE_CLASS) == 1
-    assert home_rendered.count('class="%s"' % draw.DRAWING_ARC_TRACK_CLASS) == 1
+    assert home_rendered.count(draw.DRAWING_FIGURE_CLASS) == 0
+    assert home_rendered.count('class="%s"' % draw.DRAWING_ARC_TRACK_CLASS) == 0
 
 
 def test_health_drawings_use_only_the_shared_emitters_classes(tmp_path):

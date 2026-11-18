@@ -577,21 +577,22 @@ def test_rejected_settings_save_rerenders_200_with_input_and_error_persists_noth
 
 def test_home_page_renders_widgets(app04_server, session_cookie):
     """authenticated GET / renders the approved frame-signal-first Home page:
-    its hero (the current image beside the state), the recent-flights group, then the Frame group
-    carrying the screen and quiet-hours POST controls, and one compact battery fact, while retired
+    its title block (the name and the state), the flight card (the current image beside its
+    flight), the pills (the screen POST control, the quiet-hours opener, the place and the
+    battery) and the recent-flights strip, while retired
     configuration, healthy diagnostics, and activity-band dashboard material stay absent."""
     status, _headers, body = http_request(app04_server.base_url() + "/", cookie=session_cookie)
     assert status == 200, "expected 200 for GET /, got %d" % status
     text = body.decode("utf-8", errors="replace")
     for needle in (
             '<div class="title-action">',
-            'class="hero home-state ',
-            'class="group-block home-section"',
+            'class="home-state home-state--',
+            'class="home-strip reveal"',
             "Recent flights", 'href="/flights"',
             'class="nav-group"',
             'aria-labelledby="home-frame-state"',
             'action="%s"' % app_module.QUICK_DISPLAY_ROUTE,
-            'action="%s"' % app_module.QUICK_QUIET_HOURS_ROUTE,
+            'href="#dlg-quiet-hours"',
             "data-loaded-at="):
         assert needle in text, "expected %r in the Home page" % needle
     assert 'class="home-battery' not in text and 'class="home-action' not in text, (

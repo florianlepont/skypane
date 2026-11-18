@@ -490,22 +490,18 @@ def test_the_dirty_bar_never_overlaps_the_tab_bar_sidebar_or_the_pages_last_elem
         context.close()
 
 
-def _recent_row_selector(width):
-    """Home's recent-flight row at `width`: the same group row at every width."""
-    return ".recent-flight"
-
-
-# Nothing on Home paints outside the viewport or outside its own recent-flight rows.
+# Nothing on Home paints outside the viewport or outside its own blocks (the strip of recent
+# flights is a deliberate sideways scroller and its tiles are clipped by it).
 # Independently asserted per width/language with no cross-comparison, so parametrized on both
 # axes rather than looped.
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("width", [390, 1280])
 def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, server, width, lang):
-    """Home paints nothing outside the viewport and nothing outside its own recent-flight
-    rows, measured in both languages at 390px and at 1280px: documentElement.scrollWidth
-    never exceeds the viewport, no element's right edge clears it, and no row's content
-    escapes its own box.
+    """Home paints nothing outside the viewport and nothing outside its own blocks, measured in
+    both languages at 390px and at 1280px: documentElement.scrollWidth never exceeds the
+    viewport, no element's right edge clears it (the strip's clipped tiles apart), and no
+    block's content escapes its own box.
     """
     # Written to catch the class of defect rather than the one selector that happened to cause
     # it: every element is measured against the viewport, and every recent-flights descendant
@@ -518,16 +514,17 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         "  const escaped = [], spilled = [];"
         "  document.querySelectorAll('*').forEach(el => {"
         "    const r = el.getBoundingClientRect();"
-        "    if (r.width > 0 && r.right > vw + 0.5)"
+        "    if (r.width > 0 && r.right > vw + 0.5 && !el.closest('.home-strip__tiles'))"
         "      escaped.push(el.className.toString() || el.tagName);"
         "  });"
-        "  const rows = [...document.querySelectorAll('li.recent-flight')]"
-        "    .filter(row => row.offsetParent !== null);"
+        "  const rows = ['.home-state', '.home-flight', '.home-pills', '.home-stats']"
+        "    .map(sel => document.querySelector(sel)).filter(row => row && row.offsetParent !== null);"
         "  rows.forEach(row => {"
         "    const rr = row.getBoundingClientRect();"
         "    row.querySelectorAll('*').forEach(el => {"
         "      const r = el.getBoundingClientRect();"
-        "      if (r.width > 0 && (r.right > rr.right + 0.5 || r.left < rr.left - 0.5))"
+        "      if (r.width > 0 && !el.closest('.visually-hidden')"
+        "          && (r.right > rr.right + 0.5 || r.left < rr.left - 0.5))"
         "        spilled.push(el.className.toString() || el.tagName);"
         "    });"
         "  });"
@@ -545,7 +542,7 @@ def test_home_paints_nothing_outside_the_viewport_or_its_cards(new_context, serv
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/")
-        page.locator(_recent_row_selector(width)).first.wait_for(state="visible")
+        page.locator(".home-flight").first.wait_for(state="visible")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))
@@ -630,54 +627,25 @@ def test_home_prioritises_the_frame_signal_and_keeps_its_actions_usable(
 @pytest.mark.parametrize("lang", ["fr", "en"])
 @pytest.mark.parametrize("width", list(VIEWPORT_WIDTHS_ALL))
 def test_recent_flight_callsigns_are_never_starved(new_context, server, width, lang):
-    """No recent-flight callsign is ever starved by the time column: its box is never
-    narrower than its own text at 320, 360, 390, 768 or 1280px in either language, Home still
-    never scrolls sideways at any of them, and at 768px the time still costs no line of its
-    own (on the phone card it shares the stub row with the artwork plate).
-    """
-    # This check is structurally different from the Home overflow check above: a starved
-    # element's own box stays well inside the row — it is the box itself that collapses, and
-    # the text paints out of it, straight over the time beside it.
-    #
-    # The 768px assertion stops the fix being "give the time its own line everywhere": with
-    # 686px of row there, the time must still share a line with what leads it (the callsign
-    # on the desktop row, the artwork plate in the phone card's stub). It is
-    # deliberately not asserted at 1280px, where the growing age string will legitimately wrap
-    # one day — that is the fix working, not failing.
+    """No strip tile's caption is ever wider than its picture, and no callsign is wider than its
+    own box, at 320, 360, 390, 768 or 1280px in either language; Home still never scrolls
+    sideways at any of them."""
     probe = (
         "() => {"
-        "  const rows = [...document.querySelectorAll('li.recent-flight')]"
-        "    .filter(row => row.offsetParent !== null);"
+        "  const tiles = [...document.querySelectorAll('figure.home-strip__tile')];"
         "  const starved = [];"
-        "  let cells = 0, sameLine = 0, twoLine = 0;"
-        "  rows.forEach(row => {"
-        "    const cs = row.querySelector('.row__label');"
-        # On a phone card the time column lives in the stub beside the artwork plate (the
-        # Flights boarding-pass layout), so the line it must not cost is the plate's.
-        "    const lead = cs;"
-        "    const tm = row.querySelector('.row__value');"
-        "    if (!cs) return;"
-        "    cells += 1;"
-        "    const box = cs.getBoundingClientRect().width;"
+        "  tiles.forEach(tile => {"
+        "    const frame = tile.querySelector('.home-strip__frame').getBoundingClientRect();"
+        "    const caption = tile.querySelector('figcaption');"
+        "    const box = caption.getBoundingClientRect().width;"
         "    const range = document.createRange();"
-        "    range.selectNodeContents(cs);"
+        "    range.selectNodeContents(caption);"
         "    const text = range.getBoundingClientRect().width;"
-        "    if (text > box + 0.5)"
-        "      starved.push(cs.textContent + ': box ' + box.toFixed(2)"
-        "        + 'px for ' + text.toFixed(2) + 'px of content');"
-        "    if (tm) {"
-        # Two items share a flex line when their boxes overlap
-        # VERTICALLY. Equal tops would be the wrong test: the row is
-        # baseline-aligned and the time renders at the smaller label
-        # size, so the two tops differ by 3px on the SAME line.
-        "      const a = lead.getBoundingClientRect();"
-        "      const b = tm.getBoundingClientRect();"
-        "      if (a.bottom > b.top + 0.5 && b.bottom > a.top + 0.5) sameLine += 1;"
-        "      else twoLine += 1;"
-        "    }"
+        "    if (box > frame.width + 0.5 || text > box + 0.5)"
+        "      starved.push(caption.textContent + ': box ' + box.toFixed(2)"
+        "        + 'px, picture ' + frame.width.toFixed(2) + 'px, text ' + text.toFixed(2) + 'px');"
         "  });"
-        "  return {rows: rows.length, cells: cells, starved: starved,"
-        "          sameLine: sameLine, twoLine: twoLine,"
+        "  return {tiles: tiles.length, starved: starved,"
         "          sw: document.documentElement.scrollWidth,"
         "          cw: document.documentElement.clientWidth};"
         "}")
@@ -689,36 +657,22 @@ def test_recent_flight_callsigns_are_never_starved(new_context, server, width, l
         context.add_cookies([{
             "name": auth.UI_LANG_COOKIE_NAME, "value": lang, "url": base_url}])
         page.goto(base_url + "/")
-        page.locator(_recent_row_selector(width)).first.wait_for(state="visible")
+        page.locator("figure.home-strip__tile").first.wait_for(state="visible")
         seen = page.evaluate(probe)
         if page.viewport_size["width"] != width:
             raise AssertionError("expected the measurement to be taken at %dpx" % (width,))
-        if not seen["rows"] or seen["cells"] != seen["rows"]:
+        if not seen["tiles"]:
             raise AssertionError(
-                "expected every seeded recent-flight row to carry a "
-                "callsign at %dpx/%s, got %d callsigns in %d rows — "
-                "with a mismatch this check measures nothing"
-                % (width, lang, seen["cells"], seen["rows"]))
+                "expected seeded recent-flight tiles at %dpx/%s — with none this check measures "
+                "nothing" % (width, lang))
         if seen["starved"]:
             raise AssertionError(
-                "the recent-flight callsign column is STARVED at "
-                "%dpx/%s — its box is narrower than its own text, so "
-                "the callsign paints out of it and over the time "
-                "beside it: %r" % (width, lang, seen["starved"]))
+                "a recent-flight caption is wider than its picture or its own box at %dpx/%s: %r"
+                % (width, lang, seen["starved"]))
         if seen["sw"] > width:
             raise AssertionError(
-                "Home scrolls sideways at %dpx/%s (documentElement."
-                "scrollWidth %d against a client width of %d) — a "
-                "callsign column that refuses to yield must not buy "
-                "that by pushing the row past the viewport (B11)"
-                % (width, lang, seen["sw"], seen["cw"]))
-        if width == 768 and (seen["twoLine"] or not seen["sameLine"]):
-            raise AssertionError(
-                "expected the time to share a line with what leads it "
-                "at 768px/%s, where the row is 686px wide, but %d "
-                "of %d rows put the time on its own line — the fix must "
-                "not cost a line where there is room"
-                % (lang, seen["twoLine"], seen["cells"]))
+                "Home scrolls sideways at %dpx/%s (documentElement.scrollWidth %d against a "
+                "client width of %d) (B11)" % (width, lang, seen["sw"], seen["cw"]))
     finally:
         context.close()
 

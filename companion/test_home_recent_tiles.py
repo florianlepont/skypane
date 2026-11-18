@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Behaviour checks for Home's recent-flights group, read from the page the companion app
-serves: one row per flight (callsign, a detail line with the clock, airline, route and direction,
-the live relative age) linking to the Flights page, then a "See all flights" row; the unresolved
-airline, arrival, departure and no-route variants in English and French; no inline style
-attribute; and a pass stored twice within a minute shown once.
+"""Behaviour checks for Home's recent-flights strip, read from the page the companion app
+serves: one tile per flight (picture box, callsign, direction and age) and a "See all flights"
+link in the heading; the arrival, departure and overhead wording in English and French; no
+inline style attribute; and a pass stored twice within a minute shown once. The strip's
+section is also one of the regions the background refresh swaps, which is what keeps the ages
+current.
 """
 import pytest
 
@@ -32,58 +33,47 @@ def _home_section(server, lang="en"):
     return section
 
 
-def _rows(section):
+def _tiles(section):
     return {
-        row.select_one(".row__label").text(): row
-        for row in section.select("ul.group > li.recent-flight")}
+        tile.select_one("figcaption").text().split(" ")[0]: tile
+        for tile in section.select("figure.home-strip__tile")}
 
 
-def test_every_recent_flight_is_one_informational_row(server):
-    """each of the five newest distinct flights is one row of the group, newest first: a plane
-    chip, the callsign in the identifier voice, a detail line and the relative age; the row
-    is plain (no link, no chevron), and the one "See all flights" link row closes the group"""
+def test_every_recent_flight_is_one_tile(server):
+    """each of the five newest distinct flights is one portrait tile of the strip, newest first:
+    its picture box, then the callsign with the direction and age under it; the strip's one
+    link is the "See all flights" link of its heading"""
     section = _home_section(server)
-    rows = section.select("ul.group > li.recent-flight")
-    assert [r.select_one(".row__label").text() for r in rows] == [f[0] for f in _FLIGHTS]
-    for row in rows:
-        assert row.attrs["class"].split() == ["row", "recent-flight"]
-        assert row.select("a") == [] and row.select("button") == []
-        assert row.select(".row__chevron") == []
-        assert "mono" in row.select_one(".row__label .mono").attrs["class"].split()
-        assert row.select_one(".row__chip") is not None
-        assert row.select_one(".row__detail").text()
-        assert row.select_one(".row__value time[data-relative]") is not None
-    last = section.select("ul.group > li")[-1]
-    assert "recent-flight-all" in last.attrs["class"].split()
-    assert last.select_one("a.row__main").attrs["href"] == "/flights"
-    assert last.select_one(".row__chevron") is not None
-    assert section.select("a") == [last.select_one("a.row__main")]
-    assert last.select_one(".row__label").text() == "See all flights"
+    tiles = section.select("figure.home-strip__tile")
+    assert [t.select_one("figcaption").text().split(" ")[0] for t in tiles] == [
+        f[0] for f in _FLIGHTS]
+    for tile in tiles:
+        assert tile.select_one(".home-strip__frame") is not None
+        assert tile.select("a") == [] and tile.select("button") == []
+        assert tile.select_one("figcaption span").text()
+    links = section.select("a")
+    assert [a.attrs["href"] for a in links] == ["/flights"]
+    assert links[0].text() == "See all flights"
     assert section.select("[style]") == []
 
 
-@pytest.mark.parametrize("lang,unknown,arriving,departing,no_route", [
-    ("en", "Airline unknown", "Arriving", "Departing", "→"),
-    ("fr", "Compagnie inconnue", "À l’arrivée", "Au départ", "→"),
-])
-def test_row_variants_in_both_languages(server, lang, unknown, arriving, departing, no_route):
-    """the detail line joins the clock, the airline, the route and the direction word of the
-    language; a flight with no route shows no route text; the long operator name stays whole"""
-    rows = _rows(_home_section(server, lang))
-    assert "Transavia France" in rows["TVF72YL"].select_one(".row__detail").text()
-    assert departing in rows["TVF72YL"].select_one(".row__detail").text()
-    assert arriving in rows["AFR6152"].select_one(".row__detail").text()
-    assert "Some Very Long Charter Operator Name Limited" in (
-        rows["XYZ9"].select_one(".row__detail").text())
-    assert no_route not in rows["XYZ9"].select_one(".row__detail").text()
-    assert no_route in rows["TVF72YL"].select_one(".row__detail").text()
+@pytest.mark.parametrize("lang,arriving,departing", [
+    ("en", "Arrival", "Departure"), ("fr", "Arrivée", "Décollage")])
+def test_tile_captions_in_both_languages(server, lang, arriving, departing):
+    """the caption's second line joins the direction word of the language and the age; a flight
+    with no airline or route still reads as a tile with its callsign"""
+    tiles = _tiles(_home_section(server, lang))
+    assert tiles["TVF72YL"].select_one("figcaption span").text().startswith(departing + " ·")
+    assert tiles["AFR6152"].select_one("figcaption span").text().startswith(arriving + " ·")
+    assert "XYZ9" in tiles
 
 
 def test_a_pass_stored_twice_within_a_minute_shows_once(server):
     """the seeded duplicate (same hex, callsign, route and direction, 30 s apart) is folded
-    into one row, and the list still shows five distinct flights"""
+    into one tile, and the strip still shows five distinct flights"""
     section = _home_section(server)
-    callsigns = [r.text() for r in section.select("li.recent-flight .row__label")]
+    callsigns = [t.select_one("figcaption").text().split(" ")[0]
+                 for t in section.select("figure.home-strip__tile")]
     assert callsigns.count("TVF72YL") == 1
     assert len(callsigns) == 5
 
@@ -112,7 +102,7 @@ def test_only_a_same_pass_repeat_inside_a_minute_is_folded(
     different reading and stays"""
     server = make_app_server(seed=_pair_seed(second_ts, second_state))
     section = _home_section(server)
-    assert len(section.select("li.recent-flight")) == expected
+    assert len(section.select("figure.home-strip__tile")) == expected
 
 
 def _overhead_seed(state_dir):
@@ -131,9 +121,9 @@ def test_an_overhead_row_is_labelled_on_home(make_app_server, lang, label):
     """a flight stored as overhead reads Overhead (Au-dessus) in its row"""
     server = make_app_server(seed=_overhead_seed)
     section = _home_section(server, lang)
-    row = _rows(section)["AFR1234"]
-    assert label in row.select_one(".row__detail").text()
-    assert "None" not in row.text()
+    tile = _tiles(section)["AFR1234"]
+    assert label in tile.select_one("figcaption span").text()
+    assert "None" not in tile.text()
 
 
 def test_an_overhead_row_is_in_all_but_in_no_direction_chip(tmp_path):
@@ -244,3 +234,12 @@ def test_strip_escapes_every_dynamic_part(tmp_path):
     html = home_recent_strip.recent_strip_html([row], _NOW, str(tmp_path), [hostile])
     assert "<script>" not in html and hostile not in html
     assert _parse(html).select("script") == []
+
+
+def test_the_strip_is_a_region_the_background_refresh_swaps(server):
+    """the strip's section matches one of the Home swap selectors the page's refresh script
+    replaces every 45 s, so a tile's age is repainted from the server's clock and never stays stale"""
+    from companion import layout
+    selectors = layout.REFRESH_SWAP_SELECTORS_BY_PAGE["home"]
+    assert 'section[aria-labelledby="home-flights"]' in selectors
+    assert _home_section(server) is not None

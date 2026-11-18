@@ -110,22 +110,22 @@ def _assert_pill_fits(page, pill_selector, box_selector, where):
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
-def test_home_shows_no_pill_and_no_battery_block_in_both_themes(
+def test_home_shows_the_pill_inside_the_battery_pill_in_both_themes(
         new_context, charging_server, lang, viewport_name, viewport):
-    """the personal Home shows no charging pill and no battery dial even while the battery is
-    charging (the pill lives on Console Health); its Battery row carries the hedged charging
-    wording in words and draws no pill, and nothing overflows, in light and dark"""
+    """while the battery is charging Home's battery pill carries the one hedged charging pill (the
+    same markup Health uses), draws no dial, repeats the wording nowhere else, and nothing
+    overflows, in light and dark"""
     context, page = _open(new_context, charging_server, layout.HOME_ROUTE, lang, viewport)
     try:
         page.locator(".home-state").wait_for(state="visible")
         for theme in UI_THEMES_EXPLICIT:
             _set_ui_theme(page, theme)
             where = "Home %s %s %s" % (lang, viewport_name, theme)
-            assert page.locator(".charging-pill").count() == 0, where
+            assert page.locator(".charging-pill").count() == 1, where
+            assert page.locator(".home-battery-pill .charging-pill").count() == 1, where
             assert page.locator(".home-battery").count() == 0, where
-            assert WORDS[lang] in page.locator(".frame-battery").inner_text(), where
-            assert WORDS[lang] not in page.locator("body").inner_text().replace(
-                page.locator(".frame-battery").inner_text(), ""), where
+            assert WORDS[lang] in page.locator(".home-battery-pill").inner_text(), where
+            assert page.locator("body").inner_text().count(WORDS[lang]) == 1, where
             assert _assert_no_page_overflow(page, where) == ""
     finally:
         context.close()
@@ -151,16 +151,16 @@ def test_health_pill_is_visible_and_fits_in_both_themes(
 
 
 def test_the_pill_costs_the_controls_around_it_nothing(new_context, charging_server):
-    """Home's two switches keep their 44px targets (with no pill on Home) and the Battery row's
-    summary stays one tappable disclosure, with the pill present, at the narrowest supported
-    width"""
+    """Home's Screen switch and Quiet hours pill keep their 44px targets (with the pill inside the
+    battery pill) and the Battery row's summary on Health stays one tappable disclosure, with the
+    pill present, at the narrowest supported width"""
     context, page = _open(
         new_context, charging_server, layout.HOME_ROUTE, "fr", VIEWPORT_MIN_SUPPORTED)
     try:
         page.locator(".home-state").wait_for(state="visible")
-        assert page.locator(".charging-pill").count() == 0
+        assert page.locator(".home-battery-pill .charging-pill").count() == 1
         for selector in ('form[action="/quick/display"] button[role="switch"]',
-                         'form[action="/quick/quiet-hours"] button[role="switch"]'):
+                         "a.home-pill--quiet", ".home-battery-pill"):
             box = page.locator(selector).bounding_box()
             assert box["height"] >= 44 and box["width"] >= 44, (selector, box)
         page.goto(charging_server.base_url() + "/fleet")

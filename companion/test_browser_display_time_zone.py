@@ -17,7 +17,7 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-WINDOW_LINK = "a.home-switch__window"
+WINDOW_LINK = "a.home-pill--quiet"
 DIALOG = "dialog#dlg-quiet-hours"
 NOTE_LINK = DIALOG + " .quiet-timezone-note a"
 QUIET_FIELDS = ("#quiet-window-start", "#quiet-window-end")

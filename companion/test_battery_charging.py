@@ -272,7 +272,7 @@ def _home(state_dir, now, lang="en", cfg=None):
         page = home_page.render(ctx)
     finally:
         prefs.set_request_prefs(lang="en")
-    start = page.index('<section class="hero home-state ')
+    start = page.index('<section class="home-pills')
     return page[start:page.index("</section>", start)]
 
 
@@ -300,16 +300,16 @@ WORDS = {
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 def test_home_shows_the_hedged_pill_when_the_trend_says_charging(tmp_path, lang):
-    """Home's battery dial carries the bolt pill with the hedged wording and its explanation, and
-    the dial's accessible name says it too; the fact is never worded as "charging" outright"""
+    """Home's battery pill carries the bolt pill with the hedged wording and its explanation; the
+    fact is never worded as "charging" outright"""
     now = _seed(tmp_path, CHARGING_MVS)
     card = _home(tmp_path, now, lang)
     words, title = WORDS[lang]
     assert re.search(
-        r'<span class="charging-pill home-battery__charging" title="%s">'
+        r'<span class="charging-pill home-battery-pill__charging" title="%s">'
         r'<svg[^>]*><use href="#icon-bolt"></use></svg>'
         r'<span class="charging-pill__text">%s</span></span>' % (re.escape(title), words), card)
-    assert re.search(r'class="home-battery[^"]*" role="img" aria-label="[^"]*%s"' % words.lower(), card)
+    assert card.count("charging-pill ") == 1
     assert "En charge<" not in card and ">Charging<" not in card
 
 

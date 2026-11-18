@@ -551,7 +551,7 @@ def test_the_note_link_opens_the_location_page(new_context, drig):
     Hosts(context)
     try:
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        page.locator("a.home-switch__window").click()
+        page.locator("a.home-pill--quiet").click()
         page.wait_for_function(
             "() => document.querySelector('dialog#dlg-quiet-hours').open", timeout=10000)
         with page.expect_navigation():

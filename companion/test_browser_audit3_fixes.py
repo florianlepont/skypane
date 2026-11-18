@@ -67,7 +67,7 @@ def test_a_long_frame_name_never_covers_the_logo_and_wraps_inside_the_title_colu
             " const title = document.querySelector('.title-action__text').getBoundingClientRect();"
             " const pencil = document.querySelector('.title-action .btn--icon')"
             ".getBoundingClientRect();"
-            " const body = document.querySelector('.hero__body').getBoundingClientRect();"
+            " const body = document.querySelector('.home-state').getBoundingClientRect();"
             " return {brandRight: brand.right, menuLeft: menu.left, menuRight: menu.right,"
             " cut: name.scrollWidth > name.clientWidth,"
             " titleRight: title.right, titleTop: title.top, titleBottom: title.bottom,"

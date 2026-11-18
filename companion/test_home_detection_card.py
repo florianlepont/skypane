@@ -1,8 +1,8 @@
-"""Home's Detection card names the mode the frame is really in (position or
-airport and runway), what it follows, and links to the Location page; it
-follows the frame it is rendered for, reads the same stored setting the
-frame uses, escapes the place name, and is shown to the same people who can
-open Home (administrator, owner, co-manager) and to nobody else."""
+"""Home's place pill names what the frame really follows (the airport and
+runway, or the place and radius of position mode) and links to the Location
+page; it follows the frame it is rendered for, reads the same stored setting
+the frame uses, escapes the place name, and is shown to the same people who
+can open Home (administrator, owner, co-manager) and to nobody else."""
 import html
 import re
 
@@ -16,8 +16,7 @@ from companion_app_server import (
 from server import device_config, fleet_db
 
 CARD = re.compile(
-    r'<section class="group-block home-section home-detection" aria-labelledby="home-detection">'
-    r'(.*?)</section>', re.S)
+    r'(<a class="home-pill home-pill--link home-pill--place" href="[^"]*">.*?</a>)', re.S)
 
 
 class Rig:
@@ -37,7 +36,7 @@ class Rig:
         status, page = self.home(who, device, lang)
         assert status == 200
         found = CARD.search(page)
-        assert found, "no Detection card on Home"
+        assert found, "no place pill on Home"
         return found.group(1)
 
     def configure(self, detection, device=None):
@@ -76,43 +75,37 @@ def _text(markup):
 
 
 def _href(card):
-    return re.search(r'<a class="row__main" href="([^"]*)"', card).group(1)
+    return re.search(r'href="([^"]*)"', card).group(1)
 
 
 def test_position_mode_names_the_place_and_the_radius(rig):
     rig.place("Maison")
     rig.configure({"mode": "position", "radius_km": 9})
     card = rig.card()
-    assert "Position mode" in _text(card)
-    assert "Aircraft within 9 km of Maison" in _text(card)
+    assert _text(card) == "Maison · 9 km radius"
     assert "icon-locate" in card
 
 
 def test_runway_mode_names_the_airport_and_the_runway(rig):
     rig.configure({"mode": "runway", "airport": "LFPG", "runway": "08L/26R"})
-    text = _text(rig.card())
-    assert "Airport & runway mode" in text
-    assert "Runway 08L/26R at" in text and "(CDG)" in text
+    assert _text(rig.card()) == "CDG · runway 08L/26R"
 
 
 def test_a_frame_with_no_choice_shows_the_orly_runway_it_follows(rig):
-    text = _text(rig.card())
-    assert "Airport & runway mode" in text and "Runway 07/25 at" in text
+    assert _text(rig.card()) == "ORY · runway 3"
 
 
 def test_position_mode_without_a_place_says_which_runway_it_follows(rig):
     rig.configure({"mode": "position", "radius_km": 9})
     card = rig.card()
-    text = _text(card)
-    assert "No place set" in text and "Position mode needs a place" in text
-    assert "runway 07/25" in text
+    assert _text(card) == "No place set"
     assert "icon-warning" in card
 
 
 def test_a_place_outside_france_counts_as_no_place(rig):
     rig.place("New York", 40.7, -74.0)
     rig.configure({"mode": "position", "radius_km": 9})
-    assert "No place set" in _text(rig.card())
+    assert _text(rig.card()) == "No place set"
 
 
 def test_the_card_is_in_french_when_the_browser_asks_for_it(rig):
@@ -121,23 +114,20 @@ def test_the_card_is_in_french_when_the_browser_asks_for_it(rig):
     status, page = rig.home("owner", lang="fr")
     text = _text(CARD.search(page).group(1))
     assert status == 200
-    assert "Détection" in text and "Mode position" in text
-    assert "Avions à moins de 9 km de Maison" in text
-    assert "Modifier la détection" in text
+    assert text == "Maison · rayon 9 km"
 
 
 def test_the_card_links_to_the_location_page_of_the_same_frame(rig):
     card = rig.card()
     assert _href(card) == "/devices/%s/detection" % rig.fleet.owner_device
-    assert "Edit detection" in _text(card)
 
 
 def test_the_card_follows_the_frame_it_is_rendered_for(rig):
     rig.configure({"mode": "runway", "airport": "LFPG", "runway": "08L/26R"})
     owner = _text(rig.card())
     other = _text(rig.card("other", rig.fleet.other_device))
-    assert "Runway 08L/26R" in owner
-    assert "Runway 07/25" in other
+    assert owner == "CDG · runway 08L/26R"
+    assert other == "ORY · runway 3"
 
 
 def test_a_place_name_is_escaped(rig):
@@ -151,8 +141,7 @@ def test_a_place_name_is_escaped(rig):
 def test_an_administrator_sees_the_owners_place(rig):
     rig.place("Maison")
     rig.configure({"mode": "position", "radius_km": 9})
-    text = _text(rig.card("admin"))
-    assert "Aircraft within 9 km of Maison" in text
+    assert _text(rig.card("admin")) == "Maison · 9 km radius"
 
 
 def test_a_co_manager_sees_the_owners_place_and_the_same_link(rig):
@@ -165,11 +154,11 @@ def test_a_co_manager_sees_the_owners_place_and_the_same_link(rig):
     finally:
         conn.close()
     card = rig.card("other", rig.fleet.owner_device)
-    assert "Aircraft within 9 km of Maison" in _text(card)
+    assert _text(card) == "Maison · 9 km radius"
     assert _href(card) == "/devices/%s/detection" % rig.fleet.owner_device
 
 
 def test_a_simple_user_gets_no_card_for_someone_elses_frame(rig):
     status, page = rig.home("other", rig.fleet.owner_device)
     assert status != 200
-    assert "home-detection" not in page
+    assert "home-pill--place" not in page

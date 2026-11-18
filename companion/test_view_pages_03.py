@@ -782,9 +782,8 @@ def test_flights_catalog_keys_all_present_in_merged_catalog():
 
 
 def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path):
-    """Home's recent-flight relative age is the row's value, a <time data-relative> element
-    carrying the ROW's own instant, reading exactly what it reads today in both languages
-    (23-03, D14)"""
+    """Home's detection age (in the flight card) is a <time data-relative> element carrying the
+    ROW's own instant, reading what the ladder reads in both languages (23-03, D14)"""
     now = "2026-08-27T12:00:00+00:00"
     flight_ts = "2026-08-27T11:50:00+00:00"
     for lang in ("en", "fr"):
@@ -793,10 +792,9 @@ def test_home_recent_flight_age_is_an_element_reading_exactly_as_before(tmp_path
         try:
             rendered = home_page.render(_home_seeded_ctx(sub, now, flight_ts))
             expected_age = layout.relative_age_text(600, lang=lang)
-            cell = re.search(r'<span class="row__value">(.*?)</span>', rendered)
+            cell = re.search(r'<div class="home-flight__detected">[^<]*(<time .*?</time>)</div>', rendered)
             assert cell is not None, (
-                "lang=%s: expected the recent-flight row to carry its age as the row value"
-                % (lang,))
+                "lang=%s: expected the flight card to carry the detection age" % (lang,))
             element = _HOME_RELATIVE_ELEMENT_RE.fullmatch(cell.group(1))
             assert element is not None, (
                 "lang=%s: expected the age to be a <time data-relative> element, got %r"
@@ -872,7 +870,7 @@ def test_flights_when_cell_age_is_a_live_time_element(tmp_path):
 
 
 def test_home_page_french_render_translates_headings_and_alt_text_not_data(tmp_path):
-    """under a French request Home's headings ('Vols récents'/'Voir tous les vols') translate
+    """under a French request Home's headings ('Derniers vols'/'Voir tous les vols') translate
     while the callsign/airline name stay untranslated data"""
     no_state_dir = str(tmp_path / "absent" / "nested")
     ctx = {
@@ -885,6 +883,6 @@ def test_home_page_french_render_translates_headings_and_alt_text_not_data(tmp_p
         rendered = home_page.render(ctx)
     finally:
         prefs.set_request_prefs(lang="en")
-    for needle in ("Vols récents", "Voir tous les vols"):
+    for needle in ("Derniers vols", "Voir tous les vols"):
         assert needle in rendered, "expected the French heading/link %r" % (needle,)
     assert "Frame state" not in rendered and "État du cadre" in rendered

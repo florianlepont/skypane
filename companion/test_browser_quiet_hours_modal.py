@@ -26,7 +26,7 @@ from server import device_config
 pytestmark = pytest.mark.browser
 
 THREE_KEYS = ("quiet_hours_enabled", "quiet_hours_start", "quiet_hours_end")
-LINK = "a.home-switch__window"
+LINK = "a.home-pill--quiet"
 DIALOG = "dialog#dlg-quiet-hours"
 START = "#quiet-window-start"
 END = "#quiet-window-end"
@@ -516,9 +516,9 @@ _RING = """sel => {
 @pytest.mark.parametrize("viewport_name,viewport", VIEWPORTS, ids=[v[0] for v in VIEWPORTS])
 def test_the_ring_hugs_the_link_for_the_keyboard_and_is_absent_after_a_pointer_close(
         new_context, make_app_server, viewport_name, viewport):
-    """A keyboard-focused schedule link draws a tight 2px ring close to its text (not a tall
-    pill around its tap area); focus handed back after Cancel by pointer shows no ring, after
-    Escape it shows the ring."""
+    """A keyboard-focused schedule pill draws a 2px ring hugging the 44px pill itself (not a
+    taller box around a larger tap area); focus handed back after Cancel by pointer shows no
+    ring, after Escape it shows the ring."""
     server = make_app_server(seed=_seed, fake_providers=True)
     context, page = _open_home(new_context, server.base_url(), "en", viewport)
     try:
@@ -528,7 +528,7 @@ def test_the_ring_hugs_the_link_for_the_keyboard_and_is_absent_after_a_pointer_c
         page.wait_for_function("sel => document.activeElement.matches(sel)", arg=LINK)
         ring = page.evaluate(_RING, LINK)
         assert ring["width"] == 2 and ring["offset"] <= 2, ring
-        assert ring["box"][1] <= 28 and ring["box"][0] <= 220, ring
+        assert ring["box"][1] <= 48 and ring["box"][0] <= 220, ring
         _open_dialog(page)
         page.click(DIALOG + " a.modal__close")
         page.wait_for_function(

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Browser checks for Home's recent-flights group: no horizontal overflow at 390 and 360 px in
-both themes and both languages, each row at least 54 px tall with its content inside it and a
-44 px link target, a long operator name kept inside its row (the detail wraps, the value
-truncates), all five flights fitting in one 390x844 screen with the group label at the top, the
-rows working with scripts blocked, and the same rows at 1280 px. Also checks that Display, like
-the other pages, shows no visible freshness line while keeping its hidden refresh marker.
+"""Browser checks for Home's recent-flights strip: no horizontal overflow at 390 and 360 px in
+both themes and both languages, a 44 px heading row with a 44 px "See all flights" link, portrait
+tiles of 112 px with a 3:4 picture box that shows the whole picture (contain), captions that stay
+inside their tile and keep their direction word whole on one line, the tiles working with
+scripts blocked, the same tiles at 1280 px, and the strip's section being one of the regions the
+background refresh swaps (which keeps the ages current). Also checks that Display, like the other
+pages, shows no visible freshness line while keeping its hidden refresh marker.
 """
 import pytest
 
@@ -17,7 +18,7 @@ from companion.test_browser_ux_helpers import (
 
 pytestmark = pytest.mark.browser
 
-ROW = "li.recent-flight"
+TILE = "figure.home-strip__tile"
 SECTION = 'section[aria-labelledby="home-flights"]'
 
 
@@ -34,102 +35,103 @@ def _open_home(new_context, server, viewport, lang="en"):
     page = context.new_page()
     _login(page, server.base_url())
     page.goto(server.base_url() + "/")
-    page.locator(ROW).first.wait_for(state="visible")
+    page.locator(TILE).first.wait_for(state="visible")
     return context, page
 
 
-_ROW_PROBE = (
-    "() => [...document.querySelectorAll('li.recent-flight')].map(li => {"
-    "  const c = li.getBoundingClientRect();"
-    "  const inside = [...li.querySelectorAll('*')].every(el => {"
-    "    const r = el.getBoundingClientRect();"
-    "    return r.width === 0 || (r.left >= c.left - 0.5 && r.right <= c.right + 0.5"
-    "      && r.top >= c.top - 0.5 && r.bottom <= c.bottom + 0.5);"
-    "  });"
-    "  const link = li.querySelector('.row__main').getBoundingClientRect();"
-    "  const chip = li.querySelector('.row__chip').getBoundingClientRect();"
-    "  return {callsign: li.querySelector('.row__label').textContent,"
-    "          inside, height: c.height, link: [link.width, link.height],"
-    "          chip: [Math.round(chip.width), Math.round(chip.height)]};"
+_TILE_PROBE = (
+    "() => [...document.querySelectorAll('figure.home-strip__tile')].map(t => {"
+    "  const f = t.querySelector('.home-strip__frame').getBoundingClientRect();"
+    "  const c = t.querySelector('figcaption').getBoundingClientRect();"
+    "  const span = t.querySelector('figcaption span');"
+    "  const img = t.querySelector('.home-strip__frame img');"
+    "  const range = document.createRange(); range.selectNodeContents(span);"
+    "  const lines = new Set([...range.getClientRects()].map(r => Math.round(r.top))).size;"
+    "  return {frame: [Math.round(f.width), Math.round(f.height)],"
+    "          captionInside: c.width <= f.width + 0.5, lines,"
+    "          fit: img ? getComputedStyle(img).objectFit : 'none'};"
     "})")
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
 @pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
-def test_rows_fit_the_phone_in_both_themes(new_context, server, viewport, lang):
-    """At 390 and 360 px, in English and French, light and dark: the page never scrolls
-    sideways and every flight row is at least 54 px tall with its content inside its own box,
-    a 32 px icon chip and a main area covering the row at 44 px or more (a plain row, not a link)."""
+def test_tiles_fit_the_phone_in_both_themes(new_context, server, viewport, lang):
+    """At 390 and 360 px, in English and French, light and dark: the page never scrolls sideways,
+    five tiles show, each 112 px wide with a 3:4 picture box, a caption inside its tile whose
+    direction and age stay on one line, and the picture shown whole (contain)"""
     context, page = _open_home(new_context, server, viewport, lang)
     try:
         for theme in _in_both_themes(page):
-            where = "Home rows (%s, %s)" % (lang, theme["theme"])
+            where = "Home strip (%s, %s)" % (lang, theme["theme"])
             failure = _assert_no_page_overflow(page, where, expected_width=viewport["width"])
             if failure:
                 raise AssertionError(failure)
-            rows = page.evaluate(_ROW_PROBE)
-            assert len(rows) == 5, "%s: expected 5 rows, got %d" % (where, len(rows))
-            for row in rows:
-                ok = (row["inside"] and row["height"] >= 54 and row["link"][1] >= 44
-                      and row["link"][0] >= viewport["width"] * 0.5 and row["chip"] == [32, 32])
-                if not ok:
-                    raise AssertionError("%s: row %r is broken: %r" % (where, row["callsign"], row))
+            tiles = page.evaluate(_TILE_PROBE)
+            assert len(tiles) == 5, "%s: expected 5 tiles, got %d" % (where, len(tiles))
+            for tile in tiles:
+                assert tile["frame"] == [112, 149], (where, tile)
+                assert tile["captionInside"] and tile["lines"] == 1, (where, tile)
+                assert tile["fit"] in ("contain", "none"), (where, tile)
     finally:
         context.close()
 
 
-def test_five_flights_fit_one_phone_screen(new_context, server):
-    """With the Recent flights label scrolled to the top of a 390x844 screen, all five rows
-    sit fully above the tab bar."""
+def test_the_heading_row_and_its_link_are_44px(new_context, server):
+    """the heading row is 44 px high with the label at the left and the "See all flights" link, a
+    44 px target, at the right; the link leads to Flights"""
     context, page = _open_home(new_context, server, VIEWPORT_PHONE)
     try:
         seen = page.evaluate(
-            "() => {"
-            "  const s = document.querySelector('%s');"
-            "  const top = s.getBoundingClientRect().top;"
-            "  const tab = [...document.querySelectorAll('.tab-bar')]"
-            "    .find(t => getComputedStyle(t).display !== 'none');"
-            "  const floor = tab ? tab.getBoundingClientRect().top : innerHeight;"
-            "  const rows = [...s.querySelectorAll('li.recent-flight')]"
-            "    .map(li => li.getBoundingClientRect().bottom - top);"
-            "  return {fit: rows.filter(b => b <= floor).length, floor, rows};"
-            "}" % SECTION)
-        if seen["fit"] < 5:
-            raise AssertionError("expected 5 rows in one 390x844 screen, got %r" % (seen,))
+            "() => { const h = document.querySelector('.home-strip__head').getBoundingClientRect();"
+            "  const l = document.querySelector('.home-strip__more').getBoundingClientRect();"
+            "  const t = document.querySelector('.home-strip__label').getBoundingClientRect();"
+            "  return {row: h.height, link: [l.width, l.height], labelRight: t.right, linkLeft: l.left}; }")
+        assert seen["row"] >= 44 and seen["link"][1] >= 44 and seen["link"][0] >= 44, seen
+        assert seen["labelRight"] <= seen["linkLeft"], seen
+        assert page.locator(".home-strip__more").get_attribute("href") == "/flights"
     finally:
         context.close()
 
 
-def test_rows_render_with_scripts_blocked(new_context, server):
-    """The rows are server-rendered: with scripts blocked a phone still gets five rows with
-    their ages, as plain rows (no link); only the See all flights row links to Flights."""
+def test_tiles_render_with_scripts_blocked(new_context, server):
+    """The tiles are server-rendered: with scripts blocked a phone still gets five tiles with
+    their captions; only the heading's link goes to Flights."""
     with _no_js_page(new_context, server.base_url(), "/", viewport=VIEWPORT_PHONE) as page:
-        assert page.locator(ROW).count() == 5
-        assert page.locator("%s .row__value" % ROW).first.is_visible()
-        assert page.locator("%s a" % ROW).count() == 0
-        assert page.locator("li.recent-flight-all a.row__main").get_attribute("href") == "/flights"
+        assert page.locator(TILE).count() == 5
+        assert page.locator("%s figcaption span" % TILE).first.is_visible()
+        assert page.locator("%s a" % SECTION).count() == 1
 
 
-def test_desktop_shows_the_same_rows(new_context, server):
-    """At 1280 px the group renders the same five rows, each a flex row with its 32px chip,
-    callsign, detail line and age, and a See all flights row after them."""
+def test_desktop_shows_the_same_tiles(new_context, server):
+    """At 1280 px the strip renders the same five tiles in one row with the heading link above"""
     context = new_context(viewport=VIEWPORT_DESKTOP)
     try:
         page = context.new_page()
         _login(page, server.base_url())
         page.goto(server.base_url() + "/")
-        page.locator(ROW).first.wait_for(state="visible")
+        page.locator(TILE).first.wait_for(state="visible")
         seen = page.evaluate(
-            "() => ({"
-            "  all: document.querySelectorAll('li.recent-flight-all').length,"
-            "  rows: [...document.querySelectorAll('li.recent-flight')].map(li => ({"
-            "    display: getComputedStyle(li).display,"
-            "    parts: ['.row__label', '.row__detail', '.row__value'].every("
-            "      s => li.querySelector(s))}))"
-            "})")
-        assert seen["all"] == 1 and len(seen["rows"]) == 5, seen
-        for row in seen["rows"]:
-            assert row == {"display": "flex", "parts": True}, row
+            "() => ({tiles: [...document.querySelectorAll('figure.home-strip__tile')].map("
+            "  t => Math.round(t.getBoundingClientRect().top)),"
+            "  head: document.querySelector('.home-strip__head').getBoundingClientRect().bottom,"
+            "  first: document.querySelector('figure.home-strip__tile').getBoundingClientRect().top})")
+        assert len(seen["tiles"]) == 5 and len(set(seen["tiles"])) == 1, seen
+        assert seen["head"] <= seen["first"] + 1, seen
+    finally:
+        context.close()
+
+
+def test_the_strip_section_is_a_region_the_refresh_swaps(new_context, server):
+    """the strip's section matches a selector in the page's refresh registry, so its ages are
+    repainted from the server's clock about every 45 s instead of staying as first rendered"""
+    context, page = _open_home(new_context, server, VIEWPORT_PHONE)
+    try:
+        from companion import layout
+        matched = [
+            selector for selector in layout.REFRESH_SWAP_SELECTORS_BY_PAGE["home"]
+            if page.locator(selector).count() == 1 and page.locator(SECTION).evaluate(
+                "(el, sel) => el.matches(sel)", selector)]
+        assert matched == [SECTION], matched
     finally:
         context.close()
 
@@ -159,30 +161,3 @@ def test_display_shows_no_freshness_line_but_keeps_the_refresh_marker(
         context.close()
 
 
-_STATE_LINES = """() => {
-  const out = [];
-  for (const el of document.querySelectorAll('li.recent-flight .row__detail')) {
-    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-      const m = /(Au[\\s\\u00a0]d\\u00e9part|\\u00c0[\\s\\u00a0]l\\u2019arriv\\u00e9e)/.exec(n.data);
-      if (!m) continue;
-      const range = document.createRange();
-      range.setStart(n, m.index); range.setEnd(n, m.index + m[0].length);
-      const tops = new Set([...range.getClientRects()].map((r) => Math.round(r.top)));
-      out.push({text: m[0], lines: tops.size});
-    }
-  }
-  return out; }"""
-
-
-@pytest.mark.parametrize("viewport", [VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED], ids=["390", "360"])
-def test_a_french_state_phrase_is_never_split_across_two_lines(new_context, server, viewport):
-    """"Au départ" and "À l'arrivée" stay whole on one line of a recent-flight detail"""
-    context, page = _open_home(new_context, server, viewport, "fr")
-    try:
-        page.wait_for_function("() => document.readyState === 'complete'")
-        found = page.evaluate(_STATE_LINES)
-        assert found, "no state phrase in the seeded rows"
-        assert all(item["lines"] == 1 for item in found), found
-    finally:
-        context.close()

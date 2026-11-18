@@ -72,18 +72,23 @@ def server(module_app_server_factory):
 
 
 @pytest.mark.parametrize("path", ["/"])
-def test_home_is_a_hero_and_two_groups_with_no_nesting(server, path):
+def test_home_is_one_column_of_blocks_with_no_group_nesting(server, path):
+    """Home is the title block, the flight card, the pills, the statistics and the strip, in
+    that order, each its own surface: no hero, no list group inside another surface"""
     status, _, body = get(server, path, cookie=login(server))
     assert status == 200
     doc = parse_html(body.decode("utf-8"))
-    assert len(doc.select("section.hero")) == 1
-    groups = doc.select("main ul.group") + doc.select("main div.group")
-    assert 2 <= len(groups) <= 3
-    for group in groups:
-        assert group.select(".group") == []
-        assert group.select("li li") == []
-    labels = [h.text() for h in doc.select("main h2.section-label")]
-    assert labels[-2:] == ["Frame", "Recent flights"] and len(labels) <= 3
-    assert doc.select("section.hero .group") == []
-    for anchor in doc.select("ul.group li.row a.row__main"):
+    assert doc.select("section.hero") == []
+    column = doc.select_one("main div.home")
+    order = [
+        (child.tag, child.attrs.get("class", "").split()[0])
+        for child in column.children if not isinstance(child, str)]
+    assert order == [
+        ("section", "home-state"), ("div", "home-facts"), ("section", "home-flight"),
+        ("section", "home-pills"), ("div", "home-stats"), ("section", "home-strip")]
+    assert doc.select("main .group") == []
+    labels = [h.text() for h in doc.select("main h2.home-strip__label")]
+    assert labels == ["Recent flights"]
+    assert len(doc.select("main h1")) == 1
+    for anchor in doc.select("main a.home-pill--link"):
         assert anchor.attrs.get("href")

@@ -406,7 +406,7 @@ def test_u4a_change_the_quiet_hours_start(world, new_context):
     context, page, steps = _owner(world, new_context)
     try:
         page.wait_for_function("() => document.readyState === 'complete'", timeout=10000)
-        steps.tap(page.locator("a.home-switch__window"), "schedule")
+        steps.tap(page.locator("a.home-pill--quiet"), "schedule")
         page.wait_for_function(
             "() => document.querySelector('dialog#dlg-quiet-hours').open", timeout=10000)
         selector = "#quiet-window-start"

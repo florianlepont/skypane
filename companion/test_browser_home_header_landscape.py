@@ -1,8 +1,10 @@
-"""Real-browser checks of the Home header (picture, frame name, state, next refresh) on a phone.
+"""Real-browser checks of Home's title block, flight card and strip for a landscape frame on a
+phone.
 
-A landscape frame shows its picture across the full width, above the text; the name stays on
-one line where it fits and the next-refresh line takes at most two lines. A portrait frame
-keeps the picture beside the text."""
+A landscape frame shows its picture across the full width of the flight card, above the flight's
+text, and its strip tiles take the landscape shape (5:3); the name stays on one line where it
+fits and the next-refresh line takes at most two lines. A portrait frame keeps the picture beside
+the text and its tiles stay portrait (3:4)."""
 import os
 from datetime import datetime, timedelta, timezone
 
@@ -22,7 +24,8 @@ GALLERY_NAME = "20261115T120000Z.png"
 LOADED = ("() => [...document.images].filter((img) => img.getClientRects().length > 0)"
           ".every((img) => img.complete)")
 
-# Boxes of the header parts and the number of text lines of the name and the refresh line.
+# Boxes of the card parts, the strip's tile and the number of text lines of the name and the
+# refresh line.
 MEASURE = """() => {
   const box = (sel) => {
     const el = document.querySelector(sel);
@@ -35,9 +38,9 @@ MEASURE = """() => {
     return Math.round(el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight));
   };
   return {
-    picture: box('.hero__picture'), body: box('.hero__body'),
-    status: box('.hero__status'), next: box('.home-state__next'),
-    info: box('.info-tip__button'),
+    picture: box('.home-flight__picture'), meta: box('.home-flight__meta'),
+    next: box('.home-state__next'), info: box('.info-tip__button'),
+    tile: box('.home-strip__frame'),
     nameLines: lines('.title-action__text'), nextLines: lines('.home-state__next'),
     scrollWidth: document.documentElement.scrollWidth,
     clientWidth: document.documentElement.clientWidth,
@@ -63,6 +66,10 @@ def _seed(fleet):
             history_db.record_device_health(
                 conn, stamp.isoformat(), battery_mv=4100, fw_version="1.0.0",
                 boot_reason="wake", rssi="-60")
+            history_db.record_runway_event(
+                conn, ts=stamp.isoformat(), hex="39a001", callsign="AFR1234",
+                airline="Air France", origin="ORY", destination="TLS",
+                confirmed_state="departing", gallery_name=GALLERY_NAME)
 
 
 @pytest.fixture(scope="module")
@@ -86,26 +93,32 @@ def _measure_home(new_context, app, device, lang):
         _set_ui_theme(page, "light")
         page.wait_for_function(LOADED)
         page.wait_for_selector(".home-state__next")
+        page.wait_for_selector(".home-strip__frame")
         return page.evaluate(MEASURE)
     finally:
         context.close()
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_landscape_frame_header_is_stacked_on_a_phone(new_context, app, lang):
+def test_landscape_frame_card_is_stacked_on_a_phone(new_context, app, lang):
     m = _measure_home(new_context, app, app.fleet.landscape, lang)
-    assert m["picture"]["width"] > m["body"]["width"] * 0.9, m
-    assert m["picture"]["bottom"] <= m["body"]["top"] + 1, "text must sit under the picture: %r" % m
+    card = m["picture"]["right"] - m["picture"]["left"]
+    assert card > m["meta"]["width"] * 0.9, m
+    assert m["picture"]["bottom"] <= m["meta"]["top"] + 1, "text must sit under the picture: %r" % m
+    assert m["picture"]["width"] / m["picture"]["height"] > 1.5, m
     assert m["nameLines"] == 1, m
     assert m["nextLines"] <= 2, m
     assert m["scrollWidth"] <= m["clientWidth"], m
     # The info button sits level with the refresh line.
     assert m["info"]["top"] < m["next"]["bottom"] and m["info"]["bottom"] > m["next"]["top"], m
+    # The strip's tiles take the frame's landscape shape.
+    assert abs(m["tile"]["width"] / m["tile"]["height"] - 5 / 3) < 0.05, m
 
 
 @pytest.mark.parametrize("lang", ["en", "fr"])
-def test_portrait_frame_header_stays_side_by_side_on_a_phone(new_context, app, lang):
+def test_portrait_frame_card_stays_side_by_side_on_a_phone(new_context, app, lang):
     m = _measure_home(new_context, app, app.fleet.live, lang)
-    assert m["picture"]["right"] <= m["body"]["left"] + 1, m
-    assert m["picture"]["width"] < m["body"]["width"] * 1.5, m
+    assert m["picture"]["right"] <= m["meta"]["left"] + 1, m
+    assert m["picture"]["width"] < m["meta"]["width"] * 1.5, m
+    assert abs(m["tile"]["width"] / m["tile"]["height"] - 3 / 4) < 0.02, m
     assert m["scrollWidth"] <= m["clientWidth"], m

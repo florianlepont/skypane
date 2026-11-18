@@ -1,8 +1,11 @@
-"""Real-browser checks of Home's hero: the picture sits beside the title column at every
-width (also 360px), the frame name is the page's one h1 at 48/28/24px with a 44px round rename
-pencil on its line (also for a long name), the state is a pill with its dot and word, an empty
-picture still renders, no plane animation remains, the cards come in one after the other, and
-the phone tab bar keeps its labels legible and uncramped in both themes."""
+"""Real-browser checks of Home's title block: the frame name is the page's one h1 (32px on a
+phone, 44px on a desktop, also for a long name) with a 44px round rename pencil right after it,
+the "i" at the end of the next-update sentence is a 44px round control, both with a visible
+opaque background, the state is a dot with its word, the flight card of a frame without a
+picture still shows the empty picture, the blocks come in one after the other, and the phone tab
+bar keeps its labels legible and uncramped in both themes."""
+from datetime import datetime, timedelta, timezone
+
 import pytest
 from companion_app_server import session_cookie_for_state_dir
 from skypane_contrast_check import WCAG_AA_NORMAL_TEXT, contrast_ratio
@@ -14,7 +17,7 @@ from companion.test_browser_ux_helpers import (
     VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED, VIEWPORT_PHONE, _assert_no_page_overflow,
     _in_both_themes, _login, _no_js_page, seed_state_dir)
 from companion.test_device_helpers import start_fleet_app
-from server import fleet_db
+from server import fleet_db, history_db
 
 pytestmark = pytest.mark.browser
 
@@ -32,18 +35,22 @@ _HERO = """() => {
     return {left: r.left, right: r.right, top: r.top, bottom: r.bottom,
             width: r.width, height: r.height}; };
   const h1 = document.querySelector('main h1');
-  return {picture: box('.hero__picture .preview-frame'), title: box('main h1'),
-          pencil: box('.title-action .btn--icon'),
-          glyph: box('.title-action .btn--icon .icon'), pill: box('.home-state__pill'),
+  return {title: box('main h1'), pencil: box('.title-action .btn--icon'),
+          glyph: box('.title-action .btn--icon .icon'), info: box('.home-state .info-tip__button'),
           size: parseFloat(getComputedStyle(h1).fontSize),
           h1s: document.querySelectorAll('h1').length,
-          dot: !!document.querySelector('.home-state__pill .home-state__dot'),
+          dot: !!document.querySelector('.home-state__status .home-state__dot'),
           word: document.querySelector('.home-state__title').innerText.trim()};
 }"""
 
 
 def _seed(fleet):
+    """Seeded flights and a check-in two minutes ago, so the next-update line (and its "i") shows."""
     vp.seed_flight_card_variety(fleet.live.state_dir, False)
+    with history_db.open_db(fleet.live.state_dir) as conn:
+        history_db.record_device_health(
+            conn, (datetime.now(timezone.utc) - timedelta(minutes=2)).isoformat(),
+            battery_mv=4000, fw_version="1.0.0", boot_reason="wake", rssi="-60")
 
 
 @pytest.fixture(scope="module")
@@ -92,58 +99,58 @@ def _live(app):
 
 
 @pytest.mark.parametrize("viewport, size", [
-    (VIEWPORT_DESKTOP, 48), (VIEWPORT_PHONE, 28), (VIEWPORT_MIN_SUPPORTED, 24)],
+    (VIEWPORT_DESKTOP, 44), (VIEWPORT_PHONE, 32), (VIEWPORT_MIN_SUPPORTED, 32)],
     ids=["1280", "390", "360"])
-def test_the_picture_and_the_title_column_sit_side_by_side_at_every_width(
-        new_context, fleet_app, viewport, size):
+def test_the_title_is_one_h1_with_the_state_under_it(new_context, fleet_app, viewport, size):
     page = _fleet_page(new_context, fleet_app, _live(fleet_app), viewport=viewport)
     hero = page.evaluate(_HERO)
     assert hero["h1s"] == 1 and hero["size"] == size, hero
-    # Same band, picture to the left of the title; the pill and the pencil share the column.
-    assert hero["picture"]["right"] <= hero["title"]["left"] + 0.5, hero
-    assert hero["picture"]["top"] <= hero["title"]["bottom"], hero
-    assert hero["title"]["top"] <= hero["picture"]["bottom"], hero
-    assert hero["pill"]["left"] >= hero["picture"]["right"], hero
-    assert hero["pill"]["top"] >= hero["title"]["bottom"] - 1, hero
-    if viewport is VIEWPORT_MIN_SUPPORTED:
-        assert 90 <= hero["picture"]["width"] <= 120, hero
+    assert hero["dot"] and hero["word"], hero
+    status = page.locator(".home-state__status").bounding_box()
+    assert status["y"] >= hero["title"]["bottom"] - 1, hero
     failure = _assert_no_page_overflow(page, "Home", expected_width=viewport["width"])
     if failure:
         raise AssertionError(failure)
 
 
-_PENCIL_LOOK = """() => {
-  const btn = document.querySelector('.title-action .btn--icon');
-  const s = getComputedStyle(btn);
-  const h1 = getComputedStyle(document.querySelector('main h1'));
-  return {bg: s.backgroundColor, border: parseFloat(s.borderTopWidth), shadow: s.boxShadow,
-          color: s.color, text: h1.color, lineHeight: parseFloat(h1.lineHeight)};
+_LOOK = """sel => {
+  const el = document.querySelector(sel);
+  const s = getComputedStyle(el);
+  return {bg: s.backgroundColor, border: parseFloat(s.borderTopWidth), radius: s.borderTopLeftRadius,
+          w: el.getBoundingClientRect().width, h: el.getBoundingClientRect().height};
 }"""
 
 
-@pytest.mark.parametrize("viewport, glyph", [
-    (VIEWPORT_DESKTOP, 20), (VIEWPORT_PHONE, 20), (VIEWPORT_MIN_SUPPORTED, 18)],
-    ids=["1280", "390", "360"])
+@pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_PHONE, VIEWPORT_MIN_SUPPORTED],
+                         ids=["1280", "390", "360"])
 @pytest.mark.parametrize("app_name", ["fleet_app", "long_name_app"])
-def test_the_quiet_pencil_stays_level_with_the_first_title_line_for_a_short_and_a_long_name(
-        new_context, request, app_name, viewport, glyph):
+def test_the_pencil_sits_right_after_the_name_and_the_info_ends_the_sentence(
+        new_context, request, app_name, viewport):
+    """both controls are 44px round buttons with a visible opaque background; the pencil starts
+    where the name's text ends and never overlaps it, level with its first line; the "i" starts
+    where the next-update sentence ends; neither leaves the viewport"""
     app = request.getfixturevalue(app_name)
     page = _fleet_page(new_context, app, _live(app), viewport=viewport)
     hero = page.evaluate(_HERO)
-    pencil, title, mark = hero["pencil"], hero["title"], hero["glyph"]
-    # A small glyph inside an invisible 44px hit area.
-    assert abs(mark["width"] - glyph) <= 0.5 and abs(mark["height"] - glyph) <= 0.5, hero
-    assert pencil["width"] >= 44 - 0.5 and pencil["height"] >= 44 - 0.5, hero
-    # Centred on the first line of the title, which it never overlaps.
-    line = page.evaluate(_PENCIL_LOOK)["lineHeight"]
-    assert abs((mark["top"] + mark["bottom"]) / 2 - (title["top"] + line / 2)) <= 1.5, hero
+    pencil, title, info = hero["pencil"], hero["title"], hero["info"]
+    for selector in (".title-action .btn--icon", ".home-state .info-tip__button"):
+        look = page.evaluate(_LOOK, selector)
+        assert look["w"] >= 44 - 0.5 and look["h"] >= 44 - 0.5, look
+        assert look["radius"] in ("22px", "50%"), look
+        assert look["bg"].startswith("rgb(") and look["bg"] != "rgb(0, 0, 0)", look
+        assert look["border"] >= 1, look
+    # The pencil never overlaps the name and sits level with its first line.
+    line = page.evaluate("() => parseFloat(getComputedStyle(document.querySelector('main h1')).lineHeight)")
+    assert abs((pencil["top"] + pencil["bottom"]) / 2 - (title["top"] + line / 2)) <= 1.5, hero
     assert pencil["left"] >= title["right"] - 0.5, hero
-    assert pencil["right"] <= viewport["width"], hero
-    # No disc at rest; the glyph takes the muted text colour.
-    look = page.evaluate(_PENCIL_LOOK)
-    assert look["bg"] in ("rgba(0, 0, 0, 0)", "transparent"), look
-    assert look["border"] == 0 and look["shadow"] == "none", look
-    assert look["color"] != look["text"], look
+    assert pencil["right"] <= viewport["width"] and info["right"] <= viewport["width"], hero
+    sentence = page.evaluate(
+        """() => { const s = document.querySelector('.home-state__sentence');
+          const own = [...s.childNodes].filter(n => !(n.classList && n.classList.contains('info-tip')));
+          const r = document.createRange(); r.setStartBefore(own[0]); r.setEndAfter(own[own.length - 1]);
+          const b = r.getBoundingClientRect(); return {right: b.right, bottom: b.bottom, top: b.top}; }""")
+    # The glyph sits against the end of the sentence (the 44px target overlaps its padding only).
+    assert info["left"] >= sentence["right"] - 12, (info, sentence)
     assert page.locator(".title-action .btn--icon").get_attribute("aria-label") == "Rename frame"
     failure = _assert_no_page_overflow(page, "Home", expected_width=viewport["width"])
     if failure:
@@ -152,21 +159,18 @@ def test_the_quiet_pencil_stays_level_with_the_first_title_line_for_a_short_and_
 
 @pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED],
                          ids=["1280", "360"])
-def test_the_pencil_shows_a_light_halo_only_on_hover(
-        new_context, fleet_app, viewport):
+def test_the_pencil_shows_a_halo_on_hover_in_both_themes(new_context, fleet_app, viewport):
     page = _fleet_page(new_context, fleet_app, _live(fleet_app), viewport=viewport)
     pencil = page.locator(".title-action .btn--icon")
     for _theme in _in_both_themes(page):
         page.wait_for_function(_SETTLED)
         page.mouse.move(0, 0)
         rest = pencil.evaluate("el => getComputedStyle(el).backgroundColor")
+        assert rest != "rgba(0, 0, 0, 0)", rest
         pencil.hover()
         page.wait_for_function(
             "(rest) => getComputedStyle(document.querySelector('.title-action .btn--icon'))"
             ".backgroundColor !== rest", arg=rest)
-        page.wait_for_function(_SETTLED)
-        halo = pencil.evaluate("el => getComputedStyle(el).backgroundColor")
-        assert halo != rest and halo != "rgba(0, 0, 0, 0)", (rest, halo)
 
 
 @pytest.fixture
@@ -306,20 +310,20 @@ def test_an_administrator_from_fleet_ends_on_fleet(new_context, rename_app):
     assert "/frame/name" not in page.url
 
 
-def test_the_state_pill_holds_the_dot_and_the_state_word(new_context, fleet_app):
+def test_the_state_is_a_dot_and_its_word(new_context, fleet_app):
     page = _fleet_page(new_context, fleet_app, _live(fleet_app))
     hero = page.evaluate(_HERO)
     assert hero["dot"] and hero["word"], hero
-    assert page.locator(".home-state__pill").inner_text().strip() == hero["word"]
-    assert page.locator(".home-state__next-row").count() <= 1
+    assert page.locator(".home-state__status").inner_text().strip() == hero["word"]
+    assert page.locator(".home-state__next").count() <= 1
 
 
-def test_a_frame_without_a_picture_still_shows_the_empty_picture_beside_the_title(
+def test_a_frame_without_a_picture_still_shows_the_empty_picture_in_the_flight_card(
         new_context, fleet_app):
     page = _fleet_page(new_context, fleet_app, "/devices/%s/" % fleet_app.fleet.dev_a.id)
-    assert page.locator(".hero__picture .preview-frame--empty").count() == 1
-    hero = page.evaluate(_HERO)
-    assert hero["picture"]["right"] <= hero["title"]["left"] + 0.5, hero
+    assert page.locator(".home-flight__picture .preview-frame--empty").count() == 1
+    card = page.locator(".home-flight__picture").bounding_box()
+    assert card["width"] > 0 and card["height"] > 0
 
 
 def test_the_plane_on_a_trail_is_gone(new_context, fleet_app):
@@ -330,7 +334,7 @@ def test_the_plane_on_a_trail_is_gone(new_context, fleet_app):
         ".length") == 0
 
 
-def test_the_home_cards_come_in_one_after_the_other(new_context, fleet_app):
+def test_the_home_blocks_come_in_one_after_the_other(new_context, fleet_app):
     context = new_context(viewport=VIEWPORT_DESKTOP)
     base = fleet_app.server.base_url()
     name, value = fleet_app.cookie.split("=", 1)
@@ -340,14 +344,13 @@ def test_the_home_cards_come_in_one_after_the_other(new_context, fleet_app):
     page.goto(base + _live(fleet_app))
     page.locator(".home-state").wait_for(state="attached")
     delays = page.evaluate(
-        """() => ['.home-facts', '.home-state', '.home-detection', '.home-state__switches',
-                  'section[aria-labelledby="home-flights"]'].map(
-            sel => getComputedStyle(document.querySelector(sel)).animationDelay)""")
-    # One step after the header for the facts row, then one more for each block in page order.
-    assert delays == ["0.06s", "0.12s", "0.18s", "0.24s", "0.3s"], delays
+        """() => ['.home-state', '.home-flight', '.home-pills', '.home-stats', '.home-strip'].map(
+            sel => parseFloat(getComputedStyle(document.querySelector(sel)).animationDelay))""")
+    # Each block one stagger step after the one before it, in page order.
+    assert delays == sorted(delays) and len(set(delays)) == len(delays), delays
     page.wait_for_function(_SETTLED)
     settled = page.evaluate(
-        """() => ['.home-state', '.home-state__switches'].map(sel => {
+        """() => ['.home-state', '.home-pills'].map(sel => {
             const s = getComputedStyle(document.querySelector(sel));
             return [s.opacity, s.transform]; })""")
     assert settled == [["1", "none"], ["1", "none"]], settled

@@ -24,7 +24,7 @@ CALENDAR = "#disconnect-calendar"
 CALENDAR_OPENER = "a.form-page__danger[data-modal-open]"
 TOAST = ".toast-region--flash .toast"
 QUIET_DIALOG = "dialog#dlg-quiet-hours"
-QUIET_LINK = "a.home-switch__window"
+QUIET_LINK = "a.home-pill--quiet"
 START = "#quiet-window-start"
 END = "#quiet-window-end"
 
