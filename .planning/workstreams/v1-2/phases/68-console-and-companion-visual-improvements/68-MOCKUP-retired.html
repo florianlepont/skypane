@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en" data-vp="phone" data-l="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane retired frame: screens and messages (mockup, plan 68-11)</title>
+<style>
+/* Mockup of: the retired screen on the frame (both hardware types, real panel sizes), the re-activation
+   dialog and flash, the pairing page message, the pair refusal wording. Companion tokens follow the design system.
+   Root attributes: data-vp (phone | desktop), data-l (en | fr), data-theme (auto | light | dark). */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --glass:rgba(255,255,255,.72); --tab:#fff;
+  --accent:#1F2430; --on-accent:#fff; --ok:#16A34A; --warn:#D97706; --err:#BE123C; --mark:#FFF1B8;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; --mark:#5A4A10; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; --mark:#5A4A10; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 64px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* language switch: every bilingual string is a pair of spans */
+[data-l="en"] [data-lang="fr"]:not(button),[data-l="fr"] [data-lang="en"]:not(button){display:none!important}
+.wrap{max-width:1320px;margin:0 auto}
+.top{display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end;margin-bottom:32px}
+.top h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:70ch}
+.ctl{display:flex;flex-wrap:wrap;gap:8px}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+h2{margin:48px 0 8px;font-size:26px;letter-spacing:-.02em}
+h3{margin:0 0 8px;font-size:17px;font-weight:600}
+.lead{margin:0 0 24px;color:var(--muted);max-width:80ch;font-size:15px}
+.small{font-size:13px;color:var(--muted)}
+mark{background:var(--mark);color:inherit;border-radius:4px;padding:0 4px}
+code{font:13px ui-monospace,monospace;background:var(--chip);padding:1px 6px;border-radius:6px}
+
+/* Part 1: panel screens */
+.panels{display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start}
+.panel{display:flex;flex-direction:column;gap:8px}
+.panel svg{display:block;height:auto;border:1px solid var(--border);box-shadow:0 12px 40px rgba(20,30,50,.18)}
+.panel.portrait svg{width:360px}.panel.landscape svg{width:600px;max-width:100%}
+.legend{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.sw{display:inline-block;width:18px;height:18px;border:1px solid #888;vertical-align:-4px}
+
+/* Part 2/3: the companion viewport */
+.vp{margin:0 auto;border:1px solid var(--border);border-radius:28px;background:var(--sky) var(--canvas);padding:24px 16px;overflow:hidden}
+[data-vp="phone"] .vp{width:360px}
+[data-vp="desktop"] .vp{width:1280px;padding:32px 48px}
+.scroller{overflow-x:auto;padding-bottom:8px}
+.cards{display:grid;gap:24px;grid-template-columns:1fr}
+[data-vp="desktop"] .cards{grid-template-columns:repeat(3,1fr)}
+[data-vp="desktop"] .cards.two{grid-template-columns:repeat(2,1fr)}
+.card{background:var(--glass);border:1px solid var(--border);border-radius:22px;padding:16px;display:flex;flex-direction:column;gap:12px;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.card p{margin:0;font-size:15px}
+.card .cap{font-size:13px;color:var(--muted)}
+.row{display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 0;border-bottom:1px solid var(--border)}
+.row:last-child{border-bottom:0}
+.row .grow{flex:1;min-width:0}
+.row b{display:block;font-weight:600}
+.pill{display:inline-flex;align-items:center;min-height:28px;padding:0 12px;border-radius:32px;background:var(--chip);font-size:13px}
+.btn{min-height:44px;padding:0 16px;border:0;border-radius:14px;background:var(--accent);color:var(--on-accent);font-weight:600;font-size:15px;cursor:default}
+.btn.ghost{background:var(--chip);color:var(--text)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}.btns .btn{flex:1}
+.dlg{background:var(--tab);border:1px solid var(--border);border-radius:28px;padding:20px;display:flex;flex-direction:column;gap:12px;box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.dlg h4{margin:0;font-size:22px;font-weight:600}
+.dlg p{margin:0;font-size:15px}
+.hw{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--chip);font-size:14px}
+.hw i{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid currentColor;display:grid;place-items:center;font-style:normal;font-size:12px;font-weight:700}
+.toast{display:flex;gap:12px;align-items:flex-start;padding:12px 16px;border-radius:22px;background:var(--tab);border:1px solid var(--border);box-shadow:0 8px 24px rgba(20,30,50,.15)}
+.toast .dot{flex:none;width:10px;height:10px;margin-top:6px;border-radius:50%;background:var(--ok)}
+.toast.err .dot{background:var(--err)}
+.toast b{display:block}
+.toast span{font-size:14px;color:var(--muted)}
+.field{min-height:44px;border:1px solid var(--border);border-radius:14px;background:var(--chip);display:flex;align-items:center;padding:0 12px;font:16px ui-monospace,monospace;letter-spacing:.2em}
+.field.bad{border-color:var(--err)}
+.err-t{color:var(--err);font-size:14px}
+.help{padding:12px;border-radius:14px;border:1px dashed var(--border);font-size:14px;color:var(--muted)}
+.before{opacity:.75}
+.tag{font-size:12px;font-weight:600;color:var(--muted);text-transform:none}
+.q{background:var(--glass);border:1px solid var(--border);border-radius:22px;padding:16px 24px}
+.q ol{margin:8px 0 0;padding-left:24px;display:flex;flex-direction:column;gap:12px}
+.q li small{display:block;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="top">
+  <div>
+    <h1><span data-lang="en">Retired frame: screens and messages</span><span data-lang="fr">Cadre retiré : écrans et messages</span></h1>
+    <p><span data-lang="en">Plan 68-11 (D-24, D-25, R18, R36). Part 1: the screen on the frame, both hardware types at real panel size. Part 2: the re-activation dialog, flash and pairing page message. Part 3: the refused-code wording. Nothing here is built yet.</span><span data-lang="fr">Plan 68-11 (D-24, D-25, R18, R36). Partie 1 : l'écran du cadre, les deux types de matériel à la taille réelle du panneau. Partie 2 : dialogue de réactivation, message flash et message de la page d'association. Partie 3 : message de code refusé. Rien n'est encore construit.</span></p>
+  </div>
+  <div class="ctl">
+    <div class="seg" role="group" aria-label="Viewport">
+      <button type="button" data-viewport="phone" aria-pressed="true">Phone 360</button>
+      <button type="button" data-viewport="desktop" aria-pressed="false">Desktop 1280</button>
+    </div>
+    <div class="seg" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="fr" aria-pressed="false">FR</button>
+    </div>
+    <div class="seg" role="group" aria-label="Theme">
+      <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-theme="light" aria-pressed="false">Light</button>
+      <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PART 1 ============ -->
+<h2>1. <span data-lang="en">The retired screen on the frame</span><span data-lang="fr">L'écran « retiré » sur le cadre</span></h2>
+<p class="lead">
+  <span data-lang="en"><b>Existing convention</b> (read in <code>server/plane/render/giant/status.py</code>): the frame's own screens are English only and not translated; white ink on the dimmed dithered field; capitals for the giant lines (SKYPANE label, FRAME / RETIRED), sentence case for the body lines, no code, no frame id. Today the body is two lines: "This frame was removed from SkyPane." and "Ask an administrator to set it up again." The proposal adds one short line naming Reset. Because you asked for English and French, both are drawn; the language switch above shows one or the other, and Question 3 asks whether the frame shows both. The title and label stay as they are. Typography here is indicative (the real render uses the Anton font; accents need a glyph check in plan 18).</span>
+  <span data-lang="fr"><b>Convention actuelle</b> (lue dans <code>server/plane/render/giant/status.py</code>) : les écrans propres du cadre sont en anglais seulement, non traduits ; encre blanche sur fond tramé atténué ; majuscules pour les grandes lignes (SKYPANE, FRAME / RETIRED), phrase normale pour le corps, ni code ni identifiant. Aujourd'hui le corps a deux lignes. La proposition ajoute une courte ligne qui nomme Reset. Comme vous avez demandé anglais et français, les deux sont dessinés ; le sélecteur de langue affiche l'un ou l'autre, et la question 3 demande si le cadre affiche les deux. Le titre et le libellé ne changent pas. La typographie est indicative (le vrai rendu utilise la police Anton ; les accents demandent une vérification de glyphes au plan 18).</span>
+</p>
+<div class="legend small" style="margin-bottom:16px">
+  <span>Panel colours:</span>
+  <span><i class="sw" style="background:#000"></i> black</span><span><i class="sw" style="background:#fff"></i> white</span>
+  <span><i class="sw" style="background:#E8D800"></i> yellow</span><span><i class="sw" style="background:#C8281E"></i> red</span>
+  <span><i class="sw" style="background:#1E3CB4"></i> blue</span><span><i class="sw" style="background:#2E8B3C"></i> green</span>
+  <span>(this screen uses only black and white: a dithered field and white ink)</span>
+</div>
+<div class="panels" id="panels"></div>
+
+<!-- ============ PART 2 ============ -->
+<h2>2. <span data-lang="en">Re-activating a retired frame: what the console and pairing page say</span><span data-lang="fr">Réactiver un cadre retiré : ce que disent la console et la page d'association</span></h2>
+<p class="lead">
+  <span data-lang="en">The server cannot wake a sleeping frame: a retired frame polls once every 24 h (<code>RETIRED_SLEEP_S</code>, unchanged), so it shows its code at its next wake, 24 h at the latest. The messages say so and give the way to wake it by hand: press Reset (the frame then polls at once and the code appears within minutes). The button's place is not documented (<mark>[place to confirm]</mark> below, Questions 1 and 2).</span>
+  <span data-lang="fr">Le serveur ne peut pas réveiller un cadre endormi : un cadre retiré interroge le serveur une fois toutes les 24 h (<code>RETIRED_SLEEP_S</code>, inchangé), il affiche donc son code à son prochain réveil, 24 h au plus tard. Les messages le disent et donnent le moyen de le réveiller à la main : appuyer sur Reset (le cadre interroge alors le serveur aussitôt et le code apparaît en quelques minutes). L'emplacement du bouton n'est documenté nulle part (<mark>[emplacement à confirmer]</mark> ci-dessous, questions 1 et 2).</span>
+</p>
+<div class="scroller"><div class="vp">
+  <div class="cards">
+    <div class="card">
+      <h3><span data-lang="en">A. Console: re-activate dialog, EE02 frame</span><span data-lang="fr">A. Console : dialogue de réactivation, cadre EE02</span></h3>
+      <div class="row"><div class="grow"><b>Salon</b><span class="cap"><span data-lang="en">Retired · EE02 13.3 in</span><span data-lang="fr">Retiré · EE02 13,3 po</span></span></div><span class="pill"><span data-lang="en">Retired</span><span data-lang="fr">Retiré</span></span></div>
+      <div class="dlg">
+        <h4><span data-lang="en">Re-activate “Salon”?</span><span data-lang="fr">Réactiver «&nbsp;Salon&nbsp;»&nbsp;?</span></h4>
+        <p><span data-lang="en">Its settings and history are erased. It returns to pairing and shows a new code.</span><span data-lang="fr">Ses réglages et son historique sont effacés. Il repasse en association et affiche un nouveau code.</span></p>
+        <div class="hw"><i>!</i><div>
+          <span data-lang="en"><b>The frame only learns this when it wakes: up to 24 h from now.</b> To pair it now, press the Reset button on the frame <mark>[place to confirm]</mark>: its code appears within a few minutes.</span>
+          <span data-lang="fr"><b>Le cadre ne l'apprend qu'à son réveil : jusqu'à 24 h.</b> Pour l'associer maintenant, appuyez sur le bouton Reset du cadre <mark>[emplacement à confirmer]</mark> : son code apparaît en quelques minutes.</span>
+        </div></div>
+        <div class="btns"><button class="btn ghost" type="button"><span data-lang="en">Keep retired</span><span data-lang="fr">Garder retiré</span></button><button class="btn" type="button"><span data-lang="en">Re-activate frame</span><span data-lang="fr">Réactiver le cadre</span></button></div>
+      </div>
+      <p class="cap"><span data-lang="en">Added: the highlighted block. The sentence above it is today's.</span><span data-lang="fr">Ajouté : le bloc encadré. La phrase au-dessus est celle d'aujourd'hui.</span></p>
+    </div>
+
+    <div class="card">
+      <h3><span data-lang="en">A'. Same dialog, EE04 frame</span><span data-lang="fr">A'. Même dialogue, cadre EE04</span></h3>
+      <div class="row"><div class="grow"><b>Bureau</b><span class="cap"><span data-lang="en">Retired · EE04 7.3 in</span><span data-lang="fr">Retiré · EE04 7,3 po</span></span></div><span class="pill"><span data-lang="en">Retired</span><span data-lang="fr">Retiré</span></span></div>
+      <div class="dlg">
+        <h4><span data-lang="en">Re-activate “Bureau”?</span><span data-lang="fr">Réactiver «&nbsp;Bureau&nbsp;»&nbsp;?</span></h4>
+        <p><span data-lang="en">Its settings and history are erased. It returns to pairing and shows a new code.</span><span data-lang="fr">Ses réglages et son historique sont effacés. Il repasse en association et affiche un nouveau code.</span></p>
+        <div class="hw"><i>!</i><div>
+          <span data-lang="en"><b>The frame only learns this when it wakes: up to 24 h from now.</b> To pair it now, press the Reset button on the board <mark>[place to confirm]</mark>: its code appears within a few minutes.</span>
+          <span data-lang="fr"><b>Le cadre ne l'apprend qu'à son réveil : jusqu'à 24 h.</b> Pour l'associer maintenant, appuyez sur le bouton Reset de la carte <mark>[emplacement à confirmer]</mark> : son code apparaît en quelques minutes.</span>
+        </div></div>
+        <div class="btns"><button class="btn ghost" type="button"><span data-lang="en">Keep retired</span><span data-lang="fr">Garder retiré</span></button><button class="btn" type="button"><span data-lang="en">Re-activate frame</span><span data-lang="fr">Réactiver le cadre</span></button></div>
+      </div>
+      <p class="cap"><span data-lang="en">The dialog knows the frame's hardware type, so each shows its own gesture. Fallback if the type is unknown: "press the Reset button on the frame".</span><span data-lang="fr">Le dialogue connaît le type de matériel du cadre : chacun montre son geste. Si le type est inconnu : « appuyez sur le bouton Reset du cadre ».</span></p>
+    </div>
+
+    <div class="card">
+      <h3><span data-lang="en">B. Console flash after re-activation</span><span data-lang="fr">B. Message flash après réactivation</span></h3>
+      <p class="tag"><span data-lang="en">Today</span><span data-lang="fr">Aujourd'hui</span></p>
+      <div class="toast before"><span class="dot"></span><div><b><span data-lang="en">Frame re-activated</span><span data-lang="fr">Cadre réactivé</span></b><span><span data-lang="en">It returns to pairing and shows a new code at its next update.</span><span data-lang="fr">Il repasse en association et affichera un nouveau code à sa prochaine mise à jour.</span></span></div></div>
+      <p class="tag"><span data-lang="en">Proposed</span><span data-lang="fr">Proposé</span></p>
+      <div class="toast"><span class="dot"></span><div><b><span data-lang="en">Frame re-activated</span><span data-lang="fr">Cadre réactivé</span></b><span><span data-lang="en">It shows its pairing code at its next wake, within 24 h at the latest. To see it now, press Reset on the frame.</span><span data-lang="fr">Il affichera son code d'association à son prochain réveil, dans les 24 h au plus tard. Pour le voir maintenant, appuyez sur Reset sur le cadre.</span></span></div></div>
+      <p class="cap"><span data-lang="en">Same toast component; only the detail line changes. The flash does not name the hardware type (it is a generic redirect message).</span><span data-lang="fr">Même composant toast ; seule la ligne de détail change. Le flash ne nomme pas le type de matériel (message générique après redirection).</span></p>
+    </div>
+  </div>
+
+  <div class="cards two" style="margin-top:24px">
+    <div class="card">
+      <h3><span data-lang="en">C. Pairing page ("Add a frame"): help under the code field</span><span data-lang="fr">C. Page d'association (« Ajouter un cadre ») : aide sous le champ du code</span></h3>
+      <p><span data-lang="en">Enter the code shown on your frame's screen. The frame will be yours.</span><span data-lang="fr">Saisissez le code affiché sur l'écran de votre cadre. Le cadre sera à vous.</span></p>
+      <div class="field">A7K 29P</div>
+      <p class="cap"><span data-lang="en">The code stays valid for about 35 minutes; a new one then appears on the frame.</span><span data-lang="fr">Le code reste valable environ 35 minutes ; un nouveau apparaît ensuite sur le cadre.</span></p>
+      <div class="help"><span data-lang="en"><b>No code on the frame?</b> A frame that was retired and re-activated shows its code at its next wake, within 24 h at the latest. To wake it now, press its Reset button: the code appears within a few minutes.</span><span data-lang="fr"><b>Pas de code sur le cadre ?</b> Un cadre retiré puis réactivé affiche son code à son prochain réveil, dans les 24 h au plus tard. Pour le réveiller maintenant, appuyez sur son bouton Reset : le code apparaît en quelques minutes.</span></div>
+      <div class="btns"><button class="btn ghost" type="button"><span data-lang="en">Cancel</span><span data-lang="fr">Annuler</span></button><button class="btn" type="button"><span data-lang="en">Add frame</span><span data-lang="fr">Ajouter le cadre</span></button></div>
+    </div>
+    <div class="card">
+      <h3><span data-lang="en">C'. Where this message does not go</span><span data-lang="fr">C'. Où ce message ne va pas</span></h3>
+      <p><span data-lang="en">The pairing page cannot know the frame's hardware type before the code is accepted (and it must not reveal anything about a code), so its message is generic: "its Reset button", without a place. The place per hardware type is given only in the console dialog (A, A'), where the frame is known to an administrator.</span><span data-lang="fr">La page d'association ne peut pas connaître le type de matériel avant que le code soit accepté (et elle ne doit rien révéler sur un code) : son message est donc générique, « son bouton Reset », sans emplacement. L'emplacement par type n'est donné que dans le dialogue de la console (A, A'), où l'administrateur connaît le cadre.</span></p>
+      <p class="cap"><span data-lang="en">The existing "empty state" text on the Home page ("The pairing code is shown on your frame's screen.") stays as is.</span><span data-lang="fr">Le texte d'état vide existant sur l'accueil (« Le code d'association s'affiche sur l'écran de votre cadre. ») ne change pas.</span></p>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ PART 3 ============ -->
+<h2>3. <span data-lang="en">Pair refusal wording (R18)</span><span data-lang="fr">Message de refus d'association (R18)</span></h2>
+<p class="lead"><span data-lang="en">Security rule kept: every refusal gives the one identical answer (wrong, expired, already used, unknown), so the wording must not hint at which cause applies. The text is shown once beside the code field with the typed code, and nothing is stored in the address.</span><span data-lang="fr">Règle de sécurité conservée : tout refus donne la même réponse (erroné, expiré, déjà utilisé, inconnu), le texte ne doit donc pas laisser deviner la cause. Il s'affiche une fois près du champ avec le code saisi, rien n'est mis dans l'adresse.</span></p>
+<div class="scroller"><div class="vp">
+  <div class="cards two">
+    <div class="card before">
+      <h3><span data-lang="en">Today</span><span data-lang="fr">Aujourd'hui</span></h3>
+      <div class="field bad">A7K 2XX</div>
+      <div class="err-t"><span data-lang="en">Code not recognised. Check the code and try again.</span><span data-lang="fr">Code non reconnu. Vérifiez le code et réessayez.</span></div>
+      <p class="cap"><span data-lang="en">Detail text (toast): "The code is wrong, expired or already used. A new code appears on the frame within 35 minutes."</span><span data-lang="fr">Détail (toast) : « Le code est erroné, expiré ou déjà utilisé. Un nouveau code apparaît sur le cadre dans les 35 minutes. »</span></p>
+    </div>
+    <div class="card">
+      <h3><span data-lang="en">Proposed</span><span data-lang="fr">Proposé</span></h3>
+      <div class="field bad">A7K 2XX</div>
+      <div class="err-t"><span data-lang="en"><b>This code did not work.</b> Check it against the frame's screen: it changes about every 30 minutes.</span><span data-lang="fr"><b>Ce code n'a pas fonctionné.</b> Comparez-le à l'écran du cadre : il change environ toutes les 30 minutes.</span></div>
+      <div class="toast err"><span class="dot"></span><div><b><span data-lang="en">Code refused</span><span data-lang="fr">Code refusé</span></b><span><span data-lang="en">It may be mistyped, expired or already used. If the frame shows no code, press its Reset button.</span><span data-lang="fr">Il est peut-être mal saisi, expiré ou déjà utilisé. Si le cadre n'affiche pas de code, appuyez sur son bouton Reset.</span></span></div></div>
+      <p class="cap"><span data-lang="en">Plain words, says what to do, still one answer for every cause ("may be" lists causes without choosing one). The throttle message ("Too many attempts. Wait a few minutes before trying again.") is unchanged.</span><span data-lang="fr">Mots simples, dit quoi faire, une seule réponse pour toutes les causes (« peut-être » énumère sans choisir). Le message de limitation (« Trop de tentatives. Attendez quelques minutes avant de réessayer. ») ne change pas.</span></p>
+    </div>
+  </div>
+</div></div>
+
+<!-- ============ QUESTIONS ============ -->
+<h2>Questions for the owner</h2>
+<div class="q">
+  <ol>
+    <li><span data-lang="en">EE02 (13.3 in): where is the Reset button, and can you press it with the frame in its enclosure?</span><span data-lang="fr">EE02 (13,3 po) : où est le bouton Reset, et peut-on l'atteindre cadre dans son boîtier ?</span><small>Reco : ne rien écrire sur l'écran du cadre (juste « Reset ») ; l'emplacement va dans le dialogue de la console, une fois confirmé.</small></li>
+    <li><span data-lang="en">EE04 (7.3 in): same question.</span><span data-lang="fr">EE04 (7,3 po) : même question.</span><small>Reco : même principe ; si le bouton est inaccessible dans le boîtier, le dialogue dit « interrupteur OFF puis ON » à la place.</small></li>
+    <li><span data-lang="en">Retired screen: the new line "Then press Reset to pair it again." (three body lines instead of two). English only like today's screens, or English and French stacked?</span><span data-lang="fr">Écran « retiré » : nouvelle ligne « Then press Reset to pair it again. » (trois lignes au lieu de deux). Anglais seul comme les écrans actuels, ou anglais puis français empilés ?</span><small>Reco : anglais seul (convention actuelle, texte lisible de loin, accents à vérifier sur la police) ; le français reste dans la console et la page d'association.</small></li>
+    <li><span data-lang="en">Is the wording of the screen line OK ("Ask an administrator to set it up again. / Then press Reset to pair it again.")?</span><span data-lang="fr">Le texte de la ligne d'écran vous convient-il (« Ask an administrator to set it up again. / Then press Reset to pair it again. ») ?</span><small>Reco : oui ; il garde l'ordre réel (l'administrateur réactive d'abord, ensuite Reset).</small></li>
+    <li><span data-lang="en">Console re-activation dialog, flash and pairing page help: wording OK (EN and FR), including "within 24 h at the latest" and "within a few minutes" after Reset?</span><span data-lang="fr">Dialogue de réactivation, flash et aide de la page d'association : formulation OK (EN et FR), y compris « dans les 24 h au plus tard » et « en quelques minutes » après Reset ?</span><small>Reco : oui ; dialogue = message le plus complet, flash et page d'association = version courte.</small></li>
+    <li><span data-lang="en">Pair refusal wording (Part 3): OK, or prefer to keep today's "Code not recognised"?</span><span data-lang="fr">Message de refus (partie 3) : OK, ou garder l'actuel « Code non reconnu » ?</span><small>Reco : le nouveau texte (dit quoi faire et mentionne Reset), toujours une seule réponse pour toutes les causes.</small></li>
+  </ol>
+</div>
+
+</div>
+
+<script>
+(function () {
+  var root = document.documentElement;
+  function bind(attr, rootAttr) {
+    var btns = document.querySelectorAll("button[data-" + attr + "]");
+    btns.forEach(function (b) {
+      b.addEventListener("click", function () {
+        root.setAttribute(rootAttr, b.getAttribute("data-" + attr));
+        btns.forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+        if (attr === "lang") { root.lang = b.getAttribute("data-lang"); }
+      });
+    });
+  }
+  bind("viewport", "data-vp"); bind("lang", "data-l"); bind("theme", "data-theme");
+
+  // Retired screen at the real panel size: an SVG whose viewBox is the panel in pixels.
+  // Geometry follows server/plane/render/giant/status.py (_geometry): portrait scales the 1200 design, landscape is from the short side.
+  var GEO = {
+    p: { w: 1200, h: 1600, m: 110, icon: [165, 180, 60], label: [110, 310, 52], g1: [110, 655, 790], g2: [110, 1055, 905], gs: 395, body: [1330, 40, 58] },
+    l: { w: 800, h: 480, m: 33, icon: [58, 62, 29], label: [33, 124, 22], g1: [33, 215, 225], g2: [48, 322, 245], gs: 100, body: [352, 20, 28] }
+  };
+  var TEXT = {
+    en: ["This frame was removed from SkyPane.", "Ask an administrator to set it up again.", "Then press Reset to pair it again."],
+    fr: ["Ce cadre a été retiré de SkyPane.", "Un administrateur doit le réactiver,", "puis appuyez sur Reset pour l'associer."]
+  };
+  function svg(k, lang, id) {
+    var g = GEO[k], t = TEXT[lang], s = g.w / 1200;
+    var out = '<svg viewBox="0 0 ' + g.w + ' ' + g.h + '" role="img" aria-label="Retired screen ' + g.w + 'x' + g.h + '">';
+    out += '<defs><pattern id="d' + id + '" width="2" height="2" patternUnits="userSpaceOnUse"><rect width="2" height="2" fill="#fff"/><rect width="1" height="1" fill="#000"/><rect x="1" y="1" width="1" height="1" fill="#000"/></pattern></defs>';
+    out += '<rect width="' + g.w + '" height="' + g.h + '" fill="url(#d' + id + ')" opacity="0.55"/><rect width="' + g.w + '" height="' + g.h + '" fill="#555" opacity="0.55"/>';
+    var f = 'font-family="Anton,Impact,\'Arial Narrow\',\'Liberation Sans Narrow\',sans-serif" font-weight="900" fill="#fff"';
+    var b = 'font-family="Arial,Helvetica,sans-serif" font-weight="700" fill="#fff"';
+    // power icon
+    var cx = g.icon[0], cy = g.icon[1], r = g.icon[2];
+    out += '<g fill="none" stroke="#fff" stroke-width="' + Math.max(4, r / 7) + '" stroke-linecap="round"><path d="M' + (cx - r * 0.62) + ' ' + (cy - r * 0.7) + ' A' + r + ' ' + r + ' 0 1 0 ' + (cx + r * 0.62) + ' ' + (cy - r * 0.7) + '"/><line x1="' + cx + '" y1="' + (cy - r * 1.05) + '" x2="' + cx + '" y2="' + (cy - r * 0.1) + '"/></g>';
+    out += '<text x="' + g.label[0] + '" y="' + g.label[1] + '" font-size="' + g.label[2] + '" ' + b + '>SKYPANE</text>';
+    out += '<text x="' + g.g1[0] + '" y="' + g.g1[1] + '" font-size="' + g.gs * 1.28 + '" textLength="' + g.g1[2] + '" lengthAdjust="spacingAndGlyphs" ' + f + '>FRAME</text>';
+    out += '<text x="' + g.g2[0] + '" y="' + g.g2[1] + '" font-size="' + g.gs * 1.28 + '" textLength="' + g.g2[2] + '" lengthAdjust="spacingAndGlyphs" ' + f + '>RETIRED</text>';
+    for (var i = 0; i < t.length; i++) {
+      out += '<text x="' + g.m + '" y="' + (g.body[0] + g.body[1] + i * g.body[2]) + '" font-size="' + g.body[1] + '" ' + b + '>' + t[i] + '</text>';
+    }
+    return out + '</svg>';
+  }
+  var items = [
+    { k: "p", title: "EE02 family: xiao-ee02-13in3-spectra6 (and sim-ee02-clone)", px: "1200 x 1600 portrait" },
+    { k: "l", title: "EE04: seeed-ee04-7in3-spectra6 (and sim-landscape-800x480)", px: "800 x 480 landscape" }
+  ];
+  var html = "", n = 0;
+  items.forEach(function (it) {
+    ["en", "fr"].forEach(function (lang) {
+      html += '<figure class="panel ' + (it.k === "p" ? "portrait" : "landscape") + '" data-lang="' + lang + '" style="margin:0">' +
+        '<strong>' + it.title + '</strong><span class="small">' + it.px + ' px, ' + (lang === "en" ? "English" : "French") + ' · no code, no frame id</span>' +
+        svg(it.k, lang, n++) +
+        '<figcaption class="small">' + (lang === "en"
+          ? (it.k === "p" ? "Reset button: place to confirm (Question 1). The screen says only \"Reset\"." : "Reset button: place to confirm (Question 2). The screen says only \"Reset\". Three body lines move the giant lines up by about 28 px.")
+          : (it.k === "p" ? "Bouton Reset : emplacement à confirmer (question 1). L'écran dit seulement « Reset »." : "Bouton Reset : emplacement à confirmer (question 2). L'écran dit seulement « Reset ». Trois lignes de corps remontent les grandes lignes d'environ 28 px.")) + '</figcaption></figure>';
+    });
+  });
+  document.getElementById("panels").innerHTML = html;
+})();
+</script>
+</body>
+</html>
