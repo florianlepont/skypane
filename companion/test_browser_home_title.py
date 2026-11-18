@@ -1,7 +1,7 @@
 """Real-browser checks of Home's title block: the frame name is the page's one h1 (32px on a
-phone, 44px on a desktop, also for a long name) with a 44px round rename pencil right after it,
-the "i" at the end of the next-update sentence is a 44px round control, both with a visible
-opaque background, the state is a dot with its word, the flight card of a frame without a
+phone, 44px on a desktop, also for a long name) with a round rename pencil (44px target) right after it,
+the "i" at the end of the next-update sentence is a 44px control, both drawing a small round
+opaque disc, the state is a dot with its word, the flight card of a frame without a
 picture still shows the empty picture, the blocks come in one after the other, and the phone tab
 bar keeps its labels legible and uncramped in both themes."""
 from datetime import datetime, timedelta, timezone
@@ -115,9 +115,10 @@ def test_the_title_is_one_h1_with_the_state_under_it(new_context, fleet_app, vie
 
 _LOOK = """sel => {
   const el = document.querySelector(sel);
-  const s = getComputedStyle(el);
+  const s = getComputedStyle(el, '::before');
+  const r = el.getBoundingClientRect();
   return {bg: s.backgroundColor, border: parseFloat(s.borderTopWidth), radius: s.borderTopLeftRadius,
-          w: el.getBoundingClientRect().width, h: el.getBoundingClientRect().height};
+          disc: parseFloat(s.width), discH: parseFloat(s.height), w: r.width, h: r.height};
 }"""
 
 
@@ -126,7 +127,7 @@ _LOOK = """sel => {
 @pytest.mark.parametrize("app_name", ["fleet_app", "long_name_app"])
 def test_the_pencil_sits_right_after_the_name_and_the_info_ends_the_sentence(
         new_context, request, app_name, viewport):
-    """both controls are 44px round buttons with a visible opaque background; the pencil starts
+    """both controls are 44px hit targets drawing a 28px round opaque disc; the pencil starts
     where the name's text ends and never overlaps it, level with its first line; the "i" starts
     where the next-update sentence ends; neither leaves the viewport"""
     app = request.getfixturevalue(app_name)
@@ -136,7 +137,8 @@ def test_the_pencil_sits_right_after_the_name_and_the_info_ends_the_sentence(
     for selector in (".title-action .btn--icon", ".home-state .info-tip__button"):
         look = page.evaluate(_LOOK, selector)
         assert look["w"] >= 44 - 0.5 and look["h"] >= 44 - 0.5, look
-        assert look["radius"] in ("22px", "50%"), look
+        assert 24 <= look["disc"] <= 30 and look["disc"] == look["discH"], look
+        assert look["radius"] in ("14px", "50%"), look
         assert look["bg"].startswith("rgb(") and look["bg"] != "rgb(0, 0, 0)", look
         assert look["border"] >= 1, look
     # The pencil never overlaps the name and sits level with its first line.
@@ -165,11 +167,11 @@ def test_the_pencil_shows_a_halo_on_hover_in_both_themes(new_context, fleet_app,
     for _theme in _in_both_themes(page):
         page.wait_for_function(_SETTLED)
         page.mouse.move(0, 0)
-        rest = pencil.evaluate("el => getComputedStyle(el).backgroundColor")
+        rest = pencil.evaluate("el => getComputedStyle(el, '::before').backgroundColor")
         assert rest != "rgba(0, 0, 0, 0)", rest
         pencil.hover()
         page.wait_for_function(
-            "(rest) => getComputedStyle(document.querySelector('.title-action .btn--icon'))"
+            "(rest) => getComputedStyle(document.querySelector('.title-action .btn--icon'), '::before')"
             ".backgroundColor !== rest", arg=rest)
 
 

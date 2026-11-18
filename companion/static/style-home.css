@@ -32,20 +32,48 @@
 }
 
 /* The rename pencil and the "i" are round buttons with a visible, opaque
- * surface, never a bare glyph. */
+ * surface, never a bare glyph. The element stays a 44px hit target; only the
+ * 28px disc drawn by ::before is visible, behind the centred icon. */
 .home-state .title-action__action .btn.btn--icon,
 .home-state .info-tip__button {
+  position: relative;
+  isolation: isolate;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--color-text);
+}
+
+.home-state .title-action__action .btn.btn--icon::before,
+.home-state .info-tip__button::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  z-index: -1;
   border: 1px solid var(--color-border);
+  border-radius: 50%;
   background: var(--glass-solid);
   box-shadow: var(--shadow-glass);
-  color: var(--color-text);
+}
+
+.home-state .title-action__action .btn.btn--icon .icon,
+.home-state .info-tip__button .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.home-state .title-action__action .btn.btn--icon:hover::before,
+.home-state .title-action__action .btn.btn--icon:focus-visible::before,
+.home-state .info-tip__button:hover::before,
+.home-state .info-tip:focus-within .info-tip__button::before {
+  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
 }
 
 .home-state .title-action__action .btn.btn--icon:hover,
 .home-state .title-action__action .btn.btn--icon:focus-visible,
 .home-state .info-tip__button:hover,
 .home-state .info-tip:focus-within .info-tip__button {
-  background: color-mix(in srgb, var(--color-text) 8%, var(--glass-solid));
+  background: transparent;
   color: var(--color-text);
 }
 
