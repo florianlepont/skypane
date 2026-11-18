@@ -160,6 +160,7 @@ PROVIDER_HOSTS = {
     "api.adsb.lol": "adsblol",
     "api.airplanes.live": "airplaneslive",
     "api.adsbdb.com": "adsbdb",
+    "vrs-standing-data.adsb.lol": "vrs",
 }
 
 # What each provider "naturally" returns when a test has not configured
@@ -170,6 +171,7 @@ DEFAULT_RESPONSES = {
     "adsblol": (200, {"ac": []}),
     "airplaneslive": (200, {"ac": []}),
     "adsbdb": (404, {"response": "unknown callsign"}),
+    "vrs": (404, None),
 }
 
 
