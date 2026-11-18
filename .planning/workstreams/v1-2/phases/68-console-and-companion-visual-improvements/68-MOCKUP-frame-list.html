@@ -1,3 +1,15 @@
+<!--
+OWNER-APPROVED 2026-11-18 (phone and decisions) / DESKTOP LAYOUT TO BE REDRAWN
+1. List: rows (variant A) on phone. Desktop: NOT the two-column rows page; the owner asks for a master-detail layout: the list of frames as a column to the right of the console navigation, and the selected frame's information in the rest of the screen.
+2. Switching frame: chip row on phone (variant 1); on desktop the list column replaces the chips (no chip row on desktop).
+3. Phone sections: stacked sections with sticky anchors (variant X). The segmented control is removed.
+4. R11 "toggles" = the arrow/chevron that has to be clicked to see more information: show the information directly, no click-to-expand arrows for state information (connection, battery, flight data, version).
+5. Access: remove the introduction, the empty-state text, the "the person must already be invited" help and the long Reassign/Retire sentences (kept in the confirmation dialogs). Keep the people list, one Add, Reassign and Retire with one line of help each.
+6. Desktop info zone: stacked sections on one page (State, Settings, Access), all visible, no section tabs.
+7. A retired or pending frame opens its own page from the list, showing only the useful action (Re-activate with the wake message, or the code). It never appears on another frame's page.
+8. Search field in the list: shown from 8 frames (recommendation, not asked yet; the owner can veto).
+9. /fleet without a chosen frame: phone shows the list; desktop shows the list column plus the first frame with a problem (else the first live frame) in the information zone. The frame page stays /fleet?frame=<id>; no new route.
+-->
 <!doctype html>
 <html lang="en">
 <meta charset="utf-8">
@@ -192,31 +204,6 @@ button.item{width:100%;background:none;border-left:0;border-right:0;border-botto
 
 <div id="app"></div>
 
-<section class="sec q">
-  <h2>Questions for the owner</h2>
-  <p class="lead">Réponses courtes suffisent (par exemple « 1A, 2-1, 3X, 4a, 5 oui, 6 oui, 7 oui, 8 oui »). Ma recommandation est en italique.</p>
-  <ol>
-    <li><b>1. Liste des cadres : lignes (A) ou cartes (B) ?</b>
-      <em>Reco : A (lignes). 30 cadres restent lisibles, les problèmes passent en tête, chaque ligne fait 56 px. Les cartes (B) montrent l’aperçu mais prennent 3 à 4 fois plus de place.</em></li>
-    <li><b>2. Changer de cadre depuis sa page : rangée de pastilles (1) ou lien « Tous les cadres » seul (2) ?</b>
-      <em>Reco : 1, limitée aux cadres en service avec problèmes d’abord (6 au plus) et une pastille « Tous les cadres (30) » ; jamais de cadre retiré. Si vous préférez la simplicité : 2.</em></li>
-    <li><b>3. R11 sur téléphone : sections empilées avec ancres collantes (X) ou contrôle segmenté gardé avec la dernière section mémorisée (Y) ?</b>
-      <em>Reco : X. Tout est sur une seule page, aucun contenu caché derrière un onglet, on saute à la section d’une touche.</em></li>
-    <li><b>4. Que sont les « toggles » de R11 ?</b>
-      (a) le contrôle État / Réglages / Accès, (b) les interrupteurs de la section Réglages, (c) les deux.
-      <em>Reco : (a), que X supprime ; les interrupteurs restent en lignes de 44 px, sans changement. Dites-moi si c’était (b).</em></li>
-    <li><b>5. Section Accès : ce qui disparaît (R14).</b>
-      Je retire : le paragraphe d’introduction, le texte de l’état vide, l’aide « la personne doit déjà être invitée », et les phrases longues de Réassigner / Retirer (elles restent dans la fenêtre de confirmation). Il reste : la liste des personnes, un seul « Ajouter », Réassigner et Retirer avec une ligne d’aide chacun. <em>Reco : oui. Y a-t-il autre chose à retirer ?</em></li>
-    <li><b>6. Bureau : navigation de sections à gauche, collante (reco), ou toutes les sections empilées sans navigation ?</b>
-      <em>Reco : navigation à gauche (État, Réglages, Accès avec un mot de statut), comme la maquette.</em></li>
-    <li><b>7. Un cadre retiré ou en attente : ouvrir sa propre page depuis la liste (pour Réactiver ou voir le code) ?</b>
-      <em>Reco : oui. Sa page ne montre que l’action utile (Réactiver, avec le message de R36) ; il n’apparaît jamais sur la page d’un autre cadre.</em></li>
-    <li><b>8. Champ de recherche dans la liste ?</b>
-      <em>Reco : oui, affiché dès 8 cadres (ici 30). Si vous ne voulez rien d’ajouté à la liste de la phase, je l’enlève.</em></li>
-    <li><b>9. Sans cadre choisi, <code>/fleet</code> ouvre la liste (et non plus le premier cadre) ?</b>
-      <em>Reco : oui ; la liste est la page d’accueil de la Flotte, la page d’un cadre est <code>/fleet?frame=&lt;id&gt;</code>, aucune nouvelle route.</em></li>
-  </ol>
-</section>
 
 <script>
 (function(){
