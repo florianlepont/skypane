@@ -24,6 +24,8 @@ homes.
 - SEED-013, items 4 and 6: the getting-started wizard and the simplified Wi-Fi
   setup.
 - SEED-012: the administrator's invitation creates the Auth0 account.
+- SEED-011: a distinct sign-in message when the Auth0 email is not verified (moved
+  from v1.2 on 2026-11-18; it comes with SEED-012, the same first sign-in).
 - SEED-014: the enclosure for the back of the frame, and the administrator tool
   for initial setup and flashing.
 - SEED-017: remote diagnostic telemetry.
@@ -40,5 +42,5 @@ firmware or the pairing flow and are better released together.
 
 - SEED-015: business plan and technical feasibility of a market launch (after
   v1.4, or earlier for the "decide early" items).
-- Without a milestone: SEED-011, the AeroDataBox destination lookup, the local
+- Without a milestone: the AeroDataBox destination lookup, the local
   RTL-SDR backup, the presence-adaptive polling.
