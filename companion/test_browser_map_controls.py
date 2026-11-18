@@ -9,8 +9,9 @@ out from the ground either by its fill or by its edge (WCAG 1.4.11's 3:1 for a c
 """
 import pytest
 
-from companion.test_browser_detection import _open, _seed, SAVED_RUNWAY
-from companion.test_browser_ux_helpers import UI_THEMES_EXPLICIT, VIEWPORT_MIN_SUPPORTED, _set_ui_theme
+from place_map_support import Hosts, seed
+from companion.test_browser_ux_helpers import (
+    UI_THEMES_EXPLICIT, VIEWPORT_MIN_SUPPORTED, _login, _set_ui_theme)
 
 pytestmark = pytest.mark.browser
 
@@ -27,6 +28,17 @@ _PAINT = """(selectors) => {
             bg: parse(style.backgroundColor), edge: parse(style.borderTopColor),
             edgeWidth: parseFloat(style.borderTopWidth)}; })};
 }"""
+
+
+def _open(new_context, server):
+    context = new_context(viewport=VIEWPORT_MIN_SUPPORTED)
+    Hosts(context)
+    page = context.new_page()
+    _login(page, server.base_url())
+    page.goto(server.base_url() + "/detection")
+    page.wait_for_function(
+        "() => document.documentElement.classList.contains('map-ready')", timeout=15000)
+    return page
 
 
 def _luminance(colour):
@@ -62,8 +74,8 @@ def _check(paint, where):
 @pytest.mark.parametrize("theme", UI_THEMES_EXPLICIT)
 def test_the_round_map_buttons_are_opaque_and_stand_out_from_the_map(
         new_context, make_app_server, theme):
-    server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
-    page, _dialogs = _open(new_context, server, viewport=VIEWPORT_MIN_SUPPORTED)
+    server = make_app_server(seed=seed, fake_providers=True)
+    page = _open(new_context, server)
     _set_ui_theme(page, theme)
     page.wait_for_function("() => document.getAnimations().every(a => a.playState !== 'running' "
                            "|| a.effect.getTiming().iterations === Infinity)", timeout=10000)
@@ -74,8 +86,8 @@ def test_the_round_map_buttons_are_opaque_and_stand_out_from_the_map(
 
 
 def test_the_round_map_buttons_are_opaque_in_the_automatic_dark_theme(new_context, make_app_server):
-    server = make_app_server(seed=_seed(SAVED_RUNWAY), fake_providers=True)
-    page, _dialogs = _open(new_context, server, viewport=VIEWPORT_MIN_SUPPORTED)
+    server = make_app_server(seed=seed, fake_providers=True)
+    page = _open(new_context, server)
     page.emulate_media(color_scheme="dark")
     page.evaluate("() => document.documentElement.removeAttribute('data-ui-theme')")
     page.wait_for_function("() => getComputedStyle(document.querySelector('.place-map')).backgroundColor"
