@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en" data-viewport="phone" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SkyPane mockup: Account, sign-in and 404 (Phase 68, R19 to R24)</title>
+<style>
+/* Standalone mockup. Tokens follow the companion design system (sketch-findings-skypane).
+   Switches at the top set data-viewport (phone 360 px, desktop 1280 px), data-lang (en, fr)
+   and data-theme (auto, light, dark) on the root element. Sample data is invented. */
+:root{
+  --sky:linear-gradient(#E7EEF7,#F1F3F6 45%,#EDF1F6); --canvas:#F1F3F6; --stage:#E4E9F0;
+  --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5; --dominant:#FBFCFE;
+  --accent:#1F2430; --accent-hover:#343B4D; --on-accent:#fff; --glass:rgba(255,255,255,.72); --tab:#fff;
+  --ok:#16A34A; --warn:#D97706; --err:#BE123C; --bezel:#1F2430; --bezel-hi:#3a4152; --backdrop:#E9EEF5;
+  --note:#FFF6D6; --note-text:#4a3b00;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D; --dominant:#1A1F2B;
+  --accent:#F2EFE9; --accent-hover:#E2DED5; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; --bezel:#2A3040; --bezel-hi:#4a5368; --backdrop:#0E1117;
+  --note:#3a3210; --note-text:#f5e6a8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --sky:linear-gradient(#12151D,#161A24 45%,#1A1F2B); --canvas:#161A24; --stage:#0E1117;
+  --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D; --dominant:#1A1F2B;
+  --accent:#F2EFE9; --accent-hover:#E2DED5; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --err:#FB7185; --bezel:#2A3040; --bezel-hi:#4a5368; --backdrop:#0E1117;
+  --note:#3a3210; --note-text:#f5e6a8; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+a{color:inherit}
+.sr{position:absolute;width:1px;height:1px;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* mockup chrome */
+.top{max-width:1320px;margin:0 auto 24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between;align-items:flex-end}
+.top h1{margin:0 0 8px;font-size:30px;letter-spacing:-.03em}
+.top p{margin:0;color:var(--muted);max-width:70ch}
+.ctl{display:flex;flex-wrap:wrap;gap:12px}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.sec{max-width:1320px;margin:0 auto 56px}
+.sec>h2{margin:0 0 4px;font-size:24px;letter-spacing:-.02em}
+.sec>p.lead{margin:0 0 20px;color:var(--muted);max-width:80ch}
+.sub{margin:28px 0 10px;font-size:18px;font-weight:600}
+.cmp{display:flex;flex-wrap:wrap;gap:24px 32px;align-items:flex-start;overflow-x:auto;padding-bottom:8px}
+html[data-viewport="desktop"] .cmp{flex-direction:column}
+.cell{flex:none;display:flex;flex-direction:column;gap:8px}
+.cell>h4{margin:0;font-size:14px;font-weight:600;color:var(--muted)}
+.cell>h4 b{color:var(--text)}
+.note{max-width:360px;margin:0;padding:8px 12px;border-radius:12px;background:var(--note);color:var(--note-text);font-size:13px}
+html[data-viewport="desktop"] .note{max-width:760px}
+.ann{margin:0;font-size:13px;color:var(--muted);max-width:360px}
+html[data-viewport="desktop"] .ann{max-width:760px}
+
+/* device: a phone (360) or a desktop window (1280) */
+.dev{position:relative;overflow:hidden;background:var(--sky) var(--canvas);border:1px solid var(--border);border-radius:28px;box-shadow:0 12px 40px rgba(20,30,50,.12)}
+html[data-viewport="phone"] .dev{width:360px}
+html[data-viewport="desktop"] .dev{width:1280px;border-radius:16px}
+.shell{display:flex;min-height:100%}
+.side{display:none;flex:none;width:232px;padding:20px 12px;border-right:1px solid var(--border);background:var(--glass);flex-direction:column;gap:4px}
+html[data-viewport="desktop"] .side{display:flex}
+.side .brand{margin:0 8px 16px}
+.side a{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:14px;text-decoration:none;color:var(--muted);font-size:15px}
+.side a.on{background:var(--chip);color:var(--text);font-weight:600}
+.side .foot{margin-top:auto;padding-top:16px}
+.side .foot a{min-height:44px;font-size:13px}
+.main{flex:1;min-width:0}
+.bar{display:flex;align-items:center;min-height:56px;padding:0 16px}
+html[data-viewport="desktop"] .bar{display:none}
+.brand{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:20px;letter-spacing:-.02em}
+.brand svg{width:26px;height:26px}
+.page{padding:8px 16px 104px}
+html[data-viewport="desktop"] .page{max-width:760px;margin:0 auto;padding:40px 24px 64px}
+.page.nobar{padding-bottom:32px}
+h1.pt{margin:8px 0 4px;font-size:32px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+html[data-viewport="desktop"] h1.pt{font-size:42px}
+p.purpose{margin:0 0 24px;color:var(--text);font-size:16px}
+.tabs{position:absolute;left:12px;right:12px;bottom:12px;display:flex;justify-content:space-around;padding:8px 4px;background:var(--tab);border:1px solid var(--border);border-radius:32px;box-shadow:0 6px 20px rgba(20,30,50,.12)}
+html[data-viewport="desktop"] .tabs{display:none}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:44px;font-size:11px;color:var(--muted)}
+.tab i{width:22px;height:22px;border-radius:7px;background:var(--border)}
+.tab.on{color:var(--text);font-weight:600}.tab.on i{background:var(--accent)}
+
+/* groups and rows (ui_groups) */
+.gb{margin:0 0 24px}
+.gl{margin:0 0 8px 16px;font-size:13px;font-weight:600;color:var(--muted)}
+.group{list-style:none;margin:0;padding:0;background:var(--glass);border:1px solid var(--border);border-radius:22px;overflow:hidden;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.row{display:flex;align-items:center;flex-wrap:wrap;border-top:1px solid var(--border)}
+.row:first-child{border-top:0}
+.rm{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:12px;min-height:56px;padding:8px 16px;text-decoration:none}
+.rt{flex:1;min-width:0;display:flex;flex-direction:column}
+.rl{font-weight:600;font-size:16px}
+.rd{font-size:14px;color:var(--muted)}
+.rv{color:var(--muted);font-size:15px;max-width:65%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chev{color:var(--muted);font-size:18px}
+.chip{width:40px;height:40px;border-radius:12px;background:var(--accent);color:var(--on-accent);display:grid;place-items:center;flex:none}
+.chip svg{width:20px;height:20px}
+.pill{display:inline-block;margin-left:4px;padding:1px 8px;border-radius:32px;background:var(--chip);border:1px solid var(--border);font-size:12px;font-weight:500;color:var(--muted);vertical-align:middle;white-space:nowrap}
+.pic{flex:none;width:40px;height:52px;padding:3px;background:var(--bezel);border:1px solid var(--bezel-hi);border-radius:5px}
+.pic i{display:block;height:100%;background:var(--backdrop);border-radius:3px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}
+.dot.warn{background:var(--warn)}.dot.err{background:var(--err)}
+.status{display:flex;align-items:center;gap:6px}
+.ic{width:18px;height:18px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* today: frame row whose action is an underlined link line under the text */
+.row.t-frame{padding-block:8px}
+.row.t-frame>.rm{flex:1 1 100%;min-height:0;padding-block:0}
+.t-act{display:inline-flex;align-items:center;min-height:44px;margin:0 16px 4px calc(16px + 40px + 12px + 4px);color:var(--accent);font-size:13px;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+html[data-viewport="desktop"] .row.t-frame{flex-wrap:nowrap}
+html[data-viewport="desktop"] .row.t-frame>.rm{flex:1 1 auto}
+html[data-viewport="desktop"] .t-act{margin:0 16px;white-space:nowrap}
+
+/* proposed: the action is a 44 px control at the right of the same row, no extra height */
+.n-act{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-width:44px;min-height:44px;margin:0 8px 0 0;padding:0;border:1px solid var(--border);border-radius:14px;background:var(--chip);color:var(--text);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer}
+.n-act .lbl{display:none}
+html[data-viewport="desktop"] .n-act{padding:0 14px 0 12px;margin-right:12px}
+html[data-viewport="desktop"] .n-act .lbl{display:inline}
+.row.n-frame{flex-wrap:nowrap}
+.row.n-frame>.rm{min-height:68px}
+
+/* sign-in card */
+.login-wrap{display:flex;align-items:center;justify-content:center;padding:24px 16px;min-height:560px}
+html[data-viewport="desktop"] .login-wrap{min-height:520px}
+.login{width:100%;max-width:360px;background:var(--dominant);border:1px solid var(--border);border-radius:22px;padding:24px}
+.login .logo{width:40px;height:40px;display:block}
+.login h1{margin:12px 0 8px;font-size:32px;line-height:1.1;letter-spacing:-.03em}
+.login p.ex{margin:0 0 16px}
+.login .cap{margin:0 0 12px;font-size:13px;color:var(--muted)}
+.login .go{display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:14px;background:var(--accent);color:var(--on-accent);font-weight:600;text-decoration:none}
+.login .hint{display:flex;align-items:flex-start;justify-content:center;gap:8px;margin:12px 4px 0;font-size:14px;line-height:1.35;color:var(--muted);text-align:center;text-wrap:balance}
+.login .hint .ic{margin-top:2px;width:16px;height:16px}
+.login .cl{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:8px;text-underline-offset:3px}
+.login.today .cl{margin-top:12px}
+
+/* 404 */
+.nf-wrap{padding:24px 16px 32px;min-height:520px}
+html[data-viewport="desktop"] .nf-wrap{min-height:520px;padding:64px 24px}
+.nf-bar{display:flex;align-items:center;min-height:56px;padding:0 16px}
+html[data-viewport="desktop"] .nf-bar{padding:20px 32px 0}
+.nf-today{max-width:760px;margin:0 auto;padding:0 8px}
+.nf-today h1{margin:8px 0 4px;font-size:32px;line-height:1.1;letter-spacing:-.03em}
+html[data-viewport="desktop"] .nf-today h1{font-size:42px}
+.btn-home{display:inline-flex;align-items:center;justify-content:center;min-height:44px;min-width:44px;padding:0 24px;border-radius:14px;background:var(--accent);color:var(--on-accent);font-weight:600;text-decoration:none;box-shadow:0 1px 3px rgba(20,30,50,.18)}
+html[data-viewport="phone"] .btn-home.wide{display:flex;width:100%}
+.nf-card{max-width:520px;margin:0 auto;text-align:center;background:var(--glass);border:1px solid var(--border);border-radius:22px;padding:24px 24px 28px;backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px)}
+.nf-card svg.art{display:block;width:100%;max-width:320px;height:auto;margin:0 auto 8px}
+.nf-card h1{margin:0 0 8px;font-size:28px;line-height:1.15;letter-spacing:-.03em}
+.nf-card p{margin:0 0 20px;color:var(--muted)}
+.nf-card .btn-home{width:100%;max-width:320px}
+
+/* questions block */
+.q{max-width:1320px;margin:0 auto;padding:24px;background:var(--glass);border:1px solid var(--border);border-radius:22px}
+.q h2{margin:0 0 12px;font-size:22px}
+.q ol{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:14px}
+.q li b{display:block}
+.q li span{color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="9" width="22" height="26" rx="5"/><path d="M13 18c0-3 8-3 8 0s-8 2-8 5.5 8 3 8 0"/><path d="M30 14 36 6"/></symbol>
+  <symbol id="plane" viewBox="0 0 24 24"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></symbol>
+</svg>
+
+<div class="top">
+  <div>
+    <h1>Account, sign-in and 404</h1>
+    <p>Phase 68, remarks R19 to R24. Each block shows today (as served now) against the proposal. Sample names and addresses are invented. Use the switches for phone (360 px) or desktop (1280 px), English or French, light or dark.</p>
+  </div>
+  <div class="ctl">
+    <div class="seg" role="group" aria-label="Viewport">
+      <button type="button" data-viewport="phone" aria-pressed="true">Phone 360</button>
+      <button type="button" data-viewport="desktop" aria-pressed="false">Desktop 1280</button>
+    </div>
+    <div class="seg" role="group" aria-label="Language">
+      <button type="button" data-lang="en" aria-pressed="true">EN</button>
+      <button type="button" data-lang="fr" aria-pressed="false">FR</button>
+    </div>
+    <div class="seg" role="group" aria-label="Theme">
+      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+  </div>
+</div>
+
+<section class="sec" id="s-frames">
+  <h2>1. Account frame rows (R19, R20, R21)</h2>
+  <p class="lead">Proposed: the action (Manage access, or Leave frame on a shared frame) moves into the row as a 44 px control at the right, so the row loses the extra link line and its odd left margin. On phone it is an icon with an accessible name; on desktop it carries its label. The administrator sees no hardware type. Battery is told by the dot only.</p>
+  <div id="m-frames-user"></div>
+  <div id="m-frames-admin"></div>
+</section>
+
+<section class="sec" id="s-credits">
+  <h2>2. Credits for signed-in people (R23)</h2>
+  <p class="lead">Proposed: an "About" group on the Account page with one Credits row. It reaches every signed-in person (users: Account tab; administrators: Account row of the More sheet), needs no navigation, route or access change, and the Credits page already offers "Back to Account".</p>
+  <div id="m-credits"></div>
+</section>
+
+<section class="sec" id="s-signin">
+  <h2>3. Sign-in card, "First visit" (R22)</h2>
+  <p class="lead">Proposed: the hint is not a block of its own above the button any more. It is one calm centered line under the button, with a small mail icon, same words. The button keeps first place on the card. The e-mail word no longer breaks at its hyphen in French. As today, the hint is hidden when an error notice is shown.</p>
+  <div id="m-signin"></div>
+</section>
+
+<section class="sec" id="s-404">
+  <h2>4. 404 page (R24)</h2>
+  <p class="lead">Proposed: the page sits on the existing glass card with an inline SVG illustration (no new asset or font, colours from the tokens, so it follows light and dark), a friendly line and the existing button at 44 px. Two options to choose from. The heading "Page not found." and the button label (Back to Home, Back to Account or Back to sign in, by context) are unchanged.</p>
+  <div id="m-404"></div>
+</section>
+
+<section class="q" id="questions">
+  <h2>Questions for the owner</h2>
+  <ol id="qlist"></ol>
+</section>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  var L=function(){return root.getAttribute('data-lang');};
+  function t(en,fr){return '<span class="l" data-en="'+en.replace(/"/g,'&quot;')+'" data-fr="'+fr.replace(/"/g,'&quot;')+'"></span>';}
+  function applyLang(){
+    var lang=L();
+    document.querySelectorAll('.l').forEach(function(e){e.textContent=e.getAttribute('data-'+lang);});
+    document.querySelectorAll('[data-aria-en]').forEach(function(e){e.setAttribute('aria-label',e.getAttribute('data-aria-'+lang));});
+    root.setAttribute('lang',lang);
+  }
+  var NB='‑'; /* non-breaking hyphen */
+  var ICON={
+    people:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="17" cy="9" r="2.4"/><path d="M17 14.5c2.4 0 4 1.7 4 4.5"/>',
+    exit:'<path d="M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5"/><path d="M15 8l4 4-4 4M19 12H9"/>',
+    plus:'<path d="M12 5v14M5 12h14"/>',
+    mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+    info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+    home:'<path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/>',
+    user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/>'
+  };
+  function ic(n,cls){return '<svg class="ic '+(cls||'')+'" viewBox="0 0 24 24" aria-hidden="true">'+ICON[n]+'</svg>';}
+  function brand(){return '<span class="brand"><svg viewBox="0 0 40 40" aria-hidden="true"><use href="#logo"/></svg>SkyPane</span>';}
+  var CHEV='<span class="chev" aria-hidden="true">›</span>';
+
+  /* app shell: phone bar plus tab bar, or desktop sidebar */
+  function shell(inner,opts){
+    opts=opts||{};
+    var tabs=['Home|Accueil','Flights|Vols','Airlines|Airlines','Style|Style','Place|Lieu','Account|Compte'].map(function(s,i,a){
+      var p=s.split('|');return '<div class="tab'+(i===5?' on':'')+'"><i></i>'+t(p[0],p[1])+'</div>';}).join('');
+    var side=['Home|Accueil','Flights|Vols','Airlines|Airlines','Style|Style','Place|Lieu','Account|Compte'].map(function(s,i){
+      var p=s.split('|');return '<a href="#" class="'+(i===5?'on':'')+'">'+t(p[0],p[1])+'</a>';}).join('');
+    var foot=opts.sideCredits?'<div class="foot"><a href="#">'+t('Credits','Crédits')+'</a></div>':'';
+    return '<div class="dev"><div class="shell"><nav class="side" aria-hidden="true"><div class="brand">'+brand()+'</div>'+side+foot+'</nav>'+
+      '<div class="main"><div class="bar">'+brand()+'</div>'+inner+'</div></div>'+(opts.noTabs?'':'<div class="tabs">'+tabs+'</div>')+'</div>';
+  }
+
+  /* ----- section 1: frame rows ----- */
+  function framePic(){return '<span class="pic"><i></i></span>';}
+  function seen(state,when){
+    var dotc=state==='warn'?' warn':'';
+    var word=state==='warn'?t('Low battery','Batterie faible'):t('Online','En ligne');
+    return '<span class="status"><span class="dot'+dotc+'" role="img"></span><span class="sr">'+word+'</span><span>'+when+'</span></span>';
+  }
+  var SEEN_NOW=t('Seen just now','Vu à l’instant'), SEEN_12=t('Seen 12 min ago','Vu il y a 12 min'), SEEN_3=t('Seen 3 min ago','Vu il y a 3 min');
+  function nameHtml(name,pill){return name+' <span class="pill">'+pill+'</span>';}
+  function mgrLabel(name){return 'aria-label-en="Manage access: '+name+'"';}
+  function act(kind,name,mode){
+    var isLeave=kind==='leave';
+    var en=(isLeave?'Leave frame: ':'Manage access: ')+name, fr=(isLeave?'Quitter le cadre : ':'Gérer l’accès : ')+name;
+    var lbl=isLeave?t('Leave frame','Quitter le cadre'):t('Manage access','Gérer l’accès');
+    if(mode==='today') return '<a class="t-act" href="#" data-aria-en="'+en+'" data-aria-fr="'+fr+'">'+lbl+'</a>';
+    return '<a class="n-act" href="#" data-aria-en="'+en+'" data-aria-fr="'+fr+'">'+ic(isLeave?'exit':'people')+'<span class="lbl">'+lbl+'</span></a>';
+  }
+  function frameRow(f,mode,admin){
+    var line='';
+    if(f.shared) line='<span class="rd">'+t('Shared by marie@example.test','Partagé par marie@example.test')+'</span>';
+    else if(mode==='today'&&admin) line='<span class="rd">'+f.hw+'</span>';
+    var main='<a class="rm" href="#">'+framePic()+'<span class="rt"><span class="rl">'+nameHtml(f.name,f.shared?t('Co-manager','Co-gestionnaire'):t('Owner','Propriétaire'))+'</span>'+line+'<span class="rd">'+seen(f.state,f.when)+'</span></span></a>';
+    var a=act(f.shared?'leave':'manage',f.name,mode);
+    return '<li class="row '+(mode==='today'?'t-frame':'n-frame')+'">'+main+a+'</li>';
+  }
+  function addRow(){return '<li class="row"><a class="rm" href="#"><span class="chip">'+ic('plus')+'</span><span class="rt"><span class="rl">'+t('Add a frame','Ajouter un cadre')+'</span></span>'+CHEV+'</a></li>';}
+  function framesPage(frames,mode,admin){
+    var rows=frames.map(function(f){return frameRow(f,mode,admin);}).join('')+addRow();
+    var id='<div class="gb"><h2 class="gl">'+t('Identity','Identité')+'</h2><ul class="group"><li class="row"><div class="rm"><span class="rt"><span class="rl">'+t('Email','E-mail')+'</span></span><span class="rv">'+(admin?'admin@example.test':'user-a@example.test')+'</span></div></li><li class="row"><div class="rm"><span class="rt"><span class="rl">'+t('Role','Rôle')+'</span></span><span class="rv">'+(admin?t('Administrator','Administrateur'):t('User','Utilisateur'))+'</span></div></li></ul></div>';
+    return '<div class="page"><h1 class="pt">'+t('Account','Compte')+'</h1><p class="purpose">'+t('Your SkyPane sign-in and preferences.','Votre connexion SkyPane et vos préférences.')+'</p>'+
+      '<div class="gb"><h2 class="gl">'+t('My frames','Mes cadres')+'</h2><ul class="group">'+rows+'</ul></div>'+id+'</div>';
+  }
+  var USER=[
+    {name:'Kitchen shelf',hw:'',state:'ok',when:SEEN_NOW},
+    {name:'Orly window',hw:'',state:'warn',when:SEEN_12},
+    {name:'Garage',hw:'',state:'ok',when:SEEN_3,shared:true}
+  ];
+  var ADMIN=[
+    {name:'Salon',hw:'XIAO ePaper 13.3 in',state:'ok',when:SEEN_NOW},
+    {name:'Evaluation 7.3in',hw:'Evaluation 7.3 in',state:'ok',when:SEEN_3}
+  ];
+  function cell(title,html,notes){return '<div class="cell"><h4>'+title+'</h4>'+html+(notes||'')+'</div>';}
+  function mountFrames(){
+    document.getElementById('m-frames-user').innerHTML=
+      '<h3 class="sub">'+t('User (owner of two frames, co-manager of one)','Utilisateur (propriétaire de deux cadres, co-gestionnaire d’un)')+'</h3><div class="cmp">'+
+      cell('<b>'+t('Today','Aujourd’hui')+'</b>',shell(framesPage(USER,'today',false)),'<p class="ann">'+t('Manage access is an underlined link on its own line: each owned row is about 44 px taller and the link starts at an odd left margin.','Gérer l’accès est un lien souligné sur sa propre ligne : chaque ligne de cadre est plus haute d’environ 44 px et le lien commence à une marge étrange.')+'</p>')+
+      cell('<b>'+t('Proposed','Proposé')+'</b>',shell(framesPage(USER,'new',false)),'<p class="note">'+t('Orly window has an amber dot: the dot says "Low battery" to screen readers (hidden text). No percentage is shown. The hardware type stays hidden for a user, as today.','Orly window a un point orange : le point dit « Batterie faible » aux lecteurs d’écran (texte masqué). Aucun pourcentage n’est affiché. Le type de matériel reste masqué pour un utilisateur, comme aujourd’hui.')+'</p>')+
+      '</div>';
+    document.getElementById('m-frames-admin').innerHTML=
+      '<h3 class="sub">'+t('Administrator (own frames)','Administrateur (ses propres cadres)')+'</h3><div class="cmp">'+
+      cell('<b>'+t('Today','Aujourd’hui')+'</b>',shell(framesPage(ADMIN,'today',true)),'<p class="ann">'+t('The hardware type line is shown to the administrator and is not useful.','La ligne du type de matériel est montrée à l’administrateur et n’est pas utile.')+'</p>')+
+      cell('<b>'+t('Proposed','Proposé')+'</b>',shell(framesPage(ADMIN,'new',true)),'<p class="note">'+t('No hardware line; the rows are as tall as a user row.','Pas de ligne de matériel ; les lignes ont la même hauteur que celles d’un utilisateur.')+'</p>')+
+      '</div>';
+  }
+
+  /* ----- section 2: credits ----- */
+  function aboutGroup(){
+    return '<div class="gb"><h2 class="gl">'+t('About','À propos')+'</h2><ul class="group"><li class="row"><a class="rm" href="#"><span class="chip">'+ic('info')+'</span><span class="rt"><span class="rl">'+t('Credits','Crédits')+'</span><span class="rd">'+t('Data sources and licences','Sources de données et licences')+'</span></span>'+CHEV+'</a></li></ul></div>';
+  }
+  function signOut(){return '<div class="gb"><ul class="group"><li class="row"><div class="rm"><span class="rl" style="color:var(--err)">'+t('Sign out','Se déconnecter')+'</span></div></li></ul></div>';}
+  function accountTail(admin){
+    var prefs='<div class="gb"><h2 class="gl">'+t('Preferences','Préférences')+'</h2><ul class="group"><li class="row"><div class="rm"><span class="rt"><span class="rl">'+t('Language','Langue')+'</span></span><span class="rv">EN | FR</span></div></li><li class="row"><div class="rm"><span class="rt"><span class="rl">'+t('Theme','Thème')+'</span></span><span class="rv">Auto | '+t('Light','Clair')+' | '+t('Dark','Sombre')+'</span></div></li></ul></div>';
+    return '<div class="page"><h1 class="pt">'+t('Account','Compte')+'</h1>'+
+      '<div class="gb"><h2 class="gl">'+t('Identity','Identité')+'</h2><ul class="group"><li class="row"><div class="rm"><span class="rt"><span class="rl">'+t('Role','Rôle')+'</span></span><span class="rv">'+(admin?t('Administrator','Administrateur'):t('User','Utilisateur'))+'</span></div></li></ul></div>'+
+      prefs+aboutGroup()+signOut()+'</div>';
+  }
+  function creditsPage(){
+    var card=function(n,d){return '<div class="gb"><div class="group" style="padding:16px"><div class="rl" style="margin-bottom:8px">'+n+'</div><div class="rd" style="color:var(--text)">'+d+'</div></div></div>';};
+    return '<div class="page"><h1 class="pt">'+t('Credits','Crédits')+'</h1><p class="purpose">'+t('SkyPane shows live flights thanks to these open data sources.','SkyPane affiche les vols en direct grâce à ces sources de données ouvertes.')+'</p>'+
+      card('adsb.fi',t('Community ADS-B network. Its open aircraft positions let SkyPane spot a plane taking off or landing near the frame.','Réseau ADS-B communautaire. Ses positions d’avions en accès libre permettent à SkyPane de repérer un avion qui décolle ou atterrit près du cadre.'))+
+      '<p class="rd" style="margin:0 0 8px;text-align:center">…</p>'+
+      '<p style="margin:0"><a class="rm" style="display:inline-flex;min-height:44px;padding:0;text-underline-offset:3px;font-weight:600" href="#">'+t('Back to Account','Retour au compte')+'</a></p></div>';
+  }
+  function mountCredits(){
+    document.getElementById('m-credits').innerHTML='<div class="cmp">'+
+      cell('<b>'+t('Proposed: Account page, user','Proposé : page Compte, utilisateur')+'</b>',shell(accountTail(false)))+
+      cell('<b>'+t('Proposed: Account page, administrator','Proposé : page Compte, administrateur')+'</b>',shell(accountTail(true)))+
+      cell('<b>'+t('Credits page reached from the row (unchanged page)','Page Crédits atteinte par la ligne (page inchangée)')+'</b>',shell(creditsPage()),'<p class="ann">'+t('The page already shows "Back to Account" to a signed-in person; only the way in is new.','La page affiche déjà « Retour au compte » à une personne connectée ; seule l’entrée est nouvelle.')+'</p>')+
+      '</div>'+
+      '<h3 class="sub">'+t('Option B (desktop only): quiet link in the sidebar footer','Option B (bureau seulement) : lien discret en pied de barre latérale')+'</h3>'+
+      '<div class="cmp">'+cell('',shell('<div class="page"><h1 class="pt">'+t('Account','Compte')+'</h1><p class="purpose">'+t('Same page without the About group; Credits sits at the foot of the sidebar.','Même page sans le groupe À propos ; Crédits est en pied de barre latérale.')+'</p></div>',{sideCredits:true}),'<p class="note">'+t('Option B does not reach phone users (no sidebar below 960 px), so it would need option A anyway. Switch to Desktop to see it.','L’option B n’atteint pas les utilisateurs sur téléphone (pas de barre latérale sous 960 px) ; il faudrait donc quand même l’option A. Passez en bureau pour la voir.')+'</p>')+'</div>';
+  }
+
+  /* ----- section 3: sign-in ----- */
+  var HINT_EN='First visit? Use the email address you were invited with.';
+  var HINT_FR='Première visite ? Utilisez l’adresse e-mail avec laquelle on vous a invité.'.replace(/e-mail/,'e'+NB+'mail');
+  function loginCard(mode){
+    var head='<svg class="logo" viewBox="0 0 40 40" aria-hidden="true"><use href="#logo"/></svg><h1>SkyPane</h1><p class="ex">'+t('Sign in to manage your SkyPane frames.','Connectez-vous pour gérer vos cadres SkyPane.')+'</p>';
+    var go='<a class="go" href="#">'+t('Sign in','Se connecter')+'</a>';
+    var cr='<a class="cl" href="#">'+t('Credits','Crédits')+'</a>';
+    var hint=t(HINT_EN,HINT_FR);
+    var body=mode==='today'?head+'<p class="cap">'+hint+'</p>'+go+cr:head+go+'<p class="hint">'+ic('mail')+'<span>'+hint+'</span></p>'+cr;
+    return '<div class="dev"><div class="login-wrap"><div class="login '+mode+'">'+body+'</div></div></div>';
+  }
+  function mountSignin(){
+    document.getElementById('m-signin').innerHTML='<div class="cmp">'+
+      cell('<b>'+t('Today','Aujourd’hui')+'</b>',loginCard('today'),'<p class="ann">'+t('A muted caption sits between the explanation and the button, so the card reads as three stacked blocks.','Une légende grisée se trouve entre l’explication et le bouton : la carte se lit comme trois blocs empilés.')+'</p>')+
+      cell('<b>'+t('Proposed','Proposé')+'</b>',loginCard('new'),'<p class="note">'+t('Same words, placed under the button as one quiet line. Credits stays a quiet link below.','Mêmes mots, placés sous le bouton en une seule ligne discrète. Crédits reste un lien discret en dessous.')+'</p>')+
+      '</div>';
+  }
+
+  /* ----- section 4: 404 ----- */
+  /* Illustrations use only currentColor and token variables, so light and dark both work. */
+  var ART_PLANE='<svg class="art" viewBox="0 0 320 170" role="img" aria-label="" aria-hidden="true">'+
+    '<rect x="0" y="128" width="320" height="42" rx="10" fill="var(--chip)"/>'+
+    '<rect x="60" y="140" width="200" height="18" rx="3" fill="var(--bezel)"/>'+
+    '<g stroke="var(--on-accent)" stroke-width="3" stroke-dasharray="14 12" opacity=".8"><path d="M70 149H250"/></g>'+
+    '<path d="M24 40C90 18 150 36 188 78" fill="none" stroke="var(--muted)" stroke-width="3" stroke-dasharray="3 9" stroke-linecap="round"/>'+
+    '<g transform="translate(230 44) rotate(50)" fill="var(--text)"><use href="#plane" x="-26" y="-26" width="52" height="52"/></g>'+
+    '<path d="M270 18c0-9 14-9 14 0 0 6-7 6-7 12M277 40h.01" fill="none" stroke="var(--muted)" stroke-width="4" stroke-linecap="round"/>'+
+    '</svg>';
+  var ART_FRAME='<svg class="art" viewBox="0 0 320 170" role="img" aria-label="" aria-hidden="true">'+
+    '<rect x="108" y="6" width="104" height="138" rx="9" fill="var(--bezel)" stroke="var(--bezel-hi)" stroke-width="2"/>'+
+    '<rect x="118" y="16" width="84" height="118" rx="4" fill="var(--backdrop)"/>'+
+    '<rect x="128" y="30" width="64" height="90" rx="4" fill="none" stroke="var(--muted)" stroke-width="2.5" stroke-dasharray="6 7"/>'+
+    '<g transform="translate(160 75) rotate(-35)" fill="var(--muted)" opacity=".55"><use href="#plane" x="-18" y="-18" width="36" height="36"/></g>'+
+    '<path d="M58 62c0-9 14-9 14 0 0 6-7 6-7 12M65 84h.01" fill="none" stroke="var(--muted)" stroke-width="4" stroke-linecap="round"/>'+
+    '<path d="M60 150h200" stroke="var(--border)" stroke-width="4" stroke-linecap="round"/>'+
+    '</svg>';
+  function nfToday(){
+    return '<div class="dev"><div class="nf-bar">'+brand()+'</div><div class="nf-wrap"><div class="nf-today"><h1>'+t('Page not found.','Page introuvable.')+'</h1><p class="purpose" style="margin-top:4px">'+t('The page you requested doesn’t exist or may have moved.','La page demandée n’existe pas ou a peut-être été déplacée.')+'</p><a class="btn-home wide" href="#">'+t('Back to Home','Retour à l’accueil')+'</a></div></div></div>';
+  }
+  function nfNew(art,line){
+    return '<div class="dev"><div class="nf-bar">'+brand()+'</div><div class="nf-wrap"><div class="nf-card">'+art+'<h1>'+t('Page not found.','Page introuvable.')+'</h1><p>'+line+'</p><a class="btn-home" href="#">'+t('Back to Home','Retour à l’accueil')+'</a></div></div></div>';
+  }
+  function mount404(){
+    document.getElementById('m-404').innerHTML='<div class="cmp">'+
+      cell('<b>'+t('Today','Aujourd’hui')+'</b>',nfToday(),'<p class="ann">'+t('Bare heading, sentence and a button on the page background.','Titre nu, phrase et bouton sur le fond de la page.')+'</p>')+
+      cell('<b>'+t('Option A: the plane that missed the runway','Option A : l’avion qui a raté la piste')+'</b>',nfNew(ART_PLANE,t('This plane missed the runway. The page you requested doesn’t exist or may have moved.','Cet avion a raté la piste. La page demandée n’existe pas ou a peut-être été déplacée.')),'<p class="note">'+t('Ties to the product (a plane, a runway). The dotted path is decorative, the drawing is hidden from screen readers.','Lien direct avec le produit (un avion, une piste). Le tracé pointillé est décoratif, le dessin est masqué aux lecteurs d’écran.')+'</p>')+
+      cell('<b>'+t('Option B: the empty frame','Option B : le cadre vide')+'</b>',nfNew(ART_FRAME,t('Nothing to show here. The page you requested doesn’t exist or may have moved.','Rien à afficher ici. La page demandée n’existe pas ou a peut-être été déplacée.')),'<p class="note">'+t('Ties to the object on the wall: the frame shows an empty slot. Calmer than A.','Lien avec l’objet au mur : le cadre montre un emplacement vide. Plus calme que A.')+'</p>')+
+      '</div>';
+  }
+
+  /* ----- questions (French) ----- */
+  var Q=[
+    ['Où mettre l’entrée « Crédits » une fois connecté ?','Ma recommandation : une ligne « Crédits » dans un groupe « À propos » de la page Compte (option A). Elle touche tout le monde, téléphone compris, sans changer la navigation ni les routes. L’option B (pied de barre latérale) ne marche que sur ordinateur.'],
+    ['Quelle illustration pour la 404 : A (avion qui a raté la piste) ou B (cadre vide) ?','Ma recommandation : A, elle parle tout de suite de SkyPane et reste drôle sans être bavarde.'],
+    ['Textes de la 404 en anglais et en français : « This plane missed the runway. The page you requested doesn’t exist or may have moved. » / « Cet avion a raté la piste. La page demandée n’existe pas ou a peut-être été déplacée. » (B : « Nothing to show here. … » / « Rien à afficher ici. … ») : on garde ces phrases ?','Ma recommandation : oui pour A, avec le titre « Page not found. » / « Page introuvable. » inchangé.'],
+    ['Batterie : le point porte l’état (orange = batterie faible) et garde son nom pour les lecteurs d’écran (« Batterie faible » en texte masqué), sans pourcentage. D’accord ? Précision : le code actuel n’affiche déjà aucun pourcentage sur la page Compte ; si vous en avez vu un, c’était ailleurs (par exemple la pastille Batterie de l’accueil). Où l’avez-vous vu ?','Ma recommandation : oui, texte masqué conservé pour l’accessibilité.'],
+    ['« Gérer l’accès » devient un bouton à icône de 44 px à droite de la ligne (avec son libellé sur ordinateur), « Quitter le cadre » aussi. L’icône seule sur téléphone vous convient-elle, ou voulez-vous toujours un mot visible ?','Ma recommandation : icône seule sur téléphone (nom accessible conservé), libellé sur ordinateur.'],
+    ['Type de matériel : le plan évoque « affiché pour les utilisateurs », mais aujourd’hui un utilisateur ne le voit pas et seul l’administrateur le voit (la remarque R21 demande de le retirer pour l’administrateur). Je l’ai donc retiré pour tout le monde. D’accord ?','Ma recommandation : oui, retiré partout (une personne n’a pas besoin du modèle).'],
+    ['Bloc « Première visite » : une seule ligne discrète sous le bouton, avec une petite icône de courrier, mêmes mots. D’accord ?','Ma recommandation : oui, avec un trait d’union insécable dans « e‑mail » pour éviter la coupure en français.']
+  ];
+  function mountQ(){
+    document.getElementById('qlist').innerHTML=Q.map(function(q){return '<li><b>'+q[0]+'</b><span>'+q[1]+'</span></li>';}).join('');
+  }
+
+  mountFrames();mountCredits();mountSignin();mount404();mountQ();applyLang();
+
+  function pressed(sel,fn){
+    var bs=document.querySelectorAll(sel);
+    bs.forEach(function(b){b.addEventListener('click',function(){fn(b);bs.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});});});
+  }
+  pressed('[data-viewport]',function(b){root.setAttribute('data-viewport',b.getAttribute('data-viewport'));});
+  pressed('[data-lang]',function(b){root.setAttribute('data-lang',b.getAttribute('data-lang'));applyLang();});
+  pressed('[data-t]',function(b){var v=b.getAttribute('data-t');if(v==='auto')root.removeAttribute('data-theme');else root.setAttribute('data-theme',v);});
+})();
+</script>
+</body>
+</html>
