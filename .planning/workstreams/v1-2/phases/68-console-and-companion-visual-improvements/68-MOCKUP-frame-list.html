@@ -1,5 +1,5 @@
 <!--
-OWNER DECISIONS 2026-11-18 (recorded; layout redrawn on the real shell the same day, to be re-approved)
+OWNER-APPROVED 2026-11-18 (the redrawn mockup on the real shell, with the equal overview tiles and the Health and Versions pages, validated by the owner)
 1. List: rows on phone. Desktop: master-detail, the list of frames as a panel next to the console navigation, the selected frame on the rest of the screen.
 2. Switching frame: chip row on phone; on desktop the list panel replaces the dropdown (no chip row on desktop).
 3. Phone sections: stacked sections with sticky anchors. The segmented control State / Settings / Access is removed.
@@ -9,6 +9,8 @@ OWNER DECISIONS 2026-11-18 (recorded; layout redrawn on the real shell the same 
 7. A retired or pending frame opens its own page from the list with only the useful action (Re-activate with the message about the wake and the Reset button, or the code). It never appears on another frame's page.
 8. Search in the list from 8 frames (recommendation, not asked yet).
 9. /fleet without a chosen frame: phone shows the list; desktop shows the list panel and the first frame with a problem.
+11. Health page: complete as drawn, except the link to the unresolved airlines, which is removed (they are handled in the Editor).
+12. Overview: four equal tiles (Connection, Battery, Flight data, Firmware) with a Details link to the Health and Versions pages; icon buttons for the personal view (frame icon) and Rename; the console switch lists My frames first; the chip row starts with All frames.
 10. Realism (owner, 2026-11-18): the mockup uses the real shell (floating sidebar with the Console / My frames switch, Administration navigation, sign-out, top bar and floating tab bar on phone) and the real sections of the frame page (State, Device and version, Settings, Access).
 -->
 <!doctype html>
@@ -373,8 +375,7 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
     var src='<div class="card">'+row('check',true,t.srcs,t.srcagree,'',  '<span class="val">'+t.nodis+'</span>')+'<ul class="outcomes">'+out(t.outboth,41,t.outbothx,true)+out(t.outone,6,t.outonex,false)+out(t.outdiff,0,t.outdiffx,true)+'</ul></div>';
     function trow(a,b,c){return '<tr><td>'+a+'</td><td class="num">'+b+'</td><td>'+c+'</td></tr>';}
     var ident='<div class="card"><div class="item">'+lead('info')+'<span class="who"><small>'+t.ident+'</small><b>'+t.identt+'</b><small>'+t.window+'</small></span><span class="pill">'+t.toresolve+'</span></div>'+
-      '<a class="vrow" href="#"><span class="who"><b>'+t.unres+'</b></span><span class="chev">'+ic('chev')+'</span></a>'+
-      '<table class="rtable l"><thead><tr><th>'+t.colsrc+'</th><th>'+t.colcnt+'</th><th style="text-align:left">'+t.coldesc+'</th></tr></thead><tbody>'+trow(t.fresh,22,t.freshx)+trow(t.cached,96,t.cachedx)+trow(t.aonly,11,t.aonlyx)+trow(t.manual,3,t.manualx)+trow(t.miss,9,t.missx)+trow(t.other,7,t.otherx)+'</tbody></table></div>';
+            '<table class="rtable l"><thead><tr><th>'+t.colsrc+'</th><th>'+t.colcnt+'</th><th style="text-align:left">'+t.coldesc+'</th></tr></thead><tbody>'+trow(t.fresh,22,t.freshx)+trow(t.cached,96,t.cachedx)+trow(t.aonly,11,t.aonlyx)+trow(t.manual,3,t.manualx)+trow(t.miss,9,t.missx)+trow(t.other,7,t.otherx)+'</tbody></table></div>';
     var bk='<div class="card">'+row('check',true,t.backup,t.backupv,'')+facts([[t.lastbk,t.bkago]])+'</div>';
     return unreach+banner+'<div><p class="label">'+t.frameg+'</p><div style="display:flex;flex-direction:column;gap:12px">'+conn+batt+'</div></div>'+
       '<div><p class="label">'+t.serverdata+' · '+t.adminonly+'</p><div style="display:flex;flex-direction:column;gap:12px">'+fd+src+ident+bk+'</div></div>';
