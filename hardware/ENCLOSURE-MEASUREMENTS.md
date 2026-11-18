@@ -47,10 +47,10 @@ Filled from the owner's reports only.
 | 4 Rebate | 133 x 183 mm | 2026-11-18 | Tape measure (no calliper) | measured |
 | 5 Free depth | 23 mm | 2026-11-18 | Tape measure (no calliper) | measured |
 | 6 Mat thickness and opening | Thickness 1 mm; opening 140 x 99 mm (as it is today) | 2026-11-18 | Tape measure (no calliper) | measured |
-| 7 Metal tabs | Depth 0.8 mm (as reported); thickness not measurable; 1 per side | 2026-11-18 | Tape measure (no calliper) | measured |
+| 7 Metal tabs | Depth 8 mm (corrected by the owner on 2026-11-18, first reported as 0.8 mm); thickness not measurable; 1 per side | 2026-11-18 | Tape measure (no calliper) | measured |
 | 8 Ribbon length | 24 mm | 2026-11-18 | Tape measure (no calliper) | measured |
 | 9 Battery cable | 95 mm; extension needed: depends on the design (owner) | 2026-11-18 | Tape measure (no calliper) | measured |
-| 10 Battery dimensions and mass | Thickness 8, width 60, length 50 mm; mass 49 g; model not stated | 2026-11-18 | Tape measure (no calliper) | measured |
+| 10 Battery dimensions and mass | Thickness 8, width 60, length 50 mm; mass 49 g; pack: Kubii 3000 mAh (confirmed by the owner, 2026-11-18) | 2026-11-18 | Tape measure (no calliper) | measured |
 | 11 Masses: board, screen, antenna | Board with antenna and cable 20 g; screen 36 g | 2026-11-18 | Kitchen scale | measured |
 | 12 Masses: frame | Complete frame 173 g; empty frame 149 g | 2026-11-18 | Kitchen scale | measured |
 
@@ -70,17 +70,18 @@ rounded or corrected.
 
 Points to settle with the owner (nothing here is concluded by the assistant):
 
-- Row 6: the mat opening reported today is 140 x 99 mm, against the design
-  target of about 158 x 94 mm (design value, not measured). The active area
-  reported in row 3 is 160 x 96 mm. The mat opening has to be recut or replaced
-  before the shim and the mat are validated.
-- Row 7: the tab depth reported is 0.8 mm, against a design value of about
-  12.6 mm (design value, not measured). It may be a different quantity (for
-  example the metal thickness). To confirm with the owner.
-- Row 10: the dimensions reported match the Kubii 3000 mAh pack listed in the
-  design (8 x 50 x 60 mm, vendor value); the model was not stated. The frame in
-  production uses the Soldered 333290 pack (11 x 60 x 100 mm, vendor value, see
-  `BATTERY-MODEL.md`). Which pack goes in the enclosure is still to confirm.
+- Row 6: the mat keeps its current opening of 140 x 99 mm (owner decision,
+  2026-11-18). The displayed image is to be adapted to what shows through the
+  mat, instead of recutting the mat. The active area reported in row 3 is
+  160 x 96 mm, so a 140 mm wide opening hides part of its width, and 99 mm is
+  taller than 96 mm. Changing the displayed image is a rendering change, outside
+  this phase (no code); the enclosure is centred on the mat opening, to be
+  confirmed with the owner.
+- Row 7: tab depth corrected by the owner to 8 mm (design value about 12.6 mm,
+  design value, not measured).
+- Row 10: the pack in the enclosure is the Kubii 3000 mAh (owner, 2026-11-18);
+  the reported dimensions match its vendor size (8 x 50 x 60 mm). The frame in
+  production uses another pack today (see `BATTERY-MODEL.md`).
 - Row 11: the 20 g reading includes the antenna and its cable; the board alone
   was not weighed.
 - Row 3: offsets and sizes agree with row 1 to within the tape's resolution.

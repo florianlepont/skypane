@@ -34,6 +34,11 @@ Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch
 ### Wi-Fi comparison
 - **D-07:** Same place, same orientation, same access point. At least 20 wakes without the enclosure, then at least 20 with it, using the `rssi` column of the frame's own health history (export `GET /api/export/battery-history`, as in `hardware/SECOND-HARDWARE-MEASUREMENTS.md`). Pass criterion proposed: median RSSI not worse by more than 3 dB (design value; the owner may adjust it when validating).
 
+### Mat, tabs and battery (owner, 2026-11-18)
+- **D-09:** The mat keeps its 140 x 99 mm opening; the displayed image will be adapted to the visible window, not the mat recut. That image change is rendering work outside this phase.
+- **D-10:** Metal tab depth is 8 mm (corrects the first report of 0.8 mm).
+- **D-11:** The pack in the enclosure is the Kubii 3000 mAh (8 x 50 x 60 mm, vendor size; measured 8 x 60 x 50 mm, 49 g).
+
 ### Blender work
 - **D-08 (owner, 2026-11-18):** The Blender design is not final and is to be reworked together. Claude cannot open Blender in the cloud session, so the redesign needs a local session on the owner's computer (or the owner applies changes described in writing).
 
@@ -84,6 +89,7 @@ Landscape is the base format (board at the bottom), portrait secondary; wall on 
 ## Deferred Ideas
 
 - Printer purchase (X2D Combo): revisit after the first fit.
+- Adapting the displayed image to the 140 x 99 mm mat window (server/rendering, not this phase; needs its own phase or seed).
 - Identity label with device identifier / pairing code (SEED-014, v1.4).
 - 13.3 inch enclosure, series production method and cost (SEED-015).
 
