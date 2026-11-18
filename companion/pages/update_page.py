@@ -788,18 +788,9 @@ def compute_next_wake_text(ctx):
     return text, state == frame_state.STATE_HELD
 
 
-def _hardware_line_html(type_choice):
-    """The line naming the hardware the releases are for, under the section
-    label; "" for the single-type page without a choice."""
-    if type_choice is None:
-        return ""
-    return '<p class="update-for text-label">%s</p>' % escape_html(
-        i18n.t(CONFIRM_TYPE_TEMPLATE) % _type_label(type_choice.selected))
-
-
 def update_parts(ctx, view, next_wake_text, wake_held=False, type_choice=None):
     """(device section html, versions section html, summary) of the page: the
-    type chooser, the hardware line, the rollback warning and the one card,
+    type chooser, the rollback warning and the one card,
     then the Versions list. `summary` is (running version or None, number of
     releases shown)."""
     ctx = page_context.coerce(ctx)
@@ -812,7 +803,7 @@ def update_parts(ctx, view, next_wake_text, wake_held=False, type_choice=None):
         if type_choice.chooser:
             chooser_html = _type_chooser_html(type_choice)
     device_html = (
-        chooser_html + _hardware_line_html(type_choice) + _rollback_banner_html(view)
+        chooser_html + _rollback_banner_html(view)
         + _cta_card_html(ctx, view, releases, next_wake_text, wake_held))
     return (
         device_html, _versions_card_html(ctx, view, releases),

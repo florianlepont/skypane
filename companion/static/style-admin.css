@@ -306,10 +306,6 @@
   box-shadow: none;
 }
 
-.update-for {
-  margin: 0 var(--space-md) var(--space-sm);
-}
-
 .update-cta,
 .update-hist__list,
 .update-hist__empty {

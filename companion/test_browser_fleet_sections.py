@@ -100,7 +100,7 @@ def test_no_fact_is_shown_twice_in_the_column(new_context, app_server_in_process
         new_context, app_server_in_process, viewport, releases=True)
     try:
         text = page.locator(COLUMN).inner_text()
-        assert text.count(MODEL) == 1, text
+        assert MODEL not in text, text
         # The frame's name is the frame button's label above the column, not repeated in it.
         assert text.count("Orly frame") == 0, text
         for heading in ("Wake interval", "Diagnostic LED"):

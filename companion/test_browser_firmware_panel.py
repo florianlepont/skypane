@@ -110,7 +110,7 @@ def no_horizontal_overflow(page):
 @pytest.mark.parametrize("width", WIDTHS)
 def test_the_card_names_the_state_the_version_and_the_hardware(
         new_context, servers, width, lang, theme):
-    """The panel opens with the hardware line and one card: its headline names the state (an
+    """The panel opens with one card (no line naming the hardware): its headline names the state (an
     update is on offer, or the frame is up to date), the version is large monospace, and the
     list marks the release the frame runs with the Running chip. There is no footer
     naming the running version under the card."""
@@ -124,7 +124,8 @@ def test_the_card_names_the_state_the_version_and_the_hardware(
         try:
             where = "%s %dpx/%s/%s" % (scenario, width, lang, theme)
             block = page.locator(".fleet-block--device")
-            assert "XIAO" in block.locator(".update-for").inner_text(), where
+            assert block.locator(".update-for").count() == 0, where
+            assert "XIAO" not in block.inner_text(), where
             card = block.locator(".update-cta")
             assert card.count() == 1 and card.is_visible(), where
             assert card.locator("h2").inner_text().strip() == headline, where
