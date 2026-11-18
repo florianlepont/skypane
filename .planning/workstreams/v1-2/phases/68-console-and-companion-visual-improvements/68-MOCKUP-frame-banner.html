@@ -1,3 +1,14 @@
+<!--
+OWNER-APPROVED 2026-11-18
+Variant: A (full-width accent slab: graphite in light, ivory in dark). Variant B (amber) is rejected and kept in this file only as a reference.
+Position: sticky at the top while scrolling.
+Icon: eye.
+EN text: "You are viewing {e-mail}'s frame"; button: "Back to Fleet".
+FR text: "Vous consultez le cadre de {e-mail}"; button: "Retour à la flotte".
+Back to Fleet leads to /fleet?frame=<id of the frame being viewed>.
+A long e-mail address wraps in full and is never cut with an ellipsis; the button keeps a 44 px target.
+Note: the French label of the Airlines tab is now "Airlines" (not "Compagnies") in the mock pages.
+-->
 <!doctype html>
 <html lang="en" data-ui="en">
 <head>
@@ -181,17 +192,6 @@ html[data-ui="en"] .l[data-lang="fr"], html[data-ui="fr"] .l[data-lang="en"]{dis
     <span class="o"><svg class="ic" viewBox="0 0 24 24"><use href="#person"/></svg> Person: "this belongs to a person"</span>
   </div>
 
-  <div class="q" id="questions">
-    <h2 style="margin-top:0">Questions for the owner</h2>
-    <ol>
-      <li><em>Variante</em> : A (aplat graphite/ivoire) ou B (ton d'avertissement ambre) ? <em>Recommandation : A</em>, la plus forte et sans ambiguïté, couleurs déjà validées en contraste.</li>
-      <li><em>Fixe ou défilant</em> : le bandeau reste-t-il collé en haut pendant le défilement ? <em>Recommandation : collé</em>, pour ne jamais oublier qu'on est chez quelqu'un d'autre ; coût : environ 56 px d'écran sur téléphone.</li>
-      <li><em>Icône</em> : œil ou personne ? <em>Recommandation : œil</em> (on consulte, on n'est pas chez soi).</li>
-      <li><em>Texte</em> : EN "You are viewing {e-mail}'s frame" / FR "Vous consultez le cadre de {e-mail}", bouton "Back to Fleet" / "Retour à la flotte" ? <em>Recommandation : oui</em> (plus clair que le texte actuel "Cadre de … en consultation").</li>
-      <li><em>Retour à la flotte</em> : le bouton ramène bien au même cadre (<code>/fleet?frame=&lt;id&gt;</code>) ? <em>Recommandation : oui</em>.</li>
-      <li><em>Adresse longue</em> : retour à la ligne complet, jamais coupée avec "…" ? <em>Recommandation : oui</em>.</li>
-    </ol>
-  </div>
 </div>
 
 <script>
