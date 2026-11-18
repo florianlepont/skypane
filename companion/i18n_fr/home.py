@@ -88,6 +88,32 @@ MESSAGES = {
     "home.the_first_aircraft_the_frame_detects_on_the":
         "Le premier avion détecté par le cadre sur la piste surveillée "
         "apparaîtra ici.",
+    "home.strip_heading": "Derniers vols",
+    "home.strip_arrival": "Arrivée",
+    "home.strip_departure": "Décollage",
+
+    "home.stats_day": "Jour",
+    "home.stats_week": "Semaine",
+    "home.stats_flights_today": "vols aujourd’hui",
+    "home.stats_flight_today": "vol aujourd’hui",
+    "home.stats_flights_week": "vols en 7 jours",
+    "home.stats_flight_week": "vol en 7 jours",
+    "home.stats_arrivals": "%d arrivées",
+    "home.stats_arrival": "%d arrivée",
+    "home.stats_departures": "%d départs",
+    "home.stats_departure": "%d départ",
+    "home.stats_most_seen": "la plus vue · %d",
+    "home.stats_new_airlines": "nouvelles compagnies",
+    "home.stats_new_airline": "nouvelle compagnie",
+    "home.stats_timeline_label": "Vols par heure de la journée",
+    "home.stats_mon": "Lun",
+    "home.stats_tue": "Mar",
+    "home.stats_wed": "Mer",
+    "home.stats_thu": "Jeu",
+    "home.stats_fri": "Ven",
+    "home.stats_sat": "Sam",
+    "home.stats_sun": "Dim",
+
     "home.illustration": "Illustration %s",
     "home.device_no_image_heading": "Pas encore d’image",
     "home.device_no_image_body":
