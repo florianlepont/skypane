@@ -55,3 +55,4 @@ Source: the owner's answers in the walk-through page (one question per screen, l
 | R32 | Console | Locations page should no longer exist | behaviour, outside list |
 | R33 | Audit | Phone: navigation by the top tab is "horrible"; opened toggles are hard to read | visual |
 | R34 | Console More | "Mon cadre" label: rename to "Mon compagnon" or "Mes cadres"? Changing space: no jump matters on mobile | wording |
+| R35 | Frame page (administrator) | Added by the owner after the walk-through: when an administrator opens the personal view of another person's frame, a much stronger visual marker is needed (for example a banner at the top) saying it is not their own frame. A marker exists today but is barely visible | visual |

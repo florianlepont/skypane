@@ -1,7 +1,7 @@
 # Phase 68: Console and Companion Visual Improvements - Context
 
 **Gathered:** 2026-11-16
-**Status:** Ready for planning (list of 13 starting items; the owner's walk-through may add more)
+**Status:** Ready for planning (list closed by the owner on 2026-11-18: 13 starting items plus walk-through remarks R01-R35; the owner's walk-through may add more)
 
 <domain>
 ## Phase Boundary
@@ -19,7 +19,7 @@ Not in this phase: photo mode screens, getting-started wizard, Wi-Fi setup (v1.3
 
 ### Scope and size
 - **D-01:** Both the administrator console and the companion pages for users are in scope (owner, 2026-11-16).
-- **D-02:** No cap on the list size (owner, 2026-11-16). Claude's recommendation was a cap of 10; the owner chose none. The list still only grows by the owner's own remarks, each recorded with a screenshot. Phase 66 waits for this phase, so the owner closes the list explicitly before planning of execution waves is final.
+- **D-02:** No cap on the list size (owner, 2026-11-16); the list is closed on 2026-11-18 (D-20). Claude's recommendation was a cap of 10; the owner chose none. The list still only grows by the owner's own remarks, each recorded with a screenshot. Phase 66 waits for this phase, so the owner closes the list explicitly before planning of execution waves is final.
 
 ### Starting list (all 12 selected by the owner, 2026-11-16)
 High value:
@@ -41,6 +41,12 @@ Low value:
 - **D-12:** 44 px touch target for the quiet-hours link (V6-07).
 - **D-13:** Tapping the active tab (W6-09).
 - **D-14:** Hand-built `banner__pill` markup on a few pages: use the catalogue component.
+
+### Walk-through remarks (owner, 2026-11-18)
+- **D-20:** All remarks R01 to R35 of `68-WALKTHROUGH.md` are in the list (owner: "on fait tout"), including the ones marked "behaviour, outside list" (R02, R23, R26, R28, R29 filter, R30, R32). The owner's list defines the phase: those behaviour changes are asked for by the list, so they are not scope creep. They still need the access rules of Phases 54, 55 and 60, the golden hashes and `test_phase47_freeze.py` to stay green, and each one a test of the new behaviour.
+- **D-21:** R35 (owner, administrator on another person's frame): a strong, unmissable marker (for example a top banner) on the personal view of a frame that is not the administrator's own. A marker exists today, too discreet. Mockup first.
+- **D-22:** R26 includes a workflow question (how a new invited user signs in the first time without a password): research must establish how invitation and sign-in work today (Auth0) and propose options to the owner before any change. Other open points for the planner: the word "Marchand" in R29 (unclear, ask the owner), R10 (is the More sheet blur different in Safari: check), R34 label choice ("Mon compagnon" or "Mes cadres").
+- **D-23:** Items R12 and R15 are the same as D-06 and D-04; R01-R34 supersede the ordering by value of the starting list: value order is decided at planning, the owner picks mockups one by one.
 
 ### Process
 - **D-16:** Owner-guided page-by-page walk-through of the deployed console and companion (administrator and user views) still to be done, with a screenshot per remark. New remarks are added to the list only on the owner's say.
