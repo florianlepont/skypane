@@ -130,7 +130,7 @@ a{color:inherit;text-decoration:none}
 .blk{scroll-margin-top:72px}
 
 /* desktop shell */
-.side{position:absolute;left:16px;top:16px;bottom:16px;width:240px;padding:20px 16px;border-radius:30px;background:var(--glass);border:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column;gap:8px}
+.side{position:absolute;left:0;top:0;bottom:0;width:240px;padding:24px 16px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
 .side .brand{padding:0 8px;margin-bottom:8px}
 .space{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--chip);margin-bottom:8px}
 .space span{flex:1;text-align:center;min-height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-size:14px;font-weight:600;color:var(--muted)}
@@ -140,12 +140,19 @@ a{color:inherit;text-decoration:none}
 .nav.on{background:var(--accent);color:var(--on-accent);font-weight:600}
 .sep{height:1px;background:var(--border);margin:8px 0}
 .signout{margin-top:auto}
-.listp{position:absolute;left:272px;top:16px;bottom:16px;width:350px;border-radius:30px;background:var(--glass);border:1px solid var(--border);box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.listp{position:absolute;left:240px;top:0;bottom:0;width:350px;background:var(--glass);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
 .listp .lhead{flex:none;padding:20px 16px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--border)}
 .listp .lbody{flex:1;min-height:0;overflow-y:auto;padding:12px 12px 20px;display:flex;flex-direction:column;gap:14px}
-.main{position:absolute;left:640px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
+.main{position:absolute;left:590px;right:0;top:0;bottom:0;overflow-y:auto;padding:32px 44px 64px}
 .dcol{display:flex;flex-direction:column;gap:24px;max-width:760px;margin-top:20px}
-.actions{display:flex;gap:8px;margin-top:16px;flex-wrap:wrap}
+.titlerow{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.iconbtns{display:flex;gap:8px;flex:none}
+.sparkline{display:block;width:100%;height:44px}
+.sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
+.item.wrap{flex-wrap:wrap}
+.vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
+.vrow .who{flex:1}
+.btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
 
 @media (prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
@@ -168,6 +175,7 @@ a{color:inherit;text-decoration:none}
   <symbol id="i-chip" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2"/><path d="M9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4"/></symbol>
   <symbol id="i-timer" viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></symbol>
   <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
 </svg>
@@ -204,7 +212,7 @@ a{color:inherit;text-decoration:none}
       onframe:'ON THE FRAME',model:'Model XIAO ePaper EE02 13.3in Spectra 6',uptodate:'Up to date',
       interval:'Wake interval',intervalh:'How often the frame checks for new flight data',secs:'seconds · 15 min',led:'Diagnostic LED',ledh:'Flashes briefly at each check',off:'Off',
       owner:'Owner',co:'Co-manager',reassign:'Reassign',addp:'Add a co-manager',retire:'Retire this frame…',retireh:'The frame stops showing anything.',
-      openpers:'Open personal view',rename:'Rename',signout:'Sign out',admin:'Administration',
+      openpers:'Open personal view',rename:'Rename',contacts:'Last contacts',c3:'just now · 15 min · 30 min ago',days:'Last 7 days',prev:'Previous versions',revert:'Revert',allv:'All versions',signout:'Sign out',admin:'Administration',
       nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],tabs:['Fleet','Team','Editor','Journal','More'],
       codeShown:'Code shown 5 min ago',retiredOn:'Retired 12 Oct',react:'Re-activate',
       wake:'The frame shows its pairing code at its next wake (up to 24 h). Press Reset to restart it now.',
@@ -217,7 +225,7 @@ a{color:inherit;text-decoration:none}
       onframe:'SUR LE CADRE',model:'Modèle XIAO ePaper EE02 13.3in Spectra 6',uptodate:'À jour',
       interval:'Intervalle de réveil',intervalh:'À quelle fréquence le cadre cherche de nouvelles données de vol',secs:'secondes · 15 mn',led:'LED de diagnostic',ledh:'S’allume brièvement à chaque vérification',off:'Éteint',
       owner:'Propriétaire',co:'Cogestionnaire',reassign:'Réattribuer',addp:'Ajouter un cogestionnaire',retire:'Retirer ce cadre…',retireh:'Le cadre n’affiche plus rien.',
-      openpers:'Ouvrir la vue personnelle',rename:'Renommer',signout:'Se déconnecter',admin:'Administration',
+      openpers:'Ouvrir la vue personnelle',rename:'Renommer',contacts:'Derniers contacts',c3:'à l’instant · 15 min · 30 min',days:'7 derniers jours',prev:'Versions précédentes',revert:'Revenir',allv:'Toutes les versions',signout:'Se déconnecter',admin:'Administration',
       nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],
       codeShown:'Code affiché il y a 5 min',retiredOn:'Retiré le 12 oct.',react:'Réactiver',
       wake:'Le cadre affichera son code à son prochain réveil (24 h au plus). Appuyez sur Reset pour le relancer tout de suite.',
@@ -277,13 +285,19 @@ a{color:inherit;text-decoration:none}
   }
 
   /* ---------- frame page sections (the real ones) ---------- */
-  function statusRow(n,label,val,right,ok){return '<div class="item">'+lead(n,ok?'ok':'')+'<span class="who"><small>'+label+'</small><b>'+val+'</b></span><span class="val num">'+right+'</span></div>';}
+  function spark(){return '<svg class="sparkline" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" points="0,10 40,14 80,16 120,22 160,24 200,30 240,32 300,36"/></svg>';}
+  function statusRow(n,label,val,right,ok,extra){return '<div class="item wrap">'+lead(n,ok?'ok':'')+'<span class="who"><small>'+label+'</small><b>'+val+'</b></span><span class="val num">'+right+'</span>'+(extra?'<div class="sub2">'+extra+'</div>':'')+'</div>';}
   function stateBlock(t){
     return '<div class="blk" data-sec="state"><p class="label">'+t.state+'</p><div class="card">'+
-      statusRow('check',t.conn,t.connv,t.connt,true)+statusRow('check',t.batt,t.battv,t.battt,true)+statusRow('info',t.fdata,t.fdatav,t.fdatat,false)+'</div></div>';
+      statusRow('check',t.conn,t.connv,t.connt,true,'<span>'+t.contacts+' : '+t.c3+'</span>')+
+      statusRow('check',t.batt,t.battv,t.battt,true,'<span>'+t.days+'</span>'+spark())+
+      statusRow('info',t.fdata,t.fdatav,t.fdatat,false,'')+'</div></div>';
   }
   function deviceBlock(t){
-    return '<div class="blk" data-sec="device"><p class="label">'+t.device+'</p><div class="card"><div class="item"><span class="who"><small>'+t.onframe+'</small><b style="font-family:ui-monospace,Menlo,monospace;font-size:18px">v1.4.2</b><small>'+t.model+'</small></span><span class="badge">'+t.uptodate+'</span></div></div></div>';
+    function v(n,note){return '<div class="vrow"><span class="who"><b class="num">'+n+'</b></span><span class="val">'+note+'</span><a class="btn quiet" href="#">'+t.revert+'</a></div>';}
+    return '<div class="blk" data-sec="device"><p class="label">'+t.device+'</p><div class="card"><div class="item"><span class="who"><small>'+t.onframe+'</small><b style="font-family:ui-monospace,Menlo,monospace;font-size:18px">v1.4.2</b><small>'+t.model+'</small></span><span class="badge">'+t.uptodate+'</span></div>'+
+      '<div class="vrow" style="border-top:1px solid var(--border);min-height:40px"><span class="label" style="margin:0">'+t.prev+'</span></div>'+v('v1.4.1','12 Oct')+v('v1.4.0','28 Sep')+
+      '<a class="vrow" href="#"><span class="who"><b>'+t.allv+'</b></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
   }
   function settingsBlock(t){
     return '<div class="blk" data-sec="settings"><p class="label">'+t.settings+'</p><div class="card">'+
@@ -297,12 +311,13 @@ a{color:inherit;text-decoration:none}
       '<a class="item danger" href="#"><span class="who"><b>'+t.retire+'</b><small>'+t.retireh+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
   }
 
+  function iconBtns(t){return '<div class="iconbtns"><a class="btn sq" href="#" title="'+t.openpers+'" aria-label="'+t.openpers+'">'+ic('user')+'</a><a class="btn sq" href="#" title="'+t.rename+'" aria-label="'+t.rename+'">'+ic('edit')+'</a></div>';}
   /* ---------- phone frame page ---------- */
   function phoneFrame(_v,t){
     var chipNames=['Salon','Cuisine','Chambre','Atelier','Terrasse','Mezzanine'];
     var chips='<div class="chips" role="navigation">'+chipNames.map(function(n,i){return '<a class="chip" href="#"'+(i===0?' aria-current="page"':'')+'><span class="dot"></span>'+n+'</a>';}).join('')+'<a class="chip all" href="#">'+t.allframes+'</a></div>';
-    var head='<div><h3 class="title" style="font-size:34px">Salon</h3><p class="state"><span class="dot"></span>'+t.online+'</p></div>';
-    var acts='<div class="actions" style="margin:0"><a class="btn" href="#">'+t.openpers+'</a><a class="btn" href="#">'+t.rename+'</a></div>';
+    var head='<div class="titlerow"><div><h3 class="title" style="font-size:34px">Salon</h3><p class="state"><span class="dot"></span>'+t.online+'</p></div>'+iconBtns(t)+'</div>';
+    var acts='';
     var anchors='<div class="anchors">'+['state','settings','access'].map(function(k,i){return '<button type="button" data-go="'+k+'"'+(i===0?' aria-current="true"':'')+'>'+t[k]+'</button>';}).join('')+'</div>';
     return phoneShell(t,chips+head+acts+anchors+stateBlock(t)+deviceBlock(t)+settingsBlock(t)+accessBlock(t),0);
   }
@@ -310,7 +325,7 @@ a{color:inherit;text-decoration:none}
   /* ---------- desktop ---------- */
   function desktopLive(_v,t){
     var f=LIVE[0];
-    var head='<h3 class="title">'+f.n+'</h3><p class="state"><span class="dot err"></span>'+t.offline+' <span class="sub" style="font-weight:400">· '+t.seen(f.m)+'</span></p><div class="actions"><a class="btn" href="#">'+t.openpers+'</a><a class="btn" href="#">'+t.rename+'</a></div>';
+    var head='<div class="titlerow" style="max-width:760px"><div><h3 class="title">'+f.n+'</h3><p class="state"><span class="dot err"></span>'+t.offline+' <span class="sub" style="font-weight:400">· '+t.seen(f.m)+'</span></p></div>'+iconBtns(t)+'</div>';
     return sidebar(t)+listPanel(t,true,false)+'<div class="main">'+head+'<div class="dcol">'+stateBlock(t)+deviceBlock(t)+settingsBlock(t)+accessBlock(t)+'</div></div>';
   }
   function desktopRetired(_v,t){
@@ -328,11 +343,11 @@ a{color:inherit;text-decoration:none}
   function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
   var html='';
   html+=section('1. Phone: the list of frames and a frame page',
-    'Real shell: top bar with the logo and the floating tab bar of the console. Left, the list of frames (<code>/fleet</code>): rows, problems first; pending and retired frames only here; tapping a row opens it. Right, a frame page: chip row of live frames (never a retired one), then the real sections (State, Device and version, Settings, Access) stacked, with sticky anchors. The status rows show their information directly.',
+    'Real shell: top bar with the logo and the floating tab bar of the console. Left, the list of frames (<code>/fleet</code>): rows, problems first; pending and retired frames only here; tapping a row opens it. Right, a frame page: chip row of live frames (never a retired one), then the real sections (State, Device and version, Settings, Access) stacked, with sticky anchors. Details are shown directly, nothing hides behind an arrow: the battery curve over 7 days, the last contacts, and the previous firmware versions with their Revert buttons are on the page; \u201cAll versions\u201d is the only link, for the long list.',
     '<div class="row2">'+mock('phone','List of frames','The list scrolls inside the phone',listPhone)+mock('phone','A frame page','Scroll inside the phone; try the anchors',phoneFrame)+'</div>',
     '<p class="note"><b>Today:</b> the first frame opens by default, a dropdown in the top bar lists every frame (retired included), and an "Other frames" block repeats pending and retired frames at the bottom of every frame page. <b>Removed from Access:</b> the introduction, the empty-state body, the helper line and the long Reassign / Retire sentences (they stay in the confirmation dialogs).</p>');
   html+=section('2. Desktop: the list as a panel next to the navigation, the frame on the rest of the screen',
-    'Real shell: the floating sidebar with the Console / My frames switch, the Administration navigation, Account and Sign out. The panel of frames has a fixed header (title, Add, search) and a scrolling list. The selected frame fills the rest: one column of cards of equal width. Without a chosen frame, <code>/fleet</code> selects the first frame with a problem.',
+    'Real columns: the console menu as a full-height flat column (the first proposal), with the Console / My frames switch, the Administration navigation, Account and Sign out. The frames column has a fixed header (title, Add, search) and a scrolling list. The selected frame fills the rest: one column of cards of equal width. Without a chosen frame, <code>/fleet</code> selects the first frame with a problem.',
     '<div class="row2">'+mock('desktop','A live frame with a problem selected','Scroll inside the list panel and the page',desktopLive)+'</div>'+
     '<div style="height:32px"></div><div class="row2">'+mock('desktop','A retired frame selected','Only the useful action: Re-activate, with the message about the wake and the Reset button',desktopRetired)+'</div>');
   document.getElementById('app').innerHTML=html;
