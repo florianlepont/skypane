@@ -34,6 +34,9 @@ Not in this phase: the administrator flashing tool (SEED-014, v1.4), a 13.3 inch
 ### Wi-Fi comparison
 - **D-07:** Same place, same orientation, same access point. At least 20 wakes without the enclosure, then at least 20 with it, using the `rssi` column of the frame's own health history (export `GET /api/export/battery-history`, as in `hardware/SECOND-HARDWARE-MEASUREMENTS.md`). Pass criterion proposed: median RSSI not worse by more than 3 dB (design value; the owner may adjust it when validating).
 
+### Blender work
+- **D-08 (owner, 2026-11-18):** The Blender design is not final and is to be reworked together. Claude cannot open Blender in the cloud session, so the redesign needs a local session on the owner's computer (or the owner applies changes described in writing).
+
 ### Claude's Discretion
 - Structure of the plans, the measurement sheet and the assembly note; how to split owner steps into checkpoints; file names under `hardware/`.
 

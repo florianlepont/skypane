@@ -41,18 +41,18 @@ Filled from the owner's reports only.
 
 | Item | Value | Date | Method (tool, how) | Status (measured or design value, not measured) |
 |------|-------|------|--------------------|--------------------------------------------------|
-| 1 Screen outline | | | | design value, not measured |
-| 2 Screen thickness | | | | design value, not measured |
-| 3 Active area and offsets | | | | design value, not measured |
-| 4 Rebate | | | | design value, not measured |
-| 5 Free depth | | | | design value, not measured |
-| 6 Mat thickness and opening | | | | design value, not measured |
-| 7 Metal tabs | | | | design value, not measured |
-| 8 Ribbon length | | | | design value, not measured |
-| 9 Battery cable | | | | design value, not measured |
-| 10 Battery dimensions and mass | | | | design value, not measured |
-| 11 Masses: board, screen, antenna | | | | design value, not measured |
-| 12 Masses: frame | | | | design value, not measured |
+| 1 Screen outline | 170 x 111 mm | 2026-11-18 | Tape measure (no calliper) | measured |
+| 2 Screen thickness | 0.9 mm | 2026-11-18 | Tape measure (no calliper) | measured |
+| 3 Active area and offsets | Active area 160 x 96 mm; offsets left 4, right 4, top 4, bottom 10 mm | 2026-11-18 | Tape measure (no calliper) | measured |
+| 4 Rebate | 133 x 183 mm | 2026-11-18 | Tape measure (no calliper) | measured |
+| 5 Free depth | 23 mm | 2026-11-18 | Tape measure (no calliper) | measured |
+| 6 Mat thickness and opening | Thickness 1 mm; opening 140 x 99 mm (as it is today) | 2026-11-18 | Tape measure (no calliper) | measured |
+| 7 Metal tabs | Depth 0.8 mm (as reported); thickness not measurable; 1 per side | 2026-11-18 | Tape measure (no calliper) | measured |
+| 8 Ribbon length | 24 mm | 2026-11-18 | Tape measure (no calliper) | measured |
+| 9 Battery cable | 95 mm; extension needed: depends on the design (owner) | 2026-11-18 | Tape measure (no calliper) | measured |
+| 10 Battery dimensions and mass | Thickness 8, width 60, length 50 mm; mass 49 g; model not stated | 2026-11-18 | Tape measure (no calliper) | measured |
+| 11 Masses: board, screen, antenna | Board with antenna and cable 20 g; screen 36 g | 2026-11-18 | Kitchen scale | measured |
+| 12 Masses: frame | Complete frame 173 g; empty frame 149 g | 2026-11-18 | Kitchen scale | measured |
 
 ## Design checks to redo after the masses are in
 
@@ -63,11 +63,38 @@ masses: tray about 57 g, lid about 48 g, stand about 11 g, shim about 5 g
 
 ## Notes
 
-None yet.
+Reported by the owner on 2026-11-18. The owner has a tape measure and no
+calliper, so length readings have about 1 mm resolution; the design clearances
+are 0.4 mm per side, smaller than that. Values are recorded as reported, not
+rounded or corrected.
+
+Points to settle with the owner (nothing here is concluded by the assistant):
+
+- Row 6: the mat opening reported today is 140 x 99 mm, against the design
+  target of about 158 x 94 mm (design value, not measured). The active area
+  reported in row 3 is 160 x 96 mm. The mat opening has to be recut or replaced
+  before the shim and the mat are validated.
+- Row 7: the tab depth reported is 0.8 mm, against a design value of about
+  12.6 mm (design value, not measured). It may be a different quantity (for
+  example the metal thickness). To confirm with the owner.
+- Row 10: the dimensions reported match the Kubii 3000 mAh pack listed in the
+  design (8 x 50 x 60 mm, vendor value); the model was not stated. The frame in
+  production uses the Soldered 333290 pack (11 x 60 x 100 mm, vendor value, see
+  `BATTERY-MODEL.md`). Which pack goes in the enclosure is still to confirm.
+- Row 11: the 20 g reading includes the antenna and its cable; the board alone
+  was not weighed.
+- Row 3: offsets and sizes agree with row 1 to within the tape's resolution.
+- Row 9: whether a JST-PH extension is needed depends on the final design.
 
 ## CAD file state
 
-Not yet reported by the owner. Questions: is `hardware/cad/skypane_cassette.blend`
-saved and current (date of last save); are the four parts and the script
-`skypane_cassette.py` in it; are the Father Christmas test figurine and the
-abandoned versions still in it; was the file lost.
+Reported by the owner on 2026-11-18, not checked by Claude:
+
+- `hardware/cad/skypane_cassette.blend` is saved and current; last save
+  2026-11-17.
+- The four parts and the script `skypane_cassette.py` are in it.
+- The Father Christmas figurine and the abandoned versions are no longer in it.
+- The file is not lost.
+- The owner adds that this version is not final and that the design must be
+  reworked together; Claude cannot open Blender from the cloud session, so that
+  work needs a local session on the owner's computer.
