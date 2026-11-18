@@ -26,8 +26,9 @@ homes.
 - SEED-012: the administrator's invitation creates the Auth0 account.
 - SEED-011: a distinct sign-in message when the Auth0 email is not verified (moved
   from v1.2 on 2026-11-18; it comes with SEED-012, the same first sign-in).
-- SEED-014: the enclosure for the back of the frame, and the administrator tool
-  for initial setup and flashing.
+- SEED-014: the administrator tool for initial setup and flashing (the physical
+  enclosure of the 7.3 inch frame moved to Phase 69 of v1.2 on 2026-11-18, an
+  owner-driven parallel track).
 - SEED-017: remote diagnostic telemetry.
 - SEED-018: the firmware update policy (automatic by default, "ask me",
   administrator override, all frames together).

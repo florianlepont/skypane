@@ -51,6 +51,7 @@ Phase 47 measures the live frame on the live VPS. This milestone must not modify
 - [ ] **Phase 68: Console and Companion Visual Improvements** - The visual improvements the owner lists for the console and the companion are made, within the design system, before the security audit and the code cleanup so that those two work on the final code. (added 2026-11-16 at the owner's request, moved up from v1.3 SEED-020; runs before Phase 66)
 - [ ] **Phase 66: Security Audit** - The whole platform (server, companion, device protocol, firmware update path, deploy and secrets) is audited, and every finding is fixed or recorded with the owner's decision. (added 2026-11-15 at the owner's request)
 - [ ] **Phase 67: Project and Code Optimisation for a Clean, Industrial Result** - The repository, the code, the tests and the documents are cleaned and made consistent so the project can be maintained and handed over like an industrial product. (added 2026-11-15 at the owner's request; Phase 59 stays last)
+- [ ] **Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)** - The four printed parts (tray, lid with wall hooks and hinge, folding stand, centring shim) are designed, printed, fitted into an IKEA RÖDALM 13 x 18 cm frame with the second-hardware frame, and validated on the wall and on furniture. (added 2026-11-18 at the owner's request as an owner-driven parallel track, physical part of SEED-014; the administrator flashing tool stays in v1.4)
 
 ## Phase Details
 
@@ -748,6 +749,27 @@ Plans:
 
 Plans: TBD
 
+### Phase 69: Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit)
+
+**Goal**: The second-hardware frame (Seeed EE04 with the 7.3 inch Spectra 6 screen) has a working printed rear enclosure that fits an IKEA RÖDALM 13 x 18 cm black frame: it can hang on a wall, stand on a piece of furniture, and be opened for the battery, the USB-C port and the buttons.
+**Depends on**: Phase 58 (second hardware validated); Phase 64 for the measured EE04 pins, buttons and LED. It touches no code and no file of any other running phase, so it runs in parallel with Phases 68, 66, 67 and 59.
+**Requirements**: ENC-01
+**Why this phase exists**: the owner's request of 2026-11-18 to treat the hardware as a priority and run it as a real GSD phase. It takes the physical half of SEED-014; the owner has already started the 3D design (`hardware/ENCLOSURE-3D-DESIGN.md`, files in `hardware/cad/`). The administrator tool for initial setup and flashing stays in SEED-014 for v1.4.
+**Success Criteria** (what must be TRUE):
+
+  1. Measurements on the real parts are recorded and the design is updated from them: the screen (the centring shim depends on it), the frame rebate and the free depth, the battery cable length, the real ribbon length, and the masses of the board and the frame.
+  2. The open choices are decided and written down by the owner: printer (purchase or other means), material, filament, nozzle, build plate, and screws or heat-set inserts for the lid.
+  3. The four parts are exported (STL or 3MF), sliced and checked: no support needed, no wall or slot under the printer's limit, print settings recorded.
+  4. A first test print is made and the clearances (hinge, screws, rebate, battery, ribbon slot) are adjusted from what is measured on the print, with the adjustments listed.
+  5. The assembled frame is validated by the owner: the screen sits centred behind the mat, the board, battery and antenna fit and the battery is not pinched, USB-C, switch and buttons are reachable, it hangs level on the wall hooks, the stand holds it on furniture, and the Wi-Fi signal measured by the frame is not worse than without the enclosure (same place, same access point).
+  6. The design files (source and printable) and a short assembly note are stored under `hardware/`, the bill of materials (`hardware/BOM.md`) lists the added parts and their cost, and SEED-014 is updated to show what this phase settled.
+
+**Not in this phase**: the administrator tool for initial setup and flashing (SEED-014, v1.4), an enclosure for the 13.3 inch frame, a series production method and costs (SEED-015), battery discharge measurements (SEED-019), and any firmware change.
+**Open decisions** (for discuss-phase): whether v1.2 may close before this phase is finished (recommendation: yes, because it is owner-driven physical work; an unfinished phase then carries into the next milestone), whether to buy a printer or have the parts printed elsewhere, and who takes the measurements and in what order.
+**Must not break**: the live frame and its configuration; nothing in this phase changes code or the deployed system.
+
+Plans: TBD
+
 ### Phase 66: Security Audit
 
 **Goal**: Before v1.2 closes, the whole platform has had one structured security audit, and every finding is either fixed or accepted by the owner in writing.
@@ -815,3 +837,4 @@ Plans: TBD
 | 68. Console and Companion Visual Improvements | v1.2 | in progress | In progress since 2026-11-16 (owner's list built with the phase session; candidate items and the home mockup are merged: `68-CANDIDATE-ITEMS.md`, `68-HOME-MOCKUP.html`); on 2026-11-18 the session was executing plan 68-14 (editor); plan files and counts are not on `main` yet | - |
 | 66. Security Audit | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
 | 67. Project and Code Optimisation for a Clean, Industrial Result | v1.2 | 0/0 | Added 2026-11-15, not planned yet | - |
+| 69. Rear Enclosure for the 7.3 Inch Frame (Design, Print, Fit) | v1.2 | 0/0 | Added 2026-11-18, not planned yet; owner-driven parallel track | - |
