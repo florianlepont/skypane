@@ -48,6 +48,8 @@ Low value:
 - **D-22:** R26 includes a workflow question (how a new invited user signs in the first time without a password): research must establish how invitation and sign-in work today (Auth0) and propose options to the owner before any change. Other open points for the planner: the word "Marchand" in R29 (unclear, ask the owner), R10 (is the More sheet blur different in Safari: check), R34 label choice ("Mon compagnon" or "Mes cadres").
 - **D-23:** Items R12 and R15 are the same as D-06 and D-04; R01-R34 supersede the ordering by value of the starting list: value order is decided at planning, the owner picks mockups one by one.
 
+- **D-24:** R36 (owner, 2026-11-18): re-activating a retired frame must not leave it unpairable for up to 24 h. Cause: a retired frame sleeps `RETIRED_SLEEP_S = 86400` s (`server/pairing_code.py`, served in `stub-server/byos_server.py::_pending_panel`) and the server cannot wake a sleeping frame. Two parts: (a) a clear message in the console at re-activation (when the frame will show its code, how to wake it by hand); (b) shorten the wait. The wake interval is a battery trade-off (no valid discharge measurement exists), so the new value is the owner's choice; the planner must offer options. Must not change the live-frame wake cadence or `test_phase47_freeze.py`.
+
 ### Process
 - **D-16:** Owner-guided page-by-page walk-through of the deployed console and companion (administrator and user views) still to be done, with a screenshot per remark. New remarks are added to the list only on the owner's say.
 - **D-17:** Mockup approved by the owner before code for every visual change (as done for the active-mode card). The Home mockup is already approved. Any new pattern is added to `sketch-findings-skypane`.
