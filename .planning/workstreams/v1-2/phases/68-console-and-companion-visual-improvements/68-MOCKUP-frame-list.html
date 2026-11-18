@@ -150,6 +150,24 @@ a{color:inherit;text-decoration:none}
 .sparkline{display:block;width:100%;height:44px}
 .sub2{display:flex;flex-direction:column;gap:6px;width:100%;padding-left:48px;font-size:13px;color:var(--muted)}
 .item.wrap{flex-wrap:wrap}
+.tiles2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile2{display:flex;flex-direction:column;gap:6px;min-height:132px;padding:14px;border-radius:22px;background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow);min-width:0}
+.tile2 .th{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.tile2 .tv{font-size:19px;font-weight:700;letter-spacing:-.01em}
+.tile2 .tm{font-size:13px;color:var(--muted)}
+.tile2 .more{margin-top:auto;display:flex;align-items:center;gap:4px;font-size:13px;font-weight:600}
+.bigspark{display:block;width:100%;height:120px;color:var(--accent)}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--border);font-size:14px}
+.kv span:nth-child(odd){color:var(--muted)}
+.kv span:nth-child(even){text-align:right}
+.rtable{width:100%;border-collapse:collapse;font-size:14px}
+.rtable th{text-align:left;color:var(--muted);font-weight:600;font-size:13px;padding:8px 16px}
+.rtable td{padding:8px 16px;border-top:1px solid var(--border)}
+.rtable td:last-child,.rtable th:last-child{text-align:right}
+.pagehead{display:flex;flex-direction:column;gap:6px;margin-bottom:8px}
+.backl{display:inline-flex;align-items:center;gap:6px;min-height:44px;font-size:15px;font-weight:600}
+.ring{width:64px;height:64px;border-radius:50%;background:conic-gradient(var(--ok) 0 47%,var(--border) 0);display:flex;align-items:center;justify-content:center;flex:none}
+.ring b{width:48px;height:48px;border-radius:50%;background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px}
 .vrow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 16px;border-top:1px solid var(--border)}
 .vrow .who{flex:1}
 .btn.quiet{min-height:40px;font-weight:500;color:var(--muted)}
@@ -177,6 +195,7 @@ a{color:inherit;text-decoration:none}
   <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z"/></symbol>
   <symbol id="i-frame" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="7" y="8" width="10" height="8" rx="1"/></symbol>
   <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5"/></symbol>
   <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
 </svg>
@@ -213,7 +232,7 @@ a{color:inherit;text-decoration:none}
       onframe:'ON THE FRAME',model:'Model XIAO ePaper EE02 13.3in Spectra 6',uptodate:'Up to date',
       interval:'Wake interval',intervalh:'How often the frame checks for new flight data',secs:'seconds · 15 min',led:'Diagnostic LED',ledh:'Flashes briefly at each check',off:'Off',
       owner:'Owner',co:'Co-manager',reassign:'Reassign',addp:'Add a co-manager',retire:'Retire this frame…',retireh:'The frame stops showing anything.',
-      openpers:'Open personal view',rename:'Rename',healthd:'Health details',healths:'Data sources, check-in times, identification, backup, battery readings',contacts:'Last contacts',c3:'just now · 15 min · 30 min ago',days:'Last 7 days',prev:'Previous versions',revert:'Revert',allv:'All versions',signout:'Sign out',admin:'Administration',
+      openpers:'Open personal view',rename:'Rename',tilec:'Connection',tilef:'Firmware',details:'Details',health:'Health',versions:'Versions',backto:'Back to ',nextwake:'Next wake',lastrun:'Last run',lastci:'Last check-in',inmin:'in 14 min',agomin:'2 min ago',nowt:'just now',lastac:'Last aircraft detected',nonet:'None yet',srcs:'Data sources',srcagree:'Sources agree',srcn:'adsb.fi and adsb.lol · 0 disagreements',ident:'Identification',identv:'92 % resolved',identm:'2 to resolve',backup:'Off-box backup',backupv:'Up to date',backupm:'last backup 03:12',serverdata:'Server & data',frameg:'Frame',latest:'Latest readings',ts:'Timestamp',mv:'Battery (mV)',levelok:'Level looks normal',changel:'Release notes',avail:'No update available',cur:'Installed',healthd:'Health details',healths:'Data sources, check-in times, identification, backup, battery readings',contacts:'Last contacts',c3:'just now · 15 min · 30 min ago',days:'Last 7 days',prev:'Previous versions',revert:'Revert',allv:'All versions',signout:'Sign out',admin:'Administration',
       nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],tabs:['Fleet','Team','Editor','Journal','More'],
       codeShown:'Code shown 5 min ago',retiredOn:'Retired 12 Oct',react:'Re-activate',
       wake:'The frame shows its pairing code at its next wake (up to 24 h). Press Reset to restart it now.',
@@ -226,7 +245,7 @@ a{color:inherit;text-decoration:none}
       onframe:'SUR LE CADRE',model:'Modèle XIAO ePaper EE02 13.3in Spectra 6',uptodate:'À jour',
       interval:'Intervalle de réveil',intervalh:'À quelle fréquence le cadre cherche de nouvelles données de vol',secs:'secondes · 15 mn',led:'LED de diagnostic',ledh:'S’allume brièvement à chaque vérification',off:'Éteint',
       owner:'Propriétaire',co:'Cogestionnaire',reassign:'Réattribuer',addp:'Ajouter un cogestionnaire',retire:'Retirer ce cadre…',retireh:'Le cadre n’affiche plus rien.',
-      openpers:'Ouvrir la vue personnelle',rename:'Renommer',healthd:'Détails de santé',healths:'Sources de données, heures de contact, identification, sauvegarde, relevés de batterie',contacts:'Derniers contacts',c3:'à l’instant · 15 min · 30 min',days:'7 derniers jours',prev:'Versions précédentes',revert:'Revenir',allv:'Toutes les versions',signout:'Se déconnecter',admin:'Administration',
+      openpers:'Ouvrir la vue personnelle',rename:'Renommer',tilec:'Connexion',tilef:'Micrologiciel',details:'Détails',health:'Santé',versions:'Versions',backto:'Retour à ',nextwake:'Prochain réveil',lastrun:'Dernière exécution',lastci:'Dernier contact',inmin:'dans 14 min',agomin:'il y a 2 min',nowt:'à l’instant',lastac:'Dernier avion détecté',nonet:'Aucun pour l’instant',srcs:'Sources de données',srcagree:'Les sources concordent',srcn:'adsb.fi et adsb.lol · 0 désaccord',ident:'Identification',identv:'92 % résolus',identm:'2 à résoudre',backup:'Sauvegarde hors serveur',backupv:'À jour',backupm:'dernière sauvegarde 03:12',serverdata:'Serveur et données',frameg:'Cadre',latest:'Derniers relevés',ts:'Horodatage',mv:'Batterie (mV)',levelok:'Le niveau semble normal',changel:'Notes de version',avail:'Aucune mise à jour disponible',cur:'Installée',healthd:'Détails de santé',healths:'Sources de données, heures de contact, identification, sauvegarde, relevés de batterie',contacts:'Derniers contacts',c3:'à l’instant · 15 min · 30 min',days:'7 derniers jours',prev:'Versions précédentes',revert:'Revenir',allv:'Toutes les versions',signout:'Se déconnecter',admin:'Administration',
       nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],
       codeShown:'Code affiché il y a 5 min',retiredOn:'Retiré le 12 oct.',react:'Réactiver',
       wake:'Le cadre affichera son code à son prochain réveil (24 h au plus). Appuyez sur Reset pour le relancer tout de suite.',
@@ -256,7 +275,7 @@ a{color:inherit;text-decoration:none}
   function sidebar(t){
     var icons=['fleet','team','tag','clock'];
     return '<div class="side"><span class="brand">'+ic('logo')+'SkyPane</span>'+
-      '<div class="space"><span class="on">'+ic('check')+t.space[0]+'</span><span>'+t.space[1]+'</span></div>'+
+      '<div class="space"><span>'+t.space[1]+'</span><span class="on">'+ic('check')+t.space[0]+'</span></div>'+
       '<div class="sep"></div><div class="nlabel">'+t.admin+'</div>'+
       t.nav.map(function(x,i){return (i===2?'<div class="sep"></div>':'')+'<div class="nav'+(i===0?' on':'')+'">'+ic(icons[i])+x+'</div>';}).join('')+
       '<div class="sep"></div><div class="nav">'+ic('user')+t.account+'</div>'+
@@ -312,22 +331,60 @@ a{color:inherit;text-decoration:none}
       '<a class="item danger" href="#"><span class="who"><b>'+t.retire+'</b><small>'+t.retireh+'</small></span><span class="chev">'+ic('chev')+'</span></a></div></div>';
   }
 
+
+  /* ---------- overview tiles and the two detail pages ---------- */
+  function bigSpark(){return '<svg class="bigspark" viewBox="0 0 300 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 100H300M0 60H300M0 20H300" stroke="var(--border)" stroke-width="1" fill="none"/><polyline fill="none" stroke="currentColor" stroke-width="2.5" stroke-linejoin="round" points="0,24 40,32 80,38 120,52 160,58 200,72 240,78 300,88"/></svg>';}
+  function tile(t,n,label,val,meta,extra,ok){return '<a class="tile2" href="#"><span class="th">'+lead(n,ok?'ok':'')+label+'</span><span class="tv">'+val+'</span><span class="tm">'+meta+'</span>'+(extra||'')+'<span class="more">'+t.details+ic('chev')+'</span></a>';}
+  function tilesBlock(t){
+    return '<div class="blk" data-sec="state"><p class="label">'+t.state+'</p><div class="tiles2">'+
+      tile(t,'check',t.tilec,t.connv,t.connt,'',true)+
+      tile(t,'battery',t.batt,'47 %',t.battv,'<svg class="sparkline" style="height:28px;color:var(--accent)" viewBox="0 0 300 44" preserveAspectRatio="none" aria-hidden="true"><polyline fill="none" stroke="currentColor" stroke-width="2.5" points="0,10 40,14 80,16 120,22 160,24 200,30 240,32 300,36"/></svg>',true)+
+      tile(t,'plane',t.fdata,t.fdatav,t.fdatat,'',false)+
+      tile(t,'chip',t.tilef,'v1.4.2',t.uptodate,'',true)+'</div></div>';
+  }
+  function healthContent(t){
+    var rows=[['14:02','3801'],['13:47','3804'],['13:32','3807'],['13:17','3810']].map(function(r){return '<tr><td class="num">'+r[0]+'</td><td class="num">'+r[1]+'</td></tr>';}).join('');
+    var conn='<div class="card"><div class="item">'+lead('check','ok')+'<span class="who"><small>'+t.conn+'</small><b>'+t.connv+'</b></span></div><div class="kv"><span>'+t.lastci+'</span><span>'+t.agomin+'</span><span>'+t.nextwake+'</span><span>'+t.inmin+'</span><span>'+t.lastrun+'</span><span>'+t.agomin+'</span></div></div>';
+    var batt='<div class="card"><div class="item"><span class="ring"><b>47 %</b></span><span class="who"><small>'+t.batt+'</small><b>'+t.levelok+'</b><small class="num">3801 mV</small></span></div><div style="padding:0 16px 12px"><span class="tm" style="font-size:13px;color:var(--muted)">'+t.days+'</span>'+bigSpark()+'</div>'+
+      '<table class="rtable"><thead><tr><th>'+t.ts+'</th><th>'+t.mv+'</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+    var fd='<div class="card"><div class="item">'+lead('info')+'<span class="who"><small>'+t.fdata+'</small><b>'+t.fdatav+'</b></span></div><div class="kv"><span>'+t.lastac+'</span><span>'+t.nonet+'</span></div>'+
+      '<div class="item">'+lead('check','ok')+'<span class="who"><small>'+t.srcs+'</small><b>'+t.srcagree+'</b><small>'+t.srcn+'</small></span></div></div>';
+    var srv='<div class="card"><div class="item">'+lead('check','ok')+'<span class="who"><small>'+t.ident+'</small><b>'+t.identv+'</b><small>'+t.identm+'</small></span></div>'+
+      '<div class="item">'+lead('check','ok')+'<span class="who"><small>'+t.backup+'</small><b>'+t.backupv+'</b><small>'+t.backupm+'</small></span></div></div>';
+    return '<div><p class="label">'+t.frameg+'</p><div style="display:flex;flex-direction:column;gap:12px">'+conn+batt+'</div></div>'+
+      '<div><p class="label">'+t.fdata+'</p>'+fd+'</div><div><p class="label">'+t.serverdata+'</p>'+srv+'</div>';
+  }
+  function versionsContent(t){
+    function v(n,date,note){return '<div class="item"><span class="who"><b class="num">'+n+'</b><small>'+date+' · '+note+'</small></span><a class="btn quiet" href="#">'+t.revert+'</a></div>';}
+    var cur='<div class="card"><div class="item"><span class="who"><small>'+t.cur+'</small><b style="font-family:ui-monospace,Menlo,monospace;font-size:20px">v1.4.2</b><small>'+t.model+'</small></span><span class="badge">'+t.uptodate+'</span></div><div class="kv"><span>'+t.avail+'</span><span></span></div></div>';
+    var list='<div class="card">'+v('v1.4.1','12 Oct','Battery reading fix')+v('v1.4.0','28 Sep','Quieter retired screen')+v('v1.3.9','3 Sep','Wake interval up to 1 h')+v('v1.3.8','17 Aug','Initial landscape support')+'</div>';
+    return '<div><p class="label">'+t.device+'</p>'+cur+'</div><div><p class="label">'+t.prev+'</p>'+list+'</div>';
+  }
+  function detailPage(kind){
+    return function(vp,t){
+      var body=kind==='health'?healthContent(t):versionsContent(t);
+      var head='<div class="pagehead"><a class="backl" href="#">'+ic('chev').replace('<svg','<svg style="transform:rotate(180deg)"')+t.backto+'Salon</a><h3 class="title"'+(vp==='phone'?' style="font-size:34px"':'')+'>'+(kind==='health'?t.health:t.versions)+'</h3></div>';
+      if(vp==='phone')return phoneShell(t,head+body,0);
+      return sidebar(t)+'<div class="main" style="left:240px"><div style="max-width:760px">'+head+'<div style="display:flex;flex-direction:column;gap:24px">'+body+'</div></div></div>';
+    };
+  }
+
   function iconBtns(t){return '<div class="iconbtns"><a class="btn sq" href="#" title="'+t.openpers+'" aria-label="'+t.openpers+'">'+ic('frame')+'</a><a class="btn sq" href="#" title="'+t.rename+'" aria-label="'+t.rename+'">'+ic('edit')+'</a></div>';}
   /* ---------- phone frame page ---------- */
   function phoneFrame(_v,t){
     var chipNames=['Salon','Cuisine','Chambre','Atelier','Terrasse','Mezzanine'];
-    var chips='<div class="chips" role="navigation">'+chipNames.map(function(n,i){return '<a class="chip" href="#"'+(i===0?' aria-current="page"':'')+'><span class="dot"></span>'+n+'</a>';}).join('')+'<a class="chip all" href="#">'+t.allframes+'</a></div>';
+    var chips='<div class="chips" role="navigation"><a class="chip all" href="#">'+ic('grid')+t.allframes+'</a>'+chipNames.map(function(n,i){return '<a class="chip" href="#"'+(i===0?' aria-current="page"':'')+'><span class="dot"></span>'+n+'</a>';}).join('')+'</div>';
     var head='<div class="titlerow"><div><h3 class="title" style="font-size:34px">Salon</h3><p class="state"><span class="dot"></span>'+t.online+'</p></div>'+iconBtns(t)+'</div>';
     var acts='';
     var anchors='<div class="anchors">'+['state','settings','access'].map(function(k,i){return '<button type="button" data-go="'+k+'"'+(i===0?' aria-current="true"':'')+'>'+t[k]+'</button>';}).join('')+'</div>';
-    return phoneShell(t,chips+head+acts+anchors+stateBlock(t)+deviceBlock(t)+settingsBlock(t)+accessBlock(t),0);
+    return phoneShell(t,chips+head+acts+anchors+tilesBlock(t)+settingsBlock(t)+accessBlock(t),0);
   }
 
   /* ---------- desktop ---------- */
   function desktopLive(_v,t){
     var f=LIVE[0];
     var head='<div class="titlerow" style="max-width:760px"><div><h3 class="title">'+f.n+'</h3><p class="state"><span class="dot err"></span>'+t.offline+' <span class="sub" style="font-weight:400">· '+t.seen(f.m)+'</span></p></div>'+iconBtns(t)+'</div>';
-    return sidebar(t)+listPanel(t,true,false)+'<div class="main">'+head+'<div class="dcol">'+stateBlock(t)+deviceBlock(t)+settingsBlock(t)+accessBlock(t)+'</div></div>';
+    return sidebar(t)+listPanel(t,true,false)+'<div class="main">'+head+'<div class="dcol">'+tilesBlock(t)+settingsBlock(t)+accessBlock(t)+'</div></div>';
   }
   function desktopRetired(_v,t){
     var head='<h3 class="title">Le Petit Cadre</h3><p class="state"><span class="dot idle"></span>'+t.retired+' <span class="sub" style="font-weight:400">· '+t.retiredOn+'</span></p>';
@@ -344,13 +401,19 @@ a{color:inherit;text-decoration:none}
   function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
   var html='';
   html+=section('1. Phone: the list of frames and a frame page',
-    'Real shell: top bar with the logo and the floating tab bar of the console. Left, the list of frames (<code>/fleet</code>): rows, problems first; pending and retired frames only here; tapping a row opens it. Right, a frame page: chip row of live frames (never a retired one), then the real sections (State, Device and version, Settings, Access) stacked, with sticky anchors. The key details are shown directly (no arrow on every row): the battery curve over 7 days, the last contacts, and the previous firmware versions with their Revert buttons are on the page; \u201cAll versions\u201d is the link for the long list. Nothing is lost: the full health page (data sources, check-in times, identification, backup, battery readings) stays as it is today, reached by one explicit \u201cHealth details\u201d row in the State card.',
+    'Real shell: top bar with the logo and the floating tab bar of the console. Left, the list of frames (<code>/fleet</code>): rows, problems first; pending and retired frames only here. Right, a frame page: the chip row starts with <b>All frames</b> (back to the list in one tap), then the live frames (never a retired one). Then the overview: four tiles of the same size (Connection, Battery, Flight data, Firmware), each marked <b>Details</b>, then Settings and Access stacked, with sticky anchors.',
     '<div class="row2">'+mock('phone','List of frames','The list scrolls inside the phone',listPhone)+mock('phone','A frame page','Scroll inside the phone; try the anchors',phoneFrame)+'</div>',
     '<p class="note"><b>Today:</b> the first frame opens by default, a dropdown in the top bar lists every frame (retired included), and an "Other frames" block repeats pending and retired frames at the bottom of every frame page. <b>Removed from Access:</b> the introduction, the empty-state body, the helper line and the long Reassign / Retire sentences (they stay in the confirmation dialogs).</p>');
-  html+=section('2. Desktop: the list as a panel next to the navigation, the frame on the rest of the screen',
-    'Real columns: the console menu as a full-height flat column (the first proposal), with the Console / My frames switch, the Administration navigation, Account and Sign out. The frames column has a fixed header (title, Add, search) and a scrolling list. The selected frame fills the rest: one column of cards of equal width. Without a chosen frame, <code>/fleet</code> selects the first frame with a problem.',
-    '<div class="row2">'+mock('desktop','A live frame with a problem selected','Scroll inside the list panel and the page',desktopLive)+'</div>'+
+  html+=section('2. Desktop: the list as a column next to the navigation, the frame on the rest of the screen',
+    'Real columns: the console menu as a full-height flat column with the My frames / Console switch (My frames first), then the frames column with a fixed header (title, Add, search), then the selected frame: the same four equal tiles, Settings and Access in one column of cards of equal width. Without a chosen frame, <code>/fleet</code> selects the first frame with a problem.',
+    '<div class="row2">'+mock('desktop','A live frame with a problem selected','Scroll inside the list column and the page',desktopLive)+'</div>'+
     '<div style="height:32px"></div><div class="row2">'+mock('desktop','A retired frame selected','Only the useful action: Re-activate, with the message about the wake and the Reset button',desktopRetired)+'</div>');
+  html+=section('3. The details live on two real pages: Health and Versions',
+    'The three status tiles open the full Health page, and the Firmware tile opens the Versions page. Nothing is lost: the Health page keeps everything the page has today (check-in times, battery ring with its 7-day curve and its readings table, flight data and data sources, identification, off-box backup). The Versions page shows the installed version, whether an update is available, and every previous version with its Revert button.',
+    '<div class="row2">'+mock('desktop','Health page (desktop)','',detailPage('health'))+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('desktop','Versions page (desktop)','',detailPage('versions'))+'</div>'+
+    '<div style="height:32px"></div><div class="row2">'+mock('phone','Health page (phone)','Scroll inside the phone',detailPage('health'))+mock('phone','Versions page (phone)','',detailPage('versions'))+'</div>',
+    '<p class="note"><b>For the build plan:</b> the battery curve period (7 days here) and the exact rows of the Health page are those the application can provide today; the plan checks them against the existing page before building.</p>');
   document.getElementById('app').innerHTML=html;
 
   /* ---------- behaviour ---------- */
