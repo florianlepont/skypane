@@ -188,6 +188,10 @@ details.rd summary{min-height:48px;display:flex;align-items:center;padding:0 16p
 .fchip{display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:32px;border:1px solid var(--border);background:var(--card);font-size:14px;white-space:nowrap}
 .fchip.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:600}
 .fchip i{font-style:normal;font-size:12px;opacity:.75}
+[data-viewport="phone"] .urow{flex-wrap:wrap;row-gap:4px}
+[data-viewport="phone"] .urow .who{flex:1 1 calc(100% - 70px)}
+[data-viewport="phone"] .urow>.tlink,[data-viewport="phone"] .urow>.btn{margin-left:auto}
+.tlink{display:inline-flex;align-items:center;min-height:44px;padding:0 6px;font-size:14px;font-weight:600;color:var(--muted);text-decoration:underline;text-underline-offset:3px}
 .sugg{display:flex;align-items:center;gap:6px;font-size:15px}
 .sugg .ic{color:var(--accent);width:18px;height:18px}
 .sugg b{font-weight:700}
@@ -276,7 +280,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       mrename:'Rename',mchange:'Change artwork',mrevert:'Back to the default',mdel:'Delete the illustration',mdef:'Set as default type',mreset:'Reset to the original name',
       types:'Aircraft types seen',usesair:'Uses the airline’s artwork',own:'Own artwork',defpill:'Default type',renameT:'Rename the airline',renameH:'The new name replaces the original on the companion and on the frame.',
       tabs:['Fleet','Team','Editor','Journal','More'],nav:['Fleet','Users','Editor','Audit log'],account:'Account',space:['Console','My frames'],admin:'Administration',signout:'Sign out',
-      openmenu:'Actions for Air France',complh:'Name the airline. Its aircraft types come from the flights seen.',madd:'Add an aircraft type',colD:'Default type',detected:'Aircraft seen',editname:'Edit the name',sugglabel:'Suggestion',suggest:'Suggested name',use:'Use',tdef:'Set as default type',trevert:'Use the default type’s artwork',tdel:'Delete the artwork',usesdef:'Uses the default type’s artwork',addtart:'Add artwork',notype:'No aircraft artwork yet',menuT:'Actions for A220-300'},
+      openmenu:'Actions for Air France',complh:'Name the airline. Its aircraft types come from the flights seen.',madd:'Add an aircraft type',colD:'Default type',detected:'Aircraft seen',editname:'Edit the name',editshort:'Edit',sugglabel:'Suggestion',suggest:'Suggested name',use:'Use',tdef:'Set as default type',trevert:'Use the default type’s artwork',tdel:'Delete the artwork',usesdef:'Uses the default type’s artwork',addtart:'Add artwork',notype:'No aircraft artwork yet',menuT:'Actions for A220-300'},
     fr:{title:'Éditeur de compagnies',search:'Compagnie ou indicatif…',count:'36 sur 36 affichées',
       f:['Toutes','Non identifiées','Connues par leur nom','Sans illustration','Vues','Pas encore vues'],
       unid:'Non identifiées',unidh:'Indicatifs vus sur des vols, sans nom de compagnie pour l’instant.',seen:function(n,d){return (n===1?'Vue une fois':'Vue '+n+'×')+' · '+d;},complete:'Compléter',
@@ -286,7 +290,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
       mrename:'Renommer',mchange:'Changer l’illustration',mrevert:'Revenir à celle par défaut',mdel:'Supprimer l’illustration',mdef:'Définir comme type par défaut',mreset:'Rétablir le nom d’origine',
       types:'Types d’avion vus',usesair:'Utilise l’illustration de la compagnie',own:'Illustration propre',defpill:'Type par défaut',renameT:'Renommer la compagnie',renameH:'Le nouveau nom remplace le nom d’origine dans le companion et sur le cadre.',
       tabs:['Flotte','Équipe','Éditeur','Journal','Plus'],nav:['Flotte','Utilisateurs','Éditeur','Journal d’audit'],account:'Compte',space:['Console','Mes cadres'],admin:'Administration',signout:'Se déconnecter',
-      openmenu:'Actions pour Air France',complh:'Nommez la compagnie. Ses types d’avion viennent des vols vus.',madd:'Ajouter un type d’avion',colD:'Type par défaut',detected:'Avions vus',editname:'Modifier le nom',sugglabel:'Suggestion',suggest:'Nom suggéré',use:'Utiliser',tdef:'Définir comme type par défaut',trevert:'Utiliser l’illustration du type par défaut',tdel:'Supprimer l’illustration',usesdef:'Utilise l’illustration du type par défaut',addtart:'Ajouter une illustration',notype:'Pas encore d’illustration d’avion',menuT:'Actions pour A220-300'}
+      openmenu:'Actions pour Air France',complh:'Nommez la compagnie. Ses types d’avion viennent des vols vus.',madd:'Ajouter un type d’avion',colD:'Type par défaut',detected:'Avions vus',editname:'Modifier le nom',editshort:'Modifier',sugglabel:'Suggestion',suggest:'Nom suggéré',use:'Utiliser',tdef:'Définir comme type par défaut',trevert:'Utiliser l’illustration du type par défaut',tdel:'Supprimer l’illustration',usesdef:'Utilise l’illustration du type par défaut',addtart:'Ajouter une illustration',notype:'Pas encore d’illustration d’avion',menuT:'Actions pour A220-300'}
   };
   Object.keys(S.fr).forEach(function(k){var v=S.fr[k];if(typeof v==='string')S.fr[k]=nb(v);else if(Array.isArray(v))S.fr[k]=v.map(nb);});
   function ic(n){return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-'+n+'"/></svg>';}
@@ -320,8 +324,8 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   function unidBlock(t,vp,openForm){
     var rows=UNID.map(function(u,i){
       var sug=u[3];
-      var who=sug?'<span class="sugg">'+ic('spark')+t.sugglabel+' : <b>'+sug+'</b></span><small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>':'<small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>';
-      var btns=sug?'<a class="btn sq" href="#" aria-label="'+t.editname+'" title="'+t.editname+'">'+ic('edit')+'</a><a class="btn dark" href="#" style="min-height:44px">'+t.validate+'</a>'
+      var who=sug?'<span class="sugg">'+ic('spark')+'<span>'+t.sugglabel+' : <b>'+sug+'</b></span></span><small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>':'<small>'+t.seen(u[1],u[2])+' · '+u[4]+'</small>';
+      var btns=sug?'<a class="tlink" href="#" aria-label="'+t.editname+'">'+t.editshort+'</a><a class="btn dark" href="#" style="min-height:44px">'+t.validate+'</a>'
                   :(openForm&&i===2?'<span class="btn ghost" style="background:var(--chip)">'+t.cancel+'</span>':'<a class="btn dark" href="#" style="min-height:44px">'+t.complete+'</a>');
       var row='<div class="urow"><span class="mono" style="font-weight:700;font-size:15px;min-width:44px">'+u[0]+'</span><span class="who">'+who+'</span>'+btns+'</div>';
       if(openForm&&i===2)row+=uformHtml(t,vp);
@@ -330,7 +334,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
     return '<div><p class="label">'+t.unid+' · 3</p><div class="card">'+rows+'</div></div>';
   }
   function bynameBlock(t){
-    return '<div><p class="label">'+t.byname+' · 4</p><div class="card">'+BYNAME.map(function(b){return '<div class="urow"><span class="who"><b>'+b[0]+'</b><small class="mono">'+b[1]+' · '+t.noart+'</small></span><a class="btn" href="#" style="min-height:40px">'+ic('plus')+t.addart+'</a></div>';}).join('')+'</div></div>';
+    return '<div><p class="label">'+t.byname+' · 4</p><div class="card">'+BYNAME.map(function(b){return '<div class="urow"><span class="who"><b>'+b[0]+'</b><small class="mono">'+b[1]+'</small></span><a class="btn" href="#" style="min-height:40px">'+ic('plus')+t.addart+'</a></div>';}).join('')+'</div></div>';
   }
   function typesPanel(t,openMenu){
     function tr(n,note,c,pill,btn,withMenu,own){return '<div class="trow" style="position:relative">'+(c?thumb(c):thumb(null))+'<span class="who"><b>'+n+'</b><small>'+note+'</small></span>'+(pill?'<span class="pill">'+t.defpill+'</span>':'')+'<a class="btn quiet" href="#" style="min-height:40px;font-weight:500">'+btn+'</a><span class="btn sq" style="border:0;background:none" aria-label="'+t.menuT+'">'+ic('more')+'</span>'+(withMenu?typeMenu(t):'')+'</div>';}
@@ -379,7 +383,7 @@ select.sel{min-height:44px;border:1px solid var(--border);border-radius:14px;bac
   function section(h,lead,body,extra){return '<section class="sec"><h2>'+h+'</h2><p class="lead">'+lead+'</p>'+body+(extra||'')+'</section>';}
   var html='';
   html+=section('1. Desktop: the Airlines editor',
-    'Same real shell. At the top: search and filter chips with their counts (All, Unidentified, Known by name only, No artwork, Seen, Not seen yet). An unidentified prefix is a short row. When a name can be suggested, the suggestion is right in the row with a single <b>Validate</b> button (and a pencil to correct the name). When there is no suggestion, the row has a <b>Complete</b> button that opens a small form with just the airline name; the aircraft seen are in the main row, never asked, since they are detected from the flights. There is no Ignore. (The suggested names here are invented examples.) Airlines known by name only (no aircraft artwork yet) are rows with <b>Add the first artwork</b>: a dialog asks for which aircraft type, then for the image, and that type becomes the airline&rsquo;s default type. In the airlines table the name is plain text (renaming is an action of the row menu) and the column shows the airline&rsquo;s <b>default type</b>: an airline has no artwork of its own, the artwork belongs to its aircraft types.',
+    'Same real shell. At the top: search and filter chips with their counts (All, Unidentified, Known by name only, No artwork, Seen, Not seen yet). An unidentified prefix is a short row. When a name can be suggested, the suggestion is right in the row with a single <b>Validate</b> button (and a quiet <b>Edit</b> link to correct the name). When there is no suggestion, the row has a <b>Complete</b> button that opens a small form with just the airline name; the aircraft seen are in the main row, never asked, since they are detected from the flights. There is no Ignore. (The suggested names here are invented examples.) Airlines known by name only (no aircraft artwork yet) are rows with <b>Add the first artwork</b>: a dialog asks for which aircraft type, then for the image, and that type becomes the airline&rsquo;s default type. In the airlines table the name is plain text (renaming is an action of the row menu) and the column shows the airline&rsquo;s <b>default type</b>: an airline has no artwork of its own, the artwork belongs to its aircraft types.',
     '<div class="row2">'+mock('desktop','Editor, Complete opened on the prefix without a suggestion','',function(v,t){return page(v,t,{form:true});})+'</div>');
   html+=section('2. Desktop: the row menu and the types panel',
     'The airline menu lists <b>Rename</b>. Two more items appear only when they apply: <b>Reset to the original name</b> (the name that ships in the application&rsquo;s built-in airline list) shows only for an airline that was renamed, and <b>Delete my name</b> shows for an airline named by hand (it sends the prefix back to the unidentified list). Artwork belongs to the aircraft types: opening a row shows its types in a clean panel. Each type shows its own artwork or the default type&rsquo;s artwork, carries a <b>Default type</b> pill when it is the default, and has its own menu: <b>Set as default type</b> and <b>Delete the artwork</b> (the type then shows the default type&rsquo;s artwork again, so there is no separate &ldquo;use the default&rdquo; action). One type is the default and its artwork shows for every type without a dedicated one.',
