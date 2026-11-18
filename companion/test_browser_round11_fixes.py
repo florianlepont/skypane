@@ -440,7 +440,7 @@ def test_the_save_bar_over_the_map_is_opaque_and_readable(
 # --- Fleet: the firmware version history ------------------------------------------------
 
 
-@pytest.mark.parametrize("lang,installed", [("en", "Installed"), ("fr", "Installée")])
+@pytest.mark.parametrize("lang,installed", [("en", "Running"), ("fr", "En cours")])
 @pytest.mark.parametrize("viewport", [VIEWPORT_DESKTOP, VIEWPORT_MIN_SUPPORTED], ids=["1280", "360"])
 def test_the_firmware_history_lines_up_its_dot_version_and_chip_down_the_list(
         new_context, app_server_in_process, viewport, lang, installed):
