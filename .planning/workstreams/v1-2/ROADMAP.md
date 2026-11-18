@@ -765,7 +765,7 @@ Plans: TBD
   6. The design files (source and printable) and a short assembly note are stored under `hardware/`, the bill of materials (`hardware/BOM.md`) lists the added parts and their cost, and SEED-014 is updated to show what this phase settled.
 
 **Not in this phase**: the administrator tool for initial setup and flashing (SEED-014, v1.4), an enclosure for the 13.3 inch frame, a series production method and costs (SEED-015), battery discharge measurements (SEED-019), and any firmware change.
-**Open decisions** (for discuss-phase): whether v1.2 may close before this phase is finished (recommendation: yes, because it is owner-driven physical work; an unfinished phase then carries into the next milestone), whether to buy a printer or have the parts printed elsewhere, and who takes the measurements and in what order.
+**Decisions** (discuss-phase, 2026-11-18): milestone v1.2 MAY CLOSE before this phase is finished; an unfinished phase carries into the next milestone (owner decision). First print is made elsewhere, no printer purchase for now. Measurements by the owner, screen first, then frame, then ribbon, cable and masses. Black PETG, 0.4 mm nozzle, M2 self-tapping screws. Wi-Fi compared by the frame's reported RSSI, same place and access point (see `69-CONTEXT.md`).
 **Must not break**: the live frame and its configuration; nothing in this phase changes code or the deployed system.
 
 Plans: TBD
