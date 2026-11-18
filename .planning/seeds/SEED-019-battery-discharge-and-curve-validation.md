@@ -38,3 +38,5 @@ Golden hashes of the legacy render, `stub-server/test_phase47_freeze.py`, and th
 ## Breadcrumbs
 
 `hardware/BATTERY-MODEL.md`, `hardware/SECOND-HARDWARE-BATTERY.md`, `server/hardware.py`, `server/device_policy.py`, `companion/battery.py`, `hardware/PACK-ACCEPTANCE.md`.
+
+SEED-007 (a second discharge run at another wake interval, to separate per-wake energy from standing leakage) was deleted by the owner on 2026-11-18 because this seed covers it; the wake-energy side stays with Phase 47.1 and 47.2.
