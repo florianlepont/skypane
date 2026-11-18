@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en" data-ui="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SkyPane - foreign-frame banner mockup (R35, R12)</title>
+<style>
+/* Standalone mockup: tokens copied from 68-HOME-MOCKUP.html and the companion design system. Invented e-mail addresses only. */
+:root{
+  --canvas:#F1F3F6; --stage:#E4E9F0; --text:#17191F; --muted:#5B6372; --border:#DAE1EB; --chip:#E9EEF5;
+  --accent:#1F2430; --on-accent:#fff; --glass:rgba(255,255,255,.72); --tab:#fff;
+  --ok:#16A34A; --warn:#D97706; --warn-bg:#FEF3C7; --warn-text:#3B2A05; --err:#BE123C;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --canvas:#161A24; --stage:#0E1117; --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --warn-bg:#3A2D0B; --warn-text:#FDE8B0; --err:#FB7185; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --canvas:#161A24; --stage:#0E1117; --text:#F1F3F6; --muted:#A3ABBB; --border:#2A3040; --chip:#1C222D;
+  --accent:#F2EFE9; --on-accent:#14171F; --glass:rgba(255,255,255,.09); --tab:#1C222D;
+  --ok:#4ADE80; --warn:#FBBF24; --warn-bg:#3A2D0B; --warn-text:#FDE8B0; --err:#FB7185; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--stage);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif;padding:32px 16px 96px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1320px;margin:0 auto}
+h1{margin:0 0 8px;font-size:34px;letter-spacing:-.03em}
+h2{margin:48px 0 8px;font-size:24px}
+h3{margin:0 0 8px;font-size:17px}
+p.lead{margin:0;color:var(--muted);max-width:70ch}
+.bar{position:sticky;top:0;z-index:20;display:flex;flex-wrap:wrap;gap:16px;align-items:center;padding:12px 0;background:var(--stage)}
+.seg{display:inline-flex;background:var(--chip);border-radius:32px;padding:4px;gap:4px}
+.seg button{border:0;background:none;min-height:44px;padding:0 16px;border-radius:32px;cursor:pointer;font-size:15px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+html[data-ui="en"] .l[data-lang="fr"], html[data-ui="fr"] .l[data-lang="en"]{display:none}
+
+.row{display:flex;gap:24px;overflow-x:auto;padding:8px 4px 24px;align-items:flex-start}
+.cell{flex:none}
+.cell>b{display:block;margin:0 0 8px;font-size:14px;color:var(--muted);font-weight:600}
+.note{margin:8px 0 0;font-size:14px;color:var(--muted);max-width:60ch}
+.ic{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* phone: 360 px, scrolling content, bottom tab bar, no top app bar */
+.phone{position:relative;width:360px;height:640px;overflow:hidden;border:1px solid var(--border);border-radius:32px;background:var(--canvas)}
+.phone .scroll{height:100%;overflow:auto}
+.phone .page{padding:16px 16px 104px;display:flex;flex-direction:column;gap:16px}
+.tabs{position:absolute;left:12px;right:12px;bottom:12px;z-index:6;display:flex;justify-content:space-around;padding:8px 4px;background:var(--tab);border:1px solid var(--border);border-radius:32px}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:48px;font-size:11px;color:var(--muted)}
+.tab i{width:22px;height:22px;border-radius:7px;background:var(--border)}
+.tab.on{color:var(--text);font-weight:600}.tab.on i{background:var(--accent)}
+
+/* desktop: 1280 px, glass sidebar, scaled to fit the board */
+.deskbox{width:calc(1280px * .72);height:calc(760px * .72)}
+.desk{width:1280px;height:760px;transform:scale(.72);transform-origin:0 0;display:grid;grid-template-columns:272px 1fr;gap:16px;padding:16px;border:1px solid var(--border);border-radius:20px;background:var(--canvas);overflow:hidden}
+.side{display:flex;flex-direction:column;gap:4px;padding:16px;border:1px solid var(--border);border-radius:24px;background:var(--glass)}
+.side .brand{font-weight:700;font-size:20px;margin:0 0 12px}
+.side .it{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:14px;color:var(--muted)}
+.side .it i{width:20px;height:20px;border-radius:6px;background:var(--border)}
+.side .it.on{background:var(--chip);color:var(--text);font-weight:600}
+.main{min-width:0;height:100%;overflow:auto;border-radius:24px}
+.main .page{padding:24px 24px 48px;display:flex;flex-direction:column;gap:16px}
+
+/* skeleton page content */
+.ttl{margin:0;font-size:30px;line-height:1.1;font-weight:700;letter-spacing:-.03em}
+.sub{margin:0;color:var(--muted);font-size:14px}
+.card{background:var(--glass);border:1px solid var(--border);border-radius:22px;padding:16px;display:flex;gap:12px;align-items:center}
+.card .ph{width:64px;aspect-ratio:3/4;border-radius:5px;background:var(--chip);flex:none}
+.card .ln{flex:1;display:flex;flex-direction:column;gap:8px}
+.card .ln s{display:block;height:10px;border-radius:5px;background:var(--chip);text-decoration:none}
+.card .ln s:first-child{width:60%;height:14px}
+.card.tall{min-height:150px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+
+/* TODAY: discreet strip, as shipped (secondary background, 14 px label text) */
+.today{display:flex;flex-wrap:wrap;align-items:center;column-gap:16px;min-height:44px;margin:0 0 16px;padding:8px 16px;background:var(--chip);color:var(--text);border-radius:22px;font-size:14px;overflow-wrap:anywhere}
+.today a{display:inline-flex;align-items:center;min-height:44px;color:var(--text);text-decoration:underline}
+
+/* PROPOSED banner: full width, flush to the top of the content, 15-16 px text, 44 px button */
+.fb{position:relative;z-index:4;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:8px 16px;min-height:56px;font-size:16px;line-height:1.3}
+.sticky .fb{position:sticky;top:0}
+.fb .msg{flex:1 1 170px;min-width:0;display:flex;align-items:center;gap:10px}
+.fb .msg span.t{min-width:0;overflow-wrap:anywhere}
+.fb .msg strong{font-weight:700}
+.fb .go{flex:none;display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 16px;border-radius:14px;font-size:15px;font-weight:600;text-decoration:none;border:0;cursor:pointer}
+.desk .fb{padding:8px 24px}
+/* A: accent-filled slab. Contrast accent/on-accent: light #fff on #1F2430 = 15.9:1, dark #14171F on #F2EFE9 = 15.3:1 */
+.fb.a{background:var(--accent);color:var(--on-accent);border-bottom:3px solid var(--warn)}
+.fb.a .go{background:var(--on-accent);color:var(--accent)}
+/* B: warn tone. Light #3B2A05 on #FEF3C7 = 12.6:1, dark #FDE8B0 on #3A2D0B = 11.7:1; the amber edge is decoration only */
+.fb.b{background:var(--warn-bg);color:var(--warn-text);border-bottom:3px solid var(--warn)}
+.fb.b .go{background:var(--accent);color:var(--on-accent)}
+
+/* Back to Fleet destination */
+.flow{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:24px}
+.fleet{border:1px solid var(--border);border-radius:22px;background:var(--glass);padding:16px;display:flex;flex-direction:column;gap:8px}
+.fleet .fr{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 12px;border-radius:14px;border:1px solid var(--border)}
+.fleet .fr.sel{border:2px solid var(--accent);background:var(--chip);font-weight:600}
+.fleet .fr small{color:var(--muted);font-weight:400;display:block;font-size:13px}
+.tagbad,.taggood{display:inline-block;padding:2px 10px;border-radius:32px;font-size:13px;font-weight:600}
+.tagbad{background:var(--err);color:#fff}
+.taggood{background:var(--ok);color:#06210F}
+
+/* icon options */
+.icons{display:flex;gap:16px;flex-wrap:wrap}
+.icons .o{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid var(--border);border-radius:14px;background:var(--glass)}
+.icons .ic{width:28px;height:28px}
+
+.q{border:2px solid var(--accent);border-radius:22px;padding:20px 24px;background:var(--glass);margin-top:48px}
+.q ol{margin:8px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:12px}
+.q em{font-style:normal;font-weight:600}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="eye" viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+  <symbol id="back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+</svg>
+
+<div class="wrap">
+  <h1>Foreign-frame banner <span class="l" data-lang="fr">(version française)</span></h1>
+  <p class="lead">R35 and R12: when an administrator opens the personal view (Home, Flights, Place, Style, Airlines) of a frame that is not theirs, a strong banner says so and one button returns to Fleet, on the same frame. Sample e-mails are invented. The two proposals differ only in colour and icon; sticky or scrolling is a switch below.</p>
+
+  <div class="bar" role="toolbar" aria-label="Preview controls">
+    <div class="seg" id="lang" role="group" aria-label="Language">
+      <button type="button" data-set-lang="en" aria-pressed="true">English</button>
+      <button type="button" data-set-lang="fr" aria-pressed="false">Français</button>
+    </div>
+    <div class="seg" id="theme" role="group" aria-label="Theme">
+      <button type="button" data-t="auto" aria-pressed="true">Auto</button>
+      <button type="button" data-t="light" aria-pressed="false">Light</button>
+      <button type="button" data-t="dark" aria-pressed="false">Dark</button>
+    </div>
+    <div class="seg" id="stick" role="group" aria-label="Scrolling">
+      <button type="button" data-s="1" aria-pressed="true">Sticky</button>
+      <button type="button" data-s="0" aria-pressed="false">Scrolls away</button>
+    </div>
+    <div class="seg" id="deskpage" role="group" aria-label="Desktop page"></div>
+  </div>
+
+  <h2>1. Today (shipped)</h2>
+  <p class="lead">A 14 px strip on the same tint as a chip, rounded like a card, with an underlined link. It scrolls away and is easy to read as part of the page. Scroll the phone to compare.</p>
+  <div class="row">
+    <div class="cell"><b>Phone 360 px (data-viewport="phone")</b><div class="mount" data-kind="phone" data-variant="today" data-page="home"></div></div>
+    <div class="cell"><b>Desktop 1280 px (data-viewport="desktop")</b><div class="mount" data-kind="desk" data-variant="today" data-page="home"></div></div>
+  </div>
+
+  <h2>2. Variant A: accent slab (recommended)</h2>
+  <p class="lead">Graphite slab in light, ivory in dark, on-accent text, eye icon, a thin amber bottom edge, text at 16 px, 44 px inverse button. It is the strongest element on the page and uses only existing accent pairs.</p>
+  <div class="row" id="rowA"></div>
+  <div class="cell"><b>Desktop 1280 px, page switch in the top bar</b><div class="mount" data-kind="desk" data-variant="a"></div></div>
+
+  <h2>3. Variant B: warn tone</h2>
+  <p class="lead">Same content in the warn tone used by the anomaly banner: amber tint, dark amber text, person icon, accent button. Less heavy, but it reads as "something is wrong" rather than "this is not your frame".</p>
+  <div class="row" id="rowB"></div>
+  <div class="cell"><b>Desktop 1280 px, page switch in the top bar</b><div class="mount" data-kind="desk" data-variant="b"></div></div>
+
+  <h2>4. Long e-mail</h2>
+  <p class="lead">The e-mail is never cut off or hidden: it wraps (anywhere) inside the text area and the button keeps its 44 px size and its own line when the text needs the width.</p>
+  <div class="row">
+    <div class="cell"><b>A, phone, long address</b><div class="mount" data-kind="phone" data-variant="a" data-page="flights" data-long="1"></div></div>
+    <div class="cell"><b>B, phone, long address</b><div class="mount" data-kind="phone" data-variant="b" data-page="flights" data-long="1"></div></div>
+    <div class="cell"><b>Today, phone, long address</b><div class="mount" data-kind="phone" data-variant="today" data-page="flights" data-long="1"></div></div>
+  </div>
+
+  <h2>5. Where Back to Fleet leads (R12)</h2>
+  <p class="lead">Today the link is the plain <code>/fleet</code> route, which opens the first frame. Proposed: <code>/fleet?frame=&lt;id&gt;</code> with the id of the frame being viewed, so the administrator lands on that same frame. The id comes from the request scope, never from typed text.</p>
+  <div class="flow">
+    <div><h3>Today <span class="tagbad">wrong frame</span></h3>
+      <div class="fleet"><div class="fr sel">Orly approach<small>admin@example.test</small></div><div class="fr">Salon<small>camille.durand@example.test</small></div><div class="fr">Lyon office<small>marc@example.test</small></div></div>
+      <p class="note">Admin was on "Salon", taps Back to Fleet, lands on the first frame.</p></div>
+    <div><h3>Proposed <span class="taggood">same frame</span></h3>
+      <div class="fleet"><div class="fr">Orly approach<small>admin@example.test</small></div><div class="fr sel">Salon<small>camille.durand@example.test</small></div><div class="fr">Lyon office<small>marc@example.test</small></div></div>
+      <p class="note">Same tap lands on "Salon", selected and shown.</p></div>
+  </div>
+
+  <h2>6. Icon options</h2>
+  <div class="icons">
+    <span class="o"><svg class="ic" viewBox="0 0 24 24"><use href="#eye"/></svg> Eye: "you are looking at someone else's"</span>
+    <span class="o"><svg class="ic" viewBox="0 0 24 24"><use href="#person"/></svg> Person: "this belongs to a person"</span>
+  </div>
+
+  <div class="q" id="questions">
+    <h2 style="margin-top:0">Questions for the owner</h2>
+    <ol>
+      <li><em>Variante</em> : A (aplat graphite/ivoire) ou B (ton d'avertissement ambre) ? <em>Recommandation : A</em>, la plus forte et sans ambiguïté, couleurs déjà validées en contraste.</li>
+      <li><em>Fixe ou défilant</em> : le bandeau reste-t-il collé en haut pendant le défilement ? <em>Recommandation : collé</em>, pour ne jamais oublier qu'on est chez quelqu'un d'autre ; coût : environ 56 px d'écran sur téléphone.</li>
+      <li><em>Icône</em> : œil ou personne ? <em>Recommandation : œil</em> (on consulte, on n'est pas chez soi).</li>
+      <li><em>Texte</em> : EN "You are viewing {e-mail}'s frame" / FR "Vous consultez le cadre de {e-mail}", bouton "Back to Fleet" / "Retour à la flotte" ? <em>Recommandation : oui</em> (plus clair que le texte actuel "Cadre de … en consultation").</li>
+      <li><em>Retour à la flotte</em> : le bouton ramène bien au même cadre (<code>/fleet?frame=&lt;id&gt;</code>) ? <em>Recommandation : oui</em>.</li>
+      <li><em>Adresse longue</em> : retour à la ligne complet, jamais coupée avec "…" ? <em>Recommandation : oui</em>.</li>
+    </ol>
+  </div>
+</div>
+
+<script>
+(function(){
+  var PAGES=[
+    {k:'home',en:'Home',fr:'Accueil'},{k:'flights',en:'Flights',fr:'Vols'},{k:'place',en:'Place',fr:'Lieu'},
+    {k:'style',en:'Style',fr:'Style'},{k:'airlines',en:'Airlines',fr:'Compagnies'}];
+  var SHORT='camille.durand@example.test';
+  var LONG='camille.durand.longue-adresse.pour-test@sous-domaine.exemple-entreprise.example.test';
+  function l(en,fr){return '<span class="l" data-lang="en">'+en+'</span><span class="l" data-lang="fr">'+fr+'</span>';}
+  function pageName(p){return l(p.en,p.fr);}
+  function body(p){
+    var t='<h3 class="ttl">'+pageName(p)+'</h3><p class="sub">Salon</p>';
+    function card(c){return '<div class="card'+(c?' tall':'')+'"><div class="ph"></div><div class="ln"><s></s><s></s><s></s></div></div>';}
+    if(p.k==='home')return t+card(1)+card()+card();
+    if(p.k==='flights')return t+card()+card()+card()+card();
+    if(p.k==='place')return t+card(1)+card();
+    if(p.k==='style')return t+'<div class="grid2">'+card()+card()+card()+card()+'</div>';
+    return t+card()+card()+card()+card();
+  }
+  function banner(v,long){
+    var mail=long?LONG:SHORT;
+    if(v==='today')return '<div class="today"><span>'+l('Viewing '+mail+'’s frame','Cadre de '+mail+' en consultation')+'</span><a href="#">'+l('Back to Fleet','Retour à la flotte')+'</a></div>';
+    var icon=v==='a'?'eye':'person';
+    return '<div class="fb '+v+'"><div class="msg"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#'+icon+'"/></svg><span class="t">'+
+      l('You are viewing <strong>'+mail+'</strong>’s frame','Vous consultez le cadre de <strong>'+mail+'</strong>')+'</span></div>'+
+      '<a class="go" href="#fleet"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><use href="#back"/></svg>'+l('Back to Fleet','Retour à la flotte')+'</a></div>';
+  }
+  function tabs(cur){return '<div class="tabs">'+PAGES.map(function(p){return '<div class="tab'+(p.k===cur?' on':'')+'"><i></i>'+pageName(p)+'</div>';}).join('')+'</div>';}
+  function phone(v,p,long){
+    var pg=PAGES.filter(function(x){return x.k===p;})[0];
+    var inner=v==='today'?'<div class="page">'+banner(v,long)+body(pg)+body(pg)+'</div>':banner(v,long)+'<div class="page">'+body(pg)+body(pg)+'</div>';
+    return '<div class="phone sticky-host" data-viewport="phone"><div class="scroll">'+inner+'</div>'+tabs(p)+'</div>';
+  }
+  var deskPage='home';
+  function desk(v,p){
+    var pg=PAGES.filter(function(x){return x.k===p;})[0];
+    var side='<div class="side"><p class="brand">SkyPane</p>'+PAGES.map(function(q){return '<div class="it'+(q.k===p?' on':'')+'"><i></i>'+pageName(q)+'</div>';}).join('')+'</div>';
+    var inner=v==='today'?'<div class="page">'+banner(v)+body(pg)+body(pg)+'</div>':banner(v)+'<div class="page">'+body(pg)+body(pg)+'</div>';
+    return '<div class="deskbox"><div class="desk sticky-host" data-viewport="desktop">'+side+'<div class="main">'+inner+'</div></div></div>';
+  }
+  function render(){
+    document.querySelectorAll('.mount').forEach(function(m){
+      var k=m.dataset.kind,v=m.dataset.variant,long=m.dataset.long==='1';
+      m.innerHTML=k==='phone'?phone(v,m.dataset.page,long):desk(v,m.dataset.page||deskPage);
+    });
+    applySticky();
+  }
+  ['A','B'].forEach(function(V){
+    document.getElementById('row'+V).innerHTML=PAGES.map(function(p){
+      return '<div class="cell"><b>'+pageName(p)+'</b><div class="mount" data-kind="phone" data-variant="'+V.toLowerCase()+'" data-page="'+p.k+'"></div></div>';
+    }).join('');
+  });
+  var dp=document.getElementById('deskpage');
+  dp.innerHTML=PAGES.map(function(p,i){return '<button type="button" data-p="'+p.k+'" aria-pressed="'+(i===0)+'">'+pageName(p)+'</button>';}).join('');
+  dp.addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b)return;
+    deskPage=b.dataset.p;
+    dp.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});
+    render();
+  });
+  var sticky=true;
+  function applySticky(){document.querySelectorAll('.sticky-host').forEach(function(h){h.classList.toggle('sticky',sticky);});}
+  function seg(id,fn){
+    var g=document.getElementById(id),bs=g.querySelectorAll('button');
+    bs.forEach(function(b){b.addEventListener('click',function(){
+      bs.forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});fn(b);});});
+  }
+  seg('lang',function(b){document.documentElement.setAttribute('data-ui',b.dataset.setLang);document.documentElement.lang=b.dataset.setLang;});
+  seg('theme',function(b){var r=document.documentElement;if(b.dataset.t==='auto')r.removeAttribute('data-theme');else r.setAttribute('data-theme',b.dataset.t);});
+  seg('stick',function(b){sticky=b.dataset.s==='1';applySticky();});
+  render();
+})();
+</script>
+</body>
+</html>
